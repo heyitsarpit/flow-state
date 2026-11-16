@@ -140,9 +140,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "    return Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite), ...owed]);",
+        find: "      Result.map(Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite)]), (writes) => ({",
         replace:
-          "    return Result.all([...recordWrites(t).filter(Result.isSuccess), ...[...t.lanes].map(laneWrite), ...owed]);",
+          "      Result.map(Result.all([...recordWrites(t).filter(Result.isSuccess), ...[...t.lanes].map(laneWrite)]), (writes) => ({",
       },
     ],
   },

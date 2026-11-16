@@ -141,7 +141,7 @@ export const makeDriver = (options: {
           },
         ),
       Disarm: ({ timer }) => fibers.cancel(`timer/${timer}`),
-      Persist: ({ writes, due }) => edge.accept(writes, due),
+      Persist: ({ writes, refused, due }) => edge.accept(writes, refused, due),
     });
 
   const drainInbox = () => {

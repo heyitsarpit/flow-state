@@ -239,16 +239,16 @@ export const makePersistence = (tx: Tx) => {
 
     const owed =
       rows.length === 0
-        ? Result.succeed({ texts: Array.of<string>(), dropped: 0 })
+        ? Result.succeed({ texts: Array.of<string>(), unsaved: 0 })
         : encodeOwed(actor, rows);
 
-    // A value that cannot be saved even alone is reported; its row is still saved.
-    if (Result.isSuccess(owed) && owed.success.dropped > 0)
+    // A value that cannot be saved even alone is reported; its row is saved as unknown Restored.
+    if (Result.isSuccess(owed) && owed.success.unsaved > 0)
       tx.act(
         Act.Reported({
           code: "UnencodableValue",
           record: Option.some(key),
-          reason: `${owed.success.dropped} values with no encoded form saved as null`,
+          reason: `${owed.success.unsaved} values with no encoded form saved as unknown Restored`,
         }),
       );
 
@@ -323,10 +323,7 @@ export const makePersistence = (tx: Tx) => {
       tx.set({
         ...tx.world(),
         withheld: new Map(
-          blocked.map(({ t }) => [
-            actorKey(t.actor),
-            { actor: t.actor, lanes: [...t.lanes], tickets: t.tickets },
-          ]),
+          blocked.map(({ t }) => [actorKey(t.actor), { actor: t.actor, lanes: [...t.lanes] }]),
         ),
         quarantined: new Map(
           [...tx.world().quarantined].filter(([key]) => !writes.some((w) => w.key === key)),
@@ -352,7 +349,6 @@ export const makePersistence = (tx: Tx) => {
         record: t.record === "none" ? "kept" : t.record,
         lanes: new Set([...w.lanes, ...t.lanes, ...tx.lanesOf(w.actor).map(([id]) => id)]),
         owed: true,
-        tickets: [...w.tickets, ...t.tickets],
       }));
 
     const all = [...touched.values()].map((t) => ({ t, writes: writesOf(t) }));
@@ -377,7 +373,11 @@ export const makePersistence = (tx: Tx) => {
     const writes = written.flatMap((p) => p.writes);
     withhold(blocked, writes);
 
-    if (written.length === 0 && final.length === 0) return;
+    // A send never waits on a record that cannot encode: the tickets a withheld identity's step
+    // minted are refused, as a store refusal is, and answered so by the host.
+    const refused = blocked.flatMap(({ t }) => t.tickets.map((ticket) => ticket.id));
+
+    if (written.length === 0 && final.length === 0 && refused.length === 0) return;
 
     // A ticket's silence is timed from the batch that carries it, never while it is withheld.
     for (const { t } of written)
@@ -387,6 +387,7 @@ export const makePersistence = (tx: Tx) => {
     tx.command(
       Command.Persist({
         writes,
+        refused,
         due: dueOf(
           written.map((p) => p.t),
           final,

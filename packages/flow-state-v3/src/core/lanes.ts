@@ -19,7 +19,7 @@ import {
   type Queued,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
-import { encodeLane, laneRecordKey } from "./record.ts";
+import { encodeLane, encodeOwed, laneRecordKey } from "./record.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {
@@ -137,16 +137,19 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
   // Whether the lane's record encodes at the largest it can ever reach once this commit is admitted:
   // every input it holds, this one queued behind the head; the head Held (`inFlight` false), its
-  // retry count and Attempt id at their longest; and one more displaced Attempt, as a cancel adds.
-  // Every later change of the record only drops inputs or fills those slots, so a commit admitted
-  // here never takes its lane's record past a bound.
+  // retry count at its longest and its Attempt id the longer of its own and this boot's longest; and
+  // one more displaced Attempt, as a cancel adds. Every later change of the record only drops inputs
+  // or fills those slots, so a commit admitted here never takes its lane's record past a bound. An
+  // owed row names the lane too, so that row must encode as well.
   const fits = (actor: ActorId, operationName: string, id: string, queued: Queued) => {
     const compiled = tx.machines.get(actor.machine);
 
     if (!tx.persisted(actor) || compiled === undefined) return true;
 
-    const longest = `att-${tx.env.seed}-${Number.MAX_SAFE_INTEGER}`;
+    const minted = `att-${tx.env.seed}-${Number.MAX_SAFE_INTEGER}`;
     const existing = tx.world().lanes.get(id);
+    const own = existing?.head.id ?? "";
+    const longest = own.length > minted.length ? own : minted;
 
     const largest = {
       actor,
@@ -165,8 +168,20 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       d.lane === id && d.owed ? [d.head.id] : [],
     );
 
-    return Result.isSuccess(
-      encodeLane(compiled, operationName, actor, Option.some(largest), [...displaced, longest]),
+    const row = {
+      operation: operationName,
+      lane: Option.some(id),
+      attempt: Option.some(longest),
+      channel: "unknown" as const,
+      reason: "Restored",
+      value: undefined,
+      kept: false,
+    };
+
+    return (
+      Result.isSuccess(
+        encodeLane(compiled, operationName, actor, Option.some(largest), [...displaced, longest]),
+      ) && Result.isSuccess(encodeOwed(actor, [row]))
     );
   };
 

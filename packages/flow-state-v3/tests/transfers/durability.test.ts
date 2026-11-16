@@ -30,7 +30,10 @@ const reports = (run: StoryRun, open: number) =>
 const OwedRows = Schema.fromJsonString(
   Schema.Struct({
     rows: Schema.Array(
-      Schema.Struct({ value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })) }),
+      Schema.Struct({
+        channel: Schema.String,
+        value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })),
+      }),
     ),
   }),
 );
@@ -41,7 +44,7 @@ const owedParts = (cut: Cut) => [...cut.records.stored.keys()].filter((k) => k.s
 const receipts = (cut: Cut) =>
   owedParts(cut).flatMap((key) =>
     Schema.decodeUnknownSync(OwedRows)(cut.records.stored.get(key)).rows.map((r) =>
-      r.value === null ? null : r.value.receipt.length,
+      r.value === null ? r.channel : r.value.receipt.length,
     ),
   );
 
@@ -57,17 +60,16 @@ const refused = (run: StoryRun, open: number) =>
   inOpen(run, open).filter((e) => e._tag === "Issue" && e.code === "InvalidTurn").length;
 
 describe("owed values on both sides of the codec's bounds (Codec R1, R4, R5; WriteAhead I21)", () => {
-  // Codec R4's written "largest values null, largest first" would null three receipts here; the
-  // reviewed finding (a 9-byte value nulled beside a 2.25 MB one) rules that out, so the Spec text is
-  // owed a revision in the convergence pass. Only a value that cannot be saved even alone is lost.
-  it("Codec R4: every receipt is saved but the one past a string's bound, saved null and reported; no identity is withheld, and the account hears all fourteen after a reload", async () => {
+  // Only a value that cannot be saved even in a record of its own is lost: its row is saved as its
+  // Attempt's unknown Restored, as a crash before the save would have left it.
+  it("Codec R4: every receipt is saved but the one past a string's bound, saved as unknown Restored and reported; no identity is withheld, and the account hears all fourteen after a reload", async () => {
     const run = checked(await largeReceipts.run());
     const { owed } = run.checkpoints;
 
     expect(receipts(owed)).toEqual([
       262_144,
       ...Array.from({ length: 5 }, () => 200_000),
-      null,
+      "unknown",
       ...Array.from({ length: 6 }, () => 200_000),
       3,
     ]);
@@ -75,9 +77,7 @@ describe("owed values on both sides of the codec's bounds (Codec R1, R4, R5; Wri
     expect(heardDone(run, 2)).toBe(14);
   });
 
-  // Open: the success whose receipt was saved null reaches the machine's mapping with no value, so
-  // its turn is refused InvalidTurn at each try and the account never hears that transfer landed.
-  it.fails("Codec R4, R5: an ending whose value was saved null never fails its machine's turn: it is heard with no refused turn", async () => {
+  it("Codec R4, R5: an ending whose value has no saved form never fails its machine's turn: it is heard with no refused turn", async () => {
     const run = checked(await largeReceipts.run());
 
     expect(refused(run, 2)).toBe(0);

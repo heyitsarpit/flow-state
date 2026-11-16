@@ -266,12 +266,12 @@ export type ActorRecord = {
 
 /**
  * An identity whose actor record could not encode at a step's end: none of its records went, and
- * its touched lanes and the tickets its sends await wait until a step can write the whole identity.
+ * its touched lanes wait until a step can write the whole identity. The tickets its step minted
+ * were refused, never withheld.
  */
 export type Withheld = {
   readonly actor: ActorId;
   readonly lanes: ReadonlyArray<string>;
-  readonly tickets: ReadonlyArray<Ticket>;
 };
 
 /**
@@ -348,7 +348,7 @@ export type Command = Data.TaggedEnum<{
   Interrupt: { call: CallId };
   Arm: { timer: TimerId; at: number };
   Disarm: { timer: TimerId };
-  Persist: { writes: ReadonlyArray<Write>; due: Due };
+  Persist: { writes: ReadonlyArray<Write>; refused: ReadonlyArray<TicketId>; due: Due };
 }>;
 
 /**

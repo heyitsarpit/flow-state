@@ -139,15 +139,16 @@ describe("an actor record past a codec bound (Actors R8; WriteAhead R4; Codec R1
     expect(savedCount(run, "ended")).toBe(2);
   });
 
-  it("WriteAhead R12: a send withheld with its identity reports no StorageSilent, and goes once the record encodes", async () => {
+  it("WriteAhead R12, R13: a send whose actor record cannot encode never waits: it ends NotSent StorageRefused at once, with no StorageSilent, and a sync after the record encodes is sent", async () => {
     const run = checked(
       await notesStory("restore/unencodable-send")
         .ensure(notes)
         .send(notes, { _tag: "Grow", count: 4097 })
         .send(notes, { _tag: "Sync", repo: "flow" })
         .advance("11 seconds")
-        .checkpoint("withheld")
+        .checkpoint("refused")
         .send(notes, { _tag: "Grow", count: 1 })
+        .send(notes, { _tag: "Sync", repo: "flow" })
         .advance("1 second")
         .checkpoint("sent")
         .run(),
@@ -156,7 +157,10 @@ describe("an actor record past a codec bound (Actors R8; WriteAhead R4; Codec R1
     const silent = run.evidence.filter((e) => e._tag === "Lane" && e.kind === "StorageSilent");
 
     expect(silent).toEqual([]);
-    expect(run.checkpoints.withheld.read(Git.sync)).toEqual([]);
+    expect(
+      run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+    ).toEqual(["notSent StorageRefused", "success success"]);
+    expect(run.checkpoints.refused.read(Git.sync)).toEqual([]);
     expect(run.checkpoints.sent.read(Git.sync)).toHaveLength(1);
   });
 
@@ -174,6 +178,23 @@ describe("an actor record past a codec bound (Actors R8; WriteAhead R4; Codec R1
       run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
     ).toEqual(["notSent Unencodable"]);
     expect(reported(run)).toEqual([]);
+    expect(run.checkpoints.after.read(Git.sync)).toEqual([]);
+  });
+
+  it("Codec R4: a commit whose key fits a string's bound but whose lane id, which an owed row names, does not declines NotSent Unencodable", async () => {
+    // The key's text is 262,141 bytes; the lane id adds the identity and operation to it.
+    const run = checked(
+      await notesStory("restore/lane-id-bound")
+        .ensure(notes)
+        .send(notes, { _tag: "Sync", repo: "r".repeat(262_130) })
+        .advance("1 second")
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(
+      run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+    ).toEqual(["notSent Unencodable"]);
     expect(run.checkpoints.after.read(Git.sync)).toEqual([]);
   });
 

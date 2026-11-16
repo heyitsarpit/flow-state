@@ -41,11 +41,23 @@ requirements
                 No raw parser error or Cause escapes. Inside a turn or a capture, a value with no
                 encoded form, a bound or a malformation included, is reported only as
                 UnencodableValue (its details naming the bound or reason) and never fails the turn (a
-                commit's input or key that cannot encode, or that would take its persisted lane's
-                record past a bound with the commit queued behind the head, is the one exception: it
-                declines NotSent { Unencodable }, an ending, @spec.WriteLanes.R12); owed rows whose
-                values pass a bound together are saved with their largest values `null`, largest
-                first, reported UnencodableValue;
+                commit's input or key that cannot encode is the one exception: it declines NotSent {
+                Unencodable }, an ending, @spec.WriteLanes.R12).
+
+                No send waits on a record that may not encode. A persisted commit is admitted only if
+                its lane's record encodes at the largest it can reach without another admission (every
+                input it holds with this one queued, the head Held, the longest retryCount and Attempt
+                id, one more displaced Attempt), and an owed row naming its lane encodes; otherwise it
+                declines NotSent { Unencodable }. Owed rows are saved in parts (R5); a row whose value
+                has no form even in a part of its own is saved as its Attempt's unknown { Restored },
+                reported UnencodableValue, and a Flow-made row with no value saves `null`. So only an
+                actor record can fail to encode (@spec.WriteAhead.R4). Decision (agent: the T20
+                lead, 2026-11-17): the convergence on record bounds, proposals
+                record-bounds-revised-2026-11-17.md. Why: a bound judged once, while the record
+                kept changing, withheld an identity for good. Reverse: restore R4 from commit
+                `47c900b8`.
+
+                Elsewhere:
                 CodecBoundExceeded and CodecMalformed are raised only where a codec failure is a
                 FlowError: decoding at the boot, payloads, traces, Model bytes and direct calls.
                 Decision (agent, 2026-11-11): audit C23, one code per trace. Why: a turn never fails
@@ -70,8 +82,10 @@ requirements
                 undecodable and handled by @spec.Restore.R5; it is never coerced. Decision (user,
                 2026-11-12): consult round 3, C9. Why: an ending outlives both its lane and its
                 actor record. Reverse: restore R5 from commit `9405af2f`. Every record is stored as
-                its canonical text (R2) and read strictly (R3); a row's `value` with no canonical
-                form is saved as `null`.
+                its canonical text (R2) and read strictly (R3). An identity's owed rows fill
+                `owed/<identity>` and, past a bound, further parts `owed/<identity>|0001` on, four
+                digits, in owed order; each part is a whole owed record, and fewer parts remove the
+                rest (R4).
 
 open
     Q1  Executable checks are not built.
@@ -99,7 +113,7 @@ invariants
 
     I6  A codec failure happens before any state change and carries no data value or Cause.[@R4]
 
-    I7  Every key the Runtime writes is `actor/<identity>`, `lane/<lane>` or `owed/<identity>`, and its record decodes 
+    I7  Every key the Runtime writes is `actor/<identity>`, `lane/<lane>` or `owed/<identity>` (with its parts' `|nnnn`), and its record decodes 
         with that kind's Schema and has `format`; no lane record has a `mayHaveApplied` field, every owed row has a
         `channel`, and each kind round-trips: decode(encode(record)) equals the record. [@R5]
 

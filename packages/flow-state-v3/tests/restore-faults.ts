@@ -85,15 +85,81 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "owed-values-withhold",
-    tests: ["src/core/persist.test.ts"],
-    says: "owed rows whose values pass a bound together withhold their identity instead of saving the largest as null",
+    name: "lane-sized-in-flight",
+    tests: ["tests/restore/lane-bound.test.ts"],
+    says: "a commit's lane record is sized with its head in flight, so a record at the bound outgrows it when the head goes Held",
     rule: "WriteAhead I21",
     edits: [
       {
+        file: "src/core/lanes.ts",
+        find: "        phase: Phase.Held(),\n      },\n      queue: existing",
+        replace:
+          "        phase: existing?.head.phase ?? Phase.Held(),\n      },\n      queue: existing",
+      },
+    ],
+  },
+  {
+    name: "lane-sized-at-its-retry-count",
+    tests: ["tests/restore/lane-bound.test.ts"],
+    says: "a commit's lane record is sized at its head's retry count today, so a re-send's extra digit outgrows it",
+    rule: "WriteAhead I21",
+    edits: [
+      {
+        file: "src/core/lanes.ts",
+        find: "        retryCount: Number.MAX_SAFE_INTEGER,",
+        replace: "        retryCount: existing?.head.retryCount ?? 0,",
+      },
+    ],
+  },
+  {
+    name: "lane-id-unchecked",
+    tests: [UNENCODABLE],
+    says: "a commit whose lane id an owed row cannot hold is admitted, and saving its ending fails",
+    rule: "Codec R4",
+    edits: [
+      {
+        file: "src/core/lanes.ts",
+        find: "      ) && Result.isSuccess(encodeOwed(actor, [row]))",
+        replace: "      ) && row.reason !== ``",
+      },
+    ],
+  },
+  {
+    name: "unsaved-value-saved-null",
+    tests: ["tests/transfers/durability.test.ts"],
+    says: "an ending whose value has no saved form keeps its channel with a null value, so its mapping refuses the turn at each start",
+    rule: "Codec R4",
+    edits: [
+      {
         file: "src/core/record.ts",
-        find: "  while (Result.isFailure(attempt) && dropped < largest.length) {",
-        replace: "  while (Result.isFailure(attempt) && dropped < 0) {",
+        find: '({ ...r, channel: "unknown", reason: "Restored", value: undefined }) satisfies OwedRow;',
+        replace: "({ ...r, value: undefined }) satisfies OwedRow;",
+      },
+    ],
+  },
+  {
+    name: "flow-made-row-counted-unsaved",
+    tests: [RESTORE],
+    says: "a Flow-made unknown row with no value is counted as unsavable and reported at every owed write",
+    rule: "Codec R4",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "  value: r.value === undefined ? null : r.value,",
+        replace: "  value: r.value,",
+      },
+    ],
+  },
+  {
+    name: "ticket-withheld-with-its-identity",
+    tests: [UNENCODABLE],
+    says: "a ticket whose actor record cannot encode waits with its identity, so its send never ends",
+    rule: "WriteAhead R13",
+    edits: [
+      {
+        file: "src/core/persist.ts",
+        find: "    const refused = blocked.flatMap(({ t }) => t.tickets.map((ticket) => ticket.id));",
+        replace: "    const refused = blocked.flatMap(() => Array.of<TicketId>());",
       },
     ],
   },

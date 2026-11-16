@@ -195,3 +195,8 @@ note 2026-11-16T15:22:55Z
     Compile R5; Diagnostics R7: a throwing callback's issue and a failing services Layer report Defect, not
     CallbackDefect or ServiceFailed, which are outside the closed list; the slot or cause names what failed. Why:
     orchestrator ruling (T81). Reverse: add both codes to @plan.Diagnostics.O2 with the user.
+
+note 2026-11-17T01:30:00Z
+    Codec R4, R5, I7; WriteAhead R13, R14, realization: no send waits on a record that may not encode (lane records
+    sized at their largest, owed rows in parts, an unsavable value as unknown { Restored }, refused tickets). Why:
+    T20's convergence, record-bounds-revised-2026-11-17.md. Reverse: restore these texts from commit `47c900b8`.

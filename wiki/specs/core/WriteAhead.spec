@@ -199,15 +199,18 @@ requirements
                 `retryCount` that re-send will carry. If acknowledgement fails
                 the adapter is not called and the commit ends NotSent { StorageRefused } with
                 StorageFailure evidence; a re-send whose capture fails returns to Held and delivers
-                unknown { StorageRefused }. A transient failure never downgrades a write to an
-                undurable one.
+                unknown { StorageRefused }. A ticket whose identity's actor record cannot encode at
+                its step's end (R4) is refused the same way at once, with UnencodableValue evidence,
+                and never issued or withheld (@spec.Codec.R4). A transient failure never downgrades
+                a write to an undurable one.
 
     R14  Honest uncertainty after a crash
         source  @plan.Persistence.O6.
         must    A crash after acknowledgement restores unknown { Restored } with the same Attempt;
                 a head with an owed row for its own Attempt hears that row instead. Flow never repeats
                 a remote write automatically. Saved endings are delivered, mapped at delivery, not
-                replaced by unknown. A later Runtime never reuses an Attempt identity.
+                replaced by unknown; an ending whose value has no saved form is saved as the unknown
+                { Restored } a crash before its save would give (@spec.Codec.R4). A later Runtime never reuses an Attempt identity.
 
     R15  Non-persisted writes
         source  @plan.Persistence.O6.
@@ -352,10 +355,11 @@ realization typescript
         so a new phase forces a decision on what is saved.
 
     An identity whose actor record cannot encode at a step's end (R4) writes none of its records that step: its
-        lanes, owed record and the tickets its sends await are withheld in the World and written whole at the
-        first step's end where the record encodes, so no lane or owed record outruns its actor record (I11).
-        It is reported UnencodableValue once, as it starts to wait, and its tickets' StorageSilent is timed from
-        the batch that carries them, never while they are withheld (R12).
+        lanes and owed record are withheld in the World and written whole at the first step's end where the record
+        encodes, so no lane or owed record outruns its actor record (I11). It is reported UnencodableValue once, as
+        it starts to wait. The tickets its step minted are never withheld: the step's Persist names them refused
+        and the host answers them so as its next input (R13), so no send waits on the record and no StorageSilent
+        is armed for them (R12). Lane and owed records never fail to encode (@spec.Codec.R4).
 
     A refused batch's records are put back and go with the next batch, at the latest after the default 5 s
         interval, so a store that keeps refusing is never retried in a loop.

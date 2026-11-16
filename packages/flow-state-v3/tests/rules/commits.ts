@@ -27,12 +27,13 @@ const accountedBy = (e: Evidence) => {
  * that open, and was not superseded or released there, is heard in a later open of its identity:
  * its saved ending, or unknown Restored. Only
  * identities started again in a later open are judged, since a disposed identity's endings wait
- * for an adopting ensure.
+ * for an adopting ensure; and an Attempt whose lane record a later boot could not read is reported
+ * there instead, its key held until a cancel (Restore R5).
  */
 export const acknowledgedHeardAgain: Rule = {
   rule: "WriteAhead I17",
   breaches: (run: StoryRun) => {
-    const { owner, ended, started } = opensOf(run);
+    const { owner, ended, started, operation, unread } = opensOf(run);
 
     return run.end.records.batches.flatMap((b) =>
       b.status !== "landed"
@@ -43,7 +44,13 @@ export const acknowledgedHeardAgain: Rule = {
             const heard = [...(ended.get(attempt) ?? [])];
             const later = [...(started.get(actor) ?? [])].filter((o) => o > open);
 
-            return heard.length > 0 || later.length === 0
+            const quarantined = [...unread].some(
+              ([key, opens]) =>
+                key.startsWith(`lane/${actor}|${operation.get(attempt) ?? ""}|`) &&
+                [...opens].some((o) => o > open),
+            );
+
+            return heard.length > 0 || later.length === 0 || quarantined
               ? []
               : [
                   `WriteAhead I17: ${attempt} of ${actor} was acknowledged in open ${open} with no ending there, and no later open of ${actor} heard it`,
@@ -69,20 +76,35 @@ const leftBy = (e: Evidence) => {
 const opensOf = (run: StoryRun) => {
   const places = placesOf(run);
   const owner = new Map<string, string>();
+  const operation = new Map<string, string>();
   const ended = new Map<string, Set<number>>();
   const started = new Map<string, Set<number>>();
 
   for (const [at, e] of run.evidence.entries()) {
     const open = places[at]?.open ?? 0;
 
-    if (e._tag === "Minted") owner.set(e.attempt, nameOf(e.actor));
+    if (e._tag === "Minted") {
+      owner.set(e.attempt, nameOf(e.actor));
+      operation.set(e.attempt, e.operation);
+    }
 
     if (e._tag === "Incarnated") addTo(started, nameOf(e.actor), open);
 
     for (const attempt of leftBy(e)) addTo(ended, attempt, open);
   }
 
-  return { owner, ended, started };
+  return { owner, operation, ended, started, unread: unreadBy(run, places) };
+};
+
+// The records each open's boot could not read, by key.
+const unreadBy = (run: StoryRun, places: ReturnType<typeof placesOf>) => {
+  const unread = new Map<string, Set<number>>();
+
+  for (const [at, e] of run.evidence.entries())
+    if (e._tag === "Reported" && e.code === "RecordUndecodable")
+      for (const key of Option.toArray(e.record)) addTo(unread, key, places[at]?.open ?? 0);
+
+  return unread;
 };
 
 const tally = (counts: Map<string, number>, operation: string) =>

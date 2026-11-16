@@ -140,7 +140,9 @@ export const makeEdge = (
      * Whether every record handed to the edge has landed: no batch out and nothing left to write.
      */
     settled: () => !pending.out && pending.dirty.size === 0,
-    accept: (writes: ReadonlyArray<Write>, due: Due) => {
+    accept: (writes: ReadonlyArray<Write>, refused: ReadonlyArray<TicketId>, due: Due) => {
+      for (const ticket of refused) options.answered(ticket, false);
+
       const dirty = new Map(pending.dirty);
       const tickets = Due.$is("Awaited")(due) ? due.tickets : [];
 

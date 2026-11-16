@@ -107,15 +107,21 @@ type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason
   readonly kept: boolean;
 };
 
-const rowJson = (r: OwedRow, value: OwedRow["value"]) => ({
+// A row as saved: a Flow-made row with no value saves `null`.
+const rowJson = (r: OwedRow) => ({
   operation: r.operation,
   lane: Option.getOrNull(r.lane),
   attempt: Option.getOrNull(r.attempt),
   channel: r.channel,
   reason: r.reason,
-  value,
+  value: r.value === undefined ? null : r.value,
   kept: r.kept,
 });
+
+// A row whose value cannot be saved even alone is saved as the ending a crash before its save
+// would have restored: its Attempt's unknown Restored.
+const unsaved = (r: OwedRow) =>
+  ({ ...r, channel: "unknown", reason: "Restored", value: undefined }) satisfies OwedRow;
 
 // Rows in owed order, cut into parts in one pass: a part closes when the next row would take it
 // past a codec bound, counting from the record with no rows.
@@ -152,32 +158,48 @@ const packParts = <Row>(
 /**
  * An identity's saved rows as canonical texts, in owed order: one record while they fit the
  * codec's bounds, else as many parts as they need, each a whole record (`owedPartKey`). Every row
- * is kept; a value that cannot be saved even in a part of its own is saved as `null` and counted
- * in `dropped`. Each row is measured once, then the parts are filled in one pass.
+ * is kept; a value that cannot be saved even in a part of its own is saved as its Attempt's
+ * unknown Restored and counted in `unsaved`. Each row is measured once, then the parts are filled
+ * in one pass. Fails only when a row cannot be saved even so.
  */
 export const encodeOwed = (actor: ActorId, rows: ReadonlyArray<OwedRow>) => {
   const header = { format: FORMAT, machine: actor.machine, name: actor.name };
-  const empty = Result.getOrThrow(measure({ ...header, rows: [] }));
 
-  // A row's cost in a part: what it adds to a part holding it alone, a comma included. A row whose
-  // value cannot be saved even alone is costed, and saved, with a null value.
-  const costs = rows.map((r) => {
-    const whole = rowJson(r, r.value);
-    const alone = measure({ ...header, rows: [whole] });
-    const dropped = Result.isFailure(alone);
-    const row = dropped ? rowJson(r, null) : whole;
+  const sizeOf = (saved: ReadonlyArray<ReturnType<typeof rowJson>>) =>
+    Result.mapError(measure({ ...header, rows: saved }), reasonOf);
 
-    const { bytes, nodes } = Result.getOrThrow(
-      dropped ? measure({ ...header, rows: [row] }) : alone,
+  return Result.gen(function* () {
+    const empty = yield* sizeOf([]);
+
+    // A row's cost in a part: what it adds to a part holding it alone, a comma included.
+    const costs = yield* Result.all(
+      rows.map((r) => {
+        const whole = rowJson(r);
+        const alone = sizeOf([whole]);
+
+        const saved = Result.isSuccess(alone)
+          ? Result.succeed({ row: whole, size: alone.success, lost: false })
+          : Result.map(sizeOf([rowJson(unsaved(r))]), (size) => ({
+              row: rowJson(unsaved(r)),
+              size,
+              lost: true,
+            }));
+
+        return Result.map(saved, ({ row, size, lost }) => ({
+          bytes: size.bytes - empty.bytes + 1,
+          nodes: size.nodes - empty.nodes,
+          row,
+          lost,
+        }));
+      }),
     );
 
-    return { bytes: bytes - empty.bytes + 1, nodes: nodes - empty.nodes, row, dropped };
-  });
+    const texts = yield* Result.all(
+      packParts(empty, costs).map((part) => textOf({ ...header, rows: part })),
+    );
 
-  return Result.map(
-    Result.all(packParts(empty, costs).map((part) => textOf({ ...header, rows: part }))),
-    (texts) => ({ texts, dropped: costs.filter((c) => c.dropped).length }),
-  );
+    return { texts, unsaved: costs.filter((c) => c.lost).length };
+  });
 };
 
 /**
@@ -343,7 +365,8 @@ export const decodeRecords = (
           lane: Option.fromNullOr(e.lane),
           channel: e.channel,
           reason: e.reason,
-          value: e.value,
+          // A Flow-made unknown row saved with no value reads back with none.
+          value: e.channel === "unknown" && e.value === null ? undefined : e.value,
           owner: 0,
           current: true,
         })) satisfies ReadonlyArray<RestoredRow>,
