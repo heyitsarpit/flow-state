@@ -52,15 +52,19 @@ requirements
 
                 Each edge says what decides it (a state token, an idle or retryable lane fact, a
                 port, a closure) and is marked late, shadowed, unreached or unsourced when the data
-                says it cannot be taken. Fillings, schedule triggers and `whenAbandoned` callbacks
-                are edges; what data cannot say is listed as unseen.
+                says it cannot be taken. Fillings, schedule triggers (armed by event tokens),
+                `emit` parts, `onProps` reactions, a fan-out raise's edge per copy state (handled
+                or skipped) and `whenAbandoned` callbacks are edges; what data cannot say is
+                listed as unseen.
 
     R6  Static explain
         source  @plan.CommandLine.O1.
         must    explain accepts a machine, state path and public event, or a domain with an 
                 optional --read. It shows possible transitions, denials and fallthrough without 
                 evaluating guards; each commit's operation, contract, verb, policy and lane key 
-                with its cardinality; each stream placement; each schedule's path to a write. 
+                with its cardinality; each stream placement; each schedule's path to a write and
+                whether it declares `keys` and `restartOn`; each schedule's pause reasons by name,
+                each transition's emits, and the copy denials that can refuse a fan-out raise.
                 explain <release> --since <release> (proposed spelling) says per definition whether 
                 its saved state resets, restores, or its identity fields changed.
 
@@ -102,13 +106,17 @@ requirements
                 would otherwise bypass: among them unfilled ports, a late handler with no 
                 alternative that stays put, NotSent unmapped where it can occur, SharedContract 
                 (proposed name), DuplicatePlacement, VerbMismatch, KeyRequired, UnresolvedHold, 
-                KeyFieldOptional, ReservedReason (proposed name) and the allowlist grammar for 
-                recorded positions.
+                KeyFieldOptional, ReservedReason (proposed name), an emit part naming an
+                undeclared emit, PropWithoutDefault (proposed name; found from the Schema's
+                structure), an `actorRef` on a machine that declares props, a fixed negative
+                delay, and the allowlist grammar for recorded positions.
 
     R11  Findings
         source  @plan.CommandLine.O5.
-        must    Each finding carries severity, a stable rule reason, its actual path and actionable 
-                help. Warnings and info never fail the check. Failing to load a graph is an
+        must    Each finding carries severity, a stable rule reason, its actual path and actionable
+                help. Warnings and info never fail the check; among the warnings are UnusedEmit
+                (proposed name; an emit no transition emits) and FanOutNeverHandled (proposed
+                name; a fan-out raise whose event no state of the copy handles). Failing to load a graph is an
                 invocation failure, except a Construction's FlowError (Compile Spec R2): check
                 reports its diagnostics as error findings (exit 1), and cannot report what that
                 failed construction kept from loading (a stated limit). Decision (agent,

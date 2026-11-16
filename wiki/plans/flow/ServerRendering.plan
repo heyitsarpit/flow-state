@@ -51,13 +51,14 @@ outcomes
 
         Transfer actor state and memory, each placement with the entry version it last mapped, confirmed resource and
         entity data, loaded pages and `hasMore`, entity staleness, each latest stream row's last and baseline, the
-        stream partition (its bookmark), and remaining schedule delays with `restartOn` baselines. Write lanes are never
-        hydrated; only resource entries are.
+        stream partition (its bookmark), and remaining schedule delays (a paused timer's `left` unchanged) with
+        `restartOn` baselines. Props and emits never transfer. Write lanes are never hydrated; only resource
+        entries are.
 
         The payload carries the app id, the app's shape digest, the scope and a request token. The shape digest covers
         machine ids, state trees, event, input and memory Schemas, operation and entity identities of eager entries,
-        each stream position field's Schema, and lazy entry ids; it excludes deny codes and lazy code, so client and
-        server compute it from the loaded App alone.
+        each stream position field's Schema, and lazy entry ids; it excludes deny codes, props and emits Schemas, and
+        lazy code, so client and server compute it from the loaded App alone.
 
         A deploy that changes behaviour without changing shape passes the check; payloads are short-lived, so that is
         accepted. Its order is canonical, so equal runs give equal bytes. Recompute context from the transferred
@@ -113,8 +114,9 @@ outcomes
         a subsequent render, never a hydration mismatch.
 
         Rendering, including a discarded render, changes no store and starts no work, subscriptions, schedules,
-        persistence writes or evidence. Hydrated actors obey admission under @plan.Runtime.O3 and @plan.Runtime.O5;
-        rejection applies none of the payload, reports HydrationRejected and falls back to ordinary client loading.
+        persistence writes or evidence, and delivers no emit. Hydrated actors obey admission under @plan.Runtime.O3 and
+        @plan.Runtime.O5; rejection applies none of the payload, reports HydrationRejected and falls back to ordinary
+        client loading.
 
         A payload whose app id or shape digest differs reports HydrationIncompatible; malformed payloads, including
         undeclared lazy features or exceeded decode bounds, report HydrationMalformed. Both fall back to client loading.
@@ -148,8 +150,9 @@ outcomes
         make captured data younger.
 
         Streams open new sessions; client rows start Connecting, and a latest row shows its transferred last. Schedules
-        subtract the same nonnegative elapsed time from their remaining delay; an overdue schedule fires once at
-        activation, never in a burst or merely because its baseline was restored.
+        subtract the same nonnegative elapsed time from their remaining delay, and a paused one keeps its `left`; an
+        overdue schedule fires once at activation, never in a burst or merely because its baseline was restored; `keys`
+        and `paused` are re-evaluated silently at activation.
 
         Hydrate holds each actor its payload inserted, from the boundary's commit until that actor's first consumer
         attaches or the boundary unmounts (@plan.Runtime.O3). Persistable hydrated actors subsequently

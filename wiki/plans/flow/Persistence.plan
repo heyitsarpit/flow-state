@@ -49,7 +49,8 @@ outcomes
         A persisted actor's state, memory, exact context bindings, issues and pending mapped outcomes survive reload,
         together with
 
-        - schedule deadlines (keyed schedules' per-key timers by key with `dueAt`),
+        - schedule timers, each `{ dueAt }` while running or `{ left }` while paused (keyed schedules' per-key timers
+          by key),
         - `restartOn` baselines,
         - actor revisions,
         - each history target's last active child,
@@ -61,6 +62,8 @@ outcomes
 
         After reload, value fires only when the confirmed value differs from that mapped value, so a fresh lookup of
         unchanged data never overwrites a restored draft.
+
+        On restore, `keys` and `paused` are re-evaluated silently, like `restartOn` baselines.
 
         A stream's bookmark (its partition per operation and key: at, filled, and a latest row's last and heard)
         persists with its slice, and a frozen slice keeps it; the position field's Schema must pass this outcome's
@@ -124,7 +127,8 @@ outcomes
 
         A scope is saved atomically: after interruption or a torn write, reload sees one complete saved capture, falling
         back to the last good capture when necessary. Older writes never replace newer committed state. Every actor and
-        lane record carries Flow's record format (1 to 4).
+        lane record carries Flow's record format. The paused-timer record (`{ name, key?, left }`) is a new format step;
+        an older record's timers read as `dueAt` through the pure step (@plan.Machines.O5).
 
         Plain memory coalesces for 5 s and is flushed at once on `visibilitychange` to hidden and on `pagehide`;
 
@@ -227,14 +231,14 @@ outcomes
 
         **Versions.** An actor's identity version and each operation key's fingerprint compare every field's type side
         (checks by representation) and encoded side, ignoring other annotations, under Flow's format-tagged encodings
-        (@plan.Runtime.O3). A saved actor record of another identity version is an old-version record: listed at `ready`
-        (`OldVersionActor`, proposed name), never renamed, removed by `forget`; its lanes are re-keyed at the boot to
-        `key#identityTag` (`LaneRekeyed` evidence, proposed name), kept, blocking nothing, and listed `UnboundLane`
-        (proposed name) at each boot; a release that makes the old identity current again hands the key's lane back
-        unless it is taken; the old identity's unknown hold has no user exit and ends only by its own ending (a stated
-        limit). A lane of an older key fingerprint is an old-version hold, reported at each boot as the issue
-        `OldVersionLane`, and declines its operation's commits for that identity `NotSent { OldVersion
-        }` (@plan.Operations.O3).
+        (@plan.Runtime.O3). Props and emits are in no saved shape or version: they are never saved. A saved actor record
+        of another identity version is an old-version record: listed at `ready` (`OldVersionActor`, proposed name),
+        never renamed, removed by `forget`; its lanes are re-keyed at the boot to `key#identityTag` (`LaneRekeyed`
+        evidence, proposed name), kept, blocking nothing, and listed `UnboundLane` (proposed name) at each boot; a
+        release that makes the old identity current again hands the key's lane back unless it is taken; the old
+        identity's unknown hold has no user exit and ends only by its own ending (a stated limit). A lane of an older
+        key fingerprint is an old-version hold, reported at each boot as the issue `OldVersionLane`, and declines its
+        operation's commits for that identity `NotSent { OldVersion }` (@plan.Operations.O3).
 
         **Saved shapes.** Each definition's records are reset automatically (the user's Q1 A: per definition, no manual
         or app-wide version), decided per record (the runner's ruling) when the saved shape (state ids, memory fields

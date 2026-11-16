@@ -311,10 +311,12 @@ tests
         after, unknown { Restored }. [@I8]
     T5  Stopped reads and resets after reload: a stopped read is heard after a reload; a reset a reload lost runs at 
         the boot. Planted fault: a reload that drops the stopped read. [@I2, @I19]
-    T6  Record formats: every record states its format; format 1 restores as it was; a newer, null, fractional or 
-        string format is quarantined and its lane still holds.
-            Planted faults: a null format read as 1; a fraction floored; a string coerced; a newer format read.
-            [@I10, @I13]
+    T6  Record formats: every record states its format; an older format restores through the pure step, its timers read 
+        as `dueAt`; the current format restores as written, a `left` timer included; a newer, null,
+            fractional or string format is quarantined and its lane still holds.
+                Planted faults: a null format read as 1; a fraction floored; a string coerced; a newer format read; an
+                old timer read as `left`.
+                [@I10, @I13]
     T7  Undecodable records: memory that cannot decode is quarantined; the fresh actor over it is saved. Planted 
         faults: undecodable memory kept; the fresh actor never saved. [@I10, @I11]
     T8  Versions: an old-version record is listed, not restored; a release that changes a key keeps the old-version 

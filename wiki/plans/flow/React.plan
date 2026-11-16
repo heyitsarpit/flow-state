@@ -26,10 +26,11 @@ outcomes
     O2  Hooks and the first render
         Hooks return stable actor handles whose first render is pure and starts no work.
 
-        useActor(machine, options?) returns a local actor handle for the component incarnation: fresh memory and state,
-        with the write lanes of its local identity (machine, input by Equal.equals) adopted, so a remounted or revealed
-        local actor with the same input receives its predecessor's lanes. useActorByRef(ref, options) ensures a shared
-        actor and returns a handle for a non-null ref; any options object, including {}, selects ensure.
+        useActor(machine, { input?, props? }) returns a local actor handle for the component incarnation: fresh memory
+        and state, with the write lanes of its local identity (machine, input by Equal.equals) adopted, so a remounted
+        or revealed local actor with the same input receives its predecessor's lanes. useActorByRef(ref, options)
+        ensures a shared actor and returns a handle for a non-null ref; any options object, including {}, selects
+        ensure. useActorByRef takes no props; a props option is a type error.
 
         A value-named ref takes no input: useActorByRef(ref, {}) ensures it, and the ref's form is fixed per machine in
         the types. useActorByRef(ref) only looks up and returns Actor | null: a lookup of an identity with a record
@@ -39,9 +40,9 @@ outcomes
         ForeignActorRef. Lookup neither subscribes nor holds a use.
 
         Before attachment, ensure returns a stable handle with a pure snapshot: default states, the memory built from
-        the Flow.input fields, constant Flow.initial values and computed initials, available passive provider context,
-        active lifecycle, no issues, active resource lanes Pending with undefined data or a pure placeholder; inactive
-        lanes absent.
+        the Flow.input fields, constant Flow.initial values and computed initials, this render's props (Schema defaults
+        for those not given), available passive provider context, active lifecycle, no issues, active resource lanes
+        Pending with undefined data or a pure placeholder; inactive lanes absent.
 
         A pre-attach handle of an identity the Runtime holds a record for reads the Runtime's copy, so a quick return
         never flashes the initial state. Pending lanes alone do not mark optimistic writes predicted. Attached actors
@@ -54,9 +55,12 @@ outcomes
         @plan.Persistence.O4. Server and hydration snapshots follow @plan.ServerRendering.O4.
 
         Handles, sends and typed event constructors stay stable for the same identity. Equivalent refs resolve the same
-        actor; changing the ref resolves the new identity. Local input is read once; changing local machine or input
-        requires a keyed remount and emits a development diagnostic. A ref never resets an existing actor; conflicting
-        refs follow @plan.Runtime.O3.
+        actor; changing the ref resolves the new identity. Local input is read once; props are read on every render; a
+        changed value under Equal.equals queues one props update from a layout effect, in FIFO order with sends.
+        `setProps(partial)` merges; `useActor` passes its whole props each render, so an omitted field returns to its
+        default. Before attach, one replaceable pending props update, outside the send and mailbox bounds, never
+        dropped. Changing local machine or input requires a keyed remount and emits a development diagnostic. A ref
+        never resets an existing actor; conflicting refs follow @plan.Runtime.O3.
     O3  Attach, detach, Strict Mode and grace
         After commit and readiness, an ensuring hook attaches the same handle through the Runtime. It uses current
         provider context without replaying creation, input or `onContext` work. Lazy admission follows
@@ -75,6 +79,14 @@ outcomes
         A snapshots subscription completes when its subscriber stops or after the terminal snapshot of `disposeActor`,
         forget or Runtime disposal. Subscribers hear one notify per task: the first slice end in a task notifies, and
         later ones in that task coalesce into one in the next task.
+
+        useOnEmit(actor, handlers) and actor.onEmit(handlers) take a typed record of handlers; the hook calls the latest
+        render's handler. Emits queue per listener in turn order. In React they are delivered after the commit of the
+        first render whose snapshot is at or after their turn, and queued emits flush in order; a discarded render
+        delivers nothing. Outside React they are delivered after their turn publishes, in order. An emit is never
+        stored, persisted, transferred or replayed, and is dropped when nobody listens or in server rendering. A
+        fragment's emits are heard under its instance name, useOnEmit(filters, { search: { Focus } }); an .each copy's
+        handler receives its key. Listening is not a use (@plan.Runtime.O3).
 
         Local cleanup leaves the actor active for the grace, 100 milliseconds on the Runtime Clock. A local actor
         remounted within its grace reuses that actor and cancels its end; expiry ends it through the Runtime, except
@@ -99,11 +111,11 @@ outcomes
         Clock's epoch milliseconds and re-renders at that Duration; views read time through it rather than Date.now, so
         Stories and StoryFrame control it.
 
-        Selectors read frozen state, memory (Flow.private fields omitted from the view types), context, issues,
+        Selectors read frozen state, memory (Flow.private fields omitted from the view types), props, context, issues,
         lifecycle, schedules and operations: s.operations.<name>, O.x.get(s, k), a fragment's write lanes through
         Fragment.O.x.get(s, k) and its rows through s.operations.<instance>.<name>.
 
-        A disposed snapshot keeps its last state, memory and context with lifecycle disposed. State tokens narrow
+        A disposed snapshot keeps its last state, memory, props and context with lifecycle disposed. State tokens narrow
         snapshot types; check(s, event) follows @plan.Machines.O4. Rows follow @plan.Operations.O6. contract.get
         (proposed name) and Entity.get are passive: reading never fetches, mutates or retains data.
 
@@ -124,10 +136,11 @@ outcomes
         follows @plan.Operations.O3. Hooks never suspend.
 verification
     V1  Type/mount tests prove exact hook types, Provider isolation, readiness and boundary errors.
-    V2  Render tests prove pure snapshots, stable handles, ref changes and no discarded-render
-        work.
+    V2  Render tests prove pure snapshots (render-time props in the pre-attach snapshot), stable handles, ref
+        changes and no discarded-render work.
     V3  Attach tests prove 64 buffered sends, FIFO delivery once after lane deliveries, current
-        context and unmount safety.
+        context, props updates in FIFO order, emits delivered after the committing render (never from a discarded one,
+        flushed in order) and unmount safety.
     V4  Lifecycle tests prove the grace, Strict Mode, uses and work in flight, re-ensure, local
         remount within the grace and cleanup failures.
     V5  View tests prove consistent passive reads, key updates, equality and isolated error

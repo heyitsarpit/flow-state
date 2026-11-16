@@ -485,3 +485,7 @@ note 2026-11-16T12:12:08Z
 note 2026-11-16T13:02:26Z
     Resumed after the 5-hour reset (the user): T9's builder resumed from b4ed119a; T74's close review started. T9's
     requirements review follows it.
+
+note 2026-11-16T13:04:39Z
+    Merging the user's UI-primitives decisions (proposals ui-primitives-*-2026-11-16.md) into the Plans and Specs: five
+    Sonnet mergers on disjoint files, then the Task changes, then an Opus review. The user asked for it (2026-11-16).

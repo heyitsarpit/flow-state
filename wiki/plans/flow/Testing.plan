@@ -10,8 +10,9 @@ outcomes
         and fixtures.
 
         Story.app(setup, { id, fixtures?, world?, storage?, seed? }) accepts a typed RuntimeSetup.
-        Story.machine(machine, { id, input?, context?, fixtures?, world?, seed? }) tests one fresh actor; input and
-        context are required exactly when declared and have their declared types.
+        Story.machine(machine, { id, input?, context?, props?, fixtures?, world?, seed? }) tests one fresh actor; input
+        and context are required exactly when declared and have their declared types; props are optional and start from
+        their defaults.
 
         Story.fragment(fragment, { id, fixtures?, world?, seed? }) tests a trait or a subroutine alone, in an invisible
         stand-in host whose placement its declaration alone decides. Handing the wrong kind of subject to a constructor
@@ -32,14 +33,15 @@ outcomes
 
         Steps: send(target?, ...events), together(...inputs), world(...controls), advance (@O2), checkpoint(name, { at?
         }); app Stories add ensure(ref), detach(ref), dispose(ref, { how? }), openTab(name, { from? }), closeTab(name),
-        reload(name), dehydrate and hydrate; machine Stories `setContext`, dispose() and ensure() (another incarnation
-        of the same identity); fragment Stories enter(input?, { subject? }), leave(options?), guards(answers) (the
-        stand-in's guard answers, default allow) and reset(subject) for traits, with public events and
-        `hostEvents` sendable.
+        reload(name), dehydrate and hydrate; machine Stories `setContext`, `props(values)`, dispose() and ensure()
+        (another incarnation of the same identity); fragment Stories enter(input?, { subject? }), leave(options?),
+        guards(answers) (the stand-in's guard answers, default allow) and reset(subject) for traits, with public events
+        and `hostEvents` sendable.
 
         In a fragment Story, notifications (whenAbandoned's included) are callback records and exits are exit records,
-        as in a host. run() is the one execution boundary; it takes no options and returns a Promise of a StoryRun with
-        frames, steps, checkpoints, end, evidence, payloads and trace.
+        as in a host; in every Story, an accepted turn's emits are emit records, in turn order, heard or not. run() is
+        the one execution boundary; it takes no options and returns a Promise of a StoryRun with frames, steps,
+        checkpoints, end, evidence, payloads and trace.
 
         One address names a thing everywhere: { actor?, instance?, copy?, operation?, schedule?, timer?, key?, tab?,
         life? }; wire matches, the attempt and lane reads, record filters, advance({ next }) and step targets take it,
@@ -58,6 +60,11 @@ outcomes
         Focused setContext(context) replaces the actor's context as a production context update: a changed value runs
         `onContext` as an ordinary turn, an equal value is silent, and the initial context is a silent baseline
         (@plan.Runtime.O5). App Stories cannot inject context.
+
+        Focused props(values) sets the actor's props as a production props update: a changed value is its own turn that
+        runs `onProps`, and an equal value is silent. `props(partial)` calls `setProps`, which merges; `useActor` passes
+        its whole props each render, so an omitted field returns to its default. App Stories have no props step, because
+        shared actors take none.
 
         Checkpoint names retain exact literal or known-union keys. Duplicate names, widened strings and access through
         unknown literal keys are type errors; other commands preserve the keys. defineConfig({ apps: [{ app, stories }],
@@ -94,10 +101,12 @@ outcomes
 
         advance(d) moves time to now plus a finite nonnegative Duration.Input, stopping and settling at every deadline
         on the way, at most 100,000 deadlines (StoryTurnLimit with reason Advance). advance({ next: address }) moves to
-        the earliest unfrozen deadline the address matches (NoDeadline if none); advance({ to }) to an epoch millisecond
-        at or after now; advance(d, { suspended }) models a page in the background, firing the tab's overdue timers.
-        together(...inputs) is the only concurrency word: admission is held in every tab while each listed send, control
-        or { advance } arrives, then admission resumes and the step settles.
+        the earliest unfrozen, unpaused deadline the address matches (NoDeadline if none); advance({ to }) to an epoch
+        millisecond at or after now; advance(d, { suspended }) models a page in the background, firing the tab's overdue
+        timers. advance(d) and advance({ to }) never fire a paused timer, and paused time never counts. Schedule records
+        carry pause and resume with their reason names. together(...inputs) is the only concurrency word: admission is
+        held in every tab while each listed send, control or { advance } arrives, then admission resumes and the
+        step settles.
 
         During cleanup the Clock runs free and cleanup may yield.
 

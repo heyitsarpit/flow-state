@@ -59,7 +59,9 @@ outcomes
         - SchemaValidation: correct the value at the reported Schema issue path.
         - InvalidConfiguration (@plan.Machines.O1, @plan.Runtime.O1, @plan.Operations.O1, @plan.LazyFeatures.O2,
           @plan.Package.O3, @plan.EntityDomains.O1): fix the declaration named by path; details.reason names the rule,
-          such as a duplicate id or an undeclared patch entity.
+          such as a duplicate id, a prop or emit name that collides in the one namespace, a fixed delay out of range
+          (DelayOutOfRange) or an undeclared patch entity. `actorRef` on a machine that declares props is a type error
+          and InvalidConfiguration at construction.
         - InvariantViolation: report a Flow bug; the Runtime stopped to protect state.
         - Defect and GuardDefect (@plan.Machines.O3, @plan.Machines.O4): fix the failing callback or service using the
           in-process cause.

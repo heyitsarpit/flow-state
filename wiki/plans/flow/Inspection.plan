@@ -21,10 +21,11 @@ outcomes
         load rejects with EntryLoadFailed naming the entry; a construction error rejects with the construction
         FlowError. Equal App code gives equal Model bytes on every host.
 
-        The Model lists the app and entries (eager or lazy), each machine's schemas, states, transitions, guards with
-        their possible deny codes, actions (each naming the operation it commits or reads), schedules, placements,
-        outcome edges, context reads and persistence opt-ins; fragments, .each copies, fused transitions and contract
-        summaries (fragment operations included) under their instance names; every operation with its contract, verb,
+        The Model lists the app and entries (eager or lazy), each machine's schemas (props and emits included), states,
+        transitions, guards with their possible deny codes, actions (each naming the operation it commits or reads),
+        schedules (with keys and `restartOn` declared, and each pause reason by name), placements, outcome edges,
+        context reads and persistence opt-ins; fragments, .each copies, fused transitions and contract summaries
+        (fragment operations and emits included) under their instance names; every operation with its contract, verb,
         concurrency, key fields and services; each entity domain as recorded (predicted field names, runtime markers and
         many, never functions; a guarded write's targets); the static actor-send graph and a fingerprint. It holds no
         live state, closures, Effects or services.
@@ -35,20 +36,21 @@ outcomes
         inspect(runtime) is synchronous and passive. It reads the last committed cut and never a turn in progress,
         starts no work, adopts nothing, touches no storage and emits no evidence. It works on a constructed, ready,
         disposing or disposed Runtime. It returns frozen plain data with faithful in-process values: runtime lifecycle,
-        clock and evidence sequence; work (each item with waitsFor); per actor its state, revision, mailbox depth,
-        schedules, placements, fragment incarnations (status active or frozen), issues and uses ({ consumers,
-        subscriptions, contexts, pendingEnsures, busy }, each subscription with its owner, busy listing work in flight
-        by address, the mailbox depth, waiting deadlines and an unencodable record; a free actor shows its grace in
-        work); write lanes by identity, bound or unbound, each with its operation path, subject path, binding (bound,
-        unbound or unplaced), releasing mark, state (Idle, InFlight, Held), holds, queued commits, kept endings and
-        parked endings, including quarantined lanes, old-version lanes and holds left after `disposeActor` or forget;
-        resource entries and stream sessions (per session: state, drop, its registration row and basis, each proof,
-        losses, bookmark and filled, bound and release, with counters and a ring of the last 256; flags ValuesWhileDown,
-        RegistrationChurn, ReleaseOverdue, ProofWithoutPosition, PingsWithoutLive, IdleWithoutPing (proposed name; a
-        Silent end of a connection with no ping since connect), DeliveryDenied, FillsUntouched and FillsOtherKey,
-        proposed name); per domain the answers with frontier and stale causes, predictions, queues, uncertain records,
-        given-up marks and a record wait as stalled: "record" (proposed); persistence status, including
-        SecondTabNoPersistence; lazy entries adopted or not; hydration provenance.
+        clock and evidence sequence; work (each item with waitsFor); per actor its state, props, revision, mailbox
+        depth, schedules (running with dueAt, paused with left and `pausedBy`), placements, fragment incarnations
+        (status active or frozen), issues and uses ({ consumers, subscriptions, contexts, pendingEnsures, busy }, each
+        subscription with its owner, busy listing work in flight by address, the mailbox depth, waiting deadlines and an
+        unencodable record; a free actor shows its grace in work); write lanes by identity, bound or unbound, each with
+        its operation path, subject path, binding (bound, unbound or unplaced), releasing mark, state (Idle, InFlight,
+        Held), holds, queued commits, kept endings and parked endings, including quarantined lanes, old-version lanes
+        and holds left after `disposeActor` or forget; resource entries and stream sessions (per session: state, drop,
+        its registration row and basis, each proof, losses, bookmark and filled, bound and release, with counters and a
+        ring of the last 256; flags ValuesWhileDown, RegistrationChurn, ReleaseOverdue, ProofWithoutPosition,
+        PingsWithoutLive, IdleWithoutPing (proposed name; a Silent end of a connection with no ping since connect),
+        DeliveryDenied, FillsUntouched and FillsOtherKey, proposed name); per domain the answers with frontier and stale
+        causes, predictions, queues, uncertain records, given-up marks and a record wait as stalled: "record"
+        (proposed); persistence status, including SecondTabNoPersistence; lazy entries adopted or not;
+        hydration provenance.
 
         Held wire items in a Story are not Runtime facts.
 
@@ -118,17 +120,19 @@ outcomes
 
         Event kinds cover machines (turn, which carries the keys its mappers read that it writes, with the alternative
         each part took; lifecycle; life, each actor end and return, the end naming the live work it stopped and a create
-        within 5 s of an end how long ago; admission; send; schedule; context; callback; exit; listRepair; drop; issue;
-        diagnostic), operations (resource, ending, which names operation, contract, verb and key; lane, with its cell;
-        session, with its cell; delivery), entity domains (delta, field, repair, skip, lookup, prediction,
-        predictionFault, queue, uncertain, answer, invalidate, tombstone, selfCheck, audit), persistence (capture,
-        write, flush, restored, persistence-lock), lazy entries (entry-adopted, entry-adoption-failed) and server
-        rendering (dehydrate, hydrate); Story runs add step, request, control and verdict.
+        within 5 s of an end how long ago; admission; send; schedule (arm, fire, restart, pause, resume, disarm; pause
+        and resume carry their reason names); context; callback; emit (name, payload, instance and copy key); exit;
+        listRepair; drop; issue; diagnostic), operations (resource, ending, which names operation, contract, verb and
+        key; lane, with its cell; session, with its cell; delivery), entity domains (delta, field, repair, skip, lookup,
+        prediction, predictionFault, queue, uncertain, answer, invalidate, tombstone, selfCheck, audit), persistence
+        (capture, write, flush, restored, persistence-lock), lazy entries (entry-adopted, entry-adoption-failed) and
+        server rendering (dehydrate, hydrate); Story runs add step, request, control and verdict. A props update is a
+        turn with cause props, not a new kind.
 
-        A Story's records take 21 kinds in one list. Evidence kinds include Superseded, Released, NothingToResend and
-        InFlight; queue removals carry their reason (Superseded, Cancelled, Released); uncertain's end reads "a later
-        write succeeded, or a retry of the Attempt succeeded" as amended by @plan.EntityDomains.O1; UnusedWireRule is a
-        Story-derived diagnostic.
+        A Story's records take one list of kinds, `emit` among them. Evidence kinds include Superseded, Released,
+        NothingToResend and InFlight; queue removals carry their reason (Superseded, Cancelled, Released); uncertain's
+        end reads "a later write succeeded, or a retry of the Attempt succeeded" as amended by @plan.EntityDomains.O1;
+        UnusedWireRule is a Story-derived diagnostic.
 
         Boot reports and evidence named by the owner plans appear here: TurnStorm, StorageSilent, OldVersionLane and
         Stale, and, all proposed names, RecordUndecodable, UnboundLane, LaneRekeyed, OpRenamed, LaneRekeyCollision,
@@ -183,16 +187,17 @@ outcomes
         An app's structure renders deterministically as text, JSON or Mermaid.
 
         render(model, "text" | "json" | "mermaid") is synchronous and deterministic. Text prints each machine's states,
-        transitions, guards with deny codes, outcome edges, schedules and sends, and each domain as declaration
+        transitions, guards with deny codes, outcome edges, schedules, emits and sends, and each domain as declaration
         sentences, with lazy entries marked. json is the canonical Model. mermaid draws a state diagram per machine and
         a flowchart of sends and context reads.
 
         Trace projections (printed by @plan.CommandLine.O4) read one or two Traces and run no application code. summary
         gives counts and a per-actor timeline always stating "complete" or "truncated before N" and the outcome.
 
-        The sections are a closed list of normalized events by kind: transitions, sends, schedules, lifecycle, resources
-        (with why each refetched), write lanes and endings, repairs, restore, hydration, adoption and diagnostics.
-        Filters are data: actor, attempt id, read, entity key with sequence, issues only.
+        The sections are a closed list of normalized events by kind: transitions, sends, emits, schedules (with pause
+        and resume), lifecycle, resources (with why each refetched), write lanes and endings, repairs, restore,
+        hydration, adoption and diagnostics. Filters are data: actor, attempt id, read, entity key with sequence,
+        issues only.
 
         A selector naming something absent from the app's Model fails with InvalidArtifactOperand (reason
         UnknownSelector); one known to the Model but absent from the trace answers none when the trace is complete.
@@ -236,7 +241,8 @@ verification
         changes nothing.
     V4  Sinks: a stalled sink never delays turns; a failing sink detaches alone; capacity 0, 1
         and default; attach before ready and late attach; exact markers; drain and dispose accepted-prefix behaviour.
-    V5  Events and traces: one Story per event kind; contiguous turn sequences; a rolled-back
+    V5  Events and traces: one Story per event kind (emit, pause and resume included); contiguous turn sequences; a 
+         rolled-back
         turn leaves one failed event; export then import is byte-identical; every invalid import vector is rejected with
         its code; no Cause or stack appears in any artifact.
     V6  Redaction: sensitive values are digests in sink events and exported artifacts,

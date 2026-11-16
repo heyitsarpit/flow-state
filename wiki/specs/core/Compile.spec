@@ -88,13 +88,14 @@ requirements
     R10  Fragments
         source  @plan.Machines.O1.
         must    A fragment declares id, events, `hostEvents`, `internalEvents`, guards, callbacks,
-                exits (subroutines only), memory, child traits and operations; ports are required
-                unless wrapped in Flow.optional. It may not declare context, `onContext`, send or
-                persist.
+                exits (subroutines only), memory, emits, child traits and operations; ports are
+                required unless wrapped in Flow.optional. It may not declare context, `onContext`,
+                `props`, `onProps`, send or persist.
 
                 Each fragment carries an inferred summary in its type, and hosts are checked against
-                summaries, never bodies. Instance names, operation names, state names and memory
-                keys share one namespace; key and item are reserved under .each.
+                summaries, never bodies. Instance names, operation names, state names, memory
+                keys, prop names and emit names share one namespace; key and item are reserved
+                under .each.
 
     R11  Fragment write scope
         source  @plan.Machines.O1.
@@ -143,9 +144,10 @@ requirements
         source  @plan.Runtime.O1.
         must    machine() outputs Compiled: plain data plus Slots, each closure named by its place 
                 in the definition. Its data view, with closures as names, carries every event with 
-                its payload Schemas, the Flow.uncertain events, each memory field with its Schema, 
-                source and privacy, each operation's key fields, input fields and services, and 
-                each fragment's kind, events and ports. There is no runtime codec for Compiled itself:
+                its payload Schemas, the Flow.uncertain events, each memory field with its Schema,
+                source and privacy, each prop and emit with its Schema, each operation's key
+                fields, input fields and services, and each fragment's kind, events, emits and
+                ports. There is no runtime codec for Compiled itself:
                 it is never encoded or decoded as a whole. (The codecs below are of single memory
                 fields, held as functions on Compiled.)
 

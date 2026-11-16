@@ -23,11 +23,11 @@ outcomes
         machine configuration.
 
         A definition requires id, states and events, and may declare `internalEvents`, memory, traits, operations,
-        context and persist. persist defaults to false; persist: true on the definition makes the machine's shared
-        actors persisted (@plan.Persistence.O2). states is an ordered list of leaf names, single-key compounds
-        containing child lists, or { NAME: Sub } placing a subroutine; a node that carries traits is wrapped as
-        Flow.state(children | {} | Sub, { traits }). events and optional `internalEvents` are records from event names
-        to Schema field records; {} means no payload.
+        context, `props`, `onProps`, `emits` and persist. persist defaults to false; persist: true on the definition
+        makes the machine's shared actors persisted (@plan.Persistence.O2). states is an ordered list of leaf names,
+        single-key compounds containing child lists, or { NAME: Sub } placing a subroutine; a node that carries traits
+        is wrapped as Flow.state(children | {} | Sub, { traits }). events and optional `internalEvents` are records from
+        event names to Schema field records; {} means no payload.
 
         A payload may instead be a Schema.Struct with checks; a payload failing its check is refused at admission,
         before guards run.
@@ -44,6 +44,12 @@ outcomes
         with none is a type error, and Flow.input and Flow.initial never share a field. A field has one default, the
         same at creation and restore; two different defaults, or a Schema default beside Flow.initial, are TwoDefaults,
         found from the Schema's structure.
+
+        `props` is a record of Schema fields that the outside world sets and the machine only reads. Every prop has a
+        value before any use, its Schema's default; how the Schema declares it is the author's choice. Props are never
+        persisted or transferred, and only local actors take them (`useActor`, `createActor`, `Story.machine`); a shared
+        actor's outside configuration is context or input. `emits` is a record from emit names to Schema field records;
+        {} means no payload.
 
         A default is pure: a default whose Effect is not a succeeded value (a clock read, a fresh id per call) is a
         construction error, ImpureDefault (proposed name, the runner's), found by reading the Schema without running it;
@@ -73,22 +79,24 @@ outcomes
         token and states; leaves have neither.
 
         Nodes may declare on, activities and schedules, and fill each placed fragment in one block (traits under
-        traits.name where placed, a subroutine on its state); only the root may declare `onContext`. A definition's
-        handler(path, h) and guard(path?, g) type shared code as if written at path (the root when omitted).
+        traits.name where placed, a subroutine on its state); only the root may declare `onContext` and `onProps`. A
+        definition's handler(path, h) and guard(path?, g) type shared code as if written at path (the root
+        when omitted).
 
         Fragments. trait(declaration, body) is something the actor has; subroutine(declaration, body) is a state the
         actor goes into.
 
         A fragment declares id, events, `hostEvents` (raised only by its direct host), `internalEvents` (from its own
         schedules or operation endings), guards (Flow.Guard), callbacks (Flow.Callback), exits (Flow.Exit, subroutines
-        only), memory, child traits, operations and, for a subroutine, states and default; ports are required unless
-        wrapped in Flow.optional (an optional guard allows, an optional callback ignores). Its body holds on, schedules,
-        activities, its children's fillings and `whenAbandoned` (notified when an incarnation ends other than by its own
-        exit or a freeze).
+        only), memory, emits, child traits, operations and, for a subroutine, states and default; ports are required
+        unless wrapped in Flow.optional (an optional guard allows, an optional callback ignores). Its body holds on,
+        schedules, activities, its children's fillings and `whenAbandoned` (notified when an incarnation ends other than
+        by its own exit or a freeze).
 
-        Each fragment carries an inferred summary (per event: callbacks notified, exits taken, totality; whenAbandoned's
-        callbacks; its and its children's write operations and their Effect requirements), part of its type; hosts are
-        checked against summaries, never bodies. Fragments may not declare context, `onContext`, send or persist.
+        Each fragment carries an inferred summary (per event: callbacks notified, exits taken, emits, totality;
+        whenAbandoned's callbacks; its and its children's write operations and their Effect requirements), part of its
+        type; hosts are checked against summaries, never bodies. Fragments may not declare context, `onContext`,
+        `props`, `onProps`, send or persist; a fragment is configured by input and host events.
 
         Placement:
 
@@ -100,8 +108,13 @@ outcomes
         placed (becoming absent ends the incarnation and runs whenAbandoned, becoming present starts one), and the
         filling's parts receive key, the present reset value (the copy key under .each).
 
-        Trait instance names, operation names, state names and memory keys share one namespace; a collision rejects; key
-        and item are reserved memory names in a trait placed with .each.
+        A raise into a trait placed with .each reaches every copy live at turn start, in key order. A copy with no
+        handler on its active path is skipped with `Unhandled` evidence; a copy whose guards deny refuses the whole
+        turn; with no live copies the raise does nothing and is recorded. Keys past `max` are dropped with `listRepair`
+        evidence, never refused.
+
+        Trait instance names, operation names, state names, memory keys, prop names and emit names share one namespace;
+        a collision rejects; key and item are reserved memory names in a trait placed with .each.
 
         A fragment's operations map onto its own `internalEvents`. A fragment may own a write that maps anything only if
         every placement from the actor's root to it is a root trait, an .each copy or a .resumable() trait, any of which
@@ -149,13 +162,18 @@ outcomes
         default, and S.X.history.child(s) reads it; history restores control only, and data comes back only through
         placement or .resumable().
 
-        on maps an event name to a token, { target?, guard?, updateMemory?, actions?, raise?, notify? }, or an ordered
-        array of transitions. target is this machine's token or "self"; an omitted target means "self". The active
-        leaf's handler is tried first, then ancestors up to the root.
+        on maps an event name to a token, { target?, guard?, updateMemory?, actions?, raise?, notify?, emit? }, or an
+        ordered array of transitions. target is this machine's token or "self"; an omitted target means "self". The
+        active leaf's handler is tried first, then ancestors up to the root.
 
         At each level, the first passing or unguarded alternative wins; all declining falls through to the next
         ancestor. With no enabled transition, nothing changes and no work starts. A child's refusal inside a selected
         alternative never falls through (@O3).
+
+        `emit: [emits.X(payload)]` tells the actor's listeners something once. Any accepted transition emits: a send, a
+        firing, an ending, an `onContext` or `onProps` event. Entry, exit and a refused turn never do. A copy that ends
+        in the same turn still delivers. Delivery is @plan.React.O3; emits are never stored, persisted, transferred
+        or replayed.
 
         "self" changes no state, restarts no work and keeps the activation, including at the root. An explicit target
         re-enters itself if active, as a new activation, even when it names the handler's own state, so a call the old
@@ -184,20 +202,23 @@ outcomes
         Admit (runtime only): a pending reset from the last commit runs first as its own follow-up turn; otherwise the
         next event. A call's ending is mapped here through its operation's outcomes, its lane cell applied, and its
         owner tested against the pre-turn snapshot (@plan.Operations.O3); a timer of a dead activation is discarded;
-        firings with the same deadline are separate turns.
+        firings with the same deadline are separate turns. A props update is its own turn: it changes only props, then
+        runs `onProps` (@O7).
 
         Select the source: from the active leaf, or for a late ending the ancestor its owner test names, try
         alternatives in order, state-token elements first.
 
-        A node with no written handler for an event but an active schedule listing it in `armOn` or `disarmOn` handles
-        it with an implicit unguarded { target: "self" }. If every alternative declines, continue at the next ancestor;
-        after the root the event is Denied (a handler existed) or Unhandled, and nothing of the turn's own changes,
-        though an ending admitted at step one keeps its lane effects and counts as delivered.
+        When no state from the routed one up to the root writes a handler for an event, the deepest active state whose
+        schedule lists it in `armOn` or `disarmOn` handles it with an implicit unguarded { target: "self" }; a written
+        handler at any level is selected first. If every alternative declines, continue at the next ancestor; after the
+        root the event is Denied (a handler existed) or Unhandled, and nothing of the turn's own changes, though an
+        ending admitted at step one keeps its lane effects, counts as delivered and re-checks `keys` and `paused` (@O6).
 
         Select the parts: walk raises, the child transitions they select, the notifies and fillings these reach, and
         exits, depth first in written order; every selected alternative fixes its target. Before the walk `resetOn` runs
         and changed traits get a new incarnation, or end if absent. If an addressed child has no handler or all its
-        alternatives decline, the part refuses the whole turn.
+        alternatives decline, the part refuses the whole turn. A raise into a trait placed with .each is the one
+        exception (@O1).
 
         After the walk each .each field's final list decides membership, and `whenAbandoned` runs for every incarnation
         the turn ends, fused into the leaving turn. Validate: list repair (never refuses), one state changer among the
@@ -209,13 +230,14 @@ outcomes
         started incarnations, publish once.
 
         Two memory views. Before, the pre-turn snapshot, is read by every guard, every payload mapper (raise, notify,
-        exits, whenAbandoned) and every `updateMemory`.
+        emit, exits, whenAbandoned) and every `updateMemory`. Every reader of memory receives props from the
+        same snapshot.
 
         After, the memory the turn publishes (new incarnations' initial memory, then every patch in expansion order,
         after list repair), is read by work that only starts or times things: commit and lookup selects, member key
-        selects, schedule functions, keys, `restartOn`, placement selects and when, and optimistic (captured at start).
-        `resetOn` and input fillers read the before-walk memory (the pre-turn memory with the source's patch and
-        earlier resets).
+        selects, schedule functions, keys, `restartOn`, `paused`, placement selects and when, and optimistic (captured
+        at start). `resetOn` and input fillers read the before-walk memory (the pre-turn memory with the source's patch
+        and earlier resets).
 
         Lane reads (operations, get, idle, retryable) in guards, selects and `updateMemory` see the pre-turn lanes with
         the turn's own ending admitted; keys, when, placement selects and published rows see the lanes with this turn's
@@ -223,7 +245,7 @@ outcomes
         Updates, action parameters and send mappers receive now, one Runtime Clock epoch millisecond value shared
         throughout the turn; guards receive no time.
 
-        One invalid action, a failing after-memory select or an invalid duration rejects the whole turn like a
+        One invalid action, a failing after-memory select or an invalid duration (@O5) rejects the whole turn like a
         pre-commit defect: prior state and memory stay, no action runs, and one issue-only snapshot names the code;
         check() reports it as Denied with code InvalidTurn.
 
@@ -234,7 +256,8 @@ outcomes
 
         A pre-commit callback defect preserves prior state, memory, context and store truth, starts no work and
         publishes one issue-only snapshot naming the callback and path. It is not retried for that input. This includes
-        guards, updates, selects, keys, send payloads, schedules, `restartOn`, placement selects and when predicates.
+        guards, updates, selects, keys, send and emit payloads, schedules, `restartOn`, `paused`, placement selects and
+        when predicates.
 
         A post-commit mapper, placeholder, optimistic-data or write callback defect publishes one issue, enqueues no
         event and applies no partial write batch; it neither rolls back the committed state nor retries that occurrence.
@@ -246,10 +269,10 @@ outcomes
     O4  Guards, deny and check
         Guards decide from the pre-turn snapshot and start no work, so views can trust check.
 
-        A guard receives { event, state, memory, context, schedules, operations } from the pre-turn snapshot and returns
-        true or deny(code, context?). code is a literal string; context is optional JSON-safe explanatory data. deny
-        returns plain data matching Flow.Denial, so a denial may be stored in memory and a guard may return a stored
-        one. false is a type error; any invalid return is a guard defect.
+        A guard receives { event, state, memory, props, context, schedules, operations } from the pre-turn snapshot and
+        returns true or deny(code, context?). code is a literal string; context is optional JSON-safe explanatory data.
+        deny returns plain data matching Flow.Denial, so a denial may be stored in memory and a guard may return a
+        stored one. false is a type error; any invalid return is a guard defect.
 
         Guards read only these captured inputs and start no work, so views can trust check. A guard slot may hold an
         array; all must pass. An operation's idle(k?) (a partial key passes only when every lane it matches is Idle) and
@@ -274,49 +297,68 @@ outcomes
     O5  Schedules
         A schedule fires an event on a declared timing, started and stopped by the events the machine lists.
 
-        A node or fragment body declares schedules: { name: { schedule, send, armOn?, disarmOn?, restartOn?, keys? } }.
-        schedule is a Duration.Input, an Effect Schedule, or ({ memory, context, now }) => either, reading the after
-        memory of its arming turn with that turn's now.
+        A node or fragment body declares schedules: { name: { schedule, send, armOn?, disarmOn?, restartOn?, keys?,
+        paused? } }. schedule is a Duration.Input, an Effect Schedule, or ({ key?, memory, props, context, now }) =>
+        either, reading the after memory of its arming turn with that turn's now. Every function of a keyed schedule
+        (`schedule`, `paused`, `restartOn`, `send`) receives `key`, which is identity only.
 
-        An invalid duration or schedule rejects the arming turn with the pre-commit defect behavior of @O3. send is this
-        definition's payload-free event or E.X.from(metadata); metadata contains name, attempt (firings since arming,
-        starting at 1), `armedAt`, `dueAt`, `firedAt`, output and, for a keyed schedule, key. Times use Runtime Clock
-        milliseconds; Duration output is undefined. Armed schedules expose `dueAt` in the snapshot (@O8). An event
-        mapped by an operation is never a schedule's send.
+        A fixed negative duration is a construction error. A computed zero or negative delay counts as zero: due at
+        once, fired once on the next turn, never in the arming turn. A computed NaN, infinite or over 2^31 - 1 ms delay
+        rejects the arming turn with the pre-commit defect behavior of @O3. send is this definition's payload-free event
+        or E.X.from(metadata); metadata contains name, attempt (firings since arming, starting at 1), `armedAt`,
+        `dueAt`, `firedAt`, output and, for a keyed schedule, key. Times use Runtime Clock milliseconds; Duration output
+        is undefined. Armed schedules expose `{ dueAt }` while running and `{ left }` while paused, never both, and
+        `pausedBy` beside `left`; `left` is milliseconds on the Runtime Clock (@O8). An event mapped by an operation is
+        never a schedule's send.
 
-        A schedule without `armOn` starts on entry. armOn: [...] starts it on each accepted listed event, raised ones
-        included, accepted anywhere on the active path, restarting it if running; with Flow.entry in the list it also
-        starts on entry (its owner's state entered, trait created or reset, never a thaw), otherwise it is idle on
-        entry. disarmOn: [events] stops it on each accepted listed event; stopping an idle schedule does nothing.
+        A schedule without `armOn` starts on entry. `armOn` and `disarmOn` list event tokens, `armOn` also `Flow.entry`.
+        armOn: [...] starts it on each accepted listed event, raised ones included, accepted anywhere on the active
+        path, restarting it if running; with Flow.entry in the list it also starts on entry (its owner's state entered,
+        trait created or reset, never a thaw), otherwise it is idle on entry. disarmOn: [events] stops it on each
+        accepted listed event; stopping an idle schedule does nothing.
 
-        Exit stops any schedule. An event in both lists, or `armOn` with `restartOn`, is a construction error. Every
-        temporal construct is delayed: it never counts the turn that arms it. Descendant changes and "self" preserve
-        deadlines. Each arming has an id: a firing from an earlier arming, or from an activation that ended before
-        handling, is never delivered.
+        Exit stops any schedule. An event in both lists is a construction error; only `armOn: [Flow.entry]` may sit
+        beside `restartOn`, and any other `armOn` with `restartOn` is a construction error; a turn that does both arms
+        once, from step one. Every temporal construct is delayed: it never counts the turn that arms it. Descendant
+        changes and "self" preserve deadlines. Each arming has an id: a firing from an earlier arming, or from an
+        activation that ended before handling, is never delivered.
 
         A Duration fires once; a Schedule fires each step until complete. Equal deadlines enqueue by actor admission
         order, then outermost state, then declaration order, each a separate turn. An overdue step fires once, never in
         a burst; the next delay starts at actual firing.
 
-        restartOn({ memory, context }) establishes a silent baseline from the activating turn's after memory and leaves
-        the schedule idle on entry. After each committed turn, a changed selection under Equal.equals restarts only that
-        schedule from its first step at commit time; equal values do nothing. A Duration returns to idle after firing,
-        allowing debounce behavior.
+        restartOn({ key?, memory, props, context }) establishes a silent baseline from the activating turn's after
+        memory and leaves the schedule idle on entry unless `armOn` lists Flow.entry. After each committed turn, a
+        changed selection under Equal.equals restarts only that schedule from its first step at commit time; equal
+        values do nothing. A Duration returns to idle after firing, allowing debounce behavior. Restarting drops any
+        time left.
+
+        `paused: { Reason: ({ key?, memory, props, context, operations }) => boolean }` names each reason; any true
+        pauses the timer; the snapshot shows `pausedBy`, the active reason names in declaration order, beside `left`. A
+        turn runs keys, then `restartOn`, then `paused`, after each committed turn. Every lane change, including a
+        denied or unhandled ending's admission, re-checks `keys` and `paused`. True holds the time left of the current
+        delay (`left = dueAt - now`, at least 0); false resumes from it (`dueAt = now + left`). Paused time never counts
+        toward a delay; an unused actor, a frozen trait and a closed page still count. Arming or restarting while paused
+        holds the full delay. A pause right after a firing holds the next step's full delay. A multi-step Schedule
+        pauses inside its current delay, and its `attempt` does not advance. `disarmOn`, exit or a key leaving removes a
+        paused timer; nothing fires later.
 
         A keyed schedule's keys return key records from the after memory and after lanes (inside a fragment its own
         rows; under .each that copy's lanes): one timer per key, armed when the key appears, cancelled when it leaves,
         firing once with key; a repeated key keeps its first position with `listRepair` evidence; `restartOn` is
-        evaluated per key, ({ key, memory }) => value; `armOn` on a keyed schedule is a construction error.
+        evaluated per key, ({ key, memory, props }) => value; `armOn` on a keyed schedule is a construction error.
 
-        Per-key timers persist by key with `dueAt`, and on restore the restored memory's keys win.
+        Per-key timers persist by key with `dueAt` or `left`, and on restore the restored memory's keys win.
 
         Schedules fire only while their actor is used (@plan.Runtime.O3). A deadline that comes due while nothing uses
         the actor waits, and only the latest arming waits (re-arming, disarming or exiting removes a waiting deadline).
 
         On restore, resume, a return after an end, or a use returning to an actor whose schedules waited, a Duration
-        preserves its deadline and fires once if overdue, waiting deadlines in deadline order; a multi-step Schedule
-        restarts at step one. A resumable trait's schedules keep `dueAt` while frozen and fire once on return if
-        overdue. Restored `restartOn` baselines are silent. Hydration activation is @plan.ServerRendering.O5;
+        preserves its deadline and fires once if overdue, waiting deadlines in deadline order; a paused timer keeps its
+        `left`. A multi-step Schedule restarts at step one; a paused one first finishes its `left`. The host steps a
+        Schedule and hands the core the next delay as data. A resumable trait's schedules keep `dueAt` or `left` while
+        frozen and fire once on return if overdue. Restored `restartOn` baselines are silent, and `keys` and `paused`
+        are re-evaluated silently on restore, hydration and return. Hydration activation is @plan.ServerRendering.O5;
         deterministic time is @plan.Testing.O2.
     O6  Activities and outcomes in machines
         Operation activities are placed in states and traits, and their work is kept, replaced or released as the
@@ -341,9 +383,11 @@ outcomes
         (@plan.Operations.O2, @plan.Operations.O3, @plan.Operations.O4). Mapped events run in later ordinary turns.
         value fires only for a changed confirmed value under Equal.equals, never for predictions or optimistic values.
 
-        Lane-only changes publish captured lanes without running handlers, guards, updates, actions, schedules,
-        `restartOn` or `onContext`. Finite work starts only from an accepted transition's actions; operation action
-        semantics are @plan.Operations.O2 and @plan.Operations.O3 and sending is @plan.Runtime.O4.
+        Lane-only changes publish captured lanes without running handlers, guards, updates, actions, schedule functions,
+        `restartOn`, `onContext` or `onProps`, except that every lane change re-checks `keys` and `paused` (@O5); a
+        defect there publishes one issue and keeps the previous values, and the lane change still publishes. Finite work
+        starts only from an accepted transition's actions; operation action semantics are @plan.Operations.O2 and
+        @plan.Operations.O3 and sending is @plan.Runtime.O4.
 
         A commit, lookup or retry is owned by the activation of the state its transition names ("self": the handler's
         own state). At admission its ending is current, routed from the active leaf, if that activation is alive;
@@ -362,7 +406,7 @@ outcomes
         Lateness is not transitive, and only the host's own operations count. Every late event that can occur is handled
         at a strict ancestor of its owner.
     O7  Context reactions
-        A change in context can raise an event into an actor, and a reaction never changes state directly.
+        A change in context or props can raise an event into an actor, and a reaction never changes state directly.
 
         Machine-level onContext: [{ select, when?, event }] observes context changes. select({ context, memory })
         establishes a silent baseline at admission, restore, adoption and hydration. Only context waves re-run it, using
@@ -376,17 +420,23 @@ outcomes
         An actor returning after an end within a Runtime gets one wave if a provider's selection differs from the one it
         ended with; a reload's baselines are silent. A select, when or mapper defect publishes one issue, keeps the
         previous baseline and emits nothing; the next wave may try again. Reactions never change state directly.
+
+        Machine-level onProps: [{ select, when?, event }] is shaped like onContext, with select({ props, memory }). A
+        props update is its own turn that changes only props; onProps then runs, so a reaction can repair memory against
+        shrinking props. Its baseline is silent at admission; equal selections under Equal.equals are silent; defects
+        behave as for onContext; its events queue in the one FIFO mailbox. Props reuse context's delivery; only the
+        source differs: the owner at the call site, never saved.
     O8  The snapshot
-        A snapshot is deeply frozen plain data showing state, memory, context, issues, lifecycle, schedules
+        A snapshot is deeply frozen plain data showing state, memory, props, context, issues, lifecycle, schedules
         and operations.
 
         A snapshot exposes state (complete leaf path), memory (decoded value; fragment slices under their instance
         names, undefined while inactive and present while frozen, .each copies as a keyed list in key order, each with
-        key), context (selected slots), issues (Diagnostic values), lifecycle (active, disposing or disposed; a
-        persisted identity's record that does not decode reads quarantined, @plan.Runtime.O3), schedules (armed
-        schedules with dueAt, keyed schedules as keyed lists) and operations (the operations' rows, @plan.Operations.O6;
-        s.operations.<instance>.<name> for a fragment, a keyed list of copies under .each, each write row listing the
-        lanes of that copy's path).
+        key), props (current values), context (selected slots), issues (Diagnostic values), lifecycle (active, disposing
+        or disposed; a persisted identity's record that does not decode reads quarantined, @plan.Runtime.O3), schedules
+        (armed schedules with `{ dueAt }` or `{ left }`, never both, and `pausedBy` beside `left`; keyed schedules as
+        keyed lists) and operations (the operations' rows, @plan.Operations.O6; s.operations.<instance>.<name> for a
+        fragment, a keyed list of copies under .each, each write row listing the lanes of that copy's path).
 
         Every list of several things is a keyed list in key order, each entry with key; an entry that does not exist is
         absent, never a default. Outside snapshot and view types omit Flow.private fields; Stories and Inspection still
@@ -406,14 +456,19 @@ verification
     V3  Stories prove self, re-entry as a new activation, descendant survival, parent/child work
         order, subroutine exits and abandonment, and history.
     V4  Tests prove the turn algorithm: before and after memory reads, atomic batches, fixed now,
-        no-ops, refusal by a child and callback defect behavior.
+        no-ops, refusal by a child and callback defect behavior, props in every memory reader, emit sources and an emit
+        mapper's pre-commit defect, a props-only turn, and the .each fan-out raise (skip, deny, no copies).
     V5  Tests prove check agrees with handling and uses captured snapshots without effects.
     V6  Stories prove schedule order, armOn and disarmOn, keyed schedules, cancellation, debounce,
-        overdue firing, waiting while unused and restore behavior.
+        overdue firing, waiting while unused and restore behavior, armOn tokens, `armOn: [Flow.entry]` beside restartOn,
+        per-key durations, paused (hold, resume, keyed, overdue, multi-step, lane-only resume, restore re-evaluation)
+        and a computed negative delay.
     V7  Stories prove placement retention, release, the owner test, late turns and passive lane
         publication.
-    V8  Stories prove reaction baselines, context triggers, event order and defect recovery.
-    V9  Tests prove frozen captured snapshots, stable identities and source-specific issue clearing.
+    V8  Stories prove reaction baselines, context triggers, event order and defect recovery, onProps baselines and
+        memory repair.
+    V9  Tests prove frozen captured snapshots, stable identities and source-specific issue clearing, props and
+        `{ left }` in frozen snapshots.
 questions
     Q1  Deferred to build time
         Internal identity encoding and construction validation machinery. Warning presentation. Schedule stepping

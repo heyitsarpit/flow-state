@@ -68,7 +68,7 @@ requirements
 
     R12  Guards
         source  @plan.Machines.O4.
-        must    A guard receives { event, state, memory, context, schedules, operations } from the 
+        must    A guard receives { event, state, memory, props, context, schedules, operations } from the 
                 pre-turn snapshot and returns true or deny(code, context?). false is a type error; 
                 any other invalid return is a guard defect. A guard array passes only when all 
                 pass; a state token in it passes when the pre-turn state is at or below it. An 
@@ -89,14 +89,19 @@ requirements
 
     R14  Schedule arming
         source  @plan.Machines.O5.
-        must    A schedule without `armOn` starts on entry. `armOn` starts it on each accepted
-                listed event, restarting it if running, and with Flow.entry also on entry.
-                `disarmOn` stops it; stopping an idle schedule does nothing. Exit stops any
-                schedule. An event in both lists, `armOn` with `restartOn`, or `armOn` on a keyed
-                    schedule is a construction error. A fixed delay outside 0 to 2^31 - 1 ms is a
-                    construction error (InvalidConfiguration, details.reason DelayOutOfRange); a computed one outside 
-                        it, negative or not finite refuses the turn. At creation, where no turn
-                        can be refused, that schedule alone stays unarmed with an InvalidTurn issue and the others arm.
+        must    A schedule without `armOn` starts on entry. `armOn` and `disarmOn` list event
+                tokens, `armOn` also Flow.entry. `armOn` starts it on each accepted listed event,
+                restarting it if running, and with Flow.entry also on entry. `disarmOn` stops it;
+                stopping an idle schedule does nothing. Exit stops any schedule. Only
+                `armOn: [Flow.entry]` may sit beside `restartOn`; a turn that does both arms once,
+                from step one. An event in both lists, any other `armOn` with `restartOn`, or
+                `armOn` on a keyed schedule is a construction error. A fixed delay outside 0 to
+                2^31 - 1 ms (so a fixed negative one) is a construction error (InvalidConfiguration,
+                details.reason DelayOutOfRange). A computed negative delay counts as zero: due at
+                once, fired once on the next turn, never in the arming turn. A computed delay that
+                is NaN, infinite or over 2^31 - 1 ms refuses the turn. At creation, where no turn
+                can be refused, that schedule alone stays unarmed with an InvalidTurn issue and the
+                others arm.
 
                 When no state from the routed one up to the root has a written handler for an event
                 that an active schedule lists in `armOn` or `disarmOn`, the deepest such schedule's
@@ -112,24 +117,28 @@ requirements
                 activation, is never delivered. A Duration fires once; a Schedule fires each step 
                 until complete. Equal deadlines enqueue by actor admission order, then outermost 
                 state, then declaration order, each a separate turn. An overdue step fires once, 
-                and the next delay starts at the actual firing.
+                and the next delay starts at the actual firing. The host steps a multi-step
+                Schedule and hands the core the next delay as data; a pause right after a firing
+                holds the next step's full delay.
 
     R16  restartOn and keyed schedules
         source  @plan.Machines.O5.
         must    `restartOn` sets a silent baseline from the activating turn's after memory and
-                leaves the schedule idle. After each committed turn a changed selection under
-                Equal.equals restarts only that schedule from its first step; equal values do
-                nothing.
+                leaves the schedule idle unless `armOn` lists Flow.entry. After each committed
+                turn a changed selection under Equal.equals restarts only that schedule from its
+                first step, dropping any `left`; equal values do nothing.
 
                 A keyed schedule's keys come from the after memory and after lanes:
 
                 - one timer per key, armed when the key appears, cancelled when it leaves, firing
                 once with key;
                 - a repeated key keeps its first position with `listRepair` evidence;
-                - `restartOn` is evaluated per key.
+                - `restartOn` is evaluated per key;
+                - `schedule`, `paused`, `restartOn` and `send` receive `key`, which is identity
+                    only; a turn runs keys, then `restartOn`, then `paused`.
 
-                Per-key timers persist by key with `dueAt`, and on restore the restored memory's
-                keys win.
+                Per-key timers persist by key with `dueAt` or `left`, and on restore the restored
+                memory's keys win.
 
     R17  Schedules and use
         source  @plan.Machines.O5.
@@ -140,9 +149,11 @@ requirements
                 a use).
 
                 On restore, resume or a returning use, a Duration keeps its deadline and fires once
-                if overdue, waiting deadlines in deadline order; a multi-step Schedule restarts at
-                step one. A resumable trait's schedules keep `dueAt` while frozen and fire once on
-                return if overdue. Restored baselines are silent.
+                if overdue, waiting deadlines in deadline order; a paused timer keeps its `left`. A
+                multi-step Schedule restarts at step one; a paused one first finishes its `left`. A
+                resumable trait's schedules keep `dueAt` or `left` while frozen and fire once on
+                return if overdue. Restored baselines are silent, and `keys` and `paused` are
+                re-evaluated silently on restore, hydration and return.
 
     R18  Placements
         source  @plan.Machines.O6.
@@ -159,8 +170,11 @@ requirements
         source  @plan.Machines.O6.
         must    Endings map to events on the declarer and run in later ordinary turns. value fires 
                 only for a changed confirmed value under Equal.equals. Lane-only changes publish 
-                captured lanes without running handlers, guards, updates, actions, schedules, 
-                restartOn or onContext. Finite work starts only from an accepted transition's 
+                captured lanes without running handlers, guards, updates, actions, schedule
+                functions, restartOn, onContext or onProps, except that every lane change, a denied
+                or unhandled ending's admission included, re-checks `keys` and `paused`; a defect
+                there publishes one issue and keeps the previous values, and the lane change still
+                publishes. Finite work starts only from an accepted transition's
                 actions.
 
     R20  The owner test
@@ -200,9 +214,11 @@ requirements
 
     R23  Snapshot shape
         source  @plan.Machines.O8.
-        must    A snapshot exposes state, memory, context, issues, lifecycle, schedules and
-                operations. A fragment's memory slice sits under its instance name: undefined while
-                inactive, present while frozen; .each copies are a keyed list.
+        must    A snapshot exposes state, memory, props, context, issues, lifecycle, schedules and
+                operations; a timer shows `{ dueAt }` while running or `{ left }` while paused, never
+                both, in Runtime Clock milliseconds, and `pausedBy` beside `left`.
+                A fragment's memory slice sits under its instance name: undefined while inactive,
+                present while frozen; .each copies are a keyed list.
 
                 Every list of several things is a keyed list in key order, each entry with key; an
                 entry that does not exist is absent, never a default. Outside types omit
@@ -241,6 +257,46 @@ requirements
                 Denied and Unhandled stay as they are. Decision (agent, 2026-11-12): check's public
                 Allowed, Denied and Unhandled stay (a small public API). Why: it is check's
                 published contract. Reverse: make check return the turn's verdict type.
+
+    R27  Pause
+        source  @plan.Machines.O5.
+        must    `paused: { Reason: ({ key?, memory, props, context, operations }) => boolean }`
+                names each reason; any true pauses the timer, and the snapshot shows `pausedBy`,
+                the active reason names in declaration order, beside `left`. A turn runs keys,
+                then `restartOn`, then `paused`, after each committed turn. True holds the time
+                left of the current delay (`left = dueAt - now`, at least 0); false resumes from
+                it (`dueAt = now + left`). Paused time never counts toward a delay; an unused
+                actor, a frozen trait and a closed page still count. Arming or restarting while
+                paused holds the full delay. A multi-step Schedule pauses inside its current
+                delay, and its `attempt` does not advance. `disarmOn`, exit or a key leaving
+                removes a paused timer; nothing fires later.
+
+    R28  Props
+        source  @plan.Machines.O1; @plan.Machines.O7.
+        must    Only local actors take props. Every prop has a value before any use, its Schema's
+                default. Props are never persisted or transferred. A props update is its own
+                turn: it changes only props, then runs `onProps`, whose baseline is silent at
+                admission and whose events queue in the one FIFO mailbox. Every reader of memory
+                receives props from the same snapshot. A prop name may not collide with another
+                name in the one namespace (@spec.Compile.R10).
+
+    R29  Emits
+        source  @plan.Machines.O2; @plan.React.O3.
+        must    Any accepted transition may emit: a send, a firing, an ending, an `onContext` or
+                `onProps` event; entry, exit and a refused turn never do. A copy that ends in the
+                same turn still delivers. An emit's payload mapper reads the event, the before
+                memory and props, and a mapper defect is a pre-commit defect. Emits queue per
+                listener in turn order, are never stored, persisted, transferred or replayed, and
+                are dropped when nobody listens and in server rendering. A fragment's emits are
+                part of its summary.
+
+    R30  A fan-out raise
+        source  @plan.Machines.O1; @plan.Machines.O3.
+        must    A raise into a trait placed with .each reaches every copy live at turn start, in
+                key order. A copy with no handler on its active path is skipped with `Unhandled`
+                evidence; a copy whose guards deny refuses the whole turn; with no live copies the
+                raise does nothing and is recorded. Keys past `max` are dropped with `listRepair`
+                evidence, never refused.
 
 open
     Q1  Executable checks are not built.
@@ -351,10 +407,16 @@ invariants
 
     I34  A `restartOn` schedule restarts from its first step exactly after a committed turn whose selection differs 
          from its baseline under Equal.equals, never at its activating turn or a restore, and only that schedule
-        restarts. [@R16, @R17]
+        restarts; a restart drops any `left`. [@R16, @R17]
 
     I35  A keyed schedule has exactly one live timer per key in the after memory and after lanes: armed when the key 
          appears, cancelled when it leaves, and each firing carries its key. [@R16]
+
+    I37  A timer holds `dueAt` or `left`, never both; paused time never moves `dueAt`. [@R23, @R27]
+
+    I38  Every lane change re-checks `keys` and `paused` and runs no other schedule work. [@R19, @R27]
+
+    I39  An emit is delivered at most once per listener, after its turn, never from a refused turn or a replay. [@R29]
 
 owner Acts
     lifetime  one step. Design, agreed by the user, 2026-11-12 (consult round 3, C1 and C2); I36 moved here from
@@ -469,7 +531,7 @@ coverage
         open_by      [@Q1]
 
     @R19
-        enforced_by  [@I25]
+        enforced_by  [@I25, @I38]
         open_by      [@Q1]
 
     @R20
@@ -485,7 +547,7 @@ coverage
         open_by      [@Q1, @Q2]
 
     @R23
-        enforced_by  [@I29], snapshot types
+        enforced_by  [@I29, @I37], snapshot types
         open_by      [@Q1]
 
     @R24
@@ -498,6 +560,22 @@ coverage
 
     @R26
         enforced_by  [@I36]
+        open_by      [@Q1]
+
+    @R27
+        enforced_by  [@I37, @I38]
+        open_by      [@Q1]
+
+    @R28
+        enforced_by  [@I12]
+        open_by      [@Q1]
+
+    @R29
+        enforced_by  [@I39]
+        open_by      [@Q1]
+
+    @R30
+        enforced_by  [@I14]
         open_by      [@Q1]
 
 tests
@@ -514,14 +592,16 @@ tests
         child's refusal publishes only the issue-only snapshot, with none of the parent's patch. [@I3, @I9]
     T5  Before and after memory: a schedule function and a commit select read the value the turn wrote; a guard and a 
         mapper read the old one. Planted fault: a schedule that reads the pre-transition memory. [@I12]
-    T6  Refused turns: an out-of-range schedule delay (negative, non-finite or past 2^31 - 1 ms; 0 ms is allowed) and 
-        overlapping keys (two raises writing one key; construction rejects those pruning cannot separate,
-            @spec.Compile.R13, so this is the run-time check) refuse the turn: state unchanged, one issue-only 
-                snapshot, and check() answers Denied
-                with InvalidTurn (Q3 names the issue's code).
-                Planted faults: an unbounded schedule delay; overlapping keys allowed. An unencodable value does not
-                    refuse;
-                planted fault: a NaN carried as null. [@I14]
+    T6  Refused turns: an out-of-range computed schedule delay (non-finite or past 2^31 - 1 ms; zero or negative counts 
+        as zero) and
+            overlapping keys (two raises writing one key; construction rejects those pruning cannot separate,
+                @spec.Compile.R13, so this is the run-time check) refuse the turn: state unchanged, one issue-only 
+                    snapshot, and check() answers Denied
+                    with InvalidTurn (Q3 names the issue's code).
+                    Planted faults: an unbounded schedule delay; a computed negative delay refused;
+                    overlapping keys allowed. An unencodable value does not
+                        refuse;
+                    planted fault: a NaN carried as null. [@I14]
     T7  Callback defects: a throwing guard, select and key each keep the prior snapshot with one issue naming the 
         callback path, and the same input is not retried. A throwing post-commit mapper publishes one issue and no 
         event. [@I14, @I16]
@@ -537,7 +617,8 @@ tests
              wakes or is lost at the end; a reset that keeps timers. [@I22, @I23]
     T12  restartOn and keyed schedules: a changed selection restarts only its schedule; equal values do nothing; a key 
          leaving cancels its timer, a repeated key keeps one timer, and a restore does not restart a restartOn
-             schedule. No test yet. [@I20, @I34, @I35]
+             schedule; `armOn: [Flow.entry]` beside restartOn; key in schedule and paused. No test yet.
+             [@I20, @I34, @I35]
     T13  Placements: a key change releases once and opens the new key; a non-key change keeps the session; a throwing 
          select keeps it with one issue.
              Planted faults: a key not part of the identity; a throwing select that releases. [@I24]
@@ -574,3 +655,11 @@ tests
              check() on each answers Allowed, Unhandled, Denied, and Denied with InvalidTurn. Wrong runtimes: an 
                  Unhandled
              turn that yields no act; a refusal's Issue reported before its Turn. [@I36, @I18]
+    T25  Paused schedules: hold and resume, keyed, overdue, multi-step, lane-only resume, restore re-evaluation; paused 
+         time never counts, a restart drops `left`, a `left` timer never moves `dueAt`. No test yet; phase 3 writes the
+             planted faults. [@I37, @I38, @I34]
+    T26  Props: every memory reader sees props from one snapshot, a props-only turn runs `onProps`, a shrinking prop is 
+         repaired by its reaction, and an actor with no use has Schema defaults. No test yet. [@I12]
+    T27  Emits and fan-out raises: an emit from each source and never from entry, exit or a refused turn, a mapper 
+         defect refusing the turn, no replay; a fan-out raise skips a copy with no handler, is refused by a denying
+             copy and does nothing with no copies. No test yet. [@I39, @I14]

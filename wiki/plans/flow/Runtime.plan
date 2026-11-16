@@ -102,18 +102,22 @@ outcomes
         runtime.ensureActor(ref) returns the one shared actor for that identity, creating it from its input, or
         restoring it from the Runtime's copy of its record.
 
-        A failed admission leaves nothing behind, so a later ensure may retry. runtime.createActor(machine, { input })
-        always creates a new local actor that cannot persist or be a send target and lives until disposed.
+        A failed admission leaves nothing behind, so a later ensure may retry. runtime.createActor(machine, { input,
+        props }) always creates a new local actor that cannot persist or be a send target and lives until disposed. Only
+        local actors take props; ensureActor and actorRef take none. `actorRef` on a machine that declares props is a
+        type error and InvalidConfiguration at construction.
 
-        Handles expose send, `getSnapshot` and snapshots; a handle follows the identity, not the incarnation.
-        `getSnapshot` reads the live incarnation; with none, a persisted identity's record (lifecycle active; a record
-        that does not decode reads quarantined with its issue); with neither, the pre-attach snapshot if the identity
-        never had an incarnation in this Runtime, otherwise the last incarnation's terminal snapshot.
+        Local handles also expose `setProps(partial)`, which merges; shared handles have none.
+
+        Handles expose send, `getSnapshot`, snapshots and `onEmit(handlers)`; a handle follows the identity, not the
+        incarnation. `getSnapshot` reads the live incarnation; with none, a persisted identity's record (lifecycle
+        active; a record that does not decode reads quarantined with its issue); with neither, the pre-attach snapshot
+        if the identity never had an incarnation in this Runtime, otherwise the last incarnation's terminal snapshot.
 
         A shared actor lives while it is used, and until its finite work in flight has returned. A use is an attached
         consumer (from its passive commit effect, never from render), a live snapshots subscription, a bound context
         consumer, or Flow's hold for dehydrate and Hydrate; uses count per identity. `ensureActor` alone, `getSnapshot`,
-        lookups, views and sends are not uses.
+        lookups, views, sends, `onEmit` and `useOnEmit` are not uses.
 
         Work in flight is an InFlight write lane, a read started in a turn that handles the ending of work in flight
         (transitively), and an ending owed at ready; it keeps the actor until its ending's turn has run, so a chained
@@ -175,8 +179,8 @@ outcomes
         (@plan.Persistence.O5). Reference: references/dispatch-desk/features/Tickets/editor/editor.ref.ts, app/host.ts.
     O4  Mailboxes and send
         Each actor processes events one at a time; its mailbox is FIFO in admission order, and user sends, call endings,
-        stream deliveries, timer firings and `onContext` events queue together. A call's ending is queued at settlement
-        and mapped and routed when its turn is admitted. Equal deadlines are separate turns.
+        stream deliveries, timer firings, `onContext` events and props updates queue together. A call's ending is queued
+        at settlement and mapped and routed when its turn is admitted. Equal deadlines are separate turns.
 
         Across actors, follow-ups run first, up to 64 for each admitted event, past which the turn that would add one is
         refused InvalidTurn naming the chain; otherwise one event from the next actor in rotation, oldest first within
@@ -195,10 +199,11 @@ outcomes
         changes nothing. send validates the event's tag and payload; an internal, unknown or invalid event throws
         InvalidEvent and starts no turn.
 
-        Endings, schedule firings and context updates are never dropped: they are bounded by work already admitted, not
-        by the mailbox limit. Stream deliveries are bounded by what Flow has pulled, outside the mailbox cap
-        (@plan.Operations.O4); a released session's undelivered items are discarded with evidence, and a timer of an
-        ended activation is discarded (@plan.Machines.O5).
+        Endings, schedule firings, context updates and props updates are never dropped: they are bounded by work already
+        admitted, not by the mailbox limit. Before attach, a local actor holds one replaceable pending props update,
+        outside the send and mailbox bounds, never dropped. Stream deliveries are bounded by what Flow has pulled,
+        outside the mailbox cap (@plan.Operations.O4); a released session's undelivered items are discarded with
+        evidence, and a timer of an ended activation is discarded (@plan.Machines.O5).
 
         A refused delivery is kept, never lost. An ending whose turn is refused (InvalidTurn), or whose outcome mapper
         throws at admission, is delivered once more after the mail already queued; the second refusal is final and its
@@ -268,7 +273,7 @@ outcomes
         (diamonds included).
 
         Slots compare with Equal.equals; an equal value causes no update, and consumers waiting on that branch continue.
-        A context update keeps its place in the FIFO queue; later events never overtake it.
+        A context or props update keeps its place in the FIFO queue; later events never overtake it.
 
         A consumer selector that throws keeps that consumer's last valid context, publishes one issue, and retries only
         on a newer provider snapshot; the provider and other consumers are unaffected. Persistence capture never
@@ -365,9 +370,10 @@ verification
         - the end after the grace on the TestClock;
         - Strict Mode inside it;
         - a chain of two or more writes and reads in one incarnation;
-        - schedules waiting without a use.
+        - schedules waiting without a use;
+        - props passed to ensureActor, actorRef or useActorByRef are a type error.
     V5  Mailboxes: the 1,024 and 64 bounds, invalid events, FIFO and rotation, send results
-        owned by the sender, refused deliveries kept.
+        owned by the sender, refused deliveries kept, props updates in FIFO order and never dropped.
     V6  Context: diamond and chain waves give one update from latest values; a throwing selector
         is isolated.
     V7  Disposal and isolation: provider-with-consumers rejection, idempotent dispose, the

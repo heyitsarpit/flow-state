@@ -43,12 +43,13 @@ requirements
     R4  What an actor record holds
         source  @plan.Persistence.O2.
         must    A persisted actor's record holds its state, memory, exact context bindings, issues,
-                schedule deadlines (keyed timers by key with dueAt), restartOn baselines, revisions,
+                schedule timers (`{ name, key?, dueAt }` while running or `{ name, key?, left }`
+                while paused), restartOn baselines, revisions,
                 each history target's last child, resumable slices (frozen ones with their
                 schedules), .each copies by key with their counters, a writing placement's reset
                 value, each placement's last mapped value, and stream bookmarks with their slice.
                 It holds no ending: an ending not yet heard, a stopped read's Interrupted included,
-                is a row of the identity's owed record (R5).
+                is a row of the identity's owed record (R5). It holds no props and no emit.
 
                 Persisted Schemas encode and decode synchronously without services; unsupported
                 values fail encoding instead of being coerced, omitted or stringified.

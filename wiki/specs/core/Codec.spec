@@ -53,8 +53,8 @@ requirements
         source  @plan.Inspection.O2; the record set is @spec.WriteAhead.R4 and @spec.WriteAhead.R5.
         must    A persisted record is one of three kinds, named by its key: `actor/<identity>`,
                 `lane/<lane>` and `owed/<identity>`. Each kind has one Schema, and every record
-                carries the one `format` number all kinds share, today 1 (@spec.WriteAhead.R9); no
-                migration step is written before a release exists (@spec.Restore.R5 owns the
+                carries the one `format` number all kinds share, the current format (@spec.WriteAhead.R9); the
+                paused-timer step is the first migration step (@spec.Restore.R5 owns the
                 steps). A lane's id is the text after `lane/` (@spec.WriteLanes `model`, Lane).
 
                 Each Schema has exactly the fields @spec.WriteAhead.R4 and @spec.WriteAhead.R5 list

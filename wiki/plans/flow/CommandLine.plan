@@ -24,26 +24,30 @@ outcomes
         operands fail rather than inspecting another app.
 
         story list returns declared identities; story list --coverage (OD55) lists the transitions, exits, callbacks and
-        ending handlers (current and late), write-lane cells, stream cells and Flow reasons no Story reaches, stated as
-        reached, never as checked. story describe prints, from the plan alone, the subject and its kind, options, every
-        step with its index in its data form, checkpoints and every fake server the plan names with its endpoints,
-        controls and their Schemas; it has no expectation or property lines. graph prints one edge per alternative,
-        named by its place in the source so an edge and the Runtime's turn record share one name; each edge says what
-        decides it (a state token, an idle or retryable lane fact, a port, a closure) and is marked late, shadowed,
-        unreached or unsourced when the data says it cannot be taken; fillings, schedule triggers and `whenAbandoned`
-        callbacks are edges; what data cannot say is listed as unseen (@plan.Inspection.O6 renders it). explain accepts
-        a machine, state path and public event, or a domain with an optional --read.
+        ending handlers (current and late), write-lane cells, stream cells and Flow reasons no Story reaches, plus pause
+        reasons never active, emits never produced and fan-out copies never skipped, stated as reached, never as
+        checked. story describe prints, from the plan alone, the subject and its kind, options, every step with its
+        index in its data form, checkpoints and every fake server the plan names with its endpoints, controls and their
+        Schemas; it has no expectation or property lines. graph prints one edge per alternative, named by its place in
+        the source so an edge and the Runtime's turn record share one name; each edge says what decides it (a state
+        token, an idle or retryable lane fact, a port, a closure) and is marked late, shadowed, unreached or unsourced
+        when the data says it cannot be taken; fillings, schedule triggers (armed by event tokens), `emit` parts,
+        `onProps` reactions, a fan-out raise's edge per copy state (handled or skipped) and `whenAbandoned` callbacks
+        are edges; what data cannot say is listed as unseen (@plan.Inspection.O6 renders it). explain accepts a machine,
+        state path and public event, or a domain with an optional --read.
 
         Static explanations show possible transitions, denials and fallthrough without evaluating guards, each commit's
         operation, contract, verb, policy and lane key with its cardinality (and subject for a fragment operation), each
         stream placement (kind, session per key, fills, idle time, reconnect, catch-up), each schedule's path to a
-        write, a listen entry's covers terms, and for a commit to a domain write its predicted entity, key and field
-        names, the reads they can repair, their carriers and the placements that subscribe them; or domain reads and
-        their impact. explain --trace <artifact|-> --at <checkpoint> uses recorded evidence only and says "evidence
-        unavailable" for what fell outside the window. explain <release> --since <release> (proposed spelling) compares
-        two compiled releases and says per definition: its saved state resets, records saved in a removed state reset,
-        it restores, or its identity fields changed (old-version records, kept, never reset); writes in flight are
-        always kept. It compares two releases, not the chain a record went through.
+        write, whether it declares `keys` and `restartOn`, and its pause reasons by name, each transition's emits and
+        the copy denials that can refuse a fan-out raise, a listen entry's covers terms, and for a commit to a domain
+        write its predicted entity, key and field names, the reads they can repair, their carriers and the placements
+        that subscribe them; or domain reads and their impact. explain --trace <artifact|-> --at <checkpoint> uses
+        recorded evidence only and says "evidence unavailable" for what fell outside the window. explain <release>
+        --since <release> (proposed spelling) compares two compiled releases and says per definition: its saved state
+        resets, records saved in a removed state reset, it restores, or its identity fields changed (old-version
+        records, kept, never reset); writes in flight are always kept. It compares two releases, not the chain a record
+        went through.
 
         Invalid, missing, repeated or conflicting arguments fail with InvalidUsage before application loading. Selectors
         are data and never execute expressions. Artifact-only commands accept no source selection options and load no
@@ -148,10 +152,11 @@ outcomes
         built, UnboundedBridge; ReservedReason (proposed), refused at compile wherever a failure tag is declared, and
         byReason keys that are not the commit's own unknown tags or Flow's unknown reasons; GoneWithoutKey,
         GuardedUnbound, GuardedWithoutVersion and GuardedWithoutTarget (proposed names); PreviousIsCurrent (proposed);
-        each function passed to an entity domain recorded position (inline or by a same-file name) must be one
-        expression of library operators, reads on its own parameters, literal constants and a factory's primitive
-        parameters (the allowlist grammar), checked with type facts, anything else an error with a fix-it that
-        type-checks or an instruction.
+        an emit part naming an undeclared emit; a prop without a default (`PropWithoutDefault`, proposed name, found
+        from the Schema's structure); `actorRef` on a machine that declares props; a fixed negative delay; each function
+        passed to an entity domain recorded position (inline or by a same-file name) must be one expression of library
+        operators, reads on its own parameters, literal constants and a factory's primitive parameters (the allowlist
+        grammar), checked with type facts, anything else an error with a fix-it that type-checks or an instruction.
 
         Warnings: likely stuck/unreachable states, unhandled events, unensured send targets, send cycles, ambiguous
         composite ids, duplicated services, untracked entity/list data, sensitive SSR fields, entities depending on a
@@ -164,9 +169,10 @@ outcomes
         unreachable; a one-record domain write whose key fields are not those its predicted record's key reads;
         SharedContract for key [] on a placement whose subject path is not empty; a money-shaped write keyed by the
         Attempt; InputFieldForm; DuplicateSession; ScheduleLeadsToWrite (or info, when the schedule is not armed by a
-        write's ending); AsksForever; PredictionNotRetained; the Story-derived warnings, read from Story records: a
-        mapper reading a key its own turn writes, list repairs and dropped raises, another path's declines, denial
-        codes, and rule-20 coverage at a stand-in after a subject change.
+        write's ending); `UnusedEmit` (proposed name: an emit no transition emits); `FanOutNeverHandled` (proposed name:
+        a fan-out raise whose event no state of the copy handles); AsksForever; PredictionNotRetained; the Story-derived
+        warnings, read from Story records: a mapper reading a key its own turn writes, list repairs and dropped raises,
+        another path's declines, denial codes, and rule-20 coverage at a stand-in after a subject change.
 
         Info:
 

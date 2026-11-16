@@ -73,15 +73,18 @@ requirements
         source  @plan.Runtime.O3.
         must    ensureActor(ref) returns the one shared actor for that identity, creating it from
                 its input or restoring it from the Runtime's copy of its record; a failed admission
-                leaves nothing behind. createActor always creates a new local actor that cannot
-                persist or be a send target and lives until disposed. A handle follows the
-                identity, not the incarnation.
+                leaves nothing behind. createActor, given optional props, always creates a new
+                local actor that cannot persist or be a send target and lives until disposed.
+                Only local actors take props; ensureActor and actorRef take none, and actorRef on
+                a machine that declares props is a type error and InvalidConfiguration at
+                construction. A handle follows the identity, not the incarnation.
 
     R7  Uses and work in flight
         source  @plan.Runtime.O3.
         must    A use is an attached consumer, a live snapshots subscription, a bound context
                 consumer, or Flow's hold for dehydrate and Hydrate; uses count per identity.
-                ensureActor alone, getSnapshot, lookups, views and sends are not uses. Work in
+                ensureActor alone, getSnapshot, lookups, views, sends and emit listeners are not
+                uses. Work in
                 flight is an InFlight write lane, a read started in a turn handling the ending of
                 work in flight (transitively), and an ending owed at ready. Nothing else keeps an
                 actor alive.
@@ -231,7 +234,8 @@ requirements
                 for the consumer's lifetime; a bound consumer is a use of its provider. A cycle
                 (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one
                 rejects at admission. Baselines are silent at admission, adoption, hydration and a
-                reload restore; a return restored from the Runtime's copy gets R9's one wave when a
+                reload restore; `keys` and `paused` are re-evaluated silently at the same points;
+                a return restored from the Runtime's copy gets R9's one wave when a
                 provider's selection changed meanwhile. Decision (agent, 2026-11-11): audit C13.
                 Why: a reload restores a consistent saved world, while a return may have missed
                 provider changes. Reverse: make the return silent too (spec-log.md, T42).
