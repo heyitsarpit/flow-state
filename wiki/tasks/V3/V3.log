@@ -321,3 +321,7 @@ note 2026-11-16T02:34:34Z
 note 2026-11-16T02:36:25Z
     T54 done: review PASS at `a3345224` (`3964e8c7`) after one fix round. WriteAhead I23 and Turn R20/I26 fixed;
     evidenceOf is the one report builder. Next: @task.V3.T18 per P3's Order.
+
+note 2026-11-16T02:41:36Z
+    T18's first commit `557eb3f1` (9 requirements) has no separate review at 97 usage; its close review covers it. The
+    notSent: key is @plan.Operations.O1's, not new API.
