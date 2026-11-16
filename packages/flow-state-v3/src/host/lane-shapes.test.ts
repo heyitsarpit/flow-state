@@ -15,7 +15,7 @@ type CaseKeys<T extends { readonly _tag: string }, Tag extends T["_tag"]> = Excl
 
 // A head's history is its Phase tag, a lane holds its Attempt and nothing else, an ending is one
 // owed row with its Delivery a tag, and a lane's id and key are derived: exact key sets, so a
-// renamed or added flag fails (T51 acceptance; WriteLanes R6, R10, I36).
+// renamed or added flag fails (WriteLanes R6, R10, I36).
 const exactRecords = [
   true satisfies Equal<keyof Head, "id" | "input" | "retryCount" | "owner" | "phase">,
   true satisfies Equal<
@@ -108,7 +108,7 @@ const lookupInputOnly = [
 ];
 
 describe("lane records and table", () => {
-  it("phases, rows and the table are exact, and a lookup gets no Attempt (T51 acceptance, WriteLanes Q5, Reads I21)", () => {
+  it("phases, rows and the table are exact, and a lookup gets no Attempt (WriteLanes Q5, Reads I21)", () => {
     assert.ok([...exactRecords, ...totality, ...lookupInputOnly].every(Boolean));
   });
 });

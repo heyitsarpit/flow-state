@@ -151,7 +151,7 @@ const rows: ReadonlyArray<{
   },
   // answered, in the step the call settles: OnWire owes the call's own ending (a success drops
   // the lane, an unknown holds it); Cancelling owes unknown { Cancelled } (today's; I41's as-is
-  // delivery is T18's); impossible elsewhere (R2, R10).
+  // delivery is not built yet); impossible elsewhere (R2, R10).
   {
     cue: "answered-success",
     sent: false,

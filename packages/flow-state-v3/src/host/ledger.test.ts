@@ -295,23 +295,19 @@ const lastRing = (b: ReturnType<typeof bootWith>) => {
   return attempt;
 };
 
-// A pending case red on today's core, owed to the step that turns it green: it passes while its body fails the
-// assertion whose message holds `red`, the reason it is red today. It fails once the body passes,
-// so the step that turns it green makes it an `it`, and it fails when the body fails another way.
-const owed = (
-  owing: { readonly step: string; readonly red: string },
-  name: string,
-  body: () => void,
-) =>
-  it(`${name} [owed to ${owing.step}]`, () => {
+// A known bug, inverted: it passes while its body fails the assertion whose message holds `red`,
+// the reason it is red today. It fails once the body passes, so the fix makes it an `it`, and it
+// fails when the body fails another way.
+const owed = (red: string, name: string, body: () => void) =>
+  it(name, () => {
     assert.throws(
       body,
       (e) => {
-        if (e instanceof assert.AssertionError && e.message.includes(owing.red)) return true;
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a test rethrows the failure that is not its owed reason, so it shows as itself
+        if (e instanceof assert.AssertionError && e.message.includes(red)) return true;
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a test rethrows the failure that is not its known reason, so it shows as itself
         throw e;
       },
-      `the owed case is green: make it an it (${owing.step})`,
+      "the known bug is fixed: make it an it",
     );
   });
 
@@ -357,8 +353,8 @@ describe("the owed ledger on the production runtime", () => {
   // heard at the next start, is reported Delivered once, when it is heard; today every try reports
   // Delivered before its turn's outcome is known.
   owed(
-    { step: "A4", red: "Delivered once, at the row's close" },
-    "a row refused twice and heard at its next start is reported Delivered once (WriteLanes I34)",
+    "Delivered once, at the row's close",
+    "WriteLanes I34: a row refused twice and heard at its next start is reported Delivered once",
     () => {
       const jam: Jam = { on: true, tries: [] };
       const { served, TollMachine } = tollOver(jam, []);
@@ -845,11 +841,10 @@ describe("the owed ledger on the production runtime", () => {
   // unknown { StorageRefused } (WriteAhead R13); its handler's key-less retryable and retry name
   // that ending's own Attempt (WriteLanes R9), so the Held head, still under its retry limit, is
   // re-sent once its next capture lands. Today the row has no lane, so the key-less members name
-  // nothing and the head stays Held: PART-pay-stress-3, PART-pay-stress-8 and PART-cells-stress-9
-  // go STUCK where R9 retries.
+  // nothing and the head stays Held: a checkout goes STUCK where R9 retries.
   owed(
-    { step: "T19", red: "the refused capture's unknown is retried" },
-    "a key-less retry in a refused capture's unknown handler names its own Attempt (WriteLanes R9; WriteAhead R13)",
+    "the refused capture's unknown is retried",
+    "WriteLanes R9: a key-less retry in a refused capture's unknown handler names its own Attempt (WriteAhead R13)",
     () => {
       const refusals = { left: new Array<true>() };
       const b = bootWith(retrier, new Map(), 1, true, { captureMs: 0, hung: false }, refusals);

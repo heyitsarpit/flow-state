@@ -475,6 +475,34 @@ export const faults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "rows-dropped-outside-ledger",
+    tests: ["tests/write-lanes/one-builder.test.ts"],
+    says: "a forget clears the identity's owed rows itself instead of closing them in the ledger",
+    rule: "WriteLanes R10",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "    ledger.suspend(actor, forgetting);",
+        replace:
+          "    if (forgetting) tx.set({ ...tx.world(), owed: tx.world().owed });\n    else ledger.suspend(actor, false);",
+      },
+    ],
+  },
+  {
+    name: "second-record-writer",
+    tests: ["tests/write-lanes/one-builder.test.ts"],
+    says: "an incarnation's end writes its records itself, outside the step-end projection",
+    rule: "WriteAhead I21",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "    ledger.suspend(actor, false);",
+        replace:
+          "    tx.command(Command.Persist({ writes: [], due: Due.Now() }));\n    ledger.suspend(actor, false);",
+      },
+    ],
+  },
+  {
     name: "one-identity-per-batch",
     tests: ["tests/write-lanes/write-ahead-scope.test.ts"],
     says: "a step's write list holds only the first touched identity's records",

@@ -149,6 +149,11 @@ tasks
             R2 done and R4 done: the ledger's start adopts the identity's lanes (owner to the root, Turn R20) and owes
             unknown Restored itself; the I26 test is flipped. Faults adopted-ending-late (new) and no-restored-unknown,
             kept-redelivered (in ledger.ts) keep it.
+        comment     2026-11-16T02:16:16Z
+            R5 done: temporary names removed from src tests (the owed helper names its rule). Gap 2 and one writer:
+            structural checks in code:packages/flow-state-v3/tests/write-lanes/one-builder.test.ts, faults
+            rows-dropped-outside-ledger and second-record-writer. A run rule cannot see a second writer: the edge keys
+            pending writes by record.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open
