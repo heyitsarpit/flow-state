@@ -1246,6 +1246,13 @@ tasks
         comment     2026-11-16T19:20:04Z
             Routed from T20's tests-first step: two reds in the session fixture's runs belong here, Turn I9 (a double
             publish) and Stories R3 (dispose skipping disposeActor). Land each as a failing check titled by its rule.
+        comment     2026-11-16T20:15:10Z
+            Resume (paused for T82 before any edit): round 3 read in; no code, fixture or record changed. Baseline:
+            tests/session and tests/actors 75 pass + 3 inverted. Proposed approach: seen saved per slot (encodeCanonical
+            each; failing one listed unknown; on whole-record bound failure retry all unknown), so context never
+            withholds a record; on return an unknown slot keeps the current value and makes owed wave; reactions reading
+            it (detected by getter on that slot) get an unknown baseline and fire once. Next: requirements comment,
+            session fixture growth after T82, replay Turn I9 and Stories R3.
 
     T74
         title       App mix: several fixtures in one Runtime
@@ -1502,9 +1509,8 @@ tasks
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
-        status      open
+        status      in_progress
         priority    high
-        blocked_by  [@T9, @T20]
         description
             Every fixture gets a manifest and grows into its catalog app with today's features: step 1 of
             code:wiki/conventions/fixture-catalog.md's migration plan.
