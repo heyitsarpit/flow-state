@@ -1503,4 +1503,6 @@ tasks
             shows the default suite has no `*.stress.test.ts` and `test:stress` runs exactly them (no file yet). R3 each
             fault names target tests, 8 plants at once, caught list equal to today's, dead core full run, a miss exits 1
             (no targets yet). R4 faults under 3 min (5 to 10 today); fast suite under 60 s (about 18 s, passes already).
-            R5 check and lint:rules at zero (pass today; a guard).
+            R5 check and lint:rules at zero (pass today; a guard). From P2's close-out review: R6 planted.test.ts passes
+            under `--testTimeout=500` (fails, 1.2 s). R7 the seeds test's reload is cut, so Restore I1 judges (fails).
+            R8 checkout `before()` throws on an unknown checkpoint (fails). R9 Stories R6 and T5 match I7 (fail).

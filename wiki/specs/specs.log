@@ -48,3 +48,7 @@ note 2026-11-16T00:18:08Z
 note 2026-11-16T00:32:57Z
     @spec.Stories: R17, I22 and T15 add the network words Fake.network.offline() and online() (@plan.Pending.D12, the
     orchestrator's call): offline, every call is lost at request; wire words wait. Reverse: drop R17.
+
+note 2026-11-16T01:45:10Z
+    @spec.Stories: R6 and T5 now keep the evidence before the batch holding the 10,001st turn, as I7 decided; they
+    promised 10,000 turns always (P2 close-out review). Reverse: with I7's reverse.

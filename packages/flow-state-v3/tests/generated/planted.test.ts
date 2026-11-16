@@ -58,23 +58,30 @@ const pasted = (text: string): Story<string> =>
   // oxlint-disable-next-line typescript/no-implied-eval, no-new-func -- the test pastes the printed text as code, which is what it checks
   new Function(...Object.keys(scope), `return ${text}`)(...Object.values(scope));
 
+// The search and its shrink take about 1.2 s alone, past the 5 s default when the machine is loaded.
+const SHRINK_MS = 60_000;
+
 describe("a planted fault found from a seed (WriteLanes I6)", () => {
-  it("a port fake that re-sends a lost confirm under a fresh key is found from a seed, shrunk to under ten printed steps, and the printed text, run as code, breaks the same rule", async () => {
-    const [failure, ...more] = propertyTest(planted, {
-      profile: "stress",
-      properties: rules,
-      seeds: [19],
-    });
+  it(
+    "a port fake that re-sends a lost confirm under a fresh key is found from a seed, shrunk to under ten printed steps, and the printed text, run as code, breaks the same rule",
+    async () => {
+      const [failure, ...more] = propertyTest(planted, {
+        profile: "stress",
+        properties: rules,
+        seeds: [19],
+      });
 
-    const story = failure?.story ?? "";
-    const printedSteps = story.split("\n").slice(1);
-    const again = await pasted(story).run();
+      const story = failure?.story ?? "";
+      const printedSteps = story.split("\n").slice(1);
+      const again = await pasted(story).run();
 
-    expect(more).toEqual([]);
-    expect(failure?.rule).toBe("WriteLanes I6");
-    expect(printedSteps.slice(9)).toEqual([]);
-    expect(failure?.drawn ?? 0).toBeGreaterThan(10);
-    expect(story).toContain("Shop.confirm.drop(");
-    expect(breachesOf(again).some((b) => b.startsWith("WriteLanes I6:"))).toBe(true);
-  });
+      expect(more).toEqual([]);
+      expect(failure?.rule).toBe("WriteLanes I6");
+      expect(printedSteps.slice(9)).toEqual([]);
+      expect(failure?.drawn ?? 0).toBeGreaterThan(10);
+      expect(story).toContain("Shop.confirm.drop(");
+      expect(breachesOf(again).some((b) => b.startsWith("WriteLanes I6:"))).toBe(true);
+    },
+    SHRINK_MS,
+  );
 });

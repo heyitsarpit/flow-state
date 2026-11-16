@@ -112,6 +112,10 @@ export type Records = ReadonlyArray<Evidence>;
 
 /**
  * The evidence records of a run before one of its checkpoints.
+ *
+ * **Gotchas**
+ *
+ * - Throws when the run has no checkpoint by that name, so a mistyped name never reads the run.
  */
 export const before = (run: StoryRun, checkpoint: string) => {
   const at = run.trace.events.findIndex(
@@ -120,6 +124,8 @@ export const before = (run: StoryRun, checkpoint: string) => {
       e.record.step._tag === "checkpoint" &&
       e.record.step.name === checkpoint,
   );
+
+  if (at === -1) throw new Error(`no checkpoint ${checkpoint} in ${run.trace.storyId}`);
 
   return run.trace.events
     .slice(0, at)

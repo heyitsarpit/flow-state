@@ -36,12 +36,16 @@ export const underAnotherWorld = (which: string, stories: ReadonlyArray<Story<st
         const steps = [
           ...story.steps,
           Step.reload({ reattach: true, heldWrites: "abort" }),
+          // The cut right after the reload lets Restore I1 judge it.
+          Step.checkpoint({ name: "~reloaded" }),
           ...[...writers.values()].map((actor) => Step.ensure({ actor })),
           Step.advance({ duration: "5 seconds" }),
         ];
 
         // oxlint-disable-next-line no-await-in-loop -- one run at a time: each Story is its own world
-        checked(await story.run({ steps }));
+        const run = checked(await story.run({ steps }));
+
+        expect(Object.keys(run.checkpoints)).toContain("~reloaded");
       }
     });
   });

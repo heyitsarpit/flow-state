@@ -66,8 +66,9 @@ requirements
     R6  The turn limit
         source  @plan.Testing.O2.
         must    Each step may run 10,000 turns per instant; past that the run rejects with StoryTurnLimit, reason
-                Turns, naming the step and the instant and carrying the evidence up to the 10,000th turn; later steps
-                do not run. A settle that does not end within 100,000 tasks rejects with StoryTurnLimit, reason
+                Turns, naming the step and the instant and carrying the evidence before the batch that holds the
+                10,001st turn (@I7); later steps do not run. A settle that does not end within 100,000 tasks rejects 
+                with StoryTurnLimit, reason
                 Settle, carrying the evidence so far.
 
     R7  Fixtures replace the setup's services
@@ -423,9 +424,10 @@ tests
             nudge at 20 s and the deadline at 30 s, in that order, and not at 19,999 or 29,999 ms; reload ensures
             again; a checkpoint holds now, inspection, calls, truth and store. [@I4, @I6]
     T5  Settle and turn limit: a machine that sends itself an event every turn rejects with StoryTurnLimit naming the 
-        step and instant, with 10,000 turns in the evidence; a commit that yields forever rejects with
-            StoryTurnLimit reason Settle; a schedule due every millisecond, advanced past 100,000 deadlines in one
-            step, rejects with StoryTurnLimit reason Advance. [@R6, @I4, @I7]
+        step and instant, with the turns before the crossing batch in the evidence (10,000 when each batch is one
+            turn); a commit that yields forever rejects with StoryTurnLimit reason Settle; a schedule due every
+            millisecond, advanced past 100,000 deadlines in one step, rejects with StoryTurnLimit reason Advance.
+            [@R6, @I4, @I7]
     T6  Fake server: a control changes truth and the next call is answered by the handler's rule (a limit control makes 
         the next transfer Declined); `read(server)` shows truth after each; the transfers port fake passes the
             bank contract test over `Fake.world`, outside a Story. [@I9]

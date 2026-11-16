@@ -75,6 +75,7 @@ describe("payment endings", () => {
     expect(lastReason(before(run, "again"), "pay")).toBe("Rejected");
     expect(state(run.checkpoints.declined)).toBe("CARD");
     expect(row(run.checkpoints.declined)).toBeUndefined();
+    expect(() => before(run, "agian")).toThrow("no checkpoint agian");
   });
 
   it("PAY-03: a charge that landed but whose answer was lost is read back capturable, released, and placed (WriteLanes R14, R8)", async () => {
