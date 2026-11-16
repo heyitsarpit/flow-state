@@ -546,3 +546,7 @@ note 2026-11-16T14:02:17Z
 note 2026-11-16T14:05:51Z
     Second code-quality review started (the user, 2026-11-16): the first's findings given as known; focus on
     construction code, types and errors, public API, tests and bench. New findings fold into T79, T80 or a new Task.
+
+note 2026-11-16T14:11:29Z
+    Wake slip: the timing step removed a worktree at the shared scratch path, likely the second reviewer's; told it to
+    recreate one. Timings use their own path from now on (in bound: 14, 13, 38 s).
