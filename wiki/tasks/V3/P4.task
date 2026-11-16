@@ -56,8 +56,9 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T58, @task.V3.T57, @task.V3.T21, @task.V3.T56, @task.V3.T22, @task.V3.T23. A `blocked_by` link
-    is a real dependency only; where several Tasks are ready, take the earliest in this order.
+    **Order:** @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21,
+    @task.V3.T56, @task.V3.T22, @task.V3.T23. A `blocked_by` link is a real dependency only; where several Tasks are
+    ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -114,14 +115,23 @@ tasks
         status      draft
         priority    high
         blocked_by  [@task.V3.T17]
-        satisfies   [@plan.Machines.O1, @plan.Machines.O5]
+        satisfies   [@plan.Machines.O1, @plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O6, @plan.Machines.O8]
         description
             Build fragments on production: traits, `.each` copies, nested fragments, `.resumable()`, subject paths, and
             the remaining schedule forms.
 
             **Why now:** split from @task.V3.T17 so the compiler and the browser slice do not wait on fragment design.
 
-            **Read first:** @plan.Machines.O5, @spec.Compile, @spec.Turn.
+            **Read first:** @plan.Machines.O5, @spec.Turn (R14 to R17, R19, R27, R30), @spec.Compile,
+            code:wiki/plans/flow/references/proposals/ui-primitives-merge-guide-2026-11-16.md. Starts after the Plan
+            merge it lists.
+
+            **Risk:** R5 turns a computed negative delay from a refusal into zero. Five built checks use it as their
+            refusal case and must move to an over-range delay (2^31 ms, which JSON carries; proposed, the user's choice
+            U4 is open) in the same commit: `tests/turn/refusal.test.ts:16`,
+            `tests/write-lanes/ending-delivery.test.ts:18-24`, `tests/pay/pay.test.ts:84` and `:100`, and the
+            `busyRefused` Story in `fixtures/pay/stories.ts:33-39`. `tests/compile/construction.test.ts:446` stays,
+            because a fixed negative is still DelayOutOfRange.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -130,6 +140,23 @@ tasks
             - The fragment and schedule Requirements this slice builds hold, shown by Story tests and compile-time
               tests, with a fixture that uses them.
             - Each new runtime rule has a planted fault that `nub run faults` catches.
+            - Keyed and unkeyed schedules take `paused`; a timer shows `{ dueAt }` or `{ left }`, never both; every lane
+              change, a denied or unhandled ending's included, re-checks `keys` and `paused`; restore re-evaluates them
+              silently. Each is shown by a Story test citing @spec.Turn.R27.
+            - `armOn` and `disarmOn` take event tokens and Flow.entry, and a non-string token no longer reads as
+              Flow.entry (`src/compile-body.ts`, the `armOn` filter); only `armOn: [Flow.entry]` beside `restartOn`,
+              arming once from step one.
+            - `paused` is a record of named reasons; the snapshot shows `pausedBy`. A restored paused multi-step
+              Schedule finishes `left`, then continues from step one.
+            - A `FanOutNeverHandled` warning exists; a fixed negative delay is reported by `flow check`.
+            - Every function of a keyed schedule receives `key`; `schedule` returns a Duration.Input or an Effect
+              Schedule, and the host steps a Schedule and hands the core the next delay as data.
+            - A computed negative delay fires once on the next turn; the five checks named in Risk refuse with an
+              over-range delay instead, and a planted fault "a negative delay refused" is caught.
+            - A raise into an .each trait reaches every live copy in key order, skips a copy with no handler
+              (`Unhandled` evidence), refuses on a copy's denial, and does nothing (recorded) with no
+              copies (@spec.Turn.R30).
+            - Schedule evidence records pause and resume.
         comment     2026-11-15T20:44:54Z
             Routed from T68: a schedule's send accepts another definition's event token (ScheduleConfig.send takes
             EventToken | Ending) and machine() builds it, breaking Compile T11; pinned as it.fails
@@ -175,6 +202,10 @@ tasks
         acceptance
             - The Requirements of @spec.Reads this slice builds hold, shown by Story tests and run rules.
             - Each new rule has a planted fault that `nub run faults` catches.
+            - Boot refuses an operation whose service the Runtime Layer lacks, by name, read from the contract's
+              `services` list (decisions §5 G1, G2); the reference contracts list their services.
+            - Outcome mappers receive `{ value, input, key, attempt }`, not the value alone (`src/core/serve.ts`, §5
+              G3; @plan.Operations.O3).
         comment     2026-11-15T14:33:25Z
             Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
         comment     2026-11-15T20:44:53Z
@@ -210,6 +241,9 @@ tasks
             - The release-version Requirements of @spec.Restore hold, shown by Story tests that reload across two
               releases of a fixture.
             - Each new rule has a planted fault that `nub run faults` catches.
+            - An actor record's timer is `{ name, key?, dueAt }` or `{ name, key?, left }` at the next format, and a
+              record of the format before it restores through a pure step with every timer read as `dueAt`
+              (@spec.Restore.T6, with its planted fault "an old timer read as `left`").
         comment     2026-11-16T11:06:05Z
             Routed from T17: history is not in the actor record (WriteAhead R4, Persistence O2), so S.X.history after a
             reload enters the default; land it with record migration.
@@ -217,7 +251,7 @@ tasks
         title       CLI check, explain and graph
         status      draft
         priority    medium
-        blocked_by  [@task.V3.T17]
+        blocked_by  [@task.V3.T17, @T77]
         satisfies   [
                     @plan.CommandLine.O1,
                     @plan.CommandLine.O3,
@@ -243,6 +277,9 @@ tasks
         acceptance
             - The Requirements of @spec.StaticCli hold, each shown by a test that states its expected output by hand.
             - `flow graph`'s edge names equal the names in a run's evidence, over every fixture.
+            - `flow graph` prints each `emit` part as an edge named as in the turn's evidence, and `flow explain` lists
+              each schedule's pause reasons by name, emit and `onProps` edges, one fan-out edge per copy state, and the
+              copy denials that refuse (@spec.StaticCli.R5).
         comment     2026-11-16T06:19:55Z
             Routed items: (1) O6 config checks: a config with only the brand key crashes instead of exiting 2; symlinks
             and root package.json unchecked; catch-all exits 2 silently. (2) Narrow the faults runner's tests/cli excuse
@@ -286,7 +323,7 @@ tasks
         title       UI primitives, third wave: combobox, tree and token input fixtures
         status      draft
         priority    medium
-        blocked_by  [@T21, @T57]
+        blocked_by  [@T21, @T57, @T76, @T77]
         description
             Build the async combobox, the lazy tree and the token input as fixtures, each with ui-sdk's behaviour
             scenarios ported as Story tests.
@@ -300,12 +337,18 @@ tasks
             `codebases/ui-sdk/packages/core/test/`: `combobox*.test.ts` (24), `tree*.test.ts` (69) and
             `token-input*.test.ts` (29), at commit `98ba9fd`.
 
-            **Risk:** the generality pass found that props in `Flow.input` reset the actor; send props by event (or use
-            declared props if the user accepts them first). The proposal names three probable upstream bugs (a collapse
-            while loading, a stale `hasMore`, a refused undo); pin the correct behaviour, not upstream's.
+            **Risk:** the three primitives are local actors, so their parent's configuration is declared props
+            (@task.V3.T76), and view events are emits (@task.V3.T77); no `Configure` event. The proposal names three
+            probable upstream bugs (a collapse while loading, a stale `hasMore`, a refused undo); pin the correct
+            behaviour, not upstream's.
 
             **Approach:** as @task.V3.T71: four-file folders, usual and stress Stories, a mapping comment, drops
             with reasons.
+
+            **Approach (prompt):** entries store `{ id, ref, label? }`; a token's status is read from the mention
+            lookup's rows, and the selector hides failed tokens, so undo brings one back as failed. `readOnly` is a
+            prop. The composing draft is a trait on COMPOSING. Drop `value`, `loading` and token `status` from
+            memory (code:wiki/conventions/where-a-value-lives.md).
 
             May change: `fixtures/combobox/`, `fixtures/tree/`, `fixtures/token-input/`, `tests/`. Evidence: this
             Task's comments.
@@ -323,3 +366,166 @@ tasks
             - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
               `nub run faults` catches, and a dead core fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
+
+    T72
+        title       UI primitives, second wave: toaster and menu fixtures
+        status      open
+        priority    medium
+        blocked_by  [@task.V3.T17, @T57, @T77]
+        description
+            Build the toaster and the menu with submenus as fixtures, each with ui-sdk's behaviour scenarios ported as
+            Story tests.
+
+            **Why now:** the second wave of the ui-sdk fixtures the user chose (the user, 2026-11-16). Both need
+            compound states and history, which @task.V3.T17 builds; the menu's nested popups and stale endings exercise
+            actor ownership.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§1
+            schedules, §3 Q4a, §8 W8d), code:wiki/conventions/interaction-state.md,
+            code:wiki/conventions/view-commands.md, the upstream core tests in `codebases/ui-sdk/packages/core/test/`:
+            `toast.test.ts` and `toast-swipe.test.ts` (34), and `menu-*.test.ts` (36), at commit `98ba9fd`.
+
+            **Risk:** the toaster's timer uses `paused` and per-key durations (@task.V3.T57), not stored clock stamps.
+            Its pause reasons are `Hovered`, `Hidden` and `Pressing`, with `Hidden` reading `context.maxVisible` (the
+            toaster is shared, so no props). `restartOn` selects a toast's `{ title, type }`, `keys` leave out loading
+            toasts, `maxVisible` is context (the toaster is shared, R1), and `focusRequest` becomes an emit
+            (@task.V3.T77). The menu's short-lived fields live in a trait placed on OPEN (Q4a). Behaviour is ported,
+            never code or test text.
+
+            **Approach:** as @task.V3.T71: four-file folders, usual and stress Stories, a mapping comment, drops
+            with reasons.
+
+            May change: `fixtures/toaster/`, `fixtures/menu/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a ported test that asserts less than its upstream case → caught by the mapping comment and `nub
+            run faults`.
+
+            User's read: each dropped upstream scenario with its reason.
+        acceptance
+            - `fixtures/toaster/` and `fixtures/menu/` exist in the four-file shape, each with a usual and a
+              stress Story.
+            - Every core test of ui-sdk's toast (34) and menu (36) maps to a Story test asserting the same behaviour, or
+              is listed as dropped with its reason, in one mapping comment on this Task.
+            - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
+              `nub run faults` catches, and a dead core fails every new test.
+            - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
+
+    T76
+        title        Declared props on local actors
+        status       draft
+        priority     high
+        blocked_by   [@task.V3.T9, @T77]
+        derives_from [@plan.Machines.O1]
+        satisfies    [
+                     @plan.Machines.O1,
+                     @plan.Machines.O4,
+                     @plan.Machines.O7,
+                     @plan.Machines.O8,
+                     @plan.Runtime.O3,
+                     @plan.Runtime.O4
+                     ]
+        description
+            Build declared `props` and `onProps` on local actors, with `createActor`'s props and `Story.machine`'s
+            `props(values)` step.
+
+            **Why now:** configurable widgets mirror parent props into memory through a `Configure` event (the number
+            input fixture does); the user accepted declared props instead (decisions Q5, §9 R1 to R3). Starts after the
+            Plan merge.
+
+            **Read first:** @spec.Turn.R28, @plan.Machines.O7, code:wiki/conventions/where-a-value-lives.md,
+            @task.V3.T9, code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9).
+
+            **Risk:** `Story.machine` is @task.V3.T29's; this Task builds its first slice (input, props and the props
+            step) and T29 extends it (proposed; the user's choice U3 is open). Blocked by T9, which builds `createActor`
+            and the mailbox, and by T77, because emit mappers read props. `createActor`'s options stay a record so
+            `props` fits.
+
+            **Approach:** definition `props` with Schema defaults; a props update is its own turn, changing only props,
+            then `onProps`; every memory reader gets props from the same snapshot; construction rejects a prop that
+            collides in the one namespace.
+
+            May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: props read only by guards → caught by tests that read them in `updateMemory`, an emit mapper, a
+            schedule function, `keys`, `paused`, `restartOn` and `check(s, event)`.
+        acceptance
+            - A local actor shows each prop's Schema default before any use; `createActor` and `Story.machine` take
+              props; `ensureActor`, `actorRef` and `useActorByRef` take none (type tests).
+            - A props update is its own turn that changes only props and then runs `onProps`; an equal value is silent;
+              it keeps its FIFO place (@spec.Turn.R28, Story tests).
+            - The snapshot shows `props`, and every memory reader receives them from the same snapshot.
+            - A prop colliding with a memory field, state, trait, operation or emit name is InvalidConfiguration.
+            - Local handles have `setProps(partial)` and `createActor` takes props; a ref on a machine with props is a
+              type error and refused at construction (R9, R10); `PropWithoutDefault`.
+            - Each new rule has a planted fault that `nub run faults` catches.
+
+    T77
+        title        Declared emits, heard by actor.onEmit and in Stories
+        status       draft
+        priority     high
+        blocked_by   [@T57]
+        derives_from [@plan.Machines.O2]
+        satisfies    [@plan.Machines.O1, @plan.Machines.O2, @plan.Runtime.O3, @plan.Testing.O1]
+        description
+            Build declared `emits`, the transition part `emit`, `actor.onEmit`, and emit records in Stories
+            and evidence.
+
+            **Why now:** view commands that depend on the cause (focus after Escape, the first invalid field on every
+            failed submit) are stored today as a request plus a counter that replays after a reload; the user accepted
+            emits (decisions Q3, §9 R6 and the Emits batch). Starts after the Plan merge.
+
+            **Read first:** @spec.Turn.R29, @plan.Machines.O2, code:wiki/conventions/view-commands.md,
+            code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9).
+
+            **Risk:** fragment emits are addressed by instance path and .each key, which need @task.V3.T57's fragments;
+            that is the blocker. React delivery (`useOnEmit`) is @task.V3.T30's.
+
+            **Approach:** the payload is computed in the walk (a pre-commit defect) and delivered after the turn
+            publishes, in turn order; nothing is stored or replayed.
+
+            May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: an emit asserted only through a listener → caught by emit records in a Story run with no
+            listener, and by a reload that replays none.
+        acceptance
+            - Any accepted transition may emit (send, firing, ending, `onContext` or `onProps` event); entry, exit and a
+              refused turn never do; a copy that ends in the same turn still delivers (@spec.Turn.R29).
+            - An emit part naming an undeclared emit is a construction error; `UnusedEmit` warning.
+            - `actor.onEmit(handlers)` hears emits after their turn, in order; it is not a use; with no listener they
+              are dropped; a reload or restore replays none.
+            - A fragment's emits are heard under its instance name and an .each copy's key, and appear in its
+              summary type.
+            - An `emit` evidence kind and Story emit records exist; each new rule has a planted fault.
+
+    T78
+        title       Number input on declared props and emits
+        status      draft
+        priority    medium
+        blocked_by  [@T76, @T77]
+        description
+            Move the done number-input fixture (@task.V3.T71) from `Configure` and `lastCommit` to declared props and
+            an emit.
+
+            **Why now:** decisions W8e and §9 R7. The fixture mirrors seven props into memory, re-sends `Configure`
+            after every reload, and stores `lastCommit { seq, value }` only to defeat equality.
+
+            **Read first:** code:wiki/conventions/controlled-values.md, code:wiki/conventions/where-a-value-lives.md,
+            code:packages/flow-state-v3/fixtures/number-input/machine.ts, @task.V3.T71's mapping comment.
+
+            **Risk:** a controlled value's emit carries the intent (`Change { by }`), not an absolute value (R7). The
+            typed text becomes view-owned, so the display-text scenarios move to view tests (@task.V3.T30) or are listed
+            as dropped. The command palette keeps `Configure` (R12).
+
+            **Approach:** drop `min`, `max`, `step` and `wheel` from memory (props), `text` (view) and `lastCommit`
+            (emit); write `hold: { direction, size }` once on `Press`; keep T71's mapping, updating each changed case.
+
+            May change: `fixtures/number-input/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a migrated case that asserts less than before → caught by re-checking T71's mapping comment case
+            by case.
+        acceptance
+            - The number input declares props and a `Change` emit and has no `Configure` event or `lastCommit` field;
+              its Stories set props with the `props(values)` step and assert emit records.
+            - Every case in T71's mapping still maps to a test asserting the same behaviour, or is listed as moved to
+              view tests or dropped, with its reason.
+            - `nub run check`, `nub run test` and `nub run faults` pass.

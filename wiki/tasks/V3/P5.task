@@ -157,7 +157,9 @@ tasks
             **Read first:** @plan.Inspection.O1, code:packages/flow-state-v3/src/host/inspect.ts,
             `packages/flow-state-v3/src/host/trace.ts` (@task.V3.T65 builds it).
         acceptance
-            The inspection Spec's Requirements hold on production, and the route is exported.
+            - The inspection Spec's Requirements hold on production, and the route is exported.
+            - The Model lists props and emits Schemas and fragment emits; the event kinds add `emit`, and schedule
+              events show arm, fire, restart, pause, resume and disarm (@plan.Inspection.O1, O4, O6).
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: the rest of @plan.Inspection.O4's Trace (header fields, checkpoints inside the
             Trace, a Runtime-wide sequence) and one render taking a model or a trace.
@@ -188,10 +190,14 @@ tasks
             through the map @task.V3.T23 added. Tab steps move to @task.V3.T27; hydration, `StoryPlayer` and
             `definePresentation` to @task.V3.T30.
 
+            `Story.machine` and its `props(values)` step land first in @task.V3.T76; this Task extends them.
+
             **Read first:** @plan.Testing.O1, @plan.Pending.D5 to @plan.Pending.D10 (the names the first slice added),
             @spec.Stories, @task.V3.T63, @task.V3.T69, @task.V3.T70.
         acceptance
-            Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
+            - Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
+            - `advance({ next })` skips paused timers (`NoDeadline` when every match is paused); `advance(d)` and
+              `advance({ to })` never fire a paused timer (@plan.Testing.O2).
         comment     2026-11-16T06:19:55Z
             Routed items: (1) Export Trace, TraceEvent and TraceRecord with StoryRun; the trace's page stands in for the
             Plan's tab (the user's name). (2) A usage error prints help on stdout, against @plan.CommandLine.O3; the
@@ -222,7 +228,7 @@ tasks
         title       React and Next.js bindings
         status      draft
         priority    high
-        blocked_by  [@task.V3.T58]
+        blocked_by  [@task.V3.T58, @task.V3.T76, @task.V3.T77]
         satisfies   [
                     @plan.React.O1,
                     @plan.React.O2,
@@ -249,3 +255,10 @@ tasks
             - The bindings' Requirements hold, shown in real Chrome and Safari.
             - Request render and Hydrate without mismatch on a Next.js host; React 18 and 19; the Story `hydrate` path
               and `StoryPlayer`.
+            - `useActor(machine, { input, props })` shows this render's props before attach and queues a changed value
+              from a layout effect, in FIFO order with sends; a `props` option on `useActorByRef` is a type error.
+            - `useOnEmit` delivers an actor's emits after the commit of the first render at or after their turn, in
+              order, never from a discarded render; a fragment's emits come under its instance name and an .each
+              copy's key.
+            - Server rendering delivers no emit; a paused timer transfers its `left` unchanged; the shape digest leaves
+              out props and emits.
