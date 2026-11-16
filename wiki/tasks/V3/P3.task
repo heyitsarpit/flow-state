@@ -197,7 +197,7 @@ tasks
             caught, no unexplained dead-core green.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
@@ -261,6 +261,10 @@ tasks
             Requirement 8 changed: one fixtures/lanes client per policy replaces switching sync, palette and sign-in;
             those keep reject, which their Stories assert and which fits them (a sync, a command and a code check), and
             one fixture reaches every phase per policy.
+        comment     2026-11-16T03:17:16Z
+            B1 fixed at 75d58fc6: lane records save the queue and owed displaced Attempts, ended NotSent/unknown
+            Restored at the boot; run rule WriteLanes I27 counts every commit's end across reloads and trips on B1.
+            Gates: check 0, suite green but frozen packages, test:stress 25/25, faults 71/71.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open
