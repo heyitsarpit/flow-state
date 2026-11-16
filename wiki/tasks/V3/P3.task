@@ -219,6 +219,16 @@ tasks
               uses the policy.
             - An operation's row reads `waiting` while commits wait behind its head.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-16T02:41:08Z
+            Requirements, each a check failing today (acceptance A1 cells+fixture, A2 waiting, A3 faults): 1 latest
+            cells (WriteLanes R7, algorithm), 2 serialize cells and the 65th NotSent Overloaded (R7, I8), 3 cancel cells
+            with displaced endings owed or evidence (R7, model Displaced; Q5 ruled: let Kept rows go, then mint), 4
+            promotion on resolve, release, supersede or NotSent, never on unknown or retry (R8, I11), 5 disposal ends
+            queued commits NotSent Disposed (algorithm) -> A1 Story tests per cell; 6 waiting row while W is non-empty
+            (Reads R14) -> A2; 7 endings split by origin: notSent: key, failure.NotSent a type error (R4, I39, T16) ->
+            A1; 8 sync Pushed latest, palette run serialize, sign-in verify cancel in samples -> A1; 9 a planted fault
+            per rule -> A3. Proposed limits: queues unsaved (Restore R3), cancel's not-retained unknown (R4) and
+            per-policy row shapes stay open.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open
