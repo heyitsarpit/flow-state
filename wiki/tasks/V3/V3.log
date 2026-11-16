@@ -744,3 +744,7 @@ note 2026-11-16T20:01:36Z
 note 2026-11-16T20:12:18Z
     T20 built (1ba4b4b1) but held: its gates are red only in session, on T9's Turn I9 double publish and one undiagnosed
     pair-sweep cell. T9 round 3 starts now (one lead); then T20 diagnoses the cell and goes to review.
+
+note 2026-11-16T20:15:14Z
+    Amendment (2026-11-17, the user): coverage before fixes and reviews; T82 runs first, T9 round 3 paused, then T9,
+    T20's close and T81 fix against the full fixtures. Commit: 4da9ae96.
