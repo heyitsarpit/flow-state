@@ -806,7 +806,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T17]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -849,6 +849,50 @@ tasks
             Routed from T17's fix-round review: an issue raised by a schedule drops the schedule's name at creation and
             turn time (incarnations.ts loop, serve.ts Refused), which Diagnostics R5 asks for; computed-field guard
             getters are non-enumerable, so a callback that spreads its fields escapes the guard and gets NaN.
+        comment     2026-11-16T11:39:33Z
+            Requirements, each a check failing today (Actors unless named): 1 identity by value: actorRef(machine,
+            value) keeps only the Flow.input fields and names the actor by them, encoded with their Schemas in
+            field-name order, so a reorder or an extra field names the same actor; a machine with input takes only a
+            value and one without only a literal string (R5, I7, I8, T4) -> type test and Story test; 2 creation from
+            the ref's input: ensureActor of a value ref creates with that input (routed: Flow.input machines never
+            start), an input its Schemas refuse throws SchemaValidation naming the field and leaves no actor, record or
+            evidence, and a later valid ensure succeeds (R6, I9, T18; Compile R6) -> runtime test; 3
+            createActor(machine, { input }): a new local actor each call, never written to the store, not named by any
+            ref, never ended by the grace, gone at disposeActor; RuntimeNotReady before ready and RuntimeDisposed after
+            dispose (R4, R6, R22) -> runtime test; 4 a handle follows the identity: a handle taken before an end sends
+            to and reads the next incarnation (R6, R9) -> Story test; 5 getSnapshot falls back live, then record, then
+            the last incarnation's terminal snapshot with lifecycle disposed (Runtime O3, Turn R23) -> runtime test
+        comment     2026-11-16T11:39:34Z
+            Requirements, continued: 6 the snapshot exposes lifecycle, issues and schedules with dueAt (routed open
+            fields; Turn R23); 7 issues by source: a refused turn's issue shows in issues until its own source succeeds,
+            a new incarnation has none, and a schedule's issue names its schedule at creation and turn time (routed;
+            Turn R25, I31, Diagnostics R5) -> Story tests; 8 one FIFO mailbox per actor and rotation: with several
+            actors holding mail, one event runs from the next actor in turn, oldest first, so a long queue on one never
+            delays another past one rotation (R12, R13, I19, I21, T10) -> run rule on every Story run plus a Story with
+            three actors, and generated Stories over the mix; 9 follow-ups run first, at most 64 per admitted event, the
+            65th refused InvalidTurn naming the chain (R13, I20) -> Story test on a context chain; 10 mail past the
+            drain cap is served by a later step without new input (routed; WriteAhead R10) -> runtime test; 11 at most
+            1,024 pending events per actor: an external send past it throws AdmissionOverloaded and changes nothing;
+            endings, firings and context updates are never dropped (R14, I22, I23) -> runtime test; 12 the send table:
+            live delivered, ended-with-record restored then delivered, no record or disposed dropped with
+            SendTargetAbsent NoRecord as evidence, several sends keep order, a send is never a use (R16, I25, T12) ->
+            Story test per row
+        comment     2026-11-16T11:39:34Z
+            Requirements, continued: 13 isolation: a handle or ref of Runtime A used on Runtime B is rejected
+            ForeignActorRef, and two Runtimes from one setup share no actor or store (R24, I34) -> runtime test; 14
+            context: a definition's slot binds to a provider actor's select, a cycle or missing provider rejects at
+            admission (ContextCycle, MissingContextProvider), a bound consumer is a use of its provider, disposing a
+            provider with bound consumers rejects BlockedByDependents (R18, R20, I28) -> runtime tests; 15 context waves
+            and onContext: baselines silent at admission and reload, a provider change gives each consumer at most one
+            update per wave from complete snapshots (a diamond included), an equal selection is silent, a throwing
+            selector keeps the last value with one issue, and the update keeps its FIFO place (R19, I27, Turn R22, I28,
+            T14, T16) -> Story tests; 16 a late turn never exits an activation owning a queued commit (routed; Turn R21,
+            I27) -> Story test; 17 memory identity on a state-only move: decide Turn R24 against I30 with two traces and
+            fix the losing text (routed) -> run rule; 18 a computed-field guard still guards when the callback spreads
+            its fields (routed; Compile R5) -> core test; 19 a planted fault per new rule, caught by its named target
+            test. Out of slice (proposed): R11 versions (@task.V3.T56); RecordUndecodable and quarantined lifecycle
+            (@task.V3.T20); snapshots subscriptions, R17 (@task.V3.T58); R1 per-operation refusal, R23 CleanupFailed,
+            IdentityExhausted, runPromise; an actor-to-actor send action, a new public API for the user.
 
     T72
         title       UI primitives, second wave: toaster and menu fixtures
