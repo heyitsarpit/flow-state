@@ -18,7 +18,7 @@ export const mixFaults: ReadonlyArray<Fault> = [
         replace: [
           "        const machineOf = (t: (typeof tickets)[number]) =>",
           "          writes",
-          '            .find((w) => w.key.startsWith("lane/") && t.purpose !== "flush" && Option.exists(w.record, (r) => r["attempt"] === t.attempt))',
+          '            .find((w) => w.key.startsWith("lane/") && t.purpose !== "flush" && Option.exists(w.record, (r) => r.includes(`\\"attempt\\":\\"${t.attempt}\\"`)))',
           '            ?.key.split("/")[1];',
           "        const first = tickets[0] === undefined ? undefined : machineOf(tickets[0]);",
           "        for (const t of tickets) {",

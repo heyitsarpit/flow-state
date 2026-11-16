@@ -73,8 +73,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '        retryCount: lane.head.retryCount + (Phase.$is("Recapturing")(lane.head.phase) ? 1 : 0),',
-        replace: "        retryCount: lane.head.retryCount,",
+        find: '              retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
+        replace: "              retryCount: l.head.retryCount,",
       },
     ],
   },
@@ -140,8 +140,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "    const written = all.filter((p) => !unencodable(p));",
-        replace: "    const written = all;",
+        find: "    return Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite), ...owed]);",
+        replace:
+          "    return Result.all([...recordWrites(t).filter(Result.isSuccess), ...[...t.lanes].map(laneWrite), ...owed]);",
       },
     ],
   },
@@ -160,7 +161,7 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "end-while-withheld",
-    tests: ["src/core/persist.test.ts"],
+    tests: ["src/core/persist.test.ts", "tests/restore/unencodable.test.ts"],
     says: "a free actor whose records are held back ends at its grace",
     rule: "Actors R8",
     edits: [

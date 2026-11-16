@@ -311,15 +311,9 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const end = (actor: ActorId) => {
     const incarnation = incarnationOf(actor);
 
-    if (incarnation === undefined) return;
-
-    // The end waits while the identity's records cannot encode: its grace starts again. The step
-    // still notes the record, so an identity not yet withheld is withheld and reported.
-    if (tx.world().withheld.has(actorKey(actor)) || !persistence.encodes(actor)) {
-      saveActor(actor);
-
-      return;
-    }
+    // The end waits while the identity's records cannot encode: its grace starts again. An
+    // identity whose record stopped encoding was withheld at the end of that turn's step.
+    if (incarnation === undefined || tx.world().withheld.has(actorKey(actor))) return;
 
     // The end writes a dirty record in its own step, not at the next capture.
     saveActor(actor, Due.Now());

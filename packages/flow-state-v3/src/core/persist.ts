@@ -92,17 +92,6 @@ export const makePersistence = (tx: Tx) => {
     );
   };
 
-  /**
-   * Whether an identity's live actor record encodes now.
-   */
-  const encodes = (actor: ActorId) => {
-    const incarnation = incarnationOf(actor);
-
-    return (
-      !persisted(actor) || incarnation === undefined || Result.isSuccess(actorWrite(incarnation))
-    );
-  };
-
   // RETURN_TYPE: the Runtime's copy of a record, whose schedule list stays the record's shape.
   const recordOf = (incarnation: Incarnation): ActorRecord => ({
     actor: incarnation.actor,
@@ -360,7 +349,6 @@ export const makePersistence = (tx: Tx) => {
 
   return {
     recordOf,
-    encodes,
     saveActor,
     removeActor,
     saveLane,

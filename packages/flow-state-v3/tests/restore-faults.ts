@@ -26,14 +26,14 @@ export const restoreFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "owed-row-without-channel",
-    tests: ["tests/actors/lane-keeping.test.ts"],
+    tests: ["src/host/lanes.test.ts"],
     says: "an owed record's rows carry no channel",
     rule: "Codec I7",
     edits: [{ file: "src/core/record.ts", find: "      channel: r.channel,\n", replace: "" }],
   },
   {
     name: "owed-record-keyed-kept",
-    tests: ["tests/actors/lane-keeping.test.ts"],
+    tests: ["src/host/lanes.test.ts"],
     says: "an identity's owed rows are saved under kept/ instead of owed/",
     rule: "Codec I7",
     edits: [
@@ -270,19 +270,6 @@ export const restoreFaults: ReadonlyArray<Fault> = [
         find: "    return Option.some(ticket.id);",
         replace:
           "    armTimer(Timer.Silent({ ticket: ticket.id }), tx.env.now + SILENT_MS);\n\n    return Option.some(ticket.id);",
-      },
-    ],
-  },
-  {
-    name: "end-ignores-unencodable",
-    tests: [UNENCODABLE],
-    says: "an actor ends at its grace although its record cannot encode",
-    rule: "Actors R8",
-    edits: [
-      {
-        file: "src/core/incarnations.ts",
-        find: "    if (tx.world().withheld.has(actorKey(actor)) || !persistence.encodes(actor)) {",
-        replace: "    if (tx.world().withheld.has(actorKey(actor))) {",
       },
     ],
   },

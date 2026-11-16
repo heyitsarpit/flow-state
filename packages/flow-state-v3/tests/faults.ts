@@ -140,8 +140,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '        retryCount: lane.head.retryCount + (Phase.$is("Recapturing")(lane.head.phase) ? 1 : 0),',
-        replace: "        retryCount: 0,",
+        find: '              retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
+        replace: "              retryCount: 0,",
       },
     ],
   },
@@ -376,9 +376,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), true, Option.none());",
-        replace:
-          '      if (!restored.undecodable.has(key) && key === "") ensure(actor, Option.none(), true, Option.none());',
+        find: "    for (const actor of owing.values()) ensure(actor, Option.none(), true, Option.none());",
+        replace: "    for (const actor of owing.values()) void actor;",
       },
     ],
   },
