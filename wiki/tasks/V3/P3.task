@@ -1329,6 +1329,32 @@ tasks
             together); a Story that disposes a provider still in use, or ensures a conflicting or unwired ref, now fails
             like the real Runtime does. For the user: an actor-to-actor send action still has no owner, and the
             follow-up cap returns with it.
+        comment     2026-11-16T23:43:27Z
+            Round-3 review: ISSUES at 2878d90d. check exit 0; suite exit 1, 1,083 pass + 13 inverted, the 2 reds T20's
+            pair cell (Acknowledging x storage refusal); stress alone exit 1 on mix seed 18 only; faults: 202 of 202
+            caught by their targets, not judged because the unchanged run also fails (those 3 reds plus stress sweeps
+            timing out under the parallel load, which pass alone). Blocking (T9): a slot whose selection is undefined or
+            an Option is saved unknown, so every reload makes up an onContext event: signedOutReloaded with two more
+            reloads counts the avatar 2, 3, 4, 5 (scratch probe), against Actors R19 (equal slots cause no update) and
+            R9 (a consistent saved world differs in nothing); fix by saving undefined and Option as known values and
+            keeping unknown for values that truly cannot encode. Tests missed it: E2 reloads once and its 3 came from
+            the new R9 text. Routed to T9, not blocking: Restore R2 still says a reload restore has no onContext event,
+            against Actors R9 and R18; R13's 64 clause and I20 have no code, check or fault, so mark them proposed until
+            the send action; Turn R22, a when or mapper defect advances the baseline (context.ts, react, older than this
+            round); a slot whose selector threw at bind is absent from seen, so a return never hears its first value
+            (record.ts seenOf, context.ts rebase); weak asserts in workspace.test.ts (toContain seen:2, toEqual with an
+            undefined key) and stale 64 comments in load.ts and follow-ups.test.ts. Rulings: the cap removal stands,
+            weighed against Runtime O4, not shaped to the code (no turn sends an event, only the Send input and a
+            consumer's own onContext events enqueue; context chains follow the acyclic graph, one update per consumer
+            per wave; the drain cap leaves mail queued, so nothing is lost or hangs); the Turn I9 fix matches Turn I9
+            (one start publish with current values, the owed wave publishes only a change or issue); Story ensure and
+            dispose share admission, and BlockedByDependents is still checked by context.test.ts and the builders, so
+            the consumers-first generator hides no refusal. Seed 18: same shrunk Story at e1b9f1ab, wrong side the test
+            tooling (the mix draws a run whose only cross-fixture step is a reload without reattach under held storage),
+            not the runtime; no open owner (T74 built the mix), routed to the orchestrator. Sidecars (4 Haiku): rejected
+            the uncapped turn-send loop (no send action), the pairs-0 retarget (caught by auth-session), FIFO and
+            wave-per-turn claims (match R19, R22), Story offer vs input (same admission; life refusals are StoryFailed),
+            and pre-round blind findings outside this diff.
 
     T74
         title       App mix: several fixtures in one Runtime
