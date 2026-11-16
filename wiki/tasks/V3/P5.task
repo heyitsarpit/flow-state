@@ -213,6 +213,9 @@ tasks
             Routed from the Plan-examples review: Stories R12 limits cut reads to read(ref) and friends, while Testing
             O4 and the Plan examples read a machine Story's checkpoints[name].memory and .schedules; widen R12 for
             Story.machine when building it.
+        comment     2026-11-16T15:05:02Z
+            Decided by the orchestrator (user-delegated, 2026-11-16): add Story.app([setupA, setupB], { fixtures }) so a
+            failing app mix prints as pasteable Story code.
     T31
         title       CLI outputs designed for people
         status      draft

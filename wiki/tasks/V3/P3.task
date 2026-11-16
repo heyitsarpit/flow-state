@@ -1210,6 +1210,9 @@ tasks
             code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. Its section 2 bug comes
             first: a user error tagged with a decline name escapes the StillUnknown rule (cells.ts:166). Its section 7
             corrects 3e, 2e and section 8 of the first review.
+        comment     2026-11-16T15:05:01Z
+            Decided by the orchestrator (user-delegated, 2026-11-16): type the context slot wiring in app entries and
+            actorRef, so a wrong provider is a type error, not only a runtime refusal.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
@@ -1249,7 +1252,7 @@ tasks
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
-        status      open
+        status      in_progress
         priority    high
         description
             Construction config is decoded by one Schema, so the types, construction and the Runtime agree on what a
