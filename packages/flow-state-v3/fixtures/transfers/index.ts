@@ -1,17 +1,33 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { bank } from "./machine.ts";
+import { bankGrown } from "./app.ts";
 import { long, samples, seededStress, stories, stressSamples } from "./stories.ts";
+import { centsEdges, idAtBound, twoSpellings } from "./stories/edges.ts";
+import { manyAccounts, owedAtBoot } from "./stories/load.ts";
+import { samples as formSamples } from "./stories/samples.ts";
+import { chain, customerForgotten, formFirst } from "./stories/structure.ts";
+import { checkAndSend } from "./stories/usual.ts";
 
 /**
  * The transfers fixture, as every runner reads it.
  */
 export const transfers = manifest({
   name: "transfers",
-  app: bank,
-  stories,
-  samples: [samples],
-  stressSamples: [stressSamples],
+  app: bankGrown,
+  stories: {
+    ...stories,
+    checkAndSend,
+    chain,
+    formFirst,
+    customerForgotten,
+    manyAccounts,
+    owedAtBoot,
+    centsEdges,
+    idAtBound,
+    twoSpellings,
+  },
+  samples: [samples, formSamples],
+  stressSamples: [stressSamples, formSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 45 },
   mix: Option.some({ usual: samples, stress: stressSamples }),
@@ -19,6 +35,10 @@ export const transfers = manifest({
     {
       samples,
       reach: { writes: true, persisted: true, cancelsAcknowledging: true, retainsUnknown: true },
+    },
+    {
+      samples: formSamples,
+      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
     },
   ],
 });

@@ -32,5 +32,5 @@ export const manyShoppers = Array.from({ length: SHOPPERS }, (_, n) => n)
     const lossy = n % 4 === 3 ? signedIn.world(Carts.addLine.drop({ at: "response" })) : signedIn;
 
     return lossy.send(cartOf(n), add(`l${String(n)}`, "v1"));
-  }, storeStory("pay/many-shoppers"))
+  }, storeStory("pay/stress-many-shoppers"))
   .checkpoint("end");
