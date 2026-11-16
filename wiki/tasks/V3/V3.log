@@ -532,3 +532,8 @@ note 2026-11-16T13:43:19Z
 note 2026-11-16T13:45:09Z
     Whole-codebase code-quality review started (the user, 2026-11-16): duplication, patterns that should be one service,
     dead code, implicit state machines, derived state, Effect idiom; report to a proposal file for one convergence pass.
+
+note 2026-11-16T14:01:23Z
+    Decision (the user, 2026-11-16): emits keep their own callback namespace, { S, E, O, emits } with emit:
+    [emits.X.from(...)], matching fragments' callbacks and exits; a record-keyed emit was weighed and dropped as
+    inconsistent with them.
