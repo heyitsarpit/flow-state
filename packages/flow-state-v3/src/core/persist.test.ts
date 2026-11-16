@@ -94,7 +94,7 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
     .commands.flatMap((c) => (Command.$is("Persist")(c) ? c.writes : []))
     .filter((w) => w.key === `owed/${actorKey(actor)}`);
 
-  expect(tx.world().mail).toHaveLength(1);
+  expect([...tx.world().mail.values()].flat()).toHaveLength(1);
   expect(writes.map((w) => Option.map(w.record, (r) => r["rows"]))).toEqual([
     Option.some([expect.objectContaining({ attempt: "att-1", channel: "success", kept: false })]),
   ]);

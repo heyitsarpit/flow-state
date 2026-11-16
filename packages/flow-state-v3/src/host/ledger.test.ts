@@ -445,6 +445,18 @@ describe("the owed ledger on the production runtime", () => {
     assert.strictEqual(jam.tries.length, 5, "a heard row is closed");
   });
 
+  it("mail left past a step's drain cap is served by a later step with no new input (WriteAhead R10; Actors R13)", () => {
+    const { served } = chainOver(false, PAST_DRAIN, -1);
+    const b = bootWith(served, new Map(), 1);
+
+    testing.attach(b.built, chained, "host", false);
+    testing.send(b.built, chained, "Go", {});
+    b.tab.settle();
+
+    assert.ok(knocksCommitted(b.seen) > 10_000, "the chain passed one step's drain");
+    assert.strictEqual(knocksHeard(b.seen), knocksCommitted(b.seen), "nothing is left waiting");
+  });
+
   // The chain leaves its next decline in the mail
   // between steps. disposeActor suspends the identity: the laneless row goes Waiting (WriteLanes
   // `algorithm` suspend: "rows with no lane included") and the adopting incarnation hears it
@@ -455,7 +467,6 @@ describe("the owed ledger on the production runtime", () => {
 
     testing.attach(b.built, chained, "host", false);
     testing.send(b.built, chained, "Go", {});
-    b.tab.settle();
     b.built.runtime.disposeActor(actorRef(ChainMachine, "c1"));
     b.tab.settle();
     testing.attach(b.built, chained, "host", false);
@@ -480,7 +491,6 @@ describe("the owed ledger on the production runtime", () => {
 
     testing.attach(first.built, chained, "host", false);
     testing.send(first.built, chained, "Go", {});
-    first.tab.settle();
     testing.disposeRuntime(first.built);
     first.tab.settle();
 
@@ -517,7 +527,6 @@ describe("the owed ledger on the production runtime", () => {
 
     testing.attach(first.built, chained, "host", false);
     testing.send(first.built, chained, "Go", {});
-    first.tab.settle();
     first.built.runtime.disposeActor(actorRef(ChainMachine, "c1"));
     first.tab.settle();
     testing.disposeRuntime(first.built);
@@ -626,9 +635,11 @@ describe("the owed ledger on the production runtime", () => {
     testing.attach(b.built, chained, "host", false);
     ring(b, "a", chained);
     const attempt = lastRing(b);
+    // The answer is queued before the chain starts, so its settlement is the first task after the
+    // chain's first step, ahead of the step that serves the chain's backlog.
+    b.bell.waiting.get(attempt)?.(Effect.succeed("ding"));
     testing.send(b.built, chained, "Go", {});
     b.tab.settle();
-    rung(b, attempt);
 
     assert.deepStrictEqual(
       endingsOf(b.seen, attempt),

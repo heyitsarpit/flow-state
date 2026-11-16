@@ -14,7 +14,7 @@ import { Operation } from "../core/compiled.ts";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { admit, isDisposed, Verdict } from "../core/life.ts";
-import { CallResult, type Env, Input, type Machines, step } from "../core/step.ts";
+import { CallResult, type Env, Input, type Machines, owesServe, step } from "../core/step.ts";
 import { type CallId, Command, emptyWorld, type World } from "../core/world.ts";
 import { flowError } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
@@ -145,6 +145,12 @@ export const makeDriver = (options: {
       if (out.evidence.length > 0) options.sink(out.evidence);
 
       for (const command of out.commands) perform(command);
+
+      // Mail the step's drain left is served by a later step, after a yield to the host's tasks.
+      if (owesServe(world))
+        fibers.fork("serve", Effect.yieldNow, (exit) => {
+          if (Exit.isSuccess(exit)) input(Input.Serve());
+        });
 
       if (isDisposed(world.life)) Deferred.doneUnsafe(disposed, Exit.void);
     }

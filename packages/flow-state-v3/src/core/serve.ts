@@ -321,9 +321,16 @@ export const makeServe = (
     });
 
   const drain = () => {
-    for (let served = 0; served < 10_000 && tx.world().mail.length > 0; served += 1) {
-      const [first, ...rest] = tx.world().mail;
-      tx.set({ ...tx.world(), mail: rest });
+    for (let served = 0; served < 10_000 && tx.world().mail.size > 0; served += 1) {
+      const [next] = tx.world().mail;
+
+      if (next === undefined) return;
+
+      // One event from the next actor in rotation: its oldest; the actor goes to the back while
+      // it still has mail.
+      const [key, [first, ...rest]] = next;
+      const others = without(tx.world().mail, key);
+      tx.set({ ...tx.world(), mail: rest.length === 0 ? others : withEntry(others, key, rest) });
 
       if (first !== undefined) serve(first);
     }

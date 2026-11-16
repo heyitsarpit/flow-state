@@ -18,6 +18,13 @@ export { CallResult, Input } from "./input.ts";
 export type { Env, Machines } from "./tx.ts";
 
 /**
+ * Whether a world still holds admitted mail its step did not serve: its drain stopped at its cap,
+ * so the host owes it a Serve step without new input.
+ */
+export const owesServe = (world: World) =>
+  world.mail.size > 0 && Verdict.$is("Run")(admit(world.life, Input.Serve()));
+
+/**
  * One step of the Runtime: applies one input, then serves every
  * admitted mail item as a turn, and returns the next world with its commands and evidence.
  *
@@ -76,6 +83,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     BootFailed: () => setLife(Life.Failed()),
     Ensure: ({ actor, use, existing }) => incarnations.ensure(actor, use, existing),
     Create: ({ actor, input: given }) => incarnations.create(actor, given),
+    Serve: () => undefined,
     Release: ({ actor, use }) => incarnations.release(actor, use),
     Send: ({ actor, tag, payload }) => {
       if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))

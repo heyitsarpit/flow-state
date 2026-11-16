@@ -31,6 +31,7 @@ export type Input = Data.TaggedEnum<{
   BootFailed: {};
   Ensure: { actor: ActorId; use: Option.Option<Use>; existing: boolean };
   Create: { actor: ActorId; input: Values };
+  Serve: {};
   Release: { actor: ActorId; use: Use };
   Send: { actor: ActorId; tag: string; payload: Values };
   Settled: { call: CallId; result: CallResult };

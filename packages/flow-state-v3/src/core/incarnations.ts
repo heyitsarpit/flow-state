@@ -304,7 +304,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       const busy =
         used(incarnation.actor) ||
         lanesOf(incarnation.actor).some(([, lane]) => isInFlight(lane)) ||
-        tx.world().mail.some((m) => actorKey(m.actor) === actorKey(incarnation.actor));
+        tx.world().mail.has(actorKey(incarnation.actor));
 
       const timing = [...tx.world().timers.values()].some(
         (t) => Timer.$is("Grace")(t) && t.incarnation === incarnation.id,

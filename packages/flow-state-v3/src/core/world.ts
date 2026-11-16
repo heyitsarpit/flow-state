@@ -272,7 +272,7 @@ export type World = {
   readonly owed: Ledger;
   readonly reads: ReadonlyMap<CallId, Read>;
   readonly displaced: ReadonlyMap<string, Displaced>;
-  readonly mail: ReadonlyArray<Mail>;
+  readonly mail: ReadonlyMap<string, ReadonlyArray<Mail>>;
   readonly uses: ReadonlyMap<string, ReadonlyArray<Use>>;
   readonly timers: ReadonlyMap<TimerId, Timer>;
   readonly counter: number;
@@ -294,7 +294,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   owed: emptyLedger,
   reads: new Map(),
   displaced: new Map(),
-  mail: [],
+  mail: new Map(),
   uses: new Map(),
   timers: new Map(),
   counter: 0,

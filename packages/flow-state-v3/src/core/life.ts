@@ -104,6 +104,14 @@ const table = {
     Disposing: drop,
     Disposed: drop,
   },
+  Serve: {
+    Inert: drop,
+    Booting: drop,
+    Open: run,
+    Failed: drop,
+    Disposing: drop,
+    Disposed: drop,
+  },
   DisposeRuntime: {
     Inert: run,
     Booting: run,

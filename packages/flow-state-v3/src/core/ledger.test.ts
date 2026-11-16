@@ -64,7 +64,10 @@ const ledgerFaults = (world: World) => {
     .map((r) => r.id)
     .toSorted();
 
-  const refs = world.mail.flatMap((m) => (Mail.$is("Ending")(m) ? [m.id] : [])).toSorted();
+  const refs = [...world.mail.values()]
+    .flat()
+    .flatMap((m) => (Mail.$is("Ending")(m) ? [m.id] : []))
+    .toSorted();
 
   return refs.join() === queued.join()
     ? []
@@ -165,7 +168,7 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
   it("tryOne: refused once is Retrying behind queued mail, refused again is Kept; a closed row's reference does nothing", () => {
     const s = stepOver(live(emptyWorld(true)));
     const id = s.ledger.owe(ending(Option.some("L")));
-    s.tx.set({ ...s.tx.world(), mail: [] });
+    s.tx.set({ ...s.tx.world(), mail: new Map() });
 
     s.ledger.tryOne(id, hearAs("Refused"));
     assert.deepStrictEqual(deliveries(s.rows()), ["Retrying"]);
@@ -231,13 +234,13 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     const retrying = s.ledger.owe(ending(Option.some("L")));
     const kept = s.ledger.owe(ending(Option.some("M")));
     s.ledger.owe(ending(Option.some("N"), Audience.Life({ incarnation: "inc-1" })));
-    s.tx.set({ ...s.tx.world(), mail: [] });
+    s.tx.set({ ...s.tx.world(), mail: new Map() });
     s.ledger.tryOne(retrying, hearAs("Refused"));
-    s.tx.set({ ...s.tx.world(), mail: s.tx.world().mail.filter((m) => m._tag === "Event") });
+    s.tx.set({ ...s.tx.world(), mail: new Map() });
     s.ledger.tryOne(kept, hearAs("Refused"));
     s.ledger.tryOne(kept, hearAs("Refused"));
     // The drain serves each reference once; these direct tries leave the refusal's reference behind.
-    s.tx.set({ ...s.tx.world(), mail: [], incarnations: new Map() });
+    s.tx.set({ ...s.tx.world(), mail: new Map(), incarnations: new Map() });
     assert.deepStrictEqual(deliveries(s.rows()), ["Queued", "Retrying", "Kept", "Queued"]);
 
     s.ledger.suspend(actor, false);

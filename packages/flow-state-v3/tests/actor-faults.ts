@@ -139,6 +139,47 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "rotation-does-not-rotate",
+    tests: ["tests/actors/mailbox.test.ts"],
+    says: "an actor keeps the head of the rotation until its mailbox is empty",
+    rule: "Actors I21",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "      tx.set({ ...tx.world(), mail: rest.length === 0 ? others : withEntry(others, key, rest) });",
+        replace:
+          "      tx.set({ ...tx.world(), mail: rest.length === 0 ? others : new Map([[key, rest], ...others]) });",
+      },
+    ],
+  },
+  {
+    name: "mailbox-not-fifo",
+    tests: ["src/host/ledger.test.ts"],
+    says: "an actor's mailbox serves its newest mail first",
+    rule: "Actors I19",
+    edits: [
+      {
+        file: "src/core/tx.ts",
+        find: "    world = { ...world, mail: withEntry(world.mail, key, [...(world.mail.get(key) ?? []), mail]) };",
+        replace:
+          "    world = { ...world, mail: withEntry(world.mail, key, [mail, ...(world.mail.get(key) ?? [])]) };",
+      },
+    ],
+  },
+  {
+    name: "drain-backlog-waits-for-input",
+    tests: ["src/host/ledger.test.ts"],
+    says: "mail a step's drain left waits for the next input instead of a later step",
+    rule: "WriteAhead R10",
+    edits: [
+      {
+        file: "src/host/driver.ts",
+        find: "      if (owesServe(world))",
+        replace: "      if (owesServe(world) && out.commands.length < 0)",
+      },
+    ],
+  },
+  {
     name: "foreign-handle-accepted",
     tests: ["tests/actors/identity.test.ts"],
     says: "another Runtime's handle is taken as naming this Runtime's actor",

@@ -169,7 +169,13 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const unreferenced = (row: Owed) =>
     tx.set({
       ...tx.world(),
-      mail: tx.world().mail.filter((m) => !(Mail.$is("Ending")(m) && m.id === row.id)),
+      mail: new Map(
+        [...tx.world().mail].flatMap(([key, box]) => {
+          const left = box.filter((m) => !(Mail.$is("Ending")(m) && m.id === row.id));
+
+          return left.length === 0 ? [] : [[key, left] as const];
+        }),
+      ),
     });
 
   const recorded = (row: Owed, why: "evidence" | "letGo") => tx.act(Act.RowRecorded({ row, why }));

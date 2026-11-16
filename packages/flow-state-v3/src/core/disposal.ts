@@ -42,7 +42,7 @@ export const makeDisposal = (
     tx.set({
       ...tx.world(),
       life: Life.Disposing({ awaiting: Option.none() }),
-      mail: [],
+      mail: new Map(),
     });
 
     // Each identity can no longer hear: its queued rows wait for its next start.

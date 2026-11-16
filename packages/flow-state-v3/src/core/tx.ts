@@ -148,8 +148,10 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       }
   };
 
+  // Each actor has one FIFO mailbox; an actor whose mailbox was empty joins the rotation last.
   const enqueue = (mail: Mail) => {
-    world = { ...world, mail: [...world.mail, mail] };
+    const key = actorKey(mail.actor);
+    world = { ...world, mail: withEntry(world.mail, key, [...(world.mail.get(key) ?? []), mail]) };
   };
 
   return {
