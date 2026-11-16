@@ -505,3 +505,8 @@ note 2026-11-16T13:15:55Z
 note 2026-11-16T13:19:28Z
     T74 close review ISSUES (db2e5e33): acceptance 3 broken, since the planted fault shows with lanes alone under the
     mix profile and the shrink stops at three fixtures. Fix round queued after T9, which holds the one builder slot.
+
+note 2026-11-16T13:25:29Z
+    T9 in review at 4b33f869 (all gates green; context, admission refusals, follow-up cap). For the user: actorRef gains
+    a value name and { context }, app entries take { machine, context }, snapshots gain lifecycle, issues, schedules and
+    context. T74's fix round resumed; T9's close review follows the merge review.
