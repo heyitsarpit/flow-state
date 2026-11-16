@@ -482,6 +482,9 @@ tasks
             - Local handles have `setProps(partial)` and `createActor` takes props; a ref on a machine with props is a
               type error and refused at construction (R9, R10); `PropWithoutDefault`.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment      2026-11-16T15:38:52Z
+            Fixtures first (the user, 2026-11-16): local actors through createActor with props get a fixture first; its
+            Stories are this Task's first requirements.
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories

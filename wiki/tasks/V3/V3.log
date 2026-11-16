@@ -612,3 +612,7 @@ note 2026-11-16T15:32:10Z
 note 2026-11-16T15:38:09Z
     T81 in review at bcb8f3c8 (four construction bugs fixed, one config Schema, codes folded into Defect; no net line
     drop); close review started. T20 round 3 resumed: worst-case lane-record sizing at admission.
+
+note 2026-11-16T15:38:39Z
+    Amendment (2026-11-16, the user): instructions gain Fixtures first: a public feature goes into a fixture with usual
+    and stress Stories and edge-value step samples before it is built; findings land in fixtures too. Commit: dbfb0c3e.

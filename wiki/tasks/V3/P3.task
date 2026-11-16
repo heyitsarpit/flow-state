@@ -1121,6 +1121,11 @@ tasks
             with one wave on return; only events sent by turns count against the 64 cap (context updates and onContext
             events don't; ContextCycle bounds them). Update D13 and R13/R14 to that; add the Pair/Watcher Story for the
             deferred update's place.
+        comment     2026-11-16T15:38:51Z
+            Fixtures first (the user, 2026-11-16), for round 3: context and createActor have no fixture. Add a session
+            fixture: a provider whose user can be signed out (undefined), several consumers with a diamond and a direct
+            edge, one persisted consumer, more than 64 consumers; usual and stress Stories and edge-value step samples,
+            so the generator, sweep, mix and bench reach context.
 
     T74
         title       App mix: several fixtures in one Runtime
@@ -1297,6 +1302,10 @@ tasks
             claims, so the <= 1000 assertion can't fail; failure words (generate.ts:364,366) and write salts (:494-499)
             still leak across dropped fixtures; one answer keying with re-pasted saved Stories would replace the
             mixed/single split (generate.ts:281).
+        comment     2026-11-16T15:38:51Z
+            Fixtures first (the user, 2026-11-16): add a coverage test that each built public feature, by its API name,
+            appears in some fixture's machine, and give every fixture's step samples its Schemas' edge values (empty,
+            undefined or None, sizes at and past bounds) under the stress profile.
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
