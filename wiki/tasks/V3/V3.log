@@ -806,3 +806,7 @@ note 2026-11-16T22:26:25Z
 note 2026-11-16T22:31:48Z
     T82 done at 7d9385bf: review ISSUES none blocking, fix round landed (suite: only the 6 known T9/T20 reds;
     orchestrator re-ran it). Next: T9 round 3 from its resume note, then T20's close, T81's review.
+
+note 2026-11-16T22:32:06Z
+    T9 round 3 lead started at e1b9f1ab against T82's fixtures; it owns the Turn I9 reds and the Stories R3 and Turn I14
+    inverted tests T82 routed.
