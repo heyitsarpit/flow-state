@@ -240,6 +240,23 @@ tasks
             Bench alone (per turn median/p99 ms): transfers/long 0.029/0.048, pay/long 0.030/0.051, cells/long
             0.027/0.046, sync/long 0.018/0.029, sign-in/long 0.013/0.031, lanes/stress-36 0.030/0.057; stress Stories
             0.020 to 0.085 median.
+        comment     2026-11-16T03:08:26Z
+            Review ISSUES at 347bd32c (code same at bee3458a). B1 blocks: a queued commit is lost across a reload.
+            Repro: lanes fixture, Git.sync.hold(), two Commits on serializeClient or latestClient, reload, ensure: the
+            only ending is the head's unknown Restored; the queued commit gets none. @plan.Operations.O3 and
+            @plan.Persistence.O4 promise each queued commit NotSent { Restored } first, so Restore R3's new 'stated
+            limit' contradicts two Plans without the user. Fix: record W's commits in the lane record and end each
+            NotSent Restored at the Start, with a planted fault; or the user defers it to @task.V3.T20 with an it.fails
+            pin and R3 marks it open, not a limit. Add a run rule that every commit ends once across reloads: generated
+            lanes runs draw reloads and none caught this. Cancel's displaced head survived the same probe. Not blocking:
+            Q5 ruling (cancel's commit lets Kept go, recorded letGo) is a lost-nothing semantics change against O3's
+            literal 'a commit declines', for the user's read; tests and lane-policy-faults.ts still cite the deleted
+            WriteLanes Q5, cite R6; requirement 8 (sync, palette, sign-in on the policies) was dropped without a note,
+            the lanes fixture meets A1. Gate edits are sound: released-delivered follows the dropLane to vacate rename,
+            60 s is a test timeout. notSent: is O3's own key. R4's not-retained unknown, per-policy row shapes and
+            outstanding are outside T18's acceptance; owner: the orchestrator, a P3 Task (proposed). Gates: check 0,
+            lint:rules, suite 522 + 7 expected fail, test:stress 25/25, faults 70/70; run in the clean checkout,
+            no sidecar.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open
