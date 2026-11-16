@@ -131,3 +131,12 @@ export const admit = (life: Life, input: Input) => table[input._tag][life._tag];
  * Whether the Runtime's life has ended: its disposal is over, so its Scope may close.
  */
 export const isDisposed = Life.$is("Disposed");
+
+/**
+ * The name of the Runtime's life, for a report.
+ *
+ * **When to use**
+ *
+ * Inspection shows it; the host decides by {@link admit} and {@link isDisposed} alone.
+ */
+export const lifecycleOf = (life: Life) => life._tag;

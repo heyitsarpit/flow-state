@@ -58,11 +58,13 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     return { ...incarnation, schedules: new Map<string, Armed>() };
   };
 
+  // Every change of an incarnation is written from its state at the step's end.
   const setIncarnation = (incarnation: Incarnation) => {
     tx.set({
       ...tx.world(),
       incarnations: withEntry(tx.world().incarnations, actorKey(incarnation.actor), incarnation),
     });
+    saveActor(incarnation.actor);
   };
 
   const publish = (incarnation: Incarnation) =>
@@ -118,8 +120,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     setIncarnation(incarnation);
     publish(incarnation);
-
-    if (Option.isNone(from)) saveActor(actor);
     ledger.start(actor);
   };
 

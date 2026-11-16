@@ -27,6 +27,10 @@ const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
 
 const WAKE = "wake";
 
+// A refused batch's records go out again after the default capture interval, so a store that keeps
+// refusing is not retried in a loop.
+const RETRY_MS = 5000;
+
 /**
  * The persistence edge: one batch out at a time for the Runtime's scope, carrying everything not
  * known to have landed.
@@ -35,7 +39,8 @@ const WAKE = "wake";
  *
  * - A batch due now or with a ticket, or any batch with `captureMs` at 0 or on a hidden page, is
  *   issued in the next host task; a later one waits at most `captureMs`.
- * - A refused batch is put back unless something newer was accepted for the same key.
+ * - A refused batch is put back unless something newer was accepted for the same key, and goes
+ *   again with the next batch, at the latest 5 s later.
  * - Each ticket's answer is passed to `answered`, which runs a step of the core; a ticket with
  *   nothing left to write is answered as landed.
  */
@@ -95,6 +100,7 @@ export const makeEdge = (
 
         for (const t of tickets) options.answered(t.id, landed);
 
+        if (!landed) wakeAt(clock.currentTimeMillisUnsafe() + RETRY_MS);
         pump();
       },
     );

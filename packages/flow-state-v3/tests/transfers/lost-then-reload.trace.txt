@@ -19,5 +19,5 @@ story transfers/lost-then-reload
   18 main:2 delivered transfer att-000000000000000000006d61696e3a31-1 as Unsure to Bank/Transfers/acct-1
   19 main:2 turn Bank/Transfers/acct-1 Unsure READY -> READY parts [on.Unsure[0] root -> self]
   20 main:2 published Bank/Transfers/acct-1 READY {"notice":"check your statement"}
-  21 main:2 write flush [actor/Bank/Transfers/acct-1, owed/Bank/Transfers/acct-1] landed
+  21 main:2 write flush [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}, owed/Bank/Transfers/acct-1] landed
   22 main:2 step 6 checkpoint reloaded

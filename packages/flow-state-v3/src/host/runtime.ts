@@ -266,6 +266,14 @@ export const buildRuntime = (
           (cause) => new FlowError({ code: "ServiceFailed", problems: [String(cause)], cause }),
         ),
         Effect.tapError(() => Effect.sync(() => driver.input(Input.BootFailed()))),
+        // A bootstrap the disposal cancelled fails as the life says, whatever its service did.
+        Effect.mapError((failed) =>
+          Verdict.$match(driver.verdict(Input.Boot({ stored })), {
+            Reject: ({ code }) => rejected(code),
+            Run: () => failed,
+            Drop: () => failed,
+          }),
+        ),
       );
 
     const opened = Input.Boot({ stored });

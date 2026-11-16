@@ -148,7 +148,10 @@ describe("generated runs: the stress profile", () => {
     expect(bursts.filter((n) => n > 2000)).toEqual([]);
   });
 
-  const drawn = (key: string) => runs.reduce((n, r) => n + (r.tally.get(key) ?? 0), 0);
+  // Each distinct draw once: Arbitrary favours the ends of its range, so runs repeat a draw's digit,
+  // and a repeated draw is one sample, not many.
+  const draws = new Map(runs.flatMap((r) => [...r.tally]));
+  const drawn = (kind: string) => [...draws.values()].filter((k) => k === kind).length;
 
   // The shares drawn that fall outside three standard errors of their mix, in percent.
   const offMix = (mix: Readonly<Record<string, number>>) => {

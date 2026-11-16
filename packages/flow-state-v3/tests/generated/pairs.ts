@@ -39,7 +39,7 @@ const FORBIDDEN: ReadonlyArray<readonly [(c: Cell) => boolean, string]> = [
   ],
   [
     ({ phase }) => phase === "Cancelling",
-    "a cancel's interrupt of the call ends within its step (WriteLanes R14)",
+    "a cancel's ending is queued when the call's fiber exits (WriteLanes R14), and a fake's interrupted call exits at once, before the cancelling Story step ends",
   ],
   [
     ({ r, phase }) => !r.persisted && PERSISTED_PHASES.has(phase),

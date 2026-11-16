@@ -54,7 +54,7 @@ const defect = (what: string) => {
  */
 export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
   const { persisted } = tx;
-  const { saveActor, saveAwaited, saveLane, setLane, dropLane } = persistence;
+  const { saveActor, saveAwaited, saveLane, setLane, sendLane, dropLane } = persistence;
 
   const open = () => Life.$is("Open")(tx.world().life);
 
@@ -132,7 +132,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       phase: Phase.OnWire({ call }),
     };
 
-    setLane(at.id, { ...lane, head });
+    sendLane(at.id, { ...lane, head });
     tx.command(
       Command.Invoke({
         call,
@@ -173,12 +173,8 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     });
   };
 
-  const hold = (at: At, lane: Lane, write: boolean) => {
-    const held = { ...lane, head: { ...lane.head, phase: Phase.Held() } };
-    setLane(at.id, held);
-
-    if (write) saveLane(at.actor, at.id);
-  };
+  const hold = (at: At, lane: Lane) =>
+    setLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Held() } });
 
   const headFor = (input: Values, owner: number) => ({
     id: tx.mintAttempt(),
@@ -199,7 +195,6 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     }
 
     setLane(at.id, { ...lane, head: headFor(next.input, next.owner), queue: rest });
-    saveLane(at.actor, at.id);
   };
 
   // The call or ticket a displaced head waits on: its interrupted call, or its storage ticket.
@@ -233,12 +228,10 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         const lane = laneAt(at);
         const queued = { input, owner };
         setLane(at.id, { ...lane, queue: latest ? [queued] : [...lane.queue, queued] });
-        saveLane(at.actor, at.id);
       },
       Replace: ({ input, owner }) => {
         const lane = laneAt(at);
         setLane(at.id, { ...lane, head: headFor(input, owner), queue: [] });
-        saveLane(at.actor, at.id);
       },
       Displace: ({ input, owner, owed }) => {
         const lane = laneAt(at);
@@ -246,7 +239,6 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         const displaced = { actor: at.actor, operation: at.operation, lane: at.id, head, owed };
         tx.set({ ...tx.world(), displaced: withEntry(tx.world().displaced, key, displaced) });
         setLane(at.id, { ...lane, head: headFor(input, owner), queue: [] });
-        saveLane(at.actor, at.id);
       },
       // A declined commit has no Attempt and no lane; its ending is a row like any other.
       Decline: ({ why, owner }) =>
@@ -262,8 +254,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       Become: ({ phase }) => {
         const lane = laneAt(at);
 
-        if (Phase.$is("Held")(phase)) hold(at, lane, true);
-        else setLane(at.id, { ...lane, head: { ...lane.head, phase } });
+        setLane(at.id, { ...lane, head: { ...lane.head, phase } });
       },
       Owe: ({ owner }) => {
         const lane = laneAt(at);
@@ -310,7 +301,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
           onSome: (call) => tx.command(Command.Interrupt({ call })),
         });
 
-        if (channel === "unknown") hold(at, lane, true);
+        if (channel === "unknown") hold(at, lane);
         else vacate(at, lane);
 
         ledger.owe({
@@ -400,7 +391,6 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   const endQueue = (at: At, why: NotSentWhy) => {
     const lane = laneAt(at);
     setLane(at.id, { ...lane, queue: [] });
-    saveLane(at.actor, at.id);
 
     for (const queued of lane.queue)
       ledger.owe({

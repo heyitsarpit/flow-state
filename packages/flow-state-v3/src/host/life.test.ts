@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { Context, Effect, Exit, Layer, Schema } from "effect";
+import { Cause, Context, Effect, Exit, type Fiber, Layer, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
   actorRef,
@@ -160,6 +160,147 @@ describe("Runtime life (Actors R2, R4, R22, I42)", () => {
   });
 });
 
+const Shelf = definition({
+  id: "Life/Shelf",
+  persist: true,
+  states: ["ON"],
+  events: { Poke: {} },
+  memory: {},
+  operations: () => ({}),
+});
+
+const ShelfMachine = machine(Shelf, ({ S }) => ({ default: S.ON, states: { ON: {} } }));
+
+const shelves = app({ id: "shelves", machines: { shelf: ShelfMachine } });
+
+const shelfId = { machine: "Life/Shelf", name: "top" };
+
+const shelfRecord =
+  '{"format":1,"machine":"Life/Shelf","name":"top","state":"ON","memory":{},"schedules":[]}';
+
+// A persisted Runtime over a store holding one actor record, whose bootstrap waits for its service
+// until `acquire` answers it, so the life stays Booting.
+const booting = () => {
+  const store = new Map([["actor/Life/Shelf/top", shelfRecord]]);
+  const tab = platformOver(store, 1);
+  const acquiring: Array<(answer: Effect.Effect<void, string>) => void> = [];
+
+  const layer = Layer.effect(
+    Lamp,
+    Effect.callback<void, string>((resume) => void acquiring.push(resume)).pipe(
+      Effect.as(Lamp.of({ on: Effect.void })),
+    ),
+  );
+
+  const built = testing.build(
+    { app: shelves, services: layer, scope: "life", persistence: { captureMs: 0 } },
+    tab.platform,
+  );
+
+  const seen: Array<Evidence> = [];
+  attachInspector(built.runtime, (e) => void seen.push(e));
+  const first = Effect.runFork(built.runtime.ready());
+  tab.settle();
+
+  const acquire = (answer: Effect.Effect<void, string>) => {
+    for (const resume of acquiring.splice(0)) resume(answer);
+    tab.settle();
+  };
+
+  return { store, tab, built, seen, first, acquire, acquiring };
+};
+
+// How a ready fiber ended: still pending, ran, or the code of the FlowError it failed with.
+const codeAt = (fiber: Fiber.Fiber<void, FlowError>) =>
+  Option.match(Option.fromUndefinedOr(fiber.pollUnsafe()), {
+    onNone: () => "pending",
+    onSome: (exit) =>
+      Exit.isSuccess(exit)
+        ? "ran"
+        : Option.match(Cause.findErrorOption(exit.cause), {
+            onNone: () => "threw",
+            onSome: (e) => e.code,
+          }),
+  });
+
+describe("each reachable admit cell through the Runtime's calls (Actors T24, I42)", () => {
+  it("Actors I42: while Booting, a second ready waits for the one bootstrap, and ensureActor, disposeActor and forget reject RuntimeNotReady", () => {
+    const { built, first, acquire, acquiring } = booting();
+    const second = Effect.runFork(built.runtime.ready());
+
+    expect(acquiring).toHaveLength(1);
+    expect(codeAt(second)).toBe("pending");
+    expect(codeOf(() => built.runtime.ensureActor(actorRef(ShelfMachine, "top")))).toBe(
+      "RuntimeNotReady",
+    );
+    expect(codeOf(() => built.runtime.disposeActor(actorRef(ShelfMachine, "top")))).toBe(
+      "RuntimeNotReady",
+    );
+
+    acquire(Effect.void);
+
+    expect([codeAt(first), codeAt(second)]).toEqual(["ran", "ran"]);
+  });
+
+  it("Actors T24: a forget while Booting rejects RuntimeNotReady and the record survives into the boot", () => {
+    const { store, built, acquire } = booting();
+
+    expect(codeOf(() => testing.forget(built, shelfId))).toBe("RuntimeNotReady");
+
+    acquire(Effect.void);
+
+    expect(store.has("actor/Life/Shelf/top")).toBe(true);
+    expect(built.driver.world().records.has("Life/Shelf/top")).toBe(true);
+  });
+
+  it("Actors I42: after a failed bootstrap, disposeActor and forget reject RuntimeNotReady", () => {
+    const { built, acquire } = booting();
+    acquire(Effect.fail("no power"));
+
+    expect(codeOf(() => built.runtime.disposeActor(actorRef(ShelfMachine, "top")))).toBe(
+      "RuntimeNotReady",
+    );
+    expect(codeOf(() => testing.forget(built, shelfId))).toBe("RuntimeNotReady");
+  });
+
+  it("Actors T24: a dispose while Booting makes ready fail RuntimeDisposed, its service's late failure included, with one disposal", () => {
+    const { built, seen, first, acquire } = booting();
+    Effect.runSync(built.runtime.dispose());
+    acquire(Effect.fail("no power"));
+
+    expect(codeAt(first)).toBe("RuntimeDisposed");
+    expect(disposals(seen)).toBe(1);
+  });
+
+  it("Actors I42: while Disposing, ready and forget reject RuntimeDisposed, and disposeActor and a second dispose are dropped", () => {
+    const { tab, built, seen } = constructed();
+    Effect.runSync(built.runtime.ready());
+    const room = built.runtime.ensureActor(hall);
+    room.send({ _tag: "Ring" });
+    tab.settle();
+    const disposing = Effect.runFork(built.runtime.dispose());
+    tab.settle();
+    const again = Effect.runFork(built.runtime.dispose());
+    tab.settle();
+
+    const ready = Effect.runSync(
+      built.runtime
+        .ready()
+        .pipe(Effect.match({ onSuccess: () => "ran", onFailure: (e) => e.code })),
+    );
+
+    expect(ready).toBe("RuntimeDisposed");
+    expect(codeOf(() => testing.forget(built, hallId))).toBe("RuntimeDisposed");
+    expect(codeOf(() => built.runtime.disposeActor(hall))).toBe("ran");
+    expect(disposals(seen)).toBe(0);
+
+    tab.advance(5000);
+
+    expect([disposing.pollUnsafe(), again.pollUnsafe()].every((e) => e !== undefined)).toBe(true);
+    expect(disposals(seen)).toBe(1);
+  });
+});
+
 const HOST = new URL("./", import.meta.url);
 
 const hostSources = () =>
@@ -168,12 +309,12 @@ const hostSources = () =>
     .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.startsWith("testing/"))
     .map((f) => [f, readFileSync(new URL(f, HOST), "utf8")] as const);
 
-const LIFE_TAG = /\$is\("(?:Inert|Booting|Open|Failed|Disposing|Disposed)"\)/u;
+const LIFE_TAG = /\$is\("(?:Inert|Booting|Open|Failed|Disposing|Disposed)"\)|\blife\._tag\b/u;
 
 const FLAG = /\blet (?:started|open|closed|booted|disposed|admitting)\b/u;
 
 describe("one owner of the Runtime's life (Actors I42)", () => {
-  it("Actors I42: no host module matches a life tag or keeps a lifecycle flag; admission follows admit alone", () => {
+  it("Actors I42: no host module matches or reads a life tag or keeps a lifecycle flag; admission follows admit alone", () => {
     const deciders = hostSources().flatMap(([f, text]) =>
       LIFE_TAG.test(text) || FLAG.test(text) ? [f] : [],
     );

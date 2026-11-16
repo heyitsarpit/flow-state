@@ -91,8 +91,8 @@ export const emptyLedger = ledgerOf(new Map());
 export const rowsOf = (ledger: Ledger, actor: ActorId) => ledger.get(actorKey(actor)) ?? [];
 
 /**
- * Whether a row is saved in its identity's owed record: it waits, it is kept, or it is the
- * unknown { Restored } a start owed for a Held head.
+ * Whether a row outlives the step that moves it, so the move writes its identity's owed record: it
+ * waits, it is kept, or it is the unknown { Restored } a start owed for a Held head.
  */
 export const isSaved = (row: Pick<Owed, "delivery" | "channel" | "reason">) =>
   Delivery.$is("Waiting")(row.delivery) ||

@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import type { Values } from "./compiled.ts";
-import { Delivery, isSaved, rowsOf } from "./ledger.ts";
+import { Audience, Delivery, type Owed, rowsOf } from "./ledger.ts";
 import {
   actorRecordKey,
   encodeActor,
@@ -34,6 +34,15 @@ type Touched = {
   readonly tickets: ReadonlyArray<Ticket>;
   readonly now: boolean;
 };
+
+// An identity's owed record holds every row owed to the identity, whatever its delivery.
+const toIdentity = (row: Owed) => Audience.$is("Identity")(row.to);
+
+// A row whose try is still in the mailbox: a step that ends with one (a drain stopped at its cap)
+// writes the owed record, which no move into or out of a saved delivery did.
+const inMailbox = (row: Owed) =>
+  toIdentity(row) &&
+  (Delivery.$is("Queued")(row.delivery) || Delivery.$is("Retrying")(row.delivery));
 
 /**
  * Persistence of a step: setters note what each persisted identity's step touched, and the step
@@ -144,8 +153,17 @@ export const makePersistence = (tx: Tx) => {
    */
   const saveOwed = (actor: ActorId) => touch(actor, (t) => ({ ...t, owed: true }));
 
-  // ── lanes.
+  // ── lanes: every change of a lane's entry is written from its state at the step's end.
   const setLane = (id: string, lane: Lane) => {
+    tx.set({ ...tx.world(), lanes: withEntry(tx.world().lanes, id, lane) });
+    saveLane(lane.actor, id);
+  };
+
+  /**
+   * Puts a head on the wire without a write: its record already says what the call carries, since
+   * an acknowledgement or a capture landed it in flight with the retryCount it is sent with.
+   */
+  const sendLane = (id: string, lane: Lane) => {
     tx.set({ ...tx.world(), lanes: withEntry(tx.world().lanes, id, lane) });
   };
 
@@ -174,7 +192,7 @@ export const makePersistence = (tx: Tx) => {
 
   const owedWrite = (actor: ActorId) => {
     const rows = rowsOf(tx.world().owed, actor)
-      .filter(isSaved)
+      .filter(toIdentity)
       .map((r) => ({ ...r, kept: Delivery.$is("Kept")(r.delivery) }));
 
     return {
@@ -214,6 +232,12 @@ export const makePersistence = (tx: Tx) => {
    * records once each, due by the derived rule.
    */
   const project = (final: ReadonlyArray<Ticket> = []) => {
+    for (const rows of tx.world().owed.values()) {
+      const waiting = rows.find(inMailbox);
+
+      if (waiting !== undefined) saveOwed(waiting.actor);
+    }
+
     const all = [...touched.values()];
     touched = new Map();
 
@@ -235,6 +259,7 @@ export const makePersistence = (tx: Tx) => {
     saveAwaited,
     saveOwed,
     setLane,
+    sendLane,
     dropLane,
     project,
     dirty,

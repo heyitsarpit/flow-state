@@ -350,7 +350,7 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
   let offline: Option.Option<Span> = Option.none();
   let online = false;
   let given = 0;
-  const tally = new Map<string, number>();
+  const tally = new Map<string, string>();
   let quieted = false;
   const offlineNow = () => Option.exists(offline, (o) => now >= o.from && now < o.until);
 
@@ -382,7 +382,7 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
 
     armed.set(keyOf(at), { calls, answer });
 
-    if (!offlineNow()) tally.set(answer, (tally.get(answer) ?? 0) + 1);
+    if (!offlineNow()) tally.set(`answer ${digits[3]}:${n}`, answer);
     front.push(...armedSteps(samples, at, answer, mix(digits[1], n)));
   };
 
@@ -407,7 +407,7 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
     );
 
     writes = Option.some({ count, write });
-    tally.set(`write ${write}`, (tally.get(`write ${write}`) ?? 0) + 1);
+    tally.set(`write ${digits[3]}:${count}`, `write ${write}`);
 
     if (write === "refuse") front.push(storage("refuse"));
     else if (write !== "ack") front.push(storage("hold"));
@@ -601,8 +601,8 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
 
 /**
  * A generated run: its steps as a Story would hold them (unused words left out), what it recorded,
- * what was still pending at its horizon, its offline span, and how many of each answer and write it
- * drew outside that span.
+ * what was still pending at its horizon, its offline span, and each answer and write it drew outside
+ * that span, by the draw's digit and salt.
  *
  * **Gotchas**
  *
@@ -614,7 +614,7 @@ export type Generated = {
   readonly run: StoryRun;
   readonly pending: ReadonlyArray<string>;
   readonly offline: Option.Option<Span>;
-  readonly tally: ReadonlyMap<string, number>;
+  readonly tally: ReadonlyMap<string, string>;
 };
 
 /**

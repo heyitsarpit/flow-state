@@ -368,7 +368,9 @@ export const makeWorld = (
  * **Details**
  *
  * `status`: `held` waits for `Fake.storage.release()`; `landed` is in the store; `refused` failed
- * `StoreRefused`; `aborted` was released after its tab died, so it never landed.
+ * `StoreRefused`; `aborted` was released after its tab died, so it never landed. `step` is the
+ * index of the step that issued it; `answered` is the index of the step whose end first saw it
+ * landed, refused or aborted, and `None` while it is held.
  */
 export type Batch = {
   readonly tab: Tab;
@@ -376,6 +378,8 @@ export type Batch = {
   readonly keys: ReadonlyArray<string>;
   readonly acknowledges: ReadonlyArray<string>;
   readonly status: "held" | "landed" | "refused" | "aborted";
+  readonly step: number;
+  readonly answered: Option.Option<number>;
 };
 
 const issuedAs = { hold: "held", refuse: "refused" } as const;
@@ -410,7 +414,10 @@ export const makeStore = (
   };
 
   const mark = (out: Out, status: Batch["status"]) => {
-    batches[batches.indexOf(out)] = { ...out, batch: { ...out.batch, status } };
+    batches[batches.indexOf(out)] = {
+      ...out,
+      batch: { ...out.batch, status, answered: Option.some(step()) },
+    };
   };
 
   return {
@@ -433,17 +440,21 @@ export const makeStore = (
           const word = next.shift()?.word;
           const answer = Deferred.makeUnsafe<void, StoreRefused>();
 
-          const batch = {
+          const status = word === undefined ? "landed" : issuedAs[word];
+          const at = step();
+
+          const batch: Batch = {
             tab: mainTab(open),
             purpose,
             keys: writes.map((w) => w.key),
             acknowledges,
+            status,
+            step: at,
+            answered: status === "held" ? Option.none() : Option.some(at),
           };
 
-          const status = word === undefined ? "landed" : issuedAs[word];
-
           if (status === "landed") apply(writes);
-          issued(batches.push({ batch: { ...batch, status }, writes, answer }) - 1);
+          issued(batches.push({ batch, writes, answer }) - 1);
 
           if (status === "held") return Deferred.await(answer);
 

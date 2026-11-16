@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
-import type { Life } from "../core/life.ts";
+import { type Life, lifecycleOf } from "../core/life.ts";
 import { actorKey, Timer } from "../core/world.ts";
 import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
@@ -133,7 +133,7 @@ const cutOf = (driver: Driver): RuntimeCut => {
       dueAt: dueOf(timer),
     })),
     uses: [...world.uses].map(([actor, uses]) => ({ actor, uses })),
-    lifecycle: world.life._tag,
+    lifecycle: lifecycleOf(world.life),
   };
 };
 

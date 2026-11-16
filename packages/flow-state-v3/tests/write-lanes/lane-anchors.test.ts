@@ -93,7 +93,7 @@ it("PAY-22: a lost void is re-sent three times on its lane, then let go with one
   expect(memory(done)?.["notice"]).toBe(VOID_GAVE_UP);
 });
 
-it.fails("WriteLanes I7: retryCount equals the invoked re-sends of its Attempt, after a reload that aborts a raised count's capture", async () => {
+it("WriteLanes I7: retryCount equals the invoked re-sends of its Attempt, after a reload that aborts a raised count's capture", async () => {
   const run = await voidTwice("WriteLanes I7 across a reload")
     .world(Shop.voidAuthorization.hold())
     .reload()

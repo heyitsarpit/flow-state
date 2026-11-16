@@ -48,15 +48,14 @@ describe("A run's trace (Stories R16)", () => {
       // The lane record is in flight, so the identity is restored live at ready and its Start
       // delivers unknown Restored (Restore R1, R3).
       [2, "ending", "transfer", "unknown", "Restored"],
-      // The memory changed, and the owed entry the step touched is projected as its removal, since
-      // the row was heard in the same step (WriteAhead R5, R10). R5 also wants the lane record here,
-      // now Held: the inverted test below pins that gap.
-      [2, "write", "flush", ["actor", "owed"], "landed"],
+      // The memory changed, the start restored the lane Held, and the owed entry the step touched
+      // is projected as its removal, since the row was heard in the same step (WriteAhead R5, R10).
+      [2, "write", "flush", ["actor", "lane", "owed"], "landed"],
       [2, "step", "checkpoint reloaded"],
     ]);
   });
 
-  it.fails("WriteAhead R5: a lane record reads inFlight false once its head is Held, a restored one included", async () => {
+  it("WriteAhead R5: a lane record reads inFlight false once its head is Held, a restored one included", async () => {
     const { reloaded } = checked(await lostThenReload.run()).checkpoints;
 
     const lanes = [...reloaded.records.stored].filter(([key]) => key.startsWith("lane/"));

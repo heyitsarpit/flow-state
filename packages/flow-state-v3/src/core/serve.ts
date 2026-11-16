@@ -6,7 +6,6 @@ import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx, without } from "./tx.ts";
 import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
 import { actorKey, type Incarnation, Mail } from "./world.ts";
-import type { Persistence } from "./persist.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 
@@ -21,13 +20,11 @@ const UNMAPPED: Heard = "Unmapped";
  */
 export const makeServe = (
   tx: Tx,
-  persistence: Persistence,
   lanes: LaneSteps,
   incarnations: IncarnationSteps,
   ledger: LedgerSteps,
 ) => {
   const { incarnationOf } = tx;
-  const { saveActor } = persistence;
   const { commit, retry, cancel, lookup, flushLanes, viewOf } = lanes;
   const { armSchedules, stopSchedules, setIncarnation, publish } = incarnations;
 
@@ -155,7 +152,6 @@ export const makeServe = (
 
         if (after.memory !== incarnation.memory || after.state !== incarnation.state)
           publish(after);
-        saveActor(after.actor);
         flushLanes(after.actor);
 
         return HEARD;

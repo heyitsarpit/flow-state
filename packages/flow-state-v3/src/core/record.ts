@@ -124,8 +124,8 @@ export const encodeActor = (compiled: Compiled, incarnation: Incarnation) =>
   );
 
 /**
- * A lane's record as JSON data: its Attempt with its encoded input, whether it was InFlight at
- * capture, the encoded inputs of the commits queued behind it, and the Attempts of the displaced
+ * A lane's record as JSON data: its Attempt with its encoded input, the retryCount it carries on
+ * the wire (a re-send waiting for this capture counts itself), whether it was InFlight at capture, the encoded inputs of the commits queued behind it, and the Attempts of the displaced
  * heads whose endings it owes.
  */
 export const encodeLane = (compiled: Compiled, lane: Lane, displaced: ReadonlyArray<string>) => {
@@ -144,7 +144,7 @@ export const encodeLane = (compiled: Compiled, lane: Lane, displaced: ReadonlyAr
         operation: lane.operation,
         attempt: lane.head.id,
         input,
-        retryCount: lane.head.retryCount,
+        retryCount: lane.head.retryCount + (Phase.$is("Recapturing")(lane.head.phase) ? 1 : 0),
         mayHaveApplied: sentBefore(lane.head),
         inFlight: !Phase.$is("Held")(lane.head.phase),
         queue: queued,

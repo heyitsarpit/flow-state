@@ -1,5 +1,6 @@
 import { Equal, Option, Predicate, Schema } from "effect";
 import { expect } from "vite-plus/test";
+import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
 import { everyCommitEndsOnce } from "./commits.ts";
 import { atStart, knownAt, placesOf } from "./places.ts";
 import { oneStart, ownedRowsSaved } from "./starts.ts";
@@ -593,6 +594,8 @@ export const rules: ReadonlyArray<Rule> = [
   owingRestoredLive,
   unchangedPartsKept,
   everyCommitEndsOnce,
+  acknowledgedBeforeSent,
+  oneBatchOut,
 ];
 
 /**
