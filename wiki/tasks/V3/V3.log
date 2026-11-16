@@ -784,3 +784,8 @@ note 2026-11-16T20:37:05Z
 note 2026-11-16T20:53:22Z
     Amendment (2026-11-17, the user): wake every 60 minutes, cron `7 * * * *` (was 30). Reverse: restore 7,37 in
     cadence and the cron.
+
+note 2026-11-16T21:43:22Z
+    Wake timing at 46198357 not judged: T82's mid-Task HEAD has 6 red sweeps (Turn I9, routed to T9 at its close), so
+    stress and faults refuse to run; suite 29 s vs 12 s baseline includes T82's new sweeps. Re-time at T82's close
+    before any speed Task.
