@@ -481,3 +481,7 @@ note 2026-11-16T12:11:23Z
 note 2026-11-16T12:12:08Z
     T9 paused at the user's request before the 5-hour limit: WIP checkpoint 55678372 (typecheck red), resume note
     b4ed119a. The 13:07Z one-shot wake resumes it, then starts the held reviews.
+
+note 2026-11-16T13:02:26Z
+    Resumed after the 5-hour reset (the user): T9's builder resumed from b4ed119a; T74's close review started. T9's
+    requirements review follows it.
