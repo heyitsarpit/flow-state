@@ -61,6 +61,11 @@ const utf8Bytes = (text: string) => {
   return bytes;
 };
 
+// Whether a well-formed text passes a UTF-8 bound. A UTF-16 unit takes at most three bytes, so a
+// text short enough for that to fit is not counted.
+const utf8Over = (text: string, limit: number) =>
+  text.length * 3 > limit && utf8Bytes(text) > limit;
+
 // An array index as ECMAScript orders an object's own keys: such keys come first, by value.
 const indexOf = (key: string) => {
   const n = Number(key);
@@ -159,7 +164,7 @@ export const toCanonicalJson = (root: unknown) => {
     if (!value.isWellFormed())
       return Result.fail(CodecFailure.Malformed({ reason: "loneSurrogate", path }));
 
-    return utf8Bytes(value) > BOUNDS.stringBytes
+    return utf8Over(value, BOUNDS.stringBytes)
       ? Result.fail(
           CodecFailure.BoundExceeded({ bound: "stringBytes", limit: BOUNDS.stringBytes, path }),
         )
@@ -224,7 +229,7 @@ export const encodeCanonical = (value: unknown) =>
         CodecFailure.Malformed({ reason: "notPlain", path: "$" }),
       ),
       (encoded) =>
-        utf8Bytes(encoded) > BOUNDS.bytes
+        utf8Over(encoded, BOUNDS.bytes)
           ? Result.fail(
               CodecFailure.BoundExceeded({ bound: "bytes", limit: BOUNDS.bytes, path: "$" }),
             )
