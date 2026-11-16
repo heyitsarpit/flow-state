@@ -15,6 +15,7 @@ once that API is built.
 | [Reusable primitives](reusable-primitives.md)     | a factory over the app's contract                               |
 | [Cross-tab bridge](cross-tab-bridge.md)           | host code, emit out, typed send in (deferred)                   |
 | [Fixtures](fixtures.md)                           | every feature proven by a fixture app before it is built        |
+| [Fixture catalog](fixture-catalog.md)             | each fixture's scenarios: load and structural stress, owners    |
 
 Upkeep:
 

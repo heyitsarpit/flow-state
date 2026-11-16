@@ -8,77 +8,173 @@ own tests, generator, reload sweep, app mix and bench all run. A hand-written te
 runtime behaviour, and whenever a review finds a bug. The lead lists the proof below; the orchestrator asks for it
 and the requirements review checks it (the V3 Epic's instructions, "Fixtures first").
 
+The fixtures, their scenarios, their sources and the migration plan are in code:wiki/conventions/fixture-catalog.md.
+
+## A fixture is a whole app
+
+A fixture models a real product, not a demo of one feature, so its logic is easy to reason about and features mix
+the way they do in real apps:
+
+- **Several machines:** shared and local actors, with parent and child or provider and consumer relationships.
+- **Several operations of different kinds:** a `resource` read, a `transaction` write, and a stream where the
+  product has one, feeding each other as the product's do (a read fills a form, its write updates the list, a
+  stream confirms it).
+- **The product's flows:** its real screens and user journeys, with a new feature added where that product would
+  use it.
+- **Few fixtures, rich apps.** A new feature lands in the existing apps that would use it. A new fixture is made only
+  when no existing app could carry the feature naturally.
+- **Additive growth.** An app grows by new machines added around the old ones, not by rewriting them. An existing
+  machine keeps its id, states, memory and Stories, and every Story id stays. A new machine reaches an old one by
+  holding its ref (sending its existing events, reading its snapshot) or by consuming a context the old one already
+  provides. An edit to an old machine is allowed only where the product can't work without it, kept to one
+  declaration, with the reason in the catalog row.
+
+Each catalog row lists its app's machines and operations by name.
+
 ## What a fixture holds
 
-| File          | Holds                                                                                          |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| `contracts.ts` | the app's service contracts: the ports it calls, as an app defines them                       |
-| `machine.ts`   | definitions, machines and the `runtimeSetup` app, in app-author style                         |
-| `server.ts`    | a fake server behind each contract, and the port fake Layer the Stories use                   |
-| `stories.ts`   | `usual`, `stress` and saved stress Stories, `samples` for the generator, `long` for the bench |
+```text
+fixtures/<app>/
+  app.ts                 the `runtimeSetup` app: its entries and the Layer of its services
+  services.ts            the service ports the app calls, as the app defines them
+  machines/<name>.ts     one definition and its machine per file; a fragment (trait, subroutine) in its own file
+  operations/reads.ts    `resource` contracts
+  operations/writes.ts   `transaction` contracts
+  operations/streams.ts  `stream` contracts
+  server/<service>.ts    the fake server behind one service: its endpoints, controls and stored data
+  server/layer.ts        the port fake Layer the Stories use, built from `server/*`
+  stories/usual.ts       one usual Story per journey
+  stories/load.ts        load stress and `seededStress`
+  stories/structure.ts   structural stress, each shape also under load
+  stories/samples.ts     step samples with edge values, for the generator
+  stories/releases.ts    a second release's machines and Stories, when the app persists
+  stories/long.ts        the bench's long run
+  adapters/<service>.ts  a live adapter over the real API (`fetch`, an SDK), which tests may import
+  index.ts               the manifest that registers the fixture with every runner
+```
 
+- **Existing flat files stay.** A fixture written before this layout keeps its `contracts.ts`, `machine.ts`,
+  `server.ts`, `stories.ts` and `*-http.ts` where they are; it gains an `index.ts`, and its new machines, operations
+  and Stories go in the folders above.
+- **Only files with content.** An app with no stream has no `operations/streams.ts`.
 - **Data comes from a real-shaped source.** Every ending comes from a fake server's answer through the app's own
   service, the path a real `fetch` or SDK call would take; a fixture never injects an outcome
   (@plan.Testing.O3).
-- **Self-contained.** Typed code inside the package; no proposal, Task or scenario ids in names or comments.
+- **Self-contained.** Typed code inside the package; no proposal, Task or scenario ids in names or comments. Which
+  upstream test a Story copies is written in the catalog, not in code.
+
+## Shared vocabulary
+
+Catalog rows name scenarios by these codes, with parameters (`S1×{4,8,32}`).
+
+| Code | Structure                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------- |
+| S1   | deep chain: a provider of a provider of a consumer, or nested placements, many layers        |
+| S2   | wide fan-out: one parent or provider, many children or consumers                            |
+| S3   | forest: several independent trees in one Runtime                                            |
+| S4   | dual role: a node that consumes one context and provides another                            |
+| S5   | override at a middle layer, with the root changing under it                                 |
+| S6   | parent ended, disposed, forgotten or reloaded under live children, in each order            |
+| S7   | refused shape: a cycle, a missing provider, a conflicting ref, a duplicate key               |
+| S8   | churn: children added and removed while work is live                                        |
+| S9   | reload at the deepest node                                                                  |
+
+| Code | Load                                                                         |
+| ---- | ---------------------------------------------------------------------------- |
+| L1   | many actors                                                                  |
+| L2   | a queue at its cap: 64 follow-ups, 64 queued commits, a 1,024 mailbox         |
+| L3   | slow, lost, duplicated and out-of-order answers                              |
+| L4   | repeated reloads                                                             |
+| L5   | bursts faster than turns                                                     |
+
+| Code | Edge value                                                                   |
+| ---- | ---------------------------------------------------------------------------- |
+| E1   | empty                                                                        |
+| E2   | `undefined` or `None` where allowed                                          |
+| E3   | a byte bound, at and just past                                               |
+| E4   | a count cap, at and just past                                                |
+| E5   | delays −1, 0, 2^31 − 1 and 2^31 ms                                           |
+| E6   | bigint keys and numbers at 2^53                                              |
+| E7   | a value or record that fails to decode                                       |
+| E8   | a reload mid-call                                                            |
 
 ## Requirements per feature
 
 Each feature or behaviour a Task builds or changes gets all of these, each red before the build:
 
-1. **A home.** An existing fixture changed, or a new one, named for the app it models (`session`, `checklist`), not
-   for the feature.
+1. **A home.** An existing fixture changed, or a new one, named for the app it models (`session`, `chat`), not for
+   the feature. The feature lands on a named machine in a named journey.
 2. **A usual Story.** The feature used the way an app uses it, with checkpoints on what the user would see.
-3. **Stress Stories, of load and of structure.** Stress is not only throughput. Load: many actors, long queues,
-   repeated reloads, slow and lost answers. Structure: the hardest shapes the feature allows an app to build,
-   for example deep chains (a provider of a provider of a consumer, many layers), wide fan-out (one parent, many
-   children), several independent trees side by side in one Runtime, a node that is both consumer and provider,
-   an override at a middle layer, a parent ended, disposed or reloaded under live descendants, and each refused
-   shape (a cycle, a missing provider) shown refused. Each structure is also run under load.
+3. **Stress Stories, of load and of structure.** Stress is not only throughput. Load is the `L` codes. Structure is
+   the hardest shapes the feature allows an app to build, the `S` codes, and each refused shape is shown refused.
+   Each structure names its count and the load it runs under (`S2 × 1,024 under L5`), each S6 names its orders
+   (parent first, child first, forgotten, reloaded), and each S1 chain also has an S9.
 4. **Step samples with edge values.** `samples` offers every event and world word the feature reacts to, with its
-   Schemas' edges: empty, `undefined` or `None` where allowed, sizes at and just past every byte or node bound,
-   counts at and past every cap (64 follow-ups, 64 queued commits, 1,024 mailbox), refusals, holds, drops, a reload
-   mid-way.
+   Schemas' edges, the `E` codes: refusals, holds, drops and a reload mid-way among them.
 5. **Combinations.** Where the feature meets others (persistence, lanes, context, schedules, props, emits), the
    fixture or a second one exercises them together, and the fixture joins the app mix and a pair sweep when it
    persists or calls a server.
 6. **Variety.** More than one app shape where the feature can be used differently (a singleton and a value-named
-   actor; a shared and a local actor; nested and flat states; one layer of parent and child and several; one tree
-   and a forest). A fixture built for a relationship exercises it at more than one depth and width.
+   actor; a shared and a local actor; nested and flat states; one tree and a forest), in at least three unrelated
+   apps.
 7. **Findings.** A bug a review finds is added to `samples` or a Story here, as well as its own titled test, so
    the generator explores the cases around it.
+8. **Sources.** Where a real app or SDK has the behaviour, the scenario copies its test or user flow, and the
+   catalog names the file and test name it copies. A scenario with no real source says so.
 
 ## Where a fixture is registered
 
-A fixture counts only once every runner reaches it:
+Each fixture's `index.ts` exports one manifest, and `fixtures/index.ts` lists every manifest. The runners read that
+list, so no runner keeps its own list of fixtures:
 
-| Runner                 | Where                                                     |
-| ---------------------- | --------------------------------------------------------- |
-| generator (usual, stress) | `tests/generated/fixtures.ts` `samples`                |
-| app mix                | `tests/generated/fixtures.ts` `mix`, if it persists or calls a server |
-| saved stress Stories   | `tests/generated/saved.stress.test.ts`                    |
-| reload sweep           | `tests/generated/sweep.test.ts`                           |
-| pair sweeps            | a `tests/generated/pairs-<name>.test.ts`, if it has lanes or persistence |
-| bench                  | `bench/run.ts` (`long` and `seededStress`)                |
+| Runner                    | Takes                                                                     |
+| ------------------------- | ------------------------------------------------------------------------- |
+| generator, usual          | every manifest's `samples`                                                |
+| generator, stress         | every manifest's `stressSamples`                                          |
+| profiles                  | every manifest's `samples` and `stressSamples`                            |
+| app mix                   | every manifest with `mix: true`                                           |
+| saved stress Stories      | every manifest's `savedStress`                                            |
+| reload sweep              | every manifest's `stories`                                                |
+| pair sweeps               | every manifest with `pairs`                                               |
+| bench                     | every manifest's `long` and `seededStress`                                |
+| CLI and `flow.config.ts`  | every manifest's `app`                                                    |
 
-Long runs go behind the stress flag so the default suite stays fast.
+A manifest holds:
+
+| Field           | Holds                                                                                        |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `name`          | the fixture's folder name, which prefixes its Story ids                                      |
+| `app`           | the `runtimeSetup` app                                                                       |
+| `stories`       | every named Story, by export name                                                            |
+| `samples`       | step samples for the usual generator                                                         |
+| `stressSamples` | step samples for the stress generator, edges included                                        |
+| `long`          | the bench's long run                                                                         |
+| `seededStress`  | the seeded stress Story                                                                      |
+| `savedStress`   | `{ story, seed }`: the stress Story and the seed the saved run replays                       |
+| `mix`           | `true` when the app persists or calls a server                                               |
+| `pairs`         | the pair sweep's options, or absent: `kind` (local or persisted), `writes`,                  |
+|                 | `cancelsAcknowledging` and `retainsUnknown`                                                   |
+
+Long runs go behind the stress flag so the default suite stays fast. Planted faults (`tests/faults.ts`) and the
+lint overrides in `vite.config.ts` name fixture paths by string and are updated by hand when a path changes.
 
 ## The proof a lead gives at requirements
 
 One Task comment per feature, in this shape:
 
 ```text
-<feature> (<Spec rule>): fixture <name> (new|changed); usual <story>, stress load <story>,
-stress structure <shapes and stories>;
-samples edges <list>; combos <fixtures or mix/pairs>; registered in <runners>; red today: <what fails>.
+<feature> (<Spec rule>): fixture <name> (changed|new), machine <name>, journey <name>; usual <story>,
+load <L codes and stories>, structure <S codes and stories>; samples <E codes>; combos <fixtures or mix/pairs>;
+sources <file and test names>; red today: <what fails>.
 ```
 
 ## Prior art
 
 Property-based testing over a model of the app (fast-check's model-based testing), XState's model-based testing
-paths, and Flow's own `samplesOf` generator with the reload sweep.
+paths, and Flow's own `samplesOf` generator with the reload sweep. How a reference codebase is mined for cases:
+code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md.
 
 ## Not built yet
 
-A test that each built public feature, by its API name, appears in a fixture, and that every fixture is
-registered with every runner above: @task.V3.T80.
+The manifest list and the runners that read it: the catalog's migration step 1. A test that each built public
+feature, by its API name, appears in a fixture: not yet owned by any Task.

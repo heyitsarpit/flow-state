@@ -714,3 +714,21 @@ note 2026-11-16T19:20:04Z
     T20's lead stopped after the tests-first step (8a866c5b, red as intended) with a resume note and no report. Ruling:
     bound edge values move to a stress-only sample set, so the default suite stays fast. A fresh lead runs the
     convergence pass.
+
+note 2026-11-16T19:42:54Z
+    Decision (the user, 2026-11-17): fixtures grow additively. Existing machines, Stories and tests change only a little
+    and become part of a bigger app as new machines are added with each feature. Scope: whole run; the catalog review
+    judges the migration plan against it.
+
+note 2026-11-16T19:45:59Z
+    Decision (the user, 2026-11-17): cells and lanes stay their own fixtures (16 apps, pay keeps its folder and ids,
+    shop names the larger app); subroutine and whenAbandoned join T57's scope.
+
+note 2026-11-16T19:52:59Z
+    Paused (the user, 2026-11-17): T20's convergence lead holds until the fixture catalog work is done; it checkpoints
+    and leaves a resume note. Resume: message the same lead once the catalog is committed.
+
+note 2026-11-16T19:56:16Z
+    Fixture catalog committed after an independent review (ISSUES, all fixed): 16 apps, additive growth, an 18-step
+    migration plan. T82 created for step 1 (after T9, T20; before T57); 13 Tasks' fixtures lines now point at their
+    steps.

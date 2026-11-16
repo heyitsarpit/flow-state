@@ -1486,3 +1486,36 @@ tasks
             gaurd/every passes tsc (probe), so construction alone refuses it; the decode's value is discarded
             (config.ts:219), leaving casts and about 40 duplicate lines. Unchecked: verdict, routing to T79 (operations
             return TypeError, {sec:5} schedule accepted, constant start unchecked, send keeps extra payload keys).
+
+    T82
+        title       Fixtures grow into their catalog apps: manifests and step 1
+        status      open
+        priority    high
+        blocked_by  [@T9, @T20]
+        description
+            Every fixture gets a manifest and grows into its catalog app with today's features: step 1 of
+            code:wiki/conventions/fixture-catalog.md's migration plan.
+
+            **Why now:** fixtures are one-machine demos, and each runner keeps its own hand list of fixtures; later
+            feature Tasks add machines to these apps step by step and need the manifests in place first.
+
+            **Read first:** code:wiki/conventions/fixtures.md, code:wiki/conventions/fixture-catalog.md (step 1 and
+            every cell marked 1), and its sources under `codebases/`.
+
+            **Risk:** additive growth: existing machines, persisted ids, Story ids and tests stay as they are; new
+            machines sit beside them and link by ref or context. The one planned edit to an old machine is the
+            `idempotency` line on transfers' `transfer` contract.
+
+            May change: `fixtures/`, `tests/generated/`, `tests/rules/sweep.ts`, `tests/cli/`, `bench/run.ts`,
+            `flow.config.ts`. Evidence: this Task's comments.
+
+            False pass: a runner still reading a hand list that happens to match the manifests → caught by deleting
+            every hand list in this Task.
+        acceptance
+            - Every fixture folder has an `index.ts` manifest and `fixtures/index.ts` lists them; every runner named in
+              step 1 reads the manifests, and no hand list of fixtures is left.
+            - Every catalog cell marked 1 holds on production: its machines, operations and Stories exist, and its
+              scenarios were red before they were built.
+            - Fixtures first (code:wiki/conventions/fixtures.md): each scenario this step adds meets that page, with its
+              proof comment and a sidecar fixture review.
+            - No existing machine id, persisted id or Story id changes; every existing test still passes unchanged.

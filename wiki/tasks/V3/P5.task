@@ -61,11 +61,8 @@ tasks
         acceptance
             - The streams Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses a stream.
-            - Fixtures first (code:wiki/conventions/fixtures.md): streams are covered in new `chat` and `ticker`
-              fixtures before they are built, across many scenarios: usual and stress Stories and step samples with a
-              stream closed at once, a reconnect with no bookmark, a burst past a cap, an unplaced stream, a reload
-              mid-stream; the generator, the reload sweep and the app mix reach them, and those Stories fail before
-              the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 12 of code:wiki/conventions/fixture-catalog.md's
+              migration plan, every cell marked 12, each scenario red before the build.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
@@ -83,11 +80,8 @@ tasks
         acceptance
             - The entities Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses an entity domain.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the entity store is covered in new `kanban` and `cart`
-              fixtures before it is built, across many scenarios: usual and stress Stories and step samples with an
-              empty domain, 1,024 and more entities, a refused prediction repaired, an undefined field, a reload with a
-              prediction pending; the generator, the reload sweep and the app mix reach them, and those Stories fail
-              before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 11 of code:wiki/conventions/fixture-catalog.md's
+              migration plan, every cell marked 11, each scenario red before the build.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
@@ -132,10 +126,8 @@ tasks
             **Read first:** @plan.LazyFeatures.O1.
         acceptance
             - The lazy-features Spec's Requirements hold on production, shown by Story tests.
-            - Fixtures first (code:wiki/conventions/fixtures.md): lazy entries are covered in a new `settings-panel`
-              fixture before they are built, across many scenarios: usual and stress Stories and step samples with an
-              entry never adopted, adopted after a reload, a load that fails, two entries loading at once, no entries;
-              the generator, the reload sweep and the app mix reach it, and those Stories fail before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 15 of code:wiki/conventions/fixture-catalog.md's
+              migration plan, every cell marked 15, each scenario red before the build.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
@@ -183,10 +175,8 @@ tasks
             - The inspection Spec's Requirements hold on production, and the route is exported.
             - The Model lists props and emits Schemas and fragment emits; the event kinds add `emit`, and schedule
               events show arm, fire, restart, pause, resume and disarm (@plan.Inspection.O1, O4, O6).
-            - Fixtures first (code:wiki/conventions/fixtures.md): `inspect`, `trace.export` and `trace.import` are
-              covered over every fixture, `thermostat` and `sign-in` for schedule and emit events, with an empty trace,
-              a trace with undefined fields, one past a size bound and a record Flow cannot decode; the generator and
-              the reload sweep reach them, red before.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 16 of code:wiki/conventions/fixture-catalog.md's
+              migration plan, every cell marked 16, each scenario red before the build.
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: the rest of @plan.Inspection.O4's Trace (header fields, checkpoints inside the
             Trace, a Runtime-wide sequence) and one render taking a model or a trace.
@@ -302,7 +292,5 @@ tasks
               copy's key.
             - Server rendering delivers no emit; a paused timer transfers its `left` unchanged; the shape digest leaves
               out props and emits.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the bindings render `pager`, `sign-in`, `number-input`
-              and `session`, with step samples of undefined props, props changed before attach, a discarded render, a
-              paused timer at hydrate and a reload mid-way; the Story `hydrate` path, the reload sweep and the app mix
-              reach them, red before.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 18 of code:wiki/conventions/fixture-catalog.md's
+              migration plan, every cell marked 18, each scenario red before the build.
