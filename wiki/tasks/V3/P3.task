@@ -1287,3 +1287,7 @@ tasks
             - One Schema decodes definition and machine config; construction.ts's hand-written shape checks are gone.
             - `nub run check`, the suite and `nub run faults` pass, with a planted fault per new refusal caught by
               its target.
+        comment     2026-11-16T15:07:26Z
+            Paused for T9's fix round before any commit; no code changed. Resume: requirements commit first (four bugs
+            plus Defect fold as it.fails tests), then the Schema decode; design notes: rules as Schema checks per field,
+            Flow code in each check's annotation, cross-field rules after decode.
