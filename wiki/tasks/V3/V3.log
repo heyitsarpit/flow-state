@@ -589,3 +589,8 @@ note 2026-11-16T15:05:09Z
 note 2026-11-16T15:05:10Z
     Also accepted (user-delegated): the mix profile, Fake.storage.put and refuseLoad, the quarantined lifecycle, T9's
     and T55's small API calls, an unsaveable send's unbounded wait.
+
+note 2026-11-16T15:06:02Z
+    T9 fix-round review ISSUES (d4a0f4c6): a return after a reload still misses its context wave (Actors R9, R18), the
+    same root cause twice, so one convergence pass. Decision: save last-seen context values in the actor record. T81
+    pauses for it.
