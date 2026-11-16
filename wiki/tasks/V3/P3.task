@@ -423,10 +423,11 @@ tasks
               inverted test is flipped; and any write discharging every dirty end, which has no reproduction yet and
               gets its test here.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first: write-ahead is covered in `transfers`, `pay`, `sync` and `lanes`, across many scenarios:
-              usual and stress Stories and step samples with a re-send past its retry cap, 64 and more queued serialize
-              commits, a refused or hung store write, a reload between acknowledge and send; the generator, the reload
-              sweep and the app mix reach it, and those Stories fail before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): write-ahead is covered in `transfers`, `pay`, `sync`
+              and `lanes`, across many scenarios: usual and stress Stories and step samples with a re-send past its
+              retry cap, 64 and more queued serialize commits, a refused or hung store write, a reload between
+              acknowledge and send; the generator, the reload sweep and the app mix reach it, and those Stories fail
+              before the build.
         comment     2026-11-16T01:20:18Z
             Routed from T70: WriteAhead I23 broken: each actor gets its own persistence scope, so one batch is out per
             actor, against R12 (the user, 2026-11-12); pinned as it.fails WriteAhead I23 in tests/generated.
@@ -623,10 +624,11 @@ tasks
             - The Requirements of @spec.Restore and @spec.Codec this slice builds hold, shown by Story tests with a
               reload and by the reload sweep.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first: restore, owed endings, quarantine and forget are covered in `sign-in`, `pay`, `sync` and
-              `transfers`, across many scenarios: usual and stress Stories and step samples with an undecodable record,
-              owed values past a size bound, a forget during undrained writes, a reload at every step; the generator,
-              the reload sweep and the app mix reach them, and those Stories fail before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): restore, owed endings, quarantine and forget are
+              covered in `sign-in`, `pay`, `sync` and `transfers`, across many scenarios: usual and stress Stories and
+              step samples with an undecodable record, owed values past a size bound, a forget during undrained writes,
+              a reload at every step; the generator, the reload sweep and the app mix reach them, and those Stories fail
+              before the build.
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: after a reload the step that turns the restored head Held writes no lane record,
             so it still reads inFlight: true (WriteAhead R5, I21); pinned as it.fails in tests/transfers/trace.test.ts.
@@ -905,10 +907,11 @@ tasks
             - The known bug of this area (a delay past 2^31 - 1 ms is armed, not refused) is fixed, and its inverted
               test is flipped.
             - Each new runtime rule has a planted fault that `nub run faults` catches.
-            - Fixtures first: compound states, history, fields and the delay bound are covered in `player`, `sync`,
-              `sign-in` and a new `wizard`, across many scenarios: usual and stress Stories and step samples with delays
-              of 2^31 - 1 and 2^31 ms, a history never entered, undefined fields, a reload inside a sub-state; the
-              generator, the reload sweep and the app mix reach them, and those Stories fail before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): compound states, history, fields and the delay bound
+              are covered in `player`, `sync`, `sign-in` and a new `wizard`, across many scenarios: usual and stress
+              Stories and step samples with delays of 2^31 - 1 and 2^31 ms, a history never entered, undefined fields, a
+              reload inside a sub-state; the generator, the reload sweep and the app mix reach them, and those Stories
+              fail before the build.
         comment     2026-11-15T18:16:39Z
             Routed from T64's review: two runtime bugs pinned as it.fails in tests/rules: a refused turn publishes no
             issue-only snapshot (Turn I14), and serve.ts publishes only on change (Turn I9). Both sit with the snapshot
@@ -1053,10 +1056,10 @@ tasks
         acceptance
             - The Requirements of @spec.Actors this slice builds hold, shown by Story tests and run rules.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first: context, refs by value and mailboxes are covered in a new `session` fixture and in
-              `lanes`, across many scenarios: usual and stress Stories and step samples with an undefined user, 64 and
-              more consumers, a persisted consumer, a reload mid-way; the generator, the reload sweep and the app mix
-              reach them, and those Stories fail before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): context, refs by value and mailboxes are covered in a
+              new `session` fixture and in `lanes`, across many scenarios: usual and stress Stories and step samples
+              with an undefined user, 64 and more consumers, a persisted consumer, a reload mid-way; the generator, the
+              reload sweep and the app mix reach them, and those Stories fail before the build.
         comment     2026-11-15T14:33:24Z
             @spec.Actors.I38 (a commit queued behind a Held head is not ended at disposal) is @task.V3.T55's.
         comment     2026-11-16T09:10:34Z
@@ -1220,6 +1223,9 @@ tasks
             fixture: a provider whose user can be signed out (undefined), several consumers with a diamond and a direct
             edge, one persisted consumer, more than 64 consumers; usual and stress Stories and edge-value step samples,
             so the generator, sweep, mix and bench reach context.
+        comment     2026-11-16T19:20:04Z
+            Routed from T20's tests-first step: two reds in the session fixture's runs belong here, Turn I9 (a double
+            publish) and Stories R3 (dispose skipping disposeActor). Land each as a failing check titled by its rule.
 
     T74
         title       App mix: several fixtures in one Runtime
@@ -1430,10 +1436,11 @@ tasks
             - One Schema decodes definition and machine config; construction.ts's hand-written shape checks are gone.
             - `nub run check`, the suite and `nub run faults` pass, with a planted fault per new refusal caught by
               its target.
-            - Fixtures first: construction refusals and event Schemas that transform are covered in `transfers` and
-              `sign-in` (changed: one event field with a transforming Schema such as `DateFromString`), across many
-              scenarios: usual and stress Stories and step samples with null and undefined payloads, a bad context slot
-              and values at the Schema's bounds; the generator, the reload sweep and the app mix reach them.
+            - Fixtures first (code:wiki/conventions/fixtures.md): construction refusals and event Schemas that transform
+              are covered in `transfers` and `sign-in` (changed: one event field with a transforming Schema such as
+              `DateFromString`), across many scenarios: usual and stress Stories and step samples with null and
+              undefined payloads, a bad context slot and values at the Schema's bounds; the generator, the reload sweep
+              and the app mix reach them.
         comment     2026-11-16T15:07:26Z
             Paused for T9's fix round before any commit; no code changed. Resume: requirements commit first (four bugs
             plus Defect fold as it.fails tests), then the Schema decode; design notes: rules as Schema checks per field,

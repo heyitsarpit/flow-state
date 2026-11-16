@@ -6,6 +6,7 @@
   "https://github.com/mikearnaldi/accountability.git",
   "https://github.com/pmndrs/zustand.git",
   "https://github.com/rocicorp/mono.git",
+  "https://github.com/Shopify/hydrogen.git",
   "https://github.com/solidjs/solid.git",
   "https://github.com/stackblitz/alien-signals.git",
   "https://github.com/statelyai/xstate.git",
@@ -13,5 +14,8 @@
   "https://github.com/TanStack/query.git",
   "https://github.com/TanStack/store.git",
   "https://github.com/TanStack/tanstack.com.git",
-  "https://github.com/vercel-labs/ui.git"
+  "https://github.com/tldraw/tldraw.git",
+  "https://github.com/tus/tus-js-client.git",
+  "https://github.com/vercel-labs/ui.git",
+  "https://github.com/vercel/ai.git"
 ]

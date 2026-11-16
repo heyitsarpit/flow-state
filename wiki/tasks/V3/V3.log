@@ -699,3 +699,18 @@ note 2026-11-16T18:26:06Z
 
 note 2026-11-16T18:33:42Z
     Amendment (2026-11-17, the user): fixture reviews check structural stress as well as load. Commit: f19db607.
+
+note 2026-11-16T19:11:10Z
+    Decision (the user, 2026-11-17): every fixture is a whole multi-machine app (several machines, several kinds of
+    operation, the product's real journeys), so logic is easy to reason about and features mix realistically;
+    fixtures.md says so; the catalog review adds an App block per row. Scope: whole run.
+
+note 2026-11-16T19:19:10Z
+    Decision (the user, 2026-11-17): catalog review accepted whole: 14 fixtures, pay renamed shop, primitives hosted in
+    kanban, chat and draft. vercel/ai, tus-js-client, hydrogen, tldraw cloned (not phoenix). Reviewer rewrites the
+    catalog with sources, a fixture layout and a migration plan keyed to Tasks.
+
+note 2026-11-16T19:20:04Z
+    T20's lead stopped after the tests-first step (8a866c5b, red as intended) with a resume note and no report. Ruling:
+    bound edge values move to a stress-only sample set, so the default suite stays fast. A fresh lead runs the
+    convergence pass.
