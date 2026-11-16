@@ -914,3 +914,8 @@ tasks
             reaches only its first machine's tickets is caught by the mix's seeds, while no single fixture can show it;
             a failing mix shrinks by dropping whole fixtures, then draws. Check: `nub run faults` names it caught;
             `mix.test.ts` shows a fixture-edge fault in a mix of three shrinks to its one fixture; red today.
+        comment     2026-11-16T11:08:10Z
+            Paused for the T17 fix round at f2d2c287: all three checks green, and the planted fault breaks WriteAhead
+            I15 from mix seed 4 in a scratch plant. Next: run the close (stress, fresh seeds, `nub run faults`) and
+            check the shrunk two-fixture output; then review. Needs the user: a pasteable Story form for a mix (prints
+            as commented steps today) and the new `mix` profile value.
