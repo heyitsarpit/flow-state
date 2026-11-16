@@ -472,3 +472,8 @@ note 2026-11-16T11:26:20Z
 note 2026-11-16T11:26:59Z
     T17's page written (wiki/plans/flow/references/pages/T17-machine-structure.md, unread). Three pages now await the
     user: T54, T19, T17.
+
+note 2026-11-16T12:11:23Z
+    Wake: 5-hour window at 96% (resets 13:00Z), weekly 13%. T74's close review and T9's requirements review are held
+    until the reset; a one-shot wake at 13:07Z starts them. Timings at HEAD in bound (13, 14, 36 s); 5 of 142 faults
+    uncaught mid-T9.
