@@ -229,8 +229,8 @@ open
                  planted fault in `tests/faults.ts` that `nub run faults` must catch; until then
                  every Requirement's evidence is open.
 
-    Q2  The prototype has no case for scope bounds (4,096 records, 16 MiB), NonDurableContextProvider, or 
-        StorageSilent's 10 s.
+    Q2  No Story test or planted fault exists yet for scope bounds (4,096 records, 16 MiB), NonDurableContextProvider, 
+        or StorageSilent's 10 s.
         outcome  Those cases are written with their planted faults (Q1).
 
     Q3  The 5 s interval ran only in the prototype's runtime-default pass.
@@ -417,43 +417,46 @@ tests
     T1  Off by default: a Runtime without persistence runs the reference scenarios with a storage spy that sees zero 
         calls; a scope-less persistent setup is a type error and an untyped one rejects before construction. [@I1]
     T2  Selection: a definition with no persist is not persisted; a local identity of a persisted machine writes 
-        nothing. Cases `R15-01`, `R14-ID-03`; wrong runtimes `r15d.persist-default-true`, `r15d.local-persisted`,
-            `r15.definition-persist-ignored`. [@I3]
-    T3  Record round trip: memory, bookmark, frozen slice and a bigint key survive a reload. Cases `SPIKE-02`, 
-        `SPIKE-04`, `P1-S`; wrong runtimes `p1s.last-not-saved`, `p1s.heard-not-restored`. [@I4, @I6]
+        nothing.
+            Planted faults: persist defaulting to true; a local identity persisted; a definition's persist
+            ignored. [@I3]
+    T3  Record round trip: memory, bookmark, frozen slice and a bigint key survive a reload. Planted faults: the last 
+        write not saved; a heard ending not restored. [@I4, @I6]
     T4  Capture cuts: a hide flushes every actor; poison lanes go ahead of the record; plain writes coalesce to the 
-        newest. Cases `REV8-PINS`, `REV6-CAPTURE`; wrong runtimes `pinsa.hide-flushes-one-actor`,
-            `pinsa.poison-holds-lanes`, `pinsa.poison-lets-deletes-go`. [@I7, @I11]
+        newest.
+            Planted faults: a hide that flushes one actor; a poison that holds lanes; a poison that lets deletes
+            go. [@I7, @I11]
     T5  The 5 s interval on a controlled clock: the default is 5 s; hidden issues at once; a kill before any flush 
         loses only plain memory; disposal flushes; with fake storage that never answers, the capture is still issued on
-            time and nothing else waits on it. Case `REV7-D80`; wrong runtimes `e-debounce`, `e-hidden-waits`,
-            `e-hide-noop`, `edge.hide-first-scope-only`, `durable.deadline-not-now`. [@I12]
+            time and nothing else waits on it.
+            Planted faults: a debounce; a hidden state that waits; a hide that does nothing; a hide that flushes
+            the first scope only; a deadline that is not now. [@I12]
     T6  Atomic fallback: a failed write survives a reload as the last good capture; a lost clock does not strand a 
-        flush. Cases `REV6-M7`, `REV7-EDGE`; storage silence: wrong runtime `e-no-silent`. [@I10, @I14]
+        flush. Storage silence: planted fault: a write that never reports silence. [@I10, @I14]
     T7  Acknowledge before send: a refused acknowledgement calls no adapter and ends StorageRefused; a refused re-send 
-        capture returns Held with unknown { StorageRefused }; a head on disk is the request that starts. Cases
-            `PAY-09`, `PAY-16`, `REV8-H1`, `REV7-H1`; wrong runtimes `lane.ackout-false`,
-            `durable.head-off-disk-on-the-wire`, `durable.ticket-not-fenced`, `1b.r17-refused-resend-silent`,
-            `pay16.refused-capture-spends-budget`, and `lane.promote-skips-durable` (a promoted head sent with no
-            acknowledgement). [@I15]
+        capture returns Held with unknown { StorageRefused }; a head on disk is the request that starts.
+            Planted faults: an acknowledgement reported false; a head off disk on the wire; a ticket not fenced; a
+            refused re-send that is silent; a refused capture that spends the budget; a promoted head sent with no
+            acknowledgement. [@I15]
     T8  Crash after acknowledgement: kill at each point between acknowledgement and the adapter's answer; every reload 
-        hears unknown { Restored } with the same id and the server sees one call. Case `PAY-16`; wrong runtime
-            `pay16.restore-forgets-may-have-applied`; a run rule applied to every Story run checks it after every
+        hears unknown { Restored } with the same id and the server sees one call. Planted fault: a restore that forgets 
+        the
+            call may have applied; a run rule applied to every Story run checks it after every
             step. [@I17, @spec.WriteLanes.I6, @spec.WriteLanes.I28]
     T9  Bounds and providers: a scope at 4,096 records and one past; a non-durable provider rejects the capture and 
-        keeps the previous one. No prototype case (Q2). [@I9, @I13]
+        keeps the previous one. No test yet (Q2). [@I9, @I13]
     T10  Scope isolation: two apps and two scopes over one fake Store; no Runtime reads, writes or deletes another's 
-         keys, forget included. No prototype case; phase 3 writes this test and its wrong runtime. [@I2]
+         keys, forget included. No test yet; phase 3 writes this test and its planted fault. [@I2]
     T11  Every non-Idle lane is captured: lanes bound, unbound after disposeActor, and Held after an end each appear in 
-         the next landed capture. Case `R15-01`; phase 3 writes the wrong runtime that skips unbound lanes. [@I5]
+         the next landed capture. Phase 3 writes the planted fault that skips unbound lanes. [@I5]
     T12  Capture is passive: with spies on operations, mailboxes and the clock, a capture starts no operation, enqueues 
-         no event and changes no snapshot. No prototype wrong runtime; phase 3 writes one that refetches during
+         no event and changes no snapshot. No planted fault yet; phase 3 writes one that refetches during
              capture. [@I8]
     T13  Codec bounds on records: memory holding a 4,097-item array skips its capture with UnencodableValue and the 
-         last good capture restores. No prototype case; phase 3 writes this test. [@I4]
+         last good capture restores. No test yet; phase 3 writes this test. [@I4]
     T14  A second owner: boot a Runtime whose host reports the scope owned elsewhere, over a fake Store holding 
          records; it restores nothing, a storage spy sees no call, it reports SecondTabNoPersistence, and a persisted
-             commit ends NotSent { NoPersistence } with its transition run. Phase 3 writes the wrong runtime that still
+             commit ends NotSent { NoPersistence } with its transition run. Phase 3 writes the planted fault that still
              captures. [@I19]
     T15  Owed records: after each step of a run with refused, parked and kept endings, the store's owed record of each 
          identity lists its rows in owed order with kept ones marked and each row's channel, is absent when none is
@@ -462,12 +465,12 @@ tests
              Restored } is in it once owed. [@I20]
     T16  Reload equivalence and torn batches: at every crash point, boot and compare the reports and snapshots after 
          the boot with the baseline's; drop each batch whole, boot, and check that every admitted commit still ends
-             once. Design mutants: a batch split in two; a lane changed with no record written (a Recapturing head held 
+             once. Planted faults: a batch split in two; a lane changed with no record written (a Recapturing head held 
                  at
              disposal). [@I21, @I22]
     T17  One stream: actor A hears an ending and sends to actor B in one step, and the Runtime is killed after each 
          Store write; no reload shows B's record without A's, and a spy sees one write at a time, each a single call.
-             Wrong runtime: one batch per actor. [@I23]
+             Planted fault: one batch per actor. [@I23]
     T18  inFlight on disk: a head saved Acknowledging, OnWire and Cancelling has inFlight true and wakes its identity 
-         at the next boot; a head saved Held has it false and does not. Wrong runtime: inFlight left true after an
+         at the next boot; a head saved Held has it false and does not. Planted fault: inFlight left true after an
              unknown. [@I24]

@@ -159,8 +159,7 @@ open
         outcome  Each test below is written, when its slice is built, as the cheapest check that fully
                  covers it (a compile-time test, a run rule applied to every Story run, a Story test or
                  a pure core test) in packages/flow-state-v3/tests/, and each rule gets a planted fault
-                 in tests/faults.ts that `nub run faults` must catch. The cases and wrong runtimes named
-                 below are the prototype's, kept as prior art. Until then every Requirement's evidence
+                 in tests/faults.ts that `nub run faults` must catch. Until then every Requirement's evidence
                  is open.
 
     Q2  Built later, not specified here: staleTime freshness, gcTime collection, trailing refetch, setData, invalidate 
@@ -274,34 +273,33 @@ tests
         lists none yet).
             [@I1]
     T2  Key equality and canonical text: one lane whatever order a key is written; a bigint key names a lane and 
-        survives a reload. Cases `REV4-H5`, `REV9-NAMES`; wrong runtimes `d119.bigint-no-name`, `d119.bigint-carried`. 
-        [@I2, @I3]
-    T3  Key fingerprints: a key field's type change is a new version; a reorder is not. Case `P1-H`; wrong runtimes 
-        `p1h.key-version-by-names`, `p1h.same-fields-ordered`, `m1.key-order-matters`. [@I3]
+        survives a reload. Planted faults: a bigint key with no name; a bigint key carried as is.
+            [@I2, @I3]
+    T3  Key fingerprints: a key field's type change is a new version; a reorder is not. Planted faults: a key version 
+        by field names; same fields in another order read as new; key order that matters. [@I3]
     T4  Key values: a throwing getter refuses without being run twice; a cycle refuses; a mutated
-            input after admission does not change the key. Case `REV6-H4`. [@I4, @I5]
-    T5  Shared lookups: two actors looking up one key share one in-flight request; a second Runtime shares nothing. No 
-        prototype case; a planted fault is written with this test. [@I8]
-    T6  One-off reads: a newer lookup supersedes the open one and only its ending arrives. Cases `REV8-M9`, `PAY-16`; 
-        wrong runtimes `reads.bad-lookup-keeps-old`, `pay16.superseded-read-keeps-older`. [@I9]
+            input after admission does not change the key. [@I4, @I5]
+    T5  Shared lookups: two actors looking up one key share one in-flight request; a second Runtime shares nothing. A 
+        planted fault is written with this test. [@I8]
+    T6  One-off reads: a newer lookup supersedes the open one and only its ending arrives. Planted faults: a bad lookup 
+        that keeps the old one; a superseded read that keeps the older. [@I9]
     T8  Read endings: a throwing success mapper ends Defect with a UserClosure issue, and a throwing stopped mapper 
         closes its row Recorded with one; an unmapped stopped ending leaves its slot's tag and an issue; an ignored
-            ending runs no handler. Cases
-            `PAY-16`, `R14-IGN-01`; wrong runtime `pay16.read-defect-not-an-issue`. [@I20]
+            ending runs no handler.
+            Planted fault: a read defect that is not an issue. [@I20]
     T9  Older reads never overwrite: a read started before a write's data landed does not replace it; one started after 
         applies. A planted fault is written with this test. [@I11]
     T11  Optimistic endings: success keeps the look until a later lookup; failure removes it without a refetch; unknown 
-         keeps it uncertain and refetches once, and a failed refetch leaves it uncertain. Cases `STORE-01`, `STORE-02`, 
-         `STORE-03`, `STORE-08`. [@I15, @I16, @I17]
+         keeps it uncertain and refetches once, and a failed refetch leaves it uncertain. [@I15, @I16, @I17]
     T12  Rows: pending, uncertain and waiting follow the lane; identity is kept while unchanged; O.x.get of an unknown 
-         key reads the idle row. Case `LIKE-01`; wrong runtime `lie:a3.like-row-hidden`. [@I19, @spec.Turn.I30]
+         key reads the idle row. Planted fault: a like row hidden. [@I19, @spec.Turn.I30]
     T13  Lookup context: a lookup function records its ctx on a first lookup, a refetch and a subscribe's automatic 
-         request; none has an Attempt or an id or key field standing in for one. Wrong runtime: the read context with
+         request; none has an Attempt or an id or key field standing in for one. Planted fault: the read context with
              a made-up Attempt (`id: ""`, `key: {}`), as code:packages/flow-state-v3/src/host/driver.ts had before
              @task.V3.T51. [@I21]
     T14  Read endings as rows: a lookup's answer lands after its incarnation ended and is recorded, never heard by the 
          next incarnation, and no store record ever holds it; a read stopped by an end is heard as Flow.ReadStopped's
              Interrupted once by the next incarnation, after a reload too; a twice-refused lookup ending blocks no 
                  commit.
-             Wrong runtimes: a lookup's row saved in the owed record; a stopped read's Interrupted dropped at the end.
+             Planted faults: a lookup's row saved in the owed record; a stopped read's Interrupted dropped at the end.
              [@I22]
