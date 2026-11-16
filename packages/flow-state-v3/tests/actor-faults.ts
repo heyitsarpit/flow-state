@@ -154,7 +154,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "mailbox-not-fifo",
-    tests: ["src/host/ledger.test.ts"],
+    tests: ["tests/generated/mix.test.ts"],
     says: "an actor's mailbox serves its newest mail first",
     rule: "Actors I19",
     edits: [

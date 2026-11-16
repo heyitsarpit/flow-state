@@ -5,6 +5,7 @@ import { acknowledgedHeardAgain, everyCommitEndsOnce } from "./commits.ts";
 import { recordKinds } from "./records.ts";
 import { atStart, knownAt, placesOf } from "./places.ts";
 import { oneStart, ownedRowsSaved } from "./starts.ts";
+import { mailboxOrder } from "./mailbox.ts";
 import { unchangedPartsKept } from "./memory.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
@@ -563,6 +564,7 @@ export const rules: ReadonlyArray<Rule> = [
   recordKinds,
   acknowledgedBeforeSent,
   oneBatchOut,
+  mailboxOrder,
 ];
 
 /**

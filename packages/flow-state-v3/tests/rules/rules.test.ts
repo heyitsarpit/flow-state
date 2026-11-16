@@ -14,6 +14,7 @@ import {
   publishedOnce,
   refusedTurnIssueOnly,
 } from "./rules.ts";
+import { mailboxOrder } from "./mailbox.ts";
 import { unchangedPartsKept } from "./memory.ts";
 
 const who = { machine: "Checkout/Pay", name: "checkout-1" };
@@ -68,6 +69,48 @@ const published = (memory: Readonly<Record<string, unknown>>) =>
   Evidence.Published({ actor: who, state: "IDLE", memory });
 
 describe("run rules over crafted runs", () => {
+  it("Actors I19: one actor's endings heard out of the order they were owed is a breach; in order it is not", async () => {
+    const second = "att-6d61696e3a31-2";
+
+    const endedOf = (id: string) =>
+      at(1)(
+        Evidence.Ended({
+          operation: "pay",
+          attempt: Option.some(id),
+          channel: "success",
+          reason: "success",
+          actor: who,
+        }),
+      );
+
+    const heard = (id: string) =>
+      at(1)(
+        Evidence.Delivered({
+          operation: "pay",
+          attempt: Option.some(id),
+          event: "Paid",
+          actor: who,
+        }),
+      );
+
+    const inOrder = await crafted([
+      endedOf(attempt),
+      endedOf(second),
+      heard(attempt),
+      heard(second),
+    ]);
+
+    const reversed = await crafted([
+      endedOf(attempt),
+      endedOf(second),
+      heard(second),
+      heard(attempt),
+    ]);
+
+    expect(mailboxOrder.breaches(inOrder)).toEqual([]);
+    expect(mailboxOrder.breaches(reversed)).toHaveLength(1);
+  });
+
   it("Turn I30: after a Denied turn, an unchanged memory field republished as a new object is a breach; the same object is not", async () => {
     const list = ["a"];
     const memory = { list };
