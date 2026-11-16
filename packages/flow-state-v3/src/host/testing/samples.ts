@@ -172,3 +172,19 @@ export const print = (samples: Samples, id: string, steps: ReadonlyArray<Step>) 
     `Story.app(${samples.setup}, { id: ${Formatter.formatJson(id)}, fixtures: [${samples.fixtures.join(", ")}] })`,
     ...steps.map((step) => `  ${printStep(samples, step)}`),
   ].join("\n");
+
+/**
+ * Prints the steps of a run of several fixtures in one Runtime, each by the name its fixture gives
+ * it, under a comment line that names each fixture's setup and fakes: a Story holds one setup, so a
+ * mix prints as steps to read, not code to paste.
+ */
+export const printMix = (
+  parts: ReadonlyArray<Samples>,
+  mixed: Samples,
+  id: string,
+  steps: ReadonlyArray<Step>,
+) =>
+  [
+    `// ${Formatter.formatJson(id)}: one Runtime over ${parts.map((p) => `${p.setup} with [${p.fixtures.join(", ")}]`).join(", ")}`,
+    ...steps.map((step) => `  ${printStep(mixed, step)}`),
+  ].join("\n");

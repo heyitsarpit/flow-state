@@ -25,6 +25,11 @@ export const samples = {
 };
 
 /**
+ * The app mix: four fixtures that persist and call their own servers, run in one Runtime.
+ */
+export const mix = [transfers, pay, lanes, palette];
+
+/**
  * The fixed seeds the gate runs per fixture: ten usual and twenty stress (Testing O6).
  * `FLOW_SEEDS` adds that many more of each, outside the gate.
  */

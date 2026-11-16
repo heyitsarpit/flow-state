@@ -1,16 +1,18 @@
 // @effect-diagnostics unstableApiUsage:off -- generation and shrinking are Effect's Arbitrary, which Effect marks unstable; chosen over a generator of our own.
 import { Arbitrary, Duration, Effect, Option, Schema } from "effect";
 import type { AnyServer } from "./fake.ts";
+import { mixOf, sharedOf } from "./mix.ts";
 import { runFrom, type Source, type StoryRun, type View } from "./run.ts";
-import { type Property, print, type Samples } from "./samples.ts";
+import { type Property, print, printMix, type Samples } from "./samples.ts";
 import { Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
 import { SubjectId } from "./story.ts";
 
 /**
- * The two profiles a generated run draws with: `usual`, people on a healthy network, and `stress`,
- * everything at once.
+ * The profiles a generated run draws with: `usual`, people on a healthy network; `stress`,
+ * everything at once; and `mix`, several apps on one page whose work overlaps: slow and refused
+ * store writes, answers in flight, reloads and an offline span.
  */
-export type Profile = "usual" | "stress";
+export type Profile = "usual" | "stress" | "mix";
 
 /**
  * A drawing: one of the two profiles, or the pair sweep's drive, the usual profile with lost
@@ -70,6 +72,16 @@ const STEPS: Record<Drawing, Table<StepKind>> = {
     ["think", 38],
     ["control", 2],
   ],
+  mix: [
+    ["user", 60],
+    ["think", 20],
+    ["gap", 12],
+    ["reload", 4],
+    ["disposeRuntime", 1],
+    ["disposeActor", 1],
+    ["navigate", 1],
+    ["control", 1],
+  ],
 };
 
 const ANSWERS: Record<Drawing, Table<Answer>> = {
@@ -94,6 +106,13 @@ const ANSWERS: Record<Drawing, Table<Answer>> = {
     ["lost", 5],
     ["lostButLanded", 5],
   ],
+  mix: [
+    ["latency", 80],
+    ["fail", 5],
+    ["lost", 5],
+    ["lostButLanded", 5],
+    ["never", 5],
+  ],
 };
 
 const WRITES: Record<Drawing, Table<Write>> = {
@@ -109,12 +128,18 @@ const WRITES: Record<Drawing, Table<Write>> = {
     ["slow", 15],
     ["refuse", 5],
   ],
+  mix: [
+    ["ack", 50],
+    ["slow", 35],
+    ["refuse", 15],
+  ],
 };
 
 const LENGTHS: Record<Drawing, readonly [number, number]> = {
   usual: [40, 150],
   stress: [100, 300],
   drive: [40, 150],
+  mix: [60, 200],
 };
 
 const RANGE = 1000;
@@ -342,7 +367,7 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
   // The one offline span of a stress run starts at a drawn draw, counted from the end, so a shrunk
   // draw of 0 puts it after everything a failure needs.
   const offlineAt =
-    drawing === "stress"
+    drawing === "stress" || drawing === "mix"
       ? draws.length - 1 - Math.floor(((draws[0]?.[1] ?? 0) * draws.length) / RANGE)
       : -1;
 
@@ -601,8 +626,9 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
 
 /**
  * A generated run: its steps as a Story would hold them (unused words left out), what it recorded,
- * what was still pending at its horizon, its offline span, and each answer and write it drew outside
- * that span, by the draw's digit and salt.
+ * what was still pending at its horizon, its offline span, each answer and write it drew outside
+ * that span, by the draw's digit and salt, and, for several fixtures in one Runtime, how many steps
+ * touched two or more of them (`shared`; 0 for one fixture).
  *
  * **Gotchas**
  *
@@ -615,6 +641,7 @@ export type Generated = {
   readonly pending: ReadonlyArray<string>;
   readonly offline: Option.Option<Span>;
   readonly tally: ReadonlyMap<string, string>;
+  readonly shared: number;
 };
 
 /**
@@ -652,14 +679,32 @@ const drawsFrom = (drawing: Drawing, seed: number) => {
   return found;
 };
 
-const drawnRun = (samples: Samples, id: string, drawing: Drawing, draws: ReadonlyArray<Draw>) => {
+/**
+ * The fixtures a generated run draws from: one fixture's samples, or several run in one Runtime.
+ */
+type Fixtures = Samples | ReadonlyArray<Samples>;
+
+// RETURN_TYPE: a list of parts, which the one-fixture branch would type as a tuple.
+const partsOf = (fixtures: Fixtures): ReadonlyArray<Samples> =>
+  "id" in fixtures ? [fixtures] : fixtures;
+
+// RETURN_TYPE: the exported Generated contract.
+const drawnRun = (
+  parts: ReadonlyArray<Samples>,
+  id: string,
+  drawing: Drawing,
+  draws: ReadonlyArray<Draw>,
+): Generated => {
+  const samples = mixOf(parts);
   const drawn = sourceOf(samples, drawing, draws);
+  const ran = runSource(samples, id, drawn.source);
 
   return {
-    ...runSource(samples, id, drawn.source),
+    ...ran,
     pending: drawn.pending(),
     offline: drawn.offline(),
     tally: drawn.tally(),
+    shared: parts.length > 1 ? sharedOf(ran.run, parts) : 0,
   };
 };
 
@@ -670,18 +715,22 @@ export const generateSource = (samples: Samples, drawing: Drawing, seed: number)
   sourceOf(samples, drawing, drawsFrom(drawing, seed)).source;
 
 /**
- * Runs one drawing of a fixture's samples from a seed and returns the run it gives.
+ * Runs one drawing of a fixture's samples, or of several fixtures' in one Runtime, from a seed and
+ * returns the run it gives.
  */
 export const generate = (
-  samples: Samples,
+  fixtures: Fixtures,
   options: { readonly drawing: Drawing; readonly seed: number },
-) =>
-  drawnRun(
-    samples,
-    `${samples.id}/${options.drawing}-${options.seed}`,
+) => {
+  const parts = partsOf(fixtures);
+
+  return drawnRun(
+    parts,
+    `${mixOf(parts).id}/${options.drawing}-${options.seed}`,
     options.drawing,
     drawsFrom(options.drawing, options.seed),
   );
+};
 
 type Verdict = { readonly rule: string; readonly breaches: ReadonlyArray<string> };
 
@@ -708,17 +757,24 @@ export const inconclusiveOf = (run: StoryRun, pending: ReadonlyArray<string>) =>
   return verdicts;
 };
 
+// A run of several fixtures where no step touched two of them shared nothing: it is inconclusive.
+const unsharedOf = (parts: ReadonlyArray<Samples>, generated: Generated) => {
+  if (parts.length < 2 || generated.shared > 0) return [];
+
+  return [{ rule: HORIZON_RULE, breaches: ["inconclusive: no step touched two fixtures"] }];
+};
+
 // The breaches a run of draws gives: a turn limit, and work still pending at the horizon, are
 // breaches of their own; a script fault is a fault of the generator, so it is thrown.
 const judged = (
-  samples: Samples,
+  parts: ReadonlyArray<Samples>,
   id: string,
   drawing: Drawing,
   draws: ReadonlyArray<Draw>,
   properties: ReadonlyArray<Property>,
 ) => {
   try {
-    const generated = drawnRun(samples, id, drawing, draws);
+    const generated = drawnRun(parts, id, drawing, draws);
 
     const verdicts: ReadonlyArray<Verdict> = properties.flatMap((p) => {
       const breaches = p.breaches(generated.run);
@@ -728,7 +784,11 @@ const judged = (
 
     return {
       generated: Option.some(generated),
-      verdicts: [...verdicts, ...inconclusiveOf(generated.run, generated.pending)],
+      verdicts: [
+        ...verdicts,
+        ...inconclusiveOf(generated.run, generated.pending),
+        ...unsharedOf(parts, generated),
+      ],
     };
   } catch (fault) {
     if (fault instanceof StoryTurnLimit)
@@ -748,24 +808,109 @@ const MAX_SHRINKS = 1000;
 
 /**
  * A generated run that broke a property: its seed, the rule, the breaches of its shrunk run, the
- * number of draws it was drawn with, and the shrunk run as steps and printed as a Story.
+ * number of draws it was drawn with, the fixtures it kept, and the shrunk run as steps and printed:
+ * as a Story for one fixture, as steps under a comment line for several.
  */
 export type Failure = {
   readonly seed: number;
   readonly rule: string;
   readonly breaches: ReadonlyArray<string>;
   readonly drawn: number;
+  readonly fixtures: ReadonlyArray<string>;
   readonly steps: ReadonlyArray<Step>;
   readonly story: string;
 };
 
+type Check = {
+  readonly profile: Profile;
+  readonly properties: ReadonlyArray<Property>;
+};
+
+const idOf = (parts: ReadonlyArray<Samples>, profile: Profile, seed: number) =>
+  `${mixOf(parts).id}/${profile}-${seed}`;
+
+// Checks a seed's draws with Arbitrary: with no target, the run must break no rule, and the first
+// rule broken becomes the target; with a target, the run must not break it. Shrinks up to `shrinks`.
+const search = (
+  parts: ReadonlyArray<Samples>,
+  seed: number,
+  check: Check,
+  target: Option.Option<string>,
+  shrinks: number,
+) => {
+  let rule = target;
+
+  const property = (draws: ReadonlyArray<Draw>) => {
+    const id = idOf(parts, check.profile, seed);
+    const { verdicts } = judged(parts, id, check.profile, draws, check.properties);
+
+    return Option.match(rule, {
+      onNone: () => {
+        rule = Option.map(Option.fromUndefinedOr(verdicts[0]), (v) => v.rule);
+
+        return verdicts.length === 0;
+      },
+      onSome: (wanted) => !verdicts.some((v) => v.rule === wanted),
+    });
+  };
+
+  // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a generated run is checked synchronously at the test's boundary
+  const result = Effect.runSync(
+    Arbitrary.checkEffect(drawsOf(check.profile), property, {
+      runs: 1,
+      seed,
+      size: LENGTHS[check.profile][1],
+      maxShrinks: shrinks,
+    }),
+  );
+
+  return { result, rule };
+};
+
+// Drops whole fixtures while the seed's first draws still break the rule: each part in turn is
+// left out, and kept out when the rest, run alone, break the same rule.
+const dropped = (
+  parts: ReadonlyArray<Samples>,
+  seed: number,
+  check: Check,
+  rule: string,
+  draws: ReadonlyArray<Draw>,
+) =>
+  parts.reduce<ReadonlyArray<Samples>>((kept, part) => {
+    const rest = kept.filter((p) => p !== part);
+
+    return rest.length > 0 &&
+      judged(
+        rest,
+        idOf(rest, check.profile, seed),
+        check.profile,
+        draws,
+        check.properties,
+      ).verdicts.some((v) => v.rule === rule)
+      ? rest
+      : kept;
+  }, parts);
+
+// RETURN_TYPE: the exported Failure contract, which the inconclusive and shrunk branches would split.
+const inconclusive = (seed: number, parts: ReadonlyArray<Samples>, message: string): Failure => ({
+  seed,
+  rule: HORIZON_RULE,
+  breaches: [`inconclusive: ${message}`],
+  drawn: 0,
+  fixtures: parts.map((p) => p.id),
+  steps: [],
+  story: "",
+});
+
 /**
- * Generates runs of a fixture from seeds and applies properties to each.
+ * Generates runs of a fixture, or of several fixtures in one Runtime, from seeds and applies
+ * properties to each.
  *
  * **When to use**
  *
  * Over a fixture's samples, with the run rules as properties, to find sequences no hand-written
- * Story tried.
+ * Story tried. Over several fixtures, to find what happens between apps that share a page's store,
+ * network, clock and tab.
  *
  * **Details**
  *
@@ -784,6 +929,14 @@ export type Failure = {
  * breaks a property is shrunk by Arbitrary over its draws, keeping only smaller runs that break the
  * same rule, and printed as a chained `Story.app(...)`.
  *
+ * Several fixtures run as one app in one Runtime: one fake store, one network, one clock, one tab
+ * whose reloads and disposal reach them all, and every sample step of each. A run of several where
+ * no step touched two of them shared nothing, so it is inconclusive, a breach of Testing O6. A
+ * failing run of several first drops whole fixtures while the rest still break the same rule, then
+ * shrinks its draws; an inconclusive one keeps them all. The `mix` profile is drawn for several
+ * fixtures: its slow store writes, answers in flight and reloads make their work overlap, where the
+ * usual profile's runs rarely do.
+ *
  * **Gotchas**
  *
  * - A turn limit counts as a breach of Stories I7; a script fault is a fault of the generator and
@@ -792,69 +945,68 @@ export type Failure = {
  * - It stops at the first seed that fails, so the result holds at most one failure.
  * - A check that ends `Exhausted` or `ReplayMismatch` judged nothing, so it is a failure of
  *   Testing O6 with Arbitrary's message and no Story.
+ * - A run of several fixtures prints as steps under a comment line, not as a Story to paste: a
+ *   Story holds one setup.
+ * - Several fixtures must not share a machine, a server or a capture interval (a script fault).
  */
 // RETURN_TYPE: the exported Failure contract, which the shrunk run's branches would split.
 export const propertyTest = (
-  samples: Samples,
+  fixtures: Fixtures,
   options: {
     readonly profile: Profile;
     readonly properties: ReadonlyArray<Property>;
     readonly seeds: ReadonlyArray<number>;
   },
 ): ReadonlyArray<Failure> => {
+  const all = partsOf(fixtures);
+
   // RETURN_TYPE: one Failure list for the passed and the shrunk branch, which inference would split.
   const checked = (seed: number): ReadonlyArray<Failure> => {
-    const id = `${samples.id}/${options.profile}-${seed}`;
-    let rule: Option.Option<string> = Option.none();
+    const found = search(all, seed, options, Option.none(), 0);
 
-    const property = (draws: ReadonlyArray<Draw>) => {
-      const { verdicts } = judged(samples, id, options.profile, draws, options.properties);
+    if (found.result._tag === "Passed") return [];
 
-      return Option.match(rule, {
-        onNone: () => {
-          rule = Option.map(Option.fromUndefinedOr(verdicts[0]), (v) => v.rule);
-
-          return verdicts.length === 0;
-        },
-        onSome: (target) => !verdicts.some((v) => v.rule === target),
-      });
-    };
-
-    // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a generated run is checked synchronously at the test's boundary
-    const result = Effect.runSync(
-      Arbitrary.checkEffect(drawsOf(options.profile), property, {
-        runs: 1,
-        seed,
-        size: LENGTHS[options.profile][1],
-        maxShrinks: MAX_SHRINKS,
-      }),
-    );
-
-    if (result._tag === "Passed") return [];
-
-    if (result._tag === "Exhausted" || result._tag === "ReplayMismatch")
+    if (found.result._tag !== "Falsified")
       return [
-        {
-          seed,
-          rule: HORIZON_RULE,
-          breaches: [`inconclusive: ${Arbitrary.formatCheckFailure(result) ?? result._tag}`],
-          drawn: 0,
-          steps: [],
-          story: "",
-        },
+        inconclusive(seed, all, Arbitrary.formatCheckFailure(found.result) ?? found.result._tag),
       ];
-    const target = Option.getOrElse(rule, () => LIMIT_RULE);
-    const shrunk = judged(samples, id, options.profile, result.shrunkInput, options.properties);
-    const steps = Option.match(shrunk.generated, { onNone: () => [], onSome: (g) => g.steps });
+
+    const target = Option.getOrElse(found.rule, () => LIMIT_RULE);
+
+    // An inconclusive run judged nothing about any one fixture, so none is dropped.
+    const parts =
+      target === HORIZON_RULE
+        ? all
+        : dropped(all, seed, options, target, found.result.initialInput);
+
+    const shrunk = search(parts, seed, options, Option.some(target), MAX_SHRINKS);
+
+    if (shrunk.result._tag !== "Falsified")
+      return [
+        inconclusive(
+          seed,
+          parts,
+          Arbitrary.formatCheckFailure(shrunk.result) ?? shrunk.result._tag,
+        ),
+      ];
+
+    const id = idOf(parts, options.profile, seed);
+    const last = judged(parts, id, options.profile, shrunk.result.shrunkInput, options.properties);
+    const steps = Option.match(last.generated, { onNone: () => [], onSome: (g) => g.steps });
+    const [only] = parts;
 
     return [
       {
         seed,
         rule: target,
-        breaches: shrunk.verdicts.filter((v) => v.rule === target).flatMap((v) => v.breaches),
-        drawn: result.initialInput.length,
+        breaches: last.verdicts.filter((v) => v.rule === target).flatMap((v) => v.breaches),
+        drawn: found.result.initialInput.length,
+        fixtures: parts.map((p) => p.id),
         steps,
-        story: print(samples, id, steps),
+        story:
+          parts.length === 1 && only !== undefined
+            ? print(only, id, steps)
+            : printMix(parts, mixOf(parts), id, steps),
       },
     ];
   };

@@ -1,6 +1,7 @@
 import { consolidationFaults } from "./consolidation-faults.ts";
 import { lanePolicyFaults } from "./lane-policy-faults.ts";
 import { lifeFaults } from "./life-faults.ts";
+import { mixFaults } from "./mix-faults.ts";
 import { toolingFaults } from "./tooling-faults.ts";
 import { structureFaults } from "./structure-faults.ts";
 import { writeAheadFaults } from "./write-ahead-faults.ts";
@@ -295,6 +296,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...lifeFaults,
   ...writeAheadFaults,
   ...structureFaults,
+  ...mixFaults,
   {
     name: "ending-heard-twice",
     tests: ["src/core/ledger.test.ts"],

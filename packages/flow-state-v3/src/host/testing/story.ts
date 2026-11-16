@@ -91,6 +91,46 @@ const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>) => ({
 });
 
 /**
+ * A Story of a subject with no steps yet: `Story.app` makes one from a setup, and a generated run
+ * of several fixtures from their merged subject.
+ */
+// RETURN_TYPE: the exported Story contract with no checkpoints yet.
+export const storyOf = (subject: Subject, id: string): Story => {
+  // RETURN_TYPE: each step returns the Story contract with its names so far.
+  const chain = <Names extends string>(steps: ReadonlyArray<Step>): Story<Names> => {
+    const next = (step: Step) => chain<Names>([...steps, step]);
+
+    return {
+      [StoryId]: subject.config.app.id,
+      [SubjectId]: subject,
+      id,
+      steps,
+      ensure: (ref) => next(Step.ensure({ actor: actorOf(ref) })),
+      detach: (ref) => next(Step.detach({ actor: actorOf(ref) })),
+      send: (ref, event) => next(Step.send({ actor: actorOf(ref), event })),
+      dispose: (ref, how) =>
+        next(Step.dispose({ actor: actorOf(ref), how: how?.how ?? "dispose" })),
+      disposeRuntime: () => next(Step.disposeRuntime()),
+      world: (...words) => next(Step.world({ words })),
+      advance: (duration) => next(Step.advance({ duration })),
+      reload: (options) =>
+        next(
+          Step.reload({
+            reattach: options?.reattach ?? true,
+            heldWrites: options?.heldWrites ?? "abort",
+          }),
+        ),
+      checkpoint: (name) => chain([...steps, Step.checkpoint({ name })]),
+      // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts, lint-bomb/no-optional-domain-properties -- run() runs the Story's own steps; an omitted seed keeps the Story's own world
+      run: (given?: { readonly steps: ReadonlyArray<Step>; readonly seed?: number }) =>
+        run<Names>(subject, id, given?.steps ?? steps, Option.fromUndefinedOr(given?.seed)),
+    };
+  };
+
+  return chain([]);
+};
+
+/**
  * Scripts runs of an app as data.
  *
  * **When to use**
@@ -135,42 +175,6 @@ export const Story = {
       world: options.world ?? [],
     };
 
-    // RETURN_TYPE: each step returns the Story contract with its names so far.
-    const chain = <Names extends string>(steps: ReadonlyArray<Step>): Story<Names> => {
-      const next = (step: Step) => chain<Names>([...steps, step]);
-
-      return {
-        [StoryId]: subject.config.app.id,
-        [SubjectId]: subject,
-        id: options.id,
-        steps,
-        ensure: (ref) => next(Step.ensure({ actor: actorOf(ref) })),
-        detach: (ref) => next(Step.detach({ actor: actorOf(ref) })),
-        send: (ref, event) => next(Step.send({ actor: actorOf(ref), event })),
-        dispose: (ref, how) =>
-          next(Step.dispose({ actor: actorOf(ref), how: how?.how ?? "dispose" })),
-        disposeRuntime: () => next(Step.disposeRuntime()),
-        world: (...words) => next(Step.world({ words })),
-        advance: (duration) => next(Step.advance({ duration })),
-        reload: (options) =>
-          next(
-            Step.reload({
-              reattach: options?.reattach ?? true,
-              heldWrites: options?.heldWrites ?? "abort",
-            }),
-          ),
-        checkpoint: (name) => chain([...steps, Step.checkpoint({ name })]),
-        // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts, lint-bomb/no-optional-domain-properties -- run() runs the Story's own steps; an omitted seed keeps the Story's own world
-        run: (given?: { readonly steps: ReadonlyArray<Step>; readonly seed?: number }) =>
-          run<Names>(
-            subject,
-            options.id,
-            given?.steps ?? steps,
-            Option.fromUndefinedOr(given?.seed),
-          ),
-      };
-    };
-
-    return chain([]);
+    return storyOf(subject, options.id);
   },
 };

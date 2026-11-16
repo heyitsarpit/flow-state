@@ -1,53 +1,9 @@
-import { Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { checkout, ShopApi, shopSetup } from "../../fixtures/pay/machine.ts";
+import { checkout, shopSetup } from "../../fixtures/pay/machine.ts";
 import { Shop } from "../../fixtures/pay/server.ts";
-import { Fake, propertyTest, samplesOf, Story } from "../../src/host/testing/index.ts";
+import { Fake, propertyTest, Story } from "../../src/host/testing/index.ts";
 import { breachesOf, rules } from "../rules/rules.ts";
-
-const lost = () => Effect.fail({ _tag: "NoResponse" } as const);
-
-// A planted fault in an app's edge: a port fake that, when a confirm's answer is lost, sends it
-// again at once under a fresh idempotency key, which no Attempt was minted with.
-const ResendingShopFake = Layer.effect(
-  ShopApi,
-  Effect.map(Shop, (shop) =>
-    ShopApi.of({
-      confirm: (input, { idempotencyKey }) =>
-        shop.confirm({ ...input, key: idempotencyKey }).pipe(
-          Effect.catchTag("FakeLost", () =>
-            shop.confirm({ ...input, key: `${idempotencyKey}:again` }),
-          ),
-          Effect.catchTag("FakeLost", lost),
-        ),
-      placeOrder: (input, { idempotencyKey }) =>
-        shop.placeOrder({ ...input, key: idempotencyKey }).pipe(Effect.catchTag("FakeLost", lost)),
-      voidAuthorization: (input, { idempotencyKey }) =>
-        shop
-          .voidAuthorization({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", lost)),
-      intent: (input) => shop.intent(input).pipe(Effect.catchTag("FakeLost", lost)),
-      orderFor: (input) => shop.orderFor(input).pipe(Effect.catchTag("FakeLost", lost)),
-    }),
-  ),
-);
-
-const planted = samplesOf({
-  id: "pay-planted",
-  story: Story.app(shopSetup, { id: "pay-planted/samples", fixtures: [ResendingShopFake] }),
-  names: { setup: "shopSetup", fixtures: ["ResendingShopFake"] },
-  actors: { checkout },
-  servers: { Shop },
-  failures: [Shop.decline({ code: "card_declined" })],
-  landedFailures: [],
-  values: {},
-  controls: [],
-  steps: (story) =>
-    story
-      .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-      .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-      .send(checkout, { _tag: "Done" }),
-});
+import { planted, ResendingShopFake } from "./planted.ts";
 
 // The names a printed Story uses, in scope as the fixture's own module has them.
 const scope = { Story, Fake, shopSetup, ResendingShopFake, checkout, Shop };
