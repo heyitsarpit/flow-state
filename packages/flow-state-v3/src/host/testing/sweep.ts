@@ -1,10 +1,10 @@
 import { Option, Predicate } from "effect";
 import type { Phase } from "../../core/world.ts";
 import { type ActorId, actorKey } from "../../core/world.ts";
-import { generateSource, quieting, runSource } from "./generate.ts";
+import { generateSource, inconclusiveOf, pendingOf, quieting, runSource } from "./generate.ts";
 import type { Source, View } from "./run.ts";
 import { type Property, print, type Samples } from "./samples.ts";
-import { Step, WorldWord } from "./steps.ts";
+import { Step, StoryFailed, WorldWord } from "./steps.ts";
 
 /**
  * The phases a write's head can stand in, as the pair sweep crosses them.
@@ -41,8 +41,8 @@ export type Fault = (typeof FAULTS)[number];
 
 /**
  * One cell of the pair sweep: a phase and a fault. Reached, it holds the rules' breaches and the
- * run printed as a Story; unreached, why: no drive put a write in the phase, or the fault could not
- * fire while a write stood there.
+ * run printed as a Story; unreached, why: no drive put a write in the phase, the drive replayed did
+ * not put it there again, or the fault could not fire while a write stood there.
  */
 export type Cell = {
   readonly phase: string;
@@ -52,7 +52,7 @@ export type Cell = {
     | { readonly _tag: "Unreached"; readonly why: "no write in the phase" }
     | {
         readonly _tag: "Unreached";
-        readonly why: "the fault did not fire";
+        readonly why: "the fault did not fire" | "the drive did not replay to the phase";
         readonly story: string;
       };
 };
@@ -88,16 +88,40 @@ const reachOf = (samples: Samples, seed: number, found: Map<string, Reach>) => {
 // Only a head on the wire has a call whose answer can be lost.
 const ON_WIRE: ReadonlySet<string> = new Set(["OnWire", "Cancelling"]);
 
+// Whether a call's input carries an Attempt's id, the idempotency key a write sends, as any of its
+// values.
+// RETURN_TYPE: the function recurses, so its result type cannot be inferred.
+const carries = (input: unknown, attempt: string): boolean =>
+  input === attempt ||
+  (Predicate.isObject(input) && Object.values(input).some((v) => carries(v, attempt)));
+
+// The held call of the write standing in the phase: the one carrying its Attempt's id, and only
+// when it is its endpoint's oldest held call, the one a wire word acts on.
+const callOf = (view: View, phase: string, actor: ActorId) =>
+  Option.flatMap(
+    Option.fromUndefinedOr(
+      view.lanes().find((lane) => lane.phase === phase && lane.actor === actorKey(actor)),
+    ),
+    (lane) =>
+      Option.filter(
+        Option.fromUndefinedOr(view.held.find((h) => carries(h.input, lane.attempt))),
+        (call) =>
+          view.held.find((h) => h.server === call.server && h.endpoint === call.endpoint) === call,
+      ),
+  );
+
 // The steps of a fault given while a write stands in its phase, or none when it cannot fire there;
 // a storage refusal fires later, when the refused write is issued, and is judged then.
 const faultOf = (fault: Fault, phase: string, actor: ActorId, view: View) => {
   const steps: Record<Fault, () => ReadonlyArray<Step>> = {
     reload: () => [Step.reload({ reattach: true, heldWrites: "abort" })],
     "lost answer": () =>
-      Option.match(Option.fromUndefinedOr(ON_WIRE.has(phase) ? view.held[0] : undefined), {
+      Option.match(ON_WIRE.has(phase) ? callOf(view, phase, actor) : Option.none(), {
         onNone: () => [],
-        onSome: (held) => [
-          Step.world({ words: [WorldWord.wire({ ...held, word: "lose", at: "response" })] }),
+        onSome: ({ server, endpoint }) => [
+          Step.world({
+            words: [WorldWord.wire({ server, endpoint, word: "lose", at: "response" })],
+          }),
         ],
       }),
     "storage refusal": () => [Step.world({ words: [WorldWord.storage({ word: "refuse" })] })],
@@ -128,18 +152,31 @@ const tryCell = (
   let fired = false;
   let refusedBefore = 0;
   let stood = false;
+  let replayed = false;
+  let pending: ReadonlyArray<string> = [];
 
   const waits = [
     ...Option.toArray(nudge),
     Step.world({ words: [WorldWord.storage({ word: "release" })] }),
   ];
 
+  const quietly: Source = (view) => {
+    const step = quiet(view);
+
+    if (step === "done") pending = pendingOf(view);
+
+    return step;
+  };
+
+  // The drive's steps replayed must leave the write in its phase; a fault given elsewhere would
+  // judge some other cell.
   const give = (view: View) => {
     given = true;
-    const steps = faultOf(fault, phase, reach.actor, view);
+    stood = standing(view, phase, reach.actor);
+    replayed = stood;
+    const steps = stood ? faultOf(fault, phase, reach.actor, view) : [];
     fired = fault !== "storage refusal" && steps.length > 0;
     refusedBefore = refusedOf(view);
-    stood = true;
     queue.push(...steps);
 
     return "skip" as const;
@@ -152,7 +189,7 @@ const tryCell = (
     const step = !fired && stood ? waits.shift() : undefined;
     const pointless = step?._tag === "world" && view.heldWrites === 0;
 
-    return step === undefined || pointless ? quiet(view) : step;
+    return step === undefined || pointless ? quietly(view) : step;
   };
 
   const source: Source = (view) => {
@@ -162,10 +199,24 @@ const tryCell = (
 
     if (!given) return give(view);
 
-    return fault === "storage refusal" && !fired ? wait(view) : quiet(view);
+    return fault === "storage refusal" && !fired ? wait(view) : quietly(view);
   };
 
-  return { generated: runSource(samples, id, source), fired };
+  const beforeGiven = () => !given;
+
+  try {
+    const generated = runSource(samples, id, source);
+
+    return { steps: generated.steps, run: Option.some(generated.run), fired, replayed, pending };
+  } catch (fault) {
+    // A drive that does not replay can fail its own script (a release with nothing held) before
+    // the fault is given: that cell is unreached, not a fault of the sweep.
+    if (fault instanceof StoryFailed && beforeGiven())
+      return { steps: reach.prefix, run: Option.none(), fired: false, replayed: false, pending };
+
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a script fault after the fault is given is a defect of the sweep, never a finding about the app
+    throw fault;
+  }
 };
 
 // RETURN_TYPE: the exported Cell contract, which the two outcomes' literals would widen.
@@ -187,32 +238,39 @@ const cellOf = (
 
   const first = tryCell(samples, id, phase, fault, reach, Option.none());
 
-  const { generated, fired } = first.fired
+  const { steps, run, fired, replayed, pending } = first.fired
     ? first
     : (tries
         .slice(1)
         .map((nudge) => tryCell(samples, id, phase, fault, reach, nudge))
         .find((t) => t.fired) ?? first);
 
-  return fired
-    ? {
+  return Option.match(
+    Option.filter(run, () => fired),
+    {
+      onSome: (reached) => ({
         phase,
         fault,
         outcome: {
           _tag: "Reached",
-          breaches: properties.flatMap((p) => p.breaches(generated.run)),
-          story: print(samples, id, generated.steps),
+          breaches: [
+            ...properties.flatMap((p) => p.breaches(reached)),
+            ...inconclusiveOf(reached, pending).flatMap((v) => v.breaches),
+          ],
+          story: print(samples, id, steps),
         },
-      }
-    : {
+      }),
+      onNone: () => ({
         phase,
         fault,
         outcome: {
           _tag: "Unreached",
-          why: "the fault did not fire",
-          story: print(samples, id, generated.steps),
+          why: replayed ? "the fault did not fire" : "the drive did not replay to the phase",
+          story: print(samples, id, steps),
         },
-      };
+      }),
+    },
+  );
 };
 
 /**
@@ -229,8 +287,11 @@ const cellOf = (
  * The drive is the usual profile with lost answers and held and refused writes, from each seed in
  * turn until every phase is found, so a phase that only a loss or a held write opens is reached.
  * The fault is given at the first step boundary where a write of a sampled actor stands in the
- * phase; a lost answer needs a call open then, and a storage refusal counts only when the write it
- * refuses is issued in a step that began with the write still in the phase. Every cell is returned:
+ * phase, and only if the drive's steps replayed put it there again; a lost answer loses the write's
+ * own call (the held call carrying its Attempt's id, when it is its endpoint's oldest), and a
+ * storage refusal counts only when the write it refuses is issued in a step that began with the
+ * write still in the phase. A reached cell's breaches include work still pending after the quiet
+ * phase and a run that recorded nothing, as `propertyTest` judges them. Every cell is returned:
  * reached with its breaches, or unreached with why.
  */
 export const pairSweep = (

@@ -206,7 +206,10 @@ const wire = (
   at: Endpoint,
   word: "hold" | "drop" | "release" | "lose",
   where: "request" | "response",
-) => Step.world({ words: [WorldWord.wire({ ...at, word, at: where })] });
+) =>
+  Step.world({
+    words: [WorldWord.wire({ server: at.server, endpoint: at.endpoint, word, at: where })],
+  });
 
 const storage = (word: "hold" | "refuse" | "release") =>
   Step.world({ words: [WorldWord.storage({ word })] });
@@ -300,8 +303,10 @@ type Timer = {
   readonly afterCalls: number;
 };
 
-// What is still pending when a run stops: held calls and writes, and lanes in flight.
-const pendingOf = (view: View) => [
+/**
+ * What is still pending when a run stops: held calls and writes, and lanes in flight.
+ */
+export const pendingOf = (view: View) => [
   ...view.held.map((h) => `a call held at ${keyOf(h)}`),
   ...Array.from({ length: view.heldWrites }, () => "a held write"),
   ...view
@@ -679,6 +684,25 @@ const LIMIT_RULE = "Stories I7";
 
 const HORIZON_RULE = "Testing O6";
 
+/**
+ * Why a quieted run judged nothing: work still pending at its horizon, or no evidence recorded.
+ * Either is a breach of Testing O6, so such a run never passes.
+ */
+export const inconclusiveOf = (run: StoryRun, pending: ReadonlyArray<string>) => {
+  const verdicts: Array<Verdict> = [];
+
+  if (pending.length > 0)
+    verdicts.push({
+      rule: HORIZON_RULE,
+      breaches: pending.map((p) => `inconclusive: ${p} at the horizon`),
+    });
+
+  if (run.evidence.length === 0)
+    verdicts.push({ rule: HORIZON_RULE, breaches: ["inconclusive: the run recorded no evidence"] });
+
+  return verdicts;
+};
+
 // The breaches a run of draws gives: a turn limit, and work still pending at the horizon, are
 // breaches of their own; a script fault is a fault of the generator, so it is thrown.
 const judged = (
@@ -697,25 +721,9 @@ const judged = (
       return breaches.length > 0 ? [{ rule: p.rule, breaches }] : [];
     });
 
-    const inconclusive =
-      generated.pending.length > 0
-        ? [
-            {
-              rule: HORIZON_RULE,
-              breaches: generated.pending.map((p) => `inconclusive: ${p} at the horizon`),
-            },
-          ]
-        : [];
-
-    // A run that recorded nothing shows nothing a rule can judge: it never passes.
-    const idle =
-      generated.run.evidence.length > 0
-        ? []
-        : [{ rule: HORIZON_RULE, breaches: ["inconclusive: the run recorded no evidence"] }];
-
     return {
       generated: Option.some(generated),
-      verdicts: [...verdicts, ...inconclusive, ...idle],
+      verdicts: [...verdicts, ...inconclusiveOf(generated.run, generated.pending)],
     };
   } catch (fault) {
     if (fault instanceof StoryTurnLimit)

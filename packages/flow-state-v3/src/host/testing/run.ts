@@ -140,7 +140,11 @@ const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limi
  * Runtime is disposed, an actor's uses, and the write lanes.
  */
 export type View = {
-  readonly held: ReadonlyArray<{ readonly server: AnyServer; readonly endpoint: string }>;
+  readonly held: ReadonlyArray<{
+    readonly server: AnyServer;
+    readonly endpoint: string;
+    readonly input: CallEntry["input"];
+  }>;
   readonly calls: (server: AnyServer, endpoint: string) => number;
   readonly writes: ReadonlyArray<Batch["status"]>;
   readonly heldWrites: number;

@@ -353,7 +353,12 @@ export const makeWorld = (
         left.map((p) => `${p.word} at ${p.at} on ${key} never used`),
       ),
     unusedAt: () => [...pending.values()].flatMap((left) => left.map((p) => p.step)),
-    held: () => held.map((h) => ({ server: h.server, endpoint: h.endpoint })),
+    held: () =>
+      held.map((h) => ({
+        server: h.server,
+        endpoint: h.endpoint,
+        input: log[h.index]?.entry.input ?? {},
+      })),
   };
 };
 
