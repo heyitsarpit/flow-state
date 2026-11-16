@@ -343,3 +343,13 @@ note 2026-11-16T03:19:06Z
     T18 re-review ISSUES at `c76a963c` (`6a428687`): B1 fixed; a second lost ending was written as a Spec limit
     (displaced Attempt), and its save path is untested. Convergence threshold 2 reached for that root cause; builder
     told: gaps are it.fails, never limits.
+
+note 2026-11-16T03:23:05Z
+    Stop note (99 weekly): T18 is in review at `e08f59fe`, a last re-check running; if it is PASS the orchestrator sets
+    T18 done, else the other account takes the verdict to the builder. T18 is a slice: its user's page is owed before
+    the next slice closes.
+
+note 2026-11-16T03:23:06Z
+    Resume on the other account: "run the loop in wiki/tasks/V3/epic.task"; current Task T18 (or T55 after it, per P3's
+    Order). Open for the user: the idiom proposals, the Spec-limit rule for instructions, and the user's-read items in
+    this log since 16:35Z.
