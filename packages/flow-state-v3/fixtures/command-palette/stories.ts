@@ -255,8 +255,6 @@ const sampleEvents = {
   entering,
   goingBack,
   escaping,
-  longList,
-  pastBound,
 };
 
 /**
@@ -372,25 +370,36 @@ export const seededStress = Story.app(paletteSetup, {
   .advance("2 minutes")
   .advance("2 minutes");
 
+const paletteSamples = (
+  values: Readonly<Record<string, (typeof sampleEvents)[keyof typeof sampleEvents]>>,
+) =>
+  samplesOf({
+    id: "palette",
+    story: paletteStory("palette/samples"),
+    names: { setup: "paletteSetup", fixtures: ["CommandsFake"] },
+    actors: { palette },
+    servers: { Commands },
+    failures: [
+      Commands.fail({ command: "profile", reason: "denied" }),
+      Commands.fail({ command: "dark", reason: "offline" }),
+    ],
+    landedFailures: [],
+    values,
+    controls: [Commands.heal({ command: "profile" }), Commands.heal({ command: "dark" })],
+    steps: (story) => Object.values(values).reduce((s, event) => s.send(palette, event), story),
+  });
+
 /**
  * What a person and the command host can do, for generated runs: give the list, type, move,
  * highlight, run commands, Enter, Back and Escape; the host fails a command, and heals it.
  */
-export const samples = samplesOf({
-  id: "palette",
-  story: paletteStory("palette/samples"),
-  names: { setup: "paletteSetup", fixtures: ["CommandsFake"] },
-  actors: { palette },
-  servers: { Commands },
-  failures: [
-    Commands.fail({ command: "profile", reason: "denied" }),
-    Commands.fail({ command: "dark", reason: "offline" }),
-  ],
-  landedFailures: [],
-  values: sampleEvents,
-  controls: [Commands.heal({ command: "profile" }), Commands.heal({ command: "dark" })],
-  steps: (story) => Object.values(sampleEvents).reduce((s, event) => s.send(palette, event), story),
-});
+export const samples = paletteSamples(sampleEvents);
+
+/**
+ * The samples with the command list's edge values, for the stress runs: a thousand commands, and
+ * 4,097, past what an array may hold.
+ */
+export const stressSamples = paletteSamples({ ...sampleEvents, longList, pastBound });
 
 /**
  * Every Story of the fixture, by name.

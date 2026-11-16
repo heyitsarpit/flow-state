@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { cancelClient } from "../../fixtures/lanes/machine.ts";
-import { displacedPastItems } from "../../fixtures/lanes/stories.ts";
+import { stressDisplacedPastItems } from "../../fixtures/lanes/stories.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 
@@ -15,7 +15,7 @@ describe("a cancel lane's displaced Attempts past the items bound (Codec R1, R4;
   it(
     "WriteAhead I21: 4,200 cancels on a lane whose calls never answer never withhold the identity, and each commit ends once across the reload",
     async () => {
-      const run = checked(await displacedPastItems().run());
+      const run = checked(await stressDisplacedPastItems().run());
 
       // The lane record came within one Attempt of the items bound before the reload.
       const record = [...run.checkpoints.full.records.stored].find(([k]) => k.startsWith("lane/"));

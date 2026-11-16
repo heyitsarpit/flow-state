@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { manyReceipts } from "../../fixtures/transfers/stories.ts";
+import { stressManyReceipts } from "../../fixtures/transfers/stories.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
@@ -27,7 +27,7 @@ describe("many owed rows (Codec R1, R5; WriteAhead I21)", () => {
   it(
     "Codec R1, WriteAhead I21: 1,300 owed rows pass a record's node bound and are saved in parts, none withheld, and all are heard after a reload",
     async () => {
-      const run = checked(await manyReceipts().run());
+      const run = checked(await stressManyReceipts().run());
       const { owed } = run.checkpoints;
 
       expect(owedParts(owed).length).toBeGreaterThan(1);

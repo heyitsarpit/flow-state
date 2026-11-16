@@ -62,33 +62,41 @@ const longCommit = { _tag: "Commit", ...longRepo } as const;
 const atStringBound = { _tag: "Commit", repo: "r".repeat(262_144) } as const;
 const pastStringBound = { _tag: "Commit", repo: "r".repeat(262_145) } as const;
 
-const longEvents = { atStringBound, pastStringBound, longCommit };
+const lanesSamples = (
+  values: Readonly<Record<string, { readonly _tag: "Commit"; readonly repo: string }>>,
+) =>
+  samplesOf({
+    id: "lanes",
+    story: lanesStory("lanes/samples"),
+    names: { setup: "lanesSetup", fixtures: ["GitFake"] },
+    actors: { latestClient, serializeClient, cancelClient },
+    servers: { Git },
+    failures: [Git.rateLimit({ retryAfterMs: 2000 })],
+    landedFailures: [],
+    values,
+    controls: [],
+    steps: (story) =>
+      clients.reduce(
+        (s, client) =>
+          [...events("flow"), ...Object.values(values)].reduce(
+            (t, event) => t.send(client, event),
+            s,
+          ),
+        story,
+      ),
+  });
 
 /**
  * What the three clients and the Git host can do, for generated runs: every member sequence on one
- * repository's lane under each policy, and commits of a 200,000-character repository and of ones at
- * and just past a string's byte bound; the host rate-limits.
+ * repository's lane under each policy; the host rate-limits.
  */
-export const samples = samplesOf({
-  id: "lanes",
-  story: lanesStory("lanes/samples"),
-  names: { setup: "lanesSetup", fixtures: ["GitFake"] },
-  actors: { latestClient, serializeClient, cancelClient },
-  servers: { Git },
-  failures: [Git.rateLimit({ retryAfterMs: 2000 })],
-  landedFailures: [],
-  values: longEvents,
-  controls: [],
-  steps: (story) =>
-    clients.reduce(
-      (s, client) =>
-        [...events("flow"), ...Object.values(longEvents)].reduce(
-          (t, event) => t.send(client, event),
-          s,
-        ),
-      story,
-    ),
-});
+export const samples = lanesSamples({});
+
+/**
+ * The samples with the repository names' edge values, for the stress runs: commits of a
+ * 200,000-character repository and of ones at and just past a string's byte bound.
+ */
+export const stressSamples = lanesSamples({ atStringBound, pastStringBound, longCommit });
 
 const commit = { _tag: "Commit", ...flow } as const;
 
@@ -249,7 +257,7 @@ const unanswered = (id: string) =>
  * 4,096 items an array may hold; then the tab reloads and every commit ends once. A stress Story,
  * built on call and kept out of `stories`: a reload at each of its steps is too long for the sweep.
  */
-export const displacedPastItems = () =>
+export const stressDisplacedPastItems = () =>
   Array.from({ length: 4200 })
     .reduce<Story>(
       (s) => s.send(cancelClient, { _tag: "CancelCommit", ...flow }),

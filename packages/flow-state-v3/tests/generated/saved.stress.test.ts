@@ -10,7 +10,7 @@ import { stories as signIn } from "../../fixtures/sign-in/stories.ts";
 import { stories as sync } from "../../fixtures/sync/stories.ts";
 import { stories as transfers } from "../../fixtures/transfers/stories.ts";
 import { generate, print, type Story } from "../../src/host/testing/index.ts";
-import { samples } from "./fixtures.ts";
+import { stressSamples as samples } from "./fixtures.ts";
 
 const saved: ReadonlyArray<readonly [keyof typeof samples, Story<string>, number]> = [
   ["cells", cells.seededStress, 56],

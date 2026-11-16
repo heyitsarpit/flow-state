@@ -165,49 +165,60 @@ export const long = Array.from({ length: 9 }, (_, n) => n)
   )
   .checkpoint("end");
 
+const sessionSamples = (names: {
+  readonly past: ReadonlyArray<ReturnType<typeof Identity.names>>;
+  readonly under: ReadonlyArray<ReturnType<typeof Identity.names>>;
+}) =>
+  samplesOf({
+    id: "session",
+    story: workspaceStory("session/samples"),
+    names: { setup: "workspaceSetup", fixtures: ["IdentityFake"] },
+    actors: { acme, globex, mainSession, guestSession, coreTeam, guestTeam, badge, guestBadge },
+    servers: { Identity },
+    failures: [Identity.lock({ user: "ada" }), ...names.past],
+    landedFailures: [],
+    values: {
+      signInAda,
+      signInBob,
+      signOut,
+      retry,
+      giveUp,
+      ping,
+      acmeName,
+      globexName,
+      coreName,
+      guestsName,
+    },
+    controls: [Identity.unlock({ user: "ada" }), ...names.under, Identity.names({ chars: 0 })],
+    steps: (story) =>
+      story
+        .send(acme, acmeName)
+        .send(globex, globexName)
+        .send(mainSession, signInAda)
+        .send(guestSession, signInBob)
+        .send(mainSession, signOut)
+        .send(guestSession, retry)
+        .send(guestSession, giveUp)
+        .send(coreTeam, coreName)
+        .send(guestTeam, guestsName)
+        .send(badge, ping)
+        .send(guestBadge, ping),
+  });
+
 /**
  * What the organisations, sessions, teams and badges and the identity provider can do, for
  * generated runs: rename at every layer, sign in, out, retry and give up, and ping; the provider
- * locks a user or returns a display name past a string's bound, and heals.
+ * locks a user or returns empty display names, and heals.
  */
-export const samples = samplesOf({
-  id: "session",
-  story: workspaceStory("session/samples"),
-  names: { setup: "workspaceSetup", fixtures: ["IdentityFake"] },
-  actors: { acme, globex, mainSession, guestSession, coreTeam, guestTeam, badge, guestBadge },
-  servers: { Identity },
-  failures: [Identity.lock({ user: "ada" }), Identity.names({ chars: 262_145 })],
-  landedFailures: [],
-  values: {
-    signInAda,
-    signInBob,
-    signOut,
-    retry,
-    giveUp,
-    ping,
-    acmeName,
-    globexName,
-    coreName,
-    guestsName,
-  },
-  controls: [
-    Identity.unlock({ user: "ada" }),
-    Identity.names({ chars: 262_144 }),
-    Identity.names({ chars: 0 }),
-  ],
-  steps: (story) =>
-    story
-      .send(acme, acmeName)
-      .send(globex, globexName)
-      .send(mainSession, signInAda)
-      .send(guestSession, signInBob)
-      .send(mainSession, signOut)
-      .send(guestSession, retry)
-      .send(guestSession, giveUp)
-      .send(coreTeam, coreName)
-      .send(guestTeam, guestsName)
-      .send(badge, ping)
-      .send(guestBadge, ping),
+export const samples = sessionSamples({ past: [], under: [] });
+
+/**
+ * The samples with the display names' edge values, for the stress runs: names at a string's
+ * 262,144-byte bound and one byte past it.
+ */
+export const stressSamples = sessionSamples({
+  past: [Identity.names({ chars: 262_145 })],
+  under: [Identity.names({ chars: 262_144 })],
 });
 
 /**

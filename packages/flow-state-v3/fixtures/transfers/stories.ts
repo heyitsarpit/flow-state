@@ -154,7 +154,7 @@ export const largeReceipts = owedToClosed("transfers/stress-large-receipts", 14)
  * reloads and the account hears every one. A stress Story, built on call and kept out of
  * `stories`: a reload at each of its 1,300 steps is too long for the sweep.
  */
-export const manyReceipts = () =>
+export const stressManyReceipts = () =>
   owedToClosed("transfers/stress-many-receipts", 1300)
     .world(...released(1300))
     .advance("1 second")
@@ -376,38 +376,49 @@ export const seededStress = Story.app(bankSetup, {
   .advance("2 minutes")
   .advance("2 minutes");
 
+const transfersSamples = (receipts: {
+  readonly past: ReadonlyArray<ReturnType<typeof Bank.receiptLength>>;
+  readonly under: ReadonlyArray<ReturnType<typeof Bank.receiptLength>>;
+}) =>
+  samplesOf({
+    id: "transfers",
+    story: bankStory("transfers/samples"),
+    names: { setup: "bankSetup", fixtures: ["BankFake"] },
+    actors: { account, savings },
+    servers: { Bank },
+    failures: [
+      Bank.limit({ cents: 100 }),
+      ...receipts.past,
+      Fake.storage.put(t1Lane, newerT1Lane),
+      Fake.storage.put(acct1Record, brokenRecord),
+    ],
+    landedFailures: [],
+    values: { sendT1, sendT2, resendT1, abandonT2, saveT1, abandonSaved },
+    controls: [Bank.limit({ cents: 1000 }), ...receipts.under, Bank.receiptLength({ chars: 0 })],
+    steps: (story) =>
+      story
+        .send(account, sendT1)
+        .send(account, sendT2)
+        .send(account, resendT1)
+        .send(account, abandonT2)
+        .send(savings, saveT1)
+        .send(savings, abandonSaved),
+  });
+
 /**
  * What an account holder and the bank can do, for generated runs: send two transfers from two
- * accounts, send one again and abandon one; the bank lowers its limit.
+ * accounts, send one again and abandon one; the bank lowers its limit or sends empty receipts, and
+ * a record on disk is in a newer format or does not decode.
  */
-export const samples = samplesOf({
-  id: "transfers",
-  story: bankStory("transfers/samples"),
-  names: { setup: "bankSetup", fixtures: ["BankFake"] },
-  actors: { account, savings },
-  servers: { Bank },
-  failures: [
-    Bank.limit({ cents: 100 }),
-    Bank.receiptLength({ chars: 262_145 }),
-    Fake.storage.put(t1Lane, newerT1Lane),
-    Fake.storage.put(acct1Record, brokenRecord),
-  ],
-  landedFailures: [],
-  values: { sendT1, sendT2, resendT1, abandonT2, saveT1, abandonSaved },
-  controls: [
-    Bank.limit({ cents: 1000 }),
-    Bank.receiptLength({ chars: 200_000 }),
-    Bank.receiptLength({ chars: 262_144 }),
-    Bank.receiptLength({ chars: 0 }),
-  ],
-  steps: (story) =>
-    story
-      .send(account, sendT1)
-      .send(account, sendT2)
-      .send(account, resendT1)
-      .send(account, abandonT2)
-      .send(savings, saveT1)
-      .send(savings, abandonSaved),
+export const samples = transfersSamples({ past: [], under: [] });
+
+/**
+ * The samples with the receipts' edge values, for the stress runs: receipts of 200,000 characters,
+ * at a string's 262,144-byte bound and one byte past it.
+ */
+export const stressSamples = transfersSamples({
+  past: [Bank.receiptLength({ chars: 262_145 })],
+  under: [Bank.receiptLength({ chars: 200_000 }), Bank.receiptLength({ chars: 262_144 })],
 });
 
 /**
