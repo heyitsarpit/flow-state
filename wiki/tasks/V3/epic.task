@@ -286,16 +286,16 @@ instructions
     - No worktrees: the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08; R43).
     - No agent reads agent transcripts (the user, 2026-11-15).
 cadence
-    A wake every 50 minutes (the user, 2026-11-16; was 60, so the orchestrator's 1-hour prompt cache stays warm) checks
-    for a Task in review, a stalled lead, the usage reserve and the 5-hour window; wakes about every three hours also
-    time the tests (the user, 2026-11-16). Reviews run on the events in instructions, not on the clock.
+    Wakes at most 45 minutes apart (the user, 2026-11-16; was 60, so the orchestrator's 1-hour prompt cache stays warm)
+    check for a Task in review, a stalled lead, the usage reserve and the 5-hour window; wakes about every three hours
+    also time the tests (the user, 2026-11-16). Reviews run on the events in instructions, not on the clock.
 
-    Session crons, one wake every 50 minutes in a 5-hour cycle (one 40-minute gap at midnight): `3,53 0-23/5 * * *`, `43
-    1-23/5 * * *`, `33 2-23/5 * * *`, `23 3-23/5 * * *`, `13 4-23/5 * * *`.
+    Session cron `7,52 * * * *` (gaps of 45 and 15 minutes). One job only: the scheduler adds a different fixed delay to
+    each job, so several jobs drift apart and an exact 45-minute cycle can't be kept.
 
     Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the weekly usage and the
     5-hour window from the harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it;
-    follow instructions' 5-hour pacing. Only when the local hour is a multiple of 3 and the minute is under 50: on a
+    follow instructions' 5-hour pacing. Only when the local hour is a multiple of 3 and the minute is under 30: on a
     clean detached worktree of HEAD at a path no agent uses, time `nub run test run packages/flow-state-v3`, `nub run
     test:stress` and `nub run faults` by wall clock, one after another; if any exceeds twice its baseline in the latest
     speed note of V3.log, note it and insert a Task to make the tests fast again, taken before the lead's next Task. If
