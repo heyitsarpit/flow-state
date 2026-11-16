@@ -634,7 +634,7 @@ tasks
             UnencodableValue report.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T54]
         satisfies   [
@@ -689,6 +689,38 @@ tasks
             'trigger' part that shadows the root's Touch handler, so its updateMemory never runs (seen in a test
             machine; worked around with a separate event). Replay against Turn's priority rules and decide which side
             is wrong.
+        comment     2026-11-16T09:56:20Z
+            Requirements, each a check failing today (A1 Compile and Diagnostics, A2 delay, A3 faults): 1 FlowError
+            carries diagnostics, nonempty, code == diagnostics[0].code, each a Schema-backed Diagnostic that round-trips
+            every code and rejects unknown codes and non-finite numbers (Diagnostics R1, R2, I1, I2, T1) -> A1 test; 2
+            construction codes are in the closed list with help, classified Failure; InvalidMachine and DuplicateMachine
+            become InvalidConfiguration with details.reason (R5 to R7, I5) -> A1; 3 every violation in one FlowError,
+            declaration then rule order, with paths (Compile R2, I3, T2); callback runs once (R1, I1) -> A1; 4 states as
+            an ordered list with single-key compounds, a body mirroring the tree (default per compound, none on leaves),
+            unknown fields, empty compounds, duplicate siblings, overlapping public and internal events, _tag fields
+            refused (R4); reserved names and name bounds (R12, I13) -> A1 construction and type tests; 5 the machine
+            adds nothing: foreign tokens, undeclared events, another definition's send event, duplicate schedule names
+            (R3, T11; flips the routed it.fails) -> A1; 6 Flow.input, constant and computed Flow.initial, Flow.private,
+            optional absence; no source a type error; TwoDefaults, ImpureDefault; computed reads input and constant
+            fields only (R5, I5, I6) -> A1; 7 creation checks input by its type side, copies, constants then computed,
+            pure; restore never creates (R6, I7, I8, T4) -> A1 core test; 8 input fields read-only (type),
+            IdentityFieldOptional on a machine with input (R7, I9, T12) -> A1; 9 UnknownNotUncertain, SharedContract
+            (R9, I10, I11) -> A1; 10 Event, State, Input, Memory Schemas; E.X validates and throws InvalidEvent (R14) ->
+            A1; 11 closed app: unknown fields, duplicate ids, one machine twice, colliding contract ids (R15, I14, T7)
+            -> A1; 12 Compiled data view and a Runtime refusing a bare function, a key field outside input, no events
+            table (R16, R17, I15, I16, T8) -> A1; 13 compound states: selection leaf to root, defaults, Boundary, exits
+            deepest first, entries outermost first, per-node activations and schedules, state token at or below, late
+            routing from the owner's nearest surviving ancestor (Turn R1 to R3, I1, I5, I6, R20) -> A1 Story tests; 14
+            history targets the last active leaf or the default (Turn R4, T3) -> A1 Story; 15 fixed delay past 2^31 - 1
+            refused at construction, computed one refused at the turn (Turn R14, I14) -> A2, flips its it.fails; 16 Turn
+            I14 and I9 it.fails tightened and fixed; 17 armOn's implicit self only where no written handler handles the
+            event (Turn R2, R14) -> A1 Story; 18 player and quote-wizard fixtures, sign-in with CODE as a compound, each
+            with usual and stress Stories -> A1; 19 a planted fault per runtime rule -> A3.
+        comment     2026-11-16T09:56:26Z
+            Out of this slice (proposed): Compile R8 restore defaults and RestoreMissingInput with record migration
+            (@task.V3.T56); R10, R11, R13 fragments (@task.V3.T57); R18 wiring and running a machine with input by value
+            ref (@task.V3.T9); Diagnostics R3, R4, R8 to R10 (causes, leaks, rendering) stay open until a boundary that
+            raises them is built.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open
