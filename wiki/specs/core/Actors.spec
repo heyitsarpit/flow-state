@@ -720,8 +720,8 @@ tests
              IdentityExhausted. No test yet (Q2). [@I13, @I33, @I34]
     T18  Failed admission leaves nothing: an ensure refused for a missing provider or an invalid input leaves no actor, 
          lane, schedule or evidence beyond the failure, and a later ensure succeeds. No planted fault yet; its
-            slice
-                plants one that leaves a half-admitted actor. [@I9]
+             slice
+                 plants one that leaves a half-admitted actor. [@I9]
     T19  Free actors end: on a controlled clock, an actor whose last use detaches with no work in flight has ended at 
          exactly the grace, and one whose record cannot encode waits. Planted fault: an actor that never ends
              while Free. [@I37]

@@ -1,7 +1,7 @@
 spec Codec
 status        proposed
 basis         A guide, and one of the two Specs most likely to change (Codec,
-              Diagnostics): no prototype case pins it. Revisable whenever building shows it
+              Diagnostics): no test pins it yet. Revisable whenever building shows it
               wrong; each change and its reason is recorded in wiki/specs/specs.log.
 location      packages/flow-state-v3/src
 provides      the structural codec (encode, decode) used by records, payloads, traces and the
@@ -76,7 +76,7 @@ open
                  packages/flow-state-v3/tests/, and each rule gets a planted fault in tests/faults.ts that
                  `nub run faults` must catch.
 
-    Q2  The prototype codec (round-14/codec/codec.ts) has no case pinning these bounds or error codes.
+    Q2  The prototype codec (round-14/codec/codec.ts) has no test pinning these bounds or error codes.
         outcome  The checks are written from this Spec, not from the prototype.
 
 model

@@ -268,11 +268,11 @@ coverage
 
 tests
     T1  Inert static commands: run graph, check and explain on every reference app with spies on callbacks, services 
-        and storage; zero calls apart from recorded positions. Prototype pins report callbacksRun 0 (fixtures `broken`, 
-        `keyless`). [@I1]
-    T2  check rules: one fixture per error rule fails with that rule and exit 1; reference apps report none. Prototype 
-        pins `no-notsent`, `unencodable-no-notsent`, `shared-contract`, `gone-without-key`; wrong runtime 
-        `cli.notsent-off`. Every other rule has no prototype wrong runtime; its slice plants one per rule. [@I8]
+        and storage; zero calls apart from recorded positions. The run reports callbacksRun 0 (fixtures `broken`,
+            `keyless`). [@I1]
+    T2  check rules: one fixture per error rule fails with that rule and exit 1; reference apps report none. Rules 
+        `no-notsent`, `unencodable-no-notsent`, `shared-contract`, `gone-without-key` are pinned; planted fault: a
+            check with notsent off. Every other rule has no planted fault yet; its slice plants one per rule. [@I8]
     T3  Type facts: run check where type facts are unavailable; it fails and never says complete. [@I7]
     T4  graph names: for each edge in the reference apps' graphs, run a Story or scenario that takes it and compare the 
         turn record's name. [@I2]

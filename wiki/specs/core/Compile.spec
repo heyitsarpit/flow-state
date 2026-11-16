@@ -187,11 +187,10 @@ open
         outcome  Each test below is written, when its slice is built, as the cheapest check that fully
                  covers it (a compile-time test, a run rule applied to every Story run, a Story test or
                  a pure core test) in packages/flow-state-v3/tests/, and each rule gets a planted fault
-                 in tests/faults.ts that `nub run faults` must catch. The cases and wrong runtimes named
-                 below are the prototype's, kept as prior art. Until then every Requirement's evidence
+                 in tests/faults.ts that `nub run faults` must catch. Until then every Requirement's evidence
                  is open.
 
-    Q2  IdentityFieldOptional has no prototype case or wrong runtime.
+    Q2  IdentityFieldOptional has no test or planted fault yet.
         outcome  A planted fault and its test are written before relying on R7.
 
 model
@@ -254,8 +253,8 @@ composition
     flow
         Design note, proved by the prototype. The compiler is a typed front end that emits
         Compiled as plain data plus Slots; the runtime never reads a definition body
-        (packages/flow-state-v3/prototypes/conformance/compile/, Compiled's shape in
-        packages/flow-state-v3/prototypes/conformance/fixtures/compiled.ts). Tools read the data
+        (packages/flow-state-v3/src/machine.ts, Compiled's shape in
+        packages/flow-state-v3/src/core/compiled.ts). Tools read the data
         view only, so flow check and flow graph need no Runtime.
 
         Production (T16, proposed): src/definition.ts (definition, event, state and operation
@@ -339,21 +338,21 @@ coverage
 
 tests
     T1  Construct every reference definition, machine and app with spies on services, storage, clock and loaders; 
-        expect zero calls and a callback count of 1 per machine. No prototype wrong runtime; a planted fault is written 
-        that
-            acquires a service at construction. [@I1, @I6]
+        expect zero calls and a callback count of 1 per machine. No planted fault yet; one is written
+            that
+                acquires a service at construction. [@I1, @I6]
     T2  Construct a definition with three violations in different fields; expect one FlowError whose diagnostics name 
-        all three, in declaration then rule order, with paths. No prototype wrong runtime; a planted fault is written 
-        that
-            stops at the first violation. [@I3]
+        all three, in declaration then rule order, with paths. No planted fault yet; one is written
+            that
+                stops at the first violation. [@I3]
     T3  Each rejected form of R4, R5, R9, R12 and R13 is refused with its code: TwoDefaults, ImpureDefault, 
-        ReservedStateName, UnknownNotUncertain, SharedContract, KeyFieldOptional. Reference: the prototype's front-end 
-        pins (`P1-H` for ImpureDefault). Wrong runtimes for ImpureDefault: `p1h.default-runs`, 
-        `a1.a-failed-default-is-a-value`. [@I3, @I5, @I6, @I10, @I11, @I13]
+        ReservedStateName, UnknownNotUncertain, SharedContract, KeyFieldOptional.
+            Planted faults for ImpureDefault: a default that runs; a failed default taken as a value. [@I3, @I5, @I6, 
+                @I10, @I11, @I13]
     T4  Create with an input whose Schema transforms; creation checks the type side and stores the value unchanged. 
-        Case `R15-03`; wrong runtime `r15.creation-decodes-input`. [@I7]
+        Planted fault: a creation that decodes the input. [@I7]
     T5  Restore and adopt a record twice with spies on initial functions; expect zero creation calls. Restore a record 
-        lacking an input field with no default; expect RestoreMissingInput (case `R12-DOORS`). [@I8]
+        lacking an input field with no default; expect RestoreMissingInput. [@I8]
     T6  Type tests: undeclared or foreign members, false from a guard, unfilled ports, writes to input fields, acting 
         fragment members outside their fragment, and a fragment callback whose target moves the host out of the 
         fragment's placement node (the type half of the cut Turn I8) fail to compile; reference literals infer without 
@@ -368,8 +367,8 @@ tests
     T10  Wire a slot to a missing provider and to an incompatible one; admitting the actor refuses with the slot named, 
          before any turn (Actors Spec T14 covers the cycle). [@I17]
     T11  The machine adds nothing: a callback naming a state, event or operation the definition lacks is a type error 
-         and, untyped, a construction error; Compiled's states, events and operations equal the definition's. No 
-         prototype wrong runtime; a planted fault is written that accepts an added state. [@I4]
+         and, untyped, a construction error; Compiled's states, events and operations equal the definition's. No
+            planted fault yet; one is written that accepts an added state. [@I4]
     T12  Identity fields: a value-named machine with an optional, defaulted or non-string-encoded
             input field is refused IdentityFieldOptional; a fragment input field stays writable.
             A planted fault is written with this test (Q2). [@I9]

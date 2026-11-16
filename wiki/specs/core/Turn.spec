@@ -525,20 +525,20 @@ tests
          schedule of a left state kept; a grace not fenced. [@I20, @I21]
     T11  Waiting while unused and overdue. Planted faults: a schedule that fires while unused; a waiting schedule that 
          survives a re-arm, never
-            wakes or is lost at the end; a reset that keeps timers. [@I22, @I23]
+             wakes or is lost at the end; a reset that keeps timers. [@I22, @I23]
     T12  restartOn and keyed schedules: a changed selection restarts only its schedule; equal values do nothing; a key 
          leaving cancels its timer, a repeated key keeps one timer, and a restore does not restart a restartOn
              schedule. No test yet. [@I20, @I34, @I35]
     T13  Placements: a key change releases once and opens the new key; a non-key change keeps the session; a throwing 
          select keeps it with one issue.
-            Planted faults: a key not part of the identity; a throwing select that releases. [@I24]
+             Planted faults: a key not part of the identity; a throwing select that releases. [@I24]
     T14  Owner test: a late ending routed as current, an unknown { Restored } routed from the root, and a late ending 
          left Unhandled must each fail the check
              as planted faults. [@I26]
     T15  LateMayNotLeave: a late exit beside an InFlight head or queued commit is denied; beside a Held head it is 
          allowed.
-            Planted faults: a late exit that always leaves; one that leaves beside a queued commit; a Held head taken
-            as live; a queue behind a Held head taken as not live; an active subroutine ignored. [@I27]
+             Planted faults: a late exit that always leaves; one that leaves beside a queued commit; a Held head taken
+             as live; a queue behind a Held head taken as not live; an active subroutine ignored. [@I27]
     T16  onContext: a provider change wave with an equal selection, a changed one with when declining, and a throwing 
          select. No test yet. [@I28]
     T17  Snapshots: writing into a published snapshot fails; a later publication reuses unchanged parts by identity. 
@@ -550,7 +550,7 @@ tests
          level first, first passing). No planted fault yet; phase 3 writes one that tries the root first. [@I1, @I2]
     T20  Pending resets and whenAbandoned: a commit changes a trait's reset value; the reset runs as its own turn 
          before the next event; a leave that ends a trait runs whenAbandoned in the leaving turn. Phase
-            3 writes the planted faults. [@I10, @I11]
+             3 writes the planted faults. [@I10, @I11]
     T21  Denied and Unhandled: a lane ending admitted where every alternative declines applies its lane effects, counts 
          as delivered (its owed row closes), and changes no state or revision; an unhandled public event publishes 
          nothing. Phase 3 writes the planted fault that drops the lane effects. [@I15]
@@ -559,7 +559,7 @@ tests
     T23  Equal deadlines and step delays: two actors and two nested states arm schedules due at one instant; the 
          firings are separate turns in admission, outermost-state, then declaration order. A Schedule step fired late 
          counts its next delay from the actual firing. No test yet (Q2); phase 3 writes the planted faults.
-            [@I32, @I33]
+             [@I32, @I33]
     T24  Verdicts as acts: an accepted, an unhandled, a denied and a refused turn each give one Turn act, and the 
          report stream derived from the acts equals the stream before the change, byte for byte, over every Story run;
              check() on each answers Allowed, Unhandled, Denied, and Denied with InvalidTurn. Wrong runtimes: an 

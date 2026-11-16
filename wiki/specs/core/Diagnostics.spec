@@ -1,7 +1,7 @@
 spec Diagnostics
 status        proposed
 basis         A guide, and one of the two Specs most likely to change (Codec,
-              Diagnostics): no prototype case pins it. Revisable whenever building shows it
+              Diagnostics): no test pins it yet. Revisable whenever building shows it
               wrong; each change and its reason is recorded in wiki/specs/specs.log.
 location      packages/flow-state-v3/src
 provides      FlowError, Diagnostic

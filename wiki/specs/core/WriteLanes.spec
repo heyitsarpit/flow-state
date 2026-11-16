@@ -327,7 +327,7 @@ open
                  packages/flow-state-v3/tests/, and each rule gets a planted fault in tests/faults.ts that
                  `nub run faults` must catch; until then every Requirement's evidence is open.
 
-    Q2  RetryLimit and Superseded as evidence have no prototype wrong runtime.
+    Q2  RetryLimit and Superseded as evidence have no planted fault yet.
         outcome  Their checks and planted faults are written with their slices.
 
     Q3  R13's store-side rules (record queues, their bounds, ModuleDisabled) moved to the entity store area.
@@ -774,46 +774,46 @@ tests
         ids never equal a restored one (a fresh seed each boot, R5). Planted fault: a mint
             floor that counts only the head. [@I6, @I7]
     T3  Concurrency cells, one per policy: reject declines beside a Held head; latest supersedes a never-sent head; 
-        serialize declines the 65th; cancel interrupts the wire. Cases `PAY-15`, `MED-01`, `REV8-PINS`, `R15-01`; 
-        prototype
-            lie `lie.serialize-as-latest`; wrong runtimes `lane.queue-unbounded`, `d118.commit-beside-kept`. [@I8, @I9]
+        serialize declines the 65th; cancel interrupts the wire.
+            Planted faults: serialize that acts as latest; an unbounded queue; a commit beside a kept ending.
+                [@I8, @I9]
     T4  Retry and promotion: retry keeps id and input; a refused head promotes what waits; an unknown never promotes. 
-        Cases `PAY-04`, `REV8-H1`; planted faults: an unknown that promotes, a fresh mint on Held, a cancel that
-            keeps Held. RetryLimit has no prototype wrong runtime (Q2). [@I11, @I12]
+        Planted faults: an unknown that promotes, a fresh mint on Held, a cancel that
+            keeps Held. RetryLimit has no planted fault yet (Q2). [@I11, @I12]
     T5  Key-less members: on an unkeyed operation outside an ending; in a keyed success handler a key-less cancel does 
-        nothing; a key-less idle denies a kept ending. Cases `R15-02`, `REV9-EDGE`; wrong runtimes
-            `d123.keyless-idle-heads-only`, `1b.r43-keyless-falls-back-to-key`, `r15b.keyless-success-names-key-lane`.
-            [@I13, @I14]
-    T6  Exactly one delivery, across refusal, reload and parking. Cases `DRV-02`, `PAY-15`; prototype lies 
-        `a2.deliv-fail-samemail`, `d154.moved-fail-released`, and `lost.letgo-silent` (a kept ending let go with no
-            record). [@I15, @I16]
+        nothing; a key-less idle denies a kept ending.
+            Planted faults: a key-less idle that heads only; a key-less member that falls back to the key; a
+            key-less success that names the key's lane. [@I13, @I14]
+    T6  Exactly one delivery, across refusal, reload and parking. Planted faults: a failed delivery in the same mail; a 
+        failed moved lane released; a kept ending let go
+            with no record. [@I15, @I16]
     T7  Old-version holds: a release that adds a key field declines every commit until the old hold ends; another actor 
         is not held; previous[i] names only its own lanes; a release that changes the identity version re-keys the lane
-            and declines nothing. Cases `R13-KEYS`, `P1-H`, `REV6-H5`; wrong runtimes `p1m.old-version-any-actor`,
-            `p1m.current-names-old`, `p1m.previous-names-nothing`, `p1m.previous-is-current-allowed`,
-            `audit-1.old-version-declines-under-reject-only`, `1b.old-version-idle-passes`, and for the re-key
-            `d78-no-evidence`. [@I17]
+            and declines nothing.
+            Planted faults: an old-version hold on any actor; current naming an old lane; previous naming nothing;
+            previous allowed as current; an old version that declines under reject only; an old-version idle that
+            passes; and for the re-key, a re-key with no evidence. [@I17]
     T8  Unencodable: a commit whose input cannot encode declines and its transition runs; the mapper gets the value 
-        asked. Cases `REV9-M1`, `REV7-M9`; wrong runtime `d114.input-not-replaced`. [@I18]
-    T9  cancel by history: on the wire, waiting never sent, a waiting re-send, Held, Idle. Cases `PAY-03`, `PAY-12`, 
-        `PAY-15`, `STORE-05`; planted fault: treats the wire as never sent. [@I12, @I20]
+        asked. Planted fault: an input not replaced. [@I18]
+    T9  cancel by history: on the wire, waiting never sent, a waiting re-send, Held, Idle. Planted fault: treats the 
+        wire as never sent. [@I12, @I20]
     T10  Retired with R15 and I21 (`cancelAll` is deferred; revisit.md); not written. [@I21]
     T11  Release on leave: the wire is interrupted and nothing delivered; a Held head, a never-sent head and a waiting 
          re-send are each released, a Cancelling head that answers is released, and the lane ends Idle; a reload of a
-             releasing lane delivers nothing and leaves no hold. Case `FRAG-06`; prototype lies
-             `d154.moved-save-released`, `lie.released`; planted fault: a Held head that stays Held after the
+             releasing lane delivers nothing and leaves no hold. Planted faults: a
+             moved lane saved as released; a lane never released; a Held head that stays Held after the
              release. [@I12, @I15]
     T12  Store effects before the ending: a domain write's store effects are visible in the cut before its ending's 
-         turn, whether the ending routes current or late. No prototype wrong runtime; planted fault: queues
+         turn, whether the ending routes current or late. Planted fault: queues
              the ending first. [@I19]
     T13  Late results after cleanup: release a placement and a commit, then land their results; data, lanes and endings 
-         are unchanged. No prototype wrong runtime. [@I23]
+         are unchanged. No planted fault yet. [@I23]
     T14  Members only: restore, hydration, activation and re-entry of a state whose earlier activation committed invoke 
-         no commit; an adapter spy counts one invocation per minted, promoted or re-sent Attempt. No prototype wrong
-             runtime. Planted fault: replays a commit on re-entry. [@I1]
+         no commit; an adapter spy counts one invocation per minted, promoted or re-sent Attempt. Planted fault: 
+         replays a commit on re-entry. [@I1]
     T15  Success writes: a success write is applied before its ending's event and never on failure or unknown; an 
          invalid write reports InvalidWrite and the commit still succeeds; a write over data that landed later marks it
-             stale instead. No prototype case. [@I2, @I24]
+             stale instead. No test yet. [@I2, @I24]
     T16  Origins and unknown targets: an operation whose author failure tag is named Cancelled, with `notSent` and an 
          `unknown` record mapping Cancelled and `otherwise`; the author's failure reaches only the failure mapper, a
              declined commit only `notSent`, a cancelled send only the unknown record's Cancelled, and the commit's own
