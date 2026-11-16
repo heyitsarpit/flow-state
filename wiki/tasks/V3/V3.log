@@ -452,3 +452,7 @@ note 2026-11-16T11:06:42Z
 note 2026-11-16T11:08:29Z
     T74 paused green at e3fd92b0 (mix runs, its fault caught from a seed; two user calls: Story.app for a mix, a new mix
     profile). T17's fix round running.
+
+note 2026-11-16T11:11:33Z
+    Wake: weekly 10%, 5-hour 73%. T74's requirements review is held until T74 resumes, so T17's fix round keeps the
+    5-hour room; faults 48 s at HEAD (limit 56). test:stress red at e3fd92b0 from T74's checkpoint, noted on T74.

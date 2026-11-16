@@ -919,3 +919,7 @@ tasks
             I15 from mix seed 4 in a scratch plant. Next: run the close (stress, fresh seeds, `nub run faults`) and
             check the shrunk two-fixture output; then review. Needs the user: a pasteable Story form for a mix (prints
             as commented steps today) and the new `mix` profile value.
+        comment     2026-11-16T11:11:33Z
+            Resume first (orchestrator): at e3fd92b0 test:stress fails its selection check, since
+            tests/generated/mix.stress.test.ts runs no stress material (tools/stress/select.test.ts); fix before
+            the close.
