@@ -192,21 +192,15 @@ tasks
             @task.V3.T63, @task.V3.T69, @task.V3.T70.
         acceptance
             Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
-        comment     2026-11-15T18:27:26Z
-            Routed from T65's review: export Trace, TraceEvent and TraceRecord with StoryRun. The trace's `page` stands
-            in for the Plan's `tab`; the public name is the user's.
-        comment     2026-11-15T21:33:29Z
-            Routed from T69's review (PASS at `f20559bb`): a usage error prints help on stdout, against
-            @plan.CommandLine.O3; the rejected-run path has no test.
-        comment     2026-11-16T01:40:08Z
-            Routed from P2's close-out: generated runs draw an answer only for an endpoint's first call per step; mixes
-            are checked on the generator's tally; a turn limit counts as a breach, not Inconclusive; the quiet horizon
-            is 2 minutes, not 60 s; the pair sweep takes phases from the app's own report; places.ts matches actor keys
-            by prefix; some rule tests are one-sided; Stories I7's crossing-batch test.
-        comment     2026-11-16T02:04:36Z
-            Routed from P2's completion audit: Stories T5 names a reason Advance that R6 and the runner lack (proposed);
-            tools/stress/select.test.ts claims no default file runs stress material, yet tests/cli/cli.test.ts and
-            tests/stories/story.test.ts each run a stress Story once.
+        comment     2026-11-16T06:19:55Z
+            Routed items: (1) Export Trace, TraceEvent and TraceRecord with StoryRun; the trace's page stands in for the
+            Plan's tab (the user's name). (2) A usage error prints help on stdout, against @plan.CommandLine.O3; the
+            rejected-run path has no test. (3) Generated runs draw an answer only for an endpoint's first call per step;
+            mixes are checked on the generator's tally; a turn limit counts as a breach, not Inconclusive; quiet horizon
+            is 2 minutes, not 60 s. (4) Pair sweep takes phases from the app's own report; places.ts matches actor keys
+            by prefix; some rule tests are one-sided; Stories I7's crossing-batch test. (5) Stories T5 names a reason
+            Advance that R6 and the runner lack (proposed). (6) tools/stress/select.test.ts claims no default file runs
+            stress material, yet tests/cli/cli.test.ts and tests/stories/story.test.ts each run a stress Story once.
     T31
         title       CLI outputs designed for people
         status      draft

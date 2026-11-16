@@ -375,3 +375,8 @@ note 2026-11-16T05:31:17Z
 note 2026-11-16T05:36:56Z
     Decision (user, 2026-11-16): "edit the epic for the important stuff, just 1-2 lines": instructions gain the run's
     lessons (--now stamps, gates by exit code, about 2% a Task); T55 gets a read-first comment.
+
+note 2026-11-16T06:20:17Z
+    Deleted 19 absorbed proposals in wiki/plans/flow/references/proposals/ (user: "do it all", 2026-11-16); every file
+    is in the commit before this one, 9625d3a5 for most (agent-speed-study 75d828ae, self-contained-audit a465f7d6,
+    suite-convergence c59b5fab, suite-leverage-survey ef115b0d). Reverse: git show <rev>:<path>.

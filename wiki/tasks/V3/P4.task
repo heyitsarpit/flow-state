@@ -225,14 +225,12 @@ tasks
         acceptance
             - The Requirements of @spec.StaticCli hold, each shown by a test that states its expected output by hand.
             - `flow graph`'s edge names equal the names in a run's evidence, over every fixture.
-        comment     2026-11-15T21:33:29Z
-            Routed from T69's review: O6 config checks (a config with only the brand key crashes instead of exiting 2;
-            symlinks and the root package.json unchecked; the catch-all exits 2 silently). Also: narrow the faults
-            runner's tests/cli excuse to the parity tests; the list test trims output (a trailing blank line passes);
-            the routes test checks only the name main; rename StoryId, which holds the app id.
-        comment     2026-11-16T01:40:09Z
-            Routed from P2's close-out: the faults runner excuses any test titled with a rule id from the dead-core
-            check; duplicate Story ids are not rejected; the CLI parity test uses render() as its own oracle.
+        comment     2026-11-16T06:19:55Z
+            Routed items: (1) O6 config checks: a config with only the brand key crashes instead of exiting 2; symlinks
+            and root package.json unchecked; catch-all exits 2 silently. (2) Narrow the faults runner's tests/cli excuse
+            to the parity tests; it also excuses any test titled with a dead-core rule id. (3) List test trims output;
+            routes test checks only the name main; rename StoryId (holds the app id). (4) Duplicate Story ids are not
+            rejected; the CLI parity test uses render() as its own oracle.
     T23
         title       `nub run verify` builds and checks v3
         status      draft
