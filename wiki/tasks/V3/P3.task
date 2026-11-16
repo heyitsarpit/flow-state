@@ -170,6 +170,10 @@ tasks
             A-4 done: Story test 'Actors R22, I29' (no lane/ key, one Disposed ending after the reload), green; fault
             dropped-lane-kept-on-disk. A-14 and A-15 are kept by the reload sweeps (run rules at every reload, held
             batches aborted or landed whole). A-16 and old gates dropped.
+        comment     2026-11-16T02:25:44Z
+            Resume (usage stop, 4eb029e2): R1 to R7 and the review gaps built, default suite 460 green; test:stress red
+            only on 6 saved stress Stories (generate.ts hash fix changed prints). Next: paste each fixture's new print
+            (seeds in saved.stress.test.ts), then nub run faults, fresh seeds, set review.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open
