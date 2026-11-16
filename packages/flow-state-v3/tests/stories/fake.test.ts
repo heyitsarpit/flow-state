@@ -31,6 +31,7 @@ describe("Fake server", () => {
     expect(first.read(Bank)).toEqual({
       receipts: { [first.read(Bank.transfer)[0]?.input.key ?? ""]: "r1" },
       limit: 1000,
+      receiptChars: 0,
     });
     expect(lowered.read(Bank).limit).toBe(400);
     expect(declined.read(Bank).receipts).toEqual(first.read(Bank).receipts);
@@ -75,7 +76,11 @@ describe("Fake server", () => {
 
     expect(first.checkpoints.reloaded.read(Bank).limit).toBe(10);
     expect(endings(first)).toEqual(["failure Declined"]);
-    expect(fresh.checkpoints.start.read(Bank)).toEqual({ receipts: {}, limit: 1000 });
+    expect(fresh.checkpoints.start.read(Bank)).toEqual({
+      receipts: {},
+      limit: 1000,
+      receiptChars: 0,
+    });
   });
 
   it("the world option applies its words before the tab first opens (Stories R1)", async () => {

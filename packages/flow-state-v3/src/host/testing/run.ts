@@ -385,9 +385,9 @@ export const runFrom = <Names extends string>(
         if (how === "forget") testing.forget(tab.built, actor);
         else tab.built.driver.input(Input.DisposeActor({ actor }));
       },
-      disposeRuntime: () => {
+      disposeRuntime: ({ forget }) => {
         disposed = true;
-        tab.perform(tab.built.runtime.dispose());
+        tab.perform(tab.built.runtime.dispose({ forget }));
       },
       world: ({ words }) => {
         for (const word of words) apply(word);

@@ -791,6 +791,74 @@ tasks
             lane sizing, owed parts, the narrowed rule, put records unjudged by Restore I1, and lanes nearBound. Next:
             Restore R4 by two traces in Spec and log, Stories R11 wording, Codec R5 owed part keys, planted faults (red
             on the old sizing), check, faults, review. Long step samples were too slow (162 s suite) and were dropped.
+        comment     2026-11-16T18:08:19Z
+            Convergence (threshold 2): class is 'a record's bound is judged once, at one moment, while the record keeps
+            changing after it (input alone, then commit time, then Held, retry digit, displaced id; owed values sized
+            alone or per drop), and a later miss withholds the identity'. Requirements together: Codec R1, R4, R5;
+            WriteAhead R4, R12, I11, I21; Actors R8; Restore R1, R3; no lost, doubled or made-up ending; no hang. WIP at
+            98b4f8b9 is prior art only.
+        comment     2026-11-16T18:54:15Z
+            Fixtures review (4 Haiku, effort high), verified. Accepted and landed: receipts and repos at 262,144 and
+            262,145 in samples; a healthy reload after refuseLoad; a refused forget reports StorageFailure; the session
+            fake replays by idempotency key; session long for the bench; control renamed receiptLength; the sweep row in
+            wiki/conventions/fixtures.md fixed; displaced count parsed; lane tests now check another lane is sent while
+            held (red at 70472fdb, which the reason-text rule had hidden).
+        comment     2026-11-16T18:54:15Z
+            Fixtures review, changed: expectations no Spec backs removed (owed part count, a decline at exactly the
+            bound, reported once); the 2.25 MB beside 9-byte finding kept as the requirement Codec R4's largest-first
+            text loses, owed to the convergence Spec edit; run rule WriteAhead I21 flags any lane-record
+            UnencodableValue by key, not by reason text.
+        comment     2026-11-16T18:54:16Z
+            Fixtures review, rejected: GitFakeUnanswered as an injected outcome (it never answers; endings come from
+            restore); palette at exactly 4,096 items (the node bound comes first); depth 32 and multi-byte names (same
+            codec path, owned by codec tests); the generator drawing refuseLoad or forget (an unused refuseLoad is a
+            script fault, a new draw shifts every saved seed; hand Stories and the sweep reach them). Not T20: player
+            missing from the sweep, cells, sync, sign-in and player missing from the mix, old cite errors
+            in tests/restore/restore.test.ts.
+        comment     2026-11-16T19:06:06Z
+            Proof, lane record at its bound through every growth path (Codec R1, R4; WriteAhead I21): fixture lanes
+            (changed); usual lanes/usual, stress lanes/stress-near-bound and lanes/stress-displaced-past-items (built on
+            call); samples edges repo of 200,000, 262,144 and 262,145 bytes, holds, loses, retries, cancels, reloads;
+            combos mix and pairs-lanes; registered in generator, mix, saved stress, sweep, pairs, bench; red at
+            70472fdb: tests/restore/lane-bound.test.ts both (I21, lane withheld) and lane-bound.stress (items
+            past 4,096).
+        comment     2026-11-16T19:06:06Z
+            Proof, owed values past and under the bounds (Codec R1, R4, R5; WriteAhead I21): fixture transfers (changed:
+            Bank.receiptLength); usual none (2 MB records live only in stress); stress transfers/stress-large-receipts
+            and stress-many-receipts (built on call, 1,300 rows); samples edges receipts 0, 200,000, 262,144, 262,145;
+            combos mix, pairs-transfers; registered in all runners; red at 70472fdb: tests/transfers/durability.test.ts
+            Codec R4 (values nulled) and durability.stress (1,300 rows over 290 s). Red today: it.fails Codec R4, R5, a
+            receipt saved null refuses its turn InvalidTurn at each start.
+        comment     2026-11-16T19:06:06Z
+            Proof, actor record past a bound (Actors R8; WriteAhead R4, R12): fixtures command-palette (changed: 1,000
+            and 4,097 commands, palette/over-bound) and session (new: names of 262,144 and 262,145 bytes,
+            session/long-names); stress palette/stress and session/stress plus saved seeds; samples edges both lists and
+            both names; combos mix, pairs-persisted and pairs-session; registered in all runners; red today: generated
+            transfers seed 7, a receipt past the bound in memory withholds the account for good (lane Acknowledging at
+            the horizon).
+        comment     2026-11-16T19:06:07Z
+            Proof, quarantine of unreadable records (Restore R5, I10, I11): fixtures transfers (lane in a newer format,
+            actor record that does not decode: transfers/quarantined) and pay (owed record in a newer format:
+            pay/unread-owed); samples edges the three puts in transfers' and pay's failures; combos mix; registered in
+            all runners; green today (built in round 1).
+        comment     2026-11-16T19:06:07Z
+            Proof, failed load and forget (Restore R9, R10, I16 to I18; WriteAhead R16): fixture transfers; usual
+            transfers/refused-load (with a healthy reload after), transfers/forgotten and transfers/forget-refused, over
+            the new Story word disposeRuntime({ forget: true }) (Stories R3); generator draws neither (an unused
+            refuseLoad is a script fault; a new draw shifts every saved seed); sweep and mix reach the Stories;
+            green today.
+        comment     2026-11-16T19:06:07Z
+            Proof, context bindings restored at every depth (Actors R18, R20; Restore R2): fixture session (new: org,
+            session, team, badge, four layers; two trees; a node both consumer and provider; an override at the middle
+            layer; a wall of 24 badges; a session closed under its team; a missing provider refused
+            MissingContextProvider); stress session/stress and seeded; combos mix, pairs-session; registered in all
+            runners. Red today: it.fails Stories R3, Actors R20 (a Story's dispose skips disposeActor's refusal, tooling
+            side, for T9); generated session seed 4 Turn I9 (an Incarnated turn published twice, for T9). A cycle cannot
+            be built from this app's types; Actors I28 stays with tests/actors/context.test.ts.
+        comment     2026-11-16T19:06:08Z
+            Proof, displaced Attempts on the wire at a reload (WriteAhead I17; WriteLanes Q7): fixture lanes,
+            lanes/displaced-on-wire over GitFakeSteadfast (built on call until fixed); red today: it.fails WriteAhead
+            I17, a head a plain cancel-policy commit displaced is in no record, so a reload loses it with no ending.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done

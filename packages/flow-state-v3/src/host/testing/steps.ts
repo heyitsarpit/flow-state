@@ -47,7 +47,7 @@ export type Step = Data.TaggedEnum<{
   detach: { actor: ActorId };
   send: { actor: ActorId; event: Envelope };
   dispose: { actor: ActorId; how: "dispose" | "forget" };
-  disposeRuntime: {};
+  disposeRuntime: { forget: boolean };
   world: { words: ReadonlyArray<WorldWord> };
   advance: { duration: Duration.Input };
   reload: { reattach: boolean; heldWrites: "abort" | "land" };

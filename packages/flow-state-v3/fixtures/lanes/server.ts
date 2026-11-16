@@ -27,3 +27,15 @@ export const GitFakeSteadfast = Layer.effect(
     }),
   ),
 );
+
+/**
+ * The Git port fake over a network that carries every sync out and never brings an answer back,
+ * nor lets its caller interrupt it: a host that hangs. Only a reload ends such a sync.
+ */
+export const GitFakeUnanswered = Layer.succeed(
+  GitApi,
+  GitApi.of({
+    sync: () => Effect.uninterruptible(Effect.never),
+    remoteHead: () => Effect.never,
+  }),
+);

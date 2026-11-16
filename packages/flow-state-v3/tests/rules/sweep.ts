@@ -4,6 +4,7 @@ import { stories as palette } from "../../fixtures/command-palette/stories.ts";
 import { stories as lanes } from "../../fixtures/lanes/stories.ts";
 import { stories as numberInput } from "../../fixtures/number-input/stories.ts";
 import { stories as pay } from "../../fixtures/pay/stories.ts";
+import { stories as session } from "../../fixtures/session/stories.ts";
 import { stories as signIn } from "../../fixtures/sign-in/stories.ts";
 import { stories as sync } from "../../fixtures/sync/stories.ts";
 import { stories as transfers } from "../../fixtures/transfers/stories.ts";
@@ -28,6 +29,7 @@ export const fixtureStories: ReadonlyArray<Story<string>> = [
   ...Object.values(palette),
   ...Object.values(numberInput),
   ...Object.values(lanes),
+  ...Object.values(session),
 ];
 
 // Script faults a reload can cause: a word that finds nothing held, or a hold no call uses.

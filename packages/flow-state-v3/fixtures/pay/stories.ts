@@ -12,6 +12,28 @@ const cart = (n: number) => ({ _tag: "Start", cartId: `c${n}`, intentId: `pi${n}
 const visa = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
 
 /**
+ * The key the checkout's owed rows are saved under, and a record there in a newer format, as a
+ * later release of the app would have left it.
+ */
+export const checkoutOwed = "owed/Checkout/Pay/checkout-1";
+
+const newerOwed = '{"format":2,"machine":"Checkout/Pay","name":"checkout-1","rows":[]}';
+
+/**
+ * A later release left the checkout's owed record in a newer format: each boot reports it unread
+ * and keeps its bytes, and the shopper still pays.
+ */
+export const unreadOwed = shopStory("pay/unread-owed")
+  .world(Fake.storage.put(checkoutOwed, newerOwed))
+  .ensure(checkout)
+  .reload()
+  .checkpoint("first boot")
+  .send(checkout, cart(1))
+  .send(checkout, visa)
+  .reload()
+  .checkpoint("second boot");
+
+/**
  * A `confirm` reaches the shop and its answer is held, never released; the commit's 60-second
  * deadline passes; the tab reloads; then time moves on.
  */
@@ -130,7 +152,7 @@ export const long = Array.from({ length: 14 }, (_, n) => n)
  * Story.
  */
 export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures: [ShopFake] })
-  .world(Shop.decline({ code: "card_declined" }))
+  .world(Shop.crash({ endpoint: "confirm" }))
   .ensure(checkout)
   .world(Fake.storage.hold())
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
@@ -145,7 +167,6 @@ export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures
   .send(checkout, { _tag: "Leave" })
   .send(checkout, { _tag: "CheckAgain" })
   .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .world(Shop.confirm.hold())
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
   .send(checkout, { _tag: "Done" })
@@ -162,7 +183,6 @@ export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures
   .advance("20 millis")
   .disposeRuntime()
   .reload({ heldWrites: "land" })
-  .world(Fake.storage.refuse())
   .advance("7 millis")
   .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
   .world(Fake.storage.refuse())
@@ -176,11 +196,13 @@ export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures
   .send(checkout, { _tag: "Done" })
   .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+  .world(Fake.storage.refuse())
   .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
   .send(checkout, { _tag: "CheckAgain" })
   .send(checkout, { _tag: "CheckAgain" })
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+  .world(Fake.storage.hold())
   .advance("5 millis")
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .advance("2 millis")
@@ -188,20 +210,18 @@ export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures
   .advance("17 millis")
   .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
   .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .world(Fake.storage.refuse())
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
   .advance("18 millis")
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .send(checkout, { _tag: "Leave" })
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .world(Fake.storage.refuse())
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .send(checkout, { _tag: "Leave" })
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
   .reload({ reattach: false })
   .advance("4 millis")
   .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .world(Shop.confirm.drop())
+  .world(Fake.storage.hold())
   .advance("10 millis")
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
   .world(Fake.storage.refuse())
@@ -213,9 +233,7 @@ export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
-  .world(Fake.storage.hold())
   .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .world(Fake.storage.hold())
   .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
   .send(checkout, { _tag: "Leave" })
   .advance("20 millis")
@@ -241,8 +259,6 @@ export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures
   .advance("56438 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
-  .world(Shop.confirm.release())
-  .world(Fake.storage.release())
   .world(Fake.storage.release())
   .advance("2 minutes")
   .advance("2 minutes");
@@ -263,6 +279,7 @@ export const samples = samplesOf({
     Shop.busy({ retryAfterMs: 1500 }),
     Shop.challenge({}),
     Shop.crash({ endpoint: "confirm" }),
+    Fake.storage.put(checkoutOwed, newerOwed),
   ],
   landedFailures: [Shop.landThenFail({})],
   values: {},
@@ -282,4 +299,11 @@ export const samples = samplesOf({
 /**
  * Every Story of the fixture, by name.
  */
-export const stories = { lostConfirm, busyRefused, usual, long, seededStress };
+export const stories = {
+  lostConfirm,
+  busyRefused,
+  usual,
+  long,
+  seededStress,
+  unreadOwed,
+};

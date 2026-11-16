@@ -28,7 +28,9 @@ export const played = async <Names extends string>(story: Story<Names>) => {
 
   const bound = Step.advance({ duration: "5 seconds" });
 
-  const steps = disposed ? [...story.steps, bound] : [...story.steps, Step.disposeRuntime(), bound];
+  const steps = disposed
+    ? [...story.steps, bound]
+    : [...story.steps, Step.disposeRuntime({ forget: false }), bound];
 
   const ended = checked(await story.run({ steps }));
 

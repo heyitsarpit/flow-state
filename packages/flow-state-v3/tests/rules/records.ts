@@ -128,11 +128,11 @@ const breachesAt = (cut: Cut, at: string, put: ReadonlySet<string>) =>
   );
 
 /**
- * WriteAhead I21, with Codec R4: only an actor record that cannot encode withholds its identity. A
- * commit whose lane record could ever pass a bound declines NotSent Unencodable, and owed rows are
- * split into parts with a value that has no encoded form saved as null (reported, not withheld),
- * so a withholding report (its reason starts `withheld:`) naming a lane or owed record is a
- * breach: that identity's sends would wait for ever.
+ * WriteAhead I21, with Codec R4: only an actor record that cannot encode withholds its identity, so
+ * a lane record is always written. Any UnencodableValue naming a lane record is a breach, whatever
+ * its reason; one naming an owed record is a breach when it withholds (its reason starts
+ * `withheld:`), since a value that cannot be saved is saved as null and only reported. Either way
+ * that identity's sends would wait for ever.
  */
 export const onlyActorsWithheld: Rule = {
   rule: "WriteAhead I21",
@@ -140,8 +140,11 @@ export const onlyActorsWithheld: Rule = {
     run.evidence.flatMap((e) =>
       e._tag === "Reported" &&
       e.code === "UnencodableValue" &&
-      e.reason.startsWith("withheld:") &&
-      Option.exists(e.record, (key) => !key.startsWith("actor/"))
+      Option.exists(
+        e.record,
+        (key) =>
+          key.startsWith("lane/") || (key.startsWith("owed/") && e.reason.startsWith("withheld:")),
+      )
         ? [
             `WriteAhead I21: ${Option.getOrElse(e.record, () => "")} withheld its identity: ${e.reason}`,
           ]

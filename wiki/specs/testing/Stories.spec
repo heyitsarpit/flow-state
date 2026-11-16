@@ -30,7 +30,8 @@ requirements
         must    `ensure(ref)` attaches one use of the actor, creating or restoring it; `detach(ref)` ends one use;
                 `send(ref, event)` sends a public event, restoring the actor from its record but never creating one;
                 `dispose(ref)` is `disposeActor`, and `dispose(ref, { how: "forget" })` is forget, which forgets the
-                identity and its record; `disposeRuntime()` runs the Runtime's public `dispose()`;
+                identity and its record; `disposeRuntime()` runs the Runtime's public `dispose()`, and
+                `disposeRuntime({ forget: true })` its `dispose({ forget: true })` (@spec.Restore.R10);
                 `world(...words)` applies fake controls, wire words, storage words and network words (R17) in order;
                 `advance(duration)`
                 moves time (R5); `reload()` abandons the tab's open and boots its next (R13), and `reload({ reattach: 

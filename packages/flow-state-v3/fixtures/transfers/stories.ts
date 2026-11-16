@@ -111,6 +111,144 @@ const abandonT2 = { _tag: "Abandon", transferId: "t2" } as const;
 const saveT1 = { _tag: "Send", transferId: "t1", cents: 300 } as const;
 const abandonSaved = { _tag: "Abandon", transferId: "t1" } as const;
 
+const pennies = (transferId: string) => ({ _tag: "Send", transferId, cents: 1 }) as const;
+
+const ids = (count: number) => Array.from({ length: count }, (_, n) => `t${n + 1}`);
+
+// `count` transfers sent while the bank holds each one, then the account is closed, so every
+// answer is owed to the account's identity and saved with its owed record.
+const owedToClosed = (id: string, count: number) =>
+  ids(count)
+    .reduce(
+      (s, transferId) => s.send(account, pennies(transferId)),
+      bankStory(id)
+        .ensure(account)
+        .world(...ids(count).map(() => Bank.transfer.hold())),
+    )
+    .dispose(account);
+
+const released = (count: number) => ids(count).map(() => Bank.transfer.release());
+
+/**
+ * Receipts on both sides of the codec's bounds, owed to an account closed while its transfers
+ * were out: one of 262,144 characters (a string's byte bound), five of 200,000, one of 262,145 (past
+ * the bound), six more of
+ * 200,000 (together past a record's 2,097,152 bytes) and one short; then the tab reloads and the
+ * account hears every one, in the order they were owed. A stress Story: its records weigh 2 MB.
+ */
+export const largeReceipts = owedToClosed("transfers/stress-large-receipts", 14)
+  .world(Bank.receiptLength({ chars: 262_144 }), ...released(1))
+  .world(Bank.receiptLength({ chars: 200_000 }), ...released(5))
+  .world(Bank.receiptLength({ chars: 262_145 }), ...released(1))
+  .world(Bank.receiptLength({ chars: 200_000 }), ...released(6))
+  .world(Bank.receiptLength({ chars: 0 }), ...released(1))
+  .advance("1 second")
+  .checkpoint("owed")
+  .reload()
+  .ensure(account)
+  .advance("1 second")
+  .checkpoint("heard");
+
+/**
+ * 1,300 short receipts owed to a closed account: together past a record's 10,000 nodes. The tab
+ * reloads and the account hears every one. A stress Story, built on call and kept out of
+ * `stories`: a reload at each of its 1,300 steps is too long for the sweep.
+ */
+export const manyReceipts = () =>
+  owedToClosed("transfers/stress-many-receipts", 1300)
+    .world(...released(1300))
+    .advance("1 second")
+    .checkpoint("owed")
+    .reload()
+    .ensure(account)
+    .advance("1 second")
+    .checkpoint("heard");
+
+/**
+ * The key a transfer `t1` of the account `acct-1` holds its lane under, and that lane's record
+ * Held, as another release of the app would have saved it with a newer format.
+ */
+export const t1Lane = 'lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}';
+
+const newerT1Lane =
+  '{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":2,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}';
+
+/**
+ * The key `acct-1`'s actor record is saved under, and a record there that does not decode.
+ */
+export const acct1Record = "actor/Bank/Transfers/acct-1";
+
+const brokenRecord = '{"format":1}';
+
+/**
+ * A transfer's answer is lost, so its lane is Held; then a damaged disk leaves its lane record in
+ * a newer format and the account's record unreadable. After a reload the account reads
+ * quarantined; an ensure starts it fresh; sending `t1` again is declined while the unread lane
+ * holds its key, and abandoning `t1` lets the key go.
+ */
+export const quarantined = bankStory("transfers/quarantined")
+  .ensure(account)
+  .world(Bank.transfer.drop({ at: "response" }))
+  .send(account, sendT1)
+  .world(Fake.storage.put(t1Lane, newerT1Lane), Fake.storage.put(acct1Record, brokenRecord))
+  .reload({ reattach: false })
+  .checkpoint("quarantined")
+  .ensure(account)
+  .checkpoint("fresh")
+  .send(account, sendT1)
+  .checkpoint("declined")
+  .send(account, abandonSaved)
+  .checkpoint("cleared")
+  .reload()
+  .checkpoint("again");
+
+/**
+ * A transfer's answer is lost, then the store fails to load at the reload: the tab runs on with no
+ * persistence, and the next transfer is declined, saved nowhere. A healthy reload after it
+ * restores the lost transfer's Held lane.
+ */
+export const refusedLoad = bankStory("transfers/refused-load")
+  .ensure(account)
+  .world(Bank.transfer.drop({ at: "response" }))
+  .send(account, sendT1)
+  .checkpoint("held")
+  .world(Fake.storage.refuseLoad())
+  .reload()
+  .checkpoint("unloaded")
+  .send(account, sendT2)
+  .advance("1 second")
+  .checkpoint("sent")
+  .reload()
+  .checkpoint("healed");
+
+/**
+ * The account holder signs out on a shared computer: one transfer landed and one lost, the Runtime
+ * is disposed with `forget`, and the tab reloads to nothing.
+ */
+export const forgotten = bankStory("transfers/forgotten")
+  .ensure(account)
+  .send(account, sendT1)
+  .world(Bank.transfer.drop({ at: "response" }))
+  .send(account, sendT2)
+  .checkpoint("held")
+  .disposeRuntime({ forget: true })
+  .advance("6 seconds")
+  .checkpoint("forgotten")
+  .reload()
+  .checkpoint("fresh");
+
+/**
+ * As `forgotten`, but the store refuses the deletion: the records stay, to be forgotten again.
+ */
+export const forgetRefused = bankStory("transfers/forget-refused")
+  .ensure(account)
+  .send(account, sendT1)
+  .checkpoint("sent")
+  .world(Fake.storage.refuse())
+  .disposeRuntime({ forget: true })
+  .advance("6 seconds")
+  .checkpoint("kept");
+
 /**
  * A stress run from seed 45, printed by the generator and pasted here. The reload sweep and the
  * bench run it as any Story.
@@ -119,7 +257,7 @@ export const seededStress = Story.app(bankSetup, {
   id: "transfers/stress-45",
   fixtures: [BankFake],
 })
-  .world(Bank.limit({ cents: 100 }))
+  .world(Bank.receiptLength({ chars: 262145 }))
   .world(Fake.storage.refuse())
   .ensure(account)
   .world(Fake.storage.refuse())
@@ -127,9 +265,7 @@ export const seededStress = Story.app(bankSetup, {
   .send(account, resendT1)
   .advance("7 millis")
   .send(account, sendT2)
-  .world(Fake.storage.hold())
   .send(account, sendT2)
-  .world(Fake.storage.refuse())
   .advance("16 millis")
   .advance("10 millis")
   .advance("8 millis")
@@ -141,6 +277,7 @@ export const seededStress = Story.app(bankSetup, {
   .send(savings, abandonSaved)
   .send(account, sendT1)
   .send(savings, saveT1)
+  .world(Bank.transfer.hold())
   .send(account, resendT1)
   .send(account, abandonT2)
   .send(savings, abandonSaved)
@@ -150,11 +287,13 @@ export const seededStress = Story.app(bankSetup, {
   .advance("10 millis")
   .advance("9 millis")
   .send(account, sendT1)
-  .world(Bank.limit({ cents: 1000 }))
+  .world(Bank.receiptLength({ chars: 262144 }))
   .send(account, resendT1)
+  .world(Fake.storage.refuse())
   .send(account, abandonT2)
   .advance("7 millis")
   .dispose(savings, { how: "forget" })
+  .world(Fake.storage.hold())
   .send(account, abandonT2)
   .send(account, abandonT2)
   .dispose(account, { how: "forget" })
@@ -204,7 +343,7 @@ export const seededStress = Story.app(bankSetup, {
   .reload({ heldWrites: "land" })
   .send(savings, saveT1)
   .send(account, sendT1)
-  .world(Fake.storage.hold())
+  .world(Fake.storage.refuse())
   .send(account, resendT1)
   .send(account, sendT1)
   .advance("13 millis")
@@ -213,15 +352,14 @@ export const seededStress = Story.app(bankSetup, {
   .send(savings, abandonSaved)
   .reload({ reattach: false })
   .send(account, sendT1)
-  .world(Fake.storage.refuse())
   .send(account, sendT2)
-  .world(Fake.storage.refuse())
+  .world(Fake.storage.hold())
   .send(account, abandonT2)
+  .world(Fake.storage.refuse())
   .send(savings, saveT1)
   .send(savings, saveT1)
   .send(account, resendT1)
   .send(account, sendT1)
-  .world(Fake.storage.hold())
   .send(account, sendT1)
   .send(account, resendT1)
   .send(account, resendT1)
@@ -233,6 +371,7 @@ export const seededStress = Story.app(bankSetup, {
   .advance("7008 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
+  .world(Bank.transfer.release())
   .world(Fake.storage.release())
   .advance("2 minutes")
   .advance("2 minutes");
@@ -247,10 +386,20 @@ export const samples = samplesOf({
   names: { setup: "bankSetup", fixtures: ["BankFake"] },
   actors: { account, savings },
   servers: { Bank },
-  failures: [Bank.limit({ cents: 100 })],
+  failures: [
+    Bank.limit({ cents: 100 }),
+    Bank.receiptLength({ chars: 262_145 }),
+    Fake.storage.put(t1Lane, newerT1Lane),
+    Fake.storage.put(acct1Record, brokenRecord),
+  ],
   landedFailures: [],
   values: { sendT1, sendT2, resendT1, abandonT2, saveT1, abandonSaved },
-  controls: [Bank.limit({ cents: 1000 })],
+  controls: [
+    Bank.limit({ cents: 1000 }),
+    Bank.receiptLength({ chars: 200_000 }),
+    Bank.receiptLength({ chars: 262_144 }),
+    Bank.receiptLength({ chars: 0 }),
+  ],
   steps: (story) =>
     story
       .send(account, sendT1)
@@ -273,4 +422,9 @@ export const stories = {
   heldAtDisposal,
   refusedWrite,
   seededStress,
+  largeReceipts,
+  quarantined,
+  refusedLoad,
+  forgotten,
+  forgetRefused,
 };

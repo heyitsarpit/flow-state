@@ -5,6 +5,7 @@ import { samples as lanes } from "../../fixtures/lanes/stories.ts";
 import { samples as numberInput } from "../../fixtures/number-input/stories.ts";
 import { samples as pay } from "../../fixtures/pay/stories.ts";
 import { samples as player } from "../../fixtures/player/stories.ts";
+import { samples as session } from "../../fixtures/session/stories.ts";
 import { samples as signIn } from "../../fixtures/sign-in/stories.ts";
 import { samples as sync } from "../../fixtures/sync/stories.ts";
 import { samples as transfers } from "../../fixtures/transfers/stories.ts";
@@ -19,15 +20,16 @@ export const samples = {
   "number-input": numberInput,
   pay,
   player,
+  session,
   "sign-in": signIn,
   sync,
   transfers,
 };
 
 /**
- * The app mix: four fixtures that persist and call their own servers, run in one Runtime.
+ * The app mix: five fixtures that persist and call their own servers, run in one Runtime.
  */
-export const mix = [transfers, pay, lanes, palette];
+export const mix = [transfers, pay, lanes, palette, session];
 
 /**
  * The fixed seeds the gate runs per fixture: ten usual and twenty stress (Testing O6).

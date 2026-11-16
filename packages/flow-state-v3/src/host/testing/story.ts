@@ -71,7 +71,10 @@ export type Story<Names extends string = never> = {
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
     options?: { readonly how?: "forget" },
   ) => Story<Names>;
-  readonly disposeRuntime: () => Story<Names>;
+  readonly disposeRuntime: (
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Runtime's public option: an omitted option keeps saved data
+    options?: { readonly forget?: true },
+  ) => Story<Names>;
   readonly world: (...words: ReadonlyArray<WorldWord>) => Story<Names>;
   readonly advance: (duration: Duration.Input) => Story<Names>;
   readonly reload: (
@@ -129,7 +132,7 @@ export const storyOf = (subject: Subject, id: string): Story => {
       detach: (ref) => next(Step.detach({ actor: own(ref) })),
       send: (ref, event) => next(Step.send({ actor: own(ref), event })),
       dispose: (ref, how) => next(Step.dispose({ actor: own(ref), how: how?.how ?? "dispose" })),
-      disposeRuntime: () => next(Step.disposeRuntime()),
+      disposeRuntime: (options) => next(Step.disposeRuntime({ forget: options?.forget === true })),
       world: (...words) => next(Step.world({ words })),
       advance: (duration) => next(Step.advance({ duration })),
       reload: (options) =>

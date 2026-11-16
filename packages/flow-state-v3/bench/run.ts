@@ -4,6 +4,7 @@ import { seededStress as lanesStress } from "../fixtures/lanes/stories.ts";
 import { seededStress as playerStress } from "../fixtures/player/stories.ts";
 import { seededStress as numberStress } from "../fixtures/number-input/stories.ts";
 import { long as pay, seededStress as payStress } from "../fixtures/pay/stories.ts";
+import { long as session, seededStress as sessionStress } from "../fixtures/session/stories.ts";
 import { long as signIn, seededStress as signInStress } from "../fixtures/sign-in/stories.ts";
 import { long as sync, seededStress as syncStress } from "../fixtures/sync/stories.ts";
 import {
@@ -23,12 +24,14 @@ const longStories = [
   cells,
   sync,
   signIn,
+  session,
   transfersStress,
   playerStress,
   payStress,
   cellsStress,
   syncStress,
   signInStress,
+  sessionStress,
   paletteStress,
   numberStress,
   lanesStress,

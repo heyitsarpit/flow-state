@@ -128,7 +128,10 @@ const faultOf = (fault: Fault, phase: string, actor: ActorId, view: View) => {
     "actor disposal": () => [Step.dispose({ actor, how: "dispose" })],
     forget: () => [Step.dispose({ actor, how: "forget" })],
     release: () => Array.from({ length: view.uses(actor) }, () => Step.detach({ actor })),
-    "disposal bound": () => [Step.disposeRuntime(), Step.advance({ duration: "5 seconds" })],
+    "disposal bound": () => [
+      Step.disposeRuntime({ forget: false }),
+      Step.advance({ duration: "5 seconds" }),
+    ],
   };
 
   return steps[fault]();

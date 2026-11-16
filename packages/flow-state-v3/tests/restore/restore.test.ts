@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { serializeClient } from "../../fixtures/lanes/machine.ts";
-import { lanesStory } from "../../fixtures/lanes/stories.ts";
+import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories.ts";
 import { Git } from "../../fixtures/sync/server.ts";
 import { account } from "../../fixtures/transfers/machine.ts";
 import { Bank } from "../../fixtures/transfers/server.ts";
@@ -62,6 +62,18 @@ describe("an identity owed a row the boot derives is live at ready (Restore R1, 
 
     expect(heard(run, 2, "sync")).toEqual(["NotSent", "Unsure"]);
     expect(run.checkpoints.after.inspection.owed).toEqual([]);
+  });
+});
+
+describe("displaced Attempts still on the wire at a reload (WriteAhead I17; WriteLanes Q7)", () => {
+  // Open: a head a plain commit displaced, with no cancel pending, is in no lane record, so a
+  // reload loses the Attempt, which may have applied, with no ending at all.
+  it.fails("WriteAhead I17: each displaced Attempt still out at the reload ends unknown Restored", async () => {
+    const run = checked(await displacedOnWire().run());
+
+    expect(
+      run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+    ).toEqual(["unknown Restored", "unknown Restored", "unknown Restored"]);
   });
 });
 

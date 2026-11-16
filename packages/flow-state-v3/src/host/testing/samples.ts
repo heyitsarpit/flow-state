@@ -153,7 +153,8 @@ const printStep = (samples: Samples, step: Step) =>
       `.send(${actorName(samples, actor)}, ${samples.values.find((v) => v.value === event)?.name ?? literal(event)})`,
     dispose: ({ actor, how }) =>
       `.dispose(${actorName(samples, actor)}${how === "forget" ? ', { how: "forget" }' : ""})`,
-    disposeRuntime: () => ".disposeRuntime()",
+    disposeRuntime: ({ forget }) =>
+      forget ? ".disposeRuntime({ forget: true })" : ".disposeRuntime()",
     world: ({ words }) => `.world(${words.map((w) => printWord(samples, w)).join(", ")})`,
     advance: ({ duration }) => `.advance(${durationText(duration)})`,
     reload: ({ reattach, heldWrites }) => `.reload(${reloadOptions(reattach, heldWrites)})`,

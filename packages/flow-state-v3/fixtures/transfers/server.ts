@@ -5,15 +5,17 @@ import { BankApi, Declined, NoResponse, Receipt } from "./contracts.ts";
 const BankTruth = Schema.Struct({
   receipts: Schema.Record(Schema.String, Schema.String),
   limit: Schema.Number,
+  receiptChars: Schema.Number,
 });
 
 /**
  * The bank's truth: one receipt per idempotency key, replayed for a key it has seen, and a limit
- * above which a new transfer is declined.
+ * above which a new transfer is declined. A receipt is padded to `receiptChars` characters, as a bank
+ * that returns a long statement would send it.
  */
 export const Bank = Fake.server("Bank", {
   truth: BankTruth,
-  initial: { receipts: {}, limit: 1000 },
+  initial: { receipts: {}, limit: 1000, receiptChars: 0 },
   endpoints: {
     transfer: Fake.call({
       request: { transferId: Schema.String, cents: Schema.Number, key: Schema.String },
@@ -25,7 +27,11 @@ export const Bank = Fake.server("Bank", {
         if (known !== undefined) return { truth, exit: Exit.succeed({ receipt: known }) };
 
         if (cents > truth.limit) return { truth, exit: Exit.fail(new Declined({ code: "limit" })) };
-        const receipt = `r${Object.keys(truth.receipts).length + 1}`;
+
+        const receipt = `r${Object.keys(truth.receipts).length + 1}`.padEnd(
+          truth.receiptChars,
+          "0",
+        );
 
         return {
           truth: { ...truth, receipts: { ...truth.receipts, [key]: receipt } },
@@ -39,6 +45,13 @@ export const Bank = Fake.server("Bank", {
       ...truth,
       limit: cents,
     })),
+    receiptLength: Fake.control(
+      { chars: Schema.Number },
+      (truth: typeof BankTruth.Type, { chars }) => ({
+        ...truth,
+        receiptChars: chars,
+      }),
+    ),
   },
 });
 

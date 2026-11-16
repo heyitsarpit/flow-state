@@ -567,7 +567,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
 
         return [Step.reload({ reattach: b % 2 === 0, heldWrites })];
       },
-      disposeRuntime: () => (live ? [Step.disposeRuntime()] : []),
+      disposeRuntime: () => (live ? [Step.disposeRuntime({ forget: false })] : []),
       disposeActor: () =>
         live
           ? Option.toArray(

@@ -92,7 +92,7 @@ const stepText = (step: Step) =>
     send: ({ actor, event: { _tag, ...payload } }) =>
       `send ${actorKey(actor)} ${_tag} ${json(payload)}`,
     dispose: ({ actor, how }) => `${how} ${actorKey(actor)}`,
-    disposeRuntime: () => "disposeRuntime",
+    disposeRuntime: ({ forget }) => (forget ? "disposeRuntime with forget" : "disposeRuntime"),
     world: ({ words }) => `world ${words.map(wordText).join(", ")}`,
     advance: ({ duration }) => `advance ${Duration.toMillis(duration)} ms`,
     reload: ({ reattach, heldWrites }) =>
