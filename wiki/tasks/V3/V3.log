@@ -630,3 +630,7 @@ note 2026-11-16T15:52:09Z
     Paused near the 5-hour limit (93%): T20 round 3 saved at b0c3a91b (resume a49e7119; check and faults not run); T81's
     close review partial (definition(null) throws a raw TypeError, likely blocking). No agents run until the reset at
     18:00Z.
+
+note 2026-11-16T15:58:09Z
+    Amendment (2026-11-16, the user): one lead at a time, building or reviewing, with up to eight sidecars; reviews run
+    between builds; 5-hour pacing at 80 and 90 percent. Commit: 1fca55c2.
