@@ -194,7 +194,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "dispose-forgets-uses",
-    tests: ["tests/transfers/transfers.test.ts"],
+    tests: ["tests/stories/steps.test.ts"],
     says: "the test tooling's disposeRuntime forgets the Story's uses, so the next reload ensures nothing",
     rule: "Stories R13",
     edits: [

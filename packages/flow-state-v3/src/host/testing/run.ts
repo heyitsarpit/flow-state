@@ -7,6 +7,7 @@ import type { AnyDefinition } from "../../definition.ts";
 import { Host } from "../host.ts";
 import { attachInspector, inspect, type RuntimeCut } from "../inspect.ts";
 import {
+  actorIdOf,
   type ActorRef,
   buildRuntime,
   type RuntimeConfig,
@@ -106,10 +107,7 @@ const seedOf = (tab: Tab, seed: Option.Option<number>) => {
 };
 
 // RETURN_TYPE: the core's ActorId, which the driver's inputs take.
-const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>): ActorId => ({
-  machine: ref.machine.compiled.id,
-  name: ref.name,
-});
+const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>): ActorId => actorIdOf(ref);
 
 type Limits = {
   readonly fail: (reason: "Turns" | "Settle") => never;

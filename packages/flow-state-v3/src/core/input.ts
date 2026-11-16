@@ -30,6 +30,7 @@ export type Input = Data.TaggedEnum<{
   Boot: { stored: ReadonlyMap<string, unknown> };
   BootFailed: {};
   Ensure: { actor: ActorId; use: Option.Option<Use>; existing: boolean };
+  Create: { actor: ActorId; input: Values };
   Release: { actor: ActorId; use: Use };
   Send: { actor: ActorId; tag: string; payload: Values };
   Settled: { call: CallId; result: CallResult };

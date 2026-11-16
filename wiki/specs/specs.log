@@ -134,3 +134,7 @@ note 2026-11-16T11:14:10Z
     Compile R5: a computed start reading a computed field is a CallbackDefect issue and no actor (was: NaN stored).
     Compile R9: endings map to declared internal events (UnknownEvent) and keys lie inside the input (KeyOutsideInput)
     at construction. Why: T17 close review. Reverse: drop them.
+
+note 2026-11-16T11:47:48Z
+    Actors R5: a singleton's literal name may not start with ~, the prefix local actors (createActor) are named by;
+    algorithm: Create admits as Ensure. Why: a local actor never shares a shared identity. Reverse: give ActorId a kind.

@@ -92,6 +92,7 @@ const table = {
     Disposed: drop,
   },
   Ensure: call,
+  Create: call,
   Send: call,
   Forget: call,
   DisposeActor: { ...call, Disposing: drop, Disposed: drop },

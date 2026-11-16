@@ -1,6 +1,7 @@
 import { Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import type { Evidence } from "./evidence.ts";
+import { LOCAL_PREFIX } from "./identity.ts";
 import { type Act, evidenceOf } from "./evidence-of.ts";
 import {
   type ActorId,
@@ -125,8 +126,11 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     out: () => ({ world, commands, evidence }) satisfies Out,
   };
 
+  // A local actor never persists, whatever its machine declares.
   const persisted = (actor: ActorId) =>
-    machines.get(actor.machine)?.persist === true && world.persistence;
+    machines.get(actor.machine)?.persist === true &&
+    world.persistence &&
+    !actor.name.startsWith(LOCAL_PREFIX);
 
   const armTimer = (timer: Timer, at: number) => {
     const id = tx.mint<TimerId>("timer");

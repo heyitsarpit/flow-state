@@ -64,7 +64,8 @@ requirements
         source  @plan.Runtime.O3.
         must    An actor is its machine plus its input. A value-named machine is named by its input
                 fields, encoded with their Schemas in field-name order as strings, and is ensured
-                without input; a machine with no input is a singleton named by a literal string.
+                without input; a machine with no input is a singleton named by a literal string that does
+                not start with `~`, the prefix of local actors.
                 Two refs of one identity with different context reject with ConflictingActorRef and
                 change nothing. A local actor is (machine, input by Equal.equals).
 
@@ -518,7 +519,7 @@ algorithm
         - Boot: Booting runs; Disposing and Disposed reject RuntimeDisposed, so ready's waiters fail with
             RuntimeDisposed (R2); elsewhere drops.
         - BootFailed: Booting runs; elsewhere drops.
-        - Ensure and Send: Open runs; Inert, Booting and Failed reject RuntimeNotReady (R4's boot queue for a
+        - Ensure, Create and Send: Open runs; Inert, Booting and Failed reject RuntimeNotReady (R4's boot queue for a
             send, when @task.V3.T9 builds it, makes Send run while Booting for a persisted target only; a Send
             input names its target, so its machine's persistence is part of the input and the table stays a
             function of (life, input)); Disposing and Disposed reject RuntimeDisposed.

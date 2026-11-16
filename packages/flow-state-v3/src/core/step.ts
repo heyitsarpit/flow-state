@@ -75,6 +75,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     },
     BootFailed: () => setLife(Life.Failed()),
     Ensure: ({ actor, use, existing }) => incarnations.ensure(actor, use, existing),
+    Create: ({ actor, input: given }) => incarnations.create(actor, given),
     Release: ({ actor, use }) => incarnations.release(actor, use),
     Send: ({ actor, tag, payload }) => {
       if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))

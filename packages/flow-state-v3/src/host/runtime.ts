@@ -1,4 +1,4 @@
-import { Context, Deferred, Effect, Exit, Layer, Option, Result, Scope } from "effect";
+import { Context, Deferred, Effect, Exit, Layer, Option, Predicate, Result, Scope } from "effect";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
@@ -7,8 +7,9 @@ import { Input } from "../core/step.ts";
 import type { Machines } from "../core/tx.ts";
 import { Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, type World } from "../core/world.ts";
+import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
-import type { AnyDefinition, Envelope, Machine, Operations } from "../definition.ts";
+import type { AnyDefinition, Envelope, InputOf, Machine, Operations } from "../definition.ts";
 import { type FlowError, flowError, flowErrorOf } from "../error.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { makeDriver, type Driver } from "./driver.ts";
@@ -57,21 +58,88 @@ export const app = <const M extends Readonly<Record<string, Machine>>>(config: A
 };
 
 /**
- * A shared actor's name: its machine and, for a machine with no input, a literal name.
+ * A shared actor's name: its machine and either the literal name of a machine with no input, or
+ * the value that carries a machine's input fields.
  */
 export type ActorRef<D extends AnyDefinition = AnyDefinition> = {
   readonly machine: Machine<D>;
-  readonly name: string;
+  // FLOW_STATE_ALLOW_UNKNOWN: a value ref's value is the caller's, checked at the boundary that uses it.
+  readonly value: unknown;
 };
 
 /**
+ * What names an actor of `D`: a value carrying its input fields when it has any, otherwise a
+ * literal string that does not start with `~`.
+ */
+export type RefName<D extends AnyDefinition, N> = [keyof InputOf<D["memory"]>] extends [never]
+  ? N extends string
+    ? string extends N
+      ? never
+      : N extends `${typeof LOCAL_PREFIX}${string}`
+        ? never
+        : N
+    : never
+  : InputOf<D["memory"]>;
+
+/**
  * Names a shared actor. Inert.
+ *
+ * **When to use**
+ *
+ * `actorRef(machine, value)` names a machine with `Flow.input` fields by those fields of `value`;
+ * `actorRef(machine, "name")` names a machine with no input by a literal name.
+ *
+ * **Details**
+ *
+ * An actor is its machine plus its input: the input fields are encoded with their Schemas, in
+ * field-name order, so a reorder or a field beyond the input names the same actor. The value is
+ * checked where the ref is used: an ensure, send or dispose throws SchemaValidation naming a
+ * field its Schema refuses.
  */
 // RETURN_TYPE: the ActorRef keeps its machine's definition type.
-export const actorRef = <D extends AnyDefinition>(
+export const actorRef = <D extends AnyDefinition, const N>(
   machine: Machine<D>,
-  name: string,
-): ActorRef<D> => ({ machine, name });
+  nameOrValue: N & RefName<D, N>,
+): ActorRef<D> => ({ machine, value: nameOrValue });
+
+/**
+ * The identity a ref names, checked: a value's input fields by their Schemas, a literal name by
+ * its form. Throws the FlowError a refused ref names.
+ */
+// RETURN_TYPE: the core's ActorId, which every input that names an actor takes.
+export const actorIdOf = (ref: ActorRef): ActorId => {
+  const compiled = ref.machine.compiled;
+
+  if (inputFieldsOf(compiled).length === 0) {
+    if (Predicate.isString(ref.value) && !ref.value.startsWith(LOCAL_PREFIX))
+      return { machine: compiled.id, name: ref.value };
+
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a ref's contract: a name a singleton may not have throws before any work
+    throw flowError([
+      {
+        code: "InvalidConfiguration",
+        path: [compiled.id, "name"],
+        summary: `${compiled.id} has no input, so it is named by a literal string not starting with ${LOCAL_PREFIX}`,
+        help: "Name the actor with a literal string, or give the machine Flow.input fields.",
+      },
+    ]);
+  }
+
+  return Result.match(nameOfValue(compiled, ref.value), {
+    onSuccess: (name) => ({ machine: compiled.id, name }),
+    onFailure: (field) => {
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a ref's contract: an input its Schema refuses throws before any work
+      throw flowError([
+        {
+          code: "SchemaValidation",
+          path: [compiled.id, field],
+          summary: `the input field ${field} of ${compiled.id} is missing or refused by its Schema`,
+          help: `Give ${field} a value its Schema accepts.`,
+        },
+      ]);
+    },
+  });
+};
 
 /**
  * What a handle shows of an identity: its leaf state, its memory and its write lanes'
@@ -84,12 +152,18 @@ export type Snapshot = {
 };
 
 /**
- * A handle to a shared actor: it follows the identity, not the incarnation.
+ * The key under which a handle keeps the Runtime and identity it belongs to.
+ */
+export const HandleId = "~flow-state/Handle";
+
+/**
+ * A handle to an actor: it follows the identity, not the incarnation.
  */
 export type Actor<D extends AnyDefinition = AnyDefinition> = {
-  readonly ref: ActorRef<D>;
+  readonly machine: Machine<D>;
   readonly send: (event: Envelope) => void;
   readonly getSnapshot: () => Option.Option<Snapshot>;
+  readonly [HandleId]: { readonly runtime: Driver; readonly actor: ActorId };
 };
 
 /**
@@ -114,11 +188,17 @@ export const SetupId = "~flow-state/Setup";
  * **Details**
  *
  * `ready()` runs the one bootstrap: it reads storage before any actor starts. `ensureActor`
- * returns the one shared actor of a ref, creating or restoring it.
+ * returns the one shared actor of a ref, creating it from the ref's input or restoring it.
+ * `createActor` creates a new local actor from its input: it never persists, no ref names it, and
+ * it lives until disposed.
  */
 export type Runtime = {
   readonly ready: () => Effect.Effect<void, FlowError>;
   readonly ensureActor: <D extends AnyDefinition>(ref: ActorRef<D>) => Actor<D>;
+  readonly createActor: <D extends AnyDefinition>(
+    machine: Machine<D>,
+    options: { readonly input: InputOf<D["memory"]> },
+  ) => Actor<D>;
   readonly disposeActor: <D extends AnyDefinition>(actor: Actor<D> | ActorRef<D>) => void;
   readonly dispose: () => Effect.Effect<void>;
   readonly [InspectorId]: (sink: (evidence: Evidence) => void) => () => void;
@@ -348,33 +428,64 @@ export const buildRuntime = (
       });
     });
 
-  const actorOf = (ref: { readonly machine: Machine; readonly name: string }) => ({
-    machine: ref.machine.compiled.id,
-    name: ref.name,
+  // Local actors are numbered by the Runtime that creates them; they never persist or outlive it.
+  let locals = 0;
+
+  // RETURN_TYPE: the Actor contract keeps its machine's definition type.
+  const handleOf = <D extends AnyDefinition>(machine: Machine<D>, actor: ActorId): Actor<D> => ({
+    machine,
+    send: (event) => {
+      const { _tag: tag, ...payload } = event;
+      driver.send(actor, tag, payload);
+    },
+    getSnapshot: () => Option.map(snapshotOf(driver, actor), (x) => outside(machine, x)),
+    [HandleId]: { runtime: driver, actor },
   });
+
+  // A handle names its own Runtime's identity; another Runtime's handle is refused.
+  const identityOf = (target: Actor | ActorRef) => {
+    if (!(HandleId in target)) return actorIdOf(target);
+
+    if (target[HandleId].runtime === driver) return target[HandleId].actor;
+
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a handle's contract: another Runtime's handle throws before any work
+    throw flowError([
+      {
+        code: "ForeignActorRef",
+        path: [target[HandleId].actor.machine, target[HandleId].actor.name],
+        summary: "the handle belongs to another Runtime",
+        help: "Use a handle from this Runtime, or name the actor with its ref.",
+      },
+    ]);
+  };
 
   const runtime: Runtime = {
     ready,
     // Before ready succeeds, no handle exists: the core's life rejects the ensure.
     ensureActor: (ref) => {
-      const actor = actorOf(ref);
+      const actor = actorIdOf(ref);
       driver.offer(
         Input.Ensure({ actor, use: Option.none(), existing: false }),
-        `ensureActor ${ref.name}`,
+        `ensureActor ${actor.name}`,
       );
 
-      return {
-        ref,
-        send: (event) => {
-          const { _tag: tag, ...payload } = event;
-          driver.send(actor, tag, payload);
-        },
-        getSnapshot: () => Option.map(snapshotOf(driver, actor), (x) => outside(ref.machine, x)),
-      };
+      return handleOf(ref.machine, actor);
     },
-    disposeActor: (actor) => {
-      const ref = "ref" in actor ? actor.ref : actor;
-      driver.offer(Input.DisposeActor({ actor: actorOf(ref) }), `disposeActor ${ref.name}`);
+    createActor: (machine, options) => {
+      const compiled = machine.compiled;
+
+      // The input is checked by its Schemas before any work, as a value ref's is.
+      if (inputFieldsOf(compiled).length > 0) actorIdOf({ machine, value: options.input });
+
+      const actor = { machine: compiled.id, name: `${LOCAL_PREFIX}${locals + 1}` };
+      driver.offer(Input.Create({ actor, input: options.input }), `createActor ${compiled.id}`);
+      locals += 1;
+
+      return handleOf(machine, actor);
+    },
+    disposeActor: (target) => {
+      const actor = identityOf(target);
+      driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
     },
     // The core's disposal ends first: calls settling within its bound are parked, then the
     // Scope closes every fiber.

@@ -1,4 +1,6 @@
 import { Option, Result } from "effect";
+import type { Values } from "./compiled.ts";
+import { inputOfName } from "./identity.ts";
 import { armingsOf } from "./turn.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
@@ -89,13 +91,13 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       }),
     );
 
-  const start = (actor: ActorId, from: Option.Option<ActorRecord>) => {
+  const start = (actor: ActorId, from: Option.Option<ActorRecord>, input: Values) => {
     const compiled = tx.machines.get(actor.machine);
 
     if (compiled === undefined) return;
 
     const created = Option.match(from, {
-      onNone: () => create(compiled, {}),
+      onNone: () => create(compiled, input),
       onSome: (r) => Result.succeed(r.memory),
     });
 
@@ -175,7 +177,11 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     if (incarnationOf(actor) === undefined) {
       const record = Option.fromUndefinedOr(tx.world().records.get(key));
 
-      if (Option.isSome(record) || !existing) start(actor, record);
+      if (Option.isSome(record) || !existing) {
+        const compiled = tx.machines.get(actor.machine);
+
+        start(actor, record, compiled === undefined ? {} : inputOfName(compiled, actor.name));
+      }
     }
 
     if (incarnationOf(actor) === undefined) return;
@@ -190,6 +196,17 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         fireWaiting(actor);
       },
     });
+  };
+
+  // A local actor is always new and lives until disposed: the host's use is never released.
+  const createLocal = (actor: ActorId, input: Values) => {
+    start(actor, Option.none(), input);
+
+    if (incarnationOf(actor) !== undefined)
+      tx.set({
+        ...tx.world(),
+        uses: withEntry(tx.world().uses, actorKey(actor), ["host"]),
+      });
   };
 
   const release = (actor: ActorId, use: Use) => {
@@ -318,6 +335,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     start,
     fireWaiting,
     ensure,
+    create: createLocal,
     release,
     end,
     graces,

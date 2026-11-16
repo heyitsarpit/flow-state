@@ -201,13 +201,13 @@ export const structureFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "private-fields-leak",
-    tests: [CONSTRUCTION],
+    tests: ["tests/turn/creation.test.ts"],
     says: "an actor's outside snapshot shows its Flow.private fields",
     rule: "Turn R23",
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "getSnapshot: () => Option.map(snapshotOf(driver, actor), (x) => outside(ref.machine, x)),",
+        find: "getSnapshot: () => Option.map(snapshotOf(driver, actor), (x) => outside(machine, x)),",
         replace: "getSnapshot: () => snapshotOf(driver, actor),",
       },
     ],

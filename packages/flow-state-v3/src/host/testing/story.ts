@@ -1,6 +1,6 @@
 import { type Duration, type Layer, Option } from "effect";
 import type { AnyDefinition, Envelope, PayloadOf } from "../../definition.ts";
-import { type ActorRef, type RuntimeSetup, SetupId } from "../runtime.ts";
+import { actorIdOf, type ActorRef, type RuntimeSetup, SetupId } from "../runtime.ts";
 import type { FakeWorld } from "./fake.ts";
 import { run, type StoryRun, type Subject } from "./run.ts";
 import { Step, type WorldWord } from "./steps.ts";
@@ -85,10 +85,7 @@ export type Story<Names extends string = never> = {
   };
 };
 
-const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>) => ({
-  machine: ref.machine.compiled.id,
-  name: ref.name,
-});
+const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>) => actorIdOf(ref);
 
 /**
  * A Story of a subject with no steps yet: `Story.app` makes one from a setup, and a generated run

@@ -1,6 +1,6 @@
 import { Duration, Formatter, Option, Predicate } from "effect";
 import { type ActorId, actorKey } from "../../core/world.ts";
-import type { ActorRef } from "../runtime.ts";
+import { actorIdOf, type ActorRef } from "../runtime.ts";
 import type { AnyServer } from "./fake.ts";
 import type { StoryRun } from "./run.ts";
 import { scriptFault, Step, WorldWord } from "./steps.ts";
@@ -79,7 +79,7 @@ export const samplesOf = (options: {
     steps: options.steps(options.story).steps,
     actors: Object.entries(options.actors).map(([name, ref]) => ({
       name,
-      actor: { machine: ref.machine.compiled.id, name: ref.name },
+      actor: actorIdOf(ref),
     })),
     servers: Object.entries(options.servers).map(([name, server]) => ({
       name,
