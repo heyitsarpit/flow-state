@@ -1291,3 +1291,7 @@ tasks
             Paused for T9's fix round before any commit; no code changed. Resume: requirements commit first (four bugs
             plus Defect fold as it.fails tests), then the Schema decode; design notes: rules as Schema checks per field,
             Flow code in each check's annotation, cross-field rules after decode.
+        comment     2026-11-16T15:07:48Z
+            Decided by the orchestrator (user-delegated, 2026-11-16): split the test that expects a duplicate state name
+            beside a wrong-kind state; with one decode, list-wide rules run once items decode, and Compile R2 asks only
+            for what construction finds.
