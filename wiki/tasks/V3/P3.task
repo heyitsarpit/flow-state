@@ -257,6 +257,10 @@ tasks
             outstanding are outside T18's acceptance; owner: the orchestrator, a P3 Task (proposed). Gates: check 0,
             lint:rules, suite 522 + 7 expected fail, test:stress 25/25, faults 70/70; run in the clean checkout,
             no sidecar.
+        comment     2026-11-16T03:15:06Z
+            Requirement 8 changed: one fixtures/lanes client per policy replaces switching sync, palette and sign-in;
+            those keep reject, which their Stories assert and which fits them (a sync, a command and a code check), and
+            one fixture reaches every phase per policy.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open

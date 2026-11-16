@@ -65,3 +65,8 @@ note 2026-11-16T03:30:00Z
     @spec.WriteLanes Q5 ruled (T18): under cancel a commit closes its key's Kept rows letGo, then meets its cell; R6,
     `algorithm` and the realization say how the policies are built. @spec.Restore R3: queues are unsaved, a stated
     limit. Reverse: restore Q5 and decline Rejected under cancel.
+
+note 2026-11-16T04:10:00Z
+    @spec.Restore R3: the unsaved-queue limit is withdrawn; lane records save W and owed displaced Attempts, ended
+    Restored at the boot. Why: @plan.Operations.O3 and @plan.Persistence.O4 promise NotSent Restored per queued commit
+    (T18 review B1, the coordinator's ruling). Reverse: none; the Plans decide.

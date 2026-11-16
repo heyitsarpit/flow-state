@@ -252,6 +252,17 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     });
     ledger.restore(restored.rows);
 
+    // A lane's saved queue and displaced heads end at the boot, in lane-id order after the saved
+    // rows; the lane's record is rewritten without them in the same batch as the rows.
+    for (const { id, lane, endings } of restored.lanes)
+      if (endings.length > 0) {
+        ledger.restore(endings);
+
+        for (const ending of endings) tx.act(Act.Ended({ actor: lane.actor, ending }));
+        persistence.saveOwed(lane.actor);
+        persistence.saveLane(lane.actor, id);
+      }
+
     // A boot owes, parks and delivers nothing: the start of each identity it wakes does. Only an
     // identity owed an ending (a lane in flight at capture, or a saved row) and holding an actor
     // record that decodes is live at ready; a Held lane stays a record, and a disposed identity's

@@ -38,6 +38,8 @@ const LaneRecordJson = Schema.Struct({
   retryCount: Schema.Number,
   mayHaveApplied: Schema.Boolean,
   inFlight: Schema.Boolean,
+  queue: Schema.Array(Schema.Json),
+  displaced: Schema.Array(Schema.String),
 });
 
 const OwedJson = Schema.Struct({
@@ -122,26 +124,33 @@ export const encodeActor = (compiled: Compiled, incarnation: Incarnation) =>
   );
 
 /**
- * A lane's record as JSON data: its Attempt with its encoded input, and whether it was InFlight
- * at capture.
+ * A lane's record as JSON data: its Attempt with its encoded input, whether it was InFlight at
+ * capture, the encoded inputs of the commits queued behind it, and the Attempts of the displaced
+ * heads whose endings it owes.
  */
-export const encodeLane = (compiled: Compiled, lane: Lane) => {
+export const encodeLane = (compiled: Compiled, lane: Lane, displaced: ReadonlyArray<string>) => {
   const operation = compiled.operations.get(lane.operation);
 
   if (operation === undefined) return Option.none();
 
+  const queue = Result.all(lane.queue.map((q) => jsonOf(operation.inputJson, q.input)));
+
   return Result.getSuccess(
-    Result.map(jsonOf(operation.inputJson, lane.head.input), (input) => ({
-      format: FORMAT,
-      machine: lane.actor.machine,
-      name: lane.actor.name,
-      operation: lane.operation,
-      attempt: lane.head.id,
-      input,
-      retryCount: lane.head.retryCount,
-      mayHaveApplied: sentBefore(lane.head),
-      inFlight: !Phase.$is("Held")(lane.head.phase),
-    })),
+    Result.flatMap(queue, (queued) =>
+      Result.map(jsonOf(operation.inputJson, lane.head.input), (input) => ({
+        format: FORMAT,
+        machine: lane.actor.machine,
+        name: lane.actor.name,
+        operation: lane.operation,
+        attempt: lane.head.id,
+        input,
+        retryCount: lane.head.retryCount,
+        mayHaveApplied: sentBefore(lane.head),
+        inFlight: !Phase.$is("Held")(lane.head.phase),
+        queue: queued,
+        displaced,
+      })),
+    ),
   );
 };
 
@@ -159,6 +168,7 @@ export type Restored = {
     readonly id: string;
     readonly lane: Lane;
     readonly inFlight: boolean;
+    readonly endings: ReadonlyArray<RestoredRow>;
   }>;
   readonly rows: ReadonlyArray<RestoredRow>;
   readonly undecodable: ReadonlySet<string>;
@@ -253,7 +263,39 @@ export const decodeRecords = (
         queue: [],
       };
 
-      return { id: laneId(actor, r.operation, keyText), inFlight: r.inFlight, lane };
+      const id = laneId(actor, r.operation, keyText);
+
+      const ended = {
+        kept: false,
+        actor,
+        operation: r.operation,
+        owner: 0,
+        current: true,
+      };
+
+      // A saved queue and the displaced heads a cancel was pending on are not restored as work:
+      // each queued commit ends NotSent Restored and each displaced Attempt unknown Restored,
+      // before the head's own Restored at the start.
+      const endings: ReadonlyArray<RestoredRow> = [
+        ...r.queue.map(() => ({
+          ...ended,
+          attempt: Option.none<string>(),
+          lane: Option.none<string>(),
+          channel: "notSent" as const,
+          reason: "Restored",
+          value: { why: "Restored" },
+        })),
+        ...r.displaced.map((attempt) => ({
+          ...ended,
+          attempt: Option.some(attempt),
+          lane: Option.some(id),
+          channel: "unknown" as const,
+          reason: "Restored",
+          value: undefined,
+        })),
+      ];
+
+      return { id, inFlight: r.inFlight, lane, endings };
     });
 
   // A store reads back in key order, whatever order the records were written in.

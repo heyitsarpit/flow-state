@@ -110,7 +110,7 @@ const lookupInputOnly = [
 ];
 
 describe("lane records and table", () => {
-  it("phases, rows and the table are exact, and a lookup gets no Attempt (WriteLanes Q5, Reads I21)", () => {
+  it("phases, rows and the table are exact, and a lookup gets no Attempt (WriteLanes R6, R7, Reads I21)", () => {
     assert.ok([...exactRecords, ...totality, ...lookupInputOnly].every(Boolean));
   });
 });

@@ -56,9 +56,10 @@ requirements
                 once, unless a row for its Attempt is owed. So on every lane the ending that leaves
                 a hold comes last. unknown { Restored } is derived at the Start; from then on it is
                 a row like any other, owed to the identity and saved with its owed record
-                (@spec.WriteAhead.R5). A lane record holds no queue yet: latest and serialize
-                queue in memory only, so until queues are saved no queued commit is restored
-                (stated limit). A Releasing lane's Held head is released at the Start instead of heard
+                (@spec.WriteAhead.R5). A lane record holds its queue and the Attempts of
+                displaced heads whose endings are owed; the boot ends each queued commit NotSent {
+                Restored } and each such displaced Attempt unknown { Restored }. A Releasing lane's Held head is 
+                released at the Start instead of heard
                 (@spec.WriteLanes `algorithm`, start).
 
                 An Attempt acknowledged once ends unknown { Restored } even if its re-send was

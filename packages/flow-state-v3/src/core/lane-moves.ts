@@ -233,6 +233,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         const lane = laneAt(at);
         const queued = { input, owner };
         setLane(at.id, { ...lane, queue: latest ? [queued] : [...lane.queue, queued] });
+        saveLane(at.actor, at.id);
       },
       Replace: ({ input, owner }) => {
         const lane = laneAt(at);
@@ -380,6 +381,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     if (Move.$is("Stay")(move)) return true;
 
     tx.set({ ...tx.world(), displaced: without(tx.world().displaced, key) });
+    saveLane(d.actor, d.lane);
 
     if (Move.$is("Answer")(move)) {
       for (const call of Option.toArray(move.interrupt)) tx.command(Command.Interrupt({ call }));
@@ -398,6 +400,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   const endQueue = (at: At, why: NotSentWhy) => {
     const lane = laneAt(at);
     setLane(at.id, { ...lane, queue: [] });
+    saveLane(at.actor, at.id);
 
     for (const queued of lane.queue)
       ledger.owe({

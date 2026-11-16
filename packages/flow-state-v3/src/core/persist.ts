@@ -157,7 +157,13 @@ export const makePersistence = (tx: Tx) => {
     const record =
       lane === undefined || compiled === undefined
         ? Option.none<Values>()
-        : encodeLane(compiled, lane);
+        : encodeLane(
+            compiled,
+            lane,
+            [...tx.world().displaced.values()].flatMap((d) =>
+              d.lane === id && d.owed ? [d.head.id] : [],
+            ),
+          );
 
     return { key: laneRecordKey(id), record };
   };

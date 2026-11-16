@@ -380,12 +380,12 @@ describe("the owed ledger on the production runtime", () => {
   );
 
   // A Kept row blocks its key under reject (R6), but under the cancel policy the newer commit wins:
-  // the lane's Kept rows are let go, recorded letGo, and the commit mints (WriteLanes Q5's ruling).
+  // the lane's Kept rows are let go, recorded letGo, and the commit mints (WriteLanes R6).
   for (const [concurrency, minted, letGo, rejected] of [
     ["reject", 1, 0, 1],
     ["cancel", 2, 1, 0],
   ] as const)
-    it(`a commit on a key with a Kept row under ${concurrency}: ${concurrency === "cancel" ? "the row is let go and the commit mints" : "declines Rejected"} (WriteLanes R6, Q5)`, () => {
+    it(`a commit on a key with a Kept row under ${concurrency}: ${concurrency === "cancel" ? "the row is let go and the commit mints" : "declines Rejected"} (WriteLanes R6)`, () => {
       const jam: Jam = { on: true, tries: [] };
       const { served } = tollOver(jam, [], concurrency);
       const b = bootWith(served, new Map(), 1);

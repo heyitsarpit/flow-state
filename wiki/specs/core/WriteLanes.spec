@@ -671,7 +671,8 @@ realization typescript
         a new Unsent head; promoted outside a turn (a settled call, a store's answer), it meets TurnEnded at once. A
         displaced head is kept apart from its lane by the call or ticket it awaits (`World.displaced`), and its own
         cell classifies its answer. When the disposal starts, W's commits end before the lane's cells, so nothing
-        promotes. Stated limits: queues are not saved (@spec.Restore.R3), and a displaced head is not saved.
+        promotes. The lane record saves W and the owed displaced Attempts (@spec.Restore.R3). Stated limit: a
+        displaced Attempt whose lane ends before its call settles is in no lane record.
     `src/core/cells.ts` holds the table: `cell(state, cue)` is one exhaustive match over the cue and then the lane
         state (Idle, or a head's Phase), returning a `Move` as data; a pair the table marks impossible returns
         `Impossible`, which the applier raises as a defect. `LaneState` is `Idle | Head`: there is no Kept row, no

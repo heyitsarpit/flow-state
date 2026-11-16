@@ -46,11 +46,13 @@ const rowAt = (cut: Cut, policy: Policy) => {
     : Option.getOrUndefined(machines[policy].definition.O.sync.get(snapshot.operations, FLOW));
 };
 
+const FLOW_REASONS = new Set(["Cancelled", "Restored"]);
+
 // Endings as the rule states them: an unknown the server's lost answer gave is `unknown`, every
 // other ending its channel and reason.
 const seen = (records: Records) =>
   endings(records, "sync").map((e) =>
-    e.channel === "unknown" && e.reason !== "Cancelled" ? "unknown" : `${e.channel} ${e.reason}`,
+    e.channel === "unknown" && !FLOW_REASONS.has(e.reason) ? "unknown" : `${e.channel} ${e.reason}`,
   );
 
 // A Story that leaves the client's head in a phase, has one turn's commit meet it, checkpoints
@@ -228,8 +230,9 @@ it("serialize: 64 commits wait behind the head and the next declines NotSent Ove
 });
 
 // A reload hears the lane's queued commits NotSent Restored, then its head's unknown Restored
-// (Restore R3; Operations O3; Persistence O4); under cancel a displaced head a cancel was pending
-// on is heard unknown Restored too (WriteLanes R10: every admitted commit ends).
+// (Restore R3; Operations O3; Persistence O4). Under cancel the displaced head's interrupted call
+// ends before the reload, unknown Cancelled, and the new head is answered: every admitted commit
+// ends exactly once (WriteLanes R10).
 for (const [policy, sends, want] of [
   [
     "serialize",
@@ -237,7 +240,7 @@ for (const [policy, sends, want] of [
     ["notSent Restored", "notSent Restored", "unknown Restored"],
   ],
   ["latest", [commit, commit], ["notSent Restored", "unknown Restored"]],
-  ["cancel", [commit, { _tag: "CancelCommit", ...FLOW }], ["unknown Restored", "unknown Restored"]],
+  ["cancel", [commit, { _tag: "CancelCommit", ...FLOW }], ["unknown Cancelled", OK]],
 ] as const)
   it(`${policy}: a reload with commits waiting ends each one Restored, once (Restore R3; WriteLanes R10)`, async () => {
     const client = clients[policy];
@@ -249,7 +252,7 @@ for (const [policy, sends, want] of [
 
     const run = await played(sent.reload().ensure(client).advance("1 second").checkpoint("after"));
 
-    expect(seen(run.evidence).filter((e) => e.endsWith("Restored"))).toEqual(want);
+    expect(seen(run.evidence)).toEqual(want);
   });
 
 it("serialize: queued commits end NotSent Disposed when the Runtime's disposal starts, and none is promoted (WriteLanes algorithm, disposal)", async () => {

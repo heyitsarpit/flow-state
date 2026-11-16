@@ -113,10 +113,23 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "queue-not-saved",
+    tests: ["tests/write-lanes/policy-cells.test.ts"],
+    says: "a lane record holds no queue, so a reload loses the queued commits with no ending",
+    rule: "WriteLanes I27",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "        queue: queued,",
+        replace: "        queue: queued.slice(0, 0),",
+      },
+    ],
+  },
+  {
     name: "kept-blocks-cancel-policy",
     tests: ["src/host/ledger.test.ts"],
     says: "a cancel-policy commit on a key with a Kept row declines Rejected instead of letting it go",
-    rule: "WriteLanes Q5",
+    rule: "WriteLanes R6",
     edits: [
       {
         file: "src/core/lanes.ts",
