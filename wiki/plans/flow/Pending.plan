@@ -74,3 +74,12 @@ decisions
         span (every answer Lost or Never for 5 to 120 s) needs one word for every endpoint at once, not a drop armed per
         endpoint. **Proven by:** @task.V3.T70's step test, the stress profile's span check and the planted fault
         `offline-reaches-server`. Judged by the orchestrator, for the user's read. Found in @task.V3.T70.
+    D13  @plan.Runtime.O4: a context update at the follow-up cap waits
+        O4's "the turn that would add one is refused" applies to an event's turn; a context update's turn in that place
+        is undone and waits at its place until the chain is over, then runs as an admitted event. **Why:** O4 also says
+        context updates are never dropped. Two traces of one Story (a chain whose 32nd context update would start the
+        65th follow-up): refusing it leaves links 32 to 34 stale with an InvalidTurn issue; waiting gives every link its
+        value and no issue. **Proven by:** tests/actors/follow-ups.test.ts and the planted fault
+        `context-update-dropped-at-cap`. Open for the user: a provider with more than 64 consumers adds more than 64
+        follow-ups in one turn, so that turn is refused. Judged by the T9 lead, for the user's read. Found
+        in @task.V3.T9.

@@ -111,7 +111,9 @@ requirements
                 incarnation with a newly minted id, restored from the Runtime's copy. It receives
                 its starting turn, R10's deliveries (the Interrupted endings its end parked are among
                 its owed rows, in the order they were owed), one `onContext` wave if a provider's
-                selection changed, then the event that restored it.
+                selection differs from the last-seen value its record saved (in this Runtime or
+                across a reload; a reload of a consistent saved world differs in nothing), then the
+                event that restored it.
 
                 A non-persisted identity starts fresh. An ensure over an undecodable record starts
                 fresh, reports RecordUndecodable (proposed name) and adopts the identity's lanes. A
@@ -162,9 +164,11 @@ requirements
     R13  Order across actors
         source  @plan.Runtime.O4.
         must    Follow-ups (the events and context updates a served event's turns enqueue) run first,
-                up to 64 per admitted event; the turn that would add the 65th is refused and undone,
-                with an issue naming the chain (check's denial code for it is InvalidTurn). Endings
-                and firings are not counted and their turns are never refused by it. Otherwise one event runs from the 
+                up to 64 per admitted event; an event's turn that would add the 65th is refused and
+                undone, with an issue naming the chain (check's denial code for it is InvalidTurn).
+                A context update's turn in that place is undone and waits at its place until the
+                chain is over, so no context update is dropped (R14). Endings and firings are not
+                counted and their turns are never refused by it. Otherwise one event runs from the 
                 next actor in rotation, oldest
                 first. The 64 caps the follow-ups one admitted event starts, a chain inside one
                 admission, not how often events are admitted.

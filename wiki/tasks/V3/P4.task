@@ -268,6 +268,9 @@ tasks
             ending for its identity (incarnations.ts boot, saveOwed), so rows a newer release wrote are lost after a
             downgrade and upgrade. Restore R5 allows it as written; decide with the version rules whether such a record
             is kept.
+        comment     2026-11-16T15:15:44Z
+            From T9: actor records gained 'seen' (each context slot's last-seen value) inside format 1, pre-release; if
+            format 1 records from before it must be read, that is a format step for this Task.
     T22
         title       CLI check, explain and graph
         status      draft

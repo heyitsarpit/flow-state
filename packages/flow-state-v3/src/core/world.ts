@@ -99,17 +99,9 @@ export type Issue = {
 
 /**
  * What an identity showed when its last incarnation ended: its terminal snapshot's state and
- * memory, and the context and reaction selections it ended with, against which its return's one
- * wave compares; kept until the identity starts again.
+ * memory, kept until the identity starts again.
  */
-export type Ended = {
-  readonly state: string;
-  readonly memory: Values;
-  // FLOW_STATE_ALLOW_UNKNOWN: a slot's value has the type its selector returns, typed at the definition.
-  readonly context: ReadonlyMap<string, unknown>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns.
-  readonly baselines: ReadonlyArray<unknown>;
-};
+export type Ended = { readonly state: string; readonly memory: Values };
 
 /**
  * Where a lane's head stands: one tag per history and wait, never a flag (WriteLanes model).
@@ -268,6 +260,8 @@ export type ActorRecord = {
   readonly memory: Values;
   readonly schedules: ReadonlyArray<typeof ScheduleDeadline.Type>;
   readonly context: ReadonlyMap<string, ActorId>;
+  // FLOW_STATE_ALLOW_UNKNOWN: each slot's last-seen value, as JSON; a return compares against it.
+  readonly seen: ReadonlyMap<string, unknown>;
 };
 
 /**

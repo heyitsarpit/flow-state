@@ -43,7 +43,8 @@ requirements
 
     R4  What an actor record holds
         source  @plan.Persistence.O2.
-        must    A persisted actor's record holds its state, memory, exact context bindings, issues,
+        must    A persisted actor's record holds its state, memory, exact context bindings with each
+                slot's last-seen value (a return compares against them, @spec.Actors.R9), issues,
                 schedule timers (`{ name, key?, dueAt }` while running or `{ name, key?, left }`
                 while paused), restartOn baselines, revisions,
                 each history target's last child, resumable slices (frozen ones with their

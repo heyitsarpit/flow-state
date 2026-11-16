@@ -31,8 +31,6 @@ const CREATION = "creation";
 const terminal = (incarnation: Incarnation) => ({
   state: incarnation.state,
   memory: incarnation.memory,
-  context: incarnation.context,
-  baselines: incarnation.baselines,
 });
 
 export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
@@ -109,6 +107,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     ensure: (provider, use) => ensure(provider, use, false, Option.none()),
     release: (provider, use) => release(provider, use),
     publish: (incarnation) => publish(incarnation),
+    save: (incarnation) => setIncarnation(incarnation),
   });
 
   const start = (
@@ -157,13 +156,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       baselines: [],
     };
 
-    // A persisted identity returning after an end in this Runtime compares its context with the
-    // one it ended with: its start owes one wave, delivered after its owed rows.
-    const returning = Option.filter(
-      Option.fromUndefinedOr(tx.world().ended.get(actorKey(actor))),
-      () => Option.isSome(from),
-    );
-
     tx.set({ ...tx.world(), ended: without(tx.world().ended, actorKey(actor)) });
     setIncarnation(base);
     tx.act(Act.Started({ actor }));
@@ -185,9 +177,17 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       ),
     );
 
-    const bound = Option.match(returning, {
+    // A start from a saved record keeps the values that record last saw: when the providers'
+    // selections differ now, its one wave is owed. A reload of a consistent saved world differs
+    // in nothing, so it stays silent.
+    const saved = Option.filter(
+      Option.map(from, (r) => r.seen),
+      (seen) => seen.size > 0,
+    );
+
+    const bound = Option.match(saved, {
       onNone: () => fresh,
-      onSome: (ended) => ({ ...fresh, context: ended.context, baselines: ended.baselines }),
+      onSome: (seen) => context.rebase(fresh, seen),
     });
 
     const incarnation = Option.match(from, {
@@ -232,9 +232,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     publish(incarnation);
     ledger.start(actor);
 
-    // The return's one wave runs in its start, so its events come before the event that
-    // restored it.
-    if (Option.isSome(returning) && compiled.context.size > 0) context.update(actor);
+    // The owed wave waits in its mailbox after the owed rows, ahead of the event that returned it.
+    if (context.differs(fresh, bound)) enqueue(Mail.Context({ actor }));
   };
 
   const fireWaiting = (actor: ActorId) => {

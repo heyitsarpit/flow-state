@@ -185,3 +185,8 @@ note 2026-11-16T14:57:40Z
 note 2026-11-16T14:58:46Z
     Codec R4: a commit declines Unencodable when its persisted lane's record, with it queued, would pass a bound; owed
     rows past a bound together save their largest values as null. Only an actor record withholds (WriteAhead I21).
+
+note 2026-11-16T15:15:28Z
+    Actors R9, R13; WriteAhead R4: an actor record saves each slot's last-seen value and a return waves only when a
+    selection differs from it; a capped context update waits instead of being dropped. Why: T9 second review. Reverse:
+    drop seen.

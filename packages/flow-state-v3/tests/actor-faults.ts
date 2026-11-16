@@ -358,8 +358,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "    if (started <= FOLLOW_UPS || !capped(mail)) return { added, count: started };",
-        replace: "    if (started >= 0 || !capped(mail)) return { added, count: started };",
+        find: '    if (started <= FOLLOW_UPS || !capped(mail) || (Mail.$is("Context")(mail) && !waits))',
+        replace: '    if (started >= 0 || !capped(mail) || (Mail.$is("Context")(mail) && !waits))',
       },
     ],
   },
@@ -384,9 +384,70 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "    if (Option.isSome(returning) && compiled.context.size > 0) context.update(actor);",
+        find: "    if (context.differs(fresh, bound)) enqueue(Mail.Context({ actor }));",
         replace:
-          "    if (Option.isSome(returning) && compiled.context.size < 0) context.update(actor);",
+          '    if (context.differs(fresh, bound) && actor.name === "") enqueue(Mail.Context({ actor }));',
+      },
+    ],
+  },
+  {
+    name: "record-forgets-seen-context",
+    tests: ["tests/actors/context.test.ts"],
+    says: "an actor record saves no last-seen context, so a return after a reload compares against nothing it saw",
+    rule: "Actors R18",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      seen: Object.fromEntries(incarnation.context),",
+        replace: "      seen: {},",
+      },
+    ],
+  },
+  {
+    name: "wave-events-behind-mail",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a context update's reaction events go behind the mail already queued, after the event that returned the actor",
+    rule: "Actors R9",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "    tx.enqueueFirst(events.map((event) => Mail.Event({ actor, ...event })));",
+        replace: "    for (const event of events) tx.enqueue(Mail.Event({ actor, ...event }));",
+      },
+    ],
+  },
+  {
+    name: "context-update-dropped-at-cap",
+    tests: ["tests/actors/follow-ups.test.ts"],
+    says: "a context update whose turn would start the 65th follow-up is refused and dropped",
+    rule: "Actors R14",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "    if (waits) tx.enqueueFirst([mail]);",
+        replace: "    if (waits) refuseFollowUp(mail);",
+      },
+    ],
+  },
+  {
+    name: "rollback-keeps-touched",
+    tests: ["src/core/persist.test.ts"],
+    says: "a turn undone by the follow-up cap leaves what it touched to be written",
+    rule: "Actors R13",
+    edits: [
+      { file: "src/core/persist.ts", find: "  tx.remember(() => {", replace: "  void (() => {" },
+    ],
+  },
+  {
+    name: "foreign-context-ref-accepted",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a context ref of a machine this Runtime's app does not run binds",
+    rule: "Actors R24",
+    edits: [
+      {
+        file: "src/host/wiring.ts",
+        find: "      if (machines.get(ref.machine.compiled.id) !== ref.machine)",
+        replace: "      if (machines.get(ref.machine.compiled.id) === undefined)",
       },
     ],
   },

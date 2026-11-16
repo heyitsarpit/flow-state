@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { attachInspector, type Evidence } from "../../src/host/inspect.ts";
-import { Story } from "../../src/host/testing/index.ts";
+import { Story, type StoryRun } from "../../src/host/testing/index.ts";
 import {
   actorRef,
   app,
@@ -238,6 +238,24 @@ describe("context binding (Actors R18, I28)", () => {
     expect(seen).toEqual([]);
   });
 
+  it("Actors R24: a context ref of a machine this Runtime's app does not run is refused ForeignActorRef", () => {
+    const { runtime } = ready();
+
+    const strange = actorRef(
+      machine(Session, ({ S }) => ({ default: S.READY })),
+      "main",
+    );
+
+    expect(
+      thrownCode(() =>
+        runtime.ensureActor(actorRef(BadgeMachine, "b2", { context: { user: strange } })),
+      ),
+    ).toBe("ForeignActorRef");
+    expect(() => Story.app(setup, { id: "context/foreign", fixtures: [] }).ensure(strange)).toThrow(
+      FlowError,
+    );
+  });
+
   it("Actors R5: two refs of one live identity with different context are refused ConflictingActorRef", () => {
     const { runtime } = ready();
     runtime.ensureActor(badge);
@@ -411,7 +429,6 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
 
     const run = checked(
       await Story.app(kept, { id: "context/reload-override", fixtures: [] })
-        .send(otherSession, { _tag: "SignIn", user: "bob" })
         .ensure(otherSession)
         .send(otherSession, { _tag: "SignIn", user: "bob" })
         .ensure(overridden)
@@ -435,5 +452,63 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
 
     const seen = run.evidence.filter((e) => e._tag === "Turn" && e.event === "Seen");
     expect(seen).toHaveLength(1);
+  });
+
+  // The turns after the reload: the provider's change, the consumer's one wave, then the event
+  // that returned it.
+  const afterReload = (run: StoryRun) =>
+    run.evidence
+      .slice(run.evidence.findIndex((e) => e._tag === "Incarnated" && e.actor.name === "main"))
+      .flatMap((e) => (e._tag === "Turn" ? [e.event] : []));
+
+  it("Actors R9, R18: a consumer that ended before a reload, returned after its provider changed, gets one wave before the send", async () => {
+    const run = checked(
+      await Story.app(kept, { id: "context/return-after-reload", fixtures: [] })
+        .ensure(keptWatcher)
+        .detach(keptWatcher)
+        .advance("1 second")
+        .reload()
+        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .advance("1 second")
+        .send(keptWatcher, { _tag: "Ping" })
+        .checkpoint("back")
+        .run(),
+    );
+
+    expect(afterReload(run)).toEqual(["SignIn", "Seen", "Ping"]);
+    expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
+  });
+
+  it("Actors R9, R18: a consumer whose provider changed after it ended, returned after a reload, gets one wave", async () => {
+    const run = checked(
+      await Story.app(kept, { id: "context/changed-then-reload", fixtures: [] })
+        .ensure(keptWatcher)
+        .detach(keptWatcher)
+        .advance("1 second")
+        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .advance("1 second")
+        .reload()
+        .send(keptWatcher, { _tag: "Ping" })
+        .checkpoint("back")
+        .run(),
+    );
+
+    expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
+  });
+
+  it("Actors R9: a consumer returned after a reload with its provider unchanged gets no wave", async () => {
+    const run = checked(
+      await Story.app(kept, { id: "context/unchanged-return", fixtures: [] })
+        .ensure(keptWatcher)
+        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .detach(keptWatcher)
+        .advance("1 second")
+        .reload()
+        .send(keptWatcher, { _tag: "Ping" })
+        .checkpoint("back")
+        .run(),
+    );
+
+    expect(run.evidence.filter((e) => e._tag === "Turn" && e.event === "Seen")).toHaveLength(1);
   });
 });

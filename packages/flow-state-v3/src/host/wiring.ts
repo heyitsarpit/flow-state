@@ -44,6 +44,15 @@ export const makeWiring = (
           "Wire the slot in the machine's app entry, or in the ref's context.",
         );
 
+      if (machines.get(ref.machine.compiled.id) !== ref.machine)
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a provider ref of another app throws before any work
+        throw refused(
+          "ForeignActorRef",
+          [compiled.id, "context", slot],
+          `${slot} is wired to a ${ref.machine.compiled.id} that is not this Runtime's app's`,
+          "Wire context to refs of the machines this Runtime's app lists.",
+        );
+
       if (ref.machine.compiled.id !== declared.provider)
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a context graph it refuses throws before any work
         throw refused(

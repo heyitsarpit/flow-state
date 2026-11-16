@@ -28,7 +28,7 @@ type Upstream = Pick<typeof Head, "Provider">;
 // One link of a context chain: it selects its upstream's n, and its onContext event copies it, so
 // each link adds two follow-ups to the event that started the chain: its context update and its
 // event.
-const link = (at: number, upstream: Upstream) => {
+const link = (at: number, upstream: Upstream, copies: number) => {
   const Link = definition({
     id: `Chain/Link${at}`,
     states: ["ON"],
@@ -40,9 +40,10 @@ const link = (at: number, upstream: Upstream) => {
 
   return machine(Link, ({ S, E }) => ({
     default: S.ON,
-    onContext: [
-      { select: ({ context }) => context.up, event: E.Copy.from((n: number) => ({ n })) },
-    ],
+    onContext: Array.from({ length: copies }, () => ({
+      select: ({ context }: { readonly context: { readonly up: number } }) => context.up,
+      event: E.Copy.from((n: number) => ({ n })),
+    })),
     on: { Copy: { updateMemory: ({ event }) => ({ n: event.n }) } },
   }));
 };
@@ -57,13 +58,14 @@ type ChainEntry =
 // The actor a link selects from: its provider definition and its ref.
 type Above = { readonly provider: Upstream; readonly ref: ActorRef };
 
-const chain = (() => {
+// A chain whose first link enqueues `firstCopies` events per change and every other link one.
+const chainOf = (firstCopies: number) => {
   const pairs: Array<readonly [string, ChainEntry]> = [["head", HeadMachine]];
   const refs: Array<ActorRef> = [];
   let upstream: Above = { provider: Head, ref: actorRef(HeadMachine, "head") };
 
   for (let at = 1; at <= LINKS; at += 1) {
-    const linked = link(at, upstream.provider);
+    const linked = link(at, upstream.provider, at === 1 ? firstCopies : 1);
     const ref = actorRef(linked, "link");
     pairs.push([`link${at}`, { machine: linked, context: { up: upstream.ref } }]);
     refs.push(ref);
@@ -71,7 +73,9 @@ const chain = (() => {
   }
 
   return { entries: Object.fromEntries(pairs), refs };
-})();
+};
+
+const chain = chainOf(1);
 
 describe("follow-ups (Actors R13, I20)", () => {
   // Each link adds its context update and its event: link 32's event turn would start the 65th
@@ -94,5 +98,27 @@ describe("follow-ups (Actors R13, I20)", () => {
     expect(nOf(32)).toEqual(Option.some(0));
     expect(nOf(33)).toEqual(Option.some(0));
     expect(seen.filter((e) => e._tag === "Issue").map((e) => e.code)).toEqual(["InvalidTurn"]);
+  });
+
+  // The first link enqueues two events, so each later link's context update is an even follow-up
+  // and its event odd: link 32's context update is the turn that would start the 65th. A context
+  // update is never dropped (Actors R14): it waits, at its place, and runs once the chain is over.
+  it("Actors R13, R14: a context update whose turn would start the 65th follow-up waits until the chain is over, and nothing is dropped", () => {
+    const twin = chainOf(2);
+
+    const runtime = runtimeSetup({
+      app: app({ id: "twin-chain", machines: twin.entries }),
+    }).construct();
+
+    Effect.runSync(runtime.ready());
+    const seen: Array<Evidence> = [];
+    const handles = twin.refs.map((ref) => runtime.ensureActor(ref));
+    attachInspector(runtime, (e) => void seen.push(e));
+    runtime.ensureActor(actorRef(HeadMachine, "head")).send({ _tag: "Bump" });
+
+    expect(handles.map((h) => Option.map(h.getSnapshot(), (s) => s.memory["n"]))).toEqual(
+      handles.map(() => Option.some(1)),
+    );
+    expect(seen.filter((e) => e._tag === "Issue")).toEqual([]);
   });
 });

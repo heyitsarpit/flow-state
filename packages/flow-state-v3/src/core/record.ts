@@ -31,6 +31,7 @@ const ActorRecordJson = Schema.Struct({
   memory: Schema.Json,
   schedules: Schema.Array(ScheduleDeadline),
   context: Schema.Record(Schema.String, ActorJson),
+  seen: Schema.Record(Schema.String, Schema.Json),
 });
 
 const LaneRecordJson = Schema.Struct({
@@ -142,7 +143,8 @@ export const encodeOwed = (
 
 /**
  * An incarnation's record as canonical text: its state, its memory encoded by the machine's
- * memory Schema, its schedules' deadlines and its context bindings; or why it cannot encode.
+ * memory Schema, its schedules' deadlines, its context bindings and each slot's last-seen value;
+ * or why it cannot encode.
  */
 export const encodeActor = (compiled: Compiled, incarnation: Incarnation) =>
   Result.flatMap(jsonOf(compiled.memoryJson, incarnation.memory), (memory) =>
@@ -160,6 +162,7 @@ export const encodeActor = (compiled: Compiled, incarnation: Incarnation) =>
       context: Object.fromEntries(
         [...incarnation.bound].map(([slot, p]) => [slot, { machine: p.machine, name: p.name }]),
       ),
+      seen: Object.fromEntries(incarnation.context),
     }),
   );
 
@@ -283,6 +286,7 @@ export const decodeRecords = (
         memory,
         schedules: r.schedules,
         context: new Map(Object.entries(r.context).map(([slot, p]) => [slot, actorOf(p)])),
+        seen: new Map(Object.entries(r.seen)),
       } satisfies ActorRecord;
     });
 

@@ -158,6 +158,25 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     world = { ...world, mail: withEntry(world.mail, key, [...(world.mail.get(key) ?? []), mail]) };
   };
 
+  // Mail that takes the place of the item just served: it goes to the front of its mailbox.
+  const enqueueFirst = (mails: ReadonlyArray<Mail>) => {
+    const [first] = mails;
+
+    if (first === undefined) return;
+
+    const key = actorKey(first.actor);
+    fresh.push(...mails);
+    world = {
+      ...world,
+      mail: withEntry(world.mail, key, [...mails, ...(world.mail.get(key) ?? [])]),
+    };
+  };
+
+  // What a step's modules keep outside the world, saved with each checkpoint and put back by its
+  // rollback: each registrant returns how to restore what it holds now.
+  const keepers: Array<() => () => void> = [];
+  const remember = (keeper: () => () => void) => void keepers.push(keeper);
+
   const takeFresh = () => {
     const taken = fresh;
     fresh = [];
@@ -166,13 +185,20 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   };
 
   // A point a served turn can be undone back to: its world, evidence and commands so far.
-  const checkpoint = () => ({ world, evidence: evidence.length, commands: commands.length });
+  const checkpoint = () => ({
+    world,
+    evidence: evidence.length,
+    commands: commands.length,
+    restores: keepers.map((keeper) => keeper()),
+  });
 
   const rollback = (to: ReturnType<typeof checkpoint>) => {
     world = to.world;
     evidence.splice(to.evidence);
     commands.splice(to.commands);
     fresh = [];
+
+    for (const restore of to.restores) restore();
   };
 
   return {
@@ -180,6 +206,8 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     persisted,
     takeFresh,
     checkpoint,
+    remember,
+    enqueueFirst,
     rollback,
     armTimer,
     disarmWhere,

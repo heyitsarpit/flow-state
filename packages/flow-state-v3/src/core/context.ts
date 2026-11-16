@@ -12,6 +12,7 @@ export type ContextNeeds = {
   readonly ensure: (actor: ActorId, use: Option.Option<Use>) => void;
   readonly release: (actor: ActorId, use: Use) => void;
   readonly publish: (incarnation: Incarnation) => void;
+  readonly save: (incarnation: Incarnation) => void;
 };
 
 // An actor's outside snapshot, as a provider's selector reads it: its leaf and memory without its
@@ -162,15 +163,26 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
    * still has mail. Its context update waits until they have none, so it never reads a new value
    * beside a stale one of the same cause.
    */
-  // RETURN_TYPE: recursive: a provider's own providers are read on the way up.
-  const settling = (actor: ActorId, seen: ReadonlySet<string> = new Set()): boolean =>
-    [...(incarnationOf(actor)?.bound.values() ?? [])].some((provider) => {
-      const key = actorKey(provider);
+  const settling = (actor: ActorId) => {
+    // Each provider is judged once per question: a diamond's shared ancestors are not walked again.
+    const judged = new Map<string, boolean>();
 
-      return (
-        !seen.has(key) && (tx.world().mail.has(key) || settling(provider, new Set([...seen, key])))
-      );
-    });
+    // RETURN_TYPE: recursive: a provider's own providers are read on the way up.
+    const busy = (consumer: ActorId): boolean =>
+      [...(incarnationOf(consumer)?.bound.values() ?? [])].some((provider) => {
+        const key = actorKey(provider);
+        const known = judged.get(key);
+
+        if (known !== undefined) return known;
+        judged.set(key, false);
+        const result = tx.world().mail.has(key) || busy(provider);
+        judged.set(key, result);
+
+        return result;
+      });
+
+    return busy(actor);
+  };
 
   /**
    * Serves a context update: reads every provider again; when a slot changed, publishes the new
@@ -256,13 +268,47 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     }
 
     const after = { ...next, baselines };
-    keep(after);
+    needs.save(after);
     needs.publish(after);
 
-    for (const event of events) tx.enqueue(Mail.Event({ actor, ...event }));
+    // The reactions' events take the context update's place in the mailbox: they come before
+    // the mail that was behind it.
+    tx.enqueueFirst(events.map((event) => Mail.Event({ actor, ...event })));
   };
 
-  return { bind, unbind, wave, settling, update };
+  /**
+   * A starting consumer whose record saved each slot's last-seen value: its context is those
+   * values, and its reactions' baselines are selected from them, so its owed wave compares
+   * against what it last saw.
+   */
+  // FLOW_STATE_ALLOW_UNKNOWN: a slot's saved value, decoded from its record as JSON.
+  const rebase = (incarnation: Incarnation, seen: ReadonlyMap<string, unknown>) => {
+    const compiled = tx.machines.get(incarnation.actor.machine);
+
+    if (compiled === undefined) return incarnation;
+
+    const context = new Map(
+      [...incarnation.context].map(([slot, value]) => [
+        slot,
+        seen.has(slot) ? seen.get(slot) : value,
+      ]),
+    );
+
+    const restored = { ...incarnation, context };
+
+    return {
+      ...restored,
+      baselines: selections(compiled, restored).map((s) => Result.getOrUndefined(s)),
+    };
+  };
+
+  /**
+   * Whether a start's current selections differ from the ones it restored.
+   */
+  const differs = (current: Incarnation, restored: Incarnation) =>
+    [...current.context].some(([slot, value]) => !Equal.equals(restored.context.get(slot), value));
+
+  return { bind, unbind, wave, settling, update, rebase, differs };
 };
 
 /**

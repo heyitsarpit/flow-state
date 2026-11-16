@@ -1,6 +1,7 @@
 import { type Duration, type Layer, Option } from "effect";
 import type { AnyDefinition, Envelope, PayloadOf } from "../../definition.ts";
-import { actorIdOf, type ActorRef, type RuntimeSetup, SetupId } from "../runtime.ts";
+import { flowError } from "../../error.ts";
+import { actorIdOf, type ActorRef, machineOf, type RuntimeSetup, SetupId } from "../runtime.ts";
 import type { FakeWorld } from "./fake.ts";
 import { run, type StoryRun, type Subject } from "./run.ts";
 import { Step, type WorldWord } from "./steps.ts";
@@ -93,6 +94,22 @@ const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>) => actorIdOf(ref);
  */
 // RETURN_TYPE: the exported Story contract with no checkpoints yet.
 export const storyOf = (subject: Subject, id: string): Story => {
+  // A Story's ref names an identity only of a machine its app runs.
+  const own = (ref: ActorRef) => {
+    if (Object.values(subject.config.app.machines).some((e) => machineOf(e) === ref.machine))
+      return actorOf(ref);
+
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a Story's script names its app's machines; another's throws as it is written
+    throw flowError([
+      {
+        code: "ForeignActorRef",
+        path: [id, ref.machine.compiled.id],
+        summary: `${ref.machine.compiled.id} is not a machine of this Story's app`,
+        help: "Use refs of the machines the Story's setup lists.",
+      },
+    ]);
+  };
+
   // RETURN_TYPE: each step returns the Story contract with its names so far.
   const chain = <Names extends string>(steps: ReadonlyArray<Step>): Story<Names> => {
     const next = (step: Step) => chain<Names>([...steps, step]);
@@ -105,14 +122,13 @@ export const storyOf = (subject: Subject, id: string): Story => {
       ensure: (ref) =>
         next(
           Step.ensure({
-            actor: actorOf(ref),
-            context: new Map(Object.entries(ref.context).map(([slot, p]) => [slot, actorOf(p)])),
+            actor: own(ref),
+            context: new Map(Object.entries(ref.context).map(([slot, p]) => [slot, own(p)])),
           }),
         ),
-      detach: (ref) => next(Step.detach({ actor: actorOf(ref) })),
-      send: (ref, event) => next(Step.send({ actor: actorOf(ref), event })),
-      dispose: (ref, how) =>
-        next(Step.dispose({ actor: actorOf(ref), how: how?.how ?? "dispose" })),
+      detach: (ref) => next(Step.detach({ actor: own(ref) })),
+      send: (ref, event) => next(Step.send({ actor: own(ref), event })),
+      dispose: (ref, how) => next(Step.dispose({ actor: own(ref), how: how?.how ?? "dispose" })),
       disposeRuntime: () => next(Step.disposeRuntime()),
       world: (...words) => next(Step.world({ words })),
       advance: (duration) => next(Step.advance({ duration })),

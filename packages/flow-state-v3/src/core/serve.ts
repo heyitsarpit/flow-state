@@ -371,25 +371,32 @@ export const makeServe = (
   const deferred = (mail: Mail) => {
     if (!Mail.$is("Context")(mail) || !incarnations.context.settling(mail.actor)) return false;
 
-    tx.enqueue(mail);
+    // It keeps its place: mail behind it stays behind it.
+    tx.enqueueFirst([mail]);
     tx.takeFresh();
 
     return true;
   };
 
-  // Serves one item of a chain that has started `count` follow-ups so far. An event or context
-  // update whose turns would start the follow-up past the cap is undone and refused, with an
-  // issue naming the chain; an ending or a firing is never refused by it.
+  // Serves one item of a chain that has started `count` follow-ups so far. An event whose turn
+  // would start the follow-up past the cap is undone and refused, with an issue naming the chain.
+  // A context update in that place is undone and waits, at its place, until the chain is over: a
+  // context update is never dropped. An ending or a firing is never refused by it.
   const counted = (mail: Mail, count: number) => {
     const before = tx.checkpoint();
     serve(mail);
     const added = tx.takeFresh();
     const started = count + added.filter(capped).length;
+    const waits = Mail.$is("Context")(mail) && count > 0;
 
-    if (started <= FOLLOW_UPS || !capped(mail)) return { added, count: started };
+    if (started <= FOLLOW_UPS || !capped(mail) || (Mail.$is("Context")(mail) && !waits))
+      return { added, count: started };
 
     tx.rollback(before);
-    refuseFollowUp(mail);
+
+    if (waits) tx.enqueueFirst([mail]);
+    else refuseFollowUp(mail);
+    tx.takeFresh();
 
     return { added: [], count };
   };

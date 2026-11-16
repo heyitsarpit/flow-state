@@ -10,7 +10,7 @@ const openOf = (attempt: string) => attempt.slice(0, attempt.lastIndexOf("-"));
 // The Attempt whose ending leaves its queue unheard: one recorded as evidence, or one refused,
 // which is redelivered after the mail already queued.
 const leaving = (e: Evidence) => {
-  if (e._tag === "Recorded" || e._tag === "Parked") return e.attempt;
+  if (e._tag === "Recorded") return e.attempt;
 
   if (e._tag === "Issue") return Option.flatMap(e.ending, (ending) => ending.attempt);
 
@@ -41,8 +41,30 @@ export const mailboxOrder: Rule = {
         );
     };
 
+    // Whose each Attempt's ending is: a parked ending leaves its queue and joins it again, last,
+    // when its start unparks it.
+    const owner = new Map<string, string>();
+
     return run.evidence.flatMap((e, at) => {
       Option.match(leaving(e), { onNone: () => undefined, onSome: remove });
+
+      if (e._tag === "Parked") Option.match(e.attempt, { onNone: () => undefined, onSome: remove });
+
+      if (e._tag === "Unparked")
+        Option.match(e.attempt, {
+          onNone: () => undefined,
+          onSome: (attempt) => {
+            const who = owner.get(attempt);
+
+            if (who !== undefined) waiting.set(who, [...(waiting.get(who) ?? []), attempt]);
+          },
+        });
+
+      if (e._tag === "Ended")
+        Option.match(e.attempt, {
+          onNone: () => undefined,
+          onSome: (attempt) => void owner.set(attempt, nameOf(e.actor)),
+        });
 
       if (e._tag === "Ended")
         Option.match(e.attempt, {
