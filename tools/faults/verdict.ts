@@ -9,6 +9,11 @@ export const summaryOf = (out: string) => /^\s*Tests\s+(.*)$/mu.exec(out)?.[1]?.
 
 export const filesOf = (out: string) => /^\s*Test Files\s+(.*)$/mu.exec(out)?.[1]?.trim() ?? "";
 
+// The failed tests a run names, each once, as "file > describe > title".
+export const failedTestsOf = (out: string) => [
+  ...new Set([...out.matchAll(/^\s*FAIL\s+(\S+ > .*?)\s*$/gmu)].map((match) => match[1] ?? "")),
+];
+
 // Whether a run shows a failed test: in its summary, or as a failed test's own line. A run stopped
 // at its first failure can print a summary without it; a file that would not load fails no test.
 const failedTest = (summary: string, out: string) =>

@@ -1,8 +1,8 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
-import { generate, propertyTest } from "../../src/host/testing/index.ts";
-import { rules } from "../rules/rules.ts";
-import { samples, seeds } from "./fixtures.ts";
+import { generate } from "../../src/host/testing/index.ts";
+import { samples } from "./fixtures.ts";
+import { seededRuns } from "./seeded.ts";
 
 const fixtureDirs = readdirSync(new URL("../../fixtures", import.meta.url), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -19,19 +19,5 @@ describe("generated Stories", () => {
       );
   });
 
-  for (const [name, sampled] of Object.entries(samples))
-    for (const profile of ["usual", "stress"] as const)
-      it(`${name}: ${profile} runs from fixed seeds keep every run rule`, () => {
-        const failures = propertyTest(sampled, {
-          profile,
-          properties: rules,
-          seeds: seeds(profile),
-        });
-
-        expect(
-          failures.map(
-            (f) => `${f.rule} from seed ${f.seed}:\n${f.breaches.join("\n")}\n${f.story}`,
-          ),
-        ).toEqual([]);
-      });
+  seededRuns("usual");
 });

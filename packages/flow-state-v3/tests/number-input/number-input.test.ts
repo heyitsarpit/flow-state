@@ -1,22 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 import { defaults } from "../../fixtures/number-input/contracts.ts";
-import {
-  quantity,
-  StepperMachine,
-  type StepperMemory,
-} from "../../fixtures/number-input/machine.ts";
-import { bounded, numberStory, stress, usual } from "../../fixtures/number-input/stories.ts";
+import { quantity, StepperMachine } from "../../fixtures/number-input/machine.ts";
+import { bounded, numberStory, usual } from "../../fixtures/number-input/stories.ts";
 import { actorRef } from "../../src/index.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
-
-type Field = StepperMemory;
+import { fieldOf, published } from "./reads.ts";
 
 const other = actorRef(StepperMachine, "other");
-
-// SAFETY: the stepper's memory is the Field record its definition declares.
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a snapshot's memory is erased to Values
-const fieldOf = (memory: unknown) => memory as Field;
 
 const field = (cut: Cut, ref = quantity) => fieldOf(cut.read(ref)?.memory);
 
@@ -24,9 +15,6 @@ const stateOf = (cut: Cut) => cut.read(quantity)?.state;
 
 const denials = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Denied" ? [`${e.event} ${e.reasons.join(",")}`] : []));
-
-const published = (run: StoryRun) =>
-  run.evidence.flatMap((e) => (e._tag === "Published" ? [fieldOf(e.memory)] : []));
 
 const configured = (id: string, settings: Partial<typeof defaults>) =>
   numberStory(id)
@@ -267,46 +255,5 @@ describe("number input: timers", () => {
       ),
     ).toEqual([]);
     expect(field(run.checkpoints.later).lastCommit).toEqual({ seq: 1, value: 6 });
-  });
-});
-
-describe("number input: stress", () => {
-  it("NUMBER-12: a hundred and fifty gestures keep every value within its bounds, and every commit is one per interaction and differs from its start", async () => {
-    const run = await played(stress);
-    const fields = published(run);
-
-    const outOfBounds = fields.filter(
-      (m) =>
-        m.value !== null &&
-        (m.value < (m.settings.min ?? m.value) || m.value > (m.settings.max ?? m.value)),
-    );
-
-    const commits = fields.flatMap((m, i) => {
-      const before = fields[i - 1];
-
-      return before !== undefined && m.lastCommit.seq !== before.lastCommit.seq
-        ? [{ before, after: m }]
-        : [];
-    });
-
-    const wrong = commits.filter(
-      ({ before, after }) =>
-        after.lastCommit.seq !== 0 &&
-        (after.lastCommit.seq !== before.lastCommit.seq + 1 ||
-          (before.started === null ? before.value : before.started.from) ===
-            after.lastCommit.value),
-    );
-
-    const fired = new Set(run.evidence.flatMap((e) => (e._tag === "Turn" ? [e.event] : [])));
-
-    expect(stress.steps.length).toBeGreaterThanOrEqual(300);
-    expect(outOfBounds).toEqual([]);
-    expect(wrong).toEqual([]);
-    expect(commits.filter((c) => c.after.lastCommit.seq !== 0).length).toBeGreaterThan(10);
-    expect(["RepeatDue", "Tick", "WheelDue"].filter((e) => fired.has(e))).toEqual([
-      "RepeatDue",
-      "Tick",
-      "WheelDue",
-    ]);
   });
 });

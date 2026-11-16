@@ -3,7 +3,7 @@
 //
 //   node --experimental-strip-types tools/faults/verdict.test.ts
 import assert from "node:assert/strict";
-import { verdictOf } from "./verdict.ts";
+import { failedTestsOf, verdictOf } from "./verdict.ts";
 
 const out = (tests: string, files: string) => ` Test Files  ${files}\n      Tests  ${tests}\n`;
 
@@ -35,4 +35,9 @@ assert.equal(
 assert.equal(verdictOf({ kind: "ran", passed: false, out: "Error: boom\n" }), "NOT JUDGED (no test summary)");
 assert.equal(verdictOf({ kind: "broken", why: "timed out after 240000 ms" }), "NOT JUDGED (timed out after 240000 ms)");
 
-console.log("verdict: 7 of 7");
+assert.deepEqual(
+  failedTestsOf(" FAIL  tests/a.test.ts > a > breaks\n FAIL  tests/a.test.ts [ tests/a.test.ts ]\n FAIL  tests/a.test.ts > a > breaks \n"),
+  ["tests/a.test.ts > a > breaks"],
+);
+
+console.log("verdict: 8 of 8");

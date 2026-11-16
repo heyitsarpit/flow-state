@@ -11,12 +11,4 @@ describe("the reload sweep, landing held writes (Restore R3)", () => {
     },
     SWEEP_MS,
   );
-
-  it(
-    "a reload that lands every held write unheard, at every step of every stress Story, breaks no rule",
-    async () => {
-      swept(await sweep(slices.stress, true, "land"));
-    },
-    SWEEP_MS,
-  );
 });

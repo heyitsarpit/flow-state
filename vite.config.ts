@@ -1,4 +1,4 @@
-import { defineConfig } from "vite-plus";
+import { configDefaults, defineConfig } from "vite-plus";
 
 // Lint and format cover Flow State v3 production code only. The rule choices and their reasons
 // are in tools/lint-bomb/FLOW-STATE.md; change both together.
@@ -18,6 +18,12 @@ const frozen = [
   "tools/lint-bomb/**",
   "tools/oxlint/**",
 ];
+
+// The stress runs (stress Stories, their reload sweeps, generated stress seeds) live in
+// `*.stress.test.ts` files: left out by default, and the only files run under FLOW_STRESS=1
+// (`nub run test:stress`). tools/stress/select.test.ts checks both selections.
+const stressTests = `${production}/**/*.stress.test.ts`;
+const stressRun = process.env["FLOW_STRESS"] === "1";
 
 const productionTests = [
   `${productionSource}/**/*.test.{ts,tsx}`,
@@ -312,7 +318,8 @@ export default defineConfig({
     ignorePatterns: frozen,
   },
   test: {
-    include: ["packages/**/*.test.ts"],
+    include: stressRun ? [stressTests] : ["packages/**/*.test.ts"],
+    exclude: stressRun ? configDefaults.exclude : [...configDefaults.exclude, stressTests],
     coverage: {
       provider: "v8",
       include: [

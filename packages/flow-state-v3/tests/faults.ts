@@ -1,11 +1,12 @@
 import { toolingFaults } from "./tooling-faults.ts";
 
 /**
- * A planted fault: a named wrong behaviour of the runtime, the Spec rule it breaks, and the source
- * edits that plant it.
+ * A planted fault: a named wrong behaviour of the runtime, the test files that catch it, the Spec
+ * rule it breaks, and the source edits that plant it.
  */
 export type Fault = {
   readonly name: string;
+  readonly tests: ReadonlyArray<string>;
   readonly says: string;
   readonly rule: string;
   readonly edits: ReadonlyArray<{
@@ -26,12 +27,15 @@ export type Fault = {
  *
  * **Details**
  *
- * Edit paths are relative to the package root. Each `find` must occur exactly once in its file; a
- * fault whose text has moved is rewritten or removed, never skipped.
+ * Edit and test paths are relative to the package root. Each `find` must occur exactly once in its
+ * file; a fault whose text has moved is rewritten or removed, never skipped. `tests` names the
+ * files run first; the whole suite runs only when they let the fault through, so a wrong name
+ * costs time, never a verdict.
  */
 export const faults: ReadonlyArray<Fault> = [
   {
     name: "failure-as-cancelled",
+    tests: ["tests/stories/fake.test.ts"],
     says: "a definite failure the server answered is reported unknown Cancelled, with no cancel run",
     rule: "WriteLanes I25",
     edits: [
@@ -44,6 +48,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "success-as-failure",
+    tests: ["tests/stories/storage.test.ts"],
     says: "a success the server answered ends as a failure it never sent",
     rule: "WriteLanes I25",
     edits: [
@@ -56,6 +61,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "resend-new-id",
+    tests: ["src/host/lanes.test.ts"],
     says: "a re-send carries a fresh id",
     rule: "WriteLanes I6",
     edits: [
@@ -68,6 +74,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "kept-redelivered",
+    tests: ["src/core/ledger.test.ts"],
     says: "a kept ending's one try at a boot is redelivered after its refusal",
     rule: "Actors I24",
     edits: [
@@ -80,6 +87,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "retry-not-owed",
+    tests: ["src/core/cells.test.ts"],
     says: "a retry accepted on a Held lane never re-sends",
     rule: "WriteLanes I26",
     edits: [
@@ -92,6 +100,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "kept-ignored",
+    tests: ["tests/write-lanes/ending-delivery.test.ts"],
     says: "a commit beside a kept ending mints, as if the kept ending held no lane",
     rule: "WriteLanes I8",
     edits: [
@@ -104,6 +113,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "bound-forgets-the-wire",
+    tests: ["src/core/cells.test.ts"],
     says: "past the disposal bound an Attempt on the wire gets no ending",
     rule: "Actors I35",
     edits: [
@@ -116,6 +126,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "record-forgets-retries",
+    tests: ["tests/write-lanes/payment-retry.test.ts"],
     says: "a lane record saves no re-sends, so a reload restores retryCount 0",
     rule: "WriteLanes I7",
     edits: [
@@ -128,6 +139,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "resend-uncounted",
+    tests: ["tests/write-lanes/lane-anchors.test.ts"],
     says: "an invoked re-send does not count",
     rule: "WriteLanes I7",
     edits: [
@@ -140,6 +152,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "released-delivered",
+    tests: ["tests/write-lanes/lane-policies.test.ts"],
     says: "a released lane also delivers Released as an ending",
     rule: "WriteLanes I4",
     edits: [
@@ -153,6 +166,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "idle-fails-idle",
+    tests: ["tests/cells/cells.test.ts"],
     says: "an idle guard fails even over an Idle lane",
     rule: "WriteLanes I13",
     edits: [
@@ -165,6 +179,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "actor-never-saved",
+    tests: ["tests/pay/pay.test.ts"],
     says: "an actor's record always saves its initial state, so after a reload it runs from a state it never published",
     rule: "Turn I2",
     edits: [
@@ -177,6 +192,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "root-first",
+    tests: ["tests/turn/refusal.test.ts"],
     says: "the root's handlers are tried before the active leaf's",
     rule: "Turn I2",
     edits: [
@@ -190,6 +206,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "state-move-copies-memory",
+    tests: ["tests/transfers/trace.test.ts"],
     says: "a turn that only moves state copies the memory object, so an unchanged part loses its identity",
     rule: "Turn I30",
     edits: [
@@ -202,6 +219,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "refused-turn-reported",
+    tests: ["tests/turn/refusal.test.ts"],
     says: "a refused turn keeps a turn report besides its issue",
     rule: "Turn I14",
     edits: [
@@ -215,6 +233,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "fires-unused",
+    tests: ["tests/turn/schedules.test.ts"],
     says: "a schedule fires while its actor is not used",
     rule: "Turn I23",
     edits: [
@@ -227,6 +246,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "mint-not-replayable",
+    tests: ["tests/turn/refusal.test.ts"],
     says: "Attempt ids are not a function of the boot's seed and the Attempts' counter",
     rule: "Turn I17",
     edits: [
@@ -239,6 +259,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "no-restored-unknown",
+    tests: ["tests/stories/storage.test.ts"],
     says: "a Held head with no owed row hears nothing at its identity's start",
     rule: "Restore I6",
     edits: [
@@ -252,6 +273,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "refused-acknowledgement-sent",
+    tests: ["src/core/cells.test.ts"],
     says: "a commit whose acknowledging write was refused is sent anyway",
     rule: "WriteAhead R13",
     edits: [
@@ -264,6 +286,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "sent-before-acknowledged",
+    tests: ["tests/stories/storage.test.ts"],
     says: "a commit is sent before its acknowledging write lands",
     rule: "WriteAhead R13",
     edits: [
@@ -278,6 +301,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...toolingFaults,
   {
     name: "ending-heard-twice",
+    tests: ["src/core/ledger.test.ts"],
     says: "an ending a turn heard is delivered once more, as if its turn had been refused",
     rule: "WriteLanes I15",
     edits: [
@@ -291,6 +315,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "success-keeps-hold",
+    tests: ["tests/stories/reload.test.ts"],
     says: "a success leaves its lane Held, so the next start delivers unknown Restored after it",
     rule: "WriteLanes I16",
     edits: [
@@ -304,6 +329,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "unsent-as-failure",
+    tests: ["tests/stories/storage.test.ts"],
     says: "a never-sent Attempt ends as a failure, not NotSent",
     rule: "WriteLanes I3",
     edits: [
@@ -317,6 +343,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "turn-published-twice",
+    tests: ["tests/actors/lifetime.test.ts"],
     says: "a turn that moves to another leaf publishes twice",
     rule: "Turn I9",
     edits: [
@@ -330,6 +357,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "disposal-resends-held",
+    tests: ["src/core/cells.test.ts"],
     says: "the Runtime's disposal re-sends each Held head",
     rule: "Actors I30",
     edits: [
@@ -342,6 +370,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "boot-wakes-no-one",
+    tests: ["src/host/lanes.test.ts"],
     says: "a boot restores no identity live, so an owed ending waits for an ensure",
     rule: "Restore I1",
     edits: [
@@ -354,43 +383,8 @@ export const faults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "dispose-forgets-uses",
-    says: "the test tooling's disposeRuntime forgets the Story's uses, so the next reload ensures nothing",
-    rule: "Stories R13",
-    edits: [
-      {
-        file: "src/host/testing/run.ts",
-        find: "      disposeRuntime: () => {\n        disposed = true;\n",
-        replace: "      disposeRuntime: () => {\n        disposed = true;\n        uses.clear();\n",
-      },
-    ],
-  },
-  {
-    name: "trace-omits-requests",
-    says: "the trace leaves out the calls the fake servers received",
-    rule: "Stories I20",
-    edits: [
-      {
-        file: "src/host/testing/run.ts",
-        find: '    (index) => note({ kind: "call", index }),\n',
-        replace: "    () => undefined,\n",
-      },
-    ],
-  },
-  {
-    name: "bench-drops-a-round",
-    says: "the bench times a Story with its last round of steps cut, so it does less work than the tested run",
-    rule: "Stories I18",
-    edits: [
-      {
-        file: "bench/time.ts",
-        find: "const run = await story.run();",
-        replace: "const run = await story.run({ steps: story.steps.slice(0, -10) });",
-      },
-    ],
-  },
-  {
     name: "memory-not-plain",
+    tests: ["tests/stories/storage.test.ts"],
     says: "a published snapshot carries its memory wrapped in a class instance, not as plain data",
     rule: "Turn R24",
     edits: [
@@ -403,43 +397,8 @@ export const faults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "offline-reaches-server",
-    says: "the test tooling ignores the network going offline, so calls still reach their servers",
-    rule: "Stories R17",
-    edits: [
-      {
-        file: "src/host/testing/fake.ts",
-        find: '          offline = kind === "offline";',
-        replace: "          void kind;",
-      },
-    ],
-  },
-  {
-    name: "landed-write-lost",
-    says: "a reload asked to land the held writes marks them landed but writes nothing to the store",
-    rule: "Stories R13",
-    edits: [
-      {
-        file: "src/host/testing/fake.ts",
-        find: '        apply(out.writes);\n        mark(out, "landed");\n      }\n    },',
-        replace: '        mark(out, "landed");\n      }\n    },',
-      },
-    ],
-  },
-  {
-    name: "turn-bound-after-the-chain",
-    says: "the run judges the turn bound only between tasks, so a chain of commits that answer at once runs past 10,000 turns",
-    rule: "Stories I7",
-    edits: [
-      {
-        file: "src/host/testing/run.ts",
-        find: '.length > TURN_LIMIT)\n        limits.fail("Turns");',
-        replace: '.length > Number.POSITIVE_INFINITY)\n        limits.fail("Turns");',
-      },
-    ],
-  },
-  {
     name: "armon-keeps-deadline",
+    tests: ["tests/number-input/number-input.test.ts"],
     says: "an event a running schedule lists in armOn leaves its deadline as it was instead of restarting it",
     rule: "Turn R14",
     edits: [
@@ -452,6 +411,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "exit-keeps-schedules",
+    tests: ["tests/write-lanes/payment-late-answers.test.ts"],
     says: "leaving a state leaves its schedules armed, so they fire in the state entered",
     rule: "Turn R14",
     edits: [
@@ -464,6 +424,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "first-guard-only",
+    tests: ["tests/number-input/number-input.test.ts"],
     says: "an alternative passes when its first guard passes, whatever the rest of its guard array says",
     rule: "Turn R12",
     edits: [
@@ -476,6 +437,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "alternatives-reversed",
+    tests: ["tests/turn/refusal.test.ts"],
     says: "a level's alternatives are tried last first, not in authored order",
     rule: "Turn R2",
     edits: [
@@ -488,6 +450,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "denied-last-reason",
+    tests: ["tests/command-palette/palette.test.ts"],
     says: "a denial keeps only its last declined alternative's reason",
     rule: "Turn R13",
     edits: [

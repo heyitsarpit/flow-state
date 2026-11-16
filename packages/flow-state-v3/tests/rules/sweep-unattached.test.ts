@@ -11,12 +11,4 @@ describe("the reload sweep, attaching nothing (Restore I1)", () => {
     },
     SWEEP_MS,
   );
-
-  it(
-    "a reload that attaches nothing, at every step of every stress Story, breaks no rule",
-    async () => {
-      swept(await sweep(slices.stress, false));
-    },
-    SWEEP_MS,
-  );
 });

@@ -2,12 +2,13 @@ import type { Fault } from "./faults.ts";
 
 /**
  * Wrong test tooling the tests must reject: each breaks one rule of the Stories Spec in
- * `src/host/testing/`, or of the command line in `src/host/cli/`, planted alone like the runtime's
- * faults.
+ * `src/host/testing/` or the bench, or of the command line in `src/host/cli/`, planted alone like
+ * the runtime's faults.
  */
 export const toolingFaults: ReadonlyArray<Fault> = [
   {
     name: "abort-fails-the-waiter",
+    tests: ["tests/stories/storage.test.ts"],
     says: "a reload's abort of the dying tab's held write fails its waiter, so the dead tab runs again",
     rule: "Stories R13",
     edits: [
@@ -21,6 +22,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "abort-keeps-held",
+    tests: ["tests/stories/storage.test.ts"],
     says: "a reload leaves the dying tab's held writes held, so a later release takes one meant for the live tab",
     rule: "Stories R13",
     edits: [
@@ -33,6 +35,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "dead-tab-answered",
+    tests: ["tests/stories/reload.test.ts"],
     says: "the test tooling's release of a dead tab's held call completes its waiter, so the dead tab runs again",
     rule: "Stories R13",
     edits: [
@@ -45,6 +48,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "deadline-passed-answered",
+    tests: ["tests/stories/wire.test.ts"],
     says: "a held call released after its commit's deadline reads as answered, though no waiter heard it",
     rule: "Stories R9",
     edits: [
@@ -57,6 +61,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "step-left-unsettled",
+    tests: ["tests/stories/storage.test.ts"],
     says: "the test tooling ends a step without running its tab's queued tasks",
     rule: "Stories R5",
     edits: [
@@ -69,6 +74,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "drop-at-request-handled",
+    tests: ["tests/stories/wire.test.ts"],
     says: "a call dropped at request still reaches the server and changes its truth",
     rule: "Stories I8",
     edits: [
@@ -82,6 +88,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "control-ignored",
+    tests: ["tests/stories/fake.test.ts"],
     says: "a fake control leaves the server's truth as it was",
     rule: "Stories R8",
     edits: [
@@ -94,6 +101,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "cut-shares-the-store",
+    tests: ["tests/stories/steps.test.ts"],
     says: "a checkpoint holds the live store, so later steps change an earlier cut",
     rule: "Stories I15",
     edits: [
@@ -106,6 +114,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "reload-forgets-uses",
+    tests: ["tests/cells/cells.test.ts"],
     says: "a reload boots the tab's next open without ensuring the actors the Story still uses",
     rule: "Stories R13",
     edits: [
@@ -118,6 +127,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "setup-services-built",
+    tests: ["tests/stories/storage.test.ts"],
     says: "a Story's tab builds the setup's own services in place of its fixtures",
     rule: "Stories R7",
     edits: [
@@ -130,6 +140,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "trace-own-path",
+    tests: ["tests/cli/cli.test.ts"],
     says: "flow trace prints its own copy of the trace, short of the run's last event",
     rule: "CommandLine O2",
     edits: [
@@ -143,6 +154,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "checkpoint-without-state",
+    tests: ["tests/cli/cli.test.ts"],
     says: "flow story run prints each checkpoint but not its actors' states",
     rule: "CommandLine O2",
     edits: [
@@ -155,6 +167,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "list-first-app-only",
+    tests: ["tests/cli/cli.test.ts"],
     says: "flow story list names the Stories of the config's first app alone",
     rule: "CommandLine O1",
     edits: [
@@ -168,6 +181,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "failure-succeeds",
+    tests: ["tests/cli/cli.test.ts"],
     says: "a config that does not load, an unknown Story or a rejected run exits 0",
     rule: "CommandLine O3",
     edits: [
@@ -175,6 +189,84 @@ export const toolingFaults: ReadonlyArray<Fault> = [
         file: "src/host/cli/main.ts",
         find: "      Effect.as(Console.error(`flow: ${error.message}`), 2),",
         replace: "      Effect.as(Console.error(`flow: ${error.message}`), 0),",
+      },
+    ],
+  },
+  {
+    name: "dispose-forgets-uses",
+    tests: ["tests/transfers/transfers.test.ts"],
+    says: "the test tooling's disposeRuntime forgets the Story's uses, so the next reload ensures nothing",
+    rule: "Stories R13",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "      disposeRuntime: () => {\n        disposed = true;\n",
+        replace: "      disposeRuntime: () => {\n        disposed = true;\n        uses.clear();\n",
+      },
+    ],
+  },
+  {
+    name: "trace-omits-requests",
+    tests: ["tests/transfers/trace.test.ts"],
+    says: "the trace leaves out the calls the fake servers received",
+    rule: "Stories I20",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: '    (index) => note({ kind: "call", index }),\n',
+        replace: "    () => undefined,\n",
+      },
+    ],
+  },
+  {
+    name: "bench-drops-a-round",
+    tests: ["tests/bench/run.test.ts"],
+    says: "the bench times a Story with its last round of steps cut, so it does less work than the tested run",
+    rule: "Stories I18",
+    edits: [
+      {
+        file: "bench/time.ts",
+        find: "const run = await story.run();",
+        replace: "const run = await story.run({ steps: story.steps.slice(0, -10) });",
+      },
+    ],
+  },
+  {
+    name: "offline-reaches-server",
+    tests: ["tests/stories/wire.test.ts"],
+    says: "the test tooling ignores the network going offline, so calls still reach their servers",
+    rule: "Stories R17",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: '          offline = kind === "offline";',
+        replace: "          void kind;",
+      },
+    ],
+  },
+  {
+    name: "landed-write-lost",
+    tests: ["tests/stories/storage.test.ts"],
+    says: "a reload asked to land the held writes marks them landed but writes nothing to the store",
+    rule: "Stories R13",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: '        apply(out.writes);\n        mark(out, "landed");\n      }\n    },',
+        replace: '        mark(out, "landed");\n      }\n    },',
+      },
+    ],
+  },
+  {
+    name: "turn-bound-after-the-chain",
+    tests: ["tests/stories/story.test.ts"],
+    says: "the run judges the turn bound only between tasks, so a chain of commits that answer at once runs past 10,000 turns",
+    rule: "Stories I7",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: '.length > TURN_LIMIT)\n        limits.fail("Turns");',
+        replace: '.length > Number.POSITIVE_INFINITY)\n        limits.fail("Turns");',
       },
     ],
   },
