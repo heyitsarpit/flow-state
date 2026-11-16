@@ -185,10 +185,13 @@ instructions
     - Opus leads and Haiku sidecars, Claude Code (detected 2026-11-09). Every lead runs at medium effort; Haiku review
       sidecars at high, read-only sweeps at medium (the user, 2026-11-14; overrides the effort defaults of R30
       and skill:policy-delegation).
-    - Agents at once: one building lead, and at review time one reviewing or checking agent, each with its own sidecars,
-      up to eight; the lead decides how many and which jobs they do, never one per angle by default (the user,
-      2026-11-14 and 2026-11-15). Always alone: real-browser runs and benchmarks. Up to 8 deterministic processes, about
-      16 GB.
+    - Agents at once: one lead, building or reviewing, never both (the user, 2026-11-16; was one of each). The lead runs
+      up to eight sidecars and decides how many and which jobs they do, never one per angle by default (the user,
+      2026-11-14 to 2026-11-16). A review runs between builds: the builder stops at `review`, the review runs, then the
+      fix round or the next Task. Extra work (merges, code-quality reviews) waits for the slot. Before starting any
+      agent, the orchestrator reads the 5-hour window: above 80% only the current lead continues; above 90% it
+      checkpoints and stops until the reset. Always alone: real-browser runs and benchmarks. Up to 8 deterministic
+      processes, about 16 GB.
     - Haiku never writes or runs production code; it may run experiments or hill-climb in scratch files outside the
       package and submit ideas (the user, 2026-11-10 and 2026-11-15). A lead reads every line a sidecar wrote, re-runs
       each check itself, and logs each result as accepted, changed or rejected (the user, 2026-11-08).
