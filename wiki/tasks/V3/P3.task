@@ -276,6 +276,9 @@ tasks
             a stated limit in WriteLanes' realization. Fix: a core test on encodeLane and the boot, with a planted fault
             that drops displaced; turn the lane-ends case into an open item with an it.fails pin (a core test, or a
             lanes Story over an uninterruptible Git fake like pay's steadfast shop), owner @task.V3.T20 (proposed).
+        comment     2026-11-16T03:19:06Z
+            Failure (2026-11-16): root cause: a lost ending written into a Spec as a stated limit. Count: 2. Revision:
+            c76a963c. Review: 66515765, 6a428687.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open
