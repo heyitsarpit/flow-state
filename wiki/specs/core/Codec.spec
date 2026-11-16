@@ -66,8 +66,9 @@ requirements
                 `kept/` kind. A key of no kind, or a record its kind's Schema refuses, is
                 undecodable and handled by @spec.Restore.R5; it is never coerced. Decision (user,
                 2026-11-12): consult round 3, C9. Why: an ending outlives both its lane and its
-                actor record. Reverse: restore R5 from commit `9405af2f`. Open: the canonical codec
-                for records and how a row's `value` is encoded when JSON cannot carry it.
+                actor record. Reverse: restore R5 from commit `9405af2f`. Every record is stored as
+                its canonical text (R2) and read strictly (R3); a row's `value` with no canonical
+                form is saved as `null`.
 
 open
     Q1  Executable checks are not built.

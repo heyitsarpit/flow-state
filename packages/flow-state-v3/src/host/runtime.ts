@@ -415,12 +415,24 @@ export const buildRuntime = (
       });
     });
 
-  // A forget removes every record the scope holds in one batch, after the disposal's own writes.
-  // A Runtime that never persisted, or whose load failed, makes no store call.
+  const forgetFailed = flowError([
+    {
+      code: "StorageFailure",
+      path: ["dispose", "forget"],
+      summary: "the store did not delete the scope's records",
+      help: "The saved data may still be there; dispose with forget again once the store answers.",
+    },
+  ]);
+
+  // A forget removes every record the scope holds in one batch, after the disposal's own writes;
+  // with a write of the disposal still unanswered it fails, since that write may land later. A
+  // Runtime that never persisted, or whose load failed, makes no store call.
   const forget = Effect.fn("Runtime.forget")(function* () {
     const store = host.store;
 
     if (!persistence || Option.isNone(store) || !driver.world().persistence) return;
+
+    if (!driver.stored()) return yield* Effect.fail(forgetFailed);
 
     yield* store.value.load.pipe(
       Effect.flatMap((saved) =>
@@ -430,16 +442,7 @@ export const buildRuntime = (
           [],
         ),
       ),
-      Effect.mapError(() =>
-        flowError([
-          {
-            code: "StorageFailure",
-            path: ["dispose", "forget"],
-            summary: "the store refused to delete the scope's records",
-            help: "The saved data is still there; dispose with forget again once the store answers.",
-          },
-        ]),
-      ),
+      Effect.mapError(() => forgetFailed),
     );
   });
 

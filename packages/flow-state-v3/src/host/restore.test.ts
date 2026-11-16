@@ -113,6 +113,21 @@ describe("forgetting a scope (Restore R10, I18)", () => {
     expect(store).toEqual(saved);
   });
 
+  it("Restore I18: with the disposal's write still unanswered, a forget fails StorageFailure and deletes nothing", () => {
+    const store = new Map<string, string>([["actor/Restore/Session/main", "saved before"]]);
+
+    const { built, tab } = bootWith(badges, store, 1, true, { captureMs: 0, hung: true });
+    built.runtime.ensureActor(other).send({ _tag: "SignIn", user: "bob" });
+    tab.settle();
+
+    const disposing = Effect.runFork(built.runtime.dispose({ forget: true }));
+    tab.settle();
+    tab.advance(5000);
+
+    expect(outcome(disposing)).toBe("StorageFailure");
+    expect([...store.keys()]).toEqual(["actor/Restore/Session/main"]);
+  });
+
   it("Restore R10: an ordinary disposal keeps the scope's records", () => {
     const store = new Map<string, string>();
     const { built, tab } = bootWith(badges, store, 1);

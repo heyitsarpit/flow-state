@@ -136,6 +136,10 @@ export const makeEdge = (
   });
 
   return {
+    /**
+     * Whether no batch is out, so nothing issued can still land.
+     */
+    settled: () => !pending.out,
     accept: (writes: ReadonlyArray<Write>, due: Due) => {
       const dirty = new Map(pending.dirty);
       const tickets = Due.$is("Awaited")(due) ? due.tickets : [];

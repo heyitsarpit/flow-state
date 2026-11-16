@@ -156,3 +156,16 @@ note 2026-11-16T13:15:20Z
 note 2026-11-16T13:52:46Z
     Compile R1 and R4 follow the UI-primitives examples review: the machine callback receives { S, E, O, emits }, and
     onProps is a machine-body field (root only), not a definition field. Reverse: git revert this commit.
+
+note 2026-11-16T14:16:23Z
+    Codec I7 wins over record.ts: no lane record has mayHaveApplied; an acknowledged head never invoked ends unknown
+    Restored (Restore R3). Records are canonical text, read strictly. Reverse: git revert T20's Spec commit.
+
+note 2026-11-16T14:16:24Z
+    Restore: Owing adds lane records holding a queue or displaced Attempts; a non-canonical or wrong-format record is
+    quarantined and reported each boot, unread; a forget over an unanswered disposal write fails.
+
+note 2026-11-16T14:16:24Z
+    WriteAhead: I21 excepts an identity withheld while its record cannot encode; it is reported UnencodableValue once
+    and its tickets' silence starts with their batch; a lane gone Idle owing a displaced ending keeps a head-less
+    record.

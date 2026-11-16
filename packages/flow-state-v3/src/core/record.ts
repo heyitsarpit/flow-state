@@ -17,10 +17,14 @@ import {
  */
 export const FORMAT = 1;
 
+// The one format a record of this release reads: an older one has no step yet, and a newer, null,
+// fractional or string one is never read.
+const Format = Schema.Literal(FORMAT);
+
 const ActorJson = Schema.Struct({ machine: Schema.String, name: Schema.String });
 
 const ActorRecordJson = Schema.Struct({
-  format: Schema.Literal(FORMAT),
+  format: Format,
   machine: Schema.String,
   name: Schema.String,
   state: Schema.String,
@@ -30,7 +34,7 @@ const ActorRecordJson = Schema.Struct({
 });
 
 const LaneRecordJson = Schema.Struct({
-  format: Schema.Literal(FORMAT),
+  format: Format,
   machine: Schema.String,
   name: Schema.String,
   operation: Schema.String,
@@ -43,7 +47,7 @@ const LaneRecordJson = Schema.Struct({
 });
 
 const OwedJson = Schema.Struct({
-  format: Schema.Literal(FORMAT),
+  format: Format,
   machine: Schema.String,
   name: Schema.String,
   rows: Schema.Array(
@@ -220,7 +224,7 @@ const decodeBy =
   (value: unknown) =>
     Result.mapError(Schema.decodeUnknownResult(schema)(value), () => why);
 
-const FormatJson = Schema.Struct({ format: Schema.Literal(FORMAT) });
+const FormatJson = Schema.Struct({ format: Format });
 
 const actorOf = (r: ActorId) => ({
   machine: r.machine,

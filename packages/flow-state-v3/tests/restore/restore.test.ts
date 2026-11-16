@@ -65,6 +65,35 @@ describe("an identity owed a row the boot derives is live at ready (Restore R1, 
   });
 });
 
+describe("delivery order at restore (Restore R3, I5)", () => {
+  it("Restore I5: Held heads are heard in lane-id order, whatever order they were sent in", async () => {
+    const run = checked(
+      await bankStory("restore/lane-order")
+        .ensure(account)
+        .world(Bank.transfer.drop({ at: "response" }), Bank.transfer.drop({ at: "response" }))
+        .send(account, send("t2"))
+        .send(account, send("t1"))
+        .reload()
+        .checkpoint("after")
+        .run(),
+    );
+
+    const transferOf = new Map(
+      run.evidence.flatMap((e) =>
+        e._tag === "Minted" ? [[e.attempt, String(e.key["transferId"])] as const] : [],
+      ),
+    );
+
+    const restored = inOpen(run, 2).flatMap((e) =>
+      e._tag === "Ended" && e.reason === "Restored"
+        ? [transferOf.get(Option.getOrElse(e.attempt, () => ""))]
+        : [],
+    );
+
+    expect(restored).toEqual(["t1", "t2"]);
+  });
+});
+
 describe("record formats (Restore R5, I10, I13)", () => {
   for (const [what, format] of [
     ["newer", "2"],

@@ -27,7 +27,8 @@ requirements
                 `load`, giving every record of the scope, and `write(batch)`, one atomic batch of
                 record writes and removals. Missing provision is a type error, and untyped missing
                 provision fails ready with StorageFailure. construct() performs no I/O. Records are
-                stored as JSON strings. Flow is to ship `layerIndexedDb` and `layerMemory` (neither is built
+                stored as their canonical JSON text (@spec.Codec.R2). A `load` the store refuses is
+                a read failure (@spec.Restore.R9). Flow is to ship `layerIndexedDb` and `layerMemory` (neither is built
                 yet); it offers no adapter over Effect's KeyValueStore, whose per-key writes cannot
                 be one atomic batch. The IndexedDB Layer is specified with the host adapters, when
                 that phase starts. Decision (user, 2026-11-12): wide consult, question 4. Why: the user's
@@ -67,10 +68,11 @@ requirements
                 acknowledged and not Held (Acknowledging to Cancelling: it may be on the wire), and
                 false for a Held head. A lane record holds no ending and no `mayHaveApplied`.
 
-                Built so far (`encodeLane`, src/core/record.ts): `format`, `machine`, `name`, `operation`,
-                `attempt`, `input`, `retryCount` and `inFlight`, which R5 requires, and also
-                `mayHaveApplied`, which R5 and @spec.Codec.R5 forbid and is still to go. Not built yet,
-                though R5 requires them: the creating subject path and the releasing mark.
+                Built so far (`encodeLane`, src/core/record.ts): `format`, `machine`, `name`,
+                `operation`, `attempt`, `input`, `retryCount`, `inFlight`, `queue` and `displaced`.
+                Not built yet, though R5 requires them: the creating subject path and the releasing
+                mark. A lane gone Idle while a displaced Attempt's ending is still owed keeps its
+                record, with no head (`attempt` and `input` null), until that ending comes.
 
                 An identity's unheard endings are one record of their own, `owed/<identity>`:
                 `format`, `machine`, `name` and its rows in the order they were owed, each with its
@@ -320,9 +322,10 @@ owner Records
 
     invariants
         I21  Every lane and identity whose entry a step changed has its record written or removed in that step's write 
-             list (issued when R10 says), a head put on the wire excepted (R10), and no move writes a record: a boot 
-             from any landed state behaves as the
-            world of the last landed step. [@R5, @R10]
+             list (issued when R10 says), a head put on the wire excepted (R10), and an identity withheld whole while
+            its actor record cannot encode (R4) excepted, whose records go together at the first step's end where it
+            encodes; no move writes a record: a boot from any landed state behaves as the world of the last landed
+            step, a withheld identity as it was at its last landed step. [@R5, @R10]
 
 composition
     flow
@@ -350,7 +353,8 @@ realization typescript
     An identity whose actor record cannot encode at a step's end (R4) writes none of its records that step: its
         lanes, owed record and the tickets its sends await are withheld in the World and written whole at the
         first step's end where the record encodes, so no lane or owed record outruns its actor record (I11).
-        The UnencodableValue report is not built yet.
+        It is reported UnencodableValue once, as it starts to wait, and its tickets' StorageSilent is timed from
+        the batch that carries them, never while they are withheld (R12).
 
     A refused batch's records are put back and go with the next batch, at the latest after the default 5 s
         interval, so a store that keeps refusing is never retried in a loop.

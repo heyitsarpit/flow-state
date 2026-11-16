@@ -218,6 +218,7 @@ export const makeDriver = (options: {
     machines,
     world: () => world,
     pending: () => inbox.length > 0,
+    stored: () => edge.settled(),
     send: (
       actor: { readonly machine: string; readonly name: string },
       tag: string,

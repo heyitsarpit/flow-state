@@ -16,8 +16,9 @@ requirements
         source  @plan.Persistence.O4.
         must    ready() restores a compatible scope before actor work starts. Restored records stay
                 records until an ensure, a subscription or a send reaches them, except an Owing
-                identity (`model`: an owed record, or a lane record whose `inFlight` is true),
-                which is restored live at ready and kept as work in flight until those turns run.
+                identity (`model`: an owed record, a lane record whose `inFlight` is true, or a lane
+                record holding a queue or displaced Attempts, whose endings the boot derives), which
+                is restored live at ready and kept as work in flight until those turns run.
 
                 The boot decodes the records, sorts them by record key so that the store's load
                 order decides nothing, and picks whom to wake. It delivers nothing and parks nothing
@@ -85,6 +86,10 @@ requirements
 
                 Each older record format reaches the current one by a pure step at the boot; a
                 newer, null or non-integer format is quarantined, its lane still holding by its id.
+                A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
+                too. A quarantined record keeps its bytes. A quarantined lane or owed record is
+                reported RecordUndecodable at each boot; its head and rows cannot be read, so none
+                is heard, and the report stands in for them.
 
                 An actor record that does not decode is quarantined:
 
@@ -137,8 +142,8 @@ requirements
         must    A lane whose key no longer decodes, or whose path the placement cannot produce, is
                 quarantined: it keeps its id and hold, a commit on its key declines NotSent {
                 Rejected }, it is listed and reported at each boot, and a cancel on that key clears
-                it. A quarantined lane's Held head is heard at a start like any other head
-                (@spec.WriteLanes `algorithm`, start).
+                it. Such a lane's record still reads, so its Held head is heard at a start like any
+                other head (@spec.WriteLanes `algorithm`, start); one R5 quarantines is not read.
 
                 A lane is (identity, contract id, key) and names no operation (@spec.WriteLanes.R6),
                 and a contract has at most one write operation (SharedContract). The lane record
@@ -167,8 +172,10 @@ requirements
         source  @plan.Persistence.O5.
         must    runtime.dispose({ forget: true }) waits until the scope's data is unrestorable and
                 deleted before releasing ownership; a failed deletion reports StorageFailure and
-                never claims success. Ordinary disposal keeps saved data. A Runtime without
-                persistence performs no forget I/O.
+                never claims success; so does a forget while the disposal's own write is still
+                unanswered, since that write may land after the deletion. Ordinary disposal keeps
+                saved data. A Runtime without persistence, or whose load failed (R9), performs no
+                forget I/O.
 
 open
     Q1  Executable checks are not built.
@@ -178,8 +185,8 @@ open
                  in tests/faults.ts that `nub run faults` must catch. Until then every Requirement's evidence
                  is open.
 
-    Q2  OpRenamed, LaneRekeyCollision, the undeclared-machine discard, FieldDropped's rewrite and dispose({ forget: 
-        true }) have no planted fault yet.
+    Q2  OpRenamed, LaneRekeyCollision, the undeclared-machine discard and FieldDropped's rewrite have no planted fault 
+        yet.
         outcome  Each gets a planted fault when built.
 
     Q3  I19's check was listed under @task.V3.T20, but resets are @task.V3.T56's since the split.
@@ -189,8 +196,10 @@ model
     Boot = one ready() of a persistent Runtime: read, upgrade formats, check versions and shapes,
         quarantine, then install.
 
-    Owing = an identity with an owed record, or with a lane record whose head is not Held (Acknowledging to
-        Cancelling on disk: its `inFlight` is true, @spec.WriteAhead.R5). A lane record of a Held head wakes no one.
+    Owing = an identity with an owed record, with a lane record whose head is not Held (Acknowledging to
+        Cancelling on disk: its `inFlight` is true, @spec.WriteAhead.R5), or with a lane record holding a queue or
+        displaced Attempts, whose endings the boot derives (R3). A lane record of a Held head with neither wakes no
+        one.
 
     HoldLeaving = an ending after which its lane stays Held (unknown).
 
@@ -293,7 +302,7 @@ coverage
 
     @R10
         enforced_by  [@I18]
-        open_by      [@Q1, @Q2]
+        open_by      [@Q1]
 
 tests
     T1  Records stay records: a plain record stays a record at ready; an Owing one is woken, and a lane record of a 
@@ -331,8 +340,9 @@ tests
          the boot. Planted faults: a cancel that keeps the quarantine; a quarantined lane erased at the boot. [@I15]
     T11  Storage failures: a failed read runs empty and writes nothing. A failed write keeps live state; a later 
          publication retries the newest. [@I16, @I17]
-    T12  Forgetting a scope: deletion confirmed before success; a failing deletion reports StorageFailure. No test yet 
-         (Q2). [@I18]
+    T12  Forgetting a scope: deletion confirmed before success; a failing deletion, or a forget over the disposal's 
+         unanswered write, reports StorageFailure. Planted faults: a forget that deletes nothing; a forget over an
+            unanswered write. [@I18]
     T13  Fresh ids after restore: after a reload, every incarnation id and Attempt id minted differs from every id in 
          the restored records. Planted fault: a mint floor set from the head only. [@spec.Actors.I13,
              @spec.WriteLanes.I6]
