@@ -368,7 +368,7 @@ tests
          before any turn (Actors Spec T14 covers the cycle). [@I17]
     T11  The machine adds nothing: a callback naming a state, event or operation the definition lacks is a type error 
          and, untyped, a construction error; Compiled's states, events and operations equal the definition's. No
-            planted fault yet; one is written that accepts an added state. [@I4]
+             planted fault yet; one is written that accepts an added state. [@I4]
     T12  Identity fields: a value-named machine with an optional, defaulted or non-string-encoded
             input field is refused IdentityFieldOptional; a fragment input field stays writable.
             A planted fault is written with this test (Q2). [@I9]

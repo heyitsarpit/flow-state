@@ -37,7 +37,8 @@ requirements
                 false })`
                 does so without ensuring the Story's actors again (@plan.Pending.D10); `checkpoint(name)` records a
                 cut (R12). Each Runtime word does what the public Runtime does for the same input
-                (@spec.Actors.R20, R21, R22), through the production driver. After `disposeRuntime()`, an ensure,
+                (@spec.Actors.R20, @spec.Actors.R21, @spec.Actors.R22), through the production driver. After 
+                `disposeRuntime()`, an ensure,
                 detach, send or dispose before the next reload fails the run with StoryFailed.
 
     R4  run() is the one boundary
@@ -460,7 +461,8 @@ tests
     T13  Not exported: no public route of the package re-exports `src/host/testing` or `inspect(runtime)` (grep of the 
          routes); Flow's tests reach them by path. [@R15]
     T14  Trace of `transfers/lost-then-reload`: filtered to steps, requests, endings and writes, it equals a list 
-         stated by hand from @spec.WriteAhead.R10, R13, @spec.Restore.R1, R3, @spec.Codec.R5's record kinds, and
+         stated by hand from @spec.WriteAhead.R10, @spec.WriteAhead.R13, @spec.Restore.R1, @spec.Restore.R3, 
+         @spec.Codec.R5's record kinds, and
              this Spec's R10 and R11 statuses; sequences are 1 to n; its evidence equals `run.evidence`; two runs 
                  render equal text; the text is
              kept as a file snapshot, a change detector only (planted fault: the trace leaves out requests).
