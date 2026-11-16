@@ -692,3 +692,7 @@ note 2026-11-16T18:26:05Z
     Decision (the user, 2026-11-16): Tasks name code:wiki/conventions/fixtures.md where fixtures are built, briefs cite
     it too, and leads have sidecars review fixture scenarios, variety and correctness against it. Scope: whole run. P4
     and P5 linked, T28 and T29 given fixtures lines; P3 (T9, T20, T79, T80, T81) waits for the T20 lead's commit.
+
+note 2026-11-16T18:26:06Z
+    Amendment (2026-11-16, the user): fixture work links fixtures.md in each Task and brief; sidecars review fixtures
+    against it before the proof. Commit: 2a110a5e.
