@@ -197,7 +197,7 @@ tasks
             caught, no unexplained dead-core green.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
@@ -283,6 +283,9 @@ tasks
             Open, owned by @task.V3.T20: under cancel a displaced Attempt whose call outlives its lane is lost at a
             reload (WriteLanes Q7), pinned by an it.fails in policy-cells.test.ts. The save path is tested in
             src/host/lane-record.test.ts with fault displaced-not-saved.
+        comment     2026-11-16T03:22:45Z
+            Re-review fixes at 78eeeb88: suite green but frozen packages, test:stress 25/25, faults 72/72. Back
+            to review.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open
