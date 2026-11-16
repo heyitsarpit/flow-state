@@ -384,3 +384,11 @@ note 2026-11-16T06:20:17Z
 note 2026-11-16T08:02:05Z
     Run resumed at 419b7323 (library 6b7288e, weekly 0%): current Task T55 per P3's Order; no live agents, tree clean.
     First action: T55's building lead. T18 and T54 user's pages still unread (holds only the next slice's close).
+
+note 2026-11-16T08:19:03Z
+    The user read and accepted T18's page (wiki/plans/flow/references/pages/T18-lane-policies.md); T54's page is still
+    unread.
+
+note 2026-11-16T08:20:24Z
+    Decision (user, 2026-11-16): wakes every 60 min also time the tests; over twice baseline inserts a speed Task first.
+    Speed baseline at 313e8a45: suite 12 s, stress 9 s, faults 28 s. Reverse: cadence back to 90 min.

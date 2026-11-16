@@ -272,19 +272,22 @@ instructions
     - No worktrees: the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08; R43).
     - No agent reads agent transcripts (the user, 2026-11-15).
 cadence
-    A wake every 90 minutes (the user, 2026-11-11) checks for a Task in review, a stalled lead and the usage reserve.
-    Reviews run on the events in instructions, not on the clock.
+    A wake every 60 minutes (the user, 2026-11-16; was 90) checks for a Task in review, a stalled lead, the usage
+    reserve and the tests' speed. Reviews run on the events in instructions, not on the clock.
 
-    Session crons `17 0-23/3 * * *` and `47 1-23/3 * * *` (together, one wake every 90 minutes).
+    Session cron `23 * * * *`.
 
     Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the weekly usage from the
-    harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it. If a Task is in review,
-    or a review event in instructions has no review covering it, start one Opus lead at medium effort with its read-only
-    Haiku sidecars, one of them blind; verify its findings, send the accepted ones to the building lead in the same
-    wake, and note the review. If the building lead has shown no activity for 100 minutes, resume it by message or
-    replace it (R7) and note it. Otherwise write nothing."
+    harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it. Time `nub run test run
+    packages/flow-state-v3`, `nub run test:stress` and `nub run faults` by wall clock, one after another; if any exceeds
+    twice its baseline in the latest speed note of V3.log, note it and insert a Task to make the tests fast again, taken
+    before the building lead's next Task. If a Task is in review, or a review event in instructions has no review
+    covering it, start one Opus lead at medium effort with its read-only Haiku sidecars, one of them blind; verify its
+    findings, send the accepted ones to the building lead in the same wake, and note the review. If the building lead
+    has shown no activity for 100 minutes, resume it by message or replace it (R7) and note it. Otherwise
+    write nothing."
 
-    Quiet rule: a wake that finds nothing writes no note and sends no message.
+    Quiet rule: a wake that finds nothing writes no note and sends no message; timings within bound are not noted.
 stops
     - The user's decisions in the Authority section;
     - a guarantee that can't be met;
