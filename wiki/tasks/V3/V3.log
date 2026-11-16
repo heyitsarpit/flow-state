@@ -789,3 +789,12 @@ note 2026-11-16T21:43:22Z
     Wake timing at 46198357 not judged: T82's mid-Task HEAD has 6 red sweeps (Turn I9, routed to T9 at its close), so
     stress and faults refuse to run; suite 29 s vs 12 s baseline includes T82's new sweeps. Re-time at T82's close
     before any speed Task.
+
+note 2026-11-16T22:10:47Z
+    T82 in review at 47e9edac: one Opus review lead, four Haiku sidecars (one blind), runs check-task and the diff; it
+    judges the 6 red sweeps (Turn I9 for T9, Acknowledging x refusal for T20) that block faults and stress.
+
+note 2026-11-16T22:10:50Z
+    Waiting on the user: actor-to-actor send(ref, event) is new public API with no owner; step-1 cells of pay, sync,
+    transfers, palette, player are left on it. Calls: ContextCycle stays a runtime test; sync's 4xx waits for a Task
+    that may change Git/sync; sign-in stays out of the app mix (additive growth).
