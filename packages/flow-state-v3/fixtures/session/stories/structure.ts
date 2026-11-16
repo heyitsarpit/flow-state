@@ -30,7 +30,7 @@ export const shellBeforeSession = grownStory("session/shell-before-session")
 
 /**
  * Ada signs in and names the team; she signs out on a shared computer, which disposes the Runtime
- * with forget; the next account's tab opens.
+ * with forget; the next account's tab opens and Bob signs in.
  */
 export const newAccountRuntime = shell("session/new-account-runtime")
   .send(mainSession, signInAda)
@@ -39,7 +39,9 @@ export const newAccountRuntime = shell("session/new-account-runtime")
   .reload({ reattach: false })
   .ensure(mainSession)
   .ensure(coreTeam)
-  .checkpoint("next");
+  .checkpoint("next")
+  .send(mainSession, { _tag: "SignIn", user: "bob" })
+  .checkpoint("bob");
 
 /**
  * The store refuses the team's rename; a second rename is the next publication.

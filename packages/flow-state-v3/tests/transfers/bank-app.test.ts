@@ -126,17 +126,18 @@ describe("transfer values at their edges (fixtures.md E2, E3, E6)", () => {
     expect(run.end.calls.filter((c) => c.endpoint === "transfer")).toHaveLength(2);
   });
 
-  it("E2, Actors R14: a send with a null transfer id throws InvalidEvent and starts no turn", () => {
+  it("E2, Actors R14: a send with a null or undefined transfer id throws InvalidEvent and starts no turn", () => {
     const runtime = bankGrownSetup.construct();
     Effect.runSync(runtime.ready());
     const handle = runtime.ensureActor(account);
 
-    try {
-      handle.send(loose({ _tag: "Send", transferId: null, cents: 1 }));
-      assert.fail("the send was not refused");
-    } catch (error) {
-      assert.ok(error instanceof FlowError);
-      expect(error.code).toBe("InvalidEvent");
-    }
+    for (const transferId of [null, undefined])
+      try {
+        handle.send(loose({ _tag: "Send", transferId, cents: 1 }));
+        assert.fail("the send was not refused");
+      } catch (error) {
+        assert.ok(error instanceof FlowError);
+        expect(error.code).toBe("InvalidEvent");
+      }
   });
 });

@@ -48,6 +48,9 @@ describe("the workspace shell", () => {
       }),
     );
     expect(run.checkpoints.next.read(coreTeam)?.memory["name"]).toBe("");
+    expect(run.checkpoints.bob.read(coreTeam)).toEqual(
+      expect.objectContaining({ context: { user: "bob" }, memory: { name: "" } }),
+    );
   });
 });
 

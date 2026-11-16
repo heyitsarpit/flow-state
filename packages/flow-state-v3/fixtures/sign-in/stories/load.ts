@@ -40,3 +40,15 @@ export const manySessions = SCREENS.reduce(
   .reload()
   .reload()
   .checkpoint("end");
+
+/**
+ * One screen locks out after six wrong codes; the tab reloads during the lockout.
+ */
+export const reloadInLockout = Array.from({ length: 6 }, (_, n) => n)
+  .reduce(
+    (story) => story.send(screenOf(0), wrong),
+    sessionStory("sign-in/reload-in-lockout").ensure(screenOf(0)).send(screenOf(0), emailOf(0)),
+  )
+  .checkpoint("locked")
+  .reload()
+  .checkpoint("reloaded");

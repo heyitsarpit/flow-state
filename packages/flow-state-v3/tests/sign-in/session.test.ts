@@ -6,13 +6,13 @@ import {
   screenOf,
   sessionOf,
 } from "../../fixtures/sign-in/app.ts";
-import { emailAtBound, emptyEmail } from "../../fixtures/sign-in/stories/edges.ts";
+import { emailAtBound, emptyCode, emptyEmail } from "../../fixtures/sign-in/stories/edges.ts";
 import {
   blankHandle,
   submitTwice,
   unconfirmedPrefill,
 } from "../../fixtures/sign-in/stories/findings.ts";
-import { manyScreens, manySessions } from "../../fixtures/sign-in/stories/load.ts";
+import { manyScreens, manySessions, reloadInLockout } from "../../fixtures/sign-in/stories/load.ts";
 import {
   reloadedMidHandle,
   screenFirst,
@@ -20,6 +20,7 @@ import {
   signOutForgets,
 } from "../../fixtures/sign-in/stories/structure.ts";
 import { handleRetry } from "../../fixtures/sign-in/stories/usual.ts";
+import { screen } from "../../fixtures/sign-in/machine.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 import { breachesOf } from "../rules/rules.ts";
@@ -145,7 +146,26 @@ describe("the session's ends (fixtures.md S6)", () => {
   });
 });
 
+describe("a lockout across a reload (fixtures.md L4)", () => {
+  it("Actors R8, WriteAhead R1: the unpersisted screen, locked out, starts again at its email after a reload, its wrong tries gone", async () => {
+    const run = await played(reloadInLockout);
+
+    expect(run.checkpoints.locked.read(screenOf(0))?.state).toBe("LOCKED");
+    expect(run.checkpoints.reloaded.read(screenOf(0))).toEqual(
+      expect.objectContaining({ state: "EMAIL", memory: expect.objectContaining({ tries: 0 }) }),
+    );
+  });
+});
+
 describe("emails at their edges (fixtures.md E1, E3)", () => {
+  it("E1: a code of no characters is a wrong code to the auth server, counted as a try", async () => {
+    const run = await played(emptyCode);
+
+    expect(run.checkpoints.entered.read(screen)?.memory).toEqual(
+      expect.objectContaining({ tries: 1, notice: "Wrong code." }),
+    );
+  });
+
   it("E1, Compile R5: an empty email computes an empty handle", async () => {
     const run = await played(emptyEmail);
 

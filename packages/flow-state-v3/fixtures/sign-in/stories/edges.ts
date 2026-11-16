@@ -15,6 +15,15 @@ export const emptyEmail = sessionStory("sign-in/empty-email")
   .checkpoint("opened");
 
 /**
+ * A code of no characters is entered.
+ */
+export const emptyCode = sessionStory("sign-in/empty-code")
+  .ensure(screen)
+  .send(screen, { _tag: "Email", email: "elif@kamp.us" })
+  .send(screen, { _tag: "Code", code: "" })
+  .checkpoint("entered");
+
+/**
  * An email whose begin key's canonical text is exactly the 8,192-byte key bound.
  */
 export const emailAtBound = sessionStory("sign-in/email-at-bound")
