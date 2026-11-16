@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { stories as cells } from "../../fixtures/cells/stories.ts";
 import { stories as palette } from "../../fixtures/command-palette/stories.ts";
+import { stories as lanes } from "../../fixtures/lanes/stories.ts";
 import { stories as numberInput } from "../../fixtures/number-input/stories.ts";
 import { stories as pay } from "../../fixtures/pay/stories.ts";
 import { stories as signIn } from "../../fixtures/sign-in/stories.ts";
@@ -12,6 +13,7 @@ import { samples } from "./fixtures.ts";
 const saved: ReadonlyArray<readonly [keyof typeof samples, Story<string>, number]> = [
   ["cells", cells.seededStress, 56],
   ["command-palette", palette.seededStress, 36],
+  ["lanes", lanes.seededStress, 36],
   ["number-input", numberInput.seededStress, 36],
   ["pay", pay.seededStress, 36],
   ["sign-in", signIn.seededStress, 36],

@@ -1,4 +1,4 @@
-import { samplesOf, Story } from "../../src/host/testing/index.ts";
+import { Fake, samplesOf, Story } from "../../src/host/testing/index.ts";
 import { Git, GitFake } from "../sync/server.ts";
 import { cancelClient, lanesSetup, latestClient, serializeClient } from "./machine.ts";
 
@@ -67,7 +67,131 @@ export const samples = samplesOf({
     ),
 });
 
+const commit = { _tag: "Commit", ...flow } as const;
+const twice = { _tag: "Twice", ...flow } as const;
+const retryCommit = { _tag: "RetryCommit", ...flow } as const;
+const cancelCommit = { _tag: "CancelCommit", ...flow } as const;
+const cancel = { _tag: "Cancel", ...flow } as const;
+const retry = { _tag: "Retry", ...flow } as const;
+
+/**
+ * A stress run from seed 36, printed by the generator and pasted here. The saved-stress test checks
+ * it is still what that seed prints.
+ */
+export const seededStress = Story.app(lanesSetup, { id: "lanes/stress-36", fixtures: [GitFake] })
+  .world(Git.rateLimit({ retryAfterMs: 2000 }))
+  .ensure(latestClient)
+  .world(Fake.storage.hold())
+  .ensure(serializeClient)
+  .ensure(cancelClient)
+  .send(latestClient, retryCommit)
+  .send(latestClient, retryCommit)
+  .send(serializeClient, commit)
+  .send(latestClient, commit)
+  .send(latestClient, cancelCommit)
+  .send(latestClient, retryCommit)
+  .send(latestClient, commit)
+  .send(cancelClient, retry)
+  .reload({ reattach: false })
+  .send(latestClient, twice)
+  .world(Git.sync.hold())
+  .world(Fake.storage.refuse())
+  .send(cancelClient, retryCommit)
+  .send(latestClient, cancelCommit)
+  .send(latestClient, twice)
+  .send(latestClient, twice)
+  .send(latestClient, cancelCommit)
+  .send(latestClient, cancel)
+  .world(Fake.storage.refuse())
+  .world(Git.sync.release())
+  .send(cancelClient, cancel)
+  .send(serializeClient, retry)
+  .send(serializeClient, retryCommit)
+  .world(Fake.network.offline())
+  .send(latestClient, twice)
+  .dispose(cancelClient, { how: "forget" })
+  .send(cancelClient, cancel)
+  .send(latestClient, twice)
+  .advance("20 millis")
+  .disposeRuntime()
+  .world(Fake.storage.hold())
+  .reload()
+  .advance("7 millis")
+  .send(latestClient, twice)
+  .advance("20 millis")
+  .send(latestClient, cancelCommit)
+  .advance("3 millis")
+  .send(latestClient, cancelCommit)
+  .send(serializeClient, commit)
+  .advance("16 millis")
+  .send(serializeClient, cancel)
+  .send(latestClient, twice)
+  .send(latestClient, commit)
+  .send(latestClient, retryCommit)
+  .send(serializeClient, twice)
+  .send(serializeClient, retryCommit)
+  .send(serializeClient, retryCommit)
+  .send(latestClient, retry)
+  .send(serializeClient, retryCommit)
+  .advance("5 millis")
+  .send(latestClient, retry)
+  .advance("2 millis")
+  .send(cancelClient, cancelCommit)
+  .advance("17 millis")
+  .send(cancelClient, cancel)
+  .send(cancelClient, retryCommit)
+  .send(latestClient, commit)
+  .advance("18 millis")
+  .send(cancelClient, twice)
+  .send(serializeClient, twice)
+  .send(serializeClient, cancelCommit)
+  .send(serializeClient, retry)
+  .send(latestClient, twice)
+  .send(serializeClient, cancel)
+  .reload({ reattach: false })
+  .advance("4 millis")
+  .send(latestClient, commit)
+  .world(Fake.storage.refuse())
+  .advance("10 millis")
+  .send(latestClient, retryCommit)
+  .send(latestClient, cancel)
+  .send(cancelClient, retry)
+  .send(cancelClient, cancelCommit)
+  .send(cancelClient, retryCommit)
+  .send(serializeClient, cancelCommit)
+  .send(cancelClient, twice)
+  .send(latestClient, retryCommit)
+  .send(cancelClient, retryCommit)
+  .send(cancelClient, cancelCommit)
+  .send(latestClient, retryCommit)
+  .world(Fake.storage.refuse())
+  .send(latestClient, twice)
+  .advance("20 millis")
+  .send(cancelClient, commit)
+  .send(serializeClient, cancelCommit)
+  .send(latestClient, cancel)
+  .send(latestClient, commit)
+  .advance("15 millis")
+  .send(latestClient, commit)
+  .send(cancelClient, retry)
+  .send(serializeClient, retryCommit)
+  .advance("8 millis")
+  .send(serializeClient, twice)
+  .send(serializeClient, cancelCommit)
+  .advance("7 millis")
+  .send(latestClient, cancelCommit)
+  .send(latestClient, commit)
+  .send(cancelClient, commit)
+  .advance("15 millis")
+  .send(latestClient, retry)
+  .advance("15 millis")
+  .send(latestClient, cancelCommit)
+  .advance("56438 millis")
+  .world(Fake.network.online())
+  .advance("2 minutes")
+  .advance("2 minutes");
+
 /**
  * Every Story of the fixture, by name.
  */
-export const stories = { usual };
+export const stories = { usual, seededStress };
