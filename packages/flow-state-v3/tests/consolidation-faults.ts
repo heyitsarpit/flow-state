@@ -54,8 +54,9 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "    saveLane(lane.actor, id);",
-        replace: "    void lane;",
+        find: "    tx.set({ ...tx.world(), lanes: without(tx.world().lanes, id) });\n    saveLane(lane.actor, id);",
+        replace:
+          "    tx.set({ ...tx.world(), lanes: without(tx.world().lanes, id) });\n    void lane;",
       },
     ],
   },

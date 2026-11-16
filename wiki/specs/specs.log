@@ -84,3 +84,13 @@ note 2026-11-16T08:18:20Z
     Actors R23, I36, I43, I44: the disposal writes every change within its bound, not one batch at its start; ends made
     at the bound stay unwritten (reload hears unknown Restored). Why: one try lost a call's own ending settled within
     the bound. Life and admit are built (R4, model, realization). Reverse: one batch at the start (@task.V3.T55).
+
+note 2026-11-16T09:10:27Z
+    WriteAhead realization: lane and incarnation setters note every change; a head put on the wire is the one move not
+    noted, and a refused batch goes again within 5 s. Why: missed saves left Held heads in flight on disk and stranded
+    refused records. Reverse: explicit saves per move (@task.V3.T19).
+
+note 2026-11-16T09:10:28Z
+    Actors R23: an earlier disposal batch refused after a later one was issued reports nothing; only the disposal's own
+    write reports StorageFailure. Why: ending on it cuts the later write that carries its records, losing endings.
+    Reverse: report every refused disposal batch (@task.V3.T19).

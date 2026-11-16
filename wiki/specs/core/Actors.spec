@@ -300,8 +300,10 @@ requirements
                 Each later step that changes a record within the bound (a call settling) writes its
                 changes in one more batch, one batch out at a time; the disposal's write is the last
                 batch it issued, a ticket the core holds while Disposing. The disposal ends when
-                nothing is on the wire and that write has landed. A write refused, or still
-                unanswered at the bound, reports StorageFailure and the disposal ends. At the bound
+                nothing is on the wire and that write has landed. That write refused, or still
+                unanswered at the bound, reports StorageFailure and the disposal ends. An earlier
+                batch refused once a later one was issued reports nothing: its records go with that
+                later write, so ending on it would cut the write that carries them. At the bound
                 the disposal ends in the same step, so the endings made there are not written: a
                 reload hears unknown { Restored } for such a head, once. The bound is the core's:
                 the host sends the disposal, waits for the life to read Disposed, then closes its

@@ -335,10 +335,15 @@ realization typescript
         (src/host/fibers.ts, which the edge forks through), and an urgent batch is a Scheduler yield, not a second task 
             queue; the store's load and write are Effects.
 
-    The core has no `persist` call: the step's setters note touched lanes and identities, and at the step's end each
-        is projected (`encodeActor`, `encodeLane`, `encodeOwed`) if its entry changed by identity, never by
-        comparing maps or bytes. `encodeLane` matches every Phase, so a new phase forces a decision on what is
-        saved.
+    The core has no `persist` call: the step's setters of lanes and incarnations note what they touch, and at the
+        step's end each is projected (`encodeActor`, `encodeLane`, `encodeOwed`), never by comparing maps or bytes.
+        One move is not noted: putting an acknowledged or captured head on the wire, since that batch already
+        holds it in flight with the retryCount it is sent with. A step that ends with a row owed to the identity
+        still in the mailbox (a drain stopped at its cap) writes its owed record. `encodeLane` matches every Phase,
+        so a new phase forces a decision on what is saved.
+
+    A refused batch's records are put back and go with the next batch, at the latest after the default 5 s
+        interval, so a store that keeps refusing is never retried in a loop.
 
     The writes leave as that step's one Persist command, a flat list for the whole Runtime, with `Due` derived:
         Awaited when a touched head entered Acknowledging or Recapturing, Now when an actor record is removed or an

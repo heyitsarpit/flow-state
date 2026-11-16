@@ -397,7 +397,7 @@ tasks
             verdict-to-FlowError text is built twice (driver.ts check, runtime.ts rejected).
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T55]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3, @plan.Persistence.O6]
@@ -489,6 +489,41 @@ tasks
             adversary 1, 3, 4, 5 accepted as R-3, R-4, R-8, R-7 after replay, 2 accepted as R-5, 6 rejected (already
             pinned by policy-cells' WriteLanes R10 it.fails), 7 changed into the Spec reading R-9, 8 routed to T58;
             admit sweep accepted as R-10, each cell re-checked in its test.
+        comment     2026-11-16T09:14:34Z
+            Decision: the lane and incarnation setters note every change, so a step writes all it touched (R-3, R-7 were
+            missed saves); putting a head on the wire is the one unnoted move (sendLane), since its batch already holds
+            it in flight. Why: a write per send doubled batches and shifted generated runs for no new bytes. Reverse:
+            per-move saves.
+        comment     2026-11-16T09:14:34Z
+            Decision: a Recapturing head's lane record carries retryCount + 1 (encodeLane) while memory keeps the
+            invoked count, so a refused capture needs no undo (R-4). A refused batch goes again after 5 s whatever
+            captureMs is, so captureMs 0 never loops on a refusing store (R-5). Reverse: raise the count at Recapturing
+            and undo on refusal.
+        comment     2026-11-16T09:14:34Z
+            Decision: Actors R23 edited (R-9): only the disposal's own write reports StorageFailure; ending on a
+            superseded refusal would cut the write that carries its records. New red found and fixed (R-10): a dispose
+            while Booting failed ready ServiceFailed when the service failed late; T24 says RuntimeDisposed, so
+            runtime.ts maps a cancelled boot through admit. lifecycleOf in core; the I42 check bans life._tag in host.
+        comment     2026-11-16T09:14:35Z
+            Tooling, for review: Fake batches carry step and answered (the run rules need them). The generator's tally
+            keeps each distinct draw (digit and salt) once: Arbitrary repeats digits across runs, so the 3-SE mix bands
+            counted repeats as samples and tipped on any change in run shape; the band now holds at 20, 40 and 80 seeds.
+            Saved stress Stories of palette, pay and transfers re-pasted from their seeds.
+        comment     2026-11-16T09:14:35Z
+            Files beyond May change: Actors.spec, src/host/testing/fake.ts and generate.ts, the three fixtures'
+            stories.ts, tests/generated/profiles.test.ts. Gates at the close revision, by exit code: nub run check 0,
+            lint:rules 0, suite 554 passed and 5 inverted, test:stress 0, FLOW_SEEDS=40 generated 0, nub run faults 92
+            of 92.
+        comment     2026-11-16T09:14:35Z
+            Bench alone (per turn median/p99 ms): transfers/long 0.031/0.046, pay/long 0.034/0.054, cells/long
+            0.028/0.043, sync/long 0.019/0.030, sign-in/long 0.013/0.029, lanes/stress-36 0.036/0.063; stress Stories
+            0.020 to 0.076 median.
+        comment     2026-11-16T09:14:35Z
+            For the user's page: a retry that was waiting to save and was refused now shows on disk as not in flight, so
+            a reload no longer wakes the actor for it; the saved retry count already counts the re-send it is about to
+            make; a refused save is retried within 5 s instead of waiting for the next change; a timer that fires into a
+            state that ignores it no longer comes back after a reload; ready() after dispose() during boot always
+            rejects RuntimeDisposed.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open
@@ -607,6 +642,10 @@ tasks
             - Each new rule has a planted fault that `nub run faults` catches.
         comment     2026-11-15T14:33:24Z
             @spec.Actors.I38 (a commit queued behind a Held head is not ended at disposal) is @task.V3.T55's.
+        comment     2026-11-16T09:10:34Z
+            Routed from T19: mail left queued when a step's drain stops at its 10,000-turn cap is served only at the
+            next input (WriteAhead R10 says a later step); its rows are now saved, so nothing is lost. No fixture can
+            reach the cap yet (no actor sends to another); the turn-storm work owns a prompt re-step.
 
     T72
         title       UI primitives, second wave: toaster and menu fixtures

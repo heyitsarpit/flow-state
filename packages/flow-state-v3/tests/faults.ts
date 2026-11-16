@@ -2,6 +2,7 @@ import { consolidationFaults } from "./consolidation-faults.ts";
 import { lanePolicyFaults } from "./lane-policy-faults.ts";
 import { lifeFaults } from "./life-faults.ts";
 import { toolingFaults } from "./tooling-faults.ts";
+import { writeAheadFaults } from "./write-ahead-faults.ts";
 
 /**
  * A planted fault: a named wrong behaviour of the runtime, the test files that catch it, the Spec
@@ -135,8 +136,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "      retryCount: lane.head.retryCount,",
-        replace: "      retryCount: 0,",
+        find: '        retryCount: lane.head.retryCount + (Phase.$is("Recapturing")(lane.head.phase) ? 1 : 0),',
+        replace: "        retryCount: 0,",
       },
     ],
   },
@@ -305,6 +306,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...consolidationFaults,
   ...lanePolicyFaults,
   ...lifeFaults,
+  ...writeAheadFaults,
   {
     name: "ending-heard-twice",
     tests: ["src/core/ledger.test.ts"],
@@ -327,9 +329,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/lane-moves.ts",
-        find: '        if (channel === "unknown") hold(at, lane, true);',
-        replace:
-          '        if (channel === "unknown" || channel === "success") hold(at, lane, true);',
+        find: '        if (channel === "unknown") hold(at, lane);',
+        replace: '        if (channel === "unknown" || channel === "success") hold(at, lane);',
       },
     ],
   },
@@ -355,9 +356,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "          publish(after);\n        saveActor(after.actor);",
+        find: "          publish(after);\n        flushLanes(after.actor);",
         replace:
-          "          publish(after);\n        if (after.state !== incarnation.state) publish(after);\n        saveActor(after.actor);",
+          "          publish(after);\n        if (after.state !== incarnation.state) publish(after);\n        flushLanes(after.actor);",
       },
     ],
   },

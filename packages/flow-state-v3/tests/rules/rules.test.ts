@@ -3,8 +3,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/pay/machine.ts";
 import { shopStory } from "../../fixtures/pay/stories.ts";
 import { Evidence } from "../../src/host/inspect.ts";
-import type { StoryRun } from "../../src/host/testing/index.ts";
+import { Step, type StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
+import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
 import {
   endingChannels,
   endingDeliveredOnce,
@@ -166,5 +167,66 @@ describe("run rules over crafted runs", () => {
     );
 
     expect(oneIdOneInput.breaches(run)).toHaveLength(1);
+  });
+});
+
+describe("run rules over the fake store's batches", () => {
+  const batch = (
+    step: number,
+    answered: Option.Option<number>,
+    acknowledges: Array<string> = [],
+  ) => ({
+    tab: { name: "main", open: 1 },
+    purpose: acknowledges.length > 0 ? ("acknowledge" as const) : ("flush" as const),
+    keys: [`actor/${who.machine}/${who.name}`],
+    acknowledges,
+    status: Option.isSome(answered) ? ("landed" as const) : ("held" as const),
+    step,
+    answered,
+  });
+
+  // A run whose store received the given batches and whose trace is the given events.
+  const stored = async (
+    batches: ReadonlyArray<ReturnType<typeof batch>>,
+    records: ReadonlyArray<TraceRecord> = [],
+  ) => {
+    const real = await shopStory("rules/stored").ensure(checkout).run();
+
+    return {
+      ...real,
+      end: { ...real.end, records: { ...real.end.records, batches } },
+      trace: {
+        storyId: "rules/stored",
+        events: records.map((record, n) => ({
+          sequence: n + 1,
+          tab: { name: "main", open: 1 },
+          record,
+        })),
+      },
+    } satisfies StoryRun;
+  };
+
+  it("WriteAhead I23: a batch issued while the one before it is held is a breach; one issued at its answer is not", async () => {
+    const held = await stored([batch(2, Option.none()), batch(3, Option.some(3))]);
+    const answered = await stored([batch(2, Option.some(4)), batch(4, Option.some(4))]);
+
+    expect(oneBatchOut.breaches(held)).toHaveLength(1);
+    expect(oneBatchOut.breaches(answered)).toEqual([]);
+  });
+
+  it("WriteAhead I15: a persisted Attempt sent before its acknowledging batch landed is a breach; after it, not", async () => {
+    const sentAt = (step: number) => [
+      TraceRecord.Runtime({
+        evidence: Evidence.Minted({ operation: "pay", attempt, actor: who, key: {} }),
+      }),
+      TraceRecord.Step({ index: step, step: Step.advance({ duration: "1 millis" }) }),
+      TraceRecord.Runtime({ evidence: Evidence.Sent({ operation: "pay", attempt }) }),
+    ];
+
+    const early = await stored([batch(1, Option.some(5), [attempt])], sentAt(4));
+    const late = await stored([batch(1, Option.some(4), [attempt])], sentAt(4));
+
+    expect(acknowledgedBeforeSent.breaches(early)).toHaveLength(1);
+    expect(acknowledgedBeforeSent.breaches(late)).toEqual([]);
   });
 });
