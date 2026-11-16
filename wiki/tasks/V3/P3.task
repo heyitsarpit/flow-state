@@ -188,6 +188,9 @@ tasks
             not blocking: I20's premise 'the step drains its mail' fails past serve.ts's 10,000-turn drain cap (Queued
             rows left unsaved at a step's end); the host StorageFailure in driver.ts is the inverted Actors I43, out
             of range.
+        comment     2026-11-16T02:35:14Z
+            Review fix: one-builder.test.ts reads source and runs no core, so tools/faults/run.ts lists it in
+            mayStayGreen with its reason; nub run faults exits 0 (61/61, dead core explained). Back to review.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open

@@ -136,6 +136,8 @@ const mayStayGreen = [
   / > [A-Z][A-Za-z]+ [RIT]\d+: /u,
   /tests\/cli\/[^ ]+\.test\.ts > /u,
   /flow-state-v3\/src\/[^ ]+\.test\.ts > /u,
+  // Reads the package's source and runs no core: who builds reports, rows and writes, and names.
+  /tests\/write-lanes\/one-builder\.test\.ts > /u,
 ];
 
 const deadCore = async (root: string) => {
