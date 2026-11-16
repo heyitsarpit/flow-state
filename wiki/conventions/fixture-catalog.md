@@ -141,10 +141,12 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
   - `Checkout/Pay` (have), shared per cart. It stays as it is.
   - `Shopper` (step 1), shared, ⇢ `shopper`.
   - `Cart` (step 1), shared, named by shopper, ⇠ `shopper`. From step 2, `CartLine` ◂ `Cart` via `.each`.
-  - `CartBadge` (step 1), shared, holding a ref to `Cart` and reading its snapshot.
+  - `Cart` ⇢ its item count and whether it waits on the cart service (`count`, `busy`).
+  - `CartBadge` (step 1), shared, ⇠ `cart`: the item count as context, bumping on each change.
   - `CheckoutFlow` (step 1), shared per cart, ⇠ `shopper`. Its steps are address → shipping → pay under `history`;
-    it holds a ref to `Checkout/Pay` and sends it `CardChosen` and `PayRequested`. From step 2, `AddressForm` is a
-    trait on its address step and `ThreeDSecure` a `subroutine` in its pay step.
+    ⇠ `count` and `busy` from `Cart`, and ⇠ `payment`: `Checkout/Pay`'s state, which ends the flow at PAID. Sending
+    `CardChosen` and `PayRequested` to `Checkout/Pay` waits on an actor-to-actor send action. From step 2,
+    `AddressForm` is a trait on its address step and `ThreeDSecure` a `subroutine` in its pay step.
   - `ProductPage` (step 18), local, server rendered.
 - **Operations:**
   - R: `intentStatus` (have), `orderForCart` (have), `product` (step 4), `cart` (step 4), `addressLookup` (step 4).
@@ -188,52 +190,83 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     `Hydration*` (a request rendered while `addLine` is in flight (`DehydrateCommitInFlight`)).
 - **Scenarios:**
   - **Usual:**
-    - [ ] Checkout with an unsure charge, a recheck, then an order (have: `usual`). Source: Stripe's flow, not checked.
+    - [x] Checkout with an unsure charge, a recheck, then an order. Source: Stripe's flow, not checked. built:
+      `pay/lost-confirm`, `pay/usual`.
+    - [x] The checkout steps with Back into shipping's last step, ending when the checkout's Pay is paid. No source.
+      built: `pay/checkout-steps`.
     - [ ] An add shows a line at once. Copies [cart.test.ts:4535][hy-cart] "empty cart: optimistic placeholder line
-      appears immediately on add".
+      appears immediately on add". left: @task.V3.T21, needs `optimistic` values on R `cart`.
   - **Load:**
-    - [ ] L5: two quick clicks on one line; once the latest answer lands, the line is no longer pending. Copies
-      [cart.test.ts:1500][hy-cart] "rapid clicks abort prior request, only last executes".
-    - [ ] L1 × 64 carts each mid-pay under L3 (have: `seededStress`, `long`).
+    - [x] L5: three quick clicks on one line with the first on the wire: the middle one Superseded, the first and last
+      sent, nothing left pending (`latest` queues, never aborts). Copies [cart.test.ts:1500][hy-cart] "rapid clicks
+      abort prior request, only last executes". built: `pay/quantity-clicks`.
+    - [x] L1 × 64 carts under L3 (have: `seededStress`, `long`). built: `pay/stress-36`, `pay/long`,
+      `pay/stress-many-shoppers`.
   - **Structure:**
-    - [ ] S1: `Shopper` → `Cart` → `CartLine` → `CartBadge`, with S9 at a line.
-    - [ ] S2: 1,000 `CartLine`s under L5, with "clear cart" raised.
-    - [ ] S3: 64 shoppers under L3.
-    - [ ] S6 × {cart first, flow first, shopper forgotten, reloaded} with a challenge open.
-    - [ ] S7: a second `Cart` ref with another shopper, refused.
+    - [x] S1: `Shopper` → `Cart` → `CartBadge`, with S9 at the badge, under L3. built: `pay/chain`.
+    - [ ] S1 and S9 through `CartLine`. left: @task.V3.T57, needs `.each`.
+    - [ ] S2: 1,000 `CartLine`s under L5, with "clear cart" raised. left: @task.V3.T57, needs `.each` and raise into
+      copies.
+    - [x] S3: 64 shoppers under L3. built: `pay/stress-many-shoppers`.
+    - [x] S6 × {flow first, shopper forgotten, reloaded}. built: `pay/flow-first`, `pay/shopper-forgotten`,
+      `pay/reloaded-mid-add`.
+    - [x] S6 cart first, refused while the badge and flow are bound: inverted (Actors R20), since a Story's dispose
+      skips `disposeActor`; owner @task.V3.T9. built: the `cartFirst` builder.
+    - [ ] S6 with a challenge open. left: @task.V3.T57, needs `subroutine` (`ThreeDSecure`).
+    - [x] S7: a second `Cart` ref with another shopper, refused `ConflictingActorRef`: inverted on a Story's ensure
+      (Actors R5), owner @task.V3.T9. built: the `conflictingCart` builder.
+    - [ ] S7: a duplicate `.each` key, refused: left: @task.V3.T57, needs `.each`. A missing service at boot: left:
+      @task.V3.T21, needs boot to refuse an operation whose service is missing.
     - [ ] Switching carts cancels the old cart's in-flight refresh. Copies [cart.test.ts:1949][hy-cart] "hydrating a
-      different cart cancels in-flight authoritative revalidation".
-    - [ ] Restoring the same cart id is a no-op. Copies [cart.test.ts:673][hy-cart] "no-ops when same cart ID already
-      hydrated".
+      different cart cancels in-flight authoritative revalidation". left: @task.V3.T21, needs R `cart` with
+      `O.x.subscribe`.
+    - [x] The same cart ensured twice is one incarnation with its lines. Copies [cart.test.ts:673][hy-cart] "no-ops when
+      same cart ID already hydrated". built: `pay/same-cart-twice`.
   - **Edges:**
-    - [ ] E1: the empty cart before load. Copies [cart.test.ts:717][hy-cart] "returns EMPTY_CART_STATE before
-      hydration".
-    - [ ] Quantity 0 removes the line. Copies [cart.test.ts:951][hy-cart] "decrease to zero routes to remove (quantity:
-      0)".
-    - [ ] E4: 1,000 lines and one past the cart's `max`. E5: the recheck delay at −1, 0, 2^31 − 1 and 2^31 ms.
-    - [ ] E7: an owed record of a newer format (have: `unreadOwed`). E8: a reload mid-charge, mid-challenge and mid-add.
+    - [x] E1: the empty cart before any add. Copies [cart.test.ts:717][hy-cart] "returns EMPTY_CART_STATE before
+      hydration". built: `pay/browse` ("empty").
+    - [x] Quantity 0 removes the line. Copies [cart.test.ts:951][hy-cart] "decrease to zero routes to remove (quantity:
+      0)". built: `pay/quantity-zero`; 0 and negative quantities in the `shop` samples.
+    - [ ] E4: 1,000 lines and one past the cart's `max`. left: @task.V3.T57, needs `.each({ max })`.
+    - [x] E5: the retry delay at 0, 2^31 − 1 and 2^31 ms. built: `pay/busy-edges`. At −1 (have: `busyRefused`) it is
+      refused today; Turn R14 counts it as 0 once @task.V3.T57 moves that check.
+    - [x] E7: an owed record of a newer format (have: `unreadOwed`). E8: a reload mid-charge and mid-add. built:
+      `pay/unread-owed`, `pay/lost-confirm`, `pay/reloaded-mid-add`.
+    - [ ] E8: a reload mid-challenge. left: @task.V3.T57, needs `subroutine` (`ThreeDSecure`).
   - **Combinations:**
     - [ ] A change that fails while the first load is in flight restores the loaded cart. Copies
       [cart.test.ts:5971][hy-cart] "restores the loaded cart after a change that fails while the first load is in
-      flight".
-    - [ ] Context with persistence and lanes; quota at checkout (step 13); two tabs (step 14); a server-rendered page
-      with an add in flight (step 18).
-  - [ ] **Variety:** a full checkout against `cells`' one-click; a guest shopper against a signed-in one.
+      flight". left: @task.V3.T21, needs R `cart`.
+    - [x] Context with persistence and lanes. built: `pay/reloaded-mid-add`, `pay/chain`.
+    - [ ] Quota at checkout (step 13): left: @task.V3.T28, needs store adapters. Two tabs (step 14): left:
+      @task.V3.T27, needs multi-tab ownership. A server-rendered page with an add in flight (step 18): left:
+      @task.V3.T30, needs server rendering.
+    - [ ] `CheckoutFlow` sends `CardChosen` and `PayRequested` to `Checkout/Pay`. left: needs an actor-to-actor
+      `send(ref, event)` action, which no Task owns (the user's call); the flow reads its Pay's state as context
+      instead.
+  - [x] **Variety:** a full checkout (`pay/checkout-steps`) against `cells`' one-click (`cells/usual`); a guest shopper
+    (`pay/guest-browse`) against a signed-in one (`pay/browse`). built.
   - **Findings:**
-    - [ ] A rejected add removes only its own line. Copies [cart-transactions.test.ts:210][hy-tx] "removes only a
+    - [x] A refused add removes only its own line. Copies [cart-transactions.test.ts:210][hy-tx] "removes only a
       rejected unkeyed add transaction" and [cart.test.ts:4583][hy-cart] "empty cart add: optimistic line removed on
-      reject".
-    - [ ] One line's request never aborts another's. Copies [cart-transactions.test.ts:378][hy-tx] "does not let one
+      reject". built: `pay/refused-add-alone`.
+    - [x] One line's request never aborts another's. Copies [cart-transactions.test.ts:378][hy-tx] "does not let one
       keyed line abort an unrelated line" and [cart.test.ts:1530][hy-cart] "cross-line independence: line A mutation
-      does not cancel line B".
-    - [ ] A failing line rolls back alone. Copies [cart.test.ts:1579][hy-cart] "concurrent rollback: failing line A does
-      not clobber line B".
+      does not cancel line B". built: `pay/independent-lines`.
+    - [x] A failing line rolls back alone. Copies [cart.test.ts:1579][hy-cart] "concurrent rollback: failing line A does
+      not clobber line B". built: `pay/failing-line-alone`.
     - [ ] A stale snapshot never brings back a removed line. Copies [cart.test.ts:1630][hy-cart] "concurrent removes: a
-      stale out-of-order snapshot does not resurrect removed lines".
+      stale out-of-order snapshot does not resurrect removed lines". left: @task.V3.T21, needs R `cart`: each
+      `setQuantity` answer carries only its own line, so step 1 has no whole-cart snapshot to go stale.
     - [ ] Stale overlapping add answers merge only their own lines. Copies [cart-transactions.test.ts:253][hy-tx]
-      "merges only add-owned lines from stale overlapping add responses".
-    - [ ] The checkout trace waits for the cart to settle. Copies [cart-tracker.test.ts:543][hy-track] "ignores pending
-      cart state until the cart settles".
+      "merges only add-owned lines from stale overlapping add responses". left: @task.V3.T21, needs R `cart` with
+      `optimistic` values.
+    - [x] Checkout waits for the cart to settle. Copies [cart-tracker.test.ts:543][hy-track] "ignores pending cart state
+      until the cart settles", reshaped: `Begin` is denied `CartBusy` while a line waits. built:
+      `pay/waits-while-busy`.
+    - [ ] The checkout's trace waits for the cart to settle. left: @task.V3.T49, needs `inspect` sinks.
+    - [x] A context consumer restored by a reload publishes once: inverted (Turn I9), owner @task.V3.T9. built:
+      `pay/browse` with a reload that attaches nothing.
 
 ### cells
 
@@ -246,14 +279,22 @@ A one-click checkout: a client-side cell over pay's body. Kept as it is. Source:
   - **used today:** `reject`, `NotSent { Rejected }` (the cell's pay body); `O.x.cancel`, `NotSent { Cancelled }`,
     `CancelMissed` (`AbortPay`); endings, `Flow.uncertain`, `unknown` (the cell); `persist`, restore, reload (the cell).
   - **step 1:** `NotSent { Disposed }`, `unknown { Disposed }` (the cell disposed mid-pay).
-- **Scenarios:** usual, `long` and `seededStress` (have). New: the cell disposed mid-pay (S6 × {disposed, reloaded}
-  under L3). E1: an empty cart id; E3: a cart id at and past the key bound.
+- **Scenarios:**
+  - [x] Usual, `long` and `seededStress` (have). built: `cells/usual`, `cells/long`, `cells/stress-56`.
+  - [x] S6 disposed under L3: a charge on the wire past the disposal's bound ends unknown Disposed, and one never sent
+    ends NotSent Disposed. built: `cells/disposed-on-wire`, `cells/never-sent-disposed`. Inverted (WriteAhead R14,
+    WriteLanes R10): the restore then ends the same Attempt again unknown Restored, owner @task.V3.T20.
+  - [x] S6 reloaded under L3: a charge on the wire at a reload ends unknown Restored. built: `cells/reloaded-on-wire`.
+  - [x] E1: an empty cart and intent id. built: `cells/empty-ids`.
+  - [x] E3: an intent id (the key of `pay`) at the 8,192-byte key bound. built: `cells/key-at-bound`. One past it:
+    inverted (Operations O1, `InvalidKey` unenforced), owner @task.V3.T21; built: `cells/key-past-bound`.
 
 ### lanes
 
 A sync client whose three remotes differ only in lane policy. Kept as it is. Source: no source.
 
-- **Machines:** `Lanes/latest`, `Lanes/serialize`, `Lanes/cancel` (have).
+- **Machines:** `Lanes/latest`, `Lanes/serialize`, `Lanes/cancel` (have); `Lanes/paged` (step 1), whose lane key
+  holds a page number (T `sync-page`, `serialize`).
 - **Operations:** T `sync` under each policy (have).
 - **Journeys:** 1. Commit: rapid commits under each policy.
 - **Features by step:**
@@ -266,16 +307,25 @@ A sync client whose three remotes differ only in lane policy. Kept as it is. Sou
   - **step 7:** `NotSent { OldVersion }` (release 2 changes the `sync` key fingerprint); `previous` holds,
     `O.x.previous` (the old-key lane held under release 2).
 - **Scenarios:**
-  - [ ] **Usual and load:** `usual`, `seededStress`, `nearBound` (12 queued) (have).
-  - [ ] **Load:** L2: 64 queued commits under `serialize`, then one more ending `NotSent { Overloaded }`; 1,024 events
-    to one actor, then one more refused `AdmissionOverloaded`.
-  - [ ] **Structure:** S3: the same key under two actors; S6 × {disposed, reloaded} with queued, held and running
-    commits of several keys.
-  - [ ] **Edges:** E3: `atStringBound` (have) and past it; `Unencodable` (have). Canonical keys: one key in NFC and
-    decomposed forms, and `-0` against `0`, restored as one lane.
+  - [x] **Usual and load:** `usual`, `seededStress`, `nearBound` (12 queued) (have). built: `lanes/usual`,
+    `lanes/stress-36`, `lanes/stress-near-bound`.
+  - [x] **Load:** L2: a head and 64 queued commits under `serialize`, then the 66th ending `NotSent { Overloaded }`.
+    built: `lanes/serialize-at-cap`. 1,024 events to one actor, then the 1,025th refused `AdmissionOverloaded`: a
+    runtime test over `lanesSetup`, since a Story's send runs its turn before the next. built:
+    `tests/lanes/lanes.test.ts`.
+  - [x] **Structure:** S3: one key under two actors, under L3. built: `lanes/one-key-two-actors`. S6 × {disposed,
+    reloaded} with queued, held and running commits of several keys. built: `lanes/disposed-with-work`,
+    `lanes/reloaded-with-work`.
+  - [x] **Edges:** E3: `atStringBound` and `pastStringBound` (have), in the stress samples; `Unencodable` (have).
+    built: `lanes/stress-36` and the stress samples.
+  - [x] **Keys** (corrected: Operations O1 says "Unicode spelling matters"): one name in NFC and decomposed forms names
+    two lanes. built: `lanes/two-spellings`, with the new `Lanes/paged` client, whose key holds a page number.
+  - [x] **Keys:** page `-0` names the lane of page `0`: inverted (Operations O1; today it declines
+    `NotSent { Unencodable }`), owner @task.V3.T21. built: `lanes/negative-zero`.
   - [ ] **Combinations:** release 2 changes the key fingerprint: a held lane ends `NotSent { OldVersion }` and the old
-    lane is held as `previous` (step 7).
-  - [ ] **Findings:** `stressDisplacedPastItems` and `displacedOnWire` (have).
+    lane is held as `previous`. left: @task.V3.T56, needs release versions (step 7).
+  - [x] **Findings:** `stressDisplacedPastItems` and `displacedOnWire` (have). built:
+    `lanes/stress-displaced-past-items`, `lanes/displaced-on-wire`.
 
 ### sync
 
@@ -284,8 +334,8 @@ retry.
 
 - **Machines:**
   - `Git/Sync` (have), shared.
-  - `Repo` (step 1), shared, named by repo, holding a `Flow.private` token and a ref to `Git/Sync`; it sends
-    `SyncRepo` and `Pushed`.
+  - `Repo` (step 1), shared, named by repo, holding a `Flow.private` token and ⇠ `Git/Sync`'s head and backoff as
+    context; sending `SyncRepo` and `Pushed` waits on an actor-to-actor send action.
   - `RateLimit` (step 2), a trait on `Repo`.
 - **Operations:** T `sync` (have); R `remoteHead` (have); S `headPushes` (step 12, `latest`, into `Repo`).
 - **Journeys:**
@@ -303,14 +353,23 @@ retry.
   - **step 7:** release versions, saved-shape reset, migration (release 2 of `Repo`).
   - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `headPushes` into `Repo`).
 - **Scenarios:**
-  - [ ] **Usual:** sync, peek (have).
-  - [ ] **Load:** L1 × 64 repos with repeated rate limits under L3 (have in part: `seededStress`).
-  - [ ] **Structure:** S3 × 64 repos; S6 × {repo first, sync first, reloaded} during a backoff.
-  - [ ] **Edges:** E5: a retry-after of −1, 0, 2^31 − 1 and 2^31 ms. E1: an empty repo name.
-  - [ ] **Combinations:** release 2 of `Repo` (step 7); pushes (step 12).
-  - [ ] **Variety:** pushed against polled.
+  - [x] **Usual:** sync, peek (have); a repository opened with a token reads its client's head and backoff. built:
+    `sync/usual`, `sync/open-repo`.
+  - [x] **Load:** L1 × 64 repositories on their own clients, every other one rate limited, every fourth answer lost
+    (L3) (have in part: `seededStress`). built: `sync/stress-many-repos`, `sync/stress-36`.
+  - [x] **Structure:** S3 × 64 repositories, each a tree of its own client. built: `sync/stress-many-repos`. S6 ×
+    {repo first, reloaded} during a backoff. built: `sync/repo-first`, `sync/reloaded-in-backoff`. Sync first,
+    refused while a repository is bound: inverted (Actors R20), owner @task.V3.T9; built: the `syncFirst` builder.
+  - [x] **Edges:** E5: a retry-after of 0, 2^31 − 1 and 2^31 ms. built: `sync/retry-edges`; −1 is refused today and
+    counts as 0 once @task.V3.T57 moves that check (Turn R14). E1: an empty repository name. built: `sync/empty-name`.
+  - [ ] **Combinations:** release 2 of `Repo`: left: @task.V3.T56, needs release versions. Pushes: left:
+    @task.V3.T25, needs streams.
+  - [ ] **Variety:** pushed against polled. left: @task.V3.T25, needs S `headPushes`.
+  - [ ] `Repo` sends `SyncRepo` and `Pushed` to `Git/Sync`. left: needs an actor-to-actor `send(ref, event)` action,
+    which no Task owns (the user's call); today `Repo` reads its client's head and backoff as context.
   - [ ] **Findings:** a 4xx that isn't a rate limit is not retried. Copies [liveRetry.unit.test.ts:27][kp-retry] "does
-    NOT retry a genuine 4xx app error".
+    NOT retry a genuine 4xx app error". left: needs a `BadRequest` failure on `Git/sync`, an edit to an old contract
+    this row does not allow; the user's call.
 
 ### transfers
 
@@ -320,7 +379,8 @@ kamp.us for rows restored after a failure.
 - **Machines:**
   - `Bank/Transfers` (have), shared, named by account.
   - `Customer` (step 1), shared, ⇢ `customer`, holding refs to the accounts.
-  - `TransferForm` (step 1), local, ⇠ `customer`. From step 2, `StepUp` is a `subroutine` in it.
+  - `TransferForm` (step 1), ⇠ `customer`, reading R `balance`; shared until a Story can drive a local actor
+    (@task.V3.T76). From step 2, `StepUp` is a `subroutine` in it.
   - `ChequeDeposit` (step 4), shared, named by deposit, ⇠ `customer`.
   - `Statement` (step 11), local, ⇠ `customer`.
 - **Operations:**
@@ -360,27 +420,47 @@ kamp.us for rows restored after a failure.
   - **step 12:** `stream` `delivers: "every"`, `position`, `catchUp` (S `notifications`).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (account numbers redacted).
 - **Scenarios:**
-  - [ ] **Usual:** send, decline, lose the answer, resend once, abandon (have). A deposit sent in chunks, each reported.
-    Copies [test-common.js:401][tus-common] "should upload a file in chunks".
-  - [ ] **Load:** L1 × 64 accounts with owed endings at boot under L4. `largeReceipts` (have); `stressManyReceipts`
-    (have, registered with no runner yet).
+  - [x] **Usual:** send, decline, lose the answer, resend once, abandon (have); the form reads its customer's account
+    and checks the balance before a send. built: `transfers/usual`, `transfers/declined`,
+    `transfers/lost-then-reload`, `transfers/long`, `transfers/check-and-send`.
+  - [ ] **Usual:** a deposit sent in chunks, each reported. Copies [test-common.js:401][tus-common] "should upload a
+    file in chunks". left: @task.V3.T21, needs `progress` (T `depositCheque`).
+  - [x] **Load:** L1 × 64 accounts with owed endings at boot under L4. built: `transfers/stress-owed-at-boot`.
+    Inverted (WriteLanes R10, WriteAhead R14): the second reload delivers each Held head's unknown Restored again,
+    owner @task.V3.T20. `largeReceipts` (have); `stressManyReceipts` (have), run by
+    `tests/transfers/durability.stress.test.ts` and kept out of `stories`: a reload at each of its 1,300 steps is too
+    long for the sweep. built: `transfers/stress-large-receipts`, `transfers/stress-many-receipts`.
   - **Structure:**
-    - [ ] S1: `Customer` → `TransferForm` → `StepUp`, with S9 inside `StepUp`.
-    - [ ] S3 × 64 accounts, one forgotten or quarantined while the rest reload.
-    - [ ] S6 × {account first, customer first, forgotten, reloaded} during a deposit.
+    - [x] S1: `Customer` → `TransferForm`, with S9 at the form. built: `transfers/chain`.
+    - [ ] S1 and S9 inside `StepUp`. left: @task.V3.T57, needs `subroutine`.
+    - [x] S3 × 64 accounts, one forgotten while the rest reload (L4). built: `transfers/stress-many-accounts`; one
+      quarantined (have): `transfers/quarantined`.
+    - [x] S6 × {form first, customer forgotten, reloaded}. built: `transfers/form-first`,
+      `transfers/customer-forgotten`, `transfers/lost-then-reload`. Customer first, refused while the form is bound:
+      inverted (Actors R20), owner @task.V3.T9; built: the `customerFirst` builder.
+    - [ ] S6 during a deposit. left: @task.V3.T21, needs `progress` (T `depositCheque`).
     - [ ] A large deposit split into parts, one failing. Copies [test-parallel-uploads.js:41][tus-parallel] "should
       split a file into multiple parts and create an upload for each" and [test-parallel-uploads.js:325][tus-parallel]
-      "should emit error from a partial upload".
-  - [ ] **Edges:** E6: cents 0, negative and above 2^53, as bigint. E3: a transfer id at the key bound. E2: `null` and
-    `undefined` payloads. E8: a reload mid-deposit.
-  - [ ] **Combinations:** a read after a write (an older `balance` answer loses); releases (step 7); notifications (step
-    12).
-  - [ ] **Variety:** a shared account against a local form.
+      "should emit error from a partial upload". left: @task.V3.T21, needs `progress`.
+  - [x] **Edges:** E6: cents 0, negative and 2^53 (2^53 past the bank's limit, declined). built:
+    `transfers/cents-edges`. E3: a transfer id at the key bound. built: `transfers/id-at-bound`. E2: `null` and
+    `undefined` payloads, refused `InvalidEvent`. built: `tests/transfers/bank-app.test.ts`. Account names in NFC and
+    decomposed forms are two accounts (Machines O2: no Unicode normalization). built: `transfers/two-spellings`.
+  - [ ] **Edges:** bigint cents as a key, named "$1n". left: @task.V3.T21, needs bigint key naming (Operations O1). E8:
+    a reload mid-deposit. left: @task.V3.T21, needs `progress`.
+  - [ ] **Combinations:** a read after a write (an older `balance` answer loses): left: @task.V3.T21, needs read
+    freshness. Releases (step 7): left: @task.V3.T56. Notifications (step 12): left: @task.V3.T25.
+  - [x] **Variety:** a shared account against a form of its own. built: `transfers/check-and-send`.
+  - [ ] **Variety:** a local form. left: @task.V3.T76, needs a Story word that drives a `createActor` actor
+    (`Story.machine`); the form is shared until then.
+  - [ ] `Customer` sends `Send` to the source account. left: needs an actor-to-actor `send(ref, event)` action, which
+    no Task owns (the user's call).
   - **Findings:**
     - [ ] A deposit aborted, then resumed from its parts. Copies [test-parallel-uploads.js:448][tus-parallel] "should
-      abort all partial uploads and resume from them".
+      abort all partial uploads and resume from them". left: @task.V3.T21, needs `progress`.
     - [ ] A failed reversal restores the row and carries its code. Copies [optimisticPostDelete.test.ts:21][kp-pdel]
-      "POST_DELETE_FAILED restores the post and carries the code for the inline error (#1639)".
+      "POST_DELETE_FAILED restores the post and carries the code for the inline error (#1639)". left: @task.V3.T24,
+      needs the statement's domain rows.
 
 ### sign-in
 
@@ -414,26 +494,41 @@ not checked here).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule and emit events).
   - **step 18:** `useActor` (React) (Strict Mode).
 - **Scenarios:**
-  - [ ] **Usual:** sign in with a code (have). A retried handle save releases the held redirect. Copies
+  - [x] **Usual:** sign in with a code (have). A retried handle save releases the held redirect. Copies
     [AuthPage.test.tsx:89][kp-auth] "retry on the stuck surface re-attempts and, on success, RELEASES the redirect".
-  - [ ] **Load:** L1 × 16 screens for different accounts, one in lockout while another verifies; L4 during a lockout.
-  - [ ] **Structure:** S3 × 16 accounts; S6 × {session first, screen first, forgotten, reloaded} while `Reauth` runs,
-    with S9 inside `Reauth`.
+    built: `sign-in/usual`, `sign-in/handle-retry`.
+  - [x] **Load:** L1 × 16 screens for different accounts, one in lockout while another verifies; L4 during a lockout.
+    built: `sign-in/stress-many-screens`, `sign-in/reload-in-lockout`.
+  - [x] **Structure:** S3 × 16 accounts under L4. built: `sign-in/stress-many-sessions`. S6 × {screen first,
+    forgotten, reloaded}. built: `sign-in/screen-first`, `sign-in/sign-out-forgets`, the `reloadedMidHandle` builder
+    (kept out of `stories` while its restored return publishes twice: inverted, Turn I9, owner @task.V3.T9). Session
+    first, refused while its return is bound: inverted (Actors R20), owner @task.V3.T9; built: the `sessionFirst`
+    builder.
+  - [ ] **Structure:** S6 while `Reauth` runs, and S9 inside `Reauth`. left: @task.V3.T57, needs `subroutine`.
   - **Edges:**
-    - [ ] A blank handle never calls the server. Copies [AuthPage.test.tsx:164][kp-auth] "a blank username field never
-      touches setUsername and never holds the gate".
-    - [ ] E1: an empty email and a code of 0 characters. E3: an email past its byte bound. E5: a lock delay at −1, 0,
-      2^31 − 1 and 2^31 ms.
-  - [ ] **Combinations:** release 2 (step 7); Strict Mode (step 18).
-  - [ ] **Variety:** an unedited prefilled handle needs confirming. Copies [UsernameBootstrap.test.tsx:32][kp-boot]
-    "does NOT commit the unedited email prefill on the first submit — it asks to confirm".
+    - [x] A blank handle never calls the server. Copies [AuthPage.test.tsx:164][kp-auth] "a blank username field never
+      touches setUsername and never holds the gate". built: `sign-in/blank-handle`.
+    - [x] E1: an empty email and a code of 0 characters. built: `sign-in/empty-email`, `sign-in/empty-code`. E3: an
+      email at the begin key's 8,192-byte bound. built: `sign-in/email-at-bound`.
+    - [ ] E3: an email past the key bound. left: @task.V3.T21, needs `InvalidKey` past the key bound (inverted in
+      `cells/key-past-bound`).
+    - [x] E5 corrected: the lockout delay is 60 seconds per wrong try, computed from the tries, so −1, 0 and 2^31 ms
+      are unreachable here; computed-delay edges are built in `pay/busy-edges` and `sync/retry-edges`.
+  - [ ] **Combinations:** release 2 (step 7): left: @task.V3.T56. Strict Mode (step 18): left: @task.V3.T30.
+  - [x] **Variety:** an unedited prefilled handle needs confirming. Copies [UsernameBootstrap.test.tsx:32][kp-boot]
+    "does NOT commit the unedited email prefill on the first submit — it asks to confirm". built:
+    `sign-in/unconfirmed-prefill`.
   - **Findings:**
-    - [ ] A failed handle save holds the redirect and keeps the handle. Copies [AuthPage.test.tsx:72][kp-auth] "parks on
-      a retryable surface and HOLDS the redirect when setUsername fails — the handle is not dropped".
-    - [ ] Starting the gate twice is a no-op. Copies [signupUsernameGate.test.tsx:34][kp-gate] "is idempotent: a second
-      begin/end is a no-op, not a toggle".
-    - [ ] A draft survives the redirect, then clears on submit. Copies [draftStorage.unit.test.ts:45][kp-draft]
-      "survives the signed-out → auth-redirect → return round-trip, then clears on submit (AC1+AC2)".
+    - [x] A failed handle save holds the redirect and keeps the handle. Copies [AuthPage.test.tsx:72][kp-auth] "parks on
+      a retryable surface and HOLDS the redirect when setUsername fails — the handle is not dropped". built:
+      `sign-in/handle-retry` ("stuck").
+    - [x] Submitting twice holds the gate once and releases it once. Copies [signupUsernameGate.test.tsx:34][kp-gate]
+      "is idempotent: a second begin/end is a no-op, not a toggle". built: `sign-in/submit-twice`.
+    - [x] A draft survives the redirect, then clears on submit. Copies [draftStorage.unit.test.ts:45][kp-draft]
+      "survives the signed-out → auth-redirect → return round-trip, then clears on submit (AC1+AC2)". built:
+      `sign-in/handle-retry` ("released", "submitted").
+  - [ ] Sign-in's samples in the app mix: left for the mix's own seed count: a sixth part fails the mix's one-network
+    check at five seeds. The pair sweep runs them (`auth-session`).
 
 ### session
 
@@ -442,6 +537,8 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
 - **Machines:**
   - `Workspace/Org` (have), ⇢ `org`; `Workspace/Session` (have), ⇠ `org` ⇢ `user`; `Workspace/Team` (have),
     ⇠ `user` ⇢ `team`; `Workspace/Badge` (have), ⇠ `team`.
+  - `Workspace/Avatar` (step 1), persisted, ⇠ `user` from the session, undefined when signed out.
+  - `Workspace/Status` (step 1), ⇠ `team` with no default provider, so its ref must name one.
   - `Billing` (step 15), a lazy entry, ⇠ `org`.
 - **Operations:** T `signIn` (have); R `profile`, `teams` (step 4); T `renameTeam` (step 4); T `updatePlan`
   (step 15).
@@ -466,36 +563,58 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
   - **step 18:** server rendering, hydration (the shell); `DehydrateCommitInFlight`, `DehydrateUnsettled`, `Hydration*`
     (a shell rendered for one user hydrated under another).
 - **Scenarios:**
-  - [ ] **Usual:** two four-layer trees, a reload, a middle-layer rename (have). The shell paints before the session
+  - [x] **Usual:** two four-layer trees, a reload, a middle-layer rename (have). The shell paints before the session
     settles. Copies [App.test.tsx:217][kp-app] "invariant 1: the shell chrome paints while the session is isPending —
-    with NO FateClient mounted".
-  - [ ] **Load:** L5: context waves under a held store (have, in `seededStress`). L2: 1,024 sends to one badge.
+    with NO FateClient mounted". built: `session/usual`, `session/shell-before-session`.
+  - [x] **Load:** L5: context waves under a held store (have, in `seededStress`). built: `session/stress-36`. L2: 1,024
+    sends to one badge, then the 1,025th refused `AdmissionOverloaded`: a runtime test over `workspaceSetup`. built:
+    `tests/session/workspace.test.ts`.
   - **Structure:**
-    - [ ] S1 × {4 (have), 8, 32} under L5, with S9 at the deepest badge.
-    - [ ] S2 × {24 (have: `fanOut`), 64, 1,024} under L5.
-    - [ ] S3: two roots (have). S4: the team (have). S5: `guestTeam` (have).
-    - [ ] S6 × {parent first (have: `parentUnderChildren`), child first, forgotten, signed out, reloaded}.
-    - [ ] S7: a cycle and a missing provider as Stories.
+    - [x] S1 × 4 under L5 (have), with S9 at the badges: only badges are touched after the reload. built:
+      `session/usual`, `session/fan-out`.
+    - [x] S1 × {8, 32} corrected: a definition cannot read its own kind as context, so a chain needs one definition per
+      layer; the workspace's four layers are its deepest chain.
+    - [x] S2 × {24 (have), 64, 1,024} under L5. built: `session/fan-out`, `session/wall-64`, and
+      `session/stress-wall-1024`, built on call and run by `tests/session/workspace.stress.test.ts`.
+    - [x] S3: two roots (have). S4: the team (have). S5: `guestTeam` (have). built: `session/usual`.
+    - [x] S6 × {parent first (have: `parentUnderChildren`, inverted, Actors R20, owner @task.V3.T9), child first,
+      forgotten, signed out, reloaded}. built: `session/parent-under-children`, `session/child-first`,
+      `session/team-forgotten`, `session/signed-out-undefined`, `session/usual`.
+    - [x] S7: a missing provider, the new `Workspace/Status` with no team: refused `MissingContextProvider` by
+      `ensureActor`, and inverted on a Story's ensure (Actors R18), owner @task.V3.T9. built: the `missingTeam`
+      builder.
+    - [ ] S7: a cycle. left: a cycle needs two definitions that read each other as context, which module order cannot
+      build without a stand-in definition of the same id (`tests/actors/context.test.ts` uses one); the user's call.
   - **Edges:**
-    - [ ] E2: an undefined user. E1: an empty user. E4: consumers at and past the cap.
-    - [ ] E7: a corrupt saved record. Copies [snapshot.test.ts:108][kp-snap] "returns null on a corrupt (non-JSON)
-      payload, no throw".
-    - [ ] E3: an oversized record refused unread. Copies [snapshot.test.ts:123][kp-snap] "returns null on an oversized
-      payload without parsing it".
+    - [x] E2: an undefined user, read by the new `Workspace/Avatar` after a sign-out, saved and restored. E1: an empty
+      user. built: the `signedOutReloaded` builder (kept out of `stories` while its restored consumers publish twice:
+      Turn I9, owner @task.V3.T9), `session/signed-out-undefined`.
+    - [ ] E4: consumers at and past the cap. left: @task.V3.T9, needs the follow-up cap's context rule
+      (@plan.Pending.D13).
+    - [x] E7: a corrupt saved record, quarantined. Copies [snapshot.test.ts:108][kp-snap] "returns null on a corrupt
+      (non-JSON) payload, no throw". built: `session/corrupt-record`.
+    - [x] E3: an oversized record, quarantined unread. Copies [snapshot.test.ts:123][kp-snap] "returns null on an
+      oversized payload without parsing it". built: `session/stress-oversized-record`.
   - **Combinations:**
-    - [ ] An identity switch drops the old identity's saved data. Copies [App.test.tsx:692][kp-app] "AC3: an identity
+    - [x] An identity switch drops the old identity's saved data. Copies [App.test.tsx:692][kp-app] "AC3: an identity
       switch A→B tears down the PREVIOUS identity's snapshot" and [App.test.tsx:711][kp-app] "AC3: sign-out / account
-      deletion (A→signed-out) tears down A's snapshot".
-    - [ ] A record written under one user never restores under another. Copies [snapshot.test.ts:364][kp-snap] "a
-      snapshot written under user A does NOT hydrate under user B".
-    - [ ] A failed storage read with a sign-in queued (see @plan.Pending.D17).
-  - [ ] **Variety:** eager and lazy entries; singleton and keyed providers.
+      deletion (A→signed-out) tears down A's snapshot". built: `session/new-account-runtime`.
+    - [x] A record written under one user never restores under another. Copies [snapshot.test.ts:364][kp-snap] "a
+      snapshot written under user A does NOT hydrate under user B". built: `session/new-account-runtime` ("bob").
+    - [x] A failed storage read starts with no persistence and never overwrites saved data; a refused write keeps the
+      live state and saves the newest later (Restore R9). built: `session/refused-load-keeps-data`,
+      `session/refused-write-retries`.
+    - [ ] A failed storage read with a sign-in queued. left: @task.V3.T9, needs the boot queue (@plan.Pending.D17).
+    - [ ] Quota, a slow read and a non-durable store. left: @task.V3.T28, needs store adapters.
+  - [x] **Variety:** singleton providers here, a keyed provider in `pay` (`Cart`, named by its owner). built:
+    `session/usual`, `pay/browse`.
+  - [ ] **Variety:** eager and lazy entries. left: @task.V3.T48, needs lazy entries.
   - **Findings:**
-    - [ ] A signed-out boot restores nothing signed-in. Copies [App.test.tsx:725][kp-app] "identity-scoped: a signed-out
-      settle hydrates NO authed snapshot (anon owns none)".
+    - [x] A signed-out boot restores nothing signed-in. Copies [App.test.tsx:725][kp-app] "identity-scoped: a signed-out
+      settle hydrates NO authed snapshot (anon owns none)". built: `session/new-account-runtime` ("next").
     - [ ] A boot with no host page degrades without throwing. Copies [boot.test.ts:24][kp-flags] "returns undefined when
-      there is no window (outage fallback / flag off) — no throw".
-    - [ ] A context update at the follow-up cap waits (@plan.Pending.D13).
+      there is no window (outage fallback / flag off) — no throw". left: @task.V3.T30, needs server rendering.
+    - [ ] A context update at the follow-up cap waits. left: @task.V3.T9 (@plan.Pending.D13).
 
 ### command-palette
 
@@ -521,17 +640,27 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
     palette).
   - **step 18:** `useActor` (React) (Strict Mode).
 - **Scenarios:**
-  - [ ] **Usual:** open, search, run (have). Pages are the items of their command. Copies
-    [command.test.ts:193][ui-command] "pages are the items of the command with that value".
-  - [ ] **Load:** 1,000 and 4,097 entries (have). One keystroke over 10,000 entries ranks within a frame. Copies
-    [command.test.ts:155][ui-command] "10,000 items: a fuzzy keystroke stays well under a frame". Typing bursts under a
-    held store: no source.
-  - [ ] **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape through all of them, and S9 at the deepest; S3:
-    two palettes, each with its own workbench.
-  - [ ] **Edges:** an empty query keeps the source order. Copies [command.test.ts:120][ui-command] "an empty query keeps
-    the source order". E3 and E4: the entry bounds (have: `pastBound`, `overBound`).
-  - [ ] **Combinations:** the pair sweep (have: `pairs-persisted`); Strict Mode (step 18).
-  - [ ] **Variety:** a shared and a local palette.
+  - [x] **Usual:** open, search, run (have). Pages are the items of their command. Copies
+    [command.test.ts:193][ui-command] "pages are the items of the command with that value". built: `palette/usual`,
+    `tests/command-palette/palette.test.ts` (PALETTE-PAGE-1).
+  - [x] **Load:** 1,000 and 4,097 entries (have). Typing bursts under a held store, no source. built:
+    `palette/over-bound`, `palette/typing-under-held-store`.
+  - [x] **Load** corrected: one keystroke over 10,000 entries. Copies [command.test.ts:155][ui-command] "10,000 items: a
+    fuzzy keystroke stays well under a frame". A list holds at most 4,096 entries (Codec R1; `overBound`), so 10,000
+    cannot be configured; ranking speed is the fixture's own code, timed in `tests/command-palette/ranking.test.ts`.
+  - [x] **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape, S9 at the deepest: 1 (PALETTE-9, PALETTE-10
+    with Escape), 8 with a reload at the deepest, 64 past a record's depth bound (reported `UnencodableValue`, its last
+    good capture restored). built: `palette/frames-8`, the `stressFramesSixtyFour` builder. S3: two palettes. built:
+    `palette/two-palettes`.
+  - [ ] **Structure:** each palette with its own workbench. left: needs an actor-to-actor `send(ref, event)` action
+    for `Workbench`, which no Task owns (the user's call).
+  - [x] **Edges:** an empty query keeps the source order. Copies [command.test.ts:120][ui-command] "an empty query keeps
+    the source order". built: `palette/empty-query-order`. E3 and E4: the entry bounds (have: `pastBound`,
+    `overBound`). built: `palette/over-bound`.
+  - [x] **Combinations:** the pair sweep (have). built: the `palette` pair sweep.
+  - [ ] **Combinations:** Strict Mode (step 18). left: @task.V3.T30, needs React.
+  - [ ] **Variety:** a shared and a local palette. left: @task.V3.T76, needs `props` and a Story word for a local
+    actor.
 
 ### number-input
 
@@ -581,9 +710,17 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
     `unknown` (`Music/Player`).
   - **step 1:** `send(ref, event)` (`Household` sends `Play` to grouped rooms).
   - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `speakerState` into `Speaker`).
-- **Scenarios:** usual and stress (have). New: L1 × 16 rooms playing together under L5; S6 × {room disposed, room
-  reloaded} while its tick is armed; E1: an empty room; E3: a room at the key bound; a seek past the track's end and a
-  negative seek.
+- **Scenarios:**
+  - [x] Usual and stress (have). built: `player/usual`, `player/stress`, `player/stress-36`.
+  - [x] L1 × 16 rooms playing at once under L5 (bursts of seeks). built: `player/sixteen-rooms`.
+  - [ ] `Household` plays a group of rooms together. left: needs an actor-to-actor `send(ref, event)` action, which no
+    Task owns (the user's call).
+  - [x] S6 × {room disposed, room reloaded} while its tick is armed. built: `player/room-disposed`,
+    `player/room-reloaded`.
+  - [x] E1: an empty room. built: `player/empty-room`. E3 corrected: a room is its player's name, not a key; a room at a
+    string's 262,144-byte bound. built: `player/room-at-bound`.
+  - [x] A seek far past any track and a negative seek, taken as given (the player keeps no track length). built:
+    `player/seek-edges`.
 
 ### wizard
 
@@ -1090,13 +1227,14 @@ Every existing machine, Story id and test stays. Each existing folder gains an `
 - **pay:** new machines `Shopper`, `Cart`, `CartBadge`, `CheckoutFlow` and later `CartLine`, `AddressForm`,
   `ThreeDSecure`, `ProductPage`; new operations `addLine`, `setQuantity`, `product`, `cart`, `addressLookup`.
   `Checkout/Pay`, its contracts, `shop-http.ts` and every `pay/…` Story are unchanged. `secondCheckout` gets a Story.
-- **cells, lanes:** a manifest and the new Stories in their rows; no machine changes.
+- **cells, lanes:** a manifest and the new Stories in their rows; no machine changes; lanes gains `Lanes/paged`.
 - **sync:** new `Repo` and `RateLimit`; `Git/Sync` unchanged.
 - **transfers:** new `Customer`, `TransferForm`, `StepUp`, `ChequeDeposit`, `Statement`, R `balance`; one edit, the
   `idempotency` line on T `transfer` (step 4). `stressManyReceipts` is registered.
 - **sign-in:** new `AuthSession`, `ReturnTo`, `PasswordSignIn`, T `setUsername`, R `me`; `Auth/SignIn` stays
   unpersisted.
-- **session:** new `Billing`, reads and writes; the four machines unchanged.
+- **session:** new `Workspace/Avatar`, `Workspace/Status`, later `Billing`, reads and writes; the four machines
+  unchanged.
 - **command-palette:** new `Workbench`; `Palette/Palette` gains the `CommandRan` emit (@task.V3.T77) and `props`
   with defaults (@task.V3.T76).
 - **number-input:** new `OrderForm`; `Number/Stepper` gains props and emits with defaults (@task.V3.T78).
@@ -1157,6 +1295,15 @@ For the orchestrator. Each names a fixture that no longer exists, or a scope thi
 fixtures stay.
 
 ## Open
+
+Found at step 1 (@task.V3.T82), each the user's call:
+- No Task owns an actor-to-actor `send(ref, event)` action, which the step-1 cells of `pay`, `sync`, `transfers`,
+  `command-palette` and `player` name; until one does, new machines read old ones as context.
+- `ContextCycle` needs two definitions that read each other, which module order cannot build without a stand-in
+  definition of the same id; no real app reaches it today.
+- `sync`'s 4xx finding needs a `BadRequest` failure on the old `Git/sync` contract, an edit additive growth forbids.
+- Every app grown at step 1 keeps its old `App` value for its old Stories beside a grown one of the same id and
+  scope, so no old Story's setup or saved seed changes.
 
 Plan gaps that block red scenarios are proposed decisions @plan.Pending.D14 to @plan.Pending.D19: `Flapping` in
 chat, queued writes after a reload in transfers, a superseded optimistic value in draft, a pre-boot storage failure
