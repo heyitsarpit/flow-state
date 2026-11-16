@@ -202,6 +202,25 @@ comment 2026-11-16T01:39:29Z
     drive seeds for the pair sweep (129 of 392 cells reached); excluded: real browsers and storage (P4), reads (T21),
     the rest of Story and Fake (T29), and the bugs held as it.fails: Turn I9, Turn I14 (two), WriteAhead R5, WriteAhead
     I23, WriteLanes I7, Actors I43, Compile T11.
+comment 2026-11-16T02:04:05Z
+    Coverage record of the P2 suite, re-matched at eff65a6b (code as 96ef4847); supersedes the 8d2520ed record,
+    otherwise unchanged in Covers and Scope, still proposed to the user as a verification entry of @plan.Runtime. Suite:
+    the fast suite, packages/flow-state-v3 by default, 56 files; stress runs in the 8 `*.stress.test.ts` files, run only
+    by `nub run test:stress` (FLOW_STRESS=1) and by the faults runner's copies. Rerun: `vp test run
+    packages/flow-state-v3`; `nub run test:stress`; `nub run faults` (8 scratch copies, each fault's target tests first,
+    the whole suite when they pass). Mutants: the dead core (whole suite, stress files included) and the 52 named faults
+    of code:packages/flow-state-v3/tests/faults.ts (32) and code:packages/flow-state-v3/tests/tooling-faults.ts (20).
+    Audit: the close-out review at 8d2520ed, F1 to F6 closed (next comment). Matched at: eff65a6b (fast suite 452 plus 8
+    it.fails, stress 23, faults 52 of 52, check and lint:rules at zero).
+comment 2026-11-16T02:04:13Z
+    COMPLETION AUDIT: PASS at eff65a6b (code as 96ef4847), on T75 being set done on its PASS. Every Task done but T75
+    (review, PASS); tests/bridge/ deleted; Prove holds: suite end to end, dead core and 52 of 52 named faults caught,
+    close-out audit F1 to F6 closed (F1 on T75 done; F2 to F4 fixed in T75; F6 by the re-matched record above; F5 half:
+    Stories T5 still names reason Advance, which R6 and the runner lack, proposed for @task.V3.T29). Deferrals D1 to D7
+    each have an owner comment (T17, T19, T20, T21, T22, T29, T57; Actors I43 and WriteLanes I7 named in P3). Plan
+    outcomes: no P2 Task `satisfies` one whole; the first slices are delivered and tested (Testing O1 to O4 and O6 via
+    Story, Fake, StoryTurnLimit, checkpoints, propertyTest; Inspection O1 inspect(runtime), O4 run.trace and render);
+    the rest stays with @task.V3.T29 and @task.V3.T49. For the user: `nub run verify` no longer runs stress files.
 tasks
     T62
         title       Package layout and import rules
@@ -1511,3 +1530,20 @@ tasks
             before; stress ran in the fast suite); faults 206 s to 25 s. Caught list identical fault by fault: 52 of 52
             before and after, every fault now caught by its targets, none by the whole suite; dead core runs the whole
             suite, 178 green before and after, all explained.
+        comment     2026-11-16T02:03:57Z
+            PASS at 96ef4847 (independent check-task). Gates on a git archive copy: check and lint:rules at zero; fast
+            suite 452 plus 8 it.fails in 10.2 s; test:stress 8 files, 23 tests, 4.5 s, selection test green; faults exit
+            0 in 25 s (52 of 52, dead core whole suite, all green explained). Caught list: the 52 faults' edits are the
+            same multiset before and after, the 6 moved ones are spread into faults; a missed, stale or unjudged fault,
+            a missing target file or a red unchanged run still exits 1; scratch copies are removed (none left).
+            Target-first probe: a target load error is NOT JUDGED and falls back to the whole suite; a setup throw
+            inside a test counts caught, as under the old --bail=1 whole-suite run, and the whole-suite control guards
+            it, so no weakening. F2 to F4 fixed with checks (planted 60 s timeout; ~reloaded checkpoint asserted so
+            Restore I1 cuts; before() throws, tested). Not blocking: F5 half open, Stories T5 still names reason
+            Advance, which R6 and run.ts do not have; tools/stress/select.test.ts's 'default file runs stress material'
+            guard misses stress Stories run once in tests/cli/cli.test.ts and tests/stories/story.test.ts and the
+            stress-profile checks in tests/generated/profiles.test.ts and planted.test.ts (cheap, inside budget); nub
+            run verify no longer runs any stress file. Sidecars: gate-weakening (accepted: target-alone false catch is
+            theoretical, changed to non-blocking; faults list parity accepted) and blind (stress-in-default and verify
+            findings accepted as non-blocking; 'stress run not unchanged' rejected: the only change is F3's
+            added checkpoint).
