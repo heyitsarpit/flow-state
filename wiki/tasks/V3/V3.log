@@ -559,3 +559,8 @@ note 2026-11-16T14:24:01Z
 note 2026-11-16T14:31:06Z
     T74 done: fix-round review PASS (b1b98b3c); the fault needs two fixtures and shrinks to pay and lanes. Leftovers
     (shrink count, two keying leaks, one keying) routed to T80.
+
+note 2026-11-16T14:35:02Z
+    T20 in review at 9fcf63a2 (restore, quarantine, forget; faults 174/174 in 45 s); close review started. T9's fix
+    round resumed as the one builder. For the user: Fake.storage.put/refuseLoad and a quarantined lifecycle added; a
+    send from an unsaveable actor waits without limit.
