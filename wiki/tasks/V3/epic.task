@@ -224,6 +224,8 @@ instructions
       every rule and reader that depends on it checked, and the next independent review confirms it was not shaped to
       fit the code; the user reads it afterwards. The Spec is edited so the losing text is gone, with one note
       in `wiki/specs/specs.log`.
+    - A gap is never written into a Spec as a limit (the user, 2026-11-16): a lost, doubled or made-up ending the code
+      can't yet meet lands as an inverted test titled by its rule, with an owner Task, and the Spec keeps the rule.
     - Plan changes found while building go to @plan.Pending as decisions, never into the Plans (the user, 2026-11-11),
       with the same whole-system check (the user, 2026-11-15).
     - Effect prior art (the user, 2026-11-11): each module's Spec skeleton lists the Effect features that cover its

@@ -357,3 +357,8 @@ note 2026-11-16T03:23:06Z
 note 2026-11-16T03:24:06Z
     T18 done: review PASS at `e08f59fe` (`cea0c886`) after two fix rounds; queued commits end NotSent Restored, Q7
     pinned for @task.V3.T20. T18's user's page is owed. Run stopped at 99 weekly: wakes and keep-awake removed.
+
+note 2026-11-16T04:44:27Z
+    Decision (user, 2026-11-16): "do 1 & 2": T18's user's page written
+    (wiki/plans/flow/references/pages/T18-lane-policies.md, unread); instructions gain "a gap is never written into a
+    Spec as a limit". Whole run.
