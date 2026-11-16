@@ -403,3 +403,7 @@ note 2026-11-16T08:34:20Z
 
 note 2026-11-16T08:34:24Z
     T19 started (slice 2): one Opus building lead. Its close is held until the user reads T54's page.
+
+note 2026-11-16T09:11:24Z
+    T19 requirements review started (first-commit event, 0bae2c9e): one Opus reviewer, four Haiku sidecars, one blind.
+    Wake timings in bound (12, 8, 31 s); stress and faults red only from T19's work in progress.
