@@ -5,12 +5,13 @@ import { laneKeyText } from "../core/lane-moves.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import { Input } from "../core/step.ts";
 import type { Machines } from "../core/tx.ts";
-import { Verdict } from "../core/life.ts";
-import { type ActorId, actorKey, type World } from "../core/world.ts";
+import { actorLifecycleOf, Verdict } from "../core/life.ts";
+import { type ActorId, actorKey, type Issue, type World } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, Envelope, InputOf, Machine, Operations } from "../definition.ts";
-import { type FlowError, flowError, flowErrorOf } from "../error.ts";
+import { type Code, Diagnostic, type FlowError, flowError, flowErrorOf } from "../error.ts";
+import type { IssueCode } from "../core/vocabulary.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { makeDriver, type Driver } from "./driver.ts";
 import { browserPlatform } from "./platform/browser.ts";
@@ -149,7 +150,37 @@ export type Snapshot = {
   readonly state: string;
   readonly memory: Values;
   readonly operations: Operations;
+  readonly lifecycle: "active" | "disposing" | "disposed";
+  readonly issues: ReadonlyArray<Diagnostic>;
+  readonly schedules: ReadonlyArray<{ readonly key: string; readonly dueAt: number }>;
 };
+
+// A keyed list in key order, as every list of a snapshot is.
+const keyed = <A extends { readonly key: string }>(entries: ReadonlyArray<A>) =>
+  entries.toSorted((a, b) => Number(a.key > b.key) - Number(a.key < b.key));
+
+// The diagnostic code of an issue: a refused turn (a denial code, not a diagnostic) is the
+// configuration it was given, a callback that threw is a Defect.
+const DIAGNOSTIC_OF = {
+  InvalidTurn: "InvalidConfiguration",
+  CallbackDefect: "Defect",
+  GuardDefect: "GuardDefect",
+  Defect: "Defect",
+  StorageFailure: "StorageFailure",
+} as const satisfies Record<IssueCode, Code>;
+
+// An open issue as the Diagnostic a snapshot shows: its identity and source in the path, the
+// refusal and the callback slot that failed in details.
+const issueOf = (actor: ActorId, issue: Issue) =>
+  new Diagnostic({
+    classification:
+      issue.code === "InvalidTurn" || issue.code === "StorageFailure" ? "Failure" : "Defect",
+    code: DIAGNOSTIC_OF[issue.code],
+    path: [actor.machine, actor.name, issue.source],
+    details: { refused: issue.code, slot: Option.getOrNull(issue.slot) },
+    summary: `${issue.source} raised ${issue.code}`,
+    help: "Fix the callback the slot names; the issue clears when this source next succeeds.",
+  });
 
 /**
  * The key under which a handle keeps the Runtime and identity it belongs to.
@@ -239,12 +270,40 @@ export const snapshotIn = (
   actor: ActorId,
 ): Option.Option<Snapshot> => {
   const key = actorKey(actor);
-  const live = world.incarnations.get(key) ?? world.records.get(key);
+  const live = world.incarnations.get(key);
+  const record = world.records.get(key);
+  const ended = world.ended.get(key);
+  const operations = operationsOf(world, machines, actor);
 
-  return Option.map(Option.fromUndefinedOr(live), (x) => ({
+  if (live !== undefined)
+    return Option.some({
+      state: live.state,
+      memory: live.memory,
+      operations,
+      lifecycle: actorLifecycleOf(world.life),
+      issues: live.issues.map((issue) => issueOf(actor, issue)),
+      schedules: keyed(
+        [...live.schedules].map(([name, armed]) => ({ key: name, dueAt: armed.dueAt })),
+      ),
+    });
+
+  if (record !== undefined)
+    return Option.some({
+      state: record.state,
+      memory: record.memory,
+      operations,
+      lifecycle: "active",
+      issues: [],
+      schedules: keyed(record.schedules.map((s) => ({ key: s.name, dueAt: s.dueAt }))),
+    });
+
+  return Option.map(Option.fromUndefinedOr(ended), (x) => ({
     state: x.state,
     memory: x.memory,
-    operations: operationsOf(world, machines, actor),
+    operations,
+    lifecycle: "disposed",
+    issues: [],
+    schedules: [],
   }));
 };
 

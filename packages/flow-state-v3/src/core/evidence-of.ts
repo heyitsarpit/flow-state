@@ -28,7 +28,13 @@ export type Act = Data.TaggedEnum<{
   };
   Unhandled: { actor: ActorId; event: string };
   Denied: { actor: ActorId; event: string; reasons: ReadonlyArray<string> };
-  Refused: { code: IssueCode; actor: ActorId; ending: Option.Option<RowRef> };
+  Refused: {
+    code: IssueCode;
+    actor: ActorId;
+    ending: Option.Option<RowRef>;
+    source: string;
+    slot: Option.Option<string>;
+  };
   Started: { actor: ActorId };
   Published: { actor: ActorId; state: string; memory: Values };
   Finished: { actor: ActorId };
@@ -117,7 +123,7 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
     ],
     Unhandled: ({ actor, event }) => [Evidence.Unhandled({ actor, event })],
     Denied: ({ actor, event, reasons }) => [Evidence.Denied({ actor, event, reasons })],
-    Refused: ({ code, actor, ending }) => [
+    Refused: ({ code, actor, ending, slot }) => [
       Evidence.Issue({
         code,
         ending: Option.map(ending, (e) => ({
@@ -125,14 +131,17 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
           attempt: e.attempt,
           actor,
         })),
+        slot,
       }),
     ],
     Started: ({ actor }) => [Evidence.Incarnated({ actor })],
     Published: ({ actor, state, memory }) => [Evidence.Published({ actor, state, memory })],
     Finished: ({ actor }) => [Evidence.Finished({ actor })],
-    Defect: () => [Evidence.Issue({ code: "Defect", ending: Option.none() })],
+    Defect: () => [Evidence.Issue({ code: "Defect", ending: Option.none(), slot: Option.none() })],
     RuntimeEnded: () => [Evidence.RuntimeDisposed()],
-    WriteFailed: () => [Evidence.Issue({ code: "StorageFailure", ending: Option.none() })],
+    WriteFailed: () => [
+      Evidence.Issue({ code: "StorageFailure", ending: Option.none(), slot: Option.none() }),
+    ],
     ReadReplaced: ({ operation }) => [
       Evidence.Lane({ kind: "Superseded", operation, attempt: Option.none() }),
     ],

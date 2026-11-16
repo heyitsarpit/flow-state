@@ -175,7 +175,7 @@ describe("createActor (Actors R6)", () => {
     expect(Option.map(local.getSnapshot(), (s) => s.memory["ticks"])).toEqual(Option.some(1));
 
     runtime.disposeActor(local);
-    expect(Option.isNone(local.getSnapshot())).toBe(true);
+    expect(Option.map(local.getSnapshot(), (s) => s.lifecycle)).toEqual(Option.some("disposed"));
   });
 
   it("Actors R4, R22: createActor rejects RuntimeNotReady before ready and RuntimeDisposed after dispose", () => {

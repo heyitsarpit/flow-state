@@ -79,7 +79,7 @@ describe("Story step words", () => {
 
     expect(actorRecords(run.checkpoints.kept)).toHaveLength(1);
     expect(actorRecords(run.checkpoints.forgotten)).toEqual([]);
-    expect(run.checkpoints.forgotten.read(account)).toBeUndefined();
+    expect(run.checkpoints.forgotten.read(account)?.lifecycle).toBe("disposed");
   });
 
   it("disposeRuntime runs the Runtime's dispose to its end, keeping the last snapshot (Actors R22, R23)", async () => {

@@ -2,7 +2,7 @@ import { type Brand, Data, type Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import { emptyLedger, type Ledger, type OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
-import type { ScheduleDeadline } from "./vocabulary.ts";
+import type { IssueCode, ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
 
 /**
@@ -76,7 +76,25 @@ export type Incarnation = {
   readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
   readonly schedules: ReadonlyMap<string, Armed>;
+  readonly issues: ReadonlyArray<Issue>;
 };
+
+/**
+ * An incarnation's open issue: the source that raised it (`event X`, `schedule X`, `operation X`
+ * or `creation`), its code and the callback slot that failed, if one did. Only a later accepted
+ * turn of the same source clears it.
+ */
+export type Issue = {
+  readonly source: string;
+  readonly code: IssueCode;
+  readonly slot: Option.Option<string>;
+};
+
+/**
+ * What an identity showed when its last incarnation ended: its terminal snapshot's state and
+ * memory, kept until the identity starts again.
+ */
+export type Ended = { readonly state: string; readonly memory: Values };
 
 /**
  * Where a lane's head stands: one tag per history and wait, never a flag (WriteLanes model).
@@ -261,6 +279,7 @@ export type World = {
   readonly attempts: number;
   readonly persistence: boolean;
   readonly withheld: ReadonlyMap<string, Withheld>;
+  readonly ended: ReadonlyMap<string, Ended>;
   readonly life: Life;
 };
 
@@ -282,6 +301,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   attempts: 0,
   persistence,
   withheld: new Map(),
+  ended: new Map(),
   life: Life.Inert(),
 });
 

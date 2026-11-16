@@ -24,6 +24,7 @@ const live = (world: World): World => ({
         state: "S",
         activations: [7],
         history: new Map(),
+        issues: [],
         memory: {},
         schedules: new Map(),
       },

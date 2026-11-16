@@ -141,3 +141,17 @@ export const isDisposed = Life.$is("Disposed");
  * Inspection shows it; the host decides by {@link admit} and {@link isDisposed} alone.
  */
 export const lifecycleOf = (life: Life) => life._tag;
+
+/**
+ * A live actor's public lifecycle under the Runtime's life: disposing while the Runtime disposes,
+ * disposed once it has, active otherwise. Reported in snapshots; it decides nothing.
+ */
+export const actorLifecycleOf = (life: Life) =>
+  Life.$match(life, {
+    Inert: () => "active" as const,
+    Booting: () => "active" as const,
+    Open: () => "active" as const,
+    Failed: () => "active" as const,
+    Disposing: () => "disposing" as const,
+    Disposed: () => "disposed" as const,
+  });

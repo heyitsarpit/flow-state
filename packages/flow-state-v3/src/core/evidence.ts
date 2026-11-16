@@ -114,6 +114,7 @@ export type Evidence = Data.TaggedEnum<{
       readonly attempt: Option.Option<string>;
       readonly actor: Who;
     }>;
+    slot: Option.Option<string>;
   };
   Incarnated: { actor: Who };
   Finished: { actor: Who };

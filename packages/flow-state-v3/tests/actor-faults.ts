@@ -73,6 +73,72 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "issue-cleared-by-any-source",
+    tests: ["tests/actors/snapshot.test.ts"],
+    says: "any accepted turn clears every open issue, not only its own source's",
+    rule: "Turn R25",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "          { ...base, issues: base.issues.filter((i) => i.source !== route.source) },",
+        replace: "          { ...base, issues: [] },",
+      },
+    ],
+  },
+  {
+    name: "refused-turn-raises-no-issue",
+    tests: ["tests/actors/snapshot.test.ts"],
+    says: "a refused turn reports its issue as evidence but the snapshot shows none",
+    rule: "Turn R23",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "        publish(raised(incarnation, { source: route.source, code, slot: Option.some(slot) }));",
+        replace: "        publish(incarnation);",
+      },
+    ],
+  },
+  {
+    name: "disposed-identity-reads-nothing",
+    tests: ["tests/actors/snapshot.test.ts"],
+    says: "after disposeActor a snapshot reads nothing instead of the terminal snapshot",
+    rule: "Runtime O3",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "        ended: withEntry(tx.world().ended, key, terminal(incarnation)),",
+        replace: "        ended: tx.world().ended,",
+      },
+    ],
+  },
+  {
+    name: "creation-issue-drops-schedule",
+    tests: ["tests/actors/snapshot.test.ts"],
+    says: "an issue a schedule's delay raises at creation does not name the schedule",
+    rule: "Diagnostics R5",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: '          return { source: CREATION, code: "InvalidTurn" as const, slot: Option.some(slot) };',
+        replace:
+          '          return { source: CREATION, code: "InvalidTurn" as const, slot: Option.none() };',
+      },
+    ],
+  },
+  {
+    name: "snapshot-hides-schedules",
+    tests: ["tests/actors/snapshot.test.ts"],
+    says: "a live actor's snapshot lists no armed schedule",
+    rule: "Turn R23",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: "        [...live.schedules].map(([name, armed]) => ({ key: name, dueAt: armed.dueAt })),",
+        replace: "        [],",
+      },
+    ],
+  },
+  {
     name: "foreign-handle-accepted",
     tests: ["tests/actors/identity.test.ts"],
     says: "another Runtime's handle is taken as naming this Runtime's actor",

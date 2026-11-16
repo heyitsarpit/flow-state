@@ -4,9 +4,9 @@ import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { chainOf, historyAfter } from "./tree.ts";
-import { isInFlight, ROOT_ACTIVATION, type Tx, without } from "./tx.ts";
+import { isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
 import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
-import { actorKey, type Incarnation, Mail } from "./world.ts";
+import { actorKey, type Incarnation, type Issue, Mail } from "./world.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 
@@ -53,6 +53,22 @@ export const makeServe = (
     });
   };
 
+  // A refusal raises its source's issue, replacing that source's earlier one. Issues are not part
+  // of the record, so raising one writes nothing.
+  const raised = (incarnation: Incarnation, issue: Issue) => {
+    const next = {
+      ...incarnation,
+      issues: [...incarnation.issues.filter((i) => i.source !== issue.source), issue],
+    };
+
+    tx.set({
+      ...tx.world(),
+      incarnations: withEntry(tx.world().incarnations, actorKey(next.actor), next),
+    });
+
+    return next;
+  };
+
   // The depth a late ending is routed from: its owner's nearest surviving ancestor, which is the
   // deepest active state entered before the owner was (0 for the root).
   const depthBelow = (incarnation: Incarnation, owner: number) =>
@@ -66,6 +82,7 @@ export const makeServe = (
       readonly late: Option.Option<number>;
       readonly own: Option.Option<string>;
       readonly ending: Option.Option<Owed>;
+      readonly source: string;
     },
   ) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
@@ -107,9 +124,17 @@ export const makeServe = (
 
         return HEARD;
       },
-      Refused: ({ code }) => {
-        tx.act(Act.Refused({ code, actor: incarnation.actor, ending: route.ending }));
-        publish(incarnation);
+      Refused: ({ code, slot }) => {
+        tx.act(
+          Act.Refused({
+            code,
+            actor: incarnation.actor,
+            ending: route.ending,
+            source: route.source,
+            slot: Option.some(slot),
+          }),
+        );
+        publish(raised(incarnation, { source: route.source, code, slot: Option.some(slot) }));
 
         return REFUSED;
       },
@@ -138,7 +163,11 @@ export const makeServe = (
           },
         });
 
-        const after = armSchedules(base, accepted.arm);
+        const after = armSchedules(
+          { ...base, issues: base.issues.filter((i) => i.source !== route.source) },
+          accepted.arm,
+        );
+
         setIncarnation(after);
 
         // The work a transition starts is owned by the activation of the state it names: its
@@ -213,11 +242,20 @@ export const makeServe = (
 
     tx.act(Act.Heard({ row: ending, event: mapping.value.event, actor: incarnation.actor }));
 
+    const source = `operation ${ending.operation}`;
+
     if (Result.isFailure(payload)) {
+      const slot = Option.some(payload.failure);
       tx.act(
-        Act.Refused({ code: "InvalidTurn", actor: incarnation.actor, ending: Option.some(ending) }),
+        Act.Refused({
+          code: "InvalidTurn",
+          actor: incarnation.actor,
+          ending: Option.some(ending),
+          source,
+          slot,
+        }),
       );
-      publish(incarnation);
+      publish(raised(incarnation, { source, code: "InvalidTurn", slot }));
 
       return REFUSED;
     }
@@ -231,6 +269,7 @@ export const makeServe = (
       late: alive ? Option.none() : Option.some(ending.owner),
       own: ending.lane,
       ending: Option.some(ending),
+      source,
     });
   };
 
@@ -244,6 +283,7 @@ export const makeServe = (
             late: Option.none(),
             own: Option.none(),
             ending: Option.none(),
+            source: `event ${tag}`,
           });
       },
       Firing: ({ actor, incarnation: id, schedule, arming }) => {
@@ -264,7 +304,12 @@ export const makeServe = (
           left,
           armed.send,
           {},
-          { late: Option.none(), own: Option.none(), ending: Option.none() },
+          {
+            late: Option.none(),
+            own: Option.none(),
+            ending: Option.none(),
+            source: `schedule ${schedule}`,
+          },
         );
       },
       Ending: ({ actor, id }) => {
