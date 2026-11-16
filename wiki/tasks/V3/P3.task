@@ -1039,6 +1039,24 @@ tasks
         comment     2026-11-16T13:43:18Z
             Orchestrator: the fix round queues behind T20 (one builder; T20 is earlier in P3's Order). R13's Spec edit
             contradicts Runtime.plan O4: restore the adding turn's refusal, or file a Pending decision with two traces.
+        comment     2026-11-16T14:54:18Z
+            Fix round closed at 31815b0e: check 0, suite 725 + 2 inverted, stress 29, generated over 20 more seeds (mix
+            included) green, faults 178 of 178 by their targets in 43 s. Bench: transfers/long 0.038/0.055, pay/long
+            0.049/0.073, lanes/stress-36 0.049/0.081, player/stress-36 0.080/0.227 ms per turn.
+        comment     2026-11-16T14:54:18Z
+            Fix round: a context update waits while a provider up its graph still has mail, so one wave gives one
+            consistent update (R19); a return compares context with what it ended with and runs its one wave in its
+            start, before the restoring event (R9, Turn R22); R13 restored to Runtime O4 (the adding turn is refused and
+            undone; only events and context updates count); I19 is a run rule over every run (tests/rules/mailbox.ts),
+            catching mailbox-not-fifo in the generated mix; Story ensures keep a ref's context; entry context optional;
+            foreign refs refused; Turn R12 inverted, routed to @task.V3.T57. For the user: typed slot wiring in app
+            entries and refs is still a question.
+        comment     2026-11-16T14:54:19Z
+            For the user's page, fix round: a consumer that reads a provider both directly and through another consumer
+            now sees one update with both new values, not a half-updated one; an actor that comes back after its
+            provider changed hears about it before the event that woke it; a chain of more than 64 follow-ups now
+            refuses the turn that would start the 65th; refs of machines the app does not list are refused
+            ForeignActorRef, and an app entry's context is optional.
 
     T74
         title       App mix: several fixtures in one Runtime

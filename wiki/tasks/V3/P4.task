@@ -176,6 +176,9 @@ tasks
             Routed from T17: at depth 2 machine() widens a schedule's delay and armOn names to string (tsc TS2322 on "1
             second" and "Tick" in player's ON.PLAYING), so the fixture uses Duration.seconds(1) and E.X.tag; T17's fix
             round pins it as an inverted type test.
+        comment     2026-11-16T14:47:57Z
+            Routed from T9's fix round: guards and updates are not handed the turn's context (Turn R12); pinned as an
+            it.fails in tests/actors/context.test.ts. Typing context into the machine body's callbacks is this slice's.
     T21
         title       Reads and operations (slice 5)
         status      draft
