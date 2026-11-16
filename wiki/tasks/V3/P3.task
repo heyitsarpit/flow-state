@@ -925,7 +925,7 @@ tasks
 
     T74
         title       App mix: several fixtures in one Runtime
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@task.V3.T70]
         description
@@ -997,3 +997,14 @@ tasks
             lanes, palette (61 steps). Fix: a fault one fixture cannot show, checked by a single-fixture test, and
             fixture drops that keep pool slots so draws do not remap, with a test on the shrunk `fixtures`. Acceptance 1
             and 2 pass; check, test, test:stress and faults (122 of 122) green.
+        comment     2026-11-16T13:42:16Z
+            Review fixes landed: the planted fault now splits a refused batch by namespace. With it planted, the
+            single-fixture mix-profile check passes, and mix seed 2 breaks WriteAhead I15 and shrinks to pay and lanes
+            in 25 steps (291 shrinks). Dropped fixtures keep their pool slots, and the smallest failing subset is kept.
+            In a mix, answers are keyed to a drawn world digit, the endpoint and its call count; writes to the draw and
+            their place within it.
+        comment     2026-11-16T13:42:17Z
+            Decided: single-fixture runs keep the cursor-keyed digits, because keying them by endpoint stretched the
+            planted shrink from 9 to 18 lines and changed every saved stress Story. Failure gained `shrinks`. The
+            generator's verdict rules are now `inconclusive` and `turn limit`, not Spec ids. `nub run faults`: 150 of
+            150 caught, all by targets, in 35 s. Suite 14 s.
