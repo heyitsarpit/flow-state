@@ -257,14 +257,11 @@ export const makePersistence = (tx: Tx) => {
     return Result.mapBoth(owed, {
       onFailure: (reason) => ({ key, reason }),
       onSuccess: ({ texts }) => ({
-        parts: texts.length,
-        writes: Array.from(
-          { length: Math.max(before, texts.length) },
-          (_, part): Write => ({
-            key: owedPartKey(identity, part),
-            record: Option.fromUndefinedOr(texts[part]),
-          }),
-        ),
+        parts: Option.some(texts.length),
+        writes: Array.from({ length: Math.max(before, texts.length) }, (_, part) => ({
+          key: owedPartKey(identity, part),
+          record: Option.fromUndefinedOr(texts[part]),
+        })),
       }),
     });
   };
@@ -285,7 +282,7 @@ export const makePersistence = (tx: Tx) => {
   const writesOf = (t: Touched) => {
     const owed = t.owed
       ? owedWrite(t.actor)
-      : Result.succeed({ parts: -1, writes: Array.of<Write>() });
+      : Result.succeed({ parts: Option.none<number>(), writes: Array.of<Write>() });
 
     return Result.flatMap(owed, ({ parts, writes: owedWrites }) =>
       Result.map(Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite)]), (writes) => ({
@@ -366,16 +363,12 @@ export const makePersistence = (tx: Tx) => {
     );
 
     // The owed parts each written identity now has on disk, so its next write removes the rest.
-    if (written.some((p) => p.parts >= 0))
-      tx.set({
-        ...tx.world(),
-        owedParts: new Map([
-          ...tx.world().owedParts,
-          ...written.flatMap((p) =>
-            p.parts >= 0 ? [[actorKey(p.t.actor), p.parts] as const] : [],
-          ),
-        ]),
-      });
+    const parts = written.flatMap((p) =>
+      Option.toArray(Option.map(p.parts, (n) => [actorKey(p.t.actor), n] as const)),
+    );
+
+    if (parts.length > 0)
+      tx.set({ ...tx.world(), owedParts: new Map([...tx.world().owedParts, ...parts]) });
 
     const blocked = all.flatMap(({ t, writes }) =>
       Result.isFailure(writes) ? [{ t, failure: writes.failure }] : [],

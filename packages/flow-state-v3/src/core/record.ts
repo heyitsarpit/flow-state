@@ -107,7 +107,7 @@ type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason
   readonly kept: boolean;
 };
 
-const rowJson = (r: OwedRow, value: unknown) => ({
+const rowJson = (r: OwedRow, value: OwedRow["value"]) => ({
   operation: r.operation,
   lane: Option.getOrNull(r.lane),
   attempt: Option.getOrNull(r.attempt),
@@ -116,6 +116,38 @@ const rowJson = (r: OwedRow, value: unknown) => ({
   value,
   kept: r.kept,
 });
+
+// Rows in owed order, cut into parts in one pass: a part closes when the next row would take it
+// past a codec bound, counting from the record with no rows.
+const packParts = <Row>(
+  empty: { readonly bytes: number; readonly nodes: number },
+  costs: ReadonlyArray<{ readonly bytes: number; readonly nodes: number; readonly row: Row }>,
+) => {
+  let part: Array<Row> = [];
+  const parts = [part];
+  let bytes = empty.bytes;
+  let nodes = empty.nodes;
+
+  for (const cost of costs) {
+    const past =
+      bytes + cost.bytes > BOUNDS.bytes ||
+      nodes + cost.nodes > BOUNDS.nodes ||
+      part.length >= BOUNDS.items;
+
+    if (past && part.length > 0) {
+      part = [];
+      parts.push(part);
+      bytes = empty.bytes;
+      nodes = empty.nodes;
+    }
+
+    part.push(cost.row);
+    bytes += cost.bytes;
+    nodes += cost.nodes;
+  }
+
+  return parts;
+};
 
 /**
  * An identity's saved rows as canonical texts, in owed order: one record while they fit the
@@ -126,48 +158,25 @@ const rowJson = (r: OwedRow, value: unknown) => ({
 export const encodeOwed = (actor: ActorId, rows: ReadonlyArray<OwedRow>) => {
   const header = { format: FORMAT, machine: actor.machine, name: actor.name };
   const empty = Result.getOrThrow(measure({ ...header, rows: [] }));
-  let dropped = 0;
 
-  // A row's cost in a part: what it adds to a part holding it alone, a comma included.
+  // A row's cost in a part: what it adds to a part holding it alone, a comma included. A row whose
+  // value cannot be saved even alone is costed, and saved, with a null value.
   const costs = rows.map((r) => {
     const whole = rowJson(r, r.value);
     const alone = measure({ ...header, rows: [whole] });
+    const dropped = Result.isFailure(alone);
+    const row = dropped ? rowJson(r, null) : whole;
 
-    if (Result.isFailure(alone)) dropped += 1;
+    const { bytes, nodes } = Result.getOrThrow(
+      dropped ? measure({ ...header, rows: [row] }) : alone,
+    );
 
-    const row = Result.isSuccess(alone) ? whole : rowJson(r, null);
-    const fitted = Result.isSuccess(alone) ? alone : measure({ ...header, rows: [row] });
-    const { bytes, nodes } = Result.getOrThrow(fitted);
-
-    return { bytes: bytes - empty.bytes + 1, nodes: nodes - empty.nodes, row };
+    return { bytes: bytes - empty.bytes + 1, nodes: nodes - empty.nodes, row, dropped };
   });
 
-  const parts: Array<Array<ReturnType<typeof rowJson>>> = [[]];
-  let bytes = empty.bytes;
-  let nodes = empty.nodes;
-
-  for (const cost of costs) {
-    const part = parts.at(-1) ?? [];
-
-    if (
-      part.length > 0 &&
-      (bytes + cost.bytes > BOUNDS.bytes ||
-        nodes + cost.nodes > BOUNDS.nodes ||
-        part.length >= BOUNDS.items)
-    ) {
-      parts.push([]);
-      bytes = empty.bytes;
-      nodes = empty.nodes;
-    }
-
-    (parts.at(-1) ?? []).push(cost.row);
-    bytes += cost.bytes;
-    nodes += cost.nodes;
-  }
-
   return Result.map(
-    Result.all(parts.map((part) => textOf({ ...header, rows: part }))),
-    (texts) => ({ texts, dropped }),
+    Result.all(packParts(empty, costs).map((part) => textOf({ ...header, rows: part }))),
+    (texts) => ({ texts, dropped: costs.filter((c) => c.dropped).length }),
   );
 };
 

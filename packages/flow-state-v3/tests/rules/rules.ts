@@ -477,6 +477,7 @@ const LaneOwing = Schema.fromJsonString(
 
 const sleepingOwed = (cut: Cut, n: number, put: ReadonlySet<string>) => {
   const live = new Set(cut.inspection.actors.map((a) => a.actor));
+
   // A record the Story put in the store itself is not judged (Stories R11).
   const runtimes = (key: string) => {
     const text = cut.records.stored.get(key);

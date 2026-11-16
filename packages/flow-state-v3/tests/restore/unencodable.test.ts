@@ -112,9 +112,7 @@ describe("an actor record past a codec bound (Actors R8; WriteAhead R4; Codec R1
         .run(),
     );
 
-    expect(reported(run)).toEqual([
-      "UnencodableValue withheld: items over 4096 at $.memory.notes",
-    ]);
+    expect(reported(run)).toEqual(["UnencodableValue withheld: items over 4096 at $.memory.notes"]);
     expect(savedCount(run, "good")).toBe(4096);
     expect(savedCount(run, "withheld")).toBe(4096);
     expect(run.checkpoints.reloaded.read(notes)?.memory["notes"]).toHaveLength(4096);

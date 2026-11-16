@@ -239,13 +239,18 @@ export const encodeCanonical = (value: unknown) =>
 
 // How many nodes a JSON value counts against the node bound: itself and everything inside it.
 // FLOW_STATE_ALLOW_UNKNOWN: canonical JSON, whose fields read as unknown once narrowed to an object.
-// RETURN_TYPE: a recursive count states its result.
-const nodesOf = (json: unknown): number => {
-  if (Array.isArray(json)) return json.reduce<number>((n, item) => n + nodesOf(item), 1);
+const nodesOf = (json: unknown) => {
+  const open = [json];
+  let nodes = 0;
 
-  if (!Predicate.isObject(json)) return 1;
+  for (let value = open.pop(); value !== undefined; value = open.pop()) {
+    nodes += 1;
 
-  return Object.values(json).reduce<number>((n, field) => n + nodesOf(field), 1);
+    if (Array.isArray(value)) open.push(...value);
+    else if (Predicate.isObject(value)) open.push(...Object.values(value));
+  }
+
+  return nodes;
 };
 
 /**

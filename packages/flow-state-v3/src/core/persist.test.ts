@@ -142,7 +142,9 @@ const receiptsIn = (owed: ReadonlyArray<{ readonly record: Option.Option<string>
   );
 
 const OwedReceipts = Schema.Struct({
-  rows: Schema.Array(Schema.Struct({ value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })) })),
+  rows: Schema.Array(
+    Schema.Struct({ value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })) }),
+  ),
 });
 
 it("WriteAhead I20, I21; Codec R1: owed rows past a byte bound together are saved whole in parts, in owed order, and the identity is not withheld", () => {
@@ -151,7 +153,10 @@ it("WriteAhead I20, I21; Codec R1: owed rows past a byte bound together are save
   const { tx, owed, reports } = owing(receipts);
 
   expect(tx.world().withheld.size).toBe(0);
-  expect(owed.map((w) => w.key)).toEqual([`owed/${actorKey(actor)}`, `owed/${actorKey(actor)}|0001`]);
+  expect(owed.map((w) => w.key)).toEqual([
+    `owed/${actorKey(actor)}`,
+    `owed/${actorKey(actor)}|0001`,
+  ]);
   expect(receiptsIn(owed)).toEqual(receipts.map((receipt) => ({ receipt })));
   expect(reports).toEqual([]);
 });
