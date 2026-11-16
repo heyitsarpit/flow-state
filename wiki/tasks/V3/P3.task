@@ -763,6 +763,21 @@ tasks
             once, NotSent Unencodable, instead of waiting for ever; your other writes go on. Pending results too large
             to save together keep their rows, with the largest values saved empty and UnencodableValue reported. Only an
             actor's own state too large to save holds its writes back, and that is reported.
+        comment     2026-11-16T15:18:51Z
+            Fix-round review at 70472fdb: ISSUES, one blocking hang left: fits sizes the lane record at commit time, but
+            a head that later goes Held writes inFlight false, one byte more, so a record at the bound withholds its
+            identity (WriteAhead I21 red; another lane's commit unsent after 30 s). A retryCount gaining a digit or a
+            cancel's displaced id grows it too: size the worst case, or never withhold on a lane record.
+        comment     2026-11-16T15:18:52Z
+            Also fix: encodeOwed sizes a value past the byte bound alone as 0, so smaller values go null first (a 2.25
+            MB and a 9-byte value: both null); past 1,249 rows the node bound fails with every value null and withholds;
+            each drop re-encodes (1,300 rows over 5 s); onlyActorsWithheld flags the owed UnencodableValue persist.ts
+            reports by design.
+        comment     2026-11-16T15:18:52Z
+            Holds: the 12-Sync case ends (10 sent, 2 NotSent Unencodable) under serialize, cancel, latest and across a
+            reload; the three new faults and the swept one fail on their named rules; no non-persisted path encodes
+            canonically; Fake.storage.put's raw keys accepted. Gates by exit code: check, suite, test:stress, faults
+            (180 of 180), all 0.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      review
