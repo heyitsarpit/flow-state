@@ -1667,3 +1667,26 @@ tasks
             run by their tests. For the user: no Task owns an actor-to-actor send action (5 rows' step-1 cell);
             ContextCycle is unreachable without a same-id stand-in; sync's 4xx finding needs an old-contract edit.
             Sign-in's samples stay out of the mix: a sixth part fails the one-network check at 5 seeds.
+        comment     2026-11-16T22:26:01Z
+            Review at 47e9edac: ISSUES, none blocking (no red check in T82's range). check 0; suite exit 1, 6 red, all
+            Turn I9 (T9) or the unfired pair cell Acknowledging x storage refusal (T20), the classes red at c4494083;
+            faults and stress unjudged. A1 manifests PASS; A4 ids and old tests PASS (seeded and pair titles now read
+            palette:); A2, A3 ISSUES below. The 6 reds are acceptable: sweeps stay strict with no skip list; each bug
+            keeps one inverted Story test checking only its rule (Turn I9's is session.test.ts); the pair cell is
+            undiagnosed, so T20 names the wrong side before inverting it; faults and stress are owed at T9's close.
+            Accepted, T82 fix round: (1) consumers mirror context by onContext, whose admission baseline is silent (Turn
+            R22): CheckoutFlow bound after an add is denied EmptyCart, TransferForm after a reload NoAccount (Repo,
+            ReturnTo alike); missed: no S6 order binding a consumer after its provider changed, then a guarded event;
+            add them inverted under T57. (2) Cart wanted is never cleared by QuantityNotSent, QuantityUnsure or a
+            removed line's answer, so Begin is CartBusy for good (cart.ts:161, server/carts.ts:29); missed: no Story
+            drops or refuses a setQuantity answer. (3) Inverted tests: drop the Turn I9 copies in pay/store and sign-in;
+            sign-in session.test.ts:140 and workspace.stress.test.ts:15 assert every rule; the 1,024-badge title's
+            reason contradicts Actors R13. (4) Titles citing rules that do not set the value (player Turn R14 for seeks
+            and disposal, sign-in R8 for R9, pay R4 mapper, WriteAhead R14 for retryable): cite the governing rule or
+            copied source. (5) Catalog: E1 empty email sends nothing; ranking.test.ts has no 10,000-entry timing; the
+            paged client is negative-zero's; S7 cycle is a correction, not left; fixtures.md app field vs old Stories on
+            old setups; mix.test part() falls back to idle. For the user: send(ref, event) has no owner (5 rows,
+            Workbench, Household); sync's 4xx needs an old-contract edit; sign-in's mix seat has no owner. Rejected: 64
+            Unsure (WriteLanes R10, one ending per commit; Actors R10 wording is T56's); owner in inverted titles; pay
+            L1 x 64 (stress-many-shoppers); profiles' pay seed check; sign-in E3 left (cells/key-past-bound is the one
+            inverted test).
