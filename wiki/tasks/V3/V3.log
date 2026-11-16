@@ -625,3 +625,8 @@ note 2026-11-16T15:42:34Z
 note 2026-11-16T15:48:31Z
     Amendment (2026-11-16, the user): the orchestrator owns fixtures first and asks each lead for proof at requirements
     (fixtures, Stories, edge samples, combinations, stress cases, red today) before the build. Commit: 5bcf7ae6.
+
+note 2026-11-16T15:52:09Z
+    Paused near the 5-hour limit (93%): T20 round 3 saved at b0c3a91b (resume a49e7119; check and faults not run); T81's
+    close review partial (definition(null) throws a raw TypeError, likely blocking). No agents run until the reset at
+    18:00Z.
