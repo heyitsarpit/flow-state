@@ -210,6 +210,12 @@ instructions
       compile, a run rule, or a Story test for a decided outcome. The lead may gather it with read-only sidecars on
       named angles (the Specs and Plans; the code and prior art; open findings; an adversary). Then build until the
       checks pass. A review finding is a missed requirement: it lands as a failing check before its fix.
+    - Fixtures first (the user, 2026-11-16). A Task that builds or changes a public feature first puts it in a fixture,
+      new or changed, with a usual and a stress Story and step samples that include its Schemas' edge values (empty,
+      undefined or None where allowed, sizes at and past every bound, counts past every cap). Those Stories, red today,
+      are among the Task's first requirements, and the generator, the reload sweep, the mix and the bench reach the
+      feature through them. A hand-written test alone never proves a public feature. A review finding lands in a
+      fixture's Stories or step samples as well as its own test, so the generator explores the cases around it.
     - A new rule is shown red on a planted fault: add the fault to `tests/faults.ts`, and `nub run faults` must catch
       it. Plants go in a scratch copy, never the live tree.
     - A known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks; `it.todo` is not used. A gap a
