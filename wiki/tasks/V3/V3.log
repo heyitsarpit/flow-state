@@ -581,3 +581,11 @@ note 2026-11-16T14:55:04Z
 note 2026-11-16T15:02:48Z
     T20 back in review at 70472fdb (lane-record hang fixed: over-bound commits decline NotSent Unencodable; faults
     180/180 in 46 s); its fix-round review waits on T9's. T81 started as the one builder.
+
+note 2026-11-16T15:05:09Z
+    Decisions (user-delegated, 2026-11-16): CallbackDefect and ServiceFailed fold into Defect (T81); typed context slot
+    wiring (T79); Story.app over several setups (T29).
+
+note 2026-11-16T15:05:10Z
+    Also accepted (user-delegated): the mix profile, Fake.storage.put and refuseLoad, the quarantined lifecycle, T9's
+    and T55's small API calls, an unsaveable send's unbounded wait.
