@@ -324,11 +324,10 @@ open
         outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers
                  it (a compile-time test, a run rule applied to every Story run, a Story test or a pure core
                  test) in `packages/flow-state-v3/tests/`, and each rule gets a planted fault in
-                 `tests/faults.ts` that `nub run faults` must catch. Case and wrong-runtime ids in the tests
-                 name the prototype's, which stay as prior art; until built, every Requirement's evidence is
-                 open.
+                 `tests/faults.ts` that `nub run faults` must catch. Until built, every Requirement's
+                 evidence is open.
 
-    Q2  The prototype has no case or wrong runtime for RuntimeNotReady, a shared ready() failure, service acquisition 
+    Q2  No Story test or planted fault exists yet for RuntimeNotReady, a shared ready() failure, service acquisition 
         failure, ConflictingActorRef, the 1,024 bound, BlockedByDependents, CleanupFailed, RuntimeDisposed, context
         propagation or isolation.
         outcome  The slices write those checks and faults first.
@@ -661,67 +660,68 @@ coverage
 tests
     T1  Setup and readiness: construct with spies (no I/O); two concurrent ready calls and a third after a failing 
         service share one Exit; interrupting one waiter leaves the other waiting; ensure before ready rejects
-            RuntimeNotReady; acquired services release in reverse on failure. No prototype case (Q2). [@I1, @I2, @I3, 
+            RuntimeNotReady; acquired services release in reverse on failure. No test yet (Q2). [@I1, @I2, @I3, 
                 @I5,
             @I6]
-    T2  Missing service refused by name at boot. Cases `R12-BOOT`, `R12-SERVICES`. [@I2]
+    T2  Missing service refused by name at boot. [@I2]
     T3  Boot order and the boot send queue: restored endings run before live input; a send before boot waits (once 
-        @task.V3.T9 builds the queue; until then it rejects RuntimeNotReady); a dispose at ready keeps boot mail. Cases
-            `R10-BOOT-ORDER`, `R14-FIX-01`; lies `h.boot-order`, `h.restore-at-send`, `k.send-ahead`; wrong runtime
-            `boot.mail-lost-at-dispose`. [@I4, @I14]
+        @task.V3.T9 builds the queue; until then it rejects RuntimeNotReady); a dispose at ready keeps boot mail.
+            Planted faults: a boot order that runs live input first; a send ahead of restore; mail lost at dispose.
+            [@I4, @I14]
     T4  Identity: a value names the actor and is its input; an equal value adopts the lane; a field reorder names the 
-        same actor; refs with different context reject. Case `R14-ID-01`; wrong runtime `id.value-is-not-the-input`.
-            [@I7, @I8]
+        same actor; refs with different context reject.
+            Planted fault: an identity that is not the input. [@I7, @I8]
     T5  Uses and the grace on a controlled clock: two uses, one ending keeps it; ensure alone keeps nothing; mail does 
-        not restart the grace; past the grace it ends. Cases `LIFE-02`, `LIFE-04`, `LIFE-08`, `LIFE-24`; wrong runtimes
-            `life.uses-not-counted`, `life.ensure-is-a-use`, `life.no-pending-use`, `life.no-grace`,
-            `life.grace-never-ends`, `life.mail-is-work`. [@I10]
+        not restart the grace; past the grace it ends.
+            Planted faults: uses not counted; ensure counted as a use; no grace; a grace that never ends; mail
+            counted as work. [@I10]
     T6  Work in flight: an InFlight lane and a read started handling such work's ending keep the actor; a Held lane and 
-        a kept ending do not. Cases `LIFE-01`, `LIFE-06`, `LIFE-11`, `LIFE-13`; wrong runtimes
-            `life.inflight-keeps-nothing`, `life.held-keeps`, `life.kept-read-keeps-nothing`, `life.every-read-keeps`.
-            [@I10]
+        a kept ending do not.
+            Planted faults: in-flight work that keeps nothing; a Held lane that keeps; reads that keep nothing or
+            all keep. [@I10]
     T7  The end and the return: the record is kept at the end and dropped by dispose; an unencodable record delays the 
-        end; the return delivers in R9's order and a restored head is heard once per incarnation. Cases `LIFE-12`,
-            `LIFE-17`, `LIFE-22`, `LIFE-23`; wrong runtimes `life.end-drops-record`, `life.dispose-keeps-record`,
-            `life.end-ignores-codec`, `life.restored-once-per-runtime`, `life.undecodable-is-no-record`. [@I12, @I14,
+        end; the return delivers in R9's order and a restored head is heard once per incarnation.
+            Planted faults: an end that drops the record; a dispose that keeps it; an end that ignores the codec; a
+            head heard once per runtime; an undecodable record taken as none. [@I12, @I14,
             @spec.WriteLanes.I15]
-    T8  Lane adoption and order: parked endings in saved order; a local remount in the grace reuses the actor. Cases 
-        `REV9-EDGE`, `LIFE-27`; lie `k.parked-reversed`; wrong runtimes `1b.r44-parked-reverse-order`,
-            `d5.remount-in-grace-is-fresh`, `life.no-remount`. [@I15, @I17]
+    T8  Lane adoption and order: parked endings in saved order; a local remount in the grace reuses the actor. Planted 
+        faults: parked endings in reverse order; a remount in the grace that is fresh; no remount.
+            [@I15, @I17]
     T9  Versions: an added field, an encoded-side change and a type-side change over the same encoded side are each a 
-        new version; a description change is not. Case `R14-ID-02`; wrong runtimes `id.old-version-restored`,
-            `id.version-by-names-only`, `l1.version-by-printed-name`. [@I39]
+        new version; a description change is not.
+            Planted faults: an old version restored; a version by field names only; a version by printed name.
+            [@I39]
     T10  Mailboxes and rotation: FIFO within an actor; a spin on one actor does not delay another's ending; 65 
-         follow-ups are refused. Cases `REV9-LOOP`, `ORDER-04`; wrong runtime `d122.rota-not-rotated`. Planted faults: a
+         follow-ups are refused. Planted faults: a rotation that does not rotate; a
              mailbox that is not FIFO; the 64 and 1,024 bounds have none yet (Q2). [@I19, @I20, @I21, @I22]
-    T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next Start. Cases 
-         `REV8-KEPT`, `REV9-KEPT`; lie `a4.refused-denied`; wrong runtimes `turn.refusal-keeps-asks`,
-             `1b.r8-refused-ending-not-redelivered`. [@I23, @I24]
-    T12  The send table, one row per target state. Cases `LIFE-03`, `LIFE-09`, `LIFE-21`, `ORDER-01`; wrong runtimes 
-         `life.send-no-restore`, `life.send-absent-silent`, `life.handle-not-identity`,
-             `d6.disposed-ending-is-evidence`. [@I25]
-    T13  Complete cuts: a drain's two turns are one cut. Case `REV8-PINS`; wrong runtimes `d122.cut-splits-a-turn`, 
-         `pinsa.drain-cut-mid-drain`. [@I26]
+    T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next Start. Planted faults: a 
+         refusal that denies; a refusal that keeps asks; a refused ending not redelivered.
+             [@I23, @I24]
+    T12  The send table, one row per target state. Planted faults: a send that does not restore; a send to an absent 
+         actor that is silent; a handle that is
+             not the identity; a disposed ending taken as evidence. [@I25]
+    T13  Complete cuts: a drain's two turns are one cut. Planted faults: a cut that splits a turn; a cut in the middle 
+         of a drain. [@I26]
     T14  Context: a diamond and a chain each give one update per wave from latest values; a throwing selector is 
-         isolated; a cycle and a missing provider reject at admission. No prototype case (Q2). [@I27, @I28]
+         isolated; a cycle and a missing provider reject at admission. No test yet (Q2). [@I27, @I28]
     T15  disposeActor and forget: unbound lanes listed until adopted; forget keeps a held lane and turns parked endings 
-         into evidence. Case `R15-01`; wrong runtimes `id.dispose-drops-lanes`, `audit-1.forget-is-a-no-op`,
-             `audit-1.forget-drops-the-queue`, `1b.forget-marks-held-lane`. [@I29, @I32]
+         into evidence.
+             Planted faults: a dispose that drops lanes; a forget that does nothing; a forget that drops the queue;
+             a forget that marks a held lane. [@I29, @I32]
     T16  Runtime disposal on a controlled clock: a call settling within 5 s is parked; past it unknown { Disposed }, 
          head kept Held; a definite ending drops the head; the queued NotSent { Disposed } precede the head's unknown;
-             nothing is invoked after the start; disposal ends only when no call is on the wire, or at the bound. Cases 
-                 `PAY-16`,
-             `R15-01`, `REV5-M1`; wrong runtimes `o6.dispose-interrupts-wire`, `o6.settled-in-bound-stays-held`,
-             `1b.disposal-definite-w-first`, `r15.past-bound-captured-inflight`, and for the wait on the wire
-                 `o6.no-bound`.
+             nothing is invoked after the start; disposal ends only when no call is on the wire, or at the bound.
+             Planted faults: a disposal that interrupts the wire; a call settled in the bound that stays held; a
+             definite ending applied before the head; a capture past the bound that stays in flight; a wait on the
+             wire with no bound.
              [@I29, @I30, @I31, @I35, @I36]
     T17  Cleanup failure and isolation: a failing finalizer rejects CleanupFailed and later ensures repeat it; two 
          Runtimes from one setup share nothing and reject each other's handles; a counter at its limit refuses
-             IdentityExhausted. No prototype case (Q2). [@I13, @I33, @I34]
+             IdentityExhausted. No test yet (Q2). [@I13, @I33, @I34]
     T18  Failed admission leaves nothing: an ensure refused for a missing provider or an invalid input leaves no actor, 
-         lane, schedule or evidence beyond the failure, and a later ensure succeeds. No prototype wrong runtime; its 
-         slice
-             plants a fault that leaves a half-admitted actor. [@I9]
+         lane, schedule or evidence beyond the failure, and a later ensure succeeds. No planted fault yet; its
+            slice
+                plants one that leaves a half-admitted actor. [@I9]
     T19  Free actors end: on a controlled clock, an actor whose last use detaches with no work in flight has ended at 
          exactly the grace, and one whose record cannot encode waits. Planted fault: an actor that never ends
              while Free. [@I37]
@@ -732,8 +732,8 @@ tests
          each deliver the same endings in the same order; after a boot and before any start no ending is in a
              mailbox. [@I14, @I40]
     T22  Suspended rows: endings in the mailbox, a declined commit's with no lane among them, when an incarnation ends, 
-         at disposeActor and at Runtime disposal are each heard once by the identity's next incarnation. Design
-             mutant: a suspend that skips rows with no lane. [@I41]
+         at disposeActor and at Runtime disposal are each heard once by the identity's next incarnation. Planted
+             fault: a suspend that skips rows with no lane. [@I41]
     T23  Disposal by R22's reading: after Runtime disposal a never-sent head has no lane and its NotSent { Disposed } 
          is heard once after a reload; a head held from Recapturing at disposal is saved Held, so the boot does not
              wake its identity. [@I29, @I38]
@@ -746,4 +746,4 @@ tests
     T26  The final write's contents: dispose with one head Acknowledging and one on the wire; the final write lands 
          holding the NotSent { Disposed } row and the lane record of the head on the wire, and a reload hears that
              NotSent { Disposed } and unknown { Restored } for the head on the wire, whatever it answered within the
-             bound. Wrong runtime: a final write issued at the bound. [@I44]
+             bound. Planted fault: a final write issued at the bound. [@I44]

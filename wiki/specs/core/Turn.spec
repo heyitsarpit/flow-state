@@ -241,8 +241,8 @@ open
                  planted fault in `tests/faults.ts` that `nub run faults` must catch; until then
                  every Requirement's evidence is open.
 
-    Q2  The prototype has no case for check(), onContext, restartOn, keyed schedules, exit and entry order, or 
-        equal-deadline order.
+    Q2  No Story test or planted fault exists yet for check(), onContext, restartOn, keyed schedules, exit and entry 
+        order, or equal-deadline order.
         outcome  Those cases are written first, each with its planted fault (Q1).
 
     Q3  Which Diagnostic code a refused turn's issue carries is not stated by the plans; InvalidTurn is check()'s 
@@ -493,75 +493,73 @@ coverage
 
 tests
     T1  Self and re-entry: a call started in a state, then "self", then an explicit re-entry of that state; after self 
-        the call ends current, after re-entry it ends late. Cases `PAY-07`, `R14-FIX-01`; wrong runtimes 
-        `audit-1.r14-reentry-keeps-activation`, `a3.r14-explicit-reentry-keeps-activation`, 
-        `a3.r14-reenters-the-parent`. [@I4, @I5]
+        the call ends current, after re-entry it ends late.
+            Planted faults: a re-entry that keeps the activation (also when explicit); a re-entry of the parent.
+            [@I4, @I5]
     T2  Exit and entry order: a three-level tree with an activity per level and a transition across two branches; the 
-        recorded stop and start order is deepest-first exits, then outermost-first entries. No prototype case; phase 3 
-        writes one with a wrong runtime that enters innermost first. [@I6, @I1]
-    T3  Subroutines and history: exit, abandonment, an ancestor's self, history re-entry. Case `FRAG-10`; wrong runtime 
-        `1b.r14-history-reentry-keeps-activation` (a history re-entry that keeps the activation). [@I4, @I5]
+        recorded stop and start order is deepest-first exits, then outermost-first entries. No test yet; phase 3
+            writes one with a planted fault that enters innermost first. [@I6, @I1]
+    T3  Subroutines and history: exit, abandonment, an ancestor's self, history re-entry. Planted fault: a history 
+        re-entry that keeps the activation. [@I4, @I5]
     T4  One publication: a transition that raises into two traits and resets a third publishes exactly one snapshot; a 
-        child's refusal publishes only the issue-only snapshot, with none of the parent's patch. Case `FRAG-17`.
-            [@I3, @I9]
+        child's refusal publishes only the issue-only snapshot, with none of the parent's patch. [@I3, @I9]
     T5  Before and after memory: a schedule function and a commit select read the value the turn wrote; a guard and a 
-        mapper read the old one. Case `PAY-16`; wrong runtime `pay16.schedule-reads-pre-transition-memory`. [@I12]
+        mapper read the old one. Planted fault: a schedule that reads the pre-transition memory. [@I12]
     T6  Refused turns: an out-of-range schedule delay (negative, non-finite or past 2^31 - 1 ms; 0 ms is allowed) and 
         overlapping keys (two raises writing one key; construction rejects those pruning cannot separate,
             @spec.Compile.R13, so this is the run-time check) refuse the turn: state unchanged, one issue-only 
                 snapshot, and check() answers Denied
-                with InvalidTurn (Q3 names the issue's code). Cases `REV4-H4`, `TURN-01/schedule-out-of-range`; wrong
-                runtimes `pinsb.schedule-unbounded`, `pinsa.overlapping-keys-allowed`. An unencodable value does not 
+                with InvalidTurn (Q3 names the issue's code).
+                Planted faults: an unbounded schedule delay; overlapping keys allowed. An unencodable value does not
                     refuse;
-                wrong runtime `pinsb.nan-carried-as-null`. [@I14]
+                planted fault: a NaN carried as null. [@I14]
     T7  Callback defects: a throwing guard, select and key each keep the prior snapshot with one issue naming the 
-        callback path, and the same input is not retried (case `R12-DEFECT`). A throwing post-commit mapper publishes 
-        one issue and no event. [@I14, @I16]
+        callback path, and the same input is not retried. A throwing post-commit mapper publishes one issue and no 
+        event. [@I14, @I16]
     T8  Determinism: run one reference scenario twice on a controlled clock and seed; the turn records are equal, and a 
         host clock jump between runs changes nothing. [@I17]
     T9  check agreement: for every (state, event) pair of the reference machines, check's verdict equals what handling 
-        does, and a Runtime spy sees no effect from check; a stored old snapshot answers from its captured values. No 
-        prototype case. [@I18]
-    T10  Schedules: armOn, disarmOn, exit, a re-armed debounce, a stale firing after re-arming. Cases `REAL-03`, 
-         `FRAG-17`, `LIFE-16`; wrong runtimes `pinsa.left-state-schedule-kept`, `life.grace-unfenced`. [@I20, @I21]
-    T11  Waiting while unused and overdue: cases `LIFE-14`, `FRAG-18`; wrong runtimes `life.schedule-fires-unused`, 
-         `life.waiting-survives-re-arm`, `life.waiting-never-wakes`, `life.waiting-lost-at-end`, 
-         `m2.q1-reset-keeps-timers`. [@I22, @I23]
+        does, and a Runtime spy sees no effect from check; a stored old snapshot answers from its captured values. No
+            test yet. [@I18]
+    T10  Schedules: armOn, disarmOn, exit, a re-armed debounce, a stale firing after re-arming. Planted faults: a 
+         schedule of a left state kept; a grace not fenced. [@I20, @I21]
+    T11  Waiting while unused and overdue. Planted faults: a schedule that fires while unused; a waiting schedule that 
+         survives a re-arm, never
+            wakes or is lost at the end; a reset that keeps timers. [@I22, @I23]
     T12  restartOn and keyed schedules: a changed selection restarts only its schedule; equal values do nothing; a key 
          leaving cancels its timer, a repeated key keeps one timer, and a restore does not restart a restartOn
-             schedule. No prototype case. [@I20, @I34, @I35]
+             schedule. No test yet. [@I20, @I34, @I35]
     T13  Placements: a key change releases once and opens the new key; a non-key change keeps the session; a throwing 
-         select keeps it with one issue. Case `P1-S`; wrong runtimes `p1s.key-not-in-identity`, 
-         `p1s.select-throw-releases`. [@I24]
+         select keeps it with one issue.
+            Planted faults: a key not part of the identity; a throwing select that releases. [@I24]
     T14  Owner test: a late ending routed as current, an unknown { Restored } routed from the root, and a late ending 
          left Unhandled must each fail the check
              as planted faults. [@I26]
     T15  LateMayNotLeave: a late exit beside an InFlight head or queued commit is denied; beside a Held head it is 
-         allowed. Cases `R14-FIX-01`, `R15-01`; wrong runtimes `misc.late-always-leaves`, `misc.late-leaves-queued`, 
-         `audit-1.r15-held-head-is-live`, `audit-1.r15-queue-behind-held-not-live`, and for an active subroutine 
-         `audit-1.r15-subroutine-ignored`. [@I27]
+         allowed.
+            Planted faults: a late exit that always leaves; one that leaves beside a queued commit; a Held head taken
+            as live; a queue behind a Held head taken as not live; an active subroutine ignored. [@I27]
     T16  onContext: a provider change wave with an equal selection, a changed one with when declining, and a throwing 
-         select. No prototype case. [@I28]
+         select. No test yet. [@I28]
     T17  Snapshots: writing into a published snapshot fails; a later publication reuses unchanged parts by identity. 
          Planted faults: a patch or row written in place; an absent entry treated as placed. [@I29, @I30]
     T18  Issues: two sources raise issues; one source's success clears only its own; a new incarnation starts with 
-         none. No prototype wrong runtime. [@I31]
+         none. No planted fault yet. [@I31]
     T19  One leaf and selection: generated event sequences over the reference machines; every snapshot's state is a 
          complete leaf path, and the chosen alternative equals an independent reference model of selection (deepest 
-         level first, first passing). No prototype wrong runtime; phase 3 writes one that tries the root first. [@I1, 
-         @I2]
+         level first, first passing). No planted fault yet; phase 3 writes one that tries the root first. [@I1, @I2]
     T20  Pending resets and whenAbandoned: a commit changes a trait's reset value; the reset runs as its own turn 
-         before the next event; a leave that ends a trait runs whenAbandoned in the leaving turn. Case `FRAG-02`; phase 
-         3 writes the wrong runtimes. [@I10, @I11]
+         before the next event; a leave that ends a trait runs whenAbandoned in the leaving turn. Phase
+            3 writes the planted faults. [@I10, @I11]
     T21  Denied and Unhandled: a lane ending admitted where every alternative declines applies its lane effects, counts 
          as delivered (its owed row closes), and changes no state or revision; an unhandled public event publishes 
-         nothing. Cases `STORE-04`, `R14-F-01`; phase 3 writes the wrong runtime that drops the lane effects. [@I15]
+         nothing. Phase 3 writes the planted fault that drops the lane effects. [@I15]
     T22  value only on change: a placement receives equal confirmed data twice and an optimistic change; value fires 
-         once. No prototype case for resources; phase 3 writes this test and its wrong runtime. [@I25]
+         once. No test for resources yet; phase 3 writes this test and its planted fault. [@I25]
     T23  Equal deadlines and step delays: two actors and two nested states arm schedules due at one instant; the 
          firings are separate turns in admission, outermost-state, then declaration order. A Schedule step fired late 
-         counts its next delay from the actual firing. No prototype case (Q2); phase 3 writes the wrong runtimes. 
-         [@I32, @I33]
+         counts its next delay from the actual firing. No test yet (Q2); phase 3 writes the planted faults.
+            [@I32, @I33]
     T24  Verdicts as acts: an accepted, an unhandled, a denied and a refused turn each give one Turn act, and the 
          report stream derived from the acts equals the stream before the change, byte for byte, over every Story run;
              check() on each answers Allowed, Unhandled, Denied, and Denied with InvalidTurn. Wrong runtimes: an 
