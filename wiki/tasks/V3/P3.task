@@ -777,6 +777,13 @@ tasks
             and Flow.private fields; a bad definition throws one FlowError whose diagnostics list every violation with
             its path, code and help; Definitions expose Event, State, Input, Memory and Snapshot Schemas, and a handle's
             snapshot hides private fields.
+        comment     2026-11-16T11:05:42Z
+            Close review: ISSUES at 73175434, gates green. Blocking: (1) hang, A2: one out-of-range computed delay at
+            creation drops every initial schedule silently (incarnations.ts getOrElse over armingsOf), so a valid 1 s
+            timeout never fires; (2) A1: an operation's success mapped to an undeclared event passes construction
+            (Compile R3). Fix round too: late implicit self only on the route (turn.ts implicit); R4 history taken from
+            inside X; R5 computed reading computed; I16 at machine(); R4 wrong kinds; the depth-2 type gap as an
+            inverted type test; "last active leaf" wording. Spec changes and faults-runner changes sound.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open
@@ -811,6 +818,13 @@ tasks
             Correction from T19: the earlier note's 'nothing is lost' was wrong until 366dcaa2's successor: a row saved
             while queued past the cap stayed in the owed record after it was heard, so a reload heard it twice. Now
             fixed and checked in src/core/persist.test.ts; the prompt re-step is still yours.
+        comment     2026-11-16T11:06:05Z
+            Routed from T17's close review: Flow.input machines never start, since start creates with {} and drops the
+            actor's mail silently (incarnations.ts, serve.ts); build creation from the ref's input with SchemaValidation
+            and issues. Also: the snapshot's schedules, issues, lifecycle and context; Turn R24 vs I30 on whether the
+            memory object keeps identity on a state-only move (its planted fault was removed in T17); a late turn may
+            exit an activation owning a queued commit (Turn R21, I27; serve.ts owning reads InFlight heads
+            only, pre-T17).
 
     T72
         title       UI primitives, second wave: toaster and menu fixtures

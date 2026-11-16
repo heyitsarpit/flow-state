@@ -140,6 +140,10 @@ tasks
             stress Story.
         comment     2026-11-16T01:40:10Z
             Routed from P2's close-out: the Compile T11 it.fails passes on any failure; tighten it when fixing.
+        comment     2026-11-16T11:06:05Z
+            Routed from T17: at depth 2 machine() widens a schedule's delay and armOn names to string (tsc TS2322 on "1
+            second" and "Tick" in player's ON.PLAYING), so the fixture uses Duration.seconds(1) and E.X.tag; T17's fix
+            round pins it as an inverted type test.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -206,6 +210,9 @@ tasks
             - The release-version Requirements of @spec.Restore hold, shown by Story tests that reload across two
               releases of a fixture.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-16T11:06:05Z
+            Routed from T17: history is not in the actor record (WriteAhead R4, Persistence O2), so S.X.history after a
+            reload enters the default; land it with record migration.
     T22
         title       CLI check, explain and graph
         status      draft
