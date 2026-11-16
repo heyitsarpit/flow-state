@@ -300,3 +300,8 @@ note 2026-11-16T01:58:14Z
 note 2026-11-16T02:04:36Z
     Phase P2 done: T75 PASS and the completion audit PASS at `eff65a6b` (`0477aff6`); coverage record re-matched,
     proposed to the user as a @plan.Runtime entry. Record compaction (R18) deferred to save usage.
+
+note 2026-11-16T02:11:30Z
+    Review of T54's first commit `d36c7f22`: GAPS (no one-writer, one-ledger or one-start rules; weak I23 test; R3
+    mis-cited); sent to the builder. Delegated: core-owned reports are built only by evidenceOf; the Turn R20 cite fix
+    is a small amendment.
