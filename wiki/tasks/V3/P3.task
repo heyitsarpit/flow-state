@@ -600,7 +600,7 @@ tasks
             UnencodableValue report, and the realization's 'not built yet' is a gap written into the Spec.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T19]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
@@ -882,6 +882,10 @@ tasks
             I17 on the wire, Restore R3 re-heard each start; R11 is outside T20 and must count owed parts. For the
             user's page: a write too large to save is refused at once, never hangs; a result too large to save returns
             after a reload as outcome unknown.
+        comment     2026-11-16T20:12:17Z
+            Held in progress (orchestrator): close gates are red only in the session fixture (Turn I9, owned by T9; the
+            session pair-sweep cell 'Acknowledging x storage refusal' never fires, undiagnosed, in T20's range). Next:
+            after T9's round 3, diagnose that cell, rerun the gates, then review.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
@@ -1050,7 +1054,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T17]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]

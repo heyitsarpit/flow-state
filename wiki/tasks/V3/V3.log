@@ -740,3 +740,7 @@ note 2026-11-16T19:56:29Z
 note 2026-11-16T20:01:36Z
     Amendment (2026-11-17, the user): each Task's fixtures line names its catalog step and fixtures; leads build those
     rows from their sources and mark the cells used at the close. Commit: a2240b63.
+
+note 2026-11-16T20:12:18Z
+    T20 built (1ba4b4b1) but held: its gates are red only in session, on T9's Turn I9 double publish and one undiagnosed
+    pair-sweep cell. T9 round 3 starts now (one lead); then T20 diagnoses the cell and goes to review.
