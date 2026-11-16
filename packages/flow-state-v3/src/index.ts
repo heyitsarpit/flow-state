@@ -19,4 +19,12 @@ export { deny, Flow, Outcome } from "./flow.ts";
 
 export { actorRef, app, runtimeSetup } from "./host/runtime.ts";
 
-export type { Actor, ActorRef, App, Runtime, RuntimeSetup, Snapshot } from "./host/runtime.ts";
+export type {
+  Actor,
+  ActorRef,
+  App,
+  AppEntry,
+  Runtime,
+  RuntimeSetup,
+  Snapshot,
+} from "./host/runtime.ts";

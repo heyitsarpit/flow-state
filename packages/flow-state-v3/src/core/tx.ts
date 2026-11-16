@@ -149,14 +149,26 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   };
 
   // Each actor has one FIFO mailbox; an actor whose mailbox was empty joins the rotation last.
+  // The actors mail was enqueued for since the drain last asked: a served event's follow-ups.
+  let fresh: Array<string> = [];
+
   const enqueue = (mail: Mail) => {
     const key = actorKey(mail.actor);
+    fresh.push(key);
     world = { ...world, mail: withEntry(world.mail, key, [...(world.mail.get(key) ?? []), mail]) };
+  };
+
+  const takeFresh = () => {
+    const taken = fresh;
+    fresh = [];
+
+    return taken;
   };
 
   return {
     ...tx,
     persisted,
+    takeFresh,
     armTimer,
     disarmWhere,
     incarnationOf: (actor: ActorId) => world.incarnations.get(actorKey(actor)),

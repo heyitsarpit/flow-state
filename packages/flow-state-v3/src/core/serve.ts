@@ -14,6 +14,12 @@ const HEARD: Heard = "Heard";
 
 const REFUSED: Heard = "Refused";
 
+// How many mail items one step serves before it leaves the rest to a later step.
+const DRAIN_CAP = 10_000;
+
+// How many follow-ups one admitted event may start before the next is refused.
+const FOLLOW_UPS = 64;
+
 const UNMAPPED: Heard = "Unmapped";
 
 /**
@@ -335,20 +341,73 @@ export const makeServe = (
       },
     });
 
+  // An actor's oldest mail, taken from its mailbox; a rotated actor goes to the back while it
+  // still has mail, a follow-up's actor keeps its place.
+  const takeOldest = (key: string, rotated: boolean) => {
+    const [first, ...rest] = tx.world().mail.get(key) ?? [];
+    const others = rotated || rest.length === 0 ? without(tx.world().mail, key) : tx.world().mail;
+    tx.set({ ...tx.world(), mail: rest.length === 0 ? others : withEntry(others, key, rest) });
+
+    return first;
+  };
+
+  // Only events and context updates count against the follow-up cap: an ending or a firing is
+  // never refused by it.
+  const capped = (mail: Mail) => Mail.$is("Event")(mail) || Mail.$is("Context")(mail);
+
+  const refuseFollowUp = (mail: Mail) =>
+    tx.act(
+      Act.Refused({
+        code: "InvalidTurn",
+        actor: mail.actor,
+        ending: Option.none(),
+        source: "chain",
+        slot: Option.none(),
+      }),
+    );
+
   const drain = () => {
-    for (let served = 0; served < 10_000 && tx.world().mail.size > 0; served += 1) {
-      const [next] = tx.world().mail;
+    tx.takeFresh();
 
-      if (next === undefined) return;
+    for (let served = 0; served < DRAIN_CAP && tx.world().mail.size > 0;) {
+      const [key] = tx.world().mail.keys();
 
-      // One event from the next actor in rotation: its oldest; the actor goes to the back while
-      // it still has mail.
-      const [key, [first, ...rest]] = next;
-      const others = without(tx.world().mail, key);
-      tx.set({ ...tx.world(), mail: rest.length === 0 ? others : withEntry(others, key, rest) });
+      if (key === undefined) return;
+
+      // One event from the next actor in rotation; then its follow-ups, first, oldest first
+      // within each actor, up to FOLLOW_UPS of them.
+      const first = takeOldest(key, true);
 
       if (first !== undefined) serve(first);
+      served = followUps(served + 1);
     }
+  };
+
+  // Serves the follow-ups of the event just served, in the order they were enqueued, until none
+  // is left or the step's cap; returns how many items the step has served.
+  const followUps = (servedBefore: number) => {
+    let served = servedBefore;
+    let chain = tx.takeFresh();
+
+    for (let count = 0; chain.length > 0 && served < DRAIN_CAP;) {
+      const [next, ...later] = chain;
+      chain = later;
+      const followUp = next === undefined ? undefined : takeOldest(next, false);
+
+      if (followUp === undefined) continue;
+
+      if (count >= FOLLOW_UPS && capped(followUp)) {
+        refuseFollowUp(followUp);
+        continue;
+      }
+
+      serve(followUp);
+      count += 1;
+      served += 1;
+      chain = [...chain, ...tx.takeFresh()];
+    }
+
+    return served;
   };
 
   return { endingMapping, turn, serveEnding, serve, drain };

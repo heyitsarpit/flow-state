@@ -351,6 +351,19 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "follow-ups-uncapped",
+    tests: ["tests/actors/follow-ups.test.ts"],
+    says: "an admitted event's follow-ups run without bound",
+    rule: "Actors I20",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "        if (count >= FOLLOW_UPS && capped(followUp)) {",
+        replace: "        if (count < 0 && capped(followUp)) {",
+      },
+    ],
+  },
+  {
     name: "foreign-handle-accepted",
     tests: ["tests/actors/identity.test.ts"],
     says: "another Runtime's handle is taken as naming this Runtime's actor",
