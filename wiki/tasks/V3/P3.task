@@ -398,7 +398,7 @@ tasks
             verdict-to-FlowError text is built twice (driver.ts check, runtime.ts rejected).
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
-        status      review
+        status      done
         priority    high
         blocked_by  [@T55]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3, @plan.Persistence.O6]
@@ -793,7 +793,7 @@ tasks
             on the old sizing), check, faults, review. Long step samples were too slow (162 s suite) and were dropped.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
-        status      review
+        status      done
         priority    high
         blocked_by  [@T54]
         satisfies   [

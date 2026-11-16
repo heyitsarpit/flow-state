@@ -674,3 +674,8 @@ note 2026-11-16T18:00:49Z
     Run resumed at 6a8eac25: no agents alive, tree clean; cron 7,37 and caffeinate (pid 49826) up; 5-hour 0%, weekly
     26%. First action: a new Opus lead resumes T20 round 3 from the WIP checkpoint b0c3a91b (resume note a49e7119); then
     T81 fix round, T9 round 3, T79, T80.
+
+note 2026-11-16T18:05:58Z
+    The user read the pages of T54, T19 and T17; T19 and T17 (both PASS) set done. T20 round 3 turned into a convergence
+    pass: two reviews found one class (a record's size bound judged once while the record grows), threshold 2. Why: the
+    fixes moved the hang one step on. Fixtures and failing Stories first, then one redesign.
