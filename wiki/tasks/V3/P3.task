@@ -1521,7 +1521,7 @@ tasks
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
-        status      in_progress
+        status      review
         priority    high
         description
             Every fixture gets a manifest and grows into its catalog app with today's features: step 1 of
@@ -1646,3 +1646,24 @@ tasks
             dispose/ensure bypassing BlockedByDependents and ConflictingActorRef (T9); a parked Disposed ending replaced
             by unknown Restored, and a Held head's unknown Restored delivered again at a second reload (T20); -0 keys
             declined Unencodable and the 8,192-byte key bound unenforced (T21).
+        comment     2026-11-16T22:10:03Z
+            Close at 9392831c: manifests and all nine step-1 rows built, every catalog item marked built or left
+            (5f90b80d). check 0; suite 1,044 pass + 19 inverted, 6 red, all Turn I9 (T9) or the pair cell Acknowledging
+            x storage refusal (T20), the classes red at the start; stress files and fresh seeds add only Turn I9 and the
+            inverted 1,024-badge rename; nub run faults not judged, since the unchanged suite is red on those classes,
+            as at the start. Extra files: tools/stress/select.test.ts (reads savedStress),
+            tests/session/session.test.ts, wiki/conventions/fixtures.md (manifest shape).
+        comment     2026-11-16T22:10:03Z
+            Routed as inverted tests: T9 - Turn I9 double publish of restored context consumers; Story dispose and
+            ensure skipping BlockedByDependents, ConflictingActorRef, MissingContextProvider (Stories R3); a 1,024-badge
+            rename refused by the follow-up cap, its refused turn publishing no issue snapshot (Actors R13, Turn I14).
+            T20 - a parked Disposed ending replaced by unknown Restored at restore; a Held head's unknown Restored
+            delivered again at a second reload (WriteLanes R10, WriteAhead R14). T21 - -0 keys declined Unencodable; the
+            8,192-byte key bound unenforced (Operations O1).
+        comment     2026-11-16T22:10:03Z
+            Decisions (agent): samples, stressSamples and pairs are lists so apps grow new sets without moving saved
+            seeds; mix is one chosen set per app (a mix holds each machine once); each grown app is a new App of the old
+            id beside the old one, so no old setup changes; Stories that hit a known bug on every runner are builders
+            run by their tests. For the user: no Task owns an actor-to-actor send action (5 rows' step-1 cell);
+            ContextCycle is unreachable without a same-id stand-in; sync's 4xx finding needs an old-contract edit.
+            Sign-in's samples stay out of the mix: a sixth part fails the one-network check at 5 seeds.
