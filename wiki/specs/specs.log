@@ -169,3 +169,7 @@ note 2026-11-16T14:16:24Z
     WriteAhead: I21 excepts an identity withheld while its record cannot encode; it is reported UnencodableValue once
     and its tickets' silence starts with their batch; a lane gone Idle owing a displaced ending keeps a head-less
     record.
+
+note 2026-11-16T14:24:40Z
+    Restore R5, R10 after T20's adversary pass: a quarantined record's bytes stay until the identity writes that record
+    again; a forget by a Runtime that never booted or failed its load fails, with no I/O.

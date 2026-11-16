@@ -182,8 +182,21 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "    if (!driver.stored()) return yield* Effect.fail(forgetFailed);",
-        replace: "",
+        find: "    if (!opened || !driver.world().persistence || !driver.stored())",
+        replace: "    if (!opened || !driver.world().persistence)",
+      },
+    ],
+  },
+  {
+    name: "forget-before-boot",
+    tests: [HOST],
+    says: "a Runtime that never booted deletes the scope it never owned",
+    rule: "Restore R10",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: "    if (!opened || !driver.world().persistence || !driver.stored())",
+        replace: "    if (!driver.world().persistence || !driver.stored())",
       },
     ],
   },
@@ -195,8 +208,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "    if (!driver.stored()) return yield* Effect.fail(forgetFailed);",
-        replace: "    if (driver.stored()) return;",
+        find: "      return yield* Effect.fail(forgetFailed);",
+        replace: "      return yield* Effect.fail(forgetFailed);\n\n    if (opened) return;",
       },
     ],
   },
@@ -232,6 +245,19 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     says: "an array of any length encodes",
     rule: "Codec I2",
     edits: [{ file: "src/core/codec.ts", find: "  items: 4096,", replace: "  items: 1_000_000," }],
+  },
+  {
+    name: "commit-past-bound-admitted",
+    tests: [UNENCODABLE],
+    says: "a commit whose input is past a codec bound is admitted, and its lane record can never be saved",
+    rule: "Codec R4",
+    edits: [
+      {
+        file: "src/core/lanes.ts",
+        find: "      Result.flatMap(Schema.encodeUnknownResult(operation.inputJson)(input), encodeCanonical),",
+        replace: "      Schema.encodeUnknownResult(operation.inputJson)(input),",
+      },
+    ],
   },
   {
     name: "silent-while-withheld",

@@ -188,7 +188,7 @@ export const toCanonicalJson = (root: unknown) => {
     if (!isPlainObject(value))
       return Result.fail(CodecFailure.Malformed({ reason: "notPlain", path }));
 
-    const out: Record<string, Schema.Json> = {};
+    const out: Array<readonly [string, Schema.Json]> = [];
 
     for (const key of Object.keys(value).toSorted(byCanonicalKey)) {
       const named = text(key, path);
@@ -197,10 +197,11 @@ export const toCanonicalJson = (root: unknown) => {
       const field = visit(value[key], `${path}.${key}`, depth);
 
       if (Result.isFailure(field)) return field;
-      out[key] = field.success;
+      out.push([key, field.success]);
     }
 
-    return Result.succeed<Schema.Json>(out);
+    // Built from entries, so a key such as `__proto__` stays an own field.
+    return Result.succeed<Schema.Json>(Object.fromEntries(out));
   };
 
   return visit(root, "$", 0);

@@ -66,6 +66,12 @@ describe("Canonical encoding (Codec R2)", () => {
     ).toBe('{"a":{"c":null,"d":[1,{"y":1,"z":0}]},"b":1}');
   });
 
+  it("a field named __proto__ is kept as a field, both ways (Codec I1)", () => {
+    const text = '{"__proto__":{"a":1},"b":2}';
+
+    expect(Result.flatMap(decodeCanonical(text), encodeCanonical)).toEqual(Result.succeed(text));
+  });
+
   it("equal values give equal text whatever the order they were built in", () => {
     expect(encodeCanonical({ x: 1, y: "é" })).toEqual(encodeCanonical({ y: "é", x: 1 }));
   });

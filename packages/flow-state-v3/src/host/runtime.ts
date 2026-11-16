@@ -424,15 +424,21 @@ export const buildRuntime = (
     },
   ]);
 
-  // A forget removes every record the scope holds in one batch, after the disposal's own writes;
-  // with a write of the disposal still unanswered it fails, since that write may land later. A
-  // Runtime that never persisted, or whose load failed, makes no store call.
+  // A forget removes every record the scope holds in one batch, after the disposal's own writes. It
+  // fails with no store call when it cannot know it deleted everything: a write of the disposal
+  // still unanswered may land later, and a Runtime that never booted, or whose load failed, never
+  // owned what it would delete. A Runtime that never persisted has nothing to forget.
   const forget = Effect.fn("Runtime.forget")(function* () {
     const store = host.store;
 
-    if (!persistence || Option.isNone(store) || !driver.world().persistence) return;
+    if (!persistence || Option.isNone(store)) return;
 
-    if (!driver.stored()) return yield* Effect.fail(forgetFailed);
+    const opened = (yield* Deferred.isDone(booted))
+      ? Exit.isSuccess(yield* Effect.exit(Deferred.await(booted)))
+      : false;
+
+    if (!opened || !driver.world().persistence || !driver.stored())
+      return yield* Effect.fail(forgetFailed);
 
     yield* store.value.load.pipe(
       Effect.flatMap((saved) =>

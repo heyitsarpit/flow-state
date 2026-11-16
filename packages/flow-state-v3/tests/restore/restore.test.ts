@@ -164,6 +164,21 @@ describe("record formats (Restore R5, I10, I13)", () => {
   });
 });
 
+describe("a lane whose input no longer decodes (Restore R8)", () => {
+  // Open, owned by the release-versions Task: such a record still reads, so R8 hears its Held head
+  // at a start; today the boot quarantines it unread, reported at each boot instead.
+  it.fails("Restore R8: a lane record whose input no longer decodes still has its Held head heard at a start", async () => {
+    const lane = await heldLane();
+    const text = lane.text.replace('"transferId":"t1"', '"transferId":1');
+
+    const run = checked(
+      await heldTransfer.world(Fake.storage.put(lane.key, text)).reload().checkpoint("after").run(),
+    );
+
+    expect(heard(run, 2, "transfer")).toEqual(["Unsure"]);
+  });
+});
+
 describe("an undecodable actor record (Restore R5, I11)", () => {
   const actorKey = "actor/Bank/Transfers/acct-1";
   const broken = '{"format":1}';

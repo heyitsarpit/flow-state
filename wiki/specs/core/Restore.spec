@@ -87,9 +87,11 @@ requirements
                 Each older record format reaches the current one by a pure step at the boot; a
                 newer, null or non-integer format is quarantined, its lane still holding by its id.
                 A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
-                too. A quarantined record keeps its bytes. A quarantined lane or owed record is
-                reported RecordUndecodable at each boot; its head and rows cannot be read, so none
-                is heard, and the report stands in for them.
+                too. A quarantined record keeps its bytes until the identity writes that record
+                again: an actor's first save, an owed record's next change, a lane's cancel. Until
+                then a quarantined lane or owed record is reported RecordUndecodable at each boot;
+                its head and rows cannot be read, so none is heard, and the report stands in for
+                them.
 
                 An actor record that does not decode is quarantined:
 
@@ -173,9 +175,10 @@ requirements
         must    runtime.dispose({ forget: true }) waits until the scope's data is unrestorable and
                 deleted before releasing ownership; a failed deletion reports StorageFailure and
                 never claims success; so does a forget while the disposal's own write is still
-                unanswered, since that write may land after the deletion. Ordinary disposal keeps
-                saved data. A Runtime without persistence, or whose load failed (R9), performs no
-                forget I/O.
+                unanswered, since that write may land after the deletion, and so does, with no I/O,
+                a forget by a Runtime that never booted or whose load failed (R9), which never owned
+                what it would delete. Ordinary disposal keeps saved data. A Runtime without
+                persistence performs no forget I/O.
 
 open
     Q1  Executable checks are not built.
@@ -342,7 +345,7 @@ tests
          publication retries the newest. [@I16, @I17]
     T12  Forgetting a scope: deletion confirmed before success; a failing deletion, or a forget over the disposal's 
          unanswered write, reports StorageFailure. Planted faults: a forget that deletes nothing; a forget over an
-            unanswered write. [@I18]
+             unanswered write. [@I18]
     T13  Fresh ids after restore: after a reload, every incarnation id and Attempt id minted differs from every id in 
          the restored records. Planted fault: a mint floor set from the head only. [@spec.Actors.I13,
              @spec.WriteLanes.I6]

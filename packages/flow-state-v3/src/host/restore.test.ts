@@ -1,7 +1,7 @@
 import { Cause, Effect, Exit, type Fiber, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { actorRef, app, definition, Flow, machine } from "../index.ts";
-import { bootWith, testing } from "./testing/seam.ts";
+import { bootWith, platformOver, testing } from "./testing/seam.ts";
 
 const Session = definition({
   id: "Restore/Session",
@@ -123,6 +123,18 @@ describe("forgetting a scope (Restore R10, I18)", () => {
     const disposing = Effect.runFork(built.runtime.dispose({ forget: true }));
     tab.settle();
     tab.advance(5000);
+
+    expect(outcome(disposing)).toBe("StorageFailure");
+    expect([...store.keys()]).toEqual(["actor/Restore/Session/main"]);
+  });
+
+  it("Restore R10: a forget before the Runtime booted fails StorageFailure and deletes nothing", () => {
+    const store = new Map<string, string>([["actor/Restore/Session/main", "saved before"]]);
+    const tab = platformOver(store, 1);
+    const built = testing.build({ app: badges, scope: "test", persistence: {} }, tab.platform);
+
+    const disposing = Effect.runFork(built.runtime.dispose({ forget: true }));
+    tab.settle();
 
     expect(outcome(disposing)).toBe("StorageFailure");
     expect([...store.keys()]).toEqual(["actor/Restore/Session/main"]);

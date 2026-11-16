@@ -160,6 +160,23 @@ describe("an actor record past a codec bound (Actors R8; WriteAhead R4; Codec R1
     expect(run.checkpoints.sent.read(Git.sync)).toHaveLength(1);
   });
 
+  it("Codec R4: a commit whose input is past a codec bound declines NotSent Unencodable and withholds nothing", async () => {
+    const run = checked(
+      await notesStory("restore/unencodable-input")
+        .ensure(notes)
+        .send(notes, { _tag: "Sync", repo: "r".repeat(262_145) })
+        .advance("1 second")
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(
+      run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+    ).toEqual(["notSent Unencodable"]);
+    expect(reported(run)).toEqual([]);
+    expect(run.checkpoints.after.read(Git.sync)).toEqual([]);
+  });
+
   it("Actors R22: a Runtime disposed while an identity is withheld ends its queued commits once, across the reload", async () => {
     const run = checked(
       await notesStory("restore/unencodable-disposal")

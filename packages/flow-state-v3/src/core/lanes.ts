@@ -11,6 +11,7 @@ import type { Channel } from "./vocabulary.ts";
 import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import { laneRecordKey } from "./record.ts";
+import { encodeCanonical } from "./codec.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {
@@ -136,7 +137,11 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     };
 
     const text = keyTextOf(operation, key);
-    const encodes = Result.isSuccess(Schema.encodeUnknownResult(operation.inputJson)(input));
+
+    // An input past a codec bound has no encoded form either: its lane record could never be saved.
+    const encodes = Result.isSuccess(
+      Result.flatMap(Schema.encodeUnknownResult(operation.inputJson)(input), encodeCanonical),
+    );
 
     // An input or key with no encoded form, or a persisted identity in a Runtime without
     // persistence, declines before the lane's table: nothing is sent or saved.
