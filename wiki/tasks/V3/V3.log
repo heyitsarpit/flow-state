@@ -616,3 +616,8 @@ note 2026-11-16T15:38:09Z
 note 2026-11-16T15:38:39Z
     Amendment (2026-11-16, the user): instructions gain Fixtures first: a public feature goes into a fixture with usual
     and stress Stories and edge-value step samples before it is built; findings land in fixtures too. Commit: dbfb0c3e.
+
+note 2026-11-16T15:42:34Z
+    Fixtures-first acceptance added to 21 feature Tasks (the user, 2026-11-16), naming existing fixtures and 14 proposed
+    new ones (session, wizard, search, dashboard, thermostat, checklist and others); tooling, docs, budget and release
+    Tasks skipped.
