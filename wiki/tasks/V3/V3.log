@@ -657,3 +657,15 @@ note 2026-11-16T16:10:26Z
 note 2026-11-16T17:43:52Z
     Amendment (2026-11-16, the user): the workflow pin moves 6b7288e to 1b83a6d, which adds 'findings name why the tests
     missed them' to policy-testing, policy-verification, review and build-a-loop R17. Commit: 2e29a000.
+
+note 2026-11-16T17:48:13Z
+    Session ended (the user, 2026-11-16 23:30 IST); no agents running, tree clean at this commit. Resume: "run the loop
+    in wiki/tasks/V3/epic.task".
+
+note 2026-11-16T17:48:13Z
+    Next, one lead at a time: T20 round 3 (resume a49e7119), then T81 fix round (partial review: definition(null)
+    TypeError, decoded value unused), then T9 round 3 (session fixture, per-slot seen), T79, T80.
+
+note 2026-11-16T17:48:13Z
+    In review, held only by the user's pages (T54, T19, T17 unread): T19 and T17 passed. Every review asks why tests
+    missed each finding; every Task meets wiki/conventions/fixtures.md.
