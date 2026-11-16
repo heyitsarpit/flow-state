@@ -642,3 +642,6 @@ note 2026-11-16T16:03:41Z
 note 2026-11-16T16:04:24Z
     Decision (the user, 2026-11-16): wakes at most 45 minutes apart (one cron, 7,52), replacing the 50-minute plan,
     since separate crons drift apart. Reverse: one hourly cron.
+
+note 2026-11-16T16:06:11Z
+    Decision (the user, 2026-11-16): one wake every 30 minutes (7,37), replacing the 45-minute plan.

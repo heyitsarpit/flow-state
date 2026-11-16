@@ -286,12 +286,12 @@ instructions
     - No worktrees: the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08; R43).
     - No agent reads agent transcripts (the user, 2026-11-15).
 cadence
-    Wakes at most 45 minutes apart (the user, 2026-11-16; was 60, so the orchestrator's 1-hour prompt cache stays warm)
-    check for a Task in review, a stalled lead, the usage reserve and the 5-hour window; wakes about every three hours
-    also time the tests (the user, 2026-11-16). Reviews run on the events in instructions, not on the clock.
+    A wake every 30 minutes (the user, 2026-11-16; was 60, so the orchestrator's 1-hour prompt cache stays warm) checks
+    for a Task in review, a stalled lead, the usage reserve and the 5-hour window; wakes about every three hours also
+    time the tests (the user, 2026-11-16). Reviews run on the events in instructions, not on the clock.
 
-    Session cron `7,52 * * * *` (gaps of 45 and 15 minutes). One job only: the scheduler adds a different fixed delay to
-    each job, so several jobs drift apart and an exact 45-minute cycle can't be kept.
+    Session cron `7,37 * * * *`. One job only: the scheduler adds a different fixed delay to each job, so several jobs
+    drift apart and an exact 45-minute cycle can't be kept.
 
     Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the weekly usage and the
     5-hour window from the harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it;
