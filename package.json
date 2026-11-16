@@ -26,8 +26,8 @@
     "lint:rules": "node --experimental-strip-types tools/lint-bomb/test/rules.test.ts && node --experimental-strip-types tools/flow-state-lint/rules.test.ts && node --experimental-strip-types tools/flow-state-lint/imports.test.ts",
     "test": "vp test",
     "test:stress": "node --experimental-strip-types tools/stress/select.test.ts && FLOW_STRESS=1 vp test run packages/flow-state-v3",
-    "verify": "nub run check:toolchain && nub run lint:rules && nub run check && nub run test && nub run docs:build",
-    "test:coverage": "vp test run packages/flow-state-rewrite --coverage",
+    "verify": "nub run check:toolchain && nub run lint:rules && nub run check && nub run test && nub run test:stress && nub run docs:build",
+    "test:coverage": "FLOW_FROZEN=1 vp test run packages/flow-state-rewrite --coverage",
     "report:unused": "knip --workspace packages/flow-state-rewrite --no-exit-code"
   },
   "devDependencies": {

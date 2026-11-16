@@ -24,6 +24,10 @@ const frozen = [
 // (`nub run test:stress`). tools/stress/select.test.ts checks both selections.
 const stressTests = `${production}/**/*.stress.test.ts`;
 const stressRun = process.env["FLOW_STRESS"] === "1";
+// Frozen packages are never edited and fail on their own, so the default and stress runs skip them;
+// only `nub run test:coverage` (FLOW_FROZEN=1) runs the rewrite package.
+const frozenRun = process.env["FLOW_FROZEN"] === "1";
+const frozenTests = frozenRun ? [] : ["packages/flow-state/**", "packages/flow-state-rewrite/**"];
 
 const productionTests = [
   `${productionSource}/**/*.test.{ts,tsx}`,
@@ -319,7 +323,7 @@ export default defineConfig({
   },
   test: {
     include: stressRun ? [stressTests] : ["packages/**/*.test.ts"],
-    exclude: stressRun ? configDefaults.exclude : [...configDefaults.exclude, stressTests],
+    exclude: [...configDefaults.exclude, ...frozenTests, ...(stressRun ? [] : [stressTests])],
     coverage: {
       provider: "v8",
       include: [

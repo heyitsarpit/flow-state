@@ -70,3 +70,7 @@ note 2026-11-16T04:10:00Z
     @spec.Restore R3: the unsaved-queue limit is withdrawn; lane records save W and owed displaced Attempts, ended
     Restored at the boot. Why: @plan.Operations.O3 and @plan.Persistence.O4 promise NotSent Restored per queued commit
     (T18 review B1, the coordinator's ruling). Reverse: none; the Plans decide.
+
+note 2026-11-16T06:20:41Z
+    Reworded old conformance-suite lines (case ids, prototype lies, wrong runtimes) in some Spec tests as planted
+    faults. Other such lines remain across core Specs.

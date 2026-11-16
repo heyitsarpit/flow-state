@@ -768,11 +768,11 @@ coverage
 
 tests
     T1  Three channels and the Attempt's ending: success, failure and unknown each map to their event; a definite 
-        failure after an unknown send is StillUnknown. Cases `STORE-01`, `STORE-02`, `STORE-03`, `PAY-05`; prototype
-            lies `k.failure-as-success`, `e8.wa-failure`. [@I3]
+        failure after an unknown send is StillUnknown. Planted fault: a failure
+            delivered as a success. [@I3]
     T2  The Attempt: every send has one id; a definite failure then a new write mints a new id; after a restore, new 
-        ids never equal a restored one (a fresh seed each boot, R5). Cases `PAY-04`, `PAY-15`; prototype
-            wrong runtime `durable.mint-floor-head-only`. [@I6, @I7]
+        ids never equal a restored one (a fresh seed each boot, R5). Planted fault: a mint
+            floor that counts only the head. [@I6, @I7]
     T3  Concurrency cells, one per policy: reject declines beside a Held head; latest supersedes a never-sent head; 
         serialize declines the 65th; cancel interrupts the wire. Cases `PAY-15`, `MED-01`, `REV8-PINS`, `R15-01`; 
         prototype
@@ -823,7 +823,7 @@ tests
              Cancelled routed to the author's Cancelled tag; a row saved with channel failure for a NotSent. [@I4, @I5,
              @I39]
     T17  Member order: one turn listing cancel then commit on a Held lane, and one listing commit then cancel; each 
-         member applies to the state the previous one left. No prototype wrong runtime; planted fault: applies
+         member applies to the state the previous one left. Planted fault: applies
              members to the pre-turn lane. [@I10]
     T18  Ids across devices: two Runtimes with different session seeds, each on its own storage, mint writes to one 
          fake server keyed by Attempt id; no id repeats, and replaying one Runtime with its seed gives the same ids.

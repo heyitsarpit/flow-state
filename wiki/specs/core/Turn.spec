@@ -534,8 +534,8 @@ tests
          select keeps it with one issue. Case `P1-S`; wrong runtimes `p1s.key-not-in-identity`, 
          `p1s.select-throw-releases`. [@I24]
     T14  Owner test: a late ending routed as current, an unknown { Restored } routed from the root, and a late ending 
-         left Unhandled (prototype lies `k.late-as-current`, `k.restored-from-root`, `g.late-unhandled`) must
-             each fail the check; lateness: wrong runtime `a2.lateness-transitive`. [@I26]
+         left Unhandled must each fail the check
+             as planted faults. [@I26]
     T15  LateMayNotLeave: a late exit beside an InFlight head or queued commit is denied; beside a Held head it is 
          allowed. Cases `R14-FIX-01`, `R15-01`; wrong runtimes `misc.late-always-leaves`, `misc.late-leaves-queued`, 
          `audit-1.r15-held-head-is-live`, `audit-1.r15-queue-behind-held-not-live`, and for an active subroutine 
@@ -543,8 +543,7 @@ tests
     T16  onContext: a provider change wave with an equal selection, a changed one with when declining, and a throwing 
          select. No prototype case. [@I28]
     T17  Snapshots: writing into a published snapshot fails; a later publication reuses unchanged parts by identity. 
-         Prototype lies `w.patch-in-place`, `w.row-in-place`; absent entries: wrong runtime `f.absent-is-placed`. 
-         [@I29, @I30]
+         Planted faults: a patch or row written in place; an absent entry treated as placed. [@I29, @I30]
     T18  Issues: two sources raise issues; one source's success clears only its own; a new incarnation starts with 
          none. No prototype wrong runtime. [@I31]
     T19  One leaf and selection: generated event sequences over the reference machines; every snapshot's state is a 

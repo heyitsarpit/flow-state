@@ -692,9 +692,8 @@ tests
         new version; a description change is not. Case `R14-ID-02`; wrong runtimes `id.old-version-restored`,
             `id.version-by-names-only`, `l1.version-by-printed-name`. [@I39]
     T10  Mailboxes and rotation: FIFO within an actor; a spin on one actor does not delay another's ending; 65 
-         follow-ups are refused. Cases `REV9-LOOP`, `ORDER-04`; wrong runtime `d122.rota-not-rotated`. The prototype's
-             FIFO wrong runtime no longer applies to its code, so its slice plants one; the 64 and 1,024 bounds have no
-             prototype wrong runtime (Q2). [@I19, @I20, @I21, @I22]
+         follow-ups are refused. Cases `REV9-LOOP`, `ORDER-04`; wrong runtime `d122.rota-not-rotated`. Planted faults: a
+             mailbox that is not FIFO; the 64 and 1,024 bounds have none yet (Q2). [@I19, @I20, @I21, @I22]
     T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next Start. Cases 
          `REV8-KEPT`, `REV9-KEPT`; lie `a4.refused-denied`; wrong runtimes `turn.refusal-keeps-asks`,
              `1b.r8-refused-ending-not-redelivered`. [@I23, @I24]
@@ -724,12 +723,11 @@ tests
          slice
              plants a fault that leaves a half-admitted actor. [@I9]
     T19  Free actors end: on a controlled clock, an actor whose last use detaches with no work in flight has ended at 
-         exactly the grace, and one whose record cannot encode waits. Its slice plants the fault that never ends
-             a Free actor (the prototype's life.grace-never-ends). [@I37]
+         exactly the grace, and one whose record cannot encode waits. Planted fault: an actor that never ends
+             while Free. [@I37]
     T20  Never-sent commits at disposal: a queued commit and a head waiting for its acknowledgement when disposal 
          starts each end NotSent { Disposed } before it ends, and the next incarnation after a reload hears each once.
-             Wrong behaviour: a disposal that skips the never-sent commits. Round-14
-             never delivers it after the reload (a stated limit of round-14, ruling CQ6). [@I38]
+             Planted fault: a disposal that skips the never-sent commits. [@I38]
     T21  One delivery point: a reload, a return and an adoption of one identity with the same owed rows and Held heads 
          each deliver the same endings in the same order; after a boot and before any start no ending is in a
              mailbox. [@I14, @I40]

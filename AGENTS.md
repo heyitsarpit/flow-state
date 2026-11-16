@@ -8,11 +8,14 @@
 - `reference/` — historical. Read-only. Archived plans, tasks and Beads were deleted (commit `20986677` has them).
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
   Inside it: `src/core/` (pure), `src/host/` (Effect; `src/host/testing/` is the test tooling), `fixtures/` (machines
-  the tests and the bench share), `tests/` (Flow's own Story tests) and `bench/`. Lint
+  the tests and the bench share), `tests/` (Flow's own Story tests, one folder per Spec area, plus `tests/rules/`,
+  `tests/generated/`, `tests/types/` and `tests/cli/`), `flow.config.ts` and `bench/`. Stress runs sit behind
+  `FLOW_STRESS` (`nub run test:stress`); `nub run faults` runs the planted faults in parallel. Lint
   enforces what may import what (`tools/lint-bomb/FLOW-STATE.md`, "Scope").
 - `packages/flow-state-rewrite/`, `packages/flow-state/` — frozen, never edit.
 - `apps/docs/` — docs. Generated files are produced by commands; don't hand-edit them.
-- `codebases/effect-v4/` — Effect reference. Installed packages are what's authoritative.
+- `wiki/plans/flow/references/pages/` — one page per slice, written for the user.
+- `codebases/effect-v4/`, `codebases/ui-sdk` — Effect and UI SDK references. Installed packages are what's authoritative.
 
 ## Workflow
 

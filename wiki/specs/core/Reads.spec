@@ -289,8 +289,7 @@ tests
             ending runs no handler. Cases
             `PAY-16`, `R14-IGN-01`; wrong runtime `pay16.read-defect-not-an-issue`. [@I20]
     T9  Older reads never overwrite: a read started before a write's data landed does not replace it; one started after 
-        applies. Cases `MED-03`, `REV4-H1`; no live prototype wrong runtime targets resource reads, so a planted fault
-            is written with this test. [@I11]
+        applies. A planted fault is written with this test. [@I11]
     T11  Optimistic endings: success keeps the look until a later lookup; failure removes it without a refetch; unknown 
          keeps it uncertain and refetches once, and a failed refetch leaves it uncertain. Cases `STORE-01`, `STORE-02`, 
          `STORE-03`, `STORE-08`. [@I15, @I16, @I17]
