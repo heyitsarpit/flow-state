@@ -31,6 +31,8 @@ const CREATION = "creation";
 const terminal = (incarnation: Incarnation) => ({
   state: incarnation.state,
   memory: incarnation.memory,
+  context: incarnation.context,
+  baselines: incarnation.baselines,
 });
 
 export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
@@ -155,13 +157,20 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       baselines: [],
     };
 
+    // A persisted identity returning after an end in this Runtime compares its context with the
+    // one it ended with: its start owes one wave, delivered after its owed rows.
+    const returning = Option.filter(
+      Option.fromUndefinedOr(tx.world().ended.get(actorKey(actor))),
+      () => Option.isSome(from),
+    );
+
     tx.set({ ...tx.world(), ended: without(tx.world().ended, actorKey(actor)) });
     setIncarnation(base);
     tx.act(Act.Started({ actor }));
 
     // Its slots bind before its first publication: the baselines are silent. A restored record
     // binds the providers it was saved with, unless the ensure names its own.
-    const bound = context.bind(
+    const fresh = context.bind(
       base,
       Option.getOrElse(
         Option.orElse(wiring, () =>
@@ -173,6 +182,11 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         () => compiled.wiring,
       ),
     );
+
+    const bound = Option.match(returning, {
+      onNone: () => fresh,
+      onSome: (ended) => ({ ...fresh, context: ended.context, baselines: ended.baselines }),
+    });
 
     const incarnation = Option.match(from, {
       onNone: () => {
@@ -215,6 +229,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     setIncarnation(incarnation);
     publish(incarnation);
     ledger.start(actor);
+
+    // The return's one wave runs in its start, so its events come before the event that
+    // restored it.
+    if (Option.isSome(returning) && compiled.context.size > 0) context.update(actor);
   };
 
   const fireWaiting = (actor: ActorId) => {

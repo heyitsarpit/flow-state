@@ -74,7 +74,9 @@ const chain = (() => {
 })();
 
 describe("follow-ups (Actors R13, I20)", () => {
-  it("Actors R13, I20: an admitted event's follow-ups run first, at most 64; the 65th is refused with an issue naming the chain", () => {
+  // Each link adds its context update and its event: link 32's event turn would start the 65th
+  // follow-up (link 33's context update), so that turn is refused and undone.
+  it("Actors R13, I20: an admitted event's follow-ups run first, at most 64; the turn that would start the 65th is refused with an issue naming the chain", () => {
     const runtime = runtimeSetup({
       app: app({ id: "chain", machines: chain.entries }),
     }).construct();
@@ -88,7 +90,8 @@ describe("follow-ups (Actors R13, I20)", () => {
     const nOf = (at: number) =>
       Option.map(handles[at - 1]?.getSnapshot() ?? Option.none(), (s) => s.memory["n"]);
 
-    expect(nOf(32)).toEqual(Option.some(1));
+    expect(nOf(31)).toEqual(Option.some(1));
+    expect(nOf(32)).toEqual(Option.some(0));
     expect(nOf(33)).toEqual(Option.some(0));
     expect(seen.filter((e) => e._tag === "Issue").map((e) => e.code)).toEqual(["InvalidTurn"]);
   });

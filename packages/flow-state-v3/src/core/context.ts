@@ -158,6 +158,21 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   };
 
   /**
+   * Whether a consumer's wave has not settled yet: one of its providers, or theirs on the way up,
+   * still has mail. Its context update waits until they have none, so it never reads a new value
+   * beside a stale one of the same cause.
+   */
+  // RETURN_TYPE: recursive: a provider's own providers are read on the way up.
+  const settling = (actor: ActorId, seen: ReadonlySet<string> = new Set()): boolean =>
+    [...(incarnationOf(actor)?.bound.values() ?? [])].some((provider) => {
+      const key = actorKey(provider);
+
+      return (
+        !seen.has(key) && (tx.world().mail.has(key) || settling(provider, new Set([...seen, key])))
+      );
+    });
+
+  /**
    * Serves a context update: reads every provider again; when a slot changed, publishes the new
    * context and runs the reactions, each enqueuing its event, in declaration order, when its
    * selection changed and its `when` allows it. An equal selection is silent.
@@ -247,7 +262,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     for (const event of events) tx.enqueue(Mail.Event({ actor, ...event }));
   };
 
-  return { bind, unbind, wave, update };
+  return { bind, unbind, wave, settling, update };
 };
 
 /**

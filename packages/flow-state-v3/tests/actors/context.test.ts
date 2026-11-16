@@ -98,6 +98,31 @@ const PairMachine = machine(Pair, ({ S, E }) => ({
   },
 }));
 
+const Both = definition({
+  id: "Context/Both",
+  states: ["PAIRED"],
+  events: {},
+  internalEvents: { Paired: { pair: Schema.String } },
+  memory: { pairs: Flow.initial(Schema.Array(Schema.String), []) },
+  context: {
+    user: Session.Provider.select((s) => s.memory.user),
+    seen: Watcher.Provider.select((s) => s.memory.seen),
+  },
+});
+
+const BothMachine = machine(Both, ({ S, E }) => ({
+  default: S.PAIRED,
+  onContext: [
+    {
+      select: ({ context }) => `${context.user}|${context.seen}`,
+      event: E.Paired.from((pair: string) => ({ pair })),
+    },
+  ],
+  on: {
+    Paired: { updateMemory: ({ event, memory }) => ({ pairs: [...memory.pairs, event.pair] }) },
+  },
+}));
+
 const UpstreamNode = definition({ id: "Context/Node", states: ["ON"], events: {} });
 
 const Node = definition({
@@ -129,6 +154,10 @@ const setup = runtimeSetup({
         },
       },
       node: { machine: NodeMachine, context: { up: actorRef(NodeMachine, "b") } },
+      both: {
+        machine: BothMachine,
+        context: { user: main, seen: actorRef(WatcherMachine, "left") },
+      },
     },
   }),
 });
@@ -265,5 +294,95 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     expect(Option.map(handle.getSnapshot(), (s) => s.memory["pairs"])).toEqual(
       Option.some(["ada|ada"]),
     );
+  });
+
+  it("Actors R19, I27: a consumer bound to a provider and to that provider's consumer gets one update per wave, after both settle", () => {
+    const { runtime } = ready();
+    const handle = runtime.ensureActor(actorRef(BothMachine, "both"));
+    runtime.ensureActor(main).send({ _tag: "SignIn", user: "ada" });
+
+    expect(Option.map(handle.getSnapshot(), (s) => s.memory["pairs"])).toEqual(
+      Option.some(["ada|ada"]),
+    );
+  });
+});
+
+const KeptSession = definition({
+  id: "Context/KeptSession",
+  persist: true,
+  states: ["READY"],
+  events: { SignIn: { user: Schema.String } },
+  memory: { user: Flow.initial(Schema.String, "") },
+});
+
+const KeptSessionMachine = machine(KeptSession, ({ S }) => ({
+  default: S.READY,
+  on: { SignIn: { updateMemory: ({ event }) => ({ user: event.user }) } },
+}));
+
+const KeptWatcher = definition({
+  id: "Context/KeptWatcher",
+  persist: true,
+  states: ["WATCHING"],
+  events: { Ping: {} },
+  internalEvents: { Seen: { user: Schema.String } },
+  memory: { seen: Flow.initial(Schema.String, "") },
+  context: { user: KeptSession.Provider.select((s) => s.memory.user) },
+});
+
+const KeptWatcherMachine = machine(KeptWatcher, ({ S, E }) => ({
+  default: S.WATCHING,
+  onContext: [
+    { select: ({ context }) => context.user, event: E.Seen.from((user: string) => ({ user })) },
+  ],
+  on: { Seen: { updateMemory: ({ event }) => ({ seen: event.user }) }, Ping: {} },
+}));
+
+const keptSession = actorRef(KeptSessionMachine, "main");
+const keptWatcher = actorRef(KeptWatcherMachine, "w");
+
+const kept = runtimeSetup({
+  app: app({
+    id: "kept",
+    machines: {
+      session: KeptSessionMachine,
+      watcher: { machine: KeptWatcherMachine, context: { user: keptSession } },
+    },
+  }),
+  scope: "kept",
+  persistence: { captureMs: 0 },
+});
+
+describe("the return's wave (Actors R9, R18; Turn R22)", () => {
+  it("Actors R9, Turn R22: a persisted consumer returned by a send after its provider changed gets one wave before the send", async () => {
+    const run = checked(
+      await Story.app(kept, { id: "context/return", fixtures: [] })
+        .ensure(keptWatcher)
+        .detach(keptWatcher)
+        .advance("1 second")
+        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .advance("1 second")
+        .send(keptWatcher, { _tag: "Ping" })
+        .checkpoint("back")
+        .run(),
+    );
+
+    const turns = run.evidence.flatMap((e) => (e._tag === "Turn" ? [e.event] : []));
+    expect(turns).toEqual(["SignIn", "Seen", "Ping"]);
+    expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
+  });
+
+  it("Actors R18: a reload restores a consumer's baseline silently", async () => {
+    const run = checked(
+      await Story.app(kept, { id: "context/reload", fixtures: [] })
+        .ensure(keptWatcher)
+        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .reload()
+        .checkpoint("reloaded")
+        .run(),
+    );
+
+    const seen = run.evidence.filter((e) => e._tag === "Turn" && e.event === "Seen");
+    expect(seen).toHaveLength(1);
   });
 });

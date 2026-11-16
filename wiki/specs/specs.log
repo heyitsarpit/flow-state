@@ -173,3 +173,7 @@ note 2026-11-16T14:16:24Z
 note 2026-11-16T14:24:40Z
     Restore R5, R10 after T20's adversary pass: a quarantined record's bytes stay until the identity writes that record
     again; a forget by a Runtime that never booted or failed its load fails, with no I/O.
+
+note 2026-11-16T14:38:44Z
+    Actors R13 restored to Runtime O4: the turn that would add the 65th follow-up is refused and undone; only events and
+    context updates count. Why: T9 review; the earlier edit dropped a context update. Reverse: none.

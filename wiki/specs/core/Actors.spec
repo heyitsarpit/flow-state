@@ -162,9 +162,10 @@ requirements
     R13  Order across actors
         source  @plan.Runtime.O4.
         must    Follow-ups (the events and context updates a served event's turns enqueue) run first,
-                up to 64 per admitted event; the 65th event or context update is refused, not run,
-                with an issue naming the chain (InvalidTurn); endings and firings are never refused
-                by it. Otherwise one event runs from the next actor in rotation, oldest
+                up to 64 per admitted event; the turn that would add the 65th is refused and undone,
+                with an issue naming the chain (check's denial code for it is InvalidTurn). Endings
+                and firings are not counted and their turns are never refused by it. Otherwise one event runs from the 
+                next actor in rotation, oldest
                 first. The 64 caps the follow-ups one admitted event starts, a chain inside one
                 admission, not how often events are admitted.
 

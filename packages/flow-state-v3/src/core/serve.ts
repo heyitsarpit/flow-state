@@ -366,6 +366,34 @@ export const makeServe = (
       }),
     );
 
+  // A context update whose providers have not settled goes back to its mailbox's end: it is read
+  // once they have, so one wave gives one consistent update.
+  const deferred = (mail: Mail) => {
+    if (!Mail.$is("Context")(mail) || !incarnations.context.settling(mail.actor)) return false;
+
+    tx.enqueue(mail);
+    tx.takeFresh();
+
+    return true;
+  };
+
+  // Serves one item of a chain that has started `count` follow-ups so far. An event or context
+  // update whose turns would start the follow-up past the cap is undone and refused, with an
+  // issue naming the chain; an ending or a firing is never refused by it.
+  const counted = (mail: Mail, count: number) => {
+    const before = tx.checkpoint();
+    serve(mail);
+    const added = tx.takeFresh();
+    const started = count + added.filter(capped).length;
+
+    if (started <= FOLLOW_UPS || !capped(mail)) return { added, count: started };
+
+    tx.rollback(before);
+    refuseFollowUp(mail);
+
+    return { added: [], count };
+  };
+
   const drain = () => {
     tx.takeFresh();
 
@@ -375,36 +403,34 @@ export const makeServe = (
       if (key === undefined) return;
 
       // One event from the next actor in rotation; then its follow-ups, first, oldest first
-      // within each actor, up to FOLLOW_UPS of them.
+      // within each actor, at most FOLLOW_UPS of them.
       const first = takeOldest(key, true);
+      served += 1;
 
-      if (first !== undefined) serve(first);
-      served = followUps(served + 1);
+      if (first !== undefined && !deferred(first)) served = followUps(counted(first, 0), served);
     }
   };
 
-  // Serves the follow-ups of the event just served, in the order they were enqueued, until none
+  // Serves the follow-ups an admitted event started, in the order they were enqueued, until none
   // is left or the step's cap; returns how many items the step has served.
-  const followUps = (servedBefore: number) => {
+  const followUps = (start: ReturnType<typeof counted>, servedBefore: number) => {
     let served = servedBefore;
-    let chain = tx.takeFresh();
+    let chain = start.added.map((m) => actorKey(m.actor));
+    let count = start.count;
 
-    for (let count = 0; chain.length > 0 && served < DRAIN_CAP;) {
+    while (chain.length > 0 && served < DRAIN_CAP) {
       const [next, ...later] = chain;
       chain = later;
       const followUp = next === undefined ? undefined : takeOldest(next, false);
 
       if (followUp === undefined) continue;
-
-      if (count >= FOLLOW_UPS && capped(followUp)) {
-        refuseFollowUp(followUp);
-        continue;
-      }
-
-      serve(followUp);
-      count += 1;
       served += 1;
-      chain = [...chain, ...tx.takeFresh()];
+
+      if (deferred(followUp)) continue;
+
+      const after = counted(followUp, count);
+      count = after.count;
+      chain = [...chain, ...after.added.map((m) => actorKey(m.actor))];
     }
 
     return served;

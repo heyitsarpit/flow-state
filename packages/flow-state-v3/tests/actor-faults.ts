@@ -358,8 +358,35 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "      if (count >= FOLLOW_UPS && capped(followUp)) {",
-        replace: "      if (count < 0 && capped(followUp)) {",
+        find: "    if (started <= FOLLOW_UPS || !capped(mail)) return { added, count: started };",
+        replace: "    if (started >= 0 || !capped(mail)) return { added, count: started };",
+      },
+    ],
+  },
+  {
+    name: "wave-reads-unsettled-providers",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a context update reads its providers while one of them still has mail of the same wave",
+    rule: "Actors R19",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: '    if (!Mail.$is("Context")(mail) || !incarnations.context.settling(mail.actor)) return false;',
+        replace: "    if (mail.actor.name.length >= 0) return false;",
+      },
+    ],
+  },
+  {
+    name: "return-without-wave",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a persisted consumer returning after its provider changed gets no onContext wave",
+    rule: "Actors R9",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "    if (Option.isSome(returning) && compiled.context.size > 0) context.update(actor);",
+        replace:
+          "    if (Option.isSome(returning) && compiled.context.size < 0) context.update(actor);",
       },
     ],
   },

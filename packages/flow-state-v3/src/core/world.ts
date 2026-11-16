@@ -99,9 +99,17 @@ export type Issue = {
 
 /**
  * What an identity showed when its last incarnation ended: its terminal snapshot's state and
- * memory, kept until the identity starts again.
+ * memory, and the context and reaction selections it ended with, against which its return's one
+ * wave compares; kept until the identity starts again.
  */
-export type Ended = { readonly state: string; readonly memory: Values };
+export type Ended = {
+  readonly state: string;
+  readonly memory: Values;
+  // FLOW_STATE_ALLOW_UNKNOWN: a slot's value has the type its selector returns, typed at the definition.
+  readonly context: ReadonlyMap<string, unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns.
+  readonly baselines: ReadonlyArray<unknown>;
+};
 
 /**
  * Where a lane's head stands: one tag per history and wait, never a flag (WriteLanes model).

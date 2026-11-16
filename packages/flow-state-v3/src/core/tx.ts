@@ -149,12 +149,12 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   };
 
   // Each actor has one FIFO mailbox; an actor whose mailbox was empty joins the rotation last.
-  // The actors mail was enqueued for since the drain last asked: a served event's follow-ups.
-  let fresh: Array<string> = [];
+  // The mail enqueued since the drain last asked: a served event's follow-ups.
+  let fresh: Array<Mail> = [];
 
   const enqueue = (mail: Mail) => {
     const key = actorKey(mail.actor);
-    fresh.push(key);
+    fresh.push(mail);
     world = { ...world, mail: withEntry(world.mail, key, [...(world.mail.get(key) ?? []), mail]) };
   };
 
@@ -165,10 +165,22 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     return taken;
   };
 
+  // A point a served turn can be undone back to: its world, evidence and commands so far.
+  const checkpoint = () => ({ world, evidence: evidence.length, commands: commands.length });
+
+  const rollback = (to: ReturnType<typeof checkpoint>) => {
+    world = to.world;
+    evidence.splice(to.evidence);
+    commands.splice(to.commands);
+    fresh = [];
+  };
+
   return {
     ...tx,
     persisted,
     takeFresh,
+    checkpoint,
+    rollback,
     armTimer,
     disarmWhere,
     incarnationOf: (actor: ActorId) => world.incarnations.get(actorKey(actor)),
