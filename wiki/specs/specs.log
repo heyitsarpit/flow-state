@@ -56,3 +56,7 @@ note 2026-11-16T01:45:10Z
 note 2026-11-16T02:20:12Z
     WriteLanes realization: a step returns its evidence built from acts, not the acts (T54); one Out type for the host.
     Reverse: return acts and map in the driver.
+
+note 2026-11-16T02:22:45Z
+    WriteAhead I20 kept as written (T54, X-8): no row is Queued or Retrying at a step's end but an unknown Restored,
+    which the owed record holds, so isSaved loses no ending; run rule WriteAhead I20 checks the premise.

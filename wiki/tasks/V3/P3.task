@@ -162,6 +162,10 @@ tasks
             Gap 3: run rule Actors R10 (oneStart in code:packages/flow-state-v3/tests/rules/starts.ts): a row is
             Unparked only in a start; fault boot-unparks. R4 restated: done, kept by no-restored-unknown,
             kept-redelivered, adopted-ending-late, boot-unparks.
+        comment     2026-11-16T02:22:45Z
+            X-8 decided: isSaved stays; at a step's end only Waiting, Kept and unknown Restored rows exist, all saved,
+            so the record lists every owed row (I20). Run rule ownedRowsSaved checks it; fault owed-row-never-queued.
+            Logged in specs.log.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open

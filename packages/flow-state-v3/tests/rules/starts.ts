@@ -1,4 +1,26 @@
-import type { StoryRun } from "../../src/host/testing/index.ts";
+import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
+
+const unsaved = (cut: Cut, at: string) =>
+  cut.inspection.owed
+    .filter((r) => r.delivery === "Queued" || r.delivery === "Retrying")
+    .filter((r) => !(r.channel === "unknown" && r.reason === "Restored"))
+    .map(
+      (r) =>
+        `WriteAhead I20: at ${at}, ${r.actor}'s ${r.operation} ${r.channel} ${r.reason} is ${r.delivery} and in no owed record`,
+    );
+
+/**
+ * WriteAhead I20, at every cut: the owed record lists every row owed to the identity because, at
+ * a step's end, no row is Queued or Retrying (the step drains its mail) except an unknown
+ * Restored, which the record holds.
+ */
+export const ownedRowsSaved = {
+  rule: "WriteAhead I20",
+  breaches: (run: StoryRun) => [
+    ...Object.entries(run.checkpoints).flatMap(([name, cut]) => unsaved(cut, name)),
+    ...unsaved(run.end, "the end"),
+  ],
+};
 
 // What a start reports between its Incarnated and its first turn: the published snapshot, each
 // row it queues, and each unknown Restored it owes.

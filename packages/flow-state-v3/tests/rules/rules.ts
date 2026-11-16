@@ -1,7 +1,7 @@
 import { Equal, Option, Predicate, Schema } from "effect";
 import { expect } from "vite-plus/test";
 import { atStart, knownAt, placesOf } from "./places.ts";
-import { oneStart } from "./starts.ts";
+import { oneStart, ownedRowsSaved } from "./starts.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import {
@@ -580,6 +580,7 @@ export const unchangedPartsKept: Rule = {
  */
 export const rules: ReadonlyArray<Rule> = [
   oneStart,
+  ownedRowsSaved,
   publishedPlainData,
   endingDeliveredOnce,
   nothingAfterDefinite,

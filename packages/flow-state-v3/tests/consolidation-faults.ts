@@ -34,6 +34,19 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "owed-row-never-queued",
+    tests: ["tests/stories/fake.test.ts", "tests/write-lanes/payment-endings.test.ts"],
+    says: "a live ending's row is Queued with no mail reference, so it sits unsaved past its step",
+    rule: "WriteAhead I20",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: "      tx.enqueue(Mail.Ending({ actor: row.actor, id: row.id }));",
+        replace: "      void Mail;",
+      },
+    ],
+  },
+  {
     name: "rows-dropped-outside-ledger",
     tests: ["tests/write-lanes/one-builder.test.ts"],
     says: "a forget clears the identity's owed rows itself instead of closing them in the ledger",
