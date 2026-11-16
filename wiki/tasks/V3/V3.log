@@ -798,3 +798,7 @@ note 2026-11-16T22:10:50Z
     Waiting on the user: actor-to-actor send(ref, event) is new public API with no owner; step-1 cells of pay, sync,
     transfers, palette, player are left on it. Calls: ContextCycle stays a runtime test; sync's 4xx waits for a Task
     that may change Git/sync; sign-in stays out of the app mix (additive growth).
+
+note 2026-11-16T22:26:25Z
+    T82 review ISSUES, none blocking (a3a7bd28); orchestrator verified the cart's stuck wanted (cart.ts:161). T82 back
+    to in_progress for one fix round on the review's four routed items; the next review checks it.
