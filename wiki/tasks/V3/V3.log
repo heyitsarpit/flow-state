@@ -679,3 +679,7 @@ note 2026-11-16T18:05:58Z
     The user read the pages of T54, T19 and T17; T19 and T17 (both PASS) set done. T20 round 3 turned into a convergence
     pass: two reviews found one class (a record's size bound judged once while the record grows), threshold 2. Why: the
     fixes moved the hang one step on. Fixtures and failing Stories first, then one redesign.
+
+note 2026-11-16T18:08:23Z
+    Decision (the user, 2026-11-16): "tdd comes before convergence, to make sure all known behaviours are covered by
+    tests". Scope: whole run. Applied to T20's lead at once.

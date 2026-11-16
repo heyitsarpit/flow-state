@@ -264,7 +264,9 @@ instructions
       sample, edge value, run rule or sweep that would have caught it and was absent. The reviewer states it per
       finding; the fix round adds that coverage for the whole class, per code:wiki/conventions/fixtures.md, and shows it
       red before the fix. A class that recurs across Tasks becomes a run rule or a fixture every later Task inherits.
-    - Convergence threshold 2 (the user, 2026-11-12; R35's default).
+    - Convergence threshold 2 (the user, 2026-11-12; R35's default). Tests before convergence (the user, 2026-11-16):
+      first every known behaviour of the part gets its fixtures, Stories and tests (missing fixtures built), the
+      repeated class shown red; only then gather, redesign and build, so the redesign can't drop a behaviour.
     - `nub run faults` runs at the end of every Task (the user, 2026-11-16); a fault the tests miss lands as a run rule
       or a Story test.
     - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
