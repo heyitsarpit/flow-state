@@ -598,3 +598,8 @@ note 2026-11-16T15:06:02Z
 note 2026-11-16T15:19:07Z
     T9 back in review at e274aeeb: context's last-seen values saved in the actor record, waves only on real change;
     R13's waiting update filed as Pending D13 (merge after review). T81 resumed.
+
+note 2026-11-16T15:19:31Z
+    T20 fix-round review ISSUES (489a082c): the lane record still grows past its bound after admission (inFlight false,
+    a retry digit, a displaced id), the same root cause twice. Decision: size the worst case at admission. Round 3 after
+    T81; T9's second-round review started.
