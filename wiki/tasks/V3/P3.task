@@ -328,6 +328,38 @@ tasks
             Read before starting (2026-11-16 run): the Actors I43 it.fails (the host's StorageFailure report in
             src/host/driver.ts) belongs here, since the final write's bound moves into the core; T19 holds the drain-cap
             gap (WriteAhead I20 past 10,000 turns). Test cadence and the Spec-limit rule are in the Epic's instructions.
+        comment     2026-11-16T08:11:17Z
+            Requirements (first commit): L1 to L6 below, mapped to acceptance; red today except L5 (Actors I38, green).
+            No sidecars: the Spec, the code and the tests were read directly.
+        comment     2026-11-16T08:11:17Z
+            L1 (acceptance 1; Actors algorithm admit, I42): admit gives every (Life, input) pair the Spec table's
+            verdict. Red: code:packages/flow-state-v3/tests/actors/admit.test.ts (no Life yet).
+        comment     2026-11-16T08:11:17Z
+            L2 (acceptance 1; Actors R4, R22, I42): the host keeps no life flag and follows admit: disposeActor and
+            forget before ready reject RuntimeNotReady, forget after dispose RuntimeDisposed. Red: 3 of 6 in
+            code:packages/flow-state-v3/tests/actors/life.test.ts; the Start, BootFailed, DisposeRuntime and Disposing
+            rows there are green and kept by faults.
+        comment     2026-11-16T08:11:17Z
+            L3 (acceptance 2, the known bug; Actors R23, I43): the disposal ends only once its final write is answered,
+            and a write unanswered 5 s after dispose reports StorageFailure then. Red: 'the final write' in
+            code:packages/flow-state-v3/tests/actors/runtime-disposal.test.ts. The bound moves into the core;
+            driver.ts's StorageFailure goes.
+        comment     2026-11-16T08:11:17Z
+            L4 (acceptance 2; Actors I43): a refused final write reports StorageFailure before RuntimeDisposed. The
+            inverted test looked for a Lane fact; the Spec's report is an Issue (test side wrong), so it is retitled to
+            Issue and flipped at the fix.
+        comment     2026-11-16T08:11:18Z
+            L5 (acceptance 3; Actors I38): a commit queued behind a Held head ends NotSent Disposed and the reload
+            delivers it once. Green today (the disposal ends every queue first, lanes.ts everyLane); the Story test
+            'Actors I38' keeps it.
+        comment     2026-11-16T08:11:18Z
+            L6 (acceptance 4): planted faults for the admit cells, the final write's wait, its refusal and its bound;
+            nub run faults catches each.
+        comment     2026-11-16T08:11:18Z
+            Proposed Spec reading (agent, for the user's read): R23's one-try final write turns a call that settles
+            within the bound into unknown Restored at reload (PAY-16 parked tests expect its own ending). Disposal keeps
+            writing within the bound; changes at the bound stay unwritten (R23 text), which changes 3 PAY-13/PAY-16
+            reload results. Reverse: one batch at the start.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      open
