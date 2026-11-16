@@ -57,8 +57,8 @@ description
     - skill:review at a Task's first commit and its close.
 
     **Order:** @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21,
-    @task.V3.T56, @task.V3.T22, @task.V3.T23. A `blocked_by` link is a real dependency only; where several Tasks are
-    ready, take the earliest in this order.
+    @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T23. A `blocked_by` link is a real dependency only; where several
+    Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is

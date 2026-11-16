@@ -515,3 +515,7 @@ note 2026-11-16T13:28:17Z
     UI-primitives merge review ISSUES, 11 gaps fixed in ad32192d; open for the user: Machines O3 carries Pending D13's
     wording while D13 is still pending (recommend keep, drop D13 from Pending once T17 closes). T9's close review
     started.
+
+note 2026-11-16T13:33:50Z
+    Decision (user delegated, 2026-11-16): Pending D13 removed, its text merged into Machines O3 by cc9f81d5; T73 added
+    to P4's Order after T21. useActor's whole props vs setProps is left to T76.

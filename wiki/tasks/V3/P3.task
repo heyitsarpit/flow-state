@@ -744,16 +744,17 @@ tasks
             routed to @task.V3.T9; 22 MissingField, KeyFieldOptional, DEL and each R12 bound (Compile R4, R12, T3) ->
             one construction test each; 23 Compile T9 data view equal across compiles -> test via inspect's dataView; 24
             item 17 kept: Turn R14 changed so the implicit self applies only where no level writes a handler (two traces
-            in specs.log; plan text as @plan.Pending.D13); 25 item 14 corrected: history is the last active direct child
-            (Turn R4 now says so); 26 item 15: fixed delay range is Turn R14's new sentence, code InvalidConfiguration
-            DelayOutOfRange, negative, infinite and NaN refused; computed one refused again on redelivery (TURN-01); 27
-            item 16: both it.fails became tests that also assert the snapshot equals the one before; rules.ts
-            publishedOnce and refusedTurnIssueOnly judge exactly one; 28 item 19: faults for construction too (T1
-            callback twice, T2 first violation only, T3 impure default accepted, T11 added state accepted, T12 identity
-            optional accepted); 29 item 18: S20 player without restartOn; S06 (traits, restore, lazy) to @task.V3.T57
-            and @task.V3.T56; Flow.input fixture with value refs to @task.V3.T9; private and computed fields in the
-            player; 30 item 8: every machine with input is value-named (Actors R5); 31 Outcome classes are not exported,
-            only error-channel markers: rejected; self-selecting context, onContext and non-public send to @task.V3.T9.
+            in specs.log; plan text now in @plan.Machines.O3); 25 item 14 corrected: history is the last active direct
+            child (Turn R4 now says so); 26 item 15: fixed delay range is Turn R14's new sentence, code
+            InvalidConfiguration DelayOutOfRange, negative, infinite and NaN refused; computed one refused again on
+            redelivery (TURN-01); 27 item 16: both it.fails became tests that also assert the snapshot equals the one
+            before; rules.ts publishedOnce and refusedTurnIssueOnly judge exactly one; 28 item 19: faults for
+            construction too (T1 callback twice, T2 first violation only, T3 impure default accepted, T11 added state
+            accepted, T12 identity optional accepted); 29 item 18: S20 player without restartOn; S06 (traits, restore,
+            lazy) to @task.V3.T57 and @task.V3.T56; Flow.input fixture with value refs to @task.V3.T9; private and
+            computed fields in the player; 30 item 8: every machine with input is value-named (Actors R5); 31 Outcome
+            classes are not exported, only error-channel markers: rejected; self-selecting context, onContext and
+            non-public send to @task.V3.T9.
         comment     2026-11-16T10:45:19Z
             Close: suite 608 passed, stress 28, generated over 20 more seeds green, nub run faults 113 of 113 with the
             dead core judged (31.9 s, 12.9 s suite, 12.8 s stress). Bench: transfers/long 0.032/0.048, pay/long
@@ -924,7 +925,7 @@ tasks
 
     T74
         title       App mix: several fixtures in one Runtime
-        status      review
+        status      in_progress
         priority    medium
         blocked_by  [@task.V3.T70]
         description
