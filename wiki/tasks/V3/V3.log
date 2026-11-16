@@ -528,3 +528,7 @@ note 2026-11-16T13:43:19Z
     T9 close review ISSUES (18af9e82): two blockers (diamond context wave makes up a mixed event, Actors R19; a revived
     persisted consumer misses its wave, R18) plus R13 against Runtime O4. Fix round queues behind T20. For the user:
     four API mismatches with the merged Plans, listed on T9.
+
+note 2026-11-16T13:45:09Z
+    Whole-codebase code-quality review started (the user, 2026-11-16): duplication, patterns that should be one service,
+    dead code, implicit state machines, derived state, Effect idiom; report to a proposal file for one convergence pass.
