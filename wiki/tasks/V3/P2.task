@@ -1459,7 +1459,7 @@ tasks
 
     T75
         title       Fast test commands: stress behind a flag, faults in parallel
-        status      in_progress
+        status      review
         priority    high
         description
             Make the test commands fast: a fast suite by default, the stress runs behind a flag, and `nub run faults` in
@@ -1506,3 +1506,8 @@ tasks
             R5 check and lint:rules at zero (pass today; a guard). From P2's close-out review: R6 planted.test.ts passes
             under `--testTimeout=500` (fails, 1.2 s). R7 the seeds test's reload is cut, so Restore I1 judges (fails).
             R8 checkout `before()` throws on an unknown checkpoint (fails). R9 Stories R6 and T5 match I7 (fail).
+        comment     2026-11-16T01:52:22Z
+            Timings at a129f164, alone (before at e82d2c0a): fast suite 18.5 s to 10.5 s; test:stress 5.2 s (none
+            before; stress ran in the fast suite); faults 206 s to 25 s. Caught list identical fault by fault: 52 of 52
+            before and after, every fault now caught by its targets, none by the whole suite; dead core runs the whole
+            suite, 178 green before and after, all explained.
