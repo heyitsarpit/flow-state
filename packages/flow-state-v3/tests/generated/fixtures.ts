@@ -1,61 +1,26 @@
 import { Config, Effect } from "effect";
-import { samples as cells } from "../../fixtures/cells/stories.ts";
-import {
-  samples as palette,
-  stressSamples as paletteStress,
-} from "../../fixtures/command-palette/stories.ts";
-import { samples as lanes, stressSamples as lanesStress } from "../../fixtures/lanes/stories.ts";
-import { samples as numberInput } from "../../fixtures/number-input/stories.ts";
-import { samples as pay } from "../../fixtures/pay/stories.ts";
-import { samples as player } from "../../fixtures/player/stories.ts";
-import {
-  samples as session,
-  stressSamples as sessionStress,
-} from "../../fixtures/session/stories.ts";
-import { samples as signIn } from "../../fixtures/sign-in/stories.ts";
-import { samples as sync } from "../../fixtures/sync/stories.ts";
-import {
-  samples as transfers,
-  stressSamples as transfersStress,
-} from "../../fixtures/transfers/stories.ts";
+import { manifests } from "../../fixtures/index.ts";
 
 /**
- * Every fixture's samples, by the fixture's folder name.
+ * Every samples set of every fixture's manifest.
  */
-export const samples = {
-  cells,
-  "command-palette": palette,
-  lanes,
-  "number-input": numberInput,
-  pay,
-  player,
-  session,
-  "sign-in": signIn,
-  sync,
-  transfers,
-};
+export const samples = manifests.flatMap((m) => m.samples);
 
 /**
- * Every fixture's samples with the edge values at and past the codec's byte and node bounds, for
- * the stress runs only: values that size takes the default suite from seconds to minutes.
+ * Every stress samples set, with the edge values at and past the codec's byte and node bounds, for
+ * the stress runs only: values that size take the default suite from seconds to minutes.
  */
-export const stressSamples = {
-  ...samples,
-  "command-palette": paletteStress,
-  lanes: lanesStress,
-  session: sessionStress,
-  transfers: transfersStress,
-};
+export const stressSamples = manifests.flatMap((m) => m.stressSamples);
 
 /**
- * The app mix: five fixtures that persist and call their own servers, run in one Runtime.
+ * The app mix: the samples of every fixture whose manifest joins it, run in one Runtime.
  */
-export const mix = [transfers, pay, lanes, palette, session];
+export const mix = manifests.filter((m) => m.mix).flatMap((m) => m.samples);
 
 /**
  * The app mix over the stress samples, edge values included.
  */
-export const stressMix = [transfersStress, pay, lanesStress, paletteStress, sessionStress];
+export const stressMix = manifests.filter((m) => m.mix).flatMap((m) => m.stressSamples);
 
 /**
  * The fixed seeds the gate runs per fixture: ten usual and twenty stress (Testing O6).

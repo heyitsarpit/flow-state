@@ -1,34 +1,13 @@
 import { expect, it } from "vite-plus/test";
+import { manifests, type Reach } from "../../fixtures/index.ts";
 import { FAULTS, generate, PHASES, pairSweep, type Samples } from "../../src/host/testing/index.ts";
 import { rules } from "../rules/rules.ts";
-
-/**
- * What a fixture's Specs and machine let its writes reach: whether it has write operations, whether
- * its identities persist, whether a cancel can meet a head still Acknowledging, and whether an
- * unknown ending keeps a Held lane.
- */
-export type Reachable = {
-  readonly writes: boolean;
-  readonly persisted: boolean;
-  readonly cancelsAcknowledging: boolean;
-  readonly retainsUnknown: boolean;
-};
-
-/**
- * What a persisted fixture reaches, short of whether a cancel meets a head still Acknowledging.
- */
-export const persisted = { writes: true, persisted: true, retainsUnknown: true };
-
-/**
- * What a local fixture reaches, short of whether an unknown ending keeps a Held lane.
- */
-export const local = { writes: true, persisted: false, cancelsAcknowledging: false };
 
 const ON_WIRE = new Set(["OnWire", "Cancelling"]);
 
 const PERSISTED_PHASES = new Set(["Acknowledging", "Recapturing", "Withdrawing"]);
 
-type Cell = { readonly r: Reachable; readonly phase: string; readonly fault: string };
+type Cell = { readonly r: Reach; readonly phase: string; readonly fault: string };
 
 // The lifecycle rules that forbid a cell, each with why, in the order they are read.
 const FORBIDDEN: ReadonlyArray<readonly [(c: Cell) => boolean, string]> = [
@@ -64,7 +43,7 @@ const FORBIDDEN: ReadonlyArray<readonly [(c: Cell) => boolean, string]> = [
 ];
 
 // Why a cell cannot be reached, from the lifecycle rules, or none when it can.
-const whyUnreachable = (r: Reachable, phase: string, fault: string) =>
+const whyUnreachable = (r: Reach, phase: string, fault: string) =>
   FORBIDDEN.find(([forbids]) => forbids({ r, phase, fault }))?.[1] ?? "";
 
 const DRIVE_SEEDS = Array.from({ length: 1000 }, (_, n) => n + 1);
@@ -73,8 +52,8 @@ const DRIVE_SEEDS = Array.from({ length: 1000 }, (_, n) => n + 1);
  * The pair sweep's test for one fixture: every reached cell keeps every run rule, and the cells
  * left unreached are exactly those the lifecycle rules forbid, each named with why.
  */
-export const sweeps = (name: string, samples: Samples, reachable: Reachable) =>
-  it(`${name}: every reachable (phase, fault) cell keeps every run rule, and the unreachable ones are named`, () => {
+const sweeps = (samples: Samples, reachable: Reach) =>
+  it(`${samples.id}: every reachable (phase, fault) cell keeps every run rule, and the unreachable ones are named`, () => {
     const cells = pairSweep(samples, { properties: rules, seeds: DRIVE_SEEDS });
 
     const expected = PHASES.flatMap((phase) =>
@@ -106,3 +85,12 @@ export const sweeps = (name: string, samples: Samples, reachable: Reachable) =>
     expect(broken).toEqual([]);
     expect(unreached).toEqual(expected);
   }, 120_000);
+
+/**
+ * The pair sweeps of every manifest, split into `of` shards by position so each shard's file runs
+ * beside the others; declares the sweeps of shard `shard`.
+ */
+export const sweepShard = (shard: number, of: number) => {
+  for (const [n, { samples, reach }] of manifests.flatMap((m) => m.pairs).entries())
+    if (n % of === shard) sweeps(samples, reach);
+};

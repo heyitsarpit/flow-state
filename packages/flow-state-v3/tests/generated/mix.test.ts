@@ -50,6 +50,9 @@ const idle = samplesOf({
 
 const owner = ownerOf(mix);
 
+// The mix's samples set of one fixture, by its samples id.
+const part = (id: string) => mix.find((p) => p.id === id) ?? idle;
+
 // The fixtures one trace record names: a call's server, a batch's keys, or evidence's actor.
 const ownersOf = (record: Generated["run"]["trace"]["events"][number]["record"]) => {
   switch (record._tag) {
@@ -169,7 +172,7 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
   }, 60_000);
 
   it("a mix whose fixtures never share a resource is inconclusive (Testing O6)", () => {
-    const [failure] = propertyTest([mix[0] ?? idle, idle], {
+    const [failure] = propertyTest([part("transfers"), idle], {
       profile: "mix",
       properties: rules,
       seeds: [1],
@@ -180,7 +183,7 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
   }, 60_000);
 
   it("a failing mix shrinks by dropping whole fixtures first: a fault in one fixture's edge keeps that fixture alone", () => {
-    const [failure] = propertyTest([mix[0] ?? idle, planted, mix[2] ?? idle], {
+    const [failure] = propertyTest([part("transfers"), planted, part("lanes")], {
       profile: "mix",
       properties: rules,
       seeds: Array.from({ length: 20 }, (_, n) => n + 1),
@@ -192,8 +195,7 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
   }, 120_000);
 
   it("a fault in one fixture's edge, among all four of the mix, shrinks to that fixture within the shrink bound", () => {
-    const [transfers, , lanes, palette] = mix;
-    const parts = [transfers, lanes, planted, palette].flatMap((p) => (p === undefined ? [] : [p]));
+    const parts = [part("transfers"), part("lanes"), planted, part("palette")];
 
     const [failure] = propertyTest(parts, {
       profile: "mix",

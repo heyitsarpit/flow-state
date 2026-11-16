@@ -1,16 +1,5 @@
-import { long as cells, seededStress as cellsStress } from "../fixtures/cells/stories.ts";
-import { seededStress as paletteStress } from "../fixtures/command-palette/stories.ts";
-import { seededStress as lanesStress } from "../fixtures/lanes/stories.ts";
-import { seededStress as playerStress } from "../fixtures/player/stories.ts";
-import { seededStress as numberStress } from "../fixtures/number-input/stories.ts";
-import { long as pay, seededStress as payStress } from "../fixtures/pay/stories.ts";
-import { long as session, seededStress as sessionStress } from "../fixtures/session/stories.ts";
-import { long as signIn, seededStress as signInStress } from "../fixtures/sign-in/stories.ts";
-import { long as sync, seededStress as syncStress } from "../fixtures/sync/stories.ts";
-import {
-  long as transfers,
-  seededStress as transfersStress,
-} from "../fixtures/transfers/stories.ts";
+import { Option } from "effect";
+import { manifests } from "../fixtures/index.ts";
 import { spreadOf, timeStory } from "./time.ts";
 
 const WARMUP = 100;
@@ -19,22 +8,8 @@ const TIMES = 1000;
 const fixed = (ms: number) => ms.toFixed(3).padStart(9);
 
 const longStories = [
-  transfers,
-  pay,
-  cells,
-  sync,
-  signIn,
-  session,
-  transfersStress,
-  playerStress,
-  payStress,
-  cellsStress,
-  syncStress,
-  signInStress,
-  sessionStress,
-  paletteStress,
-  numberStress,
-  lanesStress,
+  ...manifests.flatMap((m) => Option.toArray(m.long)),
+  ...manifests.map((m) => m.savedStress.story),
 ];
 
 for (const story of longStories) {

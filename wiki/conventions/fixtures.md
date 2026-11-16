@@ -131,29 +131,32 @@ list, so no runner keeps its own list of fixtures:
 | ------------------------- | ------------------------------------------------------------------------- |
 | generator, usual          | every manifest's `samples`                                                |
 | generator, stress         | every manifest's `stressSamples`                                          |
-| profiles                  | every manifest's `samples` and `stressSamples`                            |
+| profiles                  | every manifest's `samples`                                                |
 | app mix                   | every manifest with `mix: true`                                           |
 | saved stress Stories      | every manifest's `savedStress`                                            |
 | reload sweep              | every manifest's `stories`                                                |
-| pair sweeps               | every manifest with `pairs`                                               |
-| bench                     | every manifest's `long` and `seededStress`                                |
+| pair sweeps               | every manifest's `pairs`, split into four shard files                     |
+| bench                     | every manifest's `long` and `savedStress`                                 |
 | CLI and `flow.config.ts`  | every manifest's `app`                                                    |
 
-A manifest holds:
+A manifest (code:packages/flow-state-v3/fixtures/manifest.ts) holds:
 
 | Field           | Holds                                                                                        |
 | --------------- | -------------------------------------------------------------------------------------------- |
-| `name`          | the fixture's folder name, which prefixes its Story ids                                      |
-| `app`           | the `runtimeSetup` app                                                                       |
+| `name`          | the fixture's folder name, which prefixes its Story ids (`command-palette`'s are `palette/`) |
+| `app`           | the app every Story of the fixture runs, grown with its new machines                         |
 | `stories`       | every named Story, by export name                                                            |
-| `samples`       | step samples for the usual generator                                                         |
-| `stressSamples` | step samples for the stress generator, edges included                                        |
-| `long`          | the bench's long run                                                                         |
-| `seededStress`  | the seeded stress Story                                                                      |
-| `savedStress`   | `{ story, seed }`: the stress Story and the seed the saved run replays                       |
+| `samples`       | step samples for the usual generator: one set per part of the app                            |
+| `stressSamples` | step samples for the stress generator, edges included: one set per part                      |
+| `long`          | the bench's long run, when the fixture has one                                               |
+| `savedStress`   | `{ story, seed }`: the stress Story one `stressSamples` set prints from that seed            |
 | `mix`           | `true` when the app persists or calls a server                                               |
-| `pairs`         | the pair sweep's options, or absent: `kind` (local or persisted), `writes`,                  |
+| `pairs`         | each samples set the pair sweep drives, with its `reach`: `writes`, `persisted`,             |
 |                 | `cancelsAcknowledging` and `retainsUnknown`                                                   |
+
+Samples are lists so an app grows a new set beside an old one: a set's seeds stay as they were, so its saved
+stress Story still replays. A refused shape (S7) is an exported Story builder that a test runs, not a registered
+Story, since a refused admission rejects the run every runner makes.
 
 Long runs go behind the stress flag so the default suite stays fast. Planted faults (`tests/faults.ts`) and the
 lint overrides in `vite.config.ts` name fixture paths by string and are updated by hand when a path changes.
@@ -176,5 +179,4 @@ code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md.
 
 ## Not built yet
 
-The manifest list and the runners that read it: the catalog's migration step 1. A test that each built public
-feature, by its API name, appears in a fixture: not yet owned by any Task.
+A test that each built public feature, by its API name, appears in a fixture: not yet owned by any Task.

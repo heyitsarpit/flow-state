@@ -10,9 +10,9 @@ import { samples, seeds, stressSamples } from "./fixtures.ts";
 const limitMs = (profile: "usual" | "stress") => 60_000 * Math.ceil(seeds(profile).length / 20);
 
 export const seededRuns = (profile: "usual" | "stress") => {
-  for (const [name, sampled] of Object.entries(profile === "stress" ? stressSamples : samples))
+  for (const sampled of profile === "stress" ? stressSamples : samples)
     it(
-      `${name}: ${profile} runs from fixed seeds keep every run rule`,
+      `${sampled.id}: ${profile} runs from fixed seeds keep every run rule`,
       () => {
         const failures = propertyTest(sampled, {
           profile,

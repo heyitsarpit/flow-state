@@ -1,6 +1,7 @@
 import { Duration, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { generate, print, type Generated, type Step } from "../../src/host/testing/index.ts";
+import { samples as pay } from "../../fixtures/pay/stories.ts";
 import { samples } from "./fixtures.ts";
 
 const SEEDS = Array.from({ length: 20 }, (_, n) => n + 1);
@@ -46,7 +47,7 @@ const share = (part: number, whole: number) => (whole === 0 ? 0 : part / whole);
 // The runs a profile's tests read, each of which must have run the app: a run with no evidence makes
 // every mix below hold trivially, so it fails the whole file.
 const runsOf = (profile: "usual" | "stress") => {
-  const runs = [samples.pay, samples["command-palette"], samples.transfers].flatMap((sampled) =>
+  const runs = samples.flatMap((sampled) =>
     SEEDS.map((seed) => generate(sampled, { drawing: profile, seed })),
   );
 
@@ -59,12 +60,12 @@ const runsOf = (profile: "usual" | "stress") => {
 
 describe("generated runs: seeds (Testing O6)", () => {
   it("the same seed gives the same steps and the same printed Story; another seed gives others", () => {
-    const one = generate(samples.pay, { drawing: "stress", seed: 3 });
-    const again = generate(samples.pay, { drawing: "stress", seed: 3 });
-    const other = generate(samples.pay, { drawing: "stress", seed: 4 });
+    const one = generate(pay, { drawing: "stress", seed: 3 });
+    const again = generate(pay, { drawing: "stress", seed: 3 });
+    const other = generate(pay, { drawing: "stress", seed: 4 });
 
     expect(again.steps).toEqual(one.steps);
-    expect(print(samples.pay, "x", again.steps)).toBe(print(samples.pay, "x", one.steps));
+    expect(print(pay, "x", again.steps)).toBe(print(pay, "x", one.steps));
     expect(other.steps).not.toEqual(one.steps);
     expect(one.run.evidence.filter((e) => e._tag === "Turn").length).toBeGreaterThan(10);
   });
@@ -97,9 +98,7 @@ describe("generated runs: the usual profile", () => {
   });
 
   it("holds each answer for a latency and draws at most 5% domain failures", () => {
-    const failing = new Set(
-      [samples.pay, samples["command-palette"], samples.transfers].flatMap((s) => s.failures),
-    );
+    const failing = new Set(samples.flatMap((s) => s.failures));
 
     const failures = words.filter((w) => failing.has(w)).length;
 

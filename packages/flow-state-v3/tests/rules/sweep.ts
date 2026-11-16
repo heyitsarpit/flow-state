@@ -1,13 +1,5 @@
 import { expect } from "vite-plus/test";
-import { stories as cells } from "../../fixtures/cells/stories.ts";
-import { stories as palette } from "../../fixtures/command-palette/stories.ts";
-import { stories as lanes } from "../../fixtures/lanes/stories.ts";
-import { stories as numberInput } from "../../fixtures/number-input/stories.ts";
-import { stories as pay } from "../../fixtures/pay/stories.ts";
-import { stories as session } from "../../fixtures/session/stories.ts";
-import { stories as signIn } from "../../fixtures/sign-in/stories.ts";
-import { stories as sync } from "../../fixtures/sync/stories.ts";
-import { stories as transfers } from "../../fixtures/transfers/stories.ts";
+import { manifests } from "../../fixtures/index.ts";
 import {
   Step,
   StoryFailed,
@@ -20,17 +12,9 @@ import { breachesOf } from "./rules.ts";
 /**
  * Every Story of every fixture, the stress Stories included.
  */
-export const fixtureStories: ReadonlyArray<Story<string>> = [
-  ...Object.values(pay),
-  ...Object.values(cells),
-  ...Object.values(sync),
-  ...Object.values(signIn),
-  ...Object.values(transfers),
-  ...Object.values(palette),
-  ...Object.values(numberInput),
-  ...Object.values(lanes),
-  ...Object.values(session),
-];
+export const fixtureStories: ReadonlyArray<Story<string>> = manifests.flatMap((m) =>
+  Object.values(m.stories),
+);
 
 // Script faults a reload can cause: a word that finds nothing held, or a hold no call uses.
 const SKIPPED = [/^nothing held at /u, / never used$/u];

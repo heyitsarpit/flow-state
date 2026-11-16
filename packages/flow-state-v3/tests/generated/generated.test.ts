@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
+import { manifests } from "../../fixtures/index.ts";
 import { generate } from "../../src/host/testing/index.ts";
-import { samples } from "./fixtures.ts";
 import { seededRuns } from "./seeded.ts";
 
 const fixtureDirs = readdirSync(new URL("../../fixtures", import.meta.url), { withFileTypes: true })
@@ -11,9 +11,14 @@ const fixtureDirs = readdirSync(new URL("../../fixtures", import.meta.url), { wi
 
 describe("generated Stories", () => {
   it("every fixture has samples for generated runs", () => {
-    expect(Object.keys(samples).toSorted()).toEqual(fixtureDirs);
+    expect(
+      manifests
+        .filter((m) => m.samples.length > 0)
+        .map((m) => m.name)
+        .toSorted(),
+    ).toEqual(fixtureDirs);
 
-    for (const sampled of Object.values(samples))
+    for (const sampled of manifests.flatMap((m) => m.samples))
       expect(generate(sampled, { drawing: "usual", seed: 1 }).run.evidence.length).toBeGreaterThan(
         0,
       );
