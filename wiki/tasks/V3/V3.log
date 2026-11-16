@@ -510,3 +510,8 @@ note 2026-11-16T13:25:29Z
     T9 in review at 4b33f869 (all gates green; context, admission refusals, follow-up cap). For the user: actorRef gains
     a value name and { context }, app entries take { machine, context }, snapshots gain lifecycle, issues, schedules and
     context. T74's fix round resumed; T9's close review follows the merge review.
+
+note 2026-11-16T13:28:17Z
+    UI-primitives merge review ISSUES, 11 gaps fixed in ad32192d; open for the user: Machines O3 carries Pending D13's
+    wording while D13 is still pending (recommend keep, drop D13 from Pending once T17 closes). T9's close review
+    started.
