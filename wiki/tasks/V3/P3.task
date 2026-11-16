@@ -299,7 +299,7 @@ tasks
             User's page: code:wiki/plans/flow/references/pages/T18-lane-policies.md (unread).
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
-        status      review
+        status      done
         priority    high
         blocked_by  [@T54]
         description
@@ -436,6 +436,10 @@ tasks
             (Actors R23 says it should); its records ride the next batch, so nothing is lost.
             code:packages/flow-state-v3/src/core/disposal.ts#answered skips a ticket it no longer awaits; the Fake
             cannot yet refuse a held batch. Decide Spec or code.
+        comment     2026-11-16T08:34:19Z
+            Routed from T55's review (orchestrator): add public-path Stories for the 12 reachable admit cells without
+            one (Spec T24 forget-while-Booting among them), and make inspect.ts read life through admit or isDisposed so
+            the I42 check covers it.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open

@@ -396,3 +396,7 @@ note 2026-11-16T08:20:24Z
 note 2026-11-16T08:22:43Z
     T55 in review at b5b5b174: one Opus reviewer with four Haiku sidecars (one blind) runs check-task and the diff; the
     R23 change (disposal writes within its bound) is its main question. T19 waits on it.
+
+note 2026-11-16T08:34:20Z
+    T55 done: review PASS at b5b5b174 (4f179acf), no blocking finding; R23's change judged not fitted to code. For the
+    user's read: PAY-16/on-the-wire now reports reason Restored instead of Disposed. Next: T19.
