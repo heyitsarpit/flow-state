@@ -595,7 +595,7 @@ tasks
             UnencodableValue report, and the realization's 'not built yet' is a gap written into the Spec.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T19]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
@@ -717,6 +717,27 @@ tasks
             input no longer decodes is quarantined unread (it.fails Restore R8, owner T56); rejected, an on-wire
             displaced Attempt not owed (its ending is evidence-only live too) and a send waiting on a withheld identity
             (WriteAhead realization's design, now reported).
+        comment     2026-11-16T14:34:17Z
+            Close at 3d1ea0e9: R-1 to R-10 hold (Story tests in tests/restore/, src/host/restore.test.ts, codec.test.ts;
+            run rules Codec I7 and WriteAhead I17 over every Story and the reload sweep). Gates by exit code: nub run
+            check 0, suite 0, test:stress 0, generated with FLOW_SEEDS=20 (mix and stress included) 0, nub run faults 0
+            (174 of 174 by their targets). Faults now take 45 s (35 s before, 24 new faults): under the 56 s limit.
+        comment     2026-11-16T14:34:17Z
+            Routed findings settled: T65's inFlight and P2's it.fails were done by T19 (trace.test); Q7 fixed (head-less
+            lane record); mayHaveApplied dropped (Codec I7 wins); UnencodableValue built, no false StorageSilent, I21
+            and the realization edited; withheld disposal keeps one ending per commit; Actors R18 restore binds the
+            saved providers (T9's planned it.fails for it would now pass).
+        comment     2026-11-16T14:34:18Z
+            Bench alone (per turn median/p99 ms): transfers/long 0.037/0.055, pay/long 0.049/0.070, cells/long
+            0.043/0.058, sync/long 0.021/0.032, sign-in/long 0.016/0.033, lanes/stress-36 0.048/0.076. Up from T55's
+            (pay/long 0.032/0.059): each record write is now canonical, bounded text; all far under 0.2 ms.
+        comment     2026-11-16T14:34:18Z
+            For the user's page: a reload now restores every acknowledged write, a displaced cancel-policy call
+            included, and wakes any actor owed an ending. A record Flow cannot read is kept aside, not dropped: its
+            actor reads lifecycle quarantined, its key stays blocked until a cancel, and RecordUndecodable is reported
+            at each boot. Memory past a codec bound (4,097 items) is reported UnencodableValue and the last good save
+            stays. A store that cannot load runs without persistence. dispose({ forget: true }) deletes the scope,
+            failing StorageFailure unless it could.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      review

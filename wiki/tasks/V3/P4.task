@@ -223,6 +223,9 @@ tasks
             stress Story.
         comment     2026-11-16T01:40:09Z
             Routed from P2's close-out: disposal never interrupts in-flight reads (a planted fault survived the suite).
+        comment     2026-11-16T14:34:18Z
+            Routed from T20: Restore R4 and T14 (restored resource data reads stale, key-only entries stay passive) wait
+            for resource({ persist: true }), which is this slice's.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -253,6 +256,10 @@ tasks
         comment     2026-11-16T11:06:05Z
             Routed from T17: history is not in the actor record (WriteAhead R4, Persistence O2), so S.X.history after a
             reload enters the default; land it with record migration.
+        comment     2026-11-16T14:34:18Z
+            Routed from T20: Restore R8, a lane record whose input or key no longer decodes is quarantined unread today,
+            so its Held head is not heard; pinned as it.fails in tests/restore/restore.test.ts. Also OpRenamed, the
+            undeclared-machine discard, unproducible paths and re-key collisions (R8, T15) are this Task's.
     T22
         title       CLI check, explain and graph
         status      draft
