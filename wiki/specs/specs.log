@@ -200,3 +200,15 @@ note 2026-11-16T19:51:55Z
     Codec R4, R5, I7; WriteAhead R13, R14, realization: no send waits on a record that may not encode (lane records
     sized at their largest, owed rows in parts, an unsavable value as unknown { Restored }, refused tickets). Why:
     T20's convergence, record-bounds-revised-2026-11-17.md. Reverse: restore these texts from commit `47c900b8`.
+
+note 2026-11-16T23:25:25Z
+    @spec.Actors R13, I20: only events sent by turns count toward the 64 follow-ups (@plan.Pending.D13). Why: context
+    updates are never dropped and ContextCycle bounds them. Reverse: restore R13 from e1b9f1ab.
+
+note 2026-11-16T23:25:25Z
+    @spec.Actors R9, R18: a start from a record publishes current context once; its owed wave re-runs reactions only;
+    slots are saved apart, an unencodable one unknown and waving. Why: Turn I9, withheld records. Reverse: e1b9f1ab.
+
+note 2026-11-16T23:25:25Z
+    @spec.Stories R3: a Story's ensure and dispose pass the Runtime's admission and a refusal rejects the run with its
+    FlowError. Why: Story words skipped R5, R18, R20. Reverse: restore R3 from e1b9f1ab.
