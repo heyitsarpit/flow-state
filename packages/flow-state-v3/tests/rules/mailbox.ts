@@ -10,7 +10,7 @@ const openOf = (attempt: string) => attempt.slice(0, attempt.lastIndexOf("-"));
 // The Attempt whose ending leaves its queue unheard: one recorded as evidence, or one refused,
 // which is redelivered after the mail already queued.
 const leaving = (e: Evidence) => {
-  if (e._tag === "Recorded") return e.attempt;
+  if (e._tag === "Recorded" || e._tag === "Parked") return e.attempt;
 
   if (e._tag === "Issue") return Option.flatMap(e.ending, (ending) => ending.attempt);
 
