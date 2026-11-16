@@ -696,3 +696,6 @@ note 2026-11-16T18:26:05Z
 note 2026-11-16T18:26:06Z
     Amendment (2026-11-16, the user): fixture work links fixtures.md in each Task and brief; sidecars review fixtures
     against it before the proof. Commit: 2a110a5e.
+
+note 2026-11-16T18:33:42Z
+    Amendment (2026-11-17, the user): fixture reviews check structural stress as well as load. Commit: f19db607.
