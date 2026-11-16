@@ -1112,6 +1112,10 @@ tasks
             For the user's page, second round: a screen that comes back after a reload now hears about anything its
             context changed while it was gone, and stays quiet when nothing did; long context chains never lose an
             update at the 64-follow-up limit, the update runs once the chain ends.
+        comment     2026-11-16T15:31:33Z
+            Second fix-round review: ISSUES. A selection the codec can't encode (undefined, Option) or past its bounds
+            withholds the consumer's record via `seen`, so it never ends (red at e274aeeb, green at its parent). Fix:
+            save each slot apart, an unencodable one as unknown that waves on return. Waves, suite, stress, faults ok.
 
     T74
         title       App mix: several fixtures in one Runtime
