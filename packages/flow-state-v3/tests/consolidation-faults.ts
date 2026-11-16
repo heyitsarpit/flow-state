@@ -21,7 +21,7 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "boot-unparks",
-    tests: ["tests/stories/storage.test.ts", "tests/write-lanes/payment-leave-and-reload.test.ts"],
+    tests: ["tests/actors/runtime-disposal.test.ts"],
     says: "a boot reports its decoded Waiting rows Unparked itself, before any start",
     rule: "Actors R10",
     edits: [

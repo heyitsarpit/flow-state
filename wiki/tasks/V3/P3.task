@@ -75,7 +75,7 @@ description
 tasks
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
-        status      in_progress
+        status      review
         priority    high
 
         description
@@ -174,6 +174,9 @@ tasks
             Resume (usage stop, 4eb029e2): R1 to R7 and the review gaps built, default suite 460 green; test:stress red
             only on 6 saved stress Stories (generate.ts hash fix changed prints). Next: paste each fixture's new print
             (seeds in saved.stress.test.ts), then nub run faults, fresh seeds, set review.
+        comment     2026-11-16T02:30:51Z
+            Close: stress 23/23, default 460 + 7 inverted, nub run faults 61/61 caught, generated Stories over 100 extra
+            seeds (usual and stress) green; saved stress Stories reprinted. Set to review.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open
