@@ -1,5 +1,6 @@
 // @effect-diagnostics unstableApiUsage:off -- generation and shrinking are Effect's Arbitrary, which Effect marks unstable; chosen over a generator of our own.
 import { Arbitrary, Duration, Effect, Option, Schema } from "effect";
+import { type ActorId, actorKey } from "../../core/world.ts";
 import type { AnyServer } from "./fake.ts";
 import { mixOf, sharedOf } from "./mix.ts";
 import { runFrom, type Source, type StoryRun, type View } from "./run.ts";
@@ -568,15 +569,18 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
         return [Step.reload({ reattach: b % 2 === 0, heldWrites })];
       },
       disposeRuntime: () => (live ? [Step.disposeRuntime({ forget: false })] : []),
-      // An app disposes a provider only once no consumer reads it: the Runtime refuses it before.
+      // An app closes a provider's consumers before it: the Runtime refuses it while they are bound.
       disposeActor: () =>
         live
-          ? Option.toArray(
-              Option.map(
-                Option.filter(actor, (it) => b % 2 === 1 || view.dependents(it.actor).length === 0),
-                (it) => Step.dispose({ actor: it.actor, how: b % 2 === 0 ? "dispose" : "forget" }),
-              ),
-            )
+          ? Option.match(actor, {
+              onNone: () => [],
+              onSome: (it) =>
+                b % 2 === 0
+                  ? closing(view, it.actor).map((closed) =>
+                      Step.dispose({ actor: closed, how: "dispose" }),
+                    )
+                  : [Step.dispose({ actor: it.actor, how: "forget" })],
+            })
           : [],
       navigate: () =>
         live
@@ -798,6 +802,17 @@ const drawnRun = (at: Drawn, draws: ReadonlyArray<Draw>): Generated => {
     tally: drawn.tally(),
     shared: at.kept.length > 1 ? sharedOf(ran.run, at.kept) : 0,
   };
+};
+
+/**
+ * An actor and every live consumer reading it as context, directly or not, consumers first, each
+ * once: the order an app closes them in.
+ */
+// RETURN_TYPE: the function recurses, so its result type cannot be inferred.
+export const closing = (view: View, actor: ActorId): ReadonlyArray<ActorId> => {
+  const order = [...view.dependents(actor).flatMap((d) => closing(view, d)), actor];
+
+  return order.filter((a, at) => order.findIndex((o) => actorKey(o) === actorKey(a)) === at);
 };
 
 /**

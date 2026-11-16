@@ -1,7 +1,14 @@
 import { Option, Predicate } from "effect";
 import type { Phase } from "../../core/world.ts";
 import { type ActorId, actorKey } from "../../core/world.ts";
-import { generateSource, inconclusiveOf, pendingOf, quieting, runSource } from "./generate.ts";
+import {
+  closing,
+  generateSource,
+  inconclusiveOf,
+  pendingOf,
+  quieting,
+  runSource,
+} from "./generate.ts";
 import type { Source, View } from "./run.ts";
 import { type Property, print, type Samples } from "./samples.ts";
 import { Step, StoryFailed, WorldWord } from "./steps.ts";
@@ -109,15 +116,6 @@ const callOf = (view: View, phase: string, actor: ActorId) =>
           view.held.find((h) => h.server === call.server && h.endpoint === call.endpoint) === call,
       ),
   );
-
-// An actor and every live consumer reading it as context, directly or not, consumers first, each
-// once.
-// RETURN_TYPE: the function recurses, so its result type cannot be inferred.
-const closing = (view: View, actor: ActorId): ReadonlyArray<ActorId> => {
-  const order = [...view.dependents(actor).flatMap((d) => closing(view, d)), actor];
-
-  return order.filter((a, at) => order.findIndex((b) => actorKey(b) === actorKey(a)) === at);
-};
 
 // The steps of a fault given while a write stands in its phase, or none when it cannot fire there;
 // a storage refusal fires later, when the refused write is issued, and is judged then.

@@ -1057,7 +1057,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1301,6 +1301,34 @@ tasks
             features or owned elsewhere: wall L5 labels, L2 queues, sign-in in the mix, catalog row hygiene, the 2 MB
             record at its bound, the Turn R12 rows (T57); conflictingCart's 'changes nothing' (the run rejects before
             work; context.test.ts checks ensureActor's).
+        comment     2026-11-16T23:24:40Z
+            Round 3 closed at the next commit: check 0, lint:rules 0; suite 1,083 pass + 13 inverted, 2 red, both T20's
+            pair cell Acknowledging x storage refusal (red at e1b9f1ab); every T9 inverted test now passes. Stress: exit
+            1 on one test, mix.stress seed 18 inconclusive (no step touched two fixtures), replayed red at e1b9f1ab
+            where seed 7's Turn I9 masked it; no owner Task, routed to the orchestrator. Fresh seeds (FLOW_SEEDS 20
+            usual and mix, 10 stress) exit 0. nub run faults: 204 caught by their targets (generator-disposes-providers
+            retargeted to pairs-0 and replayed caught), dead core 803 failed; not judged, since the unchanged suite
+            fails on those reds and stress sweeps timing out under the parallel load. Bench per turn median/p99
+            (unchanged from e1b9f1ab): transfers/long 0.043/0.066, pay/long 0.057/0.082, session/long 0.107/0.129,
+            lanes/stress-36 0.302/0.406, session/stress-36 0.104/0.230 ms.
+        comment     2026-11-16T23:24:41Z
+            Decisions (agent): a start from a record publishes its providers' current context, its owed wave re-runs
+            reactions only (Turn I9 was the runtime's: it published the record's stale context, then the same state and
+            memory again); baselines are Options, so a reaction reading an unknown slot fires once; the follow-up cap
+            and its undo are removed, since no turn sends events (Pending D13); Story ensure and dispose share the
+            Runtime's admission and a refusal rejects run() with its FlowError, whose message now reads 'code: summary';
+            the generator and the pair sweep close consumers before a provider, as an app does. Extra files:
+            tests/context-faults.ts (split), fixtures/session/machines/byline.ts, fixtures/session/stories/samples.ts.
+            Not logged: specs.log refuses appends before its 2026-11-17T01:30Z note, so the R9, R13, R18 and Stories R3
+            notes wait for that time.
+        comment     2026-11-16T23:24:41Z
+            For the user's page, round 3: a screen that comes back from its saved record now shows its providers'
+            current values at once and hears what it missed once, instead of flashing the old value; a value that cannot
+            be saved (a signed-out undefined user) no longer stops the whole screen from saving, it is saved as unknown
+            and heard again on return; a provider with any number of consumers updates them all (1,024 badges rename
+            together); a Story that disposes a provider still in use, or ensures a conflicting or unwired ref, now fails
+            like the real Runtime does. For the user: an actor-to-actor send action still has no owner, and the
+            follow-up cap returns with it.
 
     T74
         title       App mix: several fixtures in one Runtime

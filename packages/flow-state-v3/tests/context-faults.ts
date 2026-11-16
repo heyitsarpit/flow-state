@@ -209,14 +209,14 @@ export const contextFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "generator-disposes-providers",
-    tests: ["tests/generated/mix.test.ts"],
-    says: "the generator draws the dispose of a provider whose consumers are live, which the Runtime refuses",
+    tests: ["tests/generated/pairs-0.test.ts"],
+    says: "the generator and the pair sweep dispose a provider whose consumers are live, which the Runtime refuses",
     rule: "Stories R3",
     edits: [
       {
         file: "src/host/testing/generate.ts",
-        find: "view.dependents(it.actor).length === 0",
-        replace: "view.dependents(it.actor).length >= 0",
+        find: "  const order = [...view.dependents(actor).flatMap((d) => closing(view, d)), actor];",
+        replace: "  const order = [actor];",
       },
     ],
   },
