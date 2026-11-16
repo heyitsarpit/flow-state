@@ -477,3 +477,7 @@ note 2026-11-16T12:11:23Z
     Wake: 5-hour window at 96% (resets 13:00Z), weekly 13%. T74's close review and T9's requirements review are held
     until the reset; a one-shot wake at 13:07Z starts them. Timings at HEAD in bound (13, 14, 36 s); 5 of 142 faults
     uncaught mid-T9.
+
+note 2026-11-16T12:12:08Z
+    T9 paused at the user's request before the 5-hour limit: WIP checkpoint 55678372 (typecheck red), resume note
+    b4ed119a. The 13:07Z one-shot wake resumes it, then starts the held reviews.
