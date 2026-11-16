@@ -172,8 +172,13 @@ const span = (lo: number, hi: number, at: number) =>
 // A digit for the n-th of several draws made from one.
 // An independent digit for each use of one drawn digit (an endpoint's answer, its delay, the
 // store's write), hashed with a salt.
-const mix = (at: number, salt: number) =>
-  (Math.imul((at + 1) ^ Math.imul(salt + 1, 0x9e3779b1), 0x85ebca6b) >>> 0) % RANGE;
+const mix = (at: number, salt: number) => {
+  let h = Math.imul((at + 1) ^ Math.imul(salt + 1, 0x9e3779b1), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+
+  return ((h ^ (h >>> 16)) >>> 0) % RANGE;
+};
 
 const WRITE_SALT = 1000;
 

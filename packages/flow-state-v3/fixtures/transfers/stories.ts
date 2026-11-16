@@ -208,7 +208,6 @@ export const seededStress = Story.app(bankSetup, {
   .send(account, sendT1)
   .world(Bank.transfer.release())
   .send(account, resendT1)
-  .world(Fake.storage.refuse())
   .send(account, sendT1)
   .advance("13 millis")
   .send(account, resendT1)

@@ -69,7 +69,7 @@ it("DISP-06: a success that lands after its actor was disposed is parked and rea
   expect(memory(run.checkpoints.adopted)?.["authorized"]).toBe(true);
 });
 
-it.fails("Turn I26: an adopted lane's later ending is current, routed from the active leaf (Turn R20; Actors R20)", async () => {
+it.fails("Turn I26: an adopted lane's later ending is current, routed from the active leaf (Turn R20)", async () => {
   const run = await played(
     onWire("ADOPT-01", Shop.confirm.hold())
       .dispose(checkout)

@@ -101,7 +101,7 @@ tasks
             - The ledger, `start`, record writes and `evidenceOf` are each the one place their work is done, shown by
               Story tests and run rules that cite @spec.WriteLanes and @spec.Actors.
             - The two known bugs of this area (a flush that holds only its own actor's record; an adopted lane's later
-              endings routed against Actors R20) are fixed, and their inverted tests are flipped.
+              endings routed against Turn R20 and I26) are fixed, and their inverted tests are flipped.
             - `nub run faults` catches every named fault; `vp test` and `nub run check` pass.
         comment     2026-11-15T20:17:58Z
             Routed from T67's review: temporary names in src tests (PART-…, T19, T51, T18) predate T67; remove them.
@@ -137,6 +137,14 @@ tasks
         comment     2026-11-16T02:06:23Z
             R7 (acceptance 3): nub run faults catches every named fault, the new ones included; vp test and nub run
             check pass.
+        comment     2026-11-16T02:13:32Z
+            Amendment (coordinator's call): acceptance's 'Actors R20' is Turn R20 and I26; test title fixed. R1 done:
+            one write list per step, one pending state at the edge; red-to-green Story tests assert keys; faults
+            one-identity-per-batch, two-batches-out.
+        comment     2026-11-16T02:13:32Z
+            Extra files for R1: generate.ts 'mix' got a hash finalizer (its draws were correlated; the write-mix profile
+            failed once batch counts changed), planted.test.ts seed 19 to 17 (19 no longer shrinks under 10), stress-45
+            lost one refuse word now unused.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open

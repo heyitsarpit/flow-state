@@ -37,7 +37,7 @@ type Touched = {
 
 /**
  * Persistence of a step: setters note what each persisted identity's step touched, and the step
- * projects each touched record once, at its end, in one write list per identity.
+ * projects each touched record once, at its end, in one write list for the step.
  *
  * **Details**
  *
@@ -185,30 +185,31 @@ export const makePersistence = (tx: Tx) => {
     );
   };
 
+  const writesOf = (t: Touched) => {
+    const owed = t.owed ? [owedWrite(t.actor)] : [];
+
+    return [...recordWrites(t), ...[...t.lanes].map(laneWrite), ...owed];
+  };
+
+  const dueOf = (all: ReadonlyArray<Touched>) => {
+    const tickets = all.flatMap((t) => t.tickets);
+
+    if (tickets.length > 0) return Due.Awaited({ tickets });
+
+    return all.some((t) => t.now) ? Due.Now() : Due.Later();
+  };
+
   /**
-   * Projects what the step touched: one write list per identity, each touched record once, due
-   * by the derived rule; a further ticket rides its own empty list.
+   * Projects what the step touched: one write list for the whole step, every identity's touched
+   * records once each, due by the derived rule.
    */
   const project = () => {
-    for (const t of touched.values()) {
-      const owed = t.owed ? [owedWrite(t.actor)] : [];
-      const writes = [...recordWrites(t), ...[...t.lanes].map(laneWrite), ...owed];
-
-      const [first, ...more] = t.tickets;
-      const scope = actorKey(t.actor);
-
-      const due = Option.match(Option.fromUndefinedOr(first), {
-        onNone: () => (t.now ? Due.Now() : Due.Later()),
-        onSome: (ticket) => Due.Awaited({ ticket }),
-      });
-
-      tx.command(Command.Persist({ scope, writes, due }));
-
-      for (const ticket of more)
-        tx.command(Command.Persist({ scope, writes: [], due: Due.Awaited({ ticket }) }));
-    }
-
+    const all = [...touched.values()];
     touched = new Map();
+
+    if (all.length === 0) return;
+
+    tx.command(Command.Persist({ writes: all.flatMap(writesOf), due: dueOf(all) }));
   };
 
   return {

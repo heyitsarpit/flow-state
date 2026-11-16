@@ -276,14 +276,18 @@ export type Command = Data.TaggedEnum<{
   Interrupt: { call: CallId };
   Arm: { timer: TimerId; at: number };
   Disarm: { timer: TimerId };
-  Persist: { scope: string; writes: ReadonlyArray<Write>; due: Due };
+  Persist: { writes: ReadonlyArray<Write>; due: Due };
 }>;
 
 /**
- * When a batch's writes must be issued: within the capture interval, at once, or at once with a
- * ticket whose answer a send awaits.
+ * When a step's writes must be issued: within the capture interval, at once, or at once with the
+ * tickets whose answer its sends await.
  */
-export type Due = Data.TaggedEnum<{ Later: {}; Now: {}; Awaited: { ticket: Ticket } }>;
+export type Due = Data.TaggedEnum<{
+  Later: {};
+  Now: {};
+  Awaited: { tickets: ReadonlyArray<Ticket> };
+}>;
 
 /**
  * Constructors and matchers for {@link Due}.

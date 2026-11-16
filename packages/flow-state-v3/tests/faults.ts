@@ -461,4 +461,30 @@ export const faults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "one-identity-per-batch",
+    tests: ["tests/write-lanes/write-ahead-scope.test.ts"],
+    says: "a step's write list holds only the first touched identity's records",
+    rule: "WriteAhead I23",
+    edits: [
+      {
+        file: "src/core/persist.ts",
+        find: "writes: all.flatMap(writesOf),",
+        replace: "writes: all.slice(0, 1).flatMap(writesOf),",
+      },
+    ],
+  },
+  {
+    name: "two-batches-out",
+    tests: ["tests/write-lanes/write-ahead-scope.test.ts"],
+    says: "the edge issues a batch while another is still out",
+    rule: "WriteAhead I23",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "    if (pending.out || pending.dirty.size === 0) return;",
+        replace: "    if (pending.dirty.size === 0) return;",
+      },
+    ],
+  },
 ];
