@@ -683,3 +683,7 @@ note 2026-11-16T18:05:58Z
 note 2026-11-16T18:08:23Z
     Decision (the user, 2026-11-16): "tdd comes before convergence, to make sure all known behaviours are covered by
     tests". Scope: whole run. Applied to T20's lead at once.
+
+note 2026-11-16T18:08:23Z
+    Amendment (2026-11-16, the user): tests before convergence; every known behaviour gets fixtures and tests before a
+    redesign. Commit: 15132329.
