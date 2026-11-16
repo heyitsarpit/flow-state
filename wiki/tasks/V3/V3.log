@@ -415,3 +415,7 @@ note 2026-11-16T09:22:20Z
 note 2026-11-16T09:30:18Z
     T19 close review started at 366dcaa2: one Opus reviewer, four Haiku sidecars (one blind); covers four Spec changes
     and the test-tooling changes. T20 waits on it.
+
+note 2026-11-16T09:46:32Z
+    T19 close review ISSUES (e8385b69): two blocking endings, both traces re-run red (drain-cap Queued row heard twice;
+    held-back identity's owed row deleted at grace). Sent to T19's builder with the Spec wording fixes.
