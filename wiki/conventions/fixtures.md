@@ -29,7 +29,12 @@ Each feature or behaviour a Task builds or changes gets all of these, each red b
 1. **A home.** An existing fixture changed, or a new one, named for the app it models (`session`, `checklist`), not
    for the feature.
 2. **A usual Story.** The feature used the way an app uses it, with checkpoints on what the user would see.
-3. **A stress Story.** The feature under load: many actors, long queues, repeated reloads, slow and lost answers.
+3. **Stress Stories, of load and of structure.** Stress is not only throughput. Load: many actors, long queues,
+   repeated reloads, slow and lost answers. Structure: the hardest shapes the feature allows an app to build,
+   for example deep chains (a provider of a provider of a consumer, many layers), wide fan-out (one parent, many
+   children), several independent trees side by side in one Runtime, a node that is both consumer and provider,
+   an override at a middle layer, a parent ended, disposed or reloaded under live descendants, and each refused
+   shape (a cycle, a missing provider) shown refused. Each structure is also run under load.
 4. **Step samples with edge values.** `samples` offers every event and world word the feature reacts to, with its
    Schemas' edges: empty, `undefined` or `None` where allowed, sizes at and just past every byte or node bound,
    counts at and past every cap (64 follow-ups, 64 queued commits, 1,024 mailbox), refusals, holds, drops, a reload
@@ -38,7 +43,8 @@ Each feature or behaviour a Task builds or changes gets all of these, each red b
    fixture or a second one exercises them together, and the fixture joins the app mix and a pair sweep when it
    persists or calls a server.
 6. **Variety.** More than one app shape where the feature can be used differently (a singleton and a value-named
-   actor; a shared and a local actor; nested and flat states).
+   actor; a shared and a local actor; nested and flat states; one layer of parent and child and several; one tree
+   and a forest). A fixture built for a relationship exercises it at more than one depth and width.
 7. **Findings.** A bug a review finds is added to `samples` or a Story here, as well as its own titled test, so
    the generator explores the cases around it.
 
@@ -62,7 +68,8 @@ Long runs go behind the stress flag so the default suite stays fast.
 One Task comment per feature, in this shape:
 
 ```text
-<feature> (<Spec rule>): fixture <name> (new|changed); usual <story>, stress <story>;
+<feature> (<Spec rule>): fixture <name> (new|changed); usual <story>, stress load <story>,
+stress structure <shapes and stories>;
 samples edges <list>; combos <fixtures or mix/pairs>; registered in <runners>; red today: <what fails>.
 ```
 
