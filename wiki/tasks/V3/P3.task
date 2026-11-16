@@ -197,7 +197,7 @@ tasks
             caught, no unexplained dead-core green.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
@@ -279,6 +279,10 @@ tasks
         comment     2026-11-16T03:19:06Z
             Failure (2026-11-16): root cause: a lost ending written into a Spec as a stated limit. Count: 2. Revision:
             c76a963c. Review: 66515765, 6a428687.
+        comment     2026-11-16T03:21:30Z
+            Open, owned by @task.V3.T20: under cancel a displaced Attempt whose call outlives its lane is lost at a
+            reload (WriteLanes Q7), pinned by an it.fails in policy-cells.test.ts. The save path is tested in
+            src/host/lane-record.test.ts with fault displaced-not-saved.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open

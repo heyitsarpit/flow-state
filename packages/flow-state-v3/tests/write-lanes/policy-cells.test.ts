@@ -4,13 +4,15 @@ import {
   CancelMachine,
   cancelClient,
   LatestMachine,
+  lanesSetup,
   latestClient,
   SerializeMachine,
   serializeClient,
 } from "../../fixtures/lanes/machine.ts";
+import { GitFakeSteadfast } from "../../fixtures/lanes/server.ts";
 import { lanesStory } from "../../fixtures/lanes/stories.ts";
 import { Git } from "../../fixtures/sync/server.ts";
-import { Fake, type Cut, type Story } from "../../src/host/testing/index.ts";
+import { Fake, type Cut, Story } from "../../src/host/testing/index.ts";
 import { endings, laneFacts, type Records } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
@@ -254,6 +256,29 @@ for (const [policy, sends, want] of [
 
     expect(seen(run.evidence)).toEqual(want);
   });
+
+// Open, owned by the write-ahead Task: a displaced Attempt whose call outlives its lane is in no
+// lane record, so a reload loses the unknown Restored that Operations O3 and Persistence O6 promise
+// for an acknowledged Attempt. Over a network that will not interrupt the sync, the new head
+// answers and ends the lane while the displaced call is still out.
+it.fails("WriteLanes R10: under cancel a displaced Attempt whose lane ended first is heard unknown Restored after a reload", async () => {
+  const run = await played(
+    Story.app(lanesSetup, {
+      id: "lane-cells/cancel-displaced-outlives-lane",
+      fixtures: [GitFakeSteadfast],
+    })
+      .ensure(cancelClient)
+      .world(Git.sync.hold())
+      .send(cancelClient, commit)
+      .send(cancelClient, { _tag: "CancelCommit", ...FLOW })
+      .reload()
+      .ensure(cancelClient)
+      .advance("1 second")
+      .checkpoint("after"),
+  );
+
+  expect(seen(run.evidence)).toEqual([OK, "unknown Restored"]);
+});
 
 it("serialize: queued commits end NotSent Disposed when the Runtime's disposal starts, and none is promoted (WriteLanes algorithm, disposal)", async () => {
   const run = await played(

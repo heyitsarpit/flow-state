@@ -344,6 +344,11 @@ open
         outcome  Reading A: evidence only (R4 as written). Reading B: evidence plus one UnmappedEnding issue, as in
                  Reads R9. The user decides; a plan's guarantee is at stake.
 
+    Q7  Under cancel, a displaced Attempt whose call outlives its lane (the new head ends first) is in no lane record, 
+        so a reload loses its unknown { Restored }, which @plan.Operations.O3 and @plan.Persistence.O6 promise.
+        outcome  Pinned by an `it.fails` in tests/write-lanes/policy-cells.test.ts; @task.V3.T20 (write-ahead) owns
+                 the fix.
+
 model
     Lane = (identity with version, contract id, key) -> { phase, W, displaced, mode }. mode is Delivering, or
         Releasing after R16's release. A lane in phase Idle is not stored. A lane's id is the text after `lane/`
@@ -671,8 +676,7 @@ realization typescript
         a new Unsent head; promoted outside a turn (a settled call, a store's answer), it meets TurnEnded at once. A
         displaced head is kept apart from its lane by the call or ticket it awaits (`World.displaced`), and its own
         cell classifies its answer. When the disposal starts, W's commits end before the lane's cells, so nothing
-        promotes. The lane record saves W and the owed displaced Attempts (@spec.Restore.R3). Stated limit: a
-        displaced Attempt whose lane ends before its call settles is in no lane record.
+        promotes. The lane record saves W and the owed displaced Attempts (@spec.Restore.R3).
     `src/core/cells.ts` holds the table: `cell(state, cue)` is one exhaustive match over the cue and then the lane
         state (Idle, or a head's Phase), returning a `Move` as data; a pair the table marks impossible returns
         `Impossible`, which the applier raises as a defect. `LaneState` is `Idle | Head`: there is no Kept row, no
@@ -732,7 +736,7 @@ coverage
 
     @R10
         enforced_by  [@I15, @I16, @I27, @I29, @I30, @I31, @I32, @I34, @I37]
-        open_by      [@Q1]
+        open_by      [@Q1, @Q7]
 
     @R11
         enforced_by  [@I17]

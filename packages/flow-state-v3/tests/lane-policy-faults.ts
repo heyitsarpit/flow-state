@@ -126,6 +126,19 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "displaced-not-saved",
+    tests: ["src/host/lane-record.test.ts"],
+    says: "a lane record drops its displaced Attempts, so a reload loses their owed endings",
+    rule: "Restore R3",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "        displaced,\n",
+        replace: "        displaced: displaced.slice(0, 0),\n",
+      },
+    ],
+  },
+  {
     name: "kept-blocks-cancel-policy",
     tests: ["src/host/ledger.test.ts"],
     says: "a cancel-policy commit on a key with a Kept row declines Rejected instead of letting it go",
