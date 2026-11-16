@@ -649,3 +649,7 @@ note 2026-11-16T16:06:11Z
 note 2026-11-16T16:09:10Z
     Amendment (2026-11-16, the user): fixture requirements live in one place, code:wiki/conventions/fixtures.md; the two
     fixtures-first bullets became one pointing to it. Commit: 9a877f2a.
+
+note 2026-11-16T16:10:26Z
+    Amendment (2026-11-16, the user): every accepted review finding names the missing coverage that let it through; the
+    fix round adds coverage for the whole class first. Commit: efc71b2e.
