@@ -16,7 +16,23 @@ assert.equal(
   verdictOf({ kind: "ran", passed: false, out: out("10 passed (10)", "1 failed | 3 passed (4)") }),
   "NOT JUDGED (no failed test)",
 );
+assert.equal(
+  verdictOf({
+    kind: "ran",
+    passed: false,
+    out: ` FAIL  tests/a.test.ts > a > breaks\n${out("7 passed (47)", "1 passed (55)")}`,
+  }),
+  "caught (7 passed (47); test files 1 passed (55))",
+);
+assert.equal(
+  verdictOf({
+    kind: "ran",
+    passed: false,
+    out: ` FAIL  tests/a.test.ts [ tests/a.test.ts ]\nError: Transform failed\n${out("10 passed (10)", "1 failed (4)")}`,
+  }),
+  "NOT JUDGED (no failed test)",
+);
 assert.equal(verdictOf({ kind: "ran", passed: false, out: "Error: boom\n" }), "NOT JUDGED (no test summary)");
 assert.equal(verdictOf({ kind: "broken", why: "timed out after 240000 ms" }), "NOT JUDGED (timed out after 240000 ms)");
 
-console.log("verdict: 5 of 5");
+console.log("verdict: 7 of 7");

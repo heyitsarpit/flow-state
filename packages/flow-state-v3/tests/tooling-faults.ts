@@ -15,7 +15,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
         file: "src/host/testing/fake.ts",
         find: '      ))\n        mark(out, "aborted");',
         replace:
-          '      ) {\n        mark(out, "aborted");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));\n      }',
+          '      )) {\n        mark(out, "aborted");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));\n      }',
       },
     ],
   },

@@ -147,6 +147,9 @@ const plantAll = async (roots: ReadonlyArray<string>) => {
       await planted(root, given.edits, async () => {
         // A fault is caught by its first failing test, so a run stops there.
         verdict = verdictOf(await run(root, ["--bail=1"]));
+
+        // A stopped run can lose its failed test's report; the whole run then judges.
+        if (verdict === "NOT JUDGED (no failed test)") verdict = verdictOf(await run(root));
       });
       verdicts.set(given.name, verdict);
       console.log(`${given.name} [${given.rule}]: ${verdict}`);

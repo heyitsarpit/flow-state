@@ -118,8 +118,10 @@ describe("the pair sweep gives each fault to the write it drove (Testing O6)", (
       seeds: SEEDS,
     });
 
-    expect(cells.filter((c) => c.phase === "OnWire").map((c) => [c.fault, c.outcome._tag])).toEqual(
-      cells.filter((c) => c.phase === "OnWire").map((c) => [c.fault, "Unreached"]),
-    );
+    const onWire = cells.filter((c) => c.phase === "OnWire");
+
+    expect(
+      onWire.map((c) => [c.fault, "why" in c.outcome ? c.outcome.why : c.outcome._tag]),
+    ).toEqual(onWire.map((c) => [c.fault, "the drive did not replay to the phase"]));
   }, 120_000);
 });
