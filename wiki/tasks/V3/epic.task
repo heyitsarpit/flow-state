@@ -217,10 +217,10 @@ instructions
       meets code:wiki/conventions/fixtures.md as part of its requirements, before any code. The orchestrator owns it and
       checks it by asking the lead for that page's proof, never by reading the tests itself; a gap returns to the lead
       before the build, and the requirements review checks the proof, not the claim. Before posting the proof, the lead
-      has sidecars review its fixtures against every part of that page: scenarios, edge values, combinations, variety,
-      real-shaped data, registration with every runner, and that each expected result is correct for its cited rule; the
-      lead verifies and logs each finding (the user, 2026-11-16). Every Task with fixture work links the page in its
-      acceptance, and every brief cites it too.
+      has sidecars review its fixtures against every part of that page: scenarios, load and structural stress, edge
+      values, combinations, variety, real-shaped data, registration with every runner, and that each expected result is
+      correct for its cited rule; the lead verifies and logs each finding (the user, 2026-11-16). Every Task with
+      fixture work links the page in its acceptance, and every brief cites it too.
     - A new rule is shown red on a planted fault: add the fault to `tests/faults.ts`, and `nub run faults` must catch
       it. Plants go in a scratch copy, never the live tree.
     - A known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks; `it.todo` is not used. A gap a
