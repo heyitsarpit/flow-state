@@ -262,6 +262,9 @@ tasks
             - Nothing in `verify` reads the frozen packages.
             - `packages/flow-state-v3/package.json` has the six routes' `exports` map and the `flow` bin, and the
               packed-consumer smoke check passes on a packed tarball.
+        comment     2026-11-16T02:04:36Z
+            Routed from P2's completion audit: nub run verify no longer runs any stress file; the full gate should
+            include nub run test:stress.
 
     T73
         title       UI primitives, third wave: combobox, tree and token input fixtures

@@ -296,3 +296,7 @@ note 2026-11-16T01:58:14Z
 note 2026-11-16T01:58:14Z
     Rates this run (16:35Z to 01:55Z): weekly usage 77 to 96, about 2 points an hour; 9 Tasks done (T63 to T71), about 1
     an hour, about 2 points each. Expect 1 to 2 hours of work left on this account.
+
+note 2026-11-16T02:04:36Z
+    Phase P2 done: T75 PASS and the completion audit PASS at `eff65a6b` (`0477aff6`); coverage record re-matched,
+    proposed to the user as a @plan.Runtime entry. Record compaction (R18) deferred to save usage.
