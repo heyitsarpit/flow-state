@@ -893,6 +893,11 @@ tasks
             test. Out of slice (proposed): R11 versions (@task.V3.T56); RecordUndecodable and quarantined lifecycle
             (@task.V3.T20); snapshots subscriptions, R17 (@task.V3.T58); R1 per-operation refusal, R23 CleanupFailed,
             IdentityExhausted, runPromise; an actor-to-actor send action, a new public API for the user.
+        comment     2026-11-16T12:11:55Z
+            Resume: requirements 1-8, 10-13, 16-18 built with faults (last green 10a85c2e). WIP checkpoint after it is
+            red: context (14, 15) half-wired; runtime.ts buildRuntime must pass compiled.wiring from defaults,
+            ensureActor must pass wiringOf(...) as Ensure wiring, add ConflictingActorRef, BlockedByDependents and
+            snapshot context, then write tests/actors/context.test.ts and faults; 9 (64 follow-ups) not started.
 
     T72
         title       UI primitives, second wave: toaster and menu fixtures
