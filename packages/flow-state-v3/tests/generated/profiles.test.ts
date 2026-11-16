@@ -1,4 +1,4 @@
-import { Predicate } from "effect";
+import { Duration, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { generate, print, type Generated, type Step } from "../../src/host/testing/index.ts";
 import { samples } from "./fixtures.ts";
@@ -6,9 +6,38 @@ import { samples } from "./fixtures.ts";
 const SEEDS = Array.from({ length: 20 }, (_, n) => n + 1);
 
 const millisOf = (step: Step) =>
-  step._tag === "advance" && Predicate.isString(step.duration)
-    ? Number.parseInt(step.duration, 10)
-    : 0;
+  step._tag === "advance" ? Duration.toMillis(Duration.fromInputUnsafe(step.duration)) : 0;
+
+// The virtual time at which a step began: every advance before it.
+const timeAt = (steps: ReadonlyArray<Step>, at: number) =>
+  steps.slice(0, Math.max(0, at)).reduce((t, s) => t + millisOf(s), 0);
+
+// The lengths of runs of one sample step sent again and again.
+const burstsOf = (steps: ReadonlyArray<Step>) => {
+  const runs: Array<number> = [];
+
+  for (const [n, s] of steps.entries())
+    runs.push(s._tag === "send" && steps[n - 1] === s ? (runs.pop() ?? 0) + 1 : 1);
+
+  return runs;
+};
+
+const band = (value: number, lo: number, hi: number) => value >= lo && value <= hi;
+
+// The stress mixes, in percent, from the usual and stress runs of the fixture plan.
+const ANSWER_MIX = {
+  ok: 35,
+  fail: 10,
+  lost: 10,
+  lostButLanded: 10,
+  failButLanded: 5,
+  never: 5,
+  slow: 10,
+  reordered: 10,
+  late: 5,
+};
+
+const WRITE_MIX = { "write ack": 75, "write refuse": 15, "write hang": 5, "write land": 5 };
 
 const wordsOf = (run: Generated) => run.steps.flatMap((s) => (s._tag === "world" ? s.words : []));
 
@@ -86,48 +115,62 @@ describe("generated runs: the stress profile", () => {
   const calls = runs.flatMap((r) => r.run.end.calls);
   const batches = runs.flatMap((r) => r.run.end.records.batches);
 
-  it("has exactly one offline span per run, and gaps of 0 to 20 ms otherwise", () => {
-    for (const run of runs) {
-      const long = run.steps.filter((s) => millisOf(s) > 20 && millisOf(s) !== 120_000);
+  it("has exactly one offline span of 5 to 120 s per run, in which every answer is lost or never comes", () => {
+    const spans = runs.flatMap((r) => Option.toArray(r.offline));
 
-      expect(120_000).toBeGreaterThanOrEqual(long.reduce((sum, s) => sum + millisOf(s), 0));
-    }
+    const late = runs.flatMap((r) =>
+      Option.match(r.offline, {
+        onNone: () => [],
+        onSome: (o) =>
+          r.run.end.calls.filter(
+            (c) =>
+              c.step >= o.fromStep && c.step < o.untilStep && c.status !== "dropped at request",
+          ),
+      }),
+    );
 
-    expect(
-      runs.filter((r) => r.steps.some((s) => millisOf(s) >= 5000 && millisOf(s) !== 120_000))
-        .length,
-    ).toBeGreaterThan(runs.length / 2);
+    expect(spans).toHaveLength(runs.length);
+    expect(spans.filter((o) => !(o.fromStep < o.untilStep && o.untilStep < Infinity))).toEqual([]);
+    expect(spans.filter((o, n) => timeAt(runs[n]?.run.steps ?? [], o.untilStep) < o.until)).toEqual(
+      [],
+    );
+    expect(spans.filter((o) => o.until - o.from < 5000 || o.until - o.from > 120_000)).toEqual([]);
+    expect(late).toEqual([]);
   });
 
-  it("reloads, disposes and bursts", () => {
+  it("reloads, disposes, and bursts 50 to 2,000 sends", () => {
     const steps = runs.flatMap((r) => r.steps);
+    const bursts = runs.flatMap((r) => burstsOf(r.steps)).filter((n) => n >= 50);
 
     expect(steps.some((s) => s._tag === "reload")).toBe(true);
     expect(steps.some((s) => s._tag === "disposeRuntime")).toBe(true);
-    expect(
-      runs.some((r) =>
-        r.steps.some((s, n) => s._tag === "send" && r.steps[n + 1] === s && r.steps[n + 2] === s),
-      ),
-    ).toBe(true);
+    expect(bursts.length).toBeGreaterThan(0);
+    expect(bursts.filter((n) => n > 2000)).toEqual([]);
   });
 
-  it("draws answers per request near the catalogue's mix: about a third answered at once, lost and held ones in between", () => {
-    const status = (prefix: string) =>
-      share(calls.filter((c) => c.status.startsWith(prefix)).length, calls.length);
+  const drawn = (key: string) => runs.reduce((n, r) => n + (r.tally.get(key) ?? 0), 0);
 
-    expect(status("dropped at request")).toBeGreaterThan(0.05);
-    expect(0.3).toBeGreaterThan(status("dropped at request"));
-    expect(status("dropped at response")).toBeGreaterThan(0.05);
-    expect(0.3).toBeGreaterThan(status("dropped at response"));
+  // The shares drawn that fall outside three standard errors of their mix, in percent.
+  const offMix = (mix: Readonly<Record<string, number>>) => {
+    const total = Object.keys(mix).reduce((n, k) => n + drawn(k), 0);
+
+    return Object.entries(mix).flatMap(([k, p]) => {
+      const got = (100 * drawn(k)) / total;
+      const tolerance = 300 * Math.sqrt(((p / 100) * (1 - p / 100)) / total);
+
+      return band(got, p - tolerance, p + tolerance) ? [] : [`${k}: ${got} not ${p} of ${total}`];
+    });
+  };
+
+  it("draws each answer outside the offline span from its mix, within three standard errors", () => {
+    expect(offMix(ANSWER_MIX)).toEqual([]);
   });
 
-  it("draws writes per batch near the catalogue's mix: most land, about one in seven is refused", () => {
-    const refused = share(batches.filter((b) => b.status === "refused").length, batches.length);
-
-    expect(refused).toBeGreaterThan(0.05);
-    expect(0.3).toBeGreaterThan(refused);
+  it("draws each write from its mix, within three standard errors", () => {
+    expect(offMix(WRITE_MIX)).toEqual([]);
     expect(
-      share(batches.filter((b) => b.status === "landed").length, batches.length),
-    ).toBeGreaterThan(0.5);
+      share(batches.filter((b) => b.status === "refused").length, batches.length),
+    ).toBeGreaterThan(0.05);
+    expect(calls.filter((c) => c.status === "dropped at request").length).toBeGreaterThan(0);
   });
 });

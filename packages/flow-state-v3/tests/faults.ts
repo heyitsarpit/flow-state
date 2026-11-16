@@ -403,6 +403,18 @@ export const faults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "offline-reaches-server",
+    says: "the test tooling ignores the network going offline, so calls still reach their servers",
+    rule: "Stories R17",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: '          offline = kind === "offline";',
+        replace: "          void kind;",
+      },
+    ],
+  },
+  {
     name: "landed-write-lost",
     says: "a reload asked to land the held writes marks them landed but writes nothing to the store",
     rule: "Stories R13",

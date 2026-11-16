@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/machine.ts";
 import { Bank } from "../../fixtures/transfers/server.ts";
 import { bankStory } from "../../fixtures/transfers/stories.ts";
-import type { Cut, StoryRun, WorldWord } from "../../src/host/testing/index.ts";
+import { Fake, type Cut, type StoryRun, type WorldWord } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 
 const endings = (run: StoryRun) =>
@@ -77,6 +77,36 @@ describe("Fake wire words", () => {
     expect(statuses(next)).toEqual(["dropped at request", "answered"]);
     expect(endings(run)).toEqual(["unknown NoResponse", "success success"]);
     expect(notice(next)).toBe("sent r1");
+  });
+
+  it("offline loses every call at request, reaching no server; a wire word given meanwhile waits for the network (Stories R17, I9, I22)", async () => {
+    const run = checked(
+      await bankStory("wire/offline")
+        .ensure(account)
+        .world(Fake.network.offline(), Bank.transfer.hold())
+        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+        .checkpoint("offline")
+        .world(Fake.network.online())
+        .send(account, { _tag: "Send", transferId: "t3", cents: 500 })
+        .checkpoint("online")
+        .world(Bank.transfer.release())
+        .checkpoint("released")
+        .run(),
+    );
+
+    const { offline, online, released } = run.checkpoints;
+
+    expect(statuses(offline)).toEqual(["dropped at request", "dropped at request"]);
+    expect(receipts(offline)).toBe(0);
+    expect(statuses(online)).toEqual([
+      "dropped at request",
+      "dropped at request",
+      "held at request",
+    ]);
+    expect(receipts(online)).toBe(0);
+    expect(statuses(released)).toEqual(["dropped at request", "dropped at request", "answered"]);
+    expect(endings(run)).toEqual(["unknown NoResponse", "unknown NoResponse", "success success"]);
   });
 
   it("drop at response changes truth once and loses the answer: unknown NoResponse (Stories R9, I8)", async () => {

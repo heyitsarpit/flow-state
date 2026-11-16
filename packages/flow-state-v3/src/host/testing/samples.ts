@@ -125,6 +125,7 @@ const printWord = (samples: Samples, word: WorldWord) =>
       return `${serverName(samples, server)}.${endpoint}.${kind}(${where})`;
     },
     storage: ({ word: kind }) => `Fake.storage.${kind}()`,
+    network: ({ word: kind }) => `Fake.network.${kind}()`,
   });
 
 const durationText = (duration: Duration.Input) =>

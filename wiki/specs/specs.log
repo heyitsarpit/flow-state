@@ -44,3 +44,7 @@ note 2026-11-16T00:18:08Z
     @spec.WriteLanes I3, I15, I16: a crash before a save rolls back to the last landed capture (@spec.WriteAhead.I21)
     and forgets the unsaved delivery, release or failure; the Attempt restores unknown (@spec.WriteAhead.I17). Found by
     T70's generated runs. Reverse: each item's note.
+
+note 2026-11-16T00:32:57Z
+    @spec.Stories: R17, I22 and T15 add the network words Fake.network.offline() and online() (@plan.Pending.D12, the
+    orchestrator's call): offline, every call is lost at request; wire words wait. Reverse: drop R17.

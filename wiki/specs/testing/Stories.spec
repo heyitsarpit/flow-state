@@ -4,8 +4,10 @@ basis         A guide for the test tooling, written with skill:to-spec and skill
               building shows it wrong, each change logged in wiki/specs/specs.log.
 location      packages/flow-state-v3/src/host/testing
 derives_from  [@plan.Testing.O1, @plan.Testing.O2, @plan.Testing.O3, @plan.Testing.O4, @plan.Inspection.O1,
-              @plan.Inspection.O4, @plan.Pending.D5, @plan.Pending.D6, @plan.Pending.D7, @plan.Pending.D8]
-provides      Story, Story.Step, Fake.server, Fake.call, Fake.control, Fake.world, Fake.Lost, Fake.storage, the run,
+              @plan.Inspection.O4, @plan.Pending.D5, @plan.Pending.D6, @plan.Pending.D7, @plan.Pending.D8,
+              @plan.Pending.D12]
+provides      Story, Story.Step, Fake.server, Fake.call, Fake.control, Fake.world, Fake.Lost, Fake.storage,
+              Fake.network, the run,
               checkpoints, the runtime cut inspect(runtime), the trace run.trace and render(trace, "text")
 
 requirements
@@ -29,7 +31,8 @@ requirements
                 `send(ref, event)` sends a public event, restoring the actor from its record but never creating one;
                 `dispose(ref)` is `disposeActor`, and `dispose(ref, { how: "forget" })` is forget, which forgets the
                 identity and its record; `disposeRuntime()` runs the Runtime's public `dispose()`;
-                `world(...words)` applies fake controls, wire words and storage words in order; `advance(duration)`
+                `world(...words)` applies fake controls, wire words, storage words and network words (R17) in order;
+                `advance(duration)`
                 moves time (R5); `reload()` abandons the tab's open and boots its next (R13), and `reload({ reattach: 
                 false })`
                 does so without ensuring the Story's actors again (@plan.Pending.D10); `checkpoint(name)` records a
@@ -185,6 +188,13 @@ requirements
                 included. Export, import, redaction, truncation and the Plan's other event fields and kinds
                 (control, verdict, cleanup) are Q1's.
 
+    R17  The network words
+        source  @plan.Testing.O3; @plan.Pending.D12.
+        must    `Fake.network.offline()` takes the whole network down until `Fake.network.online()`. While offline,
+                every call of every endpoint is lost at request: the caller fails with `Fake.Lost` at once, the
+                handler never runs, and the call is logged dropped at request. A wire word given meanwhile is not
+                used by an offline call; it waits for the endpoint's next call once the network is back online.
+
 open
     Q1  Cut from @plan.Testing for this first slice.
         outcome  Story.machine and Story.fragment, tabs, together, setContext, hydration, frames, the address
@@ -287,6 +297,9 @@ invariants
 
     I21  Two runs of one Story give equal traces and equal text. [@R14, @R16]
 
+    I22  Every call that arrives while the network is offline is logged dropped at request and changes no server's 
+         truth. [@R17]
+
 composition
     flow
         Design note. A Story's run boots open 1 of its tab at time 0 and applies the steps in order. A step drives
@@ -383,6 +396,10 @@ coverage
         enforced_by  [@I20, @I21]
         open_by      [@Q1]
 
+    @R17
+        enforced_by  [@I22]
+        open_by      [@Q1]
+
 tests
     T1  Inert chain: a fixture whose Layer counts its builds is in a Story; the count is 0 after building the Story and 
         two branches from one prefix, and one per open after run(); the prefix's `steps` are unchanged by the
@@ -446,3 +463,6 @@ tests
                  render equal text; the text is
              kept as a file snapshot, a change detector only (planted fault: the trace leaves out requests).
              [@I20, @I21]
+    T15  Network words: offline with a hold given, two transfers are dropped at request with no receipt and end unknown 
+         NoResponse; once online, the next transfer is held by the waiting hold and its release answers it
+            (planted fault: the offline word reaches the servers). [@I9, @I22]

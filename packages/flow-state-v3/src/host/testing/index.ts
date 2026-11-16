@@ -32,7 +32,7 @@ export type { Cut, StoryRun } from "./run.ts";
 
 export { generate, propertyTest } from "./generate.ts";
 
-export type { Drawing, Failure, Generated, Profile } from "./generate.ts";
+export type { Drawing, Failure, Generated, Profile, Span } from "./generate.ts";
 
 export { print, samplesOf } from "./samples.ts";
 

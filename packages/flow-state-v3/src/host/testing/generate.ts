@@ -56,8 +56,8 @@ const STEPS: Record<Drawing, Table<StepKind>> = {
     ["control", 2],
   ],
   stress: [
-    ["user", 55],
-    ["burst", 10],
+    ["user", 64],
+    ["burst", 1],
     ["gap", 28],
     ["reload", 3],
     ["disposeRuntime", 1],
@@ -125,13 +125,15 @@ const RANGE = 1000;
  */
 type Draw = readonly [number, number, number, number];
 
+// Drawn from a wide range and spread down to 0..999: Arbitrary favours small values and 0, so a
+// narrow range would draw the first weight far too often.
 const digit = Arbitrary.schema(
-  Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: RANGE - 1 })),
+  Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 1_000_000_000 })),
 );
 
 // Arbitrary favours the ends of a range; multiplying by a prime coprime to the range spreads its
 // digits evenly over the weights, and keeps 0, toward which a draw shrinks, at 0.
-const spread = (d: number) => (d * 7919) % RANGE;
+const spread = (d: number) => (d === 0 ? 0 : 1 + ((Math.imul(d, 0x9e3779b1) >>> 0) % (RANGE - 1)));
 
 // RETURN_TYPE: the Draw tuple, which the array literal would widen to number[].
 const spreadDraw = ([a, b, c, d]: Draw): Draw => [spread(a), spread(b), spread(c), spread(d)];
@@ -168,7 +170,23 @@ const span = (lo: number, hi: number, at: number) =>
   Math.round(lo * (hi / lo) ** (at / (RANGE - 1)));
 
 // A digit for the n-th of several draws made from one.
-const mix = (at: number, n: number) => (at === 0 ? 0 : (at + 389 * n) % RANGE);
+// An independent digit for each use of one drawn digit (an endpoint's answer, its delay, the
+// store's write), hashed with a salt.
+const mix = (at: number, salt: number) =>
+  (Math.imul((at + 1) ^ Math.imul(salt + 1, 0x9e3779b1), 0x85ebca6b) >>> 0) % RANGE;
+
+const WRITE_SALT = 1000;
+
+/**
+ * A stretch of a run's virtual time, from its start up to its end, in milliseconds, and the
+ * indices of the steps that open and close it in the run's steps.
+ */
+export type Span = {
+  readonly from: number;
+  readonly until: number;
+  readonly fromStep: number;
+  readonly untilStep: number;
+};
 
 const advance = (ms: number) => Step.advance({ duration: `${ms} millis` });
 
@@ -193,6 +211,9 @@ const wire = (
 const storage = (word: "hold" | "refuse" | "release") =>
   Step.world({ words: [WorldWord.storage({ word })] });
 
+const network = (word: "offline" | "online") =>
+  Step.world({ words: [WorldWord.network({ word })] });
+
 const control = (word: WorldWord) => Step.world({ words: [word] });
 
 const QUIET_ROUNDS = 2;
@@ -216,6 +237,9 @@ export const quieting = (): Source => {
     const held = view.held[0];
 
     if (pulls > QUIET_LIMIT) return "done";
+
+    // Time passes every deadline first, so an answer never released (Never) comes too late.
+    if (pulls === 1) return QUIET;
 
     if (held !== undefined) {
       rounds = 0;
@@ -312,15 +336,22 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
       : -1;
 
   let offlineLeft = 0;
+  let offline: Option.Option<Span> = Option.none();
+  let online = false;
+  let given = 0;
+  const tally = new Map<string, number>();
   let quieted = false;
+  const offlineNow = () => Option.exists(offline, (o) => now >= o.from && now < o.until);
 
   // Once the call an answer was armed for has arrived, its release is timed and the endpoint's
   // next answer is armed; offline, every answer is Lost or Never.
-  const armEndpoint = (view: View, digits: Draw, at: Endpoint, n: number) => {
+  const armEndpoint = (view: View, digits: Draw, at: Endpoint, slot: number) => {
     const calls = view.calls(at.server, at.endpoint);
     const before = armed.get(keyOf(at));
 
     if (before !== undefined && calls === before.calls) return;
+    // Each arming of an endpoint draws afresh, though one draw's digits serve many steps.
+    const n = slot * 1_000_003 + calls;
 
     if (before !== undefined) {
       const delay = delayOf(before.answer, mix(digits[2], n));
@@ -334,12 +365,13 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
 
     const offlineAnswer: Answer = mix(digits[3], n) % 2 === 0 ? "lost" : "never";
 
-    const answer =
-      offlineLeft > 0
-        ? offlineAnswer
-        : Option.getOrElse(weighted(ANSWERS[drawing], mix(digits[3], n)), () => "ok" as const);
+    const answer = offlineNow()
+      ? offlineAnswer
+      : Option.getOrElse(weighted(ANSWERS[drawing], mix(digits[3], n)), () => "ok" as const);
 
     armed.set(keyOf(at), { calls, answer });
+
+    if (!offlineNow()) tally.set(answer, (tally.get(answer) ?? 0) + 1);
     front.push(...armedSteps(samples, at, answer, mix(digits[1], n)));
   };
 
@@ -350,11 +382,21 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
     if (Option.exists(writes, (w) => w.count === count)) return;
 
     if (Option.exists(writes, (w) => w.write === "slow"))
-      timers.push({ due: now + span(50, 800, digits[2]), at: Option.none(), afterCalls: 0 });
+      timers.push({
+        due: now + span(50, 800, mix(digits[2], WRITE_SALT + count)),
+        at: Option.none(),
+        afterCalls: 0,
+      });
 
     landOnReload = landOnReload || Option.exists(writes, (w) => w.write === "land");
-    const write = Option.getOrElse(weighted(WRITES[drawing], digits[3]), () => "ack" as const);
+
+    const write = Option.getOrElse(
+      weighted(WRITES[drawing], mix(digits[3], WRITE_SALT + count)),
+      () => "ack" as const,
+    );
+
     writes = Option.some({ count, write });
+    tally.set(`write ${write}`, (tally.get(`write ${write}`) ?? 0) + 1);
 
     if (write === "refuse") front.push(storage("refuse"));
     else if (write !== "ack") front.push(storage("hold"));
@@ -391,7 +433,7 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
     const steps: Record<StepKind, () => ReadonlyArray<Step>> = {
       nothing: () => [],
       user: () => user,
-      burst: () => user.flatMap((s) => Array.from({ length: 2 + (b % 19) }, () => s)),
+      burst: () => user.flatMap((s) => Array.from({ length: span(50, 2000, b) }, () => s)),
       think: () => {
         rest = span(80, 20_000, b);
 
@@ -437,7 +479,14 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
   };
 
   const give = (step: Step) => {
+    const index = given++;
     now += millisOf(step);
+    const word = step._tag === "world" ? step.words[0] : undefined;
+
+    if (word?._tag === "network")
+      offline = Option.map(offline, (o) =>
+        word.word === "offline" ? { ...o, fromStep: index } : { ...o, untilStep: index },
+      );
 
     return step;
   };
@@ -465,6 +514,18 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
     if (fronted !== undefined) return give(fronted);
 
     if (quieted) return quietly(view);
+
+    if (
+      !online &&
+      rest === 0 &&
+      offlineLeft === 0 &&
+      Option.exists(offline, (o) => now >= o.until)
+    ) {
+      online = true;
+
+      return give(network("online"));
+    }
+
     arm(view, draws[Math.min(next, draws.length - 1)] ?? [0, 0, 0, 0]);
 
     if (front.length > 0) return "skip";
@@ -485,16 +546,38 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
     if (draw === undefined) {
       quieted = true;
 
+      // A span still open when the draws end runs to its end before the world quiets.
+      if (!online && Option.isSome(offline)) {
+        if (offline.value.until > now) front.push(advance(offline.value.until - now));
+
+        front.push(network("online"));
+      }
+
+      online = true;
+
       return "skip";
     }
 
     next += 1;
 
-    if (next - 1 === offlineAt) offlineLeft = 5 + (draw[2] % 16);
-    else if (offlineLeft > 0) {
+    // Offline, a few draws run, then time moves on to the span's end, still offline.
+    if (next - 1 === offlineAt) {
+      offline = Option.some({
+        from: now,
+        until: now + span(5000, 120_000, draw[2]),
+        fromStep: Number.POSITIVE_INFINITY,
+        untilStep: Number.POSITIVE_INFINITY,
+      });
+      offlineLeft = 5 + (draw[2] % 16);
+      front.push(network("offline"));
+    } else if (offlineLeft > 0) {
       offlineLeft -= 1;
 
-      if (offlineLeft === 0) rest = span(5000, 120_000, draw[2]);
+      if (offlineLeft === 0)
+        rest = Option.match(offline, {
+          onNone: () => 0,
+          onSome: (o) => Math.max(0, o.until - now),
+        });
     }
 
     queue.push(...drawn(view, draw));
@@ -502,17 +585,25 @@ const sourceOf = (samples: Samples, drawing: Drawing, draws: ReadonlyArray<Draw>
     return "skip";
   };
 
-  return { source, pending: () => pending };
+  return { source, pending: () => pending, offline: () => offline, tally: () => new Map(tally) };
 };
 
 /**
  * A generated run: its steps as a Story would hold them (unused words left out), what it recorded,
- * and what was still pending at its horizon.
+ * what was still pending at its horizon, its offline span, and how many of each answer and write it
+ * drew outside that span.
+ *
+ * **Gotchas**
+ *
+ * - An answer is drawn for each endpoint's next call; further calls of that endpoint within the same
+ *   step are answered at once.
  */
 export type Generated = {
   readonly steps: ReadonlyArray<Step>;
   readonly run: StoryRun;
   readonly pending: ReadonlyArray<string>;
+  readonly offline: Option.Option<Span>;
+  readonly tally: ReadonlyMap<string, number>;
 };
 
 /**
@@ -553,7 +644,12 @@ const drawsFrom = (drawing: Drawing, seed: number) => {
 const drawnRun = (samples: Samples, id: string, drawing: Drawing, draws: ReadonlyArray<Draw>) => {
   const drawn = sourceOf(samples, drawing, draws);
 
-  return { ...runSource(samples, id, drawn.source), pending: drawn.pending() };
+  return {
+    ...runSource(samples, id, drawn.source),
+    pending: drawn.pending(),
+    offline: drawn.offline(),
+    tally: drawn.tally(),
+  };
 };
 
 /**

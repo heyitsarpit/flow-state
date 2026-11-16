@@ -68,3 +68,9 @@ decisions
         **Proven by:** @task.V3.T67's step test and the ported acknowledged-but-unheard pay cases reading unknown
         Restored with no request sent, and its planted fault. Judged by the orchestrator, for the user's read. Found
         in @task.V3.T67.
+    D12  @plan.Testing.O3: `Fake.network.offline()` and `online()`
+        Add world words that take the whole network down and back: while offline, every call is lost at request and
+        reaches no server, and wire words given meanwhile wait for the network. **Why:** the stress profile's offline
+        span (every answer Lost or Never for 5 to 120 s) needs one word for every endpoint at once, not a drop armed per
+        endpoint. **Proven by:** @task.V3.T70's step test, the stress profile's span check and the planted fault
+        `offline-reaches-server`. Judged by the orchestrator, for the user's read. Found in @task.V3.T70.

@@ -189,6 +189,7 @@ export const makeWorld = (
   // FLOW_STATE_ALLOW_UNKNOWN: held answers whose waiter was interrupted, of their endpoints' own types.
   const gone = new Set<Deferred.Deferred<unknown, unknown>>();
   const ids = new Map<AnyServer, number>();
+  let offline = false;
 
   const slot = (server: AnyServer, endpoint: string) => {
     if (!ids.has(server)) ids.set(server, ids.size);
@@ -238,7 +239,7 @@ export const makeWorld = (
         Effect.suspend(() => {
           // A dead tab's fibers never run again, so this is unreachable; it reaches no server.
           if (!alive(open)) return Effect.never;
-          const next = pending.get(slot(server, endpoint))?.shift();
+          const next = offline ? undefined : pending.get(slot(server, endpoint))?.shift();
 
           const index =
             log.push({
@@ -248,6 +249,13 @@ export const makeWorld = (
             }) - 1;
 
           arrived(index);
+
+          // Offline, a call never reaches its server: it is lost at request, words untouched.
+          if (offline) {
+            mark(index, "dropped at request");
+
+            return Effect.fail(new FakeLost());
+          }
 
           const hold = (exit: Held["exit"]) =>
             wait({
@@ -330,6 +338,9 @@ export const makeWorld = (
           pending.set(key, [...(pending.get(key) ?? []), { word: kind, at, step: step() }]);
         },
         storage: () => scriptFault("a storage word reached the fake servers"),
+        network: ({ word: kind }) => {
+          offline = kind === "offline";
+        },
       }),
     truthOf,
     calls: (server: AnyServer, endpoint: string) =>
@@ -578,5 +589,13 @@ export const Fake = {
     hold: () => WorldWord.storage({ word: "hold" }),
     refuse: () => WorldWord.storage({ word: "refuse" }),
     release: () => WorldWord.storage({ word: "release" }),
+  },
+  /**
+   * The network as a whole: offline, every call is lost at request and reaches no server, and
+   * waiting wire words wait for the network to come back online.
+   */
+  network: {
+    offline: () => WorldWord.network({ word: "offline" }),
+    online: () => WorldWord.network({ word: "online" }),
   },
 };

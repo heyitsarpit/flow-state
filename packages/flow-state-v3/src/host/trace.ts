@@ -81,6 +81,7 @@ const wordText = (word: WorldWord) =>
     wire: ({ server, endpoint, word: kind, at }) =>
       `${server.name}.${endpoint} ${kind}${kind === "release" ? "" : ` at ${at}`}`,
     storage: ({ word: kind }) => `storage ${kind}`,
+    network: ({ word: kind }) => `network ${kind}`,
   });
 
 const stepText = (step: Step) =>
