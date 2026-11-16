@@ -75,7 +75,7 @@ description
 tasks
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
-        status      review
+        status      done
         priority    high
 
         description
