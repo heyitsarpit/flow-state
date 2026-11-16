@@ -15,7 +15,7 @@ requirements
         source  @plan.Machines.O1; @plan.Runtime.O1.
         must    definition, machine, trait, subroutine and app return synchronously and start no 
                 actor, work, timer, storage access, service, loader or evidence. machine runs its 
-                callback exactly once, with { S, E, O }, and the callback returns static 
+                callback exactly once, with { S, E, O, emits }, and the callback returns static
                 configuration.
 
     R2  One construction failure
@@ -35,8 +35,7 @@ requirements
     R4  Declared shape
         source  @plan.Machines.O1.
         must    A definition requires id, states and events, and may declare `internalEvents`,
-                memory, traits, operations, context, `props`, `onProps`, `emits` and persist
-                (default false).
+                memory, traits, operations, context, `props`, `emits` and persist (default false).
 
                 Machine configuration mirrors the state tree:
 

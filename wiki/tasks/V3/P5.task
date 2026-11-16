@@ -209,6 +209,10 @@ tasks
             by prefix; some rule tests are one-sided; Stories I7's crossing-batch test. (5) Stories T5 names a reason
             Advance that R6 and the runner lack (proposed). (6) tools/stress/select.test.ts claims no default file runs
             stress material, yet tests/cli/cli.test.ts and tests/stories/story.test.ts each run a stress Story once.
+        comment     2026-11-16T13:52:45Z
+            Routed from the Plan-examples review: Stories R12 limits cut reads to read(ref) and friends, while Testing
+            O4 and the Plan examples read a machine Story's checkpoints[name].memory and .schedules; widen R12 for
+            Story.machine when building it.
     T31
         title       CLI outputs designed for people
         status      draft
