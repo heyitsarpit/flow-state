@@ -14,6 +14,16 @@ export type Reachable = {
   readonly retainsUnknown: boolean;
 };
 
+/**
+ * What a persisted fixture reaches, short of whether a cancel meets a head still Acknowledging.
+ */
+export const persisted = { writes: true, persisted: true, retainsUnknown: true };
+
+/**
+ * What a local fixture reaches, short of whether an unknown ending keeps a Held lane.
+ */
+export const local = { writes: true, persisted: false, cancelsAcknowledging: false };
+
 const ON_WIRE = new Set(["OnWire", "Cancelling"]);
 
 const PERSISTED_PHASES = new Set(["Acknowledging", "Recapturing", "Withdrawing"]);
