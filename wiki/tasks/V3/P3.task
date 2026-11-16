@@ -644,6 +644,10 @@ tasks
             Routed from T19's fix-round review: build the UnencodableValue report (Actors R8) and delete the WriteAhead
             realization's 'not built yet' line (a gap written as a limit); add I21's withheld-identity exception to its
             boot wording; check that an identity still withheld at disposal keeps its NotSent Disposed rows.
+        comment     2026-11-16T13:42:36Z
+            Routed from T9 close review: a persisted context consumer restored at boot binds its app entry default
+            wiring, not the override its ref gave (the record keeps no wiring); T9 lands it as an it.fails titled Actors
+            R18, owned here.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      review
@@ -922,6 +926,17 @@ tasks
             wires it ({ machine, context: { user: ref } }), and onContext turns a changed selection into an event;
             sending to an actor that doesn't exist now leaves SendTargetAbsent, and more than 1,024 queued sends
             throws AdmissionOverloaded.
+        comment     2026-11-16T13:42:36Z
+            Close review: ISSUES at 4b33f869; gates green by exit code (check, suite, stress, faults 150 of 150,
+            lint:rules). Blocking, red on scratch probes: Actors R19, a diamond with a direct edge (Pair bound to
+            Session and to a Watcher of Session) gets "ada|" then "ada|ada"; Actors R18 and Turn R22, a persisted
+            consumer returned by a send after its provider changed gets no wave (no onContext event, memory stale).
+        comment     2026-11-16T13:42:36Z
+            Fix round, not blocking: the Actors R13 edit is shaped to the code and contradicts Runtime O4 (the adding
+            turn is refused; context updates are never dropped), so restore it or ask the user via @plan.Pending, and
+            stop counting endings toward the 64; the False pass is unmet (mailbox order only in one two-actor,
+            endings-only Story, no order rule on generated runs); guards and updates without context (Turn R12): fix or
+            it.fails; the boot-restored override wiring: it.fails, owner @task.V3.T20.
 
     T74
         title       App mix: several fixtures in one Runtime
