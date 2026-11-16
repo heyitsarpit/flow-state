@@ -1387,3 +1387,10 @@ tasks
             refuses it (UnknownField, no type twin); a union whose single right-kind member fails reports that member's
             issue in place; extra file config.ts. Gates at bafacd30: check 0, suite 740 + 2 expected fail, stress 29,
             faults 193 of 193 in 46 s.
+        comment     2026-11-16T15:51:42Z
+            Close review (partial): gates green at bcb8f3c8 (check 0, suite 740+2xfail, stress 29, faults 193/193); all
+            six requirements red at c5a59ca9 for the right reason, green now. Found: definition(null) still throws a raw
+            TypeError (definition.ts:519 Object.keys before the decode; likely blocking, acceptance 1); a misspelled
+            gaurd/every passes tsc (probe), so construction alone refuses it; the decode's value is discarded
+            (config.ts:219), leaving casts and about 40 duplicate lines. Unchecked: verdict, routing to T79 (operations
+            return TypeError, {sec:5} schedule accepted, constant start unchecked, send keeps extra payload keys).
