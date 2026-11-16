@@ -57,14 +57,14 @@ const boundaryDepth = (handler: string, target: string) => {
 
 /**
  * The move of a handler at `handler` (`""` for the root) to `target`, from the active leaf
- * `leaf`, with the last active leaf of each compound in `history`.
+ * `leaf`, with the last active child of each compound in `history`.
  *
  * **Details**
  *
  * The unchanged boundary is the handler's state when the target lies strictly below it, otherwise
  * the target's nearest proper ancestor that contains the handler: so a target naming the handler's
  * own state, or an active ancestor, is entered again. A history target reaches the compound's last
- * active leaf, else its default leaf.
+ * active child, through that child's defaults, else the compound's default leaf.
  */
 export const moveOf = (
   compiled: Compiled,
@@ -77,7 +77,7 @@ export const moveOf = (
 
   const reached = Target.$match(target, {
     State: () => leafOf(compiled, path),
-    History: () => history.get(path) ?? leafOf(compiled, path),
+    History: () => leafOf(compiled, history.get(path) ?? path),
   });
 
   const depth = boundaryDepth(handler, path);
@@ -93,18 +93,18 @@ export const moveOf = (
 };
 
 /**
- * The history a move leaves: each exited compound remembers the leaf that was active under it.
+ * The history a move leaves: each exited compound remembers its child that was active.
  */
-export const historyAfter = (
-  compiled: Compiled,
-  history: ReadonlyMap<string, string>,
-  leaf: string,
-  move: Move,
-) => {
+export const historyAfter = (history: ReadonlyMap<string, string>, leaf: string, move: Move) => {
   const next = new Map(history);
 
-  for (const path of move.exits)
-    if (compiled.states.get(path)?.children.length !== 0) next.set(path, leaf);
+  const chain = chainOf(leaf);
+
+  for (const path of move.exits) {
+    const child = chain[chainOf(path).length];
+
+    if (child !== undefined) next.set(path, child);
+  }
 
   return next;
 };

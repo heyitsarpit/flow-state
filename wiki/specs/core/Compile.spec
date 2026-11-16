@@ -108,8 +108,10 @@ requirements
 
     R12  Names
         source  @plan.Machines.O1.
-        must    The state names "is" and "child", the top-level name "root", and the names "self" 
-                and "__proto__" are reserved (ReservedStateName). State paths have at most ten 
+        must    The state names "is", "child" and "history", the top-level name "root", and the
+                names "self" and "__proto__" are reserved (ReservedStateName); a state name holds no
+                dot, since dots join state paths (InvalidConfiguration, details.reason InvalidName). State paths have 
+                at most ten 
                 segments. Authored names and ids are nonempty, at most 256 UTF-8 bytes, contain no 
                 C0 control, DEL or lone surrogate, and compare by exact spelling.
 

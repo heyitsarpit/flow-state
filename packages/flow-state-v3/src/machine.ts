@@ -5,7 +5,6 @@ import {
   type AnyDefinition,
   codecOf,
   type ChildrenOf,
-  type CompoundNamesOf,
   type Definition,
   type Machine,
   type ScheduleConfig,
@@ -43,12 +42,14 @@ type LeafBody<D> = StateConfig<
 >;
 
 type StatesBody<D, L, P extends string> = {
-  readonly [N in NamesOf<L>]?: N extends CompoundNamesOf<L>
-    ? CompoundBody<D, ChildrenOf<L, N>, `${P}${N}.`>
-    : LeafBody<D>;
+  readonly [N in NamesOf<L>]?: NodeBody<D, ChildrenOf<L, N>, `${P}${N}.`>;
 };
 
-type CompoundBody<D, L, P extends string> = LeafBody<D> & {
+type NodeBody<D, C, P extends string> = [C] extends [never] ? LeafBody<D> : CompoundBody<D, C, P>;
+
+type CompoundBody<D, L, P extends string> = {
+  readonly on?: Handlers<D>;
+  readonly schedules?: LeafBody<D>["schedules"];
   readonly default: StateToken<`${P}${NamesOf<L>}`>;
   readonly states?: StatesBody<D, L, P>;
 };
@@ -72,7 +73,7 @@ export type AnyBody = {
   readonly default?: unknown;
   readonly on?: Values;
   readonly schedules?: Readonly<Record<string, ScheduleConfig<Values, Values>>>;
-  readonly states?: Readonly<Record<string, AnyBody | undefined>>;
+  readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
 
 const erasedBody = <B>(body: B) =>
@@ -92,7 +93,7 @@ const erasedBody = <B>(body: B) =>
  * **Details**
  *
  * The active leaf's handlers are tried first, then each ancestor's, then the root's. A compound
- * target enters its default leaf; `S.X.history` enters X's last active leaf, else its default.
+ * target enters its default leaf; `S.X.history` enters X's last active child, else its default.
  *
  * **Gotchas**
  *

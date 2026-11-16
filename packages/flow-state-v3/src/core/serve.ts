@@ -132,7 +132,7 @@ export const makeServe = (
               ...stopNamed(incarnation, exited),
               state: move.leaf,
               activations: [...kept, ...move.enters.map(() => tx.next())],
-              history: historyAfter(compiled, incarnation.history, incarnation.state, move),
+              history: historyAfter(incarnation.history, incarnation.state, move),
               memory: accepted.memory,
             };
           },

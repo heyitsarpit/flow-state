@@ -1,5 +1,5 @@
 import { Option, Predicate, Schema } from "effect";
-import type { Compiled } from "./compiled.ts";
+import type { Compiled, Values } from "./compiled.ts";
 import type { Machine } from "../definition.ts";
 import { checkName } from "../construction.ts";
 import type { Finding } from "../error.ts";
@@ -106,13 +106,18 @@ const allowed = (value: unknown, key: string) =>
   DERIVED.has(key) ||
   (key === "run" && Predicate.hasProperty(value, "slot") && Predicate.isString(value.slot));
 
+// FLOW_STATE_ALLOW_UNKNOWN: a Compiled handed to a Runtime is checked before it is trusted.
+// RETURN_TYPE: a type guard states the type it narrows to: an object, array or Map to walk.
+const walkable = (value: unknown): value is Values =>
+  !Schema.isSchema(value) && (Predicate.isObject(value) || Array.isArray(value));
+
 // RETURN_TYPE: recursive: the first function that is neither a Slot's, a Schema's own nor derived.
 const bareFunction = (
   // FLOW_STATE_ALLOW_UNKNOWN: a Compiled handed to a Runtime is checked before it is trusted.
   value: unknown,
   path: string,
 ): Option.Option<string> => {
-  if (Schema.isSchema(value) || !Predicate.isObject(value)) return Option.none();
+  if (!walkable(value)) return Option.none();
 
   const entries =
     value instanceof Map ? [...value].map(([k, v]) => [String(k), v]) : Object.entries(value);

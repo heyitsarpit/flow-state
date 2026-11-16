@@ -83,7 +83,7 @@ export const TurnResult = Data.taggedEnum<TurnResult>();
  * **Details**
  *
  * - `state`: the active leaf's path; `activations` numbers each state on its chain, outermost
- *   first; `history` holds each compound's last active leaf.
+ *   first; `history` holds each compound's last active child.
  * - `late`: the event is a late ending, routed from `from`, the depth of the owner's nearest
  *   surviving ancestor (0 for the root); a current event is routed from the leaf.
  * - `lane(operation, key)`: a lane's view; a `None` key names the ending's own lane.

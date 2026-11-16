@@ -168,6 +168,20 @@ export const snapshotIn = (
   }));
 };
 
+// An outside snapshot omits the machine's Flow.private fields; Stories and Inspection see them.
+const outside = (machine: Machine, snapshot: Snapshot) => {
+  const hidden = machine.compiled.fields.filter((f) => f.private).map((f) => f.name);
+
+  return hidden.length === 0
+    ? snapshot
+    : {
+        ...snapshot,
+        memory: Object.fromEntries(
+          Object.entries(snapshot.memory).filter(([name]) => !hidden.includes(name)),
+        ),
+      };
+};
+
 // RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
 export const snapshotOf = (driver: Driver, actor: ActorId): Option.Option<Snapshot> =>
   snapshotIn(driver.world(), driver.machines, actor);
@@ -355,7 +369,7 @@ export const buildRuntime = (
           const { _tag: tag, ...payload } = event;
           driver.send(actor, tag, payload);
         },
-        getSnapshot: () => snapshotOf(driver, actor),
+        getSnapshot: () => Option.map(snapshotOf(driver, actor), (x) => outside(ref.machine, x)),
       };
     },
     disposeActor: (actor) => {

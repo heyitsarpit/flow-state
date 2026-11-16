@@ -408,6 +408,8 @@ export const operationFindings = (
     const at = ["operations", name];
     const found: Array<Finding> = [...checkName(name, at)];
 
+    found.push(...keyFieldFindings(name, bound));
+
     if (bound.kind === "write") {
       const target = internal[bound.unknown.ending.event];
 
@@ -474,6 +476,31 @@ const KNOWN = new Set([
   "memory",
   "operations",
 ]);
+
+// RETURN_TYPE: the findings this construction reports: a key field that may be absent.
+const keyFieldFindings = (name: string, bound: Bound): Array<Finding> => {
+  const ast = SchemaAST.toType(bound.input.ast);
+  const fields = SchemaAST.isObjects(ast) ? ast.propertySignatures : [];
+
+  return fields
+    .filter((p) => bound.key.includes(String(p.name)) && SchemaAST.isOptional(p.type))
+    .map((p) => ({
+      code: "KeyFieldOptional",
+      path: ["operations", name, "key", String(p.name)],
+      summary: `${name}'s key field ${String(p.name)} is optional`,
+      help: "Make every key field of the contract's input required.",
+    }));
+};
+
+const REQUIRED = ["id", "states", "events"];
+
+/**
+ * The findings of a definition's missing required fields: id, states and events.
+ */
+export const missingFindings = (config: Values) =>
+  REQUIRED.filter((key) => !Object.hasOwn(config, key)).map((key) =>
+    invalid([key], "MissingField", `a definition has no ${key}`, "Declare id, states and events."),
+  );
 
 /**
  * The findings of one field of a definition, in rule order; the tree's findings come from its

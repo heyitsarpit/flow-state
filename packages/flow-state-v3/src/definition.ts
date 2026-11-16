@@ -8,6 +8,7 @@ import { readHandle, writeHandle } from "./handles.ts";
 import {
   definitionFindings,
   isMarker,
+  missingFindings,
   isUncertain,
   type TreeNode,
   treeOf,
@@ -53,6 +54,13 @@ export type MemoryOf<M> = Flat<
     readonly [K in OptionalKeys<M>]?: TypeOf<M[K]>;
   }
 >;
+
+type PrivateKeys<M> = { readonly [K in keyof M]: M[K] extends Private ? K : never }[keyof M];
+
+/**
+ * The memory an outside snapshot shows: every field but the `Flow.private` ones.
+ */
+export type OutsideOf<M> = Omit<MemoryOf<M>, PrivateKeys<M>>;
 
 /**
  * The memory a handler may write: every field but the input fields, which name the actor.
@@ -155,7 +163,7 @@ export type StateToken<Path extends string = string> = {
 };
 
 /**
- * A compound's history as a target (`S.X.history`): its last active leaf, else its default.
+ * A compound's history as a target (`S.X.history`): its last active child, else its default.
  */
 export type HistoryToken<Path extends string = string> = {
   readonly "~flow": "history";
@@ -306,8 +314,9 @@ export type RootToken = {
  *
  * **Details**
  *
- * `Event`, `State`, `Input` and `Memory` are its Schemas: `Event` decodes its public envelopes,
- * `State` its leaf paths, `Input` what a creator supplies and `Memory` the whole memory.
+ * `Event`, `State`, `Input`, `Memory` and `Snapshot` are its Schemas: `Event` decodes its public
+ * envelopes, `State` its leaf paths, `Input` what a creator supplies, `Memory` the whole memory and
+ * `Snapshot` an outside snapshot's state and memory, without the `Flow.private` fields.
  */
 export type Definition<
   States extends StateTree = StateTree,
@@ -330,6 +339,10 @@ export type Definition<
   readonly State: Schema.Codec<LeavesOf<States>, string>;
   readonly Input: Schema.Codec<InputOf<M>, Values>;
   readonly Memory: Schema.Codec<MemoryOf<M>, Values>;
+  readonly Snapshot: Schema.Codec<
+    { readonly state: LeavesOf<States>; readonly memory: OutsideOf<M> },
+    Values
+  >;
 };
 
 export const fieldsOf = (x: EventFields) => (isUncertain(x) ? x.fields : x);
@@ -348,24 +361,31 @@ const trusted = <A>(value: unknown) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- records built at run time carry no static key types
   value as A;
 
-const invalidEvent = (tag: string) =>
+const invalidEvent = (tag: string, field: ReadonlyArray<string>) =>
   flowError([
     {
       code: "InvalidEvent",
-      path: ["E", tag],
+      path: ["E", tag, ...field],
       summary: `E.${tag} was given a payload its Schema refuses`,
       help: "Give the event a payload of its declared fields.",
     },
   ]);
 
-const eventToken = (tag: string, payload: Schema.Codec<Values, Values>) => {
+const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
   const ending = { event: tag, from: Option.none() };
-  const valid = Schema.is(payload);
+  const valid = Schema.is(codecOf<Values>(Schema.Struct(fields)));
+  const checks = Object.entries(fields).map(([name, schema]) => [name, Schema.is(schema)] as const);
 
   const make = (given: Values = {}) => {
     if (!valid(given))
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- E.X's contract: a payload its Schema refuses throws InvalidEvent
-      throw invalidEvent(tag);
+      throw invalidEvent(
+        tag,
+        checks
+          .filter(([name, is]) => !is(given[name]))
+          .map(([name]) => name)
+          .slice(0, 1),
+      );
 
     return { ...given, _tag: tag };
   };
@@ -380,10 +400,7 @@ const eventToken = (tag: string, payload: Schema.Codec<Values, Values>) => {
 const tokensOf = <Ev extends Readonly<Record<string, EventFields>>>(events: Ev) =>
   trusted<Tokens<Ev>>(
     Object.fromEntries(
-      Object.entries(events).map(([tag, fields]) => [
-        tag,
-        eventToken(tag, codecOf<Values>(Schema.Struct(fieldsOf(fields)))),
-      ]),
+      Object.entries(events).map(([tag, fields]) => [tag, eventToken(tag, fieldsOf(fields))]),
     ),
   );
 
@@ -467,14 +484,17 @@ export const definition = <
   const operations = config.operations?.({ E: tokensOf(internal) }) ?? trusted<O>({});
   const tree = treeOf(config.states);
 
-  const findings = Object.keys(config).flatMap((key) =>
-    definitionFindings(
-      key,
-      { ...config, internalEvents: internal, memory },
-      tree.findings,
-      operations,
+  const findings = [
+    ...missingFindings(config),
+    ...Object.keys(config).flatMap((key) =>
+      definitionFindings(
+        key,
+        { ...config, internalEvents: internal, memory },
+        tree.findings,
+        operations,
+      ),
     ),
-  );
+  ];
 
   const [first, ...rest] = findings;
 
@@ -527,6 +547,18 @@ export const definition = <
     Input: trusted(Schema.Struct(inputs)),
     Memory: trusted(
       Schema.Struct(Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOf(f)]))),
+    ),
+    Snapshot: trusted(
+      Schema.Struct({
+        state: Schema.Literals(leaves),
+        memory: Schema.Struct(
+          Object.fromEntries(
+            Object.entries(memory).flatMap(([k, f]) =>
+              isMarker(f) && f["~flow"] === "private" ? [] : [[k, schemaOf(f)]],
+            ),
+          ),
+        ),
+      }),
     ),
   };
 };

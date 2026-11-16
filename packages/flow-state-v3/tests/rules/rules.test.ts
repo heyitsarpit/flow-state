@@ -145,10 +145,13 @@ describe("run rules over crafted runs", () => {
   it("Turn I14: an event's refused turn that mints is a breach", async () => {
     const run = await crafted([
       at(1)(Evidence.Issue({ code: "InvalidTurn", ending: Option.none() })),
+      at(1)(Evidence.Published({ actor: who, state: "PAYING", memory: {} })),
       at(1)(Evidence.Minted({ operation: "pay", attempt, actor: who, key: {} })),
     ]);
 
-    expect(refusedTurnIssueOnly.breaches(run)).toHaveLength(1);
+    expect(refusedTurnIssueOnly.breaches(run).map((b) => b.includes("also gave Minted"))).toEqual([
+      true,
+    ]);
   });
 
   it("WriteLanes I6: a request carrying an id of an Attempt's shape that was never minted is a breach", async () => {

@@ -4,6 +4,7 @@ import { samples as palette } from "../../fixtures/command-palette/stories.ts";
 import { samples as lanes } from "../../fixtures/lanes/stories.ts";
 import { samples as numberInput } from "../../fixtures/number-input/stories.ts";
 import { samples as pay } from "../../fixtures/pay/stories.ts";
+import { samples as player } from "../../fixtures/player/stories.ts";
 import { samples as signIn } from "../../fixtures/sign-in/stories.ts";
 import { samples as sync } from "../../fixtures/sync/stories.ts";
 import { samples as transfers } from "../../fixtures/transfers/stories.ts";
@@ -17,6 +18,7 @@ export const samples = {
   lanes,
   "number-input": numberInput,
   pay,
+  player,
   "sign-in": signIn,
   sync,
   transfers,

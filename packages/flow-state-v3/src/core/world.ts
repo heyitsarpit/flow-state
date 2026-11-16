@@ -66,7 +66,7 @@ export type Armed = { readonly arming: number; readonly dueAt: number; readonly 
  *
  * `state` is the active leaf's path. `activations` numbers each entry of the states on its chain,
  * outermost first: a re-entry is a new activation, so work its old activation owns ends late.
- * `history` holds each exited compound's last active leaf.
+ * `history` holds each exited compound's last active child.
  */
 export type Incarnation = {
   readonly id: string;

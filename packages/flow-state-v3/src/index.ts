@@ -13,7 +13,7 @@ export { machine } from "./machine.ts";
 
 export type { Definition, Machine } from "./definition.ts";
 
-export { FlowError } from "./error.ts";
+export { Diagnostic, FlowError } from "./error.ts";
 
 export { deny, Flow, Outcome } from "./flow.ts";
 

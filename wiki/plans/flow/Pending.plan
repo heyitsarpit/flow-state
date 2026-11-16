@@ -74,3 +74,10 @@ decisions
         span (every answer Lost or Never for 5 to 120 s) needs one word for every endpoint at once, not a drop armed per
         endpoint. **Proven by:** @task.V3.T70's step test, the stress profile's span check and the planted fault
         `offline-reaches-server`. Judged by the orchestrator, for the user's read. Found in @task.V3.T70.
+
+    D13  @plan.Machines.O3: armOn's implicit self only where no level handles the event
+        Change O3's "A node with no written handler ... handles it with an implicit unguarded self" to: when no state
+        from the routed one up to the root writes a handler for the event, the deepest active state whose schedule lists
+        it handles it with an implicit self. **Why:** node-local, it shadows an ancestor's handler, so a root
+        `updateMemory` never runs while the schedule's state is active (seen in @task.V3.T19). **Proven by:**
+        @task.V3.T17's player Story (Seek at the root restarts PLAYING's tick and updates `pos`) and its planted fault.

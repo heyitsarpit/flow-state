@@ -733,6 +733,27 @@ tasks
             (@task.V3.T56); R10, R11, R13 fragments (@task.V3.T57); R18 wiring and running a machine with input by value
             ref (@task.V3.T9); Diagnostics R3, R4, R8 to R10 (causes, leaks, rendering) stay open until a boundary that
             raises them is built.
+        comment     2026-11-16T10:23:43Z
+            Requirements review: ISSUES. Missing snapshot shape, Diagnostics R3 and R5, several refused forms and
+            Compile T9; items 4, 5, 6, 7, 8, 9 and 14 to 19 wrong or weak. Folded into the corrected list below.
+        comment     2026-11-16T10:34:35Z
+            Corrected requirements (review folded in; check form after each): 20 Snapshot Schema of leaf state and
+            non-private memory, and private fields omitted from a handle's snapshot (Turn R23, Compile R14) ->
+            construction test and runtime test; 21 E.X names the refused field, InvalidEvent beating SchemaValidation
+            (Diagnostics R3, R5) -> test; creation's SchemaValidation and its callback half need an input boundary,
+            routed to @task.V3.T9; 22 MissingField, KeyFieldOptional, DEL and each R12 bound (Compile R4, R12, T3) ->
+            one construction test each; 23 Compile T9 data view equal across compiles -> test via inspect's dataView; 24
+            item 17 kept: Turn R14 changed so the implicit self applies only where no level writes a handler (two traces
+            in specs.log; plan text as @plan.Pending.D13); 25 item 14 corrected: history is the last active direct child
+            (Turn R4 now says so); 26 item 15: fixed delay range is Turn R14's new sentence, code InvalidConfiguration
+            DelayOutOfRange, negative, infinite and NaN refused; computed one refused again on redelivery (TURN-01); 27
+            item 16: both it.fails became tests that also assert the snapshot equals the one before; rules.ts
+            publishedOnce and refusedTurnIssueOnly judge exactly one; 28 item 19: faults for construction too (T1
+            callback twice, T2 first violation only, T3 impure default accepted, T11 added state accepted, T12 identity
+            optional accepted); 29 item 18: S20 player without restartOn; S06 (traits, restore, lazy) to @task.V3.T57
+            and @task.V3.T56; Flow.input fixture with value refs to @task.V3.T9; private and computed fields in the
+            player; 30 item 8: every machine with input is value-named (Actors R5); 31 Outcome classes are not exported,
+            only error-channel markers: rejected; self-selecting context, onContext and non-public send to @task.V3.T9.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open

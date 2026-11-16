@@ -312,11 +312,6 @@ const turnText = (e: Evidence, at: number) =>
  * and an accepted transition with all its parts publishes exactly once. Judged from every turn's
  * start (an outcome, a delivery, an incarnation, a finish or the Runtime's disposal), and no
  * snapshot is published before the first.
- *
- * **Gotchas**
- *
- * - "Exactly once" is judged for an accepted transition that moves to another leaf; one that
- *   changes nothing visible publishes nothing today, a known bug.
  */
 export const publishedOnce: Rule = {
   rule: "Turn I9",
@@ -337,8 +332,8 @@ export const publishedOnce: Rule = {
 
       if (published > 1) return [`Turn I9: ${turnText(e, at)} published ${published} times`];
 
-      return e._tag === "Turn" && e.from !== e.to && published === 0
-        ? [`Turn I9: ${turnText(e, at)} moved and published nothing`]
+      return e._tag === "Turn" && published === 0
+        ? [`Turn I9: ${turnText(e, at)} was accepted and published nothing`]
         : [];
     }),
   ],
@@ -364,23 +359,18 @@ const refusedEventTurn = (run: StoryRun, at: number) => {
     wrong.length > 0
       ? Option.some(`Turn I14: ${turn} also gave ${wrong.map((r) => r._tag).join(", ")}`)
       : Option.none(),
-    published > 1
-      ? Option.some(`Turn I14: ${turn} published ${published} snapshots`)
-      : Option.none(),
+    published === 1
+      ? Option.none()
+      : Option.some(`Turn I14: ${turn} published ${published} snapshots, not one`),
   ].flatMap((found) => Option.toArray(found));
 };
 
 /**
  * Turn I14: a refused or pre-commit-defective turn leaves its actor as before and starts no work:
- * no Turn report, no Minted or Sent, one issue, and at most one snapshot, equal to the one before
+ * no Turn report, no Minted or Sent, one issue, and exactly one snapshot, equal to the one before
  * the turn. Judged for a delivered ending's turn, which its Delivered record starts and whose
  * refusal names the ending, and for an event's turn, which leaves no record before its refusal and
  * is judged on what follows it.
- *
- * **Gotchas**
- *
- * - The Spec's one issue-only snapshot is not built: a snapshot carries no issue, and a refusal
- *   publishes only its Issue record. That half is a known bug, not judged here.
  */
 export const refusedTurnIssueOnly: Rule = {
   rule: "Turn I14",
@@ -425,7 +415,8 @@ export const refusedTurnIssueOnly: Rule = {
       if (wrong.length > 0)
         found.push(`Turn I14: ${turn} also gave ${wrong.map((r) => r._tag).join(", ")}`);
 
-      if (published > 1) found.push(`Turn I14: ${turn} published ${published} snapshots`);
+      if (published !== 1)
+        found.push(`Turn I14: ${turn} published ${published} snapshots, not one`);
 
       return found;
     }),

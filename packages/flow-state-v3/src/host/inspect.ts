@@ -157,3 +157,5 @@ const cutOf = (driver: Driver): RuntimeCut => {
  * - This first slice covers actors, lanes, owed endings, timers, uses and the lifecycle only.
  */
 export const inspect = (runtime: Runtime) => cutOf(runtime[DriverId]);
+
+export { dataView } from "../core/data-view.ts";

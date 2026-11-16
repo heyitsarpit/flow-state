@@ -29,7 +29,9 @@ requirements
 
     R4  Subroutines and history
         source  @plan.Machines.O2.
-        must    Subroutine states and history behave as the source states.
+        must    Subroutine states and history behave as the source states. S.X.history enters X's
+                last active direct child, recorded when X is exited, through that child's defaults;
+                with none recorded it enters X's default leaf.
 
     R5  One turn
         source  @plan.Machines.O3.
@@ -90,11 +92,15 @@ requirements
                 listed event, restarting it if running, and with Flow.entry also on entry.
                 `disarmOn` stops it; stopping an idle schedule does nothing. Exit stops any
                 schedule. An event in both lists, `armOn` with `restartOn`, or `armOn` on a keyed
-                schedule is a construction error.
+                    schedule is a construction error. A fixed delay outside 0 to 2^31 - 1 ms is a
+                    construction error (InvalidConfiguration, details.reason DelayOutOfRange); a computed
+                    one outside it, negative or not finite refuses the turn.
 
-                A node with no written handler for an event that an active schedule lists in `armOn`
-                or `disarmOn` handles it with an implicit unguarded { target: "self" }, so that
-                event is not Unhandled there. A schedule never counts the turn that arms it, and
+                When no state from the routed one up to the root has a written handler for an event
+                that an active schedule lists in `armOn` or `disarmOn`, the deepest such schedule's
+                state handles it with an implicit unguarded { target: "self" }, so that event is not
+                Unhandled; a written handler at any level is selected first, and an ancestor's
+                handler is never shadowed. A schedule never counts the turn that arms it, and
                 descendant changes and "self" keep its deadline, except that the event the schedule
                 lists in `armOn` restarts it, the implicit "self" handler included.
 

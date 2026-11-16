@@ -1,4 +1,4 @@
-import { Duration, Option, Predicate } from "effect";
+import { Data, Duration, Option, Predicate } from "effect";
 import {
   type Alternative,
   Delay,
@@ -190,10 +190,10 @@ const levelOf = (compile: Compile, on: Values, prefix: string): Level =>
   );
 
 const fixedDelay = (compile: Compile, delay: Duration.Input, at: string) => {
-  const ms = Option.getOrElse(
-    Option.map(Duration.fromInput(delay), Duration.toMillis),
-    () => Number.NaN,
-  );
+  // A number is read as written: Duration clamps a negative one and keeps Infinity.
+  const ms = Predicate.isNumber(delay)
+    ? delay
+    : Option.getOrElse(Option.map(Duration.fromInput(delay), Duration.toMillis), () => Number.NaN);
 
   if (!Number.isFinite(ms) || ms < 0 || ms > MAX_DELAY_MS)
     compile.findings.push(
@@ -260,64 +260,34 @@ const scheduleOf = (
   };
 };
 
-const BODY_FIELDS = new Set(["default", "on", "schedules", "states"]);
-
 const nameOf = (here: string) => (here === "" ? "the root" : here);
 
-// The findings of a body's fields: unknown ones, and children on a leaf.
-const bodyFindings = (
-  body: AnyBody,
-  top: boolean,
-  isLeaf: boolean,
-  here: string,
-  prefix: string,
-) => [
-  ...Object.keys(body)
-    .filter((key) => !BODY_FIELDS.has(key) || (top && key === "schedules"))
-    .map((key) =>
-      invalid(
-        pathOf(`${prefix}${key}`),
-        "UnknownField",
-        `a state body has no field ${key}`,
-        "Write on, schedules, and for a compound default and states.",
-      ),
-    ),
-  ...[body.default, body.states]
-    .filter((x) => isLeaf && x !== undefined)
-    .slice(0, 1)
-    .map(() =>
-      invalid(
-        pathOf(`${prefix}default`),
-        "LeafHasChildren",
-        `the leaf ${here} declares a default or states`,
-        "Give a leaf only on and schedules.",
-      ),
-    ),
-];
+const leafHasChildren = (here: string, at: string) =>
+  invalid(
+    pathOf(at),
+    "LeafHasChildren",
+    `the leaf ${here} declares a default or states`,
+    "Give a leaf only on and schedules.",
+  );
+
+const unknownField = (key: string, prefix: string) =>
+  invalid(
+    pathOf(`${prefix}${key}`),
+    "UnknownField",
+    `a state body has no field ${key}`,
+    "Write on, schedules, and for a compound default and states.",
+  );
 
 // A compound's default child, checked to be a direct child token of this definition.
 const defaultOf = (
   compile: Compile,
-  body: AnyBody,
+  // FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
+  raw: unknown,
   children: ReadonlyArray<TreeNode>,
   here: string,
   prefix: string,
 ) => {
-  const at = pathOf(`${prefix}default`);
-  const token = compile.tokens.get(body.default);
-
-  if (body.default === undefined) {
-    compile.findings.push(
-      invalid(
-        at,
-        "MissingDefault",
-        `${nameOf(here)} has no default`,
-        "Name a direct child as default.",
-      ),
-    );
-
-    return Option.none<string>();
-  }
+  const token = compile.tokens.get(raw);
 
   if (token === undefined) {
     compile.findings.push(foreign(`${prefix}default`, "the default"));
@@ -328,7 +298,7 @@ const defaultOf = (
   if (!children.some((c) => c.path === token)) {
     compile.findings.push(
       invalid(
-        at,
+        pathOf(`${prefix}default`),
         "DefaultNotChild",
         `${token} is not a direct child of ${nameOf(here)}`,
         "Name a direct child as default.",
@@ -354,6 +324,84 @@ type Compiled = {
   readonly nodes: ReadonlyArray<Node>;
 };
 
+type Walk = {
+  readonly compile: Compile;
+  readonly children: ReadonlyArray<TreeNode>;
+  readonly here: string;
+  readonly prefix: string;
+  readonly top: boolean;
+  readonly isLeaf: boolean;
+};
+
+// The children's bodies, their names checked against the tree, compiled depth first.
+const childNodes = (walk: Walk, states: Readonly<Partial<Record<string, AnyBody>>>) => {
+  for (const key of Object.keys(states))
+    if (!walk.children.some((c) => c.name === key))
+      walk.compile.findings.push(
+        invalid(
+          pathOf(`${walk.prefix}states.${key}`),
+          "UnknownState",
+          `${nameOf(walk.here)} has no child ${key}`,
+          "Write bodies only for the definition's states.",
+        ),
+      );
+
+  return walk.children.flatMap(
+    (child) =>
+      nodesOf(
+        walk.compile,
+        states[child.name] ?? {},
+        Option.some(child),
+        `${walk.prefix}states.${child.name}.`,
+      ).nodes,
+  );
+};
+
+type Part = Data.TaggedEnum<{
+  Default: { value: Option.Option<string> };
+  On: { value: Level };
+  Schedules: { value: ReadonlyArray<Schedule> };
+  States: { value: ReadonlyArray<Node> };
+  Refused: {};
+}>;
+
+const Part = Data.taggedEnum<Part>();
+
+const refuse = (walk: Walk, finding: Finding) => {
+  walk.compile.findings.push(finding);
+
+  return Part.Refused();
+};
+
+// Each body field's compile; a field a node may not have is refused with its finding.
+const FIELDS = {
+  default: (walk, body) =>
+    walk.isLeaf
+      ? refuse(walk, leafHasChildren(walk.here, `${walk.prefix}default`))
+      : Part.Default({
+          value: defaultOf(walk.compile, body.default, walk.children, walk.here, walk.prefix),
+        }),
+  on: (walk, body) => Part.On({ value: levelOf(walk.compile, body.on ?? {}, walk.prefix) }),
+  schedules: (walk, body) =>
+    walk.top
+      ? refuse(walk, unknownField("schedules", walk.prefix))
+      : Part.Schedules({
+          value: Object.entries(body.schedules ?? {}).map(([name, s]) =>
+            scheduleOf(walk.compile, name, s, `${walk.prefix}schedules.${name}`),
+          ),
+        }),
+  states: (walk, body) =>
+    walk.isLeaf
+      ? refuse(walk, leafHasChildren(walk.here, `${walk.prefix}states`))
+      : Part.States({ value: childNodes(walk, body.states ?? {}) }),
+} satisfies Readonly<Record<string, (walk: Walk, body: AnyBody) => Part>>;
+
+// RETURN_TYPE: a type guard states the type it narrows to.
+const isField = (key: string): key is keyof typeof FIELDS => Object.hasOwn(FIELDS, key);
+
+const partOf = (walk: Walk, body: AnyBody, key: string) =>
+  isField(key) ? FIELDS[key](walk, body) : refuse(walk, unknownField(key, walk.prefix));
+
 // RETURN_TYPE: recursive: a body's nodes and its children's, depth first, with its handlers.
 export const nodesOf = (
   compile: Compile,
@@ -364,40 +412,27 @@ export const nodesOf = (
   const children = childrenOf(compile, node);
   const here = Option.match(node, { onNone: () => "", onSome: (n) => n.path });
   const isLeaf = Option.isSome(node) && children.length === 0;
+  const walk: Walk = { compile, children, here, prefix, top: Option.isNone(node), isLeaf };
 
-  compile.findings.push(...bodyFindings(body, Option.isNone(node), isLeaf, here, prefix));
-
-  const unknownChildren = Object.keys(body.states ?? {}).filter(
-    (key) => !children.some((c) => c.name === key),
-  );
-
-  for (const key of unknownChildren)
+  if (!isLeaf && body.default === undefined)
     compile.findings.push(
       invalid(
-        pathOf(`${prefix}states.${key}`),
-        "UnknownState",
-        `${nameOf(here)} has no child ${key}`,
-        "Write bodies only for the definition's states.",
+        pathOf(`${prefix}default`),
+        "MissingDefault",
+        `${nameOf(here)} has no default`,
+        "Name a direct child as default.",
       ),
     );
 
-  const chosen = isLeaf ? Option.none<string>() : defaultOf(compile, body, children, here, prefix);
+  const parts = Object.keys(body).map((key) => partOf(walk, body, key));
+  const pick = <T extends Part["_tag"]>(tag: T) => parts.find(Part.$is(tag));
+  const chosen = Option.flatMap(Option.fromUndefinedOr(pick("Default")), (p) => p.value);
+  const level = pick("On")?.value ?? new Map();
+  const schedules = pick("Schedules")?.value ?? [];
+  const nodes = Option.map(Option.fromUndefinedOr(pick("States")), (p) => p.value);
+
+  const below = Option.getOrElse(nodes, () => childNodes(walk, {}));
   const fallback = Option.fromUndefinedOr(children[0]?.path);
-  const level = levelOf(compile, body.on ?? {}, prefix);
-
-  const schedules = Object.entries(body.schedules ?? {}).map(([name, s]) =>
-    scheduleOf(compile, name, s, `${prefix}schedules.${name}`),
-  );
-
-  const nodes = children.flatMap(
-    (child) =>
-      nodesOf(
-        compile,
-        body.states?.[child.name] ?? {},
-        Option.some(child),
-        `${prefix}states.${child.name}.`,
-      ).nodes,
-  );
 
   const self = Option.map(node, (n) => ({
     path: n.path,
@@ -414,7 +449,7 @@ export const nodesOf = (
       Option.orElse(chosen, () => fallback),
       () => "",
     ),
-    nodes: [...Option.toArray(self), ...nodes],
+    nodes: [...Option.toArray(self), ...below],
   };
 };
 
