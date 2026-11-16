@@ -52,8 +52,9 @@ requirements
 
                 Each edge says what decides it (a state token, an idle or retryable lane fact, a
                 port, a closure) and is marked late, shadowed, unreached or unsourced when the data
-                says it cannot be taken. Fillings, schedule triggers (armed by event tokens),
-                `emit` parts, `onProps` reactions, a fan-out raise's edge per copy state (handled
+                says it cannot be taken. Fillings, schedule triggers (armed or disarmed by event
+                tokens, each schedule listing its pause reasons by name), `emit` parts (a
+                fragment's under its instance path), `onProps` reactions, a fan-out raise's edge per copy state (handled
                 or skipped) and `whenAbandoned` callbacks are edges; what data cannot say is
                 listed as unseen.
 

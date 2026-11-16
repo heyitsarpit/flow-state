@@ -172,8 +172,8 @@ outcomes
 
         `emit: [emits.X(payload)]` tells the actor's listeners something once. Any accepted transition emits: a send, a
         firing, an ending, an `onContext` or `onProps` event. Entry, exit and a refused turn never do. A copy that ends
-        in the same turn still delivers. Delivery is @plan.React.O3; emits are never stored, persisted, transferred
-        or replayed.
+        in the same turn still delivers. Each emit is recorded as `emit` evidence (@plan.Inspection.O4). Delivery is
+        @plan.React.O3; emits are never stored, persisted, transferred or replayed.
 
         "self" changes no state, restarts no work and keeps the activation, including at the root. An explicit target
         re-enters itself if active, as a new activation, even when it names the handler's own state, so a call the old
@@ -302,26 +302,27 @@ outcomes
         either, reading the after memory of its arming turn with that turn's now. Every function of a keyed schedule
         (`schedule`, `paused`, `restartOn`, `send`) receives `key`, which is identity only.
 
-        A fixed negative duration is a construction error. A computed zero or negative delay counts as zero: due at
-        once, fired once on the next turn, never in the arming turn. A computed NaN, infinite or over 2^31 - 1 ms delay
-        rejects the arming turn with the pre-commit defect behavior of @O3. send is this definition's payload-free event
-        or E.X.from(metadata); metadata contains name, attempt (firings since arming, starting at 1), `armedAt`,
-        `dueAt`, `firedAt`, output and, for a keyed schedule, key. Times use Runtime Clock milliseconds; Duration output
-        is undefined. Armed schedules expose `{ dueAt }` while running and `{ left }` while paused, never both, and
-        `pausedBy` beside `left`; `left` is milliseconds on the Runtime Clock (@O8). An event mapped by an operation is
-        never a schedule's send.
+        A fixed duration outside 0 to 2^31 - 1 ms, a negative one included, is a construction error (DelayOutOfRange). A
+        computed finite zero or negative delay counts as zero: due at once, fired once on the next turn, never in the
+        arming turn. A computed NaN, infinite or over 2^31 - 1 ms delay rejects the arming turn with the pre-commit
+        defect behavior of @O3. send is this definition's payload-free event or E.X.from(metadata); metadata contains
+        name, attempt (firings since arming, starting at 1), `armedAt`, `dueAt`, `firedAt`, output and, for a keyed
+        schedule, key. Times use Runtime Clock milliseconds; Duration output is undefined. Armed schedules expose `{
+        dueAt }` while running and `{ left }` while paused, never both, and `pausedBy` beside `left`; `left` is
+        milliseconds on the Runtime Clock (@O8). An event mapped by an operation is never a schedule's send.
 
-        A schedule without `armOn` starts on entry. `armOn` and `disarmOn` list event tokens, `armOn` also `Flow.entry`.
-        armOn: [...] starts it on each accepted listed event, raised ones included, accepted anywhere on the active
-        path, restarting it if running; with Flow.entry in the list it also starts on entry (its owner's state entered,
-        trait created or reset, never a thaw), otherwise it is idle on entry. disarmOn: [events] stops it on each
-        accepted listed event; stopping an idle schedule does nothing.
+        A schedule with neither `armOn` nor `restartOn` starts on entry. `armOn` and `disarmOn` list event tokens,
+        `armOn` also `Flow.entry`. armOn: [...] starts it on each accepted listed event, raised ones included, accepted
+        anywhere on the active path, restarting it if running; with Flow.entry in the list it also starts on entry (its
+        owner's state entered, trait created or reset, never a thaw), otherwise it is idle on entry. disarmOn: [events]
+        stops it on each accepted listed event; stopping an idle schedule does nothing.
 
         Exit stops any schedule. An event in both lists is a construction error; only `armOn: [Flow.entry]` may sit
         beside `restartOn`, and any other `armOn` with `restartOn` is a construction error; a turn that does both arms
         once, from step one. Every temporal construct is delayed: it never counts the turn that arms it. Descendant
-        changes and "self" preserve deadlines. Each arming has an id: a firing from an earlier arming, or from an
-        activation that ended before handling, is never delivered.
+        changes and "self" preserve deadlines, except that an event the schedule lists in `armOn` restarts it. Each
+        arming has an id: a firing from an earlier arming, or from an activation that ended before handling, is
+        never delivered.
 
         A Duration fires once; a Schedule fires each step until complete. Equal deadlines enqueue by actor admission
         order, then outermost state, then declaration order, each a separate turn. An overdue step fires once, never in
@@ -334,7 +335,8 @@ outcomes
         time left.
 
         `paused: { Reason: ({ key?, memory, props, context, operations }) => boolean }` names each reason; any true
-        pauses the timer; the snapshot shows `pausedBy`, the active reason names in declaration order, beside `left`. A
+        pauses the timer; `paused` is always a record, never a bare function. The snapshot shows `pausedBy`, the active
+        reason names in declaration order, beside `left`; reason names are a literal union, so `pausedBy` is typed. A
         turn runs keys, then `restartOn`, then `paused`, after each committed turn. Every lane change, including a
         denied or unhandled ending's admission, re-checks `keys` and `paused`. True holds the time left of the current
         delay (`left = dueAt - now`, at least 0); false resumes from it (`dueAt = now + left`). Paused time never counts
@@ -346,7 +348,8 @@ outcomes
         A keyed schedule's keys return key records from the after memory and after lanes (inside a fragment its own
         rows; under .each that copy's lanes): one timer per key, armed when the key appears, cancelled when it leaves,
         firing once with key; a repeated key keeps its first position with `listRepair` evidence; `restartOn` is
-        evaluated per key, ({ key, memory, props }) => value; `armOn` on a keyed schedule is a construction error.
+        evaluated per key, ({ key, memory, props, context }) => value; `armOn` on a keyed schedule is a
+        construction error.
 
         Per-key timers persist by key with `dueAt` or `left`, and on restore the restored memory's keys win.
 

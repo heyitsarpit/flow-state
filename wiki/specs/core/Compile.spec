@@ -35,13 +35,14 @@ requirements
     R4  Declared shape
         source  @plan.Machines.O1.
         must    A definition requires id, states and events, and may declare `internalEvents`,
-                memory, traits, operations, context and persist (default false).
+                memory, traits, operations, context, `props`, `onProps`, `emits` and persist
+                (default false).
 
                 Machine configuration mirrors the state tree:
 
                 - the root and each compound have a default direct child and states;
                 - leaves have neither;
-                - only the root declares `onContext`.
+                - only the root declares `onContext` and `onProps`.
 
                 Unknown fields, wrong kinds, empty compounds, duplicate siblings, overlapping public
                 and internal names, _tag fields and self-selecting context reject.

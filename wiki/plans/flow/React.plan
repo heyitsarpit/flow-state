@@ -58,9 +58,9 @@ outcomes
         actor; changing the ref resolves the new identity. Local input is read once; props are read on every render; a
         changed value under Equal.equals queues one props update from a layout effect, in FIFO order with sends.
         `setProps(partial)` merges; `useActor` passes its whole props each render, so an omitted field returns to its
-        default. Before attach, one replaceable pending props update, outside the send and mailbox bounds, never
-        dropped. Changing local machine or input requires a keyed remount and emits a development diagnostic. A ref
-        never resets an existing actor; conflicting refs follow @plan.Runtime.O3.
+        default. Before attach, a local actor holds one replaceable pending props update, outside the send and mailbox
+        bounds, never dropped. Changing local machine or input requires a keyed remount and emits a development
+        diagnostic. A ref never resets an existing actor; conflicting refs follow @plan.Runtime.O3.
     O3  Attach, detach, Strict Mode and grace
         After commit and readiness, an ensuring hook attaches the same handle through the Runtime. It uses current
         provider context without replaying creation, input or `onContext` work. Lazy admission follows

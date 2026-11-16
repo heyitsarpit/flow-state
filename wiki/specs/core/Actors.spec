@@ -154,8 +154,8 @@ requirements
     R12  Mailboxes
         source  @plan.Runtime.O4.
         must    Each actor processes one event at a time from one FIFO mailbox in admission order;
-                sends, call endings, stream deliveries, timer firings and onContext events queue
-                together. A call's ending is owed and queued at settlement and mapped at admission.
+                sends, call endings, stream deliveries, timer firings, onContext events and props
+                updates queue together. A call's ending is owed and queued at settlement and mapped at admission.
                 The mailbox holds a reference to the ending's owed row, never the ending; a reference
                 whose row is closed does nothing.
 
@@ -178,8 +178,9 @@ requirements
         source  @plan.Runtime.O4.
         must    Each actor queues at most 1,024 pending events; an external send beyond that throws
                 AdmissionOverloaded and changes nothing. An internal, unknown or invalid event
-                throws InvalidEvent and starts no turn. Endings, schedule firings and context
-                updates are never dropped by this bound.
+                throws InvalidEvent and starts no turn. Endings, schedule firings, context updates
+                and props updates are never dropped by this bound. Before attach, a local actor
+                holds one replaceable pending props update, outside the send and mailbox bounds.
 
     R15  Refused deliveries are kept
         source  @plan.Runtime.O4.
@@ -235,7 +236,8 @@ requirements
                 for the consumer's lifetime; a bound consumer is a use of its provider. A cycle
                 (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one
                 rejects at admission. Baselines are silent at admission, adoption, hydration and a
-                reload restore; `keys` and `paused` are re-evaluated silently at the same points;
+                reload restore; `keys` and `paused` are re-evaluated silently at the same points
+                and on a return;
                 a return restored from the Runtime's copy gets R9's one wave when a
                 provider's selection changed meanwhile. Decision (agent, 2026-11-11): audit C13.
                 Why: a reload restores a consistent saved world, while a return may have missed

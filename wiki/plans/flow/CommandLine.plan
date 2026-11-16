@@ -31,10 +31,11 @@ outcomes
         Schemas; it has no expectation or property lines. graph prints one edge per alternative, named by its place in
         the source so an edge and the Runtime's turn record share one name; each edge says what decides it (a state
         token, an idle or retryable lane fact, a port, a closure) and is marked late, shadowed, unreached or unsourced
-        when the data says it cannot be taken; fillings, schedule triggers (armed by event tokens), `emit` parts,
-        `onProps` reactions, a fan-out raise's edge per copy state (handled or skipped) and `whenAbandoned` callbacks
-        are edges; what data cannot say is listed as unseen (@plan.Inspection.O6 renders it). explain accepts a machine,
-        state path and public event, or a domain with an optional --read.
+        when the data says it cannot be taken; fillings, schedule triggers (armed or disarmed by event tokens, each
+        schedule listing its pause reasons by name), `emit` parts (a fragment's under its instance path), `onProps`
+        reactions, a fan-out raise's edge per copy state (handled or skipped) and `whenAbandoned` callbacks are edges;
+        what data cannot say is listed as unseen (@plan.Inspection.O6 renders it). explain accepts a machine, state path
+        and public event, or a domain with an optional --read.
 
         Static explanations show possible transitions, denials and fallthrough without evaluating guards, each commit's
         operation, contract, verb, policy and lane key with its cardinality (and subject for a fragment operation), each

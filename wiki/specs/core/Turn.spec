@@ -89,7 +89,7 @@ requirements
 
     R14  Schedule arming
         source  @plan.Machines.O5.
-        must    A schedule without `armOn` starts on entry. `armOn` and `disarmOn` list event
+        must    A schedule with neither `armOn` nor `restartOn` starts on entry. `armOn` and `disarmOn` list event
                 tokens, `armOn` also Flow.entry. `armOn` starts it on each accepted listed event,
                 restarting it if running, and with Flow.entry also on entry. `disarmOn` stops it;
                 stopping an idle schedule does nothing. Exit stops any schedule. Only
@@ -97,7 +97,7 @@ requirements
                 from step one. An event in both lists, any other `armOn` with `restartOn`, or
                 `armOn` on a keyed schedule is a construction error. A fixed delay outside 0 to
                 2^31 - 1 ms (so a fixed negative one) is a construction error (InvalidConfiguration,
-                details.reason DelayOutOfRange). A computed negative delay counts as zero: due at
+                details.reason DelayOutOfRange). A computed finite negative delay counts as zero: due at
                 once, fired once on the next turn, never in the arming turn. A computed delay that
                 is NaN, infinite or over 2^31 - 1 ms refuses the turn. At creation, where no turn
                 can be refused, that schedule alone stays unarmed with an InvalidTurn issue and the
@@ -262,7 +262,9 @@ requirements
         source  @plan.Machines.O5.
         must    `paused: { Reason: ({ key?, memory, props, context, operations }) => boolean }`
                 names each reason; any true pauses the timer, and the snapshot shows `pausedBy`,
-                the active reason names in declaration order, beside `left`. A turn runs keys,
+                the active reason names in declaration order, beside `left`. `paused` is always a
+                record, never a bare function; reason names are a literal union, so `pausedBy` is
+                typed. A turn runs keys,
                 then `restartOn`, then `paused`, after each committed turn. True holds the time
                 left of the current delay (`left = dueAt - now`, at least 0); false resumes from
                 it (`dueAt = now + left`). Paused time never counts toward a delay; an unused
@@ -284,7 +286,8 @@ requirements
         source  @plan.Machines.O2; @plan.React.O3.
         must    Any accepted transition may emit: a send, a firing, an ending, an `onContext` or
                 `onProps` event; entry, exit and a refused turn never do. A copy that ends in the
-                same turn still delivers. An emit's payload mapper reads the event, the before
+                same turn still delivers. Each emit is recorded as `emit` evidence. An emit's payload mapper reads the 
+                event, the before
                 memory and props, and a mapper defect is a pre-commit defect. Emits queue per
                 listener in turn order, are never stored, persisted, transferred or replayed, and
                 are dropped when nobody listens and in server rendering. A fragment's emits are
@@ -617,7 +620,7 @@ tests
              wakes or is lost at the end; a reset that keeps timers. [@I22, @I23]
     T12  restartOn and keyed schedules: a changed selection restarts only its schedule; equal values do nothing; a key 
          leaving cancels its timer, a repeated key keeps one timer, and a restore does not restart a restartOn
-             schedule; `armOn: [Flow.entry]` beside restartOn; key in schedule and paused. No test yet.
+             schedule; an unkeyed `armOn: [Flow.entry]` beside restartOn; key in schedule and paused. No test yet.
              [@I20, @I34, @I35]
     T13  Placements: a key change releases once and opens the new key; a non-key change keeps the session; a throwing 
          select keeps it with one issue.
