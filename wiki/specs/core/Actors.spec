@@ -695,7 +695,7 @@ tests
          follow-ups are refused. Planted faults: a rotation that does not rotate; a
              mailbox that is not FIFO; the 64 and 1,024 bounds have none yet (Q2). [@I19, @I20, @I21, @I22]
     T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next Start. Planted faults: a 
-         refusal that denies; a refusal that keeps asks; a refused ending not redelivered.
+         refusal reported as a denial; a refusal that keeps asks; a refused ending not redelivered.
              [@I23, @I24]
     T12  The send table, one row per target state. Planted faults: a send that does not restore; a send to an absent 
          actor that is silent; a handle that is
@@ -712,7 +712,8 @@ tests
          head kept Held; a definite ending drops the head; the queued NotSent { Disposed } precede the head's unknown;
              nothing is invoked after the start; disposal ends only when no call is on the wire, or at the bound.
              Planted faults: a disposal that interrupts the wire; a call settled in the bound that stays held; a
-             definite ending applied before the head; a capture past the bound that stays in flight; a wait on the
+             definite ending parked before the queued commits' NotSent { Disposed }; a capture past the bound that 
+                 stays in flight; a wait on the
              wire with no bound.
              [@I29, @I30, @I31, @I35, @I36]
     T17  Cleanup failure and isolation: a failing finalizer rejects CleanupFailed and later ensures repeat it; two 

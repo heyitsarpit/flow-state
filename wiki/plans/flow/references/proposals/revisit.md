@@ -59,13 +59,13 @@ Deferred items.
   timer and `Input.Hidden` would make batch boundaries deterministic, but add a dirty set per scope to the World
   and change the crash gate's points. Revisit after T55, when the final write is already in the core.
 - **Concept clean of the suite** (2026-11-14, the user; deferred). Groups B, C, D and G of
-  [self-contained-audit-2026-11-14.md](self-contained-audit-2026-11-14.md): Task owners and slices in the suite
+  self-contained-audit-2026-11-14.md (deleted; git before 27ff910e): Task owners and slices in the suite
   (and the Epic's "routed gaps are owed checks" rule they serve), comment citations of records, process names
   (liar, pilot, replan, lab, carried, frozen) and the README's stale paths. The prototype adapters are not touched;
   T53 deletes them. Groups A, E and F (outside reads and imports) are @task.V3.T59, held the same way: much later,
   once the project is built out, or when the user says so.
 - **The suite's second-order checks** (2026-11-14, the user; cut from @task.V3.T60). From
-  [suite-convergence-2026-11-14.md](suite-convergence-2026-11-14.md): mutation of the suite's own judging code,
+  suite-convergence-2026-11-14.md (deleted; git before 27ff910e): mutation of the suite's own judging code,
   per-gate universe ledgers, one excuse registry, a counted ledger of unknowns, and the Conformance.spec rule for
   excusing production's known reds. Revisit if holes keep appearing after T60's planted-fault sweep, or once T54
   removes most owed rows.

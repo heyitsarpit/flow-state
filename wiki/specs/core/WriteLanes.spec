@@ -801,7 +801,8 @@ tests
     T11  Release on leave: the wire is interrupted and nothing delivered; a Held head, a never-sent head and a waiting 
          re-send are each released, a Cancelling head that answers is released, and the lane ends Idle; a reload of a
              releasing lane delivers nothing and leaves no hold. Planted faults: a
-             moved lane saved as released; a lane never released; a Held head that stays Held after the
+             moved lane saved as released; Released reported where nothing was released; a Held head that stays Held 
+                 after the
              release. [@I12, @I15]
     T12  Store effects before the ending: a domain write's store effects are visible in the cut before its ending's 
          turn, whether the ending routes current or late. Planted fault: queues
