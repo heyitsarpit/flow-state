@@ -286,6 +286,12 @@ tasks
         comment     2026-11-16T03:22:45Z
             Re-review fixes at 78eeeb88: suite green but frozen packages, test:stress 25/25, faults 72/72. Back
             to review.
+        comment     2026-11-16T03:23:48Z
+            Re-review PASS at e08f59fe. code:packages/flow-state-v3/src/host/lane-record.test.ts covers encodeLane and
+            the boot's restore of the queue and the displaced list, and the planted fault displaced-not-saved is caught.
+            The limit wording is gone and WriteLanes Q7 is open, owned by @task.V3.T20. Run as a plain it, the it.fails
+            Story over GitFakeSteadfast fails only on its expect, which gets [success] instead of [success, unknown
+            Restored]. faults 72/72. Nit: Q7 calls T20 write-ahead, but T20 is restore.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open
