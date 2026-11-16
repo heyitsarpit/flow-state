@@ -423,3 +423,7 @@ note 2026-11-16T09:46:32Z
 note 2026-11-16T09:52:29Z
     T19 fix round at 8c02753e under review (with the I23 amendment, a Spec-change event); T17 started beside it, since
     T20 waits on T19. T19's page drafted (wiki/plans/flow/references/pages/T19-durability-write-ahead.md, unread).
+
+note 2026-11-16T10:03:29Z
+    T19 fix-round review PASS (7ed0454b); I23 amendment kept, since skipping the whole step's save would hang every
+    later send. T19 stays in review: its slice close is held until the user reads T54's page. Three items routed to T20.

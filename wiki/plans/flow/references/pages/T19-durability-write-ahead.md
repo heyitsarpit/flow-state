@@ -1,8 +1,8 @@
 # Durability, write-ahead: what an app author notices (T19, 2026-11-16)
 
 **Bottom line:** nothing changes in app code. What Flow saves now matches what the app heard: a reload never hears
-an ending twice, never loses one, and a refused save is retried within 5 s. Status: fixes at `8c02753e`, the fix
-round's review still running; bench under 0.06 ms per turn.
+an ending twice, never loses one, and a refused save is retried within 5 s. Reviewed PASS at `8c02753e`;
+bench under 0.06 ms per turn.
 
 ## What you notice after a reload
 
@@ -38,7 +38,8 @@ owns it.
 
 - **One actor's bad value doesn't stop the others.** While one actor's records are held back, other actors' records
   from the same step are still saved (Spec WriteAhead I23 amended). The alternative is to skip the whole step's save
-  until every record encodes. Under review now.
+  until every record encodes; neither loses an ending, but that one hangs every later save in the Runtime until the
+  bad value is fixed, so the review kept the amendment.
 - Only the disposal's own final write reports `StorageFailure`; an earlier refused save that a later one replaced
   doesn't, because the later save carries its records.
 - Every lane and actor change is saved, except a commit going out on the wire, which would add nothing new to disk.
