@@ -238,3 +238,11 @@ note 2026-11-15T22:20:14Z
 note 2026-11-15T23:51:38Z
     T70 in review at `65255051`: generated Stories, pair sweep (129 of 392 reached), faults 51 of 51; independent check
     started. Under scrutiny: the builder's WriteLanes I3/I15/I16 reword around crashes, seed 397, WriteAhead I23.
+
+note 2026-11-16T00:15:52Z
+    T70 review ISSUES at `65255051`: the stress profile misses the catalogue (offline span ms not seconds, small bursts,
+    coupled draws); back to the builder. The crash reword of WriteLanes I3, I15, I16 holds after two replays.
+
+note 2026-11-16T00:15:52Z
+    Delegated: lose(), run's seed and samples' values accepted as small tooling API. WriteAhead I23 (one batch out per
+    actor, against R12) held as it.fails, owner @task.V3.T19; for the user's read.
