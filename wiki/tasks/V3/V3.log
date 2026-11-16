@@ -275,3 +275,7 @@ note 2026-11-16T01:26:36Z
 note 2026-11-16T01:26:36Z
     Applied (R15): instructions now run faults and stress at a Task's close, its review and a phase's close only;
     checkpoints use the fast suite. @task.V3.T75 builds the flag and parallel faults.
+
+note 2026-11-16T01:29:58Z
+    Decision (user, 2026-11-16): "remove that mid run requirement, full suite is probably fine if it's fast. stress runs
+    once at the end of a task and faults also runs at the end of a task". Instructions edited; whole run.
