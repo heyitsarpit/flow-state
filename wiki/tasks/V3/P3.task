@@ -1300,7 +1300,7 @@ tasks
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
-        status      in_progress
+        status      review
         priority    high
         description
             Construction config is decoded by one Schema, so the types, construction and the Runtime agree on what a
@@ -1347,3 +1347,14 @@ tasks
             ServiceFailed (runtime.test.ts). Acceptance 2 (one Schema, hand-written shape checks gone) is shown by the
             diff; acceptance 3 by a planted fault per new refusal. False pass: each refused form has a @ts-expect-error
             twin in tests/types/.
+        comment     2026-11-16T15:37:32Z
+            Built at bafacd30: one Schema (code:packages/flow-state-v3/src/config.ts) decodes definition and machine
+            body kinds first; rules then run over the trusted value, so a field's rules wait for its kinds (R2 lists
+            what it finds; the split test is the user's call). Six requirements green; nine new planted faults caught.
+            Lines: construction.ts, compile-body.ts and config.ts total 996, against 989 before, because the machine
+            body's kinds are now checked too: the 250 to 350 line estimate did not hold.
+        comment     2026-11-16T15:37:32Z
+            Decisions: the body callback's types accept a misspelled alternative or schedule key, so only construction
+            refuses it (UnknownField, no type twin); a union whose single right-kind member fails reports that member's
+            issue in place; extra file config.ts. Gates at bafacd30: check 0, suite 740 + 2 expected fail, stress 29,
+            faults 193 of 193 in 46 s.
