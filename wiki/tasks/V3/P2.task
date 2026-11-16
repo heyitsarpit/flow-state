@@ -1050,7 +1050,7 @@ tasks
             of 46 here).
     T70
         title       Generated Stories
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T64, @T67]
         description
@@ -1230,6 +1230,22 @@ tasks
             deadlines first; profiles.test asserts the span and both mixes within 3 standard errors and passes. Left:
             re-paste the 7 seededStress Stories at seeds cells 56, palette/number/pay/sign-in/sync 36, transfers 45
             (update tests/generated/stress.test.ts), re-find the planted seed, item 6, gates, commit, review.
+        comment     2026-11-16T01:13:20Z
+            Fix round done (78fd8499..554531f2): stress profile per the fixture plan with Fake.network
+            (@plan.Pending.D12, @spec.Stories R17); stress Stories re-pasted at seeds cells 56, transfers 45, others 36;
+            planted edge fault re-found at pay-planted stress seed 19, 265 draws to 9 printed steps, re-run from its
+            text. A quiet end now takes two advances (the first counts as a quiet round).
+        comment     2026-11-16T01:13:20Z
+            Review items fixed, each red first (code:packages/flow-state-v3/tests/generated/sweep.test.ts,
+            code:tools/faults/verdict.test.ts) except two with no reachable failing case: the sweep's horizon and idle
+            verdicts (a deadline ends even an uninterruptible call TimedOut) and propertyTest on Exhausted or
+            ReplayMismatch (no discards, no replay). The stricter faults verdict exposed abort-fails-the-waiter as a
+            false catch (its edit did not parse); fixed.
+        comment     2026-11-16T01:13:21Z
+            For the P2 audit: only an endpoint's first call in a step gets a drawn answer
+            (code:packages/flow-state-v3/src/host/testing/generate.ts#Generated); profiles.test checks the mixes on the
+            generator's own tally, not on outcomes. Gates at 554531f2: check and lint:rules at zero, vp test 472 plus 8
+            it.fails, faults 52 of 52.
 
     T71
         title       UI primitives, first wave: command palette and number input fixtures

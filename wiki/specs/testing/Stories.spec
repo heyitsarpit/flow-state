@@ -465,4 +465,4 @@ tests
              [@I20, @I21]
     T15  Network words: offline with a hold given, two transfers are dropped at request with no receipt and end unknown 
          NoResponse; once online, the next transfer is held by the waiting hold and its release answers it
-            (planted fault: the offline word reaches the servers). [@I9, @I22]
+             (planted fault: the offline word reaches the servers). [@I9, @I22]

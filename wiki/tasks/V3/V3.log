@@ -251,3 +251,7 @@ note 2026-11-16T00:29:31Z
     T70 builder rotated at its context limit (R7): a fresh lead takes its uncommitted stress-profile work and resume
     comment `532d6140`. Delegated: `Fake.network.offline()`/`online()` accepted as small tooling API, recorded in
     Pending.
+
+note 2026-11-16T01:13:21Z
+    T70 in review at 554531f2 after the fix round: stress profile per the fixture plan, Fake.network (Pending D12),
+    planted seed 19, faults 52 of 52.
