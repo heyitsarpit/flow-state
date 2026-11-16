@@ -646,7 +646,7 @@ tasks
             boot wording; check that an identity still withheld at disposal keeps its NotSent Disposed rows.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T54]
         satisfies   [
@@ -754,6 +754,29 @@ tasks
             and @task.V3.T56; Flow.input fixture with value refs to @task.V3.T9; private and computed fields in the
             player; 30 item 8: every machine with input is value-named (Actors R5); 31 Outcome classes are not exported,
             only error-channel markers: rejected; self-selecting context, onContext and non-public send to @task.V3.T9.
+        comment     2026-11-16T10:45:19Z
+            Close: suite 608 passed, stress 28, generated over 20 more seeds green, nub run faults 113 of 113 with the
+            dead core judged (31.9 s, 12.9 s suite, 12.8 s stress). Bench: transfers/long 0.032/0.048, pay/long
+            0.041/0.063, lanes/stress-36 0.040/0.065, player/stress-36 0.066/0.173 ms per turn (median/p99). Extra
+            files: tools/faults/run.ts lets tests/compile stay green under the dead core; core/ledger.test.ts and
+            persist.test.ts take the incarnation's activations and history.
+        comment     2026-11-16T10:45:19Z
+            Removed fault state-move-copies-memory: with every accepted turn published, a shallow copy of memory keeps
+            each field's identity, which Turn R24 allows (Flow-owned containers are copied). The faults runner applies
+            only the last edit when a fault edits one file twice; creation-decodes-input became
+            creation-skips-input-check. Reverse: restore the fault from 64a35a19.
+        comment     2026-11-16T10:45:19Z
+            Routed: a schedule on a nested leaf (ON.PLAYING) widens a string delay and armOn names in machine()'s
+            inferred call, so it needs Duration.seconds(1) and E.X.tag there (explicit generics fix it; inference at
+            depth 2 loses the literal context) -> @task.V3.T57; history surviving reload (Persistence O2) and S06 ->
+            @task.V3.T56 and T57; Flow.input runtime creation, SchemaValidation at creation, issues, lifecycle,
+            schedules and context in the snapshot -> @task.V3.T9.
+        comment     2026-11-16T10:45:20Z
+            For the user's page: states nest (states: ["OFF", { ON: ["PLAYING", "PAUSED"] }]) and the body mirrors the
+            tree with a default per compound; S.ON.history returns to ON's last child; Flow.input, computed Flow.initial
+            and Flow.private fields; a bad definition throws one FlowError whose diagnostics list every violation with
+            its path, code and help; Definitions expose Event, State, Input, Memory and Snapshot Schemas, and a handle's
+            snapshot hides private fields.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open

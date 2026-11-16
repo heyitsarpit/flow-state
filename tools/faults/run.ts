@@ -138,6 +138,9 @@ const mayStayGreen = [
   /flow-state-v3\/src\/[^ ]+\.test\.ts > /u,
   // Reads the package's source and runs no core: who builds reports, rows and writes, and names.
   /tests\/write-lanes\/one-builder\.test\.ts > /u,
+  // The compiler and the Runtime's check of a Compiled run before any step; their own faults are
+  // planted in tests/structure-faults.ts.
+  /tests\/compile\/[^ ]+\.test\.ts > /u,
 ];
 
 const deadCore = async (root: string) => {

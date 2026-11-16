@@ -2,6 +2,7 @@ import { consolidationFaults } from "./consolidation-faults.ts";
 import { lanePolicyFaults } from "./lane-policy-faults.ts";
 import { lifeFaults } from "./life-faults.ts";
 import { toolingFaults } from "./tooling-faults.ts";
+import { structureFaults } from "./structure-faults.ts";
 import { writeAheadFaults } from "./write-ahead-faults.ts";
 
 /**
@@ -202,22 +203,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/turn.ts",
-        find: '        { node: input.state, alternatives: leafAlternatives },\n        { node: "root", alternatives: input.compiled.root.get(input.tag) ?? [] },',
-        replace:
-          '        { node: "root", alternatives: input.compiled.root.get(input.tag) ?? [] },\n        { node: input.state, alternatives: leafAlternatives },',
-      },
-    ],
-  },
-  {
-    name: "state-move-copies-memory",
-    tests: ["tests/transfers/trace.test.ts"],
-    says: "a turn that only moves state copies the memory object, so an unchanged part loses its identity",
-    rule: "Turn I30",
-    edits: [
-      {
-        file: "src/core/turn.ts",
-        find: "    onNone: () => Result.succeed(input.memory),",
-        replace: "    onNone: () => Result.succeed({ ...input.memory }),",
+        find: "return written ? levels : Option.toArray(implicit(input));",
+        replace: "return written ? levels.toReversed() : Option.toArray(implicit(input));",
       },
     ],
   },
@@ -307,6 +294,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...lanePolicyFaults,
   ...lifeFaults,
   ...writeAheadFaults,
+  ...structureFaults,
   {
     name: "ending-heard-twice",
     tests: ["src/core/ledger.test.ts"],
@@ -356,9 +344,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "          publish(after);\n        flushLanes(after.actor);",
-        replace:
-          "          publish(after);\n        if (after.state !== incarnation.state) publish(after);\n        flushLanes(after.actor);",
+        find: "publish(after);",
+        replace: "publish(after);\n        if (after.state !== incarnation.state) publish(after);",
       },
     ],
   },
@@ -418,14 +405,14 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "exit-keeps-schedules",
-    tests: ["tests/write-lanes/payment-late-answers.test.ts"],
+    tests: ["tests/write-lanes/payment-late-answers.test.ts", "tests/player/player.test.ts"],
     says: "leaving a state leaves its schedules armed, so they fire in the state entered",
     rule: "Turn R14",
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "          ...(entered ? stopSchedules(incarnation) : incarnation),",
-        replace: "          ...incarnation,",
+        find: "...stopNamed(incarnation, exited),",
+        replace: "...incarnation,",
       },
     ],
   },

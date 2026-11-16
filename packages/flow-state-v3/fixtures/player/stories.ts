@@ -1,4 +1,4 @@
-import { samplesOf, Story } from "../../src/host/testing/index.ts";
+import { Fake, samplesOf, Story } from "../../src/host/testing/index.ts";
 import { musicSetup, player } from "./machine.ts";
 import { Speaker, SpeakerFake } from "./server.ts";
 
@@ -9,11 +9,11 @@ export const musicStory = (id: string) => Story.app(musicSetup, { id, fixtures: 
 
 const playTrack = (trackId: string) => ({ _tag: "Play", trackId }) as const;
 
-const PAUSE = { _tag: "Pause" } as const;
+const pause = { _tag: "Pause" } as const;
 
-const RESUME = { _tag: "Resume" } as const;
+const resume = { _tag: "Resume" } as const;
 
-const STOP = { _tag: "Stop" } as const;
+const stop = { _tag: "Stop" } as const;
 
 /**
  * A listener plays a track for three seconds, pauses, stops, resumes into the pause by history,
@@ -26,14 +26,14 @@ export const usual = musicStory("player/usual")
   .checkpoint("playing")
   .advance("3 seconds")
   .checkpoint("three seconds")
-  .send(player, PAUSE)
+  .send(player, pause)
   .advance("5 seconds")
   .checkpoint("paused")
-  .send(player, STOP)
+  .send(player, stop)
   .checkpoint("stopped")
-  .send(player, RESUME)
+  .send(player, resume)
   .checkpoint("resumed into the pause")
-  .send(player, RESUME)
+  .send(player, resume)
   .advance("1500 millis")
   .checkpoint("playing again")
   .send(player, { _tag: "Seek", pos: 10 })
@@ -46,7 +46,7 @@ export const usual = musicStory("player/usual")
   .checkpoint("refused")
   .world(Speaker.play.hold())
   .send(player, playTrack("t3"))
-  .send(player, PAUSE)
+  .send(player, pause)
   .world(Speaker.play.release())
   .checkpoint("late start");
 
@@ -54,20 +54,20 @@ type MusicStory = ReturnType<typeof musicStory>;
 
 const listen = (story: MusicStory, n: number) => {
   const started = story.send(player, playTrack(`t${n}`)).advance(`${1 + (n % 3)} seconds`);
-  const paused = n % 2 === 0 ? started.send(player, PAUSE).advance("2 seconds") : started;
+  const paused = n % 2 === 0 ? started.send(player, pause).advance("2 seconds") : started;
   const sought = n % 3 === 0 ? paused.send(player, { _tag: "Seek", pos: n }) : paused;
-  const stopped = n % 4 === 0 ? sought.send(player, STOP).send(player, RESUME) : sought;
+  const stopped = n % 4 === 0 ? sought.send(player, stop).send(player, resume) : sought;
 
   const held =
     n % 5 === 0
       ? stopped
           .world(Speaker.play.hold())
           .send(player, playTrack(`late${n}`))
-          .send(player, PAUSE)
+          .send(player, pause)
           .world(Speaker.play.release())
       : stopped;
 
-  return held.send(player, RESUME).advance("1500 millis");
+  return held.send(player, resume).advance("1500 millis");
 };
 
 /**
@@ -78,7 +78,7 @@ export const stress = Array.from({ length: 40 }, (_, n) => n)
   .reduce(listen, musicStory("player/stress").ensure(player))
   .checkpoint("end");
 
-const SEEK = { _tag: "Seek", pos: 30 } as const;
+const seek = { _tag: "Seek", pos: 30 } as const;
 
 /**
  * What a listener and the speaker can do, for generated runs: play, pause, resume, stop and seek;
@@ -92,18 +92,128 @@ export const samples = samplesOf({
   servers: { Speaker },
   failures: [Speaker.block({ trackId: "t1" })],
   landedFailures: [],
-  values: { play: playTrack("t1"), pause: PAUSE, resume: RESUME, stop: STOP, seek: SEEK },
+  values: { play: playTrack("t1"), pause, resume, stop, seek },
   controls: [],
   steps: (story) =>
     story
       .send(player, playTrack("t1"))
-      .send(player, PAUSE)
-      .send(player, RESUME)
-      .send(player, SEEK)
-      .send(player, STOP),
+      .send(player, pause)
+      .send(player, resume)
+      .send(player, seek)
+      .send(player, stop),
 });
+
+/**
+ * A stress run from seed 36, printed by the generator and pasted here. The reload sweep and the
+ * bench run it as any Story.
+ */
+export const seededStress = Story.app(musicSetup, {
+  id: "player/stress-36",
+  fixtures: [SpeakerFake],
+})
+  .world(Speaker.block({ trackId: "t1" }))
+  .ensure(player)
+  .send(player, stop)
+  .send(player, stop)
+  .send(player, pause)
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, resume)
+  .send(player, stop)
+  .send(player, stop)
+  .send(player, stop)
+  .reload({ reattach: false })
+  .send(player, pause)
+  .send(player, resume)
+  .send(player, pause)
+  .send(player, stop)
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, resume)
+  .send(player, seek)
+  .send(player, stop)
+  .send(player, seek)
+  .send(player, resume)
+  .world(Fake.network.offline())
+  .send(player, stop)
+  .dispose(player, { how: "forget" })
+  .send(player, seek)
+  .send(player, pause)
+  .advance("20 millis")
+  .disposeRuntime()
+  .reload()
+  .advance("7 millis")
+  .send(player, pause)
+  .advance("20 millis")
+  .send(player, resume)
+  .advance("3 millis")
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, stop)
+  .advance("16 millis")
+  .send(player, stop)
+  .send(player, stop)
+  .send(player, seek)
+  .send(player, pause)
+  .send(player, seek)
+  .send(player, stop)
+  .send(player, stop)
+  .send(player, resume)
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .advance("5 millis")
+  .send(player, resume)
+  .advance("2 millis")
+  .send(player, stop)
+  .advance("17 millis")
+  .send(player, resume)
+  .send(player, seek)
+  .send(player, seek)
+  .advance("18 millis")
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, pause)
+  .send(player, pause)
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, pause)
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .reload({ reattach: false })
+  .advance("4 millis")
+  .send(player, pause)
+  .advance("10 millis")
+  .send(player, stop)
+  .send(player, seek)
+  .send(player, resume)
+  .send(player, pause)
+  .send(player, resume)
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, stop)
+  .send(player, pause)
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, seek)
+  .advance("20 millis")
+  .send(player, stop)
+  .send(player, stop)
+  .send(player, resume)
+  .send(player, seek)
+  .advance("15 millis")
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, resume)
+  .send(player, seek)
+  .advance("8 millis")
+  .send(player, resume)
+  .send(player, stop)
+  .advance("7 millis")
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, seek)
+  .send(player, stop)
+  .advance("15 millis")
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .advance("15 millis")
+  .send(player, { _tag: "Play", trackId: "t1" })
+  .advance("56438 millis")
+  .world(Fake.network.online())
+  .advance("2 minutes")
+  .advance("2 minutes");
 
 /**
  * Every Story of the fixture, by name.
  */
-export const stories = { usual, stress };
+export const stories = { usual, stress, seededStress };
