@@ -134,16 +134,16 @@ const Lamp = definition({
   id: "WriteAhead/Lamp",
   persist: true,
   states: ["ON"],
-  events: { Touch: {} },
+  events: { Touch: {}, Press: {} },
   internalEvents: { Tick: {} },
   memory: { touches: Flow.initial(Schema.Number, 0) },
   operations: () => ({}),
 });
 
-// A lamp whose touch arms a tick that no state handles: the firing is Unhandled.
+// A lamp whose touch arms a tick that no state handles, so the firing is Unhandled; a press counts.
 const LampMachine = machine(Lamp, ({ S, E }) => ({
   default: S.ON,
-  on: { Touch: { updateMemory: ({ memory }) => ({ touches: memory.touches + 1 }) } },
+  on: { Press: { updateMemory: ({ memory }) => ({ touches: memory.touches + 1 }) } },
   states: {
     ON: { schedules: { tick: { schedule: "1 second", send: E.Tick, armOn: ["Touch"] } } },
   },
@@ -175,5 +175,43 @@ describe("what a step touched is written (WriteAhead I21)", () => {
     expect(schedulesAt(run.checkpoints.armed)).toEqual(Option.some(1));
     expect(run.evidence.some((e) => e._tag === "Unhandled")).toBe(true);
     expect(schedulesAt(run.checkpoints.fired)).toEqual(Option.some(0));
+  });
+});
+
+const quietLampSetup = runtimeSetup({
+  app: app({ id: "lamps", machines: { lamp: LampMachine } }),
+  scope: "lamps",
+  persistence: {},
+});
+
+const touchesAt = (cut: Cut) =>
+  Option.map(
+    Option.flatMap(
+      Option.fromUndefinedOr(cut.records.stored.get("actor/WriteAhead/Lamp/hall")),
+      Schema.decodeUnknownOption(
+        Schema.fromJsonString(Schema.Struct({ memory: Schema.Struct({ touches: Schema.Number }) })),
+      ),
+    ),
+    (r) => r.memory.touches,
+  );
+
+describe("the default capture interval (WriteAhead R10, I12, Q3)", () => {
+  it("WriteAhead I12: at the default 5 s, plain memory written at 0 s and again at 3 s lands at 5 s from the first, not before and not later", async () => {
+    const run = checked(
+      await Story.app(quietLampSetup, { id: "WRITE-AHEAD/default-interval", fixtures: [] })
+        .ensure(lamp)
+        .send(lamp, { _tag: "Press" })
+        .advance("3 seconds")
+        .send(lamp, { _tag: "Press" })
+        .advance("1999 millis")
+        .checkpoint("before")
+        .advance("1 millis")
+        .checkpoint("due")
+        .run(),
+    );
+
+    expect(touchesAt(run.checkpoints.before)).toEqual(Option.none());
+    expect(touchesAt(run.checkpoints.due)).toEqual(Option.some(2));
+    expect(run.checkpoints.due.records.batches).toHaveLength(1);
   });
 });

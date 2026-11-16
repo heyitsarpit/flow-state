@@ -94,3 +94,13 @@ note 2026-11-16T09:10:28Z
     Actors R23: an earlier disposal batch refused after a later one was issued reports nothing; only the disposal's own
     write reports StorageFailure. Why: ending on it cuts the later write that carries its records, losing endings.
     Reverse: report every refused disposal batch (@task.V3.T19).
+
+note 2026-11-16T09:25:58Z
+    WriteAhead realization: an identity whose actor record cannot encode withholds all its records and awaited tickets
+    until a step's end where it encodes. Why: its lane and owed writes went alone, so a reload heard endings the
+    restored state never committed (I11). Reverse: write lanes and owed records alone (@task.V3.T19).
+
+note 2026-11-16T09:25:58Z
+    Actors realization: the host decides by the life only through admit and isDisposed; inspection names it through
+    lifecycleOf, which decides nothing. Why: the cut reports the life's name, and the old wording forbade that read.
+    Reverse: drop lifecycle from the runtime cut (@task.V3.T19).

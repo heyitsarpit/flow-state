@@ -342,6 +342,11 @@ realization typescript
         still in the mailbox (a drain stopped at its cap) writes its owed record. `encodeLane` matches every Phase,
         so a new phase forces a decision on what is saved.
 
+    An identity whose actor record cannot encode at a step's end (R4) writes none of its records that step: its
+        lanes, owed record and the tickets its sends await are withheld in the World and written whole at the
+        first step's end where the record encodes, so no lane or owed record outruns its actor record (I11).
+        The UnencodableValue report is not built yet.
+
     A refused batch's records are put back and go with the next batch, at the latest after the default 5 s
         interval, so a store that keeps refusing is never retried in a loop.
 

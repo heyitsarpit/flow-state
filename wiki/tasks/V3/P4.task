@@ -98,6 +98,11 @@ tasks
             - The store contract test this Task writes passes against `Fake.storage` and against real IndexedDB in real
               Chrome and Safari, and the same is shown for the fake page's timers and lifecycle against a real page.
             - The React binding is the least that renders the fixtures; @task.V3.T30 builds the rest.
+        comment     2026-11-16T09:26:06Z
+            Routed from T19: the flush at once on visibilitychange to hidden and on pagehide (WriteAhead R10, I12, T5)
+            has no check: the edge's hide path exists, but the browser platform and the Fake host stub hidden and
+            onHidden. Owed here with the real page: a Fake page word for hide, a Story over it, and planted faults for a
+            hide that waits or does nothing.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
         status      draft

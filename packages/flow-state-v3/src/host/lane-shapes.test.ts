@@ -69,6 +69,7 @@ const exactRecords = [
     | "counter"
     | "attempts"
     | "persistence"
+    | "withheld"
     | "life"
   >,
 ];

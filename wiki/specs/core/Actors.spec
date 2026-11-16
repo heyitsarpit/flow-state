@@ -551,7 +551,9 @@ composition
 realization typescript
     Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); moved here from `composition`.
     `Life` and `admit` live in `src/core/life.ts`; `admit` is one total table, as `cells.ts` is for lanes, and the
-        step runs an input only on its Run. The host reads the life only through `admit` and `isDisposed`.
+        step runs an input only on its Run. The host decides by the life only through `admit` and `isDisposed`;
+        inspection reports its name through `lifecycleOf`, which decides nothing, and no host module reads
+        `life._tag` itself.
     The host keeps what needs Effect: the Scope, the services Layer and one Deferred that shares the bootstrap's
         Exit. It runs commands, turns a fiber's Exit into a call result, decodes a sent event at the boundary, calls
         `admit` and throws the FlowError a Reject names. `dispose` sends DisposeRuntime, waits for the step's `life`

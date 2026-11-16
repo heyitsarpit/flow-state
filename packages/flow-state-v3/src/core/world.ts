@@ -233,6 +233,16 @@ export type ActorRecord = {
 };
 
 /**
+ * An identity whose actor record could not encode at a step's end: none of its records went, and
+ * its touched lanes and the tickets its sends await wait until a step can write the whole identity.
+ */
+export type Withheld = {
+  readonly actor: ActorId;
+  readonly lanes: ReadonlyArray<string>;
+  readonly tickets: ReadonlyArray<Ticket>;
+};
+
+/**
  * Everything the Runtime decides from: plain data, replaced whole by each step.
  */
 export type World = {
@@ -248,6 +258,7 @@ export type World = {
   readonly counter: number;
   readonly attempts: number;
   readonly persistence: boolean;
+  readonly withheld: ReadonlyMap<string, Withheld>;
   readonly life: Life;
 };
 
@@ -268,6 +279,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   counter: 0,
   attempts: 0,
   persistence,
+  withheld: new Map(),
   life: Life.Inert(),
 });
 

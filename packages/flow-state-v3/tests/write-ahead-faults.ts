@@ -133,6 +133,45 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "unencodable-identity-half-written",
+    tests: ["src/core/persist.test.ts"],
+    says: "an identity whose actor record cannot encode still writes its lanes and owed record",
+    rule: "WriteAhead I11",
+    edits: [
+      {
+        file: "src/core/persist.ts",
+        find: "    const written = all.filter((p) => !unencodable(p));",
+        replace: "    const written = all;",
+      },
+    ],
+  },
+  {
+    name: "default-interval-zero",
+    tests: ["tests/write-lanes/write-ahead-records.test.ts"],
+    says: "a setup with no captureMs writes plain memory at once",
+    rule: "WriteAhead I12",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: "    captureMs: config.persistence?.captureMs ?? 5000,",
+        replace: "    captureMs: config.persistence?.captureMs ?? 0,",
+      },
+    ],
+  },
+  {
+    name: "interval-debounced",
+    tests: ["tests/write-lanes/write-ahead-records.test.ts"],
+    says: "each new dirty record pushes the plain batch back a whole interval",
+    rule: "WriteAhead I12",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "    if (at >= pending.due) return;",
+        replace: "    if (pending.out) return;",
+      },
+    ],
+  },
+  {
     name: "cancelled-boot-fails-as-service",
     tests: ["src/host/life.test.ts"],
     says: "a bootstrap the disposal cancelled fails ready with its service's error",

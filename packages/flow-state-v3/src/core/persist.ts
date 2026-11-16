@@ -213,10 +213,17 @@ export const makePersistence = (tx: Tx) => {
     );
   };
 
-  const writesOf = (t: Touched) => {
+  type Projected = { readonly t: Touched; readonly record: ReadonlyArray<Write> };
+
+  // A kept record whose live incarnation cannot encode: none of its identity's records go, so no
+  // lane or owed record outruns the actor record it belongs with.
+  const unencodable = ({ t, record }: Projected) =>
+    t.record === "kept" && record.length === 0 && incarnationOf(t.actor) !== undefined;
+
+  const writesOf = ({ t, record }: Projected) => {
     const owed = t.owed ? [owedWrite(t.actor)] : [];
 
-    return [...recordWrites(t), ...[...t.lanes].map(laneWrite), ...owed];
+    return [...record, ...[...t.lanes].map(laneWrite), ...owed];
   };
 
   const dueOf = (all: ReadonlyArray<Touched>, final: ReadonlyArray<Ticket>) => {
@@ -238,12 +245,43 @@ export const makePersistence = (tx: Tx) => {
       if (waiting !== undefined) saveOwed(waiting.actor);
     }
 
-    const all = [...touched.values()];
+    // An identity withheld at an earlier step's end is written whole once its record encodes.
+    for (const w of tx.world().withheld.values())
+      touch(w.actor, (t) => ({
+        ...t,
+        record: t.record === "none" ? "kept" : t.record,
+        lanes: new Set([...w.lanes, ...t.lanes, ...tx.lanesOf(w.actor).map(([id]) => id)]),
+        owed: true,
+        tickets: [...w.tickets, ...t.tickets],
+      }));
+
+    const all = [...touched.values()].map((t) => ({ t, record: recordWrites(t) }));
     touched = new Map();
+    const written = all.filter((p) => !unencodable(p));
+    const blocked = all.filter(unencodable);
 
-    if (all.length === 0 && final.length === 0) return;
+    if (blocked.length > 0 || tx.world().withheld.size > 0)
+      tx.set({
+        ...tx.world(),
+        withheld: new Map(
+          blocked.map(({ t }) => [
+            actorKey(t.actor),
+            { actor: t.actor, lanes: [...t.lanes], tickets: t.tickets },
+          ]),
+        ),
+      });
 
-    tx.command(Command.Persist({ writes: all.flatMap(writesOf), due: dueOf(all, final) }));
+    if (written.length === 0 && final.length === 0) return;
+
+    tx.command(
+      Command.Persist({
+        writes: written.flatMap(writesOf),
+        due: dueOf(
+          written.map((p) => p.t),
+          final,
+        ),
+      }),
+    );
   };
 
   /**

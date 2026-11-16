@@ -524,6 +524,34 @@ tasks
             make; a refused save is retried within 5 s instead of waiting for the next change; a timer that fires into a
             state that ignores it no longer comes back after a reload; ready() after dispose() during boot always
             rejects RuntimeDisposed.
+        comment     2026-11-16T09:21:50Z
+            Requirements review: ISSUES, three gaps, none blocks building. (1) WriteAhead I11, R10 ('a lane never
+            outruns its actor') with R4's UnencodableValue skip: an actor record that fails to encode is dropped while
+            the step's lane and owed writes still go (code:packages/flow-state-v3/src/core/persist.ts#recordWrites), so
+            a reload can hear an ending its restored state never committed; no requirement, no owner. (2) WriteAhead
+            R10, I12 and Q3: the hide and pagehide flush and the default 5 s interval have no requirement or owner; the
+            Fake host stubs hidden and onHidden, so no check reaches the edge's flush. (3) R-10 says inspect.ts reads
+            the life 'through core/life.ts', but Actors' realization says only through admit and isDisposed; it also
+            lists 11 cells against the 12 routed and does not name the one dropped. Rest accepted: every routed finding
+            is carried, and every claimed red but R-6's (green, with a planted fault) checks the store.
+        comment     2026-11-16T09:29:45Z
+            Review fix 1 (WriteAhead I11): replayed red in persist.test.ts, runtime wrong: an unencodable actor record
+            dropped while its lane and owed writes went. Now the identity's records and awaited tickets are withheld in
+            the World until its record encodes (realization edited); the UnencodableValue report is routed to T20.
+            Fault unencodable-identity-half-written.
+        comment     2026-11-16T09:29:45Z
+            Review fix 2 (WriteAhead I12, Q3): the default 5 s interval now has a Story (no captureMs; writes at 0 s and
+            3 s land together at 5 s) with faults default-interval-zero and interval-debounced. The hide and pagehide
+            flush is routed to T58: the Fake host and the browser platform both stub visibility.
+        comment     2026-11-16T09:29:45Z
+            Review fix 3: the Spec wording was the wrong side (the runtime cut reports the life's name); Actors
+            realization now says the host decides only through admit and isDisposed, and lifecycleOf names the life for
+            inspection. There are 11 cells: the 12th was Release x Open, which no public call reaches yet; the Story
+            detach step covers it (tests/stories/steps.test.ts:47).
+        comment     2026-11-16T09:29:45Z
+            Gates at the fix revision, by exit code: check 0, suite 556 passed and 5 inverted, test:stress 0, faults 95
+            of 95; bench unchanged (transfers/long 0.031/0.046 ms per turn). Also routed to T17: a schedule's armOn
+            trigger shadows the root handler of the same event, which I have not checked against Turn.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open
@@ -564,6 +592,10 @@ tasks
             Routed from T55's review: restore never reads a lane record's mayHaveApplied
             (code:packages/flow-state-v3/src/core/record.ts), so a head never invoked, left on disk by a failed disposal
             write, reloads unknown Restored rather than NotSent; check against Restore R3.
+        comment     2026-11-16T09:26:06Z
+            Routed from T19: WriteAhead R4's UnencodableValue report is not built; an identity whose actor record cannot
+            encode now withholds all its records until it encodes (WriteAhead realization, I11), silently. Owed with
+            Codec's bounds: the report, and Actors R8's end waiting while the record cannot encode.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      open
@@ -616,6 +648,11 @@ tasks
         comment     2026-11-16T01:40:09Z
             Routed from P2's close-out: the Turn I14 and I9 it.fails pass on any failure; tighten each to fail only for
             its rule when fixing.
+        comment     2026-11-16T09:26:07Z
+            Routed from T19, unchecked against Turn: a state's schedule with armOn [Touch] turns a Touch into a
+            'trigger' part that shadows the root's Touch handler, so its updateMemory never runs (seen in a test
+            machine; worked around with a separate event). Replay against Turn's priority rules and decide which side
+            is wrong.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open
