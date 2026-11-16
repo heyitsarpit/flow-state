@@ -29,6 +29,12 @@ item in the fixtures its step names, so the next agent starts from what is left:
 A lead takes every item marked left for its Task, then the items its step adds, and corrects a row the build
 proves wrong.
 
+**Scenarios are best-guess guidance.** The items and their linked tests are a starting point, not a contract. The
+lead reads the linked tests, aims for proper coverage of its step's features, and is free to add scenarios, reshape
+or split an item, or replace one with a better case: for example giving a load item its numbers and what must hold
+under it, or adding a combined-stress case. Each change is written back here as an item, so the list stays the
+record of what is covered.
+
 **Sources** are local clones in `codebases/` (`ai`, `tus-js-client`, `hydrogen`, `tldraw`, `ui-sdk`, and `phoenix`,
 which is the kamp.us app), linked at the end of this page. Each local test name below was matched at its file and
 line on 2026-11-17, and each sentence says only what the test shows. A public URL marks a source with no local copy;

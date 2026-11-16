@@ -225,7 +225,9 @@ instructions
       step and fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively. The
       catalog is a task list: at the close the lead marks every scenario item in those fixtures built (with its Story
       id) or left (with the later Task and the feature it needs), never leaves one unmarked, and corrects any row the
-      build proved wrong; only a scenario needing a later Task's feature may be left, and the review checks each.
+      build proved wrong; only a scenario needing a later Task's feature may be left, and the review checks each. The
+      scenarios and their linked tests are best-guess guidance: the lead targets proper coverage and may add, reshape or
+      replace scenarios, writing each change back as a catalog item.
     - Coverage before fixes and reviews (the user, 2026-11-17): a Task's bug fixing and its review wait until the
       fixtures its catalog step names are built, with every scenario written; a bug those Stories find lands as an
       inverted test with its owner Task, and is fixed by that owner against the full coverage.
