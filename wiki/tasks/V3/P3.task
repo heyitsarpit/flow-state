@@ -866,6 +866,13 @@ tasks
             the build not started. Blocking: bound edge values in samples take the default suite from 17 s to 661 s (mix
             634 s, lanes pairs 122 s); needs a stress-only edge set or lighter values before gates can pass. Red for T9:
             Turn I9 double publish in session runs; Stories R3 dispose skipping disposeActor.
+        comment     2026-11-16T19:55:17Z
+            Resume (paused for the fixture catalog): convergence built at 88de0f6a (design:
+            proposals/record-bounds-revised-2026-11-17.md; bound edges moved to stressSamples at 47c900b8, suite 22 s).
+            Suite and test:stress red only on session's Turn I9 and session's saved-stress print (T9's); check 0. Next:
+            nub run faults (killed mid-run, six new faults in tests/restore-faults.ts unproven), FLOW_SEEDS=20, bench,
+            close comment, status review. Routed: I17 displaced on wire (it.fails kept), Held head re-owed at every
+            start (Restore R3), R11 counting owed parts. Nothing uncommitted.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
