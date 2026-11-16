@@ -1,0 +1,74 @@
+import { mainCart, mainFlow, mainShopper } from "../app.ts";
+import { Carts } from "../server/carts.ts";
+import { add, setQuantity, storeStory } from "./usual.ts";
+
+const twoLines = (id: string) =>
+  storeStory(id).ensure(mainCart).send(mainCart, add("l1", "v1")).send(mainCart, add("l2", "v2"));
+
+/**
+ * One line's edit is held on the wire while another line's lands: neither waits on or ends the
+ * other.
+ */
+export const independentLines = twoLines("pay/independent-lines")
+  .world(Carts.setQuantity.hold({ at: "response" }))
+  .send(mainCart, setQuantity("l1", 2))
+  .send(mainCart, setQuantity("l2", 5))
+  .checkpoint("b done")
+  .world(Carts.setQuantity.release())
+  .checkpoint("settled");
+
+/**
+ * Two lines edited at once; the first asks for more than is left and is refused, the second lands.
+ */
+export const failingLineAlone = twoLines("pay/failing-line-alone")
+  .world(Carts.stock({ variantId: "v1", left: 1 }))
+  .world(Carts.setQuantity.hold({ at: "response" }))
+  .send(mainCart, setQuantity("l1", 3))
+  .send(mainCart, setQuantity("l2", 4))
+  .world(Carts.setQuantity.release())
+  .checkpoint("settled");
+
+/**
+ * The second variant is sold out: its add is refused and the first line stays.
+ */
+export const refusedAddAlone = storeStory("pay/refused-add-alone")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .world(Carts.soldOut({ variantId: "v2" }))
+  .send(mainCart, add("l2", "v2"))
+  .checkpoint("settled");
+
+/**
+ * A line set to 0 is removed.
+ */
+export const quantityZero = storeStory("pay/quantity-zero")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .send(mainCart, setQuantity("l1", 0))
+  .checkpoint("removed");
+
+/**
+ * The same cart ensured again while it is live.
+ */
+export const sameCartTwice = storeStory("pay/same-cart-twice")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .ensure(mainCart)
+  .checkpoint("again");
+
+/**
+ * Checkout is asked to begin while a quantity is still on the wire: denied, then allowed once it
+ * lands.
+ */
+export const waitsWhileBusy = storeStory("pay/waits-while-busy")
+  .ensure(mainShopper)
+  .ensure(mainCart)
+  .ensure(mainFlow)
+  .send(mainCart, add("l1", "v1"))
+  .world(Carts.setQuantity.hold({ at: "response" }))
+  .send(mainCart, setQuantity("l1", 2))
+  .send(mainFlow, { _tag: "Begin" })
+  .checkpoint("busy")
+  .world(Carts.setQuantity.release())
+  .send(mainFlow, { _tag: "Begin" })
+  .checkpoint("settled");

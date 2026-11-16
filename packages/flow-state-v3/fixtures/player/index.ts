@@ -14,6 +14,6 @@ export const player = manifest({
   stressSamples: [samples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
-  mix: false,
+  mix: Option.none(),
   pairs: [],
 });

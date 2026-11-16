@@ -14,7 +14,7 @@ export const transfers = manifest({
   stressSamples: [stressSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 45 },
-  mix: true,
+  mix: Option.some({ usual: samples, stress: stressSamples }),
   pairs: [
     {
       samples,

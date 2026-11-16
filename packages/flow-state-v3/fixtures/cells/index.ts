@@ -14,7 +14,7 @@ export const cells = manifest({
   stressSamples: [samples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 56 },
-  mix: false,
+  mix: Option.none(),
   pairs: [
     {
       samples,

@@ -132,7 +132,7 @@ list, so no runner keeps its own list of fixtures:
 | generator, usual          | every manifest's `samples`                                                |
 | generator, stress         | every manifest's `stressSamples`                                          |
 | profiles                  | every manifest's `samples`                                                |
-| app mix                   | every manifest with `mix: true`                                           |
+| app mix                   | every manifest's `mix` set                                                |
 | saved stress Stories      | every manifest's `savedStress`                                            |
 | reload sweep              | every manifest's `stories`                                                |
 | pair sweeps               | every manifest's `pairs`, split into four shard files                     |
@@ -150,7 +150,8 @@ A manifest (code:packages/flow-state-v3/fixtures/manifest.ts) holds:
 | `stressSamples` | step samples for the stress generator, edges included: one set per part                      |
 | `long`          | the bench's long run, when the fixture has one                                               |
 | `savedStress`   | `{ story, seed }`: the stress Story one `stressSamples` set prints from that seed            |
-| `mix`           | `true` when the app persists or calls a server                                               |
+| `mix`           | the usual and stress samples set the app brings to the mix when it persists or calls a       |
+|                 | server: one set, since a mix holds each machine once                                         |
 | `pairs`         | each samples set the pair sweep drives, with its `reach`: `writes`, `persisted`,             |
 |                 | `cancelsAcknowledging` and `retainsUnknown`                                                   |
 

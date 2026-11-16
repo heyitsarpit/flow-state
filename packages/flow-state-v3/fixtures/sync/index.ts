@@ -14,7 +14,7 @@ export const sync = manifest({
   stressSamples: [samples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
-  mix: false,
+  mix: Option.none(),
   pairs: [
     {
       samples,

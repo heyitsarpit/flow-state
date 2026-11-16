@@ -14,7 +14,7 @@ export const lanes = manifest({
   stressSamples: [stressSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
-  mix: true,
+  mix: Option.some({ usual: samples, stress: stressSamples }),
   pairs: [
     {
       samples,

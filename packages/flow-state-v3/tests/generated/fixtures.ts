@@ -1,4 +1,4 @@
-import { Config, Effect } from "effect";
+import { Config, Effect, Option } from "effect";
 import { manifests } from "../../fixtures/index.ts";
 
 /**
@@ -13,14 +13,14 @@ export const samples = manifests.flatMap((m) => m.samples);
 export const stressSamples = manifests.flatMap((m) => m.stressSamples);
 
 /**
- * The app mix: the samples of every fixture whose manifest joins it, run in one Runtime.
+ * The app mix: the set each fixture that persists or calls a server brings, run in one Runtime.
  */
-export const mix = manifests.filter((m) => m.mix).flatMap((m) => m.samples);
+export const mix = manifests.flatMap((m) => Option.toArray(m.mix)).map((m) => m.usual);
 
 /**
  * The app mix over the stress samples, edge values included.
  */
-export const stressMix = manifests.filter((m) => m.mix).flatMap((m) => m.stressSamples);
+export const stressMix = manifests.flatMap((m) => Option.toArray(m.mix)).map((m) => m.stress);
 
 /**
  * The fixed seeds the gate runs per fixture: ten usual and twenty stress (Testing O6).

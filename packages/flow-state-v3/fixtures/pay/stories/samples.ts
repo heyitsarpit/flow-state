@@ -1,0 +1,35 @@
+import { samplesOf } from "../../../src/host/testing/index.ts";
+import { mainBadge, mainCart, mainFlow, mainShopper } from "../app.ts";
+import { Carts } from "../server/carts.ts";
+import { add, setQuantity, storeStory } from "./usual.ts";
+
+/**
+ * What a shopper and the cart service can do in the shop around the checkout, for generated runs:
+ * sign in and out, add and edit lines (0 and negative among them) and step through checkout; the
+ * service sells a variant out or runs low. Pay's own samples drive the checkout's Pay.
+ */
+export const samples = samplesOf({
+  id: "shop",
+  story: storeStory("shop/samples"),
+  names: { setup: "storeSetup", fixtures: ["ShopFake", "CartFake"] },
+  actors: { mainShopper, mainCart, mainBadge, mainFlow },
+  servers: { Carts },
+  failures: [Carts.soldOut({ variantId: "v2" }), Carts.stock({ variantId: "v1", left: 1 })],
+  landedFailures: [],
+  values: {},
+  controls: [],
+  steps: (story) =>
+    story
+      .send(mainShopper, { _tag: "SignIn", name: "ada" })
+      .send(mainShopper, { _tag: "SignOut" })
+      .send(mainCart, add("l1", "v1"))
+      .send(mainCart, add("l2", "v2"))
+      .send(mainCart, setQuantity("l1", 3))
+      .send(mainCart, setQuantity("l1", 0))
+      .send(mainCart, setQuantity("l2", -1))
+      .send(mainFlow, { _tag: "Begin" })
+      .send(mainFlow, { _tag: "AddressEntered", line1: "12 Canal St" })
+      .send(mainFlow, { _tag: "MethodChosen", method: "express" })
+      .send(mainFlow, { _tag: "SlotChosen", slot: "9-12" })
+      .send(mainFlow, { _tag: "Back" }),
+});
