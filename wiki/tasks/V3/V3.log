@@ -573,3 +573,7 @@ note 2026-11-16T14:47:47Z
 note 2026-11-16T14:54:51Z
     T9 back in review at 624d35f1 (both blockers fixed, R13 restored to Runtime O4, mailbox-order run rule; faults
     178/178 in 43 s); fix-round review started. T20's fix round resumed. For the user: typed slot wiring remains open.
+
+note 2026-11-16T14:55:04Z
+    Decision (the user, 2026-11-16): the tests are timed every third hourly wake, not every wake. Reverse: drop the hour
+    condition from cadence.

@@ -272,13 +272,15 @@ instructions
     - No worktrees: the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08; R43).
     - No agent reads agent transcripts (the user, 2026-11-15).
 cadence
-    A wake every 60 minutes (the user, 2026-11-16; was 90) checks for a Task in review, a stalled lead, the usage
-    reserve and the tests' speed. Reviews run on the events in instructions, not on the clock.
+    A wake every 60 minutes (the user, 2026-11-16; was 90) checks for a Task in review, a stalled lead and the usage
+    reserve; every third wake also times the tests (the user, 2026-11-16; was every wake). Reviews run on the events in
+    instructions, not on the clock.
 
     Session cron `23 * * * *`.
 
     Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the weekly usage from the
-    harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it. Time `nub run test run
+    harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it. Only when the local hour
+    is a multiple of 3: on a clean detached worktree of HEAD at a path no agent uses, time `nub run test run
     packages/flow-state-v3`, `nub run test:stress` and `nub run faults` by wall clock, one after another; if any exceeds
     twice its baseline in the latest speed note of V3.log, note it and insert a Task to make the tests fast again, taken
     before the building lead's next Task. If a Task is in review, or a review event in instructions has no review
