@@ -47,6 +47,19 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "dropped-lane-kept-on-disk",
+    tests: ["tests/actors/runtime-disposal.test.ts"],
+    says: "a lane that ends writes no record removal, so its old record outlives it on disk",
+    rule: "WriteAhead I21",
+    edits: [
+      {
+        file: "src/core/persist.ts",
+        find: "    saveLane(lane.actor, id);",
+        replace: "    void lane;",
+      },
+    ],
+  },
+  {
     name: "rows-dropped-outside-ledger",
     tests: ["tests/write-lanes/one-builder.test.ts"],
     says: "a forget clears the identity's owed rows itself instead of closing them in the ledger",

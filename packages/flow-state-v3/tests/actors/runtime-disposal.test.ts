@@ -69,6 +69,28 @@ describe("PAY-13 (Actors R22, R23, I29, I30; WriteAhead R14)", () => {
     expect(reloaded.read(Shop.confirm)).toHaveLength(0);
   });
 
+  it("Actors R22, I29: a never-sent head at disposal ends once and leaves no lane record after the reload (WriteAhead I21)", async () => {
+    const run = await played(
+      shopStory("Actors R22 never-sent head")
+        .ensure(checkout)
+        .send(checkout, START)
+        .world(Fake.storage.hold())
+        .send(checkout, VISA)
+        .disposeRuntime()
+        .world(Fake.storage.release())
+        .reload()
+        .ensure(checkout)
+        .checkpoint("reloaded"),
+    );
+
+    const { reloaded } = run.checkpoints;
+    const disposed = endings(run.evidence, "pay").filter((e) => e.reason === "Disposed");
+
+    expect(disposed).toHaveLength(1);
+    expect([...reloaded.records.stored.keys()].filter((k) => k.startsWith("lane/"))).toEqual([]);
+    expect(reloaded.inspection.owed).toEqual([]);
+  });
+
   it("PAY-13/waiting-flush-lost: with nothing on disk there is no Restored after the Disposed ending", async () => {
     const run = await played(
       shopStory("PAY-13/waiting-flush-lost")
