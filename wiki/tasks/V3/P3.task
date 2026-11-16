@@ -272,6 +272,9 @@ tasks
         comment     2026-11-16T01:40:08Z
             Routed from P2's close-out: settle WriteLanes R14's wording that the pair sweep's Withdrawing and Cancelling
             reasons rest on; the WriteAhead I23 it.fails must fail only for its rule.
+        comment     2026-11-16T02:34:34Z
+            Routed from T54's review: WriteAhead I20's premise that a step drains its mail fails past the 10,000-turn
+            drain cap (src/core/serve.ts:238); Queued rows can then sit unsaved at a step's end and a crash loses them.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      open
