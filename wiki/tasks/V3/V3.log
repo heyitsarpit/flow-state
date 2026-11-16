@@ -594,3 +594,7 @@ note 2026-11-16T15:06:02Z
     T9 fix-round review ISSUES (d4a0f4c6): a return after a reload still misses its context wave (Actors R9, R18), the
     same root cause twice, so one convergence pass. Decision: save last-seen context values in the actor record. T81
     pauses for it.
+
+note 2026-11-16T15:19:07Z
+    T9 back in review at e274aeeb: context's last-seen values saved in the actor record, waves only on real change;
+    R13's waiting update filed as Pending D13 (merge after review). T81 resumed.
