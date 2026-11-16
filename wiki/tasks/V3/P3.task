@@ -1088,6 +1088,12 @@ tasks
             planted shrink from 9 to 18 lines and changed every saved stress Story. Failure gained `shrinks`. The
             generator's verdict rules are now `inconclusive` and `turn limit`, not Spec ids. `nub run faults`: 150 of
             150 caught, all by targets, in 35 s. Suite 14 s.
+        comment     2026-11-16T14:30:41Z
+            Fix-round review: PASS. Planted at d82e3fa7, each of the 4 fixtures alone passes the mix profile (seeds 1-5)
+            and mix seed 2 breaks WriteAhead I15, shrunk to pay+lanes in 25 steps; test, test:stress, faults (150/150)
+            exit 0. Non-blocking: `shrinks` counts accepted shrinks (Effect), not candidates as Failure's doc says, so
+            the `<= 1000` check is vacuous; failure words pick from every fixture's pool, and write salts count the
+            shared store, so a drop can still move a kept fixture's answers.
 
     T79
         title       Code convergence: tx edit operations, lifecycle unions, one home for diagnostics and keys, host 
