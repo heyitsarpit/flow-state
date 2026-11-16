@@ -19,15 +19,15 @@ outcomes
         same process (@plan.Runtime.O1).
 
         Invalid construction throws one FlowError containing all discovered violations in declaration then rule order,
-        with offending field paths. The callback runs exactly once with { S, E, O } and returns static
-        machine configuration.
+        with offending field paths. The callback runs exactly once with { S, E, O, emits } (states, events, operations
+        and emit tokens) and returns static machine configuration; `onContext` and `onProps` sit in its root.
 
         A definition requires id, states and events, and may declare `internalEvents`, memory, traits, operations,
-        context, `props`, `onProps`, `emits` and persist. persist defaults to false; persist: true on the definition
-        makes the machine's shared actors persisted (@plan.Persistence.O2). states is an ordered list of leaf names,
-        single-key compounds containing child lists, or { NAME: Sub } placing a subroutine; a node that carries traits
-        is wrapped as Flow.state(children | {} | Sub, { traits }). events and optional `internalEvents` are records from
-        event names to Schema field records; {} means no payload.
+        context, `props`, `emits` and persist. persist defaults to false; persist: true on the definition makes the
+        machine's shared actors persisted (@plan.Persistence.O2). states is an ordered list of leaf names, single-key
+        compounds containing child lists, or { NAME: Sub } placing a subroutine; a node that carries traits is wrapped
+        as Flow.state(children | {} | Sub, { traits }). events and optional `internalEvents` are records from event
+        names to Schema field records; {} means no payload.
 
         A payload may instead be a Schema.Struct with checks; a payload failing its check is refused at admission,
         before guards run.
@@ -114,30 +114,47 @@ outcomes
         evidence, never refused.
 
         ```ts
-        // A fan-out raise. user-defined: Upload, Editor, Cancel, ref, attachments, uploads, CancelAll
-        const Upload = trait(                                          // existing: trait
+        // A fan-out raise: one Cancel reaches every upload copy.
+        // user-defined: Upload, Editor, EditorMachine, Attach, Cancel, CancelAll, ref, cancelled, attachments, uploads
+        // existing: definition, machine, trait, .each({ of, by, max }), Flow.input, Flow.initial, target, raise
+        // NEW: a raise into an .each instance reaches every live copy
+        import { Schema } from "effect"
+        import { definition, Flow, machine, trait } from "flow-state"
+
+        const Upload = trait(
           {
             id: "Upload",
             events: { Cancel: {} },
-            memory: { ref: Flow.input(Schema.String), cancelled: Flow.initial(Schema.Boolean, false) },
+            memory: {
+              ref: Flow.input(Schema.String),                // filled from the copy's item
+              cancelled: Flow.initial(Schema.Boolean, false),
+            },
           },
-          () => ({ on: { Cancel: { target: "self", updateMemory: () => ({ cancelled: true }) } } }),
+          () => ({ on: { Cancel: { target: "self", updateMemory: () => ({ cancelled: true }) } } }), // no guard: see below
         )
 
         const Editor = definition({
           id: "Desk/Editor",
           states: ["EDITING"],
-          events: { CancelAll: {} },
-          memory: { attachments: Flow.initial(Schema.Array(Schema.String), []) }, // the host's list: one copy per ref
-          traits: { uploads: Upload.each({ of: "attachments", max: 10 }) },       // existing: .each; max 10 live copies
+          events: { Attach: { ref: Schema.String }, CancelAll: {} }, // the view mints a ref per picked File; the File
+          memory: {                                                  // itself stays outside Flow
+            attachments: Flow.initial(Schema.Array(Schema.Struct({ ref: Schema.String })), []), // the host's list
+          },
+          traits: { uploads: Upload.each({ of: "attachments", by: "ref", max: 10 }) }, // one copy per ref
         })
 
         export const EditorMachine = machine(Editor, ({ S, E }) => ({
           default: S.EDITING,
-          on: { CancelAll: { raise: [E.uploads.Cancel] } }, // NEW meaning: reaches every live copy, in key order
+          on: {
+            Attach: {
+              updateMemory: ({ event, memory }) => ({ attachments: [...memory.attachments, { ref: event.ref }] }),
+            },
+            CancelAll: { raise: [E.uploads.Cancel] }, // a token, as for any raise; every live copy, in key order
+          },
         }))
-        // A copy with no handler is skipped (Unhandled evidence); a copy whose guard denies refuses CancelAll;
-        // with no copies it does nothing. Keys past 10 are dropped with listRepair evidence, never refused.
+        // A copy with no handler on its active path is skipped (Unhandled evidence); a copy whose guards deny refuses
+        // the whole CancelAll, so a fan-out handler leaves its guards off; with no copies the raise does nothing and
+        // is recorded. An 11th ref is dropped with listRepair evidence, never refused.
         ```
 
         Trait instance names, operation names, state names, memory keys, prop names and emit names share one namespace;
@@ -206,7 +223,12 @@ outcomes
         on the cause (`code:wiki/conventions/view-commands.md`):
 
         ```ts
-        // user-defined: Menu, Focus, target, Escape, OutsideClick   // NEW: emits, emit, emits.Focus
+        // The DOM sends Open, Escape and OutsideClick (@plan.React.O3 shows the view).
+        // user-defined: Menu, MenuMachine, CLOSED, OPEN, Open, Escape, OutsideClick, Focus, target
+        // existing: definition, machine, target   // NEW: emits (definition), emits (callback), emit, emits.Focus(...)
+        import { Schema } from "effect"
+        import { definition, machine } from "flow-state"
+
         const Menu = definition({
           id: "Ui/Menu",
           states: ["CLOSED", "OPEN"],
@@ -221,7 +243,7 @@ outcomes
             OPEN: {
               on: {
                 Escape: { target: S.CLOSED, emit: [emits.Focus({ target: "trigger" })] }, // focus returns
-                OutsideClick: S.CLOSED, // same state, no emit: focus is not stolen
+                OutsideClick: S.CLOSED, // closes with no emit: focus stays where the user clicked
               },
             },
           },
@@ -233,7 +255,13 @@ outcomes
         step (`code:wiki/conventions/controlled-values.md`):
 
         ```ts
-        // user-defined: Stepper, Press, Change, by, value, max   // existing: deny   // NEW: props, emits, .from
+        // The parent's React state is `value` and its fetched stock is `max` (@plan.React.O2 shows the parent).
+        // user-defined: Stepper, StepperMachine, IDLE, Press, by, value, max, Change, AtMax
+        // existing: definition, machine, guard, deny   // NEW: props, emits, emit, emits.Change.from, props in guards
+        // Every prop needs a Schema default (PropWithoutDefault otherwise); withDecodingDefaultKey is effect's.
+        import { Effect, Schema } from "effect"
+        import { definition, deny, machine } from "flow-state"
+
         const Stepper = definition({
           id: "Ui/Stepper",
           states: ["IDLE"],
@@ -250,7 +278,7 @@ outcomes
           on: {
             Press: {
               guard: ({ event, props }) => props.value + event.by <= props.max || deny("AtMax"), // guards read props
-              emit: [emits.Change.from(({ event }) => ({ by: event.by }))], // the mapper reads event and props
+              emit: [emits.Change.from(({ event }) => ({ by: event.by }))], // the intent; a denied Press emits nothing
             },
           },
         }))
@@ -415,25 +443,51 @@ outcomes
         values do nothing. A Duration returns to idle after firing, allowing debounce behavior. Restarting drops any
         time left.
 
+        An idle sign-out: the server's policy gives the delay, the page reports activity and video playback.
+
         ```ts
-        // Two schedules in a root body whose memory has index, hovered and idleMs.
-        // user-defined: autoplay, idle, Next, Poke, Done, TimedOut, index, hovered, idleMs
-        schedules: {
-          autoplay: {
-            schedule: "5 seconds",                      // a fixed negative one is a DelayOutOfRange error here
-            send: E.Next,                                 // existing: payload-free event
-            armOn: [Flow.entry],                          // NEW: tokens; the only armOn allowed beside restartOn
-            restartOn: ({ memory }) => memory.index,      // a manual change starts the five seconds over
-            paused: { Hovered: ({ memory }) => memory.hovered }, // NEW: paused names its reasons
+        // user-defined: Session, SessionMachine, ACTIVE, ENDED, idleMs, Activity, VideoPlaying, VideoStopped, SignOut,
+        //   TimedOut, idle
+        // existing: definition, machine, schedules, schedule, send, armOn, disarmOn, Flow.entry, Flow.input
+        // NEW: event tokens in armOn and disarmOn (the build takes E.X.tag strings until @task.V3.T57)
+        import { Schema } from "effect"
+        import { definition, Flow, machine } from "flow-state"
+
+        const Session = definition({
+          id: "App/Session",
+          states: ["ACTIVE", "ENDED"],
+          events: { Activity: {}, VideoPlaying: {}, VideoStopped: {}, SignOut: {} },
+          internalEvents: { TimedOut: {} },
+          memory: { idleMs: Flow.input(Schema.Number) }, // from the server's session policy, at creation
+        })
+
+        export const SessionMachine = machine(Session, ({ S, E }) => ({
+          default: S.ACTIVE,
+          states: {
+            ACTIVE: {
+              schedules: {
+                idle: {
+                  schedule: ({ memory }) => memory.idleMs,              // computed: a negative value counts as zero
+                  send: E.TimedOut,                                      // a payload-free event
+                  armOn: [Flow.entry, E.Activity, E.VideoStopped],      // on entry; restarts on each listed event
+                  disarmOn: [E.VideoPlaying],                            // stops it; an event in both lists is an error
+                },
+              },
+              on: { TimedOut: S.ENDED, SignOut: S.ENDED },             // exit stops the schedule
+            },
+            ENDED: {},
           },
-          idle: {
-            schedule: ({ memory }) => memory.idleMs,       // computed: a negative value counts as zero
-            send: E.TimedOut,
-            armOn: [Flow.entry, E.Poke],                   // existing, as tokens: starts on entry and on each Poke
-            disarmOn: [E.Done],                            // stops it; an event in both lists is a construction error
-          },
-        },
+        }))
+
+        // The host feeds it from the page (user-defined: policy, video):
+        const session = runtime.createActor(SessionMachine, { input: { idleMs: policy.idleMs } })
+        window.addEventListener("pointerdown", () => session.send({ _tag: "Activity" }))
+        video.addEventListener("play", () => session.send({ _tag: "VideoPlaying" }))
+        video.addEventListener("pause", () => session.send({ _tag: "VideoStopped" }))
         ```
+
+        A fixed delay such as `schedule: "5 seconds"` is checked at construction, so `"-5 seconds"` is a DelayOutOfRange
+        error. The O7 carousel combines `armOn: [Flow.entry]` with `restartOn` and pauses on hover.
 
         Hover or press state that only holds a clock is a `paused` reason, not a stored stamp; short-lived state itself
         follows `code:wiki/conventions/interaction-state.md`.
@@ -457,26 +511,98 @@ outcomes
 
         Per-key timers persist by key with `dueAt` or `left`, and on restore the restored memory's keys win.
 
+        A shared toaster: app code shows and updates toasts, the pointer pauses them, and a narrow screen shows one. Its
+        limit is context, not a prop, because a shared actor has no owner (@plan.Runtime.O3).
+
         ```ts
-        // A toaster's keyed expiry, in the root body of a shared toaster: memory has toasts: { id, kind, title }[]
-        // and hovered; context has maxVisible.
-        // user-defined: lengths, kindOf, contentOf, indexOf, Expired, Hovered, Hidden
+        // user-defined: Screen, ScreenMachine, Narrowed, narrow, Toaster, ToasterMachine, READY, toasts, hovered,
+        //   maxVisible, Show, Update, Dismiss, PointerEnter, PointerLeave, Expired, expire, lengths, Hovered, Hidden
+        // existing: definition, machine, context, X.Provider.select, schedules, keys, restartOn, send: E.X.from
+        // NEW: key in schedule, paused with named reasons, pausedBy in the snapshot
+        import { Schema } from "effect"
+        import { definition, Flow, machine } from "flow-state"
+
+        const Screen = definition({
+          id: "App/Screen",
+          states: ["READY"],
+          events: { Narrowed: { narrow: Schema.Boolean } },
+          memory: { narrow: Flow.initial(Schema.Boolean, false) },
+        })
+        export const ScreenMachine = machine(Screen, ({ S }) => ({
+          default: S.READY,
+          on: { Narrowed: { updateMemory: ({ event }) => ({ narrow: event.narrow }) } },
+        }))
+
+        const Toast = { id: Schema.String, kind: Schema.Literals(["info", "error"]), title: Schema.String }
         const lengths = { info: "4 seconds", error: "10 seconds" } as const
 
-        schedules: {
-          expire: {
-            keys: ({ memory }) => memory.toasts.map((t) => ({ id: t.id })),     // existing: one timer per toast
-            schedule: ({ key, memory }) => lengths[kindOf(memory, key.id)],       // NEW: key; a Duration.Input
-            restartOn: ({ key, memory }) => contentOf(memory, key.id),            // { title, type }: edit restarts
-            paused: {                                                             // NEW: named reasons, any true pauses
-              Hovered: ({ memory }) => memory.hovered,
-              Hidden: ({ key, memory, context }) => indexOf(memory, key.id) >= context.maxVisible,
-            },
-            send: E.Expired.from(({ key }) => ({ id: key.id })),                  // existing, and now reads key
+        const Toaster = definition({
+          id: "App/Toaster",
+          states: ["READY"],
+          events: {
+            Show: Toast,
+            Update: { id: Schema.String, title: Schema.String },
+            Dismiss: { id: Schema.String },
+            PointerEnter: {},
+            PointerLeave: {},
           },
-        },
-        // snapshot.schedules.expire, a keyed list in key order, while the second toast is pushed out and the
-        // first runs: [{ key: { id: "a" }, dueAt: 9100 }, { key: { id: "b" }, left: 2400, pausedBy: ["Hidden"] }]
+          internalEvents: { Expired: { id: Schema.String } },
+          memory: {
+            toasts: Flow.initial(Schema.Array(Schema.Struct(Toast)), []),
+            hovered: Flow.initial(Schema.Boolean, false),
+          },
+          context: { maxVisible: Screen.Provider.select((s) => (s.memory.narrow ? 1 : 3)) },
+        })
+
+        export const ToasterMachine = machine(Toaster, ({ S, E }) => ({
+          default: S.READY,
+          states: {
+            READY: {
+              schedules: {
+                expire: {
+                  keys: ({ memory }) => memory.toasts.map((t) => ({ id: t.id })), // one timer per toast
+                  schedule: ({ key, memory }) => lengths[memory.toasts.find((t) => t.id === key.id)?.kind ?? "info"],
+                  restartOn: ({ key, memory }) => memory.toasts.find((t) => t.id === key.id)?.title, // an Update
+                  paused: {
+                    Hovered: ({ memory }) => memory.hovered,
+                    Hidden: ({ key, memory, context }) =>
+                      memory.toasts.findIndex((t) => t.id === key.id) >= context.maxVisible,
+                  },
+                  send: E.Expired.from(({ key }) => ({ id: key.id })),
+                },
+              },
+            },
+          },
+          on: {
+            Show: {
+              updateMemory: ({ event, memory }) =>
+                ({ toasts: [...memory.toasts, { id: event.id, kind: event.kind, title: event.title }] }),
+            },
+            Update: {
+              updateMemory: ({ event, memory }) =>
+                ({ toasts: memory.toasts.map((t) => (t.id === event.id ? { ...t, title: event.title } : t)) }),
+            },
+            Dismiss: {
+              updateMemory: ({ event, memory }) => ({ toasts: memory.toasts.filter((t) => t.id !== event.id) }),
+            },
+            Expired: {
+              updateMemory: ({ event, memory }) => ({ toasts: memory.toasts.filter((t) => t.id !== event.id) }),
+            },
+            PointerEnter: { updateMemory: () => ({ hovered: true }) },
+            PointerLeave: { updateMemory: () => ({ hovered: false }) },
+          },
+        }))
+
+        // The sources (user-defined: toaster, screen, narrowQuery): app code after a failed save, and the browser.
+        toaster.send({ _tag: "Show", id: crypto.randomUUID(), kind: "error", title: "Couldn't save" })
+        const narrowQuery = matchMedia("(max-width: 600px)")
+        screen.send({ _tag: "Narrowed", narrow: narrowQuery.matches })
+        narrowQuery.addEventListener("change", (e) => screen.send({ _tag: "Narrowed", narrow: e.matches }))
+        // The list element: onPointerEnter sends { _tag: "PointerEnter" }, onPointerLeave { _tag: "PointerLeave" }.
+
+        // snapshot.schedules.expire with maxVisible 1, toasts a (info) and b (error) shown at 0, read at 3000:
+        // [{ key: { id: "a" }, dueAt: 4000 }, { key: { id: "b" }, left: 10000, pausedBy: ["Hidden"] }]
+        // b was Hidden from its arming, so it holds its full 10 seconds; when a expires, b resumes: dueAt 14000.
         ```
 
         Schedules fire only while their actor is used (@plan.Runtime.O3). A deadline that comes due while nothing uses
@@ -560,35 +686,78 @@ outcomes
         shrinks the list, `onProps` repairs memory by sending an event, never by writing
         it (`code:wiki/conventions/where-a-value-lives.md`):
 
-        ```ts
-        // user-defined: Carousel, count, index, Next, Shrunk, last   // NEW: props, onProps, props in a guard
+        ```tsx
+        // The parent renders slides it fetched, so `count` is the parent's; the pointer gives `hovered`.
+        // user-defined: Carousel, CarouselMachine, SHOWING, count, index, hovered, Next, Prev, PointerEnter,
+        //   PointerLeave, Shrunk, last, autoplay, Hovered, AtEnd, AtStart
+        // existing: definition, machine, Flow.initial, guard, deny, updateMemory, schedules, armOn, Flow.entry,
+        //   restartOn, E.X.from, the onContext shape
+        // NEW: props, onProps (machine root only), props in guards, paused with named reasons,
+        //   armOn: [Flow.entry] beside restartOn
+        import { Effect, Schema } from "effect"
+        import { definition, deny, Flow, machine } from "flow-state"
+        import { useActor, useView } from "flow-state/react"
+
         const Carousel = definition({
           id: "Ui/Carousel",
           states: ["SHOWING"],
-          events: { Next: {} },
+          events: { Next: {}, Prev: {}, PointerEnter: {}, PointerLeave: {} },
           internalEvents: { Shrunk: { last: Schema.Number } },
-          memory: { index: Flow.initial(Schema.Number, 0) },
-          props: { count: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))) }, // its default
+          memory: { index: Flow.initial(Schema.Number, 0), hovered: Flow.initial(Schema.Boolean, false) },
+          props: { count: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))) }, // default 0
         })
 
         export const CarouselMachine = machine(Carousel, ({ S, E }) => ({
           default: S.SHOWING,
-          onProps: [                                                    // the root only, like onContext
+          onProps: [                                                // the root only, like onContext
             {
-              select: ({ props }) => props.count,                       // silent baseline at admission
-              when: (now, before) => now < before,                      // only a shrink repairs
-              event: E.Shrunk.from((now) => ({ last: now - 1 })),
+              select: ({ props }) => props.count,                   // silent baseline at admission
+              when: (now, before) => now < before,                  // only a shrink repairs
+              event: E.Shrunk.from((now) => ({ last: Math.max(now - 1, 0) })),
             },
           ],
+          states: {
+            SHOWING: {
+              schedules: {
+                autoplay: {
+                  schedule: "5 seconds",                            // fixed: checked at construction
+                  send: E.Next,                                     // denied on the last slide, so autoplay stops
+                  armOn: [Flow.entry],                              // the only armOn allowed beside restartOn
+                  restartOn: ({ memory }) => memory.index,          // any slide change starts the 5 seconds over
+                  paused: { Hovered: ({ memory }) => memory.hovered }, // holds the time left while hovered
+                },
+              },
+            },
+          },
           on: {
             Next: {
-              guard: ({ memory, props }) => memory.index < props.count - 1 || deny("AtEnd"), // existing: deny
+              guard: ({ memory, props }) => memory.index < props.count - 1 || deny("AtEnd"),
               updateMemory: ({ memory }) => ({ index: memory.index + 1 }),
             },
+            Prev: {
+              guard: ({ memory }) => memory.index > 0 || deny("AtStart"),
+              updateMemory: ({ memory }) => ({ index: memory.index - 1 }),
+            },
             Shrunk: { updateMemory: ({ event, memory }) => ({ index: Math.min(memory.index, event.last) }) },
+            PointerEnter: { updateMemory: () => ({ hovered: true }) },
+            PointerLeave: { updateMemory: () => ({ hovered: false }) },
           },
         }))
-        // Props only on a local actor: useActor(CarouselMachine, { props: { count: slides.length } }).
+
+        // The view (user-defined: Slides, slides): a local actor, so it takes props.
+        function Slides({ slides }: { slides: ReadonlyArray<string> }) {
+          const carousel = useActor(CarouselMachine, { props: { count: slides.length } })
+          const index = useView(carousel, (s) => s.memory.index)
+          return (
+            <section
+              onPointerEnter={() => carousel.send({ _tag: "PointerEnter" })}
+              onPointerLeave={() => carousel.send({ _tag: "PointerLeave" })}
+            >
+              <img src={slides[index]} alt="" />
+              <button onClick={() => carousel.send({ _tag: "Next" })}>Next</button>
+            </section>
+          )
+        }
         ```
     O8  The snapshot
         A snapshot is deeply frozen plain data showing state, memory, props, context, issues, lifecycle, schedules
@@ -607,10 +776,11 @@ outcomes
         see them. It has no input, methods or public revision.
 
         ```ts
-        // The O7 carousel after one Next, with props { count: 3 }: props sit beside memory, never inside it.
-        { state: "SHOWING", memory: { index: 1 }, props: { count: 3 }, context: {}, issues: [],
-          lifecycle: "active", schedules: {}, operations: {} }
-        // With a paused autoplay timer, schedules reads: { autoplay: { left: 3200, pausedBy: ["Hovered"] } }
+        // The O7 carousel, created at 0 with props { count: 3 }, after a Next at 1000: index changed, so autoplay
+        // restarted. Props sit beside memory, never inside it.
+        { state: "SHOWING", memory: { index: 1, hovered: false }, props: { count: 3 }, context: {}, issues: [],
+          lifecycle: "active", schedules: { autoplay: { dueAt: 6000 } }, operations: {} }
+        // A PointerEnter at 2800 pauses it: { autoplay: { left: 3200, pausedBy: ["Hovered"] } }, never both forms.
         ```
 
         Diagnostic values are @plan.Diagnostics.O1. Snapshots are deeply frozen plain data. A Runtime step publishes the

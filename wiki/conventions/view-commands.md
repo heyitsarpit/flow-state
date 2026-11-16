@@ -18,7 +18,7 @@ If the state alone says what to do (navigate once PAID, show a dialog), render f
 // BEFORE: an event stored as a fact, a counter to beat equality, and a view that dedupes by id
 memory: {
   focusRequest: Flow.initial(
-    Schema.NullOr(Schema.Struct({ target: Schema.Literal("trigger", "first"), id: Schema.Number })),
+    Schema.NullOr(Schema.Struct({ target: Schema.Literals(["trigger", "first"]), id: Schema.Number })),
     null,
   ),
 },
@@ -30,7 +30,7 @@ Escape: {
 
 ```ts
 // AFTER
-emits: { Focus: { target: Schema.Literal("trigger", "first") } },          // the definition
+emits: { Focus: { target: Schema.Literals(["trigger", "first"]) } },       // the definition
 Escape: { target: S.CLOSED, emit: [emits.Focus({ target: "trigger" })] },  // the machine body: ({ S, emits })
 OutsideClick: { target: S.CLOSED },                                         // no focus steal
 useOnEmit(menu, { Focus: ({ target }) => refs[target].current?.focus() })  // the view

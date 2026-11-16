@@ -63,16 +63,26 @@ outcomes
         diagnostic. A ref never resets an existing actor; conflicting refs follow @plan.Runtime.O3.
 
         ```tsx
-        // The component that owns the settings passes them down; the first frame already shows them.
-        // user-defined: Cart, Stepper, StepperMachine, cartRef, stock   // NEW: props
-        // existing: useActor, useActorByRef
-        function Cart({ stock }: { stock: number }) {
+        // The controlled stepper of @plan.Machines.O2. React state owns the quantity; `stock` comes from the product
+        // the page fetched. The first frame already shows both props.
+        // user-defined: QuantityPicker, stock, qty, setQty, atMax, StepperMachine, CartRef
+        // existing: useActor, useActorByRef, useView, send   // NEW: the props option, useOnEmit (O3)
+        import { useState } from "react"
+        import { useActor, useOnEmit, useView } from "flow-state/react"
+
+        export function QuantityPicker({ stock }: { stock: number }) {
           const [qty, setQty] = useState(1)
-          // Props are read every render and apply as a whole: leave `max` out and it returns to its default.
+          // Read every render and applied whole: leave `max` out and it returns to its default.
           const stepper = useActor(StepperMachine, { props: { value: qty, max: stock } })
-          const cart = useActorByRef(cartRef, {})   // a shared actor: no props; { props } here is a type error
-          return <Stepper stepper={stepper} cart={cart} /> // a view that reads both; the emit is O3's
+          useOnEmit(stepper, { Change: ({ by }) => setQty((q) => Math.min(Math.max(q + by, 1), stock)) })
+          const atMax = useView(stepper, (s) => s.props.value >= s.props.max)
+          return (
+            <button disabled={atMax} onClick={() => stepper.send({ _tag: "Press", by: 1 })}>
+              {qty} +
+            </button>
+          )
         }
+        // useActorByRef(CartRef, { props: { max: 3 } }) is a type error: a shared actor takes no props.
         ```
 
         Props are the owner's values (`code:wiki/conventions/where-a-value-lives.md`); a shared actor's outside state
@@ -105,22 +115,43 @@ outcomes
         handler receives its key. Listening is not a use (@plan.Runtime.O3).
 
         ```tsx
-        // The parent applies the controlled stepper's intent (Machines O2). user-defined: Cart, qty, stock, clamp
-        // NEW: useOnEmit, the Change emit
-        function Cart({ stock }: { stock: number }) {
-          const [qty, setQty] = useState(1)
-          const stepper = useActor(StepperMachine, { props: { value: qty, max: stock } })
-          useOnEmit(stepper, { Change: ({ by }) => setQty((q) => clamp(q + by, 1, stock)) }) // latest render's handler
-          return <button onClick={() => stepper.send({ _tag: "Press", by: 1 })}>{qty}</button>
-        }
+        // The menu of @plan.Machines.O2. The DOM is the source: a click opens it, Escape and a press outside close it.
+        // Focus arrives after the commit of the render that shows its turn, so the first item already exists.
+        // user-defined: MenuButton, items, root, trigger, first, open, onKey, onDown
+        // existing: useActor, useView, send   // NEW: useOnEmit
+        import { useEffect, useRef } from "react"
+        import { useActor, useOnEmit, useView } from "flow-state/react"
 
-        // A menu returns focus after Escape only: the emit arrives after the render that shows its turn.
-        useOnEmit(menu, { Focus: ({ target }) => refs[target].current?.focus() })
-        // A fragment's emits are heard under its instance name; an .each copy's handler also gets its key.
-        useOnEmit(list, { rows: { Focus: (_, { key }) => rowRefs.get(key.id)?.focus() } })
+        export function MenuButton({ items }: { items: ReadonlyArray<string> }) {
+          const menu = useActor(MenuMachine)
+          const open = useView(menu, (s) => s.state === "OPEN")
+          const root = useRef<HTMLDivElement>(null)
+          const trigger = useRef<HTMLButtonElement>(null)
+          const first = useRef<HTMLButtonElement>(null)
+          useOnEmit(menu, { Focus: ({ target }) => (target === "trigger" ? trigger : first).current?.focus() })
+          useEffect(() => {
+            const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") menu.send({ _tag: "Escape" }) }
+            const onDown = (e: PointerEvent) => {
+              if (!root.current?.contains(e.target as Node)) menu.send({ _tag: "OutsideClick" })
+            }
+            document.addEventListener("keydown", onKey)
+            document.addEventListener("pointerdown", onDown)
+            return () => {
+              document.removeEventListener("keydown", onKey)
+              document.removeEventListener("pointerdown", onDown)
+            }
+          }, [menu])
+          return (
+            <div ref={root}>
+              <button ref={trigger} onClick={() => menu.send({ _tag: "Open" })}>Menu</button>
+              {open && items.map((item, i) => <button key={item} ref={i === 0 ? first : undefined}>{item}</button>)}
+            </div>
+          )
+        }
         ```
 
-        See `code:wiki/conventions/view-commands.md` and `code:wiki/conventions/controlled-values.md`.
+        The controlled stepper's `Change` is heard the same way (O2). See `code:wiki/conventions/view-commands.md`
+        and `code:wiki/conventions/controlled-values.md`.
 
         Local cleanup leaves the actor active for the grace, 100 milliseconds on the Runtime Clock. A local actor
         remounted within its grace reuses that actor and cancels its end; expiry ends it through the Runtime, except

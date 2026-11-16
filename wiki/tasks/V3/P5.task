@@ -194,7 +194,7 @@ tasks
             `Story.machine` and its `props(values)` step land first in @task.V3.T76; this Task extends them.
 
             **Read first:** @plan.Testing.O1, @plan.Testing.O2, @plan.Pending.D5 to @plan.Pending.D10 (the names the
-            first slice added), @spec.Stories, @plan.Machines.O5, code:wiki/conventions/where-a-value-lives.md,
+            first slice added), @spec.Stories, @plan.Machines.O5, O7, code:wiki/conventions/where-a-value-lives.md,
             @task.V3.T63, @task.V3.T69, @task.V3.T70.
         acceptance
             - Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.

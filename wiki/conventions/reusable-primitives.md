@@ -30,7 +30,7 @@ export const menu = <R>(config: {
       states: ["CLOSED", "OPEN"],
       events: { Open: {}, Choose: { item: Schema.String } },
       internalEvents: { Acted: { item: Schema.String }, Failed: { reason: Schema.String }, Unsure: Flow.uncertain({}) },
-      props: { items: Schema.Array(Item) },
+      props: { items: Schema.Array(Item).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }, // needs a default
       emits: { Focus: { target: Schema.Literal("trigger") } },
       operations: ({ E }) => ({
         act: config.act.outcomes({
@@ -41,6 +41,7 @@ export const menu = <R>(config: {
       }),
     }),
     ({ S, O, emits }) => ({
+      default: S.CLOSED,
       states: {
         CLOSED: { on: { Open: { target: S.OPEN } } },
         OPEN: {

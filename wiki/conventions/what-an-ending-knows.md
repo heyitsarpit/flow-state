@@ -24,7 +24,11 @@ Acted: [{ guard: [({ event }) => event.closes || deny("KeepsOpen")], target: S.C
 
 ```ts
 // AFTER
-props: { items: Schema.Array(Schema.Struct({ key: Schema.String, closes: Schema.Boolean })) },
+props: {                                                                    // a prop needs a Schema default
+  items: Schema.Array(Schema.Struct({ key: Schema.String, closes: Schema.Boolean })).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([])),
+  ),
+},
 input: { item: Schema.String },                                             // server data only
 Act: { actions: [O.act.commit(({ event }) => ({ item: event.key }))] },
 success: E.Acted.from((_v, { input }) => ({ item: input.item })),            // the id rides the input

@@ -18,7 +18,10 @@ events: { Set: { value: Schema.Number } },        // the parent pushes its value
 
 ```ts
 // AFTER
-props: { value: Schema.Number, max: Schema.Number },
+props: {                                                        // every prop needs a Schema default
+  value: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))),
+  max: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(10))),
+},
 emits: { Change: { by: Schema.Number } },                       // the intent, not a computed value
 Press: { emit: [emits.Change.from(({ event }) => ({ by: event.by }))] },
 ```

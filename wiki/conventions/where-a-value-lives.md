@@ -55,8 +55,11 @@ memory: {
 ```ts
 // AFTER
 memory: { value: Flow.input(Schema.NullOr(Schema.Number)) },       // existing: input starts memory
-props: { min: Schema.Number, max: Schema.Number },                  // R4
-emits: { Changed: { value: Schema.NullOr(Schema.Number) } },        // R3
+props: {                                                            // R4; every prop needs a Schema default
+  min: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))),
+  max: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(100))),
+},
+emits: { Change: { value: Schema.NullOr(Schema.Number) } },         // R3: the typed value is the intent
 // text: the view owns the draft while typing (R2); committed: an emit (R3); version: gone (R6)
 const label = (s: Snapshot) => format(s.memory.value)               // R1: derived
 ```

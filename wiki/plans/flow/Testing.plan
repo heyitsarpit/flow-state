@@ -67,10 +67,13 @@ outcomes
         shared actors take none.
 
         ```ts
-        // Machines O7's carousel: five slides, three Next, then the parent shows only two.
-        // user-defined: CarouselMachine, shrink   // existing: send, checkpoint   // NEW: props option, props step
+        // The carousel of @plan.Machines.O7: five slides, three Next, then the parent shows only two.
+        // user-defined: shrink, run   // existing: Story.machine, send, checkpoint, run, the checkpoint's memory read
+        // NEW: the props option, the props step
         const shrink = Story.machine(CarouselMachine, { id: "carousel/shrink", props: { count: 5 } })
-          .send({ _tag: "Next" }).send({ _tag: "Next" }).send({ _tag: "Next" })
+          .send({ _tag: "Next" })
+          .send({ _tag: "Next" })
+          .send({ _tag: "Next" })
           .checkpoint("third slide")
           .props({ count: 2 })     // its own turn changing only props; onProps then sends Shrunk { last: 1 }
           .checkpoint("shrunk")
@@ -78,9 +81,9 @@ outcomes
           .checkpoint("same")
 
         const run = await shrink.run()
-        expect(run.checkpoints["third slide"].memory).toEqual({ index: 3 })
-        expect(run.checkpoints.shrunk.memory).toEqual({ index: 1 })
-        // Story.app(...).props(...) is a type error: a shared actor takes no props.
+        expect(run.checkpoints["third slide"].memory).toEqual({ index: 3, hovered: false })
+        expect(run.checkpoints.shrunk.memory).toEqual({ index: 1, hovered: false })
+        // An app Story has no props step: a shared actor takes no props.
         ```
 
         Checkpoint names retain exact literal or known-union keys. Duplicate names, widened strings and access through
@@ -126,8 +129,10 @@ outcomes
         step settles.
 
         ```ts
-        // Machines O5's toaster: context maxVisible is 1, so the second toast is held (Hidden) while the first runs.
-        // user-defined: ToasterMachine, Show, expiry   // existing: advance(d)   // NEW: advance({ next }), pausedBy
+        // The toaster of @plan.Machines.O5: context maxVisible is 1, so the second toast is held (Hidden) while the
+        // first runs. The Story clock starts at 0.
+        // user-defined: expiry, run   // existing: Story.machine's context option, send, advance(d), checkpoint
+        // NEW: advance({ next }) skipping paused timers, `left` and pausedBy in the checkpoint's schedules read
         const expiry = Story.machine(ToasterMachine, { id: "toaster/expiry", context: { maxVisible: 1 } })
           .send({ _tag: "Show", id: "a", kind: "info", title: "Saved" })    // 4 seconds
           .send({ _tag: "Show", id: "b", kind: "error", title: "Failed" })  // 10 seconds, but pushed out
@@ -141,6 +146,7 @@ outcomes
           { key: { id: "a" }, dueAt: 4000 },
           { key: { id: "b" }, left: 10_000, pausedBy: ["Hidden"] },
         ])
+        expect(run.checkpoints["a expired"].schedules.expire).toEqual([{ key: { id: "b" }, dueAt: 14_000 }])
         // advance({ next }) with every timer paused is NoDeadline; advance("1 hour") never fires a paused timer.
         ```
 

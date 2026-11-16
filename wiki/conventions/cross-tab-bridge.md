@@ -20,14 +20,14 @@ window.addEventListener("storage", (e) => e.key === "theme" && prefs.send({ _tag
 // AFTER: the machine
 SetTheme: {
   updateMemory: ({ event }) => ({ theme: event.theme }),
-  emit: [emits.Changed.from(({ event }) => ({ theme: event.theme }))],     // only a user change emits
+  emit: [emits.Change.from(({ event }) => ({ theme: event.theme }))],      // only a user change emits
 },
 Synced: { updateMemory: ({ event }) => ({ theme: event.theme }) },         // no emit, so no echo
 
 // app/host.ts
 const prefs = runtime.ensureActor(PrefsRef)
 const channel = new BroadcastChannel("prefs")
-prefs.onEmit({ Changed: (v) => channel.postMessage(v) })
+prefs.onEmit({ Change: (v) => channel.postMessage(v) })
 channel.onmessage = (e) => prefs.send(Prefs.E.Synced(decodeTheme(e.data)))   // decoded with Schema at the boundary
 ```
 

@@ -110,13 +110,24 @@ outcomes
         Local handles also expose `setProps(partial)`, which merges; shared handles have none.
 
         ```ts
-        // Host code with no React: the cart page's stock decides the stepper's max (Machines O2's Stepper).
-        // user-defined: StepperMachine, stock, cart   // NEW: props, setProps, onEmit
-        const stepper = runtime.createActor(StepperMachine, { props: { value: 4, max: stock } }) // a local actor
-        stepper.onEmit({ Change: ({ by }) => cart.add(by) })     // a listener is not a use
-        stepper.setProps({ max: 3 })                             // merges: value stays 4; equal values are silent
+        // Host code with no React, for the stepper of @plan.Machines.O2: the page owns the quantity and draws it.
+        // user-defined: Stock, sku, stock, qty, label, plus   // existing: runtime.createActor, send
+        // NEW: the props option, setProps, onEmit
+        const Stock = Schema.Struct({ available: Schema.Number })
+        const stock = Schema.decodeUnknownSync(Stock)(await (await fetch(`/api/stock/${sku}`)).json()).available
+        let qty = 1
+        const stepper = runtime.createActor(StepperMachine, { props: { value: qty, max: stock } }) // a local actor
+        stepper.onEmit({                                       // a listener is not a use
+          Change: ({ by }) => {
+            qty = Math.min(Math.max(qty + by, 1), stock)
+            stepper.setProps({ value: qty })                   // merges: max stays; an equal value is silent
+            label.textContent = String(qty)
+          },
+        })
+        plus.addEventListener("click", () => stepper.send({ _tag: "Press", by: 1 }))
 
-        // runtime.ensureActor(actorRef(StepperMachine, "main")) // type error, and InvalidConfiguration at construction
+        // runtime.ensureActor(actorRef(StepperMachine, "main")) is a type error and InvalidConfiguration at
+        // construction: a machine with props has no shared actors.
         ```
 
         Where the data comes from decides the route (`code:wiki/conventions/where-a-value-lives.md`): the owner's value
@@ -201,11 +212,12 @@ outcomes
         starves another.
 
         ```ts
-        // A props update queues in the one mailbox, in order with sends. NEW: setProps.
-        // The stepper of O3, with value 4 and stock 5.
-        stepper.send({ _tag: "Press", by: 1 })   // turn 1: guard reads max 5, 4 + 1 <= 5, accepted
-        stepper.setProps({ max: 4 })             // turn 2: its own turn, changes only props, then runs onProps
-        stepper.send({ _tag: "Press", by: 1 })   // turn 3: guard reads max 4, denied AtMax; no emit
+        // A props update is a turn in the one mailbox, in order with sends (the stepper of @plan.Machines.O2).
+        // existing: createActor, send   // NEW: the props option, setProps
+        const stepper = runtime.createActor(StepperMachine, { props: { value: 4, max: 5 } })
+        stepper.send({ _tag: "Press", by: 1 })   // turn 1: 4 + 1 <= 5, accepted; emits Change { by: 1 }
+        stepper.setProps({ max: 4 })             // turn 2: changes only props, then runs onProps (none declared)
+        stepper.send({ _tag: "Press", by: 1 })   // turn 3: nobody applied the emit, value is 4: denied AtMax, no emit
         ```
 
         A send to an idle Runtime runs its turn before send returns; during a turn, or a yield between slices, it
