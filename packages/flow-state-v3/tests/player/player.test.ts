@@ -5,18 +5,19 @@ import { usual } from "../../fixtures/player/stories.ts";
 import { played } from "../rules/played.ts";
 
 describe("the usual player Story", () => {
-  it("starts with its constants, a computed label read from the private device, OFF (Compile R5, R6)", async () => {
+  it("starts from its ref's input, with its constants and a computed label read from the input and the private device, OFF (Compile R5, R6; Actors R5, R6)", async () => {
     const run = await played(usual);
 
     expect(run.evidence.find((e) => e._tag === "Published")).toEqual(
       expect.objectContaining({
         state: "OFF",
         memory: {
+          room: "lounge",
           trackId: "",
           pos: 0,
           notice: "",
           device: "living-room",
-          label: "Speaker: living-room",
+          label: "lounge: living-room",
         },
       }),
     );

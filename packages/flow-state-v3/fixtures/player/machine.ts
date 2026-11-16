@@ -21,11 +21,15 @@ const Player = definition({
     Tick: {},
   },
   memory: {
+    room: Flow.input(Schema.String),
     trackId: Flow.initial(Schema.String, ""),
     pos: Flow.initial(Schema.Number, 0),
     notice: Flow.initial(Schema.String, ""),
     device: Flow.private(Flow.initial(Schema.String, "living-room")),
-    label: Flow.initial(Schema.String, (fields) => `Speaker: ${String(fields["device"])}`),
+    label: Flow.initial(
+      Schema.String,
+      (fields) => `${String(fields["room"])}: ${String(fields["device"])}`,
+    ),
   },
   operations: ({ E }) => ({
     play: play.outcomes({
@@ -127,6 +131,6 @@ export const musicSetup = runtimeSetup({
 });
 
 /**
- * The player the Stories use.
+ * The player the Stories use, named by its room.
  */
-export const player = actorRef(PlayerMachine, "player");
+export const player = actorRef(PlayerMachine, { room: "lounge" });
