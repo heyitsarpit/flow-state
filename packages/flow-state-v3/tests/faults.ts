@@ -160,9 +160,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/lane-moves.ts",
-        find: "      Release: () => dropLane(at.id, laneAt(at)),",
+        find: "      Release: () => vacate(at, laneAt(at)),",
         replace:
-          '      Release: () => {\n        const lane = laneAt(at);\n        dropLane(at.id, lane);\n        ledger.owe({ actor: at.actor, to: Audience.Identity(), operation: at.operation, attempt: Option.some(lane.head.id), lane: Option.none(), channel: "unknown", reason: "Released", value: undefined, owner: 0, current: true });\n      },',
+          '      Release: () => {\n        const lane = laneAt(at);\n        vacate(at, lane);\n        ledger.owe({ actor: at.actor, to: Audience.Identity(), operation: at.operation, attempt: Option.some(lane.head.id), lane: Option.none(), channel: "unknown", reason: "Released", value: undefined, owner: 0, current: true });\n      },',
       },
     ],
   },

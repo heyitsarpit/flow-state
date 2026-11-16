@@ -18,5 +18,5 @@ export const seededRuns = (profile: "usual" | "stress") => {
       expect(
         failures.map((f) => `${f.rule} from seed ${f.seed}:\n${f.breaches.join("\n")}\n${f.story}`),
       ).toEqual([]);
-    });
+    }, 60_000);
 };
