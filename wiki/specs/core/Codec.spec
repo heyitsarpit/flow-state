@@ -113,8 +113,9 @@ invariants
 
     I6  A codec failure happens before any state change and carries no data value or Cause.[@R4]
 
-    I7  Every key the Runtime writes is `actor/<identity>`, `lane/<lane>` or `owed/<identity>` (with its parts' `|nnnn`), and its record decodes 
-        with that kind's Schema and has `format`; no lane record has a `mayHaveApplied` field, every owed row has a
+    I7  Every key the Runtime writes is `actor/<identity>`, `lane/<lane>` or `owed/<identity>` (with its parts' 
+        `|nnnn`), and its record decodes with that kind's Schema and has `format`; no lane record has a 
+        `mayHaveApplied` field, every owed row has a
         `channel`, and each kind round-trips: decode(encode(record)) equals the record. [@R5]
 
 coverage

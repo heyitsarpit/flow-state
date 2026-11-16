@@ -210,7 +210,8 @@ requirements
                 a head with an owed row for its own Attempt hears that row instead. Flow never repeats
                 a remote write automatically. Saved endings are delivered, mapped at delivery, not
                 replaced by unknown; an ending whose value has no saved form is saved as the unknown
-                { Restored } a crash before its save would give (@spec.Codec.R4). A later Runtime never reuses an Attempt identity.
+                { Restored } a crash before its save would give (@spec.Codec.R4). A later Runtime never reuses an 
+                Attempt identity.
 
     R15  Non-persisted writes
         source  @plan.Persistence.O6.
