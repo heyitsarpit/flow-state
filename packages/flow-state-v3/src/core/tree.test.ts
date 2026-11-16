@@ -73,6 +73,23 @@ describe("a move's exits and entries (Turn R3, I5, I6, model Boundary)", () => {
 });
 
 describe("history (Turn R4)", () => {
+  it("a history target taken from inside its compound reads the child the move itself exits, as SCXML records history before entry", () => {
+    const back = moveOf(
+      compiled,
+      "ON.MEDIA.PAUSED",
+      "ON.MEDIA.PAUSED",
+      Target.History({ path: "ON" }),
+      NONE,
+    );
+
+    expect(back).toEqual({
+      exits: ["ON.MEDIA.PAUSED", "ON.MEDIA", "ON"],
+      enters: ["ON", "ON.MEDIA", "ON.MEDIA.PLAYING"],
+      leaf: "ON.MEDIA.PLAYING",
+      target: "ON",
+    });
+  });
+
   it("a compound's history is its child active when it was last exited, entered through that child's defaults, else its default leaf", () => {
     const leave = moveOf(compiled, "ON.MEDIA.PAUSED", "", to("OFF"), NONE);
     const history = historyAfter(NONE, "ON.MEDIA.PAUSED", leave);

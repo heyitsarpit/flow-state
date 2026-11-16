@@ -34,3 +34,17 @@ export const verdictOf = (result: Run) => {
   // A run stopped at its first failure exits non-zero with a partial summary.
   return `caught (${summary}${filesOf(result.out) === "" ? "" : `; test files ${filesOf(result.out)}`})`;
 };
+
+// A file's text with each of its edits applied in turn, each `find` occurring exactly once in the
+// text as the edits before it left it; undefined when one does not, so the fault is stale.
+export const applyEdits = (
+  text: string,
+  edits: ReadonlyArray<{ readonly find: string; readonly replace: string }>,
+): string | undefined =>
+  edits.reduce<string | undefined>(
+    (current, edit) =>
+      current === undefined || current.split(edit.find).length !== 2
+        ? undefined
+        : current.replace(edit.find, () => edit.replace),
+    text,
+  );

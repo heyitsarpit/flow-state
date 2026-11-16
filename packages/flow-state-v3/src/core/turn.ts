@@ -295,6 +295,7 @@ export const armingsOf = (
   memory: Values,
 ) => {
   const armed: Array<Arming> = [];
+  const refused: Array<string> = [];
 
   const arms = (path: string, schedule: Schedule) =>
     (entered.has(path) && schedule.onEntry) || schedule.armOn.includes(tag);
@@ -304,12 +305,12 @@ export const armingsOf = (
       if (arms(path, schedule)) {
         const ms = delayOf(schedule, memory);
 
-        if (Result.isFailure(ms)) return Result.fail(ms.failure);
+        if (Result.isFailure(ms)) refused.push(ms.failure.slot);
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one arming per schedule armed: the turn's result
-        armed.push({ name: schedule.name, send: schedule.send, ms: ms.success });
+        else armed.push({ name: schedule.name, send: schedule.send, ms: ms.success });
       }
 
-  return Result.succeed(armed);
+  return { armed, refused };
 };
 
 // RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
@@ -349,9 +350,9 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
   const leaf = Option.match(move, { onNone: () => input.state, onSome: (m) => m.leaf });
   const entered = new Set(Option.match(move, { onNone: () => [], onSome: (m) => m.enters }));
   const arm = armingsOf(input.compiled, leaf, entered, input.tag, memory);
+  const [refused] = arm.refused;
 
-  if (Result.isFailure(arm))
-    return TurnResult.Refused({ code: "InvalidTurn", slot: arm.failure.slot });
+  if (refused !== undefined) return TurnResult.Refused({ code: "InvalidTurn", slot: refused });
 
   return TurnResult.Accepted({
     part: {
@@ -363,7 +364,7 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
     move,
     memory,
     actions,
-    arm: arm.success,
+    arm: arm.armed,
   });
 };
 
@@ -374,11 +375,11 @@ const lists = (input: TurnInput, path: string) => {
   return false;
 };
 
-// The implicit "self" of the deepest active state whose schedule lists the event in armOn.
+// The implicit "self" of the deepest state on the route whose schedule lists the event in armOn.
 const implicit = (input: TurnInput) => {
   let node = "";
 
-  for (const path of chainOf(input.state)) if (lists(input, path)) node = path;
+  for (const path of chainOf(input.state).slice(0, input.from)) if (lists(input, path)) node = path;
 
   if (node === "") return Option.none();
 

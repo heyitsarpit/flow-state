@@ -52,8 +52,8 @@ requirements
                 for an optional key. A field with none is a type error. Two different defaults, or 
                 a Schema default beside Flow.initial, reject as TwoDefaults. A default whose Effect 
                 is not a succeeded value rejects as ImpureDefault (proposed name) without being 
-                run. A computed initial reads input or constant fields, never another computed 
-                field.
+                run. A computed initial reads input or constant fields, never another computed field; reading one is
+                    that callback's defect: the actor is not created and a CallbackDefect issue is reported.
 
     R6  Pure creation
         source  @plan.Machines.O1.
@@ -78,8 +78,11 @@ requirements
     R9  Operations declared once
         source  @plan.Machines.O1.
         must    operations declares each server interaction once by name, mapping its endings onto 
-                this definition's events. Each unknown: target is a Flow.uncertain event or 
-                Flow.ignore, else UnknownNotUncertain. One write operation per write contract per 
+                this definition's events. Each ending maps to an internal event this definition declares, else 
+                InvalidConfiguration
+                    (UnknownEvent), and each operation's key fields are input fields, else InvalidConfiguration
+                    (KeyOutsideInput). Each unknown: target is a Flow.uncertain event or Flow.ignore, else
+                    UnknownNotUncertain. One write operation per write contract per
                 actor tree, counting every fragment placement, else SharedContract (proposed name).
 
     R10  Fragments

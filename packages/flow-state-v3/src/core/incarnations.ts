@@ -94,12 +94,17 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     if (compiled === undefined) return;
 
-    const memory = Option.match(from, {
-      onNone: () => Result.getSuccess(create(compiled, {})),
-      onSome: (r) => Option.some(r.memory),
+    const created = Option.match(from, {
+      onNone: () => create(compiled, {}),
+      onSome: (r) => Result.succeed(r.memory),
     });
 
-    if (Option.isNone(memory)) return;
+    if (Result.isFailure(created)) {
+      if (created.failure.computed)
+        tx.act(Act.Refused({ code: "CallbackDefect", actor, ending: Option.none() }));
+
+      return;
+    }
 
     const state = Option.match(from, { onNone: () => compiled.initial, onSome: (r) => r.state });
 
@@ -109,7 +114,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       state,
       activations: chainOf(state).map(() => tx.next()),
       history: new Map(),
-      memory: memory.value,
+      memory: created.success,
       schedules: new Map(),
     };
 
@@ -117,14 +122,15 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     tx.act(Act.Started({ actor }));
 
     const incarnation = Option.match(from, {
-      onNone: () =>
-        armSchedules(
-          base,
-          Result.getOrElse(
-            armingsOf(compiled, base.state, new Set(chainOf(base.state)), "", base.memory),
-            () => [],
-          ),
-        ),
+      onNone: () => {
+        const arm = armingsOf(compiled, base.state, new Set(chainOf(base.state)), "", base.memory);
+
+        // A delay refused at creation has no turn to refuse: it is reported, and the rest arm.
+        for (const _ of arm.refused)
+          tx.act(Act.Refused({ code: "InvalidTurn", actor, ending: Option.none() }));
+
+        return armSchedules(base, arm.armed);
+      },
       onSome: (record) => {
         let schedules = base.schedules;
 

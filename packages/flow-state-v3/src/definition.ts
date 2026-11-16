@@ -489,7 +489,7 @@ export const definition = <
     ...Object.keys(config).flatMap((key) =>
       definitionFindings(
         key,
-        { ...config, internalEvents: internal, memory },
+        { ...config, persist: config.persist, internalEvents: internal, memory },
         tree.findings,
         operations,
       ),

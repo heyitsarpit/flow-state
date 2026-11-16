@@ -784,6 +784,18 @@ tasks
             (Compile R3). Fix round too: late implicit self only on the route (turn.ts implicit); R4 history taken from
             inside X; R5 computed reading computed; I16 at machine(); R4 wrong kinds; the depth-2 type gap as an
             inverted type test; "last active leaf" wording. Spec changes and faults-runner changes sound.
+        comment     2026-11-16T11:18:35Z
+            Close-review fixes, each red first with a planted fault: creation arms valid schedules and reports a refused
+            delay as InvalidTurn (Turn R14); endings to undeclared events and keys outside input refused at construction
+            (Compile R9); late implicit self only on its route; history from inside X reads the child the move exits
+            (Turn R4, SCXML); computed reading computed is a CallbackDefect issue (R5); id and persist kinds (R4).
+            Depth-2 literal gap pinned in tests/types/nested-schedule.compile.ts (@task.V3.T57); faults runner applies
+            every edit of a file (tools/faults verdict test) and exempts only tests/compile/construction and compiled
+            under the dead core. Faults 122 of 122 in 51 s.
+        comment     2026-11-16T11:18:35Z
+            For the user's page, second note: a bad schedule delay no longer silences its neighbours: the others arm and
+            the bad one shows as an issue; mapping an operation's ending to an event the definition lacks, or keying it
+            outside its input, is now a construction error; S.X.history from inside X returns where you just were.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      open

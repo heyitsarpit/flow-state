@@ -29,9 +29,10 @@ requirements
 
     R4  Subroutines and history
         source  @plan.Machines.O2.
-        must    Subroutine states and history behave as the source states. S.X.history enters X's
-                last active direct child, recorded when X is exited, through that child's defaults;
-                with none recorded it enters X's default leaf.
+        must    Subroutine states and history behave as the source states. S.X.history enters X's last active direct 
+                child, recorded when X is exited, through that child's
+                defaults; with none recorded it enters X's default leaf. A history target whose own move exits X
+                reads the child that move exits, as SCXML records history before entry.
 
     R5  One turn
         source  @plan.Machines.O3.
@@ -93,8 +94,9 @@ requirements
                 `disarmOn` stops it; stopping an idle schedule does nothing. Exit stops any
                 schedule. An event in both lists, `armOn` with `restartOn`, or `armOn` on a keyed
                     schedule is a construction error. A fixed delay outside 0 to 2^31 - 1 ms is a
-                    construction error (InvalidConfiguration, details.reason DelayOutOfRange); a computed
-                    one outside it, negative or not finite refuses the turn.
+                    construction error (InvalidConfiguration, details.reason DelayOutOfRange); a computed one outside 
+                        it, negative or not finite refuses the turn. At creation, where no turn
+                        can be refused, that schedule alone stays unarmed with an InvalidTurn issue and the others arm.
 
                 When no state from the routed one up to the root has a written handler for an event
                 that an active schedule lists in `armOn` or `disarmOn`, the deepest such schedule's

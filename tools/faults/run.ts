@@ -18,7 +18,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, wri
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { type Fault, faults } from "../../packages/flow-state-v3/tests/faults.ts";
-import { failedTestsOf, type Run, summaryOf, verdictOf } from "./verdict.ts";
+import { applyEdits, failedTestsOf, type Run, summaryOf, verdictOf } from "./verdict.ts";
 
 const repo = resolve(import.meta.dirname, "..", "..");
 const pkg = "packages/flow-state-v3";
@@ -100,20 +100,21 @@ const planted = async (root: string, edits: ReadonlyArray<Edit>, body: () => Pro
 
   if (edits.some((edit) => relative(copy, resolve(copy, edit.file)).startsWith(".."))) return false;
 
-  const originals = edits.map((edit) => ({
-    edit,
-    path: join(copy, edit.file),
-    text: readFileSync(join(copy, edit.file), "utf8"),
-  }));
+  const files = [...new Set(edits.map((edit) => edit.file))].map((file) => {
+    const path = join(copy, file);
+    const text = readFileSync(path, "utf8");
 
-  if (originals.some(({ edit, text }) => text.split(edit.find).length !== 2)) return false;
+    return { path, text, planted: applyEdits(text, edits.filter((edit) => edit.file === file)) };
+  });
 
-  for (const { edit, path, text } of originals) writeFileSync(path, text.replace(edit.find, () => edit.replace));
+  if (files.some((f) => f.planted === undefined)) return false;
+
+  for (const { path, planted } of files) writeFileSync(path, planted ?? "");
 
   try {
     await body();
   } finally {
-    for (const { path, text } of originals) writeFileSync(path, text);
+    for (const { path, text } of files) writeFileSync(path, text);
   }
 
   return true;
@@ -138,9 +139,9 @@ const mayStayGreen = [
   /flow-state-v3\/src\/[^ ]+\.test\.ts > /u,
   // Reads the package's source and runs no core: who builds reports, rows and writes, and names.
   /tests\/write-lanes\/one-builder\.test\.ts > /u,
-  // The compiler and the Runtime's check of a Compiled run before any step; their own faults are
-  // planted in tests/structure-faults.ts.
-  /tests\/compile\/[^ ]+\.test\.ts > /u,
+  // The compiler and the Runtime's check of a Compiled run no step; their own faults are planted
+  // in tests/structure-faults.ts. A compile test that runs a turn lives elsewhere.
+  /tests\/compile\/(construction|compiled)\.test\.ts > /u,
 ];
 
 const deadCore = async (root: string) => {

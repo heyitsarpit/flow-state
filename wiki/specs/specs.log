@@ -124,3 +124,13 @@ note 2026-11-16T10:30:03Z
     Turn R4 states history as X's last active direct child (Machines O2), not its leaf; R14 adds the fixed-delay range
     refusal (DelayOutOfRange); Compile R12 reserves history (S.X.history) and dots in state names. Why: built in T17.
     Reverse: drop the sentences.
+
+note 2026-11-16T11:14:10Z
+    Turn R4: a history target whose move exits X reads the child it exits (SCXML); traces from ON.MEDIA.PAUSED: before
+    ON.IDLE, now ON.MEDIA.PLAYING. Turn R14: at creation a refused delay is an InvalidTurn issue and the rest arm (was:
+    all dropped). Reverse: drop the sentences (T17).
+
+note 2026-11-16T11:14:10Z
+    Compile R5: a computed start reading a computed field is a CallbackDefect issue and no actor (was: NaN stored).
+    Compile R9: endings map to declared internal events (UnknownEvent) and keys lie inside the input (KeyOutsideInput)
+    at construction. Why: T17 close review. Reverse: drop them.

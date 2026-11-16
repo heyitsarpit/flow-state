@@ -75,15 +75,25 @@ export const moveOf = (
 ) => {
   const path = target.path;
 
+  const depth = boundaryDepth(handler, path);
+  const exits = chainOf(leaf).slice(depth).toReversed();
+
+  // A history the move itself records, exiting the target, is the one it enters (as SCXML).
+  const recorded = exits.includes(path)
+    ? Option.fromUndefinedOr(chainOf(leaf)[chainOf(path).length])
+    : Option.fromUndefinedOr(history.get(path));
+
   const reached = Target.$match(target, {
     State: () => leafOf(compiled, path),
-    History: () => leafOf(compiled, history.get(path) ?? path),
+    History: () =>
+      leafOf(
+        compiled,
+        Option.getOrElse(recorded, () => path),
+      ),
   });
 
-  const depth = boundaryDepth(handler, path);
-
   const move: Move = {
-    exits: chainOf(leaf).slice(depth).toReversed(),
+    exits,
     enters: chainOf(reached).slice(depth),
     leaf: reached,
     target: path,
@@ -127,6 +137,11 @@ const startOf = (field: Field, input: Values) =>
     Optional: () => Result.succeed(field.fallback),
   });
 
+const computedRead = (name: string) => () => {
+  // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the read is a callback's defect, caught by create as that callback's failure
+  throw new Error(`a computed start read the computed field ${name}`);
+};
+
 /**
  * A new incarnation's memory from its input: each input field checked by its Schema's type side
  * and copied, then constant starts, then computed starts reading the input and constant fields.
@@ -148,7 +163,16 @@ export const create = (compiled: Compiled, input: Values) => {
     if (Option.isSome(start.success)) known.set(field.name, start.success.value);
   }
 
-  const read: Values = Object.fromEntries(known);
+  // A computed start reads the input and constant fields only: reading a computed one is its defect.
+  const read: Values = Object.defineProperties(
+    Object.fromEntries(known),
+    Object.fromEntries(
+      compiled.fields
+        .filter((f) => Source.$is("Computed")(f.source))
+        .map((f) => [f.name, { get: computedRead(f.name) }]),
+    ),
+  );
+
   const memory = new Map(known);
 
   for (const field of compiled.fields)

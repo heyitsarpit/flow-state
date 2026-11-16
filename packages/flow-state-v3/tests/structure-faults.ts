@@ -22,8 +22,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tree.ts",
-        find: "History: () => leafOf(compiled, history.get(path) ?? path),",
-        replace: "History: () => leafOf(compiled, path),",
+        find: "Option.getOrElse(recorded, () => path),",
+        replace: "path,",
       },
     ],
   },
@@ -229,6 +229,110 @@ export const structureFaults: ReadonlyArray<Fault> = [
         file: "src/core/tree.ts",
         find: "Object.hasOwn(input, field.name) && field.is(input[field.name])",
         replace: "Object.hasOwn(input, field.name)",
+      },
+    ],
+  },
+  {
+    name: "creation-delay-drops-all",
+    tests: ["tests/turn/creation.test.ts"],
+    says: "one refused delay at creation drops every schedule of the initial state",
+    rule: "Turn R14, T6",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "return armSchedules(base, arm.armed);",
+        replace: "return armSchedules(base, arm.refused.length > 0 ? [] : arm.armed);",
+      },
+    ],
+  },
+  {
+    name: "creation-delay-silent",
+    tests: ["tests/turn/creation.test.ts"],
+    says: "a delay refused at creation raises no issue",
+    rule: "Turn R14, T6",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: 'tx.act(Act.Refused({ code: "InvalidTurn", actor, ending: Option.none() }));',
+        replace: "void 0;",
+      },
+    ],
+  },
+  {
+    name: "late-implicit-off-route",
+    tests: ["src/core/turn.test.ts"],
+    says: "a late ending reaches an implicit self below its route",
+    rule: "Turn R14, R20",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "for (const path of chainOf(input.state).slice(0, input.from)) if",
+        replace: "for (const path of chainOf(input.state)) if",
+      },
+    ],
+  },
+  {
+    name: "history-before-the-move",
+    tests: [TREE],
+    says: "a history target taken from inside its compound reads the history from before the move",
+    rule: "Turn R4",
+    edits: [
+      {
+        file: "src/core/tree.ts",
+        find: "const recorded = exits.includes(path)",
+        replace: "const recorded = false",
+      },
+    ],
+  },
+  {
+    name: "computed-reads-computed",
+    tests: ["tests/turn/creation.test.ts"],
+    says: "a computed start reads another computed field as absent and stores the result",
+    rule: "Compile R5",
+    edits: [
+      {
+        file: "src/core/tree.ts",
+        find: ".map((f) => [f.name, { get: computedRead(f.name) }]),",
+        replace: ".map((f) => [f.name, { get: () => undefined }]),",
+      },
+    ],
+  },
+  {
+    name: "ending-to-undeclared-event",
+    tests: [CONSTRUCTION],
+    says: "an operation's ending mapped to an event the definition lacks is accepted",
+    rule: "Compile R3",
+    edits: [
+      {
+        file: "src/operation-checks.ts",
+        find: ".filter(([, e]) => !Object.hasOwn(internal, e.ending.event))",
+        replace: ".filter(() => false)",
+      },
+    ],
+  },
+  {
+    name: "key-outside-input-compiles",
+    tests: [CONSTRUCTION],
+    says: "an operation keyed outside its input compiles",
+    rule: "Compile I16",
+    edits: [
+      {
+        file: "src/operation-checks.ts",
+        find: ".filter((key) => !names.includes(key))",
+        replace: ".filter(() => false)",
+      },
+    ],
+  },
+  {
+    name: "persist-of-any-kind",
+    tests: [CONSTRUCTION],
+    says: "a persist that is not a boolean is accepted",
+    rule: "Compile R4",
+    edits: [
+      {
+        file: "src/construction.ts",
+        find: "return Predicate.isBoolean(value)",
+        replace: "return true",
       },
     ],
   },

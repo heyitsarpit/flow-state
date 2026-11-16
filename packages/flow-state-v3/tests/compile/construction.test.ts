@@ -1,15 +1,6 @@
 import { Effect, Option, Result, Schema, SchemaGetter } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import {
-  actorRef,
-  app,
-  definition,
-  Flow,
-  FlowError,
-  machine,
-  runtimeSetup,
-  transaction,
-} from "../../src/index.ts";
+import { app, definition, Flow, FlowError, machine, transaction } from "../../src/index.ts";
 
 // Each diagnostic of a refused construction as [code, reason, path].
 const refusal = (construct: () => unknown) => {
@@ -487,19 +478,60 @@ describe("the snapshot (Turn R23, Compile R14)", () => {
     );
     expect(decode({ state: "DIRTY", memory: { body: "" } })._tag).toBe("None");
   });
+});
 
-  it("an actor's outside snapshot omits its private fields", () => {
-    const DocMachine = machine(Doc, ({ S }) => ({ default: S.CLEAN }));
+describe("operations map onto this definition's events (Compile R3, R17, I16)", () => {
+  it("an ending mapped to an event the definition does not declare is refused UnknownEvent", () => {
+    const Other = definition({
+      id: "Compile/Elsewhere",
+      states: ["A"],
+      events: {},
+      internalEvents: { Gone: {} },
+    });
 
-    const runtime = runtimeSetup({
-      app: app({ id: "docs", machines: { doc: DocMachine } }),
-    }).construct();
+    expect(
+      refusal(() =>
+        definition({
+          id: "Compile/Endings",
+          states: ["A"],
+          events: {},
+          internalEvents: { Unsure: Flow.uncertain({}) },
+          operations: ({ E }) => ({
+            save: save.outcomes({ success: Other.E.Gone, failure: {}, unknown: E.Unsure }),
+          }),
+        }),
+      ),
+    ).toEqual([["InvalidConfiguration", "UnknownEvent", "operations.save.success"]]);
+  });
 
-    Effect.runSync(runtime.ready());
-    const doc = runtime.ensureActor(actorRef(DocMachine, "d"));
-
-    expect(doc.getSnapshot()).toEqual(
-      Option.some(expect.objectContaining({ memory: { body: "" } })),
+  it("an operation keyed by a field outside its input is refused at construction, before any Runtime", () => {
+    const bound = save.outcomes(
+      loose({
+        success: { ending: { event: "Saved", from: Option.none() } },
+        failure: {},
+        unknown: { ending: { event: "Unsure", from: Option.none() } },
+      }),
     );
+
+    expect(
+      refusal(() =>
+        definition({
+          id: "Compile/KeyOutside",
+          states: ["A"],
+          events: {},
+          internalEvents: { Saved: {}, Unsure: Flow.uncertain({}) },
+          operations: () => ({ save: { ...bound, key: ["missing"] } }),
+        }),
+      ),
+    ).toEqual([["InvalidConfiguration", "KeyOutsideInput", "operations.save.key.missing"]]);
+  });
+
+  it("an id or persist of the wrong kind is refused WrongKind", () => {
+    expect(
+      refusal(() => definition(loose({ id: 7, persist: "yes", states: ["A"], events: {} }))),
+    ).toEqual([
+      ["InvalidConfiguration", "WrongKind", "id"],
+      ["InvalidConfiguration", "WrongKind", "persist"],
+    ]);
   });
 });

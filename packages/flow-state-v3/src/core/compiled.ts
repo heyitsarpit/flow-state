@@ -78,7 +78,7 @@ export type UpdateInput = { readonly memory: Values; readonly event: Values; rea
 
 /**
  * Where an alternative goes: a state (a compound enters its default leaf), or a compound's history
- * (its last active leaf, else its default leaf).
+ * (its last active child, through that child's defaults, else its default leaf).
  */
 export type Target = Data.TaggedEnum<{
   State: { path: string };

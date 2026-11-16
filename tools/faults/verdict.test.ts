@@ -3,7 +3,7 @@
 //
 //   node --experimental-strip-types tools/faults/verdict.test.ts
 import assert from "node:assert/strict";
-import { failedTestsOf, verdictOf } from "./verdict.ts";
+import { applyEdits, failedTestsOf, verdictOf } from "./verdict.ts";
 
 const out = (tests: string, files: string) => ` Test Files  ${files}\n      Tests  ${tests}\n`;
 
@@ -41,3 +41,13 @@ assert.deepEqual(
 );
 
 console.log("verdict: 8 of 8");
+
+// Two edits of one file both land; a find missing from the text the first edit left is stale.
+assert.equal(
+  applyEdits("import a;\nuse(a);\n", [
+    { find: "use(a);", replace: "use(b);" },
+    { find: "import a;", replace: "import a, b;" },
+  ]),
+  "import a, b;\nuse(b);\n",
+);
+assert.equal(applyEdits("x;\n", [{ find: "x;", replace: "y;" }, { find: "x;", replace: "z;" }]), undefined);

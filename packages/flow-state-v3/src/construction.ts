@@ -1,5 +1,6 @@
 import { Exit, Option, Predicate, Schema, SchemaAST } from "effect";
 import type { Bound } from "./contract.ts";
+import { operationFindings } from "./operation-checks.ts";
 import type { Values } from "./core/compiled.ts";
 import type { EventFields } from "./definition.ts";
 import type { Finding } from "./error.ts";
@@ -397,48 +398,29 @@ export const eventFindings = (
   });
 };
 
-// RETURN_TYPE: the findings this construction reports, in walk order.
-export const operationFindings = (
-  operations: Readonly<Record<string, Bound>>,
-  internal: Readonly<Record<string, EventFields>>,
-): Array<Finding> => {
-  const writes = new Map<string, string>();
-
-  return Object.entries(operations).flatMap(([name, bound]) => {
-    const at = ["operations", name];
-    const found: Array<Finding> = [...checkName(name, at)];
-
-    found.push(...keyFieldFindings(name, bound));
-
-    if (bound.kind === "write") {
-      const target = internal[bound.unknown.ending.event];
-
-      if (target === undefined || !isUncertain(target))
-        found.push({
-          code: "UnknownNotUncertain",
-          path: [...at, "unknown"],
-          summary: `${name}'s unknown ending maps to ${bound.unknown.ending.event}, not a Flow.uncertain event`,
-          help: "Map unknown: to an internal event declared with Flow.uncertain.",
-        });
-
-      const first = writes.get(bound.contract);
-
-      if (first !== undefined)
-        found.push({
-          code: "SharedContract",
-          path: at,
-          details: { contract: bound.contract, first },
-          summary: `${name} and ${first} both write ${bound.contract}`,
-          help: "Declare one write operation per write contract.",
-        });
-      else writes.set(bound.contract, name);
-    }
-
-    return found;
-  });
-};
-
 const RESERVED_FIELDS = ["_tag"];
+
+const REQUIRED = ["id", "states", "events"];
+
+// The id is a valid name and persist a boolean.
+// FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
+const kindFindings = (key: "id" | "persist", value: unknown) => {
+  if (key === "id")
+    return Predicate.isString(value)
+      ? checkName(value, ["id"])
+      : [invalid(["id"], "WrongKind", "id is not a string", "Give the definition a string id.")];
+
+  return Predicate.isBoolean(value)
+    ? []
+    : [
+        invalid(
+          ["persist"],
+          "WrongKind",
+          "persist is not a boolean",
+          "Set persist to true or false.",
+        ),
+      ];
+};
 
 const publicAndInternal = (config: {
   readonly events: Readonly<Record<string, EventFields>>;
@@ -477,23 +459,6 @@ const KNOWN = new Set([
   "operations",
 ]);
 
-// RETURN_TYPE: the findings this construction reports: a key field that may be absent.
-const keyFieldFindings = (name: string, bound: Bound): Array<Finding> => {
-  const ast = SchemaAST.toType(bound.input.ast);
-  const fields = SchemaAST.isObjects(ast) ? ast.propertySignatures : [];
-
-  return fields
-    .filter((p) => bound.key.includes(String(p.name)) && SchemaAST.isOptional(p.type))
-    .map((p) => ({
-      code: "KeyFieldOptional",
-      path: ["operations", name, "key", String(p.name)],
-      summary: `${name}'s key field ${String(p.name)} is optional`,
-      help: "Make every key field of the contract's input required.",
-    }));
-};
-
-const REQUIRED = ["id", "states", "events"];
-
 /**
  * The findings of a definition's missing required fields: id, states and events.
  */
@@ -509,7 +474,10 @@ export const missingFindings = (config: Values) =>
 export const definitionFindings = (
   key: string,
   config: {
-    readonly id: string;
+    // FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
+    readonly id: unknown;
+    // FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked here before it is trusted.
+    readonly persist: unknown;
     readonly events: Readonly<Record<string, EventFields>>;
     readonly internalEvents: Readonly<Record<string, EventFields>>;
     readonly memory: Readonly<Record<string, Field>>;
@@ -519,9 +487,9 @@ export const definitionFindings = (
 ) => {
   switch (key) {
     case "id":
-      return checkName(config.id, ["id"]);
+      return kindFindings("id", config.id);
     case "persist":
-      return [];
+      return kindFindings("persist", config.persist);
     case "states":
       return tree;
     case "events":
