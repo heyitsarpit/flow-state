@@ -2,6 +2,8 @@ import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { cellsShop } from "./machine.ts";
 import { long, samples, seededStress, stories } from "./stories.ts";
+import { emptyIds, keyAtBound, keyPastBound } from "./stories/edges.ts";
+import { disposedOnWire, neverSentDisposed, reloadedOnWire } from "./stories/structure.ts";
 
 /**
  * The cells fixture, as every runner reads it.
@@ -9,7 +11,15 @@ import { long, samples, seededStress, stories } from "./stories.ts";
 export const cells = manifest({
   name: "cells",
   app: cellsShop,
-  stories,
+  stories: {
+    ...stories,
+    disposedOnWire,
+    neverSentDisposed,
+    reloadedOnWire,
+    emptyIds,
+    keyAtBound,
+    keyPastBound,
+  },
   samples: [samples],
   stressSamples: [samples],
   long: Option.some(long),
