@@ -362,3 +362,7 @@ note 2026-11-16T04:44:27Z
     Decision (user, 2026-11-16): "do 1 & 2": T18's user's page written
     (wiki/plans/flow/references/pages/T18-lane-policies.md, unread); instructions gain "a gap is never written into a
     Spec as a limit". Whole run.
+
+note 2026-11-16T05:30:34Z
+    T54's user's page written late (wiki/plans/flow/references/pages/T54-core-consolidation.md, unread): T18 closed
+    before it existed, against the slice stop; both pages now await the user. Q7's owner wording fixed (T20 is restore).

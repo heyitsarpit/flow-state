@@ -346,7 +346,7 @@ open
 
     Q7  Under cancel, a displaced Attempt whose call outlives its lane (the new head ends first) is in no lane record, 
         so a reload loses its unknown { Restored }, which @plan.Operations.O3 and @plan.Persistence.O6 promise.
-        outcome  Pinned by an `it.fails` in tests/write-lanes/policy-cells.test.ts; @task.V3.T20 (write-ahead) owns
+        outcome  Pinned by an `it.fails` in tests/write-lanes/policy-cells.test.ts; @task.V3.T20 (restore) owns
                  the fix.
 
 model
