@@ -127,6 +127,8 @@ tasks
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
             stress Story.
+        comment     2026-11-16T01:40:10Z
+            Routed from P2's close-out: the Compile T11 it.fails passes on any failure; tighten it when fixing.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -168,6 +170,8 @@ tasks
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
             stress Story.
+        comment     2026-11-16T01:40:09Z
+            Routed from P2's close-out: disposal never interrupts in-flight reads (a planted fault survived the suite).
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -226,6 +230,9 @@ tasks
             symlinks and the root package.json unchecked; the catch-all exits 2 silently). Also: narrow the faults
             runner's tests/cli excuse to the parity tests; the list test trims output (a trailing blank line passes);
             the routes test checks only the name main; rename StoryId, which holds the app id.
+        comment     2026-11-16T01:40:09Z
+            Routed from P2's close-out: the faults runner excuses any test titled with a rule id from the dead-core
+            check; duplicate Story ids are not rejected; the CLI parity test uses render() as its own oracle.
     T23
         title       `nub run verify` builds and checks v3
         status      draft

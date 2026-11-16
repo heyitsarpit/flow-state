@@ -198,6 +198,11 @@ tasks
         comment     2026-11-15T21:33:29Z
             Routed from T69's review (PASS at `f20559bb`): a usage error prints help on stdout, against
             @plan.CommandLine.O3; the rejected-run path has no test.
+        comment     2026-11-16T01:40:08Z
+            Routed from P2's close-out: generated runs draw an answer only for an endpoint's first call per step; mixes
+            are checked on the generator's tally; a turn limit counts as a breach, not Inconclusive; the quiet horizon
+            is 2 minutes, not 60 s; the pair sweep takes phases from the app's own report; places.ts matches actor keys
+            by prefix; some rule tests are one-sided; Stories I7's crossing-batch test.
     T31
         title       CLI outputs designed for people
         status      draft

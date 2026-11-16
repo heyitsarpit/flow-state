@@ -279,3 +279,7 @@ note 2026-11-16T01:26:36Z
 note 2026-11-16T01:29:58Z
     Decision (user, 2026-11-16): "remove that mid run requirement, full suite is probably fine if it's fast. stress runs
     once at the end of a task and faults also runs at the end of a task". Instructions edited; whole run.
+
+note 2026-11-16T01:40:10Z
+    P2 close-out (`ffa3972e`): FINDINGS; F2 to F5 go to @task.V3.T75, F1 clears when T75 is done, F6's coverage record
+    re-matches after it. Deferrals D1 to D7 routed to T17, T19, T20, T21, T22, T29, T54, T57.

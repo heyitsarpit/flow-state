@@ -105,6 +105,9 @@ tasks
             - `nub run faults` catches every named fault; `vp test` and `nub run check` pass.
         comment     2026-11-15T20:17:58Z
             Routed from T67's review: temporary names in src tests (PART-…, T19, T51, T18) predate T67; remove them.
+        comment     2026-11-16T01:40:10Z
+            Routed from P2's close-out: owner for the it.fails titled Actors I43 and WriteLanes I7 (PAY-15, PAY-22
+            reproductions); tighten each to fail only for its rule.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      draft
@@ -186,6 +189,9 @@ tasks
         comment     2026-11-16T01:20:18Z
             Routed from T70: WriteAhead I23 broken: each actor gets its own persistence scope, so one batch is out per
             actor, against R12 (the user, 2026-11-12); pinned as it.fails WriteAhead I23 in tests/generated.
+        comment     2026-11-16T01:40:08Z
+            Routed from P2's close-out: settle WriteLanes R14's wording that the pair sweep's Withdrawing and Cancelling
+            reasons rest on; the WriteAhead I23 it.fails must fail only for its rule.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      draft
@@ -216,6 +222,8 @@ tasks
             Routed from T65's review: after a reload the step that turns the restored head Held writes no lane record,
             so it still reads inFlight: true (WriteAhead R5, I21); pinned as it.fails in tests/transfers/trace.test.ts.
             Once fixed, that file's hand list (line 54) becomes [actor, lane, owed].
+        comment     2026-11-16T01:40:09Z
+            Routed from P2's close-out: the WriteAhead R5/I21 it.fails passes on any failure; tighten it when fixing.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      draft
@@ -265,6 +273,9 @@ tasks
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
             stress Story.
+        comment     2026-11-16T01:40:09Z
+            Routed from P2's close-out: the Turn I14 and I9 it.fails pass on any failure; tighten each to fail only for
+            its rule when fixing.
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      draft
