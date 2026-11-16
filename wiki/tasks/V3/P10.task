@@ -67,6 +67,9 @@ tasks
             - Peers, `sideEffects`, removed surfaces and InvalidConfiguration help are checked on the tarball
               (@plan.Package.O2, @plan.Package.O3).
             - The packed-consumer check @task.V3.T23 added passes on the release tarball with every route rule.
+        comment     2026-11-16T14:23:55Z
+            Routed from the second code-quality review (4a, 4b): package.json has no exports, and Code, Classification
+            and Denial are reachable but can't be named.
     T39
         title       Release as far as the user asks
         status      draft

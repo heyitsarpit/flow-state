@@ -71,6 +71,10 @@ tasks
             - **Stops:** the criteria.
         acceptance
             The user approves the criteria; both gates fail on their planted faults and pass on the real docs.
+        comment     2026-11-16T14:23:55Z
+            Routed from the second code-quality review (4a): apps/docs describes the earlier API (runtime, App.layer,
+            flowTest and others v3 doesn't export) and misses definition, actorRef, runtimeSetup, FlowError; rebuild
+            from the v3 barrel once T50 sets the routes.
     T34
         title       Docs sections written and ruled
         status      draft

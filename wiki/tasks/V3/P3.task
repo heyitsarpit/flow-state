@@ -12,8 +12,9 @@ description
     orchestrator then opens this phase's Tasks.
 
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
-    order the user set; then @task.V3.T79 and @task.V3.T80, the code-quality review's pass (the user, 2026-11-16). A
-    `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in this order.
+    order the user set; then @task.V3.T81 (construction bugs), @task.V3.T79 and @task.V3.T80, the code-quality reviews'
+    pass (the user, 2026-11-16). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the
+    earliest in this order.
 
     **Verified by:**
 
@@ -1127,6 +1128,11 @@ tasks
             - `nub run check`, the package suite, `nub run test:stress` and `nub run faults` pass with every fault
               caught by its own target; the bench's per-turn numbers are no worse than before step 3, recorded in
               a comment.
+        comment     2026-11-16T14:23:54Z
+            Fold in the second review's T79 findings (31, sections 2, 3, 4b-4z, 7 and abstractions A2 to A6):
+            code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. Its section 2 bug comes
+            first: a user error tagged with a decline name escapes the StillUnknown rule (cells.ts:166). Its section 7
+            corrects 3e, 2e and section 8 of the first review.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
@@ -1153,3 +1159,38 @@ tasks
               each citing the same rules; `seam.ts` and its copies of the store, host and seed are gone.
             - `nub run faults` catches the same faults before and after, each by its own target; the suite and
               stress pass.
+        comment     2026-11-16T14:23:55Z
+            Fold in the second review's T80 findings (10, section 5 and abstraction A7, a test kit):
+            code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. First: the pair sweeps run
+            all 1000 seeds when a phase can't be reached (82 s of 131 s CPU); add the lanes and player fixtures to the
+            reload sweeps.
+
+    T81
+        title       Construction config decoded by one Schema; four construction bugs fixed
+        status      open
+        priority    high
+        description
+            Construction config is decoded by one Schema, so the types, construction and the Runtime agree on what a
+            definition and machine accept.
+
+            **Why now:** three shape checkers disagree, with four reproduced bugs: an event field like `DateFromString`
+            passes `E.X` but `send` refuses it; a malformed payload or a `null` handler throws a raw `TypeError` instead
+            of a `FlowError`; a bad `context` slot is accepted.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md (section 1 and
+            A1), @spec.Compile, @spec.Diagnostics, code:packages/flow-state-v3/src/construction.ts.
+
+            **Approach:** each bug lands first as a failing construction test naming its Compile or Diagnostics rule;
+            then the hand-written checks of construction.ts, compile-body.ts's guards and definition.ts's context filter
+            become one Schema decode (A1), removing an estimated 250 to 350 lines.
+
+            May change: `src/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a decode that accepts what the types refuse → caught by a type test and a construction test for
+            each refused form, side by side.
+        acceptance
+            - The four bugs in the review's section 1 are each shown red by a construction test, then fixed; every
+              refusal is a `FlowError` with a code from Diagnostics' list.
+            - One Schema decodes definition and machine config; construction.ts's hand-written shape checks are gone.
+            - `nub run check`, the suite and `nub run faults` pass, with a planted fault per new refusal caught by
+              its target.

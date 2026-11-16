@@ -550,3 +550,8 @@ note 2026-11-16T14:05:51Z
 note 2026-11-16T14:11:29Z
     Wake slip: the timing step removed a worktree at the shared scratch path, likely the second reviewer's; told it to
     recreate one. Timings use their own path from now on (in bound: 14, 13, 38 s).
+
+note 2026-11-16T14:24:01Z
+    Second code-quality review done (c90bbc93): construction checkers disagree (four bugs) and a decline-named user
+    error escapes StillUnknown. Queued: new T81 (construction config by one Schema) before T79; 31 findings folded into
+    T79, 10 into T80; docs and routes routed to T33 and T50.
