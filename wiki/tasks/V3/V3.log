@@ -768,3 +768,7 @@ note 2026-11-16T20:17:00Z
 
 note 2026-11-16T20:18:55Z
     Decision (the user, 2026-11-17): T20's two outcome changes accepted; Pending D14 to D19 accepted as recommended.
+
+note 2026-11-16T20:24:19Z
+    Amendment (2026-11-17, the user): the catalog is a task list; leads mark each scenario built or left with its later
+    Task and needed feature, none unmarked. Commit: 583bf794.
