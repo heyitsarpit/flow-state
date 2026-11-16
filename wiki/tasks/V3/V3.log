@@ -621,3 +621,7 @@ note 2026-11-16T15:42:34Z
     Fixtures-first acceptance added to 21 feature Tasks (the user, 2026-11-16), naming existing fixtures and 14 proposed
     new ones (session, wizard, search, dashboard, thermostat, checklist and others); tooling, docs, budget and release
     Tasks skipped.
+
+note 2026-11-16T15:48:31Z
+    Amendment (2026-11-16, the user): the orchestrator owns fixtures first and asks each lead for proof at requirements
+    (fixtures, Stories, edge samples, combinations, stress cases, red today) before the build. Commit: 5bcf7ae6.
