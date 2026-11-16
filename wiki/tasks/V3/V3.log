@@ -366,3 +366,8 @@ note 2026-11-16T04:44:27Z
 note 2026-11-16T05:30:34Z
     T54's user's page written late (wiki/plans/flow/references/pages/T54-core-consolidation.md, unread): T18 closed
     before it existed, against the slice stop; both pages now await the user. Q7's owner wording fixed (T20 is restore).
+
+note 2026-11-16T05:31:17Z
+    P2 records compacted (R18, deferred from the phase's close): 40 progress-only comments dropped from P2's done Tasks
+    (requirements lists, build and close notes, handled routings, gate counts); decisions, verdicts, mappings and the
+    user's-read items kept. Full text: git before this commit.
