@@ -26,7 +26,11 @@ export type Samples = {
   readonly setup: string;
   readonly fixtures: ReadonlyArray<string>;
   readonly steps: ReadonlyArray<Step>;
-  readonly actors: ReadonlyArray<{ readonly name: string; readonly actor: ActorId }>;
+  readonly actors: ReadonlyArray<{
+    readonly name: string;
+    readonly actor: ActorId;
+    readonly context: ReadonlyMap<string, ActorId>;
+  }>;
   readonly servers: ReadonlyArray<{ readonly name: string; readonly server: AnyServer }>;
   readonly failures: ReadonlyArray<WorldWord>;
   readonly landedFailures: ReadonlyArray<WorldWord>;
@@ -47,8 +51,8 @@ export type Samples = {
  *
  * `story` is the fixture's app over its fakes, with no steps; `names` are the names its code gives
  * that Story's setup and fixtures, and `actors` and `servers` are keyed by the names it gives them,
- * so a printed run reads as the fixture's own code. `steps` chains the steps a person takes, each
- * one sample.
+ * so a printed run reads as the fixture's own code; an actor is ensured with the providers its ref
+ * gives, as the printed `.ensure(ref)` is. `steps` chains the steps a person takes, each one sample.
  * `failures` are control words after which the server's next answer is a domain failure;
  * `landedFailures` those after which it applies the write and still fails; `controls` the other
  * control words, such as a heal. `values` names events the fixture's code already holds, which a
@@ -80,6 +84,7 @@ export const samplesOf = (options: {
     actors: Object.entries(options.actors).map(([name, ref]) => ({
       name,
       actor: actorIdOf(ref),
+      context: new Map(Object.entries(ref.context).map(([slot, p]) => [slot, actorIdOf(p)])),
     })),
     servers: Object.entries(options.servers).map(([name, server]) => ({
       name,

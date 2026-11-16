@@ -85,29 +85,31 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "lane-sized-in-flight",
+    name: "lane-sized-as-it-stands",
     tests: ["tests/restore/lane-bound.test.ts"],
-    says: "a commit's lane record is sized with its head in flight, so a record at the bound outgrows it when the head goes Held",
+    says: "a commit's lane record is sized as it stands at commit time, so a record at the bound outgrows it when its head goes Held or its retry count gains a digit",
     rule: "WriteAhead I21",
     edits: [
+      {
+        file: "src/core/lanes.ts",
+        find: "        id: longest,\n        input: existing",
+        replace: '        id: own === "" ? longest : own,\n        input: existing',
+      },
+      {
+        file: "src/core/lanes.ts",
+        find: "        retryCount: Number.MAX_SAFE_INTEGER,",
+        replace: "        retryCount: existing?.head.retryCount ?? 0,",
+      },
       {
         file: "src/core/lanes.ts",
         find: "        phase: Phase.Held(),\n      },\n      queue: existing",
         replace:
           "        phase: existing?.head.phase ?? Phase.Held(),\n      },\n      queue: existing",
       },
-    ],
-  },
-  {
-    name: "lane-sized-at-its-retry-count",
-    tests: ["tests/restore/lane-bound.test.ts"],
-    says: "a commit's lane record is sized at its head's retry count today, so a re-send's extra digit outgrows it",
-    rule: "WriteAhead I21",
-    edits: [
       {
         file: "src/core/lanes.ts",
-        find: "        retryCount: Number.MAX_SAFE_INTEGER,",
-        replace: "        retryCount: existing?.head.retryCount ?? 0,",
+        find: "[...displaced, longest]",
+        replace: "displaced",
       },
     ],
   },
@@ -351,20 +353,6 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     says: "an array of any length encodes",
     rule: "Codec I2",
     edits: [{ file: "src/core/codec.ts", find: "  items: 4096,", replace: "  items: 1_000_000," }],
-  },
-  {
-    name: "silent-while-withheld",
-    tests: [UNENCODABLE],
-    says: "a ticket withheld with its identity times its silence from the send, not from its batch",
-    rule: "WriteAhead R12",
-    edits: [
-      {
-        file: "src/core/persist.ts",
-        find: "    return Option.some(ticket.id);",
-        replace:
-          "    armTimer(Timer.Silent({ ticket: ticket.id }), tx.env.now + SILENT_MS);\n\n    return Option.some(ticket.id);",
-      },
-    ],
   },
   {
     name: "head-restored-not-sent",

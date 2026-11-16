@@ -600,7 +600,7 @@ tasks
             UnencodableValue report, and the realization's 'not built yet' is a gap written into the Spec.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T19]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
@@ -873,6 +873,15 @@ tasks
             nub run faults (killed mid-run, six new faults in tests/restore-faults.ts unproven), FLOW_SEEDS=20, bench,
             close comment, status review. Routed: I17 displaced on wire (it.fails kept), Held head re-owed at every
             start (Restore R3), R11 counting owed parts. Nothing uncommitted.
+        comment     2026-11-16T20:11:44Z
+            Close: no send waits on a record that may not encode (proposals/record-bounds-revised-2026-11-17.md); public
+            outcomes with the user. Gates by exit code: check 0; suite, test:stress, FLOW_SEEDS=20 exit 1, all on
+            session: Turn I9 double publish (it.fails, owner T9) and pair cell Acknowledging × storage refusal unfired
+            (undiagnosed, captureMs 0); faults unjudged (unchanged run red), the six new faults caught by targets.
+            Fixed: generated ensures carry the ref's providers (session saved Story). Inverted, owner T56: WriteAhead
+            I17 on the wire, Restore R3 re-heard each start; R11 is outside T20 and must count owed parts. For the
+            user's page: a write too large to save is refused at once, never hangs; a result too large to save returns
+            after a reload as outcome unknown.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done

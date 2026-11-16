@@ -412,7 +412,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
   let pending: ReadonlyArray<string> = [];
 
   const queue: Array<Step> = pools.actors.flatMap((slot) =>
-    Option.toArray(Option.map(slot, ({ actor }) => Step.ensure({ actor, context: new Map() }))),
+    Option.toArray(Option.map(slot, ({ actor, context }) => Step.ensure({ actor, context }))),
   );
 
   const front: Array<Step> = [];
@@ -582,7 +582,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
               Option.map(actor, (it) =>
                 view.uses(it.actor) > 0
                   ? Step.detach({ actor: it.actor })
-                  : Step.ensure({ actor: it.actor, context: new Map() }),
+                  : Step.ensure({ actor: it.actor, context: it.context }),
               ),
             )
           : [],

@@ -66,14 +66,32 @@ describe("an identity owed a row the boot derives is live at ready (Restore R1, 
 });
 
 describe("displaced Attempts still on the wire at a reload (WriteAhead I17; WriteLanes Q7)", () => {
-  // Open: a head a plain commit displaced, with no cancel pending, is in no lane record, so a
-  // reload loses the Attempt, which may have applied, with no ending at all.
+  // Open, owned by release versions and record migration: a head a plain commit displaced, with no cancel
+  // pending, is in no lane record, so a reload loses the Attempt, which may have applied, with no
+  // ending at all. Saving it needs an owed flag per displaced Attempt, so one heard only as
+  // evidence live is not made a delivered ending.
   it.fails("WriteAhead I17: each displaced Attempt still out at the reload ends unknown Restored", async () => {
     const run = checked(await displacedOnWire().run());
 
     expect(
       run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
     ).toEqual(["unknown Restored", "unknown Restored", "unknown Restored"]);
+  });
+});
+
+describe("a Held head across several reloads (Restore R3)", () => {
+  // Open, owned by release versions and record migration: a delivered unknown Restored is closed and leaves
+  // the owed record, while its lane stays Held, so every later start owes it again.
+  it.fails("Restore R3: a Held head's unknown Restored is heard once, not again at each later start", async () => {
+    const run = checked(
+      await heldTransfer.reload().advance("1 second").reload().advance("1 second").run(),
+    );
+
+    const restored = [2, 3].flatMap((open) =>
+      inOpen(run, open).filter((e) => e._tag === "Ended" && e.reason === "Restored"),
+    );
+
+    expect(restored).toHaveLength(1);
   });
 });
 

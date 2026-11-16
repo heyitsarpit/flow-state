@@ -15,10 +15,11 @@ import {
   wallBadge,
 } from "../../fixtures/session/machine.ts";
 import { fanOut, longNames, parentUnderChildren, usual } from "../../fixtures/session/stories.ts";
-import type { StoryRun } from "../../src/host/testing/index.ts";
+import { generate, type StoryRun } from "../../src/host/testing/index.ts";
 import { IdentityLive } from "../../fixtures/session/identity-http.ts";
 import { app, FlowError, runtimeSetup } from "../../src/index.ts";
-import { checked } from "../rules/rules.ts";
+import { samples } from "../generated/fixtures.ts";
+import { checked, publishedOnce } from "../rules/rules.ts";
 
 const reports = (run: StoryRun) =>
   run.evidence.flatMap((e) =>
@@ -119,5 +120,15 @@ describe("display names at a string's bound (Codec R1, R4; WriteAhead R4; Actors
     expect(
       run.checkpoints["signed in"].records.stored.get("actor/Workspace/Session/guest"),
     ).toContain('"displayName":"bob"');
+  });
+});
+
+describe("a badge that returns from its record (Turn I9)", () => {
+  // Open, owned by actor identity: a returning actor publishes the same snapshot
+  // twice with no turn between, its context wave counting a restored selection as changed.
+  it.fails("Turn I9: an actor returning from its record publishes each snapshot once", () => {
+    const run = generate(samples.session, { drawing: "mix", seed: 1 }).run;
+
+    expect(publishedOnce.breaches(run)).toEqual([]);
   });
 });
