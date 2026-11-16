@@ -1561,3 +1561,81 @@ tasks
             On resume (the user, 2026-11-17): the catalog's scenarios are checklist items. At close, mark every item in
             the step-1 fixtures built (Story id) or left (later Task and the feature it needs); items marked have are
             ticked once their Story is confirmed. See the catalog's task-list rule.
+        comment     2026-11-16T20:54:13Z
+            Requirements, each a check failing today, expected results from the cited rule: A1 manifests: every
+            `fixtures/<name>/index.ts` exports one manifest, `fixtures/index.ts` lists them, and the generator,
+            profiles, mix, saved stress, reload sweep, pair sweeps, bench, CLI test and `flow.config.ts` read it with no
+            hand list left (fixtures.md "Where a fixture is registered") -> `tests/generated/manifests.test.ts` (names
+            equal the folders; each manifest's `stories` equal the Story values its files export); red: no
+            `fixtures/index.ts`. Decisions (agent): `samples` and `stressSamples` are lists, so an app grows a second
+            samples set without changing the seed a saved stress Story replays; `pairs` is a list of `{ samples, reach
+            }`; `seededStress` is not a field, since `savedStress.story` is that Story; refused shapes (S7) are exported
+            Story builders run by tests, not registered Stories, since a refused admission rejects the run every runner
+            makes. A4: no existing machine, persisted or Story id changes and every existing test passes unchanged; reds
+            at the start, owned elsewhere: session's Turn I9 double publish (sweep, mix) and pair cell `Acknowledging x
+            storage refusal` (T9, T20).
+        comment     2026-11-16T20:54:13Z
+            A2 step-1 cells (each new Story or sample written before its machine, so it fails to import): pay compound
+            states + history (Turn R1, R2, R4): new `CheckoutFlow` (Flow.input cart) ADDRESS -> SHIPPING {METHOD, SLOT}
+            -> PAY; usual `pay/checkout-steps`: Back from PAY targets `S.SHIPPING.history` and lands on SLOT; S1 Shopper
+            -> Cart -> CartBadge x 3 layers with S9 at the badge under L3; E8 reload mid-step; source Stripe's flow, not
+            checked. pay Flow.input + context + guards (Actors R5, R6, R18, R19; Turn R12, R22): new `Shopper` (provides
+            `shopper`), `Cart` (named by shopper, consumes it, provides its line count and pending count), `CartBadge`
+            and `CheckoutFlow` consume the cart (a context read stands in for the catalog's ref read, the one way
+            today), Begin denied `EmptyCart` or `CartBusy` from the mirrored count (guards cannot read context, Turn
+            R12, inverted with T57); usual `pay/browse`; S3 64 shoppers under L3; S6 x {cart first, flow first, shopper
+            forgotten, reloaded} (Actors R20, R21); S7 a second Cart ref with another shopper -> ConflictingActorRef;
+            variety guest vs signed-in. pay `latest` + `notSent:` (WriteLanes R4, R7): T `addLine` (reject; notSent ->
+            the line's error), T `setQuantity` (latest per [cartId, lineId]); L5 three clicks with the first on the
+            wire: the second superseded as evidence (no event), first and third sent, nothing left pending (hy-cart
+            1500, reshaped: latest queues, it never aborts); findings hy-cart 1530/hy-tx 378 lines independent, hy-cart
+            1579 a failing line rolls back alone, hy-tx 210/hy-cart 4583 a refused add removes only its line, hy-cart
+            951 quantity 0 removes, hy-cart 673 same cart ensured twice is one incarnation, hy-cart 717 empty before any
+            add, hy-tx 543-shaped Begin waits while a line is pending; E5 Busy retry 0, 2^31 - 1, 2^31 ms (Turn R14; -1
+            is T57's); E8 reload mid-add; combo a reload with a quantity held (persist + lanes); new samples join the
+            mix and a pair sweep.
+        comment     2026-11-16T20:54:14Z
+            A2 continued: cells NotSent/unknown Disposed (Actors R22): `disposeRuntime` mid-pay then reload, under L3
+            (lost and held answers); E1 empty cart id, E3 cart id at and past the 8,192-byte key bound (Operations O1:
+            InvalidKey past it); no source. lanes AdmissionOverloaded (Actors R14: the 1,025th pending refused) as a
+            runtime test over `lanesSetup` (a Story send drains at once); serialize Overloaded (WriteLanes R7: head + 64
+            queued, the 66th commit ends NotSent Overloaded) as a Story; S3 one key under two actors under L3; S6 x
+            {disposed, reloaded} with queued, held and running commits; keys (Operations O1): `-0` and `0` name one
+            lane, NFC and decomposed name two (correcting the row: "Unicode spelling matters"); E3 past the string
+            bound; no source. sync Flow.input + Flow.private (Actors R5; Turn R23): new `Repo` named by repo with a
+            private token, consuming `Git/Sync`'s status as context (the catalog's ref and sends need a send action);
+            usual; L1 x 64 repos with repeated rate limits under L3; S3 x 64; S6 x {repo first, sync first, reloaded} in
+            a backoff; E1 empty repo; E5 retry-after 0, 2^31 - 1, 2^31; finding kp-retry 27 (a 4xx that is not a rate
+            limit ends at once, never retried).
+        comment     2026-11-16T20:54:14Z
+            A2 continued: transfers context + resource + keys (Actors R18; Reads R6; Operations O1): new `Customer`
+            (provides `customer`), `TransferForm` (consumes it; shared until a Story can drive a local actor), R
+            `balance`; usual balance, send, balance; S1 Customer -> TransferForm with S9 (StepUp is step 2); S3 x 64
+            accounts, one forgotten, under L4; L1 x 64 accounts with owed endings at boot under L4; S6 x {account first,
+            customer first, forgotten, reloaded}; E6 cents 0, negative, 2^53; E3 transfer id at the key bound; account
+            names NFC vs decomposed are two lanes; `stressManyReceipts` registered. sign-in (Compile R5; Turn R23;
+            Actors R18, R21; WriteAhead R1): new persisted `AuthSession` (handle computed from the email, private
+            refresh token, provides `session`) and `ReturnTo` (consumes it; route and draft), T `setUsername`, R `me`,
+            over a second persisted setup so `Auth/SignIn` stays unpersisted; usual kp-auth 89 and kp-draft 45; findings
+            kp-auth 72, kp-auth 164, kp-gate 34, kp-boot 32; sign-out forgets AuthSession; L1 x 16 screens, one locked
+            out while another verifies; S3 x 16 under L4; S6 x {session first, screen first, forgotten, reloaded}; E1,
+            E3, E5 lock delay. session (Actors R14, R18, R22; Restore R5, R9): S7 cycle and missing provider as Story
+            builders; 1,024 sends to one badge (runtime test); E7 a corrupt record (kp-snap 108); E3 an oversized record
+            (kp-snap 123); quota as a refused write (StorageRefused); a refused load disables persistence (Restore R9);
+            a new Runtime per account: disposeRuntime({ forget }), reload, nothing of the old restores (kp-app 692, 711,
+            725; kp-snap 364); S1 x {8, 32} with S9 and S2 x {64, 1,024}, each under L5; S6 x {child first, forgotten,
+            signed out, reloaded}; E1, E2 undefined user, E4. player: L1 x 16 rooms under L5, S6 x {disposed, reloaded}
+            with the tick armed, E1, E3, seeks past the end and negative; palette: S1 frames 1, 8, 64 with Back and S9,
+            S3 two palettes, ui-command 120 and 193, typing bursts under a held store.
+        comment     2026-11-16T20:54:14Z
+            Left, each with the feature it needs: an actor-to-actor `send(ref, event)` action (pay, sync, transfers,
+            command-palette, player; T9 put it out of slice as new public API; no owner Task: the user's call); a Story
+            word for a local actor (`Story.machine`, @task.V3.T76); `otherwise`, `Flow.ignore`, mapper `Defect` and a
+            missing service at boot (@task.V3.T21); `unsettledWrites` (@spec.Actors, unbuilt); slow reads and a
+            non-durable store (@task.V3.T28); duplicate `.each` key and `.each` items (@task.V3.T57). A3: at the close
+            every scenario item of the nine rows is marked built (Story id) or left (Task, feature), and rows the build
+            proves wrong are corrected; red: all unmarked. Sidecar review of this list (coverage; expected results
+            against rules): 27 findings; accepted the missing counts, loads, S6 orders, sources, mix and pairs, Runtime
+            disposal for Disposed, latest needing the head on the wire, Superseded as evidence, the 66th serialize
+            commit, O1 citations; rejected E2 for null payloads; open: bigint keys and `-0` keys may meet a codec that
+            rejects them (Operations O1 vs Codec R2), decided when built.
