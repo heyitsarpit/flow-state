@@ -260,6 +260,10 @@ instructions
     - Stopping rule (the user, 2026-11-12): a finding blocks only when it is in the Task's range, has a check red on
       current code, and is a lost, doubled, made-up or wrong ending, a hang, or a broken acceptance item; others are
       routed or noted. A fix round is checked by the next review, with no separate re-check.
+    - Every accepted review finding names why the tests missed it (the user, 2026-11-16): the fixture, Story, step
+      sample, edge value, run rule or sweep that would have caught it and was absent. The reviewer states it per
+      finding; the fix round adds that coverage for the whole class, per code:wiki/conventions/fixtures.md, and shows it
+      red before the fix. A class that recurs across Tasks becomes a run rule or a fixture every later Task inherits.
     - Convergence threshold 2 (the user, 2026-11-12; R35's default).
     - `nub run faults` runs at the end of every Task (the user, 2026-11-16); a fault the tests miss lands as a run rule
       or a Story test.
