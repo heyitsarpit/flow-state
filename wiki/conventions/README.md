@@ -14,6 +14,7 @@ once that API is built.
 | [What an ending knows](what-an-ending-knows.md)   | ids in the call's input; configuration from props or memory     |
 | [Reusable primitives](reusable-primitives.md)     | a factory over the app's contract                               |
 | [Cross-tab bridge](cross-tab-bridge.md)           | host code, emit out, typed send in (deferred)                   |
+| [Fixtures](fixtures.md)                           | every feature proven by a fixture app before it is built        |
 
 Upkeep:
 
