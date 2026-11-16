@@ -46,7 +46,7 @@ type Write = "ack" | "refuse" | "hang" | "land" | "slow";
 
 type Table<K> = ReadonlyArray<readonly [K, number]>;
 
-// The catalogue's usual and stress runs: what a person does per step, what the server answers per
+// The usual and stress runs (Testing O6): what a person does per step, what the server answers per
 // request, and what the store does per write batch.
 const STEPS: Record<Drawing, Table<StepKind>> = {
   usual: [
@@ -758,7 +758,8 @@ export type Failure = {
  *
  * Each seed draws one run with the profile on a fresh production Runtime, through Effect's
  * `Arbitrary`, and the same seed always draws the same run. A run ensures every actor, then takes
- * one step per draw: a person's sample step, a burst of one, think time, a reload or a disposal, by
+ * one step per draw: a person's sample step, a burst of 50 to 2,000 of one, think time, a reload or a
+ * disposal, by
  * the profile's weights. Before each step it arms each endpoint's next answer and the store's next
  * write from the profile's tables, as wire, storage and control words; held answers are released
  * when their drawn delay passes. Every answer is a handler's: a word decides only delivery, and a
@@ -776,6 +777,8 @@ export type Failure = {
  *   is thrown.
  * - Shrinking is bounded at 1,000 candidates, so a shrunk run is small, not always smallest.
  * - It stops at the first seed that fails, so the result holds at most one failure.
+ * - A check that ends `Exhausted` or `ReplayMismatch` judged nothing, so it is a failure of
+ *   Testing O6 with Arbitrary's message and no Story.
  */
 // RETURN_TYPE: the exported Failure contract, which the shrunk run's branches would split.
 export const propertyTest = (
@@ -814,7 +817,19 @@ export const propertyTest = (
       }),
     );
 
-    if (result._tag !== "Falsified") return [];
+    if (result._tag === "Passed") return [];
+
+    if (result._tag === "Exhausted" || result._tag === "ReplayMismatch")
+      return [
+        {
+          seed,
+          rule: HORIZON_RULE,
+          breaches: [`inconclusive: ${Arbitrary.formatCheckFailure(result) ?? result._tag}`],
+          drawn: 0,
+          steps: [],
+          story: "",
+        },
+      ];
     const target = Option.getOrElse(rule, () => LIMIT_RULE);
     const shrunk = judged(samples, id, options.profile, result.shrunkInput, options.properties);
     const steps = Option.match(shrunk.generated, { onNone: () => [], onSome: (g) => g.steps });

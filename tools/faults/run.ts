@@ -2,8 +2,9 @@
 // package it runs the tests three ways: unchanged (must pass), with a dead core whose step changes
 // nothing (every test should fail), and once per planted fault in tests/faults.ts (at least one
 // test should fail). A fault counts as caught only when its run fails and still prints its test
-// summary: a timeout, output past the buffer, or a run with no summary is reported as such and is
-// never caught. It exits 1 when the unchanged tests fail or a fault is missed, stale or not judged,
+// summary with a failed test: a timeout, output past the buffer, a run with no summary, or one
+// whose summary shows no failed test is reported as such and is never caught (tools/faults/verdict.ts,
+// checked by verdict.test.ts before every run). It exits 1 when the unchanged tests fail or a fault is missed, stale or not judged,
 // so a fault the tests stop catching shows; it is never a CI gate. Faults run four at a time, each
 // in its own copy, and each fault's run stops at its first failing test.
 //
@@ -13,6 +14,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { type Fault, faults } from "../../packages/flow-state-v3/tests/faults.ts";
+import { type Run, summaryOf, verdictOf } from "./verdict.ts";
 
 const repo = resolve(import.meta.dirname, "..", "..");
 const pkg = "packages/flow-state-v3";
@@ -24,7 +26,6 @@ const BUFFER = 256 * 1024 * 1024;
 
 type Edit = Fault["edits"][number];
 
-type Run = { readonly kind: "ran"; readonly passed: boolean; readonly out: string } | { readonly kind: "broken"; readonly why: string };
 
 const makeCopy = () => {
   const root = mkdtempSync(join(tmpdir(), "flow-faults-"));
@@ -59,23 +60,6 @@ const run = (root: string, reporter: ReadonlyArray<string> = []) =>
       },
     );
   });
-
-const summaryOf = (out: string) => /^\s*Tests\s+(.*)$/mu.exec(out)?.[1]?.trim();
-
-const filesOf = (out: string) => /^\s*Test Files\s+(.*)$/mu.exec(out)?.[1]?.trim() ?? "";
-
-// A run's verdict on a planted fault: caught only when the run fails and still prints its summary.
-const verdictOf = (result: Run) => {
-  if (result.kind === "broken") return `NOT JUDGED (${result.why})`;
-  const summary = summaryOf(result.out);
-
-  if (summary === undefined) return "NOT JUDGED (no test summary)";
-
-  if (result.passed) return "MISSED";
-
-  // A run stopped at its first failure exits non-zero with a partial summary.
-  return `caught (${summary}${filesOf(result.out) === "" ? "" : `; test files ${filesOf(result.out)}`})`;
-};
 
 // Applies the edits in one copy, runs the body, and puts the files back. Returns false when an
 // edit's path leaves the copy or its text is not in its file exactly once, so a stale fault is

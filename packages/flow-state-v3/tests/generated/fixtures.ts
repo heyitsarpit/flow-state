@@ -21,7 +21,7 @@ export const samples = {
 };
 
 /**
- * The fixed seeds the gate runs per fixture: ten usual and twenty stress, as the catalogue sets.
+ * The fixed seeds the gate runs per fixture: ten usual and twenty stress (Testing O6).
  * `FLOW_SEEDS` adds that many more of each, outside the gate.
  */
 export const seeds = (profile: "usual" | "stress") => {

@@ -15,7 +15,7 @@
     "check:plans": "bun tools/plan-coverage/check.ts",
     "check:fix": "vp check --fix packages/flow-state-v3",
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
-    "faults": "bun tools/faults/run.ts",
+    "faults": "node --experimental-strip-types tools/faults/verdict.test.ts && bun tools/faults/run.ts",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",
     "docs:preview": "nub run --filter @flow-state/docs preview",
