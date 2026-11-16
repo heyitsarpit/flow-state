@@ -1246,6 +1246,25 @@ tasks
             (code:packages/flow-state-v3/src/host/testing/generate.ts#Generated); profiles.test checks the mixes on the
             generator's own tally, not on outcomes. Gates at 554531f2: check and lint:rules at zero, vp test 472 plus 8
             it.fails, faults 52 of 52.
+        comment     2026-11-16T01:19:55Z
+            PASS at 554531f2: the blocking stress-profile finding is fixed, and no new finding blocks. The offline span
+            is now Fake.network offline to online, lasting 5 to 120 s of virtual time with one per run. profiles.test
+            asserts the span's length, that time reaches its end, and that every call inside it is dropped at request.
+            Bursts run 50 to 2,000 sends and are asserted. Answers and writes draw from salted hashes, so they are
+            independent. Each mix is held within three standard errors of the generator's own tally. That is enough for
+            acceptance 5, with one known gap for the P2 audit: only an endpoint's first call in a step gets a drawn
+            answer. Measured over 60 stress runs, 473 drawn answers for 533 calls. The two-advance quiet end keeps its
+            guarantee: the first pull now always advances past deadlines, any release resets the rounds, and pendingOf
+            is judged at done, so fewer rounds can only add inconclusive runs, never a pass. The new network word holds
+            together: Pending D12, Stories R17, I22 and T15, its step test, and offline-reaches-server, which faults
+            catches. The I3 rule now forgets every later ending of an Attempt restored after an unsaved failure, with a
+            crafted rule test, and known.test is gone. The cites name WriteAhead I17 and I21, the specs.log note is
+            there, and the I23 it.fails asserts one batch out per scope (owner @task.V3.T19). The faults runner counts a
+            fault as caught only on a failed test in the summary, or on a test-level FAIL line with no summary
+            (verdict.test.ts has the load-failure case), and re-runs a stopped run without bail; an edit that does not
+            parse fails at load, so it cannot count. Gates on a git archive copy: vp test 472 plus 8 it.fails, check at
+            zero (check:plans run in the checkout, because wk needs the repository), lint:rules at zero, faults 52
+            of 52.
 
     T71
         title       UI primitives, first wave: command palette and number input fixtures
