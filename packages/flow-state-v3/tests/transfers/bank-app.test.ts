@@ -101,8 +101,10 @@ describe("the form's and customer's ends (fixtures.md S6)", () => {
     expect(run.checkpoints.fresh.read(mainCustomer)?.memory["account"]).toBe("");
   });
 
-  it.fails("Actors R20, Stories R3: disposing the customer while the form is bound is refused BlockedByDependents", async () => {
-    await expect(customerFirst().run()).rejects.toThrow(/BlockedByDependents/u);
+  it("Actors R20, Stories R3: disposing the customer while the form is bound is refused BlockedByDependents, naming the form", async () => {
+    await expect(customerFirst().run()).rejects.toThrow(
+      /BlockedByDependents: .*Bank\/TransferForm/u,
+    );
   });
 });
 

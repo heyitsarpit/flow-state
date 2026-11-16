@@ -69,8 +69,8 @@ describe("a repository's end during a backoff (fixtures.md S6)", () => {
     );
   });
 
-  it.fails("Actors R20, Stories R3: disposing the client while a repository is bound to it is refused BlockedByDependents", async () => {
-    await expect(syncFirst().run()).rejects.toThrow(/BlockedByDependents/u);
+  it("Actors R20, Stories R3: disposing the client while a repository is bound to it is refused BlockedByDependents, naming the repository", async () => {
+    await expect(syncFirst().run()).rejects.toThrow(/BlockedByDependents: .*Git\/Repo/u);
   });
 });
 

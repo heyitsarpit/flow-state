@@ -1,4 +1,5 @@
 import type { Story } from "../../../src/host/testing/index.ts";
+import { wallAvatar } from "../app.ts";
 import { acme, coreTeam, mainSession, wallBadge } from "../machine.ts";
 import { grownStory } from "./structure.ts";
 
@@ -29,3 +30,13 @@ export const wall64 = wall("session/wall-64", 64);
  * out of `stories`: its 3,000 steps are too long for the CLI's runs and the reload sweep.
  */
 export const stressWall1024 = () => wall("session/stress-wall-1024", 1024);
+
+/**
+ * 65 header avatars on the main session; Ada signs in, so one admitted event adds 65 context
+ * updates and 65 events, past the 64 follow-ups an event's turns may send.
+ */
+export const avatarWall65 = Array.from({ length: 65 }, (_, n) => wallAvatar(n))
+  .reduce<Story>((s, a) => s.ensure(a), grownStory("session/avatar-wall-65").ensure(acme))
+  .ensure(mainSession)
+  .send(mainSession, { _tag: "SignIn", user: "ada" })
+  .checkpoint("signed in");

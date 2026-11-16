@@ -1256,6 +1256,51 @@ tasks
             withholds a record; on return an unknown slot keeps the current value and makes owed wave; reactions reading
             it (detected by getter on that slot) get an unknown baseline and fire once. Next: requirements comment,
             session fixture growth after T82, replay Turn I9 and Stories R3.
+        comment     2026-11-16T22:40:47Z
+            Round 3 requirements, each a check failing today: 1 a start from a record publishes once, with its
+            providers' current context; its owed wave re-runs only the onContext reactions and publishes only a changed
+            slot or an issue (Turn I9, R5; Actors R9, R18) -> session.test.ts Turn I9 (mix seed 1), the generated, sweep
+            and pair runs, and signedOutReloaded and reloadedMidHandle registered in stories; wrong side, runtime: the
+            start publishes the record's stale context, then the wave publishes the same state and memory again
+            (replayed at mix seed 1, evidence 260). 2 each slot's last-seen value is saved apart; one that cannot encode
+            is saved unknown and never withholds the record; a start from it owes one wave, and a reaction reading that
+            slot fires once (Actors R9, R18; round-3 decision) -> signedOutReloaded: the avatar's record saves count 2
+            at sign-out, and the reload counts one more change; red: the record is withheld (UnencodableValue at
+            seen.user). 3 only events sent by turns count toward the 64 follow-ups; context updates and onContext events
+            never do (Actors R13, R14; Pending D13, round-3 decision) -> follow-ups.test.ts: both 34-link chains reach
+            the head's value with no issue; workspace.stress: a rename under 1,024 badges reaches every badge; red:
+            links past 32 stale with InvalidTurn, the wall keeps its old name.
+        comment     2026-11-16T22:40:47Z
+            Round 3 requirements, continued: 4 a Story's ensure and dispose pass the Runtime's admission, and a refused
+            one rejects run() with the FlowError the public call throws; a re-ensure after a reload passes it with the
+            ref's first context (Stories R3, R4; Actors R5, R18, R20) -> the inverted builder tests (cartFirst,
+            conflictingCart, syncFirst, customerFirst, sessionFirst, missingTeam) and parentUnderChildren as a builder;
+            red: the Story disposes or ensures past the refusal. 5 a context update deferred for unsettled providers
+            keeps its mailbox place (Actors R19) -> a core serve test, since no Story queues mail behind a deferred
+            update in one step. 6 a planted fault per new rule. Catalog: E4 and the at-cap item corrected by 3; the
+            storage read with a sign-in queued left to @task.V3.T20 (boot queue, @plan.Pending.D17). Out: an
+            actor-to-actor send action (the user's call), so the follow-up cap has no input today and is removed with
+            its undo; it returns with that action.
+        comment     2026-11-16T23:03:29Z
+            Fixtures proof, round 3: context from records, refs and mailboxes (Actors R5, R9, R13, R18, R19, R20; Turn
+            I9; Stories R3): fixture session (changed), machine Workspace/Byline (new: user and team, a diamond with a
+            direct edge), Avatar, Team, Badge; journey sign in and out under the byline and avatar; usual session/usual,
+            session/byline-returns; load L2 workspace.test.ts (1,024 sends), L5 session/stress-36; structure S2 x {64,
+            65, 1,024} session/wall-64, session/avatar-wall-65, session/stress-wall-1024; S4 and S6 returned, reloaded
+            session/byline-returns; S6 parent first and S7 the parentUnderChildren, missingTeam and conflictingBadge
+            builders (pay, sync, transfers and sign-in builders alike); samples E2 session/signed-out-reloaded and the
+            new session-grown samples set (avatar, byline) in the generator; combos the mix and pair sweeps,
+            sign-in/reloaded-mid-handle registered; sources none; red before: Turn I9 in the mix and auth-session runs,
+            the avatar's withheld record, the refused 1,024 rename, every Story refusal.
+        comment     2026-11-16T23:03:29Z
+            Sidecar review of the round-3 fixtures (two read-only Haiku, 37 findings): accepted, refused shapes as
+            builders and parentUnderChildren unregistered; signedOutReloaded and reloadedMidHandle registered and run
+            with the rules; a two-slot consumer (Byline); an avatar wall past 64; the avatar's count 3 after the reload;
+            the run rejecting with the FlowError and its message naming the dependents; a session ConflictingActorRef
+            builder; a samples set on the grown app; follow-ups and wall tests rewritten for D13. Rejected, outside T9's
+            features or owned elsewhere: wall L5 labels, L2 queues, sign-in in the mix, catalog row hygiene, the 2 MB
+            record at its bound, the Turn R12 rows (T57); conflictingCart's 'changes nothing' (the run rejects before
+            work; context.test.ts checks ensureActor's).
 
     T74
         title       App mix: several fixtures in one Runtime

@@ -38,7 +38,10 @@ requirements
                 false })`
                 does so without ensuring the Story's actors again (@plan.Pending.D10); `checkpoint(name)` records a
                 cut (R12). Each Runtime word does what the public Runtime does for the same input
-                (@spec.Actors.R20, @spec.Actors.R21, @spec.Actors.R22), through the production driver. After 
+                (@spec.Actors.R20, @spec.Actors.R21, @spec.Actors.R22), through the production driver
+                and the same admission: an ensure or dispose the public call refuses (MissingContextProvider,
+                ConflictingActorRef, BlockedByDependents) rejects the run with that FlowError, and an
+                ensure again after a reload passes it with the context the ref first gave. After 
                 `disposeRuntime()`, an ensure,
                 detach, send or dispose before the next reload fails the run with StoryFailed.
 

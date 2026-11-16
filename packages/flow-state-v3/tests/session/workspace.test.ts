@@ -1,7 +1,13 @@
 import { Effect, Option } from "effect";
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
-import { mainAvatar, teamStatus, workspaceGrownSetup } from "../../fixtures/session/app.ts";
+import {
+  mainAvatar,
+  mainByline,
+  teamStatus,
+  wallAvatar,
+  workspaceGrownSetup,
+} from "../../fixtures/session/app.ts";
 import {
   badge,
   BadgeMachine,
@@ -11,9 +17,11 @@ import {
   workspaceSetup,
 } from "../../fixtures/session/machine.ts";
 import { corruptRecord, oversizedRecord } from "../../fixtures/session/stories/edges.ts";
-import { wall64 } from "../../fixtures/session/stories/load.ts";
+import { avatarWall65, wall64 } from "../../fixtures/session/stories/load.ts";
 import {
+  bylineReturns,
   childFirst,
+  conflictingBadge,
   missingTeam,
   newAccountRuntime,
   refusedLoadKeepsData,
@@ -111,13 +119,41 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
     expect(run.checkpoints["signed out"].read(coreTeam)?.context).toEqual({ user: "" });
   });
 
-  it("E2, WriteAhead R4: an avatar whose user selection is undefined after a sign-out is still saved, and a reload restores what it saw", async () => {
-    const run = await signedOutReloaded().run();
+  it("E2, Actors R9, R18: an avatar whose user selection is undefined is saved with the slot unknown; its start at the reload owes one wave, so it counts one more change", async () => {
+    const run = await played(signedOutReloaded);
+    const saved = run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar");
 
-    expect(run.checkpoints.reloaded.read(mainAvatar)?.memory["seen"]).toBe(2);
+    expect(saved).toContain('"seen":2');
+    expect(saved).toContain('"unknown":["user"]');
+    expect(run.checkpoints.reloaded.read(mainAvatar)?.memory["seen"]).toBe(3);
+    expect(run.checkpoints.reloaded.read(mainAvatar)?.context).toEqual({ user: undefined });
   });
 
-  it.fails("S7, Actors R18, Stories R3: a Story's ensure of a status with no team to read is refused MissingContextProvider", async () => {
+  it("S6 returned, Actors R9, R18; Turn I9: a byline that comes back after its user and team changed shows both at once and hears each change once; at the reload only its unknown user owes a wave", async () => {
+    const run = await played(bylineReturns);
+    const at = (name: keyof typeof run.checkpoints) => run.checkpoints[name].read(mainByline);
+
+    expect(at("shown")?.memory).toEqual({ users: 1, teams: 1 });
+    expect(at("returned")?.context).toEqual({ user: undefined, team: "Platform" });
+    expect(at("returned")?.memory).toEqual({ users: 2, teams: 2 });
+    expect(at("reloaded")?.context).toEqual({ user: undefined, team: "Platform" });
+    expect(at("reloaded")?.memory).toEqual({ users: 3, teams: 2 });
+  });
+
+  it("E4, Actors R13: 65 avatars on one session each hear a sign-in, since context updates and onContext events never count toward the 64 follow-ups", async () => {
+    const run = await played(avatarWall65);
+
+    for (const n of [0, 63, 64]) {
+      expect(run.checkpoints["signed in"].read(wallAvatar(n))?.context).toEqual({ user: "ada" });
+      expect(run.checkpoints["signed in"].read(wallAvatar(n))?.memory["seen"]).toBe(1);
+    }
+  });
+
+  it("S7, Actors R5, Stories R3: a Story's second ref to the live badge naming another team is refused ConflictingActorRef", async () => {
+    await expect(conflictingBadge().run()).rejects.toThrow(/ConflictingActorRef/u);
+  });
+
+  it("S7, Actors R18, Stories R3: a Story's ensure of a status with no team to read is refused MissingContextProvider", async () => {
     await expect(missingTeam().run()).rejects.toThrow(/MissingContextProvider/u);
   });
 

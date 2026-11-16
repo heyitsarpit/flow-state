@@ -29,7 +29,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     tests: ["src/host/lanes.test.ts"],
     says: "an owed record's rows carry no channel",
     rule: "Codec I7",
-    edits: [{ file: "src/core/record.ts", find: "      channel: r.channel,\n", replace: "" }],
+    edits: [{ file: "src/core/record.ts", find: "  channel: r.channel,\n", replace: "" }],
   },
   {
     name: "owed-record-keyed-kept",

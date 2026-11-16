@@ -120,7 +120,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "        for (const { actor, count } of uses.values()) for (let k = 0; k < count; k++) attach(actor);",
+        find: "        for (const { actor, context, count } of uses.values())\n          for (let k = 0; k < count; k++) attach(actor, context);",
         replace: "        uses.clear();",
       },
     ],
@@ -200,8 +200,9 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "      disposeRuntime: () => {\n        disposed = true;\n",
-        replace: "      disposeRuntime: () => {\n        disposed = true;\n        uses.clear();\n",
+        find: "      disposeRuntime: ({ forget }) => {\n        disposed = true;\n",
+        replace:
+          "      disposeRuntime: ({ forget }) => {\n        disposed = true;\n        uses.clear();\n",
       },
     ],
   },

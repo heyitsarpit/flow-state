@@ -172,11 +172,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     };
   };
 
-  // What a step's modules keep outside the world, saved with each checkpoint and put back by its
-  // rollback: each registrant returns how to restore what it holds now.
-  const keepers: Array<() => () => void> = [];
-  const remember = (keeper: () => () => void) => void keepers.push(keeper);
-
   const takeFresh = () => {
     const taken = fresh;
     fresh = [];
@@ -184,31 +179,11 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     return taken;
   };
 
-  // A point a served turn can be undone back to: its world, evidence and commands so far.
-  const checkpoint = () => ({
-    world,
-    evidence: evidence.length,
-    commands: commands.length,
-    restores: keepers.map((keeper) => keeper()),
-  });
-
-  const rollback = (to: ReturnType<typeof checkpoint>) => {
-    world = to.world;
-    evidence.splice(to.evidence);
-    commands.splice(to.commands);
-    fresh = [];
-
-    for (const restore of to.restores) restore();
-  };
-
   return {
     ...tx,
     persisted,
     takeFresh,
-    checkpoint,
-    remember,
     enqueueFirst,
-    rollback,
     armTimer,
     disarmWhere,
     incarnationOf: (actor: ActorId) => world.incarnations.get(actorKey(actor)),

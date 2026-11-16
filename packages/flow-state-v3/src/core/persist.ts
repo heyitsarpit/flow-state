@@ -58,15 +58,6 @@ export const makePersistence = (tx: Tx) => {
   const { persisted, armTimer, incarnationOf } = tx;
   let touched = new Map<string, Touched>();
 
-  // A turn undone by the follow-up cap takes back what it touched, its tickets included.
-  tx.remember(() => {
-    const saved = touched;
-
-    return () => {
-      touched = saved;
-    };
-  });
-
   const touch = (actor: ActorId, change: (t: Touched) => Touched) => {
     if (!persisted(actor)) return;
 
@@ -113,7 +104,12 @@ export const makePersistence = (tx: Tx) => {
       send: a.send,
     })),
     context: incarnation.bound,
-    seen: incarnation.context,
+    seen: new Map(
+      [...incarnation.context].map(([slot, value]) => [
+        slot,
+        incarnation.stale.get(slot) ?? Option.some(value),
+      ]),
+    ),
   });
 
   /**

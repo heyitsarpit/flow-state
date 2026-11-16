@@ -210,13 +210,13 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     - [x] S3: 64 shoppers under L3. built: `pay/stress-many-shoppers`.
     - [x] S6 × {flow first, shopper forgotten, reloaded}. built: `pay/flow-first`, `pay/shopper-forgotten`,
       `pay/reloaded-mid-add`.
-    - [x] S6 cart first, refused while the badge and flow are bound: inverted (Actors R20), since a Story's dispose
-      skips `disposeActor`; owner @task.V3.T9. built: the `cartFirst` builder.
+    - [x] S6 cart first, refused `BlockedByDependents` while the badge and flow are bound (Actors R20, Stories R3).
+      built: the `cartFirst` builder.
     - [x] S6: a checkout flow bound after its cart has a line begins: inverted (Turn R12; its mirror's baseline is
       silent, Turn R22), owner @task.V3.T57. built: `pay/flow-bound-late`.
     - [ ] S6 with a challenge open. left: @task.V3.T57, needs `subroutine` (`ThreeDSecure`).
-    - [x] S7: a second `Cart` ref with another shopper, refused `ConflictingActorRef`: inverted on a Story's ensure
-      (Actors R5), owner @task.V3.T9. built: the `conflictingCart` builder.
+    - [x] S7: a second `Cart` ref with another shopper, refused `ConflictingActorRef` (Actors R5, Stories R3). built:
+      the `conflictingCart` builder.
     - [ ] S7: a duplicate `.each` key, refused: left: @task.V3.T57, needs `.each`. A missing service at boot: left:
       @task.V3.T21, needs boot to refuse an operation whose service is missing.
     - [ ] Switching carts cancels the old cart's in-flight refresh. Copies [cart.test.ts:1949][hy-cart] "hydrating a
@@ -270,8 +270,8 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       clears its wish, so checkout can begin. No source. built: `pay/quantity-lost`, `pay/quantity-not-saved`,
       `pay/removed-line-answer`.
     - [ ] The checkout's trace waits for the cart to settle. left: @task.V3.T49, needs `inspect` sinks.
-    - [x] A context consumer restored by a reload publishes once: inverted (Turn I9), owner @task.V3.T9. built:
-      `pay/browse` with a reload that attaches nothing.
+    - [x] A context consumer restored by a reload publishes once (Turn I9). built: `pay/browse` with a reload that
+      attaches nothing.
 
 ### cells
 
@@ -365,7 +365,7 @@ retry.
     (L3) (have in part: `seededStress`). built: `sync/stress-many-repos`, `sync/stress-36`.
   - [x] **Structure:** S3 × 64 repositories, each a tree of its own client. built: `sync/stress-many-repos`. S6 ×
     {repo first, reloaded} during a backoff. built: `sync/repo-first`, `sync/reloaded-in-backoff`. Sync first,
-    refused while a repository is bound: inverted (Actors R20), owner @task.V3.T9; built: the `syncFirst` builder.
+    refused `BlockedByDependents` while a repository is bound (Actors R20). built: the `syncFirst` builder.
   - [x] **Structure:** S6: a repository opened during its client's backoff shows it: inverted (Turn R12), owner
     @task.V3.T57. built: `sync/repo-opened-in-backoff`.
   - [x] **Edges:** E5: a retry-after of 0, 2^31 − 1 and 2^31 ms. built: `sync/retry-edges`; −1 is refused today and
@@ -444,8 +444,8 @@ kamp.us for rows restored after a failure.
     - [x] S3 × 64 accounts, one forgotten while the rest reload (L4). built: `transfers/stress-many-accounts`; one
       quarantined (have): `transfers/quarantined`.
     - [x] S6 × {form first, customer forgotten, reloaded}. built: `transfers/form-first`,
-      `transfers/customer-forgotten`, `transfers/lost-then-reload`. Customer first, refused while the form is bound:
-      inverted (Actors R20), owner @task.V3.T9; built: the `customerFirst` builder.
+      `transfers/customer-forgotten`, `transfers/lost-then-reload`. Customer first, refused `BlockedByDependents`
+      while the form is bound (Actors R20). built: the `customerFirst` builder.
     - [x] S6: a form bound after the account was chosen checks its balance: inverted (Turn R12), owner @task.V3.T57.
       built: `transfers/form-bound-late`.
     - [ ] S6 during a deposit. left: @task.V3.T21, needs `progress` (T `depositCheque`).
@@ -510,9 +510,8 @@ not checked here).
   - [x] **Load:** L1 × 16 screens for different accounts, one in lockout while another verifies; L4 during a lockout.
     built: `sign-in/stress-many-screens`, `sign-in/reload-in-lockout`.
   - [x] **Structure:** S3 × 16 accounts under L4. built: `sign-in/stress-many-sessions`. S6 × {screen first,
-    forgotten, reloaded}. built: `sign-in/screen-first`, `sign-in/sign-out-forgets`, the `reloadedMidHandle` builder
-    (kept out of `stories` while its restored return publishes twice: inverted, Turn I9, owner @task.V3.T9). Session
-    first, refused while its return is bound: inverted (Actors R20), owner @task.V3.T9; built: the `sessionFirst`
+    forgotten, reloaded}. built: `sign-in/screen-first`, `sign-in/sign-out-forgets`, `sign-in/reloaded-mid-handle`.
+    Session first, refused `BlockedByDependents` while its return is bound (Actors R20). built: the `sessionFirst`
     builder.
   - [x] **Structure:** S6: a return saved after its session signed in returns at once: inverted (Turn R12), owner
     @task.V3.T57. built: `sign-in/return-saved-late`.
@@ -551,6 +550,8 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
     ⇠ `user` ⇢ `team`; `Workspace/Badge` (have), ⇠ `team`.
   - `Workspace/Avatar` (step 1), persisted, ⇠ `user` from the session, undefined when signed out.
   - `Workspace/Status` (step 1), ⇠ `team` with no default provider, so its ref must name one.
+  - `Workspace/Byline` (step 1), persisted, ⇠ `user` from the session (undefined when signed out) and `team` from
+    the core team; counts each change of either it hears.
   - `Billing` (step 15), a lazy entry, ⇠ `org`.
 - **Operations:** T `signIn` (have); R `profile`, `teams` (step 4); T `renameTeam` (step 4); T `updatePlan`
   (step 15).
@@ -589,21 +590,26 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
     - [x] S2 × {24 (have), 64, 1,024} under L5. built: `session/fan-out`, `session/wall-64`, and
       `session/stress-wall-1024`, built on call and run by `tests/session/workspace.stress.test.ts`.
     - [x] S3: two roots (have). S4: the team (have). S5: `guestTeam` (have). built: `session/usual`.
-    - [x] S6 × {parent first (have: `parentUnderChildren`, inverted, Actors R20, owner @task.V3.T9), child first,
-      forgotten, signed out, reloaded}. built: `session/parent-under-children`, `session/child-first`,
-      `session/team-forgotten`, `session/signed-out-undefined`, `session/usual`.
+    - [x] S6 × {parent first, child first, forgotten, signed out, reloaded}. built: the `parentUnderChildren` builder
+      (refused `BlockedByDependents`, Actors R20), `session/child-first`, `session/team-forgotten`,
+      `session/signed-out-undefined`, `session/usual`.
+    - [x] S6 returned and reloaded with S4: the new `Workspace/Byline` reads the session's user and the team's name
+      (a diamond with a direct edge); it comes back after both changed, hearing each once, then a reload owes only its
+      unknown user (Actors R9, R18). built: `session/byline-returns`.
     - [x] S7: a missing provider, the new `Workspace/Status` with no team: refused `MissingContextProvider` by
-      `ensureActor`, and inverted on a Story's ensure (Actors R18), owner @task.V3.T9. built: the `missingTeam`
-      builder.
+      `ensureActor` and by a Story's ensure (Actors R18). built: the `missingTeam` builder.
+    - [x] S7: the live badge's ref naming another team, refused `ConflictingActorRef` (Actors R5). built: the
+      `conflictingBadge` builder.
     - [x] S7: a cycle, corrected: a cycle needs two definitions that read each other as context, which module order
       cannot build without a stand-in definition of the same id (`tests/actors/context.test.ts` uses one), so no app
       reaches `ContextCycle`; whether that refusal should stay is the user's call.
   - **Edges:**
     - [x] E2: an undefined user, read by the new `Workspace/Avatar` after a sign-out, saved and restored. E1: an empty
-      user. built: the `signedOutReloaded` builder (kept out of `stories` while its restored consumers publish twice:
-      Turn I9, owner @task.V3.T9), `session/signed-out-undefined`.
-    - [ ] E4: consumers at and past the cap. left: @task.V3.T9, needs the follow-up cap's context rule
-      (@plan.Pending.D13).
+      user. built: `session/signed-out-reloaded` (the user is saved unknown and owes one wave),
+      `session/signed-out-undefined`.
+    - [x] E4: consumers at and past 64, each heard, since context updates and onContext events never count toward the
+      follow-up cap (@plan.Pending.D13). built: `session/wall-64`, `session/avatar-wall-65`,
+      `session/stress-wall-1024`.
     - [x] E7: a corrupt saved record, quarantined. Copies [snapshot.test.ts:108][kp-snap] "returns null on a corrupt
       (non-JSON) payload, no throw". built: `session/corrupt-record`.
     - [x] E3: an oversized record, quarantined unread. Copies [snapshot.test.ts:123][kp-snap] "returns null on an
@@ -617,7 +623,7 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
     - [x] A failed storage read starts with no persistence and never overwrites saved data; a refused write keeps the
       live state and saves the newest later (Restore R9). built: `session/refused-load-keeps-data`,
       `session/refused-write-retries`.
-    - [ ] A failed storage read with a sign-in queued. left: @task.V3.T9, needs the boot queue (@plan.Pending.D17).
+    - [ ] A failed storage read with a sign-in queued. left: @task.V3.T20, needs the boot queue (@plan.Pending.D17).
     - [ ] Quota, a slow read and a non-durable store. left: @task.V3.T28, needs store adapters.
   - [x] **Variety:** singleton providers here, a keyed provider in `pay` (`Cart`, named by its owner). built:
     `session/usual`, `pay/browse`.
@@ -627,7 +633,8 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       settle hydrates NO authed snapshot (anon owns none)". built: `session/new-account-runtime` ("next").
     - [ ] A boot with no host page degrades without throwing. Copies [boot.test.ts:24][kp-flags] "returns undefined when
       there is no window (outage fallback / flag off) — no throw". left: @task.V3.T30, needs server rendering.
-    - [ ] A context update at the follow-up cap waits. left: @task.V3.T9 (@plan.Pending.D13).
+    - [x] A context update at the follow-up cap waits, corrected: context updates never count toward the cap
+      (@plan.Pending.D13). built: `session/avatar-wall-65`.
 
 ### command-palette
 

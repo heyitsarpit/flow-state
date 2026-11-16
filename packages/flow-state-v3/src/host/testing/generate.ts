@@ -568,11 +568,13 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
         return [Step.reload({ reattach: b % 2 === 0, heldWrites })];
       },
       disposeRuntime: () => (live ? [Step.disposeRuntime({ forget: false })] : []),
+      // An app disposes a provider only once no consumer reads it: the Runtime refuses it before.
       disposeActor: () =>
         live
           ? Option.toArray(
-              Option.map(actor, (it) =>
-                Step.dispose({ actor: it.actor, how: b % 2 === 0 ? "dispose" : "forget" }),
+              Option.map(
+                Option.filter(actor, (it) => b % 2 === 1 || view.dependents(it.actor).length === 0),
+                (it) => Step.dispose({ actor: it.actor, how: b % 2 === 0 ? "dispose" : "forget" }),
               ),
             )
           : [],

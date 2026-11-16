@@ -153,6 +153,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       issues: [],
       bound: new Map(),
       context: new Map(),
+      stale: new Map(),
       baselines: [],
     };
 
@@ -177,9 +178,9 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       ),
     );
 
-    // A start from a saved record keeps the values that record last saw: when the providers'
-    // selections differ now, its one wave is owed. A reload of a consistent saved world differs
-    // in nothing, so it stays silent.
+    // A start from a saved record reads its providers now, and owes its reactions one wave for
+    // each slot whose saved value differs or is unknown. A reload of a consistent saved world
+    // differs in nothing, so it stays silent.
     const saved = Option.filter(
       Option.map(from, (r) => r.seen),
       (seen) => seen.size > 0,
@@ -233,7 +234,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     ledger.start(actor);
 
     // The owed wave waits in its mailbox after the owed rows, ahead of the event that returned it.
-    if (context.differs(fresh, bound)) enqueue(Mail.Context({ actor }));
+    if (bound.stale.size > 0) enqueue(Mail.Context({ actor }));
   };
 
   const fireWaiting = (actor: ActorId) => {

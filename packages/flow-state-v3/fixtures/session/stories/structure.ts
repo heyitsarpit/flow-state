@@ -1,6 +1,7 @@
 import { Fake, Story } from "../../../src/host/testing/index.ts";
-import { mainAvatar, teamStatus, workspaceGrownSetup } from "../app.ts";
-import { acme, badge, coreTeam, mainSession } from "../machine.ts";
+import { mainAvatar, mainByline, teamStatus, workspaceGrownSetup } from "../app.ts";
+import { acme, badge, BadgeMachine, coreTeam, guestTeam, mainSession } from "../machine.ts";
+import { actorRef } from "../../../src/index.ts";
 import { Identity, IdentityFake } from "../server.ts";
 
 /**
@@ -99,17 +100,43 @@ export const signedOutUndefined = shell("session/signed-out-undefined")
   .checkpoint("signed out");
 
 /**
- * Ada signs in and out under the team and the header avatar, then the tab reloads. Built on call and kept out of `stories`
- * while consumers restored by a reload publish a snapshot twice, which every runner over `stories`
- * would report.
+ * Ada signs in and out under the team and the header avatar, then the tab reloads.
  */
-export const signedOutReloaded = () =>
-  shell("session/signed-out-reloaded")
-    .ensure(mainAvatar)
-    .send(mainSession, signInAda)
-    .send(mainSession, { _tag: "SignOut" })
-    .reload()
-    .checkpoint("reloaded");
+export const signedOutReloaded = shell("session/signed-out-reloaded")
+  .ensure(mainAvatar)
+  .send(mainSession, signInAda)
+  .send(mainSession, { _tag: "SignOut" })
+  .checkpoint("signed out")
+  .reload()
+  .checkpoint("reloaded");
+
+/**
+ * The byline is let go and ends after its grace; while it is gone Ada signs out and the team is
+ * renamed; it comes back, then the tab reloads and it comes back again.
+ */
+export const bylineReturns = shell("session/byline-returns")
+  .ensure(mainByline)
+  .send(mainSession, signInAda)
+  .send(coreTeam, { _tag: "Rename", name: "Core" })
+  .checkpoint("shown")
+  .detach(mainByline)
+  .advance("1 second")
+  .send(mainSession, { _tag: "SignOut" })
+  .send(coreTeam, { _tag: "Rename", name: "Platform" })
+  .checkpoint("gone")
+  .ensure(mainByline)
+  .checkpoint("returned")
+  .reload()
+  .checkpoint("reloaded");
+
+/**
+ * The badge is shown on the core team, then its ref is ensured again naming the guests' team.
+ * Built on call: the Runtime refuses the second ensure, so every runner's run would reject.
+ */
+export const conflictingBadge = () =>
+  shell("session/conflicting-badge").ensure(
+    actorRef(BadgeMachine, "badge", { context: { team: guestTeam } }),
+  );
 
 /**
  * A status line whose ref names no team is ensured.

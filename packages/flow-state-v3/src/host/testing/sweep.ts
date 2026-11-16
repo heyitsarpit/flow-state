@@ -110,6 +110,15 @@ const callOf = (view: View, phase: string, actor: ActorId) =>
       ),
   );
 
+// An actor and every live consumer reading it as context, directly or not, consumers first, each
+// once.
+// RETURN_TYPE: the function recurses, so its result type cannot be inferred.
+const closing = (view: View, actor: ActorId): ReadonlyArray<ActorId> => {
+  const order = [...view.dependents(actor).flatMap((d) => closing(view, d)), actor];
+
+  return order.filter((a, at) => order.findIndex((b) => actorKey(b) === actorKey(a)) === at);
+};
+
 // The steps of a fault given while a write stands in its phase, or none when it cannot fire there;
 // a storage refusal fires later, when the refused write is issued, and is judged then.
 const faultOf = (fault: Fault, phase: string, actor: ActorId, view: View) => {
@@ -125,7 +134,9 @@ const faultOf = (fault: Fault, phase: string, actor: ActorId, view: View) => {
         ],
       }),
     "storage refusal": () => [Step.world({ words: [WorldWord.storage({ word: "refuse" })] })],
-    "actor disposal": () => [Step.dispose({ actor, how: "dispose" })],
+    // An app closes a provider's consumers before it: the Runtime refuses it while they are bound.
+    "actor disposal": () =>
+      closing(view, actor).map((closed) => Step.dispose({ actor: closed, how: "dispose" })),
     forget: () => [Step.dispose({ actor, how: "forget" })],
     release: () => Array.from({ length: view.uses(actor) }, () => Step.detach({ actor })),
     "disposal bound": () => [

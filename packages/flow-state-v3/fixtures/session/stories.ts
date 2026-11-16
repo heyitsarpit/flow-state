@@ -82,21 +82,15 @@ export const fanOut = wall
   .checkpoint("restored");
 
 /**
- * The middle of a tree under live descendants: closing the main session is refused while its team
- * and that team's badges are live; once the badges and the team are closed it closes, and a reload
- * brings back only the other tree's work.
+ * The middle of a tree under live descendants: the main session is closed while its team and that
+ * team's badge are live. Built on call and kept out of `stories`: the Runtime refuses the close, so
+ * every runner's run would reject.
  */
-export const parentUnderChildren = trees("session/parent-under-children")
-  .send(mainSession, signInAda)
-  .send(coreTeam, coreName)
-  .dispose(mainSession)
-  .checkpoint("refused")
-  .dispose(badge)
-  .dispose(coreTeam)
-  .dispose(mainSession)
-  .checkpoint("closed")
-  .reload()
-  .checkpoint("reloaded");
+export const parentUnderChildren = () =>
+  trees("session/parent-under-children")
+    .send(mainSession, signInAda)
+    .send(coreTeam, coreName)
+    .dispose(mainSession);
 
 /**
  * Display names on both sides of a string's 262,144-byte bound. Ada's, at the bound, is saved;
@@ -348,7 +342,6 @@ export const seededStress = Story.app(workspaceSetup, {
 export const stories = {
   usual,
   fanOut,
-  parentUnderChildren,
   longNames,
   stress,
   long,

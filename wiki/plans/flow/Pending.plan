@@ -74,15 +74,17 @@ decisions
         span (every answer Lost or Never for 5 to 120 s) needs one word for every endpoint at once, not a drop armed per
         endpoint. **Proven by:** @task.V3.T70's step test, the stress profile's span check and the planted fault
         `offline-reaches-server`. Judged by the orchestrator, for the user's read. Found in @task.V3.T70.
-    D13  @plan.Runtime.O4: a context update at the follow-up cap waits
-        O4's "the turn that would add one is refused" applies to an event's turn; a context update's turn in that place
-        is undone and waits at its place until the chain is over, then runs as an admitted event. **Why:** O4 also says
-        context updates are never dropped. Two traces of one Story (a chain whose 32nd context update would start the
-        65th follow-up): refusing it leaves links 32 to 34 stale with an InvalidTurn issue; waiting gives every link its
-        value and no issue. **Proven by:** tests/actors/follow-ups.test.ts and the planted fault
-        `context-update-dropped-at-cap`. Open for the user: a provider with more than 64 consumers adds more than 64
-        follow-ups in one turn, so that turn is refused. Judged by the T9 lead, for the user's read. Found
-        in @task.V3.T9.
+    D13  @plan.Runtime.O4: context updates never count toward the follow-up cap
+        O4's 64 follow-ups count only events sent by turns; a context update and the onContext events it enqueues never
+        count, so none is refused or waits at the cap, and a provider with any number of consumers updates them all in
+        one admitted event. **Why:** O4 also says context updates are never dropped, and ContextCycle already bounds a
+        context chain; counting them refused a rename under more than 64 badges. Two traces of one Story (a rename under
+        1,024 badges): counted, the rename is refused and every badge keeps the old name; uncounted, every badge shows
+        the new one and no issue is raised. No turn sends an event until an actor-to-actor send action exists (the
+        user's call), so the cap has no input today and is built with that action. **Proven by:**
+        tests/actors/follow-ups.test.ts, `session/avatar-wall-65`, the 1,024-badge wall and the planted fault
+        `context-follow-ups-capped`. Decided by the orchestrator, delegated by the user; supersedes the earlier D13 (a
+        context update at the cap waits). Found in @task.V3.T9.
     D14  @plan.Operations.O4: a Flapping session reopens when the connection is restored (accepted, the user, 
          2026-11-17)
         **Before:** a session that ends `Flapping` stays ended; "it never re-opens a session" (O4), so a chat after a

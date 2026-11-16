@@ -75,50 +75,39 @@ const chainOf = (firstCopies: number) => {
   return { entries: Object.fromEntries(pairs), refs };
 };
 
-const chain = chainOf(1);
+// Each link of a context chain adds its context update and its onContext events as follow-ups of
+// the head's bump: a chain of 34 links adds 68 or, with two events at the first link, 69.
+const settledChain = (firstCopies: number) => {
+  const built = chainOf(firstCopies);
+
+  const runtime = runtimeSetup({
+    app: app({ id: `chain-${firstCopies}`, machines: built.entries }),
+  }).construct();
+
+  Effect.runSync(runtime.ready());
+  const seen: Array<Evidence> = [];
+  const handles = built.refs.map((ref) => runtime.ensureActor(ref));
+  attachInspector(runtime, (e) => void seen.push(e));
+  runtime.ensureActor(actorRef(HeadMachine, "head")).send({ _tag: "Bump" });
+
+  return {
+    values: handles.map((h) => Option.map(h.getSnapshot(), (s) => s.memory["n"])),
+    issues: seen.filter((e) => e._tag === "Issue"),
+  };
+};
 
 describe("follow-ups (Actors R13, I20)", () => {
-  // Each link adds its context update and its event: link 32's event turn would start the 65th
-  // follow-up (link 33's context update), so that turn is refused and undone.
-  it("Actors R13, I20: an admitted event's follow-ups run first, at most 64; the turn that would start the 65th is refused with an issue naming the chain", () => {
-    const runtime = runtimeSetup({
-      app: app({ id: "chain", machines: chain.entries }),
-    }).construct();
+  it("Actors R13: context updates and onContext events never count toward the 64 follow-ups, so a 34-link chain reaches every link with no issue", () => {
+    const { values, issues } = settledChain(1);
 
-    Effect.runSync(runtime.ready());
-    const seen: Array<Evidence> = [];
-    const handles = chain.refs.map((ref) => runtime.ensureActor(ref));
-    attachInspector(runtime, (e) => void seen.push(e));
-    runtime.ensureActor(actorRef(HeadMachine, "head")).send({ _tag: "Bump" });
-
-    const nOf = (at: number) =>
-      Option.map(handles[at - 1]?.getSnapshot() ?? Option.none(), (s) => s.memory["n"]);
-
-    expect(nOf(31)).toEqual(Option.some(1));
-    expect(nOf(32)).toEqual(Option.some(0));
-    expect(nOf(33)).toEqual(Option.some(0));
-    expect(seen.filter((e) => e._tag === "Issue").map((e) => e.code)).toEqual(["InvalidTurn"]);
+    expect(values).toEqual(values.map(() => Option.some(1)));
+    expect(issues).toEqual([]);
   });
 
-  // The first link enqueues two events, so each later link's context update is an even follow-up
-  // and its event odd: link 32's context update is the turn that would start the 65th. A context
-  // update is never dropped (Actors R14): it waits, at its place, and runs once the chain is over.
-  it("Actors R13, R14: a context update whose turn would start the 65th follow-up waits until the chain is over, and nothing is dropped", () => {
-    const twin = chainOf(2);
+  it("Actors R13, R14: a chain whose first link adds two events per change also reaches every link, and nothing is dropped", () => {
+    const { values, issues } = settledChain(2);
 
-    const runtime = runtimeSetup({
-      app: app({ id: "twin-chain", machines: twin.entries }),
-    }).construct();
-
-    Effect.runSync(runtime.ready());
-    const seen: Array<Evidence> = [];
-    const handles = twin.refs.map((ref) => runtime.ensureActor(ref));
-    attachInspector(runtime, (e) => void seen.push(e));
-    runtime.ensureActor(actorRef(HeadMachine, "head")).send({ _tag: "Bump" });
-
-    expect(handles.map((h) => Option.map(h.getSnapshot(), (s) => s.memory["n"]))).toEqual(
-      handles.map(() => Option.some(1)),
-    );
-    expect(seen.filter((e) => e._tag === "Issue")).toEqual([]);
+    expect(values).toEqual(values.map(() => Option.some(1)));
+    expect(issues).toEqual([]);
   });
 });

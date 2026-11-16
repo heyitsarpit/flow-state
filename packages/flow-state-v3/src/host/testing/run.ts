@@ -1,9 +1,10 @@
 import { Effect, Exit, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
-import { Input } from "../../core/step.ts";
+import { dependentsOf, Input } from "../../core/step.ts";
 import { type ActorId, actorKey } from "../../core/world.ts";
 import type { AnyDefinition } from "../../definition.ts";
+import { FlowError } from "../../error.ts";
 import { Host } from "../host.ts";
 import { attachInspector, inspect, type RuntimeCut } from "../inspect.ts";
 import {
@@ -135,7 +136,8 @@ const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limi
 /**
  * What a step source reads before it gives the next step: the calls held at the fake servers, each
  * endpoint's call count, every write batch's status, the held store writes, whether the tab's
- * Runtime is disposed, an actor's uses, and the write lanes.
+ * Runtime is disposed, an actor's uses, the live consumers that read it as context, and the write
+ * lanes.
  */
 export type View = {
   readonly held: ReadonlyArray<{
@@ -148,6 +150,7 @@ export type View = {
   readonly heldWrites: number;
   readonly disposed: boolean;
   readonly uses: (actor: ActorId) => number;
+  readonly dependents: (actor: ActorId) => ReadonlyArray<ActorId>;
   readonly lanes: () => RuntimeCut["lanes"];
 };
 
@@ -202,7 +205,16 @@ export const runFrom = <Names extends string>(
 
   const evidence: Array<Evidence> = [];
   const checkpoints = new Map<string, Cut>();
-  const uses = new Map<string, { readonly actor: ActorId; readonly count: number }>();
+
+  const uses = new Map<
+    string,
+    {
+      readonly actor: ActorId;
+      readonly context: ReadonlyMap<string, ActorId>;
+      readonly count: number;
+    }
+  >();
+
   let current = 1;
   let stepAt = -1;
   const turns = { instant: -1, count: 0 };
@@ -327,15 +339,15 @@ export const runFrom = <Names extends string>(
     if (disposed) scriptFault(`${what} after disposeRuntime`);
   };
 
-  // A ref's context overrides go with its first ensure; an ensure again after a reload keeps
-  // the binding the identity saved.
-  const attach = (actor: ActorId, context: ReadonlyMap<string, ActorId> = new Map()) =>
+  // An ensure passes the Runtime's admission, as the public ensureActor does, with the ref's
+  // context overrides; an ensure again after a reload passes it with the ones it was first given.
+  const attach = (actor: ActorId, context: ReadonlyMap<string, ActorId>) =>
     testing.attach(
       tab.built,
       actor,
       "story",
       false,
-      context.size === 0 ? Option.none() : Option.some(context),
+      Option.some(tab.built.admission.ensure(actor, context)),
     );
 
   const steps: Array<Step> = [];
@@ -348,6 +360,7 @@ export const runFrom = <Names extends string>(
     heldWrites: store.heldWrites(),
     disposed,
     uses: (actor) => uses.get(actorKey(actor))?.count ?? 0,
+    dependents: (actor) => dependentsOf(tab.built.driver.world(), actor),
     lanes: () => inspect(tab.built.runtime).lanes,
   });
 
@@ -362,16 +375,16 @@ export const runFrom = <Names extends string>(
     Step.$match(step, {
       ensure: ({ actor, context }) => {
         live("ensure");
-        const count = uses.get(actorKey(actor))?.count ?? 0;
-        uses.set(actorKey(actor), { actor, count: count + 1 });
         attach(actor, context);
+        const count = uses.get(actorKey(actor))?.count ?? 0;
+        uses.set(actorKey(actor), { actor, context, count: count + 1 });
       },
       detach: ({ actor }) => {
         live("detach");
-        const count = uses.get(actorKey(actor))?.count ?? 0;
+        const used = uses.get(actorKey(actor));
 
-        if (count <= 1) uses.delete(actorKey(actor));
-        else uses.set(actorKey(actor), { actor, count: count - 1 });
+        if (used === undefined || used.count <= 1) uses.delete(actorKey(actor));
+        else uses.set(actorKey(actor), { ...used, count: used.count - 1 });
         testing.detach(tab.built, actor, "story");
       },
       send: ({ actor, event: { _tag, ...payload } }) => {
@@ -380,10 +393,14 @@ export const runFrom = <Names extends string>(
       },
       dispose: ({ actor, how }) => {
         live("dispose");
-        uses.delete(actorKey(actor));
 
         if (how === "forget") testing.forget(tab.built, actor);
-        else tab.built.driver.input(Input.DisposeActor({ actor }));
+        else {
+          tab.built.admission.dispose(actor);
+          tab.built.driver.input(Input.DisposeActor({ actor }));
+        }
+
+        uses.delete(actorKey(actor));
       },
       disposeRuntime: ({ forget }) => {
         disposed = true;
@@ -408,7 +425,8 @@ export const runFrom = <Names extends string>(
 
         if (!reattach) uses.clear();
 
-        for (const { actor, count } of uses.values()) for (let k = 0; k < count; k++) attach(actor);
+        for (const { actor, context, count } of uses.values())
+          for (let k = 0; k < count; k++) attach(actor, context);
       },
       checkpoint: ({ name }) => {
         if (checkpoints.has(name)) scriptFault(`checkpoint ${name} twice`);
@@ -473,8 +491,9 @@ export const runFrom = <Names extends string>(
 };
 
 /**
- * Runs a subject over a step array as an Effect: a script fault or limit fails it; anything else
- * thrown fails it as StoryFailed.
+ * Runs a subject over a step array as an Effect: a script fault or limit fails it, an ensure or
+ * dispose the Runtime refuses fails it with that FlowError; anything else thrown fails it as
+ * StoryFailed.
  */
 export const runEffect = <Names extends string>(
   subject: Subject,
@@ -485,14 +504,15 @@ export const runEffect = <Names extends string>(
   Effect.try({
     try: () => runSteps<Names>(subject, id, steps, seed),
     catch: (fault) =>
-      fault instanceof StoryFailed || fault instanceof StoryTurnLimit
+      fault instanceof StoryFailed || fault instanceof StoryTurnLimit || fault instanceof FlowError
         ? fault
         : new StoryFailed({ problem: `the run threw: ${String(fault)}` }),
   });
 
 /**
- * Runs a subject over a step array as a Promise: a script fault or limit rejects it; anything else
- * thrown rejects it as StoryFailed.
+ * Runs a subject over a step array as a Promise: a script fault or limit rejects it, an ensure or
+ * dispose the Runtime refuses rejects it with that FlowError; anything else thrown rejects it as
+ * StoryFailed.
  */
 export const run = <Names extends string>(
   subject: Subject,

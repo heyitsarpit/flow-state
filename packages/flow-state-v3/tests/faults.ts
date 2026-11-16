@@ -1,5 +1,6 @@
 import { actorFaults } from "./actor-faults.ts";
 import { consolidationFaults } from "./consolidation-faults.ts";
+import { contextFaults } from "./context-faults.ts";
 import { lanePolicyFaults } from "./lane-policy-faults.ts";
 import { lifeFaults } from "./life-faults.ts";
 import { mixFaults } from "./mix-faults.ts";
@@ -193,8 +194,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "      state: incarnation.state,\n      memory,",
-        replace: "      state: compiled.initial,\n      memory,",
+        find: "        state: incarnation.state,\n        memory,",
+        replace: "        state: compiled.initial,\n        memory,",
       },
     ],
   },
@@ -301,6 +302,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...structureFaults,
   ...mixFaults,
   ...actorFaults,
+  ...contextFaults,
   {
     name: "ending-heard-twice",
     tests: ["src/core/ledger.test.ts"],

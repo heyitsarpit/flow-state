@@ -82,8 +82,11 @@ export type Incarnation = {
   readonly bound: ReadonlyMap<string, ActorId>;
   // FLOW_STATE_ALLOW_UNKNOWN: a slot's value has the type its selector returns, typed at the definition.
   readonly context: ReadonlyMap<string, unknown>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns.
-  readonly baselines: ReadonlyArray<unknown>;
+  // The slots whose reactions have not seen their current value yet, with the value each last saw.
+  // FLOW_STATE_ALLOW_UNKNOWN: a slot's value has the type its selector returns; none when not saved.
+  readonly stale: ReadonlyMap<string, Option.Option<unknown>>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns; none when unknown.
+  readonly baselines: ReadonlyArray<Option.Option<unknown>>;
 };
 
 /**
@@ -260,8 +263,8 @@ export type ActorRecord = {
   readonly memory: Values;
   readonly schedules: ReadonlyArray<typeof ScheduleDeadline.Type>;
   readonly context: ReadonlyMap<string, ActorId>;
-  // FLOW_STATE_ALLOW_UNKNOWN: each slot's last-seen value, as JSON; a return compares against it.
-  readonly seen: ReadonlyMap<string, unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: each slot's last-seen value, as JSON, or none when it was not saved.
+  readonly seen: ReadonlyMap<string, Option.Option<unknown>>;
 };
 
 /**

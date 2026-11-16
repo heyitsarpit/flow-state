@@ -1,5 +1,12 @@
 import { Option, Result, Schema, Struct } from "effect";
-import { BOUNDS, CodecFailure, decodeCanonical, encodeCanonical, measure } from "./codec.ts";
+import {
+  BOUNDS,
+  CodecFailure,
+  decodeCanonical,
+  encodeCanonical,
+  measure,
+  toCanonicalJson,
+} from "./codec.ts";
 import type { Compiled, Values } from "./compiled.ts";
 import { Channel, ScheduleDeadline } from "./vocabulary.ts";
 import type { Owed } from "./ledger.ts";
@@ -32,6 +39,7 @@ const ActorRecordJson = Schema.Struct({
   schedules: Schema.Array(ScheduleDeadline),
   context: Schema.Record(Schema.String, ActorJson),
   seen: Schema.Record(Schema.String, Schema.Json),
+  unknown: Schema.optionalKey(Schema.Array(Schema.String)),
 });
 
 const LaneRecordJson = Schema.Struct({
@@ -202,30 +210,63 @@ export const encodeOwed = (actor: ActorId, rows: ReadonlyArray<OwedRow>) => {
   });
 };
 
+// Each slot's last-seen value: the one its reactions still have to compare against, else its
+// current one; a value that cannot be encoded alone is saved unknown, so it never withholds the
+// record.
+const seenOf = (incarnation: Incarnation) =>
+  [...incarnation.context].map(([slot, value]) => {
+    const last = incarnation.stale.get(slot) ?? Option.some(value);
+
+    return {
+      slot,
+      json: Option.flatMap(last, (v) => Result.getSuccess(toCanonicalJson(v))),
+    };
+  });
+
+// The slots saved unknown, named only when there are some.
+const unknownOf = (seen: ReturnType<typeof seenOf>) => {
+  const unknown = seen.filter((s) => Option.isNone(s.json)).map((s) => s.slot);
+
+  return unknown.length === 0 ? {} : { unknown };
+};
+
 /**
  * An incarnation's record as canonical text: its state, its memory encoded by the machine's
- * memory Schema, its schedules' deadlines, its context bindings and each slot's last-seen value;
- * or why it cannot encode.
+ * memory Schema, its schedules' deadlines, its context bindings and each slot's last-seen value,
+ * or the slot named unknown when that value cannot be saved; or why it cannot encode.
  */
 export const encodeActor = (compiled: Compiled, incarnation: Incarnation) =>
-  Result.flatMap(jsonOf(compiled.memoryJson, incarnation.memory), (memory) =>
-    textOf({
-      format: FORMAT,
-      machine: incarnation.actor.machine,
-      name: incarnation.actor.name,
-      state: incarnation.state,
-      memory,
-      schedules: [...incarnation.schedules].map(([name, armed]) => ({
-        name,
-        dueAt: armed.dueAt,
-        send: armed.send,
-      })),
-      context: Object.fromEntries(
-        [...incarnation.bound].map(([slot, p]) => [slot, { machine: p.machine, name: p.name }]),
-      ),
-      seen: Object.fromEntries(incarnation.context),
-    }),
-  );
+  Result.flatMap(jsonOf(compiled.memoryJson, incarnation.memory), (memory) => {
+    const seen = seenOf(incarnation);
+
+    const record = (known: typeof seen) =>
+      textOf({
+        format: FORMAT,
+        machine: incarnation.actor.machine,
+        name: incarnation.actor.name,
+        state: incarnation.state,
+        memory,
+        schedules: [...incarnation.schedules].map(([name, armed]) => ({
+          name,
+          dueAt: armed.dueAt,
+          send: armed.send,
+        })),
+        context: Object.fromEntries(
+          [...incarnation.bound].map(([slot, p]) => [slot, { machine: p.machine, name: p.name }]),
+        ),
+        seen: Object.fromEntries(
+          known.flatMap((s) =>
+            Option.match(s.json, { onNone: () => [], onSome: (j) => [[s.slot, j]] }),
+          ),
+        ),
+        ...unknownOf(known),
+      });
+
+    // Values that fit alone may still pass the record's bound together: then every slot is unknown.
+    return Result.orElse(record(seen), () =>
+      record(seen.map((s) => ({ slot: s.slot, json: Option.none() }))),
+    );
+  });
 
 /**
  * A lane's record as canonical text: its Attempt with its encoded input, the retryCount it carries
@@ -348,7 +389,10 @@ export const decodeRecords = (
         memory,
         schedules: r.schedules,
         context: new Map(Object.entries(r.context).map(([slot, p]) => [slot, actorOf(p)])),
-        seen: new Map(Object.entries(r.seen)),
+        seen: new Map([
+          ...Object.entries(r.seen).map(([slot, value]) => [slot, Option.some(value)] as const),
+          ...(r.unknown ?? []).map((slot) => [slot, Option.none()] as const),
+        ]),
       } satisfies ActorRecord;
     });
 

@@ -62,6 +62,7 @@ const stepOver = (
           issues: [],
           bound: new Map(),
           context: new Map(),
+          stale: new Map(),
           baselines: [],
           memory,
           schedules: new Map(),
@@ -344,6 +345,7 @@ it("WriteAhead I23, R4: in one step, an identity whose record cannot encode is w
           issues: [],
           bound: new Map(),
           context: new Map(),
+          stale: new Map(),
           baselines: [],
           memory: { count: 5 },
           schedules: new Map(),
@@ -357,14 +359,4 @@ it("WriteAhead I23, R4: in one step, an identity whose record cannot encode is w
 
   expect(writesOf(first.tx)).toEqual([`actor/${actorKey(other)}=5`]);
   expect([...first.tx.world().withheld.keys()]).toEqual([actorKey(actor)]);
-});
-
-it("Actors R13: a turn undone by the follow-up cap takes back what it touched, so its step writes nothing", () => {
-  const { tx, persistence } = stepOver();
-  const before = tx.checkpoint();
-  persistence.saveActor(actor);
-  tx.rollback(before);
-  persistence.project();
-
-  expect(writesOf(tx)).toEqual([]);
 });

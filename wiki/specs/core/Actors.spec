@@ -113,7 +113,10 @@ requirements
                 its owed rows, in the order they were owed), one `onContext` wave if a provider's
                 selection differs from the last-seen value its record saved (in this Runtime or
                 across a reload; a reload of a consistent saved world differs in nothing), then the
-                event that restored it.
+                event that restored it. Its starting turn publishes once, with its providers'
+                current selections; the wave re-runs only its reactions against the saved values,
+                and publishes only a changed slot or issue. A slot whose last-seen value could not
+                be saved is unknown and always owes the wave: each reaction that reads it runs once.
 
                 A non-persisted identity starts fresh. An ensure over an undecodable record starts
                 fresh, reports RecordUndecodable (proposed name) and adopts the identity's lanes. A
@@ -164,14 +167,14 @@ requirements
     R13  Order across actors
         source  @plan.Runtime.O4.
         must    Follow-ups (the events and context updates a served event's turns enqueue) run first,
-                up to 64 per admitted event; an event's turn that would add the 65th is refused and
-                undone, with an issue naming the chain (check's denial code for it is InvalidTurn).
-                A context update's turn in that place is undone and waits at its place until the
-                chain is over, so no context update is dropped (R14). Endings and firings are not
-                counted and their turns are never refused by it. Otherwise one event runs from the 
-                next actor in rotation, oldest
-                first. The 64 caps the follow-ups one admitted event starts, a chain inside one
-                admission, not how often events are admitted.
+                oldest first within each actor. Up to 64 events sent by turns count per admitted
+                event; an event's turn that would send the 65th is refused and undone, with an issue
+                naming the chain (check's denial code for it is InvalidTurn). Context updates and
+                the onContext events they enqueue never count and are never refused by it, since
+                ContextCycle bounds a context chain; endings and firings are not counted either.
+                Otherwise one event runs from the next actor in rotation, oldest first. The 64 caps
+                the events one admitted event's turns send, a chain inside one admission, not how
+                often events are admitted.
 
                 A send to an idle Runtime runs its turn before send returns; during a turn it
                 queues. Slices decide when work runs, never what. A spin, events admitted again and
@@ -240,8 +243,10 @@ requirements
         must    Provider.select reads one complete provider snapshot. A slot binds to one provider
                 for the consumer's lifetime; a bound consumer is a use of its provider. A cycle
                 (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one
-                rejects at admission. Baselines are silent at admission, adoption, hydration and a
-                reload restore; `keys` and `paused` are re-evaluated silently at the same points
+                rejects at admission. A record saves each slot's last-seen value apart; one that
+                cannot encode is saved unknown and never withholds the record. Baselines are silent
+                at admission, adoption, hydration and a reload restore, a slot saved unknown aside; `keys` and `paused` 
+                are re-evaluated silently at the same points
                 and on a return;
                 a return restored from the Runtime's copy gets R9's one wave when a
                 provider's selection changed meanwhile. Decision (agent, 2026-11-11): audit C13.
@@ -427,7 +432,7 @@ invariants
 
     I19  Within one actor, events are admitted in mailbox order and one at a time. [@R12]
 
-    I20  At most 64 follow-ups run per admitted event. [@R13]
+    I20  At most 64 events sent by turns run as follow-ups of one admitted event. [@R13]
 
     I21  An actor with pending mail is served within one rotation of the other actors with mail. [@R13]
 

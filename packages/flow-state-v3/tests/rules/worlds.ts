@@ -38,7 +38,18 @@ export const underAnotherWorld = (which: string, stories: ReadonlyArray<Story<st
           Step.reload({ reattach: true, heldWrites: "abort" }),
           // The cut right after the reload lets Restore I1 judge it.
           Step.checkpoint({ name: "~reloaded" }),
-          ...[...writers.values()].map((actor) => Step.ensure({ actor, context: new Map() })),
+          // Each writer is ensured with the context its Story's ref gave it, as an app does.
+          ...[...writers].map(([key, actor]) =>
+            Step.ensure({
+              actor,
+              context:
+                story.steps.flatMap((s) =>
+                  s._tag === "ensure" && `${s.actor.machine}/${s.actor.name}` === key
+                    ? [s.context]
+                    : [],
+                )[0] ?? new Map(),
+            }),
+          ),
           Step.advance({ duration: "5 seconds" }),
         ];
 

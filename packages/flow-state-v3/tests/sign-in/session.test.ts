@@ -125,7 +125,7 @@ describe("the session's ends (fixtures.md S6)", () => {
   });
 
   it("S6 reloaded, WriteAhead R14, WriteLanes R8: a handle save on the wire at a reload ends unknown Restored; the session retries it once as the same Attempt, it lands and the redirect is released", async () => {
-    const run = await reloadedMidHandle().run();
+    const run = await played(reloadedMidHandle);
 
     const attempts = run.checkpoints.reloaded.calls
       .filter((c) => c.endpoint === "setUsername")
@@ -137,8 +137,8 @@ describe("the session's ends (fixtures.md S6)", () => {
     expect(run.checkpoints.reloaded.read(mainReturn)?.state).toBe("RETURNED");
   });
 
-  it.fails("Actors R20, Stories R3: disposing the session while its return is bound is refused BlockedByDependents", async () => {
-    await expect(sessionFirst().run()).rejects.toThrow(/BlockedByDependents/u);
+  it("Actors R20, Stories R3: disposing the session while its return is bound is refused BlockedByDependents, naming the return", async () => {
+    await expect(sessionFirst().run()).rejects.toThrow(/BlockedByDependents: .*Auth\/ReturnTo/u);
   });
 });
 

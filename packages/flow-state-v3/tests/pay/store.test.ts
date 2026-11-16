@@ -222,7 +222,7 @@ describe("the shop's structures (fixtures.md S1, S3, S6, S7, S9)", () => {
     expect(end.read(shopperOf(63))?.memory["name"]).toBe("s63");
   });
 
-  it.fails("Actors R5, Stories R3: a Story's second ref to a live cart with another shopper is refused ConflictingActorRef", async () => {
+  it("Actors R5, Stories R3: a Story's second ref to a live cart with another shopper is refused ConflictingActorRef", async () => {
     await expect(conflictingCart().run()).rejects.toThrow(/ConflictingActorRef/u);
   });
 
@@ -246,8 +246,10 @@ describe("the shop's structures (fixtures.md S1, S3, S6, S7, S9)", () => {
     expect(run.checkpoints.fresh.read(mainCart)?.context).toEqual({ shopper: "" });
   });
 
-  it.fails("Actors R20, Stories R3: disposing the cart while the badge and the flow are bound is refused BlockedByDependents", async () => {
-    await expect(cartFirst().run()).rejects.toThrow(/BlockedByDependents/u);
+  it("Actors R20, Stories R3: disposing the cart while the badge and the flow are bound is refused BlockedByDependents, naming both", async () => {
+    await expect(cartFirst().run()).rejects.toThrow(
+      /BlockedByDependents: .*Shop\/CartBadge.*Shop\/CheckoutFlow|BlockedByDependents: .*Shop\/CheckoutFlow.*Shop\/CartBadge/u,
+    );
   });
 });
 

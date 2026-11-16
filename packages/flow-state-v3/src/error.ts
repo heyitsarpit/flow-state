@@ -231,7 +231,11 @@ export class FlowError extends Data.TaggedError("FlowError")<{
   readonly diagnostics: readonly [Diagnostic, ...Array<Diagnostic>];
   // FLOW_STATE_ALLOW_UNKNOWN: the failure Flow wraps, kept whole (an Effect error's standard field).
   readonly cause?: unknown;
-}> {}
+}> {
+  override get message() {
+    return `${this.code}: ${this.diagnostics[0].summary}`;
+  }
+}
 
 // FLOW_STATE_ALLOW_UNKNOWN: the failure Flow wraps, kept whole.
 const diagnosticsOf = (

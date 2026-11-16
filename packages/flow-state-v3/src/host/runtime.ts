@@ -296,7 +296,7 @@ export const buildRuntime = (
     entries.map((e) => [machineOf(e).compiled.id, ("machine" in e ? e.context : undefined) ?? {}]),
   );
 
-  const { wiringOf, refused: contextRefused } = makeWiring(machines, defaults);
+  const { wiringOf, overrideOf, refused: contextRefused } = makeWiring(machines, defaults);
 
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
@@ -499,24 +499,15 @@ export const buildRuntime = (
     ]);
   };
 
-  const runtime: Runtime = {
-    ready,
-    // Before ready succeeds, no handle exists: the core's life rejects the ensure.
-    ensureActor: (ref) => {
-      const actor = ownRef(ref);
-      const what = `ensureActor ${actor.name}`;
+  // What admission checks before an ensure or a dispose does any work; a Story's words pass it too.
+  const admission = {
+    // The providers an ensure binds: its entry's wiring with the ref's overrides; a live identity
+    // bound otherwise is refused.
+    ensure: (actor: ActorId, override: ReadonlyMap<string, ActorId>) => {
+      const compiled = machines.get(actor.machine)?.compiled;
 
-      const probe = Input.Ensure({
-        actor,
-        use: Option.none(),
-        existing: false,
-        wiring: Option.none(),
-      });
-
-      // The life decides first; then the context graph is checked, before any work.
-      if (!Verdict.$is("Run")(driver.verdict(probe))) driver.offer(probe, what);
-
-      const wiring = wiringOf(ref.machine.compiled, ref.context, [actorKey(actor)]);
+      const wiring =
+        compiled === undefined ? new Map() : wiringOf(compiled, override, [actorKey(actor)]);
 
       const conflicting = Option.exists(
         boundOf(driver.world(), actor),
@@ -534,6 +525,44 @@ export const buildRuntime = (
           "Name one identity with one context: drop the ref's override or use another identity.",
         );
 
+      return wiring;
+    },
+    // A provider with bound consumers is not disposed: its consumers would lose their context.
+    dispose: (actor: ActorId) => {
+      const dependents = dependentsOf(driver.world(), actor);
+
+      if (
+        dependents.length > 0 &&
+        Verdict.$is("Run")(driver.verdict(Input.DisposeActor({ actor })))
+      )
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a refused context throws before any work
+        throw contextRefused(
+          "BlockedByDependents",
+          [actor.machine, actor.name, ...dependents.map(actorKey)],
+          `${actor.name} provides context to ${dependents.map(actorKey).join(", ")}`,
+          "Dispose its consumers first.",
+        );
+    },
+  };
+
+  const runtime: Runtime = {
+    ready,
+    // Before ready succeeds, no handle exists: the core's life rejects the ensure.
+    ensureActor: (ref) => {
+      const actor = ownRef(ref);
+      const what = `ensureActor ${actor.name}`;
+
+      const probe = Input.Ensure({
+        actor,
+        use: Option.none(),
+        existing: false,
+        wiring: Option.none(),
+      });
+
+      // The life decides first; then the context graph is checked, before any work.
+      if (!Verdict.$is("Run")(driver.verdict(probe))) driver.offer(probe, what);
+
+      const wiring = admission.ensure(actor, overrideOf(ref.machine.compiled, ref.context));
       driver.offer(Input.Ensure({ ...probe, wiring: Option.some(wiring) }), what);
 
       return handleOf(ref.machine, actor);
@@ -553,21 +582,7 @@ export const buildRuntime = (
     },
     disposeActor: (target) => {
       const actor = identityOf(target);
-      const dependents = dependentsOf(driver.world(), actor);
-
-      // A provider with bound consumers is not disposed: its consumers would lose their context.
-      if (
-        dependents.length > 0 &&
-        Verdict.$is("Run")(driver.verdict(Input.DisposeActor({ actor })))
-      )
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a refused context throws before any work
-        throw contextRefused(
-          "BlockedByDependents",
-          [actor.machine, actor.name, ...dependents.map(actorKey)],
-          `${actor.name} provides context to ${dependents.map(actorKey).join(", ")}`,
-          "Dispose its consumers first.",
-        );
-
+      admission.dispose(actor);
       driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
     },
     // The core's disposal ends first: calls settling within its bound are parked, then a forget
@@ -585,7 +600,7 @@ export const buildRuntime = (
     [DriverId]: driver,
   };
 
-  return { runtime, driver };
+  return { runtime, driver, admission };
 };
 
 /**

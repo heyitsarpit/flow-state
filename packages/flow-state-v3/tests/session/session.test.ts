@@ -60,16 +60,10 @@ describe("context trees across a reload (Actors R18; WriteAhead R4; Restore R2)"
       expect(run.checkpoints.restored.read(wallBadge(n))?.context).toEqual({ team: "Platform" });
   });
 
-  // Open, on the tooling's side: a Story's dispose goes past the Runtime's disposeActor, which
-  // Stories R3 says it is, so the refusal of a provider with bound consumers never runs and the
-  // session is disposed under its team.
-  it.fails("Stories R3; Actors R20: a session with a live team under it is not closed; once its descendants are closed it is, and the other tree restores", async () => {
-    const run = checked(await parentUnderChildren.run());
-    const { refused, closed, reloaded } = run.checkpoints;
-
-    expect(refused.read(mainSession)?.lifecycle).toBe("active");
-    expect(closed.read(mainSession)).toBeUndefined();
-    expect(reloaded.read(guestBadge)?.context).toEqual({ team: "" });
+  it("S6 parent first, Stories R3, Actors R20: closing a session with a live team under it is refused BlockedByDependents, naming the team", async () => {
+    await expect(parentUnderChildren().run()).rejects.toThrow(
+      /BlockedByDependents: .*Workspace\/Team\/core/u,
+    );
   });
 });
 
@@ -128,10 +122,8 @@ describe("display names at a string's bound (Codec R1, R4; WriteAhead R4; Actors
   });
 });
 
-describe("a badge that returns from its record (Turn I9)", () => {
-  // Open, owned by actor identity: a returning actor publishes the same snapshot
-  // twice with no turn between, its context wave counting a restored selection as changed.
-  it.fails("Turn I9: an actor returning from its record publishes each snapshot once", () => {
+describe("consumers that start from their records (Turn I9)", () => {
+  it("Turn I9, Actors R9: a team returning after its user signed out publishes its start once, with the current user", () => {
     const run = generate(samples, { drawing: "mix", seed: 1 }).run;
 
     expect(publishedOnce.breaches(run)).toEqual([]);
