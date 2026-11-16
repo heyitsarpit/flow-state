@@ -287,3 +287,12 @@ note 2026-11-16T01:40:10Z
 note 2026-11-16T01:53:05Z
     T75 in review at `96ef4847`: faults 206 s to 25 s, fast suite 18.5 s to 10.5 s, same 52 caught. One lead reviews it
     and, on PASS, runs P2's completion audit (R18); usage 96.
+
+note 2026-11-16T01:58:14Z
+    Decision (user, 2026-11-16): "start T54 anyways ... i have another account where i will resume this epic". T54
+    starts before P2's completion audit lands (overrides P3's start condition for T54 only). At 100% here, stop with a
+    resume note for the other account.
+
+note 2026-11-16T01:58:14Z
+    Rates this run (16:35Z to 01:55Z): weekly usage 77 to 96, about 2 points an hour; 9 Tasks done (T63 to T71), about 1
+    an hour, about 2 points each. Expect 1 to 2 hours of work left on this account.
