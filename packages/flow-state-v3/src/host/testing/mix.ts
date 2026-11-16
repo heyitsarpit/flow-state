@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import type { App, RuntimeConfig } from "../runtime.ts";
+import { type App, machineOf, type RuntimeConfig } from "../runtime.ts";
 import { TraceRecord } from "../trace.ts";
 import type { StoryRun, Subject } from "./run.ts";
 import type { Samples } from "./samples.ts";
@@ -17,7 +17,7 @@ const once = (what: string, values: ReadonlyArray<string>) => {
 };
 
 const machinesOf = (part: Samples) =>
-  Object.values(part.story[SubjectId].config.app.machines).map((m) => m.compiled.id);
+  Object.values(part.story[SubjectId].config.app.machines).map((m) => machineOf(m).compiled.id);
 
 // The persistence every part that has one sets: a mix runs one Runtime, so they must agree.
 const persistenceOf = (configs: ReadonlyArray<RuntimeConfig>) => {

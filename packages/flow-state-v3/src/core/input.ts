@@ -29,7 +29,12 @@ export type Input = Data.TaggedEnum<{
   // FLOW_STATE_ALLOW_UNKNOWN: the store's parsed records, decoded by the core once.
   Boot: { stored: ReadonlyMap<string, unknown> };
   BootFailed: {};
-  Ensure: { actor: ActorId; use: Option.Option<Use>; existing: boolean };
+  Ensure: {
+    actor: ActorId;
+    use: Option.Option<Use>;
+    existing: boolean;
+    wiring: Option.Option<ReadonlyMap<string, ActorId>>;
+  };
   Create: { actor: ActorId; input: Values };
   Serve: {};
   Release: { actor: ActorId; use: Use };

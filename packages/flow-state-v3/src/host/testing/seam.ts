@@ -24,7 +24,7 @@ export const testing = {
   build: (config: RuntimeConfig, platform: Platform) =>
     buildRuntime(config, platform, () => undefined),
   attach: ({ driver }: TestRuntime, actor: ActorId, use: Use, existing: boolean) =>
-    driver.input(Input.Ensure({ actor, use: Option.some(use), existing })),
+    driver.input(Input.Ensure({ actor, use: Option.some(use), existing, wiring: Option.none() })),
   detach: ({ driver }: TestRuntime, actor: ActorId, use: Use) =>
     driver.input(Input.Release({ actor, use })),
   forget: ({ driver }: TestRuntime, actor: ActorId) =>

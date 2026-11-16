@@ -20,19 +20,43 @@ import { makeFibers } from "./fibers.ts";
 import { Host, type Platform } from "./host.ts";
 
 /**
+ * One machine an app runs: the machine, or the machine with the default wiring of its context
+ * slots, each to the ref of the actor that provides it.
+ */
+export type AppEntry =
+  | Machine
+  | {
+      readonly machine: Machine;
+      readonly context: Readonly<Record<string, ActorRef>>;
+    };
+
+/**
+ * The machine of an app entry.
+ */
+export type MachineOf<E> = E extends { readonly machine: infer M extends Machine } ? M : E;
+
+/**
+ * The machine of an app entry.
+ */
+export const machineOf = (entry: AppEntry) => ("machine" in entry ? entry.machine : entry);
+
+/**
  * An app: every machine a Runtime may run, by key.
  */
-export type App<M extends Readonly<Record<string, Machine>> = Readonly<Record<string, Machine>>> = {
-  readonly id: string;
-  readonly machines: M;
-};
+export type App<M extends Readonly<Record<string, AppEntry>> = Readonly<Record<string, AppEntry>>> =
+  {
+    readonly id: string;
+    readonly machines: M;
+  };
 
 /**
  * The services an app's contracts require: what its setup's services Layer, or a Story's fixtures,
  * must provide.
  */
 export type ServicesOf<A extends App> = {
-  readonly [K in keyof A["machines"]]: RequirementsOf<A["machines"][K]["definition"]["operations"]>;
+  readonly [K in keyof A["machines"]]: RequirementsOf<
+    MachineOf<A["machines"][K]>["definition"]["operations"]
+  >;
 }[keyof A["machines"]];
 
 /**
@@ -48,8 +72,13 @@ export type ServicesOf<A extends App> = {
  *   one id throw one {@link FlowError} naming every entry.
  */
 // RETURN_TYPE: the App contract runtimeSetup takes, keeping its machines' types.
-export const app = <const M extends Readonly<Record<string, Machine>>>(config: App<M>): App<M> => {
-  const [first, ...rest] = appFindings(config);
+export const app = <const M extends Readonly<Record<string, AppEntry>>>(config: App<M>): App<M> => {
+  const [first, ...rest] = appFindings({
+    ...config,
+    machines: Object.fromEntries(
+      Object.entries(config.machines).map(([key, entry]) => [key, machineOf(entry)]),
+    ),
+  });
 
   if (first !== undefined)
     // oxlint-disable-next-line lint-bomb/no-throw-in-core -- construction errors throw one FlowError before any work
@@ -66,6 +95,7 @@ export type ActorRef<D extends AnyDefinition = AnyDefinition> = {
   readonly machine: Machine<D>;
   // FLOW_STATE_ALLOW_UNKNOWN: a value ref's value is the caller's, checked at the boundary that uses it.
   readonly value: unknown;
+  readonly context: Readonly<Record<string, ActorRef>>;
 };
 
 /**
@@ -101,7 +131,9 @@ export type RefName<D extends AnyDefinition, N> = [keyof InputOf<D["memory"]>] e
 export const actorRef = <D extends AnyDefinition, const N>(
   machine: Machine<D>,
   nameOrValue: N & RefName<D, N>,
-): ActorRef<D> => ({ machine, value: nameOrValue });
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: a ref with no context uses its machine entry's wiring
+  options?: { readonly context: Readonly<Record<string, ActorRef>> },
+): ActorRef<D> => ({ machine, value: nameOrValue, context: options?.context ?? {} });
 
 /**
  * The identity a ref names, checked: a value's input fields by their Schemas, a literal name by
@@ -363,9 +395,9 @@ export const buildRuntime = (
   platform: Platform,
   admit: (evidence: ReadonlyArray<Evidence>) => void,
 ) => {
-  const refused = Object.values(config.app.machines).flatMap((m) =>
-    Option.toArray(malformedOf(m.compiled)),
-  );
+  const entries = Object.values(config.app.machines);
+
+  const refused = entries.flatMap((e) => Option.toArray(malformedOf(machineOf(e).compiled)));
 
   const [malformed, ...others] = refused;
 
@@ -373,7 +405,66 @@ export const buildRuntime = (
     // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a Runtime refuses a malformed Compiled before any actor
     throw flowError([malformed, ...others]);
 
-  const machines = new Map(Object.values(config.app.machines).map((m) => [m.compiled.id, m]));
+  const machines = new Map(entries.map((e) => [machineOf(e).compiled.id, machineOf(e)]));
+
+  // Each machine entry's default wiring: the ref of each context slot's provider.
+  const defaults = new Map(
+    entries.map((e) => [machineOf(e).compiled.id, "machine" in e ? e.context : {}]),
+  );
+
+  const contextError = (code: Code, path: ReadonlyArray<string>, summary: string, help: string) =>
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a context graph it refuses throws before any work
+    {
+      throw flowError([{ code, path, summary, help }]);
+    };
+
+  // The providers a consumer's slots bind to: its entry's wiring with the ref's overrides, each
+  // slot wired to an actor of the machine it declares, and no provider reached again on the way
+  // up. Refused at admission, before any work.
+  const wiringOf = (
+    compiled: Compiled,
+    override: Readonly<Record<string, ActorRef>>,
+    path: ReadonlyArray<string>,
+  ): ReadonlyMap<string, ActorId> => {
+    const refs = { ...defaults.get(compiled.id), ...override };
+    const wiring = new Map<string, ActorId>();
+
+    for (const [slot, declared] of compiled.context) {
+      const ref = refs[slot];
+
+      if (ref === undefined || !machines.has(ref.machine.compiled.id))
+        return contextError(
+          "MissingContextProvider",
+          [compiled.id, "context", slot],
+          `no provider is wired for the context slot ${slot} of ${compiled.id}`,
+          "Wire the slot in the machine's app entry, or in the ref's context.",
+        );
+
+      if (ref.machine.compiled.id !== declared.provider)
+        return contextError(
+          "InvalidConfiguration",
+          [compiled.id, "context", slot],
+          `${slot} is provided by ${declared.provider}, not ${ref.machine.compiled.id}`,
+          `Wire ${slot} to an actor of ${declared.provider}.`,
+        );
+
+      const provider = actorIdOf(ref);
+      const key = actorKey(provider);
+
+      if (path.includes(key))
+        return contextError(
+          "ContextCycle",
+          [...path, key],
+          `the context of ${compiled.id} reaches ${key} again`,
+          "Make context flow one way: no actor may provide, directly or not, to its own provider.",
+        );
+
+      wiringOf(ref.machine.compiled, {}, [...path, key]);
+      wiring.set(slot, provider);
+    }
+
+    return wiring;
+  };
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
   // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the Runtime owns one Scope for its whole life: its services and every fiber; dispose() closes it
@@ -534,7 +625,8 @@ export const buildRuntime = (
       const compiled = machine.compiled;
 
       // The input is checked by its Schemas before any work, as a value ref's is.
-      if (inputFieldsOf(compiled).length > 0) actorIdOf({ machine, value: options.input });
+      if (inputFieldsOf(compiled).length > 0)
+        actorIdOf({ machine, value: options.input, context: {} });
 
       const actor = { machine: compiled.id, name: `${LOCAL_PREFIX}${locals + 1}` };
       driver.offer(Input.Create({ actor, input: options.input }), `createActor ${compiled.id}`);

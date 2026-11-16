@@ -19,7 +19,7 @@ const endingValue = (value: unknown) =>
   value as never;
 
 // RETURN_TYPE: the Compiled Mapping shape.
-const mappingOf = (ending: Ending, slot: string): Mapping => ({
+export const mappingOf = (ending: Ending, slot: string): Mapping => ({
   event: ending.ending.event,
   from: Option.map(ending.ending.from, (map) => ({
     slot,

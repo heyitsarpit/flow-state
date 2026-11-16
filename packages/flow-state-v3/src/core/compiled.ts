@@ -296,4 +296,29 @@ export type Compiled = {
   readonly memoryJson: Schema.Codec<Values, Values>;
   readonly sameMemory: Equivalence.Equivalence<Values>;
   readonly operations: ReadonlyMap<string, Operation>;
+  readonly context: ReadonlyMap<string, ContextSlot>;
+  readonly reactions: ReadonlyArray<Reaction>;
+  readonly wiring: ReadonlyMap<string, { readonly machine: string; readonly name: string }>;
+};
+
+/**
+ * A context slot as the runtime binds it: the machine that provides it and its selector over one
+ * outside snapshot of the provider.
+ */
+export type ContextSlot = {
+  readonly provider: string;
+  // FLOW_STATE_ALLOW_UNKNOWN: a selected value has the slot's type, typed at the definition.
+  readonly select: Slot<(snapshot: { readonly state: string; readonly memory: Values }) => unknown>;
+};
+
+/**
+ * An `onContext` reaction: what it selects from context and memory, when a change counts, and the
+ * event it enqueues.
+ */
+export type Reaction = {
+  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns.
+  readonly select: Slot<(input: { readonly context: Values; readonly memory: Values }) => unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the reaction's current and previous selections.
+  readonly when: Option.Option<Slot<(current: unknown, previous: unknown) => boolean>>;
+  readonly event: Mapping;
 };

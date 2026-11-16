@@ -19,7 +19,7 @@ const inputs = {
   Start: Input.Start(),
   Boot: Input.Boot({ stored: new Map() }),
   BootFailed: Input.BootFailed(),
-  Ensure: Input.Ensure({ actor, use: Option.none(), existing: false }),
+  Ensure: Input.Ensure({ actor, use: Option.none(), existing: false, wiring: Option.none() }),
   Create: Input.Create({ actor, input: {} }),
   Serve: Input.Serve(),
   Send: Input.Send({ actor, tag: "E", payload: {} }),

@@ -28,8 +28,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "start(actor, record, compiled === undefined ? {} : inputOfName(compiled, actor.name));",
-        replace: "start(actor, record, {});",
+        find: "          compiled === undefined ? {} : inputOfName(compiled, actor.name),",
+        replace: "          {},",
       },
     ],
   },

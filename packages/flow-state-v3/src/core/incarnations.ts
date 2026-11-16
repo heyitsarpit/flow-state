@@ -1,6 +1,7 @@
 import { Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
+import { makeContext } from "./context.ts";
 import { armingsOf } from "./turn.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
@@ -100,7 +101,20 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       }),
     );
 
-  const start = (actor: ActorId, from: Option.Option<ActorRecord>, input: Values) => {
+  // A consumer's providers are ensured with a use and released when it ends; ensure and release
+  // are defined below and only called once a step runs.
+  const context = makeContext(tx, {
+    ensure: (provider, use) => ensure(provider, use, false, Option.none()),
+    release: (provider, use) => release(provider, use),
+    publish: (incarnation) => publish(incarnation),
+  });
+
+  const start = (
+    actor: ActorId,
+    from: Option.Option<ActorRecord>,
+    input: Values,
+    wiring: Option.Option<ReadonlyMap<string, ActorId>>,
+  ) => {
     const compiled = tx.machines.get(actor.machine);
 
     if (compiled === undefined) return;
@@ -136,11 +150,20 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       memory: created.success,
       schedules: new Map(),
       issues: [],
+      bound: new Map(),
+      context: new Map(),
+      baselines: [],
     };
 
     tx.set({ ...tx.world(), ended: without(tx.world().ended, actorKey(actor)) });
     setIncarnation(base);
     tx.act(Act.Started({ actor }));
+
+    // Its slots bind before its first publication: the baselines are silent.
+    const bound = context.bind(
+      base,
+      Option.getOrElse(wiring, () => compiled.wiring),
+    );
 
     const incarnation = Option.match(from, {
       onNone: () => {
@@ -162,10 +185,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           return { source: CREATION, code: "InvalidTurn" as const, slot: Option.some(slot) };
         });
 
-        return armSchedules({ ...base, issues }, arm.armed);
+        return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.armed);
       },
       onSome: (record) => {
-        let schedules = base.schedules;
+        let schedules = bound.schedules;
 
         for (const s of record.schedules) {
           const arming = tx.next();
@@ -176,7 +199,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           schedules = withEntry(schedules, s.name, { arming, dueAt: s.dueAt, send: s.send });
         }
 
-        return { ...base, schedules };
+        return { ...bound, schedules };
       },
     });
 
@@ -202,7 +225,12 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     }
   };
 
-  const ensure = (actor: ActorId, use: Option.Option<Use>, existing: boolean) => {
+  const ensure = (
+    actor: ActorId,
+    use: Option.Option<Use>,
+    existing: boolean,
+    wiring: Option.Option<ReadonlyMap<string, ActorId>>,
+  ) => {
     const key = actorKey(actor);
 
     if (incarnationOf(actor) === undefined) {
@@ -211,7 +239,12 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       if (Option.isSome(record) || !existing) {
         const compiled = tx.machines.get(actor.machine);
 
-        start(actor, record, compiled === undefined ? {} : inputOfName(compiled, actor.name));
+        start(
+          actor,
+          record,
+          compiled === undefined ? {} : inputOfName(compiled, actor.name),
+          wiring,
+        );
       }
     }
 
@@ -231,7 +264,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
   // A local actor is always new and lives until disposed: the host's use is never released.
   const createLocal = (actor: ActorId, input: Values) => {
-    start(actor, Option.none(), input);
+    start(actor, Option.none(), input, Option.none());
 
     if (incarnationOf(actor) !== undefined)
       tx.set({
@@ -265,6 +298,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
     });
     tx.act(Act.Finished({ actor }));
+    context.unbind(incarnation);
     ledger.suspend(actor, false);
   };
 
@@ -287,6 +321,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
       });
       tx.act(Act.Finished({ actor }));
+      context.unbind(incarnation);
     }
 
     tx.set({
@@ -355,7 +390,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     ]);
 
     for (const [key, actor] of owed)
-      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), true);
+      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), true, Option.none());
   };
 
   return {
@@ -369,6 +404,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     fireWaiting,
     ensure,
     create: createLocal,
+    context,
     release,
     end,
     graces,

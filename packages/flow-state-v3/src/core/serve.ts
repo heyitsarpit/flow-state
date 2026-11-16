@@ -228,6 +228,7 @@ export const makeServe = (
         );
 
         publish(after);
+        incarnations.context.wave(after.actor);
         flushLanes(after.actor);
 
         return HEARD;
@@ -325,6 +326,7 @@ export const makeServe = (
           },
         );
       },
+      Context: ({ actor }) => incarnations.context.update(actor),
       Ending: ({ actor, id }) => {
         const incarnation = incarnationOf(actor);
 

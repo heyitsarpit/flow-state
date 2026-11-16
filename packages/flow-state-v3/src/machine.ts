@@ -5,6 +5,7 @@ import {
   type AnyDefinition,
   codecOf,
   type ChildrenOf,
+  type ContextOf,
   type Definition,
   type Machine,
   type ScheduleConfig,
@@ -18,7 +19,9 @@ import {
   type WritableOf,
 } from "./definition.ts";
 import { flowError } from "./error.ts";
-import { eventsOf, fieldOf, memoryCodec, operationOf } from "./compiled-parts.ts";
+import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
+import type { Ending } from "./contract.ts";
+import type { ActorId } from "./core/world.ts";
 import { type Compile, nodesOf, tokenMaps } from "./compile-body.ts";
 
 type Parts<D> =
@@ -59,8 +62,24 @@ type CompoundBody<D, L, P extends string> = {
  * mirroring the definition's tree: a compound has a default direct child and its children's
  * bodies; a leaf has neither.
  */
+/**
+ * An `onContext` reaction: `select` reads the context and memory when a context wave reaches the
+ * actor; a changed selection becomes the baseline and, unless `when(current, previous)` declines,
+ * enqueues `event` (`E.X`, or `E.X.from((current) => payload)`).
+ */
+export type Reaction<D extends AnyDefinition> = {
+  readonly select: (input: {
+    readonly context: ContextOf<D["context"]>;
+    readonly memory: Parts<D>["Memory"];
+  }) => unknown;
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: with no when, every changed selection enqueues the event
+  readonly when?: (current: never, previous: never) => boolean;
+  readonly event: { readonly tag: keyof Parts<D>["Events"] & string } & Ending;
+};
+
 export type MachineBody<D extends AnyDefinition> = {
   readonly on?: Handlers<D>;
+  readonly onContext?: ReadonlyArray<Reaction<D>>;
   readonly default: StateToken<`${NamesOf<Parts<D>["Tree"]>}`>;
   readonly states?: StatesBody<D, Parts<D>["Tree"], "">;
 };
@@ -72,9 +91,26 @@ export type AnyBody = {
   // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
   readonly default?: unknown;
   readonly on?: Values;
+  readonly onContext?: ReadonlyArray<{
+    readonly select: (input: { readonly context: Values; readonly memory: Values }) => unknown;
+    readonly when?: (current: never, previous: never) => boolean;
+    readonly event: Ending;
+  }>;
   readonly schedules?: Readonly<Record<string, ScheduleConfig<Values, Values>>>;
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
+
+// FLOW_STATE_ALLOW_UNKNOWN: a provider's snapshot as the runtime reads it, typed at the definition.
+const erasedSelect = (select: (snapshot: never) => unknown) =>
+  // SAFETY: a selector written for its provider's outside snapshot; the runtime passes exactly that.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the provider's state and memory types are erased in Compiled and restored by the binding
+  select as (snapshot: { readonly state: string; readonly memory: Values }) => unknown;
+
+// FLOW_STATE_ALLOW_UNKNOWN: a reaction's selections, typed by its select.
+const erasedWhen = (when: (current: never, previous: never) => boolean) =>
+  // SAFETY: when is written for the values its select returns; the runtime passes exactly those.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a reaction's selection type is erased in Compiled
+  when as (current: unknown, previous: unknown) => boolean;
 
 const erasedBody = <B>(body: B) =>
   // SAFETY: MachineBody's records are On records and bodies over the definition's own events and states.
@@ -148,6 +184,24 @@ export const machine = <D extends AnyDefinition>(
         operationOf(name, bound),
       ]),
     ),
+    context: new Map(
+      Object.entries(definition.context).map(([slot, declared]) => [
+        slot,
+        {
+          provider: declared.provider,
+          select: { slot: `context.${slot}`, run: erasedSelect(declared.select) },
+        },
+      ]),
+    ),
+    reactions: (config.onContext ?? []).map((reaction, at) => ({
+      select: { slot: `onContext.${at}.select`, run: reaction.select },
+      when: Option.map(Option.fromUndefinedOr(reaction.when), (when) => ({
+        slot: `onContext.${at}.when`,
+        run: erasedWhen(when),
+      })),
+      event: mappingOf(reaction.event, `onContext.${at}.event`),
+    })),
+    wiring: new Map<string, ActorId>(),
   };
 
   return {

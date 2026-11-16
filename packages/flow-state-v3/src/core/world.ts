@@ -66,7 +66,9 @@ export type Armed = { readonly arming: number; readonly dueAt: number; readonly 
  *
  * `state` is the active leaf's path. `activations` numbers each entry of the states on its chain,
  * outermost first: a re-entry is a new activation, so work its old activation owns ends late.
- * `history` holds each exited compound's last active child.
+ * `history` holds each exited compound's last active child. `bound` names the provider of each
+ * context slot, `context` holds each slot's selected value and `baselines` each `onContext`
+ * reaction's last selection.
  */
 export type Incarnation = {
   readonly id: string;
@@ -77,6 +79,9 @@ export type Incarnation = {
   readonly memory: Values;
   readonly schedules: ReadonlyMap<string, Armed>;
   readonly issues: ReadonlyArray<Issue>;
+  readonly bound: ReadonlyMap<string, ActorId>;
+  readonly context: ReadonlyMap<string, unknown>;
+  readonly baselines: ReadonlyArray<unknown>;
 };
 
 /**
@@ -199,10 +204,12 @@ export type Read = {
 };
 
 /**
- * One item of an actor's mailbox; an ending is a reference to its owed row, never the ending.
+ * One item of an actor's mailbox; an ending is a reference to its owed row, never the ending. A
+ * context update asks the actor to read its providers again: at most one waits per actor.
  */
 export type Mail = Data.TaggedEnum<{
   Event: { actor: ActorId; tag: string; payload: Values };
+  Context: { actor: ActorId };
   Ending: { actor: ActorId; id: OwedId };
   Firing: {
     actor: ActorId;
@@ -240,7 +247,7 @@ export const Timer = Data.taggedEnum<Timer>();
 /**
  * Who holds a use of an identity.
  */
-export type Use = "story" | "host" | "component";
+export type Use = "story" | "host" | "component" | "context";
 
 /**
  * An identity's saved record, as the Runtime's copy holds it.

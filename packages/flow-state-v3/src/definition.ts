@@ -285,12 +285,43 @@ export type StateConfig<M, Ev, S extends string, W = M> = {
   readonly schedules?: Readonly<Record<string, ScheduleConfig<M, Ev>>>;
 };
 
+/**
+ * What a provider's selector reads: one complete outside snapshot of the provider.
+ */
+export type ProviderSnapshot<State = string, Memory = Values> = {
+  readonly state: State;
+  readonly memory: Memory;
+};
+
+/**
+ * A context slot: a value selected from one complete snapshot of another definition's actor
+ * (`Provider.select(selector)`). The machine entry or the ref wires which actor provides it.
+ */
+export type ContextSlot<V = unknown> = {
+  readonly "~flow": "context";
+  readonly provider: string;
+  readonly select: (snapshot: ProviderSnapshot<never, never>) => V;
+};
+
+/**
+ * A definition's context slots, by name.
+ */
+export type ContextConfig = Readonly<Record<string, ContextSlot>>;
+
+/**
+ * The values a definition's context slots select, by slot.
+ */
+export type ContextOf<Cx> = {
+  readonly [K in keyof Cx]: Cx[K] extends ContextSlot<infer V> ? V : never;
+};
+
 type DefinitionConfig<
   States extends StateTree,
   Ev extends Readonly<Record<string, EventFields>>,
   In extends Readonly<Record<string, EventFields>>,
   M extends MemoryConfig,
   O extends Readonly<Record<string, Bound>>,
+  Cx extends ContextConfig,
 > = {
   readonly id: string;
   readonly persist?: boolean;
@@ -298,6 +329,7 @@ type DefinitionConfig<
   readonly events: Ev;
   readonly internalEvents?: In;
   readonly memory?: M;
+  readonly context?: Cx;
   readonly operations?: (tokens: { readonly E: Tokens<In> }) => O;
 };
 
@@ -317,6 +349,9 @@ export type RootToken = {
  * `Event`, `State`, `Input`, `Memory` and `Snapshot` are its Schemas: `Event` decodes its public
  * envelopes, `State` its leaf paths, `Input` what a creator supplies, `Memory` the whole memory and
  * `Snapshot` an outside snapshot's state and memory, without the `Flow.private` fields.
+ *
+ * `Provider.select(selector)` makes a context slot another definition declares: it selects a value
+ * from one complete outside snapshot of the actor that provides it.
  */
 export type Definition<
   States extends StateTree = StateTree,
@@ -324,6 +359,7 @@ export type Definition<
   In extends Readonly<Record<string, EventFields>> = Readonly<Record<string, EventFields>>,
   M extends MemoryConfig = MemoryConfig,
   O extends Readonly<Record<string, Bound>> = Readonly<Record<string, Bound>>,
+  Cx extends ContextConfig = ContextConfig,
 > = {
   readonly id: string;
   readonly persist: boolean;
@@ -331,7 +367,13 @@ export type Definition<
   readonly events: Ev;
   readonly internalEvents: In;
   readonly memory: M;
+  readonly context: Cx;
   readonly operations: O;
+  readonly Provider: {
+    readonly select: <V>(
+      selector: (snapshot: ProviderSnapshot<LeavesOf<States>, OutsideOf<M>>) => V,
+    ) => ContextSlot<V>;
+  };
   readonly S: StateTokens<States> & { readonly root: RootToken };
   readonly E: Tokens<Ev & In>;
   readonly O: Handles<O, MemoryOf<M>>;
@@ -476,10 +518,12 @@ export const definition = <
   const In extends Readonly<Record<string, EventFields>> = Record<never, never>,
   M extends MemoryConfig = Record<never, never>,
   O extends Readonly<Record<string, Bound>> = Record<never, never>,
+  Cx extends ContextConfig = Record<never, never>,
 >(
-  config: DefinitionConfig<States, Ev, In, M, O>,
-): Definition<States, Ev, In, M, O> => {
+  config: DefinitionConfig<States, Ev, In, M, O, Cx>,
+): Definition<States, Ev, In, M, O, Cx> => {
   const internal = config.internalEvents ?? trusted<In>({});
+  const context = config.context ?? trusted<Cx>({});
   const memory = config.memory ?? trusted<M>({});
   const operations = config.operations?.({ E: tokensOf(internal) }) ?? trusted<O>({});
   const tree = treeOf(config.states);
@@ -538,7 +582,11 @@ export const definition = <
     events: config.events,
     internalEvents: internal,
     memory,
+    context,
     operations,
+    Provider: {
+      select: (selector) => ({ "~flow": "context", provider: config.id, select: selector }),
+    },
     S: trusted(tokenTree(tree.nodes, tree.top)),
     E: tokensOf({ ...config.events, ...internal }),
     O: trusted(handles),
@@ -578,6 +626,7 @@ export type AnyDefinition = {
   readonly events: Readonly<Record<string, EventFields>>;
   readonly internalEvents: Readonly<Record<string, EventFields>>;
   readonly memory: MemoryConfig;
+  readonly context: ContextConfig;
   readonly operations: Readonly<Record<string, Bound>>;
   readonly S: Values;
   readonly E: Values;
