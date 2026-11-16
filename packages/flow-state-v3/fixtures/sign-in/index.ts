@@ -1,17 +1,36 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { authApp } from "./machine.ts";
+import { authGrown } from "./app.ts";
 import { long, samples, seededStress, stories } from "./stories.ts";
+import { emailAtBound, emptyEmail } from "./stories/edges.ts";
+import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
+import { manyScreens, manySessions } from "./stories/load.ts";
+import { samples as sessionSamples } from "./stories/samples.ts";
+import { reloadedMidHandle, screenFirst, signOutForgets } from "./stories/structure.ts";
+import { handleRetry } from "./stories/usual.ts";
 
 /**
  * The sign-in fixture, as every runner reads it.
  */
 export const signIn = manifest({
   name: "sign-in",
-  app: authApp,
-  stories,
-  samples: [samples],
-  stressSamples: [samples],
+  app: authGrown,
+  stories: {
+    ...stories,
+    handleRetry,
+    blankHandle,
+    submitTwice,
+    unconfirmedPrefill,
+    signOutForgets,
+    screenFirst,
+    reloadedMidHandle,
+    manyScreens,
+    manySessions,
+    emptyEmail,
+    emailAtBound,
+  },
+  samples: [samples, sessionSamples],
+  stressSamples: [samples, sessionSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),
@@ -19,6 +38,10 @@ export const signIn = manifest({
     {
       samples,
       reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: false },
+    },
+    {
+      samples: sessionSamples,
+      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
     },
   ],
 });
