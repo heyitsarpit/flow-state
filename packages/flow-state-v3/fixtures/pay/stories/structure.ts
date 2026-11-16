@@ -79,3 +79,14 @@ export const conflictingCart = () =>
     .ensure(guestShopper)
     .ensure(mainCart)
     .ensure(actorRef(CartMachine, { owner: "main" }, { context: { shopper: guestShopper } }));
+
+/**
+ * The cart gets a line before its checkout flow is bound; then checkout begins.
+ */
+export const flowBoundLate = storeStory("pay/flow-bound-late")
+  .ensure(mainShopper)
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .ensure(mainFlow)
+  .send(mainFlow, { _tag: "Begin" })
+  .checkpoint("begun");

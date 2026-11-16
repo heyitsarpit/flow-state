@@ -3,7 +3,12 @@ import { clientOf, docsRepo, emptyRepo, repoOf } from "../../fixtures/sync/app.t
 import { client } from "../../fixtures/sync/machine.ts";
 import { retryEdges } from "../../fixtures/sync/stories/edges.ts";
 import { manyRepos } from "../../fixtures/sync/stories/load.ts";
-import { reloadedInBackoff, repoFirst, syncFirst } from "../../fixtures/sync/stories/structure.ts";
+import {
+  reloadedInBackoff,
+  repoFirst,
+  repoOpenedInBackoff,
+  syncFirst,
+} from "../../fixtures/sync/stories/structure.ts";
 import { emptyName, openRepo } from "../../fixtures/sync/stories/usual.ts";
 import { played } from "../rules/played.ts";
 
@@ -81,5 +86,15 @@ describe("the client's retry-after at its edges (fixtures.md E5; Turn R14)", () 
     ]);
     expect(at("past")?.state).toBe("READY");
     expect(at("past")?.issues).toHaveLength(1);
+  });
+});
+
+describe("a repository opened during its client's backoff (fixtures.md S6)", () => {
+  it.fails("Turn R12: a repository opened while its client cools shows the backoff, read as context where its mirror's baseline is silent (Turn R22)", async () => {
+    const run = await played(repoOpenedInBackoff);
+
+    expect(run.checkpoints.opened.read(docsRepo)?.memory).toEqual(
+      expect.objectContaining({ limited: true }),
+    );
   });
 });

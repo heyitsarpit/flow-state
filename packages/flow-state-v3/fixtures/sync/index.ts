@@ -5,7 +5,7 @@ import { long, samples, seededStress, stories } from "./stories.ts";
 import { retryEdges } from "./stories/edges.ts";
 import { samples as repoSamples } from "./stories/samples.ts";
 import { manyRepos } from "./stories/load.ts";
-import { reloadedInBackoff, repoFirst } from "./stories/structure.ts";
+import { reloadedInBackoff, repoFirst, repoOpenedInBackoff } from "./stories/structure.ts";
 import { emptyName, openRepo } from "./stories/usual.ts";
 
 /**
@@ -16,6 +16,7 @@ export const sync = manifest({
   app: gitGrown,
   stories: {
     ...stories,
+    repoOpenedInBackoff,
     openRepo,
     emptyName,
     manyRepos,

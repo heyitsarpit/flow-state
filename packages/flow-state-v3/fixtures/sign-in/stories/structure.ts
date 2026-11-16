@@ -51,3 +51,14 @@ export const reloadedMidHandle = () =>
  */
 export const sessionFirst = () =>
   sessionStory("sign-in/session-first").ensure(mainSession).ensure(mainReturn).dispose(mainSession);
+
+/**
+ * Elif signs in before the page to return to is saved.
+ */
+export const returnSavedLate = sessionStory("sign-in/return-saved-late")
+  .world(elifSaved)
+  .ensure(mainSession)
+  .send(mainSession, signedIn)
+  .ensure(mainReturn)
+  .send(mainReturn, { _tag: "Save", route: "/pano", draft: "" })
+  .checkpoint("saved");

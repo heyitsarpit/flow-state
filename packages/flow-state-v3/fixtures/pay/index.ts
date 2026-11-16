@@ -6,14 +6,23 @@ import { busyEdges } from "./stories/edges.ts";
 import {
   failingLineAlone,
   independentLines,
+  quantityLost,
+  quantityNotSaved,
   quantityZero,
+  removedLineAnswer,
   refusedAddAlone,
   sameCartTwice,
   waitsWhileBusy,
 } from "./stories/findings.ts";
 import { manyShoppers, quantityClicks } from "./stories/load.ts";
 import { samples as storeSamples } from "./stories/samples.ts";
-import { chain, flowFirst, reloadedMidAdd, shopperForgotten } from "./stories/structure.ts";
+import {
+  chain,
+  flowBoundLate,
+  flowFirst,
+  reloadedMidAdd,
+  shopperForgotten,
+} from "./stories/structure.ts";
 import { browse, checkoutSteps, guestBrowse } from "./stories/usual.ts";
 
 /**
@@ -24,6 +33,7 @@ export const pay = manifest({
   app: store,
   stories: {
     ...stories,
+    flowBoundLate,
     browse,
     guestBrowse,
     checkoutSteps,
@@ -33,6 +43,9 @@ export const pay = manifest({
     quantityZero,
     sameCartTwice,
     waitsWhileBusy,
+    quantityLost,
+    quantityNotSaved,
+    removedLineAnswer,
     quantityClicks,
     manyShoppers,
     chain,

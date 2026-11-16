@@ -98,13 +98,17 @@ const answered = (memory: Memory, line: Line) =>
     ? without(memory.lines, line.lineId)
     : { ...memory.lines, [line.lineId]: { variantId: line.variantId, quantity: line.quantity } };
 
-// An answer clears the line's wish only when it is the quantity last asked for.
+// An answer clears the line's wish when it is the quantity last asked for, or the line is gone.
 const settled = (memory: Memory, lineId: string, quantity: number) =>
-  memory.wanted[lineId] === quantity ? without(memory.wanted, lineId) : memory.wanted;
+  memory.wanted[lineId] === quantity || quantity === 0
+    ? without(memory.wanted, lineId)
+    : memory.wanted;
 
 /**
  * The cart: one add at a time, each line's quantity edited under `latest`, so quick edits of one
- * line send the first and the last; a refusal touches only its own line.
+ * line send the first and the last; a refusal touches only its own line. A quantity never answered
+ * (unsure, or not sent) names no line, so the cart stops waiting on every wish and asks the
+ * shopper to check it; superseded edits are not endings and leave the wish to the last edit.
  */
 export const CartMachine = machine(Cart, ({ S, O }) => ({
   default: S.OPEN,
@@ -158,8 +162,10 @@ export const CartMachine = machine(Cart, ({ S, O }) => ({
         errors: { ...memory.errors, [event.lineId]: `only ${String(event.quantity)} left` },
       }),
     },
-    QuantityNotSent: { updateMemory: ({ event }) => ({ notice: `not changed: ${event.why}` }) },
-    QuantityUnsure: { updateMemory: () => ({ notice: "check your cart" }) },
+    QuantityNotSent: {
+      updateMemory: ({ event }) => ({ wanted: {}, notice: `not changed: ${event.why}` }),
+    },
+    QuantityUnsure: { updateMemory: () => ({ wanted: {}, notice: "check your cart" }) },
   },
 }));
 

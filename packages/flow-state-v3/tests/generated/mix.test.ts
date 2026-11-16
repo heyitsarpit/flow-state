@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
 import { numberSetup } from "../../fixtures/number-input/machine.ts";
 import {
@@ -50,8 +51,13 @@ const idle = samplesOf({
 
 const owner = ownerOf(mix);
 
-// The mix's samples set of one fixture, by its samples id.
-const part = (id: string) => mix.find((p) => p.id === id) ?? idle;
+// The mix's samples set of one fixture, by its samples id; a missing one fails the file.
+const part = (id: string) => {
+  const found = mix.find((p) => p.id === id);
+  assert.ok(found !== undefined, `the mix has no ${id}`);
+
+  return found;
+};
 
 // The fixtures one trace record names: a call's server, a batch's keys, or evidence's actor.
 const ownersOf = (record: Generated["run"]["trace"]["events"][number]["record"]) => {

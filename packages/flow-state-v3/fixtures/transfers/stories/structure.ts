@@ -38,3 +38,14 @@ export const customerForgotten = bound("transfers/customer-forgotten")
  * The customer is disposed while the form is bound to them.
  */
 export const customerFirst = () => bound("transfers/customer-first").dispose(mainCustomer);
+
+/**
+ * The customer chooses an account before the form is bound; the form checks an amount.
+ */
+export const formBoundLate = grownStory("transfers/form-bound-late")
+  .ensure(mainCustomer)
+  .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
+  .ensure(sendForm)
+  .send(sendForm, { _tag: "Amount", cents: 500 })
+  .send(sendForm, { _tag: "Check" })
+  .checkpoint("checked");

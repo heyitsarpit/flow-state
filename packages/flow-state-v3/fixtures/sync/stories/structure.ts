@@ -3,6 +3,12 @@ import { client } from "../machine.ts";
 import { Git } from "../server.ts";
 import { repoStory } from "./usual.ts";
 
+const backingOffClient = (id: string) =>
+  repoStory(id)
+    .ensure(client)
+    .world(Git.rateLimit({ retryAfterMs: 9000 }))
+    .send(client, { _tag: "SyncRepo", repo: "docs" });
+
 const backingOff = (id: string) =>
   repoStory(id)
     .ensure(client)
@@ -30,3 +36,10 @@ export const reloadedInBackoff = backingOff("sync/reloaded-in-backoff")
  * The client is disposed while the repository is bound to it.
  */
 export const syncFirst = () => backingOff("sync/sync-first").dispose(client);
+
+/**
+ * A repository is opened while its client already backs off.
+ */
+export const repoOpenedInBackoff = backingOffClient("sync/repo-opened-in-backoff")
+  .ensure(docsRepo)
+  .checkpoint("opened");

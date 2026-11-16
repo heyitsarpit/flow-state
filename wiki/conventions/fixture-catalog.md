@@ -212,6 +212,8 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       `pay/reloaded-mid-add`.
     - [x] S6 cart first, refused while the badge and flow are bound: inverted (Actors R20), since a Story's dispose
       skips `disposeActor`; owner @task.V3.T9. built: the `cartFirst` builder.
+    - [x] S6: a checkout flow bound after its cart has a line begins: inverted (Turn R12; its mirror's baseline is
+      silent, Turn R22), owner @task.V3.T57. built: `pay/flow-bound-late`.
     - [ ] S6 with a challenge open. left: @task.V3.T57, needs `subroutine` (`ThreeDSecure`).
     - [x] S7: a second `Cart` ref with another shopper, refused `ConflictingActorRef`: inverted on a Story's ensure
       (Actors R5), owner @task.V3.T9. built: the `conflictingCart` builder.
@@ -264,6 +266,9 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     - [x] Checkout waits for the cart to settle. Copies [cart-tracker.test.ts:543][hy-track] "ignores pending cart state
       until the cart settles", reshaped: `Begin` is denied `CartBusy` while a line waits. built:
       `pay/waits-while-busy`.
+    - [x] A quantity never answered (lost, its write refused) or answered for a line the server no longer holds
+      clears its wish, so checkout can begin. No source. built: `pay/quantity-lost`, `pay/quantity-not-saved`,
+      `pay/removed-line-answer`.
     - [ ] The checkout's trace waits for the cart to settle. left: @task.V3.T49, needs `inspect` sinks.
     - [x] A context consumer restored by a reload publishes once: inverted (Turn I9), owner @task.V3.T9. built:
       `pay/browse` with a reload that attaches nothing.
@@ -319,9 +324,10 @@ A sync client whose three remotes differ only in lane policy. Kept as it is. Sou
   - [x] **Edges:** E3: `atStringBound` and `pastStringBound` (have), in the stress samples; `Unencodable` (have).
     built: `lanes/stress-36` and the stress samples.
   - [x] **Keys** (corrected: Operations O1 says "Unicode spelling matters"): one name in NFC and decomposed forms names
-    two lanes. built: `lanes/two-spellings`, with the new `Lanes/paged` client, whose key holds a page number.
+    two lanes. built: `lanes/two-spellings`.
   - [x] **Keys:** page `-0` names the lane of page `0`: inverted (Operations O1; today it declines
-    `NotSent { Unencodable }`), owner @task.V3.T21. built: `lanes/negative-zero`.
+    `NotSent { Unencodable }`), owner @task.V3.T21. built: `lanes/negative-zero`, on the new `Lanes/paged` client,
+    whose key holds a page number.
   - [ ] **Combinations:** release 2 changes the key fingerprint: a held lane ends `NotSent { OldVersion }` and the old
     lane is held as `previous`. left: @task.V3.T56, needs release versions (step 7).
   - [x] **Findings:** `stressDisplacedPastItems` and `displacedOnWire` (have). built:
@@ -360,6 +366,8 @@ retry.
   - [x] **Structure:** S3 × 64 repositories, each a tree of its own client. built: `sync/stress-many-repos`. S6 ×
     {repo first, reloaded} during a backoff. built: `sync/repo-first`, `sync/reloaded-in-backoff`. Sync first,
     refused while a repository is bound: inverted (Actors R20), owner @task.V3.T9; built: the `syncFirst` builder.
+  - [x] **Structure:** S6: a repository opened during its client's backoff shows it: inverted (Turn R12), owner
+    @task.V3.T57. built: `sync/repo-opened-in-backoff`.
   - [x] **Edges:** E5: a retry-after of 0, 2^31 − 1 and 2^31 ms. built: `sync/retry-edges`; −1 is refused today and
     counts as 0 once @task.V3.T57 moves that check (Turn R14). E1: an empty repository name. built: `sync/empty-name`.
   - [ ] **Combinations:** release 2 of `Repo`: left: @task.V3.T56, needs release versions. Pushes: left:
@@ -438,6 +446,8 @@ kamp.us for rows restored after a failure.
     - [x] S6 × {form first, customer forgotten, reloaded}. built: `transfers/form-first`,
       `transfers/customer-forgotten`, `transfers/lost-then-reload`. Customer first, refused while the form is bound:
       inverted (Actors R20), owner @task.V3.T9; built: the `customerFirst` builder.
+    - [x] S6: a form bound after the account was chosen checks its balance: inverted (Turn R12), owner @task.V3.T57.
+      built: `transfers/form-bound-late`.
     - [ ] S6 during a deposit. left: @task.V3.T21, needs `progress` (T `depositCheque`).
     - [ ] A large deposit split into parts, one failing. Copies [test-parallel-uploads.js:41][tus-parallel] "should
       split a file into multiple parts and create an upload for each" and [test-parallel-uploads.js:325][tus-parallel]
@@ -504,6 +514,8 @@ not checked here).
     (kept out of `stories` while its restored return publishes twice: inverted, Turn I9, owner @task.V3.T9). Session
     first, refused while its return is bound: inverted (Actors R20), owner @task.V3.T9; built: the `sessionFirst`
     builder.
+  - [x] **Structure:** S6: a return saved after its session signed in returns at once: inverted (Turn R12), owner
+    @task.V3.T57. built: `sign-in/return-saved-late`.
   - [ ] **Structure:** S6 while `Reauth` runs, and S9 inside `Reauth`. left: @task.V3.T57, needs `subroutine`.
   - **Edges:**
     - [x] A blank handle never calls the server. Copies [AuthPage.test.tsx:164][kp-auth] "a blank username field never
@@ -583,8 +595,9 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
     - [x] S7: a missing provider, the new `Workspace/Status` with no team: refused `MissingContextProvider` by
       `ensureActor`, and inverted on a Story's ensure (Actors R18), owner @task.V3.T9. built: the `missingTeam`
       builder.
-    - [ ] S7: a cycle. left: a cycle needs two definitions that read each other as context, which module order cannot
-      build without a stand-in definition of the same id (`tests/actors/context.test.ts` uses one); the user's call.
+    - [x] S7: a cycle, corrected: a cycle needs two definitions that read each other as context, which module order
+      cannot build without a stand-in definition of the same id (`tests/actors/context.test.ts` uses one), so no app
+      reaches `ContextCycle`; whether that refusal should stay is the user's call.
   - **Edges:**
     - [x] E2: an undefined user, read by the new `Workspace/Avatar` after a sign-out, saved and restored. E1: an empty
       user. built: the `signedOutReloaded` builder (kept out of `stories` while its restored consumers publish twice:
@@ -647,7 +660,7 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
     `palette/over-bound`, `palette/typing-under-held-store`.
   - [x] **Load** corrected: one keystroke over 10,000 entries. Copies [command.test.ts:155][ui-command] "10,000 items: a
     fuzzy keystroke stays well under a frame". A list holds at most 4,096 entries (Codec R1; `overBound`), so 10,000
-    cannot be configured; ranking speed is the fixture's own code, timed in `tests/command-palette/ranking.test.ts`.
+    cannot be configured; ranking speed is the fixture's own code, and no test times it.
   - [x] **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape, S9 at the deepest: 1 (PALETTE-9, PALETTE-10
     with Escape), 8 with a reload at the deepest, 64 past a record's depth bound (reported `UnencodableValue`, its last
     good capture restored). built: `palette/frames-8`, the `framesSixtyFour` builder. S3: two palettes. built:

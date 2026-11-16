@@ -16,6 +16,7 @@ import {
   chain,
   customerFirst,
   customerForgotten,
+  formBoundLate,
   formFirst,
 } from "../../fixtures/transfers/stories/structure.ts";
 import { checkAndSend } from "../../fixtures/transfers/stories/usual.ts";
@@ -139,5 +140,13 @@ describe("transfer values at their edges (fixtures.md E2, E3, E6)", () => {
         assert.ok(error instanceof FlowError);
         expect(error.code).toBe("InvalidEvent");
       }
+  });
+});
+
+describe("a form bound after its customer chose an account (fixtures.md S6)", () => {
+  it.fails("Turn R12: a form bound after the account was chosen checks its balance, its guard reading the account as context", async () => {
+    const run = await played(formBoundLate);
+
+    expect(run.checkpoints.checked.read(sendForm)?.state).toBe("READY");
   });
 });

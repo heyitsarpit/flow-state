@@ -11,7 +11,10 @@ import {
 import {
   failingLineAlone,
   independentLines,
+  quantityLost,
+  quantityNotSaved,
   quantityZero,
+  removedLineAnswer,
   refusedAddAlone,
   sameCartTwice,
   waitsWhileBusy,
@@ -20,6 +23,7 @@ import { manyShoppers, quantityClicks } from "../../fixtures/pay/stories/load.ts
 import {
   cartFirst,
   chain,
+  flowBoundLate,
   conflictingCart,
   flowFirst,
   reloadedMidAdd,
@@ -28,10 +32,8 @@ import {
 import { browse, checkoutSteps, guestBrowse } from "../../fixtures/pay/stories/usual.ts";
 import { busyEdges } from "../../fixtures/pay/stories/edges.ts";
 import { checkout } from "../../fixtures/pay/machine.ts";
-import { Step } from "../../src/host/testing/index.ts";
 import { denials, laneFacts } from "../checkout.ts";
 import { played } from "../rules/played.ts";
-import { publishedOnce } from "../rules/rules.ts";
 
 const line = (variantId: string, quantity: number) => ({ variantId, quantity });
 
@@ -132,7 +134,7 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
     );
   });
 
-  it("WriteLanes R4: a refused edit restores its own line from the server's answer and leaves the other line's edit", async () => {
+  it("WriteLanes R6: a refused edit leaves the other line's edit, each line its own lane; the refused line keeps what the server holds", async () => {
     const run = await played(failingLineAlone);
 
     expect(run.checkpoints.settled.read(mainCart)?.memory).toEqual(
@@ -168,6 +170,38 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
       run.evidence.filter((e) => e._tag === "Incarnated" && e.actor.machine === "Shop/Cart"),
     ).toHaveLength(1);
     expect(run.checkpoints.again.read(mainCart)?.memory["lines"]).toEqual({ l1: line("v1", 1) });
+  });
+});
+
+describe("a quantity that is never answered clears its wish (WriteLanes R2, R3)", () => {
+  const settledAt = async (story: typeof quantityLost) => {
+    const run = await played(story);
+
+    return {
+      cart: run.checkpoints.settled.read(mainCart)?.memory,
+      flow: run.checkpoints.settled.read(mainFlow)?.state,
+    };
+  };
+
+  it("WriteLanes R2: a lost quantity answer ends unknown, the cart stops waiting and says to check, and checkout begins", async () => {
+    const { cart, flow } = await settledAt(quantityLost);
+
+    expect(cart).toEqual(expect.objectContaining({ wanted: {}, notice: "check your cart" }));
+    expect(flow).toBe("ADDRESS");
+  });
+
+  it("WriteAhead R13: a quantity whose write the store refuses ends NotSent StorageRefused, and the cart stops waiting", async () => {
+    const { cart, flow } = await settledAt(quantityNotSaved);
+
+    expect(cart).toEqual(expect.objectContaining({ wanted: {} }));
+    expect(flow).toBe("ADDRESS");
+  });
+
+  it("a quantity answered for a line the server no longer holds removes the line and clears its wish", async () => {
+    const { cart, flow } = await settledAt(removedLineAnswer);
+
+    expect(cart).toEqual(expect.objectContaining({ lines: { l2: line("v2", 1) }, wanted: {} }));
+    expect(flow).toBe("ADDRESS");
   });
 });
 
@@ -232,16 +266,10 @@ describe("the checkout's retry delay at its edges (Turn R14)", () => {
   });
 });
 
-describe("a context consumer returning from its record (Turn I9)", () => {
-  it.fails("Turn I9: a cart and badge restored by a reload that attaches nothing publish each snapshot once", async () => {
-    const steps = browse.steps.toSpliced(
-      3,
-      0,
-      Step.reload({ reattach: false, heldWrites: "abort" }),
-    );
+describe("a consumer bound after its provider changed (fixtures.md S6)", () => {
+  it.fails("Turn R12: a checkout flow bound after its cart has a line begins, its guard reading the cart's count as context", async () => {
+    const run = await played(flowBoundLate);
 
-    const run = await browse.run({ steps });
-
-    expect(publishedOnce.breaches(run)).toEqual([]);
+    expect(run.checkpoints.begun.read(mainFlow)?.state).toBe("ADDRESS");
   });
 });

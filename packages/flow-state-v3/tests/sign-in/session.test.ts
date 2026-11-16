@@ -15,6 +15,7 @@ import {
 import { manyScreens, manySessions, reloadInLockout } from "../../fixtures/sign-in/stories/load.ts";
 import {
   reloadedMidHandle,
+  returnSavedLate,
   screenFirst,
   sessionFirst,
   signOutForgets,
@@ -23,7 +24,6 @@ import { handleRetry } from "../../fixtures/sign-in/stories/usual.ts";
 import { screen } from "../../fixtures/sign-in/machine.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
-import { breachesOf } from "../rules/rules.ts";
 
 const setUsernames = (cut: Cut) => cut.calls.filter((c) => c.endpoint === "setUsername").length;
 
@@ -124,7 +124,7 @@ describe("the session's ends (fixtures.md S6)", () => {
     expect(run.checkpoints.ended.read(mainSession)?.state).toBe("SIGNED_IN");
   });
 
-  it("S6 reloaded, WriteAhead R14: a handle save on the wire at a reload ends unknown Restored; the session sends it once more as the same Attempt, it lands and the redirect is released", async () => {
+  it("S6 reloaded, WriteAhead R14, WriteLanes R8: a handle save on the wire at a reload ends unknown Restored; the session retries it once as the same Attempt, it lands and the redirect is released", async () => {
     const run = await reloadedMidHandle().run();
 
     const attempts = run.checkpoints.reloaded.calls
@@ -137,17 +137,13 @@ describe("the session's ends (fixtures.md S6)", () => {
     expect(run.checkpoints.reloaded.read(mainReturn)?.state).toBe("RETURNED");
   });
 
-  it.fails("Turn I9: the return restored by the reload publishes each snapshot once", async () => {
-    expect(breachesOf(await reloadedMidHandle().run())).toEqual([]);
-  });
-
   it.fails("Actors R20, Stories R3: disposing the session while its return is bound is refused BlockedByDependents", async () => {
     await expect(sessionFirst().run()).rejects.toThrow(/BlockedByDependents/u);
   });
 });
 
 describe("a lockout across a reload (fixtures.md L4)", () => {
-  it("Actors R8, WriteAhead R1: the unpersisted screen, locked out, starts again at its email after a reload, its wrong tries gone", async () => {
+  it("WriteAhead R1, Actors R9: the unpersisted screen, locked out, starts again at its email after a reload, its wrong tries gone", async () => {
     const run = await played(reloadInLockout);
 
     expect(run.checkpoints.locked.read(screenOf(0))?.state).toBe("LOCKED");
@@ -166,15 +162,26 @@ describe("emails at their edges (fixtures.md E1, E3)", () => {
     );
   });
 
-  it("E1, Compile R5: an empty email computes an empty handle", async () => {
+  it("E1, Compile R5: an empty email computes an empty handle, and the screen sends it to the auth server as typed", async () => {
     const run = await played(emptyEmail);
 
     expect(run.checkpoints.opened.read(blankSession)?.memory["handle"]).toBe("");
+    expect(
+      run.end.calls.filter((c) => c.endpoint === "begin").map((c) => c.input["email"]),
+    ).toEqual([""]);
   });
 
   it("E3, Operations O1: an email whose begin key is exactly 8,192 bytes is sent a code", async () => {
     const run = await played(emailAtBound);
 
     expect(run.end.calls.filter((c) => c.endpoint === "begin")).toHaveLength(1);
+  });
+});
+
+describe("a return saved after its session signed in (fixtures.md S6)", () => {
+  it.fails("Turn R12: a return saved after its session is signed in returns at once, its guard reading the session as context", async () => {
+    const run = await played(returnSavedLate);
+
+    expect(run.checkpoints.saved.read(mainReturn)?.state).toBe("RETURNED");
   });
 });

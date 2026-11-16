@@ -144,7 +144,8 @@ A manifest (code:packages/flow-state-v3/fixtures/manifest.ts) holds:
 | Field           | Holds                                                                                        |
 | --------------- | -------------------------------------------------------------------------------------------- |
 | `name`          | the fixture's folder name, which prefixes its Story ids (`command-palette`'s are `palette/`) |
-| `app`           | the app every Story of the fixture runs, grown with its new machines                         |
+| `app`           | the grown app the CLI lists the fixture's Stories under; older Stories keep their own setup, |
+|                 | whose app has the same id and fewer machines                                                 |
 | `stories`       | every named Story, by export name                                                            |
 | `samples`       | step samples for the usual generator: one set per part of the app                            |
 | `stressSamples` | step samples for the stress generator, edges included: one set per part                      |

@@ -26,7 +26,7 @@ describe("many rooms (fixtures.md L1 under L5)", () => {
 });
 
 describe("a room's end while its tick is armed (fixtures.md S6)", () => {
-  it("S6 disposed, Turn R14: a disposed room's tick stops while the other room's runs on", async () => {
+  it("S6 disposed, Actors R8, R20: a disposed room's tick is cancelled while the other room's runs on", async () => {
     const run = await played(roomDisposed);
 
     expect(run.checkpoints.later.read(roomOf(0))?.lifecycle).toBe("disposed");
@@ -55,7 +55,7 @@ describe("rooms and seeks at their edges (fixtures.md E1, E3)", () => {
     expect(run.checkpoints.playing.read(longRoom)?.state).toBe("ON.PLAYING");
   });
 
-  it("a seek far past any track and a negative seek are taken as given, since the player keeps no track length, and the tick counts on from each (Turn R14)", async () => {
+  it("a seek far past any track and a negative seek are taken as given, since the player keeps no track length, and the tick counts on from each", async () => {
     const run = await played(seekEdges);
 
     expect(run.checkpoints.past.read(player)?.memory["pos"]).toBe(100_001);

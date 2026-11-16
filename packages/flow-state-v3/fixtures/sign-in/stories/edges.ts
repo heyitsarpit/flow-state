@@ -8,11 +8,14 @@ const KEY_FRAME = 12;
 const KEY_BOUND = 8192;
 
 /**
- * A session with an empty email.
+ * A session with an empty email is opened, and the screen is sent an empty email.
  */
 export const emptyEmail = sessionStory("sign-in/empty-email")
   .ensure(blankSession)
-  .checkpoint("opened");
+  .checkpoint("opened")
+  .ensure(screen)
+  .send(screen, { _tag: "Email", email: "" })
+  .checkpoint("sent");
 
 /**
  * A code of no characters is entered.

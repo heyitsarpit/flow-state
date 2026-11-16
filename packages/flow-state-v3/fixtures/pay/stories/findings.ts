@@ -1,3 +1,4 @@
+import { Fake } from "../../../src/host/testing/index.ts";
 import { mainCart, mainFlow, mainShopper } from "../app.ts";
 import { Carts } from "../server/carts.ts";
 import { add, setQuantity, storeStory } from "./usual.ts";
@@ -70,5 +71,43 @@ export const waitsWhileBusy = storeStory("pay/waits-while-busy")
   .send(mainFlow, { _tag: "Begin" })
   .checkpoint("busy")
   .world(Carts.setQuantity.release())
+  .send(mainFlow, { _tag: "Begin" })
+  .checkpoint("settled");
+
+const checkingOut = (id: string) =>
+  storeStory(id)
+    .ensure(mainShopper)
+    .ensure(mainCart)
+    .ensure(mainFlow)
+    .send(mainCart, add("l1", "v1"));
+
+/**
+ * A quantity's answer is lost after the server applied it; then checkout begins.
+ */
+export const quantityLost = checkingOut("pay/quantity-lost")
+  .world(Carts.setQuantity.drop({ at: "response" }))
+  .send(mainCart, setQuantity("l1", 2))
+  .send(mainFlow, { _tag: "Begin" })
+  .checkpoint("settled");
+
+/**
+ * The store refuses the write that would send a quantity; then checkout begins.
+ */
+export const quantityNotSaved = checkingOut("pay/quantity-not-saved")
+  .world(Fake.storage.refuse())
+  .send(mainCart, setQuantity("l1", 2))
+  .send(mainFlow, { _tag: "Begin" })
+  .checkpoint("settled");
+
+/**
+ * A line set to 0 is on the wire when it is set to 3; the 0 removes the line, so the 3 finds no
+ * line; then checkout begins.
+ */
+export const removedLineAnswer = checkingOut("pay/removed-line-answer")
+  .world(Carts.setQuantity.hold({ at: "response" }))
+  .send(mainCart, setQuantity("l1", 0))
+  .send(mainCart, setQuantity("l1", 3))
+  .world(Carts.setQuantity.release())
+  .send(mainCart, add("l2", "v2"))
   .send(mainFlow, { _tag: "Begin" })
   .checkpoint("settled");

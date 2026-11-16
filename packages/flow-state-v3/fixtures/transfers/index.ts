@@ -5,7 +5,7 @@ import { long, samples, seededStress, stories, stressSamples } from "./stories.t
 import { centsEdges, idAtBound, twoSpellings } from "./stories/edges.ts";
 import { manyAccounts, owedAtBoot } from "./stories/load.ts";
 import { samples as formSamples } from "./stories/samples.ts";
-import { chain, customerForgotten, formFirst } from "./stories/structure.ts";
+import { chain, customerForgotten, formBoundLate, formFirst } from "./stories/structure.ts";
 import { checkAndSend } from "./stories/usual.ts";
 
 /**
@@ -16,6 +16,7 @@ export const transfers = manifest({
   app: bankGrown,
   stories: {
     ...stories,
+    formBoundLate,
     checkAndSend,
     chain,
     formFirst,
