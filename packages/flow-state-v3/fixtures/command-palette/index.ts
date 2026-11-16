@@ -2,6 +2,8 @@ import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { paletteApp } from "./machine.ts";
 import { samples, seededStress, stories, stressSamples } from "./stories.ts";
+import { emptyQueryOrder, typingUnderHeldStore } from "./stories/load.ts";
+import { framesEight, twoPalettes } from "./stories/structure.ts";
 
 /**
  * The command-palette fixture, as every runner reads it.
@@ -9,7 +11,7 @@ import { samples, seededStress, stories, stressSamples } from "./stories.ts";
 export const commandPalette = manifest({
   name: "command-palette",
   app: paletteApp,
-  stories,
+  stories: { ...stories, framesEight, twoPalettes, emptyQueryOrder, typingUnderHeldStore },
   samples: [samples],
   stressSamples: [stressSamples],
   long: Option.none(),
