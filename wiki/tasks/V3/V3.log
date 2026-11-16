@@ -246,3 +246,8 @@ note 2026-11-16T00:15:52Z
 note 2026-11-16T00:15:52Z
     Delegated: lose(), run's seed and samples' values accepted as small tooling API. WriteAhead I23 (one batch out per
     actor, against R12) held as it.fails, owner @task.V3.T19; for the user's read.
+
+note 2026-11-16T00:29:31Z
+    T70 builder rotated at its context limit (R7): a fresh lead takes its uncommitted stress-profile work and resume
+    comment `532d6140`. Delegated: `Fake.network.offline()`/`online()` accepted as small tooling API, recorded in
+    Pending.
