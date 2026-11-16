@@ -397,7 +397,7 @@ tasks
             verdict-to-FlowError text is built twice (driver.ts check, runtime.ts rejected).
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T55]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3, @plan.Persistence.O6]
