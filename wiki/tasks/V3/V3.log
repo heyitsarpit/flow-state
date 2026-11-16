@@ -634,3 +634,7 @@ note 2026-11-16T15:52:09Z
 note 2026-11-16T15:58:09Z
     Amendment (2026-11-16, the user): one lead at a time, building or reviewing, with up to eight sidecars; reviews run
     between builds; 5-hour pacing at 80 and 90 percent. Commit: 1fca55c2.
+
+note 2026-11-16T16:03:41Z
+    Decision (the user, 2026-11-16): wakes every 50 minutes, so the orchestrator's 1-hour prompt cache stays warm; the
+    test timing stays about three-hourly. Reverse: one hourly cron.
