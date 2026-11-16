@@ -886,6 +886,9 @@ tasks
             Held in progress (orchestrator): close gates are red only in the session fixture (Turn I9, owned by T9; the
             session pair-sweep cell 'Acknowledging x storage refusal' never fires, undiagnosed, in T20's range). Next:
             after T9's round 3, diagnose that cell, rerun the gates, then review.
+        comment     2026-11-16T20:18:54Z
+            Accepted (the user, 2026-11-17): a write whose record can't save ends NotSent { StorageRefused } at once; a
+            pending result too large to save is heard once after a reload as unknown { Restored }.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done

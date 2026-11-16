@@ -765,3 +765,6 @@ note 2026-11-16T20:16:59Z
 note 2026-11-16T20:17:00Z
     Waiting on the user: T20's two outcome changes (StorageRefused at once; unknown Restored once) and Pending D14 to
     D19.
+
+note 2026-11-16T20:18:55Z
+    Decision (the user, 2026-11-17): T20's two outcome changes accepted; Pending D14 to D19 accepted as recommended.

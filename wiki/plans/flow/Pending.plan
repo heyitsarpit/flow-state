@@ -83,34 +83,36 @@ decisions
         `context-update-dropped-at-cap`. Open for the user: a provider with more than 64 consumers adds more than 64
         follow-ups in one turn, so that turn is refused. Judged by the T9 lead, for the user's read. Found
         in @task.V3.T9.
-    D14  @plan.Operations.O4: a Flapping session reopens when the connection is restored (proposed)
+    D14  @plan.Operations.O4: a Flapping session reopens when the connection is restored (accepted, the user, 
+         2026-11-17)
         **Before:** a session that ends `Flapping` stays ended; "it never re-opens a session" (O4), so a chat after a
         train ride hears nothing until its screen is placed again. **After:** a `Flapping` session reopens once on the
         Runtime's "connection restored" signal (the one O2 uses to refetch reads), with its flap count reset; it never
         loops, since a session that flaps again waits for the next signal. **Recommendation:** After; it keeps the
         no-loop rule, and every realtime client reconnects on network return. **Proven by:** the `chat` train-ride Story
         (code:wiki/conventions/fixture-catalog.md). Found in the fixture catalog review, 2026-11-17.
-    D15  @plan.Persistence.O4: what a reload does to queued writes (proposed)
+    D15  @plan.Persistence.O4: what a reload does to queued writes (accepted, the user, 2026-11-17)
         **Before:** O4 says lanes that owe an ending are restored live "so offline queued writes resume after a reload",
         while the same outcome ends each queued commit `NotSent { Restored }`. **After:** O4 says a write in flight at
         capture gets its ending after a reload, and queued commits end `NotSent { Restored }` for the app to send again.
         **Recommendation:** After; the rule stays as the Spec has it, and a queued payment is never sent without the
         user seeing it again. **Proven by:** the `transfers` Story with three queued transfers behind one in flight,
         reloaded. Found in the fixture catalog review, 2026-11-17.
-    D16  @plan.Operations.O5: a superseded commit removes its optimistic updates (proposed)
+    D16  @plan.Operations.O5: a superseded commit removes its optimistic updates (accepted, the user, 2026-11-17)
         **Before:** O5 says what success, failure, `NotSent` and unknown do to a commit's optimistic updates, and
         nothing about a commit `latest` supersedes before it is sent. **After:** a superseded commit's updates are
         removed as a `NotSent` ending's are, without a refetch and without overwriting newer data. **Recommendation:**
         After; the commit never reached the server, which is what `NotSent` already covers. **Proven by:** the `draft`
         autosave Story with two saves in a row. Found in the fixture catalog review, 2026-11-17.
-    D17  @plan.Persistence.O5: a send queued before boot when storage fails (proposed)
+    D17  @plan.Persistence.O5: a send queued before boot when storage fails (accepted, the user, 2026-11-17)
         **Before:** a failed storage read flushes the pre-boot queue "with `StorageFailure`", but `Flow.NotSent` has no
         `StorageFailure` tag (@plan.Operations.O3), so a commit in that queue has no named ending. **After:** a commit
         flushed from the pre-boot queue ends `NotSent { NoPersistence }`, as any commit does once persistence is off,
         and `StorageFailure` stays the issue and evidence. **Recommendation:** After; it reuses a tag with the same
         meaning instead of adding one. **Proven by:** the `session` Story whose storage read fails with a sign-in
         queued. Found in the fixture catalog review, 2026-11-17.
-    D18  @plan.Persistence.O2: `dueAt` is wall-clock time, and a passed timer fires once (proposed)
+    D18  @plan.Persistence.O2: `dueAt` is wall-clock time, and a passed timer fires once (accepted, the user, 
+         2026-11-17)
         **Before:** timers persist as `{ dueAt }` and run on the Runtime Clock, with no statement of whether `dueAt` is
         wall-clock or monotonic, or what a sleep or a clock jump does. **After:** `dueAt` is wall-clock epoch
         milliseconds from the Runtime Clock. A timer whose `dueAt` has passed on restore or wake fires once at the next
@@ -118,7 +120,8 @@ decisions
         is the only reading that survives a reload, and firing once matches how the browser treats a sleeping page.
         **Proven by:** the `sign-in` cooldown and `home` schedule Stories across a sleep. Found in the fixture catalog
         review, 2026-11-17.
-    D19  @plan.Operations.O3: `flow check` warns on `concurrency: "cancel"` for a money write (proposed)
+    D19  @plan.Operations.O3: `flow check` warns on `concurrency: "cancel"` for a money write (accepted, the user, 
+         2026-11-17)
         **Before:** under `concurrency: "cancel"` a newer commit interrupts one on the wire and that ending is only
         evidence, while a user's `O.x.cancel` on the wire keeps the Attempt Held as `unknown { Cancelled }` (see D1). A
         payment written with `cancel` can land twice. **After:** the two rules stay as they are, and `flow check` warns
