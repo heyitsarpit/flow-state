@@ -18,9 +18,12 @@ export const corruptRecord = grownStory("session/corrupt-record")
   .checkpoint("fresh");
 
 /**
- * The badge's saved record is one byte past a record's bound when the tab opens.
+ * The badge's saved record is one byte past a record's bound when the tab opens; the badge is
+ * ensured.
  */
 export const oversizedRecord = grownStory("session/stress-oversized-record")
   .world(Fake.storage.put(badgeRecord, `"${"x".repeat(PAST_RECORD_BOUND - 2)}"`))
   .reload({ reattach: false })
-  .checkpoint("boot");
+  .checkpoint("boot")
+  .ensure(badge)
+  .checkpoint("fresh");

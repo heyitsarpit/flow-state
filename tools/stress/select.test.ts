@@ -13,13 +13,14 @@ const pkg = "packages/flow-state-v3";
 const skipped = new Set(["node_modules", "prototypes"]);
 
 // What a stress run reads: a fixture's stress Story or one it builds on call (`stress<Name>`), the
-// stress slice of the reload sweep and its rule checks, a saved seeded stress Story, or the
-// generated stress seeds.
+// stress slice of the reload sweep and its rule checks, a saved seeded stress Story (a manifest's
+// `savedStress`), or the generated stress seeds.
 const stressMaterial = [
   /import \{[^}]*\bstress\b[^}]*\} from "[^"]*fixtures\//u,
   /import \{[^}]*\bstress[A-Z]\w*\b[^}]*\} from "[^"]*fixtures\//u,
   /\bslices\.stress\b/u,
   /\bseededStress\b/u,
+  /\bsavedStress\b/u,
   /\bseededRuns\("stress"\)/u,
   /\bseeds\("stress"\)/u,
 ];

@@ -11,8 +11,13 @@ const saved = manifests.map(({ name, savedStress: { story, seed }, stressSamples
 }));
 
 describe("each fixture's stress Story (Testing O6)", () => {
-  it("every fixture saves one, and each runs the app", async () => {
+  it("every fixture saves one, registered among its Stories, and each runs the app", async () => {
     expect(saved.filter((s) => s.sampled === undefined).map((s) => s.name)).toEqual([]);
+    expect(
+      manifests
+        .filter((m) => !Object.values(m.stories).includes(m.savedStress.story))
+        .map((m) => m.name),
+    ).toEqual([]);
 
     for (const { story } of saved)
       // oxlint-disable-next-line no-await-in-loop -- one run at a time: each Story is its own world

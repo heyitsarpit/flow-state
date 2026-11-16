@@ -55,12 +55,4 @@ describe("every fixture registers one manifest (fixtures.md, Where a fixture is 
 
       expect(registered).toEqual(await exportedStoryIds(manifest.name));
     });
-
-  for (const manifest of manifests)
-    it(`${manifest.name}: the saved stress Story is a seed of one of its stress samples, and registered`, () => {
-      const { story, seed } = manifest.savedStress;
-
-      expect(manifest.stressSamples.map((s) => `${s.id}/stress-${seed}`)).toContain(story.id);
-      expect(Object.values(manifest.stories)).toContain(story);
-    });
 });

@@ -650,7 +650,7 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
     cannot be configured; ranking speed is the fixture's own code, timed in `tests/command-palette/ranking.test.ts`.
   - [x] **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape, S9 at the deepest: 1 (PALETTE-9, PALETTE-10
     with Escape), 8 with a reload at the deepest, 64 past a record's depth bound (reported `UnencodableValue`, its last
-    good capture restored). built: `palette/frames-8`, the `stressFramesSixtyFour` builder. S3: two palettes. built:
+    good capture restored). built: `palette/frames-8`, the `framesSixtyFour` builder. S3: two palettes. built:
     `palette/two-palettes`.
   - [ ] **Structure:** each palette with its own workbench. left: needs an actor-to-actor `send(ref, event)` action
     for `Workbench`, which no Task owns (the user's call).

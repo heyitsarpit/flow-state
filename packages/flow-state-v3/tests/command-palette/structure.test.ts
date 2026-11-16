@@ -7,7 +7,7 @@ import {
 import {
   framesEight,
   secondPalette,
-  stressFramesSixtyFour,
+  framesSixtyFour,
   twoPalettes,
 } from "../../fixtures/command-palette/stories/structure.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
@@ -27,7 +27,7 @@ describe("page frames deep (fixtures.md S1 with S9)", () => {
   });
 
   it("S1 x 64, Codec R1; Restore R9: 64 nested pages pass a record's depth bound, so the palette runs on unsaved, reported UnencodableValue, and a reload restores its last good capture", async () => {
-    const run = await played(stressFramesSixtyFour());
+    const run = await played(framesSixtyFour());
 
     expect(memoryAt(run.checkpoints.deep).frames).toHaveLength(64);
     expect(reports(run)).toContain("UnencodableValue");

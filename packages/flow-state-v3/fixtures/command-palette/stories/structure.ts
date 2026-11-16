@@ -38,11 +38,10 @@ export const framesEight = levels(8)
   .checkpoint("top");
 
 /**
- * 64 pages opened one in another, past a record's depth bound; the tab reloads. A stress Story,
- * built on call and kept out of `stories`: its list cannot be saved or traced.
+ * 64 pages opened one in another, past a record's depth bound; the tab reloads. Built on call and
+ * kept out of `stories`: its list cannot be saved or traced.
  */
-export const stressFramesSixtyFour = () =>
-  deep("palette/stress-frames-64", 64).reload().checkpoint("reloaded");
+export const framesSixtyFour = () => deep("palette/frames-64", 64).reload().checkpoint("reloaded");
 
 /**
  * Two palettes, each with its own list and query.
