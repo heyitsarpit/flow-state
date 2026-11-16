@@ -329,3 +329,12 @@ note 2026-11-16T02:41:36Z
 note 2026-11-16T03:05:22Z
     T18 in review at `347bd32c`: three policies as lane rows, notSent: split, fixtures/lanes, faults 70 of 70; lean
     independent check started at 98 usage. Under scrutiny: the builder's Spec limit that a crash loses queued commits.
+
+note 2026-11-16T03:08:59Z
+    T18 review ISSUES at `347bd32c` (`66515765`): queued commits vanish across a reload with no ending, against
+    @plan.Operations.O3 and @plan.Persistence.O4. Ruling: follow the Plans (NotSent Restored at Start); back to the
+    builder.
+
+note 2026-11-16T03:08:59Z
+    For the user's read: T18's Q5 ruling (a cancel commit lets Kept rows go) departs from O3's literal "a commit
+    declines"; loses no ending. Unbuilt R4 not-retained unknown, row shapes and outstanding need a P3 Task (proposed).
