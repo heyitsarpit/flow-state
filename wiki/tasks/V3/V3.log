@@ -255,3 +255,7 @@ note 2026-11-16T00:29:31Z
 note 2026-11-16T01:13:21Z
     T70 in review at 554531f2 after the fix round: stress profile per the fixture plan, Fake.network (Pending D12),
     planted seed 19, faults 52 of 52.
+
+note 2026-11-16T01:14:03Z
+    T70 back in review at `554531f2` after the fix round (faults 52 of 52); the original reviewer re-checks its
+    findings, including a quiet-phase change made to get a seed under ten steps.
