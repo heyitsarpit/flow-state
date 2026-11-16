@@ -265,6 +265,17 @@ tasks
             B1 fixed at 75d58fc6: lane records save the queue and owed displaced Attempts, ended NotSent/unknown
             Restored at the boot; run rule WriteLanes I27 counts every commit's end across reloads and trips on B1.
             Gates: check 0, suite green but frozen packages, test:stress 25/25, faults 71/71.
+        comment     2026-11-16T03:18:42Z
+            Re-review ISSUES at c76a963c. B1 fixed: the reload repro now ends the queued commit NotSent Restored under
+            latest and serialize. I27 (code:packages/flow-state-v3/tests/rules/commits.ts) and the planted fault
+            queue-not-saved are sound. faults 71/71, test:stress 25/25. Blocks: the new rule that a lane record saves
+            displaced Attempts owed an ending and the boot ends each unknown Restored (Restore R3;
+            code:packages/flow-state-v3/src/core/record.ts#encodeLane) has no test and no planted fault, so A3 is
+            broken. A displaced Attempt whose lane ends before its call settles is acknowledged, and @plan.Operations.O3
+            and @plan.Persistence.O6 promise it unknown Restored after a crash. That is a lost ending, so it can't stay
+            a stated limit in WriteLanes' realization. Fix: a core test on encodeLane and the boot, with a planted fault
+            that drops displaced; turn the lane-ends case into an open item with an it.fails pin (a core test, or a
+            lanes Story over an uninterruptible Git fake like pay's steadfast shop), owner @task.V3.T20 (proposed).
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open
