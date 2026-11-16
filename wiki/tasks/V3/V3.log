@@ -569,3 +569,7 @@ note 2026-11-16T14:47:47Z
     T20 close review ISSUES (ca1b2759): one hang, since a commit is size-checked alone while the lane record's bound
     covers head, queue and displaced, so an over-bound record withholds the identity for good (Codec R4, WriteAhead
     I21). Fix round queued after T9's; Spec decisions (a) to (d) judged sound.
+
+note 2026-11-16T14:54:51Z
+    T9 back in review at 624d35f1 (both blockers fixed, R13 restored to Runtime O4, mailbox-order run rule; faults
+    178/178 in 43 s); fix-round review started. T20's fix round resumed. For the user: typed slot wiring remains open.
