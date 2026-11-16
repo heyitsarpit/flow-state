@@ -325,3 +325,7 @@ note 2026-11-16T02:36:25Z
 note 2026-11-16T02:41:36Z
     T18's first commit `557eb3f1` (9 requirements) has no separate review at 97 usage; its close review covers it. The
     notSent: key is @plan.Operations.O1's, not new API.
+
+note 2026-11-16T03:05:22Z
+    T18 in review at `347bd32c`: three policies as lane rows, notSent: split, fixtures/lanes, faults 70 of 70; lean
+    independent check started at 98 usage. Under scrutiny: the builder's Spec limit that a crash loses queued commits.
