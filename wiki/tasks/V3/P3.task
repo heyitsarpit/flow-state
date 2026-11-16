@@ -970,3 +970,9 @@ tasks
             to 61 steps, because dropping a fixture remaps every pick of the same draws. To improve it, drop fixtures
             over the shrunk draws or over several seeds. Proposed for the user: a Story over several setups, so a mix
             prints as code; the `mix` profile value. The Failure `fixtures` field is a small API change I made.
+        comment     2026-11-16T13:19:04Z
+            Close review: ISSUES, blocking acceptance 3. With the fault planted at e1690a2f, `lanes` alone (mix profile,
+            seed 2) breaks WriteAhead I15 in 38 steps, so it does not need two fixtures; mix seed 4 shrinks only to pay,
+            lanes, palette (61 steps). Fix: a fault one fixture cannot show, checked by a single-fixture test, and
+            fixture drops that keep pool slots so draws do not remap, with a test on the shrunk `fixtures`. Acceptance 1
+            and 2 pass; check, test, test:stress and faults (122 of 122) green.
