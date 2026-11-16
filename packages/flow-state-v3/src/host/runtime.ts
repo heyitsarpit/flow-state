@@ -5,7 +5,8 @@ import { laneKeyText } from "../core/lane-moves.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import { Input } from "../core/step.ts";
 import type { Machines } from "../core/tx.ts";
-import { type ActorId, actorKey, Disposal, type World } from "../core/world.ts";
+import { Verdict } from "../core/life.ts";
+import { type ActorId, actorKey, type World } from "../core/world.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, Envelope, Machine, Operations } from "../definition.ts";
 import { FlowError } from "../error.ts";
@@ -219,8 +220,6 @@ export const buildRuntime = (
   let services = Context.empty();
   const fibers = makeFibers(scope, () => Context.merge(services, platform));
   const booted = Deferred.makeUnsafe<void, FlowError>();
-  let started = false;
-  let open = false;
 
   const persistence =
     config.persistence !== undefined && config.scope !== undefined && Option.isSome(host.store);
@@ -241,12 +240,14 @@ export const buildRuntime = (
     },
   });
 
-  const closed = () => !Disposal.$is("Open")(driver.world().disposal);
+  const rejected = (code: "RuntimeNotReady" | "RuntimeDisposed") =>
+    new FlowError({
+      code,
+      problems: [code === "RuntimeNotReady" ? "ready() before boot" : "ready() after dispose()"],
+    });
 
-  const disposedError = (what: string) =>
-    new FlowError({ code: "RuntimeDisposed", problems: [`${what} after dispose()`] });
-
-  // Storage is read and validated before any app service is acquired.
+  // Storage is read and validated before any app service is acquired; the core's life decides
+  // whether the boot it reads still opens the Runtime.
   const boot = Effect.fn("Runtime.boot")(function* () {
     const loaded = yield* Option.match(persistence ? host.store : Option.none(), {
       onNone: () => Effect.succeed(new Map<string, string>()),
@@ -264,12 +265,14 @@ export const buildRuntime = (
         Effect.mapError(
           (cause) => new FlowError({ code: "ServiceFailed", problems: [String(cause)], cause }),
         ),
+        Effect.tapError(() => Effect.sync(() => driver.input(Input.BootFailed()))),
       );
 
-    if (closed()) return yield* Effect.fail(disposedError("ready()"));
+    const opened = Input.Boot({ stored });
+    const verdict = driver.verdict(opened);
+    driver.input(opened);
 
-    driver.input(Input.Boot({ stored }));
-    open = true;
+    if (Verdict.$is("Reject")(verdict)) return yield* Effect.fail(rejected(verdict.code));
   });
 
   // The first call runs the bootstrap once; every caller shares its Exit. The bootstrap is
@@ -277,16 +280,21 @@ export const buildRuntime = (
   // bootstrap ends (a stated limit: only that wait should be interrupted).
   const ready = () =>
     Effect.suspend(() => {
-      if (closed()) return Effect.fail(disposedError("ready()"));
+      const start = Input.Start();
 
-      if (started) return Deferred.await(booted);
-      started = true;
+      return Verdict.$match(driver.verdict(start), {
+        Reject: ({ code }) => Effect.fail(rejected(code)),
+        Drop: () => Deferred.await(booted),
+        Run: () => {
+          driver.input(start);
 
-      return Effect.uninterruptible(boot()).pipe(
-        Effect.exit,
-        Effect.flatMap((exit) => Deferred.done(booted, exit)),
-        Effect.andThen(Deferred.await(booted)),
-      );
+          return Effect.uninterruptible(boot()).pipe(
+            Effect.exit,
+            Effect.flatMap((exit) => Deferred.done(booted, exit)),
+            Effect.andThen(Deferred.await(booted)),
+          );
+        },
+      });
     });
 
   const actorOf = (ref: { readonly machine: Machine; readonly name: string }) => ({
@@ -294,32 +302,19 @@ export const buildRuntime = (
     name: ref.name,
   });
 
-  const admitting = (what: string) => {
-    if (closed())
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public ensureActor's and send's contract: after dispose() they reject RuntimeDisposed
-      throw disposedError(what);
-  };
-
   const runtime: Runtime = {
     ready,
+    // Before ready succeeds, no handle exists: the core's life rejects the ensure.
     ensureActor: (ref) => {
-      admitting(`ensureActor ${ref.name}`);
-
-      // Before ready succeeds, no handle exists.
-      if (!open)
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public ensureActor's contract: before ready it rejects RuntimeNotReady
-        throw new FlowError({
-          code: "RuntimeNotReady",
-          problems: [`ensureActor ${ref.name} before ready()`],
-        });
-
       const actor = actorOf(ref);
-      driver.input(Input.Ensure({ actor, use: Option.none(), existing: false }));
+      driver.offer(
+        Input.Ensure({ actor, use: Option.none(), existing: false }),
+        `ensureActor ${ref.name}`,
+      );
 
       return {
         ref,
         send: (event) => {
-          admitting(`send ${event._tag} to ${ref.name}`);
           const { _tag: tag, ...payload } = event;
           driver.send(actor, tag, payload);
         },
@@ -328,7 +323,7 @@ export const buildRuntime = (
     },
     disposeActor: (actor) => {
       const ref = "ref" in actor ? actor.ref : actor;
-      driver.input(Input.DisposeActor({ actor: actorOf(ref) }));
+      driver.offer(Input.DisposeActor({ actor: actorOf(ref) }), `disposeActor ${ref.name}`);
     },
     // The core's disposal ends first: calls settling within its bound are parked, then the
     // Scope closes every fiber.

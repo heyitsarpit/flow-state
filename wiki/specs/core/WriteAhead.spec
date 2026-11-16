@@ -180,8 +180,8 @@ requirements
                 one is. An unanswered write is pending, never "not sent"; StorageSilent names it after
                 10 s and decides nothing. A record names the boot that wrote it, and no id minted
                 after restore equals an id on disk (@spec.WriteLanes.R5). Disposal waits for its
-                final write within its budget (@spec.Actors.R23); a final write still pending then,
-                or refused, reports StorageFailure.
+                writes within its budget (@spec.Actors.R23); a write still pending then, or
+                refused, reports StorageFailure.
 
     R13  Acknowledge before sending
         source  @plan.Persistence.O6.

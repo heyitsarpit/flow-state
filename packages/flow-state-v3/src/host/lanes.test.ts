@@ -677,7 +677,10 @@ describe("write lanes on the production runtime", () => {
     const first = boot(new Map(), 1);
     const door = first.built.runtime.ensureActor(actorRef(DoorMachine, "front"));
 
-    await Effect.runPromise(first.built.runtime.dispose());
+    // The disposal's write lands on the tab's event loop.
+    const disposing = Effect.runFork(first.built.runtime.dispose());
+    first.tab.settle();
+    await Effect.runPromise(Fiber.join(disposing));
 
     const disposed = (f: () => unknown) =>
       assert.throws(f, (e) => e instanceof FlowError && e.code === "RuntimeDisposed");

@@ -1,4 +1,4 @@
-import { Cause, Clock, Context, Deferred, Duration, Effect, Exit, Option } from "effect";
+import { Cause, Clock, Context, Duration, Effect, Exit, Option } from "effect";
 import { Due, type Ticket, type TicketId, type Write } from "../core/world.ts";
 import type { Fibers } from "./fibers.ts";
 import { encodeJsonText } from "./json.ts";
@@ -22,7 +22,7 @@ const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
 
   if (tickets.some((t) => t.purpose === "capture")) return capture;
 
-  return tickets.length > 0 ? acknowledge : flush;
+  return tickets.some((t) => t.purpose === "acknowledge") ? acknowledge : flush;
 };
 
 const WAKE = "wake";
@@ -36,7 +36,8 @@ const WAKE = "wake";
  * - A batch due now or with a ticket, or any batch with `captureMs` at 0 or on a hidden page, is
  *   issued in the next host task; a later one waits at most `captureMs`.
  * - A refused batch is put back unless something newer was accepted for the same key.
- * - Each ticket's answer is passed to `answered`, which runs a step of the core.
+ * - Each ticket's answer is passed to `answered`, which runs a step of the core; a ticket with
+ *   nothing left to write is answered as landed.
  */
 export const makeEdge = (
   platform: Platform,
@@ -56,21 +57,16 @@ export const makeEdge = (
     due: Number.POSITIVE_INFINITY,
   };
 
-  let flushes: ReadonlyArray<Deferred.Deferred<void>> = [];
-
-  const quiet = () => {
-    if (pending.out) return;
-
-    for (const flushed of flushes) Deferred.doneUnsafe(flushed, Exit.void);
-    flushes = [];
-  };
-
   const issue = () => {
     fibers.cancel(WAKE);
     const store = host.store;
 
+    // With nothing left to write, every ticket waiting on the store has what it waits for.
     if (Option.isNone(store) || pending.dirty.size === 0) {
-      pending = { ...pending, due: Number.POSITIVE_INFINITY };
+      const { tickets } = pending;
+      pending = { ...pending, tickets: [], due: Number.POSITIVE_INFINITY };
+
+      for (const t of tickets) options.answered(t.id, true);
 
       return;
     }
@@ -85,7 +81,7 @@ export const makeEdge = (
       store.value.write(
         writes.map((w) => ({ key: w.key, value: Option.map(w.record, encodeJsonText) })),
         purposeOf(tickets),
-        tickets.filter((t) => t.purpose === "acknowledge").map((t) => t.attempt),
+        tickets.flatMap((t) => (t.purpose === "acknowledge" ? [t.attempt] : [])),
       ),
       (exit) => {
         // An interrupted write is unanswered, as a hung store is.
@@ -99,21 +95,18 @@ export const makeEdge = (
 
         for (const t of tickets) options.answered(t.id, landed);
 
-        // A flush issues each batch once: a refused one waits for the next capture.
-        if (landed || flushes.length === 0) pump();
-        quiet();
+        pump();
       },
     );
   };
 
   const pump = () => {
-    if (pending.out || pending.dirty.size === 0) return;
+    if (pending.out) return;
 
-    if (
-      pending.tickets.length > 0 ||
-      clock.currentTimeMillisUnsafe() >= pending.due ||
-      host.hidden() ||
-      flushes.length > 0
+    if (pending.tickets.length > 0) issue();
+    else if (
+      pending.dirty.size > 0 &&
+      (clock.currentTimeMillisUnsafe() >= pending.due || host.hidden())
     )
       issue();
   };
@@ -138,20 +131,6 @@ export const makeEdge = (
   });
 
   return {
-    /**
-     * Issues the dirty writes at once and waits until no batch is out; a refused batch is not
-     * retried. A store that never answers holds it (stated limit).
-     */
-    flush: Effect.suspend(() => {
-      if (!pending.out) issue();
-
-      if (!pending.out) return Effect.void;
-
-      const flushed = Deferred.makeUnsafe<void>();
-      flushes = [...flushes, flushed];
-
-      return Deferred.await(flushed);
-    }),
     accept: (writes: ReadonlyArray<Write>, due: Due) => {
       const dirty = new Map(pending.dirty);
       const tickets = Due.$is("Awaited")(due) ? due.tickets : [];

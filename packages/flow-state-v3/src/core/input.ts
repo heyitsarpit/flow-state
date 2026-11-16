@@ -22,11 +22,13 @@ export type CallResult = Data.TaggedEnum<{
 export const CallResult = Data.taggedEnum<CallResult>();
 
 /**
- * One input to the core: a public call, a host answer or a timer.
+ * One input to the core: a public call, a step of the bootstrap, a host answer or a timer.
  */
 export type Input = Data.TaggedEnum<{
+  Start: {};
   // FLOW_STATE_ALLOW_UNKNOWN: the store's parsed records, decoded by the core once.
   Boot: { stored: ReadonlyMap<string, unknown> };
+  BootFailed: {};
   Ensure: { actor: ActorId; use: Option.Option<Use>; existing: boolean };
   Release: { actor: ActorId; use: Use };
   Send: { actor: ActorId; tag: string; payload: Values };

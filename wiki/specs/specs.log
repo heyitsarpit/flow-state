@@ -79,3 +79,8 @@ note 2026-11-16T06:24:34Z
     Spec tests reworded from the deleted conformance suite to Story tests and planted faults (`nub run faults`); case
     ids dropped; Compile's design note cites production files. Round-14 design notes kept. Stories and spec-split lint
     fixed.
+
+note 2026-11-16T08:18:20Z
+    Actors R23, I36, I43, I44: the disposal writes every change within its bound, not one batch at its start; ends made
+    at the bound stay unwritten (reload hears unknown Restored). Why: one try lost a call's own ending settled within
+    the bound. Life and admit are built (R4, model, realization). Reverse: one batch at the start (@task.V3.T55).

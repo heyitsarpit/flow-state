@@ -121,10 +121,14 @@ export const makePersistence = (tx: Tx) => {
    * Notes a lane as changed and returns the ticket a send awaits for the step's writes, arming
    * its silence timer; `None` when the identity does not persist.
    */
-  const saveAwaited = (actor: ActorId, id: string, awaited: Omit<Ticket, "id">) => {
+  const saveAwaited = (
+    actor: ActorId,
+    id: string,
+    awaited: { readonly attempt: string; readonly purpose: "acknowledge" | "capture" },
+  ) => {
     if (!persisted(actor)) return Option.none<TicketId>();
 
-    const ticket = { id: tx.mint<TicketId>("ticket"), ...awaited };
+    const ticket: Ticket = { id: tx.mint<TicketId>("ticket"), ...awaited };
     touch(actor, (t) => ({
       ...t,
       lanes: new Set([...t.lanes, id]),
@@ -197,8 +201,8 @@ export const makePersistence = (tx: Tx) => {
     return [...recordWrites(t), ...[...t.lanes].map(laneWrite), ...owed];
   };
 
-  const dueOf = (all: ReadonlyArray<Touched>) => {
-    const tickets = all.flatMap((t) => t.tickets);
+  const dueOf = (all: ReadonlyArray<Touched>, final: ReadonlyArray<Ticket>) => {
+    const tickets = [...all.flatMap((t) => t.tickets), ...final];
 
     if (tickets.length > 0) return Due.Awaited({ tickets });
 
@@ -209,14 +213,19 @@ export const makePersistence = (tx: Tx) => {
    * Projects what the step touched: one write list for the whole step, every identity's touched
    * records once each, due by the derived rule.
    */
-  const project = () => {
+  const project = (final: ReadonlyArray<Ticket> = []) => {
     const all = [...touched.values()];
     touched = new Map();
 
-    if (all.length === 0) return;
+    if (all.length === 0 && final.length === 0) return;
 
-    tx.command(Command.Persist({ writes: all.flatMap(writesOf), due: dueOf(all) }));
+    tx.command(Command.Persist({ writes: all.flatMap(writesOf), due: dueOf(all, final) }));
   };
+
+  /**
+   * Whether the step has touched a record not yet projected.
+   */
+  const dirty = () => touched.size > 0;
 
   return {
     recordOf,
@@ -228,6 +237,7 @@ export const makePersistence = (tx: Tx) => {
     setLane,
     dropLane,
     project,
+    dirty,
   };
 };
 

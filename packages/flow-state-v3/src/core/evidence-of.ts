@@ -34,6 +34,7 @@ export type Act = Data.TaggedEnum<{
   Finished: { actor: ActorId };
   Defect: {};
   RuntimeEnded: {};
+  WriteFailed: {};
   Lane: {
     actor: ActorId;
     operation: string;
@@ -131,6 +132,7 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
     Finished: ({ actor }) => [Evidence.Finished({ actor })],
     Defect: () => [Evidence.Issue({ code: "Defect", ending: Option.none() })],
     RuntimeEnded: () => [Evidence.RuntimeDisposed()],
+    WriteFailed: () => [Evidence.Issue({ code: "StorageFailure", ending: Option.none() })],
     ReadReplaced: ({ operation }) => [
       Evidence.Lane({ kind: "Superseded", operation, attempt: Option.none() }),
     ],

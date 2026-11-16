@@ -12,10 +12,10 @@ import {
 } from "effect";
 import { Operation } from "../core/compiled.ts";
 import type { Values } from "../core/compiled.ts";
-import { Evidence } from "../core/evidence.ts";
+import type { Evidence } from "../core/evidence.ts";
+import { admit, isDisposed, Verdict } from "../core/life.ts";
 import { CallResult, type Env, Input, type Machines, step } from "../core/step.ts";
-import { DISPOSAL_BOUND_MS } from "../core/tx.ts";
-import { type CallId, Command, Disposal, emptyWorld, type World } from "../core/world.ts";
+import { type CallId, Command, emptyWorld, type World } from "../core/world.ts";
 import { FlowError } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
@@ -63,11 +63,11 @@ export const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
  *
  * **Details**
  *
- * Inputs that arrive while a step's commands run are queued and run in order after it. Once the
- * core's disposal has ended, inputs are dropped. `dispose` starts that disposal and completes
- * when the edge has written what it left, within what remains of the disposal's bound; a write
- * still pending then reports StorageFailure. The Runtime's Scope is about to interrupt every
- * fiber.
+ * Inputs that arrive while a step's commands run are queued and run in order after it; the step
+ * runs or drops each as the core's `admit` says. `offer` throws the error a rejected public call
+ * names. `dispose` starts the core's disposal and completes when the core's life reads Disposed:
+ * the core waits for calls on the wire and its own writes, within its bound. The Runtime's Scope
+ * is about to interrupt every fiber.
  */
 export const makeDriver = (options: {
   readonly machines: Machines;
@@ -146,7 +146,7 @@ export const makeDriver = (options: {
 
       for (const command of out.commands) perform(command);
 
-      if (Disposal.$is("Disposed")(world.disposal)) Deferred.doneUnsafe(disposed, Exit.void);
+      if (isDisposed(world.life)) Deferred.doneUnsafe(disposed, Exit.void);
     }
   };
 
@@ -163,14 +163,34 @@ export const makeDriver = (options: {
   };
 
   const input = (next: Input) => {
-    if (Disposal.$is("Disposed")(world.disposal)) return;
     inbox.push(next);
 
     if (!running) run();
   };
 
+  // A public call the Runtime's life rejects throws the error its verdict names and runs nothing.
+  const check = (next: Input, what: string) => {
+    const verdict = admit(world.life, next);
+
+    if (Verdict.$is("Reject")(verdict))
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public calls' contract: a call the Runtime's life rejects throws its FlowError
+      throw new FlowError({
+        code: verdict.code,
+        problems: [
+          verdict.code === "RuntimeNotReady" ? `${what} before ready()` : `${what} after dispose()`,
+        ],
+      });
+  };
+
+  const offer = (next: Input, what: string) => {
+    check(next, what);
+    input(next);
+  };
+
   return {
     input,
+    offer,
+    verdict: (next: Input) => admit(world.life, next),
     machines,
     world: () => world,
     pending: () => inbox.length > 0,
@@ -184,6 +204,8 @@ export const makeDriver = (options: {
       const decoded =
         codec === undefined ? Option.none() : Schema.decodeUnknownOption(codec)(payload);
 
+      check(Input.Send({ actor, tag, payload }), `send ${tag} to ${actor.name}`);
+
       // An internal, unknown or invalid event throws InvalidEvent and starts no turn.
       if (Option.isNone(decoded))
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public send's contract: an invalid event throws InvalidEvent before any turn
@@ -195,24 +217,9 @@ export const makeDriver = (options: {
       input(Input.Send({ actor, tag, payload: decoded.value }));
     },
     dispose: Effect.suspend(() => {
-      const bound = clock.currentTimeMillisUnsafe() + DISPOSAL_BOUND_MS;
       input(Input.DisposeRuntime());
 
-      return Deferred.await(disposed).pipe(
-        Effect.andThen(
-          Effect.suspend(() =>
-            edge.flush.pipe(
-              Effect.timeout(Duration.millis(Math.max(0, bound - clock.currentTimeMillisUnsafe()))),
-            ),
-          ),
-        ),
-        Effect.catchTag("TimeoutError", () =>
-          Effect.sync(() =>
-            options.sink([Evidence.Issue({ code: "StorageFailure", ending: Option.none() })]),
-          ),
-        ),
-        Effect.provideService(Clock.Clock, clock),
-      );
+      return Deferred.await(disposed);
     }),
   };
 };

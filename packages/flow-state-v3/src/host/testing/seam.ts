@@ -27,7 +27,8 @@ export const testing = {
     driver.input(Input.Ensure({ actor, use: Option.some(use), existing })),
   detach: ({ driver }: TestRuntime, actor: ActorId, use: Use) =>
     driver.input(Input.Release({ actor, use })),
-  forget: ({ driver }: TestRuntime, actor: ActorId) => driver.input(Input.Forget({ actor })),
+  forget: ({ driver }: TestRuntime, actor: ActorId) =>
+    driver.offer(Input.Forget({ actor }), `forget ${actor.name}`),
   disposeRuntime: ({ driver }: TestRuntime) => driver.input(Input.DisposeRuntime()),
   pending: ({ driver }: TestRuntime) => driver.pending(),
   send: ({ driver }: TestRuntime, actor: ActorId, tag: string, payload: Values) =>

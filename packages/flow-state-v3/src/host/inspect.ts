@@ -1,7 +1,8 @@
 import { Option } from "effect";
 import { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
-import { actorKey, type Disposal, Timer } from "../core/world.ts";
+import type { Life } from "../core/life.ts";
+import { actorKey, Timer } from "../core/world.ts";
 import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
 import { DriverId, InspectorId, type Runtime, type Snapshot, snapshotOf } from "./runtime.ts";
@@ -38,7 +39,7 @@ export { Evidence };
  * definition's operation name, `contract` its contract's id, `state` InFlight or Held (an Idle lane
  * is not listed), `phase` its head's phase tag, `key` its key text (none for an unkeyed operation)
  * and `retryCount` its head's re-sends. An owed row's `delivery` is its delivery tag. A timer's
- * `dueAt` is known for a schedule only. `lifecycle` is Open, Disposing or Disposed.
+ * `dueAt` is known for a schedule only. `lifecycle` is the Runtime's life: Inert, Booting, Open, Failed, Disposing or Disposed.
  */
 export type RuntimeCut = {
   readonly actors: ReadonlyArray<{ readonly actor: string; readonly snapshot: Snapshot }>;
@@ -66,7 +67,7 @@ export type RuntimeCut = {
     readonly dueAt: Option.Option<number>;
   }>;
   readonly uses: ReadonlyArray<{ readonly actor: string; readonly uses: ReadonlyArray<string> }>;
-  readonly lifecycle: Disposal["_tag"];
+  readonly lifecycle: Life["_tag"];
 };
 
 const contractOf = (driver: Driver, machine: string, operation: string) =>
@@ -132,7 +133,7 @@ const cutOf = (driver: Driver): RuntimeCut => {
       dueAt: dueOf(timer),
     })),
     uses: [...world.uses].map(([actor, uses]) => ({ actor, uses })),
-    lifecycle: world.disposal._tag,
+    lifecycle: world.life._tag,
   };
 };
 

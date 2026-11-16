@@ -10,7 +10,8 @@ import { makeLedger } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
 import { type Env, type Machines, makeTx, without } from "./tx.ts";
-import { actorKey, Disposal, Mail, Timer, type TimerId, type World } from "./world.ts";
+import { admit, Life, Verdict } from "./life.ts";
+import { actorKey, Mail, Timer, type TimerId, type World } from "./world.ts";
 
 export { CallResult, Input } from "./input.ts";
 
@@ -23,11 +24,13 @@ export type { Env, Machines } from "./tx.ts";
  * **Details**
  *
  * Pure and synchronous: time and the session seed come from `env`, ids from the world's counter.
- * Public calls are admitted only while the Runtime is open; host answers and timers still run
- * while it is disposing.
+ * An input runs only when `admit` says so for the Runtime's life; any other changes nothing.
  */
 export const step = (machines: Machines, world0: World, input: Input, env: Env) => {
   const tx = makeTx(machines, world0, env);
+
+  if (!Verdict.$is("Run")(admit(world0.life, input))) return tx.out();
+
   const persistence = makePersistence(tx);
   const ledger = makeLedger(tx, persistence);
   const lanes = makeLanes(tx, persistence, ledger);
@@ -61,43 +64,54 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     });
   };
 
-  const open = Disposal.$is("Open")(tx.world().disposal);
-  const disposing = Disposal.$is("Disposing")(tx.world().disposal);
+  const open = Life.$is("Open")(world0.life);
+  const setLife = (life: Life) => tx.set({ ...tx.world(), life });
 
   Input.$match(input, {
-    Boot: ({ stored }) => (open ? incarnations.boot(stored) : undefined),
-    Ensure: ({ actor, use, existing }) =>
-      open ? incarnations.ensure(actor, use, existing) : undefined,
-    Release: ({ actor, use }) => (open ? incarnations.release(actor, use) : undefined),
+    Start: () => setLife(Life.Booting()),
+    Boot: ({ stored }) => {
+      setLife(Life.Open());
+      incarnations.boot(stored);
+    },
+    BootFailed: () => setLife(Life.Failed()),
+    Ensure: ({ actor, use, existing }) => incarnations.ensure(actor, use, existing),
+    Release: ({ actor, use }) => incarnations.release(actor, use),
     Send: ({ actor, tag, payload }) => {
-      if (!open) return;
-
       if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))
         incarnations.ensure(actor, Option.none(), true);
 
       if (incarnationOf(actor) !== undefined) enqueue(Mail.Event({ actor, tag, payload }));
     },
-    Settled: ({ call, result }) => {
-      if (open || disposing) answers.settled(call, result, open);
+    Settled: ({ call, result }) => answers.settled(call, result, open),
+    Fired: ({ timer }) => fired(timer),
+    Stored: ({ ticket }) => {
+      answers.stored(ticket);
+      disposal.answered(ticket, true);
     },
-    Fired: ({ timer }) => (open || disposing ? fired(timer) : undefined),
-    Stored: ({ ticket }) => (open ? answers.stored(ticket) : undefined),
-    Refused: ({ ticket }) => (open ? answers.storeRefused(ticket) : undefined),
-    DisposeRuntime: () => (open ? disposal.disposeRuntime() : undefined),
-    DisposeActor: ({ actor }) => (open ? incarnations.dispose(actor, false) : undefined),
-    Forget: ({ actor }) => (open ? incarnations.dispose(actor, true) : undefined),
+    Refused: ({ ticket }) => {
+      answers.storeRefused(ticket);
+      disposal.answered(ticket, false);
+    },
+    DisposeRuntime: () => disposal.disposeRuntime(),
+    DisposeActor: ({ actor }) => incarnations.dispose(actor, false),
+    Forget: ({ actor }) => incarnations.dispose(actor, true),
   });
 
-  const stillOpen = Disposal.$is("Open")(tx.world().disposal);
-
-  if (stillOpen) {
-    serve.drain();
-    incarnations.graces();
-  }
-
-  persistence.project();
-
-  if (!stillOpen) disposal.disposalEnds();
+  Life.$match(tx.world().life, {
+    Open: () => {
+      serve.drain();
+      incarnations.graces();
+      persistence.project();
+    },
+    Disposing: () => {
+      disposal.write(open);
+      disposal.disposalEnds();
+    },
+    Inert: () => undefined,
+    Booting: () => undefined,
+    Failed: () => undefined,
+    Disposed: () => undefined,
+  });
 
   return tx.out();
 };

@@ -52,9 +52,7 @@ requirements
                 RuntimeNotReady). Disposing during bootstrap cancels it and closes admission; a
                 service acquired late is released and no handle is exposed.
 
-                The Runtime's life is one value in the core, Life (`model`; planned, @task.V3.T55: today
-                the core holds only Disposal, Open, Disposing or Disposed, and the host holds the
-                other flags). One total table,
+                The Runtime's life is one value in the core, Life (`model`). One total table,
                 `admit` (`algorithm`), says whether an input runs, is dropped (a late host answer or
                 timer) or is rejected with RuntimeNotReady or RuntimeDisposed; the host keeps no
                 flag of its own. A dispose while Inert or Booting goes straight to Disposed, and
@@ -295,21 +293,24 @@ requirements
         must    A cleanup failure rejects dispose with CleanupFailed, quarantines the ref (later
                 ensures report the same failure) and keeps the full Cause; it is never success.
 
-                Runtime disposal waits for the final persistence write within the same 5 s, measured
-                from the call to dispose. The final write is one batch, tried once: it is issued as
-                soon as disposal's start cells have run, once any batch still out has answered
-                (@spec.WriteAhead.R12), and it holds every record dirty at that moment, the start
-                cells' NotSent { Disposed } rows and Held heads included. Changes made after it is
-                issued (a call settling within the bound, an ending at the bound) are not written,
-                so a reload hears unknown { Restored } for such a head (a stated limit). A final
-                write still pending at the bound, or refused, reports StorageFailure and the
-                disposal ends. The write is a ticket the core holds while Disposing and the bound is
-                the core's: the host sends the disposal, waits for the life to read Disposed, then
-                closes its Scope. The terminal snapshot keeps the last committed state and memory;
-                disposal runs no machine event. dispose({ forget: true }) is @spec.Restore.R10.
-                Decision (agent: the orchestrator, 2026-11-12): the final write is one try. Why: a
-                write after the bound could not land inside it. Reverse: allow a second batch for
-                changes made within the bound.
+                Runtime disposal waits for its writes within the same 5 s, measured from the call to
+                dispose. Its first write is issued as soon as disposal's start cells have run, once
+                any batch still out has answered (@spec.WriteAhead.R12), and holds every record dirty
+                at that moment, the start cells' NotSent { Disposed } rows and Held heads included.
+                Each later step that changes a record within the bound (a call settling) writes its
+                changes in one more batch, one batch out at a time; the disposal's write is the last
+                batch it issued, a ticket the core holds while Disposing. The disposal ends when
+                nothing is on the wire and that write has landed. A write refused, or still
+                unanswered at the bound, reports StorageFailure and the disposal ends. At the bound
+                the disposal ends in the same step, so the endings made there are not written: a
+                reload hears unknown { Restored } for such a head, once. The bound is the core's:
+                the host sends the disposal, waits for the life to read Disposed, then closes its
+                Scope. The terminal snapshot keeps the last committed state and memory; disposal
+                runs no machine event. dispose({ forget: true }) is @spec.Restore.R10.
+                Decision (agent: the T55 lead, 2026-11-16): the disposal keeps writing within the
+                bound, replacing the orchestrator's one try (2026-11-12). Why: one try turned a call
+                that settled within the bound into unknown Restored at reload, a known ending lost.
+                Reverse: issue one batch at the start and write nothing after it.
 
     R24  Isolation and identity exhaustion
         source  @plan.Runtime.O7; @plan.Runtime.C2.
@@ -365,10 +366,9 @@ model
     Adoption = a Start that finds lanes or owed rows of its identity that no incarnation held (an ensure after
         disposeActor, a reset or a quarantine; an equal local identity). It is a Start like any other.
 
-    Life = the Runtime's life, one value in the core (planned, @task.V3.T55; the core's `Disposal` stands in until
-        then): Inert (constructed, nothing started), Booting, Open, Failed
-        (the bootstrap failed), Disposing (nothing new is invoked; calls on the wire and the final write, held as
-        a ticket, wait for the bound) or Disposed.
+    Life = the Runtime's life, one value in the core: Inert (constructed, nothing started), Booting, Open, Failed
+        (the bootstrap failed), Disposing (nothing new is invoked; calls on the wire and the disposal's write, held
+        as a ticket, wait for the bound) or Disposed.
 
     Verdict = admit(life, input): Run, Drop (the input changes nothing) or Reject with RuntimeNotReady or
         RuntimeDisposed.
@@ -452,20 +452,21 @@ invariants
 
     I35  During Runtime disposal, a call on the wire at its start is never cut short within the 5 s bound: one that 
          settles less than 5 s after the start ends by its own result and the disposal does not end before it settles,
-        unless a refused final write ends the disposal first (R23, I43); one still unsettled 5 s after the start ends
+        unless a refused write ends the disposal first (R23, I43); one still unsettled 5 s after the start ends
         unknown { Disposed }. Decision (user, 2026-11-10): "Q1 A", the bound gets its own Invariant. [@R22, @R23]
 
-    I36  A head whose call ends definitely during Runtime disposal, before the final write is issued, leaves no hold 
-         when that write lands: the next boot restores none for it. A call that settles after the final write is
-        issued restores as unknown { Restored } (R23's stated limit). Decision (user, 2026-11-10): "Q1 A"; an unknown
-        keeping its head Held is I29's. [@R22, @R23]
+    I36  A head whose call ends definitely during Runtime disposal, within the bound, leaves no hold once the 
+         disposal's write lands: the next boot restores none for it and delivers its own ending. An Attempt ended at
+        the bound restores as unknown { Restored } (R23). Decision (user, 2026-11-10): "Q1 A"; an unknown keeping its
+        head Held is I29's. [@R22, @R23]
 
     I37  A shared actor that stays Free for the whole grace on the Runtime Clock has ended by the grace's end, unless 
          its record cannot encode (R8). [@R8]
 
     I38  Every commit not yet sent when Runtime disposal starts (queued, or a head waiting for its acknowledgement or 
-         to be invoked) ends NotSent { Disposed } before the disposal ends; when the final write lands, that ending is
-        delivered once to the identity's next incarnation, and a refused final write reports StorageFailure (R23).
+         to be invoked) ends NotSent { Disposed } before the disposal ends; when the disposal's write lands, that 
+         ending is
+        delivered once to the identity's next incarnation, and a refused write reports StorageFailure (R23).
         Decision (agent, 2026-11-11): ruling CQ6 with audit gap G5, as in R22. [@R22, @R23]
 
     I39  A persisted value-named machine's identity version changes exactly when an input field is added, removed or 
@@ -478,13 +479,13 @@ invariants
          Queued and Retrying rows goes Waiting, a row with no lane included, and each row owed to that incarnation
         alone closes as evidence; none is dropped. [@R8, @R20, @R22]
 
-    I43  The disposal's 5 s runs from the first call to dispose (the start I35 counts from) and covers the final write: 
-         a final write still pending 5 s after that call, or refused, reports StorageFailure and the disposal ends
-        then, however late within the bound a call on the wire settled; a later call to dispose restarts nothing.
-        [@R23]
+    I43  The disposal's 5 s runs from the first call to dispose (the start I35 counts from) and covers its writes: a 
+         write still unanswered 5 s after that call, or refused, reports StorageFailure and the disposal ends then,
+        however late within the bound a call on the wire settled; a later call to dispose restarts nothing. [@R23]
 
-    I44  The final write holds every record dirty when disposal's start cells have run, and no change made after it is 
-         issued; a reload after a landed final write restores exactly that state. [@R23]
+    I44  The disposal's first write holds every record dirty when its start cells have run, and every change made 
+         within the bound is written in a later batch; a reload after the disposal's write landed restores exactly
+        the state before the bound. [@R23]
 
 owner Life
     lifetime  one Runtime. Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); I42
@@ -505,7 +506,7 @@ algorithm
     admit(life, input) -> Verdict: one total table, every (Life, input) pair has exactly one verdict. Life moves only
         on a Run: Start takes Inert to Booting, Boot takes Booting to Open, BootFailed takes Booting to Failed,
         DisposeRuntime takes Open to Disposing and Inert, Booting or Failed straight to Disposed, and Disposing
-        goes Disposed when no call is on the wire and the final write has landed, when the final write is refused
+        goes Disposed when no call is on the wire and the disposal's write has landed, when that write is refused
         (StorageFailure, R23), or at the bound. By
         input:
         - Start (the first ready): Inert runs; Booting, Open and Failed drop (the caller shares the bootstrap's
@@ -524,8 +525,8 @@ algorithm
         - Release: Open runs; elsewhere drops.
         - DisposeRuntime: Inert, Booting, Open and Failed run; Disposing and Disposed drop (idempotent).
         - Settled and Fired: Open and Disposing run; elsewhere drops (a late result is ignored).
-        - Stored and Refused: Open and Disposing run (while Disposing they answer the final write; an answer for
-            a ticket nothing awaits changes nothing); elsewhere drops.
+        - Stored and Refused: Open and Disposing run (while Disposing they answer the disposal's write; an answer
+            for a ticket nothing awaits changes nothing); elsewhere drops.
 
 composition
     flow
@@ -547,18 +548,18 @@ composition
 
 realization typescript
     Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); moved here from `composition`.
-    `Life` (planned, @task.V3.T55) replaces the core's `Disposal` (`src/core/world.ts`, `src/core/disposal.ts`) and
-        the host's `started`, `open`, `closed()` and `admitting`, and `admit` is one total table, as `cells.ts` is
-        for lanes. `Life` will be opaque outside its own module (planned `src/core/life.ts`, not yet written).
+    `Life` and `admit` live in `src/core/life.ts`; `admit` is one total table, as `cells.ts` is for lanes, and the
+        step runs an input only on its Run. The host reads the life only through `admit` and `isDisposed`.
     The host keeps what needs Effect: the Scope, the services Layer and one Deferred that shares the bootstrap's
         Exit. It runs commands, turns a fiber's Exit into a call result, decodes a sent event at the boundary, calls
         `admit` and throws the FlowError a Reject names. `dispose` sends DisposeRuntime, waits for the step's `life`
-        to read Disposed, then closes the Scope.
+        to read Disposed, then closes the Scope. The persistence edge answers a ticket with nothing left to write as
+        landed.
     The World is opaque outside the core, so the host reads no World field and builds no report: the Runtime's life
-        reports through its act (RuntimeDisposed, and the final write's StorageFailure). The capture window stays in
+        reports through its act (RuntimeDisposed, and the disposal's StorageFailure). The capture window stays in
         the host (T54's decision 4).
-    Lifetime, the grace and the send table are decided in `src/core/step.ts`, so a planted fault for any of
-        them edits step.ts alone (`tests/faults.ts`).
+    Admission is decided in `src/core/life.ts`; the grace and the send table in `src/core/step.ts`, so a planted
+        fault for any of them edits that one file (`tests/faults.ts`).
 
 coverage
     @R1
@@ -741,10 +742,10 @@ tests
     T24  The admit table: every (Life, input) cell with its expected verdict; ready after dispose rejects 
          RuntimeDisposed; a dispose while Booting makes ready fail with RuntimeDisposed; a forget while Booting
              rejects RuntimeNotReady and the record survives the next boot. [@I3, @I42]
-    T25  The bound from the call: a call on the wire answers 3 s after the call to dispose and the final write never 
-         answers; StorageFailure is reported at 5 s from that call. The same with a final write that is refused at
+    T25  The bound from the call: a call on the wire answers 3 s after the call to dispose and the disposal's write 
+         never answers; StorageFailure is reported at 5 s from that call. The same with a write that is refused at
              1 s. [@I43]
-    T26  The final write's contents: dispose with one head Acknowledging and one on the wire; the final write lands 
-         holding the NotSent { Disposed } row and the lane record of the head on the wire, and a reload hears that
-             NotSent { Disposed } and unknown { Restored } for the head on the wire, whatever it answered within the
-             bound. Planted fault: a final write issued at the bound. [@I44]
+    T26  The disposal's writes: dispose with one head Acknowledging and one on the wire; the first write holds the 
+         NotSent { Disposed } row and the lane record of the head on the wire, and a reload hears that NotSent
+             { Disposed } and the head's own ending if it answered within the bound, unknown { Restored } if it was
+             still on the wire at the bound. Planted fault: a disposal that writes only at its start. [@I44, @I36]

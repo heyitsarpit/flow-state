@@ -333,12 +333,12 @@ tasks
             No sidecars: the Spec, the code and the tests were read directly.
         comment     2026-11-16T08:11:17Z
             L1 (acceptance 1; Actors algorithm admit, I42): admit gives every (Life, input) pair the Spec table's
-            verdict. Red: code:packages/flow-state-v3/tests/actors/admit.test.ts (no Life yet).
+            verdict. Red: code:packages/flow-state-v3/src/core/life.test.ts (no Life yet).
         comment     2026-11-16T08:11:17Z
             L2 (acceptance 1; Actors R4, R22, I42): the host keeps no life flag and follows admit: disposeActor and
             forget before ready reject RuntimeNotReady, forget after dispose RuntimeDisposed. Red: 3 of 6 in
-            code:packages/flow-state-v3/tests/actors/life.test.ts; the Start, BootFailed, DisposeRuntime and Disposing
-            rows there are green and kept by faults.
+            code:packages/flow-state-v3/src/host/life.test.ts; the Start, BootFailed, DisposeRuntime and Disposing rows
+            there are green and kept by faults.
         comment     2026-11-16T08:11:17Z
             L3 (acceptance 2, the known bug; Actors R23, I43): the disposal ends only once its final write is answered,
             and a write unanswered 5 s after dispose reports StorageFailure then. Red: 'the final write' in

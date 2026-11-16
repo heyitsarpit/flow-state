@@ -1,6 +1,7 @@
 import { type Brand, Data, type Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import { emptyLedger, type Ledger, type OwedId } from "./ledger.ts";
+import { Life } from "./life.ts";
 import type { ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
 
@@ -37,13 +38,15 @@ export type TimerId = string & Brand.Brand<"flow-state/TimerId">;
 export type CallId = string & Brand.Brand<"flow-state/CallId">;
 
 /**
- * A ticket a batch carries: the Attempt it acknowledges or captures.
+ * A ticket a batch carries: the Attempt it acknowledges or captures, or the disposal's write.
  */
-export type Ticket = {
-  readonly id: TicketId;
-  readonly attempt: string;
-  readonly purpose: "acknowledge" | "capture";
-};
+export type Ticket =
+  | {
+      readonly id: TicketId;
+      readonly attempt: string;
+      readonly purpose: "acknowledge" | "capture";
+    }
+  | { readonly id: TicketId; readonly purpose: "flush" };
 
 /**
  * One record write of a batch: its new value, or `None` to remove it.
@@ -230,20 +233,6 @@ export type ActorRecord = {
 };
 
 /**
- * Where the Runtime's disposal is.
- */
-export type Disposal = Data.TaggedEnum<{
-  Open: {};
-  Disposing: {};
-  Disposed: {};
-}>;
-
-/**
- * Constructors and matchers for {@link Disposal}.
- */
-export const Disposal = Data.taggedEnum<Disposal>();
-
-/**
  * Everything the Runtime decides from: plain data, replaced whole by each step.
  */
 export type World = {
@@ -259,7 +248,7 @@ export type World = {
   readonly counter: number;
   readonly attempts: number;
   readonly persistence: boolean;
-  readonly disposal: Disposal;
+  readonly life: Life;
 };
 
 /**
@@ -279,7 +268,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   counter: 0,
   attempts: 0,
   persistence,
-  disposal: Disposal.Open(),
+  life: Life.Inert(),
 });
 
 /**

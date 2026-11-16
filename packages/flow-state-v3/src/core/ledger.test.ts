@@ -6,13 +6,15 @@ import { makePersistence } from "./persist.ts";
 import { decodeRecords, encodeOwed } from "./record.ts";
 import type { Channel } from "./vocabulary.ts";
 import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
-import { actorKey, byCodeUnits, Disposal, emptyWorld, Mail, type World } from "./world.ts";
+import { Life } from "./life.ts";
+import { actorKey, byCodeUnits, emptyWorld, Mail, type World } from "./world.ts";
 
 const actor = { machine: "Test/Ledger", name: "a" };
 
 // RETURN_TYPE: the World, so the incarnation map keeps its declared value type.
 const live = (world: World): World => ({
   ...world,
+  life: Life.Open(),
   incarnations: new Map([
     [
       actorKey(actor),
@@ -274,7 +276,11 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
   });
 
   it("a Runtime that is not open owes Waiting, whatever incarnation lives", () => {
-    const s = stepOver({ ...live(emptyWorld(true)), disposal: Disposal.Disposing() });
+    const s = stepOver({
+      ...live(emptyWorld(true)),
+      life: Life.Disposing({ awaiting: Option.none() }),
+    });
+
     s.ledger.owe(ending(Option.some("L")));
 
     assert.deepStrictEqual(deliveries(s.rows()), ["Waiting"]);

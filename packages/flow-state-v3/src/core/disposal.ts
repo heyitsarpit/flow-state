@@ -1,15 +1,17 @@
+import { Option } from "effect";
 import { Cue } from "./cells.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
+import { Life } from "./life.ts";
 import { DISPOSAL_BOUND_MS, type Tx } from "./tx.ts";
-import { Command, Disposal, Timer } from "./world.ts";
+import { Command, type TicketId, Timer } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import { onWire } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
 
 /**
  * Runtime disposal: admission closes, queued endings wait, nothing new is invoked, no lane
- * drops, and calls on the wire are waited for up to the bound.
+ * drops, and calls on the wire and the disposal's writes are waited for up to the bound.
  */
 export const makeDisposal = (
   tx: Tx,
@@ -20,8 +22,28 @@ export const makeDisposal = (
   const { armTimer, disarmWhere } = tx;
   const { saveActor } = persistence;
 
-  const disposeRuntime = () => {
-    tx.set({ ...tx.world(), disposal: Disposal.Disposing(), mail: [] });
+  const awaiting = () =>
+    Life.$match(tx.world().life, {
+      Disposing: (d) => d.awaiting,
+      Inert: () => Option.none<TicketId>(),
+      Booting: () => Option.none<TicketId>(),
+      Open: () => Option.none<TicketId>(),
+      Failed: () => Option.none<TicketId>(),
+      Disposed: () => Option.none<TicketId>(),
+    });
+
+  const end = () => {
+    disarmWhere((t) => Timer.$is("Bound")(t));
+    tx.set({ ...tx.world(), life: Life.Disposed() });
+    tx.act(Act.RuntimeEnded());
+  };
+
+  const started = () => {
+    tx.set({
+      ...tx.world(),
+      life: Life.Disposing({ awaiting: Option.none() }),
+      mail: [],
+    });
 
     // Each identity can no longer hear: its queued rows wait for its next start.
     for (const [first] of tx.world().owed.values())
@@ -37,19 +59,61 @@ export const makeDisposal = (
     armTimer(Timer.Bound(), tx.env.now + DISPOSAL_BOUND_MS);
   };
 
-  const boundPassed = () => lanes.everyLane(Cue.BoundPassed());
+  /**
+   * Starts the disposal of an open Runtime; one that never opened has nothing to wait for and
+   * ends at once.
+   */
+  const disposeRuntime = () => (Life.$is("Open")(tx.world().life) ? started() : end());
 
+  /**
+   * At the bound, each Attempt still on the wire ends unknown Disposed and the disposal ends: a
+   * write still unanswered reports StorageFailure, and the bound's own changes are not written.
+   */
+  const boundPassed = () => {
+    lanes.everyLane(Cue.BoundPassed());
+
+    if (Option.isSome(awaiting())) tx.act(Act.WriteFailed());
+    end();
+  };
+
+  /**
+   * The store answered a batch: the disposal stops waiting for its write when that batch was its
+   * last, and a refused one reports StorageFailure and ends the disposal.
+   */
+  const answered = (ticket: TicketId, landed: boolean) => {
+    if (!Option.contains(awaiting(), ticket)) return;
+
+    if (landed) tx.set({ ...tx.world(), life: Life.Disposing({ awaiting: Option.none() }) });
+    else {
+      tx.act(Act.WriteFailed());
+      end();
+    }
+  };
+
+  /**
+   * Writes what a disposing step changed, the disposal's first step included, as one batch the
+   * disposal waits for; every record still unwritten goes with it.
+   */
+  const write = (first: boolean) => {
+    if (!tx.world().persistence || (!first && !persistence.dirty())) return;
+
+    const ticket = tx.mint<TicketId>("ticket");
+    persistence.project([{ id: ticket, purpose: "flush" }]);
+    tx.set({ ...tx.world(), life: Life.Disposing({ awaiting: Option.some(ticket) }) });
+  };
+
+  /**
+   * The disposal ends once nothing is on the wire and its last write has landed.
+   */
   const disposalEnds = () => {
-    if (!Disposal.$is("Disposing")(tx.world().disposal)) return;
+    if (!Life.$is("Disposing")(tx.world().life) || Option.isSome(awaiting())) return;
 
     if ([...tx.world().lanes.values()].some(onWire) || tx.world().displaced.size > 0) return;
 
-    disarmWhere((t) => Timer.$is("Bound")(t));
-    tx.set({ ...tx.world(), disposal: Disposal.Disposed() });
-    tx.act(Act.RuntimeEnded());
+    end();
   };
 
-  return { disposeRuntime, boundPassed, disposalEnds };
+  return { disposeRuntime, boundPassed, answered, write, disposalEnds };
 };
 
 /**

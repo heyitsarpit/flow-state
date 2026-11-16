@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vite-plus/test";
 import { cellsCheckout } from "../../fixtures/cells/machine.ts";
 import { cellsStory } from "../../fixtures/cells/stories.ts";
+import { serializeClient } from "../../fixtures/lanes/machine.ts";
+import { lanesStory } from "../../fixtures/lanes/stories.ts";
 import { checkout } from "../../fixtures/pay/machine.ts";
 import { Shop } from "../../fixtures/pay/server.ts";
 import { shopStory } from "../../fixtures/pay/stories.ts";
+import { Git } from "../../fixtures/sync/server.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import {
   before,
   CHECK,
   disposals,
   endings,
+  issues,
   lastReason,
   onWire,
   type Records,
@@ -20,6 +24,17 @@ import {
   VISA,
 } from "../checkout.ts";
 import { played } from "../rules/played.ts";
+
+const SYNC = { _tag: "Commit", repo: "flow" } as const;
+
+// How many times a turn heard an ending as this event.
+const heard = (records: Records, event: string) =>
+  records.filter((e) => e._tag === "Delivered" && e.event === event).length;
+
+// An ending made at the bound is not written, so the reload hears the head it wrote, unknown
+// Restored, once (Actors R23).
+const restoredOnce = (records: Records) =>
+  endings(records, "pay").filter((e) => e.reason === "Restored").length === 1;
 
 const restoredAfter = (records: Records) =>
   endings(records, "pay").some((e) => e.reason === "Restored");
@@ -43,7 +58,8 @@ describe("PAY-13 (Actors R22, R23, I29, I30; WriteAhead R14)", () => {
     expect(disposals(before(run, "disposing"))).toBe(0);
     expect(disposals(before(run, "disposed"))).toBe(1);
     expect(state(run.checkpoints.reloaded)).toBe("UNSURE");
-    expect(lastReason(run.evidence, "pay")).toBe("Disposed");
+    expect(lastReason(before(run, "disposed"), "pay")).toBe("Disposed");
+    expect(restoredOnce(run.evidence)).toBe(true);
   });
 
   it("PAY-13/waiting-flushed: the disposal ends once its last write is answered; the unsent charge ends Disposed", async () => {
@@ -148,7 +164,7 @@ describe("PAY-15 disposal on Cells (Actors R22, I29; Restore I6)", () => {
     expect(state(run.checkpoints.reloaded, cellsCheckout)).toBe("UNSURE");
   });
 
-  it.fails("Actors I43: a refused final write reports StorageFailure before the disposal ends", async () => {
+  it("Actors I43: a refused final write reports StorageFailure before the disposal ends", async () => {
     const run = await cellsStory("Actors I43 refused final write")
       .ensure(cellsCheckout)
       .send(cellsCheckout, START)
@@ -158,7 +174,7 @@ describe("PAY-15 disposal on Cells (Actors R22, I29; Restore I6)", () => {
       .run();
 
     const ended = run.evidence.findIndex((e) => e._tag === "RuntimeDisposed");
-    const failed = run.evidence.findIndex((e) => e._tag === "Lane" && e.kind === "StorageFailure");
+    const failed = run.evidence.findIndex((e) => e._tag === "Issue" && e.code === "StorageFailure");
 
     expect(ended >= 0).toBe(true);
     expect(failed >= 0 && failed < ended).toBe(true);
@@ -206,7 +222,7 @@ describe("PAY-16 disposal (Actors R22, I29, I30, I31; WriteAhead R14)", () => {
     expect(disposals(before(run, "bound"))).toBe(1);
     expect([pay.at(-1)?.channel, pay.at(-1)?.reason]).toEqual(["unknown", "Disposed"]);
     expect(state(run.checkpoints.reloaded)).toBe("UNSURE");
-    expect(restoredAfter(run.evidence)).toBe(false);
+    expect(restoredOnce(run.evidence)).toBe(true);
   });
 
   it("PAY-16/never-answered-waits-for-the-bound", async () => {
@@ -228,7 +244,7 @@ describe("PAY-16 disposal (Actors R22, I29, I30, I31; WriteAhead R14)", () => {
     expect(disposals(before(run, "bound"))).toBe(1);
     expect([pay.at(-1)?.channel, pay.at(-1)?.reason]).toEqual(["unknown", "Disposed"]);
     expect(state(run.checkpoints.reloaded)).toBe("UNSURE");
-    expect(restoredAfter(run.evidence)).toBe(false);
+    expect(restoredOnce(run.evidence)).toBe(true);
     expect(run.checkpoints.reloaded.read(Shop.confirm)).toHaveLength(1);
   });
 
@@ -276,5 +292,80 @@ describe("PAY-16 disposal (Actors R22, I29, I30, I31; WriteAhead R14)", () => {
     );
 
     expect(state(run.checkpoints.reloaded)).toBe("PLACING");
+  });
+});
+
+describe("the final write (Actors R23, I43, I44)", () => {
+  it("Actors R23: with nothing left to write, the disposal ends at once with no StorageFailure", async () => {
+    const run = await played(
+      shopStory("Actors R23 nothing to write").disposeRuntime().checkpoint("disposed"),
+    );
+
+    expect(disposals(before(run, "disposed"))).toBe(1);
+    expect(issues(run.evidence)).toEqual([]);
+  });
+
+  it("Actors R23: the disposal does not end before its final write is answered", async () => {
+    const run = await played(
+      shopStory("Actors R23 final write answered")
+        .ensure(checkout)
+        .world(Fake.storage.hold())
+        .send(checkout, START)
+        .disposeRuntime()
+        .checkpoint("disposing")
+        .world(Fake.storage.release())
+        .checkpoint("disposed"),
+    );
+
+    expect(disposals(before(run, "disposing"))).toBe(0);
+    expect(disposals(before(run, "disposed"))).toBe(1);
+    expect(issues(run.evidence)).not.toContain("StorageFailure");
+  });
+
+  it("Actors I43: a final write still unanswered 5 s after dispose reports StorageFailure, and the disposal ends then", async () => {
+    const run = await played(
+      shopStory("Actors I43 final write at the bound")
+        .ensure(checkout)
+        .world(Fake.storage.hold())
+        .send(checkout, START)
+        .disposeRuntime()
+        .advance("4999 millis")
+        .checkpoint("within")
+        .advance("1 millis")
+        .checkpoint("bound"),
+    );
+
+    const atBound = before(run, "bound");
+
+    expect(disposals(before(run, "within"))).toBe(0);
+    expect(issues(before(run, "within"))).not.toContain("StorageFailure");
+    expect(disposals(atBound)).toBe(1);
+    expect(atBound.map((e) => e._tag).slice(-2)).toEqual(["Issue", "RuntimeDisposed"]);
+    expect(issues(atBound)).toEqual(["StorageFailure"]);
+  });
+});
+
+describe("a commit queued behind a Held head (Actors I38)", () => {
+  it("Actors I38: a commit queued behind a Held head ends NotSent Disposed before the disposal ends, and the reload delivers it once", async () => {
+    const run = await played(
+      lanesStory("Actors I38 queued behind Held")
+        .ensure(serializeClient)
+        .world(Git.sync.drop())
+        .send(serializeClient, SYNC)
+        .send(serializeClient, SYNC)
+        .disposeRuntime()
+        .checkpoint("disposed")
+        .reload()
+        .ensure(serializeClient)
+        .checkpoint("reloaded"),
+    );
+
+    const disposed = (records: Records) =>
+      endings(records, "sync").filter((e) => e.channel === "notSent" && e.reason === "Disposed");
+
+    expect(disposed(before(run, "disposed"))).toHaveLength(1);
+    expect(disposals(before(run, "disposed"))).toBe(1);
+    expect(heard(run.evidence, "NotSent")).toBe(1);
+    expect(run.checkpoints.reloaded.inspection.owed).toEqual([]);
   });
 });

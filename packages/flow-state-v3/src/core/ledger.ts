@@ -3,7 +3,8 @@ import { Act } from "./evidence-of.ts";
 import type { Persistence } from "./persist.ts";
 import { ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import { type ActorId, actorKey, byCodeUnits, Disposal, Mail, Phase } from "./world.ts";
+import { Life } from "./life.ts";
+import { type ActorId, actorKey, byCodeUnits, Mail, Phase } from "./world.ts";
 
 /**
  * Who may hear an owed ending: any incarnation of the identity, or one incarnation alone.
@@ -154,7 +155,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
     const incarnation = incarnationOf(row.actor);
 
     return (
-      Disposal.$is("Open")(tx.world().disposal) &&
+      Life.$is("Open")(tx.world().life) &&
       incarnation !== undefined &&
       Audience.$match(row.to, {
         Identity: () => true,

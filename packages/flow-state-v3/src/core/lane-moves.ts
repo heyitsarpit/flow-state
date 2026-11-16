@@ -2,6 +2,7 @@ import { Option, Result, Schema } from "effect";
 import { type Cue, cell, LaneState, Move, type NotSentWhy } from "./cells.ts";
 import type { Operation, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
+import { Life } from "./life.ts";
 import { Audience, type LedgerSteps } from "./ledger.ts";
 import { type Machines, pick, ROOT_ACTIVATION, type Tx, withEntry, without } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
@@ -9,7 +10,6 @@ import {
   type ActorId,
   type CallId,
   Command,
-  Disposal,
   type Displaced,
   type Lane,
   Phase,
@@ -56,7 +56,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   const { persisted } = tx;
   const { saveActor, saveAwaited, saveLane, setLane, dropLane } = persistence;
 
-  const open = () => Disposal.$is("Open")(tx.world().disposal);
+  const open = () => Life.$is("Open")(tx.world().life);
 
   // An ending of this lane's Attempt, owed to its identity: routed from the head's owner while the
   // Runtime is open, current from the root once it is disposing.

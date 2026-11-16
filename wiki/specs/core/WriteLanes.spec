@@ -695,7 +695,7 @@ realization typescript
         and `Data` structs per lane (a turn's hot path; plain maps cost less), `Effect` itself (the core is pure), a
         linear `OwedId` and typestate on the World (a missing row is a no-op by rule).
     In the host: `Deferred` for dispose waiting on the core's disposal before `Scope.close`; `FiberMap`, `Clock` and
-        `Scheduler` as before. The final write's share of the disposal's 5 s is the core's (@spec.Actors.R23).
+        `Scheduler` as before. The disposal writes' share of its 5 s is the core's (@spec.Actors.R23).
 
 coverage
     @R1

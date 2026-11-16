@@ -121,8 +121,8 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "    if (pending.out || pending.dirty.size === 0) return;",
-        replace: "    if (pending.dirty.size === 0) return;",
+        find: "  const pump = () => {\n    if (pending.out) return;",
+        replace: "  const pump = () => {",
       },
     ],
   },
