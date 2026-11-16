@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { Act, evidenceOf } from "./evidence-of.ts";
+import { Act } from "./evidence-of.ts";
 import { Input } from "./input.ts";
 import { makeAnswers } from "./answers.ts";
 import { makeDisposal } from "./disposal.ts";
@@ -56,10 +56,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       Silent: ({ ticket }) => {
         for (const lane of tx.world().lanes.values())
           if (awaits(lane, ticket))
-            for (const e of evidenceOf(
-              Act.Silent({ operation: lane.operation, attempt: lane.head.id }),
-            ))
-              tx.emit(e);
+            tx.act(Act.Silent({ operation: lane.operation, attempt: lane.head.id }));
       },
     });
   };

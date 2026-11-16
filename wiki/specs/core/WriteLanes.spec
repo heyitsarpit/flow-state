@@ -678,7 +678,8 @@ realization typescript
         is classified by the phase it found, applied to the lane in that step, and owed.
     `src/core/ledger.ts` holds the owed ledger, opaque outside that module; mail carries a row's id. Every report is
         built by `evidenceOf(act)` in `src/core/evidence-of.ts`, the only builder of an Evidence. A step returns `{
-        world, life, commands, acts }`.
+        world, commands, evidence }`, its evidence built from its acts in act order as they happen (Life is
+        @task.V3.T55's). The host builds only reports the core does not own.
     Effect features: `Data.taggedEnum` for Phase, Cue, Move, Delivery, Audience and Act (exhaustive `$match` is the
         table's totality check); `Brand` for `OwedId`, `AttemptId` and `LaneId`; `Option` for an absent lane,
         Attempt or row. Skipped: `Match` (taggedEnum's `$match` already gives exhaustiveness at no cost), `HashMap`

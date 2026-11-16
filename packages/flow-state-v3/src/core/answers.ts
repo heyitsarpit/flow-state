@@ -1,5 +1,6 @@
 import { Option } from "effect";
-import { type Channel, Evidence } from "./evidence.ts";
+import type { Channel } from "./evidence.ts";
+import { Act } from "./evidence-of.ts";
 import { CallResult } from "./input.ts";
 import { type Tx, without } from "./tx.ts";
 import { Audience, type LedgerSteps } from "./ledger.ts";
@@ -37,8 +38,7 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
     if (incarnation === undefined || incarnation.id !== read.incarnation) return;
     const c = classify(result);
 
-    if (CallResult.$is("Defect")(result))
-      tx.emit(Evidence.Issue({ code: "Defect", ending: Option.none() }));
+    if (CallResult.$is("Defect")(result)) tx.act(Act.Defect());
 
     ledger.owe({
       actor: read.actor,
@@ -70,8 +70,7 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
 
     const live = [...tx.world().lanes.values()].some((lane) => onWireAs(lane, call));
 
-    if (live && CallResult.$is("Defect")(result) && open)
-      tx.emit(Evidence.Issue({ code: "Defect", ending: Option.none() }));
+    if (live && CallResult.$is("Defect")(result) && open) tx.act(Act.Defect());
 
     lanes.settle(call, classify(result));
   };

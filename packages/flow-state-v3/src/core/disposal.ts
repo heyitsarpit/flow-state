@@ -1,5 +1,5 @@
 import { Cue } from "./cells.ts";
-import { Evidence } from "./evidence.ts";
+import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { DISPOSAL_BOUND_MS, type Tx } from "./tx.ts";
 import { Command, Disposal, Timer } from "./world.ts";
@@ -46,7 +46,7 @@ export const makeDisposal = (
 
     disarmWhere((t) => Timer.$is("Bound")(t));
     tx.set({ ...tx.world(), disposal: Disposal.Disposed() });
-    tx.emit(Evidence.RuntimeDisposed());
+    tx.act(Act.RuntimeEnded());
   };
 
   return { disposeRuntime, boundPassed, disposalEnds };

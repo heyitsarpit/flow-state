@@ -154,6 +154,10 @@ tasks
             structural checks in code:packages/flow-state-v3/tests/write-lanes/one-builder.test.ts, faults
             rows-dropped-outside-ledger and second-record-writer. A run rule cannot see a second writer: the edge keys
             pending writes by record.
+        comment     2026-11-16T02:20:12Z
+            R3 done: every core report is built by evidenceOf from an act (tx.act); check in one-builder.test.ts, fault
+            second-report-builder. The host's StorageFailure at the final write's bound (driver.ts) stays until the core
+            owns that bound: Actors I43, inverted.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      open

@@ -12,8 +12,8 @@ const text = (file: string) => readFileSync(new URL(file, SRC), "utf8");
 
 const EVIDENCE_BUILT = /\bEvidence\.[A-Z]\w*\(/u;
 
-describe("one builder of reports (WriteLanes realization, I34)", () => {
-  it.fails("WriteLanes I34: every report is built by evidenceOf from an act; no other core module builds an Evidence", () => {
+describe("one builder of reports (WriteLanes composition)", () => {
+  it("WriteLanes composition: every report is built by evidenceOf from an act; no other core module builds an Evidence", () => {
     const builders = sources("core/")
       .filter((f) => !f.endsWith(".test.ts") && f !== "core/evidence-of.ts")
       .filter((f) => EVIDENCE_BUILT.test(text(f)));

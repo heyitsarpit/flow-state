@@ -52,3 +52,7 @@ note 2026-11-16T00:32:57Z
 note 2026-11-16T01:45:10Z
     @spec.Stories: R6 and T5 now keep the evidence before the batch holding the 10,001st turn, as I7 decided; they
     promised 10,000 turns always (P2 close-out review). Reverse: with I7's reverse.
+
+note 2026-11-16T02:20:12Z
+    WriteLanes realization: a step returns its evidence built from acts, not the acts (T54); one Out type for the host.
+    Reverse: return acts and map in the driver.

@@ -1,6 +1,7 @@
 import { Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import type { Evidence } from "./evidence.ts";
+import { type Act, evidenceOf } from "./evidence-of.ts";
 import {
   type ActorId,
   actorKey,
@@ -99,9 +100,9 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     set: (next: World) => {
       world = next;
     },
-    emit: (e: Evidence) => void evidence.push(e),
+    act: (a: Act) => void evidence.push(...evidenceOf(a)),
     evidenceCount: () => evidence.length,
-    insertEvidence: (at: number, e: Evidence) => void evidence.splice(at, 0, e),
+    insertAct: (at: number, a: Act) => void evidence.splice(at, 0, ...evidenceOf(a)),
     command: (c: Command) => void commands.push(c),
     commandsSince: (at: number) => commands.slice(at),
     commandCount: () => commands.length,

@@ -1,7 +1,7 @@
 import { Option, Result, Schema } from "effect";
 import { Cue, LaneState } from "./cells.ts";
 import { Operation, type Values } from "./compiled.ts";
-import { Act, evidenceOf } from "./evidence-of.ts";
+import { Act } from "./evidence-of.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
 import { Audience, keptOn, type LedgerSteps } from "./ledger.ts";
@@ -198,7 +198,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         tx.set({ ...tx.world(), reads: without(tx.world().reads, call) });
         tx.command(Command.Interrupt({ call }));
 
-        for (const e of evidenceOf(Act.ReadReplaced({ operation: operation.name }))) tx.emit(e);
+        tx.act(Act.ReadReplaced({ operation: operation.name }));
       }
 
     const call = tx.mint<CallId>("call");

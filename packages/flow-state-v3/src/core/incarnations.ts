@@ -1,6 +1,6 @@
 import { Option, Result } from "effect";
 import { armingsOf } from "./turn.ts";
-import { Evidence } from "./evidence.ts";
+import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { decodeRecords } from "./record.ts";
 import { GRACE_MS, isInFlight, type Tx, without, withEntry } from "./tx.ts";
@@ -66,8 +66,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   };
 
   const publish = (incarnation: Incarnation) =>
-    tx.emit(
-      Evidence.Published({
+    tx.act(
+      Act.Published({
         actor: incarnation.actor,
         state: incarnation.state,
         memory: incarnation.memory,
@@ -89,7 +89,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     };
 
     setIncarnation(base);
-    tx.emit(Evidence.Incarnated({ actor: actor }));
+    tx.act(Act.Started({ actor }));
 
     const incarnation = Option.match(from, {
       onNone: () =>
@@ -185,7 +185,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       incarnations: without(tx.world().incarnations, actorKey(actor)),
       reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
     });
-    tx.emit(Evidence.Finished({ actor: actor }));
+    tx.act(Act.Finished({ actor }));
     ledger.suspend(actor, false);
   };
 
@@ -206,7 +206,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         incarnations: without(tx.world().incarnations, key),
         reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
       });
-      tx.emit(Evidence.Finished({ actor: actor }));
+      tx.act(Act.Finished({ actor }));
     }
 
     tx.set({

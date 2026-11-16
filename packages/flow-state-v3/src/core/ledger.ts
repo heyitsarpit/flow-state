@@ -1,6 +1,5 @@
 import { type Brand, Data, Option } from "effect";
-import { Act, evidenceOf } from "./evidence-of.ts";
-import { Evidence } from "./evidence.ts";
+import { Act } from "./evidence-of.ts";
 import type { Persistence } from "./persist.ts";
 import { ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
@@ -172,8 +171,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
       mail: tx.world().mail.filter((m) => !(Mail.$is("Ending")(m) && m.id === row.id)),
     });
 
-  const recorded = (row: Owed, why: "evidence" | "letGo") =>
-    tx.emit(Evidence.Recorded({ operation: row.operation, attempt: row.attempt, why }));
+  const recorded = (row: Owed, why: "evidence" | "letGo") => tx.act(Act.RowRecorded({ row, why }));
 
   // A move into or out of a saved state writes the identity's owed record.
   const saved = (row: Owed, delivery: Delivery) => {
@@ -193,7 +191,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const wait = (row: Owed) => {
     replace(row, Option.some({ ...row, delivery: Delivery.Waiting() }));
     unreferenced(row);
-    tx.emit(Evidence.Parked({ operation: row.operation, attempt: row.attempt }));
+    tx.act(Act.RowWaits({ row }));
     saved(row, Delivery.Waiting());
   };
 
@@ -205,7 +203,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
     const row: Owed = { ...ending, id: tx.mint<OwedId>("owed"), delivery: Delivery.Queued() };
     setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);
 
-    for (const e of evidenceOf(Act.Ended({ actor: row.actor, ending: row }))) tx.emit(e);
+    tx.act(Act.Ended({ actor: row.actor, ending: row }));
 
     if (live(row)) {
       tx.enqueue(Mail.Ending({ actor: row.actor, id: row.id }));
@@ -283,7 +281,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
 
     for (const row of rowsOf(tx.world().owed, actor))
       if (Delivery.$is("Waiting")(row.delivery)) {
-        tx.emit(Evidence.Unparked({ operation: row.operation, attempt: row.attempt }));
+        tx.act(Act.RowQueued({ row }));
         adopt(row, Delivery.Queued());
         saved(row, row.delivery);
       } else if (Delivery.$is("Kept")(row.delivery)) {

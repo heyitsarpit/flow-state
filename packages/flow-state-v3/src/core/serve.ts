@@ -1,6 +1,7 @@
 import { Option, Result } from "effect";
 import { type Mapping, Operation, type Values } from "./compiled.ts";
-import { Evidence, type Member } from "./evidence.ts";
+import type { Member } from "./evidence.ts";
+import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx, without } from "./tx.ts";
 import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
@@ -86,26 +87,17 @@ export const makeServe = (
 
     return TurnResult.$match(result, {
       Unhandled: () => {
-        tx.emit(Evidence.Unhandled({ actor: incarnation.actor, event: tag }));
+        tx.act(Act.Unhandled({ actor: incarnation.actor, event: tag }));
 
         return HEARD;
       },
       Denied: ({ reasons }) => {
-        tx.emit(Evidence.Denied({ actor: incarnation.actor, event: tag, reasons }));
+        tx.act(Act.Denied({ actor: incarnation.actor, event: tag, reasons }));
 
         return HEARD;
       },
       Refused: ({ code }) => {
-        tx.emit(
-          Evidence.Issue({
-            code,
-            ending: Option.map(route.ending, (e) => ({
-              operation: e.operation,
-              attempt: e.attempt,
-              actor: incarnation.actor,
-            })),
-          }),
-        );
+        tx.act(Act.Refused({ code, actor: incarnation.actor, ending: route.ending }));
 
         return REFUSED;
       },
@@ -146,9 +138,9 @@ export const makeServe = (
           Option.match(member, { onNone: () => undefined, onSome: (m) => void members.push(m) });
         }
 
-        tx.insertEvidence(
+        tx.insertAct(
           reports,
-          Evidence.Turn({
+          Act.Turned({
             actor: after.actor,
             event: tag,
             from: incarnation.state,
@@ -186,25 +178,11 @@ export const makeServe = (
       onSome: (from) => Result.try({ try: () => from.run(ending.value), catch: () => from.slot }),
     });
 
-    tx.emit(
-      Evidence.Delivered({
-        operation: ending.operation,
-        attempt: ending.attempt,
-        event: mapping.value.event,
-        actor: incarnation.actor,
-      }),
-    );
+    tx.act(Act.Heard({ row: ending, event: mapping.value.event, actor: incarnation.actor }));
 
     if (Result.isFailure(payload)) {
-      tx.emit(
-        Evidence.Issue({
-          code: "InvalidTurn",
-          ending: Option.some({
-            operation: ending.operation,
-            attempt: ending.attempt,
-            actor: incarnation.actor,
-          }),
-        }),
+      tx.act(
+        Act.Refused({ code: "InvalidTurn", actor: incarnation.actor, ending: Option.some(ending) }),
       );
 
       return REFUSED;

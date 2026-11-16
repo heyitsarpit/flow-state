@@ -1,7 +1,7 @@
 import { Option, Result, Schema } from "effect";
 import { type Cue, cell, LaneState, Move } from "./cells.ts";
 import type { Operation, Values } from "./compiled.ts";
-import { Act, evidenceOf } from "./evidence-of.ts";
+import { Act } from "./evidence-of.ts";
 import { Audience, type LedgerSteps } from "./ledger.ts";
 import { type Machines, pick, ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import {
@@ -95,7 +95,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   };
 
   const report = (at: At, before: LaneState, cue: Cue, from: number) => {
-    for (const e of evidenceOf(
+    tx.act(
       Act.Lane({
         actor: at.actor,
         operation: at.operation,
@@ -105,8 +105,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         after: stateAt(at.id),
         commands: tx.commandsSince(from),
       }),
-    ))
-      tx.emit(e);
+    );
   };
 
   // A never-sent Attempt's NotSent keeps its lane: when Kept, it blocks that key.
