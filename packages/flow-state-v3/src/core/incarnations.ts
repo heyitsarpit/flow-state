@@ -1,19 +1,17 @@
 import { Option, Result } from "effect";
 import { armingsOf } from "./turn.ts";
 import { Evidence } from "./evidence.ts";
-import { Audience, type LedgerSteps, rowsOf } from "./ledger.ts";
+import type { LedgerSteps } from "./ledger.ts";
 import { decodeRecords } from "./record.ts";
-import { GRACE_MS, isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
+import { GRACE_MS, isInFlight, type Tx, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
   type ActorRecord,
   type Armed,
-  byCodeUnits,
   Due,
   type Incarnation,
   Mail,
-  Phase,
   Timer,
   type Use,
 } from "./world.ts";
@@ -76,32 +74,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       }),
     );
 
-  // An incarnation starts: its Waiting and Kept rows are tried in owed order, then each Held head
-  // with no row for its Attempt is owed unknown Restored, lane by lane in lane-id order. The one
-  // delivery point of reload, return and adoption.
-  const deliverRestored = (actor: ActorId) => {
-    const owedAttempts = new Set(
-      rowsOf(tx.world().owed, actor).flatMap((r) => Option.toArray(r.attempt)),
-    );
-
-    ledger.start(actor);
-
-    for (const [id, lane] of lanesOf(actor).toSorted(([a], [b]) => byCodeUnits(a, b)))
-      if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))
-        ledger.owe({
-          actor,
-          to: Audience.Identity(),
-          operation: lane.operation,
-          attempt: Option.some(lane.head.id),
-          lane: Option.some(id),
-          channel: "unknown",
-          reason: "Restored",
-          value: undefined,
-          owner: ROOT_ACTIVATION,
-          current: true,
-        });
-  };
-
   const start = (actor: ActorId, from: Option.Option<ActorRecord>) => {
     const compiled = tx.machines.get(actor.machine);
 
@@ -148,7 +120,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     publish(incarnation);
 
     if (Option.isNone(from)) saveActor(actor);
-    deliverRestored(actor);
+    ledger.start(actor);
   };
 
   const fireWaiting = (actor: ActorId) => {

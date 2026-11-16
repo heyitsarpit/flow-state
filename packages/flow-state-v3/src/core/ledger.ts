@@ -4,7 +4,7 @@ import { Evidence } from "./evidence.ts";
 import type { Persistence } from "./persist.ts";
 import { ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import { type ActorId, actorKey, Disposal, Mail } from "./world.ts";
+import { type ActorId, actorKey, byCodeUnits, Disposal, Mail, Phase } from "./world.ts";
 
 /**
  * Who may hear an owed ending: any incarnation of the identity, or one incarnation alone.
@@ -266,10 +266,21 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   };
 
   /**
-   * The one delivery point of a start: Waiting rows queue and Kept rows take their one try, in
-   * the order owed.
+   * The one delivery point of a start, whatever began it: the identity's lanes are adopted, so
+   * their later endings are current; Waiting rows queue and Kept rows take their one try, in the
+   * order owed; then each Held head with no row for its Attempt is owed unknown Restored, lane by
+   * lane in lane-id order.
    */
   const start = (actor: ActorId) => {
+    const lanes = tx.lanesOf(actor).toSorted(([a], [b]) => byCodeUnits(a, b));
+
+    const owedAttempts = new Set(
+      rowsOf(tx.world().owed, actor).flatMap((r) => Option.toArray(r.attempt)),
+    );
+
+    for (const [id, lane] of lanes)
+      persistence.setLane(id, { ...lane, head: { ...lane.head, owner: ROOT_ACTIVATION } });
+
     for (const row of rowsOf(tx.world().owed, actor))
       if (Delivery.$is("Waiting")(row.delivery)) {
         tx.emit(Evidence.Unparked({ operation: row.operation, attempt: row.attempt }));
@@ -279,6 +290,21 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
         adopt(row, Delivery.Retrying());
         saved(row, row.delivery);
       }
+
+    for (const [id, lane] of lanes)
+      if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))
+        owe({
+          actor,
+          to: Audience.Identity(),
+          operation: lane.operation,
+          attempt: Option.some(lane.head.id),
+          lane: Option.some(id),
+          channel: "unknown",
+          reason: "Restored",
+          value: undefined,
+          owner: ROOT_ACTIVATION,
+          current: true,
+        });
   };
 
   /**

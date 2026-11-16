@@ -264,7 +264,7 @@ export const faults: ReadonlyArray<Fault> = [
     rule: "Restore I6",
     edits: [
       {
-        file: "src/core/incarnations.ts",
+        file: "src/core/ledger.ts",
         find: 'if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))',
         replace:
           'if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id) && id === "")',
@@ -458,6 +458,19 @@ export const faults: ReadonlyArray<Fault> = [
         file: "src/core/turn.ts",
         find: "      reasons.push(checked.code);",
         replace: "      reasons.splice(0, reasons.length, checked.code);",
+      },
+    ],
+  },
+  {
+    name: "adopted-ending-late",
+    tests: ["tests/actors/lane-keeping.test.ts"],
+    says: "a start keeps an adopted head's dead owner, so its later ending is routed late",
+    rule: "Turn I26",
+    edits: [
+      {
+        file: "src/core/ledger.ts",
+        find: "head: { ...lane.head, owner: ROOT_ACTIVATION } });",
+        replace: "head: lane.head });",
       },
     ],
   },
