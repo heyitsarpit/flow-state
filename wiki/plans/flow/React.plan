@@ -61,6 +61,22 @@ outcomes
         default. Before attach, a local actor holds one replaceable pending props update, outside the send and mailbox
         bounds, never dropped. Changing local machine or input requires a keyed remount and emits a development
         diagnostic. A ref never resets an existing actor; conflicting refs follow @plan.Runtime.O3.
+
+        ```tsx
+        // The component that owns the settings passes them down; the first frame already shows them.
+        // user-defined: Cart, Stepper, StepperMachine, cartRef, stock   // NEW: props
+        // existing: useActor, useActorByRef
+        function Cart({ stock }: { stock: number }) {
+          const [qty, setQty] = useState(1)
+          // Props are read every render and apply as a whole: leave `max` out and it returns to its default.
+          const stepper = useActor(StepperMachine, { props: { value: qty, max: stock } })
+          const cart = useActorByRef(cartRef, {})   // a shared actor: no props; { props } here is a type error
+          return <Stepper stepper={stepper} cart={cart} /> // a view that reads both; the emit is O3's
+        }
+        ```
+
+        Props are the owner's values (`code:wiki/conventions/where-a-value-lives.md`); a shared actor's outside state
+        comes from input, context or an event.
     O3  Attach, detach, Strict Mode and grace
         After commit and readiness, an ensuring hook attaches the same handle through the Runtime. It uses current
         provider context without replaying creation, input or `onContext` work. Lazy admission follows
@@ -87,6 +103,24 @@ outcomes
         stored, persisted, transferred or replayed, and is dropped when nobody listens or in server rendering. A
         fragment's emits are heard under its instance name, useOnEmit(filters, { search: { Focus } }); an .each copy's
         handler receives its key. Listening is not a use (@plan.Runtime.O3).
+
+        ```tsx
+        // The parent applies the controlled stepper's intent (Machines O2). user-defined: Cart, qty, stock, clamp
+        // NEW: useOnEmit, the Change emit
+        function Cart({ stock }: { stock: number }) {
+          const [qty, setQty] = useState(1)
+          const stepper = useActor(StepperMachine, { props: { value: qty, max: stock } })
+          useOnEmit(stepper, { Change: ({ by }) => setQty((q) => clamp(q + by, 1, stock)) }) // latest render's handler
+          return <button onClick={() => stepper.send({ _tag: "Press", by: 1 })}>{qty}</button>
+        }
+
+        // A menu returns focus after Escape only: the emit arrives after the render that shows its turn.
+        useOnEmit(menu, { Focus: ({ target }) => refs[target].current?.focus() })
+        // A fragment's emits are heard under its instance name; an .each copy's handler also gets its key.
+        useOnEmit(list, { rows: { Focus: (_, { key }) => rowRefs.get(key.id)?.focus() } })
+        ```
+
+        See `code:wiki/conventions/view-commands.md` and `code:wiki/conventions/controlled-values.md`.
 
         Local cleanup leaves the actor active for the grace, 100 milliseconds on the Runtime Clock. A local actor
         remounted within its grace reuses that actor and cancels its end; expiry ends it through the Runtime, except

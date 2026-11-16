@@ -122,9 +122,10 @@ tasks
 
             **Why now:** split from @task.V3.T17 so the compiler and the browser slice do not wait on fragment design.
 
-            **Read first:** @plan.Machines.O5, @spec.Turn (R14 to R17, R19, R27, R30), @spec.Compile,
-            code:wiki/plans/flow/references/proposals/ui-primitives-merge-guide-2026-11-16.md. Starts after the Plan
-            merge it lists.
+            **Read first:** @plan.Machines.O1, @plan.Machines.O5, @spec.Turn (R14 to R17, R19, R27, R30), @spec.Compile,
+            code:wiki/conventions/interaction-state.md,
+            code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§1, §9). Starts after the
+            Plan merge it lists.
 
             **Risk:** R5 turns a computed negative delay from a refusal into zero. Five built checks use it as their
             refusal case and must move to an over-range delay (2^31 ms, which JSON carries; U4, decided by the
@@ -231,7 +232,8 @@ tasks
             **Why now:** an upgraded release must reset or keep each saved record correctly, and a saved shape is
             defined only once @task.V3.T17 and @task.V3.T57 fix private and computed fields.
 
-            **Read first:** @spec.Restore, @plan.Persistence.O5.
+            **Read first:** @spec.Restore (R5), @plan.Persistence.O5, @plan.Machines.O5 (paused),
+            @spec.Turn.R27, code:wiki/conventions/interaction-state.md.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 

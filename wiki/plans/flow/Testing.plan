@@ -66,6 +66,23 @@ outcomes
         its whole props each render, so an omitted field returns to its default. App Stories have no props step, because
         shared actors take none.
 
+        ```ts
+        // Machines O7's carousel: five slides, three Next, then the parent shows only two.
+        // user-defined: CarouselMachine, shrink   // existing: send, checkpoint   // NEW: props option, props step
+        const shrink = Story.machine(CarouselMachine, { id: "carousel/shrink", props: { count: 5 } })
+          .send({ _tag: "Next" }).send({ _tag: "Next" }).send({ _tag: "Next" })
+          .checkpoint("third slide")
+          .props({ count: 2 })     // its own turn changing only props; onProps then sends Shrunk { last: 1 }
+          .checkpoint("shrunk")
+          .props({ count: 2 })     // an equal value is silent: no turn
+          .checkpoint("same")
+
+        const run = await shrink.run()
+        expect(run.checkpoints["third slide"].memory).toEqual({ index: 3 })
+        expect(run.checkpoints.shrunk.memory).toEqual({ index: 1 })
+        // Story.app(...).props(...) is a type error: a shared actor takes no props.
+        ```
+
         Checkpoint names retain exact literal or known-union keys. Duplicate names, widened strings and access through
         unknown literal keys are type errors; other commands preserve the keys. defineConfig({ apps: [{ app, stories }],
         stories? }) discovers configured exported Stories (top-level stories have no app) and rejects duplicate or empty
@@ -107,6 +124,25 @@ outcomes
         carry pause and resume with their reason names. together(...inputs) is the only concurrency word: admission is
         held in every tab while each listed send, control or { advance } arrives, then admission resumes and the
         step settles.
+
+        ```ts
+        // Machines O5's toaster: context maxVisible is 1, so the second toast is held (Hidden) while the first runs.
+        // user-defined: ToasterMachine, Show, expiry   // existing: advance(d)   // NEW: advance({ next }), pausedBy
+        const expiry = Story.machine(ToasterMachine, { id: "toaster/expiry", context: { maxVisible: 1 } })
+          .send({ _tag: "Show", id: "a", kind: "info", title: "Saved" })    // 4 seconds
+          .send({ _tag: "Show", id: "b", kind: "error", title: "Failed" })  // 10 seconds, but pushed out
+          .advance("3 seconds")                                             // a runs; b's time does not count
+          .checkpoint("b held")
+          .advance({ next: { schedule: "expire" } })                        // the earliest unpaused deadline: a's
+          .checkpoint("a expired")                                          // b is now first, so it resumes
+
+        const run = await expiry.run()
+        expect(run.checkpoints["b held"].schedules.expire).toEqual([
+          { key: { id: "a" }, dueAt: 4000 },
+          { key: { id: "b" }, left: 10_000, pausedBy: ["Hidden"] },
+        ])
+        // advance({ next }) with every timer paused is NoDeadline; advance("1 hour") never fires a paused timer.
+        ```
 
         During cleanup the Clock runs free and cleanup may yield.
 

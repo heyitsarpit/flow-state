@@ -109,6 +109,19 @@ outcomes
 
         Local handles also expose `setProps(partial)`, which merges; shared handles have none.
 
+        ```ts
+        // Host code with no React: the cart page's stock decides the stepper's max (Machines O2's Stepper).
+        // user-defined: StepperMachine, stock, cart   // NEW: props, setProps, onEmit
+        const stepper = runtime.createActor(StepperMachine, { props: { value: 4, max: stock } }) // a local actor
+        stepper.onEmit({ Change: ({ by }) => cart.add(by) })     // a listener is not a use
+        stepper.setProps({ max: 3 })                             // merges: value stays 4; equal values are silent
+
+        // runtime.ensureActor(actorRef(StepperMachine, "main")) // type error, and InvalidConfiguration at construction
+        ```
+
+        Where the data comes from decides the route (`code:wiki/conventions/where-a-value-lives.md`): the owner's value
+        is a prop, which cannot survive a reload; a write that must survive one goes to a shared, persisted actor.
+
         Handles expose send, `getSnapshot`, snapshots and `onEmit(handlers)`; a handle follows the identity, not the
         incarnation. `getSnapshot` reads the live incarnation; with none, a persisted identity's record (lifecycle
         active; a record that does not decode reads quarantined with its issue); with neither, the pre-attach snapshot
@@ -186,6 +199,14 @@ outcomes
         refused InvalidTurn naming the chain; otherwise one event from the next actor in rotation, oldest first within
         that actor. Nothing orders two actors' turns unless a turn links them, so bulk work on one actor never
         starves another.
+
+        ```ts
+        // A props update queues in the one mailbox, in order with sends. NEW: setProps.
+        // The stepper of O3, with value 4 and stock 5.
+        stepper.send({ _tag: "Press", by: 1 })   // turn 1: guard reads max 5, 4 + 1 <= 5, accepted
+        stepper.setProps({ max: 4 })             // turn 2: its own turn, changes only props, then runs onProps
+        stepper.send({ _tag: "Press", by: 1 })   // turn 3: guard reads max 4, denied AtMax; no emit
+        ```
 
         A send to an idle Runtime runs its turn before send returns; during a turn, or a yield between slices, it
         queues. Work runs in slices: the driver serves mail for a slice of time, then yields a real task to the page;

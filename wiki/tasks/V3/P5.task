@@ -154,7 +154,8 @@ tasks
             `trace.import`, and export the `flow-state/inspect` route through the map @task.V3.T23 added. P2 built its
             first slice: the runtime cut; the text trace is @task.V3.T65's.
 
-            **Read first:** @plan.Inspection.O1, code:packages/flow-state-v3/src/host/inspect.ts,
+            **Read first:** @plan.Inspection.O1, O4, O6, @plan.Machines.O2, @plan.Machines.O5,
+            code:wiki/conventions/view-commands.md, code:packages/flow-state-v3/src/host/inspect.ts,
             `packages/flow-state-v3/src/host/trace.ts` (@task.V3.T65 builds it).
         acceptance
             - The inspection Spec's Requirements hold on production, and the route is exported.
@@ -192,8 +193,9 @@ tasks
 
             `Story.machine` and its `props(values)` step land first in @task.V3.T76; this Task extends them.
 
-            **Read first:** @plan.Testing.O1, @plan.Pending.D5 to @plan.Pending.D10 (the names the first slice added),
-            @spec.Stories, @task.V3.T63, @task.V3.T69, @task.V3.T70.
+            **Read first:** @plan.Testing.O1, @plan.Testing.O2, @plan.Pending.D5 to @plan.Pending.D10 (the names the
+            first slice added), @spec.Stories, @plan.Machines.O5, code:wiki/conventions/where-a-value-lives.md,
+            @task.V3.T63, @task.V3.T69, @task.V3.T70.
         acceptance
             - Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
             - `advance({ next })` skips paused timers (`NoDeadline` when every match is paused); `advance(d)` and
@@ -250,7 +252,8 @@ tasks
             @plan.ServerRendering, with the Story `hydrate` path, `StoryPlayer` and `definePresentation`
             (@plan.Testing.O7, @plan.Testing.O9).
 
-            **Read first:** @plan.React.O1, @plan.ServerRendering.O1.
+            **Read first:** @plan.React.O1, O2, O3, @plan.ServerRendering.O1, @plan.Machines.O2,
+            code:wiki/conventions/view-commands.md, code:wiki/conventions/controlled-values.md.
         acceptance
             - The bindings' Requirements hold, shown in real Chrome and Safari.
             - Request render and Hydrate without mismatch on a Next.js host; React 18 and 19; the Story `hydrate` path
