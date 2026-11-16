@@ -460,3 +460,7 @@ note 2026-11-16T11:11:33Z
 note 2026-11-16T11:19:08Z
     T17 back in review at 59cb006e (both blockers fixed; history follows SCXML, Turn R4 edited); fix-round review
     started. T74 resumed to its close. T17's close is also held: T19's and T54's pages are unread.
+
+note 2026-11-16T11:22:10Z
+    T74 in review at e1690a2f; its review waits on T17's. Shrink for acceptance 3 is weak (4 to 3 fixtures, 100 draws to
+    61 steps), for the review to judge. No Task is ready to build until T17 or T19 closes.
