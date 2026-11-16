@@ -1,6 +1,16 @@
 import { Fake, Story } from "../../../src/host/testing/index.ts";
 import { mainAvatar, mainByline, teamStatus, workspaceGrownSetup } from "../app.ts";
-import { acme, badge, BadgeMachine, coreTeam, guestTeam, mainSession } from "../machine.ts";
+import {
+  acme,
+  badge,
+  BadgeMachine,
+  coreTeam,
+  globex,
+  guestBadge,
+  guestSession,
+  guestTeam,
+  mainSession,
+} from "../machine.ts";
 import { actorRef } from "../../../src/index.ts";
 import { Identity, IdentityFake } from "../server.ts";
 
@@ -142,3 +152,16 @@ export const conflictingBadge = () =>
  * A status line whose ref names no team is ensured.
  */
 export const missingTeam = () => grownStory("session/missing-team").ensure(teamStatus);
+
+/**
+ * Bob signs in; the guests' badge is shown before the guests' team is opened, so the team starts as
+ * the badge's provider; then the team is opened by its own ref.
+ */
+export const guestBadgeFirst = grownStory("session/guest-badge-first")
+  .ensure(globex)
+  .ensure(guestSession)
+  .send(guestSession, { _tag: "SignIn", user: "bob" })
+  .ensure(guestBadge)
+  .checkpoint("badge")
+  .ensure(guestTeam)
+  .checkpoint("team");

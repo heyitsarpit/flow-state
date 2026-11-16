@@ -11,7 +11,7 @@ import {
   Story,
 } from "../../src/host/testing/index.ts";
 import { rules } from "../rules/rules.ts";
-import { mix } from "./fixtures.ts";
+import { mix, stressMix } from "./fixtures.ts";
 import { planted } from "./planted.ts";
 
 const SEEDS = [1, 2, 3, 4, 5];
@@ -213,4 +213,11 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
     expect(failure?.fixtures).toEqual(["pay-planted"]);
     expect((failure?.shrinks ?? Number.POSITIVE_INFINITY) <= 1000).toBe(true);
   }, 120_000);
+});
+
+describe("a mix after a reload that attaches nothing (Testing O6)", () => {
+  // Stress seed 18 reloads with no actor attached under a held store, then sends to closed screens.
+  it("Testing O6: a person opens a screen before acting on it, so the stress mix from seed 18 touches two fixtures in one step", () => {
+    expect(generate(stressMix, { drawing: "mix", seed: 18 }).shared).toBeGreaterThan(0);
+  }, 60_000);
 });

@@ -8,6 +8,7 @@ import { grownSamples } from "./stories/samples.ts";
 import {
   bylineReturns,
   childFirst,
+  guestBadgeFirst,
   newAccountRuntime,
   refusedLoadKeepsData,
   refusedWriteRetries,
@@ -38,6 +39,7 @@ export const session = manifest({
     avatarWall65,
     signedOutReloaded,
     bylineReturns,
+    guestBadgeFirst,
   },
   samples: [samples, grownSamples],
   stressSamples: [stressSamples],

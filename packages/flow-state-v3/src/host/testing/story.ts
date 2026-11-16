@@ -5,6 +5,7 @@ import { actorIdOf, type ActorRef, machineOf, type RuntimeSetup, SetupId } from 
 import type { FakeWorld } from "./fake.ts";
 import { run, type StoryRun, type Subject } from "./run.ts";
 import { Step, type WorldWord } from "./steps.ts";
+import { overridesBy } from "../wiring.ts";
 
 /**
  * A public event of an actor's definition, as `send` takes it.
@@ -126,7 +127,7 @@ export const storyOf = (subject: Subject, id: string): Story => {
         next(
           Step.ensure({
             actor: own(ref),
-            context: new Map(Object.entries(ref.context).map(([slot, p]) => [slot, own(p)])),
+            context: overridesBy(ref, (_slot, p) => own(p)),
           }),
         ),
       detach: (ref) => next(Step.detach({ actor: own(ref) })),

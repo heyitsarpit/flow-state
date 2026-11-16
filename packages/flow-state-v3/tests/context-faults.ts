@@ -6,6 +6,72 @@ import type { Fault } from "./faults.ts";
  */
 export const contextFaults: ReadonlyArray<Fault> = [
   {
+    name: "provider-loses-ref-override",
+    tests: ["tests/session/workspace.test.ts"],
+    says: "a provider started for a consumer binds its entry's defaults, not the overrides its ref gave",
+    rule: "Actors R18",
+    edits: [
+      {
+        file: "src/host/wiring.ts",
+        find: "new Map([...inherited, ...overrides])",
+        replace: "new Map<string, ReadonlyMap<string, ActorId>>()",
+      },
+    ],
+  },
+  {
+    name: "mix-acts-on-closed-screens",
+    tests: ["tests/generated/mix.test.ts"],
+    says: "the mix sends to actors no one uses, so a reload that attaches nothing leaves its apps unreachable",
+    rule: "Testing O6",
+    edits: [
+      {
+        file: "src/host/testing/generate.ts",
+        find: '    drawing === "mix" && step._tag === "send" && view.uses(step.actor) === 0',
+        replace: '    drawing === "drive" && step._tag === "send" && view.uses(step.actor) === 0',
+      },
+    ],
+  },
+  {
+    name: "undefined-slot-saved-unknown",
+    tests: ["tests/rules/reloads.test.ts", "tests/session/workspace.test.ts"],
+    says: "an undefined selection is saved unknown, so every reload makes up an onContext event",
+    rule: "Actors R19",
+    edits: [
+      {
+        file: "src/core/seen.ts",
+        find: '  if (value === undefined) return Option.some({ "~": "undefined" });',
+        replace: "  if (value === undefined) return Option.none();",
+      },
+    ],
+  },
+  {
+    name: "thrown-slot-not-saved",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a slot whose selector threw at its start is left out of the record, so a return never hears its first value",
+    rule: "Actors R9",
+    edits: [
+      {
+        file: "src/core/world.ts",
+        find: "    [...incarnation.bound.keys()].map((slot) => [",
+        replace: "    [...incarnation.context.keys()].map((slot) => [",
+      },
+    ],
+  },
+  {
+    name: "defect-moves-baseline",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a when or mapper defect still moves its reaction's baseline",
+    rule: "Turn R22",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "      if (Option.exists(previous, (p) => Equal.equals(p, current.success))) continue;\n",
+        replace:
+          "      if (Option.exists(previous, (p) => Equal.equals(p, current.success))) continue;\n      baselines[at] = Option.some(current.success);\n",
+      },
+    ],
+  },
+  {
     name: "context-update-skips-mailbox",
     tests: ["tests/actors/context.test.ts"],
     says: "a provider's change updates each consumer at once, mid-wave, so a diamond's consumer mixes a new value with a stale one",
@@ -44,8 +110,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: '        needs.ensure(provider, Option.some("context"));',
-        replace: "        needs.ensure(provider, Option.none());",
+        find: '        needs.ensure(provider, Option.some("context"), graph);',
+        replace: "        needs.ensure(provider, Option.none(), graph);",
       },
     ],
   },
@@ -115,18 +181,19 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "unencodable-slot-withholds-record",
-    tests: ["tests/session/workspace.test.ts"],
-    says: "a context slot whose last-seen value cannot be encoded withholds its consumer's whole record",
+    name: "seen-saved-untagged",
+    tests: ["tests/rules/reloads.test.ts"],
+    says: "a slot's last-seen value is saved as it is, so the reload reads every slot back unknown and waves",
     rule: "Actors R18",
     edits: [
       {
         file: "src/core/record.ts",
-        find: "      json: Option.flatMap(last, (v) => Result.getSuccess(toCanonicalJson(v))),",
-        replace: "      json: Option.flatMap(last, (v) => Option.some(v)),",
+        find: "    json: Option.flatMap(last, encodeSeen),",
+        replace: "    json: last,",
       },
     ],
   },
+
   {
     name: "unknown-slot-owes-no-wave",
     tests: ["tests/session/workspace.test.ts"],

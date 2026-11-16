@@ -2,14 +2,22 @@ import { Equal, Option, Result } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { type Tx, withEntry } from "./tx.ts";
-import { type ActorId, actorKey, type Incarnation, type Issue, Mail, type Use } from "./world.ts";
+import {
+  type ActorId,
+  actorKey,
+  type Incarnation,
+  type Issue,
+  Mail,
+  type Use,
+  type Wiring,
+} from "./world.ts";
 
 /**
  * What context needs of incarnations: ensuring a provider with a use, releasing that use, and
  * publishing a changed incarnation.
  */
 export type ContextNeeds = {
-  readonly ensure: (actor: ActorId, use: Option.Option<Use>) => void;
+  readonly ensure: (actor: ActorId, use: Option.Option<Use>, wiring: Option.Option<Wiring>) => void;
   readonly release: (actor: ActorId, use: Use) => void;
   readonly publish: (incarnation: Incarnation) => void;
   readonly save: (incarnation: Incarnation) => void;
@@ -139,10 +147,14 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   ) => selections(compiled, incarnation, last).map((s) => s.baseline);
 
   /**
-   * Binds a starting consumer's slots to their providers, ensuring each with a use, and sets the
-   * silent baselines of its context and reactions.
+   * Binds a starting consumer's slots to their providers, ensuring each with a use and its wiring
+   * in the graph, and sets the silent baselines of its context and reactions.
    */
-  const bind = (incarnation: Incarnation, wiring: ReadonlyMap<string, ActorId>) => {
+  const bind = (
+    incarnation: Incarnation,
+    wiring: ReadonlyMap<string, ActorId>,
+    graph: Option.Option<Wiring>,
+  ) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
     if (compiled === undefined || compiled.context.size === 0) return incarnation;
@@ -153,7 +165,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       const provider = wiring.get(slot);
 
       if (provider !== undefined) {
-        needs.ensure(provider, Option.some("context"));
+        needs.ensure(provider, Option.some("context"), graph);
         bound.set(slot, provider);
       }
     }
@@ -213,7 +225,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
   // Runs each reaction whose selection differs from its baseline, in declaration order: its
   // baseline becomes the selection and, when its `when` allows it, its event is kept to enqueue.
-  // A callback that throws raises one issue of its reaction.
+  // A callback that throws raises one issue of its reaction and keeps its baseline.
   const react = (compiled: Compiled, read: Incarnation) => {
     let next: Incarnation = read;
     const baselines = [...read.baselines];
@@ -236,7 +248,6 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       const previous = baselines[at] ?? Option.none();
 
       if (Option.exists(previous, (p) => Equal.equals(p, current.success))) continue;
-      baselines[at] = Option.some(current.success);
 
       const allowed = Option.match(reaction.when, {
         onNone: () => Result.succeed(true),
@@ -266,11 +277,14 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
             slot: Option.some(slot),
           });
         },
-        onSuccess: (given) =>
+        // A changed selection becomes the baseline even when `when` declines; a defect keeps it.
+        onSuccess: (given) => {
+          baselines[at] = Option.some(current.success);
           Option.match(given, {
             onNone: () => undefined,
             onSome: (p) => void events.push({ tag: reaction.event.event, payload: p }),
-          }),
+          });
+        },
       });
     }
 

@@ -1,7 +1,7 @@
 import { Data, type Duration } from "effect";
 import type { Values } from "../../core/compiled.ts";
 import type { Evidence } from "../../core/evidence.ts";
-import type { ActorId } from "../../core/world.ts";
+import type { ActorId, Wiring } from "../../core/world.ts";
 import type { Envelope } from "../../definition.ts";
 import type { AnyServer } from "./fake.ts";
 
@@ -43,7 +43,7 @@ export const WorldWord = Data.taggedEnum<WorldWord>();
  * array of these, and a run takes one back.
  */
 export type Step = Data.TaggedEnum<{
-  ensure: { actor: ActorId; context: ReadonlyMap<string, ActorId> };
+  ensure: { actor: ActorId; context: Wiring };
   detach: { actor: ActorId };
   send: { actor: ActorId; event: Envelope };
   dispose: { actor: ActorId; how: "dispose" | "forget" };

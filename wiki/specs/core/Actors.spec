@@ -116,7 +116,9 @@ requirements
                 event that restored it. Its starting turn publishes once, with its providers'
                 current selections; the wave re-runs only its reactions against the saved values,
                 and publishes only a changed slot or issue. A slot whose last-seen value could not
-                be saved is unknown and always owes the wave: each reaction that reads it runs once.
+                be saved (a value other than JSON, `undefined`, an Option, or arrays and plain
+                objects of them), or whose selector never gave one, is unknown and owes the wave:
+                each reaction that reads it runs once.
 
                 A non-persisted identity starts fresh. An ensure over an undecodable record starts
                 fresh, reports RecordUndecodable (proposed name) and adopts the identity's lanes. A
@@ -167,9 +169,10 @@ requirements
     R13  Order across actors
         source  @plan.Runtime.O4.
         must    Follow-ups (the events and context updates a served event's turns enqueue) run first,
-                oldest first within each actor. Up to 64 events sent by turns count per admitted
-                event; an event's turn that would send the 65th is refused and undone, with an issue
-                naming the chain (check's denial code for it is InvalidTurn). Context updates and
+                oldest first within each actor. Proposed, built with an actor-to-actor send action:
+                up to 64 events sent by turns count per admitted event; an event's turn that would
+                send the 65th is refused and undone, with an issue naming the chain (check's denial
+                code for it is InvalidTurn); no turn sends an event until then. Context updates and
                 the onContext events they enqueue never count and are never refused by it, since
                 ContextCycle bounds a context chain; endings and firings are not counted either.
                 Otherwise one event runs from the next actor in rotation, oldest first. The 64 caps
@@ -241,10 +244,12 @@ requirements
     R18  Context binding
         source  @plan.Runtime.O5.
         must    Provider.select reads one complete provider snapshot. A slot binds to one provider
-                for the consumer's lifetime; a bound consumer is a use of its provider. A cycle
+                for the consumer's lifetime; a bound consumer is a use of its provider, and a provider it
+                starts binds the overrides its own ref gave. A cycle
                 (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one
-                rejects at admission. A record saves each slot's last-seen value apart; one that
-                cannot encode is saved unknown and never withholds the record. Baselines are silent
+                rejects at admission. A record saves each bound slot's last-seen value apart,
+                `undefined` and Options included; one that cannot encode is saved unknown and never
+                withholds the record. Baselines are silent
                 at admission, adoption, hydration and a reload restore, a slot saved unknown aside; `keys` and `paused` 
                 are re-evaluated silently at the same points
                 and on a return;
@@ -432,7 +437,8 @@ invariants
 
     I19  Within one actor, events are admitted in mailbox order and one at a time. [@R12]
 
-    I20  At most 64 events sent by turns run as follow-ups of one admitted event. [@R13]
+    I20  Proposed, with an actor-to-actor send action: at most 64 events sent by turns run as follow-ups of one 
+         admitted event. [@R13]
 
     I21  An actor with pending mail is served within one rotation of the other actors with mail. [@R13]
 

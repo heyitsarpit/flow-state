@@ -33,7 +33,7 @@ export const stressWall1024 = () => wall("session/stress-wall-1024", 1024);
 
 /**
  * 65 header avatars on the main session; Ada signs in, so one admitted event adds 65 context
- * updates and 65 events, past the 64 follow-ups an event's turns may send.
+ * updates and 65 onContext events.
  */
 export const avatarWall65 = Array.from({ length: 65 }, (_, n) => wallAvatar(n))
   .reduce<Story>((s, a) => s.ensure(a), grownStory("session/avatar-wall-65").ensure(acme))

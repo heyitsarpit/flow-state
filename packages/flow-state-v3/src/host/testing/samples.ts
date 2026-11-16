@@ -1,5 +1,6 @@
 import { Duration, Formatter, Option, Predicate } from "effect";
-import { type ActorId, actorKey } from "../../core/world.ts";
+import { type ActorId, actorKey, type Wiring } from "../../core/world.ts";
+import { overridesBy } from "../wiring.ts";
 import { actorIdOf, type ActorRef } from "../runtime.ts";
 import type { AnyServer } from "./fake.ts";
 import type { StoryRun } from "./run.ts";
@@ -29,7 +30,7 @@ export type Samples = {
   readonly actors: ReadonlyArray<{
     readonly name: string;
     readonly actor: ActorId;
-    readonly context: ReadonlyMap<string, ActorId>;
+    readonly context: Wiring;
   }>;
   readonly servers: ReadonlyArray<{ readonly name: string; readonly server: AnyServer }>;
   readonly failures: ReadonlyArray<WorldWord>;
@@ -84,7 +85,7 @@ export const samplesOf = (options: {
     actors: Object.entries(options.actors).map(([name, ref]) => ({
       name,
       actor: actorIdOf(ref),
-      context: new Map(Object.entries(ref.context).map(([slot, p]) => [slot, actorIdOf(p)])),
+      context: overridesBy(ref, (_slot, p) => actorIdOf(p)),
     })),
     servers: Object.entries(options.servers).map(([name, server]) => ({
       name,

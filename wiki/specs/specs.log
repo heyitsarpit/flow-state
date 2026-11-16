@@ -212,3 +212,16 @@ note 2026-11-16T23:25:25Z
 note 2026-11-16T23:25:25Z
     @spec.Stories R3: a Story's ensure and dispose pass the Runtime's admission and a refusal rejects the run with its
     FlowError. Why: Story words skipped R5, R18, R20. Reverse: restore R3 from e1b9f1ab.
+
+note 2026-11-16T23:54:10Z
+    @spec.Actors R9, R18; @spec.Restore R2: undefined and Options are saved as last-seen values, unknown is kept for
+    values that cannot encode and slots never selected, and a reload or a return waves only on a difference. Why: a
+    reload invented an onContext event. Reverse: 2878d90d.
+
+note 2026-11-16T23:54:10Z
+    @spec.Actors R13, I20: the 64-event follow-up limit is proposed until an actor-to-actor send action exists; no code,
+    check or fault holds it today. Why: no turn sends an event (T9 review). Reverse: drop the proposed marks.
+
+note 2026-11-16T23:54:24Z
+    @spec.Actors R18: a provider a consumer starts binds the overrides its own ref gave, not its entry's defaults. Why:
+    a later ensure of that ref was refused ConflictingActorRef. Reverse: drop the clause.

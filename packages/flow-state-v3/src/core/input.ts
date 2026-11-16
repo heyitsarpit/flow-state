@@ -1,6 +1,6 @@
 import { Data, type Option } from "effect";
 import type { Values } from "./compiled.ts";
-import type { ActorId, CallId, TicketId, TimerId, Use } from "./world.ts";
+import type { ActorId, CallId, TicketId, TimerId, Use, Wiring } from "./world.ts";
 
 /**
  * How a call ended, as the host classifies its fiber's Exit.
@@ -33,7 +33,7 @@ export type Input = Data.TaggedEnum<{
     actor: ActorId;
     use: Option.Option<Use>;
     existing: boolean;
-    wiring: Option.Option<ReadonlyMap<string, ActorId>>;
+    wiring: Option.Option<Wiring>;
   };
   Create: { actor: ActorId; input: Values };
   Serve: {};

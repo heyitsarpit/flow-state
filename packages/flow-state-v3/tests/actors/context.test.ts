@@ -294,6 +294,59 @@ describe("context binding (Actors R18, I28)", () => {
   });
 });
 
+describe("onContext defects (Turn R22)", () => {
+  const Echo = definition({
+    id: "Context/Echo",
+    states: ["SHOWN"],
+    events: {},
+    internalEvents: { Echoed: { user: Schema.String } },
+    memory: { echoes: Flow.initial(Schema.Number, 0) },
+    context: { user: Session.Provider.select((s) => s.memory.user) },
+  });
+
+  // Its mapper throws for the user "x"; its when throws for the user "y".
+  const EchoMachine = machine(Echo, ({ S, E }) => ({
+    default: S.SHOWN,
+    onContext: [
+      {
+        select: ({ context }) => context.user,
+        when: (next: string) => {
+          if (next === "y") throw new Error("when");
+
+          return true;
+        },
+        event: E.Echoed.from((user: string) => {
+          if (user === "x") throw new Error("mapper");
+
+          return { user };
+        }),
+      },
+    ],
+    on: { Echoed: { updateMemory: ({ memory }) => ({ echoes: memory.echoes + 1 }) } },
+  }));
+
+  it("Turn R22: a when or mapper defect keeps the previous baseline, so a return to it is silent", () => {
+    const runtime = runtimeSetup({
+      app: app({
+        id: "echo",
+        machines: {
+          session: SessionMachine,
+          echo: { machine: EchoMachine, context: { user: main } },
+        },
+      }),
+    }).construct();
+
+    Effect.runSync(runtime.ready());
+    const echo = runtime.ensureActor(actorRef(EchoMachine, "echo"));
+    const session = runtime.ensureActor(main);
+
+    for (const user of ["x", "", "y", ""]) session.send({ _tag: "SignIn", user });
+
+    expect(Option.map(echo.getSnapshot(), (s) => s.memory["echoes"])).toEqual(Option.some(0));
+    expect(Option.map(echo.getSnapshot(), (s) => s.issues.length)).toEqual(Option.some(1));
+  });
+});
+
 describe("context waves (Actors R19, I27; Turn R22)", () => {
   it("Turn R22: a provider change gives the consumer one onContext event; an equal selection is silent", () => {
     const { runtime, seen } = ready();
@@ -389,6 +442,31 @@ const KeptWatcherMachine = machine(KeptWatcher, ({ S, E }) => ({
   on: { Seen: { updateMemory: ({ event }) => ({ seen: event.user }) }, Ping: {} },
 }));
 
+// A watcher whose selector throws while nobody is signed in.
+const KeptStrict = definition({
+  id: "Context/KeptStrict",
+  persist: true,
+  states: ["WATCHING"],
+  events: { Ping: {} },
+  internalEvents: { Seen: { user: Schema.String } },
+  memory: { seen: Flow.initial(Schema.String, "") },
+  context: {
+    user: KeptSession.Provider.select((s) => {
+      if (s.memory.user === "") throw new Error("nobody");
+
+      return s.memory.user;
+    }),
+  },
+});
+
+const KeptStrictMachine = machine(KeptStrict, ({ S, E }) => ({
+  default: S.WATCHING,
+  onContext: [
+    { select: ({ context }) => context.user, event: E.Seen.from((user: string) => ({ user })) },
+  ],
+  on: { Seen: { updateMemory: ({ event }) => ({ seen: event.user }) }, Ping: {} },
+}));
+
 const keptSession = actorRef(KeptSessionMachine, "main");
 const keptWatcher = actorRef(KeptWatcherMachine, "w");
 
@@ -398,6 +476,7 @@ const kept = runtimeSetup({
     machines: {
       session: KeptSessionMachine,
       watcher: { machine: KeptWatcherMachine, context: { user: keptSession } },
+      strict: { machine: KeptStrictMachine, context: { user: keptSession } },
     },
   }),
   scope: "kept",
@@ -421,6 +500,24 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
     const turns = run.evidence.flatMap((e) => (e._tag === "Turn" ? [e.event] : []));
     expect(turns).toEqual(["SignIn", "Seen", "Ping"]);
     expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
+  });
+
+  it("Actors R9, R18: a slot whose selector threw at its start is saved unknown, so a return after a reload hears its first value", async () => {
+    const strict = actorRef(KeptStrictMachine, "s");
+
+    const run = checked(
+      await Story.app(kept, { id: "context/strict-return", fixtures: [] })
+        .ensure(strict)
+        .detach(strict)
+        .advance("1 second")
+        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .reload({ reattach: false })
+        .send(strict, { _tag: "Ping" })
+        .checkpoint("back")
+        .run(),
+    );
+
+    expect(run.checkpoints.back.read(strict)?.memory["seen"]).toBe("ada");
   });
 
   it("Actors R18: a reload binds a consumer to the provider its ref named, not its entry's default", async () => {

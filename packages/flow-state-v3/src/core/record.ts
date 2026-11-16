@@ -1,12 +1,6 @@
 import { Option, Result, Schema, Struct } from "effect";
-import {
-  BOUNDS,
-  CodecFailure,
-  decodeCanonical,
-  encodeCanonical,
-  measure,
-  toCanonicalJson,
-} from "./codec.ts";
+import { BOUNDS, CodecFailure, decodeCanonical, encodeCanonical, measure } from "./codec.ts";
+import { decodeSeen, encodeSeen } from "./seen.ts";
 import type { Compiled, Values } from "./compiled.ts";
 import { Channel, ScheduleDeadline } from "./vocabulary.ts";
 import type { Owed } from "./ledger.ts";
@@ -15,6 +9,7 @@ import {
   type ActorRecord,
   type Incarnation,
   type Lane,
+  lastSeenOf,
   byCodeUnits,
   Phase,
 } from "./world.ts";
@@ -210,18 +205,14 @@ export const encodeOwed = (actor: ActorId, rows: ReadonlyArray<OwedRow>) => {
   });
 };
 
-// Each slot's last-seen value: the one its reactions still have to compare against, else its
-// current one; a value that cannot be encoded alone is saved unknown, so it never withholds the
-// record.
+// Each bound slot's last-seen value: the one its reactions still have to compare against, else its
+// current one; a value that cannot be encoded alone, or a slot whose selector never gave one, is
+// saved unknown, so it never withholds the record.
 const seenOf = (incarnation: Incarnation) =>
-  [...incarnation.context].map(([slot, value]) => {
-    const last = incarnation.stale.get(slot) ?? Option.some(value);
-
-    return {
-      slot,
-      json: Option.flatMap(last, (v) => Result.getSuccess(toCanonicalJson(v))),
-    };
-  });
+  [...lastSeenOf(incarnation)].map(([slot, last]) => ({
+    slot,
+    json: Option.flatMap(last, encodeSeen),
+  }));
 
 // The slots saved unknown, named only when there are some.
 const unknownOf = (seen: ReturnType<typeof seenOf>) => {
@@ -390,7 +381,7 @@ export const decodeRecords = (
         schedules: r.schedules,
         context: new Map(Object.entries(r.context).map(([slot, p]) => [slot, actorOf(p)])),
         seen: new Map([
-          ...Object.entries(r.seen).map(([slot, value]) => [slot, Option.some(value)] as const),
+          ...Object.entries(r.seen).map(([slot, value]) => [slot, decodeSeen(value)] as const),
           ...(r.unknown ?? []).map((slot) => [slot, Option.none()] as const),
         ]),
       } satisfies ActorRecord;

@@ -2,7 +2,7 @@ import { Effect, Exit, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
-import { type ActorId, actorKey } from "../../core/world.ts";
+import { type ActorId, actorKey, type Wiring } from "../../core/world.ts";
 import type { AnyDefinition } from "../../definition.ts";
 import { FlowError } from "../../error.ts";
 import { Host } from "../host.ts";
@@ -210,7 +210,7 @@ export const runFrom = <Names extends string>(
     string,
     {
       readonly actor: ActorId;
-      readonly context: ReadonlyMap<string, ActorId>;
+      readonly context: Wiring;
       readonly count: number;
     }
   >();
@@ -341,7 +341,7 @@ export const runFrom = <Names extends string>(
 
   // An ensure passes the Runtime's admission, as the public ensureActor does, with the ref's
   // context overrides; an ensure again after a reload passes it with the ones it was first given.
-  const attach = (actor: ActorId, context: ReadonlyMap<string, ActorId>) =>
+  const attach = (actor: ActorId, context: Wiring) =>
     testing.attach(
       tab.built,
       actor,

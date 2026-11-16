@@ -2,7 +2,7 @@ import { Context, Effect, Layer, Option, Predicate, Result, Schema } from "effec
 import { TestClock } from "effect/testing";
 import type { Values } from "../../core/compiled.ts";
 import { Input } from "../../core/step.ts";
-import type { ActorId, Use } from "../../core/world.ts";
+import type { ActorId, Use, Wiring } from "../../core/world.ts";
 import type { Machine, Operations } from "../../definition.ts";
 import type { App } from "../../index.ts";
 import { Host, type Platform, StoreRefused } from "../host.ts";
@@ -28,7 +28,7 @@ export const testing = {
     actor: ActorId,
     use: Use,
     existing: boolean,
-    wiring: Option.Option<ReadonlyMap<string, ActorId>> = Option.none(),
+    wiring: Option.Option<Wiring> = Option.none(),
   ) => driver.input(Input.Ensure({ actor, use: Option.some(use), existing, wiring })),
   detach: ({ driver }: TestRuntime, actor: ActorId, use: Use) =>
     driver.input(Input.Release({ actor, use })),

@@ -600,12 +600,16 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       `ensureActor` and by a Story's ensure (Actors R18). built: the `missingTeam` builder.
     - [x] S7: the live badge's ref naming another team, refused `ConflictingActorRef` (Actors R5). built: the
       `conflictingBadge` builder.
+    - [x] S5: the guests' badge opened before the guests' team, which binds the session its own ref names, so
+      opening the team later is the same identity (Actors R5, R18). built: `session/guest-badge-first`.
+    - [x] L4 over every Story: three reloads hear no more onContext events than one (Actors R9, R19). built:
+      `tests/rules/reloads.test.ts`.
     - [x] S7: a cycle, corrected: a cycle needs two definitions that read each other as context, which module order
       cannot build without a stand-in definition of the same id (`tests/actors/context.test.ts` uses one), so no app
       reaches `ContextCycle`; whether that refusal should stay is the user's call.
   - **Edges:**
     - [x] E2: an undefined user, read by the new `Workspace/Avatar` after a sign-out, saved and restored. E1: an empty
-      user. built: `session/signed-out-reloaded` (the user is saved unknown and owes one wave),
+      user. built: `session/signed-out-reloaded` (the undefined user is saved, so the reload hears nothing),
       `session/signed-out-undefined`.
     - [x] E4: consumers at and past 64, each heard, since context updates and onContext events never count toward the
       follow-up cap (@plan.Pending.D13). built: `session/wall-64`, `session/avatar-wall-65`,

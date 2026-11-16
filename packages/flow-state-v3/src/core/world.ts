@@ -1,4 +1,4 @@
-import { type Brand, Data, type Option } from "effect";
+import { type Brand, Data, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import { emptyLedger, type Ledger, type OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
@@ -88,6 +88,21 @@ export type Incarnation = {
   // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns; none when unknown.
   readonly baselines: ReadonlyArray<Option.Option<unknown>>;
 };
+
+/**
+ * Each bound slot's last-seen value: the one its reactions still owe a wave for, else its current
+ * one; none for a slot whose selector never gave a value.
+ */
+export const lastSeenOf = (incarnation: Incarnation) =>
+  new Map(
+    [...incarnation.bound.keys()].map((slot) => [
+      slot,
+      incarnation.stale.get(slot) ??
+        (incarnation.context.has(slot)
+          ? Option.some(incarnation.context.get(slot))
+          : Option.none()),
+    ]),
+  );
 
 /**
  * An incarnation's open issue: the source that raised it (`event X`, `schedule X`, `operation X`
@@ -248,6 +263,12 @@ export type Timer = Data.TaggedEnum<{
  * Constructors and matchers for {@link Timer}.
  */
 export const Timer = Data.taggedEnum<Timer>();
+
+/**
+ * The providers each identity of one ensure's context graph binds its slots to, by identity key:
+ * the ensured actor's and every provider's on the way up.
+ */
+export type Wiring = ReadonlyMap<string, ReadonlyMap<string, ActorId>>;
 
 /**
  * Who holds a use of an identity.

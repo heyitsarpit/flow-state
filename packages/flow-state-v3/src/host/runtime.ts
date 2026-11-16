@@ -2,7 +2,7 @@ import { Context, Deferred, Effect, Exit, Layer, Option, Predicate, Result, Scop
 import type { Evidence } from "../core/evidence.ts";
 import { boundOf, dependentsOf, Input } from "../core/step.ts";
 import { Verdict } from "../core/life.ts";
-import { type ActorId, actorKey } from "../core/world.ts";
+import { type ActorId, actorKey, type Wiring } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, Envelope, InputOf, Machine } from "../definition.ts";
@@ -296,7 +296,7 @@ export const buildRuntime = (
     entries.map((e) => [machineOf(e).compiled.id, ("machine" in e ? e.context : undefined) ?? {}]),
   );
 
-  const { wiringOf, overrideOf, refused: contextRefused } = makeWiring(machines, defaults);
+  const { wiringOf, overridesOf, refused: contextRefused } = makeWiring(machines, defaults);
 
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
@@ -501,13 +501,11 @@ export const buildRuntime = (
 
   // What admission checks before an ensure or a dispose does any work; a Story's words pass it too.
   const admission = {
-    // The providers an ensure binds: its entry's wiring with the ref's overrides; a live identity
-    // bound otherwise is refused.
-    ensure: (actor: ActorId, override: ReadonlyMap<string, ActorId>) => {
-      const compiled = machines.get(actor.machine)?.compiled;
-
-      const wiring =
-        compiled === undefined ? new Map() : wiringOf(compiled, override, [actorKey(actor)]);
+    // The providers an ensure's graph binds: each entry's wiring with the refs' overrides; a live
+    // identity bound otherwise is refused.
+    ensure: (actor: ActorId, overrides: Wiring) => {
+      const graph = wiringOf(actor, overrides, [actorKey(actor)]);
+      const wiring = graph.get(actorKey(actor)) ?? new Map<string, ActorId>();
 
       const conflicting = Option.exists(
         boundOf(driver.world(), actor),
@@ -525,7 +523,7 @@ export const buildRuntime = (
           "Name one identity with one context: drop the ref's override or use another identity.",
         );
 
-      return wiring;
+      return graph;
     },
     // A provider with bound consumers is not disposed: its consumers would lose their context.
     dispose: (actor: ActorId) => {
@@ -562,8 +560,8 @@ export const buildRuntime = (
       // The life decides first; then the context graph is checked, before any work.
       if (!Verdict.$is("Run")(driver.verdict(probe))) driver.offer(probe, what);
 
-      const wiring = admission.ensure(actor, overrideOf(ref.machine.compiled, ref.context));
-      driver.offer(Input.Ensure({ ...probe, wiring: Option.some(wiring) }), what);
+      const graph = admission.ensure(actor, overridesOf(ref));
+      driver.offer(Input.Ensure({ ...probe, wiring: Option.some(graph) }), what);
 
       return handleOf(ref.machine, actor);
     },

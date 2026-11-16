@@ -18,6 +18,7 @@ import {
   Mail,
   Timer,
   type Use,
+  type Wiring,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
@@ -104,7 +105,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   // A consumer's providers are ensured with a use and released when it ends; ensure and release
   // are defined below and only called once a step runs.
   const context = makeContext(tx, {
-    ensure: (provider, use) => ensure(provider, use, false, Option.none()),
+    ensure: (provider, use, wiring) => ensure(provider, use, false, wiring),
     release: (provider, use) => release(provider, use),
     publish: (incarnation) => publish(incarnation),
     save: (incarnation) => setIncarnation(incarnation),
@@ -114,7 +115,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     actor: ActorId,
     from: Option.Option<ActorRecord>,
     input: Values,
-    wiring: Option.Option<ReadonlyMap<string, ActorId>>,
+    wiring: Option.Option<Wiring>,
   ) => {
     const compiled = tx.machines.get(actor.machine);
 
@@ -167,7 +168,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       base,
       Option.getOrElse(
         Option.orElse(
-          Option.map(wiring, (given) => new Map([...compiled.wiring, ...given])),
+          Option.map(
+            wiring,
+            (given) => new Map([...compiled.wiring, ...(given.get(actorKey(actor)) ?? [])]),
+          ),
           () =>
             Option.filter(
               Option.map(from, (r) => r.context),
@@ -176,6 +180,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         ),
         () => compiled.wiring,
       ),
+      wiring,
     );
 
     // A start from a saved record reads its providers now, and owes its reactions one wave for
@@ -273,7 +278,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     actor: ActorId,
     use: Option.Option<Use>,
     existing: boolean,
-    wiring: Option.Option<ReadonlyMap<string, ActorId>>,
+    wiring: Option.Option<Wiring>,
   ) => {
     const key = actorKey(actor);
 

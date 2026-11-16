@@ -19,6 +19,7 @@ import {
   Due,
   type Incarnation,
   type Lane,
+  lastSeenOf,
   type Ticket,
   type TicketId,
   Timer,
@@ -104,12 +105,7 @@ export const makePersistence = (tx: Tx) => {
       send: a.send,
     })),
     context: incarnation.bound,
-    seen: new Map(
-      [...incarnation.context].map(([slot, value]) => [
-        slot,
-        incarnation.stale.get(slot) ?? Option.some(value),
-      ]),
-    ),
+    seen: lastSeenOf(incarnation),
   });
 
   /**

@@ -1355,6 +1355,18 @@ tasks
             the uncapped turn-send loop (no send action), the pairs-0 retarget (caught by auth-session), FIFO and
             wave-per-turn claims (match R19, R22), Story offer vs input (same admission; life refusals are StoryFailed),
             and pre-round blind findings outside this diff.
+        comment     2026-11-16T23:54:24Z
+            Fix round requirements, each red first: 1 three reloads over every Story but the stress ones hear no more
+            onContext events than one (Actors R9, R19) -> tests/rules/reloads.test.ts, red: signed-out-reloaded 4 then
+            6, byline-returns 6 then 8; fix: undefined, Options and arrays or objects of them saved as known values
+            (seen.ts), unknown only for other values and never-selected slots; the avatar's count after the reload is 2
+            again. 2 a when or mapper defect keeps the baseline (Turn R22) -> context.test.ts, red: 2 echoes for 0. 3 a
+            slot whose selector threw at its start is saved unknown and heard at a return (Actors R9) -> context.test.ts
+            strict return. 4 a provider started for a consumer binds its own ref's overrides (Actors R18) ->
+            session/guest-badge-first; found when the mix opened closed screens (ConflictingActorRef). 5 the mix opens a
+            screen before acting on it (Testing O6) -> mix.test.ts seed 18, red: shared 0. Specs: Restore R2 aligned
+            with R9, R18; R13's 64 and I20 marked proposed. Stress sweeps get 230 s under the faults load; the stress
+            rules test had no timeout.
 
     T74
         title       App mix: several fixtures in one Runtime

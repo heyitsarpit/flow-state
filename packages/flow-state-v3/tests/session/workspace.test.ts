@@ -12,6 +12,7 @@ import {
   badge,
   BadgeMachine,
   coreTeam,
+  guestTeam,
   mainSession,
   wallBadge,
   workspaceSetup,
@@ -22,6 +23,7 @@ import {
   bylineReturns,
   childFirst,
   conflictingBadge,
+  guestBadgeFirst,
   missingTeam,
   newAccountRuntime,
   refusedLoadKeepsData,
@@ -119,25 +121,42 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
     expect(run.checkpoints["signed out"].read(coreTeam)?.context).toEqual({ user: "" });
   });
 
-  it("E2, Actors R9, R18: an avatar whose user selection is undefined is saved with the slot unknown; its start at the reload owes one wave, so it counts one more change", async () => {
+  it("E2, Actors R9, R18, R19: an avatar whose user selection is undefined is saved with that value; a reload of that saved world owes no wave, so its count stays", async () => {
     const run = await played(signedOutReloaded);
     const saved = run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar");
+    const record = JSON.parse(saved ?? "{}");
 
-    expect(saved).toContain('"seen":2');
-    expect(saved).toContain('"unknown":["user"]');
-    expect(run.checkpoints.reloaded.read(mainAvatar)?.memory["seen"]).toBe(3);
-    expect(run.checkpoints.reloaded.read(mainAvatar)?.context).toEqual({ user: undefined });
+    expect(record.memory).toEqual({ seen: 2 });
+    expect(record.seen).toEqual({ user: { "~": "undefined" } });
+    expect(record.unknown).toBeUndefined();
+    expect(run.checkpoints.reloaded.read(mainAvatar)?.memory["seen"]).toBe(2);
+    expect(Object.entries(run.checkpoints.reloaded.read(mainAvatar)?.context ?? {})).toEqual([
+      ["user", undefined],
+    ]);
   });
 
-  it("S6 returned, Actors R9, R18; Turn I9: a byline that comes back after its user and team changed shows both at once and hears each change once; at the reload only its unknown user owes a wave", async () => {
+  it("S6 returned, Actors R9, R18; Turn I9: a byline that comes back after its user and team changed shows both at once and hears each change once; a reload after it hears nothing", async () => {
     const run = await played(bylineReturns);
     const at = (name: keyof typeof run.checkpoints) => run.checkpoints[name].read(mainByline);
 
     expect(at("shown")?.memory).toEqual({ users: 1, teams: 1 });
-    expect(at("returned")?.context).toEqual({ user: undefined, team: "Platform" });
+    expect(Object.entries(at("returned")?.context ?? {})).toEqual([
+      ["user", undefined],
+      ["team", "Platform"],
+    ]);
     expect(at("returned")?.memory).toEqual({ users: 2, teams: 2 });
-    expect(at("reloaded")?.context).toEqual({ user: undefined, team: "Platform" });
-    expect(at("reloaded")?.memory).toEqual({ users: 3, teams: 2 });
+    expect(Object.entries(at("reloaded")?.context ?? {})).toEqual([
+      ["user", undefined],
+      ["team", "Platform"],
+    ]);
+    expect(at("reloaded")?.memory).toEqual({ users: 2, teams: 2 });
+  });
+
+  it("S5, Actors R5, R18: a team started as the guests' badge's provider binds the session its own ref names, so opening the team by that ref later is the same identity", async () => {
+    const run = await played(guestBadgeFirst);
+
+    expect(run.checkpoints.badge.read(guestTeam)?.context).toEqual({ user: "bob" });
+    expect(run.checkpoints.team.read(guestTeam)?.context).toEqual({ user: "bob" });
   });
 
   it("E4, Actors R13: 65 avatars on one session each hear a sign-in, since context updates and onContext events never count toward the 64 follow-ups", async () => {
