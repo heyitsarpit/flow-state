@@ -135,6 +135,73 @@ comment 2026-11-15T19:51:43Z
     Flow's own fixtures (pay, cells, sync, sign-in, transfers) over fake servers, one tab, TestClock time; excluded:
     real browsers and storage (P4), generated Stories (@task.V3.T70), the CLI (@task.V3.T69), and the known bugs held as
     it.fails: Turn I9, Turn I14 (two), WriteAhead R5, WriteLanes I7, Actors I43.
+comment 2026-11-16T01:39:19Z
+    CLOSE-OUT FINDINGS at 8d2520ed (code as 554531f2): exit criteria not yet met; R18 waits on F1 to F6. Gates on a git
+    archive copy: vp check, check:effect, lint:rules and check:plans at zero; package suite 472 plus 8 it.fails; faults
+    52 of 52. Not run: verify, because root `nub run test` is red (F2; the frozen packages/flow-state gateway and docs
+    tests also fail on an archive copy with no built dist, not P2). Own faults: Kept owed rows left unsaved
+    (code:packages/flow-state-v3/src/core/persist.ts#owedWrite) caught by 5 tests; disposal that never interrupts
+    in-flight reads (code:packages/flow-state-v3/src/core/disposal.ts#makeDisposal) survives.
+
+    Fix now:
+    - F1 @task.V3.T75 is a P2 Task, in progress and uncommitted in the checkout, so not every Task is done; it changes
+      tests/ and tools/faults/, so the suite and faults re-run at its final revision. Owner T75.
+    - F2 tests/generated/planted.test.ts takes 1.2 s alone but passes the 5 s default under load (red in root `nub run
+      test` and in 2 of 3 package runs). Give it a timeout. Owner T75 (speed).
+    - F3 the seeds test titled Restore I1 appends reload, ensure, advance with no checkpoint, so
+      code:packages/flow-state-v3/tests/rules/rules.ts#cutAfter returns none and the rule never judges it; put a
+      checkpoint right after the reload. Owner T75 (it moves this test).
+    - F4 code:packages/flow-state-v3/tests/checkout.ts#before reads all but the last record when the checkpoint name is
+      absent (findIndex -1); fail instead. Owner the P2 fix round.
+    - F5 Stories R6 (evidence to the 10,000th turn) and T5 (reason Advance, unbuilt) contradict I7; align them to I7.
+      The crossing-batch test waits for a fixture: @task.V3.T29. Owner the orchestrator, records only.
+    - F6 the coverage record is stale (matched at a7989ac0, before T68 to T71); updated record in the next comment, to
+      re-match after T75.
+
+    Defer:
+    - D1 all 8 it.fails pass on any failure, harness errors included; pin the observed wrong value as each bug is fixed.
+      Owners T17, T19, T20, T57; Actors I43 and WriteLanes I7 have no owner yet, name them at R18.
+    - D2 generated runs: only an endpoint first call per step gets a drawn answer; mixes are checked on the generator
+      tally, not outcomes; FailButLanded becomes LostButLanded on five fixtures with no landed-failure control; a turn
+      limit counts as a breach where @plan.Testing.O6 says Inconclusive; the quiet horizon is 2 minutes, not 60 s.
+      Owner T29.
+    - D3 pair sweep: phases come from the app own lanes(); unreachable cells rest on hand-set flags; Withdrawing and
+      Cancelling rest on WriteLanes R14, which does not end the interrupt within its step; a StoryFailed before the
+      fault reads as Unreached. R14 wording to T19, the sweep to T29.
+    - D4 the surviving own fault: Runtime disposal must interrupt in-flight reads, with a test. Owner T21 (reads slice).
+    - D5 the dead-core excuse in tools/faults/run.ts matches any title starting with a rule id (4 ordinary tests),
+      besides tests/cli and src/. Owner T22, with its tests/cli item.
+    - D6 config.ts promises that two Stories with one id fail the command; discover and main take the first match,
+      untested; the CLI parity test uses render() as its own oracle. Owner T22.
+    - D7 rule harness: places.ts matches actor keys by prefix (checkout-1 matches checkout-10); one-sided rule tests for
+      Turn I9, I14 and WriteLanes I6; the bank contract test sends one key only. Owner T29.
+
+    Rejected: the global confirm counter in tests/generated/sweep.test.ts (a deliberate non-replaying fake);
+    Story.machine, frames, StoryFrame and Fake.Refused missing (T29 owns them); no coverage record (it is a phase
+    comment); @ts-expect-error catching any error (positive cases sit beside each).
+
+    R33, agent calls that narrow a user decision: NUMBER-10 commits on release, against the accepted ui-primitives
+    table; D2 first-call draws and answer mappings narrow the accepted stress profile; WriteLanes I3, I15, I16 forget
+    unsaved endings across a crash (allowed by the 2026-11-15 amendment, reviewed). For the user read: heldWrites land,
+    tab, lose(), Fake.network.offline(), the 8 by 7 pair grid, DRIVE, WriteAhead I23 (T19), inspect lanes contract and
+    state, lastCommit.seq.
+comment 2026-11-16T01:39:29Z
+    Coverage record of the P2 suite, updated at 8d2520ed (proposed to the user as a verification entry of @plan.Runtime;
+    supersedes the a7989ac0 record, to re-match after @task.V3.T75). Covers: @plan.Runtime, @plan.Operations,
+    @plan.Persistence and @plan.Testing outcomes as tests cite them (Testing O1 to O4 and O6 first slices,
+    @plan.CommandLine first slice); @spec.WriteLanes, @spec.Actors, @spec.Stories, @spec.Turn, @spec.Restore,
+    @spec.WriteAhead, @spec.Compile and CommandLine rules named in test titles; src/core/ and src/host/. Suite:
+    packages/flow-state-v3/tests/ (Story tests by Spec area; run rules and reload sweep in tests/rules/; generated
+    Stories, pair sweep and planted fault in tests/generated/; compile-time tests in tests/types/; CLI tests in
+    tests/cli/) and the host tests in src/. Rerun: `nub run test`; `nub run faults` (a scratch copy; no setup). Mutants:
+    the dead core and the 52 named faults of code:packages/flow-state-v3/tests/faults.ts (38) and
+    code:packages/flow-state-v3/tests/tooling-faults.ts (14), each citing its rule. Audit: close-out audit at 8d2520ed,
+    FINDINGS (previous comment); passes when F1 to F6 close. Matched at: 8d2520ed (package suite 472 plus 8 it.fails,
+    faults 52 of 52, check and lint:rules at zero). Scope: fixtures pay, cells, sync, sign-in, transfers,
+    command-palette and number-input over fake servers, one tab, TestClock time, usual and stress profiles and 1,000
+    drive seeds for the pair sweep (129 of 392 cells reached); excluded: real browsers and storage (P4), reads (T21),
+    the rest of Story and Fake (T29), and the bugs held as it.fails: Turn I9, Turn I14 (two), WriteAhead R5, WriteAhead
+    I23, WriteLanes I7, Actors I43, Compile T11.
 tasks
     T62
         title       Package layout and import rules
