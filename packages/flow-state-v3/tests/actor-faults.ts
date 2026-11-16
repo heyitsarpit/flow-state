@@ -180,6 +180,42 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "absent-send-silent",
+    tests: ["tests/actors/send.test.ts"],
+    says: "a send to an identity with no actor and no record is dropped with nothing told",
+    rule: "Actors R16",
+    edits: [
+      {
+        file: "src/core/step.ts",
+        find: '        tx.act(Act.SendTargetAbsent({ actor, event: tag, reason: "NoRecord" }));',
+        replace: "        tx.evidenceCount();",
+      },
+    ],
+  },
+  {
+    name: "send-creates-actor",
+    tests: ["tests/actors/send.test.ts"],
+    says: "a send to an identity with no actor and no record creates one",
+    rule: "Actors I25",
+    edits: [
+      {
+        file: "src/core/step.ts",
+        find: "      if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))\n        incarnations.ensure(actor, Option.none(), true);",
+        replace:
+          "      if (incarnationOf(actor) === undefined) incarnations.ensure(actor, Option.none(), false);",
+      },
+    ],
+  },
+  {
+    name: "admission-unbounded",
+    tests: ["tests/actors/send.test.ts"],
+    says: "an external send past the 1,024 pending events is admitted",
+    rule: "Actors I22",
+    edits: [
+      { file: "src/core/step.ts", find: "  ADMISSION_BOUND;", replace: "  ADMISSION_BOUND * 2;" },
+    ],
+  },
+  {
     name: "foreign-handle-accepted",
     tests: ["tests/actors/identity.test.ts"],
     says: "another Runtime's handle is taken as naming this Runtime's actor",

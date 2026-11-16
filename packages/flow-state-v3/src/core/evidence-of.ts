@@ -27,6 +27,7 @@ export type Act = Data.TaggedEnum<{
     members: ReadonlyArray<Member>;
   };
   Unhandled: { actor: ActorId; event: string };
+  SendTargetAbsent: { actor: ActorId; event: string; reason: "NoRecord" };
   Denied: { actor: ActorId; event: string; reasons: ReadonlyArray<string> };
   Refused: {
     code: IssueCode;
@@ -122,6 +123,7 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
       }),
     ],
     Unhandled: ({ actor, event }) => [Evidence.Unhandled({ actor, event })],
+    SendTargetAbsent: (absent) => [Evidence.SendTargetAbsent(absent)],
     Denied: ({ actor, event, reasons }) => [Evidence.Denied({ actor, event, reasons })],
     Refused: ({ code, actor, ending, slot }) => [
       Evidence.Issue({

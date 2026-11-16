@@ -215,6 +215,7 @@ const follow = (ledger: Ledger, e: Evidence, at: number) =>
     Sent: nothing,
     Turn: nothing,
     Unhandled: nothing,
+    SendTargetAbsent: nothing,
   });
 
 /**

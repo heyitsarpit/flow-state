@@ -115,6 +115,8 @@ const evidenceText = (evidence: Evidence) =>
     Recorded: ({ operation, attempt, why }) =>
       `recorded ${operation} ${attemptText(attempt)} ${why}`,
     Unhandled: ({ actor, event }) => `unhandled ${event} at ${actorKey(actor)}`,
+    SendTargetAbsent: ({ actor, event, reason }) =>
+      `send ${event} to ${actorKey(actor)} dropped: SendTargetAbsent ${reason}`,
     Denied: ({ actor, event, reasons }) =>
       `denied ${event} at ${actorKey(actor)}${listText("reasons", reasons)}`,
     Lane: ({ kind, operation, attempt }) => `lane ${kind} ${operation} ${attemptText(attempt)}`,

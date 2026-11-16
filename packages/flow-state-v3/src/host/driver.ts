@@ -14,8 +14,17 @@ import { Operation } from "../core/compiled.ts";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { admit, isDisposed, Verdict } from "../core/life.ts";
-import { CallResult, type Env, Input, type Machines, owesServe, step } from "../core/step.ts";
-import { type CallId, Command, emptyWorld, type World } from "../core/world.ts";
+import {
+  ADMISSION_BOUND,
+  CallResult,
+  type Env,
+  Input,
+  type Machines,
+  overloaded,
+  owesServe,
+  step,
+} from "../core/step.ts";
+import { actorKey, type CallId, Command, emptyWorld, type World } from "../core/world.ts";
 import { flowError } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
@@ -232,6 +241,22 @@ export const makeDriver = (options: {
             path: [actor.machine, tag],
             summary: `${tag} is not a public event of ${actor.machine} with a valid payload`,
             help: "Send a public event of this machine with a payload its Schema accepts.",
+          },
+        ]);
+
+      const waiting = inbox.filter(
+        (next) => Input.$is("Send")(next) && actorKey(next.actor) === actorKey(actor),
+      ).length;
+
+      // Past the actor's admission bound a send throws AdmissionOverloaded and changes nothing.
+      if (overloaded(world, actor, waiting))
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public send's contract: a send past the admission bound throws before any turn
+        throw flowError([
+          {
+            code: "AdmissionOverloaded",
+            path: [actor.machine, actor.name],
+            summary: `${actor.machine} ${actor.name} already has ${ADMISSION_BOUND} pending events`,
+            help: "Send fewer events at once, or let the actor serve its mail first.",
           },
         ]);
 

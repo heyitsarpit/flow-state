@@ -11,11 +11,25 @@ import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
 import { type Env, type Machines, makeTx, without } from "./tx.ts";
 import { admit, Life, Verdict } from "./life.ts";
-import { actorKey, Mail, Timer, type TimerId, type World } from "./world.ts";
+import { type ActorId, actorKey, Mail, Timer, type TimerId, type World } from "./world.ts";
 
 export { CallResult, Input } from "./input.ts";
 
 export type { Env, Machines } from "./tx.ts";
+
+/**
+ * How many external events one actor may have pending: past it, a send is refused.
+ */
+export const ADMISSION_BOUND = 1024;
+
+/**
+ * Whether one more external send to an actor would pass its admission bound, counting the events
+ * in its mailbox and the sends still waiting to be stepped. Endings, firings and context updates
+ * are never counted.
+ */
+export const overloaded = (world: World, actor: ActorId, waiting: number) =>
+  (world.mail.get(actorKey(actor)) ?? []).filter(Mail.$is("Event")).length + waiting >=
+  ADMISSION_BOUND;
 
 /**
  * Whether a world still holds admitted mail its step did not serve: its drain stopped at its cap,
@@ -89,7 +103,11 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))
         incarnations.ensure(actor, Option.none(), true);
 
-      if (incarnationOf(actor) !== undefined) enqueue(Mail.Event({ actor, tag, payload }));
+      // A send never creates an actor: with no actor and no record it is dropped, told to the
+      // sender as evidence.
+      if (incarnationOf(actor) === undefined)
+        tx.act(Act.SendTargetAbsent({ actor, event: tag, reason: "NoRecord" }));
+      else enqueue(Mail.Event({ actor, tag, payload }));
     },
     Settled: ({ call, result }) => answers.settled(call, result, open),
     Fired: ({ timer }) => fired(timer),

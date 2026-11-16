@@ -101,6 +101,7 @@ export type Evidence = Data.TaggedEnum<{
     why: RecordedWhy;
   };
   Unhandled: { actor: Who; event: string };
+  SendTargetAbsent: { actor: Who; event: string; reason: "NoRecord" };
   Denied: { actor: Who; event: string; reasons: ReadonlyArray<string> };
   Lane: {
     kind: LaneFact;
