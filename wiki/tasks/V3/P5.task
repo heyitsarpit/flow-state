@@ -61,8 +61,9 @@ tasks
         acceptance
             - The streams Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses a stream.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 12 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 12, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 12 of code:wiki/conventions/fixture-catalog.md:
+              `sync`, `transfers`, `player`, `home`, `kanban`, `chat`, `draft` gain the features, scenarios and sources
+              of their rows; each scenario red before the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
@@ -80,8 +81,9 @@ tasks
         acceptance
             - The entities Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses an entity domain.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 11 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 11, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 11 of code:wiki/conventions/fixture-catalog.md:
+              `transfers`, `kanban`, `chat` gain the features, scenarios and sources of their rows; each scenario red
+              before the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
@@ -99,11 +101,9 @@ tasks
             **Read first:** @plan.Persistence.O7, @plan.Runtime.O7.
         acceptance
             - The multi-tab Spec's Requirements hold on production, shown by Stories with two tabs.
-            - Fixtures first (code:wiki/conventions/fixtures.md): scope ownership is covered in a new `draft` fixture
-              (autosave, two tabs) before it is built, across many scenarios: usual and stress Stories and step samples
-              with a tab closed while holding the lock, a lock lost mid-write, a second tab on an older release, three
-              tabs, a reload in either tab; the generator, the reload sweep and the app mix reach it, and those Stories
-              fail before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 14 of code:wiki/conventions/fixture-catalog.md:
+              `pay`, `session`, `draft` gain the features, scenarios and sources of their rows; each scenario red before
+              the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
@@ -126,8 +126,9 @@ tasks
             **Read first:** @plan.LazyFeatures.O1.
         acceptance
             - The lazy-features Spec's Requirements hold on production, shown by Story tests.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 15 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 15, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 15 of code:wiki/conventions/fixture-catalog.md:
+              `session`, `wizard`, `kanban` gain the features, scenarios and sources of their rows; each scenario red
+              before the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
@@ -148,9 +149,9 @@ tasks
             and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
         acceptance
             - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari.
-            - Fixtures first (code:wiki/conventions/fixtures.md): both adapters run every persisting fixture, its reload
-              sweep and the app mix, with step samples of refused, held and quota-full writes and a reload mid-write;
-              those Stories fail on each adapter before it is built.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 13 of code:wiki/conventions/fixture-catalog.md:
+              `pay`, `draft` gain the features, scenarios and sources of their rows; each scenario red before the build,
+              and the step's cells marked used at the close.
     T49
         title       Inspection and the flow-state/inspect route
         status      draft
@@ -175,8 +176,9 @@ tasks
             - The inspection Spec's Requirements hold on production, and the route is exported.
             - The Model lists props and emits Schemas and fragment emits; the event kinds add `emit`, and schedule
               events show arm, fire, restart, pause, resume and disarm (@plan.Inspection.O1, O4, O6).
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 16 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 16, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 16 of code:wiki/conventions/fixture-catalog.md:
+              `pay`, `transfers`, `sign-in`, `home`, `chat` gain the features, scenarios and sources of their rows; each
+              scenario red before the build, and the step's cells marked used at the close.
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: the rest of @plan.Inspection.O4's Trace (header fields, checkpoints inside the
             Trace, a Runtime-wide sequence) and one render taking a model or a trace.
@@ -216,10 +218,9 @@ tasks
             - Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
             - `advance({ next })` skips paused timers (`NoDeadline` when every match is paused); `advance(d)` and
               `advance({ to })` never fire a paused timer (@plan.Testing.O2).
-            - Fixtures first (code:wiki/conventions/fixtures.md): each new Story word and Fake (`Fake.Refused`,
-              `Fake.Closed`, `duplicate`, `times`, `Fake.http`, frames, `together`) is used in a fixture's usual or
-              stress Story and offered in its samples, so the generator and the reload sweep reach it; red before
-              the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 17 of code:wiki/conventions/fixture-catalog.md:
+              every fixture run with no new feature, as the step says; each scenario red before the build, and the
+              step's cells marked used at the close.
         comment     2026-11-16T06:19:55Z
             Routed items: (1) Export Trace, TraceEvent and TraceRecord with StoryRun; the trace's page stands in for the
             Plan's tab (the user's name). (2) A usage error prints help on stdout, against @plan.CommandLine.O3; the
@@ -292,5 +293,7 @@ tasks
               copy's key.
             - Server rendering delivers no emit; a paused timer transfers its `left` unchanged; the shape digest leaves
               out props and emits.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 18 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 18, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 18 of code:wiki/conventions/fixture-catalog.md:
+              `pay`, `sign-in`, `session`, `command-palette`, `number-input`, `search`, `kanban`, `chat` gain the
+              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
+              marked used at the close.

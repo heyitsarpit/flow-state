@@ -99,6 +99,9 @@ tasks
             - The store contract test this Task writes passes against `Fake.storage` and against real IndexedDB in real
               Chrome and Safari, and the same is shown for the fake page's timers and lifecycle against a real page.
             - The React binding is the least that renders the fixtures; @task.V3.T30 builds the rest.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 9 of code:wiki/conventions/fixture-catalog.md:
+              every fixture run with no new feature, as the step says; each scenario red before the build, and the
+              step's cells marked used at the close.
         comment     2026-11-16T09:26:06Z
             Routed from T19: the flush at once on visibilitychange to hidden and on pagehide (WriteAhead R10, I12, T5)
             has no check: the edge's hide path exists, but the browser platform and the Fake host stub hidden and
@@ -162,8 +165,10 @@ tasks
               (`Unhandled` evidence), refuses on a copy's denial, and does nothing (recorded) with no
               copies (@spec.Turn.R30).
             - Schedule evidence records pause and resume.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 2 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 2, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 2 of code:wiki/conventions/fixture-catalog.md:
+              `pay`, `sync`, `transfers`, `sign-in`, `wizard`, `home`, `kanban` (new: `wizard`, `home`, `kanban`) gain
+              the features, scenarios and sources of their rows; each scenario red before the build, and the step's
+              cells marked used at the close.
         comment     2026-11-15T20:44:54Z
             Routed from T68: a schedule's send accepts another definition's event token (ScheduleConfig.send takes
             EventToken | Ending) and machine() builds it, breaking Compile T11; pinned as it.fails
@@ -219,8 +224,10 @@ tasks
               `services` list (decisions §5 G1, G2); the reference contracts list their services.
             - Outcome mappers receive `{ value, input, key, attempt }`, not the value alone (`src/core/serve.ts`, §5
               G3; @plan.Operations.O3).
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 4 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 4, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 4 of code:wiki/conventions/fixture-catalog.md:
+              `pay`, `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`,
+              `chat`, `draft`) gain the features, scenarios and sources of their rows; each scenario red before the
+              build, and the step's cells marked used at the close.
         comment     2026-11-15T14:33:25Z
             Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
         comment     2026-11-15T20:44:53Z
@@ -263,8 +270,9 @@ tasks
             - An actor record's timer is `{ name, key?, dueAt }` or `{ name, key?, left }` at the next format, and a
               record of the format before it restores through a pure step with every timer read as `dueAt`
               (@spec.Restore.T6, with its planted fault "an old timer read as `left`").
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 7 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 7, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 7 of code:wiki/conventions/fixture-catalog.md:
+              `lanes`, `sync`, `transfers`, `sign-in`, `wizard`, `kanban`, `draft` gain the features, scenarios and
+              sources of their rows; each scenario red before the build, and the step's cells marked used at the close.
         comment     2026-11-16T11:06:05Z
             Routed from T17: history is not in the actor record (WriteAhead R4, Persistence O2), so S.X.history after a
             reload enters the default; land it with record migration.
@@ -313,8 +321,9 @@ tasks
             - `flow graph` prints each `emit` part as an edge named as in the turn's evidence, and `flow explain` lists
               each schedule's pause reasons by name, emit and `onProps` edges, one fan-out edge per copy state, and the
               copy denials that refuse (@spec.StaticCli.R5).
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 10 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 10, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 10 of code:wiki/conventions/fixture-catalog.md:
+              every fixture run with no new feature, as the step says; each scenario red before the build, and the
+              step's cells marked used at the close.
         comment     2026-11-16T06:19:55Z
             Routed items: (1) O6 config checks: a config with only the brand key crashes instead of exiting 2; symlinks
             and root package.json unchecked; catch-all exits 2 silently. (2) Narrow the faults runner's tests/cli excuse
@@ -350,6 +359,9 @@ tasks
             - Nothing in `verify` reads the frozen packages.
             - `packages/flow-state-v3/package.json` has the six routes' `exports` map and the `flow` bin, and the
               packed-consumer smoke check passes on a packed tarball.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 10 of code:wiki/conventions/fixture-catalog.md:
+              every fixture run with no new feature, as the step says; each scenario red before the build, and the
+              step's cells marked used at the close.
         comment     2026-11-16T02:04:36Z
             Routed from P2's completion audit: nub run verify no longer runs any stress file; the full gate should
             include nub run test:stress.
@@ -401,8 +413,9 @@ tasks
             - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
               `nub run faults` catches, and a dead core fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 8 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 8, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 8 of code:wiki/conventions/fixture-catalog.md:
+              `kanban`, `chat`, `draft` gain the features, scenarios and sources of their rows; each scenario red before
+              the build, and the step's cells marked used at the close.
 
     T72
         title       UI primitives, second wave: toaster and menu fixtures
@@ -446,8 +459,9 @@ tasks
             - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
               `nub run faults` catches, and a dead core fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 8 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 8, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 8 of code:wiki/conventions/fixture-catalog.md:
+              `kanban`, `chat`, `draft` gain the features, scenarios and sources of their rows; each scenario red before
+              the build, and the step's cells marked used at the close.
 
     T76
         title        Declared props on local actors
@@ -497,8 +511,9 @@ tasks
             - Local handles have `setProps(partial)` and `createActor` takes props; a ref on a machine with props is a
               type error and refused at construction (R9, R10); `PropWithoutDefault`.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 5 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 5, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 5 of code:wiki/conventions/fixture-catalog.md:
+              `command-palette`, `search` gain the features, scenarios and sources of their rows; each scenario red
+              before the build, and the step's cells marked used at the close.
         comment      2026-11-16T15:38:52Z
             Fixtures first (the user, 2026-11-16): local actors through createActor with props get a fixture first; its
             Stories are this Task's first requirements.
@@ -540,8 +555,9 @@ tasks
             - A fragment's emits are heard under its instance name and an .each copy's key, and appear in its
               summary type.
             - An `emit` evidence kind and Story emit records exist; each new rule has a planted fault.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 3 of code:wiki/conventions/fixture-catalog.md's
-              migration plan, every cell marked 3, each scenario red before the build.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 3 of code:wiki/conventions/fixture-catalog.md:
+              `sign-in`, `command-palette` gain the features, scenarios and sources of their rows; each scenario red
+              before the build, and the step's cells marked used at the close.
 
     T78
         title       Number input on declared props and emits
@@ -575,7 +591,6 @@ tasks
             - Every case in T71's mapping still maps to a test asserting the same behaviour, or is listed as moved to
               view tests or dropped, with its reason.
             - `nub run check`, `nub run test` and `nub run faults` pass.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the moved number input keeps its usual and stress
-              Stories and step samples with edge values: `min` above `max`, a step of 0 and past a bound, a value at
-              `Number.MAX_SAFE_INTEGER`, undefined props, a props update mid-hold, a reload mid-hold; the generator,
-              sweep and mix reach it, red before.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 6 of code:wiki/conventions/fixture-catalog.md:
+              `number-input` gain the features, scenarios and sources of their rows; each scenario red before the build,
+              and the step's cells marked used at the close.

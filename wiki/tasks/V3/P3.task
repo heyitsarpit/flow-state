@@ -1516,6 +1516,8 @@ tasks
               step 1 reads the manifests, and no hand list of fixtures is left.
             - Every catalog cell marked 1 holds on production: its machines, operations and Stories exist, and its
               scenarios were red before they were built.
-            - Fixtures first (code:wiki/conventions/fixtures.md): each scenario this step adds meets that page, with its
-              proof comment and a sidecar fixture review.
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 1 of code:wiki/conventions/fixture-catalog.md:
+              `pay`, `cells`, `lanes`, `sync`, `transfers`, `sign-in`, `session`, `command-palette`, `player` gain the
+              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
+              marked used at the close.
             - No existing machine id, persisted id or Story id changes; every existing test still passes unchanged.

@@ -220,7 +220,10 @@ instructions
       has sidecars review its fixtures against every part of that page: scenarios, load and structural stress, edge
       values, combinations, variety, real-shaped data, registration with every runner, and that each expected result is
       correct for its cited rule; the lead verifies and logs each finding (the user, 2026-11-16). Every Task with
-      fixture work links the page in its acceptance, and every brief cites it too.
+      fixture work links the page in its acceptance, and every brief cites it too. What to build comes from
+      code:wiki/conventions/fixture-catalog.md (the user, 2026-11-17): each Task's fixtures line names its migration
+      step and fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively, and at
+      the close marks the step's matrix cells used and corrects any row the build proved wrong.
     - A new rule is shown red on a planted fault: add the fault to `tests/faults.ts`, and `nub run faults` must catch
       it. Plants go in a scratch copy, never the live tree.
     - A known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks; `it.todo` is not used. A gap a
