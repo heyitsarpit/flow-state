@@ -218,9 +218,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "      Refused: ({ code }) => {\n",
+        find: "      Refused: ({ code, slot }) => {\n",
         replace:
-          "      Refused: ({ code }) => {\n        tx.act(Act.Turned({ actor: incarnation.actor, event: tag, from: incarnation.state, to: incarnation.state, parts: [], members: [] }));\n",
+          "      Refused: ({ code, slot }) => {\n        tx.act(Act.Turned({ actor: incarnation.actor, event: tag, from: incarnation.state, to: incarnation.state, parts: [], members: [] }));\n",
       },
     ],
   },
@@ -374,9 +374,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), true);",
+        find: "      if (!restored.undecodable.has(key)) ensure(actor, Option.none(), true, Option.none());",
         replace:
-          '      if (!restored.undecodable.has(key) && key === "") ensure(actor, Option.none(), true);',
+          '      if (!restored.undecodable.has(key) && key === "") ensure(actor, Option.none(), true, Option.none());',
       },
     ],
   },

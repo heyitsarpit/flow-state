@@ -89,8 +89,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "tx.act(Act.Refused({ code, actor: incarnation.actor, ending: route.ending }));\n        publish(incarnation);",
-        replace: "tx.act(Act.Refused({ code, actor: incarnation.actor, ending: route.ending }));",
+        find: "        publish(raised(incarnation, { source: route.source, code, slot: Option.some(slot) }));",
+        replace:
+          "        raised(incarnation, { source: route.source, code, slot: Option.some(slot) });",
       },
     ],
   },
@@ -240,8 +241,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "return armSchedules(base, arm.armed);",
-        replace: "return armSchedules(base, arm.refused.length > 0 ? [] : arm.armed);",
+        find: "return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.armed);",
+        replace:
+          "return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.refused.length > 0 ? [] : arm.armed);",
       },
     ],
   },
@@ -253,8 +255,14 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: 'tx.act(Act.Refused({ code: "InvalidTurn", actor, ending: Option.none() }));',
-        replace: "void 0;",
+        find: '          tx.act(\n            Act.Refused({\n              code: "InvalidTurn",',
+        replace: '          [\n            ({\n              code: "InvalidTurn",',
+      },
+      {
+        file: "src/core/incarnations.ts",
+        find: "              source: CREATION,\n              slot: Option.some(slot),\n            }),\n          );",
+        replace:
+          "              source: CREATION,\n              slot: Option.some(slot),\n            }),\n          ];",
       },
     ],
   },
@@ -292,8 +300,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tree.ts",
-        find: ".map((f) => [f.name, { get: computedRead(f.name) }]),",
-        replace: ".map((f) => [f.name, { get: () => undefined }]),",
+        find: ".map((f) => [f.name, { get: computedRead(f.name), enumerable: true }]),",
+        replace: ".map((f) => [f.name, { get: () => undefined, enumerable: true }]),",
       },
     ],
   },

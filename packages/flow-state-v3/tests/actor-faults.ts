@@ -146,9 +146,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "      tx.set({ ...tx.world(), mail: rest.length === 0 ? others : withEntry(others, key, rest) });",
+        find: "    const others = rotated || rest.length === 0 ? without(tx.world().mail, key) : tx.world().mail;",
         replace:
-          "      tx.set({ ...tx.world(), mail: rest.length === 0 ? others : new Map([[key, rest], ...others]) });",
+          "    const others = rest.length === 0 ? without(tx.world().mail, key) : tx.world().mail;",
       },
     ],
   },
@@ -200,9 +200,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/step.ts",
-        find: "      if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))\n        incarnations.ensure(actor, Option.none(), true);",
+        find: "      if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))\n        incarnations.ensure(actor, Option.none(), true, Option.none());",
         replace:
-          "      if (incarnationOf(actor) === undefined) incarnations.ensure(actor, Option.none(), false);",
+          "      if (incarnationOf(actor) === undefined) incarnations.ensure(actor, Option.none(), false, Option.none());",
       },
     ],
   },
@@ -358,8 +358,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "        if (count >= FOLLOW_UPS && capped(followUp)) {",
-        replace: "        if (count < 0 && capped(followUp)) {",
+        find: "      if (count >= FOLLOW_UPS && capped(followUp)) {",
+        replace: "      if (count < 0 && capped(followUp)) {",
       },
     ],
   },
