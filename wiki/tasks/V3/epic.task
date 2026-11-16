@@ -230,11 +230,13 @@ instructions
       needs and why each is used or skipped. Adapters use typed failures, defects apart.
     - Speed (the user, 2026-11-14): batch independent tool calls in one message; launch a round's sidecars in one
       message; while iterating, `nub run check:fix` alone and only the touched tests; before each checkpoint commit,
-      `nub run check` and the whole package's tests; a builder that needs a ruling states it and keeps doing
+      `nub run check` and the package's fast suite; a builder that needs a ruling states it and keeps doing
       independent work.
-    - A checkpoint is a builder commit at the end of a coherent step. At a Task's close the builder runs the generated
-      Stories over fresh seeds (until they exist, the reload sweep); every new failure lands as a fix or an inverted
-      test before review.
+    - Big test commands run rarely (the user, 2026-11-16): the stress runs (stress Stories, their reload sweeps,
+      generated stress seeds) sit behind a flag and stay out of the fast suite, and `nub run faults` and the stress runs
+      are run once at a Task's close, once by its review, and at a phase's close, never at every checkpoint.
+    - A checkpoint is a builder commit at the end of a coherent step. At a Task's close the builder runs the stress runs
+      and the generated Stories over fresh seeds; every new failure lands as a fix or an inverted test before review.
 
     **Reviews and done**
 
@@ -249,8 +251,9 @@ instructions
       current code, and is a lost, doubled, made-up or wrong ending, a hang, or a broken acceptance item; others are
       routed or noted. A fix round is checked by the next review, with no separate re-check.
     - Convergence threshold 2 (the user, 2026-11-12; R35's default).
-    - `nub run faults` is run whenever `src/host/testing/`, `src/host/inspect.ts`, `tests/rules/` or `tests/faults.ts`
-      changes; a fault the tests miss lands as a run rule or a Story test.
+    - `nub run faults` is run at a Task's close and in its review when `src/host/testing/`, `src/host/inspect.ts`,
+      `tests/rules/` or `tests/faults.ts` changed (the user, 2026-11-16: run rarely); a fault the tests miss lands as a
+      run rule or a Story test.
     - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
       quality is otherwise left to lint (the user, 2026-11-14).
     - A ruling is asked as two traces of the same Story, not as prose.

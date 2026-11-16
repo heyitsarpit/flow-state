@@ -65,7 +65,7 @@ description
     **Starts when:** now, ahead of every remaining core slice. P3 starts only after this phase's completion audit.
 
     **Order:** @task.V3.T62, @task.V3.T63, @task.V3.T64, @task.V3.T65, @task.V3.T66, @task.V3.T67, @task.V3.T68,
-    @task.V3.T69, @task.V3.T71, @task.V3.T70. Where several are ready, take the earliest in this order.
+    @task.V3.T69, @task.V3.T71, @task.V3.T70, @task.V3.T75. Where several are ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -1389,3 +1389,45 @@ tasks
             `pages` and `queries`. For the user's read: NUMBER-10 commits at the bound's tick, as the proposal's table
             says, but upstream stops repeating and commits on release (an unlogged R7 divergence); `lastCommit.seq` is a
             counter of the kind the idiom pass's `emit` replaces, so it is a wiring cost.
+
+    T75
+        title       Fast test commands: stress behind a flag, faults in parallel
+        status      open
+        priority    high
+        description
+            Make the test commands fast: a fast suite by default, the stress runs behind a flag, and `nub run faults` in
+            parallel with each fault's target test first.
+
+            **Why now:** `nub run faults` plants 52 faults and the dead core one after another, each over the whole
+            suite, and takes 5 to 10 minutes; the stress Stories, their reload sweeps and the generated stress seeds
+            slow the package suite too. Both grow with every later Task. The user asked for an optimisation pass and for
+            big test commands to run rarely, with stress as a flag (the user, 2026-11-16).
+
+            **Read first:** code:tools/faults/run.ts, code:packages/flow-state-v3/tests/faults.ts,
+            `tests/rules/sweep.test.ts`, `tests/generated/`, `vite.config.ts`, the Epic's `instructions` (Speed; Big
+            test commands run rarely).
+
+            **Risk:** speed must not weaken a gate. Every fault still ends caught or missed by the same tests, the dead
+            core still gets a full run, and a stress run behind the flag is unchanged when the flag is on.
+
+            **Approach:** measure first (time per file, per fault, per command), then: plant up to 8 faults at once,
+            each in its own scratch copy, within about 16 GB; run each fault's named target tests first and fall back to
+            the full suite only when they pass; put the stress runs behind one flag and one command (`nub run
+            test:stress`); keep the fast suite free of anything slower than its budget.
+
+            May change: `tools/faults/`, `tests/`, `vite.config.ts`, `package.json` scripts. Evidence: this
+            Task's comments.
+
+            False pass: a faster faults run that stops catching a fault → caught by the same caught list, fault by
+            fault, before and after, and by the dead core's full run.
+        acceptance
+            - Timings before and after are recorded in a Task comment: the fast suite, `nub run test:stress`, and `nub
+              run faults`.
+            - The default package suite excludes the stress runs; `nub run test:stress` runs them unchanged, and a test
+              shows the flag selects exactly the stress files.
+            - `nub run faults` plants faults in parallel, tries each fault's target tests first, and gives the same
+              caught list fault by fault as before; the dead core still runs the full suite, and a missed fault still
+              exits non-zero.
+            - `nub run faults` finishes in under 3 minutes at today's fault count, and the fast suite in under 60
+              seconds, on this machine.
+            - `nub run check` and `nub run lint:rules` pass.

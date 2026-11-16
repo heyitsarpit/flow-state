@@ -267,3 +267,11 @@ note 2026-11-16T01:20:18Z
 note 2026-11-16T01:20:43Z
     P2 close-out review and suite audit started (R11), one Opus lead; the completion audit (R18) follows its findings.
     Weekly usage 95.
+
+note 2026-11-16T01:26:36Z
+    Decision (user, 2026-11-16): "do an optimisation pass and for all these big test commands run them rarely. even the
+    stress case should be a flag that runs rarely". Scope: whole run.
+
+note 2026-11-16T01:26:36Z
+    Applied (R15): instructions now run faults and stress at a Task's close, its review and a phase's close only;
+    checkpoints use the fast suite. @task.V3.T75 builds the flag and parallel faults.
