@@ -162,6 +162,10 @@ tasks
               (`Unhandled` evidence), refuses on a copy's denial, and does nothing (recorded) with no
               copies (@spec.Turn.R30).
             - Schedule evidence records pause and resume.
+            - Fixtures first: fragments, `.each` and the schedule forms are covered in new `checklist`, `thermostat` and
+              `dashboard` fixtures and in `player` and `sync`, across many scenarios: usual and stress Stories and step
+              samples with no copies, 64 and more copies, a copy with no handler or a denial, delays of -1 and 2^31 ms,
+              every pause reason, a reload mid-pause; the generator, sweep and mix reach them, red before.
         comment     2026-11-15T20:44:54Z
             Routed from T68: a schedule's send accepts another definition's event token (ScheduleConfig.send takes
             EventToken | Ending) and machine() builds it, breaking Compile T11; pinned as it.fails
@@ -214,6 +218,10 @@ tasks
               `services` list (decisions §5 G1, G2); the reference contracts list their services.
             - Outcome mappers receive `{ value, input, key, attempt }`, not the value alone (`src/core/serve.ts`, §5
               G3; @plan.Operations.O3).
+            - Fixtures first: reads and operations are covered in new `search` and `dashboard` fixtures and in `cells`
+              and `pay`, across many scenarios: usual and stress Stories and step samples with no rows, a stale time of
+              0, a retry attempt past its cap, a missing service, a reload mid-refetch; the generator, the reload sweep
+              and the app mix reach them, and those Stories fail before the build.
         comment     2026-11-15T14:33:25Z
             Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
         comment     2026-11-15T20:44:53Z
@@ -256,6 +264,10 @@ tasks
             - An actor record's timer is `{ name, key?, dueAt }` or `{ name, key?, left }` at the next format, and a
               record of the format before it restores through a pure step with every timer read as `dueAt`
               (@spec.Restore.T6, with its planted fault "an old timer read as `left`").
+            - Fixtures first: release upgrades are covered in a new `delivery` fixture and in `sign-in` and `sync` (each
+              in two releases), across many scenarios: usual and stress Stories and step samples with a new release over
+              an empty store, over a record of the format before it, a changed key, a saved field missing or undefined,
+              a record past its size bound, a reload mid-upgrade; the generator and the sweep reach them.
         comment     2026-11-16T11:06:05Z
             Routed from T17: history is not in the actor record (WriteAhead R4, Persistence O2), so S.X.history after a
             reload enters the default; land it with record migration.
@@ -304,6 +316,9 @@ tasks
             - `flow graph` prints each `emit` part as an edge named as in the turn's evidence, and `flow explain` lists
               each schedule's pause reasons by name, emit and `onProps` edges, one fan-out edge per copy state, and the
               copy denials that refuse (@spec.StaticCli.R5).
+            - Fixtures first: check, explain and graph are covered over every fixture, including the new `thermostat`
+              and `checklist`, with delays of -1 and 2^31 ms, a never-handled fan-out, a denying copy, paused schedules,
+              emits and `onProps`; edges are compared with each fixture's run evidence, red before the build.
         comment     2026-11-16T06:19:55Z
             Routed items: (1) O6 config checks: a config with only the brand key crashes instead of exiting 2; symlinks
             and root package.json unchecked; catch-all exits 2 silently. (2) Narrow the faults runner's tests/cli excuse
@@ -390,6 +405,9 @@ tasks
             - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
               `nub run faults` catches, and a dead core fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
+            - Fixtures first: the three Stories include step samples with their Schemas' edge values: an empty query, a
+              page past the last, no rows, a collapse while loading, no tokens and tokens past a cap, an undefined
+              label; the generator, the reload sweep and the app mix reach all three, and those Stories fail before.
 
     T72
         title       UI primitives, second wave: toaster and menu fixtures
@@ -433,6 +451,9 @@ tasks
             - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
               `nub run faults` catches, and a dead core fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
+            - Fixtures first: the toaster and menu Stories include step samples with their Schemas' edge values: more
+              toasts than `maxVisible`, durations of 0 and 2^31 ms, a menu deeper than any bound, no items, a reload
+              mid-pause; the generator, the reload sweep and the app mix reach both, and those Stories fail before.
 
     T76
         title        Declared props on local actors
@@ -482,6 +503,10 @@ tasks
             - Local handles have `setProps(partial)` and `createActor` takes props; a ref on a machine with props is a
               type error and refused at construction (R9, R10); `PropWithoutDefault`.
             - Each new rule has a planted fault that `nub run faults` catches.
+            - Fixtures first: declared props are covered in a new `pager` fixture (props `page`, `pageSize`, `total`),
+              across many scenarios: usual and stress Stories and step samples with a total of 0, a page size at and
+              past its bound, a page past the last, an undefined prop taking its default, an equal value, a reload
+              mid-update; the generator, the reload sweep and the app mix reach it, and those Stories fail before.
         comment      2026-11-16T15:38:52Z
             Fixtures first (the user, 2026-11-16): local actors through createActor with props get a fixture first; its
             Stories are this Task's first requirements.
@@ -523,6 +548,10 @@ tasks
             - A fragment's emits are heard under its instance name and an .each copy's key, and appear in its
               summary type.
             - An `emit` evidence kind and Story emit records exist; each new rule has a planted fault.
+            - Fixtures first: emits are covered in `sign-in` (first invalid field), `command-palette` (focus after
+              Escape) and the new `checklist`, across many scenarios: usual and stress Stories and step samples with an
+              undefined payload, a payload past a size bound, a refused turn, no listener, a copy ending in the same
+              turn, a reload; the generator, the sweep and the app mix reach them, and those Stories fail before.
 
     T78
         title       Number input on declared props and emits
@@ -556,3 +585,6 @@ tasks
             - Every case in T71's mapping still maps to a test asserting the same behaviour, or is listed as moved to
               view tests or dropped, with its reason.
             - `nub run check`, `nub run test` and `nub run faults` pass.
+            - Fixtures first: the moved number input keeps its usual and stress Stories and step samples with edge
+              values: `min` above `max`, a step of 0 and past a bound, a value at `Number.MAX_SAFE_INTEGER`, undefined
+              props, a props update mid-hold, a reload mid-hold; the generator, sweep and mix reach it, red before.
