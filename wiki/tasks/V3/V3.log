@@ -448,3 +448,7 @@ note 2026-11-16T11:06:42Z
     T17 close review ISSUES (16b08417): two blockers (a bad computed delay drops every initial schedule, a hang; an
     operation mapping success to an undeclared event passes construction). T74 pauses at a checkpoint so T17's builder
     can run the fix round alone.
+
+note 2026-11-16T11:08:29Z
+    T74 paused green at e3fd92b0 (mix runs, its fault caught from a seed; two user calls: Story.app for a mix, a new mix
+    profile). T17's fix round running.
