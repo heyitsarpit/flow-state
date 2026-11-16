@@ -412,8 +412,9 @@ invariants
 
     I3  Every delivered ending is exactly one of success, failure, notSent and unknown; an Attempt that ever ended 
         unknown never delivers a definite failure; and an Attempt never sent ends only NotSent, or unknown { Restored }
-        at its identity's start (a boot, a return or an adoption). A crash before a failure was saved restores the
-        Attempt as unknown { Restored } (@spec.WriteAhead.R14); that is not an unknown ending of its own. A
+        at its identity's start (a boot, a return or an adoption). A crash before a failure was saved rolls the
+        identity back to its last landed capture (@spec.WriteAhead.I21), which forgets the failure: the Attempt
+        restores as unknown { Restored } (@spec.WriteAhead.I17) and its later endings are judged afresh. A
         restored Attempt counts as perhaps sent from then on, so a re-send's refused capture may end it unknown {
         StorageRefused } (I15).
         Decision (agent, 2026-11-11): ruling CQ5. Why: an Attempt with no send can only be known not sent, unless a
@@ -462,14 +463,15 @@ invariants
         admission included) is delivered once more after queued mail, and a second refusal ends its tries until the
         next start (a reload, a return or an adoption), each of which gives it exactly one try with no redelivery
         after a refusal there (@spec.Actors.R15); a releasing lane delivers nothing (a crash before its release was
-        saved undoes the release, @spec.WriteAhead.R14); evidence-only endings (a bare
+        saved undoes the release, @spec.WriteAhead.I21); evidence-only endings (a bare
         operation, Flow.ignore, Superseded, the interrupted Attempt under concurrency cancel when no cancel is
         pending on it, a released lookup) are recorded, never delivered. Re-parking is not a second delivery.
         Decision (agent, 2026-11-11): rulings CQ1 and CQ9, as in R10 and R7. [@R10, @R16]
 
     I16  After a success or failure of an Attempt is delivered, no other ending of it is delivered, except, in a later 
          incarnation after a crash that came before that delivery was saved, unknown { Restored }
-        (@spec.WriteAhead.R14) or the same saved ending once more (I15 counts per incarnation).
+        (@spec.WriteAhead.I17, @spec.WriteAhead.I21) or the same saved ending once more (I15 counts per
+        incarnation).
         Decision (agent, 2026-11-16): the crash exception written out. Why: R14 restores an acknowledged Attempt
         with no saved ending as unknown { Restored }, and generated runs deliver a success, lose its save to a
         crash, and restore it. Reverse: make the delivery wait for the save. [@R10]

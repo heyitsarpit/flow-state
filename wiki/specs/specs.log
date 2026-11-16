@@ -39,3 +39,8 @@ note 2026-11-15T19:39:52Z
     @spec.Stories: a held write aborts at its tab's reload and leaves the held list (the orchestrator's ruling on the
     Plan's aborted on close); R11, R13, I13, I14 and T9 say so. R14's seed is the tab name and open count. Reverse:
     abort on release.
+
+note 2026-11-16T00:18:08Z
+    @spec.WriteLanes I3, I15, I16: a crash before a save rolls back to the last landed capture (@spec.WriteAhead.I21)
+    and forgets the unsaved delivery, release or failure; the Attempt restores unknown (@spec.WriteAhead.I17). Found by
+    T70's generated runs. Reverse: each item's note.

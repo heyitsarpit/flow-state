@@ -32,7 +32,7 @@ const savedAfter = (run: StoryRun, places: ReadonlyArray<Place>, at: number, act
 /**
  * Whether the record at `later` still knows what the record at `at` did for an actor: it comes from
  * the same open of the tab, or from a later open after that was saved. A crash forgets only what
- * was never saved (WriteAhead R14).
+ * was never saved (WriteAhead I21).
  */
 export const knownAt = (
   run: StoryRun,

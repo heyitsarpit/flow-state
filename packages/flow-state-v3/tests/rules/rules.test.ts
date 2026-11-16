@@ -108,6 +108,23 @@ describe("run rules over crafted runs", () => {
     expect(nothingAfterDefinite.breaches(saved)).toHaveLength(1);
   });
 
+  it("WriteLanes I3: after a crash forgot a delivered failure, a later unknown ending of the restored Attempt is not a breach", async () => {
+    const sent = Evidence.Sent({ operation: "pay", attempt });
+
+    const run = await crafted([
+      at(1)(sent),
+      at(1)(ended("failure", "Declined")),
+      at(1)(delivered),
+      at(2)(Evidence.Incarnated({ actor: who })),
+      at(2)(ended("unknown", "Restored")),
+      at(2)(delivered),
+      at(2)(ended("unknown", "NoResponse")),
+      at(2)(delivered),
+    ]);
+
+    expect(endingChannels.breaches(run)).toEqual([]);
+  });
+
   it("WriteLanes I15: a delivered Superseded ending is a breach, since it is recorded as evidence only", async () => {
     const run = await crafted([at(1)(ended("unknown", "Superseded")), at(1)(delivered)]);
 

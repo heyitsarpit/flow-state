@@ -37,7 +37,7 @@ const endingText = (d: Delivery) =>
  * after queued mail, and a kept one gets one try at each start; re-parking is no delivery. A
  * releasing lane delivers nothing: no ending of an Attempt is delivered after its Released fact, in
  * that open or, once the release was saved, in a later one (a crash forgets an unsaved release,
- * WriteAhead R14).
+ * WriteAhead I21).
  * Evidence-only endings are judged as "never both": a recorded ending is never delivered.
  */
 export const endingDeliveredOnce: Rule = {
@@ -93,7 +93,7 @@ export const endingDeliveredOnce: Rule = {
 /**
  * WriteLanes I16: after a success or failure of an Attempt is delivered, no other ending of it is
  * delivered. A crash that came before that delivery was saved for the actor forgets it: in a later
- * open the Attempt starts over, restored unknown { Restored } (WriteAhead R14) or given its saved
+ * open the Attempt starts over, restored unknown { Restored } (WriteAhead I17, I21) or given its saved
  * ending once more (WriteLanes I15 counts per incarnation), and a retry may end it again.
  */
 export const nothingAfterDefinite: Rule = {
@@ -159,10 +159,20 @@ const failuresAfterUnknown = (
   const places = placesOf(run);
 
   return deliveries(run.evidence).delivered.flatMap((d) => {
-    const unknown = (unknowns.get(d.ending.attempt) ?? []).find(
-      (u) =>
-        !(u.reason === "Restored" && u.at > d.at && !knownAt(run, places, d.at, u.at, d.actor)),
-    );
+    const all = unknowns.get(d.ending.attempt) ?? [];
+
+    // A crash that came before the failure was saved forgets it: the restore and every later
+    // ending of the Attempt start over (WriteAhead I17, I21).
+    const forgotten = (u: Unknown) =>
+      all.some(
+        (r) =>
+          r.reason === "Restored" &&
+          r.at > d.at &&
+          r.at <= u.at &&
+          !knownAt(run, places, d.at, r.at, d.actor),
+      );
+
+    const unknown = all.find((u) => !forgotten(u));
 
     return d.ending.channel === "failure" && unknown !== undefined
       ? [
@@ -176,8 +186,8 @@ const failuresAfterUnknown = (
  * WriteLanes I3: every ending is one of success, failure, notSent and unknown; an Attempt that
  * ever ended unknown, before or after, never delivers a failure; an Attempt never sent ends only
  * notSent, or unknown Restored at its actor's start (a boot, a return or an adoption, as WriteLanes
- * I15 and WriteAhead R14 allow). A crash before a failure was saved restores the Attempt
- * as unknown Restored in a later open (WriteAhead R14), which is not an unknown ending of its own.
+ * I15 and WriteAhead I17 allow). A crash before a failure was saved forgets it (WriteAhead I21):
+ * the Attempt restores unknown Restored in a later open, and its later endings are judged afresh.
  */
 export const endingChannels: Rule = {
   rule: "WriteLanes I3",
