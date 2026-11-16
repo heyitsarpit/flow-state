@@ -1,5 +1,6 @@
 import { long as cells, seededStress as cellsStress } from "../fixtures/cells/stories.ts";
 import { seededStress as paletteStress } from "../fixtures/command-palette/stories.ts";
+import { seededStress as lanesStress } from "../fixtures/lanes/stories.ts";
 import { seededStress as numberStress } from "../fixtures/number-input/stories.ts";
 import { long as pay, seededStress as payStress } from "../fixtures/pay/stories.ts";
 import { long as signIn, seededStress as signInStress } from "../fixtures/sign-in/stories.ts";
@@ -28,6 +29,7 @@ const longStories = [
   signInStress,
   paletteStress,
   numberStress,
+  lanesStress,
 ];
 
 for (const story of longStories) {

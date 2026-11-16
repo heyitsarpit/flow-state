@@ -197,7 +197,7 @@ tasks
             caught, no unexplained dead-core green.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T54]
         satisfies   [@plan.Operations.O3, @plan.Runtime.O2]
@@ -229,6 +229,17 @@ tasks
             A1; 8 sync Pushed latest, palette run serialize, sign-in verify cancel in samples -> A1; 9 a planted fault
             per rule -> A3. Proposed limits: queues unsaved (Restore R3), cancel's not-retained unknown (R4) and
             per-policy row shapes stay open.
+        comment     2026-11-16T03:04:35Z
+            Built at e393c05b+: latest, serialize (64, then Overloaded) and cancel are table rows, waiting reads W,
+            notSent: is its own key; fixtures/lanes has a Story per cell, generated runs and the pair sweep. Gates:
+            check 0, lint:rules, suite green but packages/flow-state's 5 frozen failures, test:stress 25/25, faults
+            70/70, FLOW_SEEDS=20 clean. Open for the user: queues and displaced heads unsaved; cancel's not-retained
+            unknown (R4), per-policy row shapes and outstanding unbuilt; src/contract.ts and src/machine.ts changed
+            beyond May change.
+        comment     2026-11-16T03:04:35Z
+            Bench alone (per turn median/p99 ms): transfers/long 0.029/0.048, pay/long 0.030/0.051, cells/long
+            0.027/0.046, sync/long 0.018/0.029, sign-in/long 0.013/0.031, lanes/stress-36 0.030/0.057; stress Stories
+            0.020 to 0.085 median.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      open
