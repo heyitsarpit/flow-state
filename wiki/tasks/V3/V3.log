@@ -493,3 +493,6 @@ note 2026-11-16T13:04:39Z
 note 2026-11-16T13:12:43Z
     Amendment (2026-11-16, the user: UI-primitives Task changes, F1 and F2): @task.V3.T72 moves from P3 to P4 and T76 to
     T78 join P4, since the toaster needs paused schedules (@task.V3.T57) and emits (@task.V3.T77). Commit: the next one.
+
+note 2026-11-16T13:13:09Z
+    The T72-to-P4 Amendment and the T76-T78 Tasks landed in 686c2161.
