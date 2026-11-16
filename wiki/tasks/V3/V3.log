@@ -431,3 +431,7 @@ note 2026-11-16T10:03:29Z
 note 2026-11-16T10:12:34Z
     T17 requirements review started (first-commit event, b0a9bc5a). Wake: faults 63 s in the live tree came from T17's
     uncommitted work (4 faults escaped, whole-suite fallback); 29 s at HEAD in a clean copy, so no speed Task.
+
+note 2026-11-16T10:24:18Z
+    T17 requirements review ISSUES: ten accepted (snapshot shape, Diagnostics R3/R5 in range, unnamed refused forms, the
+    armOn item contradicts Turn R14, history targets the last child) sent to T17's builder.
