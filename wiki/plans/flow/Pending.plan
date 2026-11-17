@@ -158,3 +158,11 @@ decisions
         selection, a value past each codec bound, and a source that fails and then recovers. **Why:** a class found
         twice becomes a fixture every later Task inherits (the Epic's instructions). **Proven by:** the row's Stories in
         `session`, red on a planted unknown path. Found in @task.V3.T9's reviews.
+    D23  @plan.Inspection.O2: the codec has no size bounds (accepted, the user, 2026-11-17)
+        **Before:** one past any of depth 32, 10,000 nodes, 4,096 items per array, 262,144 bytes per string or key, or
+        2,097,152 canonical bytes is rejected, so a context slot or record past a bound is saved unknown or withheld.
+        **After:** the codec keeps canonical encoding and strict decoding, and drops the five size bounds; how big a
+        value may be is set by real-world performance measured while building (the bench), and by storage quota, which
+        is a real limit and ends as `StorageRefused`. **Why:** the numbers were arbitrary, and a bound is what made a
+        context value unsaveable; an app with 5,000 rows virtualises them or holds pointers. **Proven by:** a 5,000-item
+        selection and record saving and restoring in a Story, with the bench timing it. Found in @task.V3.T9's reviews.

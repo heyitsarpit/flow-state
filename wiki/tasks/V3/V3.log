@@ -858,3 +858,7 @@ note 2026-11-17T03:09:16Z
     Stop (failure limit): T9 review ISSUES (1c43f41e) is the second post-convergence failure from one root cause: a
     context value past the save bound cannot be compared after a reload (actor-record.ts frameJson drops it from
     baselines, so an event is lost). Asked the user how such a value is remembered; T9 holds.
+
+note 2026-11-17T04:21:45Z
+    Decision (the user, 2026-11-17): codec size bounds dropped (Pending D23); value sizes are judged by the bench and
+    storage quota while building. It removes T9's blocker (no slot is saved unknown); T9 resumes with the removal.
