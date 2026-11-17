@@ -41,6 +41,8 @@ describe("a value's depth limit (Codec R1, R4; Actors R18, R19)", () => {
       expect(heard("memory past")).toBe(2);
       // The selection one past: its slot keeps the last selection, and nothing is heard.
       expect(heard("selection past")).toBe(2);
+      // Far past, where Effect's own walks would run out of stack: still reported, never thrown.
+      expect(heard("far past")).toBe(2);
       expect(heard("back")).toBe(3);
       expect(heard("reloaded")).toBe(3);
       expect(run.checkpoints.reloaded.read(mainNests)?.memory["title"]).toBe("renamed");

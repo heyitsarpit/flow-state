@@ -73,7 +73,7 @@ export const codecFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "deep-memory-equivalence-throws",
-    tests: ["tests/session/values.test.ts"],
+    tests: ["tests/session/depth.test.ts"],
     says: "memory too deep for its Schema's equivalence throws out of the turn",
     rule: "Codec R4",
     edits: [
