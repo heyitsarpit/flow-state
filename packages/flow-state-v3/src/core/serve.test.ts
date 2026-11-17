@@ -24,8 +24,7 @@ describe("pending work a late turn may not leave (Turn R21, I27)", () => {
   it("Turn R21: an InFlight head and every queued commit, behind a Held head too, own pending work; a Held head does not", () => {
     const lanes = [lane(Phase.Unsent(), 3, [4]), lane(Phase.Held(), 5, [6, 7])];
 
-    expect([...pendingOwners(lanes, actor)].toSorted((a, b) => a - b)).toEqual([3, 4, 6, 7]);
-    expect([...pendingOwners(lanes, { ...actor, name: "other" })]).toEqual([]);
+    expect([...pendingOwners(lanes)].toSorted((a, b) => a - b)).toEqual([3, 4, 6, 7]);
   });
 });
 

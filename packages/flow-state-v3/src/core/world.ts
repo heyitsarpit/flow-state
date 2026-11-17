@@ -1,6 +1,6 @@
 import { type Brand, Data, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
-import { emptyLedger, type Ledger, type OwedId } from "./ledger.ts";
+import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
 import type { IssueCode, ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
@@ -11,11 +11,27 @@ import type { Baseline, Frame, Selected } from "./slots.ts";
  */
 export type ActorId = { readonly machine: string; readonly name: string };
 
+// Each identity's key, minted once: an identity is immutable, so its key never changes.
+const keys = new WeakMap<ActorId, string>();
+
 /**
  * The text an identity is stored under: machine, then the name with `%`, `/` and `|` escaped.
  */
-export const actorKey = (actor: ActorId) =>
-  `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
+export const actorKey = (actor: ActorId) => {
+  const known = keys.get(actor);
+
+  if (known !== undefined) return known;
+
+  const key = `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
+  keys.set(actor, key);
+
+  return key;
+};
+
+/**
+ * Whether two identities are the same: the same machine and name.
+ */
+export const sameActor = (a: ActorId, b: ActorId) => a.machine === b.machine && a.name === b.name;
 
 /**
  * The id a write lane is kept under: its identity, operation and key text.
@@ -58,7 +74,12 @@ export type Write = { readonly key: string; readonly record: Option.Option<strin
  * A schedule's live arming: its arming number (a firing of an older arming is discarded) and its
  * deadline.
  */
-export type Armed = { readonly arming: number; readonly dueAt: number; readonly send: string };
+export type Armed = {
+  readonly arming: number;
+  readonly dueAt: number;
+  readonly send: string;
+  readonly timer: TimerId;
+};
 
 /**
  * One live incarnation of an identity.
@@ -69,7 +90,7 @@ export type Armed = { readonly arming: number; readonly dueAt: number; readonly 
  * outermost first: a re-entry is a new activation, so work its old activation owns ends late.
  * `history` holds each exited compound's last active child. `bound` names the provider of each
  * context slot, `context` holds each slot's selection and `baselines` each `onContext` reaction's
- * last selection with the inputs it read.
+ * last selection with the inputs it read. `grace` is the timer of a free incarnation's grace.
  */
 export type Incarnation = {
   readonly id: string;
@@ -87,6 +108,7 @@ export type Incarnation = {
   readonly stale: ReadonlyMap<string, Option.Option<Selected>>;
   // None for a reaction whose select has never given a selection.
   readonly baselines: ReadonlyArray<Option.Option<Baseline>>;
+  readonly grace: Option.Option<TimerId>;
 };
 
 /**
@@ -306,6 +328,10 @@ export type Withheld = {
  *
  * `quarantined` holds each record the boot could not read, by its key, with why: its bytes stay
  * until the identity saves over it or, for a lane, a cancel on its key clears it.
+ *
+ * The last four maps are indexes, each derived from the facts above by the step operation that
+ * changes them ({@link indexesOf} rebuilds them): each identity's lanes, the lane whose head waits
+ * on each call or ticket, each provider's live consumers, and each ticket's silence timer.
  */
 export type World = {
   readonly incarnations: ReadonlyMap<string, Incarnation>;
@@ -324,6 +350,10 @@ export type World = {
   readonly quarantined: ReadonlyMap<string, string>;
   readonly ended: ReadonlyMap<string, Ended>;
   readonly life: Life;
+  readonly lanesOfActor: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly laneOfWait: ReadonlyMap<string, string>;
+  readonly consumersOf: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly silenceOf: ReadonlyMap<string, TimerId>;
 };
 
 /**
@@ -334,7 +364,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   incarnations: new Map(),
   records: new Map(),
   lanes: new Map(),
-  owed: emptyLedger,
+  owed: new Map(),
   reads: new Map(),
   displaced: new Map(),
   mail: new Map(),
@@ -347,10 +377,96 @@ export const emptyWorld = (persistence: boolean): World => ({
   quarantined: new Map(),
   ended: new Map(),
   life: Life.Inert(),
+  lanesOfActor: new Map(),
+  laneOfWait: new Map(),
+  consumersOf: new Map(),
+  silenceOf: new Map(),
 });
 
 /**
- * Work a step returns for the driver to run (Turn's composition note).
+ * The call or ticket a lane's head waits on, if it waits on one.
+ */
+export const waitOf = (lane: Lane) =>
+  Phase.$match(lane.head.phase, {
+    Acknowledging: ({ ticket }) => Option.some<string>(ticket),
+    Unsent: () => Option.none<string>(),
+    Withdrawing: ({ ticket }) => Option.some<string>(ticket),
+    Recapturing: ({ ticket }) => Option.some<string>(ticket),
+    Resending: () => Option.none<string>(),
+    OnWire: ({ call }) => Option.some<string>(call),
+    Cancelling: ({ call }) => Option.some<string>(call),
+    Held: () => Option.none<string>(),
+  });
+
+/**
+ * The order incarnations started in: the counter their id was minted with.
+ */
+export const startOrder = (incarnation: Incarnation) =>
+  Number(incarnation.id.slice(incarnation.id.lastIndexOf("-") + 1));
+
+/**
+ * A world's indexes rebuilt from its facts by scanning: what the step operations keep up to date.
+ */
+export const indexesOf = (world: World) => {
+  const lanesOfActor = new Map<string, Set<string>>();
+  const laneOfWait = new Map<string, string>();
+  const consumersOf = new Map<string, Set<string>>();
+  const silenceOf = new Map<string, TimerId>();
+
+  for (const [id, lane] of world.lanes) {
+    const key = actorKey(lane.actor);
+    lanesOfActor.set(key, (lanesOfActor.get(key) ?? new Set()).add(id));
+
+    for (const wait of Option.toArray(waitOf(lane))) laneOfWait.set(wait, id);
+  }
+
+  for (const incarnation of world.incarnations.values())
+    for (const provider of incarnation.bound.values()) {
+      const key = actorKey(provider);
+      consumersOf.set(key, (consumersOf.get(key) ?? new Set()).add(actorKey(incarnation.actor)));
+    }
+
+  for (const [id, timer] of world.timers)
+    if (Timer.$is("Silent")(timer)) silenceOf.set(timer.ticket, id);
+
+  return { lanesOfActor, laneOfWait, consumersOf, silenceOf };
+};
+
+const sameEntries = <V>(
+  kept: ReadonlyMap<string, V>,
+  built: ReadonlyMap<string, V>,
+  same: (a: V, b: V) => boolean,
+) =>
+  kept.size === built.size &&
+  [...built].every(([key, value]) => {
+    const held = kept.get(key);
+
+    return held !== undefined && same(held, value);
+  });
+
+const sameOrder = (a: ReadonlySet<string>, b: ReadonlySet<string>) =>
+  a.size === b.size && [...a].every((member, at) => [...b][at] === member);
+
+const sameMembers = (a: ReadonlySet<string>, b: ReadonlySet<string>) =>
+  a.size === b.size && [...a].every((member) => b.has(member));
+
+/**
+ * The indexes of a world that differ from their rebuild by {@link indexesOf}: none when every
+ * step operation kept them in step. Each identity's lanes must also keep the lanes table's order.
+ */
+export const indexDrift = (world: World) => {
+  const built = indexesOf(world);
+
+  return [
+    sameEntries(world.lanesOfActor, built.lanesOfActor, sameOrder) ? [] : ["lanesOfActor"],
+    sameEntries(world.laneOfWait, built.laneOfWait, (a, b) => a === b) ? [] : ["laneOfWait"],
+    sameEntries(world.consumersOf, built.consumersOf, sameMembers) ? [] : ["consumersOf"],
+    sameEntries(world.silenceOf, built.silenceOf, (a, b) => a === b) ? [] : ["silenceOf"],
+  ].flat();
+};
+
+/**
+ * Work a step returns for the driver to run.
  */
 export type Command = Data.TaggedEnum<{
   Invoke: {

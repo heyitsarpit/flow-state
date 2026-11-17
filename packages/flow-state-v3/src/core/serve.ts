@@ -4,9 +4,9 @@ import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { chainOf, historyAfter } from "./tree.ts";
-import { isInFlight, ROOT_ACTIVATION, type Tx, without, withEntry } from "./tx.ts";
+import { isInFlight, ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
-import { type ActorId, actorKey, type Incarnation, type Issue, type Lane, Mail } from "./world.ts";
+import { actorKey, type Incarnation, type Issue, type Lane, Mail } from "./world.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 
@@ -23,15 +23,14 @@ const UNMAPPED: Heard = "Unmapped";
  * The activations that own an actor's pending work: each InFlight head and every queued commit,
  * a queue behind a Held head included. A late turn may not exit any of them.
  */
-export const pendingOwners = (lanes: Iterable<Lane>, actor: ActorId) => {
+export const pendingOwners = (lanes: Iterable<Lane>) => {
   const owners = new Set<number>();
 
-  for (const lane of lanes)
-    if (actorKey(lane.actor) === actorKey(actor)) {
-      if (isInFlight(lane)) owners.add(lane.head.owner);
+  for (const lane of lanes) {
+    if (isInFlight(lane)) owners.add(lane.head.owner);
 
-      for (const queued of lane.queue) owners.add(queued.owner);
-    }
+    for (const queued of lane.queue) owners.add(queued.owner);
+  }
 
   return owners;
 };
@@ -81,10 +80,7 @@ export const makeServe = (
       issues: [...incarnation.issues.filter((i) => i.source !== issue.source), issue],
     };
 
-    tx.set({
-      ...tx.world(),
-      incarnations: withEntry(tx.world().incarnations, actorKey(next.actor), next),
-    });
+    tx.putIncarnation(next);
 
     return next;
   };
@@ -109,7 +105,7 @@ export const makeServe = (
 
     if (compiled === undefined) return HEARD;
 
-    const owning = pendingOwners(tx.world().lanes.values(), incarnation.actor);
+    const owning = pendingOwners(tx.lanesOf(incarnation.actor).map(([, lane]) => lane));
 
     const result = runTurn({
       compiled,
@@ -317,7 +313,9 @@ export const makeServe = (
         )
           return;
 
-        const left = { ...incarnation, schedules: without(incarnation.schedules, schedule) };
+        const schedules = new Map(incarnation.schedules);
+        schedules.delete(schedule);
+        const left = { ...incarnation, schedules };
         setIncarnation(left);
         turn(
           left,
@@ -336,19 +334,10 @@ export const makeServe = (
         const incarnation = incarnationOf(actor);
 
         // A row is in the mailbox only while its identity can hear it; every end suspends it.
-        if (incarnation !== undefined) ledger.tryOne(id, (row) => serveEnding(incarnation, row));
+        if (incarnation !== undefined)
+          ledger.tryOne(actor, id, (row) => serveEnding(incarnation, row));
       },
     });
-
-  // An actor's oldest mail, taken from its mailbox; a rotated actor goes to the back while it
-  // still has mail, a follow-up's actor keeps its place.
-  const takeOldest = (key: string, rotated: boolean) => {
-    const [first, ...rest] = tx.world().mail.get(key) ?? [];
-    const others = rotated || rest.length === 0 ? without(tx.world().mail, key) : tx.world().mail;
-    tx.set({ ...tx.world(), mail: rest.length === 0 ? others : withEntry(others, key, rest) });
-
-    return first;
-  };
 
   // A context update whose providers have not settled waits at the front of its mailbox: it is
   // read once they have, so one wave gives one consistent update, and mail behind it stays behind
@@ -379,7 +368,7 @@ export const makeServe = (
 
       // One event from the next actor in rotation; then its follow-ups, first, oldest first
       // within each actor.
-      const first = takeOldest(key, true);
+      const first = tx.takeOldest(key, true);
       count += 1;
 
       if (first !== undefined && !deferred(first)) count = followUps(served(first), count);
@@ -395,7 +384,7 @@ export const makeServe = (
     while (chain.length > 0 && count < DRAIN_CAP) {
       const [next, ...later] = chain;
       chain = later;
-      const followUp = next === undefined ? undefined : takeOldest(next, false);
+      const followUp = next === undefined ? undefined : tx.takeOldest(next, false);
 
       if (followUp === undefined) continue;
       count += 1;

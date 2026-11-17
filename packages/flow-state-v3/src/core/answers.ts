@@ -2,9 +2,9 @@ import { Option } from "effect";
 import type { Channel } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { CallResult } from "./input.ts";
-import { type Tx, without } from "./tx.ts";
+import type { Tx } from "./tx.ts";
 import { Audience, type LedgerSteps } from "./ledger.ts";
-import { type CallId, type Read, Timer, type TicketId } from "./world.ts";
+import type { CallId, Read, TicketId } from "./world.ts";
 import { onWireAs } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
 
@@ -13,7 +13,7 @@ import type { LaneSteps } from "./lanes.ts";
  * answer invokes or refuses the sends waiting on it.
  */
 export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
-  const { incarnationOf, disarmWhere } = tx;
+  const { incarnationOf, disarmSilence } = tx;
 
   // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's own, mapped at admission.
   const classified = (channel: Channel, reason: string, value: unknown) => ({
@@ -32,7 +32,7 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
     });
 
   const settledRead = (read: Read, result: CallResult) => {
-    tx.set({ ...tx.world(), reads: without(tx.world().reads, read.call) });
+    tx.drop("reads", read.call);
     const incarnation = incarnationOf(read.actor);
 
     if (incarnation === undefined || incarnation.id !== read.incarnation) return;
@@ -68,7 +68,7 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
       return;
     }
 
-    const live = [...tx.world().lanes.values()].some((lane) => onWireAs(lane, call));
+    const live = Option.exists(tx.laneWaiting(call), ([, lane]) => onWireAs(lane, call));
 
     if (live && CallResult.$is("Defect")(result) && open) tx.act(Act.Defect());
 
@@ -76,7 +76,7 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
   };
 
   const answered = (ticket: TicketId, landed: boolean) => {
-    disarmWhere((t) => Timer.$is("Silent")(t) && t.ticket === ticket);
+    disarmSilence(ticket);
     lanes.answer(ticket, landed);
   };
 

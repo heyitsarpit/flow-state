@@ -143,8 +143,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "      quarantined: new Map(restored.quarantined.map((q) => [q.key, q.reason])),",
-        replace: "      quarantined: new Map(),",
+        find: '    tx.replace("quarantined", new Map(restored.quarantined.map((q) => [q.key, q.reason])));',
+        replace: '    tx.replace("quarantined", new Map());',
       },
     ],
   },
@@ -234,7 +234,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/step.ts",
-        find: "          tx.set({ ...tx.world(), persistence: false });\n",
+        find: "          tx.noPersistence();\n",
         replace: "",
       },
     ],

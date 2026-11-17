@@ -65,6 +65,7 @@ const stepOver = (
           context: new Map(),
           stale: new Map(),
           baselines: [],
+          grace: Option.none(),
           memory,
           schedules: new Map(),
         },
@@ -290,7 +291,7 @@ it("WriteAhead I20, I22: a row saved while still in the mailbox leaves the owed 
   expect(writesOf(first.tx)).toEqual([`owed/${actorKey(actor)}=att-1`]);
 
   const second = stepOver({ count: 1 }, first.tx.world());
-  second.ledger.tryOne(id, () => {
+  second.ledger.tryOne(actor, id, () => {
     second.persistence.saveActor(actor);
 
     return "Heard";
@@ -309,7 +310,7 @@ it("Actors R8, WriteAhead I11: a free actor whose records are held back does not
   first.persistence.project();
 
   const heard = stepOver({ count: "many" }, first.tx.world());
-  heard.ledger.tryOne(id, () => {
+  heard.ledger.tryOne(actor, id, () => {
     heard.persistence.saveActor(actor);
 
     return "Heard";
@@ -342,28 +343,20 @@ it("WriteAhead I23, R4: in one step, an identity whose record cannot encode is w
   const other = { machine: actor.machine, name: "back" };
   const first = stepOver({ count: "many" });
 
-  first.tx.set({
-    ...first.tx.world(),
-    incarnations: new Map([
-      ...first.tx.world().incarnations,
-      [
-        actorKey(other),
-        {
-          id: "inc-2",
-          actor: other,
-          state: "OPEN",
-          activations: [2],
-          history: new Map(),
-          issues: [],
-          bound: new Map(),
-          context: new Map(),
-          stale: new Map(),
-          baselines: [],
-          memory: { count: 5 },
-          schedules: new Map(),
-        },
-      ],
-    ]),
+  first.tx.putIncarnation({
+    id: "inc-2",
+    actor: other,
+    state: "OPEN",
+    activations: [2],
+    history: new Map(),
+    issues: [],
+    bound: new Map(),
+    context: new Map(),
+    stale: new Map(),
+    baselines: [],
+    grace: Option.none(),
+    memory: { count: 5 },
+    schedules: new Map(),
   });
   first.persistence.saveActor(actor);
   first.persistence.saveActor(other);

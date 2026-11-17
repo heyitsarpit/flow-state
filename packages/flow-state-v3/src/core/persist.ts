@@ -3,7 +3,7 @@ import { Act } from "./evidence-of.ts";
 import { Audience, Delivery, type Owed, rowsOf } from "./ledger.ts";
 import { encodeActor } from "./actor-record.ts";
 import { actorRecordKey, encodeLane, encodeOwed, laneRecordKey, owedRecordKey } from "./record.ts";
-import { SILENT_MS, type Tx, without, withEntry } from "./tx.ts";
+import { SILENT_MS, type Tx } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
@@ -20,14 +20,15 @@ import {
 } from "./world.ts";
 
 // What one persisted identity's step touched: its actor record (kept or removed), its lanes, its
-// owed record, the tickets its sends await, and whether its writes are due now.
+// owed record, the tickets its sends await, and whether its writes are due now. Step-local, written
+// in place.
 type Touched = {
   readonly actor: ActorId;
-  readonly record: "none" | "kept" | "removed";
-  readonly lanes: ReadonlySet<string>;
-  readonly owed: boolean;
-  readonly tickets: ReadonlyArray<Ticket>;
-  readonly now: boolean;
+  record: "none" | "kept" | "removed";
+  readonly lanes: Set<string>;
+  owed: boolean;
+  readonly tickets: Array<Ticket>;
+  now: boolean;
 };
 
 // An identity's owed record holds every row owed to the identity, whatever its delivery.
@@ -52,21 +53,28 @@ export const makePersistence = (tx: Tx) => {
   const { persisted, armTimer, incarnationOf } = tx;
   let touched = new Map<string, Touched>();
 
-  const touch = (actor: ActorId, change: (t: Touched) => Touched) => {
-    if (!persisted(actor)) return;
+  // The step's entry of a persisted identity, made on its first touch; none for one that does not
+  // persist.
+  const touch = (actor: ActorId) => {
+    if (!persisted(actor)) return [];
 
     const key = actorKey(actor);
+    const known = touched.get(key);
 
-    const was = touched.get(key) ?? {
+    if (known !== undefined) return [known];
+
+    const fresh: Touched = {
       actor,
-      record: "none" as const,
-      lanes: new Set<string>(),
+      record: "none",
+      lanes: new Set(),
       owed: false,
       tickets: [],
       now: false,
     };
 
-    touched = new Map([...touched, [key, change(was)]]);
+    touched.set(key, fresh);
+
+    return [fresh];
   };
 
   // A record's write, or the key and reason it cannot encode.
@@ -77,15 +85,13 @@ export const makePersistence = (tx: Tx) => {
       onFailure: (reason) => ({ key, reason }),
     });
 
-  const actorWrite = (incarnation: Incarnation) => {
-    const key = actorRecordKey(actorKey(incarnation.actor));
-    const compiled = tx.machines.get(incarnation.actor.machine);
+  const actorWrite = (record: ActorRecord) => {
+    const key = actorRecordKey(actorKey(record.actor));
+    const compiled = tx.machines.get(record.actor.machine);
 
     return encoded(
       key,
-      compiled === undefined
-        ? Result.fail("machine")
-        : encodeActor(compiled, recordOf(incarnation)),
+      compiled === undefined ? Result.fail("machine") : encodeActor(compiled, record),
     );
   };
 
@@ -132,33 +138,48 @@ export const makePersistence = (tx: Tx) => {
     graph: graphOf(incarnation),
   });
 
+  // The Runtime's copy of an identity's record, from its incarnation as it is now.
+  const keepRecord = (incarnation: Incarnation) => {
+    const record = recordOf(incarnation);
+    tx.put("records", actorKey(incarnation.actor), record);
+
+    return record;
+  };
+
   /**
-   * Notes an identity's actor record as changed: `now` when its incarnation ended.
+   * Notes an identity's actor record as changed: `now` when its incarnation ends, and then its
+   * record is kept at once; otherwise at the step's end, from its last state.
    */
   const saveActor = (actor: ActorId, due: Due = Due.Later()) => {
     const incarnation = incarnationOf(actor);
 
     if (incarnation === undefined || !persisted(actor)) return;
 
-    tx.set({
-      ...tx.world(),
-      records: withEntry(tx.world().records, actorKey(actor), recordOf(incarnation)),
-    });
-    touch(actor, (t) => ({ ...t, record: "kept", now: t.now || Due.$is("Now")(due) }));
+    if (Due.$is("Now")(due)) keepRecord(incarnation);
+
+    for (const t of touch(actor)) {
+      t.record = "kept";
+      t.now = t.now || Due.$is("Now")(due);
+    }
   };
 
   /**
    * Notes an identity's actor record as removed: written at once.
    */
-  const removeActor = (actor: ActorId) =>
-    touch(actor, (t) => ({ ...t, record: "removed", now: true }));
+  const removeActor = (actor: ActorId) => {
+    for (const t of touch(actor)) {
+      t.record = "removed";
+      t.now = true;
+    }
+  };
 
   /**
    * Notes a lane as changed: its record is written from the lane's state at the step's end, or
    * removed if the lane is gone.
    */
-  const saveLane = (actor: ActorId, id: string) =>
-    touch(actor, (t) => ({ ...t, lanes: new Set([...t.lanes, id]) }));
+  const saveLane = (actor: ActorId, id: string) => {
+    for (const t of touch(actor)) t.lanes.add(id);
+  };
 
   /**
    * Notes a lane as changed and returns the ticket a send awaits for the step's writes; its
@@ -173,11 +194,11 @@ export const makePersistence = (tx: Tx) => {
     if (!persisted(actor)) return Option.none<TicketId>();
 
     const ticket: Ticket = { id: tx.mint<TicketId>("ticket"), ...awaited };
-    touch(actor, (t) => ({
-      ...t,
-      lanes: new Set([...t.lanes, id]),
-      tickets: [...t.tickets, ticket],
-    }));
+
+    for (const t of touch(actor)) {
+      t.lanes.add(id);
+      t.tickets.push(ticket);
+    }
 
     return Option.some(ticket.id);
   };
@@ -185,11 +206,13 @@ export const makePersistence = (tx: Tx) => {
   /**
    * Notes an identity's owed record as changed.
    */
-  const saveOwed = (actor: ActorId) => touch(actor, (t) => ({ ...t, owed: true }));
+  const saveOwed = (actor: ActorId) => {
+    for (const t of touch(actor)) t.owed = true;
+  };
 
   // ── lanes: every change of a lane's entry is written from its state at the step's end.
   const setLane = (id: string, lane: Lane) => {
-    tx.set({ ...tx.world(), lanes: withEntry(tx.world().lanes, id, lane) });
+    tx.putLane(id, lane);
     saveLane(lane.actor, id);
   };
 
@@ -197,12 +220,10 @@ export const makePersistence = (tx: Tx) => {
    * Puts a head on the wire without a write: its record already says what the call carries, since
    * an acknowledgement or a capture landed it in flight with the retryCount it is sent with.
    */
-  const sendLane = (id: string, lane: Lane) => {
-    tx.set({ ...tx.world(), lanes: withEntry(tx.world().lanes, id, lane) });
-  };
+  const sendLane = (id: string, lane: Lane) => tx.putLane(id, lane);
 
   const dropLane = (id: string, lane: Lane) => {
-    tx.set({ ...tx.world(), lanes: without(tx.world().lanes, id) });
+    tx.dropLane(id);
     saveLane(lane.actor, id);
   };
 
@@ -278,9 +299,11 @@ export const makePersistence = (tx: Tx) => {
         Result.succeed<Write>({ key: actorRecordKey(actorKey(t.actor)), record: Option.none() }),
       ];
 
-    const incarnation = incarnationOf(t.actor);
+    const record = tx.world().records.get(actorKey(t.actor));
 
-    return t.record === "none" || incarnation === undefined ? [] : [actorWrite(incarnation)];
+    return t.record === "none" || incarnationOf(t.actor) === undefined || record === undefined
+      ? []
+      : [actorWrite(record)];
   };
 
   // Every record an identity's step touched, or the first that cannot encode: then none of its
@@ -322,37 +345,54 @@ export const makePersistence = (tx: Tx) => {
           }),
         );
 
-    if (blocked.length > 0 || tx.world().withheld.size > 0 || writes.length > 0)
-      tx.set({
-        ...tx.world(),
-        withheld: new Map(
+    if (blocked.length > 0 || tx.world().withheld.size > 0)
+      tx.replace(
+        "withheld",
+        new Map(
           blocked.map(({ t }) => [actorKey(t.actor), { actor: t.actor, lanes: [...t.lanes] }]),
         ),
-        quarantined: new Map(
-          [...tx.world().quarantined].filter(([key]) => !writes.some((w) => w.key === key)),
-        ),
-      });
+      );
+
+    for (const write of tx.world().quarantined.size > 0 ? writes : [])
+      if (tx.world().quarantined.has(write.key)) tx.drop("quarantined", write.key);
   };
 
   /**
    * Projects what the step touched: one write list for the whole step, every identity's touched
    * records once each, due by the derived rule.
    */
-  const project = (final: ReadonlyArray<Ticket> = []) => {
-    for (const rows of tx.world().owed.values()) {
+  // What the step leaves to write besides its own touches: an owed record whose row still has its
+  // try in the mailbox, and every record of an identity withheld at an earlier step's end, which is
+  // written whole once its record encodes. A row in the mailbox has its try there, so only a step
+  // that left mail can end with one.
+  const touchLeftovers = () => {
+    for (const rows of tx.world().mail.size > 0 ? tx.world().owed.values() : []) {
       const waiting = rows.find(inMailbox);
 
       if (waiting !== undefined) saveOwed(waiting.actor);
     }
 
-    // An identity withheld at an earlier step's end is written whole once its record encodes.
     for (const w of tx.world().withheld.values())
-      touch(w.actor, (t) => ({
-        ...t,
-        record: t.record === "none" ? "kept" : t.record,
-        lanes: new Set([...w.lanes, ...t.lanes, ...tx.lanesOf(w.actor).map(([id]) => id)]),
-        owed: true,
-      }));
+      for (const t of touch(w.actor)) {
+        const lanes = [...w.lanes, ...t.lanes, ...tx.lanesOf(w.actor).map(([id]) => id)];
+        t.record = t.record === "none" ? "kept" : t.record;
+        t.lanes.clear();
+
+        for (const id of lanes) t.lanes.add(id);
+        t.owed = true;
+      }
+  };
+
+  // Each touched identity's record, built once from its incarnation at the step's end.
+  const keepRecords = () => {
+    for (const t of touched.values())
+      for (const incarnation of Option.toArray(Option.fromUndefinedOr(incarnationOf(t.actor))))
+        if (t.record === "kept") keepRecord(incarnation);
+  };
+
+  const project = (final: ReadonlyArray<Ticket> = []) => {
+    touchLeftovers();
+    keepRecords();
 
     const all = [...touched.values()].map((t) => ({ t, writes: writesOf(t) }));
     touched = new Map();

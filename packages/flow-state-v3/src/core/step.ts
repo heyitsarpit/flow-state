@@ -9,9 +9,17 @@ import { makeLanes } from "./lanes.ts";
 import { makeLedger } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
-import { type Env, type Machines, makeTx, without } from "./tx.ts";
+import { type Env, type Machines, makeTx } from "./tx.ts";
 import { admit, Life, Verdict } from "./life.ts";
-import { type ActorId, actorKey, Mail, Timer, type TimerId, type World } from "./world.ts";
+import {
+  type ActorId,
+  actorKey,
+  Mail,
+  startOrder,
+  Timer,
+  type TimerId,
+  type World,
+} from "./world.ts";
 
 export { CallResult, Input } from "./input.ts";
 
@@ -27,8 +35,9 @@ export const boundOf = (world: World, actor: ActorId) =>
  * The live actors whose context slots are bound to `provider`.
  */
 export const dependentsOf = (world: World, provider: ActorId) =>
-  [...world.incarnations.values()]
-    .filter((i) => [...i.bound.values()].some((p) => actorKey(p) === actorKey(provider)))
+  [...(world.consumersOf.get(actorKey(provider)) ?? [])]
+    .flatMap((key) => Option.toArray(Option.fromUndefinedOr(world.incarnations.get(key))))
+    .toSorted((a, b) => startOrder(a) - startOrder(b))
     .map((i) => i.actor);
 
 /**
@@ -78,12 +87,11 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   const { boundPassed } = disposal;
 
   const fired = (id: TimerId) => {
-    const timer = tx.world().timers.get(id);
+    const timer = tx.fire(id);
 
-    if (timer === undefined) return;
-    tx.set({ ...tx.world(), timers: without(tx.world().timers, id) });
+    if (Option.isNone(timer)) return;
 
-    Timer.$match(timer, {
+    Timer.$match(timer.value, {
       Schedule: ({ actor, incarnation, schedule, arming }) => {
         if (used(actor)) enqueue(Mail.Firing({ actor, incarnation, schedule, arming }));
       },
@@ -92,7 +100,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       },
       Bound: () => boundPassed(),
       Silent: ({ ticket }) => {
-        for (const lane of tx.world().lanes.values())
+        for (const [, lane] of Option.toArray(tx.laneWaiting(ticket)))
           if (awaits(lane, ticket))
             tx.act(Act.Silent({ operation: lane.operation, attempt: lane.head.id }));
       },
@@ -100,7 +108,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   };
 
   const open = Life.$is("Open")(world0.life);
-  const setLife = (life: Life) => tx.set({ ...tx.world(), life });
+  const { setLife } = tx;
 
   Input.$match(input, {
     Start: () => setLife(Life.Booting()),
@@ -109,7 +117,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       // A store that failed to load is never written: the Runtime runs without persistence.
       Option.match(stored, {
         onNone: () => {
-          tx.set({ ...tx.world(), persistence: false });
+          tx.noPersistence();
           tx.act(Act.Reported({ code: "StorageFailure", record: Option.none(), reason: "load" }));
         },
         onSome: incarnations.boot,

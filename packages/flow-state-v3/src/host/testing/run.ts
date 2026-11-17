@@ -2,7 +2,8 @@ import { Effect, Exit, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
-import { type ActorId, actorKey, type Wiring } from "../../core/world.ts";
+import { retain } from "../../core/tx.ts";
+import { type ActorId, actorKey, indexDrift, type Wiring } from "../../core/world.ts";
 import type { AnyDefinition } from "../../definition.ts";
 import { FlowError } from "../../error.ts";
 import { Host } from "../host.ts";
@@ -299,6 +300,15 @@ export const runFrom = <Names extends string>(
   // RETURN_TYPE: the exported Cut contract with its overloaded read.
   const cut = (): Cut => {
     const world = tab.built.driver.world();
+    // The cut reads this world after later steps run: they must not take its maps.
+    retain(world);
+    const drift = indexDrift(world);
+
+    if (drift.length > 0)
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an index out of step with its facts is a defect in Flow, never the app's
+      throw new Error(
+        `Defect: the world's ${drift.join(", ")} index is out of step with its facts`,
+      );
     const machines = tab.built.driver.machines;
     const truths = fakes.truths();
     const log = fakes.log();

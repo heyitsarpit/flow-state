@@ -34,16 +34,13 @@ export const makeDisposal = (
 
   const end = () => {
     disarmWhere((t) => Timer.$is("Bound")(t));
-    tx.set({ ...tx.world(), life: Life.Disposed() });
+    tx.setLife(Life.Disposed());
     tx.act(Act.RuntimeEnded());
   };
 
   const started = () => {
-    tx.set({
-      ...tx.world(),
-      life: Life.Disposing({ awaiting: Option.none() }),
-      mail: new Map(),
-    });
+    tx.setLife(Life.Disposing({ awaiting: Option.none() }));
+    tx.clearMail();
 
     // Each identity can no longer hear: its queued rows wait for its next start.
     for (const [first] of tx.world().owed.values())
@@ -52,7 +49,7 @@ export const makeDisposal = (
     lanes.everyLane(Cue.DisposalStarts());
 
     for (const call of tx.world().reads.keys()) tx.command(Command.Interrupt({ call }));
-    tx.set({ ...tx.world(), reads: new Map() });
+    tx.replace("reads", new Map());
     disarmWhere((t) => Timer.$is("Schedule")(t) || Timer.$is("Grace")(t));
 
     for (const incarnation of tx.world().incarnations.values()) saveActor(incarnation.actor);
@@ -83,7 +80,7 @@ export const makeDisposal = (
   const answered = (ticket: TicketId, landed: boolean) => {
     if (!Option.contains(awaiting(), ticket)) return;
 
-    if (landed) tx.set({ ...tx.world(), life: Life.Disposing({ awaiting: Option.none() }) });
+    if (landed) tx.setLife(Life.Disposing({ awaiting: Option.none() }));
     else {
       tx.act(Act.WriteFailed());
       end();
@@ -99,7 +96,7 @@ export const makeDisposal = (
 
     const ticket = tx.mint<TicketId>("ticket");
     persistence.project([{ id: ticket, purpose: "flush" }]);
-    tx.set({ ...tx.world(), life: Life.Disposing({ awaiting: Option.some(ticket) }) });
+    tx.setLife(Life.Disposing({ awaiting: Option.some(ticket) }));
   };
 
   /**

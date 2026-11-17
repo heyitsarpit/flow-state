@@ -6,7 +6,7 @@ import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
 import { Audience, keptOn, type LedgerSteps } from "./ledger.ts";
 import { LaneView } from "./turn.ts";
-import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
+import { isInFlight, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
@@ -112,6 +112,17 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     });
 
   // A commit declined before its lane's table: no Attempt, no lane, one owed row.
+  // Interrupts an incarnation's reads of an operation: each is dropped and its call cancelled.
+  const interruptReads = (incarnation: Incarnation, operation: string, replaced: boolean) => {
+    for (const [call, read] of tx.world().reads)
+      if (read.incarnation === incarnation.id && read.operation === operation) {
+        tx.drop("reads", call);
+        tx.command(Command.Interrupt({ call }));
+
+        if (replaced) tx.act(Act.ReadReplaced({ operation }));
+      }
+  };
+
   const decline = (actor: ActorId, operation: string, why: string, owner: number) =>
     void ledger.owe({
       actor,
@@ -208,11 +219,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   ) =>
     Operation.$match(operation, {
       Read: () => {
-        for (const [call, read] of tx.world().reads)
-          if (read.incarnation === incarnation.id && read.operation === operation.name) {
-            tx.set({ ...tx.world(), reads: without(tx.world().reads, call) });
-            tx.command(Command.Interrupt({ call }));
-          }
+        interruptReads(incarnation, operation.name, false);
 
         return {
           operation: operation.name,
@@ -241,24 +248,15 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     });
 
   const lookup = (incarnation: Incarnation, operation: Operation, input: Values, owner: number) => {
-    for (const [call, read] of tx.world().reads)
-      if (read.incarnation === incarnation.id && read.operation === operation.name) {
-        tx.set({ ...tx.world(), reads: without(tx.world().reads, call) });
-        tx.command(Command.Interrupt({ call }));
-
-        tx.act(Act.ReadReplaced({ operation: operation.name }));
-      }
+    interruptReads(incarnation, operation.name, true);
 
     const call = tx.mint<CallId>("call");
-    tx.set({
-      ...tx.world(),
-      reads: withEntry(tx.world().reads, call, {
-        call,
-        actor: incarnation.actor,
-        incarnation: incarnation.id,
-        operation: operation.name,
-        owner,
-      }),
+    tx.put("reads", call, {
+      call,
+      actor: incarnation.actor,
+      incarnation: incarnation.id,
+      operation: operation.name,
+      owner,
     });
     tx.command(
       Command.Lookup({
@@ -292,7 +290,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   ) => {
     if (applyDisplaced(call, Cue.Answered(settled))) return;
 
-    for (const [id, lane] of tx.world().lanes)
+    for (const [id, lane] of Option.toArray(tx.laneWaiting(call)))
       if (onWireAs(lane, call)) {
         apply(atOf(id, lane), Cue.Answered(settled));
         sendPromoted(id);
@@ -308,7 +306,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     if (applyDisplaced(ticket, cue)) return;
 
-    for (const [id, lane] of tx.world().lanes)
+    for (const [id, lane] of Option.toArray(tx.laneWaiting(ticket)))
       if (awaits(lane, ticket)) {
         apply(atOf(id, lane), cue);
         sendPromoted(id);

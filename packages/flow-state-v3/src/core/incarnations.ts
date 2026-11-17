@@ -7,16 +7,16 @@ import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { actorRecordKey, decodeRecords } from "./record.ts";
-import { GRACE_MS, isInFlight, type Tx, without, withEntry } from "./tx.ts";
+import { GRACE_MS, isInFlight, type Tx } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
   type ActorRecord,
-  type Armed,
   Due,
   type Incarnation,
   Mail,
   Timer,
+  startOrder,
   type Use,
   type Wiring,
 } from "./world.ts";
@@ -35,7 +35,7 @@ const terminal = (incarnation: Incarnation) => ({
 });
 
 export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
-  const { armTimer, disarmWhere, incarnationOf, used, lanesOf, enqueue } = tx;
+  const { armTimer, disarm, incarnationOf, used, lanesOf, enqueue } = tx;
   const { removeActor, saveActor } = persistence;
 
   // ── incarnations.
@@ -43,15 +43,17 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     incarnation: Incarnation,
     armings: ReadonlyArray<{ readonly name: string; readonly send: string; readonly ms: number }>,
   ) => {
-    let schedules = incarnation.schedules;
+    if (armings.length === 0) return incarnation;
+
+    const schedules = new Map(incarnation.schedules);
 
     for (const a of armings) {
       const arming = tx.next();
-      disarmWhere(
-        (t) =>
-          Timer.$is("Schedule")(t) && t.incarnation === incarnation.id && t.schedule === a.name,
-      );
-      armTimer(
+
+      for (const armed of Option.toArray(Option.fromUndefinedOr(schedules.get(a.name))))
+        disarm(armed.timer);
+
+      const timer = armTimer(
         Timer.Schedule({
           actor: incarnation.actor,
           incarnation: incarnation.id,
@@ -60,23 +62,24 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         }),
         tx.env.now + a.ms,
       );
-      schedules = withEntry(schedules, a.name, { arming, dueAt: tx.env.now + a.ms, send: a.send });
+
+      schedules.set(a.name, { arming, dueAt: tx.env.now + a.ms, send: a.send, timer });
     }
 
     return { ...incarnation, schedules };
   };
 
   const stopSchedules = (incarnation: Incarnation) => {
-    disarmWhere((t) => Timer.$is("Schedule")(t) && t.incarnation === incarnation.id);
+    for (const armed of incarnation.schedules.values()) disarm(armed.timer);
 
-    return { ...incarnation, schedules: new Map<string, Armed>() };
+    return { ...incarnation, schedules: new Map() };
   };
 
   // The schedules of the states a move exits stop; the others keep their deadlines.
   const stopNamed = (incarnation: Incarnation, names: ReadonlySet<string>) => {
-    disarmWhere(
-      (t) => Timer.$is("Schedule")(t) && t.incarnation === incarnation.id && names.has(t.schedule),
-    );
+    if (![...names].some((name) => incarnation.schedules.has(name))) return incarnation;
+
+    for (const [name, armed] of incarnation.schedules) if (names.has(name)) disarm(armed.timer);
 
     return {
       ...incarnation,
@@ -86,10 +89,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
   // Every change of an incarnation is written from its state at the step's end.
   const setIncarnation = (incarnation: Incarnation) => {
-    tx.set({
-      ...tx.world(),
-      incarnations: withEntry(tx.world().incarnations, actorKey(incarnation.actor), incarnation),
-    });
+    tx.putIncarnation(incarnation);
     saveActor(incarnation.actor);
   };
 
@@ -163,9 +163,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       }),
       stale: new Map(),
       baselines: [],
+      grace: Option.none(),
     };
 
-    tx.set({ ...tx.world(), ended: without(tx.world().ended, actorKey(actor)) });
+    tx.drop("ended", actorKey(actor));
     setIncarnation(base);
     tx.act(Act.Started({ actor }));
 
@@ -222,15 +223,17 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.armed);
       },
       onSome: (record) => {
-        let schedules = bound.schedules;
+        const schedules = new Map(bound.schedules);
 
         for (const s of record.schedules) {
           const arming = tx.next();
-          armTimer(
+
+          const timer = armTimer(
             Timer.Schedule({ actor, incarnation: base.id, schedule: s.name, arming }),
             s.dueAt,
           );
-          schedules = withEntry(schedules, s.name, { arming, dueAt: s.dueAt, send: s.send });
+
+          schedules.set(s.name, { arming, dueAt: s.dueAt, send: s.send, timer });
         }
 
         return { ...bound, schedules };
@@ -251,9 +254,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     if (incarnation === undefined) return;
 
     for (const [name, armed] of incarnation.schedules) {
-      const live = [...tx.world().timers.values()].some(
-        (t) => Timer.$is("Schedule")(t) && t.incarnation === incarnation.id && t.schedule === name,
-      );
+      const live = tx.world().timers.has(armed.timer);
 
       if (!live && armed.dueAt <= tx.env.now)
         enqueue(
@@ -307,10 +308,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     Option.match(use, {
       onNone: () => undefined,
       onSome: (u) => {
-        tx.set({
-          ...tx.world(),
-          uses: withEntry(tx.world().uses, key, [...(tx.world().uses.get(key) ?? []), u]),
-        });
+        tx.putUses(actor, [...(tx.world().uses.get(key) ?? []), u]);
         fireWaiting(actor);
       },
     });
@@ -320,11 +318,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const createLocal = (actor: ActorId, input: Values) => {
     start(actor, Option.none(), input, Option.none());
 
-    if (incarnationOf(actor) !== undefined)
-      tx.set({
-        ...tx.world(),
-        uses: withEntry(tx.world().uses, actorKey(actor), ["host"]),
-      });
+    if (incarnationOf(actor) !== undefined) tx.putUses(actor, ["host"]);
   };
 
   const release = (actor: ActorId, use: Use) => {
@@ -333,7 +327,22 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     const at = uses.indexOf(use);
 
     if (at < 0) return;
-    tx.set({ ...tx.world(), uses: withEntry(tx.world().uses, key, uses.toSpliced(at, 1)) });
+    tx.putUses(actor, uses.toSpliced(at, 1));
+  };
+
+  // An ending incarnation leaves: its schedules and grace stop, its reads are dropped, and its
+  // handles keep its terminal snapshot.
+  const retire = (incarnation: Incarnation) => {
+    stopSchedules(incarnation);
+
+    for (const timer of Option.toArray(incarnation.grace)) disarm(timer);
+    tx.dropIncarnation(incarnation.actor);
+    tx.put("ended", actorKey(incarnation.actor), terminal(incarnation));
+
+    for (const [call, read] of tx.world().reads)
+      if (read.incarnation === incarnation.id) tx.drop("reads", call);
+    tx.act(Act.Finished({ actor: incarnation.actor }));
+    context.unbind(incarnation);
   };
 
   const end = (actor: ActorId) => {
@@ -345,16 +354,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     // The end writes a dirty record in its own step, not at the next capture.
     saveActor(actor, Due.Now());
-    stopSchedules(incarnation);
-    disarmWhere((t) => Timer.$is("Grace")(t) && t.incarnation === incarnation.id);
-    tx.set({
-      ...tx.world(),
-      incarnations: without(tx.world().incarnations, actorKey(actor)),
-      ended: withEntry(tx.world().ended, actorKey(actor), terminal(incarnation)),
-      reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
-    });
-    tx.act(Act.Finished({ actor }));
-    context.unbind(incarnation);
+    retire(incarnation);
     ledger.suspend(actor, false);
   };
 
@@ -365,64 +365,55 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
    */
   const dispose = (actor: ActorId, forgetting: boolean) => {
     const incarnation = incarnationOf(actor);
-    const key = actorKey(actor);
 
-    if (incarnation !== undefined) {
-      stopSchedules(incarnation);
-      disarmWhere((t) => Timer.$is("Grace")(t) && t.incarnation === incarnation.id);
-      tx.set({
-        ...tx.world(),
-        incarnations: without(tx.world().incarnations, key),
-        ended: withEntry(tx.world().ended, key, terminal(incarnation)),
-        reads: new Map([...tx.world().reads].filter(([, r]) => r.incarnation !== incarnation.id)),
-      });
-      tx.act(Act.Finished({ actor }));
-      context.unbind(incarnation);
-    }
+    if (incarnation !== undefined) retire(incarnation);
 
-    tx.set({
-      ...tx.world(),
-      records: without(tx.world().records, key),
-      uses: without(tx.world().uses, key),
-    });
+    tx.drop("records", actorKey(actor));
+    tx.dropUses(actor);
     removeActor(actor);
     ledger.suspend(actor, forgetting);
   };
 
-  // ── after every step: free incarnations start their grace; used ones stop it.
+  // ── after every step: free incarnations start their grace; used ones stop it. Only an
+  // identity whose incarnation, uses, lanes, mail or grace changed in the step can change its
+  // verdict, so only those are judged, in the order their incarnations started.
   const graces = () => {
-    for (const incarnation of tx.world().incarnations.values()) {
+    const judged = [...tx.dirtyActors()]
+      .flatMap((key) => Option.toArray(Option.fromUndefinedOr(tx.world().incarnations.get(key))))
+      .toSorted((a, b) => startOrder(a) - startOrder(b));
+
+    for (const incarnation of judged) {
       const busy =
         used(incarnation.actor) ||
         lanesOf(incarnation.actor).some(([, lane]) => isInFlight(lane)) ||
         tx.world().mail.has(actorKey(incarnation.actor));
 
-      const timing = [...tx.world().timers.values()].some(
-        (t) => Timer.$is("Grace")(t) && t.incarnation === incarnation.id,
-      );
+      const timing = Option.filter(incarnation.grace, (t) => tx.world().timers.has(t));
 
-      if (busy && timing)
-        disarmWhere((t) => Timer.$is("Grace")(t) && t.incarnation === incarnation.id);
+      if (busy && Option.isSome(timing)) {
+        disarm(timing.value);
+        tx.putIncarnation({ ...incarnation, grace: Option.none() });
+      }
 
-      if (!busy && !timing)
-        armTimer(
+      if (!busy && Option.isNone(timing)) {
+        const grace = armTimer(
           Timer.Grace({ actor: incarnation.actor, incarnation: incarnation.id }),
           tx.env.now + GRACE_MS,
         );
+
+        tx.putIncarnation({ ...incarnation, grace: Option.some(grace) });
+      }
     }
   };
 
   const boot = (stored: ReadonlyMap<string, string>) => {
     const restored = decodeRecords(tx.machines, stored);
 
-    tx.set({
-      ...tx.world(),
-      records: new Map(restored.records.map((r) => [actorKey(r.actor), r])),
-      lanes: new Map(
-        restored.lanes.flatMap(({ id, lane }) => Option.toArray(Option.map(lane, (l) => [id, l]))),
-      ),
-      quarantined: new Map(restored.quarantined.map((q) => [q.key, q.reason])),
-    });
+    tx.replace("records", new Map(restored.records.map((r) => [actorKey(r.actor), r])));
+
+    for (const { id, lane } of restored.lanes)
+      for (const l of Option.toArray(lane)) tx.putLane(id, l);
+    tx.replace("quarantined", new Map(restored.quarantined.map((q) => [q.key, q.reason])));
     ledger.restore(restored.rows);
 
     // A lane or owed record the boot could not read is reported at each boot while it stays.

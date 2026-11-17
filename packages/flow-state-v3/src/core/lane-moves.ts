@@ -4,7 +4,7 @@ import type { Operation, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { Life } from "./life.ts";
 import { Audience, type LedgerSteps } from "./ledger.ts";
-import { type Machines, pick, ROOT_ACTIVATION, type Tx, withEntry, without } from "./tx.ts";
+import { type Machines, pick, ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import {
   type ActorId,
@@ -236,7 +236,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         const lane = laneAt(at);
         const { key, head } = waitOf(lane);
         const displaced = { actor: at.actor, operation: at.operation, lane: at.id, head, owed };
-        tx.set({ ...tx.world(), displaced: withEntry(tx.world().displaced, key, displaced) });
+        tx.put("displaced", key, displaced);
         setLane(at.id, { ...lane, head: headFor(input, owner), queue: [] });
       },
       // A declined commit has no Attempt and no lane; its ending is a row like any other.
@@ -370,7 +370,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     if (Move.$is("Stay")(move)) return true;
 
-    tx.set({ ...tx.world(), displaced: without(tx.world().displaced, key) });
+    tx.drop("displaced", key);
     saveLane(d.actor, d.lane);
 
     if (Move.$is("Answer")(move)) {

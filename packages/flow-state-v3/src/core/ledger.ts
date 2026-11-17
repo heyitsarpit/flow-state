@@ -71,19 +71,9 @@ export type Closed = Data.TaggedEnum<{
 export const Closed = Data.taggedEnum<Closed>();
 
 /**
- * Each identity's owed rows, in the order they were owed. Only this module builds one.
+ * Each identity's owed rows, in the order they were owed. Only this module writes one.
  */
-export type Ledger = ReadonlyMap<string, ReadonlyArray<Owed>> & Brand.Brand<"flow-state/Ledger">;
-
-const ledgerOf = (rows: ReadonlyMap<string, ReadonlyArray<Owed>>) =>
-  // SAFETY: this module is the only place a ledger is built, from the rows it keeps.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a brand is type-only; the ledger's functions are where it is given
-  rows as Ledger;
-
-/**
- * A ledger with no row.
- */
-export const emptyLedger = ledgerOf(new Map());
+export type Ledger = ReadonlyMap<string, ReadonlyArray<Owed>>;
 
 /**
  * An identity's owed rows, in owed order.
@@ -120,19 +110,18 @@ export type Heard = "Unmapped" | "Heard" | "Refused";
 export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const { incarnationOf } = tx;
 
+  // Each identity's rows as the step found them, kept before its first change.
+  const started = new Map<string, ReadonlyArray<Owed>>();
+
   const setRows = (actor: ActorId, rows: ReadonlyArray<Owed>) => {
-    const next = new Map(tx.world().owed);
+    if (!started.has(actorKey(actor))) started.set(actorKey(actor), rowsOf(tx.world().owed, actor));
 
-    if (rows.length === 0) next.delete(actorKey(actor));
-    else next.set(actorKey(actor), rows);
-
-    tx.set({ ...tx.world(), owed: ledgerOf(next) });
+    if (rows.length === 0) tx.drop("owed", actorKey(actor));
+    else tx.put("owed", actorKey(actor), rows);
   };
 
-  const find = (id: OwedId) =>
-    Option.fromUndefinedOr(
-      [...tx.world().owed.values()].flatMap((rows) => rows.filter((r) => r.id === id))[0],
-    );
+  const find = (actor: ActorId, id: OwedId) =>
+    Option.fromUndefinedOr(rowsOf(tx.world().owed, actor).find((r) => r.id === id));
 
   const replace = (row: Owed, next: Option.Option<Owed>) =>
     setRows(
@@ -165,18 +154,8 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   };
 
   // A row that leaves the mailbox takes its references with it: the mail refers to exactly the
-  // Queued and Retrying rows.
-  const unreferenced = (row: Owed) =>
-    tx.set({
-      ...tx.world(),
-      mail: new Map(
-        [...tx.world().mail].flatMap(([key, box]) => {
-          const left = box.filter((m) => !(Mail.$is("Ending")(m) && m.id === row.id));
-
-          return left.length === 0 ? [] : [[key, left] as const];
-        }),
-      ),
-    });
+  // Queued and Retrying rows, each in its own identity's mailbox.
+  const unreferenced = (row: Owed) => tx.unreference(row.actor, row.id);
 
   const recorded = (row: Owed, why: "evidence" | "letGo") => tx.act(Act.RowRecorded({ row, why }));
 
@@ -184,7 +163,9 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   // is in it, a row still in the mailbox included.
   const onRecord = (row: Owed) =>
     Audience.$is("Identity")(row.to) &&
-    rowsOf(tx.started.owed, row.actor).some((r) => r.id === row.id);
+    (started.get(actorKey(row.actor)) ?? rowsOf(tx.world().owed, row.actor)).some(
+      (r) => r.id === row.id,
+    );
 
   // A move into or out of the owed record writes it.
   const saved = (row: Owed, delivery: Delivery) => {
@@ -238,15 +219,15 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
    * delivered, and a refusal queues a Queued row once more behind queued mail and keeps a
    * Retrying one.
    */
-  const tryOne = (id: OwedId, hear: (row: Owed) => Heard) =>
-    Option.match(find(id), {
+  const tryOne = (actor: ActorId, id: OwedId, hear: (row: Owed) => Heard) =>
+    Option.match(find(actor, id), {
       onNone: () => undefined,
       onSome: (row) => {
         if (!Delivery.$is("Queued")(row.delivery) && !Delivery.$is("Retrying")(row.delivery))
           return;
 
         const heard = hear(row);
-        const now = find(id);
+        const now = find(actor, id);
 
         if (Option.isNone(now)) return;
 

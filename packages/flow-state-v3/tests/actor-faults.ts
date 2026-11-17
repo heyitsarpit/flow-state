@@ -68,8 +68,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: '        uses: withEntry(tx.world().uses, actorKey(actor), ["host"]),',
-        replace: "        uses: tx.world().uses,",
+        find: '    if (incarnationOf(actor) !== undefined) tx.putUses(actor, ["host"]);',
+        replace: "    void tx.putUses;",
       },
     ],
   },
@@ -107,8 +107,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "        ended: withEntry(tx.world().ended, key, terminal(incarnation)),",
-        replace: "        ended: tx.world().ended,",
+        find: '    tx.put("ended", actorKey(incarnation.actor), terminal(incarnation));',
+        replace: "    void terminal;",
       },
     ],
   },
@@ -146,10 +146,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors I21",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "    const others = rotated || rest.length === 0 ? without(tx.world().mail, key) : tx.world().mail;",
-        replace:
-          "    const others = rest.length === 0 ? without(tx.world().mail, key) : tx.world().mail;",
+        file: "src/core/tx.ts",
+        find: '    else if (rotated) {\n      draft("mail").delete(key);',
+        replace: '    else if (rotated && mailbox.length < 0) {\n      draft("mail").delete(key);',
       },
     ],
   },
@@ -161,9 +160,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tx.ts",
-        find: "    world = { ...world, mail: withEntry(world.mail, key, [...(world.mail.get(key) ?? []), mail]) };",
-        replace:
-          "    world = { ...world, mail: withEntry(world.mail, key, [mail, ...(world.mail.get(key) ?? [])]) };",
+        find: "    box(key).push(mail);",
+        replace: "    box(key).unshift(mail);",
       },
     ],
   },
@@ -237,7 +235,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "      for (const queued of lane.queue) owners.add(queued.owner);",
+        find: "    for (const queued of lane.queue) owners.add(queued.owner);",
         replace: "",
       },
     ],

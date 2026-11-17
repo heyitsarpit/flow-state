@@ -73,6 +73,10 @@ const exactRecords = [
     | "quarantined"
     | "ended"
     | "life"
+    | "lanesOfActor"
+    | "laneOfWait"
+    | "consumersOf"
+    | "silenceOf"
   >,
 ];
 

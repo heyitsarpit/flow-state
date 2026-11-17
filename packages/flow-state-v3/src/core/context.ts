@@ -3,7 +3,7 @@ import type { Compiled, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { sameValue } from "./same.ts";
 import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
-import { type Tx, withEntry } from "./tx.ts";
+import type { Tx } from "./tx.ts";
 import {
   type ActorId,
   type ActorRecord,
@@ -82,11 +82,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       ? { ...incarnation, issues: incarnation.issues.filter((i) => i.source !== source) }
       : incarnation;
 
-  const keep = (incarnation: Incarnation) =>
-    tx.set({
-      ...tx.world(),
-      incarnations: withEntry(tx.world().incarnations, actorKey(incarnation.actor), incarnation),
-    });
+  const keep = (incarnation: Incarnation) => tx.putIncarnation(incarnation);
 
   // One slot's outcome: its selection taken, clearing its issue; or its selector's defect raised.
   const settle = (
@@ -279,14 +275,13 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
    * waits in its mailbox.
    */
   const wave = (provider: ActorId) => {
-    for (const consumer of tx.world().incarnations.values())
-      if ([...consumer.bound.values()].some((p) => actorKey(p) === actorKey(provider))) {
-        const waiting = (tx.world().mail.get(actorKey(consumer.actor)) ?? []).some(
-          Mail.$is("Context"),
-        );
+    for (const consumer of tx.consumersOf(provider)) {
+      const waiting = (tx.world().mail.get(actorKey(consumer.actor)) ?? []).some(
+        Mail.$is("Context"),
+      );
 
-        if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor }));
-      }
+      if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor }));
+    }
   };
 
   /**

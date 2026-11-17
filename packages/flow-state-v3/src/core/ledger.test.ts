@@ -33,6 +33,7 @@ const live = (world: World): World => ({
         context: new Map(),
         stale: new Map(),
         baselines: [],
+        grace: Option.none(),
         memory: {},
         schedules: new Map(),
       },
@@ -176,17 +177,17 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
   it("tryOne: refused once is Retrying behind queued mail, refused again is Kept; a closed row's reference does nothing", () => {
     const s = stepOver(live(emptyWorld(true)));
     const id = s.ledger.owe(ending(Option.some("L")));
-    s.tx.set({ ...s.tx.world(), mail: new Map() });
+    s.tx.clearMail();
 
-    s.ledger.tryOne(id, hearAs("Refused"));
+    s.ledger.tryOne(actor, id, hearAs("Refused"));
     assert.deepStrictEqual(deliveries(s.rows()), ["Retrying"]);
     assert.deepStrictEqual(ledgerFaults(s.tx.world()), []);
 
-    s.ledger.tryOne(id, hearAs("Refused"));
+    s.ledger.tryOne(actor, id, hearAs("Refused"));
     assert.deepStrictEqual(deliveries(s.rows()), ["Kept"]);
 
     const heard: Array<string> = [];
-    s.ledger.tryOne(id, () => {
+    s.ledger.tryOne(actor, id, () => {
       heard.push("tried");
 
       return "Heard";
@@ -203,12 +204,12 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     const heard = s.ledger.owe(ending(Option.some("L")));
     const unmapped = s.ledger.owe(ending(Option.some("M")));
 
-    s.ledger.tryOne(heard, hearAs("Heard"));
-    s.ledger.tryOne(unmapped, hearAs("Unmapped"));
+    s.ledger.tryOne(actor, heard, hearAs("Heard"));
+    s.ledger.tryOne(actor, unmapped, hearAs("Unmapped"));
     assert.deepStrictEqual(s.rows(), []);
 
     const again: Array<string> = [];
-    s.ledger.tryOne(heard, () => {
+    s.ledger.tryOne(actor, heard, () => {
       again.push("tried");
 
       return "Heard";
@@ -227,7 +228,7 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
 
     assert.ok(!keptOn(s.tx.world().owed, actor, "L"), "Queued rows block no key");
 
-    for (const id of [one, two, one, two]) s.ledger.tryOne(id, hearAs("Refused"));
+    for (const id of [one, two, one, two]) s.ledger.tryOne(actor, id, hearAs("Refused"));
 
     assert.deepStrictEqual(deliveries(s.rows()), ["Kept", "Kept"], "two Kept rows on one lane");
     assert.ok(keptOn(s.tx.world().owed, actor, "L"));
@@ -242,13 +243,14 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     const retrying = s.ledger.owe(ending(Option.some("L")));
     const kept = s.ledger.owe(ending(Option.some("M")));
     s.ledger.owe(ending(Option.some("N"), Audience.Life({ incarnation: "inc-1" })));
-    s.tx.set({ ...s.tx.world(), mail: new Map() });
-    s.ledger.tryOne(retrying, hearAs("Refused"));
-    s.tx.set({ ...s.tx.world(), mail: new Map() });
-    s.ledger.tryOne(kept, hearAs("Refused"));
-    s.ledger.tryOne(kept, hearAs("Refused"));
+    s.tx.clearMail();
+    s.ledger.tryOne(actor, retrying, hearAs("Refused"));
+    s.tx.clearMail();
+    s.ledger.tryOne(actor, kept, hearAs("Refused"));
+    s.ledger.tryOne(actor, kept, hearAs("Refused"));
     // The drain serves each reference once; these direct tries leave the refusal's reference behind.
-    s.tx.set({ ...s.tx.world(), mail: new Map(), incarnations: new Map() });
+    s.tx.clearMail();
+    s.tx.dropIncarnation(actor);
     assert.deepStrictEqual(deliveries(s.rows()), ["Queued", "Retrying", "Kept", "Queued"]);
 
     s.ledger.suspend(actor, false);
@@ -267,10 +269,10 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
   it("tryOne: a refusal leaves a row its turn suspended Waiting, never Kept", () => {
     const s = stepOver(live(emptyWorld(true)));
     const id = s.ledger.owe(ending(Option.some("L")));
-    s.ledger.tryOne(id, hearAs("Refused"));
+    s.ledger.tryOne(actor, id, hearAs("Refused"));
 
-    s.ledger.tryOne(id, () => {
-      s.tx.set({ ...s.tx.world(), incarnations: new Map() });
+    s.ledger.tryOne(actor, id, () => {
+      s.tx.dropIncarnation(actor);
       s.ledger.suspend(actor, false);
 
       return "Refused";
@@ -283,7 +285,10 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     const s = stepOver(emptyWorld(true));
     s.ledger.owe(ending(Option.some("L")));
     s.ledger.restore([{ ...ending(Option.some("M")), kept: true }]);
-    s.tx.set(live(s.tx.world()));
+
+    for (const incarnation of live(s.tx.world()).incarnations.values())
+      s.tx.putIncarnation(incarnation);
+    s.tx.setLife(Life.Open());
 
     s.ledger.start(actor);
     assert.deepStrictEqual(

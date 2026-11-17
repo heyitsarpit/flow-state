@@ -8,6 +8,7 @@ import { mixFaults } from "./mix-faults.ts";
 import { toolingFaults } from "./tooling-faults.ts";
 import { structureFaults } from "./structure-faults.ts";
 import { restoreFaults } from "./restore-faults.ts";
+import { stepFaults } from "./step-faults.ts";
 import { writeAheadFaults } from "./write-ahead-faults.ts";
 
 /**
@@ -248,8 +249,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tx.ts",
-        find: "      return `att-${env.seed}-${world.attempts}`;",
-        replace: "      return `att-${env.seed}-${world.attempts}-${performance.now()}`;",
+        find: "    return `att-${env.seed}-${world.attempts}`;",
+        replace: "    return `att-${env.seed}-${world.attempts}-${performance.now()}`;",
       },
     ],
   },
@@ -304,6 +305,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...mixFaults,
   ...actorFaults,
   ...contextFaults,
+  ...stepFaults,
   ...codecFaults,
   {
     name: "ending-heard-twice",

@@ -119,8 +119,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "        if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor }));",
-        replace: "        if (!waiting) update(consumer.actor);",
+        find: "      if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor }));",
+        replace: "      if (!waiting) update(consumer.actor);",
       },
     ],
   },
