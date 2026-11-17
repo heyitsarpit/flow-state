@@ -1057,7 +1057,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1506,6 +1506,27 @@ tasks
             Turn R22) -> Archive, session/archive-large, red: record withheld; routed: a throwing slot Schema at the
             boot quarantines and a baseline count that differs from the machine's reads the record's own (Restore R5) ->
             actor-record.test.ts, red: thrown, quarantined; Proxy reads by Object.hasOwn tracked; Restore R5 wording.
+        comment     2026-11-17T02:49:43Z
+            Fix round closed at af8bd007: check 0; suite 1,132 pass + 13 inverted, 2 red, T20's pair cells (shop,
+            session); test:stress exit 0; fresh seeds (20 usual and mix, 10 stress and mix stress) exit 0; nub run
+            faults 216 of 216 caught by their targets, dead core 843 failed, not judged (unchanged: T20's two cells and
+            a third under the parallel load, the palette stress timeout routed to @task.V3.T83). Bench per turn
+            median/p99: transfers/long 0.046/0.073, pay/long 0.058/0.085, session/long 0.144/0.173, lanes/stress-36
+            0.305/0.407, session/stress-36 0.108/0.232 ms.
+        comment     2026-11-17T02:49:43Z
+            Decisions (agent), fix round: a selection's Schema is its selector's contract and a record's bounds are the
+            record's: a value past one is read live, saved unknown and reported UnencodableValue, so a start owes its
+            wave (may hear it again, never miss it); baselines read from one memory share one copy, and a record that
+            cannot hold context saves it unknown before ever giving up memory (format 3, format 2 by a step); an issue
+            clears when its own source succeeds and a standing one is raised once; slot and memory Schema decodes that
+            throw quarantine at the boot; a baseline count unlike the machine's reads the record's own. The reload rules
+            skip runs that saved context unknown; the Turn I9 rule no longer counts a context issue as a refused turn
+            (it is a context update). The agenda and archive Stories run as stress for suite time.
+        comment     2026-11-17T02:49:43Z
+            For the user's page, fix round: a screen whose context holds more than a record can save (5,000 calendar
+            days) still shows and hears it; if saved it is reported and heard once more after a reload, never missed; an
+            issue on a screen's context clears once its source works again; several reactions reading a long list no
+            longer stop the screen from saving.
 
     T74
         title       App mix: several fixtures in one Runtime
