@@ -986,3 +986,8 @@ note 2026-11-17T11:45:53Z
 note 2026-11-17T11:48:29Z
     Decision (the user, 2026-11-17): Q15 A, Q16 B, as a new Task. T86 moves fixtures into their layout, shared services
     to fixtures/services/, pay to shop with its Story ids; after T79, before T85.
+
+note 2026-11-17T12:08:45Z
+    T79 in review at e4487148: step edit operations (worlds handed between steps, indexes), boot validation once, many
+    findings proposed for other Tasks; session/long 0.161 to 0.108 ms. Opus review started. Three behaviour questions
+    (9a, 2a, 2c) pinned as it.fails for the user.
