@@ -3202,6 +3202,20 @@ tasks
             app's long Story, each series' end points, boot, one memory probe) with 2 workers in under about 30 s,
             flagging only clear changes; --full runs everything with 5 workers and a tight band; rows carry their tier
             and are never compared across tiers; the close reports both wall times.
+        comment     2026-11-17T18:21:09Z
+            Tiers (17676b5b): `nub run bench` is the quick tier: each app's long Story per turn, each series' two
+            smallest sizes (the largest take seconds a run, so they stay full), one boot (the app with the most
+            machines), one memory probe (cells, per create/dispose cycle); two workers, each one process running every
+            bench on a 300 ms budget and a 500 ms warm-up cap; changes count past 10 %. Measured 27.3 and 27.5 s on
+            battery, not recorded. `--full` runs every bench in five fresh processes each, changes past 5 %. Rows carry
+            `tier`; compare and summary never cross tiers. Earlier rows were migrated as `full`. `--detail` now prints
+            counters and shapes (was `--full`). Also: `setup` sits on the manifest beside `app`, the memory probe is the
+            manifest's `bench.probe(n)`, and persist is declared from `Compiled.persist`.
+        comment     2026-11-17T18:27:24Z
+            Correction (the user, 2026-11-17): no Story leaves the quick tier for being long, since long Stories catch
+            regressions. First a measured breakdown of where bench time goes (startup, warm-up, sampling, per run,
+            total, per bench and per tier); then a proposal for a fast quick tier that keeps every Story; the user
+            decides the cut.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
