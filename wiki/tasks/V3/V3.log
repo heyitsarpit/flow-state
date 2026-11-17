@@ -1134,3 +1134,8 @@ note 2026-11-17T20:14:56Z
     T89's deletion redone through the CLI: tombstone with deletion_reason plus cleanup_when_unreferenced=true makes wk
     edit remove it (deleted_at does not matter); the record matches the earlier hand cut. The wk help and skill don't
     say so.
+
+note 2026-11-17T20:16:26Z
+    Run resumed at 42f63c36 (workflow@1b83a6d): no live agents, tree clean; cron 7 * * * * and caffeinate on. Current
+    Task T87 (its three blockers); T81 stays in review behind the user's P3 order. First action: one Opus lead on T87's
+    fix round.
