@@ -1018,3 +1018,7 @@ note 2026-11-17T13:00:59Z
 note 2026-11-17T13:08:34Z
     Decision (the user, 2026-11-17): Q21 A. A mid-step defect ends the Runtime in a final Life state, stopped by a
     defect: reported once, snapshots read stopped, calls refuse, dispose returns the defect, nothing more written.
+
+note 2026-11-17T13:17:11Z
+    T79 second fix round in review at e6fac51d: records complete, Stopped Life state with Actors R25 (Q21 A), 22 codes.
+    Third review started.
