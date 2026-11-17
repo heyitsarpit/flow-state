@@ -74,7 +74,7 @@ export type Write = { readonly key: string; readonly record: Option.Option<strin
  * A schedule's live arming: its arming number (a firing of an older arming is discarded) and its
  * deadline.
  */
-type Armed = {
+export type Armed = {
   readonly arming: number;
   readonly dueAt: number;
   readonly send: string;

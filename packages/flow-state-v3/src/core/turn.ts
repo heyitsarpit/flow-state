@@ -49,7 +49,10 @@ export const Resolved = Data.taggedEnum<Resolved>();
 /**
  * A schedule to arm at the end of the turn, with its delay from the after memory.
  */
-type Arming = { readonly name: string; readonly send: string; readonly ms: number };
+/**
+ * A schedule a turn arms: its name, the event it sends and its delay.
+ */
+export type Arming = { readonly name: string; readonly send: string; readonly ms: number };
 
 /**
  * What a turn decided.

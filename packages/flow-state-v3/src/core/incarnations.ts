@@ -3,7 +3,7 @@ import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
 import type { Start } from "./input.ts";
 import { makeContext } from "./context.ts";
-import { armingsOf } from "./turn.ts";
+import { type Arming, armingsOf } from "./turn.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
@@ -13,6 +13,7 @@ import {
   type ActorId,
   actorKey,
   type ActorRecord,
+  type Armed,
   Command,
   Due,
   type Incarnation,
@@ -42,15 +43,16 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const { removeActor, saveActor } = persistence;
 
   // ── incarnations.
-  const armSchedules = (
+  // Arms each schedule at its deadline, replacing an earlier arming of the same name.
+  const armAt = (
     incarnation: Incarnation,
-    armings: ReadonlyArray<{ readonly name: string; readonly send: string; readonly ms: number }>,
+    deadlines: ReadonlyArray<Pick<Armed, "dueAt" | "send"> & { readonly name: string }>,
   ) => {
-    if (armings.length === 0) return incarnation;
+    if (deadlines.length === 0) return incarnation;
 
     const schedules = new Map(incarnation.schedules);
 
-    for (const a of armings) {
+    for (const a of deadlines) {
       const arming = tx.next();
 
       for (const armed of Option.toArray(Option.fromUndefinedOr(schedules.get(a.name))))
@@ -63,14 +65,20 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           schedule: a.name,
           arming,
         }),
-        tx.env.now + a.ms,
+        a.dueAt,
       );
 
-      schedules.set(a.name, { arming, dueAt: tx.env.now + a.ms, send: a.send, timer });
+      schedules.set(a.name, { arming, dueAt: a.dueAt, send: a.send, timer });
     }
 
     return { ...incarnation, schedules };
   };
+
+  const armSchedules = (incarnation: Incarnation, armings: ReadonlyArray<Arming>) =>
+    armAt(
+      incarnation,
+      armings.map((a) => ({ name: a.name, send: a.send, dueAt: tx.env.now + a.ms })),
+    );
 
   const stopSchedules = (incarnation: Incarnation) => {
     for (const armed of incarnation.schedules.values()) disarm(armed.timer);
@@ -212,20 +220,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.armed);
       },
       onSome: (record) => {
-        const schedules = new Map(bound.schedules);
-
-        for (const s of record.schedules) {
-          const arming = tx.next();
-
-          const timer = armTimer(
-            Timer.Schedule({ actor, incarnation: base.id, schedule: s.name, arming }),
-            s.dueAt,
-          );
-
-          schedules.set(s.name, { arming, dueAt: s.dueAt, send: s.send, timer });
-        }
-
-        return { ...bound, schedules };
+        return armAt(bound, record.schedules);
       },
     });
 
