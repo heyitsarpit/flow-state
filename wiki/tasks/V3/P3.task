@@ -3092,7 +3092,7 @@ tasks
 
     T87
         title       One bench tool, split by concern: filterable runs, CSV history by commit, compare with noise bands
-        status      in_progress
+        status      review
         priority    high
         description
             The bench is one standard tool split by concern: each benchmark is declared once with an id, a concern and
@@ -3358,6 +3358,18 @@ tasks
             parent's group, leave a detached worker running; workers must die with the run. Show each red first, then a
             review (a short one the orchestrator may verify itself). Routed items are in the review comment; bench.md
             also needs benchSeries and bench.persist.
+        comment     2026-11-17T20:32:20Z
+            Second fix round (72c0c209): the three blockers closed, red then green in tests/bench/limits.test.ts. (1)
+            Workers get --benches only when given, so a --compare worker loads its own commit's list, fixtures and src
+            (red: a scratch-only bench vs HEAD printed x1.005; green: (not at the other commit)). (2) --benches refuses
+            --record and --compare (red: HEAD's run.ts recorded a planted row). (3) Each worker starts a watch in its
+            own group that kills the group once the worker is no longer the run's child, so SIGKILL is covered; the run
+            handles SIGHUP (red: HUP and KILL left a worker under pid 1). Also: no timing file under --dev; bench.md
+            documents benchSeries, bench.persist and compare; declare.ts names no fixture. Gates: check 0, suite only
+            T20's two pair reds, test:stress 0; faults exit 1, its unchanged baseline timing out in the three sweeps at
+            load ~20 (bench-only diff). Left listed: timer at spawn, kill race, worktree left on a signal, crash fails
+            the batch's rest, --workers 1 spread 0, stressFrom unchecked against Story status, no tooling.csv, cap-tree
+            started check.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
