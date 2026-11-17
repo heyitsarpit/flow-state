@@ -130,7 +130,8 @@ outcomes
         lane record carries Flow's record format. The paused-timer record (`{ name, key?, left }`) is a new format step;
         an older record's timers read as `dueAt` through the pure step (@plan.Machines.O5).
 
-        Plain memory coalesces for 5 s and is flushed at once on `visibilitychange` to hidden and on `pagehide`;
+        Plain memory coalesces for the capture interval (default 5 s, kept until the bench says otherwise) and is
+        flushed at once on `visibilitychange` to hidden and on `pagehide`;
 
         - a batch that touches a lane or a send, or a `disposeActor` removal, is written at once with everything dirty,
           so a lane never outruns its actor;
@@ -139,12 +140,16 @@ outcomes
 
         The durability required by @O6 cannot be coalesced away. A stream partition is written once per changed last.
 
-        A scope admits at most 4,096 records and 16 MiB of record data, including dormant records; over either bound, a
-        capture drops the oldest ended records that equal a fresh start, with evidence, and if that is not enough the
-        capture is rejected and its evidence names the oldest ended identities, so the app can forget them; a record
-        that holds anything a user did is never dropped.
+        A step only marks the record keys it changed. When the edge issues a batch, one pure Capture step projects every
+        marked key from the current World through the compiled encoders (D30); a key stays marked until a batch carrying
+        it lands. Layout, format and `Store` are unchanged, and the saved bytes are identical. A step that mints a
+        ticket still refuses at once if its record cannot encode. A record that becomes unencodable after its ticket's
+        step and before issue ends that commit `NotSent { StorageRefused }` with nothing sent, and `UnencodableValue` is
+        reported at Capture.
 
-        Shared value bounds follow @plan.Inspection.O2; encoding failure preserves the last good capture.
+        A scope has no cap on records or bytes and drops no record (D24); the storage quota is the real limit and ends a
+        write as `StorageRefused`. Encoding failure preserves the last good capture. A dev diagnostic reports a turn or
+        capture slower than the bench's budget.
 
         **The store's contract (agent-judged):**
 
@@ -154,14 +159,14 @@ outcomes
         - an awaited write waits for any plain batch of its actor still out and carries what that batch owed;
         - a batch answers landed only if every request in it succeeded.
 
-        A write the disk has not answered is pending, never "not sent": evidence `StorageSilent` names it after 10 s and
-        decides nothing; nothing bounds a wait on storage (a stated limit).
+        A write the disk has not answered is pending, never "not sent": evidence `StorageSilent` names it after a named
+        Runtime default (D25) and decides nothing; nothing bounds a wait on storage (a stated limit).
 
         Page hide, visibility becoming hidden and Runtime disposal request a flush; a frozen page runs no task,
         deadline, backoff or capture until a thaw, and a discard is a kill with no `pagehide`.
 
-        Browser exit flushing is best effort; on Safari a tab close loses the last batch, so the loss window is the 5
-        s interval.
+        Browser exit flushing is best effort; on Safari a tab close loses the last batch, so the loss window is the
+        capture interval.
 
         A record names the boot that wrote it and restore's id floor is the largest it reads, so an id on disk is never
         minted again.

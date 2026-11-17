@@ -68,11 +68,12 @@ outcomes
         initial, an optional key stays absent, and an input field with no default refuses the record
         (RestoreMissingInput); record versions, resets and dropped fields are @plan.Persistence.O5.
 
-        Optional context maps slots to another definition's Provider.select(selector); context binding is
-        @plan.Runtime.O5. operations is ({ E }) => ({ name: contract.outcomes({ ... }) | contract }): each server
-        interaction is declared once by name with its endings mapped onto this definition's events (@plan.Operations.O1
-        to O3); one write operation per write contract per actor, counting every fragment placement in its tree
-        (SharedContract, proposed name, otherwise).
+        Optional context maps slots to another definition's Provider.select(schema, selector); context binding is
+        @plan.Runtime.O5, which also states that memory, selections, payloads and inputs are immutable once admitted
+        (deep-frozen in dev and test, D29) and that values nest to any depth (D27). operations is ({ E }) => ({ name:
+        contract.outcomes({ ... }) | contract }): each server interaction is declared once by name with its endings
+        mapped onto this definition's events (@plan.Operations.O1 to O3); one write operation per write contract per
+        actor, counting every fragment placement in its tree (SharedContract, proposed name, otherwise).
 
         The definition exports O, the operations' handles; a commit's or lookup's select is typed at its transition.
         Machine configuration mirrors the declared state tree exactly: root and compounds require a default direct-child
@@ -175,8 +176,8 @@ outcomes
         _tag payload/input/memory fields, self-selecting context and invalid operation handles reject. State names is
         and child, top-level root, and the names self and __proto__ (ReservedStateName) are reserved.
 
-        State paths have at most ten segments. Authored names and ids are nonempty, at most 256 UTF-8 bytes, contain no
-        C0 controls, DEL or lone surrogates, and retain exact spelling: no Unicode normalization or locale comparison.
+        State paths and names have no length cap (D24). Authored names and ids are nonempty, contain no C0 controls, DEL
+        or lone surrogates, and retain exact spelling: no Unicode normalization or locale comparison.
 
         Construction errors also include unfilled required ports, a raise into a fragment the turn's state change exits,
         two state changers or overlapping keys that state-token pruning cannot separate, an acting fragment member used
@@ -551,7 +552,7 @@ outcomes
             toasts: Flow.initial(Schema.Array(Schema.Struct(Toast)), []),
             hovered: Flow.initial(Schema.Boolean, false),
           },
-          context: { maxVisible: Screen.Provider.select((s) => (s.memory.narrow ? 1 : 3)) },
+          context: { maxVisible: Screen.Provider.select(Schema.Number, (s) => (s.memory.narrow ? 1 : 3)) },
         })
 
         export const ToasterMachine = machine(Toaster, ({ S, E }) => ({

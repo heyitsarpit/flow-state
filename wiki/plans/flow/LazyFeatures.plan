@@ -87,10 +87,11 @@ outcomes
         feature. Hydration's no-mismatch behavior is @plan.ServerRendering.O4; merge precedence
         is @plan.ServerRendering.O5.
 
-        After ready() resolves, the client loads transferred inactive entries in parallel, each bounded by 10 seconds;
-        ready() never waits for them. A Hydrate boundary committed later starts loads for its own entries the same way.
-        A loaded entry adopts when its load finishes or at the first attach holding its ref, whichever comes later,
-        installing its transferred state under the merge rules; until then the server view stays on screen.
+        After ready() resolves, the client loads transferred inactive entries in parallel, each bounded by a named
+        Runtime default (D25); ready() never waits for them. A Hydrate boundary committed later starts loads for its own
+        entries the same way. A loaded entry adopts when its load finishes or at the first attach holding its ref,
+        whichever comes later, installing its transferred state under the merge rules; until then the server view stays
+        on screen.
 
         A rejected or timed-out load reports EntryLoadFailed with its cause; the entry stays inactive and its
         transferred state provisional, persisted data stays dormant, and the next attach retries the load. A failed load

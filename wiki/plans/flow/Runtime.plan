@@ -50,11 +50,12 @@ outcomes
         runtimeSetup({ app, services?, scope?, persistence?, repairSlots?, audit? }).construct() is synchronous and
         inert. scope is an optional nonempty string naming whose data the Runtime holds, such as a user, workspace or
         tenant id. It partitions saved data (@plan.Persistence.O1) and stamps and checks hydration payloads
-        (@plan.ServerRendering.O6); machines, operations and conditions never read it. `repairSlots` (default 6) and
-        audit (default false, for development and tests only) are @plan.EntityDomains.O5 and @plan.EntityDomains.O4.
-        services is an Effect Layer typed by the machines' R: it must provide every service the app's contracts list in
-        their services, lazy entries included; a missing service is a type error, and the boot refuses, by machine,
-        operation and service, an operation whose service it lacks, so no write is marked unknown for a missing service.
+        (@plan.ServerRendering.O6); machines, operations and conditions never read it. `repairSlots` (a named default
+        set from the bench, D25) and audit (default false, for development and tests only) are @plan.EntityDomains.O5
+        and @plan.EntityDomains.O4. services is an Effect Layer typed by the machines' R: it must provide every service
+        the app's contracts list in their services, lazy entries included; a missing service is a type error, and the
+        boot refuses, by machine, operation and service, an operation whose service it lacks, so no write is marked
+        unknown for a missing service.
 
         Each service is acquired once per Runtime.
 
@@ -151,11 +152,11 @@ outcomes
         or context; queued mail is processed before the end. While nothing uses it, its schedules
         wait (@plan.Machines.O5).
 
-        Free of both for the grace (100 ms on the Runtime Clock, internal, the same for local actors), it ends: a
-        persisted actor's record is encoded in that step (the end waits while it cannot be encoded), its lanes move to
-        the Runtime unbound, its schedules are cancelled, its placements, sessions and unkept reads stop, and each read
-        it stops parks failure { Interrupted } for the identity; when that stops live work, the development warning
-        EndedWithWork names it once per machine and kind of work.
+        Free of both for the grace (a named Runtime default on the Runtime Clock, set from the bench, D25, the same for
+        local actors), it ends: a persisted actor's record is encoded in that step (the end waits while it cannot be
+        encoded), its lanes move to the Runtime unbound, its schedules are cancelled, its placements, sessions and
+        unkept reads stop, and each read it stops parks failure { Interrupted } for the identity; when that stops live
+        work, the development warning EndedWithWork names it once per machine and kind of work.
 
         An ensure while it is ending waits and binds the next incarnation; disposing and then ensuring the same ref
         creates a new incarnation. Host `createActor` actors live until disposed. retain does not exist: an actor that
@@ -206,10 +207,12 @@ outcomes
         stream deliveries, timer firings, `onContext` events and props updates queue together. A call's ending is queued
         at settlement and mapped and routed when its turn is admitted. Equal deadlines are separate turns.
 
-        Across actors, follow-ups run first, up to 64 for each admitted event, past which the turn that would add one is
-        refused InvalidTurn naming the chain; otherwise one event from the next actor in rotation, oldest first within
-        that actor. Nothing orders two actors' turns unless a turn links them, so bulk work on one actor never
-        starves another.
+        Across actors, follow-ups run first, up to the one loop guard for each admitted event (a named Runtime default
+        set from the bench, D24), past which the turn that would add one is refused InvalidTurn naming the chain. Only
+        events sent by turns count: a context update and the `onContext` events it enqueues never do (D13), so one
+        update reaches any number of consumers in one admitted event. Otherwise one event from the next actor in
+        rotation, oldest first within that actor. Nothing orders two actors' turns unless a turn links them, so bulk
+        work on one actor never starves another.
 
         ```ts
         // A props update is a turn in the one mailbox, in order with sends (the stepper of @plan.Machines.O2).
@@ -228,15 +231,14 @@ outcomes
         one operation failing with the same input many times in a row, and flow check's AsksForever a handler whose
         every path asks again; neither decides anything.
 
-        Each actor queues at most 1,024 pending events: an external send beyond that throws AdmissionOverloaded and
-        changes nothing. send validates the event's tag and payload; an internal, unknown or invalid event throws
-        InvalidEvent and starts no turn.
+        A mailbox has no cap (D24); a slice's mail drain is a fairness yield, its count set from the bench. send
+        validates the event's tag and payload; an internal, unknown or invalid event throws InvalidEvent and starts
+        no turn.
 
-        Endings, schedule firings, context updates and props updates are never dropped: they are bounded by work already
-        admitted, not by the mailbox limit. Before attach, a local actor holds one replaceable pending props update,
-        outside the send and mailbox bounds, never dropped. Stream deliveries are bounded by what Flow has pulled,
-        outside the mailbox cap (@plan.Operations.O4); a released session's undelivered items are discarded with
-        evidence, and a timer of an ended activation is discarded (@plan.Machines.O5).
+        Endings, schedule firings, context updates and props updates are never dropped. Before attach, a local actor
+        holds one replaceable pending props update, never dropped. Stream deliveries are bounded by what Flow has pulled
+        (@plan.Operations.O4); a released session's undelivered items are discarded with evidence, and a timer of an
+        ended activation is discarded (@plan.Machines.O5).
 
         A refused delivery is kept, never lost. An ending whose turn is refused (InvalidTurn), or whose outcome mapper
         throws at admission, is delivered once more after the mail already queued; the second refusal is final and its
@@ -273,8 +275,7 @@ outcomes
         - a persisted actor while the Runtime boots is queued (@O2);
         - an actor being disposed by `disposeActor` is dropped with NoRecord.
 
-        A full target is AdmissionOverloaded. Reasons are reported on the sender and never roll back its turn. Several
-        sends keep their order.
+        Reasons are reported on the sender and never roll back its turn. Several sends keep their order.
 
         Every publication is one complete cut: a reader never sees an actor's new snapshot with old store data or the
         reverse. A new snapshots subscriber gets current truth first; slow subscribers may skip intermediate snapshots.
@@ -288,9 +289,15 @@ outcomes
         A consumer always reads one complete, consistent snapshot of the context it depends on, and a bad context graph
         is refused before any work runs.
 
-        Provider.select(selector) reads one complete provider snapshot. A context slot binds to one provider for the
-        consumer's lifetime. Context reads form an acyclic upward graph; a cycle (ContextCycle), a missing provider
-        (MissingContextProvider) or an incompatible one rejects at admission.
+        Provider.select(schema, selector) reads one complete provider snapshot; the selection passes once through the
+        Schema's JSON form (D20), so the consumer reads, compares and saves the same value live and after a reload. A
+        selection with no canonical form is reported `UnencodableValue` and never fails the turn; a Schema refusal is
+        the selector's defect. Memory, selections, payloads and inputs are immutable once admitted; dev and test
+        deep-freeze them so a mutation throws where it happens, and production pays nothing (D29). Unchanged values keep
+        their reference, so compiled walkers memoise by reference and equality may compare references first. Values nest
+        to any depth: every Schema in Compiled has a stack-safe encoder, decoder and comparator (D27). A context slot
+        binds to one provider for the consumer's lifetime. Context reads form an acyclic upward graph; a cycle
+        (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one rejects at admission.
 
         Baselines are silent: `onContext` fires for none established at admission, restore, lazy adoption or hydration;
         an actor returning after an end gets one wave if a provider's selection differs from the one it ended with in
@@ -340,8 +347,8 @@ outcomes
         A lane is unbound while its identity has no decoded actor record and no incarnation.
 
         On disposal, queued events that have not started are dropped without running. Schedules cancel, placements stop,
-        and stream sessions release within the bound (5 s, ReleaseOverdue); a new session waits for its
-        releasing predecessor.
+        and stream sessions release within the bound (a named Runtime default, D25, ReleaseOverdue); a new session waits
+        for its releasing predecessor.
 
         Disposal invokes no new commit and drops no lane: the Runtime keeps the lanes, applies their endings and invokes
         what the lane table promotes (@plan.Operations.O3); runtime.unsettledWrites() lists non-Idle lanes by identity,
@@ -352,7 +359,7 @@ outcomes
         - from its start nothing is invoked;
         - a queued commit that was never sent ends NotSent { Disposed }, delivered after reload for a
           persisted identity;
-        - a call that settles within 5 seconds is parked;
+        - a call that settles within the disposal bound (a named Runtime default, D25) is parked;
         - past the bound an Attempt still on the wire ends unknown { Disposed } and its late result is ignored.
 
         Wherever endings of one lane are delivered or parked together, an ending that leaves a hold comes last: each
@@ -363,7 +370,7 @@ outcomes
         No module starts work once disposal starts. A cleanup failure rejects dispose with CleanupFailed, quarantines
         the ref (later ensures report the same failure) and keeps the full Cause; it is never reported as success.
 
-        Runtime disposal waits for the final persistence write within the same 5-second budget; a write still pending
+        Runtime disposal waits for the final persistence write within the same disposal bound; a write still pending
         then reports StorageFailure (@plan.Persistence.O3). The terminal snapshot keeps the last committed state and
         memory; disposal runs no machine event.
 
@@ -405,12 +412,13 @@ verification
         - a chain of two or more writes and reads in one incarnation;
         - schedules waiting without a use;
         - props passed to ensureActor, actorRef or useActorByRef are a type error.
-    V5  Mailboxes: the 1,024 and 64 bounds, invalid events, FIFO and rotation, send results
+    V5  Mailboxes: no mailbox cap, the one loop guard (context updates never count), invalid events, FIFO and rotation, 
+         send results
         owned by the sender, refused deliveries kept, props updates in FIFO order and never dropped.
     V6  Context: diamond and chain waves give one update from latest values; a throwing selector
         is isolated.
     V7  Disposal and isolation: provider-with-consumers rejection, idempotent dispose, the
-        5-second bound with unknown { Disposed } and the parking order, forget keeping holds, quarantine on cleanup
+        disposal bound with unknown { Disposed } and the parking order, forget keeping holds, quarantine on cleanup
         failure, no sharing between Runtimes.
 questions
     Q1  Can one services Layer be acquired storage-first?

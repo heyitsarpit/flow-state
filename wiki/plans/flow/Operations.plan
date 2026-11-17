@@ -66,9 +66,9 @@ outcomes
         unsupported values are rejected without running getters or coercion. Negative zero equals zero; Unicode
         spelling matters.
 
-        Keys allow at most 16 nested levels, 256 value nodes and 8,192 UTF-8 bytes of canonical text. Invalid keys
-        report InvalidKey with the offending path and change nothing before work starts; a key that cannot be encoded is
-        @O3's Unencodable. Later mutation of input cannot change an admitted key.
+        Keys have no cap on depth, nodes or bytes (D24, D27). Invalid keys report InvalidKey (unsupported values; never
+        size) with the offending path and change nothing before work starts; a key that cannot be encoded is @O3's
+        Unencodable. Later mutation of input cannot change an admitted key.
 
         invalidate and clear match a contract plus a partial key: every named property must equal the entry's whole
         property value; {} matches the family. Keys are exposed in persistence, payloads and traces; they neither
@@ -153,7 +153,7 @@ outcomes
 
         Flow's own endings are two values, each a Data.TaggedEnum discriminated by `_tag`, so Match.tag works on them,
         and each also a Schema tagged union. Flow.NotSent is the ending of a commit Flow never sent, with tags
-        Cancelled, Restored, Rejected, Overloaded, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable and
+        Cancelled, Restored, Rejected, StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable and
         ModuleDisabled (proposed name). Flow.Unknown is every unknown ending, with tags Outcome { error } (the commit's
         own Outcome.unknown), StillUnknown { failure }, Defect { cause }, Cancelled, Restored, Interrupted,
         StorageRefused and Disposed.
@@ -194,13 +194,12 @@ outcomes
         - Idle;
         - InFlight, one addressable Attempt waiting to be invoked or on the wire;
         - Held, a retained unknown;
-        - each with queued commits W (none under reject, at most one under latest, a FIFO of at most 64
-          under serialize).
+        - each with queued commits W (none under reject, at most one under latest, an unbounded FIFO under serialize).
 
         A turn's members apply to the lanes in action order in its validation step. commit: Idle mints an Attempt;
         InFlight or Held, reject ends NotSent { Rejected } and the transition runs, latest queues one commit (a previous
-        queued commit, or a never-sent head not yet invoked, ends Superseded, evidence), serialize appends to W and past
-        64 ends NotSent { Overloaded }.
+        queued commit, or a never-sent head not yet invoked, ends Superseded, evidence), serialize appends to W (no
+        cap, D24).
 
         Under concurrency cancel a newer commit interrupts the previous one, whose ending is evidence. retry(k?)
         re-sends a Held Attempt with its id and input unchanged (InFlight: evidence InFlight; Idle or resolved: evidence
@@ -274,12 +273,10 @@ outcomes
         Values with no form never fail a turn: a commit whose input or key cannot encode declines NotSent { Unencodable
         }, its transition runs and its mapper receives the value the turn asked to send.
 
-        Domain writes: their store effects publish at settlement, before their ending is queued; a commit past its
-        lane's queue, any record queue, or a many key array past 4,096 items (counted from the write's targets before
-        any join, repeats included) ends NotSent { Overloaded } with no prediction and no partial join, the transition
-        and its other actions running; a domain write joins its record queues when its Attempt heads its lane, never at
-        commit (@plan.EntityDomains.O1); a store module's defect declines a write that would join NotSent {
-        ModuleDisabled } until reload.
+        Domain writes: their store effects publish at settlement, before their ending is queued; no queue or many key
+        array has a cap, so no commit ends for size (D24); a domain write joins its record queues when its Attempt heads
+        its lane, never at commit (@plan.EntityDomains.O1); a store module's defect declines a write that would join
+        NotSent { ModuleDisabled } until reload.
     O4  Streams
         A stream delivers every message or only the latest, as its contract declares, and Flow reconnects a failed
         connection when the contract asks.
@@ -305,17 +302,17 @@ outcomes
         Two operations on one contract and key are two sessions, with a DuplicateSession warning. Flow runs connections
         only by the declared reconnect and `idleTime`, and sessions only by placement; it never re-opens a session.
 
-        The default schedule is exponential from 500 ms, jittered by a factor of 0.8 to 1.2 from a well-mixed hash of
-        the session id and step (no saved seed), capped at 30 s; it retries while offline and ends Flapping after 8
-        registered flaps. Sessions release within Runtime O6's 5 s bound (ReleaseOverdue).
+        The default schedule is exponential, jittered from a well-mixed hash of the session id and step (no saved seed);
+        it retries while offline and ends Flapping after a count of registered flaps. Its base, jitter, cap and flap
+        count are one named Runtime default set from the bench (D25), run with Effect's `Schedule`. Sessions release
+        within Runtime O6's disposal bound (ReleaseOverdue).
 
         The adapter says three things: a value arrived; the server is listening (Feed.live(), with { proof } that
         nothing was missed, { head } giving the newest position, or { restartAt } for a restarted log); the connection
         dropped (Feed.down(reason)); Feed.ping is a sign of life.
 
         Positions in signals decode against the position's Schema at intake; a failure is Defect. Feed.callback<A, E,
-        R>(register) is shaped as Stream.callback and bounded at 1,024 queued items (the delivery in the mailbox
-        not counted).
+        R>(register) is shaped as Stream.callback with no queue cap (D24).
 
         Feed.multiplex({ connect }), library code beside it, holds one connection while any key has a session: add and
         remove on a key's first and last session, emit.to(key, x), emit.all(x), emit.fail(e), emit.fail(e, key) (the
@@ -336,10 +333,10 @@ outcomes
         Flow moves it when a value's turn is admitted, keeps it through Denied and Unhandled, and a Denied value moves
         it with DeliveryDenied.
 
-        At most 256 entries per operation, the oldest by last write dropped; a re-created entry takes filled from the
-        field. fills names a field of the operation's own memory (an array, a Record or a number): emptied while the
-        session stays placed it is cleared (stays cleared), emptied by a turn that released the session or while
-        unplaced it is wiped (catchUp re-reads; without it, missed).
+        Entries per operation have no cap (D24); a re-created entry takes filled from the field. fills names a field of
+        the operation's own memory (an array, a Record or a number): emptied while the session stays placed it is
+        cleared (stays cleared), emptied by a turn that released the session or while unplaced it is wiped (catchUp
+        re-reads; without it, missed).
 
         A handler that changes a placed session's key while the state stays put empties the fills field in the same
         turn; Flow never wipes it; FillsOtherKey (proposed name) flags a registration with no entry beside a filled
@@ -361,10 +358,10 @@ outcomes
         lands when applied, so older lookups cannot overwrite it. Accepted equal writes refresh freshness without value
         events. A commit's optimistic and a `setData` action on its own entries are type errors on a domain operation.
 
-        A write batch validates all targets before mutation and publishes atomically. More than 256 expanded identities
-        (AdmissionOverloaded) or any invalid target (InvalidKey) rejects the entire batch (this bound is the plan's own;
-        the design does not state it); no match is a successful no-op. invalidate retains data and optimistic values,
-        marks entries stale and refetches subscribed entries with no request running.
+        A write batch validates all targets before mutation and publishes atomically. Any invalid target (InvalidKey)
+        rejects the entire batch; the batch has no identity cap (D24); no match is a successful no-op. invalidate
+        retains data and optimistic values, marks entries stale and refetches subscribed entries with no
+        request running.
 
         A request started before invalidation cannot make the entry fresh. clear removes data and optimistic values,
         blocks old results and makes surviving placements Pending before reacquiring. Related commits still settle.

@@ -108,9 +108,10 @@ outcomes
         closes connections and fires deadlines up to a fixed horizon, settling after each, with nothing reaching the
         evidence); a fiber still parked is HostTimeWait.
 
-        A session or setup-scoped fiber may wait. A sleep of zero or less is a yield. Each step may run 10,000 turns per
-        instant; the 10,001st rejects with StoryTurnLimit naming the step and the instant, before executing; later steps
-        do not run and partial evidence survives; there is no `maxTurns` option.
+        A session or setup-scoped fiber may wait. A sleep of zero or less is a yield. Each step may run a turn limit per
+        instant (a measured test-tooling default, not a core cap); the turn past it rejects with StoryTurnLimit naming
+        the step and the instant, before executing; later steps do not run and partial evidence survives; there is no
+        `maxTurns` option.
 
         Interleaving is fixed: tabs take turns in first-open order, Attempts reach their fakes in invocation order,
         fakes' handlers run in arrival order, and equal instants follow a documented total order.
@@ -120,13 +121,13 @@ outcomes
         own timeout, a cancelled fiber's real wait and fire-and-forget host work are not caught.
 
         advance(d) moves time to now plus a finite nonnegative Duration.Input, stopping and settling at every deadline
-        on the way, at most 100,000 deadlines (StoryTurnLimit with reason Advance). advance({ next: address }) moves to
-        the earliest unfrozen, unpaused deadline the address matches (NoDeadline if none); advance({ to }) to an epoch
-        millisecond at or after now; advance(d, { suspended }) models a page in the background, firing the tab's overdue
-        timers. advance(d) and advance({ to }) never fire a paused timer, and paused time never counts. Schedule records
-        carry pause and resume with their reason names. together(...inputs) is the only concurrency word: admission is
-        held in every tab while each listed send, control or { advance } arrives, then admission resumes and the
-        step settles.
+        on the way, at most the deadline limit, a measured test-tooling default (StoryTurnLimit with reason Advance).
+        advance({ next: address }) moves to the earliest unfrozen, unpaused deadline the address matches (NoDeadline if
+        none); advance({ to }) to an epoch millisecond at or after now; advance(d, { suspended }) models a page in the
+        background, firing the tab's overdue timers. advance(d) and advance({ to }) never fire a paused timer, and
+        paused time never counts. Schedule records carry pause and resume with their reason names. together(...inputs)
+        is the only concurrency word: admission is held in every tab while each listed send, control or { advance }
+        arrives, then admission resumes and the step settles.
 
         ```ts
         // The toaster of @plan.Machines.O5: context maxVisible is 1, so the second toast is held (Hidden) while the
@@ -198,9 +199,8 @@ outcomes
         never collapse.
 
         A checkpoint names a step cut; checkpoint(name, { at: { settled: O.x } }) names a settlement's publication.
-        Every cut captures its full inspection and every frame its work and lanes. run.frames keeps at most 10,000 and
-        exposes a non-enumerable truncated; its iterator throws FramesTruncated; step cuts and checkpoints are
-        never truncated.
+        Every cut captures its full inspection and every frame its work and lanes. run.frames keeps every frame (no cap,
+        D24), so a run is never truncated.
 
         Each frame names its cause and refers to evidence by sequence position rather than copying it. end captures
         after the last step, before cleanup; it does not mean actors have reached final states.
@@ -274,8 +274,8 @@ outcomes
         Inconclusive, after every run completes; a property's defect is PropertyDefect.
 
         Fail identifies the property and step/publication; turn exhaustion, pending external work, a quiet horizon or
-        insufficient evidence is Inconclusive, except that a truncated run is a Fail with FramesTruncated. Acquisition,
-        generator and cleanup defects reject as execution errors rather than counterexamples.
+        insufficient evidence is Inconclusive. Acquisition, generator and cleanup defects reject as execution errors
+        rather than counterexamples.
 
         Shrinking deterministically tries step chunks, individual steps, then smaller inputs, preserving dependencies,
         input validity and step pairs. Each candidate runs fresh and is retained only if the same property fails. Stop
@@ -305,8 +305,8 @@ outcomes
         else; there is no cross-tab coordination. A clean Runtime shutdown with queued work is a test of Flow's own
         policy suite.
 
-        App dehydrate(label, { within, maxBytes? }) captures through production server settle, moving time as advance
-        does, deadline by deadline, until quiet or within. It stores run.payloads[label] and leaves the scenario
+        App dehydrate(label, { within }) captures through production server settle, moving time as advance does,
+        deadline by deadline, until quiet or within. It stores run.payloads[label] and leaves the scenario
         Runtime available.
 
         Labels follow checkpoint key rules. hydrate(source, label?) accepts a payload or an independently executed
@@ -335,8 +335,8 @@ outcomes
 
         run() rejects on a real Story error or a broken fake, never on a value: StoryTurnLimit, HostTimeWait,
         StoryInvalidCommand (ActorAbsent, AlreadyEntered, NotEntered, TabOpen, TabClosed, NothingHeld, NoDeadline,
-        NoConnection), InvalidDuration, SubjectAbsent, AmbiguousRead, FramesTruncated, StoryFakeError, a failed
-        acquisition or a cleanup failure.
+        NoConnection), InvalidDuration, SubjectAbsent, AmbiguousRead, StoryFakeError, a failed acquisition or a
+        cleanup failure.
 
         After a resolve every declared checkpoint is present and typed. The earliest recorded error is primary, ordered
         by the step where a fiber parked, and later ones are listed; otherwise the first cleanup failure is primary.
@@ -379,7 +379,7 @@ verification
         stable earlier evidence, and StoryFrame rendering with gaps, inert clicks and the frame's time.
     V5  Removed with @O5 (T1; C77).
     V6  Property tests prove seeded replay, validated steps, Pass, Fail and Inconclusive judging,
-        FramesTruncated, and shrinking.
+        and shrinking.
     V7  Stories prove isolated hydration evidence, exact-step lazy adoption without loading,
         reload by reload, closeTab and openTab, and a second tab running without persistence.
     V8  Tests prove cleanup failures and direct/CLI partial-evidence parity.

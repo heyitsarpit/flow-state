@@ -45,11 +45,11 @@ outcomes
         Held), holds, queued commits, kept endings and parked endings, including quarantined lanes, old-version lanes
         and holds left after `disposeActor` or forget; resource entries and stream sessions (per session: state, drop,
         its registration row and basis, each proof, losses, bookmark and filled, bound and release, with counters and a
-        ring of the last 256; flags ValuesWhileDown, RegistrationChurn, ReleaseOverdue, ProofWithoutPosition,
-        PingsWithoutLive, IdleWithoutPing (proposed name; a Silent end of a connection with no ping since connect),
-        DeliveryDenied, FillsUntouched and FillsOtherKey, proposed name); per domain the answers with frontier and stale
-        causes, predictions, queues, uncertain records, given-up marks and a record wait as stalled: "record"
-        (proposed); persistence status, including SecondTabNoPersistence; lazy entries adopted or not;
+        ring (the Runtime's named default size); flags ValuesWhileDown, RegistrationChurn, ReleaseOverdue,
+        ProofWithoutPosition, PingsWithoutLive, IdleWithoutPing (proposed name; a Silent end of a connection with no
+        ping since connect), DeliveryDenied, FillsUntouched and FillsOtherKey, proposed name); per domain the answers
+        with frontier and stale causes, predictions, queues, uncertain records, given-up marks and a record wait as
+        stalled: "record" (proposed); persistence status, including SecondTabNoPersistence; lazy entries adopted or not;
         hydration provenance.
 
         Held wire items in a Story are not Runtime facts.
@@ -62,12 +62,13 @@ outcomes
         flow explain is @plan.CommandLine.O1 and @plan.CommandLine.O4.
         Reference: references/dispatch-desk/tools/inspection.ts.
     O2  The structural codec
-        One bounded codec carries every value that crosses a process or storage boundary: persisted records
+        One codec carries every value that crosses a process or storage boundary: persisted records
         (@plan.Persistence.O3), server-rendering payloads (@plan.ServerRendering.O3), trace artifacts and the Model
         bytes. It accepts JSON values produced by the owning Schema.
 
-        A value at a bound is accepted, one past it is rejected: depth 32, 10,000 nodes, 4,096 items per array, 262,144
-        UTF-8 bytes per string or key, 2,097,152 canonical bytes.
+        The codec has no bound on depth, nodes, items, string length or total bytes (D23, D27): every Schema in Compiled
+        gets a stack-safe encoder, decoder and comparator, so a value nests to any depth. What still bounds a value is
+        real: the storage quota (`StorageRefused`), and a value with no canonical form, which is `UnencodableValue`.
 
         Encoding is canonical: sorted keys, no whitespace, no -0, NaN, infinity, cycles, lone surrogates or sparse
         arrays. Decoding is strict: it rejects a byte-order mark, invalid UTF-8, and any input that does not re-encode
@@ -77,10 +78,9 @@ outcomes
         Equal accepted data gives equal bytes on every host; mutating an input or output byte array afterwards never
         changes any stored or decoded value.
 
-        A failure is one FlowError raised before any actor, store, service or committed change: CodecBoundExceeded
-        (naming the bound, its value and the path), CodecMalformed (with a reason, one of utf8, json, nonCanonical,
-        cycle, negativeZero, nonFinite, loneSurrogate, notPlain or sparse) or CodecSchemaMismatch (path and issue
-        summary, never data values).
+        A failure is one FlowError raised before any actor, store, service or committed change: CodecMalformed (with a
+        reason, one of utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate, notPlain or sparse) or
+        CodecSchemaMismatch (path and issue summary, never data values).
 
         No raw parser error or Cause escapes. A value with no encoded form inside a turn never fails the turn: it is
         UnencodableValue (@plan.Operations.O3, @plan.Persistence.O5).
@@ -90,10 +90,11 @@ outcomes
         attachInspector(runtime, callback) attaches a callback; attachInspector(runtime, { capacity? }) creates a
         bounded buffer. Both return drain() and dispose(); the buffer also returns snapshot() and clear().
 
-        Capacity defaults to 256 and may be zero; an invalid capacity throws InvalidInspectorCapacity before attaching.
-        snapshot() returns { records, truncatedBeforeSequence }, where the marker is null only if nothing was omitted,
-        otherwise the greatest omitted or cleared sequence. Overflow drops the oldest records and advances the marker.
-        clear() empties the window without resetting the sequence.
+        Capacity is settable and may be zero; its default is a named Runtime default set from the bench (D25); an
+        invalid capacity throws InvalidInspectorCapacity before attaching. snapshot() returns { records,
+        truncatedBeforeSequence }, where the marker is null only if nothing was omitted, otherwise the greatest omitted
+        or cleared sequence. Overflow drops the oldest records and advances the marker. clear() empties the window
+        without resetting the sequence.
 
         A sink belongs to one Runtime and attaches once (InspectorAlreadyAttached on reuse); attaching to a disposed or
         disposing Runtime throws RuntimeDisposed. Attaching before ready() sees bootstrap evidence. A late attachment
@@ -136,8 +137,8 @@ outcomes
 
         Boot reports and evidence named by the owner plans appear here: TurnStorm, StorageSilent, OldVersionLane and
         Stale, and, all proposed names, RecordUndecodable, UnboundLane, LaneRekeyed, OpRenamed, LaneRekeyCollision,
-        HoldWithoutRecord, HoldForgotten, RecordShapeChanged, FieldDropped, RecordHeld, RepairOverdue, UnsettledEvicted,
-        GuardContradicted and SelectedNoKey.
+        HoldWithoutRecord, HoldForgotten, RecordShapeChanged, FieldDropped, RecordHeld, RepairOverdue, GuardContradicted
+        and SelectedNoKey.
 
         A second tab emits persistence-lock with SecondTabNoPersistence and no capture or restore; no multi-tab
         coordination events exist in v1.
@@ -149,9 +150,8 @@ outcomes
 
         A Trace holds kind and version, `storyId`, `appId`, `appFingerprint`, seed, a `truncatedBeforeSequence` marker,
         redacted events, uniquely named redacted checkpoints, outcome ("completed" or "failed"), end, failure and
-        cleanup status. completed requires an end; a failure before end capture leaves end null. It keeps at most 4,096
-        recent events, dropping the oldest until it fits the codec bounds and advancing the marker; checkpoints are
-        never dropped, and if they cannot fit the export fails with CodecBoundExceeded.
+        cleanup status. completed requires an end; a failure before end capture leaves end null. It keeps every event
+        and checkpoint (no cap), so the marker stays null.
 
         Import validates in order and rejects with one FlowError:
 
@@ -236,7 +236,7 @@ verification
     V2  inspect(runtime): during a turn it returns the previous cut, never mixes revisions,
         starts no work, touches no storage and leaves the sequence unchanged; lanes by identity, uses and incarnations
         match the Runtime.
-    V3  Codec: each bound at its value and one past it; malformed UTF-8, BOM, lone surrogates,
+    V3  Codec: a 100,000-deep value and a 5,000-item array round-trip; malformed UTF-8, BOM, lone surrogates,
         duplicate keys, -0 and non-canonical spellings fail with the right code and path; caller mutation of bytes
         changes nothing.
     V4  Sinks: a stalled sink never delays turns; a failing sink detaches alone; capacity 0, 1

@@ -180,7 +180,7 @@ outcomes
         unconfirmed until the next accepted read carrying it. If no active answer carries the field, the prediction ends
         and the field is dropped so the next reader fetches.
 
-        A definite failure removes predictions without repair. Every NotSent (Rejected, Overloaded, Cancelled, Restored,
+        A definite failure removes predictions without repair. Every NotSent (Rejected, Cancelled, Restored,
         StorageRefused, Disposed, NoPersistence, OldVersion, Unencodable, ModuleDisabled, a proposed name) and the
         evidence Superseded remove or never apply them, without repair.
 
@@ -193,11 +193,12 @@ outcomes
         repair removes nothing, its predictions end with the repair, and an unknown never re-sent frees its queue entry
         at once.
 
-        The forced repair runs with no timer: a failed repair is asked again, at most 3 asks per overdue interval, then
-        RepairOverdue (proposed name; evidence; the mark and the hold stay); the count resets at RepairOverdue and on a
-        placed answer, and news asks again (a new unknown on the record, a re-send's StillUnknown included, a release
-        that leaves its mark, an answer the store cannot place, a newer value landing past a running repair, a reload's
-        restored unknown); news during a running ask joins it (the runner's rulings).
+        The forced repair runs with no timer: a failed repair is asked again, at most a named Runtime default number of
+        asks (D25) per overdue interval, then RepairOverdue (proposed name; evidence; the mark and the hold stay); the
+        count resets at RepairOverdue and on a placed answer, and news asks again (a new unknown on the record, a
+        re-send's StillUnknown included, a release that leaves its mark, an answer the store cannot place, a newer value
+        landing past a running repair, a reload's restored unknown); news during a running ask joins it (the
+        runner's rulings).
 
         While a sent unknown's repair runs, RecordHeld evidence and Inspection's stalled: "record" (proposed names) name
         the wait.
@@ -228,9 +229,8 @@ outcomes
         GuardedWithoutTarget (proposed names).
 
         A live .covers session with no open gap whose filter reads no field the write changes hides a given-up doubt
-        without ending it; a removal is never hidden. At most 4,096 given-up marks per entity; past it the oldest given
-        up is evicted with UnsettledEvicted (proposed name) evidence; an unresolved mark is never evicted. A mark holds
-        its record, as a prediction does.
+        without ending it; a removal is never hidden. Given-up marks per entity have no cap (D24), and none is evicted.
+        A mark holds its record, as a prediction does.
 
         Re-sending is O.x.retry(k?) only, in Held: the Attempt's input and `basedOn` unchanged, no prediction, joining
         the record queue, its response positioned at the Attempt's first send (a differing field it loses on is
@@ -292,14 +292,13 @@ outcomes
 
         A Story checkpoint reads a record with cp.entity(...) (@plan.Testing.O4), returning { data, predicted,
         uncertain, unconfirmed }. Record-queue changes are queue evidence records with their reason (Superseded,
-        Cancelled, Released); an Overloaded write never joined and is an ending record. Reads never touch live state,
-        advance time or start work.
+        Cancelled, Released); a write that never joined is an ending record. Reads never touch live state, advance time
+        or start work.
 
         Every checkpoint and run end carries repairs and skips for considered answers, plus contests, HiddenOrder,
-        prediction faults, Stale, RecordHeld, RepairOverdue, UnsettledEvicted, GuardContradicted and self-check
-        findings, in the canonical order of @O5. uncertain's end reads "a later write succeeded, or a retry of the
-        Attempt succeeded" as amended by the mark rules of @O1, and held lanes, bound or unbound, appear in Inspection
-        by identity.
+        prediction faults, Stale, RecordHeld, RepairOverdue, GuardContradicted and self-check findings, in the canonical
+        order of @O5. uncertain's end reads "a later write succeeded, or a retry of the Attempt succeeded" as amended by
+        the mark rules of @O1, and held lanes, bound or unbound, appear in Inspection by identity.
 
         In-process values, sensitive fields included, are faithful; exported evidence replaces sensitive values with
         keyed digests (@plan.Inspection.O5).
@@ -343,15 +342,12 @@ outcomes
         push or observed change it refetches every active answer that was not repaired and compares without publishing:
         HiddenFilter reports a membership difference, UndeclaredEffect names the write, read and missing alsoChanges.
     O5  Bounds
-        At most `repairSlots` repairs run at once (default 6, @plan.Runtime.O2), started in canonical order: delta,
-        domain entry order, input key, then stable domain id. A paged repair of N loaded pages is N sequential requests
-        in one slot.
+        At most `repairSlots` repairs run at once (a named Runtime default from the bench, D25, @plan.Runtime.O2),
+        started in canonical order: delta, domain entry order, input key, then stable domain id. A paged repair of N
+        loaded pages is N sequential requests in one slot.
 
-        Each record queues at most 64 waiting writes, drafts counted; a commit past any record queue, or a many key
-        array past 4,096 items (counted from the write's targets before any join, repeats included), ends NotSent {
-        Overloaded } for that write, with no prediction and no partial join, and the transition and its other actions
-        run. Recorded constants and persisted data obey the structural limits of @plan.Inspection.O2. Production has no
-        cross-turn execution budget.
+        A record queue and a many key array have no cap (D24), so no commit ends for size. Recorded constants and
+        persisted data follow the codec of @plan.Inspection.O2. Production has no cross-turn execution budget.
 decisions
     D1  Domains own shared-data policy
         Predictions replace call-site optimistic and setData; clear is forbidden and writes allow invalidate only.
@@ -378,9 +374,9 @@ verification
     V4  Evidence: checkpoint reads, faithful in-process and digested export values, and impact
         tables agree with observed repairs; audit catches an omitted filter and an undeclared effect.
     V5  Hydrate, lazy join and bounds: A-to-B hydrate merges amid client writes, lazy adoption
-        with rollback, 6 repair slots, N-request paged chains, and the 64/65 queue boundary with no partial joins.
+        with rollback, the repair slots, N-request paged chains, and a record queue and many key far past the old caps.
 questions
-    Q1  Are 6 repair slots right?
+    Q1  Is the repair-slot default right?
         Recommended: measure Dispatch Desk page churn before changing the default.
     Q2  Deferred to build time
         Per-turn counters and exact event field lists; index structure for matching; tombstone gc accounting; evidence

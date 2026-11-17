@@ -91,9 +91,8 @@ outcomes
         - ForeignActorRef (@plan.React.O2): use handles and refs from this Runtime's App.
         - MissingContextProvider, ContextCycle (@plan.Runtime.O5): wire every slot to an acyclic upward provider.
         - BlockedByDependents (@plan.Runtime.O6): dispose the named consumers first.
-        - InvalidEvent, AdmissionOverloaded, SendTargetAbsent (@plan.Runtime.O4): send a valid public event; wait or
-          shrink the batch; ensure the target before sending (details.reason: NoRecord, RecordUndecodable
-          or NotAdopted).
+        - InvalidEvent, SendTargetAbsent (@plan.Runtime.O4): send a valid public event; ensure the target before sending
+          (details.reason: NoRecord, RecordUndecodable or NotAdopted).
         - RecordUndecodable (proposed) (@plan.Runtime.O3): expected after an incompatible release; an ensure
           starts fresh.
         - EndedWithWork (development warning, @plan.Runtime.O3): lift the actor's use, or move the work into the
@@ -126,8 +125,8 @@ outcomes
         - GoneWithoutKey, GuardedUnbound, GuardedWithoutVersion, GuardedWithoutTarget, PredictionNotRetained (proposed
           names except PredictionNotRetained; @plan.EntityDomains.O1, @plan.CommandLine.O5): add .byKey; declare the
           version and target; give the predicted field a carrier.
-        - Stale, RecordHeld (proposed), RepairOverdue (proposed), UnsettledEvicted (proposed), GuardContradicted
-          (proposed), InputDecodeFailed (evidence, @plan.EntityDomains.O1): expected store facts; read their causes.
+        - Stale, RecordHeld (proposed), RepairOverdue (proposed), GuardContradicted (proposed), InputDecodeFailed
+          (evidence, @plan.EntityDomains.O1): expected store facts; read their causes.
 
         Persistence and lazy features
 
@@ -149,8 +148,7 @@ outcomes
         - DehydratePersistentSetup (@plan.ServerRendering.O1): pass a setup without persistence.
         - DehydrateUnsettled, ConcurrentCapture (@plan.ServerRendering.O2): raise within or stream the slow read
           separately; retry the request.
-        - DehydrateCommitInFlight, DehydrateTooLarge (@plan.ServerRendering.O3): commit from the client; split or narrow
-          the payload.
+        - DehydrateCommitInFlight (@plan.ServerRendering.O3): commit from the client.
         - HydrateOutsideProvider, HydrationCrossRequest, HydrationScopeMismatch (@plan.ServerRendering.O4,
           @plan.ServerRendering.O6): wrap in FlowProvider; construct the Runtime inside the provider; give both setups
           the same scope.
@@ -167,14 +165,13 @@ outcomes
           or the read named.
         - StoryFakeError (details.reason NoRoute, InvalidInput, Crashed, UnplacedStream or InvalidRefusal)
           (@plan.Testing.O3): fix the fake or its binding.
-        - FramesTruncated, PropertyTestFailed, PropertyDefect (@plan.Testing.O4, @plan.Testing.O6): read checkpoints
-          instead of every frame; shrink and fix the property.
+        - PropertyTestFailed, PropertyDefect (@plan.Testing.O4, @plan.Testing.O6): shrink and fix the property.
         - DuplicateFixture (@plan.Testing.O3): use the overriding form to replace a service.
         - UnusedWireRule (@plan.Testing.O3): remove the wire rule or the step that needs it.
 
         Inspection, artifacts and the command line
 
-        - CodecBoundExceeded, CodecMalformed, CodecSchemaMismatch (@plan.Inspection.O2).
+        - CodecMalformed, CodecSchemaMismatch (@plan.Inspection.O2).
         - InvalidInspectorCapacity, InspectorAlreadyAttached, InspectorSinkFailed (@plan.Inspection.O3).
         - InvalidTraceRecord, InvalidLifecycleTransition, InvalidStoryEvidence, ArtifactIdentityMismatch,
           InvalidArtifactOperand (@plan.Inspection.O4, @plan.Inspection.O6). UnknownSelector names a selector unknown to

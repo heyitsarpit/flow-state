@@ -8,10 +8,10 @@ outcomes
     O1  Capture a request's data
         A server captures a request's data into an opaque, JSON-safe payload from a fresh Runtime.
 
-        flow-state/server exports dehydrate(setup, prepare, { within, maxBytes?, inspector? }), returning
-        Promise<Hydration<A>>. Hydration<A> is opaque, JSON-safe and usable as an RSC prop. Each call owns a fresh
-        Runtime, waits for readiness, calls prepare once, settles, captures and disposes before resolving. The Runtime
-        is never returned or shared with another call.
+        flow-state/server exports dehydrate(setup, prepare, { within, inspector? }), returning Promise<Hydration<A>>.
+        Hydration<A> is opaque, JSON-safe and usable as an RSC prop. Each call owns a fresh Runtime, waits for
+        readiness, calls prepare once, settles, captures and disposes before resolving. The Runtime is never returned or
+        shared with another call.
 
         setup is a RuntimeSetup<A> without persistence. Persistence is a type error; untyped use rejects before
         construction with DehydratePersistentSetup. prepare(runtime) is synchronous and returns void; it may
@@ -26,8 +26,8 @@ outcomes
 
         The payload carries the setup's scope (@plan.Runtime.O2), which the host derives from server authentication.
         inspector attaches an inspector sink (@plan.Inspection.O3) to the private Runtime before ready(). within is a
-        required finite positive Duration.Input. `maxBytes` defaults to 262,144 and accepts integers from 1
-        through 2,097,152.
+        required finite positive Duration.Input. The payload has no size cap (D24); the codec bounds nothing, and a
+        value with no encoded form is `UnencodableValue`.
 
         Invalid options reject before construction. Server redirect and `notFound` decisions call services or operations
         directly; dehydrate does not expose actor state to server components for these decisions.
@@ -40,10 +40,10 @@ outcomes
         exempt; a server reads a resource and states the bookmark instead (@plan.Operations.O4). Capture uses one
         consistent view. A chain of dependent lookups settles as a whole, rather than stopping between its reads.
 
-        A capture that conflicts with a concurrent publication is retried up to 3 times, then rejects with
-        ConcurrentCapture. Expiry returns the current data, reports DehydrateUnsettled, and identifies missing data and
-        dropped queued events. Queued events are never transferred or replayed. A send cycle cannot keep dehydrate
-        waiting beyond within; cleanup remains subject to @plan.Runtime.O6.
+        A capture that conflicts with a concurrent publication is retried up to a named Runtime default number of times
+        (D25), then rejects with ConcurrentCapture. Expiry returns the current data, reports DehydrateUnsettled, and
+        identifies missing data and dropped queued events. Queued events are never transferred or replayed. A send cycle
+        cannot keep dehydrate waiting beyond within; cleanup remains subject to @plan.Runtime.O6.
     O3  Transfer safe, confirmed data
         Transfer shared actors and the providers needed for their context, together with data read by active placements,
         including placements of local actors. Local actors themselves do not transfer. Persistence flags do not limit
@@ -85,9 +85,7 @@ outcomes
         on it through context. Readers needing omitted data fetch it. flow check warns when a shared actor reads a
         resource that has no output Schema, since its data cannot transfer.
 
-        maxBytes bounds the complete payload's UTF-8 JSON size. Exceeding it rejects with DehydrateTooLarge naming the
-        ten largest items; no partial payload is returned. A failed consistent capture rejects rather than returning a
-        mixture of actor and store versions.
+        A failed consistent capture rejects rather than returning a mixture of actor and store versions.
     O4  Matching first render
         The first client render matches the server's output, because Flow hook results depend only on props and ancestor
         Hydrate payloads.

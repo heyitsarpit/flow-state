@@ -11,7 +11,8 @@ outcomes
         flow-state/react exposes <FlowProvider setup={setup}> and <FlowProvider runtime={runtime}>. With setup, the
         Provider constructs and owns one Runtime per setup scope: a new setup value with the same scope keeps the
         existing Runtime, while a changed scope (sign-in, sign-out, account switch) constructs a fresh Runtime and
-        disposes the old one once it has been unused for longer than the 100 ms grace, so Strict Mode remounts keep it.
+        disposes the old one once it has been unused for longer than the grace (a named Runtime default, D25), so Strict
+        Mode remounts keep it.
 
         With runtime, the host owns construction and disposal and the Provider never disposes. Either form renders
         children immediately without suspending or showing a readiness fallback. Its first effect calls ready(), so a
@@ -94,8 +95,7 @@ outcomes
 
         An ensuring hook is a use of its actor from its passive commit effect to that effect's cleanup, including while
         its attach waits for readiness, lazy adoption, a Hydrate boundary or a disposing predecessor; re-suspension
-        keeps it, and React Activity hiding ends it. Before attachment, at most 64 sends buffer in FIFO order; send 65
-        throws FlowError(AdmissionOverloaded) without accepting the event.
+        keeps it, and React Activity hiding ends it. Before attachment, sends buffer in FIFO order with no cap (D24).
 
         Attachment delivers accepted sends exactly once through @plan.Runtime.O4, after a new incarnation's lane
         deliveries. Sends through a handle follow the Runtime's send table (@plan.Runtime.O4): a send never creates and
@@ -153,9 +153,9 @@ outcomes
         The controlled stepper's `Change` is heard the same way (O2). See `code:wiki/conventions/view-commands.md`
         and `code:wiki/conventions/controlled-values.md`.
 
-        Local cleanup leaves the actor active for the grace, 100 milliseconds on the Runtime Clock. A local actor
-        remounted within its grace reuses that actor and cancels its end; expiry ends it through the Runtime, except
-        that work in flight keeps it until that work's ending's turn has run. During the grace placements run and
+        Local cleanup leaves the actor active for the grace, a named Runtime default (D25) on the Runtime Clock. A local
+        actor remounted within its grace reuses that actor and cancels its end; expiry ends it through the Runtime,
+        except that work in flight keeps it until that work's ending's turn has run. During the grace placements run and
         schedules wait.
 
         Strict Mode cleanup/setup never duplicates work or loses the actor. Shared ensuring hooks count as uses;
@@ -203,7 +203,7 @@ verification
     V1  Type/mount tests prove exact hook types, Provider isolation, readiness and boundary errors.
     V2  Render tests prove pure snapshots (render-time props in the pre-attach snapshot), stable handles, ref
         changes and no discarded-render work.
-    V3  Attach tests prove 64 buffered sends, FIFO delivery once after lane deliveries, current
+    V3  Attach tests prove buffered sends far past the old cap, FIFO delivery once after lane deliveries, current
         context, props updates in FIFO order, emits delivered after the committing render (never from a discarded one,
         flushed in order) and unmount safety.
     V4  Lifecycle tests prove the grace, Strict Mode, uses and work in flight, re-ensure, local
