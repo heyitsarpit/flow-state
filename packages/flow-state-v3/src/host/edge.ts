@@ -1,27 +1,20 @@
-import { Cause, Clock, Context, Effect, Exit, Option } from "effect";
+import { Cause, Clock, Context, Data, Effect, Exit, Option } from "effect";
 import { Due, type Ticket, type TicketId, type Write } from "../core/world.ts";
 import { type Fibers, sleepUntil } from "./fibers.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
 
 /**
- * The Runtime's pending persistence: what is dirty, the tickets waiting on it, whether a batch is
- * out, and when the next plain batch is due.
+ * When the next plain batch is due: not at all, at an instant, or now.
  */
-type Pending = {
-  readonly dirty: ReadonlyMap<string, Write>;
-  readonly tickets: ReadonlyArray<Ticket>;
-  readonly out: boolean;
-  readonly due: number;
-};
+type Wake = Data.TaggedEnum<{ Idle: {}; At: { at: number }; Now: {} }>;
 
-const purposeOf = (tickets: ReadonlyArray<Ticket>) => {
-  const capture: Purpose = "capture";
-  const acknowledge: Purpose = "acknowledge";
-  const flush: Purpose = "flush";
+const Wake = Data.taggedEnum<Wake>();
 
-  if (tickets.some((t) => t.purpose === "capture")) return capture;
+// RETURN_TYPE: a batch purpose, which the literals alone would widen.
+const purposeOf = (tickets: ReadonlyArray<Ticket>): Purpose => {
+  if (tickets.some((t) => t.purpose === "capture")) return "capture";
 
-  return tickets.some((t) => t.purpose === "acknowledge") ? acknowledge : flush;
+  return tickets.some((t) => t.purpose === "acknowledge") ? "acknowledge" : "flush";
 };
 
 const WAKE = "wake";
@@ -54,50 +47,55 @@ export const makeEdge = (
   const host = Context.get(platform, Host);
   const clock = Context.get(platform, Clock.Clock);
 
-  let pending: Pending = {
-    dirty: new Map(),
-    tickets: [],
-    out: false,
-    due: Number.POSITIVE_INFINITY,
-  };
+  // What is dirty, by record key, the tickets waiting on it, whether a batch is out, and when the
+  // next plain batch is due. The edge's own state, written in place.
+  let dirty = new Map<string, Write>();
+  let tickets: Array<Ticket> = [];
+  let out = false;
+  let wake: Wake = Wake.Idle();
+
+  const due = () =>
+    Wake.$match(wake, {
+      Idle: () => false,
+      At: ({ at }) => clock.currentTimeMillisUnsafe() >= at,
+      Now: () => true,
+    });
 
   const issue = () => {
     fibers.cancel(WAKE);
     const store = host.store;
 
-    // With nothing left to write, every ticket waiting on the store has what it waits for.
-    if (Option.isNone(store) || pending.dirty.size === 0) {
-      const { tickets } = pending;
-      pending = { ...pending, tickets: [], due: Number.POSITIVE_INFINITY };
+    const carried = tickets;
+    tickets = [];
+    wake = Wake.Idle();
 
-      for (const t of tickets) options.answered(t.id, true);
+    // With nothing left to write, every ticket waiting on the store has what it waits for.
+    if (Option.isNone(store) || dirty.size === 0) {
+      for (const t of carried) options.answered(t.id, true);
 
       return;
     }
 
-    const writes = [...pending.dirty.values()];
-    const { tickets } = pending;
-
-    pending = { dirty: new Map(), tickets: [], out: true, due: Number.POSITIVE_INFINITY };
+    const writes = [...dirty.values()];
+    dirty = new Map();
+    out = true;
 
     fibers.fork(
       "store",
       store.value.write(
         writes.map((w) => ({ key: w.key, value: w.record })),
-        purposeOf(tickets),
-        tickets.flatMap((t) => (t.purpose === "acknowledge" ? [t.attempt] : [])),
+        purposeOf(carried),
+        carried.flatMap((t) => (t.purpose === "acknowledge" ? [t.attempt] : [])),
       ),
       (exit) => {
         // An interrupted write is unanswered, as a hung store is.
         if (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)) return;
         const landed = Exit.isSuccess(exit);
-        const dirty = new Map(pending.dirty);
 
         if (!landed) for (const w of writes) if (!dirty.has(w.key)) dirty.set(w.key, w);
+        out = false;
 
-        pending = { ...pending, dirty, out: false };
-
-        for (const t of tickets) options.answered(t.id, landed);
+        for (const t of carried) options.answered(t.id, landed);
 
         if (!landed) wakeAt(clock.currentTimeMillisUnsafe() + RETRY_MS);
         pump();
@@ -106,47 +104,50 @@ export const makeEdge = (
   };
 
   const pump = () => {
-    if (pending.out) return;
+    if (out) return;
 
-    if (pending.tickets.length > 0) issue();
-    else if (
-      pending.dirty.size > 0 &&
-      (clock.currentTimeMillisUnsafe() >= pending.due || host.hidden())
-    )
-      issue();
+    if (tickets.length > 0 || (dirty.size > 0 && (due() || host.hidden()))) issue();
   };
 
+  // A wake earlier than the one set replaces it; a later one, or any while due now, changes nothing.
   const wakeAt = (at: number) => {
-    if (at >= pending.due) return;
-    pending = { ...pending, due: at };
+    const earlier = Wake.$match(wake, {
+      Idle: () => true,
+      At: (set) => at < set.at,
+      Now: () => false,
+    });
+
+    if (!earlier) return;
+    wake = Wake.At({ at });
 
     fibers.fork(WAKE, sleepUntil(clock, at), (exit) => {
       if (Exit.isFailure(exit)) return;
-      pending = { ...pending, due: Number.NEGATIVE_INFINITY };
+      wake = Wake.Now();
       pump();
     });
   };
 
-  host.onHidden(() => {
-    if (!pending.out) issue();
-  });
+  // A hidden page flushes at once; the listener goes with the Runtime's Scope.
+  fibers.finalize(
+    host.onHidden(() => {
+      if (!out) issue();
+    }),
+  );
 
   return {
     /**
      * Whether every record handed to the edge has landed: no batch out and nothing left to write.
      */
-    settled: () => !pending.out && pending.dirty.size === 0,
-    accept: (writes: ReadonlyArray<Write>, refused: ReadonlyArray<TicketId>, due: Due) => {
+    settled: () => !out && dirty.size === 0,
+    accept: (writes: ReadonlyArray<Write>, refused: ReadonlyArray<TicketId>, when: Due) => {
       for (const ticket of refused) options.answered(ticket, false);
 
-      const dirty = new Map(pending.dirty);
-      const tickets = Due.$is("Awaited")(due) ? due.tickets : [];
-
       for (const w of writes) dirty.set(w.key, w);
-      pending = { ...pending, dirty, tickets: [...pending.tickets, ...tickets] };
 
-      if (!Due.$is("Later")(due) || options.captureMs <= 0 || host.hidden()) {
-        pending = { ...pending, due: Number.NEGATIVE_INFINITY };
+      if (Due.$is("Awaited")(when)) tickets.push(...when.tickets);
+
+      if (!Due.$is("Later")(when) || options.captureMs <= 0 || host.hidden()) {
+        wake = Wake.Now();
         fibers.fork(WAKE, Effect.yieldNow, (exit) => {
           if (Exit.isSuccess(exit)) pump();
         });

@@ -28,9 +28,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "    pending = { dirty: new Map(), tickets: [], out: true, due: Number.POSITIVE_INFINITY };",
-        replace:
-          "    pending = { dirty: new Map(), tickets: [], out: false, due: Number.POSITIVE_INFINITY };",
+        find: "    dirty = new Map();\n    out = true;\n",
+        replace: "    dirty = new Map();\n    out = false;\n",
       },
     ],
   },
@@ -99,9 +98,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "        const dirty = new Map(pending.dirty);\n\n        if (!landed)",
+        find: "        const landed = Exit.isSuccess(exit);\n\n        if (!landed)",
         replace:
-          "        const dirty = new Map(landed ? [] : pending.dirty);\n\n        if (!landed)",
+          "        const landed = Exit.isSuccess(exit);\n\n        if (landed) dirty.clear();\n        if (!landed)",
       },
     ],
   },
@@ -193,8 +192,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "    if (at >= pending.due) return;",
-        replace: "    if (pending.out) return;",
+        find: "    if (!earlier) return;\n    wake = Wake.At({ at });",
+        replace: "    if (out) return;\n    wake = Wake.At({ at });",
       },
     ],
   },

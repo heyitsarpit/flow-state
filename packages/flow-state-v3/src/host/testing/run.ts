@@ -262,7 +262,7 @@ export const runFrom = <Names extends string>(
 
     const host = Host.of({
       hidden: () => false,
-      onHidden: () => undefined,
+      onHidden: () => () => undefined,
       store: Option.some(store.at(open)),
       sessionSeed: seedOf(mainTab(open), options.seed),
       freezeValues: true,

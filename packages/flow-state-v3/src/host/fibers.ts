@@ -39,6 +39,10 @@ export const makeFibers = (scope: Scope.Scope, context: () => Context.Context<ne
       FiberMap.setUnsafe(map, key, fiber);
       fiber.addObserver(onExit);
     },
+    // A cleanup run when the Runtime's Scope closes.
+    finalize: (cleanup: () => void) =>
+      // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- construct() is synchronous; the host registers its cleanups in the Runtime's Scope as it builds
+      Effect.runSync(Scope.addFinalizer(scope, Effect.sync(cleanup))),
     cancel: (key: string) =>
       Option.match(FiberMap.getUnsafe(map, key), {
         onNone: () => undefined,

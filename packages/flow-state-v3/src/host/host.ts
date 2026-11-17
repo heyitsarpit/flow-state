@@ -52,7 +52,7 @@ export class Host extends Context.Service<
   Host,
   {
     readonly hidden: () => boolean;
-    readonly onHidden: (listener: () => void) => void;
+    readonly onHidden: (listener: () => void) => () => void;
     readonly store: Option.Option<Store>;
     readonly sessionSeed: string;
     readonly freezeValues: boolean;

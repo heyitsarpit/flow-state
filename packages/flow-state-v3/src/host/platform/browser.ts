@@ -21,7 +21,7 @@ export const browserPlatform = () =>
     Host,
     Host.of({
       hidden: () => false,
-      onHidden: () => undefined,
+      onHidden: () => () => undefined,
       store: Option.none(),
       sessionSeed: entropy(),
       freezeValues: false,

@@ -69,7 +69,7 @@ export const platformOver = (
 ) => {
   const host = Host.of({
     hidden: () => false,
-    onHidden: () => undefined,
+    onHidden: () => () => undefined,
     sessionSeed: seed.toString(16).padStart(32, "0"),
     freezeValues: true,
     store: Option.some({

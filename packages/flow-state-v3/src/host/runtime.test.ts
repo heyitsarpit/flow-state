@@ -13,7 +13,9 @@ import {
   runtimeSetup,
   transaction,
 } from "../index.ts";
+import { Host } from "./host.ts";
 import { attachInspector, type Evidence } from "./inspect.ts";
+import { buildRuntime } from "./runtime.ts";
 
 class Bell extends Context.Service<
   Bell,
@@ -204,5 +206,38 @@ describe("Runtime", () => {
       Option.map(door.getSnapshot(), (s) => s.memory["notSent"]),
       Option.some("Unencodable"),
     );
+  });
+});
+
+describe("the Runtime's host listeners (Actors R22)", () => {
+  it("Actors R22: a disposed Runtime leaves no listener on its host's page", () => {
+    const listeners = new Set<() => void>();
+
+    const platform = Context.make(
+      Host,
+      Host.of({
+        hidden: () => false,
+        onHidden: (listener) => {
+          listeners.add(listener);
+
+          return () => void listeners.delete(listener);
+        },
+        store: Option.none(),
+        sessionSeed: "0".repeat(32),
+        freezeValues: true,
+      }),
+    );
+
+    const { runtime } = buildRuntime(
+      { app: app({ id: "listeners", machines: {} }) },
+      platform,
+      () => undefined,
+    );
+
+    Effect.runSync(runtime.ready());
+    assert.equal(listeners.size, 1);
+
+    Effect.runSync(runtime.dispose());
+    assert.equal(listeners.size, 0);
   });
 });

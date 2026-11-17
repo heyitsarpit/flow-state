@@ -134,8 +134,21 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "      for (const t of tickets) options.answered(t.id, true);",
-        replace: "      void tickets;",
+        find: "      for (const t of carried) options.answered(t.id, true);",
+        replace: "      void carried;",
+      },
+    ],
+  },
+  {
+    name: "hidden-listener-outlives-runtime",
+    tests: ["src/host/runtime.test.ts"],
+    says: "a disposed Runtime keeps its page-hidden listener, which still issues writes into a closed Scope",
+    rule: "Actors R22",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "  fibers.finalize(\n    host.onHidden(",
+        replace: "  Array.of(\n    host.onHidden(",
       },
     ],
   },

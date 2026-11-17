@@ -121,7 +121,7 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "  const pump = () => {\n    if (pending.out) return;",
+        find: "  const pump = () => {\n    if (out) return;",
         replace: "  const pump = () => {",
       },
     ],

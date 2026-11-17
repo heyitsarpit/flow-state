@@ -14,14 +14,14 @@ export const mixFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "        for (const t of tickets) options.answered(t.id, landed);\n",
+        find: "        for (const t of carried) options.answered(t.id, landed);\n",
         replace: [
-          "        const machineOf = (t: (typeof tickets)[number]) =>",
+          "        const machineOf = (t: (typeof carried)[number]) =>",
           "          writes",
           '            .find((w) => w.key.startsWith("lane/") && t.purpose !== "flush" && Option.exists(w.record, (r) => r.includes(`\\"attempt\\":\\"${t.attempt}\\"`)))',
           '            ?.key.split("/")[1];',
-          "        const first = tickets[0] === undefined ? undefined : machineOf(tickets[0]);",
-          "        for (const t of tickets) {",
+          "        const first = carried[0] === undefined ? undefined : machineOf(carried[0]);",
+          "        for (const t of carried) {",
           "          const own = machineOf(t);",
           "          options.answered(t.id, landed || (own !== undefined && first !== undefined && own !== first));",
           "        }",
