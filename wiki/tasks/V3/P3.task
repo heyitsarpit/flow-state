@@ -3373,6 +3373,34 @@ tasks
             load ~20 (bench-only diff). Left listed: timer at spawn, kill race, worktree left on a signal, crash fails
             the batch's rest, --workers 1 spread 0, stressFrom unchecked against Story status, no tooling.csv, cap-tree
             started check.
+        comment     2026-11-17T20:48:45Z
+            PASS (independent review of the second fix round 72c0c209, diff from 2b42bcc3; plants in a scratch clone, on
+            AC): the three blockers are closed and the round adds no blocking defect. Closed: with a 0.2 ms busy-wait
+            planted in the scratch tree's `step`, `turn.shop.long --dev --compare HEAD` printed x9.83 SLOWER, so the
+            other side ran its own src and fixtures; `--benches` with `--record`, `--record --backfill`, `--compare
+            HEAD` and `--compare HEAD --stored` exits 1 and writes nothing; a planted hang and a spinner (120 s
+            timeouts, marker children) under SIGHUP to run.ts, SIGKILL to run.ts and SIGKILL to its group, via node and
+            via `nub run bench`, left no run, worker, child or watch after 3 s; a normal run leaves no watch. Gates:
+            `nub run check` 0; `nub run test` 1 with only T20's two pair reds (1,314 passed); `nub run faults` alone
+            exit 1, unjudged: its unchanged baseline timed out in tests/rules/sweep.test.ts at the load of ~19 it makes
+            itself (bench-only diff). Routed (non-blocking): (1) the watch SIGKILLs a healthy worker whenever `ps`
+            yields nothing (a failed fork, `ps` off PATH); its benches then report Failed, loud, never a wrong number; a
+            watch blocking on a pipe only the run holds (`read`, EOF on run death) drops that and the ~8 forks/s inside
+            timed samples; no test runs the watch alone. (2) A relative `--benches` from outside the package loads in
+            the run and fails in every worker (cwd is the package; pre-existing): resolve it once in optionsOf. (3)
+            backfill.ts handles no signal: SIGTERM to it leaves run.ts running to its 240 s cap and the worktree in
+            place (by reading). (4) onSignal plus process.exit hand-rolls what NodeRuntime.runMain does and skips
+            finalizers, the root of the worktree left on a signal (routed earlier); runMain with acquireRelease for
+            groups and the worktree, plus SIGHUP, would cover both. (5) Tests: the workerArgs test checks path prefixes
+            only (missing: an end-to-end compare against a tree that differs, as planted here); the `--compare`
+            refusal's nothing-written check is vacuous (no --history or --scratch); signal tests assert no exit code,
+            and the start expect throws before the kill. Sidecars (three Haiku: blind acceptance, watch lifecycle, tests
+            and house rules): accepted (1) to (5) after reproducing (2) and the bench result of (1) or reading the rest;
+            rejected: compare loading this tree's bench list (the copied bench code is the documented design; fixtures
+            and src are the commit's, as reproduced), a pid reused outside the group (the watch holds the group id until
+            it dies with it), NaN `--run` (internal flag, the run always passes its pid), the timing file a non-dev
+            `--benches` run writes (git-ignored samples, no row), and why-comments on non-exported bench helpers (the
+            module's existing convention, not this diff's).
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
