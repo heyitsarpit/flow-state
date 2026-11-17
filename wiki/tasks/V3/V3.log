@@ -925,3 +925,7 @@ note 2026-11-17T07:44:31Z
 note 2026-11-17T07:45:34Z
     Decision (the user, 2026-11-17): Q11 B. Pending D27: values cross into Flow through walkers compiled from their
     Schemas; equality chosen by the bench; D26's limit lifted once proven. Fresh T9 lead started; the old one retires.
+
+note 2026-11-17T07:49:34Z
+    Performance architecture audit started (the user, 2026-11-17): one Opus with four Haiku, read-only, on core, tests
+    and Story design; proposal file performance-architecture-2026-11-17.md feeds T9's compiled-walker lead, T83 and T84.
