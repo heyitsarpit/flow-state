@@ -177,4 +177,19 @@ decisions
         Storage quota stays the real limit (`StorageRefused`). **Why:** the numbers were arbitrary; XState, Zustand,
         Redux, RTK and redux-persist cap no size or queue, and guard loops and slow work instead. **Proven by:** Stories
         past each old cap with no ending lost, doubled or made up, and the bench timing them. Found in the limits survey
-        after @task.V3.T9's reviews.
+        after @task.V3.T9's reviews. Extended (the user, 2026-11-17, Q3 A): also dropped are the 64 sends buffered
+        before React attaches (@plan.React), 256 stream entries per operation and 256 identities per write batch, the
+        key shape's 16 levels and 256 nodes (@plan.Operations.O1), the 10-segment state path (@plan.Machines), the
+        trace's 4,096 events (@plan.Inspection) and a Story's 10,000 `run.frames` (@plan.Testing). A step's mail drain
+        stays a fairness yield, not a limit, its count set from the bench.
+    D25  @plan.Runtime, @plan.Persistence, @plan.Operations, @plan.EntityDomains, @plan.ServerRendering,
+         @plan.LazyFeatures: timing and retry knobs are named defaults set from measurement (accepted, the user,
+         2026-11-17, Q4 A)
+        **Before:** literal values written in Plans, Specs and code: the free actor's grace 100 ms, the disposal bound 5
+        s, StorageSilent 10 s, a refused batch's retry 5 s, the lazy-load timeout 10 s, the stream reconnect schedule
+        (500 ms, x0.8 to 1.2, 30 s, `Flapping` after 8), 3 repair asks, 3 server-rendering capture retries,
+        `repairSlots` 6. **After:** each is one named Runtime default defined in one place; Specs and tests cite the
+        name, not the literal; each value is set from the bench or real measurements when its Task builds it; retries
+        use Effect's `Schedule`, and a refused batch's retry derives from the capture interval. The capture interval
+        keeps 5 s (the user's decision) until the bench says otherwise. **Why:** none of these values was measured.
+        **Proven by:** each knob's bench or measurement note on its Task. Found in the limits sweep, 2026-11-17.

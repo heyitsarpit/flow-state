@@ -866,3 +866,8 @@ note 2026-11-17T04:21:45Z
 note 2026-11-17T04:25:45Z
     Decision (the user, 2026-11-17): Q2 A, no size or queue caps; follow-up chain stays the one loop guard (bench-set),
     plus a dev slow-work warning (Pending D24). Inserted T84 to remove them, after T9 and before T83 (T83 waits on it).
+
+note 2026-11-17T04:34:17Z
+    Decision (the user, 2026-11-17): Q3 A, Q4 A, Q5 A from the limits sweep. Pending D24 extended with seven more caps,
+    D25 makes timing and retry knobs named, bench-set defaults; T84 removes the caps and names the built knobs; T83
+    sizes every test-tooling guard from measurement.
