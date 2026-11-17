@@ -453,14 +453,16 @@ export const owingRestoredLive: Rule = {
 };
 
 /**
- * Turn R24, over Flow's fixtures, whose memory Schemas are all JSON: every published memory is
- * plain data, readable as JSON.
+ * Turn R24, over Flow's fixtures, whose memory Schemas are JSON but for the nests' index of Maps:
+ * every published memory field is plain data, readable as JSON, or a Map, an opaque application
+ * value the rule does not judge.
  */
 export const publishedPlainData: Rule = {
   rule: "Turn R24",
   breaches: (run) =>
     run.evidence.flatMap((e) =>
-      e._tag === "Published" && !Schema.is(Schema.Json)(e.memory)
+      e._tag === "Published" &&
+      !Object.values(e.memory).every((v) => v instanceof Map || Schema.is(Schema.Json)(v))
         ? [`Turn R24: ${e.actor.machine}/${e.actor.name} published memory that is not plain data`]
         : [],
     ),

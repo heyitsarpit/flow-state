@@ -154,7 +154,13 @@ export const workspaceGrown = app({
     nests: NestsMachine,
     nestView: {
       machine: NestViewMachine,
-      context: { lists: mainNests, folders: mainNests, maps: mainNests, title: mainNests },
+      context: {
+        lists: mainNests,
+        folders: mainNests,
+        maps: mainNests,
+        title: mainNests,
+        tree: mainNests,
+      },
     },
     preview: { machine: PreviewMachine, context: { doc: mainOutline } },
     agenda: { machine: AgendaMachine, context: { days: mainCalendar } },

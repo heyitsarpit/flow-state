@@ -1,6 +1,7 @@
 import type { Schema } from "effect";
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
-import { actorRef, Flow } from "../../../src/index.ts";
+import { foldersOf } from "../machines/nests.ts";
+import { actorRef } from "../../../src/index.ts";
 import {
   agendaPeek,
   guestDot,
@@ -278,61 +279,109 @@ export const outlineDeep = () =>
     .reload()
     .checkpoint("mixed again");
 
-// A nest's depth around the limit: its memory (one container more) at the limit, one past it, and
-// the selection itself one past it.
-const depths = {
-  at: Flow.maxDepth - 1,
-  memoryPast: Flow.maxDepth,
-  selectionPast: Flow.maxDepth + 1,
-};
+/**
+ * How deep the deep nests go: a hundred thousand containers, far past where Effect's own Schema
+ * and equality walks run out of stack.
+ */
+export const DEEP = 100_000;
 
-const nestStory = (kind: "Lists" | "Folders" | "Maps", id: string) =>
+/**
+ * How deep the swept nests go: past where Effect's own walks run out of stack on every measured
+ * host, and shallow enough to print and sweep at every step.
+ */
+export const PAST_STACK = 3_000;
+
+type NestKind = "Lists" | "Folders" | "Maps" | "Tree";
+
+/**
+ * A nest built `depth` deep, the title alone renamed, then a nest one deeper, then that same nest
+ * built again (an equal value in a new object); the tab reloads, and the nest goes shallow.
+ */
+export const nestAt = (kind: NestKind, depth: number, id: string) =>
   grownStory(id)
     .ensure(mainNests)
     .ensure(nestView)
-    .send(mainNests, { _tag: kind, depth: depths.at })
-    .checkpoint("at")
+    .send(mainNests, { _tag: kind, depth })
+    .checkpoint("deep")
     .send(mainNests, { _tag: "Title", title: "renamed" })
     .checkpoint("titled")
-    .send(mainNests, { _tag: kind, depth: depths.memoryPast })
-    .checkpoint("memory past")
-    .send(mainNests, { _tag: kind, depth: depths.selectionPast })
-    .checkpoint("selection past")
+    .send(mainNests, { _tag: kind, depth: depth + 1 })
+    .checkpoint("deeper")
+    .send(mainNests, { _tag: kind, depth: depth + 1 })
+    .checkpoint("again")
+    .reload()
+    .checkpoint("reloaded")
     .send(mainNests, { _tag: kind, depth: 3 })
-    .checkpoint("back")
-    .reload()
-    .checkpoint("reloaded");
+    .checkpoint("back");
 
 /**
- * An outline of plain JSON lists at the depth limit, then the title alone renamed, then one past
- * the limit in memory, then one past it in the selection, then shallow again; the tab reloads.
+ * Plain JSON lists past where Effect's walks run out of stack, renamed, deeper, rebuilt equal,
+ * reloaded and made shallow.
  */
-export const listsAtDepth = nestStory("Lists", "session/lists-at-depth");
-
-/**
- * A nest 5,000 deep, far past the depth limit, where Effect's own walks would run out of stack,
- * after one at the limit. Built on call and kept out of `stories`: the trace printer walks values
- * on the call stack.
- */
-export const nestFarPast = (kind: "Lists" | "Folders" | "Maps") =>
-  grownStory(`session/${kind.toLowerCase()}-far-past`)
-    .ensure(mainNests)
-    .ensure(nestView)
-    .send(mainNests, { _tag: kind, depth: depths.at })
-    .send(mainNests, { _tag: kind, depth: 5_000 })
-    .checkpoint("far past")
-    .reload()
-    .checkpoint("reloaded");
+export const listsPastStack = nestAt("Lists", PAST_STACK, "session/lists-past-stack");
 
 /**
  * The same, for a folder tree under a recursive Schema.
  */
-export const foldersAtDepth = nestStory("Folders", "session/folders-at-depth");
+export const foldersPastStack = nestAt("Folders", PAST_STACK, "session/folders-past-stack");
 
 /**
- * The same, for an index of Maps.
+ * The same, for an index of Maps selected from JSON lists.
  */
-export const mapsAtDepth = nestStory("Maps", "session/maps-at-depth");
+export const mapsPastStack = nestAt("Maps", PAST_STACK, "session/maps-past-stack");
+
+/**
+ * The same, for an index of Maps held in memory and selected as it is.
+ */
+export const treePastStack = nestAt("Tree", PAST_STACK, "session/tree-past-stack");
+
+/**
+ * A folder tree imported whole in its event's payload, as deep as `depth`; the viewer pins a tree
+ * as deep of its own, and the title is renamed beside it twice; the tab reloads and the title is
+ * renamed again.
+ */
+export const importAt = (depth: number, id: string) =>
+  grownStory(id)
+    .ensure(mainNests)
+    .ensure(nestView)
+    .send(mainNests, { _tag: "Import", folder: foldersOf(depth) })
+    .checkpoint("imported")
+    .send(nestView, { _tag: "Pin", depth })
+    .checkpoint("pinned")
+    .send(mainNests, { _tag: "Title", title: "first" })
+    .checkpoint("first")
+    .send(mainNests, { _tag: "Lists", depth: 2 })
+    .checkpoint("unrelated")
+    .reload()
+    .checkpoint("reloaded")
+    .send(mainNests, { _tag: "Title", title: "second" })
+    .checkpoint("second");
+
+/**
+ * A folder tree past where Effect's walks run out of stack, imported in a payload and pinned in
+ * the viewer's own memory, beside the title.
+ */
+export const importPastStack = importAt(PAST_STACK, "session/import-past-stack");
+
+/**
+ * A document both a hundred thousand deep and five thousand wide, imported as lists and as a
+ * folder tree, then reloaded. Built on call and kept out of `stories`, as the deep outline is.
+ */
+export const deepAndWideNests = () => {
+  const wide = (depth: number) => ({
+    kids: [foldersOf(depth), ...Array.from({ length: 5_000 }, (_, n) => `note ${n}`)],
+  });
+
+  return grownStory("session/nests-deep-and-wide")
+    .ensure(mainNests)
+    .ensure(nestView)
+    .send(mainNests, { _tag: "Import", folder: wide(DEEP) })
+    .checkpoint("mixed")
+    .send(mainNests, { _tag: "Import", folder: wide(DEEP) })
+    .checkpoint("again")
+    .reload()
+    .checkpoint("reloaded");
+};
 
 /**
  * What the inbox's digest, thread view and the guest's online dot meet, for generated runs:
@@ -399,4 +448,40 @@ export const inboxSamples = samplesOf({
       .send(mainCalendar, { _tag: "Show", from: 0, to: 4_096 })
       .send(mainCalendar, { _tag: "Show", from: 0, to: 4_097 })
       .send(mainCalendar, { _tag: "Show", from: 0, to: 5_000 }),
+});
+
+/**
+ * What the nests and their viewer meet, for generated runs and the app mix: nests of every kind
+ * past where Effect's walks run out of stack and shallow again, a folder tree imported in a
+ * payload, a pin of the viewer's own and the title renamed beside them.
+ */
+export const nestsSamples = samplesOf({
+  id: "session-nests",
+  story: grownStory("session/nests-samples").ensure(mainNests).ensure(nestView),
+  names: { setup: "workspaceGrownSetup", fixtures: ["IdentityFake"] },
+  actors: { mainNests, nestView },
+  servers: { Identity },
+  failures: [],
+  landedFailures: [],
+  values: {
+    deepLists: { _tag: "Lists", depth: PAST_STACK },
+    deepFolders: { _tag: "Folders", depth: PAST_STACK },
+    deepMaps: { _tag: "Maps", depth: PAST_STACK },
+    deepTree: { _tag: "Tree", depth: PAST_STACK },
+    shallowTree: { _tag: "Tree", depth: 2 },
+    deepImport: { _tag: "Import", folder: foldersOf(PAST_STACK) },
+    deepPin: { _tag: "Pin", depth: PAST_STACK },
+    renamed: { _tag: "Title", title: "renamed" },
+  },
+  controls: [],
+  steps: (story) =>
+    story
+      .send(mainNests, { _tag: "Lists", depth: PAST_STACK })
+      .send(mainNests, { _tag: "Folders", depth: PAST_STACK })
+      .send(mainNests, { _tag: "Maps", depth: PAST_STACK })
+      .send(mainNests, { _tag: "Tree", depth: PAST_STACK })
+      .send(mainNests, { _tag: "Tree", depth: 2 })
+      .send(mainNests, { _tag: "Import", folder: foldersOf(PAST_STACK) })
+      .send(nestView, { _tag: "Pin", depth: PAST_STACK })
+      .send(mainNests, { _tag: "Title", title: "renamed" }),
 });
