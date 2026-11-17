@@ -13,12 +13,8 @@ describe("bench proofs", () => {
       expect(ids.has(`turn.${m.savedStress.story.id.replace("/", ".")}.per-turn-ms`)).toBe(true);
   });
 
-  it("every turn, persist, values and startup bench's proof passes: it does the work it claims", async () => {
-    const light = benches.filter((b) =>
-      ["turn", "persist", "values", "startup"].includes(b.concern),
-    );
-
-    for (const b of light) {
+  it("every bench's proof passes: it does the work it claims", async () => {
+    for (const b of benches) {
       const subject = await b.load();
 
       expect({ id: b.id, problem: await subject.proof() }).toEqual({
@@ -26,5 +22,5 @@ describe("bench proofs", () => {
         problem: Option.none(),
       });
     }
-  }, 120_000);
+  }, 600_000);
 });

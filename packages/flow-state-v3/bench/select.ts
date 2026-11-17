@@ -1,16 +1,12 @@
 import { Option } from "effect";
 import type { Bench, Concern } from "./declare.ts";
 
-/**
- * The tier a run measures in: `quick` (the headline benches but the stress ones, the periodic run),
- * `stress` (only the stress benches), `full` (every bench), or `dev` (any bench, one worker on a short budget, never recorded: for iterating).
- */
-export type TierName = "quick" | "stress" | "full" | "dev";
+// The tier a run measures in: `quick` (the headline benches but the stress ones, the periodic run),
+// `stress` (only the stress benches), `full` (every bench), or `dev` (any bench, one worker on a short budget, never recorded: for iterating).
+type TierName = "quick" | "stress" | "full" | "dev";
 
-/**
- * What a run selects benches by.
- */
-export type Selection = {
+// What a run selects benches by.
+type Selection = {
   readonly tier: TierName;
   readonly concerns: ReadonlyArray<Concern>;
   readonly only: Option.Option<string>;

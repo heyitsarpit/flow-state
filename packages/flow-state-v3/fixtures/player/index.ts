@@ -30,6 +30,7 @@ export const player = manifest({
   pairs: [],
   bench: {
     probe: (n) => roomOf(n),
+    persist: Option.none(),
     stories: [
       benchPoint(() => longRoomPlays, {
         series: "room-length",

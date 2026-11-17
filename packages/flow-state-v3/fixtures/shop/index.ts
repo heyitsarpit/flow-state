@@ -81,6 +81,7 @@ export const shop = manifest({
   ],
   bench: {
     probe: (n) => actorRef(PayMachine, `checkout-${String(n)}`),
+    persist: Option.some(() => long),
     stories: [],
   },
 });

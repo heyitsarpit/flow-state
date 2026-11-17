@@ -26,10 +26,8 @@ export type Result = {
   readonly fixture: string;
 };
 
-/**
- * The hash of a fixture's shape: its counts, in name order.
- */
-export const fixtureHash = (shape: Counters) =>
+// The hash of a fixture's shape: its counts, in name order.
+const fixtureHash = (shape: Counters) =>
   hashOf(
     Object.entries(shape)
       .toSorted(([a], [b]) => (a < b ? -1 : 1))
@@ -89,11 +87,9 @@ export const failuresOf = (result: Result) => {
     : [];
 };
 
-/**
- * How one history row is labelled: its commit and tree, environment, date, samples file and
- * confidence.
- */
-export type Label = {
+// How one history row is labelled: its commit and tree, environment, date, samples file and
+// confidence.
+type Label = {
   readonly commit: string;
   readonly tree: Row["tree"];
   readonly env: ReturnType<typeof environmentOf>;
@@ -135,7 +131,7 @@ export const rowOf = (result: Result, label: Label) => {
     median: kept(result.median),
     min: kept(result.pooled.min),
     max: kept(result.pooled.max),
-    p99: kept(result.pooled.p99),
+    p99: Number.isNaN(result.pooled.p99) ? ("" as const) : kept(result.pooled.p99),
     mad: kept(result.pooled.mad),
     spread: kept(result.spread),
     shape: result.fixture,

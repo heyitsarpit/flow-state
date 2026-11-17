@@ -23,27 +23,12 @@ const writesOf = async (story: Story<string>) => {
 };
 
 /**
- * The first of an app's Stories whose run lands a write (its long Story, its saved stress Story,
- * then its other Stories in order), timed per run and divided by the batches it landed, with the keys it wrote,
- * the store's keys and characters at the end, and so the keys written per stored key.
+ * One run of a Story, its time divided by the batches it landed, with the keys it wrote, the store's
+ * keys and characters at the end, and so the keys written per stored key; the proof fails when it
+ * lands none.
  */
-export const persistSubject = async (candidates: ReadonlyArray<Story<string>>) => {
-  const found = {
-    story: candidates[0],
-    first: { batches: 0, keysWritten: 0, storedKeys: 0, storedChars: 0, ms: 0 },
-  };
-
-  for (const story of candidates) {
-    const first = await writesOf(story);
-    found.story = story;
-    found.first = first;
-
-    if (first.batches > 0) break;
-  }
-
-  const { story, first } = found;
-
-  if (story === undefined) throw new Error("no Story to time");
+export const persistSubject = async (story: Story<string>) => {
+  const first = await writesOf(story);
 
   return {
     op: async () => {

@@ -1,7 +1,5 @@
-/**
- * The fewest samples a p99 is reported from; below it p99 is NaN and min and max stand instead.
- */
-export const P99_SAMPLES = 1000;
+// The fewest samples a p99 is reported from; below it p99 is NaN and min and max stand instead.
+const P99_SAMPLES = 1000;
 
 // The scale that makes a median absolute deviation estimate a normal distribution's deviation.
 const MAD_SCALE = 1.4826;
@@ -134,10 +132,8 @@ export const changeOf = (
   };
 };
 
-/**
- * The smallest change counted as one, as a share of the old median.
- */
-export const MIN_EFFECT = 0.05;
+// The smallest change counted as one, as a share of the old median.
+const MIN_EFFECT = 0.05;
 
 /**
  * A change counts only when its interval excludes no change and its size passes the minimum effect,

@@ -6,11 +6,9 @@ import type { Story } from "../src/host/testing/index.ts";
  */
 export type TurnRecord = Extract<Evidence, { readonly _tag: "Turn" }>;
 
-/**
- * One timed run of a Story: its wall time in milliseconds, the Turn records it did, in order, and
- * how many evidence records and server calls it made.
- */
-export type Timed = {
+// One timed run of a Story: its wall time in milliseconds, the Turn records it did, in order, and
+// how many evidence records and server calls it made.
+type Timed = {
   readonly ms: number;
   readonly turns: ReadonlyArray<TurnRecord>;
   readonly evidence: number;

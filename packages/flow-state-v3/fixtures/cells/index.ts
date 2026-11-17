@@ -35,6 +35,7 @@ export const cells = manifest({
   ],
   bench: {
     probe: (n) => actorRef(CellsMachine, `checkout-${String(n)}`),
+    persist: Option.some(() => long),
     stories: [
       benchPoint(() => longKey, {
         series: "key-length",

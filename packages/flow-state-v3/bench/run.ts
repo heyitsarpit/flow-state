@@ -1,5 +1,5 @@
 import { Console, DateTime, Effect, Option } from "effect";
-import { benches } from "./benches/index.ts";
+import { benchesFrom } from "./list.ts";
 import {
   changeText,
   fixtureChange,
@@ -15,9 +15,9 @@ import { selectBenches } from "./select.ts";
 import { type Spawned, timingLines, writeTiming } from "./timing.ts";
 import { PACKAGE, worktreeAt } from "./worktree.ts";
 import { HELP, optionsOf, type Options, scopeOf, tierOf } from "./options.ts";
-import { batchesOf, measure } from "./workers.ts";
+import { batchesOf, killGroup, type Live, measure } from "./workers.ts";
 
-const selected = (options: Options) =>
+const selected = (options: Options, benches: ReadonlyArray<Bench>) =>
   selectBenches(benches, {
     tier: tierOf(options),
     concerns: options.concerns,
@@ -55,7 +55,7 @@ const line = (result: Result, options: Options, compared: string) => {
   return `${result.bench.id.padEnd(58)} ${number(result.median).padStart(9)}  ${spread}  ${tail}${compared}${budget}${fails}${full}`;
 };
 
-type Measured = ReturnType<typeof measure>["benches"][number];
+type Measured = Effect.Success<ReturnType<typeof measure>>["benches"][number];
 
 // How a result reads against the other commit: measured now beside it, or from its stored rows.
 const comparedText = (options: Options, measured: Measured, result: Result, env: Env) => {
@@ -169,6 +169,7 @@ const runAll = Effect.fn("runAll")(function* (
   options: Options,
   chosen: ReadonlyArray<Bench>,
   deadline: number,
+  live: Live,
 ) {
   const env = environmentOf(PACKAGE);
   const head = commitOf(PACKAGE);
@@ -195,11 +196,12 @@ const runAll = Effect.fn("runAll")(function* (
       continue;
     }
 
-    const batchRun = measure(
+    const batchRun = yield* measure(
       batch,
       options,
       Option.map(other, (o) => o.package),
       deadline,
+      live,
     );
 
     spawned.push(...batchRun.spawned);
@@ -253,7 +255,7 @@ const exitCodeOf = (run: Run) => {
 // The run's closing lines: its timing table when asked (the timing file is always kept), then
 // its series or its summary.
 const closingLines = (options: Options, run: Run, runMs: number, date: string) => {
-  const mode = `${tierOf(options)}${options.separate ? "-separate" : ""}`;
+  const mode = tierOf(options);
 
   const timing = writeTiming(
     options.history,
@@ -270,9 +272,15 @@ const closingLines = (options: Options, run: Run, runMs: number, date: string) =
   return [...table, ...lines];
 };
 
+// A signal to the run kills every worker's process group, so nothing it started outlives it.
+const onSignal = (live: Live) => (signal: NodeJS.Signals) => {
+  for (const pid of live) killGroup(pid);
+  process.exit(signal === "SIGINT" ? 130 : 143);
+};
+
 const program = Effect.fn("bench")(function* (argv: ReadonlyArray<string>) {
   const options = optionsOf(argv);
-  const chosen = selected(options);
+  const chosen = selected(options, yield* benchesFrom(options.benches));
 
   if (options.help || options.list) {
     yield* Console.log(
@@ -296,7 +304,18 @@ const program = Effect.fn("bench")(function* (argv: ReadonlyArray<string>) {
 
   const date = DateTime.formatIso(yield* DateTime.now);
   const started = performance.now();
-  const run = yield* runAll(options, chosen, started + options.maxTime * 1000);
+  const live: Live = new Set();
+  process.once("SIGINT", onSignal(live));
+  process.once("SIGTERM", onSignal(live));
+
+  const run = yield* runAll(options, chosen, started + options.maxTime * 1000, live).pipe(
+    Effect.ensuring(
+      Effect.sync(() => {
+        for (const pid of live) killGroup(pid);
+      }),
+    ),
+  );
+
   const runMs = performance.now() - started;
 
   for (const l of closingLines(options, run, runMs, date)) yield* Console.log(l);

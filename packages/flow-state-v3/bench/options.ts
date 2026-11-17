@@ -3,11 +3,14 @@ import { parseArgs } from "node:util";
 import { Schema } from "effect";
 import { CONCERNS } from "./declare.ts";
 import { HISTORY } from "./history.ts";
+import { BENCHES } from "./list.ts";
 
 // The longest a run may take by default, in seconds: under the five-minute rule for any command.
-export const MAX_TIME_S = 240;
+const MAX_TIME_S = 240;
 
 export const NOT_RUN = "not run: the run reached its --max-time cap";
+
+export const TIMED_OUT = "timed-out: killed at the bench's own timeout";
 
 export const Options = Schema.Struct({
   concerns: Schema.Array(Schema.Literals(CONCERNS)),
@@ -20,11 +23,11 @@ export const Options = Schema.Struct({
   full: Schema.Boolean,
   stress: Schema.Boolean,
   detail: Schema.Boolean,
-  separate: Schema.Boolean,
   dev: Schema.Boolean,
   help: Schema.Boolean,
   maxN: Schema.optionalKey(Schema.FiniteFromString),
   maxTime: Schema.FiniteFromString,
+  benches: Schema.String,
   timing: Schema.Boolean,
   runs: Schema.optionalKey(Schema.FiniteFromString),
   warmup: Schema.optionalKey(Schema.FiniteFromString),
@@ -50,11 +53,11 @@ export const optionsOf = (argv: ReadonlyArray<string>) => {
       full: { type: "boolean", default: false },
       stress: { type: "boolean", default: false },
       detail: { type: "boolean", default: false },
-      separate: { type: "boolean", default: false },
       dev: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
       "max-n": { type: "string" },
       "max-time": { type: "string", default: String(MAX_TIME_S) },
+      benches: { type: "string", default: BENCHES },
       timing: { type: "boolean", default: false },
       runs: { type: "string" },
       warmup: { type: "string" },
@@ -99,7 +102,7 @@ export const scopeOf = (options: Options) => ({
 
 export const HELP = `nub run bench [concern...] [--full | --stress | --dev] [--only <pattern>] [--max-n <n>]
   [--max-time <s>] [--list] [--record] [--compare <commit> [--stored]] [--summary] [--detail]
-  [--timing] [--separate] [--runs N] [--warmup N] [--workers N]
+  [--timing] [--benches <module>] [--runs N] [--warmup N] [--workers N]
 
 Tiers:
   (default)  quick: each concern's headline benches but the stress ones, two workers sharing a process each, a short

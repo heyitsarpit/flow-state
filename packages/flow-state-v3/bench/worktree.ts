@@ -16,10 +16,8 @@ const git = (cwd: string, args: ReadonlyArray<string>) =>
     timeout: 120_000,
   });
 
-/**
- * The repository's root folder.
- */
-export const repoRoot = () => git(PACKAGE, ["rev-parse", "--show-toplevel"]).stdout.trim();
+// The repository's root folder.
+const repoRoot = () => git(PACKAGE, ["rev-parse", "--show-toplevel"]).stdout.trim();
 
 /**
  * A past commit checked out clean and detached in a new folder under `scratch`, with this bench's

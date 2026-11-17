@@ -23,13 +23,11 @@ export type Concern = (typeof CONCERNS)[number];
  */
 export type Counters = Readonly<Record<string, number>>;
 
-/**
- * What one operation did: `units` is what its time is divided by (turns, sends, bytes walked), and
- * `counters` the work it did, which must be the same on every operation of a bench. `sample` is
- * the operation's own measurement: a time bench's measured part in ms, when it has setup that must
- * not be timed, or a bytes bench's bytes. With none, the whole operation is timed.
- */
-export type Work = {
+// What one operation did: `units` is what its time is divided by (turns, sends, bytes walked), and
+// `counters` the work it did, which must be the same on every operation of a bench. `sample` is
+// the operation's own measurement: a time bench's measured part in ms, when it has setup that must
+// not be timed, or a bytes bench's bytes. With none, the whole operation is timed.
+type Work = {
   readonly units: number;
   readonly counters: Counters;
   readonly sample: Option.Option<number>;
@@ -55,10 +53,8 @@ export type Subject = {
  */
 export type Measure = "ms" | "bytes";
 
-/**
- * The numbers a summary shows for a bench.
- */
-export type Headline = "median" | "p99" | "min";
+// The numbers a summary shows for a bench.
+type Headline = "median" | "p99" | "min";
 
 /**
  * One benchmark, declared once.
@@ -71,7 +67,7 @@ export type Headline = "median" | "p99" | "min";
  * take; time benches default to one 60 Hz frame. `workers` fresh processes each warm up and then sample
  * until `budgetMs` of sampling has passed and at least `minRuns` samples are taken (at most 1,000),
  * unless `--runs` sets the count; a bench that is not `warm` is timed cold,
- * with no warm-up. `gc` runs its workers with a full collector exposed. A `quick` bench is one of
+ * with no warm-up. `timeoutMs` replaces the timeout a bench's tier derives. `gc` runs its workers with a full collector exposed. A `quick` bench is one of
  * its concern's headline benches, which the quick tier runs. A `stress` bench times one of the
  * fixtures' stress Stories: the stress tier runs only those, the quick tier none, the full tier all.
  */
@@ -89,15 +85,14 @@ export type Bench = {
   readonly minRuns: number;
   readonly gc: boolean;
   readonly warm: boolean;
+  readonly timeoutMs: Option.Option<number>;
   readonly quick: boolean;
   readonly stress: boolean;
   readonly load: () => Promise<Subject>;
 };
 
-/**
- * One 60 Hz frame, the budget of any one unit of work that blocks a page.
- */
-export const FRAME_MS = 16;
+// One 60 Hz frame, the budget of any one unit of work that blocks a page.
+const FRAME_MS = 16;
 
 type Declared = Pick<Bench, "id" | "concern" | "tags" | "size" | "load"> &
   Partial<Omit<Bench, "id" | "concern" | "tags" | "size" | "load">>;
@@ -120,6 +115,7 @@ export const bench = (declared: Declared) => {
     minRuns: 5,
     gc: false,
     warm: true,
+    timeoutMs: Option.none(),
     quick: false,
     stress: false,
     ...declared,
@@ -128,10 +124,8 @@ export const bench = (declared: Declared) => {
   return made;
 };
 
-/**
- * Whether the counters of two operations show the same work.
- */
-export const sameWork = (a: Counters, b: Counters) => {
+// Whether the counters of two operations show the same work.
+const sameWork = (a: Counters, b: Counters) => {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
 
   return [...keys].every((key) => a[key] === b[key]);

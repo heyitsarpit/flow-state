@@ -41,6 +41,7 @@ export const sync = manifest({
   ],
   bench: {
     probe: (n) => clientOf(n),
+    persist: Option.none(),
     stories: [],
   },
 });

@@ -54,6 +54,7 @@ export const signIn = manifest({
   ],
   bench: {
     probe: (n) => sessionOf(n),
+    persist: Option.some(() => returnSavedLate),
     stories: [
       benchPoint(() => longEmail, {
         series: "email-length",

@@ -53,6 +53,7 @@ export const transfers = manifest({
   ],
   bench: {
     probe: (n) => actorRef(TransfersMachine, `acct-${String(n)}`),
+    persist: Option.some(() => long),
     stories: [
       benchPoint(() => longId, {
         series: "id-length",

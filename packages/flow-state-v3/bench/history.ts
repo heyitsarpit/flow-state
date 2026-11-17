@@ -24,7 +24,7 @@ export const Confidence = Schema.Literals(["recorded", "backfill"]);
  * Times are per unit in ms, bytes per unit for a bytes bench. `median` is the median of the
  * workers' medians, `spread` the scaled MAD of those medians as a share of `median`, the spread
  * between processes; `mad` the scaled MAD of every sample pooled. `p99` is empty below 1,000
- * samples. `tier` is the tier that measured it, and rows of different tiers are never compared.
+ * samples; every other number is finite, so a NaN is refused. `tier` is the tier that measured it, and rows of different tiers are never compared.
  * `shape` hashes the fixture's shape; `counters` is `name=value` pairs joined by `;`.
  * `samples` names the gzip file of the raw samples. `budget` and `budget_state` are empty when the
  * bench has no budget.
@@ -51,12 +51,12 @@ export const Row = Schema.Struct({
   samples_n: Schema.FiniteFromString,
   warmup: Schema.FiniteFromString,
   batch: Schema.FiniteFromString,
-  median: Schema.NumberFromString,
-  min: Schema.NumberFromString,
-  max: Schema.NumberFromString,
-  p99: Schema.NumberFromString,
-  mad: Schema.NumberFromString,
-  spread: Schema.NumberFromString,
+  median: Schema.FiniteFromString,
+  min: Schema.FiniteFromString,
+  max: Schema.FiniteFromString,
+  p99: Schema.Union([Schema.Literal(""), Schema.FiniteFromString]),
+  mad: Schema.FiniteFromString,
+  spread: Schema.FiniteFromString,
   shape: Schema.String,
   counters: Schema.String,
   samples: Schema.String,

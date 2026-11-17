@@ -9,22 +9,14 @@ import { storySubject } from "./story.ts";
 import { toolingBenches } from "./tooling.ts";
 import { valuesSubject, WALKS } from "./values.ts";
 
-/**
- * The default bound on each growth kind's log-log slope: a flat cost may about double per 10x of
- * size, a linear one grow a little faster than its size.
- */
-export const GROWTH_BOUNDS = { flat: 0.3, linear: 1.2 } as const;
+// The default bound on each growth kind's log-log slope: a flat cost may about double per 10x of
+// size, a linear one grow a little faster than its size.
+const GROWTH_BOUNDS = { flat: 0.3, linear: 1.2 } as const;
 
 const idOf = (storyId: string) => storyId.replace("/", ".");
 
 // The Story each app's own benches run: its long Story, or else its saved stress Story.
 const ownStory = (m: Manifest) => Option.getOrElse(m.long, () => m.savedStress.story);
-
-// An app persists when any of its machines compiles with persistence on.
-const persists = (m: Manifest) =>
-  Object.values(m.app.machines).some(
-    (entry) => ("machine" in entry ? entry.machine : entry).compiled.persist,
-  );
 
 const turnBench = (story: Story<string>, quick: boolean, stress = false) =>
   bench({
@@ -75,23 +67,18 @@ const scaleBenches = (m: Manifest) =>
     ),
   );
 
+// The run time of the Story the manifest names for its writes, per landed batch: a whole run's
+// wall time, its turns included, divided by the batches it lands.
 const persistBenches = (m: Manifest) =>
-  persists(m)
-    ? [
-        bench({
-          id: `persist.${m.name}.per-batch-ms`,
-          concern: "persist",
-          tags: ["story", m.name],
-          size: { n: 1, unit: "run" },
-          load: () =>
-            persistSubject([
-              ...Option.toArray(m.long),
-              m.savedStress.story,
-              ...Object.values(m.stories),
-            ]),
-        }),
-      ]
-    : [];
+  Option.toArray(m.bench.persist).map((story) =>
+    bench({
+      id: `persist.${m.name}.story-per-batch-ms`,
+      concern: "persist",
+      tags: ["story", m.name],
+      size: { n: 1, unit: "run" },
+      load: () => persistSubject(story()),
+    }),
+  );
 
 const valuesBenches = (m: Manifest) =>
   Option.toArray(m.long).flatMap((story) =>
@@ -139,10 +126,17 @@ const startupBenches = (m: Manifest) => {
   ];
 };
 
+// The app with the most machines; ties go to the first name.
+const largestApp = manifests.toSorted(
+  (a, b) =>
+    Object.keys(b.app.machines).length - Object.keys(a.app.machines).length ||
+    a.name.localeCompare(b.name),
+)[0]?.name;
+
 // The one memory probe the quick tier runs: the heap kept per create and dispose cycle, on the
-// first app.
+// app with the most machines.
 const quickMemory = (m: Manifest, kind: string) =>
-  kind === "leak-per-cycle" && m.name === manifests[0]?.name;
+  kind === "leak-per-cycle" && m.name === largestApp;
 
 const memoryBenches = (m: Manifest) =>
   MEASURES.map(({ kind, metric }) =>

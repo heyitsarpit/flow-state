@@ -13,10 +13,8 @@ type Environment = ReturnType<typeof environmentOf>;
  */
 export type Confidence = "interleaved" | "stored";
 
-/**
- * The tier a run measures in and the smallest change it counts.
- */
-export type Tier = {
+// The tier a run measures in and the smallest change it counts.
+type Tier = {
   readonly name: "quick" | "stress" | "full" | "dev";
   readonly minEffect: number;
 };

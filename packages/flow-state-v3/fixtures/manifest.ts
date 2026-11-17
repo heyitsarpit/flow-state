@@ -82,6 +82,28 @@ export const benchStress = (entry: BenchStory) => {
 };
 
 /**
+ * A growth series: one point per size, each the Story `story(n)`; the points from `stressFrom` up
+ * are the fixture's stress Stories, which only the stress and full tiers time.
+ */
+export const benchSeries = (
+  declared: {
+    readonly series: string;
+    readonly unit: string;
+    readonly growth: Growth;
+    readonly sizes: ReadonlyArray<number>;
+    readonly stressFrom: Option.Option<number>;
+  },
+  story: (n: number) => Story<string>,
+) =>
+  declared.sizes.map((n) => {
+    const { series, unit, growth } = declared;
+    const point = benchPoint(() => story(n), { series, n, unit, growth });
+    const stress = Option.exists(declared.stressFrom, (from) => n >= from);
+
+    return stress ? benchStress(point) : point;
+  });
+
+/**
  * One fixture as every runner reads it: the generator, profiles, app mix, saved stress Stories,
  * reload sweep, pair sweeps, bench and CLI.
  *
@@ -93,7 +115,8 @@ export const benchStress = (entry: BenchStory) => {
  * sweep drives, with what its writes can reach. `mix` is the samples set, usual and stress, that an
  * app which persists or calls a server brings to the app mix: one set, since a mix holds each
  * machine once. `setup` is the app's own Runtime setup. `bench` names
- * the actor the bench fills a Runtime with (`probe(n)` is the nth, each a distinct identity) and
+ * the actor the bench fills a Runtime with (`probe(n)` is the nth, each a distinct identity), the Story whose writes the
+ * `persist` bench times (some exactly when a machine of the app persists), and
  * the Stories it times beyond `long` and `savedStress`.
  */
 export type Manifest = {
@@ -110,6 +133,7 @@ export type Manifest = {
   readonly pairs: ReadonlyArray<{ readonly samples: Samples; readonly reach: Reach }>;
   readonly bench: {
     readonly probe: (n: number) => ActorRef;
+    readonly persist: Option.Option<() => Story<string>>;
     readonly stories: ReadonlyArray<BenchStory>;
   };
 };

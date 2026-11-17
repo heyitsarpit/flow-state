@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Option } from "effect";
+import { Option, Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { benches } from "../../bench/benches/index.ts";
 import { CONCERNS } from "../../bench/declare.ts";
@@ -77,6 +77,24 @@ describe("bench tiers", () => {
       const ran = quick.filter((b) => Option.exists(b.series, (s) => s.name === name));
 
       expect([name, ran.length >= 2]).toEqual([name, true]);
+    }
+  });
+});
+
+describe("bench subjects", () => {
+  it("an app has a persist bench exactly when one of its machines persists, on the Story it names", () => {
+    const ids = new Set(benches.map((b) => b.id));
+
+    for (const m of manifests) {
+      const persists = Object.values(m.app.machines).some(
+        (entry) => ("machine" in entry ? entry.machine : entry).compiled.persist,
+      );
+
+      expect({ app: m.name, named: Option.isSome(m.bench.persist) }).toEqual({
+        app: m.name,
+        named: persists,
+      });
+      expect(ids.has(`persist.${m.name}.story-per-batch-ms`)).toBe(persists);
     }
   });
 });
@@ -160,7 +178,7 @@ describe("bench history", () => {
       median: 0.05,
       min: 0.04,
       max: 0.09,
-      p99: Number.NaN,
+      p99: "",
       mad: 0.002,
       spread: 0.01,
       shape: "deadbeef",
@@ -175,6 +193,10 @@ describe("bench history", () => {
       appendRows(root, [{ ...row, commit: "def67890" }]);
 
       expect(readRows("turn", root)).toEqual([row, { ...row, commit: "def67890" }]);
+      expect(
+        Result.isFailure(Result.try(() => appendRows(root, [{ ...row, median: Number.NaN }]))),
+      ).toBe(true);
+      expect(readRows("turn", root).length).toBe(2);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

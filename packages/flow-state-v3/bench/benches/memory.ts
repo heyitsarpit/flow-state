@@ -1,4 +1,4 @@
-import { Effect, Option, Predicate } from "effect";
+import { Effect, Formatter, Option, Predicate } from "effect";
 import type { Manifest } from "../../fixtures/index.ts";
 import type { Runtime } from "../../src/index.ts";
 
@@ -133,24 +133,37 @@ export const measureSize = (kind: Measure) =>
 
 /**
  * One heap measurement of a kind over the actors a manifest's probe names, in a Runtime of its
- * own setup; the proof fails with no collector.
+ * own setup; an operation fails with no collector.
  */
 export const memorySubject = async (setup: Setup, probe: Probe, kind: Measure) => {
   const collect = collector();
 
   return {
     op: async () => {
-      const done = measure(
-        setup,
-        probe,
-        kind,
-        Option.getOrElse(collect, () => () => undefined),
+      const gc = Option.getOrThrowWith(
+        collect,
+        () => new Error("no collector: run under --expose-gc"),
       );
+
+      const done = measure(setup, probe, kind, gc);
 
       return { units: 1, counters: { actors: done.units }, sample: Option.some(done.bytes) };
     },
-    proof: async () =>
-      Option.isNone(collect) ? Option.some("no collector: run under --expose-gc") : Option.none(),
+    // The probe names distinct actors, each lives once ensured and is gone once disposed.
+    proof: async () => {
+      const runtime = boot(setup);
+      const refs = fields(runtime, probe, 0, 10);
+      const live = refs.filter((ref) => Option.isSome(runtime.ensureActor(ref).getSnapshot()));
+      const keys = new Set(refs.map((ref) => Formatter.format(ref.value)));
+
+      for (const ref of refs) runtime.disposeActor(ref);
+      // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- as above
+      Effect.runSync(runtime.dispose());
+
+      return keys.size === 10 && live.length === 10
+        ? Option.none()
+        : Option.some(`the probe named ${keys.size} distinct actors, ${live.length} of 10 live`);
+    },
     shape: async () => ({ actors: measureSize(kind).n }),
   };
 };

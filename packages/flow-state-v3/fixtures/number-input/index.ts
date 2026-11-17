@@ -31,6 +31,7 @@ export const numberInput = manifest({
   ],
   bench: {
     probe: (n) => actorRef(StepperMachine, `field-${String(n)}`),
+    persist: Option.none(),
     stories: [],
   },
 });

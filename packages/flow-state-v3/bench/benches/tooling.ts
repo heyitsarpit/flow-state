@@ -66,7 +66,15 @@ const toolingSubject = async (script: Script) => ({
 
     return { units: 1, counters: countersOf(script, done), sample: Option.some(done.ms) };
   },
-  proof: async () => Option.none<string>(),
+  // The script is one the workspace runs: `nub run` lists it.
+  proof: async () => {
+    const listed = spawnSync("nub", ["run"], { cwd: repo, encoding: "utf8", timeout: 30_000 });
+    const names = `${listed.stdout}\n${listed.stderr}`.split("\n").map((l) => l.trim());
+
+    return names.includes(`- ${script}`)
+      ? Option.none()
+      : Option.some(`nub run lists no ${script} script`);
+  },
   shape: async () => ({}),
 });
 
@@ -86,6 +94,7 @@ export const toolingBenches = (["test", "test:stress", "faults"] as const).map((
     workers: 1,
     minRuns: 1,
     warm: false,
+    timeoutMs: Option.some(30 * 60 * 1000),
     load: () => toolingSubject(script),
   }),
 );

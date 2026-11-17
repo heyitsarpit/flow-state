@@ -84,10 +84,8 @@ export const commitOf = (cwd: string) => ({
  */
 const HEAVY = new Set(["node", "bun", "vitest", "tsc", "tsgo", "nub"]);
 
-/**
- * The busiest share of one core another heavy process may use while a recording runs.
- */
-export const BUSY_CPU = 25;
+// The busiest share of one core another heavy process may use while a recording runs.
+const BUSY_CPU = 25;
 
 /**
  * Why a recording cannot run now, or none: a one-minute load over half the cores, or
