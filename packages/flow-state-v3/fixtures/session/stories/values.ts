@@ -1,6 +1,6 @@
 import type { Schema } from "effect";
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
-import { actorRef } from "../../../src/index.ts";
+import { actorRef, Flow } from "../../../src/index.ts";
 import {
   agendaPeek,
   guestDot,
@@ -11,10 +11,12 @@ import {
   mainCalendar,
   mainDigest,
   mainInbox,
+  mainNests,
   mainOutline,
   mainPreview,
   mainThread,
   mainUnread,
+  nestView,
 } from "../app.ts";
 import {
   BadgeMachine,
@@ -275,6 +277,47 @@ export const outlineDeep = () =>
     .checkpoint("mixed")
     .reload()
     .checkpoint("mixed again");
+
+// A nest's depth around the limit: its memory (one container more) at the limit, one past it, and
+// the selection itself one past it.
+const depths = {
+  at: Flow.maxDepth - 1,
+  memoryPast: Flow.maxDepth,
+  selectionPast: Flow.maxDepth + 1,
+};
+
+const nestStory = (kind: "Lists" | "Folders" | "Maps", id: string) =>
+  grownStory(id)
+    .ensure(mainNests)
+    .ensure(nestView)
+    .send(mainNests, { _tag: kind, depth: depths.at })
+    .checkpoint("at")
+    .send(mainNests, { _tag: "Title", title: "renamed" })
+    .checkpoint("titled")
+    .send(mainNests, { _tag: kind, depth: depths.memoryPast })
+    .checkpoint("memory past")
+    .send(mainNests, { _tag: kind, depth: depths.selectionPast })
+    .checkpoint("selection past")
+    .send(mainNests, { _tag: kind, depth: 3 })
+    .checkpoint("back")
+    .reload()
+    .checkpoint("reloaded");
+
+/**
+ * An outline of plain JSON lists at the depth limit, then the title alone renamed, then one past
+ * the limit in memory, then one past it in the selection, then shallow again; the tab reloads.
+ */
+export const listsAtDepth = nestStory("Lists", "session/lists-at-depth");
+
+/**
+ * The same, for a folder tree under a recursive Schema.
+ */
+export const foldersAtDepth = nestStory("Folders", "session/folders-at-depth");
+
+/**
+ * The same, for an index of Maps.
+ */
+export const mapsAtDepth = nestStory("Maps", "session/maps-at-depth");
 
 /**
  * What the inbox's digest, thread view and the guest's online dot meet, for generated runs:

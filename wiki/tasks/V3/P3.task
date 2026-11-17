@@ -1691,6 +1691,22 @@ tasks
             (AdmissionOverloaded) and the 65th-follow-up refusal are superseded by @plan.Pending.D24 and owned by
             @task.V3.T84; this slice no longer builds or tests them. Depth (Q9 A, @plan.Pending.D26): one measured
             platform limit, past it UnencodableValue.
+        comment     2026-11-17T06:55:11Z
+            Depth measurements (D26), deepest nest each call survives, in levels: Node 24 (V8): Schema.Json encode and
+            decode past 400,000; recursive Schema.suspend tree encode 1,568, decode 1,171 (two containers a level);
+            Equal arrays 1,562, Maps 1,562, trees 1,195. Bun (JavaScriptCore): Json past 400,000; suspend encode 4,700,
+            decode 4,394; Equal arrays 12,501, Maps 9,376, trees 6,251. Chromium (headless shell 1228, V8): Json past
+            50,000; suspend encode 1,563, decode 1,134; Equal arrays 2,734, Maps 2,343, trees 1,373. Not measured:
+            WebKit (no engine installed; Bun stands in for JavaScriptCore) and Gecko. Smallest: Chromium suspend decode,
+            2,268 nested containers; limit Flow.maxDepth = 1,000 containers.
+        comment     2026-11-17T06:55:11Z
+            Depth-round requirements, red at the next commit: 1 a nest at Flow.maxDepth under Schema.Json, a recursive
+            Schema.suspend and a Map index saves, restores and is heard once; a title change alone makes up no event
+            (the review's deep-Map case); memory one past is reported UnencodableValue and withheld, never thrown; a
+            selection one past is reported and its slot keeps its last value; back under the limit it saves and is
+            heard; a reload hears nothing new (Codec R1, R4; Actors R18, R19; @plan.Pending.D26) -> session/lists-,
+            folders-, maps-at-depth, tests/session/depth.test.ts; red: the folder tree throws, the lists breach rules. 2
+            a commit input past the limit declines NotSent Unencodable (Codec R4) -> unencodable.test.ts.
 
     T74
         title       App mix: several fixtures in one Runtime

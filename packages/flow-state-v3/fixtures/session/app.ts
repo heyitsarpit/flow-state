@@ -19,6 +19,7 @@ import {
   ThreadViewMachine,
   UnreadMachine,
 } from "./machines/inbox.ts";
+import { NestsMachine, NestViewMachine } from "./machines/nests.ts";
 import { OutlineMachine, PreviewMachine } from "./machines/outline.ts";
 import { DotMachine, PresenceMachine } from "./machines/presence.ts";
 import { BylineMachine } from "./machines/byline.ts";
@@ -95,6 +96,16 @@ export const mainOutline = actorRef(OutlineMachine, "main");
 export const mainPreview = actorRef(PreviewMachine, "preview");
 
 /**
+ * The workspace's nested things.
+ */
+export const mainNests = actorRef(NestsMachine, "main");
+
+/**
+ * The nests' viewer.
+ */
+export const nestView = actorRef(NestViewMachine, "view");
+
+/**
  * The guest's presence, whose ref binds it to the guest session instead of the default.
  */
 export const guestPresence = actorRef(PresenceMachine, "guest", {
@@ -140,6 +151,11 @@ export const workspaceGrown = app({
     archive: { machine: ArchiveMachine, context: { newest: mainInbox } },
     calendar: CalendarMachine,
     outline: OutlineMachine,
+    nests: NestsMachine,
+    nestView: {
+      machine: NestViewMachine,
+      context: { lists: mainNests, folders: mainNests, maps: mainNests, title: mainNests },
+    },
     preview: { machine: PreviewMachine, context: { doc: mainOutline } },
     agenda: { machine: AgendaMachine, context: { days: mainCalendar } },
     peek: { machine: PeekMachine, context: { days: mainCalendar } },
