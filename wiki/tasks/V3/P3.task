@@ -1820,6 +1820,45 @@ tasks
             lifted they should drop it. Not folded from the audit: F15's chainOf/levelsOf/nameCodec re-derivations and
             F12's provider-snapshot skip (the selector-result skip is in); the app mix holds one samples set per
             fixture, so nests reach the generator and stress runs, not the mix.
+        comment     2026-11-17T09:57:46Z
+            Boundary-round review: ISSUES at 1d8fd436. check exit 0; suite exit 1, 1,161 pass + 13 inverted, the 2 reds
+            T20's pair cells (shop, session). Held on scratch probes (Stories importing src): Lists, Folders, Maps and
+            Tree nests 1,000,000 deep save, restore and are heard [1,1,2,2,2,3]; a 1,000,000-deep import payload and pin
+            hear [0,1,1,1,2] and the trace prints; canonical bytes equal the old writer on 40,000 seeded values, failure
+            reasons included; -0, NaN, Map and Set order and Dates compare as Equal does. Blocking, each red on a probe:
+            1 same.ts levelOf hands Option, class instances, Sets of objects and object-keyed Maps to Effect's Equal,
+            which hashes recursively: a memory field Schema.Option(Folder) or ReadonlySet(Folder) 3,000 deep kills the
+            run (RangeError from turn.ts sameMemory, unguarded; sameSlot the same). Missed: every deep fixture nests
+            arrays, plain objects or string-keyed Maps. 2 boundary.ts build takes an encoded node's body from
+            getContextOwner, which keeps the context from before optionalKey, and never re-applies ast.context as
+            Effect's flip and toType do: optionalKey of any encoded Schema (Date, Option, NumberFromString) left missing
+            fails the walker's encode and decode where Effect succeeds (Struct, TaggedClass, Tuple). A todo list of
+            Struct({ title, due: optionalKey(Date) }) adding an item with no due reports UnencodableValue and withholds
+            the record, and the reload loses the item (Codec I8). Missed: agreement ran on fixture Schemas, none with an
+            optional encoded key. 3 Flow.input(Schema.fromJsonString(Folder)) passes the string-encoded check; a ref
+            3,000 deep throws a raw Error at ensure from identity.ts nameOfValue (Schema.encodeUnknownResult) via
+            runtime.ts actorIdOf (Codec R4), so 'names have no deep path' is wrong. Missed: no fixture names an actor by
+            a nested value. 4 a Flow.initial constant 100,000 deep throws RangeError at construct: well-formed.ts
+            bareFunction recurses over Compiled, constants included. Missed: no deep initial value. 5 same.ts pushes a
+            sparse array's holes as undefined, which ends the loop as equal: [1,<hole>] then [2,<hole>] in a
+            Schema.Array(Schema.Unknown) field keeps [1,<hole>], a lost write Equal sees. Missed: no case with holes.
+            Answers: the memo is correct only under D29, keyed in a WeakMap (no leak), production freeze off
+            (browser.ts). Routed to this Task's next round, not blocking: the freeze misses Maps, Sets, Dates and class
+            instances (map.set in test does not throw and the memo then serves stale text), restored selections
+            (actor-record.ts readSelected), retry, cancel and lookup keys (serve.ts), and children of a container the
+            app froze shallowly; D29's 'a mutation throws where it happens' needs those or narrower wording. The
+            decision ids 'Pending D27/D29' in frozen.ts, codec-faults.ts, deep.test.ts and immutable.test.ts break
+            AGENTS.md (cite Codec R6, Turn R24). Codec R6 says comparison passes through the walkers while same.ts does
+            it; Codec R4 still calls a selection with no form UnencodableValue where Actors R18 and the code make it a
+            Defect. Faults' third unchanged red: not reproduced (an eight-copy run passes the 5-minute bound); stress
+            under twice the load passes, closest to its 60 s budget generated.stress 'session-nests-deep: stress runs
+            from fixed seeds' at 44.6 s, then palette at 37.3 s, so most likely the former; owner @task.V3.T83 (test
+            budgets, and the fix that prints every name). Sidecars (4 Haiku, one blind): accepted the Equal fallback,
+            optionalKey context, identity encode, bareFunction, sparse holes, freeze gaps and decision ids; changed the
+            sparse case from a thrown TypeError to a silent equal (probed); rejected boot decode of Schema.Json fields
+            (1,000,000-deep restores hold), format-1 recursion (old records were depth-bounded), the walker's output
+            table (no path feeds an output back), NaN as "NaN", missing utf8 reason and unsorted key text (all before
+            this diff). No outside imports.
 
     T74
         title       App mix: several fixtures in one Runtime
