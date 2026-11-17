@@ -843,3 +843,8 @@ note 2026-11-17T02:11:51Z
     T9 convergence review ISSUES (d2d47414): five earlier closed; three new blocking (oversized selection a defect,
     issues never clear, baselines copy memory past the bound); fix round to its lead. Palette timeout and tooling gaps
     go to T83. D20: the reviewer says keep the Schema required.
+
+note 2026-11-17T02:36:42Z
+    Decision (the user, 2026-11-17): the orchestrator's proposals accepted and recorded in Pending: D13, D20 (Schema
+    stays required), D21 (T82's three fixture calls), D22 (context edge values join the catalog). send(ref, event) stays
+    open.
