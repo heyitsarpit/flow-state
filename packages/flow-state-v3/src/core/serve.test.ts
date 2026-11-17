@@ -69,7 +69,7 @@ describe("a context update that waits for its providers (Actors R19)", () => {
       [line.machine, { ...LineMachine.compiled, wiring: new Map([["name", lead]]) }],
     ]);
 
-    const env = { now: 0, seed: "0" };
+    const env = { now: 0, seed: "0", freeze: true };
     const open = { ...emptyWorld(false), life: Life.Open() };
 
     const ensured = step(

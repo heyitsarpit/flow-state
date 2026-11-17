@@ -98,4 +98,17 @@ export const codecFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "admitted-values-unfrozen",
+    tests: ["tests/turn/immutable.test.ts"],
+    says: "a test host admits values unfrozen, so a machine that mutates its memory changes it in place and the memoised text goes stale",
+    rule: "Pending D29",
+    edits: [
+      {
+        file: "src/core/frozen.ts",
+        find: "(freeze ? freezeDeep(value) : value)",
+        replace: "value",
+      },
+    ],
+  },
 ];

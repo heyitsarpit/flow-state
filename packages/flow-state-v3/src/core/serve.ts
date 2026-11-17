@@ -1,5 +1,6 @@
 import { Option, Result } from "effect";
 import { type Mapping, Operation, type Values } from "./compiled.ts";
+import { admitted } from "./frozen.ts";
 import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
@@ -118,7 +119,7 @@ export const makeServe = (
       history: incarnation.history,
       memory: incarnation.memory,
       tag,
-      payload,
+      payload: admitted(tx.env.freeze, payload),
       late: Option.isSome(route.late),
       from: Option.match(route.late, {
         onNone: () => incarnation.activations.length,
@@ -156,7 +157,7 @@ export const makeServe = (
       },
       Accepted: (accepted) => {
         const base: Incarnation = Option.match(accepted.move, {
-          onNone: () => ({ ...incarnation, memory: accepted.memory }),
+          onNone: () => ({ ...incarnation, memory: admitted(tx.env.freeze, accepted.memory) }),
           onSome: (move) => {
             const exited = new Set(
               move.exits.flatMap((path) =>
@@ -174,7 +175,7 @@ export const makeServe = (
               state: move.leaf,
               activations: [...kept, ...move.enters.map(() => tx.next())],
               history: historyAfter(incarnation.history, incarnation.state, move),
-              memory: accepted.memory,
+              memory: admitted(tx.env.freeze, accepted.memory),
             };
           },
         });

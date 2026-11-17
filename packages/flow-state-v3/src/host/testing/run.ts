@@ -263,6 +263,7 @@ export const runFrom = <Names extends string>(
       onHidden: () => undefined,
       store: Option.some(store.at(open)),
       sessionSeed: seedOf(mainTab(open), options.seed),
+      freezeValues: true,
     });
 
     const opened = openTab({ ...subject.config, services }, host, now, limits);

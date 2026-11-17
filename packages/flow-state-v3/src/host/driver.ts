@@ -135,7 +135,12 @@ export const makeDriver = (options: {
 
   const drainInbox = () => {
     for (let next = inbox.shift(); next !== undefined; next = inbox.shift()) {
-      const env: Env = { now: clock.currentTimeMillisUnsafe(), seed: host.sessionSeed };
+      const env: Env = {
+        now: clock.currentTimeMillisUnsafe(),
+        seed: host.sessionSeed,
+        freeze: host.freezeValues,
+      };
+
       const out = step(machines, world, next, env);
       options.admit(out.evidence);
       world = out.world;

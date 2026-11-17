@@ -1,3 +1,4 @@
+import { admitted } from "./frozen.ts";
 import { Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
@@ -149,7 +150,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       state,
       activations: chainOf(state).map(() => tx.next()),
       history: new Map(),
-      memory: created.success,
+      memory: admitted(tx.env.freeze, created.success),
       schedules: new Map(),
       issues: [],
       bound: new Map(),

@@ -74,6 +74,7 @@ const stepOver = (
   const tx = makeTx(new Map([[actor.machine, TillMachine.compiled]]), world, {
     now: 0,
     seed: "0",
+    freeze: true,
   });
 
   const persistence = makePersistence(tx);
@@ -327,7 +328,7 @@ it("Actors R8, WriteAhead I11: a free actor whose records are held back does not
     new Map([[actor.machine, TillMachine.compiled]]),
     graced,
     Input.Fired({ timer: grace }),
-    { now: 100, seed: "0" },
+    { now: 100, seed: "0", freeze: true },
   );
 
   expect(out.world.incarnations.has(actorKey(actor))).toBe(true);

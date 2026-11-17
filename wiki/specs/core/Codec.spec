@@ -97,7 +97,8 @@ requirements
                 depth is walked without the call stack, and a value shared twice is walked once. A
                 value whose holes all lie within a fixed budget is parsed once, directly. A value on
                 its own path under one Schema (a cycle) has no form. A walker keeps each value's canonical
-                text by the object it is (memory is immutable, @spec.Turn.R24), so a step re-encodes
+                text by the object it is (admitted values are immutable, @plan.Pending.D29, and a dev or
+                test host deep-freezes them), so a step re-encodes
                 only the fields it changed, and a selector that returns the value it returned last
                 keeps its selection unwalked. Values compare structurally on an explicit stack, the
                 same object at once (as `Equal` holds them; chosen on the bench, Codec T7); memory

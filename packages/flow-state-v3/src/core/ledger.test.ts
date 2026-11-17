@@ -41,7 +41,7 @@ const live = (world: World): World => ({
 
 // One step's working state over a world, with the ledger's functions and its reports.
 const stepOver = (world: World) => {
-  const tx = makeTx(new Map(), world, { now: 0, seed: "0" });
+  const tx = makeTx(new Map(), world, { now: 0, seed: "0", freeze: true });
   const ledger = makeLedger(tx, makePersistence(tx));
 
   return { tx, ledger, rows: () => rowsOf(tx.world().owed, actor) };

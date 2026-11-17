@@ -71,6 +71,7 @@ export const platformOver = (
     hidden: () => false,
     onHidden: () => undefined,
     sessionSeed: seed.toString(16).padStart(32, "0"),
+    freezeValues: true,
     store: Option.some({
       load: Effect.sync(() => new Map(store)),
       write: (writes) => {

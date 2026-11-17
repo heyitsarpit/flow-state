@@ -332,6 +332,7 @@ export type Walker<A, I> = {
   readonly decode: (value: Value) => Result.Result<A, "schema">;
   readonly is: (value: Value) => value is A;
   readonly text: (value: Value) => Result.Result<Canonical, string>;
+  readonly memo: () => { readonly hits: number; readonly misses: number };
 };
 
 // A walked value's result, typed by the Schema it was walked by.
@@ -368,13 +369,15 @@ const reasonOf = (failure: CodecFailure) =>
  *
  * - A value met again on its own path under one Schema (a cycle) fails.
  * - A Schema's own code that throws fails the walk; nothing is thrown.
- * - `text` serves an object's first text again: an object mutated in place is not re-read.
+ * - `text` serves an object's first text again: an object mutated in place is not re-read; admitted
+ *   values are immutable by contract, and dev and test hosts freeze them. `memo` counts its hits.
  */
 export const walkerOf = <S extends Schema.Constraint>(schema: S) => {
   const encoder = compile(SchemaAST.flip(schema.ast));
   const decoder = compile(schema.ast);
   const checker = compile(SchemaAST.toType(schema.ast));
   const texts = new WeakMap<WeakKey, Result.Result<Canonical, string>>();
+  const counts = { hits: 0, misses: 0 };
 
   const encode = (value: Value) => typedOf<S["Encoded"]>(encoder(value));
 
@@ -391,9 +394,14 @@ export const walkerOf = <S extends Schema.Constraint>(schema: S) => {
 
     const known = texts.get(value);
 
-    if (known !== undefined) return known;
+    if (known !== undefined) {
+      counts.hits += 1;
+
+      return known;
+    }
 
     const made = textOf(value);
+    counts.misses += 1;
     texts.set(value, made);
 
     return made;
@@ -402,6 +410,7 @@ export const walkerOf = <S extends Schema.Constraint>(schema: S) => {
   const walker: Walker<S["Type"], S["Encoded"]> = {
     encode,
     text,
+    memo: () => ({ ...counts }),
     decode: (value) => typedOf<S["Type"]>(decoder(value)),
     // RETURN_TYPE: a type guard states the type it narrows to.
     is: (value): value is S["Type"] => Exit.isSuccess(checker(value)),

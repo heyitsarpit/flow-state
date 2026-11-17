@@ -24,5 +24,6 @@ export const browserPlatform = () =>
       onHidden: () => undefined,
       store: Option.none(),
       sessionSeed: entropy(),
+      freezeValues: false,
     }),
   );
