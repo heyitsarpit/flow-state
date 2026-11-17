@@ -1063,7 +1063,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1771,6 +1771,10 @@ tasks
             empty-container case, the spec wording splits, the printer reach and the coverage gaps; rejected owed
             records quarantining at boot (Schema.Json decodes iteratively) and restore overflowing at the limit
             (probed). No outside imports or temporary names.
+        comment     2026-11-17T07:45:34Z
+            Next round (the user, 2026-11-17, Q11 B; @plan.Pending.D27): a fresh lead builds compiled stack-safe walkers
+            from each Schema in Compiled at one value boundary, benchmarks equality, and lifts D26's limit once every
+            path holds at depth 100,000. The review at 8cccc00d (56f29d92) lists the open paths.
 
     T74
         title       App mix: several fixtures in one Runtime

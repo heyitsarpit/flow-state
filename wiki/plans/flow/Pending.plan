@@ -210,3 +210,14 @@ decisions
         walk stack-safe would rebuild Effect's Schema beside it. **Proven by:** Stories at and past the measured depth
         under `Schema.Json`, a recursive `Schema.suspend` and a Map nest, with no crash and no ending lost or made up.
         Found in @task.V3.T9's reviews.
+    D27  @plan.Inspection.O2, @plan.Machines.O1, @plan.Runtime: every value crosses into Flow through walkers compiled
+         from its Schema (accepted, the user, 2026-11-17, Q11 B)
+        **Before:** Effect's Schema parser and `Equal` walk each value recursively at runtime, so deep values crash
+        wherever a call is unguarded (keys, payloads, inputs, reactions, traces), and D26 caps depth at 256. **After:**
+        each Schema in `Compiled` gets its own stack-safe encoder, decoder and comparator, built once from Effect's
+        Schema AST, and every value path (memory, selections, keys, payloads, inputs, commit inputs, records, traces)
+        uses them; equality is the fastest correct option measured on the bench (a compiled comparator, reference-first
+        on immutable memory, or `Equal`). Once every path is proven at depth 100,000, D26's limit is lifted. **Why:**
+        guarding calls one by one leaked in three rounds; Flow owns the compiled format, so it can do better than a
+        generic recursive walk. **Proven by:** Stories at depth 100,000 on every value path with no crash and no ending
+        lost or made up, and the bench comparing the equality options. Found in @task.V3.T9's reviews.

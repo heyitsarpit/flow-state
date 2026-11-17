@@ -921,3 +921,7 @@ note 2026-11-17T07:44:31Z
     Stop (failure limit, third depth round): T9 review ISSUES (56f29d92): a deep key encode (lane-moves.ts keyTextOf) is
     unguarded and kills the run; four more unguarded deep paths routed. Guarding call by call keeps leaking; asked the
     user (Q11) whether T9 builds compiled stack-safe walkers at one boundary instead. T9 holds; trace printer to T83.
+
+note 2026-11-17T07:45:34Z
+    Decision (the user, 2026-11-17): Q11 B. Pending D27: values cross into Flow through walkers compiled from their
+    Schemas; equality chosen by the bench; D26's limit lifted once proven. Fresh T9 lead started; the old one retires.
