@@ -2,11 +2,20 @@ import { makeFreezer } from "./frozen.ts";
 import assert from "node:assert/strict";
 import { Option, Result } from "effect";
 import { describe, it } from "vite-plus/test";
-import { Audience, Delivery, type Heard, keptOn, makeLedger, type Owed, rowsOf } from "./ledger.ts";
+import {
+  Audience,
+  Delivery,
+  type Heard,
+  keptOn,
+  makeLedger,
+  type Owed,
+  Route,
+  rowsOf,
+} from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
 import { decodeRecords, encodeOwed } from "./record.ts";
 import type { Channel } from "./vocabulary.ts";
-import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
+import { makeTx } from "./tx.ts";
 import { Life } from "./life.ts";
 import { actorKey, byCodeUnits, emptyWorld, Mail, type World } from "./world.ts";
 
@@ -58,8 +67,7 @@ const ending = (lane: Option.Option<string>, to: Audience = Audience.Identity())
   channel: "unknown" as const,
   reason: "Lost",
   value: undefined,
-  owner: 7,
-  current: false,
+  route: Route.From({ owner: 7 }),
 });
 
 const deliveries = (rows: ReadonlyArray<Owed>) => rows.map((r) => r.delivery._tag);
@@ -296,7 +304,7 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
       ["Queued", "Retrying"],
       "the Kept row takes its one try",
     );
-    assert.ok(s.rows().every((r) => r.current && r.owner === ROOT_ACTIVATION));
+    assert.ok(s.rows().every((r) => Route.$is("Current")(r.route)));
     assert.deepStrictEqual(ledgerFaults(s.tx.world()), []);
   });
 

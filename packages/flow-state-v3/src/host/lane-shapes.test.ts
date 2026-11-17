@@ -50,8 +50,7 @@ const exactRecords = [
     | "channel"
     | "reason"
     | "value"
-    | "owner"
-    | "current"
+    | "route"
     | "delivery"
   >,
   true satisfies Equal<keyof Lane, "actor" | "operation" | "head" | "queue">,

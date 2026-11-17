@@ -342,9 +342,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/lane-moves.ts",
-        find: '      channel: "notSent",\n      reason: why,\n      value: { why },\n      current: true,\n    });\n\n  const invoke',
+        find: '      channel: "notSent",\n      reason: why,\n      value: { why },\n      route: Route.Current(),\n    });\n\n  const invoke',
         replace:
-          '      channel: "failure",\n      reason: why,\n      value: { why },\n      current: true,\n    });\n\n  const invoke',
+          '      channel: "failure",\n      reason: why,\n      value: { why },\n      route: Route.Current(),\n    });\n\n  const invoke',
       },
     ],
   },

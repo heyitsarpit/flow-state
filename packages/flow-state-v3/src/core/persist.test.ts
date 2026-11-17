@@ -5,7 +5,7 @@ import { transaction } from "../contract.ts";
 import { definition } from "../definition.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
-import { Audience, makeLedger } from "./ledger.ts";
+import { Audience, makeLedger, Route } from "./ledger.ts";
 import { Life } from "./life.ts";
 import { makePersistence } from "./persist.ts";
 import { step } from "./step.ts";
@@ -96,8 +96,7 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
     channel: "success",
     reason: "Success",
     value: { receipt: "r1" },
-    owner: ROOT_ACTIVATION,
-    current: true,
+    route: Route.Current(),
   });
   persistence.project();
 
@@ -124,8 +123,7 @@ const owing = (receipts: ReadonlyArray<string>, from = stepOver()) => {
       channel: "success",
       reason: "Success",
       value: { receipt },
-      owner: ROOT_ACTIVATION,
-      current: true,
+      route: Route.Current(),
     });
   from.persistence.project();
 
@@ -201,8 +199,7 @@ it("Codec R4: a Flow-made row with no value saves null and is never reported", (
     channel: "unknown",
     reason: "Restored",
     value: undefined,
-    owner: ROOT_ACTIVATION,
-    current: true,
+    route: Route.Current(),
   });
   from.persistence.project();
 
@@ -254,8 +251,7 @@ const success = {
   channel: "success" as const,
   reason: "Success",
   value: {},
-  owner: ROOT_ACTIVATION,
-  current: true,
+  route: Route.Current(),
 };
 
 it("WriteAhead I11: a step whose actor record cannot encode writes none of its identity's records, and writes them all once it can", () => {

@@ -85,7 +85,7 @@ const QUEUE_LIMIT = 64;
 export type Move = Data.TaggedEnum<{
   Stay: {};
   Mint: { input: Values; owner: number };
-  Decline: { why: NotSentWhy; owner: number };
+  Decline: { why: NotSentWhy };
   Queue: { input: Values; owner: number; latest: boolean };
   Replace: { input: Values; owner: number; ended: "Superseded" | "Released" };
   Displace: { input: Values; owner: number; owed: boolean };
@@ -142,9 +142,9 @@ export type Table = { readonly [C in Cue["_tag"]]: Row<C> };
 // RETURN_TYPE: the open and ruled-out cells are typed Impossible, so a check can name them.
 const impossible = (): Impossible => Move.Impossible();
 const stay = () => Move.Stay();
-const decline = (cue: CueOf<"CommitReject">) => Move.Decline({ why: "Rejected", owner: cue.owner });
+const decline = Move.Decline({ why: "Rejected" });
 
-const declineBeside = (_head: Head, cue: CueOf<"CommitReject">) => decline(cue);
+const declineBeside = () => decline;
 
 type Commit = { readonly input: Values; readonly owner: number };
 
@@ -156,7 +156,7 @@ const queueLatest = (_head: Head, cue: Commit) =>
 const queueSerial = (_head: Head, cue: Commit, queued: number) =>
   queued < QUEUE_LIMIT
     ? Move.Queue({ input: cue.input, owner: cue.owner, latest: false })
-    : Move.Decline({ why: "Overloaded", owner: cue.owner });
+    : Move.Decline({ why: "Overloaded" });
 
 const supersede = (_head: Head, cue: Commit) =>
   Move.Replace({ input: cue.input, owner: cue.owner, ended: "Superseded" });

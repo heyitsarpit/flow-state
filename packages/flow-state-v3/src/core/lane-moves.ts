@@ -4,8 +4,8 @@ import { type Operation, operationOf as lookup, type Values } from "./compiled.t
 import { defect } from "./defect.ts";
 import { Act } from "./evidence-of.ts";
 import { Life } from "./life.ts";
-import { Audience, type LedgerSteps } from "./ledger.ts";
-import { type Machines, pick, ROOT_ACTIVATION, type Tx } from "./tx.ts";
+import { Audience, type LedgerSteps, Route } from "./ledger.ts";
+import { type Machines, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import { type ActorId, Command, type Displaced, type Lane, Phase, sentBefore } from "./world.ts";
 import type { Persistence } from "./persist.ts";
@@ -44,18 +44,17 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
   const open = () => Life.$is("Open")(tx.world().life);
 
-  // An ending of this lane's Attempt, owed to its identity: routed from the head's owner while the
-  // Runtime is open, current from the root once it is disposing.
-  const oweOf = (at: At, attempt: Option.Option<string>, owner: number) =>
-    open()
-      ? { actor: at.actor, to: Audience.Identity(), operation: at.operation, attempt, owner }
-      : {
-          actor: at.actor,
-          to: Audience.Identity(),
-          operation: at.operation,
-          attempt,
-          owner: ROOT_ACTIVATION,
-        };
+  // An ending of this lane's Attempt, owed to its identity.
+  const oweOf = (at: At, attempt: Option.Option<string>) => ({
+    actor: at.actor,
+    to: Audience.Identity(),
+    operation: at.operation,
+    attempt,
+  });
+
+  // Where an ending of work an activation owns is routed from: that activation while the Runtime
+  // is open, the active leaf once it is disposing.
+  const fromOwner = (owner: number) => (open() ? Route.From({ owner }) : Route.Current());
 
   const operationOf = (actor: ActorId, name: string) => lookup(tx.machines, actor.machine, name);
 
@@ -98,14 +97,14 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   };
 
   // A never-sent Attempt's NotSent keeps its lane: when Kept, it blocks that key.
-  const notSent = (at: At, why: string, attempt: string, owner: number) =>
+  const notSent = (at: At, why: string, attempt: string) =>
     void ledger.owe({
-      ...oweOf(at, Option.some(attempt), owner),
+      ...oweOf(at, Option.some(attempt)),
       lane: Option.some(at.id),
       channel: "notSent",
       reason: why,
       value: { why },
-      current: true,
+      route: Route.Current(),
     });
 
   const invoke = (at: At, lane: Lane, resend: boolean) => {
@@ -226,14 +225,14 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         setLane(at.id, { ...lane, head: headFor(input, owner), queue: [] });
       },
       // A declined commit has no Attempt and no lane; its ending is a row like any other.
-      Decline: ({ why, owner }) =>
+      Decline: ({ why }) =>
         void ledger.owe({
-          ...oweOf(at, Option.none(), owner),
+          ...oweOf(at, Option.none()),
           lane: Option.none(),
           channel: "notSent",
           reason: why,
           value: { why },
-          current: true,
+          route: Route.Current(),
         }),
       // A head the disposal holds is saved Held, so the next boot wakes no one for it.
       Become: ({ phase }) => {
@@ -252,7 +251,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       EndUnsent: ({ why }) => {
         const lane = laneAt(at);
         vacate(at, lane);
-        notSent(at, why, lane.head.id, lane.head.owner);
+        notSent(at, why, lane.head.id);
       },
       Release: () => vacate(at, laneAt(at)),
       Interrupt: ({ call }) => {
@@ -269,18 +268,17 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         // Owed with no lane as before: giving it its lane lets a key-less retry in its handler name
         // it, which changes retry behaviour, owed elsewhere.
         ledger.owe({
-          ...oweOf(at, Option.some(lane.head.id), lane.head.owner),
+          ...oweOf(at, Option.some(lane.head.id)),
           lane: Option.none(),
           channel: "unknown",
           reason: "StorageRefused",
           value: { why: "StorageRefused" },
-          current: true,
+          route: Route.Current(),
         });
       },
       // Every hold writes the Held head's record, not in flight.
       Answer: ({ channel, reason, value, interrupt }) => {
         const lane = laneAt(at);
-        const live = open();
         Option.match(interrupt, {
           onNone: () => undefined,
           onSome: (call) => tx.command(Command.Interrupt({ call })),
@@ -290,12 +288,12 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         else vacate(at, lane);
 
         ledger.owe({
-          ...oweOf(at, Option.some(lane.head.id), lane.head.owner),
+          ...oweOf(at, Option.some(lane.head.id)),
           lane: Option.some(at.id),
           channel,
           reason,
           value,
-          current: !live,
+          route: fromOwner(lane.head.owner),
         });
       },
       Impossible: () => defect(`the lane's table rules out ${cue._tag} on ${stateAt(at.id)._tag}`),
@@ -329,10 +327,10 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     if (d.owed) {
       ledger.owe({
-        ...oweOf(at, attempt, d.head.owner),
+        ...oweOf(at, attempt),
         lane: Option.some(d.lane),
         ...ending,
-        current: ending.channel === "notSent" || !open(),
+        route: ending.channel === "notSent" ? Route.Current() : fromOwner(d.head.owner),
       });
 
       return;
@@ -377,14 +375,14 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     const lane = laneAt(at);
     setLane(at.id, { ...lane, queue: [] });
 
-    for (const queued of lane.queue)
+    for (const _ of lane.queue)
       ledger.owe({
-        ...oweOf(at, Option.none(), queued.owner),
+        ...oweOf(at, Option.none()),
         lane: Option.none(),
         channel: "notSent",
         reason: why,
         value: { why },
-        current: true,
+        route: Route.Current(),
       });
   };
 

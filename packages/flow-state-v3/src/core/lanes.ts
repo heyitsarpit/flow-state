@@ -4,7 +4,7 @@ import { type Concurrency, Operation, type Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
-import { Audience, keptOn, type LedgerSteps } from "./ledger.ts";
+import { Audience, keptOn, type LedgerSteps, Route } from "./ledger.ts";
 import { LaneView } from "./turn.ts";
 import { isInFlight, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
@@ -124,7 +124,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       }
   };
 
-  const decline = (actor: ActorId, operation: string, why: string, owner: number) =>
+  const decline = (actor: ActorId, operation: string, why: string) =>
     void ledger.owe({
       actor,
       to: Audience.Identity(),
@@ -134,8 +134,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       channel: "notSent",
       reason: why,
       value: { why },
-      owner,
-      current: true,
+      route: Route.Current(),
     });
 
   const commit = (incarnation: Incarnation, operation: Operation, given: Values, owner: number) => {
@@ -158,7 +157,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     // An input or key with no encoded form, or a persisted identity in a Runtime without
     // persistence, declines before the lane's table: nothing is sent or saved.
     if (Option.isNone(text) || !encodes) {
-      decline(incarnation.actor, operation.name, "Unencodable", owner);
+      decline(incarnation.actor, operation.name, "Unencodable");
 
       return member;
     }
@@ -169,7 +168,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       !tx.world().persistence &&
       !incarnation.actor.name.startsWith(LOCAL_PREFIX)
     ) {
-      decline(incarnation.actor, operation.name, "NoPersistence", owner);
+      decline(incarnation.actor, operation.name, "NoPersistence");
 
       return member;
     }
@@ -178,7 +177,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     // A lane record the boot could not read still holds its key until a cancel clears it.
     if (tx.world().quarantined.has(laneRecordKey(id))) {
-      decline(incarnation.actor, operation.name, "Rejected", owner);
+      decline(incarnation.actor, operation.name, "Rejected");
 
       return member;
     }
@@ -187,7 +186,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     // cancel policy the newer commit wins, so the lane's Kept rows are let go instead.
     if (keptOn(tx.world().owed, incarnation.actor, id)) {
       if (policyOf(operation) !== "cancel") {
-        decline(incarnation.actor, operation.name, "Rejected", owner);
+        decline(incarnation.actor, operation.name, "Rejected");
 
         return member;
       }

@@ -39,6 +39,17 @@ export const Delivery = Data.taggedEnum<Delivery>();
 export type OwedId = string & Brand.Brand<"flow-state/OwedId">;
 
 /**
+ * Where an owed ending's turn is routed from: the active leaf (current), or the activation that
+ * owns the work, so the ending arrives late when that activation has been left.
+ */
+export type Route = Data.TaggedEnum<{ Current: {}; From: { owner: number } }>;
+
+/**
+ * Constructors and matchers for {@link Route}.
+ */
+export const Route = Data.taggedEnum<Route>();
+
+/**
  * One owed ending: the only place an ending is held from its birth to its close.
  */
 export type Owed = {
@@ -52,8 +63,7 @@ export type Owed = {
   readonly reason: string;
   // FLOW_STATE_ALLOW_UNKNOWN: the ending's value is the commit's or lookup's own, mapped when heard.
   readonly value: unknown;
-  readonly owner: number;
-  readonly current: boolean;
+  readonly route: Route;
   readonly delivery: Delivery;
 };
 
@@ -138,7 +148,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
 
   // A start adopts its rows: each is delivered current, from the active leaf.
   const adopt = (row: Owed, delivery: Delivery) =>
-    queue({ ...row, current: true, owner: ROOT_ACTIVATION }, delivery);
+    queue({ ...row, route: Route.Current() }, delivery);
 
   const live = (row: Pick<Owed, "actor" | "to">) => {
     const incarnation = incarnationOf(row.actor);
@@ -295,8 +305,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
           channel: "unknown",
           reason: "Restored",
           value: undefined,
-          owner: ROOT_ACTIVATION,
-          current: true,
+          route: Route.Current(),
         });
   };
 

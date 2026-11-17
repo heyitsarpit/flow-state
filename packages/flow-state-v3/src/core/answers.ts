@@ -3,7 +3,7 @@ import type { Channel } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { CallResult } from "./input.ts";
 import type { Tx } from "./tx.ts";
-import { Audience, type LedgerSteps } from "./ledger.ts";
+import { Audience, type LedgerSteps, Route } from "./ledger.ts";
 import type { CallId, Read, TicketId } from "./world.ts";
 import { onWireAs } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
@@ -49,8 +49,7 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
       channel: c.channel === "unknown" ? "failure" : c.channel,
       reason: c.reason,
       value: c.value,
-      owner: read.owner,
-      current: false,
+      route: Route.From({ owner: read.owner }),
     });
   };
 

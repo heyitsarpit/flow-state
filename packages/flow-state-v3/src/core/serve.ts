@@ -5,7 +5,7 @@ import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { chainOf, historyAfter } from "./tree.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx } from "./tx.ts";
-import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
+import { type Heard, type LedgerSteps, type Owed, Route } from "./ledger.ts";
 import {
   actorKey,
   type Incarnation,
@@ -276,13 +276,17 @@ export const makeServe = (
       return REFUSED;
     }
 
-    const alive =
-      ending.current ||
-      ending.owner === ROOT_ACTIVATION ||
-      incarnation.activations.includes(ending.owner);
+    // An ending is late when the activation it was routed from has been left.
+    const late = Route.$match(ending.route, {
+      Current: () => Option.none<number>(),
+      From: ({ owner }) =>
+        owner === ROOT_ACTIVATION || incarnation.activations.includes(owner)
+          ? Option.none<number>()
+          : Option.some(owner),
+    });
 
     return turn(incarnation, mapping.value.event, payload.success, {
-      late: alive ? Option.none() : Option.some(ending.owner),
+      late,
       own: ending.lane,
       ending: Option.some(ending),
       source,

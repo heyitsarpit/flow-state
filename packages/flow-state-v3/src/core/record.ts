@@ -12,7 +12,7 @@ import {
   textOf,
 } from "./record-format.ts";
 import { Channel } from "./vocabulary.ts";
-import type { Owed } from "./ledger.ts";
+import { type Owed, Route } from "./ledger.ts";
 import { type ActorId, type ActorRecord, type Lane, byCodeUnits, Phase } from "./world.ts";
 
 const LaneRecordJson = Schema.Struct({
@@ -213,8 +213,7 @@ export const decodeRecords = (
           reason: e.reason,
           // A Flow-made unknown row saved with no value reads back with none.
           value: e.channel === "unknown" && e.value === null ? undefined : e.value,
-          owner: 0,
-          current: true,
+          route: Route.Current(),
         })) satisfies ReadonlyArray<RestoredRow>,
     );
 
@@ -259,7 +258,7 @@ export const decodeRecords = (
           ),
       });
 
-      const ended = { kept: false, actor, operation: r.operation, owner: 0, current: true };
+      const ended = { kept: false, actor, operation: r.operation, route: Route.Current() };
 
       // A saved queue and the displaced heads a cancel was pending on are not restored as work:
       // each queued commit ends NotSent Restored and each displaced Attempt unknown Restored,

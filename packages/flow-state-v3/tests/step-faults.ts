@@ -57,4 +57,17 @@ export const stepFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "owned-ending-routed-current",
+    tests: ["tests/write-lanes/payment-late-answers.test.ts"],
+    says: "an ending of work an activation owns is heard from the active leaf after that activation was left",
+    rule: "Turn R20",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "        owner === ROOT_ACTIVATION || incarnation.activations.includes(owner)\n",
+        replace: "        owner === ROOT_ACTIVATION || incarnation.activations.length >= 0\n",
+      },
+    ],
+  },
 ];
