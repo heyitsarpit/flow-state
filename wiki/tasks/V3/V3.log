@@ -939,3 +939,7 @@ note 2026-11-17T08:29:03Z
     Decision (orchestrator, delegated by the user, 2026-11-17): Pending D28. Awaited and Now writes still project at the
     step's end; Later-only records project when their list is issued, if the bench after T9's memo still shows the cost.
     Owner T85. Why: deferring only non-gating work keeps I11 and every send exact.
+
+note 2026-11-17T08:31:12Z
+    Correction (the user, 2026-11-17): D28 is not decided; no hybrid for caution's sake. The performance audit lead
+    redesigns persistence projection for maximum performance with its broad implications; D28 stays proposed meanwhile.
