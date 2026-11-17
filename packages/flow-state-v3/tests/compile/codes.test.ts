@@ -9,7 +9,6 @@ describe("the closed code list (Diagnostics R7)", () => {
         "InvalidConfiguration",
         "Defect",
         "GuardDefect",
-        "UnencodableValue",
         "TwoDefaults",
         "ImpureDefault",
         "IdentityFieldOptional",
@@ -24,14 +23,10 @@ describe("the closed code list (Diagnostics R7)", () => {
         "BlockedByDependents",
         "InvalidEvent",
         "AdmissionOverloaded",
-        "SendTargetAbsent",
         "RecordUndecodable",
         "SharedContract",
         "KeyFieldOptional",
         "StorageFailure",
-        "StorageSilent",
-        "StoryTurnLimit",
-        "ConfigLoadFailed",
       ].toSorted(),
     );
   });

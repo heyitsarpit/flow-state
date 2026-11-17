@@ -59,9 +59,8 @@ requirements
 
     R6  Classification
         source  @plan.Diagnostics.O2.
-        must    InvariantViolation, Defect, GuardDefect, EntryMismatch, ServerOnlyImport,
-                HydrateOutsideProvider and HydrationCrossRequest are always Defect, and Interruption
-                is always Interruption: these codes fix their classification. Every other code is
+        must    Defect and GuardDefect are always Defect: these codes fix their classification
+                (the other fixed codes return with the features that produce them, R7). Every other code is
                 classified from its Cause by R8's rule, and is Failure when it has no Cause.
                 Decision (agent, 2026-11-11): audit C7; the fixed codes name what failed, the rest
                 take the Cause's (spec-log.md, T42). A failure during lazy adoption keeps the 

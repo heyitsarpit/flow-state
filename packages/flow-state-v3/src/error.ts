@@ -9,7 +9,6 @@ export const Code = Schema.Literals([
   "InvalidConfiguration",
   "Defect",
   "GuardDefect",
-  "UnencodableValue",
   "TwoDefaults",
   "ImpureDefault",
   "IdentityFieldOptional",
@@ -24,14 +23,10 @@ export const Code = Schema.Literals([
   "BlockedByDependents",
   "InvalidEvent",
   "AdmissionOverloaded",
-  "SendTargetAbsent",
   "RecordUndecodable",
   "SharedContract",
   "KeyFieldOptional",
   "StorageFailure",
-  "StorageSilent",
-  "StoryTurnLimit",
-  "ConfigLoadFailed",
 ]);
 
 /**
@@ -85,12 +80,9 @@ const classify = (code: Code, cause: Option.Option<unknown>) => {
 /**
  * What a diagnostic says, before Flow classifies it.
  */
-export type Finding = {
-  readonly code: Code;
-  readonly path: ReadonlyArray<string | number>;
-  readonly details?: Readonly<Record<string, string | number | boolean | null>>;
-  readonly summary: string;
-  readonly help: string;
+export type Finding = Pick<Diagnostic, "code" | "path" | "summary" | "help"> & {
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a finding with no details is classified with none
+  readonly details?: Diagnostic["details"];
 };
 
 // FLOW_STATE_ALLOW_UNKNOWN: a failure Flow wraps is whatever its source raised.

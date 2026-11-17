@@ -47,10 +47,8 @@ export type Resolved = Data.TaggedEnum<{
 export const Resolved = Data.taggedEnum<Resolved>();
 
 /**
- * A schedule to arm at the end of the turn, with its delay from the after memory.
- */
-/**
- * A schedule a turn arms: its name, the event it sends and its delay.
+ * A schedule a turn arms at its end: its name, the event it sends and its delay, read from the
+ * memory after the turn.
  */
 export type Arming = { readonly name: string; readonly send: string; readonly ms: number };
 
@@ -282,10 +280,6 @@ const delayOf = (schedule: Schedule, memory: Values) =>
               Result.fail({ slot: ms.slot }),
       ),
   });
-
-/**
- * The largest delay a timer can hold: 2^31 - 1 ms.
- */
 
 const NO_SCHEDULES: ReadonlyArray<Schedule> = [];
 

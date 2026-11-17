@@ -87,6 +87,7 @@ describe("edges of persistence and names", () => {
 
     local.send({ _tag: "Save", text: "a" });
 
+    expect(seen.filter((e) => e._tag === "Sent").map((e) => e.operation)).toEqual(["save"]);
     expect(endings(seen)).toEqual([]);
   });
 

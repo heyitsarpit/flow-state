@@ -205,7 +205,8 @@ const isIdentity = (ast: SchemaAST.AST) =>
   isStringEncoded(ast);
 
 // The finding of one field's source, if its source breaks a rule.
-const sourceFinding = (name: string, raw: Field) => {
+// RETURN_TYPE: one Finding type for every rule's literal.
+const sourceFinding = (name: string, raw: Field): Option.Option<Finding> => {
   const at = ["memory", name];
   const field = isMarker(raw) && raw["~flow"] === "private" ? raw.field : raw;
 

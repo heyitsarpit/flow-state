@@ -112,7 +112,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       onSome: (a) => void apply(a, cue),
     });
 
-  // A commit declined before its lane's table: no Attempt, no lane, one owed row.
   const interruptReads = (incarnation: Incarnation, operation: string, replaced: boolean) => {
     for (const [call, read] of tx.world().reads)
       if (read.incarnation === incarnation.id && read.operation === operation) {
@@ -123,6 +122,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       }
   };
 
+  // A commit declined before its lane's table: no Attempt, no lane, one owed row.
   const decline = (actor: ActorId, operation: string, why: string) =>
     void ledger.owe({
       actor,
