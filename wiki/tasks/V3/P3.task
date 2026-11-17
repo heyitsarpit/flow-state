@@ -3321,6 +3321,35 @@ tasks
             the script). History: 76 rows carry ids retired by the manifest redesign (crowd-*, wall-*, nest-lists-*,
             large-list, stress-huge-list, the past-cap singles, `persist.<story>.per-batch-ms`, number-input sends,
             palette list walkers, the inspector three-way, mailbox bursts, compile); they stay as history.
+        comment     2026-11-17T20:10:02Z
+            ISSUES (independent review of the fix round e349a6bd at e81a6035; plants in a scratch copy, on battery): the
+            three earlier findings are closed, three new blocking. Closed: a planted hang and spinner sharing the `turn
+            --dev --max-time 90` worker each timed out at their own 32 s, the rest measured, 80 s, exit 1; SIGINT and
+            SIGTERM to the parent or to `nub run bench`, and a capped `tooling --only tooling.test --dev --max-time 25`
+            (27 s), left no process; `--dev` runs one worker (`turn.shop.long` 3 s, `--runs 3` keeps 3). `nub run check`
+            exits 0. The suite under load 14 to 25 had 9 reds; alone, `limits.test.ts` (6) and cli plus the three sweeps
+            (311) pass, so only T20's two pair reds stand. Blocking:
+              - `--compare <commit>` times this tree on both sides. Workers get `--benches` as this tree's absolute path
+                (code:packages/flow-state-v3/bench/workers.ts#workerArgs), so the other commit's worker imports our
+                list, fixtures and src (it imported its own `./benches/index.ts` before). A bench only in the scratch
+                tree, compared against HEAD, printed x0.999.
+              - `--benches <module> --record` writes a planted list into `bench/history/`: `refusalOf` never checks it;
+                one `turn.planted.first` row was appended to the scratch `turn.csv`, busy check stubbed. On a clean tree
+                the row reads as genuine.
+              - SIGHUP orphans a worker. Workers are detached (new session), so a hangup no longer reaches them and
+                `run.ts` handles only INT and TERM: a hung worker stayed under pid 1, via node and via nub. SIGKILL to
+                the parent's group orphans it too (no handler can run; a worker-side parent check would cover it).
+                Routed (non-blocking): the first bench's timer starts at spawn, so worker boot counts, and
+                `limits.test.ts` reds under load (`last` at 2 s); a report read after a kill marks the next bench
+                timed-out unrun; a signal leaves the compare worktree; a crash fails the batch's rest; `--workers 1`
+                records spread 0; the timing file is still written under `--dev`; `stressFrom` is checked only through
+                its effects, not against the Stories' stress status; bench.md omits `benchSeries` and `bench.persist`;
+                `declare.ts:64` names a fixture id in its doc; no `tooling.csv` yet; several limits tests pass on weaker
+                code (cap-tree has no started check; SIGINT untested). Sidecars (three Haiku): accepted the compare,
+                planted-record, parent-death, timer-at-spawn, kill race, worktree, spread and test-gap findings after
+                reading or reproducing them; rejected `kill -KILL -pid` failing (groups died in every run), `--workers`
+                overriding dev (an explicit override), the quick default, packed counters, live compare, stress-only
+                proofs and the root `nub` read (decided earlier).
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
