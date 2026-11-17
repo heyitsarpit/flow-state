@@ -74,17 +74,17 @@ decisions
         span (every answer Lost or Never for 5 to 120 s) needs one word for every endpoint at once, not a drop armed per
         endpoint. **Proven by:** @task.V3.T70's step test, the stress profile's span check and the planted fault
         `offline-reaches-server`. Judged by the orchestrator, for the user's read. Found in @task.V3.T70.
-    D13  @plan.Runtime.O4: context updates never count toward the follow-up cap (accepted, the user, 2026-11-17)
-        O4's 64 follow-ups count only events sent by turns; a context update and the onContext events it enqueues never
-        count, so none is refused or waits at the cap, and a provider with any number of consumers updates them all in
-        one admitted event. **Why:** O4 also says context updates are never dropped, and ContextCycle already bounds a
-        context chain; counting them refused a rename under more than 64 badges. Two traces of one Story (a rename under
-        1,024 badges): counted, the rename is refused and every badge keeps the old name; uncounted, every badge shows
-        the new one and no issue is raised. No turn sends an event until an actor-to-actor send action exists (the
-        user's call), so the cap has no input today and is built with that action. **Proven by:**
-        tests/actors/follow-ups.test.ts, `session/avatar-wall-65`, the 1,024-badge wall and the planted fault
-        `context-follow-ups-capped`. Decided by the orchestrator, delegated by the user; supersedes the earlier D13 (a
-        context update at the cap waits). Found in @task.V3.T9.
+    D13  @plan.Runtime.O4: context updates never count toward the follow-up guard (accepted, the user, 2026-11-17)
+        O4's follow-up chain, D24's one loop guard (its number comes from the bench), counts only events sent by turns;
+        a context update and the onContext events it enqueues never count, so none is refused or waits at the guard, and
+        a provider with any number of consumers updates them all in one admitted event. **Why:** O4 also says context
+        updates are never dropped, and ContextCycle already bounds a context chain; counting them refused a rename under
+        more than 64 badges. Two traces of one Story (a rename under 1,024 badges): counted, the rename is refused and
+        every badge keeps the old name; uncounted, every badge shows the new one and no issue is raised. No turn sends
+        an event until an actor-to-actor send action exists (the user's call), so the guard has no input today and is
+        built with that action. **Proven by:** tests/actors/follow-ups.test.ts, `session/avatar-wall-65`, the
+        1,024-badge wall and the planted fault `context-follow-ups-capped`. Decided by the orchestrator, delegated by
+        the user; supersedes the earlier D13 (a context update at the cap waits). Found in @task.V3.T9.
     D14  @plan.Operations.O4: a Flapping session reopens when the connection is restored (accepted, the user, 
          2026-11-17)
         **Before:** a session that ends `Flapping` stays ended; "it never re-opens a session" (O4), so a chat after a
@@ -142,21 +142,22 @@ decisions
         left unknown. **Proven by:** the `session` digest, thread and reload Stories (`tests/session/values.test.ts`,
         `tests/rules/reloads.test.ts`). Found in @task.V3.T9's convergence. The Schema stays required: it cannot be
         inferred for a computed selection, and an optional one brings back the unknown value kind (the convergence
-        review's recommendation). A selection past a codec bound is not the selector's defect: it is reported
-        `UnencodableValue` and never fails the turn (@spec.Codec.R4).
+        review's recommendation). A selection past the measured depth limit (D26), or with no canonical form, is
+        reported `UnencodableValue` and never fails the turn; a Schema refusal stays the selector's defect.
     D21  @plan.Diagnostics.O1, @plan.Operations.O1, @plan.Testing.O6: three fixture calls from @task.V3.T82 (accepted,
          the user, 2026-11-17)
         `ContextCycle` stays checked by a runtime test, since no real app reaches it without a stand-in definition of
         the same id. sync's "a 4xx that is not a rate limit ends at once" case waits for a Task that may change the old
         `Git/sync` contract, which additive fixture growth forbids. sign-in's grown samples stay out of the app mix: a
         sixth part fails the mix's "every server called in one run" check at five seeds. **Why:** additive growth and no
-        reach today. **Proven by:** the later Task that changes `Git/sync`, and the mix once T83 seats more parts.
+        reach today. **Proven by:** no owner until a Task changes `Git/sync` or seats more mix parts; logged
+        in revisit.md.
     D22  @plan.Testing.O6: context edge values join the fixture catalog (accepted, the user, 2026-11-17)
         **Before:** the catalog names no edge values for context, so two T9 reviews found value kinds (undefined,
-        Option, Date, NaN, Map, Set, cycles, oversized values) that no fixture held. **After:** a catalog row of context
-        edge values that every later Task touching context inherits: each value kind across repeated reloads, a cyclic
-        selection, a value past each codec bound, and a source that fails and then recovers. **Why:** a class found
-        twice becomes a fixture every later Task inherits (the Epic's instructions). **Proven by:** the row's Stories in
+        Option, Date, NaN, Map, Set, cycles) that no fixture held. **After:** a catalog row of context edge values that
+        every later Task touching context inherits: each value kind across repeated reloads, a cyclic selection, a value
+        past the measured depth limit (D26), and a source that fails and then recovers. **Why:** a class found twice
+        becomes a fixture every later Task inherits (the Epic's instructions). **Proven by:** the row's Stories in
         `session`, red on a planted unknown path. Found in @task.V3.T9's reviews.
     D23  @plan.Inspection.O2: the codec has no size bounds (accepted, the user, 2026-11-17)
         **Before:** one past any of depth 32, 10,000 nodes, 4,096 items per array, 262,144 bytes per string or key, or
@@ -176,7 +177,8 @@ decisions
         the bench; a dev diagnostic reports a turn or capture slower than the bench's budget (as RTK's `warnAfter`).
         Storage quota stays the real limit (`StorageRefused`). **Why:** the numbers were arbitrary; XState, Zustand,
         Redux, RTK and redux-persist cap no size or queue, and guard loops and slow work instead. **Proven by:** Stories
-        past each old cap with no ending lost, doubled or made up, and the bench timing them. Found in the limits survey
+        past each old cap with no ending lost, doubled or made up, the bench timing them, and no core Spec names a
+        removed cap (Actors R13 and R14, WriteLanes serialize, WriteAhead scope bounds). Found in the limits survey
         after @task.V3.T9's reviews. Extended (the user, 2026-11-17, Q3 A): also dropped are the 64 sends buffered
         before React attaches (@plan.React), 256 stream entries per operation and 256 identities per write batch, the
         key shape's 16 levels and 256 nodes (@plan.Operations.O1), the 10-segment state path (@plan.Machines), the
@@ -192,7 +194,9 @@ decisions
         name, not the literal; each value is set from the bench or real measurements when its Task builds it; retries
         use Effect's `Schedule`, and a refused batch's retry derives from the capture interval. The capture interval
         keeps 5 s (the user's decision) until the bench says otherwise. **Why:** none of these values was measured.
-        **Proven by:** each knob's bench or measurement note on its Task. Found in the limits sweep, 2026-11-17.
+        **Proven by:** each knob's bench or measurement note on its Task. Knobs not yet built are owned by the Task that
+        builds each feature. The test-tooling guards (Story turn, settle and advance limits) are @task.V3.T83's (the
+        user's Q5 A). Found in the limits sweep, 2026-11-17.
     D26  @plan.Inspection.O2: a value's depth has one measured platform limit (accepted, the user, 2026-11-17, Q9 A)
         **Before:** after D23 a value may nest to any depth, but Effect's Schema encode and `Equal` recurse on the call
         stack, so a 6,000-deep value under a recursive Schema kills the run and deep Maps compare wrongly. **After:**

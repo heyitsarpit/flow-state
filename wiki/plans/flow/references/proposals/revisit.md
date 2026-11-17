@@ -115,3 +115,6 @@ Deferred items.
 - **Rebuild the docs' guides from `wiki/conventions/`** (2026-11-16, the user; `conventions-2026-11-16.md` decision 4).
   `apps/docs/src/pages/guide/patterns.md` and `recipes.md` teach the old API (`flow.after`, `submit`, `useResource`);
   leave them until the API the conventions use is built, then rebuild each guide from its page.
+- **`Git/sync` 4xx case and sign-in's mix seat** (2026-11-17, @plan.Pending.D21). A 4xx that is not a rate limit ends
+  `sync` at once, which changes the old `Git/sync` contract; sign-in's grown samples need a sixth mix part. No owner
+  until a Task changes `Git/sync` or seats more mix parts.

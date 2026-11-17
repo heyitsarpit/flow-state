@@ -600,7 +600,7 @@ tasks
             UnencodableValue report, and the realization's 'not built yet' is a gap written into the Spec.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
-        status      in_progress
+        status      open
         priority    high
         blocked_by  [@T19, @T82, @T83]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
@@ -893,6 +893,8 @@ tasks
         comment     2026-11-17T06:52:42Z
             Its record-bound proofs were removed by D23 (the list is in T9's 2026-11-17T04:36:33Z comment); restore is
             proven on real-size values and the measured depth (D26).
+        comment     2026-11-17T07:04:03Z
+            Open, not in progress: no lead is on it; it resumes after T83 (blocked_by).
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
@@ -1067,8 +1069,7 @@ tasks
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
         description
             Build actor identity and lifetime on production from @spec.Actors: `actorRef` by value, `createActor`,
-            snapshots and their fallbacks, the send table, context waves with `onContext`, issues by source, and the
-            admission bound.
+            snapshots and their fallbacks, the send table, context waves with `onContext`, issues by source.
 
             **Why now:** production has one actor shape; identity by value, the mailbox rules and context are unbuilt,
             and the browser slice (@task.V3.T58) needs them.
@@ -1085,8 +1086,8 @@ tasks
             - Each new rule has a planted fault that `nub run faults` catches.
             - Fixtures first (code:wiki/conventions/fixtures.md): context, refs by value and mailboxes are covered in a
               new `session` fixture and in `lanes`, across many scenarios: usual and stress Stories and step samples
-              with an undefined user, 64 and more consumers, a persisted consumer, a reload mid-way; the generator, the
-              reload sweep and the app mix reach them, and those Stories fail before the build.
+              with an undefined user, many consumers, a persisted consumer, a reload mid-way; the generator, the reload
+              sweep and the app mix reach them, and those Stories fail before the build.
         comment     2026-11-15T14:33:24Z
             @spec.Actors.I38 (a commit queued behind a Held head is not ended at disposal) is @task.V3.T55's.
         comment     2026-11-16T09:10:34Z
@@ -1707,6 +1708,9 @@ tasks
             heard; a reload hears nothing new (Codec R1, R4; Actors R18, R19; @plan.Pending.D26) -> session/lists-,
             folders-, maps-at-depth, tests/session/depth.test.ts; red: the folder tree throws, the lists breach rules. 2
             a commit input past the limit declines NotSent Unencodable (Codec R4) -> unencodable.test.ts.
+        comment     2026-11-17T07:04:03Z
+            Follow-up chain: it stays as D24's one loop guard with a bench-set number, built with the send action;
+            earlier comments saying the cap is removed mean only its 64.
 
     T74
         title       App mix: several fixtures in one Runtime
@@ -2187,8 +2191,10 @@ tasks
         acceptance
             - Timings before and after, alone on this machine, are in a Task comment: the package suite, `nub run
               test:stress` and `nub run faults`, each per file or per fault for the slowest ten.
-            - No regression from the measured baseline without a named cause; before and after numbers are reported, and
-              where a regression stays, the comment names what each lost second buys and the lead asks the user.
+            - The baseline is re-measured and recorded at the Task's start; no regression from it without a named cause;
+              before and after numbers are reported, and where a regression stays, the comment names what each lost
+              second buys and the lead asks the user.
+            - Each fixture Story's count is set from the bench and recorded in the Story (fixtures.md).
             - The same Story ids, test counts and fault caught list hold before and after; the dead core still runs the
               full suite.
             - No timeout is raised without a measured reason.
@@ -2241,24 +2247,27 @@ tasks
             caps (record queue 64, given-up marks) are Plan-only until EntityDomains is built; they are dropped from the
             Plans by D24's merge, not built here. No Spec keeps a gap as a limit.
 
-            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`, the core Specs (each change in
-            `wiki/specs/specs.log`). Evidence: this Task's comments.
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`, `tools/faults/`, the core Specs
+            (each change in `wiki/specs/specs.log`). Evidence: this Task's comments.
 
-            False pass: a cap still enforced under another name → caught by a Story past each old cap, red first.
+            False pass: a cap still enforced under another name → caught by a Story past each old cap, red first; a
+            Story that never reaches the old cap's scale → caught by its recorded size.
         acceptance
-            - A Story drives well past the scale of each old cap (pending events, serialize commits, a `many` key, a
-              key, a name, persisted records, record bytes), one size enough, timed on the bench, red first, and ends
-              with no ending lost, doubled or made up.
+            - A Story drives past the old cap at a size recorded in the Story and timed on the bench (pending events,
+              serialize commits, a `many` key, a key, a name, persisted records, record bytes), red first, and ends with
+              no ending lost, doubled or made up.
             - The follow-up chain guard's number is set from the bench and its reason logged; a runaway self-feeding
               chain still ends with its issue.
-            - A dev diagnostic reports a turn or capture slower than the bench's budget, with a Story; production
-              reports nothing.
+            - A dev diagnostic reports a turn or capture slower than a budget recorded from the bench, with a Story;
+              production reports nothing.
             - The bench times each Story past an old cap; the numbers are in a Task comment.
             - No core Spec names a removed cap; `nub run check` passes; `nub run faults` catches each new fault.
-            - The caps D24's extension adds are gone the same way, each well past its old scale in a Story, red first,
-              one size enough, timed: sends before React attaches, stream entries, identities in a write batch, a deep
-              or wide key, a long state path, a long trace, a long Story; the step's mail drain stays a fairness yield
-              with its count from the bench.
+            - The caps D24's extension adds are gone the same way, each past the old cap in a Story, red first, at a
+              size recorded in the Story and timed on the bench: sends before React attaches, stream entries, identities
+              in a write batch, a deep or wide key, a long state path, a long trace, a long Story; the step's mail drain
+              stays a fairness yield with its count from the bench.
+            - Stories and tests built for a cap are renamed in the rework (e.g. `key-past-bound`, `over-bound`,
+              `wall-64`, `avatar-wall-65`, `stress-wall-1024`).
             - Rework routed from code:wiki/conventions/fixture-catalog.md (items marked "rework: @task.V3.T84"): the
               built Stories and tests that assert an old cap (`lanes/serialize-at-cap`, the 1,025th
               `AdmissionOverloaded` runtime tests of lanes and workspace, `cells/key-at-bound` and `key-past-bound`,
@@ -2268,4 +2277,5 @@ tasks
             - D25's built knobs (the free actor's grace, the disposal bound, StorageSilent, the refused batch's retry,
               the capture interval) are each one named Runtime default in one place, cited by name in the Specs and
               tests; each value has a bench or measurement note; the refused batch's retry derives from the capture
-              interval via Effect's `Schedule`; the 2^31 - 1 ms timer limit has one source.
+              interval via Effect's `Schedule`; the 2^31 - 1 ms timer limit is a real platform limit given one source,
+              not a D25 knob.

@@ -636,6 +636,11 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       `session/archive-large`, `session/digest-refused`, `session/unread-recovers`.
     - [x] E7: a record naming a last-seen form no release wrote, quarantined, never thrown; a format-1 record steps to
       format 2 with nothing made up (Restore R5). built: `session/corrupt-seen`, `session/format-one-avatar`.
+    - [x] Context edge values (@plan.Pending.D22): each value kind (undefined, Option, Date, NaN, -0, Map, Set, class
+      instance) across repeated reloads, hearing nothing made up (Actors R9, R19). built: `session/digest-heard`,
+      `session/digest-quiet`. A cyclic selection never crashes the run. built: `session/thread-heard`. A value at and
+      past the measured depth limit (@plan.Pending.D26). built: `session/lists-at-depth`, `session/folders-at-depth`,
+      `session/maps-at-depth`. A source that fails then recovers (Turn R25). built: `session/unread-recovers`.
     - [ ] Stress and mix reach of the inbox: 64 and more digests on one inbox under L5, and the inbox samples in the
       mix and the pair sweep. left: no owner Task (routed to the orchestrator); the mix and the pair sweep take one
       samples set per fixture.
@@ -696,8 +701,8 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
     fuzzy keystroke stays well under a frame". Ranking speed is the fixture's own code, and no test times it; with no
     codec bounds (@plan.Pending.D23) a 10,000-entry list is a bench case for a later Task.
   - [x] **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape, S9 at the deepest: 1 (PALETTE-9, PALETTE-10
-    with Escape), 8 with a reload at the deepest, 64 saved and restored whole. built: `palette/frames-8`, the `framesSixtyFour` builder. S3: two palettes. built:
-    `palette/two-palettes`.
+    with Escape), 8 with a reload at the deepest, 64 saved and restored whole. built: `palette/frames-8`, the
+    `framesSixtyFour` builder. S3: two palettes. built: `palette/two-palettes`.
   - [ ] **Structure:** each palette with its own workbench. left: needs an actor-to-actor `send(ref, event)` action
     for `Workbench`, which no Task owns (the user's call).
   - [x] **Edges:** an empty query keeps the source order. Copies [command.test.ts:120][ui-command] "an empty query keeps
@@ -1058,15 +1063,13 @@ checked here).
     timers per user); an Effect `Schedule` as `schedule` (the resend backoff); `context`, `onContext`, `Provider.select`
     (`Account` ⇢ `session`; `Hub` ⇠ `session` ⇢ `hub`; `Thread` ⇠ `hub`); `ContextCycle`, `MissingContextProvider` (a
     `Hub` with no `Account`, refused at boot); a deep mailbox, no ending lost (typing events well past the old 1,024);
-    `resource`,
-    `O.x.lookup` (R `history`); `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch` (R `history`); `optimistic` values
-    on a read (T `send`'s echo on R `history`); `reject`, `NotSent { Rejected }` (T `ask`, one question at a time);
-    `serialize`, a deep queue, no ending lost (T `send` per thread); endings, `Flow.uncertain`, `unknown` (T `send`,
-    `ask`);
-    `NotSent { Restored }`, `unknown { Restored }` (owed sends after a reload); `NotSent { Disposed }`, `unknown {
-    Disposed }` (a thread disposed mid-send); `progress` (T `upload`); `idempotency` (T `send` by client message id);
-    owed endings, quarantine (T `send`); `persist`, restore, reload (`Thread`, `Hub`); Runtime per scope, `dispose` (a
-    new Runtime per workspace).
+    `resource`, `O.x.lookup` (R `history`); `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch` (R `history`);
+    `optimistic` values on a read (T `send`'s echo on R `history`); `reject`, `NotSent { Rejected }` (T `ask`, one
+    question at a time); `serialize`, a deep queue, no ending lost (T `send` per thread); endings, `Flow.uncertain`,
+    `unknown` (T `send`, `ask`); `NotSent { Restored }`, `unknown { Restored }` (owed sends after a reload);
+    `NotSent { Disposed }`, `unknown { Disposed }` (a thread disposed mid-send); `progress` (T `upload`);
+    `idempotency` (T `send` by client message id); owed endings, quarantine (T `send`); `persist`, restore, reload
+    (`Thread`, `Hub`); Runtime per scope, `dispose` (a new Runtime per workspace).
   - **step 8:** `createActor`, `disposeActor` (`Recipients`).
   - **step 11:** `guarded` (an edit proved by the message version); `entity`, `domain`, `read(...).list`/`.one`/`.byKey`
     (the `messages` domain); `predicts`, repair, `basedOn` (T `send` predicts); `.gone` tombstones (a deleted message);
@@ -1113,8 +1116,8 @@ checked here).
       comes back settled on undo".
     - [ ] A token that fails to load. Copies [token-input.test.ts:48][ui-token] "a token that fails to load leaves a
       supplied token with the id it would have generated".
-    - [ ] Closed at once; a reconnect with no bookmark; a bookmark at 256 entries and past it; E7: a position that fails
-      to decode; `missed` as `Unproven`, `Lost` and `Reset`.
+    - [ ] Closed at once; a reconnect with no bookmark; a long bookmark, timed; owner @task.V3.T84; E7: a position
+      that fails to decode; `missed` as `Unproven`, `Lost` and `Reset`.
   - **Combinations:**
     - [ ] Stop while a reconnect is pending. Copies [chat.test.ts:1763][ai-chat] "should stop a resumed stream while
       reconnection is pending".
