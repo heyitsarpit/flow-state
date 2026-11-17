@@ -3157,6 +3157,27 @@ tasks
             The coordinator's two review lists (fresh processes, MAD and bootstrap CI, raw samples, startup and memory
             concerns, inspector variants, shape hash, summary, budgets) are built in this cut where noted at the close;
             the rest is proposed as follow-ups there.
+        comment     2026-11-17T16:57:18Z
+            Proposed Amendment (for the orchestrator), replacing "the builder records the bench's numbers in the Task's
+            comment" in the Epic's close line: "the builder runs `nub run bench --record` alone on the machine (and `nub
+            run bench tooling --record` at a close or wake); the Task's comment names the recorded commit and pastes the
+            one-line-per-concern verdict of `nub run bench --summary`; the numbers live
+            in `packages/flow-state-v3/bench/history/<concern>.csv`."
+        comment     2026-11-17T16:57:19Z
+            Decisions (agent): argv by `node:util` parseArgs, decoded by Schema, since `effect/cli` needs a FileSystem,
+            Terminal and ChildProcessSpawner for Effect 4.0.5 and the only Node platform installed (4.0.0-rc.112) does
+            not provide them (Service not found); switch when one is installed. The shape hash covers steps, turns and
+            actors, not record bytes, which the runtime's own encoding moves. Busy means battery, load over cores/2, or
+            another node/bun/vitest/tsc/tsgo/nub over 25% CPU (ps pcpu, a decaying average). Two Haiku review sidecars
+            (stats, work proofs): accepted 14 (one-sample bands, backfill rows as "last", header check, worker
+            agreement, zero units and counts, CSV first cell, field turn count, memo per walker, memory baselines, burst
+            divisor, cold startup, chars not bytes); rejected 8 with reasons in code docs (Story boot in turn time by
+            design; persist and compile coarse, follow-ups).
+        comment     2026-11-17T17:51:21Z
+            Decisions (the user, 2026-11-17): Q24 A, the bench is manifest-driven, importing nothing from fixtures but
+            fixtures/index.ts, with subjects derived per manifest and run counts from a time budget; raw samples stay
+            local and git-ignored, only the CSVs are committed; no more backfill now (later, from T86's commit on, since
+            earlier commits have no manifests).
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check

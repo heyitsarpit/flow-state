@@ -1077,3 +1077,7 @@ note 2026-11-17T16:52:20Z
 note 2026-11-17T17:07:33Z
     Plan (the user, 2026-11-17): end this session after T88 closes; another agent takes over. At the end: no agents
     running, cron and caffeinate stopped, tree clean, and a handoff note here naming the next Task (T83) and open items.
+
+note 2026-11-17T17:51:21Z
+    Decision (the user, 2026-11-17): Q24 A, the bench reads only manifests; raw samples local and git-ignored, CSVs
+    committed; no backfill now. Today's like-for-like: small apps 10-15 % faster than c4494083. T87 lead rebuilding.
