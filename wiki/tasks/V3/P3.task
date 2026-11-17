@@ -2869,7 +2869,7 @@ tasks
 
     T86
         title       Fixtures follow their layout: flat files moved, shared services in one place, pay becomes shop
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T79]
         description
@@ -2904,3 +2904,12 @@ tasks
               persisted ids are unchanged.
             - The test count, the Story id list and the fault caught list match before and after; `nub run check` and
               the package suite pass.
+        comment     2026-11-17T13:54:01Z
+            Done in 187b5aba: no flat contracts, machine, server, stories or *-http file is left; shared services are in
+            fixtures/services/shop and fixtures/services/git; pay is shop. Counts before and after match: 1305 tests
+            (1303 pass, 2 fail: T20's pair cells), 162 manifest Story rows, 238 faults caught, dead core 896 failed,
+            stress 39 of 39. Story ids: every pay/<name> is now shop/<name> (26 Stories, e.g. pay/stress-36 is
+            shop/stress-36); the old pay sample set id is shop, as the saved stress test needs. Unplaced by the layout:
+            command-palette commands.ts (now machines/commands.ts), number-input contracts.ts (machines/stepping.ts),
+            cells' Pay base (services/shop/machines/pay.ts). Kept: service keys named pay in strings, tests/pay/, the
+            lint override (vite.config.ts), and the services folder skipped by the fixture-folder tests.
