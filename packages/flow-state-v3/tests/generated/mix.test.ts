@@ -169,6 +169,38 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
     expect(runs.map((g) => g.shared > 0)).toEqual(SEEDS.map(() => true));
   });
 
+  it("Testing O6: a send to a closed screen opens it once, then sends: no ensure repeats back to back, and every opened screen hears its send", () => {
+    const keyOf = (step: Step) =>
+      step._tag === "ensure" || step._tag === "send"
+        ? `${step.actor.machine}/${step.actor.name}`
+        : "";
+
+    const problems = [...runs, generate(stressMix, { drawing: "mix", seed: 18 })].flatMap((g) =>
+      g.steps.flatMap((step, n) => {
+        const next = g.steps[n + 1];
+
+        if (step._tag !== "ensure" || next === undefined) return [];
+
+        return next._tag === "ensure" && keyOf(next) === keyOf(step)
+          ? [`${keyOf(step)} ensured twice at ${n}`]
+          : [];
+      }),
+    );
+
+    const sendsAfterOpening = [...runs].flatMap((g) =>
+      g.steps.flatMap((step, n) => {
+        const next = g.steps[n + 1];
+
+        return step._tag === "ensure" && next?._tag === "send" && keyOf(next) === keyOf(step)
+          ? [n]
+          : [];
+      }),
+    );
+
+    expect(problems).toEqual([]);
+    expect(sendsAfterOpening.length).toBeGreaterThan(0);
+  }, 60_000);
+
   it("fixed seeds of the mix keep every run rule", () => {
     const failures = propertyTest(mix, { profile: "mix", properties: rules, seeds: SEEDS });
 

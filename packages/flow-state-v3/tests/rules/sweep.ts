@@ -16,10 +16,13 @@ export const fixtureStories: ReadonlyArray<Story<string>> = manifests.flatMap((m
   Object.values(m.stories),
 );
 
-// Script faults a reload can cause: a word that finds nothing held, or a hold no call uses.
 const SKIPPED = [/^nothing held at /u, / never used$/u];
 
-const skippable = (fault: StoryFailed) =>
+/**
+ * Whether a run's script fault is one a reload can cause: a word that finds nothing held, or a
+ * hold no call uses.
+ */
+export const skippable = (fault: StoryFailed) =>
   fault.problem.split("; ").every((p) => SKIPPED.some((s) => s.test(p)));
 
 const slotOf = (word: WorldWord) =>

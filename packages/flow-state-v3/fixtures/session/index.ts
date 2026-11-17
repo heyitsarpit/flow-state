@@ -6,6 +6,15 @@ import { corruptRecord, oversizedRecord } from "./stories/edges.ts";
 import { avatarWall65, wall64 } from "./stories/load.ts";
 import { grownSamples } from "./stories/samples.ts";
 import {
+  corruptSeen,
+  digestHeard,
+  digestQuiet,
+  formatOneAvatar,
+  guestDotReturns,
+  inboxSamples,
+  threadHeard,
+} from "./stories/values.ts";
+import {
   bylineReturns,
   childFirst,
   guestBadgeFirst,
@@ -40,8 +49,14 @@ export const session = manifest({
     signedOutReloaded,
     bylineReturns,
     guestBadgeFirst,
+    digestHeard,
+    digestQuiet,
+    threadHeard,
+    guestDotReturns,
+    corruptSeen,
+    formatOneAvatar,
   },
-  samples: [samples, grownSamples],
+  samples: [samples, grownSamples, inboxSamples],
   stressSamples: [stressSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },

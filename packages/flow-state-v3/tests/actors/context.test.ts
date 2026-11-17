@@ -609,3 +609,66 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
     expect(run.evidence.filter((e) => e._tag === "Turn" && e.event === "Seen")).toHaveLength(1);
   });
 });
+
+// A kept watcher whose when throws for the user "y".
+const KeptEcho = definition({
+  id: "Context/KeptEcho",
+  persist: true,
+  states: ["SHOWN"],
+  events: {},
+  internalEvents: { Echoed: {} },
+  memory: { echoes: Flow.initial(Schema.Number, 0) },
+  context: { user: KeptSession.Provider.select((s) => s.memory.user) },
+});
+
+const KeptEchoMachine = machine(KeptEcho, ({ S, E }) => ({
+  default: S.SHOWN,
+  onContext: [
+    {
+      select: ({ context }) => context.user,
+      when: (next: string) => {
+        if (next === "y") throw new Error("when");
+
+        return true;
+      },
+      event: E.Echoed,
+    },
+  ],
+  on: { Echoed: { updateMemory: ({ memory }) => ({ echoes: memory.echoes + 1 }) } },
+}));
+
+describe("a kept baseline across a reload (Turn R22; Restore R2)", () => {
+  const echoing = runtimeSetup({
+    app: app({
+      id: "kept-echo",
+      machines: {
+        session: KeptSessionMachine,
+        echo: { machine: KeptEchoMachine, context: { user: keptSession } },
+      },
+    }),
+    scope: "kept-echo",
+    persistence: { captureMs: 0 },
+  });
+
+  const echo = actorRef(KeptEchoMachine, "echo");
+
+  const story = (reloaded: boolean) => {
+    const before = Story.app(echoing, { id: "context/kept-echo", fixtures: [] })
+      .ensure(echo)
+      .send(keptSession, { _tag: "SignIn", user: "a" })
+      .send(keptSession, { _tag: "SignIn", user: "y" });
+
+    return (reloaded ? before.reload() : before)
+      .send(keptSession, { _tag: "SignIn", user: "a" })
+      .checkpoint("back");
+  };
+
+  it("Turn R22, Restore R2: a when defect keeps the previous baseline across a reload as it does live, so the return to it is silent", async () => {
+    for (const reloaded of [false, true]) {
+      // oxlint-disable-next-line no-await-in-loop -- one run at a time: each is its own world
+      const run = checked(await story(reloaded).run());
+
+      expect(run.checkpoints.back.read(echo)?.memory["echoes"]).toBe(1);
+    }
+  });
+});

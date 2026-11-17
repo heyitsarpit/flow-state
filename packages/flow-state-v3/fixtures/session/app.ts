@@ -2,6 +2,7 @@ import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { IdentityLive } from "./identity-http.ts";
 import {
   acme,
+  guestSession,
   BadgeMachine,
   coreTeam,
   mainSession,
@@ -10,6 +11,8 @@ import {
   TeamMachine,
 } from "./machine.ts";
 import { AvatarMachine } from "./machines/avatar.ts";
+import { DigestMachine, InboxMachine, ThreadViewMachine } from "./machines/inbox.ts";
+import { DotMachine, PresenceMachine } from "./machines/presence.ts";
 import { BylineMachine } from "./machines/byline.ts";
 import { StatusMachine } from "./machines/status.ts";
 
@@ -34,8 +37,35 @@ export const mainByline = actorRef(BylineMachine, "byline");
 export const teamStatus = actorRef(StatusMachine, "status");
 
 /**
- * The workspace grown with the header avatar, the page byline and team status lines around its four
- * layers.
+ * The workspace's inbox.
+ */
+export const mainInbox = actorRef(InboxMachine, "main");
+
+/**
+ * The header digest of the workspace's inbox.
+ */
+export const mainDigest = actorRef(DigestMachine, "digest");
+
+/**
+ * The thread view of the workspace's inbox.
+ */
+export const mainThread = actorRef(ThreadViewMachine, "thread");
+
+/**
+ * The guest's presence, whose ref binds it to the guest session instead of the default.
+ */
+export const guestPresence = actorRef(PresenceMachine, "guest", {
+  context: { user: guestSession },
+});
+
+/**
+ * The online dot beside the guest's name, whose ref binds it to the guest's presence.
+ */
+export const guestDot = actorRef(DotMachine, "guest-dot", { context: { online: guestPresence } });
+
+/**
+ * The workspace grown with the header avatar, the page byline, team status lines, the inbox with its
+ * digest and thread view, and presence with its online dots around its four layers.
  */
 export const workspaceGrown = app({
   id: "workspace",
@@ -47,6 +77,24 @@ export const workspaceGrown = app({
     avatar: { machine: AvatarMachine, context: { user: mainSession } },
     byline: { machine: BylineMachine, context: { user: mainSession, team: coreTeam } },
     status: StatusMachine,
+    inbox: InboxMachine,
+    digest: {
+      machine: DigestMachine,
+      context: {
+        latest: mainInbox,
+        unread: mainInbox,
+        owed: mainInbox,
+        bySender: mainInbox,
+        senders: mainInbox,
+        writers: mainInbox,
+        envelope: mainInbox,
+        first: mainInbox,
+        summary: mainInbox,
+      },
+    },
+    thread: { machine: ThreadViewMachine, context: { thread: mainInbox } },
+    presence: { machine: PresenceMachine, context: { user: mainSession } },
+    dot: { machine: DotMachine, context: { online: actorRef(PresenceMachine, "main") } },
   },
 });
 

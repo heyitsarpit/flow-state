@@ -1408,6 +1408,27 @@ tasks
             not a slowdown from this round). Sidecars (4 Haiku): accepted the above; rejected an unknown slot with no
             value owing a wave (nothing to react to), forget's guard and release by value (outside this diff),
             restored-not-live refs (R5 is live only), fixtures.md codes in titles and the per-send scan.
+        comment     2026-11-17T00:46:01Z
+            Convergence requirements (tests first), each red at this commit unless named: 1 every value a selector
+            returns reloads with no made-up event: Date, undefined, NaN, -0, Map, Set, class instance, Option, nested
+            mix (Actors R9, R19; reviews fcc9ac50, bf85230e) -> fixtures/session Inbox, Digest, digest-heard,
+            session/values.test.ts, red 38 then 43 heard; 2 a cyclic selection never crashes the run (Actors R18) ->
+            ThreadView, thread-heard, red RangeError; 3 a reaction keeps the baseline it last saw across a reload: a
+            when or mapper defect, and a select reading memory after a memory-only change (Turn R22, Restore R2) ->
+            digest-quiet and context.test.ts kept echo, red; 4 a nested ref naming a live provider with other context is
+            refused ConflictingActorRef (Actors R5) -> nestedConflictingTeam builder, red: accepted; 5 a non-persisted
+            provider started for a consumer keeps its own ref's overrides at a return by send and at a reload (Actors
+            R18) -> Presence, Dot, guest-dot-returns, red: ada for bob.
+        comment     2026-11-17T00:46:01Z
+            Convergence requirements, continued: 6 reloads at every position of every context Story, builders' runnable
+            prefixes included, a second reload hears nothing the first did not, and an end reload of 0, 1 and 3 hears
+            the same (Actors R9, R19; Restore R2) -> tests/rules/reloads.test.ts, red only on the new fixtures; 7
+            records carry a format step: format 2 written, a format-1 record restores through a pure step with no
+            made-up event (Restore R5, T6) -> format-one-avatar, red: format 1; 8 a corrupt record is quarantined, never
+            thrown (Restore R5) -> corrupt-seen, red: the boot throws; 9 the mix opens a closed screen once, then sends
+            (Testing O6) -> mix.test.ts, green today (no seed reaches a burst on a closed screen; the generator drops
+            the send). Kept: every current context save and restore test (context.test.ts, session tests). Extra files:
+            fixtures/session/machines/inbox.ts, presence.ts, stories/values.ts, tests/session/values.test.ts.
 
     T74
         title       App mix: several fixtures in one Runtime
