@@ -1089,3 +1089,8 @@ note 2026-11-17T18:54:39Z
 note 2026-11-17T19:21:00Z
     T87 in review at 942de7e9: manifest-driven bench, dev mode 2 s, quick tier 98 s, 240 s cap and per-bench timeouts,
     battery recording. Findings to T83: about 280 B retained per actor cycle, serialize slope 0.55. Opus review started.
+
+note 2026-11-17T19:38:22Z
+    T87 review ISSUES (460071a3): a hung bench in a shared worker outlives its timeout; signals and the cap leave orphan
+    workers and tooling processes; --dev runs two workers. Fix round to its lead; backfill.ts kept (the user will
+    backfill later), against the reviewer's delete.
