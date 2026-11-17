@@ -3087,7 +3087,7 @@ tasks
 
     T87
         title       One bench tool, split by concern: filterable runs, CSV history by commit, compare with noise bands
-        status      in_progress
+        status      review
         priority    high
         description
             The bench is one standard tool split by concern: each benchmark is declared once with an id, a concern and
@@ -3238,6 +3238,25 @@ tasks
             under the 5-minute command rule (--max-time), each bench a timeout from its own budget (killed and reported
             timed-out, never recorded as a result), --max-n or --small runs only small series points for narrow
             iteration (the --dev default), and --full runs concern by concern within the cap; each shown by a test.
+        comment     2026-11-17T19:20:38Z
+            Close (942de7e9, on battery): `--only turn.shop.long --dev` 2.1 s; `--dev --compare HEAD` on one bench 3.4
+            s; quick tier 98.0 s, 27 rows recorded. The full-tier timing run was stopped after about 65 of 140 benches
+            (no timing file, the user's call). Quick-tier time by bench (two shared workers, total ms):
+            scale.lanes.serialize-queue-3000 29,584 (1,661 a run); scale.session.saved-identities-5000 26,865 (1,458 a
+            run); scale.command-palette.list-length-100000 15,011 (729 a run); memory.cells.retained-per-cycle 2,998;
+            every other bench 0.6 to 1.7 s (warm-up to 1 s, sampling 0.6 s); shared process startup 578 ms. Most of the
+            time goes to the three largest series points, load and proof included (6.3 s for the deep queue). The raw
+            file is local: `bench/history/samples/timing-b407e7b7-quick-*.jsonl`.
+        comment     2026-11-17T19:20:38Z
+            Added at the close: `--dev` (one worker, 200 ms budget, records nothing, only each series' smallest point
+            unless `--max-n`); `--max-n <n>`; `--max-time <s>` (240 s by default: past it the benches left are not run
+            and the run exits 3); per-bench timeouts (4 x (warm-up cap + budget) + 30 s, tooling 30 min), reported
+            timed-out and never recorded; `--help` says the full tier runs one concern at a time. Recording no longer
+            refuses on battery; rows carry `power`, and compare and summary stay within one power state. Refusal under
+            load: one-minute load over half the cores, or another node/bun/vitest/tsc/tsgo/nub over 25% of a core. Tests
+            in `tests/bench/limits.test.ts`. Findings on this run: retained heap 280 B per create/dispose cycle (cells;
+            182-330 B across apps earlier); serialize-queue slope 0.55 (bound 0.3); palette list slope 1.06 (within 1.2,
+            so the earlier 1.36 was the mixed Story).
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
