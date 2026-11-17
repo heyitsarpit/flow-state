@@ -2226,6 +2226,10 @@ tasks
             each kept one a contract the code cannot state. Gates: check 0; suite 1,287 pass, 13 expected fail, T20's
             two reds; test:stress exit 0; generated and mix over FLOW_SEEDS=20 exit 0; every fault added or moved
             planted alone and caught.
+        comment     2026-11-17T12:49:10Z
+            Accepted (orchestrator, 2026-11-17): 2h and 2i routed to T80 (it rewrites the sweep and the Batch shape) and
+            review 1's 2b to T85 (Capture encodes a row's ending kind); T80's May change widened to src/core as a
+            small amendment.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted

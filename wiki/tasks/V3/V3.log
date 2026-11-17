@@ -1005,3 +1005,7 @@ note 2026-11-17T12:19:42Z
 note 2026-11-17T12:27:09Z
     Decision (the user, 2026-11-17): Q20 B. App-frozen Maps, Sets and Dates are trusted as immutable (Turn R24 says so);
     dev and test still guard every collection Flow freezes. In T79's fix round.
+
+note 2026-11-17T12:49:11Z
+    T79 fix round in review at 54635a58: records complete, defect stops the Runtime, Q17-Q20 built (public codes 130 to
+    27), 2a/3l/3b/3e done; 2h, 2i to T80 and 2b to T85 accepted with reasons. Re-review started.
