@@ -196,7 +196,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/well-formed.ts",
         find: "Predicate.isFunction(child) && !Schema.isSchema(child) && !allowed(parent, key);",
-        replace: "Predicate.isFunction(child) && !Schema.isSchema(child) && !allowed(parent, key) && false;",
+        replace:
+          "Predicate.isFunction(child) && !Schema.isSchema(child) && !allowed(parent, key) && false;",
       },
     ],
   },

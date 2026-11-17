@@ -116,7 +116,13 @@ export const codecFaults: ReadonlyArray<Fault> = [
     tests: ["tests/session/deep.test.ts", "src/core/same.test.ts"],
     says: "the comparator holds every class instance (an Option, a Schema.Class) equal, so a changed Option selection is never heard",
     rule: "Codec R6",
-    edits: [{ file: "src/core/same.ts", find: "  return fieldPairs(a, b);", replace: "  return settled;" }],
+    edits: [
+      {
+        file: "src/core/same.ts",
+        find: "  return fieldPairs(a, b);",
+        replace: "  return settled;",
+      },
+    ],
   },
   {
     name: "sparse-hole-ends-comparison",
@@ -127,12 +133,14 @@ export const codecFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/same.ts",
         find: "  for (let i = 0; i < a.length; i += 1) pairs.push([a[i], b[i]]);",
-        replace: "  pairs.push(...a.map((x, i): Pair => [x, b[i]]));\n  pairs.length = a.length + 1;",
+        replace:
+          "  pairs.push(...a.map((x, i): Pair => [x, b[i]]));\n  pairs.length = a.length + 1;",
       },
       {
         file: "src/core/same.ts",
         find: "  while (stack.length > 0) {\n    const [a, b] = stack.pop() ?? [undefined, undefined];",
-        replace: "  for (let p = stack.pop(); p !== undefined; p = stack.pop()) {\n    const [a, b] = p;",
+        replace:
+          "  for (let p = stack.pop(); p !== undefined; p = stack.pop()) {\n    const [a, b] = p;",
       },
     ],
   },
