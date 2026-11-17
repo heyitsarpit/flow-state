@@ -298,8 +298,6 @@ const nestStory = (kind: "Lists" | "Folders" | "Maps", id: string) =>
     .checkpoint("memory past")
     .send(mainNests, { _tag: kind, depth: depths.selectionPast })
     .checkpoint("selection past")
-    .send(mainNests, { _tag: kind, depth: 5_000 })
-    .checkpoint("far past")
     .send(mainNests, { _tag: kind, depth: 3 })
     .checkpoint("back")
     .reload()
@@ -307,10 +305,24 @@ const nestStory = (kind: "Lists" | "Folders" | "Maps", id: string) =>
 
 /**
  * An outline of plain JSON lists at the depth limit, then the title alone renamed, then one past
- * the limit in memory, then one past it in the selection, then 5,000 deep, then shallow again; the
- * tab reloads.
+ * the limit in memory, then one past it in the selection, then shallow again; the tab reloads.
  */
 export const listsAtDepth = nestStory("Lists", "session/lists-at-depth");
+
+/**
+ * A nest 5,000 deep, far past the depth limit, where Effect's own walks would run out of stack,
+ * after one at the limit. Built on call and kept out of `stories`: the trace printer walks values
+ * on the call stack.
+ */
+export const nestFarPast = (kind: "Lists" | "Folders" | "Maps") =>
+  grownStory(`session/${kind.toLowerCase()}-far-past`)
+    .ensure(mainNests)
+    .ensure(nestView)
+    .send(mainNests, { _tag: kind, depth: depths.at })
+    .send(mainNests, { _tag: kind, depth: 5_000 })
+    .checkpoint("far past")
+    .reload()
+    .checkpoint("reloaded");
 
 /**
  * The same, for a folder tree under a recursive Schema.

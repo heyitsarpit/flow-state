@@ -5,6 +5,7 @@ import {
   foldersAtDepth,
   listsAtDepth,
   mapsAtDepth,
+  nestFarPast,
 } from "../../fixtures/session/stories/values.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
@@ -41,13 +42,25 @@ describe("a value's depth limit (Codec R1, R4; Actors R18, R19)", () => {
       expect(heard("memory past")).toBe(2);
       // The selection one past: its slot keeps the last selection, and nothing is heard.
       expect(heard("selection past")).toBe(2);
-      // Far past, where Effect's own walks would run out of stack: still reported, never thrown.
-      expect(heard("far past")).toBe(2);
       expect(heard("back")).toBe(3);
       expect(heard("reloaded")).toBe(3);
       expect(run.checkpoints.reloaded.read(mainNests)?.memory["title"]).toBe("renamed");
       expect(unencodable(run)).toContain(NESTS);
       expect(unencodable(run)).toContain("-");
+      expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
+    });
+
+  for (const [kind, field] of [
+    ["Lists", "lists"],
+    ["Folders", "folders"],
+    ["Maps", "maps"],
+  ] as const)
+    it(`Codec R4: ${kind} 5,000 deep, where Effect's own walks run out of stack, are reported UnencodableValue and never thrown; a reload restores the nest at the limit`, async () => {
+      const run = checked(await nestFarPast(kind).run());
+
+      expect(run.checkpoints["far past"].read(nestView)?.memory[field]).toBe(1);
+      expect(run.checkpoints.reloaded.read(nestView)?.memory[field]).toBe(1);
+      expect(unencodable(run)).toContain(NESTS);
       expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
     });
 });
