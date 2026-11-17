@@ -15,6 +15,7 @@ import {
   Command,
   Due,
   type Incarnation,
+  IssueSource,
   Mail,
   Timer,
   startOrder,
@@ -27,7 +28,7 @@ import type { Persistence } from "./persist.ts";
  * Incarnations: creation, restore, uses, the grace and the end, with their schedules.
  */
 // The source of an issue raised while an incarnation is created.
-const CREATION = "creation";
+const CREATION = IssueSource.Creation();
 
 // What an ended incarnation leaves for its handles to read.
 const terminal = (incarnation: Incarnation) => ({
@@ -134,7 +135,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
             code: "Defect",
             actor,
             ending: Option.none(),
-            source: CREATION,
             slot: Option.some(`memory.${created.failure.field}`),
           }),
         );
@@ -213,7 +213,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
               code: "InvalidTurn",
               actor,
               ending: Option.none(),
-              source: CREATION,
               slot: Option.some(slot),
             }),
           );

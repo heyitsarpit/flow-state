@@ -81,8 +81,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "          { ...base, issues: base.issues.filter((i) => i.source !== route.source) },",
-        replace: "          { ...base, issues: [] },",
+        find: "armSchedules(withoutIssue(base, route.source), accepted.arm);",
+        replace: "armSchedules({ ...base, issues: [] }, accepted.arm);",
       },
     ],
   },

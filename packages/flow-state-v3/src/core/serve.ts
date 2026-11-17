@@ -6,7 +6,16 @@ import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { chainOf, historyAfter } from "./tree.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import type { Heard, LedgerSteps, Owed } from "./ledger.ts";
-import { actorKey, type Incarnation, type Issue, type Lane, Mail } from "./world.ts";
+import {
+  actorKey,
+  type Incarnation,
+  type Issue,
+  IssueSource,
+  type Lane,
+  Mail,
+  withIssue,
+  withoutIssue,
+} from "./world.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 
@@ -75,10 +84,7 @@ export const makeServe = (
   // A refusal raises its source's issue, replacing that source's earlier one. Issues are not part
   // of the record, so raising one writes nothing.
   const raised = (incarnation: Incarnation, issue: Issue) => {
-    const next = {
-      ...incarnation,
-      issues: [...incarnation.issues.filter((i) => i.source !== issue.source), issue],
-    };
+    const next = withIssue(incarnation, issue);
 
     tx.putIncarnation(next);
 
@@ -98,7 +104,7 @@ export const makeServe = (
       readonly late: Option.Option<number>;
       readonly own: Option.Option<string>;
       readonly ending: Option.Option<Owed>;
-      readonly source: string;
+      readonly source: IssueSource;
     },
   ) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
@@ -142,7 +148,6 @@ export const makeServe = (
             code,
             actor: incarnation.actor,
             ending: route.ending,
-            source: route.source,
             slot: Option.some(slot),
           }),
         );
@@ -175,10 +180,7 @@ export const makeServe = (
           },
         });
 
-        const after = armSchedules(
-          { ...base, issues: base.issues.filter((i) => i.source !== route.source) },
-          accepted.arm,
-        );
+        const after = armSchedules(withoutIssue(base, route.source), accepted.arm);
 
         setIncarnation(after);
 
@@ -257,7 +259,7 @@ export const makeServe = (
 
     tx.act(Act.Heard({ row: ending, event: mapping.value.event, actor: incarnation.actor }));
 
-    const source = `operation ${ending.operation}`;
+    const source = IssueSource.Operation({ name: ending.operation });
 
     if (Result.isFailure(payload)) {
       const slot = Option.some(payload.failure);
@@ -266,7 +268,6 @@ export const makeServe = (
           code: "InvalidTurn",
           actor: incarnation.actor,
           ending: Option.some(ending),
-          source,
           slot,
         }),
       );
@@ -298,7 +299,7 @@ export const makeServe = (
             late: Option.none(),
             own: Option.none(),
             ending: Option.none(),
-            source: `event ${tag}`,
+            source: IssueSource.Event({ tag }),
           });
       },
       Firing: ({ actor, incarnation: id, schedule, arming }) => {
@@ -325,7 +326,7 @@ export const makeServe = (
             late: Option.none(),
             own: Option.none(),
             ending: Option.none(),
-            source: `schedule ${schedule}`,
+            source: IssueSource.Schedule({ name: schedule }),
           },
         );
       },

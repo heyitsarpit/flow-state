@@ -1,4 +1,4 @@
-import { type Brand, Data, Option } from "effect";
+import { type Brand, Data, Equal, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
@@ -124,15 +124,63 @@ export const lastSeenOf = (incarnation: Incarnation) =>
   );
 
 /**
- * An incarnation's open issue: the source that raised it (`event X`, `schedule X`, `operation X`
- * or `creation`), its code and the callback slot that failed, if one did. Only a later accepted
- * turn of the same source clears it.
+ * What raised an issue: an event's turn, a schedule's, an operation's ending, a context slot's
+ * selector, an `onContext` reaction, or the incarnation's creation. An issue is replaced or cleared
+ * only by its own source.
+ */
+export type IssueSource = Data.TaggedEnum<{
+  Event: { tag: string };
+  Schedule: { name: string };
+  Operation: { name: string };
+  Context: { slot: string };
+  OnContext: { at: number };
+  Creation: {};
+}>;
+
+/**
+ * Constructors and matchers for {@link IssueSource}.
+ */
+export const IssueSource = Data.taggedEnum<IssueSource>();
+
+/**
+ * An issue source as a snapshot names it: `event X`, `schedule X`, `operation X`, `context X`,
+ * `onContext N` or `creation`.
+ */
+export const sourceText = (source: IssueSource) =>
+  IssueSource.$match(source, {
+    Event: ({ tag }) => `event ${tag}`,
+    Schedule: ({ name }) => `schedule ${name}`,
+    Operation: ({ name }) => `operation ${name}`,
+    Context: ({ slot }) => `context ${slot}`,
+    OnContext: ({ at }) => `onContext ${at}`,
+    Creation: () => "creation",
+  });
+
+/**
+ * An incarnation's open issue: the source that raised it, its code and the callback slot that
+ * failed, if one did. Only a later accepted turn of the same source clears it.
  */
 export type Issue = {
-  readonly source: string;
+  readonly source: IssueSource;
   readonly code: IssueCode;
   readonly slot: Option.Option<string>;
 };
+
+/**
+ * An incarnation with one more open issue, in place of any its source raised before.
+ */
+export const withIssue = (incarnation: Incarnation, issue: Issue) => ({
+  ...incarnation,
+  issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, issue.source)), issue],
+});
+
+/**
+ * An incarnation with its source's issue cleared; the same incarnation when it had none.
+ */
+export const withoutIssue = (incarnation: Incarnation, source: IssueSource) =>
+  incarnation.issues.some((i) => Equal.equals(i.source, source))
+    ? { ...incarnation, issues: incarnation.issues.filter((i) => !Equal.equals(i.source, source)) }
+    : incarnation;
 
 /**
  * What an identity showed when its last incarnation ended: its terminal snapshot's state and

@@ -261,9 +261,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
       },
       {
         file: "src/core/incarnations.ts",
-        find: "              source: CREATION,\n              slot: Option.some(slot),\n            }),\n          );",
+        find: "              ending: Option.none(),\n              slot: Option.some(slot),\n            }),\n          );",
         replace:
-          "              source: CREATION,\n              slot: Option.some(slot),\n            }),\n          ];",
+          "              ending: Option.none(),\n              slot: Option.some(slot),\n            }),\n          ];",
       },
     ],
   },

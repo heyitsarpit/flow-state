@@ -10,7 +10,10 @@ import {
   actorKey,
   type Incarnation,
   type Issue,
+  IssueSource,
   Mail,
+  withIssue,
+  withoutIssue,
   type Use,
   type Wiring,
 } from "./world.ts";
@@ -47,7 +50,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   const raise = (incarnation: Incarnation, issue: Issue) => {
     const open = incarnation.issues.some(
       (i) =>
-        i.source === issue.source &&
+        Equal.equals(i.source, issue.source) &&
         i.code === issue.code &&
         Option.makeEquivalence(Equal.equals)(i.slot, issue.slot),
     );
@@ -59,22 +62,15 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         code: issue.code,
         actor: incarnation.actor,
         ending: Option.none(),
-        source: issue.source,
         slot: issue.slot,
       }),
     );
 
-    return {
-      ...incarnation,
-      issues: [...incarnation.issues.filter((i) => i.source !== issue.source), issue],
-    };
+    return withIssue(incarnation, issue);
   };
 
   // A source that succeeds clears its own issue, never another source's.
-  const clear = (incarnation: Incarnation, source: string) =>
-    incarnation.issues.some((i) => i.source === source)
-      ? { ...incarnation, issues: incarnation.issues.filter((i) => i.source !== source) }
-      : incarnation;
+  const clear = withoutIssue;
 
   const keep = (incarnation: Incarnation) => tx.putIncarnation(incarnation);
 
@@ -88,11 +84,11 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     if (Result.isSuccess(value)) {
       values.set(slot, value.success);
 
-      return clear(incarnation, `context ${slot}`);
+      return clear(incarnation, IssueSource.Context({ slot }));
     }
 
     return raise(incarnation, {
-      source: `context ${slot}`,
+      source: IssueSource.Context({ slot }),
       code: "Defect",
       slot: Option.some(value.failure),
     });
@@ -329,7 +325,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
       if (Result.isFailure(current)) {
         next = raise(next, {
-          source: `onContext ${at}`,
+          source: IssueSource.OnContext({ at }),
           code: "Defect",
           slot: Option.some(current.failure),
         });
@@ -340,7 +336,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
       if (equal) {
         baselines[at] = Option.some(now);
-        next = clear(next, `onContext ${at}`);
+        next = clear(next, IssueSource.OnContext({ at }));
         continue;
       }
 
@@ -371,7 +367,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       Result.match(payload, {
         onFailure: (slot) => {
           next = raise(next, {
-            source: `onContext ${at}`,
+            source: IssueSource.OnContext({ at }),
             code: "Defect",
             slot: Option.some(slot),
           });
@@ -379,7 +375,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         // A changed selection becomes the baseline even when `when` declines; a defect keeps it.
         onSuccess: (given) => {
           baselines[at] = Option.some(now);
-          next = clear(next, `onContext ${at}`);
+          next = clear(next, IssueSource.OnContext({ at }));
           Option.match(given, {
             onNone: () => undefined,
             onSome: (p) => void events.push({ tag: reaction.event.event, payload: p }),

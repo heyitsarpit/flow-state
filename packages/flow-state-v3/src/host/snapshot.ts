@@ -9,7 +9,14 @@ import { actorLifecycleOf } from "../core/life.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import type { Machines } from "../core/tx.ts";
 import type { IssueCode } from "../core/vocabulary.ts";
-import { type ActorId, actorKey, byCodeUnits, type Issue, type World } from "../core/world.ts";
+import {
+  type ActorId,
+  actorKey,
+  byCodeUnits,
+  type Issue,
+  sourceText,
+  type World,
+} from "../core/world.ts";
 import type { Machine, Operations } from "../definition.ts";
 import { type Code, Diagnostic } from "../error.ts";
 import type { Driver } from "./driver.ts";
@@ -48,9 +55,9 @@ const issueOf = (actor: ActorId, issue: Issue) =>
     classification:
       issue.code === "InvalidTurn" || issue.code === "StorageFailure" ? "Failure" : "Defect",
     code: DIAGNOSTIC_OF[issue.code],
-    path: [actor.machine, actor.name, issue.source],
+    path: [actor.machine, actor.name, sourceText(issue.source)],
     details: { refused: issue.code, slot: Option.getOrNull(issue.slot) },
-    summary: `${issue.source} raised ${issue.code}`,
+    summary: `${sourceText(issue.source)} raised ${issue.code}`,
     help: "Fix the callback the slot names; the issue clears when this source next succeeds.",
   });
 

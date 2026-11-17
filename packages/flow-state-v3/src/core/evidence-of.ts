@@ -40,7 +40,6 @@ export type Act = Data.TaggedEnum<{
     code: IssueCode;
     actor: ActorId;
     ending: Option.Option<RowRef>;
-    source: string;
     slot: Option.Option<string>;
   };
   Started: { actor: ActorId };

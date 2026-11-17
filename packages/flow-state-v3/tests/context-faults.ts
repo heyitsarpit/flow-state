@@ -137,7 +137,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
       },
       {
         file: "src/core/context.ts",
-        find: "      if (equal) {\n        baselines[at] = Option.some(now);\n        next = clear(next, `onContext ${at}`);\n        continue;\n      }\n",
+        find: "      if (equal) {\n        baselines[at] = Option.some(now);\n        next = clear(next, IssueSource.OnContext({ at }));\n        continue;\n      }\n",
         replace: "",
       },
     ],
@@ -401,10 +401,10 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Turn R25",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "    incarnation.issues.some((i) => i.source === source)",
+        file: "src/core/world.ts",
+        find: "  incarnation.issues.some((i) => Equal.equals(i.source, source))\n",
         replace:
-          "    incarnation.issues.some((i) => i.source === source && i.source === `${source}!`)",
+          "  incarnation.issues.some((i) => Equal.equals(i.source, source) && i.code !== i.code)\n",
       },
     ],
   },
