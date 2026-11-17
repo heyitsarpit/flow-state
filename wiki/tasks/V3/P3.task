@@ -3092,7 +3092,7 @@ tasks
 
     T87
         title       One bench tool, split by concern: filterable runs, CSV history by commit, compare with noise bands
-        status      in_progress
+        status      review
         priority    high
         description
             The bench is one standard tool split by concern: each benchmark is declared once with an id, a concern and
@@ -3300,6 +3300,27 @@ tasks
               findings after reproducing them; changed "an unsettled promise exits 13" to unverified; rejected outside
               reads (tooling must time root scripts), the stress tier as a conflict (the user's decision) and a missing
               `--small` (`--max-n` covers it).
+        comment     2026-11-17T19:53:13Z
+            Fix round (e349a6bd). Blocking, red then green: (1) each bench in a shared worker now has its own timer from
+            the report before it; past it the worker's process group is killed, the bench is timed-out, and a fresh
+            worker takes the rest (red: the review's planted hang and spin at 59751c49 held the run to its 90 s cap as
+            "not run"; green: `tests/bench/limits.test.ts` plants a hang, a spinner and a child tree between healthy
+            benches, all three timed-out at 2 s, the last healthy bench measured). (2) Workers run detached in their own
+            process group; a cap, a timeout, SIGINT, SIGTERM or the run's end kills the group, children and tooling
+            commands included (tests: a signal mid-run and a capped child tree leave no process; a capped `tooling.test`
+            left no vitest). (3) `--dev` uses its tier's one worker (red at e4bf4927: `--runs 3 --dev` took 6 samples;
+            now 3). Large points under `--dev --max-n 100000`: serialize-queue-3000 14.9 s, saved-identities-5000 12.8
+            s, list-length-100000 8.1 s.
+        comment     2026-11-17T19:53:14Z
+            Also: rows refuse NaN (p99 is empty below 1,000 samples; 146 old cells migrated); a capped run records no
+            bench short of its workers; persist is `persist.<app>.story-per-batch-ms`, on the Story the manifest names
+            in `bench.persist` (some exactly when a machine persists, tested); stress points are declared per series
+            with `benchSeries(..., stressFrom)`; the quick memory probe is on the app with the most machines;
+            `--separate` and file-local exports are gone; benches may declare `timeoutMs`; `--benches <module>` loads a
+            planted list for tests. Proofs cover every concern (memory checks its probe; tooling checks `nub run` lists
+            the script). History: 76 rows carry ids retired by the manifest redesign (crowd-*, wall-*, nest-lists-*,
+            large-list, stress-huge-list, the past-cap singles, `persist.<story>.per-batch-ms`, number-input sends,
+            palette list walkers, the inspector three-way, mailbox bursts, compile); they stay as history.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
