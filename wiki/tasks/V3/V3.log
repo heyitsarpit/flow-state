@@ -1107,3 +1107,7 @@ note 2026-11-17T19:53:30Z
 note 2026-11-17T20:04:31Z
     Decision (the user, 2026-11-18): T89 (bench code simplification) cancelled, set to tombstone; its proposal stays as
     prior art. P3 order: T87, T88, T83, T20, T81, T80.
+
+note 2026-11-17T20:06:02Z
+    Deleted (the user, 2026-11-18): T89 and its proposal bench-quality-review-2026-11-18.md removed entirely. Reverse:
+    git show bf8a14bc^ for both.
