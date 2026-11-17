@@ -11,7 +11,7 @@ import {
   Result,
   Schema,
 } from "effect";
-import type { Fields, InputOf } from "../../contract.ts";
+import type { Fields, StructType } from "../../contract.ts";
 import type { Values } from "../../core/compiled.ts";
 import { type Bytes, type Purpose, type Store, StoreRefused } from "../host.ts";
 import { type At, mainTab, scriptFault, type Tab, WorldWord } from "./steps.ts";
@@ -61,7 +61,7 @@ export type Endpoint<T, F extends Fields, S extends Schema.Top, X extends Schema
   readonly failure: X;
   handle(
     truth: T,
-    request: InputOf<F>,
+    request: StructType<F>,
   ): { readonly truth: T; readonly exit: Exit.Exit<S["Type"], X["Type"]> };
 };
 
@@ -70,7 +70,7 @@ export type Endpoint<T, F extends Fields, S extends Schema.Top, X extends Schema
  */
 export type Control<T, F extends Fields> = {
   readonly fields: F;
-  apply(truth: T, input: InputOf<F>): T;
+  apply(truth: T, input: StructType<F>): T;
 };
 
 // FLOW_STATE_ALLOW_UNKNOWN: a server's endpoints each have their own truth and types; the run reads them erased.
@@ -98,7 +98,7 @@ export type AnyServer = {
  */
 export type ServiceOf<E extends Readonly<Record<string, AnyEndpoint>>> = {
   readonly [K in keyof E]: (
-    request: InputOf<E[K]["request"]>,
+    request: StructType<E[K]["request"]>,
   ) => Effect.Effect<E[K]["success"]["Type"], E[K]["failure"]["Type"] | FakeLost>;
 };
 
@@ -129,8 +129,8 @@ export type Server<
   readonly "~server": AnyServer;
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom type: it carries the type for reads and holds no value
   readonly "~truth"?: T;
-} & { readonly [K in keyof E]: EndpointHandle<InputOf<E[K]["request"]>> } & {
-  readonly [K in keyof C]: (input: InputOf<C[K]["fields"]>) => WorldWord;
+} & { readonly [K in keyof E]: EndpointHandle<StructType<E[K]["request"]>> } & {
+  readonly [K in keyof C]: (input: StructType<C[K]["fields"]>) => WorldWord;
 };
 
 // FLOW_STATE_ALLOW_UNKNOWN: an endpoint answers with its own types; the world passes them through.
@@ -593,13 +593,13 @@ export const Fake = {
     readonly failure: X;
     readonly handle: (
       truth: T,
-      request: InputOf<F>,
+      request: StructType<F>,
     ) => { readonly truth: T; readonly exit: Exit.Exit<S["Type"], X["Type"]> };
   }): Endpoint<T, F, S, X> => config,
   // RETURN_TYPE: the Control contract keeps its input type.
   control: <T, const F extends Fields>(
     fields: F,
-    apply: (truth: T, input: InputOf<F>) => T,
+    apply: (truth: T, input: StructType<F>) => T,
   ): Control<T, F> => ({ fields, apply }),
   /**
    * The run's fake servers as a Layer, each server at its `initial`: for a port fake outside a

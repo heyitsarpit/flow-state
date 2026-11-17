@@ -78,7 +78,6 @@ const branded = <Id extends string>(id: string) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a brand is type-only; the mint is where it is given
   id as Id;
 
-// Each kind of id the world's counter mints, by the prefix it is minted with.
 type Ids = {
   readonly timer: TimerId;
   readonly call: CallId;
@@ -91,7 +90,6 @@ type MapField = {
   readonly [K in keyof World]: World[K] extends ReadonlyMap<infer _K, infer _V> ? K : never;
 }[keyof World];
 
-// The maps a step writes through their own operations, which keep the indexes in step.
 type Indexed =
   | "incarnations"
   | "lanes"
@@ -154,12 +152,10 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   const world: Draft = { ...world0 };
   const copied = new Set<MapField>(owned);
   const ownBoxes = new Set<string>();
-  // The identities whose incarnation, uses, lanes, mail or grace changed in this step.
   const dirty = new Set<string>();
   const commands: Array<Command> = [];
   const evidence: Array<Evidence> = [];
 
-  // A World map as the step's own copy: the field's map is replaced by one the step may write.
   const own = <F extends MapField>(field: F, map: Map<KeyIn<F>, ValueIn<F>>) => {
     Object.assign(world, { [field]: map });
     copied.add(field);
@@ -181,7 +177,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
 
   const drop = <F extends Plain>(field: F, key: KeyIn<F>) => void draft(field).delete(key);
 
-  // A whole map replaced, as a boot or a disposal does.
   const replace = <F extends Plain>(field: F, map: Map<KeyIn<F>, ValueIn<F>>) =>
     void own(field, map);
 
@@ -203,7 +198,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     return world.counter;
   };
 
-  // A set index's entry with one member more or fewer; an empty entry is dropped.
   const addTo = (field: "lanesOfActor" | "consumersOf", key: string, member: string) => {
     const index = draft(field);
     index.set(key, new Set(index.get(key)).add(member));
@@ -218,7 +212,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     else index.set(key, members);
   };
 
-  // ── incarnations, with each provider's consumers.
   const putIncarnation = (incarnation: Incarnation) => {
     const key = actorKey(incarnation.actor);
     const before = world.incarnations.get(key);
@@ -246,13 +239,11 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       removeFrom("consumersOf", actorKey(provider), key);
   };
 
-  // The live incarnations bound to a provider, in the order they started.
   const consumersOf = (provider: ActorId) =>
     [...(world.consumersOf.get(actorKey(provider)) ?? [])]
       .flatMap((key) => Option.toArray(Option.fromUndefinedOr(world.incarnations.get(key))))
       .toSorted((a, b) => startOrder(a) - startOrder(b));
 
-  // ── lanes, with each identity's lanes and the lane each call or ticket is awaited by.
   const unwait = (id: string, lane: Lane) => {
     for (const wait of Option.toArray(waitOf(lane)))
       if (world.laneOfWait.get(wait) === id) draft("laneOfWait").delete(wait);
@@ -282,7 +273,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     unwait(id, before);
   };
 
-  // An identity's lanes, in the order the lanes table holds them.
   const lanesOf = (actor: ActorId) =>
     [...(world.lanesOfActor.get(actorKey(actor)) ?? [])].flatMap((id) =>
       Option.toArray(
@@ -290,13 +280,11 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       ),
     );
 
-  // The lane whose head waits on a call or ticket.
   const laneWaiting = (wait: string) =>
     Option.flatMap(Option.fromUndefinedOr(world.laneOfWait.get(wait)), (id) =>
       Option.map(Option.fromUndefinedOr(world.lanes.get(id)), (lane) => [id, lane] as const),
     );
 
-  // ── uses.
   const putUses = (actor: ActorId, uses: ReadonlyArray<Use>) => {
     const key = actorKey(actor);
     draft("uses").set(key, uses);
@@ -309,7 +297,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     dirty.add(key);
   };
 
-  // ── timers, with each awaited ticket's silence.
   const armTimer = (timer: Timer, at: number) => {
     const id = mint("timer");
     draft("timers").set(id, timer);
@@ -348,7 +335,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       onSome: disarm,
     });
 
-  // A timer that fired leaves the world; a stale firing finds none.
   const fire = (id: TimerId) => {
     const timer = Option.fromUndefinedOr(world.timers.get(id));
 
@@ -421,7 +407,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     return first;
   };
 
-  // A row that leaves the mailbox takes its references with it.
   const unreference = (actor: ActorId, id: string) => {
     const key = actorKey(actor);
     const held = world.mail.get(key);
@@ -471,7 +456,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       world.persistence = false;
     },
     act: (a: Act) => void evidence.push(...evidenceOf(a)),
-    // A refusal: its report, and the issue it raises, which the caller keeps on its incarnation.
     refuse: (
       actor: ActorId,
       issue: Issue,

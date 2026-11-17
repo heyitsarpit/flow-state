@@ -99,8 +99,6 @@ type Frame = {
   reach: number;
 };
 
-// A built-in value's whole content as text: a Date's time, a regular expression's source and
-// flags, a DataView's bytes. A typed array is keyed by its elements, as an object.
 const builtInHead = (value: Container) => {
   if (Predicate.isDate(value)) return Option.some(`D${value.getTime()}`);
 
@@ -165,7 +163,6 @@ const frameOf = (value: Container, ids: Map<Node, number>): Frame => {
 // it is, and a container whose subtree points above itself is not kept as known, since its key
 // depends on that path.
 const keyOf = (root: Node, { ids, forms, known }: Keys) => {
-  // Each object on the path, by its place in the stack.
   const open = new Map<Node, number>();
   const stack: Array<Frame> = [];
   let result = "";
@@ -185,7 +182,6 @@ const keyOf = (root: Node, { ids, forms, known }: Keys) => {
     return `#${id}`;
   };
 
-  // A back reference to the object at a place on the path, by how far up it is.
   const back = (at: number) => {
     const parent = stack.at(-1);
 

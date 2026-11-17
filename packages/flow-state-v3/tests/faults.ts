@@ -409,7 +409,8 @@ export const faults: ReadonlyArray<Fault> = [
       {
         file: "src/core/incarnations.ts",
         find: "    for (const a of deadlines) {",
-        replace: "    for (const a of deadlines.filter((x) => !incarnation.schedules.has(x.name))) {",
+        replace:
+          "    for (const a of deadlines.filter((x) => !incarnation.schedules.has(x.name))) {",
       },
     ],
   },

@@ -44,7 +44,6 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
   const open = () => Life.$is("Open")(tx.world().life);
 
-  // An ending of this lane's Attempt, owed to its identity.
   const oweOf = (at: At, attempt: Option.Option<string>) => ({
     actor: at.actor,
     to: Audience.Identity(),

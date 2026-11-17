@@ -444,8 +444,6 @@ export const runTurn = (input: TurnInput): TurnResult => {
   const reasons: Array<string> = [];
   const read = { state: input.state, memory: input.memory, event: input.payload };
 
-  // Every alternative met either decides the turn or declines with its reason, so a turn with no
-  // reason met none.
   for (const level of levels)
     for (const alternative of level.alternatives) {
       const checked = firstDecline(alternative, level.node, input, read);

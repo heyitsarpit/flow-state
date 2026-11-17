@@ -43,7 +43,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const { removeActor, saveActor } = persistence;
 
   // ── incarnations.
-  // Arms each schedule at its deadline, replacing an earlier arming of the same name.
   const armAt = (
     incarnation: Incarnation,
     deadlines: ReadonlyArray<Pick<Armed, "dueAt" | "send"> & { readonly name: string }>,
@@ -363,8 +362,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   };
 
   // ── after every step: free incarnations start their grace; used ones stop it. Only an
-  // identity whose incarnation, uses, lanes, mail or grace changed in the step can change its
-  // verdict, so only those are judged, in the order their incarnations started.
+  // identity the step changed can change its verdict.
   const graces = () => {
     const judged = [...tx.dirtyActors()]
       .flatMap((key) => Option.toArray(Option.fromUndefinedOr(tx.world().incarnations.get(key))))

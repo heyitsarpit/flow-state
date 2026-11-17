@@ -109,7 +109,6 @@ export const makeEdge = (
     if (tickets.length > 0 || (dirty.size > 0 && (due() || host.hidden()))) issue();
   };
 
-  // A wake earlier than the one set replaces it; a later one, or any while due now, changes nothing.
   const wakeAt = (at: number) => {
     const earlier = Wake.$match(wake, {
       Idle: () => true,

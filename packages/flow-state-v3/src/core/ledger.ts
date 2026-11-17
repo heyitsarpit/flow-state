@@ -120,7 +120,6 @@ export type Heard = "Unmapped" | "Heard" | "Refused";
 export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const { incarnationOf } = tx;
 
-  // Each identity's rows as the step found them, kept before its first change.
   const started = new Map<string, ReadonlyArray<Owed>>();
 
   const setRows = (actor: ActorId, rows: ReadonlyArray<Owed>) => {

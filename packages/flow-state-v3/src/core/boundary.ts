@@ -45,7 +45,6 @@ class Walk {
   // transformation made the first time (a parsed JSON string), so its holes find their results;
   // another level runs it afresh, so a default with an effect runs once per level.
   readonly transformed = new Map<Value, Map<Value, Map<Value, Value>>>();
-  // The value of the level the walk's own stack is parsing.
   level: Value = undefined;
   readonly waiting: Array<Work> = [];
   readonly budget: number;
@@ -56,7 +55,6 @@ class Walk {
     this.budget = budget;
   }
 
-  // Parses one level of the walk's own stack.
   parsing(level: Value, parse: () => Parsed) {
     this.level = level;
 

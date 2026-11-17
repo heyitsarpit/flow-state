@@ -113,7 +113,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     });
 
   // A commit declined before its lane's table: no Attempt, no lane, one owed row.
-  // Interrupts an incarnation's reads of an operation: each is dropped and its call cancelled.
   const interruptReads = (incarnation: Incarnation, operation: string, replaced: boolean) => {
     for (const [call, read] of tx.world().reads)
       if (read.incarnation === incarnation.id && read.operation === operation) {

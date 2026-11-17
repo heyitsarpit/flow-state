@@ -20,7 +20,7 @@ export type Fields = Readonly<Record<string, Schema.Codec<unknown, unknown>>>;
 /**
  * A transaction's input: the decoded record of its input fields.
  */
-export type InputOf<F extends Fields> = Schema.Struct<F>["Type"];
+export type StructType<F extends Fields> = Schema.Struct<F>["Type"];
 
 /**
  * The failure tags a commit's error channel declares, unwrapping `Outcome.failure` and dropping
@@ -165,7 +165,7 @@ export type Transaction<F extends Fields = Fields, A = never, E = never, R = nev
   readonly concurrency: Concurrency;
   readonly services: Services;
   readonly commit: (
-    input: InputOf<F>,
+    input: StructType<F>,
     context: { readonly attempt: Attempt },
   ) => Effect.Effect<A, E, R>;
   readonly outcomes: (endings: WriteEndings<E>) => Bound<"write", R>;
@@ -182,7 +182,7 @@ export type Resource<F extends Fields = Fields, A = never, E = never, R = never>
   readonly services: Services;
   readonly staleTime: Duration.Input;
   readonly gcTime: Duration.Input;
-  readonly lookup: (input: InputOf<F>) => Effect.Effect<A, E, R>;
+  readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
   readonly outcomes: (endings: ReadEndings) => Bound<"read", R>;
 };
 
@@ -207,7 +207,7 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
   readonly concurrency: Concurrency;
   readonly services: Services;
   readonly commit: (
-    input: InputOf<F>,
+    input: StructType<F>,
     context: { readonly attempt: Attempt },
   ) => Effect.Effect<A, E, R>;
 }): Transaction<F, A, E, R> => {
@@ -224,7 +224,7 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
       ...codecsOf(config.input, config.key),
       key: config.key,
       concurrency: config.concurrency,
-      call: (input, context) => config.commit(trusted<InputOf<F>>(input), context),
+      call: (input, context) => config.commit(trusted<StructType<F>>(input), context),
       success: endings.success,
       failure: endings.failure,
       notSent: Option.fromUndefinedOr(endings.notSent),
@@ -251,7 +251,7 @@ export const resource = <const F extends Fields, A, E, R>(config: {
   readonly services: Services;
   readonly staleTime: Duration.Input;
   readonly gcTime: Duration.Input;
-  readonly lookup: (input: InputOf<F>) => Effect.Effect<A, E, R>;
+  readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
 }): Resource<F, A, E, R> => {
   const identity = Symbol(config.id);
 
@@ -266,7 +266,7 @@ export const resource = <const F extends Fields, A, E, R>(config: {
       ...codecsOf(config.input, config.key),
       key: config.key,
       concurrency: "reject",
-      call: (input) => config.lookup(trusted<InputOf<F>>(input)),
+      call: (input) => config.lookup(trusted<StructType<F>>(input)),
       success: endings.success,
       failure: endings.failure,
     }),

@@ -82,10 +82,8 @@ const headOf = (state: LaneState) =>
     Head: ({ head }) => Option.some(head),
   });
 
-// How a commit that replaced a head ended it, by the head's phase: Superseded when never sent,
-// Released when sent before and not on the wire; none for a head that is displaced (Withdrawing,
-// OnWire, Cancelling), which ends when its call or ticket answers. A cancel releases exactly the
-// heads a commit would release. Every phase is decided here.
+// A displaced head (Withdrawing, OnWire, Cancelling) ends when its call or ticket answers; a cancel
+// releases exactly the heads a commit would release.
 const REPLACED = {
   Acknowledging: Option.some<LaneFact>("Superseded"),
   Unsent: Option.some<LaneFact>("Superseded"),

@@ -53,8 +53,6 @@ export const makePersistence = (tx: Tx) => {
   const { persisted, armTimer, incarnationOf } = tx;
   let touched = new Map<string, Touched>();
 
-  // The step's entry of a persisted identity, made on its first touch; none for one that does not
-  // persist.
   const touch = (actor: ActorId) => {
     if (!persisted(actor)) return [];
 
@@ -138,7 +136,6 @@ export const makePersistence = (tx: Tx) => {
     graph: graphOf(incarnation),
   });
 
-  // The Runtime's copy of an identity's record, from its incarnation as it is now.
   const keepRecord = (incarnation: Incarnation) => {
     const record = recordOf(incarnation);
     tx.put("records", actorKey(incarnation.actor), record);
@@ -361,10 +358,8 @@ export const makePersistence = (tx: Tx) => {
    * Projects what the step touched: one write list for the whole step, every identity's touched
    * records once each, due by the derived rule.
    */
-  // What the step leaves to write besides its own touches: an owed record whose row still has its
-  // try in the mailbox, and every record of an identity withheld at an earlier step's end, which is
-  // written whole once its record encodes. A row in the mailbox has its try there, so only a step
-  // that left mail can end with one.
+  // Only a step that left mail can end with a row in the mailbox; a withheld identity is written
+  // whole once its record encodes.
   const touchLeftovers = () => {
     for (const rows of tx.world().mail.size > 0 ? tx.world().owed.values() : []) {
       const waiting = rows.find(inMailbox);
@@ -383,7 +378,6 @@ export const makePersistence = (tx: Tx) => {
       }
   };
 
-  // Each touched identity's record, built once from its incarnation at the step's end.
   const keepRecords = () => {
     for (const t of touched.values())
       for (const incarnation of Option.toArray(Option.fromUndefinedOr(incarnationOf(t.actor))))
