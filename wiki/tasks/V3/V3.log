@@ -833,3 +833,8 @@ note 2026-11-17T00:25:26Z
 note 2026-11-17T00:44:44Z
     Wake timing at 9d45d087 over twice baseline: suite 33 s (12), stress 115 s (9), faults 172 s (28, unjudged on T20's
     reds). Inserted T83 (fast test commands again), taken after T9 and before T20; T20 now waits on it.
+
+note 2026-11-17T01:40:54Z
+    T9 convergence in review at 5ef231bb: slot selections pass a declared Schema, records format 2 save baselines and
+    the provider graph. Review started (four Haiku, one blind). Waiting on the user: D20, Provider.select takes a
+    Schema.
