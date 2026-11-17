@@ -2257,6 +2257,19 @@ tasks
             allows; R24 could say so. Sidecars: accepted the record gaps, the fiber escape, I42, the Q17 test, the five
             codes and the comments. Rejected: the restore arming change (bound comes from fresh), a store that throws
             synchronously wedging the edge (Store.write returns an Effect) and review 2s 2a listed twice (one outcome).
+        comment     2026-11-17T13:08:02Z
+            Second fix round (14e28d3b): review 2's 2f fixed (Finding is Pick of Diagnostic's fields; details optional);
+            the persist part of review 2's 3b routed to T85 (Capture replaces Touched, D30); the 3g clock queue written
+            on T80; T81's three construction items written back on T81 (construction is its own). Fail-stop as Life
+            Stopped, proposed Actors R25, specs.log; ready and dispose fail with the defect, calls refuse
+            RuntimeDisposed, actors read disposed; a host callback's throw (the Story turn limit) still returns to its
+            caller. Q17's Story asserts the Sent. Five codes no Diagnostic carries dropped (22 left; R6 revised). Three
+            comments fixed.
+        comment     2026-11-17T13:08:34Z
+            Decision (the user, 2026-11-17, Q21 A): a defect mid-step ends the Runtime in a new final Life state,
+            stopped by a defect: the defect is reported once through the failure channel, snapshots read stopped, later
+            calls refuse RuntimeDisposed, dispose() finishes and returns the defect, and nothing more is written, so a
+            reload restores the last landed state. The @spec.Actors rule is accepted, not proposed.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
@@ -2315,6 +2328,10 @@ tasks
             replayed booleans plus refusedBefore; fired set in two places) and 2i (fake.ts Batch: status beside
             answered, which is Some exactly when not held, and keys repeating writes; the Story records' public
             batch shape).
+        comment     2026-11-17T13:08:01Z
+            Routed from @task.V3.T79 (proposed): the second review's 3g clock queue. host/testing/clock.ts settle queues
+            tasks with indexOf, splice and shift, so a settle is quadratic in the tasks it runs; the test clock
+            is T80's.
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
@@ -2401,6 +2418,11 @@ tasks
             twice, definition.ts:540, 599), 1i (SelectArg/GuardArg twice, two inputFieldsOf, reaction shape three times,
             FlowError.code beside diagnostics), 1j (inputFieldsOf per call, runtime.ts:145) and A5 (the payload Struct
             built three times, definition.ts:423, 570, compiled-parts.ts:121; driver send keeps a payload's extra keys).
+        comment     2026-11-17T13:08:01Z
+            Returned from @task.V3.T79 (proposed): this Task's close review routed three construction items to T79:
+            operations returning a TypeError, a {sec: 5} schedule accepted, and a constant start unchecked. They are
+            construction checks that the decoded config owns, as are the T79 findings routed here (3m to 3o, the second
+            review's 1e to 1j and A5), so they stay with T81.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
@@ -2796,6 +2818,11 @@ tasks
             two Options that a boot decode builds apart (record.ts decodeRecords), so (none, some) is reachable from a
             stored row. A tagged kind (Commit, Declined, Lookup, Restored) is how Capture should encode rows; T79 built
             the row's route (Route.Current or From) for it to sit on.
+        comment     2026-11-17T13:08:01Z
+            Routed from @task.V3.T79 (proposed): the persist part of the second review's 3b. Touched marks an identity's
+            record as none, kept or removed beside now and owed booleans (persist.ts Touched). D30 has a step mark only
+            changed record keys and Capture project them, which replaces this shape, so its tags are Capture's
+            to choose.
 
     T86
         title       Fixtures follow their layout: flat files moved, shared services in one place, pay becomes shop

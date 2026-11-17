@@ -1014,3 +1014,7 @@ note 2026-11-17T13:00:59Z
     T79 re-review ISSUES (4a0833c9): records only (2f and 3b persist without outcome; three routes unwritten on
     targets); code and decision tests hold. Second fix round to its lead, with the fail-stop built as a Life state; Q21
     (its rule) asked of the user.
+
+note 2026-11-17T13:08:34Z
+    Decision (the user, 2026-11-17): Q21 A. A mid-step defect ends the Runtime in a final Life state, stopped by a
+    defect: reported once, snapshots read stopped, calls refuse, dispose returns the defect, nothing more written.
