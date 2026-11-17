@@ -42,18 +42,14 @@ const turnBenches = (m: Manifest) => [
   ...m.bench.stories.flatMap((b) => (Option.isNone(b.size) ? [turnBench(b.story(), false)] : [])),
 ];
 
-// Each series' two smallest sizes: enough for its slope, and quick. The largest sizes take
-// seconds a run, so they stay in the full tier.
+// Each series' smallest and largest sizes: enough for its slope.
 const endsOf = (m: Manifest) => {
   const sizes = m.bench.stories.flatMap((b) => Option.toArray(b.size));
 
   return (series: string, n: number) => {
-    const ns = sizes
-      .filter((s) => s.series === series)
-      .map((s) => s.n)
-      .toSorted((a, b) => a - b);
+    const ns = sizes.filter((s) => s.series === series).map((s) => s.n);
 
-    return ns.length > 1 && ns.slice(0, 2).includes(n);
+    return ns.length > 1 && (n === Math.min(...ns) || n === Math.max(...ns));
   };
 };
 
@@ -106,11 +102,6 @@ const valuesBenches = (m: Manifest) =>
     ),
   );
 
-// The app with the most machines: the one boot the quick tier times.
-const largestApp = manifests.toSorted(
-  (a, b) => Object.keys(b.app.machines).length - Object.keys(a.app.machines).length,
-)[0]?.name;
-
 const startupBenches = (m: Manifest) => {
   const story = ownStory(m);
 
@@ -120,7 +111,7 @@ const startupBenches = (m: Manifest) => {
       concern: "startup",
       tags: ["boot", m.name],
       size: { n: 0, unit: "saved" },
-      quick: m.name === largestApp,
+      quick: true,
       load: () => bootSubject(m.setup, m.app),
     }),
     bench({

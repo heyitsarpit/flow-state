@@ -16,6 +16,7 @@ import { appendRows, HISTORY, writeSamples } from "./history.ts";
 import { busyReason, commitOf, environmentOf } from "./machine.ts";
 import { Report } from "./report.ts";
 import { budgetState, countersText, failuresOf, type Result, resultOf, rowOf } from "./result.ts";
+import { type Spawned, timingLines, writeTiming } from "./timing.ts";
 import { PACKAGE, worktreeAt } from "./worktree.ts";
 
 const Options = Schema.Struct({
@@ -28,6 +29,8 @@ const Options = Schema.Struct({
   summary: Schema.Boolean,
   full: Schema.Boolean,
   detail: Schema.Boolean,
+  separate: Schema.Boolean,
+  timing: Schema.Boolean,
   runs: Schema.optionalKey(Schema.FiniteFromString),
   warmup: Schema.optionalKey(Schema.FiniteFromString),
   workers: Schema.optionalKey(Schema.FiniteFromString),
@@ -51,6 +54,8 @@ const optionsOf = (argv: ReadonlyArray<string>) => {
       summary: { type: "boolean", default: false },
       full: { type: "boolean", default: false },
       detail: { type: "boolean", default: false },
+      separate: { type: "boolean", default: false },
+      timing: { type: "boolean", default: false },
       runs: { type: "string" },
       warmup: { type: "string" },
       workers: { type: "string" },
@@ -106,6 +111,12 @@ const batchesOf = (options: Options, chosen: ReadonlyArray<Bench>) => {
   if (options.full)
     return chosen.map((b) => ({ benches: [b], workers: options.workers ?? b.workers }));
 
+  if (options.separate)
+    return chosen.map((b) => ({
+      benches: [b],
+      workers: options.workers ?? Math.min(b.workers, TIERS.quick.workers),
+    }));
+
   const shared = chosen.filter((b) => b.warm);
   const alone = chosen.filter((b) => !b.warm);
 
@@ -142,6 +153,8 @@ const workerArgs = (pkg: string, batch: Batch, options: Options) => {
 // One worker process of a batch in a package folder: one report per bench, a failure for any bench
 // it did not report.
 const workerRun = (pkg: string, batch: Batch, options: Options) => {
+  const start = performance.now();
+
   const done = spawnSync(process.execPath, workerArgs(pkg, batch, options), {
     cwd: pkg,
     encoding: "utf8",
@@ -157,12 +170,17 @@ const workerRun = (pkg: string, batch: Batch, options: Options) => {
 
   const exited = `the worker exited ${done.status ?? done.signal ?? "?"}: ${done.stderr.trim().split("\n").slice(-3).join(" ")}`;
 
-  return batch.benches.map((b) =>
-    Option.getOrElse(
-      Option.fromUndefinedOr(reports.find((r) => r.id === b.id)),
-      () => ({ _tag: "Failed", id: b.id, problem: exited }) satisfies Report,
+  const wallMs = performance.now() - start;
+
+  return {
+    process: { pkg, wallMs, benches: batch.benches.map((b) => b.id), reports },
+    reports: batch.benches.map((b) =>
+      Option.getOrElse(
+        Option.fromUndefinedOr(reports.find((r) => r.id === b.id)),
+        () => ({ _tag: "Failed", id: b.id, problem: exited }) satisfies Report,
+      ),
     ),
-  );
+  };
 };
 
 // One bench's reports from its workers: the first failure, or workers that did different work.
@@ -183,17 +201,28 @@ const gather = (reports: ReadonlyArray<Report>) => {
 const measure = (batch: Batch, options: Options, other: Option.Option<string>) => {
   const mine: Array<Report> = [];
   const theirs: Array<Report> = [];
+  const spawned: Array<Spawned> = [];
 
   for (let n = 0; n < batch.workers; n += 1) {
-    for (const pkg of Option.toArray(other)) theirs.push(...workerRun(pkg, batch, options));
-    mine.push(...workerRun(PACKAGE, batch, options));
+    for (const pkg of Option.toArray(other)) {
+      const run = workerRun(pkg, batch, options);
+      theirs.push(...run.reports);
+      spawned.push(run.process);
+    }
+
+    const run = workerRun(PACKAGE, batch, options);
+    mine.push(...run.reports);
+    spawned.push(run.process);
   }
 
-  return batch.benches.map((bench) => ({
-    bench,
-    now: gather(mine.filter((r) => r.id === bench.id)),
-    before: Option.map(other, () => gather(theirs.filter((r) => r.id === bench.id))),
-  }));
+  return {
+    spawned,
+    benches: batch.benches.map((bench) => ({
+      bench,
+      now: gather(mine.filter((r) => r.id === bench.id)),
+      before: Option.map(other, () => gather(theirs.filter((r) => r.id === bench.id))),
+    })),
+  };
 };
 
 const number = (v: number) => {
@@ -226,7 +255,7 @@ const line = (result: Result, options: Options, compared: string) => {
   return `${result.bench.id.padEnd(58)} ${number(result.median).padStart(9)}  ${spread}  ${tail}${compared}${budget}${fails}${full}`;
 };
 
-type Measured = ReturnType<typeof measure>[number];
+type Measured = ReturnType<typeof measure>["benches"][number];
 
 // How a result reads against the other commit: measured now beside it, or from its stored rows.
 const comparedText = (options: Options, measured: Measured, result: Result, env: Env) => {
@@ -348,6 +377,7 @@ const runAll = Effect.fn("runAll")(function* (options: Options, chosen: Readonly
   const results: Array<Result> = [];
   const failures: Array<string> = [];
   const refused = { any: false };
+  const spawned: Array<Spawned> = [];
 
   yield* Console.log(headerOf(options, env, head, Option.isSome(other)));
 
@@ -360,11 +390,15 @@ const runAll = Effect.fn("runAll")(function* (options: Options, chosen: Readonly
       continue;
     }
 
-    for (const measured of measure(
+    const batchRun = measure(
       batch,
       options,
       Option.map(other, (o) => o.package),
-    )) {
+    );
+
+    spawned.push(...batchRun.spawned);
+
+    for (const measured of batchRun.benches) {
       const one = yield* reportOne(options, measured, env);
       results.push(...Option.toArray(one.result));
       failures.push(...one.failures);
@@ -373,7 +407,7 @@ const runAll = Effect.fn("runAll")(function* (options: Options, chosen: Readonly
 
   for (const o of Option.toArray(other)) o.remove();
 
-  return { env, results, failures, refused: refused.any };
+  return { env, results, failures, refused: refused.any, spawned };
 });
 
 // Why a run cannot start: bad counts, nothing selected, or a busy machine when recording.
@@ -411,7 +445,20 @@ const program = Effect.fn("bench")(function* (argv: ReadonlyArray<string>) {
   }
 
   const date = DateTime.formatIso(yield* DateTime.now);
+  const started = performance.now();
   const run = yield* runAll(options, chosen);
+  const runMs = performance.now() - started;
+  const mode = `${tierOf(options)}${options.separate ? "-separate" : ""}`;
+
+  const timing = writeTiming(
+    options.history,
+    `${commitOf(PACKAGE).commit}-${mode}-${date.replaceAll(/[-:.]/gu, "")}`,
+    run.spawned,
+  );
+
+  if (options.timing)
+    for (const l of [...timingLines(run.spawned, runMs), `timing file ${timing}`])
+      yield* Console.log(l);
 
   const lines = options.summary
     ? summaryLines(options.history, run.results, run.env, scopeOf(options))

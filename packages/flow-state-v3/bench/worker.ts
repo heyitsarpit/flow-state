@@ -74,6 +74,7 @@ const measure = async (bench: Bench, subject: Subject, settings: Settings) => {
       warmup: 0,
       batch: 1,
       counters: first,
+      timing: { coldMs, warmMs: 0, warmOps: 0, sampleMs: 0, sampleOps: 1, opMs: coldMs },
     };
 
   const timed = bench.measure === "ms";
@@ -103,9 +104,30 @@ const measure = async (bench: Bench, subject: Subject, settings: Settings) => {
         (samples.length > bench.minRuns && performance.now() - sampling >= budgetMs),
     });
 
-  while (!enough()) samples.push((await sampleOf(subject, batch.n, first)).perUnit);
+  const perOp: Array<number> = [];
 
-  return { samples: samples.slice(1), warmup: warm.length + 1, batch: batch.n, counters: first };
+  while (!enough()) {
+    const s = await sampleOf(subject, batch.n, first);
+    samples.push(s.perUnit);
+    perOp.push(s.perOp);
+  }
+
+  const timing = {
+    coldMs,
+    warmMs: sampling - warmStart,
+    warmOps: warm.length * batch.n,
+    sampleMs: performance.now() - sampling,
+    sampleOps: samples.length * batch.n,
+    opMs: medianOf(perOp),
+  };
+
+  return {
+    samples: samples.slice(1),
+    warmup: warm.length + 1,
+    batch: batch.n,
+    counters: first,
+    timing,
+  };
 };
 
 const flag = (args: ReadonlyArray<string>, name: string) => {
@@ -135,18 +157,31 @@ const one = (id: string, settings: Settings) =>
     if (bench === undefined)
       return yield* new BenchFailed({ problem: `no bench has the id ${id}` });
 
+    const startedAt = performance.now();
     const subject = yield* attempt(`${id} did not load`, bench.load);
+    const loaded = performance.now();
     const prove = attempt(`${id} has no proof`, subject.proof);
     const time = attempt(`${id} did not run`, () => measure(bench, subject, settings));
     // A cold bench is timed before its proof, so the proof's run does not warm it.
     const done = bench.warm ? Option.none() : Option.some(yield* time);
+    const proving = performance.now();
     const problem = yield* prove;
+    const proofMs = performance.now() - proving;
 
     if (Option.isSome(problem)) return yield* new BenchFailed({ problem: problem.value });
 
     const measured = Option.isSome(done) ? done.value : yield* time;
     const fixture = yield* attempt(`${id} has no shape`, subject.shape);
-    const report: Report = { _tag: "Done", id, ...measured, shape: fixture };
+
+    const timing = {
+      ...measured.timing,
+      startedAt,
+      loadMs: loaded - startedAt,
+      proofMs,
+      totalMs: performance.now() - startedAt,
+    };
+
+    const report: Report = { _tag: "Done", id, ...measured, timing, shape: fixture };
 
     return report;
   }).pipe(
