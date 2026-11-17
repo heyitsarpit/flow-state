@@ -1044,3 +1044,8 @@ note 2026-11-17T15:09:29Z
     T85 in review at d22e51e6: capture on issue, stored bytes identical on 152 Stories; long Stories 4-7 % slower per
     turn, hide handler 0.07 to 6.6 ms (Node; browsers owed). Review weighs that trade-off. 2b deferred to revisit.md;
     Persistence O3 wording fixed for D30 (user's plan-edit approval).
+
+note 2026-11-17T15:28:54Z
+    T85 done: review PASS at d22e51e6 (b6090c05); bytes identical at 474 cuts, a skipped-key plant caught; keep capture
+    on issue (bursts halved, less total work; +4-8 % per turn under captureMs 0). Leftovers to T84, T83, T58. T84
+    started.

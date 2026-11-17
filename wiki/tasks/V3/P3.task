@@ -2726,10 +2726,13 @@ tasks
         comment     2026-11-17T10:46:18Z
             Routed from T9's PASS review (b456aede): two deep recursions remain in test tooling, print.ts (redactable
             values) and sweep.ts; session-nests-deep stress takes 49.5 s of its 60 s budget alone.
+        comment     2026-11-17T15:28:53Z
+            Routed from T85's PASS review (b6090c05): the I20 run rule checks in-memory owed rows, not stored records;
+            make it read the store.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T85]
         description
@@ -2793,10 +2796,16 @@ tasks
         comment     2026-11-17T13:23:59Z
             Routed from T79's PASS review (8d456ffc): AdmissionOverloaded is still in the code union; remove it with the
             mailbox cap (D24).
+        comment     2026-11-17T15:28:53Z
+            Routed from T85's PASS review (b6090c05): snapshot.ts reads the Stopped life in the host against Actors I42,
+            and life.test.ts's I42 guard regex omits Stopped (use the core's actorLifecycleOf); an ended actor's
+            snapshot reads disposed after a stop against R25. Optional, measured first: run Capture at the end of the
+            step itself when its records are due now and no batch is out, to win back T85's 4-8 % per-turn overhead
+            under captureMs 0.
 
     T85
         title       Records captured on issue (D30), plus compiled lookups
-        status      review
+        status      done
         priority    high
         blocked_by  [@T79, @T86]
         description

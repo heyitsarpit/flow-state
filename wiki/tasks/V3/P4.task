@@ -117,6 +117,9 @@ tasks
             Routed from T9's close review: getSnapshot builds a new object on every read and outside() copies memory for
             machines with private fields, which breaks useSyncExternalStore's same-value contract; cache the snapshot
             per published turn.
+        comment     2026-11-17T15:28:53Z
+            Owed from T85 (b6090c05): time the hide handler in real Chromium and Safari (Node: about 6 us per changed
+            actor, 6.2 ms for 1,000) before any idle pre-encoding.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
         status      draft
