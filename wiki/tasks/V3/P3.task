@@ -3233,6 +3233,11 @@ tasks
             iterate with a dev mode (--only and --dev, one worker, short budget, records nothing) that returns in
             seconds; the quick tier is the periodic run; --full only in a dedicated performance session; the full-tier
             breakdown is deferred.
+        comment     2026-11-17T19:09:34Z
+            Requirement (the user, 2026-11-18): no bench run may freeze an agent. Every invocation has a wall-clock cap
+            under the 5-minute command rule (--max-time), each bench a timeout from its own budget (killed and reported
+            timed-out, never recorded as a result), --max-n or --small runs only small series points for narrow
+            iteration (the --dev default), and --full runs concern by concern within the cap; each shown by a test.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
