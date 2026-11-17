@@ -2913,3 +2913,15 @@ tasks
             command-palette commands.ts (now machines/commands.ts), number-input contracts.ts (machines/stepping.ts),
             cells' Pay base (services/shop/machines/pay.ts). Kept: service keys named pay in strings, tests/pay/, the
             lint override (vite.config.ts), and the services folder skipped by the fixture-folder tests.
+        comment     2026-11-17T14:02:18Z
+            Review at 2516fb44: PASS, no blocking finding. check exit 0; suite exit 1 with only the 2 expected pair reds
+            (shop, session; 1,305 tests); saved stress 11 of 11. Moves are line-identical after pay→shop; machine,
+            persisted and service ids unchanged; seeds replay (draws never read the sample-set id); no fixture imports
+            another fixture's folder; vite.config.ts, the services/ skips, CLI JSDoc and P4 link are correct. Not
+            blocking, fix next: two sample sets share id `shop`
+            (code:packages/flow-state-v3/fixtures/shop/stories/usual.ts#samples,
+            code:packages/flow-state-v3/fixtures/shop/stories/samples.ts#samples), so both print `shop/samples`, pair
+            titles repeat and saved stress resolves by list order; rename the store set `shop-store` (Story
+            `shop/store-samples`) and test that sample-set ids are unique. Keep Pay in fixtures/services/shop/machines/
+            and add `services/` to fixtures.md; rename the `…/pay/ShopApi`, `CartApi`, `…/sync/GitApi` keys and
+            tests/pay/ later (no key is persisted).
