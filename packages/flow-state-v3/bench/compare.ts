@@ -58,7 +58,8 @@ export const fixtureChange = (
   );
 
 /**
- * A result against the last stored row of a commit on this runtime, machine and tier, marked low
+ * A result against the last stored row of a commit on this runtime, machine, power state and tier,
+ * marked low
  * confidence; a changed fixture is named instead of compared.
  */
 export const storedComparison = (
@@ -74,6 +75,7 @@ export const storedComparison = (
         (r.commit.startsWith(commit) || commit.startsWith(r.commit)) &&
         r.runtime === env.runtime &&
         r.machine === env.machine &&
+        r.power === env.power &&
         r.tier === tier.name &&
         r.bench === result.bench.id,
     )
@@ -134,7 +136,8 @@ const againstLast = (
       r.confidence === "recorded" &&
       r.tier === tier.name &&
       r.runtime === env.runtime &&
-      r.machine === env.machine,
+      r.machine === env.machine &&
+      r.power === env.power,
   );
 
   return results.flatMap((r) =>
