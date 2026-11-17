@@ -2799,6 +2799,9 @@ tasks
             Stories, faults run), in scratch copies outside the package, each submitting a measured idea; the lead
             verifies, applies and re-measures alone. At 60 minutes: commit what holds, report each remaining gap with
             what its seconds buy, and the user decides.
+        comment     2026-11-17T21:13:45Z
+            Amendment (the user, 2026-11-18): the timebox is 90 minutes, not 60; the orchestrator sets a timer at the
+            lead's start.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning

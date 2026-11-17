@@ -1160,3 +1160,6 @@ note 2026-11-17T21:12:10Z
     Decision (the user, 2026-11-18): T83 is timeboxed to 60 minutes and uses parallel Haiku hill-climbers per part; at
     the box, what holds is committed and the remaining gaps go to the user. Overrides the Limits' no-time-budget for
     T83.
+
+note 2026-11-17T21:13:46Z
+    Decision (the user, 2026-11-18): T83's timebox is 90 minutes (was 60); a one-shot timer starts with its lead.
