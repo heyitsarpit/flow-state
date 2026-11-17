@@ -2090,6 +2090,11 @@ tasks
             Wake timing at 3c97fe2d, clean worktree: suite 93 s (was 33 s at 9d45d087), stress 122 s; T9's
             reloads.test.ts runs every context Story at every position in one serial test (about 33 s alone), sharding
             suggested by T9's review (1c43f41e).
+        comment     2026-11-17T04:59:31Z
+            Routed (orchestrator, 2026-11-17): with the codec bounds gone (D23) the palette stress samples save
+            4,097-command lists, 4.6 ms per turn and 198 ms per run, so 'palette: stress runs from fixed seeds' takes 67
+            s against its 60 s budget even alone; size the budget from measurement or speed the run, never shrink
+            the samples.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning

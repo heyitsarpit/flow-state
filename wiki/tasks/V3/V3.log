@@ -871,3 +871,7 @@ note 2026-11-17T04:34:17Z
     Decision (the user, 2026-11-17): Q3 A, Q4 A, Q5 A from the limits sweep. Pending D24 extended with seven more caps,
     D25 makes timing and retry knobs named, bench-set defaults; T84 removes the caps and names the built knobs; T83
     sizes every test-tooling guard from measurement.
+
+note 2026-11-17T04:59:32Z
+    T9 in review at d2ab6f9b: codec bounds and their code removed (D23), the four routed items fixed. Review started
+    (four Haiku, one blind). Palette stress timeout (67 s vs 60 s, 4,097-command lists) routed to T83.
