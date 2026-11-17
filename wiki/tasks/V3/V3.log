@@ -838,3 +838,8 @@ note 2026-11-17T01:40:54Z
     T9 convergence in review at 5ef231bb: slot selections pass a declared Schema, records format 2 save baselines and
     the provider graph. Review started (four Haiku, one blind). Waiting on the user: D20, Provider.select takes a
     Schema.
+
+note 2026-11-17T02:11:51Z
+    T9 convergence review ISSUES (d2d47414): five earlier closed; three new blocking (oversized selection a defect,
+    issues never clear, baselines copy memory past the bound); fix round to its lead. Palette timeout and tooling gaps
+    go to T83. D20: the reviewer says keep the Schema required.
