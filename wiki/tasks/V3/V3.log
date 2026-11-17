@@ -1026,3 +1026,7 @@ note 2026-11-17T13:17:11Z
 note 2026-11-17T13:24:00Z
     T79 done: review PASS at e6fac51d (8d456ffc). Leftovers to T85 (stopped-Runtime edges), T80 (perform throw), T84
     (AdmissionOverloaded). Next: T86 fixture layout, a Sonnet builder with the usual Opus review.
+
+note 2026-11-17T13:54:42Z
+    T86 in review at 2516fb44: fixtures in their layout, services/shop and services/git, pay renamed shop; tests, Story
+    ids and faults match the baseline. Opus review started; it judges a duplicate 'shop' sample-set id and Pay's home.
