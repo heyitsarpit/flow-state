@@ -103,7 +103,8 @@ outcomes
         context events or changes live state.
 
         It includes every non-Idle lane of a persisted identity, bound or unbound; a releasing mark is captured no later
-        than the actor record that drops the incarnation. An ended actor's record is encoded in its end step and kept.
+        than the actor record that drops the incarnation. An ended actor's record is kept in its end step and captured
+        at once.
 
         `disposeActor` removes the actor's record, keeps its non-Idle lanes as unbound lane records, and flushes the
         removal at once; `disposeActor` and `forget` stop a send's restore only once their removal is acknowledged.

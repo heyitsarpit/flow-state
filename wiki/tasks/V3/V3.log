@@ -1039,3 +1039,8 @@ note 2026-11-17T14:02:37Z
 note 2026-11-17T14:08:11Z
     T86 follow-ups in (f676dc0a): store samples renamed shop-store with a uniqueness test, services/ documented,
     tests/pay moved to tests/shop. T85 lead started: Capture on issue (D30), findings 12 and 15, and its routed items.
+
+note 2026-11-17T15:09:29Z
+    T85 in review at d22e51e6: capture on issue, stored bytes identical on 152 Stories; long Stories 4-7 % slower per
+    turn, hide handler 0.07 to 6.6 ms (Node; browsers owed). Review weighs that trade-off. 2b deferred to revisit.md;
+    Persistence O3 wording fixed for D30 (user's plan-edit approval).

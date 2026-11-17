@@ -130,3 +130,6 @@ Deferred items.
 
 - **A prover module offered by Flow** (2026-11-17, the user; [prover-ideas-2026-11-17.md](prover-ideas-2026-11-17.md)).
   Properties in `*.props.ts` files, proved or refuted over machines and apps; ideas only, not in scope now.
+- **Owed rows' ending kind as a tagged union** (2026-11-17, orchestrator; deferred). Review 1's 2b of
+  code-quality-review-2026-11-16.md: a type refactor across nine row-making sites, not Capture work; T85 left rows
+  encoded as before. Revisit when a Task next changes how owed rows are made.
