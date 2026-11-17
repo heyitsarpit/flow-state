@@ -1111,3 +1111,21 @@ note 2026-11-17T20:04:31Z
 note 2026-11-17T20:06:02Z
     Deleted (the user, 2026-11-18): T89 and its proposal bench-quality-review-2026-11-18.md removed entirely. Reverse:
     git show bf8a14bc^ for both.
+
+note 2026-11-17T20:11:18Z
+    Next round, owed: T89's deletion was done by hand (record cut from P3.task, no CLI); redo through the CLI: restore
+    it from bf8a14bc, set deleted_at with the tombstone fields, then wk cleanup --dry-run and wk cleanup; report a
+    refusal.
+
+note 2026-11-17T20:11:18Z
+    Session ended (the user, 2026-11-18): no agents running, cron and caffeinate stopped, tree clean at this commit.
+    Next: T87's three blockers (its resume comment), then T88 (tsrs), T83, T20, T81, T80. Resume: run the loop in
+    wiki/tasks/V3/epic.task.
+
+note 2026-11-17T20:11:19Z
+    Waiting on the user: the actor-to-actor send(ref, event) action; reading T9's page (holds T20's slice close); P5's
+    Task order when P5 starts.
+
+note 2026-11-17T20:11:19Z
+    Open, known: T20's two pair-cell reds keep nub run faults unjudged; Safari/Chromium hide-flush timing owed to T58;
+    about 280 B retained per actor create/dispose cycle and the serialize-queue slope 0.55 are with T83.

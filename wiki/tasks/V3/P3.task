@@ -3092,7 +3092,7 @@ tasks
 
     T87
         title       One bench tool, split by concern: filterable runs, CSV history by commit, compare with noise bands
-        status      review
+        status      in_progress
         priority    high
         description
             The bench is one standard tool split by concern: each benchmark is declared once with an id, a concern and
@@ -3350,6 +3350,14 @@ tasks
                 reading or reproducing them; rejected `kill -KILL -pid` failing (groups died in every run), `--workers`
                 overriding dev (an explicit override), the quick default, packed counters, live compare, stress-only
                 proofs and the root `nub` read (decided earlier).
+        comment     2026-11-17T20:11:18Z
+            Resume (session ended, 2026-11-18): the review at e349a6bd (c9f36c36) found three blockers. 1) --compare
+            <commit> runs this tree on both sides: workers get this tree's absolute --benches path (bench/workers.ts
+            workerArgs); the other commit must run its own benches from its worktree. 2) --benches <module> with
+            --record can write a planted list into bench/history/; refuse the pair. 3) SIGHUP, and SIGKILL to the
+            parent's group, leave a detached worker running; workers must die with the run. Show each red first, then a
+            review (a short one the orchestrator may verify itself). Routed items are in the review comment; bench.md
+            also needs benchSeries and bench.persist.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
