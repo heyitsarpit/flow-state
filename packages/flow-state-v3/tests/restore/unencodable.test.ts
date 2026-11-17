@@ -28,11 +28,29 @@ const sync = transaction({
     ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
 });
 
+// A publish of a document as deep as its author made it, through the same Git host.
+const publish = transaction({
+  id: "Restore/publish",
+  input: { repo: Schema.String, doc: Schema.Json },
+  key: ["repo"],
+  concurrency: "serialize",
+  services: [GitApi],
+  commit: (input, { attempt }) =>
+    Effect.flatMap(Effect.service(GitApi), (api) =>
+      api.sync({ repo: input.repo }, { idempotencyKey: attempt.id }),
+    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+});
+
 const Notes = definition({
   id: "Restore/Notes",
   persist: true,
   states: ["READY"],
-  events: { Grow: { count: Schema.Number }, Scribble: {}, Sync: { repo: Schema.String } },
+  events: {
+    Grow: { count: Schema.Number },
+    Scribble: {},
+    Sync: { repo: Schema.String },
+    Publish: { doc: Schema.Json },
+  },
   internalEvents: {
     Synced: {},
     Limited: {},
@@ -47,7 +65,18 @@ const Notes = definition({
       notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
+    publish: publish.outcomes({
+      success: E.Synced,
+      failure: { RateLimited: E.Limited },
+      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      unknown: E.Unsure,
+    }),
   }),
+});
+
+const withDoc = ({ event }: { readonly event: { readonly doc: Schema.Json } }) => ({
+  repo: "flow",
+  doc: event.doc,
 });
 
 const byRepo = ({ event }: { readonly event: { readonly repo: string } }) => ({ repo: event.repo });
@@ -64,6 +93,7 @@ const NotesMachine = machine(Notes, ({ S, O }) => ({
     },
     Scribble: { updateMemory: () => ({ notes: ["\uD800"] }) },
     Sync: { actions: [O.sync.commit(byRepo)] },
+    Publish: { actions: [O.publish.commit(withDoc)] },
     Synced: {},
     Limited: {},
     NotSent: {},
@@ -224,5 +254,31 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     );
 
     expect(run.checkpoints.after.inspection.owed).toEqual([]);
+  });
+
+  it("Codec R1, R4: a commit whose input is 100,000 deep is saved with its lane, survives a reload while held, and ends with a proper ending; nothing throws", async () => {
+    let doc: Schema.Json = "leaf";
+
+    for (let n = 0; n < 100_000; n += 1) doc = [doc];
+
+    const run = checked(
+      await notesStory("restore/deep-input")
+        .ensure(notes)
+        .world(Git.sync.hold())
+        .send(notes, { _tag: "Publish", doc })
+        .checkpoint("held")
+        .reload()
+        .advance("1 second")
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect([...run.checkpoints.held.records.stored.keys()].some((k) => k.startsWith("lane/"))).toBe(
+      true,
+    );
+    expect(
+      run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+    ).toEqual(["unknown Restored"]);
+    expect(reported(run)).toEqual([]);
   });
 });

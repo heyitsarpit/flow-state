@@ -1,7 +1,14 @@
 import { Equal, Option, Predicate, Result } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
-import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
+import {
+  type Frame,
+  type Selected,
+  sameSlot,
+  sameValue,
+  selectedOf,
+  type Source,
+} from "./slots.ts";
 import { type Tx, withEntry } from "./tx.ts";
 import {
   type ActorId,
@@ -311,7 +318,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         Result.try({
           try: () => ({
             now,
-            equal: Option.exists(previous, (p) => Equal.equals(p.selection, now.selection)),
+            equal: Option.exists(previous, (p) => sameValue(p.selection, now.selection)),
           }),
           catch: () => reaction.select.slot,
         }),

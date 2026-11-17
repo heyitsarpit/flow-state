@@ -1,5 +1,5 @@
 import { Equal, Option, Result, Schema } from "effect";
-import { toCanonicalJson } from "./codec.ts";
+import { encodeCanonical, toCanonicalJson } from "./codec.ts";
 import type { Values } from "./compiled.ts";
 
 /**
@@ -84,16 +84,32 @@ export const selectedOf = (
   );
 
 /**
+ * Whether two values are equal by `Equal.equals`; for a value too deep for its recursion, whether
+ * their canonical texts match, which the codec writes at any depth. Two values with no canonical
+ * text that are too deep to compare are taken to differ, so a wave runs rather than being missed.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: values a selector, a reaction or a record holds, of any type.
+export const sameValue = (a: unknown, b: unknown) =>
+  Result.getOrElse(Result.try({ try: () => Equal.equals(a, b), catch: () => "deep" }), () =>
+    Option.getOrElse(
+      Option.zipWith(
+        Result.getSuccess(encodeCanonical(a)),
+        Result.getSuccess(encodeCanonical(b)),
+        (x, y) => x === y,
+      ),
+      () => false,
+    ),
+  );
+
+/**
  * Whether two slots hold the same JSON form, so a selection read back from either is the same in
  * every way a select can read it, a Map's or Set's order included; or are both never selected.
  */
 export const sameForm = (a: Option.Option<Selected>, b: Option.Option<Selected>) =>
-  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => Equal.equals(a.value.json, y.json));
+  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => sameValue(a.value.json, y.json));
 
 /**
  * Whether two slots hold equal selections, or are both never selected.
  */
 export const sameSlot = (a: Option.Option<Selected>, b: Option.Option<Selected>) =>
-  Option.isNone(a)
-    ? Option.isNone(b)
-    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));
+  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => sameValue(a.value.value, y.value));

@@ -10,6 +10,8 @@ import {
   mainAvatar,
   mainDigest,
   mainInbox,
+  mainOutline,
+  mainPreview,
   mainThread,
   mainUnread,
 } from "../../fixtures/session/app.ts";
@@ -23,6 +25,7 @@ import {
   formatOneAvatar,
   guestDotReturns,
   nestedConflictingTeam,
+  outlineDeep,
   threadHeard,
   unreadRecovers,
 } from "../../fixtures/session/stories/values.ts";
@@ -224,5 +227,46 @@ describe("a step the store refuses (WriteAhead R13; Actors R9)", () => {
     expect(reloaded.read(mainDigest)?.memory["heard"]).toBe(8);
     // From Ada's one message, her second changes five of the eight selections.
     expect(after.read(mainDigest)?.memory["heard"]).toBe(13);
+  });
+});
+
+// How deep a list nests, walked without recursion.
+// FLOW_STATE_ALLOW_UNKNOWN: a document read only for its nesting.
+const depthOf = (doc: unknown) => {
+  let depth = 0;
+  let at = doc;
+
+  while (Array.isArray(at)) {
+    at = at[0];
+    depth += 1;
+  }
+
+  return depth;
+};
+
+describe("a document 100,000 levels deep (Codec R1, R4; Actors R18)", () => {
+  it("Codec R1, Actors R18: memory and a selection 100,000 deep, and one beside 5,000 siblings, save and restore with no thrown error, no report and no made-up event", async () => {
+    const run = checked(await outlineDeep().run());
+    const cut = run.checkpoints;
+    const deepDoc = (c: keyof typeof cut) => cut[c].read(mainOutline)?.memory.doc;
+
+    const wideDoc = (c: keyof typeof cut) =>
+      ((d) => (Predicate.isObject(d) && "deep" in d ? d : { deep: null, wide: [] }))(deepDoc(c));
+
+    expect(depthOf(deepDoc("deep"))).toBe(100_000);
+    expect(depthOf(deepDoc("reloaded"))).toBe(100_000);
+    expect(depthOf(wideDoc("mixed again").deep)).toBe(100_000);
+    expect(wideDoc("mixed again").wide).toHaveLength(5_000);
+
+    for (const [c, heard] of [
+      ["deep", 1],
+      ["reloaded", 1],
+      ["mixed", 2],
+      ["mixed again", 2],
+    ] as const)
+      expect(cut[c].read(mainPreview)?.memory["heard"]).toBe(heard);
+
+    expect(reported(run, "UnencodableValue")).toEqual([]);
+    expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
   });
 });

@@ -1,3 +1,4 @@
+import type { Schema } from "effect";
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
 import { actorRef } from "../../../src/index.ts";
 import {
@@ -10,6 +11,8 @@ import {
   mainCalendar,
   mainDigest,
   mainInbox,
+  mainOutline,
+  mainPreview,
   mainThread,
   mainUnread,
 } from "../app.ts";
@@ -236,6 +239,42 @@ export const digestRefused = inbox("session/digest-refused")
   .checkpoint("reloaded")
   .send(mainInbox, arrive("m3", "ada", 3_000, "m1"))
   .checkpoint("after");
+
+// A list nested `depth` levels deep, its innermost item `leaf`.
+const nested = (depth: number, leaf: string) => {
+  let doc: Schema.Json = leaf;
+
+  for (let n = 0; n < depth; n += 1) doc = [doc];
+
+  return doc;
+};
+
+/**
+ * A document a hundred thousand levels deep beside five thousand siblings, each a short list.
+ */
+const deepAndWide = (leaf: string) => ({
+  deep: nested(100_000, leaf),
+  wide: Array.from({ length: 5_000 }, (_, n) => [`item ${n}`, { at: n }]),
+});
+
+/**
+ * An outline a hundred thousand levels deep is pasted under its preview; the tab reloads; a
+ * document both that deep and five thousand wide is pasted, and the tab reloads again. Built on
+ * call and kept out of `stories`: printing and sweeping 200,000 levels at every step is too long
+ * for the CLI tests and the sweeps; its own test and the bench run it.
+ */
+export const outlineDeep = () =>
+  grownStory("session/stress-outline-deep")
+    .ensure(mainOutline)
+    .ensure(mainPreview)
+    .send(mainOutline, { _tag: "Paste", doc: nested(100_000, "one") })
+    .checkpoint("deep")
+    .reload()
+    .checkpoint("reloaded")
+    .send(mainOutline, { _tag: "Paste", doc: deepAndWide("two") })
+    .checkpoint("mixed")
+    .reload()
+    .checkpoint("mixed again");
 
 /**
  * What the inbox's digest, thread view and the guest's online dot meet, for generated runs:

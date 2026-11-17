@@ -149,6 +149,21 @@ export const largeReceipts = owedToClosed("transfers/stress-large-receipts", 14)
   .checkpoint("heard");
 
 /**
+ * Two receipts owed to an account closed while its transfers were out: the bank garbles the first
+ * with a broken character (a lone surrogate, which no record can hold), then sends a plain one; the
+ * tab reloads and the account hears both.
+ */
+export const garbledReceipt = owedToClosed("transfers/garbled-receipt", 2)
+  .world(Bank.receiptPad({ pad: "\uD800" }), Bank.receiptLength({ chars: 4 }), ...released(1))
+  .world(Bank.receiptPad({ pad: "0" }), Bank.receiptLength({ chars: 0 }), ...released(1))
+  .advance("1 second")
+  .checkpoint("owed")
+  .reload()
+  .ensure(account)
+  .advance("1 second")
+  .checkpoint("heard");
+
+/**
  * 1,300 short receipts owed to a closed account, in one record. The tab reloads and the account
  * hears every one. A stress Story, built on call and kept out of
  * `stories`: a reload at each of its 1,300 steps is too long for the sweep.
@@ -432,6 +447,7 @@ export const stories = {
   refusedWrite,
   seededStress,
   largeReceipts,
+  garbledReceipt,
   quarantined,
   refusedLoad,
   forgotten,

@@ -19,6 +19,7 @@ import {
   ThreadViewMachine,
   UnreadMachine,
 } from "./machines/inbox.ts";
+import { OutlineMachine, PreviewMachine } from "./machines/outline.ts";
 import { DotMachine, PresenceMachine } from "./machines/presence.ts";
 import { BylineMachine } from "./machines/byline.ts";
 import { StatusMachine } from "./machines/status.ts";
@@ -84,6 +85,16 @@ export const mainAgenda = actorRef(AgendaMachine, "agenda");
 export const agendaPeek = actorRef(PeekMachine, "peek");
 
 /**
+ * The workspace outline.
+ */
+export const mainOutline = actorRef(OutlineMachine, "main");
+
+/**
+ * The outline's preview.
+ */
+export const mainPreview = actorRef(PreviewMachine, "preview");
+
+/**
  * The guest's presence, whose ref binds it to the guest session instead of the default.
  */
 export const guestPresence = actorRef(PresenceMachine, "guest", {
@@ -128,6 +139,8 @@ export const workspaceGrown = app({
     unread: { machine: UnreadMachine, context: { oldest: mainInbox } },
     archive: { machine: ArchiveMachine, context: { newest: mainInbox } },
     calendar: CalendarMachine,
+    outline: OutlineMachine,
+    preview: { machine: PreviewMachine, context: { doc: mainOutline } },
     agenda: { machine: AgendaMachine, context: { days: mainCalendar } },
     peek: { machine: PeekMachine, context: { days: mainCalendar } },
     presence: { machine: PresenceMachine, context: { user: mainSession } },

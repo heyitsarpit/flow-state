@@ -1,4 +1,4 @@
-import { Option, Result, Schema } from "effect";
+import { Option, Predicate, Result, Schema } from "effect";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import type { Rule } from "./rules.ts";
 
@@ -52,8 +52,6 @@ const KINDS = {
 
 const JsonText = Schema.fromJsonString(Schema.Json);
 
-const JsonObject = Schema.Record(Schema.String, Schema.Json);
-
 // An array index sorts first, by value, as every ECMAScript host orders such keys.
 const byKey = (a: string, b: string) => {
   const index = (k: string) => (/^(?:0|[1-9]\d*)$/u.test(k) ? Number(k) : -1);
@@ -68,18 +66,61 @@ const byKey = (a: string, b: string) => {
   return Number(a > b) - Number(a < b);
 };
 
-// The value with every object's keys sorted (Codec R2).
-// RETURN_TYPE: a recursive function states its result.
-const sorted = (value: Schema.Json): Schema.Json => {
-  if (Array.isArray(value)) return value.map(sorted);
+// A JSON primitive or key as JSON text.
+const primitiveText = (json: Schema.Json) =>
+  Result.getOrElse(Schema.encodeUnknownResult(JsonText)(json), () => "");
 
-  if (!Schema.is(JsonObject)(value)) return value;
+// The value as canonical text (Codec R2): every object's keys sorted, no whitespace. Written with
+// its own stack, so text of any depth is judged.
+const canonicalText = (root: Schema.Json) => {
+  const out: Array<string> = [];
+  const stack: Array<() => void> = [];
+  const text = (piece: string) => () => void out.push(piece);
 
-  return Object.fromEntries(
-    Object.entries(value)
-      .toSorted(([a], [b]) => byKey(a, b))
-      .map(([k, v]) => [k, sorted(v)]),
-  );
+  // A container's parts inside its brackets, each after a comma but the first.
+  const around = (open: string, parts: ReadonlyArray<ReadonlyArray<() => void>>, close: string) => [
+    text(open),
+    ...parts.flatMap((p, i) => (i === 0 ? p : [text(","), ...p])),
+    text(close),
+  ];
+
+  // RETURN_TYPE: a container's steps write its items, so one of them names the step type.
+  const stepsOf = (json: Schema.Json): ReadonlyArray<() => void> => {
+    if (Array.isArray(json))
+      return around(
+        "[",
+        json.map((item) => [write(item)]),
+        "]",
+      );
+
+    if (
+      json === null ||
+      Predicate.isString(json) ||
+      Predicate.isNumber(json) ||
+      Predicate.isBoolean(json)
+    )
+      return [text(primitiveText(json))];
+
+    return around(
+      "{",
+      Object.entries(json)
+        .toSorted(([a], [b]) => byKey(a, b))
+        .map(([key, value]) => [text(`${primitiveText(key)}:`), write(value)]),
+      "}",
+    );
+  };
+
+  const write = (json: Schema.Json) => () => {
+    const steps = stepsOf(json);
+
+    for (let i = steps.length - 1; i >= 0; i -= 1) stack.push(steps[i] ?? text(""));
+  };
+
+  stack.push(write(root));
+
+  for (let step = stack.pop(); step !== undefined; step = stack.pop()) step();
+
+  return out.join("");
 };
 
 const HasMayHaveApplied = Schema.Struct({ mayHaveApplied: Schema.Json });
@@ -96,7 +137,7 @@ const breachOf = (key: string, text: string, at: string) => {
   return Option.match(Schema.decodeUnknownOption(JsonText)(text), {
     onNone: () => [`Codec I7: at ${at}, ${key} is not JSON`],
     onSome: (json) => {
-      const canonical = Result.getOrUndefined(Schema.encodeUnknownResult(JsonText)(sorted(json)));
+      const canonical = canonicalText(json);
       const found: Array<string> = [];
 
       if (canonical !== text) found.push(`Codec I7: at ${at}, ${key} is not canonical text`);

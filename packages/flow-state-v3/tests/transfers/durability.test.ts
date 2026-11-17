@@ -5,6 +5,7 @@ import {
   acct1Record,
   forgetRefused,
   forgotten,
+  garbledReceipt,
   largeReceipts,
   quarantined,
   refusedLoad,
@@ -78,6 +79,17 @@ describe("large owed values (Codec R1, R5; WriteAhead I21)", () => {
   it("Codec R5: large endings are heard with no refused turn", async () => {
     const run = checked(await largeReceipts.run());
 
+    expect(refused(run, 2)).toBe(0);
+  });
+});
+
+describe("an owed ending with no saved form (Codec R4, R5; WriteAhead R4)", () => {
+  it("Codec R4, R5: a receipt with a broken character is saved as its Attempt's unknown Restored, reported, and the account hears both endings after a reload with no refused turn", async () => {
+    const run = checked(await garbledReceipt.run());
+
+    expect(receipts(run.checkpoints.owed)).toEqual(["unknown", 2]);
+    expect(reports(run, 1)).toContain(`UnencodableValue ${OWED}`);
+    expect(heardDone(run, 2)).toBe(2);
     expect(refused(run, 2)).toBe(0);
   });
 });

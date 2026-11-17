@@ -32,6 +32,7 @@ describe("Fake server", () => {
       receipts: { [first.read(Bank.transfer)[0]?.input.key ?? ""]: "r1" },
       limit: 1000,
       receiptChars: 0,
+      receiptPad: "0",
     });
     expect(lowered.read(Bank).limit).toBe(400);
     expect(declined.read(Bank).receipts).toEqual(first.read(Bank).receipts);
@@ -80,6 +81,7 @@ describe("Fake server", () => {
       receipts: {},
       limit: 1000,
       receiptChars: 0,
+      receiptPad: "0",
     });
   });
 

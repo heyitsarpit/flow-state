@@ -1,5 +1,6 @@
 import { actorFaults } from "./actor-faults.ts";
 import { consolidationFaults } from "./consolidation-faults.ts";
+import { codecFaults } from "./codec-faults.ts";
 import { contextFaults } from "./context-faults.ts";
 import { lanePolicyFaults } from "./lane-policy-faults.ts";
 import { lifeFaults } from "./life-faults.ts";
@@ -303,6 +304,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...mixFaults,
   ...actorFaults,
   ...contextFaults,
+  ...codecFaults,
   {
     name: "ending-heard-twice",
     tests: ["src/core/ledger.test.ts"],

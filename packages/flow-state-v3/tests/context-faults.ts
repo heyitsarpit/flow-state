@@ -32,32 +32,6 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "selection-kept-raw",
-    tests: ["tests/session/values.test.ts", "tests/rules/reloads.test.ts"],
-    says: "a live slot keeps the selector's raw value, not the one its Schema reads back, so a reload compares a different value and makes up an onContext event",
-    rule: "Actors R19",
-    edits: [
-      {
-        file: "src/core/slots.ts",
-        find: "            (canonical) => readSelected(codec, canonical),",
-        replace: "            (canonical) => Result.succeed({ value: raw, json: canonical }),",
-      },
-    ],
-  },
-  {
-    name: "negative-zero-refused",
-    tests: ["tests/session/values.test.ts"],
-    says: "a -0 selection is refused as its selector's defect, so the digest never hears its count reach zero",
-    rule: "Actors R9",
-    edits: [
-      {
-        file: "src/core/slots.ts",
-        find: 'toCanonicalJson(json, "zero")',
-        replace: "toCanonicalJson(json)",
-      },
-    ],
-  },
-  {
     name: "baseline-forgets-frame",
     tests: ["tests/session/values.test.ts", "tests/actors/context.test.ts"],
     says: "a restored baseline is read from the last-seen slots and the current memory, not from the inputs it was read from, so a kept or memory-reading baseline moves on reload",
@@ -117,9 +91,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/slots.ts",
-        find: "  Option.isNone(a)\n    ? Option.isNone(b)\n    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));",
+        find: "  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => sameValue(a.value.value, y.value));",
         replace:
-          "  Option.isNone(a)\n    ? true\n    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));",
+          "  Option.isNone(a) ? true : Option.exists(b, (y) => sameValue(a.value.value, y.value));",
       },
     ],
   },
@@ -457,19 +431,6 @@ export const contextFaults: ReadonlyArray<Fault> = [
         file: "src/core/slots.ts",
         find: '    Result.try({ try: () => Schema.decodeUnknownResult(codec)(json), catch: () => "schema" }),',
         replace: "    Result.succeed(Schema.decodeUnknownResult(codec)(json)),",
-      },
-    ],
-  },
-  {
-    name: "step-two-drops-copies",
-    tests: ["src/core/actor-record.test.ts"],
-    says: "the format-2 step drops each baseline's memory copy, so its baseline reads the record's own memory",
-    rule: "Restore R5",
-    edits: [
-      {
-        file: "src/core/actor-record.ts",
-        find: "        return { slots: frame.slots, memory: memories.push(frame.memory) - 1 };",
-        replace: "        return { slots: frame.slots, memory: null };",
       },
     ],
   },

@@ -6,16 +6,17 @@ const BankTruth = Schema.Struct({
   receipts: Schema.Record(Schema.String, Schema.String),
   limit: Schema.Number,
   receiptChars: Schema.Number,
+  receiptPad: Schema.String,
 });
 
 /**
  * The bank's truth: one receipt per idempotency key, replayed for a key it has seen, and a limit
- * above which a new transfer is declined. A receipt is padded to `receiptChars` characters, as a bank
- * that returns a long statement would send it.
+ * above which a new transfer is declined. A receipt is padded to `receiptChars` characters with
+ * `receiptPad`, as a bank that returns a long statement, or a garbled one, would send it.
  */
 export const Bank = Fake.server("Bank", {
   truth: BankTruth,
-  initial: { receipts: {}, limit: 1000, receiptChars: 0 },
+  initial: { receipts: {}, limit: 1000, receiptChars: 0, receiptPad: "0" },
   endpoints: {
     transfer: Fake.call({
       request: { transferId: Schema.String, cents: Schema.Number, key: Schema.String },
@@ -30,7 +31,7 @@ export const Bank = Fake.server("Bank", {
 
         const receipt = `r${Object.keys(truth.receipts).length + 1}`.padEnd(
           truth.receiptChars,
-          "0",
+          truth.receiptPad,
         );
 
         return {
@@ -44,6 +45,10 @@ export const Bank = Fake.server("Bank", {
     limit: Fake.control({ cents: Schema.Number }, (truth: typeof BankTruth.Type, { cents }) => ({
       ...truth,
       limit: cents,
+    })),
+    receiptPad: Fake.control({ pad: Schema.String }, (truth: typeof BankTruth.Type, { pad }) => ({
+      ...truth,
+      receiptPad: pad,
     })),
     receiptLength: Fake.control(
       { chars: Schema.Number },

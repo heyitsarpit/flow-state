@@ -250,3 +250,12 @@ note 2026-11-17T04:34:18Z
     @spec.Actors R18: a slot value or baseline is always saved, so nothing is saved unknown; a selection with no
     canonical form is its selector's defect, and -0 reads 0 live and after a reload. Why: D23 removed the bounds that
     made values unsaveable. Reverse: restore R18 from 59574431.
+
+note 2026-11-17T05:22:42Z
+    @spec.Codec R1, T1: the codec's walk, writer and re-encode check keep their own stacks, and parsing uses the host
+    parser (iterative on V8 and JavaScriptCore, a million levels on Node and Bun), failing as json, never thrown;
+    too-deep Equal falls back to canonical text. Why: T9 review, depth crash. Reverse: 2f55bc01's codec.ts.
+
+note 2026-11-17T05:22:42Z
+    @spec.Codec R4, @spec.WriteAhead R9: a record fails only on a malformation in its actor's own state, its identity
+    then withheld whole; records carry the current format. Why: T9 review wording. Reverse: d2ab6f9b.

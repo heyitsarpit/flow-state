@@ -9,7 +9,45 @@ const failureOf = (r: Result.Result<unknown, { readonly _tag: string }>) =>
 const nested = (depth: number) =>
   Array.from({ length: depth - 1 }).reduce<unknown>((inner) => [inner], []);
 
+// How deep a list nests, and what it holds at its bottom, walked without recursion.
+// FLOW_STATE_ALLOW_UNKNOWN: a decoded JSON value, read only for its nesting.
+const bottomOf = (value: unknown) => {
+  let depth = 0;
+  let at = value;
+
+  while (Array.isArray(at)) {
+    at = at[0];
+    depth += 1;
+  }
+
+  return { depth, leaf: at };
+};
+
 describe("No size bounds (Codec R1)", () => {
+  it("Codec R1, I2: a list nested 100,000 deep encodes canonically and decodes back, with no thrown error", () => {
+    const deep = nested(100_000);
+    const text = Result.getOrThrow(encodeCanonical(deep));
+
+    expect(text).toHaveLength(200_000);
+    expect(bottomOf(Result.getOrThrow(decodeCanonical(text)))).toEqual({
+      depth: 100_000,
+      leaf: undefined,
+    });
+  });
+
+  it("Codec R1, I2: a value 100,000 deep beside 5,000 wide siblings round-trips, and equal values give equal text", () => {
+    const value = () => ({
+      deep: nested(100_000),
+      wide: Array.from({ length: 5_000 }, (_, n) => ({ n, s: `item ${n}` })),
+    });
+
+    const text = Result.getOrThrow(encodeCanonical(value()));
+    const back = Result.getOrThrow(decodeCanonical(text));
+
+    expect(Result.getOrThrow(encodeCanonical(value()))).toBe(text);
+    expect(Result.getOrThrow(encodeCanonical(back))).toBe(text);
+  });
+
   it("Codec R1: a value of any size and depth encodes canonically and decodes back: 5,000 items, depth 64, 3,000,000 bytes", () => {
     const value = {
       items: Array.from({ length: 5_000 }, (_, n) => n),

@@ -1,5 +1,6 @@
 import { Option } from "effect";
 import { manifests } from "../fixtures/index.ts";
+import { outlineDeep } from "../fixtures/session/stories/values.ts";
 import { spreadOf, timeStory } from "./time.ts";
 
 const WARMUP = 100;
@@ -16,14 +17,20 @@ const longStories = [
   ...manifests.flatMap((m) => Object.values(m.stories).filter((s) => LARGE.has(s.id))),
 ];
 
-for (const story of longStories) {
-  await timeStory(story, WARMUP);
-  const runs = await timeStory(story, TIMES);
+// A document 100,000 levels deep: each run takes most of a second, so fewer runs time it.
+const deepStories = [outlineDeep()];
+
+for (const [story, warmup, times] of [
+  ...longStories.map((s) => [s, WARMUP, TIMES] as const),
+  ...deepStories.map((s) => [s, 2, 20] as const),
+]) {
+  await timeStory(story, warmup);
+  const runs = await timeStory(story, times);
   const turns = runs[0]?.turns.length ?? 0;
   const perRun = spreadOf(runs.map((r) => r.ms));
   const perTurn = spreadOf(runs.map((r) => r.ms / r.turns.length));
 
-  console.log(`${story.id}: ${TIMES} runs after ${WARMUP} warm-up, ${turns} turns a run`);
+  console.log(`${story.id}: ${times} runs after ${warmup} warm-up, ${turns} turns a run`);
   console.log(`  per run  median ${fixed(perRun.median)} ms   p99 ${fixed(perRun.p99)} ms`);
   console.log(`  per turn median ${fixed(perTurn.median)} ms   p99 ${fixed(perTurn.p99)} ms`);
 }

@@ -15,7 +15,12 @@ requirements
                 records, server-rendering payloads, trace artifacts and Model bytes. It accepts
                 JSON values produced by the owning Schema, of any size or depth: how big a value may
                 be is judged by the bench, and the store's quota is the one real limit, which ends
-                as StorageRefused (@spec.WriteAhead.R13).
+                as StorageRefused (@spec.WriteAhead.R13). Its walk, its writer and its re-encode
+                check keep their own stacks, so depth costs memory, never the host's call stack;
+                decoding uses the host's JSON parser, which keeps its own stack on V8 and
+                JavaScriptCore, and a text a host still cannot parse fails as CodecMalformed json,
+                never a thrown error. Comparing values too deep for Effect's Equal falls back to
+                their canonical texts.
 
     R2  Canonical encoding
         source  @plan.Inspection.O2; @plan.Package.C1.
@@ -47,8 +52,10 @@ requirements
                 No send waits on a record that may not encode. A persisted commit is admitted only if
                 its input encodes canonically; otherwise it declines NotSent { Unencodable }. An
                 owed row whose value has no form is saved as its Attempt's unknown { Restored },
-                reported UnencodableValue, and a Flow-made row with no value saves `null`. So only an
-                actor record can fail to encode (@spec.WriteAhead.R4).
+                reported UnencodableValue, and a Flow-made row with no value saves `null`. So a record
+                fails to encode only on a malformation in its actor's own state: its memory, or its
+                name, which its lane and owed records carry too; then the identity is withheld whole
+                (@spec.WriteAhead.R4, I21).
 
                 Elsewhere:
                 CodecMalformed is raised only where a codec failure is a
@@ -130,7 +137,9 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Size: 5,000 items, depth 64 and 3,000,000 bytes encode and decode back equal. [@I2]
+    T1  Size: 5,000 items, depth 64 and 100,000, 3,000,000 bytes, and 100,000 deep beside 5,000 wide encode and decode 
+        back equal, and memory, a selection and a commit input 100,000 deep save, restore and end in a
+            Story. [@I2]
     T2  Malformed vectors: a BOM, invalid UTF-8, a lone surrogate, duplicate keys, unsorted keys, -0, 1.0 and 1e0 
         spellings each fail with their CodecMalformed reason. [@I4]
     T3  Round trip and hosts: a fixed vector set encodes to the same bytes on every listed host and round-trips both 

@@ -126,7 +126,7 @@ requirements
         must    A scope is saved atomically: after interruption or a torn write, reload sees one
                 complete capture, falling back to the last good one. Older writes never replace
                 newer committed state. Every actor, lane and owed record carries Flow's one record
-                format number, today 1 (@spec.Codec.R5).
+                format number, the current one (@spec.Codec.R5, @spec.Restore.R5).
 
     R10  When records are written
         source  @plan.Persistence.O3.

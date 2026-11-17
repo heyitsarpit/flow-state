@@ -1,4 +1,4 @@
-import { Equal, Option, Predicate, Result, Schema, Struct } from "effect";
+import { Option, Predicate, Result, Schema, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import {
   ActorJson,
@@ -14,6 +14,7 @@ import {
   type Frame,
   readSelected,
   sameForm,
+  sameValue,
   type Selected,
   selectedOf,
   type Source,
@@ -158,7 +159,7 @@ const copiesOf = (compiled: Compiled, record: ActorRecord) =>
         const own = yield* fieldJson(compiled, name, record.memory[name]);
         const copy = copies.get(frame.source) ?? new Map<string, Values[string]>();
 
-        if (!Equal.equals(json, own)) copies.set(frame.source, copy.set(name, json));
+        if (!sameValue(json, own)) copies.set(frame.source, copy.set(name, json));
       }
 
     return copies;

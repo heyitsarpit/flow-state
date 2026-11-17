@@ -85,7 +85,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "unsaved-value-saved-null",
-    tests: ["src/core/persist.test.ts"],
+    tests: ["tests/transfers/durability.test.ts"],
     says: "an ending whose value has no saved form keeps its channel with a null value, so its mapping refuses the turn at each start",
     rule: "Codec R4",
     edits: [
