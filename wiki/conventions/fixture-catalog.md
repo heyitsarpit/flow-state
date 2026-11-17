@@ -6,10 +6,10 @@ in today's fixtures, the migration plan in Task order, and the Task text that mu
 (additive growth, folder layout, manifest, the `S`, `L` and `E` codes) are in code:wiki/conventions/fixtures.md.
 
 **Decided (the user, 2026-11-17):**
-- 16 fixtures, each growing by new machines around the old ones: `pay` (the app `shop`), `cells`, `lanes`, `sync`,
+- 16 fixtures, each growing by new machines around the old ones: `shop`, `cells`, `lanes`, `sync`,
   `transfers`, `sign-in`, `session`, `command-palette`, `number-input`, `player`, `wizard`, `search`, `home`,
   `kanban`, `chat` and `draft`.
-- `pay` becomes the folder `shop/`, its Story ids `shop/…`; machine and persisted ids stay (the user, 2026-11-17,
+- `pay` became the folder `shop/`, its Story ids `shop/…`; machine and persisted ids stay (the user, 2026-11-17,
   Q16 B; built by @task.V3.T86). `cells` and `lanes` stay their own fixtures.
 - The toaster, menu and combobox live in `kanban`, the tree in `draft`, and the token input in `chat`.
 - `subroutine` and `whenAbandoned` are built by @task.V3.T57.
@@ -46,7 +46,7 @@ A view of the "Features by step" lists in the App blocks below; regenerate it fr
 A cell is `U` (used today) or the migration step that adds the feature to that app; `.` means the app doesn't use
 it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell shows them.
 
-`pa` pay · `ce` cells · `la` lanes · `sy` sync · `tr` transfers · `si` sign-in · `se` session · `cp` command-palette ·
+`pa` shop · `ce` cells · `la` lanes · `sy` sync · `tr` transfers · `si` sign-in · `se` session · `cp` command-palette ·
 `ni` number-input · `pl` player · `wz` wizard · `sr` search · `ho` home · `kb` kanban · `ch` chat · `dr` draft
 
 | Feature (API name)                                            |pa|ce|la|sy|tr|si|se|cp|ni|pl|wz|sr|ho|kb|ch|dr|
@@ -132,7 +132,7 @@ Notation in App blocks:
 
 Scenario sources use the reference links at the end of the page, with a line number and the test name as written.
 
-### pay (the app `shop`)
+### shop (the app `shop`, once `pay`)
 
 A storefront: product page, cart and checkout, grown around today's checkout. Source: Shopify Hydrogen's cart;
 Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not checked here).
@@ -191,29 +191,29 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
 - **Scenarios:**
   - **Usual:**
     - [x] Checkout with an unsure charge, a recheck, then an order. Source: Stripe's flow, not checked. built:
-      `pay/lost-confirm`, `pay/usual`.
+      `shop/lost-confirm`, `shop/usual`.
     - [x] The checkout steps with Back into shipping's last step, ending when the checkout's Pay is paid. No source.
-      built: `pay/checkout-steps`.
+      built: `shop/checkout-steps`.
     - [ ] An add shows a line at once. Copies [cart.test.ts:4535][hy-cart] "empty cart: optimistic placeholder line
       appears immediately on add". left: @task.V3.T21, needs `optimistic` values on R `cart`.
   - **Load:**
     - [x] L5: three quick clicks on one line with the first on the wire: the middle one Superseded, the first and last
       sent, nothing left pending (`latest` queues, never aborts). Copies [cart.test.ts:1500][hy-cart] "rapid clicks
-      abort prior request, only last executes". built: `pay/quantity-clicks`.
-    - [x] L1 × 64 carts under L3 (have: `seededStress`, `long`). built: `pay/stress-36`, `pay/long`,
-      `pay/stress-many-shoppers`.
+      abort prior request, only last executes". built: `shop/quantity-clicks`.
+    - [x] L1 × 64 carts under L3 (have: `seededStress`, `long`). built: `shop/stress-36`, `shop/long`,
+      `shop/stress-many-shoppers`.
   - **Structure:**
-    - [x] S1: `Shopper` → `Cart` → `CartBadge`, with S9 at the badge, under L3. built: `pay/chain`.
+    - [x] S1: `Shopper` → `Cart` → `CartBadge`, with S9 at the badge, under L3. built: `shop/chain`.
     - [ ] S1 and S9 through `CartLine`. left: @task.V3.T57, needs `.each`.
     - [ ] S2: 1,000 `CartLine`s under L5, with "clear cart" raised. left: @task.V3.T57, needs `.each` and raise into
       copies.
-    - [x] S3: 64 shoppers under L3. built: `pay/stress-many-shoppers`.
-    - [x] S6 × {flow first, shopper forgotten, reloaded}. built: `pay/flow-first`, `pay/shopper-forgotten`,
-      `pay/reloaded-mid-add`.
+    - [x] S3: 64 shoppers under L3. built: `shop/stress-many-shoppers`.
+    - [x] S6 × {flow first, shopper forgotten, reloaded}. built: `shop/flow-first`, `shop/shopper-forgotten`,
+      `shop/reloaded-mid-add`.
     - [x] S6 cart first, refused `BlockedByDependents` while the badge and flow are bound (Actors R20, Stories R3).
       built: the `cartFirst` builder.
     - [x] S6: a checkout flow bound after its cart has a line begins: inverted (Turn R12; its mirror's baseline is
-      silent, Turn R22), owner @task.V3.T57. built: `pay/flow-bound-late`.
+      silent, Turn R22), owner @task.V3.T57. built: `shop/flow-bound-late`.
     - [ ] S6 with a challenge open. left: @task.V3.T57, needs `subroutine` (`ThreeDSecure`).
     - [x] S7: a second `Cart` ref with another shopper, refused `ConflictingActorRef` (Actors R5, Stories R3). built:
       the `conflictingCart` builder.
@@ -223,40 +223,40 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       different cart cancels in-flight authoritative revalidation". left: @task.V3.T21, needs R `cart` with
       `O.x.subscribe`.
     - [x] The same cart ensured twice is one incarnation with its lines. Copies [cart.test.ts:673][hy-cart] "no-ops when
-      same cart ID already hydrated". built: `pay/same-cart-twice`.
+      same cart ID already hydrated". built: `shop/same-cart-twice`.
   - **Edges:**
     - [x] E1: the empty cart before any add. Copies [cart.test.ts:717][hy-cart] "returns EMPTY_CART_STATE before
-      hydration". built: `pay/browse` ("empty").
+      hydration". built: `shop/browse` ("empty").
     - [x] Quantity 0 removes the line. Copies [cart.test.ts:951][hy-cart] "decrease to zero routes to remove (quantity:
-      0)". built: `pay/quantity-zero`; 0 and negative quantities in the `shop` samples.
+      0)". built: `shop/quantity-zero`; 0 and negative quantities in the `shop` samples.
     - [ ] E4: 1,000 lines and one past the cart's `max`. left: @task.V3.T57, needs `.each({ max })`.
-    - [x] E5: the retry delay at 0, 2^31 − 1 and 2^31 ms. built: `pay/busy-edges`. At −1 (have: `busyRefused`) it is
+    - [x] E5: the retry delay at 0, 2^31 − 1 and 2^31 ms. built: `shop/busy-edges`. At −1 (have: `busyRefused`) it is
       refused today; Turn R14 counts it as 0 once @task.V3.T57 moves that check.
     - [x] E7: an owed record of a newer format (have: `unreadOwed`). E8: a reload mid-charge and mid-add. built:
-      `pay/unread-owed`, `pay/lost-confirm`, `pay/reloaded-mid-add`.
+      `shop/unread-owed`, `shop/lost-confirm`, `shop/reloaded-mid-add`.
     - [ ] E8: a reload mid-challenge. left: @task.V3.T57, needs `subroutine` (`ThreeDSecure`).
   - **Combinations:**
     - [ ] A change that fails while the first load is in flight restores the loaded cart. Copies
       [cart.test.ts:5971][hy-cart] "restores the loaded cart after a change that fails while the first load is in
       flight". left: @task.V3.T21, needs R `cart`.
-    - [x] Context with persistence and lanes. built: `pay/reloaded-mid-add`, `pay/chain`.
+    - [x] Context with persistence and lanes. built: `shop/reloaded-mid-add`, `shop/chain`.
     - [ ] Quota at checkout (step 13): left: @task.V3.T28, needs store adapters. Two tabs (step 14): left:
       @task.V3.T27, needs multi-tab ownership. A server-rendered page with an add in flight (step 18): left:
       @task.V3.T30, needs server rendering.
     - [ ] `CheckoutFlow` sends `CardChosen` and `PayRequested` to `Checkout/Pay`. left: needs an actor-to-actor
       `send(ref, event)` action, which no Task owns (the user's call); the flow reads its Pay's state as context
       instead.
-  - [x] **Variety:** a full checkout (`pay/checkout-steps`) against `cells`' one-click (`cells/usual`); a guest shopper
-    (`pay/guest-browse`) against a signed-in one (`pay/browse`). built.
+  - [x] **Variety:** a full checkout (`shop/checkout-steps`) against `cells`' one-click (`cells/usual`); a guest shopper
+    (`shop/guest-browse`) against a signed-in one (`shop/browse`). built.
   - **Findings:**
     - [x] A refused add removes only its own line. Copies [cart-transactions.test.ts:210][hy-tx] "removes only a
       rejected unkeyed add transaction" and [cart.test.ts:4583][hy-cart] "empty cart add: optimistic line removed on
-      reject". built: `pay/refused-add-alone`.
+      reject". built: `shop/refused-add-alone`.
     - [x] One line's request never aborts another's. Copies [cart-transactions.test.ts:378][hy-tx] "does not let one
       keyed line abort an unrelated line" and [cart.test.ts:1530][hy-cart] "cross-line independence: line A mutation
-      does not cancel line B". built: `pay/independent-lines`.
+      does not cancel line B". built: `shop/independent-lines`.
     - [x] A failing line rolls back alone. Copies [cart.test.ts:1579][hy-cart] "concurrent rollback: failing line A does
-      not clobber line B". built: `pay/failing-line-alone`.
+      not clobber line B". built: `shop/failing-line-alone`.
     - [ ] A stale snapshot never brings back a removed line. Copies [cart.test.ts:1630][hy-cart] "concurrent removes: a
       stale out-of-order snapshot does not resurrect removed lines". left: @task.V3.T21, needs R `cart`: each
       `setQuantity` answer carries only its own line, so step 1 has no whole-cart snapshot to go stale.
@@ -265,12 +265,12 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       `optimistic` values.
     - [x] Checkout waits for the cart to settle. Copies [cart-tracker.test.ts:543][hy-track] "ignores pending cart state
       until the cart settles", reshaped: `Begin` is denied `CartBusy` while a line waits. built:
-      `pay/waits-while-busy`.
+      `shop/waits-while-busy`.
     - [x] A quantity never answered (lost, its write refused) or answered for a line the server no longer holds
-      clears its wish, so checkout can begin. No source. built: `pay/quantity-lost`, `pay/quantity-not-saved`,
-      `pay/removed-line-answer`.
+      clears its wish, so checkout can begin. No source. built: `shop/quantity-lost`, `shop/quantity-not-saved`,
+      `shop/removed-line-answer`.
     - [ ] The checkout's trace waits for the cart to settle. left: @task.V3.T49, needs `inspect` sinks.
-    - [x] A context consumer restored by a reload publishes once (Turn I9). built: `pay/browse` with a reload that
+    - [x] A context consumer restored by a reload publishes once (Turn I9). built: `shop/browse` with a reload that
       attaches nothing.
 
 ### cells
@@ -524,7 +524,7 @@ not checked here).
     - [x] E1: an empty email and a code of 0 characters. built: `sign-in/empty-email`, `sign-in/empty-code`. E3: an
       a long email round-trips as the begin key, timed. built: `sign-in/email-at-bound`; rework: @task.V3.T84.
     - [x] E5 corrected: the lockout delay is 60 seconds per wrong try, computed from the tries, so −1, 0 and 2^31 ms
-      are unreachable here; computed-delay edges are built in `pay/busy-edges` and `sync/retry-edges`.
+      are unreachable here; computed-delay edges are built in `shop/busy-edges` and `sync/retry-edges`.
   - [ ] **Combinations:** release 2 (step 7): left: @task.V3.T56. Strict Mode (step 18): left: @task.V3.T30.
   - [x] **Variety:** an unedited prefilled handle needs confirming. Copies [UsernameBootstrap.test.tsx:32][kp-boot]
     "does NOT commit the unedited email prefill on the first submit — it asks to confirm". built:
@@ -658,7 +658,7 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
     - [ ] A failed storage read with a sign-in queued. left: @task.V3.T20, needs the boot queue (@plan.Pending.D17).
     - [ ] Quota, a slow read and a non-durable store. left: @task.V3.T28, needs store adapters.
   - [x] **Variety:** singleton providers here, a keyed provider in `pay` (`Cart`, named by its owner). built:
-    `session/usual`, `pay/browse`.
+    `session/usual`, `shop/browse`.
   - [ ] **Variety:** eager and lazy entries. left: @task.V3.T48, needs lazy entries.
   - **Findings:**
     - [x] A signed-out boot restores nothing signed-in. Copies [App.test.tsx:725][kp-app] "identity-scoped: a signed-out
@@ -1276,9 +1276,9 @@ migrations, kamp.us's draft storage, ui-sdk's tree tests.
 Every existing machine, Story id and test stays. Each existing folder gains an `index.ts` manifest (fixtures.md,
 "Where a fixture is registered") and new folders for what is added; nothing moves.
 
-- **pay:** new machines `Shopper`, `Cart`, `CartBadge`, `CheckoutFlow` and later `CartLine`, `AddressForm`,
+- **shop:** new machines `Shopper`, `Cart`, `CartBadge`, `CheckoutFlow` and later `CartLine`, `AddressForm`,
   `ThreeDSecure`, `ProductPage`; new operations `addLine`, `setQuantity`, `product`, `cart`, `addressLookup`.
-  `Checkout/Pay`, its contracts, `shop-http.ts` and every `pay/…` Story are unchanged. `secondCheckout` gets a Story.
+  `Checkout/Pay`, its contracts, its adapter and every `shop/…` Story are unchanged. `secondCheckout` gets a Story.
 - **cells, lanes:** a manifest and the new Stories in their rows; no machine changes; lanes gains `Lanes/paged`.
 - **sync:** new `Repo` and `RateLimit`; `Git/Sync` unchanged.
 - **transfers:** new `Customer`, `TransferForm`, `StepUp`, `ChequeDeposit`, `Statement`, R `balance`; one edit, the

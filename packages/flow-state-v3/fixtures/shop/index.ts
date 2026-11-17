@@ -33,10 +33,10 @@ import {
 } from "./stories/structure.ts";
 
 /**
- * The pay fixture, the shop around the checkout, as every runner reads it.
+ * The shop fixture, the shop around the checkout, as every runner reads it.
  */
-export const pay = manifest({
-  name: "pay",
+export const shop = manifest({
+  name: "shop",
   app: store,
   stories: {
     ...stories,

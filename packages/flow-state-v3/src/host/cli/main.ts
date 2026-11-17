@@ -123,7 +123,7 @@ const flow = Command.make("flow").pipe(
  *
  * @example
  * ```ts
- * const code = await Effect.runPromise(main(["trace", "pay/usual"]).pipe(Effect.provide(platform)))
+ * const code = await Effect.runPromise(main(["trace", "shop/usual"]).pipe(Effect.provide(platform)))
  * ```
  */
 export const main = (argv: ReadonlyArray<string>) =>

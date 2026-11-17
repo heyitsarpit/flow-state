@@ -3,9 +3,9 @@ import { cellsCheckout } from "../../fixtures/cells/app.ts";
 import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
 import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { lanesStory } from "../../fixtures/lanes/stories/usual.ts";
-import { checkout } from "../../fixtures/pay/app.ts";
+import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
-import { shopStory } from "../../fixtures/pay/stories/usual.ts";
+import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import {

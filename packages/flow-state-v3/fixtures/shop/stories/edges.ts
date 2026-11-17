@@ -11,7 +11,7 @@ const start = (n: number) =>
  * The payment queue asks to retry after 0 ms, then after 2^31 - 1 ms, then after 2^31 ms: the
  * retry delays at the edge of a computed schedule's range.
  */
-export const busyEdges = shopStory("pay/busy-edges")
+export const busyEdges = shopStory("shop/busy-edges")
   .ensure(checkout)
   .send(checkout, start(1))
   .world(Shop.busy({ retryAfterMs: 0 }))

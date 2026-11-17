@@ -37,7 +37,7 @@ export const setQuantity = (lineId: string, quantity: number) =>
  * Ada signs in, adds two lines and edits one; the cart reads her name and the badge the cart's
  * count, bumping on each change; she signs out.
  */
-export const browse = storeStory("pay/browse")
+export const browse = storeStory("shop/browse")
   .ensure(mainShopper)
   .ensure(mainCart)
   .ensure(mainBadge)
@@ -54,7 +54,7 @@ export const browse = storeStory("pay/browse")
 /**
  * A guest shops in a cart named for the guest.
  */
-export const guestBrowse = storeStory("pay/guest-browse")
+export const guestBrowse = storeStory("shop/guest-browse")
   .ensure(guestShopper)
   .ensure(guestCart)
   .send(guestCart, add("g1", "v1"))
@@ -65,7 +65,7 @@ export const guestBrowse = storeStory("pay/guest-browse")
  * method and slot, and pay; Back twice returns to the slot, then the method; the tab reloads, and
  * Back once more reaches the address; the checkout's Pay is paid, which ends the flow.
  */
-export const checkoutSteps = storeStory("pay/checkout-steps")
+export const checkoutSteps = storeStory("shop/checkout-steps")
   .ensure(mainShopper)
   .ensure(mainCart)
   .ensure(mainFlow)
@@ -113,7 +113,7 @@ const newerOwed = '{"format":4,"machine":"Checkout/Pay","name":"checkout-1","row
  * A later release left the checkout's owed record in a newer format: each boot reports it unread
  * and keeps its bytes, and the shopper still pays.
  */
-export const unreadOwed = shopStory("pay/unread-owed")
+export const unreadOwed = shopStory("shop/unread-owed")
   .world(Fake.storage.put(checkoutOwed, newerOwed))
   .ensure(checkout)
   .reload()
@@ -127,7 +127,7 @@ export const unreadOwed = shopStory("pay/unread-owed")
  * A `confirm` reaches the shop and its answer is held, never released; the commit's 60-second
  * deadline passes; the tab reloads; then time moves on.
  */
-export const lostConfirm = shopStory("pay/lost-confirm")
+export const lostConfirm = shopStory("shop/lost-confirm")
   .ensure(checkout)
   .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
   .world(Shop.confirm.hold({ at: "response" }))
@@ -145,7 +145,7 @@ export const lostConfirm = shopStory("pay/lost-confirm")
  * The shop turns a confirm away as busy with a negative retry delay: the turn that would arm that
  * retry is refused, refused again on its one redelivery, and given one more try after a reload.
  */
-export const busyRefused = shopStory("pay/busy-refused")
+export const busyRefused = shopStory("shop/busy-refused")
   .ensure(checkout)
   .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
   .world(Shop.busy({ retryAfterMs: -1 }))
@@ -158,7 +158,7 @@ export const busyRefused = shopStory("pay/busy-refused")
  * A shopper pays with a double click while the confirm is out, finishes, then meets a declined
  * card, a busy queue that clears, and leaves while a charge is out, which voids the hold.
  */
-export const usual = shopStory("pay/usual")
+export const usual = shopStory("shop/usual")
   .ensure(checkout)
   .advance("1 second")
   .send(checkout, cart(1))
@@ -233,7 +233,7 @@ const round = (story: ShopStory, n: number) => {
  * every third cart: about a hundred steps, for the bench.
  */
 export const long = Array.from({ length: 14 }, (_, n) => n)
-  .reduce(round, shopStory("pay/long").ensure(checkout))
+  .reduce(round, shopStory("shop/long").ensure(checkout))
   .checkpoint("end");
 
 /**
@@ -241,7 +241,7 @@ export const long = Array.from({ length: 14 }, (_, n) => n)
  * and writes, an offline span, disposals and reloads. The reload sweep and the bench run it as any
  * Story.
  */
-export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures: [ShopFake] })
+export const seededStress = Story.app(shopSetup, { id: "shop/stress-36", fixtures: [ShopFake] })
   .world(Shop.crash({ endpoint: "confirm" }))
   .ensure(checkout)
   .world(Fake.storage.hold())
@@ -359,8 +359,8 @@ export const seededStress = Story.app(shopSetup, { id: "pay/stress-36", fixtures
  * and then fails.
  */
 export const samples = samplesOf({
-  id: "pay",
-  story: shopStory("pay/samples"),
+  id: "shop",
+  story: shopStory("shop/samples"),
   names: { setup: "shopSetup", fixtures: ["ShopFake"] },
   actors: { checkout },
   servers: { Shop },

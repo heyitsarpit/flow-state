@@ -1,7 +1,7 @@
 import { Duration, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { generate, print, type Generated, type Step } from "../../src/host/testing/index.ts";
-import { samples as pay } from "../../fixtures/pay/stories/usual.ts";
+import { samples as pay } from "../../fixtures/shop/stories/usual.ts";
 import { samples } from "./fixtures.ts";
 
 const SEEDS = Array.from({ length: 20 }, (_, n) => n + 1);

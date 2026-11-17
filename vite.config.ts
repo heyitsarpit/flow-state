@@ -225,7 +225,7 @@ export default defineConfig({
           `${productionSource}/flow.ts`,
           `${productionSource}/error.ts`,
           `${productionSource}/host/runtime.ts`,
-          `${production}/fixtures/pay/**/*.ts`,
+          `${production}/fixtures/shop/**/*.ts`,
           `${production}/fixtures/services/shop/**/*.ts`,
         ],
         rules: { "lint-bomb/no-optional-domain-properties": "off" },

@@ -148,15 +148,15 @@ describe("flow story list", () => {
 
 describe("unknown operands", () => {
   for (const argv of [
-    ["story", "run", "pay/nope"],
-    ["trace", "pay/nope"],
+    ["story", "run", "shop/nope"],
+    ["trace", "shop/nope"],
   ])
     it(`CommandLine O1, O3: ${argv.join(" ")} exits 2 naming the Story`, async () => {
       const printed = await cli([...argv, ...at]);
 
       expect(printed.code).toBe(2);
       expect(printed.stdout).toBe("");
-      expect(printed.stderr).toContain("pay/nope");
+      expect(printed.stderr).toContain("shop/nope");
     });
 
   it("CommandLine O3: a command flow does not have exits 2", async () => {

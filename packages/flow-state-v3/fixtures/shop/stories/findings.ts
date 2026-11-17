@@ -10,7 +10,7 @@ const twoLines = (id: string) =>
  * One line's edit is held on the wire while another line's lands: neither waits on or ends the
  * other.
  */
-export const independentLines = twoLines("pay/independent-lines")
+export const independentLines = twoLines("shop/independent-lines")
   .world(Carts.setQuantity.hold({ at: "response" }))
   .send(mainCart, setQuantity("l1", 2))
   .send(mainCart, setQuantity("l2", 5))
@@ -21,7 +21,7 @@ export const independentLines = twoLines("pay/independent-lines")
 /**
  * Two lines edited at once; the first asks for more than is left and is refused, the second lands.
  */
-export const failingLineAlone = twoLines("pay/failing-line-alone")
+export const failingLineAlone = twoLines("shop/failing-line-alone")
   .world(Carts.stock({ variantId: "v1", left: 1 }))
   .world(Carts.setQuantity.hold({ at: "response" }))
   .send(mainCart, setQuantity("l1", 3))
@@ -32,7 +32,7 @@ export const failingLineAlone = twoLines("pay/failing-line-alone")
 /**
  * The second variant is sold out: its add is refused and the first line stays.
  */
-export const refusedAddAlone = storeStory("pay/refused-add-alone")
+export const refusedAddAlone = storeStory("shop/refused-add-alone")
   .ensure(mainCart)
   .send(mainCart, add("l1", "v1"))
   .world(Carts.soldOut({ variantId: "v2" }))
@@ -42,7 +42,7 @@ export const refusedAddAlone = storeStory("pay/refused-add-alone")
 /**
  * A line set to 0 is removed.
  */
-export const quantityZero = storeStory("pay/quantity-zero")
+export const quantityZero = storeStory("shop/quantity-zero")
   .ensure(mainCart)
   .send(mainCart, add("l1", "v1"))
   .send(mainCart, setQuantity("l1", 0))
@@ -51,7 +51,7 @@ export const quantityZero = storeStory("pay/quantity-zero")
 /**
  * The same cart ensured again while it is live.
  */
-export const sameCartTwice = storeStory("pay/same-cart-twice")
+export const sameCartTwice = storeStory("shop/same-cart-twice")
   .ensure(mainCart)
   .send(mainCart, add("l1", "v1"))
   .ensure(mainCart)
@@ -61,7 +61,7 @@ export const sameCartTwice = storeStory("pay/same-cart-twice")
  * Checkout is asked to begin while a quantity is still on the wire: denied, then allowed once it
  * lands.
  */
-export const waitsWhileBusy = storeStory("pay/waits-while-busy")
+export const waitsWhileBusy = storeStory("shop/waits-while-busy")
   .ensure(mainShopper)
   .ensure(mainCart)
   .ensure(mainFlow)
@@ -84,7 +84,7 @@ const checkingOut = (id: string) =>
 /**
  * A quantity's answer is lost after the server applied it; then checkout begins.
  */
-export const quantityLost = checkingOut("pay/quantity-lost")
+export const quantityLost = checkingOut("shop/quantity-lost")
   .world(Carts.setQuantity.drop({ at: "response" }))
   .send(mainCart, setQuantity("l1", 2))
   .send(mainFlow, { _tag: "Begin" })
@@ -93,7 +93,7 @@ export const quantityLost = checkingOut("pay/quantity-lost")
 /**
  * The store refuses the write that would send a quantity; then checkout begins.
  */
-export const quantityNotSaved = checkingOut("pay/quantity-not-saved")
+export const quantityNotSaved = checkingOut("shop/quantity-not-saved")
   .world(Fake.storage.refuse())
   .send(mainCart, setQuantity("l1", 2))
   .send(mainFlow, { _tag: "Begin" })
@@ -103,7 +103,7 @@ export const quantityNotSaved = checkingOut("pay/quantity-not-saved")
  * A line set to 0 is on the wire when it is set to 3; the 0 removes the line, so the 3 finds no
  * line; then checkout begins.
  */
-export const removedLineAnswer = checkingOut("pay/removed-line-answer")
+export const removedLineAnswer = checkingOut("shop/removed-line-answer")
   .world(Carts.setQuantity.hold({ at: "response" }))
   .send(mainCart, setQuantity("l1", 0))
   .send(mainCart, setQuantity("l1", 3))

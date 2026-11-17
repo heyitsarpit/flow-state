@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { checkoutOwed, unreadOwed } from "../../fixtures/pay/stories/usual.ts";
+import { checkoutOwed, unreadOwed } from "../../fixtures/shop/stories/usual.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";

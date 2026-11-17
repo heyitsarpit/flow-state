@@ -5,7 +5,7 @@ import { add, setQuantity, storeStory } from "./usual.ts";
 /**
  * Three quick quantity clicks on one line while the first is on the wire.
  */
-export const quantityClicks = storeStory("pay/quantity-clicks")
+export const quantityClicks = storeStory("shop/quantity-clicks")
   .ensure(mainCart)
   .send(mainCart, add("l1", "v1"))
   .world(Carts.setQuantity.hold({ at: "response" }))
@@ -32,5 +32,5 @@ export const manyShoppers = Array.from({ length: SHOPPERS }, (_, n) => n)
     const lossy = n % 4 === 3 ? signedIn.world(Carts.addLine.drop({ at: "response" })) : signedIn;
 
     return lossy.send(cartOf(n), add(`l${String(n)}`, "v1"));
-  }, storeStory("pay/stress-many-shoppers"))
+  }, storeStory("shop/stress-many-shoppers"))
   .checkpoint("end");

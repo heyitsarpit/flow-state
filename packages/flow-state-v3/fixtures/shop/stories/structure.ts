@@ -8,7 +8,7 @@ import { add, setQuantity, storeStory } from "./usual.ts";
  * Shopper, cart and badge, three layers; the add's answer is lost after it landed; the tab reloads
  * and only the badge, the deepest node, is ensured.
  */
-export const chain = storeStory("pay/chain")
+export const chain = storeStory("shop/chain")
   .ensure(mainShopper)
   .ensure(mainCart)
   .ensure(mainBadge)
@@ -32,7 +32,7 @@ const everything = (id: string) =>
  * The checkout flow is disposed first, then the badge, the cart and the shopper; the Pay the flow
  * read is left with no use, and its grace passes.
  */
-export const flowFirst = everything("pay/flow-first")
+export const flowFirst = everything("shop/flow-first")
   .dispose(mainFlow)
   .dispose(mainBadge)
   .dispose(mainCart)
@@ -44,7 +44,7 @@ export const flowFirst = everything("pay/flow-first")
  * The cart is let go and ends after its grace, then the shopper is forgotten; the cart, ensured
  * again, reads a fresh shopper.
  */
-export const shopperForgotten = storeStory("pay/shopper-forgotten")
+export const shopperForgotten = storeStory("shop/shopper-forgotten")
   .ensure(mainShopper)
   .send(mainShopper, { _tag: "SignIn", name: "ada" })
   .ensure(mainCart)
@@ -58,7 +58,7 @@ export const shopperForgotten = storeStory("pay/shopper-forgotten")
 /**
  * An add is on the wire when the tab reloads.
  */
-export const reloadedMidAdd = storeStory("pay/reloaded-mid-add")
+export const reloadedMidAdd = storeStory("shop/reloaded-mid-add")
   .ensure(mainCart)
   .world(Carts.addLine.hold({ at: "response" }))
   .send(mainCart, add("l1", "v1"))
@@ -68,13 +68,13 @@ export const reloadedMidAdd = storeStory("pay/reloaded-mid-add")
 /**
  * The cart is disposed while its badge and checkout flow are bound to it.
  */
-export const cartFirst = () => everything("pay/cart-first").dispose(mainCart);
+export const cartFirst = () => everything("shop/cart-first").dispose(mainCart);
 
 /**
  * The main cart is live with the main shopper; a second ref names it with the guest.
  */
 export const conflictingCart = () =>
-  storeStory("pay/conflicting-cart")
+  storeStory("shop/conflicting-cart")
     .ensure(mainShopper)
     .ensure(guestShopper)
     .ensure(mainCart)
@@ -83,7 +83,7 @@ export const conflictingCart = () =>
 /**
  * The cart gets a line before its checkout flow is bound; then checkout begins.
  */
-export const flowBoundLate = storeStory("pay/flow-bound-late")
+export const flowBoundLate = storeStory("shop/flow-bound-late")
   .ensure(mainShopper)
   .ensure(mainCart)
   .send(mainCart, add("l1", "v1"))

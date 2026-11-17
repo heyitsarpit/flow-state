@@ -3,7 +3,7 @@ import { commandPalette } from "./command-palette/index.ts";
 import { lanes } from "./lanes/index.ts";
 import type { Manifest } from "./manifest.ts";
 import { numberInput } from "./number-input/index.ts";
-import { pay } from "./pay/index.ts";
+import { shop } from "./shop/index.ts";
 import { player } from "./player/index.ts";
 import { session } from "./session/index.ts";
 import { signIn } from "./sign-in/index.ts";
@@ -21,7 +21,7 @@ export const manifests: ReadonlyArray<Manifest> = [
   commandPalette,
   lanes,
   numberInput,
-  pay,
+  shop,
   player,
   session,
   signIn,

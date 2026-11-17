@@ -8,7 +8,7 @@ import {
   mainShopper,
   shopperOf,
   checkout,
-} from "../../fixtures/pay/app.ts";
+} from "../../fixtures/shop/app.ts";
 import {
   failingLineAlone,
   independentLines,
@@ -19,8 +19,8 @@ import {
   refusedAddAlone,
   sameCartTwice,
   waitsWhileBusy,
-} from "../../fixtures/pay/stories/findings.ts";
-import { manyShoppers, quantityClicks } from "../../fixtures/pay/stories/load.ts";
+} from "../../fixtures/shop/stories/findings.ts";
+import { manyShoppers, quantityClicks } from "../../fixtures/shop/stories/load.ts";
 import {
   cartFirst,
   chain,
@@ -29,9 +29,9 @@ import {
   flowFirst,
   reloadedMidAdd,
   shopperForgotten,
-} from "../../fixtures/pay/stories/structure.ts";
-import { browse, checkoutSteps, guestBrowse } from "../../fixtures/pay/stories/usual.ts";
-import { busyEdges } from "../../fixtures/pay/stories/edges.ts";
+} from "../../fixtures/shop/stories/structure.ts";
+import { browse, checkoutSteps, guestBrowse } from "../../fixtures/shop/stories/usual.ts";
+import { busyEdges } from "../../fixtures/shop/stories/edges.ts";
 import { denials, laneFacts } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 

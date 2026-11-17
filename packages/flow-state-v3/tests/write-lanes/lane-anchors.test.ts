@@ -1,7 +1,7 @@
 import { expect, it } from "vite-plus/test";
-import { checkout, secondCheckout } from "../../fixtures/pay/app.ts";
+import { checkout, secondCheckout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
-import { shopStory } from "../../fixtures/pay/stories/usual.ts";
+import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import { before, laneFacts, memory, onWire, row, START, state, VISA } from "../checkout.ts";
 import { played } from "../rules/played.ts";

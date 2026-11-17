@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { checkout, shopSetup } from "../../fixtures/pay/app.ts";
+import { checkout, shopSetup } from "../../fixtures/shop/app.ts";
 import { ShopApi } from "../../fixtures/services/shop/services.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { samplesOf, Story } from "../../src/host/testing/index.ts";
