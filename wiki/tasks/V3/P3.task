@@ -1883,6 +1883,49 @@ tasks
             object-keyed Map) 3,000 and 100,000 deep, same.test (every kind, holes), boundary.test (99 generated Schema
             forms against Effect), deep-inputs (a name 3,000 deep), deep-constants (100,000-deep initial memory and data
             view), immutable.test (array, Map, Set, Date writes throw).
+        comment     2026-11-17T10:45:36Z
+            Fix-round review: PASS at f8c7e247; nothing blocks, so T9 can close. check exit 0. Suite exit 1: 1,271
+            pass + 13 inverted, the 2 reds are T20's pair cells (shop, session). test:stress exit 0 in 118.5 s. Faults
+            not re-run (it takes over 5 minutes); all 223 planted edits still apply exactly once after the fault files
+            were reformatted. The five earlier probes ran as scratch Stories importing src, on Node 24, at 3,000,
+            100,000 and 1,000,000 deep. 1: an Option, a Set and an object-keyed Map of folder trees are saved, restored
+            and heard [1,1,1,2]. Re-inserting the Set and Map in another order and a reload are heard by none. 2:
+            optionalKey(Date) missing at every level of a recursive item saves and restores, and the one present Date
+            comes back. 3: an actor name 3,000 deep is ensured, saved and restored. At 100,000 and 1,000,000 deep, run()
+            rejects with a FlowError SchemaValidation, never a raw error. 4: a Flow.initial constant constructs, runs
+            and reloads. 5: a sparse array's write is seen live ([1,hole] then [2,hole] reads 2). Its record is withheld
+            with UnencodableValue, because a hole under Schema.Unknown has no JSON form (Codec R4). Answers. 2: the list
+            of recursive walks holds. Every remaining Effect call on a value is guarded or iterative (config constants
+            are Schema.Unknown; record-format decodes in Result.try). The walks it misses are print.ts's formatJson of a
+            redactable value and the pair sweep's carries over a held call's input; both are routed below. Format-1
+            valueOfOne is rejected again: those records were written under the old depth bound. 3: equal Sets and
+            object-keyed Maps compare equal whatever their insertion order, and a changed member or value differs. -0
+            equals 0 and NaN equals NaN, in fields and in Set keys; Dates compare by time; class instances compare by
+            prototype and own fields, so two different classes differ where Equal says equal, which loses nothing. 4:
+            the 99 shapes cover unions, refinements, Schema.Class and TaggedClass, transformations and optional keys,
+            but no defaults, no suspend past the 64-level budget and no nested wrappers. Shallow shapes agree, here and
+            in a sidecar's 320 checks. 5: transformation outputs are kept in a per-walk table, only on the
+            explicit-stack path, so nothing is shared across walks, turns or Runtimes. 6: production does not freeze:
+            browser.ts sets freezeValues false and driver.ts admits values with asItIs, the identity function. The
+            per-walker text memo stays on and relies on Turn R24's contract. 7: the fourth red was not reproduced under
+            the 8-copy load. The likeliest is generated.stress 'session-nests-deep: stress runs from fixed seeds', which
+            took 49.5 s of its 60 s budget alone; owner @task.V3.T83, which also owns printing every name. Routed, not
+            blocking (each probed): (a) the comparator gets three kinds wrong. A DataView's bytes are ignored. A RegExp
+            in a Set or a Map key is keyed by lastIndex. Cyclic Set members give an order-dependent answer (Equal says
+            equal) and a missed change (Equal says differ). Tests missed it: same.test's kinds have no DataView, RegExp
+            member or cyclic member. (b) Past 64 levels, a decoding default's effect runs once per walk: 200 missing
+            keys get one shared value from 66 calls, where Effect makes 200 calls. A pure default is unaffected. Tests
+            missed it: the differential samples are shallow and have no defaults. Fix: key the kept outputs by position.
+            (c) The freezer skips a Map, Set or Date the app froze itself, so its set, add and setTime still work in
+            dev. Also unfrozen: typed arrays, #private fields and a selector's raw return. Turn R24's 'class instances
+            included' overclaims. Tests missed it: immutable.test freezes only fresh containers. (d) A name the host
+            cannot write says 'the input field P/Album of P/Album', which drops the reason (Codec R4). Tests missed it:
+            deep-inputs asserts only not RangeError. (e) tx.ts has an orphaned Env doc whose text says production
+            freezes. (a) to (e) go to @task.V3.T79. (f) inputOfName turns an undecodable restored name into {} (older;
+            Codec R5), owner @task.V3.T20. (g) print.ts redactables and sweep.ts carries recurse, owner @task.V3.T83. No
+            outside imports or temporary names. Sidecars (4 Haiku, one blind): accepted (a) to (g). Changed:
+            ArrayBuffer, since Equal also calls two buffers equal, which matches R6. Rejected: format-1 recursion
+            (above); comments on unexported code (the package's lint-bomb style, check at 0).
 
     T74
         title       App mix: several fixtures in one Runtime
