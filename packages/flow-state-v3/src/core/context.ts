@@ -1,14 +1,8 @@
 import { Equal, Option, Predicate, Result } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
+import { MAX_DEPTH } from "./depth.ts";
 import { Act } from "./evidence-of.ts";
-import {
-  type Frame,
-  type Selected,
-  sameSlot,
-  sameValue,
-  selectedOf,
-  type Source,
-} from "./slots.ts";
+import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
 import { type Tx, withEntry } from "./tx.ts";
 import {
   type ActorId,
@@ -20,6 +14,9 @@ import {
   type Use,
   type Wiring,
 } from "./world.ts";
+
+// A selection's failure past the depth limit, told apart from its selector's defects.
+const DEPTH = "~depth";
 
 /**
  * What context needs of incarnations: ensuring a provider with a use, releasing that use, and
@@ -94,6 +91,40 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       incarnations: withEntry(tx.world().incarnations, actorKey(incarnation.actor), incarnation),
     });
 
+  // One slot's outcome: its selection taken, clearing its issue; a selection past the depth limit,
+  // no defect of its selector, reported while the slot keeps its last one; or its selector's
+  // defect raised.
+  const settle = (
+    incarnation: Incarnation,
+    slot: string,
+    value: Result.Result<Selected, string>,
+    values: Map<string, Selected>,
+  ) => {
+    if (Result.isSuccess(value)) {
+      values.set(slot, value.success);
+
+      return clear(incarnation, `context ${slot}`);
+    }
+
+    if (value.failure === DEPTH) {
+      tx.act(
+        Act.Reported({
+          code: "UnencodableValue",
+          record: Option.none(),
+          reason: `context ${slot}: depth over ${MAX_DEPTH}`,
+        }),
+      );
+
+      return incarnation;
+    }
+
+    return raise(incarnation, {
+      source: `context ${slot}`,
+      code: "Defect",
+      slot: Option.some(value.failure),
+    });
+  };
+
   // Each slot's selection from its provider's current snapshot, through its Schema; a selector that
   // throws, or returns what its Schema cannot encode, keeps the slot's last selection and raises one
   // issue.
@@ -122,19 +153,13 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
           try: () => declared.select.run(outsideOf(providing.value, provider.value)),
           catch: () => declared.select.slot,
         }),
-        (raw) => Result.mapError(selectedOf(declared.json, raw), () => declared.select.slot),
+        (raw) =>
+          Result.mapError(selectedOf(declared.json, raw), (why) =>
+            why === "depth" ? DEPTH : declared.select.slot,
+          ),
       );
 
-      if (Result.isFailure(value))
-        next = raise(next, {
-          source: `context ${slot}`,
-          code: "Defect",
-          slot: Option.some(value.failure),
-        });
-      else {
-        values.set(slot, value.success);
-        next = clear(next, `context ${slot}`);
-      }
+      next = settle(next, slot, value, values);
     }
 
     return { ...next, context: values };
@@ -318,7 +343,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         Result.try({
           try: () => ({
             now,
-            equal: Option.exists(previous, (p) => sameValue(p.selection, now.selection)),
+            equal: Option.exists(previous, (p) => Equal.equals(p.selection, now.selection)),
           }),
           catch: () => reaction.select.slot,
         }),

@@ -91,9 +91,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/slots.ts",
-        find: "  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => sameValue(a.value.value, y.value));",
+        find: "  Option.isNone(a)\n    ? Option.isNone(b)\n    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));",
         replace:
-          "  Option.isNone(a) ? true : Option.exists(b, (y) => sameValue(a.value.value, y.value));",
+          "  Option.isNone(a)\n    ? true\n    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));",
       },
     ],
   },
@@ -163,9 +163,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "      else {\n        values.set(slot, value.success);",
+        find: "    if (Result.isSuccess(value)) {\n      values.set(slot, value.success);",
         replace:
-          "      if (Result.isFailure(value)) values.delete(slot);\n      else {\n        values.set(slot, value.success);",
+          "    if (Result.isFailure(value)) values.delete(slot);\n    if (Result.isSuccess(value)) {\n      values.set(slot, value.success);",
       },
     ],
   },

@@ -244,29 +244,19 @@ const depthOf = (doc: unknown) => {
   return depth;
 };
 
-describe("a document 100,000 levels deep (Codec R1, R4; Actors R18)", () => {
-  it("Codec R1, Actors R18: memory and a selection 100,000 deep, and one beside 5,000 siblings, save and restore with no thrown error, no report and no made-up event", async () => {
+describe("a document 100,000 levels deep, far past the depth limit (Codec R1, R4; Actors R18)", () => {
+  it("Codec R4, Actors R18: memory and a selection 100,000 deep, alone or beside 5,000 siblings, are reported UnencodableValue, never thrown; the preview hears nothing and a reload restores the last saved outline", async () => {
     const run = checked(await outlineDeep().run());
     const cut = run.checkpoints;
-    const deepDoc = (c: keyof typeof cut) => cut[c].read(mainOutline)?.memory.doc;
 
-    const wideDoc = (c: keyof typeof cut) =>
-      ((d) => (Predicate.isObject(d) && "deep" in d ? d : { deep: null, wide: [] }))(deepDoc(c));
+    expect(depthOf(cut.deep.read(mainOutline)?.memory.doc)).toBe(100_000);
+    expect(depthOf(cut.reloaded.read(mainOutline)?.memory.doc)).toBe(0);
 
-    expect(depthOf(deepDoc("deep"))).toBe(100_000);
-    expect(depthOf(deepDoc("reloaded"))).toBe(100_000);
-    expect(depthOf(wideDoc("mixed again").deep)).toBe(100_000);
-    expect(wideDoc("mixed again").wide).toHaveLength(5_000);
+    for (const c of ["deep", "reloaded", "mixed", "mixed again"] as const)
+      expect(cut[c].read(mainPreview)?.memory["heard"]).toBe(0);
 
-    for (const [c, heard] of [
-      ["deep", 1],
-      ["reloaded", 1],
-      ["mixed", 2],
-      ["mixed again", 2],
-    ] as const)
-      expect(cut[c].read(mainPreview)?.memory["heard"]).toBe(heard);
-
-    expect(reported(run, "UnencodableValue")).toEqual([]);
+    expect(reported(run, "UnencodableValue")).toContain("actor/Workspace/Outline/main");
+    expect(reported(run, "UnencodableValue")).toContain("-");
     expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
   });
 });

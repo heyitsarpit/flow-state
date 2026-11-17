@@ -3,10 +3,11 @@ import { Predicate } from "effect";
 /**
  * How deeply a value may nest: arrays, objects, Maps, Sets and class instances inside one another.
  * The one platform limit on a value's shape. Effect's Schema walk under a recursive
- * `Schema.suspend` and its `Equal` recurse on the call stack; the shallowest host measured
- * (Chromium) throws past 2,268 nested containers, so this keeps more than half of that in hand.
+ * `Schema.suspend` and its `Equal` recurse on the call stack; the shallowest measured (a Map nest
+ * under a recursive Schema, decoded on Node) throws past 686 nested containers, so this keeps more
+ * than half of that in hand for the stack the runtime itself uses.
  */
-export const MAX_DEPTH = 1000;
+export const MAX_DEPTH = 256;
 
 // FLOW_STATE_ALLOW_UNKNOWN: a node of any value, read only for what it holds.
 type Node = unknown;
@@ -14,9 +15,9 @@ type Node = unknown;
 // The values a container holds, or none for a leaf.
 // RETURN_TYPE: every branch is a list of nodes, an array's own items among them.
 const childrenOf = (value: Node): ReadonlyArray<Node> => {
-  if (!Predicate.isObject(value) || Predicate.isFunction(value)) return [];
-
   if (Array.isArray(value)) return value;
+
+  if (!Predicate.isObject(value) || Predicate.isFunction(value)) return [];
 
   if (value instanceof Map) return [...value.keys(), ...value.values()];
 

@@ -41,19 +41,23 @@ const foldersOf = (depth: number) => {
   return tree;
 };
 
-// Maps `depth` deep, the innermost holding a note.
-const indexOf = (depth: number) => {
+// The index a nest of lists reads as: a Map for each list, the innermost holding the note.
+const indexOf = (lists: Schema.Json) => {
+  let depth = 0;
+
+  for (let at = lists; Array.isArray(at); at = at[0] ?? null) depth += 1;
+
   let index: Index = new Map([["name", "note"]]);
 
   for (let n = 1; n < depth; n += 1) index = new Map([["name", index]]);
 
-  return index;
+  return depth === 0 ? new Map<string, Index | string>() : index;
 };
 
 /**
  * The workspace's nested things, each as deep as a paste or an import made it: an outline as
- * plain JSON lists, a folder tree under a recursive Schema, and an index of Maps; and a title
- * beside them. Kept across reloads.
+ * plain JSON lists, a folder tree under a recursive Schema, and the lists an index of Maps is read
+ * from; and a title beside them. Kept across reloads.
  */
 export const Nests = definition({
   id: "Workspace/Nests",
@@ -68,7 +72,7 @@ export const Nests = definition({
   memory: {
     lists: Flow.initial(Schema.Json, null),
     folders: Flow.initial(Folder, { kids: [] }),
-    maps: Flow.initial(Index, new Map<string, Index | string>()),
+    index: Flow.initial(Schema.Json, null),
     title: Flow.initial(Schema.String, ""),
   },
 });
@@ -81,7 +85,7 @@ export const NestsMachine = machine(Nests, ({ S }) => ({
   on: {
     Lists: { updateMemory: ({ event }) => ({ lists: listOf(event.depth) }) },
     Folders: { updateMemory: ({ event }) => ({ folders: foldersOf(event.depth) }) },
-    Maps: { updateMemory: ({ event }) => ({ maps: indexOf(event.depth) }) },
+    Maps: { updateMemory: ({ event }) => ({ index: listOf(event.depth) }) },
     Title: { updateMemory: ({ event }) => ({ title: event.title }) },
   },
 }));
@@ -104,7 +108,7 @@ export const NestView = definition({
   context: {
     lists: Nests.Provider.select(Schema.Json, (n) => n.memory.lists),
     folders: Nests.Provider.select(Folder, (n) => n.memory.folders),
-    maps: Nests.Provider.select(Index, (n) => n.memory.maps),
+    maps: Nests.Provider.select(Index, (n) => indexOf(n.memory.index)),
     title: Nests.Provider.select(Schema.String, (n) => n.memory.title),
   },
 });

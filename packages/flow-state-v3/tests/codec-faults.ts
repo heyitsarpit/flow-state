@@ -6,32 +6,6 @@ import type { Fault } from "./faults.ts";
  */
 export const codecFaults: ReadonlyArray<Fault> = [
   {
-    name: "deep-selection-compared-by-equal",
-    tests: ["tests/session/values.test.ts"],
-    says: "a selection too deep for Equal is compared by Equal alone, so a reload of a 100,000-deep document throws",
-    rule: "Codec R1",
-    edits: [
-      {
-        file: "src/core/slots.ts",
-        find: '  Result.getOrElse(Result.try({ try: () => Equal.equals(a, b), catch: () => "deep" }), () =>',
-        replace: "  Result.getOrElse(Result.succeed(Equal.equals(a, b)), () =>",
-      },
-    ],
-  },
-  {
-    name: "deep-memory-compared-by-schema",
-    tests: ["tests/session/values.test.ts"],
-    says: "memory too deep for its Schema's equivalence is compared by it alone, so pasting a 100,000-deep document throws",
-    rule: "Codec R1",
-    edits: [
-      {
-        file: "src/machine.ts",
-        find: "    sameMemory: deepSafe(Schema.toEquivalence(memory), codecOf<Values>(Schema.toCodecJson(memory))),",
-        replace: "    sameMemory: Schema.toEquivalence(memory),",
-      },
-    ],
-  },
-  {
     name: "codec-text-by-stringify",
     tests: ["src/core/codec.test.ts"],
     says: "canonical text is written by the host's recursive JSON.stringify, so a value 100,000 deep throws",
@@ -81,6 +55,45 @@ export const codecFaults: ReadonlyArray<Fault> = [
         file: "src/core/actor-record.ts",
         find: "        return { slots: frame.slots, memory: memories.push(frame.memory) - 1 };",
         replace: "        return { slots: frame.slots, memory: null };",
+      },
+    ],
+  },
+  {
+    name: "depth-unchecked",
+    tests: ["tests/session/depth.test.ts"],
+    says: "a value past the depth limit is walked by Effect's Schema anyway, so a recursive folder tree past it throws",
+    rule: "Codec R1",
+    edits: [
+      {
+        file: "src/core/depth.ts",
+        find: "    if (depth > MAX_DEPTH) return false;",
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "deep-memory-equivalence-throws",
+    tests: ["tests/session/values.test.ts"],
+    says: "memory too deep for its Schema's equivalence throws out of the turn",
+    rule: "Codec R4",
+    edits: [
+      {
+        file: "src/machine.ts",
+        find: "    Result.try(() => same(a, b)),",
+        replace: "    Result.succeed(same(a, b)),",
+      },
+    ],
+  },
+  {
+    name: "selection-depth-a-defect",
+    tests: ["tests/session/depth.test.ts"],
+    says: "a selection past the depth limit is raised as its selector's defect, not reported UnencodableValue",
+    rule: "Codec R4",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "    if (value.failure === DEPTH) {",
+        replace: '    if (value.failure === DEPTH && slot === "~") {',
       },
     ],
   },

@@ -78,8 +78,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/lanes.ts",
-        find: "      Result.flatMap(Schema.encodeUnknownResult(operation.inputJson)(input), toCanonicalJson),",
-        replace: "      Schema.encodeUnknownResult(operation.inputJson)(input),",
+        find: "Result.flatMap(jsonOf(operation.inputJson, input), toCanonicalJson)",
+        replace: "jsonOf(operation.inputJson, input)",
       },
     ],
   },

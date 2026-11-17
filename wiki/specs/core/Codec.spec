@@ -9,18 +9,20 @@ provides      the structural codec (encode, decode) used by records, payloads, t
 derives_from  [@plan.Inspection.O2, @plan.Inspection.V3, @plan.Package.C1]
 
 requirements
-    R1  One codec, no size bounds
-        source  @plan.Inspection.O2; @plan.Pending.D23.
+    R1  One codec, no size bounds, one depth limit
+        source  @plan.Inspection.O2; @plan.Pending.D23; @plan.Pending.D26.
         must    One codec carries every value that crosses a process or storage boundary: persisted
                 records, server-rendering payloads, trace artifacts and Model bytes. It accepts
-                JSON values produced by the owning Schema, of any size or depth: how big a value may
-                be is judged by the bench, and the store's quota is the one real limit, which ends
-                as StorageRefused (@spec.WriteAhead.R13). Its walk, its writer and its re-encode
-                check keep their own stacks, so depth costs memory, never the host's call stack;
-                decoding uses the host's JSON parser, which keeps its own stack on V8 and
-                JavaScriptCore, and a text a host still cannot parse fails as CodecMalformed json,
-                never a thrown error. Comparing values too deep for Effect's Equal falls back to
-                their canonical texts.
+                JSON values produced by the owning Schema, of any size: how big a value may be is
+                judged by the bench, and the store's quota is the one real limit on size, which
+                ends as StorageRefused (@spec.WriteAhead.R13). Depth has one platform limit,
+                `Flow.maxDepth` (256 nested containers): Effect's Schema under a recursive
+                `Schema.suspend` and its `Equal` recurse on the call stack, and the shallowest host
+                measured (Node, a Map nest decoded) throws past 686. Memory, a selection or a
+                commit input past it is reported UnencodableValue (R4). The codec's own walk,
+                writer and re-encode check keep their own stacks, and decoding uses the host's
+                JSON parser (its own stack on V8 and JavaScriptCore); a text a host cannot parse
+                fails as CodecMalformed json, never a thrown error.
 
     R2  Canonical encoding
         source  @plan.Inspection.O2; @plan.Package.C1.
@@ -44,9 +46,10 @@ requirements
                 values).
 
                 No raw parser error or Cause escapes. Inside a turn or a capture, a value with no
-                encoded form (a malformation) is reported only as UnencodableValue (its details
-                naming the reason) and never fails the turn (a commit's input or key that cannot
-                encode is the one exception: it declines NotSent { Unencodable }, an ending,
+                encoded form (a malformation, or a depth past R1's limit) is reported only as
+                UnencodableValue (its details naming the reason) and never fails the turn (a
+                commit's input or key that cannot encode is the one exception: it declines NotSent {
+                Unencodable }, an ending,
                 @spec.WriteLanes.R12).
 
                 No send waits on a record that may not encode. A persisted commit is admitted only if
@@ -137,9 +140,9 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Size: 5,000 items, depth 64 and 100,000, 3,000,000 bytes, and 100,000 deep beside 5,000 wide encode and decode 
-        back equal, and memory, a selection and a commit input 100,000 deep save, restore and end in a
-            Story. [@I2]
+    T1  Size and depth: 5,000 items, 3,000,000 bytes, and 100,000 deep beside 5,000 wide encode and decode back equal; 
+        in Stories, a nest at Flow.maxDepth under Schema.Json, a recursive Schema and Maps saves and restores, and
+            one past it in memory, a selection or a commit input is reported UnencodableValue, never thrown. [@I2]
     T2  Malformed vectors: a BOM, invalid UTF-8, a lone surrogate, duplicate keys, unsorted keys, -0, 1.0 and 1e0 
         spellings each fail with their CodecMalformed reason. [@I4]
     T3  Round trip and hosts: a fixed vector set encodes to the same bytes on every listed host and round-trips both 

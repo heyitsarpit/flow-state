@@ -1,4 +1,4 @@
-import { Option, Result, Schema } from "effect";
+import { Option, Result } from "effect";
 import { Cue, LaneState } from "./cells.ts";
 import { type Concurrency, Operation, type Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
@@ -12,6 +12,7 @@ import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } f
 import type { Persistence } from "./persist.ts";
 import { toCanonicalJson } from "./codec.ts";
 import { laneRecordKey } from "./record.ts";
+import { jsonOf } from "./record-format.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {
@@ -138,10 +139,11 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     const text = keyTextOf(operation, key);
 
-    // An input its Schema cannot encode, or whose JSON has no canonical form (a -0, a lone
-    // surrogate), declines here: its lane's record could never be saved.
+    // An input its Schema cannot encode, one past the depth limit, or one whose JSON has no
+    // canonical form (a -0, a lone surrogate), declines here: its lane's record could never be
+    // saved.
     const encodes = Result.isSuccess(
-      Result.flatMap(Schema.encodeUnknownResult(operation.inputJson)(input), toCanonicalJson),
+      Result.flatMap(jsonOf(operation.inputJson, input), toCanonicalJson),
     );
 
     // An input or key with no encoded form, or a persisted identity in a Runtime without

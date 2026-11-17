@@ -1,5 +1,4 @@
 import { type Equivalence, Option, Result, Schema } from "effect";
-import { encodeCanonical } from "./core/codec.ts";
 import type { Values } from "./core/compiled.ts";
 import { leafOf } from "./core/tree.ts";
 import {
@@ -100,22 +99,13 @@ export type AnyBody = {
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
 
-// A memory equivalence that holds at any depth: memory too deep for the Schema's equivalence, which
-// recurses, is compared by its canonical text, which the codec writes at any depth.
-const deepSafe =
-  (same: Equivalence.Equivalence<Values>, json: Schema.Codec<Values, Values>) =>
-  (a: Values, b: Values) =>
-    Result.getOrElse(Result.try({ try: () => same(a, b), catch: () => "deep" }), () => {
-      const text = (m: Values) =>
-        Result.getSuccess(
-          Result.flatMap(Schema.encodeUnknownResult(json)(m), (j) => encodeCanonical(j)),
-        );
-
-      return Option.getOrElse(
-        Option.zipWith(text(a), text(b), (x, y) => x === y),
-        () => false,
-      );
-    });
+// A memory equivalence that never throws: memory past the depth limit, which the Schema's
+// equivalence cannot walk, counts as changed, and its save reports it UnencodableValue.
+const deepSafe = (same: Equivalence.Equivalence<Values>) => (a: Values, b: Values) =>
+  Result.getOrElse(
+    Result.try(() => same(a, b)),
+    () => false,
+  );
 
 // FLOW_STATE_ALLOW_UNKNOWN: a provider's snapshot as the runtime reads it, typed at the definition.
 const erasedSelect = (select: (snapshot: never) => unknown) =>
@@ -194,7 +184,7 @@ export const machine = <D extends AnyDefinition>(
     fields,
     memory,
     memoryJson: codecOf<Values>(Schema.toCodecJson(memory)),
-    sameMemory: deepSafe(Schema.toEquivalence(memory), codecOf<Values>(Schema.toCodecJson(memory))),
+    sameMemory: deepSafe(Schema.toEquivalence(memory)),
     operations: new Map(
       Object.entries(definition.operations).map(([name, bound]) => [
         name,

@@ -1,4 +1,4 @@
-import { Option, Predicate, Result, Schema, Struct } from "effect";
+import { Equal, Option, Predicate, Result, Schema, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import {
   ActorJson,
@@ -14,7 +14,6 @@ import {
   type Frame,
   readSelected,
   sameForm,
-  sameValue,
   type Selected,
   selectedOf,
   type Source,
@@ -141,9 +140,7 @@ const wiredJson = (wired: ReadonlyMap<string, ActorId>) =>
 // FLOW_STATE_ALLOW_UNKNOWN: a memory field has its field Schema's type.
 const fieldJson = (compiled: Compiled, name: string, value: unknown) =>
   Result.mapError(
-    Schema.encodeUnknownResult(compiled.fields.find((f) => f.name === name)?.json ?? Schema.Never)(
-      value,
-    ),
+    jsonOf(compiled.fields.find((f) => f.name === name)?.json ?? Schema.Never, value),
     () => "memory",
   );
 
@@ -159,7 +156,7 @@ const copiesOf = (compiled: Compiled, record: ActorRecord) =>
         const own = yield* fieldJson(compiled, name, record.memory[name]);
         const copy = copies.get(frame.source) ?? new Map<string, Values[string]>();
 
-        if (!sameValue(json, own)) copies.set(frame.source, copy.set(name, json));
+        if (!Equal.equals(json, own)) copies.set(frame.source, copy.set(name, json));
       }
 
     return copies;

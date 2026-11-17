@@ -173,7 +173,9 @@ const placeIn = (frame: Frame) => {
 
 /**
  * Checks a value against the codec's rules and returns it as JSON data with its keys in
- * canonical order, or the first failure in depth-first key order. With `negativeZero: "zero"`, a
+ * canonical order, or the first failure the walk meets: a container's own failure (a sparse array,
+ * an object that is not plain, a key with a lone surrogate) before any of its children's, and
+ * children in canonical order. With `negativeZero: "zero"`, a
  * -0 is written as 0, for data compared by `Equal`, which holds them equal. The walk keeps its own
  * stack, so a value of any depth is checked without the host's call stack.
  */

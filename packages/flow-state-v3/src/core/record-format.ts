@@ -1,5 +1,6 @@
 import { Result, Schema } from "effect";
 import { CodecFailure, encodeCanonical } from "./codec.ts";
+import { MAX_DEPTH, withinDepth } from "./depth.ts";
 import type { Values } from "./compiled.ts";
 import type { ActorId } from "./world.ts";
 
@@ -24,8 +25,17 @@ export const reasonOf = (failure: CodecFailure) =>
 // The canonical text of a record, or why it has none.
 export const textOf = (record: Values) => Result.mapError(encodeCanonical(record), reasonOf);
 
-export const jsonOf = (json: Schema.Codec<Values, Values>, value: Values) =>
-  Result.mapError(Schema.encodeUnknownResult(json)(value), () => "schema");
+/**
+ * A value in its Schema's JSON form; fails past the depth limit, where the Schema's walk would
+ * run out of stack, or when the Schema refuses it or its encode throws.
+ */
+export const jsonOf = <A, I>(json: Schema.Codec<A, I>, value: A) =>
+  withinDepth(value)
+    ? Result.flatMap(
+        Result.try({ try: () => Schema.encodeUnknownResult(json)(value), catch: () => "schema" }),
+        (encoded) => Result.mapError(encoded, () => "schema"),
+      )
+    : Result.fail(`depth over ${MAX_DEPTH}`);
 
 export const decodeBy =
   <A, I>(schema: Schema.Codec<A, I>, why: string) =>

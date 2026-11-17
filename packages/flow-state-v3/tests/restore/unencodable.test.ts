@@ -256,16 +256,22 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     expect(run.checkpoints.after.inspection.owed).toEqual([]);
   });
 
-  it("Codec R1, R4: a commit whose input is 100,000 deep is saved with its lane, survives a reload while held, and ends with a proper ending; nothing throws", async () => {
-    let doc: Schema.Json = "leaf";
+  it("Codec R1, R4: a commit whose input is at the depth limit is saved with its lane, survives a reload while held and ends; one past it declines NotSent Unencodable; nothing throws", async () => {
+    const nest = (depth: number) => {
+      let doc: Schema.Json = "leaf";
 
-    for (let n = 0; n < 100_000; n += 1) doc = [doc];
+      for (let n = 0; n < depth; n += 1) doc = [doc];
 
+      return doc;
+    };
+
+    // The input holds the document, one container more.
     const run = checked(
       await notesStory("restore/deep-input")
         .ensure(notes)
+        .send(notes, { _tag: "Publish", doc: nest(Flow.maxDepth) })
         .world(Git.sync.hold())
-        .send(notes, { _tag: "Publish", doc })
+        .send(notes, { _tag: "Publish", doc: nest(Flow.maxDepth - 1) })
         .checkpoint("held")
         .reload()
         .advance("1 second")
@@ -278,7 +284,7 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     );
     expect(
       run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
-    ).toEqual(["unknown Restored"]);
+    ).toEqual(["notSent Unencodable", "unknown Restored"]);
     expect(reported(run)).toEqual([]);
   });
 });
