@@ -1081,3 +1081,7 @@ note 2026-11-17T17:07:33Z
 note 2026-11-17T17:51:21Z
     Decision (the user, 2026-11-17): Q24 A, the bench reads only manifests; raw samples local and git-ignored, CSVs
     committed; no backfill now. Today's like-for-like: small apps 10-15 % faster than c4494083. T87 lead rebuilding.
+
+note 2026-11-17T18:54:39Z
+    Decision (the user, 2026-11-18): bench on battery, power state recorded and compared like for like; run every couple
+    of hours or for performance work, not at each Task close; quick tier keeps every Story (~95 s). T87 closing on that.

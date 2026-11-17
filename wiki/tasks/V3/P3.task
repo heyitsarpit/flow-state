@@ -3216,6 +3216,18 @@ tasks
             regressions. First a measured breakdown of where bench time goes (startup, warm-up, sampling, per run,
             total, per bench and per tier); then a proposal for a fast quick tier that keeps every Story; the user
             decides the cut.
+        comment     2026-11-17T18:52:30Z
+            Blocked on mains power: the timing table and the quick-tier options are not measured yet; the machine stayed
+            on battery for over an hour. Ready at 91e054c4: `run.ts --timing` prints and keeps per bench (startup, load
+            and proof, warm-up time and runs, sampling time and runs, ms a run, total) in
+            `bench/history/samples/timing-*.jsonl`; `--separate` gives the quick tier a process per bench. Held: no
+            Story is cut from the quick tier (series ends, every boot). Fixed: the bench proofs moved to
+            `tests/bench/proofs.stress.test.ts`, so `nub run test:stress` exits 0 (15 files, 42 tests).
+        comment     2026-11-17T18:54:38Z
+            Decision (the user, 2026-11-18): the machine stays on battery; the bench runs every couple of hours or
+            during performance work, not at every Task close. Recording works on battery with the power state in each
+            row, compared only within the same power state; the 30 s quick-tier target is dropped (about 95 s, every
+            Story kept).
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
