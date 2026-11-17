@@ -602,7 +602,7 @@ tasks
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      in_progress
         priority    high
-        blocked_by  [@T19, @T82]
+        blocked_by  [@T19, @T82, @T83]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
         description
             Build restore from @spec.Restore and @spec.Codec: reload, owed endings delivered at boot, record format
@@ -1852,3 +1852,43 @@ tasks
             test of Actors R13 and Pending D13 (refused). (4) Titles cite governing rules; catalog: empty email now
             sent, no 10,000 timing claim, paged client on negative-zero, S7 cycle a correction; fixtures.md app field;
             mix part() fails on a missing part. check 0; suite 1,061 + 21 inverted, the same 6 reds.
+
+    T83
+        title       Fast test commands again: suite, stress and faults under twice baseline
+        status      open
+        priority    high
+        description
+            Make the test commands fast again: the package suite, `nub run test:stress` and `nub run faults` back under
+            twice the speed baseline, with no gate weakened.
+
+            **Why now:** the 06:00 wake on 2026-11-17 timed HEAD 9d45d087 in a clean worktree: suite 33 s, stress 115 s,
+            faults 172 s, against the 313e8a45 baseline of 12 s, 9 s and 28 s. T82's grown fixtures (S3 x 64, L1 x 64,
+            1,024-send Stories) and T9's triple-reload check added the load, and T9 raised the stress sweeps' timeout to
+            230 s to fit them under the faults run.
+
+            **Read first:** @task.V3.T75 (the last speed pass and its comments), code:tools/faults/run.ts,
+            `packages/flow-state-v3/tests/rules/`, `packages/flow-state-v3/tests/generated/`, the Epic's `instructions`
+            (Speed; Big test commands run at the end of a Task).
+
+            **Risk:** speed must not weaken a gate: every fault is caught by the same tests, the dead core still gets a
+            full run, every scenario T82 and T9 built still runs in the default suite or behind the stress flag, and no
+            Story's counts shrink to save time. If a budget can't be met without cutting coverage, the lead reports the
+            trade-off instead of cutting.
+
+            **Approach:** measure first (time per file, per sweep, per fault), then fix the slowest causes; set a new
+            speed baseline in V3.log at the close.
+
+            May change: `packages/flow-state-v3/tests/`, `packages/flow-state-v3/fixtures/` (sample selection only),
+            `tools/faults/`, `tools/stress/`, `vite.config.ts`, `package.json` scripts. Evidence: this Task's comments.
+
+            False pass: a faster run that drops a scenario or a fault → caught by the same Story ids, test counts and
+            caught list, before and after.
+        acceptance
+            - Timings before and after, alone on this machine, are in a Task comment: the package suite, `nub run
+              test:stress` and `nub run faults`, each per file or per fault for the slowest ten.
+            - The suite runs in under 24 s, `nub run test:stress` under 60 s and `nub run faults` under 3 minutes, or
+              the comment names what each lost second buys and the lead asks the user.
+            - The same Story ids, test counts and fault caught list hold before and after; the dead core still runs the
+              full suite.
+            - No sweep timeout is raised to fit; T9's 230 s timeout is back under the default or justified.
+            - `nub run check` and `nub run lint:rules` pass; a new speed note with the baseline is in V3.log.
