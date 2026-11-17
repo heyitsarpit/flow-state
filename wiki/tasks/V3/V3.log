@@ -1171,3 +1171,8 @@ note 2026-11-17T21:39:14Z
 note 2026-11-17T21:39:47Z
     03:09 wake: tooling bench skipped; T83's lead is timing the same commands alone, and benches run alone. Its close
     records the tooling row instead.
+
+note 2026-11-17T22:33:33Z
+    Speed baseline at 970916c1 (alone, 12 cores): suite 54 s, stress 65 s, faults 256 s (unchanged run times out at 240
+    s under 8 copies). Was 75, 112 and 220 s at 26ad0259; 12, 9 and 28 s at 313e8a45. The rest is CPU-bound sweep work:
+    pair seeds and reload sweeps (@task.V3.T83).
