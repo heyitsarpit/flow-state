@@ -2025,7 +2025,7 @@ tasks
     T79
         title       Code convergence: tx edit operations, lifecycle unions, one home for diagnostics and keys, host 
                     idiom
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T9]
         description
@@ -2123,6 +2123,29 @@ tasks
             end (Interrupt; no ending changes), the owed Interrupted ending waits on the Reads slice's stopped: mapping;
             9e, 9f go with 2f. Finding 10 measured: timer arms 1.3% (session/long) and 2.1% (transfers/long) inclusive,
             under 5%, not built.
+        comment     2026-11-17T11:51:00Z
+            Resume (527d6133): done: step operations and indexes, finding 11, §6 dead code, 3a, 3b, 3c, 3e, 3f, 3g
+            (keyTextOf only), 3h, 3i, 3k, 3q, 2d (timers on variants), 2e with A4, 2f with 5d, 2j, 5a, 5b, 5e, T9's L1
+            to L5, §9 Stories. Rejected: 3d (one finding stays an array; a second form adds a choice), 5c (each site's
+            policy differs), 9e (the due-now batch carries the refused writes, as the edge's contract says). Left: A2
+            phase table, 3b tags, 3e arming, 3g Move names, 3h SAFETY texts, 3l, 3m to 3p, 4b to 4d, review 2's 1e, 1g,
+            1i, 1j and A5, 2a with 2b, 2h, 2i, 5f, §7 comments; then close (stress, seeds, faults, bench).
+        comment     2026-11-17T12:07:58Z
+            Close (609fe363): ready for review, partial. Suite 1,281 pass, 15 expected fail, T20's two pair reds as
+            before; test:stress 13 files exit 0; generated and mix over FLOW_SEEDS=20 exit 0; nub run faults not judged
+            (unchanged suite red: T20's reds and sweep timeouts under load, as at T9's close), and each of the 32 faults
+            added or retargeted here was planted alone and caught by its target. Bench per turn median ms, before then
+            after: session/long 0.161 to 0.108, transfers/long 0.044 to 0.040, pay/long 0.060 to 0.050, cells/long 0.052
+            to 0.044, palette/stress-36 1.782 to 1.803, lanes/stress-36 0.203 to 0.210, outline-deep 155 to 160 (20
+            runs); world-size ratios 3.23 to 1.70 (crowd 16 vs 256) and 6.64 to 1.38 (wall 64 vs 1,024). Also done after
+            the resume note: A2 phase table with NotSentWhy picked from Decline, review 2's 3h (true SAFETY reasons, ids
+            minted by kind), 4b (Code, Classification, Denial, Outcome errors exported), 4c (Actor.send takes
+            EventOf<D>; Machine.compiled stays). Rejected: review 1 3g (no file imports both Moves). Not done, proposed
+            routes: construction moves 3l to 3o and review 2's 1e to 1j and A5 to the A1 construction Task; 2a with 2b
+            and 2c, 2k to a follow-up; 2g, 2h, 2i and 5f to T80 (5f after T80 drops the admit hook); review 2's 3b
+            booleans and 3e arming to T85, which rewrites persist; 4d renames with 4a's docs Task; §7 comments as one
+            pass. User's calls: 9a and review 2's 2a (pinned it.fails in tests/actors/edges.test.ts), review 2's
+            2c codes.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
