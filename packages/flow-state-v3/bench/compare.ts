@@ -16,7 +16,7 @@ export type Confidence = "interleaved" | "stored";
 /**
  * The tier a run measures in and the smallest change it counts.
  */
-export type Tier = { readonly name: "quick" | "full"; readonly minEffect: number };
+export type Tier = { readonly name: "quick" | "full" | "dev"; readonly minEffect: number };
 
 const MARKS = { same: "", slower: "  SLOWER", faster: "  FASTER" } as const;
 
