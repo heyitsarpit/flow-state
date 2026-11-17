@@ -2461,6 +2461,45 @@ tasks
             Back to in_progress (orchestrator, 2026-11-18): not reviewable yet; the routed T79 items (3m to 3o, 1e to
             1j, A5, the three returned checks), the fixtures-first item and the partial review's definition(null)
             TypeError are unbuilt. Requirements and fixture proof first, then build.
+        comment     2026-11-17T21:05:35Z
+            Re-checked at 6ff4c65a. Fixed already: the four section-1 bugs and the Defect fold (green since bafacd30);
+            1a's send side (code:packages/flow-state-v3/src/host/driver.ts#send checks the Type side); 1b to 1d
+            (config.ts decodes them); 1f in bodies (path arrays); 1h's throw before findings (the decode runs first);
+            1j's codec rebuild (on Compiled now). Still open: everything below.
+        comment     2026-11-17T21:05:36Z
+            Requirements for acceptance 1, each an it.fails in tests/compile/construction.test.ts, red today for its
+            reason: (1) Compile R2, R4: definition(null) and definition(undefined) are WrongKind at the configuration
+            (raw TypeError today, definition.ts:534); (2) R2, R4: operations returning no record is WrongKind at
+            operations (accepted today); (3) R2, R4: an operations value that is not an operation is WrongKind at it
+            (TypeError today, operation-checks.ts:43);
+        comment     2026-11-17T21:05:38Z
+            Requirements, continued: (4) R4: a delay { sec: 5 } is UnknownField at schedule.sec (accepted as 0 ms today,
+            compile-body.ts:174); (5) R4, R6: a constant start its Schema refuses is WrongKind at memory.<field>
+            (accepted today, config.ts:68); (6) R3: a same-named guard or action of another definition is ForeignToken
+            (compile-body.ts:85, 127 check by name);
+        comment     2026-11-17T21:05:39Z
+            Requirements, continued: (7) R3: an onContext event of another definition, E.X or E.X.from, is ForeignToken
+            (machine.ts:208 never checks it); (8) R2: a failure tag holding a dot is one path segment
+            (operation-checks.ts:34 splits it). Type twins for (1) to (5) pass in tests/types/; (6) and (7) have none,
+            since token types carry no owner (ruling below). Acceptance 3: each of (1) to (8) gets a planted fault at
+            the build.
+        comment     2026-11-17T21:05:41Z
+            Requirements for acceptance 2, behaviour-neutral, checked by the close review at these places (no runtime
+            test): the decoded value is discarded (config.ts:212), so casts stay (definition.ts:407, machine.ts:117,
+            compile-body.ts:164); 3m unwrap thrice (compiled-parts.ts:95, construction.ts:187, definition.ts:560); 3n
+            events merged thrice (machine.ts:158, compiled-parts.ts:131, definition.ts:600) and paths indexed twice
+            (machine.ts:155, definition.ts:478);
+        comment     2026-11-17T21:05:42Z
+            Acceptance 2, continued: 3o endings walked twice (compiled-parts.ts:47, operation-checks.ts:10); 1g contract
+            ids and key-in-input checked twice (operation-checks.ts:42, 98; core/well-formed.ts:47, 167); 1h tokens
+            built twice (definition.ts:541, 600), tree walked twice (definition.ts:542, machine.ts:150); 1i SelectArg
+            twice (definition.ts:203, handles.ts:5), two inputFieldsOf, FlowError.code stored; 1j inputFieldsOf per call
+            (runtime.ts:156); A5 Struct thrice.
+        comment     2026-11-17T21:05:43Z
+            Needs a ruling, so no requirement yet: (a) send keeps a payload's extra keys (a handler sees them; no Spec
+            rule narrows a payload; proposed reading Codec R6, the decoded value); (b) a throwing operations or body
+            callback, or machine(null), escapes raw (Diagnostics R1, R3 don't say construction wraps it); (c) Compile
+            R14 type gap for (6) and (7): a token brand per definition is a public type change.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1

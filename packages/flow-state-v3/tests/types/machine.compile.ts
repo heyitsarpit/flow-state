@@ -122,3 +122,15 @@ void machine(Lamp, ({ S, E }) => ({
     },
   },
 }));
+
+void machine(Lamp, ({ S, E }) => ({
+  default: S.OFF,
+  states: {
+    OFF: {
+      schedules: {
+        // @ts-expect-error a fixed delay that is not a Duration input (Compile R4; construction.test pairs it)
+        off: { schedule: { sec: 5 }, send: E.Flip },
+      },
+    },
+  },
+}));

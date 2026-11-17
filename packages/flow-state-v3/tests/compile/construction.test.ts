@@ -662,3 +662,163 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
     ]);
   });
 });
+
+// Lamp's twin: another definition whose operation has Lamp's operation's name.
+const Twin = definition({
+  id: "Compile/Twin",
+  states: ["OFF"],
+  events: { Flip: {} },
+  internalEvents: { Saved: {}, Unsure: Flow.uncertain({}) },
+  operations: ({ E }) => ({
+    save: save.outcomes({ success: E.Saved, failure: {}, unknown: E.Unsure }),
+  }),
+});
+
+// Each diagnostic of a refused construction as [code, reason, path], its path kept as segments.
+const segments = (construct: () => unknown) => {
+  try {
+    construct();
+  } catch (error) {
+    if (error instanceof FlowError)
+      return error.diagnostics.map((d) => [d.code, d.details["reason"] ?? null, d.path] as const);
+
+    throw error;
+  }
+
+  return [] as const;
+};
+
+describe("construction refuses every malformed form with one FlowError (Compile R2, R3, R4)", () => {
+  it.fails("Compile R2, R4: definition(null) and definition(undefined) are refused WrongKind at the configuration, never a raw TypeError", () => {
+    for (const config of [null, undefined])
+      expect(refusal(() => definition(loose(config)))).toEqual([
+        ["InvalidConfiguration", "WrongKind", ""],
+      ]);
+  });
+
+  it.fails("Compile R2, R4: an operations callback that returns no record is refused WrongKind at operations", () => {
+    expect(
+      refusal(() =>
+        definition(
+          loose({ id: "Compile/NoOps", states: ["A"], events: {}, operations: () => undefined }),
+        ),
+      ),
+    ).toEqual([["InvalidConfiguration", "WrongKind", "operations"]]);
+  });
+
+  it.fails("Compile R2, R4: an operations record whose value is not an operation is refused WrongKind at it, never a raw TypeError", () => {
+    expect(
+      refusal(() =>
+        definition(
+          loose({
+            id: "Compile/BadOp",
+            states: ["A"],
+            events: {},
+            operations: () => ({ save: 5 }),
+          }),
+        ),
+      ),
+    ).toEqual([["InvalidConfiguration", "WrongKind", "operations.save"]]);
+  });
+
+  it.fails("Compile R4: a fixed delay written { sec: 5 } is not a Duration input: its unknown field is refused UnknownField", () => {
+    expect(
+      refusal(() =>
+        machine(Lamp, ({ S, E }) =>
+          loose({
+            default: S.OFF,
+            states: {
+              OFF: { schedules: { off: { schedule: { sec: 5 }, send: E.Flip } } },
+              ON: { default: S.ON.DIM },
+            },
+          }),
+        ),
+      ),
+    ).toEqual([["InvalidConfiguration", "UnknownField", "states.OFF.schedules.off.schedule.sec"]]);
+  });
+
+  it.fails("Compile R4, R6: a constant start its field's Schema refuses is refused WrongKind at its memory field", () => {
+    expect(
+      refusal(() =>
+        definition(
+          loose({
+            id: "Compile/Constant",
+            states: ["A"],
+            events: {},
+            memory: { count: Flow.initial(Schema.Number, loose("0")) },
+          }),
+        ),
+      ),
+    ).toEqual([["InvalidConfiguration", "WrongKind", "memory.count"]]);
+  });
+
+  it.fails("Compile R3: a guard and an action of another definition's operation of the same name are refused ForeignToken", () => {
+    expect(
+      refusal(() =>
+        machine(Lamp, ({ S }) =>
+          loose({
+            default: S.OFF,
+            on: {
+              Flip: {
+                guard: Twin.O.save.idle(() => ({ id: "a" })),
+                actions: [Twin.O.save.commit(() => ({ id: "a" }))],
+              },
+            },
+            states: { ON: { default: S.ON.DIM } },
+          }),
+        ),
+      ),
+    ).toEqual([
+      ["InvalidConfiguration", "ForeignToken", "on.Flip.0.guard.0"],
+      ["InvalidConfiguration", "ForeignToken", "on.Flip.0.actions.0"],
+    ]);
+  });
+
+  it.fails("Compile R3: an onContext event of another definition, as E.X or E.X.from(f), is refused ForeignToken", () => {
+    expect(
+      refusal(() =>
+        machine(Lamp, ({ S }) =>
+          loose({
+            default: S.OFF,
+            onContext: [
+              { select: () => 1, event: Twin.E.Flip },
+              { select: () => 1, event: Twin.E.Flip.from(() => ({})) },
+            ],
+            states: { ON: { default: S.ON.DIM } },
+          }),
+        ),
+      ),
+    ).toEqual([
+      ["InvalidConfiguration", "ForeignToken", "onContext.0.event"],
+      ["InvalidConfiguration", "ForeignToken", "onContext.1.event"],
+    ]);
+  });
+
+  it.fails("Compile R2: a failure tag that holds a dot is one segment of its finding's path", () => {
+    expect(
+      segments(() =>
+        definition(
+          loose({
+            id: "Compile/DottedTag",
+            states: ["A"],
+            events: {},
+            internalEvents: { Saved: {}, Unsure: Flow.uncertain({}) },
+            operations: ({ E }: { readonly E: typeof Twin.E }) => ({
+              save: save.outcomes(
+                loose({
+                  success: E.Saved,
+                  failure: {
+                    "Card.Declined": { ending: { event: "Declined", from: Option.none() } },
+                  },
+                  unknown: E.Unsure,
+                }),
+              ),
+            }),
+          }),
+        ),
+      ),
+    ).toEqual([
+      ["InvalidConfiguration", "UnknownEvent", ["operations", "save", "failure", "Card.Declined"]],
+    ]);
+  });
+});

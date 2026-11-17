@@ -49,3 +49,26 @@ void definition({
     c: 5,
   },
 });
+
+// @ts-expect-error a definition that is null (Compile R4; construction.test pairs it)
+void definition(null);
+
+void definition({
+  ...lamp,
+  // @ts-expect-error an operations callback that returns no record (Compile R4; construction.test pairs it)
+  operations: () => undefined,
+});
+
+void definition({
+  ...lamp,
+  // @ts-expect-error an operations record whose value is not an operation (Compile R4; construction.test pairs it)
+  operations: () => ({ save: 5 }),
+});
+
+void definition({
+  ...lamp,
+  memory: {
+    // @ts-expect-error a constant start its field's Schema refuses (Compile R4, R6; construction.test pairs it)
+    count: Flow.initial(Schema.Number, "0"),
+  },
+});
