@@ -2869,7 +2869,7 @@ tasks
 
     T86
         title       Fixtures follow their layout: flat files moved, shared services in one place, pay becomes shop
-        status      review
+        status      done
         priority    medium
         blocked_by  [@T79]
         description

@@ -1030,3 +1030,8 @@ note 2026-11-17T13:24:00Z
 note 2026-11-17T13:54:42Z
     T86 in review at 2516fb44: fixtures in their layout, services/shop and services/git, pay renamed shop; tests, Story
     ids and faults match the baseline. Opus review started; it judges a duplicate 'shop' sample-set id and Pay's home.
+
+note 2026-11-17T14:02:37Z
+    T86 done: review PASS at 2516fb44 (47875b8d). Small follow-ups fixed now before T85: duplicate 'shop' sample-set id
+    (rename to shop-store, uniqueness test), fixtures.md documents services/, stale stories.ts glob, tests/pay to
+    tests/shop.
