@@ -28,8 +28,9 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/life.ts",
-        find: "  DisposeActor: { ...call, Disposing: drop, Disposed: drop },",
-        replace: "  DisposeActor: { ...call, Inert: run, Disposing: drop, Disposed: drop },",
+        find: "  DisposeActor: { ...call, Disposing: drop, Disposed: drop, Stopped: drop },",
+        replace:
+          "  DisposeActor: { ...call, Inert: run, Disposing: drop, Disposed: drop, Stopped: drop },",
       },
     ],
   },
@@ -156,12 +157,25 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     name: "defect-keeps-runtime",
     tests: ["src/host/runtime.test.ts"],
     says: "a defect inside a step leaves the Runtime running on its half-written world",
-    rule: "Actors R22",
+    rule: "Actors R25",
     edits: [
       {
         file: "src/host/driver.ts",
-        find: "      halted = true;\n",
+        find: "    world = stopped(world);\n",
         replace: "",
+      },
+    ],
+  },
+  {
+    name: "stopped-runtime-runs-calls",
+    tests: ["src/host/runtime.test.ts"],
+    says: "a Runtime a defect stopped still runs public calls on its half-written world",
+    rule: "Actors R25",
+    edits: [
+      {
+        file: "src/core/life.ts",
+        find: "  Disposed: disposed,\n  Stopped: disposed,\n};",
+        replace: "  Disposed: disposed,\n  Stopped: run,\n};",
       },
     ],
   },

@@ -299,3 +299,9 @@ note 2026-11-17T20:40:00Z
     @spec.Turn R24: a Map, Set or Date the app froze itself is trusted as immutable and not wrapped; a mutable one
     in memory is still guarded. Why: the user's Q20 B (a frozen object takes no new methods; Immer freezes them this
     way in dev). Reverse: refuse an app-frozen Map, Set or Date at admission as the turn's Defect (Q20 A).
+
+note 2026-11-17T21:30:00Z
+    @spec.Actors R25 (proposed, awaiting the user): a step's defect ends the life Stopped, a final row in admit's
+    table; calls refuse RuntimeDisposed, ready and dispose fail with the defect. Why: a host flag beside Life broke
+    I42 and the defect escaped uncaught (T79 review). Reverse: drop the row, rethrow the defect (7b104f91).
+

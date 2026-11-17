@@ -355,6 +355,15 @@ requirements
                 follow @spec.WriteLanes.R5. Exhausting a counter refuses new work with
                 IdentityExhausted before any change.
 
+    R25  A defect stops the Runtime (proposed, awaiting the user)
+        source  @plan.Runtime.O3.
+        must    A defect inside a step ends the Runtime's life Stopped, a final Life: no input runs
+                again, so the step's half-written world is never stepped. Every later public call is
+                refused RuntimeDisposed, every actor reads disposed, the defect is reported once as
+                the Runtime's failure (`ready()` fails with it when the boot step failed, and
+                `dispose()` fails with it), and the Runtime's Scope closes. Decision (agent,
+                2026-11-17, @task.V3.T79): proposed; the Life table is the user's.
+
 open
     Q1  Executable checks are not built.
         outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers
@@ -697,6 +706,10 @@ coverage
     @R24
         enforced_by  [@I13, @I34]
         open_by      [@Q1, @Q2]
+
+    @R25
+        enforced_by  [@I42]
+        open_by      [@Q1]
 
 tests
     T1  Setup and readiness: construct with spies (no I/O); two concurrent ready calls and a third after a failing 

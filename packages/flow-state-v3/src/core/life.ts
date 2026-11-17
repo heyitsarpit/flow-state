@@ -3,9 +3,12 @@ import type { Input } from "./input.ts";
 import type { TicketId } from "./world.ts";
 
 /**
- * The Runtime's life: constructed, booting, open, failed to boot, disposing or disposed.
+ * The Runtime's life: constructed, booting, open, failed to boot, disposing, disposed, or stopped
+ * by a defect inside a step.
  *
  * **Details**
+ *
+ * `Stopped` is final: the step that failed left its world half written, so no input runs again.
  *
  * `Disposing` names the write its end waits for: the last batch it issued, until the store
  * answers it.
@@ -17,6 +20,7 @@ export type Life = Data.TaggedEnum<{
   Failed: {};
   Disposing: { awaiting: Option.Option<TicketId> };
   Disposed: {};
+  Stopped: {};
 }>;
 
 /**
@@ -54,6 +58,7 @@ const call: Row = {
   Failed: notReady,
   Disposing: disposed,
   Disposed: disposed,
+  Stopped: disposed,
 };
 
 // A host answer or timer: it runs while the Runtime is open or disposing; a late one is dropped.
@@ -64,6 +69,7 @@ const answer: Row = {
   Failed: drop,
   Disposing: run,
   Disposed: drop,
+  Stopped: drop,
 };
 
 const table = {
@@ -74,6 +80,7 @@ const table = {
     Failed: drop,
     Disposing: disposed,
     Disposed: disposed,
+    Stopped: disposed,
   },
   Boot: {
     Inert: drop,
@@ -82,6 +89,7 @@ const table = {
     Failed: drop,
     Disposing: disposed,
     Disposed: disposed,
+    Stopped: disposed,
   },
   BootFailed: {
     Inert: drop,
@@ -90,12 +98,13 @@ const table = {
     Failed: drop,
     Disposing: drop,
     Disposed: drop,
+    Stopped: drop,
   },
   Ensure: call,
   Create: call,
   Send: call,
   Forget: call,
-  DisposeActor: { ...call, Disposing: drop, Disposed: drop },
+  DisposeActor: { ...call, Disposing: drop, Disposed: drop, Stopped: drop },
   Release: {
     Inert: drop,
     Booting: drop,
@@ -103,6 +112,7 @@ const table = {
     Failed: drop,
     Disposing: drop,
     Disposed: drop,
+    Stopped: drop,
   },
   Serve: {
     Inert: drop,
@@ -111,6 +121,7 @@ const table = {
     Failed: drop,
     Disposing: drop,
     Disposed: drop,
+    Stopped: drop,
   },
   DisposeRuntime: {
     Inert: run,
@@ -119,6 +130,7 @@ const table = {
     Failed: run,
     Disposing: drop,
     Disposed: drop,
+    Stopped: drop,
   },
   Settled: answer,
   Fired: answer,
@@ -162,4 +174,5 @@ export const actorLifecycleOf = (life: Life) =>
     Failed: () => "active" as const,
     Disposing: () => "disposing" as const,
     Disposed: () => "disposed" as const,
+    Stopped: () => "disposed" as const,
   });

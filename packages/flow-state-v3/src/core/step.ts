@@ -56,6 +56,13 @@ export const owesServe = (world: World) =>
   world.mail.size > 0 && Verdict.$is("Run")(admit(world.life, Input.Serve()));
 
 /**
+ * A world whose step failed with a defect: its life is Stopped, so no input runs again. The world's
+ * maps are as the failed step left them, read only by inspection.
+ */
+// RETURN_TYPE: the World contract, whose life widens to every Life.
+export const stopped = (world: World): World => ({ ...world, life: Life.Stopped() });
+
+/**
  * One step of the Runtime: applies one input, then serves every
  * admitted mail item as a turn, and returns the next world with its commands and evidence.
  *
@@ -161,6 +168,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Booting: () => undefined,
     Failed: () => undefined,
     Disposed: () => undefined,
+    Stopped: () => undefined,
   });
 
   return tx.out();

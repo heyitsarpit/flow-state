@@ -2,7 +2,7 @@ import { Context, Deferred, Effect, Exit, Layer, Option, Predicate, Result, Scop
 import type { Compiled } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { dependentsOf, Input } from "../core/step.ts";
-import { Verdict } from "../core/life.ts";
+import { Life, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
@@ -342,7 +342,7 @@ export const buildRuntime = (
     fibers,
     persistence,
     captureMs: config.persistence?.captureMs ?? 5000,
-    halted: () =>
+    stopped: () =>
       // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the driver stops synchronously, inside the step that failed; the Scope closes on its own fiber
       void Effect.runFork(Scope.close(scope, Exit.void)),
     admit,
@@ -398,6 +398,9 @@ export const buildRuntime = (
     const opened = Input.Boot({ stored });
     const verdict = driver.verdict(opened);
     driver.input(opened);
+
+    // A boot step that failed with a defect stopped the Runtime: ready fails with that defect.
+    if (Life.$is("Stopped")(driver.world().life)) return yield* driver.ended;
 
     if (Verdict.$is("Reject")(verdict)) return yield* Effect.fail(rejected(verdict.code));
   });

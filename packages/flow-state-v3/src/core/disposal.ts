@@ -30,6 +30,7 @@ export const makeDisposal = (
       Open: () => Option.none<TicketId>(),
       Failed: () => Option.none<TicketId>(),
       Disposed: () => Option.none<TicketId>(),
+      Stopped: () => Option.none<TicketId>(),
     });
 
   const end = () => {

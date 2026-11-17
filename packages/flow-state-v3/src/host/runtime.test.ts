@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Context, Effect, Exit, Layer, Option, Schema } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Option, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
 import {
   actorRef,
@@ -14,7 +14,7 @@ import {
   transaction,
 } from "../index.ts";
 import { Host } from "./host.ts";
-import { attachInspector, type Evidence } from "./inspect.ts";
+import { attachInspector, type Evidence, inspect } from "./inspect.ts";
 import { buildRuntime } from "./runtime.ts";
 
 class Bell extends Context.Service<
@@ -244,8 +244,8 @@ describe("the Runtime's host listeners (Actors R22)", () => {
   });
 });
 
-describe("a defect inside a step (Actors R22)", () => {
-  it("Actors R22: the first defect stops the Runtime: later calls are refused RuntimeDisposed and dispose ends", async () => {
+describe("a defect inside a step (Actors R25)", () => {
+  it("Actors R25: the first defect stops the Runtime: ready and dispose fail with it, later calls are refused RuntimeDisposed", async () => {
     // Stored records that throw while the boot step reads them: a defect in the middle of a step.
     const broken = new Map([["actor/x", "{}"]]);
     broken[Symbol.iterator] = () => {
@@ -276,8 +276,11 @@ describe("a defect inside a step (Actors R22)", () => {
     );
 
     const booted = await Effect.runPromiseExit(runtime.ready());
-    assert.ok(Exit.isFailure(booted));
+    assert.ok(Exit.isFailure(booted) && Cause.hasDies(booted.cause));
     assert.throws(() => runtime.ensureActor(front), flowError("RuntimeDisposed"));
-    assert.ok(Exit.isSuccess(await Effect.runPromiseExit(runtime.dispose())));
+    assert.equal(inspect(runtime).lifecycle, "Stopped");
+
+    const disposed = await Effect.runPromiseExit(runtime.dispose());
+    assert.ok(Exit.isFailure(disposed) && Cause.hasDies(disposed.cause));
   });
 });

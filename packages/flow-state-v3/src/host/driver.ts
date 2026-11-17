@@ -14,6 +14,7 @@ import {
   overloaded,
   owesServe,
   step,
+  stopped,
 } from "../core/step.ts";
 import { type CallId, Command, emptyWorld, sameActor, type World } from "../core/world.ts";
 import { flowError, lifeRejection } from "../error.ts";
@@ -77,7 +78,7 @@ export const makeDriver = (options: {
   readonly captureMs: number;
   readonly sink: (evidence: ReadonlyArray<Evidence>) => void;
   readonly admit: (evidence: ReadonlyArray<Evidence>) => void;
-  readonly halted: () => void;
+  readonly stopped: () => void;
 }) => {
   const { machines, fibers } = options;
   const clock = Context.get(options.platform, Clock.Clock);
@@ -133,6 +134,17 @@ export const makeDriver = (options: {
   // One freezer for the Runtime's life, so a part it froze once is never walked again.
   const admitValue = host.freezeValues ? makeFreezer() : asItIs;
 
+  // A defect in a step leaves its world half written, so the Runtime's life ends Stopped at the
+  // first one: no input runs again, the defect is the Runtime's failure, which ready and dispose
+  // report, and the host closes its Scope.
+  // FLOW_STATE_ALLOW_UNKNOWN: a defect is whatever the step threw.
+  const stop = (defect: unknown) => {
+    world = stopped(world);
+    inbox.length = 0;
+    Deferred.doneUnsafe(disposed, Exit.die(defect));
+    options.stopped();
+  };
+
   const drainInbox = () => {
     for (let next = inbox.shift(); next !== undefined; next = inbox.shift()) {
       const env: Env = {
@@ -141,7 +153,18 @@ export const makeDriver = (options: {
         admit: admitValue,
       };
 
-      const out = step(machines, world, next, env);
+      const stepped = Result.try({
+        try: () => step(machines, world, next, env),
+        catch: (defect) => defect,
+      });
+
+      if (Result.isFailure(stepped)) {
+        stop(stepped.failure);
+
+        return;
+      }
+
+      const out = stepped.success;
       options.admit(out.evidence);
       world = out.world;
 
@@ -159,39 +182,27 @@ export const makeDriver = (options: {
     }
   };
 
-  // A defect in a step leaves its world half written, so the Runtime stops at the first one: the
-  // inbox empties, no input runs again, its disposal is over, and the host closes its Scope. The
-  // defect is rethrown to the caller at the host boundary.
-  let halted = false;
-
+  // A throw from the host's own callbacks must not wedge the inbox: the loop is released before it
+  // is rethrown, so the next input runs.
   const run = () => {
     running = true;
-    const drained = Result.try({ try: drainInbox, catch: (defect) => defect });
+    const drained = Result.try({ try: drainInbox, catch: (fault) => fault });
     running = false;
 
-    if (Result.isFailure(drained)) {
-      halted = true;
-      inbox.length = 0;
-      Deferred.doneUnsafe(disposed, Exit.void);
-      options.halted();
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a step's defect is rethrown to the caller at the host boundary, after the Runtime has stopped
+    if (Result.isFailure(drained))
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a host callback's throw goes back to its caller, after the loop is released
       throw drained.failure;
-    }
   };
 
   const input = (next: Input) => {
-    if (halted) return;
     inbox.push(next);
 
     if (!running) run();
   };
 
   // A public call the Runtime's life rejects throws the error its verdict names and runs nothing.
-  const verdictOf = (next: Input) =>
-    halted ? Verdict.Reject({ code: "RuntimeDisposed" }) : admit(world.life, next);
-
   const check = (next: Input, what: string) => {
-    const verdict = verdictOf(next);
+    const verdict = admit(world.life, next);
 
     if (Verdict.$is("Reject")(verdict))
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public calls' contract: a call the Runtime's life rejects throws its FlowError
@@ -206,7 +217,9 @@ export const makeDriver = (options: {
   return {
     input,
     offer,
-    verdict: verdictOf,
+    verdict: (next: Input) => admit(world.life, next),
+    // The Runtime's failure, once its life is Stopped: the defect that stopped it.
+    ended: Deferred.await(disposed),
     machines,
     world: () => world,
     pending: () => inbox.length > 0,
