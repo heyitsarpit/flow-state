@@ -3367,7 +3367,7 @@ tasks
 
     T89
         title       Bench code made smaller and generic: one tier table, one process helper, one flag and concern record
-        status      open
+        status      tombstone
         priority    low
         blocked_by  [@T83]
         description
@@ -3403,3 +3403,5 @@ tasks
         comment     2026-11-17T20:04:26Z
             Cancelled (the user, 2026-11-18). The proposal stays as prior
             art: code:wiki/plans/flow/references/proposals/bench-quality-review-2026-11-18.md.
+        deletion_reason
+            Cancelled by the user, 2026-11-18; the proposal stays as prior art.
