@@ -2369,7 +2369,7 @@ tasks
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
-        status      in_progress
+        status      open
         priority    high
         blocked_by  [@T82]
         description
@@ -2548,6 +2548,16 @@ tasks
             left (the acceptance names two). Sources: kamp.us ban.unit.test.ts:36, :43, shaped on; the rest no source.
             Red today: nine construction refusals; every Story green (bug 1a fixed at bafacd30). Sign-in stays out of
             the mix (one-network check).
+        comment     2026-11-17T21:39:13Z
+            Rulings (orchestrator, 2026-11-18): (a) send hands handlers the decoded payload, so extra keys are dropped
+            (decode once and trust the result); a Spec line and a specs.log note at the build. (b) a throwing operations
+            or body callback and machine(null) become FlowErrors (Defect with the cause; WrongKind for null), since
+            every construction refusal is a FlowError. (c) a per-definition brand on token types is a public type
+            change: proposed for the user, not built; the runtime refusal of foreign tokens is built. (d) a third app
+            with a transforming field joins at the build; sign-in's exclusion from the app mix stays noted.
+        comment     2026-11-17T21:39:13Z
+            Paused (the user's P3 order, 2026-11-18): requirements a37c5001 and fixture proof 8ae66b27 are in; the build
+            resumes after T83 and T20. Resume: the rulings above, then build until the nine inverted checks pass.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
@@ -2733,7 +2743,7 @@ tasks
 
     T83
         title       Fast test commands again: suite, stress and faults with no regression from the baseline
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T84, @T87]
         description
@@ -2850,6 +2860,8 @@ tasks
         comment     2026-11-17T21:13:45Z
             Amendment (the user, 2026-11-18): the timebox is 90 minutes, not 60; the orchestrator sets a timer at the
             lead's start.
+        comment     2026-11-17T21:39:14Z
+            Started 2026-11-18 03:10 IST (21:40Z); the 90-minute box ends 04:40 IST (23:10Z).
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
