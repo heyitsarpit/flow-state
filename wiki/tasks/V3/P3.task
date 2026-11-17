@@ -2297,12 +2297,18 @@ tasks
             Routed (orchestrator, 2026-11-17): faults' fourth unchanged red is test tooling: under parallel load the CLI
             story-run and trace tests hit their 5 s default timeout (passes alone); tools/faults/run.ts prints only the
             last 2,000 characters of the unchanged run, so a red's name is dropped; print every failing test name.
+        comment     2026-11-17T08:21:50Z
+            Scope added (orchestrator, 2026-11-17): the performance audit's findings 1, 2, 8, 13 and 14
+            (code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md): the pair sweep stops
+            once every reachable phase is found (1,000 seeds where 8 give the same cells); reload sweeps fork from a
+            world cut at each position instead of replaying from boot (49 % of suite file time); run rules memoise each
+            record's verdict by its text; the rest as written there. May change also covers src/host/testing/.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
         status      open
         priority    high
-        blocked_by  [@T9]
+        blocked_by  [@T9, @T85]
         description
             The runtime has no size or queue caps: each fixed cap in @plan.Pending.D24 is gone from the core Specs, the
             code and the tests, the follow-up chain stays as the one loop guard with its number from the bench, and a
@@ -2358,3 +2364,37 @@ tasks
             Scope added (the user, 2026-11-17, Q10 A): drop the server-rendering maxBytes (262,144 / 2 MiB) and the
             1,024-item Stream.callback queue where built, each past its old cap in a Story; the inspector ring's default
             capacity becomes a bench-set named default (D25).
+
+    T85
+        title       The step indexes the World and drafts its maps: no whole-world scans or whole-map copies
+        status      open
+        priority    high
+        blocked_by  [@T9]
+        description
+            The step stops scanning the whole World and copying whole maps: actor keys are carried on identities, the
+            World keeps per-step indexes, and a step edits one draft of its maps instead of copying a map per change.
+
+            **Why now:** the performance audit
+            (code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md, findings 6, 7, 10 and 11)
+            measured `actorKey` strings built per call at 13 % self time of `session/long`, `withEntry` whole-map copies
+            at 5.7 % self (O(N^2) with an unbounded mailbox once D24 lands), and whole-world scans per step. The turn
+            itself is 1 to 2 % of a run.
+
+            **Read first:** the audit's findings 6, 7, 10 and 11 with their evidence; @spec.Turn, @spec.Actors;
+            @plan.Pending.D24; code:wiki/conventions/fixtures.md.
+
+            **Risk:** a draft that leaks between steps or an index that drifts from the World would lose or double an
+            ending; every existing Story and run rule must hold unchanged, and the core stays pure and synchronous.
+
+            May change: `packages/flow-state-v3/src/core/`, `tests/`, `bench/`. Evidence: this Task's comments.
+
+            False pass: a faster step that skips a rule's check → caught by the same Story ids, run rules and fault
+            caught list before and after.
+        acceptance
+            - Profiles of `transfers/long`, `session/long` and a stress Story before and after, alone on this machine,
+              in a Task comment, with each finding's share before and after.
+            - Actor keys are built once per identity, World lookups use per-World indexes, and a step's map edits go
+              through one draft; no whole-map copy per change remains on the step path.
+            - A Story with many actors and a deep mailbox shows step cost grows with the work done, not with World size,
+              timed on the bench.
+            - The same Story ids, test counts and fault caught list hold before and after; `nub run check` passes.

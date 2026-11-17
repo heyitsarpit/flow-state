@@ -929,3 +929,8 @@ note 2026-11-17T07:45:34Z
 note 2026-11-17T07:49:34Z
     Performance architecture audit started (the user, 2026-11-17): one Opus with four Haiku, read-only, on core, tests
     and Story design; proposal file performance-architecture-2026-11-17.md feeds T9's compiled-walker lead, T83 and T84.
+
+note 2026-11-17T08:21:50Z
+    Performance audit done (fc1dd7da): the turn is 1-2 % of a run; time goes to whole-record re-encoding per step, test
+    replays from boot and whole-world scans. Routed: 3, 4, 5, 9, 12, 15 to T9's walkers; 1, 2, 8, 13, 14 to T83; 6, 7,
+    10, 11 to new T85 (after T9, before T84). Order: T9, T85, T84, T83, T20.
