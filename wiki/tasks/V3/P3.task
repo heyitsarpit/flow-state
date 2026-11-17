@@ -2732,7 +2732,7 @@ tasks
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T85]
         description
@@ -2821,6 +2821,41 @@ tasks
             reads stopped after a stop (red); in-step Capture measured. R12 Specs and specs.log; R13 a planted fault per
             new rule. Caps never built in v3 (streams, React sends, write batches, many keys, traces, Story frames,
             server rendering, the inspector ring) are noted on their Tasks' Plans, not built here.
+        comment     2026-11-17T15:57:38Z
+            Built at 6ff0da92, each cap red first at eb7cbaa1: 20,000 sends to one actor (18,976 refused
+            AdmissionOverloaded), `lanes/serialize-deep` (1,000 queued, NotSent Overloaded), 4,096-byte names and a
+            100-level path (InvalidName, PathTooDeep), an ended actor read disposed after a stop, the I42 guard with
+            Stopped. Long values renamed, one size each: `cells/long-key`, `sign-in/long-email`, `transfers/long-id`
+            (100,000), `player/long-room`, the lanes long commit (1,000,000), `palette/large-list` (10,000);
+            `session/wall`, `avatar-wall`, `stress-wall` (5,000 saved badges); `palette/stress-huge-list` (one 17+ MiB
+            record). lanes/stress-36 was printed again for its one long value. Caps never built in v3 (streams, React
+            sends, write batches, many keys, trace and Story size, server rendering, the inspector ring) have no code;
+            the Plans already drop them (D24).
+        comment     2026-11-17T15:57:38Z
+            Decisions (agent, with bench numbers, Node, bun bench/run.ts at 6ff0da92's code): slowWorkBudget 16 ms, one
+            60 Hz frame, about 100x the slowest ordinary fixture turn (session/long p99 0.141 ms per turn); drainYield
+            100, so a step's drain stays within that budget at that turn (16 / 0.141 = 113); loopGuard 5,000, so a
+            runaway chain stops within about 0.7 s at that turn, far past any fan-out a fixture sends; it stays unbuilt
+            until an actor-to-actor send exists (D13). SlowWork is a deterministic runtime test, not a Story: a Story
+            cannot hold real time. In-step Capture not built: its saving is bounded by T85's 4-8 % per turn under
+            captureMs 0, which only fixtures run. Reverse each in src/core/defaults.ts.
+        comment     2026-11-17T16:09:16Z
+            Bench (bun bench/run.ts, alone, 6ff0da92; per-turn median ms): cells/long 0.042, shop/long 0.048,
+            session/long 0.110 (p99 0.141), transfers/long 0.042, sign-in/long 0.019, sync/long 0.019; palette/stress-36
+            4.21, up from 1.75-1.88 since its list sample is now 10,000 commands. Past the old caps (per run median):
+            lanes/serialize-deep 157 ms for 2,002 turns; cells/long-key 0.41; sign-in/long-email 0.11; transfers/long-id
+            0.27; player/long-room 0.60; palette/large-list 77.7 (19.4 a turn, over the SlowWork budget, as it should
+            be); session/avatar-wall 3.2; session/stress-wall 2,043 ms for 10,001 turns; palette/stress-huge-list 1,753
+            ms; a 20,000-send burst 131 ms (6.5 us a send). Finding, proposed for a later Task: per-turn cost grows with
+            saved identities, session/wall 0.042 vs stress-wall 0.207 ms (4.9x at 5,000 badges); crowd-16 vs
+            crowd-256 1.96x.
+        comment     2026-11-17T16:09:16Z
+            Close (6ff0da92 plus records): ready for review. check 0; suite 1,305 tests, only T20's two pair reds;
+            test:stress 14 files exit 0; generated over FLOW_SEEDS=20 only the same two pair reds, stress seeds exit 0.
+            nub run faults: every fault caught by its targets (254), the new ones included (mailbox-capped,
+            serialize-capped, name-length-capped, state-depth-capped, three slow-work, stopped-ended-reads-disposed);
+            not judged as a whole since the unchanged run is red with T20's reds and sweep timeouts under 8-way load, as
+            at T85. Open for the user: the stress-wall per-turn growth.
 
     T85
         title       Records captured on issue (D30), plus compiled lookups
