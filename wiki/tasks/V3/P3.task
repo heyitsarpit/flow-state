@@ -2796,7 +2796,7 @@ tasks
 
     T85
         title       Records captured on issue (D30), plus compiled lookups
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T79, @T86]
         description

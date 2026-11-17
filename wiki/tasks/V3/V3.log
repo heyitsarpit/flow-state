@@ -1035,3 +1035,7 @@ note 2026-11-17T14:02:37Z
     T86 done: review PASS at 2516fb44 (47875b8d). Small follow-ups fixed now before T85: duplicate 'shop' sample-set id
     (rename to shop-store, uniqueness test), fixtures.md documents services/, stale stories.ts glob, tests/pay to
     tests/shop.
+
+note 2026-11-17T14:08:11Z
+    T86 follow-ups in (f676dc0a): store samples renamed shop-store with a uniqueness test, services/ documented,
+    tests/pay moved to tests/shop. T85 lead started: Capture on issue (D30), findings 12 and 15, and its routed items.
