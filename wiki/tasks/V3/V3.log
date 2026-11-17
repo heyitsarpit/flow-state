@@ -943,3 +943,8 @@ note 2026-11-17T08:29:03Z
 note 2026-11-17T08:31:12Z
     Correction (the user, 2026-11-17): D28 is not decided; no hybrid for caution's sake. The performance audit lead
     redesigns persistence projection for maximum performance with its broad implications; D28 stays proposed meanwhile.
+
+note 2026-11-17T09:02:39Z
+    Decision (the user, 2026-11-17): Q12 A, Q13 A. Pending D29: memory and selections immutable by contract, deep-frozen
+    in dev and test. D30: steps mark changed keys and one Capture encodes them at issue (supersedes D28), owned by T85.
+    T9's lead takes the memo and the freeze.

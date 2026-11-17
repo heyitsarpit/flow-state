@@ -2402,3 +2402,7 @@ tasks
             Scope added (orchestrator, 2026-11-17): @plan.Pending.D28, Later records projected when their list is
             issued, gated on the bench after T9's memoised walkers; WriteAhead R10/R11 and its realization change with a
             specs.log note if built.
+        comment     2026-11-17T09:02:39Z
+            Scope (the user, 2026-11-17, Q13 A): build @plan.Pending.D30, capture on issue (it supersedes D28), per
+            code:wiki/plans/flow/references/proposals/persistence-redesign-2026-11-17.md, with WriteAhead R10 to R12,
+            I20 and I21 rewritten and logged in specs.log; it needs T9's memoised walkers (D27, D29) first.
