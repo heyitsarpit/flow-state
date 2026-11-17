@@ -2856,6 +2856,20 @@ tasks
             serialize-capped, name-length-capped, state-depth-capped, three slow-work, stopped-ended-reads-disposed);
             not judged as a whole since the unchanged run is red with T20's reds and sweep timeouts under 8-way load, as
             at T85. Open for the user: the stress-wall per-turn growth.
+        comment     2026-11-17T16:20:55Z
+            Independent review: PASS at 7bc218ee. No blocking finding; check 0, suite 1,305 with only T20's two pair
+            reds. No size or queue refusal is left in src or the core Specs; probes in a scratch copy found every send
+            served once and in order per actor. Per-identity cost is the Story harness, not T85 or T79: run.ts view()
+            builds writes, heldWrites and held eagerly every step (since 54389a85), O(batches) a step under captureMs 0;
+            lazy getters made stress-wall flat at ~0.062 ms a turn from 1,000 to 5,000 badges. Route to @task.V3.T83, a
+            few lines in src/host/testing/run.ts. Non-blocking: (1) palette/stress-36 sends largeList (10,000) 13 times;
+            put 4,097 back or use longList there, since large-list and stress-huge-list carry the past-cap scale. (2)
+            RuntimeDefaults is public, unfrozen and read live by the core, so a caller can change drainYield for every
+            Runtime, and loopGuard has no reader: keep it internal or freeze it, and drop loopGuard until the send
+            action exists (the orchestrator's call). (3) No dev host gives a workClock, so SlowWork fires only in tests;
+            owner: the dev platform. (4) Serialize enqueue and vacate copy the queue, O(n^2) for a deep queue; bench it
+            past 1,000. (5) Stale text: the follow-ups.test.ts:100 title says 64; Actors I21 'within one rotation'
+            misses follow-up bursts; serialize-deep commits are identical, so its order isn't asserted.
 
     T85
         title       Records captured on issue (D30), plus compiled lookups
