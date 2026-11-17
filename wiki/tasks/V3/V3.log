@@ -875,3 +875,8 @@ note 2026-11-17T04:34:17Z
 note 2026-11-17T04:59:32Z
     T9 in review at d2ab6f9b: codec bounds and their code removed (D23), the four routed items fixed. Review started
     (four Haiku, one blind). Palette stress timeout (67 s vs 60 s, 4,097-command lists) routed to T83.
+
+note 2026-11-17T05:11:30Z
+    T9 review ISSUES (87f2bc52), one blocking: with the depth bound gone the codec walk recurses unguarded, so a value
+    5,000 deep throws RangeError and kills the run (Codec R1, R4); orchestrator confirmed visit/items/fields recursion.
+    Fix round to the T9 lead: a walk and text step that need no call stack, proven deep.
