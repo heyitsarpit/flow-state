@@ -394,8 +394,7 @@ export const faults: ReadonlyArray<Fault> = [
       {
         file: "src/core/incarnations.ts",
         find: "        memory: incarnation.memory,\n      }),\n    );",
-        replace:
-          '        memory: { held: new Map([["memory", incarnation.memory]]) },\n      }),\n    );',
+        replace: "        memory: { held: new Date(0) },\n      }),\n    );",
       },
     ],
   },

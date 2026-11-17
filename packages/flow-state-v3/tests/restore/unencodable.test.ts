@@ -215,6 +215,22 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     expect(run.checkpoints.after.read(Git.sync)).toEqual([]);
   });
 
+  it("Codec R4: a commit whose input has no canonical form outside its key (a lone surrogate in its document) declines NotSent Unencodable and sends nothing", async () => {
+    const run = checked(
+      await notesStory("restore/unencodable-document")
+        .ensure(notes)
+        .send(notes, { _tag: "Publish", doc: ["\uD800"] })
+        .advance("1 second")
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(
+      run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+    ).toEqual(["notSent Unencodable"]);
+    expect(run.checkpoints.after.read(Git.sync)).toEqual([]);
+  });
+
   it("Codec R1: twelve commits of 200,000 characters on one lane, 2.4 MB queued, are all sent and end; nothing declines or is reported", async () => {
     const big = { _tag: "Sync", repo: "r".repeat(200_000) } as const;
 
