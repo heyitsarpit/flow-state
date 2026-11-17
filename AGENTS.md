@@ -54,6 +54,8 @@ nub run test
 nub run docs:build   # public API or docs changes
 nub run verify       # full gate; don't claim full verification without it
 nub run faults       # a dead core and the named faults; run when the test tooling or run rules change
+nub run bench --only <id> --dev   # seconds, for iterating; longer tiers run capped in the background
+                                  # (wiki/conventions/bench.md)
 wk check             # see .agents/skills/wk/SKILL.md before editing Workflow records
 ```
 

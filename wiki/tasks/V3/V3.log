@@ -1098,3 +1098,8 @@ note 2026-11-17T19:38:22Z
 note 2026-11-17T19:43:59Z
     Bench code-quality review (Sonnet with four Haiku, b4fb7746): about 350 lines removable. New T89 applies it later,
     after T83 and before T20's close; it waits on T83 so T87's fix round and T83's edits settle first.
+
+note 2026-11-17T19:53:30Z
+    Amendment (the user, 2026-11-18): bench guidance in code:wiki/conventions/bench.md (never block on a bench; --dev
+    while working; longer tiers capped in the background; --full by concern in perf work); the Epic's close and cadence
+    now cite it (wakes start the tooling bench in the background); AGENTS.md and fixtures.md point to it.

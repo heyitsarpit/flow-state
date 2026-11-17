@@ -171,6 +171,8 @@ Story, since a refused admission rejects the run every runner makes.
 Long runs go behind the stress flag so the default suite stays fast. Planted faults (`tests/faults.ts`) and the
 lint overrides in `vite.config.ts` name fixture paths by string and are updated by hand when a path changes.
 
+The manifest's `bench` list holds the Stories worth timing; see code:wiki/conventions/bench.md.
+
 ## The proof a lead gives at requirements
 
 One Task comment per feature, in this shape:
