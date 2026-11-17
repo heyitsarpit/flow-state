@@ -895,3 +895,7 @@ note 2026-11-17T06:51:00Z
     Decision (the user, 2026-11-17): Q6 A, Q7 A, Q8 A, Q9 A. T9's cap requirements move to T84; stale cap items in
     Tasks and fixture docs become 'well past the old scale, timed'; fixture sizes and T83's budgets come from the bench;
     depth gets one measured platform limit (Pending D26). T9 resumes on D26.
+
+note 2026-11-17T06:55:59Z
+    Decision (the user, 2026-11-17): T9's next review, after the depth round, runs on Sonnet reviewers instead of an
+    Opus lead with Haiku sidecars.
