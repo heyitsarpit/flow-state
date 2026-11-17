@@ -2278,6 +2278,27 @@ tasks
             session seed. Faults stopped-dispose-succeeds and stopped-runtime-writes (four edits: the disposal must
             start and dispose wait on it for a write to escape) caught in a scratch copy. Gates: check 0, suite 1,290
             pass, 13 expected fail, T20's two reds; test:stress and FLOW_SEEDS=20 exit 0.
+        comment     2026-11-17T13:23:35Z
+            PASS (independent check-task at e6fac51d, second fix round 3a371872..e6fac51d): no blocking finding; T79 may
+            close. check 0; suite 1,290 pass, 13 expected fail, only T20's two pair reds. Records: 2f fixed (Finding
+            picks Diagnostic's fields, error.ts:83-86); routes written on T80 (3g clock queue), T81 (three construction
+            items) and T85 (3b persist); every finding has one outcome. Fail-stop probed in a scratch copy with a
+            planted step throw: boot, a send's step, a call's settle on a fiber and the disposal step each report the
+            defect once (ready or dispose dies with it, repeat disposes return the same defect, no uncaught escape);
+            Life reads Stopped, no host flag is left (I42 holds); an in-flight write and dirty rows are never written
+            after the defect. 22 codes, each with a producer; R6 consistent. Q17 asserts Sent; the three comments are
+            fixed; no Story id changed (one host test retitled R22 to R25). Routed, not blocking: (1) disposeActor on a
+            stopped Runtime returns instead of refusing RuntimeDisposed (life.ts DisposeActor Stopped: drop), against
+            R25's 'every later public call' and the algorithm's text: one cell and a test, or R25 names the exception;
+            orchestrator, before T86. (2) Boot rejects RuntimeDisposed while Stopped, the algorithm says it drops: Spec
+            text. (3) A record-only or quarantined actor's snapshot after a stop reads active or quarantined
+            (snapshot.ts:112,127), as with Disposed; untested; T85. (4) ready() after a stop says 'ready() after
+            dispose()'. (5) A throw from perform or the admit hook after world advances skips the step's other commands
+            with Life Open (driver.ts:168-173); T80, which drops the admit hook. (6) Fault stopped-runtime-writes also
+            deletes the die, so the dispose asserts catch it too; :411 is not shown alone. (7) AdmissionOverloaded is in
+            the union but not in @plan.Diagnostics.O2 (R7); records. Sidecars: accepted (1) to (7); rejected 'the defect
+            is never reported to an open Runtime's caller' (Q21 A names dispose as the channel) and 'two reports via
+            ready and dispose' (one defect, one channel per call, as R25 says).
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
