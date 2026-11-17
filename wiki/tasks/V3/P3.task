@@ -14,9 +14,9 @@ description
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
     order the user set; then @task.V3.T79 (code convergence with the step's edit operations), @task.V3.T86 (fixture
     layout), @task.V3.T85 (capture on issue), @task.V3.T84 (no caps), @task.V3.T87 (bench), @task.V3.T88 (tsrs),
-    @task.V3.T83 (fast tests), T20's close, @task.V3.T81 (construction bugs) and @task.V3.T80 (the user, 2026-11-16;
-    reordered by the user's Q14 A, 2026-11-17). A `blocked_by` link is a real dependency only; where several Tasks are
-    ready, take the earliest in this order.
+    @task.V3.T83 (fast tests), @task.V3.T89 (bench code), T20's close, @task.V3.T81 (construction bugs) and @task.V3.T80
+    (the user, 2026-11-16; reordered by the user's Q14 A, 2026-11-17). A `blocked_by` link is a real dependency only;
+    where several Tasks are ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -3343,3 +3343,39 @@ tasks
         comment     2026-11-17T16:52:19Z
             Agents (the user, 2026-11-17): a Sonnet builder and a Sonnet reviewer for this Task, not the usual
             Opus review.
+
+    T89
+        title       Bench code made smaller and generic: one tier table, one process helper, one flag and concern record
+        status      open
+        priority    low
+        blocked_by  [@T83]
+        description
+            The bench gets smaller and more generic: the ranked proposals of
+            code:wiki/plans/flow/references/proposals/bench-quality-review-2026-11-18.md are applied or rejected with a
+            reason, about 350 lines removed, with every bench, CSV row shape and CLI result unchanged.
+
+            **Why now:** the bench was built and rebuilt in one day (@task.V3.T87) and never reviewed for duplication or
+            missing abstractions; the review found one tier table in place of five tier copies, fields nothing reads,
+            one scoped process helper on Effect's `ChildProcess` and `Effect.timeoutOption` in place of five `spawnSync`
+            wrappers, one flag declaration and one concern record (the user, 2026-11-18: a Task for later).
+
+            **Read first:** the proposal above (ranked by lines removed per risk, with each sidecar finding's verdict),
+            AGENTS.md "Code style (v3 production)", `tools/lint-bomb/STYLE.md`, `packages/flow-state-v3/bench/`.
+
+            **Risk:** a refactor that changes what is timed or recorded; the proposal's line numbers predate T87's fix
+            round, so each is re-verified on current code first. `backfill.ts` and `--timing` stay (the user's
+            decisions); the saved stress Story's turn bench not being marked stress is confirmed intended or fixed.
+
+            May change: `packages/flow-state-v3/bench/`, `fixtures/manifest.ts` (bench parts), `tests/bench/`. Evidence:
+            this Task's comments.
+
+            False pass: a smaller bench that silently drops a bench, a column or a guard → caught by the same `--list`
+            output, the same CSV header and the bench tests (timeouts, cap, orphans, tiers) before and after.
+        acceptance
+            - Each proposal in the review is applied or rejected with a reason in a Task comment, re-verified against
+              current code first.
+            - `nub run bench --list` gives the same bench ids before and after; the CSV header and row Schema are
+              unchanged; a quick and a `--dev` run give results within noise of before.
+            - The bench tests (per-bench timeout in a shared worker, the run cap, no orphans on signal or cap, tier
+              selection, `--max-n`) pass unchanged.
+            - Line count of `bench/` before and after is reported; `nub run check` passes.

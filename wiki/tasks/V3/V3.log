@@ -1094,3 +1094,7 @@ note 2026-11-17T19:38:22Z
     T87 review ISSUES (460071a3): a hung bench in a shared worker outlives its timeout; signals and the cap leave orphan
     workers and tooling processes; --dev runs two workers. Fix round to its lead; backfill.ts kept (the user will
     backfill later), against the reviewer's delete.
+
+note 2026-11-17T19:43:59Z
+    Bench code-quality review (Sonnet with four Haiku, b4fb7746): about 350 lines removable. New T89 applies it later,
+    after T83 and before T20's close; it waits on T83 so T87's fix round and T83's edits settle first.
