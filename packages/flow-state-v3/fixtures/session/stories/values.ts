@@ -450,38 +450,54 @@ export const inboxSamples = samplesOf({
       .send(mainCalendar, { _tag: "Show", from: 0, to: 5_000 }),
 });
 
-/**
- * What the nests and their viewer meet, for generated runs and the app mix: nests of every kind
- * past where Effect's walks run out of stack and shallow again, a folder tree imported in a
- * payload, a pin of the viewer's own and the title renamed beside them.
- */
-export const nestsSamples = samplesOf({
-  id: "session-nests",
-  story: grownStory("session/nests-samples").ensure(mainNests).ensure(nestView),
-  names: { setup: "workspaceGrownSetup", fixtures: ["IdentityFake"] },
-  actors: { mainNests, nestView },
-  servers: { Identity },
-  failures: [],
-  landedFailures: [],
-  values: {
-    deepLists: { _tag: "Lists", depth: PAST_STACK },
-    deepFolders: { _tag: "Folders", depth: PAST_STACK },
-    deepMaps: { _tag: "Maps", depth: PAST_STACK },
-    deepTree: { _tag: "Tree", depth: PAST_STACK },
+// The nests' sample values at one depth, each one object, so a printed run names it.
+const nestValuesAt = (depth: number) =>
+  ({
+    deepLists: { _tag: "Lists", depth },
+    deepFolders: { _tag: "Folders", depth },
+    deepMaps: { _tag: "Maps", depth },
+    deepTree: { _tag: "Tree", depth },
     shallowTree: { _tag: "Tree", depth: 2 },
-    deepImport: { _tag: "Import", folder: foldersOf(PAST_STACK) },
-    deepPin: { _tag: "Pin", depth: PAST_STACK },
+    deepImport: { _tag: "Import", folder: foldersOf(depth) },
+    deepPin: { _tag: "Pin", depth },
     renamed: { _tag: "Title", title: "renamed" },
-  },
-  controls: [],
-  steps: (story) =>
-    story
-      .send(mainNests, { _tag: "Lists", depth: PAST_STACK })
-      .send(mainNests, { _tag: "Folders", depth: PAST_STACK })
-      .send(mainNests, { _tag: "Maps", depth: PAST_STACK })
-      .send(mainNests, { _tag: "Tree", depth: PAST_STACK })
-      .send(mainNests, { _tag: "Tree", depth: 2 })
-      .send(mainNests, { _tag: "Import", folder: foldersOf(PAST_STACK) })
-      .send(nestView, { _tag: "Pin", depth: PAST_STACK })
-      .send(mainNests, { _tag: "Title", title: "renamed" }),
-});
+  }) as const;
+
+const nestsSamplesAt = (depth: number, id: string) => {
+  const values = nestValuesAt(depth);
+
+  return samplesOf({
+    id,
+    story: grownStory(`session/${id}`).ensure(mainNests).ensure(nestView),
+    names: { setup: "workspaceGrownSetup", fixtures: ["IdentityFake"] },
+    actors: { mainNests, nestView },
+    servers: { Identity },
+    failures: [],
+    landedFailures: [],
+    values,
+    controls: [],
+    steps: (story) =>
+      story
+        .send(mainNests, values.deepLists)
+        .send(mainNests, values.deepFolders)
+        .send(mainNests, values.deepMaps)
+        .send(mainNests, values.deepTree)
+        .send(mainNests, values.shallowTree)
+        .send(mainNests, values.deepImport)
+        .send(nestView, values.deepPin)
+        .send(mainNests, values.renamed),
+  });
+};
+
+/**
+ * What the nests and their viewer meet, for generated runs: nests of every kind and shallow
+ * again, a folder tree imported in a payload, a pin of the viewer's own and the title renamed
+ * beside them, 64 deep.
+ */
+export const nestsSamples = nestsSamplesAt(64, "session-nests");
+
+/**
+ * The same, past where Effect's own walks run out of stack, for the stress runs: values that deep
+ * take the default suite from seconds to minutes.
+ */
+export const nestsStressSamples = nestsSamplesAt(PAST_STACK, "session-nests-deep");

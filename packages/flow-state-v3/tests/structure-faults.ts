@@ -417,7 +417,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/driver.ts",
-        find: "Schema.is(event.payload)(payload)",
+        find: "event.is(payload)",
         replace: "Option.isSome(Schema.decodeUnknownOption(event.payload)(payload))",
       },
     ],

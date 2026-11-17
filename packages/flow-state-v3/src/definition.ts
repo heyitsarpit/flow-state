@@ -1,4 +1,5 @@
 import { type Duration, Option, Predicate, Schema } from "effect";
+import { walkerOf } from "./core/boundary.ts";
 import type { Action, Compiled, Denial, Guard, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import { atOrBelow, chainOf } from "./core/tree.ts";
@@ -419,8 +420,11 @@ const invalidEvent = (tag: string, field: ReadonlyArray<string>) =>
 
 const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
   const ending = { event: tag, from: Option.none() };
-  const valid = Schema.is(codecOf<Values>(Schema.Struct(fields)));
-  const checks = Object.entries(fields).map(([name, schema]) => [name, Schema.is(schema)] as const);
+  const valid = walkerOf(codecOf<Values>(Schema.Struct(fields))).is;
+
+  const checks = Object.entries(fields).map(
+    ([name, schema]) => [name, walkerOf(schema).is] as const,
+  );
 
   const make = (given: Values = {}) => {
     if (!valid(given))
@@ -548,7 +552,7 @@ export const definition = <
   const handles = Object.fromEntries(
     Object.entries(operations).map(([name, bound]) => [
       name,
-      bound.kind === "write" ? writeHandle(name, bound.keyText) : readHandle(name),
+      bound.kind === "write" ? writeHandle(name, bound.textOfKey) : readHandle(name),
     ]),
   );
 

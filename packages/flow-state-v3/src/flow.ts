@@ -1,4 +1,3 @@
-import { MAX_DEPTH } from "./core/depth.ts";
 import { Data, Effect, Predicate, type Schema } from "effect";
 import type { Denial, Values } from "./core/compiled.ts";
 
@@ -72,12 +71,6 @@ const entry: Entry = { "~flow": "entry" };
  * - `Flow.entry`: in a schedule's `armOn`, arm it on its state's entry too.
  */
 export const Flow = {
-  /**
-   * How deeply a value may nest (arrays, objects, Maps, Sets and class instances inside one
-   * another): a platform limit, measured where Effect's Schema and `Equal` recurse. Memory, a
-   * selection or a commit input past it is reported UnencodableValue and never fails a turn.
-   */
-  maxDepth: MAX_DEPTH,
   // RETURN_TYPE: the marker's Schema type parameter types the memory field.
   initial: <S extends Plain>(
     schema: S,

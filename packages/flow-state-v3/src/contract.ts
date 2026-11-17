@@ -1,4 +1,6 @@
-import { type Context, type Duration, type Effect, Option, Schema, Struct } from "effect";
+import { type Context, type Duration, type Effect, Option, Result, Schema, Struct } from "effect";
+import { type Walker, walkerOf } from "./core/boundary.ts";
+import { writeJson } from "./core/codec.ts";
 import type { Attempt, Commit, Concurrency, Lookup, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
 
@@ -102,6 +104,8 @@ type BoundFields = {
   readonly inputJson: Schema.Codec<Values, Values>;
   readonly key: ReadonlyArray<string>;
   readonly keyText: Schema.Codec<Values, string>;
+  readonly keyJson: Schema.Codec<Values, Values>;
+  readonly textOfKey: (value: Values) => Option.Option<string>;
   readonly concurrency: Concurrency;
   readonly success: Ending;
   readonly failure: Readonly<Record<string, Ending>>;
@@ -116,21 +120,28 @@ const recordCodec = <T, S = Schema.Top>(schema: S) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the contract's field types are erased in Compiled
   schema as Schema.Codec<Values, T>;
 
+// A key's text from a value's key fields, by its key's walker: its key fields in name order as
+// JSON text, the bytes `JSON.stringify` writes, with no call stack; none when they have no encoded
+// form.
+const keyTextBy =
+  // FLOW_STATE_ALLOW_UNKNOWN: a key's walker, typed by its key fields.
+  (key: Walker<unknown, unknown>, fields: ReadonlyArray<string>) => (value: Values) =>
+    Result.getSuccess(Result.flatMap(key.encode(Struct.pick(value, fields)), writeJson));
+
 /**
- * The codecs a bound contract carries: its input, its input as JSON, and its key's canonical text
- * (its key fields in name order, as JSON).
+ * The codecs a bound contract carries: its input, its input as JSON, and its key's text (its key
+ * fields in name order, as JSON), with the JSON form that text is written from.
  */
 const codecsOf = <F extends Fields>(fields: F, key: ReadonlyArray<keyof F & string>) => {
   const input = Schema.Struct(fields);
+  const keyJson = Schema.toCodecJson(Schema.Struct(Struct.pick(fields, [...key].toSorted())));
 
   return {
     input: recordCodec<Values>(input),
     inputJson: recordCodec<Values>(Schema.toCodecJson(input)),
-    keyText: recordCodec<string>(
-      Schema.fromJsonString(
-        Schema.toCodecJson(Schema.Struct(Struct.pick(fields, [...key].toSorted()))),
-      ),
-    ),
+    keyText: recordCodec<string>(Schema.fromJsonString(keyJson)),
+    keyJson: recordCodec<Values>(keyJson),
+    textOfKey: keyTextBy(walkerOf(keyJson), key),
   };
 };
 

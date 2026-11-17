@@ -79,6 +79,9 @@ const shelfSetup = runtimeSetup({
   persistence: { captureMs: 0 },
 });
 
+// A run of a hundred thousand levels takes seconds: each step walks the nest a few times.
+const DEEP_TIMEOUT = 120_000;
+
 const ended = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
 
@@ -87,28 +90,32 @@ const reported = (run: StoryRun) =>
 
 describe("commit inputs and lane keys of any depth (Codec R1, R4; WriteLanes R12)", () => {
   for (const depth of [PAST_STACK, DEEP])
-    it(`Codec R1, WriteLanes R12: a commit keyed on a tree ${depth.toLocaleString("en")} deep is saved with its lane and its actor's memory as deep, survives a reload while held and ends once`, async () => {
-      const shelf = actorRef(ShelfMachine, { shelf: "main" });
+    it(
+      `Codec R1, WriteLanes R12: a commit keyed on a tree ${depth.toLocaleString("en")} deep is saved with its lane and its actor's memory as deep, survives a reload while held and ends once`,
+      async () => {
+        const shelf = actorRef(ShelfMachine, { shelf: "main" });
 
-      const run = checked(
-        await Story.app(shelfSetup, { id: `deep/shelf-${depth}`, fixtures: [GitFake] })
-          .ensure(shelf)
-          .send(shelf, { _tag: "Publish", depth: 3 })
-          .world(Git.sync.hold())
-          .send(shelf, { _tag: "Publish", depth })
-          .checkpoint("held")
-          .reload()
-          .advance("1 second")
-          .checkpoint("after")
-          .run(),
-      );
+        const run = checked(
+          await Story.app(shelfSetup, { id: `deep/shelf-${depth}`, fixtures: [GitFake] })
+            .ensure(shelf)
+            .send(shelf, { _tag: "Publish", depth: 3 })
+            .world(Git.sync.hold())
+            .send(shelf, { _tag: "Publish", depth })
+            .checkpoint("held")
+            .reload()
+            .advance("1 second")
+            .checkpoint("after")
+            .run(),
+        );
 
-      const stored = [...run.checkpoints.held.records.stored.keys()];
+        const stored = [...run.checkpoints.held.records.stored.keys()];
 
-      expect(stored.some((k) => k.startsWith("lane/"))).toBe(true);
-      expect(stored.some((k) => k.startsWith("actor/Deep/Shelf/"))).toBe(true);
-      expect(run.checkpoints.after.read(shelf)).toBeDefined();
-      expect(ended(run)).toEqual(["success Ok", "unknown Restored"]);
-      expect(reported(run)).toEqual([]);
-    });
+        expect(stored.some((k) => k.startsWith("lane/"))).toBe(true);
+        expect(stored.some((k) => k.startsWith("actor/Deep/Shelf/"))).toBe(true);
+        expect(run.checkpoints.after.read(shelf)).toBeDefined();
+        expect(ended(run)).toEqual(["success success", "unknown Restored"]);
+        expect(reported(run)).toEqual([]);
+      },
+      DEEP_TIMEOUT,
+    );
 });

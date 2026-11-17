@@ -1,16 +1,20 @@
-import { Equal, Option, Result, Schema } from "effect";
-import { toCanonicalJson } from "./codec.ts";
-import { withinDepth } from "./depth.ts";
+import { Option, Result, type Schema } from "effect";
+import type { Walker } from "./boundary.ts";
+import { Canonical, parseCanonical, writeCanonical } from "./codec.ts";
 import type { Values } from "./compiled.ts";
+import { sameValue } from "./same.ts";
 
 /**
  * A context slot's selection as its Schema reads it back, beside its JSON form: the value a consumer
- * reads, saves and compares, the same live and after a reload.
+ * reads, saves and compares, the same live and after a reload, and that form's canonical text.
  */
 export type Selected = {
   // FLOW_STATE_ALLOW_UNKNOWN: a selection has the type its slot's Schema decodes, typed at the definition.
   readonly value: unknown;
   readonly json: Schema.Json;
+  readonly text: Canonical;
+  // FLOW_STATE_ALLOW_UNKNOWN: the selector's own result this was read from; none when restored.
+  readonly raw: Option.Option<unknown>;
 };
 
 /**
@@ -41,20 +45,25 @@ export type Baseline = {
 };
 
 /**
- * A saved slot's JSON read back through its Schema; fails when the Schema refuses it or its decode
- * throws.
+ * A saved slot's JSON read back through its Schema, beside its canonical text; fails when the
+ * Schema refuses it or its JSON has no canonical form.
  */
 export const readSelected = (
-  // FLOW_STATE_ALLOW_UNKNOWN: a slot's JSON codec, typed at the definition.
-  codec: Schema.Codec<unknown, unknown>,
+  // FLOW_STATE_ALLOW_UNKNOWN: a slot's walkers, typed at the definition.
+  walk: Walker<unknown, unknown>,
   json: Schema.Json,
+  written: Option.Option<string> = Option.none(),
 ) =>
   Result.flatMap(
-    Result.try({ try: () => Schema.decodeUnknownResult(codec)(json), catch: () => "schema" }),
-    (decoded) =>
+    Option.match(written, {
+      onNone: () => Result.mapError(writeCanonical(json, "zero"), () => "codec"),
+      onSome: Result.succeed,
+    }),
+    (text) =>
       Result.map(
-        Result.mapError(decoded, () => "schema"),
-        (value) => ({ value, json }) satisfies Selected,
+        walk.decode(json),
+        (value) =>
+          ({ value, json, text: new Canonical({ text }), raw: Option.none() }) satisfies Selected,
       ),
   );
 
@@ -63,27 +72,28 @@ export const readSelected = (
  * as 0, which `Equal` holds equal) and the value that form reads back as, so a consumer reads the
  * same value live and after a reload. Fails when the Schema refuses the selection, encodes it
  * without end (a cycle the Schema follows), or its JSON has no canonical form (a lone surrogate):
- * its selector's contract.
+ * its selector's contract. A selector that returns the very value it returned last (an unchanged
+ * part of an immutable snapshot) keeps its last selection, walked once.
  */
 export const selectedOf = (
-  // FLOW_STATE_ALLOW_UNKNOWN: a slot's JSON codec, typed at the definition.
-  codec: Schema.Codec<unknown, unknown>,
+  // FLOW_STATE_ALLOW_UNKNOWN: a slot's walkers, typed at the definition.
+  walk: Walker<unknown, unknown>,
   // FLOW_STATE_ALLOW_UNKNOWN: a selector's raw result, checked here by its slot's Schema.
   raw: unknown,
 ) =>
-  Result.flatMap(
-    withinDepth(raw)
-      ? Result.try({ try: () => Schema.encodeUnknownResult(codec)(raw), catch: () => "schema" })
-      : Result.fail("depth"),
-    (encoded) =>
-      Result.flatMap(
-        Result.mapError(encoded, () => "schema"),
-        (json) =>
-          Result.flatMap(
-            Result.mapError(toCanonicalJson(json, "zero"), () => "codec"),
-            (canonical) => readSelected(codec, canonical),
-          ),
-      ),
+  Result.flatMap(walk.encode(raw), (json) =>
+    Result.flatMap(
+      Result.mapError(writeCanonical(json, "zero"), () => "codec"),
+      (text) =>
+        Result.flatMap(
+          Result.mapError(parseCanonical(text), () => "codec"),
+          (canonical) =>
+            Result.map(readSelected(walk, canonical, Option.some(text)), (selected) => ({
+              ...selected,
+              raw: Option.some(raw),
+            })),
+        ),
+    ),
   );
 
 /**
@@ -91,12 +101,10 @@ export const selectedOf = (
  * every way a select can read it, a Map's or Set's order included; or are both never selected.
  */
 export const sameForm = (a: Option.Option<Selected>, b: Option.Option<Selected>) =>
-  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => Equal.equals(a.value.json, y.json));
+  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => a.value.text.text === y.text.text);
 
 /**
  * Whether two slots hold equal selections, or are both never selected.
  */
 export const sameSlot = (a: Option.Option<Selected>, b: Option.Option<Selected>) =>
-  Option.isNone(a)
-    ? Option.isNone(b)
-    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));
+  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => sameValue(a.value.value, y.value));

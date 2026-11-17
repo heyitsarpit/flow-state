@@ -1,4 +1,6 @@
-import { type Equivalence, Option, Result, Schema } from "effect";
+import { Option, Schema } from "effect";
+import { walkerOf } from "./core/boundary.ts";
+import { sameValue } from "./core/same.ts";
 import type { Values } from "./core/compiled.ts";
 import { leafOf } from "./core/tree.ts";
 import {
@@ -99,13 +101,16 @@ export type AnyBody = {
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
 
-// A memory equivalence that never throws: memory past the depth limit, which the Schema's
-// equivalence cannot walk, counts as changed, and its save reports it UnencodableValue.
-const deepSafe = (same: Equivalence.Equivalence<Values>) => (a: Values, b: Values) =>
-  Result.getOrElse(
-    Result.try(() => same(a, b)),
-    () => false,
+// Whether two memories hold equal fields: the same field object at once (an update keeps every
+// field it does not patch), else compared without the call stack.
+const sameMemory = (a: Values, b: Values) => {
+  const keys = Object.keys(a);
+
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((k) => Object.hasOwn(b, k) && (a[k] === b[k] || sameValue(a[k], b[k])))
   );
+};
 
 // FLOW_STATE_ALLOW_UNKNOWN: a provider's snapshot as the runtime reads it, typed at the definition.
 const erasedSelect = (select: (snapshot: never) => unknown) =>
@@ -172,6 +177,7 @@ export const machine = <D extends AnyDefinition>(
 
   const fields = Object.entries(definition.memory).map(([name, raw]) => fieldOf(name, raw));
   const memory = memoryCodec(fields);
+  const memoryJson = codecOf<Values>(Schema.toCodecJson(memory));
   const states = new Map(compiledTree.nodes.map((n) => [n.path, n]));
 
   const compiled = {
@@ -183,8 +189,9 @@ export const machine = <D extends AnyDefinition>(
     events: eventsOf(definition),
     fields,
     memory,
-    memoryJson: codecOf<Values>(Schema.toCodecJson(memory)),
-    sameMemory: deepSafe(Schema.toEquivalence(memory)),
+    memoryJson,
+    walk: walkerOf(memoryJson),
+    sameMemory,
     operations: new Map(
       Object.entries(definition.operations).map(([name, bound]) => [
         name,
@@ -197,6 +204,7 @@ export const machine = <D extends AnyDefinition>(
         {
           provider: declared.provider,
           json: Schema.toCodecJson(declared.schema),
+          walk: walkerOf(Schema.toCodecJson(declared.schema)),
           select: { slot: `context.${slot}`, run: erasedSelect(declared.select) },
         },
       ]),

@@ -20,6 +20,9 @@ import { render } from "../../src/host/trace.ts";
 import { FlowError } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
 
+// A run of a hundred thousand levels takes seconds: each step walks the nest a few times.
+const DEEP_TIMEOUT = 120_000;
+
 const NESTS = "actor/Workspace/Nests/main";
 const VIEW = "actor/Workspace/NestView/view";
 
@@ -90,84 +93,102 @@ describe("values of any depth (Codec R1, R4; Actors R18, R19; Pending D27)", () 
       [PAST_STACK, () => swept[kind]],
       [DEEP, () => nestAt(kind, DEEP, `session/${kind.toLowerCase()}-deep`)],
     ] as const)
-      it(`Codec R1, Actors R19: ${kind} ${depth.toLocaleString("en")} deep save, restore and are heard once; the title alone, an equal rebuild and a reload make up no event`, async () => {
-        const run = checked(await story().run());
+      it(
+        `Codec R1, Actors R19: ${kind} ${depth.toLocaleString("en")} deep save, restore and are heard once; the title alone, an equal rebuild and a reload make up no event`,
+        async () => {
+          const run = checked(await story().run());
 
-        const heard = (cut: keyof typeof run.checkpoints) =>
-          run.checkpoints[cut].read(nestView)?.memory[heardOn];
+          const heard = (cut: keyof typeof run.checkpoints) =>
+            run.checkpoints[cut].read(nestView)?.memory[heardOn];
 
-        expect([
-          heard("deep"),
-          heard("titled"),
-          heard("deeper"),
-          heard("again"),
-          heard("reloaded"),
-          heard("back"),
-        ]).toEqual([1, 1, 2, 2, 2, 3]);
-        expect(run.checkpoints.deep.records.stored.get(NESTS)).toBeDefined();
-        expect(depthOf(run.checkpoints.reloaded.read(mainNests)?.memory[field])).toBeGreaterThan(
-          depth - 1,
-        );
-        expect(run.checkpoints.reloaded.read(mainNests)?.memory["title"]).toBe("renamed");
-        expect(unencodable(run)).toEqual([]);
-        expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
-      });
+          expect([
+            heard("deep"),
+            heard("titled"),
+            heard("deeper"),
+            heard("again"),
+            heard("reloaded"),
+            heard("back"),
+          ]).toEqual([1, 1, 2, 2, 2, 3]);
+          expect(run.checkpoints.deep.records.stored.get(NESTS)).toBeDefined();
+          expect(depthOf(run.checkpoints.reloaded.read(mainNests)?.memory[field])).toBeGreaterThan(
+            depth - 1,
+          );
+          expect(run.checkpoints.reloaded.read(mainNests)?.memory["title"]).toBe("renamed");
+          expect(unencodable(run)).toEqual([]);
+          expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
+        },
+        DEEP_TIMEOUT,
+      );
 
   for (const [depth, story] of [
     [PAST_STACK, () => importPastStack],
     [DEEP, () => importAt(DEEP, "session/import-deep")],
   ] as const)
-    it(`Codec R1, Actors R19: a folder tree ${depth.toLocaleString("en")} deep in an event's payload is decoded and saved; a reaction reading a pin as deep beside the title hears each title once and nothing else`, async () => {
-      const run = checked(await story().run());
+    it(
+      `Codec R1, Actors R19: a folder tree ${depth.toLocaleString("en")} deep in an event's payload is decoded and saved; a reaction reading a pin as deep beside the title hears each title once and nothing else`,
+      async () => {
+        const run = checked(await story().run());
 
-      const view = (cut: keyof typeof run.checkpoints) =>
-        run.checkpoints[cut].read(nestView)?.memory;
+        const view = (cut: keyof typeof run.checkpoints) =>
+          run.checkpoints[cut].read(nestView)?.memory;
 
-      expect(view("imported")?.["folders"]).toBe(1);
-      expect(
-        (["pinned", "first", "unrelated", "reloaded", "second"] as const).map(
-          (cut) => view(cut)?.["pins"],
-        ),
-      ).toEqual([0, 1, 1, 1, 2]);
-      expect(depthOf(run.checkpoints.reloaded.read(mainNests)?.memory["folders"])).toBeGreaterThan(
-        depth - 1,
-      );
-      expect(depthOf(view("reloaded")?.["pinned"])).toBeGreaterThan(depth - 1);
-      expect(run.checkpoints.pinned.records.stored.get(VIEW)).toBeDefined();
-      expect(unencodable(run)).toEqual([]);
-      expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
-      expect(render(run.trace, "text")).toContain("send actor/Workspace/Nests/main Import");
-    });
-
-  it("Codec R1: a document a hundred thousand deep beside five thousand siblings imports, compares equal when rebuilt, and restores", async () => {
-    const run = checked(await deepAndWideNests().run());
-
-    const heard = (cut: keyof typeof run.checkpoints) =>
-      run.checkpoints[cut].read(nestView)?.memory["folders"];
-
-    expect([heard("mixed"), heard("again"), heard("reloaded")]).toEqual([1, 1, 1]);
-    expect(unencodable(run)).toEqual([]);
-  });
-
-  it("E2, Actors R14: a payload the Schema refuses a hundred thousand deep throws InvalidEvent at the event's constructor and at send, never another error", () => {
-    const deep: Folder = foldersOf(DEEP);
-
-    expect(Nests.E.Import({ folder: deep })._tag).toBe("Import");
-
-    for (const send of [
-      () => Nests.E.Import({ folder: brokenFolder(DEEP) }),
-      () => {
-        const runtime = workspaceGrownSetup.construct();
-        Effect.runSync(runtime.ready());
-        runtime.ensureActor(mainNests).send(loose({ _tag: "Import", folder: brokenFolder(DEEP) }));
+        expect(view("imported")?.["folders"]).toBe(1);
+        expect(
+          (["pinned", "first", "unrelated", "reloaded", "second"] as const).map(
+            (cut) => view(cut)?.["pins"],
+          ),
+        ).toEqual([0, 1, 1, 1, 2]);
+        expect(
+          depthOf(run.checkpoints.reloaded.read(mainNests)?.memory["folders"]),
+        ).toBeGreaterThan(depth - 1);
+        expect(depthOf(view("reloaded")?.["pinned"])).toBeGreaterThan(depth - 1);
+        expect(run.checkpoints.pinned.records.stored.get(VIEW)).toBeDefined();
+        expect(unencodable(run)).toEqual([]);
+        expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
+        expect(render(run.trace, "text")).toContain("send Workspace/Nests/main Import");
       },
-    ])
-      try {
-        send();
-        assert.fail("the payload was not refused");
-      } catch (error) {
-        assert.ok(error instanceof FlowError, String(error));
-        expect(error.code).toBe("InvalidEvent");
-      }
-  });
+      DEEP_TIMEOUT,
+    );
+
+  it(
+    "Codec R1: a document a hundred thousand deep beside five thousand siblings imports, compares equal when rebuilt, and restores",
+    async () => {
+      const run = checked(await deepAndWideNests().run());
+
+      const heard = (cut: keyof typeof run.checkpoints) =>
+        run.checkpoints[cut].read(nestView)?.memory["folders"];
+
+      expect([heard("mixed"), heard("again"), heard("reloaded")]).toEqual([1, 1, 1]);
+      expect(unencodable(run)).toEqual([]);
+    },
+    DEEP_TIMEOUT,
+  );
+
+  it(
+    "E2, Actors R14: a payload the Schema refuses a hundred thousand deep throws InvalidEvent at the event's constructor and at send, never another error",
+    () => {
+      const deep: Folder = foldersOf(DEEP);
+
+      expect(Nests.E.Import({ folder: deep })._tag).toBe("Import");
+
+      for (const send of [
+        () => Nests.E.Import({ folder: brokenFolder(DEEP) }),
+        () => {
+          const runtime = workspaceGrownSetup.construct();
+          Effect.runSync(runtime.ready());
+          runtime
+            .ensureActor(mainNests)
+            .send(loose({ _tag: "Import", folder: brokenFolder(DEEP) }));
+        },
+      ])
+        try {
+          send();
+          assert.fail("the payload was not refused");
+        } catch (error) {
+          assert.ok(error instanceof FlowError, String(error));
+          expect(error.code).toBe("InvalidEvent");
+        }
+    },
+    DEEP_TIMEOUT,
+  );
 });

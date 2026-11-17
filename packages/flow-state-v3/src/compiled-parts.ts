@@ -1,9 +1,11 @@
 import { Option, Schema, SchemaAST } from "effect";
+import { walkerOf } from "./core/boundary.ts";
 import {
   type EventEntry,
   type Field,
   type Mapping,
   Operation,
+  type OperationWalk,
   Source,
   type Values,
 } from "./core/compiled.ts";
@@ -35,6 +37,12 @@ const inputFieldsOf = (input: Schema.Codec<Values, Values>) => {
   return SchemaAST.isObjects(ast) ? ast.propertySignatures.map((p) => String(p.name)) : [];
 };
 
+// RETURN_TYPE: the Compiled OperationWalk shape.
+const operationWalkOf = (bound: Bound): OperationWalk => ({
+  input: walkerOf(bound.inputJson),
+  keyText: bound.textOfKey,
+});
+
 export const operationOf = (name: string, bound: Bound) => {
   const failure = new Map(
     Object.entries(bound.failure).map(([tag, ending]) => [
@@ -51,6 +59,7 @@ export const operationOf = (name: string, bound: Bound) => {
     key: bound.keyText,
     input: bound.input,
     inputJson: bound.inputJson,
+    walk: operationWalkOf(bound),
     success: mappingOf(bound.success, `operations.${name}.success`),
     failure,
   };
@@ -88,14 +97,17 @@ export const fieldOf = (name: string, raw: FieldMarker): Field => {
   const schema = isMarker(marked) ? marked.schema : marked;
 
   const source = sourceOf(name, marked);
+  const json = Schema.toCodecJson(schema);
+  const walk = walkerOf(json);
 
   return {
     name,
     schema,
-    json: Schema.toCodecJson(schema),
+    json,
+    walk,
     source,
     private: isPrivate,
-    is: Schema.is(schema),
+    is: walk.is,
     fallback: Option.flatten(pureDefault(schema.ast)),
   };
 };
@@ -105,11 +117,16 @@ export const memoryCodec = (fields: ReadonlyArray<Field>) =>
 
 export const eventsOf = (definition: AnyDefinition) => {
   // RETURN_TYPE: the Compiled shape this part builds.
-  const entry = (fields: EventFields, isPublic: boolean): EventEntry => ({
-    payload: codecOf<Values>(Schema.Struct(fieldsOf(fields))),
-    public: isPublic,
-    uncertain: isUncertain(fields),
-  });
+  const entry = (fields: EventFields, isPublic: boolean): EventEntry => {
+    const payload = codecOf<Values>(Schema.Struct(fieldsOf(fields)));
+
+    return {
+      payload,
+      is: walkerOf(payload).is,
+      public: isPublic,
+      uncertain: isUncertain(fields),
+    };
+  };
 
   return new Map([
     ...Object.entries(definition.events).map(([tag, f]) => [tag, entry(f, true)] as const),

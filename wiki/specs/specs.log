@@ -264,3 +264,18 @@ note 2026-11-17T06:58:32Z
     @spec.Codec R1, R4, T1 (@plan.Pending.D26): depth has one platform limit, Flow.maxDepth = 256 nested containers;
     measured: Node 24 Map nest under Schema.suspend decodes 686 levels, trees 1,171, Equal 1,195; Chromium 781; Bun
     1,393. Past it, memory, a selection or a commit input is reported UnencodableValue. Reverse: 2bb48ce9.
+
+note 2026-11-17T13:55:00Z
+    @spec.Codec R6, I8, T7 (proposed, @plan.Pending.D27): one value boundary; walkers compiled per Schema run Effect's
+    parser a level at a time, each Schema.suspend a hole read from a table, on an explicit stack. Why: three reviews
+    found unguarded recursive calls. Reverse: drop R6 and keep D26's limit (5cb2824c).
+
+note 2026-11-17T16:30:00Z
+    @spec.Codec R1, R4, T1 (@plan.Pending.D27): no depth bound; Flow.maxDepth is gone and D26's limit lifted. Why:
+    every value path holds at 100,000 deep (tests/session/deep.test.ts, tests/restore/deep-inputs.test.ts). Reverse:
+    restore R1's limit from 5cb2824c.
+
+note 2026-11-17T16:30:01Z
+    @spec.Codec R6: values compare by an iterative structural comparator, the same object first, memory field by field;
+    a walker keeps each object's canonical text, and a selection is walked again only for a new selector result.
+    Why: the bench (T9 comment); Effect's Equal and equivalence throw past ~1,500 levels. Reverse: Schema equivalence.

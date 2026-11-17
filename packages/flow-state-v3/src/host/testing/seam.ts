@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Predicate, Result, Schema } from "effect";
+import { Context, Effect, Layer, Option, Predicate } from "effect";
 import { TestClock } from "effect/testing";
 import type { Values } from "../../core/compiled.ts";
 import { Input } from "../../core/step.ts";
@@ -41,7 +41,7 @@ export const testing = {
   snapshot: ({ driver }: TestRuntime, actor: ActorId) => snapshotOf(driver, actor),
   row: (machine: Machine, operations: Operations, operation: string, key: Values) =>
     Option.flatMap(Option.fromUndefinedOr(machine.compiled.operations.get(operation)), (op) =>
-      Option.flatMap(Result.getSuccess(Schema.encodeUnknownResult(op.key)(key)), (text) =>
+      Option.flatMap(op.walk.keyText(key), (text) =>
         Option.fromUndefinedOr(operations.get(operation)?.get(text)),
       ),
     ),

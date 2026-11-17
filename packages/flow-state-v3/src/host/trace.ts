@@ -1,4 +1,5 @@
-import { Data, Duration, Formatter, Option } from "effect";
+import { printValue } from "./print.ts";
+import { Data, Duration, Option } from "effect";
 import type { Values } from "../core/compiled.ts";
 import { Evidence, type Member, MemberTarget, type Part } from "../core/evidence.ts";
 import { actorKey } from "../core/world.ts";
@@ -55,7 +56,7 @@ export type Trace = {
 };
 
 // FLOW_STATE_ALLOW_UNKNOWN: a trace prints any value an input, key or memory holds.
-const json = (value: unknown) => Formatter.formatJson(value);
+const json = (value: unknown) => printValue(value, "json");
 
 const attemptText = (attempt: Option.Option<string>) => Option.getOrElse(attempt, () => "-");
 

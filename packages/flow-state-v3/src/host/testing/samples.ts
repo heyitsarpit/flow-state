@@ -1,3 +1,4 @@
+import { printValue } from "../print.ts";
 import { Duration, Formatter, Option, Predicate } from "effect";
 import { type ActorId, actorKey, type Wiring } from "../../core/world.ts";
 import { overridesBy } from "../wiring.ts";
@@ -97,20 +98,8 @@ export const samplesOf = (options: {
     values: Object.entries(options.values).map(([name, value]) => ({ name, value })),
   }) satisfies Samples;
 
-const IDENTIFIER = /^[A-Za-z_$][\w$]*$/u;
-
-const keyText = (key: string) => (IDENTIFIER.test(key) ? key : Formatter.formatJson(key));
-
 // FLOW_STATE_ALLOW_UNKNOWN: an event or control input is any plain value of its own Schema.
-// RETURN_TYPE: a recursive printer states its result.
-const literal = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(literal).join(", ")}]`;
-
-  if (!Predicate.isObject(value)) return Formatter.formatJson(value);
-  const entries = Object.entries(value).map(([key, v]) => `${keyText(key)}: ${literal(v)}`);
-
-  return entries.length === 0 ? "{}" : `{ ${entries.join(", ")} }`;
-};
+const literal = (value: unknown) => printValue(value, "literal");
 
 const serverName = (samples: Samples, server: AnyServer) =>
   samples.servers.find((s) => s.server === server)?.name ??

@@ -1,15 +1,4 @@
-import {
-  Cause,
-  Clock,
-  Context,
-  Deferred,
-  Duration,
-  Effect,
-  Exit,
-  Option,
-  Result,
-  Schema,
-} from "effect";
+import { Cause, Clock, Context, Deferred, Duration, Effect, Exit, Option, Result } from "effect";
 import { Operation } from "../core/compiled.ts";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
@@ -227,7 +216,7 @@ export const makeDriver = (options: {
       const event = machines.get(actor.machine)?.events.get(tag);
 
       const decoded =
-        event !== undefined && event.public && Schema.is(event.payload)(payload)
+        event !== undefined && event.public && event.is(payload)
           ? Option.some(payload)
           : Option.none();
 

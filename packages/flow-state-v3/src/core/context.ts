@@ -1,7 +1,7 @@
 import { Equal, Option, Predicate, Result } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
-import { MAX_DEPTH } from "./depth.ts";
 import { Act } from "./evidence-of.ts";
+import { sameValue } from "./same.ts";
 import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
 import { type Tx, withEntry } from "./tx.ts";
 import {
@@ -14,9 +14,6 @@ import {
   type Use,
   type Wiring,
 } from "./world.ts";
-
-// A selection's failure past the depth limit, told apart from its selector's defects.
-const DEPTH = "~depth";
 
 /**
  * What context needs of incarnations: ensuring a provider with a use, releasing that use, and
@@ -91,9 +88,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       incarnations: withEntry(tx.world().incarnations, actorKey(incarnation.actor), incarnation),
     });
 
-  // One slot's outcome: its selection taken, clearing its issue; a selection past the depth limit,
-  // no defect of its selector, reported while the slot keeps its last one; or its selector's
-  // defect raised.
+  // One slot's outcome: its selection taken, clearing its issue; or its selector's defect raised.
   const settle = (
     incarnation: Incarnation,
     slot: string,
@@ -104,18 +99,6 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       values.set(slot, value.success);
 
       return clear(incarnation, `context ${slot}`);
-    }
-
-    if (value.failure === DEPTH) {
-      tx.act(
-        Act.Reported({
-          code: "UnencodableValue",
-          record: Option.none(),
-          reason: `context ${slot}: depth over ${MAX_DEPTH}`,
-        }),
-      );
-
-      return incarnation;
     }
 
     return raise(incarnation, {
@@ -154,9 +137,9 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
           catch: () => declared.select.slot,
         }),
         (raw) =>
-          Result.mapError(selectedOf(declared.json, raw), (why) =>
-            why === "depth" ? DEPTH : declared.select.slot,
-          ),
+          last !== undefined && Option.exists(last.raw, (r) => r === raw)
+            ? Result.succeed(last)
+            : Result.mapError(selectedOf(declared.walk, raw), () => declared.select.slot),
       );
 
       next = settle(next, slot, value, values);
@@ -343,7 +326,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         Result.try({
           try: () => ({
             now,
-            equal: Option.exists(previous, (p) => Equal.equals(p.selection, now.selection)),
+            equal: Option.exists(previous, (p) => sameValue(p.selection, now.selection)),
           }),
           catch: () => reaction.select.slot,
         }),

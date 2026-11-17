@@ -120,8 +120,8 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "              queue,\n",
-        replace: "              queue: queue.slice(0, 0),\n",
+        find: "            queue,\n",
+        replace: "            queue: queue.slice(0, 0),\n",
       },
     ],
   },

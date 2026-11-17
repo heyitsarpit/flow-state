@@ -13,7 +13,7 @@ export const codecFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/codec.ts",
-        find: "export const encodeCanonical = (value: unknown) => Result.map(toCanonicalJson(value), toText);",
+        find: "export const encodeCanonical = (value: unknown) => writeCanonical(value);",
         replace:
           "export const encodeCanonical = (value: unknown) => Result.map(toCanonicalJson(value), (j) => JSON.stringify(j));",
       },
@@ -27,8 +27,8 @@ export const codecFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/slots.ts",
-        find: 'toCanonicalJson(json, "zero")',
-        replace: "toCanonicalJson(json)",
+        find: 'Result.mapError(writeCanonical(json, "zero"), () => "codec"),\n      (text) =>',
+        replace: 'Result.mapError(writeCanonical(json), () => "codec"),\n      (text) =>',
       },
     ],
   },
@@ -40,8 +40,9 @@ export const codecFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/slots.ts",
-        find: "            (canonical) => readSelected(codec, canonical),",
-        replace: "            (canonical) => Result.succeed({ value: raw, json: canonical }),",
+        find: "              ...selected,\n              raw: Option.some(raw),",
+        replace:
+          "              ...selected,\n              value: raw,\n              raw: Option.some(raw),",
       },
     ],
   },
@@ -59,41 +60,41 @@ export const codecFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "depth-unchecked",
-    tests: ["tests/session/depth.test.ts"],
-    says: "a value past the depth limit is walked by Effect's Schema anyway, so a recursive folder tree past it throws",
-    rule: "Codec R1",
+    name: "walker-on-call-stack",
+    tests: ["tests/session/deep.test.ts"],
+    says: "the walkers follow every Schema.suspend on the call stack, so a folder tree 100,000 deep has no form and is never heard or saved",
+    rule: "Codec R6",
     edits: [
       {
-        file: "src/core/depth.ts",
-        find: "    if (depth > MAX_DEPTH) return false;",
-        replace: "",
+        file: "src/core/boundary.ts",
+        find: "const BUDGET = 64;",
+        replace: "const BUDGET = Number.POSITIVE_INFINITY;",
       },
     ],
   },
   {
-    name: "deep-memory-equivalence-throws",
-    tests: ["tests/session/depth.test.ts"],
-    says: "memory too deep for its Schema's equivalence throws out of the turn",
-    rule: "Codec R4",
+    name: "structure-compared-shallow",
+    tests: ["tests/session/deep.test.ts"],
+    says: "the structural comparator holds two arrays of one length equal without their items, so a deeper nest is never heard",
+    rule: "Actors R19",
     edits: [
       {
-        file: "src/machine.ts",
-        find: "    Result.try(() => same(a, b)),",
-        replace: "    Result.succeed(same(a, b)),",
+        file: "src/core/same.ts",
+        find: "Option.some(a.map((x, i) => [x, b[i]] as const))",
+        replace: "Option.some([])",
       },
     ],
   },
   {
-    name: "selection-depth-a-defect",
-    tests: ["tests/session/depth.test.ts"],
-    says: "a selection past the depth limit is raised as its selector's defect, not reported UnencodableValue",
-    rule: "Codec R4",
+    name: "selection-kept-by-default",
+    tests: ["tests/session/deep.test.ts", "tests/session/values.test.ts"],
+    says: "a slot keeps its last selection whatever its selector returns, so no change is heard",
+    rule: "Actors R19",
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    if (value.failure === DEPTH) {",
-        replace: '    if (value.failure === DEPTH && slot === "~") {',
+        find: "Option.exists(last.raw, (r) => r === raw)",
+        replace: "Option.exists(last.raw, () => true)",
       },
     ],
   },

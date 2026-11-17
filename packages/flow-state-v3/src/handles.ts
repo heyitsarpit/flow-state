@@ -1,4 +1,4 @@
-import { Option, Predicate, Result, Schema } from "effect";
+import { Option, Predicate } from "effect";
 import { Action, Guard, type GuardInput, type SelectInput, type Values } from "./core/compiled.ts";
 import type { ActionToken, GuardToken, Operations } from "./definition.ts";
 
@@ -40,7 +40,10 @@ const keylessOrKeyed = (kind: "Retry" | "Cancel", operation: string) => {
   );
 };
 
-export const writeHandle = (operation: string, key: Schema.Codec<Values, string>) => ({
+export const writeHandle = (
+  operation: string,
+  keyText: (value: Values) => Option.Option<string>,
+) => ({
   commit: (select: (input: SelectArg<Values>) => Values) =>
     member(operation, (at) =>
       Action.Commit({ operation, select: { slot: `${at}.select`, run: erase(select) } }),
@@ -71,9 +74,7 @@ export const writeHandle = (operation: string, key: Schema.Codec<Values, string>
   }),
   get: (operations: Operations, value: Values) =>
     Option.flatMap(Option.fromUndefinedOr(operations.get(operation)), (rows) =>
-      Option.flatMap(Result.getSuccess(Schema.encodeResult(key)(value)), (text) =>
-        Option.fromUndefinedOr(rows.get(text)),
-      ),
+      Option.flatMap(keyText(value), (text) => Option.fromUndefinedOr(rows.get(text))),
     ),
 });
 

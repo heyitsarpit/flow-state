@@ -9,20 +9,16 @@ provides      the structural codec (encode, decode) used by records, payloads, t
 derives_from  [@plan.Inspection.O2, @plan.Inspection.V3, @plan.Package.C1]
 
 requirements
-    R1  One codec, no size bounds, one depth limit
-        source  @plan.Inspection.O2; @plan.Pending.D23; @plan.Pending.D26.
+    R1  One codec, no size or depth bounds
+        source  @plan.Inspection.O2; @plan.Pending.D23; @plan.Pending.D27.
         must    One codec carries every value that crosses a process or storage boundary: persisted
                 records, server-rendering payloads, trace artifacts and Model bytes. It accepts
                 JSON values produced by the owning Schema, of any size: how big a value may be is
                 judged by the bench, and the store's quota is the one real limit on size, which
-                ends as StorageRefused (@spec.WriteAhead.R13). Depth has one platform limit,
-                `Flow.maxDepth` (256 nested containers): Effect's Schema under a recursive
-                `Schema.suspend` and its `Equal` recurse on the call stack, and the shallowest host
-                measured (Node, a Map nest decoded) throws past 686. Memory, a selection or a
-                commit input past it is reported UnencodableValue (R4). The codec's own walk,
-                writer and re-encode check keep their own stacks, and decoding uses the host's
-                JSON parser (its own stack on V8 and JavaScriptCore); a text a host cannot parse
-                fails as CodecMalformed json, never a thrown error.
+                ends as StorageRefused (@spec.WriteAhead.R13). A value of any depth is carried: every walk
+                on its path (the Schema walkers of R6, the codec's writer and re-encode check)
+                keeps its own stack, and decoding uses the host's JSON parser (its own stack on
+                V8 and JavaScriptCore); a text a host cannot parse fails as CodecMalformed json, never a thrown error.
 
     R2  Canonical encoding
         source  @plan.Inspection.O2; @plan.Package.C1.
@@ -46,7 +42,7 @@ requirements
                 values).
 
                 No raw parser error or Cause escapes. Inside a turn or a capture, a value with no
-                encoded form (a malformation, or a depth past R1's limit) is reported only as
+                encoded form (a malformation, or a cycle) is reported only as
                 UnencodableValue (its details naming the reason) and never fails the turn (a
                 commit's input or key that cannot encode is the one exception: it declines NotSent {
                 Unencodable }, an ending,
@@ -88,6 +84,28 @@ requirements
                 its canonical text (R2) and read strictly (R3). An identity's owed rows fill one
                 record, `owed/<identity>`, in owed order.
 
+    R6  One value boundary
+        source  @plan.Inspection.O2; @plan.Pending.D27.
+        must    Every value that crosses into Flow passes through walkers compiled once per Schema
+                from Effect's Schema AST and kept on Compiled: memory at capture, restore and
+                comparison, context selections, event payloads (E.X and send), commit inputs and
+                lane keys, records at the boot, and trace text. A walker encodes to the Schema's JSON
+                form, decodes, and checks the type side. It runs Effect's own parser one recursion
+                level at a time: each `Schema.suspend` is a hole that reads its value's result from a
+                table, and a level whose holes miss is parsed again once their values are done, from
+                an explicit stack. Effect's Schema stays the one source of every rule, a value of any
+                depth is walked without the call stack, and a value shared twice is walked once. A
+                value whose holes all lie within a fixed budget is parsed once, directly. A value on
+                its own path under one Schema (a cycle) has no form. A walker keeps each value's canonical
+                text by the object it is (memory is immutable, @spec.Turn.R24), so a step re-encodes
+                only the fields it changed, and a selector that returns the value it returned last
+                keeps its selection unwalked. Values compare structurally on an explicit stack, the
+                same object at once (as `Equal` holds them; chosen on the bench, Codec T7); memory
+                compares field by field. JSON text is written in one pass and trace text with its own
+                stack, in the same bytes as before (R2). Decision (agent, the user's Q11 B): proposed.
+                Why: guarding Effect's recursive calls one by one leaked in three reviews. Reverse:
+                restore D26's limit (specs.log).
+
 open
     Q1  Executable checks are not built.
         outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers it (a
@@ -118,6 +136,9 @@ invariants
         with that kind's Schema and has `format`; no lane record has a `mayHaveApplied` field, every owed row has a
         `channel`, and each kind round-trips: decode(encode(record)) equals the record. [@R5]
 
+    I8  For every Schema and value, the walker's encode, decode and check give what Effect's parser gives (success with 
+        an equal value, or failure), at any depth, without the call stack. [@R6]
+
 coverage
     @R1
         enforced_by  [@I2]
@@ -139,10 +160,14 @@ coverage
         enforced_by  [@I7]
         open_by      [@Q1]
 
+    @R6
+        enforced_by  [@I8]
+        open_by      [@Q1]
+
 tests
     T1  Size and depth: 5,000 items, 3,000,000 bytes, and 100,000 deep beside 5,000 wide encode and decode back equal; 
-        in Stories, a nest at Flow.maxDepth under Schema.Json, a recursive Schema and Maps saves and restores, and
-            one past it in memory, a selection or a commit input is reported UnencodableValue, never thrown. [@I2]
+        in Stories, nests 100,000 deep under Schema.Json, a recursive Schema and Maps save, restore and are heard
+            once, never thrown (Codec T7). [@I2]
     T2  Malformed vectors: a BOM, invalid UTF-8, a lone surrogate, duplicate keys, unsorted keys, -0, 1.0 and 1e0 
         spellings each fail with their CodecMalformed reason. [@I4]
     T3  Round trip and hosts: a fixed vector set encodes to the same bytes on every listed host and round-trips both 
@@ -155,3 +180,7 @@ tests
             author failure tagged Cancelled and a NotSent { Cancelled } decode with different channels. Planted faults: 
                 a
             record keyed kept/<lane>; a lane record with mayHaveApplied; an owed row with no channel. [@I7]
+    T7  Value boundary: the walkers agree with Effect's parser on the codec's fixed vectors, the fixtures' Schemas and 
+        random values; in Stories, memory, selections, payloads, commit inputs and keys 3,000 and 100,000 deep
+            under Schema.Json, a recursive Schema.suspend and Map nests save, restore and are heard once; the bench
+            compares equality by a compiled comparator, canonical text and Effect's Equal, and records the choice. [@I8]

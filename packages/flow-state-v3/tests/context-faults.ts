@@ -91,9 +91,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/slots.ts",
-        find: "  Option.isNone(a)\n    ? Option.isNone(b)\n    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));",
+        find: "  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => sameValue(a.value.value, y.value));",
         replace:
-          "  Option.isNone(a)\n    ? true\n    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));",
+          "  Option.isNone(a) ? true : Option.exists(b, (y) => sameValue(a.value.value, y.value));",
       },
     ],
   },
@@ -349,7 +349,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/actor-record.ts",
-        find: "      seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.json])),",
+        find: "      seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.text])),",
         replace: "      seen: {},",
       },
     ],
@@ -428,9 +428,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Restore R5",
     edits: [
       {
-        file: "src/core/slots.ts",
-        find: '    Result.try({ try: () => Schema.decodeUnknownResult(codec)(json), catch: () => "schema" }),',
-        replace: "    Result.succeed(Schema.decodeUnknownResult(codec)(json)),",
+        file: "src/core/boundary.ts",
+        find: "  Result.getOrElse(Result.try({ try: () => parse(input), catch: died }), (failure) => failure);",
+        replace: "  parse(input);",
       },
     ],
   },

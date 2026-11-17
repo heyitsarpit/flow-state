@@ -1,4 +1,5 @@
 import { Data, type Effect, type Equivalence, type Option, type Schema } from "effect";
+import type { Walker } from "./boundary.ts";
 
 /**
  * A user closure named by its place in the definition (`operations.pay.failure.CardDeclined`), so
@@ -176,6 +177,8 @@ export type Field = {
   readonly schema: Schema.Codec<unknown, unknown>;
   // FLOW_STATE_ALLOW_UNKNOWN: the field's JSON codec, typed at the definition.
   readonly json: Schema.Codec<unknown, unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the field's walkers, built from its JSON codec.
+  readonly walk: Walker<unknown, unknown>;
   readonly source: Source;
   readonly private: boolean;
   // FLOW_STATE_ALLOW_UNKNOWN: an input value is checked here before it is trusted.
@@ -189,6 +192,8 @@ export type Field = {
  */
 export type EventEntry = {
   readonly payload: Schema.Codec<Values, Values>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a sent payload is checked here before it is trusted.
+  readonly is: (payload: unknown) => boolean;
   readonly public: boolean;
   readonly uncertain: boolean;
 };
@@ -235,6 +240,15 @@ export type Commit = (
 export type Lookup = (input: Values) => Effect.Effect<unknown, unknown, unknown>;
 
 /**
+ * An operation's walkers: its input's JSON form, and its key's text from a value's key fields
+ * (none when they have no encoded form).
+ */
+export type OperationWalk = {
+  readonly input: Walker<Values, Values>;
+  readonly keyText: (value: Values) => Option.Option<string>;
+};
+
+/**
  * A write lane's concurrency policy.
  */
 export type Concurrency = "reject" | "latest" | "serialize" | "cancel";
@@ -252,6 +266,7 @@ export type Operation = Data.TaggedEnum<{
     concurrency: Concurrency;
     input: Schema.Codec<Values, Values>;
     inputJson: Schema.Codec<Values, Values>;
+    walk: OperationWalk;
     call: Slot<Commit>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
@@ -266,6 +281,7 @@ export type Operation = Data.TaggedEnum<{
     key: Schema.Codec<Values, string>;
     input: Schema.Codec<Values, Values>;
     inputJson: Schema.Codec<Values, Values>;
+    walk: OperationWalk;
     call: Slot<Lookup>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
@@ -284,7 +300,7 @@ export const Operation = Data.taggedEnum<Operation>();
  *
  * `states` holds every node of the tree by its path, compounds included, in declaration order;
  * `root` holds the root's handlers and `initial` the leaf the root's defaults reach. `fields` lists
- * the memory fields; `memory`, `memoryJson` and `sameMemory` are derived from their Schemas.
+ * the memory fields; `memory`, `memoryJson`, `walk` and `sameMemory` are derived from their Schemas.
  */
 export type Compiled = {
   readonly id: string;
@@ -296,6 +312,7 @@ export type Compiled = {
   readonly fields: ReadonlyArray<Field>;
   readonly memory: Schema.Codec<Values, Values>;
   readonly memoryJson: Schema.Codec<Values, Values>;
+  readonly walk: Walker<Values, Values>;
   readonly sameMemory: Equivalence.Equivalence<Values>;
   readonly operations: ReadonlyMap<string, Operation>;
   readonly context: ReadonlyMap<string, ContextSlot>;
@@ -312,6 +329,8 @@ export type ContextSlot = {
   readonly provider: string;
   // FLOW_STATE_ALLOW_UNKNOWN: a selection's JSON codec, typed at the definition.
   readonly json: Schema.Codec<unknown, unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the selection's walkers, built from its JSON codec.
+  readonly walk: Walker<unknown, unknown>;
   // FLOW_STATE_ALLOW_UNKNOWN: a selected value has the slot's type, typed at the definition.
   readonly select: Slot<(snapshot: { readonly state: string; readonly memory: Values }) => unknown>;
 };

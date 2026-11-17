@@ -1,4 +1,4 @@
-import { Option, Result, Schema } from "effect";
+import { Option } from "effect";
 import { type Cue, cell, LaneState, Move, type NotSentWhy } from "./cells.ts";
 import type { Operation, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
@@ -21,8 +21,7 @@ import type { Persistence } from "./persist.ts";
  * A lane's key text: its operation's key fields of a value, encoded; `None` when they have no
  * encoded form.
  */
-export const keyTextOf = (operation: Operation, value: Values) =>
-  Result.getSuccess(Schema.encodeUnknownResult(operation.key)(pick(value, operation.keyFields)));
+export const keyTextOf = (operation: Operation, value: Values) => operation.walk.keyText(value);
 
 /**
  * The key text a lane is kept under, derived from its head's input.

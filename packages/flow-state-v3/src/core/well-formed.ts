@@ -98,7 +98,7 @@ export const appFindings = (config: {
 };
 
 // Functions Flow derives from a declared Schema, held on Compiled beside it.
-const DERIVED = new Set(["sameMemory", "is"]);
+const DERIVED = new Set(["sameMemory", "is", "walk"]);
 
 // Whether a function at `key` of `value` is allowed: a Slot's run, or one Flow derived.
 // FLOW_STATE_ALLOW_UNKNOWN: a Compiled handed to a Runtime is checked before it is trusted.
@@ -119,12 +119,15 @@ const bareFunction = (
 ): Option.Option<string> => {
   if (!walkable(value)) return Option.none();
 
-  const entries =
-    value instanceof Map ? [...value].map(([k, v]) => [String(k), v]) : Object.entries(value);
+  // A derived part (a Schema's walkers) is Flow's own, built from its Schema.
+  const entries = (
+    value instanceof Map ? [...value].map(([k, v]) => [String(k), v]) : Object.entries(value)
+  ).filter(([key]) => !DERIVED.has(String(key)));
 
   for (const [key, child] of entries) {
     const at = path === "" ? key : `${path}.${key}`;
     const bare = Predicate.isFunction(child) && !Schema.isSchema(child) && !allowed(value, key);
+
     const found = bare ? Option.some(at) : bareFunction(child, at);
 
     if (Option.isSome(found)) return found;

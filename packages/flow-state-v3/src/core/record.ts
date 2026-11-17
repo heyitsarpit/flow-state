@@ -1,4 +1,4 @@
-import { Option, Result, Schema, Struct } from "effect";
+import { Option, Result, Schema } from "effect";
 import { decodeCanonical, toCanonicalJson } from "./codec.ts";
 import { decodeActor } from "./actor-record.ts";
 import type { Compiled, Values } from "./compiled.ts";
@@ -8,7 +8,6 @@ import {
   FORMAT,
   Format,
   FormatJson,
-  jsonOf,
   reasonOf,
   textOf,
 } from "./record-format.ts";
@@ -136,18 +135,16 @@ export const encodeLane = (
   return Option.match(lane, {
     onNone: () => record({ attempt: null, input: null, retryCount: 0, inFlight: false, queue: [] }),
     onSome: (l) =>
-      Result.flatMap(
-        Result.all(l.queue.map((q) => jsonOf(operation.inputJson, q.input))),
-        (queue) =>
-          Result.flatMap(jsonOf(operation.inputJson, l.head.input), (input) =>
-            record({
-              attempt: l.head.id,
-              input,
-              retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),
-              inFlight: !Phase.$is("Held")(l.head.phase),
-              queue,
-            }),
-          ),
+      Result.flatMap(Result.all(l.queue.map((q) => operation.walk.input.text(q.input))), (queue) =>
+        Result.flatMap(operation.walk.input.text(l.head.input), (input) =>
+          record({
+            attempt: l.head.id,
+            input,
+            retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),
+            inFlight: !Phase.$is("Held")(l.head.phase),
+            queue,
+          }),
+        ),
       ),
   });
 };
@@ -237,26 +234,28 @@ export const decodeRecords = (
       const lane = yield* Option.match(Option.fromNullOr(r.attempt), {
         onNone: () => Result.succeed(Option.none<Lane>()),
         onSome: (attempt) =>
-          Result.flatMap(decodeBy(operation.inputJson, "input")(r.input), (input) =>
-            Result.map(
-              Result.mapError(
-                Schema.encodeUnknownResult(operation.key)(Struct.pick(input, operation.keyFields)),
-                () => "key",
+          Result.flatMap(
+            Result.mapError(operation.walk.input.decode(r.input), () => "input"),
+            (input) =>
+              Result.map(
+                Result.fromNullishOr(
+                  Option.getOrUndefined(operation.walk.keyText(input)),
+                  () => "key",
+                ),
+                () =>
+                  Option.some<Lane>({
+                    actor,
+                    operation: r.operation,
+                    head: {
+                      id: attempt,
+                      input,
+                      retryCount: r.retryCount,
+                      owner: 0,
+                      phase: Phase.Held(),
+                    },
+                    queue: [],
+                  }),
               ),
-              () =>
-                Option.some<Lane>({
-                  actor,
-                  operation: r.operation,
-                  head: {
-                    id: attempt,
-                    input,
-                    retryCount: r.retryCount,
-                    owner: 0,
-                    phase: Phase.Held(),
-                  },
-                  queue: [],
-                }),
-            ),
           ),
       });
 

@@ -1,4 +1,5 @@
-import { Equal, Option, Predicate, Result, Schema, Struct } from "effect";
+import { Option, Predicate, Result, Schema, Struct } from "effect";
+import type { Canonical } from "./codec.ts";
 import type { Compiled, Values } from "./compiled.ts";
 import {
   ActorJson,
@@ -7,7 +8,6 @@ import {
   FORMAT,
   Format,
   FormatJson,
-  jsonOf,
   textOf,
 } from "./record-format.ts";
 import {
@@ -27,7 +27,8 @@ const RecordHead = {
   machine: Schema.String,
   name: Schema.String,
   state: Schema.String,
-  memory: Schema.Json,
+  // FLOW_STATE_ALLOW_UNKNOWN: read by the machine's memory walker; the host's parser made it JSON.
+  memory: Schema.Unknown,
   schedules: Schema.Array(ScheduleDeadline),
   context: WiredJson,
 };
@@ -136,27 +137,49 @@ const formsOne = new Map<string, (form: FormFields) => Result.Result<OneValue, s
 const wiredJson = (wired: ReadonlyMap<string, ActorId>) =>
   Object.fromEntries([...wired].map(([slot, p]) => [slot, { machine: p.machine, name: p.name }]));
 
-// A memory field in its Schema's JSON form.
+// A memory field's canonical text, kept by the field's value: an unchanged field is never walked
+// again.
 // FLOW_STATE_ALLOW_UNKNOWN: a memory field has its field Schema's type.
-const fieldJson = (compiled: Compiled, name: string, value: unknown) =>
+const fieldText = (compiled: Compiled, name: string, value: unknown) =>
   Result.mapError(
-    jsonOf(compiled.fields.find((f) => f.name === name)?.json ?? Schema.Never, value),
+    Result.fromNullishOr(
+      compiled.fields.find((f) => f.name === name),
+      () => "field",
+    ),
     () => "memory",
+  ).pipe(Result.flatMap((f) => Result.mapError(f.walk.text(value), () => "memory")));
+
+// A memory's fields as canonical text, each kept by its value, so a step re-encodes only the
+// fields it changed.
+const memoryText = (compiled: Compiled, memory: Values) =>
+  Result.map(
+    Result.all(
+      compiled.fields
+        .filter((f) => Object.hasOwn(memory, f.name))
+        .toSorted((a, b) => Number(a.name > b.name) - Number(a.name < b.name))
+        .map((f) =>
+          Result.mapBoth(f.walk.text(memory[f.name]), {
+            onFailure: (why) => why.replace(" at $", ` at $.memory.${f.name}`),
+            onSuccess: (text) => [f.name, text] as const,
+          }),
+        ),
+    ),
+    (fields) => Object.fromEntries(fields),
   );
 
 // The memory each baseline read, shared by every baseline read from the same memory: only the
 // fields whose JSON differs from the record's own are copied.
 const copiesOf = (compiled: Compiled, record: ActorRecord) =>
   Result.gen(function* () {
-    const copies = new Map<Source, Map<string, Values[string]>>();
+    const copies = new Map<Source, Map<string, Canonical>>();
 
     for (const frame of record.frames.flatMap(Option.toArray))
       for (const [name, value] of frame.memory) {
-        const json = yield* fieldJson(compiled, name, value);
-        const own = yield* fieldJson(compiled, name, record.memory[name]);
-        const copy = copies.get(frame.source) ?? new Map<string, Values[string]>();
+        const text = yield* fieldText(compiled, name, value);
+        const own = yield* fieldText(compiled, name, record.memory[name]);
+        const copy = copies.get(frame.source) ?? new Map<string, Canonical>();
 
-        if (!Equal.equals(json, own)) copies.set(frame.source, copy.set(name, json));
+        if (text.text !== own.text) copies.set(frame.source, copy.set(name, text));
       }
 
     return copies;
@@ -173,7 +196,7 @@ const frameJson = (record: ActorRecord, frame: Frame, shared: ReadonlyArray<Sour
         .filter(([slot, s]) => !sameForm(s, Option.fromUndefinedOr(record.seen.get(slot))))
         .map(([slot, s]) => [
           slot,
-          Option.match(s, { onNone: () => ({}), onSome: (v) => ({ value: v.json }) }),
+          Option.match(s, { onNone: () => ({}), onSome: (v) => ({ value: v.text }) }),
         ]),
     ),
     memory: Option.getOrNull(Option.liftPredicate(at, (n) => n >= 0)),
@@ -189,7 +212,7 @@ const frameJson = (record: ActorRecord, frame: Frame, shared: ReadonlyArray<Sour
  */
 export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
   Result.gen(function* () {
-    const memory = yield* jsonOf(compiled.memoryJson, record.memory);
+    const memory = yield* memoryText(compiled, record.memory);
     const copies = yield* copiesOf(compiled, record);
     const shared = [...copies.keys()];
 
@@ -201,7 +224,7 @@ export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
       memory,
       schedules: record.schedules,
       context: wiredJson(record.context),
-      seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.json])),
+      seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.text])),
       reactions: record.frames.map((frame) =>
         Option.match(frame, {
           onNone: () => null,
@@ -229,7 +252,7 @@ const frameOf = (
             saved.value === undefined
               ? Result.succeed([slot, Option.none<Selected>()] as const)
               : Result.map(
-                  Result.mapError(readSelected(declared.json, saved.value), () => "frame"),
+                  Result.mapError(readSelected(declared.walk, saved.value), () => "frame"),
                   (s) => [slot, Option.some(s)] as const,
                 ),
           ),
@@ -256,7 +279,10 @@ const copyOf = (compiled: Compiled, copy: { readonly [name: string]: Schema.Json
       Object.entries(copy).flatMap(([name, json]) =>
         Option.toArray(
           Option.map(Option.fromUndefinedOr(compiled.fields.find((f) => f.name === name)), (f) =>
-            Result.map(decodeBy(f.json, "frame")(json), (value) => [name, value] as const),
+            Result.map(
+              Result.mapError(f.walk.decode(json), () => "frame"),
+              (value) => [name, value] as const,
+            ),
           ),
         ),
       ),
@@ -281,7 +307,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
       const r = yield* stepsTo(format, value);
 
       const compiled = yield* machineOf(r);
-      const memory = yield* decodeBy(compiled.memoryJson, "memory")(r.memory);
+      const memory = yield* Result.mapError(compiled.walk.decode(r.memory), () => "memory");
 
       const seen = new Map(
         yield* Result.all(
@@ -289,7 +315,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
             Option.toArray(
               Option.map(Option.fromUndefinedOr(compiled.context.get(slot)), (declared) =>
                 Result.map(
-                  Result.mapError(readSelected(declared.json, json), () => "seen"),
+                  Result.mapError(readSelected(declared.walk, json), () => "seen"),
                   (s) => [slot, s] as const,
                 ),
               ),
@@ -382,7 +408,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
           Result.map(valueOfOne(form), (value) =>
             Option.toArray(
               Option.flatMap(Option.fromUndefinedOr(compiled.context.get(slot)), (declared) =>
-                Option.map(Result.getSuccess(selectedOf(declared.json, value)), (s) => [
+                Option.map(Result.getSuccess(selectedOf(declared.walk, value)), (s) => [
                   slot,
                   s.json,
                 ]),

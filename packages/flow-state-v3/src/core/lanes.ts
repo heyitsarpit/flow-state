@@ -10,9 +10,7 @@ import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
-import { toCanonicalJson } from "./codec.ts";
 import { laneRecordKey } from "./record.ts";
-import { jsonOf } from "./record-format.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {
@@ -139,12 +137,10 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     const text = keyTextOf(operation, key);
 
-    // An input its Schema cannot encode, one past the depth limit, or one whose JSON has no
-    // canonical form (a -0, a lone surrogate), declines here: its lane's record could never be
-    // saved.
-    const encodes = Result.isSuccess(
-      Result.flatMap(jsonOf(operation.inputJson, input), toCanonicalJson),
-    );
+    // An input its Schema cannot encode, or one whose JSON has no canonical form (a -0, a lone
+    // surrogate, a cycle), declines here: its lane's record could never be saved. The text is
+    // kept by the input, so the lane's record reuses it.
+    const encodes = Result.isSuccess(operation.walk.input.text(input));
 
     // An input or key with no encoded form, or a persisted identity in a Runtime without
     // persistence, declines before the lane's table: nothing is sent or saved.

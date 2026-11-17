@@ -244,19 +244,19 @@ const depthOf = (doc: unknown) => {
   return depth;
 };
 
-describe("a document 100,000 levels deep, far past the depth limit (Codec R1, R4; Actors R18)", () => {
-  it("Codec R4, Actors R18: memory and a selection 100,000 deep, alone or beside 5,000 siblings, are reported UnencodableValue, never thrown; the preview hears nothing and a reload restores the last saved outline", async () => {
+describe("a document 100,000 levels deep (Codec R1, R6; Actors R18)", () => {
+  it("Codec R1, R6, Actors R18: memory and a selection 100,000 deep, alone or beside 5,000 siblings, save, restore and are heard once each, never thrown; a reload hears nothing new", async () => {
     const run = checked(await outlineDeep().run());
     const cut = run.checkpoints;
 
     expect(depthOf(cut.deep.read(mainOutline)?.memory.doc)).toBe(100_000);
-    expect(depthOf(cut.reloaded.read(mainOutline)?.memory.doc)).toBe(0);
-
-    for (const c of ["deep", "reloaded", "mixed", "mixed again"] as const)
-      expect(cut[c].read(mainPreview)?.memory["heard"]).toBe(0);
-
-    expect(reported(run, "UnencodableValue")).toContain("actor/Workspace/Outline/main");
-    expect(reported(run, "UnencodableValue")).toContain("-");
+    expect(depthOf(cut.reloaded.read(mainOutline)?.memory.doc)).toBe(100_000);
+    expect(
+      (["deep", "reloaded", "mixed", "mixed again"] as const).map(
+        (c) => cut[c].read(mainPreview)?.memory["heard"],
+      ),
+    ).toEqual([1, 1, 2, 2]);
+    expect(reported(run, "UnencodableValue")).toEqual([]);
     expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
-  });
+  }, 120_000);
 });
