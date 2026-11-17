@@ -628,9 +628,9 @@ tasks
             - Fixtures first (code:wiki/conventions/fixtures.md): restore, owed endings, quarantine and forget are
               covered in `sign-in`, `pay`, `sync` and `transfers`, across many scenarios: usual and stress Stories and
               step samples with an undecodable record, owed values of real-world size restored intact (only a value with
-              no canonical form, or past the measured depth (D26), reports UnencodableValue), a forget during undrained
-              writes, a reload at every step; the generator, the reload sweep and the app mix reach them, and those
-              Stories fail before the build.
+              no canonical form reports UnencodableValue; depth has no limit, @plan.Pending.D27), a forget during
+              undrained writes, a reload at every step; the generator, the reload sweep and the app mix reach them, and
+              those Stories fail before the build.
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: after a reload the step that turns the restored head Held writes no lane record,
             so it still reads inFlight: true (WriteAhead R5, I21); pinned as it.fails in tests/transfers/trace.test.ts.
@@ -2022,7 +2022,9 @@ tasks
             - Step edit operations (section 1) are built with the performance audit's findings 6, 7, 10 and 11 (the
               user, 2026-11-17, Q14 A): one draft of the World's maps per step, per-World indexes, actor keys carried on
               identities, no whole-world scan or whole-map copy on the step path; a Story with many actors and a deep
-              mailbox shows step cost following the work done, timed on the bench before and after.
+              mailbox shows step cost following the work done, timed on the bench before and after. Finding 11 (the
+              boot-time `malformedOf` copy) is removed; finding 10 (host timer fibers) is built only if the bench split
+              the audit names shows it, with the numbers in a comment.
             - Every finding is re-verified against the code after @task.V3.T9 before it is fixed; A5's payload codec
               goes through T9's compiled boundary walkers, never `Schema.is` on a value's path, and `boundary.ts` is the
               home for codecs and keys (@plan.Pending.D27).
@@ -2384,9 +2386,9 @@ tasks
             - No timeout is raised without a measured reason.
             - Every test-tooling guard has one source and a measured size (the user, 2026-11-17, Q5 A): the Story turn,
               settle-task and advance limits; the faults run's timeout, copies (from CPU and memory) and output buffer;
-              the 230 s and 60 s test timeouts; the generator's weights, lengths and shrink budgets; the bench's warm-up
-              from a stability check that reports variance; Story advances read the capture interval instead of writing
-              5 s.
+              the stress and generated-Story test timeouts; the generator's weights, lengths and shrink budgets; the
+              bench's warm-up from a stability check that reports variance; Story advances read the capture interval
+              instead of a literal.
             - `nub run check` and `nub run lint:rules` pass; a new speed note with the baseline is in V3.log.
         comment     2026-11-17T02:11:38Z
             Routed (orchestrator, 2026-11-17): generated.stress 'palette: stress runs from fixed seeds' hits its 60 s
@@ -2430,7 +2432,7 @@ tasks
         title       No size or queue caps: one loop guard and a slow-work warning
         status      open
         priority    high
-        blocked_by  [@T9, @T85]
+        blocked_by  [@T85]
         description
             The runtime has no size or queue caps: each fixed cap in @plan.Pending.D24 is gone from the core Specs, the
             code and the tests, the follow-up chain stays as the one loop guard with its number from the bench, and a
@@ -2471,6 +2473,9 @@ tasks
               stays a fairness yield with its count from the bench.
             - Stories and tests built for a cap are renamed in the rework (e.g. `key-past-bound`, `over-bound`,
               `wall-64`, `avatar-wall-65`, `stress-wall-1024`).
+            - The caps Q10 A added are gone the same way: the server-rendering payload's `maxBytes` and the 1,024-item
+              `Stream.callback` queue, each past its old cap in a Story, sized and timed; the inspector ring's default
+              capacity is a named default from the bench (@plan.Pending.D24, D25).
             - Rework routed from code:wiki/conventions/fixture-catalog.md (items marked "rework: @task.V3.T84"): the
               built Stories and tests that assert an old cap (`lanes/serialize-at-cap`, the 1,025th
               `AdmissionOverloaded` runtime tests of lanes and workspace, `cells/key-at-bound` and `key-past-bound`,

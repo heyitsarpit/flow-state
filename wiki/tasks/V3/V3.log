@@ -968,3 +968,8 @@ note 2026-11-17T10:34:01Z
     T9 in review at f8c7e247: comparator structural for every Schema kind, optionalKey and transformation fixes checked
     against Effect on 99 Schema shapes, deep actor names and construction stack-safe, freeze covers Maps, Sets, Dates
     and classes; 1,271 pass. Opus review started; sweep.test budget under load to T83.
+
+note 2026-11-17T10:44:26Z
+    Task records verified by two Haiku checks against Q5 to Q14 and D23 to D30; fixed: T84 acceptance gains Q10 A's
+    caps, T83 loses literal timeouts, T20 cites D27 not D26, T79 names findings 10 and 11, T84's redundant T9 blocker
+    removed.
