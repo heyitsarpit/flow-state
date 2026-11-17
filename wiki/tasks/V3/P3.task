@@ -2182,6 +2182,11 @@ tasks
             T81's close routes four construction items to T79 that T79 does not record. Sidecars rejected: consumer
             order (ids are minted in insertion order), putLane changing a lane's actor (a lane id fixes its actor), and
             purity (outputs are equal; the handoff state concerns object identity only).
+        comment     2026-11-17T12:27:08Z
+            Decision (the user, 2026-11-17, Q20 B): Turn R24 says Maps, Sets and Dates the app froze itself are trusted
+            as immutable and not wrapped (Immer freezes them this way in dev); the R24 it.fails becomes a passing test
+            that an Immer-style frozen Map is accepted while a plain mutable Map is still guarded; R24's text changes
+            with a specs.log note.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted

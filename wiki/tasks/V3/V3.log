@@ -1001,3 +1001,7 @@ note 2026-11-17T12:19:42Z
     T79 review ISSUES (277f5037): records gaps (review 2's 3a, 3c unrecorded; 2c, 2k deferred without reason), several
     deferrals that belong here, and a step defect leaving the driver on a half-written world. World handoff ruled right.
     Fix round to its lead with Q17-Q19; Q20 (app-frozen collections) asked.
+
+note 2026-11-17T12:27:09Z
+    Decision (the user, 2026-11-17): Q20 B. App-frozen Maps, Sets and Dates are trusted as immutable (Turn R24 says so);
+    dev and test still guard every collection Flow freezes. In T79's fix round.
