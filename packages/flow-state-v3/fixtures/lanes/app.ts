@@ -1,5 +1,5 @@
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
-import { GitLive } from "../sync/adapters/git.ts";
+import { GitLive } from "../services/git/adapters/git.ts";
 import { CancelMachine, LatestMachine, SerializeMachine } from "./machines/clients.ts";
 import { PagedMachine } from "./machines/paged.ts";
 

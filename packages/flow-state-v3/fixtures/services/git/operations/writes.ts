@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect";
-import { Outcome, transaction } from "../../../src/index.ts";
+import { Outcome, transaction } from "../../../../src/index.ts";
 import { GitApi } from "../services.ts";
 
 /**

@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
-import { GitApi, NoResponse, RateLimited } from "../../sync/services.ts";
-import { Git } from "../../sync/server/git.ts";
+import { GitApi, NoResponse, RateLimited } from "../../services/git/services.ts";
+import { Git } from "../../services/git/server/git.ts";
 
 const lost = () => Effect.fail(new NoResponse());
 

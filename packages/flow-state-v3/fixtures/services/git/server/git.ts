@@ -1,5 +1,5 @@
 import { Exit, Schema } from "effect";
-import { Fake } from "../../../src/host/testing/index.ts";
+import { Fake } from "../../../../src/host/testing/index.ts";
 
 const GitTruth = Schema.Struct({
   synced: Schema.Record(Schema.String, Schema.String),

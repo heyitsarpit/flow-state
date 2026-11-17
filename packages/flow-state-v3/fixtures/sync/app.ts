@@ -1,5 +1,5 @@
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
-import { GitLive } from "./adapters/git.ts";
+import { GitLive } from "../services/git/adapters/git.ts";
 import { SyncMachine } from "./machines/sync.ts";
 import { RepoMachine } from "./machines/repo.ts";
 

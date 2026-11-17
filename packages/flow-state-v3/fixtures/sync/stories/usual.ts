@@ -1,7 +1,7 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { client, docsRepo, emptyRepo, gitGrownSetup, gitSetup } from "../app.ts";
-import { Git } from "../server/git.ts";
-import { GitFake } from "../server/layer.ts";
+import { Git } from "../../services/git/server/git.ts";
+import { GitFake } from "../../services/git/server/layer.ts";
 
 /**
  * The grown Git app over its port fake, with no steps yet: every Story of the repositories starts

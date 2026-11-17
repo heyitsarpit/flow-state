@@ -13,7 +13,7 @@ import {
 } from "../../fixtures/lanes/app.ts";
 import { GitFakeSteadfast } from "../../fixtures/lanes/server/layer.ts";
 import { lanesStory } from "../../fixtures/lanes/stories/usual.ts";
-import { Git } from "../../fixtures/sync/server/git.ts";
+import { Git } from "../../fixtures/services/git/server/git.ts";
 import { Fake, type Cut, Story } from "../../src/host/testing/index.ts";
 import { endings, laneFacts, type Records } from "../checkout.ts";
 import { played } from "../rules/played.ts";

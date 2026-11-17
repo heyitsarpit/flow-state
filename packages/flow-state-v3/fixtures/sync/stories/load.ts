@@ -1,5 +1,5 @@
 import { clientOf, repoOf } from "../app.ts";
-import { Git } from "../server/git.ts";
+import { Git } from "../../services/git/server/git.ts";
 import { repoStory } from "./usual.ts";
 
 const REPOS = 64;

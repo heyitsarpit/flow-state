@@ -1,6 +1,6 @@
 import { Story } from "../../../src/host/testing/index.ts";
-import { Git } from "../../sync/server/git.ts";
-import { GitFake } from "../../sync/server/layer.ts";
+import { Git } from "../../services/git/server/git.ts";
+import { GitFake } from "../../services/git/server/layer.ts";
 import { lanesGrownSetup, secondSerialize, serializeClient } from "../app.ts";
 
 /**

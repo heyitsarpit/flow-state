@@ -1,6 +1,6 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
-import { Git } from "../../sync/server/git.ts";
-import { GitFake } from "../../sync/server/layer.ts";
+import { Git } from "../../services/git/server/git.ts";
+import { GitFake } from "../../services/git/server/layer.ts";
 import { cancelClient, lanesSetup, latestClient, serializeClient } from "../app.ts";
 import { GitFakeSteadfast, GitFakeUnanswered } from "../server/layer.ts";
 

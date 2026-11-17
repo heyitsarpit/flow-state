@@ -1,8 +1,8 @@
 import { Schema } from "effect";
 import { definition, deny, Flow, machine } from "../../../src/index.ts";
-import type { RateLimited } from "../services.ts";
-import { remoteHead } from "../operations/reads.ts";
-import { sync } from "../operations/writes.ts";
+import type { RateLimited } from "../../services/git/services.ts";
+import { remoteHead } from "../../services/git/operations/reads.ts";
+import { sync } from "../../services/git/operations/writes.ts";
 
 const MAX_STRIKES = 5;
 

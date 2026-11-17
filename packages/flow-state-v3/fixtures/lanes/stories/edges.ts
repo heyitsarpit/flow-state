@@ -1,4 +1,4 @@
-import { Git } from "../../sync/server/git.ts";
+import { Git } from "../../services/git/server/git.ts";
 import { pagedClient, serializeClient } from "../app.ts";
 import { grownStory } from "./structure.ts";
 

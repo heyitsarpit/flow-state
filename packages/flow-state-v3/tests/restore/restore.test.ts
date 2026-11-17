@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
-import { Git } from "../../fixtures/sync/server/git.ts";
+import { Git } from "../../fixtures/services/git/server/git.ts";
 import { account } from "../../fixtures/transfers/app.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";

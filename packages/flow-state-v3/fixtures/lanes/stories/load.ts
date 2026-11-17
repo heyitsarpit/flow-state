@@ -1,5 +1,5 @@
 import { actorRef } from "../../../src/index.ts";
-import { Git } from "../../sync/server/git.ts";
+import { Git } from "../../services/git/server/git.ts";
 import { SerializeMachine } from "../machines/clients.ts";
 import { serializeClient } from "../app.ts";
 import { lanesStory } from "./usual.ts";

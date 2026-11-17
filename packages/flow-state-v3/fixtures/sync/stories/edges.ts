@@ -1,5 +1,5 @@
 import { client } from "../app.ts";
-import { Git } from "../server/git.ts";
+import { Git } from "../../services/git/server/git.ts";
 import { repoStory } from "./usual.ts";
 
 const syncDocs = { _tag: "SyncRepo", repo: "docs" } as const;
