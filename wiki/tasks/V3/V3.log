@@ -907,3 +907,7 @@ note 2026-11-17T07:01:00Z
 note 2026-11-17T07:04:07Z
     Amendment (2026-11-17, the user's Q8 A): fixture counts are bench-set and recorded; the Epic's fixtures instruction
     says so.
+
+note 2026-11-17T07:19:43Z
+    Decision (the user, 2026-11-17): Q10 A. Server-rendering maxBytes and the 1,024 Stream.callback queue join D24's
+    drops; the inspector ring keeps a settable capacity with a bench-set default. Routed to T84.

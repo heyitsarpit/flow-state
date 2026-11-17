@@ -2279,3 +2279,7 @@ tasks
               tests; each value has a bench or measurement note; the refused batch's retry derives from the capture
               interval via Effect's `Schedule`; the 2^31 - 1 ms timer limit is a real platform limit given one source,
               not a D25 knob.
+        comment     2026-11-17T07:19:41Z
+            Scope added (the user, 2026-11-17, Q10 A): drop the server-rendering maxBytes (262,144 / 2 MiB) and the
+            1,024-item Stream.callback queue where built, each past its old cap in a Story; the inspector ring's default
+            capacity becomes a bench-set named default (D25).

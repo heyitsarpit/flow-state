@@ -183,7 +183,10 @@ decisions
         before React attaches (@plan.React), 256 stream entries per operation and 256 identities per write batch, the
         key shape's 16 levels and 256 nodes (@plan.Operations.O1), the 10-segment state path (@plan.Machines), the
         trace's 4,096 events (@plan.Inspection) and a Story's 10,000 `run.frames` (@plan.Testing). A step's mail drain
-        stays a fairness yield, not a limit, its count set from the bench.
+        stays a fairness yield, not a limit, its count set from the bench. Extended again (the user, 2026-11-17, Q10 A):
+        the server-rendering payload's `maxBytes` (262,144, at most 2,097,152; @plan.ServerRendering) and the 1,024-item
+        `Stream.callback` queue (@plan.Operations) are dropped too; the inspector's ring stays a user-settable capacity
+        whose default comes from the bench (D25).
     D25  @plan.Runtime, @plan.Persistence, @plan.Operations, @plan.EntityDomains, @plan.ServerRendering,
          @plan.LazyFeatures: timing and retry knobs are named defaults set from measurement (accepted, the user,
          2026-11-17, Q4 A)
