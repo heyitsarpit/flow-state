@@ -1561,6 +1561,10 @@ tasks
             memory-only change); an unchanged wave leaves an onContext issue open (older; reactions run on change, Turn
             R22); restore select defects are silent (R9); count-mismatch and positional baselines (Restore R5 text,
             @task.V3.T56); `own` as a wrapper (nothing reads it). No outside imports or temporary names.
+        comment     2026-11-17T04:21:58Z
+            Resume (the user, 2026-11-17): codec size bounds dropped (@plan.Pending.D23), which removes the blocking
+            lost-event finding at 59574431; this round removes the bounds and their code, proves 5,000-item values on
+            the bench, then fixes the routed items.
 
     T74
         title       App mix: several fixtures in one Runtime
