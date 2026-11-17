@@ -996,3 +996,8 @@ note 2026-11-17T12:18:54Z
     Decision (the user, 2026-11-17): Q17 A, Q18 A, Q19 A. Local actors send without persistence (Actors R6); an unknown
     send stays StillUnknown under an app Rejected (WriteLanes R2); unproduced diagnostic codes leave the public union.
     All three land in T79's fix round.
+
+note 2026-11-17T12:19:42Z
+    T79 review ISSUES (277f5037): records gaps (review 2's 3a, 3c unrecorded; 2c, 2k deferred without reason), several
+    deferrals that belong here, and a step defect leaving the driver on a half-written world. World handoff ruled right.
+    Fix round to its lead with Q17-Q19; Q20 (app-frozen collections) asked.
