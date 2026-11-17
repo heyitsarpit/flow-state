@@ -236,7 +236,9 @@ requirements
                 is immutable by contract: an update returns new containers, never writes in place.
                 A dev or test host deep-freezes each admitted value, Maps, Sets, Dates and class
                 instances included, so a write throws where it happens and is its turn's Defect;
-                production admits values as they are (@plan.Pending.D29).
+                production admits values as they are (@plan.Pending.D29). A Map, Set or Date the
+                app froze itself is trusted as immutable and not wrapped, as Immer freezes them in
+                dev (the user, 2026-11-17, Q20 B).
 
     R25  Issues by source
         source  @plan.Machines.O8.

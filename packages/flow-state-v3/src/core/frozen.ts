@@ -88,6 +88,8 @@ const freezeOne = (value: Container) => {
  * **Gotchas**
  *
  * - A typed array cannot be frozen and is left as it is.
+ * - A Map, Set or Date the app froze itself is trusted as immutable and left as it is, as Immer
+ *   freezes them in dev.
  */
 export const makeFreezer = () => {
   const done = new WeakSet<Container>();

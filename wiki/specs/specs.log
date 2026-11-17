@@ -294,3 +294,8 @@ note 2026-11-17T19:30:01Z
     @spec.Turn R24 (@plan.Pending.D29): admitted values are immutable; dev and test hosts deep-freeze them, Maps, Sets,
     Dates and class instances included, so a write throws as its turn's Defect. Why: the text memo keys on them.
     Reverse: drop the paragraph (1d8fd436).
+
+note 2026-11-17T20:40:00Z
+    @spec.Turn R24: a Map, Set or Date the app froze itself is trusted as immutable and not wrapped; a mutable one
+    in memory is still guarded. Why: the user's Q20 B (a frozen object takes no new methods; Immer freezes them this
+    way in dev). Reverse: refuse an app-frozen Map, Set or Date at admission as the turn's Defect (Q20 A).
