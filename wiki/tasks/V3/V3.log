@@ -911,3 +911,8 @@ note 2026-11-17T07:04:07Z
 note 2026-11-17T07:19:43Z
     Decision (the user, 2026-11-17): Q10 A. Server-rendering maxBytes and the 1,024 Stream.callback queue join D24's
     drops; the inspector ring keeps a settable capacity with a bench-set default. Routed to T84.
+
+note 2026-11-17T07:32:19Z
+    T9 in review at 8cccc00d: depth limit Flow.maxDepth 256 (Node Map-nest decode survives 686, the smallest measured);
+    past it values are reported, never thrown. Opus review started. Builder planted one fault in the live tree and
+    restored it (rule broken; tree confirmed clean at HEAD).
