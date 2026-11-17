@@ -118,3 +118,13 @@ Deferred items.
 - **`Git/sync` 4xx case and sign-in's mix seat** (2026-11-17, @plan.Pending.D21). A 4xx that is not a rate limit ends
   `sync` at once, which changes the old `Git/sync` contract; sign-in's grown samples need a sixth mix part. No owner
   until a Task changes `Git/sync` or seats more mix parts.
+- **An identity's state as one union** (2026-11-17, @task.V3.T79; the first code-quality review's 2c). Live, Resting
+  and Ended are today "which of `incarnations`, `records`, `ended` holds the key", read by `snapshotIn` alone. One
+  `identities: Map<key, Live | Resting | Ended>` would make the state a variant, but every step operation, the World
+  indexes and T85's Capture read those maps; revisit once Capture has settled the record path, so one rewrite serves
+  both.
+- **An incarnation's activations as a chain of `{ path, activation }`** (2026-11-17, @task.V3.T79; that review's 2k).
+  `activations` is positional beside `chainOf(state)`; the length arithmetic sits in `serve.ts` turn and its owner
+  lookup. Worth it only with a Turn change that touches the chain (Turn R20, R21); alone it moves risk without a
+  failing case.
+
