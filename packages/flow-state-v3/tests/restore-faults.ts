@@ -85,7 +85,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "unsaved-value-saved-null",
-    tests: ["tests/transfers/durability.test.ts"],
+    tests: ["src/core/persist.test.ts"],
     says: "an ending whose value has no saved form keeps its channel with a null value, so its mapping refuses the turn at each start",
     rule: "Codec R4",
     edits: [
@@ -98,7 +98,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "flow-made-row-counted-unsaved",
-    tests: [RESTORE],
+    tests: ["src/core/persist.test.ts"],
     says: "a Flow-made unknown row with no value is counted as unsavable and reported at every owed write",
     rule: "Codec R4",
     edits: [

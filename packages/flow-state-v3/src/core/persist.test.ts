@@ -142,6 +142,21 @@ const receiptsIn = (owed: ReadonlyArray<{ readonly record: Option.Option<string>
     }),
   );
 
+const endingsIn = (owed: ReadonlyArray<{ readonly record: Option.Option<string> }>) =>
+  owed.flatMap((w) =>
+    Option.match(w.record, {
+      onNone: () => [],
+      onSome: (r) =>
+        Schema.decodeUnknownSync(OwedEndings)(jsonOf(r)).rows.map(
+          (row) => `${row.channel} ${row.reason}`,
+        ),
+    }),
+  );
+
+const OwedEndings = Schema.Struct({
+  rows: Schema.Array(Schema.Struct({ channel: Schema.String, reason: Schema.String })),
+});
+
 const OwedReceipts = Schema.Struct({
   rows: Schema.Array(
     Schema.Struct({ value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })) }),
@@ -162,12 +177,34 @@ it("WriteAhead I20, I21; Codec R1: 1,300 rows and twelve values of 200,000 chara
   expect(reports).toEqual([]);
 });
 
-it("Codec R4: only a value with no canonical form is saved as null, reported; a valid one beside it is kept", () => {
+it("Codec R4: only a value with no canonical form is saved as its Attempt's unknown Restored with null, reported; a valid one beside it is kept", () => {
   const { tx, owed, reports } = owing(["\uD800", "ninebytes"]);
 
   expect(tx.world().withheld.size).toBe(0);
   expect(receiptsIn(owed)).toEqual([null, { receipt: "ninebytes" }]);
+  expect(endingsIn(owed)).toEqual(["unknown Restored", "success Success"]);
   expect(reports).toEqual([expect.objectContaining({ code: "UnencodableValue" })]);
+});
+
+it("Codec R4: a Flow-made row with no value saves null and is never reported", () => {
+  const from = stepOver();
+
+  from.ledger.owe({
+    actor,
+    to: Audience.Identity(),
+    operation: "ring",
+    attempt: Option.some("att-0"),
+    lane: Option.none(),
+    channel: "unknown",
+    reason: "Restored",
+    value: undefined,
+    owner: ROOT_ACTIVATION,
+    current: true,
+  });
+  from.persistence.project();
+
+  expect(from.tx.out().evidence.filter((e) => e._tag === "Reported")).toEqual([]);
+  expect(from.tx.world().withheld.size).toBe(0);
 });
 
 const OwedRows = Schema.Struct({

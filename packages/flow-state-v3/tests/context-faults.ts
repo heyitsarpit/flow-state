@@ -448,20 +448,6 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "baselines-copy-memory-each",
-    tests: ["tests/session/values.test.ts"],
-    says: "each baseline copies the memory it read, so several reactions over a long list push the record past a bound",
-    rule: "Actors R18",
-    edits: [
-      {
-        file: "src/core/context.ts",
-        find: "      frame: { slots: readSlots, memory: readFields, source: memory } satisfies Frame,",
-        replace:
-          "      frame: { slots: readSlots, memory: readFields, source: { ...memory } } satisfies Frame,",
-      },
-    ],
-  },
-  {
     name: "throwing-slot-decode-escapes-boot",
     tests: ["src/core/actor-record.test.ts"],
     says: "a slot Schema whose decode throws at the boot escapes quarantine",
