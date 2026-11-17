@@ -367,8 +367,9 @@ realization typescript
 
     The Capture input carries the tickets the batch answers and the marks of a refused batch; its step projects
         each identity's marked keys (`encodeActor`, `encodeLane`, `encodeOwed`, through the memoised walkers) and
-        returns one `Write` command: the batch, the marks it carries and its tickets. `encodeLane` matches every
-        Phase, so a new phase forces a decision on what is saved.
+        returns one `Write` command: the batch, the marks it carries and its tickets. A live incarnation's record
+        text is kept by the incarnation and its graph's bindings, so a ticket's check and the capture after it
+        encode once. `encodeLane` matches every Phase, so a new phase forces a decision on what is saved.
 
     An identity whose actor record cannot encode at a Capture (R4) writes none of its records: its keys stay
         marked, so no lane or owed record outruns its actor record (I11), and they go whole at the first Capture

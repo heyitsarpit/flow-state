@@ -2796,7 +2796,7 @@ tasks
 
     T85
         title       Records captured on issue (D30), plus compiled lookups
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T79, @T86]
         description
@@ -2880,6 +2880,40 @@ tasks
             stopped-runtime-writes caught alone), review 2's 3b persist part (Touched is gone), review 1's 2b (a row's
             ending kind as one tagged value, same bytes). R7 bench before and after; hide flush in Node, browsers if the
             tooling allows.
+        comment     2026-11-17T15:01:41Z
+            Decided (implementation calls, b7c671bd and fc22910f): a refused batch's marks go back to the edge, which
+            hands them to the next Capture, so no step answers a landed batch; an end keeps its record without a mark
+            and makes marks due now; World.records holds only identities with no incarnation; a ticket's step and an end
+            check that the actor record encodes, kept per incarnation so the capture reuses the text. Reverse: step-end
+            projection as at 9c46f647.
+        comment     2026-11-17T15:01:41Z
+            Crash-attack sidecar (Haiku, high) found no lost, doubled or made-up ending; its five findings, each re-read
+            in the code, are pre-existing and rejected: a consumer landing beside a withheld provider (I23's withheld
+            exception; R8 is unbuilt); an unencodable queued input (declined at commit, lanes.ts); a disposal ending
+            beside a withheld identity (R4 keeps the last good capture); an immediate retry while a due-now mark waits
+            (R12: a batch carries every mark); an interrupted write (only Scope close interrupts; R12 calls
+            it unanswered).
+        comment     2026-11-17T15:01:42Z
+            Routed items: the stopped Runtime's edges are fixed red first (disposeActor refuses, Boot drops, saved-only
+            and quarantined snapshots read stopped, refusals name the stop; stopped-runtime-writes caught alone by its
+            lifecycle check); review 2's 3b persist part is gone with Touched. Review 1's 2b (proposed, not built):
+            Capture encodes rows through the same encodeOwed, so the tagged ending kind is a model refactor across nine
+            owe sites, not Capture's; route it to a model-cleanup Task.
+        comment     2026-11-17T15:08:51Z
+            Bench (Node 24, three interleaved rounds, per turn median ms, 9c46f647 / fc22910f): palette/stress
+            0.078-0.086 / 0.082-0.085; palette/stress-36 1.76-1.88 / 1.75-1.82; session/long 0.114-0.119 / 0.119-0.123
+            (+4 %); transfers/long 0.043-0.044 / 0.046-0.048 (+7 %; the Capture step each Story batch adds). Hide flush,
+            1,000 actors with one changed field plus a 445 KB record: sends 14.2-14.6 / 7.0-7.1 ms, handler to
+            Store.write 0.07 / 6.5-6.7 ms. Finding 12: a sorting selector on an unchanged provider, 2,000 sends 650.9 /
+            20.9 ms; fixture Stories within noise. Finding 15: is, name codec, key text and reference-first memory were
+            already built; patched-fields compare built; chains per node not built (chainOf 0.4 %, levelsOf under 0.1 %
+            of session/long). Browsers owed: the repo has no browser tooling.
+        comment     2026-11-17T15:08:51Z
+            Close (this commit): ready for review. check 0; suite 1,316 tests, only T20's two pair reds (same as
+            before); test:stress 13 files exit 0; generated over FLOW_SEEDS=20 only the same two pair reds, stress seeds
+            exit 0; stored records identical to 9c46f647 at every checkpoint of 152 Stories. nub run faults not judged
+            (unchanged suite red: T20's reds and sweep timeouts under load, as at T79); every fault added or retargeted
+            here (36) planted alone and caught.
 
     T86
         title       Fixtures follow their layout: flat files moved, shared services in one place, pay becomes shop
