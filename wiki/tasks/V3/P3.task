@@ -1057,7 +1057,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1629,6 +1629,20 @@ tasks
             context issues as turn starts (Turn I9 still red on its plant, suite green), the per-wave canonical walk's
             cost (bench 0.148 ms), nested Result in slots.ts (style). No outside imports or temporary names; nothing
             re-creates an Effect feature.
+        comment     2026-11-17T05:45:31Z
+            Deep-values round closed at 45cffd7d: check 0; suite 1,134 pass + 13 inverted, 2 red, T20's pair cells;
+            fresh seeds exit 0; test:stress exit 1 on palette stress only (@task.V3.T83); nub run faults 216 of 216
+            caught by their targets, dead core 848 failed, not judged (unchanged: 4 failed, T20's cells, the palette
+            timeout and one the output drops). Bench per run, per turn median/p99 ms: outline 100,000 deep (and 5,000
+            wide) 675/727, 169/182; agenda 5,000 days 5.3/6.9, 0.59/0.77; archive 4.3/5.8, 0.61/0.82; palette/stress-36
+            271/287, 6.29/6.68 (was 198); session/long 0.160/0.188; transfers/long 0.045/0.070 per turn.
+        comment     2026-11-17T05:45:31Z
+            Decisions (agent), deep round: the codec's walk and writer keep frame stacks and its decode uses the host
+            parser (V8 and JavaScriptCore parse a million levels on Node and Bun; any host failure is CodecMalformed
+            json), logged in specs.log; Effect's Equal and Schema equivalence recurse, so slot, reaction and memory
+            comparisons fall back to canonical text when they overflow (a too-deep non-JSON pair counts as changed). The
+            100,000-deep outline Story is built on call (CLI printing and sweeps of it take too long); the
+            garbled-receipt Story moves the no-saved-form check to a Story.
 
     T74
         title       App mix: several fixtures in one Runtime
