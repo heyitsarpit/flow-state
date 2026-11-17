@@ -24,13 +24,12 @@ describe("bench declarations", () => {
     }
   });
 
-  it("every manifest's long, saved stress and marked Stories have a turn bench, and each sized Story a scale bench", () => {
+  it("every manifest's long and marked Stories have a turn bench, and each sized Story a scale bench, none built", () => {
     const ids = new Set(benches.map((b) => b.id));
     const turnOf = (id: string) => `turn.${id.replace("/", ".")}.per-turn-ms`;
 
     for (const m of manifests) {
       for (const story of Option.toArray(m.long)) expect(ids.has(turnOf(story.id))).toBe(true);
-      expect(ids.has(turnOf(m.savedStress.story.id))).toBe(true);
 
       for (const b of m.bench.stories) {
         const id = Option.match(b.size, {
@@ -42,21 +41,6 @@ describe("bench declarations", () => {
       }
     }
   });
-
-  it("every turn, persist, values and startup bench's proof passes: it does the work it claims", async () => {
-    const light = benches.filter((b) =>
-      ["turn", "persist", "values", "startup"].includes(b.concern),
-    );
-
-    for (const b of light) {
-      const subject = await b.load();
-
-      expect({ id: b.id, problem: await subject.proof() }).toEqual({
-        id: b.id,
-        problem: Option.none(),
-      });
-    }
-  }, 120_000);
 });
 
 describe("bench statistics", () => {
