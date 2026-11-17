@@ -2050,3 +2050,7 @@ tasks
             timeout at 67 s under the faults whole-suite load (about 50 s alone), the third unchanged red; the inbox
             fixtures are not in the mix, pair sweep or stress (one samples set per fixture); the when-defect case lives
             only in tests/actors/context.test.ts, not a fixture.
+        comment     2026-11-17T03:42:31Z
+            Wake timing at 3c97fe2d, clean worktree: suite 93 s (was 33 s at 9d45d087), stress 122 s; T9's
+            reloads.test.ts runs every context Story at every position in one serial test (about 33 s alone), sharding
+            suggested by T9's review (1c43f41e).
