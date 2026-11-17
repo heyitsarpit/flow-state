@@ -1151,3 +1151,7 @@ note 2026-11-17T20:56:55Z
 note 2026-11-17T21:02:11Z
     Decision (the user, 2026-11-18): T88's upgrade is applied tomorrow (2026-11-19), not at the first wake after the
     gate clears; the trial result and the orchestrator's test-line ruling stand in its comments.
+
+note 2026-11-17T21:03:30Z
+    Decision (the user, 2026-11-18): T83 no longer waits on T88; P3 order without T88 is T83, T20, T81, T80. T81's lead
+    finishes its requirements step, then T81 pauses and T83 starts. Reverse: blocked_by @T88 back on T83.

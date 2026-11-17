@@ -2648,7 +2648,7 @@ tasks
         title       Fast test commands again: suite, stress and faults with no regression from the baseline
         status      open
         priority    high
-        blocked_by  [@T84, @T87, @T88]
+        blocked_by  [@T84, @T87]
         description
             Make the test commands fast again: the package suite, `nub run test:stress` and `nub run faults` with no
             regression from the measured baseline without a named cause, and no gate weakened.
@@ -2751,6 +2751,9 @@ tasks
         comment     2026-11-17T20:32:57Z
             Routed from @task.V3.T87 (orchestrator, 2026-11-18): the three rule sweeps time out under load (load average
             about 20 while nub run faults runs), so faults reports them red; this Task's speed work owns it.
+        comment     2026-11-17T21:03:29Z
+            Unlinked from @task.V3.T88 (the user, 2026-11-18): the link was ordering only. T88 lands tomorrow and
+            re-records the tooling bench; this Task's before and after stand on today's toolchain.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
