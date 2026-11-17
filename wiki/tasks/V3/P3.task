@@ -2025,7 +2025,7 @@ tasks
     T79
         title       Code convergence: tx edit operations, lifecycle unions, one home for diagnostics and keys, host 
                     idiom
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T9]
         description
@@ -2212,6 +2212,20 @@ tasks
             three repeats each, alternating, on a machine other processes loaded, per turn median ms before / after:
             palette/stress-36 1.736-1.814 / 1.736-2.536, lanes/stress-36 0.177-0.350 / 0.168-0.242, outline-deep 145-290
             / 153-181; the bands overlap, so the 1-3 % rows are noise, not shown real.
+        comment     2026-11-17T12:48:43Z
+            Fix round close (00b81156): ready for review. Done: fail-stop at a step's first defect (red first,
+            runtime.test.ts, fault defect-keeps-runtime), Q17-Q20 (the two it.fails flipped; codes 130 to 27,
+            Diagnostics R7 revised; Turn R24 per Q20 B, specs.log), review 1's 2a (Route), review 2's 3a (tx.refuse), 3e
+            (one arming path), 3b's ensure/send/take tags, 3l, 4d: the contract's InputOf is StructType; kept with
+            reasons RuntimeConfig beside SetupConfig (the erased form the host builds from),
+            Services/ServicesOf/ServicesLayer (a contract's list, an app's union, the Layer) and a snapshot schedule's
+            `key` (Turn R23 keys every list). Rejected: review 2's 3b answered(ticket, landed) (the store's one two-way
+            verdict, mapped once to Stored or Refused). Routed, my call against the review's ask, logged here: 2h and 2i
+            to T80 (sweep internals and the Story records' public Batch shape, which T80 rewrites), review 1's 2b to T85
+            (an owed row's ending kind is its encoding, which Capture defines). Comments: the 96 added lines cut to 56,
+            each kept one a contract the code cannot state. Gates: check 0; suite 1,287 pass, 13 expected fail, T20's
+            two reds; test:stress exit 0; generated and mix over FLOW_SEEDS=20 exit 0; every fault added or moved
+            planted alone and caught.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
