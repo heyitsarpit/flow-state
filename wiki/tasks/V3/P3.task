@@ -2230,6 +2230,33 @@ tasks
             Accepted (orchestrator, 2026-11-17): 2h and 2i routed to T80 (it rewrites the sweep and the Batch shape) and
             review 1's 2b to T85 (Capture encodes a row's ending kind); T80's May change widened to src/core as a
             small amendment.
+        comment     2026-11-17T13:00:34Z
+            ISSUES (independent check-task at 724acef2, fix round 96966733..54635a58): one blocking item, records only;
+            code, decisions and gates hold. check 0; suite 1,287 pass, 13 expected fail, only T20s two pair reds. Red
+            first, re-run in a scratch copy: restoring the old lines turns the Q17, Q18 and fail-stop tests red, and
+            wrapping app-frozen Maps turns the Q20 test red. Refactors kept behaviour: no Story or test id changed, +4
+            tests and two it.fails flipped; tx.refuse, Route, the Ensure tag, callSlot and armAt read equivalent (a
+            restored bind has no schedules). Q19: none of the 103 dropped codes had a producer at 96966733, so no
+            diagnostic was lost. Blocking (acceptance 1): the claim that every finding has one outcome is false. Review
+            2s 2f (Finding re-declares Diagnostic fields, error.ts:88-94; accepted at 10:57) has no outcome. The persist
+            part of review 2s 3b (Touched now and owed, persist.ts:29-31) has none, since 12:41 lists only 3b outside
+            persist. Three routes are not written on their targets: review 2s 3g clock queue (T80 has no clock text);
+            T81s close items, operations returning TypeError, a {sec: 5} schedule and an unchecked constant start (T81
+            still says routed to T79); and any 3b persist route (T85). Not blocking, do in this fix round: (1) the
+            fail-stop holds on every path probed, including a defect in a step a call settle starts on a fiber (later
+            calls refuse RuntimeDisposed). That defect escapes as an uncaught exception and dispose() then succeeds.
+            halted is a host flag beside Life, so snapshots read active while calls refuse RuntimeDisposed, against
+            Actors I42 (no host flag decides whether an input runs). No Spec rule or specs.log entry covers it, and the
+            test and fault cite R22 (disposal). Write a proposed rule for the user, whose Life table it is. (2) The Q17
+            test asserts only no ending against an Effect.never commit; assert the Sent evidence. (3) Five of the 27
+            codes never reach a Diagnostic (UnencodableValue, SendTargetAbsent, StorageSilent, StoryTurnLimit,
+            ConfigLoadFailed), and codes.test checks a hand list, not producers. Decide keep or drop under R7, and fix
+            R6, which still names dropped codes. (4) Comments: two JSDoc blocks on Arming (turn.ts:49-54); the orphaned
+            doc at turn.ts:286-288 is still there; at lanes.ts:114 the trim kept the wrong comment above interruptReads.
+            Notes: Q20 B trusts Object.isFrozen alone, so a bare Object.freeze(map) still takes set() silently, as B
+            allows; R24 could say so. Sidecars: accepted the record gaps, the fiber escape, I42, the Q17 test, the five
+            codes and the comments. Rejected: the restore arming change (bound comes from fresh), a store that throws
+            synchronously wedging the edge (Store.write returns an Effect) and review 2s 2a listed twice (one outcome).
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
