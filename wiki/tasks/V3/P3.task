@@ -2793,6 +2793,12 @@ tasks
         comment     2026-11-17T21:03:29Z
             Unlinked from @task.V3.T88 (the user, 2026-11-18): the link was ordering only. T88 lands tomorrow and
             re-records the tooling bench; this Task's before and after stand on today's toolchain.
+        comment     2026-11-17T21:12:09Z
+            Amendment (the user, 2026-11-18): a 60-minute timebox from the lead's start; the lead runs Haiku
+            hill-climbers in parallel, one per part (suite files, reload sweep, pair sweep, generated and stress
+            Stories, faults run), in scratch copies outside the package, each submitting a measured idea; the lead
+            verifies, applies and re-measures alone. At 60 minutes: commit what holds, report each remaining gap with
+            what its seconds buy, and the user decides.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning

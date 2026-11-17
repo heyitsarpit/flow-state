@@ -1155,3 +1155,8 @@ note 2026-11-17T21:02:11Z
 note 2026-11-17T21:03:30Z
     Decision (the user, 2026-11-18): T83 no longer waits on T88; P3 order without T88 is T83, T20, T81, T80. T81's lead
     finishes its requirements step, then T81 pauses and T83 starts. Reverse: blocked_by @T88 back on T83.
+
+note 2026-11-17T21:12:10Z
+    Decision (the user, 2026-11-18): T83 is timeboxed to 60 minutes and uses parallel Haiku hill-climbers per part; at
+    the box, what holds is committed and the remaining gaps go to the user. Overrides the Limits' no-time-budget for
+    T83.
