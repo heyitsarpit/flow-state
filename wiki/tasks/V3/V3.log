@@ -1129,3 +1129,8 @@ note 2026-11-17T20:11:19Z
 note 2026-11-17T20:11:19Z
     Open, known: T20's two pair-cell reds keep nub run faults unjudged; Safari/Chromium hide-flush timing owed to T58;
     about 280 B retained per actor create/dispose cycle and the serialize-queue slope 0.55 are with T83.
+
+note 2026-11-17T20:14:56Z
+    T89's deletion redone through the CLI: tombstone with deletion_reason plus cleanup_when_unreferenced=true makes wk
+    edit remove it (deleted_at does not matter); the record matches the earlier hand cut. The wk help and skill don't
+    say so.
