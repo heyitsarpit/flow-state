@@ -75,6 +75,7 @@ decisions
         endpoint. **Proven by:** @task.V3.T70's step test, the stress profile's span check and the planted fault
         `offline-reaches-server`. Judged by the orchestrator, for the user's read. Found in @task.V3.T70.
     D13  @plan.Runtime.O4: context updates never count toward the follow-up guard (accepted, the user, 2026-11-17)
+         (merged into the Plans at 561cf35f)
         O4's follow-up chain, D24's one loop guard (its number comes from the bench), counts only events sent by turns;
         a context update and the onContext events it enqueues never count, so none is refused or waits at the guard, and
         a provider with any number of consumers updates them all in one admitted event. **Why:** O4 also says context
@@ -132,7 +133,7 @@ decisions
         **Proven by:** the `lanes` Story whose `Lanes/cancel` actor interrupts a call on the wire, and a `flow check`
         case. Found in the fixture catalog review, 2026-11-17.
     D20  @plan.Machines.O1, @plan.Runtime.O5: a context slot declares its selection's Schema (accepted, the user,
-         2026-11-17)
+         2026-11-17) (merged into the Plans at 561cf35f)
         **Before:** `Provider.select(selector)`; a selection is saved by a hand-written codec, and every value kind it
         misses (Date, NaN, Map, Set, class instances, cycles) is saved unknown and invents an `onContext` event at each
         reload. **After:** `Provider.select(schema, selector)`, e.g. `Session.Provider.select(Schema.String, (s) =>
@@ -160,6 +161,7 @@ decisions
         fixture every later Task inherits (the Epic's instructions). **Proven by:** the row's Stories in `session`, red
         on a planted unknown path. Found in @task.V3.T9's reviews.
     D23  @plan.Inspection.O2: the codec has no size bounds (accepted, the user, 2026-11-17)
+         (merged into the Plans at 561cf35f)
         **Before:** one past any of depth 32, 10,000 nodes, 4,096 items per array, 262,144 bytes per string or key, or
         2,097,152 canonical bytes is rejected, so a context slot or record past a bound is saved unknown or withheld.
         **After:** the codec keeps canonical encoding and strict decoding, and drops the five size bounds; how big a
@@ -169,6 +171,7 @@ decisions
         selection and record saving and restoring in a Story, with the bench timing it. Found in @task.V3.T9's reviews.
     D24  @plan.Runtime.O4, @plan.Operations.O1, @plan.Operations.O3, @plan.Persistence.O3, @plan.EntityDomains.O1,
          @plan.EntityDomains.O5, @plan.Machines.O1: no size or queue caps; one loop guard and a slow-work warning
+         (merged into the Plans at 561cf35f)
          (accepted, the user, 2026-11-17)
         **Before:** fixed caps: 1,024 pending events per actor, 64 queued commits under `serialize` and per entity
         record (`NotSent { Overloaded }`), a 4,096-item `many` key, 4,096 given-up marks per entity, 4,096 records and
@@ -189,6 +192,7 @@ decisions
         whose default comes from the bench (D25).
     D25  @plan.Runtime, @plan.Persistence, @plan.Operations, @plan.EntityDomains, @plan.ServerRendering,
          @plan.LazyFeatures: timing and retry knobs are named defaults set from measurement (accepted, the user,
+         (merged into the Plans at 561cf35f)
          2026-11-17, Q4 A)
         **Before:** literal values written in Plans, Specs and code: the free actor's grace 100 ms, the disposal bound 5
         s, StorageSilent 10 s, a refused batch's retry 5 s, the lazy-load timeout 10 s, the stream reconnect schedule
@@ -201,7 +205,7 @@ decisions
         builds each feature. The test-tooling guards (Story turn, settle and advance limits) are @task.V3.T83's (the
         user's Q5 A). Found in the limits sweep, 2026-11-17.
     D26  @plan.Inspection.O2: a value's depth has one measured platform limit (accepted, the user, 2026-11-17, Q9 A;
-         lifted by D27 once proven, 2026-11-17)
+         lifted by D27 once proven, 2026-11-17) (merged into the Plans at 561cf35f)
         **Before:** after D23 a value may nest to any depth, but Effect's Schema encode and `Equal` recurse on the call
         stack, so a 6,000-deep value under a recursive Schema kills the run and deep Maps compare wrongly. **After:**
         depth has one limit, the deepest value Effect's Schema and equality handle on the slowest supported host,
@@ -212,7 +216,7 @@ decisions
         under `Schema.Json`, a recursive `Schema.suspend` and a Map nest, with no crash and no ending lost or made up.
         Found in @task.V3.T9's reviews.
     D27  @plan.Inspection.O2, @plan.Machines.O1, @plan.Runtime: every value crosses into Flow through walkers compiled
-         from its Schema (accepted, the user, 2026-11-17, Q11 B)
+         from its Schema (accepted, the user, 2026-11-17, Q11 B) (merged into the Plans at 561cf35f)
         **Before:** Effect's Schema parser and `Equal` walk each value recursively at runtime, so deep values crash
         wherever a call is unguarded (keys, payloads, inputs, reactions, traces), and D26 caps depth at 256. **After:**
         each Schema in `Compiled` gets its own stack-safe encoder, decoder and comparator, built once from Effect's
@@ -235,7 +239,7 @@ decisions
         **Proven by:** the reload sweep and run rules unchanged, I11 and I20 held, and a hide flush timed on the bench.
         Owner: @task.V3.T85.
     D29  @plan.Machines.O1, @plan.Runtime: memory and selected values are immutable by contract (accepted, the user,
-         2026-11-17, Q12 A)
+         2026-11-17, Q12 A) (merged into the Plans at 561cf35f)
         **Before:** updates are immutable by design, but nothing checks it, so a reference cannot prove a value is
         unchanged. **After:** memory, selections, payloads and inputs are immutable once admitted; dev and test
         deep-freeze them so a mutation throws where it happens; production pays nothing. Unchanged values keep their
@@ -243,7 +247,7 @@ decisions
         memoised encoders and reference-first equality are correct only under it (the persistence redesign). **Proven
         by:** a Story whose machine mutates memory fails in test, and the memo's hit counts on the bench.
     D30  @spec.WriteAhead, @plan.Persistence: steps mark changed record keys; one Capture encodes them when a batch is
-         issued (accepted, the user, 2026-11-17, Q13 A)
+         issued (accepted, the user, 2026-11-17, Q13 A) (merged into the Plans at 561cf35f)
         As code:wiki/plans/flow/references/proposals/persistence-redesign-2026-11-17.md proposes: a step only marks the
         record keys it changed; when the edge issues a batch, one pure Capture step projects every marked key from the
         current World through D27's memoised encoders; a key stays marked until a batch carrying it lands. Record
