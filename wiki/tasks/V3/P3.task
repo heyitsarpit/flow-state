@@ -1063,7 +1063,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -2383,6 +2383,9 @@ tasks
             Wake timing at 219d7b8e (15:08, with T9's review lead running, so high): suite 77 s, stress 119 s exit 0;
             faults not timed. Still over twice the 12 s and 9 s baseline after T9's walkers; the test-tooling findings
             (pair seeds, reload replays) are the bulk.
+        comment     2026-11-17T09:58:21Z
+            Routed (orchestrator, 2026-11-17): the likely third faults red is generated.stress 'session-nests-deep:
+            stress runs from fixed seeds' at 44.6 s of its 60 s budget under the faults load.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
