@@ -6,7 +6,7 @@ import { Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
-import type { AnyDefinition, Envelope, InputOf, Machine } from "../definition.ts";
+import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
 import { type FlowError, flowError, flowErrorOf, lifeRejection, refuse } from "../error.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { makeDriver, type Driver } from "./driver.ts";
@@ -190,7 +190,8 @@ export const HandleId = "~flow-state/Handle";
  */
 export type Actor<D extends AnyDefinition = AnyDefinition> = {
   readonly machine: Machine<D>;
-  readonly send: (event: Envelope) => void;
+  // A method, so a handle of one machine reads as a handle of any machine.
+  send(event: EventOf<D>): void;
   readonly getSnapshot: () => Option.Option<Snapshot>;
   readonly [HandleId]: { readonly runtime: Driver; readonly actor: ActorId };
 };

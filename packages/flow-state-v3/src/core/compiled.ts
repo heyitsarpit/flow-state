@@ -14,7 +14,7 @@ export type Slot<F> = { readonly slot: string; readonly run: F };
 export type Values = Readonly<Record<string, unknown>>;
 
 /**
- * A guard's refusal: a literal code and optional explanatory data (`deny`).
+ * A guard's refusal: a literal code (`deny`).
  */
 export type Denial = { readonly _tag: "Flow/Denial"; readonly code: string };
 

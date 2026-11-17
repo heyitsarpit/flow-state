@@ -122,7 +122,9 @@ describe("Runtime", () => {
   it("an event that is not public, or whose payload is invalid, throws InvalidEvent (Actors R14)", () => {
     const door = ready().ensureActor(front);
 
+    // @ts-expect-error -- a caller without types may send a payload its Schema refuses
     assert.throws(() => door.send({ _tag: "Name", label: 3 }), flowError("InvalidEvent"));
+    // @ts-expect-error -- a caller without types may send an internal event
     assert.throws(() => door.send({ _tag: "Rang" }), flowError("InvalidEvent"));
     assert.deepStrictEqual(stateOf(door), Option.some("SHUT"));
   });

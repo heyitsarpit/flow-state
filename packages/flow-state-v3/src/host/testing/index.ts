@@ -8,7 +8,9 @@ export { defineConfig } from "./config.ts";
 
 export type { Config } from "./config.ts";
 
-export type { Covering, EventOf, Fixture } from "./story.ts";
+export type { EventOf } from "../../definition.ts";
+
+export type { Covering, Fixture } from "./story.ts";
 
 export { Fake, FakeLost, FakeWorld } from "./fake.ts";
 

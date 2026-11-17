@@ -74,6 +74,13 @@ export type InputOf<M> = Flat<{ readonly [K in InputKeys<M>]: TypeOf<M[K]> }>;
 export type Envelope<Name extends string = string, P = Values> = { readonly _tag: Name } & P;
 
 /**
+ * A public event of an actor's definition, as `send` takes it.
+ */
+export type EventOf<D extends AnyDefinition> = {
+  readonly [K in keyof D["events"] & string]: Envelope<K, PayloadOf<D["events"][K]>>;
+}[keyof D["events"] & string];
+
+/**
  * One event of a definition: a constructor of its envelope that checks the payload, and an ending
  * mapping (`E.X`, `E.X.from(f)`).
  */

@@ -101,7 +101,7 @@ export const Flow = {
  *
  * Return it from a guard that declines: `memory.ready || deny("NotReady")`.
  */
-// RETURN_TYPE: a denial is plain data matching Flow.Denial, storable in memory.
+// RETURN_TYPE: a denial is plain data, storable in memory.
 export const deny = (code: string): Denial => ({ _tag: "Flow/Denial", code });
 
 /**

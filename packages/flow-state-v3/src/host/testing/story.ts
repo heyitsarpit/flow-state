@@ -1,18 +1,11 @@
 import { type Duration, type Layer, Option } from "effect";
-import type { AnyDefinition, Envelope, PayloadOf } from "../../definition.ts";
+import type { AnyDefinition, EventOf } from "../../definition.ts";
 import { flowError } from "../../error.ts";
 import { actorIdOf, type ActorRef, machineOf, type RuntimeSetup, SetupId } from "../runtime.ts";
 import type { FakeWorld } from "./fake.ts";
 import { run, type StoryRun, type Subject } from "./run.ts";
 import { Step, type WorldWord } from "./steps.ts";
 import { overridesBy } from "../wiring.ts";
-
-/**
- * A public event of an actor's definition, as `send` takes it.
- */
-export type EventOf<D extends AnyDefinition> = {
-  readonly [K in keyof D["events"] & string]: Envelope<K, PayloadOf<D["events"][K]>>;
-}[keyof D["events"] & string];
 
 /**
  * A fixture: a Layer of the app's own services that may require only the run's fake servers.

@@ -15,6 +15,12 @@ export type { Definition, Machine } from "./definition.ts";
 
 export { Diagnostic, FlowError } from "./error.ts";
 
+export type { Classification, Code } from "./error.ts";
+
+export type { Denial } from "./core/compiled.ts";
+
+export type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
+
 export { deny, Flow, Outcome } from "./flow.ts";
 
 export { actorRef, app, runtimeSetup } from "./host/runtime.ts";
