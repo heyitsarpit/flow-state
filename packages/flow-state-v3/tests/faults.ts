@@ -194,8 +194,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/actor-record.ts",
-        find: "      state: record.state,\n      memory,",
-        replace: "      state: compiled.initial,\n      memory,",
+        find: "            state: record.state,\n            memory,",
+        replace: "            state: compiled.initial,\n            memory,",
       },
     ],
   },

@@ -1,5 +1,5 @@
 import { Equal, Option, Result, Schema } from "effect";
-import { toCanonicalJson } from "./codec.ts";
+import type { Values } from "./compiled.ts";
 
 /**
  * A context slot's selection as its Schema reads it back, beside its JSON form: the value a consumer
@@ -8,18 +8,27 @@ import { toCanonicalJson } from "./codec.ts";
 export type Selected = {
   // FLOW_STATE_ALLOW_UNKNOWN: a selection has the type its slot's Schema decodes, typed at the definition.
   readonly value: unknown;
-  readonly json: Schema.Json;
+  // FLOW_STATE_ALLOW_UNKNOWN: its Schema's JSON form, checked by the codec only when a record saves it.
+  readonly json: unknown;
 };
 
 /**
  * The inputs a reaction's selection read: each slot it read, none for a slot never selected, and
- * each memory field it read.
+ * each memory field it read, from `source`, the memory object it read them from, which baselines
+ * read in one wave share.
  */
 export type Frame = {
   readonly slots: ReadonlyMap<string, Option.Option<Selected>>;
   // FLOW_STATE_ALLOW_UNKNOWN: a memory field has its field Schema's type, typed at the definition.
   readonly memory: ReadonlyMap<string, unknown>;
+  readonly source: Source;
 };
+
+/**
+ * The memory a baseline read its fields from: the actor's memory object, or a saved copy read back.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a memory field has its field Schema's type.
+export type Source = Values | ReadonlyMap<string, unknown>;
 
 /**
  * A reaction's baseline: its last selection and the inputs it was read from.
@@ -31,23 +40,29 @@ export type Baseline = {
 };
 
 /**
- * A saved slot's JSON read back through its Schema; fails when the Schema refuses it.
+ * A saved slot's JSON read back through its Schema; fails when the Schema refuses it or its decode
+ * throws.
  */
 export const readSelected = (
   // FLOW_STATE_ALLOW_UNKNOWN: a slot's JSON codec, typed at the definition.
   codec: Schema.Codec<unknown, unknown>,
-  json: Schema.Json,
+  // FLOW_STATE_ALLOW_UNKNOWN: a selection's JSON form, as its Schema wrote it.
+  json: unknown,
 ) =>
-  Result.map(
-    Result.mapError(Schema.decodeUnknownResult(codec)(json), () => "schema"),
-    (value) => ({ value, json }) satisfies Selected,
+  Result.flatMap(
+    Result.try({ try: () => Schema.decodeUnknownResult(codec)(json), catch: () => "schema" }),
+    (decoded) =>
+      Result.map(
+        Result.mapError(decoded, () => "schema"),
+        (value) => ({ value, json }) satisfies Selected,
+      ),
   );
 
 /**
- * A raw selection passed once through its slot's JSON codec: its canonical JSON (a -0 written as
- * 0, which `Equal` holds equal) and the value that JSON reads back as. Fails when the Schema
- * refuses the selection, encodes it without end (a cycle the Schema follows), or the JSON passes
- * a record's bounds.
+ * A raw selection passed once through its slot's JSON codec: its JSON form and the value that form
+ * reads back as. Fails only when the Schema refuses the selection or encodes it without end (a
+ * cycle the Schema follows): its selector's contract. A record's bounds are the record's: a form
+ * past one is saved unknown, never refused here.
  */
 export const selectedOf = (
   // FLOW_STATE_ALLOW_UNKNOWN: a slot's JSON codec, typed at the definition.
@@ -56,18 +71,11 @@ export const selectedOf = (
   raw: unknown,
 ) =>
   Result.flatMap(
-    Result.try({
-      try: () => Schema.encodeUnknownResult(codec)(raw),
-      catch: () => "schema",
-    }),
+    Result.try({ try: () => Schema.encodeUnknownResult(codec)(raw), catch: () => "schema" }),
     (encoded) =>
       Result.flatMap(
         Result.mapError(encoded, () => "schema"),
-        (json) =>
-          Result.flatMap(
-            Result.mapError(toCanonicalJson(json, "zero"), () => "codec"),
-            (canonical) => readSelected(codec, canonical),
-          ),
+        (json) => readSelected(codec, json),
       ),
   );
 

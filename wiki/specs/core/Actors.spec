@@ -248,14 +248,20 @@ requirements
                 proposed, @plan.Pending.D20). Each selection passes once through the Schema's JSON
                 form, a -0 written as 0; the value read back is what the consumer reads, compares and
                 saves, live and after a reload alike. A selection the Schema refuses, or whose
-                encoding never ends, is its selector's defect (R19). A slot binds to one provider
+                encoding never ends, is its selector's defect (R19); a record's bounds are never the
+                selector's (@spec.Codec.R4). A slot binds to one provider
                 for the consumer's lifetime; a bound consumer is a use of its provider, and a provider
                 it starts binds the overrides its own ref gave, again at a return or a reload. A cycle
                 (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one
                 rejects at admission. A record saves each bound slot's last-seen selection (none for
-                one never selected), each reaction's baseline inputs (the slots and memory fields its
-                select read) and the bindings of every provider up its graph; they count toward the
-                record's bounds as memory does. Baselines are silent at admission, adoption,
+                one never selected), each reaction's baseline inputs (the slots its select read, and
+                the memory fields it read in one copy shared by every baseline read from the same
+                memory, kept only where it differs from the record's memory) and the bindings of every
+                provider up its graph. Context never costs a record its state or memory: a slot value
+                or baseline the record cannot hold within its bounds is saved unknown and reported
+                UnencodableValue, so a start from that record owes R9's wave for such a slot and such a
+                baseline hears its next wave; it may hear a change again, never miss one. Baselines
+                are silent at admission, adoption,
                 hydration and a reload restore; `keys` and `paused` are re-evaluated silently at the
                 same points and on a return;
                 a return restored from the Runtime's copy gets R9's one wave when a

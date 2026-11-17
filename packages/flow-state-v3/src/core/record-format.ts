@@ -6,11 +6,11 @@ import type { ActorId } from "./world.ts";
 /**
  * Flow's record format, stamped on every actor, lane and owed record.
  */
-export const FORMAT = 2;
+export const FORMAT = 3;
 
-// The formats a record of this release reads: the current one, and format 1 through its step; a
-// newer, null, fractional or string one is never read.
-export const Format = Schema.Literals([1, FORMAT]);
+// The formats a record of this release reads: the current one, and formats 1 and 2 through their
+// steps; a newer, null, fractional or string one is never read.
+export const Format = Schema.Literals([1, 2, FORMAT]);
 
 export const ActorJson = Schema.Struct({ machine: Schema.String, name: Schema.String });
 
@@ -32,7 +32,11 @@ export const decodeBy =
   <A, I>(schema: Schema.Codec<A, I>, why: string) =>
   // FLOW_STATE_ALLOW_UNKNOWN: a canonical JSON value, decoded here once by the Schema its key names.
   (value: unknown) =>
-    Result.mapError(Schema.decodeUnknownResult(schema)(value), () => why);
+    // A user Schema whose decode throws is the record's failure too: the boot goes on.
+    Result.flatMap(
+      Result.try({ try: () => Schema.decodeUnknownResult(schema)(value), catch: () => why }),
+      (decoded) => Result.mapError(decoded, () => why),
+    );
 
 /**
  * An identity as a record names it.

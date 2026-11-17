@@ -84,15 +84,29 @@ export const makePersistence = (tx: Tx) => {
       onFailure: (reason) => ({ key, reason }),
     });
 
+  // An actor's write; context its record cannot hold is saved unknown and reported, never in
+  // its memory's place.
   const actorWrite = (incarnation: Incarnation) => {
     const key = actorRecordKey(actorKey(incarnation.actor));
     const compiled = tx.machines.get(incarnation.actor.machine);
 
-    return encoded(
-      key,
+    const saved =
       compiled === undefined
         ? Result.fail("machine")
-        : encodeActor(compiled, recordOf(incarnation)),
+        : encodeActor(compiled, recordOf(incarnation));
+
+    if (Result.isSuccess(saved) && saved.success.unsaved > 0)
+      tx.act(
+        Act.Reported({
+          code: "UnencodableValue",
+          record: Option.some(key),
+          reason: `${saved.success.unsaved} context values past a record's bounds saved unknown`,
+        }),
+      );
+
+    return encoded(
+      key,
+      Result.map(saved, (s) => s.text),
     );
   };
 

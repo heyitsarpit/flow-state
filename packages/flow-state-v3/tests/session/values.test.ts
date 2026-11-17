@@ -62,7 +62,7 @@ describe("every value a selector returns, across reloads (Actors R9, R19)", () =
     );
   });
 
-  it("Actors R18: after a reload the digest reads each slot as its Schema reads it back: a Date, a Map, a Set, a class instance, an Option, NaN and 0 for -0", async () => {
+  it("Actors R18: after a reload the digest reads each slot as its Schema reads it back: a Date, a Map, a Set, a class instance, an Option, NaN, and -0 held equal to 0", async () => {
     const run = await played(digestHeard);
     const context = run.checkpoints.reloaded.read(mainDigest)?.context ?? {};
 
@@ -75,7 +75,8 @@ describe("every value a selector returns, across reloads (Actors R9, R19)", () =
     expect(context["senders"]).toEqual(new Set(["bob"]));
     expect(context["envelope"]).toEqual(new Envelope({ from: "bob", at: 4_000 }));
     expect(context["first"]).toEqual(Option.some("bob"));
-    expect(run.checkpoints.cleared.read(mainDigest)?.context["owed"]).toBe(0);
+    // Live it is the -0 the selector gave; a record writes it 0, which Equal holds the same.
+    expect(run.checkpoints.cleared.read(mainDigest)?.context["owed"] === 0).toBe(true);
     expect(Number.isNaN(run.checkpoints.cleared.read(mainDigest)?.context["unread"])).toBe(true);
   });
 
@@ -138,7 +139,7 @@ describe("saved records of context consumers (Restore R5; Codec R3)", () => {
     expect(run.checkpoints["signed out"].read(mainAvatar)?.memory).toEqual({ seen: 2 });
     expect(
       run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar"),
-    ).toContain('"format":2');
+    ).toContain('"format":3');
   });
 });
 

@@ -1,7 +1,7 @@
 import { Equal, Option, Predicate, Result } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
-import { type Frame, type Selected, sameSlot, selectedOf } from "./slots.ts";
+import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
 import { type Tx, withEntry } from "./tx.ts";
 import {
   type ActorId,
@@ -47,9 +47,18 @@ const outsideOf = (compiled: Compiled, incarnation: Incarnation) => {
 export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   const { incarnationOf } = tx;
 
-  // An issue of a context source, replacing that source's earlier one; context is not part of the
-  // record, so this writes nothing.
+  // An issue of a context source, replacing that source's earlier one; the same issue still open
+  // is raised once, not at every wave. Context is not part of the record, so this writes nothing.
   const raise = (incarnation: Incarnation, issue: Issue) => {
+    const open = incarnation.issues.some(
+      (i) =>
+        i.source === issue.source &&
+        i.code === issue.code &&
+        Option.makeEquivalence(Equal.equals)(i.slot, issue.slot),
+    );
+
+    if (open) return incarnation;
+
     tx.act(
       Act.Refused({
         code: issue.code,
@@ -65,6 +74,12 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       issues: [...incarnation.issues.filter((i) => i.source !== issue.source), issue],
     };
   };
+
+  // A source that succeeds clears its own issue, never another source's.
+  const clear = (incarnation: Incarnation, source: string) =>
+    incarnation.issues.some((i) => i.source === source)
+      ? { ...incarnation, issues: incarnation.issues.filter((i) => i.source !== source) }
+      : incarnation;
 
   const keep = (incarnation: Incarnation) =>
     tx.set({
@@ -109,7 +124,10 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
           code: "Defect",
           slot: Option.some(value.failure),
         });
-      else values.set(slot, value.success);
+      else {
+        values.set(slot, value.success);
+        next = clear(next, `context ${slot}`);
+      }
     }
 
     return { ...next, context: values };
@@ -139,6 +157,12 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
           readSlots.set(key, slots.get(key) ?? Option.none());
 
         return key in target;
+      },
+      getOwnPropertyDescriptor: (target, key) => {
+        if (Predicate.isString(key) && compiled.context.has(key))
+          readSlots.set(key, slots.get(key) ?? Option.none());
+
+        return Reflect.getOwnPropertyDescriptor(target, key);
       },
       ownKeys: (target) => {
         for (const slot of compiled.context.keys())
@@ -172,7 +196,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
     return Result.map(selection, (value) => ({
       selection: value,
-      frame: { slots: readSlots, memory: readFields } satisfies Frame,
+      frame: { slots: readSlots, memory: readFields, source: memory } satisfies Frame,
     }));
   };
 
@@ -306,6 +330,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
       if (equal) {
         baselines[at] = Option.some(now);
+        next = clear(next, `onContext ${at}`);
         continue;
       }
 
@@ -344,6 +369,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         // A changed selection becomes the baseline even when `when` declines; a defect keeps it.
         onSuccess: (given) => {
           baselines[at] = Option.some(now);
+          next = clear(next, `onContext ${at}`);
           Option.match(given, {
             onNone: () => undefined,
             onSome: (p) => void events.push({ tag: reaction.event.event, payload: p }),
@@ -425,13 +451,28 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       ]),
     );
 
+    // Baselines read from one saved copy read one memory object, so a save shares it again.
+    const memories = new Map<Source, Values>();
+
+    const memoryOf = (frame: Frame) => {
+      const known = memories.get(frame.source);
+
+      if (known !== undefined) return known;
+
+      const memory =
+        frame.memory.size === 0
+          ? record.memory
+          : { ...record.memory, ...Object.fromEntries(frame.memory) };
+
+      memories.set(frame.source, memory);
+
+      return memory;
+    };
+
     const baselines = compiled.reactions.map((reaction, at) =>
       Option.flatMap(record.frames[at] ?? Option.none(), (frame) =>
         Result.getSuccess(
-          selectionOf(compiled, reaction, new Map([...seen, ...frame.slots]), {
-            ...record.memory,
-            ...Object.fromEntries(frame.memory),
-          }),
+          selectionOf(compiled, reaction, new Map([...seen, ...frame.slots]), memoryOf(frame)),
         ),
       ),
     );

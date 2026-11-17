@@ -90,10 +90,13 @@ requirements
 
                 Each older record format reaches the current one by a pure step at the boot; a
                 newer, null or non-integer format is quarantined, its lane still holding by its id.
-                Format 2 is current; format 1's step reads each tagged last-seen value back through
-                its slot's Schema (one the Schema refuses, or saved unknown, was never selected), and
-                each reaction's baseline from the record's own slots and memory, as format 1 did; a
-                form no release wrote quarantines the record.
+                Format 3 is current. Format 2's step turns each baseline's own memory copy into a
+                shared one. Format 1's step reads each tagged last-seen value back through its slot's
+                Schema (one the Schema refuses, or saved unknown, was never selected) and reads each
+                reaction's baseline again from the record's own slots and memory; a form no release
+                wrote quarantines the record. Saved baselines that do not match the machine's
+                reactions in number are read the same way. A Schema whose decode throws quarantines
+                its record as a refusal does; the boot goes on.
                 A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
                 too. A quarantined record keeps its bytes until the identity writes that record
                 again: an actor's first save, an owed record's next change, a lane's cancel. Until

@@ -39,19 +39,19 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/slots.ts",
-        find: "            (canonical) => readSelected(codec, canonical),",
-        replace: "            (canonical) => Result.succeed({ value: raw, json: canonical }),",
+        find: "        (json) => readSelected(codec, json),",
+        replace: "        (json) => Result.succeed({ value: raw, json }),",
       },
     ],
   },
   {
     name: "negative-zero-refused",
     tests: ["tests/session/values.test.ts"],
-    says: "a -0 selection is refused as a selector defect, so the digest never hears its count reach zero",
-    rule: "Actors R19",
+    says: "a record refuses a -0 slot, saving it unknown, so a reload makes up an onContext event",
+    rule: "Actors R9",
     edits: [
       {
-        file: "src/core/slots.ts",
+        file: "src/core/actor-record.ts",
         find: 'toCanonicalJson(json, "zero")',
         replace: "toCanonicalJson(json)",
       },
@@ -65,7 +65,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "          selectionOf(compiled, reaction, new Map([...seen, ...frame.slots]), {\n            ...record.memory,\n            ...Object.fromEntries(frame.memory),\n          }),",
+        find: "          selectionOf(compiled, reaction, new Map([...seen, ...frame.slots]), memoryOf(frame)),",
         replace: "          selectionOf(compiled, reaction, seen, record.memory),",
       },
     ],
@@ -163,7 +163,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
       },
       {
         file: "src/core/context.ts",
-        find: "      if (equal) {\n        baselines[at] = Option.some(now);\n        continue;\n      }\n",
+        find: "      if (equal) {\n        baselines[at] = Option.some(now);\n        next = clear(next, `onContext ${at}`);\n        continue;\n      }\n",
         replace: "",
       },
     ],
@@ -189,8 +189,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "      else values.set(slot, value.success);",
-        replace: "      values.set(slot, Result.getOrUndefined(value));",
+        find: "      else {\n        values.set(slot, value.success);",
+        replace:
+          "      if (Result.isFailure(value)) values.delete(slot);\n      else {\n        values.set(slot, value.success);",
       },
     ],
   },
@@ -374,8 +375,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/actor-record.ts",
-        find: "      seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.json])),",
-        replace: "      seen: {},",
+        find: "        seen: Object.fromEntries(\n          seen.flatMap((s) =>",
+        replace:
+          "        seen: {},\n        dropped: Object.fromEntries(\n          seen.flatMap((s) =>",
       },
     ],
   },
@@ -416,6 +418,74 @@ export const contextFaults: ReadonlyArray<Fault> = [
         file: "src/host/testing/run.ts",
         find: "      Option.some(tab.built.admission.ensure(actor, context)),",
         replace: "      Option.some(tab.built.admission.ensure(actor, new Map())),",
+      },
+    ],
+  },
+  {
+    name: "bound-is-selector-defect",
+    tests: ["tests/session/values.test.ts"],
+    says: "a selection past a record's 4,096 items is refused as its selector's defect, even for a consumer never saved",
+    rule: "Codec R4",
+    edits: [
+      {
+        file: "src/core/slots.ts",
+        find: "        (json) => readSelected(codec, json),",
+        replace:
+          '        (json) => (Array.isArray(json) && json.length > 4_096 ? Result.fail("codec") : readSelected(codec, json)),',
+      },
+    ],
+  },
+  {
+    name: "issue-never-cleared",
+    tests: ["tests/session/values.test.ts", "tests/actors/context.test.ts"],
+    says: "a context or onContext issue stays after its own source succeeds",
+    rule: "Turn R25",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "    incarnation.issues.some((i) => i.source === source)",
+        replace:
+          "    incarnation.issues.some((i) => i.source === source && i.source === `${source}!`)",
+      },
+    ],
+  },
+  {
+    name: "issue-raised-every-wave",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a standing refusal raises its issue again at every wave",
+    rule: "Actors R19",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "    if (open) return incarnation;",
+        replace: "    if (open && !open) return incarnation;",
+      },
+    ],
+  },
+  {
+    name: "baselines-copy-memory-each",
+    tests: ["tests/session/values.test.ts"],
+    says: "each baseline copies the memory it read, so several reactions over a long list push the record past a bound",
+    rule: "Actors R18",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "      frame: { slots: readSlots, memory: readFields, source: memory } satisfies Frame,",
+        replace:
+          "      frame: { slots: readSlots, memory: readFields, source: { ...memory } } satisfies Frame,",
+      },
+    ],
+  },
+  {
+    name: "throwing-slot-decode-escapes-boot",
+    tests: ["src/core/actor-record.test.ts"],
+    says: "a slot Schema whose decode throws at the boot escapes quarantine",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/slots.ts",
+        find: '    Result.try({ try: () => Schema.decodeUnknownResult(codec)(json), catch: () => "schema" }),',
+        replace: "    Result.succeed(Schema.decodeUnknownResult(codec)(json)),",
       },
     ],
   },

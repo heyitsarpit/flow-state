@@ -17,7 +17,7 @@ const visa = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
  */
 export const checkoutOwed = "owed/Checkout/Pay/checkout-1";
 
-const newerOwed = '{"format":3,"machine":"Checkout/Pay","name":"checkout-1","rows":[]}';
+const newerOwed = '{"format":4,"machine":"Checkout/Pay","name":"checkout-1","rows":[]}';
 
 /**
  * A later release left the checkout's owed record in a newer format: each boot reports it unread

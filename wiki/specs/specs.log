@@ -235,3 +235,8 @@ note 2026-11-17T01:14:30Z
     @spec.Actors R5, R18: a conflict anywhere in an ensure's provider graph is refused, and a record saves its whole
     provider graph so a provider started again binds as before. @spec.Restore R5: format 2, format 1 by its step. Why:
     T9 fix-round review. Reverse: 4850ba6d's parent.
+
+note 2026-11-17T02:22:30Z
+    @spec.Actors R18, Codec R4, Restore R5: a value past a bound is saved unknown, never a selector defect; baselines
+    share one memory copy and never cost a record its memory; format 3. Why: T9 convergence review. Reverse: 19ba4076's
+    parent.

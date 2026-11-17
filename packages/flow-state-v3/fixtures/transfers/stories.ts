@@ -171,7 +171,7 @@ export const stressManyReceipts = () =>
 export const t1Lane = 'lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}';
 
 const newerT1Lane =
-  '{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":3,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}';
+  '{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}';
 
 /**
  * The key `acct-1`'s actor record is saved under, and a record there that does not decode.

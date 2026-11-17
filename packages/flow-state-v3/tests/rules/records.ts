@@ -2,8 +2,9 @@ import { Option, Result, Schema } from "effect";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import type { Rule } from "./rules.ts";
 
-// Format 1 is read through its step, so a store may still hold it until the record is written again.
-const Actor = { format: Schema.Literals([1, 2]), machine: Schema.String, name: Schema.String };
+// Formats 1 and 2 are read through their steps, so a store may still hold them until the record is
+// written again.
+const Actor = { format: Schema.Literals([1, 2, 3]), machine: Schema.String, name: Schema.String };
 
 // Each kind's fields as WriteAhead R4 and R5 list them, and the timer shapes R4 gives.
 const Timer = Schema.Union([

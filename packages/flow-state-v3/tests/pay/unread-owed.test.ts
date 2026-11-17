@@ -20,6 +20,6 @@ describe("an owed record the boot cannot read (Restore R5, I10)", () => {
 
     expect(reports(run, 2)).toEqual([`RecordUndecodable ${checkoutOwed}`]);
     expect(reports(run, 3)).toEqual([`RecordUndecodable ${checkoutOwed}`]);
-    expect(run.checkpoints["second boot"].records.stored.get(checkoutOwed)).toContain('"format":3');
+    expect(run.checkpoints["second boot"].records.stored.get(checkoutOwed)).toContain('"format":4');
   });
 });

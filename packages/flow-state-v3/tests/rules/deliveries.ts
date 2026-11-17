@@ -53,9 +53,17 @@ export const nameOf = (who: Who) => `${who.machine}/${who.name}`;
 
 export const textOf = (attempt: Option.Option<string>) => Option.getOrElse(attempt, () => "");
 
+// A context or onContext defect is raised by a context update, which is no turn (Actors R19).
+const isContextIssue = (e: Evidence) =>
+  e._tag === "Issue" &&
+  Option.exists(e.slot, (slot) => slot.startsWith("context.") || slot.startsWith("onContext."));
+
 // A refused turn names the callback slot it refused at; a call's Defect names none.
 export const isRefusal = (e: Evidence) =>
-  e._tag === "Issue" && REFUSALS.has(e.code) && (e.code !== "Defect" || Option.isSome(e.slot));
+  e._tag === "Issue" &&
+  REFUSALS.has(e.code) &&
+  (e.code !== "Defect" || Option.isSome(e.slot)) &&
+  !isContextIssue(e);
 
 export const isOutcome = (e: Evidence) =>
   e._tag === "Turn" || e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e);
