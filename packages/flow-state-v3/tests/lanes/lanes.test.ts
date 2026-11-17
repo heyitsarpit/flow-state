@@ -1,7 +1,8 @@
 import { Effect, Option } from "effect";
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
-import { lanesSetup, SerializeMachine, serializeClient } from "../../fixtures/lanes/machine.ts";
+import { lanesSetup, serializeClient } from "../../fixtures/lanes/app.ts";
+import { SerializeMachine } from "../../fixtures/lanes/machines/clients.ts";
 import { negativeZero, twoSpellings } from "../../fixtures/lanes/stories/edges.ts";
 import { serializeAtCap } from "../../fixtures/lanes/stories/load.ts";
 import {

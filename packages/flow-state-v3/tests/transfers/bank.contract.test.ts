@@ -1,5 +1,5 @@
 import { Layer } from "effect";
-import { BankFake } from "../../fixtures/transfers/server.ts";
+import { BankFake } from "../../fixtures/transfers/server/layer.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import { bankContract } from "./bank.contract.ts";
 

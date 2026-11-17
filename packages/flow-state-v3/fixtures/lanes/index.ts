@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { lanesGrown } from "./app.ts";
-import { samples, seededStress, stories, stressSamples } from "./stories.ts";
+import { samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { negativeZero, twoSpellings } from "./stories/edges.ts";
 import { crowd4, serializeAtCap } from "./stories/load.ts";
 import { disposedWithWork, oneKeyTwoActors, reloadedWithWork } from "./stories/structure.ts";

@@ -1,7 +1,7 @@
 import { Fake } from "../../../src/host/testing/index.ts";
-import { cellsCheckout } from "../machine.ts";
-import { Shop } from "../server.ts";
-import { cellsStory } from "../stories.ts";
+import { cellsCheckout } from "../app.ts";
+import { Shop } from "../../services/shop/server/shop.ts";
+import { cellsStory } from "./usual.ts";
 
 const start = { _tag: "Start", cartId: "c1", intentId: "pi1" } as const;
 

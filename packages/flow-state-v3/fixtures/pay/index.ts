@@ -1,7 +1,15 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { store } from "./app.ts";
-import { long, samples, seededStress, stories } from "./stories.ts";
+import {
+  long,
+  samples,
+  seededStress,
+  stories,
+  browse,
+  checkoutSteps,
+  guestBrowse,
+} from "./stories/usual.ts";
 import { busyEdges } from "./stories/edges.ts";
 import {
   failingLineAlone,
@@ -23,7 +31,6 @@ import {
   reloadedMidAdd,
   shopperForgotten,
 } from "./stories/structure.ts";
-import { browse, checkoutSteps, guestBrowse } from "./stories/usual.ts";
 
 /**
  * The pay fixture, the shop around the checkout, as every runner reads it.

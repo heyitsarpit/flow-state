@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
-import { CellsMachine, cellsCheckout } from "../../fixtures/cells/machine.ts";
-import { Shop } from "../../fixtures/cells/server.ts";
-import { long, usual } from "../../fixtures/cells/stories.ts";
+import { CellsMachine } from "../../fixtures/cells/machines/cells.ts";
+import { cellsCheckout } from "../../fixtures/cells/app.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { long, usual } from "../../fixtures/cells/stories/usual.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 

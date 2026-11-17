@@ -5,6 +5,7 @@ import {
   mainSession,
   screenOf,
   sessionOf,
+  screen,
 } from "../../fixtures/sign-in/app.ts";
 import { emailAtBound, emptyCode, emptyEmail } from "../../fixtures/sign-in/stories/edges.ts";
 import {
@@ -21,7 +22,6 @@ import {
   signOutForgets,
 } from "../../fixtures/sign-in/stories/structure.ts";
 import { handleRetry } from "../../fixtures/sign-in/stories/usual.ts";
-import { screen } from "../../fixtures/sign-in/machine.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 

@@ -8,8 +8,8 @@ import {
   cafeDecomposed,
   mainCustomer,
   sendForm,
+  account,
 } from "../../fixtures/transfers/app.ts";
-import { account } from "../../fixtures/transfers/machine.ts";
 import { centsEdges, idAtBound, twoSpellings } from "../../fixtures/transfers/stories/edges.ts";
 import { manyAccounts, owedAtBoot } from "../../fixtures/transfers/stories/load.ts";
 import {

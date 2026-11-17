@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { account, savings } from "../../fixtures/transfers/machine.ts";
-import { Bank } from "../../fixtures/transfers/server.ts";
-import { bankStory } from "../../fixtures/transfers/stories.ts";
+import { account, savings } from "../../fixtures/transfers/app.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
+import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { checked } from "../rules/rules.ts";
 
 const send = (transferId: string) => ({ _tag: "Send" as const, transferId, cents: 100 });

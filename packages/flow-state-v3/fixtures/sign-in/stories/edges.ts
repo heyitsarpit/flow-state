@@ -1,5 +1,4 @@
-import { blankSession } from "../app.ts";
-import { screen } from "../machine.ts";
+import { blankSession, screen } from "../app.ts";
 import { sessionStory } from "./usual.ts";
 
 // The bytes `{"email":""}` adds around an email in its key's canonical text.

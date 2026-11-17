@@ -1,6 +1,6 @@
 import { Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { account } from "../../fixtures/transfers/machine.ts";
+import { account } from "../../fixtures/transfers/app.ts";
 import {
   acct1Record,
   forgetRefused,
@@ -10,7 +10,7 @@ import {
   quarantined,
   refusedLoad,
   t1Lane,
-} from "../../fixtures/transfers/stories.ts";
+} from "../../fixtures/transfers/stories/usual.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";

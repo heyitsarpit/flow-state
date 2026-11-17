@@ -1,5 +1,5 @@
 import { expect } from "vite-plus/test";
-import { Shop } from "../../fixtures/pay/server.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { Fake, type StoryRun, type WorldWord } from "../../src/host/testing/index.ts";
 import { charges, CHECK, keys, onWire, state } from "../checkout.ts";
 

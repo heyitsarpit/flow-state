@@ -1,9 +1,10 @@
 import { Effect, Exit, Layer, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { BankApi, Declined, NoResponse, Receipt } from "../../fixtures/transfers/contracts.ts";
-import { account, bankSetup } from "../../fixtures/transfers/machine.ts";
-import { Bank, BankFake } from "../../fixtures/transfers/server.ts";
-import { bankStory } from "../../fixtures/transfers/stories.ts";
+import { BankApi, Declined, NoResponse, Receipt } from "../../fixtures/transfers/services.ts";
+import { account, bankSetup } from "../../fixtures/transfers/app.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
+import { BankFake } from "../../fixtures/transfers/server/layer.ts";
+import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, Story, StoryFailed, type StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 

@@ -1,6 +1,5 @@
-import { docsRepo } from "../app.ts";
-import { client } from "../machine.ts";
-import { Git } from "../server.ts";
+import { docsRepo, client } from "../app.ts";
+import { Git } from "../server/git.ts";
 import { repoStory } from "./usual.ts";
 
 const backingOffClient = (id: string) =>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { checkout } from "../../fixtures/pay/machine.ts";
-import { Shop } from "../../fixtures/pay/server.ts";
-import { shopStory } from "../../fixtures/pay/stories.ts";
+import { checkout } from "../../fixtures/pay/app.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { shopStory } from "../../fixtures/pay/stories/usual.ts";
 import { type Cut, Fake } from "../../src/host/testing/index.ts";
 import {
   before,

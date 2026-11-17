@@ -1,8 +1,9 @@
 import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { GitApi } from "../../fixtures/sync/contracts.ts";
-import { GitLive } from "../../fixtures/sync/git-http.ts";
-import { Git, GitFake } from "../../fixtures/sync/server.ts";
+import { GitApi } from "../../fixtures/sync/services.ts";
+import { GitLive } from "../../fixtures/sync/adapters/git.ts";
+import { Git } from "../../fixtures/sync/server/git.ts";
+import { GitFake } from "../../fixtures/sync/server/layer.ts";
 import { Story, type StoryRun } from "../../src/host/testing/index.ts";
 import {
   actorRef,

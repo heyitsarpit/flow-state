@@ -1,7 +1,22 @@
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
-import { GitLive } from "./git-http.ts";
-import { client, SyncMachine } from "./machine.ts";
+import { GitLive } from "./adapters/git.ts";
+import { SyncMachine } from "./machines/sync.ts";
 import { RepoMachine } from "./machines/repo.ts";
+
+/**
+ * The sync app: one machine.
+ */
+export const gitApp = app({ id: "git", machines: { sync: SyncMachine } });
+
+/**
+ * The sync app's real setup: the Git host over HTTP, with no persistence.
+ */
+export const gitSetup = runtimeSetup({ app: gitApp, services: GitLive("https://git.example") });
+
+/**
+ * The client most stories use.
+ */
+export const client = actorRef(SyncMachine, "client");
 
 /**
  * The `docs` repository, read through the main client.

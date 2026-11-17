@@ -5,8 +5,9 @@ import { manifests } from "../../fixtures/index.ts";
 
 const root = new URL("../../fixtures/", import.meta.url);
 
+// `services/` holds the services several fixtures share; it is no fixture.
 const folders = readdirSync(root, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
+  .filter((entry) => entry.isDirectory() && entry.name !== "services")
   .map((entry) => entry.name)
   .toSorted();
 

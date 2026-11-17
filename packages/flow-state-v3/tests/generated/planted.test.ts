@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { checkout, shopSetup } from "../../fixtures/pay/machine.ts";
-import { Shop } from "../../fixtures/pay/server.ts";
+import { checkout, shopSetup } from "../../fixtures/pay/app.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { Fake, propertyTest, Story } from "../../src/host/testing/index.ts";
 import { breachesOf, rules } from "../rules/rules.ts";
 import { planted, ResendingShopFake } from "./planted.ts";

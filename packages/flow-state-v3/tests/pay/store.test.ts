@@ -7,6 +7,7 @@ import {
   mainFlow,
   mainShopper,
   shopperOf,
+  checkout,
 } from "../../fixtures/pay/app.ts";
 import {
   failingLineAlone,
@@ -31,7 +32,6 @@ import {
 } from "../../fixtures/pay/stories/structure.ts";
 import { browse, checkoutSteps, guestBrowse } from "../../fixtures/pay/stories/usual.ts";
 import { busyEdges } from "../../fixtures/pay/stories/edges.ts";
-import { checkout } from "../../fixtures/pay/machine.ts";
 import { denials, laneFacts } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 

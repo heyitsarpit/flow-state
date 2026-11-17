@@ -5,7 +5,7 @@ import { generate } from "../../src/host/testing/index.ts";
 import { seededRuns } from "./seeded.ts";
 
 const fixtureDirs = readdirSync(new URL("../../fixtures", import.meta.url), { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
+  .filter((entry) => entry.isDirectory() && entry.name !== "services")
   .map((entry) => entry.name)
   .toSorted();
 

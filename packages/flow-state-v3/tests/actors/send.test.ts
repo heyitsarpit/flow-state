@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { account, savings } from "../../fixtures/transfers/machine.ts";
-import { bankStory } from "../../fixtures/transfers/stories.ts";
+import { account, savings } from "../../fixtures/transfers/app.ts";
+import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { attachInspector } from "../../src/host/inspect.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import {

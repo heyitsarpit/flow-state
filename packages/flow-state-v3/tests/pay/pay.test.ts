@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
-import { checkout, PayMachine } from "../../fixtures/pay/machine.ts";
-import { Shop } from "../../fixtures/pay/server.ts";
-import { busyRefused, long, lostConfirm, usual } from "../../fixtures/pay/stories.ts";
+import { checkout } from "../../fixtures/pay/app.ts";
+import { PayMachine } from "../../fixtures/services/shop/machines/pay.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { busyRefused, long, lostConfirm, usual } from "../../fixtures/pay/stories/usual.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 

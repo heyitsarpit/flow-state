@@ -1,10 +1,12 @@
 import { Option } from "effect";
-import type { cellsCheckout } from "../fixtures/cells/machine.ts";
-import { checkout, PayMachine, shop, shopSetup } from "../fixtures/pay/machine.ts";
-import { Shop, ShopFake, ShopFakeSteadfast } from "../fixtures/pay/server.ts";
-import { ShopLive } from "../fixtures/pay/shop-http.ts";
+import type { cellsCheckout } from "../fixtures/cells/app.ts";
+import { checkout, shop, shopSetup } from "../fixtures/pay/app.ts";
+import { PayMachine } from "../fixtures/services/shop/machines/pay.ts";
+import { Shop } from "../fixtures/services/shop/server/shop.ts";
+import { ShopFake, ShopFakeSteadfast } from "../fixtures/services/shop/server/layer.ts";
+import { ShopLive } from "../fixtures/services/shop/adapters/shop.ts";
 import { runtimeSetup } from "../src/index.ts";
-import { shopStory } from "../fixtures/pay/stories.ts";
+import { shopStory } from "../fixtures/pay/stories/usual.ts";
 import type { Evidence } from "../src/host/inspect.ts";
 import { type Cut, Story, type StoryRun, type WorldWord } from "../src/host/testing/index.ts";
 import { TraceRecord } from "../src/host/trace.ts";

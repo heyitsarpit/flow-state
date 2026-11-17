@@ -1,7 +1,8 @@
 import { actorRef } from "../../../src/index.ts";
-import { Git } from "../../sync/server.ts";
-import { SerializeMachine, serializeClient } from "../machine.ts";
-import { lanesStory } from "../stories.ts";
+import { Git } from "../../sync/server/git.ts";
+import { SerializeMachine } from "../machines/clients.ts";
+import { serializeClient } from "../app.ts";
+import { lanesStory } from "./usual.ts";
 
 const commit = { _tag: "Commit", repo: "flow" } as const;
 

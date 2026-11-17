@@ -1,10 +1,36 @@
 import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { AccountsLive } from "./adapters/accounts.ts";
-import { BankLive } from "./bank-http.ts";
-import { TransfersMachine } from "./machine.ts";
+import { BankLive } from "./adapters/bank.ts";
+import { TransfersMachine } from "./machines/transfers.ts";
 import { CustomerMachine } from "./machines/customer.ts";
 import { TransferFormMachine } from "./machines/transfer-form.ts";
+
+/**
+ * The bank app: one machine.
+ */
+export const bank = app({ id: "bank", machines: { transfers: TransfersMachine } });
+
+/**
+ * The bank app's real setup: the bank over HTTP, persisted, each capture written at once. A Story
+ * never builds its services.
+ */
+export const bankSetup = runtimeSetup({
+  app: bank,
+  services: BankLive("https://bank.example"),
+  scope: "bank",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The account most stories use.
+ */
+export const account = actorRef(TransfersMachine, "acct-1");
+
+/**
+ * A second account of the same machine.
+ */
+export const savings = actorRef(TransfersMachine, "acct-2");
 
 /**
  * The signed-in customer.

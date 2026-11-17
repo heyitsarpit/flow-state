@@ -1,7 +1,7 @@
 import { Story } from "../../../src/host/testing/index.ts";
-import { Git, GitFake } from "../../sync/server.ts";
-import { lanesGrownSetup, secondSerialize } from "../app.ts";
-import { serializeClient } from "../machine.ts";
+import { Git } from "../../sync/server/git.ts";
+import { GitFake } from "../../sync/server/layer.ts";
+import { lanesGrownSetup, secondSerialize, serializeClient } from "../app.ts";
 
 /**
  * The grown lanes app over the Git port fake, with no steps yet.

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { cellsCheckout } from "../../fixtures/cells/machine.ts";
-import { cellsStory } from "../../fixtures/cells/stories.ts";
-import { checkout } from "../../fixtures/pay/machine.ts";
-import { Shop } from "../../fixtures/pay/server.ts";
-import { shopStory } from "../../fixtures/pay/stories.ts";
+import { cellsCheckout } from "../../fixtures/cells/app.ts";
+import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
+import { checkout } from "../../fixtures/pay/app.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { shopStory } from "../../fixtures/pay/stories/usual.ts";
 import { Fake, type WorldWord } from "../../src/host/testing/index.ts";
 import {
   endings,

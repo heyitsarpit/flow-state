@@ -1,4 +1,4 @@
-import { Context, type Effect } from "effect";
+import { Context, type Effect, Schema } from "effect";
 
 /**
  * The accounts service did not answer.
@@ -16,3 +16,32 @@ export class AccountsApi extends Context.Service<
     }) => Effect.Effect<{ readonly cents: number }, NoAnswer>;
   }
 >()("flow-state-v3/fixtures/transfers/AccountsApi") {}
+
+/**
+ * The bank refused a transfer.
+ */
+export class Declined extends Schema.TaggedError<Declined>()("Declined", { code: Schema.String }) {}
+
+/**
+ * The bank's answer did not come back.
+ */
+export class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
+
+/**
+ * The bank's answer to a transfer it made.
+ */
+export const Receipt = Schema.Struct({ receipt: Schema.String });
+
+/**
+ * The bank's API: where the data comes from. Its production Layer is `BankHttp`; each send
+ * carries its Attempt's id as the idempotency key.
+ */
+export class BankApi extends Context.Service<
+  BankApi,
+  {
+    readonly transfer: (
+      input: { readonly transferId: string; readonly cents: number },
+      options: { readonly idempotencyKey: string },
+    ) => Effect.Effect<typeof Receipt.Type, Declined | NoResponse>;
+  }
+>()("bank/BankApi") {}

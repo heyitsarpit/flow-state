@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { clientOf, docsRepo, emptyRepo, repoOf } from "../../fixtures/sync/app.ts";
-import { client } from "../../fixtures/sync/machine.ts";
+import { clientOf, docsRepo, emptyRepo, repoOf, client } from "../../fixtures/sync/app.ts";
 import { retryEdges } from "../../fixtures/sync/stories/edges.ts";
 import { manyRepos } from "../../fixtures/sync/stories/load.ts";
 import {

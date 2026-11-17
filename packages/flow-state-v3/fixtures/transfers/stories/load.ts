@@ -1,5 +1,5 @@
 import { accountOf } from "../app.ts";
-import { Bank } from "../server.ts";
+import { Bank } from "../server/bank.ts";
 import { grownStory } from "./usual.ts";
 
 const ACCOUNTS = Array.from({ length: 64 }, (_, n) => n);

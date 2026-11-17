@@ -2,16 +2,18 @@ import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
   CancelMachine,
-  cancelClient,
   LatestMachine,
+  SerializeMachine,
+} from "../../fixtures/lanes/machines/clients.ts";
+import {
+  cancelClient,
   lanesSetup,
   latestClient,
-  SerializeMachine,
   serializeClient,
-} from "../../fixtures/lanes/machine.ts";
-import { GitFakeSteadfast } from "../../fixtures/lanes/server.ts";
-import { lanesStory } from "../../fixtures/lanes/stories.ts";
-import { Git } from "../../fixtures/sync/server.ts";
+} from "../../fixtures/lanes/app.ts";
+import { GitFakeSteadfast } from "../../fixtures/lanes/server/layer.ts";
+import { lanesStory } from "../../fixtures/lanes/stories/usual.ts";
+import { Git } from "../../fixtures/sync/server/git.ts";
 import { Fake, type Cut, Story } from "../../src/host/testing/index.ts";
 import { endings, laneFacts, type Records } from "../checkout.ts";
 import { played } from "../rules/played.ts";

@@ -1,12 +1,11 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { gitGrown } from "./app.ts";
-import { long, samples, seededStress, stories } from "./stories.ts";
+import { long, samples, seededStress, stories, emptyName, openRepo } from "./stories/usual.ts";
 import { retryEdges } from "./stories/edges.ts";
 import { samples as repoSamples } from "./stories/samples.ts";
 import { manyRepos } from "./stories/load.ts";
 import { reloadedInBackoff, repoFirst, repoOpenedInBackoff } from "./stories/structure.ts";
-import { emptyName, openRepo } from "./stories/usual.ts";
 
 /**
  * The sync fixture, as every runner reads it.

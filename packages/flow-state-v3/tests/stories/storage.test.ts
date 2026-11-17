@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { account } from "../../fixtures/transfers/machine.ts";
-import { Bank } from "../../fixtures/transfers/server.ts";
-import { bankStory } from "../../fixtures/transfers/stories.ts";
+import { account } from "../../fixtures/transfers/app.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
+import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 

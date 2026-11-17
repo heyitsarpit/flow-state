@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { cancelClient } from "../../fixtures/lanes/machine.ts";
-import { stressDisplacedPastItems } from "../../fixtures/lanes/stories.ts";
+import { cancelClient } from "../../fixtures/lanes/app.ts";
+import { stressDisplacedPastItems } from "../../fixtures/lanes/stories/usual.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 

@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
-import { checkout } from "../../fixtures/pay/machine.ts";
-import { shopStory } from "../../fixtures/pay/stories.ts";
+import { checkout } from "../../fixtures/pay/app.ts";
+import { shopStory } from "../../fixtures/pay/stories/usual.ts";
 import { before, coalescedStory, type Records, START, state } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 

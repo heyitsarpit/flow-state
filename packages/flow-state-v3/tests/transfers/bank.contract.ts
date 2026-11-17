@@ -1,6 +1,6 @@
 import { Effect, Exit, type Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { BankApi, Declined } from "../../fixtures/transfers/contracts.ts";
+import { BankApi, Declined } from "../../fixtures/transfers/services.ts";
 
 const runOn = <A, E>(bank: Layer.Layer<BankApi>, program: Effect.Effect<A, E, BankApi>) =>
   // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a contract test is the program's boundary

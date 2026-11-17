@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { client } from "../../fixtures/sync/machine.ts";
-import { Git } from "../../fixtures/sync/server.ts";
-import { long, usual } from "../../fixtures/sync/stories.ts";
+import { client } from "../../fixtures/sync/app.ts";
+import { Git } from "../../fixtures/sync/server/git.ts";
+import { long, usual } from "../../fixtures/sync/stories/usual.ts";
 import { checked } from "../rules/rules.ts";
 
 describe("the usual and long sync Stories", () => {

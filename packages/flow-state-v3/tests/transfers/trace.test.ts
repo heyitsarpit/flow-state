@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { lostThenReload } from "../../fixtures/transfers/stories.ts";
+import { lostThenReload } from "../../fixtures/transfers/stories/usual.ts";
 import { Step } from "../../src/host/testing/index.ts";
 import { render, type TraceEvent, TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";

@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 import { definition, Flow, machine, Outcome, transaction } from "../../../src/index.ts";
-import { GitApi } from "../../sync/contracts.ts";
+import { GitApi } from "../../sync/services.ts";
 
 const page = { repo: Schema.String, page: Schema.Number };
 

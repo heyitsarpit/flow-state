@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { cellsCheckout } from "../../fixtures/cells/machine.ts";
+import { cellsCheckout } from "../../fixtures/cells/app.ts";
 import { emptyIds, keyAtBound, keyPastBound } from "../../fixtures/cells/stories/edges.ts";
 import {
   disposedOnWire,

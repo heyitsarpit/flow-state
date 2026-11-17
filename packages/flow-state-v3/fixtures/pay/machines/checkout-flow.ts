@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { definition, deny, Flow, machine } from "../../../src/index.ts";
-import { Pay } from "../machine.ts";
+import { Pay } from "../../services/shop/machines/pay.ts";
 import { Cart, itemsIn, waiting } from "./cart.ts";
 import { Shopper } from "./shopper.ts";
 

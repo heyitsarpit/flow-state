@@ -1,10 +1,25 @@
 import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
-import { AuthLive } from "./auth-http.ts";
+import { AuthLive } from "./adapters/auth.ts";
 import { ProfileLive } from "./adapters/profiles.ts";
-import { SignInMachine } from "./machine.ts";
+import { SignInMachine } from "./machines/sign-in.ts";
 import { ReturnToMachine } from "./machines/return-to.ts";
 import { AuthSessionMachine } from "./machines/session.ts";
+
+/**
+ * The sign-in app: one machine.
+ */
+export const authApp = app({ id: "auth", machines: { signIn: SignInMachine } });
+
+/**
+ * The sign-in app's real setup: the auth server over HTTP, with no persistence.
+ */
+export const authSetup = runtimeSetup({ app: authApp, services: AuthLive("https://auth.example") });
+
+/**
+ * The sign-in screen the stories use.
+ */
+export const screen = actorRef(SignInMachine, "screen");
 
 /**
  * Elif's session.

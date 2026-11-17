@@ -1,5 +1,5 @@
-import { cellsCheckout } from "../machine.ts";
-import { cellsStory } from "../stories.ts";
+import { cellsCheckout } from "../app.ts";
+import { cellsStory } from "./usual.ts";
 
 const visa = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
 

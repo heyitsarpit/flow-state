@@ -1,12 +1,38 @@
 import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { CartLive } from "./adapters/carts.ts";
-import { checkout, PayMachine } from "./machine.ts";
+import { PayMachine } from "../services/shop/machines/pay.ts";
 import { CartMachine } from "./machines/cart.ts";
 import { CartBadgeMachine } from "./machines/cart-badge.ts";
 import { CheckoutFlowMachine } from "./machines/checkout-flow.ts";
 import { ShopperMachine } from "./machines/shopper.ts";
-import { ShopLive } from "./shop-http.ts";
+import { ShopLive } from "../services/shop/adapters/shop.ts";
+
+/**
+ * The checkout app: Pay alone.
+ */
+export const shop = app({ id: "shop", machines: { pay: PayMachine } });
+
+/**
+ * The checkout's real setup: the shop over HTTP, persisted, each capture written at once. A Story
+ * never builds its services.
+ */
+export const shopSetup = runtimeSetup({
+  app: shop,
+  services: ShopLive("https://shop.example"),
+  scope: "shop",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The checkout most stories use.
+ */
+export const checkout = actorRef(PayMachine, "checkout-1");
+
+/**
+ * A second shopper's checkout of the same machine.
+ */
+export const secondCheckout = actorRef(PayMachine, "checkout-2");
 
 /**
  * The signed-in shopper of this device.

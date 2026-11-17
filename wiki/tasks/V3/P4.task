@@ -572,7 +572,7 @@ tasks
             after every reload, and stores `lastCommit { seq, value }` only to defeat equality.
 
             **Read first:** code:wiki/conventions/controlled-values.md, code:wiki/conventions/where-a-value-lives.md,
-            code:packages/flow-state-v3/fixtures/number-input/machine.ts, @task.V3.T71's mapping comment.
+            code:packages/flow-state-v3/fixtures/number-input/machines/stepper.ts, @task.V3.T71's mapping comment.
 
             **Risk:** a controlled value's emit carries the intent (`Change { by }`), not an absolute value (R7). The
             typed text becomes view-owned, so the display-text scenarios move to view tests (@task.V3.T30) or are listed

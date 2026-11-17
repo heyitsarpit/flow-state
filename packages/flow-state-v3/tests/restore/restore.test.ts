@@ -1,11 +1,11 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { serializeClient } from "../../fixtures/lanes/machine.ts";
-import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories.ts";
-import { Git } from "../../fixtures/sync/server.ts";
-import { account } from "../../fixtures/transfers/machine.ts";
-import { Bank } from "../../fixtures/transfers/server.ts";
-import { bankStory } from "../../fixtures/transfers/stories.ts";
+import { serializeClient } from "../../fixtures/lanes/app.ts";
+import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
+import { Git } from "../../fixtures/sync/server/git.ts";
+import { account } from "../../fixtures/transfers/app.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
+import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";

@@ -1,7 +1,8 @@
 import { Effect, Layer, Ref } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { checkout, ShopApi, shopSetup } from "../../fixtures/pay/machine.ts";
-import { Shop } from "../../fixtures/pay/server.ts";
+import { checkout, shopSetup } from "../../fixtures/pay/app.ts";
+import { ShopApi } from "../../fixtures/services/shop/services.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import {
   type Cell,
   type FakeWorld,

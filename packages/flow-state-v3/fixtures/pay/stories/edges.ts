@@ -1,6 +1,6 @@
-import { checkout } from "../machine.ts";
-import { Shop } from "../server.ts";
-import { shopStory } from "../stories.ts";
+import { checkout } from "../app.ts";
+import { Shop } from "../../services/shop/server/shop.ts";
+import { shopStory } from "./usual.ts";
 
 const visa = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
 

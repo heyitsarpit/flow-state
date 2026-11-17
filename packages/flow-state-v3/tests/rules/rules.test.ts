@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { checkout } from "../../fixtures/pay/machine.ts";
-import { shopStory } from "../../fixtures/pay/stories.ts";
+import { checkout } from "../../fixtures/pay/app.ts";
+import { shopStory } from "../../fixtures/pay/stories/usual.ts";
 import { Evidence } from "../../src/host/inspect.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";

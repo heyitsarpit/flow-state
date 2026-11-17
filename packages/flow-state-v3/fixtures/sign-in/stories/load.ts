@@ -1,5 +1,5 @@
 import { screenOf, sessionOf } from "../app.ts";
-import { CODE } from "../server.ts";
+import { CODE } from "../server/auth.ts";
 import { Profiles } from "../server/profiles.ts";
 import { sessionStory } from "./usual.ts";
 

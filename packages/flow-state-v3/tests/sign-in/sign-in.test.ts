@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { screen } from "../../fixtures/sign-in/machine.ts";
-import { Auth } from "../../fixtures/sign-in/server.ts";
-import { long, usual } from "../../fixtures/sign-in/stories.ts";
+import { screen } from "../../fixtures/sign-in/app.ts";
+import { Auth } from "../../fixtures/sign-in/server/auth.ts";
+import { long, usual } from "../../fixtures/sign-in/stories/usual.ts";
 import { checked } from "../rules/rules.ts";
 
 describe("the usual and long sign-in Stories", () => {

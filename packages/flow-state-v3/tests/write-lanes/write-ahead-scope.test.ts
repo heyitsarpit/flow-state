@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { account, savings } from "../../fixtures/transfers/machine.ts";
-import { bankStory } from "../../fixtures/transfers/stories.ts";
+import { account, savings } from "../../fixtures/transfers/app.ts";
+import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 
 describe("one batch out per scope (WriteAhead R12, I23)", () => {

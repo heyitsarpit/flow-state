@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { timeStory } from "../../bench/time.ts";
-import { long } from "../../fixtures/transfers/stories.ts";
+import { long } from "../../fixtures/transfers/stories/usual.ts";
 
 describe("bench", () => {
   it("every timed run of the long Story does the turns a tested run does, in order (Stories I18)", async () => {

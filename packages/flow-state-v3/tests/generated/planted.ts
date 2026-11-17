@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect";
-import { checkout, ShopApi, shopSetup } from "../../fixtures/pay/machine.ts";
-import { Shop } from "../../fixtures/pay/server.ts";
+import { checkout, shopSetup } from "../../fixtures/pay/app.ts";
+import { ShopApi } from "../../fixtures/services/shop/services.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { samplesOf, Story } from "../../src/host/testing/index.ts";
 
 const lost = () => Effect.fail({ _tag: "NoResponse" } as const);

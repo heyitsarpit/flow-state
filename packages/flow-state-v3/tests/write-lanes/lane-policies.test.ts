@@ -1,7 +1,7 @@
 import { expect, it } from "vite-plus/test";
-import { cellsCheckout } from "../../fixtures/cells/machine.ts";
-import { Shop } from "../../fixtures/cells/server.ts";
-import { cellsStory } from "../../fixtures/cells/stories.ts";
+import { cellsCheckout } from "../../fixtures/cells/app.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import { endings, laneFacts, row, START, state, VISA } from "../checkout.ts";
 import { played } from "../rules/played.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { checkout } from "../../fixtures/pay/machine.ts";
-import { Shop } from "../../fixtures/pay/server.ts";
+import { checkout } from "../../fixtures/pay/app.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { before, memory, onWire, type Records, state, VISA } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 

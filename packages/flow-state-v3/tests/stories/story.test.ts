@@ -1,10 +1,15 @@
 import { readFileSync } from "node:fs";
 import { Effect, Layer, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { stories as payStories } from "../../fixtures/pay/stories.ts";
-import { account, bank, bankSetup } from "../../fixtures/transfers/machine.ts";
-import { Bank, BankFake } from "../../fixtures/transfers/server.ts";
-import { bankStory, stories as transferStories, usual } from "../../fixtures/transfers/stories.ts";
+import { stories as payStories } from "../../fixtures/pay/stories/usual.ts";
+import { account, bank, bankSetup } from "../../fixtures/transfers/app.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
+import { BankFake } from "../../fixtures/transfers/server/layer.ts";
+import {
+  bankStory,
+  stories as transferStories,
+  usual,
+} from "../../fixtures/transfers/stories/usual.ts";
 import {
   type Cut,
   Fake,

@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { cellsShop } from "./machine.ts";
-import { long, samples, seededStress, stories } from "./stories.ts";
+import { cellsShop } from "./app.ts";
+import { long, samples, seededStress, stories } from "./stories/usual.ts";
 import { emptyIds, keyAtBound, keyPastBound } from "./stories/edges.ts";
 import { disposedOnWire, neverSentDisposed, reloadedOnWire } from "./stories/structure.ts";
 

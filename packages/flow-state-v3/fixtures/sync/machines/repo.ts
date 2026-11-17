@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
-import { SyncMachine } from "../machine.ts";
+import { SyncMachine } from "./sync.ts";
 
 const Sync = SyncMachine.definition;
 

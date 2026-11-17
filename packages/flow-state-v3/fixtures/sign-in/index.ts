@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { authGrown } from "./app.ts";
-import { long, samples, seededStress, stories } from "./stories.ts";
+import { long, samples, seededStress, stories, handleRetry } from "./stories/usual.ts";
 import { emailAtBound, emptyCode, emptyEmail } from "./stories/edges.ts";
 import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
 import { manyScreens, manySessions, reloadInLockout } from "./stories/load.ts";
@@ -12,7 +12,6 @@ import {
   screenFirst,
   signOutForgets,
 } from "./stories/structure.ts";
-import { handleRetry } from "./stories/usual.ts";
 
 /**
  * The sign-in fixture, as every runner reads it.

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
-import { account, TransfersMachine } from "../../fixtures/transfers/machine.ts";
-import { Bank } from "../../fixtures/transfers/server.ts";
+import { account } from "../../fixtures/transfers/app.ts";
+import { TransfersMachine } from "../../fixtures/transfers/machines/transfers.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import {
   declined,
   heldAtDisposal,
   long,
   lostThenReload,
-} from "../../fixtures/transfers/stories.ts";
+} from "../../fixtures/transfers/stories/usual.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 

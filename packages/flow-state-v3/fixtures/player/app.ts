@@ -1,3 +1,4 @@
+// @effect-diagnostics unstableApiUsage:off -- the production adapter's port is Effect's HttpClient, as the app's real Layer would be
 import { Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";

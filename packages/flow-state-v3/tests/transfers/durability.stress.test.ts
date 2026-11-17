@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { stressManyReceipts } from "../../fixtures/transfers/stories.ts";
+import { stressManyReceipts } from "../../fixtures/transfers/stories/usual.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";

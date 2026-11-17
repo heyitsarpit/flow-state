@@ -1,8 +1,8 @@
 import { Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { account, savings } from "../../fixtures/transfers/machine.ts";
-import { Bank } from "../../fixtures/transfers/server.ts";
-import { bankStory } from "../../fixtures/transfers/stories.ts";
+import { account, savings } from "../../fixtures/transfers/app.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
+import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { type Cut, Fake, Story } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";

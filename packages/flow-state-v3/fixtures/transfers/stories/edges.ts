@@ -1,5 +1,4 @@
-import { cafeComposed, cafeDecomposed } from "../app.ts";
-import { account } from "../machine.ts";
+import { cafeComposed, cafeDecomposed, account } from "../app.ts";
 import { grownStory } from "./usual.ts";
 
 // The bytes `{"transferId":""}` adds around a transfer id in its key's canonical text.
