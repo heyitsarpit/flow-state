@@ -72,7 +72,8 @@ export type Headline = "median" | "p99" | "min";
  * until `budgetMs` of sampling has passed and at least `minRuns` samples are taken (at most 1,000),
  * unless `--runs` sets the count; a bench that is not `warm` is timed cold,
  * with no warm-up. `gc` runs its workers with a full collector exposed. A `quick` bench is one of
- * its concern's headline benches, which the quick tier runs.
+ * its concern's headline benches, which the quick tier runs. A `stress` bench times one of the
+ * fixtures' stress Stories: the stress tier runs only those, the quick tier none, the full tier all.
  */
 export type Bench = {
   readonly id: string;
@@ -89,6 +90,7 @@ export type Bench = {
   readonly gc: boolean;
   readonly warm: boolean;
   readonly quick: boolean;
+  readonly stress: boolean;
   readonly load: () => Promise<Subject>;
 };
 
@@ -119,6 +121,7 @@ export const bench = (declared: Declared) => {
     gc: false,
     warm: true,
     quick: false,
+    stress: false,
     ...declared,
   };
 

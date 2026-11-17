@@ -1,7 +1,7 @@
 import { actorRef } from "../../src/index.ts";
 import { PaletteMachine } from "./machines/palette.ts";
 import { Option } from "effect";
-import { benchPoint, manifest } from "../manifest.ts";
+import { benchPoint, benchStress, manifest } from "../manifest.ts";
 import { paletteApp, paletteSetup } from "./app.ts";
 import { samples, seededStress, stories, stressSamples, listSavedOf } from "./stories/usual.ts";
 import { emptyQueryOrder, typingUnderHeldStore } from "./stories/load.ts";
@@ -28,13 +28,15 @@ export const commandPalette = manifest({
   ],
   bench: {
     probe: (n) => actorRef(PaletteMachine, `palette-${String(n)}`),
-    stories: [1000, 10_000, 100_000].map((n) =>
-      benchPoint(() => listSavedOf(n), {
+    stories: [1000, 10_000, 100_000].map((n) => {
+      const point = benchPoint(() => listSavedOf(n), {
         series: "list-length",
         n,
         unit: "commands",
         growth: "linear",
-      }),
-    ),
+      });
+
+      return n === 100_000 ? benchStress(point) : point;
+    }),
   },
 });

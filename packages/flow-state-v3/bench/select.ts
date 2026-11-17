@@ -2,10 +2,10 @@ import { Option } from "effect";
 import type { Bench, Concern } from "./declare.ts";
 
 /**
- * The tier a run measures in: `quick` (the headline benches, the periodic run), `full` (every
- * bench), or `dev` (any bench, one worker on a short budget, never recorded: for iterating).
+ * The tier a run measures in: `quick` (the headline benches but the stress ones, the periodic run),
+ * `stress` (only the stress benches), `full` (every bench), or `dev` (any bench, one worker on a short budget, never recorded: for iterating).
  */
-export type TierName = "quick" | "full" | "dev";
+export type TierName = "quick" | "stress" | "full" | "dev";
 
 /**
  * What a run selects benches by.
@@ -33,7 +33,9 @@ const inTier = (b: Bench, selection: Selection) => {
 
   if (b.concern === "tooling") return named;
 
-  return selection.tier !== "quick" || b.quick;
+  if (selection.tier === "stress") return b.stress;
+
+  return selection.tier !== "quick" || (b.quick && !b.stress);
 };
 
 /**
@@ -41,7 +43,7 @@ const inTier = (b: Bench, selection: Selection) => {
  *
  * **Details**
  *
- * The tier picks first: quick its headline benches, full and dev every bench; tooling only when
+ * The tier picks first: quick its headline benches that are not stress, stress only the stress benches, full and dev every bench; tooling only when
  * its concern is named. Then the concerns and the `--only` pattern. Then sizes: with `maxN`, a
  * series point larger than it is left out; in the dev tier with no `maxN`, only each series'
  * smallest point stays, so iterating on a scaling problem starts at the small end.

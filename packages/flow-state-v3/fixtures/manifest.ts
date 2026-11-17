@@ -28,10 +28,12 @@ export type Growth = "flat" | "linear";
  * With `size`, it is one point of a growth series: Stories sharing a series name, each at its `n`
  * in `unit`, whose per-turn cost may grow as `growth` says, or at most `maxSlope` (the log-log
  * slope of cost over size) when the fixture claims its own bound. Without, it is one more turn
- * bench.
+ * bench. A `stress` entry is one of the fixture's stress Stories, too long for the quick tier: only
+ * the stress and full tiers time it.
  */
 export type BenchStory = {
   readonly story: () => Story<string>;
+  readonly stress: boolean;
   readonly size: Option.Option<{
     readonly series: string;
     readonly n: number;
@@ -45,7 +47,7 @@ export type BenchStory = {
  * A Story the bench times per turn, beside the long and saved stress Stories.
  */
 export const benchTurn = (story: () => Story<string>) => {
-  const entry: BenchStory = { story, size: Option.none() };
+  const entry: BenchStory = { story, stress: false, size: Option.none() };
 
   return entry;
 };
@@ -64,9 +66,19 @@ export const benchPoint = (
   },
   maxSlope: Option.Option<number> = Option.none(),
 ) => {
-  const entry: BenchStory = { story, size: Option.some({ ...size, maxSlope }) };
+  const entry: BenchStory = { story, stress: false, size: Option.some({ ...size, maxSlope }) };
 
   return entry;
+};
+
+/**
+ * Marks a bench entry as a stress Story, at the large end of its series: the stress and full tiers
+ * time it, the quick tier does not.
+ */
+export const benchStress = (entry: BenchStory) => {
+  const marked: BenchStory = { ...entry, stress: true };
+
+  return marked;
 };
 
 /**

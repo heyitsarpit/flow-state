@@ -26,25 +26,28 @@ const persists = (m: Manifest) =>
     (entry) => ("machine" in entry ? entry.machine : entry).compiled.persist,
   );
 
-const turnBench = (story: Story<string>, quick: boolean) =>
+const turnBench = (story: Story<string>, quick: boolean, stress = false) =>
   bench({
     id: `turn.${idOf(story.id)}.per-turn-ms`,
     concern: "turn",
     tags: ["story", story.id.split("/")[0] ?? story.id],
     size: { n: 1, unit: "run" },
     quick,
+    stress,
     load: () => storySubject(story),
   });
 
 const turnBenches = (m: Manifest) => [
   ...Option.toArray(m.long).map((story) => turnBench(story, true)),
   turnBench(m.savedStress.story, false),
-  ...m.bench.stories.flatMap((b) => (Option.isNone(b.size) ? [turnBench(b.story(), false)] : [])),
+  ...m.bench.stories.flatMap((b) =>
+    Option.isNone(b.size) ? [turnBench(b.story(), false, b.stress)] : [],
+  ),
 ];
 
-// Each series' smallest and largest sizes: enough for its slope.
+// Each series' smallest and largest sizes outside the stress points: enough for its slope.
 const endsOf = (m: Manifest) => {
-  const sizes = m.bench.stories.flatMap((b) => Option.toArray(b.size));
+  const sizes = m.bench.stories.flatMap((b) => (b.stress ? [] : Option.toArray(b.size)));
 
   return (series: string, n: number) => {
     const ns = sizes.filter((s) => s.series === series).map((s) => s.n);
@@ -65,7 +68,8 @@ const scaleBenches = (m: Manifest) =>
           name: `${m.name}.${size.series}`,
           maxSlope: Option.getOrElse(size.maxSlope, () => GROWTH_BOUNDS[size.growth]),
         }),
-        quick: endsOf(m)(size.series, size.n),
+        quick: !b.stress && endsOf(m)(size.series, size.n),
+        stress: b.stress,
         load: () => storySubject(b.story()),
       }),
     ),

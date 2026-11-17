@@ -18,6 +18,7 @@ export const Options = Schema.Struct({
   stored: Schema.Boolean,
   summary: Schema.Boolean,
   full: Schema.Boolean,
+  stress: Schema.Boolean,
   detail: Schema.Boolean,
   separate: Schema.Boolean,
   dev: Schema.Boolean,
@@ -47,6 +48,7 @@ export const optionsOf = (argv: ReadonlyArray<string>) => {
       stored: { type: "boolean", default: false },
       summary: { type: "boolean", default: false },
       full: { type: "boolean", default: false },
+      stress: { type: "boolean", default: false },
       detail: { type: "boolean", default: false },
       separate: { type: "boolean", default: false },
       dev: { type: "boolean", default: false },
@@ -77,12 +79,15 @@ export const optionsOf = (argv: ReadonlyArray<string>) => {
  */
 export const TIERS = {
   quick: { workers: 2, budgetMs: 300, warmMs: 500, minEffect: 0.1 },
+  stress: { workers: 2, budgetMs: 300, warmMs: 500, minEffect: 0.1 },
   full: { workers: 5, budgetMs: undefined, warmMs: undefined, minEffect: 0.05 },
   dev: { workers: 1, budgetMs: 200, warmMs: 300, minEffect: 0.1 },
 } as const;
 
 export const tierOf = (options: Options) => {
   if (options.dev) return "dev" as const;
+
+  if (options.stress) return "stress" as const;
 
   return options.full ? ("full" as const) : ("quick" as const);
 };
@@ -92,13 +97,15 @@ export const scopeOf = (options: Options) => ({
   minEffect: TIERS[tierOf(options)].minEffect,
 });
 
-export const HELP = `nub run bench [concern...] [--full | --dev] [--only <pattern>] [--max-n <n>]
+export const HELP = `nub run bench [concern...] [--full | --stress | --dev] [--only <pattern>] [--max-n <n>]
   [--max-time <s>] [--list] [--record] [--compare <commit> [--stored]] [--summary] [--detail]
   [--timing] [--separate] [--runs N] [--warmup N] [--workers N]
 
 Tiers:
-  (default)  quick: each concern's headline benches, two workers sharing a process each, a short
+  (default)  quick: each concern's headline benches but the stress ones, two workers sharing a process each, a short
              budget; changes count past 10%. The periodic run.
+  --stress   only the stress benches (those on a stress Story), run as the quick tier runs; its rows
+             are a tier of their own and never mix with quick's.
   --full     every bench, five fresh processes each, its full budget; changes past 5%. The full
              tier runs past the cap: run it one concern at a time, as in nub run bench scale --full.
   --dev      any bench, one worker, a short budget, records nothing; with no --max-n, only each

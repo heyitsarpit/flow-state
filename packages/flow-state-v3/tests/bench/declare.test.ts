@@ -5,6 +5,7 @@ import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { benches } from "../../bench/benches/index.ts";
 import { CONCERNS } from "../../bench/declare.ts";
+import { selectBenches } from "../../bench/select.ts";
 import { appendRows, type Row, readRows } from "../../bench/history.ts";
 import { changeOf, madOf, slopeOf, spreadOf, verdictOf } from "../../bench/stats.ts";
 import { manifests } from "../../fixtures/index.ts";
@@ -39,6 +40,43 @@ describe("bench declarations", () => {
 
         expect(ids.has(id)).toBe(true);
       }
+    }
+  });
+});
+
+describe("bench tiers", () => {
+  const select = (tier: "quick" | "stress" | "full") =>
+    selectBenches(benches, { tier, concerns: [], only: Option.none(), maxN: Option.none() });
+
+  it("the quick selection has no stress point, and --stress selects only stress points", () => {
+    const stress = benches.filter((b) => b.stress);
+
+    expect(stress.length > 0).toBe(true);
+    expect(select("quick").some((b) => b.stress)).toBe(false);
+    expect(select("stress").length).toBe(stress.length);
+    expect(select("stress").every((b) => b.stress)).toBe(true);
+    expect(select("full").length).toBe(benches.filter((b) => b.concern !== "tooling").length);
+  });
+
+  it("every series keeps two or more non-stress points, and the quick tier runs its ends", () => {
+    const series = new Map<string, Array<{ n: number; stress: boolean }>>();
+
+    for (const b of benches)
+      for (const s of Option.toArray(b.series))
+        series.set(s.name, [...(series.get(s.name) ?? []), { n: b.size.n, stress: b.stress }]);
+
+    const quick = select("quick");
+
+    for (const [name, points] of series) {
+      const kept = points.filter((p) => !p.stress);
+
+      if (points.length < 2) continue;
+
+      expect([name, kept.length >= 2]).toEqual([name, true]);
+
+      const ran = quick.filter((b) => Option.exists(b.series, (s) => s.name === name));
+
+      expect([name, ran.length >= 2]).toEqual([name, true]);
     }
   });
 });

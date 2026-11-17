@@ -224,6 +224,9 @@ const refusalOf = (options: Options, chosen: ReadonlyArray<Bench>) => {
 
   if (chosen.length === 0) return Option.some({ problem: "no bench matches", code: 1 });
 
+  if (options.stress && options.full)
+    return Option.some({ problem: "--stress and --full are separate tiers: pick one", code: 1 });
+
   if (options.dev && options.record)
     return Option.some({
       problem: "the dev tier records nothing: drop --record or --dev",

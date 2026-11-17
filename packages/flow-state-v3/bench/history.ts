@@ -42,7 +42,7 @@ export const Row = Schema.Struct({
   power: Schema.String,
   load: Schema.FiniteFromString,
   confidence: Confidence,
-  tier: Schema.Literals(["quick", "full", "dev"]),
+  tier: Schema.Literals(["quick", "stress", "full", "dev"]),
   concern: Schema.Literals(CONCERNS),
   bench: Schema.String,
   size: Schema.FiniteFromString,

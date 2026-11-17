@@ -1,7 +1,7 @@
 import { actorRef } from "../../src/index.ts";
 import { OrgMachine } from "./machines/org.ts";
 import { Option } from "effect";
-import { benchPoint, benchTurn, manifest } from "../manifest.ts";
+import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
 import { workspaceGrown, workspaceGrownSetup } from "./app.ts";
 import { long, samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { corruptRecord, oversizedRecord } from "./stories/edges.ts";
@@ -106,27 +106,33 @@ export const session = manifest({
         unit: "saved",
         growth: "flat",
       }),
-      benchPoint(stressWall, {
-        series: "saved-identities",
-        n: 5000,
-        unit: "saved",
-        growth: "flat",
-      }),
+      benchStress(
+        benchPoint(stressWall, {
+          series: "saved-identities",
+          n: 5000,
+          unit: "saved",
+          growth: "flat",
+        }),
+      ),
       benchPoint(() => avatarWall, { series: "avatars", n: 65, unit: "saved", growth: "flat" }),
-      ...[100, 1000, 3000].map((n) =>
-        benchPoint(() => nestAt("Lists", n, `session/nest-lists-${n}`), {
+      ...[100, 1000, 3000].map((n) => {
+        const point = benchPoint(() => nestAt("Lists", n, `session/nest-lists-${n}`), {
           series: "value-depth",
           n,
           unit: "levels",
           growth: "linear",
+        });
+
+        return n === 3000 ? benchStress(point) : point;
+      }),
+      benchStress(
+        benchPoint(outlineDeep, {
+          series: "outline-depth",
+          n: 100_000,
+          unit: "levels",
+          growth: "linear",
         }),
       ),
-      benchPoint(outlineDeep, {
-        series: "outline-depth",
-        n: 100_000,
-        unit: "levels",
-        growth: "linear",
-      }),
     ],
   },
 });

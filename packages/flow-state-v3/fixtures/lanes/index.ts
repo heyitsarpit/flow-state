@@ -1,7 +1,7 @@
 import { actorRef } from "../../src/index.ts";
 import { SerializeMachine } from "./machines/clients.ts";
 import { Option } from "effect";
-import { benchPoint, manifest } from "../manifest.ts";
+import { benchPoint, benchStress, manifest } from "../manifest.ts";
 import { lanesGrown, lanesGrownSetup } from "./app.ts";
 import { samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { negativeZero, twoSpellings } from "./stories/edges.ts";
@@ -41,14 +41,16 @@ export const lanes = manifest({
       ...[16, 64, 256].map((n) =>
         benchPoint(() => crowdOf(n), { series: "actors", n, unit: "actors", growth: "flat" }),
       ),
-      ...[100, 1000, 3000].map((n) =>
-        benchPoint(() => serializeDeepOf(n), {
+      ...[100, 1000, 3000].map((n) => {
+        const point = benchPoint(() => serializeDeepOf(n), {
           series: "serialize-queue",
           n,
           unit: "queued",
           growth: "flat",
-        }),
-      ),
+        });
+
+        return n === 3000 ? benchStress(point) : point;
+      }),
     ],
   },
 });
