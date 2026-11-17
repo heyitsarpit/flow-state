@@ -193,7 +193,7 @@ export const makePersistence = (tx: Tx) => {
   ) => {
     if (!persisted(actor)) return Option.none<TicketId>();
 
-    const ticket: Ticket = { id: tx.mint<TicketId>("ticket"), ...awaited };
+    const ticket: Ticket = { id: tx.mint("ticket"), ...awaited };
 
     for (const t of touch(actor)) {
       t.lanes.add(id);

@@ -7,15 +7,7 @@ import { Life } from "./life.ts";
 import { Audience, type LedgerSteps } from "./ledger.ts";
 import { type Machines, pick, ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import {
-  type ActorId,
-  type CallId,
-  Command,
-  type Displaced,
-  type Lane,
-  Phase,
-  sentBefore,
-} from "./world.ts";
+import { type ActorId, Command, type Displaced, type Lane, Phase, sentBefore } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
 /**
@@ -117,7 +109,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     });
 
   const invoke = (at: At, lane: Lane, resend: boolean) => {
-    const call = tx.mint<CallId>("call");
+    const call = tx.mint("call");
 
     const head = {
       ...lane.head,

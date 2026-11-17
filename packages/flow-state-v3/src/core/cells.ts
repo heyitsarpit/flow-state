@@ -1,6 +1,6 @@
 import { Data, Option } from "effect";
 import type { Values } from "./compiled.ts";
-import { type Channel, isDecline } from "./vocabulary.ts";
+import { type Channel, Decline, isDecline } from "./vocabulary.ts";
 import { type CallId, type Head, Phase, sentBefore, type TicketId } from "./world.ts";
 
 /**
@@ -37,7 +37,18 @@ export const Cue = Data.taggedEnum<Cue>();
 /**
  * Why a never-sent Attempt ends `NotSent`.
  */
-export type NotSentWhy = "Rejected" | "Overloaded" | "Cancelled" | "StorageRefused" | "Disposed";
+export const NotSentWhy = Decline.pick([
+  "Rejected",
+  "Overloaded",
+  "Cancelled",
+  "StorageRefused",
+  "Disposed",
+]);
+
+/**
+ * The decoded {@link NotSentWhy}.
+ */
+export type NotSentWhy = typeof NotSentWhy.Type;
 
 /**
  * How many commits serialize queues behind a head; the next declines NotSent Overloaded.

@@ -82,17 +82,20 @@ const headOf = (state: LaneState) =>
     Head: ({ head }) => Option.some(head),
   });
 
-const RELEASED: ReadonlyArray<string> = ["Recapturing", "Resending", "Held"];
-
-// How a commit that replaced a head ended it: Superseded when never sent, Released when sent
-// before; a displaced head (OnWire, Withdrawing, Cancelling) ends when its call or ticket answers.
-const REPLACED: Readonly<Partial<Record<Phase["_tag"], LaneFact>>> = {
-  Acknowledging: "Superseded",
-  Unsent: "Superseded",
-  Recapturing: "Released",
-  Resending: "Released",
-  Held: "Released",
-};
+// How a commit that replaced a head ended it, by the head's phase: Superseded when never sent,
+// Released when sent before and not on the wire; none for a head that is displaced (Withdrawing,
+// OnWire, Cancelling), which ends when its call or ticket answers. A cancel releases exactly the
+// heads a commit would release. Every phase is decided here.
+const REPLACED = {
+  Acknowledging: Option.some<LaneFact>("Superseded"),
+  Unsent: Option.some<LaneFact>("Superseded"),
+  Withdrawing: Option.none<LaneFact>(),
+  Recapturing: Option.some<LaneFact>("Released"),
+  Resending: Option.some<LaneFact>("Released"),
+  OnWire: Option.none<LaneFact>(),
+  Cancelling: Option.none<LaneFact>(),
+  Held: Option.some<LaneFact>("Released"),
+} as const satisfies Record<Phase["_tag"], Option.Option<LaneFact>>;
 
 const COMMITS: ReadonlyArray<string> = [
   "CommitReject",
@@ -185,9 +188,11 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
       const ended =
         commit && replaced
           ? Option.toArray(was).flatMap((h) => {
-              const kind = REPLACED[h.phase._tag];
-
-              return kind === undefined ? [] : [Evidence.Lane({ kind, operation, attempt })];
+              return Option.toArray(
+                Option.map(REPLACED[h.phase._tag], (kind) =>
+                  Evidence.Lane({ kind, operation, attempt }),
+                ),
+              );
             })
           : [];
 
@@ -217,7 +222,8 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
           : [];
 
       const released =
-        cue._tag === "Cancel" && Option.exists(was, (h) => RELEASED.includes(h.phase._tag))
+        cue._tag === "Cancel" &&
+        Option.exists(was, (h) => Option.contains(REPLACED[h.phase._tag], "Released"))
           ? [Evidence.Lane({ kind: "Released", operation, attempt })]
           : [];
 

@@ -460,7 +460,7 @@ export const runFrom = <Names extends string>(
 
   if (unused.length > 0 && !options.lenient) scriptFault(unused.join("; "));
 
-  // SAFETY: a chained Story's checkpoint steps are exactly its Names, each taken once (checked above).
+  // SAFETY: a Story's own steps hold one checkpoint word per name its type collected as Names, each taken once (checked above); a run of other steps is typed with string Names.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- the checkpoints the steps named, keyed by name
   const named = Object.fromEntries(checkpoints) as StoryRun<Names>["checkpoints"];
 

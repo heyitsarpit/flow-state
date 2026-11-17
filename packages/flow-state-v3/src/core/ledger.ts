@@ -195,7 +195,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
    * Waiting when not; a row for an incarnation that is gone closes at once as evidence.
    */
   const owe = (ending: Omit<Owed, "id" | "delivery">) => {
-    const row: Owed = { ...ending, id: tx.mint<OwedId>("owed"), delivery: Delivery.Queued() };
+    const row: Owed = { ...ending, id: tx.mint("owed"), delivery: Delivery.Queued() };
     setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);
 
     tx.act(Act.Ended({ actor: row.actor, ending: row }));
@@ -322,7 +322,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
         {
           ...row,
           to: Audience.Identity(),
-          id: tx.mint<OwedId>("owed"),
+          id: tx.mint("owed"),
           delivery: kept ? Delivery.Kept() : Delivery.Waiting(),
         },
       ]);

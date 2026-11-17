@@ -150,7 +150,7 @@ const codecsOf = <F extends Fields>(fields: F, key: ReadonlyArray<keyof F & stri
  * input Schema before it calls.
  */
 const trusted = <A>(input: Values) =>
-  // SAFETY: the runtime passes only values its operation decoded with this contract's input Schema (core/lane.ts).
+  // SAFETY: the runtime passes only inputs its operation's input walker checked at the commit (core/lanes.ts) or decoded from a lane record (core/record.ts).
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the contract's input type is erased in Compiled and restored here, at the one call boundary
   input as A;
 

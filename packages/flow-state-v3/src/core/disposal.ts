@@ -94,7 +94,7 @@ export const makeDisposal = (
   const write = (first: boolean) => {
     if (!tx.world().persistence || (!first && !persistence.dirty())) return;
 
-    const ticket = tx.mint<TicketId>("ticket");
+    const ticket = tx.mint("ticket");
     persistence.project([{ id: ticket, purpose: "flush" }]);
     tx.setLife(Life.Disposing({ awaiting: Option.some(ticket) }));
   };

@@ -1,12 +1,14 @@
 import { Option, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
+import type { OwedId } from "./ledger.ts";
 import type { Evidence } from "./evidence.ts";
 import { LOCAL_PREFIX } from "./identity.ts";
 import { type Act, evidenceOf } from "./evidence-of.ts";
 import {
   type ActorId,
   actorKey,
+  type CallId,
   Command,
   type Incarnation,
   type Lane,
@@ -14,6 +16,7 @@ import {
   type Out,
   Phase,
   startOrder,
+  type TicketId,
   Timer,
   type TimerId,
   type Use,
@@ -70,9 +73,18 @@ export const pick = (input: Values, fields: ReadonlyArray<string>) => Struct.pic
  * A minted id as its kind: the mint is the one place ids of each kind are made.
  */
 const branded = <Id extends string>(id: string) =>
-  // SAFETY: the world's mint makes each id once, under the kind its caller names.
+  // SAFETY: the world's mint makes each id once, under the kind its prefix names (Ids).
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a brand is type-only; the mint is where it is given
   id as Id;
+
+// Each kind of id the world's counter mints, by the prefix it is minted with.
+type Ids = {
+  readonly timer: TimerId;
+  readonly call: CallId;
+  readonly ticket: TicketId;
+  readonly owed: OwedId;
+  readonly inc: string;
+};
 
 type MapField = {
   readonly [K in keyof World]: World[K] extends ReadonlyMap<infer _K, infer _V> ? K : never;
@@ -172,10 +184,10 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   const replace = <F extends Plain>(field: F, map: Map<KeyIn<F>, ValueIn<F>>) =>
     void own(field, map);
 
-  const mint = <Id extends string = string>(prefix: string) => {
+  const mint = <K extends keyof Ids>(kind: K) => {
     world.counter += 1;
 
-    return branded<Id>(`${prefix}-${env.seed}-${world.counter}`);
+    return branded<Ids[K]>(`${kind}-${env.seed}-${world.counter}`);
   };
 
   const mintAttempt = () => {
@@ -298,7 +310,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
 
   // ── timers, with each awaited ticket's silence.
   const armTimer = (timer: Timer, at: number) => {
-    const id = mint<TimerId>("timer");
+    const id = mint("timer");
     draft("timers").set(id, timer);
 
     if (Timer.$is("Silent")(timer)) draft("silenceOf").set(timer.ticket, id);

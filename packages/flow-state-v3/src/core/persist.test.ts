@@ -11,7 +11,7 @@ import { makePersistence } from "./persist.ts";
 import { step } from "./step.ts";
 import { Input } from "./input.ts";
 import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
-import { actorKey, Command, emptyWorld, Phase, Timer, type TimerId, type World } from "./world.ts";
+import { actorKey, Command, emptyWorld, Phase, Timer, type World } from "./world.ts";
 
 // A written record's JSON object, read back from its text.
 const jsonOf = Schema.decodeUnknownSync(
@@ -319,7 +319,7 @@ it("Actors R8, WriteAhead I11: a free actor whose records are held back does not
 
   expect(writesOf(heard.tx)).toEqual([]);
 
-  const grace = heard.tx.mint<TimerId>("timer");
+  const grace = heard.tx.mint("timer");
 
   const graced = {
     ...heard.tx.world(),

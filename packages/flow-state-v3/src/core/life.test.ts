@@ -1,6 +1,5 @@
 import { makeFreezer } from "./frozen.ts";
 import { Option } from "effect";
-import type { CallId, TicketId } from "./world.ts";
 import { describe, expect, it } from "vite-plus/test";
 import { admit, Life, Verdict } from "./life.ts";
 import { CallResult, Input } from "./step.ts";
@@ -11,9 +10,9 @@ const actor = { machine: "m", name: "a" };
 
 // Ids as the world's mint makes them: the table reads none of them.
 const tx = makeTx(new Map(), emptyWorld(false), { now: 0, seed: "0", admit: makeFreezer() });
-const call = tx.mint<CallId>("call");
+const call = tx.mint("call");
 const timer = tx.armTimer(Timer.Bound(), 0);
-const ticket = tx.mint<TicketId>("ticket");
+const ticket = tx.mint("ticket");
 
 // One input of each kind, as the host and its timers give them.
 const inputs = {

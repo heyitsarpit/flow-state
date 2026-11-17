@@ -250,7 +250,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   const lookup = (incarnation: Incarnation, operation: Operation, input: Values, owner: number) => {
     interruptReads(incarnation, operation.name, true);
 
-    const call = tx.mint<CallId>("call");
+    const call = tx.mint("call");
     tx.put("reads", call, {
       call,
       actor: incarnation.actor,
