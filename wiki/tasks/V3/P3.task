@@ -2152,6 +2152,36 @@ tasks
             unknown StillUnknown (WriteLanes R2); Q19 A, diagnostic codes nothing produces leave the public union and
             return with the feature that produces them. All three go in T79's fix round; the it.fails in
             tests/actors/edges.test.ts flip.
+        comment     2026-11-17T12:19:22Z
+            ISSUES (independent check-task at 4dd32b3d, diff 45b6f5a8..e4487148): two acceptance-1 items are broken,
+            both in the records; code and gates hold. check 0; suite 1,281 pass, 15 expected fail, only T20's two pair
+            reds; a planted stale silenceOf index is caught at checkpoints (scratch copy, 130 Stories red). Blocking:
+            (1) review 2's 3a (A4: Act.Refused still hand-built at context.ts:61, serve.ts:147, 267,
+            incarnations.ts:134, 212) and 3c (two serve loops, serve.ts:362-394) are not fixed, rejected or routed.
+            Labels are mixed: review 1 3g is both done and rejected, 3p is done but unrecorded, and review 2 2b is both
+            rejected and routed. (2) 2c and 2k are deferred to 'a follow-up' with no reason. The tests miss both: they
+            are records, not behaviour. World handoff: the right design, since acceptance forbids a whole-map copy per
+            step and there is one stepping chain, inspection reads at once, the cut retains, and index Sets and
+            mailboxes are copied. Risk medium: a throw mid-step leaves the driver on a torn, spent world, so every later
+            input defects with 'stepped after a step took it' (scratch repro) and dispose cannot finish. driver.ts:161's
+            promise is now false. Not blocking: no app-reachable trigger found, and no test plants a mid-step throw.
+            Fix: fail-stop the driver with the first defect and close the Scope (or an undo log per step), pinned by a
+            Story. A loop over an owned map that adds entries would differ from the copied case (lanes.ts:322-326; none
+            today). Do here, not routed, because they are cheap or T85/T84 build on them: review 1 2a with 2b (T85
+            encodes owed rows), review 2 3b outside persist and 3e (turn.ts, not T85's code), review 1 3l (run code, not
+            construction), 2h, 2i, 4d names (a small API call), and the §7 trim of the ~100 comments this diff added.
+            Routes right: 3m to 3o, review 2 1e to 1j and A5 to T81; 2g and review 1 5f to T80; review 2 5f to T80 only
+            if its May-change gains src/core. Each must be written on its target. 2c and 2k go to revisit.md with
+            reasons. L3 is a gap written as a limit: Turn R24 says writes to Maps, Sets and Dates throw. Pin an it.fails
+            titled Turn R24 and ask the user: the dev freezer refuses an app-frozen Map, Set or Date at admission as the
+            turn's Defect (recommended), or R24 names the exception. Public API: both changes are small and correct
+            (EventOf excludes internal events, @ts-expect-error twins; the exports are type-only). Non-blocking: the
+            whole faults run is unjudged while T20 is red; three bench rows are 1-3% slower with no noise band; the doc
+            comment at turn.ts:281-284 is orphaned; actorKey is memoised in a WeakMap rather than carried on ActorId
+            (amend acceptance wording); serve.test.ts lost its other-actor assertion (now covered by the drift check);
+            T81's close routes four construction items to T79 that T79 does not record. Sidecars rejected: consumer
+            order (ids are minted in insertion order), putLane changing a lane's actor (a lane id fixes its actor), and
+            purity (outputs are equal; the handoff state concerns object identity only).
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
