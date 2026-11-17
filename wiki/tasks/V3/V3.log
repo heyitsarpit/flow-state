@@ -953,3 +953,8 @@ note 2026-11-17T09:37:38Z
     T9 in review at 1d8fd436: compiled walkers per Schema on every value path at depth 100,000, D26's limit lifted, D29
     freeze built; palette stress 8.98 to 1.44 ms per turn. Opus review started. D20 and D22 no longer cite D26; mix
     seats for Nests to T83; audit findings 12 and 15 to T85.
+
+note 2026-11-17T09:58:25Z
+    T9 review ISSUES (ec648421): the D27 boundary holds at 1,000,000 deep for arrays, objects and string-keyed Maps, but
+    Option, class, Set and object-keyed Map still reach Equal; optionalKey over encoded Schemas loses items; deep
+    encoded inputs and initial constants throw; sparse holes. Fix round to its lead.
