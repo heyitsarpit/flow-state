@@ -2369,7 +2369,7 @@ tasks
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T82]
         description
@@ -2457,6 +2457,10 @@ tasks
             operations returning a TypeError, a {sec: 5} schedule accepted, and a constant start unchecked. They are
             construction checks that the decoded config owns, as are the T79 findings routed here (3m to 3o, the second
             review's 1e to 1j and A5), so they stay with T81.
+        comment     2026-11-17T20:57:08Z
+            Back to in_progress (orchestrator, 2026-11-18): not reviewable yet; the routed T79 items (3m to 3o, 1e to
+            1j, A5, the three returned checks), the fixtures-first item and the partial review's definition(null)
+            TypeError are unbuilt. Requirements and fixture proof first, then build.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
