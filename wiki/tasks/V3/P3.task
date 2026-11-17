@@ -1527,6 +1527,40 @@ tasks
             days) still shows and hears it; if saved it is reported and heard once more after a reload, never missed; an
             issue on a screen's context clears once its source works again; several reactions reading a long list no
             longer stop the screen from saving.
+        comment     2026-11-17T03:08:35Z
+            Fix-round review: ISSUES at 59574431. check exit 0; suite exit 1, 1,132 pass + 13 inverted, the 2 reds T20's
+            pair cells (shop, session), 92 s. Blocking, red on a scratch probe: a slot saved unknown loses its value
+            from every baseline that read it, so a reload can miss an onContext event (Actors R18 "never miss one").
+            frameJson drops a frame slot equal to the in-memory seen, and seen then saves that slot unknown, so restore
+            re-reads the baseline with the slot absent. Probe: the agenda with select (days?.length ?? 0) > 1000, 0 to
+            5,000 days, reload, 0 to 100 days, ensure: heard 1, not 2 (4,000 days, or no reload: 2). The "no values"
+            depth hits every slot the same way. Tests missed it: the fixture's select is the identity, so an absent slot
+            always differs, and reloads.test.ts skips any run that saved context unknown (and agenda-long is no longer
+            in its Stories). Fix: save such a frame null (it hears its next wave) or keep the slot in it; judge
+            saved-unknown runs by "never fewer" instead of skipping them. Answers: Turn I9 still catches real double
+            publishes (a refused turn's in serve.ts, and owed-wave-publishes-unchanged, both red on scratch plants); but
+            a context update that raises an issue and publishes twice is now green, and was red under the old rule (I9,
+            I14), so judge each context update's publishes by its consumer. Stress: agenda and archive still run by name
+            in values.test.ts and in every stress sweep; only the reload-count rules run neither, and the agenda's was
+            skipped anyway. Issues by source and once per streak lose no R25 Issue. Format 1 and 2 keep every field by
+            reading, and corrupt or throwing records quarantine. But the format-2 memory-copy step has no check or
+            fault: stepTwo dropping every copy passes src, session, restore and actors. Slowdown, not from this diff:
+            reloads.test.ts takes 32.3 s alone at 1123d8c6 and 33.7 s at HEAD, 47 s under the suite, the longest file.
+            It runs every context Story at every position, 2 runs each, plus end reloads of 0, 1 and 3, all in one
+            serial test, so the pool cannot spread it. Sharding by Story (as pairs-0 to 3 do) or Promise.all over the
+            independent runs cuts no coverage (@task.V3.T83). Faults not re-run (over the 5-minute bound); the third red
+            is carried from the convergence review: generated.stress palette's 60 s timeout, @task.V3.T83. Routed, fix
+            in this round: live -0 against R18's "-0 written as 0, live and after a reload alike" (selectedOf no longer
+            canonicalises; the values test was reworded to accept it): restore it or amend R18; the format-2 step check
+            above; the archive in the reload-count rules. Not blocking: copies of dropped frames are still written
+            (wasted bytes push records to "no copies"; the record no longer re-encodes to itself, Codec T6); a -0 in a
+            memory copy is reported as past a bound; the `unknown` field is write-only; UnencodableValue is reported on
+            every save, before the write is decided; world.ts's Issue doc says only a turn clears; 4,096 is hard-coded
+            in fixtures and faults; the mapper runs before `when`, older. Sidecars (4 Haiku): accepted the above.
+            Rejected: a null baseline is not owed at start (R18: it hears its next wave, as it would live after a
+            memory-only change); an unchanged wave leaves an onContext issue open (older; reactions run on change, Turn
+            R22); restore select defects are silent (R9); count-mismatch and positional baselines (Restore R5 text,
+            @task.V3.T56); `own` as a wrapper (nothing reads it). No outside imports or temporary names.
 
     T74
         title       App mix: several fixtures in one Runtime
