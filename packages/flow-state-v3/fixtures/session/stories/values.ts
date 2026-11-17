@@ -497,7 +497,9 @@ const nestsSamplesAt = (depth: number, id: string) => {
 export const nestsSamples = nestsSamplesAt(64, "session-nests");
 
 /**
- * The same, past where Effect's own walks run out of stack, for the stress runs: values that deep
- * take the default suite from seconds to minutes.
+ * The same, 200 deep, past the walkers' call-stack budget so every walk takes its own stack, for
+ * the stress runs: a stress run sends a thousand steps, and a computed selection of Maps is walked
+ * whole at each change, so deeper nests would take a seed past its minute. The Stories take nests
+ * to 3,000 and 100,000.
  */
-export const nestsStressSamples = nestsSamplesAt(PAST_STACK, "session-nests-deep");
+export const nestsStressSamples = nestsSamplesAt(200, "session-nests-deep");
