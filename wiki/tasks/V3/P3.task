@@ -12,9 +12,10 @@ description
     orchestrator then opens this phase's Tasks.
 
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
-    order the user set; then @task.V3.T81 (construction bugs), @task.V3.T79 and @task.V3.T80, the code-quality reviews'
-    pass (the user, 2026-11-16). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the
-    earliest in this order.
+    order the user set; then @task.V3.T79 (code convergence with the step's edit operations), @task.V3.T85 (capture on
+    issue), @task.V3.T84 (no caps), @task.V3.T83 (fast tests), T20's close, @task.V3.T81 (construction bugs) and
+    @task.V3.T80 (the user, 2026-11-16; reordered by the user's Q14 A, 2026-11-17). A `blocked_by` link is a real
+    dependency only; where several Tasks are ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -1859,6 +1860,19 @@ tasks
             (1,000,000-deep restores hold), format-1 recursion (old records were depth-bounded), the walker's output
             table (no path feeds an output back), NaN as "NaN", missing utf8 reason and unsorted key text (all before
             this diff). No outside imports.
+        comment     2026-11-17T10:23:35Z
+            Recursive walks over user values, core and construction (grep at 3bb354dd), each with its fix: same.ts
+            levelOf handed Option, class instances, Sets of objects and object-keyed Maps to Equal: now structural on
+            its own stack, Sets and object-keyed Maps by interned structural keys; same.ts sparse holes ended the loop:
+            explicit pairs, length-bounded loop; boundary.ts encoded nodes lost an optionalKey's context: re-applied as
+            Effect's toType does, and a level parsed again keeps each transformation's output so holes find their
+            values; identity.ts names went through Effect's recursive encode: Compiled.identity walker, written by the
+            codec; well-formed.ts bareFunction and data-view.ts viewOf recursed over constants: explicit stacks;
+            frozen.ts now covers Maps, Sets, Dates and class instances. Left recursive, bounded by the program not a
+            value: Schema AST rebuilds (holes are lazy), config issue trees, state bodies and tokens, provider graphs
+            (context busy, persist graph, wiring), format-1 record forms. Effect walks left on values: Schema.Json head
+            checks at the boot (iterative in Effect), fromJsonString's host JSON.stringify inside a name (a name too
+            deep for the host is refused as SchemaValidation), formatJson on leaves and redactables.
 
     T74
         title       App mix: several fixtures in one Runtime
@@ -1957,7 +1971,7 @@ tasks
                     idiom
         status      open
         priority    high
-        blocked_by  [@T82]
+        blocked_by  [@T9]
         description
             One convergence pass removes the structural debt the whole-codebase review found, without
             changing behaviour.
@@ -1995,6 +2009,13 @@ tasks
             - Fixtures first (code:wiki/conventions/fixtures.md): the fixtures of
               code:wiki/conventions/fixture-catalog.md step 1 cover every behaviour this refactor touches before it
               starts; every fixture Story, sweep and fault passes unchanged after it.
+            - Step edit operations (section 1) are built with the performance audit's findings 6, 7, 10 and 11 (the
+              user, 2026-11-17, Q14 A): one draft of the World's maps per step, per-World indexes, actor keys carried on
+              identities, no whole-world scan or whole-map copy on the step path; a Story with many actors and a deep
+              mailbox shows step cost following the work done, timed on the bench before and after.
+            - Every finding is re-verified against the code after @task.V3.T9 before it is fixed; A5's payload codec
+              goes through T9's compiled boundary walkers, never `Schema.is` on a value's path, and `boundary.ts` is the
+              home for codecs and keys (@plan.Pending.D27).
         comment     2026-11-16T14:23:54Z
             Fold in the second review's T79 findings (31, sections 2, 3, 4b-4z, 7 and abstractions A2 to A6):
             code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. Its section 2 bug comes
@@ -2003,6 +2024,11 @@ tasks
         comment     2026-11-16T15:05:01Z
             Decided by the orchestrator (user-delegated, 2026-11-16): type the context slot wiring in app entries and
             actorRef, so a wrong provider is a type error, not only a runtime refusal.
+        comment     2026-11-17T10:23:48Z
+            Scope added (the user, 2026-11-17, Q14 A): the performance audit's findings 6, 7, 10 and 11
+            (code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md) move here from
+            @task.V3.T85, so the step's edit operations are designed once with drafts and indexes; runs right after T9,
+            before T85's Capture.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
@@ -2452,7 +2478,7 @@ tasks
         title       Records captured on issue (D30), plus compiled lookups
         status      open
         priority    high
-        blocked_by  [@T9]
+        blocked_by  [@T79]
         description
             Records are captured on issue (@plan.Pending.D30): a step only marks the record keys it changed, and one
             pure Capture step encodes every marked key from the current World through T9's memoised compiled walkers

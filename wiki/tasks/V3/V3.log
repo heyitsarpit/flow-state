@@ -958,3 +958,8 @@ note 2026-11-17T09:58:25Z
     T9 review ISSUES (ec648421): the D27 boundary holds at 1,000,000 deep for arrays, objects and string-keyed Maps, but
     Option, class, Set and object-keyed Map still reach Equal; optionalKey over encoded Schemas loses items; deep
     encoded inputs and initial constants throw; sparse holes. Fix round to its lead.
+
+note 2026-11-17T10:23:58Z
+    Decision (the user, 2026-11-17): Q14 A. The audit's findings 6, 7, 10, 11 move from T85 into T79's step edit
+    operations; T85 keeps D30's Capture and findings 12, 15. Order: T9, T79, T85, T84, T83, T20, T81, T80. T79
+    re-verifies findings after T9; its A5 payload codec goes through the boundary walkers.
