@@ -3268,6 +3268,38 @@ tasks
             points, rows carry the stress tier; bench/ names no Story. Notes for the fix round: two doc comments in
             bench/select.ts (lines 6 and 46) run to 143 and 148 characters; the stress mark is set by hand per point
             rather than read from the Story's own stress status, so it can drift from the tests' classification.
+        comment     2026-11-17T19:37:59Z
+            ISSUES (independent review at 59751c49, diff from d281015e; plants in a scratch copy, on battery): three
+            blocking. `nub run check` exits 0. The package suite exits 1 with only T20's two pair reds (2 failed, 1,304
+            passed, 12 expected fail). Blocking: (1) A hang in a shared batch outlives its own timeout. A worker dies at
+            the sum of its remaining benches' timeouts (code:packages/flow-state-v3/bench/workers.ts#spawnWorker).
+            Planted hang and spin with `turn --dev --max-time 90`: both held the run to 90 s and were reported "not run:
+            cap", not timed-out (exit 3). Alone, each died at 32 s, timed-out. (2) Orphans. A SIGINT or SIGTERM sent to
+            the parent alone leaves its worker running under pid 1, and a hung bench then runs forever. There is no
+            signal handler and no process group. At the cap, `tooling --only tooling.test --dev --max-time 25` left
+            `/usr/bin/time nub run test` and 14 vitest workers running
+            (code:packages/flow-state-v3/bench/benches/tooling.ts). A Ctrl-C sent to the whole group exits clean. (3)
+            `--dev` runs two workers, not one: `batchesOf` uses `TIERS.quick.workers`, and `TIERS.dev.workers` is never
+            read. `--runs 3 --dev` takes 6 samples, and a timed-out dev bench is run twice (64 s). Dev wall times:
+            `turn.shop.long` 1.8 s and `room-length-1000000` 1.3 s. `serialize-queue-3000 --max-n 3000` took 29.4 s and
+            `saved-identities-5000` 25.5 s, so large points do not return in seconds. Holds: bench/ names no fixture,
+            Story or size and imports only `fixtures/index.ts`. No failed, timed-out or refused row is recorded. Compare
+            and summary stay within one tier and power state. Rows are Schema-encoded on write and decoded on read. CSVs
+            are committed and samples ignored, with no duplicate keys. Non-blocking:
+            - The memory proof checks only that a collector exists, and tooling has no proof.
+            - `persist.*.per-batch-ms` is a whole Story's wall time divided by batches.
+            - The proofs test skips scale, memory and tooling.
+            - `NumberFromString` admits NaN (p99 is NaN in every memory row).
+            - A capped run still records its one-worker rows.
+            - The timing file is written under `--dev`.
+            - 76 of 223 CSV rows carry retired ids.
+            - Hidden choices in `benches/index.ts`: the quick memory probe is `manifests[0]`, persist uses the first
+              Story that writes, and the stress mark is set by hand. Delete: `backfill.ts`, `bench:backfill` and
+              `--backfill`, since the user said no backfill now; `--separate` and `--timing`; file-local exports.
+              Sidecars (four Haiku): accepted the shared-batch, orphan, grandchild, dev-worker, proof, NaN and stale-id
+              findings after reproducing them; changed "an unsettled promise exits 13" to unverified; rejected outside
+              reads (tooling must time root scripts), the stress tier as a conflict (the user's decision) and a missing
+              `--small` (`--max-n` covers it).
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
