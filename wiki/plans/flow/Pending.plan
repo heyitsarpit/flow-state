@@ -166,3 +166,15 @@ decisions
         is a real limit and ends as `StorageRefused`. **Why:** the numbers were arbitrary, and a bound is what made a
         context value unsaveable; an app with 5,000 rows virtualises them or holds pointers. **Proven by:** a 5,000-item
         selection and record saving and restoring in a Story, with the bench timing it. Found in @task.V3.T9's reviews.
+    D24  @plan.Runtime.O4, @plan.Operations.O1, @plan.Operations.O3, @plan.Persistence.O3, @plan.EntityDomains.O1,
+         @plan.EntityDomains.O5, @plan.Machines.O1: no size or queue caps; one loop guard and a slow-work warning
+         (accepted, the user, 2026-11-17)
+        **Before:** fixed caps: 1,024 pending events per actor, 64 queued commits under `serialize` and per entity
+        record (`NotSent { Overloaded }`), a 4,096-item `many` key, 4,096 given-up marks per entity, 4,096 records and
+        16 MiB per persistence scope, 8,192-byte keys, 256-byte names. **After:** none of these caps. The follow-up
+        chain stays as the one loop guard (as XState's `maxIterations` and React's update depth), its number set from
+        the bench; a dev diagnostic reports a turn or capture slower than the bench's budget (as RTK's `warnAfter`).
+        Storage quota stays the real limit (`StorageRefused`). **Why:** the numbers were arbitrary; XState, Zustand,
+        Redux, RTK and redux-persist cap no size or queue, and guard loops and slow work instead. **Proven by:** Stories
+        past each old cap with no ending lost, doubled or made up, and the bench timing them. Found in the limits survey
+        after @task.V3.T9's reviews.

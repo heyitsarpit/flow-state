@@ -862,3 +862,7 @@ note 2026-11-17T03:09:16Z
 note 2026-11-17T04:21:45Z
     Decision (the user, 2026-11-17): codec size bounds dropped (Pending D23); value sizes are judged by the bench and
     storage quota while building. It removes T9's blocker (no slot is saved unknown); T9 resumes with the removal.
+
+note 2026-11-17T04:25:45Z
+    Decision (the user, 2026-11-17): Q2 A, no size or queue caps; follow-up chain stays the one loop guard (bench-set),
+    plus a dev slow-work warning (Pending D24). Inserted T84 to remove them, after T9 and before T83 (T83 waits on it).
