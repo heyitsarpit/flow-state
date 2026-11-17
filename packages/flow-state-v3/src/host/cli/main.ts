@@ -1,5 +1,5 @@
 // @effect-diagnostics unstableApiUsage:off -- the CLI is built on effect/cli and its Path service, which Effect marks unstable; chosen over parsing argv by hand.
-import { Console, Data, Effect, Option, Path } from "effect";
+import { Cause, Console, Data, Effect, Option, Path } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import type { StoryRun } from "../testing/run.ts";
 import { render } from "../trace.ts";
@@ -45,16 +45,12 @@ const find = Effect.fn("find")(function* (root: string, id: string) {
   return story;
 });
 
-const runOnce = (story: Found) =>
-  // FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: a Story's run() is the tooling's public Promise; it rejects with StoryFailed or StoryTurnLimit.
-  Effect.tryPromise({
-    try: story.run,
-    catch: (fault) =>
-      new RunRejected({
-        id: story.id,
-        problem: fault instanceof Error ? fault.message : String(fault),
-      }),
-  });
+const runOnce = Effect.fn("runOnce")(function* (story: Found) {
+  return yield* Effect.mapError(
+    story.run,
+    (fault) => new RunRejected({ id: story.id, problem: fault.message }),
+  );
+});
 
 const checkpointLines = (run: StoryRun) =>
   run.trace.events.flatMap(({ sequence, record }) =>
@@ -137,5 +133,5 @@ export const main = (argv: ReadonlyArray<string>) =>
       Effect.as(Console.error(`flow: ${error.message}`), 2),
     ),
     Effect.catchTag("ShowHelp", (help) => Effect.succeed(help.errors.length === 0 ? 0 : 2)),
-    Effect.catch(() => Effect.succeed(2)),
+    Effect.catchCause((cause) => Effect.as(Console.error(`flow: ${Cause.pretty(cause)}`), 2)),
   );

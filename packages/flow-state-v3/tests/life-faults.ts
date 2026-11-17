@@ -69,8 +69,8 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "        Reject: ({ code }) => Effect.fail(rejected(code)),",
-        replace: "        Reject: () => Deferred.await(booted),",
+        find: "      Reject: ({ code }) => Effect.fail(rejected(code)),",
+        replace: "      Reject: () => Deferred.await(booted),",
       },
     ],
   },

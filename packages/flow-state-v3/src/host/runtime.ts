@@ -400,24 +400,23 @@ export const buildRuntime = (
   // The first call runs the bootstrap once; every caller shares its Exit. The bootstrap is
   // uninterruptible, so interrupting the first caller delays its own interrupt until the
   // bootstrap ends (a stated limit: only that wait should be interrupted).
-  const ready = () =>
-    Effect.suspend(() => {
-      const start = Input.Start();
+  const ready = Effect.fn("ready")(function* () {
+    const start = Input.Start();
 
-      return Verdict.$match(driver.verdict(start), {
-        Reject: ({ code }) => Effect.fail(rejected(code)),
-        Drop: () => Deferred.await(booted),
-        Run: () => {
-          driver.input(start);
+    return yield* Verdict.$match(driver.verdict(start), {
+      Reject: ({ code }) => Effect.fail(rejected(code)),
+      Drop: () => Deferred.await(booted),
+      Run: () => {
+        driver.input(start);
 
-          return Effect.uninterruptible(boot()).pipe(
-            Effect.exit,
-            Effect.flatMap((exit) => Deferred.done(booted, exit)),
-            Effect.andThen(Deferred.await(booted)),
-          );
-        },
-      });
+        return Effect.uninterruptible(boot()).pipe(
+          Effect.exit,
+          Effect.flatMap((exit) => Deferred.done(booted, exit)),
+          Effect.andThen(Deferred.await(booted)),
+        );
+      },
     });
+  });
 
   const forgetFailed = flowError([
     {

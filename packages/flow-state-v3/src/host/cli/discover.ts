@@ -1,9 +1,9 @@
 // @effect-diagnostics unstableApiUsage:off -- discovery runs inside effect/cli's environment and uses its FileSystem and Path services, which Effect marks unstable.
 import { Data, Effect, FileSystem, Option, Path, Predicate } from "effect";
 import { type Config, ConfigId } from "../testing/config.ts";
-import type { StoryRun } from "../testing/run.ts";
+import { runEffect } from "../testing/run.ts";
 import type { Step } from "../testing/steps.ts";
-import { StoryId } from "../testing/story.ts";
+import { StoryId, SubjectId, type Story } from "../testing/story.ts";
 
 /**
  * The project's `flow.config.ts` is missing, does not load, or lists Stories it cannot have.
@@ -23,10 +23,10 @@ export type Found = {
   readonly id: string;
   readonly app: Option.Option<string>;
   readonly steps: ReadonlyArray<Step>;
-  readonly run: () => Promise<StoryRun>;
+  readonly run: ReturnType<typeof runEffect>;
 };
 
-type Branded = Omit<Found, "app"> & { readonly [StoryId]: string };
+type Branded = Pick<Story<string>, typeof StoryId | typeof SubjectId | "id" | "steps">;
 
 // FLOW_STATE_ALLOW_UNKNOWN: a config file's default export is whatever its module exports.
 // RETURN_TYPE: a type guard states the type it narrows to.
@@ -78,8 +78,11 @@ const matches = Effect.fn("matches")(function* (root: string, pattern: string) {
   return files.toSorted().map((file) => path.resolve(root, file));
 });
 
-const exported = (file: string) =>
-  Effect.map(load(file, file), (module) => Object.values(module).filter(isStory));
+const exported = Effect.fn("exported")(function* (file: string) {
+  const module = yield* load(file, file);
+
+  return Object.values(module).filter(isStory);
+});
 
 const storiesIn = Effect.fn("storiesIn")(function* (
   root: string,
@@ -96,7 +99,12 @@ const storiesIn = Effect.fn("storiesIn")(function* (
   if (foreign !== undefined)
     return yield* failed(`the Story ${foreign.id} is listed under an app it does not run`);
 
-  return stories.map((story) => ({ id: story.id, app, steps: story.steps, run: story.run }));
+  return stories.map((story) => ({
+    id: story.id,
+    app,
+    steps: story.steps,
+    run: runEffect(story[SubjectId], story.id, story.steps),
+  }));
 });
 
 /**

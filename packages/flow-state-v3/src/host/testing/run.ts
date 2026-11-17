@@ -511,19 +511,20 @@ export const runFrom = <Names extends string>(
  * dispose the Runtime refuses fails it with that FlowError; anything else thrown fails it as
  * StoryFailed.
  */
-export const runEffect = <Names extends string>(
+export const runEffect = Effect.fn("runEffect")(function* <Names extends string>(
   subject: Subject,
   id: string,
   steps: ReadonlyArray<Step>,
   seed: Option.Option<number> = Option.none(),
-) =>
-  Effect.try({
+) {
+  return yield* Effect.try({
     try: () => runSteps<Names>(subject, id, steps, seed),
     catch: (fault) =>
       fault instanceof StoryFailed || fault instanceof StoryTurnLimit || fault instanceof FlowError
         ? fault
         : new StoryFailed({ problem: `the run threw: ${String(fault)}` }),
   });
+});
 
 /**
  * Runs a subject over a step array as a Promise: a script fault or limit rejects it, an ensure or
