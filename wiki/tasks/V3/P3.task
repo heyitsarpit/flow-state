@@ -1643,6 +1643,45 @@ tasks
             comparisons fall back to canonical text when they overflow (a too-deep non-JSON pair counts as changed). The
             100,000-deep outline Story is built on call (CLI printing and sweeps of it take too long); the
             garbled-receipt Story moves the no-saved-form check to a Story.
+        comment     2026-11-17T06:41:05Z
+            Deep-values review: ISSUES at 2bb48ce9. check exit 0; suite exit 1, 1,134 pass + 13 inverted, the 2 reds
+            T20's pair cells. Blocking, red on scratch probes (a two-machine app importing src, run as Stories): 1
+            memory under a recursive user Schema (Schema.suspend tree) 6,000 deep kills the run (StoryFailed: Result
+            adapter can only return schema issues), thrown by Effect's Schema encode from jsonOf (record-format.ts) at
+            capture; 3,000 saves. The same unguarded encode sits in actor-record.ts fieldJson, the lanes.ts commit-input
+            check and machine.ts deepSafe's fallback. This breaks Codec R1 (any depth the owning Schema produces) and R4
+            (nothing thrown). Tests missed it: every deep fixture uses Schema.Json, which Effect checks iteratively; no
+            fixture has a recursive Schema. Fix: guard each Schema call on a value's path, as decodeBy does. Then either
+            qualify R1 for depths the user's own Schema cannot walk (withheld, reported UnencodableValue schema) with an
+            inverted test and an owner, or log the limit. 2 The admitted gap is real: a reaction that selects a Map nest
+            from a 20,000-deep JSON slot hears a made-up event when only another field of the slot changes (heard 1 to
+            2; 6,000 stays quiet), against Actors R19. It has no inverted test and no owner. Tests missed it: no deep
+            non-JSON selection. A fix loses no ending: an iterative structural equality (arrays, plain objects, Maps and
+            Sets with primitive keys, Dates, NaN; anything else to Equal.equals) gets 100,000-deep Map and object nests
+            right and agrees with Equal.equals on 20,000 random shallow pairs; sameSlot can also fall back to
+            Selected.json. Answers. 2 The codec walk, writer, re-encode and host parse hold at 100,000; the Equal and
+            Schema-equivalence calls are guarded. The context Proxy and snapshot publish are shallow. With Schema.Json,
+            memory and a selection 100,000 deep, an equal re-paste and two reloads give heard 1 and no issue. 3 The
+            outline Story runs in the default suite (values.test.ts), and the records rules judge its reloads; the CLI,
+            reload sweep and mix skip it, which is acceptable for its cost. 4 Alone in a faults-style copy with stress:
+            3 reds (palette stress times out at 60 s, @task.V3.T83, and T20's cells). The fourth appears only under
+            parallel load; under load the CLI story-run and trace tests time out at their 5 s default
+            (session/digest-heard, transfers/cents-edges). Wrong side: test tooling, not the runtime. Owner: the
+            orchestrator, with T83's timeout work. The faults runner also prints only the last 2,000 characters of the
+            unchanged output (tools/faults/run.ts), which is why the name was dropped. 5 Old and new writers give
+            identical bytes on the fixed vectors plus 3,000 random values, and all round-trip. Effect 4.0.5 has no
+            stack-safe equality, hash, Schema equivalence or JSON writer (only Schema.Json's isTree), so the
+            hand-written walks are justified. Routed, not blocking: a Map selection under a recursive Schema overflows
+            selectedOf's encode by 3,000 deep, giving a Defect issue and an unheard change; a 2,000-deep Map nest takes
+            8 s, quadratic (@task.V3.T84's slow-work warning). The sameValue and deepSafe fallbacks encode with -0
+            refused, so deep equal values holding -0 count as changed; use "zero". toCanonicalJson's doc promises the
+            first failure in depth-first key order, but frameOf checks all keys on entry ({a: -0, lone-surrogate key}
+            now reports loneSurrogate at $). Codec T1's new line has broken wrapping. Effect's Equal survived 367
+            overflows with no wrong answer on a 3,000-pair battery. No outside imports or temporary names. Sidecars (4
+            Haiku, one blind): accepted the unguarded Schema encodes, the deep non-JSON gap, the -0 fallback and the
+            doc-order mismatch; changed deepSafe's escape (the fallback is reached and would throw, but capture throws
+            first); rejected a decode-depth CodecMalformed (Schema.Json's check is iterative) and non-injective memory
+            text (no Schema shown).
 
     T74
         title       App mix: several fixtures in one Runtime
