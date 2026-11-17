@@ -982,3 +982,7 @@ note 2026-11-17T11:45:53Z
     Correction (the user, 2026-11-17): fixtures.md's 'existing flat files stay' misread the user. The rule is that
     machines, Stories and tests survive and grow, modified where needed, never rewritten; files may move into the
     layout.
+
+note 2026-11-17T11:48:29Z
+    Decision (the user, 2026-11-17): Q15 A, Q16 B, as a new Task. T86 moves fixtures into their layout, shared services
+    to fixtures/services/, pay to shop with its Story ids; after T79, before T85.

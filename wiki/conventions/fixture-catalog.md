@@ -9,8 +9,8 @@ in today's fixtures, the migration plan in Task order, and the Task text that mu
 - 16 fixtures, each growing by new machines around the old ones: `pay` (the app `shop`), `cells`, `lanes`, `sync`,
   `transfers`, `sign-in`, `session`, `command-palette`, `number-input`, `player`, `wizard`, `search`, `home`,
   `kanban`, `chat` and `draft`.
-- `pay` keeps its folder, its machine ids and its Story ids; `shop` is the name of the larger app around it, as it
-  already is in `pay/machine.ts`. `cells` and `lanes` stay their own fixtures.
+- `pay` becomes the folder `shop/`, its Story ids `shop/…`; machine and persisted ids stay (the user, 2026-11-17,
+  Q16 B; built by @task.V3.T86). `cells` and `lanes` stay their own fixtures.
 - The toaster, menu and combobox live in `kanban`, the tree in `draft`, and the token input in `chat`.
 - `subroutine` and `whenAbandoned` are built by @task.V3.T57.
 - Source review: code:wiki/plans/flow/references/proposals/fixture-catalog-review-2026-11-17.md; check:
