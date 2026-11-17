@@ -885,3 +885,8 @@ note 2026-11-17T05:46:01Z
     T9 in review at 2bb48ce9: codec, writer and re-encode keep their own stacks; 100,000-deep values save and restore.
     Review started; it judges the admitted gap (deep non-canonical values compare as changed) and faults' unnamed 4th
     red.
+
+note 2026-11-17T06:41:34Z
+    Stop (failure limit): T9 review ISSUES (701d47bf), second post-convergence failure from unbounded depth: Effect's
+    Schema encode throws on a 6,000-deep recursive Schema, and Equal-free fallbacks make up an event on deep Maps. Asked
+    the user whether depth gets a measured real limit; T9 holds. Faults' fourth red is tooling, routed to T83.

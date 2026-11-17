@@ -2186,6 +2186,10 @@ tasks
             4,097-command lists, 4.6 ms per turn and 198 ms per run, so 'palette: stress runs from fixed seeds' takes 67
             s against its 60 s budget even alone; size the budget from measurement or speed the run, never shrink
             the samples.
+        comment     2026-11-17T06:41:33Z
+            Routed (orchestrator, 2026-11-17): faults' fourth unchanged red is test tooling: under parallel load the CLI
+            story-run and trace tests hit their 5 s default timeout (passes alone); tools/faults/run.ts prints only the
+            last 2,000 characters of the unchanged run, so a red's name is dropped; print every failing test name.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
