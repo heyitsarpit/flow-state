@@ -175,7 +175,7 @@ export const formatOneAvatar = grownStory("session/format-one-avatar")
  * five thousand, a list past a record's 4,096 items; the tab reloads, and the range goes back to a
  * hundred days.
  */
-export const agendaLong = grownStory("session/agenda-long")
+export const agendaLong = grownStory("session/stress-agenda-long")
   .ensure(mainCalendar)
   .ensure(mainAgenda)
   .ensure(agendaPeek)
@@ -213,7 +213,7 @@ const imported = Array.from({ length: 3_001 }, (_, n) => `a-${n}`);
  * The archive imports 3,001 ids, about a third of a record's nodes; a message arrives and two of its
  * three memory-reading reactions log it; the tab reloads; another message arrives.
  */
-export const archiveLarge = grownStory("session/archive-large")
+export const archiveLarge = grownStory("session/stress-archive-large")
   .ensure(mainInbox)
   .ensure(mainArchive)
   .send(mainArchive, { _tag: "Import", ids: imported })

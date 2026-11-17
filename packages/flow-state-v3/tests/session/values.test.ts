@@ -77,6 +77,12 @@ describe("every value a selector returns, across reloads (Actors R9, R19)", () =
     expect(context["first"]).toEqual(Option.some("bob"));
     // Live it is the -0 the selector gave; a record writes it 0, which Equal holds the same.
     expect(run.checkpoints.cleared.read(mainDigest)?.context["owed"] === 0).toBe(true);
+    // The record saves that -0 as 0, never unknown.
+    expect(
+      JSON.parse(
+        run.checkpoints.cleared.records.stored.get("actor/Workspace/Digest/digest") ?? "{}",
+      ),
+    ).toEqual(expect.objectContaining({ unknown: [], seen: expect.objectContaining({ owed: 0 }) }));
     expect(Number.isNaN(run.checkpoints.cleared.read(mainDigest)?.context["unread"])).toBe(true);
   });
 
