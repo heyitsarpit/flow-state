@@ -196,7 +196,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
 
   {
     name: "unknown-slot-owes-no-wave",
-    tests: ["tests/session/workspace.test.ts"],
+    tests: ["tests/actors/context.test.ts"],
     says: "a start from a record whose slot was saved unknown owes no wave, so a change it missed is never heard",
     rule: "Actors R9",
     edits: [
@@ -208,19 +208,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
-  {
-    name: "known-slot-owes-a-wave",
-    tests: ["tests/session/workspace.test.ts"],
-    says: "every saved slot owes a wave at a start, so a slot whose saved value is unchanged is heard again",
-    rule: "Actors R9",
-    edits: [
-      {
-        file: "src/core/context.ts",
-        find: "          !Option.exists(last, (v) => Equal.equals(v, incarnation.context.get(slot))),",
-        replace: "          Option.isSome(last),",
-      },
-    ],
-  },
+
   {
     name: "start-publishes-saved-context",
     tests: ["tests/session/workspace.test.ts"],

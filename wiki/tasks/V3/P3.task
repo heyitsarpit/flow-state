@@ -1057,7 +1057,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1367,6 +1367,22 @@ tasks
             screen before acting on it (Testing O6) -> mix.test.ts seed 18, red: shared 0. Specs: Restore R2 aligned
             with R9, R18; R13's 64 and I20 marked proposed. Stress sweeps get 230 s under the faults load; the stress
             rules test had no timeout.
+        comment     2026-11-17T00:09:23Z
+            Fix round closed at the next commit: check 0, lint:rules 0; suite 1,090 pass + 13 inverted, 2 red, T20's
+            pair cell Acknowledging x storage refusal (shop, session); test:stress exit 0 (mix seed 18 shares a step);
+            fresh seeds (20 usual and mix, 10 stress and mix stress) exit 0. nub run faults: 207 of 207 caught by their
+            targets, dead core 809 failed; still not judged, the unchanged run failing only on T20's two pair cells
+            (stress sweeps and seeds now fit under the load at 230 s). Bench per turn median/p99: transfers/long
+            0.044/0.064, pay/long 0.056/0.078, session/long 0.112/0.132, lanes/stress-36 0.302/0.407, session/stress-36
+            0.107/0.216 ms.
+        comment     2026-11-17T00:09:23Z
+            Decisions (agent), fix round: slot values save in a tagged form (seen.ts) so undefined, Options and their
+            arrays and objects restore equal; unknown stays for other values and never-selected slots; an Ensure carries
+            the whole provider graph's wiring (Wiring), so a provider a consumer starts keeps its own ref's overrides;
+            the mix generator opens a closed screen before a send to it; known-slot-owes-a-wave dropped as a fault,
+            since an extra wave over equal baselines is unobservable. Extra files: src/core/seen.ts,
+            tests/rules/reloads.test.ts. For the user's page: a signed-out screen restored after a reload no longer
+            reports a change it did not see.
 
     T74
         title       App mix: several fixtures in one Runtime
