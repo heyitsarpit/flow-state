@@ -14,9 +14,9 @@ description
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
     order the user set; then @task.V3.T79 (code convergence with the step's edit operations), @task.V3.T86 (fixture
     layout), @task.V3.T85 (capture on issue), @task.V3.T84 (no caps), @task.V3.T87 (bench), @task.V3.T88 (tsrs),
-    @task.V3.T83 (fast tests), @task.V3.T89 (bench code), T20's close, @task.V3.T81 (construction bugs) and @task.V3.T80
-    (the user, 2026-11-16; reordered by the user's Q14 A, 2026-11-17). A `blocked_by` link is a real dependency only;
-    where several Tasks are ready, take the earliest in this order.
+    @task.V3.T83 (fast tests), T20's close, @task.V3.T81 (construction bugs) and @task.V3.T80 (the user, 2026-11-16;
+    reordered by the user's Q14 A, 2026-11-17). A `blocked_by` link is a real dependency only; where several Tasks are
+    ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -3400,3 +3400,6 @@ tasks
             - The bench tests (per-bench timeout in a shared worker, the run cap, no orphans on signal or cap, tier
               selection, `--max-n`) pass unchanged.
             - Line count of `bench/` before and after is reported; `nub run check` passes.
+        comment     2026-11-17T20:04:26Z
+            Cancelled (the user, 2026-11-18). The proposal stays as prior
+            art: code:wiki/plans/flow/references/proposals/bench-quality-review-2026-11-18.md.

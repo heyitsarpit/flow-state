@@ -1103,3 +1103,7 @@ note 2026-11-17T19:53:30Z
     Amendment (the user, 2026-11-18): bench guidance in code:wiki/conventions/bench.md (never block on a bench; --dev
     while working; longer tiers capped in the background; --full by concern in perf work); the Epic's close and cadence
     now cite it (wakes start the tooling bench in the background); AGENTS.md and fixtures.md point to it.
+
+note 2026-11-17T20:04:31Z
+    Decision (the user, 2026-11-18): T89 (bench code simplification) cancelled, set to tombstone; its proposal stays as
+    prior art. P3 order: T87, T88, T83, T20, T81, T80.
