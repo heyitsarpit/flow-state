@@ -1458,6 +1458,43 @@ tasks
             nothing it already heard, whatever it reads (dates, maps, sets, class instances, cycles), and a provider a
             screen starts keeps its own wiring at a return and a reload. For the user: @plan.Pending.D20, the Schema
             argument, needs a yes.
+        comment     2026-11-17T02:11:05Z
+            Convergence review: ISSUES at a131207f. check exit 0; suite exit 1, 1,118 pass + 13 inverted, 2 red, T20's
+            pair cells (shop, session). Earlier findings closed (scratch probes): signed-out avatar 2 and Date digest 38
+            over 0 to 4 extra reloads; cyclic thread no crash; nested ref refused ConflictingActorRef; guest dot's
+            presence bob, bob, carol, carol, dan; when-defect baseline kept across a reload. Planted old unknown path
+            (seen and frame slot dropped for non-JSON values) turns values, workspace and reloads tests red (6); seen
+            alone turns only the avatar red, since frames carry baselines. Blocking, each red on a scratch probe: 1 a
+            selection past a codec bound is the selector's Defect and dropped, even for a non-persisted consumer (5,000
+            numbers under Schema.Array: heard stays 1, context stays 100 items), against Actors R18 (only a Schema
+            refusal or endless encoding is a defect) and Codec R4 (an in-turn bound is UnencodableValue and never fails
+            the turn); bounds belong to the record, not the selection; tests missed it since fixture selections are
+            small. 2 a context or onContext issue never clears when its source next succeeds (Turn R25, requirement 7;
+            the issue's own help says it clears); older than this round, now reached by every Schema refusal; tests
+            check only the raise. 3 frames copy stale memory per reaction: three reactions reading a 3,001-row field
+            withhold the record ('nodes over 10000 at $.reactions[2].memory'), so a reload restores 3,000 rows; memory
+            alone is 30% of the bound and saved under format 1; R18's 'count toward the bounds as memory does' was
+            written to the code, not weighed; fixtures pair memory-reading reactions only with small memory.
+        comment     2026-11-17T02:11:14Z
+            Convergence review, continued. Answers: a Schema refusal as the selector's defect matches Actors R19 and
+            Turn R22 (keeps the last value, no event, mailbox place kept, no ending touched) except bounds (blocking 1).
+            Format 1 steps to 2 with nothing made up (format-one-avatar), corrupt-seen quarantines; but a user slot
+            Schema whose decode throws escapes past quarantine at the boot (Effect's decodeUnknownResult throws on
+            defects; memory has the same gap). D20: keep the Schema required; it cannot be inferred for computed
+            selections (state checks, lengths, Maps) and an optional one needs a fallback codec, which is the unknown
+            class again; events and memory already take Schemas. Cost: not per-selection Schema work (memoising
+            unchanged selections 0.136 to 0.135 ms; skipping equal frame fields no change); profiles put half the 0.111
+            to 0.136 delta in record writing (encodeActor's larger record, Result.gen, recordOf and graphOf built twice
+            per save). Faults' third red: tests/generated/generated.stress.test.ts 'palette: stress runs from fixed
+            seeds', 60 s timeout hit at 67 s under the whole-suite load; alone 49.9 s at HEAD, 50.2 s at 9d45d087; wrong
+            side the test tooling's budget, owner @task.V3.T83. Routed, not blocking: one standing refusal raises an
+            Issue per wave (3 for 3 waves; R19 says one); context Proxy misses Object.hasOwn and descriptor reads;
+            Restore R5's 'as format 1 did' is inexact for a reaction reading a slot saved unknown (now silent when the
+            select's result is unchanged); frames are positional with no length check (versions, @task.V3.T56); formsOne
+            could be a Schema.suspend union. Sidecars (4 Haiku): accepted the above; rejected top-level undefined
+            refused (saved null, avatar steady), T6 titles (Restore's Spec test id), graph losing an ended provider
+            (BlockedByDependents keeps it), enqueueFirst FIFO (earlier ruling), Selected's value cache (decode once),
+            outside imports (none).
 
     T74
         title       App mix: several fixtures in one Runtime
