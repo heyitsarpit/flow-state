@@ -284,3 +284,130 @@ describe("a defect inside a step (Actors R25)", () => {
     assert.ok(Exit.isFailure(disposed) && Cause.hasDies(disposed.cause));
   });
 });
+
+// A session seed whose next text read throws once, after it is armed: that mint fails inside its
+// step, a defect in the middle of a step.
+const trappedSeed = () => {
+  const trap = { armed: false };
+  const seed = new String("0".repeat(32));
+
+  seed.toString = () => {
+    if (trap.armed) {
+      trap.armed = false;
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted defect these tests are about
+      throw new Error("the session seed cannot be read");
+    }
+
+    return "0".repeat(32);
+  };
+
+  // SAFETY: the core reads a seed only as text, through a template literal, which calls toString.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-chained-type-assertions -- a test host plants its defect in the seed's text
+  return { seed: seed as unknown as string, arm: () => void (trap.armed = true) };
+};
+
+const Tally = definition({
+  id: "Test/Tally",
+  persist: true,
+  states: ["COUNTING"],
+  events: { Bump: { by: Schema.Number } },
+  memory: { count: Flow.initial(Schema.Number, 0) },
+});
+
+const TallyMachine = machine(Tally, ({ S }) => ({
+  default: S.COUNTING,
+  on: { Bump: { updateMemory: ({ event, memory }) => ({ count: memory.count + event.by }) } },
+}));
+
+// A Runtime over one store, which a reload reads back; its writes wait for its disposal.
+const tallyOver = (store: Map<string, string>, sessionSeed: string) =>
+  buildRuntime(
+    {
+      app: app({ id: "tally", machines: { tally: TallyMachine } }),
+      scope: "tally",
+      persistence: { captureMs: 60_000 },
+    },
+    Context.make(
+      Host,
+      Host.of({
+        hidden: () => false,
+        onHidden: () => () => undefined,
+        store: Option.some({
+          load: Effect.sync(() => new Map(store)),
+          write: (writes) =>
+            Effect.sync(() => {
+              for (const w of writes)
+                Option.match(w.value, {
+                  onNone: () => store.delete(w.key),
+                  onSome: (text) => store.set(w.key, text),
+                });
+            }),
+        }),
+        sessionSeed,
+        freezeValues: true,
+      }),
+    ),
+    () => undefined,
+  ).runtime;
+
+const tally = actorRef(TallyMachine, "t");
+
+const other = actorRef(TallyMachine, "u");
+
+const countIn = (store: Map<string, string>) =>
+  Effect.gen(function* () {
+    const runtime = tallyOver(store, "0".repeat(32));
+    yield* runtime.ready();
+    const count = Option.map(runtime.ensureActor(tally).getSnapshot(), (s) => s.memory["count"]);
+    yield* runtime.dispose();
+
+    return count;
+  });
+
+describe("a Runtime a defect stopped (Actors R25)", () => {
+  it("Actors R25: an actor's snapshot reads stopped", async () => {
+    const trapped = trappedSeed();
+    const runtime = tallyOver(new Map(), trapped.seed);
+    await Effect.runPromise(runtime.ready());
+    const counter = runtime.ensureActor(tally);
+    trapped.arm();
+    runtime.ensureActor(other);
+
+    assert.deepStrictEqual(
+      Option.map(counter.getSnapshot(), (s) => s.lifecycle),
+      Option.some("stopped"),
+    );
+    await Effect.runPromiseExit(runtime.dispose());
+  });
+
+  it("Actors R25: a later call is refused RuntimeDisposed, and dispose returns the defect", async () => {
+    const trapped = trappedSeed();
+    const runtime = tallyOver(new Map(), trapped.seed);
+    await Effect.runPromise(runtime.ready());
+    runtime.ensureActor(tally);
+    trapped.arm();
+    runtime.ensureActor(other);
+
+    assert.throws(() => runtime.ensureActor(tally), flowError("RuntimeDisposed"));
+    const disposed = await Effect.runPromiseExit(runtime.dispose());
+    assert.ok(Exit.isFailure(disposed) && Cause.pretty(disposed.cause).includes("cannot be read"));
+  });
+
+  it("Actors R25: nothing more is written, so a reload restores the last landed state", async () => {
+    const store = new Map<string, string>();
+    const first = tallyOver(store, "0".repeat(32));
+    await Effect.runPromise(first.ready());
+    first.ensureActor(tally).send({ _tag: "Bump", by: 1 });
+    await Effect.runPromise(first.dispose());
+
+    const trapped = trappedSeed();
+    const second = tallyOver(store, trapped.seed);
+    await Effect.runPromise(second.ready());
+    second.ensureActor(tally).send({ _tag: "Bump", by: 10 });
+    trapped.arm();
+    second.ensureActor(other);
+    await Effect.runPromiseExit(second.dispose());
+
+    assert.deepStrictEqual(await Effect.runPromise(countIn(store)), Option.some(1));
+  });
+});

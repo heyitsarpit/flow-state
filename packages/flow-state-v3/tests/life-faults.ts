@@ -179,4 +179,41 @@ export const lifeFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "stopped-dispose-succeeds",
+    tests: ["src/host/runtime.test.ts"],
+    says: "dispose() of a Runtime a defect stopped reports success instead of the defect",
+    rule: "Actors R25",
+    edits: [
+      {
+        file: "src/host/driver.ts",
+        find: "    Deferred.doneUnsafe(disposed, Exit.die(defect));",
+        replace: "    Deferred.doneUnsafe(disposed, Exit.void);",
+      },
+    ],
+  },
+  {
+    name: "stopped-runtime-writes",
+    tests: ["src/host/runtime.test.ts"],
+    says: "a Runtime a defect stopped runs a disposal that writes its half-written world, so a reload restores a step that never finished",
+    rule: "Actors R25",
+    edits: [
+      {
+        file: "src/core/life.ts",
+        find: "    Failed: run,\n    Disposing: drop,\n    Disposed: drop,\n    Stopped: drop,",
+        replace: "    Failed: run,\n    Disposing: drop,\n    Disposed: drop,\n    Stopped: run,",
+      },
+      {
+        file: "src/core/disposal.ts",
+        find: '  const disposeRuntime = () => (Life.$is("Open")(tx.world().life) ? started() : end());',
+        replace:
+          '  const disposeRuntime = () =>\n    Life.$is("Open")(tx.world().life) || Life.$is("Stopped")(tx.world().life) ? started() : end();',
+      },
+      {
+        file: "src/host/driver.ts",
+        find: "    Deferred.doneUnsafe(disposed, Exit.die(defect));\n    options.stopped();\n",
+        replace: "",
+      },
+    ],
+  },
 ];

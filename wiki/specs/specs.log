@@ -305,3 +305,6 @@ note 2026-11-17T21:30:00Z
     table; calls refuse RuntimeDisposed, ready and dispose fail with the defect. Why: a host flag beside Life broke
     I42 and the defect escaped uncaught (T79 review). Reverse: drop the row, rethrow the defect (7b104f91).
 
+note 2026-11-17T22:00:00Z
+    @spec.Actors R25 accepted (the user, Q21 A): Stopped is a final Life row; snapshots read stopped, dispose fails
+    with the defect, nothing more is written. Reverse: drop the row and rethrow the defect (7b104f91).

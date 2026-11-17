@@ -2025,7 +2025,7 @@ tasks
     T79
         title       Code convergence: tx edit operations, lifecycle unions, one home for diagnostics and keys, host 
                     idiom
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T9]
         description
@@ -2270,6 +2270,14 @@ tasks
             stopped by a defect: the defect is reported once through the failure channel, snapshots read stopped, later
             calls refuse RuntimeDisposed, dispose() finishes and returns the defect, and nothing more is written, so a
             reload restores the last landed state. The @spec.Actors rule is accepted, not proposed.
+        comment     2026-11-17T13:16:47Z
+            Q21 A built (this commit): Stopped is a final Life row, Actors R25 accepted with the Life table and
+            specs.log. Host tests in src/host/runtime.test.ts, one per point: the defect reported once as the failure
+            (ready, dispose); snapshots read stopped (red first: read disposed); later calls refuse RuntimeDisposed;
+            dispose fails with the defect; a reload restores the last landed state. The defect is planted in a one-shot
+            session seed. Faults stopped-dispose-succeeds and stopped-runtime-writes (four edits: the disposal must
+            start and dispose wait on it for a write to escape) caught in a scratch copy. Gates: check 0, suite 1,290
+            pass, 13 expected fail, T20's two reds; test:stress and FLOW_SEEDS=20 exit 0.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted

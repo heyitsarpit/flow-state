@@ -29,7 +29,7 @@ export type Snapshot = {
   readonly state: string;
   readonly memory: Values;
   readonly operations: Operations;
-  readonly lifecycle: "active" | "disposing" | "disposed" | "quarantined";
+  readonly lifecycle: "active" | "disposing" | "disposed" | "stopped" | "quarantined";
   readonly context: Values;
   readonly issues: ReadonlyArray<Diagnostic>;
   readonly schedules: ReadonlyArray<{ readonly key: string; readonly dueAt: number }>;

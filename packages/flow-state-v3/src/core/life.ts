@@ -174,5 +174,5 @@ export const actorLifecycleOf = (life: Life) =>
     Failed: () => "active" as const,
     Disposing: () => "disposing" as const,
     Disposed: () => "disposed" as const,
-    Stopped: () => "disposed" as const,
+    Stopped: () => "stopped" as const,
   });

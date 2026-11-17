@@ -355,14 +355,15 @@ requirements
                 follow @spec.WriteLanes.R5. Exhausting a counter refuses new work with
                 IdentityExhausted before any change.
 
-    R25  A defect stops the Runtime (proposed, awaiting the user)
+    R25  A defect stops the Runtime
         source  @plan.Runtime.O3.
         must    A defect inside a step ends the Runtime's life Stopped, a final Life: no input runs
-                again, so the step's half-written world is never stepped. Every later public call is
-                refused RuntimeDisposed, every actor reads disposed, the defect is reported once as
-                the Runtime's failure (`ready()` fails with it when the boot step failed, and
-                `dispose()` fails with it), and the Runtime's Scope closes. Decision (agent,
-                2026-11-17, @task.V3.T79): proposed; the Life table is the user's.
+                again, so the step's half-written world is never stepped. The defect is reported
+                once, as the Runtime's failure: `ready()` fails with it when the boot step failed,
+                and `dispose()` finishes and fails with it. Every later public call is refused
+                RuntimeDisposed, every snapshot reads lifecycle stopped, and nothing more is written,
+                so a reload restores the last landed state. The Runtime's Scope closes. Decision
+                (the user, 2026-11-17, Q21 A).
 
 open
     Q1  Executable checks are not built.
@@ -412,7 +413,7 @@ model
 
     Life = the Runtime's life, one value in the core: Inert (constructed, nothing started), Booting, Open, Failed
         (the bootstrap failed), Disposing (nothing new is invoked; calls on the wire and the disposal's write, held
-        as a ticket, wait for the bound) or Disposed.
+        as a ticket, wait for the bound), Disposed, or Stopped (a step failed with a defect; final, R25).
 
     Verdict = admit(life, input): Run, Drop (the input changes nothing) or Reject with RuntimeNotReady or
         RuntimeDisposed.
@@ -554,7 +555,8 @@ algorithm
         on a Run: Start takes Inert to Booting, Boot takes Booting to Open, BootFailed takes Booting to Failed,
         DisposeRuntime takes Open to Disposing and Inert, Booting or Failed straight to Disposed, and Disposing
         goes Disposed when no call is on the wire and the disposal's write has landed, when that write is refused
-        (StorageFailure, R23), or at the bound. By
+        (StorageFailure, R23), or at the bound. A step that throws a defect leaves any life Stopped (R25); Stopped
+        drops every input but the public calls, which it rejects RuntimeDisposed. By
         input:
         - Start (the first ready): Inert runs; Booting, Open and Failed drop (the caller shares the bootstrap's
             Exit); Disposing and Disposed reject RuntimeDisposed.
