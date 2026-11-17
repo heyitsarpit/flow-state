@@ -3444,4 +3444,10 @@ tasks
         comment     2026-11-17T16:52:19Z
             Agents (the user, 2026-11-17): a Sonnet builder and a Sonnet reviewer for this Task, not the usual
             Opus review.
+        comment     2026-11-17T20:49:39Z
+            Requirements as checks: C1 vite-plus >=1.7.0, tsrs pinned exactly. C2 clean tree: nub run check exit 0, same
+            diagnostic count. C3 planted type error, floating promise, unsafe any, lint-bomb breach
+            (no-explicit-any/no-unknown) each fail before and after with matching diagnostics. C4 lint:rules, formatter,
+            package suite counts unchanged. C5 before/after wall time and peak memory. C6 any loss leaves live tree
+            unchanged. Plants live in a scratch copy only.
 
