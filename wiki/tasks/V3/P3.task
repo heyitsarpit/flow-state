@@ -1057,7 +1057,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1429,6 +1429,35 @@ tasks
             (Testing O6) -> mix.test.ts, green today (no seed reaches a burst on a closed screen; the generator drops
             the send). Kept: every current context save and restore test (context.test.ts, session tests). Extra files:
             fixtures/session/machines/inbox.ts, presence.ts, stories/values.ts, tests/session/values.test.ts.
+        comment     2026-11-17T01:40:16Z
+            Convergence closed at 8acfdebd: check 0; suite 1,118 pass + 13 inverted, 2 red, T20's pair cells (shop,
+            session); test:stress exit 0; fresh seeds (FLOW_SEEDS 20 usual and mix, 10 stress and mix stress) exit 0.
+            nub run faults: 211 of 211 caught by their targets, dead core 831 failed; not judged, the unchanged run
+            failing on T20's two cells and a third whose name the truncated output drops (stress files alone pass).
+            Bench per turn median/p99: transfers/long 0.046/0.067, pay/long 0.058/0.081, session/long 0.139/0.163 (was
+            0.112: each selection now passes its Schema), lanes/stress-36 0.304/0.404, session/stress-36 0.111/0.237 ms.
+        comment     2026-11-17T01:40:17Z
+            Design (agent; the Schema argument proposed, @plan.Pending.D20): a slot declares its selection's Schema,
+            Provider.select(schema, selector); each selection passes once through the Schema's JSON form, so a consumer
+            reads, compares (Equal) and saves the same value live and after a reload, and a selection the Schema refuses
+            is its selector's defect, so no value is unknown. A record (format 2; format 1 by a pure step) saves each
+            slot's JSON, each reaction's baseline inputs (the slots and memory fields its select read) and the whole
+            provider graph; admission refuses a conflict anywhere in an ensure's graph. Reverse: the tree at 4850ba6d.
+        comment     2026-11-17T01:40:17Z
+            Sidecars (2 Haiku): adversary accepted format-1 Option and undefined forms dropped and presence reads (in,
+            keys) untracked; changed the Set-order memory case (memory is plain data, Turn R24) to a JSON-form frame
+            diff; rejected a never-saved provider's fresh start (a real change), frames over the record bound (counted
+            as memory is, R18), -0 in memory and capped drains (older), versions (T56), impure selects. Fixture review
+            accepted the thrice checkpoint, value read-back, skip count, a Schema-refused step value and the mix title;
+            rejected the NaN counts (Schema writes NaN as "NaN"; replayed 30 and 38). Routed: inbox in the mix, pairs
+            and stress (one samples set per fixture), a when-defect fixture beyond context.test.ts. Extra files:
+            src/core/slots.ts, actor-record.ts, record-format.ts, actor-record.test.ts; seen.ts deleted.
+        comment     2026-11-17T01:40:17Z
+            For the user's page: a context slot now names the Schema of what it selects
+            (Session.Provider.select(Schema.String, (s) => s.memory.user)); a screen restored after a reload hears
+            nothing it already heard, whatever it reads (dates, maps, sets, class instances, cycles), and a provider a
+            screen starts keeps its own wiring at a return and a reload. For the user: @plan.Pending.D20, the Schema
+            argument, needs a yes.
 
     T74
         title       App mix: several fixtures in one Runtime
