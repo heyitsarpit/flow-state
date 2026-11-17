@@ -53,9 +53,10 @@ fixtures/<app>/
   index.ts               the manifest that registers the fixture with every runner
 ```
 
-- **Existing flat files stay.** A fixture written before this layout keeps its `contracts.ts`, `machine.ts`,
-  `server.ts`, `stories.ts` and `*-http.ts` where they are; it gains an `index.ts`, and its new machines, operations
-  and Stories go in the folders above.
+- **Code survives; files may move.** Existing machines, their Stories and their tests are never deleted or rewritten:
+  each is modified where a new feature needs it and grown as new features need more complex interactions (the user,
+  2026-11-17). Files written before this layout may move into it; machine, persisted and Story ids are strings in
+  the code, so a move changes none of them.
 - **Only files with content.** An app with no stream has no `operations/streams.ts`.
 - **Data comes from a real-shaped source.** Every ending comes from a fake server's answer through the app's own
   service, the path a real `fetch` or SDK call would take; a fixture never injects an outcome

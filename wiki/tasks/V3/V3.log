@@ -977,3 +977,8 @@ note 2026-11-17T10:44:26Z
 note 2026-11-17T10:46:19Z
     T9 done: review PASS at f8c7e247 (b456aede). Leftovers routed to T79, T20, T83. Its user's page is written, unread:
     wiki/plans/flow/references/pages/T9-actor-identity.md. Next: T79 lead.
+
+note 2026-11-17T11:45:53Z
+    Correction (the user, 2026-11-17): fixtures.md's 'existing flat files stay' misread the user. The rule is that
+    machines, Stories and tests survive and grow, modified where needed, never rewritten; files may move into the
+    layout.
