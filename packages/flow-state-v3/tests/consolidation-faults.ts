@@ -108,8 +108,8 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "        writes.push(...written.success);",
-        replace: "        if (writes.length === 0) writes.push(...written.success);",
+        find: "    const writes = went.flatMap((w) => w.writes);",
+        replace: "    const writes = went.slice(0, 1).flatMap((w) => w.writes);",
       },
     ],
   },

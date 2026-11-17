@@ -99,9 +99,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: '    if (tx.world().marked.size > 0 || held.size > 0) tx.replace("marked", held);',
-        replace:
-          '    if (tx.world().marked.size > 0 || held.size > 0) tx.replace("marked", new Map());',
+        find: '      tx.replace("marked", new Map(held.flatMap((h) => h.keys)));',
+        replace: '      tx.replace("marked", new Map());',
       },
     ],
   },
@@ -140,9 +139,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "      } else {\n        for (const [k, m] of ordered) held.set(k, m);",
+        find: "      Result.isSuccess(written) ? [{ keys, writes: written.success }] : [],",
         replace:
-          "      } else {\n        writes.push(...ordered.flatMap(([, m]) => Option.toArray(Result.getSuccess(writeOf(m)))));\n        for (const [k, m] of ordered) held.set(k, m);",
+          "      Result.isSuccess(written)\n        ? [{ keys, writes: written.success }]\n        : [{ keys: [], writes: keys.flatMap(([, m]) => Option.toArray(Result.getSuccess(writeOf(m)))) }],",
       },
     ],
   },
@@ -274,8 +273,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/step.ts",
-        find: '  if (Input.$is("Capture")(input)) return tx.out();\n',
-        replace: "",
+        find: "    persistence.capture(input.tickets, input.again);\n\n    return tx.out();\n",
+        replace: "    persistence.capture(input.tickets, input.again);\n",
       },
     ],
   },

@@ -35,6 +35,21 @@ const outsideOf = (compiled: Compiled, incarnation: Incarnation) => ({
   memory: publicMemory(compiled, incarnation.memory),
 });
 
+// Whether a slot's last selection stands without running its selector: a selector is pure (R19),
+// so the very snapshot it was read from (the same leaf and the same memory object, which an
+// immutable memory keeps only while unchanged) selects it again; a slot with an open issue is read
+// again, since only that can clear it.
+const stands = (
+  last: Option.Option<Selected>,
+  provider: Incarnation,
+  consumer: Incarnation,
+  slot: string,
+) =>
+  Option.exists(
+    Option.flatMap(last, (l) => l.from),
+    (from) => from.memory === provider.memory && from.state === provider.state,
+  ) && !consumer.issues.some((i) => IssueSource.$is("Context")(i.source) && i.source.slot === slot);
+
 /**
  * Context binding and waves: a consumer binds each slot to one
  * provider for its life and holds a use of it; a provider's change enqueues one context update
@@ -107,16 +122,21 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
       if (Option.isNone(provider) || Option.isNone(providing)) continue;
 
+      if (stands(Option.fromUndefinedOr(last), provider.value, incarnation, slot)) continue;
+
+      const from = Option.some({ state: provider.value.state, memory: provider.value.memory });
+
       const value = Result.flatMap(
         callSlot(declared.select, outsideOf(providing.value, provider.value)),
         (raw) =>
           last !== undefined && Option.exists(last.raw, (r) => r === raw)
-            ? Result.succeed(last)
+            ? Result.succeed({ ...last, from })
             : Result.mapBoth(selectedOf(declared.walk, raw), {
                 onFailure: () => declared.select.slot,
                 onSuccess: (selected) => ({
                   ...selected,
                   value: tx.env.admit(selected.value),
+                  from,
                 }),
               }),
       );

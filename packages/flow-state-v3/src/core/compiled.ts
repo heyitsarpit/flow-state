@@ -1,4 +1,4 @@
-import { Data, type Effect, type Equivalence, Option, Result, type Schema } from "effect";
+import { Data, type Effect, Option, Result, type Schema } from "effect";
 import type { Walker } from "./boundary.ts";
 
 /**
@@ -310,7 +310,7 @@ export const Operation = Data.taggedEnum<Operation>();
  *
  * `states` holds every node of the tree by its path, compounds included, in declaration order;
  * `root` holds the root's handlers and `initial` the leaf the root's defaults reach. `fields` lists
- * the memory fields; `memory`, `memoryJson`, `walk` and `sameMemory` are derived from their Schemas.
+ * the memory fields; `memory`, `memoryJson` and `walk` are derived from their Schemas.
  */
 export type Compiled = {
   readonly id: string;
@@ -324,7 +324,6 @@ export type Compiled = {
   readonly memoryJson: Schema.Codec<Values, Values>;
   readonly walk: Walker<Values, Values>;
   readonly identity: Walker<Values, Values>;
-  readonly sameMemory: Equivalence.Equivalence<Values>;
   readonly operations: ReadonlyMap<string, Operation>;
   readonly context: ReadonlyMap<string, ContextSlot>;
   readonly reactions: ReadonlyArray<Reaction>;

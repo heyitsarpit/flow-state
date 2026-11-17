@@ -15,6 +15,8 @@ export type Selected = {
   readonly text: Canonical;
   // FLOW_STATE_ALLOW_UNKNOWN: the selector's own result this was read from; none when restored.
   readonly raw: Option.Option<unknown>;
+  // The provider snapshot it was selected from; none when restored.
+  readonly from: Option.Option<{ readonly state: string; readonly memory: Values }>;
 };
 
 /**
@@ -63,7 +65,13 @@ export const readSelected = (
       Result.map(
         walk.decode(json),
         (value) =>
-          ({ value, json, text: new Canonical({ text }), raw: Option.none() }) satisfies Selected,
+          ({
+            value,
+            json,
+            text: new Canonical({ text }),
+            raw: Option.none(),
+            from: Option.none(),
+          }) satisfies Selected,
       ),
   );
 

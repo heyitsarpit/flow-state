@@ -9,6 +9,7 @@ import {
   type Values,
 } from "./compiled.ts";
 import type { Part } from "./evidence.ts";
+import { sameValue } from "./same.ts";
 import { atOrBelow, chainOf, type Move, moveOf } from "./tree.ts";
 import type { RefusedCode } from "./vocabulary.ts";
 
@@ -314,6 +315,13 @@ export const armingsOf = (
   return { armed, refused };
 };
 
+// Whether a patch changes no field: each field it names is already there with an equal value,
+// the same object at once, else compared without the call stack.
+const unchanged = (patch: Values, memory: Values) =>
+  Object.keys(patch).every(
+    (k) => Object.hasOwn(memory, k) && (patch[k] === memory[k] || sameValue(patch[k], memory[k])),
+  );
+
 // RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
 const accept = (alternative: Alternative, handler: string, input: TurnInput): TurnResult => {
   const read = { memory: input.memory, event: input.payload, now: input.now };
@@ -327,7 +335,7 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
           // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the turn's after memory: one patch, merged once
           const after = { ...input.memory, ...patch };
 
-          return input.compiled.sameMemory(after, input.memory) ? input.memory : after;
+          return unchanged(patch, input.memory) ? input.memory : after;
         },
       ),
   });

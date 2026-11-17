@@ -18,6 +18,7 @@ import {
   type Ticket,
   type TicketId,
   Timer,
+  type Wiring,
   type Write,
 } from "./world.ts";
 
@@ -29,6 +30,16 @@ const toIdentity = (row: Owed) => Audience.$is("Identity")(row.to);
 const inMailbox = (row: Owed) =>
   toIdentity(row) &&
   (Delivery.$is("Queued")(row.delivery) || Delivery.$is("Retrying")(row.delivery));
+
+// Each live incarnation's last record text with the graph it was encoded with: an incarnation is
+// immutable, so the same one under the same bindings encodes the same text.
+const texts = new WeakMap<
+  Incarnation,
+  { readonly graph: Wiring; readonly text: Result.Result<string, string> }
+>();
+
+const sameGraph = (a: Wiring, b: Wiring) =>
+  a.size === b.size && [...a].every(([key, bound]) => b.get(key) === bound);
 
 // An identity's records in the order a batch writes them: its actor record, its lanes, its owed record.
 const rank = Mark.$match({ Actor: () => 0, Lane: () => 1, Owed: () => 2 });
@@ -53,10 +64,10 @@ export const makePersistence = (tx: Tx) => {
   let now = false;
   const awaited: Array<{ readonly ticket: Ticket; readonly actor: ActorId }> = [];
 
-  const mark = (key: string, made: () => Mark) => {
+  const mark = (key: string, made: Mark) => {
     marked = true;
 
-    if (!tx.world().marked.has(key)) tx.put("marked", key, made());
+    if (!tx.world().marked.has(key)) tx.put("marked", key, made);
   };
 
   // The bindings of every provider up a consumer's graph: a provider started for it again, saved or
@@ -83,7 +94,10 @@ export const makePersistence = (tx: Tx) => {
   };
 
   // RETURN_TYPE: the Runtime's copy of a record, whose schedule list stays the record's shape.
-  const recordOf = (incarnation: Incarnation): ActorRecord => ({
+  const recordOf = (
+    incarnation: Incarnation,
+    graph: Wiring = graphOf(incarnation),
+  ): ActorRecord => ({
     actor: incarnation.actor,
     state: incarnation.state,
     memory: incarnation.memory,
@@ -99,7 +113,7 @@ export const makePersistence = (tx: Tx) => {
       ),
     ),
     frames: incarnation.baselines.map((b) => Option.map(b, (x) => x.frame)),
-    graph: graphOf(incarnation),
+    graph,
   });
 
   // A record's write, or the key and reason it cannot encode.
@@ -110,21 +124,39 @@ export const makePersistence = (tx: Tx) => {
       onFailure: (reason) => ({ key, reason }),
     });
 
+  const textOf = (record: ActorRecord) => {
+    const compiled = tx.machines.get(record.actor.machine);
+
+    return compiled === undefined ? Result.fail("machine") : encodeActor(compiled, record);
+  };
+
+  // A live incarnation's record text, kept by the incarnation and its graph's bindings, so a ticket's
+  // check and the capture that follows encode it once.
+  const liveText = (incarnation: Incarnation) => {
+    const graph = graphOf(incarnation);
+    const known = texts.get(incarnation);
+
+    if (known !== undefined && sameGraph(known.graph, graph)) return known.text;
+
+    const text = textOf(recordOf(incarnation, graph));
+    texts.set(incarnation, { graph, text });
+
+    return text;
+  };
+
   // An identity's actor record from the World: its live incarnation's, else the one the World
   // keeps for it, else a removal.
   const actorWrite = (actor: ActorId) => {
     const key = actorRecordKey(actorKey(actor));
     const live = incarnationOf(actor);
-    const record = live === undefined ? tx.world().records.get(actorKey(actor)) : recordOf(live);
 
-    if (record === undefined) return Result.succeed<Write>({ key, record: Option.none() });
+    if (live !== undefined) return encoded(key, liveText(live));
 
-    const compiled = tx.machines.get(actor.machine);
+    const kept = tx.world().records.get(actorKey(actor));
 
-    return encoded(
-      key,
-      compiled === undefined ? Result.fail("machine") : encodeActor(compiled, record),
-    );
+    return kept === undefined
+      ? Result.succeed<Write>({ key, record: Option.none() })
+      : encoded(key, textOf(kept));
   };
 
   // A lane's record from its entry; a lane gone Idle that still owes a displaced Attempt's ending
@@ -241,7 +273,7 @@ export const makePersistence = (tx: Tx) => {
    */
   const saveActor = (actor: ActorId) => {
     if (incarnationOf(actor) !== undefined && persisted(actor))
-      mark(actorRecordKey(actorKey(actor)), () => Mark.Actor({ actor }));
+      mark(actorRecordKey(actorKey(actor)), Mark.Actor({ actor }));
   };
 
   /**
@@ -260,14 +292,14 @@ export const makePersistence = (tx: Tx) => {
   const removeActor = (actor: ActorId) => {
     if (!persisted(actor)) return;
     now = true;
-    mark(actorRecordKey(actorKey(actor)), () => Mark.Actor({ actor }));
+    mark(actorRecordKey(actorKey(actor)), Mark.Actor({ actor }));
   };
 
   /**
    * Marks a lane's record as changed: captured from the lane's state, or removed if it is gone.
    */
   const saveLane = (actor: ActorId, id: string) => {
-    if (persisted(actor)) mark(laneRecordKey(id), () => Mark.Lane({ actor, lane: id }));
+    if (persisted(actor)) mark(laneRecordKey(id), Mark.Lane({ actor, lane: id }));
   };
 
   /**
@@ -292,7 +324,7 @@ export const makePersistence = (tx: Tx) => {
    * Marks an identity's owed record as changed.
    */
   const saveOwed = (actor: ActorId) => {
-    if (persisted(actor)) mark(owedRecordKey(actorKey(actor)), () => Mark.Owed({ actor }));
+    if (persisted(actor)) mark(owedRecordKey(actorKey(actor)), Mark.Owed({ actor }));
   };
 
   // ── lanes: every change of a lane's entry marks its record.
@@ -362,7 +394,10 @@ export const makePersistence = (tx: Tx) => {
 
     for (const entry of new Map([...again, ...tx.world().marked])) {
       const key = actorKey(entry[1].actor);
-      identities.set(key, [...(identities.get(key) ?? []), entry]);
+      const keys = identities.get(key);
+
+      if (keys === undefined) identities.set(key, [entry]);
+      else keys.push(entry);
     }
 
     return [...identities.values()].map((keys) =>

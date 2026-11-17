@@ -142,6 +142,49 @@ const BothMachine = machine(Both, ({ S, E }) => ({
   },
 }));
 
+// How many times the aside selector ran: a selector is pure (R19), and the count shows only
+// whether a wave ran it.
+const asides = { reads: 0 };
+
+const Counted = definition({
+  id: "Context/Counted",
+  states: ["READY"],
+  events: {},
+  context: {
+    user: Session.Provider.select(Schema.String, (s) => s.memory.user),
+    aside: Session.Provider.select(Schema.String, (s) => {
+      asides.reads += 1;
+
+      return s.memory.user;
+    }),
+  },
+});
+
+const CountedMachine = machine(Counted, ({ S }) => ({ default: S.READY }));
+
+// A lamp whose toggle changes only its state, never its memory.
+const Lamp = definition({ id: "Context/Lamp", states: ["ON", "OFF"], events: { Toggle: {} } });
+
+const LampMachine = machine(Lamp, ({ S }) => ({
+  default: S.ON,
+  states: { ON: { on: { Toggle: { target: S.OFF } } }, OFF: { on: { Toggle: { target: S.ON } } } },
+}));
+
+const Glow = definition({
+  id: "Context/Glow",
+  states: ["SHOWN"],
+  events: {},
+  context: {
+    lit: Lamp.Provider.select(Schema.String, (s) => {
+      if (s.state === "OFF") throw new Error("dark");
+
+      return s.state;
+    }),
+  },
+});
+
+const GlowMachine = machine(Glow, ({ S }) => ({ default: S.SHOWN }));
+
 const UpstreamNode = definition({ id: "Context/Node", states: ["ON"], events: {} });
 
 const Node = definition({
@@ -157,6 +200,9 @@ const main = actorRef(SessionMachine, "main");
 const other = actorRef(SessionMachine, "other");
 const badge = actorRef(BadgeMachine, "badge");
 const pair = actorRef(PairMachine, "pair");
+const counted = actorRef(CountedMachine, "counted");
+const lamp = actorRef(LampMachine, "lamp");
+const glow = actorRef(GlowMachine, "glow");
 
 const setup = runtimeSetup({
   app: app({
@@ -174,6 +220,9 @@ const setup = runtimeSetup({
       },
       node: { machine: NodeMachine, context: { up: actorRef(NodeMachine, "b") } },
       reader: { machine: ReaderMachine, context: { user: main } },
+      counted: { machine: CountedMachine, context: { user: main, aside: other } },
+      lamp: LampMachine,
+      glow: { machine: GlowMachine, context: { lit: lamp } },
       both: {
         machine: BothMachine,
         context: { user: main, seen: actorRef(WatcherMachine, "left") },
@@ -211,6 +260,31 @@ const turnsOf = (seen: ReadonlyArray<Evidence>, event: string) =>
   seen.filter((e) => e._tag === "Turn" && e.event === event).length;
 
 describe("context binding (Actors R18, I28)", () => {
+  it("Actors R19: a wave runs only the selectors whose provider's snapshot changed", () => {
+    const { runtime } = ready();
+    const handle = runtime.ensureActor(counted);
+    const before = asides.reads;
+    runtime.ensureActor(main).send({ _tag: "SignIn", user: "ada" });
+
+    expect(Option.map(handle.getSnapshot(), (s) => s.context)).toEqual(
+      Option.some({ user: "ada", aside: "" }),
+    );
+    expect(asides.reads).toBe(before);
+  });
+
+  it("Actors R19: a slot whose selector failed is read again when its provider returns to the snapshot it last selected from, and its issue clears", () => {
+    const { runtime } = ready();
+    const handle = runtime.ensureActor(glow);
+    const switched = runtime.ensureActor(lamp);
+    switched.send({ _tag: "Toggle" });
+
+    expect(Option.map(handle.getSnapshot(), (s) => s.issues.length)).toEqual(Option.some(1));
+
+    switched.send({ _tag: "Toggle" });
+
+    expect(Option.map(handle.getSnapshot(), (s) => s.issues)).toEqual(Option.some([]));
+  });
+
   it("Actors R18, Turn R22: a consumer's baseline is silent at admission, and its snapshot shows the selected context", () => {
     const { runtime, seen } = ready();
     const handle = runtime.ensureActor(badge);

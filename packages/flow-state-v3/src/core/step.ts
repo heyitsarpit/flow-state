@@ -77,6 +77,14 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   if (!Verdict.$is("Run")(admit(world0.life, input))) return tx.out();
 
   const persistence = makePersistence(tx);
+
+  // A capture only reads the World: it serves no mail and starts nothing.
+  if (Input.$is("Capture")(input)) {
+    persistence.capture(input.tickets, input.again);
+
+    return tx.out();
+  }
+
   const ledger = makeLedger(tx, persistence);
   const lanes = makeLanes(tx, persistence, ledger);
   const answers = makeAnswers(tx, lanes, ledger);
@@ -149,14 +157,11 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       answers.storeRefused(ticket);
       disposal.answered(ticket, false);
     },
-    Capture: ({ tickets, again }) => persistence.capture(tickets, again),
+    Capture: () => undefined,
     DisposeRuntime: () => disposal.disposeRuntime(),
     DisposeActor: ({ actor }) => incarnations.dispose(actor, false),
     Forget: ({ actor }) => incarnations.dispose(actor, true),
   });
-
-  // A capture only reads the World: it serves no mail and starts nothing.
-  if (Input.$is("Capture")(input)) return tx.out();
 
   Life.$match(tx.world().life, {
     Open: () => {

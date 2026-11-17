@@ -52,8 +52,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "    graph: graphOf(incarnation),",
-        replace: "    graph: new Map(),",
+        find: "    graph,\n  });",
+        replace: "    graph: new Map(),\n  });",
       },
     ],
   },
@@ -445,6 +445,32 @@ export const contextFaults: ReadonlyArray<Fault> = [
         find: "    if (changed || after.issues !== incarnation.issues) needs.publish(after);",
         replace:
           "    if (changed || after.issues !== incarnation.issues) needs.publish(after);\n    if (after.issues !== incarnation.issues) needs.publish(after);",
+      },
+    ],
+  },
+  {
+    name: "selector-rerun-unchanged",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a wave runs every selector again, its provider's snapshot unchanged or not",
+    rule: "Actors R19",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "      if (stands(Option.fromUndefinedOr(last), provider.value, incarnation, slot)) continue;",
+        replace: "      if (last !== undefined && last.from === undefined) continue;",
+      },
+    ],
+  },
+  {
+    name: "troubled-slot-skipped",
+    tests: ["tests/actors/context.test.ts"],
+    says: "a slot whose selector failed is not read again when its provider returns to its last good snapshot, so its issue stays open",
+    rule: "Actors R19",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: '  ) && !consumer.issues.some((i) => IssueSource.$is("Context")(i.source) && i.source.slot === slot);',
+        replace: "  ) && consumer.issues.length >= 0;",
       },
     ],
   },

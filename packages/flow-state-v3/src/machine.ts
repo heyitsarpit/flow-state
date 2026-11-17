@@ -1,7 +1,6 @@
 import { Option, Schema } from "effect";
 import { walkerOf } from "./core/boundary.ts";
 import { nameSchemaOf } from "./core/identity.ts";
-import { sameValue } from "./core/same.ts";
 import type { Values } from "./core/compiled.ts";
 import { leafOf } from "./core/tree.ts";
 import {
@@ -103,17 +102,6 @@ export type AnyBody = {
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
 
-// Whether two memories hold equal fields: the same field object at once (an update keeps every
-// field it does not patch), else compared without the call stack.
-const sameMemory = (a: Values, b: Values) => {
-  const keys = Object.keys(a);
-
-  return (
-    keys.length === Object.keys(b).length &&
-    keys.every((k) => Object.hasOwn(b, k) && (a[k] === b[k] || sameValue(a[k], b[k])))
-  );
-};
-
 // FLOW_STATE_ALLOW_UNKNOWN: a provider's snapshot as the runtime reads it, typed at the definition.
 const erasedSelect = (select: (snapshot: never) => unknown) =>
   // SAFETY: a selector written for its provider's outside snapshot; the runtime passes exactly that.
@@ -194,7 +182,6 @@ export const machine = <D extends AnyDefinition>(
     memoryJson,
     walk: walkerOf(memoryJson),
     identity: walkerOf(codecOf<Values>(nameSchemaOf(fields))),
-    sameMemory,
     operations: new Map(
       Object.entries(definition.operations).map(([name, bound]) => [
         name,
