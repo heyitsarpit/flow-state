@@ -220,7 +220,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "bench-drops-a-round",
-    tests: ["tests/bench/run.test.ts"],
+    tests: ["tests/bench/run.test.ts", "tests/bench/declare.test.ts"],
     says: "the bench times a Story with its last round of steps cut, so it does less work than the tested run",
     rule: "Stories I18",
     edits: [
