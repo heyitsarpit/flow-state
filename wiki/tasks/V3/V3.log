@@ -848,3 +848,8 @@ note 2026-11-17T02:36:42Z
     Decision (the user, 2026-11-17): the orchestrator's proposals accepted and recorded in Pending: D13, D20 (Schema
     stays required), D21 (T82's three fixture calls), D22 (context edge values join the catalog). send(ref, event) stays
     open.
+
+note 2026-11-17T02:50:13Z
+    T9 fix round 2 in review at 59574431 (format 3; issues clear by source; baselines share memory). Review started; it
+    judges the reload rules' new skip of unknown-context runs, the Turn I9 rule change, two Stories moved to stress, and
+    the suite's 47 to 90 s growth.
