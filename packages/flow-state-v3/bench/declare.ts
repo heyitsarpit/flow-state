@@ -71,7 +71,8 @@ export type Headline = "median" | "p99" | "min";
  * take; time benches default to one 60 Hz frame. `workers` fresh processes each warm up and then sample
  * until `budgetMs` of sampling has passed and at least `minRuns` samples are taken (at most 1,000),
  * unless `--runs` sets the count; a bench that is not `warm` is timed cold,
- * with no warm-up. `gc` runs its workers with a full collector exposed.
+ * with no warm-up. `gc` runs its workers with a full collector exposed. A `quick` bench is one of
+ * its concern's headline benches, which the quick tier runs.
  */
 export type Bench = {
   readonly id: string;
@@ -87,6 +88,7 @@ export type Bench = {
   readonly minRuns: number;
   readonly gc: boolean;
   readonly warm: boolean;
+  readonly quick: boolean;
   readonly load: () => Promise<Subject>;
 };
 
@@ -116,6 +118,7 @@ export const bench = (declared: Declared) => {
     minRuns: 5,
     gc: false,
     warm: true,
+    quick: false,
     ...declared,
   };
 

@@ -26,20 +26,36 @@ const persists = (m: Manifest) =>
     (entry) => ("machine" in entry ? entry.machine : entry).compiled.persist,
   );
 
-const turnBench = (story: Story<string>) =>
+const turnBench = (story: Story<string>, quick: boolean) =>
   bench({
     id: `turn.${idOf(story.id)}.per-turn-ms`,
     concern: "turn",
     tags: ["story", story.id.split("/")[0] ?? story.id],
     size: { n: 1, unit: "run" },
+    quick,
     load: () => storySubject(story),
   });
 
 const turnBenches = (m: Manifest) => [
-  ...Option.toArray(m.long).map(turnBench),
-  turnBench(m.savedStress.story),
-  ...m.bench.stories.flatMap((b) => (Option.isNone(b.size) ? [turnBench(b.story())] : [])),
+  ...Option.toArray(m.long).map((story) => turnBench(story, true)),
+  turnBench(m.savedStress.story, false),
+  ...m.bench.stories.flatMap((b) => (Option.isNone(b.size) ? [turnBench(b.story(), false)] : [])),
 ];
+
+// Each series' two smallest sizes: enough for its slope, and quick. The largest sizes take
+// seconds a run, so they stay in the full tier.
+const endsOf = (m: Manifest) => {
+  const sizes = m.bench.stories.flatMap((b) => Option.toArray(b.size));
+
+  return (series: string, n: number) => {
+    const ns = sizes
+      .filter((s) => s.series === series)
+      .map((s) => s.n)
+      .toSorted((a, b) => a - b);
+
+    return ns.length > 1 && ns.slice(0, 2).includes(n);
+  };
+};
 
 const scaleBenches = (m: Manifest) =>
   m.bench.stories.flatMap((b) =>
@@ -53,6 +69,7 @@ const scaleBenches = (m: Manifest) =>
           name: `${m.name}.${size.series}`,
           maxSlope: Option.getOrElse(size.maxSlope, () => GROWTH_BOUNDS[size.growth]),
         }),
+        quick: endsOf(m)(size.series, size.n),
         load: () => storySubject(b.story()),
       }),
     ),
@@ -89,6 +106,11 @@ const valuesBenches = (m: Manifest) =>
     ),
   );
 
+// The app with the most machines: the one boot the quick tier times.
+const largestApp = manifests.toSorted(
+  (a, b) => Object.keys(b.app.machines).length - Object.keys(a.app.machines).length,
+)[0]?.name;
+
 const startupBenches = (m: Manifest) => {
   const story = ownStory(m);
 
@@ -98,6 +120,7 @@ const startupBenches = (m: Manifest) => {
       concern: "startup",
       tags: ["boot", m.name],
       size: { n: 0, unit: "saved" },
+      quick: m.name === largestApp,
       load: () => bootSubject(m.setup, m.app),
     }),
     bench({
@@ -121,6 +144,11 @@ const startupBenches = (m: Manifest) => {
   ];
 };
 
+// The one memory probe the quick tier runs: the heap kept per create and dispose cycle, on the
+// first app.
+const quickMemory = (m: Manifest, kind: string) =>
+  kind === "leak-per-cycle" && m.name === manifests[0]?.name;
+
 const memoryBenches = (m: Manifest) =>
   MEASURES.map(({ kind, metric }) =>
     bench({
@@ -135,6 +163,7 @@ const memoryBenches = (m: Manifest) =>
       workers: 3,
       budgetMs: 0,
       minRuns: 3,
+      quick: quickMemory(m, kind),
       load: () => memorySubject(m.setup, m.bench.probe, kind),
     }),
   );

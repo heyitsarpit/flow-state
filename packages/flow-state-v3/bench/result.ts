@@ -100,6 +100,7 @@ export type Label = {
   readonly date: string;
   readonly samples: string;
   readonly confidence: Row["confidence"];
+  readonly tier: Row["tier"];
 };
 
 // Six significant digits: past the noise of any bench, short enough to read in the CSV.
@@ -122,6 +123,7 @@ export const rowOf = (result: Result, label: Label) => {
     power: label.env.power,
     load: Number(label.env.load.toFixed(2)),
     confidence: label.confidence,
+    tier: label.tier,
     concern: result.bench.concern,
     bench: result.bench.id,
     size: result.bench.size.n,

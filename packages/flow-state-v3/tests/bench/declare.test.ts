@@ -126,6 +126,7 @@ describe("bench history", () => {
       power: "ac",
       load: 1.5,
       confidence: "recorded",
+      tier: "full",
       concern: "turn",
       bench: "turn.a.b.per-turn-ms",
       size: 1,

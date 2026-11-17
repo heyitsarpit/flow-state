@@ -140,12 +140,13 @@ export const changeOf = (
 export const MIN_EFFECT = 0.05;
 
 /**
- * A change counts only when its interval excludes no change and its size passes `MIN_EFFECT`.
+ * A change counts only when its interval excludes no change and its size passes the minimum effect,
+ * `MIN_EFFECT` unless a wider one is given.
  */
-export const verdictOf = (change: Change) => {
-  if (change.low > 1 && change.ratio - 1 >= MIN_EFFECT) return "slower" as const;
+export const verdictOf = (change: Change, minEffect = MIN_EFFECT) => {
+  if (change.low > 1 && change.ratio - 1 >= minEffect) return "slower" as const;
 
-  if (change.high < 1 && 1 - change.ratio >= MIN_EFFECT) return "faster" as const;
+  if (change.high < 1 && 1 - change.ratio >= minEffect) return "faster" as const;
 
   return "same" as const;
 };

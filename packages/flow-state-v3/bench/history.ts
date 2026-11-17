@@ -24,7 +24,8 @@ export const Confidence = Schema.Literals(["recorded", "backfill"]);
  * Times are per unit in ms, bytes per unit for a bytes bench. `median` is the median of the
  * workers' medians, `spread` the scaled MAD of those medians as a share of `median`, the spread
  * between processes; `mad` the scaled MAD of every sample pooled. `p99` is empty below 1,000
- * samples. `shape` hashes the fixture's shape; `counters` is `name=value` pairs joined by `;`.
+ * samples. `tier` is the tier that measured it, and rows of different tiers are never compared.
+ * `shape` hashes the fixture's shape; `counters` is `name=value` pairs joined by `;`.
  * `samples` names the gzip file of the raw samples. `budget` and `budget_state` are empty when the
  * bench has no budget.
  */
@@ -41,6 +42,7 @@ export const Row = Schema.Struct({
   power: Schema.String,
   load: Schema.FiniteFromString,
   confidence: Confidence,
+  tier: Schema.Literals(["quick", "full"]),
   concern: Schema.Literals(CONCERNS),
   bench: Schema.String,
   size: Schema.FiniteFromString,
@@ -164,7 +166,10 @@ export const writeSamples = (
 };
 
 /**
- * Reads the raw samples a row names.
+ * Reads the raw samples a row names; they stay on the machine that took them, so a file that is
+ * not here reads empty, and a comparison falls back to the row's median.
  */
 export const readSamples = (path: string, root: string) =>
-  Schema.decodeUnknownSync(Samples)(gunzipSync(readFileSync(join(root, path))).toString("utf8"));
+  path !== "" && existsSync(join(root, path))
+    ? Schema.decodeUnknownSync(Samples)(gunzipSync(readFileSync(join(root, path))).toString("utf8"))
+    : {};

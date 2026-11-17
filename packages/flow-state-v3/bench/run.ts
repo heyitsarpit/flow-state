@@ -27,6 +27,7 @@ const Options = Schema.Struct({
   stored: Schema.Boolean,
   summary: Schema.Boolean,
   full: Schema.Boolean,
+  detail: Schema.Boolean,
   runs: Schema.optionalKey(Schema.FiniteFromString),
   warmup: Schema.optionalKey(Schema.FiniteFromString),
   workers: Schema.optionalKey(Schema.FiniteFromString),
@@ -49,6 +50,7 @@ const optionsOf = (argv: ReadonlyArray<string>) => {
       stored: { type: "boolean", default: false },
       summary: { type: "boolean", default: false },
       full: { type: "boolean", default: false },
+      detail: { type: "boolean", default: false },
       runs: { type: "string" },
       warmup: { type: "string" },
       workers: { type: "string" },
@@ -69,28 +71,78 @@ const matcherOf = (pattern: string) => {
   return new RegExp(pattern.includes("*") ? `^${escaped}$` : escaped, "u");
 };
 
+/**
+ * How a tier samples: the quick tier runs each concern's headline benches in two workers, each
+ * running every bench in one process on a short budget; the full tier runs every bench in its own
+ * fresh processes on its full budget.
+ */
+const TIERS = {
+  quick: { workers: 2, budgetMs: 300, warmMs: 500, minEffect: 0.1 },
+  full: { workers: 5, budgetMs: undefined, warmMs: undefined, minEffect: 0.05 },
+} as const;
+
+const tierOf = (options: Options) => (options.full ? ("full" as const) : ("quick" as const));
+
+const scopeOf = (options: Options) => ({
+  name: tierOf(options),
+  minEffect: TIERS[tierOf(options)].minEffect,
+});
+
+// The benches a run times: its tier's, then the concerns and pattern named; tooling only when
+// named.
 const selected = (options: Options) =>
   benches.filter(
     (b) =>
-      (options.concerns.length === 0 || options.concerns.includes(b.concern)) &&
+      (options.concerns.length === 0
+        ? b.concern !== "tooling" && (options.full || b.quick)
+        : options.concerns.includes(b.concern) &&
+          (options.full || b.quick || b.concern === "tooling")) &&
       (options.only === undefined || matcherOf(options.only).test(b.id)),
   );
 
-const workerArgs = (pkg: string, bench: Bench, options: Options) => {
-  const args = [join(pkg, "bench", "worker.ts"), bench.id];
+// The processes a run starts: in the full tier one per bench and worker; in the quick tier one per
+// worker for every bench, except benches that must start cold or collect, which keep their own.
+const batchesOf = (options: Options, chosen: ReadonlyArray<Bench>) => {
+  if (options.full)
+    return chosen.map((b) => ({ benches: [b], workers: options.workers ?? b.workers }));
 
-  if (bench.gc && !("bun" in process.versions)) args.unshift("--expose-gc");
+  const shared = chosen.filter((b) => b.warm);
+  const alone = chosen.filter((b) => !b.warm);
+
+  const batches = alone.map((b) => ({
+    benches: [b],
+    workers: options.workers ?? Math.min(b.workers, TIERS.quick.workers),
+  }));
+
+  if (shared.length > 0)
+    batches.unshift({ benches: shared, workers: options.workers ?? TIERS.quick.workers });
+
+  return batches;
+};
+
+type Batch = ReturnType<typeof batchesOf>[number];
+
+const workerArgs = (pkg: string, batch: Batch, options: Options) => {
+  const args = [join(pkg, "bench", "worker.ts"), ...batch.benches.map((b) => b.id)];
+  const tier = TIERS[tierOf(options)];
+
+  if (batch.benches.some((b) => b.gc) && !("bun" in process.versions)) args.unshift("--expose-gc");
 
   if (options.runs !== undefined) args.push("--runs", String(options.runs));
 
   if (options.warmup !== undefined) args.push("--warmup", String(options.warmup));
 
+  if (tier.budgetMs !== undefined) args.push("--budget", String(tier.budgetMs));
+
+  if (tier.warmMs !== undefined) args.push("--warm-ms", String(tier.warmMs));
+
   return args;
 };
 
-// One worker process of a bench in a package folder, its report decoded.
-const workerRun = (pkg: string, bench: Bench, options: Options) => {
-  const done = spawnSync(process.execPath, workerArgs(pkg, bench, options), {
+// One worker process of a batch in a package folder: one report per bench, a failure for any bench
+// it did not report.
+const workerRun = (pkg: string, batch: Batch, options: Options) => {
+  const done = spawnSync(process.execPath, workerArgs(pkg, batch, options), {
     cwd: pkg,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -98,18 +150,22 @@ const workerRun = (pkg: string, bench: Bench, options: Options) => {
     maxBuffer: 64 * 1024 * 1024,
   });
 
-  const last = done.stdout.trim().split("\n").at(-1) ?? "";
-  const exited = `the worker exited ${done.status ?? done.signal ?? "?"}`;
+  const reports = done.stdout
+    .trim()
+    .split("\n")
+    .flatMap((l) => Option.toArray(Schema.decodeUnknownOption(Report)(l)));
 
-  const failed: Report = {
-    _tag: "Failed",
-    problem: `${exited}: ${done.stderr.trim().split("\n").slice(-3).join(" ")}`,
-  };
+  const exited = `the worker exited ${done.status ?? done.signal ?? "?"}: ${done.stderr.trim().split("\n").slice(-3).join(" ")}`;
 
-  return Option.getOrElse(Schema.decodeUnknownOption(Report)(last), () => failed);
+  return batch.benches.map((b) =>
+    Option.getOrElse(
+      Option.fromUndefinedOr(reports.find((r) => r.id === b.id)),
+      () => ({ _tag: "Failed", id: b.id, problem: exited }) satisfies Report,
+    ),
+  );
 };
 
-// The workers' reports together: the first failure, or workers that did different work.
+// One bench's reports from its workers: the first failure, or workers that did different work.
 const gather = (reports: ReadonlyArray<Report>) => {
   const runs = reports.flatMap((r) => (r._tag === "Done" ? [r] : []));
   const work = new Set(runs.map((r) => `${countersText(r.counters)}|${countersText(r.shape)}`));
@@ -122,17 +178,22 @@ const gather = (reports: ReadonlyArray<Report>) => {
   return { runs, problem: Option.fromUndefinedOr(failed[0]) };
 };
 
-// Each worker a fresh process; with the other commit's package, its processes and ours alternate.
-const measure = (bench: Bench, options: Options, other: Option.Option<string>) => {
+// A batch's workers, each a fresh process; with the other commit's package, its processes and ours
+// alternate. Returns each bench's gathered reports, ours and theirs.
+const measure = (batch: Batch, options: Options, other: Option.Option<string>) => {
   const mine: Array<Report> = [];
   const theirs: Array<Report> = [];
 
-  for (let n = 0; n < (options.workers ?? bench.workers); n += 1) {
-    for (const pkg of Option.toArray(other)) theirs.push(workerRun(pkg, bench, options));
-    mine.push(workerRun(PACKAGE, bench, options));
+  for (let n = 0; n < batch.workers; n += 1) {
+    for (const pkg of Option.toArray(other)) theirs.push(...workerRun(pkg, batch, options));
+    mine.push(...workerRun(PACKAGE, batch, options));
   }
 
-  return { now: gather(mine), before: Option.map(other, () => gather(theirs)) };
+  return batch.benches.map((bench) => ({
+    bench,
+    now: gather(mine.filter((r) => r.id === bench.id)),
+    before: Option.map(other, () => gather(theirs.filter((r) => r.id === bench.id))),
+  }));
 };
 
 const number = (v: number) => {
@@ -156,7 +217,7 @@ const line = (result: Result, options: Options, compared: string) => {
     .map((f) => `  FAIL ${f}`)
     .join("");
 
-  const full = options.full
+  const full = options.detail
     ? `  [n ${p.count}, warm-up ${result.warmup}, batch ${result.batch}, shape ${result.fixture}, ${countersText(result.counters)}]`
     : "";
 
@@ -165,7 +226,7 @@ const line = (result: Result, options: Options, compared: string) => {
   return `${result.bench.id.padEnd(58)} ${number(result.median).padStart(9)}  ${spread}  ${tail}${compared}${budget}${fails}${full}`;
 };
 
-type Measured = ReturnType<typeof measure>;
+type Measured = ReturnType<typeof measure>[number];
 
 // How a result reads against the other commit: measured now beside it, or from its stored rows.
 const comparedText = (options: Options, measured: Measured, result: Result, env: Env) => {
@@ -173,13 +234,13 @@ const comparedText = (options: Options, measured: Measured, result: Result, env:
   const since = options.compare;
 
   return Option.match(measured.before, {
-    onNone: () => storedComparison(options.history, since, result, env),
+    onNone: () => storedComparison(options.history, since, result, env, scopeOf(options)),
     onSome: (before) => {
       if (Option.isSome(before.problem)) return "  (not at the other commit)";
       const old = resultOf(result.bench, before.runs);
 
       return old.fixture === result.fixture
-        ? changeText(old.processes, result, "interleaved")
+        ? changeText(old.processes, result, "interleaved", scopeOf(options))
         : fixtureChange(
             options.history,
             result.bench.concern,
@@ -206,7 +267,10 @@ const record = (options: Options, results: ReadonlyArray<Result>, env: Env, date
 
     if (mine.length === 0) continue;
     const samples = Object.fromEntries(mine.map((r) => [r.bench.id, r.processes]));
-    files.set(concern, writeSamples(options.history, concern, `${head.commit}-${stamp}`, samples));
+    files.set(
+      concern,
+      writeSamples(options.history, concern, `${head.commit}-${tierOf(options)}-${stamp}`, samples),
+    );
   }
 
   const rows = results.map((r) =>
@@ -217,6 +281,7 @@ const record = (options: Options, results: ReadonlyArray<Result>, env: Env, date
       date,
       samples: files.get(r.bench.concern) ?? "",
       confidence: options.backfill ? "backfill" : "recorded",
+      tier: tierOf(options),
     }),
   );
 
@@ -225,31 +290,20 @@ const record = (options: Options, results: ReadonlyArray<Result>, env: Env, date
   return rows.length;
 };
 
-// One bench: refused on a busy machine when recording, else measured, printed and compared.
-const runOne = Effect.fn("runOne")(function* (
+// One bench's outcome: failed, or measured, printed and compared.
+const reportOne = Effect.fn("reportOne")(function* (
   options: Options,
-  bench: Bench,
-  other: Option.Option<string>,
+  measured: Measured,
   env: Env,
 ) {
-  const busy = options.record ? busyReason(PACKAGE) : Option.none<string>();
-
-  if (Option.isSome(busy))
-    return {
-      result: Option.none(),
-      failures: [`${bench.id}: not recorded, ${busy.value}`],
-      refused: true,
-    };
-
-  const measured = measure(bench, options, other);
+  const { bench } = measured;
 
   if (Option.isSome(measured.now.problem)) {
     yield* Console.log(`${bench.id.padEnd(58)} FAILED ${measured.now.problem.value}`);
 
     return {
-      result: Option.none(),
+      result: Option.none<Result>(),
       failures: [`${bench.id}: ${measured.now.problem.value}`],
-      refused: false,
     };
   }
 
@@ -261,9 +315,26 @@ const runOne = Effect.fn("runOne")(function* (
   return {
     result: Option.some(result),
     failures: failuresOf(result).map((f) => `${bench.id}: ${f}`),
-    refused: false,
   };
 });
+
+// What a run measures on and against, as its first lines.
+const headerOf = (
+  options: Options,
+  env: Env,
+  head: ReturnType<typeof commitOf>,
+  interleaved: boolean,
+) => {
+  const where = `${env.runtime} ${env.version} on ${env.machine} (${env.cpu}, ${env.cores} cores, ${env.power}, load ${env.load.toFixed(2)})`;
+  const what = `${head.commit}${head.dirty ? " dirty" : ""}; ${tierOf(options)} tier`;
+
+  const stored =
+    options.compare !== undefined && !options.stored && !interleaved
+      ? `\nno worktree for ${options.compare}: comparing against its stored rows`
+      : "";
+
+  return `${where}; ${what}${stored}`;
+};
 
 const runAll = Effect.fn("runAll")(function* (options: Options, chosen: ReadonlyArray<Bench>) {
   const env = environmentOf(PACKAGE);
@@ -278,24 +349,26 @@ const runAll = Effect.fn("runAll")(function* (options: Options, chosen: Readonly
   const failures: Array<string> = [];
   const refused = { any: false };
 
-  yield* Console.log(
-    `${env.runtime} ${env.version} on ${env.machine} (${env.cpu}, ${env.cores} cores, ${env.power}, load ${env.load.toFixed(2)}); ${head.commit}${head.dirty ? " dirty" : ""}`,
-  );
+  yield* Console.log(headerOf(options, env, head, Option.isSome(other)));
 
-  if (options.compare !== undefined && !options.stored && Option.isNone(other))
-    yield* Console.log(`no worktree for ${options.compare}: comparing against its stored rows`);
+  for (const batch of batchesOf(options, chosen)) {
+    const busy = options.record ? busyReason(PACKAGE) : Option.none<string>();
 
-  for (const bench of chosen) {
-    const one = yield* runOne(
+    if (Option.isSome(busy)) {
+      failures.push(...batch.benches.map((b) => `${b.id}: not recorded, ${busy.value}`));
+      refused.any = true;
+      continue;
+    }
+
+    for (const measured of measure(
+      batch,
       options,
-      bench,
       Option.map(other, (o) => o.package),
-      env,
-    );
-
-    results.push(...Option.toArray(one.result));
-    failures.push(...one.failures);
-    refused.any ||= one.refused;
+    )) {
+      const one = yield* reportOne(options, measured, env);
+      results.push(...Option.toArray(one.result));
+      failures.push(...one.failures);
+    }
   }
 
   for (const o of Option.toArray(other)) o.remove();
@@ -341,7 +414,7 @@ const program = Effect.fn("bench")(function* (argv: ReadonlyArray<string>) {
   const run = yield* runAll(options, chosen);
 
   const lines = options.summary
-    ? summaryLines(options.history, run.results, run.env)
+    ? summaryLines(options.history, run.results, run.env, scopeOf(options))
     : seriesLines(run.results);
 
   for (const l of lines) yield* Console.log(l);
@@ -358,12 +431,14 @@ const program = Effect.fn("bench")(function* (argv: ReadonlyArray<string>) {
   return run.failures.length === 0 ? 0 : 1;
 });
 
-// `nub run bench [concern...] [--only <pattern>] [--list] [--record] [--compare <commit>
-// [--stored]] [--summary] [--full] [--runs N] [--warmup N] [--workers N]`.
+// `nub run bench [concern...] [--full] [--only <pattern>] [--list] [--record] [--compare <commit>
+// [--stored]] [--summary] [--detail] [--runs N] [--warmup N] [--workers N]`.
 //
-// Each bench runs in `--workers` fresh processes, one after another; with `--compare`, the other
-// commit's processes run in a worktree, alternating with this tree's. `--record` appends rows to
-// `history/<concern>.csv` and refuses on a busy machine (exit 2). Exit 1 names a bench that failed
-// its proof or did not run.
+// With no `--full`, the quick tier runs each concern's headline benches in two workers on a short
+// budget and counts only changes past 10%; `--full` runs every bench, each in five fresh processes
+// on its full budget, and counts changes past 5%. Tooling runs only when named. With `--compare`,
+// the other commit's processes run in a worktree, alternating with this tree's. `--record` appends
+// rows, labelled with their tier, to `history/<concern>.csv` and refuses on a busy machine (exit
+// 2). Exit 1 names a bench that failed its proof or did not run.
 // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the bench is a process entry point: it runs its one program
 process.exitCode = await Effect.runPromise(program(process.argv.slice(2)));

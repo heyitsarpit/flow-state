@@ -13,6 +13,11 @@ type Environment = ReturnType<typeof environmentOf>;
  */
 export type Confidence = "interleaved" | "stored";
 
+/**
+ * The tier a run measures in and the smallest change it counts.
+ */
+export type Tier = { readonly name: "quick" | "full"; readonly minEffect: number };
+
 const MARKS = { same: "", slower: "  SLOWER", faster: "  FASTER" } as const;
 
 /**
@@ -23,11 +28,12 @@ export const changeText = (
   before: ReadonlyArray<ReadonlyArray<number>>,
   now: Result,
   confidence: Confidence,
+  tier: Tier,
 ) => {
   const change = changeOf(before, now.processes);
   const low = confidence === "stored" ? " (stored, low confidence)" : "";
 
-  return `  x${change.ratio.toFixed(3)} [${change.low.toFixed(3)}, ${change.high.toFixed(3)}]${MARKS[verdictOf(change)]}${low}`;
+  return `  x${change.ratio.toFixed(3)} [${change.low.toFixed(3)}, ${change.high.toFixed(3)}]${MARKS[verdictOf(change, tier.minEffect)]}${low}`;
 };
 
 /**
@@ -52,7 +58,7 @@ export const fixtureChange = (
   );
 
 /**
- * A result against the last stored row of a commit on this runtime and machine, marked low
+ * A result against the last stored row of a commit on this runtime, machine and tier, marked low
  * confidence; a changed fixture is named instead of compared.
  */
 export const storedComparison = (
@@ -60,6 +66,7 @@ export const storedComparison = (
   commit: string,
   result: Result,
   env: Environment,
+  tier: Tier,
 ) => {
   const row = readRows(result.bench.concern, root)
     .filter(
@@ -67,6 +74,7 @@ export const storedComparison = (
         (r.commit.startsWith(commit) || commit.startsWith(r.commit)) &&
         r.runtime === env.runtime &&
         r.machine === env.machine &&
+        r.tier === tier.name &&
         r.bench === result.bench.id,
     )
     .at(-1);
@@ -78,7 +86,7 @@ export const storedComparison = (
 
   const before = readSamples(row.samples, root)[result.bench.id] ?? [[row.median]];
 
-  return changeText(before, result, "stored");
+  return changeText(before, result, "stored", tier);
 };
 
 /**
@@ -117,11 +125,16 @@ const againstLast = (
   results: ReadonlyArray<Result>,
   concern: Concern,
   env: Environment,
+  tier: Tier,
 ) => {
   // Backfilled rows are appended after newer commits' rows, so only rows recorded on their own tree
   // stand for "last".
   const rows = readRows(concern, root).filter(
-    (r) => r.confidence === "recorded" && r.runtime === env.runtime && r.machine === env.machine,
+    (r) =>
+      r.confidence === "recorded" &&
+      r.tier === tier.name &&
+      r.runtime === env.runtime &&
+      r.machine === env.machine,
   );
 
   return results.flatMap((r) =>
@@ -133,6 +146,7 @@ const againstLast = (
       ratio: r.median / last.median,
       verdict: verdictOf(
         changeOf(readSamples(last.samples, root)[r.bench.id] ?? [[last.median]], r.processes),
+        tier.minEffect,
       ),
       commit: last.commit,
     })),
@@ -143,12 +157,17 @@ const againstLast = (
  * One line per concern: its headline benches now against their last recorded rows, as a geometric
  * mean ratio, with how many changed beyond noise and how many are over budget.
  */
-export const summaryLines = (root: string, results: ReadonlyArray<Result>, env: Environment) =>
+export const summaryLines = (
+  root: string,
+  results: ReadonlyArray<Result>,
+  env: Environment,
+  tier: Tier,
+) =>
   CONCERNS.flatMap((concern) => {
     const mine = results.filter((r) => r.bench.concern === concern && r.bench.headline.length > 0);
 
     if (mine.length === 0) return [];
-    const compared = againstLast(root, mine, concern, env);
+    const compared = againstLast(root, mine, concern, env, tier);
 
     const geo = Math.exp(
       compared.reduce((s, c) => s + Math.log(c.ratio), 0) / Math.max(1, compared.length),
