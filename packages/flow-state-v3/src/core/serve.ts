@@ -1,5 +1,5 @@
 import { Option, Result } from "effect";
-import { type Mapping, Operation, type Values } from "./compiled.ts";
+import { callSlot, type Mapping, Operation, type Values } from "./compiled.ts";
 import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
@@ -143,15 +143,16 @@ export const makeServe = (
         return HEARD;
       },
       Refused: ({ code, slot }) => {
-        tx.act(
-          Act.Refused({
-            code,
-            actor: incarnation.actor,
-            ending: route.ending,
-            slot: Option.some(slot),
-          }),
+        publish(
+          raised(
+            incarnation,
+            tx.refuse(
+              incarnation.actor,
+              { source: route.source, code, slot: Option.some(slot) },
+              route.ending,
+            ),
+          ),
         );
-        publish(raised(incarnation, { source: route.source, code, slot: Option.some(slot) }));
 
         return REFUSED;
       },
@@ -254,7 +255,7 @@ export const makeServe = (
     const payload = Option.match(mapping.value.from, {
       onNone: () => Result.succeed<Values>({}),
       // FLOW_STATE_ALLOW_UNKNOWN: a throw from an outcome mapper refuses the turn.
-      onSome: (from) => Result.try({ try: () => from.run(ending.value), catch: () => from.slot }),
+      onSome: (from) => callSlot(from, ending.value),
     });
 
     tx.act(Act.Heard({ row: ending, event: mapping.value.event, actor: incarnation.actor }));
@@ -262,16 +263,16 @@ export const makeServe = (
     const source = IssueSource.Operation({ name: ending.operation });
 
     if (Result.isFailure(payload)) {
-      const slot = Option.some(payload.failure);
-      tx.act(
-        Act.Refused({
-          code: "InvalidTurn",
-          actor: incarnation.actor,
-          ending: Option.some(ending),
-          slot,
-        }),
+      publish(
+        raised(
+          incarnation,
+          tx.refuse(
+            incarnation.actor,
+            { source, code: "InvalidTurn", slot: Option.some(payload.failure) },
+            Option.some(ending),
+          ),
+        ),
       );
-      publish(raised(incarnation, { source, code: "InvalidTurn", slot }));
 
       return REFUSED;
     }

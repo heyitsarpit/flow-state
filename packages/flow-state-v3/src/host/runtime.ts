@@ -387,11 +387,13 @@ export const buildRuntime = (
         Effect.tapError(() => Effect.sync(() => driver.input(Input.BootFailed()))),
         // A bootstrap the disposal cancelled fails as the life says, whatever its service did.
         Effect.mapError((failed) =>
-          Verdict.$match(driver.verdict(Input.Boot({ stored })), {
-            Reject: ({ code }) => rejected(code),
-            Run: () => failed,
-            Drop: () => failed,
-          }),
+          Option.match(
+            Option.liftPredicate(driver.verdict(Input.Boot({ stored })), Verdict.$is("Reject")),
+            {
+              onSome: ({ code }) => rejected(code),
+              onNone: () => failed,
+            },
+          ),
         ),
       );
 

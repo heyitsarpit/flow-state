@@ -1,6 +1,5 @@
 import { Equal, Option, Predicate, Result } from "effect";
-import { type Compiled, publicMemory, type Values } from "./compiled.ts";
-import { Act } from "./evidence-of.ts";
+import { callSlot, type Compiled, publicMemory, type Values } from "./compiled.ts";
 import { sameValue } from "./same.ts";
 import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
 import type { Tx } from "./tx.ts";
@@ -57,16 +56,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
     if (open) return incarnation;
 
-    tx.act(
-      Act.Refused({
-        code: issue.code,
-        actor: incarnation.actor,
-        ending: Option.none(),
-        slot: issue.slot,
-      }),
-    );
-
-    return withIssue(incarnation, issue);
+    return withIssue(incarnation, tx.refuse(incarnation.actor, issue));
   };
 
   // A source that succeeds clears its own issue, never another source's.
@@ -118,10 +108,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       if (Option.isNone(provider) || Option.isNone(providing)) continue;
 
       const value = Result.flatMap(
-        Result.try({
-          try: () => declared.select.run(outsideOf(providing.value, provider.value)),
-          catch: () => declared.select.slot,
-        }),
+        callSlot(declared.select, outsideOf(providing.value, provider.value)),
         (raw) =>
           last !== undefined && Option.exists(last.raw, (r) => r === raw)
             ? Result.succeed(last)
@@ -196,10 +183,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       },
     });
 
-    const selection = Result.try({
-      try: () => reaction.select.run({ context, memory: fields }),
-      catch: () => reaction.select.slot,
-    });
+    const selection = callSlot(reaction.select, { context, memory: fields });
 
     return Result.map(selection, (value) => ({
       selection: value,
@@ -343,24 +327,17 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       const allowed = Option.match(reaction.when, {
         onNone: () => Result.succeed(true),
         onSome: (when) =>
-          Result.try({
-            try: () =>
-              when.run(
-                now.selection,
-                Option.getOrUndefined(Option.map(previous, (p) => p.selection)),
-              ),
-            catch: () => when.slot,
-          }),
+          callSlot(
+            when,
+            now.selection,
+            Option.getOrUndefined(Option.map(previous, (p) => p.selection)),
+          ),
       });
 
       const payload = Result.flatMap(allowed, (yes) =>
         Option.match(reaction.event.from, {
           onNone: () => Result.succeed(Option.some<Values>({})),
-          onSome: (from) =>
-            Result.try({
-              try: () => Option.some(from.run(now.selection)),
-              catch: () => from.slot,
-            }),
+          onSome: (from) => Result.map(callSlot(from, now.selection), Option.some),
         }).pipe(Result.map((p) => (yes ? p : Option.none<Values>()))),
       );
 

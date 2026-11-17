@@ -130,14 +130,11 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     if (Result.isFailure(created)) {
       if (created.failure.computed)
-        tx.act(
-          Act.Refused({
-            code: "Defect",
-            actor,
-            ending: Option.none(),
-            slot: Option.some(`memory.${created.failure.field}`),
-          }),
-        );
+        tx.refuse(actor, {
+          source: CREATION,
+          code: "Defect",
+          slot: Option.some(`memory.${created.failure.field}`),
+        });
 
       return;
     }
@@ -207,18 +204,9 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
         // A delay refused at creation has no turn to refuse: it is an issue of the creation, named
         // by its schedule's slot, and the rest arm.
-        const issues = arm.refused.map((slot) => {
-          tx.act(
-            Act.Refused({
-              code: "InvalidTurn",
-              actor,
-              ending: Option.none(),
-              slot: Option.some(slot),
-            }),
-          );
-
-          return { source: CREATION, code: "InvalidTurn" as const, slot: Option.some(slot) };
-        });
+        const issues = arm.refused.map((slot) =>
+          tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),
+        );
 
         return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.armed);
       },

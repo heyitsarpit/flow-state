@@ -89,9 +89,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "        publish(raised(incarnation, { source: route.source, code, slot: Option.some(slot) }));",
-        replace:
-          "        raised(incarnation, { source: route.source, code, slot: Option.some(slot) });",
+        find: "      Refused: ({ code, slot }) => {\n        publish(\n          raised(",
+        replace: "      Refused: ({ code, slot }) => {\n        void (\n          raised(",
       },
     ],
   },
@@ -256,14 +255,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: '          tx.act(\n            Act.Refused({\n              code: "InvalidTurn",',
-        replace: '          [\n            ({\n              code: "InvalidTurn",',
-      },
-      {
-        file: "src/core/incarnations.ts",
-        find: "              ending: Option.none(),\n              slot: Option.some(slot),\n            }),\n          );",
+        find: '          tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),',
         replace:
-          "              ending: Option.none(),\n              slot: Option.some(slot),\n            }),\n          ];",
+          '          ({ source: CREATION, code: "InvalidTurn" as const, slot: Option.some(slot) }),',
       },
     ],
   },
@@ -431,8 +425,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: '            code: "Defect",',
-        replace: '            code: "CallbackDefect",',
+        find: '          code: "Defect",\n          slot: Option.some(`memory.',
+        replace: '          code: "CallbackDefect",\n          slot: Option.some(`memory.',
       },
     ],
   },

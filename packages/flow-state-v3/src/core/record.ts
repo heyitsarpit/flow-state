@@ -12,6 +12,7 @@ import {
   textOf,
 } from "./record-format.ts";
 import { Channel } from "./vocabulary.ts";
+import { keyTextOf } from "./lane-moves.ts";
 import { type Owed, Route } from "./ledger.ts";
 import { type ActorId, type ActorRecord, type Lane, byCodeUnits, Phase } from "./world.ts";
 
@@ -238,7 +239,7 @@ export const decodeRecords = (
             (input) =>
               Result.map(
                 Result.fromNullishOr(
-                  Option.getOrUndefined(operation.walk.keyText(input)),
+                  Option.getOrUndefined(keyTextOf(operation, input)),
                   () => "key",
                 ),
                 () =>

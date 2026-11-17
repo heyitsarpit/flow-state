@@ -1,4 +1,4 @@
-import { Data, type Effect, type Equivalence, Option, type Schema } from "effect";
+import { Data, type Effect, type Equivalence, Option, Result, type Schema } from "effect";
 import type { Walker } from "./boundary.ts";
 
 /**
@@ -6,6 +6,16 @@ import type { Walker } from "./boundary.ts";
  * tools read the name and only the runtime calls the function.
  */
 export type Slot<F> = { readonly slot: string; readonly run: F };
+
+/**
+ * Calls a slot's closure, the one boundary a user callback crosses: what it returns, or its slot's
+ * name when it throws.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a slot's closure takes and returns the application's own values.
+export const callSlot = <A extends ReadonlyArray<unknown>, R>(
+  slot: Slot<(...args: A) => R>,
+  ...args: A
+) => Result.try({ try: () => slot.run(...args), catch: () => slot.slot });
 
 /**
  * A memory or payload value as the core holds it: a decoded record of the definition's fields.

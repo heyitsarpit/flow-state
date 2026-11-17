@@ -205,8 +205,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "            Reject: ({ code }) => rejected(code),\n            Run: () => failed,",
-        replace: "            Reject: () => failed,\n            Run: () => failed,",
+        find: "              onSome: ({ code }) => rejected(code),",
+        replace: "              onSome: () => failed,",
       },
     ],
   },

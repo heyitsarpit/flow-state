@@ -94,8 +94,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "        publish(raised(incarnation, { source: route.source, code, slot: Option.some(slot) }));",
-        replace: "        publish(incarnation);",
+        find: "        publish(\n          raised(\n            incarnation,\n            tx.refuse(\n              incarnation.actor,\n              { source: route.source, code, slot: Option.some(slot) },\n              route.ending,\n            ),\n          ),\n        );",
+        replace:
+          "        tx.refuse(incarnation.actor, { source: route.source, code, slot: Option.some(slot) }, route.ending);\n        publish(incarnation);",
       },
     ],
   },
@@ -120,9 +121,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: '          return { source: CREATION, code: "InvalidTurn" as const, slot: Option.some(slot) };',
+        find: '          tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),',
         replace:
-          '          return { source: CREATION, code: "InvalidTurn" as const, slot: Option.none() };',
+          '          tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.none() }),',
       },
     ],
   },

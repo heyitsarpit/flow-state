@@ -4,13 +4,14 @@ import { defect } from "./defect.ts";
 import type { OwedId } from "./ledger.ts";
 import type { Evidence } from "./evidence.ts";
 import { LOCAL_PREFIX } from "./identity.ts";
-import { type Act, evidenceOf } from "./evidence-of.ts";
+import { Act, evidenceOf } from "./evidence-of.ts";
 import {
   type ActorId,
   actorKey,
   type CallId,
   Command,
   type Incarnation,
+  type Issue,
   type Lane,
   Mail,
   type Out,
@@ -470,6 +471,18 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       world.persistence = false;
     },
     act: (a: Act) => void evidence.push(...evidenceOf(a)),
+    // A refusal: its report, and the issue it raises, which the caller keeps on its incarnation.
+    refuse: (
+      actor: ActorId,
+      issue: Issue,
+      ending: Parameters<typeof Act.Refused>[0]["ending"] = Option.none(),
+    ) => {
+      evidence.push(
+        ...evidenceOf(Act.Refused({ code: issue.code, actor, ending, slot: issue.slot })),
+      );
+
+      return issue;
+    },
     evidenceCount: () => evidence.length,
     insertAct: (at: number, a: Act) => void evidence.splice(at, 0, ...evidenceOf(a)),
     command: (c: Command) => void commands.push(c),
