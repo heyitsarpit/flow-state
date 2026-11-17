@@ -1,4 +1,4 @@
-import { Effect, Option, Predicate } from "effect";
+import { Effect } from "effect";
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
 import { mainNests, nestView, workspaceGrownSetup } from "../../fixtures/session/app.ts";
@@ -6,82 +6,21 @@ import { type Folder, foldersOf, Nests } from "../../fixtures/session/machines/n
 import {
   DEEP,
   deepAndWideNests,
-  foldersPastStack,
   importAt,
   importPastStack,
-  kindsPastStack,
-  listsPastStack,
-  mapsPastStack,
-  nestAt,
   PAST_STACK,
-  treePastStack,
 } from "../../fixtures/session/stories/values.ts";
-import type { StoryRun } from "../../src/host/testing/index.ts";
 import { render } from "../../src/host/trace.ts";
 import { FlowError } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
+import { DEEP_TIMEOUT, depthOf, kindValueTests, unencodable, VIEW } from "./deep-cases.ts";
 
-// A run of a hundred thousand levels takes seconds: each step walks the nest a few times.
-const DEEP_TIMEOUT = 120_000;
-
-const NESTS = "actor/Workspace/Nests/main";
-const VIEW = "actor/Workspace/NestView/view";
-
-const unencodable = (run: StoryRun) =>
-  run.evidence.flatMap((e) =>
-    e._tag === "Reported" && e.code === "UnencodableValue"
-      ? [Option.getOrElse(e.record, () => "-")]
-      : [],
-  );
-
-// FLOW_STATE_ALLOW_UNKNOWN: a node of a restored nest.
-// RETURN_TYPE: every branch is a list of nodes, an array's own items among them.
-const childrenOf = (node: unknown): ReadonlyArray<unknown> => {
-  if (Array.isArray(node)) return node;
-
-  if (node instanceof Map) return [...node.values()];
-
-  return Predicate.isObject(node) ? Object.values(node) : [];
-};
-
-// FLOW_STATE_ALLOW_UNKNOWN: a restored nest, measured without the call stack: its deepest node.
-const depthOf = (root: unknown) => {
-  let deepest = 0;
-  // FLOW_STATE_ALLOW_UNKNOWN: a node of the nest being measured.
-  const stack: Array<readonly [unknown, number]> = [[root, 0]];
-
-  for (let at = stack.pop(); at !== undefined; at = stack.pop()) {
-    deepest = Math.max(deepest, at[1]);
-
-    for (const child of childrenOf(at[0])) stack.push([child, at[1] + 1]);
-  }
-
-  return deepest;
-};
-
-// The view's counter each nest kind is heard on, and the nest's memory field.
-const kinds = [
-  ["Lists", "lists", "lists"],
-  ["Folders", "folders", "folders"],
-  ["Maps", "maps", "index"],
-  ["Tree", "trees", "tree"],
-  ["Kinds", "kinds", "node"],
-] as const;
-
-const swept = {
-  Lists: listsPastStack,
-  Folders: foldersPastStack,
-  Maps: mapsPastStack,
-  Kinds: kindsPastStack,
-  Tree: treePastStack,
-};
-
+// A folder tree `depth` deep whose innermost kid is a number: a payload its Schema refuses.
 const loose = (value: unknown) =>
   // SAFETY: the refused payload is one the types reject; the send must refuse it at run time too.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller a send guards against
   value as never;
 
-// A folder tree `depth` deep whose innermost kid is a number: a payload its Schema refuses.
 const brokenFolder = (depth: number) => {
   let tree: unknown = { kids: [7] };
 
@@ -91,37 +30,15 @@ const brokenFolder = (depth: number) => {
 };
 
 describe("values of any depth (Codec R1, R4, R6; Actors R18, R19)", () => {
-  for (const [kind, heardOn, field] of kinds)
-    for (const [depth, story] of [
-      [PAST_STACK, () => swept[kind]],
-      [DEEP, () => nestAt(kind, DEEP, `session/${kind.toLowerCase()}-deep`)],
-    ] as const)
-      it(
-        `Codec R1, Actors R19: ${kind} ${depth.toLocaleString("en")} deep save, restore and are heard once; the title alone, an equal rebuild and a reload make up no event`,
-        async () => {
-          const run = checked(await story().run());
-
-          const heard = (cut: keyof typeof run.checkpoints) =>
-            run.checkpoints[cut].read(nestView)?.memory[heardOn];
-
-          expect([
-            heard("deep"),
-            heard("titled"),
-            heard("deeper"),
-            heard("again"),
-            heard("reloaded"),
-            heard("back"),
-          ]).toEqual([1, 1, 2, 2, 2, 3]);
-          expect(run.checkpoints.deep.records.stored.get(NESTS)).toBeDefined();
-          expect(depthOf(run.checkpoints.reloaded.read(mainNests)?.memory[field])).toBeGreaterThan(
-            depth - 1,
-          );
-          expect(run.checkpoints.reloaded.read(mainNests)?.memory["title"]).toBe("renamed");
-          expect(unencodable(run)).toEqual([]);
-          expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
-        },
-        DEEP_TIMEOUT,
-      );
+  kindValueTests([
+    ["Lists", "past"],
+    ["Folders", "past"],
+    ["Maps", "past"],
+    ["Tree", "past"],
+    ["Kinds", "past"],
+    ["Lists", "deep"],
+    ["Folders", "deep"],
+  ]);
 
   for (const [depth, story] of [
     [PAST_STACK, () => importPastStack],

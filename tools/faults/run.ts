@@ -217,7 +217,7 @@ const plantAll = async () => {
 
     console.log(`unchanged: ${passed ? "pass" : "FAIL"} (${result.kind === "ran" ? (summaryOf(result.out) ?? "no test summary") : result.why})`);
 
-    if (!passed && result.kind === "ran") console.log(result.out.slice(-2000));
+    if (!passed && result.kind === "ran") for (const test of failedTestsOf(result.out)) console.log(`  ${test}`);
 
     await worker(controlRoot);
 

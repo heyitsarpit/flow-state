@@ -59,7 +59,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "boot-wakes-in-flight-only-swept",
-    tests: ["tests/rules/sweep-unattached.test.ts"],
+    tests: [0, 1, 2, 3, 4, 5, 6, 7].map((n) => `tests/rules/sweep-${n}.test.ts`),
     says: "the same fault as boot-wakes-in-flight-only, shown to the reload sweep: a reload over a Held head with a queued commit leaves its identity asleep",
     rule: "Restore I1",
     edits: [

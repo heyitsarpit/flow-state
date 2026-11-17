@@ -1,8 +1,6 @@
 import { describe, it } from "vite-plus/test";
 import { checked } from "./rules.ts";
-import { slices, sweep, swept } from "./sweep.ts";
-
-const SWEEP_MS = 120_000;
+import { slices } from "./sweep.ts";
 
 describe("run rules", () => {
   it("every fixture Story but the stress ones keeps every rule", async () => {
@@ -11,14 +9,4 @@ describe("run rules", () => {
       checked(await story.run());
     }
   });
-});
-
-describe("the reload sweep", () => {
-  it(
-    "a reload at every step of every fixture Story but the stress ones breaks no rule",
-    async () => {
-      swept(await sweep(slices.rest, true));
-    },
-    SWEEP_MS,
-  );
 });

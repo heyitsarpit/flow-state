@@ -341,11 +341,17 @@ export const publishedOnce: Rule = {
   ],
 };
 
-const opensOf = (run: StoryRun) =>
-  run.steps.reduce<ReadonlyArray<number>>(
-    (opens, step) => [...opens, (opens.at(-1) ?? 1) + (step._tag === "reload" ? 1 : 0)],
-    [],
-  );
+const opensOf = (run: StoryRun) => {
+  const opens: Array<number> = [];
+  let open = 1;
+
+  for (const step of run.steps) {
+    if (step._tag === "reload") open += 1;
+    opens.push(open);
+  }
+
+  return opens;
+};
 
 /**
  * Actors I30, over what the fake servers received: after the Runtime's disposal starts, no commit
@@ -452,6 +458,8 @@ export const owingRestoredLive: Rule = {
     ),
 };
 
+const isJsonValue = Schema.is(Schema.Json);
+
 // A value that is neither JSON nor a plain object or array: a Schema's own value kind.
 // FLOW_STATE_ALLOW_UNKNOWN: a published memory field.
 const isApplicationValue = (v: unknown) => {
@@ -475,7 +483,7 @@ export const publishedPlainData: Rule = {
     run.evidence.flatMap((e) =>
       e._tag === "Published" &&
       !Object.values(e.memory).every(
-        (v) => Schema.is(Schema.Json)(v) || v === undefined || isApplicationValue(v),
+        (v) => isJsonValue(v) || v === undefined || isApplicationValue(v),
       )
         ? [`Turn R24: ${e.actor.machine}/${e.actor.name} published memory that is not plain data`]
         : [],

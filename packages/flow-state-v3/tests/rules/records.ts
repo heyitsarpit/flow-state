@@ -128,31 +128,67 @@ const HasMayHaveApplied = Schema.Struct({ mayHaveApplied: Schema.Json });
 const kindOf = (key: string) =>
   (["actor/", "lane/", "owed/"] as const).find((k) => key.startsWith(k));
 
+type Flaw = "not JSON" | "not canonical text" | "does not decode" | "has mayHaveApplied";
+
+const FLAW_TEXT: Record<Flaw, string> = {
+  "not JSON": "is not JSON",
+  "not canonical text": "is not canonical text",
+  "does not decode": "does not decode by its kind's Schema with its format",
+  "has mayHaveApplied": "has a mayHaveApplied field",
+};
+
+const IS_KIND = {
+  "actor/": Schema.is(KINDS["actor/"]),
+  "lane/": Schema.is(KINDS["lane/"]),
+  "owed/": Schema.is(KINDS["owed/"]),
+} as const;
+
+const isMayHaveApplied = Schema.is(HasMayHaveApplied);
+
+// RETURN_TYPE: the flaws a judgement lists, so the not-JSON branch is typed as a Flaw list.
+const flawsOf = (kind: keyof typeof KINDS, text: string) =>
+  Option.match(Schema.decodeUnknownOption(JsonText)(text), {
+    onNone: () => ["not JSON" as const],
+    onSome: (json) => {
+      const found: Array<Flaw> = [];
+
+      if (canonicalText(json) !== text) found.push("not canonical text");
+
+      if (!IS_KIND[kind](json)) found.push("does not decode");
+
+      if (kind === "lane/" && isMayHaveApplied(json)) found.push("has mayHaveApplied");
+
+      return found;
+    },
+  });
+
+const flawsByText = (() => {
+  const byKey = new Map<string, Map<string, ReadonlyArray<Flaw>>>();
+
+  return (key: string, kind: keyof typeof KINDS, text: string) => {
+    const byText = byKey.get(key) ?? new Map<string, ReadonlyArray<Flaw>>();
+    byKey.set(key, byText);
+
+    const known = byText.get(text);
+
+    if (known !== undefined) return known;
+
+    const flaws = flawsOf(kind, text);
+    byText.set(text, flaws);
+
+    return flaws;
+  };
+})();
+
 const breachOf = (key: string, text: string, at: string) => {
   const kind = kindOf(key);
 
   if (kind === undefined)
     return [`Codec I7: at ${at}, ${key} is not an actor, lane or owed record`];
 
-  return Option.match(Schema.decodeUnknownOption(JsonText)(text), {
-    onNone: () => [`Codec I7: at ${at}, ${key} is not JSON`],
-    onSome: (json) => {
-      const canonical = canonicalText(json);
-      const found: Array<string> = [];
+  const flaws = flawsByText(key, kind, text);
 
-      if (canonical !== text) found.push(`Codec I7: at ${at}, ${key} is not canonical text`);
-
-      if (!Schema.is(KINDS[kind])(json))
-        found.push(
-          `Codec I7: at ${at}, ${key} does not decode by its kind's Schema with its format`,
-        );
-
-      if (kind === "lane/" && Schema.is(HasMayHaveApplied)(json))
-        found.push(`Codec I7: at ${at}, ${key} has a mayHaveApplied field`);
-
-      return found;
-    },
-  });
+  return flaws.map((flaw) => `Codec I7: at ${at}, ${key} ${FLAW_TEXT[flaw]}`);
 };
 
 // Records a Story wrote into the store itself, by key and text: the Runtime did not write them.

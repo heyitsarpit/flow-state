@@ -1,9 +1,7 @@
-import { spawn, spawnSync } from "node:child_process";
-import { once } from "node:events";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { benches } from "../../bench/benches/index.ts";
@@ -12,17 +10,7 @@ import { measure, TimedOut } from "../../bench/sample.ts";
 import { optionsOf } from "../../bench/options.ts";
 import { selectBenches } from "../../bench/select.ts";
 import { batchesOf, workerArgs } from "../../bench/workers.ts";
-
-const runner = fileURLToPath(new URL("../../bench/run.ts", import.meta.url));
-const planted = fileURLToPath(new URL("./planted.ts", import.meta.url));
-
-// The processes still running whose command line holds a marker.
-const alive = (marker: string) =>
-  spawnSync("pgrep", ["-f", `sleep ${marker.replaceAll(".", "\\.")}`], { encoding: "utf8" })
-    .stdout.split("\n")
-    .filter((l) => l.trim() !== "");
-
-const pause = (seconds: number) => spawnSync("sleep", [String(seconds)]);
+import { planted, runner } from "./limits-support.ts";
 
 // An operation that holds the thread for `ms`, as a slow bench's run does.
 const busy = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -105,59 +93,6 @@ describe("bench limits", () => {
       smallest.size,
     );
   });
-
-  it("a hang and a spinner sharing a worker with healthy benches each time out at their own deadline", () => {
-    const done = spawnSync(
-      process.execPath,
-      [runner, "--benches", planted, "--dev", "--only", "turn.planted.*", "--max-time", "60"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
-    );
-
-    const out = `${done.stdout}${done.stderr}`;
-
-    expect(done.status).toBe(1);
-    expect(out.includes("turn.planted.hang.per-turn-ms: timed-out")).toBe(true);
-    expect(out.includes("turn.planted.spin.per-turn-ms: timed-out")).toBe(true);
-    expect(out.includes("turn.planted.tree.per-turn-ms: timed-out")).toBe(true);
-    expect(/^turn\.planted\.last\.per-turn-ms\s+\d/mu.test(done.stdout)).toBe(true);
-    expect(out.includes("not run")).toBe(false);
-    expect(alive("3971.37")).toEqual([]);
-    expect(alive("3972.37")).toEqual([]);
-  }, 60_000);
-
-  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGKILL"] as const)
-    it(`${signal} to the run alone kills every worker and everything they started`, async () => {
-      const run = spawn(
-        process.execPath,
-        [runner, "--benches", planted, "--dev", "--only", "turn.held.signal", "--max-time", "60"],
-        { stdio: "ignore" },
-      );
-
-      for (let n = 0; n < 50 && alive("3973.37").length === 0; n += 1) pause(0.2);
-
-      expect(alive("3973.37").length > 0).toBe(true);
-      run.kill(signal);
-      await once(run, "exit");
-
-      for (let n = 0; n < 15 && alive("3973.37").length > 0; n += 1) pause(0.2);
-
-      expect(alive("3973.37")).toEqual([]);
-      expect(
-        spawnSync("pgrep", ["-f", "turn\\.held\\.signal"], { encoding: "utf8" }).stdout.trim(),
-      ).toBe("");
-    }, 60_000);
-
-  it("the run's cap kills a bench's whole tree of children", () => {
-    const done = spawnSync(
-      process.execPath,
-      [runner, "--benches", planted, "--dev", "--only", "turn.planted.tree", "--max-time", "1"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
-    );
-
-    expect(done.status).toBe(3);
-    pause(0.5);
-    expect(alive("3972.37")).toEqual([]);
-  }, 60_000);
 
   for (const flag of [
     ["--record", "--history", "history"],

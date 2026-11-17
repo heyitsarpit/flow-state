@@ -1,4 +1,4 @@
-import { expect } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
 import { manifests } from "../../fixtures/index.ts";
 import {
   Step,
@@ -164,4 +164,72 @@ export const swept = (result: Awaited<ReturnType<typeof sweep>>) => {
 export const slices = {
   stress: fixtureStories.filter((s) => s.id.includes("stress")),
   rest: fixtureStories.filter((s) => !s.id.includes("stress")),
+};
+
+/**
+ * The items shard `shard` of `of` covers, so the shards take about the same work: the costliest
+ * item first, each given to the shard with the least cost so far. Every item lands in exactly one
+ * shard, and the choice is deterministic.
+ */
+export const shardOf = <T>(
+  items: ReadonlyArray<T>,
+  cost: (item: T) => number,
+  shard: number,
+  of: number,
+) => {
+  const load = Array.from({ length: of }, () => 0);
+  const sized = items.map((item) => ({ item, cost: cost(item), owner: 0 }));
+
+  for (const entry of sized.toSorted((a, b) => b.cost - a.cost)) {
+    const least = load.indexOf(Math.min(...load));
+
+    entry.owner = least;
+    load[least] = (load[least] ?? 0) + entry.cost;
+  }
+
+  return sized.filter((entry) => entry.owner === shard).map((entry) => entry.item);
+};
+
+/** A Story's sweep cost: a run's work grows with its steps, and a sweep runs one at every position. */
+export const sweepCost = (story: Story<string>) => (story.steps.length + 1) ** 2;
+
+/** The three reload sweeps: a reload that restores held writes, lands them, or attaches nothing. */
+export type SweepMode = "abort" | "land" | "unattached";
+
+/**
+ * One shard of the reload sweeps: the Stories the shard covers, each swept under all three reload
+ * modes. Across the shards every Story runs at every position once per mode.
+ */
+export const sweepShard = (
+  scope: "rest" | "stress",
+  shard: number,
+  of: number,
+  ms: number,
+  modes: ReadonlyArray<SweepMode> = ["abort", "land", "unattached"],
+) => {
+  const mine = shardOf(scope === "rest" ? slices.rest : slices.stress, sweepCost, shard, of);
+
+  const stories =
+    scope === "rest" ? "every fixture Story but the stress ones" : "every stress Story";
+
+  const titles: Record<SweepMode, string> = {
+    abort: `a reload at every step of ${stories} breaks no rule`,
+    land: `a reload that lands every held write unheard, at every step of ${stories}, breaks no rule`,
+    unattached: `a reload that attaches nothing, at every step of ${stories}, breaks no rule`,
+  };
+
+  const runs: Record<SweepMode, () => ReturnType<typeof sweep>> = {
+    abort: () => sweep(mine, true),
+    land: () => sweep(mine, true, "land"),
+    unattached: () => sweep(mine, false),
+  };
+
+  for (const mode of modes)
+    it(
+      titles[mode],
+      async () => {
+        swept(await runs[mode]());
+      },
+      ms,
+    );
 };

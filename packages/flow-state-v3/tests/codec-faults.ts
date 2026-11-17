@@ -61,7 +61,12 @@ export const codecFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "walker-on-call-stack",
-    tests: ["tests/session/deep.test.ts"],
+    tests: [
+      "tests/session/deep.test.ts",
+      "tests/session/deep-tree.test.ts",
+      "tests/session/deep-maps.test.ts",
+      "tests/session/deep-kinds.test.ts",
+    ],
     says: "the walkers follow every Schema.suspend on the call stack, so a folder tree 100,000 deep has no form and is never heard or saved",
     rule: "Codec R6",
     edits: [
@@ -74,7 +79,12 @@ export const codecFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "structure-compared-shallow",
-    tests: ["tests/session/deep.test.ts"],
+    tests: [
+      "tests/session/deep.test.ts",
+      "tests/session/deep-tree.test.ts",
+      "tests/session/deep-maps.test.ts",
+      "tests/session/deep-kinds.test.ts",
+    ],
     says: "the structural comparator holds two arrays of one length equal without their items, so a deeper nest is never heard",
     rule: "Actors R19",
     edits: [
@@ -87,7 +97,13 @@ export const codecFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "selection-kept-by-default",
-    tests: ["tests/session/deep.test.ts", "tests/session/values.test.ts"],
+    tests: [
+      "tests/session/deep.test.ts",
+      "tests/session/deep-tree.test.ts",
+      "tests/session/deep-maps.test.ts",
+      "tests/session/deep-kinds.test.ts",
+      "tests/session/values.test.ts",
+    ],
     says: "a slot keeps its last selection whatever its selector returns, so no change is heard",
     rule: "Actors R19",
     edits: [
@@ -113,7 +129,13 @@ export const codecFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "instances-compared-as-equal",
-    tests: ["tests/session/deep.test.ts", "src/core/same.test.ts"],
+    tests: [
+      "tests/session/deep.test.ts",
+      "tests/session/deep-tree.test.ts",
+      "tests/session/deep-maps.test.ts",
+      "tests/session/deep-kinds.test.ts",
+      "src/core/same.test.ts",
+    ],
     says: "the comparator holds every class instance (an Option, a Schema.Class) equal, so a changed Option selection is never heard",
     rule: "Codec R6",
     edits: [

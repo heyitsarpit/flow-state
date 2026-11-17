@@ -96,8 +96,15 @@ const unlabelled = (attempt: string, at: number): Ending => ({
 });
 
 // The turn a delivery started was refused: the first turn outcome after it is a refusal.
-const refusedAfter = (evidence: ReadonlyArray<Evidence>, at: number) =>
-  Option.exists(Option.fromUndefinedOr(evidence.slice(at + 1).find(isOutcome)), isRefusal);
+const refusedAfter = (evidence: ReadonlyArray<Evidence>, at: number) => {
+  for (let i = at + 1; i < evidence.length; i += 1) {
+    const e = evidence[i];
+
+    if (e !== undefined && isOutcome(e)) return isRefusal(e);
+  }
+
+  return false;
+};
 
 const rowsOf = (ledger: Ledger, attempt: string) => {
   const known = ledger.rows.get(attempt);
@@ -257,9 +264,18 @@ export const deliveries = (evidence: ReadonlyArray<Evidence>) => {
  * What follows an outcome until the next turn starts: the records of its turn.
  */
 export const turnRecords = (evidence: ReadonlyArray<Evidence>, from: number) => {
-  const end = evidence.findIndex((e, i) => i > from && isTurnStart(e));
+  let end = evidence.length;
 
-  return evidence.slice(from + 1, end < 0 ? evidence.length : end);
+  for (let i = from + 1; i < evidence.length; i += 1) {
+    const e = evidence[i];
+
+    if (e !== undefined && isTurnStart(e)) {
+      end = i;
+      break;
+    }
+  }
+
+  return evidence.slice(from + 1, end);
 };
 
 /**

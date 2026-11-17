@@ -19,9 +19,10 @@ const stressMaterial = [
   /import \{[^}]*\bstress\b[^}]*\} from "[^"]*fixtures\//u,
   /import \{[^}]*\bstress[A-Z]\w*\b[^}]*\} from "[^"]*fixtures\//u,
   /\bslices\.stress\b/u,
+  /\bsweepShard\("stress"/u,
   /\bseededStress\b/u,
   /\bsavedStress\b/u,
-  /\bseededRuns\("stress"\)/u,
+  /\bseededRuns\("stress"/u,
   /\bseeds\("stress"\)/u,
 ];
 

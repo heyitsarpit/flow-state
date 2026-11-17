@@ -1,6 +1,6 @@
 import { describe } from "vite-plus/test";
-import { seededRuns } from "./seeded.ts";
+import { seededRuns, whole } from "./seeded.ts";
 
 describe("generated Stories", () => {
-  seededRuns("stress");
+  seededRuns("stress", { ...whole, fixtures: (id) => id !== "palette", fixtureShard: [0, 2] });
 });
