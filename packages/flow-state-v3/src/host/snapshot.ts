@@ -89,7 +89,7 @@ export const snapshotIn = (
       memory: live.memory,
       operations,
       lifecycle: actorLifecycleOf(world.life),
-      context: Object.fromEntries(live.context),
+      context: Object.fromEntries([...live.context].map(([slot, s]) => [slot, s.value])),
       issues: live.issues.map((issue) => issueOf(actor, issue)),
       schedules: keyed(
         [...live.schedules].map(([name, armed]) => ({ key: name, dueAt: armed.dueAt })),

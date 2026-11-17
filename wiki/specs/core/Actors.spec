@@ -67,7 +67,9 @@ requirements
                 without input; a machine with no input is a singleton named by a literal string that does
                 not start with `~`, the prefix of local actors.
                 Two refs of one identity with different context reject with ConflictingActorRef and
-                change nothing. A local actor is (machine, input by Equal.equals).
+                change nothing, wherever the ref sits: an ensure whose provider graph names a live
+                identity with other context is refused the same way. A local actor is (machine,
+                input by Equal.equals).
 
     R6  ensureActor and createActor
         source  @plan.Runtime.O3.
@@ -115,10 +117,9 @@ requirements
                 across a reload; a reload of a consistent saved world differs in nothing), then the
                 event that restored it. Its starting turn publishes once, with its providers'
                 current selections; the wave re-runs only its reactions against the saved values,
-                and publishes only a changed slot or issue. A slot whose last-seen value could not
-                be saved (a value other than JSON, `undefined`, an Option, or arrays and plain
-                objects of them), or whose selector never gave one, is unknown and owes the wave:
-                each reaction that reads it runs once.
+                and publishes only a changed slot or issue. A slot never selected before differs
+                from any selection. Each reaction's baseline is read again from the inputs it was
+                last read from (R18), so it is the one it had, a baseline a defect kept included.
 
                 A non-persisted identity starts fresh. An ensure over an undecodable record starts
                 fresh, reports RecordUndecodable (proposed name) and adopts the identity's lanes. A
@@ -243,16 +244,20 @@ requirements
 
     R18  Context binding
         source  @plan.Runtime.O5.
-        must    Provider.select reads one complete provider snapshot. A slot binds to one provider
-                for the consumer's lifetime; a bound consumer is a use of its provider, and a provider it
-                starts binds the overrides its own ref gave. A cycle
+        must    Provider.select(schema, selector) reads one complete provider snapshot (the Schema is
+                proposed, @plan.Pending.D20). Each selection passes once through the Schema's JSON
+                form, a -0 written as 0; the value read back is what the consumer reads, compares and
+                saves, live and after a reload alike. A selection the Schema refuses, or whose
+                encoding never ends, is its selector's defect (R19). A slot binds to one provider
+                for the consumer's lifetime; a bound consumer is a use of its provider, and a provider
+                it starts binds the overrides its own ref gave, again at a return or a reload. A cycle
                 (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one
-                rejects at admission. A record saves each bound slot's last-seen value apart,
-                `undefined` and Options included; one that cannot encode is saved unknown and never
-                withholds the record. Baselines are silent
-                at admission, adoption, hydration and a reload restore, a slot saved unknown aside; `keys` and `paused` 
-                are re-evaluated silently at the same points
-                and on a return;
+                rejects at admission. A record saves each bound slot's last-seen selection (none for
+                one never selected), each reaction's baseline inputs (the slots and memory fields its
+                select read) and the bindings of every provider up its graph; they count toward the
+                record's bounds as memory does. Baselines are silent at admission, adoption,
+                hydration and a reload restore; `keys` and `paused` are re-evaluated silently at the
+                same points and on a return;
                 a return restored from the Runtime's copy gets R9's one wave when a
                 provider's selection changed meanwhile. Decision (agent, 2026-11-11): audit C13.
                 Why: a reload restores a consistent saved world, while a return may have missed
@@ -262,7 +267,8 @@ requirements
         source  @plan.Runtime.O5.
         must    When a provider changes, each affected consumer receives at most one update per
                 wave, from the latest complete provider snapshots, never mixing new and stale values
-                of one cause (diamonds included). Equal slots cause no update.
+                of one cause (diamonds included). Equal slots cause no update: slots compare by
+                Equal.equals over the values their Schema reads back (R18).
 
                 A context update keeps its FIFO place. A throwing consumer selector keeps the last
                 valid context, publishes one issue and retries only on a newer provider snapshot.

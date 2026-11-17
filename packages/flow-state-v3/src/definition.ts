@@ -288,12 +288,15 @@ export type ProviderSnapshot<State = string, Memory = Values> = {
 };
 
 /**
- * A context slot: a value selected from one complete snapshot of another definition's actor
- * (`Provider.select(selector)`). The machine entry or the ref wires which actor provides it.
+ * A context slot: a value of its Schema, selected from one complete snapshot of another
+ * definition's actor (`Provider.select(schema, selector)`). The machine entry or the ref wires
+ * which actor provides it.
  */
 export type ContextSlot<V = unknown> = {
   readonly "~flow": "context";
   readonly provider: string;
+  // FLOW_STATE_ALLOW_UNKNOWN: the encoded side of a slot's Schema is the Schema's own.
+  readonly schema: Schema.Codec<V, unknown>;
   readonly select: (snapshot: ProviderSnapshot<never, never>) => V;
 };
 
@@ -344,8 +347,14 @@ export type RootToken = {
  * envelopes, `State` its leaf paths, `Input` what a creator supplies, `Memory` the whole memory and
  * `Snapshot` an outside snapshot's state and memory, without the `Flow.private` fields.
  *
- * `Provider.select(selector)` makes a context slot another definition declares: it selects a value
- * from one complete outside snapshot of the actor that provides it.
+ * `Provider.select(schema, selector)` makes a context slot another definition declares: it selects
+ * a value of `schema` from one complete outside snapshot of the actor that provides it. A selection
+ * passes through the Schema's JSON form once, so a consumer reads, saves and compares the same
+ * value live and after a reload; a selection the Schema cannot encode is the selector's defect.
+ *
+ * ```ts
+ * context: { user: Session.Provider.select(Schema.UndefinedOr(Schema.String), (s) => s.memory.user) }
+ * ```
  */
 export type Definition<
   States extends StateTree = StateTree,
@@ -364,8 +373,9 @@ export type Definition<
   readonly context: Cx;
   readonly operations: O;
   readonly Provider: {
-    readonly select: <V>(
-      selector: (snapshot: ProviderSnapshot<LeavesOf<States>, OutsideOf<M>>) => V,
+    readonly select: <V, I>(
+      schema: Schema.Codec<V, I>,
+      selector: (snapshot: ProviderSnapshot<LeavesOf<States>, OutsideOf<M>>) => NoInfer<V>,
     ) => ContextSlot<V>;
   };
   readonly S: StateTokens<States> & { readonly root: RootToken };
@@ -574,7 +584,12 @@ export const definition = <
     context,
     operations,
     Provider: {
-      select: (selector) => ({ "~flow": "context", provider: config.id, select: selector }),
+      select: (schema, selector) => ({
+        "~flow": "context",
+        provider: config.id,
+        schema: trusted(schema),
+        select: selector,
+      }),
     },
     S: trusted(tokenTree(tree.nodes, tree.top)),
     E: tokensOf({ ...config.events, ...internal }),

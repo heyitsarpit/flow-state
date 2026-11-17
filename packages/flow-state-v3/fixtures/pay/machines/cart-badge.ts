@@ -13,7 +13,7 @@ export const CartBadge = definition({
   events: {},
   internalEvents: { CountChanged: { count: Schema.Number } },
   memory: { bumps: Flow.initial(Schema.Number, 0) },
-  context: { cart: Cart.Provider.select((c) => itemsIn(c.memory.lines)) },
+  context: { cart: Cart.Provider.select(Schema.Number, (c) => itemsIn(c.memory.lines)) },
 });
 
 /**

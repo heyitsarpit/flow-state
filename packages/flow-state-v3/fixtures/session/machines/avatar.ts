@@ -14,7 +14,7 @@ export const Avatar = definition({
   internalEvents: { Seen: {} },
   memory: { seen: Flow.initial(Schema.Number, 0) },
   context: {
-    user: SessionMachine.definition.Provider.select((s) =>
+    user: SessionMachine.definition.Provider.select(Schema.UndefinedOr(Schema.String), (s) =>
       s.memory.user === "" ? undefined : s.memory.user,
     ),
   },

@@ -1,9 +1,9 @@
 import { Option, Result } from "effect";
 import { Act } from "./evidence-of.ts";
 import { Audience, Delivery, type Owed, rowsOf } from "./ledger.ts";
+import { encodeActor } from "./actor-record.ts";
 import {
   actorRecordKey,
-  encodeActor,
   encodeLane,
   encodeOwed,
   laneRecordKey,
@@ -90,8 +90,33 @@ export const makePersistence = (tx: Tx) => {
 
     return encoded(
       key,
-      compiled === undefined ? Result.fail("machine") : encodeActor(compiled, incarnation),
+      compiled === undefined
+        ? Result.fail("machine")
+        : encodeActor(compiled, recordOf(incarnation)),
     );
+  };
+
+  // The bindings of every provider up a consumer's graph: a provider started for it again, saved or
+  // not, binds as it did, even when it has no record of its own yet.
+  const graphOf = (incarnation: Incarnation) => {
+    const graph = new Map<string, ReadonlyMap<string, ActorId>>();
+
+    // RETURN_TYPE: recursive: a provider's own providers are read on the way up.
+    const walk = (consumer: Incarnation): void => {
+      for (const provider of consumer.bound.values()) {
+        const key = actorKey(provider);
+        const live = incarnationOf(provider);
+
+        if (live !== undefined && !graph.has(key)) {
+          graph.set(key, live.bound);
+          walk(live);
+        }
+      }
+    };
+
+    walk(incarnation);
+
+    return graph;
   };
 
   // RETURN_TYPE: the Runtime's copy of a record, whose schedule list stays the record's shape.
@@ -105,7 +130,13 @@ export const makePersistence = (tx: Tx) => {
       send: a.send,
     })),
     context: incarnation.bound,
-    seen: lastSeenOf(incarnation),
+    seen: new Map(
+      [...lastSeenOf(incarnation)].flatMap(([slot, s]) =>
+        Option.toArray(Option.map(s, (v) => [slot, v] as const)),
+      ),
+    ),
+    frames: incarnation.baselines.map((b) => Option.map(b, (x) => x.frame)),
+    graph: graphOf(incarnation),
   });
 
   /**

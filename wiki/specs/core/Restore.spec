@@ -39,10 +39,12 @@ requirements
 
     R2  Context and resets at restore
         source  @plan.Persistence.O4.
-        must    Saved context bindings select the same providers and set a silent baseline from
-                each slot's saved last-seen value: a slot whose current selection equals it gets no
-                onContext event, so a reload of a consistent saved world hears none; one that differs
-                or was saved unknown gets the one wave of @spec.Actors.R9, at a reload as at a return. A writing 
+        must    Saved context bindings select the same providers, the ones a consumer starts
+                included, and set a silent baseline from each slot's saved last-seen selection: a
+                slot whose current selection equals it gets no onContext event, so a reload of a
+                consistent saved world hears none; one that differs gets the one wave of
+                @spec.Actors.R9, at a reload as at a return. Each reaction's baseline is read again
+                from its saved inputs (@spec.Turn.R22). A writing 
                 placement whose re-taken reset value differs from the
                 recorded one resets as a pending reset, the first turn after restore, before the
                 owed rows and the lane deliveries of R3 (round-14/step.ts, "a reset lost by the
@@ -88,6 +90,10 @@ requirements
 
                 Each older record format reaches the current one by a pure step at the boot; a
                 newer, null or non-integer format is quarantined, its lane still holding by its id.
+                Format 2 is current; format 1's step reads each tagged last-seen value back through
+                its slot's Schema (one the Schema refuses, or saved unknown, was never selected), and
+                each reaction's baseline from the record's own slots and memory, as format 1 did; a
+                form no release wrote quarantines the record.
                 A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
                 too. A quarantined record keeps its bytes until the identity writes that record
                 again: an actor's first save, an owed record's next change, a lane's cancel. Until

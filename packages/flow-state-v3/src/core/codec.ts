@@ -109,10 +109,11 @@ const BYTE_ORDER_MARK = 0xfe_ff;
 
 /**
  * Checks a value against the codec's bounds and rules and returns it as JSON data with its keys in
- * canonical order, or the first failure in depth-first key order.
+ * canonical order, or the first failure in depth-first key order. With `negativeZero: "zero"`, a
+ * -0 is written as 0, for data compared by `Equal`, which holds them equal.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a value to encode is checked here node by node before it is trusted as JSON.
-export const toCanonicalJson = (root: unknown) => {
+export const toCanonicalJson = (root: unknown, negativeZero: "refuse" | "zero" = "refuse") => {
   let nodes = 0;
   // FLOW_STATE_ALLOW_UNKNOWN: the containers being visited, to find a cycle.
   const open = new Set<Fields | ReadonlyArray<unknown>>();
@@ -154,9 +155,11 @@ export const toCanonicalJson = (root: unknown) => {
     if (!Number.isFinite(value))
       return Result.fail(CodecFailure.Malformed({ reason: "nonFinite", path }));
 
-    return Object.is(value, -0)
-      ? Result.fail(CodecFailure.Malformed({ reason: "negativeZero", path }))
-      : Result.succeed<Schema.Json>(value);
+    if (!Object.is(value, -0)) return Result.succeed<Schema.Json>(value);
+
+    return negativeZero === "zero"
+      ? Result.succeed<Schema.Json>(0)
+      : Result.fail(CodecFailure.Malformed({ reason: "negativeZero", path }));
   };
 
   // RETURN_TYPE: a key's check returns a failure as a field's own result.

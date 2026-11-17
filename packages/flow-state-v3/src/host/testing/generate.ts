@@ -544,8 +544,8 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
   };
 
   // In an app mix, a person acts on a screen they have open: a send to an actor no one uses opens
-  // it first, so a reload that attaches nothing leaves the mix's apps reachable.
-  const opened = (view: View, step: Step) =>
+  // it first, then sends, so a reload that attaches nothing leaves the mix's apps reachable.
+  const opening = (view: View, step: Step) =>
     drawing === "mix" && step._tag === "send" && view.uses(step.actor) === 0
       ? Option.match(
           Option.flatten(
@@ -556,25 +556,28 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
             ),
           ),
           {
-            onNone: () => step,
-            onSome: (it) => Step.ensure({ actor: it.actor, context: it.context }),
+            onNone: () => [],
+            onSome: (it) => [Step.ensure({ actor: it.actor, context: it.context })],
           },
         )
-      : step;
+      : [];
 
   const drawn = (view: View, [kind, a, b]: Draw) => {
     const live = !view.disposed;
 
-    const user = live
-      ? Option.toArray(Option.map(pickSlot(pools.steps, a), (s) => opened(view, s)))
-      : [];
+    const step = live ? pickSlot(pools.steps, a) : Option.none<Step>();
+    const opened = Option.match(step, { onNone: () => [], onSome: (s) => opening(view, s) });
+    const user = [...opened, ...Option.toArray(step)];
 
     const actor = pickSlot(pools.actors, a);
 
     const steps: Record<StepKind, () => ReadonlyArray<Step>> = {
       nothing: () => [],
       user: () => user,
-      burst: () => user.flatMap((s) => Array.from({ length: span(50, 2000, b) }, () => s)),
+      burst: () => [
+        ...opened,
+        ...Option.toArray(step).flatMap((s) => Array.from({ length: span(50, 2000, b) }, () => s)),
+      ],
       think: () => {
         rest = span(80, 20_000, b);
 

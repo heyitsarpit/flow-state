@@ -17,10 +17,10 @@ export const Byline = definition({
     teams: Flow.initial(Schema.Number, 0),
   },
   context: {
-    user: SessionMachine.definition.Provider.select((s) =>
+    user: SessionMachine.definition.Provider.select(Schema.UndefinedOr(Schema.String), (s) =>
       s.memory.user === "" ? undefined : s.memory.user,
     ),
-    team: TeamMachine.definition.Provider.select((t) => t.memory.name),
+    team: TeamMachine.definition.Provider.select(Schema.String, (t) => t.memory.name),
   },
 });
 

@@ -69,7 +69,7 @@ describe("a reaction's baseline across a reload (Turn R22; Restore R2)", () => {
 
     for (const run of [live, reloaded])
       expect(run.checkpoints.quiet.read(mainDigest)?.memory).toEqual(
-        expect.objectContaining({ heard: 18, busy: 2 }),
+        expect.objectContaining({ heard: 19, busy: 2 }),
       );
   });
 });

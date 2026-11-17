@@ -35,7 +35,7 @@ const Session = definition({
     displayName: Flow.initial(Schema.String, ""),
     notice: Flow.initial(Schema.String, ""),
   },
-  context: { org: Org.Provider.select((o) => o.memory.name) },
+  context: { org: Org.Provider.select(Schema.String, (o) => o.memory.name) },
   operations: ({ E }) => ({
     signIn: signIn.outcomes({
       success: E.SignedIn.from((p: { readonly user: string; readonly displayName: string }) => ({
@@ -80,7 +80,7 @@ const Team = definition({
   states: ["ACTIVE"],
   events: { Rename: { name: Schema.String } },
   memory: { name: Flow.initial(Schema.String, "") },
-  context: { user: Session.Provider.select((s) => s.memory.user) },
+  context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
 });
 
 /**
@@ -98,7 +98,7 @@ const Badge = definition({
   states: ["SHOWN"],
   events: { Ping: {} },
   memory: { pings: Flow.initial(Schema.Number, 0) },
-  context: { team: Team.Provider.select((t) => t.memory.name) },
+  context: { team: Team.Provider.select(Schema.String, (t) => t.memory.name) },
 });
 
 /**

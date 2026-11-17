@@ -188,6 +188,7 @@ export const machine = <D extends AnyDefinition>(
         slot,
         {
           provider: declared.provider,
+          json: Schema.toCodecJson(declared.schema),
           select: { slot: `context.${slot}`, run: erasedSelect(declared.select) },
         },
       ]),

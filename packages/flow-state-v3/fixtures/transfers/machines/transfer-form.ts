@@ -24,7 +24,7 @@ export const TransferForm = definition({
     balance: Flow.initial(Schema.Number, 0),
     notice: Flow.initial(Schema.String, ""),
   },
-  context: { customer: Customer.Provider.select((c) => c.memory.account) },
+  context: { customer: Customer.Provider.select(Schema.String, (c) => c.memory.account) },
   operations: ({ E }) => ({
     balance: balance.outcomes({
       success: E.BalanceRead.from((v: { readonly cents: number }) => ({ cents: v.cents })),

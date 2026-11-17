@@ -225,3 +225,13 @@ note 2026-11-16T23:54:10Z
 note 2026-11-16T23:54:24Z
     @spec.Actors R18: a provider a consumer starts binds the overrides its own ref gave, not its entry's defaults. Why:
     a later ensure of that ref was refused ConflictingActorRef. Reverse: drop the clause.
+
+note 2026-11-17T01:14:30Z
+    @spec.Actors R9, R18, R19; @spec.Turn R22; @spec.Restore R2: a slot's selection passes once through its declared
+    Schema's JSON form (proposed, @plan.Pending.D20) and records save baseline inputs, so no value kind is unknown and
+    a kept baseline survives a reload. Why: T9 convergence (two reviews, one class). Reverse: 4850ba6d's parent.
+
+note 2026-11-17T01:14:30Z
+    @spec.Actors R5, R18: a conflict anywhere in an ensure's provider graph is refused, and a record saves its whole
+    provider graph so a provider started again binds as before. @spec.Restore R5: format 2, format 1 by its step. Why:
+    T9 fix-round review. Reverse: 4850ba6d's parent.

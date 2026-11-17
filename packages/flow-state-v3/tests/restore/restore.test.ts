@@ -126,14 +126,14 @@ describe("delivery order at restore (Restore R3, I5)", () => {
 
 describe("record formats (Restore R5, I10, I13)", () => {
   for (const [what, format] of [
-    ["newer", "2"],
+    ["newer", "3"],
     ["null", "null"],
     ["fractional", "1.5"],
     ["a string", '"1"'],
   ] as const)
     it(`Restore R5: a lane record whose format is ${what} is quarantined, its key still holds, and a cancel clears it`, async () => {
       const lane = await heldLane();
-      const text = lane.text.replace('"format":1', `"format":${format}`);
+      const text = lane.text.replace('"format":2', `"format":${format}`);
 
       const run = checked(
         await heldTransfer
@@ -179,7 +179,7 @@ describe("record formats (Restore R5, I10, I13)", () => {
 
   it("Codec R3: a record whose text is not canonical is quarantined, never coerced", async () => {
     const lane = await heldLane();
-    const spaced = lane.text.replace('"format":1', '"format": 1');
+    const spaced = lane.text.replace('"format":2', '"format": 2');
 
     const run = checked(
       await heldTransfer

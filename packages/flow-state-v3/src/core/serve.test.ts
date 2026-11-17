@@ -46,7 +46,7 @@ const Line = definition({
   events: {},
   internalEvents: { Noted: {}, Renamed: {} },
   memory: { seen: Flow.initial(Schema.String, "") },
-  context: { name: Lead.Provider.select((l) => l.memory.name) },
+  context: { name: Lead.Provider.select(Schema.String, (l) => l.memory.name) },
 });
 
 const LineMachine = machine(Line, ({ S, E }) => ({

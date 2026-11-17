@@ -4,6 +4,7 @@ import { emptyLedger, type Ledger, type OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
 import type { IssueCode, ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
+import type { Baseline, Frame, Selected } from "./slots.ts";
 
 /**
  * An actor's identity: its machine and its name.
@@ -67,8 +68,8 @@ export type Armed = { readonly arming: number; readonly dueAt: number; readonly 
  * `state` is the active leaf's path. `activations` numbers each entry of the states on its chain,
  * outermost first: a re-entry is a new activation, so work its old activation owns ends late.
  * `history` holds each exited compound's last active child. `bound` names the provider of each
- * context slot, `context` holds each slot's selected value and `baselines` each `onContext`
- * reaction's last selection.
+ * context slot, `context` holds each slot's selection and `baselines` each `onContext` reaction's
+ * last selection with the inputs it read.
  */
 export type Incarnation = {
   readonly id: string;
@@ -80,27 +81,23 @@ export type Incarnation = {
   readonly schedules: ReadonlyMap<string, Armed>;
   readonly issues: ReadonlyArray<Issue>;
   readonly bound: ReadonlyMap<string, ActorId>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a slot's value has the type its selector returns, typed at the definition.
-  readonly context: ReadonlyMap<string, unknown>;
-  // The slots whose reactions have not seen their current value yet, with the value each last saw.
-  // FLOW_STATE_ALLOW_UNKNOWN: a slot's value has the type its selector returns; none when not saved.
-  readonly stale: ReadonlyMap<string, Option.Option<unknown>>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns; none when unknown.
-  readonly baselines: ReadonlyArray<Option.Option<unknown>>;
+  readonly context: ReadonlyMap<string, Selected>;
+  // The slots whose reactions have not been told their current selection yet, with the one each
+  // last saw: none for a slot never selected then.
+  readonly stale: ReadonlyMap<string, Option.Option<Selected>>;
+  // None for a reaction whose select has never given a selection.
+  readonly baselines: ReadonlyArray<Option.Option<Baseline>>;
 };
 
 /**
- * Each bound slot's last-seen value: the one its reactions still owe a wave for, else its current
- * one; none for a slot whose selector never gave a value.
+ * Each bound slot's last-seen selection: the one its reactions still owe a wave for, else its
+ * current one; none for a slot never selected.
  */
 export const lastSeenOf = (incarnation: Incarnation) =>
   new Map(
     [...incarnation.bound.keys()].map((slot) => [
       slot,
-      incarnation.stale.get(slot) ??
-        (incarnation.context.has(slot)
-          ? Option.some(incarnation.context.get(slot))
-          : Option.none()),
+      incarnation.stale.get(slot) ?? Option.fromUndefinedOr(incarnation.context.get(slot)),
     ]),
   );
 
@@ -284,8 +281,12 @@ export type ActorRecord = {
   readonly memory: Values;
   readonly schedules: ReadonlyArray<typeof ScheduleDeadline.Type>;
   readonly context: ReadonlyMap<string, ActorId>;
-  // FLOW_STATE_ALLOW_UNKNOWN: each slot's last-seen value, as JSON, or none when it was not saved.
-  readonly seen: ReadonlyMap<string, Option.Option<unknown>>;
+  // Each slot's last-seen selection; a slot never selected has none.
+  readonly seen: ReadonlyMap<string, Selected>;
+  // Each reaction's baseline inputs that differ from `seen` and `memory`; none with no baseline.
+  readonly frames: ReadonlyArray<Option.Option<Frame>>;
+  // The bindings of every provider up its context graph, which a provider started again for it keeps.
+  readonly graph: Wiring;
 };
 
 /**

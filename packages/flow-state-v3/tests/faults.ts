@@ -193,9 +193,9 @@ export const faults: ReadonlyArray<Fault> = [
     rule: "Turn I2",
     edits: [
       {
-        file: "src/core/record.ts",
-        find: "        state: incarnation.state,\n        memory,",
-        replace: "        state: compiled.initial,\n        memory,",
+        file: "src/core/actor-record.ts",
+        find: "      state: record.state,\n      memory,",
+        replace: "      state: compiled.initial,\n      memory,",
       },
     ],
   },

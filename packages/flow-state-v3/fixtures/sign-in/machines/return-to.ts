@@ -13,7 +13,7 @@ export const ReturnTo = definition({
   events: { Save: { route: Schema.String, draft: Schema.String }, Submit: {} },
   internalEvents: { SessionReady: { ready: Schema.Boolean } },
   memory: { route: Flow.initial(Schema.String, ""), draft: Flow.initial(Schema.String, "") },
-  context: { session: AuthSession.Provider.select((s) => s.state === "SIGNED_IN") },
+  context: { session: AuthSession.Provider.select(Schema.Boolean, (s) => s.state === "SIGNED_IN") },
 });
 
 /**

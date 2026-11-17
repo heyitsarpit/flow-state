@@ -174,6 +174,8 @@ export type Field = {
   readonly name: string;
   // FLOW_STATE_ALLOW_UNKNOWN: a field's Schema has the application's type, typed at the definition.
   readonly schema: Schema.Codec<unknown, unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the field's JSON codec, typed at the definition.
+  readonly json: Schema.Codec<unknown, unknown>;
   readonly source: Source;
   readonly private: boolean;
   // FLOW_STATE_ALLOW_UNKNOWN: an input value is checked here before it is trusted.
@@ -302,11 +304,14 @@ export type Compiled = {
 };
 
 /**
- * A context slot as the runtime binds it: the machine that provides it and its selector over one
- * outside snapshot of the provider.
+ * A context slot as the runtime binds it: the machine that provides it, its selector over one
+ * outside snapshot of the provider, and the JSON codec of its Schema, through which every selection
+ * passes once: it is saved in that form and read back equal.
  */
 export type ContextSlot = {
   readonly provider: string;
+  // FLOW_STATE_ALLOW_UNKNOWN: a selection's JSON codec, typed at the definition.
+  readonly json: Schema.Codec<unknown, unknown>;
   // FLOW_STATE_ALLOW_UNKNOWN: a selected value has the slot's type, typed at the definition.
   readonly select: Slot<(snapshot: { readonly state: string; readonly memory: Values }) => unknown>;
 };

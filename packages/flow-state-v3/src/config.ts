@@ -85,8 +85,9 @@ const MemoryField = Schema.Union([
 const ContextSlot = Schema.Struct({
   "~flow": Schema.Literal("context"),
   provider: Schema.String,
+  schema: FieldSchema,
   select: Fn,
-}).annotate({ help: "Declare a context slot with Provider.select(selector)." });
+}).annotate({ help: "Declare a context slot with Provider.select(schema, selector)." });
 
 const DefinitionConfig = Schema.Struct({
   id: Schema.String.annotate({ help: "Give the definition a string id." }),

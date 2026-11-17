@@ -210,7 +210,9 @@ requirements
                 A changed selection becomes the baseline even if when declines; with no when, or
                 when true, its event enqueues after the context turn, in declaration order, in the
                 one FIFO mailbox. A select, when or mapper defect publishes one issue, keeps the
-                previous baseline and emits nothing. Reactions never change state directly.
+                previous baseline and emits nothing. A baseline keeps the inputs it was read from,
+                the slots and memory fields its select read, so a restore reads it again as it was,
+                a kept one included. Reactions never change state directly.
 
     R23  Snapshot shape
         source  @plan.Machines.O8.

@@ -13,7 +13,7 @@ export const Presence = definition({
   events: {},
   internalEvents: { Saw: { user: Schema.String } },
   memory: { user: Flow.initial(Schema.String, "") },
-  context: { user: SessionMachine.definition.Provider.select((s) => s.memory.user) },
+  context: { user: SessionMachine.definition.Provider.select(Schema.String, (s) => s.memory.user) },
 });
 
 /**
@@ -38,7 +38,7 @@ export const Dot = definition({
   events: { Ping: {} },
   internalEvents: { Heard: {} },
   memory: { heard: Flow.initial(Schema.Number, 0) },
-  context: { online: Presence.Provider.select((p) => p.memory.user) },
+  context: { online: Presence.Provider.select(Schema.String, (p) => p.memory.user) },
 });
 
 /**

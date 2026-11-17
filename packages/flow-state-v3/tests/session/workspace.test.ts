@@ -127,8 +127,8 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
     const record = JSON.parse(saved ?? "{}");
 
     expect(record.memory).toEqual({ seen: 2 });
-    expect(record.seen).toEqual({ user: { "~": "undefined" } });
-    expect(record.unknown).toBeUndefined();
+    // The slot's Schema, UndefinedOr(String), writes undefined as null.
+    expect(record.seen).toEqual({ user: null });
     expect(run.checkpoints.reloaded.read(mainAvatar)?.memory["seen"]).toBe(2);
     expect(Object.entries(run.checkpoints.reloaded.read(mainAvatar)?.context ?? {})).toEqual([
       ["user", undefined],

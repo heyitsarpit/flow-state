@@ -153,7 +153,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       schedules: new Map(),
       issues: [],
       bound: new Map(),
-      context: new Map(),
+      // A start from a record keeps its saved selections while a selector throws.
+      context: Option.match(from, { onNone: () => new Map(), onSome: (r) => r.seen }),
       stale: new Map(),
       baselines: [],
     };
@@ -163,14 +164,15 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     tx.act(Act.Started({ actor }));
 
     // Its slots bind before its first publication: the baselines are silent. A restored record
-    // binds the providers it was saved with, unless the ensure names its own.
+    // binds the providers it was saved with, unless the ensure names its own, and starts the
+    // providers up its graph with the bindings it saved.
     const fresh = context.bind(
       base,
       Option.getOrElse(
         Option.orElse(
           Option.map(
-            wiring,
-            (given) => new Map([...compiled.wiring, ...(given.get(actorKey(actor)) ?? [])]),
+            Option.flatMap(wiring, (given) => Option.fromUndefinedOr(given.get(actorKey(actor)))),
+            (given) => new Map([...compiled.wiring, ...given]),
           ),
           () =>
             Option.filter(
@@ -180,20 +182,15 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         ),
         () => compiled.wiring,
       ),
-      wiring,
+      Option.orElse(wiring, () => Option.map(from, (r) => r.graph)),
     );
 
     // A start from a saved record reads its providers now, and owes its reactions one wave for
-    // each slot whose saved value differs or is unknown. A reload of a consistent saved world
-    // differs in nothing, so it stays silent.
-    const saved = Option.filter(
-      Option.map(from, (r) => r.seen),
-      (seen) => seen.size > 0,
-    );
-
-    const bound = Option.match(saved, {
+    // each slot whose saved selection differs. A reload of a consistent saved world differs in
+    // nothing, so it stays silent.
+    const bound = Option.match(from, {
       onNone: () => fresh,
-      onSome: (seen) => context.rebase(fresh, seen),
+      onSome: (record) => context.restore(fresh, record),
     });
 
     const incarnation = Option.match(from, {

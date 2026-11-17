@@ -36,10 +36,10 @@ export const CheckoutFlow = definition({
     slot: Flow.initial(Schema.String, ""),
   },
   context: {
-    count: Cart.Provider.select((c) => itemsIn(c.memory.lines)),
-    busy: Cart.Provider.select((c) => waiting(c.memory)),
-    shopper: Shopper.Provider.select((s) => s.memory.name),
-    payment: Pay.Provider.select((p) => p.state),
+    count: Cart.Provider.select(Schema.Number, (c) => itemsIn(c.memory.lines)),
+    busy: Cart.Provider.select(Schema.Boolean, (c) => waiting(c.memory)),
+    shopper: Shopper.Provider.select(Schema.String, (s) => s.memory.name),
+    payment: Pay.Provider.select(Schema.String, (p) => p.state),
   },
 });
 

@@ -92,6 +92,7 @@ export const fieldOf = (name: string, raw: FieldMarker): Field => {
   return {
     name,
     schema,
+    json: Schema.toCodecJson(schema),
     source,
     private: isPrivate,
     is: Schema.is(schema),

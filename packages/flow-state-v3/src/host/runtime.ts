@@ -1,6 +1,6 @@
 import { Context, Deferred, Effect, Exit, Layer, Option, Predicate, Result, Scope } from "effect";
 import type { Evidence } from "../core/evidence.ts";
-import { boundOf, dependentsOf, Input } from "../core/step.ts";
+import { dependentsOf, Input } from "../core/step.ts";
 import { Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, type Wiring } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
@@ -501,27 +501,31 @@ export const buildRuntime = (
 
   // What admission checks before an ensure or a dispose does any work; a Story's words pass it too.
   const admission = {
-    // The providers an ensure's graph binds: each entry's wiring with the refs' overrides; a live
-    // identity bound otherwise is refused.
+    // The providers an ensure's graph binds: each entry's wiring with the refs' overrides; an
+    // identity anywhere in the graph that is live and bound otherwise is refused.
     ensure: (actor: ActorId, overrides: Wiring) => {
       const graph = wiringOf(actor, overrides, [actorKey(actor)]);
-      const wiring = graph.get(actorKey(actor)) ?? new Map<string, ActorId>();
 
-      const conflicting = Option.exists(
-        boundOf(driver.world(), actor),
-        (bound) =>
-          bound.size !== wiring.size ||
-          [...wiring].some(([slot, p]) => actorKey(p) !== actorKey(bound.get(slot) ?? actor)),
+      const conflicting = [...graph].find(([key, wiring]) =>
+        Option.exists(
+          Option.fromUndefinedOr(driver.world().incarnations.get(key)),
+          ({ bound }) =>
+            bound.size !== wiring.size ||
+            [...wiring].some(([slot, p]) => actorKey(p) !== actorKey(bound.get(slot) ?? actor)),
+        ),
       );
 
-      if (conflicting)
+      if (conflicting !== undefined) {
+        const live = driver.world().incarnations.get(conflicting[0])?.actor ?? actor;
+
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a refused context throws before any work
         throw contextRefused(
           "ConflictingActorRef",
-          [actor.machine, actor.name],
-          `${actor.name} is live with other context`,
+          [live.machine, live.name],
+          `${live.name} is live with other context`,
           "Name one identity with one context: drop the ref's override or use another identity.",
         );
+      }
 
       return graph;
     },

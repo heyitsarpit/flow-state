@@ -35,7 +35,7 @@ const link = (at: number, upstream: Upstream, copies: number) => {
     events: {},
     internalEvents: { Copy: { n: Schema.Number } },
     memory: { n: Flow.initial(Schema.Number, 0) },
-    context: { up: upstream.Provider.select((s) => s.memory.n) },
+    context: { up: upstream.Provider.select(Schema.Number, (s) => s.memory.n) },
   });
 
   return machine(Link, ({ S, E }) => ({

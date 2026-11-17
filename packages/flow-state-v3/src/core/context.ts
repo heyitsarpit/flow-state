@@ -1,9 +1,11 @@
-import { Equal, Option, Result } from "effect";
+import { Equal, Option, Predicate, Result } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
+import { type Frame, type Selected, sameSlot, selectedOf } from "./slots.ts";
 import { type Tx, withEntry } from "./tx.ts";
 import {
   type ActorId,
+  type ActorRecord,
   actorKey,
   type Incarnation,
   type Issue,
@@ -70,13 +72,19 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       incarnations: withEntry(tx.world().incarnations, actorKey(incarnation.actor), incarnation),
     });
 
-  // Each slot's value from its provider's current snapshot; a selector that throws keeps the
-  // slot's last value and raises one issue.
+  // Each slot's selection from its provider's current snapshot, through its Schema; a selector that
+  // throws, or returns what its Schema cannot encode, keeps the slot's last selection and raises one
+  // issue.
   const selected = (compiled: Compiled, incarnation: Incarnation) => {
     let next: Incarnation = incarnation;
-    const values = new Map(incarnation.context);
+    // In declaration order, whatever order a record held them in.
+    const values = new Map<string, Selected>();
 
     for (const [slot, declared] of compiled.context) {
+      const last = incarnation.context.get(slot);
+
+      if (last !== undefined) values.set(slot, last);
+
       const provider = Option.flatMap(Option.fromUndefinedOr(incarnation.bound.get(slot)), (id) =>
         Option.fromUndefinedOr(incarnationOf(id)),
       );
@@ -87,10 +95,13 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
       if (Option.isNone(provider) || Option.isNone(providing)) continue;
 
-      const value = Result.try({
-        try: () => declared.select.run(outsideOf(providing.value, provider.value)),
-        catch: () => declared.select.slot,
-      });
+      const value = Result.flatMap(
+        Result.try({
+          try: () => declared.select.run(outsideOf(providing.value, provider.value)),
+          catch: () => declared.select.slot,
+        }),
+        (raw) => Result.mapError(selectedOf(declared.json, raw), () => declared.select.slot),
+      );
 
       if (Result.isFailure(value))
         next = raise(next, {
@@ -104,47 +115,83 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     return { ...next, context: values };
   };
 
-  // Each reaction's selection, reading each slot's value, or the value `last` says its reactions
-  // last saw. A reaction that reads a slot whose last-seen value is unknown, or whose select
-  // throws, has none.
-  const selections = (
+  // A reaction's selection over these slots and memory, with the inputs it read: the context and
+  // memory it is handed record each slot and field read, so its baseline can be read again from
+  // them after a reload.
+  const selectionOf = (
     compiled: Compiled,
-    incarnation: Incarnation,
-    // FLOW_STATE_ALLOW_UNKNOWN: a slot's last-seen value has the type its selector returns.
-    last: ReadonlyMap<string, Option.Option<unknown>> = new Map(),
-  ) =>
-    compiled.reactions.map((reaction) => {
-      const unknownRead = new Set<string>();
-      const context = {};
+    reaction: Compiled["reactions"][number],
+    slots: ReadonlyMap<string, Option.Option<Selected>>,
+    memory: Values,
+  ) => {
+    const readSlots = new Map<string, Option.Option<Selected>>();
+    // FLOW_STATE_ALLOW_UNKNOWN: a memory field has its field Schema's type.
+    const readFields = new Map<string, unknown>();
 
-      for (const [slot, value] of incarnation.context)
-        Object.defineProperty(context, slot, {
-          enumerable: true,
-          get: () =>
-            Option.getOrElse(last.get(slot) ?? Option.some(value), () => {
-              unknownRead.add(slot);
+    const present = Object.fromEntries(
+      [...slots].flatMap(([slot, s]) => Option.toArray(Option.map(s, (v) => [slot, v.value]))),
+    );
 
-              return value;
-            }),
-        });
+    // A slot asked for by `in` or listed by its keys is read as well: its presence is an input.
+    const context = new Proxy(present, {
+      has: (target, key) => {
+        if (Predicate.isString(key) && compiled.context.has(key))
+          readSlots.set(key, slots.get(key) ?? Option.none());
 
-      const selection = Result.try({
-        try: () => reaction.select.run({ context, memory: incarnation.memory }),
-        catch: () => reaction.select.slot,
-      });
+        return key in target;
+      },
+      ownKeys: (target) => {
+        for (const slot of compiled.context.keys())
+          readSlots.set(slot, slots.get(slot) ?? Option.none());
 
-      return {
-        selection,
-        baseline: unknownRead.size > 0 ? Option.none() : Result.getSuccess(selection),
-      };
+        return Reflect.ownKeys(target);
+      },
+      get: (target, key) => {
+        if (!Predicate.isString(key)) return undefined;
+
+        if (compiled.context.has(key)) readSlots.set(key, slots.get(key) ?? Option.none());
+
+        return target[key];
+      },
     });
 
-  const baselinesOf = (
-    compiled: Compiled,
-    incarnation: Incarnation,
-    // FLOW_STATE_ALLOW_UNKNOWN: a slot's last-seen value has the type its selector returns.
-    last: ReadonlyMap<string, Option.Option<unknown>> = new Map(),
-  ) => selections(compiled, incarnation, last).map((s) => s.baseline);
+    const fields = new Proxy(memory, {
+      get: (target, key) => {
+        if (!Predicate.isString(key)) return undefined;
+
+        if (Object.hasOwn(target, key)) readFields.set(key, target[key]);
+
+        return target[key];
+      },
+    });
+
+    const selection = Result.try({
+      try: () => reaction.select.run({ context, memory: fields }),
+      catch: () => reaction.select.slot,
+    });
+
+    return Result.map(selection, (value) => ({
+      selection: value,
+      frame: { slots: readSlots, memory: readFields } satisfies Frame,
+    }));
+  };
+
+  // Each slot's current selection, none for one never selected.
+  const slotsOf = (compiled: Compiled, incarnation: Incarnation) =>
+    new Map(
+      [...compiled.context.keys()].map((slot) => [
+        slot,
+        Option.fromUndefinedOr(incarnation.context.get(slot)),
+      ]),
+    );
+
+  const baselinesOf = (compiled: Compiled, incarnation: Incarnation) => {
+    const slots = slotsOf(compiled, incarnation);
+
+    return compiled.reactions.map((reaction) =>
+      Result.getSuccess(selectionOf(compiled, reaction, slots, incarnation.memory)),
+    );
+  };
 
   /**
    * Binds a starting consumer's slots to their providers, ensuring each with a use and its wiring
@@ -225,16 +272,26 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
   // Runs each reaction whose selection differs from its baseline, in declaration order: its
   // baseline becomes the selection and, when its `when` allows it, its event is kept to enqueue.
-  // A callback that throws raises one issue of its reaction and keeps its baseline.
+  // An equal selection keeps its baseline, read from the new inputs. A select, when or mapper that
+  // throws raises one issue of its reaction and keeps its baseline.
   const react = (compiled: Compiled, read: Incarnation) => {
     let next: Incarnation = read;
     const baselines = [...read.baselines];
     const events: Array<{ readonly tag: string; readonly payload: Values }> = [];
+    const slots = slotsOf(compiled, read);
 
     for (const [at, reaction] of compiled.reactions.entries()) {
-      const current = selections(compiled, next)[at]?.selection;
+      const previous = baselines[at] ?? Option.none();
 
-      if (current === undefined) continue;
+      const current = Result.flatMap(selectionOf(compiled, reaction, slots, read.memory), (now) =>
+        Result.try({
+          try: () => ({
+            now,
+            equal: Option.exists(previous, (p) => Equal.equals(p.selection, now.selection)),
+          }),
+          catch: () => reaction.select.slot,
+        }),
+      );
 
       if (Result.isFailure(current)) {
         next = raise(next, {
@@ -245,15 +302,22 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         continue;
       }
 
-      const previous = baselines[at] ?? Option.none();
+      const { now, equal } = current.success;
 
-      if (Option.exists(previous, (p) => Equal.equals(p, current.success))) continue;
+      if (equal) {
+        baselines[at] = Option.some(now);
+        continue;
+      }
 
       const allowed = Option.match(reaction.when, {
         onNone: () => Result.succeed(true),
         onSome: (when) =>
           Result.try({
-            try: () => when.run(current.success, Option.getOrUndefined(previous)),
+            try: () =>
+              when.run(
+                now.selection,
+                Option.getOrUndefined(Option.map(previous, (p) => p.selection)),
+              ),
             catch: () => when.slot,
           }),
       });
@@ -263,7 +327,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
           onNone: () => Result.succeed(Option.some<Values>({})),
           onSome: (from) =>
             Result.try({
-              try: () => Option.some(from.run(current.success)),
+              try: () => Option.some(from.run(now.selection)),
               catch: () => from.slot,
             }),
         }).pipe(Result.map((p) => (yes ? p : Option.none<Values>()))),
@@ -279,7 +343,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         },
         // A changed selection becomes the baseline even when `when` declines; a defect keeps it.
         onSuccess: (given) => {
-          baselines[at] = Option.some(current.success);
+          baselines[at] = Option.some(now);
           Option.match(given, {
             onNone: () => undefined,
             onSome: (p) => void events.push({ tag: reaction.event.event, payload: p }),
@@ -293,8 +357,8 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
   /**
    * Serves a context update: reads every provider again; when a slot changed, or a start from a
-   * record still owes its reactions the values they missed, runs the reactions, each enqueuing its
-   * event, in declaration order, when its selection changed and its `when` allows it. An equal
+   * record still owes its reactions the selections they missed, runs the reactions, each enqueuing
+   * its event, in declaration order, when its selection changed and its `when` allows it. An equal
    * selection is silent. It publishes only a changed slot or issue.
    */
   const update = (actor: ActorId) => {
@@ -305,9 +369,12 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
     const read = selected(compiled, incarnation);
 
-    const changed = [...read.context].some(
-      ([slot, value]) =>
-        !incarnation.context.has(slot) || !Equal.equals(incarnation.context.get(slot), value),
+    const changed = [...compiled.context.keys()].some(
+      (slot) =>
+        !sameSlot(
+          Option.fromUndefinedOr(incarnation.context.get(slot)),
+          Option.fromUndefinedOr(read.context.get(slot)),
+        ),
     );
 
     if (!changed && incarnation.stale.size === 0) {
@@ -331,29 +398,48 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   };
 
   /**
-   * A consumer starting from a record that saved each slot's last-seen value: its context is its
-   * providers' current one, and each slot whose saved value differs, or is unknown, stays owed to
-   * its reactions, whose baselines read the saved values. A reload of a consistent saved world
-   * owes nothing.
+   * A consumer starting from a record: its context is its providers' current one, and each slot
+   * whose saved selection differs stays owed to its reactions. Each reaction's baseline is read
+   * again from the inputs it was last read from, so a reload restores what it last saw, a kept
+   * baseline included. A reload of a consistent saved world owes nothing.
    */
-  // FLOW_STATE_ALLOW_UNKNOWN: a slot's saved value, decoded from its record as JSON.
-  const rebase = (incarnation: Incarnation, seen: ReadonlyMap<string, Option.Option<unknown>>) => {
+  const restore = (incarnation: Incarnation, record: ActorRecord) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
     if (compiled === undefined) return incarnation;
 
     const stale = new Map(
-      [...seen].filter(
-        ([slot, last]) =>
-          incarnation.context.has(slot) &&
-          !Option.exists(last, (v) => Equal.equals(v, incarnation.context.get(slot))),
+      [...incarnation.bound.keys()].flatMap((slot) => {
+        const last = Option.fromUndefinedOr(record.seen.get(slot));
+
+        return sameSlot(last, Option.fromUndefinedOr(incarnation.context.get(slot)))
+          ? []
+          : [[slot, last] as const];
+      }),
+    );
+
+    const seen = new Map(
+      [...compiled.context.keys()].map((slot) => [
+        slot,
+        Option.fromUndefinedOr(record.seen.get(slot)),
+      ]),
+    );
+
+    const baselines = compiled.reactions.map((reaction, at) =>
+      Option.flatMap(record.frames[at] ?? Option.none(), (frame) =>
+        Result.getSuccess(
+          selectionOf(compiled, reaction, new Map([...seen, ...frame.slots]), {
+            ...record.memory,
+            ...Object.fromEntries(frame.memory),
+          }),
+        ),
       ),
     );
 
-    return { ...incarnation, stale, baselines: baselinesOf(compiled, incarnation, stale) };
+    return { ...incarnation, stale, baselines };
   };
 
-  return { bind, unbind, wave, settling, update, rebase };
+  return { bind, unbind, wave, settling, update, restore };
 };
 
 /**

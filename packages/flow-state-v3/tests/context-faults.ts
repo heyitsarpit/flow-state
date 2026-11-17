@@ -32,15 +32,80 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "undefined-slot-saved-unknown",
-    tests: ["tests/rules/reloads.test.ts", "tests/session/workspace.test.ts"],
-    says: "an undefined selection is saved unknown, so every reload makes up an onContext event",
+    name: "selection-kept-raw",
+    tests: ["tests/session/values.test.ts", "tests/rules/reloads.test.ts"],
+    says: "a live slot keeps the selector's raw value, not the one its Schema reads back, so a reload compares a different value and makes up an onContext event",
     rule: "Actors R19",
     edits: [
       {
-        file: "src/core/seen.ts",
-        find: '  if (value === undefined) return Option.some({ "~": "undefined" });',
-        replace: "  if (value === undefined) return Option.none();",
+        file: "src/core/slots.ts",
+        find: "            (canonical) => readSelected(codec, canonical),",
+        replace: "            (canonical) => Result.succeed({ value: raw, json: canonical }),",
+      },
+    ],
+  },
+  {
+    name: "negative-zero-refused",
+    tests: ["tests/session/values.test.ts"],
+    says: "a -0 selection is refused as a selector defect, so the digest never hears its count reach zero",
+    rule: "Actors R19",
+    edits: [
+      {
+        file: "src/core/slots.ts",
+        find: 'toCanonicalJson(json, "zero")',
+        replace: "toCanonicalJson(json)",
+      },
+    ],
+  },
+  {
+    name: "baseline-forgets-frame",
+    tests: ["tests/session/values.test.ts", "tests/actors/context.test.ts"],
+    says: "a restored baseline is read from the last-seen slots and the current memory, not from the inputs it was read from, so a kept or memory-reading baseline moves on reload",
+    rule: "Turn R22",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "          selectionOf(compiled, reaction, new Map([...seen, ...frame.slots]), {\n            ...record.memory,\n            ...Object.fromEntries(frame.memory),\n          }),",
+        replace: "          selectionOf(compiled, reaction, seen, record.memory),",
+      },
+    ],
+  },
+  {
+    name: "record-forgets-provider-graph",
+    tests: ["tests/session/values.test.ts"],
+    says: "an actor record saves no provider graph, so a provider started again for it binds its entry's defaults",
+    rule: "Actors R18",
+    edits: [
+      {
+        file: "src/core/persist.ts",
+        find: "    graph: graphOf(incarnation),",
+        replace: "    graph: new Map(),",
+      },
+    ],
+  },
+  {
+    name: "nested-conflict-admitted",
+    tests: ["tests/session/values.test.ts"],
+    says: "only the ensured identity is checked for conflicting context, so a nested ref naming a live provider with other context is admitted",
+    rule: "Actors R5",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: "      if (conflicting !== undefined) {",
+        replace: "      if (conflicting !== undefined && conflicting[0] === actorKey(actor)) {",
+      },
+    ],
+  },
+  {
+    name: "format-one-drops-forms",
+    tests: ["src/core/actor-record.test.ts"],
+    says: "the format-1 step refuses a saved Option none, so the record is quarantined",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/actor-record.ts",
+        find: '  ["none", () => Result.succeed(Option.none())],',
+        replace: '  ["none", () => notAForm],',
       },
     ],
   },
@@ -65,9 +130,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "      if (Option.exists(previous, (p) => Equal.equals(p, current.success))) continue;\n",
+        find: "        onFailure: (slot) => {\n          next = raise(next, {",
         replace:
-          "      if (Option.exists(previous, (p) => Equal.equals(p, current.success))) continue;\n      baselines[at] = Option.some(current.success);\n",
+          "        onFailure: (slot) => {\n          baselines[at] = Option.some(now);\n          next = raise(next, {",
       },
     ],
   },
@@ -97,7 +162,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
       },
       {
         file: "src/core/context.ts",
-        find: "      if (Option.exists(previous, (p) => Equal.equals(p, current.success))) continue;",
+        find: "      if (equal) {\n        baselines[at] = Option.some(now);\n        continue;\n      }\n",
         replace: "",
       },
     ],
@@ -162,8 +227,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "      if (conflicting)",
-        replace: "      if (conflicting && !conflicting)",
+        find: "      if (conflicting !== undefined) {",
+        replace: "      if (conflicting !== undefined && conflicting[0] !== actorKey(actor)) {",
       },
     ],
   },
@@ -181,34 +246,18 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "seen-saved-untagged",
-    tests: ["tests/rules/reloads.test.ts"],
-    says: "a slot's last-seen value is saved as it is, so the reload reads every slot back unknown and waves",
-    rule: "Actors R18",
-    edits: [
-      {
-        file: "src/core/record.ts",
-        find: "    json: Option.flatMap(last, encodeSeen),",
-        replace: "    json: last,",
-      },
-    ],
-  },
-
-  {
-    name: "unknown-slot-owes-no-wave",
+    name: "changed-slot-owes-no-wave",
     tests: ["tests/actors/context.test.ts"],
-    says: "a start from a record whose slot was saved unknown owes no wave, so a change it missed is never heard",
+    says: "a start from a record whose slot's selection changed owes no wave, so a change it missed is never heard",
     rule: "Actors R9",
     edits: [
       {
         file: "src/core/context.ts",
-        find: "          !Option.exists(last, (v) => Equal.equals(v, incarnation.context.get(slot))),",
-        replace:
-          "          !Option.getOrElse(Option.map(last, (v) => Equal.equals(v, incarnation.context.get(slot))), () => true),",
+        find: "          ? []\n          : [[slot, last] as const];",
+        replace: "          ? []\n          : [];",
       },
     ],
   },
-
   {
     name: "start-publishes-saved-context",
     tests: ["tests/session/workspace.test.ts"],
@@ -217,9 +266,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    return { ...incarnation, stale, baselines: baselinesOf(compiled, incarnation, stale) };",
+        find: "    return { ...incarnation, stale, baselines };",
         replace:
-          "    const context = new Map([...incarnation.context].map(([slot, v]) => [slot, Option.getOrElse(stale.get(slot) ?? Option.some(v), () => v)]));\n    return { ...incarnation, context, stale, baselines: baselinesOf(compiled, incarnation, stale) };",
+          "    const context = new Map([...incarnation.context].map(([slot, v]) => [slot, Option.getOrElse(stale.get(slot) ?? Option.some(v), () => v)]));\n    return { ...incarnation, context, stale, baselines };",
       },
     ],
   },
@@ -323,9 +372,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Actors R18",
     edits: [
       {
-        file: "src/core/record.ts",
-        find: "        seen: Object.fromEntries(",
-        replace: "        seen: {},\n        dropped: Object.fromEntries(",
+        file: "src/core/actor-record.ts",
+        find: "      seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.json])),",
+        replace: "      seen: {},",
       },
     ],
   },

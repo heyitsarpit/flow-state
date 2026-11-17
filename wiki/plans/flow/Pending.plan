@@ -131,3 +131,12 @@ decisions
         is right for writes where the newest wins, and the warning catches the money case without changing either rule.
         **Proven by:** the `lanes` Story whose `Lanes/cancel` actor interrupts a call on the wire, and a `flow check`
         case. Found in the fixture catalog review, 2026-11-17.
+    D20  @plan.Machines.O1, @plan.Runtime.O5: a context slot declares its selection's Schema (proposed, T9)
+        **Before:** `Provider.select(selector)`; a selection is saved by a hand-written codec, and every value kind it
+        misses (Date, NaN, Map, Set, class instances, cycles) is saved unknown and invents an `onContext` event at each
+        reload. **After:** `Provider.select(schema, selector)`, e.g. `Session.Provider.select(Schema.String, (s) =>
+        s.memory.user)`; each selection passes once through the Schema's JSON form, so the consumer reads, compares and
+        saves the same value live and after a reload, and a selection the Schema refuses is the selector's defect.
+        **Recommendation:** After; it is the standard upfront contract memory fields already use, and no value kind is
+        left unknown. **Proven by:** the `session` digest, thread and reload Stories (`tests/session/values.test.ts`,
+        `tests/rules/reloads.test.ts`). Found in @task.V3.T9's convergence.

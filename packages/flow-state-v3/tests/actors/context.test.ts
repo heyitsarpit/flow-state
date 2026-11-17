@@ -37,8 +37,8 @@ const Badge = definition({
   internalEvents: { UserChanged: { user: Schema.String } },
   memory: { greeting: Flow.initial(Schema.String, "") },
   context: {
-    user: Session.Provider.select((s) => s.memory.user),
-    broken: Session.Provider.select((s) => {
+    user: Session.Provider.select(Schema.String, (s) => s.memory.user),
+    broken: Session.Provider.select(Schema.Number, (s) => {
       if (s.memory.user === "boom") throw new Error("boom");
 
       return s.memory.user.length;
@@ -62,7 +62,7 @@ const Reader = definition({
   states: ["READING"],
   events: { Read: {} },
   memory: { read: Flow.initial(Schema.String, "") },
-  context: { user: Session.Provider.select((s) => s.memory.user) },
+  context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
 });
 
 const ReaderMachine = machine(Reader, ({ S }) => ({
@@ -81,7 +81,7 @@ const Watcher = definition({
   events: {},
   internalEvents: { Seen: { user: Schema.String } },
   memory: { seen: Flow.initial(Schema.String, "") },
-  context: { user: Session.Provider.select((s) => s.memory.user) },
+  context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
 });
 
 const WatcherMachine = machine(Watcher, ({ S, E }) => ({
@@ -99,8 +99,8 @@ const Pair = definition({
   internalEvents: { Paired: { pair: Schema.String } },
   memory: { pairs: Flow.initial(Schema.Array(Schema.String), []) },
   context: {
-    left: Watcher.Provider.select((s) => s.memory.seen),
-    right: Watcher.Provider.select((s) => s.memory.seen),
+    left: Watcher.Provider.select(Schema.String, (s) => s.memory.seen),
+    right: Watcher.Provider.select(Schema.String, (s) => s.memory.seen),
   },
 });
 
@@ -124,8 +124,8 @@ const Both = definition({
   internalEvents: { Paired: { pair: Schema.String } },
   memory: { pairs: Flow.initial(Schema.Array(Schema.String), []) },
   context: {
-    user: Session.Provider.select((s) => s.memory.user),
-    seen: Watcher.Provider.select((s) => s.memory.seen),
+    user: Session.Provider.select(Schema.String, (s) => s.memory.user),
+    seen: Watcher.Provider.select(Schema.String, (s) => s.memory.seen),
   },
 });
 
@@ -148,7 +148,7 @@ const Node = definition({
   id: "Context/Node",
   states: ["ON"],
   events: {},
-  context: { up: UpstreamNode.Provider.select((s) => s.state) },
+  context: { up: UpstreamNode.Provider.select(Schema.String, (s) => s.state) },
 });
 
 const NodeMachine = machine(Node, ({ S }) => ({ default: S.ON }));
@@ -301,7 +301,7 @@ describe("onContext defects (Turn R22)", () => {
     events: {},
     internalEvents: { Echoed: { user: Schema.String } },
     memory: { echoes: Flow.initial(Schema.Number, 0) },
-    context: { user: Session.Provider.select((s) => s.memory.user) },
+    context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
   });
 
   // Its mapper throws for the user "x"; its when throws for the user "y".
@@ -431,7 +431,7 @@ const KeptWatcher = definition({
   events: { Ping: {} },
   internalEvents: { Seen: { user: Schema.String } },
   memory: { seen: Flow.initial(Schema.String, "") },
-  context: { user: KeptSession.Provider.select((s) => s.memory.user) },
+  context: { user: KeptSession.Provider.select(Schema.String, (s) => s.memory.user) },
 });
 
 const KeptWatcherMachine = machine(KeptWatcher, ({ S, E }) => ({
@@ -451,7 +451,7 @@ const KeptStrict = definition({
   internalEvents: { Seen: { user: Schema.String } },
   memory: { seen: Flow.initial(Schema.String, "") },
   context: {
-    user: KeptSession.Provider.select((s) => {
+    user: KeptSession.Provider.select(Schema.String, (s) => {
       if (s.memory.user === "") throw new Error("nobody");
 
       return s.memory.user;
@@ -618,7 +618,7 @@ const KeptEcho = definition({
   events: {},
   internalEvents: { Echoed: {} },
   memory: { echoes: Flow.initial(Schema.Number, 0) },
-  context: { user: KeptSession.Provider.select((s) => s.memory.user) },
+  context: { user: KeptSession.Provider.select(Schema.String, (s) => s.memory.user) },
 });
 
 const KeptEchoMachine = machine(KeptEcho, ({ S, E }) => ({

@@ -22,7 +22,7 @@ const Badge = definition({
   states: ["SHOWN"],
   events: { Ping: {} },
   memory: { pings: Flow.initial(Schema.Number, 0) },
-  context: { user: Session.Provider.select((s) => s.memory.user) },
+  context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
 });
 
 const BadgeMachine = machine(Badge, ({ S }) => ({

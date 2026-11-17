@@ -81,6 +81,14 @@ const idsBySender = (messages: ReadonlyArray<Message>) => {
 };
 
 /**
+ * A nested mix: when the newest message came, and each sender's message ids.
+ */
+const Summary = Schema.Struct({
+  latest: Schema.Option(Schema.Date),
+  ids: Schema.ReadonlyMap(Schema.String, Schema.ReadonlySet(Schema.String)),
+});
+
+/**
  * The inbox digest in the header: when the newest message came (a Date, or undefined when the inbox
  * is empty), the share still unread (NaN when empty), how many it owes the reader as a negative
  * count (-0 when all are read), counts by sender (a Map), the senders (a Set), the newest message
@@ -100,25 +108,34 @@ export const Digest = definition({
     quietFrom: Flow.initial(Schema.Number, 2),
   },
   context: {
-    latest: Inbox.Provider.select((s) =>
+    latest: Inbox.Provider.select(Schema.UndefinedOr(Schema.Date), (s) =>
       Option.getOrUndefined(Option.map(newest(s.memory.messages), arrivedAt)),
     ),
     unread: Inbox.Provider.select(
+      Schema.Number,
       (s) => (s.memory.messages.length - s.memory.read) / s.memory.messages.length,
     ),
-    owed: Inbox.Provider.select((s) => -(s.memory.messages.length - s.memory.read)),
-    bySender: Inbox.Provider.select((s) => countsBySender(s.memory.messages)),
-    senders: Inbox.Provider.select((s) => new Set(s.memory.messages.map((m) => m.from))),
-    writers: Inbox.Provider.select((s) => new Set(s.memory.messages.map((m) => m.from)).size),
-    envelope: Inbox.Provider.select((s) =>
+    owed: Inbox.Provider.select(Schema.Number, (s) => -(s.memory.messages.length - s.memory.read)),
+    bySender: Inbox.Provider.select(Schema.ReadonlyMap(Schema.String, Schema.Number), (s) =>
+      countsBySender(s.memory.messages),
+    ),
+    senders: Inbox.Provider.select(
+      Schema.ReadonlySet(Schema.String),
+      (s) => new Set(s.memory.messages.map((m) => m.from)),
+    ),
+    writers: Inbox.Provider.select(
+      Schema.Number,
+      (s) => new Set(s.memory.messages.map((m) => m.from)).size,
+    ),
+    envelope: Inbox.Provider.select(Schema.UndefinedOr(Envelope), (s) =>
       Option.getOrUndefined(
         Option.map(newest(s.memory.messages), (m) => new Envelope({ from: m.from, at: m.at })),
       ),
     ),
-    first: Inbox.Provider.select((s) =>
+    first: Inbox.Provider.select(Schema.Option(Schema.String), (s) =>
       Option.map(Option.fromUndefinedOr(s.memory.messages[0]), (m) => m.from),
     ),
-    summary: Inbox.Provider.select((s) => ({
+    summary: Inbox.Provider.select(Summary, (s) => ({
       latest: Option.map(newest(s.memory.messages), arrivedAt),
       ids: idsBySender(s.memory.messages),
     })),
@@ -159,6 +176,22 @@ export type Post = {
   parent: Option.Option<Post>;
 };
 
+/**
+ * A thread as a screen draws it: each message with its replies, without the links back.
+ */
+export type Thread = {
+  readonly id: string;
+  readonly from: string;
+  readonly replies: ReadonlyArray<Thread>;
+};
+
+// RETURN_TYPE: a recursive Schema names its own type.
+const Thread: Schema.Codec<Thread> = Schema.Struct({
+  id: Schema.String,
+  from: Schema.String,
+  replies: Schema.Array(Schema.suspend(() => Thread)),
+});
+
 // The inbox's messages as a tree under one root, each reply under the message it answers.
 const threadOf = (messages: ReadonlyArray<Message>) => {
   const root: Post = { id: "", from: "", replies: [], parent: Option.none() };
@@ -185,7 +218,7 @@ export const ThreadView = definition({
   events: {},
   internalEvents: { Heard: {} },
   memory: { heard: Flow.initial(Schema.Number, 0) },
-  context: { thread: Inbox.Provider.select((s) => threadOf(s.memory.messages)) },
+  context: { thread: Inbox.Provider.select(Thread, (s) => threadOf(s.memory.messages)) },
 });
 
 /**

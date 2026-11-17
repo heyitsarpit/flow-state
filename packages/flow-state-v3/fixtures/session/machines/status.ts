@@ -12,7 +12,7 @@ export const Status = definition({
   states: ["SHOWN"],
   events: { Set: { text: Schema.String } },
   memory: { text: Flow.initial(Schema.String, "") },
-  context: { team: TeamMachine.definition.Provider.select((t) => t.memory.name) },
+  context: { team: TeamMachine.definition.Provider.select(Schema.String, (t) => t.memory.name) },
 });
 
 /**

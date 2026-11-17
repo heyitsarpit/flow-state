@@ -23,8 +23,8 @@ export const Repo = definition({
     limited: Flow.initial(Schema.Boolean, false),
   },
   context: {
-    head: Sync.Provider.select((s) => s.memory.head),
-    cooling: Sync.Provider.select((s) => s.state === "COOLING"),
+    head: Sync.Provider.select(Schema.String, (s) => s.memory.head),
+    cooling: Sync.Provider.select(Schema.Boolean, (s) => s.state === "COOLING"),
   },
 });
 
