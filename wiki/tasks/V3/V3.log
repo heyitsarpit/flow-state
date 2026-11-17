@@ -853,3 +853,8 @@ note 2026-11-17T02:50:13Z
     T9 fix round 2 in review at 59574431 (format 3; issues clear by source; baselines share memory). Review started; it
     judges the reload rules' new skip of unknown-context runs, the Turn I9 rule change, two Stories moved to stress, and
     the suite's 47 to 90 s growth.
+
+note 2026-11-17T03:09:16Z
+    Stop (failure limit): T9 review ISSUES (1c43f41e) is the second post-convergence failure from one root cause: a
+    context value past the save bound cannot be compared after a reload (actor-record.ts frameJson drops it from
+    baselines, so an event is lost). Asked the user how such a value is remembered; T9 holds.
