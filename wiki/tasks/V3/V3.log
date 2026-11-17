@@ -824,3 +824,8 @@ note 2026-11-16T23:43:56Z
 note 2026-11-17T00:09:57Z
     T9 fix round at d7c8457e (blocking slot finding fixed; stress and fresh seeds exit 0; faults 207/207 but unjudged on
     T20's pair cells). Second review started on the fix round and its Spec edits, since the first blocked.
+
+note 2026-11-17T00:25:26Z
+    T9 second review ISSUES (bf85230e): made-up onContext events on reload recur (Date; NaN, Map, Set by the same path;
+    seen.ts encodeSeen confirmed), plus cyclic crash, lost when-baseline, provider wiring. Threshold 2 reached: a fresh
+    lead converges T9's context save and restore, every known behaviour red first, then one redesign.
