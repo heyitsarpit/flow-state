@@ -2744,6 +2744,9 @@ tasks
             (cells; 182-330 B across apps) against the 64 B leak flag, and the serialize-queue slope reads 0.55 against
             0.3 (its queue copied on every add, already routed here). Confirm each with nub run bench --only memory
             --dev and fix, or name the cause.
+        comment     2026-11-17T20:32:57Z
+            Routed from @task.V3.T87 (orchestrator, 2026-11-18): the three rule sweeps time out under load (load average
+            about 20 while nub run faults runs), so faults reports them red; this Task's speed work owns it.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
