@@ -1073,3 +1073,7 @@ note 2026-11-17T16:26:55Z
 note 2026-11-17T16:52:20Z
     Decision (the user, 2026-11-17): adopt tsrs for type-aware lint and type check. New T88 (vite-plus to 1.7+, tsrs,
     same diagnostics, planted errors before and after), after T87 and before T83; Sonnet builder and Sonnet reviewer.
+
+note 2026-11-17T17:07:33Z
+    Plan (the user, 2026-11-17): end this session after T88 closes; another agent takes over. At the end: no agents
+    running, cron and caffeinate stopped, tree clean, and a handoff note here naming the next Task (T83) and open items.
