@@ -820,3 +820,7 @@ note 2026-11-16T23:43:56Z
     T9 review ISSUES (fcc9ac50), one blocking: undefined and Option slots saved unknown invent an onContext event each
     reload (Actors R19, R9); orchestrator confirmed in record.ts seenOf. Cap removal stands. T9 fix round takes it, the
     routed items and mix.stress seed 18 (tooling; T74 is done), so T9 closes with stress and faults judged.
+
+note 2026-11-17T00:09:57Z
+    T9 fix round at d7c8457e (blocking slot finding fixed; stress and fresh seeds exit 0; faults 207/207 but unjudged on
+    T20's pair cells). Second review started on the fix round and its Spec edits, since the first blocked.
