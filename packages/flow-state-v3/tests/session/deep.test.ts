@@ -9,6 +9,7 @@ import {
   foldersPastStack,
   importAt,
   importPastStack,
+  kindsPastStack,
   listsPastStack,
   mapsPastStack,
   nestAt,
@@ -64,12 +65,14 @@ const kinds = [
   ["Folders", "folders", "folders"],
   ["Maps", "maps", "index"],
   ["Tree", "trees", "tree"],
+  ["Kinds", "kinds", "node"],
 ] as const;
 
 const swept = {
   Lists: listsPastStack,
   Folders: foldersPastStack,
   Maps: mapsPastStack,
+  Kinds: kindsPastStack,
   Tree: treePastStack,
 };
 
@@ -87,7 +90,7 @@ const brokenFolder = (depth: number) => {
   return loose(tree);
 };
 
-describe("values of any depth (Codec R1, R4; Actors R18, R19; Pending D27)", () => {
+describe("values of any depth (Codec R1, R4, R6; Actors R18, R19)", () => {
   for (const [kind, heardOn, field] of kinds)
     for (const [depth, story] of [
       [PAST_STACK, () => swept[kind]],

@@ -1,4 +1,5 @@
 import {
+  Effect,
   Exit,
   Option,
   Predicate,
@@ -40,6 +41,9 @@ type Work = { readonly ast: Ast; readonly input: Value };
 // on the call stack, how deep it stands and whether it met a hole past its budget.
 class Walk {
   readonly results = new Map<Ast, Map<Value, Parsed>>();
+  // Each transformation's outputs by input: a level parsed again reads the very values a
+  // transformation made the first time (a parsed JSON string), so its holes find their results.
+  readonly transformed = new Map<Value, Map<Value, Value>>();
   readonly waiting: Array<Work> = [];
   readonly budget: number;
   depth = 0;
@@ -129,14 +133,41 @@ const bodyOf = (ast: Ast) => {
   return Predicate.isFunction(owner) ? Option.some(owner(ast)) : Option.none<Ast>();
 };
 
+// An AST with a node's own context (an optional key, a constructor default) put back, as Effect's
+// own `toType` puts it back with SchemaAST's `replaceContext` (exported at run time, typed
+// internal).
+const withContextOf = (built: Ast, ast: Ast) => {
+  const { context } = ast;
+
+  if (context === undefined || !Predicate.hasProperty(SchemaAST, "replaceContext")) return built;
+
+  // SAFETY: `replaceContext(ast, context)` is SchemaAST's own context copy, as `toType` uses it.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Effect types its context copy internal
+  const replace = SchemaAST.replaceContext as (node: Ast, next: SchemaAST.Context) => Ast;
+
+  return Predicate.isFunction(replace) ? replace(built, context) : built;
+};
+
 // RETURN_TYPE: a defect is a failed parse.
 const died = (error: Value): Parsed => Exit.die(error);
 
 // A link's transformation as `decodeTo` takes it: Effect appends a middleware link the same way.
-const transformationOf = (link: SchemaAST.Link) =>
+const transformationOf = (transformation: SchemaAST.Link["transformation"]) =>
   // SAFETY: `decodeTo` appends `new Link(from, transformation)`, which takes a middleware too.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- decodeTo is typed for transformations only
-  link.transformation as Parameters<typeof SchemaAST.decodeTo>[2];
+  transformation as Parameters<typeof SchemaAST.decodeTo>[2];
+
+// A transformation's input as its outputs are kept: an optional getter's input is a fresh Option
+// at each call, kept by what it holds.
+const inputKey = (input: Value) =>
+  Option.isOption(input)
+    ? Option.getOrElse(
+        Option.map(input, (v) => v),
+        () => NONE,
+      )
+    : input;
+
+const NONE = { none: true };
 
 // A parse that a Schema's own code (a check, a transformation) throws out of fails instead.
 const guarded = (parse: Parse) => (input: Value) =>
@@ -175,6 +206,56 @@ const compile = (root: Ast) => {
 
     if (fixed.has(ast) && Exit.isSuccess(result) && result.value !== input)
       table.set(result.value, result);
+  };
+
+  // A link's transformation whose decode keeps its outputs by input for the walk on its own
+  // stack, where a level is parsed again; Effect reads only its `decode` getter's `_tag` and
+  // `transform`.
+  const kept = (transformation: SchemaAST.Link["transformation"]) => {
+    if (!Predicate.hasProperty(transformation, "decode")) return transformation;
+
+    const getter = transformation.decode;
+
+    if (!Predicate.hasProperty(getter, "transform") || !Predicate.isFunction(getter.transform))
+      return transformation;
+
+    // SAFETY: a getter's `transform` takes its input and the parse options; Effect calls it so.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- an Effect getter's transform is typed by its own tag
+    const transform = getter.transform as (input: Value, options: Value) => Value;
+
+    const keeping = (input: Value, options: Value) => {
+      if (Option.isNone(current) || current.value.budget > 0) return transform(input, options);
+
+      const { transformed } = current.value;
+      const table = transformed.get(getter) ?? new Map<Value, Value>();
+      const key = inputKey(input);
+
+      transformed.set(getter, table);
+
+      if (table.has(key)) return table.get(key);
+
+      const output = transform(input, options);
+
+      // An effectful getter's output is kept once it has run: running it again would make a
+      // fresh value.
+      if (!Effect.isEffect(output) || Exit.isExit(output)) {
+        table.set(key, output);
+
+        return output;
+      }
+
+      return Effect.map(output, (made) => {
+        table.set(key, Exit.succeed(made));
+
+        return made;
+      });
+    };
+
+    // SAFETY: the copy keeps every field of the transformation and its getter but `transform`.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- an Effect getter copied with one field replaced
+    return Object.create(transformation, {
+      decode: { value: Object.create(getter, { transform: { value: keeping } }) },
+    }) as SchemaAST.Link["transformation"];
   };
 
   // A hole's value: its result if known, parsed on the call stack within the budget, else
@@ -248,9 +329,17 @@ const compile = (root: Ast) => {
       return Option.match(bodyOf(ast), {
         onNone: () => ast,
         onSome: (body) =>
-          links.reduce<Ast>(
-            (built, link) => SchemaAST.decodeTo(holeOf(link.to), built, transformationOf(link)),
-            holeOf(body),
+          withContextOf(
+            links.reduce<Ast>(
+              (built, link) =>
+                SchemaAST.decodeTo(
+                  holeOf(link.to),
+                  built,
+                  transformationOf(kept(link.transformation)),
+                ),
+              holeOf(body),
+            ),
+            ast,
           ),
       });
     }

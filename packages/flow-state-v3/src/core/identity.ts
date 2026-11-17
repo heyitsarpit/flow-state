@@ -1,5 +1,6 @@
-import { Option, Predicate, Result, Schema } from "effect";
-import { type Compiled, Source, type Values } from "./compiled.ts";
+import { Predicate, Result, Schema } from "effect";
+import { parseCanonical, writeJson } from "./codec.ts";
+import { type Compiled, type Field, Source, type Values } from "./compiled.ts";
 
 /**
  * The prefix of a local actor's name: a singleton's literal name may not start with it, and a
@@ -15,10 +16,18 @@ export const inputFieldsOf = (compiled: Compiled) =>
     .filter((f) => Source.$is("Input")(f.source))
     .toSorted((a, b) => Number(a.name > b.name) - Number(a.name < b.name));
 
-// The JSON text of a machine's input fields, each encoded by its Schema, in field-name order.
-const nameCodec = (compiled: Compiled) =>
-  Schema.fromJsonString(
-    Schema.Struct(Object.fromEntries(inputFieldsOf(compiled).map((f) => [f.name, f.schema]))),
+/**
+ * The Schema of a machine's name: its input fields, each by its own Schema, in field-name order;
+ * a name is this Struct's encoded form as JSON text.
+ */
+export const nameSchemaOf = (fields: ReadonlyArray<Field>) =>
+  Schema.Struct(
+    Object.fromEntries(
+      fields
+        .filter((f) => Source.$is("Input")(f.source))
+        .toSorted((a, b) => Number(a.name > b.name) - Number(a.name < b.name))
+        .map((f) => [f.name, f.schema]),
+    ),
   );
 
 /**
@@ -37,7 +46,12 @@ export const nameOfValue = (compiled: Compiled, value: unknown) => {
     input[field.name] = given;
   }
 
-  return Result.mapError(Schema.encodeUnknownResult(nameCodec(compiled))(input), () => compiled.id);
+  return Result.mapError(
+    Result.flatMap(compiled.identity.encode(input), (encoded) =>
+      Result.mapError(writeJson(encoded), () => "schema"),
+    ),
+    () => compiled.id,
+  );
 };
 
 /**
@@ -48,4 +62,10 @@ export const nameOfValue = (compiled: Compiled, value: unknown) => {
 export const inputOfName = (compiled: Compiled, name: string): Values =>
   inputFieldsOf(compiled).length === 0 || name.startsWith(LOCAL_PREFIX)
     ? {}
-    : Option.getOrElse(Schema.decodeUnknownOption(nameCodec(compiled))(name), () => ({}));
+    : Result.getOrElse(
+        Result.flatMap(
+          Result.mapError(parseCanonical(name), () => "json"),
+          (json) => Result.map(compiled.identity.decode(json), (input) => ({ ...input })),
+        ),
+        () => ({}),
+      );

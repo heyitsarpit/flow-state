@@ -1,3 +1,4 @@
+import { makeFreezer } from "./frozen.ts";
 import { Effect, Option, Schema } from "effect";
 import { expect, it } from "vite-plus/test";
 import { transaction } from "../contract.ts";
@@ -74,7 +75,7 @@ const stepOver = (
   const tx = makeTx(new Map([[actor.machine, TillMachine.compiled]]), world, {
     now: 0,
     seed: "0",
-    freeze: true,
+    admit: makeFreezer(),
   });
 
   const persistence = makePersistence(tx);
@@ -328,7 +329,7 @@ it("Actors R8, WriteAhead I11: a free actor whose records are held back does not
     new Map([[actor.machine, TillMachine.compiled]]),
     graced,
     Input.Fired({ timer: grace }),
-    { now: 100, seed: "0", freeze: true },
+    { now: 100, seed: "0", admit: makeFreezer() },
   );
 
   expect(out.world.incarnations.has(actorKey(actor))).toBe(true);

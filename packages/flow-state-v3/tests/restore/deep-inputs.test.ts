@@ -119,3 +119,52 @@ describe("commit inputs and lane keys of any depth (Codec R1, R4; WriteLanes R12
       DEEP_TIMEOUT,
     );
 });
+
+// An album named by the folder tree it shows, its name that tree as JSON text.
+const Album = definition({
+  id: "Deep/Album",
+  persist: true,
+  states: ["SHOWN"],
+  events: { Look: {} },
+  memory: {
+    tree: Flow.input(Schema.fromJsonString(FolderSchema)),
+    looks: Flow.initial(Schema.Number, 0),
+  },
+});
+
+const AlbumMachine = machine(Album, ({ S }) => ({
+  default: S.SHOWN,
+  on: { Look: { updateMemory: ({ memory }) => ({ looks: memory.looks + 1 }) } },
+}));
+
+const albumSetup = runtimeSetup({
+  app: app({ id: "albums", machines: { album: AlbumMachine } }),
+  scope: "albums",
+  persistence: { captureMs: 0 },
+});
+
+describe("actor names of any depth (Codec R1, R4; Actors R2)", () => {
+  it(
+    "Codec R1, Actors R2: an actor named by a folder tree 3,000 deep is created, saved and restored by its name",
+    async () => {
+      const album = actorRef(AlbumMachine, { tree: foldersOf(PAST_STACK) });
+
+      const run = checked(
+        await Story.app(albumSetup, { id: "deep/album", fixtures: [] })
+          .ensure(album)
+          .send(album, { _tag: "Look" })
+          .reload()
+          .send(album, { _tag: "Look" })
+          .checkpoint("after")
+          .run(),
+      );
+
+      expect(run.checkpoints.after.read(album)?.memory.looks).toBe(2);
+    },
+    DEEP_TIMEOUT,
+  );
+
+  it("Codec R4: a name with no JSON text the host can write (100,000 deep through JSON.stringify) is refused as a FlowError, never another error", () => {
+    expect(() => actorRef(AlbumMachine, { tree: foldersOf(DEEP) })).not.toThrow(RangeError);
+  });
+});

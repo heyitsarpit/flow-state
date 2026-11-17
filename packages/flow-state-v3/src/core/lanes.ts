@@ -1,4 +1,3 @@
-import { admitted } from "./frozen.ts";
 import { Option, Result } from "effect";
 import { Cue, LaneState } from "./cells.ts";
 import { type Concurrency, Operation, type Values } from "./compiled.ts";
@@ -128,7 +127,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     });
 
   const commit = (incarnation: Incarnation, operation: Operation, given: Values, owner: number) => {
-    const input = admitted(tx.env.freeze, given);
+    const input = tx.env.admit(given);
     const key = pick(input, operation.keyFields);
 
     const member: Member = {

@@ -1,3 +1,4 @@
+import { asItIs, makeFreezer } from "../core/frozen.ts";
 import { Cause, Clock, Context, Deferred, Duration, Effect, Exit, Option, Result } from "effect";
 import { Operation } from "../core/compiled.ts";
 import type { Values } from "../core/compiled.ts";
@@ -133,12 +134,15 @@ export const makeDriver = (options: {
       Persist: ({ writes, refused, due }) => edge.accept(writes, refused, due),
     });
 
+  // One freezer for the Runtime's life, so a part it froze once is never walked again.
+  const admitValue = host.freezeValues ? makeFreezer() : asItIs;
+
   const drainInbox = () => {
     for (let next = inbox.shift(); next !== undefined; next = inbox.shift()) {
       const env: Env = {
         now: clock.currentTimeMillisUnsafe(),
         seed: host.sessionSeed,
-        freeze: host.freezeValues,
+        admit: admitValue,
       };
 
       const out = step(machines, world, next, env);

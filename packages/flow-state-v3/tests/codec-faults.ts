@@ -80,8 +80,8 @@ export const codecFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/same.ts",
-        find: "Option.some(a.map((x, i) => [x, b[i]] as const))",
-        replace: "Option.some([])",
+        find: "  return Option.some(pairs);",
+        replace: "  return Option.some([]);",
       },
     ],
   },
@@ -102,12 +102,77 @@ export const codecFaults: ReadonlyArray<Fault> = [
     name: "admitted-values-unfrozen",
     tests: ["tests/turn/immutable.test.ts"],
     says: "a test host admits values unfrozen, so a machine that mutates its memory changes it in place and the memoised text goes stale",
-    rule: "Pending D29",
+    rule: "Turn R24",
     edits: [
       {
-        file: "src/core/frozen.ts",
-        find: "(freeze ? freezeDeep(value) : value)",
-        replace: "value",
+        file: "src/host/driver.ts",
+        find: "host.freezeValues ? makeFreezer() : asItIs",
+        replace: "asItIs",
+      },
+    ],
+  },
+  {
+    name: "instances-compared-as-equal",
+    tests: ["tests/session/deep.test.ts", "src/core/same.test.ts"],
+    says: "the comparator holds every class instance (an Option, a Schema.Class) equal, so a changed Option selection is never heard",
+    rule: "Codec R6",
+    edits: [{ file: "src/core/same.ts", find: "  return fieldPairs(a, b);", replace: "  return settled;" }],
+  },
+  {
+    name: "sparse-hole-ends-comparison",
+    tests: ["src/core/same.test.ts"],
+    says: "an array's pairs skip its holes, which leave holes on the stack, and a hole popped ends the comparison as equal",
+    rule: "Codec R6",
+    edits: [
+      {
+        file: "src/core/same.ts",
+        find: "  for (let i = 0; i < a.length; i += 1) pairs.push([a[i], b[i]]);",
+        replace: "  pairs.push(...a.map((x, i): Pair => [x, b[i]]));\n  pairs.length = a.length + 1;",
+      },
+      {
+        file: "src/core/same.ts",
+        find: "  while (stack.length > 0) {\n    const [a, b] = stack.pop() ?? [undefined, undefined];",
+        replace: "  for (let p = stack.pop(); p !== undefined; p = stack.pop()) {\n    const [a, b] = p;",
+      },
+    ],
+  },
+  {
+    name: "optional-key-context-dropped",
+    tests: ["src/core/boundary.test.ts"],
+    says: "a holed encoded node keeps the context from before its optional key, so a missing optional Date fails where Effect succeeds",
+    rule: "Codec I8",
+    edits: [
+      {
+        file: "src/core/boundary.ts",
+        find: '  if (context === undefined || !Predicate.hasProperty(SchemaAST, "replaceContext")) return built;',
+        replace: "  return built;",
+      },
+    ],
+  },
+  {
+    name: "transformation-output-made-again",
+    tests: ["tests/restore/deep-inputs.test.ts"],
+    says: "a level parsed again runs its transformations again, so a parsed JSON string makes fresh values its holes never find and an actor named by a deep tree never starts",
+    rule: "Codec R6",
+    edits: [
+      {
+        file: "src/core/boundary.ts",
+        find: "      if (Option.isNone(current) || current.value.budget > 0) return transform(input, options);",
+        replace: "      return transform(input, options);",
+      },
+    ],
+  },
+  {
+    name: "name-by-effect-encode",
+    tests: ["tests/restore/deep-inputs.test.ts"],
+    says: "an actor's name is encoded by Effect's recursive parser, so a ref 3,000 deep throws at ensure",
+    rule: "Codec R4",
+    edits: [
+      {
+        file: "src/core/identity.ts",
+        find: "    Result.flatMap(compiled.identity.encode(input), (encoded) =>",
+        replace:
+          '    Result.flatMap(Result.mapError(Schema.encodeUnknownResult(Schema.toCodecJson(nameSchemaOf(compiled.fields)))(input), () => "schema" as const), (encoded) =>',
       },
     ],
   },

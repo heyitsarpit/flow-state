@@ -1,7 +1,6 @@
 import { Equal, Option, Predicate, Result } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
-import { admitted } from "./frozen.ts";
 import { sameValue } from "./same.ts";
 import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
 import { type Tx, withEntry } from "./tx.ts";
@@ -144,7 +143,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
                 onFailure: () => declared.select.slot,
                 onSuccess: (selected) => ({
                   ...selected,
-                  value: admitted(tx.env.freeze, selected.value),
+                  value: tx.env.admit(selected.value),
                 }),
               }),
       );

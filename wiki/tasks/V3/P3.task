@@ -2449,38 +2449,43 @@ tasks
             capacity becomes a bench-set named default (D25).
 
     T85
-        title       The step indexes the World and drafts its maps: no whole-world scans or whole-map copies
+        title       Records captured on issue (D30), plus compiled lookups
         status      open
         priority    high
         blocked_by  [@T9]
         description
-            The step stops scanning the whole World and copying whole maps: actor keys are carried on identities, the
-            World keeps per-step indexes, and a step edits one draft of its maps instead of copying a map per change.
+            Records are captured on issue (@plan.Pending.D30): a step only marks the record keys it changed, and one
+            pure Capture step encodes every marked key from the current World through T9's memoised compiled walkers
+            when the edge issues a batch; plus the performance audit's findings 12 and 15.
 
-            **Why now:** the performance audit
-            (code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md, findings 6, 7, 10 and 11)
-            measured `actorKey` strings built per call at 13 % self time of `session/long`, `withEntry` whole-map copies
-            at 5.7 % self (O(N^2) with an unbounded mailbox once D24 lands), and whole-world scans per step. The turn
-            itself is 1 to 2 % of a run.
+            **Why now:** step-end projection re-encodes every touched record and the edge keeps only the last text; the
+            persistence redesign measured palette stress per turn 3.84 to 0.55 ms and a hide flush about 36 to 3.2 ms
+            with identical stored bytes on 151 Stories. Finding 12 skips a slot whose provider's snapshot is unchanged;
+            finding 15 removes per-call re-derivations of state paths and names from `Compiled`.
 
-            **Read first:** the audit's findings 6, 7, 10 and 11 with their evidence; @spec.Turn, @spec.Actors;
-            @plan.Pending.D24; code:wiki/conventions/fixtures.md.
+            **Read first:** code:wiki/plans/flow/references/proposals/persistence-redesign-2026-11-17.md, the audit's
+            findings 12 and 15 in code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md,
+            @plan.Pending.D27 to D30, @spec.WriteAhead, @spec.Restore, code:wiki/conventions/fixtures.md.
 
-            **Risk:** a draft that leaks between steps or an index that drifts from the World would lose or double an
-            ending; every existing Story and run rule must hold unchanged, and the core stays pure and synchronous.
+            **Risk:** a key cleared before its batch lands, or a ticket's record that fails to encode after its step,
+            loses or doubles an ending; the redesign's guarantee table says how each holds. Built on @task.V3.T79's step
+            edit operations, so Capture reads the new step state.
 
-            May change: `packages/flow-state-v3/src/core/`, `tests/`, `bench/`. Evidence: this Task's comments.
+            May change: `packages/flow-state-v3/src/`, `tests/`, `bench/`, @spec.WriteAhead (logged in specs.log).
+            Evidence: this Task's comments.
 
-            False pass: a faster step that skips a rule's check → caught by the same Story ids, run rules and fault
-            caught list before and after.
+            False pass: Capture that skips a marked key → caught by the run rules reading stored records at every
+            checkpoint, and identical stored bytes before and after on every Story.
         acceptance
-            - Profiles of `transfers/long`, `session/long` and a stress Story before and after, alone on this machine,
-              in a Task comment, with each finding's share before and after.
-            - Actor keys are built once per identity, World lookups use per-World indexes, and a step's map edits go
-              through one draft; no whole-map copy per change remains on the step path.
-            - A Story with many actors and a deep mailbox shows step cost grows with the work done, not with World size,
-              timed on the bench.
-            - The same Story ids, test counts and fault caught list hold before and after; `nub run check` passes.
+            - Steps mark changed record keys only; one Capture step encodes them on issue; a key stays marked until a
+              batch carrying it lands; WriteAhead R10 to R12, I20 and I21 are rewritten as D30 says and logged
+              in specs.log.
+            - Stored records are byte-identical to step-end projection at every checkpoint of every Story; I11, I20,
+              I21, I22 and I23 hold; the `NotSent { StorageRefused }` case of D30 has a Story.
+            - A hide flush with a realistic dirty set is timed in Chromium and Safari, and per-turn bench numbers before
+              and after are in a Task comment.
+            - Findings 12 and 15 are built, each with a bench line before and after.
+            - The same Story ids, test counts and fault caught list hold; `nub run check` passes.
         comment     2026-11-17T08:29:03Z
             Scope added (orchestrator, 2026-11-17): @plan.Pending.D28, Later records projected when their list is
             issued, gated on the bench after T9's memoised walkers; WriteAhead R10/R11 and its realization change with a
@@ -2493,3 +2498,7 @@ tasks
             Routed (orchestrator, 2026-11-17): the performance audit's finding 15 (per-call re-derivations of state
             paths and names from Compiled) and finding 12's skip of a slot when its provider's snapshot is unchanged;
             T9's walkers did not take them.
+        comment     2026-11-17T10:23:20Z
+            Rescoped (the user, 2026-11-17, Q14 A): findings 6, 7, 10 and 11 (World indexes, map drafts, actor keys)
+            moved to @task.V3.T79's step edit operations; this Task keeps D30's Capture and findings 12 and 15,
+            after T79.

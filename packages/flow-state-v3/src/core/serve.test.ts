@@ -1,3 +1,4 @@
+import { makeFreezer } from "./frozen.ts";
 import { Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { definition } from "../definition.ts";
@@ -69,7 +70,7 @@ describe("a context update that waits for its providers (Actors R19)", () => {
       [line.machine, { ...LineMachine.compiled, wiring: new Map([["name", lead]]) }],
     ]);
 
-    const env = { now: 0, seed: "0", freeze: true };
+    const env = { now: 0, seed: "0", admit: makeFreezer() };
     const open = { ...emptyWorld(false), life: Life.Open() };
 
     const ensured = step(

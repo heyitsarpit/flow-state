@@ -42,8 +42,9 @@ requirements
                 values).
 
                 No raw parser error or Cause escapes. Inside a turn or a capture, a value with no
-                encoded form (a malformation, or a cycle) is reported only as
-                UnencodableValue (its details naming the reason) and never fails the turn (a
+                encoded form (a malformation, or a cycle) in memory or a record is reported only as
+                UnencodableValue (its details naming the reason) and never fails the turn; a selection
+                with none is its selector's defect (@spec.Actors.R18) (a
                 commit's input or key that cannot encode is the one exception: it declines NotSent {
                 Unencodable }, an ending,
                 @spec.WriteLanes.R12).
@@ -87,25 +88,25 @@ requirements
     R6  One value boundary
         source  @plan.Inspection.O2; @plan.Pending.D27.
         must    Every value that crosses into Flow passes through walkers compiled once per Schema
-                from Effect's Schema AST and kept on Compiled: memory at capture, restore and
-                comparison, context selections, event payloads (E.X and send), commit inputs and
-                lane keys, records at the boot, and trace text. A walker encodes to the Schema's JSON
-                form, decodes, and checks the type side. It runs Effect's own parser one recursion
-                level at a time: each `Schema.suspend` is a hole that reads its value's result from a
-                table, and a level whose holes miss is parsed again once their values are done, from
-                an explicit stack. Effect's Schema stays the one source of every rule, a value of any
-                depth is walked without the call stack, and a value shared twice is walked once. A
-                value whose holes all lie within a fixed budget is parsed once, directly. A value on
-                its own path under one Schema (a cycle) has no form. A walker keeps each value's canonical
-                text by the object it is (admitted values are immutable, @plan.Pending.D29, and a dev or
-                test host deep-freezes them), so a step re-encodes
-                only the fields it changed, and a selector that returns the value it returned last
-                keeps its selection unwalked. Values compare structurally on an explicit stack, the
-                same object at once (as `Equal` holds them; chosen on the bench, Codec T7); memory
-                compares field by field. JSON text is written in one pass and trace text with its own
-                stack, in the same bytes as before (R2). Decision (agent, the user's Q11 B): proposed.
-                Why: guarding Effect's recursive calls one by one leaked in three reviews. Reverse:
-                restore D26's limit (specs.log).
+                from Effect's Schema AST and kept on Compiled: memory at capture and restore, context
+                selections, event payloads (E.X and send), commit inputs and lane keys, actor names,
+                and records at the boot. A walker encodes to the Schema's JSON form, decodes, and
+                checks the type side. It runs Effect's own parser one recursion level at a time: each
+                `Schema.suspend` is a hole that reads its value's result from a table, and a level
+                whose holes miss is parsed again once their values are done, from an explicit stack,
+                with each transformation's output kept so the level reads the same values again.
+                Effect's Schema stays the one source of every rule (optional keys, defaults, unions,
+                transformations, refinements, classes), a value of any depth is walked without the
+                call stack, and a value shared twice is walked once. A value on its own path under
+                one Schema (a cycle) has no form. A walker keeps each value's canonical text by the
+                object it is (admitted values are immutable, @spec.Turn.R24), so a step re-encodes
+                only the fields it changed. Comparison is not the walkers': memory, selections and
+                reaction inputs compare with a structural comparator on its own stack, the same
+                object first, over every value kind a Schema makes, as `Equal` holds them (chosen on
+                the bench, T7). JSON text, trace text and every construction-time walk over a value
+                (a constant, the data view) keep their own stacks too. Decision (agent, the user's
+                Q11 B). Why: guarding Effect's recursive calls one by one leaked in three reviews.
+                Reverse: restore D26's limit (specs.log).
 
 open
     Q1  Executable checks are not built.

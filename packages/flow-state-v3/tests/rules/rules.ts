@@ -452,17 +452,27 @@ export const owingRestoredLive: Rule = {
     ),
 };
 
+// A value that is neither JSON nor a plain object or array: a Schema's own value kind.
+// FLOW_STATE_ALLOW_UNKNOWN: a published memory field.
+const isApplicationValue = (v: unknown) => {
+  if (!Predicate.isObject(v)) return false;
+
+  const proto = Object.getPrototypeOf(v);
+
+  return proto !== Object.prototype && proto !== null;
+};
+
 /**
- * Turn R24, over Flow's fixtures, whose memory Schemas are JSON but for the nests' index of Maps:
- * every published memory field is plain data, readable as JSON, or a Map, an opaque application
- * value the rule does not judge.
+ * Turn R24, over Flow's fixtures: every published memory field is plain data, readable as JSON, or
+ * a value kind a Schema makes beside it (a Map, a Set, a Date, an Option or another class
+ * instance), an application value the rule does not judge.
  */
 export const publishedPlainData: Rule = {
   rule: "Turn R24",
   breaches: (run) =>
     run.evidence.flatMap((e) =>
       e._tag === "Published" &&
-      !Object.values(e.memory).every((v) => v instanceof Map || Schema.is(Schema.Json)(v))
+      !Object.values(e.memory).every((v) => Schema.is(Schema.Json)(v) || isApplicationValue(v))
         ? [`Turn R24: ${e.actor.machine}/${e.actor.name} published memory that is not plain data`]
         : [],
     ),

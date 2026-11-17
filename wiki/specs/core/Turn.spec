@@ -231,7 +231,12 @@ requirements
         must    Snapshots are deeply frozen plain data. Reading an old snapshot never consults live 
                 lanes. Unchanged parts keep identity across publications, the memory object included
                 when no field changed; a changed Flow-owned container is a new copy, and opaque
-                application values keep identity.
+                application values keep identity. Every value the Runtime admits (memory, a
+                selection, a payload, a commit input, an action's key, a restored record's values)
+                is immutable by contract: an update returns new containers, never writes in place.
+                A dev or test host deep-freezes each admitted value, Maps, Sets, Dates and class
+                instances included, so a write throws where it happens and is its turn's Defect;
+                production admits values as they are (@plan.Pending.D29).
 
     R25  Issues by source
         source  @plan.Machines.O8.

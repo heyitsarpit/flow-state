@@ -98,7 +98,7 @@ export const appFindings = (config: {
 };
 
 // Functions Flow derives from a declared Schema, held on Compiled beside it.
-const DERIVED = new Set(["sameMemory", "is", "walk"]);
+const DERIVED = new Set(["sameMemory", "is", "walk", "identity"]);
 
 // Whether a function at `key` of `value` is allowed: a Slot's run, or one Flow derived.
 // FLOW_STATE_ALLOW_UNKNOWN: a Compiled handed to a Runtime is checked before it is trusted.
@@ -111,29 +111,48 @@ const allowed = (value: unknown, key: string) =>
 const walkable = (value: unknown): value is Values =>
   !Schema.isSchema(value) && (Predicate.isObject(value) || Array.isArray(value));
 
-// RETURN_TYPE: recursive: the first function that is neither a Slot's, a Schema's own nor derived.
-const bareFunction = (
-  // FLOW_STATE_ALLOW_UNKNOWN: a Compiled handed to a Runtime is checked before it is trusted.
-  value: unknown,
-  path: string,
-): Option.Option<string> => {
-  if (!walkable(value)) return Option.none();
+// A walkable node's children with their paths; a derived part (a Schema's walkers) is Flow's own,
+// built from its Schema.
+const childrenAt = (value: Values, path: string) =>
+  (value instanceof Map
+    ? [...value].map(([k, v]) => [String(k), v] as const)
+    : Object.entries(value)
+  )
+    .filter(([key]) => !DERIVED.has(String(key)))
+    .map(([key, child]) => ({ key, child, at: path === "" ? key : `${path}.${key}` }));
 
-  // A derived part (a Schema's walkers) is Flow's own, built from its Schema.
-  const entries = (
-    value instanceof Map ? [...value].map(([k, v]) => [String(k), v]) : Object.entries(value)
-  ).filter(([key]) => !DERIVED.has(String(key)));
+// Whether a child is a function that is neither a Slot's, a Schema's own nor derived.
+// FLOW_STATE_ALLOW_UNKNOWN: a Compiled handed to a Runtime is checked before it is trusted.
+const isBare = (parent: Values, key: string, child: unknown) =>
+  Predicate.isFunction(child) && !Schema.isSchema(child) && !allowed(parent, key);
 
-  for (const [key, child] of entries) {
-    const at = path === "" ? key : `${path}.${key}`;
-    const bare = Predicate.isFunction(child) && !Schema.isSchema(child) && !allowed(value, key);
+// The first function, in walk order, that is neither a Slot's, a Schema's own nor derived; walked
+// depth first with its own stack, so a constant of any depth is checked.
+const bareFunction = (root: Values) => {
+  const stack = [{ value: root, children: childrenAt(root, ""), next: 0 }];
+  const open = new Set<Values>([root]);
 
-    const found = bare ? Option.some(at) : bareFunction(child, at);
+  const descend = (child: Values, at: string) => {
+    open.add(child);
+    stack.push({ value: child, children: childrenAt(child, at), next: 0 });
+  };
 
-    if (Option.isSome(found)) return found;
+  for (let frame = stack.at(-1); frame !== undefined; frame = stack.at(-1)) {
+    const entry = frame.children[frame.next];
+
+    if (entry === undefined) {
+      stack.pop();
+      open.delete(frame.value);
+    } else {
+      frame.next += 1;
+
+      if (isBare(frame.value, entry.key, entry.child)) return Option.some(entry.at);
+
+      if (walkable(entry.child) && !open.has(entry.child)) descend(entry.child, entry.at);
+    }
   }
 
-  return Option.none();
+  return Option.none<string>();
 };
 
 /**
@@ -168,7 +187,7 @@ export const malformedOf = (compiled: Compiled) => {
       );
   }
 
-  return Option.map(bareFunction(compiled, ""), (path) =>
+  return Option.map(bareFunction(compiled), (path) =>
     invalid(
       [...at, path],
       "BareFunction",

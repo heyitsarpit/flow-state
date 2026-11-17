@@ -291,7 +291,7 @@ export const DEEP = 100_000;
  */
 export const PAST_STACK = 3_000;
 
-type NestKind = "Lists" | "Folders" | "Maps" | "Tree";
+type NestKind = "Lists" | "Folders" | "Maps" | "Tree" | "Kinds";
 
 /**
  * A nest built `depth` deep, the title alone renamed, then a nest one deeper, then that same nest
@@ -334,6 +334,12 @@ export const mapsPastStack = nestAt("Maps", PAST_STACK, "session/maps-past-stack
  * The same, for an index of Maps held in memory and selected as it is.
  */
 export const treePastStack = nestAt("Tree", PAST_STACK, "session/tree-past-stack");
+
+/**
+ * The same, for an Option, a class instance chain, a Set and a Map keyed by trees, held in memory
+ * and the Option selected.
+ */
+export const kindsPastStack = nestAt("Kinds", PAST_STACK, "session/kinds-past-stack");
 
 /**
  * A folder tree imported whole in its event's payload, as deep as `depth`; the viewer pins a tree

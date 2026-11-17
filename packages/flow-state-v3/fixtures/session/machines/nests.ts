@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
 
 /**
@@ -73,6 +73,42 @@ export const treeOf = (depth: number, leaf = "note") => {
   return depth === 0 ? new Map<string, Index | string>() : index;
 };
 
+// A node's Schema type: its encoded kids are the encoded nodes below.
+// FLOW_STATE_ALLOW_UNKNOWN: a node's encoded children, typed by the class itself.
+type NodeCodec = Schema.Codec<Node, { readonly kids: ReadonlyArray<unknown> }>;
+
+/**
+ * A node of an outline kept as class instances: its children.
+ */
+export class Node extends Schema.Class<Node>("Workspace/Node")({
+  kids: Schema.Array(Schema.suspend(() => nodeSchema())),
+}) {}
+
+// RETURN_TYPE: a recursive class names its own Schema type.
+const nodeSchema = (): NodeCodec => Node;
+
+/**
+ * A chain of nodes `depth` deep.
+ */
+export const nodesOf = (depth: number) => {
+  let node = new Node({ kids: [] });
+
+  for (let n = 1; n < depth; n += 1) node = new Node({ kids: [node] });
+
+  return node;
+};
+
+/**
+ * The value kinds a Schema makes beside plain data, each holding a folder tree `depth` deep: an
+ * Option, a class instance chain, a Set and a Map keyed by trees.
+ */
+export const kindsOf = (depth: number) => ({
+  boxed: Option.some(foldersOf(depth)),
+  node: nodesOf(depth),
+  bag: new Set([foldersOf(depth), foldersOf(2)]),
+  keyed: new Map([[foldersOf(depth), "deep"]]),
+});
+
 /**
  * The workspace's nested things, each as deep as a paste or an import made it: an outline as
  * plain JSON lists, a folder tree under a recursive Schema, and the lists an index of Maps is read
@@ -89,6 +125,7 @@ export const Nests = definition({
     Maps: { depth: Schema.Number },
     Title: { title: Schema.String },
     Tree: { depth: Schema.Number },
+    Kinds: { depth: Schema.Number },
     Import: { folder: Folder },
   },
   memory: {
@@ -96,6 +133,10 @@ export const Nests = definition({
     folders: Flow.initial(Folder, { kids: [] }),
     index: Flow.initial(Schema.Json, null),
     tree: Flow.initial(Index, new Map<string, Index | string>()),
+    boxed: Flow.initial(Schema.Option(Folder), Option.none()),
+    node: Flow.initial(Node, new Node({ kids: [] })),
+    bag: Flow.initial(Schema.ReadonlySet(Folder), new Set<Folder>()),
+    keyed: Flow.initial(Schema.ReadonlyMap(Folder, Schema.String), new Map<Folder, string>()),
     title: Flow.initial(Schema.String, ""),
   },
 });
@@ -111,6 +152,7 @@ export const NestsMachine = machine(Nests, ({ S }) => ({
     Maps: { updateMemory: ({ event }) => ({ index: listOf(event.depth) }) },
     Title: { updateMemory: ({ event }) => ({ title: event.title }) },
     Tree: { updateMemory: ({ event }) => ({ tree: treeOf(event.depth) }) },
+    Kinds: { updateMemory: ({ event }) => kindsOf(event.depth) },
     Import: { updateMemory: ({ event }) => ({ folders: event.folder }) },
   },
 }));
@@ -129,6 +171,7 @@ export const NestView = definition({
     FoldersHeard: {},
     MapsHeard: {},
     TreesHeard: {},
+    KindsHeard: {},
     PinHeard: {},
   },
   memory: {
@@ -136,6 +179,7 @@ export const NestView = definition({
     folders: Flow.initial(Schema.Number, 0),
     maps: Flow.initial(Schema.Number, 0),
     trees: Flow.initial(Schema.Number, 0),
+    kinds: Flow.initial(Schema.Number, 0),
     pins: Flow.initial(Schema.Number, 0),
     pinned: Flow.initial(Folder, { kids: [] }),
   },
@@ -145,6 +189,7 @@ export const NestView = definition({
     maps: Nests.Provider.select(Index, (n) => indexOf(n.memory.index)),
     title: Nests.Provider.select(Schema.String, (n) => n.memory.title),
     tree: Nests.Provider.select(Index, (n) => n.memory.tree),
+    boxed: Nests.Provider.select(Schema.Option(Folder), (n) => n.memory.boxed),
   },
 });
 
@@ -159,6 +204,7 @@ export const NestViewMachine = machine(NestView, ({ S, E }) => ({
     { select: ({ context }) => context.folders, event: E.FoldersHeard },
     { select: ({ context }) => context.maps, event: E.MapsHeard },
     { select: ({ context }) => context.tree, event: E.TreesHeard },
+    { select: ({ context }) => context.boxed, event: E.KindsHeard },
     {
       select: ({ context, memory }) => ({ title: context.title, pinned: memory.pinned }),
       event: E.PinHeard,
@@ -170,6 +216,7 @@ export const NestViewMachine = machine(NestView, ({ S, E }) => ({
     FoldersHeard: { updateMemory: ({ memory }) => ({ folders: memory.folders + 1 }) },
     MapsHeard: { updateMemory: ({ memory }) => ({ maps: memory.maps + 1 }) },
     TreesHeard: { updateMemory: ({ memory }) => ({ trees: memory.trees + 1 }) },
+    KindsHeard: { updateMemory: ({ memory }) => ({ kinds: memory.kinds + 1 }) },
     PinHeard: { updateMemory: ({ memory }) => ({ pins: memory.pins + 1 }) },
   },
 }));

@@ -24,7 +24,15 @@ export type Machines = ReadonlyMap<string, Compiled>;
 /**
  * What a step reads from its host: the Runtime Clock's time and the boot's session seed.
  */
-export type Env = { readonly now: number; readonly seed: string; readonly freeze: boolean };
+/**
+ * A step's environment: its time, its id seed, and how the Runtime admits a value (deep-frozen in
+ * dev and test hosts, as it is in production).
+ */
+export type Env = {
+  readonly now: number;
+  readonly seed: string;
+  readonly admit: <A>(value: A) => A;
+};
 
 /**
  * How long a free shared actor lives before it ends.

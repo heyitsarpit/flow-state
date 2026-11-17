@@ -160,6 +160,7 @@ export const workspaceGrown = app({
         maps: mainNests,
         title: mainNests,
         tree: mainNests,
+        boxed: mainNests,
       },
     },
     preview: { machine: PreviewMachine, context: { doc: mainOutline } },

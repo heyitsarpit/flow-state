@@ -284,3 +284,13 @@ note 2026-11-17T17:40:00Z
     @spec.Codec R6 (@plan.Pending.D29): memory, selections, payloads and commit inputs are deep-frozen at admission when
     the Host sets freezeValues (Story and test hosts on, the browser off); a mutating update is its turn's Defect.
     Why: the text memo and reference-first equality rest on it. Reverse: drop freezeValues (8509e570).
+
+note 2026-11-17T19:30:00Z
+    @spec.Codec R4, R6: comparison is a structural comparator over every Schema value kind, not the walkers; names
+    pass the boundary; a selection with no form is its selector's defect (Actors R18). Why: T9 boundary review.
+    Reverse: 1d8fd436's wording.
+
+note 2026-11-17T19:30:01Z
+    @spec.Turn R24 (@plan.Pending.D29): admitted values are immutable; dev and test hosts deep-freeze them, Maps, Sets,
+    Dates and class instances included, so a write throws as its turn's Defect. Why: the text memo keys on them.
+    Reverse: drop the paragraph (1d8fd436).

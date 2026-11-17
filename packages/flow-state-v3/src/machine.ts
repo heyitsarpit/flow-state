@@ -1,5 +1,6 @@
 import { Option, Schema } from "effect";
 import { walkerOf } from "./core/boundary.ts";
+import { nameSchemaOf } from "./core/identity.ts";
 import { sameValue } from "./core/same.ts";
 import type { Values } from "./core/compiled.ts";
 import { leafOf } from "./core/tree.ts";
@@ -191,6 +192,7 @@ export const machine = <D extends AnyDefinition>(
     memory,
     memoryJson,
     walk: walkerOf(memoryJson),
+    identity: walkerOf(codecOf<Values>(nameSchemaOf(fields))),
     sameMemory,
     operations: new Map(
       Object.entries(definition.operations).map(([name, bound]) => [

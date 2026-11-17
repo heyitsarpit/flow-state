@@ -15,8 +15,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/identity.ts",
-        find: "  return Result.mapError(Schema.encodeUnknownResult(nameCodec(compiled))(input), () => compiled.id);",
-        replace: "  return Result.succeed(JSON.stringify(value));",
+        find: "  return Result.mapError(\n    Result.flatMap(compiled.identity.encode(input), (encoded) =>",
+        replace:
+          "  return Result.succeed(JSON.stringify(value));\n  return Result.mapError(\n    Result.flatMap(compiled.identity.encode(input), (encoded) =>",
       },
     ],
   },

@@ -1,3 +1,4 @@
+import { makeFreezer } from "./frozen.ts";
 import assert from "node:assert/strict";
 import { Option, Result } from "effect";
 import { describe, it } from "vite-plus/test";
@@ -41,7 +42,7 @@ const live = (world: World): World => ({
 
 // One step's working state over a world, with the ledger's functions and its reports.
 const stepOver = (world: World) => {
-  const tx = makeTx(new Map(), world, { now: 0, seed: "0", freeze: true });
+  const tx = makeTx(new Map(), world, { now: 0, seed: "0", admit: makeFreezer() });
   const ledger = makeLedger(tx, makePersistence(tx));
 
   return { tx, ledger, rows: () => rowsOf(tx.world().owed, actor) };

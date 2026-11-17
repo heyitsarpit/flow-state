@@ -1,4 +1,3 @@
-import { admitted } from "./frozen.ts";
 import { Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
@@ -150,12 +149,18 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       state,
       activations: chainOf(state).map(() => tx.next()),
       history: new Map(),
-      memory: admitted(tx.env.freeze, created.success),
+      memory: tx.env.admit(created.success),
       schedules: new Map(),
       issues: [],
       bound: new Map(),
       // A start from a record keeps its saved selections while a selector throws.
-      context: Option.match(from, { onNone: () => new Map(), onSome: (r) => r.seen }),
+      context: Option.match(from, {
+        onNone: () => new Map(),
+        onSome: (r) =>
+          new Map(
+            [...r.seen].map(([slot, s]) => [slot, { ...s, value: tx.env.admit(s.value) }] as const),
+          ),
+      }),
       stale: new Map(),
       baselines: [],
     };

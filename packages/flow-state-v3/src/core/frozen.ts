@@ -3,65 +3,111 @@ import { Predicate } from "effect";
 // FLOW_STATE_ALLOW_UNKNOWN: an admitted value, frozen node by node; its own types are the app's.
 type Node = unknown;
 
-const isPlainContainer = (value: Node) => {
-  if (Array.isArray(value)) return true;
+// An object met in an admitted value, its fields read by key.
+type Fields = Readonly<Record<PropertyKey, Node>>;
 
-  if (!Predicate.isObject(value)) return false;
+// An object or array met in an admitted value.
+type Container = Fields | ReadonlyArray<Node>;
 
-  const proto = Object.getPrototypeOf(value);
+// RETURN_TYPE: a type guard states the type it narrows to.
+const isList = (value: Container): value is ReadonlyArray<Node> => Array.isArray(value);
 
-  return proto === Object.prototype || proto === null;
+// The methods that change a Map, a Set or a Date in place.
+const MAP_WRITES = ["set", "delete", "clear"];
+const SET_WRITES = ["add", "delete", "clear"];
+
+const DATE_WRITES = [
+  "setDate",
+  "setFullYear",
+  "setHours",
+  "setMilliseconds",
+  "setMinutes",
+  "setMonth",
+  "setSeconds",
+  "setTime",
+  "setUTCDate",
+  "setUTCFullYear",
+  "setUTCHours",
+  "setUTCMilliseconds",
+  "setUTCMinutes",
+  "setUTCMonth",
+  "setUTCSeconds",
+  "setYear",
+];
+
+const writesOf = (value: Container) => {
+  if (value instanceof Map) return MAP_WRITES;
+
+  if (value instanceof Set) return SET_WRITES;
+
+  return Predicate.isDate(value) ? DATE_WRITES : [];
 };
 
-// The nodes a container holds: an array's items, a plain object's fields, a Map's keys and
-// values, a Set's items; another object is the app's own and holds none Flow walks.
+// The nodes a container holds: an array's items, a Map's keys and values, a Set's items, another
+// object's own fields.
 // RETURN_TYPE: every branch is a list of nodes, an array's own items among them.
-const heldBy = (value: Node): ReadonlyArray<Node> => {
-  if (Array.isArray(value)) return value;
+const heldBy = (value: Container): ReadonlyArray<Node> => {
+  if (isList(value)) return value;
 
   if (value instanceof Map) return [...value.keys(), ...value.values()];
 
   if (value instanceof Set) return [...value];
 
-  return isPlainContainer(value) && Predicate.isObject(value) ? Object.values(value) : [];
+  return Reflect.ownKeys(value).map((key) => value[key]);
+};
+
+const refuseWrite = (name: string) => () => {
+  // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an admitted value is immutable by contract: a write throws where it happens, in dev and test
+  throw new TypeError(`Cannot ${name} on an admitted value: admitted values are immutable`);
+};
+
+// Freezes one container in place: its own fields, and for a Map, a Set or a Date the methods
+// that would change what it holds, each replaced by one that throws.
+const freezeOne = (value: Container) => {
+  if (ArrayBuffer.isView(value)) return;
+
+  if (!Object.isFrozen(value))
+    for (const name of writesOf(value))
+      Object.defineProperty(value, name, { value: refuseWrite(name), enumerable: false });
+
+  // oxlint-disable-next-line lint-bomb/no-object-freeze -- an admitted value is immutable by contract, and dev and test freeze it so a mutation throws
+  Object.freeze(value);
 };
 
 /**
- * Deep-freezes an admitted value (memory, a selection, a payload, a commit input) without the call
- * stack: every plain object and array in it, through Maps and Sets, whose own entries a freeze
- * cannot fix. A part already frozen is not walked again, so a step pays only for what it made.
+ * A Runtime's freezer: deep-freezes each admitted value (memory, a selection, a payload, a commit
+ * input, an action's key) without the call stack: every object and array in it, Maps, Sets and
+ * Dates included, whose writing methods then throw. A part it froze before is not walked again, so
+ * a step pays only for what it made; a part the app froze only shallowly is walked through.
  *
  * **When to use**
  *
- * In dev and test, where the host asks for it, so a mutation of an admitted value throws where it
- * happens; production pays nothing.
+ * In dev and test hosts, so a mutation of an admitted value throws where it happens; production
+ * admits values as they are and pays nothing.
  *
  * **Gotchas**
  *
- * - A class instance is the app's own and is left as it is, and so are a Map's and a Set's own
- *   entries: only what they hold is frozen.
+ * - A typed array cannot be frozen and is left as it is.
  */
-export const freezeDeep = <A>(root: A) => {
-  const stack: Array<Node> = [root];
-  const seen = new Set<Node>();
+export const makeFreezer = () => {
+  const done = new WeakSet<Container>();
 
-  // Freezes one node not yet met and pushes what it holds.
-  const freezeOne = (at: Node) => {
-    seen.add(at);
+  return <A>(root: A) => {
+    const stack: Array<Node> = [root];
 
-    // oxlint-disable-next-line lint-bomb/no-object-freeze -- Pending D29: an admitted value is immutable by contract, and dev and test freeze it so a mutation throws
-    if (isPlainContainer(at)) Object.freeze(at);
+    for (let at = stack.pop(); at !== undefined || stack.length > 0; at = stack.pop())
+      if (Predicate.isObjectOrArray(at) && !Predicate.isFunction(at) && !done.has(at)) {
+        done.add(at);
+        freezeOne(at);
 
-    for (const node of heldBy(at)) if (Predicate.isObjectOrArray(node)) stack.push(node);
+        for (const node of heldBy(at)) stack.push(node);
+      }
+
+    return root;
   };
-
-  for (let at = stack.pop(); at !== undefined; at = stack.pop())
-    if (!seen.has(at) && !(isPlainContainer(at) && Object.isFrozen(at))) freezeOne(at);
-
-  return root;
 };
 
 /**
- * An admitted value, deep-frozen when the step's environment asks for it.
+ * Admits a value as it is: the production host's admission, which freezes nothing.
  */
-export const admitted = <A>(freeze: boolean, value: A) => (freeze ? freezeDeep(value) : value);
+export const asItIs = <A>(value: A) => value;

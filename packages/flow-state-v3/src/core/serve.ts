@@ -1,6 +1,5 @@
 import { Option, Result } from "effect";
 import { type Mapping, Operation, type Values } from "./compiled.ts";
-import { admitted } from "./frozen.ts";
 import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
@@ -119,7 +118,7 @@ export const makeServe = (
       history: incarnation.history,
       memory: incarnation.memory,
       tag,
-      payload: admitted(tx.env.freeze, payload),
+      payload: tx.env.admit(payload),
       late: Option.isSome(route.late),
       from: Option.match(route.late, {
         onNone: () => incarnation.activations.length,
@@ -157,7 +156,7 @@ export const makeServe = (
       },
       Accepted: (accepted) => {
         const base: Incarnation = Option.match(accepted.move, {
-          onNone: () => ({ ...incarnation, memory: admitted(tx.env.freeze, accepted.memory) }),
+          onNone: () => ({ ...incarnation, memory: tx.env.admit(accepted.memory) }),
           onSome: (move) => {
             const exited = new Set(
               move.exits.flatMap((path) =>
@@ -175,7 +174,7 @@ export const makeServe = (
               state: move.leaf,
               activations: [...kept, ...move.enters.map(() => tx.next())],
               history: historyAfter(incarnation.history, incarnation.state, move),
-              memory: admitted(tx.env.freeze, accepted.memory),
+              memory: tx.env.admit(accepted.memory),
             };
           },
         });
@@ -207,10 +206,12 @@ export const makeServe = (
 
           const member = Resolved.$match(action, {
             Commit: ({ input }) => Option.some(commit(after, operation, input, owner)),
-            Retry: ({ key }) => Option.some(retry(after, operation, key, route.own, owner)),
-            Cancel: ({ key }) => Option.some(cancel(after, operation, key, route.own)),
+            Retry: ({ key }) =>
+              Option.some(retry(after, operation, tx.env.admit(key), route.own, owner)),
+            Cancel: ({ key }) =>
+              Option.some(cancel(after, operation, tx.env.admit(key), route.own)),
             Lookup: ({ input }) => {
-              lookup(after, operation, input, owner);
+              lookup(after, operation, tx.env.admit(input), owner);
 
               return Option.none<Member>();
             },

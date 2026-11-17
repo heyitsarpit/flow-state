@@ -313,6 +313,7 @@ export type Compiled = {
   readonly memory: Schema.Codec<Values, Values>;
   readonly memoryJson: Schema.Codec<Values, Values>;
   readonly walk: Walker<Values, Values>;
+  readonly identity: Walker<Values, Values>;
   readonly sameMemory: Equivalence.Equivalence<Values>;
   readonly operations: ReadonlyMap<string, Operation>;
   readonly context: ReadonlyMap<string, ContextSlot>;
