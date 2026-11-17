@@ -1591,6 +1591,44 @@ tasks
             I9 and I14 judge a context issue's publishes by its consumer (red again on context-issue-published-twice);
             the reload rules run the archive and skip nothing; format-2's copy step has a check and fault. Retired:
             baselines-copy-memory-each (sharing copies is now size only, judged by the bench).
+        comment     2026-11-17T05:11:04Z
+            Bounds-round review: ISSUES at d2ab6f9b. check exit 0; suite exit 1, 1,127 pass + 13 inverted, the 2 reds
+            T20's pair cells (shop, session). Blocking, red on a scratch probe: a value nested 5,000 deep throws
+            RangeError out of the core and the run dies (StoryFailed: Maximum call stack size exceeded), against Codec
+            R1 and I2 (any depth) and R4 (no raw error escapes, a turn never fails); toCanonicalJson recurses with no
+            guard, and the removed depth bound was what stopped it. Shown for memory (Schema.Json field, depth 100
+            saves, 5,000 throws; wrapping the codec's walk alone turns it into UnencodableValue, so nothing else
+            throws); a selection (context.ts selectedOf outside the try) and a commit input (lanes.ts) reach the same
+            walk. JSON.stringify itself throws near 10,000, so toText needs the same care. Tests missed it: Codec T1
+            stops at depth 64 and no fixture holds the E3 'deep nesting' the conventions now name. Fix: never throw (an
+            iterative walk, or a CodecMalformed reason when the host cannot serialise), with T1 and a Story past the
+            stack. Answers. 1 No size bound survives in code; leftovers are names only (bounds.test.ts,
+            lane-bound.stress.test.ts, PAST_RECORD_BOUND and pastBound samples, 'past a bound' test titles, persist.ts
+            and record.ts 'even alone'); WriteAhead R11 and T9's 4,096 records and 16 MiB, ADMISSION_BOUND, QUEUE_LIMIT
+            and the key bound are @plan.Pending.D24's, owned by @task.V3.T84. 2 A persisted commit's lane record can now
+            fail only on a malformation its actor record shares (a ref name with a lone surrogate); the identity is
+            withheld and the ticket ends NotSent StorageRefused, not Unencodable; nothing lost, doubled or made up;
+            restored heads round-trip by Codec I1. Codec R4's 'only an actor record can fail to encode' is inexact
+            (routed). 3 No crash from a refused Schema (unread-recovers), a cyclic selection (thread-heard) or cyclic
+            Schema.Unknown memory (withheld 'schema'); NaN memory saves "NaN" and restores NaN; -0 memory is withheld
+            and the last capture restores (WriteAhead R4). Only depth crashes (blocking). 4 Re-run on scratch plants:
+            context-issue-published-twice red on Turn I9 (values Turn R25 and generated session-inbox, 'published 2
+            times'); the format-2 copy-drop red in actor-record.test.ts; negative-zero-refused red (3) and
+            selection-kept-raw red (2) in values.test.ts, which checks live -0 reads 0 and the record saves 0;
+            archive-large is in the reload rules' rest slice and the saved-unknown skip is gone. 5 digest-refused: inbox
+            and digest both revert to the last saved step, the next change is heard as live (13); pairing kept per
+            identity batch. 6 Palette stress 67 s noted, @task.V3.T83. Routed, not blocking: shared subtrees ({l: t, r:
+            t} 40 deep) walk 2^40 nodes and hang, the size D23 accepts, so @task.V3.T84's slow-work warning; the
+            end-to-end check that an owed ending with no canonical value never fails a turn went with the receipts test,
+            now unit-only in persist.test.ts (unsaved-value-saved-null); owed UnencodableValue names no reason (Codec
+            R4); Codec R4's in-turn 'only UnencodableValue' should except selections (Actors R18 Defect); WriteAhead R9
+            'today 1' against format 3. Sidecars (4 Haiku, one blind): accepted the depth crash and the routed items
+            above; rejected NaN selections failing (Schema writes "NaN"; values test reads NaN), stale owed/<id>|nnnn
+            parts doubling rows (no store of that layout shipped), excess fields decoding, a withheld identity's settled
+            Attempt reading unknown after a reload and disposal landing while withheld (older, outside this diff),
+            context issues as turn starts (Turn I9 still red on its plant, suite green), the per-wave canonical walk's
+            cost (bench 0.148 ms), nested Result in slots.ts (style). No outside imports or temporary names; nothing
+            re-creates an Effect feature.
 
     T74
         title       App mix: several fixtures in one Runtime
