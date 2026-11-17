@@ -74,7 +74,7 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | `createActor`, `disposeActor`                                 |. |. |. |. |1 |. |. |5 |6 |. |. |4 |. |2 |8 |8 |
 | `useActor` (React)                                            |. |. |. |. |. |18|. |18|18|. |. |18|. |18|18|. |
 | `send(ref, event)`                                            |1 |. |. |1 |1 |. |. |1 |. |1 |. |. |. |8 |. |. |
-| mailbox cap, `AdmissionOverloaded`                            |. |. |1 |. |. |. |1 |. |. |. |. |. |. |. |4 |. |
+| a deep mailbox, no ending lost                                |. |. |1 |. |. |. |1 |. |. |. |. |. |. |. |4 |. |
 | `forget`, `unsettledWrites`                                   |. |. |. |. |U |1 |. |. |. |. |. |. |. |. |. |4 |
 | `late` handlers, `LateMayNotLeave`                            |4 |. |. |. |. |. |. |. |. |. |. |4 |. |. |. |4 |
 | `resource`, `O.x.lookup`                                      |U |. |. |U |1 |. |. |. |6 |. |4 |4 |4 |4 |4 |4 |
@@ -85,7 +85,7 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | `optimistic` values on a read                                 |4 |. |. |. |4 |. |4 |. |. |. |. |. |. |. |4 |. |
 | `reject`, `NotSent { Rejected }`                              |U |U |. |U |U |U |. |U |. |. |4 |. |. |. |4 |. |
 | `latest`, `Superseded`                                        |1 |. |U |. |. |. |. |. |6 |. |. |. |2 |2 |. |4 |
-| `serialize`, `NotSent { Overloaded }`                         |. |. |1 |. |. |. |. |. |. |. |. |. |. |4 |4 |. |
+| `serialize`, a deep queue, no ending lost                     |. |. |1 |. |. |. |. |. |. |. |. |. |. |4 |4 |. |
 | `concurrency: "cancel"`                                       |. |. |U |. |. |. |. |. |. |U |. |. |. |. |. |4 |
 | `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed`         |U |U |. |. |U |U |. |. |. |. |. |. |. |. |. |4 |
 | endings, `Flow.uncertain`, `unknown`                          |U |U |U |U |U |U |. |U |. |U |4 |. |2 |2 |4 |4 |
@@ -291,8 +291,8 @@ A one-click checkout: a client-side cell over pay's body. Kept as it is. Source:
     WriteLanes R10): the restore then ends the same Attempt again unknown Restored, owner @task.V3.T20.
   - [x] S6 reloaded under L3: a charge on the wire at a reload ends unknown Restored. built: `cells/reloaded-on-wire`.
   - [x] E1: an empty cart and intent id. built: `cells/empty-ids`.
-  - [x] E3: an intent id (the key of `pay`) at the 8,192-byte key bound. built: `cells/key-at-bound`. One past it:
-    inverted (Operations O1, `InvalidKey` unenforced), owner @task.V3.T21; built: `cells/key-past-bound`.
+  - [x] E3: an intent id (the key of `pay`) as a long key round-trips, timed on the bench (no key size bound,
+    @plan.Pending.D24). built: `cells/key-at-bound`, `cells/key-past-bound`; rework: @task.V3.T84.
 
 ### lanes
 
@@ -305,23 +305,24 @@ A sync client whose three remotes differ only in lane policy. Kept as it is. Sou
 - **Features by step:**
   - **used today:** `latest`, `Superseded` (`Lanes/latest` (`stressDisplacedPastItems`)); `concurrency: "cancel"`
     (`Lanes/cancel` (`displacedOnWire`)); endings, `Flow.uncertain`, `unknown` (every `Lanes/*`); Attempts: `O.x.retry`,
-    `retryable`, `StillUnknown` (every `Lanes/*` retry); canonical keys, `InvalidKey`, `KeyOmitsInput` (`atStringBound`;
+    `retryable`, `StillUnknown` (every `Lanes/*` retry); canonical keys, `InvalidKey`, `KeyOmitsInput` (long keys;
     canonical forms added at step 1); `persist`, restore, reload (persisted lanes).
-  - **step 1:** mailbox cap, `AdmissionOverloaded` (1,024 events to one `Lanes/*` actor); `serialize`, `NotSent {
-    Overloaded }` (`Lanes/serialize` past 64 queued).
+  - **step 1:** a deep mailbox, no ending lost (events well past the old scale to one `Lanes/*` actor); `serialize`, a
+    deep queue, no ending lost (`Lanes/serialize` well past the old 64 queued).
   - **step 7:** `NotSent { OldVersion }` (release 2 changes the `sync` key fingerprint); `previous` holds,
     `O.x.previous` (the old-key lane held under release 2).
 - **Scenarios:**
   - [x] **Usual and load:** `usual`, `seededStress`, `nearBound` (12 queued) (have). built: `lanes/usual`,
     `lanes/stress-36`, `lanes/stress-near-bound`.
-  - [x] **Load:** L2: a head and 64 queued commits under `serialize`, then the 66th ending `NotSent { Overloaded }`.
-    built: `lanes/serialize-at-cap`. 1,024 events to one actor, then the 1,025th refused `AdmissionOverloaded`: a
-    runtime test over `lanesSetup`, since a Story's send runs its turn before the next. built:
-    `tests/lanes/lanes.test.ts`.
+  - [x] **Load:** L2: a head and a queue well past the old 64 commits under `serialize`, every one ending, none
+    `Overloaded`, timed on the bench. built: `lanes/serialize-at-cap`; rework: @task.V3.T84. Events to one actor well
+    past the old 1,024, none refused, no ending lost, doubled or made up: a runtime test over `lanesSetup`, since a
+    Story's send runs its turn before the next. built: `tests/lanes/lanes.test.ts`; rework: @task.V3.T84.
   - [x] **Structure:** S3: one key under two actors, under L3. built: `lanes/one-key-two-actors`. S6 × {disposed,
     reloaded} with queued, held and running commits of several keys. built: `lanes/disposed-with-work`,
     `lanes/reloaded-with-work`.
-  - [x] **Edges:** E3: `atStringBound` and `pastStringBound` (have), in the stress samples; `Unencodable` (have).
+  - [x] **Edges:** E3: long keys and strings (have as `atStringBound` and `pastStringBound`; one size enough, timed,
+    rework: @task.V3.T84), in the stress samples; `Unencodable` (have).
     built: `lanes/stress-36` and the stress samples.
   - [x] **Keys** (corrected: Operations O1 says "Unicode spelling matters"): one name in NFC and decomposed forms names
     two lanes. built: `lanes/two-spellings`.
@@ -453,7 +454,8 @@ kamp.us for rows restored after a failure.
       split a file into multiple parts and create an upload for each" and [test-parallel-uploads.js:325][tus-parallel]
       "should emit error from a partial upload". left: @task.V3.T21, needs `progress`.
   - [x] **Edges:** E6: cents 0, negative and 2^53 (2^53 past the bank's limit, declined). built:
-    `transfers/cents-edges`. E3: a transfer id at the key bound. built: `transfers/id-at-bound`. E2: `null` and
+    `transfers/cents-edges`. E3: a long transfer id round-trips, timed. built: `transfers/id-at-bound`; rework:
+    @task.V3.T84. E2: `null` and
     `undefined` payloads, refused `InvalidEvent`. built: `tests/transfers/bank-app.test.ts`. Account names in NFC and
     decomposed forms are two accounts (Machines O2: no Unicode normalization). built: `transfers/two-spellings`.
   - [ ] **Edges:** bigint cents as a key, named "$1n". left: @task.V3.T21, needs bigint key naming (Operations O1). E8:
@@ -520,9 +522,7 @@ not checked here).
     - [x] A blank handle never calls the server. Copies [AuthPage.test.tsx:164][kp-auth] "a blank username field never
       touches setUsername and never holds the gate". built: `sign-in/blank-handle`.
     - [x] E1: an empty email and a code of 0 characters. built: `sign-in/empty-email`, `sign-in/empty-code`. E3: an
-      email at the begin key's 8,192-byte bound. built: `sign-in/email-at-bound`.
-    - [ ] E3: an email past the key bound. left: @task.V3.T21, needs `InvalidKey` past the key bound (inverted in
-      `cells/key-past-bound`).
+      a long email round-trips as the begin key, timed. built: `sign-in/email-at-bound`; rework: @task.V3.T84.
     - [x] E5 corrected: the lockout delay is 60 seconds per wrong try, computed from the tries, so −1, 0 and 2^31 ms
       are unreachable here; computed-delay edges are built in `pay/busy-edges` and `sync/retry-edges`.
   - [ ] **Combinations:** release 2 (step 7): left: @task.V3.T56. Strict Mode (step 18): left: @task.V3.T30.
@@ -568,8 +568,9 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
 - **Features by step:**
   - **used today:** `Flow.input` value-named actors (`Workspace/Session` refs); `context`, `onContext`,
     `Provider.select` (`Org` → `Session` → `Team` → `Badge`); `persist`, restore, reload (the workspace).
-  - **step 1:** `ContextCycle`, `MissingContextProvider` (a cycle and a missing provider as Stories); mailbox cap,
-    `AdmissionOverloaded` (1,024 sends to one `Badge`); `StorageRefused`, `NoPersistence` (a failed storage read:
+  - **step 1:** `ContextCycle`, `MissingContextProvider` (a cycle and a missing provider as Stories); a deep mailbox,
+    no ending lost (sends well past the old scale to one `Badge`); `StorageRefused`, `NoPersistence` (a failed
+    storage read:
     `NoPersistence`); storage failures: corrupt, quota, slow read, non-durable (a corrupt record; a non-durable
     provider); Runtime per scope, `dispose` (a new Runtime per account).
   - **step 4:** `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch` (R `profile`); `O.x.setData`, `O.x.invalidate`,
@@ -583,9 +584,9 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
   - [x] **Usual:** two four-layer trees, a reload, a middle-layer rename (have). The shell paints before the session
     settles. Copies [App.test.tsx:217][kp-app] "invariant 1: the shell chrome paints while the session is isPending —
     with NO FateClient mounted". built: `session/usual`, `session/shell-before-session`.
-  - [x] **Load:** L5: context waves under a held store (have, in `seededStress`). built: `session/stress-36`. L2: 1,024
-    sends to one badge, then the 1,025th refused `AdmissionOverloaded`: a runtime test over `workspaceSetup`. built:
-    `tests/session/workspace.test.ts`.
+  - [x] **Load:** L5: context waves under a held store (have, in `seededStress`). built: `session/stress-36`. L2: sends
+    to one badge well past the old 1,024, none refused, no ending lost, doubled or made up, timed on the bench: a
+    runtime test over `workspaceSetup`. built: `tests/session/workspace.test.ts`; rework: @task.V3.T84.
   - **Structure:**
     - [x] S1 × 4 under L5 (have), with S9 at the badges: only badges are touched after the reload. built:
       `session/usual`, `session/fan-out`.
@@ -620,9 +621,9 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
     - [x] E2: an undefined user, read by the new `Workspace/Avatar` after a sign-out, saved and restored. E1: an empty
       user. built: `session/signed-out-reloaded` (the undefined user is saved, so the reload hears nothing),
       `session/signed-out-undefined`.
-    - [x] E4: consumers at and past 64, each heard, since context updates and onContext events never count toward the
-      follow-up cap (@plan.Pending.D13). built: `session/wall-64`, `session/avatar-wall-65`,
-      `session/stress-wall-1024`.
+    - [x] Consumers well past the old scale, each heard: a context update never counts toward the loop guard
+      (@plan.Pending.D13). built: `session/wall-64`, `session/avatar-wall-65`, `session/stress-wall-1024`; rework:
+      @task.V3.T84.
     - [x] E7: a corrupt saved record, quarantined. Copies [snapshot.test.ts:108][kp-snap] "returns null on a corrupt
       (non-JSON) payload, no throw". built: `session/corrupt-record`.
     - [x] E2, E5: every value kind a selector returns (a Date or undefined, NaN, -0, Map, Set, class instance, Option,
@@ -659,8 +660,8 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       settle hydrates NO authed snapshot (anon owns none)". built: `session/new-account-runtime` ("next").
     - [ ] A boot with no host page degrades without throwing. Copies [boot.test.ts:24][kp-flags] "returns undefined when
       there is no window (outage fallback / flag off) — no throw". left: @task.V3.T30, needs server rendering.
-    - [x] A context update at the follow-up cap waits, corrected: context updates never count toward the cap
-      (@plan.Pending.D13). built: `session/avatar-wall-65`.
+    - [x] A context update never counts toward the loop guard, so it never waits (@plan.Pending.D13). built:
+      `session/avatar-wall-65`; rework: @task.V3.T84.
 
 ### command-palette
 
@@ -689,8 +690,8 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
   - [x] **Usual:** open, search, run (have). Pages are the items of their command. Copies
     [command.test.ts:193][ui-command] "pages are the items of the command with that value". built: `palette/usual`,
     `tests/command-palette/palette.test.ts` (PALETTE-PAGE-1).
-  - [x] **Load:** 1,000 and 4,097 entries (have). Typing bursts under a held store, no source. built:
-    `palette/over-bound`, `palette/typing-under-held-store`.
+  - [x] **Load:** entries at real scale, timed on the bench (have 1,000 and 4,097). Typing bursts under a held store,
+    no source. built: `palette/over-bound`, `palette/typing-under-held-store`; rework: @task.V3.T84.
   - [x] **Load** corrected: one keystroke over 10,000 entries. Copies [command.test.ts:155][ui-command] "10,000 items: a
     fuzzy keystroke stays well under a frame". Ranking speed is the fixture's own code, and no test times it; with no
     codec bounds (@plan.Pending.D23) a 10,000-entry list is a bench case for a later Task.
@@ -700,8 +701,8 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
   - [ ] **Structure:** each palette with its own workbench. left: needs an actor-to-actor `send(ref, event)` action
     for `Workbench`, which no Task owns (the user's call).
   - [x] **Edges:** an empty query keeps the source order. Copies [command.test.ts:120][ui-command] "an empty query keeps
-    the source order". built: `palette/empty-query-order`. E3 and E4: the entry bounds (have: `pastBound`,
-    `overBound`). built: `palette/over-bound`.
+    the source order". built: `palette/empty-query-order`. E3: entries at real scale, timed (have: `pastBound`,
+    `overBound`, to be renamed). built: `palette/over-bound`; rework: @task.V3.T84.
   - [x] **Combinations:** the pair sweep (have). built: the `palette` pair sweep.
   - [ ] **Combinations:** Strict Mode (step 18). left: @task.V3.T30, needs React.
   - [ ] **Variety:** a shared and a local palette. left: @task.V3.T76, needs `props` and a Story word for a local
@@ -762,8 +763,8 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
     Task owns (the user's call).
   - [x] S6 × {room disposed, room reloaded} while its tick is armed. built: `player/room-disposed`,
     `player/room-reloaded`.
-  - [x] E1: an empty room. built: `player/empty-room`. E3 corrected: a room is its player's name, not a key; a room at a
-    262,144-byte name. built: `player/room-at-bound`.
+  - [x] E1: an empty room. built: `player/empty-room`. E3 corrected: a room is its player's name, not a key; a long
+    room name round-trips, timed. built: `player/room-at-bound`; rework: @task.V3.T84.
   - [x] A seek far past any track and a negative seek, taken as given (the player keeps no track length). built:
     `player/seek-edges`.
 
@@ -843,7 +844,7 @@ Product search with a results pager. Source: ui-sdk's async loads; kamp.us's sea
     - [ ] S6 × {page first, list first} under live reads; late answers dropped. Copies
       [restore-late-items.test.ts:123][ui-late] "stops waiting for the items once destroyed".
     - [ ] S7: a missing service refused at boot by name.
-  - [ ] **Edges:** E1: no rows and an empty query; a stale time of 0; E3 and E6: keys at and past the bound and a bigint
+  - [ ] **Edges:** E1: no rows and an empty query; a stale time of 0; E3 and E6: long keys and a bigint
     key; total 0 and a page past the last.
   - [ ] **Combinations:** the pager's props and emits (step 5); hydration then a client edit (step 18).
   - **Findings:**
@@ -889,7 +890,8 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule events).
 - **Scenarios:**
   - [ ] **Usual:** set a target, readings on schedule, the heater cycles, a vacation pause and resume.
-  - [ ] **Load:** L1 × 256 rooms; L5: readings faster than turns, at and past 1,024 (step 12); L4 mid-pause.
+  - [ ] **Load:** L1 × 256 rooms; L5: readings faster than turns, well past the old 1,024 mailbox (step 12);
+    L4 mid-pause.
   - [ ] **Structure:** S1: house → zone → room → sensor, with S9 at a sensor; S4: zone; S5: a mode override at a zone;
     S8: rooms added mid-tick; S6 × {house first, room first, reloaded} with live timers; S3: two houses; S7: a zone mode
     feeding the house (a cycle) and a room with no zone.
@@ -939,7 +941,7 @@ kamp.us's optimistic lists, ui-sdk's menu, combobox and toast tests.
     restore, reload (`Board`).
   - **step 4:** `resource`, `O.x.lookup` (R `cards`, `comments`); `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch`
     (R `cards`); resource `subscribe.each` (R `cards` per column); `placeholder({ previous, input })` (R `cards` on a
-    filter change); `serialize`, `NotSent { Overloaded }` (T `addComment` per card).
+    filter change); `serialize`, a deep queue, no ending lost (T `addComment` per card).
   - **step 7:** `NotSent { OldVersion }` (a move held across release 2); release versions, saved-shape reset, migration
     (release 2 of `Board`).
   - **step 8:** `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn` (`Toast`'s pause reasons); `props`, `onProps`
@@ -1055,10 +1057,12 @@ checked here).
     `.each({ of, max, by })` (`ThreadList`, `Attachment`); `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn` (typing
     timers per user); an Effect `Schedule` as `schedule` (the resend backoff); `context`, `onContext`, `Provider.select`
     (`Account` ⇢ `session`; `Hub` ⇠ `session` ⇢ `hub`; `Thread` ⇠ `hub`); `ContextCycle`, `MissingContextProvider` (a
-    `Hub` with no `Account`, refused at boot); mailbox cap, `AdmissionOverloaded` (1,024 typing events); `resource`,
+    `Hub` with no `Account`, refused at boot); a deep mailbox, no ending lost (typing events well past the old 1,024);
+    `resource`,
     `O.x.lookup` (R `history`); `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch` (R `history`); `optimistic` values
     on a read (T `send`'s echo on R `history`); `reject`, `NotSent { Rejected }` (T `ask`, one question at a time);
-    `serialize`, `NotSent { Overloaded }` (T `send` per thread); endings, `Flow.uncertain`, `unknown` (T `send`, `ask`);
+    `serialize`, a deep queue, no ending lost (T `send` per thread); endings, `Flow.uncertain`, `unknown` (T `send`,
+    `ask`);
     `NotSent { Restored }`, `unknown { Restored }` (owed sends after a reload); `NotSent { Disposed }`, `unknown {
     Disposed }` (a thread disposed mid-send); `progress` (T `upload`); `idempotency` (T `send` by client message id);
     owed endings, quarantine (T `send`); `persist`, restore, reload (`Thread`, `Hub`); Runtime per scope, `dispose` (a
@@ -1088,8 +1092,8 @@ checked here).
       "coalesces same-tick subscribeById calls into ONE /fate/live control POST".
     - [ ] The retry budget counts connects, not errors. Copies [liveRetry.unit.test.ts:99][kp-retry] "charges the budget
       per connect, not per error — N views do not drain it faster".
-    - [ ] L2: 64 queued sends and one more `Overloaded`; 1,024 typing events and one more refused; flapping connections
-      ending `Flapping` (see @plan.Pending.D14).
+    - [ ] L2: queued sends and typing events well past the old 64 and 1,024, none refused, no ending lost, timed;
+      flapping connections ending `Flapping` (see @plan.Pending.D14).
   - **Structure:**
     - [ ] S1: account → hub → thread → composer → attachment, with S9 at an attachment; S4: `Hub`.
     - [ ] S2: one connection fanned out to 100 threads under L5. Many views reconnect once. Copies
@@ -1223,7 +1227,7 @@ migrations, kamp.us's draft storage, ui-sdk's tree tests.
     - [ ] Quota and a throwing store never throw into the editor (step 13). Copies [snapshot.test.ts:137][kp-snap]
       "returns false (no throw) on a quota-exceeded setItem" and [draftStorage.unit.test.ts:94][kp-draft] "swallows a
       throwing storage rather than losing the in-memory draft". That the draft stays in memory: no source.
-    - [ ] E1: an empty draft; E3: a draft at its size bound.
+    - [ ] E1: an empty draft; E3: a long draft round-trips, timed.
   - **Combinations:**
     - [ ] Offline edits are pushed again after a reconnect. Copies [TLSyncClient.test.ts:595][tl-client] "[CL8] drops
       pending pushes when going offline and re-pushes the speculative diff after reconnect".

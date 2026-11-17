@@ -626,9 +626,10 @@ tasks
             - Each new rule has a planted fault that `nub run faults` catches.
             - Fixtures first (code:wiki/conventions/fixtures.md): restore, owed endings, quarantine and forget are
               covered in `sign-in`, `pay`, `sync` and `transfers`, across many scenarios: usual and stress Stories and
-              step samples with an undecodable record, owed values past a size bound, a forget during undrained writes,
-              a reload at every step; the generator, the reload sweep and the app mix reach them, and those Stories fail
-              before the build.
+              step samples with an undecodable record, owed values of real-world size restored intact (only a value with
+              no canonical form, or past the measured depth (D26), reports UnencodableValue), a forget during undrained
+              writes, a reload at every step; the generator, the reload sweep and the app mix reach them, and those
+              Stories fail before the build.
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: after a reload the step that turns the restored head Held writes no lane record,
             so it still reads inFlight: true (WriteAhead R5, I21); pinned as it.fails in tests/transfers/trace.test.ts.
@@ -680,7 +681,7 @@ tasks
             Restored. Check: the policy-cells it.fails flipped, and WriteLanes I27's rule widened so an acknowledged
             Attempt left with no ending across a reload is a breach. Red.
         comment     2026-11-16T13:53:13Z
-            R-4: Actors R8, WriteAhead R4, R12, Codec R1, R4: an actor record past a Codec bound (a 4,097-item array)
+            R-4: Actors R8, WriteAhead R4, R12, Codec R1, R4: an actor record with a value that has no canonical form
             reports UnencodableValue, its end waits, its awaited ticket reports no StorageSilent, the last good capture
             restores, and an identity still withheld at disposal keeps its NotSent Disposed rows. Check: Story tests
             over a test machine. Red: the record encodes, no report exists.
@@ -889,6 +890,9 @@ tasks
         comment     2026-11-16T20:18:54Z
             Accepted (the user, 2026-11-17): a write whose record can't save ends NotSent { StorageRefused } at once; a
             pending result too large to save is heard once after a reload as unknown { Restored }.
+        comment     2026-11-17T06:52:42Z
+            Its record-bound proofs were removed by D23 (the list is in T9's 2026-11-17T04:36:33Z comment); restore is
+            proven on real-size values and the measured depth (D26).
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
@@ -1864,17 +1868,18 @@ tasks
         comment     2026-11-16T14:23:55Z
             Fold in the second review's T80 findings (10, section 5 and abstraction A7, a test kit):
             code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. First: the pair sweeps run
-            all 1000 seeds when a phase can't be reached (82 s of 131 s CPU); add the lanes and player fixtures to the
-            reload sweeps.
+            all seeds when a phase can't be reached (82 s of 131 s CPU; the seed count is a named tooling default
+            measured by @task.V3.T83, D25); add the lanes and player fixtures to the reload sweeps.
         comment     2026-11-16T14:31:06Z
             Routed from T74's fix-round review: Failure.shrinks counts accepted shrinks, not the candidates its doc
-            claims, so the <= 1000 assertion can't fail; failure words (generate.ts:364,366) and write salts (:494-499)
-            still leak across dropped fixtures; one answer keying with re-pasted saved Stories would replace the
-            mixed/single split (generate.ts:281).
+            claims, so the shrink-budget assertion (a named tooling default measured by @task.V3.T83) can't fail;
+            failure words (generate.ts:364,366) and write salts (:494-499) still leak across dropped fixtures; one
+            answer keying with re-pasted saved Stories would replace the mixed/single split (generate.ts:281).
         comment     2026-11-16T15:38:51Z
             Fixtures first (the user, 2026-11-16): add a coverage test that each built public feature, by its API name,
             appears in some fixture's machine, and give every fixture's step samples its Schemas' edge values (empty,
-            undefined or None, sizes at and past bounds) under the stress profile.
+            undefined or None) under the stress profile; updated 2026-11-17: edge values for each Schema plus real-size
+            values; no codec or queue bounds (D23, D24).
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
@@ -2133,13 +2138,13 @@ tasks
             mix part() fails on a missing part. check 0; suite 1,061 + 21 inverted, the same 6 reds.
 
     T83
-        title       Fast test commands again: suite, stress and faults under twice baseline
+        title       Fast test commands again: suite, stress and faults with no regression from the baseline
         status      open
         priority    high
         blocked_by  [@T84]
         description
-            Make the test commands fast again: the package suite, `nub run test:stress` and `nub run faults` back under
-            twice the speed baseline, with no gate weakened.
+            Make the test commands fast again: the package suite, `nub run test:stress` and `nub run faults` with no
+            regression from the measured baseline without a named cause, and no gate weakened.
 
             **Why now:** the 06:00 wake on 2026-11-17 timed HEAD 9d45d087 in a clean worktree: suite 33 s, stress 115 s,
             faults 172 s, against the 313e8a45 baseline of 12 s, 9 s and 28 s. T82's grown fixtures (S3 x 64, L1 x 64,
@@ -2152,8 +2157,8 @@ tasks
 
             **Risk:** speed must not weaken a gate: every fault is caught by the same tests, the dead core still gets a
             full run, every scenario T82 and T9 built still runs in the default suite or behind the stress flag, and no
-            Story's counts shrink to save time. If a budget can't be met without cutting coverage, the lead reports the
-            trade-off instead of cutting.
+            Story's count shrinks except by a re-measurement recorded in the Story (@plan.Pending.D23). If a budget
+            can't be met without cutting coverage, the lead reports the trade-off instead of cutting.
 
             **Approach:** measure first (time per file, per sweep, per fault), then fix the slowest causes; set a new
             speed baseline in V3.log at the close.
@@ -2166,11 +2171,11 @@ tasks
         acceptance
             - Timings before and after, alone on this machine, are in a Task comment: the package suite, `nub run
               test:stress` and `nub run faults`, each per file or per fault for the slowest ten.
-            - The suite runs in under 24 s, `nub run test:stress` under 60 s and `nub run faults` under 3 minutes, or
-              the comment names what each lost second buys and the lead asks the user.
+            - No regression from the measured baseline without a named cause; before and after numbers are reported, and
+              where a regression stays, the comment names what each lost second buys and the lead asks the user.
             - The same Story ids, test counts and fault caught list hold before and after; the dead core still runs the
               full suite.
-            - No sweep timeout is raised to fit; T9's 230 s timeout is back under the default or justified.
+            - No timeout is raised without a measured reason.
             - Every test-tooling guard has one source and a measured size (the user, 2026-11-17, Q5 A): the Story turn,
               settle-task and advance limits; the faults run's timeout, copies (from CPU and memory) and output buffer;
               the 230 s and 60 s test timeouts; the generator's weights, lengths and shrink budgets; the bench's warm-up
@@ -2225,19 +2230,25 @@ tasks
 
             False pass: a cap still enforced under another name → caught by a Story past each old cap, red first.
         acceptance
-            - A Story drives past each old cap (1,025 pending events, 65 serialize commits, a 4,097-item `many` key, an
-              8,193-byte key, a 257-byte name, 4,097 persisted records and more than 16 MiB), red first, and ends with
-              no ending lost, doubled or made up.
+            - A Story drives well past the scale of each old cap (pending events, serialize commits, a `many` key, a
+              key, a name, persisted records, record bytes), one size enough, timed on the bench, red first, and ends
+              with no ending lost, doubled or made up.
             - The follow-up chain guard's number is set from the bench and its reason logged; a runaway self-feeding
               chain still ends with its issue.
             - A dev diagnostic reports a turn or capture slower than the bench's budget, with a Story; production
               reports nothing.
             - The bench times each Story past an old cap; the numbers are in a Task comment.
             - No core Spec names a removed cap; `nub run check` passes; `nub run faults` catches each new fault.
-            - The caps D24's extension adds are gone the same way, each past its old cap in a Story, red first: 65 sends
-              before React attaches, 257 stream entries, 257 identities in a write batch, a key past 16 levels or 256
-              nodes, an 11-segment state path, a trace past 4,096 events, a Story past 10,000 frames; the step's mail
-              drain stays a fairness yield with its count from the bench.
+            - The caps D24's extension adds are gone the same way, each well past its old scale in a Story, red first,
+              one size enough, timed: sends before React attaches, stream entries, identities in a write batch, a deep
+              or wide key, a long state path, a long trace, a long Story; the step's mail drain stays a fairness yield
+              with its count from the bench.
+            - Rework routed from code:wiki/conventions/fixture-catalog.md (items marked "rework: @task.V3.T84"): the
+              built Stories and tests that assert an old cap (`lanes/serialize-at-cap`, the 1,025th
+              `AdmissionOverloaded` runtime tests of lanes and workspace, `cells/key-at-bound` and `key-past-bound`,
+              `sign-in/email-at-bound`, `transfers/id-at-bound`, `player/room-at-bound`, the `session/wall-64`,
+              `avatar-wall-65` and `stress-wall-1024` follow-up cap, `palette/over-bound`) are reworked to "no ending
+              lost, timed", red first.
             - D25's built knobs (the free actor's grace, the disposal bound, StorageSilent, the refused batch's retry,
               the capture interval) are each one named Runtime default in one place, cited by name in the Specs and
               tests; each value has a bench or measurement note; the refused batch's retry derives from the capture

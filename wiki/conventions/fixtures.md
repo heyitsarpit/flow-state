@@ -82,7 +82,7 @@ Catalog rows name scenarios by these codes, with parameters (`S1×{4,8,32}`).
 | Code | Load                                                                         |
 | ---- | ---------------------------------------------------------------------------- |
 | L1   | many actors                                                                  |
-| L2   | a queue at its cap: 64 follow-ups, 64 queued commits, a 1,024 mailbox         |
+| L2   | a queue far deeper than any app builds, timed on the bench                    |
 | L3   | slow, lost, duplicated and out-of-order answers                              |
 | L4   | repeated reloads                                                             |
 | L5   | bursts faster than turns                                                     |
@@ -92,7 +92,7 @@ Catalog rows name scenarios by these codes, with parameters (`S1×{4,8,32}`).
 | E1   | empty                                                                        |
 | E2   | `undefined` or `None` where allowed                                          |
 | E3   | a large value: thousands of items, long strings, deep nesting                |
-| E4   | a count cap, at and just past                                                |
+| E4   | a user-declared count (such as `.each({ max })`), at and just past            |
 | E5   | delays −1, 0, 2^31 − 1 and 2^31 ms                                           |
 | E6   | bigint keys and numbers at 2^53                                              |
 | E7   | a value or record that fails to decode                                       |
@@ -107,8 +107,11 @@ Each feature or behaviour a Task builds or changes gets all of these, each red b
 2. **A usual Story.** The feature used the way an app uses it, with checkpoints on what the user would see.
 3. **Stress Stories, of load and of structure.** Stress is not only throughput. Load is the `L` codes. Structure is
    the hardest shapes the feature allows an app to build, the `S` codes, and each refused shape is shown refused.
-   Each structure names its count and the load it runs under (`S2 × 1,024 under L5`), each S6 names its orders
+   Each structure names its count and the load it runs under (`S2 × N under L5`), each S6 names its orders
    (parent first, child first, forgotten, reloaded), and each S1 chain also has an S9.
+   Each Story's count is set from the bench (large enough to show a measurable shape, small enough for the suite's
+   measured time) and recorded in the Story; the counts written today are first guesses, re-measured by
+   @task.V3.T83. The follow-up chain stays only as a loop-guard Story.
 4. **Step samples with edge values.** `samples` offers every event and world word the feature reacts to, with its
    Schemas' edges, the `E` codes: refusals, holds, drops and a reload mid-way among them.
 5. **Combinations.** Where the feature meets others (persistence, lanes, context, schedules, props, emits), the
