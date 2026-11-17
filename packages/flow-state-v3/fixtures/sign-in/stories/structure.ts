@@ -1,6 +1,12 @@
-import { mainReturn, mainSession, screen } from "../app.ts";
+import { Schema } from "effect";
+import { definition, machine } from "../../../src/index.ts";
+import { AuthSession } from "../machines/session.ts";
+import { TrustedDevice } from "../machines/trusted-device.ts";
+import { me } from "../operations/reads.ts";
+import { laptop, mainReturn, mainSession, screen } from "../app.ts";
 import { Profiles } from "../server/profiles.ts";
-import { sessionStory, signedIn } from "./usual.ts";
+import { LAPTOP_UNTIL, sessionStory, signedIn, trustedStory } from "./usual.ts";
+import { LATEST } from "./edges.ts";
 
 const elifSaved = Profiles.saved({ email: "elif@kamp.us", handle: "elif" });
 
@@ -58,3 +64,108 @@ export const returnSavedLate = sessionStory("sign-in/return-saved-late")
   .ensure(mainReturn)
   .send(mainReturn, { _tag: "Save", route: "/pano", draft: "" })
   .checkpoint("saved");
+
+/**
+ * Elif trusts her laptop, then signs out: the laptop is let go and ends after its grace, and her
+ * session is forgotten; the laptop ensured again reads a signed-out session, so trusting it again,
+ * until a later date with a label, is denied.
+ */
+export const deviceSessionForgotten = trustedStory("sign-in/device-session-forgotten")
+  .world(elifSaved)
+  .ensure(mainSession)
+  .ensure(laptop)
+  .send(mainSession, signedIn)
+  .send(laptop, { _tag: "Trust", until: LAPTOP_UNTIL })
+  .detach(laptop)
+  .advance("1 second")
+  .dispose(mainSession, { how: "forget" })
+  .ensure(laptop)
+  .send(laptop, { _tag: "Trust", until: LATEST, label: "again" })
+  .checkpoint("fresh");
+
+const trusted = (id: string) =>
+  trustedStory(id)
+    .world(elifSaved)
+    .ensure(mainSession)
+    .ensure(laptop)
+    .send(mainSession, signedIn)
+    .send(laptop, { _tag: "Trust", until: LAPTOP_UNTIL });
+
+/**
+ * The trusted laptop is disposed first, then its session.
+ */
+export const deviceFirst = trusted("sign-in/device-first")
+  .dispose(laptop)
+  .dispose(mainSession)
+  .checkpoint("disposed");
+
+/**
+ * The session is disposed while the trusted laptop is bound to it.
+ */
+export const sessionFirstUnderDevice = () =>
+  trusted("sign-in/session-first-under-device").dispose(mainSession);
+
+/**
+ * Session and laptop, two layers; the tab reloads and only the laptop, the deepest node, is
+ * ensured.
+ */
+export const deviceChain = trusted("sign-in/device-chain")
+  .reload({ reattach: false })
+  .ensure(laptop)
+  .checkpoint("reloaded");
+
+// FLOW_STATE_ALLOW_UNKNOWN: each builder hands construction a form its types refuse.
+const untyped = (value: unknown) =>
+  // SAFETY: every refused form here is one the types reject; construction must refuse it at run time too.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-escape-hatch-assertion -- the untyped caller construction guards against
+  value as never;
+
+const device = { id: "Auth/TrustedDevice", states: ["UNTRUSTED"], events: { Revoke: {} } };
+
+/**
+ * A device whose session slot is the session's definition itself, not `Provider.select`.
+ */
+export const deviceWithDefinitionAsContext = () =>
+  definition(untyped({ ...device, context: { session: AuthSession } }));
+
+/**
+ * A device whose trust date is written as the text "date" instead of a field Schema.
+ */
+export const deviceWithTextField = () =>
+  definition(untyped({ ...device, events: { Trust: { until: "date" } } }));
+
+/**
+ * A device that reads its account by the bare `me` contract instead of `me.outcomes(...)`.
+ */
+export const deviceWithBareContract = () =>
+  definition(
+    untyped({
+      ...device,
+      internalEvents: { MeRead: { handle: Schema.String } },
+      operations: () => ({ me }),
+    }),
+  );
+
+/**
+ * A device whose weekly reminder is written `{ day: 7 }`, a key no Duration has (`days` is).
+ */
+export const deviceRemindingByDay = () =>
+  machine(TrustedDevice, ({ S, E }) =>
+    untyped({
+      default: S.UNTRUSTED,
+      states: {
+        TRUSTED: {
+          default: S.TRUSTED.FRESH,
+          states: {
+            FRESH: { schedules: { reverify: { schedule: { day: 7 }, send: E.Reverify } } },
+          },
+        },
+      },
+    }),
+  );
+
+/**
+ * A device whose revoke handler was left `null` while it was being written.
+ */
+export const deviceWithNullHandler = () =>
+  machine(TrustedDevice, ({ S }) => untyped({ default: S.UNTRUSTED, on: { Revoke: null } }));

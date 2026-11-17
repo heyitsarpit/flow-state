@@ -2500,6 +2500,54 @@ tasks
             rule narrows a payload; proposed reading Codec R6, the decoded value); (b) a throwing operations or body
             callback, or machine(null), escapes raw (Diagnostics R1, R3 don't say construction wraps it); (c) Compile
             R14 type gap for (6) and (7): a token brand per definition is a public type change.
+        comment     2026-11-17T21:38:10Z
+            Requirement added from the fixtures: (9) Compile R2, R4: a context slot that is another definition (not a
+            Provider.select slot) is one WrongKind at the slot; today it gives 21 findings, one per key of the
+            definition (config.ts:85 decodes it as a Struct). Inverted in tests/sign-in/trusted-device.test.ts. The
+            fixtures' other reds are (1) to (5) in real-shaped form, each an it.fails in
+            tests/transfers/standing-order.test.ts or trusted-device.test.ts.
+        comment     2026-11-17T21:38:12Z
+            Extra files named (epic "May change" is a guide): tests/rules/rules.ts (the Turn R24 run rule accepts
+            undefined, as Turn R23 holds it for an inactive fragment's slice and an optional field holds it; it broke
+            the E2 Stories), tests/generated/mix.test.ts (part ids follow the mix's new bank set),
+            fixtures/transfers/stories/usual.ts (two constants exported for the mix). Found, not mine: Fake.server
+            overwrites an endpoint's words with a same-named control (Accounts.balance), so a balance read cannot be
+            held or dropped; known Compile R14 gap needs machine<typeof D> for a nested schedule (trusted-device.ts).
+        comment     2026-11-17T21:38:13Z
+            Fixture review, 3 Haiku sidecars (scenarios; expected results against Specs; runners and code), each finding
+            verified. Accepted: mix lost the old set's steps, failures and receipt edges (folded into bank-planned); S6
+            orders and S1 with S9 missing (added); L3 missing (order-offline); sample edges (pause at the ends, 2^53
+            cents, seen at the ends, unreadable laptop record); a denial the device test could not see; miscited rules
+            (Restore R4, Reads R6, Compile R6);
+        comment     2026-11-17T21:38:14Z
+            Review log, continued. Accepted: stale flag as a phase (TRUSTED is now FRESH and DUE), a week's edge a
+            millisecond short, a misleading doc, duplicated date helpers, missing docs, line comments, the catalog's
+            sources ("shaped on", or no source), its journeys and owners. Changed: the R24 rule keeps its relaxation
+            with a corrected doc (Turn R23).
+        comment     2026-11-17T21:38:16Z
+            Review log, rejected: refused payloads in samples (a refused send is a Story script fault; hand tests cover
+            them); S3, S8 and the cycle shapes (not where a payload codec differs); a pair sweep of bank-planned (its
+            writes are the transfers set's, already swept); reason strings and Effect's Duration keys "not in Spec"
+            (R4's unknown fields and Duration.Input fix them); toEqual on reloads (undefined counts as absent); shared
+            test helpers (the test kit is T80's).
+        comment     2026-11-17T21:38:17Z
+            Fixture proof (fixtures.md), transforming event field and construction refusals (Compile R2 to R5, R14;
+            Actors R14; Codec I1): fixtures transfers (changed: new StandingOrder ⇠ customer, journey 6) and sign-in
+            (changed: new TrustedDevice ⇠ session, journey 6), each a DateFromString field on public events; usual
+            transfers/standing-order, sign-in/trust-device; load L4 transfers/stress-many-orders (S2 × 32),
+            sign-in/stress-many-devices (S2 × 16), L3 transfers/order-offline;
+        comment     2026-11-17T21:38:19Z
+            Proof, continued: structure S1 with S9 transfers/order-chain, sign-in/device-chain; S6 order-first,
+            order-customer-forgotten, device-first, device-session-forgotten, both parent-first builders refused; S7
+            thirteen construction builders in stories/structure.ts; samples bank-orders, auth-devices (E1, E2, E3, E5,
+            E6, E7 at the date ends, null, undefined, absent, 2^53, unreadable records); refused payloads E2, E7 by
+            hand test.
+        comment     2026-11-17T21:38:20Z
+            Proof, continued: combos persistence, context, reload sweep, generator, pair sweep; app mix bank-planned and
+            bank-planned-edges. Variety: two apps, value-named consumers of a context, flat and nested; a third app is
+            left (the acceptance names two). Sources: kamp.us ban.unit.test.ts:36, :43, shaped on; the rest no source.
+            Red today: nine construction refusals; every Story green (bug 1a fixed at bafacd30). Sign-in stays out of
+            the mix (one-network check).
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1

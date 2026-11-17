@@ -1,8 +1,19 @@
+import { Schema } from "effect";
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
-import { authGrownSetup, authSetup, mainReturn, mainSession, screen } from "../app.ts";
+import {
+  authGrownSetup,
+  authSetup,
+  authTrustedSetup,
+  laptop,
+  mainReturn,
+  mainSession,
+  screen,
+} from "../app.ts";
 import { Auth, CODE } from "../server/auth.ts";
 import { AuthFake, ProfileFake } from "../server/layer.ts";
 import { Profiles } from "../server/profiles.ts";
+
+const isoDate = Schema.decodeSync(Schema.DateFromString);
 
 /**
  * The grown sign-in app over its port fakes, with no steps yet: every Story of the session and the
@@ -15,6 +26,52 @@ export const sessionStory = (id: string) =>
  * The account signs in on the screen, and the view tells its session.
  */
 export const signedIn = { _tag: "SignedIn" } as const;
+
+/**
+ * The sign-in app with trusted devices over its port fakes, with no steps yet: every Story of a
+ * trusted device starts here.
+ */
+export const trustedStory = (id: string) =>
+  Story.app(authTrustedSetup, { id, fixtures: [AuthFake, ProfileFake] });
+
+/**
+ * The date the laptop's trust ends, as the server's ISO date gives it.
+ */
+export const LAPTOP_UNTIL = isoDate("2027-01-15T09:30:00.000Z");
+
+/**
+ * When the laptop was last seen.
+ */
+export const LAPTOP_SEEN = isoDate("2026-11-18T08:00:00.000Z");
+
+/**
+ * The profile service holds Elif's saved handle, so her sign-in completes.
+ */
+export const elifSaved = Profiles.saved({ email: "elif@kamp.us", handle: "elif" });
+
+/**
+ * Elif, signed out, cannot trust her laptop; she signs in and trusts it until January with a
+ * label; it is seen; a millisecond short of a week it is still fresh, and at a week it is due to
+ * be confirmed again; the tab reloads; she revokes it.
+ */
+export const trustDevice = trustedStory("sign-in/trust-device")
+  .world(elifSaved)
+  .ensure(mainSession)
+  .ensure(laptop)
+  .send(laptop, { _tag: "Trust", until: LAPTOP_UNTIL, label: "Elif's laptop" })
+  .checkpoint("signed out")
+  .send(mainSession, signedIn)
+  .send(laptop, { _tag: "Trust", until: LAPTOP_UNTIL, label: "Elif's laptop" })
+  .send(laptop, { _tag: "Seen", at: LAPTOP_SEEN })
+  .checkpoint("trusted")
+  .advance("604799999 millis")
+  .checkpoint("just short of a week")
+  .advance("1 millis")
+  .checkpoint("a week on")
+  .reload()
+  .checkpoint("reloaded")
+  .send(laptop, { _tag: "Revoke" })
+  .checkpoint("revoked");
 
 /**
  * Elif saves a draft and is sent to sign in; she signs up and chooses a handle that is taken, so

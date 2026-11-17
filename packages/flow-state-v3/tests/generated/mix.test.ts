@@ -210,7 +210,7 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
   }, 60_000);
 
   it("a mix whose fixtures never share a resource is inconclusive (Testing O6)", () => {
-    const [failure] = propertyTest([part("transfers"), idle], {
+    const [failure] = propertyTest([part("bank-planned"), idle], {
       profile: "mix",
       properties: rules,
       seeds: [1],
@@ -221,7 +221,7 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
   }, 60_000);
 
   it("a failing mix shrinks by dropping whole fixtures first: a fault in one fixture's edge keeps that fixture alone", () => {
-    const [failure] = propertyTest([part("transfers"), planted, part("lanes")], {
+    const [failure] = propertyTest([part("bank-planned"), planted, part("lanes")], {
       profile: "mix",
       properties: rules,
       seeds: Array.from({ length: 20 }, (_, n) => n + 1),
@@ -233,7 +233,7 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
   }, 120_000);
 
   it("a fault in one fixture's edge, among all four of the mix, shrinks to that fixture within the shrink bound", () => {
-    const parts = [part("transfers"), part("lanes"), planted, part("palette")];
+    const parts = [part("bank-planned"), part("lanes"), planted, part("palette")];
 
     const [failure] = propertyTest(parts, {
       profile: "mix",

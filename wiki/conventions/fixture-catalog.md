@@ -392,6 +392,8 @@ kamp.us for rows restored after a failure.
     (@task.V3.T76). From step 2, `StepUp` is a `subroutine` in it.
   - `ChequeDeposit` (step 4), shared, named by deposit, ⇠ `customer`.
   - `Statement` (step 11), local, ⇠ `customer`.
+  - `StandingOrder` (@task.V3.T81), shared, persisted, named by order, ⇠ `customer`, reading R `balance`; its
+    `Plan.first` and `Pause.until` are `DateFromString` fields.
 - **Operations:**
   - T: `transfer` (have, `reject`; from step 4 it declares `idempotency` by transfer id, the one edit to an old
     contract, since a money write must name the server's key); `depositCheque` (step 4, `progress`).
@@ -404,6 +406,7 @@ kamp.us for rows restored after a failure.
   3. Large amount: `StepUp` first.
   4. Deposit: photograph a cheque → T `depositCheque` with `progress`, aborted and resumed.
   5. Catch-up: notifications after the app was closed.
+  6. Standing order: plan the rent from a date, pause it until one or with no end, resume.
 - **Features by step:**
   - **used today:** `Flow.input` value-named actors (`Bank/Transfers`, named by account); `schedules` with `armOn` (the
     deadline); `forget`, `unsettledWrites` (`forgotten`); `reject`, `NotSent { Rejected }` (T `transfer`); `O.x.cancel`,
@@ -428,6 +431,8 @@ kamp.us for rows restored after a failure.
     predicted); `.gone` tombstones (a cancelled scheduled transfer); `pagedBy`, `more` (statement pages).
   - **step 12:** `stream` `delivers: "every"`, `position`, `catchUp` (S `notifications`).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (account numbers redacted).
+  - **@task.V3.T81:** an event field whose Schema transforms (`StandingOrder`'s `DateFromString` dates); construction
+    refusals (`stories/refused.ts`).
 - **Scenarios:**
   - [x] **Usual:** send, decline, lose the answer, resend once, abandon (have); the form reads its customer's account
     and checks the balance before a send. built: `transfers/usual`, `transfers/declined`,
@@ -467,6 +472,34 @@ kamp.us for rows restored after a failure.
     (`Story.machine`); the form is shared until then.
   - [ ] `Customer` sends `Send` to the source account. left: needs an actor-to-actor `send(ref, event)` action, which
     no Task owns (the user's call).
+  - **Standing orders (@task.V3.T81):**
+    - [x] Usual: the rent planned from a date, paused until one, reloaded and resumed; a plan over the balance
+      returns to the draft. Shaped on [ban.unit.test.ts:36][kp-ban] "permanent ban (no expiry) → banned, carries
+      the reason" and [ban.unit.test.ts:43][kp-ban] "ban with a future expiry → banned until then" (an end date or
+      none, kept as given); no closer source. built: `transfers/standing-order`.
+    - [x] Load: S2 × 32 orders under one customer, under L4. built: `transfers/stress-many-orders`. L3: the balance
+      check lost to a dropped network. built: `transfers/order-offline`. No source.
+    - [x] Structure: S1 with S9, customer → rent, reloaded with only the rent ensured. built:
+      `transfers/order-chain`. S6 × {order first, customer forgotten, reloaded}. built: `transfers/order-first`,
+      `transfers/order-customer-forgotten`, `transfers/standing-order`. Customer first, refused
+      `BlockedByDependents` while the rent is bound (Actors R20). built: the `customerFirstUnderOrder` builder. No
+      source.
+    - [x] Edges: E1, E2, E3: first dates at the epoch and ±8.64e15 ms, a memo absent, `undefined` or empty, a pause
+      with no end, each read back equal after a reload. built: `transfers/order-date-edges`. E2, E7: a first date
+      that is `null`, `undefined` or its ISO text, refused `InvalidEvent`. built:
+      `tests/transfers/standing-order.test.ts`. E6: a plan of 2^53 cents, in `bank-orders`. E5: not this feature's,
+      the order has no schedule. No source.
+    - [x] S7: eight construction mistakes as builders in `stories/structure.ts` (an unset config, a bare context
+      slot, operations with no `return`, a text amount, a first date as ISO text, the form's same-named lookup and
+      event, a null handler); six inverted, owner @task.V3.T81 (Compile R2, R3, R4, R5). No source.
+    - [x] Samples and combinations: `bank-orders` (edge dates, 2^53 cents, a dropped network) in the generator and
+      the pair sweep. The app mix takes `bank-planned` (two accounts' transfers beside the rent; newer-format and
+      unreadable records) and `bank-planned-edges` (the rest of the old set's steps, receipt edges, edge dates) in
+      place of `transfers`, carrying all of its steps, failures and controls between them; the usual set is kept to
+      six steps, since the mix's one-network check needs one of five seeds to call every server. built:
+      `bank-planned`, `bank-planned-edges`.
+    - [ ] Variety: a third unrelated app with a transforming event field. left: the acceptance names `transfers`
+      and `sign-in` only (the user's call).
   - **Findings:**
     - [ ] A deposit aborted, then resumed from its parts. Copies [test-parallel-uploads.js:448][tus-parallel] "should
       abort all partial uploads and resume from them". left: @task.V3.T21, needs `progress`.
@@ -486,6 +519,8 @@ not checked here).
     is a `subroutine` in it; from step 3 it hears `SignedIn`.
   - `ReturnTo` (step 1), shared, persisted, ⇠ `session`, holding the route and draft to resume.
   - `PasswordSignIn` (step 7), shared, release 2.
+  - `TrustedDevice` (@task.V3.T81), shared, persisted, named by device, ⇠ `session`; its `Trust.until` and
+    `Seen.at` are `DateFromString` fields, the second nullable.
 - **Operations:** T `begin`, `verify` (have, `reject`); T `setUsername` (step 1); R `me` (step 1).
 - **Journeys:**
   1. Sign in: email → T `begin` → code → T `verify` → `SignedIn` → R `me`.
@@ -493,6 +528,7 @@ not checked here).
   3. Return: a draft goes through the auth redirect and back with `ReturnTo`.
   4. Handle: T `setUsername`, the redirect held until it succeeds.
   5. Sign out: `forget` `AuthSession`.
+  6. Trust a device: trust the laptop until a date while signed in, confirm it again after a week, revoke it.
 - **Features by step:**
   - **used today:** guards, `deny`, `check` (`Auth/SignIn`); `schedules` with `armOn` (cooldown and lockout); `reject`,
     `NotSent { Rejected }` (T `begin`, `verify`); `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed` (`Auth/SignIn`);
@@ -505,6 +541,8 @@ not checked here).
   - **step 7:** release versions, saved-shape reset, migration (release 2 adds `PasswordSignIn`).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule and emit events).
   - **step 18:** `useActor` (React) (Strict Mode).
+  - **@task.V3.T81:** an event field whose Schema transforms (`TrustedDevice`'s `DateFromString` dates);
+    construction refusals (`stories/refused.ts`).
 - **Scenarios:**
   - [x] **Usual:** sign in with a code (have). A retried handle save releases the held redirect. Copies
     [AuthPage.test.tsx:89][kp-auth] "retry on the stuck surface re-attempts and, on success, RELEASES the redirect".
@@ -538,8 +576,29 @@ not checked here).
     - [x] A draft survives the redirect, then clears on submit. Copies [draftStorage.unit.test.ts:45][kp-draft]
       "survives the signed-out → auth-redirect → return round-trip, then clears on submit (AC1+AC2)". built:
       `sign-in/handle-retry` ("released", "submitted").
+  - **Trusted devices (@task.V3.T81):**
+    - [x] Usual: signed out, a device is denied trust; signed in, the laptop is trusted until a date and seen; a
+      millisecond short of a week it is fresh, at a week due; it survives a reload and is revoked. Shaped on
+      [ban.unit.test.ts:43][kp-ban] "ban with a future expiry → banned until then"; no closer source. built:
+      `sign-in/trust-device`.
+    - [x] Load: S2 × 16 devices under one session, under L4. built: `sign-in/stress-many-devices`. No source.
+    - [x] Structure: S1 with S9, session → laptop, reloaded with only the laptop ensured. built:
+      `sign-in/device-chain`. S6 × {device first, session forgotten, reloaded}. built: `sign-in/device-first`,
+      `sign-in/device-session-forgotten`, `sign-in/trust-device`. Session first, refused `BlockedByDependents` while
+      the laptop is bound (Actors R20). built: the `sessionFirstUnderDevice` builder. No source.
+    - [x] Edges: E1, E2, E3: trust until the epoch and ±8.64e15 ms, a label absent, `undefined` or empty, a device
+      seen at no time (`null`), each read back equal after a reload. built: `sign-in/device-date-edges`. E2, E7: a
+      trust date `null`, `undefined` or its ISO text, and a seen time `undefined` or missing, refused
+      `InvalidEvent`. built: `tests/sign-in/trusted-device.test.ts`. E5: the week's reminder a millisecond short and
+      at a week. built: `sign-in/trust-device`. No source.
+    - [x] S7: five construction mistakes as builders in `stories/structure.ts` (the session's definition as a slot,
+      a text field, the bare `me` contract, a `{ day: 7 }` delay, a null handler); three inverted, owner
+      @task.V3.T81 (Compile R2, R4). No source.
+    - [x] Samples: `auth-devices` (edge dates, an unreadable laptop record) in the generator, the stress generator
+      and the pair sweep. built: `auth-devices`.
   - [ ] Sign-in's samples in the app mix: left for the mix's own seed count: a sixth part fails the mix's one-network
-    check at five seeds. The pair sweep runs them (`auth-session`).
+    check at five seeds, as a lean devices set did again (@task.V3.T81). The pair sweep runs them (`auth-session`,
+    `auth-devices`).
 
 ### session
 
@@ -1413,4 +1472,5 @@ in session, `dueAt` across sleep in sign-in and home, and the two wire cancels i
 [kp-pin]: ../../codebases/phoenix/apps/web/src/fate/globalLivePin.test.ts
 [kp-retry]: ../../codebases/phoenix/apps/web/src/fate/liveRetry.unit.test.ts
 [kp-overlay]: ../../codebases/phoenix/apps/web/src/pages/panoFeedOverlay.test.ts
+[kp-ban]: ../../codebases/phoenix/apps/web/worker/features/pasaport/ban.unit.test.ts
 [kp-shortcut]: ../../codebases/phoenix/apps/web/src/lib/searchShortcut.test.ts

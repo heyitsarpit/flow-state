@@ -465,14 +465,18 @@ const isApplicationValue = (v: unknown) => {
 /**
  * Turn R24, over Flow's fixtures: every published memory field is plain data, readable as JSON, or
  * a value kind a Schema makes beside it (a Map, a Set, a Date, an Option or another class
- * instance), an application value the rule does not judge.
+ * instance), an application value the rule does not judge, or `undefined`, as an inactive
+ * fragment's slice (Turn R23) and an optional field hold it. Whether a field may be `undefined` is
+ * its own Schema's check, not this rule's.
  */
 export const publishedPlainData: Rule = {
   rule: "Turn R24",
   breaches: (run) =>
     run.evidence.flatMap((e) =>
       e._tag === "Published" &&
-      !Object.values(e.memory).every((v) => Schema.is(Schema.Json)(v) || isApplicationValue(v))
+      !Object.values(e.memory).every(
+        (v) => Schema.is(Schema.Json)(v) || v === undefined || isApplicationValue(v),
+      )
         ? [`Turn R24: ${e.actor.machine}/${e.actor.name} published memory that is not plain data`]
         : [],
     ),

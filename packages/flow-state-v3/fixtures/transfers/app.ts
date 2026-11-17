@@ -5,6 +5,7 @@ import { BankLive } from "./adapters/bank.ts";
 import { TransfersMachine } from "./machines/transfers.ts";
 import { CustomerMachine } from "./machines/customer.ts";
 import { TransferFormMachine } from "./machines/transfer-form.ts";
+import { StandingOrderMachine } from "./machines/standing-order.ts";
 
 /**
  * The bank app: one machine.
@@ -75,6 +76,44 @@ export const bankGrown = app({
  */
 export const bankGrownSetup = runtimeSetup({
   app: bankGrown,
+  services: Layer.mergeAll(
+    BankLive("https://bank.example"),
+    AccountsLive("https://accounts.example"),
+  ),
+  scope: "bank",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The customer's rent: a standing order bound to the main customer.
+ */
+export const rent = actorRef(StandingOrderMachine, { order: "rent" });
+
+/**
+ * The `n`th of many standing orders.
+ */
+export const orderOf = (n: number) =>
+  actorRef(StandingOrderMachine, { order: `order-${String(n)}` });
+
+/**
+ * The grown bank app with the customer's standing orders beside the form.
+ */
+export const bankPlanned = app({
+  id: "bank",
+  machines: {
+    transfers: TransfersMachine,
+    customer: CustomerMachine,
+    form: { machine: TransferFormMachine, context: { customer: mainCustomer } },
+    orders: { machine: StandingOrderMachine, context: { customer: mainCustomer } },
+  },
+});
+
+/**
+ * The planned bank app's real setup, as the grown app's: both services over HTTP, persisted, each
+ * capture written at once.
+ */
+export const bankPlannedSetup = runtimeSetup({
+  app: bankPlanned,
   services: Layer.mergeAll(
     BankLive("https://bank.example"),
     AccountsLive("https://accounts.example"),

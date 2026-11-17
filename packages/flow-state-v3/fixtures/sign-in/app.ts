@@ -5,6 +5,7 @@ import { ProfileLive } from "./adapters/profiles.ts";
 import { SignInMachine } from "./machines/sign-in.ts";
 import { ReturnToMachine } from "./machines/return-to.ts";
 import { AuthSessionMachine } from "./machines/session.ts";
+import { TrustedDeviceMachine } from "./machines/trusted-device.ts";
 
 /**
  * The sign-in app: one machine.
@@ -65,6 +66,44 @@ export const authGrown = app({
  */
 export const authGrownSetup = runtimeSetup({
   app: authGrown,
+  services: Layer.mergeAll(
+    AuthLive("https://auth.example"),
+    ProfileLive("https://profile.example"),
+  ),
+  scope: "auth",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * Elif's laptop, a device her session may trust.
+ */
+export const laptop = actorRef(TrustedDeviceMachine, { device: "laptop" });
+
+/**
+ * The `n`th of many devices.
+ */
+export const deviceOf = (n: number) =>
+  actorRef(TrustedDeviceMachine, { device: `device-${String(n)}` });
+
+/**
+ * The grown sign-in app with the devices Elif's session trusts.
+ */
+export const authTrusted = app({
+  id: "auth",
+  machines: {
+    signIn: SignInMachine,
+    session: AuthSessionMachine,
+    returnTo: { machine: ReturnToMachine, context: { session: mainSession } },
+    devices: { machine: TrustedDeviceMachine, context: { session: mainSession } },
+  },
+});
+
+/**
+ * The trusted-devices app's real setup, as the grown app's: both services over HTTP, persisted,
+ * each capture written at once.
+ */
+export const authTrustedSetup = runtimeSetup({
+  app: authTrusted,
   services: Layer.mergeAll(
     AuthLive("https://auth.example"),
     ProfileLive("https://profile.example"),

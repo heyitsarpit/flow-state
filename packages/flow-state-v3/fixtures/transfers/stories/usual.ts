@@ -1,7 +1,19 @@
+import { Schema } from "effect";
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
-import { account, bankGrownSetup, bankSetup, mainCustomer, savings, sendForm } from "../app.ts";
+import {
+  account,
+  bankGrownSetup,
+  bankPlannedSetup,
+  bankSetup,
+  mainCustomer,
+  rent,
+  savings,
+  sendForm,
+} from "../app.ts";
 import { Bank } from "../server/bank.ts";
 import { AccountsFake, BankFake } from "../server/layer.ts";
+
+const isoDate = Schema.decodeSync(Schema.DateFromString);
 
 /**
  * The grown bank app over its port fakes, with no steps yet: every Story of the customer and the
@@ -9,6 +21,48 @@ import { AccountsFake, BankFake } from "../server/layer.ts";
  */
 export const grownStory = (id: string) =>
   Story.app(bankGrownSetup, { id, fixtures: [BankFake, AccountsFake] });
+
+/**
+ * The bank app with standing orders over its port fakes, with no steps yet: every Story of a
+ * standing order starts here.
+ */
+export const plannedStory = (id: string) =>
+  Story.app(bankPlannedSetup, { id, fixtures: [BankFake, AccountsFake] });
+
+/**
+ * The rent's first payment date, as the date picker gives it.
+ */
+export const RENT_FIRST = isoDate("2026-12-01T00:00:00.000Z");
+
+/**
+ * The date the rent is paused until.
+ */
+export const RENT_PAUSED_UNTIL = isoDate("2027-03-01T00:00:00.000Z");
+
+/**
+ * The rent planned: 9,500 cents from its first date, with a memo.
+ */
+export const planRent = { _tag: "Plan", first: RENT_FIRST, cents: 9500, memo: "rent" } as const;
+
+/**
+ * The customer chooses their account and plans the rent, which fits the balance and is scheduled;
+ * it is paused until spring, the tab reloads, and it resumes. A second plan over the balance goes
+ * back to the draft.
+ */
+export const standingOrder = plannedStory("transfers/standing-order")
+  .ensure(mainCustomer)
+  .ensure(rent)
+  .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
+  .send(rent, planRent)
+  .checkpoint("scheduled")
+  .send(rent, { _tag: "Pause", until: RENT_PAUSED_UNTIL })
+  .checkpoint("paused")
+  .reload()
+  .checkpoint("reloaded")
+  .send(rent, { _tag: "Resume" })
+  .checkpoint("resumed")
+  .send(rent, { ...planRent, cents: 20_000 })
+  .checkpoint("over");
 
 /**
  * The customer chooses their account; the form checks 500 cents against its balance, the account
@@ -210,7 +264,10 @@ export const stressManyReceipts = () =>
  */
 export const t1Lane = 'lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}';
 
-const newerT1Lane =
+/**
+ * `t1`'s lane record Held, in a newer format than this release reads.
+ */
+export const newerT1Lane =
   '{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}';
 
 /**
@@ -218,7 +275,10 @@ const newerT1Lane =
  */
 export const acct1Record = "actor/Bank/Transfers/acct-1";
 
-const brokenRecord = '{"format":1}';
+/**
+ * A record in no format Flow writes.
+ */
+export const brokenRecord = '{"format":1}';
 
 /**
  * A transfer's answer is lost, so its lane is Held; then a damaged disk leaves its lane record in

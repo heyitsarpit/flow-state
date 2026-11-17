@@ -1,12 +1,15 @@
 import { Option } from "effect";
-import { benchPoint, manifest } from "../manifest.ts";
-import { authGrown, authGrownSetup, sessionOf } from "./app.ts";
-import { long, samples, seededStress, stories, handleRetry } from "./stories/usual.ts";
-import { longEmail, emptyCode, emptyEmail } from "./stories/edges.ts";
+import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
+import { authTrusted, authTrustedSetup, sessionOf } from "./app.ts";
+import { long, samples, seededStress, stories, handleRetry, trustDevice } from "./stories/usual.ts";
+import { deviceDateEdges, longEmail, emptyCode, emptyEmail } from "./stories/edges.ts";
 import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
-import { manyScreens, manySessions, reloadInLockout } from "./stories/load.ts";
-import { samples as sessionSamples } from "./stories/samples.ts";
+import { manyDevices, manyScreens, manySessions, reloadInLockout } from "./stories/load.ts";
+import { deviceSamples, samples as sessionSamples } from "./stories/samples.ts";
 import {
+  deviceChain,
+  deviceFirst,
+  deviceSessionForgotten,
   reloadedMidHandle,
   returnSavedLate,
   screenFirst,
@@ -18,8 +21,8 @@ import {
  */
 export const signIn = manifest({
   name: "sign-in",
-  setup: authGrownSetup,
-  app: authGrown,
+  setup: authTrustedSetup,
+  app: authTrusted,
   stories: {
     ...stories,
     returnSavedLate,
@@ -36,9 +39,15 @@ export const signIn = manifest({
     longEmail,
     emptyCode,
     reloadInLockout,
+    trustDevice,
+    deviceDateEdges,
+    manyDevices,
+    deviceSessionForgotten,
+    deviceFirst,
+    deviceChain,
   },
-  samples: [samples, sessionSamples],
-  stressSamples: [samples, sessionSamples],
+  samples: [samples, sessionSamples, deviceSamples],
+  stressSamples: [samples, sessionSamples, deviceSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),
@@ -51,11 +60,17 @@ export const signIn = manifest({
       samples: sessionSamples,
       reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
     },
+    {
+      samples: deviceSamples,
+      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+    },
   ],
   bench: {
     probe: (n) => sessionOf(n),
     persist: Option.some(() => returnSavedLate),
     stories: [
+      benchTurn(() => trustDevice),
+      benchStress(benchTurn(() => manyDevices)),
       benchPoint(() => longEmail, {
         series: "email-length",
         n: 100_000,

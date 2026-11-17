@@ -1,7 +1,8 @@
-import { screenOf, sessionOf } from "../app.ts";
+import { deviceOf, mainSession, screenOf, sessionOf } from "../app.ts";
 import { CODE } from "../server/auth.ts";
 import { Profiles } from "../server/profiles.ts";
-import { sessionStory } from "./usual.ts";
+import { dateAt } from "./edges.ts";
+import { elifSaved, sessionStory, signedIn, trustedStory } from "./usual.ts";
 
 const SCREENS = Array.from({ length: 16 }, (_, n) => n);
 
@@ -52,3 +53,28 @@ export const reloadInLockout = Array.from({ length: 6 }, (_, n) => n)
   .checkpoint("locked")
   .reload()
   .checkpoint("reloaded");
+
+const DEVICES = Array.from({ length: 16 }, (_, n) => n);
+
+const HOUR_MS = 3_600_000;
+
+/**
+ * The `n`th device's trust ends `n` hours after the epoch.
+ */
+export const untilOf = (n: number) => dateAt(n * HOUR_MS);
+
+/**
+ * One session and 16 devices bound to it (S2 × 16, a first guess until the bench re-measures it);
+ * Elif signs in, each device is trusted until its own date, and the tab reloads twice (L4).
+ */
+export const manyDevices = DEVICES.reduce(
+  (story, n) =>
+    story.send(deviceOf(n), { _tag: "Trust", until: untilOf(n), label: `device ${String(n)}` }),
+  DEVICES.reduce(
+    (story, n) => story.ensure(deviceOf(n)),
+    trustedStory("sign-in/stress-many-devices").world(elifSaved).ensure(mainSession),
+  ).send(mainSession, signedIn),
+)
+  .reload()
+  .reload()
+  .checkpoint("end");

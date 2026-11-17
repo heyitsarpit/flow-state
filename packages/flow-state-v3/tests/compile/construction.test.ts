@@ -737,7 +737,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
     ).toEqual([["InvalidConfiguration", "UnknownField", "states.OFF.schedules.off.schedule.sec"]]);
   });
 
-  it.fails("Compile R4, R6: a constant start its field's Schema refuses is refused WrongKind at its memory field", () => {
+  it.fails("Compile R4, R5: a constant start its field's Schema refuses is refused WrongKind at its memory field", () => {
     expect(
       refusal(() =>
         definition(
@@ -794,7 +794,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
     ]);
   });
 
-  it.fails("Compile R2: a failure tag that holds a dot is one segment of its finding's path", () => {
+  it.fails("Compile R2, R9; Diagnostics R2: a failure tag that holds a dot is one segment of its finding's path", () => {
     expect(
       segments(() =>
         definition(
