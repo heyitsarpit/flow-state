@@ -13,6 +13,9 @@ import {
   guestDotReturns,
   inboxSamples,
   threadHeard,
+  agendaLong,
+  unreadRecovers,
+  archiveLarge,
 } from "./stories/values.ts";
 import {
   bylineReturns,
@@ -52,6 +55,9 @@ export const session = manifest({
     digestHeard,
     digestQuiet,
     threadHeard,
+    agendaLong,
+    unreadRecovers,
+    archiveLarge,
     guestDotReturns,
     corruptSeen,
     formatOneAvatar,

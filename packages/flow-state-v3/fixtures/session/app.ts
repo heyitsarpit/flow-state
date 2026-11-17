@@ -11,7 +11,14 @@ import {
   TeamMachine,
 } from "./machine.ts";
 import { AvatarMachine } from "./machines/avatar.ts";
-import { DigestMachine, InboxMachine, ThreadViewMachine } from "./machines/inbox.ts";
+import { AgendaMachine, CalendarMachine, PeekMachine } from "./machines/agenda.ts";
+import {
+  ArchiveMachine,
+  DigestMachine,
+  InboxMachine,
+  ThreadViewMachine,
+  UnreadMachine,
+} from "./machines/inbox.ts";
 import { DotMachine, PresenceMachine } from "./machines/presence.ts";
 import { BylineMachine } from "./machines/byline.ts";
 import { StatusMachine } from "./machines/status.ts";
@@ -50,6 +57,31 @@ export const mainDigest = actorRef(DigestMachine, "digest");
  * The thread view of the workspace's inbox.
  */
 export const mainThread = actorRef(ThreadViewMachine, "thread");
+
+/**
+ * The unread badge of the workspace's inbox.
+ */
+export const mainUnread = actorRef(UnreadMachine, "unread");
+
+/**
+ * The archive beside the workspace's inbox.
+ */
+export const mainArchive = actorRef(ArchiveMachine, "archive");
+
+/**
+ * The workspace calendar.
+ */
+export const mainCalendar = actorRef(CalendarMachine, "main");
+
+/**
+ * The agenda beside the calendar, kept across reloads.
+ */
+export const mainAgenda = actorRef(AgendaMachine, "agenda");
+
+/**
+ * A glance at the agenda, never saved.
+ */
+export const agendaPeek = actorRef(PeekMachine, "peek");
 
 /**
  * The guest's presence, whose ref binds it to the guest session instead of the default.
@@ -93,6 +125,11 @@ export const workspaceGrown = app({
       },
     },
     thread: { machine: ThreadViewMachine, context: { thread: mainInbox } },
+    unread: { machine: UnreadMachine, context: { oldest: mainInbox } },
+    archive: { machine: ArchiveMachine, context: { newest: mainInbox } },
+    calendar: CalendarMachine,
+    agenda: { machine: AgendaMachine, context: { days: mainCalendar } },
+    peek: { machine: PeekMachine, context: { days: mainCalendar } },
     presence: { machine: PresenceMachine, context: { user: mainSession } },
     dot: { machine: DotMachine, context: { online: actorRef(PresenceMachine, "main") } },
   },

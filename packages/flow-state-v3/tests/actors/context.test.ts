@@ -39,7 +39,7 @@ const Badge = definition({
   context: {
     user: Session.Provider.select(Schema.String, (s) => s.memory.user),
     broken: Session.Provider.select(Schema.Number, (s) => {
-      if (s.memory.user === "boom") throw new Error("boom");
+      if (s.memory.user.startsWith("boom")) throw new Error("boom");
 
       return s.memory.user.length;
     }),
@@ -325,7 +325,7 @@ describe("onContext defects (Turn R22)", () => {
     on: { Echoed: { updateMemory: ({ memory }) => ({ echoes: memory.echoes + 1 }) } },
   }));
 
-  it("Turn R22: a when or mapper defect keeps the previous baseline, so a return to it is silent", () => {
+  it("Turn R22, R25: a when or mapper defect keeps the previous baseline, so a return to it is silent, and the return clears its issue", () => {
     const runtime = runtimeSetup({
       app: app({
         id: "echo",
@@ -343,7 +343,7 @@ describe("onContext defects (Turn R22)", () => {
     for (const user of ["x", "", "y", ""]) session.send({ _tag: "SignIn", user });
 
     expect(Option.map(echo.getSnapshot(), (s) => s.memory["echoes"])).toEqual(Option.some(0));
-    expect(Option.map(echo.getSnapshot(), (s) => s.issues.length)).toEqual(Option.some(1));
+    expect(Option.map(echo.getSnapshot(), (s) => s.issues.length)).toEqual(Option.some(0));
   });
 });
 
@@ -395,6 +395,29 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     expect(Option.map(handle.getSnapshot(), (s) => s.memory["pairs"])).toEqual(
       Option.some(["ada|ada"]),
     );
+  });
+});
+
+describe("issues by source (Turn R25; Actors R19)", () => {
+  it("Turn R25: a throwing selector's issue clears when its slot next selects", () => {
+    const { runtime } = ready();
+    const handle = runtime.ensureActor(badge);
+    const session = runtime.ensureActor(main);
+    session.send({ _tag: "SignIn", user: "boom" });
+    session.send({ _tag: "SignIn", user: "ada" });
+
+    expect(Option.map(handle.getSnapshot(), (s) => s.issues)).toEqual(Option.some([]));
+    expect(Option.map(handle.getSnapshot(), (s) => s.context["broken"])).toEqual(Option.some(3));
+  });
+
+  it("Actors R19: a selector that keeps throwing publishes one issue, not one per wave", () => {
+    const { runtime, seen } = ready();
+    runtime.ensureActor(badge);
+    const session = runtime.ensureActor(main);
+
+    for (const user of ["boom1", "boom2", "boom3"]) session.send({ _tag: "SignIn", user });
+
+    expect(seen.filter((e) => e._tag === "Issue")).toHaveLength(1);
   });
 });
 

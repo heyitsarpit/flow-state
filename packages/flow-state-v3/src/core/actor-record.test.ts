@@ -31,10 +31,42 @@ const Header = definition({
 
 const HeaderMachine = machine(Header, ({ S }) => ({ default: S.SHOWN }));
 
+// A slot whose Schema's check throws for the word "boom": its decode at the boot throws.
+const Loud = Schema.String.check(
+  Schema.makeFilter((word: string) => {
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a user's check that throws: the defect the boot must quarantine
+    if (word === "boom") throw new Error("boom");
+
+    return true;
+  }),
+);
+
+const Shout = definition({
+  id: "Test/Shout",
+  persist: true,
+  states: ["SHOWN"],
+  events: {},
+  internalEvents: { Heard: {} },
+  memory: { heard: Flow.initial(Schema.Number, 0) },
+  context: { word: Feed.Provider.select(Loud, (f) => f.memory.items[0] ?? "") },
+});
+
+const ShoutMachine = machine(Shout, ({ S, E }) => ({
+  default: S.SHOWN,
+  onContext: [{ select: ({ context }) => context.word, event: E.Heard }],
+  on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
+}));
+
 const machines = new Map([
   [FeedMachine.compiled.id, FeedMachine.compiled],
   [HeaderMachine.compiled.id, HeaderMachine.compiled],
+  [ShoutMachine.compiled.id, ShoutMachine.compiled],
 ]);
+
+const shout = (seen: string, reactions: string) =>
+  '{"context":{"word":{"machine":"Test/Feed","name":"f"}},"format":2,"graph":{},' +
+  `"machine":"Test/Shout","memory":{"heard":0},"name":"s","reactions":${reactions},` +
+  `"schedules":[],"seen":${seen},"state":"SHOWN"}`;
 
 const key = "actor/Test/Header/h";
 
@@ -80,5 +112,26 @@ describe("the format-1 step (Restore R5, T6)", () => {
 
       expect(restored.quarantined.map((q) => q.key)).toEqual([key]);
     }
+  });
+});
+
+describe("format 2 records at the boot (Restore R5)", () => {
+  it("Restore R5: a slot Schema whose decode throws quarantines the record, and the boot goes on", () => {
+    const restored = decodeRecords(
+      machines,
+      new Map([["actor/Test/Shout/s", shout('{"word":"boom"}', "[null]")]]),
+    );
+
+    expect(restored.quarantined.map((q) => q.key)).toEqual(["actor/Test/Shout/s"]);
+  });
+
+  it("Restore R5: saved baselines that do not match the machine's reactions in number are read from the record's own slots and memory", () => {
+    const restored = decodeRecords(
+      machines,
+      new Map([["actor/Test/Shout/s", shout('{"word":"hi"}', "[null,null]")]]),
+    );
+
+    expect(restored.quarantined).toEqual([]);
+    expect(restored.records[0]?.frames.map(Option.isSome)).toEqual([true]);
   });
 });

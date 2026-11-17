@@ -2,13 +2,19 @@ import { Option, Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Envelope } from "../../fixtures/session/machines/inbox.ts";
 import {
+  agendaPeek,
   guestDot,
   guestPresence,
+  mainAgenda,
+  mainArchive,
   mainAvatar,
   mainDigest,
   mainThread,
+  mainUnread,
 } from "../../fixtures/session/app.ts";
 import {
+  agendaLong,
+  archiveLarge,
   corruptSeen,
   digestHeard,
   digestQuiet,
@@ -16,8 +22,9 @@ import {
   guestDotReturns,
   nestedConflictingTeam,
   threadHeard,
+  unreadRecovers,
 } from "../../fixtures/session/stories/values.ts";
-import { Step } from "../../src/host/testing/index.ts";
+import { Step, type StoryRun } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 import { checked } from "../rules/rules.ts";
 
@@ -132,5 +139,67 @@ describe("saved records of context consumers (Restore R5; Codec R3)", () => {
     expect(
       run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar"),
     ).toContain('"format":2');
+  });
+});
+
+const reported = (run: StoryRun, code: string) =>
+  run.evidence.flatMap((e) =>
+    e._tag === "Reported" && e.code === code ? [Option.getOrElse(e.record, () => "-")] : [],
+  );
+
+describe("a selection past a record's bounds (Actors R18; Codec R4)", () => {
+  it("Codec R4, Actors R18: 5,000 days, past 4,096 items, are read and heard by a saved and an unsaved consumer, never a selector's defect; the saved one reports UnencodableValue", async () => {
+    const run = await played(agendaLong);
+    const { short, long } = run.checkpoints;
+
+    for (const actor of [mainAgenda, agendaPeek]) {
+      expect(short.read(actor)?.memory["heard"]).toBe(1);
+      expect(long.read(actor)?.memory["heard"]).toBe(2);
+      expect(long.read(actor)?.issues).toEqual([]);
+      expect(long.read(actor)?.context["days"]).toHaveLength(5_000);
+    }
+
+    expect(reported(run, "UnencodableValue")).toContain("actor/Workspace/Agenda/agenda");
+  });
+
+  it("Actors R9, R18: the saved agenda restores with its days saved unknown, so the reload may hear them once more but never misses one; its state and memory are saved", async () => {
+    const run = await played(agendaLong);
+    const { reloaded, back } = run.checkpoints;
+
+    expect(reloaded.read(mainAgenda)?.context["days"]).toHaveLength(5_000);
+    expect(reloaded.read(mainAgenda)?.memory["heard"]).toBe(3);
+    expect(back.read(mainAgenda)?.memory["heard"]).toBe(4);
+  });
+});
+
+describe("issues cleared by their own source (Turn R25; Actors R19)", () => {
+  it("Turn R25: a slot its Schema refuses and a mapper that throws each raise an issue, cleared when its own source next succeeds", async () => {
+    const run = await played(unreadRecovers);
+
+    const sources = (cut: keyof typeof run.checkpoints) =>
+      (run.checkpoints[cut].read(mainUnread)?.issues ?? []).map((i) => i.path[2]);
+
+    expect(sources("empty")).toEqual(["context oldest"]);
+    expect(sources("first")).toEqual([]);
+    expect(sources("read")).toEqual(["context oldest"]);
+    expect(sources("spam")).toEqual(["onContext 0"]);
+    expect(sources("recovered")).toEqual([]);
+    expect(run.checkpoints.recovered.read(mainUnread)?.memory["opened"]).toEqual(["m1", "m3"]);
+  });
+});
+
+describe("a large memory read by several reactions (Turn R22; Actors R18; WriteAhead R4)", () => {
+  it("Actors R18, Turn R22: three reactions reading a 3,001-row log never push the record past a bound, so a reload keeps every row and hears what it would live", async () => {
+    const run = await played(archiveLarge);
+
+    const rows = (cut: "logged" | "reloaded" | "again") =>
+      ((log) => (Array.isArray(log) ? log.length : 0))(
+        run.checkpoints[cut].read(mainArchive)?.memory.log,
+      );
+
+    expect(rows("logged")).toBe(3_003);
+    expect(rows("reloaded")).toBe(3_003);
+    expect(rows("again")).toBe(3_005);
+    expect(reported(run, "UnencodableValue")).toEqual([]);
   });
 });

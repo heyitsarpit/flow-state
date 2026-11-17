@@ -1,6 +1,18 @@
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
 import { actorRef } from "../../../src/index.ts";
-import { guestDot, guestPresence, mainAvatar, mainDigest, mainInbox, mainThread } from "../app.ts";
+import {
+  agendaPeek,
+  guestDot,
+  guestPresence,
+  mainAgenda,
+  mainArchive,
+  mainAvatar,
+  mainCalendar,
+  mainDigest,
+  mainInbox,
+  mainThread,
+  mainUnread,
+} from "../app.ts";
 import {
   BadgeMachine,
   globex,
@@ -159,14 +171,88 @@ export const formatOneAvatar = grownStory("session/format-one-avatar")
   .checkpoint("signed out");
 
 /**
+ * The calendar shows a hundred days under its agenda, saved, and a glance at it, never saved; then
+ * five thousand, a list past a record's 4,096 items; the tab reloads, and the range goes back to a
+ * hundred days.
+ */
+export const agendaLong = grownStory("session/agenda-long")
+  .ensure(mainCalendar)
+  .ensure(mainAgenda)
+  .ensure(agendaPeek)
+  .send(mainCalendar, { _tag: "Show", from: 0, to: 100 })
+  .checkpoint("short")
+  .send(mainCalendar, { _tag: "Show", from: 0, to: 5_000 })
+  .checkpoint("long")
+  .reload()
+  .checkpoint("reloaded")
+  .send(mainCalendar, { _tag: "Show", from: 0, to: 100 })
+  .checkpoint("back");
+
+/**
+ * The unread badge opens on an empty inbox, which its Schema refuses; a message arrives and is
+ * opened; everything is read, refused again; spam arrives, whose opening fails; everything is read
+ * again; a message arrives and is opened, and every issue has cleared.
+ */
+export const unreadRecovers = grownStory("session/unread-recovers")
+  .ensure(mainInbox)
+  .ensure(mainUnread)
+  .checkpoint("empty")
+  .send(mainInbox, arrive("m1", "ada", 1_000))
+  .checkpoint("first")
+  .send(mainInbox, readAll)
+  .checkpoint("read")
+  .send(mainInbox, arrive("spam", "eve", 2_000))
+  .checkpoint("spam")
+  .send(mainInbox, readAll)
+  .send(mainInbox, arrive("m3", "bob", 3_000))
+  .checkpoint("recovered");
+
+const imported = Array.from({ length: 3_001 }, (_, n) => `a-${n}`);
+
+/**
+ * The archive imports 3,001 ids, about a third of a record's nodes; a message arrives and two of its
+ * three memory-reading reactions log it; the tab reloads; another message arrives.
+ */
+export const archiveLarge = grownStory("session/archive-large")
+  .ensure(mainInbox)
+  .ensure(mainArchive)
+  .send(mainArchive, { _tag: "Import", ids: imported })
+  .send(mainInbox, arrive("m1", "ada", 1_000))
+  .checkpoint("logged")
+  .reload()
+  .checkpoint("reloaded")
+  .send(mainInbox, arrive("m2", "bob", 2_000))
+  .checkpoint("again");
+
+/**
  * What the inbox's digest, thread view and the guest's online dot meet, for generated runs:
  * messages arrive, answer each other, are read and cleared, while sessions sign in and out.
  */
 export const inboxSamples = samplesOf({
   id: "session-inbox",
-  story: inbox("session/inbox-samples").ensure(mainThread).ensure(guestDot),
+  story: inbox("session/inbox-samples")
+    .ensure(mainThread)
+    .ensure(guestDot)
+    .ensure(mainUnread)
+    .ensure(mainArchive)
+    .ensure(mainCalendar)
+    .ensure(mainAgenda)
+    .ensure(agendaPeek),
   names: { setup: "workspaceGrownSetup", fixtures: ["IdentityFake"] },
-  actors: { mainInbox, mainDigest, mainThread, guestDot, guestPresence, guestSession, mainSession },
+  actors: {
+    mainInbox,
+    mainDigest,
+    mainThread,
+    guestDot,
+    guestPresence,
+    guestSession,
+    mainSession,
+    mainUnread,
+    mainArchive,
+    mainCalendar,
+    mainAgenda,
+    agendaPeek,
+  },
   servers: { Identity },
   failures: [Identity.lock({ user: "ada" })],
   landedFailures: [],
@@ -180,6 +266,11 @@ export const inboxSamples = samplesOf({
     signInBob: { _tag: "SignIn", user: "bob" },
     signOut: { _tag: "SignOut" },
     look: { _tag: "Ping" },
+    spam: arrive("spam", "eve", 2_000),
+    imported: { _tag: "Import", ids: imported },
+    atItems: { _tag: "Show", from: 0, to: 4_096 },
+    pastItems: { _tag: "Show", from: 0, to: 4_097 },
+    longRange: { _tag: "Show", from: 0, to: 5_000 },
   },
   controls: [Identity.unlock({ user: "ada" })],
   steps: (story) =>
@@ -192,5 +283,10 @@ export const inboxSamples = samplesOf({
       .send(mainDigest, { _tag: "Quiet", from: 3 })
       .send(guestSession, { _tag: "SignIn", user: "bob" })
       .send(guestSession, { _tag: "SignOut" })
-      .send(guestDot, { _tag: "Ping" }),
+      .send(guestDot, { _tag: "Ping" })
+      .send(mainInbox, arrive("spam", "eve", 2_000))
+      .send(mainArchive, { _tag: "Import", ids: imported })
+      .send(mainCalendar, { _tag: "Show", from: 0, to: 4_096 })
+      .send(mainCalendar, { _tag: "Show", from: 0, to: 4_097 })
+      .send(mainCalendar, { _tag: "Show", from: 0, to: 5_000 }),
 });

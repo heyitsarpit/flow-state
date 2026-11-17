@@ -229,3 +229,85 @@ export const ThreadViewMachine = machine(ThreadView, ({ S, E }) => ({
   onContext: [{ select: ({ context }) => context.thread, event: E.Heard }],
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));
+
+/**
+ * The unread badge: the id of the oldest unread message, which its Schema requires non-empty, so an
+ * inbox with nothing unread is its selector's defect until a message arrives; opening a message
+ * named `spam` fails its mapper. Its issues clear when their source next succeeds.
+ */
+export const Unread = definition({
+  id: "Workspace/Unread",
+  persist: true,
+  states: ["SHOWN"],
+  events: {},
+  internalEvents: { Opened: { id: Schema.String } },
+  memory: { opened: Flow.initial(Schema.Array(Schema.String), []) },
+  context: {
+    oldest: Inbox.Provider.select(
+      Schema.NonEmptyString,
+      (s) => s.memory.messages[s.memory.read]?.id ?? "",
+    ),
+  },
+});
+
+/**
+ * The unread badge: each new oldest unread message is opened, unless it is spam.
+ */
+export const UnreadMachine = machine(Unread, ({ S, E }) => ({
+  default: S.SHOWN,
+  onContext: [
+    {
+      select: ({ context }) => context.oldest,
+      event: E.Opened.from((id: string) => {
+        if (id === "spam") throw new Error("spam");
+
+        return { id };
+      }),
+    },
+  ],
+  on: {
+    Opened: { updateMemory: ({ event, memory }) => ({ opened: [...memory.opened, event.id] }) },
+  },
+}));
+
+/**
+ * The archive: a long log of message ids, filled by an import, that three reactions read beside
+ * the inbox: its size, its last entry and whether it holds the newest message. Each appends to the
+ * log what it heard, so memory moves on after every wave; kept across reloads.
+ */
+export const Archive = definition({
+  id: "Workspace/Archive",
+  persist: true,
+  states: ["SHOWN"],
+  events: { Import: { ids: Schema.Array(Schema.String) } },
+  internalEvents: { Logged: { entry: Schema.String } },
+  memory: { log: Flow.initial(Schema.Array(Schema.String), []) },
+  context: {
+    newest: Inbox.Provider.select(Schema.String, (s) => s.memory.messages.at(-1)?.id ?? ""),
+  },
+});
+
+/**
+ * The archive: each reaction's change logs one entry.
+ */
+export const ArchiveMachine = machine(Archive, ({ S, E }) => ({
+  default: S.SHOWN,
+  onContext: [
+    {
+      select: ({ context, memory }) => `${context.newest}@${memory.log.length}`,
+      event: E.Logged.from((entry: string) => ({ entry: `size ${entry}` })),
+    },
+    {
+      select: ({ context, memory }) => `${context.newest}<${memory.log.at(-1) ?? ""}`,
+      event: E.Logged.from((entry: string) => ({ entry: `last ${entry}` })),
+    },
+    {
+      select: ({ context, memory }) => memory.log.includes(context.newest),
+      event: E.Logged.from((held: boolean) => ({ entry: `held ${String(held)}` })),
+    },
+  ],
+  on: {
+    Import: { updateMemory: ({ event, memory }) => ({ log: [...memory.log, ...event.ids] }) },
+    Logged: { updateMemory: ({ event, memory }) => ({ log: [...memory.log, event.entry] }) },
+  },
+}));
