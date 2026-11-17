@@ -3228,6 +3228,11 @@ tasks
             during performance work, not at every Task close. Recording works on battery with the power state in each
             row, compared only within the same power state; the 30 s quick-tier target is dropped (about 95 s, every
             Story kept).
+        comment     2026-11-17T19:07:29Z
+            Decision (the user, 2026-11-18): a full-tier run blocking for minutes is a productivity killer. Agents
+            iterate with a dev mode (--only and --dev, one worker, short budget, records nothing) that returns in
+            seconds; the quick tier is the periodic run; --full only in a dedicated performance session; the full-tier
+            breakdown is deferred.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
