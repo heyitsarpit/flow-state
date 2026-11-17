@@ -1383,6 +1383,31 @@ tasks
             since an extra wave over equal baselines is unobservable. Extra files: src/core/seen.ts,
             tests/rules/reloads.test.ts. For the user's page: a signed-out screen restored after a reload no longer
             reports a change it did not see.
+        comment     2026-11-17T00:24:57Z
+            Fix-round review: ISSUES at d7c8457e; check exit 0; suite exit 1, 1,090 pass + 13 inverted, the 2 reds T20's
+            pair cell (shop, session); stress sweeps alone exit 0, 92 to 108 s each. Closed: signedOutReloaded steady
+            over 0 to 4 extra reloads (2 each); undefined planted unknown again in a scratch copy turns reloads.test.ts
+            red (signed-out-reloaded 4 then 6, byline-returns 6 then 8); selector-threw-at-start, Restore R2, R13 and
+            I20 marks. Blocking, each red on a scratch probe: 1 the made-up-event class stays open: a Date slot hears 1,
+            2, 3, 4 Seen over 0 to 3 reloads (also NaN, -0, Map, Set, class instances, symbol keys), against Actors R19
+            and R9's consistent-reload rule; the new R9 list of unknown values was shaped to seen.ts, not checked
+            against R19; tests missed it since fixture slots hold only JSON and undefined. 2 a cyclic plain-object
+            selection crashes the run (RangeError, seen.ts recursion), against R18 never withholding; new in seen.ts. 3
+            a when defect's kept baseline is lost on reload: live 1 echo, reloaded 2 (Turn R22, Restore R2), since
+            seenOf saves the current value once stale clears; the R22 test is non-persisted with no reload. 4 the graph
+            wiring holds only at a fresh, top-level ensure: a badge ref naming the live guests team with other context
+            is accepted silently (the same ref ensured directly is refused ConflictingActorRef, Actors R5), and a
+            non-persisted provider started for a consumer restarts on its entry's defaults at a return and a reload
+            (leaf heard two-a, then one-b, one-c; R18's new clause); session's providers are all persisted and conflict
+            tests are top-level only. Routed, not blocking: reloads.test.ts leaves the first reload unconstrained,
+            reloads only at a Story's end and skips unregistered context Stories (missing-team, conflicting-badge,
+            pay/cart-first); the tagged seen form needs a FORMAT step and decodeSeen reads tags through the prototype
+            (__proto__ throws past RecordUndecodable); the tag doubles depth and items, so one big slot makes every slot
+            unknown; the mix turns a burst of sends to a closed screen into a burst of ensures and its test asserts only
+            shared above 0; 230 s sits 10 s under faults' 240 s cap (alone the sweeps already used 90% of the old 120 s;
+            not a slowdown from this round). Sidecars (4 Haiku): accepted the above; rejected an unknown slot with no
+            value owing a wave (nothing to react to), forget's guard and release by value (outside this diff),
+            restored-not-live refs (R5 is live only), fixtures.md codes in titles and the per-send scan.
 
     T74
         title       App mix: several fixtures in one Runtime
