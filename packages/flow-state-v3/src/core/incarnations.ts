@@ -12,6 +12,7 @@ import {
   type ActorId,
   actorKey,
   type ActorRecord,
+  Command,
   Due,
   type Incarnation,
   Mail,
@@ -330,8 +331,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     tx.putUses(actor, uses.toSpliced(at, 1));
   };
 
-  // An ending incarnation leaves: its schedules and grace stop, its reads are dropped, and its
-  // handles keep its terminal snapshot.
+  // An ending incarnation leaves: its schedules and grace stop, its reads stop, and its handles
+  // keep its terminal snapshot.
   const retire = (incarnation: Incarnation) => {
     stopSchedules(incarnation);
 
@@ -340,7 +341,11 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     tx.put("ended", actorKey(incarnation.actor), terminal(incarnation));
 
     for (const [call, read] of tx.world().reads)
-      if (read.incarnation === incarnation.id) tx.drop("reads", call);
+      if (read.incarnation === incarnation.id) {
+        tx.drop("reads", call);
+        tx.command(Command.Interrupt({ call }));
+      }
+
     tx.act(Act.Finished({ actor: incarnation.actor }));
     context.unbind(incarnation);
   };
