@@ -1139,3 +1139,7 @@ note 2026-11-17T20:16:26Z
     Run resumed at 42f63c36 (workflow@1b83a6d): no live agents, tree clean; cron 7 * * * * and caffeinate on. Current
     Task T87 (its three blockers); T81 stays in review behind the user's P3 order. First action: one Opus lead on T87's
     fix round.
+
+note 2026-11-17T20:49:15Z
+    T87 done: review PASS at 30f94c28; five routed bench items stay in its comment. T88 started with a Sonnet builder
+    (the user's call on T88).
