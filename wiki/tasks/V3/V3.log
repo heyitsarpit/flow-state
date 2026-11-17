@@ -1022,3 +1022,7 @@ note 2026-11-17T13:08:34Z
 note 2026-11-17T13:17:11Z
     T79 second fix round in review at e6fac51d: records complete, Stopped Life state with Actors R25 (Q21 A), 22 codes.
     Third review started.
+
+note 2026-11-17T13:24:00Z
+    T79 done: review PASS at e6fac51d (8d456ffc). Leftovers to T85 (stopped-Runtime edges), T80 (perform throw), T84
+    (AdmissionOverloaded). Next: T86 fixture layout, a Sonnet builder with the usual Opus review.

@@ -2025,7 +2025,7 @@ tasks
     T79
         title       Code convergence: tx edit operations, lifecycle unions, one home for diagnostics and keys, host 
                     idiom
-        status      review
+        status      done
         priority    high
         blocked_by  [@T9]
         description
@@ -2361,6 +2361,10 @@ tasks
             Routed from @task.V3.T79 (proposed): the second review's 3g clock queue. host/testing/clock.ts settle queues
             tasks with indexOf, splice and shift, so a settle is quadratic in the tasks it runs; the test clock
             is T80's.
+        comment     2026-11-17T13:23:59Z
+            Routed from T79's PASS review (8d456ffc): a throw from perform or the admit hook skips the rest of the
+            step's commands while the Runtime stays Open (driver.ts:168-173); it should stop the Runtime as Actors
+            R25 does.
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
@@ -2786,6 +2790,9 @@ tasks
             Scope added (the user, 2026-11-17, Q10 A): drop the server-rendering maxBytes (262,144 / 2 MiB) and the
             1,024-item Stream.callback queue where built, each past its old cap in a Story; the inspector ring's default
             capacity becomes a bench-set named default (D25).
+        comment     2026-11-17T13:23:59Z
+            Routed from T79's PASS review (8d456ffc): AdmissionOverloaded is still in the code union; remove it with the
+            mailbox cap (D24).
 
     T85
         title       Records captured on issue (D30), plus compiled lookups
@@ -2852,10 +2859,17 @@ tasks
             record as none, kept or removed beside now and owed booleans (persist.ts Touched). D30 has a step mark only
             changed record keys and Capture project them, which replaces this shape, so its tags are Capture's
             to choose.
+        comment     2026-11-17T13:23:58Z
+            Routed from T79's PASS review (8d456ffc): on a stopped Runtime disposeActor returns normally instead of
+            refusing RuntimeDisposed against Actors R25 (life.ts, DisposeActor's Stopped cell); the Spec's algorithm
+            says Boot while Stopped drops but the code rejects it; after a stop a saved-only or quarantined actor's
+            snapshot still reads active or quarantined (snapshot.ts:112,127); ready()'s message after a stop wrongly
+            says 'after dispose()'; the fault stopped-runtime-writes also removes the defect report, so it is not shown
+            caught alone. Fix each red first.
 
     T86
         title       Fixtures follow their layout: flat files moved, shared services in one place, pay becomes shop
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T79]
         description
