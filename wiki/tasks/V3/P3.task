@@ -3262,6 +3262,12 @@ tasks
             in `tests/bench/limits.test.ts`. Findings on this run: retained heap 280 B per create/dispose cycle (cells;
             182-330 B across apps earlier); serialize-queue slope 0.55 (bound 0.3); palette list slope 1.06 (within 1.2,
             so the earlier 1.36 was the mixed Story).
+        comment     2026-11-17T19:31:20Z
+            Stress tier (the user, 2026-11-18; 092aef26, reviewed by the orchestrator): accepted. Quick 36 s (was 98 s),
+            --stress 89 s; five large points marked with benchStress in their manifests, every series keeps two quick
+            points, rows carry the stress tier; bench/ names no Story. Notes for the fix round: two doc comments in
+            bench/select.ts (lines 6 and 46) run to 143 and 148 characters; the stress mark is set by hand per point
+            rather than read from the Story's own stress status, so it can drift from the tests' classification.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
