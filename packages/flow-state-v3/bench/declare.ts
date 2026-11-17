@@ -61,7 +61,7 @@ type Headline = "median" | "p99" | "min";
  *
  * **Details**
  *
- * `id` reads `<concern>.<subject>.<metric>-<unit>`, such as `turn.transfers.long.per-turn-ms`.
+ * `id` reads `<concern>.<subject>.<metric>-<unit>`, such as `turn.<app>.long.per-turn-ms`.
  * `size` is the size of the work it times, in its unit; benches sharing `series` form one growth
  * series, whose log-log slope must stay at or under `maxSlope`. `budget` is the most one unit may
  * take; time benches default to one 60 Hz frame. `workers` fresh processes each warm up and then sample

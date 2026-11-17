@@ -29,6 +29,12 @@ performance work.
 - **Recording.** A recording refuses under load from other processes; battery is fine, and each row records the
   power state. Only the CSVs in `packages/flow-state-v3/bench/history/` are committed; raw samples stay local, for
   one investigation.
-- **Adding a bench.** A Story worth timing gets a line in its fixture's manifest: `benchTurn`, or `benchPoint` with
-  its series and size, wrapped in `benchStress` when it is a stress Story. Startup, memory and value benches are
-  derived from each manifest's app. `bench/` never names a fixture.
+- **Adding a bench.** A Story worth timing gets a line in its fixture's manifest's `bench.stories`: `benchTurn`, or
+  `benchPoint` with its series and size, wrapped in `benchStress` when it is a stress Story. A whole series is
+  `benchSeries({ series, unit, growth, sizes, stressFrom }, (n) => story)`: one point per size, the points from
+  `stressFrom` up marked stress. `bench.persist` names the Story whose writes the persist bench times (some exactly
+  when a machine of the app persists), and `bench.probe(n)` the actor the memory benches fill a Runtime with.
+  Startup, memory and value benches are derived from each manifest's app. `bench/` never names a fixture.
+- **Comparing.** `--compare <commit>` checks the commit out in a scratch worktree, with this bench's code copied over
+  it, and alternates its workers with ours; each side loads its own fixtures and runtime. `--benches <module>` is for
+  the bench's own tests and refuses `--record` and `--compare`.

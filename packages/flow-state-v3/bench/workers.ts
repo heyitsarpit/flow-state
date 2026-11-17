@@ -44,8 +44,14 @@ export const batchesOf = (options: Options, chosen: ReadonlyArray<Bench>) => {
 
 export type Batch = ReturnType<typeof batchesOf>[number];
 
-const workerArgs = (pkg: string, ids: ReadonlyArray<string>, batch: Batch, options: Options) => {
-  const args = [join(pkg, "bench", "worker.ts"), ...ids, "--benches", options.benches];
+export const workerArgs = (
+  pkg: string,
+  ids: ReadonlyArray<string>,
+  batch: Batch,
+  options: Options,
+) => {
+  const list = options.benches === undefined ? [] : ["--benches", options.benches];
+  const args = [join(pkg, "bench", "worker.ts"), ...ids, ...list, "--run", String(process.pid)];
   const timeoutMs = Math.max(...batch.benches.map((b) => timeoutOf(b, options)));
   const tier = TIERS[tierOf(options)];
 

@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { Console, Data, Effect, Option, Schema } from "effect";
 import { Report } from "./report.ts";
 import { BENCHES, benchesFrom } from "./list.ts";
@@ -75,9 +76,24 @@ const one = (id: string, benches: ReadonlyArray<Bench>, settings: Settings) =>
     Effect.flatMap((report) => Console.log(Schema.encodeSync(Report)(report))),
   );
 
+// Watches the run that started this worker, the leader of its own process group: once this worker
+// is no longer the run's child (the run died, even by a signal no handler sees, or the worker
+// ended), the group dies with everything in it. The watch is a process of the group, so it acts
+// while a bench holds this thread, and the group's id stays taken until it ends.
+const watchRun = (run: number) =>
+  spawn(
+    "sh",
+    [
+      "-c",
+      `while [ "$(ps -o ppid= -p ${process.pid} | tr -d ' ')" = "${run}" ]; do sleep 0.5; done; kill -KILL -${process.pid}`,
+    ],
+    { stdio: "ignore" },
+  ).unref();
+
 // Runs each named bench in this process, one after another, and prints one report line for each.
 //
-// `worker.ts <bench-id...> [--runs N] [--warmup N] [--budget MS] [--warm-ms MS] [--timeout-ms MS]`:
+// `worker.ts <bench-id...> [--runs N] [--warmup N] [--budget MS] [--warm-ms MS] [--timeout-ms MS]
+// [--benches <module>] [--run <pid>]`: `--run` names the run whose death ends this worker's group;
 // `--warmup` caps the warm-up samples and `--warm-ms` its time; `--budget` replaces each bench's
 // sampling budget; `--timeout-ms` stops a bench between samples past that time, reported timed-out.
 // Each bench is loaded, its proof run, then it warms up until steady and takes its samples, each a
@@ -90,6 +106,7 @@ const main = Effect.fn("worker")(function* (args: ReadonlyArray<string>) {
     "--warm-ms",
     "--timeout-ms",
     "--benches",
+    "--run",
   ]);
 
   const ids = args.filter((a, n) => !a.startsWith("--") && !flags.has(args[n - 1] ?? ""));
@@ -101,6 +118,8 @@ const main = Effect.fn("worker")(function* (args: ReadonlyArray<string>) {
     warmMs: Option.getOrElse(flag(args, "--warm-ms"), () => WARM_CAP_MS),
     timeoutMs: Option.getOrElse(flag(args, "--timeout-ms"), () => Number.POSITIVE_INFINITY),
   };
+
+  for (const run of Option.toArray(flag(args, "--run"))) watchRun(run);
 
   const at = args.indexOf("--benches");
   const benches = yield* benchesFrom(at === -1 ? BENCHES : (args[at + 1] ?? BENCHES));

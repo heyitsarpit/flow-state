@@ -3,7 +3,6 @@ import { parseArgs } from "node:util";
 import { Schema } from "effect";
 import { CONCERNS } from "./declare.ts";
 import { HISTORY } from "./history.ts";
-import { BENCHES } from "./list.ts";
 
 // The longest a run may take by default, in seconds: under the five-minute rule for any command.
 const MAX_TIME_S = 240;
@@ -27,7 +26,7 @@ export const Options = Schema.Struct({
   help: Schema.Boolean,
   maxN: Schema.optionalKey(Schema.FiniteFromString),
   maxTime: Schema.FiniteFromString,
-  benches: Schema.String,
+  benches: Schema.optionalKey(Schema.String),
   timing: Schema.Boolean,
   runs: Schema.optionalKey(Schema.FiniteFromString),
   warmup: Schema.optionalKey(Schema.FiniteFromString),
@@ -57,7 +56,7 @@ export const optionsOf = (argv: ReadonlyArray<string>) => {
       help: { type: "boolean", default: false },
       "max-n": { type: "string" },
       "max-time": { type: "string", default: String(MAX_TIME_S) },
-      benches: { type: "string", default: BENCHES },
+      benches: { type: "string" },
       timing: { type: "boolean", default: false },
       runs: { type: "string" },
       warmup: { type: "string" },
@@ -120,6 +119,9 @@ Limits:
   every bench has a timeout from its warm-up cap and budget; one that passes it is killed, reported
   timed-out and never recorded, and the run moves on.
   --max-n <n>     leave out series points larger than n.
+
+--benches <module> loads a fixed bench list from this tree, for the bench's own tests: it neither
+records nor compares.
 
 Tooling (suite, stress, faults) runs only when named. --record appends rows to
 history/<concern>.csv and refuses under load (exit 2): a one-minute load over half the cores, or

@@ -1,5 +1,5 @@
 import { Console, DateTime, Effect, Option } from "effect";
-import { benchesFrom } from "./list.ts";
+import { BENCHES, benchesFrom } from "./list.ts";
 import {
   changeText,
   fixtureChange,
@@ -219,27 +219,37 @@ const runAll = Effect.fn("runAll")(function* (
   return { env, results, failures, refused: refused.any, capped: capped.any, spawned };
 });
 
-// Why a run cannot start: bad counts, nothing selected, or a busy machine when recording.
-const refusalOf = (options: Options, chosen: ReadonlyArray<Bench>) => {
-  if ((options.runs ?? 1) < 1 || (options.workers ?? 1) < 1)
-    return Option.some({ problem: "--runs and --workers take a count of one or more", code: 1 });
+// The argument mistakes a run refuses, in order, each with what it says.
+const mistakesOf = (options: Options, chosen: ReadonlyArray<Bench>) => [
+  {
+    when: (options.runs ?? 1) < 1 || (options.workers ?? 1) < 1,
+    problem: "--runs and --workers take a count of one or more",
+  },
+  { when: chosen.length === 0, problem: "no bench matches" },
+  {
+    when: options.stress && options.full,
+    problem: "--stress and --full are separate tiers: pick one",
+  },
+  {
+    when: options.benches !== undefined && (options.record || options.compare !== undefined),
+    problem: "--benches loads a fixed list from this tree: it neither records nor compares",
+  },
+  {
+    when: options.dev && options.record,
+    problem: "the dev tier records nothing: drop --record or --dev",
+  },
+];
 
-  if (chosen.length === 0) return Option.some({ problem: "no bench matches", code: 1 });
-
-  if (options.stress && options.full)
-    return Option.some({ problem: "--stress and --full are separate tiers: pick one", code: 1 });
-
-  if (options.dev && options.record)
-    return Option.some({
-      problem: "the dev tier records nothing: drop --record or --dev",
-      code: 1,
-    });
-
-  return Option.map(options.record ? busyReason(PACKAGE) : Option.none<string>(), (busy) => ({
-    problem: `not recording: ${busy}`,
-    code: 2,
-  }));
-};
+// Why a run cannot start: an argument mistake (exit 1), or a busy machine when recording (exit 2).
+const refusalOf = (options: Options, chosen: ReadonlyArray<Bench>) =>
+  Option.match(Option.fromUndefinedOr(mistakesOf(options, chosen).find((m) => m.when)), {
+    onSome: ({ problem }) => Option.some({ problem, code: 1 }),
+    onNone: () =>
+      Option.map(options.record ? busyReason(PACKAGE) : Option.none<string>(), (busy) => ({
+        problem: `not recording: ${busy}`,
+        code: 2,
+      })),
+  });
 
 type Run = Effect.Success<ReturnType<typeof runAll>>;
 
@@ -252,18 +262,18 @@ const exitCodeOf = (run: Run) => {
   return run.failures.length === 0 ? 0 : 1;
 };
 
-// The run's closing lines: its timing table when asked (the timing file is always kept), then
-// its series or its summary.
+// The run's closing lines: its timing table when asked, then its series or its summary. The
+// timing file is kept for every run but a dev run not asked for it.
 const closingLines = (options: Options, run: Run, runMs: number, date: string) => {
   const mode = tierOf(options);
+  const name = `${commitOf(PACKAGE).commit}-${mode}-${date.replaceAll(/[-:.]/gu, "")}`;
 
-  const timing = writeTiming(
-    options.history,
-    `${commitOf(PACKAGE).commit}-${mode}-${date.replaceAll(/[-:.]/gu, "")}`,
-    run.spawned,
-  );
+  const kept =
+    options.timing || mode !== "dev" ? [writeTiming(options.history, name, run.spawned)] : [];
 
-  const table = options.timing ? [...timingLines(run.spawned, runMs), `timing file ${timing}`] : [];
+  const table = options.timing
+    ? [...timingLines(run.spawned, runMs), ...kept.map((file) => `timing file ${file}`)]
+    : [];
 
   const lines = options.summary
     ? summaryLines(options.history, run.results, run.env, scopeOf(options))
@@ -272,15 +282,23 @@ const closingLines = (options: Options, run: Run, runMs: number, date: string) =
   return [...table, ...lines];
 };
 
-// A signal to the run kills every worker's process group, so nothing it started outlives it.
-const onSignal = (live: Live) => (signal: NodeJS.Signals) => {
+// The signals the run handles, each with the exit code it ends the run with: 128 plus its number.
+const SIGNALS = [
+  ["SIGHUP", 129],
+  ["SIGINT", 130],
+  ["SIGTERM", 143],
+] as const;
+
+// A signal to the run kills every worker's process group, so nothing it started outlives it. A
+// signal no handler sees (SIGKILL) is covered by each worker's own watch on the run.
+const onSignal = (live: Live, code: number) => () => {
   for (const pid of live) killGroup(pid);
-  process.exit(signal === "SIGINT" ? 130 : 143);
+  process.exit(code);
 };
 
 const program = Effect.fn("bench")(function* (argv: ReadonlyArray<string>) {
   const options = optionsOf(argv);
-  const chosen = selected(options, yield* benchesFrom(options.benches));
+  const chosen = selected(options, yield* benchesFrom(options.benches ?? BENCHES));
 
   if (options.help || options.list) {
     yield* Console.log(
@@ -305,8 +323,8 @@ const program = Effect.fn("bench")(function* (argv: ReadonlyArray<string>) {
   const date = DateTime.formatIso(yield* DateTime.now);
   const started = performance.now();
   const live: Live = new Set();
-  process.once("SIGINT", onSignal(live));
-  process.once("SIGTERM", onSignal(live));
+
+  for (const [signal, code] of SIGNALS) process.once(signal, onSignal(live, code));
 
   const run = yield* runAll(options, chosen, started + options.maxTime * 1000, live).pipe(
     Effect.ensuring(

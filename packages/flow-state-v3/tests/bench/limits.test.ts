@@ -1,12 +1,17 @@
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { benches } from "../../bench/benches/index.ts";
 import { bench } from "../../bench/declare.ts";
 import { measure, TimedOut } from "../../bench/sample.ts";
+import { optionsOf } from "../../bench/options.ts";
 import { selectBenches } from "../../bench/select.ts";
+import { batchesOf, workerArgs } from "../../bench/workers.ts";
 
 const runner = fileURLToPath(new URL("../../bench/run.ts", import.meta.url));
 const planted = fileURLToPath(new URL("./planted.ts", import.meta.url));
@@ -120,25 +125,27 @@ describe("bench limits", () => {
     expect(alive("3972.37")).toEqual([]);
   }, 60_000);
 
-  it("a signal to the run kills every worker and everything they started", async () => {
-    const run = spawn(
-      process.execPath,
-      [runner, "--benches", planted, "--dev", "--only", "turn.held.signal", "--max-time", "60"],
-      { stdio: "ignore" },
-    );
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGKILL"] as const)
+    it(`${signal} to the run alone kills every worker and everything they started`, async () => {
+      const run = spawn(
+        process.execPath,
+        [runner, "--benches", planted, "--dev", "--only", "turn.held.signal", "--max-time", "60"],
+        { stdio: "ignore" },
+      );
 
-    for (let n = 0; n < 50 && alive("3973.37").length === 0; n += 1) pause(0.2);
+      for (let n = 0; n < 50 && alive("3973.37").length === 0; n += 1) pause(0.2);
 
-    expect(alive("3973.37").length > 0).toBe(true);
-    run.kill("SIGTERM");
-    await once(run, "exit");
-    pause(0.5);
+      expect(alive("3973.37").length > 0).toBe(true);
+      run.kill(signal);
+      await once(run, "exit");
 
-    expect(alive("3973.37")).toEqual([]);
-    expect(
-      spawnSync("pgrep", ["-f", "turn\\.held\\.signal"], { encoding: "utf8" }).stdout.trim(),
-    ).toBe("");
-  }, 60_000);
+      for (let n = 0; n < 15 && alive("3973.37").length > 0; n += 1) pause(0.2);
+
+      expect(alive("3973.37")).toEqual([]);
+      expect(
+        spawnSync("pgrep", ["-f", "turn\\.held\\.signal"], { encoding: "utf8" }).stdout.trim(),
+      ).toBe("");
+    }, 60_000);
 
   it("the run's cap kills a bench's whole tree of children", () => {
     const done = spawnSync(
@@ -151,4 +158,43 @@ describe("bench limits", () => {
     pause(0.5);
     expect(alive("3972.37")).toEqual([]);
   }, 60_000);
+
+  for (const flag of [
+    ["--record", "--history", "history"],
+    ["--compare", "HEAD", "--dev"],
+  ])
+    it(`a planted list with ${flag[0] ?? ""} is refused, and nothing is written`, () => {
+      const scratch = mkdtempSync(join(tmpdir(), "bench-planted-"));
+      const args = flag.map((a) => (a === "history" ? scratch : a));
+
+      const done = spawnSync(
+        process.execPath,
+        [runner, "--benches", planted, "--only", "turn.planted.first", ...args],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
+      );
+
+      const written = readdirSync(scratch);
+      rmSync(scratch, { recursive: true, force: true });
+
+      expect(done.status).toBe(1);
+      expect(done.stderr.includes("--benches")).toBe(true);
+      expect(written).toEqual([]);
+    });
+
+  it("a worker for another commit's package runs that package's own benches", () => {
+    const other = join(tmpdir(), "bench-other", "packages", "flow-state-v3");
+    const [batch] = batchesOf(optionsOf(["--dev"]), benches.slice(0, 1));
+
+    const args = workerArgs(
+      other,
+      ["x"],
+      batch ?? { benches: [], workers: 1 },
+      optionsOf(["--dev"]),
+    );
+
+    const paths = args.filter((a) => a.includes("/"));
+
+    expect(paths.length > 0).toBe(true);
+    expect(paths.every((a) => a.startsWith(other))).toBe(true);
+  });
 });
