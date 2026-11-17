@@ -28,9 +28,8 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/life.ts",
-        find: "  DisposeActor: { ...call, Disposing: drop, Disposed: drop, Stopped: drop },",
-        replace:
-          "  DisposeActor: { ...call, Inert: run, Disposing: drop, Disposed: drop, Stopped: drop },",
+        find: "  DisposeActor: { ...call, Disposing: drop, Disposed: drop },",
+        replace: "  DisposeActor: { ...call, Inert: run, Disposing: drop, Disposed: drop },",
       },
     ],
   },
@@ -122,7 +121,7 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/disposal.ts",
-        find: "    if (!tx.world().persistence || (!first && !persistence.dirty())) return;",
+        find: "    if (!tx.world().persistence || (!first && !persistence.marked())) return;",
         replace: "    if (!tx.world().persistence || !first) return;",
       },
     ],
@@ -135,8 +134,8 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "      for (const t of carried) options.answered(t.id, true);",
-        replace: "      void carried;",
+        find: "        settle(carried, true);\n",
+        replace: "        out = false;\n",
       },
     ],
   },
@@ -193,9 +192,49 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "stopped-dispose-actor-returns",
+    tests: ["src/core/life.test.ts", "src/host/runtime.test.ts"],
+    says: "disposeActor on a Runtime a defect stopped returns normally instead of refusing RuntimeDisposed",
+    rule: "Actors R25",
+    edits: [
+      {
+        file: "src/core/life.ts",
+        find: "  DisposeActor: { ...call, Disposing: drop, Disposed: drop },",
+        replace: "  DisposeActor: { ...call, Disposing: drop, Disposed: drop, Stopped: drop },",
+      },
+    ],
+  },
+  {
+    name: "stopped-refusal-says-disposed",
+    tests: ["src/host/runtime.test.ts"],
+    says: "a call refused after a stop says it came after dispose()",
+    rule: "Actors R25",
+    edits: [
+      {
+        file: "src/core/life.ts",
+        find: 'export const endedBy = (life: Life) => (Life.$is("Stopped")(life) ? "stop" : "dispose");',
+        replace:
+          'export const endedBy = (life: Life) => (Life.$is("Stopped")(life) ? "dispose" : "dispose");',
+      },
+    ],
+  },
+  {
+    name: "stopped-record-reads-active",
+    tests: ["src/host/runtime.test.ts"],
+    says: "after a stop, an identity with only a saved record still reads active",
+    rule: "Actors R25",
+    edits: [
+      {
+        file: "src/host/snapshot.ts",
+        find: '      lifecycle: stopped ? "stopped" : "active",',
+        replace: '      lifecycle: "active",',
+      },
+    ],
+  },
+  {
     name: "stopped-runtime-writes",
     tests: ["src/host/runtime.test.ts"],
-    says: "a Runtime a defect stopped runs a disposal that writes its half-written world, so a reload restores a step that never finished",
+    says: "a Runtime a defect stopped runs a disposal over its half-written world, which then may write it",
     rule: "Actors R25",
     edits: [
       {
@@ -208,11 +247,6 @@ export const lifeFaults: ReadonlyArray<Fault> = [
         find: '  const disposeRuntime = () => (Life.$is("Open")(tx.world().life) ? started() : end());',
         replace:
           '  const disposeRuntime = () =>\n    Life.$is("Open")(tx.world().life) || Life.$is("Stopped")(tx.world().life) ? started() : end();',
-      },
-      {
-        file: "src/host/driver.ts",
-        find: "    Deferred.doneUnsafe(disposed, Exit.die(defect));\n    options.stopped();\n",
-        replace: "",
       },
     ],
   },

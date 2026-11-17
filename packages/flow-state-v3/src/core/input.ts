@@ -1,6 +1,6 @@
 import { Data, type Option } from "effect";
 import type { Values } from "./compiled.ts";
-import type { ActorId, CallId, TicketId, TimerId, Use, Wiring } from "./world.ts";
+import type { ActorId, CallId, Marks, Ticket, TicketId, TimerId, Use, Wiring } from "./world.ts";
 
 /**
  * How a call ended, as the host classifies its fiber's Exit.
@@ -49,6 +49,8 @@ export type Input = Data.TaggedEnum<{
   Fired: { timer: TimerId };
   Stored: { ticket: TicketId };
   Refused: { ticket: TicketId };
+  // The edge issues a batch: the tickets it carries, and the marks of a refused batch to write again.
+  Capture: { tickets: ReadonlyArray<Ticket>; again: Marks };
   DisposeRuntime: {};
   DisposeActor: { actor: ActorId };
   Forget: { actor: ActorId };

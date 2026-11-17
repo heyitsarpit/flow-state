@@ -117,8 +117,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "    const refused = blocked.flatMap(({ t }) => t.tickets.map((ticket) => ticket.id));",
-        replace: "    const refused = blocked.flatMap(() => Array.of<TicketId>());",
+        find: "    const refused = awaited.filter((a) => !sent.includes(a)).map((a) => a.ticket.id);",
+        replace: "    const refused = Array.of<TicketId>();",
       },
     ],
   },
@@ -299,7 +299,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "      if (!tx.world().withheld.has(actorKey(t.actor)))",
+        find: "    if (!tx.world().withheld.has(actorKey(actor)))",
         replace: "      if (tx.world().withheld.size < 0)",
       },
     ],

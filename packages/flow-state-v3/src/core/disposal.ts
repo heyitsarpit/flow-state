@@ -89,14 +89,14 @@ export const makeDisposal = (
   };
 
   /**
-   * Writes what a disposing step changed, the disposal's first step included, as one batch the
-   * disposal waits for; every record still unwritten goes with it.
+   * Captures what a disposing step changed, the disposal's first step included, as one batch the
+   * disposal waits for; every record still marked goes with it.
    */
   const write = (first: boolean) => {
-    if (!tx.world().persistence || (!first && !persistence.dirty())) return;
+    if (!tx.world().persistence || (!first && !persistence.marked())) return;
 
     const ticket = tx.mint("ticket");
-    persistence.project([{ id: ticket, purpose: "flush" }]);
+    persistence.close([{ id: ticket, purpose: "flush" }]);
     tx.setLife(Life.Disposing({ awaiting: Option.some(ticket) }));
   };
 

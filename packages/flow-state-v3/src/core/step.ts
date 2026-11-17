@@ -149,16 +149,20 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       answers.storeRefused(ticket);
       disposal.answered(ticket, false);
     },
+    Capture: ({ tickets, again }) => persistence.capture(tickets, again),
     DisposeRuntime: () => disposal.disposeRuntime(),
     DisposeActor: ({ actor }) => incarnations.dispose(actor, false),
     Forget: ({ actor }) => incarnations.dispose(actor, true),
   });
 
+  // A capture only reads the World: it serves no mail and starts nothing.
+  if (Input.$is("Capture")(input)) return tx.out();
+
   Life.$match(tx.world().life, {
     Open: () => {
       serve.drain();
       incarnations.graces();
-      persistence.project();
+      persistence.close();
     },
     Disposing: () => {
       disposal.write(open);

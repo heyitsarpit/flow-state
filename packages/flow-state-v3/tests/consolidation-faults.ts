@@ -103,13 +103,13 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
   {
     name: "one-identity-per-batch",
     tests: ["tests/write-lanes/write-ahead-scope.test.ts"],
-    says: "a step's write list holds only the first touched identity's records",
+    says: "a capture's batch holds only the first marked identity's records",
     rule: "WriteAhead I23",
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "    const writes = written.flatMap((p) => p.writes);",
-        replace: "    const writes = written.slice(0, 1).flatMap((p) => p.writes);",
+        find: "        writes.push(...written.success);",
+        replace: "        if (writes.length === 0) writes.push(...written.success);",
       },
     ],
   },

@@ -460,8 +460,9 @@ realization typescript
 
     `step` (src/core/step.ts) composes one step from modules over one working state (src/core/tx.ts): the owed
         ledger, lanes, answers, incarnations, serve and the Runtime's life, each `make*(tx, ...)`. No module persists
-        or reports: the step derives its writes from the records it touched (@spec.WriteAhead realization) and its
-        reports from its acts (R26; @spec.WriteLanes realization). A world a step returns is handed to the next step,
+        or reports: the step marks the records it changed and a Capture writes them (@spec.WriteAhead realization), and
+        it derives its reports from its acts (R26; @spec.WriteLanes realization). A world a step returns is handed to 
+            the next step,
         which writes in place the maps that world alone holds, so a step costs what it changes; a reader that keeps a
         world (a Story's cut) retains it, and every other map is copied once, on its first write in the step. Indexes
         (each identity's lanes, the lane awaiting each call or ticket, each provider's consumers, each ticket's

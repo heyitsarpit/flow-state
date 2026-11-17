@@ -4,7 +4,7 @@ import { Operation, operationOf } from "../core/compiled.ts";
 import { defect } from "../core/defect.ts";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
-import { admit, isDisposed, Verdict } from "../core/life.ts";
+import { admit, endedBy, isDisposed, Verdict } from "../core/life.ts";
 import {
   ADMISSION_BOUND,
   CallResult,
@@ -90,6 +90,7 @@ export const makeDriver = (options: {
 
   const edge = makeEdge(options.platform, fibers, {
     captureMs: options.captureMs,
+    capture: (tickets, again) => input(Input.Capture({ tickets, again })),
     answered: (ticket, landed) =>
       input(landed ? Input.Stored({ ticket }) : Input.Refused({ ticket })),
   });
@@ -128,7 +129,8 @@ export const makeDriver = (options: {
           if (Exit.isSuccess(exit)) input(Input.Fired({ timer }));
         }),
       Disarm: ({ timer }) => fibers.cancel(`timer/${timer}`),
-      Persist: ({ writes, refused, due }) => edge.accept(writes, refused, due),
+      Persist: ({ due, refused }) => edge.accept(due, refused),
+      Write: ({ writes, marks, tickets, refused }) => edge.write(writes, marks, tickets, refused),
     });
 
   // One freezer for the Runtime's life, so a part it froze once is never walked again.
@@ -206,7 +208,7 @@ export const makeDriver = (options: {
 
     if (Verdict.$is("Reject")(verdict))
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public calls' contract: a call the Runtime's life rejects throws its FlowError
-      throw flowError([lifeRejection(verdict.code, what, what, "ready()")]);
+      throw flowError([lifeRejection(verdict.code, what, what, "ready()", endedBy(world.life))]);
   };
 
   const offer = (next: Input, what: string) => {

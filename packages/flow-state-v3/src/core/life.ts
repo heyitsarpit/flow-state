@@ -89,7 +89,7 @@ const table = {
     Failed: drop,
     Disposing: disposed,
     Disposed: disposed,
-    Stopped: disposed,
+    Stopped: drop,
   },
   BootFailed: {
     Inert: drop,
@@ -104,7 +104,7 @@ const table = {
   Create: call,
   Send: call,
   Forget: call,
-  DisposeActor: { ...call, Disposing: drop, Disposed: drop, Stopped: drop },
+  DisposeActor: { ...call, Disposing: drop, Disposed: drop },
   Release: {
     Inert: drop,
     Booting: drop,
@@ -136,6 +136,7 @@ const table = {
   Fired: answer,
   Stored: answer,
   Refused: answer,
+  Capture: answer,
 } as const satisfies { readonly [I in Input["_tag"]]: Row };
 
 /**
@@ -147,6 +148,11 @@ const table = {
  * the same verdict, so admission follows this table alone.
  */
 export const admit = (life: Life, input: Input) => table[input._tag][life._tag];
+
+/**
+ * What ended a life a public call is refused in: a defect that stopped it, or its disposal.
+ */
+export const endedBy = (life: Life) => (Life.$is("Stopped")(life) ? "stop" : "dispose");
 
 /**
  * Whether the Runtime's life has ended: its disposal is over, so its Scope may close.

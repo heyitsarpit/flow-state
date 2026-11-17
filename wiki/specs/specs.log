@@ -308,3 +308,13 @@ note 2026-11-17T21:30:00Z
 note 2026-11-17T22:00:00Z
     @spec.Actors R25 accepted (the user, Q21 A): Stopped is a final Life row; snapshots read stopped, dispose fails
     with the defect, nothing more is written. Reverse: drop the row and rethrow the defect (7b104f91).
+
+note 2026-11-17T22:30:00Z
+    @spec.WriteAhead R10, R12, R13, I20, I21, I23, Records, realization (@plan.Pending.D30): steps mark keys, one
+    Capture encodes them per batch, a key stays marked until landed; a ticket whose record stops encoding first ends
+    NotSent StorageRefused. Why: the user's Q13 A; bytes identical on 152 Stories. Reverse: 9c46f647's text.
+
+note 2026-11-17T22:30:01Z
+    @spec.Actors algorithm (R25): Boot while Stopped drops, as "Stopped drops every input but the public calls"
+    said (the code rejected it); disposeActor is refused RuntimeDisposed; dispose() drops; refusals name the stop;
+    Capture runs while Open and Disposing. Why: T79's review. Reverse: 9c46f647's table.

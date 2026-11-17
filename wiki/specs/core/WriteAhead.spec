@@ -141,17 +141,20 @@ requirements
 
                 A step is one input to the core and the mail drain it runs: every turn served before
                 the core returns, follow-ups and other actors' mail included; mail still queued when
-                the core returns (a backlog) is served in a later step. Records are written from what a step
-                touched, never by a move: the step notes the lanes and identities it changed, and at
-                its end each one whose entry changed is projected into its record (or its removal),
-                except a head put on the wire, whose acknowledgement or capture already holds it in
-                flight with the retryCount it is sent with; those writes are that step's one list, for the whole 
-                Runtime. The list says how soon
-                it must go (at once and awaited, at once, or within the interval); when a batch is
-                issued it carries that list and everything else still dirty (R12). A row leaves the
-                owed record in the batch that carries the turn that heard it. Decision (agent: the
-                orchestrator, 2026-11-12): consult round 3, Part 2. Why: records derived from what
-                changed cannot drift from the world. Reverse: restore R10 from commit `9405af2f`.
+                the core returns (a backlog) is served in a later step. Records are written from what a
+                step changed, never by a move: the step marks the record key of each lane, actor record
+                and owed record whose entry it changed or removed, except a head put on the wire, whose
+                acknowledgement or capture already holds it in flight with the retryCount it is sent
+                with. A step encodes nothing; it says how soon its marks must go (at once and awaited,
+                at once, or within the interval). When the edge issues a batch, one Capture step
+                encodes every marked key, and every key of a refused batch, from the World as it then
+                stands, and the batch carries them all (R12); a key stays marked until a batch carrying
+                it lands. A Capture serves no mail and starts nothing (R7). A row leaves the owed record
+                in the batch that carries the turn that heard it. Decision (agent: the orchestrator,
+                2026-11-12): consult round 3, Part 2; capture on issue (the user, 2026-11-17, Q13 A,
+                @plan.Pending.D30). Why: records derived from the world cannot drift from it, and a key
+                changed by many steps is encoded once per batch. Reverse: project each step's changes at
+                its end, as at commit `9c46f647`.
 
                 The durability of R13 cannot be coalesced away. Nothing bounds the wait for storage
                 to answer; a frozen page runs no task, deadline or capture until a thaw; browser
@@ -172,8 +175,8 @@ requirements
 
                 - batches are atomic and commit in issue order;
                 - there is one batch stream per Runtime, never one per actor: one batch is out at a
-                time, the next waits for its answer, and each batch holds every record dirty in the
-                Runtime when it is issued;
+                time, the next waits for its answer, and each batch holds every record marked in the
+                Runtime when it is captured, a refused batch's included;
                 - so an awaited write waits for the batch still out, and per key a later write wins;
                 - a batch answers landed only if every request in it succeeded.
 
@@ -201,9 +204,11 @@ requirements
                 the adapter is not called and the commit ends NotSent { StorageRefused } with
                 StorageFailure evidence; a re-send whose capture fails returns to Held and delivers
                 unknown { StorageRefused }. A ticket whose identity's actor record cannot encode at
-                its step's end (R4) is refused the same way at once, with UnencodableValue evidence,
-                and never issued or withheld (@spec.Codec.R4). A transient failure never downgrades
-                a write to an undurable one.
+                the end of the step that minted it (R4) is refused the same way at once, with
+                UnencodableValue evidence, and never issued or withheld (@spec.Codec.R4); one whose
+                record stops encoding before its batch is captured is refused at that Capture, so its
+                commit ends NotSent { StorageRefused } and nothing is sent. A transient failure never
+                downgrades a write to an undurable one.
 
     R14  Honest uncertainty after a crash
         source  @plan.Persistence.O6.
@@ -258,6 +263,9 @@ model
 
     Dirty = a record whose committed value differs from its last landed value.
 
+    Marked = a record key a step changed that no landed batch has carried since; a Capture encodes every marked
+        key from the World it is given.
+
     Step = one input to the core and the mail drain it runs (R10).
 
 invariants
@@ -306,32 +314,33 @@ invariants
     I19  A Runtime refused its scope's ownership makes no storage read, write or delete during its life, and every 
          commit of a persisted identity in it ends NotSent { NoPersistence }. [@R16]
 
-    I20  At every step's end, a persisted identity's owed record lists exactly its rows owed to the identity, in the 
+    I20  At every landed state, a persisted identity's owed record lists exactly its rows owed to the identity, in the 
          order they were owed, kept ones marked, each with the channel of its origin, and is absent when it has none;
         a row owed to one incarnation is in no record, and no ending is in an actor or lane record. [@R4, @R5]
 
     I22  A row leaves the owed record only in the batch that carries the actor record of the turn that heard it: a 
          crash before that batch lands restores the row together with the state that had not heard it. [@R9, @R10]
 
-    I23  Every batch is one Store write, and it holds every record dirty in the Runtime when it is issued: no 
-         identity's record lands without the records the same step changed, another identity's included, except an
-        identity withheld whole because its actor record cannot encode (R4), whose records land together later; and
-        at most one batch is out at a time. [@R2, @R12]
+    I23  Every batch is one Store write, and it holds every record marked in the Runtime when it is captured, a refused 
+         batch's keys included, since keys stay marked until landed: no identity's record lands without the
+        records the same step changed, another identity's included, except an identity withheld whole because its
+        actor record cannot encode (R4), whose records land together later; and at most one batch is out at a
+        time. [@R2, @R12]
 
     I24  At every landed state, a lane record's `inFlight` is true exactly when its head was acknowledged and not Held 
          in the step that wrote it. [@R5]
 
 owner Records
     lifetime  one Runtime. Design, agreed by the user, 2026-11-12 (consult round 3, Part 2); I21 moved here from
-              `invariants`, id kept.
-    state     each step's touched lanes and identities, and its write list
+              `invariants`, id kept; capture on issue, the user, 2026-11-17 (@plan.Pending.D30).
+    state     the World's marked keys and withheld identities, and the keys of the batch out
 
     invariants
-        I21  Every lane and identity whose entry a step changed has its record written or removed in that step's write 
-             list (issued when R10 says), a head put on the wire excepted (R10), and an identity withheld whole while
-            its actor record cannot encode (R4) excepted, whose records go together at the first step's end where it
-            encodes; no move writes a record: a boot from any landed state behaves as the world of the last landed
-            step, a withheld identity as it was at its last landed step. [@R5, @R10]
+        I21  Every lane and identity whose entry a step changed has its record key marked, a head put on the wire 
+             excepted (R10), and the key stays marked until a batch carrying its record lands; an identity whose actor
+            record cannot encode at a Capture (R4) is withheld whole, and its records go together at the first Capture
+            where it encodes; no move writes a record: a boot from any landed state behaves as the world of the step
+            that state captured, a withheld identity as it was at its last landed state. [@R5, @R10]
 
 composition
     flow
@@ -349,27 +358,35 @@ realization typescript
         (src/host/fibers.ts, which the edge forks through), and an urgent batch is a Scheduler yield, not a second task 
             queue; the store's load and write are Effects.
 
-    The core has no `persist` call: the step's setters of lanes and incarnations note what they touch, and at the
-        step's end each is projected (`encodeActor`, `encodeLane`, `encodeOwed`), never by comparing maps or bytes.
-        One move is not noted: putting an acknowledged or captured head on the wire, since that batch already
-        holds it in flight with the retryCount it is sent with. A step that ends with a row owed to the identity
-        still in the mailbox (a drain stopped at its cap) writes its owed record. `encodeLane` matches every Phase,
-        so a new phase forces a decision on what is saved.
+    The core has no `persist` call: the step's setters of lanes and incarnations mark the record keys they change
+        in `World.marked`, each with its identity, never by comparing maps or bytes. One move is not marked:
+        putting an acknowledged or captured head on the wire, since that batch already holds it in flight with the
+        retryCount it is sent with. A step that ends with a row owed to the identity still in the mailbox (a drain
+        stopped at its cap) marks its owed record. `World.records` keeps only the records of identities with no
+        incarnation (restored and not started, or ended); a live identity's record is read from its incarnation.
 
-    An identity whose actor record cannot encode at a step's end (R4) writes none of its records that step: its
-        lanes and owed record are withheld in the World and written whole at the first step's end where the record
-        encodes, so no lane or owed record outruns its actor record (I11). It is reported UnencodableValue once, as
-        it starts to wait. The tickets its step minted are never withheld: the step's Persist names them refused
-        and the host answers them so as its next input (R13), so no send waits on the record and no StorageSilent
-        is armed for them (R12). Lane and owed records never fail to encode (@spec.Codec.R4).
+    The Capture input carries the tickets the batch answers and the marks of a refused batch; its step projects
+        each identity's marked keys (`encodeActor`, `encodeLane`, `encodeOwed`, through the memoised walkers) and
+        returns one `Write` command: the batch, the marks it carries and its tickets. `encodeLane` matches every
+        Phase, so a new phase forces a decision on what is saved.
 
-    A refused batch's records are put back and go with the next batch, at the latest after the default 5 s
-        interval, so a store that keeps refusing is never retried in a loop.
+    An identity whose actor record cannot encode at a Capture (R4) writes none of its records: its keys stay
+        marked, so no lane or owed record outruns its actor record (I11), and they go whole at the first Capture
+        where the record encodes. It is reported UnencodableValue once, as it starts to wait, and a ticket its
+        sends await is refused at that Capture (R13). The step that mints a ticket, and an end, first check that the
+        identity's actor record encodes: a ticket that fails is refused by its step's Persist and answered so as the
+        host's next input, so no send waits on the record and no StorageSilent is armed for it (R12); an end that
+        fails waits, and its grace starts again. Lane and owed records never fail to encode (@spec.Codec.R4).
 
-    The writes leave as that step's one Persist command, a flat list for the whole Runtime, with `Due` derived:
-        Awaited when a touched head entered Acknowledging or Recapturing, Now when an actor record is removed or an
-        incarnation ended, else Later (R10). The capture window (when a Later list is issued, and the flush on hide)
-        stays in the host (T54's decision 4).
+    A refused batch's marks go back to the edge, which hands them to the next Capture, at the latest after the
+        default 5 s interval, so a store that keeps refusing is never retried in a loop; they are encoded again
+        from the World as it then stands.
+
+    A step's marks leave as one Persist command with `Due` derived: Awaited when a touched head entered
+        Acknowledging or Recapturing, Now when an actor record is removed or an incarnation ended, else Later
+        (R10). The edge keeps only whether anything is marked, the tickets, the refused marks, the batch out and
+        when the next batch is due; the capture window (when a Later batch is issued, and the flush on hide, which
+        inputs Capture synchronously in the handler) stays in the host (T54's decision 4).
 
     `Store` is its own service with `load` and `write(batch)`; the edge keeps one stream state for the Runtime, not
         one per actor.
@@ -484,8 +501,8 @@ tests
          records; it restores nothing, a storage spy sees no call, it reports SecondTabNoPersistence, and a persisted
              commit ends NotSent { NoPersistence } with its transition run. Phase 3 writes the planted fault that still
              captures. [@I19]
-    T15  Owed records: after each step of a run with refused, parked and kept endings, the store's owed record of each 
-         identity lists its rows in owed order with kept ones marked and each row's channel, is absent when none is
+    T15  Owed records: at each landed state of a run with refused, parked and kept endings, the store's owed record of 
+         each identity lists its rows in owed order with kept ones marked and each row's channel, is absent when none is
              owed, and holds no row owed to one incarnation; no actor or lane record holds an ending; a derived unknown 
                  {
              Restored } is in it once owed. [@I20]

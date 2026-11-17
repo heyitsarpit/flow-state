@@ -2,8 +2,9 @@ import type { Fault } from "./faults.ts";
 
 /**
  * Wrong runtimes for write-ahead: a send or a batch that does not wait for the store, a record a
- * step changed and did not write, a capture that undercounts its re-send, a refusal or a landing
- * that strands dirty records, and a cancelled bootstrap that fails as its service did.
+ * step changed and did not write, a capture that skips, forgets or answers what it should carry,
+ * that undercounts its re-send or serves mail, a refusal that strands marked records, and a
+ * cancelled bootstrap that fails as its service did.
  */
 export const writeAheadFaults: ReadonlyArray<Fault> = [
   {
@@ -14,9 +15,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: '    fibers.fork(\n      "store",',
+        find: '      fibers.fork(\n        "store",',
         replace:
-          '    for (const t of tickets) options.answered(t.id, true);\n    fibers.fork(\n      "store",',
+          '      for (const t of carried) options.answered(t.id, true);\n      fibers.fork(\n        "store",',
       },
     ],
   },
@@ -28,8 +29,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "    dirty = new Map();\n    out = true;\n",
-        replace: "    dirty = new Map();\n    out = false;\n",
+        find: "    out = true;\n    options.capture(carried, keys);",
+        replace: "    out = false;\n    options.capture(carried, keys);",
       },
     ],
   },
@@ -85,22 +86,22 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "        if (!landed) wakeAt(clock.currentTimeMillisUnsafe() + RETRY_MS);\n",
+        find: "    if (!landed) wakeAt(clock.currentTimeMillisUnsafe() + RETRY_MS);\n",
         replace: "",
       },
     ],
   },
   {
-    name: "landing-discharges-every-dirty",
-    tests: ["tests/write-lanes/write-ahead-records.test.ts"],
-    says: "a landed batch clears every dirty record, the ones it did not carry included",
-    rule: "WriteAhead I23",
+    name: "capture-unmarks-withheld",
+    tests: ["src/core/persist.test.ts", "tests/write-lanes/write-ahead-records.test.ts"],
+    says: "a capture unmarks every key, a withheld identity's included, so its records are never written",
+    rule: "WriteAhead I21",
     edits: [
       {
-        file: "src/host/edge.ts",
-        find: "        const landed = Exit.isSuccess(exit);\n\n        if (!landed)",
+        file: "src/core/persist.ts",
+        find: '    if (tx.world().marked.size > 0 || held.size > 0) tx.replace("marked", held);',
         replace:
-          "        const landed = Exit.isSuccess(exit);\n\n        if (landed) dirty.clear();\n        if (!landed)",
+          '    if (tx.world().marked.size > 0 || held.size > 0) tx.replace("marked", new Map());',
       },
     ],
   },
@@ -139,9 +140,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/persist.ts",
-        find: "      Result.map(Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite)]), (writes) => ({",
+        find: "      } else {\n        for (const [k, m] of ordered) held.set(k, m);",
         replace:
-          "      Result.map(Result.all([...recordWrites(t).filter(Result.isSuccess), ...[...t.lanes].map(laneWrite)]), (writes) => ({",
+          "      } else {\n        writes.push(...ordered.flatMap(([, m]) => Option.toArray(Result.getSuccess(writeOf(m)))));\n        for (const [k, m] of ordered) held.set(k, m);",
       },
     ],
   },
@@ -161,12 +162,12 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
   {
     name: "end-while-withheld",
     tests: ["src/core/persist.test.ts", "tests/restore/unencodable.test.ts"],
-    says: "a free actor whose records are held back ends at its grace",
+    says: "a free actor whose actor record cannot encode ends at its grace",
     rule: "Actors R8",
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "    if (incarnation === undefined || tx.world().withheld.has(actorKey(actor))) return;",
+        find: "    if (incarnation === undefined || !persistence.encodes(actor)) return;",
         replace: "    if (incarnation === undefined) return;",
       },
     ],
@@ -207,6 +208,74 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
         file: "src/host/runtime.ts",
         find: "              onSome: ({ code }) => rejected(code),",
         replace: "              onSome: () => failed,",
+      },
+    ],
+  },
+  {
+    name: "capture-skips-marked-key",
+    tests: ["src/core/persist.test.ts", "tests/write-lanes/write-ahead-records.test.ts"],
+    says: "a capture leaves out the first marked key, so a record a step changed is never written",
+    rule: "WriteAhead I21",
+    edits: [
+      {
+        file: "src/core/persist.ts",
+        find: "    for (const entry of new Map([...again, ...tx.world().marked])) {",
+        replace:
+          "    for (const entry of [...new Map([...again, ...tx.world().marked])].slice(1)) {",
+      },
+    ],
+  },
+  {
+    name: "refused-batch-forgotten",
+    tests: ["tests/write-lanes/write-ahead-records.test.ts", "src/host/ledger.test.ts"],
+    says: "a refused batch's keys are not captured again, so its records wait for their next change",
+    rule: "WriteAhead I21",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "          if (!landed) again = new Map([...marks, ...again]);\n",
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "ticket-answered-by-empty-batch",
+    tests: ["tests/stories/storage.test.ts", "tests/write-lanes/write-ahead-records.test.ts"],
+    says: "a capture carrying a ticket is answered landed without its batch being written",
+    rule: "WriteAhead I15",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "      if (writes.length === 0 || Option.isNone(host.store)) {",
+        replace:
+          "      if (carried.length > 0 || writes.length === 0 || Option.isNone(host.store)) {",
+      },
+    ],
+  },
+  {
+    name: "withheld-ticket-sent-at-capture",
+    tests: ["tests/restore/unencodable.test.ts", "src/core/persist.test.ts"],
+    says: "a ticket whose identity is withheld at its capture is answered with the batch, so its send goes with no actor record on disk",
+    rule: "WriteAhead R13",
+    edits: [
+      {
+        file: "src/core/persist.ts",
+        find: "      Option.exists(identityOf(t), (actor) => withheld.has(actorKey(actor))),",
+        replace:
+          "      Option.exists(identityOf(t), (actor) => withheld.size < 0 && withheld.has(actorKey(actor))),",
+      },
+    ],
+  },
+  {
+    name: "capture-serves-mail",
+    tests: ["src/core/persist.test.ts"],
+    says: "a capture runs the step's drain, so issuing a batch serves mail and starts work",
+    rule: "WriteAhead I8",
+    edits: [
+      {
+        file: "src/core/step.ts",
+        find: '  if (Input.$is("Capture")(input)) return tx.out();\n',
+        replace: "",
       },
     ],
   },

@@ -167,8 +167,8 @@ export const refuse = (findings: ReadonlyArray<Finding>) => {
 };
 
 /**
- * The finding of a public call the Runtime's life rejects: before it is ready, or after its
- * disposal.
+ * The finding of a public call the Runtime's life rejects: before it is ready, or after its life
+ * ended, by its disposal or by a defect that stopped it.
  */
 // RETURN_TYPE: the Finding protocol its callers throw.
 export const lifeRejection = (
@@ -176,13 +176,22 @@ export const lifeRejection = (
   at: string,
   call: string,
   ready: string,
-): Finding =>
-  code === "RuntimeNotReady"
+  ended: "dispose" | "stop",
+): Finding => {
+  if (code === "RuntimeNotReady")
+    return {
+      code,
+      path: [at],
+      summary: `${call} before ${ready}`,
+      help: "Await runtime.ready() before using the Runtime.",
+    };
+
+  return ended === "stop"
     ? {
         code,
         path: [at],
-        summary: `${call} before ${ready}`,
-        help: "Await runtime.ready() before using the Runtime.",
+        summary: `${call} after the Runtime stopped on a defect`,
+        help: "Create a new Runtime; dispose() returns the defect that stopped this one.",
       }
     : {
         code,
@@ -190,3 +199,4 @@ export const lifeRejection = (
         summary: `${call} after dispose()`,
         help: "Create a new Runtime after disposal.",
       };
+};

@@ -661,7 +661,7 @@ composition
         The owed ledger is the World's only holder of endings: the five functions in
         `algorithm` are the only code that builds, moves or removes a row, and `keptOn` is the
         only blocking read. Mail carries a reference to a row, never the ending. A move issues
-        no write and no report. Records are projected from what the step touched
+        no write and no report. Records are marked by what the step touched and projected at Capture
         (@spec.WriteAhead.R5, @spec.WriteAhead.R10), and every report is built from the step's
         acts in act order: a lane's cue with its states before and after, a row's change, a
         turn's verdict with its parts and members, a call, an incarnation, the Runtime's life.

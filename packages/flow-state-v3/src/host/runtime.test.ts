@@ -16,6 +16,9 @@ import {
 import { Host } from "./host.ts";
 import { attachInspector, type Evidence, inspect } from "./inspect.ts";
 import { buildRuntime } from "./runtime.ts";
+import { snapshotIn } from "./snapshot.ts";
+import { Life } from "../core/life.ts";
+import { emptyWorld } from "../core/world.ts";
 
 class Bell extends Context.Service<
   Bell,
@@ -391,6 +394,63 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
     assert.throws(() => runtime.ensureActor(tally), flowError("RuntimeDisposed"));
     const disposed = await Effect.runPromiseExit(runtime.dispose());
     assert.ok(Exit.isFailure(disposed) && Cause.pretty(disposed.cause).includes("cannot be read"));
+    // Stopped is final: dispose() runs no disposal over the half-written world.
+    assert.equal(inspect(runtime).lifecycle, "Stopped");
+  });
+
+  it("Actors R25: disposeActor is refused RuntimeDisposed, and every refusal names the stop, not a dispose", async () => {
+    const trapped = trappedSeed();
+    const runtime = tallyOver(new Map(), trapped.seed);
+    await Effect.runPromise(runtime.ready());
+    runtime.ensureActor(tally);
+    trapped.arm();
+    runtime.ensureActor(other);
+
+    assert.throws(() => runtime.disposeActor(tally), flowError("RuntimeDisposed"));
+    assert.throws(
+      () => runtime.ensureActor(tally),
+      (e: Error) => /stopped/u.test(e.message),
+    );
+    const again = await Effect.runPromiseExit(runtime.ready());
+    assert.ok(
+      Exit.isFailure(again) &&
+        /ready\(\) after the Runtime stopped/u.test(Cause.pretty(again.cause)),
+    );
+    await Effect.runPromiseExit(runtime.dispose());
+  });
+
+  it("Actors R25: an identity with only a saved record, or a quarantined one, reads stopped too", () => {
+    const machines = new Map([[TallyMachine.compiled.id, TallyMachine.compiled]]);
+    const saved = { machine: TallyMachine.compiled.id, name: "saved" };
+    const garbled = { machine: TallyMachine.compiled.id, name: "garbled" };
+
+    const world = {
+      ...emptyWorld(true),
+      life: Life.Stopped(),
+      records: new Map([
+        [
+          `${saved.machine}/${saved.name}`,
+          {
+            actor: saved,
+            state: "COUNTING",
+            memory: { count: 1 },
+            schedules: [],
+            context: new Map(),
+            seen: new Map(),
+            frames: [],
+            graph: new Map(),
+          },
+        ],
+      ]),
+      quarantined: new Map([[`actor/${garbled.machine}/${garbled.name}`, "not JSON"]]),
+    };
+
+    assert.deepStrictEqual(
+      [saved, garbled].map((actor) =>
+        Option.map(snapshotIn(world, machines, actor), (s) => s.lifecycle),
+      ),
+      [Option.some("stopped"), Option.some("stopped")],
+    );
   });
 
   it("Actors R25: nothing more is written, so a reload restores the last landed state", async () => {

@@ -15,7 +15,6 @@ import {
   type ActorRecord,
   type Armed,
   Command,
-  Due,
   type Incarnation,
   IssueSource,
   Mail,
@@ -173,6 +172,9 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     };
 
     tx.drop("ended", actorKey(actor));
+
+    // A live identity's record is read from its incarnation: the World keeps none beside it.
+    if (tx.world().records.has(actorKey(actor))) tx.drop("records", actorKey(actor));
     setIncarnation(base);
     tx.act(Act.Started({ actor }));
 
@@ -335,12 +337,11 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const end = (actor: ActorId) => {
     const incarnation = incarnationOf(actor);
 
-    // The end waits while the identity's records cannot encode: its grace starts again. An
-    // identity whose record stopped encoding was withheld at the end of that turn's step.
-    if (incarnation === undefined || tx.world().withheld.has(actorKey(actor))) return;
+    // The end waits while the identity's actor record cannot encode: its grace starts again.
+    if (incarnation === undefined || !persistence.encodes(actor)) return;
 
-    // The end writes a dirty record in its own step, not at the next capture.
-    saveActor(actor, Due.Now());
+    // An end captures every marked record at once, not at the next interval.
+    persistence.keepEnded(incarnation);
     retire(incarnation);
     ledger.suspend(actor, false);
   };

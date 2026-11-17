@@ -534,13 +534,13 @@ tasks
         comment     2026-11-16T09:21:50Z
             Requirements review: ISSUES, three gaps, none blocks building. (1) WriteAhead I11, R10 ('a lane never
             outruns its actor') with R4's UnencodableValue skip: an actor record that fails to encode is dropped while
-            the step's lane and owed writes still go (code:packages/flow-state-v3/src/core/persist.ts#recordWrites), so
-            a reload can hear an ending its restored state never committed; no requirement, no owner. (2) WriteAhead
-            R10, I12 and Q3: the hide and pagehide flush and the default 5 s interval have no requirement or owner; the
-            Fake host stubs hidden and onHidden, so no check reaches the edge's flush. (3) R-10 says inspect.ts reads
-            the life 'through core/life.ts', but Actors' realization says only through admit and isDisposed; it also
-            lists 11 cells against the 12 routed and does not name the one dropped. Rest accepted: every routed finding
-            is carried, and every claimed red but R-6's (green, with a planted fault) checks the store.
+            the step's lane and owed writes still go (persist.ts `recordWrites`, at `9c46f647`), so a reload can hear an
+            ending its restored state never committed; no requirement, no owner. (2) WriteAhead R10, I12 and Q3: the
+            hide and pagehide flush and the default 5 s interval have no requirement or owner; the Fake host stubs
+            hidden and onHidden, so no check reaches the edge's flush. (3) R-10 says inspect.ts reads the life 'through
+            core/life.ts', but Actors' realization says only through admit and isDisposed; it also lists 11 cells
+            against the 12 routed and does not name the one dropped. Rest accepted: every routed finding is carried, and
+            every claimed red but R-6's (green, with a planted fault) checks the store.
         comment     2026-11-16T09:29:45Z
             Review fix 1 (WriteAhead I11): replayed red in persist.test.ts, runtime wrong: an unencodable actor record
             dropped while its lane and owed writes went. Now the identity's records and awaited tickets are withheld in
@@ -2866,6 +2866,20 @@ tasks
             snapshot still reads active or quarantined (snapshot.ts:112,127); ready()'s message after a stop wrongly
             says 'after dispose()'; the fault stopped-runtime-writes also removes the defect report, so it is not shown
             caught alone. Fix each red first.
+        comment     2026-11-17T14:30:31Z
+            Requirements (first commit), each red first where behaviour changes. R1 capture on issue (D30): steps only
+            mark keys (World.marked), an issued batch is one Capture step over the current World, and a refused batch's
+            marks go to the next Capture; check: stored records at every checkpoint and end of all 152 fixture Stories
+            against HEAD, byte for byte (a scratch dump, red on a planted skip: 157 drifts). R2 the D30 refusal: a
+            ticket whose record stops encoding before its batch ends NotSent StorageRefused, nothing sent (Story in
+            tests/restore/unencodable.test.ts, red at HEAD). R3 WriteAhead R10 to R13, I20, I21, I23, Records and the
+            realization rewritten; Actors' Life table gains Capture and a Stopped column; specs.log. R4 faults: the 12
+            stale ones retargeted, new ones for a skipped mark, a forgotten refused batch, an empty batch answering a
+            ticket, a withheld ticket sent, a capture that serves mail. R5 findings 12 and 15, each with a bench line.
+            R6 routed: Stopped edges (disposeActor refuses, Boot drops, snapshots read stopped, refusals name the stop,
+            stopped-runtime-writes caught alone), review 2's 3b persist part (Touched is gone), review 1's 2b (a row's
+            ending kind as one tagged value, same bytes). R7 bench before and after; hide flush in Node, browsers if the
+            tooling allows.
 
     T86
         title       Fixtures follow their layout: flat files moved, shared services in one place, pay becomes shop

@@ -178,7 +178,7 @@ requirements
                 committed state and the last good capture, never fails a committed turn, and a later
                 publication retries the newest state.
 
-                Memory that cannot encode skips its batch with UnencodableValue. Failures reach
+                Memory that cannot encode skips its batch with UnencodableValue, decided at the Capture. Failures reach
                 diagnostic observers; a failing inspection sink cannot interrupt persistence.
 
     R10  Forgetting a scope

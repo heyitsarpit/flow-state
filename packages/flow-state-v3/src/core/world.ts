@@ -360,19 +360,35 @@ export type ActorRecord = {
 };
 
 /**
- * An identity whose actor record could not encode at a step's end: none of its records went, and
- * its touched lanes wait until a step can write the whole identity. The tickets its step minted
- * were refused, never withheld.
+ * A record key a step changed, with the identity whose record it is: its actor record, one of its
+ * lane records, or its owed record.
  */
-type Withheld = {
-  readonly actor: ActorId;
-  readonly lanes: ReadonlyArray<string>;
-};
+export type Mark = Data.TaggedEnum<{
+  Actor: { actor: ActorId };
+  Lane: { actor: ActorId; lane: string };
+  Owed: { actor: ActorId };
+}>;
+
+/**
+ * Constructors and matchers for {@link Mark}.
+ */
+export const Mark = Data.taggedEnum<Mark>();
+
+/**
+ * Record keys not yet known to have landed, each with its {@link Mark}, in the order they were
+ * first marked.
+ */
+export type Marks = ReadonlyMap<string, Mark>;
 
 /**
  * Everything the Runtime decides from: plain data, replaced whole by each step.
  *
  * **Details**
+ *
+ * `records` holds the actor record of each identity with no incarnation: one the boot restored and
+ * no start has read yet, or one an end kept. `marked` holds each record key a step changed since a
+ * capture last took it; `withheld` each identity whose actor record could not encode at the last
+ * capture, whose keys stay marked until it can.
  *
  * `quarantined` holds each record the boot could not read, by its key, with why: its bytes stay
  * until the identity saves over it or, for a lane, a cancel on its key clears it.
@@ -394,7 +410,8 @@ export type World = {
   readonly counter: number;
   readonly attempts: number;
   readonly persistence: boolean;
-  readonly withheld: ReadonlyMap<string, Withheld>;
+  readonly marked: Marks;
+  readonly withheld: ReadonlyMap<string, ActorId>;
   readonly quarantined: ReadonlyMap<string, string>;
   readonly ended: ReadonlyMap<string, Ended>;
   readonly life: Life;
@@ -421,6 +438,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   counter: 0,
   attempts: 0,
   persistence,
+  marked: new Map(),
   withheld: new Map(),
   quarantined: new Map(),
   ended: new Map(),
@@ -533,12 +551,18 @@ export type Command = Data.TaggedEnum<{
   Interrupt: { call: CallId };
   Arm: { timer: TimerId; at: number };
   Disarm: { timer: TimerId };
-  Persist: { writes: ReadonlyArray<Write>; refused: ReadonlyArray<TicketId>; due: Due };
+  Persist: { refused: ReadonlyArray<TicketId>; due: Due };
+  Write: {
+    writes: ReadonlyArray<Write>;
+    marks: Marks;
+    tickets: ReadonlyArray<Ticket>;
+    refused: ReadonlyArray<TicketId>;
+  };
 }>;
 
 /**
- * When a step's writes must be issued: within the capture interval, at once, or at once with the
- * tickets whose answer its sends await.
+ * When the records a step marked must be captured: within the capture interval, at once, or at
+ * once with the tickets whose answer its sends await.
  */
 export type Due = Data.TaggedEnum<{
   Later: {};

@@ -4,7 +4,7 @@ import { GitApi } from "../../fixtures/services/git/services.ts";
 import { GitLive } from "../../fixtures/services/git/adapters/git.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { GitFake } from "../../fixtures/services/git/server/layer.ts";
-import { Story, type StoryRun } from "../../src/host/testing/index.ts";
+import { Fake, Story, type StoryRun } from "../../src/host/testing/index.ts";
 import {
   actorRef,
   app,
@@ -197,6 +197,27 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     ).toEqual(["notSent StorageRefused", "success success"]);
     expect(run.checkpoints.refused.read(Git.sync)).toEqual([]);
     expect(run.checkpoints.sent.read(Git.sync)).toHaveLength(1);
+  });
+
+  it("WriteAhead R13: a sync whose batch waits behind one still out, and whose actor record stops encoding before its batch is captured, ends NotSent StorageRefused and is never sent", async () => {
+    const run = checked(
+      await notesStory("restore/unencodable-before-capture")
+        .ensure(notes)
+        .world(Fake.storage.hold())
+        .send(notes, { _tag: "Grow", count: 1 })
+        .send(notes, { _tag: "Sync", repo: "flow" })
+        .send(notes, { _tag: "Scribble" })
+        .world(Fake.storage.release())
+        .advance("1 second")
+        .checkpoint("refused")
+        .run(),
+    );
+
+    expect(
+      run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+    ).toEqual(["notSent StorageRefused"]);
+    expect(run.checkpoints.refused.read(Git.sync)).toEqual([]);
+    expect(savedCount(run, "refused")).toBe(1);
   });
 
   it("Codec R4: a commit whose input has no canonical form declines NotSent Unencodable and withholds nothing", async () => {

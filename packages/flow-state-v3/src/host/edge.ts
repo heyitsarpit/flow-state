@@ -1,5 +1,5 @@
 import { Cause, Clock, Context, Data, Effect, Exit, Option } from "effect";
-import { Due, type Ticket, type TicketId, type Write } from "../core/world.ts";
+import { Due, type Marks, type Ticket, type TicketId, type Write } from "../core/world.ts";
 import { type Fibers, sleepUntil } from "./fibers.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
 
@@ -24,33 +24,38 @@ const WAKE = "wake";
 const RETRY_MS = 5000;
 
 /**
- * The persistence edge: one batch out at a time for the Runtime's scope, carrying everything not
- * known to have landed.
+ * The persistence edge: it decides when the core captures a batch, and keeps one batch out at a
+ * time for the Runtime's scope.
  *
  * **Details**
  *
+ * - The core reports when a step's marks are due; the edge issues a capture by `capture`, which
+ *   runs the core's Capture step, and writes the batch it returns.
  * - A batch due now or with a ticket, or any batch with `captureMs` at 0 or on a hidden page, is
- *   issued in the next host task; a later one waits at most `captureMs`.
- * - A refused batch is put back unless something newer was accepted for the same key, and goes
- *   again with the next batch, at the latest 5 s later.
- * - Each ticket's answer is passed to `answered`, which runs a step of the core; a ticket with
- *   nothing left to write is answered as landed.
+ *   captured in the next host task; a later one waits at most `captureMs`.
+ * - A refused batch's keys go to the next capture, at the latest 5 s later, which encodes them
+ *   again from the World as it then stands.
+ * - Each ticket's answer is passed to `answered`, which runs a step of the core; a ticket whose
+ *   batch has nothing to write is answered as landed.
  */
 export const makeEdge = (
   platform: Platform,
   fibers: Fibers,
   options: {
     readonly captureMs: number;
+    readonly capture: (tickets: ReadonlyArray<Ticket>, again: Marks) => void;
     readonly answered: (ticket: TicketId, landed: boolean) => void;
   },
 ) => {
   const host = Context.get(platform, Host);
   const clock = Context.get(platform, Clock.Clock);
 
-  // What is dirty, by record key, the tickets waiting on it, whether a batch is out, and when the
-  // next plain batch is due. The edge's own state, written in place.
-  let dirty = new Map<string, Write>();
+  // Whether a step marked records since the last capture, the tickets waiting on the next batch,
+  // the keys of a refused batch, whether a capture or batch is out, and when the next plain batch
+  // is due. The edge's own state, written in place.
+  let marked = false;
   let tickets: Array<Ticket> = [];
+  let again: Marks = new Map();
   let out = false;
   let wake: Wake = Wake.Idle();
 
@@ -63,50 +68,29 @@ export const makeEdge = (
 
   const issue = () => {
     fibers.cancel(WAKE);
-    const store = host.store;
 
     const carried = tickets;
+    const keys = again;
     tickets = [];
+    again = new Map();
+    marked = false;
     wake = Wake.Idle();
 
-    // With nothing left to write, every ticket waiting on the store has what it waits for.
-    if (Option.isNone(store) || dirty.size === 0) {
+    // Without a store nothing is written: every ticket has what it waits for.
+    if (Option.isNone(host.store)) {
       for (const t of carried) options.answered(t.id, true);
 
       return;
     }
 
-    const writes = [...dirty.values()];
-    dirty = new Map();
     out = true;
-
-    fibers.fork(
-      "store",
-      store.value.write(
-        writes.map((w) => ({ key: w.key, value: w.record })),
-        purposeOf(carried),
-        carried.flatMap((t) => (t.purpose === "acknowledge" ? [t.attempt] : [])),
-      ),
-      (exit) => {
-        // An interrupted write is unanswered, as a hung store is.
-        if (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)) return;
-        const landed = Exit.isSuccess(exit);
-
-        if (!landed) for (const w of writes) if (!dirty.has(w.key)) dirty.set(w.key, w);
-        out = false;
-
-        for (const t of carried) options.answered(t.id, landed);
-
-        if (!landed) wakeAt(clock.currentTimeMillisUnsafe() + RETRY_MS);
-        pump();
-      },
-    );
+    options.capture(carried, keys);
   };
 
   const pump = () => {
     if (out) return;
 
-    if (tickets.length > 0 || (dirty.size > 0 && (due() || host.hidden()))) issue();
+    if (tickets.length > 0 || ((marked || again.size > 0) && (due() || host.hidden()))) issue();
   };
 
   const wakeAt = (at: number) => {
@@ -126,22 +110,35 @@ export const makeEdge = (
     });
   };
 
-  // A hidden page flushes at once; the listener goes with the Runtime's Scope.
+  const settle = (carried: ReadonlyArray<Ticket>, landed: boolean) => {
+    out = false;
+
+    for (const t of carried) options.answered(t.id, landed);
+
+    if (!landed) wakeAt(clock.currentTimeMillisUnsafe() + RETRY_MS);
+    pump();
+  };
+
+  // A hidden page captures at once whatever is marked; the listener goes with the Runtime's Scope.
   fibers.finalize(
     host.onHidden(() => {
-      if (!out) issue();
+      if (!out && (tickets.length > 0 || marked || again.size > 0)) issue();
     }),
   );
 
   return {
     /**
-     * Whether every record handed to the edge has landed: no batch out and nothing left to write.
+     * Whether every record a step marked has landed: no capture or batch out and nothing left to
+     * capture.
      */
-    settled: () => !out && dirty.size === 0,
-    accept: (writes: ReadonlyArray<Write>, refused: ReadonlyArray<TicketId>, when: Due) => {
+    settled: () => !out && !marked && again.size === 0,
+    /**
+     * A step's marks: when they are due, and the tickets refused before any batch.
+     */
+    accept: (when: Due, refused: ReadonlyArray<TicketId>) => {
       for (const ticket of refused) options.answered(ticket, false);
 
-      for (const w of writes) dirty.set(w.key, w);
+      marked = true;
 
       if (Due.$is("Awaited")(when)) tickets.push(...when.tickets);
 
@@ -151,6 +148,41 @@ export const makeEdge = (
           if (Exit.isSuccess(exit)) pump();
         });
       } else wakeAt(clock.currentTimeMillisUnsafe() + options.captureMs);
+    },
+    /**
+     * A captured batch: written as one Store write, its tickets answered with its verdict; a ticket
+     * refused at capture is answered so at once.
+     */
+    write: (
+      writes: ReadonlyArray<Write>,
+      marks: Marks,
+      carried: ReadonlyArray<Ticket>,
+      refused: ReadonlyArray<TicketId>,
+    ) => {
+      for (const ticket of refused) options.answered(ticket, false);
+
+      if (writes.length === 0 || Option.isNone(host.store)) {
+        settle(carried, true);
+
+        return;
+      }
+
+      fibers.fork(
+        "store",
+        host.store.value.write(
+          writes.map((w) => ({ key: w.key, value: w.record })),
+          purposeOf(carried),
+          carried.flatMap((t) => (t.purpose === "acknowledge" ? [t.attempt] : [])),
+        ),
+        (exit) => {
+          // An interrupted write is unanswered, as a hung store is.
+          if (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)) return;
+          const landed = Exit.isSuccess(exit);
+
+          if (!landed) again = new Map([...marks, ...again]);
+          settle(carried, landed);
+        },
+      );
     },
   };
 };

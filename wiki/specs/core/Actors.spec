@@ -94,8 +94,8 @@ requirements
     R8  The end
         source  @plan.Runtime.O3.
         must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime's
-                Effect Clock) ends at the grace's end: a persisted actor's record is encoded in that
-                step (the end waits while it cannot encode, reported UnencodableValue, and never ends
+                Effect Clock) ends at the grace's end: a persisted actor's record is kept and captured at
+                once (the end waits while it cannot encode, reported UnencodableValue, and never ends
                 on the last good capture of @spec.WriteAhead.R4), its lanes move to the Runtime unbound,
                 its schedules are cancelled, its placements and unkept reads stop, and each stopped
                 read owes its Interrupted ending (@spec.Reads.R9) to the identity. Its owed rows are
@@ -330,8 +330,8 @@ requirements
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
                 any batch still out has answered (@spec.WriteAhead.R12), and holds every record dirty
                 at that moment, the start cells' NotSent { Disposed } rows and Held heads included.
-                Each later step that changes a record within the bound (a call settling) writes its
-                changes in one more batch, one batch out at a time; the disposal's write is the last
+                Each later step that changes a record within the bound (a call settling) has its
+                changes captured in one more batch, one batch out at a time; the disposal's write is the last
                 batch it issued, a ticket the core holds while Disposing. The disposal ends when
                 nothing is on the wire and that write has landed. That write refused, or still
                 unanswered at the bound, reports StorageFailure and the disposal ends. An earlier
@@ -556,7 +556,8 @@ algorithm
         DisposeRuntime takes Open to Disposing and Inert, Booting or Failed straight to Disposed, and Disposing
         goes Disposed when no call is on the wire and the disposal's write has landed, when that write is refused
         (StorageFailure, R23), or at the bound. A step that throws a defect leaves any life Stopped (R25); Stopped
-        drops every input but the public calls, which it rejects RuntimeDisposed. By
+        drops every input but the public calls, which it rejects RuntimeDisposed, naming the stop; dispose()'s
+        DisposeRuntime drops too, since dispose() fails with the defect (R25). By
         input:
         - Start (the first ready): Inert runs; Booting, Open and Failed drop (the caller shares the bootstrap's
             Exit); Disposing and Disposed reject RuntimeDisposed.
@@ -576,6 +577,8 @@ algorithm
         - Settled and Fired: Open and Disposing run; elsewhere drops (a late result is ignored).
         - Stored and Refused: Open and Disposing run (while Disposing they answer the disposal's write; an answer
             for a ticket nothing awaits changes nothing); elsewhere drops.
+        - Capture: Open and Disposing run (it reads the World and writes nothing but its batch,
+            @spec.WriteAhead.R10); elsewhere drops, so a stopped Runtime writes nothing more.
 
 composition
     flow

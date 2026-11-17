@@ -13,84 +13,50 @@ import {
   type Incarnation,
   type Lane,
   lastSeenOf,
+  Mark,
+  type Marks,
   type Ticket,
   type TicketId,
   Timer,
   type Write,
 } from "./world.ts";
 
-// What one persisted identity's step touched: its actor record (kept or removed), its lanes, its
-// owed record, the tickets its sends await, and whether its writes are due now. Step-local, written
-// in place.
-type Touched = {
-  readonly actor: ActorId;
-  record: "none" | "kept" | "removed";
-  readonly lanes: Set<string>;
-  owed: boolean;
-  readonly tickets: Array<Ticket>;
-  now: boolean;
-};
-
 // An identity's owed record holds every row owed to the identity, whatever its delivery.
 const toIdentity = (row: Owed) => Audience.$is("Identity")(row.to);
 
 // A row whose try is still in the mailbox: a step that ends with one (a drain stopped at its cap)
-// writes the owed record, which no move into or out of a saved delivery did.
+// marks the owed record, which no move into or out of a saved delivery did.
 const inMailbox = (row: Owed) =>
   toIdentity(row) &&
   (Delivery.$is("Queued")(row.delivery) || Delivery.$is("Retrying")(row.delivery));
 
+// An identity's records in the order a batch writes them: its actor record, its lanes, its owed record.
+const rank = Mark.$match({ Actor: () => 0, Lane: () => 1, Owed: () => 2 });
+
 /**
- * Persistence of a step: setters note what each persisted identity's step touched, and the step
- * projects each touched record once, at its end, in one write list for the step.
+ * Persistence of a step: setters mark the record keys a step changes, and a capture encodes every
+ * marked key from the World it is given, once, when the edge issues a batch.
  *
  * **Details**
  *
- * The write list is due when a send awaits it (`Awaited`), at once when an actor record was
+ * A step's marks are due when a send awaits them (`Awaited`), at once when an actor record was
  * removed or an incarnation ended (`Now`), and within the capture interval otherwise (`Later`).
+ * An identity whose actor record cannot encode is withheld whole: its keys stay marked, so no lane
+ * or owed record outruns its actor record.
  */
 export const makePersistence = (tx: Tx) => {
   const { persisted, armTimer, incarnationOf } = tx;
-  let touched = new Map<string, Touched>();
 
-  const touch = (actor: ActorId) => {
-    if (!persisted(actor)) return [];
+  // What this step did to the records: whether it marked any, whether they are due now, and the
+  // tickets its sends await, each with its identity. Step-local, written in place.
+  let marked = false;
+  let now = false;
+  const awaited: Array<{ readonly ticket: Ticket; readonly actor: ActorId }> = [];
 
-    const key = actorKey(actor);
-    const known = touched.get(key);
+  const mark = (key: string, made: () => Mark) => {
+    marked = true;
 
-    if (known !== undefined) return [known];
-
-    const fresh: Touched = {
-      actor,
-      record: "none",
-      lanes: new Set(),
-      owed: false,
-      tickets: [],
-      now: false,
-    };
-
-    touched.set(key, fresh);
-
-    return [fresh];
-  };
-
-  // A record's write, or the key and reason it cannot encode.
-  const encoded = (key: string, text: Result.Result<string, string>) =>
-    Result.mapBoth(text, {
-      // RETURN_TYPE: a Write, so a removal and a record are one list.
-      onSuccess: (record): Write => ({ key, record: Option.some(record) }),
-      onFailure: (reason) => ({ key, reason }),
-    });
-
-  const actorWrite = (record: ActorRecord) => {
-    const key = actorRecordKey(actorKey(record.actor));
-    const compiled = tx.machines.get(record.actor.machine);
-
-    return encoded(
-      key,
-      compiled === undefined ? Result.fail("machine") : encodeActor(compiled, record),
-    );
+    if (!tx.world().marked.has(key)) tx.put("marked", key, made());
   };
 
   // The bindings of every provider up a consumer's graph: a provider started for it again, saved or
@@ -136,92 +102,29 @@ export const makePersistence = (tx: Tx) => {
     graph: graphOf(incarnation),
   });
 
-  const keepRecord = (incarnation: Incarnation) => {
-    const record = recordOf(incarnation);
-    tx.put("records", actorKey(incarnation.actor), record);
+  // A record's write, or the key and reason it cannot encode.
+  const encoded = (key: string, text: Result.Result<string, string>) =>
+    Result.mapBoth(text, {
+      // RETURN_TYPE: a Write, so a removal and a record are one list.
+      onSuccess: (record): Write => ({ key, record: Option.some(record) }),
+      onFailure: (reason) => ({ key, reason }),
+    });
 
-    return record;
-  };
+  // An identity's actor record from the World: its live incarnation's, else the one the World
+  // keeps for it, else a removal.
+  const actorWrite = (actor: ActorId) => {
+    const key = actorRecordKey(actorKey(actor));
+    const live = incarnationOf(actor);
+    const record = live === undefined ? tx.world().records.get(actorKey(actor)) : recordOf(live);
 
-  /**
-   * Notes an identity's actor record as changed: `now` when its incarnation ends, and then its
-   * record is kept at once; otherwise at the step's end, from its last state.
-   */
-  const saveActor = (actor: ActorId, due: Due = Due.Later()) => {
-    const incarnation = incarnationOf(actor);
+    if (record === undefined) return Result.succeed<Write>({ key, record: Option.none() });
 
-    if (incarnation === undefined || !persisted(actor)) return;
+    const compiled = tx.machines.get(actor.machine);
 
-    if (Due.$is("Now")(due)) keepRecord(incarnation);
-
-    for (const t of touch(actor)) {
-      t.record = "kept";
-      t.now = t.now || Due.$is("Now")(due);
-    }
-  };
-
-  /**
-   * Notes an identity's actor record as removed: written at once.
-   */
-  const removeActor = (actor: ActorId) => {
-    for (const t of touch(actor)) {
-      t.record = "removed";
-      t.now = true;
-    }
-  };
-
-  /**
-   * Notes a lane as changed: its record is written from the lane's state at the step's end, or
-   * removed if the lane is gone.
-   */
-  const saveLane = (actor: ActorId, id: string) => {
-    for (const t of touch(actor)) t.lanes.add(id);
-  };
-
-  /**
-   * Notes a lane as changed and returns the ticket a send awaits for the step's writes; its
-   * silence timer is armed when the batch carrying it is issued. `None` when the identity does not
-   * persist.
-   */
-  const saveAwaited = (
-    actor: ActorId,
-    id: string,
-    awaited: { readonly attempt: string; readonly purpose: "acknowledge" | "capture" },
-  ) => {
-    if (!persisted(actor)) return Option.none<TicketId>();
-
-    const ticket: Ticket = { id: tx.mint("ticket"), ...awaited };
-
-    for (const t of touch(actor)) {
-      t.lanes.add(id);
-      t.tickets.push(ticket);
-    }
-
-    return Option.some(ticket.id);
-  };
-
-  /**
-   * Notes an identity's owed record as changed.
-   */
-  const saveOwed = (actor: ActorId) => {
-    for (const t of touch(actor)) t.owed = true;
-  };
-
-  // ── lanes: every change of a lane's entry is written from its state at the step's end.
-  const setLane = (id: string, lane: Lane) => {
-    tx.putLane(id, lane);
-    saveLane(lane.actor, id);
-  };
-
-  /**
-   * Puts a head on the wire without a write: its record already says what the call carries, since
-   * an acknowledgement or a capture landed it in flight with the retryCount it is sent with.
-   */
-  const sendLane = (id: string, lane: Lane) => tx.putLane(id, lane);
-
-  const dropLane = (id: string, lane: Lane) => {
-    tx.dropLane(id);
-    saveLane(lane.actor, id);
+    return encoded(
+      key,
+      compiled === undefined ? Result.fail("machine") : encodeActor(compiled, record),
+    );
   };
 
   // A lane's record from its entry; a lane gone Idle that still owes a displaced Attempt's ending
@@ -286,153 +189,261 @@ export const makePersistence = (tx: Tx) => {
 
     return Result.mapBoth(owed, {
       onFailure: (reason) => ({ key, reason }),
-      onSuccess: ({ text }) => [{ key, record: text } satisfies Write],
+      // RETURN_TYPE: a Write, so a removal and a record are one list.
+      onSuccess: ({ text }): Write => ({ key, record: text }),
     });
   };
 
-  const recordWrites = (t: Touched) => {
-    if (t.record === "removed")
-      return [
-        Result.succeed<Write>({ key: actorRecordKey(actorKey(t.actor)), record: Option.none() }),
-      ];
+  const writeOf = (m: Mark) =>
+    Mark.$match(m, {
+      Actor: ({ actor }) => actorWrite(actor),
+      Lane: ({ lane }) => laneWrite(lane),
+      Owed: ({ actor }) => owedWrite(actor),
+    });
 
-    const record = tx.world().records.get(actorKey(t.actor));
-
-    return t.record === "none" || incarnationOf(t.actor) === undefined || record === undefined
-      ? []
-      : [actorWrite(record)];
-  };
-
-  // Every record an identity's step touched, or the first that cannot encode: then none of its
-  // records go, so no lane or owed record outruns the actor record it belongs with.
-  const writesOf = (t: Touched) => {
-    const owed = t.owed ? owedWrite(t.actor) : Result.succeed(Array.of<Write>());
-
-    return Result.flatMap(owed, (owedWrites) =>
-      Result.map(Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite)]), (writes) => ({
-        writes: [...writes, ...owedWrites],
-      })),
-    );
-  };
-
-  const dueOf = (all: ReadonlyArray<Touched>, final: ReadonlyArray<Ticket>) => {
-    const tickets = [...all.flatMap((t) => t.tickets), ...final];
-
-    if (tickets.length > 0) return Due.Awaited({ tickets });
-
-    return all.some((t) => t.now) ? Due.Now() : Due.Later();
-  };
-
-  // The identities whose records cannot encode wait whole, each reported once as it starts to wait;
-  // a record written over a quarantined one is quarantined no more.
-  const withhold = (
-    blocked: ReadonlyArray<{
-      readonly t: Touched;
-      readonly failure: { readonly key: string; readonly reason: string };
-    }>,
-    writes: ReadonlyArray<Write>,
+  // An identity starts to wait: reported once, as it starts.
+  const reportWithheld = (
+    actor: ActorId,
+    failure: { readonly key: string; readonly reason: string },
   ) => {
-    for (const { t, failure } of blocked)
-      if (!tx.world().withheld.has(actorKey(t.actor)))
-        tx.act(
-          Act.Reported({
-            code: "UnencodableValue",
-            record: Option.some(failure.key),
-            reason: `withheld: ${failure.reason}`,
-          }),
-        );
-
-    if (blocked.length > 0 || tx.world().withheld.size > 0)
-      tx.replace(
-        "withheld",
-        new Map(
-          blocked.map(({ t }) => [actorKey(t.actor), { actor: t.actor, lanes: [...t.lanes] }]),
-        ),
+    if (!tx.world().withheld.has(actorKey(actor)))
+      tx.act(
+        Act.Reported({
+          code: "UnencodableValue",
+          record: Option.some(failure.key),
+          reason: `withheld: ${failure.reason}`,
+        }),
       );
-
-    for (const write of tx.world().quarantined.size > 0 ? writes : [])
-      if (tx.world().quarantined.has(write.key)) tx.drop("quarantined", write.key);
   };
 
   /**
-   * Projects what the step touched: one write list for the whole step, every identity's touched
-   * records once each, due by the derived rule.
+   * Whether an identity's actor record encodes from the World as it stands; one that does not is
+   * withheld at once, reported as it starts to wait.
+   *
+   * **When to use**
+   *
+   * Before a move that must not outrun the record: a ticket a send awaits, and an end.
    */
-  // Only a step that left mail can end with a row in the mailbox; a withheld identity is written
-  // whole once its record encodes.
-  const touchLeftovers = () => {
+  const encodes = (actor: ActorId) => {
+    if (!persisted(actor)) return true;
+
+    const write = actorWrite(actor);
+
+    if (Result.isSuccess(write)) return true;
+    reportWithheld(actor, write.failure);
+    tx.put("withheld", actorKey(actor), actor);
+
+    return false;
+  };
+
+  /**
+   * Marks an identity's actor record as changed.
+   */
+  const saveActor = (actor: ActorId) => {
+    if (incarnationOf(actor) !== undefined && persisted(actor))
+      mark(actorRecordKey(actorKey(actor)), () => Mark.Actor({ actor }));
+  };
+
+  /**
+   * Keeps the record of an identity whose incarnation ends, which outlives it, and makes the
+   * step's marks due at once. Its record needs no mark: every change to it was marked as made.
+   */
+  const keepEnded = (incarnation: Incarnation) => {
+    if (!persisted(incarnation.actor)) return;
+    tx.put("records", actorKey(incarnation.actor), recordOf(incarnation));
+    now = true;
+  };
+
+  /**
+   * Marks an identity's actor record as removed: captured at once.
+   */
+  const removeActor = (actor: ActorId) => {
+    if (!persisted(actor)) return;
+    now = true;
+    mark(actorRecordKey(actorKey(actor)), () => Mark.Actor({ actor }));
+  };
+
+  /**
+   * Marks a lane's record as changed: captured from the lane's state, or removed if it is gone.
+   */
+  const saveLane = (actor: ActorId, id: string) => {
+    if (persisted(actor)) mark(laneRecordKey(id), () => Mark.Lane({ actor, lane: id }));
+  };
+
+  /**
+   * Marks a lane as changed and returns the ticket a send awaits for its capture; `None` when the
+   * identity does not persist.
+   */
+  const saveAwaited = (
+    actor: ActorId,
+    id: string,
+    wanted: { readonly attempt: string; readonly purpose: "acknowledge" | "capture" },
+  ) => {
+    if (!persisted(actor)) return Option.none<TicketId>();
+
+    const ticket: Ticket = { id: tx.mint("ticket"), ...wanted };
+    saveLane(actor, id);
+    awaited.push({ ticket, actor });
+
+    return Option.some(ticket.id);
+  };
+
+  /**
+   * Marks an identity's owed record as changed.
+   */
+  const saveOwed = (actor: ActorId) => {
+    if (persisted(actor)) mark(owedRecordKey(actorKey(actor)), () => Mark.Owed({ actor }));
+  };
+
+  // ── lanes: every change of a lane's entry marks its record.
+  const setLane = (id: string, lane: Lane) => {
+    tx.putLane(id, lane);
+    saveLane(lane.actor, id);
+  };
+
+  /**
+   * Puts a head on the wire without a mark: its record already says what the call carries, since
+   * an acknowledgement or a capture landed it in flight with the retryCount it is sent with.
+   */
+  const sendLane = (id: string, lane: Lane) => tx.putLane(id, lane);
+
+  const dropLane = (id: string, lane: Lane) => {
+    tx.dropLane(id);
+    saveLane(lane.actor, id);
+  };
+
+  // Only a step that left mail can end with a row in the mailbox.
+  const markMailbox = () => {
     for (const rows of tx.world().mail.size > 0 ? tx.world().owed.values() : []) {
       const waiting = rows.find(inMailbox);
 
       if (waiting !== undefined) saveOwed(waiting.actor);
     }
-
-    for (const w of tx.world().withheld.values())
-      for (const t of touch(w.actor)) {
-        const lanes = [...w.lanes, ...t.lanes, ...tx.lanesOf(w.actor).map(([id]) => id)];
-        t.record = t.record === "none" ? "kept" : t.record;
-        t.lanes.clear();
-
-        for (const id of lanes) t.lanes.add(id);
-        t.owed = true;
-      }
   };
 
-  const keepRecords = () => {
-    for (const t of touched.values())
-      for (const incarnation of Option.toArray(Option.fromUndefinedOr(incarnationOf(t.actor))))
-        if (t.record === "kept") keepRecord(incarnation);
+  const dueOf = (tickets: ReadonlyArray<Ticket>) => {
+    if (tickets.length > 0) return Due.Awaited({ tickets });
+
+    return now ? Due.Now() : Due.Later();
   };
 
-  const project = (final: ReadonlyArray<Ticket> = []) => {
-    touchLeftovers();
-    keepRecords();
+  /**
+   * Ends a step: tells the edge when its marks are due. A ticket whose identity's actor record
+   * cannot encode is refused at once, so no send waits on it; the others' silence is timed from
+   * now.
+   */
+  const close = (final: ReadonlyArray<Ticket> = []) => {
+    markMailbox();
 
-    const all = [...touched.values()].map((t) => ({ t, writes: writesOf(t) }));
-    touched = new Map();
+    const sent = awaited.filter(({ actor }) => encodes(actor));
 
-    const written = all.flatMap(({ t, writes }) =>
-      Result.isSuccess(writes) ? [{ t, ...writes.success }] : [],
+    const refused = awaited.filter((a) => !sent.includes(a)).map((a) => a.ticket.id);
+
+    if (!marked && !now && final.length === 0 && refused.length === 0) return;
+
+    for (const { ticket } of sent)
+      armTimer(Timer.Silent({ ticket: ticket.id }), tx.env.now + SILENT_MS);
+
+    const tickets = [...sent.map((a) => a.ticket), ...final];
+
+    tx.command(Command.Persist({ refused, due: dueOf(tickets) }));
+  };
+
+  // The identity a ticket's send belongs to: the lane or displaced head that waits on it.
+  const identityOf = (ticket: Ticket) =>
+    Option.orElse(
+      Option.map(tx.laneWaiting(ticket.id), ([, lane]) => lane.actor),
+      () => Option.map(Option.fromUndefinedOr(tx.world().displaced.get(ticket.id)), (d) => d.actor),
     );
 
-    const blocked = all.flatMap(({ t, writes }) =>
-      Result.isFailure(writes) ? [{ t, failure: writes.failure }] : [],
+  // Every key to capture, by identity in first-mark order, each identity's keys in batch order.
+  const byIdentity = (again: Marks) => {
+    const identities = new Map<string, Array<readonly [string, Mark]>>();
+
+    for (const entry of new Map([...again, ...tx.world().marked])) {
+      const key = actorKey(entry[1].actor);
+      identities.set(key, [...(identities.get(key) ?? []), entry]);
+    }
+
+    return [...identities.values()].map((keys) =>
+      keys.toSorted(([, a], [, b]) => rank(a) - rank(b)),
+    );
+  };
+
+  // The identities that cannot write wait whole: their keys stay marked, and each is reported
+  // once, as it starts to wait.
+  const withhold = (
+    held: ReadonlyArray<{
+      readonly keys: ReadonlyArray<readonly [string, Mark]>;
+      readonly failure: { readonly key: string; readonly reason: string };
+    }>,
+  ) => {
+    const withheld = new Map(
+      held.flatMap(({ keys, failure }) =>
+        keys.slice(0, 1).map(([, m]) => {
+          reportWithheld(m.actor, failure);
+
+          return [actorKey(m.actor), m.actor] as const;
+        }),
+      ),
     );
 
-    const writes = written.flatMap((p) => p.writes);
-    withhold(blocked, writes);
+    if (withheld.size > 0 || tx.world().withheld.size > 0) tx.replace("withheld", withheld);
 
-    // A send never waits on a record that cannot encode: the tickets a withheld identity's step
-    // minted are refused, as a store refusal is, and answered so by the host.
-    const refused = blocked.flatMap(({ t }) => t.tickets.map((ticket) => ticket.id));
+    if (tx.world().marked.size > 0 || held.length > 0)
+      tx.replace("marked", new Map(held.flatMap((h) => h.keys)));
 
-    if (written.length === 0 && final.length === 0 && refused.length === 0) return;
+    return withheld;
+  };
 
-    // A ticket's silence is timed from the batch that carries it, never while it is withheld.
-    for (const { t } of written)
-      for (const ticket of t.tickets)
-        armTimer(Timer.Silent({ ticket: ticket.id }), tx.env.now + SILENT_MS);
+  /**
+   * Captures every marked key, and the keys of a refused batch, from the World as it stands: one
+   * batch for the whole Runtime.
+   *
+   * **Details**
+   *
+   * An identity whose actor record cannot encode writes none of its records: its keys stay marked,
+   * it is reported once as it starts to wait, and a ticket its sends await is refused. A record
+   * written over a quarantined one is quarantined no more.
+   */
+  const capture = (tickets: ReadonlyArray<Ticket>, again: Marks) => {
+    const projected = byIdentity(again).map((keys) => ({
+      keys,
+      written: Result.all(keys.map(([, m]) => writeOf(m))),
+    }));
+
+    const went = projected.flatMap(({ keys, written }) =>
+      Result.isSuccess(written) ? [{ keys, writes: written.success }] : [],
+    );
+
+    const withheld = withhold(
+      projected.flatMap(({ keys, written }) =>
+        Result.isFailure(written) ? [{ keys, failure: written.failure }] : [],
+      ),
+    );
+
+    const writes = went.flatMap((w) => w.writes);
+
+    for (const write of tx.world().quarantined.size > 0 ? writes : [])
+      if (tx.world().quarantined.has(write.key)) tx.drop("quarantined", write.key);
+
+    const refused = tickets.filter((t) =>
+      Option.exists(identityOf(t), (actor) => withheld.has(actorKey(actor))),
+    );
 
     tx.command(
-      Command.Persist({
+      Command.Write({
         writes,
-        refused,
-        due: dueOf(
-          written.map((p) => p.t),
-          final,
-        ),
+        marks: new Map(went.flatMap((w) => w.keys)),
+        tickets: tickets.filter((t) => !refused.includes(t)),
+        refused: refused.map((t) => t.id),
       }),
     );
   };
 
-  /**
-   * Whether the step has touched a record not yet projected.
-   */
-  const dirty = () => touched.size > 0;
-
   return {
-    recordOf,
     saveActor,
+    keepEnded,
     removeActor,
     saveLane,
     saveAwaited,
@@ -440,8 +451,10 @@ export const makePersistence = (tx: Tx) => {
     setLane,
     sendLane,
     dropLane,
-    project,
-    dirty,
+    encodes,
+    close,
+    capture,
+    marked: () => marked,
   };
 };
 

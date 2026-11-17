@@ -31,6 +31,7 @@ const inputs = {
   Fired: Input.Fired({ timer }),
   Stored: Input.Stored({ ticket }),
   Refused: Input.Refused({ ticket }),
+  Capture: Input.Capture({ tickets: [], again: new Map() }),
 } as const;
 
 const lives = {
@@ -40,28 +41,31 @@ const lives = {
   Failed: Life.Failed(),
   Disposing: Life.Disposing({ awaiting: Option.none() }),
   Disposed: Life.Disposed(),
+  Stopped: Life.Stopped(),
 } as const;
 
 type Cell = "run" | "drop" | "not ready" | "disposed";
 
 // Actors `algorithm`, admit, written out cell by cell: Inert, Booting, Open, Failed, Disposing,
-// Disposed.
+// Disposed, Stopped. Stopped rejects the public calls RuntimeDisposed and drops every other input,
+// dispose() included (it fails with the defect, R25).
 const spec: Record<keyof typeof inputs, ReadonlyArray<Cell>> = {
-  Start: ["run", "drop", "drop", "drop", "disposed", "disposed"],
-  Boot: ["drop", "run", "drop", "drop", "disposed", "disposed"],
-  BootFailed: ["drop", "run", "drop", "drop", "drop", "drop"],
-  Ensure: ["not ready", "not ready", "run", "not ready", "disposed", "disposed"],
-  Create: ["not ready", "not ready", "run", "not ready", "disposed", "disposed"],
-  Send: ["not ready", "not ready", "run", "not ready", "disposed", "disposed"],
-  Forget: ["not ready", "not ready", "run", "not ready", "disposed", "disposed"],
-  DisposeActor: ["not ready", "not ready", "run", "not ready", "drop", "drop"],
-  Release: ["drop", "drop", "run", "drop", "drop", "drop"],
-  Serve: ["drop", "drop", "run", "drop", "drop", "drop"],
-  DisposeRuntime: ["run", "run", "run", "run", "drop", "drop"],
-  Settled: ["drop", "drop", "run", "drop", "run", "drop"],
-  Fired: ["drop", "drop", "run", "drop", "run", "drop"],
-  Stored: ["drop", "drop", "run", "drop", "run", "drop"],
-  Refused: ["drop", "drop", "run", "drop", "run", "drop"],
+  Start: ["run", "drop", "drop", "drop", "disposed", "disposed", "disposed"],
+  Boot: ["drop", "run", "drop", "drop", "disposed", "disposed", "drop"],
+  BootFailed: ["drop", "run", "drop", "drop", "drop", "drop", "drop"],
+  Ensure: ["not ready", "not ready", "run", "not ready", "disposed", "disposed", "disposed"],
+  Create: ["not ready", "not ready", "run", "not ready", "disposed", "disposed", "disposed"],
+  Send: ["not ready", "not ready", "run", "not ready", "disposed", "disposed", "disposed"],
+  Forget: ["not ready", "not ready", "run", "not ready", "disposed", "disposed", "disposed"],
+  DisposeActor: ["not ready", "not ready", "run", "not ready", "drop", "drop", "disposed"],
+  Release: ["drop", "drop", "run", "drop", "drop", "drop", "drop"],
+  Serve: ["drop", "drop", "run", "drop", "drop", "drop", "drop"],
+  DisposeRuntime: ["run", "run", "run", "run", "drop", "drop", "drop"],
+  Settled: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
+  Fired: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
+  Stored: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
+  Refused: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
+  Capture: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
 };
 
 const RUN: Cell = "run";

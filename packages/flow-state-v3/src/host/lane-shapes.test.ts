@@ -68,6 +68,7 @@ const exactRecords = [
     | "counter"
     | "attempts"
     | "persistence"
+    | "marked"
     | "withheld"
     | "quarantined"
     | "ended"

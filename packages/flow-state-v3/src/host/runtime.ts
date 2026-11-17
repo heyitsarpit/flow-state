@@ -2,7 +2,7 @@ import { Context, Deferred, Effect, Exit, Layer, Option, Predicate, Result, Scop
 import type { Compiled } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { dependentsOf, Input } from "../core/step.ts";
-import { Life, Verdict } from "../core/life.ts";
+import { endedBy, Life, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
@@ -356,7 +356,7 @@ export const buildRuntime = (
   });
 
   const rejected = (code: "RuntimeNotReady" | "RuntimeDisposed") =>
-    flowError([lifeRejection(code, "ready", "ready()", "boot")]);
+    flowError([lifeRejection(code, "ready", "ready()", "boot", endedBy(driver.world().life))]);
 
   // Storage is read and validated before any app service is acquired; the core's life decides
   // whether the boot it reads still opens the Runtime.
