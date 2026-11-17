@@ -2340,6 +2340,10 @@ tasks
         comment     2026-11-17T09:37:37Z
             Routed (orchestrator, 2026-11-17): deep Nests samples reach the generator and stress runs but not the app
             mix (one samples set per fixture); seat them when the mix takes more than one set.
+        comment     2026-11-17T09:42:12Z
+            Wake timing at 219d7b8e (15:08, with T9's review lead running, so high): suite 77 s, stress 119 s exit 0;
+            faults not timed. Still over twice the 12 s and 9 s baseline after T9's walkers; the test-tooling findings
+            (pair seeds, reload replays) are the bulk.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
