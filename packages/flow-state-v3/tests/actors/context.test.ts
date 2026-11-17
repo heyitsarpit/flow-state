@@ -502,7 +502,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
     expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
   });
 
-  it("Actors R9, R18: a slot whose selector threw at its start is saved unknown, so a return after a reload hears its first value", async () => {
+  it("Actors R9, R18: a slot whose selector threw at its start is saved never selected, so a return after a reload hears its first value", async () => {
     const strict = actorRef(KeptStrictMachine, "s");
 
     const run = checked(

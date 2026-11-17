@@ -1,4 +1,6 @@
+import { Option, Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
+import { Envelope } from "../../fixtures/session/machines/inbox.ts";
 import {
   guestDot,
   guestPresence,
@@ -40,14 +42,34 @@ describe("every value a selector returns, across reloads (Actors R9, R19)", () =
     const once = await played(digestHeard);
 
     const thrice = checked(
-      await digestHeard.run({ steps: [...digestHeard.steps, reload, reload] }),
+      await digestHeard.run({
+        steps: [...digestHeard.steps, reload, reload, Step.checkpoint({ name: "thrice" })],
+      }),
     );
 
-    for (const run of [once, thrice]) {
-      expect(run.checkpoints.reloaded.read(mainDigest)?.memory).toEqual(
-        expect.objectContaining({ heard: 38, busy: 2 }),
-      );
-    }
+    expect(once.checkpoints.reloaded.read(mainDigest)?.memory).toEqual(
+      expect.objectContaining({ heard: 38, busy: 2 }),
+    );
+    expect(thrice.checkpoints["thrice"]?.read(mainDigest)?.memory).toEqual(
+      expect.objectContaining({ heard: 38, busy: 2 }),
+    );
+  });
+
+  it("Actors R18: after a reload the digest reads each slot as its Schema reads it back: a Date, a Map, a Set, a class instance, an Option, NaN and 0 for -0", async () => {
+    const run = await played(digestHeard);
+    const context = run.checkpoints.reloaded.read(mainDigest)?.context ?? {};
+
+    const latest = context["latest"];
+
+    expect(Predicate.isDate(latest) ? latest.getTime() : latest).toBe(4_000);
+    expect(context["unread"]).toBe(1);
+    expect(Object.is(context["owed"], -1)).toBe(true);
+    expect(context["bySender"]).toEqual(new Map([["bob", 1]]));
+    expect(context["senders"]).toEqual(new Set(["bob"]));
+    expect(context["envelope"]).toEqual(new Envelope({ from: "bob", at: 4_000 }));
+    expect(context["first"]).toEqual(Option.some("bob"));
+    expect(run.checkpoints.cleared.read(mainDigest)?.context["owed"]).toBe(0);
+    expect(Number.isNaN(run.checkpoints.cleared.read(mainDigest)?.context["unread"])).toBe(true);
   });
 
   it("Actors R18, R19: a selection holding cycles never crashes the run; the thread view hears each changed tree once, across reloads", async () => {

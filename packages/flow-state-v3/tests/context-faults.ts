@@ -110,15 +110,16 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "thrown-slot-not-saved",
+    name: "never-selected-slot-heard-as-same",
     tests: ["tests/actors/context.test.ts"],
-    says: "a slot whose selector threw at its start is left out of the record, so a return never hears its first value",
+    says: "a slot never selected counts as equal to any selection, so a return never hears its first value",
     rule: "Actors R9",
     edits: [
       {
-        file: "src/core/world.ts",
-        find: "    [...incarnation.bound.keys()].map((slot) => [",
-        replace: "    [...incarnation.context.keys()].map((slot) => [",
+        file: "src/core/slots.ts",
+        find: "  Option.isNone(a)\n    ? Option.isNone(b)\n    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));",
+        replace:
+          "  Option.isNone(a)\n    ? true\n    : Option.exists(b, (y) => Equal.equals(a.value.value, y.value));",
       },
     ],
   },

@@ -552,6 +552,10 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
   - `Workspace/Status` (step 1), ⇠ `team` with no default provider, so its ref must name one.
   - `Workspace/Byline` (step 1), persisted, ⇠ `user` from the session (undefined when signed out) and `team` from
     the core team; counts each change of either it hears.
+  - `Workspace/Inbox` (T9), persisted, ⇢ its messages; `Workspace/Digest` (T9), persisted, ⇠ a Date or undefined,
+    NaN, -0, a Map, a Set, a class instance, an Option and a nested mix, and a reaction reading its own memory;
+    `Workspace/ThreadView` (T9), persisted, ⇠ a tree whose replies point back (cycles).
+  - `Workspace/Presence` (T9), never saved, ⇠ `user`; `Workspace/Dot` (T9), persisted, ⇠ a presence its ref names.
   - `Billing` (step 15), a lazy entry, ⇠ `org`.
 - **Operations:** T `signIn` (have); R `profile`, `teams` (step 4); T `renameTeam` (step 4); T `updatePlan`
   (step 15).
@@ -602,8 +606,13 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       `conflictingBadge` builder.
     - [x] S5: the guests' badge opened before the guests' team, which binds the session its own ref names, so
       opening the team later is the same identity (Actors R5, R18). built: `session/guest-badge-first`.
-    - [x] L4 over every Story: three reloads hear no more onContext events than one (Actors R9, R19). built:
+    - [x] L4 over every context Story, builders' runnable steps included: a second reload at every position hears
+      nothing the first did not, and an end reload of 0, 1 or 3 hears the same (Actors R9, R19). built:
       `tests/rules/reloads.test.ts`.
+    - [x] S5 never saved: the guest's dot starts the guest's presence by its own ref, and a return by a send and a
+      reload with nothing open keep that binding (Actors R18). built: `session/guest-dot-returns`.
+    - [x] S7 nested: a badge whose ref names the live guests' team bound to another session, refused
+      `ConflictingActorRef` (Actors R5). built: the `nestedConflictingTeam` builder.
     - [x] S7: a cycle, corrected: a cycle needs two definitions that read each other as context, which module order
       cannot build without a stand-in definition of the same id (`tests/actors/context.test.ts` uses one), so no app
       reaches `ContextCycle`; whether that refusal should stay is the user's call.
@@ -616,6 +625,15 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       `session/stress-wall-1024`.
     - [x] E7: a corrupt saved record, quarantined. Copies [snapshot.test.ts:108][kp-snap] "returns null on a corrupt
       (non-JSON) payload, no throw". built: `session/corrupt-record`.
+    - [x] E2, E5: every value kind a selector returns (a Date or undefined, NaN, -0, Map, Set, class instance, Option,
+      nested mix, cycles) heard once per change and never at a reload; a reaction reading memory keeps the baseline it
+      read across a reload (Actors R18, R19; Turn R22). built: `session/digest-heard`, `session/thread-heard`,
+      `session/digest-quiet`; the inbox samples set in the generator.
+    - [x] E7: a record naming a last-seen form no release wrote, quarantined, never thrown; a format-1 record steps to
+      format 2 with nothing made up (Restore R5). built: `session/corrupt-seen`, `session/format-one-avatar`.
+    - [ ] Stress and mix reach of the inbox: 64 and more digests on one inbox under L5, and the inbox samples in the
+      mix and the pair sweep. left: no owner Task (routed to the orchestrator); the mix and the pair sweep take one
+      samples set per fixture.
     - [x] E3: an oversized record, quarantined unread. Copies [snapshot.test.ts:123][kp-snap] "returns null on an
       oversized payload without parsing it". built: `session/stress-oversized-record`.
   - **Combinations:**

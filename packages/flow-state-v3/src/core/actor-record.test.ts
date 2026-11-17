@@ -64,6 +64,16 @@ describe("the format-1 step (Restore R5, T6)", () => {
     expect(seen?.get("count")?.value).toBe(0);
   });
 
+  it("Restore R5, T6: a saved value its slot's Schema refuses steps to a slot never selected, and the record still restores", () => {
+    const restored = decodeRecords(
+      machines,
+      new Map([[key, formatOne('{"count":{"value":"many","~":"json"}}')]]),
+    );
+
+    expect(restored.quarantined).toEqual([]);
+    expect(restored.records[0]?.seen.has("count")).toBe(false);
+  });
+
   it("Restore R5: a form no release wrote, `__proto__` among them, quarantines the record and never throws", () => {
     for (const form of ['{"~":"__proto__"}', '{"~":"constructor"}', '{"~":"some"}', "[]"]) {
       const restored = decodeRecords(machines, new Map([[key, formatOne(`{"first":${form}}`)]]));

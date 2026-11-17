@@ -78,22 +78,27 @@ describe("reloads over a consistent saved world (Actors R9, R19; Restore R2)", (
     "Actors R9, R19: at every position of every context Story, a second reload right after a reload hears no onContext event the first did not",
     async () => {
       const made: Array<string> = [];
+      let variants = 0;
+      let skipped = 0;
 
       for (const { story, steps } of contextStories) {
         const ran = story.steps.slice(0, steps);
 
         for (let at = 0; at <= ran.length; at += 1) {
+          variants += 1;
           // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
           const once = await turnsOf(story, ran.toSpliced(at, 0, reload));
           // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
           const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload));
 
-          if (`${once}${twice}`.includes("faulted") || (once !== twice && once !== "skipped"))
+          if (once === "skipped") skipped += 1;
+          else if (`${once}${twice}`.includes("faulted") || once !== twice)
             made.push(`${story.id} at ${at}: ${once} then ${twice}`);
         }
       }
 
       expect(made).toEqual([]);
+      expect(skipped * 10 < variants).toBe(true);
     },
     RELOADS_MS,
   );

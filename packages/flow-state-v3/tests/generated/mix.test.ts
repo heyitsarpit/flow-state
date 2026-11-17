@@ -169,7 +169,7 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
     expect(runs.map((g) => g.shared > 0)).toEqual(SEEDS.map(() => true));
   });
 
-  it("Testing O6: a send to a closed screen opens it once, then sends: no ensure repeats back to back, and every opened screen hears its send", () => {
+  it("Testing O6: a send to a closed screen opens it once, then sends: no ensure repeats back to back, and an opened screen's send follows its ensure", () => {
     const keyOf = (step: Step) =>
       step._tag === "ensure" || step._tag === "send"
         ? `${step.actor.machine}/${step.actor.name}`
