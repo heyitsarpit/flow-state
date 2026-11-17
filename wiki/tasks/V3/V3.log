@@ -1064,3 +1064,8 @@ note 2026-11-17T16:23:23Z
     Decision (the user, 2026-11-17): standardise the bench, split by concern, filterable, one CSV per concern labelled
     by commit; new T87 (turn, scale, persist, values, tooling; record, compare, backfill), before T83, which waits on it
     and loses its bench warm-up item.
+
+note 2026-11-17T16:26:55Z
+    Bench design reviewed by two Sonnets: prior art (raw samples, noise from samples, fresh processes, interleaved A/B,
+    batching, warm-up rule, environment) and Flow needs (startup, memory and leaks, inspector overhead, fixture shape,
+    headline summary, budgets) sent to T87's lead; later feature benches routed to T24, T25, T27, T28, T29, T30, T48.
