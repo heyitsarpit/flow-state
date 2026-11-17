@@ -3404,7 +3404,7 @@ tasks
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T87]
         description
@@ -3450,4 +3450,18 @@ tasks
             (no-explicit-any/no-unknown) each fail before and after with matching diagnostics. C4 lint:rules, formatter,
             package suite counts unchanged. C5 before/after wall time and peak memory. C6 any loss leaves live tree
             unchanged. Plants live in a scratch copy only.
+        comment     2026-11-17T20:56:21Z
+            Verdict: blocked, live tree unchanged. Trial (scratch clone, vite-plus 1.7.0, oxlint/@oxlint/plugins 1.94.0,
+            tsrs 7.1.0-beta.tsrs2, vitest 5.1.0): vp check diagnostics on 4 planted errors identical line by line (5
+            errors, tsrs-lint used), clean tree passes, formatter 418 files and suite (2 failed T20 pair reds, 1314
+            passed) match. Gaps: (1) lint:rules fails under oxlint 1.94: no-large-production-file test expects Program
+            start at line 2 after a leading comment, now line 1; one-line change at
+            tools/lint-bomb/src/rules/typescript/no-large-production-file.test.ts:67 (outside this Task's may-change)
+            turns it green; (2) nub's 24h release-age gate blocks vite-plus 1.7.0 and vite-plus-core 8.3.8000 (published
+            2026-11-17 03:3xZ) until about 2026-11-18 03:30Z; trial used --minimum-release-age=0, live tree not
+            exempted. Timings, vp check clean: 1.8 s and 870 MB before, 1.0 s and 540 MB after; full nub run check 4.3 s
+            before and 5.4 s after (effect-tsgo and plan-coverage dominate; no gain). bench tooling not recorded since
+            live tree unchanged. To resume: after the gate clears, bump package.json (vite-plus, vite override and alias
+            8.3.8000, oxlint, @oxlint/plugins 1.94.0, vitest 5.1.0, coverage-v8 5.1.0, add tsrs 7.1.0-beta.tsrs2), fix
+            the test line, re-run gates.
 
