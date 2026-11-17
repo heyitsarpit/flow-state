@@ -1085,3 +1085,7 @@ note 2026-11-17T17:51:21Z
 note 2026-11-17T18:54:39Z
     Decision (the user, 2026-11-18): bench on battery, power state recorded and compared like for like; run every couple
     of hours or for performance work, not at each Task close; quick tier keeps every Story (~95 s). T87 closing on that.
+
+note 2026-11-17T19:21:00Z
+    T87 in review at 942de7e9: manifest-driven bench, dev mode 2 s, quick tier 98 s, 240 s cap and per-bench timeouts,
+    battery recording. Findings to T83: about 280 B retained per actor cycle, serialize slope 0.55. Opus review started.
