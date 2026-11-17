@@ -2914,6 +2914,30 @@ tasks
             exit 0; stored records identical to 9c46f647 at every checkpoint of 152 Stories. nub run faults not judged
             (unchanged suite red: T20's reds and sweep timeouts under load, as at T79); every fault added or retargeted
             here (36) planted alone and caught.
+        comment     2026-11-17T15:28:25Z
+            Review (independent lead, d22e51e6; src unchanged at dc64cd24): PASS, no blocking finding; no lost, doubled
+            or made-up ending found. `nub run check` exit 0; suite exit 1 with only T20's two pair reds (1,301 pass, 13
+            expected fail), the same two red at 9c46f647. Stored records dumped from scratch copies at all 474 cuts (322
+            checkpoints, 152 ends) of 152 Stories: 0 drifts from 9c46f647; a planted Capture that drops one write per
+            batch drifts 240 cuts and turns 125 suite tests red. The D30 Story, both R25 probes and finding 12's wave
+            test are red at 9c46f647 and green here; stopped-runtime-writes planted alone is caught by runtime.test.ts.
+            Four Haiku sidecars: every lost-key path (refusal, runtime dispose with a withheld identity, Stopped,
+            interrupted write, retry timing) is rejected as pre-existing or by design (R4, R12). Non-blocking, proposed:
+            (1) snapshot.ts reads Life Stopped in the host against Actors I42, and the guard regex in
+            src/host/life.test.ts omits Stopped; use the core's actorLifecycleOf; (2) an ended identity's snapshot still
+            reads disposed after a stop (R25 says every snapshot); (3) the I20 run rule reads in-memory owed rows, not
+            stored records; (4) acceptance 3's Chromium and Safari timing is not done, so it is the user's call to
+            accept Node only or route it. Bench (Node, alone, three interleaved rounds, per-turn median ms, 9c46f647 to
+            HEAD): session/long 0.110-0.112 to 0.118-0.119 (+7 %); transfers/long 0.042 to 0.045-0.046 (+8 %);
+            palette/stress 0.074-0.076 to 0.079-0.082; stress-36 flat. Hide of 1,000 actors plus a 445 KB record: sends
+            13.8-14.9 to 6.4-7.5 ms; handler 0.07 to 6.1-6.4 ms; the two together 13.8-15.0 to 12.7-13.9 ms. Hide of 100
+            actors: handler 0.8 ms (about 6 µs per dirty identity). Recommendation (proposed): keep capture on issue. It
+            buys one encode path for batches, withholding, hide and dispose; the D30 refusal fixed; bursts 2x cheaper;
+            and less total work. The per-turn cost is the extra Capture step that the captureMs 0 fixtures run after
+            every step. Folding Capture into the end of a step whose marks are due now while no batch is out would
+            remove it; the saving is bounded by the gap above and is unmeasured. Time Safari before any hide pre-encode.
+            Housekeeping: no root node_modules/node_modules and git status is clean; the self-link
+            packages/flow-state-v3/node_modules/node_modules (Nov 11) remains; nub install has no --dry-run.
 
     T86
         title       Fixtures follow their layout: flat files moved, shared services in one place, pay becomes shop
