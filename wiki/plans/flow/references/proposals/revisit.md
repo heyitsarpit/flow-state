@@ -128,3 +128,5 @@ Deferred items.
   lookup. Worth it only with a Turn change that touches the chain (Turn R20, R21); alone it moves risk without a
   failing case.
 
+- **A prover module offered by Flow** (2026-11-17, the user; [prover-ideas-2026-11-17.md](prover-ideas-2026-11-17.md)).
+  Properties in `*.props.ts` files, proved or refuted over machines and apps; ideas only, not in scope now.
