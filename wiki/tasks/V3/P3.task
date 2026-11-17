@@ -13,9 +13,10 @@ description
 
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
     order the user set; then @task.V3.T79 (code convergence with the step's edit operations), @task.V3.T86 (fixture
-    layout), @task.V3.T85 (capture on issue), @task.V3.T84 (no caps), @task.V3.T83 (fast tests), T20's close,
-    @task.V3.T81 (construction bugs) and @task.V3.T80 (the user, 2026-11-16; reordered by the user's Q14 A, 2026-11-17).
-    A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in this order.
+    layout), @task.V3.T85 (capture on issue), @task.V3.T84 (no caps), @task.V3.T87 (bench), @task.V3.T83 (fast tests),
+    T20's close, @task.V3.T81 (construction bugs) and @task.V3.T80 (the user, 2026-11-16; reordered by the user's Q14 A,
+    2026-11-17). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in
+    this order.
 
     **Verified by:**
 
@@ -2643,7 +2644,7 @@ tasks
         title       Fast test commands again: suite, stress and faults with no regression from the baseline
         status      open
         priority    high
-        blocked_by  [@T84]
+        blocked_by  [@T84, @T87]
         description
             Make the test commands fast again: the package suite, `nub run test:stress` and `nub run faults` with no
             regression from the measured baseline without a named cause, and no gate weakened.
@@ -2682,9 +2683,8 @@ tasks
             - No timeout is raised without a measured reason.
             - Every test-tooling guard has one source and a measured size (the user, 2026-11-17, Q5 A): the Story turn,
               settle-task and advance limits; the faults run's timeout, copies (from CPU and memory) and output buffer;
-              the stress and generated-Story test timeouts; the generator's weights, lengths and shrink budgets; the
-              bench's warm-up from a stability check that reports variance; Story advances read the capture interval
-              instead of a literal.
+              the stress and generated-Story test timeouts; the generator's weights, lengths and shrink budgets; Story
+              advances read the capture interval instead of a literal.
             - `nub run check` and `nub run lint:rules` pass; a new speed note with the baseline is in V3.log.
         comment     2026-11-17T02:11:38Z
             Routed (orchestrator, 2026-11-17): generated.stress 'palette: stress runs from fixed seeds' hits its 60 s
@@ -3084,3 +3084,66 @@ tasks
             `shop/store-samples`) and test that sample-set ids are unique. Keep Pay in fixtures/services/shop/machines/
             and add `services/` to fixtures.md; rename the `…/pay/ShopApi`, `CartApi`, `…/sync/GitApi` keys and
             tests/pay/ later (no key is persisted).
+
+    T87
+        title       One bench tool, split by concern: filterable runs, CSV history by commit, compare with noise bands
+        status      open
+        priority    high
+        description
+            The bench is one standard tool split by concern: each benchmark is declared once with an id, a concern and
+            tags; `nub run bench` runs all, one concern, or a filter; results append to one CSV per concern, labelled by
+            commit, runtime and machine; and a compare mode shows each number against a past commit with its noise band.
+
+            **Why now:** the bench prints one terminal table, so numbers reach Task comments by hand, measured at
+            different times, loads and runtimes, and no before/after across Tasks can be trusted (the user, 2026-11-17:
+            standardise it, split by concern, filter or run benches one at a time, several CSVs if needed). Every later
+            Task and P8's budgets (@task.V3.T35) read from it.
+
+            **Read first:** `packages/flow-state-v3/bench/run.ts` and `bench/time.ts`, @task.V3.T66 (the bench as
+            built), @task.V3.T35 (P8: browsers, devices and budget targets build on this), skill:check-benchmark,
+            skill:principle-explain-measurements,
+            code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md (what was measured by
+            hand today).
+
+            **Concerns** (a first cut the lead may reshape, each its own CSV):
+
+            - `turn`: per-turn median and p99 of each fixture's long Story, the regression watch for ordinary apps.
+            - `scale`: series over size (actors, saved identities, mailbox depth, serialize queue depth, list length,
+              value depth), each reported with its growth factor per 10x of size.
+            - `persist`: Capture per batch, the hide flush with N changed actors, boot restore of N records,
+              bytes written.
+            - `values`: compiled walkers' encode, decode and compare per value kind and size, and the memo's hit rate.
+            - `tooling`: wall time of the package suite, `nub run test:stress` and `nub run faults`, which today's wakes
+              time by hand.
+
+            **Risk:** a bench that measures the wrong work or a noisy machine reads as a regression; each bench proves
+            it does the work it claims, and recording refuses while other heavy processes run. Machine ids are an opaque
+            label, never a user or host name. Benchmarks are performance baselines, not recorded test output, so the
+            Epic allows them.
+
+            May change: `packages/flow-state-v3/bench/`, `package.json` scripts, `tools/`, `fixtures/` (bench
+            declarations in manifests only). Evidence: this Task's comments and the CSVs.
+
+            False pass: a bench that silently skips its work or times a different Story → caught by the existing check
+            that a bench does the same turns as its tested run, applied to every bench, and by skill:check-benchmark's
+            tamper checks.
+        acceptance
+            - Every benchmark is declared once with a unique id, a concern, tags and its size; a test fails on a
+              duplicate id or an undeclared concern.
+            - `nub run bench` runs everything; `nub run bench <concern...>` and `--only <pattern>` run a subset;
+              `--list` lists ids; `--runs` and `--warmup` override the defaults.
+            - `--record` appends rows to `bench/history/<concern>.csv` with commit (and a dirty flag), date, runtime and
+              version, an opaque machine label, bench id, size, runs, median, p99, min and spread, plus per-concern
+              columns (memo hits, bytes); a Schema validates every row; recording refuses while the machine is busy.
+            - Warm-up runs until timings are stable rather than a fixed count, and every result reports its spread.
+            - `--compare <commit>` prints each bench against that commit's rows on the same runtime and machine, marks
+              changes beyond the noise band, and reports each series' growth factor; anything over the 16 ms frame
+              budget is flagged.
+            - A backfill script runs a past commit in a clean worktree for the benches it shares; today's start commit
+              c4494083 and each Task close since are backfilled where their Stories exist.
+            - Every bench proves it does the work it claims (same turns as its tested run, or an equivalent count check
+              per concern).
+            - The wakes' and Task closes' timings come from `nub run bench tooling --record` and `--record`; the Epic's
+              "builder records the bench's numbers in the Task's comment" becomes a pointer to the CSV rows (an
+              Amendment note, the user's request).
+            - `nub run check` passes; the package stays self-contained.

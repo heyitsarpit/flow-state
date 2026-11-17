@@ -1059,3 +1059,8 @@ note 2026-11-17T16:21:24Z
     T84 done: review PASS at 7bc218ee (3fe5a6ef). The 4.9x per-identity cost is the Story harness's eager view(), not
     the runtime. Leftovers to T83, with RuntimeDefaults made internal and loopGuard dropped (orchestrator's call). Q23
     (bench history CSV) asked; T83 starts after the answer.
+
+note 2026-11-17T16:23:23Z
+    Decision (the user, 2026-11-17): standardise the bench, split by concern, filterable, one CSV per concern labelled
+    by commit; new T87 (turn, scale, persist, values, tooling; record, compare, backfill), before T83, which waits on it
+    and loses its bench warm-up item.
