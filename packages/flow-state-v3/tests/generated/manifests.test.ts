@@ -57,3 +57,15 @@ describe("every fixture registers one manifest (fixtures.md, Where a fixture is 
       expect(registered).toEqual(await exportedStoryIds(manifest.name));
     });
 });
+
+describe("sample-set ids", () => {
+  it("every set in samples and in stressSamples has its own id across all manifests", () => {
+    const lists = [manifests.flatMap((m) => m.samples), manifests.flatMap((m) => m.stressSamples)];
+
+    for (const sets of lists) {
+      const ids = sets.map((s) => s.id);
+
+      expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
+    }
+  });
+});

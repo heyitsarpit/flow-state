@@ -51,12 +51,16 @@ fixtures/<app>/
   stories/long.ts        the bench's long run
   adapters/<service>.ts  a live adapter over the real API (`fetch`, an SDK), which tests may import
   index.ts               the manifest that registers the fixture with every runner
+
+fixtures/services/<service>/   the contracts, fake server, adapter and any machine that several apps use
 ```
 
 - **Code survives; files may move.** Existing machines, their Stories and their tests are never deleted or rewritten:
   each is modified where a new feature needs it and grown as new features need more complex interactions (the user,
   2026-11-17). Files written before this layout may move into it; machine, persisted and Story ids are strings in
   the code, so a move changes none of them.
+- **Shared pieces live in `services/`.** A fixture imports a shared piece only from `fixtures/services/<service>/`,
+  never from inside another fixture's folder.
 - **Only files with content.** An app with no stream has no `operations/streams.ts`.
 - **Data comes from a real-shaped source.** Every ending comes from a fake server's answer through the app's own
   service, the path a real `fetch` or SDK call would take; a fixture never injects an outcome

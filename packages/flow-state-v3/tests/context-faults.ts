@@ -263,7 +263,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "story-dispose-skips-admission",
-    tests: ["tests/session/session.test.ts", "tests/pay/store.test.ts"],
+    tests: ["tests/session/session.test.ts", "tests/shop/store.test.ts"],
     says: "a Story's dispose goes past the Runtime's admission, so a provider with bound consumers is disposed",
     rule: "Stories R3",
     edits: [

@@ -9,8 +9,8 @@ import { add, setQuantity, storeStory } from "./usual.ts";
  * service sells a variant out or runs low. Pay's own samples drive the checkout's Pay.
  */
 export const samples = samplesOf({
-  id: "shop",
-  story: storeStory("shop/samples"),
+  id: "shop-store",
+  story: storeStory("shop/store-samples"),
   names: { setup: "storeSetup", fixtures: ["ShopFake", "CartFake"] },
   actors: { mainShopper, mainCart, mainBadge, mainFlow },
   servers: { Carts },

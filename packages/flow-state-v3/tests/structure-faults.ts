@@ -83,7 +83,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "refused-publishes-nothing",
-    tests: ["tests/pay/pay.test.ts"],
+    tests: ["tests/shop/pay.test.ts"],
     says: "a refused event turn publishes no issue-only snapshot",
     rule: "Turn I14",
     edits: [

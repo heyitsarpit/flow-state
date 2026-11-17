@@ -190,7 +190,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "actor-never-saved",
-    tests: ["tests/pay/pay.test.ts"],
+    tests: ["tests/shop/pay.test.ts"],
     says: "an actor's record always saves its initial state, so after a reload it runs from a state it never published",
     rule: "Turn I2",
     edits: [

@@ -4,7 +4,7 @@ import { defineConfig } from "./src/host/testing/index.ts";
 const config = defineConfig({
   apps: manifests.map((m) => ({
     app: m.app,
-    stories: [`fixtures/${m.name}/{stories.ts,stories/*.ts}`],
+    stories: [`fixtures/${m.name}/stories/*.ts`],
   })),
 });
 
