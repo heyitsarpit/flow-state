@@ -42,6 +42,22 @@ const holed = (first: number) => {
 };
 
 describe("structural equality without the call stack (Codec R6)", () => {
+  it("Codec R6: a Set's members compare by everything they hold: a DataView's bytes, a regular expression's text, and where a cycle points", () => {
+    const view = (byte: number) => new DataView(new Uint8Array([byte]).buffer);
+    const toSelf: Record<string, unknown> = {};
+    toSelf["n"] = { back: toSelf };
+    const child: Record<string, unknown> = {};
+    child["back"] = child;
+    const toChild = { n: child };
+
+    expect(sameValue(new Set([view(1)]), new Set([view(2)]))).toBe(false);
+    expect(sameValue(new Set([view(1)]), new Set([view(1)]))).toBe(true);
+    expect(sameValue(view(1), view(2))).toBe(false);
+    expect(sameValue(new Set([/a/]), new Set([/b/]))).toBe(false);
+    expect(sameValue(new Set([/a/]), new Set([/a/]))).toBe(true);
+    expect(sameValue(new Set([toSelf]), new Set([toChild]))).toBe(false);
+  });
+
   it("Codec R6: each value kind compares as Equal does, equal and unequal, shallow", () => {
     for (const [, wrap] of kinds)
       for (const [a, b] of [

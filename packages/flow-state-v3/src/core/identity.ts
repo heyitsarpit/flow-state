@@ -1,5 +1,5 @@
 import { byCodeUnits } from "./world.ts";
-import { Predicate, Result, Schema } from "effect";
+import { Option, Predicate, Result, Schema } from "effect";
 import { parseCanonical, writeJson } from "./codec.ts";
 import { type Compiled, type Field, Source, type Values } from "./compiled.ts";
 
@@ -34,7 +34,8 @@ export const nameSchemaOf = (fields: ReadonlyArray<Field>) =>
 /**
  * The name a value names an actor by: its input fields, each checked by its Schema's type side
  * and encoded, in field-name order, as JSON text. Fields the value has beyond its input are not
- * part of the identity. Fails with the first field that is missing or does not type-check.
+ * part of the identity. Fails with the first field that is missing or does not type-check, or,
+ * when every field checks, with none: the input has no encoded form.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a ref's value is the caller's; each input field is checked before it is trusted.
 export const nameOfValue = (compiled: Compiled, value: unknown) => {
@@ -43,7 +44,7 @@ export const nameOfValue = (compiled: Compiled, value: unknown) => {
   for (const field of inputFieldsOf(compiled)) {
     const given = Predicate.hasProperty(value, field.name) ? value[field.name] : undefined;
 
-    if (!field.is(given)) return Result.fail(field.name);
+    if (!field.is(given)) return Result.fail(Option.some(field.name));
     input[field.name] = given;
   }
 
@@ -51,7 +52,7 @@ export const nameOfValue = (compiled: Compiled, value: unknown) => {
     Result.flatMap(compiled.identity.encode(input), (encoded) =>
       Result.mapError(writeJson(encoded), () => "schema"),
     ),
-    () => compiled.id,
+    () => Option.none<string>(),
   );
 };
 

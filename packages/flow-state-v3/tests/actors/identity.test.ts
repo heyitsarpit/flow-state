@@ -124,6 +124,20 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
     expect(Option.isSome(editor.getSnapshot())).toBe(true);
   });
 
+  it("Actors R6, I9: an input that type-checks but has no encoded form (a lone surrogate) throws SchemaValidation naming the input, not a field", () => {
+    const runtime = ready();
+
+    const thrown = Option.getOrThrow(
+      thrownBy(() =>
+        runtime.ensureActor(actorRef(EditorMachine, { workspaceId: "\uD800", ticketId: "T" })),
+      ),
+    );
+
+    expect(thrown.code).toBe("SchemaValidation");
+    expect(thrown.diagnostics[0].path).toEqual(["Identity/Editor"]);
+    expect(thrown.diagnostics[0].summary).toContain("no encoded form");
+  });
+
   it("Actors R5: a singleton is named by its literal name", async () => {
     const one = actorRef(ClockMachine, "one");
 

@@ -184,4 +184,48 @@ export const codecFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "cycle-target-unplaced",
+    tests: ["src/core/same.test.ts"],
+    says: "a Set member's cycle is keyed without where it points, so two different cyclic members compare equal",
+    rule: "Codec R6",
+    edits: [
+      {
+        file: "src/core/same.ts",
+        find: "    place(`^${stack.length - at}`);",
+        replace: '    place("cycle");',
+      },
+    ],
+  },
+  {
+    name: "dataview-bytes-ignored",
+    tests: ["src/core/same.test.ts"],
+    says: "a DataView is keyed without its bytes, so two views of different bytes compare equal",
+    rule: "Codec R6",
+    edits: [
+      {
+        file: "src/core/same.ts",
+        find: "  if (value instanceof DataView)\n",
+        replace: "  if (value instanceof DataView && value.byteLength < 0)\n",
+      },
+    ],
+  },
+  {
+    name: "default-shared-across-levels",
+    tests: ["src/core/boundary.test.ts"],
+    says: "past the call stack's budget, a default with an effect runs once and every level shares its value",
+    rule: "Codec R6",
+    edits: [
+      {
+        file: "src/core/boundary.ts",
+        find: "      const table = levels.get(level) ?? new Map<Value, Value>();",
+        replace: "      const table = levels.get(undefined) ?? new Map<Value, Value>();",
+      },
+      {
+        file: "src/core/boundary.ts",
+        find: "      levels.set(level, table);",
+        replace: "      levels.set(undefined, table);",
+      },
+    ],
+  },
 ];

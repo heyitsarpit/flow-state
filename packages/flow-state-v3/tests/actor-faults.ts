@@ -42,7 +42,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/identity.ts",
-        find: "    if (!field.is(given)) return Result.fail(field.name);",
+        find: "    if (!field.is(given)) return Result.fail(Option.some(field.name));",
         replace: "",
       },
     ],
@@ -277,6 +277,19 @@ export const actorFaults: ReadonlyArray<Fault> = [
         file: "src/host/runtime.ts",
         find: "    if (target[HandleId].runtime === driver) return target[HandleId].actor;",
         replace: "    return target[HandleId].actor;",
+      },
+    ],
+  },
+  {
+    name: "unencodable-name-blames-machine",
+    tests: ["tests/actors/identity.test.ts"],
+    says: "an input with no encoded form is reported as a missing field named after the machine",
+    rule: "Actors R6",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: "            path: [compiled.id],\n",
+        replace: "            path: [compiled.id, compiled.id],\n",
       },
     ],
   },

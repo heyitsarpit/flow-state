@@ -127,3 +127,37 @@ describe("the walkers agree with Effect's parser (Codec R6, I8)", () => {
         expect(disagreementsOf(wrap(leaf), leafName.length * 31 + wrapName.length)).toEqual([]);
       });
 });
+
+describe("a decoding default past the call stack's budget (Codec R6)", () => {
+  it("Codec R6: a default with an effect runs at each level that lacks its key, however deep", () => {
+    const made = { count: 0 };
+
+    const stamp = Schema.Number.pipe(
+      Schema.withDecodingDefaultKey(Effect.sync(() => (made.count += 1))),
+    );
+
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the type of a Schema.optionalKey field, as the Schema reads it
+    type Level = { readonly stamp: number; readonly next?: Level };
+
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the encoded side of Schema.optionalKey fields
+    const Level: Schema.Codec<Level, { readonly stamp?: number; readonly next?: unknown }> =
+      Schema.Struct({
+        stamp,
+        next: Schema.optionalKey(Schema.suspend(() => Level)),
+      });
+
+    const depth = 200;
+
+    const input = Array.from({ length: depth - 1 }).reduce<Record<string, unknown>>(
+      (inner) => ({ next: inner }),
+      {},
+    );
+
+    const decoded = Result.getOrThrow(walkerOf(Level).decode(input));
+    const stamps = new Set<number>();
+
+    for (let at: Level | undefined = decoded; at !== undefined; at = at.next) stamps.add(at.stamp);
+
+    expect(stamps.size).toBe(depth);
+  });
+});

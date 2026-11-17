@@ -41,9 +41,12 @@ type Work = { readonly ast: Ast; readonly input: Value };
 // on the call stack, how deep it stands and whether it met a hole past its budget.
 class Walk {
   readonly results = new Map<Ast, Map<Value, Parsed>>();
-  // Each transformation's outputs by input: a level parsed again reads the very values a
-  // transformation made the first time (a parsed JSON string), so its holes find their results.
-  readonly transformed = new Map<Value, Map<Value, Value>>();
+  // Each transformation's outputs by level and input: a level parsed again reads the very values a
+  // transformation made the first time (a parsed JSON string), so its holes find their results;
+  // another level runs it afresh, so a default with an effect runs once per level.
+  readonly transformed = new Map<Value, Map<Value, Map<Value, Value>>>();
+  // The value of the level the walk's own stack is parsing.
+  level: Value = undefined;
   readonly waiting: Array<Work> = [];
   readonly budget: number;
   depth = 0;
@@ -51,6 +54,13 @@ class Walk {
 
   constructor(budget: number) {
     this.budget = budget;
+  }
+
+  // Parses one level of the walk's own stack.
+  parsing(level: Value, parse: () => Parsed) {
+    this.level = level;
+
+    return parse();
   }
 
   // Runs one level a hole deeper on the call stack.
@@ -226,11 +236,13 @@ const compile = (root: Ast) => {
     const keeping = (input: Value, options: Value) => {
       if (Option.isNone(current) || current.value.budget > 0) return transform(input, options);
 
-      const { transformed } = current.value;
-      const table = transformed.get(getter) ?? new Map<Value, Value>();
+      const { transformed, level } = current.value;
+      const levels = transformed.get(getter) ?? new Map<Value, Map<Value, Value>>();
+      const table = levels.get(level) ?? new Map<Value, Value>();
       const key = inputKey(input);
 
-      transformed.set(getter, table);
+      transformed.set(getter, levels);
+      levels.set(level, table);
 
       if (table.has(key)) return table.get(key);
 
@@ -383,7 +395,10 @@ const compile = (root: Ast) => {
 
     for (let top = stack.at(-1); top !== undefined; top = stack.at(-1)) {
       const done = resultOf(walk, top.ast, top.input) !== undefined;
-      const result = done ? Option.none() : Option.some(parserOf(top.ast)(top.input, NO_OPTIONS));
+
+      const result = done
+        ? Option.none()
+        : Option.some(walk.parsing(top.input, () => parserOf(top.ast)(top.input, NO_OPTIONS)));
 
       if (Option.isSome(result) && walk.waiting.length > 0) {
         open.set(top.ast, (open.get(top.ast) ?? new Set<Value>()).add(top.input));

@@ -87,28 +87,59 @@ const leafKey = (value: Node, ids: Map<Node, number>) => {
   return `r:${idIn(ids, value)}`;
 };
 
-// A container being keyed: its children, how their keys join, and their keys so far.
+// A container being keyed: its children, how their keys join, their keys so far, and the
+// shallowest place on the path a back reference under it points to (its key is its own only when
+// that is no higher than itself).
 type Frame = {
   readonly value: Container;
   readonly head: string;
   readonly nodes: ReadonlyArray<Node>;
   readonly sorted: boolean;
   readonly keys: Array<string>;
+  reach: number;
 };
 
-// A container's frame: a Map's entries and a Set's items keyed in sorted order, a Date by its time,
-// another object by its prototype and its own fields in key order.
+// A built-in value's whole content as text: a Date's time, a regular expression's source and
+// flags, a DataView's bytes. A typed array is keyed by its elements, as an object.
+const builtInHead = (value: Container) => {
+  if (Predicate.isDate(value)) return Option.some(`D${value.getTime()}`);
+
+  if (value instanceof RegExp) return Option.some(`R${String(value)}`);
+
+  if (value instanceof DataView)
+    return Option.some(
+      `V${new Uint8Array(value.buffer, value.byteOffset, value.byteLength).join(".")}`,
+    );
+
+  return Option.none<string>();
+};
+
+// A container's frame: a Map's entries and a Set's items keyed in sorted order, a built-in value by
+// its content, another object by its prototype and its own fields in key order.
 // RETURN_TYPE: every branch is a container's frame.
 const frameOf = (value: Container, ids: Map<Node, number>): Frame => {
-  if (isList(value)) return { value, head: "[", nodes: Array.from(value), sorted: false, keys: [] };
+  const reach = Number.POSITIVE_INFINITY;
+
+  if (isList(value))
+    return { value, head: "[", nodes: Array.from(value), sorted: false, keys: [], reach };
 
   if (value instanceof Map)
-    return { value, head: "M", nodes: [...value].map(([k, v]) => [k, v]), sorted: true, keys: [] };
+    return {
+      value,
+      head: "M",
+      nodes: [...value].map(([k, v]) => [k, v]),
+      sorted: true,
+      keys: [],
+      reach,
+    };
 
-  if (value instanceof Set) return { value, head: "S", nodes: [...value], sorted: true, keys: [] };
+  if (value instanceof Set)
+    return { value, head: "S", nodes: [...value], sorted: true, keys: [], reach };
 
-  if (Predicate.isDate(value))
-    return { value, head: `D${value.getTime()}`, nodes: [], sorted: false, keys: [] };
+  const builtIn = builtInHead(value);
+
+  if (Option.isSome(builtIn))
+    return { value, head: builtIn.value, nodes: [], sorted: false, keys: [], reach };
 
   const keys = Reflect.ownKeys(value).toSorted((x, y) => {
     const kx = leafKey(x, ids);
@@ -123,15 +154,19 @@ const frameOf = (value: Container, ids: Map<Node, number>): Frame => {
     nodes: keys.map((k) => [k, value[k]]),
     sorted: false,
     keys: [],
+    reach,
   };
 };
 
 // A value's structural key: equal values, as this module holds them, give equal keys. Written
 // with its own stack, children first; a container's key is the id of its written form, its
 // children's keys in order (Maps' entries and Sets' items sorted, so their order is not part of
-// it). An object on its own path (a cycle) is written as a back reference.
+// it). An object on its own path (a cycle) is written as a back reference by how far up the path
+// it is, and a container whose subtree points above itself is not kept as known, since its key
+// depends on that path.
 const keyOf = (root: Node, { ids, forms, known }: Keys) => {
-  const open = new Set<Node>();
+  // Each object on the path, by its place in the stack.
+  const open = new Map<Node, number>();
   const stack: Array<Frame> = [];
   let result = "";
 
@@ -150,12 +185,20 @@ const keyOf = (root: Node, { ids, forms, known }: Keys) => {
     return `#${id}`;
   };
 
+  // A back reference to the object at a place on the path, by how far up it is.
+  const back = (at: number) => {
+    const parent = stack.at(-1);
+
+    if (parent !== undefined) parent.reach = Math.min(parent.reach, at);
+    place(`^${stack.length - at}`);
+  };
+
   const enter = (value: Node) => {
     if (!Predicate.isObjectOrArray(value)) place(leafKey(value, ids));
     else if (known.has(value)) place(known.get(value) ?? "");
-    else if (open.has(value)) place("cycle");
+    else if (open.has(value)) back(open.get(value) ?? 0);
     else {
-      open.add(value);
+      open.set(value, stack.length);
       stack.push(frameOf(value, ids));
     }
   };
@@ -165,8 +208,11 @@ const keyOf = (root: Node, { ids, forms, known }: Keys) => {
     open.delete(frame.value);
     const keys = frame.sorted ? frame.keys.toSorted() : frame.keys;
     const key = formId(`${frame.head}(${keys.join(",")})`);
+    const parent = stack.at(-1);
 
-    known.set(frame.value, key);
+    if (frame.reach >= stack.length) known.set(frame.value, key);
+
+    if (parent !== undefined) parent.reach = Math.min(parent.reach, frame.reach);
     place(key);
   };
 

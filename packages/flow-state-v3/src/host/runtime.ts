@@ -161,12 +161,20 @@ export const actorIdOf = (ref: ActorRef): ActorId => {
     onFailure: (field) => {
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a ref's contract: an input its Schema refuses throws before any work
       throw flowError([
-        {
-          code: "SchemaValidation",
-          path: [compiled.id, field],
-          summary: `the input field ${field} of ${compiled.id} is missing or refused by its Schema`,
-          help: `Give ${field} a value its Schema accepts.`,
-        },
+        Option.match(field, {
+          onSome: (name) => ({
+            code: "SchemaValidation" as const,
+            path: [compiled.id, name],
+            summary: `the input field ${name} of ${compiled.id} is missing or refused by its Schema`,
+            help: `Give ${name} a value its Schema accepts.`,
+          }),
+          onNone: () => ({
+            code: "SchemaValidation" as const,
+            path: [compiled.id],
+            summary: `the input of ${compiled.id} has no encoded form, so it cannot name an actor`,
+            help: "Name the actor by values JSON can hold: no non-finite number, lone surrogate or cycle.",
+          }),
+        }),
       ]);
     },
   });
