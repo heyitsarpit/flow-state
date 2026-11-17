@@ -3178,6 +3178,30 @@ tasks
             fixtures/index.ts, with subjects derived per manifest and run counts from a time budget; raw samples stay
             local and git-ignored, only the CSVs are committed; no more backfill now (later, from T86's commit on, since
             earlier commits have no manifests).
+        comment     2026-11-17T18:06:51Z
+            Redesign (5c9af78d, Q24 A): subjects derive from the manifests only (`fixtures/index.ts`). Manifest gains
+            `setup` (beside `app`) and `bench: { probe, stories }`: `probe(n)` names the actor the memory benches fill a
+            Runtime with; `stories` mark extra turn Stories (`benchTurn`) or sized series points (`benchPoint`, growth
+            flat 0.3 or linear 1.2 by default, `maxSlope` to override). Run counts come from a 2 s sampling budget per
+            worker (5 samples at least, 1,000 at most). Persist is declared when any machine compiles with `persist`,
+            timing the first of the app's Stories that lands a write (sign-in's long and saved stress Stories land
+            none). Raw samples are git-ignored; retry duplicates removed (turn 125 to 88 rows).
+        comment     2026-11-17T18:06:51Z
+            Ids changed (turn ids kept): scale `scale.<app>.<series>-<n>.per-turn-ms` (crowd-16/256 become
+            lanes.actors-16/256, wall-64 and stress-wall-5000 become session.saved-identities-64/5000, nest-lists-N
+            become session.value-depth-N, large-list-10000 and stress-huge-list-300000 become
+            command-palette.list-length-1000/10000/100000, past-cap singles become key-, email-, id-, room-length
+            series); persist `persist.<app>.per-batch-ms`; startup `startup.<app>.boot-empty-ms`, `cold-boot-ms` and
+            `startup.<story>.cold-run-per-turn-ms`; memory `memory.<app>.*` for every app. Dropped, no Story behind them
+            or no public hook: the compile benches (a manifest holds no machine source), boot with saved records (a step
+            cannot be timed alone), the number-input first/second send, the palette list walker benches, the 1,000-send
+            inspector three-way (Story.run always attaches its own sink), and the mailbox burst. Backfill now needs a
+            commit whose manifests have `setup` and `bench`.
+        comment     2026-11-17T18:11:00Z
+            Amendment (the user, 2026-11-17): two tiers. The default nub run bench runs only headline benches (each
+            app's long Story, each series' end points, boot, one memory probe) with 2 workers in under about 30 s,
+            flagging only clear changes; --full runs everything with 5 workers and a tight band; rows carry their tier
+            and are never compared across tiers; the close reports both wall times.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
