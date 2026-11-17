@@ -152,4 +152,17 @@ export const lifeFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "defect-keeps-runtime",
+    tests: ["src/host/runtime.test.ts"],
+    says: "a defect inside a step leaves the Runtime running on its half-written world",
+    rule: "Actors R22",
+    edits: [
+      {
+        file: "src/host/driver.ts",
+        find: "      halted = true;\n",
+        replace: "",
+      },
+    ],
+  },
 ];

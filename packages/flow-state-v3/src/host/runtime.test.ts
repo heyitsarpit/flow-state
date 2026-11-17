@@ -243,3 +243,41 @@ describe("the Runtime's host listeners (Actors R22)", () => {
     assert.equal(listeners.size, 0);
   });
 });
+
+describe("a defect inside a step (Actors R22)", () => {
+  it("Actors R22: the first defect stops the Runtime: later calls are refused RuntimeDisposed and dispose ends", async () => {
+    // Stored records that throw while the boot step reads them: a defect in the middle of a step.
+    const broken = new Map([["actor/x", "{}"]]);
+    broken[Symbol.iterator] = () => {
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted defect this test is about
+      throw new Error("the store's records cannot be read");
+    };
+
+    const platform = Context.make(
+      Host,
+      Host.of({
+        hidden: () => false,
+        onHidden: () => () => undefined,
+        store: Option.some({ load: Effect.succeed(broken), write: () => Effect.void }),
+        sessionSeed: "0".repeat(32),
+        freezeValues: true,
+      }),
+    );
+
+    const { runtime } = buildRuntime(
+      {
+        app: app({ id: "broken", machines: { door: DoorMachine } }),
+        scope: "broken",
+        persistence: {},
+        services: Layer.succeed(Bell, { ring: () => Effect.succeed("ding") }),
+      },
+      platform,
+      () => undefined,
+    );
+
+    const booted = await Effect.runPromiseExit(runtime.ready());
+    assert.ok(Exit.isFailure(booted));
+    assert.throws(() => runtime.ensureActor(front), flowError("RuntimeDisposed"));
+    assert.ok(Exit.isSuccess(await Effect.runPromiseExit(runtime.dispose())));
+  });
+});

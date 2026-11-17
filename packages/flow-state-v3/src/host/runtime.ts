@@ -343,6 +343,10 @@ export const buildRuntime = (
     fibers,
     persistence,
     captureMs: config.persistence?.captureMs ?? 5000,
+    // A Runtime a defect stopped closes its Scope: its services and every fiber end.
+    halted: () =>
+      // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the driver stops synchronously, inside the step that failed; the Scope closes on its own fiber
+      void Effect.runFork(Scope.close(scope, Exit.void)),
     admit,
     // A callback that throws detaches only itself; sinks never change a step.
     sink: (batch) => {

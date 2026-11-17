@@ -1,6 +1,6 @@
 import { Data, Option } from "effect";
 import type { Values } from "./compiled.ts";
-import { type Channel, Decline, isDecline } from "./vocabulary.ts";
+import { type Channel, Decline } from "./vocabulary.ts";
 import { type CallId, type Head, Phase, sentBefore, type TicketId } from "./world.ts";
 
 /**
@@ -172,7 +172,7 @@ const displace = (owed: boolean) => (_head: Head, cue: Commit) =>
 const delivered = (head: Head, channel: Channel, reason: string) => {
   const still: Channel = "unknown";
 
-  return channel === "failure" && sentBefore(head) && !isDecline(reason)
+  return channel === "failure" && sentBefore(head)
     ? { channel: still, reason: "StillUnknown" }
     : { channel, reason };
 };

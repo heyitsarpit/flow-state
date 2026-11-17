@@ -79,7 +79,7 @@ const endings = (seen: ReadonlyArray<Evidence>) =>
   seen.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
 
 describe("edges of persistence and names", () => {
-  it.fails("Actors R6, WriteAhead R16: a local actor never persists, so its commit is sent even in a Runtime without persistence", () => {
+  it("Actors R6, WriteAhead R16: a local actor never persists, so its commit is sent even in a Runtime without persistence", () => {
     const runtime = ready();
     const seen: Array<Evidence> = [];
     attachInspector(runtime, (e) => void seen.push(e));
@@ -170,7 +170,7 @@ const PostMachine = machine(Post, ({ S, O }) => ({
 const posting = runtimeSetup({ app: app({ id: "posting", machines: { post: PostMachine } }) });
 
 describe("an app error named like a decline (WriteLanes R2)", () => {
-  it.fails("WriteLanes R2: a definite failure after an unknown send of the same Attempt is unknown StillUnknown, whatever the app's error is named", async () => {
+  it("WriteLanes R2: a definite failure after an unknown send of the same Attempt is unknown StillUnknown, whatever the app's error is named", async () => {
     sends.count = 0;
     const poster = actorRef(PostMachine, "p");
 

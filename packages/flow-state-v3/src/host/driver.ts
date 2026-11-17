@@ -77,6 +77,7 @@ export const makeDriver = (options: {
   readonly captureMs: number;
   readonly sink: (evidence: ReadonlyArray<Evidence>) => void;
   readonly admit: (evidence: ReadonlyArray<Evidence>) => void;
+  readonly halted: () => void;
 }) => {
   const { machines, fibers } = options;
   const clock = Context.get(options.platform, Clock.Clock);
@@ -158,27 +159,39 @@ export const makeDriver = (options: {
     }
   };
 
-  // A defect in a step must not wedge the inbox: the loop is released before the defect is
-  // rethrown, so the next input runs.
+  // A defect in a step leaves its world half written, so the Runtime stops at the first one: the
+  // inbox empties, no input runs again, its disposal is over, and the host closes its Scope. The
+  // defect is rethrown to the caller at the host boundary.
+  let halted = false;
+
   const run = () => {
     running = true;
     const drained = Result.try({ try: drainInbox, catch: (defect) => defect });
     running = false;
 
-    if (Result.isFailure(drained))
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a step's defect is rethrown to the caller at the host boundary, after the loop is released
+    if (Result.isFailure(drained)) {
+      halted = true;
+      inbox.length = 0;
+      Deferred.doneUnsafe(disposed, Exit.void);
+      options.halted();
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a step's defect is rethrown to the caller at the host boundary, after the Runtime has stopped
       throw drained.failure;
+    }
   };
 
   const input = (next: Input) => {
+    if (halted) return;
     inbox.push(next);
 
     if (!running) run();
   };
 
   // A public call the Runtime's life rejects throws the error its verdict names and runs nothing.
+  const verdictOf = (next: Input) =>
+    halted ? Verdict.Reject({ code: "RuntimeDisposed" }) : admit(world.life, next);
+
   const check = (next: Input, what: string) => {
-    const verdict = admit(world.life, next);
+    const verdict = verdictOf(next);
 
     if (Verdict.$is("Reject")(verdict))
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public calls' contract: a call the Runtime's life rejects throws its FlowError
@@ -193,7 +206,7 @@ export const makeDriver = (options: {
   return {
     input,
     offer,
-    verdict: (next: Input) => admit(world.life, next),
+    verdict: verdictOf,
     machines,
     world: () => world,
     pending: () => inbox.length > 0,

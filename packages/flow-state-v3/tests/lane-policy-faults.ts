@@ -151,4 +151,30 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "local-actor-declined-without-persistence",
+    tests: ["tests/actors/edges.test.ts"],
+    says: "a local actor of a persisted machine, in a Runtime without persistence, has its commit declined NoPersistence",
+    rule: "Actors R6",
+    edits: [
+      {
+        file: "src/core/lanes.ts",
+        find: "      !tx.world().persistence &&\n      !incarnation.actor.name.startsWith(LOCAL_PREFIX)\n",
+        replace: "      !tx.world().persistence\n",
+      },
+    ],
+  },
+  {
+    name: "decline-named-failure-stays-definite",
+    tests: ["tests/actors/edges.test.ts"],
+    says: "an app error tagged like one of Flow's declines, after an unknown send, stays a definite failure",
+    rule: "WriteLanes R2",
+    edits: [
+      {
+        file: "src/core/cells.ts",
+        find: '  return channel === "failure" && sentBefore(head)\n',
+        replace: '  return channel === "failure" && sentBefore(head) && reason !== "Rejected"\n',
+      },
+    ],
+  },
 ];

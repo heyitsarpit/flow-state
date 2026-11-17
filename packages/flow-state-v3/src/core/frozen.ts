@@ -88,8 +88,6 @@ const freezeOne = (value: Container) => {
  * **Gotchas**
  *
  * - A typed array cannot be frozen and is left as it is.
- * - A Map, Set or Date the app froze itself keeps its writing methods: a frozen object takes no
- *   new property, so they cannot be replaced; only its fields are frozen.
  */
 export const makeFreezer = () => {
   const done = new WeakSet<Container>();

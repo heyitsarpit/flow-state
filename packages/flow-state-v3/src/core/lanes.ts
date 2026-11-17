@@ -10,6 +10,7 @@ import { isInFlight, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
+import { LOCAL_PREFIX } from "./identity.ts";
 import { laneRecordKey } from "./record.ts";
 
 // A commit's cue by its operation's concurrency policy.
@@ -162,7 +163,12 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       return member;
     }
 
-    if (tx.machines.get(incarnation.actor.machine)?.persist === true && !tx.world().persistence) {
+    // A local actor never persists, so it has nothing to decline for.
+    if (
+      tx.machines.get(incarnation.actor.machine)?.persist === true &&
+      !tx.world().persistence &&
+      !incarnation.actor.name.startsWith(LOCAL_PREFIX)
+    ) {
       decline(incarnation.actor, operation.name, "NoPersistence", owner);
 
       return member;

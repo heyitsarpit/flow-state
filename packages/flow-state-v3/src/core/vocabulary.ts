@@ -20,11 +20,6 @@ export const Decline = Schema.Literals([
 export type Decline = typeof Decline.Type;
 
 /**
- * Whether an ending's reason is one of Flow's declines.
- */
-export const isDecline = Schema.is(Decline);
-
-/**
  * The channel an ending was decided on.
  */
 export const Channel = Schema.Literals(["success", "failure", "unknown", "notSent"]);

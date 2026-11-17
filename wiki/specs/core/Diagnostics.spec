@@ -72,7 +72,8 @@ requirements
         source  @plan.Diagnostics.O2.
         must    The codes are the closed list of @plan.Diagnostics.O2; a code outside it is a 
                 defect in Flow. Names marked proposed there stay proposed until the user confirms 
-                them.
+                them. The public union holds only the codes Flow produces; each other code joins
+                it with the feature that produces it. Decision (the user, 2026-11-17, Q19 A).
 
     R8  Complete causes survive cleanup
         source  @plan.Diagnostics.O3.
