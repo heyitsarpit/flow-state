@@ -2337,6 +2337,9 @@ tasks
             once every reachable phase is found (1,000 seeds where 8 give the same cells); reload sweeps fork from a
             world cut at each position instead of replaying from boot (49 % of suite file time); run rules memoise each
             record's verdict by its text; the rest as written there. May change also covers src/host/testing/.
+        comment     2026-11-17T09:37:37Z
+            Routed (orchestrator, 2026-11-17): deep Nests samples reach the generator and stress runs but not the app
+            mix (one samples set per fixture); seat them when the mix takes more than one set.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
@@ -2440,3 +2443,7 @@ tasks
             Scope (the user, 2026-11-17, Q13 A): build @plan.Pending.D30, capture on issue (it supersedes D28), per
             code:wiki/plans/flow/references/proposals/persistence-redesign-2026-11-17.md, with WriteAhead R10 to R12,
             I20 and I21 rewritten and logged in specs.log; it needs T9's memoised walkers (D27, D29) first.
+        comment     2026-11-17T09:37:37Z
+            Routed (orchestrator, 2026-11-17): the performance audit's finding 15 (per-call re-derivations of state
+            paths and names from Compiled) and finding 12's skip of a slot when its provider's snapshot is unchanged;
+            T9's walkers did not take them.

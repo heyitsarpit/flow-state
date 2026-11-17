@@ -142,8 +142,8 @@ decisions
         left unknown. **Proven by:** the `session` digest, thread and reload Stories (`tests/session/values.test.ts`,
         `tests/rules/reloads.test.ts`). Found in @task.V3.T9's convergence. The Schema stays required: it cannot be
         inferred for a computed selection, and an optional one brings back the unknown value kind (the convergence
-        review's recommendation). A selection past the measured depth limit (D26), or with no canonical form, is
-        reported `UnencodableValue` and never fails the turn; a Schema refusal stays the selector's defect.
+        review's recommendation). A selection with no canonical form is reported `UnencodableValue` and never fails the
+        turn; a Schema refusal stays the selector's defect.
     D21  @plan.Diagnostics.O1, @plan.Operations.O1, @plan.Testing.O6: three fixture calls from @task.V3.T82 (accepted,
          the user, 2026-11-17)
         `ContextCycle` stays checked by a runtime test, since no real app reaches it without a stand-in definition of
@@ -156,9 +156,9 @@ decisions
         **Before:** the catalog names no edge values for context, so two T9 reviews found value kinds (undefined,
         Option, Date, NaN, Map, Set, cycles) that no fixture held. **After:** a catalog row of context edge values that
         every later Task touching context inherits: each value kind across repeated reloads, a cyclic selection, a value
-        past the measured depth limit (D26), and a source that fails and then recovers. **Why:** a class found twice
-        becomes a fixture every later Task inherits (the Epic's instructions). **Proven by:** the row's Stories in
-        `session`, red on a planted unknown path. Found in @task.V3.T9's reviews.
+        at depth 100,000 (D27), and a source that fails and then recovers. **Why:** a class found twice becomes a
+        fixture every later Task inherits (the Epic's instructions). **Proven by:** the row's Stories in `session`, red
+        on a planted unknown path. Found in @task.V3.T9's reviews.
     D23  @plan.Inspection.O2: the codec has no size bounds (accepted, the user, 2026-11-17)
         **Before:** one past any of depth 32, 10,000 nodes, 4,096 items per array, 262,144 bytes per string or key, or
         2,097,152 canonical bytes is rejected, so a context slot or record past a bound is saved unknown or withheld.
@@ -200,7 +200,8 @@ decisions
         **Proven by:** each knob's bench or measurement note on its Task. Knobs not yet built are owned by the Task that
         builds each feature. The test-tooling guards (Story turn, settle and advance limits) are @task.V3.T83's (the
         user's Q5 A). Found in the limits sweep, 2026-11-17.
-    D26  @plan.Inspection.O2: a value's depth has one measured platform limit (accepted, the user, 2026-11-17, Q9 A)
+    D26  @plan.Inspection.O2: a value's depth has one measured platform limit (accepted, the user, 2026-11-17, Q9 A;
+         lifted by D27 once proven, 2026-11-17)
         **Before:** after D23 a value may nest to any depth, but Effect's Schema encode and `Equal` recurse on the call
         stack, so a 6,000-deep value under a recursive Schema kills the run and deep Maps compare wrongly. **After:**
         depth has one limit, the deepest value Effect's Schema and equality handle on the slowest supported host,

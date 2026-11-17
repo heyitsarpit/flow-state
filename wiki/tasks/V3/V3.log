@@ -948,3 +948,8 @@ note 2026-11-17T09:02:39Z
     Decision (the user, 2026-11-17): Q12 A, Q13 A. Pending D29: memory and selections immutable by contract, deep-frozen
     in dev and test. D30: steps mark changed keys and one Capture encodes them at issue (supersedes D28), owned by T85.
     T9's lead takes the memo and the freeze.
+
+note 2026-11-17T09:37:38Z
+    T9 in review at 1d8fd436: compiled walkers per Schema on every value path at depth 100,000, D26's limit lifted, D29
+    freeze built; palette stress 8.98 to 1.44 ms per turn. Opus review started. D20 and D22 no longer cite D26; mix
+    seats for Nests to T83; audit findings 12 and 15 to T85.
