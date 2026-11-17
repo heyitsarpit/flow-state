@@ -1,6 +1,8 @@
+import { actorRef } from "../../src/index.ts";
+import { PayMachine } from "../services/shop/machines/pay.ts";
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { store } from "./app.ts";
+import { store, storeSetup } from "./app.ts";
 import {
   long,
   samples,
@@ -37,6 +39,7 @@ import {
  */
 export const shop = manifest({
   name: "shop",
+  setup: storeSetup,
   app: store,
   stories: {
     ...stories,
@@ -76,4 +79,8 @@ export const shop = manifest({
       reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
     },
   ],
+  bench: {
+    probe: (n) => actorRef(PayMachine, `checkout-${String(n)}`),
+    stories: [],
+  },
 });

@@ -41,13 +41,13 @@ export type Work = {
  * **Details**
  *
  * `op` does one operation and says what it did; its sample is its own, or else its wall time. `proof` runs once
- * before timing and names any way the work differs from what the bench claims. `shape` is hashed
- * into each history row, so a comparison across a fixture change is refused.
+ * before timing (after it, for a cold bench) and names any way the work differs from what the bench
+ * claims. `shape`, read after timing, is hashed into each history row, so a comparison across a fixture change is refused.
  */
 export type Subject = {
   readonly op: () => Promise<Work>;
   readonly proof: () => Promise<Option.Option<string>>;
-  readonly shape: Counters;
+  readonly shape: () => Promise<Counters>;
 };
 
 /**
@@ -68,8 +68,9 @@ export type Headline = "median" | "p99" | "min";
  * `id` reads `<concern>.<subject>.<metric>-<unit>`, such as `turn.transfers.long.per-turn-ms`.
  * `size` is the size of the work it times, in its unit; benches sharing `series` form one growth
  * series, whose log-log slope must stay at or under `maxSlope`. `budget` is the most one unit may
- * take; time benches default to one 60 Hz frame. `workers` fresh processes each warm up and take
- * `runs` samples, unless the command line overrides them; a bench that is not `warm` is timed cold,
+ * take; time benches default to one 60 Hz frame. `workers` fresh processes each warm up and then sample
+ * until `budgetMs` of sampling has passed and at least `minRuns` samples are taken (at most 1,000),
+ * unless `--runs` sets the count; a bench that is not `warm` is timed cold,
  * with no warm-up. `gc` runs its workers with a full collector exposed.
  */
 export type Bench = {
@@ -82,7 +83,8 @@ export type Bench = {
   readonly headline: ReadonlyArray<Headline>;
   readonly budget: Option.Option<number>;
   readonly workers: number;
-  readonly runs: number;
+  readonly budgetMs: number;
+  readonly minRuns: number;
   readonly gc: boolean;
   readonly warm: boolean;
   readonly load: () => Promise<Subject>;
@@ -98,7 +100,8 @@ type Declared = Pick<Bench, "id" | "concern" | "tags" | "size" | "load"> &
 
 /**
  * Declares a bench with the defaults: timed, no series, median and p99 as headline, the frame
- * budget for time, five workers of 30 samples each after a warm-up, no collector.
+ * budget for time, five workers that each warm up and then sample for two seconds (five samples at
+ * least), no collector.
  */
 export const bench = (declared: Declared) => {
   const measure = declared.measure ?? "ms";
@@ -109,7 +112,8 @@ export const bench = (declared: Declared) => {
     headline: ["median", "p99"],
     budget: measure === "ms" ? Option.some(FRAME_MS) : Option.none(),
     workers: 5,
-    runs: 30,
+    budgetMs: 2000,
+    minRuns: 5,
     gc: false,
     warm: true,
     ...declared,

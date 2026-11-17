@@ -1,9 +1,9 @@
 import { Option } from "effect";
-import { manifest } from "../manifest.ts";
-import { musicApp } from "./app.ts";
+import { benchPoint, manifest } from "../manifest.ts";
+import { musicApp, musicSetup } from "./app.ts";
 import { samples, seededStress, stories } from "./stories/usual.ts";
 import { emptyRoom, longRoomPlays, seekEdges } from "./stories/edges.ts";
-import { sixteenRooms } from "./stories/load.ts";
+import { sixteenRooms, roomOf } from "./stories/load.ts";
 import { roomDisposed, roomReloaded } from "./stories/structure.ts";
 
 /**
@@ -11,6 +11,7 @@ import { roomDisposed, roomReloaded } from "./stories/structure.ts";
  */
 export const player = manifest({
   name: "player",
+  setup: musicSetup,
   app: musicApp,
   stories: {
     ...stories,
@@ -27,4 +28,15 @@ export const player = manifest({
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),
   pairs: [],
+  bench: {
+    probe: (n) => roomOf(n),
+    stories: [
+      benchPoint(() => longRoomPlays, {
+        series: "room-length",
+        n: 1_000_000,
+        unit: "chars",
+        growth: "linear",
+      }),
+    ],
+  },
 });

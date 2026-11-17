@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { gitGrown } from "./app.ts";
+import { gitGrown, gitGrownSetup, clientOf } from "./app.ts";
 import { long, samples, seededStress, stories, emptyName, openRepo } from "./stories/usual.ts";
 import { retryEdges } from "./stories/edges.ts";
 import { samples as repoSamples } from "./stories/samples.ts";
@@ -12,6 +12,7 @@ import { reloadedInBackoff, repoFirst, repoOpenedInBackoff } from "./stories/str
  */
 export const sync = manifest({
   name: "sync",
+  setup: gitGrownSetup,
   app: gitGrown,
   stories: {
     ...stories,
@@ -38,4 +39,8 @@ export const sync = manifest({
       reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: true },
     },
   ],
+  bench: {
+    probe: (n) => clientOf(n),
+    stories: [],
+  },
 });

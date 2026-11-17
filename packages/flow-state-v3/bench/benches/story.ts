@@ -1,7 +1,6 @@
 import { Option } from "effect";
-import type { Story } from "../../src/host/testing/index.ts";
+import type { Story, StoryRun } from "../../src/host/testing/index.ts";
 import type { Subject } from "../declare.ts";
-import { storyById } from "../stories.ts";
 import { timeStory, type TurnRecord } from "../time.ts";
 
 const turnText = (t: TurnRecord) => `${t.event}:${t.from}>${t.to}:${t.parts.length}`;
@@ -16,8 +15,15 @@ const turnText = (t: TurnRecord) => `${t.event}:${t.from}>${t.to}:${t.parts.leng
  * bytes are left out, since the runtime's own encoding changes them; the `persist` benches count them.
  */
 export const storySubject = async (story: Story<string>) => {
-  const tested = await story.run();
-  const turns = tested.evidence.filter((e) => e._tag === "Turn");
+  // The tested run, made on first need, so a cold bench times its first run before any other.
+  const made = { tested: Option.none<Promise<StoryRun>>() };
+
+  const tested = () => {
+    const run = Option.getOrElse(made.tested, () => story.run());
+    made.tested = Option.some(run);
+
+    return run;
+  };
 
   const subject: Subject = {
     op: async () => {
@@ -34,6 +40,7 @@ export const storySubject = async (story: Story<string>) => {
       };
     },
     proof: async () => {
+      const turns = (await tested()).evidence.filter((e) => e._tag === "Turn");
       const [timed] = await timeStory(story, 1);
       const got = (timed?.turns ?? []).map(turnText).join("\n");
       const want = turns.map(turnText).join("\n");
@@ -44,23 +51,16 @@ export const storySubject = async (story: Story<string>) => {
             `${story.id}: a timed run did ${timed?.turns.length ?? 0} turns, the tested run ${turns.length}`,
           );
     },
-    shape: {
-      steps: story.steps.length,
-      turns: turns.length,
-      actors: tested.end.inspection.actors.length,
+    shape: async () => {
+      const run = await tested();
+
+      return {
+        steps: story.steps.length,
+        turns: run.evidence.filter((e) => e._tag === "Turn").length,
+        actors: run.end.inspection.actors.length,
+      };
     },
   };
 
   return subject;
 };
-
-/**
- * The subject of the fixture Story with this id, failing when no Story file exports it.
- */
-export const storyNamed = async (id: string) =>
-  storySubject(
-    Option.getOrThrowWith(
-      await storyById(id),
-      () => new Error(`no fixture Story has the id ${id}`),
-    ),
-  );

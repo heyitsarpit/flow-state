@@ -1,6 +1,8 @@
+import { actorRef } from "../../src/index.ts";
+import { StepperMachine } from "./machines/stepper.ts";
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { numberApp } from "./app.ts";
+import { numberApp, numberSetup } from "./app.ts";
 import { samples, seededStress, stories } from "./stories/usual.ts";
 
 /**
@@ -8,6 +10,7 @@ import { samples, seededStress, stories } from "./stories/usual.ts";
  */
 export const numberInput = manifest({
   name: "number-input",
+  setup: numberSetup,
   app: numberApp,
   stories,
   samples: [samples],
@@ -26,4 +29,8 @@ export const numberInput = manifest({
       },
     },
   ],
+  bench: {
+    probe: (n) => actorRef(StepperMachine, `field-${String(n)}`),
+    stories: [],
+  },
 });

@@ -18,6 +18,9 @@ const LONG_MS = 1000;
 
 const MAX_BATCH = 100_000;
 
+// The most samples a worker takes on its time budget: enough for a p99.
+const MAX_RUNS = 1000;
+
 class WorkChanged extends Error {}
 
 // Runs `batch` operations and returns their sample per unit and per operation, checking each did
@@ -49,7 +52,12 @@ const sampleOf = async (
 const batchFor = (perOp: number) =>
   Math.min(MAX_BATCH, Math.max(1, Math.ceil(SAMPLE_MS / Math.max(perOp, 1e-6))));
 
-const measure = async (bench: Bench, subject: Subject, runs: number, warmCap: number) => {
+const measure = async (
+  bench: Bench,
+  subject: Subject,
+  runs: Option.Option<number>,
+  warmCap: number,
+) => {
   const start = performance.now();
   const cold = await subject.op();
   const coldMs = performance.now() - start;
@@ -78,11 +86,19 @@ const measure = async (bench: Bench, subject: Subject, runs: number, warmCap: nu
 
   if (!long && warm.length > 0) batch.n = batchFor(medianOf(warm.slice(-WINDOW)));
 
-  // One more sample than asked: the first after warm-up is dropped.
+  // One more sample than counted: the first after warm-up is dropped.
   const samples: Array<number> = [];
+  const sampling = performance.now();
 
-  for (let n = 0; n <= runs; n += 1)
-    samples.push((await sampleOf(subject, batch.n, first)).perUnit);
+  const enough = () =>
+    Option.match(runs, {
+      onSome: (count) => samples.length > count,
+      onNone: () =>
+        samples.length >= MAX_RUNS ||
+        (samples.length > bench.minRuns && performance.now() - sampling >= bench.budgetMs),
+    });
+
+  while (!enough()) samples.push((await sampleOf(subject, batch.n, first)).perUnit);
 
   return { samples: samples.slice(1), warmup: warm.length + 1, batch: batch.n, counters: first };
 };
@@ -119,7 +135,7 @@ const main = Effect.fn("worker")(
     if (bench === undefined)
       return yield* new BenchFailed({ problem: `no bench has the id ${id}` });
 
-    const runs = Option.getOrElse(flag(args, "--runs"), () => bench.runs);
+    const runs = flag(args, "--runs");
     const warmCap = Option.getOrElse(flag(args, "--warmup"), () => WARM_CAP);
     const subject = yield* attempt(`${id} did not load`, bench.load);
     const prove = attempt(`${id} has no proof`, subject.proof);
@@ -131,7 +147,8 @@ const main = Effect.fn("worker")(
     if (Option.isSome(problem)) return yield* new BenchFailed({ problem: problem.value });
 
     const measured = Option.isSome(done) ? done.value : yield* time;
-    const report: Report = { _tag: "Done", ...measured, shape: subject.shape };
+    const fixture = yield* attempt(`${id} has no shape`, subject.shape);
+    const report: Report = { _tag: "Done", ...measured, shape: fixture };
 
     return report;
   },

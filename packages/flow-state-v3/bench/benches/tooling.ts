@@ -67,7 +67,7 @@ const toolingSubject = async (script: Script) => ({
     return { units: 1, counters: countersOf(script, done), sample: Option.some(done.ms) };
   },
   proof: async () => Option.none<string>(),
-  shape: {},
+  shape: async () => ({}),
 });
 
 /**
@@ -84,7 +84,7 @@ export const toolingBenches = (["test", "test:stress", "faults"] as const).map((
     headline: ["median"],
     budget: Option.none(),
     workers: 1,
-    runs: 1,
+    minRuns: 1,
     warm: false,
     load: () => toolingSubject(script),
   }),

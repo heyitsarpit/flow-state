@@ -1,6 +1,8 @@
+import { actorRef } from "../../src/index.ts";
+import { TransfersMachine } from "./machines/transfers.ts";
 import { Option } from "effect";
-import { manifest } from "../manifest.ts";
-import { bankGrown } from "./app.ts";
+import { benchPoint, manifest } from "../manifest.ts";
+import { bankGrown, bankGrownSetup } from "./app.ts";
 import {
   long,
   samples,
@@ -19,6 +21,7 @@ import { chain, customerForgotten, formBoundLate, formFirst } from "./stories/st
  */
 export const transfers = manifest({
   name: "transfers",
+  setup: bankGrownSetup,
   app: bankGrown,
   stories: {
     ...stories,
@@ -48,4 +51,15 @@ export const transfers = manifest({
       reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
     },
   ],
+  bench: {
+    probe: (n) => actorRef(TransfersMachine, `acct-${String(n)}`),
+    stories: [
+      benchPoint(() => longId, {
+        series: "id-length",
+        n: 100_000,
+        unit: "chars",
+        growth: "linear",
+      }),
+    ],
+  },
 });

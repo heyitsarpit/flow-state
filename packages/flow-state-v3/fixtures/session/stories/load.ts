@@ -38,6 +38,12 @@ export const wall = wallOf("session/wall", 64);
 export const stressWall = () => wallOf("session/stress-wall", STRESS_WALL);
 
 /**
+ * A wall of `count` badges, renamed and pinged: one point of the bench's saved-identities series,
+ * built on call.
+ */
+export const wallOfSize = (count: number) => wallOf(`session/wall-${count}`, count);
+
+/**
  * 65 header avatars on the main session; Ada signs in, so one admitted event adds 65 context
  * updates and 65 onContext events.
  */

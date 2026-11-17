@@ -247,17 +247,26 @@ export const largeListSaved = paletteStory("palette/large-list")
  */
 export const HUGE_LIST = 300_000;
 
+// The palette given `count` commands, saved, then reloaded.
+const listSaved = (id: string, count: number) =>
+  paletteStory(id)
+    .ensure(palette)
+    .send(palette, configure(numbered(count)))
+    .checkpoint("saved")
+    .reload()
+    .checkpoint("reloaded");
+
+/**
+ * The palette given `count` commands, saved, then reloaded: one point of the bench's list-length
+ * series, built on call.
+ */
+export const listSavedOf = (count: number) => listSaved(`palette/list-${count}`, count);
+
 /**
  * The palette given `HUGE_LIST` commands, saved, then reloaded. A stress Story, built on call and
  * kept out of `stories`: the reload sweep would save it once per step.
  */
-export const stressHugeList = () =>
-  paletteStory("palette/stress-huge-list")
-    .ensure(palette)
-    .send(palette, configure(numbered(HUGE_LIST)))
-    .checkpoint("saved")
-    .reload()
-    .checkpoint("reloaded");
+export const stressHugeList = () => listSaved("palette/stress-huge-list", HUGE_LIST);
 
 const sampleEvents = {
   configured,

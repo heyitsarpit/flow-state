@@ -4,14 +4,10 @@ import { join } from "node:path";
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { benches } from "../../bench/benches/index.ts";
-import { TURN_STORIES } from "../../bench/benches/turn.ts";
 import { CONCERNS } from "../../bench/declare.ts";
 import { appendRows, type Row, readRows } from "../../bench/history.ts";
 import { changeOf, madOf, slopeOf, spreadOf, verdictOf } from "../../bench/stats.ts";
 import { manifests } from "../../fixtures/index.ts";
-
-// The Stories that save and restore large values, timed beside the long and saved stress Stories.
-const LARGE = ["session/stress-agenda-long", "session/archive-large"];
 
 describe("bench declarations", () => {
   it("every bench has one unique id, a declared concern and at most two headline numbers", () => {
@@ -28,14 +24,23 @@ describe("bench declarations", () => {
     }
   });
 
-  it("the turn concern times every fixture's long Story, saved stress Story and large-value Story", () => {
-    const expected = [
-      ...manifests.flatMap((m) => Option.toArray(m.long).map((s) => s.id)),
-      ...manifests.map((m) => m.savedStress.story.id),
-      ...LARGE,
-    ];
+  it("every manifest's long, saved stress and marked Stories have a turn bench, and each sized Story a scale bench", () => {
+    const ids = new Set(benches.map((b) => b.id));
+    const turnOf = (id: string) => `turn.${id.replace("/", ".")}.per-turn-ms`;
 
-    expect([...TURN_STORIES].toSorted()).toEqual(expected.toSorted());
+    for (const m of manifests) {
+      for (const story of Option.toArray(m.long)) expect(ids.has(turnOf(story.id))).toBe(true);
+      expect(ids.has(turnOf(m.savedStress.story.id))).toBe(true);
+
+      for (const b of m.bench.stories) {
+        const id = Option.match(b.size, {
+          onNone: () => turnOf(b.story().id),
+          onSome: (size) => `scale.${m.name}.${size.series}-${size.n}.per-turn-ms`,
+        });
+
+        expect(ids.has(id)).toBe(true);
+      }
+    }
   });
 
   it("every turn, persist, values and startup bench's proof passes: it does the work it claims", async () => {

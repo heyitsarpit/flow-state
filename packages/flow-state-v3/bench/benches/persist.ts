@@ -1,7 +1,5 @@
 import { Option } from "effect";
 import type { Story } from "../../src/host/testing/index.ts";
-import { bench } from "../declare.ts";
-import { storyById } from "../stories.ts";
 
 // What a run wrote: its landed batches, the keys they wrote, and the store's keys and text length at the end.
 const writesOf = async (story: Story<string>) => {
@@ -24,14 +22,28 @@ const writesOf = async (story: Story<string>) => {
   };
 };
 
-// One run of a persisted Story, its time divided by the batches it landed.
-const persistSubject = async (id: string) => {
-  const story = Option.getOrThrowWith(
-    await storyById(id),
-    () => new Error(`no fixture Story has the id ${id}`),
-  );
+/**
+ * The first of an app's Stories whose run lands a write (its long Story, its saved stress Story,
+ * then its other Stories in order), timed per run and divided by the batches it landed, with the keys it wrote,
+ * the store's keys and characters at the end, and so the keys written per stored key.
+ */
+export const persistSubject = async (candidates: ReadonlyArray<Story<string>>) => {
+  const found = {
+    story: candidates[0],
+    first: { batches: 0, keysWritten: 0, storedKeys: 0, storedChars: 0, ms: 0 },
+  };
 
-  const first = await writesOf(story);
+  for (const story of candidates) {
+    const first = await writesOf(story);
+    found.story = story;
+    found.first = first;
+
+    if (first.batches > 0) break;
+  }
+
+  const { story, first } = found;
+
+  if (story === undefined) throw new Error("no Story to time");
 
   return {
     op: async () => {
@@ -51,29 +63,13 @@ const persistSubject = async (id: string) => {
     proof: async () =>
       first.batches > 0 && first.storedKeys > 0
         ? Option.none()
-        : Option.some(`${id} landed ${first.batches} batches and stored ${first.storedKeys} keys`),
-    shape: {
+        : Option.some(
+            `${story.id} landed ${first.batches} batches and stored ${first.storedKeys} keys`,
+          ),
+    shape: async () => ({
       batches: first.batches,
       keysWritten: first.keysWritten,
       storedChars: first.storedChars,
-    },
+    }),
   };
 };
-
-// The long Stories whose apps persist; sign-in's and sync's save nothing.
-const PERSISTED = ["cells/long", "shop/long", "session/long", "transfers/long"] as const;
-
-/**
- * Every `persist` bench: each persisted long Story's run time per landed batch, with the keys it
- * wrote, the store's keys and text length at the end, and so the keys written per stored key.
- */
-export const persistBenches = PERSISTED.map((id) =>
-  bench({
-    id: `persist.${id.replace("/", ".")}.per-batch-ms`,
-    concern: "persist",
-    tags: ["story", id.split("/")[0] ?? id],
-    size: { n: 1, unit: "run" },
-    runs: 100,
-    load: () => persistSubject(id),
-  }),
-);

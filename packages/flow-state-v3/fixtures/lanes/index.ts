@@ -1,9 +1,11 @@
+import { actorRef } from "../../src/index.ts";
+import { SerializeMachine } from "./machines/clients.ts";
 import { Option } from "effect";
-import { manifest } from "../manifest.ts";
-import { lanesGrown } from "./app.ts";
+import { benchPoint, manifest } from "../manifest.ts";
+import { lanesGrown, lanesGrownSetup } from "./app.ts";
 import { samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { negativeZero, twoSpellings } from "./stories/edges.ts";
-import { crowd4 } from "./stories/load.ts";
+import { crowd4, crowdOf, serializeDeepOf } from "./stories/load.ts";
 import { disposedWithWork, oneKeyTwoActors, reloadedWithWork } from "./stories/structure.ts";
 
 /**
@@ -11,6 +13,7 @@ import { disposedWithWork, oneKeyTwoActors, reloadedWithWork } from "./stories/s
  */
 export const lanes = manifest({
   name: "lanes",
+  setup: lanesGrownSetup,
   app: lanesGrown,
   stories: {
     ...stories,
@@ -32,4 +35,20 @@ export const lanes = manifest({
       reach: { writes: true, persisted: true, cancelsAcknowledging: true, retainsUnknown: true },
     },
   ],
+  bench: {
+    probe: (n) => actorRef(SerializeMachine, `serialize-${String(n)}`),
+    stories: [
+      ...[16, 64, 256].map((n) =>
+        benchPoint(() => crowdOf(n), { series: "actors", n, unit: "actors", growth: "flat" }),
+      ),
+      ...[100, 1000, 3000].map((n) =>
+        benchPoint(() => serializeDeepOf(n), {
+          series: "serialize-queue",
+          n,
+          unit: "queued",
+          growth: "flat",
+        }),
+      ),
+    ],
+  },
 });

@@ -1,9 +1,11 @@
+import { actorRef } from "../../src/index.ts";
+import { OrgMachine } from "./machines/org.ts";
 import { Option } from "effect";
-import { manifest } from "../manifest.ts";
-import { workspaceGrown } from "./app.ts";
+import { benchPoint, benchTurn, manifest } from "../manifest.ts";
+import { workspaceGrown, workspaceGrownSetup } from "./app.ts";
 import { long, samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { corruptRecord, oversizedRecord } from "./stories/edges.ts";
-import { avatarWall, wall } from "./stories/load.ts";
+import { avatarWall, wall, stressWall, wallOfSize } from "./stories/load.ts";
 import { grownSamples } from "./stories/samples.ts";
 import {
   corruptSeen,
@@ -25,6 +27,8 @@ import {
   digestRefused,
   unreadRecovers,
   archiveLarge,
+  outlineDeep,
+  nestAt,
 } from "./stories/values.ts";
 import {
   bylineReturns,
@@ -44,6 +48,7 @@ import {
  */
 export const session = manifest({
   name: "session",
+  setup: workspaceGrownSetup,
   app: workspaceGrown,
   stories: {
     ...stories,
@@ -89,4 +94,39 @@ export const session = manifest({
       reach: { writes: true, persisted: true, cancelsAcknowledging: true, retainsUnknown: true },
     },
   ],
+  bench: {
+    probe: (n) => actorRef(OrgMachine, `org-${String(n)}`),
+    stories: [
+      benchTurn(() => agendaLong),
+      benchTurn(() => archiveLarge),
+      benchPoint(() => wall, { series: "saved-identities", n: 64, unit: "saved", growth: "flat" }),
+      benchPoint(() => wallOfSize(500), {
+        series: "saved-identities",
+        n: 500,
+        unit: "saved",
+        growth: "flat",
+      }),
+      benchPoint(stressWall, {
+        series: "saved-identities",
+        n: 5000,
+        unit: "saved",
+        growth: "flat",
+      }),
+      benchPoint(() => avatarWall, { series: "avatars", n: 65, unit: "saved", growth: "flat" }),
+      ...[100, 1000, 3000].map((n) =>
+        benchPoint(() => nestAt("Lists", n, `session/nest-lists-${n}`), {
+          series: "value-depth",
+          n,
+          unit: "levels",
+          growth: "linear",
+        }),
+      ),
+      benchPoint(outlineDeep, {
+        series: "outline-depth",
+        n: 100_000,
+        unit: "levels",
+        growth: "linear",
+      }),
+    ],
+  },
 });

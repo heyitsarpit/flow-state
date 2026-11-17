@@ -1,6 +1,6 @@
 import { Option } from "effect";
-import { manifest } from "../manifest.ts";
-import { authGrown } from "./app.ts";
+import { benchPoint, manifest } from "../manifest.ts";
+import { authGrown, authGrownSetup, sessionOf } from "./app.ts";
 import { long, samples, seededStress, stories, handleRetry } from "./stories/usual.ts";
 import { longEmail, emptyCode, emptyEmail } from "./stories/edges.ts";
 import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
@@ -18,6 +18,7 @@ import {
  */
 export const signIn = manifest({
   name: "sign-in",
+  setup: authGrownSetup,
   app: authGrown,
   stories: {
     ...stories,
@@ -51,4 +52,15 @@ export const signIn = manifest({
       reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
     },
   ],
+  bench: {
+    probe: (n) => sessionOf(n),
+    stories: [
+      benchPoint(() => longEmail, {
+        series: "email-length",
+        n: 100_000,
+        unit: "chars",
+        growth: "linear",
+      }),
+    ],
+  },
 });

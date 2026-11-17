@@ -1,9 +1,8 @@
 import { Option, Result } from "effect";
 import type { Story } from "../../src/host/testing/index.ts";
 import type { App } from "../../src/index.ts";
-import { bench } from "../declare.ts";
 
-type Walk = "encode" | "text" | "text-memo" | "decode";
+type Walk = (typeof WALKS)[number];
 
 // A field's walkers, as a machine's compiled fields hold them.
 type Walker = {
@@ -134,91 +133,19 @@ const walkSubject = async (walk: Walk, pairs: ReadonlyArray<Pair>) => {
         ? Option.none()
         : Option.some(`${failed} of ${pairs.length} walks failed, memo ${String(memoWrong)}`);
     },
-    shape: { values: pairs.length, bytes: filled.counters.bytes },
+    shape: async () => ({ values: pairs.length, bytes: filled.counters.bytes }),
   };
 };
 
-type Source = {
-  readonly subject: string;
-  readonly kind: string;
-  readonly n: number;
-  readonly unit: string;
-  readonly pairs: () => Promise<ReadonlyArray<Pair>>;
-};
-
-const paletteList = (n: number) => async () => {
-  const { paletteApp } = await import("../../fixtures/command-palette/app.ts");
-  const { longList, largeList } = await import("../../fixtures/command-palette/stories/usual.ts");
-  const commands = (n === 1000 ? longList : largeList).commands;
-
-  const field = [...fieldsOf(paletteApp).values()].flat().find((f) => f.name === "commands");
-
-  return field === undefined ? [] : [{ walker: field.walk, value: commands }];
-};
-
-const storyMemories = (manifest: () => Promise<{ readonly app: App }>, id: string) => async () => {
-  const { storyById } = await import("../stories.ts");
-  const story = Option.getOrThrowWith(await storyById(id), () => new Error(`no Story ${id}`));
-
-  return memoriesOf((await manifest()).app, story);
-};
-
-const SOURCES: ReadonlyArray<Source> = [
-  {
-    subject: "palette.commands-1000",
-    kind: "list",
-    n: 1000,
-    unit: "commands",
-    pairs: paletteList(1000),
-  },
-  {
-    subject: "palette.commands-10000",
-    kind: "list",
-    n: 10_000,
-    unit: "commands",
-    pairs: paletteList(10_000),
-  },
-  {
-    subject: "session.long-memories",
-    kind: "memory",
-    n: 1,
-    unit: "run",
-    pairs: storyMemories(
-      async () => (await import("../../fixtures/session/index.ts")).session,
-      "session/long",
-    ),
-  },
-  {
-    subject: "transfers.long-memories",
-    kind: "memory",
-    n: 1,
-    unit: "run",
-    pairs: storyMemories(
-      async () => (await import("../../fixtures/transfers/index.ts")).transfers,
-      "transfers/long",
-    ),
-  },
-];
-
-const WALKS: ReadonlyArray<Walk> = ["encode", "text", "text-memo", "decode"];
+/**
+ * The walks a `values` bench times: encode, canonical text from fresh values, canonical text served
+ * by the memo, and decode.
+ */
+export const WALKS = ["encode", "text", "text-memo", "decode"] as const;
 
 /**
- * Every `values` bench: each field walker's encode, canonical text (fresh and from its memo) and
- * decode, over a command list at two sizes and the memories two long Stories publish.
+ * One walk over every field value the memories of a Story's run publish, each walked by its
+ * machine's own compiled walker.
  */
-export const valuesBenches = SOURCES.flatMap((source) =>
-  WALKS.map((walk) =>
-    bench({
-      id: `values.${source.subject}.${walk}-per-value-ms`,
-      concern: "values",
-      tags: ["walker", source.kind, walk],
-      size: { n: source.n, unit: source.unit },
-      series:
-        source.kind === "list"
-          ? Option.some({ name: `list-${walk}`, maxSlope: 1.2 })
-          : Option.none(),
-      runs: 50,
-      load: async () => walkSubject(walk, await source.pairs()),
-    }),
-  ),
-);
+export const valuesSubject = async (app: App, story: Story<string>, walk: Walk) =>
+  walkSubject(walk, await memoriesOf(app, story));

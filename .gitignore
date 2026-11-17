@@ -28,3 +28,5 @@ apps/docs/src/pages.gen.ts
 # Dolt and database files
 .dolt/
 *.db
+# The bench's raw samples stay local; the CSVs beside them are committed.
+packages/flow-state-v3/bench/history/samples/

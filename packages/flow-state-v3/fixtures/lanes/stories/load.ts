@@ -13,15 +13,15 @@ const commit = { _tag: "Commit", repo: "flow" } as const;
 export const DEEP_QUEUE = 1000;
 
 /**
- * Under `serialize`, a head on the wire and `DEEP_QUEUE` commits queued behind it; then the head's
- * answer comes and the queue drains, every commit sent in order. Built on call and kept out of
- * `stories`: the reload sweep would run it once per step.
+ * Under `serialize`, a head on the wire and `queued` commits behind it; then the head's answer
+ * comes and the queue drains, every commit sent in order. Built on call and kept out of `stories`:
+ * the reload sweep would run it once per step.
  */
-export const serializeDeep = () =>
-  Array.from({ length: DEEP_QUEUE }, (_, n) => n)
+export const serializeDeepOf = (queued: number) =>
+  Array.from({ length: queued }, (_, n) => n)
     .reduce(
       (story) => story.send(serializeClient, commit),
-      lanesStory("lanes/serialize-deep")
+      lanesStory(queued === DEEP_QUEUE ? "lanes/serialize-deep" : `lanes/serialize-deep-${queued}`)
         .ensure(serializeClient)
         .world(Git.sync.hold())
         .send(serializeClient, commit)
@@ -30,6 +30,11 @@ export const serializeDeep = () =>
     .checkpoint("queued")
     .world(Git.sync.release())
     .checkpoint("drained");
+
+/**
+ * `serializeDeepOf` at `DEEP_QUEUE`.
+ */
+export const serializeDeep = () => serializeDeepOf(DEEP_QUEUE);
 
 // The commits the first crowd client queues behind its head.
 const CROWD_QUEUE = 64;
@@ -64,6 +69,13 @@ const crowd = (id: string, clients: number, queued: number) => {
  * Four clients with a sync on the wire, the first with 16 more queued, across a reload.
  */
 export const crowd4 = crowd("lanes/crowd-4", 4, 16);
+
+/**
+ * `clients` serialize clients and 64 queued behind the first, across a reload: one point of the
+ * bench's world-size series, built on call.
+ */
+export const crowdOf = (clients: number) =>
+  crowd(`lanes/stress-crowd-${clients}`, clients, CROWD_QUEUE);
 
 /**
  * The same at 256 clients and 64 queued: the bench's world-size Story, built on call and kept

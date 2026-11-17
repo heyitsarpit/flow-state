@@ -1,6 +1,8 @@
+import { actorRef } from "../../src/index.ts";
+import { CellsMachine } from "./machines/cells.ts";
 import { Option } from "effect";
-import { manifest } from "../manifest.ts";
-import { cellsShop } from "./app.ts";
+import { benchPoint, manifest } from "../manifest.ts";
+import { cellsShop, cellsSetup } from "./app.ts";
 import { long, samples, seededStress, stories } from "./stories/usual.ts";
 import { emptyIds, longKey } from "./stories/edges.ts";
 import { disposedOnWire, neverSentDisposed, reloadedOnWire } from "./stories/structure.ts";
@@ -10,6 +12,7 @@ import { disposedOnWire, neverSentDisposed, reloadedOnWire } from "./stories/str
  */
 export const cells = manifest({
   name: "cells",
+  setup: cellsSetup,
   app: cellsShop,
   stories: {
     ...stories,
@@ -30,4 +33,15 @@ export const cells = manifest({
       reach: { writes: true, persisted: true, cancelsAcknowledging: true, retainsUnknown: true },
     },
   ],
+  bench: {
+    probe: (n) => actorRef(CellsMachine, `checkout-${String(n)}`),
+    stories: [
+      benchPoint(() => longKey, {
+        series: "key-length",
+        n: 100_000,
+        unit: "chars",
+        growth: "linear",
+      }),
+    ],
+  },
 });
