@@ -2729,10 +2729,20 @@ tasks
         comment     2026-11-17T15:28:53Z
             Routed from T85's PASS review (b6090c05): the I20 run rule checks in-memory owed rows, not stored records;
             make it read the store.
+        comment     2026-11-17T16:21:23Z
+            Routed from T84's PASS review (3fe5a6ef), May change widened to src/core and src/host/testing for these: the
+            per-identity cost is the Story harness's view() in src/host/testing/run.ts:375 building writes, heldWrites
+            and held from every batch each step (stress-wall flat at 0.062 ms per turn with lazy getters);
+            palette/stress-36 back to 4,097 or 1,000 commands (size past the cap is proven by large-list and
+            stress-huge-list); RuntimeDefaults becomes internal (tests import src/core/defaults.ts) and loopGuard is
+            dropped until the actor-to-actor send exists (orchestrator's call: a mutable public export changes every
+            Runtime); serialize's queue copied on every add and promotion (quadratic in a deep queue);
+            follow-ups.test.ts:100's title and Actors I21's wording; serialize-deep's commits made distinct so order is
+            checked; a dev host workClock for SlowWork.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
-        status      review
+        status      done
         priority    high
         blocked_by  [@T85]
         description
