@@ -1147,3 +1147,7 @@ note 2026-11-17T20:49:15Z
 note 2026-11-17T20:56:55Z
     T88 waits for nub's release-age gate on vite-plus 1.7.0 (clears about 03:30Z); apply it then, at the first wake with
     no lead running. Meanwhile T81's close review runs (earliest ready Task: T83 and T20 wait on T88).
+
+note 2026-11-17T21:02:11Z
+    Decision (the user, 2026-11-18): T88's upgrade is applied tomorrow (2026-11-19), not at the first wake after the
+    gate clears; the trial result and the orchestrator's test-line ruling stand in its comments.
