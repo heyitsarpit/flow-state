@@ -1,7 +1,8 @@
 import { actorRef } from "../../../src/index.ts";
-import { type Command, command } from "../commands.ts";
-import { palette, PaletteMachine } from "../machine.ts";
-import { commands, configure, paletteStory } from "../stories.ts";
+import { type Command, command } from "../machines/commands.ts";
+import { palette } from "../app.ts";
+import { PaletteMachine } from "../machines/palette.ts";
+import { commands, configure, paletteStory } from "./usual.ts";
 
 /**
  * A second palette, an identity of its own.

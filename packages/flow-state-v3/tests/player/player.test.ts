@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { player } from "../../fixtures/player/machine.ts";
-import { Speaker } from "../../fixtures/player/server.ts";
-import { usual } from "../../fixtures/player/stories.ts";
+import { player } from "../../fixtures/player/app.ts";
+import { Speaker } from "../../fixtures/player/server/speaker.ts";
+import { usual } from "../../fixtures/player/stories/usual.ts";
 import { played } from "../rules/played.ts";
 
 describe("the usual player Story", () => {

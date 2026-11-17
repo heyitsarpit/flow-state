@@ -1,7 +1,8 @@
-import { Fake, samplesOf, Story } from "../../src/host/testing/index.ts";
-import { defaults } from "./contracts.ts";
-import { numberSetup, quantity } from "./machine.ts";
-import { numberFixtures } from "./server.ts";
+import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
+
+import { numberSetup, quantity } from "../app.ts";
+import { defaults } from "../machines/stepping.ts";
+import { numberFixtures } from "../server/layer.ts";
 
 /**
  * The number input app with no steps yet: every number input Story starts here.

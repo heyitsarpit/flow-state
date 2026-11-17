@@ -1,5 +1,5 @@
-import { Effect, Layer, Option, Schema } from "effect";
-import { actorRef, app, definition, deny, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import { Option, Schema } from "effect";
+import { definition, deny, Flow, machine } from "../../../src/index.ts";
 import {
   type Command,
   Entries,
@@ -9,7 +9,8 @@ import {
   Scores,
   shownCommands,
 } from "./commands.ts";
-import { type CommandFailed, CommandsApi, runCommand } from "./contracts.ts";
+import type { CommandFailed } from "../services.ts";
+import { runCommand } from "../operations/writes.ts";
 
 // One open page and the text the field held when it opened, which Back gives back.
 const Frame = Schema.Struct({ page: Schema.String, query: Schema.String });
@@ -234,29 +235,3 @@ export const PaletteMachine = machine(Palette, ({ S, O }) => {
     },
   };
 });
-
-/**
- * The app's own command actions, as its production Layer: every command does nothing here. A
- * Story never builds it.
- */
-export const AppCommands = Layer.succeed(CommandsApi, CommandsApi.of({ run: () => Effect.void }));
-
-/**
- * The palette app: one palette machine.
- */
-export const paletteApp = app({ id: "palette", machines: { palette: PaletteMachine } });
-
-/**
- * The palette app's real setup: persisted, each capture written at once.
- */
-export const paletteSetup = runtimeSetup({
-  app: paletteApp,
-  services: AppCommands,
-  scope: "palette",
-  persistence: { captureMs: 0 },
-});
-
-/**
- * The palette most stories use.
- */
-export const palette = actorRef(PaletteMachine, "palette-1");

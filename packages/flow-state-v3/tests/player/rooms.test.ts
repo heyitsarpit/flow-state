@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { player } from "../../fixtures/player/machine.ts";
+import { player } from "../../fixtures/player/app.ts";
 import {
   emptyRoom,
   emptyRoomPlayer,

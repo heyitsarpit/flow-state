@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { paletteApp } from "./machine.ts";
-import { samples, seededStress, stories, stressSamples } from "./stories.ts";
+import { paletteApp } from "./app.ts";
+import { samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { emptyQueryOrder, typingUnderHeldStore } from "./stories/load.ts";
 import { framesEight, twoPalettes } from "./stories/structure.ts";
 

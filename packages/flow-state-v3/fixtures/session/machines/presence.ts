@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
-import { SessionMachine } from "../machine.ts";
+import { SessionMachine } from "./session.ts";
 
 /**
  * Who a session shows as online: it reads its session's user and keeps the last one it heard; never

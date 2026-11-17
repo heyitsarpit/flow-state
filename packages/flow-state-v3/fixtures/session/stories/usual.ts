@@ -1,4 +1,4 @@
-import { Fake, samplesOf, Story } from "../../src/host/testing/index.ts";
+import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import {
   acme,
   badge,
@@ -10,8 +10,9 @@ import {
   mainSession,
   wallBadge,
   workspaceSetup,
-} from "./machine.ts";
-import { Identity, IdentityFake } from "./server.ts";
+} from "../app.ts";
+import { Identity } from "../server/identity.ts";
+import { IdentityFake } from "../server/layer.ts";
 
 /**
  * The workspace app over its identity fake, with no steps yet: every session Story starts here.

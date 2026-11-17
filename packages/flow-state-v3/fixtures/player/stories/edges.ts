@@ -1,6 +1,7 @@
 import { actorRef } from "../../../src/index.ts";
-import { player, PlayerMachine } from "../machine.ts";
-import { musicStory } from "../stories.ts";
+import { player } from "../app.ts";
+import { PlayerMachine } from "../machines/player.ts";
+import { musicStory } from "./usual.ts";
 
 /**
  * The player of a room with an empty name.

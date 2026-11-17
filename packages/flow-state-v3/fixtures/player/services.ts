@@ -1,5 +1,4 @@
 import { Context, Effect, Schema } from "effect";
-import { Outcome, transaction } from "../../src/index.ts";
 
 /**
  * The speaker said the track cannot play there.
@@ -25,18 +24,3 @@ export class SpeakerApi extends Context.Service<
     ) => Effect.Effect<void, Unavailable | NoResponse>;
   }
 >()("flow-state-v3/fixtures/player/SpeakerApi") {}
-
-/**
- * Starts a track on a device; a new play on the same device cancels the one before it.
- */
-export const play = transaction({
-  id: "Music/play",
-  input: { device: Schema.String, trackId: Schema.String },
-  key: ["device"],
-  concurrency: "cancel",
-  services: [SpeakerApi],
-  commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(SpeakerApi), (api) =>
-      api.play(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
-});

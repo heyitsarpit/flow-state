@@ -3,26 +3,26 @@ import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
 import {
   badge,
-  BadgeMachine,
   coreTeam,
   guestBadge,
   guestSession,
   guestTeam,
   mainSession,
-  OrgMachine,
-  SessionMachine,
-  TeamMachine,
   wallBadge,
-} from "../../fixtures/session/machine.ts";
+} from "../../fixtures/session/app.ts";
+import { BadgeMachine } from "../../fixtures/session/machines/badge.ts";
+import { OrgMachine } from "../../fixtures/session/machines/org.ts";
+import { SessionMachine } from "../../fixtures/session/machines/session.ts";
+import { TeamMachine } from "../../fixtures/session/machines/team.ts";
 import {
   fanOut,
   longNames,
   parentUnderChildren,
   samples,
   usual,
-} from "../../fixtures/session/stories.ts";
+} from "../../fixtures/session/stories/usual.ts";
 import { generate, type StoryRun } from "../../src/host/testing/index.ts";
-import { IdentityLive } from "../../fixtures/session/identity-http.ts";
+import { IdentityLive } from "../../fixtures/session/adapters/identity.ts";
 import { app, FlowError, runtimeSetup } from "../../src/index.ts";
 import { checked, publishedOnce } from "../rules/rules.ts";
 

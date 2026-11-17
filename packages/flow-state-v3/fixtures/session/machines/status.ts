@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
-import { TeamMachine } from "../machine.ts";
+import { TeamMachine } from "./team.ts";
 
 /**
  * A team's status line: it reads its team's name, and no team is wired by default, so its ref must

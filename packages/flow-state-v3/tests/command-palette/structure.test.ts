@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { palette } from "../../fixtures/command-palette/machine.ts";
+import { palette } from "../../fixtures/command-palette/app.ts";
 import {
   emptyQueryOrder,
   typingUnderHeldStore,

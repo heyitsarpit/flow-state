@@ -1,13 +1,13 @@
 import { Option } from "effect";
-import { shownCommands } from "../../fixtures/command-palette/commands.ts";
+import { shownCommands } from "../../fixtures/command-palette/machines/commands.ts";
 import {
   highlightOf,
-  palette,
   PaletteMachine,
   type PaletteMemory,
   resultsOf,
-} from "../../fixtures/command-palette/machine.ts";
-import { Commands } from "../../fixtures/command-palette/server.ts";
+} from "../../fixtures/command-palette/machines/palette.ts";
+import { palette } from "../../fixtures/command-palette/app.ts";
+import { Commands } from "../../fixtures/command-palette/server/commands.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 
 const EVERY = ["calendar", "emoji", "calculator", "profile", "theme", "light", "dark", "settings"];

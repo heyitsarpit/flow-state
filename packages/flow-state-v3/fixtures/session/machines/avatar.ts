@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
-import { SessionMachine } from "../machine.ts";
+import { SessionMachine } from "./session.ts";
 
 /**
  * The header avatar: it reads who is signed in, nobody (undefined) when the session is signed out,

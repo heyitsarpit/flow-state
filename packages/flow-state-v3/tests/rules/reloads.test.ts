@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { manifests } from "../../fixtures/index.ts";
 import { cartFirst, conflictingCart } from "../../fixtures/pay/stories/structure.ts";
-import { parentUnderChildren } from "../../fixtures/session/stories.ts";
+import { parentUnderChildren } from "../../fixtures/session/stories/usual.ts";
 import { conflictingBadge, missingTeam } from "../../fixtures/session/stories/structure.ts";
 import { nestedConflictingTeam } from "../../fixtures/session/stories/values.ts";
 import { sessionFirst } from "../../fixtures/sign-in/stories/structure.ts";

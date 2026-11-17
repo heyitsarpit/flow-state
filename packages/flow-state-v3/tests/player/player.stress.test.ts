@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { stress } from "../../fixtures/player/stories.ts";
+import { stress } from "../../fixtures/player/stories/usual.ts";
 import { played } from "../rules/played.ts";
 
 const LEAVES = new Set(["OFF", "ON.BUFFERING", "ON.PLAYING", "ON.PAUSED"]);

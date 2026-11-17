@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
-import { SessionMachine, TeamMachine } from "../machine.ts";
+import { SessionMachine } from "./session.ts";
+import { TeamMachine } from "./team.ts";
 
 /**
  * The page byline: who is signed in, nobody (undefined) when the session is signed out, beside the

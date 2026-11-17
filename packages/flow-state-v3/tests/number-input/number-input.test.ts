@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
-import { defaults } from "../../fixtures/number-input/contracts.ts";
-import { quantity, StepperMachine } from "../../fixtures/number-input/machine.ts";
-import { bounded, numberStory, usual } from "../../fixtures/number-input/stories.ts";
+import { defaults } from "../../fixtures/number-input/machines/stepping.ts";
+import { quantity } from "../../fixtures/number-input/app.ts";
+import { StepperMachine } from "../../fixtures/number-input/machines/stepper.ts";
+import { bounded, numberStory, usual } from "../../fixtures/number-input/stories/usual.ts";
 import { actorRef } from "../../src/index.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";

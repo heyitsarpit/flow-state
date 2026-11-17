@@ -7,7 +7,7 @@ import {
   HttpClientResponse,
   HttpIncomingMessage,
 } from "effect/http";
-import { IdentityApi, NoResponse, Profile, Refused } from "./contracts.ts";
+import { IdentityApi, NoResponse, Profile, Refused } from "../services.ts";
 
 const Refusal = Schema.Struct({ reason: Schema.String });
 

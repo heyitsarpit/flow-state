@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
-import { command, group, separator } from "../../fixtures/command-palette/commands.ts";
-import { palette } from "../../fixtures/command-palette/machine.ts";
+import { command, group, separator } from "../../fixtures/command-palette/machines/commands.ts";
+import { palette } from "../../fixtures/command-palette/app.ts";
 import {
   commands,
   configure,
   fuzzy,
   paletteStory,
-} from "../../fixtures/command-palette/stories.ts";
+} from "../../fixtures/command-palette/stories/usual.ts";
 import { played } from "../rules/played.ts";
 import { resultsAt, shownAt } from "./reads.ts";
 

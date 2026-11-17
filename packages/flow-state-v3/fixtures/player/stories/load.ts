@@ -1,6 +1,6 @@
 import { actorRef } from "../../../src/index.ts";
-import { PlayerMachine } from "../machine.ts";
-import { musicStory } from "../stories.ts";
+import { PlayerMachine } from "../machines/player.ts";
+import { musicStory } from "./usual.ts";
 
 const ROOMS = Array.from({ length: 16 }, (_, n) => n);
 

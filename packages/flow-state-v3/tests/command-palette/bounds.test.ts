@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { palette } from "../../fixtures/command-palette/machine.ts";
-import { overBound } from "../../fixtures/command-palette/stories.ts";
+import { palette } from "../../fixtures/command-palette/app.ts";
+import { overBound } from "../../fixtures/command-palette/stories/usual.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 

@@ -1,7 +1,8 @@
-import { Fake, samplesOf, Story } from "../../src/host/testing/index.ts";
-import { command, type Entries, group, type Scores, separator } from "./commands.ts";
-import { palette, paletteSetup } from "./machine.ts";
-import { Commands, CommandsFake } from "./server.ts";
+import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
+import { command, type Entries, group, type Scores, separator } from "../machines/commands.ts";
+import { palette, paletteSetup } from "../app.ts";
+import { Commands } from "../server/commands.ts";
+import { CommandsFake } from "../server/layer.ts";
 
 /**
  * The palette app over its port fake, with no steps yet: every palette Story starts here.

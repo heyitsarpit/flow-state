@@ -1,4 +1,4 @@
-import type { StepperMemory } from "../../fixtures/number-input/machine.ts";
+import type { StepperMemory } from "../../fixtures/number-input/machines/stepper.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 
 /**

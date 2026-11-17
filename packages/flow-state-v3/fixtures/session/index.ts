@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { workspaceGrown } from "./app.ts";
-import { long, samples, seededStress, stories, stressSamples } from "./stories.ts";
+import { long, samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { corruptRecord, oversizedRecord } from "./stories/edges.ts";
 import { avatarWall65, wall64 } from "./stories/load.ts";
 import { grownSamples } from "./stories/samples.ts";

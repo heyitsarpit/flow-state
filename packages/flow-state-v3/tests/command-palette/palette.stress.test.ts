@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { stress } from "../../fixtures/command-palette/stories.ts";
+import { stress } from "../../fixtures/command-palette/stories/usual.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
 import { played } from "../rules/played.ts";
 import { asPalette, pendingAt } from "./reads.ts";

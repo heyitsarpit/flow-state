@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { numberApp } from "./machine.ts";
-import { samples, seededStress, stories } from "./stories.ts";
+import { numberApp } from "./app.ts";
+import { samples, seededStress, stories } from "./stories/usual.ts";
 
 /**
  * The number-input fixture, as every runner reads it.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { stress } from "../../fixtures/number-input/stories.ts";
+import { stress } from "../../fixtures/number-input/stories/usual.ts";
 import { played } from "../rules/played.ts";
 import { published } from "./reads.ts";
 

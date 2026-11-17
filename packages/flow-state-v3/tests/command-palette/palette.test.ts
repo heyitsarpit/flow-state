@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
-import { command, shortcutsOf } from "../../fixtures/command-palette/commands.ts";
-import { palette } from "../../fixtures/command-palette/machine.ts";
-import { Commands } from "../../fixtures/command-palette/server.ts";
+import { command, shortcutsOf } from "../../fixtures/command-palette/machines/commands.ts";
+import { palette } from "../../fixtures/command-palette/app.ts";
+import { Commands } from "../../fixtures/command-palette/server/commands.ts";
 import {
   commands,
   configure,
   fuzzy,
   paletteStory,
   usual,
-} from "../../fixtures/command-palette/stories.ts";
+} from "../../fixtures/command-palette/stories/usual.ts";
 import { played } from "../rules/played.ts";
 import { callsAt, denials, highlightAt, memoryAt, pendingAt, resultsAt, shownAt } from "./reads.ts";
 

@@ -1,8 +1,7 @@
-// @effect-diagnostics unstableApiUsage:off -- the production adapter's port is Effect's HttpClient, as the app's real Layer would be
-import { Duration, Effect, Layer, Schema } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
-import { NoResponse, play, SpeakerApi, Unavailable } from "./contracts.ts";
+import { Duration, Schema } from "effect";
+
+import { definition, Flow, machine } from "../../../src/index.ts";
+import { play } from "../operations/writes.ts";
 
 const Player = definition({
   id: "Music/Player",
@@ -86,51 +85,3 @@ export const PlayerMachine = machine(Player, ({ S, E, O }) => ({
     },
   },
 }));
-
-const lost = () => Effect.fail(new NoResponse());
-
-/**
- * The speaker port over HTTP: `POST /play` with the Attempt's id as the idempotency key.
- */
-export const SpeakerHttp = (origin: string) =>
-  Layer.effect(
-    SpeakerApi,
-    Effect.map(HttpClient.HttpClient, (http) => {
-      const client = HttpClient.mapRequest(http, HttpClientRequest.prependUrl(origin));
-
-      return SpeakerApi.of({
-        play: (input, { idempotencyKey }) =>
-          HttpClientRequest.post("/play").pipe(
-            HttpClientRequest.setHeader("Idempotency-Key", idempotencyKey),
-            HttpClientRequest.bodyJsonUnsafe(input),
-            client.execute,
-            Effect.flatMap(
-              HttpClientResponse.matchStatus({
-                "2xx": () => Effect.void,
-                409: () => Effect.fail(new Unavailable({ why: "not in your region" })),
-                orElse: lost,
-              }),
-            ),
-            Effect.catchTag("HttpClientError", lost),
-          ),
-      });
-    }),
-  );
-
-/**
- * The player app: one machine.
- */
-export const musicApp = app({ id: "music", machines: { player: PlayerMachine } });
-
-/**
- * The player app's real setup: the speaker over HTTP, with no persistence.
- */
-export const musicSetup = runtimeSetup({
-  app: musicApp,
-  services: SpeakerHttp("https://speaker.example").pipe(Layer.provide(FetchHttpClient.layer)),
-});
-
-/**
- * The player the Stories use, named by its room.
- */
-export const player = actorRef(PlayerMachine, { room: "lounge" });

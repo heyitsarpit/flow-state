@@ -19,15 +19,10 @@ import {
   mainUnread,
   nestView,
 } from "../app.ts";
-import {
-  BadgeMachine,
-  globex,
-  guestSession,
-  guestTeam,
-  mainSession,
-  TeamMachine,
-} from "../machine.ts";
-import { Identity } from "../server.ts";
+import { BadgeMachine } from "../machines/badge.ts";
+import { globex, guestSession, guestTeam, mainSession } from "../app.ts";
+import { TeamMachine } from "../machines/team.ts";
+import { Identity } from "../server/identity.ts";
 import { grownStory } from "./structure.ts";
 
 const arrive = (id: string, from: string, at: number, replyTo = "") =>

@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { actorRef, app, definition, deny, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import { definition, deny, Flow, machine } from "../../../src/index.ts";
 import {
   atBound,
   defaults,
@@ -10,7 +10,7 @@ import {
   snapped,
   stepFrom,
   Value,
-} from "./contracts.ts";
+} from "./stepping.ts";
 
 const Started = Schema.NullOr(Schema.Struct({ from: Value }));
 
@@ -219,18 +219,3 @@ export const StepperMachine = machine(Stepper, ({ S, E }) => {
     },
   };
 });
-
-/**
- * The number input app: one field machine, nothing persisted, no services.
- */
-export const numberApp = app({ id: "number-input", machines: { stepper: StepperMachine } });
-
-/**
- * The number input's setup: no store and no services, so a reload starts every field fresh.
- */
-export const numberSetup = runtimeSetup({ app: numberApp });
-
-/**
- * The field most stories use.
- */
-export const quantity = actorRef(StepperMachine, "quantity");

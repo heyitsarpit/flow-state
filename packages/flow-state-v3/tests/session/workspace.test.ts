@@ -10,13 +10,13 @@ import {
 } from "../../fixtures/session/app.ts";
 import {
   badge,
-  BadgeMachine,
   coreTeam,
   guestTeam,
   mainSession,
   wallBadge,
   workspaceSetup,
-} from "../../fixtures/session/machine.ts";
+} from "../../fixtures/session/app.ts";
+import { BadgeMachine } from "../../fixtures/session/machines/badge.ts";
 import { corruptRecord, oversizedRecord } from "../../fixtures/session/stories/edges.ts";
 import { avatarWall65, wall64 } from "../../fixtures/session/stories/load.ts";
 import {

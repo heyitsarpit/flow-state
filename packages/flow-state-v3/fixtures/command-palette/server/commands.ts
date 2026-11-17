@@ -1,6 +1,6 @@
-import { Effect, Exit, Layer, Schema } from "effect";
-import { Fake } from "../../src/host/testing/index.ts";
-import { ActionFailed, CommandsApi, NoResponse } from "./contracts.ts";
+import { Exit, Schema } from "effect";
+import { Fake } from "../../../src/host/testing/index.ts";
+import { ActionFailed } from "../services.ts";
 
 const CommandsTruth = Schema.Struct({
   ran: Schema.Record(Schema.String, Schema.String),
@@ -49,20 +49,3 @@ export const Commands = Fake.server("Commands", {
     })),
   },
 });
-
-/**
- * The port fake: `CommandsApi` over the commands server, a lost answer read as the port's
- * NoResponse.
- */
-export const CommandsFake = Layer.effect(
-  CommandsApi,
-  Effect.map(Commands, (server) =>
-    CommandsApi.of({
-      run: (input, { idempotencyKey }) =>
-        server.run({ ...input, key: idempotencyKey }).pipe(
-          Effect.asVoid,
-          Effect.catchTag("FakeLost", () => Effect.fail(new NoResponse())),
-        ),
-    }),
-  ),
-);

@@ -1,5 +1,5 @@
 import { Fake } from "../../../src/host/testing/index.ts";
-import { badge } from "../machine.ts";
+import { badge } from "../app.ts";
 import { grownStory } from "./structure.ts";
 
 const badgeRecord = "actor/Workspace/Badge/badge";

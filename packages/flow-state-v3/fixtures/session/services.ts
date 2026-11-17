@@ -1,5 +1,4 @@
 import { Context, Effect, Schema } from "effect";
-import { Outcome, transaction } from "../../src/index.ts";
 
 /**
  * The identity provider turned a sign-in away: the user is unknown or locked.
@@ -31,18 +30,3 @@ export class IdentityApi extends Context.Service<
     ) => Effect.Effect<typeof Profile.Type, Refused | NoResponse>;
   }
 >()("workspace/IdentityApi") {}
-
-/**
- * One sign-in of a session, keyed by nothing: a lost answer is unknown.
- */
-export const signIn = transaction({
-  id: "Identity/sign-in",
-  input: { user: Schema.String },
-  key: [],
-  concurrency: "latest",
-  services: [IdentityApi],
-  commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(IdentityApi), (api) =>
-      api.signIn(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
-});

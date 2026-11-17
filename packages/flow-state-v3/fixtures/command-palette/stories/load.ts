@@ -1,6 +1,6 @@
 import { Fake } from "../../../src/host/testing/index.ts";
-import { palette } from "../machine.ts";
-import { commands, configure, paletteStory } from "../stories.ts";
+import { palette } from "../app.ts";
+import { commands, configure, paletteStory } from "./usual.ts";
 
 /**
  * A query typed, then cleared.

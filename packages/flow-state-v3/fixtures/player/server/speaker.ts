@@ -1,6 +1,5 @@
-import { Effect, Exit, Layer, Schema } from "effect";
-import { Fake } from "../../src/host/testing/index.ts";
-import { NoResponse, SpeakerApi, Unavailable } from "./contracts.ts";
+import { Exit, Schema } from "effect";
+import { Fake } from "../../../src/host/testing/index.ts";
 
 const SpeakerTruth = Schema.Struct({
   playing: Schema.Record(Schema.String, Schema.String),
@@ -36,24 +35,3 @@ export const Speaker = Fake.server("Speaker", {
     })),
   },
 });
-
-const lost = () => Effect.fail(new NoResponse());
-
-/**
- * The speaker port over its fake, for Stories.
- */
-export const SpeakerFake = Layer.effect(
-  SpeakerApi,
-  Effect.map(Speaker, (speaker) =>
-    SpeakerApi.of({
-      play: (input, { idempotencyKey }) =>
-        speaker.play({ ...input, key: idempotencyKey }).pipe(
-          Effect.asVoid,
-          Effect.catchTags({
-            FakeLost: lost,
-            Unavailable: (e) => Effect.fail(new Unavailable({ why: e.why })),
-          }),
-        ),
-    }),
-  ),
-);

@@ -1,7 +1,7 @@
 import { samplesOf } from "../../../src/host/testing/index.ts";
 import { mainAvatar, mainByline } from "../app.ts";
-import { acme, coreTeam, globex, guestSession, mainSession } from "../machine.ts";
-import { Identity } from "../server.ts";
+import { acme, coreTeam, globex, guestSession, mainSession } from "../app.ts";
+import { Identity } from "../server/identity.ts";
 import { grownStory } from "./structure.ts";
 
 const signInAda = { _tag: "SignIn", user: "ada" } as const;

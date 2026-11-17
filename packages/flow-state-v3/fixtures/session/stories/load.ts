@@ -1,6 +1,6 @@
 import type { Story } from "../../../src/host/testing/index.ts";
 import { wallAvatar } from "../app.ts";
-import { acme, coreTeam, mainSession, wallBadge } from "../machine.ts";
+import { acme, coreTeam, mainSession, wallBadge } from "../app.ts";
 import { grownStory } from "./structure.ts";
 
 const ping = { _tag: "Ping" } as const;

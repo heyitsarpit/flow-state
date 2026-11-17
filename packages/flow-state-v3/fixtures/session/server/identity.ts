@@ -1,6 +1,6 @@
-import { Effect, Exit, Layer, Schema } from "effect";
-import { Fake } from "../../src/host/testing/index.ts";
-import { IdentityApi, NoResponse, Profile, Refused } from "./contracts.ts";
+import { Exit, Schema } from "effect";
+import { Fake } from "../../../src/host/testing/index.ts";
+import { Profile, Refused } from "../services.ts";
 
 const IdentityTruth = Schema.Struct({
   sessions: Schema.Record(Schema.String, Profile),
@@ -62,19 +62,3 @@ export const Identity = Fake.server("Identity", {
     ),
   },
 });
-
-/**
- * The port fake: `IdentityApi` over the identity provider's server, a lost answer read as the
- * port's NoResponse.
- */
-export const IdentityFake = Layer.effect(
-  IdentityApi,
-  Effect.map(Identity, (identity) =>
-    IdentityApi.of({
-      signIn: (input, { idempotencyKey }) =>
-        identity
-          .signIn({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", () => Effect.fail(new NoResponse()))),
-    }),
-  ),
-);

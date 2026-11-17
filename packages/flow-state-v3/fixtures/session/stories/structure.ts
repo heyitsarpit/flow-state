@@ -3,16 +3,17 @@ import { mainAvatar, mainByline, teamStatus, workspaceGrownSetup } from "../app.
 import {
   acme,
   badge,
-  BadgeMachine,
   coreTeam,
   globex,
   guestBadge,
   guestSession,
   guestTeam,
   mainSession,
-} from "../machine.ts";
+} from "../app.ts";
+import { BadgeMachine } from "../machines/badge.ts";
 import { actorRef } from "../../../src/index.ts";
-import { Identity, IdentityFake } from "../server.ts";
+import { Identity } from "../server/identity.ts";
+import { IdentityFake } from "../server/layer.ts";
 
 /**
  * The grown workspace over its identity fake, with no steps yet.

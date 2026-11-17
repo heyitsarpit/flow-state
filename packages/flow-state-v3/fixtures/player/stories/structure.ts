@@ -1,5 +1,5 @@
-import { player } from "../machine.ts";
-import { musicStory } from "../stories.ts";
+import { player } from "../app.ts";
+import { musicStory } from "./usual.ts";
 import { roomOf } from "./load.ts";
 
 /**

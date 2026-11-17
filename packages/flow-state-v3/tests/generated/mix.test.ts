@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
-import { numberSetup } from "../../fixtures/number-input/machine.ts";
+import { numberSetup } from "../../fixtures/number-input/app.ts";
 import {
   type Generated,
   generate,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { wallBadge } from "../../fixtures/session/machine.ts";
+import { wallBadge } from "../../fixtures/session/app.ts";
 import { stressWall1024 } from "../../fixtures/session/stories/load.ts";
 import { checked } from "../rules/rules.ts";
 

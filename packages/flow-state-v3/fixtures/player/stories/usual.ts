@@ -1,6 +1,7 @@
-import { Fake, samplesOf, Story } from "../../src/host/testing/index.ts";
-import { musicSetup, player } from "./machine.ts";
-import { Speaker, SpeakerFake } from "./server.ts";
+import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
+import { musicSetup, player } from "../app.ts";
+import { Speaker } from "../server/speaker.ts";
+import { SpeakerFake } from "../server/layer.ts";
 
 /**
  * The player app over its speaker fake, with no steps yet: every player Story starts here.
