@@ -916,3 +916,8 @@ note 2026-11-17T07:32:19Z
     T9 in review at 8cccc00d: depth limit Flow.maxDepth 256 (Node Map-nest decode survives 686, the smallest measured);
     past it values are reported, never thrown. Opus review started. Builder planted one fault in the live tree and
     restored it (rule broken; tree confirmed clean at HEAD).
+
+note 2026-11-17T07:44:31Z
+    Stop (failure limit, third depth round): T9 review ISSUES (56f29d92): a deep key encode (lane-moves.ts keyTextOf) is
+    unguarded and kills the run; four more unguarded deep paths routed. Guarding call by call keeps leaking; asked the
+    user (Q11) whether T9 builds compiled stack-safe walkers at one boundary instead. T9 holds; trace printer to T83.
