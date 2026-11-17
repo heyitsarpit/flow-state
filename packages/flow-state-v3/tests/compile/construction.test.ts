@@ -1,6 +1,15 @@
 import { Effect, Option, Result, Schema, SchemaGetter } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { app, definition, Flow, FlowError, machine, transaction } from "../../src/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Flow,
+  FlowError,
+  machine,
+  runtimeSetup,
+  transaction,
+} from "../../src/index.ts";
 
 // Each diagnostic of a refused construction as [code, reason, path].
 const refusal = (construct: () => unknown) => {
@@ -33,6 +42,49 @@ const loose = (value: unknown) =>
   // SAFETY: each refused form is one the types reject; construction must refuse it at run time too.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller construction guards against
   value as never;
+
+// Names well past any a real machine uses, and a state path well past any real tree's depth.
+const LONG_NAME = 4096;
+const DEPTH = 100;
+
+const nameAt = (level: number) => `${"n".repeat(LONG_NAME - String(level).length)}${level}`;
+
+const LEVELS = Array.from({ length: DEPTH }, (_, level) => nameAt(level));
+
+const LONG_EVENT = "e".repeat(LONG_NAME);
+
+// DEPTH nested compounds down to two leaves, A and B.
+const deepTree = LEVELS.reduceRight<ReadonlyArray<unknown>>(
+  (kids, name) => [{ [name]: kids }],
+  ["A", "B"],
+);
+
+// FLOW_STATE_ALLOW_UNKNOWN: a state reference reached by name, which the deep tree's types cannot spell.
+type Ref = Record<string, unknown>;
+
+// The body of the compound `ref` at `level`: its one child the default, down to A, which moves to
+// B on the long event.
+// FLOW_STATE_ALLOW_UNKNOWN: a body built by name, which the deep tree's types cannot spell.
+// RETURN_TYPE: recursive: a body holds the body of its one child.
+const bodyAt = (ref: Ref, level: number): unknown => {
+  const name = LEVELS[level];
+
+  if (name === undefined)
+    return { default: ref["A"], states: { A: { on: { [LONG_EVENT]: ref["B"] } }, B: {} } };
+
+  const child = loose(ref[name]);
+
+  return { default: child, states: { [name]: bodyAt(child, level + 1) } };
+};
+
+// Built on call, so a refusal fails only the test that builds it.
+const deepMachine = () =>
+  machine(
+    definition(
+      loose({ id: "i".repeat(LONG_NAME), states: deepTree, events: { [LONG_EVENT]: {} } }),
+    ),
+    ({ S }) => loose(bodyAt(loose(S), 0)),
+  );
 
 describe("one construction failure (Compile R2, I3, T2)", () => {
   it("a definition with three violations in different fields throws one FlowError listing all three, in declaration then rule order, with paths", () => {
@@ -135,35 +187,35 @@ describe("the declared shape (Compile R4, R12)", () => {
     ]);
   });
 
-  it("bounds authored names: nonempty, at most 256 UTF-8 bytes, no control character or lone surrogate, at most ten segments", () => {
-    const deep = {
-      L0: [
-        {
-          L1: [
-            { L2: [{ L3: [{ L4: [{ L5: [{ L6: [{ L7: [{ L8: [{ L9: ["LEAF"] }] }] }] }] }] }] }] },
-          ],
-        },
-      ],
-    };
-
+  it("refuses an authored name that is empty or holds a control character or a lone surrogate, at any length or depth", () => {
     expect(
       refusal(() =>
         definition(
           loose({
-            id: "x".repeat(257),
-            states: ["", "a\u0007", "b\uD800", "c\u007F", deep],
-            events: { ["é".repeat(128)]: {} },
+            id: "x".repeat(LONG_NAME),
+            states: ["", "a\u0007", "b\uD800", "c\u007F", ...deepTree],
+            events: { ["é".repeat(LONG_NAME)]: {} },
           }),
         ),
-      ).map(([, reason, path]) => `${reason} ${path.length > 40 ? path.slice(-12) : path}`),
+      ).map(([, reason, path]) => `${reason} ${path}`),
     ).toEqual([
-      "InvalidName id",
       "InvalidName states.",
       "InvalidName states.a\u0007",
       "InvalidName states.b\uD800",
       "InvalidName states.c\u007F",
-      "PathTooDeep 7.L8.L9.LEAF",
     ]);
+  });
+
+  it("Compile R4: names of 4,096 bytes and a state path 100 levels deep compile, and a Runtime enters the deepest leaf and moves within it", () => {
+    const deep = deepMachine();
+    const runtime = runtimeSetup({ app: app({ id: "deep", machines: { deep } }) }).construct();
+    Effect.runSync(runtime.ready());
+    const handle = runtime.ensureActor(actorRef(deep, "deep"));
+    const leafOf = () => Option.map(handle.getSnapshot(), (s) => s.state.split("."));
+
+    expect(leafOf()).toEqual(Option.some([...LEVELS, "A"]));
+    handle.send(loose({ _tag: LONG_EVENT }));
+    expect(leafOf()).toEqual(Option.some([...LEVELS, "B"]));
   });
 
   it("a name compares by exact spelling: two spellings of é are two siblings", () => {

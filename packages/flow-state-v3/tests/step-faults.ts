@@ -2,7 +2,8 @@ import type { Fault } from "./faults.ts";
 
 /**
  * Wrong step operations: an index out of step with its facts, a step that misses a changed
- * identity, and a kept world written by a later step.
+ * identity, a kept world written by a later step, and a SlowWork report that is missed, made up at
+ * the budget, or given in production.
  */
 export const stepFaults: ReadonlyArray<Fault> = [
   {
@@ -67,6 +68,45 @@ export const stepFaults: ReadonlyArray<Fault> = [
         file: "src/core/serve.ts",
         find: "        owner === ROOT_ACTIVATION || incarnation.activations.includes(owner)\n",
         replace: "        owner === ROOT_ACTIVATION || incarnation.activations.length >= 0\n",
+      },
+    ],
+  },
+  {
+    name: "slow-work-missed",
+    tests: ["src/host/slow-work.test.ts"],
+    says: "a step slower than the budget is never reported",
+    rule: "Diagnostics SlowWork",
+    edits: [
+      {
+        file: "src/host/driver.ts",
+        find: "(ms) => ms > budgetMs,",
+        replace: "(ms) => ms > budgetMs * 1000,",
+      },
+    ],
+  },
+  {
+    name: "slow-work-at-budget",
+    tests: ["src/host/slow-work.test.ts"],
+    says: "a step that takes exactly the budget is reported slow",
+    rule: "Diagnostics SlowWork",
+    edits: [
+      {
+        file: "src/host/driver.ts",
+        find: "(ms) => ms > budgetMs,",
+        replace: "(ms) => ms >= budgetMs,",
+      },
+    ],
+  },
+  {
+    name: "slow-work-in-production",
+    tests: ["src/host/slow-work.test.ts"],
+    says: "the production host times every step",
+    rule: "Diagnostics SlowWork",
+    edits: [
+      {
+        file: "src/host/platform/browser.ts",
+        find: "      workClock: Option.none(),",
+        replace: "      workClock: Option.some(() => performance.now()),",
       },
     ],
   },

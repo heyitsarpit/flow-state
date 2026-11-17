@@ -1,22 +1,21 @@
 import { asItIs, makeFreezer } from "../core/frozen.ts";
-import { Cause, Clock, Context, Deferred, Effect, Exit, Option, Result } from "effect";
+import { Cause, Clock, Context, Deferred, Duration, Effect, Exit, Option, Result } from "effect";
+import { RuntimeDefaults } from "../core/defaults.ts";
 import { Operation, operationOf } from "../core/compiled.ts";
 import { defect } from "../core/defect.ts";
 import type { Values } from "../core/compiled.ts";
-import type { Evidence } from "../core/evidence.ts";
+import { Evidence } from "../core/evidence.ts";
 import { admit, endedBy, isDisposed, Verdict } from "../core/life.ts";
 import {
-  ADMISSION_BOUND,
   CallResult,
   type Env,
   Input,
   type Machines,
-  overloaded,
   owesServe,
   step,
   stopped,
 } from "../core/step.ts";
-import { type CallId, Command, emptyWorld, sameActor, type World } from "../core/world.ts";
+import { type CallId, Command, emptyWorld, type World } from "../core/world.ts";
 import { flowError, lifeRejection } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
@@ -147,6 +146,25 @@ export const makeDriver = (options: {
     options.stopped();
   };
 
+  const budgetMs = Duration.toMillis(RuntimeDefaults.slowWorkBudget);
+
+  // Dev only: a step slower than the budget, as SlowWork evidence; a host with no work clock
+  // times nothing.
+  const slowWork = (next: Input, started: Option.Option<number>) =>
+    Option.filter(
+      Option.zipWith(host.workClock, started, (now, at) => now() - at),
+      (ms) => ms > budgetMs,
+    ).pipe(
+      Option.map((ms) =>
+        Evidence.SlowWork({
+          work: Input.$is("Capture")(next) ? "capture" : "turn",
+          input: next._tag,
+          ms,
+          budgetMs,
+        }),
+      ),
+    );
+
   const drainInbox = () => {
     for (let next = inbox.shift(); next !== undefined; next = inbox.shift()) {
       const env: Env = {
@@ -154,6 +172,8 @@ export const makeDriver = (options: {
         seed: host.sessionSeed,
         admit: admitValue,
       };
+
+      const started = Option.map(host.workClock, (now) => now());
 
       const stepped = Result.try({
         try: () => step(machines, world, next, env),
@@ -167,10 +187,16 @@ export const makeDriver = (options: {
       }
 
       const out = stepped.success;
-      options.admit(out.evidence);
+
+      const evidence = Option.match(slowWork(next, started), {
+        onNone: () => out.evidence,
+        onSome: (slow) => [...out.evidence, slow],
+      });
+
+      options.admit(evidence);
       world = out.world;
 
-      if (out.evidence.length > 0) options.sink(out.evidence);
+      if (evidence.length > 0) options.sink(evidence);
 
       for (const command of out.commands) perform(command);
 
@@ -249,22 +275,6 @@ export const makeDriver = (options: {
             path: [actor.machine, tag],
             summary: `${tag} is not a public event of ${actor.machine} with a valid payload`,
             help: "Send a public event of this machine with a payload its Schema accepts.",
-          },
-        ]);
-
-      const waiting = inbox.filter(
-        (next) => Input.$is("Send")(next) && sameActor(next.actor, actor),
-      ).length;
-
-      // Past the actor's admission bound a send throws AdmissionOverloaded and changes nothing.
-      if (overloaded(world, actor, waiting))
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public send's contract: a send past the admission bound throws before any turn
-        throw flowError([
-          {
-            code: "AdmissionOverloaded",
-            path: [actor.machine, actor.name],
-            summary: `${actor.machine} ${actor.name} already has ${ADMISSION_BOUND} pending events`,
-            help: "Send fewer events at once, or let the actor serve its mail first.",
           },
         ]);
 

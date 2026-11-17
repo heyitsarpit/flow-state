@@ -222,25 +222,42 @@ const numbered = (count: number) =>
 export const longList = configure(numbered(1000));
 
 /**
- * A flood of 4,097 commands, as a plugin might add.
+ * A flood of 10,000 commands, as a plugin might add.
  */
-export const pastBound = configure(numbered(4097));
+export const largeList = configure(numbered(10_000));
 
 /**
- * A team loads a thousand commands, then a plugin floods the palette with 4,097: that list is
+ * A team loads a thousand commands, then a plugin floods the palette with 10,000: that list is
  * saved and a reload brings it back; loading the thousand again saves at once.
  */
-export const overBound = paletteStory("palette/over-bound")
+export const largeListSaved = paletteStory("palette/large-list")
   .ensure(palette)
   .send(palette, longList)
   .checkpoint("saved")
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .checkpoint("unsaved")
   .reload()
   .checkpoint("reloaded")
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .send(palette, longList)
   .checkpoint("saved again");
+
+/**
+ * How many commands the huge list holds: enough that the palette's saved record passes 16 MiB.
+ */
+export const HUGE_LIST = 300_000;
+
+/**
+ * The palette given `HUGE_LIST` commands, saved, then reloaded. A stress Story, built on call and
+ * kept out of `stories`: the reload sweep would save it once per step.
+ */
+export const stressHugeList = () =>
+  paletteStory("palette/stress-huge-list")
+    .ensure(palette)
+    .send(palette, configure(numbered(HUGE_LIST)))
+    .checkpoint("saved")
+    .reload()
+    .checkpoint("reloaded");
 
 const sampleEvents = {
   configured,
@@ -272,15 +289,15 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, configured)
   .world(Commands.heal({ command: "profile" }))
   .send(palette, configured)
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .send(palette, entering)
   .send(palette, clearing)
   .send(palette, typingPro)
   .reload({ reattach: false })
-  .send(palette, pastBound)
-  .send(palette, pastBound)
+  .send(palette, largeList)
+  .send(palette, largeList)
   .send(palette, runningProfile)
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .send(palette, escaping)
   .send(palette, clearing)
   .send(palette, runningProfile)
@@ -289,7 +306,7 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, typingPro)
   .world(Fake.storage.hold())
   .world(Fake.network.offline())
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .dispose(palette, { how: "forget" })
   .world(Commands.heal({ command: "dark" }))
   .send(palette, runningDark)
@@ -329,9 +346,9 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, typingPro)
   .world(Fake.storage.hold())
   .send(palette, runningProfile)
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .send(palette, goingBack)
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .send(palette, runningTheme)
   .reload({ reattach: false, heldWrites: "land" })
   .advance("4 millis")
@@ -346,8 +363,8 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, clearing)
   .send(palette, typingPro)
   .send(palette, runningProfile)
-  .send(palette, pastBound)
-  .send(palette, pastBound)
+  .send(palette, largeList)
+  .send(palette, largeList)
   .send(palette, runningProfile)
   .send(palette, clearing)
   .advance("20 millis")
@@ -364,10 +381,10 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, longList)
   .advance("7 millis")
   .send(palette, clearing)
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .send(palette, clearing)
   .advance("15 millis")
-  .send(palette, pastBound)
+  .send(palette, largeList)
   .advance("15 millis")
   .send(palette, moving)
   .advance("56438 millis")
@@ -404,11 +421,11 @@ export const samples = paletteSamples(sampleEvents);
 
 /**
  * The samples with the command list's edge values, for the stress runs: a thousand commands, and
- * 4,097, past what an array may hold.
+ * ten thousand.
  */
-export const stressSamples = paletteSamples({ ...sampleEvents, longList, pastBound });
+export const stressSamples = paletteSamples({ ...sampleEvents, longList, largeList });
 
 /**
  * Every Story of the fixture, by name.
  */
-export const stories = { usual, stress, seededStress, overBound };
+export const stories = { usual, stress, seededStress, largeListSaved };

@@ -1,7 +1,9 @@
+import { Duration } from "effect";
 import { expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { before, coalescedStory, type Records, START, state } from "../checkout.ts";
+import { RuntimeDefaults } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
 
 const finished = (records: Records) => records.filter((e) => e._tag === "Finished").length;
@@ -39,18 +41,21 @@ it("ACT-02/dirty-record-written-at-end: a free actor with an unwritten change en
   expect(finished(before(run, "free"))).toBe(1);
 });
 
-it("ACT-03/no-end-before-the-grace: a free actor does not end at 50 ms and has ended by 110 ms (Actors R8, I10, I37)", async () => {
+// One millisecond short of the free actor's grace.
+const SHORT_OF_GRACE = Duration.millis(Duration.toMillis(RuntimeDefaults.freeGrace) - 1);
+
+it("ACT-03/no-end-before-the-grace: a free actor has not ended a millisecond before its grace ends, and has at the grace (Actors R8, I10, I37)", async () => {
   const run = await played(
     coalescedStory("ACT-03/no-end-before-the-grace")
       .ensure(checkout)
       .send(checkout, START)
       .detach(checkout)
-      .advance("50 millis")
-      .checkpoint("50")
-      .advance("60 millis")
-      .checkpoint("110"),
+      .advance(SHORT_OF_GRACE)
+      .checkpoint("short")
+      .advance(Duration.millis(1))
+      .checkpoint("grace"),
   );
 
-  expect(finished(before(run, "50"))).toBe(0);
-  expect(finished(before(run, "110"))).toBe(1);
+  expect(finished(before(run, "short"))).toBe(0);
+  expect(finished(before(run, "grace"))).toBe(1);
 });

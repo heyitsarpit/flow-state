@@ -46,7 +46,11 @@ export type Store = {
  * primitive, as a page's IndexedDB callbacks are. `sessionSeed` is fresh per boot, at least 128
  * random bits as hex, never restored; Attempt ids are minted from it. `freezeValues` deep-freezes
  * every admitted value (memory, selections, payloads, commit inputs), so a mutation throws where it
- * happens: on in dev and test hosts, off in production, which pays nothing.
+ * happens: on in dev and test hosts, off in production, which pays nothing. `workClock` is a
+ * monotonic millisecond reader (`performance.now` in dev): a host that gives one has each step
+ * timed, and a step slower than `RuntimeDefaults.slowWorkBudget` reported SlowWork; production
+ * gives none and times nothing. A test host gives none unless its test controls the readings, so
+ * evidence stays deterministic.
  */
 export class Host extends Context.Service<
   Host,
@@ -56,6 +60,7 @@ export class Host extends Context.Service<
     readonly store: Option.Option<Store>;
     readonly sessionSeed: string;
     readonly freezeValues: boolean;
+    readonly workClock: Option.Option<() => number>;
   }
 >()("flow-state/Host") {}
 

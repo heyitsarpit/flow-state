@@ -7,7 +7,7 @@ const ping = { _tag: "Ping" } as const;
 
 // A wall of `count` badges on the core team; the team is renamed, then every badge is pinged twice
 // in a burst.
-const wall = (id: string, count: number) => {
+const wallOf = (id: string, count: number) => {
   const badges = Array.from({ length: count }, (_, n) => wallBadge(n));
 
   const built = badges.reduce<Story>(
@@ -21,22 +21,28 @@ const wall = (id: string, count: number) => {
 };
 
 /**
- * 64 badges on one team, renamed, then pinged in a burst.
+ * How many badges the stress wall holds: more persisted records than any one screen keeps.
  */
-export const wall64 = wall("session/wall-64", 64);
+export const STRESS_WALL = 5000;
 
 /**
- * 1,024 badges on one team, renamed, then pinged in a burst. A stress Story, built on call and kept
- * out of `stories`: its 3,000 steps are too long for the CLI's runs and the reload sweep.
+ * 64 badges on one team, renamed, then pinged in a burst: the rename adds 128 follow-ups.
  */
-export const stressWall1024 = () => wall("session/stress-wall-1024", 1024);
+export const wall = wallOf("session/wall", 64);
+
+/**
+ * `STRESS_WALL` badges on one team, renamed, then pinged in a burst, each badge its own saved
+ * record. A stress Story, built on call and kept out of `stories`: its 15,000 steps are too long
+ * for the CLI's runs and the reload sweep.
+ */
+export const stressWall = () => wallOf("session/stress-wall", STRESS_WALL);
 
 /**
  * 65 header avatars on the main session; Ada signs in, so one admitted event adds 65 context
  * updates and 65 onContext events.
  */
-export const avatarWall65 = Array.from({ length: 65 }, (_, n) => wallAvatar(n))
-  .reduce<Story>((s, a) => s.ensure(a), grownStory("session/avatar-wall-65").ensure(acme))
+export const avatarWall = Array.from({ length: 65 }, (_, n) => wallAvatar(n))
+  .reduce<Story>((s, a) => s.ensure(a), grownStory("session/avatar-wall").ensure(acme))
   .ensure(mainSession)
   .send(mainSession, { _tag: "SignIn", user: "ada" })
   .checkpoint("signed in");

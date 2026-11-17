@@ -9,9 +9,9 @@ import { musicStory } from "./usual.ts";
 export const emptyRoomPlayer = actorRef(PlayerMachine, { room: "" });
 
 /**
- * The player of a room whose name is 262,144 bytes long.
+ * The player of a room whose name is a million characters long.
  */
-export const longRoom = actorRef(PlayerMachine, { room: "r".repeat(262_144) });
+export const longRoom = actorRef(PlayerMachine, { room: "r".repeat(1_000_000) });
 
 /**
  * A room with an empty name is opened.
@@ -21,9 +21,9 @@ export const emptyRoom = musicStory("player/empty-room")
   .checkpoint("opened");
 
 /**
- * A room with a 262,144-byte name plays.
+ * A room with a million-character name plays.
  */
-export const roomAtBound = musicStory("player/room-at-bound")
+export const longRoomPlays = musicStory("player/long-room")
   .ensure(longRoom)
   .send(longRoom, { _tag: "Play", trackId: "t1" })
   .checkpoint("playing");

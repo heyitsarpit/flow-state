@@ -10,13 +10,9 @@ import {
 } from "./compiled.ts";
 import type { Part } from "./evidence.ts";
 import { sameValue } from "./same.ts";
+import { TIMER_LIMIT_MS } from "./defaults.ts";
 import { atOrBelow, chainOf, type Move, moveOf } from "./tree.ts";
 import type { RefusedCode } from "./vocabulary.ts";
-
-/**
- * The largest delay a timer can hold: 2^31 - 1 ms.
- */
-export const MAX_DELAY_MS = 2_147_483_647;
 
 /**
  * What a guard or member sees of one lane: Idle, InFlight, or Held with its re-sends.
@@ -275,7 +271,7 @@ const delayOf = (schedule: Schedule, memory: Values) =>
       Result.flatMap(
         call(ms.slot, () => ms.run({ memory })),
         (value) =>
-          Number.isFinite(value) && value >= 0 && value <= MAX_DELAY_MS
+          Number.isFinite(value) && value >= 0 && value <= TIMER_LIMIT_MS
             ? Result.succeed(value)
             : // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- an invalid delay refuses the turn; the loop ends here
               Result.fail({ slot: ms.slot }),

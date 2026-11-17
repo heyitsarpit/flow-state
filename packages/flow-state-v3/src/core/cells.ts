@@ -37,23 +37,12 @@ export const Cue = Data.taggedEnum<Cue>();
 /**
  * Why a never-sent Attempt ends `NotSent`.
  */
-export const NotSentWhy = Decline.pick([
-  "Rejected",
-  "Overloaded",
-  "Cancelled",
-  "StorageRefused",
-  "Disposed",
-]);
+export const NotSentWhy = Decline.pick(["Rejected", "Cancelled", "StorageRefused", "Disposed"]);
 
 /**
  * The decoded {@link NotSentWhy}.
  */
 export type NotSentWhy = typeof NotSentWhy.Type;
-
-/**
- * How many commits serialize queues behind a head; the next declines NotSent Overloaded.
- */
-const QUEUE_LIMIT = 64;
 
 /**
  * What a cell decides, as data; the step applies it.
@@ -131,7 +120,7 @@ type HeadAt<P extends Phase["_tag"]> = Head & {
 type Row<C extends Cue["_tag"]> = {
   readonly Idle: (cue: CueOf<C>) => Move;
 } & {
-  readonly [P in Phase["_tag"]]: (head: HeadAt<P>, cue: CueOf<C>, queued: number) => Move;
+  readonly [P in Phase["_tag"]]: (head: HeadAt<P>, cue: CueOf<C>) => Move;
 };
 
 /**
@@ -153,10 +142,8 @@ const mint = (cue: Commit) => Move.Mint({ input: cue.input, owner: cue.owner });
 const queueLatest = (_head: Head, cue: Commit) =>
   Move.Queue({ input: cue.input, owner: cue.owner, latest: true });
 
-const queueSerial = (_head: Head, cue: Commit, queued: number) =>
-  queued < QUEUE_LIMIT
-    ? Move.Queue({ input: cue.input, owner: cue.owner, latest: false })
-    : Move.Decline({ why: "Overloaded" });
+const queueSerial = (_head: Head, cue: Commit) =>
+  Move.Queue({ input: cue.input, owner: cue.owner, latest: false });
 
 const supersede = (_head: Head, cue: Commit) =>
   Move.Replace({ input: cue.input, owner: cue.owner, ended: "Superseded" });
@@ -351,16 +338,16 @@ export const LaneState = Data.taggedEnum<LaneState>();
 const at = <C extends Cue["_tag"]>(row: Row<C>, state: LaneState, cue: CueOf<C>) =>
   LaneState.$match(state, {
     Idle: () => row.Idle(cue),
-    Head: ({ head, queued }) =>
+    Head: ({ head }) =>
       Phase.$match(head.phase, {
-        Acknowledging: (phase) => row.Acknowledging({ ...head, phase }, cue, queued),
-        Unsent: (phase) => row.Unsent({ ...head, phase }, cue, queued),
-        Withdrawing: (phase) => row.Withdrawing({ ...head, phase }, cue, queued),
-        Recapturing: (phase) => row.Recapturing({ ...head, phase }, cue, queued),
-        Resending: (phase) => row.Resending({ ...head, phase }, cue, queued),
-        OnWire: (phase) => row.OnWire({ ...head, phase }, cue, queued),
-        Cancelling: (phase) => row.Cancelling({ ...head, phase }, cue, queued),
-        Held: (phase) => row.Held({ ...head, phase }, cue, queued),
+        Acknowledging: (phase) => row.Acknowledging({ ...head, phase }, cue),
+        Unsent: (phase) => row.Unsent({ ...head, phase }, cue),
+        Withdrawing: (phase) => row.Withdrawing({ ...head, phase }, cue),
+        Recapturing: (phase) => row.Recapturing({ ...head, phase }, cue),
+        Resending: (phase) => row.Resending({ ...head, phase }, cue),
+        OnWire: (phase) => row.OnWire({ ...head, phase }, cue),
+        Cancelling: (phase) => row.Cancelling({ ...head, phase }, cue),
+        Held: (phase) => row.Held({ ...head, phase }, cue),
       }),
   });
 

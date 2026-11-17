@@ -1,6 +1,7 @@
 import { expect } from "vite-plus/test";
 import { Step, type Story, type StoryRun } from "../../src/host/testing/index.ts";
 import { render, TraceRecord } from "../../src/host/trace.ts";
+import { RuntimeDefaults } from "../../src/index.ts";
 import { checked } from "./rules.ts";
 
 const disposals = (run: StoryRun, open: number) =>
@@ -14,7 +15,7 @@ const disposals = (run: StoryRun, open: number) =>
 /**
  * Runs a Story as a hand case does and returns the run: every run rule holds; a second run prints
  * the same trace (Turn I17, Stories I21); and the same steps, then the Runtime's disposal and its
- * 5-second bound, end the disposal once in the last open (Actors R22, R23).
+ * disposal bound (`RuntimeDefaults.disposalBound`), end the disposal once in the last open (Actors R22, R23).
  */
 export const played = async <Names extends string>(story: Story<Names>) => {
   const run = checked(await story.run());
@@ -26,7 +27,7 @@ export const played = async <Names extends string>(story: Story<Names>) => {
   const last = story.steps.findLastIndex((s) => s._tag === "reload");
   const disposed = story.steps.slice(last + 1).some((s) => s._tag === "disposeRuntime");
 
-  const bound = Step.advance({ duration: "5 seconds" });
+  const bound = Step.advance({ duration: RuntimeDefaults.disposalBound });
 
   const steps = disposed
     ? [...story.steps, bound]

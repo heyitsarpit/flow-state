@@ -7,7 +7,6 @@ export const Decline = Schema.Literals([
   "Cancelled",
   "Restored",
   "Rejected",
-  "Overloaded",
   "StorageRefused",
   "Disposed",
   "NoPersistence",

@@ -101,6 +101,18 @@ requirements
                 details, summary and help are escaped. Output never exposes raw input, stacks or 
                 Cause, and never invents a file, line or column.
 
+    R11  SlowWork
+        source  @plan.Diagnostics.O1 (SlowWork); @plan.Pending.D24.
+        must    On a host that times work (dev only: its Host gives a `workClock`), each step is
+                timed, and one slower than `RuntimeDefaults.slowWorkBudget` is reported as SlowWork
+                evidence after the step's own: whether it was a turn or a capture, the input that
+                ran it, its time and the budget. It decides nothing. A host with no work clock, as
+                production is, times nothing and reports nothing; a test host gives one only when
+                its test controls the readings, so evidence stays deterministic. Decision (agent:
+                the T84 lead, 2026-11-17): the timing is the host's, since the core has no clock.
+                Why: as RTK's `warnAfter`, slow work is shown, never cut. Reverse: drop the evidence
+                kind and the Host field.
+
 open
     Q1  Executable checks are not built.
         outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers
@@ -141,6 +153,8 @@ invariants
     I9  No Leaving value contains a Cause, stack trace or fiber id. [@R9]
 
     I10  Rendered text contains no raw control character and no location not present in the Diagnostic. [@R10]
+
+    I11  A step is reported SlowWork exactly when its host times work and the step took longer than the budget. [@R11]
 
 coverage
     @R1
@@ -183,6 +197,10 @@ coverage
         enforced_by  [@I10]
         open_by      [@Q1, @Q2]
 
+    @R11
+        enforced_by  [@I11]
+        proven_by    [@T7]
+
 tests
     T1  Carrier and codec: every code in the vocabulary round-trips through the Diagnostic Schema; invalid tags, 
         unknown codes and non-finite numbers are rejected; closed reason values are tested once build time fixes them. 
@@ -199,3 +217,7 @@ tests
         trace or CLI output, only in the in-process FlowError. [@I9]
     T6  Rendering: hostile names with escape sequences render escaped; a Diagnostic without a
             location renders none. [@I10]
+    T7  SlowWork: on a host whose work clock makes each step one millisecond past the budget, a send's turn and its 
+        capture are each reported; at exactly the budget, nothing; with no work clock, nothing, and the browser
+            platform gives none (`src/host/slow-work.test.ts`). Planted faults: `slow-work-missed`,
+            `slow-work-at-budget`, `slow-work-in-production`. [@I11]

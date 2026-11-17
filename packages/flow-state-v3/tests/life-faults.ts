@@ -226,8 +226,21 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/snapshot.ts",
-        find: '      lifecycle: stopped ? "stopped" : "active",',
+        find: '      lifecycle: restingLifecycleOf(world.life, "active"),',
         replace: '      lifecycle: "active",',
+      },
+    ],
+  },
+  {
+    name: "stopped-ended-reads-disposed",
+    tests: ["src/host/runtime.test.ts"],
+    says: "after a stop, an ended actor's snapshot still reads disposed",
+    rule: "Actors R25",
+    edits: [
+      {
+        file: "src/host/snapshot.ts",
+        find: '    lifecycle: restingLifecycleOf(world.life, "disposed"),',
+        replace: '    lifecycle: "disposed",',
       },
     ],
   },

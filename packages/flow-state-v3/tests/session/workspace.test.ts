@@ -18,7 +18,7 @@ import {
 } from "../../fixtures/session/app.ts";
 import { BadgeMachine } from "../../fixtures/session/machines/badge.ts";
 import { corruptRecord, oversizedRecord } from "../../fixtures/session/stories/edges.ts";
-import { avatarWall65, wall64 } from "../../fixtures/session/stories/load.ts";
+import { avatarWall, wall } from "../../fixtures/session/stories/load.ts";
 import {
   bylineReturns,
   childFirst,
@@ -97,7 +97,7 @@ describe("storage failures (Restore R5, R9)", () => {
 
 describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
   it("S2 x 64 under L5: a team renamed under 64 badges reaches each one once", async () => {
-    const run = await played(wall64);
+    const run = await played(wall);
 
     for (const n of [0, 31, 63])
       expect(run.checkpoints.renamed.read(wallBadge(n))?.context).toEqual({ team: "Platform" });
@@ -159,8 +159,8 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
     expect(run.checkpoints.team.read(guestTeam)?.context).toEqual({ user: "bob" });
   });
 
-  it("E4, Actors R13: 65 avatars on one session each hear a sign-in, since context updates and onContext events never count toward the 64 follow-ups", async () => {
-    const run = await played(avatarWall65);
+  it("E4, Actors R13: 65 avatars on one session each hear a sign-in in one admitted event, since context updates and onContext events never count toward the loop guard", async () => {
+    const run = await played(avatarWall);
 
     for (const n of [0, 63, 64]) {
       expect(run.checkpoints["signed in"].read(wallAvatar(n))?.context).toEqual({ user: "ada" });
@@ -190,12 +190,11 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
   });
 });
 
-// A burst past the admission bound: 1,100 pings queued behind one running turn.
-const ADMISSION_BOUND = 1024;
-const BURST = 1100;
+// A burst well past any mailbox a real app builds, sent while one turn runs.
+const BURST = 20_000;
 
 describe("one badge's mailbox (fixtures.md L2; Actors R14)", () => {
-  it("Actors R14: past 1,024 pending pings a send to one badge throws AdmissionOverloaded and changes nothing", () => {
+  it("Actors R14: 20,000 pings to one badge in one burst are all admitted and counted once each", () => {
     const runtime = workspaceSetup.construct();
     Effect.runSync(runtime.ready());
     const handle = runtime.ensureActor(badge);
@@ -217,10 +216,9 @@ describe("one badge's mailbox (fixtures.md L2; Actors R14)", () => {
 
     handle.send({ _tag: "Ping" });
 
-    expect(refused).toHaveLength(BURST - ADMISSION_BOUND);
-    expect(new Set(refused)).toEqual(new Set(["AdmissionOverloaded"]));
+    expect(refused).toEqual([]);
     expect(Option.map(handle.getSnapshot(), (s) => s.memory["pings"])).toEqual(
-      Option.some(1 + ADMISSION_BOUND),
+      Option.some(1 + BURST),
     );
     expect(BadgeMachine.compiled.id).toBe("Workspace/Badge");
   });

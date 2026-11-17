@@ -1,3 +1,4 @@
+import { RuntimeDefaults } from "../../src/index.ts";
 import { describe, expect, it } from "vite-plus/test";
 import { cellsCheckout } from "../../fixtures/cells/app.ts";
 import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
@@ -49,7 +50,7 @@ describe("PAY-13 (Actors R22, R23, I29, I30; WriteAhead R14)", () => {
         .send(checkout, VISA)
         .disposeRuntime()
         .checkpoint("disposing")
-        .advance("5 seconds")
+        .advance(RuntimeDefaults.disposalBound)
         .checkpoint("disposed")
         .reload()
         .checkpoint("reloaded"),
@@ -170,7 +171,7 @@ describe("PAY-15 disposal on Cells (Actors R22, I29; Restore I6)", () => {
       .send(cellsCheckout, START)
       .world(Fake.storage.refuse())
       .disposeRuntime()
-      .advance("5 seconds")
+      .advance(RuntimeDefaults.disposalBound)
       .run();
 
     const ended = run.evidence.findIndex((e) => e._tag === "RuntimeDisposed");

@@ -37,15 +37,16 @@ requirements
                 1n restores as "$1n". A key's fingerprint (field names and each field's type and
                 encoded side) is part of the operation's version.
 
-    R3  Key values and bounds
+    R3  Key values
         source  @plan.Operations.O1.
         must    Picked key values accept null, booleans, finite numbers, strings, bigints (named
                 canonically, R2), dense arrays and plain records.
 
                 Undefined record properties are absent; undefined array items, cycles, accessors,
                 non-plain objects, lone surrogates and unsupported values reject without running
-                getters or coercion. Mutating input later cannot change an admitted key. Key size
-                bounds and the InvalidKey code are written when built.
+                getters or coercion. Mutating input later cannot change an admitted key. A key has no size or
+                shape bound (@plan.Pending.D24); InvalidKey is written when built, for a key with no
+                canonical form.
 
     R5  Shared entries
         source  @plan.Operations.O2.
@@ -163,8 +164,8 @@ open
                  is open.
 
     Q2  Built later, not specified here: staleTime freshness, gcTime collection, trailing refetch, setData, invalidate 
-        and clear with partial keys, write batches and their 256 bound, placeholders, contract.get, key size bounds and 
-        InvalidKey, focus and connection triggers, optimistic stacking. The prototype built none of them.
+        and clear with partial keys, write batches, placeholders, contract.get, InvalidKey, focus and connection 
+        triggers, optimistic stacking. The prototype built none of them.
         outcome  They are written in this Spec when phase 4's operations module reaches them.
 
 model
@@ -192,8 +193,7 @@ invariants
     I3  Canonical text is a function of the key's value; the stored name of a non-JSON value decodes to the same lane 
         after reload. [@R2]
 
-    I4  An invalid key changes nothing and runs no getter; an out-of-bound key joins it once the bounds are written 
-        (Q2). [@R3]
+    I4  An invalid key changes nothing and runs no getter; a key's size never makes it invalid. [@R3]
 
     I5  An admitted key is independent of later mutation of the input object. [@R3]
 

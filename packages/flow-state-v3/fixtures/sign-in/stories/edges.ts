@@ -1,10 +1,8 @@
 import { blankSession, screen } from "../app.ts";
 import { sessionStory } from "./usual.ts";
 
-// The bytes `{"email":""}` adds around an email in its key's canonical text.
-const KEY_FRAME = 12;
-
-const KEY_BOUND = 8192;
+// An email well past any real address.
+const LONG_EMAIL = 100_000;
 
 /**
  * A session with an empty email is opened, and the screen is sent an empty email.
@@ -26,9 +24,9 @@ export const emptyCode = sessionStory("sign-in/empty-code")
   .checkpoint("entered");
 
 /**
- * An email whose begin key's canonical text is exactly the 8,192-byte key bound.
+ * An email of 100,000 characters, the begin key.
  */
-export const emailAtBound = sessionStory("sign-in/email-at-bound")
+export const longEmail = sessionStory("sign-in/long-email")
   .ensure(screen)
-  .send(screen, { _tag: "Email", email: "e".repeat(KEY_BOUND - KEY_FRAME) })
+  .send(screen, { _tag: "Email", email: "e".repeat(LONG_EMAIL) })
   .checkpoint("sent");

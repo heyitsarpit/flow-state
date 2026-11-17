@@ -1,4 +1,4 @@
-import { MAX_DELAY_MS } from "./core/turn.ts";
+import { TIMER_LIMIT_MS } from "./core/defaults.ts";
 import { Duration, Option, Predicate } from "effect";
 import {
   type Alternative,
@@ -173,7 +173,7 @@ const fixedDelay = (compile: Compile, delay: Duration.Input, at: Path) => {
     ? delay
     : Option.getOrElse(Option.map(Duration.fromInput(delay), Duration.toMillis), () => Number.NaN);
 
-  if (!Number.isFinite(ms) || ms < 0 || ms > MAX_DELAY_MS)
+  if (!Number.isFinite(ms) || ms < 0 || ms > TIMER_LIMIT_MS)
     compile.findings.push(
       invalid(
         [...at, "schedule"],

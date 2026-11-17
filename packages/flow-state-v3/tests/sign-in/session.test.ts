@@ -7,7 +7,7 @@ import {
   sessionOf,
   screen,
 } from "../../fixtures/sign-in/app.ts";
-import { emailAtBound, emptyCode, emptyEmail } from "../../fixtures/sign-in/stories/edges.ts";
+import { longEmail, emptyCode, emptyEmail } from "../../fixtures/sign-in/stories/edges.ts";
 import {
   blankHandle,
   submitTwice,
@@ -171,8 +171,8 @@ describe("emails at their edges (fixtures.md E1, E3)", () => {
     ).toEqual([""]);
   });
 
-  it("E3, Operations O1: an email whose begin key is exactly 8,192 bytes is sent a code", async () => {
-    const run = await played(emailAtBound);
+  it("E3, Operations O1: an email of 100,000 characters is the begin key, and one code is sent", async () => {
+    const run = await played(longEmail);
 
     expect(run.end.calls.filter((c) => c.endpoint === "begin")).toHaveLength(1);
   });

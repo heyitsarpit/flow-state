@@ -104,20 +104,23 @@ const counters = runtimeSetup({
   app: app({ id: "counters", machines: { counter: CounterMachine } }),
 });
 
-describe("the admission bound (Actors R14, I22)", () => {
-  it("Actors R14, I22: past 1,024 pending events an external send throws AdmissionOverloaded and changes nothing", () => {
+// A burst well past any mailbox a real app builds, sent while one turn runs.
+const BURST = 20_000;
+
+describe("no mailbox cap (Actors R14, I22)", () => {
+  it("Actors R14, I22: 20,000 external sends to one actor in one burst are all admitted and each runs its turn once", () => {
     const runtime = counters.construct();
     Effect.runSync(runtime.ready());
     const counter = runtime.ensureActor(actorRef(CounterMachine, "c"));
     const refused: Array<string> = [];
     let burst = true;
 
-    // A listener that sends 1,100 events in one step: they queue behind the step that runs.
+    // A listener that sends the burst in one step: it queues behind the step that runs.
     attachInspector(runtime, (e) => {
       if (!burst || e._tag !== "Turn") return;
       burst = false;
 
-      for (let n = 0; n < 1100; n += 1)
+      for (let n = 0; n < BURST; n += 1)
         try {
           counter.send({ _tag: "Tick" });
         } catch (error) {
@@ -128,8 +131,9 @@ describe("the admission bound (Actors R14, I22)", () => {
 
     counter.send({ _tag: "Tick" });
 
-    expect(refused).toHaveLength(76);
-    expect(new Set(refused)).toEqual(new Set(["AdmissionOverloaded"]));
-    expect(Option.map(counter.getSnapshot(), (s) => s.memory["ticks"])).toEqual(Option.some(1025));
+    expect(refused).toEqual([]);
+    expect(Option.map(counter.getSnapshot(), (s) => s.memory["ticks"])).toEqual(
+      Option.some(1 + BURST),
+    );
   });
 });

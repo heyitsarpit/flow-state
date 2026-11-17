@@ -3,6 +3,7 @@ import { callSlot, type Mapping, Operation, type Values } from "./compiled.ts";
 import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
+import { RuntimeDefaults } from "./defaults.ts";
 import { chainOf, historyAfter } from "./tree.ts";
 import { isInFlight, ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import { type Heard, type LedgerSteps, type Owed, Route } from "./ledger.ts";
@@ -22,9 +23,6 @@ import type { IncarnationSteps } from "./incarnations.ts";
 const HEARD: Heard = "Heard";
 
 const REFUSED: Heard = "Refused";
-
-// How many mail items one step serves before it leaves the rest to a later step.
-const DRAIN_CAP = 10_000;
 
 const UNMAPPED: Heard = "Unmapped";
 
@@ -367,7 +365,7 @@ export const makeServe = (
   const drain = () => {
     tx.takeFresh();
 
-    for (let count = 0; count < DRAIN_CAP && tx.world().mail.size > 0;) {
+    for (let count = 0; count < RuntimeDefaults.drainYield && tx.world().mail.size > 0;) {
       const [key] = tx.world().mail.keys();
 
       if (key === undefined) return;
@@ -382,12 +380,12 @@ export const makeServe = (
   };
 
   // Serves the follow-ups an admitted event started, in the order they were enqueued, until none
-  // is left or the step's cap; returns how many items the step has served.
+  // is left or the step yields; returns how many items the step has served.
   const followUps = (added: ReadonlyArray<Mail>, countBefore: number) => {
     let count = countBefore;
     let chain = added.map((m) => actorKey(m.actor));
 
-    while (chain.length > 0 && count < DRAIN_CAP) {
+    while (chain.length > 0 && count < RuntimeDefaults.drainYield) {
       const [next, ...later] = chain;
       chain = later;
       const followUp = next === undefined ? undefined : tx.takeOldest(next, "keep");

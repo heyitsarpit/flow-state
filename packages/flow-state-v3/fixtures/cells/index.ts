@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { cellsShop } from "./app.ts";
 import { long, samples, seededStress, stories } from "./stories/usual.ts";
-import { emptyIds, keyAtBound, keyPastBound } from "./stories/edges.ts";
+import { emptyIds, longKey } from "./stories/edges.ts";
 import { disposedOnWire, neverSentDisposed, reloadedOnWire } from "./stories/structure.ts";
 
 /**
@@ -17,8 +17,7 @@ export const cells = manifest({
     neverSentDisposed,
     reloadedOnWire,
     emptyIds,
-    keyAtBound,
-    keyPastBound,
+    longKey,
   },
   samples: [samples],
   stressSamples: [samples],

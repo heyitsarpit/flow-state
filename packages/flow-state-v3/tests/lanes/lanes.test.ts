@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { lanesSetup, serializeClient } from "../../fixtures/lanes/app.ts";
 import { SerializeMachine } from "../../fixtures/lanes/machines/clients.ts";
 import { negativeZero, twoSpellings } from "../../fixtures/lanes/stories/edges.ts";
-import { serializeAtCap } from "../../fixtures/lanes/stories/load.ts";
+import { DEEP_QUEUE, serializeDeep } from "../../fixtures/lanes/stories/load.ts";
 import {
   disposedWithWork,
   oneKeyTwoActors,
@@ -18,33 +18,33 @@ import { played } from "../rules/played.ts";
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
 
-// A burst past the admission bound: 1,100 sends queued behind one running turn.
-const ADMISSION_BOUND = 1024;
-const BURST = 1100;
-
-// A head on the wire and the 64 commits `serialize` queues behind it.
-const AT_CAP = 1 + 64;
+// A burst well past any mailbox a real client builds, sent while one turn runs.
+const BURST = 20_000;
 
 const syncs = (cut: Cut) => cut.calls.filter((c) => c.endpoint === "sync").length;
 
-describe("the lane policies at their bounds (fixtures.md L2)", () => {
-  it("WriteLanes R7: under serialize a head and 64 queued commits are kept, the 66th commit ends NotSent Overloaded, and the queue drains in order", async () => {
-    const run = await played(serializeAtCap);
+describe("the lane policies with deep queues (fixtures.md L2)", () => {
+  it("WriteLanes R7: under serialize a head and 1,000 queued commits are all sent in order and each ends success, none declined", async () => {
+    const run = await played(serializeDeep());
 
-    expect(endings(run).filter((e) => e.startsWith("notSent"))).toEqual(["notSent Overloaded"]);
-    expect(syncs(run.checkpoints.full)).toBe(1);
-    expect(syncs(run.checkpoints.drained)).toBe(AT_CAP);
+    expect(endings(run)).toEqual(Array.from({ length: 1 + DEEP_QUEUE }, () => "success success"));
+    expect(syncs(run.checkpoints.queued)).toBe(1);
+    expect(syncs(run.checkpoints.drained)).toBe(1 + DEEP_QUEUE);
   });
 
-  it("Actors R14: past 1,024 pending events a send to one lanes client throws AdmissionOverloaded and changes nothing", () => {
+  it("Actors R14: 20,000 sends to one lanes client in one burst are all admitted and served, none refused", () => {
     const runtime = lanesSetup.construct();
     Effect.runSync(runtime.ready());
     const client = runtime.ensureActor(serializeClient);
     const refused: Array<string> = [];
+    let turns = 0;
     let burst = true;
 
     attachInspector(runtime, (e) => {
-      if (!burst || e._tag !== "Turn") return;
+      if (e._tag !== "Turn") return;
+      turns += 1;
+
+      if (!burst) return;
       burst = false;
 
       for (let n = 0; n < BURST; n += 1)
@@ -58,8 +58,8 @@ describe("the lane policies at their bounds (fixtures.md L2)", () => {
 
     client.send({ _tag: "Cancel", repo: "flow" });
 
-    expect(refused).toHaveLength(BURST - ADMISSION_BOUND);
-    expect(new Set(refused)).toEqual(new Set(["AdmissionOverloaded"]));
+    expect(refused).toEqual([]);
+    expect(turns).toBe(1 + BURST);
     expect(Option.isSome(client.getSnapshot())).toBe(true);
     expect(SerializeMachine.compiled.id).toBe("Lanes/serialize");
   });

@@ -102,7 +102,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/turn.ts",
-        find: "value >= 0 && value <= MAX_DELAY_MS",
+        find: "value >= 0 && value <= TIMER_LIMIT_MS",
         replace: "value >= 0",
       },
     ],
@@ -115,7 +115,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/compile-body.ts",
-        find: "ms < 0 || ms > MAX_DELAY_MS",
+        find: "ms < 0 || ms > TIMER_LIMIT_MS",
         replace: "ms < 0",
       },
     ],
@@ -144,6 +144,32 @@ export const structureFaults: ReadonlyArray<Fault> = [
         find: "const config = erasedBody(body({ S: definition.S, E: definition.E, O: definition.O }));",
         replace:
           "body({ S: definition.S, E: definition.E, O: definition.O });\n  const config = erasedBody(body({ S: definition.S, E: definition.E, O: definition.O }));",
+      },
+    ],
+  },
+  {
+    name: "name-length-capped",
+    tests: [CONSTRUCTION],
+    says: "an authored name over 256 characters is refused InvalidName",
+    rule: "Compile R4",
+    edits: [
+      {
+        file: "src/construction.ts",
+        find: '  if (name.length === 0) return Option.some("empty");',
+        replace: '  if (name.length === 0 || name.length > 256) return Option.some("empty");',
+      },
+    ],
+  },
+  {
+    name: "state-depth-capped",
+    tests: [CONSTRUCTION],
+    says: "a state deeper than ten levels is refused",
+    rule: "Compile R4",
+    edits: [
+      {
+        file: "src/construction.ts",
+        find: "  const found = [...checkName(name, here)];",
+        replace: '  const found = [...checkName(here.length > 12 ? "" : name, here)];',
       },
     ],
   },

@@ -1,9 +1,10 @@
-import { Option } from "effect";
+import { Duration, Option } from "effect";
 import { Cue } from "./cells.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { Life } from "./life.ts";
-import { DISPOSAL_BOUND_MS, type Tx } from "./tx.ts";
+import { RuntimeDefaults } from "./defaults.ts";
+import type { Tx } from "./tx.ts";
 import { Command, type TicketId, Timer } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import { onWire } from "./lane-moves.ts";
@@ -54,7 +55,7 @@ export const makeDisposal = (
     disarmWhere((t) => Timer.$is("Schedule")(t) || Timer.$is("Grace")(t));
 
     for (const incarnation of tx.world().incarnations.values()) saveActor(incarnation.actor);
-    armTimer(Timer.Bound(), tx.env.now + DISPOSAL_BOUND_MS);
+    armTimer(Timer.Bound(), tx.env.now + Duration.toMillis(RuntimeDefaults.disposalBound));
   };
 
   /**

@@ -10,7 +10,7 @@ import {
   sendForm,
   account,
 } from "../../fixtures/transfers/app.ts";
-import { centsEdges, idAtBound, twoSpellings } from "../../fixtures/transfers/stories/edges.ts";
+import { centsEdges, longId, twoSpellings } from "../../fixtures/transfers/stories/edges.ts";
 import { manyAccounts, owedAtBoot } from "../../fixtures/transfers/stories/load.ts";
 import {
   chain,
@@ -115,8 +115,8 @@ describe("transfer values at their edges (fixtures.md E2, E3, E6)", () => {
     expect(endings(run)).toEqual(["success success", "success success", "failure Declined"]);
   });
 
-  it("E3, Operations O1: a transfer id whose key is exactly 8,192 bytes is sent", async () => {
-    const run = await played(idAtBound);
+  it("E3, Operations O1: a transfer id of 100,000 characters is the key of one transfer, sent once", async () => {
+    const run = await played(longId);
 
     expect(endings(run)).toEqual(["success success"]);
   });

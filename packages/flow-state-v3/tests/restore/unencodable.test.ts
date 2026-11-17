@@ -12,8 +12,9 @@ import {
   Flow,
   machine,
   Outcome,
-  runtimeSetup,
   transaction,
+  RuntimeDefaults,
+  runtimeSetup,
 } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
 
@@ -284,7 +285,7 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
         .send(notes, { _tag: "Scribble" })
         .send(notes, { _tag: "Sync", repo: "flow" })
         .disposeRuntime()
-        .advance("5 seconds")
+        .advance(RuntimeDefaults.disposalBound)
         .reload()
         .advance("1 second")
         .checkpoint("after")

@@ -93,8 +93,8 @@ requirements
 
     R8  The end
         source  @plan.Runtime.O3.
-        must    A shared actor free of uses and work in flight for the grace (100 ms on the Runtime's
-                Effect Clock) ends at the grace's end: a persisted actor's record is kept and captured at
+        must    A shared actor free of uses and work in flight for the grace (`RuntimeDefaults.freeGrace` on
+                the Runtime's Effect Clock) ends at the grace's end: a persisted actor's record is kept and captured at
                 once (the end waits while it cannot encode, reported UnencodableValue, and never ends
                 on the last good capture of @spec.WriteAhead.R4), its lanes move to the Runtime unbound,
                 its schedules are cancelled, its placements and unkept reads stop, and each stopped
@@ -170,15 +170,18 @@ requirements
     R13  Order across actors
         source  @plan.Runtime.O4.
         must    Follow-ups (the events and context updates a served event's turns enqueue) run first,
-                oldest first within each actor. Proposed, built with an actor-to-actor send action:
-                up to 64 events sent by turns count per admitted event; an event's turn that would
-                send the 65th is refused and undone, with an issue naming the chain (check's denial
-                code for it is InvalidTurn); no turn sends an event until then. Context updates and
-                the onContext events they enqueue never count and are never refused by it, since
-                ContextCycle bounds a context chain; endings and firings are not counted either.
-                Otherwise one event runs from the next actor in rotation, oldest first. The 64 caps
-                the events one admitted event's turns send, a chain inside one admission, not how
-                often events are admitted.
+                oldest first within each actor. The loop guard, proposed and built with an
+                actor-to-actor send action: up to `RuntimeDefaults.loopGuard` events sent by turns
+                count per admitted event; an event's turn that would send one more is refused and
+                undone, with an issue naming the chain (check's denial code for it is InvalidTurn);
+                no turn sends an event until then. Context updates and the onContext events they
+                enqueue never count and are never refused by it, since ContextCycle bounds a context
+                chain; endings and firings are not counted either. Otherwise one event runs from the
+                next actor in rotation, oldest first. The guard counts the events one admitted
+                event's turns send, a chain inside one admission, not how often events are admitted.
+                A step serves at most `RuntimeDefaults.drainYield` mail items, then yields to the
+                host and serves the rest in a later step: a fairness yield that decides when mail
+                runs, never whether.
 
                 A send to an idle Runtime runs its turn before send returns; during a turn it
                 queues. Slices decide when work runs, never what. A spin, events admitted again and
@@ -186,13 +189,13 @@ requirements
                 stopped by the scheduler; TurnStorm is evidence and decides nothing. What bounds a
                 chain started by a listener is Q4.
 
-    R14  Admission bounds
+    R14  No mailbox cap
         source  @plan.Runtime.O4.
-        must    Each actor queues at most 1,024 pending events; an external send beyond that throws
-                AdmissionOverloaded and changes nothing. An internal, unknown or invalid event
-                throws InvalidEvent and starts no turn. Endings, schedule firings, context updates
-                and props updates are never dropped by this bound. Before attach, a local actor
-                holds one replaceable pending props update, outside the send and mailbox bounds.
+        must    A mailbox has no cap: an external send to a live actor is admitted however many
+                events wait, and none is refused for the mailbox's size (@plan.Pending.D24). An
+                internal, unknown or invalid event throws InvalidEvent and starts no turn. Endings,
+                schedule firings, context updates and props updates are never dropped. Before
+                attach, a local actor holds one replaceable pending props update.
 
     R15  Refused deliveries are kept
         source  @plan.Runtime.O4.
@@ -228,8 +231,7 @@ requirements
                 - a lazy entry not adopted drops with NotAdopted;
                 - a persisted actor during boot queues (@task.V3.T9, proposed; until then
                 RuntimeNotReady, by `admit`);
-                - an actor being disposed drops with NoRecord;
-                - a full target is AdmissionOverloaded.
+                - an actor being disposed drops with NoRecord.
 
                 Reasons go to the sender and never roll back its turn. Several sends keep their
                 order.
@@ -304,14 +306,14 @@ requirements
                 providers. Queued events that have not started (sends, stream deliveries, timer
                 firings, context updates) are dropped, and with them the mailbox's references to
                 owed rows (R12); the rows themselves are suspended in the same step and stay owed, so no
-                ending is lost. Schedules cancel, placements stop and sessions release within 5 s
-                (ReleaseOverdue).
+                ending is lost. Schedules cancel, placements stop and sessions release within the
+                disposal bound, `RuntimeDefaults.disposalBound` (ReleaseOverdue).
 
                 From its start nothing new is invoked, and no Held head and no owed ending is
                 dropped. A never-sent commit (queued, or a head waiting for its acknowledgement or
                 to be invoked) ends NotSent { Disposed } before the disposal ends: its head goes,
                 and its ending is parked and delivered to the identity's next incarnation. A head
-                waiting to re-send goes Held, and its record says so. A call settling within 5 s is
+                waiting to re-send goes Held, and its record says so. A call settling within the bound is
                 applied to its lane and its ending parked; past the bound an Attempt on the wire
                 ends unknown { Disposed } and its late result is ignored. Each identity's owed rows
                 are suspended in the disposal's order, an ending with no lane included. Where a
@@ -326,7 +328,7 @@ requirements
         must    A cleanup failure rejects dispose with CleanupFailed, quarantines the ref (later
                 ensures report the same failure) and keeps the full Cause; it is never success.
 
-                Runtime disposal waits for its writes within the same 5 s, measured from the call to
+                Runtime disposal waits for its writes within the same bound, measured from the call to
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
                 any batch still out has answered (@spec.WriteAhead.R12), and holds every record dirty
                 at that moment, the start cells' NotSent { Disposed } rows and Held heads included.
@@ -374,7 +376,7 @@ open
                  evidence is open.
 
     Q2  No Story test or planted fault exists yet for RuntimeNotReady, a shared ready() failure, service acquisition 
-        failure, ConflictingActorRef, the 1,024 bound, BlockedByDependents, CleanupFailed, RuntimeDisposed, context
+        failure, ConflictingActorRef, BlockedByDependents, CleanupFailed, RuntimeDisposed, context
         propagation or isolation.
         outcome  The slices write those checks and faults first.
 
@@ -386,8 +388,9 @@ open
         stopped)? The prototype drops, as evidence, a listener-originated send or ensure once the chain passes
         64, and reports TurnStorm once (prototypes/round-14/driver.ts, `notifyChain`).
         Case: a listener that sends one event on every snapshot.
-        outcome  Either the 65th send in that chain is dropped with TurnStorm, or every send runs and TurnStorm
-                 only reports. The first loses an event the caller sent; decide with the user, then fix R13.
+        outcome  Either a send past the loop guard in that chain is dropped with TurnStorm, or every send runs
+                 and TurnStorm only reports. The first loses an event the caller sent; decide with the user, then
+                 fix R13. With no queue caps (@plan.Pending.D24), every send runs today.
 
 model
     Use = an attached consumer, a live snapshots subscription, a bound context consumer, or a
@@ -457,14 +460,15 @@ invariants
 
     I19  Within one actor, events are admitted in mailbox order and one at a time. [@R12]
 
-    I20  Proposed, with an actor-to-actor send action: at most 64 events sent by turns run as follow-ups of one 
-         admitted event. [@R13]
+    I20  Proposed, with an actor-to-actor send action: at most `RuntimeDefaults.loopGuard` events sent by turns run as 
+         follow-ups of one admitted event. [@R13]
 
     I21  An actor with pending mail is served within one rotation of the other actors with mail. [@R13]
 
-    I22  Pending external events per actor never exceed 1,024; a refused send changes nothing. [@R14]
+    I22  An external send of a valid event to a live actor is admitted and runs its turn once, however many events wait 
+         in its mailbox. [@R14]
 
-    I23  No ending, schedule firing or context update is dropped by admission bounds. [@R14]
+    I23  No ending, schedule firing or context update is dropped. [@R14]
 
     I24  A refused ending is redelivered once after its first refusal and then at most once per start, and is never 
          lost: its row stands until it is heard, let go by a cancel, released, closed by R21's forget, or closed with
@@ -496,9 +500,9 @@ invariants
     I34  Writes through Runtime A never change Runtime B's store, lanes, storage or snapshots, and B rejects A's 
          handles. [@R24]
 
-    I35  During Runtime disposal, a call on the wire at its start is never cut short within the 5 s bound: one that 
-         settles less than 5 s after the start ends by its own result and the disposal does not end before it settles,
-        unless a refusal of the disposal's write ends it first (R23, I43); one still unsettled 5 s after the start ends
+    I35  During Runtime disposal, a call on the wire at its start is never cut short within the disposal bound: one 
+         that settles before the bound ends by its own result and the disposal does not end before it settles,
+        unless a refusal of the disposal's write ends it first (R23, I43); one still unsettled at the bound ends
         unknown { Disposed }. Decision (user, 2026-11-10): "Q1 A", the bound gets its own Invariant. [@R22, @R23]
 
     I36  A head whose call ends definitely during Runtime disposal, within the bound, leaves no hold once the 
@@ -526,9 +530,8 @@ invariants
          Queued and Retrying rows goes Waiting, a row with no lane included, and each row owed to that incarnation
         alone closes as evidence; none is dropped. [@R8, @R20, @R22]
 
-    I43  The disposal's 5 s runs from the first call to dispose (the start I35 counts from) and covers its writes: a 
-         disposal's write still unanswered 5 s after that call, or refused, reports StorageFailure and the disposal 
-         ends then,
+    I43  The disposal bound runs from the first call to dispose (the start I35 counts from) and covers its writes: a 
+         disposal's write still unanswered at the bound, or refused, reports StorageFailure and the disposal ends then,
         however late within the bound a call on the wire settled; a later call to dispose restarts nothing. [@R23]
 
     I44  The disposal's first write holds every record dirty when its start cells have run, and every change made 
@@ -750,9 +753,10 @@ tests
         new version; a description change is not.
             Planted faults: an old version restored; a version by field names only; a version by printed name.
             [@I39]
-    T10  Mailboxes and rotation: FIFO within an actor; a spin on one actor does not delay another's ending; 65 
-         follow-ups are refused. Planted faults: a rotation that does not rotate; a
-             mailbox that is not FIFO; the 64 and 1,024 bounds have none yet (Q2). [@I19, @I20, @I21, @I22]
+    T10  Mailboxes and rotation: FIFO within an actor; a spin on one actor does not delay another's ending; 20,000 
+         sends to one actor in one burst are each admitted and served; follow-ups past the loop guard are refused,
+             once the send action is built. Planted faults: a rotation that does not rotate; a mailbox that is not FIFO;
+                 a mailbox that refuses sends past a size (`mailbox-capped`). [@I19, @I20, @I21, @I22]
     T11  Refused deliveries: a refused ending is kept, redelivered once, and heard at the next Start. Planted faults: a 
          refusal reported as a denial; a refusal that keeps asks; a refused ending not redelivered.
              [@I23, @I24]
@@ -767,8 +771,9 @@ tests
          into evidence.
              Planted faults: a dispose that drops lanes; a forget that does nothing; a forget that drops the queue;
              a forget that marks a held lane. [@I29, @I32]
-    T16  Runtime disposal on a controlled clock: a call settling within 5 s is parked; past it unknown { Disposed }, 
-         head kept Held; a definite ending drops the head; the queued NotSent { Disposed } precede the head's unknown;
+    T16  Runtime disposal on a controlled clock: a call settling within the disposal bound is parked; past it unknown { 
+         Disposed }, head kept Held; a definite ending drops the head; the queued NotSent { Disposed } precede the 
+         head's unknown;
              nothing is invoked after the start; disposal ends only when no call is on the wire, or at the bound.
              Planted faults: a disposal that interrupts the wire; a call settled in the bound that stays held; a
              definite ending parked before the queued commits' NotSent { Disposed }; a capture past the bound that 
@@ -801,7 +806,8 @@ tests
          RuntimeDisposed; a dispose while Booting makes ready fail with RuntimeDisposed; a forget while Booting
              rejects RuntimeNotReady and the record survives the next boot. [@I3, @I42]
     T25  The bound from the call: a call on the wire answers 3 s after the call to dispose and the disposal's write 
-         never answers; StorageFailure is reported at 5 s from that call. The same with a write that is refused at
+         never answers; StorageFailure is reported at the disposal bound from that call. The same with a write that is 
+         refused at
              1 s. [@I43]
     T26  The disposal's writes: dispose with one head Acknowledging and one on the wire; the first write holds the 
          NotSent { Disposed } row and the lane record of the head on the wire, and a reload hears that NotSent

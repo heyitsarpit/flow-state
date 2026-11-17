@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { musicApp } from "./app.ts";
 import { samples, seededStress, stories } from "./stories/usual.ts";
-import { emptyRoom, roomAtBound, seekEdges } from "./stories/edges.ts";
+import { emptyRoom, longRoomPlays, seekEdges } from "./stories/edges.ts";
 import { sixteenRooms } from "./stories/load.ts";
 import { roomDisposed, roomReloaded } from "./stories/structure.ts";
 
@@ -18,7 +18,7 @@ export const player = manifest({
     roomDisposed,
     roomReloaded,
     emptyRoom,
-    roomAtBound,
+    longRoomPlays,
     seekEdges,
   },
   samples: [samples],

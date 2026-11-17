@@ -35,21 +35,7 @@ export const dependentsOf = (world: World, provider: ActorId) =>
     .map((i) => i.actor);
 
 /**
- * How many external events one actor may have pending: past it, a send is refused.
- */
-export const ADMISSION_BOUND = 1024;
-
-/**
- * Whether one more external send to an actor would pass its admission bound, counting the events
- * in its mailbox and the sends still waiting to be stepped. Endings, firings and context updates
- * are never counted.
- */
-export const overloaded = (world: World, actor: ActorId, waiting: number) =>
-  (world.mail.get(actorKey(actor)) ?? []).filter(Mail.$is("Event")).length + waiting >=
-  ADMISSION_BOUND;
-
-/**
- * Whether a world still holds admitted mail its step did not serve: its drain stopped at its cap,
+ * Whether a world still holds admitted mail its step did not serve: its drain yielded,
  * so the host owes it a Serve step without new input.
  */
 export const owesServe = (world: World) =>

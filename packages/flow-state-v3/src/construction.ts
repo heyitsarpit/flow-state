@@ -6,7 +6,6 @@ import { operationFindings } from "./operation-checks.ts";
 import type { ContextConfig, EventFields, MemoryConfig, StateTree } from "./definition.ts";
 import type { Finding } from "./error.ts";
 import type { Field, Initial, Input, Private } from "./flow.ts";
-import { chainOf } from "./core/tree.ts";
 
 /**
  * One node of a declared tree, by path, in declaration order.
@@ -23,24 +22,16 @@ export type TreeNode = {
  */
 const RESERVED = new Set(["is", "child", "history", "self", "__proto__"]);
 
-const MAX_DEPTH = 10;
-
-const MAX_NAME_BYTES = 256;
-
-const encoder = new TextEncoder();
-
 // A lone surrogate, a C0 control or DEL makes a name invalid.
 const UNSAFE =
   // oxlint-disable-next-line no-control-regex -- the rule is about control characters
   /[\u0000-\u001F\u007F]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u;
 
-// Why an authored name is invalid, if it is: empty, over 256 UTF-8 bytes, or holding a control
-// character or a lone surrogate.
+// Why an authored name is invalid, if it is: empty, or holding a control character or a lone
+// surrogate. A name has no length limit.
 // RETURN_TYPE: the reason a name is refused, if it is.
 const nameProblem = (name: string): Option.Option<string> => {
   if (name.length === 0) return Option.some("empty");
-
-  if (encoder.encode(name).length > MAX_NAME_BYTES) return Option.some("over 256 UTF-8 bytes");
 
   return UNSAFE.test(name) ? Option.some("a control character or a lone surrogate") : Option.none();
 };
@@ -57,18 +48,13 @@ export const checkName = (name: string, path: ReadonlyArray<string | number>): A
         path,
         "InvalidName",
         `the name ${name} is ${why}`,
-        "Use a nonempty name of at most 256 UTF-8 bytes with no control characters.",
+        "Use a nonempty name with no control characters or lone surrogates.",
       ),
     ],
   });
 
 // The findings of one state's name at its place in the tree.
-const nameFindings = (
-  name: string,
-  path: string,
-  top: boolean,
-  here: ReadonlyArray<string | number>,
-) => {
+const nameFindings = (name: string, top: boolean, here: ReadonlyArray<string | number>) => {
   const found = [...checkName(name, here)];
 
   if (RESERVED.has(name) || (top && name === "root"))
@@ -85,16 +71,6 @@ const nameFindings = (
         "InvalidName",
         `the state name ${name} holds a dot`,
         "Rename the state without a dot: dots join state paths.",
-      ),
-    );
-
-  if (chainOf(path).length > MAX_DEPTH)
-    found.push(
-      invalid(
-        here,
-        "PathTooDeep",
-        `the state path ${path} has more than ten segments`,
-        "Flatten the tree to at most ten levels.",
       ),
     );
 
@@ -117,7 +93,7 @@ const entriesOf = (element: StateTree[number]) =>
 
 /**
  * A decoded tree's nodes in declaration order, and the findings of its rules: names, reserved
- * names, depth, duplicate siblings and empty compounds.
+ * names, duplicate siblings and empty compounds.
  */
 export const treeOf = (states: StateTree) => {
   const nodes: Array<TreeNode> = [];
@@ -137,7 +113,7 @@ export const treeOf = (states: StateTree) => {
       const path = Option.match(parent, { onNone: () => name, onSome: (p) => `${p}.${name}` });
       const here = [...at, name];
 
-      findings.push(...nameFindings(name, path, Option.isNone(parent), here));
+      findings.push(...nameFindings(name, Option.isNone(parent), here));
 
       if (names.has(name))
         findings.push(

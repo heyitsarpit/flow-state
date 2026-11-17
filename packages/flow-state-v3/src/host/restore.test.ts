@@ -1,4 +1,5 @@
-import { Cause, Effect, Exit, type Fiber, Option, Schema } from "effect";
+import { Cause, Duration, Effect, Exit, Option, Schema, type Fiber } from "effect";
+import { RuntimeDefaults } from "../core/defaults.ts";
 import { describe, expect, it } from "vite-plus/test";
 import { actorRef, app, definition, Flow, machine } from "../index.ts";
 import { bootWith, platformOver, testing } from "./testing/seam.ts";
@@ -89,7 +90,7 @@ describe("forgetting a scope (Restore R10, I18)", () => {
 
     const disposing = Effect.runFork(built.runtime.dispose({ forget: true }));
     tab.settle();
-    tab.advance(5000);
+    tab.advance(Duration.toMillis(RuntimeDefaults.disposalBound));
 
     expect(outcome(disposing)).toBe("ran");
     expect([...store.keys()]).toEqual([]);
@@ -107,7 +108,7 @@ describe("forgetting a scope (Restore R10, I18)", () => {
     refusals.left.push(true, true, true);
     const disposing = Effect.runFork(built.runtime.dispose({ forget: true }));
     tab.settle();
-    tab.advance(5000);
+    tab.advance(Duration.toMillis(RuntimeDefaults.disposalBound));
 
     expect(outcome(disposing)).toBe("StorageFailure");
     expect(store).toEqual(saved);
@@ -122,7 +123,7 @@ describe("forgetting a scope (Restore R10, I18)", () => {
 
     const disposing = Effect.runFork(built.runtime.dispose({ forget: true }));
     tab.settle();
-    tab.advance(5000);
+    tab.advance(Duration.toMillis(RuntimeDefaults.disposalBound));
 
     expect(outcome(disposing)).toBe("StorageFailure");
     expect([...store.keys()]).toEqual(["actor/Restore/Session/main"]);
@@ -149,7 +150,7 @@ describe("forgetting a scope (Restore R10, I18)", () => {
 
     const disposing = Effect.runFork(built.runtime.dispose());
     tab.settle();
-    tab.advance(5000);
+    tab.advance(Duration.toMillis(RuntimeDefaults.disposalBound));
 
     expect(outcome(disposing)).toBe("ran");
     expect(store).toEqual(saved);

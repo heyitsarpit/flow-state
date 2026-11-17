@@ -1,4 +1,5 @@
-import { Cause, Clock, Context, Data, Effect, Exit, Option } from "effect";
+import { Cause, Clock, Context, Data, Effect, Exit, Option, Schedule } from "effect";
+import { RuntimeDefaults } from "../core/defaults.ts";
 import { Due, type Marks, type Ticket, type TicketId, type Write } from "../core/world.ts";
 import { type Fibers, sleepUntil } from "./fibers.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
@@ -19,9 +20,11 @@ const purposeOf = (tickets: ReadonlyArray<Ticket>): Purpose => {
 
 const WAKE = "wake";
 
-// A refused batch's records go out again after the default capture interval, so a store that keeps
-// refusing is not retried in a loop.
-const RETRY_MS = 5000;
+const RETRY = "retry";
+
+// A refused batch's keys are captured again one default capture interval later, so a store that
+// keeps refusing is never retried in a loop, even with `captureMs` at 0.
+const refusedRetry = Schedule.duration(RuntimeDefaults.captureInterval);
 
 /**
  * The persistence edge: it decides when the core captures a batch, and keeps one batch out at a
@@ -33,8 +36,8 @@ const RETRY_MS = 5000;
  *   runs the core's Capture step, and writes the batch it returns.
  * - A batch due now or with a ticket, or any batch with `captureMs` at 0 or on a hidden page, is
  *   captured in the next host task; a later one waits at most `captureMs`.
- * - A refused batch's keys go to the next capture, at the latest 5 s later, which encodes them
- *   again from the World as it then stands.
+ * - A refused batch's keys go to the next capture, at the latest one default capture interval
+ *   later, which encodes them again from the World as it then stands.
  * - Each ticket's answer is passed to `answered`, which runs a step of the core; a ticket whose
  *   batch has nothing to write is answered as landed.
  */
@@ -68,6 +71,7 @@ export const makeEdge = (
 
   const issue = () => {
     fibers.cancel(WAKE);
+    fibers.cancel(RETRY);
 
     const carried = tickets;
     const keys = again;
@@ -115,7 +119,12 @@ export const makeEdge = (
 
     for (const t of carried) options.answered(t.id, landed);
 
-    if (!landed) wakeAt(clock.currentTimeMillisUnsafe() + RETRY_MS);
+    if (!landed)
+      fibers.fork(RETRY, Effect.schedule(Effect.void, refusedRetry), (exit) => {
+        if (Exit.isFailure(exit)) return;
+        wake = Wake.Now();
+        pump();
+      });
     pump();
   };
 

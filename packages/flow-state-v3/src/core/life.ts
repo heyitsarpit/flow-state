@@ -160,6 +160,11 @@ export const endedBy = (life: Life) => (Life.$is("Stopped")(life) ? "stop" : "di
 export const isDisposed = Life.$is("Disposed");
 
 /**
+ * Whether a step's defect stopped the Runtime: its life is final and the defect is its failure.
+ */
+export const isStopped = Life.$is("Stopped");
+
+/**
  * The name of the Runtime's life, for a report.
  *
  * **When to use**
@@ -182,3 +187,11 @@ export const actorLifecycleOf = (life: Life) =>
     Disposed: () => "disposed" as const,
     Stopped: () => "stopped" as const,
   });
+
+/**
+ * The public lifecycle of an identity with no live actor (a saved record, a quarantined one or an
+ * ended actor) under the Runtime's life: stopped once a defect stopped the Runtime, its own
+ * otherwise.
+ */
+export const restingLifecycleOf = <A extends string>(life: Life, own: A) =>
+  isStopped(life) ? ("stopped" as const) : own;

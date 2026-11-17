@@ -126,6 +126,7 @@ export type Evidence = Data.TaggedEnum<{
   RuntimeDisposed: {};
   Published: { actor: Who; state: string; memory: Values };
   Reported: { code: ReportCode; record: Option.Option<string>; reason: string };
+  SlowWork: { work: "turn" | "capture"; input: string; ms: number; budgetMs: number };
 }>;
 
 /**

@@ -1,4 +1,5 @@
 import { Option, Predicate } from "effect";
+import { RuntimeDefaults } from "../../core/defaults.ts";
 import type { Phase } from "../../core/world.ts";
 import { type ActorId, actorKey, sameActor } from "../../core/world.ts";
 import {
@@ -139,7 +140,7 @@ const faultOf = (fault: Fault, phase: string, actor: ActorId, view: View) => {
     release: () => Array.from({ length: view.uses(actor) }, () => Step.detach({ actor })),
     "disposal bound": () => [
       Step.disposeRuntime({ forget: false }),
-      Step.advance({ duration: "5 seconds" }),
+      Step.advance({ duration: RuntimeDefaults.disposalBound }),
     ],
   };
 

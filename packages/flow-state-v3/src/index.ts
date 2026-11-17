@@ -25,6 +25,8 @@ export { deny, Flow, Outcome } from "./flow.ts";
 
 export { actorRef, app, runtimeSetup } from "./host/runtime.ts";
 
+export { RuntimeDefaults } from "./core/defaults.ts";
+
 export type {
   Actor,
   ActorRef,

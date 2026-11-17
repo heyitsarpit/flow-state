@@ -2,7 +2,7 @@ import { Option } from "effect";
 import { manifest } from "../manifest.ts";
 import { authGrown } from "./app.ts";
 import { long, samples, seededStress, stories, handleRetry } from "./stories/usual.ts";
-import { emailAtBound, emptyCode, emptyEmail } from "./stories/edges.ts";
+import { longEmail, emptyCode, emptyEmail } from "./stories/edges.ts";
 import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
 import { manyScreens, manySessions, reloadInLockout } from "./stories/load.ts";
 import { samples as sessionSamples } from "./stories/samples.ts";
@@ -32,7 +32,7 @@ export const signIn = manifest({
     manyScreens,
     manySessions,
     emptyEmail,
-    emailAtBound,
+    longEmail,
     emptyCode,
     reloadInLockout,
   },

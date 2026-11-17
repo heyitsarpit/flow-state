@@ -2802,6 +2802,25 @@ tasks
             snapshot reads disposed after a stop against R25. Optional, measured first: run Capture at the end of the
             step itself when its records are due now and no batch is out, to win back T85's 4-8 % per-turn overhead
             under captureMs 0.
+        comment     2026-11-17T15:34:58Z
+            Requirements (first commit), red first wherever a cap is enforced today. R1 no mailbox cap: 20,000 sends to
+            one actor in one burst are all served, none refused (send, lanes and workspace runtime tests; red at HEAD:
+            AdmissionOverloaded past 1,024); AdmissionOverloaded leaves the code union. R2 no serialize cap:
+            `lanes/serialize-deep`, a head and 1,000 queued commits, all end success in order (red: NotSent Overloaded
+            at the 66th); Overloaded leaves Decline. R3 no name or path cap: 4,096-byte names and a 100-segment state
+            path compile and run (red: InvalidName, PathTooDeep). R4 one long size each, renamed and timed:
+            `cells/long-key`, `sign-in/long-email`, `transfers/long-id` (100,000-byte keys), `player/long-room`,
+            `palette/large-list`, the lanes long string; green at HEAD (D23 removed these). R5 records:
+            `session/stress-wall` holds 5,000 persisted badges (past 4,096 records and 1,024 consumers) and a stress
+            palette record past 16 MiB saves and restores. R6 walls renamed past the old scale: `session/wall`,
+            `session/avatar-wall`. R7 loop guard: its number from the bench as a named default; no turn sends an event
+            yet (D13), so it stays built with that action. R8 the drain's fairness yield a named default from the bench.
+            R9 SlowWork, dev only, a deterministic runtime test, nothing in production. R10 D25's knobs one named
+            default each in one module; the refused retry a Schedule from the capture interval; 2^31 - 1 ms one source.
+            R11 routed: snapshot and boot read Stopped through the core (I42 guard regex gains Stopped); an ended actor
+            reads stopped after a stop (red); in-step Capture measured. R12 Specs and specs.log; R13 a planted fault per
+            new rule. Caps never built in v3 (streams, React sends, write batches, many keys, traces, Story frames,
+            server rendering, the inspector ring) are noted on their Tasks' Plans, not built here.
 
     T85
         title       Records captured on issue (D30), plus compiled lookups

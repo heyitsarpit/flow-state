@@ -1,8 +1,20 @@
-import { Context, Deferred, Effect, Exit, Layer, Option, Predicate, Result, Scope } from "effect";
+import {
+  Context,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  Predicate,
+  Result,
+  Scope,
+} from "effect";
+import { RuntimeDefaults } from "../core/defaults.ts";
 import type { Compiled } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { dependentsOf, Input } from "../core/step.ts";
-import { endedBy, Life, Verdict } from "../core/life.ts";
+import { endedBy, isStopped, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
@@ -341,7 +353,7 @@ export const buildRuntime = (
     platform,
     fibers,
     persistence,
-    captureMs: config.persistence?.captureMs ?? 5000,
+    captureMs: config.persistence?.captureMs ?? Duration.toMillis(RuntimeDefaults.captureInterval),
     stopped: () =>
       // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the driver stops synchronously, inside the step that failed; the Scope closes on its own fiber
       void Effect.runFork(Scope.close(scope, Exit.void)),
@@ -400,7 +412,7 @@ export const buildRuntime = (
     driver.input(opened);
 
     // A boot step that failed with a defect stopped the Runtime: ready fails with that defect.
-    if (Life.$is("Stopped")(driver.world().life)) return yield* driver.ended;
+    if (isStopped(driver.world().life)) return yield* driver.ended;
 
     if (Verdict.$is("Reject")(verdict)) return yield* Effect.fail(rejected(verdict.code));
   });

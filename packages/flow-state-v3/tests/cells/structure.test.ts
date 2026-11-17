@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { cellsCheckout } from "../../fixtures/cells/app.ts";
-import { emptyIds, keyAtBound, keyPastBound } from "../../fixtures/cells/stories/edges.ts";
+import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { emptyIds, longKey } from "../../fixtures/cells/stories/edges.ts";
 import {
   disposedOnWire,
   neverSentDisposed,
@@ -56,18 +57,10 @@ describe("the cell's ids at their edges (fixtures.md E1, E3)", () => {
     expect(run.checkpoints.paid.read(cellsCheckout)?.state).toBe("PAID");
   });
 
-  it("E3, Operations O1: an intent id whose key is exactly 8,192 bytes pays", async () => {
-    const run = await played(keyAtBound);
+  it("E3, Operations O1: an intent id of 100,000 characters is the key of one payment, which is sent once and pays", async () => {
+    const run = await played(longKey);
 
     expect(run.checkpoints.paid.read(cellsCheckout)?.state).toBe("PAID");
-  });
-
-  it.fails("E3, Operations O1: one byte past the key bound reports InvalidKey and starts nothing", async () => {
-    const run = await played(keyPastBound);
-
-    expect(run.end.calls).toEqual([]);
-    expect(run.checkpoints.refused.read(cellsCheckout)?.issues.map((i) => i.code)).toEqual([
-      "InvalidKey",
-    ]);
+    expect(run.end.read(Shop.confirm)).toHaveLength(1);
   });
 });

@@ -1,9 +1,10 @@
-import { Option, Result } from "effect";
+import { Duration, Option, Result } from "effect";
 import { Act } from "./evidence-of.ts";
 import { Audience, Delivery, type Owed, rowsOf } from "./ledger.ts";
 import { encodeActor } from "./actor-record.ts";
 import { actorRecordKey, encodeLane, encodeOwed, laneRecordKey, owedRecordKey } from "./record.ts";
-import { SILENT_MS, type Tx } from "./tx.ts";
+import { RuntimeDefaults } from "./defaults.ts";
+import type { Tx } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
@@ -374,7 +375,10 @@ export const makePersistence = (tx: Tx) => {
     if (!marked && !now && final.length === 0 && refused.length === 0) return;
 
     for (const { ticket } of sent)
-      armTimer(Timer.Silent({ ticket: ticket.id }), tx.env.now + SILENT_MS);
+      armTimer(
+        Timer.Silent({ ticket: ticket.id }),
+        tx.env.now + Duration.toMillis(RuntimeDefaults.storageSilent),
+      );
 
     const tickets = [...sent.map((a) => a.ticket), ...final];
 

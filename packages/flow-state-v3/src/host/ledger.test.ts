@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { Effect, Option, Predicate, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
+import { RuntimeDefaults } from "../core/defaults.ts";
 import { actorRef, app, definition, deny, Flow, machine, Outcome, transaction } from "../index.ts";
 import type { Evidence } from "./inspect.ts";
 import { Bell, bootWith, endingsOf, testing } from "./testing/seam.ts";
@@ -251,8 +252,8 @@ const chainOver = (persist: boolean, limit: number, cancelAt: number) => {
 
 const chained = { machine: "Test/Chain", name: "c1" };
 
-// Past the drain's 10,000 items per step, so one step leaves the chain's next ending in the mail.
-const PAST_DRAIN = 10_050;
+// Past the drain's yield, so one step leaves the chain's next ending in the mail.
+const PAST_DRAIN = RuntimeDefaults.drainYield + 50;
 
 const knocksCommitted = (seen: ReadonlyArray<Evidence>) =>
   seen.reduce(
@@ -445,7 +446,7 @@ describe("the owed ledger on the production runtime", () => {
     assert.strictEqual(jam.tries.length, 5, "a heard row is closed");
   });
 
-  it("mail left past a step's drain cap is served by a later step with no new input (WriteAhead R10; Actors R13)", () => {
+  it("mail left past a step's drain yield is served by a later step with no new input (WriteAhead R10; Actors R13)", () => {
     const { served } = chainOver(false, PAST_DRAIN, -1);
     const b = bootWith(served, new Map(), 1);
 
@@ -453,7 +454,10 @@ describe("the owed ledger on the production runtime", () => {
     testing.send(b.built, chained, "Go", {});
     b.tab.settle();
 
-    assert.ok(knocksCommitted(b.seen) > 10_000, "the chain passed one step's drain");
+    assert.ok(
+      knocksCommitted(b.seen) > RuntimeDefaults.drainYield,
+      "the chain passed one step's drain",
+    );
     assert.strictEqual(knocksHeard(b.seen), knocksCommitted(b.seen), "nothing is left waiting");
   });
 
@@ -629,7 +633,7 @@ describe("the owed ledger on the production runtime", () => {
   // (`algorithm`, cancel on Idle): the machine hears the success, never unknown { Cancelled }.
   // The chain's first turn after the settlement runs the cancel, before the success's turn.
   it("a cancel admitted between a success's settlement and its turn leaves it a success (WriteLanes I32, R10; WriteLanes T25)", () => {
-    const { served } = chainOver(false, PAST_DRAIN, 9_999);
+    const { served } = chainOver(false, PAST_DRAIN, RuntimeDefaults.drainYield - 1);
     const b = bootWith(served, new Map(), 1);
 
     testing.attach(b.built, chained, "host", false);

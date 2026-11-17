@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { Cause, Context, Effect, Exit, type Fiber, Layer, Option, Schema } from "effect";
+import { Cause, Context, Duration, Effect, Exit, Layer, Option, Schema, type Fiber } from "effect";
+import { RuntimeDefaults } from "../core/defaults.ts";
 import { describe, expect, it } from "vite-plus/test";
 import {
   actorRef,
@@ -154,7 +155,7 @@ describe("Runtime life (Actors R2, R4, R22, I42)", () => {
     expect(codeOf(() => built.runtime.ensureActor(hall))).toBe("RuntimeDisposed");
     expect(codeOf(() => room.send({ _tag: "Switch", by: "me" }))).toBe("RuntimeDisposed");
 
-    tab.advance(5000);
+    tab.advance(Duration.toMillis(RuntimeDefaults.disposalBound));
 
     expect(disposing.pollUnsafe()).toBeDefined();
   });
@@ -294,7 +295,7 @@ describe("each reachable admit cell through the Runtime's calls (Actors T24, I42
     expect(codeOf(() => built.runtime.disposeActor(hall))).toBe("ran");
     expect(disposals(seen)).toBe(0);
 
-    tab.advance(5000);
+    tab.advance(Duration.toMillis(RuntimeDefaults.disposalBound));
 
     expect([disposing.pollUnsafe(), again.pollUnsafe()].every((e) => e !== undefined)).toBe(true);
     expect(disposals(seen)).toBe(1);
@@ -309,7 +310,8 @@ const hostSources = () =>
     .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.startsWith("testing/"))
     .map((f) => [f, readFileSync(new URL(f, HOST), "utf8")] as const);
 
-const LIFE_TAG = /\$is\("(?:Inert|Booting|Open|Failed|Disposing|Disposed)"\)|\blife\._tag\b/u;
+const LIFE_TAG =
+  /\$is\("(?:Inert|Booting|Open|Failed|Disposing|Disposed|Stopped)"\)|\blife\._tag\b/u;
 
 const FLAG = /\blet (?:started|open|closed|booted|disposed|admitting)\b/u;
 

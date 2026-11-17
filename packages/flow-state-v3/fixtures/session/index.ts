@@ -3,7 +3,7 @@ import { manifest } from "../manifest.ts";
 import { workspaceGrown } from "./app.ts";
 import { long, samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { corruptRecord, oversizedRecord } from "./stories/edges.ts";
-import { avatarWall65, wall64 } from "./stories/load.ts";
+import { avatarWall, wall } from "./stories/load.ts";
 import { grownSamples } from "./stories/samples.ts";
 import {
   corruptSeen,
@@ -56,8 +56,8 @@ export const session = manifest({
     signedOutUndefined,
     corruptRecord,
     oversizedRecord,
-    wall64,
-    avatarWall65,
+    wall,
+    avatarWall,
     signedOutReloaded,
     bylineReturns,
     guestBadgeFirst,

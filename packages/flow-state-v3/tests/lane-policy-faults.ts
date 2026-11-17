@@ -2,7 +2,7 @@ import type { Fault } from "./faults.ts";
 
 /**
  * Wrong runtimes of the write-lane policies: a latest that keeps every queued commit, a serialize
- * that runs as latest or queues without bound, a head that resolves and promotes nothing, queued
+ * that runs as latest or keeps only some of its queue, a head that resolves and promotes nothing, queued
  * commits that outlive the disposal, a row that never reads waiting, a displaced ending routed by
  * the wrong rule, a NotSent heard by a failure tag, and a Kept row that blocks a cancel-policy
  * commit; each planted alone like the runtime's other faults.
@@ -23,27 +23,27 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "serialize-as-latest",
-    tests: ["tests/write-lanes/policy-cells.test.ts"],
+    tests: ["tests/lanes/lanes.test.ts", "tests/write-lanes/policy-cells.test.ts"],
     says: "a serialize commit replaces the commit queued before it, as latest does",
     rule: "WriteLanes R7",
     edits: [
       {
         file: "src/core/cells.ts",
-        find: "? Move.Queue({ input: cue.input, owner: cue.owner, latest: false })",
-        replace: "? Move.Queue({ input: cue.input, owner: cue.owner, latest: true })",
+        find: "  Move.Queue({ input: cue.input, owner: cue.owner, latest: false });",
+        replace: "  Move.Queue({ input: cue.input, owner: cue.owner, latest: true });",
       },
     ],
   },
   {
-    name: "queue-unbounded",
-    tests: ["tests/write-lanes/policy-cells.test.ts"],
-    says: "serialize queues a 65th commit instead of declining it NotSent Overloaded",
-    rule: "WriteLanes I8",
+    name: "serialize-capped",
+    tests: ["tests/lanes/lanes.test.ts"],
+    says: "serialize keeps 64 queued commits and loses every later one, with no ending",
+    rule: "WriteLanes R7, I8",
     edits: [
       {
-        file: "src/core/cells.ts",
-        find: "queued < QUEUE_LIMIT",
-        replace: "queued >= 0",
+        file: "src/core/lane-moves.ts",
+        find: "queue: latest ? [queued] : [...lane.queue, queued]",
+        replace: "queue: latest ? [queued] : [...lane.queue, queued].slice(0, 64)",
       },
     ],
   },

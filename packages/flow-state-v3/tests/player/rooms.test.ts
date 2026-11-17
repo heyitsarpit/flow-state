@@ -4,7 +4,7 @@ import {
   emptyRoom,
   emptyRoomPlayer,
   longRoom,
-  roomAtBound,
+  longRoomPlays,
   seekEdges,
 } from "../../fixtures/player/stories/edges.ts";
 import { sixteenRooms, roomOf } from "../../fixtures/player/stories/load.ts";
@@ -49,8 +49,8 @@ describe("rooms and seeks at their edges (fixtures.md E1, E3)", () => {
     expect(run.checkpoints.opened.read(emptyRoomPlayer)?.memory["label"]).toBe(": living-room");
   });
 
-  it("E3, Codec R1: a room name at a string's 262,144-byte bound names a player that plays", async () => {
-    const run = await played(roomAtBound);
+  it("E3, Codec R1: a room name of a million characters names a player that plays", async () => {
+    const run = await played(longRoomPlays);
 
     expect(run.checkpoints.playing.read(longRoom)?.state).toBe("ON.PLAYING");
   });

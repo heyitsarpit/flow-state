@@ -9,7 +9,7 @@ import {
   stressSamples,
   checkAndSend,
 } from "./stories/usual.ts";
-import { centsEdges, idAtBound, twoSpellings } from "./stories/edges.ts";
+import { centsEdges, longId, twoSpellings } from "./stories/edges.ts";
 import { manyAccounts, owedAtBoot } from "./stories/load.ts";
 import { samples as formSamples } from "./stories/samples.ts";
 import { chain, customerForgotten, formBoundLate, formFirst } from "./stories/structure.ts";
@@ -30,7 +30,7 @@ export const transfers = manifest({
     manyAccounts,
     owedAtBoot,
     centsEdges,
-    idAtBound,
+    longId,
     twoSpellings,
   },
   samples: [samples, formSamples],

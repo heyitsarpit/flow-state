@@ -41,21 +41,6 @@ export type Env = {
 };
 
 /**
- * How long a free shared actor lives before it ends.
- */
-export const GRACE_MS = 100;
-
-/**
- * How long an awaited store write may stay unanswered before StorageSilent.
- */
-export const SILENT_MS = 10_000;
-
-/**
- * How long the Runtime's disposal waits for calls on the wire.
- */
-export const DISPOSAL_BOUND_MS = 5000;
-
-/**
  * The root's activation: it lives as long as the incarnation, so work it owns is never late.
  */
 export const ROOT_ACTIVATION = 0;

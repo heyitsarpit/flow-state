@@ -1,4 +1,4 @@
-import { Option, Result } from "effect";
+import { Duration, Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
 import type { Start } from "./input.ts";
@@ -8,7 +8,8 @@ import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { actorRecordKey, decodeRecords } from "./record.ts";
-import { GRACE_MS, isInFlight, type Tx } from "./tx.ts";
+import { RuntimeDefaults } from "./defaults.ts";
+import { isInFlight, type Tx } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
@@ -385,7 +386,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       if (!busy && Option.isNone(timing)) {
         const grace = armTimer(
           Timer.Grace({ actor: incarnation.actor, incarnation: incarnation.id }),
-          tx.env.now + GRACE_MS,
+          tx.env.now + Duration.toMillis(RuntimeDefaults.freeGrace),
         );
 
         tx.putIncarnation({ ...incarnation, grace: Option.some(grace) });

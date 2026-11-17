@@ -22,7 +22,6 @@ describe("the closed code list (Diagnostics R7)", () => {
         "ContextCycle",
         "BlockedByDependents",
         "InvalidEvent",
-        "AdmissionOverloaded",
         "RecordUndecodable",
         "SharedContract",
         "KeyFieldOptional",

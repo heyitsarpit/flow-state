@@ -266,6 +266,7 @@ export const runFrom = <Names extends string>(
       store: Option.some(store.at(open)),
       sessionSeed: seedOf(mainTab(open), options.seed),
       freezeValues: true,
+      workClock: Option.none(),
     });
 
     const opened = openTab({ ...subject.config, services }, host, now, limits);

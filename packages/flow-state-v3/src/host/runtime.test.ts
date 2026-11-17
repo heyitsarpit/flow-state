@@ -230,6 +230,7 @@ describe("the Runtime's host listeners (Actors R22)", () => {
         store: Option.none(),
         sessionSeed: "0".repeat(32),
         freezeValues: true,
+        workClock: Option.none(),
       }),
     );
 
@@ -264,6 +265,7 @@ describe("a defect inside a step (Actors R25)", () => {
         store: Option.some({ load: Effect.succeed(broken), write: () => Effect.void }),
         sessionSeed: "0".repeat(32),
         freezeValues: true,
+        workClock: Option.none(),
       }),
     );
 
@@ -348,6 +350,7 @@ const tallyOver = (store: Map<string, string>, sessionSeed: string) =>
         }),
         sessionSeed,
         freezeValues: true,
+        workClock: Option.none(),
       }),
     ),
     () => undefined,
@@ -419,10 +422,11 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
     await Effect.runPromiseExit(runtime.dispose());
   });
 
-  it("Actors R25: an identity with only a saved record, or a quarantined one, reads stopped too", () => {
+  it("Actors R25: an identity with only a saved record, a quarantined one, or an ended actor reads stopped too", () => {
     const machines = new Map([[TallyMachine.compiled.id, TallyMachine.compiled]]);
     const saved = { machine: TallyMachine.compiled.id, name: "saved" };
     const garbled = { machine: TallyMachine.compiled.id, name: "garbled" };
+    const gone = { machine: TallyMachine.compiled.id, name: "gone" };
 
     const world = {
       ...emptyWorld(true),
@@ -443,13 +447,16 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
         ],
       ]),
       quarantined: new Map([[`actor/${garbled.machine}/${garbled.name}`, "not JSON"]]),
+      ended: new Map([
+        [`${gone.machine}/${gone.name}`, { state: "COUNTING", memory: { count: 2 } }],
+      ]),
     };
 
     assert.deepStrictEqual(
-      [saved, garbled].map((actor) =>
+      [saved, garbled, gone].map((actor) =>
         Option.map(snapshotIn(world, machines, actor), (s) => s.lifecycle),
       ),
-      [Option.some("stopped"), Option.some("stopped")],
+      [Option.some("stopped"), Option.some("stopped"), Option.some("stopped")],
     );
   });
 

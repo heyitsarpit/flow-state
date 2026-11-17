@@ -47,7 +47,7 @@ requirements
                 `Schema` tagged union, which is how an owed row's ending is encoded:
 
                 - `Flow.NotSent`, the definite ending Flow makes when a commit was never sent, with
-                tags Cancelled, Restored, Rejected, Overloaded, StorageRefused, Disposed,
+                tags Cancelled, Restored, Rejected, StorageRefused, Disposed,
                 NoPersistence, OldVersion, Unencodable and ModuleDisabled (proposed name); like a
                 failure it says the write did not happen, but its origin is Flow's: it is routed
                 and saved on its own channel, `notSent`, never as the author's `failure`;
@@ -130,7 +130,7 @@ requirements
                 created by work and removed when Idle. Its states are
                 Idle, InFlight (one addressable Attempt waiting to be invoked or on the wire) and
                 Held (a retained unknown), each with queued commits W: none under reject, at most
-                one under latest, a FIFO of at most 64 under serialize.
+                one under latest, a FIFO of any length under serialize.
 
                 A lane holds its Attempt's state and nothing else. An ending is never lane state: it
                 is applied to its lane in the step its call settles, and from then on it is a row of
@@ -162,7 +162,7 @@ requirements
                 - latest queues one commit, ending a previous queued commit or a never-invoked head
                 Superseded (evidence), except a head with a cancel pending on it (Withdrawing),
                 which stays (R14);
-                - serialize appends to W and past 64 ends NotSent { Overloaded };
+                - serialize appends to W, however many commits wait (@plan.Pending.D24);
                 - cancel interrupts the previous Attempt, whose ending is evidence unless a cancel
                 is pending on it (R14). Decision (agent, 2026-11-11): ruling CQ9. Why: R14's "a
                 pending cancel is never lost" is the author's explicit request. Reverse: make the
@@ -255,9 +255,8 @@ requirements
     R13  Domain writes at the lane
         source  @plan.Operations.O3.
         must    A domain write's store effects publish at settlement, before its ending is queued,
-                so store effects never depend on whether the ending routes current or late. The
-                record queue, its Overloaded bounds (the record queue and the 4,096-item many key)
-                and ModuleDisabled belong to the entity store's Spec, to be written in phase 5.
+                so store effects never depend on whether the ending routes current or late. The record queue and 
+                ModuleDisabled belong to the entity store's Spec, to be written in phase 5.
 
     R14  cancel
         source  @plan.Operations.O7.
@@ -330,7 +329,7 @@ open
     Q2  RetryLimit and Superseded as evidence have no planted fault yet.
         outcome  Their checks and planted faults are written with their slices.
 
-    Q3  R13's store-side rules (record queues, their bounds, ModuleDisabled) moved to the entity store area.
+    Q3  R13's store-side rules (record queues, ModuleDisabled) moved to the entity store area.
         outcome  They are written with the entity store's Spec, which does not exist yet (phase 5).
 
     Q4  The prototype mints counters floored at boot (round-14/durable.ts, round-14/step.ts), which are unique only per 
@@ -441,7 +440,7 @@ invariants
     I7  retryCount equals the number of invoked re-sends of that Attempt. [@R5]
 
     I8  A lane exists iff it has a head, and a Kept row makes none exist; its W length is 0 under reject, at most 1 
-        under latest, at most 64 under serialize. [@R6, @R7]
+        under latest, any length under serialize. [@R6, @R7]
 
     I9  Every retry and cancel on a lane acts on one Attempt: the one the lane's last send carried, or, before any 
         send, the head waiting to be invoked. [@R6]
@@ -586,8 +585,7 @@ algorithm
         - commit under latest: Idle mints; Acknowledging and Unsent queue it, end the head Superseded (evidence)
             and promote; every other phase queues it, ending a queued commit Superseded. Withdrawing's head is not
             superseded, since a pending cancel is never lost (R7, R8, R14).
-        - commit under serialize: Idle mints; every other phase appends it to W, and past 64 it declines NotSent {
-            Overloaded } (R7).
+        - commit under serialize: Idle mints; every other phase appends it to W, however many wait (R7).
         - commit under cancel: Idle mints (a key's Kept rows close first, R6). Acknowledging and Unsent end the head
             Superseded (evidence); Recapturing, Resending and Held release it (evidence Released); OnWire interrupts
             it and displaces it, its ending evidence; Withdrawing and Cancelling displace it with its ending owed. In
@@ -671,8 +669,9 @@ realization typescript
     `lane(phase, input)` is one total function written from `algorithm`'s cell table, an exhaustive match over Phase
         and the input, so a new policy adds cells, not branches. Phase variants replace the head's `sent` and
         `cancelled` flags and the ending booleans; a lane's id and key text are derived, never stored. Each policy's
-        commit is its own cue (`CommitReject`, `CommitLatest`, `CommitSerialize`, `CommitCancel`), and a head's cell
-        also reads how many commits are queued, for serialize's 64. A head that leaves promotes W's oldest commit as
+        commit is its own cue (`CommitReject`, `CommitLatest`, `CommitSerialize`, `CommitCancel`), and the act's 
+            evidence reads how many commits were queued, for the Superseded evidence of
+        those a commit drops; no cell reads it. A head that leaves promotes W's oldest commit as
         a new Unsent head; promoted outside a turn (a settled call, a store's answer), it meets TurnEnded at once. A
         displaced head is kept apart from its lane by the call or ticket it awaits (`World.displaced`), and its own
         cell classifies its answer. When the disposal starts, W's commits end before the lane's cells, so nothing
@@ -695,7 +694,7 @@ realization typescript
         and `Data` structs per lane (a turn's hot path; plain maps cost less), `Effect` itself (the core is pure), a
         linear `OwedId` and typestate on the World (a missing row is a no-op by rule).
     In the host: `Deferred` for dispose waiting on the core's disposal before `Scope.close`; `FiberMap`, `Clock` and
-        `Scheduler` as before. The disposal writes' share of its 5 s is the core's (@spec.Actors.R23).
+        `Scheduler` as before. The disposal writes' share of its bound is the core's (@spec.Actors.R23).
 
 coverage
     @R1
@@ -774,8 +773,9 @@ tests
         ids never equal a restored one (a fresh seed each boot, R5). Planted fault: a mint
             floor that counts only the head. [@I6, @I7]
     T3  Concurrency cells, one per policy: reject declines beside a Held head; latest supersedes a never-sent head; 
-        serialize declines the 65th; cancel interrupts the wire.
-            Planted faults: serialize that acts as latest; an unbounded queue; a commit beside a kept ending.
+        serialize queues 1,000 behind a head and sends each in order; cancel interrupts the wire.
+            Planted faults: serialize that acts as latest; a serialize queue that keeps only 64 and loses the rest
+            (`serialize-capped`); a commit beside a kept ending.
                 [@I8, @I9]
     T4  Retry and promotion: retry keeps id and input; a refused head promotes what waits; an unknown never promotes. 
         Planted faults: an unknown that promotes, a fresh mint on Held, a cancel that

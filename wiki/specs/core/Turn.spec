@@ -96,7 +96,8 @@ requirements
                 `armOn: [Flow.entry]` may sit beside `restartOn`; a turn that does both arms once,
                 from step one. An event in both lists, any other `armOn` with `restartOn`, or
                 `armOn` on a keyed schedule is a construction error. A fixed delay outside 0 to
-                2^31 - 1 ms (so a fixed negative one) is a construction error (InvalidConfiguration,
+                the host timer's limit, 2^31 - 1 ms (`TIMER_LIMIT_MS`, a platform limit; so a fixed
+                negative one) is a construction error (InvalidConfiguration,
                 details.reason DelayOutOfRange). A computed finite negative delay counts as zero: due at
                 once, fired once on the next turn, never in the arming turn. A computed delay that
                 is NaN, infinite or over 2^31 - 1 ms refuses the turn. At creation, where no turn

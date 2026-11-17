@@ -25,5 +25,6 @@ export const browserPlatform = () =>
       store: Option.none(),
       sessionSeed: entropy(),
       freezeValues: false,
+      workClock: Option.none(),
     }),
   );

@@ -5,7 +5,7 @@ import { inputOfName } from "../core/identity.ts";
 import { actorRecordKey } from "../core/record.ts";
 import { create } from "../core/tree.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
-import { actorLifecycleOf, Life } from "../core/life.ts";
+import { actorLifecycleOf, restingLifecycleOf } from "../core/life.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import type { Machines } from "../core/tx.ts";
 import type { IssueCode } from "../core/vocabulary.ts";
@@ -104,15 +104,12 @@ export const snapshotIn = (
       ),
     });
 
-  // A Runtime a defect stopped shows every snapshot stopped.
-  const stopped = Life.$is("Stopped")(world.life);
-
   if (record !== undefined)
     return Option.some({
       state: record.state,
       memory: record.memory,
       operations,
-      lifecycle: stopped ? "stopped" : "active",
+      lifecycle: restingLifecycleOf(world.life, "active"),
       context: {},
       issues: [],
       schedules: keyed(record.schedules.map((s) => ({ key: s.name, dueAt: s.dueAt }))),
@@ -127,7 +124,7 @@ export const snapshotIn = (
       state: compiled.initial,
       memory: Result.getOrElse(create(compiled, inputOfName(compiled, actor.name)), () => ({})),
       operations,
-      lifecycle: stopped ? "stopped" : "quarantined",
+      lifecycle: restingLifecycleOf(world.life, "quarantined"),
       context: {},
       issues: [
         new Diagnostic({
@@ -146,7 +143,7 @@ export const snapshotIn = (
     state: x.state,
     memory: x.memory,
     operations,
-    lifecycle: "disposed",
+    lifecycle: restingLifecycleOf(world.life, "disposed"),
     context: {},
     issues: [],
     schedules: [],

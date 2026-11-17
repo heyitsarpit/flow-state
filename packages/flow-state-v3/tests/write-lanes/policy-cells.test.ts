@@ -1,3 +1,4 @@
+import { RuntimeDefaults } from "../../src/index.ts";
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
@@ -204,35 +205,6 @@ it("latest: a commit that queues behind a queued commit ends it Superseded, so o
   expect(run.checkpoints.after.read(Git.sync)).toHaveLength(2);
 });
 
-it("serialize: 64 commits wait behind the head and the next declines NotSent Overloaded (WriteLanes R7, I8)", async () => {
-  const held = lanesStory("lane-cells/serialize-65th")
-    .ensure(serializeClient)
-    .world(Git.sync.hold())
-    .send(serializeClient, commit);
-
-  const queued = Array.from({ length: 64 }).reduce<Story>(
-    (s) => s.send(serializeClient, commit),
-    held,
-  );
-
-  const run = await played(
-    queued
-      .checkpoint("full")
-      .send(serializeClient, commit)
-      .checkpoint("met")
-      .world(Git.sync.release())
-      .advance("1 second")
-      .checkpoint("after"),
-  );
-
-  const all = seen(run.evidence);
-
-  expect(rowAt(run.checkpoints.full, "serialize")?.waiting).toBe(true);
-  expect(all.filter((e) => e === "notSent Overloaded")).toHaveLength(1);
-  expect(all.filter((e) => e === OK)).toHaveLength(65);
-  expect(rowAt(run.checkpoints.after, "serialize")).toBeUndefined();
-});
-
 // A reload hears the lane's queued commits NotSent Restored, then its head's unknown Restored
 // (Restore R3; Operations O3; Persistence O4). Under cancel the displaced head's interrupted call
 // ends before the reload, unknown Cancelled, and the new head is answered: every admitted commit
@@ -290,7 +262,7 @@ it("serialize: queued commits end NotSent Disposed when the Runtime's disposal s
       .send(serializeClient, commit)
       .send(serializeClient, commit)
       .disposeRuntime()
-      .advance("5 seconds")
+      .advance(RuntimeDefaults.disposalBound)
       .checkpoint("after"),
   );
 

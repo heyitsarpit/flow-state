@@ -22,7 +22,6 @@ export const Code = Schema.Literals([
   "ContextCycle",
   "BlockedByDependents",
   "InvalidEvent",
-  "AdmissionOverloaded",
   "RecordUndecodable",
   "SharedContract",
   "KeyFieldOptional",

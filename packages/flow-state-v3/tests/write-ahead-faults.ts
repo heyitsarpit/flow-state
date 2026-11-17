@@ -86,8 +86,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "    if (!landed) wakeAt(clock.currentTimeMillisUnsafe() + RETRY_MS);\n",
-        replace: "",
+        find: "    if (!landed)\n      fibers.fork(RETRY,",
+        replace: "    if (landed)\n      fibers.fork(RETRY,",
       },
     ],
   },
@@ -179,7 +179,7 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "    captureMs: config.persistence?.captureMs ?? 5000,",
+        find: "    captureMs: config.persistence?.captureMs ?? Duration.toMillis(RuntimeDefaults.captureInterval),",
         replace: "    captureMs: config.persistence?.captureMs ?? 0,",
       },
     ],

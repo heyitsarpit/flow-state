@@ -208,12 +208,17 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "admission-unbounded",
+    name: "mailbox-capped",
     tests: ["tests/actors/send.test.ts"],
-    says: "an external send past the 1,024 pending events is admitted",
-    rule: "Actors I22",
+    says: "an external send is refused while 1,024 sends wait to be stepped",
+    rule: "Actors R14, I22",
     edits: [
-      { file: "src/core/step.ts", find: "  ADMISSION_BOUND;", replace: "  ADMISSION_BOUND * 2;" },
+      {
+        file: "src/host/driver.ts",
+        find: "      input(Input.Send({ actor, tag, payload: decoded.value }));",
+        replace:
+          '      if (inbox.length >= 1024) throw new Error("mailbox full");\n      input(Input.Send({ actor, tag, payload: decoded.value }));',
+      },
     ],
   },
   {

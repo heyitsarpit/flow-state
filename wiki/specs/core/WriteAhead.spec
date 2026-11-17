@@ -130,7 +130,8 @@ requirements
 
     R10  When records are written
         source  @plan.Persistence.O3.
-        must    A dirty plain record's capture is issued within 5 s, or once the batch still out
+        must    A dirty plain record's capture is issued within the capture interval (the setup's
+                `captureMs`, else `RuntimeDefaults.captureInterval`), or once the batch still out
                 answers if that is later (R12), and at once on visibilitychange to hidden and on
                 pagehide. A step whose head starts to wait for storage (a first send's
                 acknowledgement, a re-send's capture), that removes an actor record or that ends an
@@ -159,15 +160,14 @@ requirements
                 The durability of R13 cannot be coalesced away. Nothing bounds the wait for storage
                 to answer; a frozen page runs no task, deadline or capture until a thaw; browser
                 exit flushing is best effort, and on Safari a tab close loses the last batch, so the
-                loss window is the 5 s interval (stated limits).
+                loss window is the capture interval (stated limits).
 
-    R11  Scope bounds
+    R11  No scope bounds
         source  @plan.Persistence.O3.
-        must    A scope admits at most 4,096 records and 16 MiB of record data, dormant records
-                included. Over either bound a capture drops the oldest ended records that equal a
-                fresh start, with evidence; if that is not enough the capture is rejected and its
-                evidence names the oldest ended identities. A record holding anything a user did is
-                never dropped. An encoding failure keeps the last good capture.
+        must    A scope holds any number of records of any size, dormant records included, and no
+                record is dropped for the scope's size (@plan.Pending.D24). Storage quota is the
+                real limit: a batch the store refuses is a refusal (R12), ending StorageRefused
+                where a send waits on it. An encoding failure keeps the last good capture.
 
     R12  The store contract
         source  @plan.Persistence.O3.
@@ -188,7 +188,8 @@ requirements
                 The store is an Effect: a batch's write succeeds when the whole batch landed and fails
                 with a typed refusal when none of it did; an interrupted write is unanswered, as a hung
                 one is. An unanswered write is pending, never "not sent"; StorageSilent names it after
-                10 s and decides nothing. A record names the boot that wrote it, and no id minted
+                `RuntimeDefaults.storageSilent` and decides nothing. A record names the boot that wrote it, and no id 
+                minted
                 after restore equals an id on disk (@spec.WriteLanes.R5). Disposal waits for its
                 writes within its budget (@spec.Actors.R23); its write (the last batch it issued) still
                 pending then, or refused, reports StorageFailure; an earlier batch's refusal does not.
@@ -245,12 +246,11 @@ open
                  planted fault in `tests/faults.ts` that `nub run faults` must catch; until then
                  every Requirement's evidence is open.
 
-    Q2  No Story test or planted fault exists yet for scope bounds (4,096 records, 16 MiB), NonDurableContextProvider, 
-        or StorageSilent's 10 s.
+    Q2  No Story test or planted fault exists yet for NonDurableContextProvider or StorageSilent's wait.
         outcome  Those cases are written with their planted faults (Q1).
 
-    Q3  The 5 s interval ran only in the prototype's runtime-default pass.
-        outcome  R10's cases run at the default 5 s interval in a normal run.
+    Q3  The default capture interval ran only in the prototype's runtime-default pass.
+        outcome  R10's cases run at `RuntimeDefaults.captureInterval` in a normal run.
 
     Q4  No test covers R15's lost-hold limit.
         outcome  Open: a local actor's write sent before a reload has no lane afterwards, so its ending is not seen and
@@ -294,12 +294,13 @@ invariants
     I11  At every landed state, a lane record's actor record is at least as new as the turn that created the lane. 
          [@R10]
 
-    I12  A dirty plain record's capture is issued within 5 s of the record becoming dirty or once the batch still out 
-         answers, whichever is later, and at once after hide, pagehide or a step R10 issues at once, under the same
+    I12  A dirty plain record's capture is issued within the capture interval of the record becoming dirty or once the 
+         batch still out answers, whichever is later, and at once after hide, pagehide or a step R10 issues at once, 
+         under the same
         one-batch-out rule (R12); nothing bounds when storage answers. [@R10, @R12]
 
-    I13  Records counted in a scope never exceed 4,096 nor 16 MiB after a capture lands; a record with user work is 
-         never the one dropped. [@R11]
+    I13  Every record a capture holds lands whole, however many records the scope holds and however large each is; none 
+         is dropped for the scope's size. [@R11]
 
     I14  A batch is reported landed only if all its requests succeeded. [@R12]
 
@@ -361,8 +362,8 @@ realization typescript
     The core has no `persist` call: the step's setters of lanes and incarnations mark the record keys they change
         in `World.marked`, each with its identity, never by comparing maps or bytes. One move is not marked:
         putting an acknowledged or captured head on the wire, since that batch already holds it in flight with the
-        retryCount it is sent with. A step that ends with a row owed to the identity still in the mailbox (a drain
-        stopped at its cap) marks its owed record. `World.records` keeps only the records of identities with no
+        retryCount it is sent with. A step that ends with a row owed to the identity still in the mailbox (a drain that
+        yielded) marks its owed record. `World.records` keeps only the records of identities with no
         incarnation (restored and not started, or ended); a live identity's record is read from its incarnation.
 
     The Capture input carries the tickets the batch answers and the marks of a refused batch; its step projects
@@ -379,8 +380,10 @@ realization typescript
         host's next input, so no send waits on the record and no StorageSilent is armed for it (R12); an end that
         fails waits, and its grace starts again. Lane and owed records never fail to encode (@spec.Codec.R4).
 
-    A refused batch's marks go back to the edge, which hands them to the next Capture, at the latest after the
-        default 5 s interval, so a store that keeps refusing is never retried in a loop; they are encoded again
+    A refused batch's marks go back to the edge, which hands them to the next Capture, one default capture interval 
+        later
+        (`RuntimeDefaults.captureInterval`, as Effect's `Schedule.duration`), so a store that keeps refusing is never 
+            retried in a loop; they are encoded again
         from the World as it then stands.
 
     A step's marks leave as one Persist command with `Due` derived: Awaited when a touched head entered
@@ -470,8 +473,9 @@ tests
         newest.
             Planted faults: a hide that flushes one actor; a poison that holds lanes; a poison that lets deletes
             go. [@I7, @I11]
-    T5  The 5 s interval on a controlled clock: the default is 5 s; hidden issues at once; a kill before any flush 
-        loses only plain memory; disposal flushes; with fake storage that never answers, the capture is still issued on
+    T5  The capture interval on a controlled clock: the default is `RuntimeDefaults.captureInterval`; hidden issues at 
+        once; a kill before any flush loses only plain memory; disposal flushes; with fake storage that never answers, 
+        the capture is still issued on
             time and nothing else waits on it.
             Planted faults: a debounce; a hidden state that waits; a hide that does nothing; a hide that flushes
             the first scope only; a deadline that is not now. [@I12]
@@ -487,8 +491,9 @@ tests
         the
             call may have applied; a run rule applied to every Story run checks it after every
             step. [@I17, @spec.WriteLanes.I6, @spec.WriteLanes.I28]
-    T9  Bounds and providers: a scope at 4,096 records and one past; a non-durable provider rejects the capture and 
-        keeps the previous one. No test yet (Q2). [@I9, @I13]
+    T9  Scale and providers: 5,000 badges' records (`session/stress-wall`) and one record past 16 MiB 
+        (`palette/stress-huge-list`) save and restore whole; a non-durable provider rejects the capture and keeps the
+            previous one, no test yet (Q2). [@I9, @I13]
     T10  Scope isolation: two apps and two scopes over one fake Store; no Runtime reads, writes or deletes another's 
          keys, forget included. No test yet; phase 3 writes this test and its planted fault. [@I2]
     T11  Every non-Idle lane is captured: lanes bound, unbound after disposeActor, and Held after an end each appear in 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Step, type Story } from "../../src/host/testing/index.ts";
+import { RuntimeDefaults } from "../../src/index.ts";
 import { checked } from "./rules.ts";
 
 /**
@@ -60,7 +61,7 @@ export const underAnotherWorld = (which: string, stories: ReadonlyArray<Story<st
                   )[0] ?? new Map(),
               }),
             ),
-            Step.advance({ duration: "5 seconds" }),
+            Step.advance({ duration: RuntimeDefaults.disposalBound }),
           ];
 
           // oxlint-disable-next-line no-await-in-loop -- one run at a time: each Story is its own world

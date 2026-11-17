@@ -1,10 +1,8 @@
 import { cafeComposed, cafeDecomposed, account } from "../app.ts";
 import { grownStory } from "./usual.ts";
 
-// The bytes `{"transferId":""}` adds around a transfer id in its key's canonical text.
-const KEY_FRAME = 17;
-
-const KEY_BOUND = 8192;
+// A transfer id well past any a real bank issues.
+const LONG_ID = 100_000;
 
 /**
  * Transfers of 0, -5 and 2^53 cents.
@@ -17,11 +15,11 @@ export const centsEdges = grownStory("transfers/cents-edges")
   .checkpoint("sent");
 
 /**
- * A transfer id whose key's canonical text is exactly the 8,192-byte key bound.
+ * A transfer id of 100,000 characters, the transfer's key.
  */
-export const idAtBound = grownStory("transfers/id-at-bound")
+export const longId = grownStory("transfers/long-id")
   .ensure(account)
-  .send(account, { _tag: "Send", transferId: "t".repeat(KEY_BOUND - KEY_FRAME), cents: 1 })
+  .send(account, { _tag: "Send", transferId: "t".repeat(LONG_ID), cents: 1 })
   .checkpoint("sent");
 
 /**

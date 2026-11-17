@@ -318,3 +318,32 @@ note 2026-11-17T22:30:01Z
     @spec.Actors algorithm (R25): Boot while Stopped drops, as "Stopped drops every input but the public calls"
     said (the code rejected it); disposeActor is refused RuntimeDisposed; dispose() drops; refusals name the stop;
     Capture runs while Open and Disposing. Why: T79's review. Reverse: 9c46f647's table.
+
+note 2026-11-17T23:00:00Z
+    @spec.Actors R13, R14, R16, I20, I22, I23, T10, Q2, Q4 (@plan.Pending.D24): no mailbox cap, no
+    AdmissionOverloaded; the loop guard is `RuntimeDefaults.loopGuard` (5,000, built with the send action), the drain
+    a fairness yield, `drainYield` (100), both from the T84 bench. Why: the user's D24. Reverse: eb7cbaa1's text.
+
+note 2026-11-17T23:00:01Z
+    @spec.WriteLanes R7, R13, Q3, I8, T3, algorithm, realization (@plan.Pending.D24): serialize queues any number
+    of commits and NotSent has no Overloaded tag. Why: the user's D24; no ending is lost past the old 64.
+    Reverse: eb7cbaa1's text.
+
+note 2026-11-17T23:00:02Z
+    @spec.WriteAhead R11, I13, Q2, T9 (@plan.Pending.D24): a scope has no record count or size bound; storage
+    quota ends as a refusal. R10, R12, I12, Q3, T5 and the realization cite `RuntimeDefaults` (D25). Why: the
+    user's D24 and D25. Reverse: eb7cbaa1's text.
+
+note 2026-11-17T23:00:03Z
+    @spec.Compile R12, @spec.Reads R3, I4, Q2 (@plan.Pending.D24): names and keys have no length, depth or shape
+    bound; InvalidKey stays for a key with no canonical form. Why: the user's D24. Reverse: eb7cbaa1's text.
+
+note 2026-11-17T23:00:04Z
+    @spec.Actors R8, R22, R23, I35, I43, T16, T25, @spec.Turn R14 (@plan.Pending.D25): the grace, the disposal
+    bound and the timer limit are cited by name (`RuntimeDefaults`, `TIMER_LIMIT_MS`), each defined once in
+    `src/core/defaults.ts`. Why: the user's D25. Reverse: eb7cbaa1's literals.
+
+note 2026-11-17T23:00:05Z
+    @spec.Diagnostics R11, I11, T7 (@plan.Pending.D24): SlowWork, dev only, timed by the host's `workClock` against
+    `RuntimeDefaults.slowWorkBudget` (16 ms); production and test hosts time nothing. Decision (agent: the T84
+    lead): a runtime test, not a Story, since a Story cannot hold real time deterministically. Reverse: drop R11.

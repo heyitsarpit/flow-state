@@ -133,6 +133,8 @@ const evidenceText = (evidence: Evidence) =>
     RuntimeDisposed: () => "runtime disposed",
     Published: ({ actor, state, memory }) =>
       `published ${actorKey(actor)} ${state} ${json(memory)}`,
+    SlowWork: ({ work, input, ms, budgetMs }) =>
+      `slow ${work} ${input}: ${ms} ms, budget ${budgetMs} ms`,
   });
 
 const recordText = (record: TraceRecord) =>

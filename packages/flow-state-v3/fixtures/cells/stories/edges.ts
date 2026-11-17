@@ -3,10 +3,8 @@ import { cellsStory } from "./usual.ts";
 
 const visa = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
 
-// The bytes `{"intentId":""}` adds around an intent id in its key's canonical text.
-const KEY_FRAME = 15;
-
-const KEY_BOUND = 8192;
+// A key well past any id a real payment provider issues.
+const LONG_ID = 100_000;
 
 const paidWith = (id: string, intentId: string) =>
   cellsStory(id)
@@ -24,17 +22,6 @@ export const emptyIds = cellsStory("cells/empty-ids")
   .checkpoint("paid");
 
 /**
- * An intent id whose key's canonical text is exactly the 8,192-byte key bound.
+ * An intent id of 100,000 characters, the key of `pay`.
  */
-export const keyAtBound = paidWith(
-  "cells/key-at-bound",
-  "p".repeat(KEY_BOUND - KEY_FRAME),
-).checkpoint("paid");
-
-/**
- * An intent id one byte past the key bound.
- */
-export const keyPastBound = paidWith(
-  "cells/key-past-bound",
-  "p".repeat(KEY_BOUND - KEY_FRAME + 1),
-).checkpoint("refused");
+export const longKey = paidWith("cells/long-key", "p".repeat(LONG_ID)).checkpoint("paid");
