@@ -22,6 +22,12 @@ export type CallResult = Data.TaggedEnum<{
 export const CallResult = Data.taggedEnum<CallResult>();
 
 /**
+ * What an ensure may start: `create` starts a fresh incarnation when the identity has none and no
+ * record; `wake` starts one only from a saved record.
+ */
+export type Start = "create" | "wake";
+
+/**
  * One input to the core: a public call, a step of the bootstrap, a host answer or a timer.
  */
 export type Input = Data.TaggedEnum<{
@@ -32,7 +38,7 @@ export type Input = Data.TaggedEnum<{
   Ensure: {
     actor: ActorId;
     use: Option.Option<Use>;
-    existing: boolean;
+    start: Start;
     wiring: Option.Option<Wiring>;
   };
   Create: { actor: ActorId; input: Values };

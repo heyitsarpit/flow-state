@@ -374,7 +374,7 @@ export const makeServe = (
 
       // One event from the next actor in rotation; then its follow-ups, first, oldest first
       // within each actor.
-      const first = tx.takeOldest(key, true);
+      const first = tx.takeOldest(key, "rotate");
       count += 1;
 
       if (first !== undefined && !deferred(first)) count = followUps(served(first), count);
@@ -390,7 +390,7 @@ export const makeServe = (
     while (chain.length > 0 && count < DRAIN_CAP) {
       const [next, ...later] = chain;
       chain = later;
-      const followUp = next === undefined ? undefined : tx.takeOldest(next, false);
+      const followUp = next === undefined ? undefined : tx.takeOldest(next, "keep");
 
       if (followUp === undefined) continue;
       count += 1;

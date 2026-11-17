@@ -156,8 +156,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/lane-moves.ts",
-        find: "retryCount: lane.head.retryCount + (resend ? 1 : 0),",
-        replace: "retryCount: lane.head.retryCount,",
+        find: "      retryCount,\n      phase: Phase.OnWire({ call }),",
+        replace: "      retryCount: lane.head.retryCount,\n      phase: Phase.OnWire({ call }),",
       },
     ],
   },
@@ -382,7 +382,7 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "    for (const actor of owing.values()) ensure(actor, Option.none(), true, Option.none());",
+        find: '    for (const actor of owing.values()) ensure(actor, Option.none(), "wake", Option.none());',
         replace: "    for (const actor of owing.values()) void actor;",
       },
     ],

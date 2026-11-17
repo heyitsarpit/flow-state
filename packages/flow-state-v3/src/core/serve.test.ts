@@ -78,7 +78,7 @@ describe("a context update that waits for its providers (Actors R19)", () => {
       Input.Ensure({
         actor: line,
         use: Option.some("story"),
-        existing: false,
+        start: "create",
         wiring: Option.none(),
       }),
       env,

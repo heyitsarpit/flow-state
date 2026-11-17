@@ -29,7 +29,15 @@ export const testing = {
     use: Use,
     existing: boolean,
     wiring: Option.Option<Wiring> = Option.none(),
-  ) => driver.input(Input.Ensure({ actor, use: Option.some(use), existing, wiring })),
+  ) =>
+    driver.input(
+      Input.Ensure({
+        actor,
+        use: Option.some(use),
+        start: existing ? "wake" : "create",
+        wiring,
+      }),
+    ),
   detach: ({ driver }: TestRuntime, actor: ActorId, use: Use) =>
     driver.input(Input.Release({ actor, use })),
   forget: ({ driver }: TestRuntime, actor: ActorId) =>

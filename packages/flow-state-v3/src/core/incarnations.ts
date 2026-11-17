@@ -1,6 +1,7 @@
 import { Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
+import type { Start } from "./input.ts";
 import { makeContext } from "./context.ts";
 import { armingsOf } from "./turn.ts";
 import { chainOf, create } from "./tree.ts";
@@ -107,7 +108,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   // A consumer's providers are ensured with a use and released when it ends; ensure and release
   // are defined below and only called once a step runs.
   const context = makeContext(tx, {
-    ensure: (provider, use, wiring) => ensure(provider, use, false, wiring),
+    ensure: (provider, use, wiring) => ensure(provider, use, "create", wiring),
     release: (provider, use) => release(provider, use),
     publish: (incarnation) => publish(incarnation),
     save: (incarnation) => setIncarnation(incarnation),
@@ -269,7 +270,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const ensure = (
     actor: ActorId,
     use: Option.Option<Use>,
-    existing: boolean,
+    mode: Start,
     wiring: Option.Option<Wiring>,
   ) => {
     const key = actorKey(actor);
@@ -277,7 +278,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     if (incarnationOf(actor) === undefined) {
       const record = Option.fromUndefinedOr(tx.world().records.get(key));
 
-      if (Option.isSome(record) || !existing) {
+      if (Option.isSome(record) || mode === "create") {
         const compiled = tx.machines.get(actor.machine);
 
         if (Option.isNone(record)) startsFresh(key);
@@ -437,7 +438,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       ...restored.rows.map((r) => [actorKey(r.actor), r.actor] as const),
     ]);
 
-    for (const actor of owing.values()) ensure(actor, Option.none(), true, Option.none());
+    for (const actor of owing.values()) ensure(actor, Option.none(), "wake", Option.none());
   };
 
   return {

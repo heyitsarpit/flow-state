@@ -406,14 +406,14 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
 
   // An actor's oldest mail, taken from its mailbox; a rotated actor goes to the back while it
   // still has mail, a follow-up's actor keeps its place.
-  const takeOldest = (key: string, rotated: boolean) => {
+  const takeOldest = (key: string, place: "rotate" | "keep") => {
     if (!world.mail.has(key)) return undefined;
 
     const mailbox = box(key);
     const first = mailbox.shift();
 
     if (mailbox.length === 0) emptied(key);
-    else if (rotated) {
+    else if (place === "rotate") {
       draft("mail").delete(key);
       draft("mail").set(key, mailbox);
     }

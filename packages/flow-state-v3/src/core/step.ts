@@ -118,13 +118,13 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       });
     },
     BootFailed: () => setLife(Life.Failed()),
-    Ensure: ({ actor, use, existing, wiring }) => incarnations.ensure(actor, use, existing, wiring),
+    Ensure: ({ actor, use, start, wiring }) => incarnations.ensure(actor, use, start, wiring),
     Create: ({ actor, input: given }) => incarnations.create(actor, given),
     Serve: () => undefined,
     Release: ({ actor, use }) => incarnations.release(actor, use),
     Send: ({ actor, tag, payload }) => {
       if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))
-        incarnations.ensure(actor, Option.none(), true, Option.none());
+        incarnations.ensure(actor, Option.none(), "wake", Option.none());
 
       // A send never creates an actor: with no actor and no record it is dropped, told to the
       // sender as evidence.

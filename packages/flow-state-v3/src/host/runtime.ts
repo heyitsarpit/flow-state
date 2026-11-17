@@ -566,7 +566,7 @@ export const buildRuntime = (
       const probe = Input.Ensure({
         actor,
         use: Option.none(),
-        existing: false,
+        start: "create",
         wiring: Option.none(),
       });
 

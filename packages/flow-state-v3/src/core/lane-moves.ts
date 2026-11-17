@@ -107,12 +107,12 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       route: Route.Current(),
     });
 
-  const invoke = (at: At, lane: Lane, resend: boolean) => {
+  const invoke = (at: At, lane: Lane, retryCount: number) => {
     const call = tx.mint("call");
 
     const head = {
       ...lane.head,
-      retryCount: lane.head.retryCount + (resend ? 1 : 0),
+      retryCount,
       phase: Phase.OnWire({ call }),
     };
 
@@ -135,9 +135,10 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
   const flush = (at: At, lane: Lane, purpose: "acknowledge" | "capture") => {
     const resend = purpose === "capture";
+    const sendCount = lane.head.retryCount + (resend ? 1 : 0);
 
     if (!persisted(at.actor)) {
-      invoke(at, lane, resend);
+      invoke(at, lane, sendCount);
 
       return;
     }
@@ -145,7 +146,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     saveActor(at.actor);
 
     Option.match(saveAwaited(at.actor, at.id, { attempt: lane.head.id, purpose }), {
-      onNone: () => invoke(at, lane, resend),
+      onNone: () => invoke(at, lane, sendCount),
       onSome: (ticket) =>
         setLane(at.id, {
           ...lane,
@@ -260,8 +261,8 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         setLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Cancelling({ call }) } });
       },
       Flush: ({ purpose }) => flush(at, laneAt(at), purpose),
-      Send: () => invoke(at, laneAt(at), false),
-      Resend: () => invoke(at, laneAt(at), true),
+      Send: () => invoke(at, laneAt(at), laneAt(at).head.retryCount),
+      Resend: () => invoke(at, laneAt(at), laneAt(at).head.retryCount + 1),
       HoldRefused: () => {
         const lane = laneAt(at);
         setLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Held() } });

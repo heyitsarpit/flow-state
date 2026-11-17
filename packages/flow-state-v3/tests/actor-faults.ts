@@ -148,8 +148,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tx.ts",
-        find: '    else if (rotated) {\n      draft("mail").delete(key);',
-        replace: '    else if (rotated && mailbox.length < 0) {\n      draft("mail").delete(key);',
+        find: '    else if (place === "rotate") {\n      draft("mail").delete(key);',
+        replace:
+          '    else if (place === "rotate" && mailbox.length < 0) {\n      draft("mail").delete(key);',
       },
     ],
   },
@@ -200,9 +201,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/step.ts",
-        find: "      if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))\n        incarnations.ensure(actor, Option.none(), true, Option.none());",
+        find: '      if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))\n        incarnations.ensure(actor, Option.none(), "wake", Option.none());',
         replace:
-          "      if (incarnationOf(actor) === undefined) incarnations.ensure(actor, Option.none(), false, Option.none());",
+          '      if (incarnationOf(actor) === undefined) incarnations.ensure(actor, Option.none(), "create", Option.none());',
       },
     ],
   },
