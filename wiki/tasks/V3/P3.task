@@ -1063,7 +1063,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1711,6 +1711,24 @@ tasks
         comment     2026-11-17T07:04:03Z
             Follow-up chain: it stays as D24's one loop guard with a bench-set number, built with the send action;
             earlier comments saying the cap is removed mean only its 64.
+        comment     2026-11-17T07:31:42Z
+            Depth round closed at 5641d74f: Flow.maxDepth = 256 (src/core/depth.ts), from the shallowest measure added
+            after the first comment: a Map nest under a recursive Schema decodes 686 levels on Node 24, 781 on Chromium,
+            1,393 on Bun. check 0; suite 1,146 pass + 13 inverted, 2 red, T20's pair cells; fresh seeds (20 usual and
+            mix, 10 stress and mix stress) exit 0 at 2aaeb87b; test:stress exit 1 on palette stress only (@task.V3.T83);
+            nub run faults 217 of 217 caught by their targets, dead core 860 failed, not judged (unchanged: 4 failed,
+            T20's cells, the palette timeout and a CLI timeout under load). Bench per run, per turn median/p99 ms:
+            outline 100,000 deep (now reported, not saved) 10.8/20.1, 5.4/10.1; agenda 5.7/7.5, 0.63/0.83; archive
+            5.2/6.8, 0.75/0.97; palette/stress-36 300/317, 6.97/7.38; session/long 0.152/0.183 per turn.
+        comment     2026-11-17T07:31:42Z
+            Decisions (agent), depth round: depth is counted iteratively over arrays, objects, Maps, Sets and class
+            instances, memoized per container and cycle-safe; jsonOf (record-format.ts) checks it before each Schema
+            encode, so memory, baseline copies and commit inputs past it fail as 'depth' (withheld with
+            UnencodableValue, or NotSent Unencodable); a selection past it is reported UnencodableValue and its slot
+            keeps its last value; memory equivalence catches a throw as changed. Below the limit Effect's Equal is
+            sound, so the canonical-text fallbacks are gone (the review's deep-Map case is green). Far-past nests are
+            built on call: the CLI trace printer recurses (routed to the orchestrator). One planted fault was checked
+            once in the live tree and restored at once, a break of the scratch-copy rule.
 
     T74
         title       App mix: several fixtures in one Runtime
