@@ -890,3 +890,8 @@ note 2026-11-17T06:41:34Z
     Stop (failure limit): T9 review ISSUES (701d47bf), second post-convergence failure from unbounded depth: Effect's
     Schema encode throws on a 6,000-deep recursive Schema, and Equal-free fallbacks make up an event on deep Maps. Asked
     the user whether depth gets a measured real limit; T9 holds. Faults' fourth red is tooling, routed to T83.
+
+note 2026-11-17T06:51:00Z
+    Decision (the user, 2026-11-17): Q6 A, Q7 A, Q8 A, Q9 A. T9's cap requirements move to T84; stale cap items in
+    Tasks and fixture docs become 'well past the old scale, timed'; fixture sizes and T83's budgets come from the bench;
+    depth gets one measured platform limit (Pending D26). T9 resumes on D26.

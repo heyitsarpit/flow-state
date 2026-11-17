@@ -193,3 +193,13 @@ decisions
         use Effect's `Schedule`, and a refused batch's retry derives from the capture interval. The capture interval
         keeps 5 s (the user's decision) until the bench says otherwise. **Why:** none of these values was measured.
         **Proven by:** each knob's bench or measurement note on its Task. Found in the limits sweep, 2026-11-17.
+    D26  @plan.Inspection.O2: a value's depth has one measured platform limit (accepted, the user, 2026-11-17, Q9 A)
+        **Before:** after D23 a value may nest to any depth, but Effect's Schema encode and `Equal` recurse on the call
+        stack, so a 6,000-deep value under a recursive Schema kills the run and deep Maps compare wrongly. **After:**
+        depth has one limit, the deepest value Effect's Schema and equality handle on the slowest supported host,
+        measured on the bench, with headroom, defined in one place. A value past it is reported `UnencodableValue` and
+        never fails a turn, as any value with no form; size stays unbounded (D23, D24). **Why:** unlike size, depth is a
+        real limit of the libraries on a value's path, and real data is wide, not thousands of levels deep; making every
+        walk stack-safe would rebuild Effect's Schema beside it. **Proven by:** Stories at and past the measured depth
+        under `Schema.Json`, a recursive `Schema.suspend` and a Map nest, with no crash and no ending lost or made up.
+        Found in @task.V3.T9's reviews.

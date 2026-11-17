@@ -1682,6 +1682,11 @@ tasks
             doc-order mismatch; changed deepSafe's escape (the fallback is reached and would throw, but capture throws
             first); rejected a decode-depth CodecMalformed (Schema.Json's check is iterative) and non-injective memory
             text (no Schema shown).
+        comment     2026-11-17T06:51:00Z
+            Amendment (orchestrator, the user's Q6 A, 2026-11-17): the requirements list's 1,024-event mailbox cap
+            (AdmissionOverloaded) and the 65th-follow-up refusal are superseded by @plan.Pending.D24 and owned by
+            @task.V3.T84; this slice no longer builds or tests them. Depth (Q9 A, @plan.Pending.D26): one measured
+            platform limit, past it UnencodableValue.
 
     T74
         title       App mix: several fixtures in one Runtime
