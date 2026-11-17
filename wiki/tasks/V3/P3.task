@@ -2862,6 +2862,14 @@ tasks
             lead's start.
         comment     2026-11-17T21:39:14Z
             Started 2026-11-18 03:10 IST (21:40Z); the 90-minute box ends 04:40 IST (23:10Z).
+        comment     2026-11-17T22:19:46Z
+            Baseline at 26ad0259, alone (mediaanalysisd at ~70 % CPU, not ours): suite 75 s wall (113 files, 1403 tests:
+            1372 pass, 2 fail = T20's pair reds, 29 expected fail; 462 s file sum), stress 112 s (15 files, 45 tests),
+            faults 220 s (control FAIL under load, 8 reds; 253 of 254 caught, refused-publishes-nothing NOT JUDGED; dead
+            core 459 green, 49 unexplained). Slowest suite files: reloads 74, sweep 51, sweep-land 50, session/deep 48,
+            sweep-unattached 45, cli 38, pairs-2 30, pairs-0 28, pairs-1 21, pairs-3 18 s. Stress: the three reload
+            sweeps 100-111 s each, generated.stress 70 s (palette 40 s). Sweep variants: rest 2,525 per mode (skipped
+            11/11/123), once 2,048 (2), stress 3,416 per mode (265/265/520).
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
