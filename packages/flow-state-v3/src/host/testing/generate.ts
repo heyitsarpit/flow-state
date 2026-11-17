@@ -1,6 +1,6 @@
 // @effect-diagnostics unstableApiUsage:off -- generation and shrinking are Effect's Arbitrary, which Effect marks unstable; chosen over a generator of our own.
 import { Arbitrary, Duration, Effect, Option, Schema } from "effect";
-import { type ActorId, actorKey } from "../../core/world.ts";
+import { type ActorId, sameActor } from "../../core/world.ts";
 import type { AnyServer } from "./fake.ts";
 import { mixOf, sharedOf } from "./mix.ts";
 import { runFrom, type Source, type StoryRun, type View } from "./run.ts";
@@ -551,7 +551,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
           Option.flatten(
             Option.fromUndefinedOr(
               pools.actors.find((slot) =>
-                Option.exists(slot, (it) => actorKey(it.actor) === actorKey(step.actor)),
+                Option.exists(slot, (it) => sameActor(it.actor, step.actor)),
               ),
             ),
           ),
@@ -838,7 +838,7 @@ const drawnRun = (at: Drawn, draws: ReadonlyArray<Draw>): Generated => {
 export const closing = (view: View, actor: ActorId): ReadonlyArray<ActorId> => {
   const order = [...view.dependents(actor).flatMap((d) => closing(view, d)), actor];
 
-  return order.filter((a, at) => order.findIndex((o) => actorKey(o) === actorKey(a)) === at);
+  return order.filter((a, at) => order.findIndex((o) => sameActor(o, a)) === at);
 };
 
 /**

@@ -93,8 +93,3 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
 
   return { settled, stored, storeRefused };
 };
-
-/**
- * Host answers.
- */
-export type AnswerSteps = ReturnType<typeof makeAnswers>;

@@ -21,7 +21,8 @@ import {
   treeOfDefinition,
   type WritableOf,
 } from "./definition.ts";
-import { bodyFindings, refuse } from "./config.ts";
+import { bodyFindings } from "./config.ts";
+import { refuse } from "./error.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { Ending } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";

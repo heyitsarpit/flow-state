@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import { type Cue, cell, LaneState, Move, type NotSentWhy } from "./cells.ts";
-import type { Operation, Values } from "./compiled.ts";
+import { type Operation, operationOf as lookup, type Values } from "./compiled.ts";
+import { defect } from "./defect.ts";
 import { Act } from "./evidence-of.ts";
 import { Life } from "./life.ts";
 import { Audience, type LedgerSteps } from "./ledger.ts";
@@ -27,9 +28,8 @@ export const keyTextOf = (operation: Operation, value: Values) => operation.walk
  * The key text a lane is kept under, derived from its head's input.
  */
 export const laneKeyText = (machines: Machines, lane: Lane) =>
-  Option.flatMap(
-    Option.fromUndefinedOr(machines.get(lane.actor.machine)?.operations.get(lane.operation)),
-    (operation) => keyTextOf(operation, lane.head.input),
+  Option.flatMap(lookup(machines, lane.actor.machine, lane.operation), (operation) =>
+    keyTextOf(operation, lane.head.input),
   );
 
 /**
@@ -40,11 +40,6 @@ export type At = {
   readonly actor: ActorId;
   readonly operation: string;
   readonly key: Values;
-};
-
-const defect = (what: string) => {
-  // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a pair the lane's table rules out is a defect in Flow, never an expected failure
-  throw new Error(`Defect: ${what}`);
 };
 
 /**
@@ -70,8 +65,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
           owner: ROOT_ACTIVATION,
         };
 
-  const operationOf = (actor: ActorId, name: string) =>
-    Option.fromUndefinedOr(tx.machines.get(actor.machine)?.operations.get(name));
+  const operationOf = (actor: ActorId, name: string) => lookup(tx.machines, actor.machine, name);
 
   const atOf = (id: string, lane: Lane) => ({
     id,
@@ -405,11 +399,6 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   // ── members.
   return { operationOf, atOf, report, apply, applyDisplaced, endQueue };
 };
-
-/**
- * The write lane's table applied.
- */
-export type Moves = ReturnType<typeof makeMoves>;
 
 /**
  * Whether a lane's head is on the wire as a call, cancelled or not.

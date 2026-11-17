@@ -1,6 +1,6 @@
 import { Option, Predicate } from "effect";
 import type { Phase } from "../../core/world.ts";
-import { type ActorId, actorKey } from "../../core/world.ts";
+import { type ActorId, actorKey, sameActor } from "../../core/world.ts";
 import {
   closing,
   generateSource,
@@ -242,7 +242,7 @@ const cellOf = (
   const id = `${samples.id}/${phase}-${fault.replaceAll(" ", "-")}`;
 
   const nudges = samples.steps
-    .filter((s) => s._tag === "send" && actorKey(s.actor) === actorKey(reach.actor))
+    .filter((s) => s._tag === "send" && sameActor(s.actor, reach.actor))
     .map(Option.some);
 
   const tries =

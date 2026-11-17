@@ -1,6 +1,6 @@
 import { printValue } from "../print.ts";
 import { Duration, Formatter, Option, Predicate } from "effect";
-import { type ActorId, actorKey, type Wiring } from "../../core/world.ts";
+import { type ActorId, actorKey, sameActor, type Wiring } from "../../core/world.ts";
 import { overridesBy } from "../wiring.ts";
 import { actorIdOf, type ActorRef } from "../runtime.ts";
 import type { AnyServer } from "./fake.ts";
@@ -106,7 +106,7 @@ const serverName = (samples: Samples, server: AnyServer) =>
   scriptFault(`samples ${samples.id} name no server ${server.name}`);
 
 const actorName = (samples: Samples, actor: ActorId) =>
-  samples.actors.find((a) => actorKey(a.actor) === actorKey(actor))?.name ??
+  samples.actors.find((a) => sameActor(a.actor, actor))?.name ??
   scriptFault(`samples ${samples.id} name no actor ${actorKey(actor)}`);
 
 const printWord = (samples: Samples, word: WorldWord) =>

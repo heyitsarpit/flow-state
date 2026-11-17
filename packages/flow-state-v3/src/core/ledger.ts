@@ -84,7 +84,7 @@ export const rowsOf = (ledger: Ledger, actor: ActorId) => ledger.get(actorKey(ac
  * Whether a row outlives the step that moves it, so the move writes its identity's owed record: it
  * waits, it is kept, or it is the unknown { Restored } a start owed for a Held head.
  */
-export const isSaved = (row: Pick<Owed, "delivery" | "channel" | "reason">) =>
+const isSaved = (row: Pick<Owed, "delivery" | "channel" | "reason">) =>
   Delivery.$is("Waiting")(row.delivery) ||
   Delivery.$is("Kept")(row.delivery) ||
   (row.channel === "unknown" && row.reason === "Restored");

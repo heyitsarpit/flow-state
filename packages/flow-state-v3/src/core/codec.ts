@@ -3,7 +3,7 @@ import { Data, Option, Predicate, Result, Schema } from "effect";
 /**
  * Why a value or a text has no canonical form.
  */
-export type Malformation =
+type Malformation =
   | "json"
   | "nonCanonical"
   | "cycle"

@@ -13,6 +13,11 @@ import { atOrBelow, chainOf, type Move, moveOf } from "./tree.ts";
 import type { RefusedCode } from "./vocabulary.ts";
 
 /**
+ * The largest delay a timer can hold: 2^31 - 1 ms.
+ */
+export const MAX_DELAY_MS = 2_147_483_647;
+
+/**
  * What a guard or member sees of one lane: Idle, InFlight, or Held with its re-sends.
  */
 export type LaneView = Data.TaggedEnum<{
@@ -44,7 +49,7 @@ export const Resolved = Data.taggedEnum<Resolved>();
 /**
  * A schedule to arm at the end of the turn, with its delay from the after memory.
  */
-export type Arming = { readonly name: string; readonly send: string; readonly ms: number };
+type Arming = { readonly name: string; readonly send: string; readonly ms: number };
 
 /**
  * What a turn decided.
@@ -278,7 +283,6 @@ const delayOf = (schedule: Schedule, memory: Values) =>
 /**
  * The largest delay a timer can hold: 2^31 - 1 ms.
  */
-const MAX_DELAY_MS = 2_147_483_647;
 
 const NO_SCHEDULES: ReadonlyArray<Schedule> = [];
 

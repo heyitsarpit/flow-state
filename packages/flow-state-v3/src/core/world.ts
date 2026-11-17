@@ -74,7 +74,7 @@ export type Write = { readonly key: string; readonly record: Option.Option<strin
  * A schedule's live arming: its arming number (a firing of an older arming is discarded) and its
  * deadline.
  */
-export type Armed = {
+type Armed = {
   readonly arming: number;
   readonly dueAt: number;
   readonly send: string;
@@ -316,7 +316,7 @@ export type ActorRecord = {
  * its touched lanes wait until a step can write the whole identity. The tickets its step minted
  * were refused, never withheld.
  */
-export type Withheld = {
+type Withheld = {
   readonly actor: ActorId;
   readonly lanes: ReadonlyArray<string>;
 };
@@ -407,7 +407,7 @@ export const startOrder = (incarnation: Incarnation) =>
 /**
  * A world's indexes rebuilt from its facts by scanning: what the step operations keep up to date.
  */
-export const indexesOf = (world: World) => {
+const indexesOf = (world: World) => {
   const lanesOfActor = new Map<string, Set<string>>();
   const laneOfWait = new Map<string, string>();
   const consumersOf = new Map<string, Set<string>>();

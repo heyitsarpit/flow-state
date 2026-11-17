@@ -1,5 +1,6 @@
 import { Option, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
+import { defect } from "./defect.ts";
 import type { Evidence } from "./evidence.ts";
 import { LOCAL_PREFIX } from "./identity.ts";
 import { type Act, evidenceOf } from "./evidence-of.ts";
@@ -114,11 +115,6 @@ const spent = new WeakSet<World>();
  * A reader that reads a world at once and lets it go needs nothing.
  */
 export const retain = (world: World) => void handed.delete(world);
-
-const defect = (what: string) => {
-  // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a world written by a step is gone; stepping it again would read changed maps
-  throw new Error(`Defect: ${what}`);
-};
 
 /**
  * One step's working state: the world it replaces, the commands and evidence it returns, and its

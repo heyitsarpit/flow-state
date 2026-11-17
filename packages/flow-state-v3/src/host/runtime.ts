@@ -1,12 +1,13 @@
 import { Context, Deferred, Effect, Exit, Layer, Option, Predicate, Result, Scope } from "effect";
+import type { Compiled } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { dependentsOf, Input } from "../core/step.ts";
 import { Verdict } from "../core/life.ts";
-import { type ActorId, actorKey, type Wiring } from "../core/world.ts";
+import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, Envelope, InputOf, Machine } from "../definition.ts";
-import { type FlowError, flowError, flowErrorOf } from "../error.ts";
+import { type FlowError, flowError, flowErrorOf, lifeRejection, refuse } from "../error.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { makeDriver, type Driver } from "./driver.ts";
 import { browserPlatform } from "./platform/browser.ts";
@@ -72,16 +73,14 @@ export type ServicesOf<A extends App> = {
  */
 // RETURN_TYPE: the App contract runtimeSetup takes, keeping its machines' types.
 export const app = <const M extends Readonly<Record<string, AppEntry>>>(config: App<M>): App<M> => {
-  const [first, ...rest] = appFindings({
-    ...config,
-    machines: Object.fromEntries(
-      Object.entries(config.machines).map(([key, entry]) => [key, machineOf(entry)]),
-    ),
-  });
-
-  if (first !== undefined)
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- construction errors throw one FlowError before any work
-    throw flowError([first, ...rest]);
+  refuse(
+    appFindings({
+      ...config,
+      machines: Object.fromEntries(
+        Object.entries(config.machines).map(([key, entry]) => [key, machineOf(entry)]),
+      ),
+    }),
+  );
 
   return config;
 };
@@ -270,6 +269,21 @@ export type SetupConfig<A extends App> = {
   ? { readonly services?: ServicesLayer<never> }
   : { readonly services: ServicesLayer<ServicesOf<A>> });
 
+// Each Compiled's verdict, judged once: a Compiled never changes, and every boot of a Runtime over
+// it would walk it again.
+const verdicts = new WeakMap<Compiled, ReturnType<typeof malformedOf>>();
+
+const verdictOf = (compiled: Compiled) => {
+  const known = verdicts.get(compiled);
+
+  if (known !== undefined) return known;
+
+  const verdict = malformedOf(compiled);
+  verdicts.set(compiled, verdict);
+
+  return verdict;
+};
+
 /**
  * Builds a Runtime over a platform, with its driver beside it for Flow's own suite (the public
  * Runtime does not carry it).
@@ -281,13 +295,8 @@ export const buildRuntime = (
 ) => {
   const entries = Object.values(config.app.machines);
 
-  const refused = entries.flatMap((e) => Option.toArray(malformedOf(machineOf(e).compiled)));
-
-  const [malformed, ...others] = refused;
-
-  if (malformed !== undefined)
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a Runtime refuses a malformed Compiled before any actor
-    throw flowError([malformed, ...others]);
+  // A Runtime refuses a malformed Compiled before any actor.
+  refuse(entries.flatMap((e) => Option.toArray(verdictOf(machineOf(e).compiled))));
 
   const machines = new Map(entries.map((e) => [machineOf(e).compiled.id, machineOf(e)]));
 
@@ -336,21 +345,7 @@ export const buildRuntime = (
   });
 
   const rejected = (code: "RuntimeNotReady" | "RuntimeDisposed") =>
-    flowError([
-      code === "RuntimeNotReady"
-        ? {
-            code,
-            path: ["ready"],
-            summary: "ready() before boot",
-            help: "Await runtime.ready() before using the Runtime.",
-          }
-        : {
-            code,
-            path: ["ready"],
-            summary: "ready() after dispose()",
-            help: "Create a new Runtime after disposal.",
-          },
-    ]);
+    flowError([lifeRejection(code, "ready", "ready()", "boot")]);
 
   // Storage is read and validated before any app service is acquired; the core's life decides
   // whether the boot it reads still opens the Runtime.
@@ -511,7 +506,7 @@ export const buildRuntime = (
           Option.fromUndefinedOr(driver.world().incarnations.get(key)),
           ({ bound }) =>
             bound.size !== wiring.size ||
-            [...wiring].some(([slot, p]) => actorKey(p) !== actorKey(bound.get(slot) ?? actor)),
+            [...wiring].some(([slot, p]) => !sameActor(p, bound.get(slot) ?? actor)),
         ),
       );
 

@@ -6,7 +6,7 @@ import type {
   StateToken as StateTokenOf,
   StateTree,
 } from "./definition.ts";
-import { type Finding, flowError } from "./error.ts";
+import { type Finding, invalid } from "./error.ts";
 import type { Uncertain } from "./flow.ts";
 
 const Fn = Schema.declare(Predicate.isFunction);
@@ -149,14 +149,6 @@ const MachineBody = Schema.Struct({
   states: Schema.optionalKey(Schema.Record(Schema.String, Schema.UndefinedOr(StateBody))),
 }).annotate({ help: "A machine body declares default, on, onContext and states." });
 
-// RETURN_TYPE: the Compiled shape this part builds.
-export const invalid = (
-  path: ReadonlyArray<string | number>,
-  reason: string,
-  summary: string,
-  help: string,
-): Finding => ({ code: "InvalidConfiguration", path, details: { reason }, summary, help });
-
 const helpOf = (ast: SchemaAST.AST, inherited: string) => {
   const help = SchemaAST.resolve(ast)?.["help"];
 
@@ -231,18 +223,6 @@ export const configFindings = findingsAgainst(DefinitionConfig);
  * The findings of a machine body's kinds: a missing, unknown or wrong-kind field, at its path.
  */
 export const bodyFindings = findingsAgainst(MachineBody);
-
-/**
- * Throws one FlowError listing every finding, when there is one; an invalid construction returns
- * nothing and starts nothing.
- */
-export const refuse = (findings: ReadonlyArray<Finding>) => {
-  const [first, ...rest] = findings;
-
-  if (first !== undefined)
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid construction throws one FlowError before any work
-    throw flowError([first, ...rest]);
-};
 
 /**
  * Findings in declaration order: by the place of their first path segment among `keys`, an absent

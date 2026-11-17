@@ -1,5 +1,6 @@
 import { Option, SchemaAST } from "effect";
-import { invalid, isUncertain } from "./config.ts";
+import { isUncertain } from "./config.ts";
+import { invalid } from "./error.ts";
 import { checkName } from "./construction.ts";
 import type { Bound, Ending } from "./contract.ts";
 import type { EventFields } from "./definition.ts";

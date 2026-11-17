@@ -1,16 +1,9 @@
+import { DERIVED } from "./data-view.ts";
 import { Option, Predicate, Schema } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import type { Machine } from "../definition.ts";
 import { checkName } from "../construction.ts";
-import type { Finding } from "../error.ts";
-
-// RETURN_TYPE: the Finding protocol the caller collects.
-const invalid = (
-  path: ReadonlyArray<string | number>,
-  reason: string,
-  summary: string,
-  help: string,
-): Finding => ({ code: "InvalidConfiguration", path, details: { reason }, summary, help });
+import { type Finding, invalid } from "../error.ts";
 
 const APP_FIELDS = new Set(["id", "machines"]);
 
@@ -96,9 +89,6 @@ export const appFindings = (config: {
     ...Object.entries(config.machines).flatMap(([key, entry]) => entryFindings(seen, key, entry)),
   ];
 };
-
-// Functions Flow derives from a declared Schema, held on Compiled beside it.
-const DERIVED = new Set(["sameMemory", "is", "walk", "identity"]);
 
 // Whether a function at `key` of `value` is allowed: a Slot's run, or one Flow derived.
 // FLOW_STATE_ALLOW_UNKNOWN: a Compiled handed to a Runtime is checked before it is trusted.

@@ -64,7 +64,6 @@ const targetText = (target: MemberTarget) =>
   MemberTarget.$match(target, {
     Only: () => "",
     Key: ({ key }) => ` ${json(key)}`,
-    Every: () => " every",
     Nothing: () => " nothing",
   });
 

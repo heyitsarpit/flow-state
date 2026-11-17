@@ -128,9 +128,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Compile R2, T2",
     edits: [
       {
-        file: "src/config.ts",
-        find: "throw flowError([first, ...rest]);",
-        replace: "throw flowError([first]);",
+        file: "src/error.ts",
+        find: "    throw flowError([first, ...rest]);\n};\n\n/**\n * The finding of a public call",
+        replace: "    throw flowError([first]);\n};\n\n/**\n * The finding of a public call",
       },
     ],
   },

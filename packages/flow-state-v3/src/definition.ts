@@ -6,7 +6,8 @@ import { atOrBelow, chainOf } from "./core/tree.ts";
 import type { Bound, Ending, Fields } from "./contract.ts";
 import { flowError } from "./error.ts";
 import { readHandle, writeHandle } from "./handles.ts";
-import { configFindings, inDeclarationOrder, isUncertain, refuse } from "./config.ts";
+import { configFindings, inDeclarationOrder, isUncertain } from "./config.ts";
+import { refuse } from "./error.ts";
 import { definitionFindings, isMarker, type TreeNode, treeOf } from "./construction.ts";
 import type { Entry, Field, Input, Plain, Private, Uncertain } from "./flow.ts";
 
@@ -106,13 +107,6 @@ export type NamesOf<L> = L extends ReadonlyArray<infer X> ? NameOf<X> : never;
  */
 export type ChildrenOf<L, N extends string> =
   L extends ReadonlyArray<infer X> ? ChildOf<X, N> : never;
-
-/**
- * The names of a list's compounds.
- */
-export type CompoundNamesOf<L> = {
-  readonly [N in NamesOf<L>]: [ChildrenOf<L, N>] extends [never] ? never : N;
-}[NamesOf<L>];
 
 /**
  * Every state path of a tree, compounds included (`ON`, `ON.PLAYING`).
@@ -648,8 +642,3 @@ export type Machine<D extends AnyDefinition = AnyDefinition> = {
   readonly definition: D;
   readonly compiled: Compiled;
 };
-
-/**
- * Re-exported for the type of `O.x.get`'s row.
- */
-export type { Row };

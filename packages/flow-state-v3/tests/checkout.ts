@@ -10,11 +10,6 @@ import { type Cut, Story, type StoryRun, type WorldWord } from "../src/host/test
 import { TraceRecord } from "../src/host/trace.ts";
 
 /**
- * The key of the one payment most checkout cases make: `pay`'s key, its intent.
- */
-export const KEY = { intentId: "pi1" };
-
-/**
  * The cart the checkout cases start.
  */
 export const START = { _tag: "Start", cartId: "c1", intentId: "pi1" } as const;

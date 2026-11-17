@@ -1,3 +1,4 @@
+import { MAX_DELAY_MS } from "./core/turn.ts";
 import { Duration, Option, Predicate } from "effect";
 import {
   type Alternative,
@@ -20,7 +21,8 @@ import type {
   ScheduleConfig,
   StateToken,
 } from "./definition.ts";
-import { invalid, is } from "./config.ts";
+import { is } from "./config.ts";
+import { invalid } from "./error.ts";
 import { checkName, type TreeNode } from "./construction.ts";
 import { erase } from "./handles.ts";
 import type { Finding } from "./error.ts";
@@ -39,11 +41,6 @@ const slotOf = (at: Path) =>
       Predicate.isNumber(segment) ? `${slot}[${segment}]` : joined(slot, segment),
     "",
   );
-
-/**
- * The largest delay a timer can hold: 2^31 - 1 ms.
- */
-export const MAX_DELAY_MS = 2_147_483_647;
 
 /**
  * Everything one compile reads and collects: the definition's tokens by identity, the tree, and

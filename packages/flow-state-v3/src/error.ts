@@ -262,3 +262,51 @@ export const flowErrorOf = (findings: readonly [Finding, ...Array<Finding>], cau
     diagnostics: diagnosticsOf(findings, Option.some(cause)),
     cause,
   });
+
+/**
+ * An InvalidConfiguration finding with the reason it was refused.
+ */
+// RETURN_TYPE: the Finding protocol its callers collect.
+export const invalid = (
+  path: ReadonlyArray<string | number>,
+  reason: string,
+  summary: string,
+  help: string,
+): Finding => ({ code: "InvalidConfiguration", path, details: { reason }, summary, help });
+
+/**
+ * Throws one FlowError listing every finding, when there is one; an invalid construction returns
+ * nothing and starts nothing.
+ */
+export const refuse = (findings: ReadonlyArray<Finding>) => {
+  const [first, ...rest] = findings;
+
+  if (first !== undefined)
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid construction throws one FlowError before any work
+    throw flowError([first, ...rest]);
+};
+
+/**
+ * The finding of a public call the Runtime's life rejects: before it is ready, or after its
+ * disposal.
+ */
+// RETURN_TYPE: the Finding protocol its callers throw.
+export const lifeRejection = (
+  code: "RuntimeNotReady" | "RuntimeDisposed",
+  at: string,
+  call: string,
+  ready: string,
+): Finding =>
+  code === "RuntimeNotReady"
+    ? {
+        code,
+        path: [at],
+        summary: `${call} before ${ready}`,
+        help: "Await runtime.ready() before using the Runtime.",
+      }
+    : {
+        code,
+        path: [at],
+        summary: `${call} after dispose()`,
+        help: "Create a new Runtime after disposal.",
+      };

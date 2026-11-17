@@ -1,6 +1,7 @@
 import { asItIs, makeFreezer } from "../core/frozen.ts";
-import { Cause, Clock, Context, Deferred, Duration, Effect, Exit, Option, Result } from "effect";
-import { Operation } from "../core/compiled.ts";
+import { Cause, Clock, Context, Deferred, Effect, Exit, Option, Result } from "effect";
+import { Operation, operationOf } from "../core/compiled.ts";
+import { defect } from "../core/defect.ts";
 import type { Values } from "../core/compiled.ts";
 import type { Evidence } from "../core/evidence.ts";
 import { admit, isDisposed, Verdict } from "../core/life.ts";
@@ -14,11 +15,11 @@ import {
   owesServe,
   step,
 } from "../core/step.ts";
-import { actorKey, type CallId, Command, emptyWorld, type World } from "../core/world.ts";
-import { flowError } from "../error.ts";
+import { type CallId, Command, emptyWorld, sameActor, type World } from "../core/world.ts";
+import { flowError, lifeRejection } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
-import type { Fibers } from "./fibers.ts";
+import { type Fibers, sleepUntil } from "./fibers.ts";
 import { Host, type Platform } from "./host.ts";
 
 /**
@@ -36,7 +37,7 @@ const provided = (effect: Effect.Effect<unknown, unknown, unknown>) =>
  * a defect first, then Flow's own marks, then a plain error as a failure.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a call's value and error are the contract's own.
-export const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
+const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
   if (Exit.isSuccess(exit)) return CallResult.Success({ value: exit.value });
 
   if (Cause.hasDies(exit.cause)) return CallResult.Defect();
@@ -91,14 +92,12 @@ export const makeDriver = (options: {
       input(landed ? Input.Stored({ ticket }) : Input.Refused({ ticket })),
   });
 
-  const defect = (what: string) => {
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- unreachable from a valid Compiled and step: a call that never settles would hang its lane
-    throw new Error(`Defect: ${what}`);
-  };
-
-  const operationOf = (machine: string, operation: string) =>
-    machines.get(machine)?.operations.get(operation) ??
-    defect(`no operation ${machine}.${operation}`);
+  // A command names only operations its Compiled holds: a call that never settles would hang its
+  // lane.
+  const operationAt = (machine: string, operation: string) =>
+    Option.getOrElse(operationOf(machines, machine, operation), () =>
+      defect(`no operation ${machine}.${operation}`),
+    );
 
   // FLOW_STATE_ALLOW_UNKNOWN: a call's value, error and services are the contract's own.
   const call = (id: CallId, effect: () => Effect.Effect<unknown, unknown, unknown>) =>
@@ -109,7 +108,7 @@ export const makeDriver = (options: {
   const perform = (command: Command) =>
     Command.$match(command, {
       Invoke: ({ call: id, machine, operation, input: given, attempt }) =>
-        Operation.$match(operationOf(machine, operation), {
+        Operation.$match(operationAt(machine, operation), {
           Write: (op) =>
             call(id, () =>
               op.call.run(given, { attempt: { ...attempt, operation, input: given } }),
@@ -117,19 +116,15 @@ export const makeDriver = (options: {
           Read: () => defect(`${machine}.${operation} is not a write`),
         }),
       Lookup: ({ call: id, machine, operation, input: given }) =>
-        Operation.$match(operationOf(machine, operation), {
+        Operation.$match(operationAt(machine, operation), {
           Read: (op) => call(id, () => op.call.run(given)),
           Write: () => defect(`${machine}.${operation} is not a read`),
         }),
       Interrupt: ({ call }) => fibers.cancel(`call/${call}`),
       Arm: ({ timer, at }) =>
-        fibers.fork(
-          `timer/${timer}`,
-          Effect.sleep(Duration.millis(Math.max(0, at - clock.currentTimeMillisUnsafe()))),
-          (exit) => {
-            if (Exit.isSuccess(exit)) input(Input.Fired({ timer }));
-          },
-        ),
+        fibers.fork(`timer/${timer}`, sleepUntil(clock, at), (exit) => {
+          if (Exit.isSuccess(exit)) input(Input.Fired({ timer }));
+        }),
       Disarm: ({ timer }) => fibers.cancel(`timer/${timer}`),
       Persist: ({ writes, refused, due }) => edge.accept(writes, refused, due),
     });
@@ -187,21 +182,7 @@ export const makeDriver = (options: {
 
     if (Verdict.$is("Reject")(verdict))
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public calls' contract: a call the Runtime's life rejects throws its FlowError
-      throw flowError([
-        verdict.code === "RuntimeNotReady"
-          ? {
-              code: verdict.code,
-              path: [what],
-              summary: `${what} before ready()`,
-              help: "Await runtime.ready() before using the Runtime.",
-            }
-          : {
-              code: verdict.code,
-              path: [what],
-              summary: `${what} after dispose()`,
-              help: "Create a new Runtime after disposal.",
-            },
-      ]);
+      throw flowError([lifeRejection(verdict.code, what, what, "ready()")]);
   };
 
   const offer = (next: Input, what: string) => {
@@ -244,7 +225,7 @@ export const makeDriver = (options: {
         ]);
 
       const waiting = inbox.filter(
-        (next) => Input.$is("Send")(next) && actorKey(next.actor) === actorKey(actor),
+        (next) => Input.$is("Send")(next) && sameActor(next.actor, actor),
       ).length;
 
       // Past the actor's admission bound a send throws AdmissionOverloaded and changes nothing.

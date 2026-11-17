@@ -1,6 +1,6 @@
-import { Cause, Clock, Context, Duration, Effect, Exit, Option } from "effect";
+import { Cause, Clock, Context, Effect, Exit, Option } from "effect";
 import { Due, type Ticket, type TicketId, type Write } from "../core/world.ts";
-import type { Fibers } from "./fibers.ts";
+import { type Fibers, sleepUntil } from "./fibers.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
 
 /**
@@ -120,15 +120,11 @@ export const makeEdge = (
     if (at >= pending.due) return;
     pending = { ...pending, due: at };
 
-    fibers.fork(
-      WAKE,
-      Effect.sleep(Duration.millis(Math.max(0, at - clock.currentTimeMillisUnsafe()))),
-      (exit) => {
-        if (Exit.isFailure(exit)) return;
-        pending = { ...pending, due: Number.NEGATIVE_INFINITY };
-        pump();
-      },
-    );
+    fibers.fork(WAKE, sleepUntil(clock, at), (exit) => {
+      if (Exit.isFailure(exit)) return;
+      pending = { ...pending, due: Number.NEGATIVE_INFINITY };
+      pump();
+    });
   };
 
   host.onHidden(() => {

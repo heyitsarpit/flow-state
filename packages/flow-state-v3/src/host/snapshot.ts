@@ -1,4 +1,5 @@
 import { Option, Result } from "effect";
+import { publicMemory } from "../core/compiled.ts";
 import type { Values } from "../core/compiled.ts";
 import { inputOfName } from "../core/identity.ts";
 import { actorRecordKey } from "../core/record.ts";
@@ -8,7 +9,7 @@ import { actorLifecycleOf } from "../core/life.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import type { Machines } from "../core/tx.ts";
 import type { IssueCode } from "../core/vocabulary.ts";
-import { type ActorId, actorKey, type Issue, type World } from "../core/world.ts";
+import { type ActorId, actorKey, byCodeUnits, type Issue, type World } from "../core/world.ts";
 import type { Machine, Operations } from "../definition.ts";
 import { type Code, Diagnostic } from "../error.ts";
 import type { Driver } from "./driver.ts";
@@ -29,7 +30,7 @@ export type Snapshot = {
 
 // A keyed list in key order, as every list of a snapshot is.
 const keyed = <A extends { readonly key: string }>(entries: ReadonlyArray<A>) =>
-  entries.toSorted((a, b) => Number(a.key > b.key) - Number(a.key < b.key));
+  entries.toSorted((a, b) => byCodeUnits(a.key, b.key));
 
 // The diagnostic code of an issue: a refused turn (a denial code, not a diagnostic) is the
 // configuration it was given, a callback that threw is a Defect.
@@ -57,8 +58,8 @@ const issueOf = (actor: ActorId, issue: Issue) =>
 const operationsOf = (world: World, machines: Machines, actor: ActorId): Operations => {
   const rows = new Map<string, Map<string, Row>>();
 
-  for (const lane of world.lanes.values())
-    if (actorKey(lane.actor) === actorKey(actor))
+  for (const id of world.lanesOfActor.get(actorKey(actor)) ?? [])
+    for (const lane of Option.toArray(Option.fromUndefinedOr(world.lanes.get(id))))
       Option.match(laneKeyText(machines, lane), {
         onNone: () => undefined,
         onSome: (keyText) => {
@@ -144,15 +145,13 @@ export const snapshotIn = (
 
 // An outside snapshot omits the machine's Flow.private fields; Stories and Inspection see them.
 export const outside = (machine: Machine, snapshot: Snapshot) => {
-  const hidden = machine.compiled.fields.filter((f) => f.private).map((f) => f.name);
+  const memory = publicMemory(machine.compiled, snapshot.memory);
 
-  return hidden.length === 0
+  return memory === snapshot.memory
     ? snapshot
     : {
         ...snapshot,
-        memory: Object.fromEntries(
-          Object.entries(snapshot.memory).filter(([name]) => !hidden.includes(name)),
-        ),
+        memory,
       };
 };
 

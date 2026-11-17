@@ -25,16 +25,14 @@ export type ReportCode = "UnencodableValue" | "RecordUndecodable" | "StorageFail
 /**
  * Why an ending was recorded and not delivered.
  */
-export type RecordedWhy = "ignored" | "evidence" | "letGo";
+export type RecordedWhy = "evidence" | "letGo";
 
 /**
- * The lanes a member acts on: an unkeyed operation's one lane, one key's lane, every lane of the
- * operation for the actor, or none.
+ * The lanes a member acts on: an unkeyed operation's one lane, one key's lane, or none.
  */
 export type MemberTarget = Data.TaggedEnum<{
   Only: {};
   Key: { key: Values };
-  Every: {};
   Nothing: {};
 }>;
 
@@ -48,7 +46,7 @@ export const MemberTarget = Data.taggedEnum<MemberTarget>();
  */
 export type Member = {
   readonly operation: string;
-  readonly kind: "commit" | "retry" | "cancel" | "cancelAll" | "release";
+  readonly kind: "commit" | "retry" | "cancel";
   readonly target: MemberTarget;
 };
 

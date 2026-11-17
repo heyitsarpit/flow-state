@@ -1,8 +1,11 @@
 import { Option, Predicate, Schema } from "effect";
 import type { Compiled } from "./compiled.ts";
 
-// Functions Flow derives from a declared Schema: the Schema determines them, so the view omits them.
-const DERIVED = new Set(["sameMemory", "is", "walk", "identity"]);
+/**
+ * The functions Flow derives from a declared Schema and holds on Compiled beside it: the Schema
+ * determines them.
+ */
+export const DERIVED = new Set(["sameMemory", "is", "walk", "identity"]);
 
 // FLOW_STATE_ALLOW_UNKNOWN: any part of a Compiled, or the plain data it shows.
 type View = unknown;

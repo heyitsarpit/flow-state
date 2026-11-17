@@ -152,13 +152,13 @@ export const encodeLane = (
 /**
  * A record the boot could not read: kept, unchanged, under its key.
  */
-export type Quarantined = { readonly key: string; readonly reason: string };
+type Quarantined = { readonly key: string; readonly reason: string };
 
 /**
  * A saved Waiting or Kept row as a boot reads it back: owed to its identity, delivered current
  * from the active leaf.
  */
-export type RestoredRow = Omit<Owed, "id" | "delivery" | "to"> & { readonly kept: boolean };
+type RestoredRow = Omit<Owed, "id" | "delivery" | "to"> & { readonly kept: boolean };
 
 /**
  * What a boot reads back: actor records, lanes by the id their key names (with no lane when the

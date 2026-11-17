@@ -1,4 +1,4 @@
-import { Data, type Effect, type Equivalence, type Option, type Schema } from "effect";
+import { Data, type Effect, type Equivalence, Option, type Schema } from "effect";
 import type { Walker } from "./boundary.ts";
 
 /**
@@ -346,4 +346,24 @@ export type Reaction = {
   // FLOW_STATE_ALLOW_UNKNOWN: the reaction's current and previous selections.
   readonly when: Option.Option<Slot<(current: unknown, previous: unknown) => boolean>>;
   readonly event: Mapping;
+};
+
+/**
+ * A machine's operation by name, among the machines a Runtime runs.
+ */
+export const operationOf = (
+  machines: ReadonlyMap<string, Compiled>,
+  machine: string,
+  name: string,
+) => Option.fromUndefinedOr(machines.get(machine)?.operations.get(name));
+
+/**
+ * A memory as an outsider reads it: without the machine's `Flow.private` fields.
+ */
+export const publicMemory = (compiled: Compiled, memory: Values) => {
+  const hidden = new Set(compiled.fields.filter((f) => f.private).map((f) => f.name));
+
+  return hidden.size === 0
+    ? memory
+    : Object.fromEntries(Object.entries(memory).filter(([name]) => !hidden.has(name)));
 };

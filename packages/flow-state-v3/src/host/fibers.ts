@@ -1,4 +1,14 @@
-import { Context, Effect, type Exit, FiberMap, Option, Scheduler, Scope } from "effect";
+import {
+  type Clock,
+  Context,
+  Duration,
+  Effect,
+  type Exit,
+  FiberMap,
+  Option,
+  Scheduler,
+  Scope,
+} from "effect";
 
 /**
  * The Runtime's keyed fibers (calls, timers, persistence wakes), all owned by its one Scope.
@@ -42,3 +52,9 @@ export const makeFibers = (scope: Scope.Scope, context: () => Context.Context<ne
  * A Runtime's fiber registry.
  */
 export type Fibers = ReturnType<typeof makeFibers>;
+
+/**
+ * Sleeps on a Clock until an instant, read now: at once when it has passed.
+ */
+export const sleepUntil = (clock: Clock.Clock, at: number) =>
+  Effect.sleep(Duration.millis(Math.max(0, at - clock.currentTimeMillisUnsafe())));

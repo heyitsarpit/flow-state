@@ -398,8 +398,3 @@ export const makeServe = (
 
   return { endingMapping, turn, serveEnding, serve, drain };
 };
-
-/**
- * Serving mail.
- */
-export type ServeSteps = ReturnType<typeof makeServe>;

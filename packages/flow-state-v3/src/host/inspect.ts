@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import { operationOf } from "../core/compiled.ts";
 import { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { type Life, lifecycleOf } from "../core/life.ts";
@@ -71,7 +72,10 @@ export type RuntimeCut = {
 };
 
 const contractOf = (driver: Driver, machine: string, operation: string) =>
-  driver.machines.get(machine)?.operations.get(operation)?.contract ?? operation;
+  Option.match(operationOf(driver.machines, machine, operation), {
+    onNone: () => operation,
+    onSome: (op) => op.contract,
+  });
 
 // RETURN_TYPE: the exported RuntimeCut contract.
 const cutOf = (driver: Driver): RuntimeCut => {

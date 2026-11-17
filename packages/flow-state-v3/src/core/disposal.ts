@@ -112,8 +112,3 @@ export const makeDisposal = (
 
   return { disposeRuntime, boundPassed, answered, write, disposalEnds };
 };
-
-/**
- * Runtime disposal.
- */
-export type DisposalSteps = ReturnType<typeof makeDisposal>;

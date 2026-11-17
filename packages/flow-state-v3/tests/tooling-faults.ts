@@ -200,9 +200,8 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "      disposeRuntime: ({ forget }) => {\n        disposed = true;\n",
-        replace:
-          "      disposeRuntime: ({ forget }) => {\n        disposed = true;\n        uses.clear();\n",
+        find: "      disposeRuntime: ({ forget }) => {\n",
+        replace: "      disposeRuntime: ({ forget }) => {\n        uses.clear();\n",
       },
     ],
   },

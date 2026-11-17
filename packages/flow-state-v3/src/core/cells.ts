@@ -42,7 +42,7 @@ export type NotSentWhy = "Rejected" | "Overloaded" | "Cancelled" | "StorageRefus
 /**
  * How many commits serialize queues behind a head; the next declines NotSent Overloaded.
  */
-export const QUEUE_LIMIT = 64;
+const QUEUE_LIMIT = 64;
 
 /**
  * What a cell decides, as data; the step applies it.
@@ -68,8 +68,7 @@ export const QUEUE_LIMIT = 64;
  * - `HoldRefused`: a refused capture holds the head and ends it unknown `StorageRefused`.
  * - `Answer`: the call's ending, as its Attempt delivers it, is owed; an unknown holds the head,
  *   any other ending promotes the next queued commit. A promoted commit mints a new head, and a
- *   lane with nothing queued drops. `asked` is the channel before a definite failure after an
- *   earlier send became unknown; `interrupt` names a call the disposal bound interrupts.
+ *   lane with nothing queued drops. `interrupt` names a call the disposal bound interrupts.
  * - `Impossible`: a pair the table rules out, or leaves open; a defect in Flow.
  */
 export type Move = Data.TaggedEnum<{
@@ -91,7 +90,6 @@ export type Move = Data.TaggedEnum<{
   HoldRefused: {};
   Answer: {
     channel: Channel;
-    asked: Channel;
     reason: string;
     // FLOW_STATE_ALLOW_UNKNOWN: a call's value is the contract's own, mapped when its row is heard.
     value: unknown;
@@ -115,7 +113,7 @@ type CueOf<C extends Cue["_tag"]> = Data.TaggedEnum.Value<Cue, C>;
 /**
  * A head in one phase.
  */
-export type HeadAt<P extends Phase["_tag"]> = Head & {
+type HeadAt<P extends Phase["_tag"]> = Head & {
   readonly phase: Data.TaggedEnum.Value<Phase, P>;
 };
 
@@ -177,7 +175,6 @@ const answered = (head: Head, cue: CueOf<"Answered">, cancelled: boolean) => {
 
   return Move.Answer({
     ...delivered(head, asked, reason),
-    asked,
     value: cancelled ? undefined : cue.value,
     interrupt: Option.none(),
   });
@@ -186,7 +183,6 @@ const answered = (head: Head, cue: CueOf<"Answered">, cancelled: boolean) => {
 const disposedOnWire = (head: HeadAt<"OnWire" | "Cancelling">) =>
   Move.Answer({
     channel: "unknown",
-    asked: "unknown",
     reason: "Disposed",
     value: undefined,
     interrupt: Option.some(head.phase.call),

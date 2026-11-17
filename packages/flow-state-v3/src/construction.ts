@@ -1,5 +1,6 @@
 import { Exit, Option, Predicate, SchemaAST } from "effect";
-import { inDeclarationOrder, invalid, isUncertain } from "./config.ts";
+import { inDeclarationOrder, isUncertain } from "./config.ts";
+import { invalid } from "./error.ts";
 import type { Bound } from "./contract.ts";
 import { operationFindings } from "./operation-checks.ts";
 import type { ContextConfig, EventFields, MemoryConfig, StateTree } from "./definition.ts";

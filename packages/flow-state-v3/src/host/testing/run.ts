@@ -2,6 +2,7 @@ import { Effect, Exit, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
+import { Life } from "../../core/life.ts";
 import { retain } from "../../core/tx.ts";
 import { type ActorId, actorKey, indexDrift, type Wiring } from "../../core/world.ts";
 import type { AnyDefinition } from "../../definition.ts";
@@ -180,7 +181,7 @@ export type Drawn<Names extends string = string> = {
  * Runs a subject over a step array and returns what it recorded; a Story's `run()` calls it.
  */
 // RETURN_TYPE: the exported StoryRun contract keeps the checkpoints' names.
-export const runSteps = <Names extends string>(
+const runSteps = <Names extends string>(
   subject: Subject,
   id: string,
   steps: ReadonlyArray<Step>,
@@ -295,7 +296,13 @@ export const runFrom = <Names extends string>(
   for (const word of subject.world) apply(word);
 
   let tab = boot(current, 0);
-  let disposed = false;
+
+  // The tab's Runtime is disposed once its life has left Open for good: disposing or disposed.
+  const disposed = () => {
+    const { life } = tab.built.driver.world();
+
+    return Life.$is("Disposing")(life) || Life.$is("Disposed")(life);
+  };
 
   // RETURN_TYPE: the exported Cut contract with its overloaded read.
   const cut = (): Cut => {
@@ -347,7 +354,7 @@ export const runFrom = <Names extends string>(
   };
 
   const live = (what: string) => {
-    if (disposed) scriptFault(`${what} after disposeRuntime`);
+    if (disposed()) scriptFault(`${what} after disposeRuntime`);
   };
 
   // An ensure passes the Runtime's admission, as the public ensureActor does, with the ref's
@@ -369,7 +376,7 @@ export const runFrom = <Names extends string>(
     calls: (server, endpoint) => fakes.calls(server, endpoint).length,
     writes: store.batches().map((b) => b.status),
     heldWrites: store.heldWrites(),
-    disposed,
+    disposed: disposed(),
     uses: (actor) => uses.get(actorKey(actor))?.count ?? 0,
     dependents: (actor) => dependentsOf(tab.built.driver.world(), actor),
     lanes: () => inspect(tab.built.runtime).lanes,
@@ -414,7 +421,6 @@ export const runFrom = <Names extends string>(
         uses.delete(actorKey(actor));
       },
       disposeRuntime: ({ forget }) => {
-        disposed = true;
         tab.perform(tab.built.runtime.dispose({ forget }));
       },
       world: ({ words }) => {
@@ -431,7 +437,6 @@ export const runFrom = <Names extends string>(
         if (heldWrites === "land") store.landHeld(current);
         else store.abortHeld(current);
         current += 1;
-        disposed = false;
         tab = boot(current, now);
 
         if (!reattach) uses.clear();

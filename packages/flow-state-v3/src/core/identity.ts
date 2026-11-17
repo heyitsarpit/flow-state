@@ -1,3 +1,4 @@
+import { byCodeUnits } from "./world.ts";
 import { Predicate, Result, Schema } from "effect";
 import { parseCanonical, writeJson } from "./codec.ts";
 import { type Compiled, type Field, Source, type Values } from "./compiled.ts";
@@ -14,7 +15,7 @@ export const LOCAL_PREFIX = "~";
 export const inputFieldsOf = (compiled: Compiled) =>
   compiled.fields
     .filter((f) => Source.$is("Input")(f.source))
-    .toSorted((a, b) => Number(a.name > b.name) - Number(a.name < b.name));
+    .toSorted((a, b) => byCodeUnits(a.name, b.name));
 
 /**
  * The Schema of a machine's name: its input fields, each by its own Schema, in field-name order;
@@ -25,7 +26,7 @@ export const nameSchemaOf = (fields: ReadonlyArray<Field>) =>
     Object.fromEntries(
       fields
         .filter((f) => Source.$is("Input")(f.source))
-        .toSorted((a, b) => Number(a.name > b.name) - Number(a.name < b.name))
+        .toSorted((a, b) => byCodeUnits(a.name, b.name))
         .map((f) => [f.name, f.schema]),
     ),
   );

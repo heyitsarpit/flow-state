@@ -1,5 +1,5 @@
 import { Equal, Option, Predicate, Result } from "effect";
-import type { Compiled, Values } from "./compiled.ts";
+import { type Compiled, publicMemory, type Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { sameValue } from "./same.ts";
 import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
@@ -28,16 +28,10 @@ export type ContextNeeds = {
 
 // An actor's outside snapshot, as a provider's selector reads it: its leaf and memory without its
 // Flow.private fields.
-const outsideOf = (compiled: Compiled, incarnation: Incarnation) => {
-  const hidden = new Set(compiled.fields.filter((f) => f.private).map((f) => f.name));
-
-  return {
-    state: incarnation.state,
-    memory: Object.fromEntries(
-      Object.entries(incarnation.memory).filter(([name]) => !hidden.has(name)),
-    ),
-  };
-};
+const outsideOf = (compiled: Compiled, incarnation: Incarnation) => ({
+  state: incarnation.state,
+  memory: publicMemory(compiled, incarnation.memory),
+});
 
 /**
  * Context binding and waves: a consumer binds each slot to one
@@ -498,8 +492,3 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
   return { bind, unbind, wave, settling, update, restore };
 };
-
-/**
- * Context binding and waves.
- */
-export type ContextSteps = ReturnType<typeof makeContext>;

@@ -11,7 +11,6 @@ export const Decline = Schema.Literals([
   "StorageRefused",
   "Disposed",
   "NoPersistence",
-  "OldVersion",
   "Unencodable",
 ]);
 
