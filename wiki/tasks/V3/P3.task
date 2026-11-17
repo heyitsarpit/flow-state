@@ -1064,7 +1064,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1873,6 +1873,16 @@ tasks
             (context busy, persist graph, wiring), format-1 record forms. Effect walks left on values: Schema.Json head
             checks at the boot (iterative in Effect), fromJsonString's host JSON.stringify inside a name (a name too
             deep for the host is refused as SchemaValidation), formatJson on leaves and redactables.
+        comment     2026-11-17T10:33:23Z
+            Fix round closed at the next commit: check 0; suite 1,271 pass + 13 inverted, the 2 reds T20's pair cells,
+            86 s; test:stress exit 0; fresh seeds (20 usual and mix, 10 stress and mix stress) exit 0; nub run faults:
+            222 of 223 caught by their targets, the miss (memory-not-plain, whose Date became an application value)
+            re-planted and caught in a scratch copy; dead core 882 failed; not judged (unchanged: 4 failed, T20's two
+            cells, sweep.test's run-rules test past its default 5 s under eight copies, 1.3 s alone, @task.V3.T83, and
+            one the output drops). Every blocking item red first, then green: Kinds nests (Option, Schema.Class, Set,
+            object-keyed Map) 3,000 and 100,000 deep, same.test (every kind, holes), boundary.test (99 generated Schema
+            forms against Effect), deep-inputs (a name 3,000 deep), deep-constants (100,000-deep initial memory and data
+            view), immutable.test (array, Map, Set, Date writes throw).
 
     T74
         title       App mix: several fixtures in one Runtime

@@ -388,13 +388,13 @@ export const faults: ReadonlyArray<Fault> = [
   {
     name: "memory-not-plain",
     tests: ["tests/stories/storage.test.ts"],
-    says: "a published snapshot carries its memory wrapped in a class instance, not as plain data",
+    says: "a published snapshot carries its memory behind a function in a plain object, not as plain data",
     rule: "Turn R24",
     edits: [
       {
         file: "src/core/incarnations.ts",
         find: "        memory: incarnation.memory,\n      }),\n    );",
-        replace: "        memory: { held: new Date(0) },\n      }),\n    );",
+        replace: "        memory: { held: { run: () => incarnation.memory } },\n      }),\n    );",
       },
     ],
   },
