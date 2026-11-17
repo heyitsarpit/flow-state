@@ -934,3 +934,8 @@ note 2026-11-17T08:21:50Z
     Performance audit done (fc1dd7da): the turn is 1-2 % of a run; time goes to whole-record re-encoding per step, test
     replays from boot and whole-world scans. Routed: 3, 4, 5, 9, 12, 15 to T9's walkers; 1, 2, 8, 13, 14 to T83; 6, 7,
     10, 11 to new T85 (after T9, before T84). Order: T9, T85, T84, T83, T20.
+
+note 2026-11-17T08:29:03Z
+    Decision (orchestrator, delegated by the user, 2026-11-17): Pending D28. Awaited and Now writes still project at the
+    step's end; Later-only records project when their list is issued, if the bench after T9's memo still shows the cost.
+    Owner T85. Why: deferring only non-gating work keeps I11 and every send exact.

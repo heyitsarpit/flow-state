@@ -2398,3 +2398,7 @@ tasks
             - A Story with many actors and a deep mailbox shows step cost grows with the work done, not with World size,
               timed on the bench.
             - The same Story ids, test counts and fault caught list hold before and after; `nub run check` passes.
+        comment     2026-11-17T08:29:03Z
+            Scope added (orchestrator, 2026-11-17): @plan.Pending.D28, Later records projected when their list is
+            issued, gated on the bench after T9's memoised walkers; WriteAhead R10/R11 and its realization change with a
+            specs.log note if built.

@@ -221,3 +221,15 @@ decisions
         guarding calls one by one leaked in three rounds; Flow owns the compiled format, so it can do better than a
         generic recursive walk. **Proven by:** Stories at depth 100,000 on every value path with no crash and no ending
         lost or made up, and the bench comparing the equality options. Found in @task.V3.T9's reviews.
+    D28  @plan.Persistence.O3, @spec.WriteAhead: Later records are projected when their list is issued (decided by the
+         orchestrator, delegated by the user, 2026-11-17)
+        **Before:** every touched record is projected at each step's end, then coalesced, so most encoded text is thrown
+        away. **After:** a step whose writes are Awaited or Now still projects at its end, since those gate sends and
+        tickets. A record touched only by Later steps keeps the step's immutable state and is projected when its Later
+        list is issued (the interval or the flush on hide), through D27's memoised walkers; the withholding rule (an
+        identity whose actor record cannot encode writes none of its records, I11) is applied at that moment, and its
+        UnencodableValue report comes then. Same records and bytes as today. **Why:** step-end projection costs 23 to 76
+        % of a run (the performance audit's finding 3); deferring only Later work keeps every send-gating write exact.
+        **Gate:** built only if the bench, after T9's memoised walkers, still shows Later projection as a top cost.
+        **Proven by:** the reload sweep and run rules unchanged, I11 and I20 held, and a hide flush timed on the bench.
+        Owner: @task.V3.T85.
