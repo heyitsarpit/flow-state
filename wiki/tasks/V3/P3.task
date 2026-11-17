@@ -2146,6 +2146,12 @@ tasks
             booleans and 3e arming to T85, which rewrites persist; 4d renames with 4a's docs Task; §7 comments as one
             pass. User's calls: 9a and review 2's 2a (pinned it.fails in tests/actors/edges.test.ts), review 2's
             2c codes.
+        comment     2026-11-17T12:18:53Z
+            Decisions (the user, 2026-11-17): Q17 A, a local actor of a persisted machine in a Runtime without
+            persistence sends its commit (Actors R6); Q18 A, after an unknown send an app error tagged Rejected stays
+            unknown StillUnknown (WriteLanes R2); Q19 A, diagnostic codes nothing produces leave the public union and
+            return with the feature that produces them. All three go in T79's fix round; the it.fails in
+            tests/actors/edges.test.ts flip.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted

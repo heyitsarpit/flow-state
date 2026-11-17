@@ -991,3 +991,8 @@ note 2026-11-17T12:08:45Z
     T79 in review at e4487148: step edit operations (worlds handed between steps, indexes), boot validation once, many
     findings proposed for other Tasks; session/long 0.161 to 0.108 ms. Opus review started. Three behaviour questions
     (9a, 2a, 2c) pinned as it.fails for the user.
+
+note 2026-11-17T12:18:54Z
+    Decision (the user, 2026-11-17): Q17 A, Q18 A, Q19 A. Local actors send without persistence (Actors R6); an unknown
+    send stays StillUnknown under an app Rejected (WriteLanes R2); unproduced diagnostic codes leave the public union.
+    All three land in T79's fix round.
