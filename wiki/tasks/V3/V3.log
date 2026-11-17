@@ -1167,3 +1167,7 @@ note 2026-11-17T21:13:46Z
 note 2026-11-17T21:39:14Z
     T81 paused after its requirements and fixture proof, with four orchestrator rulings in its comments; (c), a type
     brand on tokens, is proposed for the user. T83 started 03:10 IST, timebox to 04:40 IST.
+
+note 2026-11-17T21:39:47Z
+    03:09 wake: tooling bench skipped; T83's lead is timing the same commands alone, and benches run alone. Its close
+    records the tooling row instead.
