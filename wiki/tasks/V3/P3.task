@@ -13,10 +13,10 @@ description
 
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
     order the user set; then @task.V3.T79 (code convergence with the step's edit operations), @task.V3.T86 (fixture
-    layout), @task.V3.T85 (capture on issue), @task.V3.T84 (no caps), @task.V3.T87 (bench), @task.V3.T83 (fast tests),
-    T20's close, @task.V3.T81 (construction bugs) and @task.V3.T80 (the user, 2026-11-16; reordered by the user's Q14 A,
-    2026-11-17). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in
-    this order.
+    layout), @task.V3.T85 (capture on issue), @task.V3.T84 (no caps), @task.V3.T87 (bench), @task.V3.T88 (tsrs),
+    @task.V3.T83 (fast tests), T20's close, @task.V3.T81 (construction bugs) and @task.V3.T80 (the user, 2026-11-16;
+    reordered by the user's Q14 A, 2026-11-17). A `blocked_by` link is a real dependency only; where several Tasks are
+    ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -2644,7 +2644,7 @@ tasks
         title       Fast test commands again: suite, stress and faults with no regression from the baseline
         status      open
         priority    high
-        blocked_by  [@T84, @T87]
+        blocked_by  [@T84, @T87, @T88]
         description
             Make the test commands fast again: the package suite, `nub run test:stress` and `nub run faults` with no
             regression from the measured baseline without a named cause, and no gate weakened.
@@ -3147,3 +3147,56 @@ tasks
               "builder records the bench's numbers in the Task's comment" becomes a pointer to the CSV rows (an
               Amendment note, the user's request).
             - `nub run check` passes; the package stays self-contained.
+        comment     2026-11-17T16:28:12Z
+            Requirements as checks (lead, before code). A test in tests/bench/ fails on a duplicate id, an unknown
+            concern, a headline list over 2, or a long, saved-stress or large Story missing from turn; each bench's
+            proof (turns as tested, or a count) runs in that test at size 1. CLI, CSV and compare are checked by running
+            them: --list, a concern, --only, --runs/--warmup, --record (Schema-decoded on read; refuses on battery, load
+            over cores/2 or another node/bun/vitest), --compare against a worktree (interleaved A/B) or stored rows
+            (marked low), shape refusal, slope bounds, 16 ms flag. Backfill: the five commits' rows, marked backfill.
+            The coordinator's two review lists (fresh processes, MAD and bootstrap CI, raw samples, startup and memory
+            concerns, inspector variants, shape hash, summary, budgets) are built in this cut where noted at the close;
+            the rest is proposed as follow-ups there.
+
+    T88
+        title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
+        status      open
+        priority    medium
+        blocked_by  [@T87]
+        description
+            `nub run check` runs type-aware linting and type checking on the `tsrs` backend: `vite-plus` upgraded to
+            1.7.0 or later and `tsrs` added, with the same diagnostics as today and the check's time and memory recorded
+            before and after.
+
+            **Why now:** Oxlint now offers `tsrs`, a Rust port of TypeScript, as the type-aware backend in place of
+            tsgolint (https://oxc.rs/blog/2026-11-17-faster-type-aware-linting-with-tsrs): the same 61 rules, and up to
+            7x faster combined type checking and linting with up to 75 % less memory (vendor numbers). `vite.config.ts`
+            already sets `lint: { options: { typeAware: true, typeCheck: true } }`, so Oxlint picks `tsrs` up once
+            installed (the user, 2026-11-17).
+
+            **Read first:** `vite.config.ts` (`lint`), `package.json` (`check`, `lint`, pinned `vite-plus` 1.3.0,
+            `oxlint`, `typescript`), the blog post above, @task.V3.T87 (record the timing in its `tooling` concern).
+
+            **Risk:** `vite-plus` 1.3 to 1.7 also moves `vp test` and the formatter; the custom JS lint plugins
+            (lint-bomb, flow-state-lint, the vite-plus plugin) run in the same pass; `tsrs` is new and lists no known
+            limitations, so a missing diagnostic would weaken a gate. The trial runs in a scratch copy first; the live
+            tree changes only when nothing is lost. Exact versions are pinned.
+
+            May change: `package.json`, the lockfile, `vite.config.ts` (only if the upgrade requires it). Evidence: this
+            Task's comments.
+
+            False pass: a backend that reports fewer problems passes a clean tree → caught by planted errors (a type
+            error, a floating promise, an unsafe `any`, a lint-bomb rule breach) that must fail before and after.
+        acceptance
+            - Before and after, on the same machine: `nub run check` diagnostics on the clean tree (expected zero) and
+              on each planted error, its wall time and peak memory (recorded with `nub run bench tooling --record` if
+              T87's tool is ready, else in a comment), and the package suite's counts.
+            - The planted errors fail `nub run check` both before and after, with matching diagnostics; the clean tree
+              passes both.
+            - `vite-plus` is pinned at 1.7.0 or later and `tsrs` is pinned exactly; `nub run check`, `nub run
+              lint:rules`, the formatter and the package suite give the same results as before.
+            - If anything is lost (a diagnostic, a test, a plugin), the live tree is left unchanged and the gap is
+              reported instead.
+        comment     2026-11-17T16:52:19Z
+            Agents (the user, 2026-11-17): a Sonnet builder and a Sonnet reviewer for this Task, not the usual
+            Opus review.
