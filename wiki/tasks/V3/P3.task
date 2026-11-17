@@ -1063,7 +1063,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -1786,6 +1786,40 @@ tasks
             tests/session/deep.test.ts, tests/restore/deep-inputs.test.ts, the Nests stories and samples. Identity
             inputs are string-encoded, so an actor name has no deep path. The Nests samples join the generator, not the
             app mix (one samples set per fixture; Nests live in the grown app).
+        comment     2026-11-17T09:37:00Z
+            Boundary round closed at 8cfaf309: check 0; suite 1,160 pass + 13 inverted, 2 red, T20's pair cells (shop,
+            session), 77 s; test:stress exit 0 (palette stress passes now); fresh seeds (20 usual and mix, 10 stress and
+            mix stress) exit 0; nub run faults 218 of 218 caught by their targets, dead core 876 failed, not judged
+            (unchanged: 3 failed, T20's two cells and one the output drops). Every value path holds at 3,000 and 100,000
+            deep; Flow.maxDepth is gone (D26 lifted, Codec R1, R6).
+        comment     2026-11-17T09:37:00Z
+            Decisions (agent), boundary round: walkers run Effect's own parser a level at a time, each Schema.suspend a
+            hole read from a table, levels past a 64-hole budget on an explicit stack
+            (code:packages/flow-state-v3/src/core/boundary.ts); equality is an iterative structural comparator, the same
+            object first, memory field by field (src/core/same.ts); field and input text is kept by value reference and
+            spliced into records; a selector returning its last value keeps its selection unwalked; dev and test hosts
+            deep-freeze admitted values (D29, Host.freezeValues), a mutating update is its turn's Defect. Identity
+            inputs are string-encoded, so names have no deep path. Nests stress samples are 200 deep: a stress run sends
+            1,000 steps and a computed Map selection is walked whole at each change.
+        comment     2026-11-17T09:37:00Z
+            Bench, equality (fresh runs, microseconds a pair; structural, canonical text, Effect Equal, Schema
+            equivalence; all agree where they run): palette 76.5, 9,312, 244, 79.7; session 0.16, 0.80, 0.33, 0.04;
+            transfers 0.18, 1.21, 0.47, 0.04; nests 3,000 deep 456, 9,637, threw, threw; 100,000 deep 16,300, 436,600,
+            threw, threw. Chosen: structural (correct at every depth; the turn compares only patched fields, others by
+            reference). Findings, 4,097-command memory, before/after ms: F4 canonical text 8.99/5.46; F5 memory to JSON
+            1.95/0.92; F3 record text each step 11.0/0.000 on unchanged memory (6.55 first time); F9 restore 9.82/6.38;
+            per turn median ms: palette/stress-36 8.98/1.44 (memo 123 hits, 9 misses a run), archive-large 0.907/0.431,
+            session/long 0.175/0.164, transfers/long 0.047/0.044; outline 100,000 deep now saved, 124 ms a turn.
+        comment     2026-11-17T09:37:01Z
+            For the user's page, boundary round: values of any depth now save, restore and are heard once: a folder
+            tree, an outline or an index of Maps 100,000 levels deep works like a shallow one, in memory, in context, in
+            an event and in a commit. In dev and test, Flow freezes what it admits, so a machine that changes its memory
+            in place fails at that line instead of corrupting saves.
+        comment     2026-11-17T09:37:01Z
+            Needs a decision (proposed): @plan.Pending D20 and D22 still name 'the measured depth limit (D26)'; with D26
+            lifted they should drop it. Not folded from the audit: F15's chainOf/levelsOf/nameCodec re-derivations and
+            F12's provider-snapshot skip (the selector-result skip is in); the app mix holds one samples set per
+            fixture, so nests reach the generator and stress runs, not the mix.
 
     T74
         title       App mix: several fixtures in one Runtime
