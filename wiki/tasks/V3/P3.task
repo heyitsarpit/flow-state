@@ -2092,6 +2092,21 @@ tasks
             cyclic Set members; past 64 levels a decoding default with a side effect runs once and is shared by every
             level; the dev freeze skips Maps, Sets and Dates the app froze itself; a too-deep name's error message
             misleads; tx.ts has a stale doc comment.
+        comment     2026-11-17T10:57:40Z
+            Requirements (first commit), every finding re-verified at 45b6f5a8. R1 step edit operations (review 1 §1,
+            audit 6 and 7): red today on the bench's world-size pairs, per-turn ratio 3.23 (lanes/stress-crowd-16 vs
+            -256) and 6.64 (session/wall-64 vs stress-wall-1024); target near 1. `lanes/crowd-4` joins `stories` for the
+            sweeps. R2 audit 11: `malformedOf` once per Compiled. R3 audit 10: measured, built only past 5%. R4 accepted
+            moves: 3a (well-formed's copy), 3b, 3c, 3d, 3e (driver and lane-moves only; tree.ts stays, C1), 3f, 3g, 3h,
+            3i, 3k, 3l, 3m (marker unwrap), 3n, 3o, 3p, 3q; §6 dead code all, `mayHaveApplied` unwritten; review 2 1e
+            (A6), 1f (string splits), 1g, 1h, 1i, 1j, 2d to 2f, 3a (two sites, A4), 3b, 3c, 3e, 3g, 3h, 4b, 4c, 4d. R5
+            unions: 2j, 2e, 2d, 2h, 2i, 2a with 2b, 2f (fixes 9e, 9f with 5d); 2c and 2k optional; 2g with T80's
+            tooling. R6 host 5a to 5f. R7 §7 comments. R8 §9 questions and review 2's 2a answered by Stories first. R9
+            T9 leftovers L1 (DataView, RegExp in Set, cyclic Set members), L2 (shared default past 64 levels), L3
+            (frozen Maps, Sets, Dates), L4 (misleading name message), L5 (tx.ts doc), each red first. Rejected as stale:
+            review 2 1b, 1c, 1d (config.ts decodes them now), 2b (`UnencodableValue` has producers; non-JSON rows save
+            as unknown Restored), 3d (selections run once); review 1 3j's per-call codec (built once). Left to the user:
+            review 2 2c (104 of 130 codes unproduced; public type) and the `pending` row field.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted

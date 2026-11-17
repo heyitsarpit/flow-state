@@ -1,5 +1,7 @@
 import { Option } from "effect";
 import { manifests } from "../fixtures/index.ts";
+import { stressCrowd16, stressCrowd256 } from "../fixtures/lanes/stories/load.ts";
+import { stressWall1024, wall64 } from "../fixtures/session/stories/load.ts";
 import { outlineDeep } from "../fixtures/session/stories/values.ts";
 import { spreadOf, timeStory } from "./time.ts";
 
@@ -50,5 +52,27 @@ for (const [story, warmup, times] of [
   console.log(`  per turn median ${fixed(perTurn.median)} ms   p99 ${fixed(perTurn.p99)} ms`);
   console.log(
     `  field text memo: ${(after.hits - before.hits) / times} hits, ${(after.misses - before.misses) / times} misses a run`,
+  );
+}
+
+// The same work per actor in a small world and a large one: a step's cost should follow the work it
+// does, not how many actors the world holds, so the two per-turn medians should be close.
+const scaled = [
+  [stressCrowd16(), stressCrowd256()],
+  [wall64, stressWall1024()],
+] as const;
+
+for (const [small, large] of scaled) {
+  const medians = [];
+
+  for (const story of [small, large]) {
+    await timeStory(story, 5);
+    const runs = await timeStory(story, 20);
+    medians.push(spreadOf(runs.map((r) => r.ms / r.turns.length)).median);
+  }
+
+  const [a = Number.NaN, b = Number.NaN] = medians;
+  console.log(
+    `${small.id} vs ${large.id}: per turn median ${fixed(a)} vs ${fixed(b)} ms, ratio ${(b / a).toFixed(2)}`,
   );
 }

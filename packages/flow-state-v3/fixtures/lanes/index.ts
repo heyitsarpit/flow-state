@@ -3,7 +3,7 @@ import { manifest } from "../manifest.ts";
 import { lanesGrown } from "./app.ts";
 import { samples, seededStress, stories, stressSamples } from "./stories.ts";
 import { negativeZero, twoSpellings } from "./stories/edges.ts";
-import { serializeAtCap } from "./stories/load.ts";
+import { crowd4, serializeAtCap } from "./stories/load.ts";
 import { disposedWithWork, oneKeyTwoActors, reloadedWithWork } from "./stories/structure.ts";
 
 /**
@@ -15,6 +15,7 @@ export const lanes = manifest({
   stories: {
     ...stories,
     serializeAtCap,
+    crowd4,
     oneKeyTwoActors,
     disposedWithWork,
     reloadedWithWork,
