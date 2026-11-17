@@ -9,13 +9,13 @@ provides      the structural codec (encode, decode) used by records, payloads, t
 derives_from  [@plan.Inspection.O2, @plan.Inspection.V3, @plan.Package.C1]
 
 requirements
-    R1  One bounded codec
-        source  @plan.Inspection.O2.
-        must    One codec carries every value that crosses a process or storage boundary: persisted 
-                records, server-rendering payloads, trace artifacts and Model bytes. It accepts 
-                JSON values produced by the owning Schema. A value at a bound is accepted and one 
-                past it rejected: depth 32, 10,000 nodes, 4,096 items per array, 262,144 UTF-8 
-                bytes per string or key, 2,097,152 canonical bytes.
+    R1  One codec, no size bounds
+        source  @plan.Inspection.O2; @plan.Pending.D23.
+        must    One codec carries every value that crosses a process or storage boundary: persisted
+                records, server-rendering payloads, trace artifacts and Model bytes. It accepts
+                JSON values produced by the owning Schema, of any size or depth: how big a value may
+                be is judged by the bench, and the store's quota is the one real limit, which ends
+                as StorageRefused (@spec.WriteAhead.R13).
 
     R2  Canonical encoding
         source  @plan.Inspection.O2; @plan.Package.C1.
@@ -33,32 +33,25 @@ requirements
     R4  Failures
         source  @plan.Inspection.O2.
         must    A failure is one FlowError raised before any actor, store, service or committed
-                change: CodecBoundExceeded (the bound, its limit and the path), CodecMalformed (one
+                change: CodecMalformed (one
                 reason of utf8, json, nonCanonical, cycle, negativeZero, nonFinite, loneSurrogate,
                 notPlain or sparse) or CodecSchemaMismatch (path and issue summary, never data
                 values).
 
                 No raw parser error or Cause escapes. Inside a turn or a capture, a value with no
-                encoded form, a bound or a malformation included, is reported only as
-                UnencodableValue (its details naming the bound or reason) and never fails the turn (a
-                commit's input or key that cannot encode is the one exception: it declines NotSent {
-                Unencodable }, an ending, @spec.WriteLanes.R12).
+                encoded form (a malformation) is reported only as UnencodableValue (its details
+                naming the reason) and never fails the turn (a commit's input or key that cannot
+                encode is the one exception: it declines NotSent { Unencodable }, an ending,
+                @spec.WriteLanes.R12).
 
                 No send waits on a record that may not encode. A persisted commit is admitted only if
-                its lane's record encodes at the largest it can reach without another admission (every
-                input it holds with this one queued, the head Held, the longest retryCount and Attempt
-                id, one more displaced Attempt), and an owed row naming its lane encodes; otherwise it
-                declines NotSent { Unencodable }. Owed rows are saved in parts (R5); a row whose value
-                has no form even in a part of its own is saved as its Attempt's unknown { Restored },
+                its input encodes canonically; otherwise it declines NotSent { Unencodable }. An
+                owed row whose value has no form is saved as its Attempt's unknown { Restored },
                 reported UnencodableValue, and a Flow-made row with no value saves `null`. So only an
-                actor record can fail to encode (@spec.WriteAhead.R4). Decision (agent: the T20
-                lead, 2026-11-17): the convergence on record bounds, proposals
-                record-bounds-revised-2026-11-17.md. Why: a bound judged once, while the record
-                kept changing, withheld an identity for good. Reverse: restore R4 from commit
-                `47c900b8`.
+                actor record can fail to encode (@spec.WriteAhead.R4).
 
                 Elsewhere:
-                CodecBoundExceeded and CodecMalformed are raised only where a codec failure is a
+                CodecMalformed is raised only where a codec failure is a
                 FlowError: decoding at the boot, payloads, traces, Model bytes and direct calls.
                 Decision (agent, 2026-11-11): audit C23, one code per trace. Why: a turn never fails
                 on a value it cannot save. Reverse: raise Codec errors inside turns too (spec-log.md,
@@ -82,10 +75,8 @@ requirements
                 undecodable and handled by @spec.Restore.R5; it is never coerced. Decision (user,
                 2026-11-12): consult round 3, C9. Why: an ending outlives both its lane and its
                 actor record. Reverse: restore R5 from commit `9405af2f`. Every record is stored as
-                its canonical text (R2) and read strictly (R3). An identity's owed rows fill
-                `owed/<identity>` and, past a bound, further parts `owed/<identity>|0001` on, four
-                digits, in owed order; each part is a whole owed record, and fewer parts remove the
-                rest (R4).
+                its canonical text (R2) and read strictly (R3). An identity's owed rows fill one
+                record, `owed/<identity>`, in owed order.
 
 open
     Q1  Executable checks are not built.
@@ -94,7 +85,7 @@ open
                  packages/flow-state-v3/tests/, and each rule gets a planted fault in tests/faults.ts that
                  `nub run faults` must catch.
 
-    Q2  The prototype codec (round-14/codec/codec.ts) has no test pinning these bounds or error codes.
+    Q2  The prototype codec (round-14/codec/codec.ts) has no test pinning these error codes.
         outcome  The checks are written from this Spec, not from the prototype.
 
 model
@@ -103,7 +94,7 @@ model
 invariants
     I1  For every accepted value v: decode(encode(v)) equals v. (Canonical bytes coming back equal is I4's.) [@R2, @R3]
 
-    I2  Each bound accepts its exact value and rejects the next one. [@R1]
+    I2  A value of any size or depth encodes and decodes back equal. [@R1]
 
     I3  Equal values give equal Bytes on Node, Bun, Deno, Chromium, Gecko and WebKit. [@R2]
 
@@ -113,9 +104,8 @@ invariants
 
     I6  A codec failure happens before any state change and carries no data value or Cause.[@R4]
 
-    I7  Every key the Runtime writes is `actor/<identity>`, `lane/<lane>` or `owed/<identity>` (with its parts' 
-        `|nnnn`), and its record decodes with that kind's Schema and has `format`; no lane record has a 
-        `mayHaveApplied` field, every owed row has a
+    I7  Every key the Runtime writes is `actor/<identity>`, `lane/<lane>` or `owed/<identity>`, and its record decodes 
+        with that kind's Schema and has `format`; no lane record has a `mayHaveApplied` field, every owed row has a
         `channel`, and each kind round-trips: decode(encode(record)) equals the record. [@R5]
 
 coverage
@@ -140,8 +130,7 @@ coverage
         open_by      [@Q1]
 
 tests
-    T1  Bounds: each of the five bounds at its value and one past it; the error names the bound, its limit and the 
-        path. [@I2]
+    T1  Size: 5,000 items, depth 64 and 3,000,000 bytes encode and decode back equal. [@I2]
     T2  Malformed vectors: a BOM, invalid UTF-8, a lone surrogate, duplicate keys, unsorted keys, -0, 1.0 and 1e0 
         spellings each fail with their CodecMalformed reason. [@I4]
     T3  Round trip and hosts: a fixed vector set encodes to the same bytes on every listed host and round-trips both 

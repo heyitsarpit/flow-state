@@ -10,7 +10,7 @@ import { Life } from "./life.ts";
 import { actorKey, byCodeUnits, emptyWorld, Mail, type World } from "./world.ts";
 
 const encodeOwedText = (...args: Parameters<typeof encodeOwed>) =>
-  Result.getOrThrow(encodeOwed(...args)).texts.join("");
+  Result.getOrThrow(encodeOwed(...args)).text;
 
 const actor = { machine: "Test/Ledger", name: "a" };
 

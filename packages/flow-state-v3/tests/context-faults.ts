@@ -39,19 +39,19 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/slots.ts",
-        find: "        (json) => readSelected(codec, json),",
-        replace: "        (json) => Result.succeed({ value: raw, json }),",
+        find: "            (canonical) => readSelected(codec, canonical),",
+        replace: "            (canonical) => Result.succeed({ value: raw, json: canonical }),",
       },
     ],
   },
   {
     name: "negative-zero-refused",
     tests: ["tests/session/values.test.ts"],
-    says: "a record refuses a -0 slot, saving it unknown, so a reload makes up an onContext event",
+    says: "a -0 selection is refused as its selector's defect, so the digest never hears its count reach zero",
     rule: "Actors R9",
     edits: [
       {
-        file: "src/core/actor-record.ts",
+        file: "src/core/slots.ts",
         find: 'toCanonicalJson(json, "zero")',
         replace: "toCanonicalJson(json)",
       },
@@ -375,9 +375,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/actor-record.ts",
-        find: "        seen: Object.fromEntries(\n          seen.flatMap((s) =>",
-        replace:
-          "        seen: {},\n        dropped: Object.fromEntries(\n          seen.flatMap((s) =>",
+        find: "      seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.json])),",
+        replace: "      seen: {},",
       },
     ],
   },
@@ -418,20 +417,6 @@ export const contextFaults: ReadonlyArray<Fault> = [
         file: "src/host/testing/run.ts",
         find: "      Option.some(tab.built.admission.ensure(actor, context)),",
         replace: "      Option.some(tab.built.admission.ensure(actor, new Map())),",
-      },
-    ],
-  },
-  {
-    name: "bound-is-selector-defect",
-    tests: ["tests/session/values.test.ts"],
-    says: "a selection past a record's 4,096 items is refused as its selector's defect, even for a consumer never saved",
-    rule: "Codec R4",
-    edits: [
-      {
-        file: "src/core/slots.ts",
-        find: "        (json) => readSelected(codec, json),",
-        replace:
-          '        (json) => (Array.isArray(json) && json.length > 4_096 ? Result.fail("codec") : readSelected(codec, json)),',
       },
     ],
   },
@@ -486,6 +471,33 @@ export const contextFaults: ReadonlyArray<Fault> = [
         file: "src/core/slots.ts",
         find: '    Result.try({ try: () => Schema.decodeUnknownResult(codec)(json), catch: () => "schema" }),',
         replace: "    Result.succeed(Schema.decodeUnknownResult(codec)(json)),",
+      },
+    ],
+  },
+  {
+    name: "step-two-drops-copies",
+    tests: ["src/core/actor-record.test.ts"],
+    says: "the format-2 step drops each baseline's memory copy, so its baseline reads the record's own memory",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/actor-record.ts",
+        find: "        return { slots: frame.slots, memory: memories.push(frame.memory) - 1 };",
+        replace: "        return { slots: frame.slots, memory: null };",
+      },
+    ],
+  },
+  {
+    name: "context-issue-published-twice",
+    tests: ["tests/session/values.test.ts", "tests/generated/generated.test.ts"],
+    says: "a context update that raises an issue publishes its consumer twice",
+    rule: "Turn I9",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "    if (changed || after.issues !== incarnation.issues) needs.publish(after);",
+        replace:
+          "    if (changed || after.issues !== incarnation.issues) needs.publish(after);\n    if (after.issues !== incarnation.issues) needs.publish(after);",
       },
     ],
   },

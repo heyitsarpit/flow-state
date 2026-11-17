@@ -172,8 +172,7 @@ export const formatOneAvatar = grownStory("session/format-one-avatar")
 
 /**
  * The calendar shows a hundred days under its agenda, saved, and a glance at it, never saved; then
- * five thousand, a list past a record's 4,096 items; the tab reloads, and the range goes back to a
- * hundred days.
+ * five thousand; the tab reloads, and the range goes back to a hundred days.
  */
 export const agendaLong = grownStory("session/stress-agenda-long")
   .ensure(mainCalendar)
@@ -210,10 +209,10 @@ export const unreadRecovers = grownStory("session/unread-recovers")
 const imported = Array.from({ length: 3_001 }, (_, n) => `a-${n}`);
 
 /**
- * The archive imports 3,001 ids, about a third of a record's nodes; a message arrives and two of its
- * three memory-reading reactions log it; the tab reloads; another message arrives.
+ * The archive imports 3,001 ids; a message arrives and two of its three memory-reading reactions log
+ * it; the tab reloads; another message arrives.
  */
-export const archiveLarge = grownStory("session/stress-archive-large")
+export const archiveLarge = grownStory("session/archive-large")
   .ensure(mainInbox)
   .ensure(mainArchive)
   .send(mainArchive, { _tag: "Import", ids: imported })
@@ -223,6 +222,20 @@ export const archiveLarge = grownStory("session/stress-archive-large")
   .checkpoint("reloaded")
   .send(mainInbox, arrive("m2", "bob", 2_000))
   .checkpoint("again");
+
+/**
+ * Ada writes and the digest hears it, saved; the store then refuses the step in which Bob answers,
+ * so neither the inbox's nor the digest's change is saved; the tab reloads, and Ada writes again.
+ */
+export const digestRefused = inbox("session/digest-refused")
+  .send(mainInbox, arrive("m1", "ada", 1_000))
+  .world(Fake.storage.refuse())
+  .send(mainInbox, arrive("m2", "bob", 2_000, "m1"))
+  .checkpoint("refused")
+  .reload()
+  .checkpoint("reloaded")
+  .send(mainInbox, arrive("m3", "ada", 3_000, "m1"))
+  .checkpoint("after");
 
 /**
  * What the inbox's digest, thread view and the guest's online dot meet, for generated runs:

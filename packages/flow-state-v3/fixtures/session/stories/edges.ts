@@ -4,7 +4,7 @@ import { grownStory } from "./structure.ts";
 
 const badgeRecord = "actor/Workspace/Badge/badge";
 
-// One byte past the 2,097,152 canonical bytes a record may hold.
+// A saved text of 2 MB, as a store left behind by another app might hold.
 const PAST_RECORD_BOUND = 2_097_153;
 
 /**
@@ -18,7 +18,7 @@ export const corruptRecord = grownStory("session/corrupt-record")
   .checkpoint("fresh");
 
 /**
- * The badge's saved record is one byte past a record's bound when the tab opens; the badge is
+ * The badge's saved record is a 2 MB text that is no record when the tab opens; the badge is
  * ensured.
  */
 export const oversizedRecord = grownStory("session/stress-oversized-record")

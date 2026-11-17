@@ -26,12 +26,12 @@ describe("page frames deep (fixtures.md S1 with S9)", () => {
     expect(memoryAt(run.checkpoints.top).frames).toEqual([]);
   });
 
-  it("S1 x 64, Codec R1; Restore R9: 64 nested pages pass a record's depth bound, so the palette runs on unsaved, reported UnencodableValue, and a reload restores its last good capture", async () => {
+  it("S1 x 64, Codec R1: 64 nested pages are saved, nothing is reported, and a reload restores all 64", async () => {
     const run = await played(framesSixtyFour());
 
     expect(memoryAt(run.checkpoints.deep).frames).toHaveLength(64);
-    expect(reports(run)).toContain("UnencodableValue");
-    expect(memoryAt(run.checkpoints.reloaded).frames).toEqual([]);
+    expect(reports(run)).toEqual([]);
+    expect(memoryAt(run.checkpoints.reloaded).frames).toHaveLength(64);
   });
 });
 

@@ -9,53 +9,17 @@ const failureOf = (r: Result.Result<unknown, { readonly _tag: string }>) =>
 const nested = (depth: number) =>
   Array.from({ length: depth - 1 }).reduce<unknown>((inner) => [inner], []);
 
-describe("Codec bounds (Codec R1, I2)", () => {
-  // Each bound accepts its exact value and rejects the next one, naming the bound, its limit and the path.
-  const cases = [
-    ["depth", 32, (n: number) => nested(n)],
-    ["items", 4096, (n: number) => Array.from({ length: n }, () => 0)],
-    ["stringBytes", 262_144, (n: number) => "a".repeat(n)],
-    [
-      "nodes",
-      10_000,
-      (n: number) =>
-        Array.from({ length: 4 }, (_, i) =>
-          Array.from({ length: i < 3 ? 2500 : n - 7505 }, () => 0),
-        ),
-    ],
-  ] as const;
+describe("No size bounds (Codec R1)", () => {
+  it("Codec R1: a value of any size and depth encodes canonically and decodes back: 5,000 items, depth 64, 3,000,000 bytes", () => {
+    const value = {
+      items: Array.from({ length: 5_000 }, (_, n) => n),
+      deep: nested(64),
+      text: "x".repeat(3_000_000),
+    };
 
-  for (const [bound, limit, make] of cases)
-    it(`${bound}: ${limit} is accepted and ${limit + 1} rejected`, () => {
-      expect(Result.isSuccess(encodeCanonical(make(limit)))).toBe(true);
-      expect(failureOf(encodeCanonical(make(limit + 1)))).toMatchObject({
-        _tag: "BoundExceeded",
-        bound,
-        limit,
-      });
-    });
+    const text = Result.getOrThrow(encodeCanonical(value));
 
-  it("a key counts against the per-string bound, and the error names its path", () => {
-    expect(failureOf(encodeCanonical({ a: { [`${"é".repeat(131_072)}x`]: 1 } }))).toMatchObject({
-      bound: "stringBytes",
-      path: "$.a",
-    });
-  });
-
-  it("the canonical text is bounded at 2,097,152 bytes", () => {
-    // Nine strings of 233,016 bytes, each 233,018 with its quotes, plus two brackets and eight commas.
-    const at = (last: number) => [
-      ...Array.from({ length: 8 }, () => "a".repeat(233_016)),
-      "a".repeat(last),
-    ];
-
-    const text = (last: number) => Result.getOrThrow(encodeCanonical(at(last))).length;
-
-    expect(text(232_996)).toBe(2_097_152);
-    expect(failureOf(encodeCanonical(at(232_997)))).toMatchObject({
-      bound: "bytes",
-      limit: 2_097_152,
-    });
+    expect(Result.getOrThrow(decodeCanonical(text))).toEqual(value);
   });
 });
 

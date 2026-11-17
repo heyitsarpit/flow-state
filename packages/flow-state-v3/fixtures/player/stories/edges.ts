@@ -8,7 +8,7 @@ import { musicStory } from "../stories.ts";
 export const emptyRoomPlayer = actorRef(PlayerMachine, { room: "" });
 
 /**
- * The player of a room whose name is at a string's 262,144-byte bound.
+ * The player of a room whose name is 262,144 bytes long.
  */
 export const longRoom = actorRef(PlayerMachine, { room: "r".repeat(262_144) });
 
@@ -20,7 +20,7 @@ export const emptyRoom = musicStory("player/empty-room")
   .checkpoint("opened");
 
 /**
- * A room named at the string bound plays.
+ * A room with a 262,144-byte name plays.
  */
 export const roomAtBound = musicStory("player/room-at-bound")
   .ensure(longRoom)

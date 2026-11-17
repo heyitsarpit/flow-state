@@ -130,11 +130,10 @@ const owedToClosed = (id: string, count: number) =>
 const released = (count: number) => ids(count).map(() => Bank.transfer.release());
 
 /**
- * Receipts on both sides of the codec's bounds, owed to an account closed while its transfers
- * were out: one of 262,144 characters (a string's byte bound), five of 200,000, one of 262,145 (past
- * the bound), six more of
- * 200,000 (together past a record's 2,097,152 bytes) and one short; then the tab reloads and the
- * account hears every one, in the order they were owed. A stress Story: its records weigh 2 MB.
+ * Large receipts owed to an account closed while its transfers were out: one of 262,144
+ * characters, five of 200,000, one of 262,145, six more of 200,000 (2.9 MB together) and one short;
+ * then the tab reloads and the account hears every one, in the order they were owed. A stress
+ * Story: its records weigh 2.9 MB.
  */
 export const largeReceipts = owedToClosed("transfers/stress-large-receipts", 14)
   .world(Bank.receiptLength({ chars: 262_144 }), ...released(1))
@@ -150,8 +149,8 @@ export const largeReceipts = owedToClosed("transfers/stress-large-receipts", 14)
   .checkpoint("heard");
 
 /**
- * 1,300 short receipts owed to a closed account: together past a record's 10,000 nodes. The tab
- * reloads and the account hears every one. A stress Story, built on call and kept out of
+ * 1,300 short receipts owed to a closed account, in one record. The tab reloads and the account
+ * hears every one. A stress Story, built on call and kept out of
  * `stories`: a reload at each of its 1,300 steps is too long for the sweep.
  */
 export const stressManyReceipts = () =>
@@ -414,8 +413,8 @@ const transfersSamples = (receipts: {
 export const samples = transfersSamples({ past: [], under: [] });
 
 /**
- * The samples with the receipts' edge values, for the stress runs: receipts of 200,000 characters,
- * at a string's 262,144-byte bound and one byte past it.
+ * The samples with the receipts' edge values, for the stress runs: receipts of 200,000, 262,144 and
+ * 262,145 characters.
  */
 export const stressSamples = transfersSamples({
   past: [Bank.receiptLength({ chars: 262_145 })],

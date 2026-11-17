@@ -7,9 +7,13 @@ const TIMES = 1000;
 
 const fixed = (ms: number) => ms.toFixed(3).padStart(9);
 
+// Stories that save and restore large values: size is judged here, not by a codec bound.
+const LARGE = new Set(["session/stress-agenda-long", "session/archive-large"]);
+
 const longStories = [
   ...manifests.flatMap((m) => Option.toArray(m.long)),
   ...manifests.map((m) => m.savedStress.story),
+  ...manifests.flatMap((m) => Object.values(m.stories).filter((s) => LARGE.has(s.id))),
 ];
 
 for (const story of longStories) {

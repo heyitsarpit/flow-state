@@ -629,6 +629,10 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       nested mix, cycles) heard once per change and never at a reload; a reaction reading memory keeps the baseline it
       read across a reload (Actors R18, R19; Turn R22). built: `session/digest-heard`, `session/thread-heard`,
       `session/digest-quiet`; the inbox samples set in the generator.
+    - [x] E3 corrected (@plan.Pending.D23, no codec bounds): 5,000 calendar days selected by a saved and an unsaved
+      consumer, saved and restored with nothing made up or lost; a 3,001-row log under three memory-reading reactions;
+      a step the store refuses restores a consistent world. built: `session/stress-agenda-long`,
+      `session/archive-large`, `session/digest-refused`, `session/unread-recovers`.
     - [x] E7: a record naming a last-seen form no release wrote, quarantined, never thrown; a format-1 record steps to
       format 2 with nothing made up (Restore R5). built: `session/corrupt-seen`, `session/format-one-avatar`.
     - [ ] Stress and mix reach of the inbox: 64 and more digests on one inbox under L5, and the inbox samples in the
@@ -688,11 +692,10 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
   - [x] **Load:** 1,000 and 4,097 entries (have). Typing bursts under a held store, no source. built:
     `palette/over-bound`, `palette/typing-under-held-store`.
   - [x] **Load** corrected: one keystroke over 10,000 entries. Copies [command.test.ts:155][ui-command] "10,000 items: a
-    fuzzy keystroke stays well under a frame". A list holds at most 4,096 entries (Codec R1; `overBound`), so 10,000
-    cannot be configured; ranking speed is the fixture's own code, and no test times it.
+    fuzzy keystroke stays well under a frame". Ranking speed is the fixture's own code, and no test times it; with no
+    codec bounds (@plan.Pending.D23) a 10,000-entry list is a bench case for a later Task.
   - [x] **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape, S9 at the deepest: 1 (PALETTE-9, PALETTE-10
-    with Escape), 8 with a reload at the deepest, 64 past a record's depth bound (reported `UnencodableValue`, its last
-    good capture restored). built: `palette/frames-8`, the `framesSixtyFour` builder. S3: two palettes. built:
+    with Escape), 8 with a reload at the deepest, 64 saved and restored whole. built: `palette/frames-8`, the `framesSixtyFour` builder. S3: two palettes. built:
     `palette/two-palettes`.
   - [ ] **Structure:** each palette with its own workbench. left: needs an actor-to-actor `send(ref, event)` action
     for `Workbench`, which no Task owns (the user's call).
@@ -760,7 +763,7 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
   - [x] S6 × {room disposed, room reloaded} while its tick is armed. built: `player/room-disposed`,
     `player/room-reloaded`.
   - [x] E1: an empty room. built: `player/empty-room`. E3 corrected: a room is its player's name, not a key; a room at a
-    string's 262,144-byte bound. built: `player/room-at-bound`.
+    262,144-byte name. built: `player/room-at-bound`.
   - [x] A seek far past any track and a negative seek, taken as given (the player keeps no track length). built:
     `player/seek-edges`.
 

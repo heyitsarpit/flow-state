@@ -71,7 +71,6 @@ const exactRecords = [
     | "persistence"
     | "withheld"
     | "quarantined"
-    | "owedParts"
     | "ended"
     | "life"
   >,

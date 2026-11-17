@@ -103,8 +103,8 @@ describe("refused context shapes (Actors R18)", () => {
   });
 });
 
-describe("display names at a string's bound (Codec R1, R4; WriteAhead R4; Actors R8)", () => {
-  it("WriteAhead R4: a name at 262,144 bytes is saved; one past it is reported UnencodableValue, the last good capture restores, and the next name that fits saves", async () => {
+describe("long display names (Codec R1; WriteAhead R4)", () => {
+  it("Codec R1: names of 262,144 and 262,145 bytes are both saved and restored, nothing is reported, and the next name saves", async () => {
     const run = checked(await longNames.run());
     const at = run.checkpoints["at bound"];
 
@@ -113,8 +113,8 @@ describe("display names at a string's bound (Codec R1, R4; WriteAhead R4; Actors
     expect(run.checkpoints["past bound"].read(guestSession)?.memory.displayName).toHaveLength(
       262_145,
     );
-    expect(reports(run)).toContain("UnencodableValue actor/Workspace/Session/guest");
-    expect(run.checkpoints.reloaded.read(guestSession)?.memory.displayName).toBe("");
+    expect(reports(run).filter((r) => r.startsWith("UnencodableValue"))).toEqual([]);
+    expect(run.checkpoints.reloaded.read(guestSession)?.memory.displayName).toHaveLength(262_145);
     expect(run.checkpoints.reloaded.read(mainSession)?.memory.displayName).toHaveLength(262_144);
     expect(
       run.checkpoints["signed in"].records.stored.get("actor/Workspace/Session/guest"),

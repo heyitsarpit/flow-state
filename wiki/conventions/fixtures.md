@@ -91,7 +91,7 @@ Catalog rows name scenarios by these codes, with parameters (`S1×{4,8,32}`).
 | ---- | ---------------------------------------------------------------------------- |
 | E1   | empty                                                                        |
 | E2   | `undefined` or `None` where allowed                                          |
-| E3   | a byte bound, at and just past                                               |
+| E3   | a large value: thousands of items, long strings, deep nesting                |
 | E4   | a count cap, at and just past                                                |
 | E5   | delays −1, 0, 2^31 − 1 and 2^31 ms                                           |
 | E6   | bigint keys and numbers at 2^53                                              |

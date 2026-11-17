@@ -240,3 +240,13 @@ note 2026-11-17T02:22:30Z
     @spec.Actors R18, Codec R4, Restore R5: a value past a bound is saved unknown, never a selector defect; baselines
     share one memory copy and never cost a record its memory; format 3. Why: T9 convergence review. Reverse: 19ba4076's
     parent.
+
+note 2026-11-17T04:34:17Z
+    @spec.Codec R1, R4, R5, I2, I7, T1; @spec.WriteAhead R4, T13: the codec has no size bounds; only malformed values
+    fail. Owed rows are one record; a commit is checked by its input's canonical form. Why: @plan.Pending.D23 (the
+    user). Reverse: restore these texts from 59574431.
+
+note 2026-11-17T04:34:18Z
+    @spec.Actors R18: a slot value or baseline is always saved, so nothing is saved unknown; a selection with no
+    canonical form is its selector's defect, and -0 reads 0 live and after a reload. Why: D23 removed the bounds that
+    made values unsaveable. Reverse: restore R18 from 59574431.

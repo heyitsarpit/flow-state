@@ -7,7 +7,7 @@ import { manifests } from "../../fixtures/index.ts";
 export const samples = manifests.flatMap((m) => m.samples);
 
 /**
- * Every stress samples set, with the edge values at and past the codec's byte and node bounds, for
+ * Every stress samples set, with their large edge values, for
  * the stress runs only: values that size take the default suite from seconds to minutes.
  */
 export const stressSamples = manifests.flatMap((m) => m.stressSamples);

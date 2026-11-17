@@ -53,7 +53,9 @@ const Shout = definition({
 
 const ShoutMachine = machine(Shout, ({ S, E }) => ({
   default: S.SHOWN,
-  onContext: [{ select: ({ context }) => context.word, event: E.Heard }],
+  onContext: [
+    { select: ({ context, memory }) => `${context.word}${memory.heard}`, event: E.Heard },
+  ],
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));
 
@@ -133,5 +135,19 @@ describe("format 2 records at the boot (Restore R5)", () => {
 
     expect(restored.quarantined).toEqual([]);
     expect(restored.records[0]?.frames.map(Option.isSome)).toEqual([true]);
+  });
+
+  it("Restore R5: the format-2 step keeps each baseline's own memory copy, now a shared one it names", () => {
+    const two =
+      '{"context":{"word":{"machine":"Test/Feed","name":"f"}},"format":2,"graph":{},' +
+      '"machine":"Test/Shout","memory":{"heard":0},"name":"s",' +
+      '"reactions":[{"memory":{"heard":7},"slots":{}}],"schedules":[],"seen":{"word":"hi"},' +
+      '"state":"SHOWN"}';
+
+    const restored = decodeRecords(machines, new Map([["actor/Test/Shout/s", two]]));
+    const frame = restored.records[0]?.frames[0];
+
+    expect(restored.quarantined).toEqual([]);
+    expect(frame?.pipe(Option.map((f) => f.memory.get("heard")))).toEqual(Option.some(7));
   });
 });

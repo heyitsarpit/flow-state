@@ -2,14 +2,7 @@ import { Option, Result } from "effect";
 import { Act } from "./evidence-of.ts";
 import { Audience, Delivery, type Owed, rowsOf } from "./ledger.ts";
 import { encodeActor } from "./actor-record.ts";
-import {
-  actorRecordKey,
-  encodeLane,
-  encodeOwed,
-  laneRecordKey,
-  owedPartKey,
-  owedRecordKey,
-} from "./record.ts";
+import { actorRecordKey, encodeLane, encodeOwed, laneRecordKey, owedRecordKey } from "./record.ts";
 import { SILENT_MS, type Tx, without, withEntry } from "./tx.ts";
 import {
   type ActorId,
@@ -84,29 +77,15 @@ export const makePersistence = (tx: Tx) => {
       onFailure: (reason) => ({ key, reason }),
     });
 
-  // An actor's write; context its record cannot hold is saved unknown and reported, never in
-  // its memory's place.
   const actorWrite = (incarnation: Incarnation) => {
     const key = actorRecordKey(actorKey(incarnation.actor));
     const compiled = tx.machines.get(incarnation.actor.machine);
 
-    const saved =
-      compiled === undefined
-        ? Result.fail("machine")
-        : encodeActor(compiled, recordOf(incarnation));
-
-    if (Result.isSuccess(saved) && saved.success.unsaved > 0)
-      tx.act(
-        Act.Reported({
-          code: "UnencodableValue",
-          record: Option.some(key),
-          reason: `${saved.success.unsaved} context values past a record's bounds saved unknown`,
-        }),
-      );
-
     return encoded(
       key,
-      Result.map(saved, (s) => s.text),
+      compiled === undefined
+        ? Result.fail("machine")
+        : encodeActor(compiled, recordOf(incarnation)),
     );
   };
 
@@ -264,11 +243,9 @@ export const makePersistence = (tx: Tx) => {
     });
   };
 
-  // An identity's owed record as its parts, each written, and every part it had before and no
-  // longer needs removed.
+  // An identity's owed record, written, or removed once it owes nothing.
   const owedWrite = (actor: ActorId) => {
-    const identity = actorKey(actor);
-    const key = owedRecordKey(identity);
+    const key = owedRecordKey(actorKey(actor));
 
     const rows = rowsOf(tx.world().owed, actor)
       .filter(toIdentity)
@@ -276,8 +253,8 @@ export const makePersistence = (tx: Tx) => {
 
     const owed =
       rows.length === 0
-        ? Result.succeed({ texts: Array.of<string>(), unsaved: 0 })
-        : encodeOwed(actor, rows);
+        ? Result.succeed({ text: Option.none<string>(), unsaved: 0 })
+        : Result.map(encodeOwed(actor, rows), (o) => ({ ...o, text: Option.some(o.text) }));
 
     // A value that cannot be saved even alone is reported; its row is saved as unknown Restored.
     if (Result.isSuccess(owed) && owed.success.unsaved > 0)
@@ -289,17 +266,9 @@ export const makePersistence = (tx: Tx) => {
         }),
       );
 
-    const before = Math.max(1, tx.world().owedParts.get(identity) ?? 0);
-
     return Result.mapBoth(owed, {
       onFailure: (reason) => ({ key, reason }),
-      onSuccess: ({ texts }) => ({
-        parts: Option.some(texts.length),
-        writes: Array.from({ length: Math.max(before, texts.length) }, (_, part) => ({
-          key: owedPartKey(identity, part),
-          record: Option.fromUndefinedOr(texts[part]),
-        })),
-      }),
+      onSuccess: ({ text }) => [{ key, record: text } satisfies Write],
     });
   };
 
@@ -317,13 +286,10 @@ export const makePersistence = (tx: Tx) => {
   // Every record an identity's step touched, or the first that cannot encode: then none of its
   // records go, so no lane or owed record outruns the actor record it belongs with.
   const writesOf = (t: Touched) => {
-    const owed = t.owed
-      ? owedWrite(t.actor)
-      : Result.succeed({ parts: Option.none<number>(), writes: Array.of<Write>() });
+    const owed = t.owed ? owedWrite(t.actor) : Result.succeed(Array.of<Write>());
 
-    return Result.flatMap(owed, ({ parts, writes: owedWrites }) =>
+    return Result.flatMap(owed, (owedWrites) =>
       Result.map(Result.all([...recordWrites(t), ...[...t.lanes].map(laneWrite)]), (writes) => ({
-        parts,
         writes: [...writes, ...owedWrites],
       })),
     );
@@ -394,14 +360,6 @@ export const makePersistence = (tx: Tx) => {
     const written = all.flatMap(({ t, writes }) =>
       Result.isSuccess(writes) ? [{ t, ...writes.success }] : [],
     );
-
-    // The owed parts each written identity now has on disk, so its next write removes the rest.
-    const parts = written.flatMap((p) =>
-      Option.toArray(Option.map(p.parts, (n) => [actorKey(p.t.actor), n] as const)),
-    );
-
-    if (parts.length > 0)
-      tx.set({ ...tx.world(), owedParts: new Map([...tx.world().owedParts, ...parts]) });
 
     const blocked = all.flatMap(({ t, writes }) =>
       Result.isFailure(writes) ? [{ t, failure: writes.failure }] : [],

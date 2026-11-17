@@ -1,4 +1,5 @@
 import { Equal, Option, Result, Schema } from "effect";
+import { toCanonicalJson } from "./codec.ts";
 import type { Values } from "./compiled.ts";
 
 /**
@@ -8,8 +9,7 @@ import type { Values } from "./compiled.ts";
 export type Selected = {
   // FLOW_STATE_ALLOW_UNKNOWN: a selection has the type its slot's Schema decodes, typed at the definition.
   readonly value: unknown;
-  // FLOW_STATE_ALLOW_UNKNOWN: its Schema's JSON form, checked by the codec only when a record saves it.
-  readonly json: unknown;
+  readonly json: Schema.Json;
 };
 
 /**
@@ -46,8 +46,7 @@ export type Baseline = {
 export const readSelected = (
   // FLOW_STATE_ALLOW_UNKNOWN: a slot's JSON codec, typed at the definition.
   codec: Schema.Codec<unknown, unknown>,
-  // FLOW_STATE_ALLOW_UNKNOWN: a selection's JSON form, as its Schema wrote it.
-  json: unknown,
+  json: Schema.Json,
 ) =>
   Result.flatMap(
     Result.try({ try: () => Schema.decodeUnknownResult(codec)(json), catch: () => "schema" }),
@@ -59,10 +58,11 @@ export const readSelected = (
   );
 
 /**
- * A raw selection passed once through its slot's JSON codec: its JSON form and the value that form
- * reads back as. Fails only when the Schema refuses the selection or encodes it without end (a
- * cycle the Schema follows): its selector's contract. A record's bounds are the record's: a form
- * past one is saved unknown, never refused here.
+ * A raw selection passed once through its slot's JSON codec: its canonical JSON form (a -0 written
+ * as 0, which `Equal` holds equal) and the value that form reads back as, so a consumer reads the
+ * same value live and after a reload. Fails when the Schema refuses the selection, encodes it
+ * without end (a cycle the Schema follows), or its JSON has no canonical form (a lone surrogate):
+ * its selector's contract.
  */
 export const selectedOf = (
   // FLOW_STATE_ALLOW_UNKNOWN: a slot's JSON codec, typed at the definition.
@@ -75,7 +75,11 @@ export const selectedOf = (
     (encoded) =>
       Result.flatMap(
         Result.mapError(encoded, () => "schema"),
-        (json) => readSelected(codec, json),
+        (json) =>
+          Result.flatMap(
+            Result.mapError(toCanonicalJson(json, "zero"), () => "codec"),
+            (canonical) => readSelected(codec, canonical),
+          ),
       ),
   );
 

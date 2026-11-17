@@ -1,5 +1,5 @@
 import { Option, Result, Schema, Struct } from "effect";
-import { BOUNDS, decodeCanonical, measure } from "./codec.ts";
+import { decodeCanonical, toCanonicalJson } from "./codec.ts";
 import { decodeActor } from "./actor-record.ts";
 import type { Compiled, Values } from "./compiled.ts";
 import {
@@ -63,16 +63,6 @@ export const actorRecordKey = (key: string) => `actor/${key}`;
  */
 export const laneRecordKey = (lane: string) => `lane/${lane}`;
 
-/**
- * The key of one part of an identity's owed record: the first part is `owed/<identity>`, and each
- * later one adds `|` and its number, four digits, so the parts read back in order.
- */
-export const owedPartKey = (key: string, part: number) =>
-  part === 0 ? owedRecordKey(key) : `${owedRecordKey(key)}|${String(part).padStart(4, "0")}`;
-
-// The identity key an owed part's key names.
-const owedIdentityOf = (key: string) => key.slice("owed/".length).replace(/\|\d{4}$/u, "");
-
 type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
   readonly kept: boolean;
 };
@@ -93,83 +83,26 @@ const rowJson = (r: OwedRow) => ({
 const unsaved = (r: OwedRow) =>
   ({ ...r, channel: "unknown", reason: "Restored", value: undefined }) satisfies OwedRow;
 
-// Rows in owed order, cut into parts in one pass: a part closes when the next row would take it
-// past a codec bound, counting from the record with no rows.
-const packParts = <Row>(
-  empty: { readonly bytes: number; readonly nodes: number },
-  costs: ReadonlyArray<{ readonly bytes: number; readonly nodes: number; readonly row: Row }>,
-) => {
-  let part: Array<Row> = [];
-  const parts = [part];
-  let bytes = empty.bytes;
-  let nodes = empty.nodes;
-
-  for (const cost of costs) {
-    const past =
-      bytes + cost.bytes > BOUNDS.bytes ||
-      nodes + cost.nodes > BOUNDS.nodes ||
-      part.length >= BOUNDS.items;
-
-    if (past && part.length > 0) {
-      part = [];
-      parts.push(part);
-      bytes = empty.bytes;
-      nodes = empty.nodes;
-    }
-
-    part.push(cost.row);
-    bytes += cost.bytes;
-    nodes += cost.nodes;
-  }
-
-  return parts;
-};
-
 /**
- * An identity's saved rows as canonical texts, in owed order: one record while they fit the
- * codec's bounds, else as many parts as they need, each a whole record (`owedPartKey`). Every row
- * is kept; a value that cannot be saved even in a part of its own is saved as its Attempt's
- * unknown Restored and counted in `unsaved`. Each row is measured once, then the parts are filled
- * in one pass. Fails only when a row cannot be saved even so.
+ * An identity's saved rows as one canonical text, in owed order. Every row is kept; a value with no
+ * canonical form is saved as its Attempt's unknown Restored and counted in `unsaved`.
  */
 export const encodeOwed = (actor: ActorId, rows: ReadonlyArray<OwedRow>) => {
-  const header = { format: FORMAT, machine: actor.machine, name: actor.name };
+  const saved = rows.map((r) =>
+    Result.isSuccess(toCanonicalJson(rowJson(r)))
+      ? { row: rowJson(r), lost: false }
+      : { row: rowJson(unsaved(r)), lost: true },
+  );
 
-  const sizeOf = (saved: ReadonlyArray<ReturnType<typeof rowJson>>) =>
-    Result.mapError(measure({ ...header, rows: saved }), reasonOf);
-
-  return Result.gen(function* () {
-    const empty = yield* sizeOf([]);
-
-    // A row's cost in a part: what it adds to a part holding it alone, a comma included.
-    const costs = yield* Result.all(
-      rows.map((r) => {
-        const whole = rowJson(r);
-        const alone = sizeOf([whole]);
-
-        const saved = Result.isSuccess(alone)
-          ? Result.succeed({ row: whole, size: alone.success, lost: false })
-          : Result.map(sizeOf([rowJson(unsaved(r))]), (size) => ({
-              row: rowJson(unsaved(r)),
-              size,
-              lost: true,
-            }));
-
-        return Result.map(saved, ({ row, size, lost }) => ({
-          bytes: size.bytes - empty.bytes + 1,
-          nodes: size.nodes - empty.nodes,
-          row,
-          lost,
-        }));
-      }),
-    );
-
-    const texts = yield* Result.all(
-      packParts(empty, costs).map((part) => textOf({ ...header, rows: part })),
-    );
-
-    return { texts, unsaved: costs.filter((c) => c.lost).length };
-  });
+  return Result.map(
+    textOf({
+      format: FORMAT,
+      machine: actor.machine,
+      name: actor.name,
+      rows: saved.map((s) => s.row),
+    }),
+    (text) => ({ text, unsaved: saved.filter((s) => s.lost).length }),
+  );
 };
 
 /**
@@ -246,7 +179,6 @@ export type Restored = {
   }>;
   readonly rows: ReadonlyArray<RestoredRow>;
   readonly quarantined: ReadonlyArray<Quarantined>;
-  readonly owedParts: ReadonlyMap<string, number>;
 };
 
 /**
@@ -388,14 +320,5 @@ export const decodeRecords = (
     if (Result.isFailure(done)) quarantined.push({ key, reason: done.failure });
   }
 
-  // How many owed parts each identity has on disk, read or not, so its next write removes the rest.
-  const owedParts = new Map<string, number>();
-
-  for (const [key] of entries)
-    if (key.startsWith("owed/")) {
-      const identity = owedIdentityOf(key);
-      owedParts.set(identity, (owedParts.get(identity) ?? 0) + 1);
-    }
-
-  return { records, lanes, rows, quarantined, owedParts };
+  return { records, lanes, rows, quarantined };
 };

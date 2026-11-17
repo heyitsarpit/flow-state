@@ -1,23 +1,6 @@
 import { Data, Predicate, Result, Schema } from "effect";
 
 /**
- * The codec's bounds: nesting depth (the root object or array is depth 1), nodes, items per array,
- * UTF-8 bytes per string or key, and canonical bytes in all.
- */
-export const BOUNDS = {
-  depth: 32,
-  nodes: 10_000,
-  items: 4096,
-  stringBytes: 262_144,
-  bytes: 2_097_152,
-} as const;
-
-/**
- * The name of one of the codec's bounds.
- */
-export type Bound = keyof typeof BOUNDS;
-
-/**
  * Why a value or a text has no canonical form.
  */
 export type Malformation =
@@ -31,10 +14,9 @@ export type Malformation =
   | "sparse";
 
 /**
- * A codec failure: a bound passed, with its limit and the path to the value, or a malformation.
+ * A codec failure: a malformation, with the path to the value.
  */
 export type CodecFailure = Data.TaggedEnum<{
-  BoundExceeded: { bound: Bound; limit: number; path: string };
   Malformed: { reason: Malformation; path: string };
 }>;
 
@@ -42,29 +24,6 @@ export type CodecFailure = Data.TaggedEnum<{
  * Constructors and matchers for {@link CodecFailure}.
  */
 export const CodecFailure = Data.taggedEnum<CodecFailure>();
-
-// How many UTF-8 bytes one code point takes.
-const widthOf = (point: number) => {
-  if (point < 0x80) return 1;
-
-  if (point < 0x8_00) return 2;
-
-  return point < 0x1_00_00 ? 3 : 4;
-};
-
-// The UTF-8 length of a well-formed text, counted without encoding it.
-const utf8Bytes = (text: string) => {
-  let bytes = 0;
-
-  for (const char of text) bytes += widthOf(char.codePointAt(0) ?? 0);
-
-  return bytes;
-};
-
-// Whether a well-formed text passes a UTF-8 bound. A UTF-16 unit takes at most three bytes, so a
-// text short enough for that to fit is not counted.
-const utf8Over = (text: string, limit: number) =>
-  text.length * 3 > limit && utf8Bytes(text) > limit;
 
 // An array index as ECMAScript orders an object's own keys: such keys come first, by value.
 const indexOf = (key: string) => {
@@ -108,24 +67,18 @@ type Checked = Result.Result<Schema.Json, CodecFailure>;
 const BYTE_ORDER_MARK = 0xfe_ff;
 
 /**
- * Checks a value against the codec's bounds and rules and returns it as JSON data with its keys in
+ * Checks a value against the codec's rules and returns it as JSON data with its keys in
  * canonical order, or the first failure in depth-first key order. With `negativeZero: "zero"`, a
  * -0 is written as 0, for data compared by `Equal`, which holds them equal.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a value to encode is checked here node by node before it is trusted as JSON.
 export const toCanonicalJson = (root: unknown, negativeZero: "refuse" | "zero" = "refuse") => {
-  let nodes = 0;
   // FLOW_STATE_ALLOW_UNKNOWN: the containers being visited, to find a cycle.
   const open = new Set<Fields | ReadonlyArray<unknown>>();
 
   // FLOW_STATE_ALLOW_UNKNOWN: one node of the value being encoded.
   // RETURN_TYPE: visit, items and fields call each other, so one of them states the result.
-  const visit = (value: unknown, path: string, depth: number): Checked => {
-    nodes += 1;
-
-    if (nodes > BOUNDS.nodes)
-      return Result.fail(CodecFailure.BoundExceeded({ bound: "nodes", limit: BOUNDS.nodes, path }));
-
+  const visit = (value: unknown, path: string): Checked => {
     if (value === null || Predicate.isBoolean(value)) return Result.succeed(value);
 
     if (Predicate.isNumber(value)) return number(value, path);
@@ -137,14 +90,9 @@ export const toCanonicalJson = (root: unknown, negativeZero: "refuse" | "zero" =
 
     if (open.has(value)) return Result.fail(CodecFailure.Malformed({ reason: "cycle", path }));
 
-    if (depth + 1 > BOUNDS.depth)
-      return Result.fail(CodecFailure.BoundExceeded({ bound: "depth", limit: BOUNDS.depth, path }));
-
     open.add(value);
 
-    const done = Array.isArray(value)
-      ? items(value, path, depth + 1)
-      : fields(value, path, depth + 1);
+    const done = Array.isArray(value) ? items(value, path) : fields(value, path);
 
     open.delete(value);
 
@@ -163,27 +111,18 @@ export const toCanonicalJson = (root: unknown, negativeZero: "refuse" | "zero" =
   };
 
   // RETURN_TYPE: a key's check returns a failure as a field's own result.
-  const text = (value: string, path: string): Checked => {
-    if (!value.isWellFormed())
-      return Result.fail(CodecFailure.Malformed({ reason: "loneSurrogate", path }));
-
-    return utf8Over(value, BOUNDS.stringBytes)
-      ? Result.fail(
-          CodecFailure.BoundExceeded({ bound: "stringBytes", limit: BOUNDS.stringBytes, path }),
-        )
-      : Result.succeed<Schema.Json>(value);
-  };
+  const text = (value: string, path: string): Checked =>
+    value.isWellFormed()
+      ? Result.succeed<Schema.Json>(value)
+      : Result.fail(CodecFailure.Malformed({ reason: "loneSurrogate", path }));
 
   // FLOW_STATE_ALLOW_UNKNOWN: an array's items are checked one by one.
-  const items = (value: ReadonlyArray<unknown>, path: string, depth: number) => {
-    if (value.length > BOUNDS.items)
-      return Result.fail(CodecFailure.BoundExceeded({ bound: "items", limit: BOUNDS.items, path }));
-
+  const items = (value: ReadonlyArray<unknown>, path: string) => {
     const out: Array<Schema.Json> = [];
 
     for (let i = 0; i < value.length; i += 1) {
       if (!(i in value)) return Result.fail(CodecFailure.Malformed({ reason: "sparse", path }));
-      const item = visit(value[i], `${path}[${i}]`, depth);
+      const item = visit(value[i], `${path}[${i}]`);
 
       if (Result.isFailure(item)) return item;
       out.push(item.success);
@@ -192,7 +131,7 @@ export const toCanonicalJson = (root: unknown, negativeZero: "refuse" | "zero" =
     return Result.succeed<Schema.Json>(out);
   };
 
-  const fields = (value: Fields, path: string, depth: number) => {
+  const fields = (value: Fields, path: string) => {
     if (!isPlainObject(value))
       return Result.fail(CodecFailure.Malformed({ reason: "notPlain", path }));
 
@@ -202,7 +141,7 @@ export const toCanonicalJson = (root: unknown, negativeZero: "refuse" | "zero" =
       const named = text(key, path);
 
       if (Result.isFailure(named)) return named;
-      const field = visit(value[key], `${path}.${key}`, depth);
+      const field = visit(value[key], `${path}.${key}`);
 
       if (Result.isFailure(field)) return field;
       out.push([key, field.success]);
@@ -212,12 +151,12 @@ export const toCanonicalJson = (root: unknown, negativeZero: "refuse" | "zero" =
     return Result.succeed<Schema.Json>(Object.fromEntries(out));
   };
 
-  return visit(root, "$", 0);
+  return visit(root, "$");
 };
 
 /**
- * Encodes a value as its canonical JSON text: keys in canonical order, no whitespace, within every
- * bound, and never a -0, a non-finite number, a cycle, a lone surrogate, a sparse array or a value
+ * Encodes a value as its canonical JSON text: keys in canonical order, no whitespace, and never a
+ * -0, a non-finite number, a cycle, a lone surrogate, a sparse array or a value
  * JSON has no form for.
  *
  * **When to use**
@@ -227,52 +166,7 @@ export const toCanonicalJson = (root: unknown, negativeZero: "refuse" | "zero" =
 // FLOW_STATE_ALLOW_UNKNOWN: any value may be offered; only a canonical one encodes.
 export const encodeCanonical = (value: unknown) =>
   Result.flatMap(toCanonicalJson(value), (json) =>
-    Result.flatMap(
-      Result.mapError(toText(json), () =>
-        CodecFailure.Malformed({ reason: "notPlain", path: "$" }),
-      ),
-      (encoded) =>
-        utf8Over(encoded, BOUNDS.bytes)
-          ? Result.fail(
-              CodecFailure.BoundExceeded({ bound: "bytes", limit: BOUNDS.bytes, path: "$" }),
-            )
-          : Result.succeed(encoded),
-    ),
-  );
-
-// How many nodes a JSON value counts against the node bound: itself and everything inside it.
-// FLOW_STATE_ALLOW_UNKNOWN: canonical JSON, whose fields read as unknown once narrowed to an object.
-const nodesOf = (json: unknown) => {
-  const open = [json];
-  let nodes = 0;
-
-  for (let value = open.pop(); value !== undefined; value = open.pop()) {
-    nodes += 1;
-
-    if (Array.isArray(value)) open.push(...value);
-    else if (Predicate.isObject(value)) open.push(...Object.values(value));
-  }
-
-  return nodes;
-};
-
-/**
- * Encodes a value as {@link encodeCanonical} does and says what it counts against the bounds: its
- * UTF-8 bytes and its nodes.
- *
- * **When to use**
- *
- * To fit several values into records under the bounds without encoding each record again.
- */
-// FLOW_STATE_ALLOW_UNKNOWN: any value may be offered; only a canonical one is measured.
-export const measure = (value: unknown) =>
-  Result.flatMap(toCanonicalJson(value), (json) =>
-    Result.map(encodeCanonical(json), (text) => ({
-      json,
-      text,
-      bytes: utf8Bytes(text),
-      nodes: nodesOf(json),
-    })),
+    Result.mapError(toText(json), () => CodecFailure.Malformed({ reason: "notPlain", path: "$" })),
   );
 
 /**

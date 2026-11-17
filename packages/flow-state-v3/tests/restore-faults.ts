@@ -71,58 +71,15 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "commit-past-record-bound-admitted",
-    tests: [UNENCODABLE],
-    says: "a commit is checked on its input alone, so a queue past the lane record's bound withholds the identity for good",
+    name: "input-canonical-unchecked",
+    tests: ["tests/restore/unencodable.test.ts"],
+    says: "a commit's input is checked by its Schema alone, so one with no canonical form withholds its identity for good",
     rule: "Codec R4",
     edits: [
       {
         file: "src/core/lanes.ts",
-        find: "    if (!fits(incarnation.actor, operation.name, id, { input, owner })) {",
-        replace:
-          "    if (!fits(incarnation.actor, operation.name, id, { input, owner }) && id === `never`) {",
-      },
-    ],
-  },
-  {
-    name: "lane-sized-as-it-stands",
-    tests: ["tests/restore/lane-bound.test.ts"],
-    says: "a commit's lane record is sized as it stands at commit time, so a record at the bound outgrows it when its head goes Held or its retry count gains a digit",
-    rule: "WriteAhead I21",
-    edits: [
-      {
-        file: "src/core/lanes.ts",
-        find: "        id: longest,\n        input: existing",
-        replace: '        id: own === "" ? longest : own,\n        input: existing',
-      },
-      {
-        file: "src/core/lanes.ts",
-        find: "        retryCount: Number.MAX_SAFE_INTEGER,",
-        replace: "        retryCount: existing?.head.retryCount ?? 0,",
-      },
-      {
-        file: "src/core/lanes.ts",
-        find: "        phase: Phase.Held(),\n      },\n      queue: existing",
-        replace:
-          "        phase: existing?.head.phase ?? Phase.Held(),\n      },\n      queue: existing",
-      },
-      {
-        file: "src/core/lanes.ts",
-        find: "[...displaced, longest]",
-        replace: "displaced",
-      },
-    ],
-  },
-  {
-    name: "lane-id-unchecked",
-    tests: [UNENCODABLE],
-    says: "a commit whose lane id an owed row cannot hold is admitted, and saving its ending fails",
-    rule: "Codec R4",
-    edits: [
-      {
-        file: "src/core/lanes.ts",
-        find: "      ) && Result.isSuccess(encodeOwed(actor, [row]))",
-        replace: "      ) && row.reason !== ``",
+        find: "      Result.flatMap(Schema.encodeUnknownResult(operation.inputJson)(input), toCanonicalJson),",
+        replace: "      Schema.encodeUnknownResult(operation.inputJson)(input),",
       },
     ],
   },
@@ -346,13 +303,6 @@ export const restoreFaults: ReadonlyArray<Fault> = [
         replace: "      if (tx.world().withheld.size < 0)",
       },
     ],
-  },
-  {
-    name: "no-items-bound",
-    tests: ["src/core/codec.test.ts", UNENCODABLE],
-    says: "an array of any length encodes",
-    rule: "Codec I2",
-    edits: [{ file: "src/core/codec.ts", find: "  items: 4096,", replace: "  items: 1_000_000," }],
   },
   {
     name: "head-restored-not-sent",

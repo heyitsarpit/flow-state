@@ -14,6 +14,7 @@ import {
   inboxSamples,
   threadHeard,
   agendaLong,
+  digestRefused,
   unreadRecovers,
   archiveLarge,
 } from "./stories/values.ts";
@@ -56,6 +57,7 @@ export const session = manifest({
     digestQuiet,
     threadHeard,
     agendaLong,
+    digestRefused,
     unreadRecovers,
     archiveLarge,
     guestDotReturns,

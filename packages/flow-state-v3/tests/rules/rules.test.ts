@@ -12,8 +12,8 @@ import {
   nothingAfterDefinite,
   oneIdOneInput,
   publishedOnce,
-  refusedTurnIssueOnly,
 } from "./rules.ts";
+import { refusedTurnIssueOnly } from "./refusals.ts";
 import { mailboxOrder } from "./mailbox.ts";
 import { unchangedPartsKept } from "./memory.ts";
 

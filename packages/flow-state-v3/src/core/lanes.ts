@@ -8,18 +8,10 @@ import { Audience, keptOn, type LedgerSteps } from "./ledger.ts";
 import { LaneView } from "./turn.ts";
 import { isInFlight, pick, type Tx, without, withEntry } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import {
-  type ActorId,
-  type CallId,
-  Command,
-  type Incarnation,
-  type Lane,
-  laneId,
-  Phase,
-  type Queued,
-} from "./world.ts";
+import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
-import { encodeLane, encodeOwed, laneRecordKey } from "./record.ts";
+import { toCanonicalJson } from "./codec.ts";
+import { laneRecordKey } from "./record.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {
@@ -135,56 +127,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       current: true,
     });
 
-  // Whether the lane's record encodes at the largest it can ever reach once this commit is admitted:
-  // every input it holds, this one queued behind the head; the head Held (`inFlight` false), its
-  // retry count at its longest and its Attempt id the longer of its own and this boot's longest; and
-  // one more displaced Attempt, as a cancel adds. Every later change of the record only drops inputs
-  // or fills those slots, so a commit admitted here never takes its lane's record past a bound. An
-  // owed row names the lane too, so that row must encode as well.
-  const fits = (actor: ActorId, operationName: string, id: string, queued: Queued) => {
-    const compiled = tx.machines.get(actor.machine);
-
-    if (!tx.persisted(actor) || compiled === undefined) return true;
-
-    const minted = `att-${tx.env.seed}-${Number.MAX_SAFE_INTEGER}`;
-    const existing = tx.world().lanes.get(id);
-    const own = existing?.head.id ?? "";
-    const longest = own.length > minted.length ? own : minted;
-
-    const largest = {
-      actor,
-      operation: operationName,
-      head: {
-        id: longest,
-        input: existing === undefined ? queued.input : existing.head.input,
-        retryCount: Number.MAX_SAFE_INTEGER,
-        owner: queued.owner,
-        phase: Phase.Held(),
-      },
-      queue: existing === undefined ? [] : [...existing.queue, queued],
-    } satisfies Lane;
-
-    const displaced = [...tx.world().displaced.values()].flatMap((d) =>
-      d.lane === id && d.owed ? [d.head.id] : [],
-    );
-
-    const row = {
-      operation: operationName,
-      lane: Option.some(id),
-      attempt: Option.some(longest),
-      channel: "unknown" as const,
-      reason: "Restored",
-      value: undefined,
-      kept: false,
-    };
-
-    return (
-      Result.isSuccess(
-        encodeLane(compiled, operationName, actor, Option.some(largest), [...displaced, longest]),
-      ) && Result.isSuccess(encodeOwed(actor, [row]))
-    );
-  };
-
   const commit = (incarnation: Incarnation, operation: Operation, input: Values, owner: number) => {
     const key = pick(input, operation.keyFields);
 
@@ -196,9 +138,11 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     const text = keyTextOf(operation, key);
 
-    // An input its Schema cannot encode declines here; one past a codec bound declines with its
-    // lane's record (`fits`), since only a persisted lane's record crosses a storage boundary.
-    const encodes = Result.isSuccess(Schema.encodeUnknownResult(operation.inputJson)(input));
+    // An input its Schema cannot encode, or whose JSON has no canonical form (a -0, a lone
+    // surrogate), declines here: its lane's record could never be saved.
+    const encodes = Result.isSuccess(
+      Result.flatMap(Schema.encodeUnknownResult(operation.inputJson)(input), toCanonicalJson),
+    );
 
     // An input or key with no encoded form, or a persisted identity in a Runtime without
     // persistence, declines before the lane's table: nothing is sent or saved.
@@ -215,14 +159,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     }
 
     const id = laneId(incarnation.actor, operation.name, text.value);
-
-    // A persisted lane's record must stay within the codec's bounds, or the identity could never
-    // save it: a commit that could take it past one declines instead.
-    if (!fits(incarnation.actor, operation.name, id, { input, owner })) {
-      decline(incarnation.actor, operation.name, "Unencodable", owner);
-
-      return member;
-    }
 
     // A lane record the boot could not read still holds its key until a cancel clears it.
     if (tx.world().quarantined.has(laneRecordKey(id))) {

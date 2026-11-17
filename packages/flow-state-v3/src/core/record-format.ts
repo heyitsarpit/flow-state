@@ -18,7 +18,6 @@ export const FormatJson = Schema.Struct({ format: Format });
 
 export const reasonOf = (failure: CodecFailure) =>
   CodecFailure.$match(failure, {
-    BoundExceeded: ({ bound, limit, path }) => `${bound} over ${limit} at ${path}`,
     Malformed: ({ reason, path }) => `${reason} at ${path}`,
   });
 

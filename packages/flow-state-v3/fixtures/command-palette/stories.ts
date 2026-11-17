@@ -221,15 +221,13 @@ const numbered = (count: number) =>
 export const longList = configure(numbered(1000));
 
 /**
- * A command list past the codec's bounds: 4,097 commands, more than an array may hold, so the
- * palette's record cannot be saved while it holds them.
+ * A flood of 4,097 commands, as a plugin might add.
  */
 export const pastBound = configure(numbered(4097));
 
 /**
- * A team loads a thousand commands, then a plugin floods the palette past what its record can
- * hold: that change is not saved, and a reload brings back the thousand. Loading the thousand
- * again saves at once.
+ * A team loads a thousand commands, then a plugin floods the palette with 4,097: that list is
+ * saved and a reload brings it back; loading the thousand again saves at once.
  */
 export const overBound = paletteStory("palette/over-bound")
   .ensure(palette)

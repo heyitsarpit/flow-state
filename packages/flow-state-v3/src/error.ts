@@ -119,7 +119,6 @@ export const Code = Schema.Literals([
   "PropertyDefect",
   "DuplicateFixture",
   "UnusedWireRule",
-  "CodecBoundExceeded",
   "CodecMalformed",
   "CodecSchemaMismatch",
   "InvalidInspectorCapacity",

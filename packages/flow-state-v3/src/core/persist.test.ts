@@ -148,53 +148,26 @@ const OwedReceipts = Schema.Struct({
   ),
 });
 
-it("WriteAhead I20, I21; Codec R1: owed rows past a byte bound together are saved whole in parts, in owed order, and the identity is not withheld", () => {
-  // Twelve values of 200,000 characters: each fits a record, together they pass 2,097,152 bytes.
-  const receipts = Array.from({ length: 12 }, (_, n) => `${n}`.padEnd(200_000, "r"));
+it("WriteAhead I20, I21; Codec R1: 1,300 rows and twelve values of 200,000 characters are saved whole in one record, in owed order", () => {
+  const receipts = [
+    ...Array.from({ length: 1300 }, (_, n) => `r${n}`),
+    ...Array.from({ length: 12 }, (_, n) => `${n}`.padEnd(200_000, "r")),
+  ];
+
   const { tx, owed, reports } = owing(receipts);
 
   expect(tx.world().withheld.size).toBe(0);
-  expect(owed.map((w) => w.key)).toEqual([
-    `owed/${actorKey(actor)}`,
-    `owed/${actorKey(actor)}|0001`,
-  ]);
+  expect(owed.map((w) => w.key)).toEqual([`owed/${actorKey(actor)}`]);
   expect(receiptsIn(owed)).toEqual(receipts.map((receipt) => ({ receipt })));
   expect(reports).toEqual([]);
 });
 
-it("WriteAhead I20, I21; Codec R1: 1,300 rows pass the node bound and are saved whole in parts, and the identity is not withheld", () => {
-  const receipts = Array.from({ length: 1300 }, (_, n) => `r${n}`);
-  const { tx, owed, reports } = owing(receipts);
-
-  expect(tx.world().withheld.size).toBe(0);
-  expect(owed.length).toBeGreaterThan(1);
-  expect(receiptsIn(owed)).toEqual(receipts.map((receipt) => ({ receipt })));
-  expect(reports).toEqual([]);
-});
-
-it("Codec R4: only a value too large for a record of its own is saved as null, reported; a small one beside it is kept", () => {
-  const { tx, owed, reports } = owing(["r".repeat(2_250_000), "ninebytes"]);
+it("Codec R4: only a value with no canonical form is saved as null, reported; a valid one beside it is kept", () => {
+  const { tx, owed, reports } = owing(["\uD800", "ninebytes"]);
 
   expect(tx.world().withheld.size).toBe(0);
   expect(receiptsIn(owed)).toEqual([null, { receipt: "ninebytes" }]);
   expect(reports).toEqual([expect.objectContaining({ code: "UnencodableValue" })]);
-});
-
-it("WriteAhead I21: when owed rows need fewer parts than were written, the rest are removed in the same write", () => {
-  const before = stepOver(undefined, {
-    ...emptyWorld(true),
-    life: Life.Open(),
-    owedParts: new Map([[actorKey(actor), 3]]),
-  });
-
-  const { owed, tx } = owing(["r1"], before);
-
-  expect(owed.map((w) => `${w.key} ${Option.isSome(w.record) ? "kept" : "removed"}`)).toEqual([
-    `owed/${actorKey(actor)} kept`,
-    `owed/${actorKey(actor)}|0001 removed`,
-    `owed/${actorKey(actor)}|0002 removed`,
-  ]);
-  expect(tx.world().owedParts.get(actorKey(actor))).toBe(1);
 });
 
 const OwedRows = Schema.Struct({

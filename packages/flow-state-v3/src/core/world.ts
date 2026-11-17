@@ -305,9 +305,7 @@ export type Withheld = {
  * **Details**
  *
  * `quarantined` holds each record the boot could not read, by its key, with why: its bytes stay
- * until the identity saves over it or, for a lane, a cancel on its key clears it. `owedParts` holds,
- * per identity, how many records its owed rows were last written in, so a write that needs fewer
- * removes the rest.
+ * until the identity saves over it or, for a lane, a cancel on its key clears it.
  */
 export type World = {
   readonly incarnations: ReadonlyMap<string, Incarnation>;
@@ -324,7 +322,6 @@ export type World = {
   readonly persistence: boolean;
   readonly withheld: ReadonlyMap<string, Withheld>;
   readonly quarantined: ReadonlyMap<string, string>;
-  readonly owedParts: ReadonlyMap<string, number>;
   readonly ended: ReadonlyMap<string, Ended>;
   readonly life: Life;
 };
@@ -348,7 +345,6 @@ export const emptyWorld = (persistence: boolean): World => ({
   persistence,
   withheld: new Map(),
   quarantined: new Map(),
-  owedParts: new Map(),
   ended: new Map(),
   life: Life.Inert(),
 });

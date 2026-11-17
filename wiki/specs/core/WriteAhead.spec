@@ -56,9 +56,10 @@ requirements
                 Persisted Schemas encode and decode synchronously without services; unsupported
                 values fail encoding instead of being coerced, omitted or stringified.
 
-                Records obey @spec.Codec's bounds, so memory past one of them (an array of more
-                than 4,096 items, among others) never persists: its capture is skipped with
-                UnencodableValue and the last good capture stays (a limit on apps).
+                A record of any size is saved (@spec.Codec.R1); memory with no canonical form (a -0,
+                a lone surrogate) never persists: its capture is skipped with UnencodableValue and the
+                last good capture stays. A store that refuses a write, its quota spent, ends as
+                StorageRefused (R13).
 
     R5  Lane records
         source  @plan.Persistence.O2.
@@ -477,8 +478,8 @@ tests
     T12  Capture is passive: with spies on operations, mailboxes and the clock, a capture starts no operation, enqueues 
          no event and changes no snapshot. No planted fault yet; phase 3 writes one that refetches during
              capture. [@I8]
-    T13  Codec bounds on records: memory holding a 4,097-item array skips its capture with UnencodableValue and the 
-         last good capture restores. No test yet; phase 3 writes this test. [@I4]
+    T13  Unencodable records: memory holding a lone surrogate skips its capture with UnencodableValue and the last good 
+         capture restores; memory of 5,000 items saves and restores. [@I4]
     T14  A second owner: boot a Runtime whose host reports the scope owned elsewhere, over a fake Store holding 
          records; it restores nothing, a storage spy sees no call, it reports SecondTabNoPersistence, and a persisted
              commit ends NotSent { NoPersistence } with its transition run. Phase 3 writes the planted fault that still

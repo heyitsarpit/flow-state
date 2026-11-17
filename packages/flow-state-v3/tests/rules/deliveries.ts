@@ -53,17 +53,16 @@ export const nameOf = (who: Who) => `${who.machine}/${who.name}`;
 
 export const textOf = (attempt: Option.Option<string>) => Option.getOrElse(attempt, () => "");
 
-// A context or onContext defect is raised by a context update, which is no turn (Actors R19).
-const isContextIssue = (e: Evidence) =>
+/**
+ * A context or onContext defect, raised by a context update and published by its consumer.
+ */
+export const isContextIssue = (e: Evidence) =>
   e._tag === "Issue" &&
   Option.exists(e.slot, (slot) => slot.startsWith("context.") || slot.startsWith("onContext."));
 
 // A refused turn names the callback slot it refused at; a call's Defect names none.
 export const isRefusal = (e: Evidence) =>
-  e._tag === "Issue" &&
-  REFUSALS.has(e.code) &&
-  (e.code !== "Defect" || Option.isSome(e.slot)) &&
-  !isContextIssue(e);
+  e._tag === "Issue" && REFUSALS.has(e.code) && (e.code !== "Defect" || Option.isSome(e.slot));
 
 export const isOutcome = (e: Evidence) =>
   e._tag === "Turn" || e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e);
@@ -252,3 +251,20 @@ export const deliveries = (evidence: ReadonlyArray<Evidence>) => {
 
   return { delivered: ledger.delivered, recordedUnowed: ledger.recordedUnowed };
 };
+
+/**
+ * What follows an outcome until the next turn starts: the records of its turn.
+ */
+export const turnRecords = (evidence: ReadonlyArray<Evidence>, from: number) => {
+  const end = evidence.findIndex((e, i) => i > from && isTurnStart(e));
+
+  return evidence.slice(from + 1, end < 0 ? evidence.length : end);
+};
+
+/**
+ * A context issue carries no actor: its update's consumer publishes first after it.
+ */
+export const consumerOf = (records: ReadonlyArray<Evidence>) =>
+  Option.fromUndefinedOr(
+    records.flatMap((r) => (r._tag === "Published" ? [nameOf(r.actor)] : []))[0],
+  );

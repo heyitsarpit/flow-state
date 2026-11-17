@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect";
+import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { palette } from "../../fixtures/command-palette/machine.ts";
 import { overBound } from "../../fixtures/command-palette/stories.ts";
@@ -14,20 +14,15 @@ const Saved = Schema.fromJsonString(
 const savedCommands = (cut: Cut) =>
   Schema.decodeUnknownSync(Saved)(cut.records.stored.get(RECORD)).memory.commands.length;
 
-describe("a palette whose memory passes a codec bound (Actors R8; WriteAhead R4; Codec R1, R4)", () => {
-  it("WriteAhead R4: the list past the bound is reported UnencodableValue and never saved; a reload brings back the last good list, and the next list that fits saves", async () => {
+describe("a palette with a long list (Actors R8; WriteAhead R4; Codec R1)", () => {
+  it("WriteAhead R4, Codec R1: 4,097 commands are saved whole and a reload brings them back; nothing is reported", async () => {
     const run = checked(await overBound.run());
     const { saved, unsaved, reloaded } = run.checkpoints;
 
     expect(savedCommands(saved)).toBe(1000);
-    expect(unsaved.read(palette)?.memory.commands).toHaveLength(4097);
-    expect(savedCommands(unsaved)).toBe(1000);
-    expect(
-      run.evidence.flatMap((e) =>
-        e._tag === "Reported" ? [`${e.code} ${Option.getOrElse(e.record, () => "-")}`] : [],
-      ),
-    ).toEqual([`UnencodableValue ${RECORD}`, `UnencodableValue ${RECORD}`]);
-    expect(reloaded.read(palette)?.memory.commands).toHaveLength(1000);
+    expect(savedCommands(unsaved)).toBe(4097);
+    expect(run.evidence.filter((e) => e._tag === "Reported")).toEqual([]);
+    expect(reloaded.read(palette)?.memory.commands).toHaveLength(4097);
     expect(savedCommands(run.checkpoints["saved again"])).toBe(1000);
   });
 });

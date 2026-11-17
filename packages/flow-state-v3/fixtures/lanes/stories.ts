@@ -56,8 +56,7 @@ export const longRepo = { repo: "r".repeat(200_000) };
 const longCommit = { _tag: "Commit", ...longRepo } as const;
 
 /**
- * Repository names at a string's 262,144-byte bound and one byte past it: a commit of the second
- * cannot be saved.
+ * Repository names of 262,144 and 262,145 bytes.
  */
 const atStringBound = { _tag: "Commit", repo: "r".repeat(262_144) } as const;
 const pastStringBound = { _tag: "Commit", repo: "r".repeat(262_145) } as const;
@@ -94,7 +93,7 @@ export const samples = lanesSamples({});
 
 /**
  * The samples with the repository names' edge values, for the stress runs: commits of a
- * 200,000-character repository and of ones at and just past a string's byte bound.
+ * 200,000-character repository and of 262,144 and 262,145 characters.
  */
 export const stressSamples = lanesSamples({ atStringBound, pastStringBound, longCommit });
 
@@ -222,10 +221,9 @@ export const seededStress = Story.app(lanesSetup, { id: "lanes/stress-36", fixtu
   .advance("2 minutes");
 
 /**
- * A lane driven to its record's byte bound: twelve long commits on one serialize lane, the last
- * ones declined NotSent Unencodable; then its head's answer is lost (Held), retried and let go, and
- * a cancel-policy lane of long commits displaces its head. Every commit ends, and no identity is
- * held back. It is a stress Story: its records weigh 2 MB each.
+ * A lane of twelve long commits on one serialize lane, 2.4 MB queued; then its head's answer is
+ * lost (Held), retried and let go, and a cancel-policy lane of long commits displaces its head.
+ * Every commit ends, and no identity is held back. It is a stress Story: its records weigh 2.4 MB.
  */
 export const nearBound = Array.from({ length: 12 })
   .reduce<Story>(
@@ -253,8 +251,8 @@ const unanswered = (id: string) =>
 
 /**
  * A cancel-policy lane whose host never answers: 4,200 events that each cancel the head and commit
- * again, the cancelled head's call staying out, so the lane record's displaced Attempts pass the
- * 4,096 items an array may hold; then the tab reloads and every commit ends once. A stress Story,
+ * again, the cancelled head's call staying out, so the lane record holds thousands of displaced
+ * Attempts; then the tab reloads and every commit ends once. A stress Story,
  * built on call and kept out of `stories`: a reload at each of its steps is too long for the sweep.
  */
 export const stressDisplacedPastItems = () =>

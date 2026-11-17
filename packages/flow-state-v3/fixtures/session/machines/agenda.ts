@@ -26,8 +26,8 @@ const daysOf = (s: { readonly memory: { readonly from: number; readonly to: numb
 const Days = Schema.Array(Schema.Number);
 
 /**
- * The agenda beside the calendar: every day in the range it shows, a list that passes a record's
- * 4,096 items when the range is long; it counts each change it hears, and is kept across reloads.
+ * The agenda beside the calendar: every day in the range it shows, thousands when the range is
+ * long; it counts each change it hears, and is kept across reloads.
  */
 export const Agenda = definition({
   id: "Workspace/Agenda",

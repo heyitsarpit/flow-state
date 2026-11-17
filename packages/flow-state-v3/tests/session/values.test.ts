@@ -9,6 +9,7 @@ import {
   mainArchive,
   mainAvatar,
   mainDigest,
+  mainInbox,
   mainThread,
   mainUnread,
 } from "../../fixtures/session/app.ts";
@@ -18,6 +19,7 @@ import {
   corruptSeen,
   digestHeard,
   digestQuiet,
+  digestRefused,
   formatOneAvatar,
   guestDotReturns,
   nestedConflictingTeam,
@@ -75,14 +77,14 @@ describe("every value a selector returns, across reloads (Actors R9, R19)", () =
     expect(context["senders"]).toEqual(new Set(["bob"]));
     expect(context["envelope"]).toEqual(new Envelope({ from: "bob", at: 4_000 }));
     expect(context["first"]).toEqual(Option.some("bob"));
-    // Live it is the -0 the selector gave; a record writes it 0, which Equal holds the same.
-    expect(run.checkpoints.cleared.read(mainDigest)?.context["owed"] === 0).toBe(true);
+    // The selector gives -0; the slot reads 0, live as after a reload.
+    expect(Object.is(run.checkpoints.cleared.read(mainDigest)?.context["owed"], 0)).toBe(true);
     // The record saves that -0 as 0, never unknown.
     expect(
       JSON.parse(
         run.checkpoints.cleared.records.stored.get("actor/Workspace/Digest/digest") ?? "{}",
       ),
-    ).toEqual(expect.objectContaining({ unknown: [], seen: expect.objectContaining({ owed: 0 }) }));
+    ).toEqual(expect.objectContaining({ seen: expect.objectContaining({ owed: 0 }) }));
     expect(Number.isNaN(run.checkpoints.cleared.read(mainDigest)?.context["unread"])).toBe(true);
   });
 
@@ -154,8 +156,8 @@ const reported = (run: StoryRun, code: string) =>
     e._tag === "Reported" && e.code === code ? [Option.getOrElse(e.record, () => "-")] : [],
   );
 
-describe("a selection past a record's bounds (Actors R18; Codec R4)", () => {
-  it("Codec R4, Actors R18: 5,000 days, past 4,096 items, are read and heard by a saved and an unsaved consumer, never a selector's defect; the saved one reports UnencodableValue", async () => {
+describe("a large selection (Actors R18; Codec R1)", () => {
+  it("Codec R1, Actors R18: 5,000 days are read and heard by a saved and an unsaved consumer, never a selector's defect, and the saved one's record holds all of them", async () => {
     const run = await played(agendaLong);
     const { short, long } = run.checkpoints;
 
@@ -166,16 +168,17 @@ describe("a selection past a record's bounds (Actors R18; Codec R4)", () => {
       expect(long.read(actor)?.context["days"]).toHaveLength(5_000);
     }
 
-    expect(reported(run, "UnencodableValue")).toContain("actor/Workspace/Agenda/agenda");
+    expect(reported(run, "UnencodableValue")).toEqual([]);
+    expect(long.records.stored.get("actor/Workspace/Agenda/agenda")).toContain("4999");
   });
 
-  it("Actors R9, R18: the saved agenda restores with its days saved unknown, so the reload may hear them once more but never misses one; its state and memory are saved", async () => {
+  it("Actors R9, R18: the saved agenda restores its 5,000 days, so the reload hears nothing new and the next change once", async () => {
     const run = await played(agendaLong);
     const { reloaded, back } = run.checkpoints;
 
     expect(reloaded.read(mainAgenda)?.context["days"]).toHaveLength(5_000);
-    expect(reloaded.read(mainAgenda)?.memory["heard"]).toBe(3);
-    expect(back.read(mainAgenda)?.memory["heard"]).toBe(4);
+    expect(reloaded.read(mainAgenda)?.memory["heard"]).toBe(2);
+    expect(back.read(mainAgenda)?.memory["heard"]).toBe(3);
   });
 });
 
@@ -208,5 +211,18 @@ describe("a large memory read by several reactions (Turn R22; Actors R18; WriteA
     expect(rows("reloaded")).toBe(3_003);
     expect(rows("again")).toBe(3_005);
     expect(reported(run, "UnencodableValue")).toEqual([]);
+  });
+});
+
+describe("a step the store refuses (WriteAhead R13; Actors R9)", () => {
+  it("WriteAhead R13, Actors R9: a refused step saves neither the inbox's change nor the digest's, so the reload restores a consistent world that hears nothing made up, and the next change is heard as it would be live", async () => {
+    const run = await played(digestRefused);
+    const { refused, reloaded, after } = run.checkpoints;
+
+    expect(refused.read(mainDigest)?.memory["heard"]).toBe(14);
+    expect(reloaded.read(mainInbox)?.memory["messages"]).toHaveLength(1);
+    expect(reloaded.read(mainDigest)?.memory["heard"]).toBe(8);
+    // From Ada's one message, her second changes five of the eight selections.
+    expect(after.read(mainDigest)?.memory["heard"]).toBe(13);
   });
 });

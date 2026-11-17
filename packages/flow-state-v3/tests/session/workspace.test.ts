@@ -74,7 +74,7 @@ describe("storage failures (Restore R5, R9)", () => {
     );
   });
 
-  it("E3, Codec R1; Restore R5: a record past 2,097,152 bytes is quarantined unread", async () => {
+  it("E3, Restore R5: a 2 MB saved text that is no record is quarantined", async () => {
     const run = await played(oversizedRecord);
 
     expect(run.checkpoints.boot.read(badge)?.lifecycle).toBe("quarantined");

@@ -93,10 +93,8 @@ export const parentUnderChildren = () =>
     .dispose(mainSession);
 
 /**
- * Display names on both sides of a string's 262,144-byte bound. Ada's, at the bound, is saved;
- * Bob's, one byte past it, cannot be: the guest session's record keeps its last good capture, and a
- * reload brings it back, with its unsure sign-in given up. With short names again, Bob signs in
- * and is saved.
+ * Long display names: Ada's of 262,144 bytes and Bob's of 262,145 are both saved, and a reload
+ * brings both back. With short names again, Bob signs in and is saved.
  */
 export const longNames = workspaceStory("session/long-names")
   .ensure(mainSession)
@@ -207,8 +205,8 @@ const sessionSamples = (names: {
 export const samples = sessionSamples({ past: [], under: [] });
 
 /**
- * The samples with the display names' edge values, for the stress runs: names at a string's
- * 262,144-byte bound and one byte past it.
+ * The samples with the display names' edge values, for the stress runs: names of 262,144 and
+ * 262,145 bytes.
  */
 export const stressSamples = sessionSamples({
   past: [Identity.names({ chars: 262_145 })],

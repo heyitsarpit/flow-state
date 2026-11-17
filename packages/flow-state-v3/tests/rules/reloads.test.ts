@@ -65,18 +65,10 @@ const contextStories: ReadonlyArray<{ readonly story: Story<string>; readonly st
   }),
 ];
 
-// A run whose record saved a context value past a bound unknown: a reload may hear it again
-// (Actors R18), so the reload rules do not judge it.
-const savedUnknown = (run: StoryRun) =>
-  run.evidence.some(
-    (e) => e._tag === "Reported" && e.code === "UnencodableValue" && e.reason.includes("context"),
-  );
-
-// The run's onContext turns, or why it could not run: a script fault a reload can cause, or a
-// context value saved unknown, skips it.
+// The run's onContext turns, or why it could not run: a script fault a reload can cause skips it.
 const turnsOf = async (story: Story<string>, steps: ReadonlyArray<Step>) =>
   story.run({ steps }).then(
-    (run) => (savedUnknown(checked(run)) ? "skipped" : reactionTurns(run)),
+    (run) => reactionTurns(checked(run)),
     (fault: unknown) =>
       fault instanceof StoryFailed && skippable(fault) ? "skipped" : `faulted: ${String(fault)}`,
   );

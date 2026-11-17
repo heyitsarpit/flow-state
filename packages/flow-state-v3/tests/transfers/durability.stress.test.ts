@@ -25,12 +25,12 @@ const inOpen = (run: StoryRun, open: number) =>
 
 describe("many owed rows (Codec R1, R5; WriteAhead I21)", () => {
   it(
-    "Codec R1, WriteAhead I21: 1,300 owed rows pass a record's node bound and are saved in parts, none withheld, and all are heard after a reload",
+    "Codec R1, WriteAhead I21: 1,300 owed rows are saved in one record, none withheld, and all are heard after a reload",
     async () => {
       const run = checked(await stressManyReceipts().run());
       const { owed } = run.checkpoints;
 
-      expect(owedParts(owed).length).toBeGreaterThan(1);
+      expect(owedParts(owed)).toEqual([OWED]);
       expect(rows(owed)).toHaveLength(1300);
       expect(inOpen(run, 1).filter((e) => e._tag === "Reported")).toEqual([]);
       expect(
