@@ -973,3 +973,7 @@ note 2026-11-17T10:44:26Z
     Task records verified by two Haiku checks against Q5 to Q14 and D23 to D30; fixed: T84 acceptance gains Q10 A's
     caps, T83 loses literal timeouts, T20 cites D27 not D26, T79 names findings 10 and 11, T84's redundant T9 blocker
     removed.
+
+note 2026-11-17T10:46:19Z
+    T9 done: review PASS at f8c7e247 (b456aede). Leftovers routed to T79, T20, T83. Its user's page is written, unread:
+    wiki/plans/flow/references/pages/T9-actor-identity.md. Next: T79 lead.

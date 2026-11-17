@@ -896,6 +896,9 @@ tasks
             proven on real-size values and the measured depth (D26).
         comment     2026-11-17T07:04:03Z
             Open, not in progress: no lead is on it; it resumes after T83 (blocked_by).
+        comment     2026-11-17T10:46:18Z
+            Routed from T9's PASS review (b456aede): an undecodable restored actor name silently becomes {}; it must be
+            reported or quarantined.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
@@ -1064,7 +1067,7 @@ tasks
             the R5 guard (NaN).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
-        status      review
+        status      done
         priority    high
         blocked_by  [@T17, @T82]
         satisfies   [@plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5, @plan.Runtime.O6, @plan.Runtime.O7]
@@ -2084,6 +2087,11 @@ tasks
             (code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md) move here from
             @task.V3.T85, so the step's edit operations are designed once with drafts and indexes; runs right after T9,
             before T85's Capture.
+        comment     2026-11-17T10:46:18Z
+            Routed from T9's PASS review (b456aede): the comparator misses a DataView's bytes, a RegExp inside a Set and
+            cyclic Set members; past 64 levels a decoding default with a side effect runs once and is shared by every
+            level; the dev freeze skips Maps, Sets and Dates the app froze itself; a too-deep name's error message
+            misleads; tx.ts has a stale doc comment.
 
     T80
         title       Host tests on Story and Fake; the seam harness deleted
@@ -2470,6 +2478,9 @@ tasks
         comment     2026-11-17T10:34:01Z
             Routed (orchestrator, 2026-11-17): sweep.test's run-rules test takes 1.3 s alone but exceeds its 5 s default
             under eight faults copies; size its budget from measurement.
+        comment     2026-11-17T10:46:18Z
+            Routed from T9's PASS review (b456aede): two deep recursions remain in test tooling, print.ts (redactable
+            values) and sweep.ts; session-nests-deep stress takes 49.5 s of its 60 s budget alone.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
