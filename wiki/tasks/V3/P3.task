@@ -3087,7 +3087,7 @@ tasks
 
     T87
         title       One bench tool, split by concern: filterable runs, CSV history by commit, compare with noise bands
-        status      open
+        status      in_progress
         priority    high
         description
             The bench is one standard tool split by concern: each benchmark is declared once with an id, a concern and
