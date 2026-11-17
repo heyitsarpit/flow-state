@@ -102,7 +102,7 @@ outcomes
         settles on a microtask-only run scheduler (executionMode: "sync"): the settle's drain re-queues microtasks until
         K consecutive hops show no scheduler activity and no arrival at anything of Flow's (a mailbox, a gate, the
         Clock, a connection's or body's pull); a settle that does not end within the hop cap is StoryTurnLimit with
-        reason Settle.
+        reason Settle. The hop cap is a measured test-tooling default.
 
         After the last cut, if a commit or read fiber is parked, the run finishes the world (it releases held items,
         closes connections and fires deadlines up to a fixed horizon, settling after each, with nothing reaching the
@@ -199,8 +199,8 @@ outcomes
         never collapse.
 
         A checkpoint names a step cut; checkpoint(name, { at: { settled: O.x } }) names a settlement's publication.
-        Every cut captures its full inspection and every frame its work and lanes. run.frames keeps every frame (no cap,
-        D24), so a run is never truncated.
+        Every cut captures its full inspection and every frame its work and lanes. run.frames keeps every frame (no
+        cap, D24).
 
         Each frame names its cause and refers to evidence by sequence position rather than copying it. end captures
         after the last step, before cleanup; it does not mean actors have reached final states.
@@ -347,8 +347,8 @@ outcomes
 
         Rejection is a FlowError carrying readonly Story evidence: frames up to the failing boundary, completed
         checkpoints, captured end and payloads if any, failing step index or bootstrap/capture/cleanup boundary, primary
-        and cleanup diagnostics, trace and truncation, and last accepted and drained evidence positions. Direct and CLI
-        runs agree on results and retained evidence.
+        and cleanup diagnostics, trace, and last accepted and drained evidence positions. Direct and CLI runs agree on
+        results and retained evidence.
     O9  Story playback
         A recorded run can be played, stepped and scrubbed without executing anything again.
 

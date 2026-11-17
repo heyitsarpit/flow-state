@@ -38,9 +38,9 @@ outcomes
         and retryable guards, @plan.Operations.O3), and Unencodable (a guard key with no form, @plan.Operations.O3);
         NothingToResend and InFlight name both a guard denial and an evidence record.
     O2  Recognizable codes and corrective action
-        Codes identify failures independently of message wording. Each diagnostic names the affected field, identity or
-        bound in path/details and gives a concrete corrective action in help. Reporting an issue does not itself mean
-        the call rejects; the owning boundary decides whether work fails, continues or falls back.
+        Codes identify failures independently of message wording. Each diagnostic names the affected field, identity in
+        path/details and gives a concrete corrective action in help. Reporting an issue does not itself mean the call
+        rejects; the owning boundary decides whether work fails, continues or falls back.
 
         Application guard deny codes remain application data, separate from Flow's diagnostic vocabulary. A specific
         boundary code takes precedence over a generic machine-configuration code when both describe the same violation.
@@ -112,8 +112,8 @@ outcomes
         - DuplicateSession, FeedUnhandled, ListenNeedsEvery, DuplicateListen, SharedFills, FillsNotPerKey,
           UnboundedBridge (@plan.Operations.O4, @plan.CommandLine.O5): one session per operation and key; map every
           required stream key; name a field only one operation fills. SelectedNoKey (proposed, @plan.Operations.O4) is
-          an issue; Feed's reasons (Closed, Overflow, Silent, Flapping) and missed's (Unproven, Lost, Reset) are ending
-          values, not codes.
+          an issue; Feed's reasons (Closed, Silent, Flapping) and missed's (Unproven, Lost, Reset) are ending values,
+          not codes.
         - Stream session flags, diagnostic records that decide nothing (@plan.Inspection.O1, @plan.Runtime.O6 for
           release): ValuesWhileDown, RegistrationChurn, ReleaseOverdue, ProofWithoutPosition, PingsWithoutLive,
           IdleWithoutPing (proposed), DeliveryDenied, FillsUntouched, FillsOtherKey (proposed): read the session's
@@ -133,6 +133,8 @@ outcomes
         - StorageFailure (@plan.Persistence.O5): restore storage availability or quota; do not assume the write
           is durable.
         - StorageSilent (evidence, @plan.Persistence.O3): the disk has not answered; nothing is decided.
+        - SlowWork (evidence, dev only, @plan.Persistence.O3; D24): a turn or capture took longer than the bench budget;
+          the diagnostic names it and its time against the budget; cut the work or move it off the turn.
         - NonDurableContextProvider (@plan.Persistence.O3): persist the named providers.
         - RecordShapeChanged (proposed), FieldDropped (proposed), HoldWithoutRecord (proposed), OldVersionActor
           (proposed), UnboundLane (proposed), LaneRekeyed (proposed), OpRenamed (proposed), LaneRekeyCollision

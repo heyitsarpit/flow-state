@@ -120,9 +120,9 @@ verification
     V6  Hydration tests prove bounded loads, matching render and later attach without data loss.
     V7  Tool tests prove unopened features remain inspectable and checked, including load failures.
 questions
-    Q1  Is 10 seconds the right bound for a post-SSR load?
-        The current bound prevents a stalled import from holding ready() open indefinitely; validate it against real
-        client loading times before release.
+    Q1  Is the lazy-load timeout default right?
+        The lazy-load timeout default is set from real client loading times (D25); it prevents a stalled import from
+        holding ready() open indefinitely.
     Q2  Deferred to build time
         Compilation caching and graph representation. Admission staging, rollback and publication mechanics. Dormant
         storage layout and capture encoding. Uncertainty-marker encoding. Loader concurrency and clock integration.

@@ -77,9 +77,9 @@ outcomes
         order, and leaves no partial actor or evidence. Before ready succeeds, `ensureActor` and `createActor` reject
         with RuntimeNotReady; React's pre-attach handles (@plan.React.O2) are the only exception.
 
-        A send to a persisted actor before boot queues until boot, within Persistence O5's bound; past the bound, or on
-        a failed read, it reports StorageFailure, the Runtime runs without persistence and the queue is flushed; a late
-        answer is ignored.
+        A send to a persisted actor before boot queues until boot; on a failed read it reports StorageFailure, the
+        Runtime runs without persistence and the queue is flushed, each commit ending `NotSent { NoPersistence }`; a
+        late answer is ignored.
 
         Disposing during bootstrap cancels it and closes admission; a service acquired late is released and no handle is
         ever exposed. runtime.runPromise runs an Effect with the installed services; there is no `runPromiseExit`.
@@ -412,9 +412,9 @@ verification
         - a chain of two or more writes and reads in one incarnation;
         - schedules waiting without a use;
         - props passed to ensureActor, actorRef or useActorByRef are a type error.
-    V5  Mailboxes: no mailbox cap, the one loop guard (context updates never count), invalid events, FIFO and rotation, 
-         send results
-        owned by the sender, refused deliveries kept, props updates in FIFO order and never dropped.
+    V5  Mailboxes: no mailbox cap, the one loop guard (context updates never count), invalid events, FIFO and
+        rotation, send results owned by the sender, refused deliveries kept, props updates in FIFO order and
+        never dropped.
     V6  Context: diamond and chain waves give one update from latest values; a throwing selector
         is isolated.
     V7  Disposal and isolation: provider-with-consumers rejection, idempotent dispose, the

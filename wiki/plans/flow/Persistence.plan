@@ -130,6 +130,9 @@ outcomes
         lane record carries Flow's record format. The paused-timer record (`{ name, key?, left }`) is a new format step;
         an older record's timers read as `dueAt` through the pure step (@plan.Machines.O5).
 
+        `dueAt` is wall-clock epoch milliseconds from the Runtime Clock. A timer whose `dueAt` has passed on restore or
+        wake fires once at the next turn, with no catch-up of missed repeats, and a clock moved backwards delays it.
+
         Plain memory coalesces for the capture interval (default 5 s, kept until the bench says otherwise) and is
         flushed at once on `visibilitychange` to hidden and on `pagehide`;
 
@@ -142,10 +145,10 @@ outcomes
 
         A step only marks the record keys it changed. When the edge issues a batch, one pure Capture step projects every
         marked key from the current World through the compiled encoders (D30); a key stays marked until a batch carrying
-        it lands. Layout, format and `Store` are unchanged, and the saved bytes are identical. A step that mints a
-        ticket still refuses at once if its record cannot encode. A record that becomes unencodable after its ticket's
-        step and before issue ends that commit `NotSent { StorageRefused }` with nothing sent, and `UnencodableValue` is
-        reported at Capture.
+        it lands. Layout, format and `Store` are unchanged, and the saved bytes are identical; I20 and I21 hold at every
+        landed state. A step that mints a ticket still refuses at once if its record cannot encode. A record that
+        becomes unencodable after its ticket's step and before issue ends that commit `NotSent { StorageRefused }` with
+        nothing sent, and `UnencodableValue` is reported at Capture.
 
         A scope has no cap on records or bytes and drops no record (D24); the storage quota is the real limit and ends a
         write as `StorageRefused`. Encoding failure preserves the last good capture. A dev diagnostic reports a turn or
@@ -179,8 +182,8 @@ outcomes
 
         Restored records stay records until an ensure, a subscription or a send reaches them, except an identity whose
         captured lanes owe it an ending (a lane InFlight at capture, or a parked ending), which is restored live at
-        `ready` and kept as work in flight until those turns run, so offline queued writes resume after a reload without
-        each screen being opened.
+        `ready` and kept as work in flight until those turns run, so a write in flight at capture gets its ending after
+        a reload without each screen being opened; queued commits end `NotSent { Restored }`, for the app to send again.
 
         A restored record is a new incarnation, with new ids for the actor and every fragment incarnation it restores.
         Ensuring a restored actor takes no input (@plan.Runtime.O3). Restore never runs creation again or replays old
@@ -280,16 +283,17 @@ outcomes
         (the runner's ruling, following the undecodable-record rule) (@plan.LazyFeatures.O3).
 
         A storage read failure reports `StorageFailure` and disables persistence for that Runtime, so unread saved data
-        is never overwritten; a send to a persisted actor before boot queues until boot, within the boot bound, and past
-        it or on a failed read the queue is flushed with `StorageFailure` and a late answer is ignored. Missing required
-        storage remains a setup failure.
+        is never overwritten; a send to a persisted actor before boot queues until boot; on a failed read the queue is
+        flushed, each commit ending `NotSent { NoPersistence }`, `StorageFailure` stays the issue and evidence, and a
+        late answer is ignored. Missing required storage remains a setup failure.
 
         A failed write preserves live committed state and the last good saved capture. It never retroactively fails a
         committed actor turn. A later publication retries the newest state.
 
-        Encoding never fails a turn: memory that cannot encode skips its capture batch and keeps the last good one,
-        named `UnencodableValue` (@plan.Inspection.O2). Failures reach Runtime diagnostic observers even without mounted
-        durable actors; a failing inspection sink cannot interrupt persistence. Error vocabulary and remediation
+        Encoding never fails a turn: an identity whose memory cannot encode writes none of its records in that batch;
+        other identities' records go, and the last good capture is kept. It is named `UnencodableValue`
+        (@plan.Inspection.O2). Failures reach Runtime diagnostic observers even without mounted durable actors; a
+        failing inspection sink cannot interrupt persistence. Error vocabulary and remediation
         follow @plan.Diagnostics.O2.
 
         `runtime.dispose({ forget: true })` waits for this scope's data to be made unrestorable and deleted before
@@ -373,7 +377,7 @@ verification
     V4  Reload tests prove restored identity, ordered lane deliveries and no work replay under
         @O4, including restore-capture-restore and hydrate-persist-reload-hydrate round trips.
     V5  Crash tests prove Attempt acknowledgement before dispatch and honest unknown under @O6.
-    V6  Fault tests prove atomic fallback, bounds, quarantine, saved-shape resets and
+    V6  Fault tests prove atomic fallback, quarantine, saved-shape resets and
         preservation of live state under @O3 and @O5.
     V7  Browser tests prove a second tab running without persistence, the back-forward cache rule
         and no-lock persistence under @O7.
@@ -388,6 +392,6 @@ questions
         - Manifest headers, integrity checks and retained-generation layout.
         - Write scheduling within a publishing task.
         - IndexedDB transaction cancellation and connection cleanup mechanics.
-        - Diagnostic payload bounds and encoding details.
-        - Cross-runtime codec vectors and exact shared codec limits.
+        - Diagnostic encoding details.
+        - Cross-runtime codec vectors.
         - Fault-injection infrastructure and browser test matrix.

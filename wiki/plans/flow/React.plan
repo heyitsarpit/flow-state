@@ -59,9 +59,9 @@ outcomes
         actor; changing the ref resolves the new identity. Local input is read once; props are read on every render; a
         changed value under Equal.equals queues one props update from a layout effect, in FIFO order with sends.
         `setProps(partial)` merges; `useActor` passes its whole props each render, so an omitted field returns to its
-        default. Before attach, a local actor holds one replaceable pending props update, outside the send and mailbox
-        bounds, never dropped. Changing local machine or input requires a keyed remount and emits a development
-        diagnostic. A ref never resets an existing actor; conflicting refs follow @plan.Runtime.O3.
+        default. Before attach, a local actor holds one replaceable pending props update, outside the mailbox, never
+        dropped. Changing local machine or input requires a keyed remount and emits a development diagnostic. A ref
+        never resets an existing actor; conflicting refs follow @plan.Runtime.O3.
 
         ```tsx
         // The controlled stepper of @plan.Machines.O2. React state owns the quantity; `stock` comes from the product
@@ -203,7 +203,7 @@ verification
     V1  Type/mount tests prove exact hook types, Provider isolation, readiness and boundary errors.
     V2  Render tests prove pure snapshots (render-time props in the pre-attach snapshot), stable handles, ref
         changes and no discarded-render work.
-    V3  Attach tests prove buffered sends far past the old cap, FIFO delivery once after lane deliveries, current
+    V3  Attach tests prove buffered sends of any count, FIFO delivery once after lane deliveries, current
         context, props updates in FIFO order, emits delivered after the committing render (never from a discarded one,
         flushed in order) and unmount safety.
     V4  Lifecycle tests prove the grace, Strict Mode, uses and work in flight, re-ensure, local

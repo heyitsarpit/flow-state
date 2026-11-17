@@ -201,10 +201,13 @@ outcomes
         queued commit, or a never-sent head not yet invoked, ends Superseded, evidence), serialize appends to W (no
         cap, D24).
 
-        Under concurrency cancel a newer commit interrupts the previous one, whose ending is evidence. retry(k?)
-        re-sends a Held Attempt with its id and input unchanged (InFlight: evidence InFlight; Idle or resolved: evidence
-        NothingToResend). When the addressable Attempt is resolved (success, failure) or released, W's head is promoted;
-        an unknown, a retry and a restore never promote.
+        Under concurrency cancel a newer commit interrupts the previous one, whose ending is evidence. flow check warns
+        when a transaction that declares `idempotency` uses `concurrency: "cancel"`: a payment written with cancel can
+        land twice, and a user's `O.x.cancel` on the wire still keeps the Attempt Held as `unknown { Cancelled }`.
+
+        retry(k?) re-sends a Held Attempt with its id and input unchanged (InFlight: evidence InFlight; Idle or
+        resolved: evidence NothingToResend). When the addressable Attempt is resolved (success, failure) or released,
+        W's head is promoted; an unknown, a retry and a restore never promote.
 
         Every Attempt minted, promoted or re-sent is invoked after its turn ends, whatever the turn's outcome, once its
         acknowledgement, record queues and (for a persisted re-send) its lane record's capture allow. Under reject,
@@ -300,7 +303,9 @@ outcomes
         session for the same (actor, operation, key) waits for a releasing predecessor.
 
         Two operations on one contract and key are two sessions, with a DuplicateSession warning. Flow runs connections
-        only by the declared reconnect and `idleTime`, and sessions only by placement; it never re-opens a session.
+        only by the declared reconnect and `idleTime`, and sessions only by placement. A session that ends Flapping
+        reopens once on the Runtime's "connection restored" signal (the one @O2 uses to refetch reads), with its flap
+        count reset; it never loops, since a session that flaps again waits for the next signal.
 
         The default schedule is exponential, jittered from a well-mixed hash of the session id and step (no saved seed);
         it retries while offline and ends Flapping after a count of registered flaps. Its base, jitter, cap and flap
@@ -322,11 +327,10 @@ outcomes
 
         Outcomes: every with a machine consumer maps value (required), pages (optional, needs catchUp), missed
         (required: Unproven, Lost or Reset, exactly one notice per interruption), fills (required: a memory field or
-        false) and failure (required, exhaustive over E, with Feed covering Flow's Closed, Overflow, Silent, Flapping,
-        Defect and Interrupted); latest maps value optionally and failure when anything is mapped.
+        false) and failure (required, exhaustive over E, with Feed covering Flow's Closed, Silent, Flapping, Defect and
+        Interrupted); latest maps value optionally and failure when anything is mapped.
 
-        Delivery is at least once: handlers store by id. Deliveries are bounded by what Flow has pulled, outside the
-        mailbox cap.
+        Delivery is at least once: handlers store by id. Deliveries are bounded by what Flow has pulled.
 
         The bookmark is a Flow-private partition of the slice's saved record, per (operation, key), holding at and
         filled, and for a latest operation last and heard; it is not a memory field, has no patch and no guard reads it.
@@ -374,8 +378,8 @@ outcomes
         The Attempt's ending decides:
 
         - success confirms the optimistic look;
-        - failure, and a Flow.NotSent ending, removes that commit's updates without a refetch and without overwriting
-          newer data;
+        - failure, a Flow.NotSent ending and a superseded commit remove that commit's updates without a refetch and
+          without overwriting newer data;
         - unknown keeps them, marked uncertain, and refetches the displayed entries once.
 
         The refetch is a read: if it fails the look stays marked uncertain and the next natural trigger reads again;
@@ -465,13 +469,13 @@ verification
     V1  Type proofs preserve adapter types and reject invalid options, outcome mappings (a
         failure: key that is not one of the commit's own tags, an unknown: record without `otherwise`), missing services
         and key-less members of keyed operations.
-    V2  Key tests prove equality, matching, canonical text, bounds and rejection before any side
+    V2  Key tests prove equality, matching, canonical text, no cap and rejection before any side
         effect.
     V3  Stories prove shared reads, one-off read delivery, Runtime isolation and passive snapshot
         reads.
     V4  Clock Stories prove freshness, collection, refetch triggers and late-result rejection.
-    V5  Stories prove atomic batch limits, invalidation repair and edits surviving older reads.
-    V6  Stories prove each concurrency policy's lane cells, queue limits and declines, and cache
+    V5  Stories prove atomic rejection on an invalid target, invalidation repair and edits surviving older reads.
+    V6  Stories prove each concurrency policy's lane cells, queue order and declines, and cache
         writes before ending handlers.
     V7  Stories prove optimistic stacking, independent removal and confirmation after success.
     V8  Stories prove unknown holds, retry preserving the Attempt, cancel by history, no restore replay and old-version 

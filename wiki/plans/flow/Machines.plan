@@ -69,11 +69,10 @@ outcomes
         (RestoreMissingInput); record versions, resets and dropped fields are @plan.Persistence.O5.
 
         Optional context maps slots to another definition's Provider.select(schema, selector); context binding is
-        @plan.Runtime.O5, which also states that memory, selections, payloads and inputs are immutable once admitted
-        (deep-frozen in dev and test, D29) and that values nest to any depth (D27). operations is ({ E }) => ({ name:
-        contract.outcomes({ ... }) | contract }): each server interaction is declared once by name with its endings
-        mapped onto this definition's events (@plan.Operations.O1 to O3); one write operation per write contract per
-        actor, counting every fragment placement in its tree (SharedContract, proposed name, otherwise).
+        @plan.Runtime.O5. operations is ({ E }) => ({ name: contract.outcomes({ ... }) | contract }): each server
+        interaction is declared once by name with its endings mapped onto this definition's events (@plan.Operations.O1
+        to O3); one write operation per write contract per actor, counting every fragment placement in its tree
+        (SharedContract, proposed name, otherwise).
 
         The definition exports O, the operations' handles; a commit's or lookup's select is typed at its transition.
         Machine configuration mirrors the declared state tree exactly: root and compounds require a default direct-child

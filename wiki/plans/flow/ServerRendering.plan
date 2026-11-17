@@ -77,7 +77,7 @@ outcomes
         predictions do not transfer, so it marks no entity uncertain and forces no repair.
 
         Encode values using their declared Schemas. Omit values without a usable Schema or whose encoded form is not
-        JSON-safe or exceeds the bounds of @plan.Inspection.O2; never coerce them. List every omitted item and its
+        JSON-safe or has no canonical form under @plan.Inspection.O2; never coerce them. List every omitted item and its
         reason without exposing the omitted value. Sensitive entity fields are absent from the client base.
 
         Omit a whole resource or stream value whose Schema contains sensitive fields; a sensitive stream position is
@@ -117,8 +117,8 @@ outcomes
         client loading.
 
         A payload whose app id or shape digest differs reports HydrationIncompatible; malformed payloads, including
-        undeclared lazy features or exceeded decode bounds, report HydrationMalformed. Both fall back to client loading.
-        Scope and cross-request violations instead throw under @O6.
+        undeclared lazy features, report HydrationMalformed. Both fall back to client loading. Scope and cross-request
+        violations instead throw under @O6.
     O5  Preserve client work when merging
         At commit, an existing client actor wins over its hydrated copy. On first load, ready() merges after validating
         restored data and before installing actors: persisted actors beat hydrated copies, which are discarded before
