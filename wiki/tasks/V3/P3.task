@@ -1729,6 +1729,48 @@ tasks
             sound, so the canonical-text fallbacks are gone (the review's deep-Map case is green). Far-past nests are
             built on call: the CLI trace printer recurses (routed to the orchestrator). One planted fault was checked
             once in the live tree and restored at once, a break of the scratch-copy rule.
+        comment     2026-11-17T07:44:10Z
+            Depth-round review: ISSUES at 8cccc00d. check exit 0; suite exit 1, 1,146 pass + 13 inverted, the 2 reds
+            T20's pair cells; faults not re-run (over the 5-minute bound). Blocking, red on a scratch probe (a commit
+            keyed on a field under a recursive Schema.suspend, a Story importing src): a key 5,000 deep kills the run
+            (StoryFailed: Result adapter can only return schema issues), no NotSent ending; 200 deep ends success.
+            lanes.ts commit calls keyTextOf (lane-moves.ts, Schema.encodeUnknownResult(operation.key)) before the
+            guarded jsonOf, unguarded, against Codec R4 (an input or key that cannot encode declines NotSent
+            Unencodable, a turn never fails) and the round's claim that every Schema call on a value's path is guarded;
+            D24 dropped the key shape's 16 levels, so deep keys are now legal. Tests missed it: the depth commit Story
+            keys on a string (repo); no fixture keys on a nested field. Fix: guard keyTextOf as jsonOf is (laneKeyText
+            shares it), with a Story keyed on a recursive field at, one past and 5,000 past the limit. Answers. 1 Probed
+            on Node: memory under Schema.Json, Folder and a Map nest at the limit saves, restores and is heard once; one
+            past is withheld UnencodableValue; a selection one past and 5,000 past is reported and kept; a commit input
+            (Folder, Map) at the limit is saved with its lane and ends unknown Restored after a reload, one past and
+            5,000 past decline NotSent Unencodable; nothing threw but the key above. Keeping the last value loses no
+            change the consumer must hear (R19): the slot never held the past value, and a return under the limit is
+            compared against the kept one. 2 Counting is one rule (arrays, objects, Maps, Sets, own fields of Option and
+            class instances); a Map is one level though its JSON form is two, the unit the measure used. Headroom holds:
+            top-level Node cliffs by our count are Map nest 572, Set 952, Map of structs 1,276, other recursive shapes
+            1,632 to 2,304; a Map nest at 255 in memory restores inside a Story. 3 The printer is reachable:
+            render(nestFarPast('Lists').trace) throws RangeError, since withheld memory stays live and is printed in
+            Published, as are send payloads; flow trace dies on any such Story. Route to @task.V3.T83 (test tooling,
+            which also owns the built-on-call cost): print a past-limit value elided, then register the far-past
+            Stories. 4 Keeping the value is right (the only reading that loses and makes up nothing; R19 keeps the last
+            valid context), and D26 is the user's limit, not a gap. But the consumer gets no Issue, only a Runtime
+            report repeated every wave; R19's shape is one issue per streak on the slot. Orchestrator's call; logged
+            here. 5 Nothing relied on the fallbacks: slots hold values within the limit, so the unguarded Equal in
+            sameSlot and sameForm is sound; deepSafe counts memory too deep for its equivalence as changed, which only
+            re-reports at capture. 6 The tree matches HEAD, nothing left of the plant. Routed, not blocking: a send
+            whose payload is a recursive Schema 5,000 deep throws a raw Error from Schema.is (driver.ts send) instead of
+            InvalidEvent (Actors R14, Codec R4), @task.V3.T81's line; an actorRef value input the same (identity.ts
+            nameOfValue), this Task's next round. A reaction reading live memory past the limit raises Defect, not
+            UnencodableValue (heard 0, as for a slot). An empty container one past is accepted (depth.ts enter checks
+            children first), and foldersAtDepth 'at' holds 257 containers, passing only by that; no fault covers it.
+            Actors R18 lacks the depth clause and still says a selection of any size is saved; D20 says no canonical
+            form is UnencodableValue, but R18 and the code make it a Defect; flow.ts maxDepth doc and Codec R1 say a
+            commit input past is reported, but it declines with no report (R4). No Map nest in memory and no Nests
+            samples, so the generator and mix never reach the nests (fixtures.md). withinDepth reads own getters outside
+            the try. Sidecars (4 Haiku, one blind): accepted the unguarded key and send calls, reactions unchecked, the
+            empty-container case, the spec wording splits, the printer reach and the coverage gaps; rejected owed
+            records quarantining at boot (Schema.Json decodes iteratively) and restore overflowing at the limit
+            (probed). No outside imports or temporary names.
 
     T74
         title       App mix: several fixtures in one Runtime
