@@ -2965,6 +2965,15 @@ tasks
             Rejected that the window change loosens skipBound (windows only shrink); the 10 % skip share and the sticky
             pair refusal (gates green; code outside T83's range); and the re-printed stress Stories (the 03:09 ruling;
             storage words still drawn).
+        comment     2026-11-18T04:49:53Z
+            Closing (849bbbe2), ended by the user's call: the fix round landed; one item is left. Done: the grace test
+            runs in the default suite again and catches local-actor-ends-at-grace by its target; the faults runner runs
+            the unchanged run first and never credits a test red there; the remaining bare test limits are in
+            tests/limits.ts; a reload ends a storage hold window only once its write was issued (crafted cases in
+            tests/rules/windows.test.ts); dead-core patterns pinned by title. Honest faults run (477 s, machine busy
+            with mds_stores and mediaanalysisd): 254 of 255 caught. Left for routing: refused-capture-left-in-flight
+            (WriteAhead R5) is missed by every test, now shown honestly; it needs a catching test or an inverted test
+            with an owner Task.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
