@@ -2904,7 +2904,7 @@ tasks
         comment     2026-11-18T03:08:45Z
             Widened round (a9886920): every item built but the grace test; acceptance still not met, stays in_progress.
             Alone, before (970916c1) -> after: suite 54 -> 36 s (1,431 -> 1,134 tests: CLI 333 -> 27, +9 crafted rule
-            cases, 15 skipped behind switches; file sum 432 -> about 280 s), stress 65 -> 62 s (adds the 1,000-seed pair
+            cases, 15 skipped behind switches; file sum 432 -> 243 s), stress 65 -> 62 s (adds the 1,000-seed pair
             shards), faults 256 -> 224 s with no timeout (copies sized 4 x 3; usual and stress tiers run apart). Caught
             list identical, 254 of 254 (refused-publishes-nothing was stale: its edit no longer parsed; planted again).
             Pair stop: 107 -> 6 s, same cells and reds. Double reload in hold windows: 46 -> 4.5 s. Switches:
