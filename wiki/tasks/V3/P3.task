@@ -4353,7 +4353,7 @@ tasks
 
     T94
         title       Every public entry point refuses with a FlowError; a surface test finds any that doesn't
-        status      open
+        status      in_progress
         priority    high
         description
             Every public function Flow exports or hands out either refuses with a FlowError or is an inert builder, and

@@ -1326,3 +1326,7 @@ note 2026-11-18T17:44:33Z
     Decision (the user, 2026-11-18): re-plan accepted (Q1 B, Q2 B, Q3 A, Q4 A, Q5 A, Q6). New: T94 boundary Task (P3,
     before T81); T95 callback results, T96 send action, T97 (T80 moved, tombstoned) in P4. T81 and T92 rewritten; P3,
     P4, P5 Order lines set; boundaries page added.
+
+note 2026-11-18T17:54:38Z
+    T94 started (the user, 2026-11-18): the boundary Task, first of the re-plan; weekly usage at 96 %, so the run stops
+    at 100 % by Limits and resumes after the reset.
