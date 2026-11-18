@@ -1,7 +1,8 @@
 # P3 coverage record
 
-The P3 suite catches 123 of the 143 Spec rules P3's Tasks cite with a planted fault; 20 rules have no fault and are
-deferred by the user (2026-11-19) under Gaps, each with its proposed owner. Proposed to the user as part of @plan.Runtime's verification entry (a Plan
+The P3 suite catches 124 of the 145 Spec rules P3's Tasks cite with a planted fault. Of the other 21, four were not
+built in P3 and sit with their owners (Not built in P3); 17 have no fault and are deferred by the user (2026-11-19)
+under Gaps, each with its proposed owner. Proposed to the user as part of @plan.Runtime's verification entry (a Plan
 edit, the user's yes); until then it lives here, linked from @phase.V3.P3. It extends P2's record (@phase.V3.P2,
 2026-11-16T02:04:05Z).
 
@@ -16,14 +17,16 @@ edit, the user's yes); until then it lives here, linked from @phase.V3.P3. It ex
   `src/`.
 - **Rerun:** `nub run test` (no setup); `nub run test:stress`; `nub run faults` (scratch copies, each fault's targets
   first, the whole suite when they pass), or `nub run faults --only <name>` for one fault.
-- **Mutants:** the dead core and the 296 named faults of code:packages/flow-state-v3/tests/faults.ts and the files it
-  spreads (`tests/*-faults.ts`), each citing the rule it breaks; the per-rule list below names them, with the first
-  test that caught each in the daily run. A Spec rule counts as caught when a fault citing it is caught.
-- **Audit:** not audited. The fresh completion audit (R18) runs skill:policy-testing#audit-a-suite over this record.
-- **Matched at:** the commit adding this file. Suite 1180 pass, 23 it.fails, 15 skipped; check at zero; faults 296 of
-  296: 295 in the daily run at 636eb699 (log `flow-faults-2026-11-18T18-56-16.622Z.log`), and the retargeted
-  `throwing-slot-decode-escapes-boot` with the four other faults that edit `src/core/boundary.ts` caught by
-  `--only` at this revision, the only `src/` file changed since. Stress last ran at 636eb699 (exit 0).
+- **Mutants:** the dead core and the 334 named faults of code:packages/flow-state-v3/tests/faults.ts and the files it
+  spreads (`tests/*-faults.ts`, 38 of them in `tests/rule-faults.ts`), each citing the rule it breaks; the per-rule
+  list below names them, with the first test that caught each in the daily run (or its target, for the faults added
+  after it). A Spec rule counts as caught when a fault citing it is caught.
+- **Audit:** passed: the completion audit (R18) rerun at d8a8343a ran skill:policy-testing#audit-a-suite over this
+  record.
+- **Matched at:** d8a8343a. Suite 1181 pass, 23 it.fails; check at zero; faults 334 of 334: 295 in the daily run at
+  636eb699, `throwing-slot-decode-escapes-boot` (retargeted) and the four other faults that edit
+  `src/core/boundary.ts` by `--only`, and @task.V3.T101's 39 by `--only` (6 of them only by the whole suite). Stress
+  last ran at 636eb699 (exit 0).
 - **Scope:** fixtures over fake servers and storage, one tab, TestClock time, usual and stress profiles, the pair
   sweep at 200 seeds (1,000 for shop-store and auth-session). Excluded: real browsers and storage (@task.V3.T58,
   @task.V3.T28), reads (@task.V3.T21), the raw-throw class parked in @task.V3.T98 (9 it.fails), and the known bugs
@@ -39,19 +42,36 @@ reading every test.
 ## Gaps
 
 @task.V3.T101 planted 38 faults (code:packages/flow-state-v3/tests/rule-faults.ts), each caught by `nub run faults
---only` and named on its rule below; it ended at the user's time cap (2026-11-19), so the other 20 rules are
-deferred by the user (2026-11-19) to their proposed owners.
+--only` and named on its rule below; it ended at the user's time cap (2026-11-19), so these 17 rules are deferred by
+the user (2026-11-19) to their proposed owners:
 
 - **Built, tested, no fault yet:** Codec T6 (@task.V3.T92); Restore I11, T6 and WriteAhead I3, R1, R12, R14
-  (@task.V3.T56); Turn R1 (@task.V3.T95).
-- **Built, no test cites it, no fault:** Codec T1 (@task.V3.T92); Compile R8 (@task.V3.T98); Diagnostics R8, R9
-  (@task.V3.T100); WriteAhead R11, T9, T17 (@task.V3.T56); Turn T16 (@task.V3.T95).
-- **Not built in P3 (read in the code, 2026-11-19):** Diagnostics R10, no renderer (@task.V3.T100); Restore I20, a
-  gone operation's lane is quarantined, never rewritten, and R4, no resource data is saved (@task.V3.T56);
-  WriteAhead R16, no scope ownership (@task.V3.T56).
-- **Faults not caught by a test titled by their rule:** `unknown-target-inverted` (Compile R9) is caught only by the
-  whole suite; `turn-publishes-twice`, `lane-record-off-kind` and `restored-lane-dropped` by tests citing other
-  rules.
+  (@task.V3.T56); Turn R1 (@task.V3.T95); WriteLanes R12 (@task.V3.T56: `sent-without-persistence` plants a
+  different breach, a NoPersistence decline with persistence on).
+- **Built, no test cites it, no fault:** Codec T1 (@task.V3.T92); Compile R8 (@task.V3.T98; contradicted: src has
+  no RestoreMissingInput and @task.V3.T17 routed R8 to @task.V3.T56, so it may belong under Not built in P3);
+  Diagnostics R8, R9 (@task.V3.T100); WriteAhead R11, T9, T17 (@task.V3.T56); Turn T16 (@task.V3.T95).
+
+## Not built in P3
+
+Read in the code (2026-11-19) and re-grepped by T101's review; not counted as gaps. Each owner links this record.
+
+- Diagnostics R10, no renderer: @task.V3.T100.
+- Restore I20, a gone operation's lane is quarantined, never rewritten; Restore R4, no resource data is saved:
+  @task.V3.T56.
+- WriteAhead R16, no scope ownership: @task.V3.T56.
+
+## Caught off-title
+
+These faults count as caught, though no test titled by their rule catches them:
+
+- `unknown-target-inverted` (Compile R9): only the whole suite, since it refuses every fixture's Flow.uncertain
+  target at load (R9's own check firing in 99 files), so R9's titled test cannot run.
+- `turn-publishes-twice` (Turn R5) and `lane-record-off-kind` (Codec R5) fail the run rules Turn I9 and Codec I7;
+  `restored-lane-dropped` (Restore I13) fails WriteAhead I17, the lost ending I13 guards.
+- `entered-keeps-activation` (Turn I5), `exits-outermost-first` (Turn I6), `equal-selection-heard` (Turn I28),
+  `history-forgets-child` (Turn T3), `late-routed-as-current` (Turn T14), `denial-is-a-diagnostic` (Diagnostics R4)
+  and `batch-drops-first-record` (WriteAhead R9): by their target tests, which cite other rules.
 
 ## Rules by Spec, with their faults and tests
 
@@ -73,6 +93,8 @@ run), then up to three test files citing it.
 - I37 A shared actor that stays Free for: `free-actor-outlives-grace` (tests/actors/lifetime.test.ts). Tests: tests/actors/lifetime.test.ts,
   tests/write-lanes/write-ahead-records.test.ts.
 - I38 Every commit not yet sent when Runtime: `disposal-queue-cancelled` (tests/actors/runtime-disposal.test.ts). Tests: tests/actors/runtime-disposal.test.ts.
+- I42 `admit` gives every (Life, input) pair exactly one verdict: `host-ignores-rejected-ready`
+  (src/host/life.test.ts, target). Tests: src/core/life.test.ts.
 - I43 The disposal bound runs from the first: `refused-final-write-silent` (tests/actors/runtime-disposal.test.ts);
   `final-write-unbounded` (tests/actors/runtime-disposal.test.ts). Tests: tests/actors/runtime-disposal.test.ts.
 - R4 Bootstrap failure and early calls: `dispose-actor-before-ready-runs` (src/core/life.test.ts);
@@ -167,7 +189,7 @@ run), then up to three test files citing it.
   tests/turn/creation.test.ts, tests/compile/construction.test.ts and 3 more.
 - R6 Pure creation: `creation-skips-input-check` (src/core/tree.test.ts). Tests: tests/actors/identity.test.ts,
   src/core/tree.test.ts.
-- R8 Defaults at restore: **gap, no fault**. Tests: none.
+- R8 Defaults at restore: **gap, no fault** (built or not: see Gaps). Tests: none.
 - R9 Operations declared once: `unknown-target-inverted` (src/host/lane-record.test.ts). Tests: tests/transfers/standing-order.test.ts,
   tests/compile/construction.test.ts.
 - R12 Names: `tilde-state-names-free` (tests/compile/construction.test.ts). Tests: tests/compile/construction.test.ts.
@@ -183,7 +205,8 @@ run), then up to three test files citing it.
 
 ## Diagnostics
 
-- I1 Every FlowError has nonempty diagnostics and code: `error-code-from-last` (tests/compile/construction.test.ts). Tests: none.
+- I1 Every FlowError has nonempty diagnostics and code: `error-code-from-last` (tests/compile/construction.test.ts). Tests:
+  tests/compile/construction.test.ts.
 - I2 decode(encode(d)) equals d for every valid Diagnostic: `detail-accepts-nan` (tests/compile/compiled.test.ts). Tests: tests/compile/compiled.test.ts.
 - I5 Every emitted code is in the closed: `callback-defect-outside-list` (tests/turn/creation.test.ts);
   `service-failure-outside-list` (src/host/runtime.test.ts). Tests: tests/turn/creation.test.ts,
@@ -196,7 +219,7 @@ run), then up to three test files citing it.
   (tests/compile/construction.test.ts). Tests: tests/compile/compiled.test.ts, tests/compile/construction.test.ts.
 - R3 Schema failures: `stray-throw-raw` (tests/surface/surface.test.ts). Tests: tests/surface/surface.test.ts,
   tests/compile/authoring-gaps.test.ts; it.fails: tests/compile/authoring-gaps.test.ts.
-- R4 Diagnostics are not endings or denials: `denial-is-a-diagnostic` (tests/compile/codes.test.ts). Tests: none.
+- R4 Diagnostics are not endings or denials: `denial-is-a-diagnostic` (tests/compile/codes.test.ts; off-title). Tests: none.
 - R5 Actionable codes: `creation-issue-drops-schedule` (tests/actors/snapshot.test.ts). Tests:
   tests/surface/surface.test.ts, tests/actors/snapshot.test.ts.
 - R6 Classification: `operations-throw-raw` (tests/compile/construction.test.ts); `body-throw-raw`
@@ -205,7 +228,7 @@ run), then up to three test files citing it.
 - R7 A closed vocabulary: `denial-is-a-code` (tests/compile/codes.test.ts). Tests: tests/compile/codes.test.ts.
 - R8 Complete causes survive cleanup: **gap, no fault**. Tests: none.
 - R9 Causes stay in process: **gap, no fault**. Tests: none.
-- R10 Safe rendering: **gap, no fault**. Tests: none.
+- R10 Safe rendering: **not built in P3** (@task.V3.T100). Tests: none.
 - T1 Carrier and codec: every code in the: `diagnostic-accepts-unknown-code` (tests/compile/compiled.test.ts). Tests:
   tests/compile/compiled.test.ts.
 
@@ -236,7 +259,7 @@ run), then up to three test files citing it.
 - I17 A storage failure never changes committed live: `refused-write-landed` (tests/stories/storage.test.ts). Tests: tests/transfers/durability.test.ts.
 - I18 dispose({ forget: true }) resolves success only: `forget-over-pending-write` (src/host/restore.test.ts). Tests:
   tests/transfers/durability.test.ts, src/host/restore.test.ts.
-- I20 A lane record whose `operation` is gone: **gap, no fault**. Tests: none.
+- I20 A lane record whose `operation` is gone: **not built in P3** (@task.V3.T56). Tests: none.
 - R1 Records stay records: `boot-wakes-every-record` (tests/write-lanes/payment-endings.test.ts). Tests: tests/transfers/standing-order.test.ts,
   tests/stories/steps.test.ts, tests/actors/lane-keeping.test.ts and 4 more.
 - R2 Context and resets at restore: `consistent-reload-owes-context` (tests/rules/reloads.test.ts). Tests: tests/transfers/standing-order.test.ts,
@@ -244,7 +267,7 @@ run), then up to three test files citing it.
 - R3 Delivery order at restore: `displaced-not-saved` (src/host/lane-record.test.ts); `queued-restored-unknown`
   (tests/write-lanes/policy-cells.test.ts). Tests: tests/shop/pay.test.ts, tests/transfers/trace.test.ts,
   tests/stories/reload.test.ts and 8 more; it.fails: tests/restore/restore.test.ts.
-- R4 Data and placements after restore: **gap, no fault**. Tests: none.
+- R4 Data and placements after restore: **not built in P3** (@task.V3.T56). Tests: none.
 - R5 Record formats and undecodable records: `null-format-read-as-current` (tests/restore/restore.test.ts);
   `newer-format-read` (tests/restore/restore.test.ts); `fresh-start-unreported` (tests/restore/restore.test.ts) and 13
   more. Tests: tests/shop/unread-owed.test.ts, tests/transfers/durability.test.ts, tests/restore/restore.test.ts and 3
@@ -262,8 +285,8 @@ run), then up to three test files citing it.
 ## Turn
 
 - I1 At every publication exactly one leaf is: `first-leaf-skipped` (src/core/tree.test.ts). Tests: tests/player/player.stress.test.ts.
-- I5 Every Activation at or above the Boundary: `entered-keeps-activation` (tests/write-lanes/payment-leave-and-reload.test.ts). Tests: none.
-- I6 Exits are ordered deepest first and entries: `exits-outermost-first` (src/core/tree.test.ts). Tests: none.
+- I5 Every Activation at or above the Boundary: `entered-keeps-activation` (tests/write-lanes/payment-leave-and-reload.test.ts; off-title). Tests: none.
+- I6 Exits are ordered deepest first and entries: `exits-outermost-first` (src/core/tree.test.ts; off-title). Tests: none.
 - I9 Each turn publishes at most once, and: `accepted-publishes-on-change` (tests/transfers/transfers.test.ts);
   `owed-wave-publishes-unchanged` (tests/session/workspace.test.ts); `context-issue-published-twice`
   (tests/generated/generated.test.ts) and 1 more. Tests: tests/transfers/transfers.test.ts, tests/rules/rules.test.ts,
@@ -275,7 +298,7 @@ run), then up to three test files citing it.
   tests/actors/lane-keeping.test.ts.
 - I27 A late turn never exits an Activation: `late-exit-ignores-queue` (src/core/serve.test.ts). Tests:
   src/core/serve.test.ts.
-- I28 An onContext event is enqueued only after: `equal-selection-heard` (tests/actors/context.test.ts). Tests: none.
+- I28 An onContext event is enqueued only after: `equal-selection-heard` (tests/actors/context.test.ts; off-title). Tests: none.
 - I31 An issue is cleared only by its: `success-clears-first-issue` (tests/actors/snapshot.test.ts). Tests: tests/actors/snapshot.test.ts.
 - R1 One active leaf: **gap, no fault**. Tests: tests/shop/store.test.ts, tests/player/player.stress.test.ts,
   tests/player/player.test.ts.
@@ -311,16 +334,20 @@ run), then up to three test files citing it.
 - R25 Issues by source: `issue-cleared-by-any-source` (tests/actors/snapshot.test.ts); `issue-never-cleared`
   (tests/actors/context.test.ts). Tests: tests/actors/snapshot.test.ts, tests/actors/context.test.ts,
   tests/session/values.test.ts.
-- T3 Subroutines and history: exit, abandonment, an ancestor's: `history-forgets-child` (src/core/tree.test.ts). Tests: none.
+- T3 Subroutines and history: exit, abandonment, an ancestor's: `history-forgets-child` (src/core/tree.test.ts; off-title). Tests: none.
 - T6 Refused turns: an out-of-range computed schedule delay: `creation-delay-drops-all` (tests/turn/creation.test.ts);
   `creation-delay-silent` (tests/turn/creation.test.ts). Tests: tests/turn/creation.test.ts,
   tests/compile/construction.test.ts.
-- T14 Owner test: a late ending routed as: `late-routed-as-current` (tests/write-lanes/payment-leave-and-reload.test.ts). Tests: none.
+- T14 Owner test: a late ending routed as: `late-routed-as-current` (tests/write-lanes/payment-leave-and-reload.test.ts; off-title). Tests: none.
 - T16 onContext: a provider change wave with an: **gap, no fault**. Tests: none.
 
 ## WriteAhead
 
 - I3 A local identity never has an actor: **gap, no fault**. Tests: tests/restore/restore.test.ts.
+- I21 Every lane and identity whose entry a step changed has its record key marked: `firing-unwritten`
+  (tests/write-lanes/write-ahead-records.test.ts, target); `capture-skips-marked-key` (src/core/persist.test.ts,
+  target); `second-record-writer` (tests/write-lanes/one-builder.test.ts, target) and 3 more. Tests:
+  tests/write-lanes/write-ahead-records.test.ts, tests/rules/rules.test.ts, src/core/persist.test.ts and 5 more.
 - I11 At every landed state, a lane record's: `unencodable-identity-half-written` (src/core/persist.test.ts). Tests:
   src/core/persist.test.ts.
 - I12 A dirty plain record's capture is issued: `refused-batch-waits` (tests/write-lanes/write-ahead-records.test.ts);
@@ -349,7 +376,7 @@ run), then up to three test files citing it.
 - R5 Lane records: `refused-capture-left-in-flight` (tests/write-lanes/write-ahead-records.test.ts);
   `start-keeps-lanes-unwritten` (tests/transfers/trace.test.ts). Tests: tests/transfers/trace.test.ts,
   tests/write-lanes/write-ahead-records.test.ts.
-- R9 Atomic scope: `batch-drops-first-record` (tests/sign-in/session.test.ts). Tests: none.
+- R9 Atomic scope: `batch-drops-first-record` (tests/sign-in/session.test.ts; off-title). Tests: none.
 - R10 When records are written: `drain-backlog-waits-for-input` (src/host/ledger.test.ts). Tests:
   tests/command-palette/structure.test.ts, tests/write-lanes/write-ahead-records.test.ts,
   tests/write-lanes/one-builder.test.ts and 2 more.
@@ -363,7 +390,7 @@ run), then up to three test files citing it.
 - R14 Honest uncertainty after a crash: **gap, no fault**. Tests: tests/cells/structure.test.ts,
   tests/shop/store.test.ts, tests/lanes/lanes.test.ts and 4 more; it.fails: tests/cells/structure.test.ts,
   tests/transfers/bank-app.test.ts.
-- R16 Scope ownership: **gap, no fault**. Tests: tests/transfers/durability.test.ts, tests/actors/edges.test.ts.
+- R16 Scope ownership: **not built in P3** (@task.V3.T56). Tests: tests/transfers/durability.test.ts, tests/actors/edges.test.ts.
 - T9 Scale and providers: 5,000 badges' records (`session/stress-wall`): **gap, no fault**. Tests: none.
 - T17 One stream: actor A hears an ending: **gap, no fault**. Tests: none.
 
@@ -391,7 +418,7 @@ run), then up to three test files citing it.
 - R10 Exactly one delivery: `rows-dropped-outside-ledger` (tests/write-lanes/one-builder.test.ts). Tests:
   tests/turn/refusal.test.ts, tests/actors/lane-keeping.test.ts, tests/write-lanes/payment-held.test.ts and 8 more;
   it.fails: tests/cells/structure.test.ts, tests/transfers/bank-app.test.ts.
-- R12 Values with no form and missing persistence: `sent-without-persistence` (tests/rules/sweep-0.test.ts). Tests: tests/restore/deep-inputs.test.ts,
-  src/host/runtime.test.ts.
+- R12 Values with no form and missing persistence: **gap, no fault** (`sent-without-persistence` plants a different
+  breach; @task.V3.T56). Tests: tests/restore/deep-inputs.test.ts, src/host/runtime.test.ts.
 - R14 cancel: `cancel-keeps-unsent-head` (src/core/cells.test.ts). Tests: tests/cells/cells.test.ts, tests/write-lanes/payment-held.test.ts,
   tests/write-lanes/policy-cells.test.ts and 5 more.
