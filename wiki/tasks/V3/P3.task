@@ -3862,7 +3862,7 @@ tasks
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
-        status      review
+        status      done
         priority    medium
         blocked_by  [@T87]
         description
