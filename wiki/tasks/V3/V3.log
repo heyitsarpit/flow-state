@@ -1232,3 +1232,7 @@ note 2026-11-18T06:34:44Z
     T20 convergence review ISSUES (2e211305): lane keys without a head and owed records of undeclared machines get past
     the one check; the double-reload sweep counts second-run faults as skips. First failure after convergence; a second
     stops T20 for the user. Fix round: every trusted field listed, checked and planted out.
+
+note 2026-11-18T06:39:22Z
+    12:09 wake: tooling bench skipped; T20's lead is running tests, and benches run alone. Third skip today: the wake's
+    bench only runs between leads.
