@@ -4232,3 +4232,10 @@ tasks
             their own. Suite 1127 passed|21 xfail|15 skipped, same as before; stress 73 passed. Fix: Terminal.make size
             (cli.test.ts). Schema.Record and Equal files needed no change. Scratch effect/cli command with
             NodeServices.layer found FileSystem, Terminal, ChildProcessSpawner (not kept).
+        comment     2026-11-18T10:48:49Z
+            Review PASS. Pins exactly 4.1.4 (effect, platform-node, platform-node-shared, @effect/vitest, root devDeps;
+            rc.112 override gone); lockfile also added redis 6.3.1, undici 8.12.4, ws 8.22.1, @types/ws and re-keyed
+            vitest peer variants. Installed effect: root 4.1.4, flow-state rc.112, flow-state-rewrite 4.0.5; v3 has none
+            nested. Scratch effect/cli + NodeServices.layer found FileSystem, Terminal, ChildProcessSpawner (deleted).
+            flow-state untouched. Exit 0: check, lint:rules, test (1127 passed, 21 xfail, 15 skipped, matches).
+            Terminal.make size: unused is minimal and typechecks. Not run: test:stress.
