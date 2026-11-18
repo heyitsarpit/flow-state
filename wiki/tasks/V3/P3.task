@@ -4003,6 +4003,23 @@ tasks
             on the old scope). Arguments: --only repeatable, duplicates, --only=x, unknown flags and bare names refused.
             T16 now credits the fork faults to the fork test. check 0, suite 0 (34.3 s); stress not rerun
             (sweeps untouched).
+        comment     2026-11-18T09:59:37Z
+            Review fixes (59cfc04a..333d0ea4): PASS, both blockers closed. (1) Strays: in a scratch runner copy with a 5
+            s tier timeout, --only boot-wakes-in-flight-only-swept timed out with vitest and 3 forks live and left no
+            process or copy; stopped mid-tier by SIGINT, SIGTERM and SIGHUP it exited 130 with none left. (2) Credit: in
+            a scratch repo with an always-red test outside the targets and a no-op fault, the 59cfc04a runner credited
+            the red test (caught) and the new one ran the unchanged whole suite first and reported MISSED. Arguments:
+            repeated --only, duplicates, --only=x, unknown flags, bare names and empty --only behave as stated. T16
+            reads right. Gates, alone (mediaanalysisd ~60-75% CPU, mds_stores ~30-45%, the user's): check 0; suite 0
+            (34.0 s); verdict.test and group.test pass. No outside imports, temporary names or rebuilt Effect.
+            Non-blocking: a spawn error (vp or cwd missing) leaves runGrouped pending forever under bun, so handle
+            'error' as broken; String(chunk) can split a UTF-8 character across chunks (setEncoding utf8);
+            unchangedWhole counts a run with no summary as finished; group.test's timeout case never asserts it saw the
+            sleepers' pids; T16's 'the median-length Story' is one Story per kind in fork.test.ts. Sidecars: blind 1
+            (spawn error) and 7, quality 1, 2 and 5 accepted as non-blocking (1 reproduced: hang, not crash, under bun);
+            blind 2, 3, 4, 6 and 10 accepted as minor, not reachable today; blind 8 and quality 3 and 4 rejected
+            (pre-existing or the safe direction); quality 7 and 9 rejected (style, tooling outside lint scope); quality
+            8 accepted as wording.
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
