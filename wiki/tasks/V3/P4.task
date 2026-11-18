@@ -337,6 +337,9 @@ tasks
             input, no replay, endings before new events, late results) and the unbuilt pending reset; parked endings for
             O6 and Runtime O6; faults for the Restore and WriteAhead gaps in code:wiki/tasks/V3/P3-coverage.md.
             See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-18T20:15:24Z
+            Also owes (deferred by the user's T101 cap): a WriteLanes R12 fault that sends a persisted commit when the
+            Runtime has no persistence; sent-without-persistence in tests/rule-faults.ts plants a different breach.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -954,3 +957,6 @@ tasks
             Found while closing P3 gaps: the CLI prints Cause.pretty on an unexpected failure
             (code:packages/flow-state-v3/src/host/cli/main.ts), against Diagnostics R9 and R10; no test yet. Diagnostics
             R8, R9, R10 gaps deferred here (code:wiki/tasks/V3/P3-coverage.md).
+        comment     2026-11-18T20:15:24Z
+            Also owes (proposed, P3 R18 rerun): Diagnostics O2's InvariantViolation code is unbuilt; Actors R25 stops
+            the Runtime on the raw defect instead. Decide the code or drop it from the Plan (the user's read).

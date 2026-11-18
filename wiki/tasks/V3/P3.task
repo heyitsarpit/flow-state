@@ -106,6 +106,20 @@ comment 2026-11-18T19:39:35Z
     Sidecars (2 Haiku, read-only): the review-item sweep accepted, changed: 14 NONE rows re-grepped and held; A5 added
     (deferred, no Task); A57, A58, A92, A101 found resolved in code. The outcome survey accepted, changed: 10 absence
     claims re-grepped and held; its runPromise hits are Effect.runPromise, not a Runtime method.
+comment 2026-11-18T20:15:23Z
+    COMPLETION AUDIT (R18) rerun at d8a8343a: PASS once T101's PASS is applied. Faults: the 38 new and the six faults
+    editing boundary.ts (the only src change since the 636eb699 daily) caught by --only here; suite 0, check 0. Suite
+    audit passes, record fixes routed in T101's comments; 21 rules are deferred by the user's cap (WriteLanes
+    R12 added).
+comment 2026-11-18T20:15:23Z
+    T101's four questioned catches all count: unknown-target-inverted refuses every fixture's Flow.uncertain target,
+    R9's own check firing (99 files fail at load, so R9's titled test cannot run); turn-publishes-twice and
+    lane-record-off-kind fail run rules Turn I9 (@R5) and Codec I7 (R5's key kinds); restored-lane-dropped fails
+    WriteAhead I17, the lost ending I13 guards.
+comment 2026-11-18T20:15:24Z
+    Outcomes: each part P3's Tasks satisfy is delivered or owned per code:wiki/tasks/V3/P3-routing.md; the sweep's extra
+    parts are owned too (Operations O1 stream by @task.V3.T25, O3 writes and optimistic by @task.V3.T21, Runtime O4
+    loopGuard by @task.V3.T96), except Diagnostics O2's InvariantViolation code, proposed to @task.V3.T100.
 tasks
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
@@ -4568,3 +4582,18 @@ tasks
             after each was caught by --only; changed I5's index to kept.length + i; rejected I1's own catch claim (its
             target test missed; a new test added). Not-built claims (Diagnostics R10, Restore I20, R4, WriteAhead R16)
             re-grepped and held. Extra file: tests/rule-faults.ts.
+        comment     2026-11-18T20:15:12Z
+            CHECK-TASK at d8a8343a: PASS, nothing blocking. Gates by exit code, run alone: --only 39 of 39 caught (6 by
+            the whole suite), suite 0 (1181 pass, 23 it.fails), check 0; stress not rerun. Routed:
+            sent-without-persistence plants no R12 breach (it adds a NoPersistence decline with persistence on; the
+            no-persistence path still declines), so WriteLanes R12 joins the cap's deferred gaps (@task.V3.T56).
+        comment     2026-11-18T20:15:12Z
+            Coverage record corrections, for the orchestrator's compaction: 124 of 145 caught, not 123 of 143 (R12 out;
+            WriteAhead I21 and Actors I42 are P3-cited and faulted but missing); 334 faults, not 296; Diagnostics I1 has
+            a titled test; seven more faults are caught only off-title (Turn I5, I6, I28, T3, T14, Diagnostics R4,
+            WriteAhead R9); the four not-built rules are still counted as gaps.
+        comment     2026-11-18T20:15:13Z
+            Sidecars (4 Haiku, read-only): blind fault-vs-Spec accepted for 33; changed sent-without-persistence
+            (verified at src/core/lanes.ts:166); rejected 4 wrong-rule calls (T ids are counted rules; the I8 test fails
+            on its own 'calls nothing'). Catching-test and record-audit findings accepted after the --only output and
+            greps; the Diagnostics I1 test-weakness claim rejected (the plant is caught).
