@@ -2901,6 +2901,20 @@ tasks
             Disable, don't delete (the user, 2026-11-18): every cut test, shard or strategy stays in the tree, unlinked
             or skipped behind a named switch, with a comment saying what it checks and how to turn it back on, so it can
             be re-enabled later. Fork-from-cut is @task.V3.T90; the r2 proposal's other cuts are not taken.
+        comment     2026-11-18T03:08:45Z
+            Widened round (a9886920): every item built but the grace test; acceptance still not met, stays in_progress.
+            Alone, before (970916c1) -> after: suite 54 -> 36 s (1,431 -> 1,134 tests: CLI 333 -> 27, +9 crafted rule
+            cases, 15 skipped behind switches; file sum 432 -> about 280 s), stress 65 -> 62 s (adds the 1,000-seed pair
+            shards), faults 256 -> 224 s with no timeout (copies sized 4 x 3; usual and stress tiers run apart). Caught
+            list identical, 254 of 254 (refused-publishes-nothing was stale: its edit no longer parsed; planted again).
+            Pair stop: 107 -> 6 s, same cells and reds. Double reload in hold windows: 46 -> 4.5 s. Switches:
+            FLOW_EVERY_RELOAD, FLOW_EVERY_STORY_CLI, FLOW_TWIN_RUNS, FLOW_BENCH_LIMITS (nub run bench:limits). Found by
+            the new draws: Restore I1 judged a reload whose load was refused, and a reload never closed a storage hold
+            window; both oracle fixes have crafted cases. Five saved stress Stories re-printed (bench content shifts).
+            Faults' unchanged run now fails only on T20's pair reds (also in stress); the dead core shows 54 unexplained
+            greens once the rule-title pattern is gone (the 66 static checks; it.fails counted apart). Not done: the
+            grace test needs a Story step for a local actor, a test-tooling addition; the guard-size item.
+            types/vite-plus-test.d.ts gained skipIf (outside May change).
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning

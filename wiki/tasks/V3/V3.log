@@ -1188,3 +1188,8 @@ note 2026-11-18T02:30:18Z
     Decision (the user, 2026-11-18): T83 takes the first efficacy proposal plus the generator gap and the bench-limit
     move; cut tests are disabled with a comment, never deleted. New T90 (fork-from-cut) after T20. P3 order: T83, T20,
     T90, T81, T80.
+
+note 2026-11-18T03:08:46Z
+    Speed baseline at a9886920 (alone, 12 cores): suite 36 s, stress 62 s, faults 224 s, no load timeouts. Was 54, 65
+    and 256 s at 970916c1; 12, 9 and 28 s at 313e8a45. What is left is the reload sweeps' replay, which @task.V3.T90
+    forks from a cut (@task.V3.T83).
