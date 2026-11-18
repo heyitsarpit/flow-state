@@ -22,13 +22,17 @@
 // not stop at its first failing test. A fault the targets miss is still judged by the whole suite,
 // stopping at its first failing test, so its list is partial.
 //
-//   bun tools/faults/run.ts [--only <name...>]
+// `--background` runs at the lowest CPU priority (nice 19, which every test run it starts
+// inherits) on 2 copies x 2 workers, so it blocks no other work, and writes everything it prints to
+// a file in the system's temp directory as well as stdout; the first line names the file.
+//
+//   bun tools/faults/run.ts [--only <name...>] [--background]
 import { type ChildProcess, execFile } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { availableParallelism, tmpdir, totalmem } from "node:os";
+import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { availableParallelism, setPriority, tmpdir, totalmem } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { type Fault, faults as allFaults } from "../../packages/flow-state-v3/tests/faults.ts";
-import { applyEdits, chosenFaults, failedTestsOf, type Run, summaryOf, verdictOf } from "./verdict.ts";
+import { applyEdits, chosenFaults, failedTestsOf, inBackground, type Run, summaryOf, verdictOf } from "./verdict.ts";
 
 const chosen = chosenFaults(allFaults, process.argv.slice(2));
 
@@ -39,6 +43,22 @@ if ("refused" in chosen) {
 
 const { faults } = chosen;
 const only = faults !== allFaults;
+const background = inBackground(process.argv.slice(2));
+
+if (background) {
+  const log = join(tmpdir(), `flow-faults-${new Date().toISOString().replaceAll(":", "-")}.log`);
+  const print = console.log;
+  const tee = (line: unknown) => {
+    print(line);
+    appendFileSync(log, `${String(line)}\n`);
+  };
+
+  setPriority(19);
+  writeFileSync(log, "");
+  console.log = tee;
+  console.error = tee;
+  console.log(`faults: in the background at nice 19, 2 copies x 2 workers; verdict also in ${log}`);
+}
 
 const repo = resolve(import.meta.dirname, "..", "..");
 const pkg = "packages/flow-state-v3";
@@ -47,15 +67,16 @@ const skipped = new Set(["node_modules", "prototypes"]);
 // run is never starved into its timeout. A worker peaks near 2 GiB (the deep-value tests, measured
 // with `/usr/bin/time -l`), so memory bounds the copies too. Two at least: the unchanged run and
 // the dead core.
-const WORKERS = 3;
+const WORKERS = background ? 2 : 3;
 const WORKER_PEAK = 2 * 1024 ** 3;
-const COPIES = Math.max(
+const COPIES = background ? 2 : Math.max(
   only ? 1 : 2,
   Math.min(Math.floor(availableParallelism() / WORKERS), Math.floor(totalmem() / (WORKERS * WORKER_PEAK))),
 );
 // One tier's run, timed out past this: the slowest whole tier measured under the run's own load
 // is 152 s (a whole stress tier), so 240 s leaves about half again.
-const RUN_MS = 240_000;
+// At nice 19 on fewer workers a tier may wait behind other work, so the background run allows 600 s.
+const RUN_MS = background ? 600_000 : 240_000;
 const FAILS_REPORTER = resolve(import.meta.dirname, "fails-reporter.ts");
 const EXPECTED_FAIL = "expected fail: ";
 // What one run may print: the most measured is 7.2 MiB (the dead core's verbose usual tier); the

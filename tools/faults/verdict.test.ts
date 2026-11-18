@@ -3,7 +3,7 @@
 //
 //   node --experimental-strip-types tools/faults/verdict.test.ts
 import assert from "node:assert/strict";
-import { applyEdits, chosenFaults, failedTestsOf, verdictOf } from "./verdict.ts";
+import { applyEdits, chosenFaults, failedTestsOf, inBackground, verdictOf } from "./verdict.ts";
 
 const out = (tests: string, files: string) => ` Test Files  ${files}\n      Tests  ${tests}\n`;
 
@@ -58,3 +58,10 @@ assert.deepEqual(chosenFaults(named, []), { faults: named });
 assert.deepEqual(chosenFaults(named, ["--only", "c", "a"]), { faults: [{ name: "c" }, { name: "a" }] });
 assert.deepEqual(chosenFaults(named, ["--only", "a", "typo"]), { refused: "no fault named typo" });
 assert.deepEqual(chosenFaults(named, ["--only"]), { refused: "--only names no fault" });
+
+// `--background` is a flag of its own: it never names a fault, before or after `--only`.
+assert.equal(inBackground(["--background"]), true);
+assert.equal(inBackground(["--only", "a"]), false);
+assert.deepEqual(chosenFaults(named, ["--background"]), { faults: named });
+assert.deepEqual(chosenFaults(named, ["--only", "b", "--background"]), { faults: [{ name: "b" }] });
+assert.equal(inBackground(["--only", "b", "--background"]), true);

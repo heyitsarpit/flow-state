@@ -58,7 +58,9 @@ export const chosenFaults = <F extends { readonly name: string }>(
   const at = argv.indexOf("--only");
 
   if (at === -1) return { faults: all };
-  const names = argv.slice(at + 1);
+  const after = argv.slice(at + 1);
+  const end = after.findIndex((arg) => arg.startsWith("--"));
+  const names = end === -1 ? after : after.slice(0, end);
 
   if (names.length === 0) return { refused: "--only names no fault" };
   const unknown = names.filter((name) => !all.some((fault) => fault.name === name));
@@ -67,3 +69,7 @@ export const chosenFaults = <F extends { readonly name: string }>(
 
   return { faults: names.flatMap((name) => all.filter((fault) => fault.name === name)) };
 };
+
+// Whether a run is `--background`: the whole list at low CPU priority on 2 copies x 2 workers, its
+// verdict written to a file as well as stdout.
+export const inBackground = (argv: ReadonlyArray<string>) => argv.includes("--background");
