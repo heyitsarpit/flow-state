@@ -6,8 +6,8 @@ checked data just by its parameter types. The intended nesting of layers is stat
 proofs**: type-level files that compile only if the code makes them true. This is a small, general package
 (working name `checked`), not Flow-specific. Flow is its first user.
 
-Everything here is **proposed**. Prior art, superseded by this file: code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md
-(doors, nominal tokens), and the layer-manifest spike on branch `worktree-agent-a215f85639e31d688`. A 10-minute
+Everything here is **proposed**. Prior art, superseded by this file:
+code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md (doors, nominal tokens), and the layer-manifest spike on branch `worktree-agent-a215f85639e31d688`. A 10-minute
 spike of this design passed (section 8).
 
 ## 1. The problem
@@ -15,12 +15,14 @@ spike of this design passed (section 8).
 @task.V3.T20 and @task.V3.T81 each hit the Epic's failure limit on one class of bug: Flow relied on input it never
 checked, or checked it in the wrong place. The review findings fall into four kinds:
 
-| Kind | Example | Fixed by |
-| --- | --- | --- |
-| **Skipped check**: code relies on a value no check produced | a private helper given raw config; a binding read raw from a record | `Checked` parameter types (section 2) |
-| **Raw throw**: bad input escapes as a TypeError | `retryable(undefined)`, null payloads, cyclic config | the layer's catch-all (section 2) |
-| **Forged or copied value** trusted by a mark | `machine({ "~owner": … })`, `{ ...Counter }` | `X.is(value)` on object layers (section 2) |
-| **Incomplete check**: the check ran but missed a field | NaN delay as 0 ms; lane keys; key versus content | out of scope: the check's own decode (T92, T81's Schema) |
+- **Skipped check:** code relies on a value no check produced (a private helper given raw config; a binding read
+  raw from a record). Fixed by `Checked` parameter types (section 2).
+- **Raw throw:** bad input escapes as a TypeError (`retryable(undefined)`, null payloads, cyclic config). Fixed by
+  the layer's catch-all (section 2).
+- **Forged or copied value** trusted by a mark (`machine({ "~owner": … })`, `{ ...Counter }`). Fixed by `X.is` on
+  object layers (section 2).
+- **Incomplete check:** the check ran but missed a field (NaN delay as 0 ms; lane keys; key versus content). Out of
+  scope: the check's own decode (T92, T81's Schema).
 
 The checks were applied module by module, so every review found the next gap. The fix is to compose at the level
 of **layers**, nested like concentric rings, which is what `policy-code-composition` teaches inside one module.
@@ -111,7 +113,7 @@ field instead of the parent (`render(states: ReadonlyArray<string>)`). The rule:
 | --- | --- |
 | Data enters only through a layer, at any depth | **types**: `Checked` and `Raw` parameters |
 | The intended nesting holds | **composition proofs** (section 3) |
-| No one fakes a `Checked` value | by construction (the stamp key is unexported), plus one **lint rule**: no `as Checked<…>` or double cast outside the package |
+| No one fakes a `Checked` value | by construction (unexported stamp key), plus a **lint rule** banning casts to it |
 | Imports point inward | a **folder-structure lint rule** (Flow's existing Scope import rules) |
 | A layer never lets a raw throw escape | the catch-all, by construction |
 | A copied or forged object is refused | `X.is` on object layers |
@@ -122,8 +124,8 @@ decoding (a Schema) is the layer author's job.
 ## 6. In Flow
 
 - **Layers (first cut):** `Definition`, `Machine`, `App`, `Ref`, `Event` (hot), `Callback` (hot), `Restored`,
-  `Answer` (hot). The real list comes from the boundary map in code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md,
-  section 1.
+  `Answer` (hot). The real list comes from the boundary map, section 1 of
+  code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md.
 - **Identifier layers:** `ActorName`, `RecordKey`, `LaneKey`, `AttemptId`, `StateName`. Today these travel as plain
   `string` (`decodeName(compiled, name: string)`, `inputOfName(compiled, name: string)` in `src/core/identity.ts`),
   which is where T20's findings broke. T92 introduces them.
