@@ -289,14 +289,22 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     tests: ["tests/stories/fork.test.ts"],
     says: "a forked reload starts the store empty instead of from the saved records, batches and words",
     rule: "Stories R18",
-    edits: [{ file: "src/host/testing/run.ts", find: "    saved.store,\n", replace: "    noStore,\n" }],
+    edits: [
+      { file: "src/host/testing/run.ts", find: "    saved.store,\n", replace: "    noStore,\n" },
+    ],
   },
   {
     name: "fork-servers-fresh",
     tests: ["tests/stories/fork.test.ts"],
     says: "a forked reload starts every fake server fresh instead of from the saved truth, calls and words",
     rule: "Stories R18",
-    edits: [{ file: "src/host/testing/run.ts", find: "    saved.servers,\n", replace: "    noServers,\n" }],
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "    saved.servers,\n",
+        replace: "    noServers,\n",
+      },
+    ],
   },
   {
     name: "fork-actors-dropped",
