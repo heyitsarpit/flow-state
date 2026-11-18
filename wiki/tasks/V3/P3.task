@@ -4204,7 +4204,7 @@ tasks
             `Arbitrary` concurrency and smaller fibers. The user approved the upgrade on 2026-11-18.
 
             **Read first:** root `package.json` (`overrides`), https://github.com/Effect-TS/effect/releases (4.0.6 to
-            4.1.4), skill:effect-api-documentation.
+            4.1.4), the project's `effect-api-documentation` skill.
 
             **Risk:** breaking changes known to touch this code: `Terminal.make` needs `size`
             (`packages/flow-state-v3/tests/cli/cli.test.ts:72`); `Schema.Record` rejects optional index-signature values
