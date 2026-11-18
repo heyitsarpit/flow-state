@@ -17,7 +17,7 @@ import {
   stopped,
 } from "../core/step.ts";
 import { type CallId, Command, emptyWorld, type World } from "../core/world.ts";
-import { flowError, lifeRejection } from "../error.ts";
+import { flowError, lifeRejection, raise } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
 import { type Fibers, sleepUntil } from "./fibers.ts";
@@ -166,40 +166,73 @@ export const makeDriver = (options: {
       ),
     );
 
+  // Runs each queued input's step and performs its work. A defect in the step, or a throw while
+  // its work is performed, stops the Runtime; a throw from the host's admit hook (or its work clock)
+  // stops it too and is returned, for the host that raised it.
   const drainInbox = () => {
     for (let next = inbox.shift(); next !== undefined; next = inbox.shift()) {
-      const env: Env = {
-        now: clock.currentTimeMillisUnsafe(),
-        seed: host.sessionSeed,
-        admit: admitValue,
-      };
-
-      const started = Option.map(host.workClock, (now) => now());
+      const current = next;
 
       const stepped = Result.try({
-        try: () => step(machines, world, next, env),
+        try: () => {
+          const started = Option.map(host.workClock, (now) => now());
+
+          const env: Env = {
+            now: clock.currentTimeMillisUnsafe(),
+            seed: host.sessionSeed,
+            admit: admitValue,
+          };
+
+          return { out: step(machines, world, current, env), started };
+        },
         catch: (defect) => defect,
       });
 
       if (Result.isFailure(stepped)) {
         stop(stepped.failure);
 
-        return;
+        return Option.none();
       }
 
-      const out = stepped.success;
+      const { out, started } = stepped.success;
 
-      const evidence = Option.match(slowWork(next, started), {
-        onNone: () => out.evidence,
-        onSome: (slow) => [...out.evidence, slow],
+      const admitted = Result.try({
+        try: () => {
+          const evidence = Option.match(slowWork(current, started), {
+            onNone: () => out.evidence,
+            onSome: (slow) => [...out.evidence, slow],
+          });
+
+          options.admit(evidence);
+
+          return evidence;
+        },
+        catch: (fault) => fault,
       });
 
-      options.admit(evidence);
+      if (Result.isFailure(admitted)) {
+        stop(admitted.failure);
+
+        return Option.some({ fault: admitted.failure });
+      }
+
+      const evidence = admitted.success;
       world = out.world;
 
       if (evidence.length > 0) options.sink(evidence);
 
-      for (const command of out.commands) perform(command);
+      const performed = Result.try({
+        try: () => {
+          for (const command of out.commands) perform(command);
+        },
+        catch: (defect) => defect,
+      });
+
+      if (Result.isFailure(performed)) {
+        stop(performed.failure);
+
+        return Option.none();
+      }
 
       // Mail the step's drain left is served by a later step, after a yield to the host's tasks.
       if (owesServe(world))
@@ -209,18 +242,20 @@ export const makeDriver = (options: {
 
       if (isDisposed(world.life)) Deferred.doneUnsafe(disposed, Exit.void);
     }
+
+    return Option.none();
   };
 
-  // A throw from the host's own callbacks must not wedge the inbox: the loop is released before it
-  // is rethrown, so the next input runs.
+  // The loop is released before a host callback's throw goes back to its caller, so the inbox is
+  // never wedged.
   const run = () => {
     running = true;
-    const drained = Result.try({ try: drainInbox, catch: (fault) => fault });
+    const fault = drainInbox();
     running = false;
 
-    if (Result.isFailure(drained))
+    if (Option.isSome(fault))
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a host callback's throw goes back to its caller, after the loop is released
-      throw drained.failure;
+      throw fault.value.fault;
   };
 
   const input = (next: Input) => {
@@ -234,8 +269,9 @@ export const makeDriver = (options: {
     const verdict = admit(world.life, next);
 
     if (Verdict.$is("Reject")(verdict))
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public calls' contract: a call the Runtime's life rejects throws its FlowError
-      throw flowError([lifeRejection(verdict.code, what, what, "ready()", endedBy(world.life))]);
+      return raise(
+        flowError([lifeRejection(verdict.code, what, what, "ready()", endedBy(world.life))]),
+      );
   };
 
   const offer = (next: Input, what: string) => {
@@ -269,15 +305,16 @@ export const makeDriver = (options: {
 
       // An internal, unknown or invalid event throws InvalidEvent and starts no turn.
       if (Option.isNone(decoded))
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the public send's contract: an invalid event throws InvalidEvent before any turn
-        throw flowError([
-          {
-            code: "InvalidEvent",
-            path: [actor.machine, tag],
-            summary: `${tag} is not a public event of ${actor.machine} with a valid payload`,
-            help: "Send a public event of this machine with a payload its Schema accepts.",
-          },
-        ]);
+        return raise(
+          flowError([
+            {
+              code: "InvalidEvent",
+              path: [actor.machine, tag],
+              summary: `${tag} is not a public event of ${actor.machine} with a valid payload`,
+              help: "Send a public event of this machine with a payload its Schema accepts.",
+            },
+          ]),
+        );
 
       input(Input.Send({ actor, tag, payload: decoded.value }));
     },

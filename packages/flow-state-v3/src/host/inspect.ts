@@ -6,7 +6,8 @@ import { type Life, lifecycleOf } from "../core/life.ts";
 import { actorKey, Timer } from "../core/world.ts";
 import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
-import { DriverId, InspectorId, type Runtime, type Snapshot, snapshotOf } from "./runtime.ts";
+import { entry } from "../entry.ts";
+import { internalsOf, type Runtime, type Snapshot, snapshotOf } from "./runtime.ts";
 
 /**
  * Attaches a callback to a Runtime's evidence.
@@ -24,9 +25,12 @@ import { DriverId, InspectorId, type Runtime, type Snapshot, snapshotOf } from "
  *
  * - This build delivers records synchronously at the end of each step, not on a later task.
  */
-export const attachInspector = (runtime: Runtime, callback: (evidence: Evidence) => void) => ({
-  dispose: runtime[InspectorId](callback),
-});
+export const attachInspector = entry(
+  "attachInspector",
+  (runtime: Runtime, callback: (evidence: Evidence) => void) => ({
+    dispose: internalsOf(runtime).attach(callback),
+  }),
+);
 
 export { Evidence };
 
@@ -160,6 +164,6 @@ const cutOf = (driver: Driver): RuntimeCut => {
  * - A batch out is the persistence edge's, not the Runtime's state, so the cut does not show it.
  * - This first slice covers actors, lanes, owed endings, timers, uses and the lifecycle only.
  */
-export const inspect = (runtime: Runtime) => cutOf(runtime[DriverId]);
+export const inspect = entry("inspect", (runtime: Runtime) => cutOf(internalsOf(runtime).driver));
 
 export { dataView } from "../core/data-view.ts";

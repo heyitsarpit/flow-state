@@ -21,7 +21,8 @@ import {
 } from "./definition.ts";
 import { bodyFindings } from "./config.ts";
 import { codecOf } from "./events.ts";
-import { flowErrorOf, invalid, refuse } from "./error.ts";
+import { flowErrorOf, invalid, raise, refuse } from "./error.ts";
+import { entry, inert } from "./entry.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { Ending } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
@@ -116,6 +117,7 @@ const erasedWhen = (when: (current: never, previous: never) => boolean) =>
 
 // The event token an ending names: E.X itself, or the token E.X.from(f) was made from.
 const tokenOf = (ending: Ending) =>
+  // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own tokens by mark until its decode checks them by identity
   Predicate.hasProperty(ending, "~token") ? ending["~token"] : ending;
 
 const erasedBody = <B>(body: B) =>
@@ -142,131 +144,140 @@ const erasedBody = <B>(body: B) =>
  * - An invalid body throws one FlowError listing every violation found, in walk order, each
  *   with its path.
  */
-// RETURN_TYPE: the exported Machine keeps the definition's literal types.
-export const machine = <D extends AnyDefinition>(
-  definition: D,
-  body: (tokens: { readonly S: D["S"]; readonly E: D["E"]; readonly O: D["O"] }) => MachineBody<D>,
-): Machine<D> => {
-  if (!Predicate.hasProperty(definition, "~owner"))
-    refuse([
-      invalid(
-        ["definition"],
-        "WrongKind",
-        "machine was given no definition",
-        "Pass machine the value definition({ ... }) returned.",
-      ),
-    ]);
-
-  if (!Predicate.isFunction(body))
-    refuse([
-      invalid(
-        ["body"],
-        "WrongKind",
-        "machine was given no body function",
-        "Pass machine a body: ({ S, E, O }) => ({ default, on, states }).",
-      ),
-    ]);
-
-  const written = Result.try({
-    try: () => body({ S: definition.S, E: definition.E, O: definition.O }),
-    // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
-    catch: (cause: unknown) => cause,
-  });
-
-  if (Result.isFailure(written))
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid construction throws one FlowError before any work
-    throw flowErrorOf(
-      [
-        {
-          code: "Defect",
-          path: ["body"],
-          summary: "the machine body threw",
-          help: "Fix the machine body; what it threw is this error's cause.",
-        },
-      ],
-      written.failure,
-    );
-
-  const config = erasedBody(written.success);
-
-  refuse(bodyFindings(config));
-
-  const tree = treeOfDefinition(definition);
-  const { tokens, histories } = tokenMaps(definition, tree.nodes);
-
-  const compile: Compile = {
-    definition,
-    nodes: new Map(tree.nodes.map((n) => [n.path, n])),
-    tokens,
-    histories,
-    events: new Set(Object.keys(definition.E)),
-    sends: new Set(Object.values(definition.E)),
-    findings: [],
-    scheduleNames: new Map(),
-  };
-
-  const compiledTree = nodesOf(compile, config, Option.none(), []);
-
-  for (const [at, reaction] of (config.onContext ?? []).entries())
-    if (!compile.sends.has(tokenOf(reaction.event)))
-      compile.findings.push(
+export const machine = entry(
+  "machine",
+  // RETURN_TYPE: the exported Machine keeps the definition's literal types.
+  <D extends AnyDefinition>(
+    definition: D,
+    body: (tokens: {
+      readonly S: D["S"];
+      readonly E: D["E"];
+      readonly O: D["O"];
+    }) => MachineBody<D>,
+  ): Machine<D> => {
+    // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own definitions by mark until its decode checks them by identity
+    if (!Predicate.hasProperty(definition, "~owner"))
+      refuse([
         invalid(
-          ["onContext", at, "event"],
-          "ForeignToken",
-          "the reaction's event is not this definition's",
-          "Use the tokens the machine body receives: S, E and O of this definition.",
+          ["definition"],
+          "WrongKind",
+          "machine was given no definition",
+          "Pass machine the value definition({ ... }) returned.",
+        ),
+      ]);
+
+    if (!Predicate.isFunction(body))
+      refuse([
+        invalid(
+          ["body"],
+          "WrongKind",
+          "machine was given no body function",
+          "Pass machine a body: ({ S, E, O }) => ({ default, on, states }).",
+        ),
+      ]);
+
+    const written = Result.try({
+      try: () => body({ S: definition.S, E: definition.E, O: definition.O }),
+      // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
+      catch: (cause: unknown) => cause,
+    });
+
+    if (Result.isFailure(written))
+      return raise(
+        flowErrorOf(
+          [
+            {
+              code: "Defect",
+              path: ["body"],
+              summary: "the machine body threw",
+              help: "Fix the machine body; what it threw is this error's cause.",
+            },
+          ],
+          written.failure,
         ),
       );
 
-  refuse(compile.findings);
+    const config = erasedBody(written.success);
 
-  const fields = Object.entries(definition.memory).map(([name, raw]) => fieldOf(name, raw));
-  const memory = memoryCodec(fields);
-  const memoryJson = codecOf<Values>(Schema.toCodecJson(memory));
-  const states = new Map(compiledTree.nodes.map((n) => [n.path, n]));
+    refuse(bodyFindings(config));
 
-  const compiled = {
-    id: definition.id,
-    persist: definition.persist,
-    initial: "",
-    states,
-    root: compiledTree.root,
-    events: eventsOf(definition),
-    fields,
-    memory,
-    memoryJson,
-    walk: walkerOf(memoryJson),
-    identity: walkerOf(codecOf<Values>(nameSchemaOf(fields))),
-    operations: new Map(
-      Object.entries(definition.operations).map(([name, bound]) => [
-        name,
-        operationOf(name, bound),
-      ]),
-    ),
-    context: new Map(
-      Object.entries(definition.context).map(([slot, declared]) => [
-        slot,
-        {
-          provider: declared.provider,
-          json: Schema.toCodecJson(declared.schema),
-          walk: walkerOf(Schema.toCodecJson(declared.schema)),
-          select: { slot: `context.${slot}`, run: erasedSelect(declared.select) },
-        },
-      ]),
-    ),
-    reactions: (config.onContext ?? []).map((reaction, at) => ({
-      select: { slot: `onContext.${at}.select`, run: reaction.select },
-      when: Option.map(Option.fromUndefinedOr(reaction.when), (when) => ({
-        slot: `onContext.${at}.when`,
-        run: erasedWhen(when),
+    const tree = treeOfDefinition(definition);
+    const { tokens, histories } = tokenMaps(definition, tree.nodes);
+
+    const compile: Compile = {
+      definition,
+      nodes: new Map(tree.nodes.map((n) => [n.path, n])),
+      tokens,
+      histories,
+      events: new Set(Object.keys(definition.E)),
+      sends: new Set(Object.values(definition.E)),
+      findings: [],
+      scheduleNames: new Map(),
+    };
+
+    const compiledTree = nodesOf(compile, config, Option.none(), []);
+
+    for (const [at, reaction] of (config.onContext ?? []).entries())
+      if (!compile.sends.has(tokenOf(reaction.event)))
+        compile.findings.push(
+          invalid(
+            ["onContext", at, "event"],
+            "ForeignToken",
+            "the reaction's event is not this definition's",
+            "Use the tokens the machine body receives: S, E and O of this definition.",
+          ),
+        );
+
+    refuse(compile.findings);
+
+    const fields = Object.entries(definition.memory).map(([name, raw]) => fieldOf(name, raw));
+    const memory = memoryCodec(fields);
+    const memoryJson = codecOf<Values>(Schema.toCodecJson(memory));
+    const states = new Map(compiledTree.nodes.map((n) => [n.path, n]));
+
+    const compiled = {
+      id: definition.id,
+      persist: definition.persist,
+      initial: "",
+      states,
+      root: compiledTree.root,
+      events: eventsOf(definition),
+      fields,
+      memory,
+      memoryJson,
+      walk: walkerOf(memoryJson),
+      identity: walkerOf(codecOf<Values>(nameSchemaOf(fields))),
+      operations: new Map(
+        Object.entries(definition.operations).map(([name, bound]) => [
+          name,
+          operationOf(name, bound),
+        ]),
+      ),
+      context: new Map(
+        Object.entries(definition.context).map(([slot, declared]) => [
+          slot,
+          {
+            provider: declared.provider,
+            json: Schema.toCodecJson(declared.schema),
+            walk: walkerOf(Schema.toCodecJson(declared.schema)),
+            select: { slot: `context.${slot}`, run: erasedSelect(declared.select) },
+          },
+        ]),
+      ),
+      reactions: (config.onContext ?? []).map((reaction, at) => ({
+        select: { slot: `onContext.${at}.select`, run: reaction.select },
+        when: Option.map(Option.fromUndefinedOr(reaction.when), (when) => ({
+          slot: `onContext.${at}.when`,
+          run: erasedWhen(when),
+        })),
+        event: mappingOf(reaction.event, `onContext.${at}.event`),
       })),
-      event: mappingOf(reaction.event, `onContext.${at}.event`),
-    })),
-    wiring: new Map<string, ActorId>(),
-  };
+      wiring: new Map<string, ActorId>(),
+    };
 
-  return {
-    definition,
-    compiled: { ...compiled, initial: leafOf(compiled, compiledTree.initial) },
-  };
-};
+    return {
+      definition,
+      compiled: inert({ ...compiled, initial: leafOf(compiled, compiledTree.initial) }),
+    };
+  },
+);

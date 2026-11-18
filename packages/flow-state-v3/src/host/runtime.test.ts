@@ -563,3 +563,79 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
     assert.deepStrictEqual(await Effect.runPromise(countIn(store)), Option.some(1));
   });
 });
+
+// A Tally Runtime whose admit hook and host visibility each throw once armed: the host's own
+// callbacks, run outside the core's step.
+const trappedHost = () => {
+  const trap = { admit: false, hidden: false };
+
+  const { runtime } = buildRuntime(
+    {
+      app: app({ id: "trapped", machines: { tally: TallyMachine } }),
+      scope: "trapped",
+      persistence: { captureMs: 60_000 },
+    },
+    Context.make(
+      Host,
+      Host.of({
+        hidden: () => {
+          // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted throw these tests are about
+          if (trap.hidden) throw new Error("the host cannot read its visibility");
+
+          return false;
+        },
+        onHidden: () => () => undefined,
+        store: Option.some({ load: Effect.succeed(new Map()), write: () => Effect.void }),
+        sessionSeed: "0".repeat(32),
+        freezeValues: true,
+        workClock: Option.none(),
+      }),
+    ),
+    () => {
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted throw these tests are about
+      if (trap.admit) throw new Error("the admit hook refused the step");
+    },
+  );
+
+  return { runtime, trap };
+};
+
+describe("a throw from the admit hook or from a step's work (Actors R25)", () => {
+  it("Actors R25: a throw from the admit hook stops the Runtime, its caller gets it back, and dispose fails with it", async () => {
+    const { runtime, trap } = trappedHost();
+    await Effect.runPromise(runtime.ready());
+    const counter = runtime.ensureActor(tally);
+    trap.admit = true;
+
+    assert.throws(
+      () => counter.send({ _tag: "Bump", by: 1 }),
+      (e: Error) =>
+        e instanceof FlowError &&
+        e.code === "Defect" &&
+        Cause.pretty(Cause.die(e.cause)).includes("refused the step"),
+    );
+    assert.equal(inspect(runtime).lifecycle, "Stopped");
+    assert.throws(() => runtime.ensureActor(tally), flowError("RuntimeDisposed"));
+    const disposed = await Effect.runPromiseExit(runtime.dispose());
+    assert.ok(
+      Exit.isFailure(disposed) && Cause.pretty(disposed.cause).includes("refused the step"),
+    );
+  });
+
+  it("Actors R25: a throw while a step's commands are performed stops the Runtime, and dispose fails with it", async () => {
+    const { runtime, trap } = trappedHost();
+    await Effect.runPromise(runtime.ready());
+    const counter = runtime.ensureActor(tally);
+    trap.hidden = true;
+
+    counter.send({ _tag: "Bump", by: 1 });
+
+    assert.equal(inspect(runtime).lifecycle, "Stopped");
+    assert.throws(() => runtime.ensureActor(tally), flowError("RuntimeDisposed"));
+    const disposed = await Effect.runPromiseExit(runtime.dispose());
+    assert.ok(
+      Exit.isFailure(disposed) &&
+        Cause.pretty(disposed.cause).includes("cannot read its visibility"),
+    );
+  });
+});

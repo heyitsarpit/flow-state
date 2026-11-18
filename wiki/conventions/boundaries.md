@@ -8,12 +8,12 @@ entry) or stores them unread (a builder). Anything else that throws becomes a Fl
 | --------------------------- | --------------------------------------------------------------- | ---------------------- |
 | Construction config         | `definition`, `machine`: one Schema each, via the walker        | @task.V3.T81           |
 | Builder arguments           | captured unread; checked by the `definition`/`machine` decode   | @task.V3.T81           |
-| Flow-made values (tokens)   | `WeakSet` membership, per definition for its tokens             | @task.V3.T81           |
-| App and Runtime setup       | `app`, `runtimeSetup`: Schema decode in `entry`                 | @task.V3.T94           |
+| Flow-made values (tokens)   | `WeakSet` membership, per definition for its tokens; event admissions by `WeakMap` (built) | @task.V3.T81 |
+| App and Runtime setup       | `app` (its findings), `runtimeSetup` (a Schema decode, then `app`'s), in `entry` | built (@task.V3.T94) |
 | Event payloads              | `send`, `E.X`, Story steps: the event's compiled check          | built (@task.V3.T81)   |
-| Refs and actor calls        | `ensureActor`, `createActor`, `disposeActor`: ref decode        | @task.V3.T94           |
-| Runtime options             | `ready`, `dispose`: `entryEffect`                               | @task.V3.T94           |
-| Any stray throw in an entry | `entry` / `entryEffect`: FlowError Defect with the cause        | @task.V3.T94           |
+| Refs and actor calls        | `ensureActor`, `createActor`, `disposeActor` in `entry`; a handle's Runtime by `WeakMap` | built (@task.V3.T94) |
+| Runtime options             | `ready`, `dispose`: `entryEffect`                               | built (@task.V3.T94)   |
+| Any stray throw in an entry | `entry` / `entryEffect`: FlowError Defect with the cause        | built (@task.V3.T94)   |
 | User callback results       | one callback wrapper; patch keys and values by field Schema     | @task.V3.T95           |
 | Server answers              | only through the user's mapper, then the event's check          | @task.V3.T95           |
 | A machine's sends           | the target ref decoded, the event by the target's check         | @task.V3.T96           |
@@ -27,8 +27,12 @@ Brands: `ActorName`, `RecordKey`, `LaneKey`, `AttemptId`, `StateName`, each a `S
 Not checkable, by contract: a callback that never returns; a forged Effect Schema (its parser's throw is caught); a
 service's answer before its mapper.
 
-Enforced by lint (no `~` marks, `throw` only at listed sites) and the surface test, which requires every reachable
-public function to be an entry or a builder. A new source changes this page first, then the code.
+Enforced by lint (no `~` marks, `throw` only at listed sites) and the surface test
+(`packages/flow-state-v3/tests/surface/`), which requires every function reachable from the root route and every
+fixture app's setup, app, Runtime and actor to be an entry or a builder (`src/entry.ts`). The walk stops at Flow's
+inert data (a builder's result, Compiled, a bound contract, a walker) and Effect's own values. A Runtime's driver and
+a handle's link live in `WeakMap`s beside them, so no caller reaches them. A new source changes this page first,
+then the code.
 
 Status: proposed design, accepted by the user (2026-11-18); not built. Source:
 [replan-2026-11-18.md](../plans/flow/references/proposals/replan-2026-11-18.md) section 4.

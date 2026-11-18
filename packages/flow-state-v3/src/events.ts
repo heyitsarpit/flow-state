@@ -1,9 +1,10 @@
 import { Option, Predicate, Schema } from "effect";
-import { admitted, type Walker, walkerOf } from "./core/boundary.ts";
+import { admitted, walkerOf } from "./core/boundary.ts";
 import type { Values } from "./core/compiled.ts";
 import { isUncertain } from "./config.ts";
 import type { AnyDefinition, EventFields, Tokens } from "./definition.ts";
-import { flowError } from "./error.ts";
+import { flowError, raise } from "./error.ts";
+import { builder, entry } from "./entry.ts";
 
 /**
  * An event's field Schemas, through its `Flow.uncertain` marker.
@@ -48,9 +49,14 @@ export const payloadOf = (fields: Schema.Struct.Fields) => {
   };
 };
 
+// How each event token Flow made admits its payload, by the token itself: a copy of a token is
+// not one.
+const admissions = new WeakMap<WeakKey, ReturnType<typeof payloadOf>>();
+
 const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
   const ending = { event: tag, from: Option.none() };
-  const { payload, walk, names } = payloadOf(fields);
+  const admission = payloadOf(fields);
+  const { payload, walk, names } = admission;
 
   const checks = Object.entries(fields).map(
     ([name, schema]) => [name, walkerOf(schema).is] as const,
@@ -58,25 +64,25 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
 
   // A payload-free constructor takes no argument; one given, even undefined, is checked.
   // FLOW_STATE_ALLOW_UNKNOWN: what a caller without types passed.
-  const make = (...args: ReadonlyArray<unknown>) => {
+  const make = entry(`E.${tag}`, (...args: ReadonlyArray<unknown>) => {
     const given = args.length === 0 ? {} : args[0];
 
     return Option.match(admitted(walk, names, given), {
       onSome: (payload) => ({ ...payload, _tag: tag }),
-      onNone: () => {
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- E.X's contract: a payload its Schema refuses throws InvalidEvent
-        throw invalidEvent(
-          tag,
-          checks
-            .filter(
-              ([name, is]) => !is(Predicate.hasProperty(given, name) ? given[name] : undefined),
-            )
-            .map(([name]) => name)
-            .slice(0, 1),
-        );
-      },
+      onNone: () =>
+        raise(
+          invalidEvent(
+            tag,
+            checks
+              .filter(
+                ([name, is]) => !is(Predicate.hasProperty(given, name) ? given[name] : undefined),
+              )
+              .map(([name]) => name)
+              .slice(0, 1),
+          ),
+        ),
     });
-  };
+  });
 
   const token = Object.assign(make, {
     "~flow": "event",
@@ -85,11 +91,13 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
     "~payload": payload,
     "~walk": walk,
     "~names": names,
-    from: (map: (value: never) => Values) => ({
+    from: builder(`E.${tag}.from`, (map: (value: never) => Values) => ({
       ending: { event: tag, from: Option.some(map) },
       "~token": token,
-    }),
+    })),
   });
+
+  admissions.set(token, admission);
 
   return token;
 };
@@ -104,19 +112,6 @@ export const tokensOf = <Ev extends Readonly<Record<string, EventFields>>>(event
     ),
   );
 
-// RETURN_TYPE: a type guard states the token shape it narrows to.
-const isAdmitting = (
-  // FLOW_STATE_ALLOW_UNKNOWN: a definition's event token, read back by its tag.
-  x: unknown,
-): x is {
-  readonly "~payload": Schema.Codec<Values, Values>;
-  readonly "~walk": Walker<Values, Values>;
-  readonly "~names": ReadonlyArray<string>;
-} =>
-  Predicate.hasProperty(x, "~payload") &&
-  Predicate.hasProperty(x, "~walk") &&
-  Predicate.hasProperty(x, "~names");
-
 /**
  * How a definition admits one event's payload: the Struct and its type-side walker its token was
  * built with, so `E.X`, `send` and Compiled check a payload one way.
@@ -124,7 +119,7 @@ const isAdmitting = (
 export const admissionOf = (definition: AnyDefinition, tag: string, fields: EventFields) => {
   const token = definition.E[tag];
 
-  return isAdmitting(token)
-    ? { payload: token["~payload"], walk: token["~walk"], names: token["~names"] }
-    : payloadOf(fieldsOf(fields));
+  return (
+    (Predicate.isFunction(token) ? admissions.get(token) : undefined) ?? payloadOf(fieldsOf(fields))
+  );
 };

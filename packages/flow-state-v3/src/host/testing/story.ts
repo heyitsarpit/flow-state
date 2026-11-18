@@ -1,7 +1,7 @@
 import { type Duration, Effect, type Layer, Option } from "effect";
 import type { AnyDefinition, EventOf } from "../../definition.ts";
-import { flowError } from "../../error.ts";
-import { actorIdOf, type ActorRef, machineOf, type RuntimeSetup, SetupId } from "../runtime.ts";
+import { flowError, raise } from "../../error.ts";
+import { actorIdOf, type ActorRef, configOf, machineOf, type RuntimeSetup } from "../runtime.ts";
 import type { FakeWorld } from "./fake.ts";
 import {
   attempt,
@@ -105,15 +105,16 @@ export const storyOf = (subject: Subject, id: string): Story => {
     if (Object.values(subject.config.app.machines).some((e) => machineOf(e) === ref.machine))
       return actorOf(ref);
 
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a Story's script names its app's machines; another's throws as it is written
-    throw flowError([
-      {
-        code: "ForeignActorRef",
-        path: [id, ref.machine.compiled.id],
-        summary: `${ref.machine.compiled.id} is not a machine of this Story's app`,
-        help: "Use refs of the machines the Story's setup lists.",
-      },
-    ]);
+    return raise(
+      flowError([
+        {
+          code: "ForeignActorRef",
+          path: [id, ref.machine.compiled.id],
+          summary: `${ref.machine.compiled.id} is not a machine of this Story's app`,
+          help: "Use refs of the machines the Story's setup lists.",
+        },
+      ]),
+    );
   };
 
   // RETURN_TYPE: each step returns the Story contract with its names so far.
@@ -195,7 +196,7 @@ export const Story = {
     },
   ): Story => {
     const subject = {
-      config: setup[SetupId],
+      config: configOf(setup),
       fixtures: options.fixtures,
       world: options.world ?? [],
     };

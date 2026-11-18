@@ -148,6 +148,17 @@ on internal modules and `off` on public entrypoint modules.
     7 ns). Except `src/host` and tests (`*.test.ts`, `test/`).
   - Each also catches the name through `globalThis`, `global` and `window`; `Effect` is any binding of
     `effect/Effect`, or the `Effect` export of `effect`, under any name.
+  - `no-mark-probe`: `hasProperty(x, "~...")`, `Object.hasOwn(x, "~...")` and `"~..." in x`, in `src`
+    only, tests excepted. A `~` mark is copyable, so Flow recognises a value it made by identity (a
+    `WeakSet` or `WeakMap` filled where it makes the value). Each remaining probe carries a disable with
+    its reason: construction's own markers and tokens, until its decode checks identity, and the test
+    tooling's own read targets.
+- `no-throw-in-core` is off in `src/error.ts` (`raise`, the one throw of a FlowError) and `src/entry.ts`
+  (the public-function wrappers); every other FlowError goes through `raise`. The listed defect sites
+  keep a disable with their reason: `core/defect.ts`, `core/frozen.ts` (a write to an admitted value),
+  `core/tree.ts` (a computed start reading a computed field), the driver's rethrow of a host callback's
+  throw, and the test tooling's run failures and its own defects (`src/host/testing`: `StoryFailed`,
+  `StoryTurnLimit`, a script or index fault).
 - Everywhere in `src`:
   - `switch-exhaustiveness-check` with `considerDefaultExhaustiveForUnions: false`: a `default:`
     no longer hides a variant (it hid lane phases).

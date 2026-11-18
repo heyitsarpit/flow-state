@@ -3,6 +3,7 @@ import { type Walker, walkerOf } from "./core/boundary.ts";
 import { writeJson } from "./core/codec.ts";
 import type { Attempt, Commit, Concurrency, Lookup, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
+import { entry, inert } from "./entry.ts";
 
 /**
  * The services a contract lists: the Context keys its function calls.
@@ -218,41 +219,50 @@ export type Resource<F extends Fields = Fields, A = never, E = never, R = never>
  * The commit puts `attempt.id` on the wire as the idempotency key; every send of one Attempt
  * carries the same id and input.
  */
-// RETURN_TYPE: the exported Transaction contract keeps F, A, E and R for outcomes, handles and the setup's services.
-export const transaction = <const F extends Fields, A, E, R>(config: {
-  readonly id: string;
-  readonly input: F;
-  readonly key: ReadonlyArray<keyof F & string>;
-  readonly concurrency: Concurrency;
-  readonly services: Services;
-  readonly commit: (
-    input: StructType<F>,
-    context: { readonly attempt: Attempt },
-  ) => Effect.Effect<A, E, R>;
-}): Transaction<F, A, E, R> => {
-  const identity = Symbol(config.id);
+export const transaction = entry(
+  "transaction",
+  // RETURN_TYPE: the exported Transaction contract keeps F, A, E and R for outcomes, handles and the setup's services.
+  <const F extends Fields, A, E, R>(config: {
+    readonly id: string;
+    readonly input: F;
+    readonly key: ReadonlyArray<keyof F & string>;
+    readonly concurrency: Concurrency;
+    readonly services: Services;
+    readonly commit: (
+      input: StructType<F>,
+      context: { readonly attempt: Attempt },
+    ) => Effect.Effect<A, E, R>;
+  }): Transaction<F, A, E, R> => {
+    const identity = Symbol(config.id);
 
-  const contract: Transaction<F, A, E, R> = {
-    kind: "transaction",
-    ...config,
-    input: Schema.Struct(config.input),
-    outcomes: (endings) => ({
-      kind: "write",
-      contract: config.id,
-      identity,
-      ...codecsOf(config.input, config.key),
+    const contract: Transaction<F, A, E, R> = {
+      kind: "transaction",
+      id: config.id,
+      input: Schema.Struct(config.input),
       key: config.key,
       concurrency: config.concurrency,
-      call: (input, context) => config.commit(trusted<StructType<F>>(input), context),
-      success: endings.success,
-      failure: endings.failure,
-      notSent: Option.fromUndefinedOr(endings.notSent),
-      unknown: endings.unknown,
-    }),
-  };
+      services: config.services,
+      commit: entry(`${config.id}.commit`, config.commit),
+      outcomes: entry(`${config.id}.outcomes`, (endings: WriteEndings<E>) =>
+        inert<Bound<"write", R>>({
+          kind: "write",
+          contract: config.id,
+          identity,
+          ...codecsOf(config.input, config.key),
+          key: config.key,
+          concurrency: config.concurrency,
+          call: (input, context) => config.commit(trusted<StructType<F>>(input), context),
+          success: endings.success,
+          failure: endings.failure,
+          notSent: Option.fromUndefinedOr(endings.notSent),
+          unknown: endings.unknown,
+        }),
+      ),
+    };
 
-  return contract;
-};
+    return contract;
+  },
+);
 
 /**
  * Declares a resource: a server read with its key and lookup.
@@ -262,34 +272,44 @@ export const transaction = <const F extends Fields, A, E, R>(config: {
  * In a `*.contracts.ts` file, once per server read; a definition maps its endings with
  * `operations`.
  */
-// RETURN_TYPE: the exported Resource contract keeps F, A, E and R for outcomes, handles and the setup's services.
-export const resource = <const F extends Fields, A, E, R>(config: {
-  readonly id: string;
-  readonly input: F;
-  readonly key: ReadonlyArray<keyof F & string>;
-  readonly services: Services;
-  readonly staleTime: Duration.Input;
-  readonly gcTime: Duration.Input;
-  readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
-}): Resource<F, A, E, R> => {
-  const identity = Symbol(config.id);
+export const resource = entry(
+  "resource",
+  // RETURN_TYPE: the exported Resource contract keeps F, A, E and R for outcomes, handles and the setup's services.
+  <const F extends Fields, A, E, R>(config: {
+    readonly id: string;
+    readonly input: F;
+    readonly key: ReadonlyArray<keyof F & string>;
+    readonly services: Services;
+    readonly staleTime: Duration.Input;
+    readonly gcTime: Duration.Input;
+    readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
+  }): Resource<F, A, E, R> => {
+    const identity = Symbol(config.id);
 
-  const contract: Resource<F, A, E, R> = {
-    kind: "resource",
-    ...config,
-    input: Schema.Struct(config.input),
-    outcomes: (endings) => ({
-      kind: "read",
-      contract: config.id,
-      identity,
-      ...codecsOf(config.input, config.key),
+    const contract: Resource<F, A, E, R> = {
+      kind: "resource",
+      id: config.id,
+      input: Schema.Struct(config.input),
       key: config.key,
-      concurrency: "reject",
-      call: (input) => config.lookup(trusted<StructType<F>>(input)),
-      success: endings.success,
-      failure: endings.failure,
-    }),
-  };
+      services: config.services,
+      staleTime: config.staleTime,
+      gcTime: config.gcTime,
+      lookup: entry(`${config.id}.lookup`, config.lookup),
+      outcomes: entry(`${config.id}.outcomes`, (endings: ReadEndings) =>
+        inert<Bound<"read", R>>({
+          kind: "read",
+          contract: config.id,
+          identity,
+          ...codecsOf(config.input, config.key),
+          key: config.key,
+          concurrency: "reject",
+          call: (input) => config.lookup(trusted<StructType<F>>(input)),
+          success: endings.success,
+          failure: endings.failure,
+        }),
+      ),
+    };
 
-  return contract;
-};
+    return contract;
+  },
+);

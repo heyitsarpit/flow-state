@@ -6,7 +6,8 @@ import type { Bound, Ending, Fields } from "./contract.ts";
 import { fieldsOf, tokensOf, trusted } from "./events.ts";
 import { type GuardArg, readHandle, type SelectArg, writeHandle } from "./handles.ts";
 import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
-import { flowErrorOf, refuse } from "./error.ts";
+import { flowErrorOf, raise, refuse } from "./error.ts";
+import { builder, entry } from "./entry.ts";
 import {
   definitionFindings,
   isMarker,
@@ -420,8 +421,8 @@ const childUnder = (path: string, read: StateRead) => {
 const stateToken = (path: string): StateToken => ({
   "~flow": "state",
   "~path": path,
-  is: (read) => atOrBelow(readOf(read), path),
-  child: (read) => childUnder(path, read),
+  is: entry(`S.${path}.is`, (read: StateRead) => atOrBelow(readOf(read), path)),
+  child: entry(`S.${path}.child`, (read: StateRead) => childUnder(path, read)),
 });
 
 const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>) => {
@@ -447,7 +448,10 @@ const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>)
       }),
     );
 
-  return { ...build(paths), root: { child: (read: StateRead) => childUnder("", read) } };
+  return {
+    ...build(paths),
+    root: { child: entry("S.root.child", (read: StateRead) => childUnder("", read)) },
+  };
 };
 
 /**
@@ -469,132 +473,138 @@ const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>)
  * - An invalid declaration throws one FlowError listing every violation found, in declaration
  *   order, each with its path.
  */
-// RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
-export const definition = <
-  const States extends StateTree,
-  const Ev extends Readonly<Record<string, EventFields>>,
+export const definition = entry(
+  "definition",
   // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
-  const In extends Readonly<Record<string, EventFields>> = Record<never, never>,
-  M extends MemoryConfig = Record<never, never>,
-  O extends Readonly<Record<string, Bound>> = Record<never, never>,
-  Cx extends ContextConfig = Record<never, never>,
->(
-  config: DefinitionConfig<States, Ev, In, M, O, Cx>,
-): Definition<States, Ev, In, M, O, Cx> => {
-  const keys = Predicate.isObject(config) ? Object.keys(config) : [];
+  <
+    const States extends StateTree,
+    const Ev extends Readonly<Record<string, EventFields>>,
+    // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
+    const In extends Readonly<Record<string, EventFields>> = Record<never, never>,
+    M extends MemoryConfig = Record<never, never>,
+    O extends Readonly<Record<string, Bound>> = Record<never, never>,
+    Cx extends ContextConfig = Record<never, never>,
+  >(
+    config: DefinitionConfig<States, Ev, In, M, O, Cx>,
+  ): Definition<States, Ev, In, M, O, Cx> => {
+    const keys = Predicate.isObject(config) ? Object.keys(config) : [];
 
-  refuse(inDeclarationOrder(keys, configFindings(config)));
+    refuse(inDeclarationOrder(keys, configFindings(config)));
 
-  const owner = Symbol(config.id);
-  const internal = config.internalEvents ?? trusted<In>({});
-  const context = config.context ?? trusted<Cx>({});
-  const memory = config.memory ?? trusted<M>({});
-  const E = tokensOf({ ...config.events, ...internal });
-  const declare = config.operations;
+    const owner = Symbol(config.id);
+    const internal = config.internalEvents ?? trusted<In>({});
+    const context = config.context ?? trusted<Cx>({});
+    const memory = config.memory ?? trusted<M>({});
+    const E = tokensOf({ ...config.events, ...internal });
+    const declare = config.operations;
 
-  const called =
-    declare === undefined
-      ? Result.succeed(trusted<O>({}))
-      : Result.try({
-          try: () => declare({ E: pick<Tokens<In>>(E, Object.keys(internal)) }),
-          // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
-          catch: (cause: unknown) => cause,
-        });
+    const called =
+      declare === undefined
+        ? Result.succeed(trusted<O>({}))
+        : Result.try({
+            try: () => declare({ E: pick<Tokens<In>>(E, Object.keys(internal)) }),
+            // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
+            catch: (cause: unknown) => cause,
+          });
 
-  if (Result.isFailure(called))
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid construction throws one FlowError before any work
-    throw flowErrorOf(
-      [
-        {
-          code: "Defect",
-          path: ["operations"],
-          summary: "the operations callback threw",
-          help: "Fix the operations callback; what it threw is this error's cause.",
-        },
-      ],
-      called.failure,
+    if (Result.isFailure(called))
+      return raise(
+        flowErrorOf(
+          [
+            {
+              code: "Defect",
+              path: ["operations"],
+              summary: "the operations callback threw",
+              help: "Fix the operations callback; what it threw is this error's cause.",
+            },
+          ],
+          called.failure,
+        ),
+      );
+
+    const malformed = operationsFindings(called.success);
+    const operations = malformed.length === 0 ? called.success : trusted<O>({});
+    const tree = treeOf(config.states);
+
+    refuse(
+      inDeclarationOrder(keys, [
+        ...malformed,
+        ...definitionFindings(
+          { id: config.id, events: config.events, internalEvents: internal, memory, context },
+          tree.findings,
+          operations,
+          keys,
+        ),
+      ]),
     );
 
-  const malformed = operationsFindings(called.success);
-  const operations = malformed.length === 0 ? called.success : trusted<O>({});
-  const tree = treeOf(config.states);
+    const handles = Object.fromEntries(
+      Object.entries(operations).map(([name, bound]) => [
+        name,
+        bound.kind === "write"
+          ? writeHandle(name, bound.textOfKey, owner)
+          : readHandle(name, owner),
+      ]),
+    );
 
-  refuse(
-    inDeclarationOrder(keys, [
-      ...malformed,
-      ...definitionFindings(
-        { id: config.id, events: config.events, internalEvents: internal, memory, context },
-        tree.findings,
-        operations,
-        keys,
-      ),
-    ]),
-  );
+    const leaves = tree.nodes.filter((n) => n.children.length === 0).map((n) => n.path);
 
-  const handles = Object.fromEntries(
-    Object.entries(operations).map(([name, bound]) => [
-      name,
-      bound.kind === "write" ? writeHandle(name, bound.textOfKey, owner) : readHandle(name, owner),
-    ]),
-  );
+    const envelopes = Object.entries(config.events).map(([tag, fields]) =>
+      Schema.Struct({ ...fieldsOf(fields), _tag: Schema.Literal(tag) }),
+    );
 
-  const leaves = tree.nodes.filter((n) => n.children.length === 0).map((n) => n.path);
+    const inputs = Object.fromEntries(
+      Object.entries(memory).flatMap(([name, raw]) => {
+        const field = unwrapPrivate(raw);
 
-  const envelopes = Object.entries(config.events).map(([tag, fields]) =>
-    Schema.Struct({ ...fieldsOf(fields), _tag: Schema.Literal(tag) }),
-  );
-
-  const inputs = Object.fromEntries(
-    Object.entries(memory).flatMap(([name, raw]) => {
-      const field = unwrapPrivate(raw);
-
-      return isMarker(field) && field["~flow"] === "input" ? [[name, field.schema]] : [];
-    }),
-  );
-
-  return {
-    "~owner": owner,
-    id: config.id,
-    persist: config.persist ?? false,
-    states: config.states,
-    events: config.events,
-    internalEvents: internal,
-    memory,
-    context,
-    operations,
-    Provider: {
-      select: (schema, selector) => ({
-        "~flow": "context",
-        provider: config.id,
-        schema: trusted(schema),
-        select: selector,
+        return isMarker(field) && field["~flow"] === "input" ? [[name, field.schema]] : [];
       }),
-    },
-    S: trusted(tokenTree(tree.nodes, tree.top)),
-    E,
-    O: trusted(handles),
-    Event: trusted(Schema.Union(envelopes)),
-    State: trusted(Schema.Literals(leaves)),
-    Input: trusted(Schema.Struct(inputs)),
-    Memory: trusted(
-      Schema.Struct(
-        Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOfField(f)])),
+    );
+
+    return {
+      "~owner": owner,
+      id: config.id,
+      persist: config.persist ?? false,
+      states: config.states,
+      events: config.events,
+      internalEvents: internal,
+      memory,
+      context,
+      operations,
+      Provider: {
+        select: builder("Provider.select", (schema, selector) => ({
+          "~flow": "context",
+          provider: config.id,
+          schema: trusted(schema),
+          select: selector,
+        })),
+      },
+      S: trusted(tokenTree(tree.nodes, tree.top)),
+      E,
+      O: trusted(handles),
+      Event: trusted(Schema.Union(envelopes)),
+      State: trusted(Schema.Literals(leaves)),
+      Input: trusted(Schema.Struct(inputs)),
+      Memory: trusted(
+        Schema.Struct(
+          Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOfField(f)])),
+        ),
       ),
-    ),
-    Snapshot: trusted(
-      Schema.Struct({
-        state: Schema.Literals(leaves),
-        memory: Schema.Struct(
-          Object.fromEntries(
-            Object.entries(memory).flatMap(([k, f]) =>
-              isPrivate(f) ? [] : [[k, schemaOfField(f)]],
+      Snapshot: trusted(
+        Schema.Struct({
+          state: Schema.Literals(leaves),
+          memory: Schema.Struct(
+            Object.fromEntries(
+              Object.entries(memory).flatMap(([k, f]) =>
+                isPrivate(f) ? [] : [[k, schemaOfField(f)]],
+              ),
             ),
           ),
-        ),
-      }),
-    ),
-  };
-};
+        }),
+      ),
+    };
+  },
+);
 
 /**
  * The declared tree of a definition, in declaration order: what `machine` compiles.

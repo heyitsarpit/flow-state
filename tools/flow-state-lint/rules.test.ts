@@ -1,4 +1,4 @@
-// Planted violations for the six ban rules, run through oxlint with the options vite.config.ts gives
+// Planted violations for the seven ban rules, run through oxlint with the options vite.config.ts gives
 // each rule. Every rule must fire inside the package, stay silent in each exception folder, catch the
 // `globalThis`, `global` and `window` forms, and ignore type positions.
 // Run: node --experimental-strip-types tools/flow-state-lint/rules.test.ts
@@ -19,6 +19,7 @@ const banRules = [
   "no-timers",
   "no-host-apis",
   "no-effect-runtime",
+  "no-mark-probe",
 ] as const;
 
 type Rule = (typeof banRules)[number];
@@ -89,6 +90,16 @@ const samples: Record<Rule, { fires: ReadonlyArray<string>; quiet: ReadonlyArray
     ],
     quiet: ["export type P = Promise<number>;", "Effect.succeed(1);", "Other.gen();"],
   },
+  "no-mark-probe": {
+    fires: [
+      'Predicate.hasProperty(Other, "~flow");',
+      'hasProperty(Other, "~token");',
+      'Object.hasOwn(Other, "~owner");',
+      '"~payload" in Other;',
+      "Predicate.hasProperty(Other, `~walk`);",
+    ],
+    quiet: ['Predicate.hasProperty(Other, "_tag");', '"_tag" in Other;', 'const mark = "~flow";'],
+  },
 };
 
 const imports = [
@@ -122,6 +133,14 @@ const silent: Record<Rule, ReadonlyArray<string>> = {
   "no-effect-runtime": [
     "src/host/planted.ts",
     "src/host/platform/planted.ts",
+    "src/core/planted.test.ts",
+    "src/core/test/planted.ts",
+    "src/host/planted.test.ts",
+    "tests/planted.ts",
+    "fixtures/planted.ts",
+    "bench/planted.ts",
+  ],
+  "no-mark-probe": [
     "src/core/planted.test.ts",
     "src/core/test/planted.ts",
     "src/host/planted.test.ts",

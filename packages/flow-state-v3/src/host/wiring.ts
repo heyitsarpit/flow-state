@@ -1,7 +1,7 @@
 import type { Compiled } from "../core/compiled.ts";
 import { type ActorId, actorKey, type Wiring } from "../core/world.ts";
 import type { Machine } from "../definition.ts";
-import { type Code, flowError } from "../error.ts";
+import { type Code, flowError, raise } from "../error.ts";
 import { actorIdOf, type ActorRef } from "./runtime.ts";
 
 // A context graph admission refuses: thrown before any work.
@@ -55,17 +55,16 @@ export const makeWiring = (
 
   // The identity a provider ref names, once its machine is one this app runs.
   const providerOf = (consumer: string, slot: string, ref: ActorRef) => {
-    if (!machines.has(ref.machine.compiled.id))
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a context graph it refuses throws before any work
-      throw missing(consumer, slot);
+    if (!machines.has(ref.machine.compiled.id)) return raise(missing(consumer, slot));
 
     if (machines.get(ref.machine.compiled.id) !== ref.machine)
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a provider ref of another app throws before any work
-      throw refused(
-        "ForeignActorRef",
-        [consumer, "context", slot],
-        `${slot} is wired to a ${ref.machine.compiled.id} that is not this Runtime's app's`,
-        "Wire context to refs of the machines this Runtime's app lists.",
+      return raise(
+        refused(
+          "ForeignActorRef",
+          [consumer, "context", slot],
+          `${slot} is wired to a ${ref.machine.compiled.id} that is not this Runtime's app's`,
+          "Wire context to refs of the machines this Runtime's app lists.",
+        ),
       );
 
     return actorIdOf(ref);
@@ -85,17 +84,16 @@ export const makeWiring = (
 
     const providing = provider === undefined ? undefined : machines.get(provider.machine);
 
-    if (provider === undefined || providing === undefined)
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a context graph it refuses throws before any work
-      throw missing(compiled.id, slot);
+    if (provider === undefined || providing === undefined) return raise(missing(compiled.id, slot));
 
     if (provider.machine !== declared)
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a context graph it refuses throws before any work
-      throw refused(
-        "InvalidConfiguration",
-        [compiled.id, "context", slot],
-        `${slot} is provided by ${declared}, not ${provider.machine}`,
-        `Wire ${slot} to an actor of ${declared}.`,
+      return raise(
+        refused(
+          "InvalidConfiguration",
+          [compiled.id, "context", slot],
+          `${slot} is provided by ${declared}, not ${provider.machine}`,
+          `Wire ${slot} to an actor of ${declared}.`,
+        ),
       );
 
     const inherited = given === undefined && ref !== undefined ? overridesOf(ref) : new Map();
@@ -118,12 +116,13 @@ export const makeWiring = (
       const key = actorKey(provider);
 
       if (path.includes(key))
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a context graph it refuses throws before any work
-        throw refused(
-          "ContextCycle",
-          [...path, key],
-          `the context of ${compiled.id} reaches ${key} again`,
-          "Make context flow one way: no actor may provide, directly or not, to its own provider.",
+        return raise(
+          refused(
+            "ContextCycle",
+            [...path, key],
+            `the context of ${compiled.id} reaches ${key} again`,
+            "Make context flow one way: no actor may provide, directly or not, to its own provider.",
+          ),
         );
 
       for (const [k, w] of wiringOf(provider, new Map([...inherited, ...overrides]), [

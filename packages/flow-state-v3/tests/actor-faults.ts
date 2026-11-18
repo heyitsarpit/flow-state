@@ -282,8 +282,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "    if (target[HandleId].runtime === driver) return target[HandleId].actor;",
-        replace: "    return target[HandleId].actor;",
+        find: "    if (link.runtime === driver) return link.actor;",
+        replace: "    return link.actor;",
       },
     ],
   },
@@ -294,9 +294,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors R6",
     edits: [
       {
-        file: "src/host/runtime.ts",
-        find: "            path: [compiled.id],\n",
-        replace: "            path: [compiled.id, compiled.id],\n",
+        file: "src/host/refs.ts",
+        find: "              path: [compiled.id],\n",
+        replace: "              path: [compiled.id, compiled.id],\n",
       },
     ],
   },

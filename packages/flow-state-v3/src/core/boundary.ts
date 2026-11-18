@@ -9,6 +9,7 @@ import {
   type SchemaIssue,
   SchemaParser,
 } from "effect";
+import { inert } from "../entry.ts";
 import { Canonical, CodecFailure, writeCanonical } from "./codec.ts";
 import type { Values } from "./compiled.ts";
 
@@ -519,7 +520,7 @@ export const walkerOf = <S extends Schema.Constraint>(schema: S) => {
     is: (value): value is S["Type"] => Exit.isSuccess(checker(value)),
   };
 
-  return walker;
+  return inert(walker);
 };
 
 /**

@@ -143,6 +143,7 @@ export const treeOf = (states: StateTree) => {
 
 // RETURN_TYPE: a type guard states the type it narrows to.
 export const isMarker = (x: Field): x is Initial | Input | Private =>
+  // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own markers by mark until its decode checks them by identity
   Predicate.hasProperty(x, "~flow");
 
 /**

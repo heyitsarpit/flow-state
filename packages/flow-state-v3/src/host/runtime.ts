@@ -16,12 +16,16 @@ import type { Evidence } from "../core/evidence.ts";
 import { dependentsOf, Input } from "../core/step.ts";
 import { endedBy, isStopped, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
-import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
+import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
-import { type FlowError, flowError, flowErrorOf, lifeRejection, refuse } from "../error.ts";
+import { type FlowError, flowError, flowErrorOf, lifeRejection, raise, refuse } from "../error.ts";
+import { entry, entryEffect } from "../entry.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
+import { setupFindings } from "../config.ts";
 import { makeDriver, type Driver } from "./driver.ts";
+import { actorIdOf, type ActorRef } from "./refs.ts";
+import { defect } from "../core/defect.ts";
 import { browserPlatform } from "./platform/browser.ts";
 import { makeFibers } from "./fibers.ts";
 import { makeWiring } from "./wiring.ts";
@@ -29,6 +33,8 @@ import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
 import { Host, type Platform } from "./host.ts";
 
 export { type Snapshot, snapshotIn, snapshotOf } from "./snapshot.ts";
+
+export { actorIdOf, actorRef, type ActorRef, type RefName } from "./refs.ts";
 
 /**
  * One machine an app runs: the machine, or the machine with the default wiring of its context
@@ -83,119 +89,22 @@ export type ServicesOf<A extends App> = {
  * - Unknown fields, two machines with one id, one machine under two keys, or two contracts with
  *   one id throw one {@link FlowError} naming every entry.
  */
-// RETURN_TYPE: the App contract runtimeSetup takes, keeping its machines' types.
-export const app = <const M extends Readonly<Record<string, AppEntry>>>(config: App<M>): App<M> => {
-  refuse(
-    appFindings({
-      ...config,
-      machines: Object.fromEntries(
-        Object.entries(config.machines).map(([key, entry]) => [key, machineOf(entry)]),
-      ),
-    }),
-  );
+export const app = entry(
+  "app",
+  // RETURN_TYPE: the App contract runtimeSetup takes, keeping its machines' types.
+  <const M extends Readonly<Record<string, AppEntry>>>(config: App<M>): App<M> => {
+    refuse(
+      appFindings({
+        ...config,
+        machines: Object.fromEntries(
+          Object.entries(config.machines).map(([key, entry]) => [key, machineOf(entry)]),
+        ),
+      }),
+    );
 
-  return config;
-};
-
-/**
- * A shared actor's name: its machine and either the literal name of a machine with no input, or
- * the value that carries a machine's input fields.
- */
-export type ActorRef<D extends AnyDefinition = AnyDefinition> = {
-  readonly machine: Machine<D>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a value ref's value is the caller's, checked at the boundary that uses it.
-  readonly value: unknown;
-  readonly context: Readonly<Record<string, ActorRef>>;
-};
-
-/**
- * What names an actor of `D`: a value carrying its input fields when it has any, otherwise a
- * literal string that does not start with `~`.
- */
-export type RefName<D extends AnyDefinition, N> = [keyof InputOf<D["memory"]>] extends [never]
-  ? N extends string
-    ? string extends N
-      ? never
-      : N extends `${typeof LOCAL_PREFIX}${string}`
-        ? never
-        : N
-    : never
-  : InputOf<D["memory"]>;
-
-/**
- * Names a shared actor. Inert.
- *
- * **When to use**
- *
- * `actorRef(machine, value)` names a machine with `Flow.input` fields by those fields of `value`;
- * `actorRef(machine, "name")` names a machine with no input by a literal name.
- *
- * **Details**
- *
- * An actor is its machine plus its input: the input fields are encoded with their Schemas, in
- * field-name order, so a reorder or a field beyond the input names the same actor. The value is
- * checked where the ref is used: an ensure, send or dispose throws SchemaValidation naming a
- * field its Schema refuses.
- */
-// RETURN_TYPE: the ActorRef keeps its machine's definition type.
-export const actorRef = <D extends AnyDefinition, const N>(
-  machine: Machine<D>,
-  nameOrValue: N & RefName<D, N>,
-  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: a ref with no context uses its machine entry's wiring
-  options?: { readonly context: Readonly<Record<string, ActorRef>> },
-): ActorRef<D> => ({ machine, value: nameOrValue, context: options?.context ?? {} });
-
-/**
- * The identity a ref names, checked: a value's input fields by their Schemas, a literal name by
- * its form. Throws the FlowError a refused ref names.
- */
-// RETURN_TYPE: the core's ActorId, which every input that names an actor takes.
-export const actorIdOf = (ref: ActorRef): ActorId => {
-  const compiled = ref.machine.compiled;
-
-  if (inputFieldsOf(compiled).length === 0) {
-    if (Predicate.isString(ref.value) && !ref.value.startsWith(LOCAL_PREFIX))
-      return { machine: compiled.id, name: ref.value };
-
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a ref's contract: a name a singleton may not have throws before any work
-    throw flowError([
-      {
-        code: "InvalidConfiguration",
-        path: [compiled.id, "name"],
-        summary: `${compiled.id} has no input, so it is named by a literal string not starting with ${LOCAL_PREFIX}`,
-        help: "Name the actor with a literal string, or give the machine Flow.input fields.",
-      },
-    ]);
-  }
-
-  return Result.match(nameOfValue(compiled, ref.value), {
-    onSuccess: (name) => ({ machine: compiled.id, name }),
-    onFailure: (field) => {
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a ref's contract: an input its Schema refuses throws before any work
-      throw flowError([
-        Option.match(field, {
-          onSome: (name) => ({
-            code: "SchemaValidation" as const,
-            path: [compiled.id, name],
-            summary: `the input field ${name} of ${compiled.id} is missing or refused by its Schema`,
-            help: `Give ${name} a value its Schema accepts.`,
-          }),
-          onNone: () => ({
-            code: "SchemaValidation" as const,
-            path: [compiled.id],
-            summary: `the input of ${compiled.id} has no encoded form, so it cannot name an actor`,
-            help: "Name the actor by values JSON can hold: no non-finite number, lone surrogate or cycle.",
-          }),
-        }),
-      ]);
-    },
-  });
-};
-
-/**
- * The key under which a handle keeps the Runtime and identity it belongs to.
- */
-export const HandleId = "~flow-state/Handle";
+    return config;
+  },
+);
 
 /**
  * A handle to an actor: it follows the identity, not the incarnation.
@@ -205,24 +114,39 @@ export type Actor<D extends AnyDefinition = AnyDefinition> = {
   // A method, so a handle of one machine reads as a handle of any machine.
   send(event: EventOf<D>): void;
   readonly getSnapshot: () => Option.Option<Snapshot>;
-  readonly [HandleId]: { readonly runtime: Driver; readonly actor: ActorId };
 };
 
-/**
- * The key of a Runtime's one hook for `attachInspector`: it attaches a sink and
- * nothing else.
- */
-export const InspectorId = "~flow-state/Inspector";
+// The Runtime and identity each handle belongs to, kept beside it rather than on it, so no
+// caller reaches the driver through a handle.
+const handles = new WeakMap<WeakKey, { readonly runtime: Driver; readonly actor: ActorId }>();
+
+// RETURN_TYPE: a type guard states the type it narrows to.
+const isHandle = (target: Actor | ActorRef): target is Actor => handles.has(target);
 
 /**
- * The key of a Runtime's driver, which `inspect(runtime)` reads and nothing else.
+ * What a Runtime keeps beside it for Flow's own tools: its driver, which `inspect(runtime)` reads,
+ * and its one hook for `attachInspector`, which attaches a sink and nothing else.
  */
-export const DriverId = "~flow-state/Driver";
+type Internals = {
+  readonly driver: Driver;
+  readonly attach: (sink: (evidence: Evidence) => void) => () => void;
+};
+
+const internals = new WeakMap<WeakKey, Internals>();
 
 /**
- * The key of a setup's configuration, which a Story reads to boot the same setup in its own tab.
+ * A Runtime's driver and inspector hook. Only Flow's inspection reads them.
  */
-export const SetupId = "~flow-state/Setup";
+export const internalsOf = (runtime: Runtime) =>
+  internals.get(runtime) ?? defect("a Runtime this Flow did not construct");
+
+const setups = new WeakMap<WeakKey, RuntimeConfig>();
+
+/**
+ * A setup's configuration, which a Story reads to boot the same setup in its own tab.
+ */
+export const configOf = <R>(setup: RuntimeSetup<R>) =>
+  setups.get(setup) ?? defect("a setup runtimeSetup did not make");
 
 /**
  * A constructed Runtime.
@@ -248,8 +172,6 @@ export type Runtime = {
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
     options?: { readonly forget?: boolean },
   ) => Effect.Effect<void, FlowError>;
-  readonly [InspectorId]: (sink: (evidence: Evidence) => void) => () => void;
-  readonly [DriverId]: Driver;
 };
 
 /**
@@ -257,7 +179,6 @@ export type Runtime = {
  */
 export type RuntimeSetup<R = never> = {
   readonly construct: () => Runtime;
-  readonly [SetupId]: RuntimeConfig;
   readonly "~services"?: R;
 };
 
@@ -479,50 +400,61 @@ export const buildRuntime = (
   let locals = 0;
 
   // RETURN_TYPE: the Actor contract keeps its machine's definition type.
-  const handleOf = <D extends AnyDefinition>(machine: Machine<D>, actor: ActorId): Actor<D> => ({
-    machine,
-    send: (event) => {
-      // An event a caller without types sent: no tag names no event, so the driver refuses it.
-      if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))
-        return driver.send(actor, "", {});
+  const handleOf = <D extends AnyDefinition>(machine: Machine<D>, actor: ActorId): Actor<D> => {
+    const handle: Actor<D> = {
+      machine,
+      send: entry(`send to ${actor.name}`, (event: EventOf<D>) => {
+        // An event a caller without types sent: no tag names no event, so the driver refuses it.
+        if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))
+          return driver.send(actor, "", {});
 
-      const { _tag: tag, ...payload } = event;
-      driver.send(actor, tag, payload);
-    },
-    getSnapshot: () => Option.map(snapshotOf(driver, actor), (x) => outside(machine, x)),
-    [HandleId]: { runtime: driver, actor },
-  });
+        const { _tag: tag, ...payload } = event;
+        driver.send(actor, tag, payload);
+      }),
+      getSnapshot: entry(`getSnapshot of ${actor.name}`, () =>
+        Option.map(snapshotOf(driver, actor), (x) => outside(machine, x)),
+      ),
+    };
+
+    handles.set(handle, { runtime: driver, actor });
+
+    return handle;
+  };
 
   // A ref names an identity only of a machine this Runtime's app runs.
   const ownRef = (ref: ActorRef) => {
     if (machines.get(ref.machine.compiled.id) === ref.machine) return actorIdOf(ref);
 
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a ref's contract: a machine this app does not run throws before any work
-    throw flowError([
-      {
-        code: "ForeignActorRef",
-        path: [ref.machine.compiled.id],
-        summary: `${ref.machine.compiled.id} is not a machine of this Runtime's app`,
-        help: "Use refs of the machines this Runtime's app lists.",
-      },
-    ]);
+    return raise(
+      flowError([
+        {
+          code: "ForeignActorRef",
+          path: [ref.machine.compiled.id],
+          summary: `${ref.machine.compiled.id} is not a machine of this Runtime's app`,
+          help: "Use refs of the machines this Runtime's app lists.",
+        },
+      ]),
+    );
   };
 
   // A handle names its own Runtime's identity; another Runtime's handle is refused.
   const identityOf = (target: Actor | ActorRef) => {
-    if (!(HandleId in target)) return ownRef(target);
+    if (!isHandle(target)) return ownRef(target);
 
-    if (target[HandleId].runtime === driver) return target[HandleId].actor;
+    const link = handles.get(target) ?? defect("a handle without its Runtime");
 
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a handle's contract: another Runtime's handle throws before any work
-    throw flowError([
-      {
-        code: "ForeignActorRef",
-        path: [target[HandleId].actor.machine, target[HandleId].actor.name],
-        summary: "the handle belongs to another Runtime",
-        help: "Use a handle from this Runtime, or name the actor with its ref.",
-      },
-    ]);
+    if (link.runtime === driver) return link.actor;
+
+    return raise(
+      flowError([
+        {
+          code: "ForeignActorRef",
+          path: [link.actor.machine, link.actor.name],
+          summary: "the handle belongs to another Runtime",
+          help: "Use a handle from this Runtime, or name the actor with its ref.",
+        },
+      ]),
+    );
   };
 
   // What admission checks before an ensure or a dispose does any work; a Story's words pass it too.
@@ -544,12 +476,13 @@ export const buildRuntime = (
       if (conflicting !== undefined) {
         const live = driver.world().incarnations.get(conflicting[0])?.actor ?? actor;
 
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a refused context throws before any work
-        throw contextRefused(
-          "ConflictingActorRef",
-          [live.machine, live.name],
-          `${live.name} is live with other context`,
-          "Name one identity with one context: drop the ref's override or use another identity.",
+        return raise(
+          contextRefused(
+            "ConflictingActorRef",
+            [live.machine, live.name],
+            `${live.name} is live with other context`,
+            "Name one identity with one context: drop the ref's override or use another identity.",
+          ),
         );
       }
 
@@ -563,20 +496,21 @@ export const buildRuntime = (
         dependents.length > 0 &&
         Verdict.$is("Run")(driver.verdict(Input.DisposeActor({ actor })))
       )
-        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- admission's contract: a refused context throws before any work
-        throw contextRefused(
-          "BlockedByDependents",
-          [actor.machine, actor.name, ...dependents.map(actorKey)],
-          `${actor.name} provides context to ${dependents.map(actorKey).join(", ")}`,
-          "Dispose its consumers first.",
+        return raise(
+          contextRefused(
+            "BlockedByDependents",
+            [actor.machine, actor.name, ...dependents.map(actorKey)],
+            `${actor.name} provides context to ${dependents.map(actorKey).join(", ")}`,
+            "Dispose its consumers first.",
+          ),
         );
     },
   };
 
   const runtime: Runtime = {
-    ready,
+    ready: entryEffect("ready", ready),
     // Before ready succeeds, no handle exists: the core's life rejects the ensure.
-    ensureActor: (ref) => {
+    ensureActor: entry("ensureActor", <D extends AnyDefinition>(ref: ActorRef<D>) => {
       const actor = ownRef(ref);
       const what = `ensureActor ${actor.name}`;
 
@@ -594,39 +528,55 @@ export const buildRuntime = (
       driver.offer(Input.Ensure({ ...probe, wiring: Option.some(graph) }), what);
 
       return handleOf(ref.machine, actor);
-    },
-    createActor: (machine, options) => {
-      const compiled = machine.compiled;
+    }),
+    createActor: entry(
+      "createActor",
+      <D extends AnyDefinition>(
+        machine: Machine<D>,
+        options: { readonly input: InputOf<D["memory"]> },
+      ) => {
+        const compiled = machine.compiled;
 
-      // The input is checked by its Schemas before any work, as a value ref's is.
-      if (inputFieldsOf(compiled).length > 0)
-        actorIdOf({ machine, value: options.input, context: {} });
+        // The input is checked by its Schemas before any work, as a value ref's is.
+        if (inputFieldsOf(compiled).length > 0)
+          actorIdOf({ machine, value: options.input, context: {} });
 
-      const actor = { machine: compiled.id, name: `${LOCAL_PREFIX}${locals + 1}` };
-      driver.offer(Input.Create({ actor, input: options.input }), `createActor ${compiled.id}`);
-      locals += 1;
+        const actor = { machine: compiled.id, name: `${LOCAL_PREFIX}${locals + 1}` };
+        driver.offer(Input.Create({ actor, input: options.input }), `createActor ${compiled.id}`);
+        locals += 1;
 
-      return handleOf(machine, actor);
-    },
-    disposeActor: (target) => {
-      const actor = identityOf(target);
-      admission.dispose(actor);
-      driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
-    },
+        return handleOf(machine, actor);
+      },
+    ),
+    disposeActor: entry(
+      "disposeActor",
+      <D extends AnyDefinition>(target: Actor<D> | ActorRef<D>) => {
+        const actor = identityOf(target);
+        admission.dispose(actor);
+        driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
+      },
+    ),
     // The core's disposal ends first: calls settling within its bound are parked, then a forget
     // deletes the scope's records, and the Scope closes every fiber whatever the forget did.
-    dispose: (options) =>
-      driver.dispose.pipe(
-        Effect.andThen(options?.forget === true ? forget() : Effect.void),
-        Effect.ensuring(Scope.close(scope, Exit.void)),
-      ),
-    [InspectorId]: (sink) => {
+    dispose: entryEffect(
+      "dispose",
+      // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
+      (options?: { readonly forget?: boolean }) =>
+        driver.dispose.pipe(
+          Effect.andThen(options?.forget === true ? forget() : Effect.void),
+          Effect.ensuring(Scope.close(scope, Exit.void)),
+        ),
+    ),
+  };
+
+  internals.set(runtime, {
+    driver,
+    attach: (sink) => {
       sinks.add(sink);
 
       return () => void sinks.delete(sink);
     },
-    [DriverId]: driver,
-  };
+  });
 
   return { runtime, driver, admission };
 };
@@ -637,11 +587,28 @@ export const buildRuntime = (
  * **When to use**
  *
  * Once per host. `construct()` builds the Runtime; `ready()` starts it.
+ *
+ * **Gotchas**
+ *
+ * - A setup with an unknown or wrong-kind field, or an app `app` refuses, throws one
+ *   {@link FlowError} naming each field.
  */
-// RETURN_TYPE: the exported RuntimeSetup contract keeps the services the app requires.
-export const runtimeSetup = <A extends App>(
-  config: SetupConfig<A>,
-): RuntimeSetup<ServicesOf<A>> => ({
-  construct: () => buildRuntime(config, browserPlatform(), () => undefined).runtime,
-  [SetupId]: config,
-});
+export const runtimeSetup = entry(
+  "runtimeSetup",
+  // RETURN_TYPE: the exported RuntimeSetup contract keeps the services the app requires.
+  <A extends App>(config: SetupConfig<A>): RuntimeSetup<ServicesOf<A>> => {
+    refuse(setupFindings(config));
+    app(config.app);
+
+    const setup: RuntimeSetup<ServicesOf<A>> = {
+      construct: entry(
+        "construct",
+        () => buildRuntime(config, browserPlatform(), () => undefined).runtime,
+      ),
+    };
+
+    setups.set(setup, config);
+
+    return setup;
+  },
+);

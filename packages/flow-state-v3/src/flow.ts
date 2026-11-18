@@ -1,5 +1,6 @@
 import { Data, Effect, Predicate, type Schema } from "effect";
 import type { Denial, Values } from "./core/compiled.ts";
+import { builder } from "./entry.ts";
 
 /**
  * A Schema that decodes and encodes with no services, as every Flow field does.
@@ -71,26 +72,32 @@ const entry: Entry = { "~flow": "entry" };
  * - `Flow.entry`: in a schedule's `armOn`, arm it on its state's entry too.
  */
 export const Flow = {
-  // RETURN_TYPE: the marker's Schema type parameter types the memory field.
-  initial: <S extends Plain>(
-    schema: S,
-    value: S["Type"] | ((fields: Values) => S["Type"]),
-  ): Initial<S> =>
-    Predicate.isFunction(value)
-      ? { "~flow": "initial", schema, start: { _tag: "Computed", compute: value } }
-      : { "~flow": "initial", schema, start: { _tag: "Constant", value } },
-  // RETURN_TYPE: the marker's Schema type parameter types the memory field.
-  input: <S extends Plain>(schema: S): Input<S> => ({ "~flow": "input", schema }),
-  // RETURN_TYPE: the marker keeps its field's type.
-  private: <F extends Initial | OptionalField>(field: F): Private<F> => ({
-    "~flow": "private",
-    field,
-  }),
-  // RETURN_TYPE: the marker's fields type the event payload.
-  uncertain: <const F extends Schema.Struct.Fields>(fields: F): Uncertain<F> => ({
-    "~flow": "uncertain",
-    fields,
-  }),
+  initial: builder(
+    "Flow.initial",
+    // RETURN_TYPE: the marker's Schema type parameter types the memory field.
+    <S extends Plain>(schema: S, value: S["Type"] | ((fields: Values) => S["Type"])): Initial<S> =>
+      Predicate.isFunction(value)
+        ? { "~flow": "initial", schema, start: { _tag: "Computed", compute: value } }
+        : { "~flow": "initial", schema, start: { _tag: "Constant", value } },
+  ),
+  input: builder(
+    "Flow.input",
+    // RETURN_TYPE: the marker's Schema type parameter types the memory field.
+    <S extends Plain>(schema: S): Input<S> => ({ "~flow": "input", schema }),
+  ),
+  private: builder(
+    "Flow.private",
+    // RETURN_TYPE: the marker keeps its field's type.
+    <F extends Initial | OptionalField>(field: F): Private<F> => ({ "~flow": "private", field }),
+  ),
+  uncertain: builder(
+    "Flow.uncertain",
+    // RETURN_TYPE: the marker's fields type the event payload.
+    <const F extends Schema.Struct.Fields>(fields: F): Uncertain<F> => ({
+      "~flow": "uncertain",
+      fields,
+    }),
+  ),
   entry,
 };
 
@@ -101,8 +108,11 @@ export const Flow = {
  *
  * Return it from a guard that declines: `memory.ready || deny("NotReady")`.
  */
-// RETURN_TYPE: a denial is plain data, storable in memory.
-export const deny = (code: string): Denial => ({ _tag: "Flow/Denial", code });
+export const deny = builder(
+  "deny",
+  // RETURN_TYPE: a denial is plain data, storable in memory.
+  (code: string): Denial => ({ _tag: "Flow/Denial", code }),
+);
 
 /**
  * A commit's definite failure, as `Outcome.failure` marks it.
@@ -124,9 +134,9 @@ export class OutcomeUnknown<E> extends Data.TaggedError("Flow/Unknown")<{ readon
  * plain error is a failure; a defect is unknown `Defect`.
  */
 export const Outcome = {
-  success: <A>(value: A) => Effect.succeed(value),
-  failure: <E>(error: E) => Effect.fail(new OutcomeFailure({ error })),
-  unknown: <E>(error: E) => Effect.fail(new OutcomeUnknown({ error })),
+  success: builder("Outcome.success", <A>(value: A) => Effect.succeed(value)),
+  failure: builder("Outcome.failure", <E>(error: E) => Effect.fail(new OutcomeFailure({ error }))),
+  unknown: builder("Outcome.unknown", <E>(error: E) => Effect.fail(new OutcomeUnknown({ error }))),
 };
 
 /**

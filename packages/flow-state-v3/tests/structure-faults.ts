@@ -133,8 +133,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/error.ts",
-        find: "    throw flowError([first, ...rest]);\n};\n\n/**\n * The finding of a public call",
-        replace: "    throw flowError([first]);\n};\n\n/**\n * The finding of a public call",
+        find: "  if (first !== undefined) raise(flowError([first, ...rest]));",
+        replace: "  if (first !== undefined) raise(flowError([first]));",
       },
     ],
   },
@@ -239,8 +239,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "getSnapshot: () => Option.map(snapshotOf(driver, actor), (x) => outside(machine, x)),",
-        replace: "getSnapshot: () => snapshotOf(driver, actor),",
+        find: "        Option.map(snapshotOf(driver, actor), (x) => outside(machine, x)),",
+        replace: "        snapshotOf(driver, actor),",
       },
     ],
   },
@@ -417,7 +417,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/config.ts",
-        find: 'armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, marked("entry")]))),',
+        find: "armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, EntryToken]))),",
         replace: "armOn: Schema.optionalKey(Schema.Array(Schema.Unknown)),",
       },
     ],

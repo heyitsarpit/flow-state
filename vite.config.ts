@@ -61,8 +61,10 @@ const sourceFromTests = {
     "!**/src/host/inspect.ts",
     "!**/src/host/trace.ts",
     "!**/src/host/cli/main.ts",
+    "!**/src/entry.ts",
   ],
-  message: "A test imports only the public entry, the test tooling, inspection and the CLI's main.",
+  message:
+    "A test imports only the public entry, the test tooling, inspection, the CLI's main and the registry of public functions.",
 };
 
 export default defineConfig({
@@ -253,7 +255,14 @@ export default defineConfig({
             "error",
             { only: ["src"], except: ["src/host"], exceptTests: true },
           ],
+          "flow-state/no-mark-probe": ["error", { only: ["src"], exceptTests: true }],
         },
+      },
+      {
+        // A public call refuses only by throwing a FlowError, and only these two modules throw one:
+        // error.ts's raise and the entry wrappers. Every other throw in src is a listed defect site.
+        files: [`${productionSource}/error.ts`, `${productionSource}/entry.ts`],
+        rules: { "lint-bomb/no-throw-in-core": "off" },
       },
       {
         // Reports an act determines are derived from the act in one function, evidenceOf, alone in

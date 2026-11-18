@@ -50,6 +50,8 @@ const cases: ReadonlyArray<{ file: string; imports: string; refused: boolean }> 
   { file: "tests/pay/h.tsx", imports: "../../src/core/world.ts", refused: true },
   { file: "tests/cli/a.ts", imports: "../../src/host/cli/main.ts", refused: false },
   { file: "tests/cli/b.ts", imports: "../../src/host/cli/discover.ts", refused: true },
+  { file: "tests/surface/a.ts", imports: "../../src/entry.ts", refused: false },
+  { file: "tests/surface/b.ts", imports: "../../src/error.ts", refused: true },
   { file: "fixtures/pay/g.ts", imports: "../../src/host/cli/main.ts", refused: true },
   { file: "bench/a.ts", imports: "../src/host/driver.ts", refused: true },
   { file: "bench/c.ts", imports: "../src/host/trace.ts", refused: false },

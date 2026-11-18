@@ -46,9 +46,9 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/definition.ts",
-        find: '    throw flowErrorOf(\n      [\n        {\n          code: "Defect",\n          path: ["operations"],',
+        find: '      return raise(\n        flowErrorOf(\n          [\n            {\n              code: "Defect",\n              path: ["operations"],',
         replace:
-          '    throw called.failure;\n  if (Result.isFailure(called))\n    throw flowErrorOf(\n      [\n        {\n          code: "Defect",\n          path: ["operations"],',
+          '      throw called.failure;\n    if (Result.isFailure(called))\n      return raise(\n        flowErrorOf(\n          [\n            {\n              code: "Defect",\n              path: ["operations"],',
       },
     ],
   },
@@ -60,9 +60,9 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: '    throw flowErrorOf(\n      [\n        {\n          code: "Defect",\n          path: ["body"],',
+        find: '      return raise(\n        flowErrorOf(\n          [\n            {\n              code: "Defect",\n              path: ["body"],',
         replace:
-          '    throw written.failure;\n  if (Result.isFailure(written))\n    throw flowErrorOf(\n      [\n        {\n          code: "Defect",\n          path: ["body"],',
+          '      throw written.failure;\n    if (Result.isFailure(written))\n      return raise(\n        flowErrorOf(\n          [\n            {\n              code: "Defect",\n              path: ["body"],',
       },
     ],
   },

@@ -154,15 +154,21 @@ export const invalid = (
 ): Finding => ({ code: "InvalidConfiguration", path, details: { reason }, summary, help });
 
 /**
+ * Throws a FlowError: the one way a public call refuses. Every other throw in Flow is a defect.
+ */
+// RETURN_TYPE: never, so a call stands in any expression.
+export const raise = (error: FlowError): never => {
+  throw error;
+};
+
+/**
  * Throws one FlowError listing every finding, when there is one; an invalid construction returns
  * nothing and starts nothing.
  */
 export const refuse = (findings: ReadonlyArray<Finding>) => {
   const [first, ...rest] = findings;
 
-  if (first !== undefined)
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid construction throws one FlowError before any work
-    throw flowError([first, ...rest]);
+  if (first !== undefined) raise(flowError([first, ...rest]));
 };
 
 /**

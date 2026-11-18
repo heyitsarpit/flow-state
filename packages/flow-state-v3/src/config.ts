@@ -1,4 +1,13 @@
-import { Duration, Match, Predicate, Result, Schema, SchemaAST, type SchemaIssue } from "effect";
+import {
+  Duration,
+  Layer,
+  Match,
+  Predicate,
+  Result,
+  Schema,
+  SchemaAST,
+  type SchemaIssue,
+} from "effect";
 import type {
   EventFields,
   GuardToken as GuardTokenOf,
@@ -19,6 +28,7 @@ const isToken =
   // FLOW_STATE_ALLOW_UNKNOWN: an authored value, told apart by its kind.
   // RETURN_TYPE: a type guard states the token kind it narrows to.
   (x: unknown): x is { readonly "~flow": K } =>
+    // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own markers by mark until its decode checks them by identity
     Predicate.hasProperty(x, "~flow") && x["~flow"] === kind;
 
 // A marked value decoded whole: every field its Struct declares is checked, and a callable token
@@ -338,6 +348,32 @@ export const operationsFindings = findingsAgainst(Operations, ["operations"]);
  * The findings of a machine body's kinds: a missing, unknown or wrong-kind field, at its path.
  */
 export const bodyFindings = findingsAgainst(MachineBody);
+
+const SetupConfig = Schema.Struct({
+  app: Schema.Struct({
+    id: Schema.String,
+    // FLOW_STATE_ALLOW_UNKNOWN: each machine entry is checked by app's own findings, next.
+    machines: Schema.Record(Schema.String, Schema.Unknown),
+  }).annotate({ help: "Pass the app app({ id, machines }) returned." }),
+  services: Schema.optionalKey(
+    Schema.declare(Layer.isLayer).annotate({
+      help: "Give services a Layer of the app's services.",
+    }),
+  ),
+  scope: Schema.optionalKey(Schema.String.annotate({ help: "Give the scope a string." })),
+  persistence: Schema.optionalKey(
+    Schema.Struct({
+      captureMs: Schema.optionalKey(
+        Schema.Finite.annotate({ help: "Give captureMs a finite number of milliseconds." }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * The findings of a Runtime setup's kinds: a missing, unknown or wrong-kind field, at its path.
+ */
+export const setupFindings = findingsAgainst(SetupConfig);
 
 /**
  * Findings in declaration order: by the place of their first path segment among `keys`, an absent
