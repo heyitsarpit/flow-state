@@ -4,6 +4,7 @@ import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { Fake, propertyTest, Story } from "../../src/host/testing/index.ts";
 import { breachesOf, rules } from "../rules/rules.ts";
 import { planted, ResendingShopFake } from "./planted.ts";
+import { LIMITS } from "../limits.ts";
 
 // The names a printed Story uses, in scope as the fixture's own module has them.
 const scope = { Story, Fake, shopSetup, ResendingShopFake, checkout, Shop };
@@ -13,9 +14,6 @@ const scope = { Story, Fake, shopSetup, ResendingShopFake, checkout, Shop };
 const pasted = (text: string): Story<string> =>
   // oxlint-disable-next-line typescript/no-implied-eval, no-new-func -- the test pastes the printed text as code, which is what it checks
   new Function(...Object.keys(scope), `return ${text}`)(...Object.values(scope));
-
-// The search and its shrink take about 1.2 s alone, past the 5 s default when the machine is loaded.
-const SHRINK_MS = 60_000;
 
 describe("a planted fault found from a seed (WriteLanes I6)", () => {
   it(
@@ -38,6 +36,6 @@ describe("a planted fault found from a seed (WriteLanes I6)", () => {
       expect(story).toContain("Shop.confirm.drop(");
       expect(breachesOf(again).some((b) => b.startsWith("WriteLanes I6:"))).toBe(true);
     },
-    SHRINK_MS,
+    LIMITS.shrink,
   );
 });

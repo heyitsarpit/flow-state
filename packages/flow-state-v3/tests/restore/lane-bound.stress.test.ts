@@ -4,8 +4,7 @@ import { cancelClient } from "../../fixtures/lanes/app.ts";
 import { stressDisplacedPastItems } from "../../fixtures/lanes/stories/usual.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
-
-const RUN_MS = 120_000;
+import { LIMITS } from "../limits.ts";
 
 const Displaced = Schema.fromJsonString(Schema.Struct({ displaced: Schema.Array(Schema.String) }));
 
@@ -26,6 +25,6 @@ describe("a cancel lane with thousands of displaced Attempts (Codec R1; WriteAhe
       expect(ended(run)).toBe(4200);
       expect(run.checkpoints.after.read(cancelClient)?.lifecycle).toBe("active");
     },
-    RUN_MS,
+    LIMITS.laneBound,
   );
 });

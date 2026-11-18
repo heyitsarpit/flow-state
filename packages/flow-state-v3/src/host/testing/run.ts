@@ -97,6 +97,8 @@ export type Subject = {
 
 type Target = ActorRef | EndpointHandle | { readonly "~server": AnyServer };
 
+// A runaway guard on the turns of one instant: the most an ordinary Story runs at once is 4,200
+// (4,200 cancels on one lane); Stories R-tests drive exactly 10,000 to prove the limit.
 const TURN_LIMIT = 10_000;
 
 // The tab's session seed: its name, open count and the run's seed as hex, so ids never repeat

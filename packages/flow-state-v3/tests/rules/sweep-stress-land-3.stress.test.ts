@@ -1,9 +1,7 @@
 import { describe } from "vite-plus/test";
+import { LIMITS } from "../limits.ts";
 import { sweepShard } from "./sweep.ts";
 
-// Under `nub run faults` the stress files share the machine with seven planted copies.
-const SWEEP_MS = 230_000;
-
 describe("the reload sweep, stress land shard 3 of 4", () => {
-  sweepShard("stress", 3, 4, SWEEP_MS, ["land"]);
+  sweepShard("stress", 3, 4, LIMITS.stressReloadSweep, ["land"]);
 });

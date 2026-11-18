@@ -12,6 +12,7 @@ import {
   Story,
 } from "../../src/host/testing/index.ts";
 import { rules } from "../rules/rules.ts";
+import { LIMITS } from "../limits.ts";
 
 const lost = () => Effect.fail({ _tag: "NoResponse" } as const);
 
@@ -100,32 +101,40 @@ const cellAt = (cells: ReadonlyArray<Cell>, phase: string, fault: string) =>
   cells.find((c) => c.phase === phase && c.fault === fault)?.outcome;
 
 describe("the pair sweep gives each fault to the write it drove (Testing O6)", () => {
-  it("a lost answer loses the write's own call, not another call held beside it", () => {
-    const cells = pairSweep(over("pay-peeking", PeekingShopFake, "PeekingShopFake"), {
-      properties: rules,
-      seeds: SEEDS,
-      stopAt: PHASES,
-    });
+  it(
+    "a lost answer loses the write's own call, not another call held beside it",
+    () => {
+      const cells = pairSweep(over("pay-peeking", PeekingShopFake, "PeekingShopFake"), {
+        properties: rules,
+        seeds: SEEDS,
+        stopAt: PHASES,
+      });
 
-    const lostAnswer = cellAt(cells, "OnWire", "lost answer");
+      const lostAnswer = cellAt(cells, "OnWire", "lost answer");
 
-    expect(lostAnswer?._tag).toBe("Reached");
-    expect(lostAnswer !== undefined && "story" in lostAnswer ? lostAnswer.story : "").toContain(
-      "Shop.confirm.lose()",
-    );
-  }, 120_000);
+      expect(lostAnswer?._tag).toBe("Reached");
+      expect(lostAnswer !== undefined && "story" in lostAnswer ? lostAnswer.story : "").toContain(
+        "Shop.confirm.lose()",
+      );
+    },
+    LIMITS.pairSweepTool,
+  );
 
-  it("a fault is given only while the write still stands in the phase when the drive is replayed", () => {
-    const cells = pairSweep(over("pay-first-only", FirstOnlyShopFake, "FirstOnlyShopFake"), {
-      properties: rules,
-      seeds: SEEDS,
-      stopAt: PHASES,
-    });
+  it(
+    "a fault is given only while the write still stands in the phase when the drive is replayed",
+    () => {
+      const cells = pairSweep(over("pay-first-only", FirstOnlyShopFake, "FirstOnlyShopFake"), {
+        properties: rules,
+        seeds: SEEDS,
+        stopAt: PHASES,
+      });
 
-    const onWire = cells.filter((c) => c.phase === "OnWire");
+      const onWire = cells.filter((c) => c.phase === "OnWire");
 
-    expect(
-      onWire.map((c) => [c.fault, "why" in c.outcome ? c.outcome.why : c.outcome._tag]),
-    ).toEqual(onWire.map((c) => [c.fault, "the drive did not replay to the phase"]));
-  }, 120_000);
+      expect(
+        onWire.map((c) => [c.fault, "why" in c.outcome ? c.outcome.why : c.outcome._tag]),
+      ).toEqual(onWire.map((c) => [c.fault, "the drive did not replay to the phase"]));
+    },
+    LIMITS.pairSweepTool,
+  );
 });

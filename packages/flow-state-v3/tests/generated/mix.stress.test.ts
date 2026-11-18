@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vite-plus/test";
 import { propertyTest } from "../../src/host/testing/index.ts";
 import { rules } from "../rules/rules.ts";
+import { LIMITS } from "../limits.ts";
 import { seeds, stressMix } from "./fixtures.ts";
 
 // The stress seed count, past the default suite's first five, plus any `FLOW_SEEDS` adds.
 const SEEDS = seeds("stress").map((n) => n + 5);
 
 describe("generated Stories of the app mix", () => {
-  it("runs of the mix profile from fixed seeds keep every run rule", () => {
-    const failures = propertyTest(stressMix, { profile: "mix", properties: rules, seeds: SEEDS });
+  it(
+    "runs of the mix profile from fixed seeds keep every run rule",
+    () => {
+      const failures = propertyTest(stressMix, { profile: "mix", properties: rules, seeds: SEEDS });
 
-    expect(
-      failures.map((f) => `${f.rule} from seed ${f.seed}:\n${f.breaches.join("\n")}\n${f.story}`),
-    ).toEqual([]);
-  }, 240_000);
+      expect(
+        failures.map((f) => `${f.rule} from seed ${f.seed}:\n${f.breaches.join("\n")}\n${f.story}`),
+      ).toEqual([]);
+    },
+    LIMITS.mixStress,
+  );
 });

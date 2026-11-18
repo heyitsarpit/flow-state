@@ -32,7 +32,7 @@ export type { At, Tab } from "./steps.ts";
 
 export type { Cut, StoryRun } from "./run.ts";
 
-export { generate, propertyTest } from "./generate.ts";
+export { generate, profileTables, propertyTest } from "./generate.ts";
 
 export type { Drawing, Failure, Generated, Profile, Span } from "./generate.ts";
 

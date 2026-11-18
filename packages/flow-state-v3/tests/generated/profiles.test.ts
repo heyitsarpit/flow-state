@@ -1,6 +1,12 @@
 import { Duration, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { generate, print, type Generated, type Step } from "../../src/host/testing/index.ts";
+import {
+  generate,
+  type Generated,
+  print,
+  profileTables,
+  type Step,
+} from "../../src/host/testing/index.ts";
 import { samples as pay } from "../../fixtures/shop/stories/usual.ts";
 import { samples } from "./fixtures.ts";
 
@@ -25,21 +31,12 @@ const burstsOf = (steps: ReadonlyArray<Step>) => {
 
 const band = (value: number, lo: number, hi: number) => value >= lo && value <= hi;
 
-// The stress mixes, in percent, from the usual and stress runs of the fixture plan.
-const ANSWER_MIX = {
-  ok: 35,
-  fail: 10,
-  lost: 5,
-  lostButLanded: 10,
-  heldThenLost: 5,
-  failButLanded: 5,
-  never: 5,
-  slow: 10,
-  reordered: 10,
-  late: 5,
-};
+// The stress mixes, in percent, keyed as the run's tally names them.
+const ANSWER_MIX = Object.fromEntries(profileTables.answers.stress);
 
-const WRITE_MIX = { "write ack": 75, "write refuse": 15, "write hang": 5, "write land": 5 };
+const WRITE_MIX = Object.fromEntries(
+  profileTables.writes.stress.map(([w, p]) => [`write ${w}`, p]),
+);
 
 const wordsOf = (run: Generated) => run.steps.flatMap((s) => (s._tag === "world" ? s.words : []));
 

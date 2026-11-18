@@ -2,6 +2,7 @@ import { expect, it } from "vite-plus/test";
 import { manifests, type Reach } from "../../fixtures/index.ts";
 import { FAULTS, generate, PHASES, pairSweep, type Samples } from "../../src/host/testing/index.ts";
 import { rules } from "../rules/rules.ts";
+import { LIMITS } from "../limits.ts";
 
 const ON_WIRE = new Set(["OnWire", "Cancelling"]);
 
@@ -61,42 +62,46 @@ const reachablePhases = (reachable: Reach) =>
  * forbidden phase a late seed would open is probed too.
  */
 const sweeps = (samples: Samples, reachable: Reach, tier: "usual" | "stress") =>
-  it(`${samples.id}: every reachable (phase, fault) cell keeps every run rule, and the unreachable ones are named`, () => {
-    const cells = pairSweep(samples, {
-      properties: rules,
-      seeds: DRIVE_SEEDS,
-      stopAt: tier === "usual" ? reachablePhases(reachable) : PHASES,
-    });
+  it(
+    `${samples.id}: every reachable (phase, fault) cell keeps every run rule, and the unreachable ones are named`,
+    () => {
+      const cells = pairSweep(samples, {
+        properties: rules,
+        seeds: DRIVE_SEEDS,
+        stopAt: tier === "usual" ? reachablePhases(reachable) : PHASES,
+      });
 
-    const expected = PHASES.flatMap((phase) =>
-      FAULTS.flatMap((fault) => {
-        const why = whyUnreachable(reachable, phase, fault);
+      const expected = PHASES.flatMap((phase) =>
+        FAULTS.flatMap((fault) => {
+          const why = whyUnreachable(reachable, phase, fault);
 
-        return why === "" ? [] : [`${phase} × ${fault}: ${why}`];
-      }),
-    );
+          return why === "" ? [] : [`${phase} × ${fault}: ${why}`];
+        }),
+      );
 
-    const unreached = cells.flatMap((c) =>
-      c.outcome._tag === "Unreached"
-        ? [
-            `${c.phase} × ${c.fault}: ${whyUnreachable(reachable, c.phase, c.fault) || c.outcome.why}`,
-          ]
-        : [],
-    );
+      const unreached = cells.flatMap((c) =>
+        c.outcome._tag === "Unreached"
+          ? [
+              `${c.phase} × ${c.fault}: ${whyUnreachable(reachable, c.phase, c.fault) || c.outcome.why}`,
+            ]
+          : [],
+      );
 
-    const broken = cells.flatMap((c) =>
-      c.outcome._tag === "Reached" && c.outcome.breaches.length > 0
-        ? [`${c.phase} × ${c.fault}:\n${c.outcome.breaches.join("\n")}\n${c.outcome.story}`]
-        : [],
-    );
+      const broken = cells.flatMap((c) =>
+        c.outcome._tag === "Reached" && c.outcome.breaches.length > 0
+          ? [`${c.phase} × ${c.fault}:\n${c.outcome.breaches.join("\n")}\n${c.outcome.story}`]
+          : [],
+      );
 
-    const drive = generate(samples, { drawing: "drive", seed: 1 });
+      const drive = generate(samples, { drawing: "drive", seed: 1 });
 
-    expect(drive.run.evidence.some((e) => e._tag === "Turn")).toBe(true);
-    expect(cells).toHaveLength(PHASES.length * FAULTS.length);
-    expect(broken).toEqual([]);
-    expect(unreached).toEqual(expected);
-  }, 120_000);
+      expect(drive.run.evidence.some((e) => e._tag === "Turn")).toBe(true);
+      expect(cells).toHaveLength(PHASES.length * FAULTS.length);
+      expect(broken).toEqual([]);
+      expect(unreached).toEqual(expected);
+    },
+    LIMITS.pairSweep,
+  );
 
 /**
  * The pair sweeps of every manifest, split into `of` shards by position so each shard's file runs

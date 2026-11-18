@@ -1,4 +1,5 @@
 import { expect, it } from "vite-plus/test";
+import { LIMITS } from "../limits.ts";
 import { manifests } from "../../fixtures/index.ts";
 import { cartFirst, conflictingCart } from "../../fixtures/shop/stories/structure.ts";
 import { parentUnderChildren } from "../../fixtures/session/stories/usual.ts";
@@ -11,8 +12,6 @@ import { Step, type Story, StoryFailed, type StoryRun } from "../../src/host/tes
 import { checked } from "./rules.ts";
 import { switchedOn } from "../switches.ts";
 import { inHoldWindow, shardOf, skippable, slices } from "./sweep.ts";
-
-export const RELOADS_MS = 240_000;
 
 const entries = manifests.flatMap((m) =>
   Object.values(m.app.machines).map((entry) => ("machine" in entry ? entry.machine : entry)),
@@ -126,6 +125,6 @@ export const onceShard = (shard: number, of: number) => {
       expect(verdicts.filter((v) => v !== "" && v !== "skipped")).toEqual([]);
       expect(skipped * 10 < verdicts.length).toBe(true);
     },
-    RELOADS_MS,
+    LIMITS.reloadSweep,
   );
 };

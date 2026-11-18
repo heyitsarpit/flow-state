@@ -33,9 +33,13 @@ const COPIES = Math.max(
   2,
   Math.min(Math.floor(availableParallelism() / WORKERS), Math.floor(totalmem() / (WORKERS * WORKER_PEAK))),
 );
+// One tier's run, timed out past this: the slowest whole tier measured under the run's own load
+// is 152 s (a whole stress tier), so 240 s leaves about half again.
 const RUN_MS = 240_000;
 const FAILS_REPORTER = resolve(import.meta.dirname, "fails-reporter.ts");
 const EXPECTED_FAIL = "expected fail: ";
+// What one run may print: the most measured is 7.2 MiB (the dead core's verbose usual tier); the
+// buffer only holds what is printed, so a large margin costs nothing until a run needs it.
 const BUFFER = 256 * 1024 * 1024;
 
 type Edit = Fault["edits"][number];
@@ -111,15 +115,26 @@ const runTier = (root: string, files: ReadonlyArray<string>, tier: "all" | "usua
     children.add(child);
   });
 
+// Prints how long a whole tier ran and how much it printed, the sizes RUN_MS and BUFFER are set from.
+const timed = async (tier: string, body: () => Promise<Run>) => {
+  const start = performance.now();
+  const ran = await body();
+  const size = ran.kind === "ran" ? `${Math.ceil(ran.out.length / 1024)} KiB` : ran.why;
+
+  console.log(`  whole ${tier} tier: ${Math.round((performance.now() - start) / 1000)} s, ${size}`);
+
+  return ran;
+};
+
 // Runs the given test files of a copy, or its whole suite when none are given: the usual tests,
 // then the stress files, each its own run under its own timeout, as `nub run test` and
 // `nub run test:stress` are. A bailing run stops after a tier that failed.
 const run = async (root: string, files: ReadonlyArray<string>, flags: ReadonlyArray<string> = []): Promise<Run> => {
   if (files.length > 0) return runTier(root, files, "all", flags);
-  const usual = await runTier(root, [], "usual", flags);
+  const usual = await timed("usual", () => runTier(root, [], "usual", flags));
 
   if (usual.kind === "broken" || (!usual.passed && flags.includes("--bail=1"))) return usual;
-  const stress = await runTier(root, [], "stress", flags);
+  const stress = await timed("stress", () => runTier(root, [], "stress", flags));
 
   if (stress.kind === "broken") return { kind: "broken", why: `stress files ${stress.why}` };
 
@@ -184,6 +199,23 @@ const mayStayGreen = [
   // The compiler and the Runtime's check of a Compiled run no step; their own faults are planted
   // in tests/structure-faults.ts. A compile test that runs a turn lives elsewhere.
   /tests\/compile\/(construction|compiled)\.test\.ts > /u,
+  // Also static, each running no step: the closed code list, a constant's data view, and the
+  // compile-time type checks.
+  /tests\/compile\/(codes|deep-constants)\.test\.ts > /u,
+  /tests\/types\/[^ ]+\.test\.ts > /u,
+  // A fixture written wrong is refused when its machine is built, before any Runtime.
+  / > [^>]* written wrong is refused at construction [^>]*> /u,
+  // An ensure, create or name refused at admission, before the step: an input with no encoded
+  // form, a foreign ref, a missing context provider.
+  /tests\/actors\/identity\.test\.ts > [^>]+> Actors R(6, I9: an input that type-checks|6: createActor checks its input|24: a ref of a machine this Runtime's app does not run)/u,
+  /tests\/restore\/deep-inputs\.test\.ts > [^>]+> Codec R4: a name with no JSON text/u,
+  /tests\/session\/workspace\.test\.ts > [^>]+> S7, Actors R18, Stories R3: a Story's ensure of a status with no team/u,
+  // The run rules over crafted runs: the oracle judged with no core, each rule seen firing.
+  /tests\/rules\/rules\.test\.ts > /u,
+  // The fixtures' registration and the bench's declarations, statistics and history: no step.
+  /tests\/generated\/manifests\.test\.ts > /u,
+  /tests\/bench\/declare\.test\.ts > /u,
+  /tests\/bench\/proofs\.stress\.test\.ts > bench proofs > every manifest's saved stress Story has a turn bench/u,
 ];
 
 const deadCore = async (root: string) => {

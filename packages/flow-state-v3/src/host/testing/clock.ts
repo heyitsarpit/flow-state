@@ -2,6 +2,8 @@ import { Clock, Context, Duration, Effect, Layer, Option, Scheduler, Scope } fro
 import { TestClock } from "effect/testing";
 import { Host } from "../host.ts";
 
+// A runaway guard on one settle's tasks: the most the suite and stress runs settle at once is
+// 3,001 (a 1,000-call burst); 100,000 still stops a loop that never quiets within a second.
 const TASK_LIMIT = 100_000;
 
 /**

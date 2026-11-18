@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Story } from "../../src/host/testing/index.ts";
+import { switchedOn } from "../switches.ts";
 import { attachInspector, type Evidence } from "../../src/host/inspect.ts";
 import {
   actorRef,
@@ -180,17 +181,23 @@ describe("createActor (Actors R6)", () => {
     );
   });
 
-  it("Actors R6: a local actor lives until disposed, never ended by the grace", async () => {
-    const runtime = ready();
-    const local = runtime.createActor(ClockMachine, { input: {} });
-    await Effect.runPromise(Effect.sleep("150 millis"));
-    local.send({ _tag: "Tick" });
+  // Sleeps 150 ms of real time on a Runtime whose timers are not the test's to move, so no planted
+  // fault reaches it; it waits for a Story step that creates a local actor on the test clock.
+  // FLOW_REAL_TIME_GRACE=true runs it as it is.
+  it.skipIf(!switchedOn("FLOW_REAL_TIME_GRACE"))(
+    "Actors R6: a local actor lives until disposed, never ended by the grace",
+    async () => {
+      const runtime = ready();
+      const local = runtime.createActor(ClockMachine, { input: {} });
+      await Effect.runPromise(Effect.sleep("150 millis"));
+      local.send({ _tag: "Tick" });
 
-    expect(Option.map(local.getSnapshot(), (s) => s.memory["ticks"])).toEqual(Option.some(1));
+      expect(Option.map(local.getSnapshot(), (s) => s.memory["ticks"])).toEqual(Option.some(1));
 
-    runtime.disposeActor(local);
-    expect(Option.map(local.getSnapshot(), (s) => s.lifecycle)).toEqual(Option.some("disposed"));
-  });
+      runtime.disposeActor(local);
+      expect(Option.map(local.getSnapshot(), (s) => s.lifecycle)).toEqual(Option.some("disposed"));
+    },
+  );
 
   it("Actors R4, R22: createActor rejects RuntimeNotReady before ready and RuntimeDisposed after dispose", () => {
     const runtime = setup.construct();

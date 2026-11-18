@@ -1,10 +1,12 @@
 import { expect, it } from "vite-plus/test";
 import { propertyTest } from "../../src/host/testing/index.ts";
+import { LIMITS, limitFrom } from "../limits.ts";
 import { rules } from "../rules/rules.ts";
 import { samples, seeds, stressSamples } from "./fixtures.ts";
 
-// A minute per twenty seeds, so `FLOW_SEEDS` lengthens the limit with the run.
-const limitMs = (profile: "usual" | "stress") => 60_000 * Math.ceil(seeds(profile).length / 20);
+// A test's limit grows with the seeds it runs, so `FLOW_SEEDS` lengthens it with the run.
+const limitOf = (profile: "usual" | "stress", count: number) =>
+  limitFrom((profile === "stress" ? LIMITS.stressSeed : LIMITS.usualSeed) * count);
 
 type Shard = readonly [index: number, of: number];
 
@@ -49,6 +51,6 @@ export const seededRuns = (profile: "usual" | "stress", part: SeededPart = whole
           ),
         ).toEqual([]);
       },
-      limitMs(profile),
+      limitOf(profile, runs.length),
     );
 };

@@ -1,12 +1,17 @@
 import { describe, it } from "vite-plus/test";
+import { LIMITS } from "../limits.ts";
 import { checked } from "./rules.ts";
 import { slices } from "./sweep.ts";
 
 describe("run rules", () => {
-  it("every stress Story keeps every rule", async () => {
-    for (const story of slices.stress) {
-      // oxlint-disable-next-line no-await-in-loop -- one run at a time: each Story is its own world
-      checked(await story.run());
-    }
-  }, 230_000);
+  it(
+    "every stress Story keeps every rule",
+    async () => {
+      for (const story of slices.stress) {
+        // oxlint-disable-next-line no-await-in-loop -- one run at a time: each Story is its own world
+        checked(await story.run());
+      }
+    },
+    LIMITS.runRules,
+  );
 });

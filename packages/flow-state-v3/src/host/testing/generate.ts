@@ -145,6 +145,22 @@ const LENGTHS: Record<Drawing, readonly [number, number]> = {
   mix: [60, 200],
 };
 
+/**
+ * What each drawing draws: a person's steps, the server's answers and the store's writes, each
+ * by weight out of 100, and a run's length as the least and most draws.
+ *
+ * **When to use**
+ *
+ * Read it to check a profile's draws against its own mix; it is the mix's one source.
+ *
+ * **Details**
+ *
+ * The usual and stress mixes come from the fixture plan's usual and stress runs (Testing O6).
+ * The lengths give a usual run about a hundred steps and a stress run two to three hundred, the
+ * size of the hand-written long Stories.
+ */
+export const profileTables = { steps: STEPS, answers: ANSWERS, writes: WRITES, lengths: LENGTHS };
+
 const RANGE = 1000;
 
 /**
@@ -310,11 +326,17 @@ const network = (word: "offline" | "online") =>
 
 const control = (word: WorldWord) => Step.world({ words: [word] });
 
+// Two quiet rounds in a row, so a release that wakes more work is followed by one more round.
 const QUIET_ROUNDS = 2;
 
-const QUIET_LIMIT = 500;
+// The pulls a quieting may take: the most measured is 385 (a burst of held calls released one
+// by one), and the limit is four times that.
+const QUIET_LIMIT = 1600;
 
-const QUIET = Step.advance({ duration: "2 minutes" });
+// The latest an answer is drawn to come back: a late answer arrives 61 to 120 s after its call.
+const LATEST_ANSWER = "2 minutes";
+
+const QUIET = Step.advance({ duration: LATEST_ANSWER });
 
 /**
  * Quiets the world: releases every held call and write, then moves time past every deadline and
@@ -384,7 +406,7 @@ const delayOf = (answer: Answer, at: number) => {
     latency: () => (at < 20 ? span(2000, 5000, at * 50) : span(50, 800, at)),
     heldThenLost: () => span(50, 800, at),
     slow: () => span(1000, 90_000, at),
-    late: () => span(61_000, 120_000, at),
+    late: () => span(61_000, Duration.toMillis(Duration.fromInputUnsafe(LATEST_ANSWER)), at),
   };
 
   return Option.map(Option.fromUndefinedOr(delays[answer]), (delay) => delay());
@@ -954,6 +976,7 @@ const judged = (at: Drawn, draws: ReadonlyArray<Draw>, properties: ReadonlyArray
   }
 };
 
+// The shrink budget of one failure: the most a planted fault used is 419 shrinks.
 const MAX_SHRINKS = 1000;
 
 /**
@@ -1009,6 +1032,7 @@ const search = (at: Drawn, check: Check, target: Option.Option<string>, shrinks:
   return { result, rule };
 };
 
+// A mix drops fixtures by subset while there are at most 64: a mix of up to six fixtures.
 const MAX_SUBSETS = 64;
 
 // Every nonempty subset of the parts, smallest first, while there are at most 64 of them.

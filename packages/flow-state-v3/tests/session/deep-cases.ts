@@ -13,8 +13,9 @@ import {
 } from "../../fixtures/session/stories/values.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
+import { LIMITS } from "../limits.ts";
 
-export const DEEP_TIMEOUT = 120_000;
+export const DEEP_TIMEOUT = LIMITS.deepValue;
 
 export const NESTS = "actor/Workspace/Nests/main";
 export const VIEW = "actor/Workspace/NestView/view";

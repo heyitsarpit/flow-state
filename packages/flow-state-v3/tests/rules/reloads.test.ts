@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { contextStories, RELOADS_MS, reload, turnsOf } from "./reloads.ts";
+import { LIMITS } from "../limits.ts";
+import { contextStories, reload, turnsOf } from "./reloads.ts";
 
 describe("reloads over a consistent saved world (Actors R9, R19; Restore R2)", () => {
   it(
@@ -23,6 +24,6 @@ describe("reloads over a consistent saved world (Actors R9, R19; Restore R2)", (
 
       expect(made).toEqual([]);
     },
-    RELOADS_MS,
+    LIMITS.reloadAtEnd,
   );
 });

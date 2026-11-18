@@ -1,11 +1,11 @@
-import { Option } from "effect";
+import { Duration, Option } from "effect";
 import type { cellsCheckout } from "../fixtures/cells/app.ts";
 import { checkout, shop, shopSetup } from "../fixtures/shop/app.ts";
 import { PayMachine } from "../fixtures/services/shop/machines/pay.ts";
 import { Shop } from "../fixtures/services/shop/server/shop.ts";
 import { ShopFake, ShopFakeSteadfast } from "../fixtures/services/shop/server/layer.ts";
 import { ShopLive } from "../fixtures/services/shop/adapters/shop.ts";
-import { runtimeSetup } from "../src/index.ts";
+import { RuntimeDefaults, runtimeSetup } from "../src/index.ts";
 import { shopStory } from "../fixtures/shop/stories/usual.ts";
 import type { Evidence } from "../src/host/inspect.ts";
 import { type Cut, Story, type StoryRun, type WorldWord } from "../src/host/testing/index.ts";
@@ -38,7 +38,8 @@ export const steadfastStory = (id: string) =>
   Story.app(shopSetup, { id, fixtures: [ShopFakeSteadfast] });
 
 /**
- * The checkout app with captures coalesced over 5 seconds, as the default host writes them.
+ * The checkout app with captures coalesced over the default capture interval, as the default host
+ * writes them.
  */
 export const coalescedStory = (id: string) =>
   Story.app(
@@ -46,7 +47,7 @@ export const coalescedStory = (id: string) =>
       app: shop,
       services: ShopLive("https://shop.example"),
       scope: "shop",
-      persistence: { captureMs: 5000 },
+      persistence: { captureMs: Duration.toMillis(RuntimeDefaults.captureInterval) },
     }),
     { id, fixtures: [ShopFake] },
   );
@@ -168,3 +169,14 @@ export const denials = (records: ReadonlyArray<Evidence>) =>
  */
 export const disposals = (records: ReadonlyArray<Evidence>) =>
   records.filter((e) => e._tag === "RuntimeDisposed").length;
+
+/**
+ * One millisecond short of the Runtime's disposal bound: a Story advances by it, then by
+ * `ONE_MILLI`, to see the bound not yet reached and then reached.
+ */
+export const SHORT_OF_BOUND = Duration.millis(Duration.toMillis(RuntimeDefaults.disposalBound) - 1);
+
+/**
+ * The millisecond that reaches a bound after `SHORT_OF_BOUND`.
+ */
+export const ONE_MILLI = Duration.millis(1);

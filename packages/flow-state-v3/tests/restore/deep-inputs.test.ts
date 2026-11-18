@@ -18,6 +18,7 @@ import {
   runtimeSetup,
   transaction,
 } from "../../src/index.ts";
+import { LIMITS } from "../limits.ts";
 import { checked } from "../rules/rules.ts";
 
 // A publish of a folder tree, keyed on the tree itself: its key is as deep as its input.
@@ -81,9 +82,6 @@ const shelfSetup = runtimeSetup({
   persistence: { captureMs: 0 },
 });
 
-// A run of a hundred thousand levels takes seconds: each step walks the nest a few times.
-const DEEP_TIMEOUT = 120_000;
-
 const ended = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
 
@@ -118,7 +116,7 @@ describe("commit inputs and lane keys of any depth (Codec R1, R4; WriteLanes R12
         expect(ended(run)).toEqual(["success success", "unknown Restored"]);
         expect(reported(run)).toEqual([]);
       },
-      DEEP_TIMEOUT,
+      LIMITS.deepName,
     );
 });
 
@@ -163,7 +161,7 @@ describe("actor names of any depth (Codec R1, R4; Actors R2)", () => {
 
       expect(run.checkpoints.after.read(album)?.memory.looks).toBe(2);
     },
-    DEEP_TIMEOUT,
+    LIMITS.deepName,
   );
 
   it("Codec R4: a name with no JSON text the host can write (100,000 deep through JSON.stringify) is refused as a FlowError, never another error", () => {

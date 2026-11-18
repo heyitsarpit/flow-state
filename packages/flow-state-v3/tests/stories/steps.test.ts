@@ -3,6 +3,7 @@ import { account } from "../../fixtures/transfers/app.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory, deadline, usual } from "../../fixtures/transfers/stories/usual.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
+import { ONE_MILLI, SHORT_OF_BOUND } from "../checkout.ts";
 import { checked } from "../rules/rules.ts";
 
 const endings = (run: StoryRun) =>
@@ -98,9 +99,9 @@ describe("Story step words", () => {
         .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
         .disposeRuntime()
         .checkpoint("disposing")
-        .advance("4999 millis")
+        .advance(SHORT_OF_BOUND)
         .checkpoint("bound")
-        .advance("1 millis")
+        .advance(ONE_MILLI)
         .checkpoint("disposed")
         .world(Bank.transfer.release())
         .run(),

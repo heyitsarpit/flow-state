@@ -2,6 +2,7 @@ import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { benches } from "../../bench/benches/index.ts";
 import { manifests } from "../../fixtures/index.ts";
+import { LIMITS } from "../limits.ts";
 
 // The proofs run the Stories the benches time, saved stress Stories among them, so they run with
 // the stress files.
@@ -13,14 +14,18 @@ describe("bench proofs", () => {
       expect(ids.has(`turn.${m.savedStress.story.id.replace("/", ".")}.per-turn-ms`)).toBe(true);
   });
 
-  it("every bench's proof passes: it does the work it claims", async () => {
-    for (const b of benches) {
-      const subject = await b.load();
+  it(
+    "every bench's proof passes: it does the work it claims",
+    async () => {
+      for (const b of benches) {
+        const subject = await b.load();
 
-      expect({ id: b.id, problem: await subject.proof() }).toEqual({
-        id: b.id,
-        problem: Option.none(),
-      });
-    }
-  }, 600_000);
+        expect({ id: b.id, problem: await subject.proof() }).toEqual({
+          id: b.id,
+          problem: Option.none(),
+        });
+      }
+    },
+    LIMITS.benchProofs,
+  );
 });

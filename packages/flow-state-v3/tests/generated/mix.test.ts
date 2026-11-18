@@ -11,6 +11,7 @@ import {
   Story,
 } from "../../src/host/testing/index.ts";
 import { rules } from "../rules/rules.ts";
+import { LIMITS } from "../limits.ts";
 import { mix, stressMix } from "./fixtures.ts";
 import { planted } from "./planted.ts";
 
@@ -155,101 +156,129 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
     expect(disposals.filter((d) => d.turnsAfter > 0)).toEqual([]);
   });
 
-  it("each fixture of the mix alone, under the mix profile, keeps every run rule", () => {
-    const failures = mix.flatMap((part) =>
-      propertyTest(part, { profile: "mix", properties: rules, seeds: SEEDS }),
-    );
+  it(
+    "each fixture of the mix alone, under the mix profile, keeps every run rule",
+    () => {
+      const failures = mix.flatMap((part) =>
+        propertyTest(part, { profile: "mix", properties: rules, seeds: SEEDS }),
+      );
 
-    expect(failures.map((f) => `${f.fixtures.join("+")} ${f.rule} from seed ${f.seed}`)).toEqual(
-      [],
-    );
-  }, 60_000);
+      expect(failures.map((f) => `${f.fixtures.join("+")} ${f.rule} from seed ${f.seed}`)).toEqual(
+        [],
+      );
+    },
+    LIMITS.mix,
+  );
 
   it("each run counts the steps that touched two fixtures, and every mix run has some", () => {
     expect(runs.map((g) => g.shared > 0)).toEqual(SEEDS.map(() => true));
   });
 
-  it("Testing O6: a send to a closed screen opens it once, then sends: no ensure repeats back to back, and an opened screen's send follows its ensure", () => {
-    const keyOf = (step: Step) =>
-      step._tag === "ensure" || step._tag === "send"
-        ? `${step.actor.machine}/${step.actor.name}`
-        : "";
+  it(
+    "Testing O6: a send to a closed screen opens it once, then sends: no ensure repeats back to back, and an opened screen's send follows its ensure",
+    () => {
+      const keyOf = (step: Step) =>
+        step._tag === "ensure" || step._tag === "send"
+          ? `${step.actor.machine}/${step.actor.name}`
+          : "";
 
-    const problems = [...runs, generate(stressMix, { drawing: "mix", seed: 18 })].flatMap((g) =>
-      g.steps.flatMap((step, n) => {
-        const next = g.steps[n + 1];
+      const problems = [...runs, generate(stressMix, { drawing: "mix", seed: 18 })].flatMap((g) =>
+        g.steps.flatMap((step, n) => {
+          const next = g.steps[n + 1];
 
-        if (step._tag !== "ensure" || next === undefined) return [];
+          if (step._tag !== "ensure" || next === undefined) return [];
 
-        return next._tag === "ensure" && keyOf(next) === keyOf(step)
-          ? [`${keyOf(step)} ensured twice at ${n}`]
-          : [];
-      }),
-    );
+          return next._tag === "ensure" && keyOf(next) === keyOf(step)
+            ? [`${keyOf(step)} ensured twice at ${n}`]
+            : [];
+        }),
+      );
 
-    const sendsAfterOpening = [...runs].flatMap((g) =>
-      g.steps.flatMap((step, n) => {
-        const next = g.steps[n + 1];
+      const sendsAfterOpening = [...runs].flatMap((g) =>
+        g.steps.flatMap((step, n) => {
+          const next = g.steps[n + 1];
 
-        return step._tag === "ensure" && next?._tag === "send" && keyOf(next) === keyOf(step)
-          ? [n]
-          : [];
-      }),
-    );
+          return step._tag === "ensure" && next?._tag === "send" && keyOf(next) === keyOf(step)
+            ? [n]
+            : [];
+        }),
+      );
 
-    expect(problems).toEqual([]);
-    expect(sendsAfterOpening.length).toBeGreaterThan(0);
-  }, 60_000);
+      expect(problems).toEqual([]);
+      expect(sendsAfterOpening.length).toBeGreaterThan(0);
+    },
+    LIMITS.mix,
+  );
 
-  it("fixed seeds of the mix keep every run rule", () => {
-    const failures = propertyTest(mix, { profile: "mix", properties: rules, seeds: SEEDS });
+  it(
+    "fixed seeds of the mix keep every run rule",
+    () => {
+      const failures = propertyTest(mix, { profile: "mix", properties: rules, seeds: SEEDS });
 
-    expect(failures.map((f) => `${f.rule} from seed ${f.seed}:\n${f.breaches.join("\n")}`)).toEqual(
-      [],
-    );
-  }, 60_000);
+      expect(
+        failures.map((f) => `${f.rule} from seed ${f.seed}:\n${f.breaches.join("\n")}`),
+      ).toEqual([]);
+    },
+    LIMITS.mix,
+  );
 
-  it("a mix whose fixtures never share a resource is inconclusive (Testing O6)", () => {
-    const [failure] = propertyTest([part("bank-planned"), idle], {
-      profile: "mix",
-      properties: rules,
-      seeds: [1],
-    });
+  it(
+    "a mix whose fixtures never share a resource is inconclusive (Testing O6)",
+    () => {
+      const [failure] = propertyTest([part("bank-planned"), idle], {
+        profile: "mix",
+        properties: rules,
+        seeds: [1],
+      });
 
-    expect(failure?.rule).toBe("inconclusive");
-    expect(failure?.breaches.join("\n")).toContain("no step touched two fixtures");
-  }, 60_000);
+      expect(failure?.rule).toBe("inconclusive");
+      expect(failure?.breaches.join("\n")).toContain("no step touched two fixtures");
+    },
+    LIMITS.mix,
+  );
 
-  it("a failing mix shrinks by dropping whole fixtures first: a fault in one fixture's edge keeps that fixture alone", () => {
-    const [failure] = propertyTest([part("bank-planned"), planted, part("lanes")], {
-      profile: "mix",
-      properties: rules,
-      seeds: Array.from({ length: 20 }, (_, n) => n + 1),
-    });
+  it(
+    "a failing mix shrinks by dropping whole fixtures first: a fault in one fixture's edge keeps that fixture alone",
+    () => {
+      const [failure] = propertyTest([part("bank-planned"), planted, part("lanes")], {
+        profile: "mix",
+        properties: rules,
+        seeds: Array.from({ length: 20 }, (_, n) => n + 1),
+      });
 
-    expect(failure?.rule).toBe("WriteLanes I6");
-    expect(failure?.fixtures).toEqual(["pay-planted"]);
-    expect(failure?.story.startsWith("Story.app(shopSetup,")).toBe(true);
-  }, 120_000);
+      expect(failure?.rule).toBe("WriteLanes I6");
+      expect(failure?.fixtures).toEqual(["pay-planted"]);
+      expect(failure?.story.startsWith("Story.app(shopSetup,")).toBe(true);
+    },
+    LIMITS.mix,
+  );
 
-  it("a fault in one fixture's edge, among all four of the mix, shrinks to that fixture within the shrink bound", () => {
-    const parts = [part("bank-planned"), part("lanes"), planted, part("palette")];
+  it(
+    "a fault in one fixture's edge, among all four of the mix, shrinks to that fixture within the shrink bound",
+    () => {
+      const parts = [part("bank-planned"), part("lanes"), planted, part("palette")];
 
-    const [failure] = propertyTest(parts, {
-      profile: "mix",
-      properties: rules,
-      seeds: Array.from({ length: 20 }, (_, n) => n + 1),
-    });
+      const [failure] = propertyTest(parts, {
+        profile: "mix",
+        properties: rules,
+        seeds: Array.from({ length: 20 }, (_, n) => n + 1),
+      });
 
-    expect(failure?.rule).toBe("WriteLanes I6");
-    expect(failure?.fixtures).toEqual(["pay-planted"]);
-    expect((failure?.shrinks ?? Number.POSITIVE_INFINITY) <= 1000).toBe(true);
-  }, 120_000);
+      expect(failure?.rule).toBe("WriteLanes I6");
+      expect(failure?.fixtures).toEqual(["pay-planted"]);
+      expect((failure?.shrinks ?? Number.POSITIVE_INFINITY) <= 1000).toBe(true);
+    },
+    LIMITS.mix,
+  );
 });
 
 describe("a mix after a reload that attaches nothing (Testing O6)", () => {
   // Stress seed 18 reloads with no actor attached under a held store, then sends to closed screens.
-  it("Testing O6: a person opens a screen before acting on it, so the stress mix from seed 18 touches two fixtures in one step", () => {
-    expect(generate(stressMix, { drawing: "mix", seed: 18 }).shared).toBeGreaterThan(0);
-  }, 60_000);
+  it(
+    "Testing O6: a person opens a screen before acting on it, so the stress mix from seed 18 touches two fixtures in one step",
+    () => {
+      expect(generate(stressMix, { drawing: "mix", seed: 18 }).shared).toBeGreaterThan(0);
+    },
+    LIMITS.mix,
+  );
 });

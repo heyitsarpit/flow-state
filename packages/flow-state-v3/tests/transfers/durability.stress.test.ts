@@ -4,10 +4,9 @@ import { stressManyReceipts } from "../../fixtures/transfers/stories/usual.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
+import { LIMITS } from "../limits.ts";
 
 const OWED = "owed/Bank/Transfers/acct-1";
-
-const RUN_MS = 60_000;
 
 const OwedRows = Schema.fromJsonString(Schema.Struct({ rows: Schema.Array(Schema.Unknown) }));
 
@@ -37,6 +36,6 @@ describe("many owed rows (Codec R1, R5; WriteAhead I21)", () => {
         inOpen(run, 2).filter((e) => e._tag === "Delivered" && e.operation === "transfer"),
       ).toHaveLength(1300);
     },
-    RUN_MS,
+    LIMITS.durability,
   );
 });

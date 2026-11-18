@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { LIMITS } from "../limits.ts";
 import { Step, type Story } from "../../src/host/testing/index.ts";
 import { RuntimeDefaults } from "../../src/index.ts";
 import { checked } from "./rules.ts";
@@ -7,10 +8,6 @@ import { checked } from "./rules.ts";
  * Declares the tests that run each of the given Stories under another world: another seed, and
  * an ending reload after which every actor that wrote attaches.
  */
-// Every Story of a slice runs in one test; under `nub run faults` the machine is shared with
-// seven planted copies.
-const WORLD_MS = 230_000;
-
 export const underAnotherWorld = (which: string, stories: ReadonlyArray<Story<string>>) =>
   describe(`${which} under another world`, () => {
     it(
@@ -28,7 +25,7 @@ export const underAnotherWorld = (which: string, stories: ReadonlyArray<Story<st
           expect(mints(other).filter((id) => mints(first).includes(id))).toEqual([]);
         }
       },
-      WORLD_MS,
+      LIMITS.otherWorld,
     );
 
     it(
@@ -70,6 +67,6 @@ export const underAnotherWorld = (which: string, stories: ReadonlyArray<Story<st
           expect(Object.keys(run.checkpoints)).toContain("~reloaded");
         }
       },
-      WORLD_MS,
+      LIMITS.otherWorld,
     );
   });

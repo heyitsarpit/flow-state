@@ -16,9 +16,11 @@ import {
   endings,
   issues,
   lastReason,
+  ONE_MILLI,
   onWire,
   type Records,
   row,
+  SHORT_OF_BOUND,
   START,
   state,
   steadfastStory,
@@ -210,9 +212,9 @@ describe("PAY-16 disposal (Actors R22, I29, I30, I31; WriteAhead R14)", () => {
     const run = await played(
       onWire("PAY-16/on-the-wire-at-the-bound", Shop.confirm.hold())
         .disposeRuntime()
-        .advance("4999 millis")
+        .advance(SHORT_OF_BOUND)
         .checkpoint("within")
-        .advance("1 millis")
+        .advance(ONE_MILLI)
         .checkpoint("bound")
         .reload()
         .checkpoint("reloaded"),
@@ -237,9 +239,9 @@ describe("PAY-16 disposal (Actors R22, I29, I30, I31; WriteAhead R14)", () => {
       const run = await played(
         onWire("PAY-16/never-answered", Shop.confirm.hold())
           .disposeRuntime()
-          .advance("4999 millis")
+          .advance(SHORT_OF_BOUND)
           .checkpoint("within")
-          .advance("1 millis")
+          .advance(ONE_MILLI)
           .checkpoint("bound")
           .reload()
           .checkpoint("reloaded"),
@@ -338,9 +340,9 @@ describe("the final write (Actors R23, I43, I44)", () => {
         .world(Fake.storage.hold())
         .send(checkout, START)
         .disposeRuntime()
-        .advance("4999 millis")
+        .advance(SHORT_OF_BOUND)
         .checkpoint("within")
-        .advance("1 millis")
+        .advance(ONE_MILLI)
         .checkpoint("bound"),
     );
 

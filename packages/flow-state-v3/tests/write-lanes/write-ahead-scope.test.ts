@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { account, savings } from "../../fixtures/transfers/app.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake } from "../../src/host/testing/index.ts";
+import { RuntimeDefaults } from "../../src/index.ts";
 
 describe("one batch out per scope (WriteAhead R12, I23)", () => {
   it("WriteAhead I23: while one batch is held, another actor's dirty records wait for the next batch of the scope, not a batch of their own", async () => {
@@ -32,7 +33,7 @@ describe("one batch out per scope (WriteAhead R12, I23)", () => {
       .advance("10 seconds")
       .checkpoint("quiet")
       .disposeRuntime()
-      .advance("5 seconds")
+      .advance(RuntimeDefaults.disposalBound)
       .run();
 
     const after = run.end.records.batches.slice(run.checkpoints.quiet.records.batches.length);
