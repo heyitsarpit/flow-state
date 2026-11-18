@@ -502,6 +502,6 @@ tests
              (planted fault: the offline word reaches the servers). [@I9, @I22]
     T16  Forked reloads: on the median-length Story with a held call, a held write, the network down and a reload, the 
          fork at every position in each reload mode gives the replay's evidence, trace, checkpoints, end
-            time, inspection, records and calls, and the own run equals `run()`; the reload sweep under
-            FLOW_REPLAY_SWEEP=true fails at any position whose verdict differs (planted faults: a fork that starts
-            the store empty, the servers fresh, the actors dropped or the clock at 0). [@I23]
+             time, inspection, records and calls, and the own run equals `run()`; the reload sweep under
+             FLOW_REPLAY_SWEEP=true fails at any position whose verdict differs (planted faults: a fork that starts
+             the store empty, the servers fresh, the actors dropped or the clock at 0). [@I23]

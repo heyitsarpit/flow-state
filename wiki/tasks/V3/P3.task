@@ -3906,7 +3906,7 @@ tasks
 
     T90
         title       Reload sweep forked from a saved cut, same verdicts
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T83]
         description
@@ -3951,6 +3951,21 @@ tasks
             catches, the fork catches with the same verdict at every position. (4) the replay form kept behind
             FLOW_REPLAY_SWEEP with a comment. (5) alone, before (suite 37.6 s, stress 56.8 s) and after; check 0; faults
             once at the close.
+        comment     2026-11-18T09:26:35Z
+            Ready for review (64c885b7..f4b2da91): the reload sweep forks each position from a saved world (forkReloads,
+            @spec.Stories R18, I23, T16); the replay form stays behind FLOW_REPLAY_SWEEP=true, which runs both and fails
+            on any differing position. Side by side: default tier 142 Stories x 3 modes, 2,567 positions each, every
+            verdict equal (skips 15/15/126 both forms); stress tier 12 shards equal under the switch. Faults: 192
+            planted under both forms in scratch copies (harness stopped by the orchestrator; the 10 reload, restore,
+            write-ahead and lane faults left were run after); the replay catches 59 and the fork catches all 59. Forms
+            differ only under faults that make a dead tab run again (Stories R13: abort-fails-the-waiter,
+            abort-keeps-held, dead-tab-answered, all still caught by both) and the four planted fork faults
+            (fork-store-empty, fork-servers-fresh, fork-actors-dropped, fork-clock-zero; caught by fork.test.ts via
+            --only). Alone, before -> after: suite 37.6 -> 35.9 s, stress 56.1 -> 46.1 s (vitest duration); the saving
+            is under the 60 s estimate because each fork still runs its suffix and every variant is judged over the
+            whole run. Also: tools/faults/run.ts --only (unknown names refused, verdict.test.ts), LIMITS re-measured,
+            fault finds moved in context-faults.ts and tooling-faults.ts. check 0, suite 0, stress 0; whole faults run
+            not run (the user's once-a-day rule).
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
