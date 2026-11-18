@@ -1338,3 +1338,7 @@ note 2026-11-18T17:55:39Z
 note 2026-11-18T17:58:33Z
     Run resumed at ff72cba4 (workflow@2befdbd): weekly usage 0 % after reset; no live agents; cron :07 and caffeinate
     on. Current Task T94; first action: one Opus lead builds it, requirements first.
+
+note 2026-11-18T18:39:39Z
+    T94 review ISSUES (233087b4): inert data hands out raw-throwing functions (textOfKey, O.x.commit().make); confirmed.
+    Third instance of the raw-throw class, so convergence by threshold 2; fix round held for the user's go.
