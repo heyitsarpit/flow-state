@@ -901,6 +901,25 @@ tasks
             lengthened` of a literal-named provider. (5) bindings check asserts the owed `add` row delivered at open 2.
             (6) S1/S9: session/chain-bound-to-local (builder). (7) headless title cites Restore R5, WriteAhead R5,
             WriteLanes I8; R1, WriteLanes I8, WriteAhead R5 join the Spec edits.
+        comment     2026-11-18T21:49:39Z
+            Resume note (lead, context near its limit): fix round committed at 1d2e1566; the build has not started.
+            Next, in order:
+            1. Brands in code:packages/flow-state-v3/src/core/identity.ts, built from Compiled: `ActorName`, `RecordKey`
+               (kind/machine/name), `LaneKey` (identity|contract id|key text), `AttemptId`, `StateName`; move the 14
+               hand-parsing sites onto it (records.test.ts "parsed only by the identity module" lists them).
+            2. Format 4 (unreleased, no migration): identity only in the key; lane record holds head {attempt, input,
+               input digest, retryCount, inFlight}, queue, displaced, or displaced alone when headless; owed rows name
+               lanes by LaneKey, no operation. Encode in record.ts/actor-record.ts/persist.ts; decode one Schema per
+               kind via the walker; delete the hand checks.
+            3. Bindings and graph decode as ActorNames of the slot's provider; schedules by declared name; retryCount a
+               non-negative int.
+            4. Old-format record texts in fixtures (shop findings, transfers samples/usual t1Lane, sign-in, session
+               values) move to format 4; R7 unstamped state quarantines, R8 undeclared machine discarded with a
+               diagnostic, OpRenamed by contract.
+            5. Register the five builders with every runner; held forged-but-valid cases stay `it.fails`.
+            6. Faults `binding-unchecked` and T20's restore faults via `nub run faults --only`; Specs Restore
+               R1/R5/R7/R8, Codec R5, WriteAhead R4/R5, WriteLanes I8 with specs.log notes; stress and fresh seeds;
+               check, suite; status review.
 
     T95
         title       Callback results checked before they enter a turn
