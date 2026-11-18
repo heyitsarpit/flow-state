@@ -3942,7 +3942,7 @@ tasks
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T20]
         description
@@ -3983,3 +3983,28 @@ tasks
             faults: a field naming the kept fault, filtered out unless FLOW_MERGED_FAULTS=true; a check that the switch
             restores the full count. (4) times: faults and test:stress alone before and after; caught list equal minus
             the merged names; nub run check 0.
+        comment     2026-11-18T07:43:52Z
+            Fault groups (lead): no fault merged. FLOW_FAULTS_EVERY_CATCH=true nub run faults, alone (419 s, 265 of 265
+            caught, all by targets), found 14 groups with equal rule and equal catch set over the rule's targets; each
+            was read edit by edit, and none plants the same mistake. Distinct paths one test happens to catch: Turn I14
+            (refused-turn-reported adds a report, refused-publishes-nothing drops a publish), Actors R25
+            (stopped-record-reads-active, stopped-ended-reads-disposed), WriteAhead I12 (default-interval-zero,
+            interval-debounced), Codec I7 (owed-row-without-channel, owed-record-keyed-kept), WriteAhead I15
+            (acknowledged-before-landing, ticket-answered-by-empty-batch: the second never writes), Restore R5
+            (fresh-start-unreported, quarantined-actor-reads-absent), Restore R5 (seven record checks in record.ts:
+            record-key-unchecked, record-machine-unread, lane-operation-unkeyed, lane-key-text-unread,
+            held-lane-other-key, owed-row-operation-unread, owed-row-other-lane; one test's cases), Compile R4
+            (name-length-capped, state-depth-capped), Turn R14, T6 (creation-delay-drops-all, creation-delay-silent),
+            Actors R9 (changed-slot-owes-no-wave, return-without-wave), Turn realization (lane-wait-unindexed,
+            lane-unindexed-by-actor), Codec R6 (cycle-target-unplaced, dataview-bytes-ignored). Closest calls:
+            WriteAhead I23, batch-never-out also makes settled() true while a batch is out (edge.ts:143), which
+            two-batches-out does not; Restore I1, boot-wakes-in-flight-only-swept is the same edit but the only fault
+            proving the reload sweeps catch, so it stays.
+        comment     2026-11-18T07:43:53Z
+            Ready for review (3bd851ff, c5931da8): stress pair sweep at 200 seeds from one source (pairs.ts), but
+            shop-store and auth-session keep 1,000: a probe of 200 against 1,000 seeds showed they first reach
+            Recapturing at seed 362 and Held and Recapturing at 955; the rest find every phase by seed 82. Usual tier's
+            stop and 1,000 cap unchanged; LIMITS.pairSweep re-measured (stress 5.5 s). Alone, before -> after: stress 60
+            -> 54 s, faults 271 -> 258 s; 265 of 265 caught, same list, dead core unchanged. Faults gains
+            FLOW_FAULTS_EVERY_CATCH (every catch, rule's union of targets, no bail). No merge, so nothing disabled;
+            check 0, suite 0, stress 0.
