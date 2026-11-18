@@ -152,3 +152,11 @@ Deferred items.
 - **Nested extra keys in a sent payload** (2026-11-18, @task.V3.T81's close review). `send` keeps only declared
   top-level fields; a nested object passes through as given, which Actors R14 allows. A full decode strips both but
   cost palette stress about 8x; revisit if a nested extra key ever reaches a handler that saves it.
+- **Bench and faults runner on Effect's process and CLI modules** (2026-11-18, the user; both together or neither).
+  `bench/workers.ts`, `bench/worker.ts`, `bench/machine.ts`, `tools/faults/group.ts` and its test hand-roll `spawn`
+  with `detached`, group kills, `setTimeout` watchdogs and signal handlers (about 700 lines), the source of T87's
+  orphans and T90's stray processes. `ChildProcess` and `ChildProcessSpawner` with `NodeServices.layer` tie a process to
+  a Scope, so it dies on scope close, timeout, interrupt or error (process-group fixes in 4.0.7). The same change moves
+  the hand-rolled `parseArgs` in `bench/options.ts`, `bench/backfill.ts` and `tools/faults/` onto `effect/cli`, as
+  `src/host/cli/main.ts` already is. Both modules are unstable; the faults runner runs under bun, unchecked against the
+  Node platform layer. Pick up only when either tool next needs a fix; not while the current code works.
