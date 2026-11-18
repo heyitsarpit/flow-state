@@ -602,7 +602,7 @@ tasks
             UnencodableValue report, and the realization's 'not built yet' is a gap written into the Spec.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T19, @T82, @T83]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
@@ -918,6 +918,23 @@ tasks
             writes its Held lane record within captureMs. Check: transfers Story, Held write and re-send capture both
             refused, lane record inFlight false 1 s later; red on the planted fault refused-capture-left-in-flight. Q-4:
             catalog items of sign-in, shop, sync, transfers marked; session's boot-queue item corrected.
+        comment     2026-11-18T05:17:50Z
+            Close at 6331a3b4: Q-1 to Q-4 hold. Gates by exit code: check 0, suite 0 (38 s), test:stress 0 (66 s),
+            generated FLOW_SEEDS=20 with stress 0, faults 0 (258 of 258 by targets). Machine not quiet (mediaanalysisd
+            ~87%, mds_stores ~33%, OrbStack ~21%, the user's).
+        comment     2026-11-18T05:17:51Z
+            Decisions: the pair red was tooling (one batch out, so refuse hit a later write); Stories R11 adds
+            Fake.storage.refuseHeld() and the sweep refuses the head's own batch. The old refused-capture-left-in-flight
+            plant was equivalent (the refused batch's keys plus the step's own marks rewrite the lane within captureMs,
+            traced); re-planted as a head left Recapturing, caught. Restore R5 now quarantines a record whose name does
+            not decode or name itself back; inputOfName defects instead of {}. The double-reload test skips when either
+            run skips (a 2nd reload aborts the hold the 1st boot took).
+        comment     2026-11-18T05:17:51Z
+            Routed: the cells parked-ending and transfers second-reload inverted tests are Restore R3's re-heard head,
+            owner @task.V3.T56 (catalog corrected); session's boot-queue item to @task.V3.T28 (no send before ready
+            exists). For the user's page: a record saved under a name this release cannot read is set aside and reported
+            RecordUndecodable instead of waking an actor with empty input; Stories gain Fake.storage.refuseHeld() for a
+            disk that takes a write and then refuses it.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
