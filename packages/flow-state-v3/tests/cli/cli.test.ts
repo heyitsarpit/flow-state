@@ -72,6 +72,7 @@ const cli = async (argv: ReadonlyArray<string>) => {
       Terminal.make({
         columns: Effect.succeed(80),
         rows: Effect.succeed(24),
+        size: unused,
         readInput: unused,
         readLine: unused,
         display: () => Effect.void,
