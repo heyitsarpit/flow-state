@@ -1236,3 +1236,6 @@ note 2026-11-18T06:34:44Z
 note 2026-11-18T06:39:22Z
     12:09 wake: tooling bench skipped; T20's lead is running tests, and benches run alone. Third skip today: the wake's
     bench only runs between leads.
+
+note 2026-11-18T06:46:14Z
+    Decision (the user, 2026-11-18): keep the current pace; the user has a usage reset in hand. The reserve stays 100 %.
