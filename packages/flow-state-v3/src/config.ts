@@ -6,7 +6,6 @@ import type {
   StateToken as StateTokenOf,
   StateTree,
 } from "./definition.ts";
-import type { Bound } from "./contract.ts";
 import { type Finding, invalid } from "./error.ts";
 import type { Uncertain } from "./flow.ts";
 
@@ -32,14 +31,19 @@ const GuardToken = marked("guard");
 
 const ActionToken = marked("action");
 
-// RETURN_TYPE: a type guard states the type it narrows to.
-const isEnding = (x: unknown): x is { readonly ending: { readonly event: string } } =>
-  Predicate.hasProperty(x, "ending") &&
-  Predicate.hasProperty(x.ending, "event") &&
-  Predicate.isString(x.ending.event);
+// A value whose parts are judged as one: when it fails, it is one wrong kind at its own path.
+const WHOLE = { whole: true };
+
+const EventToken = marked("event");
 
 // An event token or a mapping of one: E.X or E.X.from(f).
-const Ending = Schema.declare(isEnding);
+const Ending = Schema.Union([
+  EventToken,
+  Schema.Struct({
+    ending: Schema.Struct({ event: Schema.String, from: Schema.Option(Fn) }),
+    "~token": Schema.optionalKey(EventToken),
+  }),
+]).annotate({ ...WHOLE, help: "Map to this definition's event: E.X, or E.X.from(f)." });
 
 const Payload = Schema.Record(Schema.String, FieldSchema);
 
@@ -200,10 +204,13 @@ const findingsOf = (
   Match.valueTags(issue, {
     Pointer: (pointer) => findingsOf(pointer.issue, [...path, ...pointer.path.map(segment)], help),
     Composite: (all) =>
-      all.issues.some(isMarkIssue)
+      isWhole(all.ast) || all.issues.some(isMarkIssue)
         ? wrongKind(path, helpOf(all.ast, help))
         : all.issues.flatMap((inner) => findingsOf(inner, path, helpOf(all.ast, help))),
-    AnyOf: (any) => oneOf(any, path, helpOf(any.ast, help)),
+    AnyOf: (any) =>
+      isWhole(any.ast)
+        ? wrongKind(path, helpOf(any.ast, help))
+        : oneOf(any, path, helpOf(any.ast, help)),
     Encoding: (encoding) => findingsOf(encoding.issue, path, helpOf(encoding.ast, help)),
     MissingKey: () => [invalid(path, "MissingField", `${where(path)} is missing`, help)],
     UnexpectedKey: () => [
@@ -217,7 +224,9 @@ const findingsOf = (
   });
 
 // A marked value whose mark is missing or another kind's is a wrong kind as a whole, never a
-// finding per key.
+// finding per key; so is a value whose Schema is judged whole.
+const isWhole = (ast: SchemaAST.AST) => SchemaAST.resolve(ast)?.["whole"] === true;
+
 const isMarkIssue = (issue: SchemaIssue.Issue) =>
   issue._tag === "Pointer" && issue.path.length === 1 && issue.path[0] === "~flow";
 
@@ -248,17 +257,32 @@ const findingsAgainst =
       },
     );
 
-// FLOW_STATE_ALLOW_UNKNOWN: what an operations callback returned, told apart by its kind.
-// RETURN_TYPE: a type guard states the type it narrows to.
-const isBound = (x: unknown): x is Bound =>
-  Predicate.hasProperty(x, "kind") &&
-  (x.kind === "write" || x.kind === "read") &&
-  Predicate.hasProperty(x, "call") &&
-  Predicate.isFunction(x.call) &&
-  Predicate.hasProperty(x, "success") &&
-  isEnding(x.success);
+const BoundFields = {
+  contract: Schema.String,
+  identity: Schema.Symbol,
+  input: FieldSchema,
+  inputJson: FieldSchema,
+  key: Schema.Array(Schema.String),
+  keyText: FieldSchema,
+  keyJson: FieldSchema,
+  textOfKey: Fn,
+  concurrency: Schema.Literals(["reject", "latest", "serialize", "cancel"]),
+  call: Fn,
+  success: Ending,
+  failure: Schema.Record(Schema.String, Ending),
+};
 
-const Operations = Schema.Record(Schema.String, Schema.declare(isBound)).annotate({
+const Bound = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("write"),
+    ...BoundFields,
+    notSent: Schema.Option(Ending),
+    unknown: Ending,
+  }),
+  Schema.Struct({ kind: Schema.Literal("read"), ...BoundFields }),
+]).annotate({ ...WHOLE, help: "Bind a contract with contract.outcomes({ ... })." });
+
+const Operations = Schema.Record(Schema.String, Bound).annotate({
   help: "Return a record of contract.outcomes({ ... }) from operations.",
 });
 

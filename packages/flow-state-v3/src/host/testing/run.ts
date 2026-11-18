@@ -1,4 +1,4 @@
-import { Effect, Exit, Layer, Option } from "effect";
+import { Effect, Exit, Layer, Option, Predicate } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
@@ -479,8 +479,13 @@ export const startRun = <Names extends string>(
         else uses.set(actorKey(actor), { ...used, count: used.count - 1 });
         testing.detach(tab.built, actor, "story");
       },
-      send: ({ actor, event: { _tag, ...payload } }) => {
+      send: ({ actor, event }) => {
         live("send");
+
+        if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))
+          return testing.send(tab.built, actor, "", {});
+
+        const { _tag, ...payload } = event;
         testing.send(tab.built, actor, _tag, payload);
       },
       dispose: ({ actor, how }) => {

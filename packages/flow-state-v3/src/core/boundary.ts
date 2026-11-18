@@ -529,7 +529,8 @@ export const walkerOf = <S extends Schema.Constraint>(schema: S) => {
  * **Details**
  *
  * Narrowing picks the declared fields after the check rather than decoding, so a large payload
- * is walked once, by the check's memo; a nested Struct field keeps its own value as given.
+ * is walked once, by the check, and never rebuilt; a nested Struct field keeps its own value as
+ * given.
  */
 export const admitted = (
   walk: Walker<Values, Values>,

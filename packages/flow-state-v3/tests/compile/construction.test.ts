@@ -876,7 +876,7 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
   const whole = (E: typeof Twin.E) =>
     save.outcomes({ success: E.Saved, failure: {}, unknown: E.Unsure });
 
-  it.fails("Compile R2, R4: a write bound missing its input, key, failure or unknown is one WrongKind at it, never a raw TypeError", () => {
+  it("Compile R2, R4: a write bound missing its input, key, failure or unknown is one WrongKind at it, never a raw TypeError", () => {
     const bound = whole(Twin.E);
 
     for (const missing of ["input", "key", "failure", "unknown", "notSent", "contract"])
@@ -885,7 +885,7 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
       ).toEqual([["InvalidConfiguration", "WrongKind", "operations.save"]]);
   });
 
-  it.fails("Compile R2, R4: a bound whose success ending has no from is one WrongKind at it, never a raw TypeError", () => {
+  it("Compile R2, R4: a bound whose success ending has no from is one WrongKind at it, never a raw TypeError", () => {
     const bound = whole(Twin.E);
 
     expect(refusal(partial({ ...bound, success: { ending: { event: "Saved" } } }))).toEqual([
@@ -893,7 +893,7 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
     ]);
   });
 
-  it.fails("Compile R2, R4: a reaction or schedule ending with no from is refused WrongKind, never a raw TypeError", () => {
+  it("Compile R2, R4: a reaction or schedule ending with no from is refused WrongKind, never a raw TypeError", () => {
     expect(
       refusal(() =>
         machine(Lamp, ({ S }) =>
@@ -913,7 +913,7 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
     ]);
   });
 
-  it.fails("Turn R14: a fixed delay with a NaN or infinite part is refused DelayOutOfRange, never armed at 0 ms", () => {
+  it("Turn R14: a fixed delay with a NaN or infinite part is refused DelayOutOfRange, never armed at 0 ms", () => {
     for (const delay of [
       Number.NaN,
       Number.POSITIVE_INFINITY,
@@ -939,7 +939,7 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
       ).toEqual([["InvalidConfiguration", "DelayOutOfRange", "states.OFF.schedules.off.schedule"]]);
   });
 
-  it.fails("Compile R14: E.X given null, a number or a string throws InvalidEvent, never a raw TypeError", () => {
+  it("Compile R14: E.X given null, a number or a string throws InvalidEvent, never a raw TypeError", () => {
     for (const payload of [null, 5, "x"])
       assert.throws(
         () => Lamp.E.Dim(loose(payload)),
@@ -947,7 +947,7 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
       );
   });
 
-  it.fails("Compile R12: a state named ~path or ~flow is refused ReservedStateName", () => {
+  it("Compile R12: a state named ~path or ~flow is refused ReservedStateName", () => {
     expect(
       refusal(() =>
         definition(loose({ id: "Compile/Tilde", states: [{ A: ["~path", "~flow"] }], events: {} })),
@@ -958,7 +958,7 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
     ]);
   });
 
-  it.fails("Compile R2, R4: machine given no body function is refused WrongKind at body", () => {
+  it("Compile R2, R4: machine given no body function is refused WrongKind at body", () => {
     expect(refusal(() => machine(Lamp, loose(undefined)))).toEqual([
       ["InvalidConfiguration", "WrongKind", "body"],
     ]);

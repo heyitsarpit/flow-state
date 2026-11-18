@@ -444,7 +444,7 @@ kamp.us for rows restored after a failure.
   - **step 12:** `stream` `delivers: "every"`, `position`, `catchUp` (S `notifications`).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (account numbers redacted).
   - **@task.V3.T81:** an event field whose Schema transforms (`StandingOrder`'s `DateFromString` dates); construction
-    refusals (`stories/refused.ts`).
+    refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
   - [x] **Usual:** send, decline, lose the answer, resend once, abandon (have); the form reads its customer's account
     and checks the balance before a send. built: `transfers/usual`, `transfers/declined`,
@@ -501,9 +501,11 @@ kamp.us for rows restored after a failure.
       that is `null`, `undefined` or its ISO text, refused `InvalidEvent`. built:
       `tests/transfers/standing-order.test.ts`. E6: a plan of 2^53 cents, in `bank-orders`. E5: not this feature's,
       the order has no schedule. No source.
-    - [x] S7: eight construction mistakes as builders in `stories/structure.ts` (an unset config, a bare context
+    - [x] S7: ten construction mistakes as builders in `stories/structure.ts` (an unset config, a bare context
       slot, operations with no `return`, a text amount, a first date as ISO text, the form's same-named lookup and
-      event, a null handler), each refused (Compile R2, R3, R4, R5). No source.
+      event, a null handler, a half-built read, a hand-written ending), each refused (Compile R2, R3, R4, R5). A
+      Story step sending null fails InvalidEvent. Refused payloads stay out of the samples: a refused send fails the
+      Story by design, so a generated run cannot carry one without a Story word for an expected refusal. No source.
     - [x] Samples and combinations: `bank-orders` (edge dates, 2^53 cents, a dropped network) in the generator and
       the pair sweep. The app mix takes `bank-planned` (two accounts' transfers beside the rent; newer-format and
       unreadable records) and `bank-planned-edges` (the rest of the old set's steps, receipt edges, edge dates) in
@@ -558,7 +560,7 @@ not checked here).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule and emit events).
   - **step 18:** `useActor` (React) (Strict Mode).
   - **@task.V3.T81:** an event field whose Schema transforms (`TrustedDevice`'s `DateFromString` dates);
-    construction refusals (`stories/refused.ts`).
+    construction refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
   - [x] **Usual:** sign in with a code (have). A retried handle save releases the held redirect. Copies
     [AuthPage.test.tsx:89][kp-auth] "retry on the stuck surface re-attempts and, on success, RELEASES the redirect".
@@ -607,9 +609,9 @@ not checked here).
       trust date `null`, `undefined` or its ISO text, and a seen time `undefined` or missing, refused
       `InvalidEvent`. built: `tests/sign-in/trusted-device.test.ts`. E5: the week's reminder a millisecond short and
       at a week. built: `sign-in/trust-device`. No source.
-    - [x] S7: five construction mistakes as builders in `stories/structure.ts` (the session's definition as a slot,
-      a text field, the bare `me` contract, a `{ day: 7 }` delay, a null handler), each refused (Compile R2, R4). No
-      source.
+    - [x] S7: seven construction mistakes as builders in `stories/structure.ts` (the session's definition as a
+      slot, a text field, the bare `me` contract, a `{ day: 7 }` delay, NaN and infinite reminder days, a null
+      handler), each refused (Compile R2, R4; Turn R14). No source.
     - [x] Samples: `auth-devices` (edge dates, an unreadable laptop record) in the generator, the stress generator
       and the pair sweep. built: `auth-devices`.
   - [ ] Sign-in's samples in the app mix: left for the mix's own seed count: a sixth part fails the mix's one-network
@@ -851,8 +853,9 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
     `player/seek-edges`.
   - [x] Sleep timer (@task.V3.T81): set for half an hour, a millisecond short and at it; cancelled. built:
     `player/sleep-timer`. L1 × 16 timers. built: `player/sixteen-timers`. E5: 0 ms and 2^31 − 1 ms, a millisecond
-    short and at it. built: `player/sleep-timer-edges`. E2, E7: a duration `null`, `undefined` or its milliseconds,
-    refused `InvalidEvent`. built: `tests/player/sleep-timer.test.ts`. Samples: `sleep-timer`. No source.
+    short and at it; −1 ms inverted (Turn R14: counts as zero; the runtime refuses the turn), owner to be routed;
+    2^31 ms refuses the Set's turn. built: `player/sleep-timer-edges`. E2, E7: a duration `null`, `undefined` or its
+    milliseconds, refused `InvalidEvent`. built: `tests/player/sleep-timer.test.ts`. Samples: `sleep-timer`. No source.
 
 ### wizard
 

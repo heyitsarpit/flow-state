@@ -171,11 +171,32 @@ const levelOf = (compile: Compile, on: Values, at: Path): Level =>
     }),
   );
 
+// Whether a delay holds a NaN or infinite number: Duration reads a NaN part as 0, so each part
+// is checked as written.
+const partsOf = (delay: Duration.Input) => {
+  if (Array.isArray(delay)) return delay;
+
+  return Predicate.isObject(delay) && !Duration.isDuration(delay) ? Object.values(delay) : [];
+};
+
+const hasNonFinitePart = (delay: Duration.Input) =>
+  partsOf(delay).some((part) => Predicate.isNumber(part) && !Number.isFinite(part));
+
+// A fixed delay in ms, NaN when it has none: a number is read as written, since Duration clamps a
+// negative one and keeps Infinity.
+const msOf = (delay: Duration.Input) => {
+  if (Predicate.isNumber(delay)) return delay;
+
+  if (hasNonFinitePart(delay)) return Number.NaN;
+
+  return Option.getOrElse(
+    Option.map(Duration.fromInput(delay), Duration.toMillis),
+    () => Number.NaN,
+  );
+};
+
 const fixedDelay = (compile: Compile, delay: Duration.Input, at: Path) => {
-  // A number is read as written: Duration clamps a negative one and keeps Infinity.
-  const ms = Predicate.isNumber(delay)
-    ? delay
-    : Option.getOrElse(Option.map(Duration.fromInput(delay), Duration.toMillis), () => Number.NaN);
+  const ms = msOf(delay);
 
   if (!Number.isFinite(ms) || ms < 0 || ms > TIMER_LIMIT_MS)
     compile.findings.push(

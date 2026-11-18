@@ -114,7 +114,7 @@ requirements
     R12  Names
         source  @plan.Machines.O1.
         must    The state names "is", "child" and "history", the top-level name "root", and the
-                names "self" and "__proto__" are reserved (ReservedStateName); a state name holds no
+                names "self", "__proto__", "~path" and "~flow" are reserved (ReservedStateName); a state name holds no
                 dot, since dots join state paths (InvalidConfiguration, details.reason InvalidName). Authored names and 
                 ids are nonempty, of any
                 length and at any depth (@plan.Pending.D24), contain no C0 control, DEL or lone

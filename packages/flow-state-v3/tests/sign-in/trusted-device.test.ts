@@ -8,6 +8,8 @@ import {
   deviceChain,
   deviceFirst,
   deviceRemindingByDay,
+  deviceRemindingNaNDays,
+  deviceRemindingNever,
   deviceSessionForgotten,
   deviceWithBareContract,
   deviceWithDefinitionAsContext,
@@ -214,5 +216,16 @@ describe("a trusted device written wrong is refused at construction (Compile R2,
         "states.TRUSTED.states.FRESH.schedules.reverify.schedule.day",
       ],
     ]);
+  });
+
+  it("Turn R14: a reminder of NaN or infinite days is refused DelayOutOfRange, never armed at 0 ms", () => {
+    for (const build of [deviceRemindingNaNDays, deviceRemindingNever])
+      expect(refusal(build)).toEqual([
+        [
+          "InvalidConfiguration",
+          "DelayOutOfRange",
+          "states.TRUSTED.states.FRESH.schedules.reverify.schedule",
+        ],
+      ]);
   });
 });

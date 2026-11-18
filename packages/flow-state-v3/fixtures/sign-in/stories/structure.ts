@@ -169,3 +169,45 @@ export const deviceRemindingByDay = () =>
  */
 export const deviceWithNullHandler = () =>
   machine(TrustedDevice, ({ S }) => untyped({ default: S.UNTRUSTED, on: { Revoke: null } }));
+
+/**
+ * A device whose reminder reads its days from a setting that was never set: NaN days.
+ */
+export const deviceRemindingNaNDays = () =>
+  machine(TrustedDevice, ({ S, E }) =>
+    untyped({
+      default: S.UNTRUSTED,
+      states: {
+        TRUSTED: {
+          default: S.TRUSTED.FRESH,
+          states: {
+            FRESH: {
+              schedules: { reverify: { schedule: { days: Number.NaN }, send: E.Reverify } },
+            },
+          },
+        },
+      },
+    }),
+  );
+
+/**
+ * A device whose reminder is set to never come: an infinite number of days.
+ */
+export const deviceRemindingNever = () =>
+  machine(TrustedDevice, ({ S, E }) =>
+    untyped({
+      default: S.UNTRUSTED,
+      states: {
+        TRUSTED: {
+          default: S.TRUSTED.FRESH,
+          states: {
+            FRESH: {
+              schedules: {
+                reverify: { schedule: { days: Number.POSITIVE_INFINITY }, send: E.Reverify },
+              },
+            },
+          },
+        },
+      },
+    }),
+  );

@@ -197,7 +197,7 @@ describe("Runtime", () => {
     assert.deepStrictEqual(seen, { n: 1 });
   });
 
-  it.fails("Actors R14: a send of null, undefined, a number or an envelope without a tag throws InvalidEvent and starts no turn", () => {
+  it("Actors R14: a send of null, undefined, a number or an envelope without a tag throws InvalidEvent and starts no turn", () => {
     const door = ready().ensureActor(front);
 
     for (const event of [null, undefined, 5, "Push", {}])

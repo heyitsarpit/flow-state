@@ -386,3 +386,7 @@ note 2026-11-18T10:19:52Z
     @spec.Actors R14 reworded: the payload is narrowed to its declared fields after the type-side check, not decoded
     whole; a whole decode made the palette stress run seven times slower (over 104 s against 14 s) (T81). Reverse:
     decode the type side whole.
+
+note 2026-11-18T10:47:11Z
+    @spec.Compile R12: ~path and ~flow join the reserved state names, since a child state of either name overwrote its
+    parent token's own field (T81 close review). Reverse: drop them from the list.

@@ -16,9 +16,12 @@ import {
   orderStartingAtText,
   orderWithBareContext,
   orderWithNullHandler,
+  orderWithHandBuiltRead,
+  orderWithHandWrittenEnding,
   orderWithoutReturn,
 } from "../../fixtures/transfers/stories/structure.ts";
 import {
+  plannedStory,
   RENT_FIRST,
   RENT_PAUSED_UNTIL,
   standingOrder,
@@ -253,5 +256,25 @@ describe("a standing order written wrong is refused at construction (Compile R2,
     expect(refusal(orderHearingFormsEvent)).toEqual([
       ["InvalidConfiguration", "ForeignToken", "onContext.0.event"],
     ]);
+  });
+
+  it("Compile R2, R4: a balance read written out by hand, half built, is one WrongKind at it, never a raw TypeError", () => {
+    expect(refusal(orderWithHandBuiltRead)).toEqual([
+      ["InvalidConfiguration", "WrongKind", "operations.balance"],
+    ]);
+  });
+
+  it("Compile R2, R4: a reaction's hand-written ending with no mapper is refused WrongKind, never a raw TypeError", () => {
+    expect(refusal(orderWithHandWrittenEnding)).toEqual([
+      ["InvalidConfiguration", "WrongKind", "onContext.0.event"],
+    ]);
+  });
+});
+
+describe("a Story that sends a payload that is no envelope (fixtures.md E2, E7)", () => {
+  it("Actors R14: a Story step sending null to the rent fails with InvalidEvent, never a raw TypeError", async () => {
+    await expect(
+      plannedStory("transfers/null-send").ensure(rent).send(rent, loose(null)).run(),
+    ).rejects.toThrow(/InvalidEvent/u);
   });
 });

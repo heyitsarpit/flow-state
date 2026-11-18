@@ -1,7 +1,7 @@
 import { actorRef } from "../../../src/index.ts";
 import { player, timerOf } from "../app.ts";
 import { PlayerMachine } from "../machines/player.ts";
-import { LONGEST_MS, musicStory, setLongest, setNow, timedStory } from "./usual.ts";
+import { after, LONGEST_MS, musicStory, setLongest, setNow, timedStory } from "./usual.ts";
 
 /**
  * The player of a room with an empty name.
@@ -42,14 +42,18 @@ export const seekEdges = musicStory("player/seek-edges")
   .checkpoint("negative");
 
 /**
- * Two timers at the edges of a delay: 0 ms, asleep at once, and 2^31 - 1 ms, armed a millisecond
- * short and asleep at it.
+ * Four timers at the edges of a delay: 0 ms and −1 ms, asleep at once; 2^31 − 1 ms, armed a
+ * millisecond short and asleep at it; and 2^31 ms, past the longest timer, whose Set is refused.
  */
 export const sleepTimerEdges = timedStory("player/sleep-timer-edges")
   .ensure(timerOf(0))
   .ensure(timerOf(1))
+  .ensure(timerOf(2))
+  .ensure(timerOf(3))
   .send(timerOf(0), setNow)
   .send(timerOf(1), setLongest)
+  .send(timerOf(2), { _tag: "Set", after: after(-1) })
+  .send(timerOf(3), { _tag: "Set", after: after(LONGEST_MS + 1) })
   .advance("0 millis")
   .checkpoint("set")
   .advance(LONGEST_MS - 1)

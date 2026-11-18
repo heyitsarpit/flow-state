@@ -64,7 +64,9 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
         throw invalidEvent(
           tag,
           checks
-            .filter(([name, is]) => !is(given[name]))
+            .filter(
+              ([name, is]) => !is(Predicate.hasProperty(given, name) ? given[name] : undefined),
+            )
             .map(([name]) => name)
             .slice(0, 1),
         );
@@ -72,6 +74,7 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
     });
 
   const token = Object.assign(make, {
+    "~flow": "event",
     tag,
     ending,
     "~payload": payload,

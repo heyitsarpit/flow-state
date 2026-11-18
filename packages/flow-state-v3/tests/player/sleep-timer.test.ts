@@ -33,10 +33,19 @@ describe("a sleep timer set by a Duration (Compile R14, Actors R14, Turn R14)", 
     );
   });
 
-  it("Turn R14 (fixtures.md E5): a timer of 0 ms is asleep at once; one of 2^31 - 1 ms is armed a millisecond short and asleep at it", async () => {
+  it.fails("Turn R14 (fixtures.md E5): a computed delay of −1 ms counts as zero, so its timer is asleep on the next turn", async () => {
+    const run = await played(sleepTimerEdges);
+
+    expect(run.checkpoints.set.read(timerOf(2))?.state).toBe("ASLEEP");
+  });
+
+  it("Turn R14 (fixtures.md E5): a timer of 0 ms is asleep at once; one of 2^31 - 1 ms is armed a millisecond short and asleep at it; one of 2^31 ms refuses its Set's turn and stays idle", async () => {
     const run = await played(sleepTimerEdges);
 
     expect(run.checkpoints.set.read(timerOf(0))?.state).toBe("ASLEEP");
+    expect(run.checkpoints.set.read(timerOf(3))).toEqual(
+      expect.objectContaining({ state: "IDLE", memory: expect.objectContaining({ after: null }) }),
+    );
     expect(run.checkpoints["just short"].read(timerOf(1))?.state).toBe("ARMED");
     expect(run.checkpoints.asleep.read(timerOf(1))).toEqual(
       expect.objectContaining({

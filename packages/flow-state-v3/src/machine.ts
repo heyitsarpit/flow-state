@@ -157,6 +157,16 @@ export const machine = <D extends AnyDefinition>(
       ),
     ]);
 
+  if (!Predicate.isFunction(body))
+    refuse([
+      invalid(
+        ["body"],
+        "WrongKind",
+        "machine was given no body function",
+        "Pass machine a body: ({ S, E, O }) => ({ default, on, states }).",
+      ),
+    ]);
+
   const written = Result.try({
     try: () => body({ S: definition.S, E: definition.E, O: definition.O }),
     // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.

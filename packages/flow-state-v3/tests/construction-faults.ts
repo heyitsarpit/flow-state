@@ -165,8 +165,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/config.ts",
-        find: "      all.issues.some(isMarkIssue)",
-        replace: "      all.issues.some(isMarkIssue) && false",
+        find: "isWhole(all.ast) || all.issues.some(isMarkIssue)",
+        replace: "isWhole(all.ast) || (all.issues.some(isMarkIssue) && false)",
       },
     ],
   },
@@ -180,6 +180,111 @@ export const constructionFaults: ReadonlyArray<Fault> = [
         file: "src/host/driver.ts",
         find: "admitted(event.walk, event.names, payload)",
         replace: "Option.map(admitted(event.walk, event.names, payload), () => payload)",
+      },
+    ],
+  },
+  {
+    name: "bound-unchecked",
+    tests: [CONSTRUCTION, STANDING_ORDER],
+    says: "a partly built bound passes the operations decode",
+    rule: "Compile R2, R4",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: "const Operations = Schema.Record(Schema.String, Bound).annotate({",
+        replace: "const Operations = Schema.Record(Schema.String, Schema.Unknown).annotate({",
+      },
+    ],
+  },
+  {
+    name: "ending-mapper-optional",
+    tests: [CONSTRUCTION, STANDING_ORDER],
+    says: "an ending with no from passes the decode",
+    rule: "Compile R2, R4",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: "    ending: Schema.Struct({ event: Schema.String, from: Schema.Option(Fn) }),",
+        replace:
+          "    ending: Schema.Struct({ event: Schema.String, from: Schema.optionalKey(Schema.Option(Fn)) }),",
+      },
+    ],
+  },
+  {
+    name: "delay-nan-part-as-zero",
+    tests: [CONSTRUCTION, TRUSTED_DEVICE],
+    says: "a delay with a NaN part compiles as 0 ms",
+    rule: "Turn R14",
+    edits: [
+      {
+        file: "src/compile-body.ts",
+        find: "  if (hasNonFinitePart(delay)) return Number.NaN;",
+        replace: "  if (hasNonFinitePart(delay) && delay === null) return Number.NaN;",
+      },
+    ],
+  },
+  {
+    name: "event-payload-not-record-raw",
+    tests: [CONSTRUCTION],
+    says: "E.X given a payload that is no record throws a raw TypeError",
+    rule: "Compile R14",
+    edits: [
+      {
+        file: "src/events.ts",
+        find: "!is(Predicate.hasProperty(given, name) ? given[name] : undefined)",
+        replace: "!is(given[name])",
+      },
+    ],
+  },
+  {
+    name: "send-untagged-raw",
+    tests: ["src/host/runtime.test.ts"],
+    says: "a send of null or a number throws a raw TypeError",
+    rule: "Actors R14",
+    edits: [
+      {
+        file: "src/host/runtime.ts",
+        find: '      if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))',
+        replace: "      if (event === event.constructor)",
+      },
+    ],
+  },
+  {
+    name: "story-send-untagged-raw",
+    tests: [STANDING_ORDER],
+    says: "a Story step sending null throws a raw TypeError",
+    rule: "Actors R14",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: '        if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))',
+        replace: "        if (event === event.constructor)",
+      },
+    ],
+  },
+  {
+    name: "tilde-state-names-free",
+    tests: [CONSTRUCTION],
+    says: "a state named ~path or ~flow is accepted",
+    rule: "Compile R12",
+    edits: [
+      {
+        file: "src/construction.ts",
+        find: '"__proto__", "~path", "~flow"]);',
+        replace: '"__proto__"]);',
+      },
+    ],
+  },
+  {
+    name: "body-not-function-defect",
+    tests: [CONSTRUCTION],
+    says: "machine given no body function reports a Defect",
+    rule: "Compile R2, R4",
+    edits: [
+      {
+        file: "src/machine.ts",
+        find: "  if (!Predicate.isFunction(body))",
+        replace: "  if (body === null)",
       },
     ],
   },

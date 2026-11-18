@@ -2834,6 +2834,18 @@ tasks
             Also red: (18) Compile R12: states named ~path and ~flow are ReservedStateName; (19) machine(def, undefined)
             is WrongKind at body. Small fixes in the round: admitted's doc, the catalog's refused.ts references,
             SleepTimer delays of −1 and 2^31 ms, and the transforming-field runtime test now asserts the Date.
+        comment     2026-11-18T10:48:32Z
+            Fix round to review: blockers (14) to (19) green (red at cffa36b6). Bounds and endings are Schema members
+            (config.ts Bound, Ending, judged whole: one WrongKind); NaN or infinite delay parts are DelayOutOfRange;
+            E.X, send and a Story step given null or a number throw InvalidEvent; ~path and ~flow reserved (Compile R12,
+            specs.log); machine without a body is WrongKind. Small fixes done. Faults: 8 new, 11 run with --only, all
+            caught. Gates: check 0, suite 1139 + 14.
+        comment     2026-11-18T10:48:34Z
+            Needs routing: (a) Turn R14 says a computed −1 ms delay counts as zero, but core/turn.ts:274 refuses the
+            turn; inverted in tests/player/sleep-timer.test.ts, owner to be named. (b) Null payloads stay out of the
+            step samples: a refused send fails a Story by design, so a generated run cannot carry one without a Story
+            word for an expected refusal (T29's area); the class is covered by hand tests in all three apps and a
+            Story test.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1

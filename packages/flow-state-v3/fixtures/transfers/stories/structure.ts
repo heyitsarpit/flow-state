@@ -195,3 +195,35 @@ export const orderHearingFormsEvent = () =>
  */
 export const orderWithNullHandler = () =>
   machine(StandingOrder, ({ S }) => untyped({ default: S.DRAFT, on: { Resume: null } }));
+
+/**
+ * An order whose balance read is written out by hand, half built: a kind, a call and a success
+ * ending, but no input, key or failure endings.
+ */
+export const orderWithHandBuiltRead = () =>
+  definition(
+    untyped({
+      ...order,
+      internalEvents: { BalanceRead: { cents: Schema.Number } },
+      operations: ({ E }: { readonly E: typeof StandingOrder.E }) => ({
+        balance: { kind: "read", call: () => undefined, success: E.BalanceRead },
+      }),
+    }),
+  );
+
+/**
+ * An order whose context reaction names its event by a hand-written ending with no mapper.
+ */
+export const orderWithHandWrittenEnding = () =>
+  machine(StandingOrder, ({ S }) =>
+    untyped({
+      default: S.DRAFT,
+      onContext: [
+        {
+          select: ({ context }: { readonly context: { readonly customer: string } }) =>
+            context.customer,
+          event: { ending: { event: "AccountChanged" } },
+        },
+      ],
+    }),
+  );

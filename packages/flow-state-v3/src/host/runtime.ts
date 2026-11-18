@@ -482,6 +482,10 @@ export const buildRuntime = (
   const handleOf = <D extends AnyDefinition>(machine: Machine<D>, actor: ActorId): Actor<D> => ({
     machine,
     send: (event) => {
+      // An event a caller without types sent: no tag names no event, so the driver refuses it.
+      if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))
+        return driver.send(actor, "", {});
+
       const { _tag: tag, ...payload } = event;
       driver.send(actor, tag, payload);
     },

@@ -20,7 +20,7 @@ export type TreeNode = {
 /**
  * Names Flow reserves: as any state name, and `root` at the top level.
  */
-const RESERVED = new Set(["is", "child", "history", "self", "__proto__"]);
+const RESERVED = new Set(["is", "child", "history", "self", "__proto__", "~path", "~flow"]);
 
 // A lone surrogate, a C0 control or DEL makes a name invalid.
 const UNSAFE =
@@ -62,7 +62,7 @@ const nameFindings = (name: string, top: boolean, here: ReadonlyArray<string | n
       code: "ReservedStateName",
       path: here,
       summary: `the state name ${name} is reserved`,
-      help: "Rename the state: is, child, history, self, __proto__ and a top-level root are Flow's.",
+      help: "Rename the state: is, child, history, self, __proto__, ~path, ~flow and a top-level root are Flow's.",
     });
   else if (name.includes("."))
     found.push(
