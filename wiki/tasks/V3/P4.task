@@ -250,7 +250,7 @@ tasks
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
         priority    high
-        blocked_by  [@task.V3.T20, @T57]
+        blocked_by  [@task.V3.T20, @T57, @T92]
         satisfies   [@plan.Persistence.O5, @plan.Runtime.O3]
         description
             Build release versions on production: key fingerprints, identity versions, saved-shape resets with record
@@ -602,3 +602,57 @@ tasks
             - Fixtures first (code:wiki/conventions/fixtures.md): step 6 of code:wiki/conventions/fixture-catalog.md:
               `number-input` gain the features, scenarios and sources of their rows; each scenario red before the build,
               and the step's cells marked used at the close.
+
+    T92
+        title       Records decoded into meaning: one Identity Schema, each fact stored once
+        status      draft
+        priority    high
+        description
+            Saved records decode into meaning, through one `Identity` Schema built from the compiled app, with each fact
+            stored once, so the boot can't be misled by a record whose fields disagree.
+
+            **Why now:** @task.V3.T20 hit the failure limit on one class: restore trusts a part of a record nobody
+            checked. Four reviews in a row found one more part (a `~` name, a key naming another identity, lane keys,
+            context bindings). The cause is structural, not a missed requirement:
+
+            - the record Schemas in code:packages/flow-state-v3/src/core/record.ts decode shape only (`machine`, `name`,
+              `operation`, `lane` are plain strings), and meaning is then checked field by field by hand, so every
+              forgotten field is a hole;
+            - the same fact is stored twice: an identity in the key and in the content, a lane's operation and key text
+              in its key and its content, owed rows naming lanes keyed elsewhere; each copy is a consistency check
+              someone must remember.
+
+            Both break house rules: decode once at the boundary and trust the result; store facts, derive
+            views (AGENTS.md).
+
+            **Read first:** @spec.Restore (R5, R2), @spec.Codec, @spec.WriteAhead (I3), T20's reviews (review commits
+            17ec5c6d, 59361083, 2e211305, 8c0446d9).
+
+            **Approach (proposed):** first, check whether an actor record's context bindings can be derived from its
+            machine and the ref's input; if so, stop saving them. Then: one `Identity` Schema from the compiled app (a
+            declared, persisted machine and a name a ref could produce) used wherever a record names an actor (its own
+            identity, bindings, lanes, owed rows); refined Schemas for operations and lanes; identity kept only in the
+            key, content holding only what the key doesn't determine; per-field checks deleted. Proof: a generated test
+            that corrupts one field of real saved records at a time and requires each to be quarantined or harmless, the
+            boot never failing.
+
+            **Risk:** a Codec and Restore Spec change, so it gets the whole-system check. The format is internal and
+            unreleased, so no saved data migrates. It must land before @task.V3.T56, which versions these records, and
+            before real storage (@task.V3.T58, @task.V3.T28, @task.V3.T27).
+
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, the Specs named above. Evidence: this
+            Task's comments.
+
+            False pass: a decode that still accepts a field by hand-check → caught by the corrupt-one-field test, which
+            needs no list of fields.
+        acceptance
+            - Whether context bindings can be derived is decided with evidence; saved only if they can't be.
+            - Every record kind decodes through Schemas that check meaning; every place a record names an actor goes
+              through one `Identity` Schema; no field's meaning is checked by hand after decoding.
+            - Each fact is stored once; a record's content holds nothing its key determines.
+            - A generated test corrupts one field of real saved records at a time: each corrupt record is quarantined
+              and reported, or provably harmless; the boot never fails.
+            - T20's inverted Restore R5 test for unchecked bindings passes; the read-operation lane that never ends and
+              the headless lane's trusted `queue` and `inFlight` are resolved.
+            - Restore and Codec Specs updated with `specs.log` notes; `nub run check`, the suite, the stress runs and
+              `nub run faults` pass.

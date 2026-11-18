@@ -1244,3 +1244,8 @@ note 2026-11-18T07:06:13Z
     Stop (failure limit, 2026-11-18): T20's field-check review (8c0446d9) found a second record-trust failure after the
     convergence: an actor record's context bindings start unchecked actors, and a bad one stops the boot. T20 waits for
     the user's call; no lead runs.
+
+note 2026-11-18T07:16:31Z
+    Decision (the user, 2026-11-18): T20's record-trust class is parked as new P4 Task T92 (records decoded into
+    meaning, one Identity Schema, each fact stored once), before T56. T20 closes after its inverted bindings test; then
+    T91.

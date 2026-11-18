@@ -1098,6 +1098,11 @@ tasks
             queue and inFlight to wording; owed lane prefix to inert. Rejected: R8 bad key, OpRenamed, identity versions
             and lane formats 1-2 (T56's); unknown null read as undefined and retryCount range (old code, outside this
             class); schedule send (verified inert, dropped); an owed Attempt suppressing a head (R5's stated limit).
+        comment     2026-11-18T07:16:30Z
+            Parked by the user's call (2026-11-18) at the failure limit: the record-trust class is structural
+            (shape-only record Schemas checked by hand, identity stored twice); diagnosis and redesign are @task.V3.T92,
+            before T56. The bindings blocker (8c0446d9) lands here as an inverted Restore R5 test owned by T92; then
+            T20 closes.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
