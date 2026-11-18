@@ -887,6 +887,20 @@ tasks
             reading that loses no ending). Brands tell a release change (removed state resets, gone operation rewritten,
             undeclared machine's record discarded) from a malformed value (quarantined). A lane's operation lives once,
             in its LaneKey, which meets R8.
+        comment     2026-11-18T21:49:17Z
+            Fix round: each review finding now has a red check, each replayed without `.fails` (18 red, as-saved
+            controls clean). (1) R7/R8: forged.test.ts "an actor record with no shape stamp in a state its machine lacks
+            ... never reset" (R7: an unstamped record never resets) and "an actor record of a machine no entry declares
+            is discarded with a diagnostic"; R8's rename: records.test.ts "every saved lane's key names ... the contract
+            its machine writes" (83 off). Decision (agent, implementation): LaneKey carries the contract id, not the
+            operation name, the only form in which OpRenamed can find the contract; reverse by keying lanes by operation
+            again. (2) key segments corrupted (machine, name, operation, key text); (3) every leaf also nulled and
+            type-swapped; `field added` quarantines at every depth outside user Schema values; an accepted mutant may
+            not lose a lane: `$.attempt nulled` shows the Held lane lost (16), plus titled
+            transfers/held-attempt-nulled. (4) UNTELLABLE anchored to `$.queue`/`$.displaced` only; REBOUND only `name
+            lengthened` of a literal-named provider. (5) bindings check asserts the owed `add` row delivered at open 2.
+            (6) S1/S9: session/chain-bound-to-local (builder). (7) headless title cites Restore R5, WriteAhead R5,
+            WriteLanes I8; R1, WriteLanes I8, WriteAhead R5 join the Spec edits.
 
     T95
         title       Callback results checked before they enter a turn

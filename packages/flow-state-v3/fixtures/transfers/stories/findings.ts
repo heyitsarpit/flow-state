@@ -1,5 +1,6 @@
 import { Fake } from "../../../src/host/testing/index.ts";
 import { account } from "../app.ts";
+import { Bank } from "../server/bank.ts";
 import { bankStory } from "./usual.ts";
 
 const accountRecord = "actor/Bank/Transfers/acct-1";
@@ -71,3 +72,27 @@ export const attemptReloaded = bankStory("transfers/attempt-reloaded")
   .reload({ reattach: false })
   .reload({ reattach: false })
   .checkpoint("booted");
+
+/**
+ * A Held transfer lane whose Attempt was nulled, so it reads as a lane with no head that still
+ * holds an input, as a damaged disk could leave it: a lane with no head holds no input, so it is
+ * set aside and reported rather than read as headless and its head lost with no ending.
+ */
+export const heldNulled = {
+  key: 'lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}',
+  text: '{"attempt":null,"displaced":[],"format":3,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}',
+} as const;
+
+/**
+ * The account sends a transfer whose answer is lost, so its lane is Held; then the lane's record
+ * loses its Attempt, and the tab reloads and ensures the account.
+ */
+export const heldAttemptNulled = bankStory("transfers/held-attempt-nulled")
+  .ensure(account)
+  .world(Bank.transfer.drop({ at: "response" }))
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .world(Fake.storage.put(heldNulled.key, heldNulled.text))
+  .reload({ reattach: false })
+  .checkpoint("booted")
+  .ensure(account)
+  .checkpoint("restored");

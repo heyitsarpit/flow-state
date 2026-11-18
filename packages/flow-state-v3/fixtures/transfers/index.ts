@@ -23,6 +23,7 @@ import {
 } from "./stories/samples.ts";
 import {
   attemptForged,
+  heldAttemptNulled,
   scheduleUndeclared,
   attemptReloaded,
   stateUndeclared,
@@ -50,6 +51,7 @@ export const transfers = manifest({
     attemptReloaded,
     scheduleUndeclared,
     attemptForged,
+    heldAttemptNulled,
     formBoundLate,
     checkAndSend,
     chain,

@@ -215,7 +215,14 @@ const savedRecords = (stores: ReadonlyArray<Store>) => {
   return found;
 };
 
-type Mutant = { readonly path: string; readonly json: Schema.Json };
+type Mutant = {
+  readonly path: string;
+  readonly json: Schema.Json;
+  // The key the corrupt record is put under: its own, or a corrupt one.
+  readonly key: Option.Option<string>;
+  // For a corrupt binding name, the machine the binding names.
+  readonly provider: Option.Option<string>;
+};
 
 // The values one corrupt array could hold, each with how it was corrupted.
 // RETURN_TYPE: every branch gives the same list of corrupt values, typed once.
@@ -239,6 +246,8 @@ const corruptOf = (value: Schema.Json): ReadonlyArray<readonly [string, Schema.J
       ["emptied", ""],
       ["local", "~1"],
       ["lengthened", `${value}x`],
+      ["nulled", null],
+      ["made a number", 1],
     ];
 
   if (Predicate.isNumber(value))
@@ -246,18 +255,39 @@ const corruptOf = (value: Schema.Json): ReadonlyArray<readonly [string, Schema.J
       ["negative", -1],
       ["fractional", value + 0.5],
       ["past 2^53", 2 ** 53],
+      ["nulled", null],
+      ["made a string", String(value)],
     ];
 
-  if (Predicate.isBoolean(value)) return [["flipped", !value]];
+  if (Predicate.isBoolean(value))
+    return [
+      ["flipped", !value],
+      ["nulled", null],
+      ["made a string", String(value)],
+    ];
 
-  if (value === null) return [["filled", "x"]];
+  if (value === null)
+    return [
+      ["filled", "x"],
+      ["made an object", {}],
+    ];
 
-  if (Array.isArray(value)) return corruptArray(value);
+  if (Array.isArray(value))
+    return [...corruptArray(value), ["nulled", null], ["made an object", {}]];
 
-  return [["field added", Object.fromEntries([...Object.entries(value), ["x", 1]])]];
+  return [
+    ["field added", Object.fromEntries([...Object.entries(value), ["x", 1]])],
+    ["nulled", null],
+    ["made an array", []],
+  ];
 };
 
-type Walk = (value: Schema.Json, path: string, set: (v: Schema.Json) => Schema.Json) => void;
+type Walk = (
+  value: Schema.Json,
+  path: string,
+  set: (v: Schema.Json) => Schema.Json,
+  provider: Option.Option<string>,
+) => void;
 
 // Every record with exactly one field corrupted, needing no list of fields: each leaf and
 // container gets its type's corrupt values, each object key is also dropped, and of an array only
@@ -265,40 +295,50 @@ type Walk = (value: Schema.Json, path: string, set: (v: Schema.Json) => Schema.J
 // only the first key of each kind of value.
 const mutantsOf = (root: Schema.Json) => {
   const out: Array<Mutant> = [];
+  const none = { key: Option.none<string>(), provider: Option.none<string>() };
+
+  // A binding's name: its mutants carry the machine the binding names.
+  const providerOf = (value: Schema.JsonObject, k: string) => {
+    const machine = value["machine"];
+
+    return k === "name" && Predicate.isString(machine) ? Option.some(machine) : Option.none();
+  };
 
   const fields = (value: Schema.JsonObject, path: string, set: (v: Schema.Json) => Schema.Json) => {
     const kinds = new Set<string>();
     const wide = Object.keys(value).length > 16;
 
     for (const [k, v] of Object.entries(value)) {
-      out.push({
-        path: `${path}.${k} dropped`,
-        json: set(Object.fromEntries(Object.entries(value).filter(([key]) => key !== k))),
-      });
+      const rest = Object.entries(value).filter(([key]) => key !== k);
+      out.push({ ...none, path: `${path}.${k} dropped`, json: set(Object.fromEntries(rest)) });
 
       const kind = isJsonObject(v) ? Object.keys(v).join(",") : typeOf(v);
 
       if (!wide || !kinds.has(kind)) {
         kinds.add(kind);
-        walk(v, `${path}.${k}`, (next) =>
-          set(Object.fromEntries([...Object.entries(value), [k, next]])),
+        walk(
+          v,
+          `${path}.${k}`,
+          (next) => set(Object.fromEntries([...rest, [k, next]])),
+          providerOf(value, k),
         );
       }
     }
   };
 
-  const walk: Walk = (value, path, set) => {
+  const walk: Walk = (value, path, set, provider) => {
     for (const [how, json] of corruptOf(value))
-      out.push({ path: `${path} ${how}`, json: set(json) });
+      out.push({ ...none, provider, path: `${path} ${how}`, json: set(json) });
 
     if (Array.isArray(value)) {
       const [first] = value;
 
-      if (first !== undefined) walk(first, `${path}[0]`, (v) => set([v, ...value.slice(1)]));
+      if (first !== undefined)
+        walk(first, `${path}[0]`, (v) => set([v, ...value.slice(1)]), Option.none());
     } else if (isJsonObject(value)) fields(value, path, set);
   };
 
-  walk(root, "$", (v) => v);
+  walk(root, "$", (v) => v, Option.none());
 
   return out;
 };
@@ -307,15 +347,20 @@ const mutantsOf = (root: Schema.Json) => {
 // queued commit or displaced Attempt added or removed, or an owed row repeated, cannot be told
 // from a real one, so its ending is judged only for a boot that never fails. An owed record with
 // no rows is never written (WriteAhead I20), so emptied rows are judged in full.
-const UNTELLABLE = /\.(?:queue|displaced) (?:emptied|item repeated)$|\.rows item repeated$/u;
+const UNTELLABLE = /^\$\.(?:queue|displaced) (?:emptied|item repeated)$/u;
 
-// A record holds exactly its kind's fields (Codec R5): one with a field added is quarantined.
-const FIELD_ADDED = "$ field added";
+// A record holds exactly its kind's fields (Codec R5): a field added to any of its own objects is
+// quarantined. Inside a value a user Schema decodes (memory, last-seen selections and baselines, a
+// lane's input and queued inputs, an owed row's value), the Schema decides, and a memory field the
+// release lacks is dropped (Restore R7).
+const FIELD_ADDED = / field added$/u;
+const USER_VALUE = /^\$\.(?:memory|seen|memories|input|queue)\b|\.value\b|\.slots\./u;
 
-// A binding renamed to a name its provider's machine could give names another identity a ref's
-// context could have bound, so an ensure by the entry's wiring is refused as it would be for a
-// real record (ConflictingActorRef); a binding to a name no ref gives is covered by its own test.
-const REBOUND = /\.(?:context|graph)\..*\.name (?:emptied|lengthened)$/u;
+// A binding renamed to another name its provider's machine gives (a literal name lengthened) names
+// another identity a ref's context could have bound, so an ensure by the entry's wiring is refused
+// as it would be for a real record (ConflictingActorRef): held for the user, not a Spec limit. A
+// name the provider's machine does not decode is judged in full.
+const REBOUND = /^\$\.(?:context\.[^.]+|graph\..+\.[^.]+)\.name lengthened$/u;
 
 const lastOpen = (run: StoryRun) =>
   run.trace.events.reduce((open, e) => Math.max(open, e.tab.open), 0);
@@ -428,15 +473,20 @@ const asleepIn = (machines: Machines, stored: ReadonlyMap<string, string>) => {
 type Judged = "untellable" | "rebound" | "full";
 
 // RETURN_TYPE: the judgement names its three cases.
-const judgedAs = (path: string): Judged => {
-  if (UNTELLABLE.test(path)) return "untellable";
+const judgedAs = (machines: Machines, mutant: Mutant): Judged => {
+  if (UNTELLABLE.test(mutant.path)) return "untellable";
 
-  return REBOUND.test(path) ? "rebound" : "full";
+  const literal = Option.exists(
+    Option.flatMap(mutant.provider, (id) => Option.fromUndefinedOr(machines.get(id))),
+    (c) => c.fields.every((f) => f.source._tag !== "Input"),
+  );
+
+  return REBOUND.test(mutant.path) && literal ? "rebound" : "full";
 };
 
 // Why one finished run of a corrupt record breaks Restore R5: a run rule's breach, or, when the
 // record was not quarantined and reported, a world the boot left ill-formed.
-const judge = (machines: Machines, key: string, judged: Judged, done: StoryRun) => {
+const judge = (machines: Machines, key: string, judged: Judged, done: StoryRun, lanes: number) => {
   if (judged === "untellable")
     return unless(
       done.end.inspection.lifecycle === "Open",
@@ -445,7 +495,14 @@ const judge = (machines: Machines, key: string, judged: Judged, done: StoryRun) 
 
   return quarantinedIn(done, key)
     ? breachesOf(done)
-    : [...breachesOf(done), ...illFormed(machines, done)];
+    : [
+        ...breachesOf(done),
+        ...illFormed(machines, done),
+        ...unless(
+          done.end.inspection.lanes.length >= lanes,
+          `a lane was lost: ${String(done.end.inspection.lanes.length)} held, ${String(lanes)} as saved`,
+        ),
+      ];
 };
 
 // Why the record as saved breaks Restore R5: it must be canonical, read back unquarantined, and
@@ -453,7 +510,7 @@ const judge = (machines: Machines, key: string, judged: Judged, done: StoryRun) 
 const judgeSaved = (machines: Machines, saved: Saved, done: StoryRun) => [
   ...unless(canonicalText(parse(saved.text)) === saved.text, "is not canonical text"),
   ...unless(!quarantinedIn(done, saved.key), "was quarantined"),
-  ...judge(machines, saved.key, "full", done),
+  ...judge(machines, saved.key, "full", done, 0),
 ];
 
 // A run that failed: refused only for a rebinding is the limit REBOUND names.
@@ -477,46 +534,91 @@ const bootCorrupt = async (saved: Saved, mutants: ReadonlyArray<Mutant>) => {
     Step.ensure({ actor, context: new Map() }),
   );
 
-  const run = (json: Schema.Json) =>
+  const run = (key: string, json: Schema.Json) =>
     saved.story.run({
       steps: [
         ...saved.steps,
-        Step.world({ words: [Fake.storage.put(saved.key, canonicalText(json))] }),
+        Step.world({ words: [Fake.storage.put(key, canonicalText(json))] }),
         Step.reload({ reattach: false, heldWrites: "abort" }),
         ...ensures,
       ],
     });
 
-  const boot = (json: Schema.Json, path: string) => {
-    const judged = judgedAs(path);
+  const found: Array<string> = [];
+  const where = `${saved.fixture.name} ${saved.story.id} ${saved.key}`;
 
-    return run(json).then(
+  const asSaved = await run(saved.key, parse(saved.text)).then(
+    (done) => ({ why: judgeSaved(machines, saved, done), lanes: done.end.inspection.lanes.length }),
+    // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is printed.
+    (fault: unknown) => ({ why: [`the run failed: ${String(fault)}`], lanes: 0 }),
+  );
+
+  for (const why of asSaved.why) found.push(`${where} as saved: ${why}`);
+
+  const boot = (mutant: Mutant) => {
+    const judged = judgedAs(machines, mutant);
+    const key = Option.getOrElse(mutant.key, () => saved.key);
+    const strict = FIELD_ADDED.test(mutant.path) && !USER_VALUE.test(mutant.path);
+
+    return run(key, mutant.json).then(
       (done) =>
-        path === FIELD_ADDED
-          ? unless(quarantinedIn(done, saved.key), "a field its kind lacks was read")
-          : judge(machines, saved.key, judged, done),
+        strict
+          ? unless(quarantinedIn(done, key), "a field its kind lacks was read")
+          : judge(machines, key, judged, done, asSaved.lanes),
       // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is printed.
       (fault: unknown) => failed(judged, fault),
     );
   };
 
-  const found: Array<string> = [];
-  const where = `${saved.fixture.name} ${saved.story.id} ${saved.key}`;
-
-  const asSaved = await run(parse(saved.text)).then(
-    (done) => judgeSaved(machines, saved, done),
-    // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is printed.
-    (fault: unknown) => [`the run failed: ${String(fault)}`],
-  );
-
-  for (const why of asSaved) found.push(`${where} as saved: ${why}`);
-
-  for (const mutant of mutants)
-    for (const why of await boot(mutant.json, mutant.path))
+  for (const mutant of [...mutants, ...keyMutantsOf(machines, saved)])
+    for (const why of await boot(mutant))
       found.push(`${where} ${mutant.path}: ${why.slice(0, 200)}`);
 
   return found;
 };
+
+const escape = (name: string) =>
+  name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C");
+
+/**
+ * The record put under its key with one segment corrupted: the machine, the name, and a lane's
+ * operation and key text, each emptied, made local or lengthened; the record as saved stays under
+ * its own key beside it.
+ */
+const keyMutantsOf = (machines: Machines, saved: Saved) =>
+  Option.match(partsOf(machines, saved.key), {
+    onNone: () => [],
+    onSome: (p) => {
+      const keyOf = (machine: string, name: string, operation: string, keyText: string) =>
+        p.kind === "lane/"
+          ? `${p.kind}${machine}/${escape(name)}|${operation}|${keyText}`
+          : `${p.kind}${machine}/${escape(name)}`;
+
+      const operation = Option.getOrElse(p.operation, () => "");
+      const keyText = Option.getOrElse(p.keyText, () => "");
+      const variants = (value: string) => ["", "~1", `${value}x`];
+
+      const lane = [
+        ...variants(operation).map((o) => ["operation", keyOf(p.machine, p.name, o, keyText)]),
+        ...variants(keyText).map((t) => ["key text", keyOf(p.machine, p.name, operation, t)]),
+      ];
+
+      const keys = [
+        ...variants(p.machine).map((m) => ["machine", keyOf(m, p.name, operation, keyText)]),
+        ...variants(p.name).map((n) => ["name", keyOf(p.machine, n, operation, keyText)]),
+        ...lane.filter(() => p.kind === "lane/"),
+      ];
+
+      const json = parse(saved.text);
+
+      return keys.map(([segment = "", key = ""]) => ({
+        path: `key ${segment} = ${key}`,
+        json,
+        key: Option.some(key),
+        provider: Option.none<string>(),
+      }));
+    },
+  });
 
 // Every fixture's stores, run once for the tests below.
 const stores = storesOf();
@@ -640,5 +742,37 @@ describe("identity parsed in one place (Codec R5; Restore R5)", () => {
       );
 
     expect(sites).toEqual([]);
+  });
+});
+
+// Why a lane key does not name its lane: a lane is its identity, its contract and its key (Restore
+// R8, WriteLanes R6), so the segment after the name is the id of a contract its machine writes.
+const laneKeyOff = (machines: Machines, key: string) =>
+  Option.match(partsOf(machines, key), {
+    onNone: () => [`${key} has no kind and machine`],
+    onSome: (p) =>
+      p.kind === "lane/"
+        ? unless(
+            [...(machines.get(p.machine)?.operations.values() ?? [])].some(
+              (o) => o._tag === "Write" && Option.contains(p.operation, o.contract),
+            ),
+            `${key} names no contract its machine writes`,
+          )
+        : [],
+  });
+
+describe("a lane named by its contract (Restore R8; WriteLanes R6)", () => {
+  // Open: a lane's key and record name its operation, so a renamed operation whose contract the
+  // machine still writes cannot be rewritten to it (OpRenamed) and is quarantined.
+  it.fails("Restore R8: every saved lane's key names its identity, the contract its machine writes and its key text, and no operation name", async () => {
+    const off = new Set<string>();
+
+    for (const store of await stores) {
+      const machines = compiledOf(store.fixture);
+
+      for (const key of store.stored.keys()) for (const o of laneKeyOff(machines, key)) off.add(o);
+    }
+
+    expect([...off]).toEqual([]);
   });
 });
