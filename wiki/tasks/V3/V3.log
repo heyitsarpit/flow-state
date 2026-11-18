@@ -1299,3 +1299,8 @@ note 2026-11-18T10:42:59Z
 note 2026-11-18T10:57:37Z
     T93 done: review PASS (1f1d5b11), merged; one effect copy at 4.1.4, check 0. T81 fix-round review ISSUES (c035894e):
     a marked but partial ending still throws raw; second finding of one class, so a convergence on construction shapes.
+
+note 2026-11-18T11:22:01Z
+    Stop (failure limit, 2026-11-18): T81's convergence review (08c16517) found three more raw throws (handle arguments,
+    machine()'s definition checked by mark only, cyclic or throwing config). T81 waits for the user's call; no lead
+    runs.
