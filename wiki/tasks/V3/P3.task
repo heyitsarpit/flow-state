@@ -2869,6 +2869,12 @@ tasks
             see); E.X.from as a schedule send refused ForeignToken (a FlowError, wording only); a plain-copy ending
             accepted by operations but not reactions (older than the round); the send guard in runtime.ts and run.ts
             (two edges, small); line comments and fixtures.md in test names (house pattern).
+        comment     2026-11-18T11:00:35Z
+            Convergence round, the class first: tests/compile/corruption.test.ts takes every construction value the
+            fixtures use (bounds, endings, schedules, delays, armOn, handlers, history, guards, actions, context slots,
+            memory fields, event fields, payloads) and corrupts one field at a time (dropped, wrong kind, null, the mark
+            only, and inside an ending). Red on 9cacdc5a: schedule sends, guards and actions throw raw; E.X of a
+            field-less event accepts 5, a string, true, [].
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
