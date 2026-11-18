@@ -1378,3 +1378,7 @@ note 2026-11-18T19:39:28Z
 note 2026-11-18T19:41:16Z
     P3 fix round done (ebbeca0a); 58 rules still lack a catching fault, an exit criterion, so T101 closes them in P3 (no
     gate relaxed). T99, T100 placed in P4's order. wk refuses satisfies links on T21, T29, T30, T48, T49: for the user.
+
+note 2026-11-18T19:44:03Z
+    Decision (the user, 2026-11-19): T101 is capped at 40 minutes (ends 01:53 IST); gaps not closed by then are deferred
+    for later with their proposed owners, and P3's audit counts them as deferred by the user.
