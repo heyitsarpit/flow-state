@@ -3939,6 +3939,18 @@ tasks
             - The faults the reload sweep catches today are still caught.
             - The replay form stays in the tree, disabled with a comment on how to turn it back on.
             - The suite's wall time, alone, is recorded before and after; `nub run check` passes.
+        comment     2026-11-18T07:55:14Z
+            Requirements (lead): (1) cut: a fork starts from the world saved at a position: the fake servers (truth,
+            calls, waiting words, held calls, network), the store (records, batches with held and refused writes, armed
+            words), the Story's attached actors with their context and counts, the evidence, trace and checkpoints so
+            far, the open count and the time; a reload abandons the tab, so a fork must begin with a reload (else
+            StoryFailed); check: a Story test forks every position of reload-heavy Stories and gets the replay's run
+            (evidence, trace, end records and calls). (2) same verdicts: FLOW_REPLAY_SWEEP=true runs both forms and
+            fails on any position whose verdict differs; one run alone over the default and stress tiers, posted here.
+            (3) faults: every fault in tests/faults.ts planted in a scratch copy under both forms; each the replay sweep
+            catches, the fork catches with the same verdict at every position. (4) the replay form kept behind
+            FLOW_REPLAY_SWEEP with a comment. (5) alone, before (suite 37.6 s, stress 56.8 s) and after; check 0; faults
+            once at the close.
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
