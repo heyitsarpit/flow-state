@@ -2824,6 +2824,16 @@ tasks
             withDecodingDefault keys and eager per-field walkers (older than T81, and no rule asks); line comments and
             duplicate cast helpers (house pattern, moved rather than added); spot assertions in load tests (the run
             rules check every run).
+        comment     2026-11-18T10:42:26Z
+            Fix round, blockers red first (it.fails, each red for its reason): (14) Compile R2, R4: a bound missing
+            input, key, failure, unknown, notSent or contract, or with an ending lacking from, is one WrongKind at it
+            (TypeError or accepted today); (15) a reaction or schedule ending lacking from is WrongKind; (16) Turn R14:
+            NaN or infinite delay parts are DelayOutOfRange (0 ms today); (17) Compile R14, Actors R14: E.X and send of
+            null, a number or no tag throw InvalidEvent.
+        comment     2026-11-18T10:42:27Z
+            Also red: (18) Compile R12: states named ~path and ~flow are ReservedStateName; (19) machine(def, undefined)
+            is WrongKind at body. Small fixes in the round: admitted's doc, the catalog's refused.ts references,
+            SleepTimer delays of −1 and 2^31 ms, and the transforming-field runtime test now asserts the Date.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1

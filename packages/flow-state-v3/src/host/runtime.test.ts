@@ -89,6 +89,11 @@ const doors = app({ id: "test", machines: { door: DoorMachine } });
 
 const front = actorRef(DoorMachine, "front");
 
+const loose = (value: unknown) =>
+  // SAFETY: each refused event is one the types reject; send must refuse it at run time too.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller send guards against
+  value as never;
+
 const ready = (services: Layer.Layer<Bell> = bell) => {
   const runtime = runtimeSetup({ app: doors, services }).construct();
   Effect.runSync(runtime.ready());
@@ -132,23 +137,31 @@ describe("Runtime", () => {
     assert.deepStrictEqual(stateOf(door), Option.some("SHUT"));
   });
 
-  it("send accepts the envelope E.X built: a transforming field is checked by its Type side, as E.X checks it (Actors R14, Compile R14)", () => {
+  it("send accepts the envelope E.X built: a transforming field is checked by its Type side, as E.X checks it, and the handler holds the Date (Actors R14, Compile R14)", () => {
     const Clock = definition({
       id: "Test/Clock",
       states: ["IDLE", "SET"],
       events: { At: { at: Schema.DateFromString } },
+      memory: { at: Flow.initial(Schema.NullOr(Schema.DateFromString), null) },
     });
 
-    const clock = machine(Clock, ({ S }) => ({ default: S.IDLE, on: { At: S.SET } }));
+    const clock = machine(Clock, ({ S }) => ({
+      default: S.IDLE,
+      on: { At: { target: S.SET, updateMemory: ({ event }) => ({ at: event.at }) } },
+    }));
+
     const runtime = runtimeSetup({ app: app({ id: "clock", machines: { clock } }) }).construct();
     Effect.runSync(runtime.ready());
     const actor = runtime.ensureActor(actorRef(clock, "c"));
+    const at = Schema.decodeSync(Schema.DateFromString)("1970-01-01T00:00:00Z");
 
-    actor.send(
-      Clock.E.At({ at: Schema.decodeSync(Schema.DateFromString)("1970-01-01T00:00:00Z") }),
-    );
+    actor.send(Clock.E.At({ at }));
 
     assert.deepStrictEqual(stateOf(actor), Option.some("SET"));
+    assert.deepStrictEqual(
+      Option.map(actor.getSnapshot(), (s) => s.memory.at),
+      Option.some(at),
+    );
   });
 
   it("Actors R14: send hands the handler the payload its Schema decodes, keys the Schema does not declare dropped", () => {
@@ -182,6 +195,17 @@ describe("Runtime", () => {
     actor.send({ _tag: "Put", n: 1, extra: "x" });
 
     assert.deepStrictEqual(seen, { n: 1 });
+  });
+
+  it.fails("Actors R14: a send of null, undefined, a number or an envelope without a tag throws InvalidEvent and starts no turn", () => {
+    const door = ready().ensureActor(front);
+
+    for (const event of [null, undefined, 5, "Push", {}])
+      assert.throws(
+        () => door.send(loose(event)),
+        (error) => error instanceof FlowError && error.code === "InvalidEvent",
+      );
+    assert.deepStrictEqual(stateOf(door), Option.some("SHUT"));
   });
 
   it("a services Layer that fails to build rejects ready() with Defect, a code of the closed list (Diagnostics R6, I5)", () => {
