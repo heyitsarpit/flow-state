@@ -1222,3 +1222,8 @@ note 2026-11-18T05:36:53Z
     T20 close review ISSUES (one blocking): decodeName accepts any ~-prefixed name, so records under a local actor's
     name restore and run (Restore R5). Fix round waits on the user's batching call; routing comments written on T56,
     T28.
+
+note 2026-11-18T06:07:22Z
+    T20 fix-round review ISSUES (59361083): records whose key names another identity restore into it. Second finding of
+    one class (restore trusts record parts), so a convergence: record-trust fixtures first, then one validation at
+    decode.
