@@ -221,35 +221,35 @@ describe("a standing order written wrong is refused at construction (Compile R2,
     ]);
   });
 
-  it.fails("Compile R2, R4: a configuration read before its module set it is refused WrongKind, never a raw TypeError", () => {
+  it("Compile R2, R4: a configuration read before its module set it is refused WrongKind, never a raw TypeError", () => {
     expect(refusal(orderFromUnsetConfig)).toEqual([["InvalidConfiguration", "WrongKind", ""]]);
   });
 
-  it.fails("Compile R2, R4: an operations callback with braces and no return is refused WrongKind at operations", () => {
+  it("Compile R2, R4: an operations callback with braces and no return is refused WrongKind at operations", () => {
     expect(refusal(orderWithoutReturn)).toEqual([
       ["InvalidConfiguration", "WrongKind", "operations"],
     ]);
   });
 
-  it.fails('Compile R4, R5: an amount starting at the text "0" is refused WrongKind at its field', () => {
+  it('Compile R4, R5: an amount starting at the text "0" is refused WrongKind at its field', () => {
     expect(refusal(orderStartingAtText)).toEqual([
       ["InvalidConfiguration", "WrongKind", "memory.cents"],
     ]);
   });
 
-  it.fails("Compile R4, R5: a first date starting at the ISO text, the field's encoded side, is refused WrongKind at its field", () => {
+  it("Compile R4, R5: a first date starting at the ISO text, the field's encoded side, is refused WrongKind at its field", () => {
     expect(refusal(orderFirstFromText)).toEqual([
       ["InvalidConfiguration", "WrongKind", "memory.first"],
     ]);
   });
 
-  it.fails("Compile R3: a lookup of the transfer form's balance, an operation of the same name, is refused ForeignToken", () => {
+  it("Compile R3: a lookup of the transfer form's balance, an operation of the same name, is refused ForeignToken", () => {
     expect(refusal(orderLookingUpFormsBalance)).toEqual([
       ["InvalidConfiguration", "ForeignToken", "on.Plan.0.actions.0"],
     ]);
   });
 
-  it.fails("Compile R3: a context reaction sending the transfer form's AccountChanged is refused ForeignToken", () => {
+  it("Compile R3: a context reaction sending the transfer form's AccountChanged is refused ForeignToken", () => {
     expect(refusal(orderHearingFormsEvent)).toEqual([
       ["InvalidConfiguration", "ForeignToken", "onContext.0.event"],
     ]);

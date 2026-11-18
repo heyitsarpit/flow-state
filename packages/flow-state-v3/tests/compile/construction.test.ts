@@ -690,14 +690,14 @@ const segments = (construct: () => unknown) => {
 };
 
 describe("construction refuses every malformed form with one FlowError (Compile R2, R3, R4)", () => {
-  it.fails("Compile R2, R4: definition(null) and definition(undefined) are refused WrongKind at the configuration, never a raw TypeError", () => {
+  it("Compile R2, R4: definition(null) and definition(undefined) are refused WrongKind at the configuration, never a raw TypeError", () => {
     for (const config of [null, undefined])
       expect(refusal(() => definition(loose(config)))).toEqual([
         ["InvalidConfiguration", "WrongKind", ""],
       ]);
   });
 
-  it.fails("Compile R2, R4: an operations callback that returns no record is refused WrongKind at operations", () => {
+  it("Compile R2, R4: an operations callback that returns no record is refused WrongKind at operations", () => {
     expect(
       refusal(() =>
         definition(
@@ -707,7 +707,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
     ).toEqual([["InvalidConfiguration", "WrongKind", "operations"]]);
   });
 
-  it.fails("Compile R2, R4: an operations record whose value is not an operation is refused WrongKind at it, never a raw TypeError", () => {
+  it("Compile R2, R4: an operations record whose value is not an operation is refused WrongKind at it, never a raw TypeError", () => {
     expect(
       refusal(() =>
         definition(
@@ -722,7 +722,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
     ).toEqual([["InvalidConfiguration", "WrongKind", "operations.save"]]);
   });
 
-  it.fails("Compile R4: a fixed delay written { sec: 5 } is not a Duration input: its unknown field is refused UnknownField", () => {
+  it("Compile R4: a fixed delay written { sec: 5 } is not a Duration input: its unknown field is refused UnknownField", () => {
     expect(
       refusal(() =>
         machine(Lamp, ({ S, E }) =>
@@ -738,7 +738,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
     ).toEqual([["InvalidConfiguration", "UnknownField", "states.OFF.schedules.off.schedule.sec"]]);
   });
 
-  it.fails("Compile R4, R5: a constant start its field's Schema refuses is refused WrongKind at its memory field", () => {
+  it("Compile R4, R5: a constant start its field's Schema refuses is refused WrongKind at its memory field", () => {
     expect(
       refusal(() =>
         definition(
@@ -753,7 +753,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
     ).toEqual([["InvalidConfiguration", "WrongKind", "memory.count"]]);
   });
 
-  it.fails("Compile R3: a guard and an action of another definition's operation of the same name are refused ForeignToken", () => {
+  it("Compile R3: a guard and an action of another definition's operation of the same name are refused ForeignToken", () => {
     expect(
       refusal(() =>
         machine(Lamp, ({ S }) =>
@@ -775,7 +775,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
     ]);
   });
 
-  it.fails("Compile R3: an onContext event of another definition, as E.X or E.X.from(f), is refused ForeignToken", () => {
+  it("Compile R3: an onContext event of another definition, as E.X or E.X.from(f), is refused ForeignToken", () => {
     expect(
       refusal(() =>
         machine(Lamp, ({ S }) =>
@@ -795,7 +795,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
     ]);
   });
 
-  it.fails("Compile R2, R9; Diagnostics R2: a failure tag that holds a dot is one segment of its finding's path", () => {
+  it("Compile R2, R9; Diagnostics R2: a failure tag that holds a dot is one segment of its finding's path", () => {
     expect(
       segments(() =>
         definition(
@@ -825,7 +825,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
 });
 
 describe("a construction callback that throws, or no definition (Compile R2; Diagnostics R1, R6)", () => {
-  it.fails("Diagnostics R1, R6: an operations callback that throws is one FlowError Defect at operations, carrying what it threw", () => {
+  it("Diagnostics R1, R6: an operations callback that throws is one FlowError Defect at operations, carrying what it threw", () => {
     const thrown = new Error("boom");
 
     const construct = () =>
@@ -844,7 +844,7 @@ describe("a construction callback that throws, or no definition (Compile R2; Dia
     assert.throws(construct, (error) => error instanceof FlowError && error.cause === thrown);
   });
 
-  it.fails("Diagnostics R1, R6: a machine body that throws is one FlowError Defect, carrying what it threw", () => {
+  it("Diagnostics R1, R6: a machine body that throws is one FlowError Defect, carrying what it threw", () => {
     expect(
       refusal(() =>
         machine(Lamp, () => {
@@ -854,7 +854,7 @@ describe("a construction callback that throws, or no definition (Compile R2; Dia
     ).toEqual([["Defect", null, "body"]]);
   });
 
-  it.fails("Compile R2, R4: machine(null) is refused WrongKind at its definition, never a raw TypeError", () => {
+  it("Compile R2, R4: machine(null) is refused WrongKind at its definition, never a raw TypeError", () => {
     expect(refusal(() => machine(loose(null), () => loose({})))).toEqual([
       ["InvalidConfiguration", "WrongKind", "definition"],
     ]);

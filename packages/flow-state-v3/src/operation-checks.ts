@@ -1,26 +1,10 @@
-import { Option, SchemaAST } from "effect";
+import { SchemaAST } from "effect";
 import { isUncertain } from "./config.ts";
 import { invalid } from "./error.ts";
 import { checkName } from "./construction.ts";
-import type { Bound, Ending } from "./contract.ts";
+import { type Bound, endingsOf } from "./contract.ts";
 import type { EventFields } from "./definition.ts";
 import type { Finding } from "./error.ts";
-
-// Every ending of an operation, by its place: its event must be one this definition declares.
-const endingsOf = (bound: Bound) => {
-  const endings: Array<readonly [string, Ending]> = [
-    ["success", bound.success],
-    ...Object.entries(bound.failure).map(([tag, e]) => [`failure.${tag}`, e] as const),
-  ];
-
-  if (bound.kind === "write")
-    endings.push(...Option.toArray(Option.map(bound.notSent, (e) => ["notSent", e] as const)), [
-      "unknown",
-      bound.unknown,
-    ]);
-
-  return endings;
-};
 
 const endingFindings = (
   name: string,
@@ -31,9 +15,9 @@ const endingFindings = (
     .filter(([, e]) => !Object.hasOwn(internal, e.ending.event))
     .map(([place, e]) =>
       invalid(
-        ["operations", name, ...place.split(".")],
+        ["operations", name, ...place],
         "UnknownEvent",
-        `${name}'s ${place} ending maps to ${e.ending.event}, which this definition does not declare as an internal event`,
+        `${name}'s ${place.join(" ")} ending maps to ${e.ending.event}, which this definition does not declare as an internal event`,
         "Map every ending to one of the definition's internalEvents.",
       ),
     );

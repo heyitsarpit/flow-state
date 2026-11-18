@@ -194,19 +194,19 @@ describe("a trusted device written wrong is refused at construction (Compile R2,
     ]);
   });
 
-  it.fails("Compile R2, R4: a session slot that is the session's definition is one WrongKind at the slot, not a finding per key of the definition", () => {
+  it("Compile R2, R4: a session slot that is the session's definition is one WrongKind at the slot, not a finding per key of the definition", () => {
     expect(refusal(deviceWithDefinitionAsContext)).toEqual([
       ["InvalidConfiguration", "WrongKind", "context.session"],
     ]);
   });
 
-  it.fails("Compile R2, R4: an operations record holding the bare contract, not its outcomes, is refused WrongKind at it", () => {
+  it("Compile R2, R4: an operations record holding the bare contract, not its outcomes, is refused WrongKind at it", () => {
     expect(refusal(deviceWithBareContract)).toEqual([
       ["InvalidConfiguration", "WrongKind", "operations.me"],
     ]);
   });
 
-  it.fails("Compile R4: a reminder written { day: 7 } is not a Duration input: its unknown field is refused UnknownField", () => {
+  it("Compile R4: a reminder written { day: 7 } is not a Duration input: its unknown field is refused UnknownField", () => {
     expect(refusal(deviceRemindingByDay)).toEqual([
       [
         "InvalidConfiguration",

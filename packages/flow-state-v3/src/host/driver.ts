@@ -260,9 +260,9 @@ export const makeDriver = (options: {
       const event = machines.get(actor.machine)?.events.get(tag);
 
       const decoded =
-        event !== undefined && event.public && event.is(payload)
-          ? Option.some(payload)
-          : Option.none();
+        event !== undefined && event.public
+          ? Result.getSuccess(event.walk.decode(payload))
+          : Option.none<Values>();
 
       check(Input.Send({ actor, tag, payload }), `send ${tag} to ${actor.name}`);
 

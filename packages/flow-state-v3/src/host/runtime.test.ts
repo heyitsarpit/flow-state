@@ -151,7 +151,7 @@ describe("Runtime", () => {
     assert.deepStrictEqual(stateOf(actor), Option.some("SET"));
   });
 
-  it.fails("Actors R14: send hands the handler the payload its Schema decodes, keys the Schema does not declare dropped", () => {
+  it("Actors R14: send hands the handler the payload its Schema decodes, keys the Schema does not declare dropped", () => {
     let seen: unknown = undefined;
 
     const Box = definition({

@@ -1,14 +1,21 @@
-import { type Duration, Option, Predicate, Schema } from "effect";
-import { walkerOf } from "./core/boundary.ts";
+import { type Duration, Option, Predicate, Result, Schema } from "effect";
 import type { Action, Compiled, Denial, Guard, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import { atOrBelow, chainOf } from "./core/tree.ts";
 import type { Bound, Ending, Fields } from "./contract.ts";
-import { flowError } from "./error.ts";
-import { readHandle, writeHandle } from "./handles.ts";
-import { configFindings, inDeclarationOrder, isUncertain } from "./config.ts";
-import { refuse } from "./error.ts";
-import { definitionFindings, isMarker, type TreeNode, treeOf } from "./construction.ts";
+import { fieldsOf, tokensOf, trusted } from "./events.ts";
+import { type GuardArg, readHandle, type SelectArg, writeHandle } from "./handles.ts";
+import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
+import { flowErrorOf, refuse } from "./error.ts";
+import {
+  definitionFindings,
+  isMarker,
+  isPrivate,
+  schemaOfField,
+  type TreeNode,
+  treeOf,
+  unwrapPrivate,
+} from "./construction.ts";
 import type { Entry, Field, Input, Plain, Private, Uncertain } from "./flow.ts";
 
 export type EventFields = Fields | Uncertain;
@@ -93,7 +100,10 @@ export type EventToken<Name extends string, P> = ((
     readonly from: <V>(map: (value: V) => P) => Ending;
   };
 
-type Tokens<Ev> = { readonly [K in keyof Ev & string]: EventToken<K, PayloadOf<Ev[K]>> };
+/**
+ * A definition's event tokens, by tag.
+ */
+export type Tokens<Ev> = { readonly [K in keyof Ev & string]: EventToken<K, PayloadOf<Ev[K]>> };
 
 /**
  * A state tree: leaf names, and single-key compounds holding their children's list.
@@ -187,6 +197,7 @@ type StateTokensLiteral<L, P extends string> = {
  */
 export type ActionToken = {
   readonly "~flow": "action";
+  readonly "~owner": symbol;
   readonly operation: string;
   readonly make: (at: string) => Action;
 };
@@ -196,13 +207,10 @@ export type ActionToken = {
  */
 export type GuardToken = {
   readonly "~flow": "guard";
+  readonly "~owner": symbol;
   readonly operation: string;
   readonly make: (at: string) => Guard;
 };
-
-type SelectArg<M> = { readonly memory: M; readonly event: never };
-
-type GuardArg<M, P> = { readonly state: string; readonly memory: M; readonly event: P };
 
 /**
  * The write lanes a snapshot shows: each operation's rows, keyed by the key's canonical text.
@@ -366,6 +374,7 @@ export type Definition<
   O extends Readonly<Record<string, Bound>> = Readonly<Record<string, Bound>>,
   Cx extends ContextConfig = ContextConfig,
 > = {
+  readonly "~owner": symbol;
   readonly id: string;
   readonly persist: boolean;
   readonly states: States;
@@ -393,67 +402,8 @@ export type Definition<
   >;
 };
 
-export const fieldsOf = (x: EventFields) => (isUncertain(x) ? x.fields : x);
-
-/**
- * A Struct built over a runtime record of field Schemas, as the record codec Compiled holds.
- */
-export const codecOf = <E, S = Schema.Top>(schema: S) =>
-  // SAFETY: a Struct of a definition's own field Schemas decodes to a record of those fields, and every Flow field Schema needs no services.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Schema.Struct over a runtime record has no static field types
-  schema as Schema.Codec<Values, E>;
-
-// FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-const trusted = <A>(value: unknown) =>
-  // SAFETY: a value built from the definition's own keys, whose static type the caller names.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- records built at run time carry no static key types
-  value as A;
-
-const invalidEvent = (tag: string, field: ReadonlyArray<string>) =>
-  flowError([
-    {
-      code: "InvalidEvent",
-      path: ["E", tag, ...field],
-      summary: `E.${tag} was given a payload its Schema refuses`,
-      help: "Give the event a payload of its declared fields.",
-    },
-  ]);
-
-const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
-  const ending = { event: tag, from: Option.none() };
-  const valid = walkerOf(codecOf<Values>(Schema.Struct(fields))).is;
-
-  const checks = Object.entries(fields).map(
-    ([name, schema]) => [name, walkerOf(schema).is] as const,
-  );
-
-  const make = (given: Values = {}) => {
-    if (!valid(given))
-      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- E.X's contract: a payload its Schema refuses throws InvalidEvent
-      throw invalidEvent(
-        tag,
-        checks
-          .filter(([name, is]) => !is(given[name]))
-          .map(([name]) => name)
-          .slice(0, 1),
-      );
-
-    return { ...given, _tag: tag };
-  };
-
-  return Object.assign(make, {
-    tag,
-    ending,
-    from: (map: (value: never) => Values) => ({ ending: { event: tag, from: Option.some(map) } }),
-  });
-};
-
-const tokensOf = <Ev extends Readonly<Record<string, EventFields>>>(events: Ev) =>
-  trusted<Tokens<Ev>>(
-    Object.fromEntries(
-      Object.entries(events).map(([tag, fields]) => [tag, eventToken(tag, fieldsOf(fields))]),
-    ),
-  );
+const pick = <T>(tokens: Values, names: ReadonlyArray<string>) =>
+  trusted<T>(Object.fromEntries(names.map((name) => [name, tokens[name]])));
 
 // ── the state tree.
 
@@ -531,39 +481,62 @@ export const definition = <
 >(
   config: DefinitionConfig<States, Ev, In, M, O, Cx>,
 ): Definition<States, Ev, In, M, O, Cx> => {
-  const keys = Object.keys(config);
+  const keys = Predicate.isObject(config) ? Object.keys(config) : [];
 
   refuse(inDeclarationOrder(keys, configFindings(config)));
 
+  const owner = Symbol(config.id);
   const internal = config.internalEvents ?? trusted<In>({});
   const context = config.context ?? trusted<Cx>({});
   const memory = config.memory ?? trusted<M>({});
-  const operations = config.operations?.({ E: tokensOf(internal) }) ?? trusted<O>({});
+  const E = tokensOf({ ...config.events, ...internal });
+  const declare = config.operations;
+
+  const called =
+    declare === undefined
+      ? Result.succeed(trusted<O>({}))
+      : Result.try({
+          try: () => declare({ E: pick<Tokens<In>>(E, Object.keys(internal)) }),
+          // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
+          catch: (cause: unknown) => cause,
+        });
+
+  if (Result.isFailure(called))
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid construction throws one FlowError before any work
+    throw flowErrorOf(
+      [
+        {
+          code: "Defect",
+          path: ["operations"],
+          summary: "the operations callback threw",
+          help: "Fix the operations callback; what it threw is this error's cause.",
+        },
+      ],
+      called.failure,
+    );
+
+  const malformed = operationsFindings(called.success);
+  const operations = malformed.length === 0 ? called.success : trusted<O>({});
   const tree = treeOf(config.states);
 
   refuse(
-    definitionFindings(
-      { id: config.id, events: config.events, internalEvents: internal, memory, context },
-      tree.findings,
-      operations,
-      keys,
-    ),
+    inDeclarationOrder(keys, [
+      ...malformed,
+      ...definitionFindings(
+        { id: config.id, events: config.events, internalEvents: internal, memory, context },
+        tree.findings,
+        operations,
+        keys,
+      ),
+    ]),
   );
 
   const handles = Object.fromEntries(
     Object.entries(operations).map(([name, bound]) => [
       name,
-      bound.kind === "write" ? writeHandle(name, bound.textOfKey) : readHandle(name),
+      bound.kind === "write" ? writeHandle(name, bound.textOfKey, owner) : readHandle(name, owner),
     ]),
   );
-
-  const unwrap = (raw: Field) => (isMarker(raw) && raw["~flow"] === "private" ? raw.field : raw);
-
-  const schemaOf = (raw: Field) => {
-    const field = unwrap(raw);
-
-    return isMarker(field) ? field.schema : field;
-  };
 
   const leaves = tree.nodes.filter((n) => n.children.length === 0).map((n) => n.path);
 
@@ -573,13 +546,14 @@ export const definition = <
 
   const inputs = Object.fromEntries(
     Object.entries(memory).flatMap(([name, raw]) => {
-      const field = unwrap(raw);
+      const field = unwrapPrivate(raw);
 
       return isMarker(field) && field["~flow"] === "input" ? [[name, field.schema]] : [];
     }),
   );
 
   return {
+    "~owner": owner,
     id: config.id,
     persist: config.persist ?? false,
     states: config.states,
@@ -597,13 +571,15 @@ export const definition = <
       }),
     },
     S: trusted(tokenTree(tree.nodes, tree.top)),
-    E: tokensOf({ ...config.events, ...internal }),
+    E,
     O: trusted(handles),
     Event: trusted(Schema.Union(envelopes)),
     State: trusted(Schema.Literals(leaves)),
     Input: trusted(Schema.Struct(inputs)),
     Memory: trusted(
-      Schema.Struct(Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOf(f)]))),
+      Schema.Struct(
+        Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOfField(f)])),
+      ),
     ),
     Snapshot: trusted(
       Schema.Struct({
@@ -611,7 +587,7 @@ export const definition = <
         memory: Schema.Struct(
           Object.fromEntries(
             Object.entries(memory).flatMap(([k, f]) =>
-              isMarker(f) && f["~flow"] === "private" ? [] : [[k, schemaOf(f)]],
+              isPrivate(f) ? [] : [[k, schemaOfField(f)]],
             ),
           ),
         ),
@@ -629,6 +605,7 @@ export const treeOfDefinition = (definition: AnyDefinition) => treeOf(definition
  * What every definition has, whatever its literal types: what `machine` and the Runtime read.
  */
 export type AnyDefinition = {
+  readonly "~owner": symbol;
   readonly id: string;
   readonly persist: boolean;
   readonly states: StateTree;

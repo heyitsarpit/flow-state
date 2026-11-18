@@ -202,8 +202,7 @@ export type Field = {
  */
 export type EventEntry = {
   readonly payload: Schema.Codec<Values, Values>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a sent payload is checked here before it is trusted.
-  readonly is: (payload: unknown) => boolean;
+  readonly walk: Walker<Values, Values>;
   readonly public: boolean;
   readonly uncertain: boolean;
 };

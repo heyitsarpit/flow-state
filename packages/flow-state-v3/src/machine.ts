@@ -1,11 +1,10 @@
-import { Option, Schema } from "effect";
+import { Option, Predicate, Result, Schema } from "effect";
 import { walkerOf } from "./core/boundary.ts";
 import { nameSchemaOf } from "./core/identity.ts";
 import type { Values } from "./core/compiled.ts";
 import { leafOf } from "./core/tree.ts";
 import {
   type AnyDefinition,
-  codecOf,
   type ChildrenOf,
   type ContextOf,
   type Definition,
@@ -21,7 +20,8 @@ import {
   type WritableOf,
 } from "./definition.ts";
 import { bodyFindings } from "./config.ts";
-import { refuse } from "./error.ts";
+import { codecOf } from "./events.ts";
+import { flowErrorOf, invalid, refuse } from "./error.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { Ending } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
@@ -114,6 +114,10 @@ const erasedWhen = (when: (current: never, previous: never) => boolean) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a reaction's selection type is erased in Compiled
   when as (current: unknown, previous: unknown) => boolean;
 
+// The event token an ending names: E.X itself, or the token E.X.from(f) was made from.
+const tokenOf = (ending: Ending) =>
+  Predicate.hasProperty(ending, "~token") ? ending["~token"] : ending;
+
 const erasedBody = <B>(body: B) =>
   // SAFETY: MachineBody's records are On records and bodies over the definition's own events and states.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's event and memory types are erased in Compiled
@@ -143,7 +147,37 @@ export const machine = <D extends AnyDefinition>(
   definition: D,
   body: (tokens: { readonly S: D["S"]; readonly E: D["E"]; readonly O: D["O"] }) => MachineBody<D>,
 ): Machine<D> => {
-  const config = erasedBody(body({ S: definition.S, E: definition.E, O: definition.O }));
+  if (!Predicate.hasProperty(definition, "~owner"))
+    refuse([
+      invalid(
+        ["definition"],
+        "WrongKind",
+        "machine was given no definition",
+        "Pass machine the value definition({ ... }) returned.",
+      ),
+    ]);
+
+  const written = Result.try({
+    try: () => body({ S: definition.S, E: definition.E, O: definition.O }),
+    // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
+    catch: (cause: unknown) => cause,
+  });
+
+  if (Result.isFailure(written))
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an invalid construction throws one FlowError before any work
+    throw flowErrorOf(
+      [
+        {
+          code: "Defect",
+          path: ["body"],
+          summary: "the machine body threw",
+          help: "Fix the machine body; what it threw is this error's cause.",
+        },
+      ],
+      written.failure,
+    );
+
+  const config = erasedBody(written.success);
 
   refuse(bodyFindings(config));
 
@@ -162,6 +196,17 @@ export const machine = <D extends AnyDefinition>(
   };
 
   const compiledTree = nodesOf(compile, config, Option.none(), []);
+
+  for (const [at, reaction] of (config.onContext ?? []).entries())
+    if (!compile.sends.has(tokenOf(reaction.event)))
+      compile.findings.push(
+        invalid(
+          ["onContext", at, "event"],
+          "ForeignToken",
+          "the reaction's event is not this definition's",
+          "Use the tokens the machine body receives: S, E and O of this definition.",
+        ),
+      );
 
   refuse(compile.findings);
 

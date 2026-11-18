@@ -1,4 +1,4 @@
-import { Exit, Option, Predicate, SchemaAST } from "effect";
+import { Exit, Option, Predicate, Schema, SchemaAST } from "effect";
 import { inDeclarationOrder, isUncertain } from "./config.ts";
 import { invalid } from "./error.ts";
 import type { Bound } from "./contract.ts";
@@ -145,6 +145,27 @@ export const treeOf = (states: StateTree) => {
 export const isMarker = (x: Field): x is Initial | Input | Private =>
   Predicate.hasProperty(x, "~flow");
 
+/**
+ * Whether a memory field is `Flow.private`.
+ */
+// RETURN_TYPE: a type guard states the type it narrows to.
+export const isPrivate = (raw: Field): raw is Private =>
+  isMarker(raw) && raw["~flow"] === "private";
+
+/**
+ * A memory field without its `Flow.private` wrapper.
+ */
+export const unwrapPrivate = (raw: Field) => (isPrivate(raw) ? raw.field : raw);
+
+/**
+ * A memory field's own Schema, through its `Flow.private` and source markers.
+ */
+export const schemaOfField = (raw: Field) => {
+  const field = unwrapPrivate(raw);
+
+  return isMarker(field) ? field.schema : field;
+};
+
 const hasConstructorDefault = (ast: SchemaAST.AST) => ast.context?.constructorDefault !== undefined;
 
 const hasDecodingDefault = (ast: SchemaAST.AST) =>
@@ -184,7 +205,7 @@ const isIdentity = (ast: SchemaAST.AST) =>
 // RETURN_TYPE: one Finding type for every rule's literal.
 const sourceFinding = (name: string, raw: Field): Option.Option<Finding> => {
   const at = ["memory", name];
-  const field = isMarker(raw) && raw["~flow"] === "private" ? raw.field : raw;
+  const field = unwrapPrivate(raw);
 
   if (isMarker(field) && field["~flow"] === "initial")
     return Option.liftPredicate(
@@ -234,6 +255,27 @@ const RESERVED_FIELD = "_tag";
 const reservedField = (at: ReadonlyArray<string | number>, owner: string) =>
   invalid(at, "ReservedField", `${owner} declares _tag`, "Rename the field: _tag is Flow's.");
 
+// A constant start its field's Schema refuses, checked by the Schema's type side, never run.
+// RETURN_TYPE: one Finding type for every rule's literal.
+const constantFinding = (name: string, raw: Field): Option.Option<Finding> => {
+  const field = unwrapPrivate(raw);
+
+  if (!isMarker(field) || field["~flow"] !== "initial" || field.start._tag !== "Constant")
+    return Option.none();
+
+  const { schema, start } = field;
+
+  return Option.liftPredicate(
+    invalid(
+      ["memory", name],
+      "WrongKind",
+      `${name}'s constant start is not a value of its Schema`,
+      "Start the field at a value of its Schema's type, such as a Date for DateFromString.",
+    ),
+    () => !Schema.is(schema)(start.value),
+  );
+};
+
 const memoryFindings = (memory: MemoryConfig) =>
   Object.entries(memory).flatMap(([name, raw]) => [
     ...checkName(name, ["memory", name]),
@@ -241,6 +283,7 @@ const memoryFindings = (memory: MemoryConfig) =>
       .filter((n) => n === RESERVED_FIELD)
       .map((n) => reservedField(["memory", n], "memory")),
     ...Option.toArray(sourceFinding(name, raw)),
+    ...Option.toArray(constantFinding(name, raw)),
   ]);
 
 const eventFindings = (

@@ -86,6 +86,25 @@ export type Bound<K extends "write" | "read" = "write" | "read", R = unknown> = 
 };
 
 /**
+ * Every ending a bound contract maps, each with its place in the contract's endings: `success`,
+ * each `failure` tag, and a write's `notSent` and `unknown`.
+ */
+export const endingsOf = (bound: Bound) => {
+  const endings: Array<readonly [ReadonlyArray<string>, Ending]> = [
+    [["success"], bound.success],
+    ...Object.entries(bound.failure).map(([tag, e]) => [["failure", tag], e] as const),
+  ];
+
+  if (bound.kind === "write")
+    endings.push(...Option.toArray(Option.map(bound.notSent, (e) => [["notSent"], e] as const)), [
+      ["unknown"],
+      bound.unknown,
+    ]);
+
+  return endings;
+};
+
+/**
  * The services an operations record's contracts require: the union of each bound contract's
  * Effect requirement.
  */

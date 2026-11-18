@@ -1,4 +1,4 @@
-import { Match, Predicate, Result, Schema, SchemaAST, type SchemaIssue } from "effect";
+import { Duration, Match, Predicate, Result, Schema, SchemaAST, type SchemaIssue } from "effect";
 import type {
   EventFields,
   GuardToken as GuardTokenOf,
@@ -6,6 +6,7 @@ import type {
   StateToken as StateTokenOf,
   StateTree,
 } from "./definition.ts";
+import type { Bound } from "./contract.ts";
 import { type Finding, invalid } from "./error.ts";
 import type { Uncertain } from "./flow.ts";
 
@@ -120,9 +121,35 @@ const On = Schema.Record(
   help: "Write a handler as a state token, an alternative { target, guard, updateMemory, actions }, or a list of them.",
 });
 
+const DurationObject = Schema.Struct(
+  Object.fromEntries(
+    [
+      "weeks",
+      "days",
+      "hours",
+      "minutes",
+      "seconds",
+      "milliseconds",
+      "microseconds",
+      "nanoseconds",
+    ].map((unit) => [unit, Schema.optionalKey(Schema.UndefinedOr(Schema.Number))]),
+  ),
+);
+
+// A fixed delay is any Duration input, or a function of memory; its range is a rule, checked by
+// the compile.
+const Delay = Schema.Union([
+  Fn,
+  Schema.Number,
+  Schema.BigInt,
+  Schema.String,
+  Schema.Tuple([Schema.Number, Schema.Number]),
+  Schema.declare(Duration.isDuration),
+  DurationObject,
+]).annotate({ help: 'Give a schedule a Duration input, such as "5 seconds" or { seconds: 5 }.' });
+
 const ScheduleEntry = Schema.Struct({
-  // FLOW_STATE_ALLOW_UNKNOWN: a fixed delay is any Duration input; its range is a rule, checked by the compile.
-  schedule: Schema.Unknown,
+  schedule: Delay,
   send: Ending,
   armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, marked("entry")]))),
 }).annotate({
@@ -173,7 +200,9 @@ const findingsOf = (
   Match.valueTags(issue, {
     Pointer: (pointer) => findingsOf(pointer.issue, [...path, ...pointer.path.map(segment)], help),
     Composite: (all) =>
-      all.issues.flatMap((inner) => findingsOf(inner, path, helpOf(all.ast, help))),
+      all.issues.some(isMarkIssue)
+        ? wrongKind(path, helpOf(all.ast, help))
+        : all.issues.flatMap((inner) => findingsOf(inner, path, helpOf(all.ast, help))),
     AnyOf: (any) => oneOf(any, path, helpOf(any.ast, help)),
     Encoding: (encoding) => findingsOf(encoding.issue, path, helpOf(encoding.ast, help)),
     MissingKey: () => [invalid(path, "MissingField", `${where(path)} is missing`, help)],
@@ -186,6 +215,11 @@ const findingsOf = (
     Forbidden: () => wrongKind(path, help),
     OneOf: () => wrongKind(path, help),
   });
+
+// A marked value whose mark is missing or another kind's is a wrong kind as a whole, never a
+// finding per key.
+const isMarkIssue = (issue: SchemaIssue.Issue) =>
+  issue._tag === "Pointer" && issue.path.length === 1 && issue.path[0] === "~flow";
 
 // A union no member matched is a wrong kind; when only one member was of the right kind, its
 // issue is reported where it is.
@@ -203,21 +237,40 @@ const oneOf = (
 };
 
 const findingsAgainst =
-  <S extends Schema.Decoder<unknown>>(schema: S) =>
+  <S extends Schema.Decoder<unknown>>(schema: S, at: ReadonlyArray<string | number> = []) =>
   // FLOW_STATE_ALLOW_UNKNOWN: an authored value, decoded here before it is trusted.
   (input: unknown) =>
     Result.match(
       Schema.decodeUnknownResult(schema)(input, { onExcessProperty: "error", errors: "all" }),
       {
         onSuccess: () => [],
-        onFailure: (error) => findingsOf(error.issue, [], "Fix the configuration."),
+        onFailure: (error) => findingsOf(error.issue, at, "Fix the configuration."),
       },
     );
+
+// FLOW_STATE_ALLOW_UNKNOWN: what an operations callback returned, told apart by its kind.
+// RETURN_TYPE: a type guard states the type it narrows to.
+const isBound = (x: unknown): x is Bound =>
+  Predicate.hasProperty(x, "kind") &&
+  (x.kind === "write" || x.kind === "read") &&
+  Predicate.hasProperty(x, "call") &&
+  Predicate.isFunction(x.call) &&
+  Predicate.hasProperty(x, "success") &&
+  isEnding(x.success);
+
+const Operations = Schema.Record(Schema.String, Schema.declare(isBound)).annotate({
+  help: "Return a record of contract.outcomes({ ... }) from operations.",
+});
 
 /**
  * The findings of a definition's kinds: a missing, unknown or wrong-kind field, at its path.
  */
 export const configFindings = findingsAgainst(DefinitionConfig);
+
+/**
+ * The findings of what an operations callback returned: a record of bound contracts.
+ */
+export const operationsFindings = findingsAgainst(Operations, ["operations"]);
 
 /**
  * The findings of a machine body's kinds: a missing, unknown or wrong-kind field, at its path.

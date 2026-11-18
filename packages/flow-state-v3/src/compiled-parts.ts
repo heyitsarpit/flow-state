@@ -11,8 +11,9 @@ import {
 } from "./core/compiled.ts";
 import type { Bound, Ending } from "./contract.ts";
 import { isUncertain } from "./config.ts";
-import { isMarker, pureDefault } from "./construction.ts";
-import { type AnyDefinition, codecOf, type EventFields, fieldsOf } from "./definition.ts";
+import { isMarker, isPrivate, pureDefault, schemaOfField, unwrapPrivate } from "./construction.ts";
+import type { AnyDefinition, EventFields } from "./definition.ts";
+import { admissionOf, codecOf } from "./events.ts";
 import type { Field as FieldMarker } from "./flow.ts";
 
 // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the commit's or lookup's own; the mapper is written for it.
@@ -92,9 +93,8 @@ const sourceOf = (name: string, marked: FieldMarker): Source => {
 
 // RETURN_TYPE: the Compiled shape this part builds.
 export const fieldOf = (name: string, raw: FieldMarker): Field => {
-  const isPrivate = isMarker(raw) && raw["~flow"] === "private";
-  const marked = isMarker(raw) && raw["~flow"] === "private" ? raw.field : raw;
-  const schema = isMarker(marked) ? marked.schema : marked;
+  const marked = unwrapPrivate(raw);
+  const schema = schemaOfField(raw);
 
   const source = sourceOf(name, marked);
   const json = Schema.toCodecJson(schema);
@@ -106,7 +106,7 @@ export const fieldOf = (name: string, raw: FieldMarker): Field => {
     json,
     walk,
     source,
-    private: isPrivate,
+    private: isPrivate(raw),
     is: walk.is,
     fallback: Option.flatten(pureDefault(schema.ast)),
   };
@@ -117,19 +117,16 @@ export const memoryCodec = (fields: ReadonlyArray<Field>) =>
 
 export const eventsOf = (definition: AnyDefinition) => {
   // RETURN_TYPE: the Compiled shape this part builds.
-  const entry = (fields: EventFields, isPublic: boolean): EventEntry => {
-    const payload = codecOf<Values>(Schema.Struct(fieldsOf(fields)));
-
-    return {
-      payload,
-      is: walkerOf(payload).is,
-      public: isPublic,
-      uncertain: isUncertain(fields),
-    };
-  };
+  const entry = (tag: string, fields: EventFields, isPublic: boolean): EventEntry => ({
+    ...admissionOf(definition, tag, fields),
+    public: isPublic,
+    uncertain: isUncertain(fields),
+  });
 
   return new Map([
-    ...Object.entries(definition.events).map(([tag, f]) => [tag, entry(f, true)] as const),
-    ...Object.entries(definition.internalEvents).map(([tag, f]) => [tag, entry(f, false)] as const),
+    ...Object.entries(definition.events).map(([tag, f]) => [tag, entry(tag, f, true)] as const),
+    ...Object.entries(definition.internalEvents).map(
+      ([tag, f]) => [tag, entry(tag, f, false)] as const,
+    ),
   ]);
 };

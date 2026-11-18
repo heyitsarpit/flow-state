@@ -2,9 +2,15 @@ import { Option, Predicate } from "effect";
 import { Action, Guard, type GuardInput, type SelectInput, type Values } from "./core/compiled.ts";
 import type { ActionToken, GuardToken, Operations } from "./definition.ts";
 
-type SelectArg<M> = { readonly memory: M; readonly event: never };
+/**
+ * What a member's select or key callback reads: the memory, and no event.
+ */
+export type SelectArg<M> = { readonly memory: M; readonly event: never };
 
-type GuardArg<M, P> = { readonly state: string; readonly memory: M; readonly event: P };
+/**
+ * What a guard's callback reads: the state, the memory and the event.
+ */
+export type GuardArg<M, P> = { readonly state: string; readonly memory: M; readonly event: P };
 
 export const erase = <I, R>(run: (input: never) => R) =>
   // SAFETY: a callback written for its handler's event and memory; the turn passes exactly those.
@@ -12,16 +18,17 @@ export const erase = <I, R>(run: (input: never) => R) =>
   run as (input: I) => R;
 
 // RETURN_TYPE: the ActionToken protocol every member returns.
-const member = (operation: string, make: (at: string) => Action): ActionToken => ({
+const member = (owner: symbol, operation: string, make: (at: string) => Action): ActionToken => ({
   "~flow": "action",
+  "~owner": owner,
   operation,
   make,
 });
 
 const keyed =
-  (kind: "Retry" | "Cancel", operation: string) =>
+  (kind: "Retry" | "Cancel", owner: symbol, operation: string) =>
   (key: Option.Option<(input: SelectArg<Values>) => Values>) =>
-    member(operation, (at) =>
+    member(owner, operation, (at) =>
       Action[kind]({
         operation,
         key: Option.map(key, (run) => ({
@@ -31,8 +38,8 @@ const keyed =
       }),
     );
 
-const keylessOrKeyed = (kind: "Retry" | "Cancel", operation: string) => {
-  const of = keyed(kind, operation);
+const keylessOrKeyed = (kind: "Retry" | "Cancel", owner: symbol, operation: string) => {
+  const of = keyed(kind, owner, operation);
 
   return Object.assign(
     (key: (input: SelectArg<Values>) => Values) => of(Option.some(key)),
@@ -43,16 +50,18 @@ const keylessOrKeyed = (kind: "Retry" | "Cancel", operation: string) => {
 export const writeHandle = (
   operation: string,
   keyText: (value: Values) => Option.Option<string>,
+  owner: symbol,
 ) => ({
   commit: (select: (input: SelectArg<Values>) => Values) =>
-    member(operation, (at) =>
+    member(owner, operation, (at) =>
       Action.Commit({ operation, select: { slot: `${at}.select`, run: erase(select) } }),
     ),
-  retry: keylessOrKeyed("Retry", operation),
-  cancel: keylessOrKeyed("Cancel", operation),
+  retry: keylessOrKeyed("Retry", owner, operation),
+  cancel: keylessOrKeyed("Cancel", owner, operation),
   // RETURN_TYPE: the GuardToken protocol every guard returns.
   idle: (select: (input: GuardArg<Values, never>) => Values): GuardToken => ({
     "~flow": "guard",
+    "~owner": owner,
     operation,
     make: (at) => Guard.Idle({ operation, key: { slot: `${at}.key`, run: erase(select) } }),
   }),
@@ -62,6 +71,7 @@ export const writeHandle = (
     second: { readonly times: number } = { times: 0 },
   ): GuardToken => ({
     "~flow": "guard",
+    "~owner": owner,
     operation,
     make: (at) =>
       Predicate.isFunction(first)
@@ -78,10 +88,10 @@ export const writeHandle = (
     ),
 });
 
-export const readHandle = (operation: string) => ({
+export const readHandle = (operation: string, owner: symbol) => ({
   lookup: (select: (input: SelectArg<Values>) => Values) =>
-    member(operation, (at) =>
+    member(owner, operation, (at) =>
       Action.Lookup({ operation, select: { slot: `${at}.select`, run: erase(select) } }),
     ),
-  cancel: keyed("Cancel", operation)(Option.none()),
+  cancel: keyed("Cancel", owner, operation)(Option.none()),
 });

@@ -82,7 +82,7 @@ const guardOf = (compile: Compile, element: GuardElement<Values, Values>, at: Pa
   }
 
   if (is.guard(element)) {
-    if (!Object.hasOwn(compile.definition.operations, element.operation))
+    if (element["~owner"] !== compile.definition["~owner"])
       compile.findings.push(foreign(at, `the operation ${element.operation}`));
 
     return element.make(slotOf(at));
@@ -119,12 +119,16 @@ const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alterna
   const config: AlternativeConfig<Values, Values, string> =
     is.state(raw) || is.history(raw) ? { target: raw } : raw;
 
-  const guards = config.guard === undefined ? [] : [config.guard].flat();
+  const target = targetOf(compile, Option.fromUndefinedOr(config.target), at);
+
+  const guarded = (config.guard === undefined ? [] : [config.guard].flat()).map((g, i) =>
+    guardOf(compile, g, [...at, "guard", i]),
+  );
 
   const actions = (config.actions ?? []).flatMap((a, i) => {
     const place = [...at, "actions", i];
 
-    if (!Object.hasOwn(compile.definition.operations, a.operation)) {
+    if (a["~owner"] !== compile.definition["~owner"]) {
       compile.findings.push(foreign(place, "an action"));
 
       return [];
@@ -135,8 +139,8 @@ const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alterna
 
   return {
     at: slotOf(at),
-    target: targetOf(compile, Option.fromUndefinedOr(config.target), at),
-    guards: guards.map((g, i) => guardOf(compile, g, [...at, "guard", i])),
+    target,
+    guards: guarded,
     update: Option.map(Option.fromUndefinedOr(config.updateMemory), (run) => ({
       slot: slotOf([...at, "updateMemory"]),
       run: erase<UpdateInput, Values>(run),

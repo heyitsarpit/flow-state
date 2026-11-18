@@ -146,9 +146,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "const config = erasedBody(body({ S: definition.S, E: definition.E, O: definition.O }));",
+        find: "    try: () => body({ S: definition.S, E: definition.E, O: definition.O }),",
         replace:
-          "body({ S: definition.S, E: definition.E, O: definition.O });\n  const config = erasedBody(body({ S: definition.S, E: definition.E, O: definition.O }));",
+          "    try: () => [body({ S: definition.S, E: definition.E, O: definition.O }), body({ S: definition.S, E: definition.E, O: definition.O })][1],",
       },
     ],
   },
@@ -443,8 +443,13 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/driver.ts",
-        find: "event.is(payload)",
-        replace: "Option.isSome(Schema.decodeUnknownOption(event.payload)(payload))",
+        find: "Result.getSuccess(event.walk.decode(payload))",
+        replace: "Option.map(Schema.decodeUnknownOption(event.payload)(payload), () => payload)",
+      },
+      {
+        file: "src/host/driver.ts",
+        find: 'Effect, Exit, Option, Result } from "effect";',
+        replace: 'Effect, Exit, Option, Result, Schema } from "effect";',
       },
     ],
   },
