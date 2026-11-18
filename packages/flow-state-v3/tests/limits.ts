@@ -25,10 +25,10 @@ export const limitFrom = (aloneMs: number) => Math.max(DEFAULT_MS, Math.ceil(alo
  * Each long test's limit, by what it runs, measured alone at the revision that last changed it.
  */
 export const LIMITS = {
-  /** A default-tier reload sweep shard's test: slowest 9.6 s; the double reload at every position (FLOW_EVERY_RELOAD) 20.8 s. */
+  /** A default-tier reload sweep shard's test: slowest 6.9 s forked; the double reload at every position (FLOW_EVERY_RELOAD) 20.8 s. */
   reloadSweep: limitFrom(20_800),
-  /** A stress reload sweep shard's test: slowest 54.9 s (palette/stress-36, land). */
-  stressReloadSweep: limitFrom(54_900),
+  /** A stress reload sweep shard's test: slowest 41.0 s forked (land shard 2); both forms under FLOW_REPLAY_SWEEP 69.1 s. */
+  stressReloadSweep: limitFrom(41_000),
   /** Every Story's run rules in one test: stress Stories 1.2 s, the rest 2.3 s. */
   runRules: limitFrom(2300),
   /** Every Story under another seed or world: 3.8 s. */
