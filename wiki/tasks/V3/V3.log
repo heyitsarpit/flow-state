@@ -1366,3 +1366,6 @@ note 2026-11-18T19:06:48Z
 note 2026-11-18T19:15:35Z
     P3 close-out ISSUES, audit ISSUES (232d119a): coverage record unwritten, Restore R5 fault missed, outcome parts
     unowned. One fix-round lead clears them and routes ~30 orphaned items; a fresh lead reruns R18 after.
+
+note 2026-11-18T19:16:04Z
+    T94's user's page read (the user, 2026-11-19); the next slice's close is not held.
