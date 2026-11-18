@@ -1313,3 +1313,6 @@ note 2026-11-18T11:55:53Z
 note 2026-11-18T17:18:55Z
     Amendment (2026-11-18, the user): skill pin workflow@1b83a6d to workflow@2befdbd; adds policy-module-composition,
     R35's class register across parts, R11's system question at close-out, to-epic's composition step. Commit: pending.
+
+note 2026-11-18T17:19:00Z
+    The skill-pin amendment above landed in b75b6c60.
