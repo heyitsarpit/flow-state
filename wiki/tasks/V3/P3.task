@@ -976,6 +976,32 @@ tasks
             text; View.heldWrites now carries each held write's Attempts; the double-reload ratio bound replaced by 'a
             skip only inside a hold window' (a new Story shifted shards past 10%). Gates by exit code: check 0, suite 0
             (39 s), stress 0 (64 s), faults 0 (259 of 259). Load: mds_stores ~66%, mediaanalysisd ~55% (the user's).
+        comment     2026-11-18T06:06:55Z
+            Fix-round review at 5a06cfd3 (diff e10a041e..5a06cfd3): ISSUES, one blocking. B-1 is closed: owed and actor
+            records under Shop/Cart/~5 reload quarantined, RecordUndecodable, no ~5 actor (scratch replay); run rule
+            WriteAhead I3 holds on every Story and fires on local-name-restored. B-2 (Restore R5, Codec R5, in range,
+            made-up ending): nothing compares a record's key with the name inside it. Scratch Story: after main adds l1,
+            put actor/Shop/Cart/~5 holding main's record with l9, and owed/Shop/Cart/~7 naming main; reload: main
+            restores l9 (the ~5 key sorts after main's and wins in records) and hears an unknown Restored for an Attempt
+            it never made. Missed because every fixture record's key equals its content name: no edge-value sample of a
+            record under another identity's key, and no run rule that a restored identity's key is its own. Fix:
+            quarantine actor and owed records whose key is not kind/machine/name; R5's 'an actor record under one is
+            never read' then holds (today it is read, only never started). Verified: dropping the actor-record name
+            check is unobservable by content name (only refs and checked lane or owed records wake; createLocal starts
+            from none); the View.heldWrites readers keep count and oldest-first order; R5 by identity version agrees
+            with R6 (old-version lanes re-key, not quarantine). Double reload: an always-stale restore plant (every slot
+            stale, baselines dropped) is still caught in all 5 shards (shop/flow-bound-late at 6, session/archive-large
+            at 9). Not blocking: a skip inside a hold window now passes unbounded and unseen, so a regression that turns
+            those positions into skips hides; count them or print them. No fixture Story runs a local actor across a
+            reload, so I3's createActor side is proven by hand tests only. Gates by exit code, run alone: check 0, suite
+            0 (37 s), test:stress 0 (64 s); faults not run (nothing added to the list). Load: mds_stores ~40%,
+            mediaanalysisd ~40% (the user's). No outside imports, temporary names or re-created Effect. Sidecars (2
+            Haiku, high, one blind), accepted: key and content unchecked (B-2), hold-window skips unbounded. Changed:
+            'actor records read under bad names' (unreachable by content, folded into B-2); the plant's 'wakes an actor'
+            claim (true: I3 fires). Rejected: no fault for the dropped check (nothing observable to plant), I3 blind to
+            records read (I3 is about starts), owed rows of a removed machine (no actor starts, old code), a stricter
+            twice predicate (stricter only, gates green), create-mode ensure of a stored ~ record (createLocal starts
+            from none), heldWrites name clash (cosmetic).
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
