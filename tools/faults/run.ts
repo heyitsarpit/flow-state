@@ -7,6 +7,7 @@
 // only when its run fails and still prints its test summary with a failed test: a timeout, output
 // past the buffer, a run with no summary, or one whose summary shows no failed test is reported as
 // such and is never caught (tools/faults/verdict.ts, checked by verdict.test.ts before every run).
+// The unchanged run goes first, and a test red there never counts as a fault's catch.
 // It exits 1 when the unchanged tests fail, a fault is missed, stale or not judged, or a target
 // file is missing, so a fault the tests stop catching shows; it is never a CI gate. Copies sized
 // to the cores and memory (below) run at once, each its own scratch directory, removed at the
@@ -141,13 +142,24 @@ const run = async (root: string, files: ReadonlyArray<string>, flags: ReadonlyAr
   return { kind: "ran", passed: usual.passed && stress.passed, out: `${usual.out}\n${stress.out}` };
 };
 
-// A fault's verdict over some files: the run stops at its first failing test, and a stopped run
-// that lost its failed test's report runs again whole.
-const judged = async (root: string, files: ReadonlyArray<string>) => {
-  const first = await run(root, files, ["--bail=1"]);
-  const result = verdictOf(first) === "NOT JUDGED (no failed test)" ? await run(root, files) : first;
+// The tests red in the unchanged run: a fault is caught only by a test outside them.
+let knownRed: ReadonlySet<string> = new Set();
 
-  return { verdict: verdictOf(result), tests: result.kind === "ran" ? failedTestsOf(result.out) : [] };
+// A fault's verdict over some files, where a test red in the unchanged run never counts as the
+// catch. The run stops at its first failing test unless one of its files holds such a test, and a
+// stopped run that lost its failed test's report runs again whole.
+const judged = async (root: string, files: ReadonlyArray<string>) => {
+  const paths = new Set(files.map((file) => join(pkg, file)));
+  const mayBail = ![...knownRed].some((test) => files.length === 0 || paths.has(test.split(" > ")[0] ?? ""));
+  const first = await run(root, files, mayBail ? ["--bail=1"] : []);
+  const result = verdictOf(first) === "NOT JUDGED (no failed test)" ? await run(root, files) : first;
+  const tests = result.kind === "ran" ? failedTestsOf(result.out).filter((test) => !knownRed.has(test)) : [];
+  const verdict = verdictOf(result);
+
+  return {
+    verdict: verdict.startsWith("caught") && tests.length === 0 ? "MISSED (only tests red in the unchanged run failed)" : verdict,
+    tests,
+  };
 };
 
 // Applies the edits in one copy, runs the body, and puts the files back. Returns false when an
@@ -201,8 +213,9 @@ const mayStayGreen = [
   /tests\/compile\/(construction|compiled)\.test\.ts > /u,
   // Also static, each running no step: the closed code list, a constant's data view, and the
   // compile-time type checks.
-  /tests\/compile\/(codes|deep-constants)\.test\.ts > /u,
-  /tests\/types\/[^ ]+\.test\.ts > /u,
+  /tests\/compile\/codes\.test\.ts > the closed code list [^>]*> Diagnostics R7: the public union/u,
+  /tests\/compile\/deep-constants\.test\.ts > [^>]+> Codec R1, Inspection: the machine's data view/u,
+  /tests\/types\/schedule-send\.test\.ts > a schedule's send > Compile T11: /u,
   // A fixture written wrong is refused when its machine is built, before any Runtime.
   / > [^>]* written wrong is refused at construction [^>]*> /u,
   // An ensure, create or name refused at admission, before the step: an input with no encoded
@@ -211,10 +224,10 @@ const mayStayGreen = [
   /tests\/restore\/deep-inputs\.test\.ts > [^>]+> Codec R4: a name with no JSON text/u,
   /tests\/session\/workspace\.test\.ts > [^>]+> S7, Actors R18, Stories R3: a Story's ensure of a status with no team/u,
   // The run rules over crafted runs: the oracle judged with no core, each rule seen firing.
-  /tests\/rules\/rules\.test\.ts > /u,
+  /tests\/rules\/rules\.test\.ts > run rules over (crafted runs|the fake store's batches|crafted runs, each rule seen firing) > /u,
   // The fixtures' registration and the bench's declarations, statistics and history: no step.
-  /tests\/generated\/manifests\.test\.ts > /u,
-  /tests\/bench\/declare\.test\.ts > /u,
+  /tests\/generated\/manifests\.test\.ts > (every fixture registers one manifest|sample-set ids) /u,
+  /tests\/bench\/declare\.test\.ts > bench (declarations|tiers|subjects|statistics|history) > /u,
   /tests\/bench\/proofs\.stress\.test\.ts > bench proofs > every manifest's saved stress Story has a turn bench/u,
 ];
 
@@ -290,33 +303,34 @@ const plantAll = async () => {
 
   const [controlRoot = "", deadRoot = "", ...rest] = roots;
 
-  const control = (async () => {
-    const result = await run(controlRoot, []);
-    const passed = result.kind === "ran" && result.passed && summaryOf(result.out) !== undefined;
+  // The unchanged run comes first, beside the dead core, so every fault is judged against it.
+  const dead = deadCore(deadRoot);
+  const result = await run(controlRoot, []);
+  const passed = result.kind === "ran" && result.passed && summaryOf(result.out) !== undefined;
 
-    console.log(`unchanged: ${passed ? "pass" : "FAIL"} (${result.kind === "ran" ? (summaryOf(result.out) ?? "no test summary") : result.why})`);
+  console.log(`unchanged: ${passed ? "pass" : "FAIL"} (${result.kind === "ran" ? (summaryOf(result.out) ?? "no test summary") : result.why})`);
 
-    if (!passed && result.kind === "ran") for (const test of failedTestsOf(result.out)) console.log(`  ${test}`);
+  if (result.kind === "ran") knownRed = new Set(failedTestsOf(result.out));
 
-    await worker(controlRoot);
+  for (const test of knownRed) console.log(`  ${test}`);
 
-    return passed;
-  })();
-
-  const [passed] = await Promise.all([control, deadCore(deadRoot).then(() => worker(deadRoot)), ...rest.map(worker)]);
-
-  const caught = [...verdicts.values()].filter((verdict) => verdict.startsWith("caught")).length;
-
-  if (!passed) {
-    console.log("\nfaults not judged: the unchanged tests fail");
+  if (result.kind === "broken") {
+    await dead;
+    console.log("\nfaults not judged: the unchanged run did not finish");
     process.exitCode = 1;
 
     return;
   }
 
+  await Promise.all([worker(controlRoot), dead.then(() => worker(deadRoot)), ...rest.map(worker)]);
+
+  const caught = [...verdicts.values()].filter((verdict) => verdict.startsWith("caught")).length;
+
   console.log(`\nfaults caught: ${caught} of ${faults.length}; ${wholeSuite} needed the whole suite`);
 
-  if (caught < faults.length) process.exitCode = 1;
+  if (!passed) console.log(`the unchanged run fails ${knownRed.size} tests; no fault is credited with them`);
+
+  if (!passed || caught < faults.length) process.exitCode = 1;
 };
 
 try {

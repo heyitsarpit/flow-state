@@ -331,7 +331,7 @@ const QUIET_ROUNDS = 2;
 
 // The pulls a quieting may take: the most measured is 385 (a burst of held calls released one
 // by one), and the limit is four times that.
-const QUIET_LIMIT = 1600;
+const QUIET_LIMIT = 1540;
 
 // The latest an answer is drawn to come back: a late answer arrives 61 to 120 s after its call.
 const LATEST_ANSWER = "2 minutes";

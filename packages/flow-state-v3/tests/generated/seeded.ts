@@ -5,8 +5,14 @@ import { rules } from "../rules/rules.ts";
 import { samples, seeds, stressSamples } from "./fixtures.ts";
 
 // A test's limit grows with the seeds it runs, so `FLOW_SEEDS` lengthens it with the run.
-const limitOf = (profile: "usual" | "stress", count: number) =>
-  limitFrom((profile === "stress" ? LIMITS.stressSeed : LIMITS.usualSeed) * count);
+const perSeed = (profile: "usual" | "stress", id: string) => {
+  if (profile === "usual") return LIMITS.usualSeed;
+
+  return id === "palette" ? LIMITS.paletteStressSeed : LIMITS.stressSeed;
+};
+
+const limitOf = (profile: "usual" | "stress", id: string, count: number) =>
+  limitFrom(perSeed(profile, id) * count);
 
 type Shard = readonly [index: number, of: number];
 
@@ -51,6 +57,6 @@ export const seededRuns = (profile: "usual" | "stress", part: SeededPart = whole
           ),
         ).toEqual([]);
       },
-      limitOf(profile, runs.length),
+      limitOf(profile, sampled.id, runs.length),
     );
 };

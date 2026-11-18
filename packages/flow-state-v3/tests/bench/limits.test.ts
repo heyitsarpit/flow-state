@@ -11,6 +11,7 @@ import { optionsOf } from "../../bench/options.ts";
 import { selectBenches } from "../../bench/select.ts";
 import { batchesOf, workerArgs } from "../../bench/workers.ts";
 import { planted, runner } from "./limits-support.ts";
+import { LIMITS } from "../limits.ts";
 import { switchedOn } from "../switches.ts";
 
 // An operation that holds the thread for `ms`, as a slow bench's run does.
@@ -57,17 +58,21 @@ describe.skipIf(!switchedOn("FLOW_BENCH_LIMITS"))("bench limits", () => {
     expect(outcome instanceof TimedOut && outcome.samples.length > 0).toBe(true);
   });
 
-  it("a run that reaches its --max-time cap stops its workers and exits 3, naming what did not run", () => {
-    const done = spawnSync(
-      process.execPath,
-      [runner, "turn", "--only", "turn.session.long", "--max-time", "1"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 },
-    );
+  it(
+    "a run that reaches its --max-time cap stops its workers and exits 3, naming what did not run",
+    () => {
+      const done = spawnSync(
+        process.execPath,
+        [runner, "turn", "--only", "turn.session.long", "--max-time", "1"],
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: LIMITS.benchChild },
+      );
 
-    expect(done.status).toBe(3);
-    expect(done.stderr.includes("not run: the run reached its --max-time cap")).toBe(true);
-    expect(done.stderr.includes("stopped at the --max-time cap of 1 s")).toBe(true);
-  }, 60_000);
+      expect(done.status).toBe(3);
+      expect(done.stderr.includes("not run: the run reached its --max-time cap")).toBe(true);
+      expect(done.stderr.includes("stopped at the --max-time cap of 1 s")).toBe(true);
+    },
+    LIMITS.benchTest,
+  );
 
   it("--max-n keeps only series points at or under it, and the dev tier keeps each series' smallest", () => {
     const picked = (maxN: Option.Option<number>, tier: "full" | "dev") =>
@@ -109,7 +114,7 @@ describe.skipIf(!switchedOn("FLOW_BENCH_LIMITS"))("bench limits", () => {
       const done = spawnSync(
         process.execPath,
         [runner, "--benches", planted, "--only", "turn.planted.first", ...args],
-        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 },
+        { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: LIMITS.benchChild },
       );
 
       const written = readdirSync(scratch);

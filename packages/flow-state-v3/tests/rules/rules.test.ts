@@ -371,8 +371,10 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     const run = checked(await lostThenReload.run());
     const disposing = { ...run, steps: [Step.disposeRuntime({ forget: false }), ...run.steps] };
 
-    expect(run.end.calls.length > 0).toBe(true);
-    expect(nothingInvokedDisposing.breaches(disposing).length > 0).toBe(true);
+    const firstOpen = run.end.calls.filter((c) => c.tab.open === 1);
+
+    expect(firstOpen.length > 0).toBe(true);
+    expect(nothingInvokedDisposing.breaches(disposing)).toHaveLength(firstOpen.length);
     expect(nothingInvokedDisposing.breaches(run)).toEqual([]);
   });
 

@@ -44,9 +44,10 @@ export const LIMITS = {
   mixStress: limitFrom(7900),
   /** A planted fault found and shrunk by the generator: 2.2 s. */
   shrink: limitFrom(2200),
-  /** One generated seed: the usual profile 70 ms, the stress profile 5.2 s (palette). */
+  /** One generated seed: the usual profile 70 ms; the stress profile 5.2 s for the palette's 4,097-command lists, 480 ms for any other fixture (lanes). */
   usualSeed: 70,
-  stressSeed: 5200,
+  paletteStressSeed: 5200,
+  stressSeed: 480,
   /** A value 100,000 deep saved, restored and reloaded: 13.7 s (the folder tree). */
   deepValue: limitFrom(13_700),
   /** An actor named by a folder tree past the call stack, saved and restored: 2.8 s. */
@@ -59,4 +60,14 @@ export const LIMITS = {
   durability: limitFrom(2400),
   /** Every bench's proof: 21.1 s. */
   benchProofs: limitFrom(21_100),
+  /** A bench run a bench-limit test starts: slowest 7.0 s (a hang and a spinner to their deadlines). */
+  benchChild: limitFrom(7000),
+  /** A bench-limit test: twice its child's limit, so a child stopped at its limit is still reported. */
+  benchTest: 2 * limitFrom(7000),
+  /** Memory and a selection 100,000 deep, alone and mixed: 1.8 s. */
+  deepSelection: limitFrom(1800),
+  /** A commit whose input is 100,000 deep, sent and saved: 0.5 s. */
+  deepCommit: limitFrom(543),
+  /** 5,000 badges under one wall, renamed and pinged: 4.0 s. */
+  stressWall: limitFrom(4000),
 } as const;

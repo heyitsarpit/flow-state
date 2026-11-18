@@ -1,5 +1,6 @@
 import { Option, Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
+import { LIMITS } from "../limits.ts";
 import { Envelope } from "../../fixtures/session/machines/inbox.ts";
 import {
   agendaPeek,
@@ -245,18 +246,22 @@ const depthOf = (doc: unknown) => {
 };
 
 describe("a document 100,000 levels deep (Codec R1, R6; Actors R18)", () => {
-  it("Codec R1, R6, Actors R18: memory and a selection 100,000 deep, alone or beside 5,000 siblings, save, restore and are heard once each, never thrown; a reload hears nothing new", async () => {
-    const run = checked(await outlineDeep().run());
-    const cut = run.checkpoints;
+  it(
+    "Codec R1, R6, Actors R18: memory and a selection 100,000 deep, alone or beside 5,000 siblings, save, restore and are heard once each, never thrown; a reload hears nothing new",
+    async () => {
+      const run = checked(await outlineDeep().run());
+      const cut = run.checkpoints;
 
-    expect(depthOf(cut.deep.read(mainOutline)?.memory.doc)).toBe(100_000);
-    expect(depthOf(cut.reloaded.read(mainOutline)?.memory.doc)).toBe(100_000);
-    expect(
-      (["deep", "reloaded", "mixed", "mixed again"] as const).map(
-        (c) => cut[c].read(mainPreview)?.memory["heard"],
-      ),
-    ).toEqual([1, 1, 2, 2]);
-    expect(reported(run, "UnencodableValue")).toEqual([]);
-    expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
-  }, 120_000);
+      expect(depthOf(cut.deep.read(mainOutline)?.memory.doc)).toBe(100_000);
+      expect(depthOf(cut.reloaded.read(mainOutline)?.memory.doc)).toBe(100_000);
+      expect(
+        (["deep", "reloaded", "mixed", "mixed again"] as const).map(
+          (c) => cut[c].read(mainPreview)?.memory["heard"],
+        ),
+      ).toEqual([1, 1, 2, 2]);
+      expect(reported(run, "UnencodableValue")).toEqual([]);
+      expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
+    },
+    LIMITS.deepSelection,
+  );
 });

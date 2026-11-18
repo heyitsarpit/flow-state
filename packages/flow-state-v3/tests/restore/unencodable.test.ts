@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
+import { LIMITS } from "../limits.ts";
 import { GitApi } from "../../fixtures/services/git/services.ts";
 import { GitLive } from "../../fixtures/services/git/adapters/git.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
@@ -295,35 +296,39 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     expect(run.checkpoints.after.inspection.owed).toEqual([]);
   });
 
-  it("Codec R1, R6: a commit whose input is 100,000 deep is sent; another as deep is saved with its lane, survives a reload while held and ends; nothing throws", async () => {
-    const nest = (depth: number) => {
-      let doc: Schema.Json = "leaf";
+  it(
+    "Codec R1, R6: a commit whose input is 100,000 deep is sent; another as deep is saved with its lane, survives a reload while held and ends; nothing throws",
+    async () => {
+      const nest = (depth: number) => {
+        let doc: Schema.Json = "leaf";
 
-      for (let n = 0; n < depth; n += 1) doc = [doc];
+        for (let n = 0; n < depth; n += 1) doc = [doc];
 
-      return doc;
-    };
+        return doc;
+      };
 
-    // The input holds the document, one container more.
-    const run = checked(
-      await notesStory("restore/deep-input")
-        .ensure(notes)
-        .send(notes, { _tag: "Publish", doc: nest(100_000) })
-        .world(Git.sync.hold())
-        .send(notes, { _tag: "Publish", doc: nest(100_001) })
-        .checkpoint("held")
-        .reload()
-        .advance("1 second")
-        .checkpoint("after")
-        .run(),
-    );
+      // The input holds the document, one container more.
+      const run = checked(
+        await notesStory("restore/deep-input")
+          .ensure(notes)
+          .send(notes, { _tag: "Publish", doc: nest(100_000) })
+          .world(Git.sync.hold())
+          .send(notes, { _tag: "Publish", doc: nest(100_001) })
+          .checkpoint("held")
+          .reload()
+          .advance("1 second")
+          .checkpoint("after")
+          .run(),
+      );
 
-    expect([...run.checkpoints.held.records.stored.keys()].some((k) => k.startsWith("lane/"))).toBe(
-      true,
-    );
-    expect(
-      run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
-    ).toEqual(["success success", "unknown Restored"]);
-    expect(reported(run)).toEqual([]);
-  }, 120_000);
+      expect(
+        [...run.checkpoints.held.records.stored.keys()].some((k) => k.startsWith("lane/")),
+      ).toBe(true);
+      expect(
+        run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),
+      ).toEqual(["success success", "unknown Restored"]);
+      expect(reported(run)).toEqual([]);
+    },
+    LIMITS.deepCommit,
+  );
 });

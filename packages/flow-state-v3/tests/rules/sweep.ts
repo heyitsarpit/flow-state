@@ -1,6 +1,7 @@
 import { expect, it } from "vite-plus/test";
 import { manifests } from "../../fixtures/index.ts";
 import {
+  type Batch,
   Step,
   StoryFailed,
   type Story,
@@ -44,10 +45,35 @@ const wordsOf = (story: Story<string>) =>
     step._tag === "world" ? step.words.map((word) => ({ word, n })) : [],
   );
 
-// Each hold paired with the release that answers it, oldest first per endpoint or the store; a
-// reload ends every held write, landing or aborting it, so it answers every storage hold still open.
-const windowsOf = (story: Story<string>) => {
+// The step each storage arming word (hold or refuse) is used at: the store arms its next write
+// with the oldest word given before it, so the n-th write after a word takes it. A word no write
+// took is absent.
+const usedAt = (story: Story<string>, batches: ReadonlyArray<Batch>) => {
+  const armed = wordsOf(story).filter(
+    ({ word }) => word._tag === "storage" && (word.word === "hold" || word.word === "refuse"),
+  );
+
+  const used = new Map<number, number>();
+  let next = 0;
+
+  for (const batch of batches) {
+    const word = armed[next];
+
+    if (word !== undefined && word.n <= batch.step) {
+      used.set(word.n, batch.step);
+      next += 1;
+    }
+  }
+
+  return used;
+};
+
+// Each hold paired with the release that answers it, oldest first per endpoint or the store. A
+// reload also ends a storage hold whose write was issued before it, landing or aborting that
+// write; a hold no write has taken yet stays armed across the reload.
+const windowsOf = (story: Story<string>, batches: ReadonlyArray<Batch>) => {
   const open = new Map<string, Array<number>>();
+  const used = usedAt(story, batches);
 
   const answered = (word: WorldWord, n: number) => {
     const slot = slotOf(word);
@@ -62,20 +88,25 @@ const windowsOf = (story: Story<string>) => {
     if (step._tag === "world") return step.words.flatMap((word) => answered(word, n));
 
     if (step._tag !== "reload") return [];
-    const held = open.get("storage") ?? [];
-    open.delete("storage");
+    const holds = open.get("storage") ?? [];
+    const ended = holds.filter((from) => (used.get(from) ?? n) < n);
+    open.set(
+      "storage",
+      holds.filter((from) => !ended.includes(from)),
+    );
 
-    return held.map((from) => [from, n] as const);
+    return ended.map((from) => [from, n] as const);
   });
 };
 
 /**
  * Whether a reload at position `at` of a Story falls inside a hold window: after a hold and no
  * later than the release that answers it (a wire hold to its endpoint's release or lose, oldest
- * first; a storage hold to a storage release or the reload that ends the held write).
+ * first; a storage hold to a storage release, or to the reload that ends the write it held). The
+ * Story's own run's batches tell when each storage hold was taken.
  */
-export const inHoldWindow = (story: Story<string>) => {
-  const windows = windowsOf(story);
+export const inHoldWindow = (story: Story<string>, batches: ReadonlyArray<Batch>) => {
+  const windows = windowsOf(story, batches);
 
   return (at: number) => windows.some(([from, to]) => from < at && at <= to);
 };
@@ -88,8 +119,12 @@ export const inHoldWindow = (story: Story<string>) => {
  * A reload that attaches nothing may also come before any hold, drop or refuse, which the app,
  * never woken, may then not use. A reload anywhere else must run.
  */
-export const skipBound = (story: Story<string>, reattach: boolean) => {
-  const held = inHoldWindow(story);
+export const skipBound = (
+  story: Story<string>,
+  batches: ReadonlyArray<Batch>,
+  reattach: boolean,
+) => {
+  const held = inHoldWindow(story, batches);
 
   const lastWord = Math.max(
     -1,
@@ -164,7 +199,9 @@ export const sweep = async (
     }
 
     skipped += skips;
-    const bound = skipBound(story, reattach);
+    // oxlint-disable-next-line no-await-in-loop -- one run at a time: the Story's own run, for its holds
+    const own = await story.run();
+    const bound = skipBound(story, own.end.records.batches, reattach);
 
     if (skips > bound) overBound.push(`${story.id}: ${skips} variants skipped, bound ${bound}`);
   }

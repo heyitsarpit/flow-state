@@ -83,8 +83,9 @@ export const turnsOf = async (story: Story<string>, steps: ReadonlyArray<Step>) 
 const everyPosition = switchedOn("FLOW_EVERY_RELOAD");
 
 // The positions a context Story's first `steps` steps are reloaded twice at.
-const positionsOf = (story: Story<string>, steps: number) => {
-  const held = inHoldWindow(story);
+const positionsOf = async (story: Story<string>, steps: number) => {
+  const own = await story.run({ steps: story.steps.slice(0, steps) });
+  const held = inHoldWindow(story, own.end.records.batches);
 
   return Array.from({ length: steps + 1 }, (_, at) => at).filter(
     (at) => everyPosition || held(at) || at === steps,
@@ -116,7 +117,8 @@ export const onceShard = (shard: number, of: number) => {
       const verdicts: Array<string> = [];
 
       for (const { story, steps } of shardOf(contextStories, (c) => (c.steps + 1) ** 2, shard, of))
-        for (const at of positionsOf(story, steps))
+        // oxlint-disable-next-line no-await-in-loop -- one run at a time: the Story's own run, for its holds
+        for (const at of await positionsOf(story, steps))
           // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
           verdicts.push(await doubledAt(story, story.steps.slice(0, steps), at));
 
