@@ -888,3 +888,7 @@ note 2026-11-18T21:26:39Z
 note 2026-11-18T21:43:00Z
     T92 requirements review ISSUES (9d885613), 7 blocking, all coverage gaps; R7/R8 stand by ruling. The lead lands them
     as failing checks, then builds; the close review checks the fix round.
+
+note 2026-11-18T22:37:53Z
+    T92 built, in review (0ddd7554): format 4 records, 4 Specs edited. For the user: Restore Q4 (well-formed forgeries)
+    threat model. Close review started.
