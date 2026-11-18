@@ -3994,6 +3994,15 @@ tasks
             shop/long. Sidecars: blind (cut) found nothing blocking; runner findings 1 and 5 accepted and reproduced, 2,
             3, 4 and 6 accepted as non-blocking, 7 rejected (cosmetic); blind 2 and 4 rejected (no false pass), blind 1
             is by design (the switch), blind 3 accepted as non-blocking.
+        comment     2026-11-18T09:47:38Z
+            Review fixes (59cfc04a), each shown red first: (1) strays: tools/faults/group.ts runs each test run in its
+            own process group and kills the group on timeout, on exit and on SIGINT, SIGTERM or SIGHUP; group.test.ts
+            (now in nub run faults) failed on both the timeout and the stop path before and passes after; a real --only
+            run stopped mid-tier left no vitest. (2) --only credits: a judged run over files the unchanged run did not
+            cover first runs the unchanged whole suite once (redsKnown, credited in verdict.ts; the judging test failed
+            on the old scope). Arguments: --only repeatable, duplicates, --only=x, unknown flags and bare names refused.
+            T16 now credits the fork faults to the fork test. check 0, suite 0 (34.3 s); stress not rerun
+            (sweeps untouched).
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
