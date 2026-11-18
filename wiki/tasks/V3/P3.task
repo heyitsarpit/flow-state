@@ -3966,6 +3966,11 @@ tasks
             whole run. Also: tools/faults/run.ts --only (unknown names refused, verdict.test.ts), LIMITS re-measured,
             fault finds moved in context-faults.ts and tooling-faults.ts. check 0, suite 0, stress 0; whole faults run
             not run (the user's once-a-day rule).
+        comment     2026-11-18T09:27:32Z
+            Added (the user, via the orchestrator): nub run faults --background runs at nice 19 (test runs inherit it)
+            on 2 copies x 2 workers, 600 s per tier, and tees its output to a temp-dir log named on its first line; flag
+            parsing tested in verdict.test.ts (--only names stop at the next flag). Smoke-tested with --only
+            fork-clock-zero; the whole list was not run.
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
