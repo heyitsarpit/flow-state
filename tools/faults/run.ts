@@ -27,23 +27,21 @@
 // a file in the system's temp directory as well as stdout; the first line names the file.
 //
 //   bun tools/faults/run.ts [--only <name...>] [--background]
-import { type ChildProcess, execFile } from "node:child_process";
 import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { availableParallelism, setPriority, tmpdir, totalmem } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { type Fault, faults as allFaults } from "../../packages/flow-state-v3/tests/faults.ts";
-import { applyEdits, chosenFaults, failedTestsOf, inBackground, type Run, summaryOf, verdictOf } from "./verdict.ts";
+import { runGrouped, stopAll, stopOnSignals } from "./group.ts";
+import { applyEdits, credited, failedTestsOf, parseArgs, redsKnown, type Run, summaryOf, verdictOf } from "./verdict.ts";
 
-const chosen = chosenFaults(allFaults, process.argv.slice(2));
+const asked = parseArgs(allFaults, process.argv.slice(2));
 
-if ("refused" in chosen) {
-  console.error(`faults: ${chosen.refused}`);
+if ("refused" in asked) {
+  console.error(`faults: ${asked.refused}`);
   process.exit(2);
 }
 
-const { faults } = chosen;
-const only = faults !== allFaults;
-const background = inBackground(process.argv.slice(2));
+const { faults, only, background } = asked;
 
 if (background) {
   const log = join(tmpdir(), `flow-faults-${new Date().toISOString().replaceAll(":", "-")}.log`);
@@ -86,19 +84,14 @@ const EVERY_CATCH = process.env["FLOW_FAULTS_EVERY_CATCH"] === "true";
 
 type Edit = Fault["edits"][number];
 
-const children = new Set<ChildProcess>();
 const roots: Array<string> = [];
 
 const cleanUp = () => {
-  for (const child of children) child.kill("SIGKILL");
+  stopAll();
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 };
 
-for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const)
-  process.on(signal, () => {
-    cleanUp();
-    process.exit(130);
-  });
+stopOnSignals(cleanUp);
 
 const makeCopy = () => {
   const root = mkdtempSync(join(tmpdir(), "flow-faults-"));
@@ -134,28 +127,20 @@ const makeCopy = () => {
 };
 
 // Runs some test files of a copy, or the whole tree when none are given, in one tier.
-const runTier = (root: string, files: ReadonlyArray<string>, tier: "all" | "usual" | "stress", flags: ReadonlyArray<string>) =>
-  new Promise<Run>((done) => {
-    const paths = files.length === 0 ? [pkg] : files.map((file) => join(pkg, file));
-    const child = execFile(
-      resolve(repo, "node_modules/.bin/vp"),
-      ["test", "run", ...paths, `--maxWorkers=${WORKERS}`, ...flags],
-      { cwd: root, encoding: "utf8", timeout: RUN_MS, maxBuffer: BUFFER, env: { ...process.env, FLOW_FAULTS_TIER: tier } },
-      (error, stdout, stderr) => {
-        children.delete(child);
-        const out = `${stdout}${stderr}`;
-        const failed = error as (Error & { readonly killed?: boolean; readonly code?: number | string }) | null;
+const runTier = async (root: string, files: ReadonlyArray<string>, tier: "all" | "usual" | "stress", flags: ReadonlyArray<string>): Promise<Run> => {
+  const paths = files.length === 0 ? [pkg] : files.map((file) => join(pkg, file));
+  const ended = await runGrouped(
+    resolve(repo, "node_modules/.bin/vp"),
+    ["test", "run", ...paths, `--maxWorkers=${WORKERS}`, ...flags],
+    { cwd: root, timeoutMs: RUN_MS, maxBuffer: BUFFER, env: { ...process.env, FLOW_FAULTS_TIER: tier } },
+  );
 
-        if (failed?.killed === true) return done({ kind: "broken", why: `timed out after ${RUN_MS} ms` });
+  if (ended.timedOut) return { kind: "broken", why: `timed out after ${RUN_MS} ms` };
 
-        if (failed?.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return done({ kind: "broken", why: "output passed the buffer" });
+  if (ended.overflow) return { kind: "broken", why: "output passed the buffer" };
 
-        done({ kind: "ran", passed: failed === null, out });
-      },
-    );
-
-    children.add(child);
-  });
+  return { kind: "ran", passed: ended.code === 0, out: ended.out };
+};
 
 // Prints how long a whole tier ran and how much it printed, the sizes RUN_MS and BUFFER are set from.
 const timed = async (tier: string, body: () => Promise<Run>) => {
@@ -183,24 +168,40 @@ const run = async (root: string, files: ReadonlyArray<string>, flags: ReadonlyAr
   return { kind: "ran", passed: usual.passed && stress.passed, out: `${usual.out}\n${stress.out}` };
 };
 
-// The tests red in the unchanged run: a fault is caught only by a test outside them.
+// The tests red in the unchanged run, and the files it covered: a fault is caught only by a test
+// outside them. A run judged over files the unchanged run did not cover (a `--only` fault's
+// whole-suite fallback) first runs the unchanged whole suite once, in a copy of its own.
 let knownRed: ReadonlySet<string> = new Set();
+let unchangedFiles: ReadonlyArray<string> | "whole" = "whole";
+let wholeUnchanged: Promise<boolean> | undefined;
+
+const unchangedWhole = () => {
+  wholeUnchanged ??= (async () => {
+    const result = await run(makeCopy(), []);
+
+    if (result.kind === "broken") return false;
+    knownRed = new Set([...knownRed, ...failedTestsOf(result.out)]);
+    unchangedFiles = "whole";
+    console.log(`unchanged whole suite, for a fallback: ${summaryOf(result.out) ?? "no test summary"}`);
+
+    return true;
+  })();
+
+  return wholeUnchanged;
+};
 
 // A fault's verdict over some files, where a test red in the unchanged run never counts as the
 // catch. The run stops at its first failing test unless one of its files holds such a test, and a
 // stopped run that lost its failed test's report runs again whole.
 const judged = async (root: string, files: ReadonlyArray<string>, everyCatch = false) => {
+  if (!redsKnown(unchangedFiles, files.length === 0 ? "whole" : files) && !(await unchangedWhole()))
+    return { verdict: "NOT JUDGED (the unchanged whole suite did not finish)", tests: [] };
   const paths = new Set(files.map((file) => join(pkg, file)));
   const mayBail = !everyCatch && ![...knownRed].some((test) => files.length === 0 || paths.has(test.split(" > ")[0] ?? ""));
   const first = await run(root, files, mayBail ? ["--bail=1"] : []);
   const result = verdictOf(first) === "NOT JUDGED (no failed test)" ? await run(root, files) : first;
-  const tests = result.kind === "ran" ? failedTestsOf(result.out).filter((test) => !knownRed.has(test)).toSorted() : [];
-  const verdict = verdictOf(result);
 
-  return {
-    verdict: verdict.startsWith("caught") && tests.length === 0 ? "MISSED (only tests red in the unchanged run failed)" : verdict,
-    tests,
-  };
+  return credited(verdictOf(result), result.kind === "ran" ? failedTestsOf(result.out) : [], knownRed);
 };
 
 // Applies the edits in one copy, runs the body, and puts the files back. Returns false when an
@@ -351,7 +352,10 @@ const plantAll = async () => {
   // The unchanged run comes first, beside the dead core, so every fault is judged against it. With
   // `--only` there is no dead core, and the unchanged run covers the named faults' targets.
   const dead = only ? Promise.resolve() : deadCore(deadRoot);
-  const result = await run(controlRoot, only ? [...new Set(faults.flatMap((fault) => fault.tests))] : []);
+  const targets = [...new Set(faults.flatMap((fault) => fault.tests))];
+  const result = await run(controlRoot, only ? targets : []);
+
+  unchangedFiles = only ? targets : "whole";
   const passed = result.kind === "ran" && result.passed && summaryOf(result.out) !== undefined;
 
   console.log(`unchanged: ${passed ? "pass" : "FAIL"} (${result.kind === "ran" ? (summaryOf(result.out) ?? "no test summary") : result.why})`);

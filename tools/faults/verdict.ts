@@ -49,27 +49,55 @@ export const applyEdits = (
     text,
   );
 
-// The faults a run plants: every fault, or with `--only` the named ones, in the order given. An
-// unknown name, or `--only` with no name, is refused, so a typo never passes for a clean run.
-export const chosenFaults = <F extends { readonly name: string }>(
+// A fault's verdict once the tests already red in the unchanged run are set aside: the failed tests
+// it is credited with, and MISSED when only such tests failed.
+export const credited = (verdict: string, failed: ReadonlyArray<string>, knownRed: ReadonlySet<string>) => {
+  const tests = failed.filter((test) => !knownRed.has(test)).toSorted();
+
+  return {
+    verdict: verdict.startsWith("caught") && tests.length === 0 ? "MISSED (only tests red in the unchanged run failed)" : verdict,
+    tests,
+  };
+};
+
+// Whether the unchanged run's reds are known for a judged run: the unchanged run covered the whole
+// suite, or every file the judged run covers. "whole" is the whole suite.
+export const redsKnown = (unchanged: ReadonlyArray<string> | "whole", judged: ReadonlyArray<string> | "whole") =>
+  unchanged === "whole" || (judged !== "whole" && judged.every((file) => unchanged.includes(file)));
+
+// What a run is asked for: every fault, or with `--only` (repeatable) the named ones in the order
+// given; `--background` for a low-priority run. An unknown flag (`--only=x` included), a name not
+// after `--only`, `--only` with no name, a duplicated name or an unknown name is refused, so a typo
+// never passes for a clean run.
+export const parseArgs = <F extends { readonly name: string }>(
   all: ReadonlyArray<F>,
   argv: ReadonlyArray<string>,
-): { readonly faults: ReadonlyArray<F> } | { readonly refused: string } => {
-  const at = argv.indexOf("--only");
+): { readonly faults: ReadonlyArray<F>; readonly only: boolean; readonly background: boolean } | { readonly refused: string } => {
+  const names: Array<string> = [];
+  // Where the reader is: before any `--only`, right after one (a name must follow), or among names.
+  let at: "free" | "only" | "names" = "free";
+  let only = false;
+  let background = false;
 
-  if (at === -1) return { faults: all };
-  const after = argv.slice(at + 1);
-  const end = after.findIndex((arg) => arg.startsWith("--"));
-  const names = end === -1 ? after : after.slice(0, end);
+  for (const arg of argv) {
+    if (arg === "--background" || arg === "--only") {
+      if (at === "only") return { refused: "--only names no fault" };
+      background ||= arg === "--background";
+      only ||= arg === "--only";
+      at = arg === "--only" ? "only" : "free";
+    } else if (arg.startsWith("-")) return { refused: `unknown flag ${arg}` };
+    else if (at === "free") return { refused: `${arg} is not after --only` };
+    else if (names.includes(arg)) return { refused: `${arg} named twice` };
+    else {
+      names.push(arg);
+      at = "names";
+    }
+  }
 
-  if (names.length === 0) return { refused: "--only names no fault" };
+  if (at === "only") return { refused: "--only names no fault" };
   const unknown = names.filter((name) => !all.some((fault) => fault.name === name));
 
   if (unknown.length > 0) return { refused: `no fault named ${unknown.join(", ")}` };
 
-  return { faults: names.flatMap((name) => all.filter((fault) => fault.name === name)) };
+  return { faults: only ? names.flatMap((name) => all.filter((fault) => fault.name === name)) : all, only, background };
 };
-
-// Whether a run is `--background`: the whole list at low CPU priority on 2 copies x 2 workers, its
-// verdict written to a file as well as stdout.
-export const inBackground = (argv: ReadonlyArray<string>) => argv.includes("--background");

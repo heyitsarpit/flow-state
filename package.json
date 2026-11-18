@@ -18,7 +18,7 @@
     "bench": "node packages/flow-state-v3/bench/run.ts",
     "bench:backfill": "node packages/flow-state-v3/bench/backfill.ts",
     "bench:limits": "FLOW_BENCH_LIMITS=true vp test run packages/flow-state-v3/tests/bench/limits",
-    "faults": "node --experimental-strip-types tools/faults/verdict.test.ts && bun tools/faults/run.ts",
+    "faults": "node --experimental-strip-types tools/faults/verdict.test.ts && node --experimental-strip-types tools/faults/group.test.ts && bun tools/faults/run.ts",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",
     "docs:preview": "nub run --filter @flow-state/docs preview",
