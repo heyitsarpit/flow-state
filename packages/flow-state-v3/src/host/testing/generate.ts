@@ -318,7 +318,7 @@ const wire = (
     words: [WorldWord.wire({ server: at.server, endpoint: at.endpoint, word, at: where })],
   });
 
-const storage = (word: "hold" | "refuse" | "release" | "refuseLoad") =>
+const storage = (word: "hold" | "refuse" | "release" | "refuseHeld" | "refuseLoad") =>
   Step.world({ words: [WorldWord.storage({ word })] });
 
 const network = (word: "offline" | "online") =>

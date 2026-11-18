@@ -3,6 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
+import { mainCart } from "../../fixtures/shop/app.ts";
+import { unreadableName, unreadableNames } from "../../fixtures/shop/stories/findings.ts";
 import { account } from "../../fixtures/transfers/app.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
@@ -234,6 +236,28 @@ describe("an undecodable actor record (Restore R5, I11)", () => {
     expect(heard(run, 2, "transfer")).toEqual(["Unsure"]);
     expect(fresh.read(account)?.lifecycle).toBe("active");
     expect(fresh.records.stored.get(actorKey)).not.toBe(broken);
+  });
+});
+
+describe("records under a name that does not decode (Restore R5, I10, I11; Codec R5)", () => {
+  it("Restore R5: a record whose name its machine's identity cannot read, or that does not name itself back, is quarantined and reported, and no actor starts under it", async () => {
+    const run = checked(await unreadableName.run());
+    const { booted, restored } = run.checkpoints;
+    const { lane, actor, owed } = unreadableNames;
+
+    // A quarantined actor record is reported when an ensure starts its identity fresh, and no ref
+    // names this one.
+    expect(reports(run, 2).toSorted()).toEqual(
+      [lane, owed].map((key) => `RecordUndecodable ${key}`).toSorted(),
+    );
+    expect(booted.inspection.actors).toEqual([]);
+    expect(booted.inspection.lanes).toEqual([]);
+    expect(booted.records.stored.get(lane)).toBe(unreadableNames.laneText);
+    expect(booted.records.stored.get(actor)).toBe(unreadableNames.actorText);
+    expect(booted.records.stored.get(owed)).toBe(unreadableNames.owedText);
+    expect(restored.read(mainCart)?.memory["lines"]).toEqual({
+      l1: { quantity: 1, variantId: "v1" },
+    });
   });
 });
 

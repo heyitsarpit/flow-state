@@ -343,4 +343,30 @@ export const restoreFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "lane-name-unread",
+    tests: [RESTORE],
+    says: "a lane record restores under a name its machine's identity cannot read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      const compiled = yield* machineOf(r);\n      yield* decodeName(compiled, r.name);\n",
+        replace: "      const compiled = yield* machineOf(r);\n",
+      },
+    ],
+  },
+  {
+    name: "owed-name-unread",
+    tests: [RESTORE],
+    says: "an owed record restores under a name that does not name itself back",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "          : Result.map(decodeName(compiled, r.name), () => r);",
+        replace: "          : Result.succeed(r);",
+      },
+    ],
+  },
 ];

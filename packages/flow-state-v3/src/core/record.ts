@@ -1,6 +1,7 @@
 import { Option, Result, Schema } from "effect";
 import { decodeCanonical, toCanonicalJson } from "./codec.ts";
 import { decodeActor } from "./actor-record.ts";
+import { decodeName } from "./identity.ts";
 import type { Compiled, Values } from "./compiled.ts";
 import {
   actorOf,
@@ -202,7 +203,13 @@ export const decodeRecords = (
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const rowsRecord = (value: unknown) =>
     Result.map(
-      decodeBy(OwedJson, "schema")(value),
+      Result.flatMap(decodeBy(OwedJson, "schema")(value), (r) => {
+        const compiled = machines.get(r.machine);
+
+        return compiled === undefined
+          ? Result.succeed(r)
+          : Result.map(decodeName(compiled, r.name), () => r);
+      }),
       (r) =>
         r.rows.map((e) => ({
           kept: e.kept,
@@ -223,6 +230,7 @@ export const decodeRecords = (
     Result.gen(function* () {
       const r = yield* decodeBy(LaneRecordJson, "schema")(value);
       const compiled = yield* machineOf(r);
+      yield* decodeName(compiled, r.name);
 
       const operation = yield* Result.fromNullishOr(
         compiled.operations.get(r.operation),

@@ -93,11 +93,13 @@ const positionsOf = async (story: Story<string>, steps: number) => {
 };
 
 // A double reload at one position: skipped, why its second reload heard more, or "" when it did not.
+// Either run may skip: the second reload can abort the write the first one's boot took a hold
+// with, so a later release finds nothing held.
 const doubledAt = async (story: Story<string>, ran: ReadonlyArray<Step>, at: number) => {
   const once = await turnsOf(story, ran.toSpliced(at, 0, reload));
   const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload));
 
-  if (once === "skipped") return "skipped";
+  if (once === "skipped" || twice === "skipped") return "skipped";
 
   return `${once}${twice}`.includes("faulted") || once !== twice
     ? `${story.id} at ${at}: ${once} then ${twice}`

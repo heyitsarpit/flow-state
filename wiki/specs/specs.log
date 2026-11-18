@@ -347,3 +347,13 @@ note 2026-11-17T23:00:05Z
     @spec.Diagnostics R11, I11, T7 (@plan.Pending.D24): SlowWork, dev only, timed by the host's `workClock` against
     `RuntimeDefaults.slowWorkBudget` (16 ms); production and test hosts time nothing. Decision (agent: the T84
     lead): a runtime test, not a Story, since a Story cannot hold real time deterministically. Reverse: drop R11.
+
+note 2026-11-18T05:07:17Z
+    @spec.Stories R11 adds Fake.storage.refuseHeld(): the oldest held write fails StoreRefused, landing nothing. Why:
+    one batch is out at a time, so the pair sweep could not refuse the write an Acknowledging head waits on
+    (@task.V3.T20). Reverse: drop the word; the sweep's Acknowledging × storage refusal cell then cannot fire.
+
+note 2026-11-18T05:07:23Z
+    @spec.Restore R5: a record whose name its machine's identity does not decode, or whose input names another actor,
+    is quarantined; the boot no longer starts it with {} input (@task.V3.T20, routed from T9). Reverse: drop the clause
+    and decodeName's three record checks.

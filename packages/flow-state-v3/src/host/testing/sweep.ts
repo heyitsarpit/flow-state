@@ -118,8 +118,21 @@ const callOf = (view: View, phase: string, actor: ActorId) =>
       ),
   );
 
-// The steps of a fault given while a write stands in its phase, or none when it cannot fire there;
-// a storage refusal fires later, when the refused write is issued, and is judged then.
+// Whether the oldest held store write acknowledges the write standing in the phase: one batch is
+// out at a time, so no later write can be issued while the write waits on it.
+const waitsOnHeld = (view: View, phase: string, actor: ActorId) =>
+  view
+    .lanes()
+    .some(
+      (lane) =>
+        lane.phase === phase &&
+        lane.actor === actorKey(actor) &&
+        (view.heldAcknowledges[0] ?? []).includes(lane.attempt),
+    );
+
+// The steps of a fault given while a write stands in its phase, or none when it cannot fire there.
+// A storage refusal refuses the held write the write waits on; with none, it refuses the next
+// write, which fires later, when that write is issued, and is judged then.
 const faultOf = (fault: Fault, phase: string, actor: ActorId, view: View) => {
   const steps: Record<Fault, () => ReadonlyArray<Step>> = {
     reload: () => [Step.reload({ reattach: true, heldWrites: "abort" })],
@@ -132,7 +145,15 @@ const faultOf = (fault: Fault, phase: string, actor: ActorId, view: View) => {
           }),
         ],
       }),
-    "storage refusal": () => [Step.world({ words: [WorldWord.storage({ word: "refuse" })] })],
+    "storage refusal": () => [
+      Step.world({
+        words: [
+          WorldWord.storage({
+            word: waitsOnHeld(view, phase, actor) ? "refuseHeld" : "refuse",
+          }),
+        ],
+      }),
+    ],
     // An app closes a provider's consumers before it: the Runtime refuses it while they are bound.
     "actor disposal": () =>
       closing(view, actor).map((closed) => Step.dispose({ actor: closed, how: "dispose" })),
@@ -188,17 +209,26 @@ const tryCell = (
     stood = standing(view, phase, reach.actor);
     replayed = stood;
     const steps = stood ? faultOf(fault, phase, reach.actor, view) : [];
-    fired = fault !== "storage refusal" && steps.length > 0;
+    fired =
+      steps.length > 0 && (fault !== "storage refusal" || waitsOnHeld(view, phase, reach.actor));
     refusedBefore = refusedOf(view);
     queue.push(...steps);
 
     return "skip" as const;
   };
 
-  // While a refusal waits for its write, the nudge, then a held write's release, give it one.
+  // While a refusal waits for its write, the nudge, then a held write's release, give it one; once
+  // the write's own batch is the oldest held, that batch is refused.
   const wait = (view: View) => {
     if (refusedOf(view) > refusedBefore) fired = stood;
     stood = standing(view, phase, reach.actor);
+
+    if (!fired && stood && waitsOnHeld(view, phase, reach.actor)) {
+      fired = true;
+
+      return Step.world({ words: [WorldWord.storage({ word: "refuseHeld" })] });
+    }
+
     const step = !fired && stood ? waits.shift() : undefined;
     const pointless = step?._tag === "world" && view.heldWrites === 0;
 
@@ -303,7 +333,8 @@ const cellOf = (
  * The fault is given at the first step boundary where a write of a sampled actor stands in the
  * phase, and only if the drive's steps replayed put it there again; a lost answer loses the write's
  * own call (the held call carrying its Attempt's id, when it is its endpoint's oldest), and a
- * storage refusal counts only when the write it refuses is issued in a step that began with the
+ * storage refusal refuses the held store write that acknowledges the write when it is the oldest
+ * held one, or else counts only when the write it refuses is issued in a step that began with the
  * write still in the phase. A reached cell's breaches include work still pending after the quiet
  * phase and a run that recorded nothing, as `propertyTest` judges them. Every cell is returned:
  * reached with its breaches, or unreached with why.

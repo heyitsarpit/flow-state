@@ -270,4 +270,18 @@ export const toolingFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "refuse-held-lands",
+    tests: ["tests/write-lanes/write-ahead-records.test.ts"],
+    says: "Fake.storage.refuseHeld() lands the held write instead of refusing it",
+    rule: "Stories R11",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: '        mark(out, "refused");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));',
+        replace:
+          '        apply(out.writes);\n        mark(out, "landed");\n        Deferred.doneUnsafe(out.answer, Exit.void);',
+      },
+    ],
+  },
 ];

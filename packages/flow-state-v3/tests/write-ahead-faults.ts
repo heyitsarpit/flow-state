@@ -37,14 +37,13 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
   {
     name: "refused-capture-left-in-flight",
     tests: ["tests/write-lanes/write-ahead-records.test.ts"],
-    says: "a re-send whose capture is refused goes back to Held without a write",
+    says: "a re-send whose capture is refused stays Recapturing, its lane record in flight",
     rule: "WriteAhead R5",
     edits: [
       {
         file: "src/core/lane-moves.ts",
         find: "        setLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Held() } });\n        // Owed",
-        replace:
-          "        sendLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Held() } });\n        // Owed",
+        replace: "        setLane(at.id, lane);\n        // Owed",
       },
     ],
   },

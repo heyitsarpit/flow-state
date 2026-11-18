@@ -34,7 +34,7 @@ const opens = (word: WorldWord) =>
 
 const closes = (word: WorldWord) =>
   (word._tag === "wire" && (word.word === "release" || word.word === "lose")) ||
-  (word._tag === "storage" && word.word === "release");
+  (word._tag === "storage" && (word.word === "release" || word.word === "refuseHeld"));
 
 // A put changes the store at once and waits for nothing.
 const awaits = (word: WorldWord) =>
@@ -102,7 +102,7 @@ const windowsOf = (story: Story<string>, batches: ReadonlyArray<Batch>) => {
 /**
  * Whether a reload at position `at` of a Story falls inside a hold window: after a hold and no
  * later than the release that answers it (a wire hold to its endpoint's release or lose, oldest
- * first; a storage hold to a storage release, or to the reload that ends the write it held). The
+ * first; a storage hold to a storage release or refuseHeld, or to the reload that ends the write it held). The
  * Story's own run's batches tell when each storage hold was taken.
  */
 export const inHoldWindow = (story: Story<string>, batches: ReadonlyArray<Batch>) => {

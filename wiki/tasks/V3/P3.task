@@ -903,6 +903,21 @@ tasks
         comment     2026-11-18T04:50:08Z
             Routed from @task.V3.T83 (2026-11-18): the planted fault refused-capture-left-in-flight (WriteAhead R5) is
             caught by no test; add a catching test as a requirement, or an inverted test titled by the rule.
+        comment     2026-11-18T05:00:07Z
+            Requirements (resume, 2026-11-18), acceptance 1 and 2; everything else from the 2026-11-16 list holds (suite
+            red only on Q-1). Q-1: Stories R11, WriteAhead R13, the pair sweep: Acknowledging × storage refusal never
+            fires in session and shop-store. Wrong side: tooling. One batch is out at a time, so at the boundary the
+            head's own acknowledging batch is held; the sweep's refuse queues behind it (in session also behind the
+            drive's unused hold) and hits a later batch issued after the release lands the head's. Check: the pairs
+            shards, cell reached, ending NotSent StorageRefused. Red today.
+        comment     2026-11-18T05:00:08Z
+            Q-2: Restore R5, I10; Codec R5 (routed from T9): a record whose name does not decode by its machine's
+            identity Schema, or does not name itself back, is quarantined and reported RecordUndecodable at each boot,
+            never started with {} input. Check: shop Story with a cart lane record under such a name. Red today (the
+            boot wakes the cart with {}). Q-3: WriteAhead R5, R10 (routed from T83): a re-send whose capture is refused
+            writes its Held lane record within captureMs. Check: transfers Story, Held write and re-send capture both
+            refused, lane record inFlight false 1 s later; red on the planted fault refused-capture-left-in-flight. Q-4:
+            catalog items of sign-in, shop, sync, transfers marked; session's boot-queue item corrected.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done

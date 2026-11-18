@@ -191,6 +191,35 @@ const abandonT2 = { _tag: "Abandon", transferId: "t2" } as const;
 const saveT1 = { _tag: "Send", transferId: "t1", cents: 300 } as const;
 const abandonSaved = { _tag: "Abandon", transferId: "t1" } as const;
 
+/**
+ * The store takes a transfer's acknowledging write and then refuses it, so the transfer is never
+ * sent.
+ */
+export const refusedHeldWrite = bankStory("transfers/refused-held-write")
+  .ensure(account)
+  .world(Fake.storage.hold())
+  .send(account, sendT1)
+  .checkpoint("acknowledging")
+  .world(Fake.storage.refuseHeld())
+  .checkpoint("refused");
+
+/**
+ * A transfer's answer is lost while the disk is full: the write that saves it Held is refused, and
+ * so is the capture of the customer's re-send, which goes back to Held. A second later the disk
+ * has room again and the Held lane is saved.
+ */
+export const refusedResendCapture = bankStory("transfers/refused-resend-capture")
+  .ensure(account)
+  .world(Bank.transfer.drop({ at: "response" }), Fake.storage.hold())
+  .send(account, sendT1)
+  .world(Fake.storage.refuse(), Fake.storage.release())
+  .checkpoint("held unsaved")
+  .world(Fake.storage.refuse())
+  .send(account, resendT1)
+  .checkpoint("capture refused")
+  .advance("1 second")
+  .checkpoint("saved");
+
 const pennies = (transferId: string) => ({ _tag: "Send", transferId, cents: 1 }) as const;
 
 const ids = (count: number) => Array.from({ length: count }, (_, n) => `t${n + 1}`);
@@ -527,6 +556,8 @@ export const stories = {
   long,
   heldAtDisposal,
   refusedWrite,
+  refusedHeldWrite,
+  refusedResendCapture,
   seededStress,
   largeReceipts,
   garbledReceipt,

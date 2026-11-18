@@ -111,3 +111,37 @@ export const removedLineAnswer = checkingOut("shop/removed-line-answer")
   .send(mainCart, add("l2", "v2"))
   .send(mainFlow, { _tag: "Begin" })
   .checkpoint("settled");
+
+/**
+ * Records a damaged disk or another release left under cart names this release cannot read: a
+ * cart lane and its actor record under an owner that is a number, and owed endings under a name
+ * with a field no cart's name has.
+ */
+export const unreadableNames = {
+  lane: 'lane/Shop/Cart/{"owner":7}|add|{"cartId":"main"}',
+  laneText:
+    '{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":3,"inFlight":true,"input":{"cartId":"main","lineId":"l1","variantId":"v1"},"machine":"Shop/Cart","name":"{\\"owner\\":7}","operation":"add","queue":[],"retryCount":0}',
+  actor: 'actor/Shop/Cart/{"owner":7}',
+  actorText:
+    '{"context":{},"format":3,"graph":{},"machine":"Shop/Cart","memories":[],"memory":{"adding":"l1","errors":{},"lines":{},"notice":"","owner":"7","wanted":{}},"name":"{\\"owner\\":7}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}',
+  owed: 'owed/Shop/Cart/{"owner":"main","x":1}',
+  owedText:
+    '{"format":3,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\",\\"x\\":1}","rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}',
+} as const;
+
+/**
+ * The main cart adds a line; then the store holds records under cart names that do not decode,
+ * and the tab reloads: those records are set aside and reported, and only the main cart restores.
+ */
+export const unreadableName = storeStory("shop/unreadable-name")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .world(
+    Fake.storage.put(unreadableNames.lane, unreadableNames.laneText),
+    Fake.storage.put(unreadableNames.actor, unreadableNames.actorText),
+    Fake.storage.put(unreadableNames.owed, unreadableNames.owedText),
+  )
+  .reload({ reattach: false })
+  .checkpoint("booted")
+  .ensure(mainCart)
+  .checkpoint("restored");

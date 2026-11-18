@@ -270,6 +270,9 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       clears its wish, so checkout can begin. No source. built: `shop/quantity-lost`, `shop/quantity-not-saved`,
       `shop/removed-line-answer`.
     - [ ] The checkout's trace waits for the cart to settle. left: @task.V3.T49, needs `inspect` sinks.
+    - [x] Records under cart names this release cannot read (an owner that is a number, a name with an extra field)
+      are quarantined and reported at the boot, and no cart starts under them (Restore R5). No source. built:
+      `shop/unreadable-name`.
     - [x] A context consumer restored by a reload publishes once (Turn I9). built: `shop/browse` with a reload that
       attaches nothing.
 
@@ -288,7 +291,8 @@ A one-click checkout: a client-side cell over pay's body. Kept as it is. Source:
   - [x] Usual, `long` and `seededStress` (have). built: `cells/usual`, `cells/long`, `cells/stress-56`.
   - [x] S6 disposed under L3: a charge on the wire past the disposal's bound ends unknown Disposed, and one never sent
     ends NotSent Disposed. built: `cells/disposed-on-wire`, `cells/never-sent-disposed`. Inverted (WriteAhead R14,
-    WriteLanes R10): the restore then ends the same Attempt again unknown Restored, owner @task.V3.T20.
+    WriteLanes R10): the restore then ends the same Attempt again unknown Restored, owner @task.V3.T56 (the lane
+    stays Held after its ending is heard, as with Restore R3's re-heard head; needs a heard mark in the record).
   - [x] S6 reloaded under L3: a charge on the wire at a reload ends unknown Restored. built: `cells/reloaded-on-wire`.
   - [x] E1: an empty cart and intent id. built: `cells/empty-ids`.
   - [x] E3: an intent id (the key of `pay`) as a long key round-trips, timed on the bench (no key size bound,
@@ -441,7 +445,7 @@ kamp.us for rows restored after a failure.
     file in chunks". left: @task.V3.T21, needs `progress` (T `depositCheque`).
   - [x] **Load:** L1 × 64 accounts with owed endings at boot under L4. built: `transfers/stress-owed-at-boot`.
     Inverted (WriteLanes R10, WriteAhead R14): the second reload delivers each Held head's unknown Restored again,
-    owner @task.V3.T20. `largeReceipts` (have); `stressManyReceipts` (have), run by
+    owner @task.V3.T56 (Restore R3's re-heard head). `largeReceipts` (have); `stressManyReceipts` (have), run by
     `tests/transfers/durability.stress.test.ts` and kept out of `stories`: a reload at each of its 1,300 steps is too
     long for the sweep. built: `transfers/stress-large-receipts`, `transfers/stress-many-receipts`.
   - **Structure:**
@@ -506,6 +510,10 @@ kamp.us for rows restored after a failure.
     - [ ] A failed reversal restores the row and carries its code. Copies [optimisticPostDelete.test.ts:21][kp-pdel]
       "POST_DELETE_FAILED restores the post and carries the code for the inline error (#1639)". left: @task.V3.T24,
       needs the statement's domain rows.
+    - [x] A disk that takes a write and then refuses it: a transfer's acknowledging write ends it NotSent
+      StorageRefused; a lost answer whose Held save and re-send capture are both refused is saved Held once the
+      disk has room (WriteAhead R5, R13). No source. built: `transfers/refused-held-write`,
+      `transfers/refused-resend-capture`.
 
 ### sign-in
 
@@ -713,7 +721,8 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
     - [x] A failed storage read starts with no persistence and never overwrites saved data; a refused write keeps the
       live state and saves the newest later (Restore R9). built: `session/refused-load-keeps-data`,
       `session/refused-write-retries`.
-    - [ ] A failed storage read with a sign-in queued. left: @task.V3.T20, needs the boot queue (@plan.Pending.D17).
+    - [ ] A failed storage read with a sign-in queued. left: @task.V3.T28, needs a send before ready, which only a
+      slow store read allows; no handle exists before ready today (@plan.Pending.D17).
     - [ ] Quota, a slow read and a non-durable store. left: @task.V3.T28, needs store adapters.
   - [x] **Variety:** singleton providers here, a keyed provider in `pay` (`Cart`, named by its owner). built:
     `session/usual`, `shop/browse`.

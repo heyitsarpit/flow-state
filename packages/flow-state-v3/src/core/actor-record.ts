@@ -1,3 +1,4 @@
+import { decodeName } from "./identity.ts";
 import { Option, Predicate, Result, Schema, Struct } from "effect";
 import type { Canonical } from "./codec.ts";
 import type { Compiled, Values } from "./compiled.ts";
@@ -307,6 +308,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
       const r = yield* stepsTo(format, value);
 
       const compiled = yield* machineOf(r);
+      yield* decodeName(compiled, r.name);
       const memory = yield* Result.mapError(compiled.walk.decode(r.memory), () => "memory");
 
       const seen = new Map(

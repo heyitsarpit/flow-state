@@ -22,6 +22,7 @@ import {
   removedLineAnswer,
   refusedAddAlone,
   sameCartTwice,
+  unreadableName,
   waitsWhileBusy,
 } from "./stories/findings.ts";
 import { manyShoppers, quantityClicks } from "./stories/load.ts";
@@ -63,6 +64,7 @@ export const shop = manifest({
     shopperForgotten,
     reloadedMidAdd,
     busyEdges,
+    unreadableName,
   },
   samples: [samples, storeSamples],
   stressSamples: [samples, storeSamples],

@@ -468,13 +468,20 @@ export const makeStore = (
         }),
     }),
     put: (key: string, text: string) => void data.set(key, text),
-    word: (word: "hold" | "refuse" | "release" | "refuseLoad") => {
+    word: (word: "hold" | "refuse" | "release" | "refuseHeld" | "refuseLoad") => {
       if (word === "refuseLoad") return void loads.push({ step: step() });
 
-      if (word !== "release") return void next.push({ word, step: step() });
+      if (word === "hold" || word === "refuse") return void next.push({ word, step: step() });
 
       const out =
         batches.find((b) => b.batch.status === "held") ?? scriptFault("nothing held at the store");
+
+      if (word === "refuseHeld") {
+        mark(out, "refused");
+        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));
+
+        return;
+      }
 
       apply(out.writes);
       mark(out, "landed");
@@ -500,6 +507,8 @@ export const makeStore = (
     ],
     unusedAt: () => [...next.map((p) => p.step), ...loads.map((p) => p.step)],
     heldWrites: () => batches.filter((b) => b.batch.status === "held").length,
+    heldAcknowledges: () =>
+      batches.flatMap((b) => (b.batch.status === "held" ? [b.batch.acknowledges] : [])),
   };
 };
 
@@ -617,6 +626,11 @@ export const Fake = {
     hold: () => WorldWord.storage({ word: "hold" }),
     refuse: () => WorldWord.storage({ word: "refuse" }),
     release: () => WorldWord.storage({ word: "release" }),
+    /**
+     * The oldest held write fails StoreRefused and lands nothing, as a store that took a write
+     * and then refused it does (a transaction aborted on quota).
+     */
+    refuseHeld: () => WorldWord.storage({ word: "refuseHeld" }),
     /**
      * The next open's load fails, as a store that cannot be read does.
      */

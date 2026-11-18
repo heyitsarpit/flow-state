@@ -2,7 +2,11 @@ import { Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { account, savings } from "../../fixtures/transfers/app.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
-import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
+import {
+  bankStory,
+  refusedHeldWrite,
+  refusedResendCapture,
+} from "../../fixtures/transfers/stories/usual.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { type Cut, Fake, Story } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
@@ -47,6 +51,36 @@ describe("lane records of Held heads (WriteAhead R5, I24)", () => {
     expect(laneRecords(held).map((r) => r.inFlight)).toEqual([false]);
     expect(refused.inspection.lanes.map((l) => l.phase)).toEqual(["Held"]);
     expect(laneRecords(refused).map((r) => r.inFlight)).toEqual([false]);
+  });
+});
+
+describe("a Held lane whose saves are refused (WriteAhead R5, R10)", () => {
+  it("WriteAhead R5, R10: a re-send whose capture is refused writes its Held lane record within the capture interval, though no earlier save of it landed", async () => {
+    const run = checked(await refusedResendCapture.run());
+    const { "held unsaved": unsaved, "capture refused": refused, saved } = run.checkpoints;
+
+    expect(unsaved.inspection.lanes.map((l) => l.phase)).toEqual(["Held"]);
+    expect(laneRecords(unsaved).map((r) => r.inFlight)).toEqual([true]);
+    expect(refused.inspection.lanes.map((l) => l.phase)).toEqual(["Held"]);
+    expect(saved.records.batches.map((b) => b.status).slice(-3)).toEqual([
+      "refused",
+      "refused",
+      "landed",
+    ]);
+    expect(laneRecords(saved).map((r) => r.inFlight)).toEqual([false]);
+  });
+});
+
+describe("an acknowledging write the store takes and then refuses (WriteAhead R13)", () => {
+  it("WriteAhead R13: the write is never sent and ends NotSent StorageRefused", async () => {
+    const run = checked(await refusedHeldWrite.run());
+    const { acknowledging, refused } = run.checkpoints;
+
+    expect(acknowledging.inspection.lanes.map((l) => l.phase)).toEqual(["Acknowledging"]);
+    expect(refused.inspection.lanes).toEqual([]);
+    expect(refused.read(Bank.transfer)).toEqual([]);
+    expect(refused.read(account)?.memory["notice"]).toBe("not sent StorageRefused");
+    expect(refused.records.batches.map((b) => b.status)).toContain("refused");
   });
 });
 
