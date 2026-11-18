@@ -1,0 +1,2 @@
+commit,tree,date,runtime,version,flags,machine,cpu,cores,power,load,confidence,tier,concern,bench,size,unit,workers,samples_n,warmup,batch,median,min,max,p99,mad,spread,shape,counters,samples,budget,budget_state
+9a81ab21,clean,2026-11-18T12:40:56.561Z,node,24.21.0,,m-e86d4c8f,Apple M4 Pro,12,battery,2.3,recorded,quick,tooling,tooling.test.wall-ms,1,run,1,1,0,1,38460.2,38460.2,38460.2,,0,0,811c9dc5,exit=0;tests=1154;failed=0;peakMiB=1909,samples/tooling/9a81ab21-quick-20261118T124056561Z.json.gz,,
