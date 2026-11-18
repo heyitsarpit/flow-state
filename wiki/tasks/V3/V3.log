@@ -1227,3 +1227,8 @@ note 2026-11-18T06:07:22Z
     T20 fix-round review ISSUES (59361083): records whose key names another identity restore into it. Second finding of
     one class (restore trusts record parts), so a convergence: record-trust fixtures first, then one validation at
     decode.
+
+note 2026-11-18T06:34:44Z
+    T20 convergence review ISSUES (2e211305): lane keys without a head and owed records of undeclared machines get past
+    the one check; the double-reload sweep counts second-run faults as skips. First failure after convergence; a second
+    stops T20 for the user. Fix round: every trusted field listed, checked and planted out.
