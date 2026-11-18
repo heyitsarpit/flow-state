@@ -1239,3 +1239,8 @@ note 2026-11-18T06:39:22Z
 
 note 2026-11-18T06:46:14Z
     Decision (the user, 2026-11-18): keep the current pace; the user has a usage reset in hand. The reserve stays 100 %.
+
+note 2026-11-18T07:06:13Z
+    Stop (failure limit, 2026-11-18): T20's field-check review (8c0446d9) found a second record-trust failure after the
+    convergence: an actor record's context bindings start unchecked actors, and a bad one stops the boot. T20 waits for
+    the user's call; no lead runs.
