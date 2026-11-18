@@ -2932,6 +2932,39 @@ tasks
             Dead core: all 54 greens are static checks (admission and construction refusals, crafted rule runs,
             manifests, bench declarations, types), each matched by a named pattern; none checks nothing; it.fails are
             counted apart. The grace test is skipped behind FLOW_REAL_TIME_GRACE, waiting on @task.V3.T29.
+        comment     2026-11-18T04:33:49Z
+            Review (independent lead, fa593971): ISSUES, one blocking finding plus a guard item. Blocking: (1) fault
+            local-actor-ends-at-grace (Actors R6) is lost. Its only catcher, the grace test, is now behind
+            FLOW_REAL_TIME_GRACE, and the test's comment says no planted fault reaches it. Reproduced in a scratch copy:
+            identity.test.ts is green with the fault and the switch off, red with it on, and the whole usual suite
+            misses the fault. faults reports it caught by whole suite only because the bail run stops on T20's
+            shop-store pair red, which is already red with no fault. Missed by: the faults runner's whole-suite
+            fallback, which counts a test red on the unchanged tree as a catch, and the kill matrix's 0 catches for this
+            test. Fix: run the grace test again (or on the test clock), and make the fallback ignore tests red on the
+            unchanged tree. (2) Guard acceptance item: test limits still written as unmeasured literals outside
+            tests/limits.ts: session/values.test.ts:261 and restore/unencodable.test.ts:328 (120 s each),
+            session/workspace.stress.test.ts:19 (240 s), and the bench-limit tests and their child timeouts. limits.ts
+            says every long test names its limit there. Missed by: no check that a test's timeout comes from LIMITS.
+            Gates (each run alone, judged by exit code): check 0. test 1, only T20's two pair reds (1,134 tests, 59 s).
+            test:stress 1, the same two (72 tests, 114 s). faults 1, unchanged run red on T20's reds only; 254 of 254
+            reported caught, the same fault names as 26ad0259; dead core has 0 unexplained greens (388 s, with
+            mediaanalysisd using CPU). Checked, holds: every switch runs its code when on and type-checks. Shards cover
+            each item once. The pair stop fails when a reachable phase is unfound at the cap, and stress keeps 1,000
+            seeds. selection-kept-raw and all four CLI faults are still caught by their targets. Storage hold, refuse
+            and refuseLoad are still drawn (generate.ts:560-579, 640) and appear in 11 saved Stories. No outside
+            imports, temporary names or re-created Effect. Dead core: the 54 greens under the new patterns are oracle,
+            compile, manifest and bench-declaration tests (list checked). The rule-title excuse is gone, so these are
+            not the same excuse renamed. Routed: (a) refused-capture-left-in-flight (WriteAhead R5) is missed by its
+            target and by both suites, also at 26ad0259; it is hidden by the same fallback. (b) windowsOf ends a storage
+            window at a reload, but the fake keeps an armed, unused hold across reloads (fake.ts next queue), and that
+            fix has no crafted case. (c) The file-wide dead-core patterns (rules.test.ts, types/, manifests, declare,
+            codes|deep-constants) would hide a later test that drives the core; pin them by title. (d) QUIET_LIMIT is
+            1,600, not 4 x 385 = 1,540. stressSeed uses palette's 5.2 s for every fixture (416 s for 20 seeds, past
+            faults' 240 s). nothingInvokedDisposing's case asserts only length > 0. Sidecars (4 Haiku, one blind), my
+            calls: accepted the grace loss (shown red), the literal limits, the window gap and the dead-core file width.
+            Rejected that the window change loosens skipBound (windows only shrink); the 10 % skip share and the sticky
+            pair refusal (gates green; code outside T83's range); and the re-printed stress Stories (the 03:09 ruling;
+            storage words still drawn).
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
