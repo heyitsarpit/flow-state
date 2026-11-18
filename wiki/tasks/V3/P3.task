@@ -4353,7 +4353,7 @@ tasks
 
     T94
         title       Every public entry point refuses with a FlowError; a surface test finds any that doesn't
-        status      open
+        status      in_progress
         priority    high
         description
             Every public function Flow exports or hands out either refuses with a FlowError or is an inert builder, and
@@ -4404,3 +4404,21 @@ tasks
         comment     2026-11-18T17:55:39Z
             Not started: the lead was stopped at session end before any change (tree clean at 0467b22c). Start fresh:
             requirements first, then build per this Task and wiki/conventions/boundaries.md.
+        comment     2026-11-18T18:07:09Z
+            Requirements (each red today; one per acceptance line). R1 (acc 1; Diagnostics R1, boundaries.md): every
+            function reachable from src/index.ts, each fixture's setup, app, machines and definitions, a built Runtime,
+            one actor, probe contracts and the S, E, O the body and operations callbacks receive is a registered entry
+            or builder; tests/surface/surface.test.ts names any other path. Red: no registry exists. Fault
+            entry-unwrapped (app loses its wrapper). R2 (acc 2; Diagnostics R1, R3): the hostile table (null, undefined,
+            NaN, ±Infinity, Date, Map, a function, a cycle, a throwing getter, an all-traps-throw Proxy, copied tokens)
+            at every argument position: an entry returns or throws FlowError (an Effect entry fails with one), a builder
+            returns; each under 1 s. Red: app(null) throws a raw TypeError. Fault stray-throw-raw. R3 (acc 3;
+            boundaries.md): lint flow-state/no-mark-probe bans hasProperty(_, "~...") in src, planted in
+            tools/flow-state-lint/rules.test.ts; no-throw-in-core is off only in src/error.ts and src/entry.ts, every
+            other FlowError throw goes through error.ts, and each remaining disable (defect sites, the driver's rethrow,
+            the testing route's run failures) carries its reason. Red: rule absent. R4 (acc 4; Actors R25): a throw from
+            perform or the admit hook ends the life Stopped: later calls RuntimeDisposed, dispose fails with it. Red:
+            src/host/runtime.test.ts case with a throwing admit hook and a store write that throws; the Runtime stays
+            Open. Fault driver-throw-stays-open. R5 (acc 5): boundaries.md rows for what moves. R6 (acc 6): check,
+            suite, stress, faults --only. Fixtures: no public feature is added; the surface test reads every manifest in
+            fixtures/index.ts, so a new fixture joins it; no catalog line names T94.
