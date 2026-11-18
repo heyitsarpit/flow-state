@@ -1270,3 +1270,7 @@ note 2026-11-18T09:26:44Z
     Amendment (2026-11-18, the user): the daily faults run is a background process that blocks nothing: nub run faults
     --background (few copies, lowest priority) at the first wake, lead or not. instructions and cadence edited. Commit:
     c33cdfe8.
+
+note 2026-11-18T09:40:57Z
+    15:11 wake: tooling bench skipped (T90's review is running the gates); today's whole faults run counts as done
+    (T91's close ran all 265 at about 13:30), so the background run starts at tomorrow's first wake.
