@@ -3917,6 +3917,14 @@ tasks
             errors (type error TS2322, floating promise, unsafe any, .forEach) fail with the trial's diagnostics,
             reverted. Not run: bench tooling --record (load 27 over half of 12 cores, refused); record it when the
             machine is quiet.
+        comment     2026-11-18T10:14:56Z
+            Review PASS (diff fc434446..ff59919d): pins exact (vite-plus 1.7.0, oxlint and @oxlint/plugins 1.94.0,
+            vitest and coverage 5.1.0, tsrs 7.1.0-beta.tsrs2, vite alias 8.3.8000); lock moved only that toolchain
+            family plus @oxfmt 0.73 to 0.79, @oxc-project 0.154 to 0.159, @vitest/istanbul 2.1.0 and peer-set suffixes
+            (unhead, unplugin, vocs, @tailwindcss/vite, @vitejs/*). Clean check, lint:rules and test exit 0; suite 1101
+            passed + 34 expected fail = 1135 (+15 skipped), matching the old ~1136. Planted TS2322, floating promise
+            (tsrs no-floating-promises), unsafe any (lint-bomb no-explicit-any), .forEach (lint-bomb no-for-each), plus
+            no-unknown: each exits 1, all reverted. Only test change is line 2 to 1.
 
     T90
         title       Reload sweep forked from a saved cut, same verdicts
