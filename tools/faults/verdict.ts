@@ -48,3 +48,22 @@ export const applyEdits = (
         : current.replace(edit.find, () => edit.replace),
     text,
   );
+
+// The faults a run plants: every fault, or with `--only` the named ones, in the order given. An
+// unknown name, or `--only` with no name, is refused, so a typo never passes for a clean run.
+export const chosenFaults = <F extends { readonly name: string }>(
+  all: ReadonlyArray<F>,
+  argv: ReadonlyArray<string>,
+): { readonly faults: ReadonlyArray<F> } | { readonly refused: string } => {
+  const at = argv.indexOf("--only");
+
+  if (at === -1) return { faults: all };
+  const names = argv.slice(at + 1);
+
+  if (names.length === 0) return { refused: "--only names no fault" };
+  const unknown = names.filter((name) => !all.some((fault) => fault.name === name));
+
+  if (unknown.length > 0) return { refused: `no fault named ${unknown.join(", ")}` };
+
+  return { faults: names.flatMap((name) => all.filter((fault) => fault.name === name)) };
+};

@@ -3,7 +3,7 @@
 //
 //   node --experimental-strip-types tools/faults/verdict.test.ts
 import assert from "node:assert/strict";
-import { applyEdits, failedTestsOf, verdictOf } from "./verdict.ts";
+import { applyEdits, chosenFaults, failedTestsOf, verdictOf } from "./verdict.ts";
 
 const out = (tests: string, files: string) => ` Test Files  ${files}\n      Tests  ${tests}\n`;
 
@@ -51,3 +51,10 @@ assert.equal(
   "import a, b;\nuse(b);\n",
 );
 assert.equal(applyEdits("x;\n", [{ find: "x;", replace: "y;" }, { find: "x;", replace: "z;" }]), undefined);
+
+// `--only` plants just the named faults, and refuses an unknown name or an empty list.
+const named = [{ name: "a" }, { name: "b" }, { name: "c" }];
+assert.deepEqual(chosenFaults(named, []), { faults: named });
+assert.deepEqual(chosenFaults(named, ["--only", "c", "a"]), { faults: [{ name: "c" }, { name: "a" }] });
+assert.deepEqual(chosenFaults(named, ["--only", "a", "typo"]), { refused: "no fault named typo" });
+assert.deepEqual(chosenFaults(named, ["--only"]), { refused: "--only names no fault" });

@@ -13,18 +13,32 @@
 // to the cores and memory (below) run at once, each its own scratch directory, removed at the
 // end, on failure, or when the run is stopped.
 //
+// `--only <name...>` plants just the named faults, for iterating on a Task's own rules: no dead
+// core, and the unchanged run covers only their target files, to find the tests already red there.
+// An unknown name is refused.
+//
 // FLOW_FAULTS_EVERY_CATCH=true lists every catching test, to tell which faults give the same
 // signal: a fault's target run then covers the target files of every fault of its rule and does
 // not stop at its first failing test. A fault the targets miss is still judged by the whole suite,
 // stopping at its first failing test, so its list is partial.
 //
-//   bun tools/faults/run.ts
+//   bun tools/faults/run.ts [--only <name...>]
 import { type ChildProcess, execFile } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir, totalmem } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
-import { type Fault, faults } from "../../packages/flow-state-v3/tests/faults.ts";
-import { applyEdits, failedTestsOf, type Run, summaryOf, verdictOf } from "./verdict.ts";
+import { type Fault, faults as allFaults } from "../../packages/flow-state-v3/tests/faults.ts";
+import { applyEdits, chosenFaults, failedTestsOf, type Run, summaryOf, verdictOf } from "./verdict.ts";
+
+const chosen = chosenFaults(allFaults, process.argv.slice(2));
+
+if ("refused" in chosen) {
+  console.error(`faults: ${chosen.refused}`);
+  process.exit(2);
+}
+
+const { faults } = chosen;
+const only = faults !== allFaults;
 
 const repo = resolve(import.meta.dirname, "..", "..");
 const pkg = "packages/flow-state-v3";
@@ -36,7 +50,7 @@ const skipped = new Set(["node_modules", "prototypes"]);
 const WORKERS = 3;
 const WORKER_PEAK = 2 * 1024 ** 3;
 const COPIES = Math.max(
-  2,
+  only ? 1 : 2,
   Math.min(Math.floor(availableParallelism() / WORKERS), Math.floor(totalmem() / (WORKERS * WORKER_PEAK))),
 );
 // One tier's run, timed out past this: the slowest whole tier measured under the run's own load
@@ -279,7 +293,7 @@ const verdictFor = async (root: string, fault: Fault) => {
   let outcome = { verdict: "STALE", by: "", tests: [] as ReadonlyArray<string> };
 
   const targets = EVERY_CATCH
-    ? [...new Set(faults.filter((other) => other.rule === fault.rule).flatMap((other) => other.tests))]
+    ? [...new Set(allFaults.filter((other) => other.rule === fault.rule).flatMap((other) => other.tests))]
     : fault.tests;
 
   await planted(root, fault.edits, async () => {
@@ -313,9 +327,10 @@ const plantAll = async () => {
 
   const [controlRoot = "", deadRoot = "", ...rest] = roots;
 
-  // The unchanged run comes first, beside the dead core, so every fault is judged against it.
-  const dead = deadCore(deadRoot);
-  const result = await run(controlRoot, []);
+  // The unchanged run comes first, beside the dead core, so every fault is judged against it. With
+  // `--only` there is no dead core, and the unchanged run covers the named faults' targets.
+  const dead = only ? Promise.resolve() : deadCore(deadRoot);
+  const result = await run(controlRoot, only ? [...new Set(faults.flatMap((fault) => fault.tests))] : []);
   const passed = result.kind === "ran" && result.passed && summaryOf(result.out) !== undefined;
 
   console.log(`unchanged: ${passed ? "pass" : "FAIL"} (${result.kind === "ran" ? (summaryOf(result.out) ?? "no test summary") : result.why})`);
@@ -332,7 +347,7 @@ const plantAll = async () => {
     return;
   }
 
-  await Promise.all([worker(controlRoot), dead.then(() => worker(deadRoot)), ...rest.map(worker)]);
+  await Promise.all([worker(controlRoot), ...(deadRoot === "" ? [] : [dead.then(() => worker(deadRoot))]), ...rest.map(worker)]);
 
   const caught = [...verdicts.values()].filter((verdict) => verdict.startsWith("caught")).length;
 
@@ -344,7 +359,7 @@ const plantAll = async () => {
 };
 
 try {
-  for (let n = 0; n < COPIES; n += 1) makeCopy();
+  for (let n = 0; n < Math.min(COPIES, only ? faults.length : COPIES); n += 1) makeCopy();
   await plantAll();
 } finally {
   cleanUp();
