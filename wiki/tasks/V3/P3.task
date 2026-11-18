@@ -2572,7 +2572,7 @@ tasks
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T82]
         description
@@ -3906,7 +3906,7 @@ tasks
 
     T90
         title       Reload sweep forked from a saved cut, same verdicts
-        status      review
+        status      done
         priority    medium
         blocked_by  [@T83]
         description

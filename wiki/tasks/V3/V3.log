@@ -1274,3 +1274,7 @@ note 2026-11-18T09:26:44Z
 note 2026-11-18T09:40:57Z
     15:11 wake: tooling bench skipped (T90's review is running the gates); today's whole faults run counts as done
     (T91's close ran all 265 at about 13:30), so the background run starts at tomorrow's first wake.
+
+note 2026-11-18T09:59:53Z
+    T90 done: review PASS (e3046fb8); suite 34 s, stress 43 s alone. Faults runner leftovers (spawn-error hang, stress
+    tier in the unchanged and dead-core runs) wait for the next Task that touches it. T81 resumed.
