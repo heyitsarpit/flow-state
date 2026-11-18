@@ -4,6 +4,7 @@ import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { mainCart } from "../../fixtures/shop/app.ts";
+import { add, storeStory } from "../../fixtures/shop/stories/usual.ts";
 import {
   borrowedRecords,
   borrowedRecordsReload,
@@ -310,6 +311,33 @@ describe("records whose key and content disagree (Restore R5; Codec R5)", () => 
       ...borrowedRecords.other,
     ])
       expect(restored.records.stored.get(key)).toBe(text);
+  });
+});
+
+describe("an actor record's context bindings (Restore R5; WriteAhead I3)", () => {
+  // Open: a record's context bindings are read without the identity check its own name gets, so a
+  // binding to a local actor starts one from the store.
+  it.fails("Restore R5: an actor record bound to a local actor is quarantined, and no local actor starts from it", async () => {
+    const bound =
+      '{"context":{"shopper":{"machine":"Shop/Shopper","name":"~9"}},"format":3,"graph":{"Shop/Shopper/~9":{}},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{"l9":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"name":"{\\"owner\\":\\"main\\"}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}';
+
+    const run = checked(
+      await storeStory("restore/bound-to-local")
+        .ensure(mainCart)
+        .send(mainCart, add("l1", "v1"))
+        .world(Fake.storage.put('actor/Shop/Cart/{"owner":"main"}', bound))
+        .reload({ reattach: false })
+        .ensure(mainCart)
+        .checkpoint("restored")
+        .run(),
+    );
+
+    const { restored } = run.checkpoints;
+
+    expect(restored.inspection.actors.map((a) => a.actor).filter((a) => a.includes("/~"))).toEqual(
+      [],
+    );
+    expect(restored.read(mainCart)?.memory["lines"]).toEqual({});
   });
 });
 
