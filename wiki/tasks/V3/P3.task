@@ -3971,6 +3971,29 @@ tasks
             on 2 copies x 2 workers, 600 s per tier, and tees its output to a temp-dir log named on its first line; flag
             parsing tested in verdict.test.ts (--only names stop at the next flag). Smoke-tested with --only
             fork-clock-zero; the whole list was not run.
+        comment     2026-11-18T09:43:23Z
+            Review (fdb68647..e99a57ef): ISSUES, the cut is sound and the 2 blockers are in tools/faults/run.ts. (1) A
+            timed-out or killed tier leaves vitest and its workers running: execFile kills only the vp wrapper (shown:
+            SIGTERM and SIGKILL on vp both orphan vitest.mjs plus 2 forks.js to pid 1), so an unattended --background
+            run can pile up strays; spawn detached and kill the group. Missed because no test drives the runner's
+            timeout or stop path. (2) --only credits a test already red: the unchanged run covers only the targets, so
+            when the targets miss, the whole-suite fallback counts any red outside them as the catch. Missed because
+            verdict.test.ts tests parsing, not judging. Fix: run the whole unchanged suite before that fallback, or
+            report it not judged. Non-blocking: --only=x and other unknown flags run the whole list silently, --only a
+            --only b drops b, and a duplicated name counts twice, so refuse unknown flags and duplicates; the store's
+            release and refuseHeld complete a shared Deferred with no alive check, which is safe only because reload
+            ends every held batch (fake.ts word); T16 credits its fork faults to the sweep, but fork.test.ts catches
+            them by default and the sweep only under FLOW_REPLAY_SWEEP. Clean: forkReloads saves every field the replay
+            carries (servers, store, uses, evidence, noted, checkpoints, steps, open, now), copies before mutation, and
+            starts with its reload; the shape is Effect.fn with no leaked wiring; R18, I23 and T16 read right; the
+            replay form type-checks and doubles the sweep's time under its switch; no outside imports or temporary
+            names. Gates, run alone (mediaanalysisd ~90% CPU and mds_stores ~30%, the user's): check 0; suite 0 (34.2
+            s); stress 0 (43.4 s); FLOW_REPLAY_SWEEP=true default sweep 0 (29.8 s against 13.9 s without it). Faults:
+            --only with boot-wakes-in-flight-only-swept and the 4 fork faults caught all 5; in a scratch copy the forked
+            sweep caught reload-forgets-uses and landed-write-lost, and the differential flagged fork-clock-zero at
+            shop/long. Sidecars: blind (cut) found nothing blocking; runner findings 1 and 5 accepted and reproduced, 2,
+            3, 4 and 6 accepted as non-blocking, 7 rejected (cosmetic); blind 2 and 4 rejected (no false pass), blind 1
+            is by design (the switch), blind 3 accepted as non-blocking.
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
