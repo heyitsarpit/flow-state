@@ -390,3 +390,7 @@ note 2026-11-18T10:19:52Z
 note 2026-11-18T10:47:11Z
     @spec.Compile R12: ~path and ~flow join the reserved state names, since a child state of either name overwrote its
     parent token's own field (T81 close review). Reverse: drop them from the list.
+
+note 2026-11-18T18:54:56Z
+    @spec.Actors.R25: an admit-hook throw now also goes back to its caller as a FlowError Defect; dispose still fails
+    with it. Why: Story turn limits rely on the rethrow (@task.V3.T94). Reverse: drop the rethrow in the driver's run.

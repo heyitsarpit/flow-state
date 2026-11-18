@@ -1,5 +1,6 @@
-import { Effect, Option, Predicate } from "effect";
-import { FlowError, runtimeSetup } from "../../src/index.ts";
+import { Effect, Option, Predicate, Schema } from "effect";
+import { defineConfig } from "../../src/host/testing/index.ts";
+import { definition, Flow, FlowError, runtimeSetup, transaction } from "../../src/index.ts";
 import { describe, expect, it } from "vite-plus/test";
 import {
   apps,
@@ -108,4 +109,66 @@ describe("the public surface (Diagnostics R1, R3; boundaries)", () => {
 
       expect(found.flat()).toEqual([]);
     });
+});
+
+const keep = transaction({
+  id: "Surface/keep",
+  input: { id: Schema.String },
+  key: ["id"],
+  concurrency: "reject",
+  services: [],
+  commit: () => Effect.succeed({}),
+});
+
+const Keeper = definition({
+  id: "Surface/Keeper",
+  states: ["A"],
+  events: {},
+  internalEvents: { Kept: {}, Unsure: Flow.uncertain({}) },
+  operations: ({ E }) => ({
+    keep: keep.outcomes({ success: E.Kept, failure: {}, unknown: E.Unsure }),
+  }),
+});
+
+// How a call ended: it returned, it threw a FlowError, or it threw anything else.
+const endingOf = (call: () => unknown) => {
+  try {
+    call();
+
+    return "returned";
+  } catch (error) {
+    return error instanceof FlowError ? "FlowError" : "raw";
+  }
+};
+
+const hostileValue = (name: string) => hostile.find(([named]) => named === name)?.[1]();
+
+describe("known gaps: functions handed out inside inert data and the testing route (Diagnostics R1)", () => {
+  it.fails("Diagnostics R1: a bound contract's textOfKey given null refuses with a FlowError, never a raw TypeError", () => {
+    expect(endingOf(() => Keeper.operations.keep.textOfKey(loose(null)))).not.toBe("raw");
+  });
+
+  it.fails("Diagnostics R1: an O.x.commit token's make given a trapped Proxy refuses with a FlowError, never what the trap threw", () => {
+    const token = Keeper.O.keep.commit(() => ({ id: "x" }));
+
+    expect(endingOf(() => token.make(loose(hostileValue("a trapped Proxy"))))).not.toBe("raw");
+  });
+
+  it.fails("Diagnostics R1: an O.x.retryable token's make, its times a throwing getter, refuses with a FlowError, never what the getter threw", () => {
+    const times = Object.defineProperty({}, "times", {
+      enumerable: true,
+      get: () => {
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the hostile value: reading times throws
+        throw new Error("getter times");
+      },
+    });
+
+    const token = Keeper.O.keep.retryable(loose(times));
+
+    expect(endingOf(() => token.make("at"))).not.toBe("raw");
+  });
+
+  it.fails("Diagnostics R1: the testing route's defineConfig(null) refuses with a FlowError, never a raw TypeError", () => {
+    expect(endingOf(() => defineConfig(loose(null)))).not.toBe("raw");
+  });
 });

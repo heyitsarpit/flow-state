@@ -614,6 +614,7 @@ describe("a throw from the admit hook or from a step's work (Actors R25)", () =>
         e.code === "Defect" &&
         Cause.pretty(Cause.die(e.cause)).includes("refused the step"),
     );
+    trap.admit = false;
     assert.equal(inspect(runtime).lifecycle, "Stopped");
     assert.throws(() => runtime.ensureActor(tally), flowError("RuntimeDisposed"));
     const disposed = await Effect.runPromiseExit(runtime.dispose());

@@ -363,9 +363,12 @@ requirements
     R25  A defect stops the Runtime
         source  @plan.Runtime.O3.
         must    A defect inside a step ends the Runtime's life Stopped, a final Life: no input runs
-                again, so the step's half-written world is never stepped. The defect is reported
-                once, as the Runtime's failure: `ready()` fails with it when the boot step failed,
-                and `dispose()` finishes and fails with it. Every later public call is refused
+                again, so the step's half-written world is never stepped. The defect is the
+                Runtime's failure: `ready()` fails with it when the boot step failed, and
+                `dispose()` finishes and fails with it. A throw from the admit hook is also given
+                back to the caller whose call ran it, as a FlowError Defect, and `dispose()` still
+                fails with it; a throw while a step's work is performed is not given back, as a
+                step's defect is not. Every later public call is refused
                 RuntimeDisposed, every snapshot reads lifecycle stopped, and nothing more is written,
                 so a reload restores the last landed state. The Runtime's Scope closes. Decision
                 (the user, 2026-11-17, Q21 A).

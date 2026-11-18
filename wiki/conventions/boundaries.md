@@ -34,5 +34,8 @@ inert data (a builder's result, Compiled, a bound contract, a walker) and Effect
 a handle's link live in `WeakMap`s beside them, so no caller reaches them. A new source changes this page first,
 then the code.
 
-Status: proposed design, accepted by the user (2026-11-18); not built. Source:
+Status: accepted by the user (2026-11-18); partly built. Built (@task.V3.T94): `entry` and `entryEffect` on every
+root-route function, the surface test, the lint rules, and the driver and handle links in `WeakMap`s. Parked in
+@task.V3.T98: construction's identity checks and complete decode, builders that read their arguments, functions
+handed out inside inert data, and the testing route, each red as an inverted Diagnostics R1 test. Source:
 [replan-2026-11-18.md](../plans/flow/references/proposals/replan-2026-11-18.md) section 4.

@@ -4484,3 +4484,9 @@ tasks
             routed items move there. T94 closes once the confirmed instances land as it.fails tests titled by
             Diagnostics R1, with R25's specs.log note, the admit trap disarmed and boundaries.md's status current.
             Reverse: reopen T98's items here.
+        comment     2026-11-18T18:56:26Z
+            Close round: ready to close. Nine inverted Diagnostics R1 tests, red for their stated reasons, in
+            code:packages/flow-state-v3/tests/surface/surface.test.ts (textOfKey, commit and retryable make,
+            defineConfig) and code:packages/flow-state-v3/tests/compile/authoring-gaps.test.ts (T81's three blockers:
+            now Defects, not raw throws, since the catch-all; retryable(5) still accepted). R25 text and specs.log note,
+            admit trap disarmed, boundaries.md status current. Gates: check 0/0, suite 1180 + 23 expected fail.
