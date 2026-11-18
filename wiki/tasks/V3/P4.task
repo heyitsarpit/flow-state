@@ -291,6 +291,11 @@ tasks
         comment     2026-11-16T15:15:44Z
             From T9: actor records gained 'seen' (each context slot's last-seen value) inside format 1, pre-release; if
             format 1 records from before it must be read, that is a format step for this Task.
+        comment     2026-11-18T05:36:53Z
+            Routed from @task.V3.T20 (2026-11-18): two inverted tests now name this Task, the cells parked ending and
+            the transfers second reload, both the head heard again on each restore (Restore R3). Restore R3 says once
+            and Restore I6 and WriteLanes I15 say once per incarnation; settle that first. Restore R5's new wording will
+            need R6's version rule aligned.
     T22
         title       CLI check, explain and graph
         status      draft

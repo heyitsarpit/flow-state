@@ -1217,3 +1217,8 @@ note 2026-11-18T04:59:11Z
 note 2026-11-18T05:26:59Z
     T9's user's page read and accepted (the user, 2026-11-18); T20's slice close is no longer held by it. Still open:
     the actor-to-actor send(ref, event) action.
+
+note 2026-11-18T05:36:53Z
+    T20 close review ISSUES (one blocking): decodeName accepts any ~-prefixed name, so records under a local actor's
+    name restore and run (Restore R5). Fix round waits on the user's batching call; routing comments written on T56,
+    T28.

@@ -175,6 +175,9 @@ tasks
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Host adapters: IndexedDB write latency and flush on hide in real
             browsers; each persist row names its store.
+        comment     2026-11-18T05:36:53Z
+            Routed from @task.V3.T20 (2026-11-18): session's boot-queue catalog item; nothing can be sent before ready
+            today, so it waits for the host adapters.
     T49
         title       Inspection and the flow-state/inspect route
         status      draft
