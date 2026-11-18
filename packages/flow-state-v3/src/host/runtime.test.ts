@@ -151,6 +151,39 @@ describe("Runtime", () => {
     assert.deepStrictEqual(stateOf(actor), Option.some("SET"));
   });
 
+  it.fails("Actors R14: send hands the handler the payload its Schema decodes, keys the Schema does not declare dropped", () => {
+    let seen: unknown = undefined;
+
+    const Box = definition({
+      id: "Test/Box",
+      states: ["EMPTY", "FULL"],
+      events: { Put: { n: Schema.Number } },
+    });
+
+    const box = machine(Box, ({ S }) => ({
+      default: S.EMPTY,
+      on: {
+        Put: {
+          target: S.FULL,
+          updateMemory: ({ event }) => {
+            seen = event;
+
+            return {};
+          },
+        },
+      },
+    }));
+
+    const runtime = runtimeSetup({ app: app({ id: "box", machines: { box } }) }).construct();
+    Effect.runSync(runtime.ready());
+    const actor = runtime.ensureActor(actorRef(box, "b"));
+
+    // @ts-expect-error -- a caller without types may send keys the payload Schema does not declare
+    actor.send({ _tag: "Put", n: 1, extra: "x" });
+
+    assert.deepStrictEqual(seen, { n: 1 });
+  });
+
   it("a services Layer that fails to build rejects ready() with Defect, a code of the closed list (Diagnostics R6, I5)", () => {
     const runtime = runtimeSetup({
       app: doors,

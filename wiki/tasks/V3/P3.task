@@ -2761,6 +2761,12 @@ tasks
         comment     2026-11-17T21:39:13Z
             Paused (the user's P3 order, 2026-11-18): requirements a37c5001 and fixture proof 8ae66b27 are in; the build
             resumes after T83 and T20. Resume: the rulings above, then build until the nine inverted checks pass.
+        comment     2026-11-18T10:02:32Z
+            Resumed at e8608463 (no construction file changed since a37c5001). Rulings as requirements, each an it.fails
+            red for its reason: (10) Actors R14: send hands the handler the decoded payload, extra keys dropped
+            (runtime.test.ts); (11) Diagnostics R1, R6: a throwing operations callback is one Defect at operations with
+            the thrown cause; (12) a throwing body is one Defect at body; (13) Compile R2, R4: machine(null) is
+            WrongKind at definition (construction.test.ts).
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1

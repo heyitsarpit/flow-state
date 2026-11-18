@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { Effect, Option, Result, Schema, SchemaGetter } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
@@ -819,6 +820,43 @@ describe("construction refuses every malformed form with one FlowError (Compile 
       ),
     ).toEqual([
       ["InvalidConfiguration", "UnknownEvent", ["operations", "save", "failure", "Card.Declined"]],
+    ]);
+  });
+});
+
+describe("a construction callback that throws, or no definition (Compile R2; Diagnostics R1, R6)", () => {
+  it.fails("Diagnostics R1, R6: an operations callback that throws is one FlowError Defect at operations, carrying what it threw", () => {
+    const thrown = new Error("boom");
+
+    const construct = () =>
+      definition(
+        loose({
+          id: "Compile/Throws",
+          states: ["A"],
+          events: {},
+          operations: () => {
+            throw thrown;
+          },
+        }),
+      );
+
+    expect(refusal(construct)).toEqual([["Defect", null, "operations"]]);
+    assert.throws(construct, (error) => error instanceof FlowError && error.cause === thrown);
+  });
+
+  it.fails("Diagnostics R1, R6: a machine body that throws is one FlowError Defect, carrying what it threw", () => {
+    expect(
+      refusal(() =>
+        machine(Lamp, () => {
+          throw new Error("boom");
+        }),
+      ),
+    ).toEqual([["Defect", null, "body"]]);
+  });
+
+  it.fails("Compile R2, R4: machine(null) is refused WrongKind at its definition, never a raw TypeError", () => {
+    expect(refusal(() => machine(loose(null), () => loose({})))).toEqual([
+      ["InvalidConfiguration", "WrongKind", "definition"],
     ]);
   });
 });
