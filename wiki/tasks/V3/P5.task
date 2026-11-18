@@ -316,6 +316,9 @@ tasks
             Owes (proposed, P3 close fix round): FlowError's evidence field (@plan.Diagnostics.O1; link waits on a wk
             fix); review items A18 (finding 13), A22, A23, A31, A44, A45, A46, A59, A105, test-tooling and Fake
             leftovers. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-18T20:40:33Z
+            Routed (P3 compaction, 2026-11-19): a Fake.server control call overwrites an earlier one; decide queue or
+            refuse, test-first.
     T31
         title       CLI outputs designed for people
         status      draft

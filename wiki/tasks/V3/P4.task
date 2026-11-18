@@ -127,6 +127,8 @@ tasks
             Owes (proposed, P3 close fix round): equal codec bytes on every host (@plan.Inspection.O2), hidden-tab
             resume after restore (@plan.Persistence.O4), and review item A28, a dev host workClock so SlowWork fires
             outside tests. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-18T20:40:33Z
+            Routed (P3 compaction, 2026-11-19): T85's flush-on-hide timing is measured in real browsers here.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
         status      draft
@@ -340,6 +342,9 @@ tasks
         comment     2026-11-18T20:15:24Z
             Also owes (deferred by the user's T101 cap): a WriteLanes R12 fault that sends a persisted commit when the
             Runtime has no persistence; sent-without-persistence in tests/rule-faults.ts plants a different breach.
+        comment     2026-11-18T20:40:32Z
+            Routed (P3 compaction, 2026-11-19): WriteLanes Q7's open test in tests/restore/restore.test.ts is owned here
+            (Q7 still names T20); Compile R8 (RestoreMissingInput, unbuilt) is owned here as T17 routed it, not T98.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -573,6 +578,9 @@ tasks
         comment      2026-11-16T15:38:52Z
             Fixtures first (the user, 2026-11-16): local actors through createActor with props get a fixture first; its
             Stories are this Task's first requirements.
+        comment      2026-11-18T20:40:33Z
+            Routed (P3 compaction, 2026-11-19): typed context-slot wiring has no type test (T79 left it); add one with
+            props, since both type a machine's inputs.
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
@@ -653,7 +661,7 @@ tasks
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
-        status      draft
+        status      in_progress
         priority    high
         satisfies   [@plan.Runtime.O1]
         description
@@ -924,6 +932,9 @@ tasks
         comment     2026-11-18T19:39:14Z
             Also owes (proposed, P3 close fix round): faults for the Actors gaps I29, I37, I38 and R21
             in code:wiki/tasks/V3/P3-coverage.md.
+        comment     2026-11-18T20:40:33Z
+            Routed (P3 compaction, 2026-11-19): IdentityExhausted and Actors R1's per-operation refusal had no owner;
+            both are Runtime life and land here, test-first.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer

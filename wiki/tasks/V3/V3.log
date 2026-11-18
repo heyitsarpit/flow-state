@@ -877,3 +877,6 @@ note 2026-11-18T20:15:47Z
     Phase P3 done: T101 review PASS and R18 audit PASS (e31dd806). For the user: InvariantViolation (Diagnostics O2)
     build or drop, R12 counted under the time cap, gap owners in parked T98. Next: compact P3's records, then P4 from
     T92.
+
+note 2026-11-18T20:40:34Z
+    P3 compacted (2c3798a8); its five unowned items routed to T56, T99, T29, T58, T76. P4 starts: T92 opened, lead next.
