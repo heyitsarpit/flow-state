@@ -1321,3 +1321,8 @@ note 2026-11-18T17:28:07Z
     Decision (the user, 2026-11-18): module-composer is not adopted ("its value to me is dubious"); trust work uses
     Effect Schema (Schema.brand, full decoding), small Flow-side wrappers and lint. Re-plan proposed in
     proposals/replan-2026-11-18.md; prior art in revisit.md.
+
+note 2026-11-18T17:44:33Z
+    Decision (the user, 2026-11-18): re-plan accepted (Q1 B, Q2 B, Q3 A, Q4 A, Q5 A, Q6). New: T94 boundary Task (P3,
+    before T81); T95 callback results, T96 send action, T97 (T80 moved, tombstoned) in P4. T81 and T92 rewritten; P3,
+    P4, P5 Order lines set; boundaries page added.
