@@ -892,3 +892,7 @@ note 2026-11-18T21:43:00Z
 note 2026-11-18T22:37:53Z
     T92 built, in review (0ddd7554): format 4 records, 4 Specs edited. For the user: Restore Q4 (well-formed forgeries)
     threat model. Close review started.
+
+note 2026-11-18T22:55:31Z
+    T92 close review ISSUES (01a3eb6c), 4 blocking, all T92's: renamed-key record keeps old input, held class too wide,
+    stale Spec text, filtered strings not brands. Fix round started. OpRenamed drop logged as Pending D31 for the user.

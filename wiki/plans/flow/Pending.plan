@@ -263,3 +263,10 @@ decisions
         sent. **Why:** palette stress per turn 3.84 to 0.55 ms, hide flush about 36 to 3.2 ms, identical stored bytes on
         151 Stories. **Proven by:** the proposal's measures on production, the reload sweep and run rules unchanged, and
         a hide flush timed in Chromium and Safari. Owner: @task.V3.T85. Supersedes D28.
+    D31  @plan.Persistence, @plan.Inspection.O4, @plan.Diagnostics: lanes are keyed by contract, so `OpRenamed` goes
+        **Before:** a lane is keyed by operation name; a release that renames the operation rewrites the lane to the one
+        write operation over its contract and reports `OpRenamed`. **After:** a lane is keyed by its contract id (record
+        format 4), so a renamed operation finds its lane with no rewrite and no `OpRenamed`; Persistence's rename
+        paragraph and the two proposed-name lists drop it. **Why:** with only the old name in the key the boot cannot
+        find the contract (@spec.Restore R8, revised in format 4). **Proven by:** T92's rename Story reloading under a
+        renamed operation with its lane intact. Owner: @task.V3.T92. Proposed, for the user's yes.
