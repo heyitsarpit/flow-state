@@ -369,4 +369,17 @@ export const restoreFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "local-name-restored",
+    tests: [RESTORE],
+    says: "a record under a local actor's name restores and wakes an actor",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/identity.ts",
+        find: '  if (name.startsWith(LOCAL_PREFIX)) return Result.fail("name");',
+        replace: "  if (name.startsWith(LOCAL_PREFIX)) return Result.succeed({});",
+      },
+    ],
+  },
 ];

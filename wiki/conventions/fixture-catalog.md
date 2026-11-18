@@ -273,6 +273,9 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     - [x] Records under cart names this release cannot read (an owner that is a number, a name with an extra field)
       are quarantined and reported at the boot, and no cart starts under them (Restore R5). No source. built:
       `shop/unreadable-name`.
+    - [x] Owed records under names no ref gives (a local `~` name with its actor record, an empty name, a broken
+      escape, spaces that do not name themselves back) wake no cart (Restore R5, WriteAhead I3). No source. built:
+      `shop/odd-record-names`; the same shapes are failures in `bank-planned-edges`, so stress runs draw them.
     - [x] A context consumer restored by a reload publishes once (Turn I9). built: `shop/browse` with a reload that
       attaches nothing.
 

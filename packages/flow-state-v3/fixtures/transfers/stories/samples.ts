@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
 import { account, mainCustomer, rent, savings, sendForm } from "../app.ts";
 import { Accounts } from "../server/accounts.ts";
@@ -94,6 +95,24 @@ export const orderSamples = samplesOf({
 });
 
 const rentRecord = 'actor/Bank/StandingOrder/{"order":"rent"}';
+
+const jsonText = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+
+// Owed records under names no ref gives: local names, an empty one, a broken escape, and one that
+// does not name itself back, each holding one unknown ending, as a damaged disk could leave them.
+const oddOwed = [
+  { machine: "Bank/StandingOrder", name: "~rent" },
+  { machine: "Bank/StandingOrder", name: "" },
+  { machine: "Bank/StandingOrder", name: '{"order":"\\u12"}' },
+  { machine: "Bank/StandingOrder", name: '{"order":"rent","x":1}' },
+  { machine: "Bank/Transfers", name: "~acct-1" },
+].map(({ machine, name }) =>
+  Fake.storage.put(
+    `owed/${machine}/${name}`,
+    `{"format":3,"machine":${jsonText(machine)},"name":${jsonText(name)},"rows":[{"attempt":null,"channel":"unknown","kept":false,"lane":null,"operation":"transfer","reason":"Restored","value":null}]}`,
+  ),
+);
+
 const sendT1 = { _tag: "Send", transferId: "t1", cents: 500 } as const;
 const resendT1 = { _tag: "Resend", transferId: "t1" } as const;
 const sendT2 = { _tag: "Send", transferId: "t2", cents: 900 } as const;
@@ -115,6 +134,7 @@ const plannedSamplesOf = (edges: boolean) =>
           Fake.storage.put(t1Lane, newerT1Lane),
           Fake.storage.put(acct1Record, brokenRecord),
           Fake.storage.put(rentRecord, brokenRecord),
+          ...oddOwed,
           Accounts.balance({ account: "acct-1", cents: 0 }),
         ]
       : [

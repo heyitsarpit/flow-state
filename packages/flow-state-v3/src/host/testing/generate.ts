@@ -364,7 +364,7 @@ export const quieting = (): Source => {
       return wire(held, "release", "request");
     }
 
-    if (view.heldWrites > 0) {
+    if (view.heldWrites.length > 0) {
       rounds = 0;
 
       return storage("release");
@@ -427,7 +427,7 @@ type Timer = {
  */
 export const pendingOf = (view: View) => [
   ...view.held.map((h) => `a call held at ${keyOf(h)}`),
-  ...Array.from({ length: view.heldWrites }, () => "a held write"),
+  ...Array.from({ length: view.heldWrites.length }, () => "a held write"),
   ...view
     .lanes()
     .filter((lane) => lane.state === "InFlight")
@@ -576,7 +576,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
     timers.splice(due, 1);
 
     return Option.match(timer.at, {
-      onNone: () => (view.heldWrites > 0 ? Option.some(storage("release")) : Option.none()),
+      onNone: () => (view.heldWrites.length > 0 ? Option.some(storage("release")) : Option.none()),
       onSome: (at) =>
         view.held.some((h) => keyOf(h) === keyOf(at))
           ? Option.some(wire(at, timer.word, "request"))

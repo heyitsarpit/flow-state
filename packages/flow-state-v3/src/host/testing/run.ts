@@ -139,8 +139,8 @@ const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limi
 
 /**
  * What a step source reads before it gives the next step: the calls held at the fake servers, each
- * endpoint's call count, every write batch's status, the held store writes and the Attempts each
- * acknowledges (oldest first), whether the tab's
+ * endpoint's call count, every write batch's status, the held store writes (oldest first, each as
+ * the Attempts it acknowledges), whether the tab's
  * Runtime is disposed, an actor's uses, the live consumers that read it as context, and the write
  * lanes.
  */
@@ -152,8 +152,7 @@ export type View = {
   }>;
   readonly calls: (server: AnyServer, endpoint: string) => number;
   readonly writes: ReadonlyArray<Batch["status"]>;
-  readonly heldWrites: number;
-  readonly heldAcknowledges: ReadonlyArray<ReadonlyArray<string>>;
+  readonly heldWrites: ReadonlyArray<ReadonlyArray<string>>;
   readonly disposed: boolean;
   readonly uses: (actor: ActorId) => number;
   readonly dependents: (actor: ActorId) => ReadonlyArray<ActorId>;
@@ -381,7 +380,6 @@ export const runFrom = <Names extends string>(
     calls: (server, endpoint) => fakes.calls(server, endpoint).length,
     writes: store.batches().map((b) => b.status),
     heldWrites: store.heldWrites(),
-    heldAcknowledges: store.heldAcknowledges(),
     disposed: disposed(),
     uses: (actor) => uses.get(actorKey(actor))?.count ?? 0,
     dependents: (actor) => dependentsOf(tab.built.driver.world(), actor),

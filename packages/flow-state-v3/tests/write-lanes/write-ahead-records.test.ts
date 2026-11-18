@@ -9,6 +9,7 @@ import {
 } from "../../fixtures/transfers/stories/usual.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { type Cut, Fake, Story } from "../../src/host/testing/index.ts";
+import { laneFacts } from "../checkout.ts";
 import { checked } from "../rules/rules.ts";
 
 // The fields of an actor record and a lane record these tests read (Codec R5).
@@ -72,7 +73,7 @@ describe("a Held lane whose saves are refused (WriteAhead R5, R10)", () => {
 });
 
 describe("an acknowledging write the store takes and then refuses (WriteAhead R13)", () => {
-  it("WriteAhead R13: the write is never sent and ends NotSent StorageRefused", async () => {
+  it("WriteAhead R13: the write is never sent and ends NotSent StorageRefused, with StorageFailure evidence", async () => {
     const run = checked(await refusedHeldWrite.run());
     const { acknowledging, refused } = run.checkpoints;
 
@@ -81,6 +82,7 @@ describe("an acknowledging write the store takes and then refuses (WriteAhead R1
     expect(refused.read(Bank.transfer)).toEqual([]);
     expect(refused.read(account)?.memory["notice"]).toBe("not sent StorageRefused");
     expect(refused.records.batches.map((b) => b.status)).toContain("refused");
+    expect(laneFacts(run.evidence, "StorageFailure")).toBe(1);
   });
 });
 

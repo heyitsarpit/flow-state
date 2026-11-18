@@ -506,8 +506,7 @@ export const makeStore = (
       ...loads.map(() => "storage refuseLoad never used"),
     ],
     unusedAt: () => [...next.map((p) => p.step), ...loads.map((p) => p.step)],
-    heldWrites: () => batches.filter((b) => b.batch.status === "held").length,
-    heldAcknowledges: () =>
+    heldWrites: () =>
       batches.flatMap((b) => (b.batch.status === "held" ? [b.batch.acknowledges] : [])),
   };
 };

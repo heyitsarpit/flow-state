@@ -964,6 +964,18 @@ tasks
             mis-tags its rule (it is real); the twice-skip only hides one position. Rejected: inputOfName defect
             reachable (refs are canonical; snapshot needs a ref), refusals of other writes counted as fired and tryCell
             flags (both old code), and the noted cosmetics.
+        comment     2026-11-18T05:55:22Z
+            Fix round: B-1 fixed. decodeName fails a local (~) name, so lane and owed records under one are quarantined;
+            red first as shop/odd-record-names (~5 with its actor record, empty, broken escape, spaces). Class coverage:
+            run rule WriteAhead I3 (no boot incarnates a ~ actor), now caught by the reload sweeps and that Story;
+            bank-planned-edges draws the same owed shapes, which stress runs reach but cannot wake without an actor
+            record. New fault local-name-restored.
+        comment     2026-11-18T05:55:22Z
+            Non-blocking taken: the actor-record name check dropped (unobservable); Restore R5 worded by the record's
+            identity version (specs.log); R13 StorageFailure evidence checked; the twice-skip narrowed to the store's
+            text; View.heldWrites now carries each held write's Attempts; the double-reload ratio bound replaced by 'a
+            skip only inside a hold window' (a new Story shifted shards past 10%). Gates by exit code: check 0, suite 0
+            (39 s), stress 0 (64 s), faults 0 (259 of 259). Load: mds_stores ~66%, mediaanalysisd ~55% (the user's).
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done

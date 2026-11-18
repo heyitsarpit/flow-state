@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
 import { mainCart, mainFlow, mainShopper } from "../app.ts";
 import { Carts } from "../server/carts.ts";
@@ -140,6 +141,43 @@ export const unreadableName = storeStory("shop/unreadable-name")
     Fake.storage.put(unreadableNames.lane, unreadableNames.laneText),
     Fake.storage.put(unreadableNames.actor, unreadableNames.actorText),
     Fake.storage.put(unreadableNames.owed, unreadableNames.owedText),
+  )
+  .reload({ reattach: false })
+  .checkpoint("booted")
+  .ensure(mainCart)
+  .checkpoint("restored");
+
+const jsonText = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+
+// An owed record of the cart machine under `name`, holding one unknown ending, as a damaged disk or
+// another release could leave it.
+const owedCartRecord = (name: string) => ({
+  key: `owed/Shop/Cart/${name}`,
+  text: `{"format":3,"machine":"Shop/Cart","name":${jsonText(name)},"rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}`,
+});
+
+/**
+ * Owed records under cart names no ref can give: a local actor's name (local actors never save),
+ * an empty name, a name with a broken escape, and one with spaces that does not name itself back.
+ * Beside the local one, an actor record under the same name.
+ */
+export const oddNames = {
+  owed: ["~5", "", '{"owner":"\\x"}', '{ "owner": "main" }'].map(owedCartRecord),
+  actor: "actor/Shop/Cart/~5",
+  actorText:
+    '{"context":{},"format":3,"graph":{},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{},"notice":"","owner":"5","wanted":{}},"name":"~5","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}',
+} as const;
+
+/**
+ * The main cart adds a line; then the store holds owed records under odd cart names, and the tab
+ * reloads: none of them wakes a cart, each is set aside and reported, and the main cart restores.
+ */
+export const oddRecordNames = storeStory("shop/odd-record-names")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .world(
+    ...oddNames.owed.map(({ key, text }) => Fake.storage.put(key, text)),
+    Fake.storage.put(oddNames.actor, oddNames.actorText),
   )
   .reload({ reattach: false })
   .checkpoint("booted")

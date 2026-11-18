@@ -248,3 +248,35 @@ export const recordKinds: Rule = {
     ];
   },
 };
+
+// The Runtime evidence of the step at index `n`, in order.
+const evidenceOfStep = (run: StoryRun, n: number) => {
+  const from = run.trace.events.findIndex((e) => e.record._tag === "Step" && e.record.index === n);
+  const after = from < 0 ? [] : run.trace.events.slice(from + 1);
+  const to = after.findIndex((e) => e.record._tag === "Step");
+
+  return (to < 0 ? after : after.slice(0, to)).flatMap((e) =>
+    e.record._tag === "Runtime" ? [e.record.evidence] : [],
+  );
+};
+
+/**
+ * WriteAhead I3, at every reload: a local actor never has a record, so no boot incarnates an actor
+ * under a local name (one starting `~`) from the store; only `createActor` makes one, and never
+ * during a boot.
+ */
+export const localNeverRestored: Rule = {
+  rule: "WriteAhead I3",
+  breaches: (run: StoryRun) =>
+    run.steps.flatMap((step, n) =>
+      step._tag === "reload"
+        ? evidenceOfStep(run, n).flatMap((e) =>
+            e._tag === "Incarnated" && e.actor.name.startsWith("~")
+              ? [
+                  `WriteAhead I3: the boot of the reload at step ${n} incarnated ${e.actor.machine}/${e.actor.name}, a local actor, from the store`,
+                ]
+              : [],
+          )
+        : [],
+    ),
+};

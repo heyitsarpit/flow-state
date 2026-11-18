@@ -357,3 +357,8 @@ note 2026-11-18T05:07:23Z
     @spec.Restore R5: a record whose name its machine's identity does not decode, or whose input names another actor,
     is quarantined; the boot no longer starts it with {} input (@task.V3.T20, routed from T9). Reverse: drop the clause
     and decodeName's three record checks.
+
+note 2026-11-18T05:40:50Z
+    @spec.Restore R5 (T20 fix round): the name clause covers lane and owed records under a local (~) name too, read by
+    the record's identity version, so @spec.Restore.R6's versions do not contradict it; actor records are not checked,
+    since nothing can start them. Reverse: restore the clause from 6331a3b4.

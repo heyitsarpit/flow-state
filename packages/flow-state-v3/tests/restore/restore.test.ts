@@ -4,7 +4,12 @@ import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { mainCart } from "../../fixtures/shop/app.ts";
-import { unreadableName, unreadableNames } from "../../fixtures/shop/stories/findings.ts";
+import {
+  oddNames,
+  oddRecordNames,
+  unreadableName,
+  unreadableNames,
+} from "../../fixtures/shop/stories/findings.ts";
 import { account } from "../../fixtures/transfers/app.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
@@ -255,6 +260,22 @@ describe("records under a name that does not decode (Restore R5, I10, I11; Codec
     expect(booted.records.stored.get(lane)).toBe(unreadableNames.laneText);
     expect(booted.records.stored.get(actor)).toBe(unreadableNames.actorText);
     expect(booted.records.stored.get(owed)).toBe(unreadableNames.owedText);
+    expect(restored.read(mainCart)?.memory["lines"]).toEqual({
+      l1: { quantity: 1, variantId: "v1" },
+    });
+  });
+});
+
+describe("records under names no ref gives (Restore R5; WriteAhead I3)", () => {
+  it("Restore R5: owed records under a local name, an empty name, a broken escape or a name that does not name itself back are quarantined and reported, and no actor starts under them", async () => {
+    const run = checked(await oddRecordNames.run());
+    const { booted, restored } = run.checkpoints;
+
+    expect(reports(run, 2).toSorted()).toEqual(
+      oddNames.owed.map(({ key }) => `RecordUndecodable ${key}`).toSorted(),
+    );
+    expect(booted.inspection.actors).toEqual([]);
+    expect(booted.records.stored.get(oddNames.actor)).toBe(oddNames.actorText);
     expect(restored.read(mainCart)?.memory["lines"]).toEqual({
       l1: { quantity: 1, variantId: "v1" },
     });

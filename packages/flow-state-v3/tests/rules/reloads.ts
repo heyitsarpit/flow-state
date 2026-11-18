@@ -69,37 +69,50 @@ export const contextStories: ReadonlyArray<{
 ];
 
 // The run's onContext turns, or why it could not run: a script fault a reload can cause skips it.
-export const turnsOf = async (story: Story<string>, steps: ReadonlyArray<Step>) =>
+export const turnsOf = async (
+  story: Story<string>,
+  steps: ReadonlyArray<Step>,
+  skips: (fault: StoryFailed) => boolean = skippable,
+) =>
   story.run({ steps }).then(
     (run) => reactionTurns(checked(run)),
     // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is matched.
     (fault: unknown) =>
-      fault instanceof StoryFailed && skippable(fault) ? "skipped" : `faulted: ${String(fault)}`,
+      fault instanceof StoryFailed && skips(fault) ? "skipped" : `faulted: ${String(fault)}`,
   );
+
+// The second reload's own skip: it aborted the write the first reload's boot took a storage hold
+// with, so a later storage word finds nothing held.
+const storeEmptied = (fault: StoryFailed) => fault.problem === "nothing held at the store";
 
 // The double reload at every position of every context Story. Most of what it catches breaks at
 // every position, so the usual run reloads twice only inside hold windows, where a reload aborts
 // what is held, and at the end; FLOW_EVERY_RELOAD=true runs it at every position again.
 const everyPosition = switchedOn("FLOW_EVERY_RELOAD");
 
-// The positions a context Story's first `steps` steps are reloaded twice at.
+// The positions a context Story's first `steps` steps are reloaded twice at, each with whether it
+// is inside a hold window, the only place a reload may make a run skip.
 const positionsOf = async (story: Story<string>, steps: number) => {
   const own = await story.run({ steps: story.steps.slice(0, steps) });
   const held = inHoldWindow(story, own.end.records.batches);
 
-  return Array.from({ length: steps + 1 }, (_, at) => at).filter(
-    (at) => everyPosition || held(at) || at === steps,
+  return Array.from({ length: steps + 1 }, (_, at) => ({ at, held: held(at) })).filter(
+    (p) => everyPosition || p.held || p.at === steps,
   );
 };
 
-// A double reload at one position: skipped, why its second reload heard more, or "" when it did not.
-// Either run may skip: the second reload can abort the write the first one's boot took a hold
-// with, so a later release finds nothing held.
-const doubledAt = async (story: Story<string>, ran: ReadonlyArray<Step>, at: number) => {
+// A double reload at one position: why its second reload heard more, why it skipped outside a hold
+// window, or "" when neither.
+const doubledAt = async (
+  story: Story<string>,
+  ran: ReadonlyArray<Step>,
+  { at, held }: { readonly at: number; readonly held: boolean },
+) => {
   const once = await turnsOf(story, ran.toSpliced(at, 0, reload));
-  const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload));
+  const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload), storeEmptied);
 
-  if (once === "skipped" || twice === "skipped") return "skipped";
+  if (once === "skipped" || twice === "skipped")
+    return held ? "" : `${story.id} at ${at}: skipped outside a hold window`;
 
   return `${once}${twice}`.includes("faulted") || once !== twice
     ? `${story.id} at ${at}: ${once} then ${twice}`
@@ -120,14 +133,11 @@ export const onceShard = (shard: number, of: number) => {
 
       for (const { story, steps } of shardOf(contextStories, (c) => (c.steps + 1) ** 2, shard, of))
         // oxlint-disable-next-line no-await-in-loop -- one run at a time: the Story's own run, for its holds
-        for (const at of await positionsOf(story, steps))
+        for (const position of await positionsOf(story, steps))
           // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
-          verdicts.push(await doubledAt(story, story.steps.slice(0, steps), at));
+          verdicts.push(await doubledAt(story, story.steps.slice(0, steps), position));
 
-      const skipped = verdicts.filter((v) => v === "skipped").length;
-
-      expect(verdicts.filter((v) => v !== "" && v !== "skipped")).toEqual([]);
-      expect(skipped * 10 < verdicts.length).toBe(true);
+      expect(verdicts.filter((v) => v !== "")).toEqual([]);
     },
     LIMITS.reloadSweep,
   );

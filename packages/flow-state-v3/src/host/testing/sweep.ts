@@ -127,7 +127,7 @@ const waitsOnHeld = (view: View, phase: string, actor: ActorId) =>
       (lane) =>
         lane.phase === phase &&
         lane.actor === actorKey(actor) &&
-        (view.heldAcknowledges[0] ?? []).includes(lane.attempt),
+        (view.heldWrites[0] ?? []).includes(lane.attempt),
     );
 
 // The steps of a fault given while a write stands in its phase, or none when it cannot fire there.
@@ -230,7 +230,7 @@ const tryCell = (
     }
 
     const step = !fired && stood ? waits.shift() : undefined;
-    const pointless = step?._tag === "world" && view.heldWrites === 0;
+    const pointless = step?._tag === "world" && view.heldWrites.length === 0;
 
     return step === undefined || pointless ? quietly(view) : step;
   };

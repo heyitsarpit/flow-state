@@ -98,10 +98,13 @@ requirements
                 reactions in number are read the same way. A Schema whose decode throws quarantines
                 its record as a refusal does; the boot goes on.
                 A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
-                too, as is a record whose name its machine's identity does not decode, or whose
-                decoded input names another actor: no actor ever starts under it. A quarantined record keeps its bytes 
-                until the identity writes that record
-                again: an actor's first save, an owed record's next change, a lane's cancel. Until
+                too, as is a lane or owed record whose name no ref of its identity version could
+                give: a local actor's name (local actors never save, @spec.WriteAhead.I3), a name
+                that identity does not decode, or one whose decoded input names another actor. No
+                actor ever starts under such a name; an actor record under one is never read, since
+                only a ref or such a record could start it. A quarantined record keeps its bytes
+                until the identity writes that record again: an actor's first save, an owed record's next change, a 
+                lane's cancel. Until
                 then a quarantined lane or owed record is reported RecordUndecodable at each boot;
                 its head and rows cannot be read, so none is heard, and the report stands in for
                 them.
