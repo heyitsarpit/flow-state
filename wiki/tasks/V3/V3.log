@@ -1291,3 +1291,7 @@ note 2026-11-18T10:22:33Z
 note 2026-11-18T10:41:20Z
     T81 close review ISSUES (414624d1): partly built bounds and endings, null payloads and NaN delays escape as raw
     errors. Fix round with T81's lead; construction leftovers and nested extra keys routed to revisit.md.
+
+note 2026-11-18T10:42:59Z
+    Decision (the user, 2026-11-18): upgrade Effect to 4.1.4. New T93, a Sonnet builder in its own worktree beside T81's
+    lead, as T88 was; merged at T81's next checkpoint.

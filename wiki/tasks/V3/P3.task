@@ -4187,3 +4187,42 @@ tasks
             the sweep), lint risk rejected (check 0); 4 of 8 groups read: R25 pair accepted as noted, same omission at
             two branches each able to regress alone so kept; I23 kept per lead. Noted, not routed: LIMITS.pairSweep's
             comment cites shop-store only, auth-session also runs 1,000.
+
+    T93
+        title       Effect 4.1.4: one effect copy, effect/cli and the Node platform working
+        status      in_progress
+        priority    medium
+        description
+            Effect and its packages move to 4.1.4 together, with one copy of `effect` installed, so `effect/cli` and the
+            Node platform services work.
+
+            **Why now:** `@effect/platform-node` is pinned at 4.0.0-rc.112 (the root `package.json` override of
+            `@effect/platform-node-shared`, and the frozen `packages/flow-state`), and it carries its own nested
+            `effect`, so two copies of Effect hold different service keys and `effect/cli` finds no FileSystem, Terminal
+            or ChildProcessSpawner (@task.V3.T87 hand-rolled argv parsing for this). 4.1.4 (2026-11-11) also brings
+            child-process fixes (no hang on full pipes, process-group cleanup), an `it.layer` leak fix, Schema
+            `Arbitrary` concurrency and smaller fibers. The user approved the upgrade on 2026-11-18.
+
+            **Read first:** root `package.json` (`overrides`), https://github.com/Effect-TS/effect/releases (4.0.6 to
+            4.1.4), skill:effect-api-documentation.
+
+            **Risk:** breaking changes known to touch this code: `Terminal.make` needs `size`
+            (`packages/flow-state-v3/tests/cli/cli.test.ts:72`); `Schema.Record` rejects optional index-signature values
+            (check `src/config.ts`); `Ref` and `MutableRef` compare by reference (skim `Equal.equals` uses).
+            `packages/flow-state` is frozen and is never edited: stable platform-node comes in as a root devDependency
+            instead. `effect-tsgo` and `@effect/language-service` are untested against 4.1. Moving the bench and faults
+            runner onto `effect/cli` and `ChildProcessSpawner` is a later Task.
+
+            May change: root `package.json`, `nub.lock`, `packages/flow-state-v3/` where a breaking change requires it.
+            Evidence: this Task's comments.
+
+            False pass: a nested old `effect` left under a package → caught by listing every installed `effect` copy
+            after the install.
+        acceptance
+            - `effect`, `@effect/platform-node`, `@effect/platform-node-shared` and `@effect/vitest` are pinned at
+              4.1.4; the rc.112 override is gone or scoped to the frozen package only.
+            - Exactly one copy of `effect` is used by `packages/flow-state-v3` and the root tools (listed in a comment).
+            - A small check shows `effect/cli` running with `NodeServices.layer` (FileSystem, Terminal,
+              ChildProcessSpawner found).
+            - Every breaking change that touches this code is fixed; `nub run check`, `nub run lint:rules`, the suite
+              and `nub run test:stress` exit 0; the suite's test count matches before.
