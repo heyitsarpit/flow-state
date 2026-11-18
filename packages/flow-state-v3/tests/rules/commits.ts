@@ -27,13 +27,14 @@ const accountedBy = (e: Evidence) => {
  * that open, and was not superseded or released there, is heard in a later open of its identity:
  * its saved ending, or unknown Restored. Only
  * identities started again in a later open are judged, since a disposed identity's endings wait
- * for an adopting ensure; and an Attempt whose lane record a later boot could not read is reported
- * there instead, its key held until a cancel (Restore R5).
+ * for an adopting ensure; an open whose store failed to load read nothing, so it is no later open
+ * (Restore R9); and an Attempt whose lane record a later boot could not read is reported there
+ * instead, its key held until a cancel (Restore R5).
  */
 export const acknowledgedHeardAgain: Rule = {
   rule: "WriteAhead I17",
   breaches: (run: StoryRun) => {
-    const { owner, ended, started, unread } = opensOf(run);
+    const { owner, ended, started, unread, unloaded } = opensOf(run);
 
     return run.end.records.batches.flatMap((b) =>
       b.status !== "landed"
@@ -42,7 +43,10 @@ export const acknowledgedHeardAgain: Rule = {
             const open = b.tab.open;
             const actor = owner.get(attempt) ?? "";
             const heard = [...(ended.get(attempt) ?? [])];
-            const later = [...(started.get(actor) ?? [])].filter((o) => o > open);
+
+            const later = [...(started.get(actor) ?? [])].filter(
+              (o) => o > open && !unloaded.has(o),
+            );
 
             // A lane key names its contract, not its operation, so any lane record of the identity
             // a later boot could not read may be this Attempt's.
@@ -92,7 +96,16 @@ const opensOf = (run: StoryRun) => {
     for (const attempt of leftBy(e)) addTo(ended, attempt, open);
   }
 
-  return { owner, ended, started, unread: unreadBy(run, places) };
+  // The opens whose store failed to load: they run with no persistence and read no record.
+  const unloaded = new Set(
+    run.evidence.flatMap((e, at) =>
+      e._tag === "Reported" && e.code === "StorageFailure" && e.reason === "load"
+        ? [places[at]?.open ?? 0]
+        : [],
+    ),
+  );
+
+  return { owner, ended, started, unread: unreadBy(run, places), unloaded };
 };
 
 // The records each open's boot could not read, by key.

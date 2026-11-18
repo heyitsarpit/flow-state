@@ -97,9 +97,9 @@ requirements
                 last-seen value back through its slot's Schema (one the Schema refuses, or saved
                 unknown, was never selected) and reads each reaction's baseline again from the
                 record's own slots and memory; a form no release wrote quarantines the record. A
-                lane or owed record of an older format is quarantined: format 4 keys a lane by its
-                contract, so such a lane holds no key a commit gives (a stated limit; no release
-                wrote one). Saved baselines that do not match the machine's reactions in number are
+                lane or owed record of an older format is quarantined, never stepped: no release
+                wrote one, since formats before 4 were never released. Saved baselines that do not match the machine's 
+                reactions in number are
                 read the same way. A Schema whose decode throws quarantines its record as a refusal
                 does; the boot goes on.
                 A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
