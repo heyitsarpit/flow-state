@@ -1278,3 +1278,8 @@ note 2026-11-18T09:40:57Z
 note 2026-11-18T09:59:53Z
     T90 done: review PASS (e3046fb8); suite 34 s, stress 43 s alone. Faults runner leftovers (spawn-error hang, stress
     tier in the unchanged and dead-core runs) wait for the next Task that touches it. T81 resumed.
+
+note 2026-11-18T10:08:28Z
+    Decision (the user, 2026-11-18): T88 runs now with a Sonnet builder in its own worktree, beside T81's lead (a
+    one-off exception to no worktrees and one lead at a time). Its branch merges into flow-rewrite at T81's next
+    checkpoint.
