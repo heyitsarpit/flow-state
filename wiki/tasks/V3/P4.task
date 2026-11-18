@@ -687,7 +687,13 @@ tasks
             - the proof: a generated test that corrupts one field of real saved records at a time (from the fixtures'
               Stories), needing no list of fields.
 
-            No real blocker on T81 or the boundary Task: the boot decode is internal and already uses the walker.
+            No real blocker on T81 or the boundary Task: the boot decode is internal and already uses the walker. The
+            raw-throw class is parked in @task.V3.T98 (the user, 2026-11-19): a public function throwing raw on a
+            hostile argument is out of scope here; a stored record decoding to a wrong ending is in scope.
+
+            Fixtures: no catalog step (no public feature). The review findings it lands are edge values for
+            code:wiki/conventions/fixtures.md: corrupt and forged saved records, drawn from every fixture's Stories, and
+            a step sample that forges a read operation's lane record, which no fixture offers today.
 
             May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, @spec.Restore, @spec.Codec with
             `specs.log` notes. Evidence: this Task's comments.
@@ -706,6 +712,10 @@ tasks
               harmless; the boot never fails.
             - T20's inverted Restore R5 bindings test passes; a read-operation lane record is quarantined; a headless
               lane's `queue` and `inFlight` are not read.
+            - Fixtures first (code:wiki/conventions/fixtures.md): the corrupt and forged record samples, including the
+              read-operation lane, are in the fixtures' step samples and run by every runner, before the build; the
+              proof is posted as a Task comment.
+            - Identity and key text are parsed in one place: the six hand-parsing sites the P3 close-out named are gone.
             - Restore and Codec Specs updated with `specs.log` notes; `nub run check`, the suite and stress pass; `nub
               run faults --only` catches this Task's planted faults.
         comment     2026-11-18T19:14:15Z
