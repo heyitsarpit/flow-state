@@ -60,40 +60,65 @@ Machine.is(value)                                 // object layers only: true fo
   Typed public entries (such as `definition({...})`, which needs literal inference) keep their user-facing type;
   `Raw` fits world input best.
 
-## 3. Composition proofs
+## 3. The composition: rings, written up front
 
-The intended composition is written up front, as types. It compiles only if the code makes it true; there is no
-manifest that restates the code.
+The intended composition is one file, shaped like the diagram: concentric rings, with rings side by side where
+they really are. It is a prescription people and agents read first, and a proof: it compiles only if the code
+makes it true. Every link in it is an imported value; the only strings are a ring's name and its reason.
 
 ```ts
-// composition.proof.ts
-import type { Accepts, Checked, Enters, Proof, Raw } from "checked"
-import type { App, Definition, Event, Machine, Restored } from "./src/layers.ts"
-import type * as Core from "./src/core/turn.ts"
+// composition.ts
+import { compose, ring } from "checked"
+import { App, Definition, Event, Machine, Restored } from "./src/layers.ts"     // layers (values)
+import { Body, Caller, Config, Storage } from "./src/sources.ts"              // sources: Source("storage"), …
+import * as Core from "./src/core/turn.ts"                                    // a module (value)
 
-export type Composition = Proof<[
-  Enters<typeof Definition, [config: Raw<"config">]>,                            // the outermost layer
-  Enters<typeof Machine, [definition: Checked<typeof Definition>, body: Raw<"body">]>,
-  Enters<typeof App, [machines: ReadonlyArray<Checked<typeof Machine>>]>,
-  Enters<typeof Restored, [record: Raw<"storage">]>,
-  Accepts<typeof Core, Checked<typeof Machine> | Checked<typeof Event> | Checked<typeof Restored>>,
-]>
-export const proven: Composition = true
+export default compose(
+  ring("App", "what users declare; checked once, when the app is built",
+    Definition.accepts(Config),
+    Machine.accepts(Definition, Body),
+    App.accepts(Machine),
+
+    ring("Runtime", "what callers send while the app runs",
+      Event.accepts(Machine, Caller),
+      ring("Core", "the pure turn: trusts everything it is given", Core),
+    ),
+
+    ring("World", "data from outside the process",
+      Restored.accepts(Storage),
+    ),
+  ),
+)
 ```
 
-- **`Enters<L, Args>`**: layer `L` is entered with exactly `Args`. This states the nesting order.
-- **`Accepts<M, Allowed>`**: every function module `M` exports takes only `Allowed` (and no `unknown`, `any` or
-  `Raw`). It covers future exports too, with one line.
-- **`Proof<[...]>`** is `true` when every statement holds; otherwise it is the first failure, as a readable type:
+**The vocabulary:**
 
-  ```text
-  Type 'boolean' is not assignable to type '{ failed: "peek takes a value that is not checked";
-    parameters: [raw: unknown]; }'.
-  ```
+| Word | Meaning |
+| --- | --- |
+| `ring(name, why, ...)` | a level; holds `accepts` lines, modules and inner rings; several inner rings are siblings |
+| `X.accepts(A, B, ...)` | layer `X` is entered with exactly these: checked values of layers, and raw sources |
+| a module (`Core`) | ordinary code living at this level |
+| `across(X)` | an explicit exception inside `accepts`, for a sideways or outward link (not spiked yet) |
+| `compose(...)` | the whole composition |
 
-- **Proofs compose.** An area can keep its own `*.proof.ts` beside its code, and the top-level proof includes it:
-  `Proof<[CoreProof, HostProof, Enters<…>]>`. Each area owns the claims about itself.
-- **Agents read the proof first** to learn the nesting before touching code.
+**What the proof checks:**
+
+1. **Each line is exact.** `Machine.accepts(Definition, Body)` compiles only if `Machine`'s real enter parameters
+   carry exactly a checked Definition and a raw Body. Plain values (`times: number`) are allowed; `unknown` counts
+   as unchecked. A mismatch fails on that line.
+2. **Rings.** Everything in a ring may use layers of its own ring or an enclosing ring, never a sibling or an
+   inner ring, unless marked `across(...)`.
+3. **Modules.** Every function a module exports takes only checked values its ring can see. This covers future
+   exports too, and catches `peek(raw: unknown)` (the T20 pattern).
+4. **Every layer appears.** Each `Layer(...)` registers itself; one test fails on a layer with no `accepts` line.
+   This is the only rule checked by a test rather than by types.
+
+**Two forms, kept in sync.** The package has a type-only core, `Prove<[RingT<"App", [Row<typeof Machine, [typeof
+Definition, typeof Body]>, …]>]>`, which holds the semantics. The public `ring`/`accepts`/`compose` functions are
+typed so they reduce to exactly that core, so correctness lives in one place.
+
+**Splitting.** An area can keep its own composition and the top level includes it, so inner areas own the claims
+about themselves.
 
 ## 4. Trust deep inside: pass the checked parent, or brand the field
 
@@ -144,16 +169,29 @@ decoding (a Schema) is the layer author's job.
 - **Prior art:** Rust newtypes and typestate; Haskell `newtype`; "parse, don't validate"; Effect `Schema.brand`
   and `Brand`; Zod `.brand()`.
 
-## 8. Spike result (10 minutes, scratch, not in the repo)
+## 8. Spike results (scratch, not in the repo)
 
-- The proof compiles on correct code (`tsc` 0.05 s on the spike).
-- Loosening `Machine` to take a raw object fails the proof, naming the stated and actual arguments.
-- Adding `peek(raw: unknown)` to the core fails the proof, naming `peek`.
-- `Layer.generic` keeps literal types; plain `Layer` does not, for a generic `enter`.
-- Runtime: a raw throw becomes `LayerError`; a project error passes through; `is` refuses a spread copy; hot layers
-  remember nothing.
-- Cost per call: plain 0.5 ns, hot layer about 5 ns, cold layer about 8 ns; about 0.2 % of `send`'s 3.6 µs.
-- Not measured: type-check time of `Accepts` over Flow's real modules.
+**Layers** (10 minutes): a raw throw becomes `LayerError`; a project error passes through; `is` refuses a spread
+copy; hot layers remember nothing; `Layer.generic` keeps literal types (plain `Layer` does not, for a generic
+`enter`). Cost per call: plain 0.5 ns, hot layer about 5 ns, cold layer about 8 ns: about 0.2 % of `send`'s 3.6 µs.
+
+**Rings** (about 2 minutes of building): the public form and the type-only form compile together on correct code
+(`tsc` 0.05 s). One deliberate break of each rule:
+
+| Break | Result |
+| --- | --- |
+| `Machine.accepts(Definition)`, forgetting `Body` | fails on that line: stated `Definition`, actual adds `raw:body` |
+| a World layer accepting Runtime's `Event` | fails: `"Answer reaches outside its ring"; reaches: "Event"` |
+| `peek(raw: unknown)` added to the core module | fails: `"peek takes a value its ring cannot see"` |
+| a `Layer("Forgotten", …)` with no line | the registry test reports `no line for Forgotten` |
+
+**Found, to fix before it is public:**
+
+- The messages are right but noisy: TypeScript prefixes them with the whole ring type. Failures should be string
+  literals, so the error reads as one sentence.
+- Only `accepts` errors land on their own line; ring and module errors land at `compose(`. The same parameter
+  trick inside `ring(...)` would move them to the ring.
+- Not yet spiked: `across(...)`, cycles, `Layer.generic` inside `accepts`, and type-check cost at Flow's scale.
 
 ## 9. Open questions
 
@@ -164,3 +202,5 @@ decoding (a Schema) is the layer author's job.
 4. **First adoption:** rebuild T81 on it and let T92 introduce the identifier layers (recommended), or a spike on
    two real modules first to measure `Accepts` at scale.
 5. **Skill:** fold this into the `policy-module-composition` skill as its mechanism (recommended).
+6. **Names:** `ring` for a level and `Layer` for a way in stay as they are for now (the user, 2026-11-18); `entry`
+   and `holds` (one word for both) were considered and not taken.
