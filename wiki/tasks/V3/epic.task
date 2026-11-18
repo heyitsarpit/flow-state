@@ -234,8 +234,9 @@ instructions
     - Coverage before fixes and reviews (the user, 2026-11-17): a Task's bug fixing and its review wait until the
       fixtures its catalog step names are built, with every scenario written; a bug those Stories find lands as an
       inverted test with its owner Task, and is fixed by that owner against the full coverage.
-    - A new rule is shown red on a planted fault: add the fault to `tests/faults.ts`, and `nub run faults` must catch
-      it. Plants go in a scratch copy, never the live tree.
+    - A new rule is shown red on a planted fault: add the fault to `tests/faults.ts`, and `nub run faults --only
+      <names>` must catch it; a Task plants only its own faults, by name, never the whole list. Plants go in a scratch
+      copy, never the live tree.
     - A known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks; `it.todo` is not used. A gap a
       review routes to a later Task lands as an inverted test, or as a comment on its owner Task when no fixture can
       express it yet (the user, 2026-11-12).
@@ -261,8 +262,13 @@ instructions
       run before each checkpoint commit; a builder that needs a ruling states it and keeps doing independent work.
     - Big test commands run at the end of a Task (the user, 2026-11-16): the stress runs (stress Stories, their reload
       sweeps, generated stress seeds) sit behind a flag outside the default suite; they run once at a Task's close, in
-      its review, and at a phase's close, never mid-Task. `nub run faults` runs on demand (the user, 2026-11-18): when a
-      Task changes the test tooling, the run rules or the planted faults, in that Task's review, and at a phase's close.
+      its review, and at a phase's close, never mid-Task. The whole `nub run faults` runs at most once a day (the user,
+      2026-11-18): at the first wake of the day with no lead running, and at a phase's close; never in a Task's build
+      or review.
+    - Proof has a time budget (the user, 2026-11-18): any single verification step a lead or reviewer runs (a harness, a
+      sweep, a matrix) is capped at 10 minutes; past it, it stops, reports what it has, and the orchestrator decides
+      whether more is worth it. A review runs the suite once, alone, plus the stress runs only when the Task touched
+      stress Stories or the sweeps.
     - A checkpoint is a builder commit at the end of a coherent step. At a Task's close the builder runs the stress runs
       and the generated Stories over fresh seeds; every new failure lands as a fix or an inverted test before review.
 
@@ -285,7 +291,8 @@ instructions
     - Convergence threshold 2 (the user, 2026-11-12; R35's default). Tests before convergence (the user, 2026-11-16):
       first every known behaviour of the part gets its fixtures, Stories and tests (missing fixtures built), the
       repeated class shown red; only then gather, redesign and build, so the redesign can't drop a behaviour.
-    - When `nub run faults` runs (on demand, above), a fault the tests miss lands as a run rule or a Story test.
+    - When the daily `nub run faults` misses a fault, it lands as a run rule or a Story test, owned by the Task
+      in range.
     - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
       quality is otherwise left to lint (the user, 2026-11-14).
     - A ruling is asked as two traces of the same Story, not as prose.
@@ -317,10 +324,12 @@ cadence
     follow instructions' 5-hour pacing. Only when the local hour is a multiple of 3 and the minute is under 30: start
     `nub run bench tooling --record` in the background and never wait on it; at the next wake read its rows, and if a
     test command regressed beyond noise against the previous tooling row, note it and insert a Task to make the tests
-    fast again, taken before the lead's next Task. If a Task is in review, or a review event in instructions has no
-    review covering it, and no lead is running, start one Opus lead at medium effort with its read-only Haiku sidecars,
-    one of them blind; verify its findings, route the accepted ones, and note the review. If the lead has shown no
-    activity for 100 minutes, resume it by message or replace it (R7) and note it. Otherwise write nothing."
+    fast again, taken before the lead's next Task. At the first wake of the day with no lead running: start `nub run
+    faults` in the background, never wait on it, and at the next wake route each missed fault. If a Task is in review,
+    or a review event in instructions has no review covering it, and no lead is running, start one Opus lead at medium
+    effort with its read-only Haiku sidecars, one of them blind; verify its findings, route the accepted ones, and note
+    the review. If the lead has shown no activity for 100 minutes, resume it by message or replace it (R7) and note it.
+    Otherwise write nothing."
 
     Quiet rule: a wake that finds nothing writes no note and sends no message; timings within bound are not noted.
 stops
