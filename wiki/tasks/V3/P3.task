@@ -2881,6 +2881,38 @@ tasks
             not its mark, so no downstream read is unchecked; E.X refuses a non-record payload and an explicit
             undefined. Also: computed NaN delay and machine(def, 5) tested; the Story null-send test asserts the code.
             Faults: 3 new, 10 run with --only, all caught. Gates: check 0, suite 1154 + 14.
+        comment     2026-11-18T11:21:42Z
+            Convergence review: ISSUES at 26dff407 (c035894e..26dff407). All three blockers are of the raw-throw class
+            (acceptance 1), each red on HEAD, probed with bun. (1) A handle's call arguments are unchecked and its make
+            runs unwrapped in machine(): O.save.retryable(undefined) or (null) in a guard, and retryable(f, null), throw
+            a raw TypeError (handles.ts:81, :83, via compile-body.ts:88; actions at :137); retryable(5) is accepted with
+            times undefined. Missed because the sweep corrupts token fields, never a handle's arguments. (2) machine()
+            trusts its definition by the mark ~owner (machine.ts:150): machine({ '~owner': Symbol() }) or a definition
+            with states null throws a raw TypeError (construction.ts:108 via treeOf); the class the round closed for
+            tokens, missed because the sweep never corrupts machine()'s first argument. (3) A cyclic or throwing value
+            inside the decode escapes as Effect's 'Result adapter can only return schema issues' (config.ts:291
+            findingsAgainst): cyclic states, a getter that throws on definition or body; and a user filter that throws
+            in a constant check gives 'Type guard adapter...' (construction.ts:275). Ruling (b) makes thrown user code a
+            Defect with its cause; missed because the sweep has no cyclic or throwing value. Sweep reach: 13 slots, one
+            level deep, fixture samples only; it misses machine()'s definition, the definition's top level (id, states,
+            events and internalEvents records, the operations result), the body root and states record, handle
+            arguments, elements of handler, guard and action arrays, onContext select and when, E.X.from as a send,
+            commit, retry, cancel and retryable tokens. Each was probed; only (1) to (3) fail. Fix with the round, not
+            blocking: E.X(undefined) type-checks for a field-less or all-optional event (definition.ts:96, probed with
+            tsc) but throws InvalidEvent (events.ts:62): make types and runtime agree; E.X(new Date()) passes as a
+            field-less payload; operation-checks.ts:72 reads an inherited key, so unknown ending 'constructor' adds a
+            second finding. E.X() and E.X({}) work. Routed, not T81's code (orchestrator's call, T79 or revisit.md): raw
+            throws from malformed app, runtimeSetup, actorRef, createActor, ensureActor and disposeActor arguments,
+            direct resource, transaction and outcomes calls (wrapped inside definition), send with a throwing getter or
+            Proxy; a forged Effect Schema passing FieldSchema (config.ts:14, isSchema checks a TypeId only); idle(5) and
+            lookup(undefined) accepted until run. Gates on HEAD, alone: check 0; suite 1154 + 14 xfail (none new;
+            sleep-timer's is routed); faults token-checked-by-mark, payload-not-record-admitted,
+            undefined-payload-as-none planted with --only, 3 of 3 caught; load 1.4 before, 8.3 after the suite (the
+            user's indexing, left alone). House rules clean; package.json changes are T93's. Sidecars (3 Haiku, one
+            blind), each verified. Accepted: the items above. Rejected: the hang on a baseless Schema.suspend constant
+            (Effect's own Schema.is hangs on it; no rule can decide it); schedule {} or a Date as 0 ms (Effect's
+            Duration.Input, as ruled last round); NaN cents and an empty payload field name (Schema.Number admits NaN;
+            no rule); a forged token whose make throws (closed by fixing (1)).
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
