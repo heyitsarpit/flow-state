@@ -3974,3 +3974,12 @@ tasks
             - Removed faults stay in the tree, disabled, with a comment on what each plants and how to turn it back on.
             - `nub run faults` time and the stress time, alone, before and after; the caught list is otherwise
               unchanged; `nub run check` passes.
+        comment     2026-11-18T07:19:30Z
+            Requirements (lead): (1) seeds: pairs.ts names the usual cap (1,000, with its stop) and the stress count
+            (200) once; check: every pair stress shard exits 0, which fails when a reachable phase is unfound, per
+            fixture. (2) faults list: tools/faults/run.ts gains FLOW_FAULTS_EVERY_CATCH, which runs each fault without
+            bail over every target file of its rule and prints its sorted catching tests; one run alone, groups posted
+            here; a group merges only with equal rule and equal catch set, never a whole-suite catch. (3) disabled
+            faults: a field naming the kept fault, filtered out unless FLOW_MERGED_FAULTS=true; a check that the switch
+            restores the full count. (4) times: faults and test:stress alone before and after; caught list equal minus
+            the merged names; nub run check 0.
