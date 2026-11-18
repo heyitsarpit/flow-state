@@ -192,6 +192,10 @@ tasks
         comment     2026-11-16T19:45:59Z
             Scope (the user, 2026-11-17): T57 also builds subroutine and whenAbandoned, which no Task owned; their
             fixture homes are in code:wiki/conventions/fixture-catalog.md's migration plan.
+        comment     2026-11-18T10:48:49Z
+            Routed from @task.V3.T81 (2026-11-18): Turn R14 says a negative computed delay counts as zero, but
+            core/turn.ts refuses the turn; an inverted test in tests/player/sleep-timer.test.ts names the rule.
+            Schedules are this Task's, so it owns the fix.
     T21
         title       Reads and operations (slice 5)
         status      draft
