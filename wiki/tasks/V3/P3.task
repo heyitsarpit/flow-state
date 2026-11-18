@@ -2846,6 +2846,29 @@ tasks
             step samples: a refused send fails a Story by design, so a generated run cannot carry one without a Story
             word for an expected refusal (T29's area); the class is covered by hand tests in all three apps and a
             Story test.
+        comment     2026-11-18T10:56:47Z
+            Fix-round review: ISSUES at fe825899 (44284000..fe825899). Gates run alone: check 0; suite 1139 + 14 xfail;
+            faults ending-mapper-optional, event-payload-not-record-raw, story-send-untagged-raw planted with --only, 3
+            of 3 caught by their named tests; load 2 to 11 from the user's indexing, left alone. Blocking (acceptance 1,
+            2): Ending's first member is EventToken = marked("event"), a Schema.declare that checks only the mark, so a
+            partly built ending still escapes raw (probed). { "~flow": "event" } as success, unknown or a failure throws
+            a TypeError in definition() (operation-checks.ts:15, :72) and as a schedule send in machine()
+            (compile-body.ts:249 reads it after pushing ForeignToken); with ending { event } but no from it passes
+            definition() and throws in machine() (compiled-parts.ts:28). Missed because the partial-ending tests carry
+            no mark. Fix: the token branch decodes ending whole, and the sweep adds the marked shapes at all four
+            places. Closed, probed: every unmarked partial bound (missing call is WrongKind too) and ending; NaN and
+            ±Infinity in number, tuple, object and string delays are DelayOutOfRange; a computed one refuses its turn
+            (core/turn.ts:274). send and a Story step refuse null, a number, an array, a string and no tag with
+            InvalidEvent. isBound and isEnding are gone and Bound is a Struct union. Compile R12, RESERVED and the help
+            name the same set. House rules clean. Fix with the round, not blocking: E.X of a field-less event accepts 5,
+            "x", true, [] and undefined, refusing only null (boundary.ts:541; the test uses Dim only); the bound sweep
+            omits call, identity, concurrency and the key codecs; no test of a computed NaN delay or machine(def, 5);
+            standing-order.test.ts:275 matches the message, not the code. WHOLE now reports a complete bound with one
+            bad field at the bound: accepted as the design. Sidecars (2 Haiku, one blind), each verified. Accepted: the
+            items above. Rejected: Duration.millis(NaN) and {} as 0 ms (Effect's own Duration values, no NaN left to
+            see); E.X.from as a schedule send refused ForeignToken (a FlowError, wording only); a plain-copy ending
+            accepted by operations but not reactions (older than the round); the send guard in runtime.ts and run.ts
+            (two edges, small); line comments and fixtures.md in test names (house pattern).
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
