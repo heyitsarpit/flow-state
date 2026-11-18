@@ -4353,7 +4353,7 @@ tasks
 
     T94
         title       Every public entry point refuses with a FlowError; a surface test finds any that doesn't
-        status      in_progress
+        status      review
         priority    high
         description
             Every public function Flow exports or hands out either refuses with a FlowError or is an inert builder, and
@@ -4422,3 +4422,34 @@ tasks
             Open. Fault driver-throw-stays-open. R5 (acc 5): boundaries.md rows for what moves. R6 (acc 6): check,
             suite, stress, faults --only. Fixtures: no public feature is added; the surface test reads every manifest in
             fixtures/index.ts, so a new fixture joins it; no catalog line names T94.
+        comment     2026-11-18T18:28:18Z
+            Built: R1 to R6 green (suite 1180 passed, 14 expected fail; stress 73; generated 73 and stress 49 over 20
+            fresh seeds; check 0/0); faults entry-unwrapped, stray-throw-raw, driver-throw-stays-open caught by their
+            named tests.
+        comment     2026-11-18T18:28:19Z
+            Decision: the surface walk follows own enumerable keys, stops at Flow's inert data (a builder's result,
+            Compiled, a bound contract, a walker) and Effect's own values, and treats a builder as a leaf; exported
+            error classes are Effect error constructors. Why: user callbacks live only inside that data. Reverse: enter
+            inert data and register user callbacks.
+        comment     2026-11-18T18:28:21Z
+            Decision: a Runtime's driver, inspector hook, a handle's link and a setup's config moved to WeakMaps
+            (HandleId, DriverId, InspectorId, SetupId deleted), so no caller reaches the driver; event-token admissions
+            moved to a WeakMap too. Construction's ~owner, ~token and ~flow probes stay, each with a reasoned lint
+            disable, for @task.V3.T81.
+        comment     2026-11-18T18:28:22Z
+            Decision (Actors R25): a throw from the admit hook stops the Runtime and goes back to its caller (Story turn
+            limits rely on it); a throw while performing a step's work stops it silently, as a step defect does, and
+            dispose fails with it. Reverse: drop the rethrow in driver.ts run.
+        comment     2026-11-18T18:28:23Z
+            For the user's read: builders (inert, never throw): Flow.initial, Flow.input, Flow.private, Flow.uncertain,
+            deny, Outcome.success, Outcome.failure, Outcome.unknown, Provider.select, E.X.from, O.x.commit, lookup,
+            retry, cancel, idle, retryable. No new code: every entry's catch-all is Defect; runtimeSetup now refuses
+            InvalidConfiguration at the call (a Schema decode of its config, then app's checks).
+        comment     2026-11-18T18:28:25Z
+            Scope: only the root route and what it hands out are walked (attachInspector and inspect are entries too);
+            the testing route is not walked. A contract's commit and lookup are entries; actorRef is an entry, since it
+            reads its options. Tests may import src/entry.ts (lint allowance) for the registry.
+        comment     2026-11-18T18:28:26Z
+            Extra files: tools/flow-state-lint/index.ts, rules.test.ts, imports.test.ts (no-mark-probe and its plants);
+            tests/actor-faults.ts, construction-faults.ts, structure-faults.ts (finds moved; armon-of-any-kind was
+            already stale at HEAD); src/host/refs.ts split from runtime.ts (file-size warning).
