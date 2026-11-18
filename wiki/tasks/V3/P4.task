@@ -1081,6 +1081,12 @@ tasks
               from blocking to routed, since no ending is wrong.
             - Rejected: an unknown plus a success of one Attempt; the guest test "uncaught" (the fault tool stops at the
               first red, and both tests are red by hand).
+        comment     2026-11-18T23:36:06Z
+            Convergence (orchestrator, 2026-11-19; threshold 2): decode accepting row shapes the runtime never writes
+            recurred in two reviews. Tests first: every row shape the writer can produce, and every combination it
+            can't, as samples, red where accepted. Then one design: each record and row kind is one tagged Schema that
+            the writer encodes with and the reader decodes with, so a decode accepts only what an encode produces.
+            Failure limit 2 applies after it.
 
     T95
         title       Callback results checked before they enter a turn

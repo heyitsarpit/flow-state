@@ -900,3 +900,7 @@ note 2026-11-18T22:55:31Z
 note 2026-11-18T23:18:20Z
     T92 fix round in (59dff388): all four blockers fixed, gates green. Second close review started; it checks whether a
     removed slot quarantining records breaks the R7/R8 ruling.
+
+note 2026-11-18T23:36:06Z
+    T92 second close review ISSUES (759785f6): an Attempt-with-no-lane owed row makes up an ending (same class twice, so
+    convergence: one Schema per written shape, shared by writer and reader); deep format-1 record breaks the boot.
