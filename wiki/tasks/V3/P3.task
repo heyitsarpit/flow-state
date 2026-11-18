@@ -900,6 +900,9 @@ tasks
         comment     2026-11-17T10:46:18Z
             Routed from T9's PASS review (b456aede): an undecodable restored actor name silently becomes {}; it must be
             reported or quarantined.
+        comment     2026-11-18T04:50:08Z
+            Routed from @task.V3.T83 (2026-11-18): the planted fault refused-capture-left-in-flight (WriteAhead R5) is
+            caught by no test; add a catching test as a requirement, or an inverted test titled by the rule.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
@@ -2743,7 +2746,7 @@ tasks
 
     T83
         title       Fast test commands again: suite, stress and faults with no regression from the baseline
-        status      review
+        status      done
         priority    high
         blocked_by  [@T84, @T87]
         description
@@ -2974,6 +2977,10 @@ tasks
             with mds_stores and mediaanalysisd): 254 of 255 caught. Left for routing: refused-capture-left-in-flight
             (WriteAhead R5) is missed by every test, now shown honestly; it needs a catching test or an inverted test
             with an owner Task.
+        comment     2026-11-18T04:50:07Z
+            Done by the user's call (2026-11-18): numbers accepted as the new baseline (suite 36 s, stress 61 s, faults
+            243 s alone); the review's blockers were fixed in 849bbbe2 without a re-review. The one honest miss,
+            refused-capture-left-in-flight (WriteAhead R5), goes to @task.V3.T20.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning

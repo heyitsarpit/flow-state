@@ -1204,3 +1204,7 @@ note 2026-11-18T03:51:49Z
 note 2026-11-18T04:34:18Z
     T83 close review ISSUES (f85d6994): the grace test was a fault's only catcher; the faults runner credits tests that
     already fail in the control, which hid two misses. Fix round started with T83's lead.
+
+note 2026-11-18T04:50:08Z
+    T83 done by the user's call: suite 36 s, stress 61 s, faults 243 s alone are the new baseline; the faults runner no
+    longer credits tests red without a fault (849bbbe2). T20 next.
