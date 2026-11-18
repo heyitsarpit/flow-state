@@ -4453,3 +4453,25 @@ tasks
             Extra files: tools/flow-state-lint/index.ts, rules.test.ts, imports.test.ts (no-mark-probe and its plants);
             tests/actor-faults.ts, construction-faults.ts, structure-faults.ts (finds moved; armon-of-any-kind was
             already stale at HEAD); src/host/refs.ts split from runtime.ts (file-size warning).
+        comment     2026-11-18T18:39:05Z
+            ISSUES at 1e2376e1 (independent review, 4 Haiku sidecars, one blind). Suite 1180 pass/14 expected fail, `nub
+            run check` exit 0, faults entry-unwrapped, stray-throw-raw, driver-throw-stays-open caught; acc 3, 4 and 6
+            hold. Blocking (high, owner T94; acc 1 and 2, the Task's own false pass): functions Flow hands out inside
+            inert data are public by type, unregistered, and throw raw: `definition.operations.x.textOfKey(null)`
+            TypeError, `O.x.commit(f).make(proxy)`, `O.x.retryable({get times}).make(at)`
+            (code:packages/flow-state-v3/src/contract.ts#Bound,
+            code:packages/flow-state-v3/src/definition.ts#ActionToken). Missed because the walk stops at inert data and
+            nothing checks that inert data holds no callable member; the fix adds that check for the whole class, red
+            first (take them off the public types as the driver was, or register them). Convergence: this is the third
+            instance of the raw-throw class (T81's blockers, T94's own sweep, this). Routed, same class: the testing
+            route throws raw (`defineConfig(null)` TypeError; also Story.app, generate, samplesOf, pairSweep,
+            forkReloads) and is not walked; owner T94's fix round or a new Task, the user's call on scope. Notes
+            (non-blocking): R25's admit throw is reported to the caller and to dispose, but Actors R25 still says once,
+            with no specs.log note; the admit test leaves its trap armed, so dispose fails with a second throw, not the
+            stored defect (make it throw once); acc 4 is a runtime.test.ts case, not a Story test; `run()` lost its
+            catch-all, so a throw from owesServe, the serve fork or `stopped()` would wedge `running` (reasoned);
+            boundaries.md Status still says not built; no-mark-probe misses bracket reads like `x[\"~flow\"]` (T81);
+            vite.config exempts src/entry.ts though it has no throw. Rejected: ready() dying on a dying services Layer
+            (Diagnostics R1 keeps defects distinct); Diagnostic and FlowError constructors (Effect error constructors);
+            attachInspector re-entry hang (not on a public route); frozen Map writes (TypeError by the freeze contract);
+            arity undercount (no shipped entry has default or rest params).
