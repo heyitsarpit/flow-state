@@ -298,7 +298,8 @@ const cellOf = (
  * **Details**
  *
  * The drive is the usual profile with lost answers and held and refused writes, from each seed in
- * turn until every phase is found, so a phase that only a loss or a held write opens is reached.
+ * turn until every phase in `stopAt` is found (all of `PHASES` drives every seed), so a phase that
+ * only a loss or a held write opens is reached.
  * The fault is given at the first step boundary where a write of a sampled actor stands in the
  * phase, and only if the drive's steps replayed put it there again; a lost answer loses the write's
  * own call (the held call carrying its Attempt's id, when it is its endpoint's oldest), and a
@@ -309,11 +310,16 @@ const cellOf = (
  */
 export const pairSweep = (
   samples: Samples,
-  options: { readonly properties: ReadonlyArray<Property>; readonly seeds: ReadonlyArray<number> },
+  options: {
+    readonly properties: ReadonlyArray<Property>;
+    readonly seeds: ReadonlyArray<number>;
+    readonly stopAt: ReadonlyArray<Phase["_tag"]>;
+  },
 ) => {
   const found = new Map<string, Reach>();
 
-  for (const seed of options.seeds) if (found.size < PHASES.length) reachOf(samples, seed, found);
+  for (const seed of options.seeds)
+    if (!options.stopAt.every((phase) => found.has(phase))) reachOf(samples, seed, found);
 
   return PHASES.flatMap((phase) =>
     FAULTS.map((fault) => {

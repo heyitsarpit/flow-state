@@ -69,7 +69,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "accepted-publishes-on-change",
-    tests: ["tests/transfers/transfers.test.ts"],
+    tests: ["tests/transfers/transfers.test.ts", "tests/transfers/trace.test.ts"],
     says: "an accepted transition that changes nothing publishes nothing",
     rule: "Turn I9",
     edits: [
@@ -90,7 +90,12 @@ export const structureFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/serve.ts",
         find: "      Refused: ({ code, slot }) => {\n        publish(\n          raised(",
-        replace: "      Refused: ({ code, slot }) => {\n        void (\n          raised(",
+        replace: "      Refused: ({ code, slot }) => {\n        void [\n          raised(",
+      },
+      {
+        file: "src/core/serve.ts",
+        find: "          ),\n        );\n\n        return REFUSED;",
+        replace: "          ),\n        ];\n\n        return REFUSED;",
       },
     ],
   },

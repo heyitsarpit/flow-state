@@ -46,15 +46,27 @@ const FORBIDDEN: ReadonlyArray<readonly [(c: Cell) => boolean, string]> = [
 const whyUnreachable = (r: Reach, phase: string, fault: string) =>
   FORBIDDEN.find(([forbids]) => forbids({ r, phase, fault }))?.[1] ?? "";
 
+// The seeds a drive may take; in the usual tier also the cap past which a phase the fixture can
+// reach and the drive has not found fails the sweep.
 const DRIVE_SEEDS = Array.from({ length: 1000 }, (_, n) => n + 1);
+
+// The phases a write of the fixture can stand in: those some fault is not forbidden in.
+const reachablePhases = (reachable: Reach) =>
+  PHASES.filter((phase) => FAULTS.some((fault) => whyUnreachable(reachable, phase, fault) === ""));
 
 /**
  * The pair sweep's test for one fixture: every reached cell keeps every run rule, and the cells
- * left unreached are exactly those the lifecycle rules forbid, each named with why.
+ * left unreached are exactly those the lifecycle rules forbid, each named with why. The usual tier
+ * drives seeds until every reachable phase is found; the stress tier drives all of them, so a
+ * forbidden phase a late seed would open is probed too.
  */
-const sweeps = (samples: Samples, reachable: Reach) =>
+const sweeps = (samples: Samples, reachable: Reach, tier: "usual" | "stress") =>
   it(`${samples.id}: every reachable (phase, fault) cell keeps every run rule, and the unreachable ones are named`, () => {
-    const cells = pairSweep(samples, { properties: rules, seeds: DRIVE_SEEDS });
+    const cells = pairSweep(samples, {
+      properties: rules,
+      seeds: DRIVE_SEEDS,
+      stopAt: tier === "usual" ? reachablePhases(reachable) : PHASES,
+    });
 
     const expected = PHASES.flatMap((phase) =>
       FAULTS.flatMap((fault) => {
@@ -88,9 +100,9 @@ const sweeps = (samples: Samples, reachable: Reach) =>
 
 /**
  * The pair sweeps of every manifest, split into `of` shards by position so each shard's file runs
- * beside the others; declares the sweeps of shard `shard`.
+ * beside the others; declares the sweeps of shard `shard` in a tier.
  */
-export const sweepShard = (shard: number, of: number) => {
+export const sweepShard = (tier: "usual" | "stress", shard: number, of: number) => {
   for (const [n, { samples, reach }] of manifests.flatMap((m) => m.pairs).entries())
-    if (n % of === shard) sweeps(samples, reach);
+    if (n % of === shard) sweeps(samples, reach, tier);
 };

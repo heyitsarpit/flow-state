@@ -11,11 +11,15 @@ import { optionsOf } from "../../bench/options.ts";
 import { selectBenches } from "../../bench/select.ts";
 import { batchesOf, workerArgs } from "../../bench/workers.ts";
 import { planted, runner } from "./limits-support.ts";
+import { switchedOn } from "../switches.ts";
 
 // An operation that holds the thread for `ms`, as a slow bench's run does.
 const busy = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-describe("bench limits", () => {
+// These test the bench runner (its timeouts, caps and signals), not the runtime, and wait on real
+// processes, so the usual suite leaves them out: `nub run bench:limits` runs them
+// (FLOW_BENCH_LIMITS=true).
+describe.skipIf(!switchedOn("FLOW_BENCH_LIMITS"))("bench limits", () => {
   it("a planted slow bench stops at its timeout, timed-out with the samples it took", async () => {
     const slow = bench({
       id: "turn.planted.slow.per-turn-ms",

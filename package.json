@@ -17,6 +17,7 @@
     "check:toolchain": "node ./scripts/check-toolchain.mjs",
     "bench": "node packages/flow-state-v3/bench/run.ts",
     "bench:backfill": "node packages/flow-state-v3/bench/backfill.ts",
+    "bench:limits": "FLOW_BENCH_LIMITS=true vp test run packages/flow-state-v3/tests/bench/limits",
     "faults": "node --experimental-strip-types tools/faults/verdict.test.ts && bun tools/faults/run.ts",
     "docs:build": "nub run --filter @flow-state/docs build",
     "docs:dev": "nub run --filter @flow-state/docs dev",

@@ -29,8 +29,9 @@ const band = (value: number, lo: number, hi: number) => value >= lo && value <= 
 const ANSWER_MIX = {
   ok: 35,
   fail: 10,
-  lost: 10,
+  lost: 5,
   lostButLanded: 10,
+  heldThenLost: 5,
   failButLanded: 5,
   never: 5,
   slow: 10,

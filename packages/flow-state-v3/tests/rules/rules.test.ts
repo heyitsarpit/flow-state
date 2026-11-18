@@ -2,17 +2,25 @@ import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
+import { lostThenReload } from "../../fixtures/transfers/stories/usual.ts";
 import { Evidence } from "../../src/host/inspect.ts";
-import type { StoryRun } from "../../src/host/testing/index.ts";
+import { type Cut, Step, type StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
+import { acknowledgedHeardAgain, everyCommitEndsOnce } from "./commits.ts";
+import { onlyActorsWithheld, recordKinds } from "./records.ts";
 import {
   endingChannels,
   endingDeliveredOnce,
   nothingAfterDefinite,
+  checked,
+  nothingInvokedDisposing,
   oneIdOneInput,
+  owingRestoredLive,
   publishedOnce,
+  publishedPlainData,
 } from "./rules.ts";
+import { oneStart, ownedRowsSaved } from "./starts.ts";
 import { refusedTurnIssueOnly } from "./refusals.ts";
 import { mailboxOrder } from "./mailbox.ts";
 import { unchangedPartsKept } from "./memory.ts";
@@ -286,5 +294,184 @@ describe("run rules over the fake store's batches", () => {
 
     expect(acknowledgedBeforeSent.breaches(early)).toHaveLength(1);
     expect(acknowledgedBeforeSent.breaches(late)).toEqual([]);
+  });
+});
+
+// A real run with its evidence record `at` repeated `times` times (0 removes it), in its evidence
+// and its trace alike, so each record keeps its place.
+const repeatedAt = (run: StoryRun, at: number, times: number) => {
+  const runtime = run.trace.events.flatMap((e, n) => (e.record._tag === "Runtime" ? [n] : []));
+  const n = runtime[at] ?? -1;
+  const event = run.trace.events[n];
+  const record = run.evidence[at];
+
+  return event === undefined || record === undefined
+    ? run
+    : ({
+        ...run,
+        evidence: run.evidence.toSpliced(at, 1, ...Array.from({ length: times }, () => record)),
+        trace: {
+          ...run.trace,
+          events: run.trace.events.toSpliced(n, 1, ...Array.from({ length: times }, () => event)),
+        },
+      } satisfies StoryRun);
+};
+
+// A real run whose end cut is changed by `edit`.
+const endedWith = (run: StoryRun, edit: (end: Cut) => Cut) => ({
+  ...run,
+  end: edit(run.end),
+});
+
+const owedRow = (delivery: string) => ({
+  actor: "Transfers/Account/main",
+  operation: "transfer",
+  attempt: Option.none(),
+  channel: "success",
+  reason: "success",
+  delivery,
+});
+
+describe("run rules over crafted runs, each rule seen firing", () => {
+  it("Actors R10: a row unparked outside a start is a breach; right after its Incarnated it is not", async () => {
+    const unparked = Evidence.Unparked({ operation: "pay", attempt: Option.some(attempt) });
+    const outside = await crafted([at(1)(unparked)]);
+    const started = await crafted([at(1)(Evidence.Incarnated({ actor: who })), at(1)(unparked)]);
+
+    expect(oneStart.breaches(outside)).toHaveLength(1);
+    expect(oneStart.breaches(started)).toEqual([]);
+  });
+
+  it("WriteAhead I20: a Queued row at a cut is a breach; a Kept one is not", async () => {
+    const real = await crafted([]);
+
+    const queued = endedWith(real, (end) => ({
+      ...end,
+      inspection: { ...end.inspection, owed: [owedRow("Queued")] },
+    }));
+
+    const kept = endedWith(real, (end) => ({
+      ...end,
+      inspection: { ...end.inspection, owed: [owedRow("Kept")] },
+    }));
+
+    expect(ownedRowsSaved.breaches(queued)).toHaveLength(1);
+    expect(ownedRowsSaved.breaches(kept)).toEqual([]);
+  });
+
+  it("Turn R24: a published memory field that is not plain data is a breach; JSON and a Map are not", async () => {
+    const symbol = await crafted([at(1)(published({ tag: Symbol("tag") }))]);
+    const plain = await crafted([at(1)(published({ list: ["a"], index: new Map([["a", 1]]) }))]);
+
+    expect(publishedPlainData.breaches(symbol)).toHaveLength(1);
+    expect(publishedPlainData.breaches(plain)).toEqual([]);
+  });
+
+  it("Actors I30: a call arriving at or after its open's disposeRuntime step is a breach; one before it is not", async () => {
+    const run = checked(await lostThenReload.run());
+    const disposing = { ...run, steps: [Step.disposeRuntime({ forget: false }), ...run.steps] };
+
+    expect(run.end.calls.length > 0).toBe(true);
+    expect(nothingInvokedDisposing.breaches(disposing).length > 0).toBe(true);
+    expect(nothingInvokedDisposing.breaches(run)).toEqual([]);
+  });
+
+  it("Restore I1: after a reload, an owed row of an identity with an actor record and no incarnation is a breach; with no row, or after a load the store refused, it is not", async () => {
+    const real = await crafted([]);
+    const reloaded = { ...real, steps: [Step.reload({ reattach: true, heldWrites: "abort" })] };
+
+    const asleep = endedWith(reloaded, (end) => ({
+      ...end,
+      inspection: { ...end.inspection, actors: [], owed: [owedRow("Waiting")] },
+      records: {
+        ...end.records,
+        stored: new Map([["actor/Transfers/Account/main", "{}"]]),
+      },
+    }));
+
+    const nothingOwed = endedWith(asleep, (end) => ({
+      ...end,
+      inspection: { ...end.inspection, owed: [] },
+    }));
+
+    const unloaded = {
+      ...asleep,
+      trace: {
+        ...asleep.trace,
+        events: [
+          {
+            sequence: 1,
+            tab: { name: "main", open: 2 },
+            record: TraceRecord.Step({
+              index: 0,
+              step: asleep.steps[0] ?? Step.checkpoint({ name: "-" }),
+            }),
+          },
+          {
+            sequence: 2,
+            tab: { name: "main", open: 2 },
+            record: TraceRecord.Runtime({
+              evidence: Evidence.Reported({
+                code: "StorageFailure",
+                record: Option.none(),
+                reason: "refused",
+              }),
+            }),
+          },
+        ],
+      },
+    };
+
+    expect(owingRestoredLive.breaches(asleep)).toHaveLength(1);
+    expect(owingRestoredLive.breaches(nothingOwed)).toEqual([]);
+    expect(owingRestoredLive.breaches(unloaded)).toEqual([]);
+  });
+
+  it("WriteLanes I27: an Attempt minted twice for one admitted commit is a breach; the run as it ran is not", async () => {
+    const run = checked(await lostThenReload.run());
+    const minted = run.evidence.findIndex((e) => e._tag === "Minted");
+
+    expect(minted >= 0).toBe(true);
+    expect(everyCommitEndsOnce.breaches(repeatedAt(run, minted, 2))).toHaveLength(1);
+    expect(everyCommitEndsOnce.breaches(run)).toEqual([]);
+  });
+
+  it("WriteAhead I17: an acknowledged Attempt no later open hears is a breach; heard as unknown Restored it is not", async () => {
+    const run = checked(await lostThenReload.run());
+    const restored = run.evidence.findIndex((e) => e._tag === "Ended" && e.reason === "Restored");
+
+    expect(restored >= 0).toBe(true);
+    expect(acknowledgedHeardAgain.breaches(repeatedAt(run, restored, 0))).toHaveLength(1);
+    expect(acknowledgedHeardAgain.breaches(run)).toEqual([]);
+  });
+
+  it("Codec I7: a stored key of no record kind is a breach; the Runtime's own records are not", async () => {
+    const run = checked(await lostThenReload.run());
+
+    const stray = endedWith(run, (end) => ({
+      ...end,
+      records: { ...end.records, stored: new Map([...end.records.stored, ["stray/x", "{}"]]) },
+    }));
+
+    expect(run.end.records.stored.size > 0).toBe(true);
+    expect(recordKinds.breaches(stray)).toHaveLength(1);
+    expect(recordKinds.breaches(run)).toEqual([]);
+  });
+
+  it("WriteAhead I21: an UnencodableValue naming a lane record is a breach; one naming an actor record is not", async () => {
+    const reported = (record: string) =>
+      at(1)(
+        Evidence.Reported({
+          code: "UnencodableValue",
+          record: Option.some(record),
+          reason: "nonFinite at memory.total",
+        }),
+      );
+
+    const lane = await crafted([reported("lane/Transfers/Account/main|transfer|t1")]);
+    const actor = await crafted([reported("actor/Transfers/Account/main")]);
+
+    expect(onlyActorsWithheld.breaches(lane)).toHaveLength(1);
+    expect(onlyActorsWithheld.breaches(actor)).toEqual([]);
   });
 });

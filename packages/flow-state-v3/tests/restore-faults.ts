@@ -306,7 +306,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "head-restored-not-sent",
-    tests: ["tests/transfers/transfers.test.ts", RESTORE],
+    tests: ["tests/transfers/transfers.test.ts", "tests/transfers/trace.test.ts", RESTORE],
     says: "a Held head is restored NotSent Restored, though it may have been sent",
     rule: "Restore I6",
     edits: [

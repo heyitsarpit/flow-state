@@ -308,13 +308,12 @@ export const seededStress = Story.app(shopSetup, { id: "shop/stress-36", fixture
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .send(checkout, { _tag: "Leave" })
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+  .world(Fake.storage.refuseLoad())
   .reload({ reattach: false })
   .advance("4 millis")
   .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .world(Fake.storage.hold())
   .advance("10 millis")
   .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
-  .world(Fake.storage.refuse())
   .send(checkout, { _tag: "CheckAgain" })
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
@@ -348,8 +347,6 @@ export const seededStress = Story.app(shopSetup, { id: "shop/stress-36", fixture
   .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
   .advance("56438 millis")
   .world(Fake.network.online())
-  .advance("2 minutes")
-  .world(Fake.storage.release())
   .advance("2 minutes")
   .advance("2 minutes");
 

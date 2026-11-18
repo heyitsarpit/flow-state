@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
+import { account } from "../../fixtures/transfers/app.ts";
+import { TransfersMachine } from "../../fixtures/transfers/machines/transfers.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { lostThenReload } from "../../fixtures/transfers/stories/usual.ts";
-import { Step } from "../../src/host/testing/index.ts";
+import { type Cut, Step } from "../../src/host/testing/index.ts";
 import { render, type TraceEvent, TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
 
@@ -24,9 +27,39 @@ const shown = (e: TraceEvent) =>
         : [],
   });
 
+// An account's transfer row.
+const row = (cut: Cut, transferId: string) => {
+  const snapshot = cut.read(account);
+
+  return snapshot === undefined
+    ? undefined
+    : TransfersMachine.definition.O.transfer.get(snapshot.operations, { transferId });
+};
+
 describe("A run's trace (Stories R16)", () => {
-  it("shows each step, request, ending and store write of a lost answer and a reload, in order (Stories I20)", async () => {
+  it("shows each step, request, ending and store write of a lost answer and a reload, in order (Stories I20); the lost answer reads unknown after the reload and reached the bank once (Restore R3, I6)", async () => {
     const run = checked(await lostThenReload.run());
+    const { sending, reloaded } = run.checkpoints;
+
+    expect(row(sending, "t1")).toEqual(
+      expect.objectContaining({
+        _tag: "Some",
+        value: { pending: true, uncertain: false, waiting: false, retryCount: 0 },
+      }),
+    );
+    expect(reloaded.now).toBe(5000);
+    expect(reloaded.read(Bank.transfer).map((c) => c.status)).toEqual(["held at response"]);
+    expect(Object.keys(reloaded.read(Bank).receipts)).toHaveLength(1);
+    expect(reloaded.inspection.lanes).toEqual([
+      expect.objectContaining({ contract: "Bank/transfer", state: "Held" }),
+    ]);
+    expect(row(reloaded, "t1")).toEqual(
+      expect.objectContaining({
+        _tag: "Some",
+        value: { pending: false, uncertain: true, waiting: false, retryCount: 0 },
+      }),
+    );
+    expect(reloaded.read(account)?.memory).toEqual({ notice: "check your statement" });
 
     expect(run.trace.storyId).toBe("transfers/lost-then-reload");
     expect(run.trace.events.flatMap(shown)).toEqual([

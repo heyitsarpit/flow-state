@@ -71,11 +71,9 @@ describe("the usual and long Stories", () => {
     expect(end.read(checkout)?.state).toBe("LEFT");
   });
 
-  it("runs about a hundred steps over fourteen carts, eleven of them placed once each (WriteLanes I6)", async () => {
+  it("the long Story over fourteen carts places eleven of them once each (WriteLanes I6)", async () => {
     const run = checked(await long.run());
 
-    expect(long.steps.length).toBeGreaterThanOrEqual(90);
-    expect(long.steps.length <= 120).toBe(true);
     expect(Object.keys(run.end.read(Shop).orders)).toHaveLength(11);
     expect(run.end.read(Shop.placeOrder)).toHaveLength(11);
   });

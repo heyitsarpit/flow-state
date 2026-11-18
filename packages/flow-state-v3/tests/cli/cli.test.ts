@@ -22,6 +22,7 @@ import * as testing from "../../src/host/testing/index.ts";
 import type { Step, StoryRun } from "../../src/host/testing/index.ts";
 import { render } from "../../src/host/trace.ts";
 import * as root from "../../src/index.ts";
+import { switchedOn } from "../switches.ts";
 
 type Listed = {
   readonly id: string;
@@ -36,7 +37,12 @@ const fixtures = manifests.map((m) => ({
   stories: Object.values(m.stories) satisfies ReadonlyArray<Listed>,
 }));
 
-const every = fixtures.flatMap(({ stories }) => stories);
+// The Stories `trace` and `story run` are checked on: the first of each fixture, since the CLI
+// prints whatever run it is given and one per app covers its every path; FLOW_EVERY_STORY_CLI=true
+// checks every Story of every fixture again.
+const every = fixtures.flatMap(({ stories }) =>
+  switchedOn("FLOW_EVERY_STORY_CLI") ? stories : stories.slice(0, 1),
+);
 
 const unused = Effect.die("unused");
 

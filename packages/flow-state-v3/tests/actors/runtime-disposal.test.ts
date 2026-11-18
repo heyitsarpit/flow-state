@@ -25,6 +25,7 @@ import {
   VISA,
 } from "../checkout.ts";
 import { played } from "../rules/played.ts";
+import { switchedOn } from "../switches.ts";
 
 const SYNC = { _tag: "Commit", repo: "flow" } as const;
 
@@ -205,30 +206,9 @@ describe("PAY-16 disposal (Actors R22, I29, I30, I31; WriteAhead R14)", () => {
     expect(row(reloaded)).toBeUndefined();
   });
 
-  it("PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed", async () => {
+  it("PAY-16/on-the-wire-at-the-bound-ends-unknown-disposed: a call never answered waits for the bound", async () => {
     const run = await played(
       onWire("PAY-16/on-the-wire-at-the-bound", Shop.confirm.hold())
-        .disposeRuntime()
-        .advance("4999 millis")
-        .checkpoint("within")
-        .advance("1 millis")
-        .checkpoint("bound")
-        .reload()
-        .checkpoint("reloaded"),
-    );
-
-    const pay = endings(before(run, "bound"), "pay");
-
-    expect(disposals(before(run, "within"))).toBe(0);
-    expect(disposals(before(run, "bound"))).toBe(1);
-    expect([pay.at(-1)?.channel, pay.at(-1)?.reason]).toEqual(["unknown", "Disposed"]);
-    expect(state(run.checkpoints.reloaded)).toBe("UNSURE");
-    expect(restoredOnce(run.evidence)).toBe(true);
-  });
-
-  it("PAY-16/never-answered-waits-for-the-bound", async () => {
-    const run = await played(
-      onWire("PAY-16/never-answered", Shop.confirm.hold())
         .disposeRuntime()
         .advance("4999 millis")
         .checkpoint("within")
@@ -248,6 +228,34 @@ describe("PAY-16 disposal (Actors R22, I29, I30, I31; WriteAhead R14)", () => {
     expect(restoredOnce(run.evidence)).toBe(true);
     expect(run.checkpoints.reloaded.read(Shop.confirm)).toHaveLength(1);
   });
+
+  // The same Story as the test above, whose checks it now holds; it runs again on its own with
+  // FLOW_TWIN_RUNS=true.
+  it.skipIf(!switchedOn("FLOW_TWIN_RUNS"))(
+    "PAY-16/never-answered-waits-for-the-bound",
+    async () => {
+      const run = await played(
+        onWire("PAY-16/never-answered", Shop.confirm.hold())
+          .disposeRuntime()
+          .advance("4999 millis")
+          .checkpoint("within")
+          .advance("1 millis")
+          .checkpoint("bound")
+          .reload()
+          .checkpoint("reloaded"),
+      );
+
+      const pay = endings(before(run, "bound"), "pay");
+
+      expect(disposals(before(run, "within"))).toBe(0);
+      expect(endings(before(run, "within"), "pay")).toHaveLength(0);
+      expect(disposals(before(run, "bound"))).toBe(1);
+      expect([pay.at(-1)?.channel, pay.at(-1)?.reason]).toEqual(["unknown", "Disposed"]);
+      expect(state(run.checkpoints.reloaded)).toBe("UNSURE");
+      expect(restoredOnce(run.evidence)).toBe(true);
+      expect(run.checkpoints.reloaded.read(Shop.confirm)).toHaveLength(1);
+    },
+  );
 
   it("PAY-16/dispose-waiting-resend: a re-send waiting for its capture at the disposal does not end Disposed", async () => {
     const run = await played(

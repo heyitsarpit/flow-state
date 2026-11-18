@@ -1,7 +1,8 @@
 declare module "vite-plus/test" {
   type TestBody = () => void | Promise<void>;
-  type TestApi = (name: string, body: TestBody, timeout?: number) => void;
-  type ItApi = TestApi & { readonly fails: TestApi };
+  type Declare = (name: string, body: TestBody, timeout?: number) => void;
+  type TestApi = Declare & { readonly skipIf: (condition: boolean) => Declare };
+  type ItApi = TestApi & { readonly fails: Declare };
 
   interface AsyncMatchers {
     toBe(expected: unknown): Promise<void>;

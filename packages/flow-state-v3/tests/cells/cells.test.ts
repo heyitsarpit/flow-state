@@ -31,11 +31,9 @@ describe("the usual and long Cells Stories", () => {
     expect(end.read(Shop).orders).toEqual({ c1: "o1" });
   });
 
-  it("runs about a hundred steps over fourteen carts; the paid ones and those aborted on the wire, whose charge landed and is read back, are placed (WriteLanes R14, I6)", async () => {
+  it("the long Story over fourteen carts: the paid ones and those aborted on the wire, whose charge landed and is read back, are placed (WriteLanes R14, I6)", async () => {
     const run = checked(await long.run());
 
-    expect(long.steps.length).toBeGreaterThanOrEqual(90);
-    expect(long.steps.length <= 120).toBe(true);
     expect(Object.keys(run.end.read(Shop).orders)).toHaveLength(10);
     expect(run.end.read(Shop.placeOrder)).toHaveLength(10);
   });

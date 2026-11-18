@@ -433,6 +433,25 @@ const sleepingOwed = (cut: Cut, n: number, put: ReadonlySet<string>) => {
   return [...rows, ...lanes];
 };
 
+// Whether the boot of the reload at step `n` found the store unreadable: it reported StorageFailure
+// naming no record, so the tab runs on with no persistence and restores nothing (Restore R9).
+const loadRefused = (run: StoryRun, n: number) => {
+  const from = run.trace.events.findIndex((e) => e.record._tag === "Step" && e.record.index === n);
+  const after = run.trace.events.slice(from + 1);
+  const to = after.findIndex((e) => e.record._tag === "Step");
+
+  return (
+    from >= 0 &&
+    (to < 0 ? after : after.slice(0, to)).some(
+      (e) =>
+        e.record._tag === "Runtime" &&
+        e.record.evidence._tag === "Reported" &&
+        e.record.evidence.code === "StorageFailure" &&
+        Option.isNone(e.record.evidence.record),
+    )
+  );
+};
+
 /**
  * Restore I1, at a cut taken right after a reload: an Owing identity whose actor record restores
  * is live after ready, so no identity owed an ending has an actor record and no incarnation.
@@ -444,12 +463,13 @@ const sleepingOwed = (cut: Cut, n: number, put: ReadonlySet<string>) => {
  *   fixture quarantines or resets a record, so those two are not told apart here.
  * - An Owing identity by a lane record in flight is judged by its lane record, which its start
  *   rewrites Held. Not judged: "every other record is still only a record".
+ * - A reload whose load the store refused restores nothing (Restore R9), so it is not judged.
  */
 export const owingRestoredLive: Rule = {
   rule: "Restore I1",
   breaches: (run) =>
     run.steps.flatMap((step, n) =>
-      step._tag === "reload"
+      step._tag === "reload" && !loadRefused(run, n)
         ? Option.match(cutAfter(run, n), {
             onNone: () => [],
             onSome: (cut) => sleepingOwed(cut, n, putBy(run)),

@@ -1,8 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vite-plus/test";
 import { alive, pause, planted, runner } from "./limits-support.ts";
+import { switchedOn } from "../switches.ts";
 
-describe("bench limits", () => {
+// These test the bench runner (its timeouts, caps and signals), not the runtime, and wait on real
+// processes, so the usual suite leaves them out: `nub run bench:limits` runs them
+// (FLOW_BENCH_LIMITS=true).
+describe.skipIf(!switchedOn("FLOW_BENCH_LIMITS"))("bench limits", () => {
   it("a hang and a spinner sharing a worker with healthy benches each time out at their own deadline", () => {
     const done = spawnSync(
       process.execPath,

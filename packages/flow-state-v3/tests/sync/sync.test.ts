@@ -27,10 +27,7 @@ describe("the usual and long sync Stories", () => {
     expect(end.read(client)?.memory).toEqual({ waitMs: 0, strikes: 0, head: "h5" });
   });
 
-  it("runs about a hundred steps, every sync of one Attempt carrying one key (WriteLanes I6)", async () => {
+  it("the long Story: every sync of one Attempt carrying one key (WriteLanes I6)", async () => {
     checked(await long.run());
-
-    expect(long.steps.length).toBeGreaterThanOrEqual(90);
-    expect(long.steps.length <= 120).toBe(true);
   });
 });

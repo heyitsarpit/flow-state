@@ -6,6 +6,7 @@ import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import {
   type Cell,
   type FakeWorld,
+  PHASES,
   pairSweep,
   samplesOf,
   Story,
@@ -103,6 +104,7 @@ describe("the pair sweep gives each fault to the write it drove (Testing O6)", (
     const cells = pairSweep(over("pay-peeking", PeekingShopFake, "PeekingShopFake"), {
       properties: rules,
       seeds: SEEDS,
+      stopAt: PHASES,
     });
 
     const lostAnswer = cellAt(cells, "OnWire", "lost answer");
@@ -117,6 +119,7 @@ describe("the pair sweep gives each fault to the write it drove (Testing O6)", (
     const cells = pairSweep(over("pay-first-only", FirstOnlyShopFake, "FirstOnlyShopFake"), {
       properties: rules,
       seeds: SEEDS,
+      stopAt: PHASES,
     });
 
     const onWire = cells.filter((c) => c.phase === "OnWire");

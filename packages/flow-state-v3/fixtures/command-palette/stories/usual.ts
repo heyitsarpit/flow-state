@@ -359,12 +359,12 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, goingBack)
   .send(palette, largeList)
   .send(palette, runningTheme)
+  .world(Fake.storage.refuseLoad())
   .reload({ reattach: false, heldWrites: "land" })
   .advance("4 millis")
   .send(palette, escaping)
   .advance("10 millis")
   .send(palette, typingPro)
-  .world(Fake.storage.hold())
   .send(palette, highlighting)
   .send(palette, highlighting)
   .send(palette, goingBack)
@@ -398,8 +398,6 @@ export const seededStress = Story.app(paletteSetup, {
   .send(palette, moving)
   .advance("56438 millis")
   .world(Fake.network.online())
-  .advance("2 minutes")
-  .world(Fake.storage.release())
   .advance("2 minutes")
   .advance("2 minutes");
 

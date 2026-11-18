@@ -9,7 +9,8 @@ import { syncFirst } from "../../fixtures/sync/stories/structure.ts";
 import { customerFirst } from "../../fixtures/transfers/stories/structure.ts";
 import { Step, type Story, StoryFailed, type StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "./rules.ts";
-import { shardOf, skippable, slices } from "./sweep.ts";
+import { switchedOn } from "../switches.ts";
+import { inHoldWindow, shardOf, skippable, slices } from "./sweep.ts";
 
 export const RELOADS_MS = 240_000;
 
@@ -77,41 +78,53 @@ export const turnsOf = async (story: Story<string>, steps: ReadonlyArray<Step>) 
       fault instanceof StoryFailed && skippable(fault) ? "skipped" : `faulted: ${String(fault)}`,
   );
 
+// The double reload at every position of every context Story. Most of what it catches breaks at
+// every position, so the usual run reloads twice only inside hold windows, where a reload aborts
+// what is held, and at the end; FLOW_EVERY_RELOAD=true runs it at every position again.
+const everyPosition = switchedOn("FLOW_EVERY_RELOAD");
+
+// The positions a context Story's first `steps` steps are reloaded twice at.
+const positionsOf = (story: Story<string>, steps: number) => {
+  const held = inHoldWindow(story);
+
+  return Array.from({ length: steps + 1 }, (_, at) => at).filter(
+    (at) => everyPosition || held(at) || at === steps,
+  );
+};
+
+// A double reload at one position: skipped, why its second reload heard more, or "" when it did not.
+const doubledAt = async (story: Story<string>, ran: ReadonlyArray<Step>, at: number) => {
+  const once = await turnsOf(story, ran.toSpliced(at, 0, reload));
+  const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload));
+
+  if (once === "skipped") return "skipped";
+
+  return `${once}${twice}`.includes("faulted") || once !== twice
+    ? `${story.id} at ${at}: ${once} then ${twice}`
+    : "";
+};
+
 /**
- * One shard of the test that reloads twice at every position: the context Stories whose index is
- * `shard` mod `of`. Across the shards every context Story runs at every position.
+ * One shard of the test that reloads twice: the context Stories `shardOf` gives shard `shard` of
+ * `of`, each inside its hold windows and at its end (every position under FLOW_EVERY_RELOAD).
  */
 export const onceShard = (shard: number, of: number) => {
   it(
-    "Actors R9, R19: at every position of every context Story, a second reload right after a reload hears no onContext event the first did not",
+    everyPosition
+      ? "Actors R9, R19: at every position of every context Story, a second reload right after a reload hears no onContext event the first did not"
+      : "Actors R9, R19: inside every hold window and at the end of every context Story, a second reload right after a reload hears no onContext event the first did not",
     async () => {
-      const made: Array<string> = [];
-      let variants = 0;
-      let skipped = 0;
+      const verdicts: Array<string> = [];
 
-      for (const { story, steps } of shardOf(
-        contextStories,
-        (c) => (c.steps + 1) ** 2,
-        shard,
-        of,
-      )) {
-        const ran = story.steps.slice(0, steps);
-
-        for (let at = 0; at <= ran.length; at += 1) {
-          variants += 1;
+      for (const { story, steps } of shardOf(contextStories, (c) => (c.steps + 1) ** 2, shard, of))
+        for (const at of positionsOf(story, steps))
           // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
-          const once = await turnsOf(story, ran.toSpliced(at, 0, reload));
-          // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
-          const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload));
+          verdicts.push(await doubledAt(story, story.steps.slice(0, steps), at));
 
-          if (once === "skipped") skipped += 1;
-          else if (`${once}${twice}`.includes("faulted") || once !== twice)
-            made.push(`${story.id} at ${at}: ${once} then ${twice}`);
-        }
-      }
+      const skipped = verdicts.filter((v) => v === "skipped").length;
 
-      expect(made).toEqual([]);
-      expect(skipped * 10 < variants).toBe(true);
+      expect(verdicts.filter((v) => v !== "" && v !== "skipped")).toEqual([]);
+      expect(skipped * 10 < verdicts.length).toBe(true);
     },
     RELOADS_MS,
   );

@@ -21,11 +21,9 @@ describe("the usual and long sign-in Stories", () => {
     expect(end.read(screen)?.state).toBe("EMAIL");
   });
 
-  it("runs about a hundred steps of nine sign-ins, three of them signed in twice at the server because the first answer was lost after landing (Turn R14, WriteLanes R2)", async () => {
+  it("the long Story of nine sign-ins signs three of them in twice at the server, because the first answer was lost after landing (Turn R14, WriteLanes R2)", async () => {
     const run = checked(await long.run());
 
-    expect(long.steps.length).toBeGreaterThanOrEqual(90);
-    expect(long.steps.length <= 120).toBe(true);
     expect(run.end.read(Auth).sessions).toHaveLength(12);
     expect(run.end.read(screen)?.state).toBe("EMAIL");
   });

@@ -8,14 +8,14 @@
 // past the buffer, a run with no summary, or one whose summary shows no failed test is reported as
 // such and is never caught (tools/faults/verdict.ts, checked by verdict.test.ts before every run).
 // It exits 1 when the unchanged tests fail, a fault is missed, stale or not judged, or a target
-// file is missing, so a fault the tests stop catching shows; it is never a CI gate. Up to eight
-// copies run at once, each its own scratch directory, removed at the end, on failure, or when the
-// run is stopped.
+// file is missing, so a fault the tests stop catching shows; it is never a CI gate. Copies sized
+// to the cores and memory (below) run at once, each its own scratch directory, removed at the
+// end, on failure, or when the run is stopped.
 //
 //   bun tools/faults/run.ts
 import { type ChildProcess, execFile } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { availableParallelism, tmpdir, totalmem } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { type Fault, faults } from "../../packages/flow-state-v3/tests/faults.ts";
 import { applyEdits, failedTestsOf, type Run, summaryOf, verdictOf } from "./verdict.ts";
@@ -23,8 +23,19 @@ import { applyEdits, failedTestsOf, type Run, summaryOf, verdictOf } from "./ver
 const repo = resolve(import.meta.dirname, "..", "..");
 const pkg = "packages/flow-state-v3";
 const skipped = new Set(["node_modules", "prototypes"]);
-const COPIES = 8;
+// Each copy runs vitest with WORKERS workers, and copies x workers is about the core count, so a
+// run is never starved into its timeout. A worker peaks near 2 GiB (the deep-value tests, measured
+// with `/usr/bin/time -l`), so memory bounds the copies too. Two at least: the unchanged run and
+// the dead core.
+const WORKERS = 3;
+const WORKER_PEAK = 2 * 1024 ** 3;
+const COPIES = Math.max(
+  2,
+  Math.min(Math.floor(availableParallelism() / WORKERS), Math.floor(totalmem() / (WORKERS * WORKER_PEAK))),
+);
 const RUN_MS = 240_000;
+const FAILS_REPORTER = resolve(import.meta.dirname, "fails-reporter.ts");
+const EXPECTED_FAIL = "expected fail: ";
 const BUFFER = 256 * 1024 * 1024;
 
 type Edit = Fault["edits"][number];
@@ -50,23 +61,40 @@ const makeCopy = () => {
   cpSync(resolve(repo, pkg), join(root, pkg), { recursive: true, filter: (file) => !skipped.has(basename(file)) });
   writeFileSync(
     join(root, "vite.config.ts"),
-    'import { defineConfig } from "vite-plus";\nexport default defineConfig({ test: { include: ["packages/**/*.test.ts"] } });\n',
+    [
+      'import { configDefaults, defineConfig } from "vite-plus";',
+      "// FLOW_FAULTS_TIER picks the usual tests or the stress files; named files run in either.",
+      'const tier = process.env["FLOW_FAULTS_TIER"];',
+      'const stress = "packages/**/*.stress.test.ts";',
+      "export default defineConfig({",
+      "  test: {",
+      '    include: [tier === "stress" ? stress : "packages/**/*.test.ts"],',
+      '    exclude: [...configDefaults.exclude, ...(tier === "usual" ? [stress] : [])],',
+      "  },",
+      "});",
+      "",
+    ].join("\n"),
   );
-  writeFileSync(join(root, "package.json"), '{ "name": "scratch", "private": true, "type": "module", "workspaces": ["packages/*"] }\n');
+  // The workspace's scripts too: the tooling benches' proofs check that `nub run` lists them.
+  const { scripts } = JSON.parse(readFileSync(resolve(repo, "package.json"), "utf8")) as { readonly scripts: unknown };
+  writeFileSync(
+    join(root, "package.json"),
+    `${JSON.stringify({ name: "scratch", private: true, type: "module", workspaces: ["packages/*"], scripts }, null, 2)}\n`,
+  );
   cpSync(resolve(repo, "tsconfig.base.json"), join(root, "tsconfig.base.json"));
   symlinkSync(resolve(repo, "node_modules"), join(root, "node_modules"));
 
   return root;
 };
 
-// Runs the given test files of a copy, or its whole suite when none are given.
-const run = (root: string, files: ReadonlyArray<string>, flags: ReadonlyArray<string> = []) =>
+// Runs some test files of a copy, or the whole tree when none are given, in one tier.
+const runTier = (root: string, files: ReadonlyArray<string>, tier: "all" | "usual" | "stress", flags: ReadonlyArray<string>) =>
   new Promise<Run>((done) => {
     const paths = files.length === 0 ? [pkg] : files.map((file) => join(pkg, file));
     const child = execFile(
       resolve(repo, "node_modules/.bin/vp"),
-      ["test", "run", ...paths, ...flags],
-      { cwd: root, encoding: "utf8", timeout: RUN_MS, maxBuffer: BUFFER },
+      ["test", "run", ...paths, `--maxWorkers=${WORKERS}`, ...flags],
+      { cwd: root, encoding: "utf8", timeout: RUN_MS, maxBuffer: BUFFER, env: { ...process.env, FLOW_FAULTS_TIER: tier } },
       (error, stdout, stderr) => {
         children.delete(child);
         const out = `${stdout}${stderr}`;
@@ -82,6 +110,21 @@ const run = (root: string, files: ReadonlyArray<string>, flags: ReadonlyArray<st
 
     children.add(child);
   });
+
+// Runs the given test files of a copy, or its whole suite when none are given: the usual tests,
+// then the stress files, each its own run under its own timeout, as `nub run test` and
+// `nub run test:stress` are. A bailing run stops after a tier that failed.
+const run = async (root: string, files: ReadonlyArray<string>, flags: ReadonlyArray<string> = []): Promise<Run> => {
+  if (files.length > 0) return runTier(root, files, "all", flags);
+  const usual = await runTier(root, [], "usual", flags);
+
+  if (usual.kind === "broken" || (!usual.passed && flags.includes("--bail=1"))) return usual;
+  const stress = await runTier(root, [], "stress", flags);
+
+  if (stress.kind === "broken") return { kind: "broken", why: `stress files ${stress.why}` };
+
+  return { kind: "ran", passed: usual.passed && stress.passed, out: `${usual.out}\n${stress.out}` };
+};
 
 // A fault's verdict over some files: the run stops at its first failing test, and a stopped run
 // that lost its failed test's report runs again whole.
@@ -126,15 +169,14 @@ const DEAD_CORE: Edit = {
   replace: "  if (machines.size >= 0) return { world: world0, commands: [], evidence: [] };\n  const tx = makeTx(machines, world0, env);",
 };
 
-// Tests a dead core may leave green: a contract test of a port fake runs no core, an inverted
-// test, titled by the rule it breaks ("Turn I9: ..."), passes on any failure, and a CLI test
+// Tests a dead core may leave green: a contract test of a port fake runs no core, and a CLI test
 // compares the CLI with a direct run of the same core, so a dead core changes both sides; the CLI's
 // own faults are planted in tests/tooling-faults.ts. A test beside the code in src/ tests a part
 // other than the step (the lane table, the platform's seed, the bootstrap), which the dead core
-// leaves alone.
+// leaves alone. A gap marker declared with `it.fails` passes on any failure; fails-reporter.ts
+// names each, and they are counted apart.
 const mayStayGreen = [
   /\.contract\.test\.ts > /u,
-  / > [A-Z][A-Za-z]+ [RIT]\d+: /u,
   /tests\/cli\/[^ ]+\.test\.ts > /u,
   /flow-state-v3\/src\/[^ ]+\.test\.ts > /u,
   // Reads the package's source and runs no core: who builds reports, rows and writes, and names.
@@ -146,7 +188,7 @@ const mayStayGreen = [
 
 const deadCore = async (root: string) => {
   const ok = await planted(root, [DEAD_CORE], async () => {
-    const result = await run(root, [], ["--reporter=verbose"]);
+    const result = await run(root, [], ["--reporter=verbose", `--reporter=${FAILS_REPORTER}`]);
 
     if (result.kind === "broken") {
       console.log(`dead core: NOT JUDGED (${result.why})`);
@@ -155,10 +197,15 @@ const deadCore = async (root: string) => {
       return;
     }
 
-    const green = result.out.split("\n").filter((line) => line.includes("✓"));
+    const lines = result.out.split("\n");
+    const markers = new Set(lines.flatMap((line) => (line.startsWith(EXPECTED_FAIL) ? [line.slice(EXPECTED_FAIL.length)] : [])));
+    const marker = (line: string) => markers.has(line.trim().replace(/^✓ /u, "").replace(/ \d+ms$/u, ""));
+    const green = lines.filter((line) => line.includes("✓") && !marker(line));
     const unexplained = green.filter((line) => !mayStayGreen.some((allowed) => allowed.test(line)));
 
-    console.log(`dead core: ${summaryOf(result.out) ?? "no test summary"}; still green: ${green.length}`);
+    console.log(
+      `dead core: ${summaryOf(result.out) ?? "no test summary"}; still green: ${green.length}, besides ${markers.size} it.fails gap markers`,
+    );
 
     for (const line of green) console.log(`  ${unexplained.includes(line) ? "UNEXPLAINED " : ""}${line.trim()}`);
 

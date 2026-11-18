@@ -294,6 +294,7 @@ export const seededStress = Story.app(workspaceSetup, {
   .send(coreTeam, coreName)
   .send(guestSession, retry)
   .send(coreTeam, coreName)
+  .world(Fake.storage.refuseLoad())
   .reload({ reattach: false })
   .advance("4 millis")
   .send(guestSession, signInBob)

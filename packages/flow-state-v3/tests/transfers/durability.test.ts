@@ -14,6 +14,7 @@ import {
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
+import { switchedOn } from "../switches.ts";
 
 const OWED = "owed/Bank/Transfers/acct-1";
 
@@ -61,7 +62,7 @@ const refused = (run: StoryRun, open: number) =>
   inOpen(run, open).filter((e) => e._tag === "Issue" && e.code === "InvalidTurn").length;
 
 describe("large owed values (Codec R1, R5; WriteAhead I21)", () => {
-  it("Codec R1: every receipt is saved whole, 2.9 MB in one owed record, nothing is reported, and the account hears all fourteen after a reload", async () => {
+  it("Codec R1, R5: every receipt is saved whole, 2.9 MB in one owed record, nothing is reported, and the account hears all fourteen after a reload with no refused turn", async () => {
     const run = checked(await largeReceipts.run());
     const { owed } = run.checkpoints;
 
@@ -74,13 +75,19 @@ describe("large owed values (Codec R1, R5; WriteAhead I21)", () => {
     ]);
     expect(reports(run, 1)).toEqual([]);
     expect(heardDone(run, 2)).toBe(14);
-  });
-
-  it("Codec R5: large endings are heard with no refused turn", async () => {
-    const run = checked(await largeReceipts.run());
-
     expect(refused(run, 2)).toBe(0);
   });
+
+  // The same Story's own run of the refused-turn check, now asserted by the test above; it
+  // runs again on its own with FLOW_TWIN_RUNS=true.
+  it.skipIf(!switchedOn("FLOW_TWIN_RUNS"))(
+    "Codec R5: large endings are heard with no refused turn",
+    async () => {
+      const run = checked(await largeReceipts.run());
+
+      expect(refused(run, 2)).toBe(0);
+    },
+  );
 });
 
 describe("an owed ending with no saved form (Codec R4, R5; WriteAhead R4)", () => {

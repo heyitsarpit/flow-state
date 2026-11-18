@@ -39,6 +39,7 @@ type Answer =
   | "fail"
   | "lost"
   | "lostButLanded"
+  | "heldThenLost"
   | "failButLanded"
   | "never"
   | "slow"
@@ -93,8 +94,9 @@ const ANSWERS: Record<Drawing, Table<Answer>> = {
   stress: [
     ["ok", 35],
     ["fail", 10],
-    ["lost", 10],
+    ["lost", 5],
     ["lostButLanded", 10],
+    ["heldThenLost", 5],
     ["failButLanded", 5],
     ["never", 5],
     ["slow", 10],
@@ -300,7 +302,7 @@ const wire = (
     words: [WorldWord.wire({ server: at.server, endpoint: at.endpoint, word, at: where })],
   });
 
-const storage = (word: "hold" | "refuse" | "release") =>
+const storage = (word: "hold" | "refuse" | "release" | "refuseLoad") =>
   Step.world({ words: [WorldWord.storage({ word })] });
 
 const network = (word: "offline" | "online") =>
@@ -362,6 +364,7 @@ const armedSteps = (pools: Pools, at: Endpoint, answer: Answer, n: number) => {
     reordered: () => hold,
     late: () => hold,
     never: () => hold,
+    heldThenLost: () => hold,
     fail: () => Option.toArray(Option.map(pickSlot(pools.failures, n), control)),
     failButLanded: () =>
       Option.match(pickSlot(pools.landedFailures, n), {
@@ -379,6 +382,7 @@ const armedSteps = (pools: Pools, at: Endpoint, answer: Answer, n: number) => {
 const delayOf = (answer: Answer, at: number) => {
   const delays: Partial<Record<Answer, () => number>> = {
     latency: () => (at < 20 ? span(2000, 5000, at * 50) : span(50, 800, at)),
+    heldThenLost: () => span(50, 800, at),
     slow: () => span(1000, 90_000, at),
     late: () => span(61_000, 120_000, at),
   };
@@ -386,10 +390,14 @@ const delayOf = (answer: Answer, at: number) => {
   return Option.map(Option.fromUndefinedOr(delays[answer]), (delay) => delay());
 };
 
+// How a held answer ends when its delay passes: released, or lost on its way back.
+const endOf = (answer: Answer) => (answer === "heldThenLost" ? "lose" : "release");
+
 type Timer = {
   readonly due: number;
   readonly at: Option.Option<Endpoint>;
   readonly afterCalls: number;
+  readonly word: "release" | "lose";
 };
 
 /**
@@ -463,10 +471,20 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
       const delay = delayOf(before.answer, digit(DELAY));
 
       if (Option.isSome(delay))
-        timers.push({ due: now + delay.value, at: Option.some(at), afterCalls: 0 });
+        timers.push({
+          due: now + delay.value,
+          at: Option.some(at),
+          afterCalls: 0,
+          word: endOf(before.answer),
+        });
 
       if (before.answer === "reordered")
-        timers.push({ due: Number.POSITIVE_INFINITY, at: Option.some(at), afterCalls: calls + 1 });
+        timers.push({
+          due: Number.POSITIVE_INFINITY,
+          at: Option.some(at),
+          afterCalls: calls + 1,
+          word: "release",
+        });
     }
 
     const offlineAnswer: Answer = digit(ANSWER) % 2 === 0 ? "lost" : "never";
@@ -504,6 +522,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
         due: now + span(50, 800, mix(digits[2], salt)),
         at: Option.none(),
         afterCalls: 0,
+        word: "release",
       });
 
     landOnReload = landOnReload || Option.exists(writes, (w) => w.write === "land");
@@ -538,7 +557,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
       onNone: () => (view.heldWrites > 0 ? Option.some(storage("release")) : Option.none()),
       onSome: (at) =>
         view.held.some((h) => keyOf(h) === keyOf(at))
-          ? Option.some(wire(at, "release", "request"))
+          ? Option.some(wire(at, timer.word, "request"))
           : Option.none(),
     });
   };
@@ -592,9 +611,15 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
         const heldWrites = landOnReload ? "land" : "abort";
         landOnReload = false;
 
-        return [Step.reload({ reattach: b % 2 === 0, heldWrites })];
+        const reload = Step.reload({ reattach: b % 2 === 0, heldWrites });
+
+        // In a stress run one reload in four finds the store unreadable, so the tab runs on with no
+        // persistence.
+        return drawing === "stress" && b % 4 === 3 ? [storage("refuseLoad"), reload] : [reload];
       },
-      disposeRuntime: () => (live ? [Step.disposeRuntime({ forget: false })] : []),
+      // In a stress run every other disposal forgets the Runtime's records too.
+      disposeRuntime: () =>
+        live ? [Step.disposeRuntime({ forget: drawing === "stress" && b % 2 === 1 })] : [],
       // An app closes a provider's consumers before it: the Runtime refuses it while they are bound.
       disposeActor: () =>
         live

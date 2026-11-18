@@ -12,6 +12,7 @@ import {
   app,
   definition,
   Flow,
+  FlowError,
   machine,
   Outcome,
   runtimeSetup,
@@ -166,6 +167,12 @@ describe("actor names of any depth (Codec R1, R4; Actors R2)", () => {
   );
 
   it("Codec R4: a name with no JSON text the host can write (100,000 deep through JSON.stringify) is refused as a FlowError, never another error", () => {
-    expect(() => actorRef(AlbumMachine, { tree: foldersOf(DEEP) })).not.toThrow(RangeError);
+    const album = actorRef(AlbumMachine, { tree: foldersOf(DEEP) });
+
+    const ensure = () =>
+      Story.app(albumSetup, { id: "deep/album-unwritable", fixtures: [] }).ensure(album);
+
+    expect(ensure).toThrow(FlowError);
+    expect(ensure).toThrow("SchemaValidation: the input of Deep/Album has no encoded form");
   });
 });

@@ -44,29 +44,52 @@ const wordsOf = (story: Story<string>) =>
     step._tag === "world" ? step.words.map((word) => ({ word, n })) : [],
   );
 
-// Each hold paired with the release that answers it, oldest first per endpoint or the store.
+// Each hold paired with the release that answers it, oldest first per endpoint or the store; a
+// reload ends every held write, landing or aborting it, so it answers every storage hold still open.
 const windowsOf = (story: Story<string>) => {
   const open = new Map<string, Array<number>>();
 
-  return wordsOf(story).flatMap(({ word, n }) => {
+  const answered = (word: WorldWord, n: number) => {
     const slot = slotOf(word);
 
     if (opens(word)) open.set(slot, [...(open.get(slot) ?? []), n]);
     const held = closes(word) ? open.get(slot)?.shift() : undefined;
 
     return held === undefined ? [] : [[held, n] as const];
+  };
+
+  return story.steps.flatMap((step, n) => {
+    if (step._tag === "world") return step.words.flatMap((word) => answered(word, n));
+
+    if (step._tag !== "reload") return [];
+    const held = open.get("storage") ?? [];
+    open.delete("storage");
+
+    return held.map((from) => [from, n] as const);
   });
+};
+
+/**
+ * Whether a reload at position `at` of a Story falls inside a hold window: after a hold and no
+ * later than the release that answers it (a wire hold to its endpoint's release or lose, oldest
+ * first; a storage hold to a storage release or the reload that ends the held write).
+ */
+export const inHoldWindow = (story: Story<string>) => {
+  const windows = windowsOf(story);
+
+  return (at: number) => windows.some(([from, to]) => from < at && at <= to);
 };
 
 /**
  * The reload positions of a Story a reload may make it skip: those inside a window from a hold to
  * the release that answers it (a wire hold to its endpoint's release or lose, oldest first; a
- * storage hold to a storage release), where the reload aborts what the release then finds missing.
+ * storage hold to a storage release or the reload that ends the held write), where the reload aborts
+ * what the release then finds missing.
  * A reload that attaches nothing may also come before any hold, drop or refuse, which the app,
  * never woken, may then not use. A reload anywhere else must run.
  */
 export const skipBound = (story: Story<string>, reattach: boolean) => {
-  const windows = windowsOf(story);
+  const held = inHoldWindow(story);
 
   const lastWord = Math.max(
     -1,
@@ -74,7 +97,7 @@ export const skipBound = (story: Story<string>, reattach: boolean) => {
   );
 
   return Array.from({ length: story.steps.length + 1 }, (_, at) => at).filter(
-    (at) => windows.some(([from, to]) => from < at && at <= to) || (!reattach && at <= lastWord),
+    (at) => held(at) || (!reattach && at <= lastWord),
   ).length;
 };
 
