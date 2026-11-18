@@ -17,7 +17,7 @@ The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/un
 
 ### Additional known APIs (not expanded)
 
-`TypeId`, `PersistedQueueFactory`, `makeFactory`, `PersistedQueueError`, `ErrorTypeId`, `makeStoreRedis`, `makeStoreSql`
+`TypeId`, `PersistedQueueFactory`, `makeFactory`, `PersistedQueueError`, `ErrorTypeId`, `makeStoreRedis`, `makeStoreSql`, `isDeadLetterCause`
 
 ### [make](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/persistence/PersistedQueue.ts:121)
 
@@ -99,3 +99,7 @@ import * as PersistedQueue from "effect/unstable/persistence/PersistedQueue"
 
 const factoryLayer = PersistedQueue.layer
 ```
+
+### Changes since 4.0.5
+
+- `offer` takes `deduplicate?: "untilExecuted" | "untilRemoved"` (4.1.3, #10316); Redis lock format changed in 4.1.0.

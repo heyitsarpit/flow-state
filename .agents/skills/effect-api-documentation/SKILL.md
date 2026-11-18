@@ -17,13 +17,32 @@ Effect.
   and installed source first. They define the Effect version and available API.
   If sources disagree, follow the consuming package and lockfile and record the
   uncertainty.
+- List every installed `effect` copy (`find node_modules -path '*/effect/package.json'`)
+  and every `overrides` entry that pins an `@effect/*` package. Two copies hold
+  separate service keys, so a "Service not found" for a platform service is a
+  duplicate copy until proven otherwise.
 - Use [`codebases/effect-v4`](../../../codebases/effect-v4/) for declaration
   links, implementation context, tests, and real-usage searches. It is
-  corroborating source material, not version authority. Link a declaration with
-  an exact line anchor when practical.
+  corroborating source material, not version authority; check its version with
+  `git log -1` first, and when it differs from the installed one, cite the
+  installed source and the release notes instead. Link a declaration with an
+  exact line anchor when practical.
+- Mark unstable APIs as unstable: modules from the source's `src/unstable/` (published flat,
+  e.g. `effect/cli`, `effect/http`, `effect/sql`) and APIs the release notes call
+  unstable or experimental. A minor release may break them.
 - Verify package-root and utility exports as root-level, namespaced,
   re-exported, or both. Do not assume every API is `Topic.method`. When checking
   an additional known API, search `codebases/effect-v4` for its exports and use.
+
+## Upgrades
+
+- Read versions and dates with `npm view <pkg> versions` and `time`, and respect
+  any release-age gate.
+- `@effect/*` packages peer-depend on the same `effect` minor, so move them together.
+- Read every release between installed and target
+  (https://github.com/Effect-TS/effect/releases); grep the consuming code for each
+  breaking change and each fixed bug before claiming it matters.
+- After installing, list the `effect` copies again: exactly one per consuming package.
 
 ## Reference authoring rules
 
@@ -52,7 +71,7 @@ The map is routing; it does not duplicate module documentation.
 
 ### Core composition and host runtime
 
-- [Effect](references/Effect.md), [Function](references/Function.md), [Pipeable](references/Pipeable.md), [Context](references/Context.md), [Layer](references/Layer.md), [ManagedRuntime](references/ManagedRuntime.md), [Service patterns](references/guides/Service.md), [Runtime](references/Runtime.md), [NodeRuntime](references/NodeRuntime.md), [Requirements management](references/guides/RequirementsManagement.md), [Runtime composition](references/guides/RuntimeComposition.md)
+- [Effect](references/Effect.md), [Function](references/Function.md), [Pipeable](references/Pipeable.md), [Context](references/Context.md), [Layer](references/Layer.md), [ManagedRuntime](references/ManagedRuntime.md), [Service patterns](references/guides/Service.md), [Runtime](references/Runtime.md), [NodeRuntime](references/NodeRuntime.md), [NodeServices](references/NodeServices.md), [Cli](references/Cli.md), [Terminal](references/Terminal.md), [Requirements management](references/guides/RequirementsManagement.md), [Runtime composition](references/guides/RuntimeComposition.md)
 
 ### Errors and outcomes
 
@@ -64,7 +83,7 @@ The map is routing; it does not duplicate module documentation.
 
 ### Fibers, scheduling, time, and testing
 
-- [Fiber](references/Fiber.md), [FiberSet](references/FiberSet.md), [FiberMap](references/FiberMap.md), [FiberHandle](references/FiberHandle.md), [Schedule](references/Schedule.md), [Clock](references/Clock.md), [TestClock](references/TestClock.md), [Duration](references/Duration.md), [DateTime](references/DateTime.md), [FastCheck](references/FastCheck.md), [TestConsole](references/TestConsole.md)
+- [Fiber](references/Fiber.md), [FiberSet](references/FiberSet.md), [FiberMap](references/FiberMap.md), [FiberHandle](references/FiberHandle.md), [Schedule](references/Schedule.md), [Clock](references/Clock.md), [TestClock](references/TestClock.md), [Duration](references/Duration.md), [DateTime](references/DateTime.md), [FastCheck](references/FastCheck.md), [Schema Arbitrary](references/SchemaArbitrary.md), [TestConsole](references/TestConsole.md), [`@effect/vitest`](references/Vitest.md)
 
 ### Domain data, types, and collections
 
@@ -72,7 +91,7 @@ The map is routing; it does not duplicate module documentation.
 
 ### Streams and host I/O
 
-- [Stream](references/Stream.md), [Sink](references/Sink.md), [Channel](references/Channel.md), [Console](references/Console.md), [FileSystem](references/FileSystem.md), [Path](references/Path.md)
+- [Stream](references/Stream.md), [Sink](references/Sink.md), [Channel](references/Channel.md), [Console](references/Console.md), [FileSystem](references/FileSystem.md), [Path](references/Path.md), [ChildProcess](references/ChildProcess.md), [ChildProcessSpawner](references/ChildProcessSpawner.md)
 
 ### External boundaries, persistence, and operations
 

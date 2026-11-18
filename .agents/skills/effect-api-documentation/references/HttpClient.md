@@ -25,7 +25,7 @@ Source: [Effect v4 `HttpClient` API](https://www.effect.website/docs/v4/api/effe
 
 ### Additional known APIs (not expanded)
 
-`HttpClient.isHttpClient`, `HttpClient.head`, `HttpClient.patch`, `HttpClient.put`, `HttpClient.del`, `HttpClient.options`, `HttpClient.transform`, `HttpClient.catch`, `HttpClient.catchTag`, `HttpClient.catchTags`, `HttpClient.filterOrElse`, `HttpClient.filterOrFail`, `HttpClient.filterStatus`, `HttpClient.mapRequestEffect`, `HttpClient.mapRequestInput`, `HttpClient.mapRequestInputEffect`, `HttpClient.make`, `HttpClient.makeWith`, `HttpClient.tap`, `HttpClient.tapError`
+`HttpClient.isHttpClient`, `HttpClient.head`, `HttpClient.patch`, `HttpClient.put`, `HttpClient.del`, `HttpClient.options`, `HttpClient.transform`, `HttpClient.catch`, `HttpClient.catchTag`, `HttpClient.catchTags`, `HttpClient.filterOrElse`, `HttpClient.filterOrFail`, `HttpClient.filterStatus`, `HttpClient.mapRequestEffect`, `HttpClient.mapRequestInput`, `HttpClient.mapRequestInputEffect`, `HttpClient.make`, `HttpClient.makeWith`, `HttpClient.tap`, `HttpClient.tapError`, `timeout`, `withCircuitBreaker`, `circuitBreakerClassifier`, `isTransientError`, `isTransientResponse`
 
 ### [HttpClient.HttpClient](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/http/HttpClient.ts:61)
 
@@ -157,13 +157,13 @@ const observed = HttpClient.tapRequest(HttpClient.HttpClient, () => Effect.log("
 
 ### [HttpClient.withCookiesRef](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/http/HttpClient.ts:1400)
 
-Shares cookie state across requests through a `Ref`, which is useful for session-oriented clients.
+Shares cookie state across requests through a `Ref`, which is useful for session-oriented clients. Since 4.1.0 the `Ref` holds `ReadonlyArray<Cookies.Cookie>`, not `Cookies.Cookies` ([HttpClient.d.ts:1650](/Users/arpit/Developer/flow-state/node_modules/effect/dist/http/HttpClient.d.ts:1650)).
 
 ```ts
 import { Ref } from "effect"
-import { HttpClient, Cookies } from "effect/unstable/http"
+import { HttpClient, type Cookies } from "effect/http"
 
-const cookies = Ref.unsafeMake(Cookies.empty)
+const cookies = Ref.makeUnsafe<ReadonlyArray<Cookies.Cookie>>([])
 const sessionClient = HttpClient.withCookiesRef(HttpClient.HttpClient, cookies)
 ```
 

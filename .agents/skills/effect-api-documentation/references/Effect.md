@@ -521,3 +521,11 @@ const delay = (ms: number) => Effect.callback<void>((resume) => {
   return Effect.sync(() => clearTimeout(id));
 });
 ```
+
+### Changes since 4.0.5
+
+- `catchIf` takes `Refinement<NoInfer<E>, EB>` ([Effect.d.ts:5673](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Effect.d.ts:5673)).
+- `ignore` and `ignoreCause` accept `log: "Unhandled"` (4.1.0).
+- `fnUntraced` and `fnUntracedEager` accept `({ self }, body)` (4.1.0).
+- `race`, `raceFirst`, `raceAll`, `raceAllFirst` and `timeoutOption` no longer drop a loser's result (4.1.3, #10367).
+- `try` and `tryPromise` pass an `AbortSignal` only when the thunk declares a parameter (doc change; no release note found).

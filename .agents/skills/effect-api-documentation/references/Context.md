@@ -403,3 +403,7 @@ const services = Context.empty().pipe(
     context.pipe(Context.add(Port, 8080), Context.add(Host, "localhost")))
 )
 ```
+
+### Changes since 4.0.5
+
+- `makeUnsafe(map, options?: { maxDepth?: number })` ([Context.d.ts:577](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Context.d.ts:577)); `pick` keeps `maxDepth` (4.1.0).

@@ -119,3 +119,7 @@ const server = RpcServer.makeNoSerialization(group, {
   onFromServer: (message) => sendDecoded(message),
 });
 ```
+
+### Changes since 4.0.5
+
+- `onRequest` receives the decoded request as a second argument (4.1.3); `onDisconnect?(clientId)` added (4.1.0).

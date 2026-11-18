@@ -21,7 +21,7 @@ Source: [Effect v4 `Match` API](https://www.effect.website/docs/v4/api/effect/Ma
 
 ### Additional known APIs (not expanded)
 
-`Matcher`, `TypeMatcher`, `ValueMatcher`, `Case`, `Not`, `valueTags`, `typeTags`, `whenOr`, `whenAnd`, `discriminatorStartsWith`, `discriminators`, `tagStartsWith`, `tags`, `tagsExhaustive`, `orElseAbsurd`, `string`, `number`, `boolean`, `bigint`, `symbol`, `date`, `record`, `instanceOf`, `instanceOfUnsafe`, `nonEmptyString`, `is`, `any`, `defined`
+`Matcher`, `TypeMatcher`, `ValueMatcher`, `Case`, `Not`, `valueTags`, `typeTags`, `whenOr`, `whenAnd`, `discriminatorStartsWith`, `discriminators`, `tagStartsWith`, `tags`, `tagsExhaustive`, `orElseAbsurd`, `string`, `number`, `boolean`, `bigint`, `symbol`, `date`, `record`, `instanceOf`, `instanceOfUnsafe`, `nonEmptyString`, `is`, `any`, `defined`, `literals`, `literalsExhaustive`
 
 ### [Match.type](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Match.ts:281)
 

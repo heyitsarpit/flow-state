@@ -241,3 +241,8 @@ Aligns recurrences to fixed time windows instead of delaying from the previous c
 const everyMinute = Schedule.windowed("1 minute");
 yield* Effect.repeat(Effect.log("refresh"), everyMinute);
 ```
+
+### Changes since 4.0.5
+
+- `cron(expression, tz?, { onDstOverlap? })` ([Schedule.d.ts:627](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Schedule.d.ts:627)); `Cron.prev` changes near DST (4.1.0).
+- `fixed`, `windowed` and `cron` no longer return a zero delay near the next run (4.1.2, #10251).

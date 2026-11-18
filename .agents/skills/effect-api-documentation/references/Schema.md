@@ -40,7 +40,7 @@ Source: [Effect v4 `Schema` API](https://www.effect.website/docs/v4/api/effect/S
 
 ### Additional known APIs (not expanded)
 
-`Constraint`, `Top`, `Codec`, `Decoder`, `Encoder`, `SchemaError`, `declareConstructor`, `declare`, `revealBottom`, `annotate`, `annotateEncoded`, `annotateKey`, `revealCodec`, `toStandardSchemaV1`, `toStandardJSONSchemaV1`, `is`, `asserts`, `decodeEffect`, `decodeExit`, `decodeUnknownExit`, `decodeOption`, `decodeUnknownOption`, `decodeResult`, `decodeUnknownResult`, `decodePromise`, `decodeUnknownPromise`, `decodeSync`, `encodeUnknownEffect`, `encodeUnknownExit`, `encodeExit`, `encodeOption`, `encodeUnknownOption`, `encodeResult`, `encodeUnknownResult`, `encodePromise`, `encodeUnknownPromise`, `encodeUnknownSync`, `encodeSync`, `make`, `asClass`, `isSchema`, `optionalKey`, `requiredKey`, `required`, `mutableKey`, `readonlyKey`, `toType`, `toEncoded`, `flip`, `TemplateLiteral`, `Enum`, `Literals`, `Unknown`, `Never`, `Null`, `Undefined`, `Boolean`, `BigInt`, `Array`, `NonEmptyArray`, `ArrayEnsure`, `TupleWithRest`, `TaggedStruct`, `toTaggedUnion`, `Date`, `DateFromMillis`, `DateValid`, `NumberFromString`, `StringFromBase64`, `StringFromHex`, `URL`, `Duration`, `DateTimeUtc`, `DateTimeZoned`
+`Constraint`, `Top`, `Codec`, `Decoder`, `Encoder`, `SchemaError`, `declareConstructor`, `declare`, `revealBottom`, `annotate`, `annotateEncoded`, `annotateKey`, `revealCodec`, `toStandardSchemaV1`, `toStandardJSONSchemaV1`, `is`, `asserts`, `decodeEffect`, `decodeExit`, `decodeUnknownExit`, `decodeOption`, `decodeUnknownOption`, `decodeResult`, `decodeUnknownResult`, `decodePromise`, `decodeUnknownPromise`, `decodeSync`, `encodeUnknownEffect`, `encodeUnknownExit`, `encodeExit`, `encodeOption`, `encodeUnknownOption`, `encodeResult`, `encodeUnknownResult`, `encodePromise`, `encodeUnknownPromise`, `encodeUnknownSync`, `encodeSync`, `make`, `asClass`, `isSchema`, `optionalKey`, `requiredKey`, `required`, `mutableKey`, `readonlyKey`, `toType`, `toEncoded`, `flip`, `TemplateLiteral`, `Enum`, `Literals`, `Unknown`, `Never`, `Null`, `Undefined`, `Boolean`, `BigInt`, `Array`, `NonEmptyArray`, `ArrayEnsure`, `TupleWithRest`, `TaggedStruct`, `toTaggedUnion`, `Date`, `DateFromMillis`, `DateValid`, `NumberFromString`, `StringFromBase64`, `StringFromHex`, `URL`, `Duration`, `DateTimeUtc`, `DateTimeZoned`, `isAscii`, `Rational`, `RationalFromString`, `DurationFromIsoString`, `DateTimeUtcFromHttpDate`, `RetryAfter`, `RetryAfterFromString`, `SemVer`, `SemVerFromString`, `SemVerRange`, `SemVerRangeFromString`, `toCodecGoJson`
 
 ## Encoding and decoding practices
 
@@ -497,3 +497,11 @@ const value = decode('"123"');    // succeeds with 123n
 
 Use `toCodecJson` for canonical JSON-compatible values; add `fromJsonString` for JSON text.
 Do not add canonical derivation when an existing explicit wire codec already defines the protocol.
+
+### Changes since 4.0.5
+
+- Breaking: `TaggedUnion.match`/`matchOrElse` infer their output; explicit output type arguments are gone (4.1.0, #10061).
+- Breaking: `isAnyOf` accepts only tag values of its members (4.1.3, #10355).
+- Breaking: `toEquivalence` and `toFormatter` derive from the decoded side (4.1.3, #10453).
+- Struct fields named after `Object.prototype` members need an own property (4.1.3, #9612).
+- `Enum` takes `const A`; `toIso` types nested class fields (4.1.3, #10348).

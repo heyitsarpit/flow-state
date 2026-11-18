@@ -26,7 +26,7 @@ Source: [Effect v4 `Metric` API](https://www.effect.website/docs/v4/api/effect/M
 
 ### Additional known APIs (not expanded)
 
-`Metric`, `Counter`, `CounterState`, `Frequency`, `FrequencyState`, `Gauge`, `GaugeState`, `Histogram`, `HistogramState`, `Summary`, `SummaryState`, `isMetric`, `summaryWithTimestamp`, `withConstantInput`, `boundariesFromIterable`, `snapshotUnsafe`, `CurrentMetricAttributesKey`, `CurrentMetricAttributes`, `MetricRegistry`, `FiberRuntimeMetricsKey`, `FiberRuntimeMetrics`, `FiberRuntimeMetricsImpl`, `enableRuntimeMetricsLayer`, `disableRuntimeMetricsLayer`
+`Metric`, `Counter`, `CounterState`, `Frequency`, `FrequencyState`, `Gauge`, `GaugeState`, `Histogram`, `HistogramState`, `Summary`, `SummaryState`, `isMetric`, `summaryWithTimestamp`, `withConstantInput`, `boundariesFromIterable`, `snapshotUnsafe`, `CurrentMetricAttributesKey`, `CurrentMetricAttributes`, `MetricRegistry`, `FiberRuntimeMetricsKey`, `FiberRuntimeMetrics`, `FiberRuntimeMetricsImpl`, `enableRuntimeMetricsLayer`, `disableRuntimeMetricsLayer`, `Registration`, `remove`, `removeUnsafe`, `registerUnsafe`
 
 ### [Metric.counter](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Metric.ts:2174)
 

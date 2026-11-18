@@ -266,3 +266,7 @@ console.log(yield* Queue.isFull(queue)); // false
 yield* Queue.offerAll(queue, [1, 2]);
 console.log(yield* Queue.isFull(queue)); // true
 ```
+
+### Changes since 4.0.5
+
+- `sliding(0)` wakes waiting takers; zero-capacity bounded and dropping queues refuse offers with no taker (4.1.3, #10312, #10354).

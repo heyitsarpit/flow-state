@@ -105,3 +105,7 @@ const cause = Exit.getCause(Exit.fail("bad"));
 ```ts
 const result: Exit.Exit<number, string> = Exit.succeed(42);
 ```
+
+### Changes since 4.0.5
+
+- `hasFails`, `hasDies` and `hasInterrupts` return `boolean`, no longer a type guard ([Exit.d.ts:448](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Exit.d.ts:448)); narrow with `Exit.isFailure` instead.

@@ -58,15 +58,17 @@ const loader = Migrator.fromGlob({
 })
 ```
 
-### [fromFileSystem](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/sql/Migrator.ts:406)
+### [fromFileSystem](/Users/arpit/Developer/flow-state/node_modules/effect/dist/sql/MigratorFileSystem.d.ts:20)
 
-Creates a loader that reads a directory through the `FileSystem` service and dynamically imports matching migration files. Files must use the supported `<id>_<name>.js|ts|mjs|mts` naming form.
+Moved in 4.1.0 from `Migrator` to its own `MigratorFileSystem` module. Creates a loader that reads a directory through the `FileSystem` service and dynamically imports matching migration files. Files must use the supported `<id>_<name>.js|ts|mjs|mts` naming form.
 
 ```ts
-import * as Migrator from "effect/unstable/sql/Migrator"
+import * as MigratorFileSystem from "effect/sql/MigratorFileSystem"
 
-const loader = Migrator.fromFileSystem("./migrations")
+const loader = MigratorFileSystem.fromFileSystem("./migrations")
 ```
+
+Since 4.1.1, `Migrator.make` takes `{ transformWrites?, dumpSchema }` ([Migrator.d.ts:86](/Users/arpit/Developer/flow-state/node_modules/effect/dist/sql/Migrator.d.ts:86)).
 
 ### [MigrationError](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/sql/Migrator.ts:79)
 

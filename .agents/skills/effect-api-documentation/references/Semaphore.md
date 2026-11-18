@@ -17,7 +17,7 @@ Source: [Effect v4 `Semaphore` API](https://www.effect.website/docs/v4/api/effec
 
 ### Additional known APIs (not expanded)
 
-`makeUnsafe`, `releaseAll`
+`makeUnsafe`, `releaseAll`, `takeScoped`
 
 ### [Semaphore.Semaphore](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Semaphore.ts:55)
 

@@ -18,7 +18,7 @@ The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/un
 
 ### Additional known APIs (not expanded)
 
-`MakeOptions`, `MakeStringOptions`, `KeyValueStoreError`, `makeStringOnly`, `LayerSqlOptions`, `SchemaStore`
+`MakeOptions`, `MakeStringOptions`, `KeyValueStoreError`, `makeStringOnly`, `LayerSqlOptions`, `SchemaStore`, `clearPrefix`, `keys`
 
 ### [KeyValueStore service](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/persistence/KeyValueStore.ts:38)
 

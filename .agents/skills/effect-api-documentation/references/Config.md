@@ -174,3 +174,7 @@ Reads and validates a URL value from a string config source.
 ```ts
 const endpoint = Config.url("API_URL");
 ```
+
+### Changes since 4.0.5
+
+- `Config.Record` options add `trim?` and `keepEmptyValues?` ([Config.d.ts:935](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Config.d.ts:935)).

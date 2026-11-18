@@ -14,7 +14,7 @@ The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/un
 
 ### Additional known APIs (not expanded)
 
-`SqlClient.MakeOptions`, `TransactionConnection`, `TransactionConnection.Service`, `SafeIntegers`
+`SqlClient.MakeOptions`, `TransactionConnection`, `TransactionConnection.Service`, `SafeIntegers`, `Base`, `activeTransactionConnection`, `BeginTransaction`
 
 ### [SqlClient interface](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/sql/SqlClient.ts:37)
 
@@ -64,3 +64,9 @@ import * as SqlClient from "effect/unstable/sql/SqlClient"
 declare const options: Parameters<typeof SqlClient.makeWithTransaction>[0]
 const withTransaction = SqlClient.makeWithTransaction(options)
 ```
+
+### Changes since 4.0.5
+
+- The interface is split: `Base` holds `driver`, `afterCommit`, `reactive` and `reactiveMailbox`; `SqlClient extends Base` ([SqlClient.d.ts:30](/Users/arpit/Developer/flow-state/node_modules/effect/dist/sql/SqlClient.d.ts:30)).
+- `make` options add `driver`, `begin?(conn, statement)` and `isTransaction?`; `acquireConnection` is `(restore) => Effect<S, SqlError, Scope>`.
+- Ended transactions are rejected (4.1.3, #10434).
