@@ -1200,3 +1200,7 @@ note 2026-11-18T03:24:58Z
 
 note 2026-11-18T03:51:49Z
     09:21 wake: tooling bench skipped; T83's close review is running the gates alone.
+
+note 2026-11-18T04:34:18Z
+    T83 close review ISSUES (f85d6994): the grace test was a fault's only catcher; the faults runner credits tests that
+    already fail in the control, which hid two misses. Fix round started with T83's lead.
