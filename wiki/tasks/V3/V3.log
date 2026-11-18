@@ -1330,3 +1330,7 @@ note 2026-11-18T17:44:33Z
 note 2026-11-18T17:54:38Z
     T94 started (the user, 2026-11-18): the boundary Task, first of the re-plan; weekly usage at 96 %, so the run stops
     at 100 % by Limits and resumes after the reset.
+
+note 2026-11-18T17:55:39Z
+    Session ended (the user, 2026-11-18): no agents, cron or caffeinate; tree clean. Next: T94, then T81 (P3), then P4
+    from T92. Weekly usage 96 %, resets 2026-11-20 22:00 UTC. Resume: run the loop in wiki/tasks/V3/epic.task.

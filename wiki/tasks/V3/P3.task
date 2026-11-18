@@ -4353,7 +4353,7 @@ tasks
 
     T94
         title       Every public entry point refuses with a FlowError; a surface test finds any that doesn't
-        status      in_progress
+        status      open
         priority    high
         description
             Every public function Flow exports or hands out either refuses with a FlowError or is an inert builder, and
@@ -4401,3 +4401,6 @@ tasks
             - A throw from `perform` or the admit hook stops the Runtime (Actors R25), shown red first by a Story test.
             - code:wiki/conventions/boundaries.md stays current: any source this Task adds or moves changes its row.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+        comment     2026-11-18T17:55:39Z
+            Not started: the lead was stopped at session end before any change (tree clean at 0467b22c). Start fresh:
+            requirements first, then build per this Task and wiki/conventions/boundaries.md.
