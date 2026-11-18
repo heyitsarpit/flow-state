@@ -1295,3 +1295,7 @@ note 2026-11-18T10:41:20Z
 note 2026-11-18T10:42:59Z
     Decision (the user, 2026-11-18): upgrade Effect to 4.1.4. New T93, a Sonnet builder in its own worktree beside T81's
     lead, as T88 was; merged at T81's next checkpoint.
+
+note 2026-11-18T10:57:37Z
+    T93 done: review PASS (1f1d5b11), merged; one effect copy at 4.1.4, check 0. T81 fix-round review ISSUES (c035894e):
+    a marked but partial ending still throws raw; second finding of one class, so a convergence on construction shapes.

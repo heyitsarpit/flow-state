@@ -4225,7 +4225,7 @@ tasks
 
     T93
         title       Effect 4.1.4: one effect copy, effect/cli and the Node platform working
-        status      review
+        status      done
         priority    medium
         description
             Effect and its packages move to 4.1.4 together, with one copy of `effect` installed, so `effect/cli` and the
