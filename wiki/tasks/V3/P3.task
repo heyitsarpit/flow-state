@@ -2785,6 +2785,45 @@ tasks
             and the contract-id and key rules run per definition and per app (two scopes); reaction shape,
             FlowError.code and inputFieldsOf per call unchanged. Done: 3m one unwrap, 3n events from E, 3o endingsOf,
             1f, 1h tokens once, 1i SelectArg once, A5 one codec. Gates: check 0, suite 1127 + 13 xfail, stress 73/73.
+        comment     2026-11-18T10:40:52Z
+            Independent close review: ISSUES at 094981e8. Gates on HEAD 7cd1b257, run alone: check 0; suite 1127 + 13
+            xfail, none T81's; stress 73/73. Five of the 13 new faults were planted with --only (definition-null-raw,
+            delay-object-unchecked, foreign-action-by-name, mark-issue-per-key, send-keeps-extra-keys), and each was
+            caught by its named test. Blocking (acceptance 1 and 2). Each is a raw throw, or a malformed value accepted,
+            that the one decode should own: (1) A bound with kind, call and success but no input, key or failure passes
+            config.ts#isBound, then throws a raw TypeError in definition() (operation-checks.ts:27, contract.ts:95). An
+            ending without `from` passes isEnding and throws in machine() (compiled-parts.ts:26). Missed because
+            construction.test.ts refuses only operations values that are not objects, never a partly formed bound or
+            ending. (2) E.X(null) throws a raw TypeError (events.ts:67). Missed because the refused-payload tests send
+            bad field values, never a null or non-record payload. (3) A delay of [NaN, 0], { seconds: NaN } or {
+            milliseconds: NaN } compiles, because Duration.fromInput maps NaN to 0. Missed because the delay tests use
+            plain numbers and strings only. Ruling (a), changed by the builder: accepted. In a scratch copy, a whole
+            type-side decode in send pushed palette stress shards 2 and 3 past 115 s each (both failed); narrowing ran
+            all 51 generated and palette stress tests in 20 s. A DateFromString field reaches the handler as a Date, and
+            an ISO string is refused InvalidEvent (both probed). Nested undeclared keys pass as given, as the reworded
+            Actors R14 says. Only an untyped sender can add one, and the encode drops it, so live and reloaded memory
+            can differ: proposed for revisit.md. Acceptance 2 is met for construction.ts's old shape checks; what
+            remains there are rules with their own codes. It is not met for isBound and isEnding: they are hand-written
+            partial predicates inside Schema.declare (finding 1). The leftover routed items (decoded value unused,
+            casts, the tree walked twice, rules at two scopes, inputFieldsOf per call, FlowError.code) are not in
+            acceptance 2's wording. Route them to @task.V3.T79 or revisit.md (the orchestrator's call); not blocking.
+            Every refusal probed is a FlowError with a listed code: ForeignToken, WrongKind and UnknownField are
+            details.reason values of InvalidConfiguration. Throwing callbacks are Defect with the cause, and
+            machine(null) and machine(an action token) are WrongKind. Fixtures meet fixtures.md; sign-in staying out of
+            the mix is ruling (d). House rules are clean, events.ts included. Fix with the round: `admitted`'s doc
+            claims a memo that walk.is lacks (boundary.ts:531). fixture-catalog.md:447 and :561 cite stories/refused.ts,
+            which does not exist (the builders are in structure.ts). SleepTimer's E5 has no −1 or 2^31 ms; the runtime
+            refuses those turns InvalidTurn, but no test covers it. The transforming-field test in runtime.test.ts
+            asserts the state, not the Date. Routed, not T81's code: actor.send(null), send(undefined) and send(5) throw
+            raw (runtime.ts:485, and driver send's check runs before InvalidEvent), against Actors R14. A child state
+            named ~path or ~flow is accepted and overwrites its token (Compile R12 reserves neither). machine(def,
+            undefined) is Defect at body, not WrongKind. Sidecars (3 Haiku, one blind), each finding verified. Accepted:
+            the items above. Rejected: machine(token) throwing raw (probed: WrongKind); a schedule sending an internal
+            event (normal use); shape findings hiding rule findings (the orchestrator's split); a negative or infinite
+            Duration in send (the type side has no bound, and the turn is refused); mapper endings unchecked,
+            withDecodingDefault keys and eager per-field walkers (older than T81, and no rule asks); line comments and
+            duplicate cast helpers (house pattern, moved rather than added); spot assertions in load tests (the run
+            rules check every run).
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
