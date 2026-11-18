@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
+  type Cut,
   forkReloads,
   type Reload,
   Step,
@@ -10,15 +11,20 @@ import {
 } from "../../src/host/testing/index.ts";
 import { slices } from "../rules/sweep.ts";
 
-// What a run shows, the parts a fork could get wrong: everything it recorded and its end's cut.
+// What a cut shows, read once it is taken.
+const seen = (cut: Cut) => ({
+  now: cut.now,
+  inspection: cut.inspection,
+  records: cut.records,
+  calls: cut.calls,
+});
+
+// What a run shows, the parts a fork could get wrong: everything it recorded and every cut.
 const shown = (run: StoryRun) => ({
   evidence: run.evidence,
   trace: run.trace,
-  checkpoints: Object.keys(run.checkpoints),
-  now: run.end.now,
-  inspection: run.end.inspection,
-  records: run.end.records,
-  calls: run.end.calls,
+  checkpoints: Object.entries(run.checkpoints).map(([name, cut]) => [name, seen(cut)]),
+  end: seen(run.end),
 });
 
 // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is printed.

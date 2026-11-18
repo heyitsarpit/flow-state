@@ -284,7 +284,7 @@ export const differences = (story: Story<string>, a: Swept, b: Swept) => {
 };
 
 // The sweep forks each position from the world saved there. FLOW_REPLAY_SWEEP=true turns the
-// replay form back on: each position is replayed from boot and judged as before, and the sweep
+// replay form back on: each position is replayed from boot and judged, and the sweep
 // fails wherever the forked form's verdict differs from it.
 const replay = switchedOn("FLOW_REPLAY_SWEEP");
 
@@ -309,17 +309,17 @@ export const sweep = async (
     // oxlint-disable-next-line no-await-in-loop -- one Story at a time: each sweep is its own world
     const fork = await forked(story, reload);
     // oxlint-disable-next-line no-await-in-loop -- one Story at a time: each sweep is its own world
-    const judged = replay ? await replayed(story, reload) : fork;
+    const counted = replay ? await replayed(story, reload) : fork;
 
-    if (replay) differ.push(...differences(story, fork, judged));
-    const skips = judged.verdicts.filter((v) => v.skipped).length;
-    variants += judged.verdicts.length;
+    if (replay) differ.push(...differences(story, fork, counted));
+    const skips = counted.verdicts.filter((v) => v.skipped).length;
+    variants += counted.verdicts.length;
     skipped += skips;
-    failed.push(...judged.verdicts.flatMap((v) => v.failed));
+    failed.push(...counted.verdicts.flatMap((v) => v.failed));
 
-    if (judged.own.kind === "failed") failed.push(`${story.id}'s own run: ${judged.own.fault}`);
+    if (counted.own.kind === "failed") failed.push(`${story.id}'s own run: ${counted.own.fault}`);
     else {
-      const bound = skipBound(story, judged.own.run.end.records.batches, reattach);
+      const bound = skipBound(story, counted.own.run.end.records.batches, reattach);
 
       if (skips > bound) overBound.push(`${story.id}: ${skips} variants skipped, bound ${bound}`);
     }

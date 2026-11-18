@@ -241,18 +241,20 @@ export const forkReloads = Effect.fn("forkReloads")(function* <E>(
     startRun(subject, story.id, { seed: Option.none(), lenient: false }, Option.none()),
   );
 
-  for (const [at, next] of [...story.steps.map(Option.some), Option.none<Step>()].entries()) {
+  const forkAt = (at: number) => {
     const saved = own.save();
 
-    yield* visit(at, (reload, rest) =>
+    return visit(at, (reload, rest) =>
       attempt(() => runForked(subject, story.id, saved, reload, rest)),
     );
+  };
 
-    yield* Option.match(next, {
-      onNone: () => Effect.void,
-      onSome: (step) => attempt(() => own.step(step)),
-    });
+  for (const [at, step] of story.steps.entries()) {
+    yield* forkAt(at);
+    yield* attempt(() => own.step(step));
   }
+
+  yield* forkAt(story.steps.length);
 
   return yield* attempt(() => own.finish().run);
 });

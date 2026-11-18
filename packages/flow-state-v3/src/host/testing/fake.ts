@@ -202,8 +202,9 @@ export const noServers: ServersSaved = {
   offline: false,
 };
 
-// A copy that shares nothing a later step changes: held calls, log entries and truths are replaced,
-// never changed, so only the collections and the waiting words' queues are copied.
+// A copy that shares nothing a later step changes: log entries and truths are replaced, never
+// changed, and a held call's answer is completed only while its open is alive, which a saved open no
+// longer is once its fork has reloaded; so only the collections and the waiting words' queues are copied.
 const serversOf = (saved: ServersSaved) => ({
   truths: new Map(saved.truths),
   log: [...saved.log],
@@ -446,7 +447,8 @@ export type StoreSaved = {
  */
 export const noStore: StoreSaved = { data: new Map(), next: [], loads: [], batches: [] };
 
-// Batches are replaced, never changed, so only the collections are copied.
+// Batches are replaced, never changed, and a fork's reload ends every held one of the saved open
+// before its waiter could be completed; so only the collections are copied.
 const storeOf = (saved: StoreSaved) => ({
   data: new Map(saved.data),
   next: [...saved.next],
