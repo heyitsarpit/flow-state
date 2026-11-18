@@ -1197,3 +1197,6 @@ note 2026-11-18T03:08:46Z
 note 2026-11-18T03:24:58Z
     Speed baseline confirmed at b6b4accf (alone): suite 36 s, stress 61 s, faults 243 s with no timeouts; acceptance as
     a baseline is the user's call (@task.V3.T83).
+
+note 2026-11-18T03:51:49Z
+    09:21 wake: tooling bench skipped; T83's close review is running the gates alone.
