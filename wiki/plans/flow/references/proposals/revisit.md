@@ -133,3 +133,15 @@ Deferred items.
 - **Owed rows' ending kind as a tagged union** (2026-11-17, orchestrator; deferred). Review 1's 2b of
   code-quality-review-2026-11-16.md: a type refactor across nine row-making sites, not Capture work; T85 left rows
   encoded as before. Revisit when a Task next changes how owed rows are made.
+- **New test kinds: metamorphic relations and Schema-derived values** (2026-11-18, the user; after
+  [test-efficacy-2026-11-18.md](test-efficacy-2026-11-18.md)). Bug classes nobody planted, no hand-written expected
+  result, about one extra run each. Metamorphic: two runs that must agree, over every fixture and generated Story: a
+  reload at a quiet point changes nothing after it (restore); `advance(a + b)` equals `advance(a)` then `advance(b)`
+  (timers); swapping two independent actors' events keeps each one's result (shared state, context); a fake answering
+  at once or late gives the same endings when no timer depends on it (lane order); persisted and in-memory runs give
+  the same endings. Values: Effect's `Arbitrary` from each app's own Schemas through encode, decode, `send` and a save
+  and restore, back equal or refused with a FlowError (codec and value shapes, 6 of 34 past bugs). Later: generation
+  that keeps a seed only when it reaches a new state and phase pair, which also ends the 955-seed `auth-session` tail.
+  Not a reference model of the core (the Epic forbids one) and no recorded output. Trial when picked up: one small
+  Task, three or four relations and the Schema properties on transfers and session, kept only if they catch what the
+  suite misses.
