@@ -2743,7 +2743,7 @@ tasks
 
     T83
         title       Fast test commands again: suite, stress and faults with no regression from the baseline
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T84, @T87]
         description
@@ -2921,6 +2921,17 @@ tasks
             (4) the grace test stays skipped with its comment, routed to @task.V3.T29 (a Story step for local actors).
             Still owed before review: the guard-size acceptance item and an explanation of each of the 54 dead-core
             greens. Records change only through wk.
+        comment     2026-11-18T03:24:57Z
+            Ready for review (b6b4accf): the guard-size item and the dead-core greens are done; close gates run once,
+            alone: suite 36 s and stress 61 s (each red only on T20's two pair reds), faults 243 s, 254 of 254 caught,
+            same list. Guards: test limits come from tests/limits.ts (alone time x 4, never under 5 s; generated limits
+            per seed); Story turns (max 4,200 of 10,000) and settle tasks (3,001 of 100,000) keep their limits with
+            sizes noted; the quiet loop went 500 -> 1,600 (measured 385); shrinks 419 of 1,000; faults' timeout 240 s
+            against a slowest tier of 152 s, buffer 256 MiB against 7.2 MiB, copies 4 x 3 from cores and memory. The
+            profile tables are exported as the mix's one source; Story advances read captureInterval and disposalBound.
+            Dead core: all 54 greens are static checks (admission and construction refusals, crafted rule runs,
+            manifests, bench declarations, types), each matched by a named pattern; none checks nothing; it.fails are
+            counted apart. The grace test is skipped behind FLOW_REAL_TIME_GRACE, waiting on @task.V3.T29.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
