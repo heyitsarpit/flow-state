@@ -4008,3 +4008,12 @@ tasks
             -> 54 s, faults 271 -> 258 s; 265 of 265 caught, same list, dead core unchanged. Faults gains
             FLOW_FAULTS_EVERY_CATCH (every catch, rule's union of targets, no bail). No merge, so nothing disabled;
             check 0, suite 0, stress 0.
+        comment     2026-11-18T07:48:59Z
+            Review (7fa5f34b..f4dd8d8f): PASS, no blocking finding. Alone: check 0, suite 0 (37 s), stress 0 (56 s, load
+            6.8 from the user's indexing); stress fails on any unreached reachable cell (pairs.ts expect), so its exit 0
+            proves 200 seeds find every other fixture's phases, and the usual stop and 1,000 cap are unchanged;
+            EVERY_CATCH keeps the knownRed filter and MISSED fallback (849bbbe2 holds), default path only sorts.
+            Sidecars: 'not 200 from one source' rejected (two measured exceptions), silent map miss rejected (would fail
+            the sweep), lint risk rejected (check 0); 4 of 8 groups read: R25 pair accepted as noted, same omission at
+            two branches each able to regress alone so kept; I23 kept per lead. Noted, not routed: LIMITS.pairSweep's
+            comment cites shop-store only, auth-session also runs 1,000.
