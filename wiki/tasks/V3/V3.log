@@ -1213,3 +1213,7 @@ note 2026-11-18T04:59:11Z
     Amendment (2026-11-18, the user): nub run faults runs on demand (tooling, run rules or faults changed; that Task's
     review; a phase's close), not at every Task's close; new T91: stress pair sweep at 200 seeds, duplicate faults
     merged, after T20. instructions edited. Commit: 1e4c7e00.
+
+note 2026-11-18T05:26:59Z
+    T9's user's page read and accepted (the user, 2026-11-18); T20's slice close is no longer held by it. Still open:
+    the actor-to-actor send(ref, event) action.
