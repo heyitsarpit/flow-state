@@ -1382,3 +1382,7 @@ note 2026-11-18T19:41:16Z
 note 2026-11-18T19:44:03Z
     Decision (the user, 2026-11-19): T101 is capped at 40 minutes (ends 01:53 IST); gaps not closed by then are deferred
     for later with their proposed owners, and P3's audit counts them as deferred by the user.
+
+note 2026-11-18T19:58:51Z
+    T101 in review (4f448c47): 38 of 58 gaps caught by named faults, 20 deferred by the user's cap; Turn I31
+    contradiction routed to T95. One fresh lead reviews T101 and reruns P3's R18 audit.

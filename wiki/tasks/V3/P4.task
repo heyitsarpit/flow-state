@@ -763,6 +763,10 @@ tasks
             Owes (proposed, P3 close fix round): @plan.Runtime.O5 tests: an unencodable selection is UnencodableValue, a
             context change never resets memory, capture never sees half a wave; faults for the Turn gaps in
             code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-18T19:58:51Z
+            Routed (P3 close, 2026-11-19): Turn I31 says a new incarnation's first snapshot carries no issue, but
+            creation raises one for a refused schedule delay and a test asserts it; decide Spec or code with two
+            traces, test-first.
 
     T96
         title       Actor-to-actor send(ref, event) action with the loop guard
