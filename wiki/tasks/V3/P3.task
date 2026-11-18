@@ -4537,7 +4537,7 @@ tasks
 
     T101
         title       P3's coverage gaps closed: each built rule caught by a named fault
-        status      review
+        status      done
         priority    high
         description
             Every Spec rule P3 built has a test that fails on a named planted fault, so P3's exit criterion holds.

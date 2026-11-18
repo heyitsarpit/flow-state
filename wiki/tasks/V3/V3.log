@@ -1386,3 +1386,8 @@ note 2026-11-18T19:44:03Z
 note 2026-11-18T19:58:51Z
     T101 in review (4f448c47): 38 of 58 gaps caught by named faults, 20 deferred by the user's cap; Turn I31
     contradiction routed to T95. One fresh lead reviews T101 and reruns P3's R18 audit.
+
+note 2026-11-18T20:15:47Z
+    Phase P3 done: T101 review PASS and R18 audit PASS (e31dd806). For the user: InvariantViolation (Diagnostics O2)
+    build or drop, R12 counted under the time cap, gap owners in parked T98. Next: compact P3's records, then P4 from
+    T92.
