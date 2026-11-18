@@ -882,6 +882,11 @@ tasks
             - `pairs`, `mix` and the catalog: excluded by the Task text.
             - Exporting `canonicalText` as a shared oracle: it is the Codec's own form.
             - The blind list's paused-timer shape and format 1/2 lanes: outside the acceptance.
+        comment     2026-11-18T21:43:00Z
+            Ruling (orchestrator, 2026-11-19) on review finding 1: Restore R7 and R8 stand (existing decided rules; the
+            reading that loses no ending). Brands tell a release change (removed state resets, gone operation rewritten,
+            undeclared machine's record discarded) from a malformed value (quarantined). A lane's operation lives once,
+            in its LaneKey, which meets R8.
 
     T95
         title       Callback results checked before they enter a turn

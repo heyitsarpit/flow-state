@@ -884,3 +884,7 @@ note 2026-11-18T20:40:34Z
 note 2026-11-18T21:26:39Z
     T92 requirements and fixtures in (77a019ea): bindings saved, 8 requirements; rulings on T92. Held for the user:
     forged-but-valid records no decode can catch (threat model). Requirements review starts now.
+
+note 2026-11-18T21:43:00Z
+    T92 requirements review ISSUES (9d885613), 7 blocking, all coverage gaps; R7/R8 stand by ruling. The lead lands them
+    as failing checks, then builds; the close review checks the fix round.
