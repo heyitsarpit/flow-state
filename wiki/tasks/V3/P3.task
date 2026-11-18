@@ -4225,7 +4225,7 @@ tasks
 
     T93
         title       Effect 4.1.4: one effect copy, effect/cli and the Node platform working
-        status      in_progress
+        status      review
         priority    medium
         description
             Effect and its packages move to 4.1.4 together, with one copy of `effect` installed, so `effect/cli` and the
@@ -4261,3 +4261,16 @@ tasks
               ChildProcessSpawner found).
             - Every breaking change that touches this code is fixed; `nub run check`, `nub run lint:rules`, the suite
               and `nub run test:stress` exit 0; the suite's test count matches before.
+        comment     2026-11-18T10:47:05Z
+            Upgrade done, all gates 0: effect, platform-node, platform-node-shared, @effect/vitest pinned 4.1.4 as root
+            devDependencies; rc.112 override removed. Root node_modules holds one effect (4.1.4); frozen packages keep
+            their own. Suite 1127 passed|21 xfail|15 skipped, same as before; stress 73 passed. Fix: Terminal.make size
+            (cli.test.ts). Schema.Record and Equal files needed no change. Scratch effect/cli command with
+            NodeServices.layer found FileSystem, Terminal, ChildProcessSpawner (not kept).
+        comment     2026-11-18T10:48:49Z
+            Review PASS. Pins exactly 4.1.4 (effect, platform-node, platform-node-shared, @effect/vitest, root devDeps;
+            rc.112 override gone); lockfile also added redis 6.3.1, undici 8.12.4, ws 8.22.1, @types/ws and re-keyed
+            vitest peer variants. Installed effect: root 4.1.4, flow-state rc.112, flow-state-rewrite 4.0.5; v3 has none
+            nested. Scratch effect/cli + NodeServices.layer found FileSystem, Terminal, ChildProcessSpawner (deleted).
+            flow-state untouched. Exit 0: check, lint:rules, test (1127 passed, 21 xfail, 15 skipped, matches).
+            Terminal.make size: unused is minimal and typechecks. Not run: test:stress.
