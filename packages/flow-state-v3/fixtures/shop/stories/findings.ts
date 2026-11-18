@@ -183,3 +183,46 @@ export const oddRecordNames = storeStory("shop/odd-record-names")
   .checkpoint("booted")
   .ensure(mainCart)
   .checkpoint("restored");
+
+// The main cart's record as it saves it, holding one line `lineId`.
+const mainCartText = (lineId: string) =>
+  `{"context":{"shopper":{"machine":"Shop/Shopper","name":"main"}},"format":3,"graph":{"Shop/Shopper/main":{}},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{"${lineId}":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"name":"{\\"owner\\":\\"main\\"}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}`;
+
+// An owed record naming the main cart, holding an unknown ending for an Attempt it never made.
+const mainOwedText = `{"format":3,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","rows":[{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}`;
+
+/**
+ * Records whose key and content disagree, as a damaged disk or a bad copy could leave them: the
+ * main cart's record with another line under a local key and under the guest's key, an owed
+ * record naming the main cart under a local key and under a key that does not round-trip, and
+ * records of one kind under another kind's prefix.
+ */
+export const borrowedRecords = {
+  owed: [
+    { key: "owed/Shop/Cart/~7", text: mainOwedText },
+    { key: 'owed/Shop/Cart/{"owner":"main"} ', text: mainOwedText },
+    { key: 'owed/Shop/Cart/{"owner":"wrong-kind"}', text: mainCartText("l7") },
+  ],
+  actors: [
+    { key: "actor/Shop/Cart/~5", text: mainCartText("l9") },
+    { key: 'actor/Shop/Cart/{"owner":"guest"}', text: mainCartText("l8") },
+    { key: 'actor/Shop/Cart/{"owner":"wrong-kind"}', text: mainOwedText },
+  ],
+} as const;
+
+/**
+ * The main cart adds a line; then the store holds records whose key and content disagree, and the
+ * tab reloads: the main cart restores its own line and hears no ending it never made.
+ */
+export const borrowedRecordsReload = storeStory("shop/borrowed-records")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .world(
+    ...[...borrowedRecords.owed, ...borrowedRecords.actors].map(({ key, text }) =>
+      Fake.storage.put(key, text),
+    ),
+  )
+  .reload({ reattach: false })
+  .checkpoint("booted")
+  .ensure(mainCart)
+  .checkpoint("restored");

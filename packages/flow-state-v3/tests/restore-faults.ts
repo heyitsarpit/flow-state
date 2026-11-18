@@ -344,32 +344,6 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "lane-name-unread",
-    tests: [RESTORE],
-    says: "a lane record restores under a name its machine's identity cannot read",
-    rule: "Restore R5",
-    edits: [
-      {
-        file: "src/core/record.ts",
-        find: "      const compiled = yield* machineOf(r);\n      yield* decodeName(compiled, r.name);\n",
-        replace: "      const compiled = yield* machineOf(r);\n",
-      },
-    ],
-  },
-  {
-    name: "owed-name-unread",
-    tests: [RESTORE],
-    says: "an owed record restores under a name that does not name itself back",
-    rule: "Restore R5",
-    edits: [
-      {
-        file: "src/core/record.ts",
-        find: "          : Result.map(decodeName(compiled, r.name), () => r);",
-        replace: "          : Result.succeed(r);",
-      },
-    ],
-  },
-  {
     name: "local-name-restored",
     tests: [RESTORE],
     says: "a record under a local actor's name restores and wakes an actor",
@@ -379,6 +353,32 @@ export const restoreFaults: ReadonlyArray<Fault> = [
         file: "src/core/identity.ts",
         find: '  if (name.startsWith(LOCAL_PREFIX)) return Result.fail("name");',
         replace: "  if (name.startsWith(LOCAL_PREFIX)) return Result.succeed({});",
+      },
+    ],
+  },
+  {
+    name: "record-key-unchecked",
+    tests: [RESTORE],
+    says: "a record restores as the identity its content names, whatever key it is under",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '      const keyed = kind === "lane/" ? key.startsWith(`${own}|`) : key === own;',
+        replace: "      const keyed = true;",
+      },
+    ],
+  },
+  {
+    name: "record-name-unread",
+    tests: [RESTORE],
+    says: "a record restores under a name its machine's identity cannot read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      yield* decodeName(Option.fromUndefinedOr(machines.get(named.machine)), named.name);\n",
+        replace: "",
       },
     ],
   },

@@ -5,6 +5,8 @@ import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { mainCart } from "../../fixtures/shop/app.ts";
 import {
+  borrowedRecords,
+  borrowedRecordsReload,
   oddNames,
   oddRecordNames,
   unreadableName,
@@ -279,6 +281,25 @@ describe("records under names no ref gives (Restore R5; WriteAhead I3)", () => {
     expect(restored.read(mainCart)?.memory["lines"]).toEqual({
       l1: { quantity: 1, variantId: "v1" },
     });
+  });
+});
+
+describe("records whose key and content disagree (Restore R5; Codec R5)", () => {
+  it("Restore R5: a record whose content names another identity than its key, or whose key does not round-trip, or of another kind than its prefix, is quarantined; the identity it names restores its own record and hears no ending it never made", async () => {
+    const run = checked(await borrowedRecordsReload.run());
+    const { booted, restored } = run.checkpoints;
+
+    expect(reports(run, 2).toSorted()).toEqual(
+      borrowedRecords.owed.map(({ key }) => `RecordUndecodable ${key}`).toSorted(),
+    );
+    expect(booted.inspection.actors).toEqual([]);
+    expect(restored.read(mainCart)?.memory["lines"]).toEqual({
+      l1: { quantity: 1, variantId: "v1" },
+    });
+    expect(inOpen(run, 2).filter((e) => e._tag === "Delivered")).toEqual([]);
+
+    for (const { key, text } of [...borrowedRecords.owed, ...borrowedRecords.actors])
+      expect(restored.records.stored.get(key)).toBe(text);
   });
 });
 

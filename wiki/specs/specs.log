@@ -362,3 +362,8 @@ note 2026-11-18T05:40:50Z
     @spec.Restore R5 (T20 fix round): the name clause covers lane and owed records under a local (~) name too, read by
     the record's identity version, so @spec.Restore.R6's versions do not contradict it; actor records are not checked,
     since nothing can start them. Reverse: restore the clause from 6331a3b4.
+
+note 2026-11-18T06:13:25Z
+    @spec.Restore R5: one check at the decode boundary: a record is read only when the identity its content names is
+    one a ref could give and its key is that identity's key for its kind; it replaces the per-kind name checks (T20
+    convergence). Reverse: the clause from 5a06cfd3.

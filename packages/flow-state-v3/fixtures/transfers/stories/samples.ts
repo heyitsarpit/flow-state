@@ -98,17 +98,28 @@ const rentRecord = 'actor/Bank/StandingOrder/{"order":"rent"}';
 
 const jsonText = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 
-// Owed records under names no ref gives: local names, an empty one, a broken escape, and one that
-// does not name itself back, each holding one unknown ending, as a damaged disk could leave them.
+// Owed records a damaged disk or a bad copy could leave, each holding one unknown ending: under
+// names no ref gives (local names, an empty one, a broken escape, one that does not name itself
+// back), and naming the account under a key of another identity or one that does not round-trip.
 const oddOwed = [
-  { machine: "Bank/StandingOrder", name: "~rent" },
-  { machine: "Bank/StandingOrder", name: "" },
-  { machine: "Bank/StandingOrder", name: '{"order":"\\u12"}' },
-  { machine: "Bank/StandingOrder", name: '{"order":"rent","x":1}' },
-  { machine: "Bank/Transfers", name: "~acct-1" },
-].map(({ machine, name }) =>
+  { machine: "Bank/StandingOrder", name: "~rent", key: "owed/Bank/StandingOrder/~rent" },
+  { machine: "Bank/StandingOrder", name: "", key: "owed/Bank/StandingOrder/" },
+  {
+    machine: "Bank/StandingOrder",
+    name: '{"order":"\\u12"}',
+    key: 'owed/Bank/StandingOrder/{"order":"\\u12"}',
+  },
+  {
+    machine: "Bank/StandingOrder",
+    name: '{"order":"rent","x":1}',
+    key: 'owed/Bank/StandingOrder/{"order":"rent","x":1}',
+  },
+  { machine: "Bank/Transfers", name: "~acct-1", key: "owed/Bank/Transfers/~acct-1" },
+  { machine: "Bank/Transfers", name: "acct-1", key: "owed/Bank/Transfers/~acct-9" },
+  { machine: "Bank/Transfers", name: "acct-1", key: "owed/Bank/Transfers/acct-1 " },
+].map(({ machine, name, key }) =>
   Fake.storage.put(
-    `owed/${machine}/${name}`,
+    key,
     `{"format":3,"machine":${jsonText(machine)},"name":${jsonText(name)},"rows":[{"attempt":null,"channel":"unknown","kept":false,"lane":null,"operation":"transfer","reason":"Restored","value":null}]}`,
   ),
 );

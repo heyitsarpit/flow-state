@@ -1002,6 +1002,19 @@ tasks
             records read (I3 is about starts), owed rows of a removed machine (no actor starts, old code), a stricter
             twice predicate (stricter only, gates green), create-mode ensure of a stored ~ record (createLocal starts
             from none), heldWrites name clash (cosmetic).
+        comment     2026-11-18T06:20:06Z
+            Convergence (threshold 2, class: restore trusts parts of a record unchecked). Tests first:
+            shop/borrowed-records (another identity's key, local key, key not round-tripping, wrong kind under a prefix)
+            red before; with shop/odd-record-names and owed shapes in bank-planned-edges. Design: one identityIn check
+            in decodeRecords: a record is read only when its content's identity is one a ref could give (decodeName:
+            never ~, decodes and names itself back) and its key is that identity's key for its kind (a lane's also by
+            operation and key text); else RecordUndecodable. Per-kind name checks removed.
+        comment     2026-11-18T06:20:07Z
+            Not checkable: an owed row under its own identity's key naming an Attempt never made reads like a real one
+            (no record of Attempts made). Faults: record-key-unchecked and record-name-unread replace the two per-kind
+            plants; Restore R5 rewritten (specs.log). Double-reload skips inside hold windows are now counted and named
+            in the assertion. Gates by exit code: check 0, suite 0 (38 s), stress 0 (64 s), faults 0 (259 of 259). Load:
+            mds_stores ~97%, mediaanalysisd ~31% (the user's).
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done

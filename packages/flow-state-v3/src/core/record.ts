@@ -15,7 +15,14 @@ import {
 import { Channel } from "./vocabulary.ts";
 import { keyTextOf } from "./lane-moves.ts";
 import { type Owed, Route } from "./ledger.ts";
-import { type ActorId, type ActorRecord, type Lane, byCodeUnits, Phase } from "./world.ts";
+import {
+  type ActorId,
+  type ActorRecord,
+  type Lane,
+  actorKey,
+  byCodeUnits,
+  Phase,
+} from "./world.ts";
 
 const LaneRecordJson = Schema.Struct({
   format: Format,
@@ -48,6 +55,9 @@ const OwedJson = Schema.Struct({
 });
 
 const KINDS = ["actor/", "lane/", "owed/"] as const;
+
+// The identity every kind of record names.
+const IdentityJson = Schema.Struct({ machine: Schema.String, name: Schema.String });
 
 /**
  * The key an identity's saved rows are stored under: one record, in the order they were owed.
@@ -203,13 +213,7 @@ export const decodeRecords = (
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const rowsRecord = (value: unknown) =>
     Result.map(
-      Result.flatMap(decodeBy(OwedJson, "schema")(value), (r) => {
-        const compiled = machines.get(r.machine);
-
-        return compiled === undefined
-          ? Result.succeed(r)
-          : Result.map(decodeName(compiled, r.name), () => r);
-      }),
+      decodeBy(OwedJson, "schema")(value),
       (r) =>
         r.rows.map((e) => ({
           kept: e.kept,
@@ -230,7 +234,6 @@ export const decodeRecords = (
     Result.gen(function* () {
       const r = yield* decodeBy(LaneRecordJson, "schema")(value);
       const compiled = yield* machineOf(r);
-      yield* decodeName(compiled, r.name);
 
       const operation = yield* Result.fromNullishOr(
         compiled.operations.get(r.operation),
@@ -238,6 +241,9 @@ export const decodeRecords = (
       );
 
       const actor = actorOf(r);
+      const own = `${actorKey(actor)}|${r.operation}|`;
+
+      if (!id.startsWith(own)) return yield* Result.fail("key");
 
       const lane = yield* Option.match(Option.fromNullOr(r.attempt), {
         onNone: () => Result.succeed(Option.none<Lane>()),
@@ -246,9 +252,12 @@ export const decodeRecords = (
             Result.mapError(operation.walk.input.decode(r.input), () => "input"),
             (input) =>
               Result.map(
-                Result.fromNullishOr(
-                  Option.getOrUndefined(keyTextOf(operation, input)),
-                  () => "key",
+                Result.flatMap(
+                  Result.fromNullishOr(
+                    Option.getOrUndefined(keyTextOf(operation, input)),
+                    () => "key",
+                  ),
+                  (text) => (id === `${own}${text}` ? Result.succeed(text) : Result.fail("key")),
                 ),
                 () =>
                   Option.some<Lane>({
@@ -294,6 +303,22 @@ export const decodeRecords = (
       return { id, actor, inFlight: r.inFlight, lane, endings };
     });
 
+  // The identity a record names, trusted only when it is one a ref or a persisted actor could give
+  // (never a local actor's) and its key is the key that identity's record of this kind is saved
+  // under: exactly, or for a lane, as the start of its id.
+  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, read for the identity its key names.
+  const identityIn = (kind: (typeof KINDS)[number], key: string, value: unknown) =>
+    Result.gen(function* () {
+      const named = yield* decodeBy(IdentityJson, "schema")(value);
+
+      yield* decodeName(Option.fromUndefinedOr(machines.get(named.machine)), named.name);
+      const own = `${kind}${actorKey(actorOf(named))}`;
+
+      const keyed = kind === "lane/" ? key.startsWith(`${own}|`) : key === own;
+
+      return yield* keyed ? Result.succeed(named) : Result.fail("key");
+    });
+
   // A store reads back in key order, whatever order the records were written in.
   const entries = [...stored].toSorted(([a], [b]) => byCodeUnits(a, b));
 
@@ -307,10 +332,15 @@ export const decodeRecords = (
 
     const read = Result.flatMap(
       Result.mapError(decodeCanonical(text), reasonOf),
-      // A key of no kind is never read; a record is read first for its format alone.
+      // A key of no kind is never read; a record is read first for its format, then for the
+      // identity it names, which must be the one its key names.
       (json) =>
         Result.map(
-          kind === undefined ? Result.fail("kind") : decodeBy(FormatJson, "format")(json),
+          kind === undefined
+            ? Result.fail("kind")
+            : Result.flatMap(decodeBy(FormatJson, "format")(json), () =>
+                identityIn(kind, key, json),
+              ),
           () => json,
         ),
     );

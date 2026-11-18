@@ -101,8 +101,8 @@ const positionsOf = async (story: Story<string>, steps: number) => {
   );
 };
 
-// A double reload at one position: why its second reload heard more, why it skipped outside a hold
-// window, or "" when neither.
+// A double reload at one position: "skipped" inside a hold window, why its second reload heard
+// more, why it skipped outside a hold window, or "" when none of these.
 const doubledAt = async (
   story: Story<string>,
   ran: ReadonlyArray<Step>,
@@ -112,7 +112,7 @@ const doubledAt = async (
   const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload), storeEmptied);
 
   if (once === "skipped" || twice === "skipped")
-    return held ? "" : `${story.id} at ${at}: skipped outside a hold window`;
+    return held ? "skipped" : `${story.id} at ${at}: skipped outside a hold window`;
 
   return `${once}${twice}`.includes("faulted") || once !== twice
     ? `${story.id} at ${at}: ${once} then ${twice}`
@@ -130,14 +130,25 @@ export const onceShard = (shard: number, of: number) => {
       : "Actors R9, R19: inside every hold window and at the end of every context Story, a second reload right after a reload hears no onContext event the first did not",
     async () => {
       const verdicts: Array<string> = [];
+      const skipped: Array<string> = [];
 
       for (const { story, steps } of shardOf(contextStories, (c) => (c.steps + 1) ** 2, shard, of))
         // oxlint-disable-next-line no-await-in-loop -- one run at a time: the Story's own run, for its holds
-        for (const position of await positionsOf(story, steps))
+        for (const position of await positionsOf(story, steps)) {
           // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
-          verdicts.push(await doubledAt(story, story.steps.slice(0, steps), position));
+          const verdict = await doubledAt(story, story.steps.slice(0, steps), position);
 
-      expect(verdicts.filter((v) => v !== "")).toEqual([]);
+          if (verdict === "skipped") skipped.push(`${story.id} at ${String(position.at)}`);
+          else if (verdict !== "") verdicts.push(verdict);
+        }
+
+      // A reload inside a hold window may abort what a later word needs, so those positions may
+      // skip; each skip is counted and named with any failure, and a Story's end never skips.
+      expect({ verdicts, skipped: skipped.length, at: skipped }).toEqual({
+        verdicts: [],
+        skipped: skipped.length,
+        at: skipped,
+      });
     },
     LIMITS.reloadSweep,
   );

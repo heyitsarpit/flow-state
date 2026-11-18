@@ -276,6 +276,11 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     - [x] Owed records under names no ref gives (a local `~` name with its actor record, an empty name, a broken
       escape, spaces that do not name themselves back) wake no cart (Restore R5, WriteAhead I3). No source. built:
       `shop/odd-record-names`; the same shapes are failures in `bank-planned-edges`, so stress runs draw them.
+    - [x] Records whose key and content disagree (the main cart's record under a local key and the guest's key,
+      an owed record naming it under a local key and a key that does not round-trip, one kind's text under another
+      kind's prefix): the main cart restores its own line and hears no ending it never made (Restore R5). No
+      source. built: `shop/borrowed-records`; owed records under another identity's key are failures in
+      `bank-planned-edges`.
     - [x] A context consumer restored by a reload publishes once (Turn I9). built: `shop/browse` with a reload that
       attaches nothing.
 
