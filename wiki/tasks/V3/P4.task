@@ -826,6 +826,62 @@ tasks
             Held for the user: forged-but-valid records (added or removed queued commits, displaced Attempts, a binding
             renamed to another valid name) no decode can catch; stay it.fails titled by their rule until the user rules
             on the threat model. Not a Spec limit.
+        comment     2026-11-18T21:42:27Z
+            Requirements review (independent lead, 5 Haiku sidecars, one blind): ISSUES, 7 blocking. The reds are real:
+            all 11 forged and 3 records `it.fails` were replayed without `.fails`, and each fails for its stated reason
+            (ConflictingActorRef twice, "open 2 did not boot", not reported, `sync NotSent`, 457/1128/14), with the
+            as-saved controls clean. Suite exit 0 (37 expected fail); `nub run check` exit 0.
+
+            Blocking (each names the missing coverage):
+
+            1. Restore R7 and R8 are unrouted. The StateName brand quarantines a state R7 resets (RecordShapeChanged).
+               LaneKey "declared as a write" quarantines a gone operation R8 rewrites (OpRenamed), and R8's "stores the
+               operation's name as data" contradicts acceptance 3. R8 discards an undeclared machine's actor record that
+               the brands would quarantine. Missing: a requirement saying which outcome wins, with checks (a lane whose
+               operation is renamed while its contract keeps a write; an actor record of an undeclared machine), or R7
+               and R8 added to the close gate.
+            2. The corrupt-one-field test corrupts only content, never the key (`bootCorrupt` always puts at
+               `saved.key`). Once identity lives only in the key, the test no longer exercises RecordKey, ActorName or
+               LaneKey. Missing: the key's machine, name, operation and key-text segments corrupted as fields.
+            3. Corrupt values have no null and no type swap. A Held lane with `attempt` set to null decodes today as
+               headless and drops its head with no ending (`record.ts` `laneRecord`), a lost ending that is never
+               generated. `field added` runs only at `$`, so an added field on an owed row or a binding object is not
+               required to quarantine (Codec R5).
+            4. Some exemptions are wider than the held item:
+               - UNTELLABLE's `.rows item repeated` exempts a repeated owed row carrying its Attempt. That is a doubled
+                 ending, and it can be detected.
+               - REBOUND excuses `name emptied/lengthened`, including names the provider's machine does not decode.
+                 Those are not "another valid name".
+               - Neither regex is anchored to the record's root.
+            5. Requirement 1's "hears its owed row" is checked as `owed` equal to `[]` (forged.test.ts), which also
+               passes when the row is lost. Missing: the row delivered at open 2.
+            6. fixtures.md structure is unmet. The S1/S9 forged graph binding on a chain was deferred because it "needs
+               the binding decode green". Fixtures first wants it red before the build, as a builder like the
+               other four.
+            7. The headless-lane check cites Restore R1, which says a lane record holding a queue is Owing. Its source
+               is the acceptance. R1, and WriteLanes I8 against WriteAhead R5 (a headless record), must join the close
+               gate's Spec edits.
+
+            Not blocking:
+
+            - The sweep drops every Story that holds a stored world word, among them transfers' `seededStress` and
+              shop's `unreadOwed`; it could keep the cuts before the first put.
+            - Dedupe is by top-level types, only the first array item is walked, and records deeper than 64 are skipped.
+            - The E7 samples plant only from the `failures` slot (sign-in precedent).
+            - One-parser grep misses `world.ts` `actorKey` escaping.
+            - Bindings: the comment's "read only at a boot wake" is wrong, since `start` and the provider bind also read
+              them at a return. The decision stands on R2 and WriteAhead R4 ("exact context bindings"); Actors R18
+              covers only the graph.
+            - Register at close: shop/bound-to-local, bound-to-other-machine, bound-to-gone, and
+              lanes/headless-lane-queued (lanes/stories/findings.ts is in no manifest); binding forgeries and a lanes
+              record set in `samples`.
+
+            Rejected:
+
+            - The seven registered red Stories: the sweep checks only run rules.
+            - `pairs`, `mix` and the catalog: excluded by the Task text.
+            - Exporting `canonicalText` as a shared oracle: it is the Codec's own form.
+            - The blind list's paused-timer shape and format 1/2 lanes: outside the acceptance.
 
     T95
         title       Callback results checked before they enter a turn
