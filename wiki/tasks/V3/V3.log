@@ -1351,3 +1351,6 @@ note 2026-11-18T18:51:12Z
 note 2026-11-18T18:56:59Z
     T94 done (0a492802): review blocker waived into T98 by the user's parking decision; 9 instances are it.fails tests.
     P3 has no open Task left; its close-out review (R11) and completion audit (R18) start now.
+
+note 2026-11-18T18:57:44Z
+    User's page written, unread: wiki/plans/flow/references/pages/T94-public-entry-points.md.
