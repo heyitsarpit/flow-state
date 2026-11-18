@@ -880,3 +880,7 @@ note 2026-11-18T20:15:47Z
 
 note 2026-11-18T20:40:34Z
     P3 compacted (2c3798a8); its five unowned items routed to T56, T99, T29, T58, T76. P4 starts: T92 opened, lead next.
+
+note 2026-11-18T21:26:39Z
+    T92 requirements and fixtures in (77a019ea): bindings saved, 8 requirements; rulings on T92. Held for the user:
+    forged-but-valid records no decode can catch (threat model). Requirements review starts now.

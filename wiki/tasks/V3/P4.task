@@ -817,6 +817,15 @@ tasks
             corrupt-one-field test until decided (limit, or a stored digest). Also routed: StateName etc. are Task text,
             not yet Spec rules; Restore R5 still says a record names its identity in its content, and WriteAhead R4/R5
             list `machine`, `name`, `operation`: the build edits them (extra file: WriteAhead.spec).
+        comment     2026-11-18T21:26:39Z
+            Rulings (orchestrator, 2026-11-19): (1) the four red forged-record Stories may stay builders until they
+            pass; the build registers each with every runner before close. (2) Same-key corrupt input: store a digest of
+            the encoded input with the Attempt and quarantine on mismatch (correctness first; format unreleased). (4)
+            WriteAhead.spec may change (extra file, logged in specs.log).
+        comment     2026-11-18T21:26:39Z
+            Held for the user: forged-but-valid records (added or removed queued commits, displaced Attempts, a binding
+            renamed to another valid name) no decode can catch; stay it.fails titled by their rule until the user rules
+            on the threat model. Not a Spec limit.
 
     T95
         title       Callback results checked before they enter a turn
