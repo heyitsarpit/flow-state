@@ -602,7 +602,7 @@ tasks
             UnencodableValue report, and the realization's 'not built yet' is a gap written into the Spec.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
-        status      review
+        status      done
         priority    high
         blocked_by  [@T19, @T82, @T83]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4, @plan.Persistence.O5]
@@ -3942,7 +3942,7 @@ tasks
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T20]
         description

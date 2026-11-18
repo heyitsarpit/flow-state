@@ -1249,3 +1249,7 @@ note 2026-11-18T07:16:31Z
     Decision (the user, 2026-11-18): T20's record-trust class is parked as new P4 Task T92 (records decoded into
     meaning, one Identity Schema, each fact stored once), before T56. T20 closes after its inverted bindings test; then
     T91.
+
+note 2026-11-18T07:18:03Z
+    T20 done (the user's call, parked at the failure limit; inverted Restore R5 bindings test 1faeec1e owned by T92).
+    User's page written, unread: wiki/plans/flow/references/pages/T20-durability-restore.md. T91 started.
