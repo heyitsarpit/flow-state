@@ -1309,3 +1309,7 @@ note 2026-11-18T11:55:53Z
     Boundary design started (the user, 2026-11-18): one Opus lead with 4 Haiku sidecars proposes one validation and
     error structure for the whole codebase, with prevention; output proposals/boundaries-2026-11-18.md. T81 and T92 wait
     on it.
+
+note 2026-11-18T17:18:55Z
+    Amendment (2026-11-18, the user): skill pin workflow@1b83a6d to workflow@2befdbd; adds policy-module-composition,
+    R35's class register across parts, R11's system question at close-out, to-epic's composition step. Commit: pending.
