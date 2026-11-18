@@ -1358,3 +1358,7 @@ note 2026-11-18T18:57:44Z
 note 2026-11-18T19:05:43Z
     Daily faults 295 of 296: throwing-slot-decode-escapes-boot [Restore R5] missed, likely masked by T94's catch-alls;
     routed to T92.
+
+note 2026-11-18T19:06:48Z
+    Decision (the user, 2026-11-19): send(ref, event) stays (re-plan Q4 A), as XState's sendTo does; a rare escape
+    hatch, not the first way actors talk.

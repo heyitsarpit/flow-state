@@ -753,6 +753,10 @@ tasks
               is not.
             - A send's target ref and event are checked; a bad one refuses the sender's turn with a FlowError.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+        comment     2026-11-18T19:06:48Z
+            Decision (the user, 2026-11-19): send(ref, event) stays as accepted (re-plan Q4 A), as in XState's sendTo,
+            framed as a rare escape hatch: docs and examples prefer context, entities and view routing first. Reverse:
+            re-plan section 7's B or C.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
