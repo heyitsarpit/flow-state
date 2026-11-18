@@ -263,8 +263,10 @@ instructions
     - Big test commands run at the end of a Task (the user, 2026-11-16): the stress runs (stress Stories, their reload
       sweeps, generated stress seeds) sit behind a flag outside the default suite; they run once at a Task's close, in
       its review, and at a phase's close, never mid-Task. The whole `nub run faults` runs at most once a day (the user,
-      2026-11-18): at the first wake of the day with no lead running, and at a phase's close; never in a Task's build
-      or review.
+      2026-11-18) as a background process that blocks nothing: the first wake of the day starts `nub run faults
+      --background` (few copies, lowest CPU priority) whether or not a lead runs, and no one waits on it; the next wake
+      routes each missed fault. Timings taken while it runs are marked as such. Also at a phase's close; never in a
+      Task's build or review.
     - Proof has a time budget (the user, 2026-11-18): any single verification step a lead or reviewer runs (a harness, a
       sweep, a matrix) is capped at 10 minutes; past it, it stops, reports what it has, and the orchestrator decides
       whether more is worth it. A review runs the suite once, alone, plus the stress runs only when the Task touched
@@ -324,12 +326,12 @@ cadence
     follow instructions' 5-hour pacing. Only when the local hour is a multiple of 3 and the minute is under 30: start
     `nub run bench tooling --record` in the background and never wait on it; at the next wake read its rows, and if a
     test command regressed beyond noise against the previous tooling row, note it and insert a Task to make the tests
-    fast again, taken before the lead's next Task. At the first wake of the day with no lead running: start `nub run
-    faults` in the background, never wait on it, and at the next wake route each missed fault. If a Task is in review,
-    or a review event in instructions has no review covering it, and no lead is running, start one Opus lead at medium
-    effort with its read-only Haiku sidecars, one of them blind; verify its findings, route the accepted ones, and note
-    the review. If the lead has shown no activity for 100 minutes, resume it by message or replace it (R7) and note it.
-    Otherwise write nothing."
+    fast again, taken before the lead's next Task. At the first wake of the day, lead or not: start `nub run faults
+    --background` in the background, never wait on it, tell a running lead its timings are noisy until it ends, and at
+    the next wake route each missed fault. If a Task is in review, or a review event in instructions has no review
+    covering it, and no lead is running, start one Opus lead at medium effort with its read-only Haiku sidecars, one of
+    them blind; verify its findings, route the accepted ones, and note the review. If the lead has shown no activity for
+    100 minutes, resume it by message or replace it (R7) and note it. Otherwise write nothing."
 
     Quiet rule: a wake that finds nothing writes no note and sends no message; timings within bound are not noted.
 stops
