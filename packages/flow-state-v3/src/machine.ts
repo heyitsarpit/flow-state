@@ -189,7 +189,7 @@ export const machine = <D extends AnyDefinition>(
     nodes: new Map(tree.nodes.map((n) => [n.path, n])),
     tokens,
     histories,
-    events: new Set([...Object.keys(definition.events), ...Object.keys(definition.internalEvents)]),
+    events: new Set(Object.keys(definition.E)),
     sends: new Set(Object.values(definition.E)),
     findings: [],
     scheduleNames: new Map(),

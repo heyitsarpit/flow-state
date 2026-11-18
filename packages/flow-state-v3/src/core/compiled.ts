@@ -203,6 +203,7 @@ export type Field = {
 export type EventEntry = {
   readonly payload: Schema.Codec<Values, Values>;
   readonly walk: Walker<Values, Values>;
+  readonly names: ReadonlyArray<string>;
   readonly public: boolean;
   readonly uncertain: boolean;
 };

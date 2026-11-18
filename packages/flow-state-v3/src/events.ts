@@ -1,5 +1,5 @@
-import { Option, Predicate, Result, Schema } from "effect";
-import { type Walker, walkerOf } from "./core/boundary.ts";
+import { Option, Predicate, Schema } from "effect";
+import { admitted, type Walker, walkerOf } from "./core/boundary.ts";
 import type { Values } from "./core/compiled.ts";
 import { isUncertain } from "./config.ts";
 import type { AnyDefinition, EventFields, Tokens } from "./definition.ts";
@@ -35,27 +35,31 @@ const invalidEvent = (tag: string, field: ReadonlyArray<string>) =>
   ]);
 
 /**
- * An event's payload as Flow admits it: the Struct of its fields, and that Struct's type side,
- * which checks a payload without transforming it and keeps only its declared keys.
+ * An event's payload as Flow admits it: the Struct of its fields, that Struct's type side, which
+ * checks a payload without transforming it, and the names of its fields, the only keys kept.
  */
 export const payloadOf = (fields: Schema.Struct.Fields) => {
   const payload = codecOf<Values>(Schema.Struct(fields));
 
-  return { payload, walk: walkerOf(codecOf<Values>(Schema.toType(payload))) };
+  return {
+    payload,
+    walk: walkerOf(codecOf<Values>(Schema.toType(payload))),
+    names: Object.keys(fields),
+  };
 };
 
 const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
   const ending = { event: tag, from: Option.none() };
-  const { payload, walk } = payloadOf(fields);
+  const { payload, walk, names } = payloadOf(fields);
 
   const checks = Object.entries(fields).map(
     ([name, schema]) => [name, walkerOf(schema).is] as const,
   );
 
   const make = (given: Values = {}) =>
-    Result.match(walk.decode(given), {
-      onSuccess: (admitted) => ({ ...admitted, _tag: tag }),
-      onFailure: () => {
+    Option.match(admitted(walk, names, given), {
+      onSome: (payload) => ({ ...payload, _tag: tag }),
+      onNone: () => {
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- E.X's contract: a payload its Schema refuses throws InvalidEvent
         throw invalidEvent(
           tag,
@@ -72,6 +76,7 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
     ending,
     "~payload": payload,
     "~walk": walk,
+    "~names": names,
     from: (map: (value: never) => Values) => ({
       ending: { event: tag, from: Option.some(map) },
       "~token": token,
@@ -98,7 +103,11 @@ const isAdmitting = (
 ): x is {
   readonly "~payload": Schema.Codec<Values, Values>;
   readonly "~walk": Walker<Values, Values>;
-} => Predicate.hasProperty(x, "~payload") && Predicate.hasProperty(x, "~walk");
+  readonly "~names": ReadonlyArray<string>;
+} =>
+  Predicate.hasProperty(x, "~payload") &&
+  Predicate.hasProperty(x, "~walk") &&
+  Predicate.hasProperty(x, "~names");
 
 /**
  * How a definition admits one event's payload: the Struct and its type-side walker its token was
@@ -108,6 +117,6 @@ export const admissionOf = (definition: AnyDefinition, tag: string, fields: Even
   const token = definition.E[tag];
 
   return isAdmitting(token)
-    ? { payload: token["~payload"], walk: token["~walk"] }
+    ? { payload: token["~payload"], walk: token["~walk"], names: token["~names"] }
     : payloadOf(fieldsOf(fields));
 };

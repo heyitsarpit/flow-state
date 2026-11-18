@@ -178,8 +178,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/driver.ts",
-        find: "Result.getSuccess(event.walk.decode(payload))",
-        replace: "Option.map(Result.getSuccess(event.walk.decode(payload)), () => payload)",
+        find: "admitted(event.walk, event.names, payload)",
+        replace: "Option.map(admitted(event.walk, event.names, payload), () => payload)",
       },
     ],
   },

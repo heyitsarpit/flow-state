@@ -443,7 +443,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/driver.ts",
-        find: "Result.getSuccess(event.walk.decode(payload))",
+        find: "admitted(event.walk, event.names, payload)",
         replace: "Option.map(Schema.decodeUnknownOption(event.payload)(payload), () => payload)",
       },
       {

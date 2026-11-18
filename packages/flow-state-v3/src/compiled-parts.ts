@@ -32,7 +32,7 @@ export const mappingOf = (ending: Ending, slot: string): Mapping => ({
   })),
 });
 
-const inputFieldsOf = (input: Schema.Codec<Values, Values>) => {
+const inputNamesOf = (input: Schema.Codec<Values, Values>) => {
   const ast = SchemaAST.toType(input.ast);
 
   return SchemaAST.isObjects(ast) ? ast.propertySignatures.map((p) => String(p.name)) : [];
@@ -56,7 +56,7 @@ export const operationOf = (name: string, bound: Bound) => {
     name,
     contract: bound.contract,
     keyFields: bound.key,
-    inputFields: inputFieldsOf(bound.input),
+    inputFields: inputNamesOf(bound.input),
     key: bound.keyText,
     input: bound.input,
     inputJson: bound.inputJson,

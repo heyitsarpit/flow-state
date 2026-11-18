@@ -1,5 +1,6 @@
 import { asItIs, makeFreezer } from "../core/frozen.ts";
 import { Cause, Clock, Context, Deferred, Duration, Effect, Exit, Option, Result } from "effect";
+import { admitted } from "../core/boundary.ts";
 import { RuntimeDefaults } from "../core/defaults.ts";
 import { Operation, operationOf } from "../core/compiled.ts";
 import { defect } from "../core/defect.ts";
@@ -261,7 +262,7 @@ export const makeDriver = (options: {
 
       const decoded =
         event !== undefined && event.public
-          ? Result.getSuccess(event.walk.decode(payload))
+          ? admitted(event.walk, event.names, payload)
           : Option.none<Values>();
 
       check(Input.Send({ actor, tag, payload }), `send ${tag} to ${actor.name}`);

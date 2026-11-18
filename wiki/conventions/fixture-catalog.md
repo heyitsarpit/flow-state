@@ -503,15 +503,15 @@ kamp.us for rows restored after a failure.
       the order has no schedule. No source.
     - [x] S7: eight construction mistakes as builders in `stories/structure.ts` (an unset config, a bare context
       slot, operations with no `return`, a text amount, a first date as ISO text, the form's same-named lookup and
-      event, a null handler); six inverted, owner @task.V3.T81 (Compile R2, R3, R4, R5). No source.
+      event, a null handler), each refused (Compile R2, R3, R4, R5). No source.
     - [x] Samples and combinations: `bank-orders` (edge dates, 2^53 cents, a dropped network) in the generator and
       the pair sweep. The app mix takes `bank-planned` (two accounts' transfers beside the rent; newer-format and
       unreadable records) and `bank-planned-edges` (the rest of the old set's steps, receipt edges, edge dates) in
       place of `transfers`, carrying all of its steps, failures and controls between them; the usual set is kept to
       six steps, since the mix's one-network check needs one of five seeds to call every server. built:
       `bank-planned`, `bank-planned-edges`.
-    - [ ] Variety: a third unrelated app with a transforming event field. left: the acceptance names `transfers`
-      and `sign-in` only (the user's call).
+    - [x] Variety: a third unrelated app with a transforming event field, unpersisted, a `Duration` driving a
+      computed delay. built: `player/sleep-timer`.
   - **Findings:**
     - [ ] A deposit aborted, then resumed from its parts. Copies [test-parallel-uploads.js:448][tus-parallel] "should
       abort all partial uploads and resume from them". left: @task.V3.T21, needs `progress`.
@@ -608,8 +608,8 @@ not checked here).
       `InvalidEvent`. built: `tests/sign-in/trusted-device.test.ts`. E5: the week's reminder a millisecond short and
       at a week. built: `sign-in/trust-device`. No source.
     - [x] S7: five construction mistakes as builders in `stories/structure.ts` (the session's definition as a slot,
-      a text field, the bare `me` contract, a `{ day: 7 }` delay, a null handler); three inverted, owner
-      @task.V3.T81 (Compile R2, R4). No source.
+      a text field, the bare `me` contract, a `{ day: 7 }` delay, a null handler), each refused (Compile R2, R4). No
+      source.
     - [x] Samples: `auth-devices` (edge dates, an unreadable laptop record) in the generator, the stress generator
       and the pair sweep. built: `auth-devices`.
   - [ ] Sign-in's samples in the app mix: left for the mix's own seed count: a sixth part fails the mix's one-network
@@ -825,9 +825,11 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
   - `Music/Player` (have), shared per room.
   - `Household` (step 1), shared, holding refs to rooms and sending `Play` to a group.
   - `Speaker` (step 12), shared per room, reading S `speakerState`.
+  - `SleepTimer` (@task.V3.T81), shared per room, unpersisted; its `Set.after` is a `DurationFromMillis` field and
+    drives a computed delay.
 - **Operations:** T `play` (have, `cancel`); S `speakerState` (step 12, `latest`, `Feed.callback`).
 - **Journeys:** 1. Play: play → history back to the last sub-state (have). 2. Group: `Household` plays a group.
-  3. Buffering: `Speaker` shows the speaker's reports.
+  3. Buffering: `Speaker` shows the speaker's reports. 4. Sleep: set a room's sleep timer, cancel it.
 - **Features by step:**
   - **used today:** compound `states` (`Music/Player`); `S.X.history`, `history.child`, `S.previous.history`
     (`Music/Player`); `Flow.input` value-named actors (`Music/Player`, named by room); `Flow.private` (`Music/Player`);
@@ -835,6 +837,7 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
     `unknown` (`Music/Player`).
   - **step 1:** `send(ref, event)` (`Household` sends `Play` to grouped rooms).
   - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `speakerState` into `Speaker`).
+  - **@task.V3.T81:** an event field whose Schema transforms (`SleepTimer`'s `DurationFromMillis`), the third app.
 - **Scenarios:**
   - [x] Usual and stress (have). built: `player/usual`, `player/stress`, `player/stress-36`.
   - [x] L1 × 16 rooms playing at once under L5 (bursts of seeks). built: `player/sixteen-rooms`.
@@ -846,6 +849,10 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
     room name round-trips, timed. built: `player/long-room` (a million characters).
   - [x] A seek far past any track and a negative seek, taken as given (the player keeps no track length). built:
     `player/seek-edges`.
+  - [x] Sleep timer (@task.V3.T81): set for half an hour, a millisecond short and at it; cancelled. built:
+    `player/sleep-timer`. L1 × 16 timers. built: `player/sixteen-timers`. E5: 0 ms and 2^31 − 1 ms, a millisecond
+    short and at it. built: `player/sleep-timer-edges`. E2, E7: a duration `null`, `undefined` or its milliseconds,
+    refused `InvalidEvent`. built: `tests/player/sleep-timer.test.ts`. Samples: `sleep-timer`. No source.
 
 ### wizard
 

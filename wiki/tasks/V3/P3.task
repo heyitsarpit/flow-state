@@ -2572,7 +2572,7 @@ tasks
 
     T81
         title       Construction config decoded by one Schema; four construction bugs fixed
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T82]
         description
@@ -2767,6 +2767,24 @@ tasks
             (runtime.test.ts); (11) Diagnostics R1, R6: a throwing operations callback is one Defect at operations with
             the thrown cause; (12) a throwing body is one Defect at body; (13) Compile R2, R4: machine(null) is
             WrongKind at definition (construction.test.ts).
+        comment     2026-11-18T10:21:36Z
+            Built to review: all nine inverted checks and the four ruling checks pass (6c3fdaed and the next commit).
+            One decode gates construction (config.ts: delays as Duration inputs, a marked value of another kind is one
+            WrongKind, the operations record decoded); foreign guards, actions and reaction events refused by their
+            definition's owner; throwing callbacks and machine(null) are FlowErrors; send narrows a checked payload to
+            its declared fields (Actors R14).
+        comment     2026-11-18T10:21:37Z
+            Decisions: send narrows after the type check instead of decoding whole, since a whole decode took the
+            palette stress from 14 s past its 104 s limit (specs.log, reverse there); a third app is player's SleepTimer
+            (DurationFromMillis driving a computed delay); extra files src/events.ts (event tokens out of definition.ts,
+            past the size limit), src/core/boundary.ts#admitted, tests/construction-faults.ts. Faults: 15 named, all
+            caught (--only).
+        comment     2026-11-18T10:21:38Z
+            Acceptance 2 left as is, each for the close review: casts stay where literal types come back from runtime
+            records (the decode checks, the generics carry types); the tree is still walked in definition and machine,
+            and the contract-id and key rules run per definition and per app (two scopes); reaction shape,
+            FlowError.code and inputFieldsOf per call unchanged. Done: 3m one unwrap, 3n events from E, 3o endingsOf,
+            1f, 1h tokens once, 1i SelectArg once, A5 one codec. Gates: check 0, suite 1127 + 13 xfail, stress 73/73.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1

@@ -1,9 +1,9 @@
 import { Option } from "effect";
 import { benchPoint, manifest } from "../manifest.ts";
-import { musicApp, musicSetup } from "./app.ts";
-import { samples, seededStress, stories } from "./stories/usual.ts";
-import { emptyRoom, longRoomPlays, seekEdges } from "./stories/edges.ts";
-import { sixteenRooms, roomOf } from "./stories/load.ts";
+import { musicTimed, musicTimedSetup } from "./app.ts";
+import { samples, seededStress, sleepTimer, stories, timerSamples } from "./stories/usual.ts";
+import { emptyRoom, longRoomPlays, seekEdges, sleepTimerEdges } from "./stories/edges.ts";
+import { sixteenRooms, sixteenTimers, roomOf } from "./stories/load.ts";
 import { roomDisposed, roomReloaded } from "./stories/structure.ts";
 
 /**
@@ -11,8 +11,8 @@ import { roomDisposed, roomReloaded } from "./stories/structure.ts";
  */
 export const player = manifest({
   name: "player",
-  setup: musicSetup,
-  app: musicApp,
+  setup: musicTimedSetup,
+  app: musicTimed,
   stories: {
     ...stories,
     sixteenRooms,
@@ -21,9 +21,12 @@ export const player = manifest({
     emptyRoom,
     longRoomPlays,
     seekEdges,
+    sleepTimer,
+    sleepTimerEdges,
+    sixteenTimers,
   },
-  samples: [samples],
-  stressSamples: [samples],
+  samples: [samples, timerSamples],
+  stressSamples: [samples, timerSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),

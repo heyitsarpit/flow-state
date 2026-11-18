@@ -1,5 +1,6 @@
+import { Schema } from "effect";
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
-import { musicSetup, player } from "../app.ts";
+import { loungeTimer, musicSetup, musicTimedSetup, player } from "../app.ts";
 import { Speaker } from "../server/speaker.ts";
 import { SpeakerFake } from "../server/layer.ts";
 
@@ -218,3 +219,65 @@ export const seededStress = Story.app(musicSetup, {
  * Every Story of the fixture, by name.
  */
 export const stories = { usual, stress, seededStress };
+
+/**
+ * A duration at milliseconds, decoded by the event field's own Schema.
+ */
+export const after = Schema.decodeSync(Schema.DurationFromMillis);
+
+/**
+ * The longest delay a timer can arm: 2^31 - 1 ms, about 24.8 days.
+ */
+export const LONGEST_MS = 2 ** 31 - 1;
+
+const HALF_HOUR_MS = 1_800_000;
+
+/**
+ * The timed player app over its speaker fake, with no steps yet: every sleep-timer Story starts
+ * here.
+ */
+export const timedStory = (id: string) =>
+  Story.app(musicTimedSetup, { id, fixtures: [SpeakerFake] });
+
+export const setHalfHour = { _tag: "Set", after: after(HALF_HOUR_MS) } as const;
+export const setNow = { _tag: "Set", after: after(0) } as const;
+export const setLongest = { _tag: "Set", after: after(LONGEST_MS) } as const;
+const cancel = { _tag: "Cancel" } as const;
+
+/**
+ * The lounge's timer is set for half an hour: a millisecond short it is armed, at half an hour it
+ * is asleep; set again and cancelled, it is idle.
+ */
+export const sleepTimer = timedStory("player/sleep-timer")
+  .ensure(loungeTimer)
+  .send(loungeTimer, setHalfHour)
+  .checkpoint("armed")
+  .advance(HALF_HOUR_MS - 1)
+  .checkpoint("just short")
+  .advance("1 millis")
+  .checkpoint("asleep")
+  .send(loungeTimer, setHalfHour)
+  .send(loungeTimer, cancel)
+  .checkpoint("cancelled");
+
+/**
+ * What a listener can do with the lounge's sleep timer, for generated runs: set it for half an
+ * hour, for no time or for the longest delay, and cancel it.
+ */
+export const timerSamples = samplesOf({
+  id: "sleep-timer",
+  story: timedStory("sleep-timer/samples"),
+  names: { setup: "musicTimedSetup", fixtures: ["SpeakerFake"] },
+  actors: { loungeTimer },
+  servers: {},
+  failures: [],
+  landedFailures: [],
+  values: { setHalfHour, setNow, setLongest, cancel },
+  controls: [],
+  steps: (story) =>
+    story
+      .send(loungeTimer, setHalfHour)
+      .send(loungeTimer, setNow)
+      .send(loungeTimer, setLongest)
+      .send(loungeTimer, cancel),
+});

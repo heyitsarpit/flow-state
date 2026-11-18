@@ -1,6 +1,7 @@
 import { actorRef } from "../../../src/index.ts";
+import { timerOf } from "../app.ts";
 import { PlayerMachine } from "../machines/player.ts";
-import { musicStory } from "./usual.ts";
+import { after, musicStory, timedStory } from "./usual.ts";
 
 const ROOMS = Array.from({ length: 16 }, (_, n) => n);
 
@@ -24,4 +25,18 @@ export const sixteenRooms = ROOMS.reduce(
   ),
 )
   .advance("3 seconds")
+  .checkpoint("end");
+
+const TIMERS = Array.from({ length: 16 }, (_, n) => n);
+
+/**
+ * Sixteen rooms each set their timer for `n` minutes (a first guess until the bench re-measures
+ * it); sixteen minutes pass.
+ */
+export const sixteenTimers = TIMERS.reduce(
+  (story, n) =>
+    story.ensure(timerOf(n)).send(timerOf(n), { _tag: "Set", after: after(n * 60_000) }),
+  timedStory("player/sixteen-timers"),
+)
+  .advance("16 minutes")
   .checkpoint("end");

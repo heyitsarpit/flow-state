@@ -10,6 +10,7 @@ import {
   SchemaParser,
 } from "effect";
 import { Canonical, CodecFailure, writeCanonical } from "./codec.ts";
+import type { Values } from "./compiled.ts";
 
 type Ast = SchemaAST.AST;
 
@@ -520,3 +521,24 @@ export const walkerOf = <S extends Schema.Constraint>(schema: S) => {
 
   return walker;
 };
+
+/**
+ * A payload as an event admits it: checked by its Struct's type side, and narrowed to the
+ * Struct's own fields, so a handler reads no key the Schema does not declare.
+ *
+ * **Details**
+ *
+ * Narrowing picks the declared fields after the check rather than decoding, so a large payload
+ * is walked once, by the check's memo; a nested Struct field keeps its own value as given.
+ */
+export const admitted = (
+  walk: Walker<Values, Values>,
+  names: ReadonlyArray<string>,
+  // FLOW_STATE_ALLOW_UNKNOWN: a sent payload, checked here before it is trusted.
+  given: unknown,
+) =>
+  walk.is(given)
+    ? Option.some<Values>(
+        Object.fromEntries(names.filter((n) => Object.hasOwn(given, n)).map((n) => [n, given[n]])),
+      )
+    : Option.none<Values>();

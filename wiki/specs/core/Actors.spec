@@ -193,7 +193,10 @@ requirements
         source  @plan.Runtime.O4.
         must    A mailbox has no cap: an external send to a live actor is admitted however many
                 events wait, and none is refused for the mailbox's size (@plan.Pending.D24). An
-                internal, unknown or invalid event throws InvalidEvent and starts no turn. Endings,
+                internal, unknown or invalid event throws InvalidEvent and starts no turn. A send
+                admits a payload its Schema's type side accepts, narrowed to the payload's declared
+                fields: a key the Schema does not declare is dropped, so a handler reads only
+                declared fields (a nested value is kept as given). Endings,
                 schedule firings, context updates and props updates are never dropped. Before
                 attach, a local actor holds one replaceable pending props update.
 

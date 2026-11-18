@@ -377,3 +377,12 @@ note 2026-11-18T08:06:19Z
     @spec.Stories R18, I23, T16 added: a reload forks from a saved world (forkReloads) and gives the run a replay gives,
     so the reload sweep no longer replays each position's prefix (T90). Reverse: drop R18 and turn FLOW_REPLAY_SWEEP's
     replay form back on as the sweep.
+
+note 2026-11-18T10:10:04Z
+    @spec.Actors R14: a send admits its payload's type-side decode, undeclared keys dropped (T81, the orchestrator's
+    ruling: decode once and trust the result). Reverse: hand handlers the payload as sent, checked only.
+
+note 2026-11-18T10:19:52Z
+    @spec.Actors R14 reworded: the payload is narrowed to its declared fields after the type-side check, not decoded
+    whole; a whole decode made the palette stress run seven times slower (over 104 s against 14 s) (T81). Reverse:
+    decode the type side whole.
