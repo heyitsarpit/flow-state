@@ -377,8 +377,87 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "      yield* decodeName(Option.fromUndefinedOr(machines.get(named.machine)), named.name);\n",
+        find: "      yield* decodeName(yield* machineOf(named), named.name);\n",
+        replace: "      yield* machineOf(named);\n",
+      },
+    ],
+  },
+  {
+    name: "record-machine-unread",
+    tests: [RESTORE],
+    says: "a record of a machine no entry declares is read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      yield* decodeName(yield* machineOf(named), named.name);\n",
+        replace:
+          "      const known = machines.get(named.machine);\n      if (known !== undefined) yield* decodeName(known, named.name);\n",
+      },
+    ],
+  },
+  {
+    name: "lane-operation-unkeyed",
+    tests: [RESTORE],
+    says: "a lane record restores under a key of another operation",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '      if (!id.startsWith(own)) return yield* Result.fail("key");\n',
         replace: "",
+      },
+    ],
+  },
+  {
+    name: "lane-key-text-unread",
+    tests: [RESTORE],
+    says: "a lane key's text is never read, so a headless lane under any text restores",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      yield* keyNamesItself(operation, id.slice(own.length));\n",
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "held-lane-other-key",
+    tests: [RESTORE],
+    says: "a Held head restores under a key its input does not name",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '(text) => (id === `${own}${text}` ? Result.succeed(text) : Result.fail("key")),',
+        replace: "(text) => Result.succeed(text),",
+      },
+    ],
+  },
+  {
+    name: "owed-row-operation-unread",
+    tests: [RESTORE],
+    says: "an owed row of an operation its machine does not declare is read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '    if (Option.exists(compiled, (c) => !c.operations.has(operation)))\n      return Result.fail("operation");\n',
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "owed-row-other-lane",
+    tests: [RESTORE],
+    says: "an owed row naming another identity's lane is read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      onSome: (id) => id.startsWith(`${actorKey(actor)}|${operation}|`),",
+        replace: "      onSome: () => true,",
       },
     ],
   },

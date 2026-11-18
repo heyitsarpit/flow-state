@@ -81,7 +81,7 @@ const windowsOf = (story: Story<string>, batches: ReadonlyArray<Batch>) => {
     if (opens(word)) open.set(slot, [...(open.get(slot) ?? []), n]);
     const held = closes(word) ? open.get(slot)?.shift() : undefined;
 
-    return held === undefined ? [] : [[held, n] as const];
+    return held === undefined ? [] : [[held, n, slot] as const];
   };
 
   return story.steps.flatMap((step, n) => {
@@ -95,7 +95,7 @@ const windowsOf = (story: Story<string>, batches: ReadonlyArray<Batch>) => {
       holds.filter((from) => !ended.includes(from)),
     );
 
-    return ended.map((from) => [from, n] as const);
+    return ended.map((from) => [from, n, "storage"] as const);
   });
 };
 
@@ -109,6 +109,23 @@ export const inHoldWindow = (story: Story<string>, batches: ReadonlyArray<Batch>
   const windows = windowsOf(story, batches);
 
   return (at: number) => windows.some(([from, to]) => from < at && at <= to);
+};
+
+// How a word that finds nothing held names a slot.
+const nameOfSlot = (slot: string) => (slot === "storage" ? "the store" : slot);
+
+/**
+ * What a reload at position `at` of a Story may find gone: the held slots of the hold windows it
+ * falls in, each as a word acting on it names it when nothing is held there (`the store`, or a
+ * server's endpoint).
+ */
+export const heldSlotsAt = (story: Story<string>, batches: ReadonlyArray<Batch>) => {
+  const windows = windowsOf(story, batches);
+
+  return (at: number) =>
+    new Set(
+      windows.flatMap(([from, to, slot]) => (from < at && at <= to ? [nameOfSlot(slot)] : [])),
+    );
 };
 
 /**

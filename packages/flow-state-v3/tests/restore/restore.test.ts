@@ -290,7 +290,9 @@ describe("records whose key and content disagree (Restore R5; Codec R5)", () => 
     const { booted, restored } = run.checkpoints;
 
     expect(reports(run, 2).toSorted()).toEqual(
-      borrowedRecords.owed.map(({ key }) => `RecordUndecodable ${key}`).toSorted(),
+      [...borrowedRecords.owed, ...borrowedRecords.lanes, ...borrowedRecords.other]
+        .map(({ key }) => `RecordUndecodable ${key}`)
+        .toSorted(),
     );
     expect(booted.inspection.actors).toEqual([]);
     expect(restored.read(mainCart)?.memory["lines"]).toEqual({
@@ -298,7 +300,15 @@ describe("records whose key and content disagree (Restore R5; Codec R5)", () => 
     });
     expect(inOpen(run, 2).filter((e) => e._tag === "Delivered")).toEqual([]);
 
-    for (const { key, text } of [...borrowedRecords.owed, ...borrowedRecords.actors])
+    expect(restored.inspection.owed).toEqual([]);
+    expect(restored.inspection.lanes).toEqual([]);
+
+    for (const { key, text } of [
+      ...borrowedRecords.owed,
+      ...borrowedRecords.lanes,
+      ...borrowedRecords.actors,
+      ...borrowedRecords.other,
+    ])
       expect(restored.records.stored.get(key)).toBe(text);
   });
 });

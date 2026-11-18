@@ -367,3 +367,8 @@ note 2026-11-18T06:13:25Z
     @spec.Restore R5: one check at the decode boundary: a record is read only when the identity its content names is
     one a ref could give and its key is that identity's key for its kind; it replaces the per-kind name checks (T20
     convergence). Reverse: the clause from 5a06cfd3.
+
+note 2026-11-18T06:39:57Z
+    @spec.Restore R5: the boundary check now covers every trusted field: declared machine for every kind, a lane key's
+    operation and key text (read and named back, headless too), an owed row's operation and lane (T20). Reverse: the
+    clause from 7ff63975.

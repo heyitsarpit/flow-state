@@ -101,9 +101,14 @@ requirements
                 too. Each record names an identity in its content; it is read only when that
                 identity is one a ref of its identity version could give (never a local actor's
                 name, @spec.WriteAhead.I3; a name that identity decodes and whose input names it
-                back) and its key is the key that identity's record of this kind is saved under
-                (a lane's, with its operation and key text). Any other record is quarantined, so no
-                record speaks for an identity its key does not name. A quarantined record keeps its bytes
+                back), its machine is declared, and its key is the key that identity's record of
+                this kind is saved under. A lane's key also carries its operation, which the machine
+                declares, and its key text, which reads by that operation's key fields and names
+                itself back, and is the text a Held head's input gives. An owed row's operation is
+                its machine's, and a lane it names is that identity's lane of that operation. Any
+                other record is quarantined, so no record speaks for an identity its key does not
+                name. An owed row naming an Attempt the identity never made cannot be told from a
+                real one. A quarantined record keeps its bytes
                 until the identity writes that record again: an actor's first save, an owed record's next change, a 
                 lane's cancel. Until
                 then a quarantined lane or owed record is reported RecordUndecodable at each boot;

@@ -1048,6 +1048,22 @@ tasks
             accepted the headless lane key, undeclared-machine owed and skip masking; changed the R6/R8 items to routed
             (no identity versions in src); rejected 'any singleton name' (actorIdOf gives any non-~ literal) and 'owed
             row names another lane' (inert: Kept lookups are per actor and a lane id carries its actor).
+        comment     2026-11-18T06:49:26Z
+            Field list (each check is one plant in tests/restore-faults.ts, all caught): every kind: format, kind
+            prefix, identity fields, machine declared (record-machine-unread), name a ref could give
+            (record-name-unread, local-name-restored), key is that identity's key (record-key-unchecked). Lane:
+            operation in its key (lane-operation-unkeyed) and declared, key text as the operation's key fields in input
+            order written back exactly, headless too (lane-key-text-unread), a Held head's input names that text
+            (held-lane-other-key). Owed row: operation declared (owed-row-operation-unread), its lane that identity's of
+            that operation (owed-row-other-lane). Attempt: not checkable.
+        comment     2026-11-18T06:49:27Z
+            Fix round: shop/borrowed-records now holds lane records (garbage, empty, spaced, other operation, other key,
+            undeclared operation and machine), owed of undeclared and empty machines, rows of undeclared operation or
+            another lane, and a junk prefix; red first (WriteLanes I3, made-up ending). Key-text values are read by
+            Schema only through a head's input (3,000 and 100,000 deep stay green); ledger unit tests declare their Pay
+            machine. doubledAt: faults first, a skip only for a slot of a window at that position, never at a Story's
+            end, skips at most one per window position. Gates: check 0, suite 0 (39 s), stress 0 (65 s), faults 0 (265
+            of 265). Load: mds_stores ~115%, mediaanalysisd ~75%.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done

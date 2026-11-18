@@ -1,3 +1,4 @@
+import { Predicate } from "effect";
 import { expect, it } from "vite-plus/test";
 import { LIMITS } from "../limits.ts";
 import { manifests } from "../../fixtures/index.ts";
@@ -11,7 +12,7 @@ import { customerFirst } from "../../fixtures/transfers/stories/structure.ts";
 import { Step, type Story, StoryFailed, type StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "./rules.ts";
 import { switchedOn } from "../switches.ts";
-import { inHoldWindow, shardOf, skippable, slices } from "./sweep.ts";
+import { heldSlotsAt, shardOf, skippable, slices } from "./sweep.ts";
 
 const entries = manifests.flatMap((m) =>
   Object.values(m.app.machines).map((entry) => ("machine" in entry ? entry.machine : entry)),
@@ -69,54 +70,71 @@ export const contextStories: ReadonlyArray<{
 ];
 
 // The run's onContext turns, or why it could not run: a script fault a reload can cause skips it.
-export const turnsOf = async (
-  story: Story<string>,
-  steps: ReadonlyArray<Step>,
-  skips: (fault: StoryFailed) => boolean = skippable,
-) =>
+export const turnsOf = async (story: Story<string>, steps: ReadonlyArray<Step>) =>
   story.run({ steps }).then(
     (run) => reactionTurns(checked(run)),
     // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is matched.
     (fault: unknown) =>
-      fault instanceof StoryFailed && skips(fault) ? "skipped" : `faulted: ${String(fault)}`,
+      fault instanceof StoryFailed && skippable(fault)
+        ? `skipped: ${fault.problem}`
+        : `faulted: ${String(fault)}`,
   );
 
-// The second reload's own skip: it aborted the write the first reload's boot took a storage hold
-// with, so a later storage word finds nothing held.
-const storeEmptied = (fault: StoryFailed) => fault.problem === "nothing held at the store";
+// Whether a run's skip is one the reload's hold windows allow: each word that found nothing held
+// acted on a slot whose hold the reload fell inside, so the reload aborted what it needed.
+const allowedSkip = (verdict: number | string, slots: ReadonlySet<string>) =>
+  Predicate.isString(verdict) &&
+  verdict.startsWith("skipped: ") &&
+  verdict
+    .slice("skipped: ".length)
+    .split("; ")
+    .every((p) => p.endsWith(" never used") || slots.has(p.replace(/^nothing held at /u, "")));
 
 // The double reload at every position of every context Story. Most of what it catches breaks at
 // every position, so the usual run reloads twice only inside hold windows, where a reload aborts
 // what is held, and at the end; FLOW_EVERY_RELOAD=true runs it at every position again.
 const everyPosition = switchedOn("FLOW_EVERY_RELOAD");
 
-// The positions a context Story's first `steps` steps are reloaded twice at, each with whether it
-// is inside a hold window, the only place a reload may make a run skip.
+// The positions a context Story's first `steps` steps are reloaded twice at, each with the held
+// slots of the hold windows it is inside, the only place a reload may make a run skip.
 const positionsOf = async (story: Story<string>, steps: number) => {
   const own = await story.run({ steps: story.steps.slice(0, steps) });
-  const held = inHoldWindow(story, own.end.records.batches);
+  const slotsAt = heldSlotsAt(story, own.end.records.batches);
 
-  return Array.from({ length: steps + 1 }, (_, at) => ({ at, held: held(at) })).filter(
-    (p) => everyPosition || p.held || p.at === steps,
+  return Array.from({ length: steps + 1 }, (_, at) => ({ at, slots: slotsAt(at) })).filter(
+    (p) => everyPosition || p.slots.size > 0 || p.at === steps,
   );
 };
 
-// A double reload at one position: "skipped" inside a hold window, why its second reload heard
-// more, why it skipped outside a hold window, or "" when none of these.
+// A double reload at one position: "skipped" when a reload inside a hold window aborted what a
+// later word needed, else why it failed: a run faulted, the second reload heard more, a run skipped
+// for a slot no window at that position holds, or the Story's end skipped. "" when it held.
 const doubledAt = async (
   story: Story<string>,
   ran: ReadonlyArray<Step>,
-  { at, held }: { readonly at: number; readonly held: boolean },
+  {
+    at,
+    slots,
+    end,
+  }: { readonly at: number; readonly slots: ReadonlySet<string>; readonly end: boolean },
 ) => {
   const once = await turnsOf(story, ran.toSpliced(at, 0, reload));
-  const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload), storeEmptied);
+  const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload));
+  const both = [once, twice];
 
-  if (once === "skipped" || twice === "skipped")
-    return held ? "skipped" : `${story.id} at ${at}: skipped outside a hold window`;
+  if (both.some((v) => Predicate.isString(v) && v.startsWith("faulted")))
+    return `${story.id} at ${at}: ${once} then ${twice}`;
 
-  return `${once}${twice}`.includes("faulted") || once !== twice
-    ? `${story.id} at ${at}: ${once} then ${twice}`
-    : "";
+  const skips = both.filter(Predicate.isString);
+
+  if (skips.length === 0)
+    return once === twice ? "" : `${story.id} at ${at}: ${once} then ${twice}`;
+
+  if (end) return `${story.id} at ${at}: ${skips.join(", ")} at the Story's end`;
+
+  return skips.every((v) => allowedSkip(v, slots))
+    ? "skipped"
+    : `${story.id} at ${at}: ${skips.join(", ")} outside its hold windows`;
 };
 
 /**
@@ -131,24 +149,27 @@ export const onceShard = (shard: number, of: number) => {
     async () => {
       const verdicts: Array<string> = [];
       const skipped: Array<string> = [];
+      let windows = 0;
 
       for (const { story, steps } of shardOf(contextStories, (c) => (c.steps + 1) ** 2, shard, of))
         // oxlint-disable-next-line no-await-in-loop -- one run at a time: the Story's own run, for its holds
         for (const position of await positionsOf(story, steps)) {
+          windows += position.slots.size > 0 ? 1 : 0;
+
           // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
-          const verdict = await doubledAt(story, story.steps.slice(0, steps), position);
+          const verdict = await doubledAt(story, story.steps.slice(0, steps), {
+            ...position,
+            end: position.at === steps,
+          });
 
           if (verdict === "skipped") skipped.push(`${story.id} at ${String(position.at)}`);
           else if (verdict !== "") verdicts.push(verdict);
         }
 
-      // A reload inside a hold window may abort what a later word needs, so those positions may
-      // skip; each skip is counted and named with any failure, and a Story's end never skips.
-      expect({ verdicts, skipped: skipped.length, at: skipped }).toEqual({
-        verdicts: [],
-        skipped: skipped.length,
-        at: skipped,
-      });
+      expect(verdicts).toEqual([]);
+      // Each skip is bounded by its position's own hold windows above, and at most one per
+      // hold-window position; the list names them.
+      expect({ skipped, within: skipped.length <= windows }).toEqual({ skipped, within: true });
     },
     LIMITS.reloadSweep,
   );

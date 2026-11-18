@@ -1,8 +1,8 @@
-import { Option, Result, Schema } from "effect";
-import { decodeCanonical, toCanonicalJson } from "./codec.ts";
+import { Option, Predicate, Result, Schema } from "effect";
+import { decodeCanonical, parseCanonical, toCanonicalJson, writeJson } from "./codec.ts";
 import { decodeActor } from "./actor-record.ts";
 import { decodeName } from "./identity.ts";
-import type { Compiled, Values } from "./compiled.ts";
+import type { Compiled, Operation, Values } from "./compiled.ts";
 import {
   actorOf,
   decodeBy,
@@ -210,10 +210,43 @@ export const decodeRecords = (
 
   const actorRecord = decodeActor(machines);
 
+  // A row's operation is one its machine declares, and a lane it names is that identity's lane of
+  // that operation. The machine itself is the identity check's.
+  const rowOf = (
+    compiled: Option.Option<Compiled>,
+    actor: ActorId,
+    operation: string,
+    lane: Option.Option<string>,
+  ) => {
+    if (Option.exists(compiled, (c) => !c.operations.has(operation)))
+      return Result.fail("operation");
+
+    return Option.match(lane, {
+      onNone: () => true,
+      onSome: (id) => id.startsWith(`${actorKey(actor)}|${operation}|`),
+    })
+      ? Result.succeed(operation)
+      : Result.fail("lane");
+  };
+
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const rowsRecord = (value: unknown) =>
     Result.map(
-      decodeBy(OwedJson, "schema")(value),
+      Result.flatMap(decodeBy(OwedJson, "schema")(value), (r) =>
+        Result.map(
+          Result.all(
+            r.rows.map((e) =>
+              rowOf(
+                Option.fromUndefinedOr(machines.get(r.machine)),
+                actorOf(r),
+                e.operation,
+                Option.fromNullOr(e.lane),
+              ),
+            ),
+          ),
+          () => r,
+        ),
+      ),
       (r) =>
         r.rows.map((e) => ({
           kept: e.kept,
@@ -244,6 +277,7 @@ export const decodeRecords = (
       const own = `${actorKey(actor)}|${r.operation}|`;
 
       if (!id.startsWith(own)) return yield* Result.fail("key");
+      yield* keyNamesItself(operation, id.slice(own.length));
 
       const lane = yield* Option.match(Option.fromNullOr(r.attempt), {
         onNone: () => Result.succeed(Option.none<Lane>()),
@@ -303,15 +337,31 @@ export const decodeRecords = (
       return { id, actor, inFlight: r.inFlight, lane, endings };
     });
 
-  // The identity a record names, trusted only when it is one a ref or a persisted actor could give
-  // (never a local actor's) and its key is the key that identity's record of this kind is saved
-  // under: exactly, or for a lane, as the start of its id.
+  // A lane key's text, read by its operation's key fields, must name itself back, as a name does.
+  // A lane key's text: its operation's key fields in their input order, as JSON text written back
+  // byte for byte; its values are read by their Schemas only when a head's input names it.
+  const keyNamesItself = (operation: Operation, text: string) =>
+    Result.flatMap(
+      Result.mapError(parseCanonical(text), () => "key"),
+      (json) =>
+        Predicate.isObject(json) &&
+        !Array.isArray(json) &&
+        Object.keys(json).join("\n") ===
+          operation.inputFields.filter((f) => operation.keyFields.includes(f)).join("\n") &&
+        Result.getOrUndefined(writeJson(json)) === text
+          ? Result.succeed(text)
+          : Result.fail("key"),
+    );
+
+  // The identity a record names, trusted only when its machine is declared, it is one a ref could
+  // give (never a local actor's) and its key is the key that identity's record of this kind is
+  // saved under: exactly, or for a lane, as the start of its id.
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, read for the identity its key names.
   const identityIn = (kind: (typeof KINDS)[number], key: string, value: unknown) =>
     Result.gen(function* () {
       const named = yield* decodeBy(IdentityJson, "schema")(value);
 
-      yield* decodeName(Option.fromUndefinedOr(machines.get(named.machine)), named.name);
+      yield* decodeName(yield* machineOf(named), named.name);
       const own = `${kind}${actorKey(actorOf(named))}`;
 
       const keyed = kind === "lane/" ? key.startsWith(`${own}|`) : key === own;

@@ -188,6 +188,23 @@ export const oddRecordNames = storeStory("shop/odd-record-names")
 const mainCartText = (lineId: string) =>
   `{"context":{"shopper":{"machine":"Shop/Shopper","name":"main"}},"format":3,"graph":{"Shop/Shopper/main":{}},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{"${lineId}":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"name":"{\\"owner\\":\\"main\\"}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}`;
 
+// An owed record of `machine`'s `name`, holding one unknown ending of `operation` on `lane` (JSON).
+const owedOf = (machine: string, name: string, operation: string, lane: string) =>
+  `{"format":3,"machine":${jsonText(machine)},"name":${jsonText(name)},"rows":[{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"unknown","kept":false,"lane":${lane},"operation":${jsonText(operation)},"reason":"Restored","value":null}]}`;
+
+// The main cart's lane keys start here.
+const mainLane = 'lane/Shop/Cart/{"owner":"main"}';
+
+// A Held head's input for the main cart.
+const heldInput = '{"cartId":"main","lineId":"l1","variantId":"v1"}';
+
+// A lane record of the main cart for `operation`: Held with `input` (JSON), or with no head
+// (`null`) and an Attempt a cancel displaced.
+const laneOf = (operation: string, input: string) =>
+  input === "null"
+    ? `{"attempt":null,"displaced":["att-000000000000000000006d61696e3a39-9"],"format":3,"inFlight":false,"input":null,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","operation":${jsonText(operation)},"queue":[],"retryCount":0}`
+    : `{"attempt":"att-000000000000000000006d61696e3a39-9","displaced":[],"format":3,"inFlight":false,"input":${input},"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","operation":${jsonText(operation)},"queue":[],"retryCount":0}`;
+
 // An owed record naming the main cart, holding an unknown ending for an Attempt it never made.
 const mainOwedText = `{"format":3,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","rows":[{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}`;
 
@@ -202,12 +219,38 @@ export const borrowedRecords = {
     { key: "owed/Shop/Cart/~7", text: mainOwedText },
     { key: 'owed/Shop/Cart/{"owner":"main"} ', text: mainOwedText },
     { key: 'owed/Shop/Cart/{"owner":"wrong-kind"}', text: mainCartText("l7") },
+    { key: "owed/Gone/x", text: owedOf("Gone", "x", "add", "null") },
+    { key: "owed//x", text: owedOf("", "x", "add", "null") },
+    {
+      key: 'owed/Shop/Cart/{"owner":"gone-op"}',
+      text: owedOf("Shop/Cart", '{"owner":"gone-op"}', "gone", "null"),
+    },
+    {
+      key: 'owed/Shop/Cart/{"owner":"other-lane"}',
+      text: owedOf(
+        "Shop/Cart",
+        '{"owner":"other-lane"}',
+        "add",
+        jsonText('Shop/Cart/{"owner":"main"}|add|{"cartId":"main"}'),
+      ),
+    },
+  ],
+  lanes: [
+    { key: `${mainLane}|add|GARBAGE`, text: laneOf("add", "null") },
+    { key: `${mainLane}|add|`, text: laneOf("add", "null") },
+    { key: `${mainLane}|add|{ "cartId": "main" }`, text: laneOf("add", "null") },
+    { key: `${mainLane}|set|{"cartId":"main"}`, text: laneOf("add", "null") },
+    { key: `${mainLane}|add|{"cartId":"other"}`, text: laneOf("add", heldInput) },
+    { key: `${mainLane}|gone|{"cartId":"main"}`, text: laneOf("gone", "null") },
+    { key: "lane/Gone/x|add|{}", text: laneOf("add", "null").replace('"Shop/Cart"', '"Gone"') },
   ],
   actors: [
     { key: "actor/Shop/Cart/~5", text: mainCartText("l9") },
     { key: 'actor/Shop/Cart/{"owner":"guest"}', text: mainCartText("l8") },
     { key: 'actor/Shop/Cart/{"owner":"wrong-kind"}', text: mainOwedText },
+    { key: "actor/Gone/x", text: mainCartText("l6").replace('"Shop/Cart"', '"Gone"') },
   ],
+  other: [{ key: "junk/x", text: mainOwedText }],
 } as const;
 
 /**
@@ -218,9 +261,12 @@ export const borrowedRecordsReload = storeStory("shop/borrowed-records")
   .ensure(mainCart)
   .send(mainCart, add("l1", "v1"))
   .world(
-    ...[...borrowedRecords.owed, ...borrowedRecords.actors].map(({ key, text }) =>
-      Fake.storage.put(key, text),
-    ),
+    ...[
+      ...borrowedRecords.owed,
+      ...borrowedRecords.lanes,
+      ...borrowedRecords.actors,
+      ...borrowedRecords.other,
+    ].map(({ key, text }) => Fake.storage.put(key, text)),
   )
   .reload({ reattach: false })
   .checkpoint("booted")

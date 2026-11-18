@@ -1,7 +1,11 @@
 import { makeFreezer } from "./frozen.ts";
 import assert from "node:assert/strict";
-import { Option, Result } from "effect";
+import { Effect, Option, Result, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
+import { transaction } from "../contract.ts";
+import { definition } from "../definition.ts";
+import { Flow } from "../flow.ts";
+import { machine } from "../machine.ts";
 import {
   Audience,
   Delivery,
@@ -93,6 +97,32 @@ const ledgerFaults = (world: World) => {
 
 const hearAs = (heard: Heard) => () => heard;
 
+// A persisted machine with one write operation, `pay`, whose owed records the boot may read.
+const pay = transaction({
+  id: "Test/pay",
+  input: { cents: Schema.Number },
+  key: [],
+  concurrency: "reject",
+  services: [],
+  commit: () => Effect.void,
+});
+
+const Pay = definition({
+  id: "Shop/Pay",
+  persist: true,
+  states: ["OPEN"],
+  events: {},
+  internalEvents: { Paid: {}, PayUnsure: Flow.uncertain({}) },
+  memory: {},
+  operations: ({ E }) => ({
+    pay: pay.outcomes({ success: E.Paid, failure: {}, unknown: E.PayUnsure }),
+  }),
+});
+
+const PayMachine = machine(Pay, ({ S }) => ({ default: S.OPEN, on: { Paid: {}, PayUnsure: {} } }));
+
+const payMachines = new Map([[PayMachine.compiled.id, PayMachine.compiled]]);
+
 describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", () => {
   it("a NotSent row and an unknown row with the same tag come back told apart by channel", () => {
     const actor = { machine: "Shop/Pay", name: "s1" };
@@ -112,7 +142,7 @@ describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", (
     ]);
 
     assert.deepEqual(
-      decodeRecords(new Map(), stored).rows.map((r) => r.channel),
+      decodeRecords(payMachines, stored).rows.map((r) => r.channel),
       ["notSent", "unknown"],
     );
   });
@@ -139,7 +169,7 @@ describe("a boot reads records in key order (Restore R3: the boot sorts by recor
     const stored = new Map([record("b"), record("a")]);
 
     assert.deepEqual(
-      decodeRecords(new Map(), stored).rows.map((r) => r.actor.name),
+      decodeRecords(payMachines, stored).rows.map((r) => r.actor.name),
       ["a", "b"],
     );
   });
