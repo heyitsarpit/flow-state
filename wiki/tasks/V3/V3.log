@@ -1287,3 +1287,7 @@ note 2026-11-18T10:08:28Z
 note 2026-11-18T10:22:33Z
     T88 done: review PASS (e593999b), merged into flow-rewrite; vp check 1.9 s and 878 MB to 1.2 s and 541 MB. T81 in
     review.
+
+note 2026-11-18T10:41:20Z
+    T81 close review ISSUES (414624d1): partly built bounds and endings, null payloads and NaN delays escape as raw
+    errors. Fix round with T81's lead; construction leftovers and nested extra keys routed to revisit.md.

@@ -145,3 +145,10 @@ Deferred items.
   Not a reference model of the core (the Epic forbids one) and no recorded output. Trial when picked up: one small
   Task, three or four relations and the Schema properties on transfers and session, kept only if they catch what the
   suite misses.
+- **Construction leftovers after one Schema decode** (2026-11-18, orchestrator; @task.V3.T81's close review). Casts
+  where definitions pass literal types through; the decoded config value unused; the state tree walked twice; the
+  contract-id and key rules run at two scopes; the reaction shape, `FlowError.code` and per-call input lookup. Worth it
+  when a Task next changes construction, so one rewrite covers them.
+- **Nested extra keys in a sent payload** (2026-11-18, @task.V3.T81's close review). `send` keeps only declared
+  top-level fields; a nested object passes through as given, which Actors R14 allows. A full decode strips both but
+  cost palette stress about 8x; revisit if a nested extra key ever reaches a handler that saves it.
