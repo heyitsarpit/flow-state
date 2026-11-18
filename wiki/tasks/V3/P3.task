@@ -3906,7 +3906,7 @@ tasks
 
     T90
         title       Reload sweep forked from a saved cut, same verdicts
-        status      open
+        status      in_progress
         priority    medium
         blocked_by  [@T83]
         description
@@ -3942,7 +3942,7 @@ tasks
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
-        status      review
+        status      done
         priority    medium
         blocked_by  [@T20]
         description
