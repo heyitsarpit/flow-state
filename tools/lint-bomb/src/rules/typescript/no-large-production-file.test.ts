@@ -64,7 +64,7 @@ tester.run("no-large-production-file", noLargeProductionFileRule, {
 				"/** Module summary. */\n" +
 				Array.from({ length: 501 }, (_, index) => `const counted${index} = ${index}; // trailing`).join("\n"),
 			filename: "/project/packages/demo/src/counted.ts",
-			errors: [{ messageId: "largeFile", line: 2, column: 0 }],
+			errors: [{ messageId: "largeFile", line: 1, column: 0 }],
 		},
 		{
 			code: windowsProductionFile,

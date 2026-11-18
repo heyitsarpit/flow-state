@@ -3862,7 +3862,7 @@ tasks
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
-        status      in_progress
+        status      review
         priority    medium
         blocked_by  [@T87]
         description
@@ -3927,6 +3927,22 @@ tasks
             2 to 1 (oxlint 1.94 reports a whole-file rule on line 1; the rule still fires), extra file
             tools/lint-bomb/src/rules/typescript/no-large-production-file.test.ts. The release-age gate is not bypassed:
             apply after it clears (about 2026-11-18 03:30Z), then record bench tooling.
+        comment     2026-11-18T10:12:18Z
+            Applied, no loss: vite-plus 1.7.0 (vite 8.3.8000), oxlint and plugins 1.94.0, vitest and coverage 5.1.0,
+            tsrs 7.1.0-beta.tsrs2; one-line test fix (2 to 1). Before to after: vp check 1.9 s and 878 MB to 1.2 s and
+            541 MB; nub run check 6.4 s and 224 MB to 6.2 s and 218 MB (effect-tsgo and plan-coverage dominate). Clean
+            check, lint:rules, suite (1101 passed, 34 expected fail) and stress (72 passed) exit 0; the four planted
+            errors (type error TS2322, floating promise, unsafe any, .forEach) fail with the trial's diagnostics,
+            reverted. Not run: bench tooling --record (load 27 over half of 12 cores, refused); record it when the
+            machine is quiet.
+        comment     2026-11-18T10:14:56Z
+            Review PASS (diff fc434446..ff59919d): pins exact (vite-plus 1.7.0, oxlint and @oxlint/plugins 1.94.0,
+            vitest and coverage 5.1.0, tsrs 7.1.0-beta.tsrs2, vite alias 8.3.8000); lock moved only that toolchain
+            family plus @oxfmt 0.73 to 0.79, @oxc-project 0.154 to 0.159, @vitest/istanbul 2.1.0 and peer-set suffixes
+            (unhead, unplugin, vocs, @tailwindcss/vite, @vitejs/*). Clean check, lint:rules and test exit 0; suite 1101
+            passed + 34 expected fail = 1135 (+15 skipped), matching the old ~1136. Planted TS2322, floating promise
+            (tsrs no-floating-promises), unsafe any (lint-bomb no-explicit-any), .forEach (lint-bomb no-for-each), plus
+            no-unknown: each exits 1, all reverted. Only test change is line 2 to 1.
 
     T90
         title       Reload sweep forked from a saved cut, same verdicts
