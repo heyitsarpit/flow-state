@@ -16,6 +16,7 @@ once that API is built.
 | [Cross-tab bridge](cross-tab-bridge.md)           | host code, emit out, typed send in (deferred)                   |
 | [Fixtures](fixtures.md)                           | every feature proven by a fixture app before it is built        |
 | [Fixture catalog](fixture-catalog.md)             | each fixture's scenarios: load and structural stress, owners    |
+| [Boundaries](boundaries.md) | each source of untrusted input, where it is checked, its owner |
 
 Upkeep:
 
