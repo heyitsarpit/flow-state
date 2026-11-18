@@ -661,7 +661,7 @@ tasks
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
-        status      in_progress
+        status      review
         priority    high
         satisfies   [@plan.Runtime.O1]
         description
@@ -920,6 +920,27 @@ tasks
             6. Faults `binding-unchecked` and T20's restore faults via `nub run faults --only`; Specs Restore
                R1/R5/R7/R8, Codec R5, WriteAhead R4/R5, WriteLanes I8 with specs.log notes; stress and fresh seeds;
                check, suite; status review.
+        comment     2026-11-18T22:36:54Z
+            Build done (60627ca2, a6e7a649, 7f968e59): every requirement check passes as a plain test (forged 14,
+            records 4, Restore R5 inverted bindings); the held forgeries stay one it.fails (Restore R5, Q4). Suite 1205
+            pass, 23 expected fail; check 0; 56 restore and record faults caught with --only; stress with FLOW_SEEDS=10
+            green after one run-rule fix.
+        comment     2026-11-18T22:36:55Z
+            Decisions (agent, implementation): actor formats 1-3 step to 4 and older lane or owed records are
+            quarantined (never released); a head's input digest is FNV-1a of its canonical text; owed rows name a lane
+            by contract and key text after the identity. Reverse: from 60627ca2^.
+        comment     2026-11-18T22:36:55Z
+            Held class widened (agent, with evidence): a repeated owed row is legit (src/host/ledger.test.ts, WriteLanes
+            R10) and a record moved under another literal name is a rekey like REBOUND. Run-rule fixes: I17 matches lane
+            keys by identity and skips opens whose load failed (Restore R9; fresh seed 21).
+        comment     2026-11-18T22:36:55Z
+            Extra files: tests/rules/commits.ts and records.ts (format 4 shapes), tests/*-faults.ts and new
+            tests/record-faults.ts, WriteLanes.spec I8, src/core/record-brands.test.ts (the brand compile check, in core
+            since tests may not import it).
+        comment     2026-11-18T22:36:55Z
+            For the user's read: Restore Q4 (well-formed forgeries held); and an actor record under another identity's
+            key keeps its memory's input fields as saved (owner main under the guest key): no check compares them with
+            the name.
 
     T95
         title       Callback results checked before they enter a turn
