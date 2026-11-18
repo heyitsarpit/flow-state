@@ -1208,3 +1208,8 @@ note 2026-11-18T04:34:18Z
 note 2026-11-18T04:50:08Z
     T83 done by the user's call: suite 36 s, stress 61 s, faults 243 s alone are the new baseline; the faults runner no
     longer credits tests red without a fault (849bbbe2). T20 next.
+
+note 2026-11-18T04:59:11Z
+    Amendment (2026-11-18, the user): nub run faults runs on demand (tooling, run rules or faults changed; that Task's
+    review; a phase's close), not at every Task's close; new T91: stress pair sweep at 200 seeds, duplicate faults
+    merged, after T20. instructions edited. Commit: 1e4c7e00.
