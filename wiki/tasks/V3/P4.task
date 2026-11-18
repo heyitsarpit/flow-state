@@ -946,3 +946,7 @@ tasks
         comment     2026-11-18T19:39:14Z
             Also owes (proposed, P3 close fix round): faults for the Diagnostics gaps I1, I2, R4, R7 to R10
             in code:wiki/tasks/V3/P3-coverage.md.
+        comment     2026-11-18T19:57:57Z
+            Found while closing P3 gaps: the CLI prints Cause.pretty on an unexpected failure
+            (code:packages/flow-state-v3/src/host/cli/main.ts), against Diagnostics R9 and R10; no test yet. Diagnostics
+            R8, R9, R10 gaps deferred here (code:wiki/tasks/V3/P3-coverage.md).

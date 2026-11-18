@@ -10,6 +10,7 @@ import { toolingFaults } from "./tooling-faults.ts";
 import { structureFaults } from "./structure-faults.ts";
 import { constructionFaults } from "./construction-faults.ts";
 import { restoreFaults } from "./restore-faults.ts";
+import { ruleFaults } from "./rule-faults.ts";
 import { stepFaults } from "./step-faults.ts";
 import { writeAheadFaults } from "./write-ahead-faults.ts";
 
@@ -303,6 +304,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...lifeFaults,
   ...writeAheadFaults,
   ...restoreFaults,
+  ...ruleFaults,
   ...structureFaults,
   ...constructionFaults,
   ...mixFaults,

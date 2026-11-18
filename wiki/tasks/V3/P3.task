@@ -4523,7 +4523,7 @@ tasks
 
     T101
         title       P3's coverage gaps closed: each built rule caught by a named fault
-        status      in_progress
+        status      review
         priority    high
         description
             Every Spec rule P3 built has a test that fails on a named planted fault, so P3's exit criterion holds.
@@ -4559,3 +4559,12 @@ tasks
             - `nub run faults --only <the new faults>` catches each by a named test.
             - The coverage record is updated and lists no unexplained gap.
             - `nub run check`, the suite and stress pass.
+        comment     2026-11-18T19:57:46Z
+            Result: 38 of 58 gap rules caught by named faults in code:packages/flow-state-v3/tests/rule-faults.ts
+            (--only, 38 of 38); one new test (Diagnostics I1). The other 20 are deferred by the user's time cap
+            (2026-11-19), 4 of them not built in P3; owners in code:wiki/tasks/V3/P3-coverage.md (Gaps).
+        comment     2026-11-18T19:57:47Z
+            Sidecars (5 Haiku, read-only, effort medium) located code and proposed plants per rule: accepted 37 plants
+            after each was caught by --only; changed I5's index to kept.length + i; rejected I1's own catch claim (its
+            target test missed; a new test added). Not-built claims (Diagnostics R10, Restore I20, R4, WriteAhead R16)
+            re-grepped and held. Extra file: tests/rule-faults.ts.

@@ -107,6 +107,26 @@ describe("one construction failure (Compile R2, I3, T2)", () => {
     ]);
   });
 
+  it("Diagnostics I1: a FlowError with diagnostics of different codes takes its code from the first", () => {
+    const caught = Result.try({
+      try: () =>
+        definition(
+          loose({
+            id: "Compile/Three",
+            states: ["A", "is"],
+            events: { Go: { _tag: Schema.String } },
+            memory: { count: Schema.Number },
+          }),
+        ),
+      catch: (error) => error,
+    });
+
+    assert(Result.isFailure(caught) && caught.failure instanceof FlowError);
+    expect(caught.failure.diagnostics.length).toBeGreaterThan(0);
+    expect(caught.failure.code).toBe("ReservedStateName");
+    expect(caught.failure.code).toBe(caught.failure.diagnostics[0].code);
+  });
+
   it("the error's code is its first diagnostic's, every diagnostic is a Failure with help, and nothing is returned", () => {
     const caught = Result.try({
       try: () => definition(loose({ id: "", states: [], events: {} })),
