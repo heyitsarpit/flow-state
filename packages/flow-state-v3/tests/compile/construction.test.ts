@@ -958,9 +958,10 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
     ]);
   });
 
-  it("Compile R2, R4: machine given no body function is refused WrongKind at body", () => {
-    expect(refusal(() => machine(Lamp, loose(undefined)))).toEqual([
-      ["InvalidConfiguration", "WrongKind", "body"],
-    ]);
+  it("Compile R2, R4: machine given no body function, undefined or 5, is refused WrongKind at body", () => {
+    for (const body of [undefined, 5])
+      expect(refusal(() => machine(Lamp, loose(body)))).toEqual([
+        ["InvalidConfiguration", "WrongKind", "body"],
+      ]);
   });
 });

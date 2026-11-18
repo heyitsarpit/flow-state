@@ -2875,6 +2875,12 @@ tasks
             memory fields, event fields, payloads) and corrupts one field at a time (dropped, wrong kind, null, the mark
             only, and inside an ending). Red on 9cacdc5a: schedule sends, guards and actions throw raw; E.X of a
             field-less event accepts 5, a string, true, [].
+        comment     2026-11-18T11:03:48Z
+            Convergence round to review: the corruption sweep (red at 1a5a5fac) is green. Every marked token (state,
+            history, guard, action, entry, event, a callable member by its own fields) decodes through a full Struct,
+            not its mark, so no downstream read is unchecked; E.X refuses a non-record payload and an explicit
+            undefined. Also: computed NaN delay and machine(def, 5) tested; the Story null-send test asserts the code.
+            Faults: 3 new, 10 run with --only, all caught. Gates: check 0, suite 1154 + 14.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1

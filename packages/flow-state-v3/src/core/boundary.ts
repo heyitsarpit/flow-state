@@ -523,7 +523,7 @@ export const walkerOf = <S extends Schema.Constraint>(schema: S) => {
 };
 
 /**
- * A payload as an event admits it: checked by its Struct's type side, and narrowed to the
+ * A payload as an event admits it: a record, checked by its Struct's type side, and narrowed to the
  * Struct's own fields, so a handler reads no key the Schema does not declare.
  *
  * **Details**
@@ -538,6 +538,9 @@ export const admitted = (
   // FLOW_STATE_ALLOW_UNKNOWN: a sent payload, checked here before it is trusted.
   given: unknown,
 ) =>
+  Predicate.isObject(given) &&
+  !Predicate.isFunction(given) &&
+  !Array.isArray(given) &&
   walk.is(given)
     ? Option.some<Values>(
         Object.fromEntries(names.filter((n) => Object.hasOwn(given, n)).map((n) => [n, given[n]])),

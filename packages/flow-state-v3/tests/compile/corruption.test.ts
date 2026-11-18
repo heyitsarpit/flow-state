@@ -239,30 +239,27 @@ const SLOTS: ReadonlyArray<Slot> = [
 
 describe("every construction shape the fixtures use, corrupted one field at a time (Compile R2, R4; Diagnostics R1)", () => {
   for (const slot of SLOTS)
-    (["a schedule's send", "a guard", "an action"].includes(slot.name) ? it.fails : it)(
-      `Compile R2, R4: ${slot.name}, corrupted, is refused with a FlowError of a listed code, never thrown raw`,
-      () => {
-        const outcomes = slot.samples.flatMap((sample) => {
-          expect(outcomeOf(() => slot.construct(sample))).toBe("accepted");
+    it(`Compile R2, R4: ${slot.name}, corrupted, is refused with a FlowError of a listed code, never thrown raw`, () => {
+      const outcomes = slot.samples.flatMap((sample) => {
+        expect(outcomeOf(() => slot.construct(sample))).toBe("accepted");
 
-          return corruptionsOf(sample)
-            .filter((c) => !(slot.numbersValid && c.how === "a number"))
-            .map((c) => ({
-              how: c.how,
-              mayPass: c.mayPass,
-              outcome: outcomeOf(() => slot.construct(c.value)),
-            }));
-        });
+        return corruptionsOf(sample)
+          .filter((c) => !(slot.numbersValid && c.how === "a number"))
+          .map((c) => ({
+            how: c.how,
+            mayPass: c.mayPass,
+            outcome: outcomeOf(() => slot.construct(c.value)),
+          }));
+      });
 
-        expect(
-          outcomes
-            .filter((o) => o.outcome.startsWith("raw") || (!o.mayPass && o.outcome === "accepted"))
-            .map((o) => `${o.how}: ${o.outcome}`),
-        ).toEqual([]);
-      },
-    );
+      expect(
+        outcomes
+          .filter((o) => o.outcome.startsWith("raw") || (!o.mayPass && o.outcome === "accepted"))
+          .map((o) => `${o.how}: ${o.outcome}`),
+      ).toEqual([]);
+    });
 
-  it.fails("Compile R14: E.X of a field-less event refuses 5, a string, true, an array and undefined", () => {
+  it("Compile R14: E.X of a field-less event refuses 5, a string, true, an array and undefined", () => {
     for (const payload of [5, "x", true, [], undefined])
       expect(outcomeOf(() => StandingOrder.E.Resume(loose(payload)))).toBe("refused");
 

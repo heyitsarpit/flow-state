@@ -198,15 +198,15 @@ export const constructionFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "ending-mapper-optional",
-    tests: [CONSTRUCTION, STANDING_ORDER],
+    tests: [CONSTRUCTION, STANDING_ORDER, "tests/compile/corruption.test.ts"],
     says: "an ending with no from passes the decode",
     rule: "Compile R2, R4",
     edits: [
       {
         file: "src/config.ts",
-        find: "    ending: Schema.Struct({ event: Schema.String, from: Schema.Option(Fn) }),",
+        find: "const EndingTarget = Schema.Struct({ event: Schema.String, from: Schema.Option(Fn) });",
         replace:
-          "    ending: Schema.Struct({ event: Schema.String, from: Schema.optionalKey(Schema.Option(Fn)) }),",
+          "const EndingTarget = Schema.Struct({ event: Schema.String, from: Schema.optionalKey(Schema.Option(Fn)) });",
       },
     ],
   },
@@ -285,6 +285,46 @@ export const constructionFaults: ReadonlyArray<Fault> = [
         file: "src/machine.ts",
         find: "  if (!Predicate.isFunction(body))",
         replace: "  if (body === null)",
+      },
+    ],
+  },
+  {
+    name: "token-checked-by-mark",
+    tests: ["tests/compile/corruption.test.ts"],
+    says: "a marked token is trusted by its mark, its other fields unchecked",
+    rule: "Compile R2, R4",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: "        ? fits(Object.fromEntries(Object.entries(x)))\n        : Predicate.isObject(x) && fits(x),",
+        replace:
+          '        ? Predicate.hasProperty(x, "~flow")\n        : Predicate.isObject(x) && Predicate.hasProperty(x, "~flow"),',
+      },
+    ],
+  },
+  {
+    name: "payload-not-record-admitted",
+    tests: ["tests/compile/corruption.test.ts"],
+    says: "a field-less event admits a payload that is no record",
+    rule: "Compile R14",
+    edits: [
+      {
+        file: "src/core/boundary.ts",
+        find: "  Predicate.isObject(given) &&\n  !Predicate.isFunction(given) &&\n  !Array.isArray(given) &&\n  walk.is(given)",
+        replace: "  walk.is(given)",
+      },
+    ],
+  },
+  {
+    name: "undefined-payload-as-none",
+    tests: ["tests/compile/corruption.test.ts"],
+    says: "E.X(undefined) is taken as no payload",
+    rule: "Compile R14",
+    edits: [
+      {
+        file: "src/events.ts",
+        find: "    const given = args.length === 0 ? {} : args[0];",
+        replace: "    const given = args[0] ?? {};",
       },
     ],
   },

@@ -208,6 +208,34 @@ describe("Runtime", () => {
     assert.deepStrictEqual(stateOf(door), Option.some("SHUT"));
   });
 
+  it("Turn R14: a computed delay of NaN refuses the turn that would arm it: the actor stays where it was", () => {
+    const Kettle = definition({
+      id: "Test/Kettle",
+      states: ["COLD", "HEATING", "BOILED"],
+      events: { Heat: {} },
+      internalEvents: { Boiled: {} },
+    });
+
+    const kettle = machine(Kettle, ({ S, E }) => ({
+      default: S.COLD,
+      on: { Heat: S.HEATING },
+      states: {
+        HEATING: {
+          on: { Boiled: S.BOILED },
+          schedules: { boil: { schedule: () => Number.NaN, send: E.Boiled } },
+        },
+      },
+    }));
+
+    const runtime = runtimeSetup({ app: app({ id: "kettle", machines: { kettle } }) }).construct();
+    Effect.runSync(runtime.ready());
+    const actor = runtime.ensureActor(actorRef(kettle, "k"));
+
+    actor.send(Kettle.E.Heat());
+
+    assert.deepStrictEqual(stateOf(actor), Option.some("COLD"));
+  });
+
   it("a services Layer that fails to build rejects ready() with Defect, a code of the closed list (Diagnostics R6, I5)", () => {
     const runtime = runtimeSetup({
       app: doors,

@@ -21,28 +21,66 @@ const isToken =
   (x: unknown): x is { readonly "~flow": K } =>
     Predicate.hasProperty(x, "~flow") && x["~flow"] === kind;
 
-const marked = <const K extends string>(kind: K) => Schema.declare(isToken(kind));
+// A marked value decoded whole: every field its Struct declares is checked, and a callable token
+// (E.X, a keyless retry or cancel) is checked by its own fields.
+const decodedWhole = <S extends Schema.Top>(fields: S) => {
+  const fits = Schema.is(fields);
 
-const StateToken = marked("state");
+  return Schema.declare(
+    // FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked whole before it is trusted.
+    // RETURN_TYPE: a type guard states the decoded type it narrows to.
+    (x: unknown): x is S["Type"] =>
+      Predicate.isFunction(x)
+        ? fits(Object.fromEntries(Object.entries(x)))
+        : Predicate.isObject(x) && fits(x),
+  );
+};
 
-const HistoryToken = marked("history");
+const StateToken = decodedWhole(
+  Schema.Struct({ "~flow": Schema.Literal("state"), "~path": Schema.String, is: Fn, child: Fn }),
+);
 
-const GuardToken = marked("guard");
+const HistoryToken = decodedWhole(
+  Schema.Struct({ "~flow": Schema.Literal("history"), "~path": Schema.String }),
+);
 
-const ActionToken = marked("action");
+const operationToken = <const K extends string>(kind: K) =>
+  decodedWhole(
+    Schema.Struct({
+      "~flow": Schema.Literal(kind),
+      "~owner": Schema.Symbol,
+      operation: Schema.String,
+      make: Fn,
+    }),
+  );
+
+const GuardToken = operationToken("guard");
+
+const ActionToken = operationToken("action");
+
+const EntryToken = decodedWhole(Schema.Struct({ "~flow": Schema.Literal("entry") }));
 
 // A value whose parts are judged as one: when it fails, it is one wrong kind at its own path.
 const WHOLE = { whole: true };
 
-const EventToken = marked("event");
+const EndingTarget = Schema.Struct({ event: Schema.String, from: Schema.Option(Fn) });
+
+const EventToken = decodedWhole(
+  Schema.Struct({
+    "~flow": Schema.Literal("event"),
+    tag: Schema.String,
+    ending: EndingTarget,
+    "~payload": FieldSchema,
+    "~walk": Schema.Struct({ encode: Fn, decode: Fn, is: Fn, text: Fn, memo: Fn }),
+    "~names": Schema.Array(Schema.String),
+    from: Fn,
+  }),
+);
 
 // An event token or a mapping of one: E.X or E.X.from(f).
 const Ending = Schema.Union([
   EventToken,
-  Schema.Struct({
-    ending: Schema.Struct({ event: Schema.String, from: Schema.Option(Fn) }),
-    "~token": Schema.optionalKey(EventToken),
-  }),
+  Schema.Struct({ ending: EndingTarget, "~token": Schema.optionalKey(EventToken) }),
 ]).annotate({ ...WHOLE, help: "Map to this definition's event: E.X, or E.X.from(f)." });
 
 const Payload = Schema.Record(Schema.String, FieldSchema);
@@ -155,7 +193,7 @@ const Delay = Schema.Union([
 const ScheduleEntry = Schema.Struct({
   schedule: Delay,
   send: Ending,
-  armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, marked("entry")]))),
+  armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, EntryToken]))),
 }).annotate({
   help: "Write a schedule as { schedule, send: E.X, armOn: [event names or Flow.entry] }.",
 });

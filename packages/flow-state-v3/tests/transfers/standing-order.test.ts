@@ -273,8 +273,16 @@ describe("a standing order written wrong is refused at construction (Compile R2,
 
 describe("a Story that sends a payload that is no envelope (fixtures.md E2, E7)", () => {
   it("Actors R14: a Story step sending null to the rent fails with InvalidEvent, never a raw TypeError", async () => {
-    await expect(
-      plannedStory("transfers/null-send").ensure(rent).send(rent, loose(null)).run(),
-    ).rejects.toThrow(/InvalidEvent/u);
+    const failure = await plannedStory("transfers/null-send")
+      .ensure(rent)
+      .send(rent, loose(null))
+      .run()
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+
+    assert.ok(failure instanceof FlowError);
+    expect(failure.code).toBe("InvalidEvent");
   });
 });

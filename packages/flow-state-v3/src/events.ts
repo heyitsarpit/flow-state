@@ -56,8 +56,12 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
     ([name, schema]) => [name, walkerOf(schema).is] as const,
   );
 
-  const make = (given: Values = {}) =>
-    Option.match(admitted(walk, names, given), {
+  // A payload-free constructor takes no argument; one given, even undefined, is checked.
+  // FLOW_STATE_ALLOW_UNKNOWN: what a caller without types passed.
+  const make = (...args: ReadonlyArray<unknown>) => {
+    const given = args.length === 0 ? {} : args[0];
+
+    return Option.match(admitted(walk, names, given), {
       onSome: (payload) => ({ ...payload, _tag: tag }),
       onNone: () => {
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- E.X's contract: a payload its Schema refuses throws InvalidEvent
@@ -72,6 +76,7 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
         );
       },
     });
+  };
 
   const token = Object.assign(make, {
     "~flow": "event",
