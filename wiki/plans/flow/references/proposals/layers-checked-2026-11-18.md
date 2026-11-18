@@ -7,8 +7,8 @@ proofs**: type-level files that compile only if the code makes them true. This i
 (working name `checked`), not Flow-specific. Flow is its first user.
 
 Everything here is **proposed**. Prior art, superseded by this file:
-code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md (doors, nominal tokens), and the layer-manifest spike on branch `worktree-agent-a215f85639e31d688`. A 10-minute
-spike of this design passed (section 8).
+code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md (doors, nominal tokens), and the layer-manifest
+spike on branch `worktree-agent-a215f85639e31d688`. A 10-minute spike of this design passed (section 8).
 
 ## 1. The problem
 
