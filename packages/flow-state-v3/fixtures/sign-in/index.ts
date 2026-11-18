@@ -3,9 +3,14 @@ import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
 import { authTrusted, authTrustedSetup, sessionOf } from "./app.ts";
 import { long, samples, seededStress, stories, handleRetry, trustDevice } from "./stories/usual.ts";
 import { deviceDateEdges, longEmail, emptyCode, emptyEmail } from "./stories/edges.ts";
-import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
+import {
+  blankHandle,
+  readOperationLane,
+  submitTwice,
+  unconfirmedPrefill,
+} from "./stories/findings.ts";
 import { manyDevices, manyScreens, manySessions, reloadInLockout } from "./stories/load.ts";
-import { deviceSamples, samples as sessionSamples } from "./stories/samples.ts";
+import { deviceSamples, recordSamples, samples as sessionSamples } from "./stories/samples.ts";
 import {
   deviceChain,
   deviceFirst,
@@ -25,6 +30,7 @@ export const signIn = manifest({
   app: authTrusted,
   stories: {
     ...stories,
+    readOperationLane,
     returnSavedLate,
     reloadedMidHandle,
     handleRetry,
@@ -46,8 +52,8 @@ export const signIn = manifest({
     deviceFirst,
     deviceChain,
   },
-  samples: [samples, sessionSamples, deviceSamples],
-  stressSamples: [samples, sessionSamples, deviceSamples],
+  samples: [samples, sessionSamples, deviceSamples, recordSamples],
+  stressSamples: [samples, sessionSamples, deviceSamples, recordSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),

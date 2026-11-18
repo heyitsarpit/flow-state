@@ -740,6 +740,83 @@ tasks
             Owes (proposed, P3 close fix round): the durable identity of app, machine and actor (@plan.Runtime.O1);
             review item A48, an owed row's ending kind as one tagged value; faults for the Codec gaps in
             code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-18T21:25:49Z
+            Bindings: saved, not derived (agent, proposed for the user's read). A binding is the entry's wiring
+            overridden by the ref's `context` (code:packages/flow-state-v3/src/host/refs.ts#actorRef,
+            code:packages/flow-state-v3/src/host/wiring.ts#overridesBy), which is not part of the identity, and a
+            boot-woken Owing identity has no ref (code:packages/flow-state-v3/src/core/incarnations.ts#boot ensures in
+            `wake` mode with no wiring), so nothing derives it; @spec.Restore R2 and @spec.Actors R18 already say saved.
+            Saved bindings are read only at a boot wake, so each binding and graph entry decodes as an `ActorName` of
+            the slot's declared, persisted provider machine. Reverse: derive them if refs ever carry no context.
+        comment     2026-11-18T21:25:50Z
+            Requirements (proposed), one per acceptance line, each red today as an `it.fails` titled by its rule.
+
+            1. Bindings (@spec.Restore R5, R1; @spec.WriteAhead I3; T20 07:05 review): an owing cart whose record binds
+               a local shopper, a cart under an undecodable name, an undeclared machine, or a graph entry to a local
+               actor is quarantined and reported, starts fresh at its ensure and hears its owed row; the boot goes on.
+               Red: ConflictingActorRef twice, "open 2 did not boot", no report.
+               code:packages/flow-state-v3/tests/restore/forged.test.ts; T20's inverted test in
+               tests/restore/restore.test.ts stays.
+            2. Brands (@spec.Restore R5; @spec.Codec R5): an actor record in an undeclared state, one arming an
+               undeclared schedule, a lane whose Attempt is not minted form, an owed row naming a lane by key text its
+               operation never gives: each quarantined and reported. Red: none reported. The compile-time check (decoded
+               record types carry `ActorName`, `RecordKey`, `LaneKey`, `AttemptId`, `StateName`) is written with the
+               brands: a red type test cannot sit beside `nub run check` at zero.
+            3. Each fact once (@spec.Codec R5; @spec.WriteAhead R4, R5): over every fixture Story's checkpoints and end,
+               no record holds a field equal to its key's machine, name, operation or key text, no owed row with a lane
+               holds `operation`, and no headless lane holds `queue` or `inFlight`. Red: 1128
+               repeats. code:packages/flow-state-v3/tests/restore/records.test.ts
+            4. Corrupt one field (@spec.Restore R5, I10): every record kind of every fixture Story, one field at a time
+               by JSON type (no field list), booted in its Story's saved world: quarantined and reported, or a
+               well-formed world with every run rule; the run never fails; the record as saved must be canonical,
+               unquarantined and clean; `$` with a field added must quarantine. Red: 457 (undeclared states and
+               schedules, Attempts of any text, retryCount −1/0.5/2^53, queue items never decoded, displaced "x",
+               bindings, an in-flight input re-sent changed). Same file.
+            5. @spec.Restore R5 inverted bindings test passes (existing); a read operation's lane record is quarantined
+               (@spec.WriteLanes R6, @spec.Reads R6; red: not reported); a headless lane's queue and inFlight are not
+               read (@spec.Restore R1; red: `sync NotSent` heard); a quarantined lane is reported at each of three boots
+               (@spec.Restore R5; red: not reported).
+            6. Fixtures first (code:wiki/conventions/fixtures.md): proof in the next comment.
+            7. One parser: no `src` module but code:packages/flow-state-v3/src/core/identity.ts matches the hand-parsing
+               spellings of the six routed sites plus record.ts KINDS lookup, key cuts and mix.ts. Red: 14 sites.
+            8. Close gate, not a red check: Restore and Codec (and WriteAhead R4/R5, an extra file) Specs edited with
+               `specs.log` notes; check, suite, stress; `nub run faults --only` T20's restore faults and
+               `binding-unchecked`, planted with the binding decode since its target does not exist yet.
+        comment     2026-11-18T21:25:52Z
+            Proof (code:wiki/conventions/fixtures.md). Forged and corrupt saved records (@spec.Restore R5, R1): fixtures
+            shop, sign-in, transfers, lanes (changed); machines Shop/Cart, Auth/Session, Bank/Transfers,
+            Lanes/serialize; journeys add a line, sign in, send a transfer, start a client, each then a reload with a
+            record no release wrote. Stories: shop/bound-graph-to-local, shop/owed-other-lane,
+            sign-in/read-operation-lane, transfers/state-undeclared, schedule-undeclared, attempt-forged; load L4
+            transfers/attempt-reloaded (three boots); builders shop/bound-to-local, bound-to-other-machine,
+            bound-to-gone, lanes/headless-lane-queued. Samples E7: new sets shop-records, auth-records, bank-records in
+            `samples` and `stressSamples` (old sets untouched so seeds replay). Generated corrupt records: every fixture
+            Story's checkpoint and end stores, all kinds. Combos: persistence with lanes, owed rows, context bindings,
+            schedules. Structure: none added (S1/S9 binding forgery on the session chain left for the build, it needs
+            the binding decode to be green). Sources: no real source; T20 review findings. Red today: as in the
+            requirements comment. Suite exit 0 (37 expected fail); `nub run check` exit 0. Deviation (needs the user or
+            orchestrator): the four forgeries that breach a run rule or the boot today are Story builders (the page
+            grants builders only to S7) and join `stories` and samples when green; registering them now turns the
+            sweep red.
+        comment     2026-11-18T21:25:53Z
+            Fixture review (3 Haiku, effort high: coverage, rules, adversary), each finding re-checked. Accepted:
+            as-saved control now requires canonical, unquarantined text; record dedupe by nested types; `$ field added`
+            must quarantine (Codec R5); emptied owed rows judged in full (WriteAhead I20); 4 more hand-parsing
+            spellings; owed row heard checked; vacuous read-test line cut; titles cite Reads R6, Restore R1; transfers
+            journeys send first; L4 Story added. Changed: "reported at each boot" retargeted to a lane record (R5 states
+            it for lane and owed records, not actor). Rejected: schedule `key` vacuous (snapshot schedules are keyed by
+            name, seen in replay); guest-cart false red (as-saved runs show none); registered sets breaking rules (suite
+            green); catalog rows (Task: no catalog step); pairs and older setups (follow fixture precedent). Open as
+            proposals: UNTELLABLE extends R5's Attempt limit to queued commits and displaced Attempts (T20 review's
+            wording); REBOUND treats a binding renamed to a valid name as untellable; every `it.fails` red reason was
+            replayed by hand, since `it.fails` alone accepts any throw.
+        comment     2026-11-18T21:25:54Z
+            For the user's read: a corrupt in-flight lane `input` that still gives the same key text is restored and
+            re-sent with the same Attempt, so the server sees one Attempt with two inputs (WriteLanes I6, sign-in
+            submit-twice). No decode can tell it, so it is neither quarantinable nor harmless; it stays red in the
+            corrupt-one-field test until decided (limit, or a stored digest). Also routed: StateName etc. are Task text,
+            not yet Spec rules; Restore R5 still says a record names its identity in its content, and WriteAhead R4/R5
+            list `machine`, `name`, `operation`: the build edits them (extra file: WriteAhead.spec).
 
     T95
         title       Callback results checked before they enter a turn

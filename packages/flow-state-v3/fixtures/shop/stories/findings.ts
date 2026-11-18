@@ -272,3 +272,98 @@ export const borrowedRecordsReload = storeStory("shop/borrowed-records")
   .checkpoint("booted")
   .ensure(mainCart)
   .checkpoint("restored");
+
+// An owed record of the main cart holding one unknown ending with no Attempt, which wakes the cart
+// at the boot with the context its record was saved with.
+const mainOwedNoAttempt = `{"format":3,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","rows":[{"attempt":null,"channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}`;
+
+// The main cart's record holding one line `l9`, with its shopper slot bound to `provider` (JSON)
+// and its graph as `graph` (JSON).
+const boundCartText = (provider: string, graph: string) =>
+  `{"context":{"shopper":${provider}},"format":3,"graph":${graph},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{"l9":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"name":"{\\"owner\\":\\"main\\"}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}`;
+
+/**
+ * The main cart's record with its shopper slot bound to an identity no ref gives it, as a damaged
+ * disk or a bad copy could leave it, each beside an owed ending that wakes the cart at the boot:
+ * a local shopper, a shopper slot bound to a cart under a name no cart has, a machine no entry
+ * declares, and a graph that binds the shopper's own provider to a local actor.
+ */
+export const forgedBindings = {
+  cart: 'actor/Shop/Cart/{"owner":"main"}',
+  owed: { key: 'owed/Shop/Cart/{"owner":"main"}', text: mainOwedNoAttempt },
+  local: boundCartText('{"machine":"Shop/Shopper","name":"~9"}', '{"Shop/Shopper/~9":{}}'),
+  otherMachine: boundCartText('{"machine":"Shop/Cart","name":"x"}', '{"Shop/Cart/x":{}}'),
+  gone: boundCartText('{"machine":"Gone","name":"x"}', '{"Gone/x":{}}'),
+  graph: boundCartText(
+    '{"machine":"Shop/Shopper","name":"main"}',
+    '{"Shop/Shopper/main":{"shopper":{"machine":"Shop/Shopper","name":"~9"}}}',
+  ),
+} as const;
+
+// The main cart adds a line; then its record is replaced by `text` beside an owed ending, and the
+// tab reloads and ensures the cart.
+const boundReload = (id: string, text: string) =>
+  storeStory(id)
+    .ensure(mainCart)
+    .send(mainCart, add("l1", "v1"))
+    .world(
+      Fake.storage.put(forgedBindings.cart, text),
+      Fake.storage.put(forgedBindings.owed.key, forgedBindings.owed.text),
+    )
+    .reload({ reattach: false })
+    .checkpoint("booted")
+    .ensure(mainCart)
+    .checkpoint("restored");
+
+// The three below break a run rule or the boot until records decode their bindings, so each is a
+// builder its test runs; the manifest registers each once it passes.
+
+/**
+ * The main cart's record bound to a local shopper: the record is set aside and reported, no local
+ * shopper starts, and the cart starts fresh and hears its owed ending.
+ */
+export const boundToLocal = () => boundReload("shop/bound-to-local", forgedBindings.local);
+
+/**
+ * The main cart's shopper slot bound to a cart under a name no cart has: set aside and reported,
+ * and the boot goes on.
+ */
+export const boundToOtherMachine = () =>
+  boundReload("shop/bound-to-other-machine", forgedBindings.otherMachine);
+
+/**
+ * The main cart's shopper slot bound to a machine no entry declares: set aside and reported.
+ */
+export const boundToGone = () => boundReload("shop/bound-to-gone", forgedBindings.gone);
+
+/**
+ * The main cart's graph binding its shopper's own slot to a local actor: set aside and reported.
+ */
+export const boundGraphToLocal = boundReload("shop/bound-graph-to-local", forgedBindings.graph);
+
+/**
+ * An owed record of the main cart whose row names an add lane by key text no add's key gives, as
+ * a damaged disk could leave it: set aside and reported, and the cart hears nothing from it.
+ */
+export const owedOtherLaneText = {
+  key: 'owed/Shop/Cart/{"owner":"main"}',
+  text: owedOf(
+    "Shop/Cart",
+    '{"owner":"main"}',
+    "add",
+    jsonText('Shop/Cart/{"owner":"main"}|add|GARBAGE'),
+  ).replace('"attempt":"att-000000000000000000006d61696e3a39-9"', '"attempt":null'),
+} as const;
+
+/**
+ * The main cart adds a line; then the store holds its owed record naming a lane no add's key
+ * gives, and the tab reloads and ensures the cart.
+ */
+export const owedOtherLane = storeStory("shop/owed-other-lane")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .world(Fake.storage.put(owedOtherLaneText.key, owedOtherLaneText.text))
+  .reload({ reattach: false })
+  .checkpoint("booted")
+  .ensure(mainCart)
+  .checkpoint("restored");

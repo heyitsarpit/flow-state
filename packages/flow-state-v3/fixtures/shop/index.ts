@@ -23,12 +23,14 @@ import {
   refusedAddAlone,
   borrowedRecordsReload,
   oddRecordNames,
+  boundGraphToLocal,
+  owedOtherLane,
   sameCartTwice,
   unreadableName,
   waitsWhileBusy,
 } from "./stories/findings.ts";
 import { manyShoppers, quantityClicks } from "./stories/load.ts";
-import { samples as storeSamples } from "./stories/samples.ts";
+import { recordSamples, samples as storeSamples } from "./stories/samples.ts";
 import {
   chain,
   flowBoundLate,
@@ -69,9 +71,11 @@ export const shop = manifest({
     unreadableName,
     oddRecordNames,
     borrowedRecordsReload,
+    boundGraphToLocal,
+    owedOtherLane,
   },
-  samples: [samples, storeSamples],
-  stressSamples: [samples, storeSamples],
+  samples: [samples, storeSamples, recordSamples],
+  stressSamples: [samples, storeSamples, recordSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),

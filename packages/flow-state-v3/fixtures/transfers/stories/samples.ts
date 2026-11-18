@@ -4,8 +4,10 @@ import { account, mainCustomer, rent, savings, sendForm } from "../app.ts";
 import { Accounts } from "../server/accounts.ts";
 import { Bank } from "../server/bank.ts";
 import { EARLIEST, EPOCH, LATEST } from "./edges.ts";
+import { forgedAccount } from "./findings.ts";
 import {
   acct1Record,
+  bankStory,
   brokenRecord,
   grownStory,
   newerT1Lane,
@@ -215,3 +217,25 @@ export const plannedSamples = plannedSamplesOf(false);
  * shows an empty balance.
  */
 export const plannedStressSamples = plannedSamplesOf(true);
+
+/**
+ * The account with records on disk no release wrote, for generated runs: its record in a state it
+ * lacks or arming a schedule it never declared, and a Held transfer lane with an Attempt the
+ * Runtime never mints, each of which a reload must set aside and report.
+ */
+export const recordSamples = samplesOf({
+  id: "bank-records",
+  story: bankStory("bank-records/samples"),
+  names: { setup: "bankSetup", fixtures: ["BankFake"] },
+  actors: { account },
+  servers: { Bank },
+  failures: [
+    Fake.storage.put(forgedAccount.state.key, forgedAccount.state.text),
+    Fake.storage.put(forgedAccount.schedule.key, forgedAccount.schedule.text),
+    Fake.storage.put(forgedAccount.attempt.key, forgedAccount.attempt.text),
+  ],
+  landedFailures: [],
+  values: { sendT1, resendT1 },
+  controls: [],
+  steps: (story) => story.send(account, sendT1).send(account, resendT1),
+});
