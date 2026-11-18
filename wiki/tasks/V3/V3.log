@@ -1374,3 +1374,7 @@ note 2026-11-18T19:39:28Z
     P3 close fix round: faults 296 of 296, coverage and routing in wiki/tasks/V3/P3-coverage.md and P3-routing.md.
     Proposed, for the user's read: each outcome part's owner, new draft T99 and T100 (not in P4's Order), every review
     item's fate. wk can't link to multi-line satisfies arrays (T21, T29, T30, T48, T49).
+
+note 2026-11-18T19:41:16Z
+    P3 fix round done (ebbeca0a); 58 rules still lack a catching fault, an exit criterion, so T101 closes them in P3 (no
+    gate relaxed). T99, T100 placed in P4's order. wk refuses satisfies links on T21, T29, T30, T48, T49: for the user.

@@ -16,8 +16,9 @@ description
     layout), @task.V3.T85 (capture on issue), @task.V3.T84 (no caps), @task.V3.T87 (bench), @task.V3.T88 (tsrs),
     @task.V3.T83 (fast tests), T20's close, @task.V3.T94 (public entry points) and @task.V3.T81 (construction) (the
     user, 2026-11-16; reordered by the user's Q14 A, 2026-11-17; re-planned by the user's answers of 2026-11-18, T80
-    moved to P4 as @task.V3.T97). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the
-    earliest in this order.
+    moved to P4 as @task.V3.T97); T81 parked in P9 as @task.V3.T98 and @task.V3.T101 (coverage gaps) added last (the
+    user, 2026-11-19; the orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only; where several Tasks
+    are ready, take the earliest in this order.
 
     **Verified by:**
 
@@ -4519,3 +4520,42 @@ tasks
             defineConfig) and code:packages/flow-state-v3/tests/compile/authoring-gaps.test.ts (T81's three blockers:
             now Defects, not raw throws, since the catch-all; retryable(5) still accepted). R25 text and specs.log note,
             admit trap disarmed, boundaries.md status current. Gates: check 0/0, suite 1180 + 23 expected fail.
+
+    T101
+        title       P3's coverage gaps closed: each built rule caught by a named fault
+        status      in_progress
+        priority    high
+        description
+            Every Spec rule P3 built has a test that fails on a named planted fault, so P3's exit criterion holds.
+
+            **Why now:** P3's completion audit can't pass: its coverage record lists 58 rules with no catching fault (37
+            tested, 21 with no test citing them). Deferring them would relax a gate, which is the user's call, so this
+            Task closes them instead.
+
+            **Read first:** code:wiki/tasks/V3/P3-coverage.md ("Gaps"), code:packages/flow-state-v3/tests/faults.ts and
+            the files it spreads, @phase.V3.P3 (its exit criteria).
+
+            **Approach:** for each gap rule, first decide whether P3 built it: read the code it governs.
+
+            - Built: plant one named fault citing the rule (in the matching `tests/*-faults.ts`), and make sure a test
+              titled by the rule catches it: an existing test if it already does, else a new test written from the Spec
+              rule, red on the plant. A rule a fault can't express (a type rule, a pure naming rule) is shown by a
+              compile-time test or a lint plant instead, with the reason.
+            - Not built (its code belongs to a later Task, such as Diagnostics R10's renderer): not a P3 gap; record it
+              on its owner Task and move it out of P3's gaps.
+            - A plant the tests miss because the runtime is wrong is a found bug: an `it.fails` test titled by its rule,
+              with its owner Task.
+
+            Then update the coverage record so each rule is caught, moved out, or an inverted test.
+
+            May change: `packages/flow-state-v3/tests/`, `packages/flow-state-v3/src/` only to make a plant's target
+            text unique, code:wiki/tasks/V3/P3-coverage.md. Evidence: this Task's comments and the coverage record.
+
+            False pass: a fault that edits code no test reaches, counted as caught → caught by `nub run faults --only
+            <names>` reporting each new fault caught by a named test.
+        acceptance
+            - Each of the 58 gap rules in code:wiki/tasks/V3/P3-coverage.md is caught by a named fault, moved to its
+              owner Task as not built in P3 (with evidence), or held as an `it.fails` test with an owner.
+            - `nub run faults --only <the new faults>` catches each by a named test.
+            - The coverage record is updated and lists no unexplained gap.
+            - `nub run check`, the suite and stress pass.
