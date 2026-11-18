@@ -171,6 +171,35 @@ export const formatOneAvatar = grownStory("session/format-one-avatar")
   .send(mainSession, { _tag: "SignOut" })
   .checkpoint("signed out");
 
+// A format-1 last-seen form nested `depth` Options deep around an empty one, as canonical text.
+const someFormsDeep = (depth: number) =>
+  `${'{"value":'.repeat(depth)}{"~":"none"}${',"~":"some"}'.repeat(depth)}`;
+
+/**
+ * Ada was signed in when a release before slot Schemas saved her session (format 1), and the
+ * avatar's record remembers a last-seen form twenty thousand Options deep, as a damaged disk could
+ * leave it; the tab opens and the avatar is ensured.
+ */
+export const deepFormatOne = grownStory("session/deep-format-one")
+  .world(
+    Fake.storage.put(
+      "actor/Workspace/Session/main",
+      '{"context":{"org":{"machine":"Workspace/Org","name":"acme"}},"format":1,' +
+        '"machine":"Workspace/Session","memory":{"displayName":"Ada","notice":"","user":"ada"},' +
+        '"name":"main","schedules":[],"seen":{"org":{"value":"","~":"json"}},"state":"SIGNED_IN"}',
+    ),
+    Fake.storage.put(
+      avatarRecord,
+      '{"context":{"user":{"machine":"Workspace/Session","name":"main"}},"format":1,' +
+        '"machine":"Workspace/Avatar","memory":{"seen":1},"name":"avatar","schedules":[],' +
+        `"seen":{"user":${someFormsDeep(20_000)}},"state":"SHOWN"}`,
+    ),
+  )
+  .reload({ reattach: false })
+  .checkpoint("boot")
+  .ensure(mainAvatar)
+  .checkpoint("restored");
+
 /**
  * The calendar shows a hundred days under its agenda, saved, and a glance at it, never saved; then
  * five thousand; the tab reloads, and the range goes back to a hundred days.

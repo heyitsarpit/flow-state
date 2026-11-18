@@ -11,10 +11,16 @@ import {
   displacedRepeated,
   forgedBindings,
   forgedEndings,
+  laneLessEndings,
+  laneLessHeldSuccess,
+  laneLessSuccessReload,
   owedMadeUpSuccess,
   owedOtherLane,
   owedOtherLaneText,
   owedRowRepeated,
+  type RowCombination,
+  rowCombinations,
+  rowCombinationsReload,
   seenUndeclared,
   seenUndeclaredText,
 } from "../../fixtures/shop/stories/findings.ts";
@@ -219,6 +225,83 @@ describe("an actor record remembering an undeclared slot (Restore R5; Codec R5)"
 
     expect(undecodable(run, 2)).toContain(seenUndeclaredText.key);
     expect(run.checkpoints.restored.read(mainCart)?.memory["lines"]).toEqual({});
+    checked(run);
+  });
+});
+
+// Why a commit never sent ends NotSent, and why one is declined (WriteLanes R10).
+const NOT_SENT_WHY = new Set(["Rejected", "Cancelled", "StorageRefused", "Disposed"]);
+
+const DECLINE = new Set([...NOT_SENT_WHY, "Restored", "NoPersistence", "Unencodable"]);
+
+// The owed rows a release writes (WriteAhead R5): an ending on its lane, of its Attempt, on any
+// channel, a NotSent one with its why; the unknown StorageRefused of a Held head's refused capture,
+// of its Attempt with no lane; and a decline, with neither.
+const WRITTEN: ReadonlyArray<(c: RowCombination) => boolean> = [
+  (c) =>
+    c.place === "lane" &&
+    c.attempt === "minted" &&
+    (c.channel === "success" || c.channel === "failure" || c.channel === "unknown") &&
+    c.reason !== "absent" &&
+    c.value !== "absent",
+  (c) =>
+    c.place === "lane" &&
+    c.attempt === "minted" &&
+    c.channel === "notSent" &&
+    NOT_SENT_WHY.has(c.reason) &&
+    c.value === "why",
+  (c) =>
+    c.place === "operation" &&
+    c.attempt === "minted" &&
+    c.channel === "unknown" &&
+    c.reason === "StorageRefused" &&
+    c.value === "why",
+  (c) =>
+    c.place === "operation" &&
+    c.attempt === "null" &&
+    c.channel === "notSent" &&
+    DECLINE.has(c.reason) &&
+    c.value === "why",
+];
+
+const written = (c: RowCombination) => c.tag === "absent" && WRITTEN.some((form) => form(c));
+
+describe("owed rows of every shape (Restore R5; WriteAhead R5)", () => {
+  it.fails("Restore R5, WriteAhead R5: an owed row is read only in a shape a release writes; every other shape is quarantined and reported, and the boot goes on", async () => {
+    const run = await rowCombinationsReload.run();
+    const unread = new Set(undecodable(run, 2));
+
+    const wrong = rowCombinations.flatMap(({ combination, key }) => {
+      const how = unread.has(key) ? "quarantined" : "read";
+
+      return (how === "read") === written(combination)
+        ? []
+        : [`${Object.values(combination).join(" ")}: ${how}`];
+    });
+
+    expect(run.checkpoints.booted.inspection.lifecycle).toBe("Open");
+    expect(wrong).toEqual([]);
+  });
+
+  it.fails("Restore R5, WriteLanes R10: an owed success with an Attempt and no lane is quarantined and reported, and nothing is heard from it", async () => {
+    const run = await laneLessSuccessReload.run();
+
+    expect(undecodable(run, 2)).toContain(laneLessEndings.owed.key);
+    expect(delivered(run, 2)).toEqual([]);
+    expect(run.checkpoints.restored.read(mainCart)?.memory["lines"]).toEqual({
+      l1: { quantity: 1, variantId: "v1" },
+    });
+    checked(run);
+  });
+
+  it.fails("Restore R5, WriteLanes R10: an owed success of a Held head's own Attempt with no lane is quarantined and reported; the head is heard unknown Restored, never a success", async () => {
+    const run = await laneLessHeldSuccess.run();
+
+    expect(undecodable(run, 2)).toContain(laneLessEndings.owed.key);
+    expect(delivered(run, 2)).toEqual(["add AddUnsure"]);
+    expect(run.checkpoints.restored.read(mainCart)?.memory["lines"]).toEqual({
+      l1: { quantity: 1, variantId: "v1" },
+    });
     checked(run);
   });
 });

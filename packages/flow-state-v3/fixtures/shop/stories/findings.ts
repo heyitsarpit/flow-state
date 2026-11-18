@@ -441,3 +441,129 @@ export const seenUndeclaredText = {
  * reloads and ensures the cart.
  */
 export const seenUndeclared = forgedReload("shop/seen-undeclared", seenUndeclaredText);
+
+// The Attempt the shape samples name: one the main cart never made, or with a Held head below.
+const nine = "att-000000000000000000006d61696e3a39-9";
+
+// A success of the main cart's add with Attempt nine and no lane, which only a store's refusal of a
+// Held head's capture owes, and then unknown.
+const laneLessSuccess =
+  '{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"success","kept":false,"operation":"add","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}';
+
+/**
+ * Owed records holding a success with an Attempt and no lane, which no release writes: one for an
+ * Attempt the cart never made, and one for the Held head's own Attempt beside that head's lane
+ * record.
+ */
+export const laneLessEndings = {
+  owed: {
+    key: 'owed/Shop/Cart/{"owner":"main"}',
+    text: `{"format":4,"rows":[${laneLessSuccess}]}`,
+  },
+  lane: { key: `${mainLane}|Shop/add-line|{"cartId":"main"}`, text: laneOf("held") },
+} as const;
+
+/**
+ * The main cart adds a line; then the store holds a success with an Attempt and no lane, and the
+ * tab reloads and ensures the cart.
+ */
+export const laneLessSuccessReload = forgedReload("shop/lane-less-success", laneLessEndings.owed);
+
+/**
+ * The main cart adds a line; then the store holds a Held add of Attempt nine and a success of that
+ * same Attempt with no lane, and the tab reloads, ensures the cart and adds again.
+ */
+export const laneLessHeldSuccess = storeStory("shop/lane-less-held-success")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .world(
+    Fake.storage.put(laneLessEndings.lane.key, laneLessEndings.lane.text),
+    Fake.storage.put(laneLessEndings.owed.key, laneLessEndings.owed.text),
+  )
+  .reload({ reattach: false })
+  .checkpoint("booted")
+  .ensure(mainCart)
+  .checkpoint("restored");
+
+const TAGS = ["absent", "Answered", "Unsent", "Refused", "Declined"] as const;
+
+const PLACES = ["lane", "operation"] as const;
+
+const ATTEMPTS = ["absent", "null", "minted"] as const;
+
+const CHANNELS = ["absent", "success", "failure", "unknown", "notSent"] as const;
+
+const REASONS = ["absent", "success", "StorageRefused", "Rejected"] as const;
+
+const VALUES = ["absent", "null", "why", "line"] as const;
+
+/**
+ * One owed row's shape: its tag, whether it names its lane or its operation, its Attempt, channel,
+ * reason and value, each present or absent.
+ */
+export type RowCombination = {
+  readonly tag: (typeof TAGS)[number];
+  readonly place: (typeof PLACES)[number];
+  readonly attempt: (typeof ATTEMPTS)[number];
+  readonly channel: (typeof CHANNELS)[number];
+  readonly reason: (typeof REASONS)[number];
+  readonly value: (typeof VALUES)[number];
+};
+
+const combinations: ReadonlyArray<RowCombination> = TAGS.flatMap((tag) =>
+  PLACES.flatMap((place) =>
+    ATTEMPTS.flatMap((attempt) =>
+      CHANNELS.flatMap((channel) =>
+        REASONS.flatMap((reason) =>
+          VALUES.map((value) => ({ tag, place, attempt, channel, reason, value })),
+        ),
+      ),
+    ),
+  ),
+);
+
+const recordText = Schema.encodeSync(Schema.fromJsonString(Schema.Json));
+
+// A shape's present parts, in key order, as canonical text puts them.
+const rowOf = (row: RowCombination) =>
+  Object.fromEntries(
+    [
+      ["_tag", row.tag === "absent" ? undefined : row.tag],
+      ["attempt", { absent: undefined, null: null, minted: nine }[row.attempt]],
+      ["channel", row.channel === "absent" ? undefined : row.channel],
+      ["kept", false],
+      [row.place, row.place === "lane" ? 'Shop/add-line|{"cartId":"main"}' : "add"],
+      ["reason", row.reason === "absent" ? undefined : row.reason],
+      [
+        "value",
+        {
+          absent: undefined,
+          null: null,
+          why: { why: row.reason === "absent" ? "Rejected" : row.reason },
+          line: { lineId: "l5", quantity: 1, variantId: "v1" },
+        }[row.value],
+      ],
+    ].filter(([, v]) => v !== undefined),
+  );
+
+/**
+ * One owed record per row shape, each under a cart of its own: every combination of tag, lane or
+ * operation, Attempt, channel, reason and value, as a damaged disk or a bad copy could leave them.
+ * Only the shapes a release writes may be read.
+ */
+export const rowCombinations = combinations.map((combination, i) => ({
+  combination,
+  key: `owed/Shop/Cart/{"owner":"s${String(i)}"}`,
+  text: recordText({ format: 4, rows: [rowOf(combination)] }),
+}));
+
+/**
+ * The main cart adds a line; then the store holds an owed record of every row shape, and the tab
+ * reloads.
+ */
+export const rowCombinationsReload = storeStory("shop/row-combinations")
+  .ensure(mainCart)
+  .send(mainCart, add("l1", "v1"))
+  .world(...rowCombinations.map(({ key, text }) => Fake.storage.put(key, text)))
+  .reload({ reattach: false })
+  .checkpoint("booted");

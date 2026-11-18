@@ -7,7 +7,9 @@ import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
 import { Audience, makeLedger, Route } from "./ledger.ts";
 import { Life } from "./life.ts";
+import { laneId } from "./identity.ts";
 import { makePersistence } from "./persist.ts";
+import { decodeRecords } from "./record.ts";
 import { step } from "./step.ts";
 import { Input } from "./input.ts";
 import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
@@ -132,6 +134,33 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
   expect(writes.map((w) => Option.map(w.record, (r) => jsonOf(r)["rows"]))).toEqual([
     Option.some([expect.objectContaining({ attempt: "att-1", channel: "success", kept: false })]),
   ]);
+});
+
+it.fails("WriteAhead R5, Codec R5: a void write's success saved on its owed row reads back with no value, never null", () => {
+  const { tx, persistence, ledger } = stepOver();
+
+  ledger.owe({
+    actor,
+    to: Audience.Identity(),
+    operation: "ring",
+    attempt: Option.some("att-0-1"),
+    lane: Option.some(laneId(actor, "Persist/ring", "{}")),
+    channel: "success",
+    reason: "success",
+    value: undefined,
+    route: Route.Current(),
+  });
+  persistence.close();
+
+  const stored = new Map(
+    captured(tx.out().world).writes.flatMap((w) =>
+      Option.toArray(Option.map(w.record, (r) => [w.key, r] as const)),
+    ),
+  );
+
+  expect(
+    decodeRecords(machines, stored).rows.map((r) => Object.hasOwn(r, "value") && r.value),
+  ).toEqual([undefined]);
 });
 
 // Owes `count` success rows to the identity, each with the receipt `receipt(n)`, and projects.
