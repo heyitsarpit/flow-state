@@ -3,6 +3,7 @@ import { type Brand, Option, Predicate, Result, Schema } from "effect";
 import { parseCanonical, writeJson } from "./codec.ts";
 import { type Compiled, type Field, type Operation, Source, type Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
+import { escapeContract, unescapeContract, unescapeSegment } from "./key-text.ts";
 
 /**
  * The prefix of a local actor's name: a singleton's literal name may not start with it, and a
@@ -135,6 +136,23 @@ export type RecordKey = string & Brand.Brand<"flow-state/RecordKey">;
 export type LaneKey = string & Brand.Brand<"flow-state/LaneKey">;
 
 /**
+ * A lane's place after its identity, as an owed row of that identity names it: the contract of a
+ * write operation its machine declares and key text that names itself back.
+ */
+export type LaneTail = string & Brand.Brand<"flow-state/LaneTail">;
+
+/**
+ * An operation its machine declares, by name.
+ */
+export type OperationName = string & Brand.Brand<"flow-state/OperationName">;
+
+/**
+ * An identity's text as a graph names it: a machine the app declares and a name its identity
+ * decodes and names back.
+ */
+export type IdentityKey = string & Brand.Brand<"flow-state/IdentityKey">;
+
+/**
  * An identity as a saved record names it.
  */
 export type NamedActor = { readonly machine: string; readonly name: ActorName };
@@ -155,36 +173,55 @@ export const AttemptIdSchema = Schema.String.check(
 ).pipe(Schema.brand("flow-state/AttemptId"));
 
 /**
+ * The Schema of a lane's place after its identity, by `compiled`'s write operations.
+ */
+export const laneTailOfMachine = (compiled: Compiled) =>
+  Schema.String.check(
+    Schema.makeFilter((tail: string) => Result.isSuccess(laneTailParts(compiled, tail))),
+  ).pipe(Schema.brand("flow-state/LaneTail"));
+
+/**
+ * The Schema of an operation `compiled` declares.
+ */
+export const operationNameOf = (compiled: Compiled) =>
+  Schema.String.check(Schema.makeFilter((name: string) => compiled.operations.has(name))).pipe(
+    Schema.brand("flow-state/OperationName"),
+  );
+
+/**
+ * The operation of a lane an owed row names by its place after the identity, which its Schema
+ * read; a place no Schema read is a defect.
+ */
+export const operationOfTail = (compiled: Compiled, tail: LaneTail) =>
+  Result.match(laneTailParts(compiled, tail), {
+    onSuccess: ({ operation }) => brandedAs<OperationName>(operation.name),
+    onFailure: () => defect(`an owed row's lane no record Schema read: ${tail}`),
+  });
+
+/**
+ * The Schema of an identity's text, by the machines `machines` declares.
+ */
+export const identityKeyOf = (machines: ReadonlyMap<string, Compiled>) =>
+  Schema.String.check(
+    Schema.makeFilter((key: string) => Option.isSome(readActorKey(machines, key))),
+  ).pipe(Schema.brand("flow-state/IdentityKey"));
+
+/**
+ * Whether a saved memory's input fields give the name its record's key names: input fields never
+ * change, so a record whose memory names another actor is not this actor's. A singleton's memory
+ * has none, so any memory is its own.
+ */
+export const memoryNamesActor = (compiled: Compiled, name: string, memory: Values) =>
+  inputFieldsOf(compiled).length === 0 ||
+  Result.getOrUndefined(nameOfValue(compiled, memory)) === name;
+
+/**
  * The Schema of a leaf state of `compiled`.
  */
 export const stateNameOf = (compiled: Compiled) =>
   Schema.String.check(
     Schema.makeFilter((path: string) => compiled.states.get(path)?.children.length === 0),
   ).pipe(Schema.brand("flow-state/StateName"));
-
-/**
- * A key segment's text: `%`, `/` and `|` escaped, so it splits back at `/` and `|`.
- */
-const escapeSegment = (text: string) =>
-  text.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C");
-
-// A segment read back; its escaped form must be the text it came from, so one key spells one
-// identity.
-const unescapeSegment = (text: string) =>
-  Option.liftPredicate(
-    text.replaceAll("%7C", "|").replaceAll("%2F", "/").replaceAll("%25", "%"),
-    (plain) => escapeSegment(plain) === text,
-  );
-
-// A contract id as a lane id spells it: `%` and `|` escaped, so it splits back at `|`.
-const escapeContract = (contract: string) => contract.replaceAll("%", "%25").replaceAll("|", "%7C");
-
-// A contract id read back; its escaped form must be the text it came from.
-const unescapeContract = (text: string) =>
-  Option.liftPredicate(
-    text.replaceAll("%7C", "|").replaceAll("%25", "%"),
-    (plain) => escapeContract(plain) === text,
-  );
 
 /**
  * The id a write lane is kept under: its identity, its operation's contract and its key text.
@@ -200,8 +237,23 @@ export const laneTailOf = (actor: ActorId, id: string) => id.slice(actorKey(acto
 /**
  * The id of an identity's lane an owed row of that identity names by its place after the identity.
  */
-export const laneKeyOf = (actor: ActorId, tail: string) =>
+export const laneKeyOf = (actor: ActorId, tail: LaneTail) =>
   brandedAs<LaneKey>(`${actorKey(actor)}|${tail}`);
+
+/**
+ * The key an identity's saved rows are stored under: one record, in the order they were owed.
+ */
+export const owedRecordKey = (key: string) => `owed/${key}`;
+
+/**
+ * The key an actor's record is stored under.
+ */
+export const actorRecordKey = (key: string) => `actor/${key}`;
+
+/**
+ * The key a lane's record is stored under.
+ */
+export const laneRecordKey = (lane: string) => `lane/${lane}`;
 
 /**
  * The kinds of record a store holds, by the prefix of their keys.
@@ -311,6 +363,7 @@ export type KeyParts =
       readonly actor: NamedActor;
       readonly id: LaneKey;
       readonly operation: Operation;
+      readonly operationName: OperationName;
       readonly keyText: string;
     };
 
@@ -366,6 +419,7 @@ export const readRecordKey = (
       actor,
       id: brandedAs<LaneKey>(rest),
       operation,
+      operationName: brandedAs<OperationName>(operation.name),
       keyText,
     }),
   );

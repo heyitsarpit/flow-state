@@ -2,7 +2,8 @@ import { Duration, Option, Result } from "effect";
 import { Act } from "./evidence-of.ts";
 import { Audience, Delivery, type Owed, rowsOf } from "./ledger.ts";
 import { encodeActor } from "./actor-record.ts";
-import { actorRecordKey, encodeLane, encodeOwed, laneRecordKey, owedRecordKey } from "./record.ts";
+import { encodeLane, encodeOwed } from "./record.ts";
+import { actorRecordKey, laneRecordKey, owedRecordKey } from "./identity.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import type { Tx } from "./tx.ts";
 import {

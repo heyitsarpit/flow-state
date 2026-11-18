@@ -1,7 +1,7 @@
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
 import { mainBadge, mainCart, mainFlow, mainShopper } from "../app.ts";
 import { Carts } from "../server/carts.ts";
-import { owedOtherLaneText } from "./findings.ts";
+import { forgedEndings, owedOtherLaneText, seenUndeclaredText } from "./findings.ts";
 import { add, setQuantity, storeStory } from "./usual.ts";
 
 /**
@@ -45,7 +45,11 @@ export const recordSamples = samplesOf({
   names: { setup: "storeSetup", fixtures: ["ShopFake", "CartFake"] },
   actors: { mainCart },
   servers: { Carts },
-  failures: [Fake.storage.put(owedOtherLaneText.key, owedOtherLaneText.text)],
+  failures: [
+    Fake.storage.put(owedOtherLaneText.key, owedOtherLaneText.text),
+    ...Object.values(forgedEndings).map((f) => Fake.storage.put(f.key, f.text)),
+    Fake.storage.put(seenUndeclaredText.key, seenUndeclaredText.text),
+  ],
   landedFailures: [],
   values: {},
   controls: [],

@@ -54,7 +54,7 @@ requirements
                 owed row whose value has no form is saved as its Attempt's unknown { Restored },
                 reported UnencodableValue, and a Flow-made row with no value saves `null`. So a record
                 fails to encode only on a malformation in its actor's own state: its memory, or its
-                name, which its lane and owed records carry too; then the identity is withheld whole
+                name, which its lane and owed records' keys hold too; then the identity is withheld whole
                 (@spec.WriteAhead.R4, I21).
 
                 Elsewhere:
@@ -76,13 +76,15 @@ requirements
                 its machine or name, nor a lane's contract or key text; an owed row on a lane names
                 it by its place after the identity and holds no operation, which the lane's contract
                 gives; a lane record with no head holds its displaced Attempts alone. Each kind's
-                Schema is built from the compiled app's machines, so every identity, state,
-                schedule, binding and Attempt it holds decodes by a branded Schema
-                (@spec.Restore.R5), and no meaning is checked by hand after decode.
+                Schema is built from the compiled app's machines, so every identity (a graph's keys
+                included), state, schedule, binding, lane, operation and Attempt it holds decodes by
+                a branded Schema (@spec.Restore.R5), and no meaning is checked by hand after decode.
 
                 Each Schema has exactly the fields @spec.WriteAhead.R4 and @spec.WriteAhead.R5 list
                 for its kind, so the lane Schema has no `mayHaveApplied`; a field added at any depth
-                outside a user Schema's value is refused. A row's `channel` is one of
+                outside a user Schema's value is refused, a slot the machine does not declare in the
+                last-seen selections or a baseline included. A memory field the release lacks, in
+                the memory or a shared copy, is dropped (@spec.Restore.R7). A row's `channel` is one of
                 `success`, `failure`, `notSent` and `unknown` and names its ending's origin, so a
                 decoded author failure and a decoded Flow.NotSent with the same tag stay distinct
                 (@spec.WriteLanes.I39). A row's Flow-made ending is encoded by the Schemas of

@@ -89,43 +89,45 @@ requirements
                 to the last good capture, or starts fresh, and ready succeeds; a fresh start loses
                 the scope's acknowledged Attempts and their holds (a stated limit).
 
-                Each older record format reaches the current one by a pure step at the boot; a
-                newer, null or non-integer format is quarantined, its lane still holding by its id.
-                Format 4 is current. An actor record of formats 1 to 3 steps to it, and the identity
-                its content repeated is not read: the key names it. Format 2's step turns each
-                baseline's own memory copy into a shared one. Format 1's step reads each tagged
-                last-seen value back through its slot's Schema (one the Schema refuses, or saved
-                unknown, was never selected) and reads each reaction's baseline again from the
-                record's own slots and memory; a form no release wrote quarantines the record. A
-                lane or owed record of an older format is quarantined, never stepped: no release
-                wrote one, since formats before 4 were never released. Saved baselines that do not match the machine's 
-                reactions in number are
-                read the same way. A Schema whose decode throws quarantines its record as a refusal
-                does; the boot goes on.
+                Format 4 is current; a newer, null or non-integer format is quarantined, its lane
+                still holding by its id. An actor record of formats 1 to 3 reaches it by a pure step
+                at the boot, and the identity its content repeated is not read: the key names it.
+                Format 2's step turns each baseline's own memory copy into a shared one. Format 1's
+                step reads each tagged last-seen value back through its slot's Schema (one the
+                Schema refuses, or saved unknown, was never selected) and reads each reaction's
+                baseline again from the record's own slots and memory; a form no release wrote
+                quarantines the record. A lane or owed record has no step: one of an older format is
+                quarantined, since formats before 4 were never released. Saved baselines that do not
+                match the machine's reactions in number are read the same way. A Schema whose decode
+                throws quarantines its record as a refusal does; the boot goes on.
+
                 A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
                 too. A record's identity is its key alone (@spec.Codec.R5), read in one place: its
                 kind, a declared and persisted machine, and a name a ref of its identity version
                 could give (never a local actor's, @spec.WriteAhead.I3; a name that identity decodes
-                and whose input names it back). A lane's key also carries the contract of a write
-                operation its machine declares and its key text, which reads by that operation's
-                key fields and names itself back, and is the text a Held head's input gives; the
-                head's input must also match the digest saved beside it, so an input changed on disk
-                is never re-sent under its Attempt. An owed row names an operation its machine
-                declares, or a lane by its place after the identity, read as a lane key is. Every
-                other identifier a record holds is decoded by a Schema built from the compiled app:
-                a state is a leaf its machine declares, a schedule one it declares, an Attempt one
-                the Runtime mints, a binding a name its slot's provider machine gives (a graph
-                binding, one of a declared machine), a retry count a non-negative safe integer; and
-                a record holds exactly its kind's fields. Any other record is quarantined, so no
-                record speaks for an identity, lane or Attempt its key and Schemas do not name. A
-                well-formed forgery (a queued commit or displaced Attempt added or removed, an owed
-                row repeated, a binding or a key renamed to another name a ref could give) cannot be
-                told from a real record (Q4). A quarantined record keeps its bytes
-                until the identity writes that record again: an actor's first save, an owed record's next change, a 
-                lane's cancel. Until
-                then a quarantined lane or owed record is reported RecordUndecodable at each boot;
-                its head and rows cannot be read, so none is heard, and the report stands in for
-                them.
+                and whose input names it back). An actor record's memory holds input fields that
+                give that same name, since input fields never change (@spec.Compile.R7). A lane's key
+                also carries the contract of a write operation its machine declares and its key
+                text, which reads by that operation's key fields and names itself back, and is the
+                text a Held head's input gives; the head's input must also match the digest saved
+                beside it, so an input changed on disk is never re-sent under its Attempt. An owed
+                row is an ending of an Attempt on a lane, named by its place after the identity and
+                read as a lane key is, or names an operation its machine declares; only a decline
+                has no Attempt (@spec.WriteLanes.R10), and an Attempt ends once, so no two rows of
+                a record hold a success, failure or NotSent of one Attempt. Attempt ids never
+                repeat (@spec.WriteLanes.R5), so a lane record lists no displaced Attempt twice or
+                beside its head. Every other identifier a record holds is decoded by a Schema built
+                from the compiled app: a state is a leaf its machine declares, a schedule one it
+                declares, a slot one it declares, an Attempt one the Runtime mints, a binding a name
+                its slot's provider machine gives (a graph binding, one of a declared machine), a
+                retry count a non-negative safe integer; and a record holds exactly its kind's
+                fields. Any other record is quarantined, so no record speaks for an identity, lane
+                or Attempt its key and Schemas do not name. A well-formed forgery no decode can tell
+                from a real record is held (Q4). A quarantined record keeps its bytes until the
+                identity writes that record again: an actor's first save, an owed record's next
+                change, a lane's cancel. Until then a quarantined lane or owed record is reported
+                RecordUndecodable at each boot; its head and rows cannot be read, so none is heard,
+                and the report stands in for them.
 
                 An actor record that does not decode is quarantined:
 
@@ -233,11 +235,12 @@ open
     Q3  I19's check was listed under @task.V3.T20, but resets are @task.V3.T56's since the split.
         outcome  @task.V3.T56 builds I19's check (Spec test T5).
 
-    Q4  Whether a well-formed forged record is in the threat model: a queued commit or displaced Attempt added or 
-        removed, an owed row repeated, a binding or key renamed to another name a ref could give.
-        outcome  Held for the user's ruling (proposed): until then each is judged only for a boot that never fails, and 
-                 an
-                 inverted test names the class.
+    Q4  Whether a well-formed forgery no decode can tell from a real record is in the threat model: a queued commit 
+        added or removed, a displaced Attempt removed, a decline or an unknown ending repeated, a binding
+        renamed to another name a ref could give, a literal-named actor's record or any lane or owed record moved
+        under another name its machine gives.
+        outcome  Held for the user's ruling (proposed): until then each is judged only for a boot that never fails,
+                 and an inverted test names the class.
 
 model
     Boot = one ready() of a persistent Runtime: read, upgrade formats, check versions and shapes,
@@ -367,12 +370,14 @@ tests
         after, unknown { Restored }. [@I8]
     T5  Stopped reads and resets after reload: a stopped read is heard after a reload; a reset a reload lost runs at 
         the boot. Planted fault: a reload that drops the stopped read. [@I2, @I19]
-    T6  Record formats: every record states its format; an older format restores through the pure step, its timers read 
-        as `dueAt`; the current format restores as written, a `left` timer included; a newer, null,
-            fractional or string format is quarantined and its lane still holds.
-                Planted faults: a null format read as 1; a fraction floored; a string coerced; a newer format read; an
-                old timer read as `left`.
-                [@I10, @I13]
+    T6  Record formats: every record states its format; an older actor record format restores through its pure step, an 
+        older lane or owed record is quarantined, and an old actor record's timers read
+            as `dueAt`; the current format restores as written, a `left` timer included; a newer, null,
+                fractional or string format is quarantined and its lane still holds.
+                    Planted faults: a null format read as 1; a fraction floored; a string coerced; a newer format read; 
+                        an
+                    old timer read as `left`.
+                    [@I10, @I13]
     T7  Undecodable records: memory that cannot decode is quarantined; the fresh actor over it is saved. Planted 
         faults: undecodable memory kept; the fresh actor never saved. [@I10, @I11]
     T8  Versions: an old-version record is listed, not restored; a release that changes a key keeps the old-version 

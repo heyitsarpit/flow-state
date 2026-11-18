@@ -10,8 +10,7 @@ import { isInFlight, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import { type ActorId, type CallId, Command, type Incarnation, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
-import { isLocalName, laneId } from "./identity.ts";
-import { laneRecordKey } from "./record.ts";
+import { isLocalName, laneId, laneRecordKey } from "./identity.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {

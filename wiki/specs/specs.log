@@ -411,3 +411,8 @@ note 2026-11-18T22:30:38Z
 note 2026-11-18T22:30:38Z
     @spec.WriteLanes.I8: a headless lane record restores no lane, so I8 and WriteAhead R5 agree; that reading ends every
     displaced Attempt (lane-record.test.ts). Why: @task.V3.T92. Reverse: drop it.
+
+note 2026-11-18T23:12:00Z
+    @spec.Restore R5, Q4, T6; @spec.Codec R4, R5: a saved memory's input fields must give its key's name; a row with no
+    Attempt is a decline, one Attempt ends once, displaced Attempts never repeat; undeclared slots refused; Q4 narrowed
+    to what no decode tells; old-format text made actor-only. Why: @task.V3.T92 close review. Reverse: from 14fad556.

@@ -5,7 +5,7 @@ import { workspaceStory } from "./usual.ts";
 /**
  * The session's record in the middle of the badge's chain (an org provides the session, which
  * provides the team, which provides the badge), with its org slot bound to a local actor, beside
- * an owed sign-in ending that wakes the session at the boot: as a damaged disk could leave them.
+ * an owed declined sign-in that wakes the session at the boot: as a damaged disk could leave them.
  */
 export const forgedChain = {
   session: "actor/Workspace/Session/main",
@@ -13,7 +13,7 @@ export const forgedChain = {
     '{"context":{"org":{"machine":"Workspace/Org","name":"~1"}},"format":4,"graph":{"Workspace/Org/~1":{}},"memories":[],"memory":{"displayName":"ada","notice":"","user":"ada"},"reactions":[],"schedules":[],"seen":{"org":"Acme"},"state":"SIGNED_IN"}',
   owed: "owed/Workspace/Session/main",
   owedText:
-    '{"format":4,"rows":[{"attempt":null,"channel":"unknown","kept":false,"operation":"signIn","reason":"Restored","value":null}]}',
+    '{"format":4,"rows":[{"attempt":null,"channel":"notSent","kept":false,"operation":"signIn","reason":"Rejected","value":{"why":"Rejected"}}]}',
 } as const;
 
 /**

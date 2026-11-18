@@ -146,7 +146,7 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     "Codec R5",
     ["tests/rules/rules.test.ts", "tests/restore/restore.test.ts"],
     "lane records are keyed kept/<lane>, a prefix no record kind has",
-    "src/core/record.ts",
+    "src/core/identity.ts",
     "export const laneRecordKey = (lane: string) => `lane/${lane}`;",
     "export const laneRecordKey = (lane: string) => `kept/${lane}`;",
   ),

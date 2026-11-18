@@ -1,6 +1,7 @@
 import { Effect, Option, Result, Schema } from "effect";
 import { expect, it } from "vite-plus/test";
-import { decodeRecords, encodeLane, laneRecordKey } from "../core/record.ts";
+import { decodeRecords, encodeLane } from "../core/record.ts";
+import { laneRecordKey } from "../core/identity.ts";
 import { laneId } from "../core/identity.ts";
 import { type CallId, Phase } from "../core/world.ts";
 import { definition, Flow, machine, transaction } from "../index.ts";

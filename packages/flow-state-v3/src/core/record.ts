@@ -9,34 +9,21 @@ import {
   type LaneKey,
   laneKeyOf,
   laneTailOf,
-  laneTailParts,
+  laneTailOfMachine,
   type NamedActor,
+  type OperationName,
+  operationNameOf,
+  operationOfTail,
   readRecordKey,
   type RecordKey,
   type RecordKind,
 } from "./identity.ts";
 import type { Compiled, Operation, Values } from "./compiled.ts";
-import { defect } from "./defect.ts";
 import { Count, digestOf, exact, FORMAT, readerOf, reasonOf, textOf } from "./record-format.ts";
 import { Channel } from "./vocabulary.ts";
 import { keyTextOf } from "./lane-moves.ts";
 import { type Owed, Route } from "./ledger.ts";
 import { type ActorId, byCodeUnits, type Lane, Phase } from "./world.ts";
-
-/**
- * The key an identity's saved rows are stored under: one record, in the order they were owed.
- */
-export const owedRecordKey = (key: string) => `owed/${key}`;
-
-/**
- * The key an actor's record is stored under.
- */
-export const actorRecordKey = (key: string) => `actor/${key}`;
-
-/**
- * The key a lane's record is stored under.
- */
-export const laneRecordKey = (lane: string) => `lane/${lane}`;
 
 type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
   readonly kept: boolean;
@@ -125,7 +112,8 @@ export const encodeLane = (
 
 // A lane record's Schemas, by its operation: a head with its input, which gives the key text its
 // key names and the digest saved beside it, and the inputs queued behind it; or the displaced
-// Attempts alone, at least one.
+// Attempts alone, at least one. Attempt ids never repeat, so no displaced Attempt is listed twice
+// or is the head's own.
 const laneSchemaOf = (operation: Operation) => {
   const head = exact({
     format: Schema.Literal(FORMAT),
@@ -146,38 +134,48 @@ const laneSchemaOf = (operation: Operation) => {
   return exact({ keyText: Schema.String, record: Schema.Union([head, headless]) }).check(
     Schema.makeFilter(
       ({ keyText, record }) =>
-        !("attempt" in record) ||
-        (Option.contains(keyTextOf(operation, record.input), keyText) &&
-          Result.getOrUndefined(
-            Result.map(operation.walk.input.text(record.input), (t) => digestOf(t.text)),
-          ) === record.digest),
+        new Set(record.displaced).size === record.displaced.length &&
+        (!("attempt" in record) ||
+          (!record.displaced.includes(record.attempt) &&
+            Option.contains(keyTextOf(operation, record.input), keyText) &&
+            Result.getOrUndefined(
+              Result.map(operation.walk.input.text(record.input), (t) => digestOf(t.text)),
+            ) === record.digest)),
     ),
   );
 };
 
-// An owed record's Schema, by its machine: at least one row, each on a lane of a contract the
-// machine writes, by key text that names itself back, or naming an operation the machine declares.
+// An owed record's Schema, by its machine: at least one row, each an ending of an Attempt on a lane
+// of a contract the machine writes, by key text that names itself back, or naming an operation the
+// machine declares; only a decline has no Attempt. An Attempt ends once: no two rows of one record
+// hold a success, failure or NotSent of the same Attempt.
 const owedSchemaOf = (compiled: Compiled) => {
   const row = {
-    attempt: Schema.NullOr(AttemptIdSchema),
+    attempt: AttemptIdSchema,
     channel: Channel,
     reason: Schema.String,
     value: Schema.Json,
     kept: Schema.Boolean,
   };
 
-  const lane = Schema.String.check(
-    Schema.makeFilter((tail: string) => Result.isSuccess(laneTailParts(compiled, tail))),
-  );
-
-  const operation = Schema.String.check(
-    Schema.makeFilter((name: string) => compiled.operations.has(name)),
-  );
+  const operation = operationNameOf(compiled);
 
   return exact({
     format: Schema.Literal(FORMAT),
     rows: Schema.NonEmptyArray(
-      Schema.Union([exact({ lane, ...row }), exact({ operation, ...row })]),
+      Schema.Union([
+        exact({ lane: laneTailOfMachine(compiled), ...row }),
+        exact({ operation, ...row }),
+        exact({ operation, ...row, attempt: Schema.Null, channel: Schema.Literal("notSent") }),
+      ]),
+    ).check(
+      Schema.makeFilter((rows) => {
+        const ended = rows.flatMap((r) =>
+          r.attempt !== null && r.channel !== "unknown" ? [r.attempt] : [],
+        );
+
+        return new Set(ended).size === ended.length;
+      }),
     ),
   });
 };
@@ -196,8 +194,12 @@ type Quarantined = {
  * A saved Waiting or Kept row as a boot reads it back: owed to its identity, delivered current
  * from the active leaf.
  */
-type RestoredRow = Omit<Owed, "id" | "delivery" | "to" | "actor" | "attempt" | "lane"> & {
+type RestoredRow = Omit<
+  Owed,
+  "id" | "delivery" | "to" | "actor" | "attempt" | "lane" | "operation"
+> & {
   readonly actor: NamedActor;
+  readonly operation: OperationName;
   readonly attempt: Option.Option<AttemptId>;
   readonly lane: Option.Option<LaneKey>;
   readonly kept: boolean;
@@ -284,7 +286,7 @@ export const decodeRecords = (
       // RETURN_TYPE: the lane as the boot reads it back, its head under a branded Attempt.
       ({ record: r }): RestoredLane => {
         const { actor, id, key } = parts;
-        const operation = parts.operation.name;
+        const operation = parts.operationName;
         const ended = { kept: false, actor, operation, route: Route.Current() };
         const head = "attempt" in r ? Option.some(r) : Option.none();
 
@@ -385,10 +387,3 @@ const memo = <K, V>(make: (key: K) => V) => {
     return known;
   };
 };
-
-// The operation of a lane an owed row names, read by the owed record's Schema.
-const operationOfTail = (compiled: Compiled, tail: string) =>
-  Result.match(laneTailParts(compiled, tail), {
-    onSuccess: ({ operation }) => operation.name,
-    onFailure: () => defect(`an owed row's lane no record Schema read: ${tail}`),
-  });

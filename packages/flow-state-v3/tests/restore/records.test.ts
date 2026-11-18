@@ -39,6 +39,9 @@ const compiledOf = (m: Manifest) =>
     }),
   );
 
+const escape = (name: string) =>
+  name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C");
+
 const unescape = (name: string) =>
   name.replaceAll("%7C", "|").replaceAll("%2F", "/").replaceAll("%25", "%");
 
@@ -222,6 +225,9 @@ type Mutant = {
   readonly key: Option.Option<string>;
   // For a corrupt binding name or key name, the machine the name is of.
   readonly provider: Option.Option<string>;
+  // The identity a record moved under another valid name now names: ensured after the boot, so
+  // the record is read as that identity's.
+  readonly ensure: Option.Option<{ readonly machine: string; readonly name: string }>;
 };
 
 // The values one corrupt array could hold, each with how it was corrupted.
@@ -295,7 +301,12 @@ type Walk = (
 // only the first key of each kind of value.
 const mutantsOf = (root: Schema.Json) => {
   const out: Array<Mutant> = [];
-  const none = { key: Option.none<string>(), provider: Option.none<string>() };
+
+  const none = {
+    key: Option.none<string>(),
+    provider: Option.none<string>(),
+    ensure: Option.none<{ readonly machine: string; readonly name: string }>(),
+  };
 
   // A binding's name: its mutants carry the machine the binding names.
   const providerOf = (value: Schema.JsonObject, k: string) => {
@@ -343,27 +354,49 @@ const mutantsOf = (root: Schema.Json) => {
   return out;
 };
 
-// Restore R5's limit, extended to queued commits and displaced Attempts as proposed: a well-formed
-// queued commit or displaced Attempt added or removed, or an owed row repeated (an Attempt may owe
-// several kept endings, each its own row, WriteLanes R10), cannot be told from a real one, so its
-// ending is judged only for a boot that never fails. An owed record with no rows is never written
-// (WriteAhead I20), so emptied rows are judged in full.
-const UNTELLABLE = /^\$\.(?:(?:queue|displaced) (?:emptied|item repeated)|rows item repeated)$/u;
+// Restore R5's limit (Q4): a well-formed queued commit added or removed, a displaced Attempt
+// removed, or a decline or an unknown ending repeated (an Attempt may owe several unknowns, each
+// its own row, WriteLanes R10, I15; two commits may be declined alike) cannot be told from a real
+// one, so its ending is judged only for a boot that never fails. A repeated success, failure or
+// NotSent of one Attempt, a repeated displaced Attempt and an owed record with no rows are judged
+// in full (WriteLanes R5, R10; WriteAhead I20).
+const UNTELLABLE = /^\$\.(?:queue (?:emptied|item repeated)|displaced emptied)$/u;
+const ROW_REPEATED = /^\$\.rows item repeated$/u;
+
+// Whether a record's first owed row is one a second copy of cannot be told from: a decline, which
+// has no Attempt, or an unknown ending.
+const firstRowUntellable = (json: Schema.Json) => {
+  const rows = isJsonObject(json) ? json["rows"] : null;
+  const [first] = Array.isArray(rows) ? rows : [];
+
+  return (
+    first !== undefined &&
+    isJsonObject(first) &&
+    (first["attempt"] === null || first["channel"] === "unknown")
+  );
+};
 
 // A record holds exactly its kind's fields (Codec R5): a field added to any of its own objects is
 // quarantined. Inside a value a user Schema decodes (memory, last-seen selections and baselines, a
 // lane's input and queued inputs, an owed row's value), the Schema decides, and a memory field the
-// release lacks is dropped (Restore R7).
+// release lacks is dropped (Restore R7); a slot the machine never declared, in the last-seen
+// selections or a baseline, is refused like any added field.
 const FIELD_ADDED = / field added$/u;
-const USER_VALUE = /^\$\.(?:memory|seen|memories|input|queue)\b|\.value\b|\.slots\./u;
+const USER_VALUE = /^\$\.(?:memory|memories|input|queue)\b|^\$\.seen\.|\.value\b/u;
 
 // A binding renamed to another name its provider's machine gives (a literal name emptied or
 // lengthened) names another identity a ref's context could have bound, so an ensure by the entry's
 // wiring is refused as it would be for a real record (ConflictingActorRef); a record moved under a
 // key naming another identity of a literal-named machine is that identity's record. Both are held
-// for the user, not a Spec limit. A name the machine does not decode is judged in full.
+// for the user. A name the machine does not decode is judged in full.
 const REBOUND = /^\$\.(?:context\.[^.]+|graph\..+\.[^.]+)\.name (?:emptied|lengthened)$/u;
 const REKEYED = /^key name = /u;
+
+// A lane or owed record moved under another name of a value-named machine names nothing its
+// content can be checked against (a lane's key text is its operation's input, not its actor's), so
+// it is held like REKEYED. An actor record so moved keeps input fields its new name does not give,
+// and is judged in full.
+const RENAMED = /^key name renamed = (?:lane|owed)\//u;
 
 const lastOpen = (run: StoryRun) =>
   run.trace.events.reduce((open, e) => Math.max(open, e.tab.open), 0);
@@ -381,8 +414,29 @@ const quarantinedIn = (run: StoryRun, key: string) => {
   );
 };
 
+// The name a value-named actor's memory gives it: its input fields, each encoded by its JSON
+// codec, in field-name order, as canonical JSON text (Actors R2). None for a literal-named machine.
+const nameOfMemory = (compiled: Compiled, memory: Readonly<Record<string, unknown>>) => {
+  const fields = compiled.fields
+    .filter((f) => f.source._tag === "Input")
+    .toSorted((a, b) => Number(a.name > b.name) - Number(a.name < b.name));
+
+  return fields.length === 0
+    ? Option.none<string>()
+    : Option.some(
+        canonicalText(
+          Object.fromEntries(
+            fields.map((f) => [f.name, toJson(Schema.encodeUnknownSync(f.json)(memory[f.name]))]),
+          ),
+        ),
+      );
+};
+
+const toJson = Schema.decodeUnknownSync(Schema.Json);
+
 // What makes the world a boot left ill-formed, by the machines the app declares: an actor in a
-// state its machine lacks or with a schedule it does not declare, a lane of an operation that is
+// state its machine lacks, whose input fields name another actor, or with a schedule it does not
+// declare, a lane of an operation that is
 // not a write or with an Attempt the Runtime never mints, an owed row of an undeclared operation.
 const illFormed = (machines: Machines, run: StoryRun) => {
   const cut = run.end.inspection;
@@ -400,6 +454,13 @@ const illFormed = (machines: Machines, run: StoryRun) => {
 
         return [
           ...unless(compiled.states.has(snapshot.state), `${actor} is in state ${snapshot.state}`),
+          ...unless(
+            Option.match(nameOfMemory(compiled, snapshot.memory), {
+              onNone: () => true,
+              onSome: (name) => `${compiled.id}/${escape(name)}` === actor,
+            }),
+            `${actor} holds input fields that name another actor`,
+          ),
           ...snapshot.schedules
             .filter((s) => !schedules.has(s.key))
             .map((s) => `${actor} arms schedule ${s.key}`),
@@ -477,7 +538,9 @@ type Judged = "held" | "full";
 
 // RETURN_TYPE: the judgement names its two cases.
 const judgedAs = (machines: Machines, mutant: Mutant): Judged => {
-  if (UNTELLABLE.test(mutant.path)) return "held";
+  if (UNTELLABLE.test(mutant.path) || RENAMED.test(mutant.path)) return "held";
+
+  if (ROW_REPEATED.test(mutant.path)) return firstRowUntellable(mutant.json) ? "held" : "full";
 
   const literal = Option.exists(
     Option.flatMap(mutant.provider, (id) => Option.fromUndefinedOr(machines.get(id))),
@@ -555,13 +618,18 @@ const bootCorrupt = async (saved: Saved, mutants: ReadonlyArray<Mutant>, scope: 
     ),
   );
 
-  const run = (key: string, json: Schema.Json, strict = false) =>
+  const run = (
+    key: string,
+    json: Schema.Json,
+    strict = false,
+    also: ReadonlyArray<{ readonly machine: string; readonly name: string }> = [],
+  ) =>
     saved.story.run({
       steps: [
         ...saved.steps,
         Step.world({ words: [Fake.storage.put(key, canonicalText(json))] }),
         Step.reload({ reattach: false, heldWrites: "abort" }),
-        ...ensuresOf(strict ? [...asleep, ...own] : asleep),
+        ...ensuresOf([...(strict ? [...asleep, ...own] : asleep), ...also]),
       ],
     });
 
@@ -581,7 +649,7 @@ const bootCorrupt = async (saved: Saved, mutants: ReadonlyArray<Mutant>, scope: 
     const key = Option.getOrElse(mutant.key, () => saved.key);
     const strict = FIELD_ADDED.test(mutant.path) && !USER_VALUE.test(mutant.path);
 
-    return run(key, mutant.json, strict).then(
+    return run(key, mutant.json, strict, Option.toArray(mutant.ensure)).then(
       (done) =>
         strict
           ? unless(quarantinedIn(done, key), "a field its kind lacks was read")
@@ -602,13 +670,11 @@ const bootCorrupt = async (saved: Saved, mutants: ReadonlyArray<Mutant>, scope: 
   return found;
 };
 
-const escape = (name: string) =>
-  name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C");
-
 /**
  * The record put under its key with one segment corrupted: the machine, the name, and a lane's
- * operation and key text, each emptied, made local or lengthened; the record as saved stays under
- * its own key beside it.
+ * operation and key text, each emptied, made local or lengthened; and a value-named actor's name
+ * renamed to another its machine gives (its first input field changed), whose identity is ensured.
+ * The record as saved stays under its own key beside it.
  */
 const keyMutantsOf = (machines: Machines, saved: Saved) =>
   Option.match(partsOf(machines, saved.key), {
@@ -636,17 +702,52 @@ const keyMutantsOf = (machines: Machines, saved: Saved) =>
 
       const json = parse(saved.text);
 
-      return keys.map(([segment = "", key = ""]) => ({
-        path: `key ${segment} = ${key}`,
-        json,
-        key: Option.some(key),
-        provider:
-          segment === "name" && !key.includes("/~1")
-            ? Option.some(p.machine)
-            : Option.none<string>(),
-      }));
+      const renamed = Option.toArray(
+        Option.map(otherNameOf(p.name), (name) => ({
+          path: `key name renamed = ${keyOf(p.machine, name, operation, keyText)}`,
+          json,
+          key: Option.some(keyOf(p.machine, name, operation, keyText)),
+          provider: Option.none<string>(),
+          ensure: Option.some({ machine: p.machine, name }),
+        })),
+      );
+
+      return [
+        ...keys.map(([segment = "", key = ""]) => ({
+          path: `key ${segment} = ${key}`,
+          json,
+          key: Option.some(key),
+          provider:
+            segment === "name" && !key.includes("/~1")
+              ? Option.some(p.machine)
+              : Option.none<string>(),
+          ensure: Option.none<{ readonly machine: string; readonly name: string }>(),
+        })),
+        ...renamed,
+      ];
     },
   });
+
+// Another name of a value-named actor: its first input field's text lengthened (input fields are
+// string-encoded, Compile R7), written back as canonical text. None for a name that is not a JSON object (a literal name,
+// whose lengthened form is already another name).
+const otherNameOf = (name: string) => {
+  const json = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Json))(name);
+
+  return Option.flatMap(json, (value) => {
+    if (!isJsonObject(value)) return Option.none();
+
+    const [first] = Object.entries(value);
+
+    if (first === undefined) return Option.none();
+
+    const [field, v] = first;
+
+    return Predicate.isString(v)
+      ? Option.some(canonicalText(Object.fromEntries([...Object.entries(value), [field, `${v}x`]])))
+      : Option.none();
+  });
+};
 
 // Every fixture's stores, run once for the tests below.
 const stores = storesOf();
@@ -661,10 +762,11 @@ describe("corrupt saved records (Restore R5, I10; Codec R5)", () => {
     expect(failures).toEqual([]);
   }, 120_000);
 
-  // Held for the user: no decode tells a queued commit or a displaced Attempt added or removed, a
-  // binding renamed to another name its provider gives, or a record moved under another name of a
-  // literal-named machine from a record a release wrote; until the user rules on the threat model,
-  // each is judged only for a boot that never fails.
+  // Held for the user (Restore Q4): no decode tells a queued commit added or removed, a displaced
+  // Attempt removed, a decline or an unknown ending repeated, a binding renamed to another name its
+  // provider gives, or a record moved under another name of a literal-named machine from a record a
+  // release wrote; until the user rules on the threat model, each is judged only for a boot that
+  // never fails.
   it.fails("Restore R5: a forged but well-formed saved record is quarantined and reported, or restores a well-formed world", async () => {
     const failures: Array<string> = [];
 

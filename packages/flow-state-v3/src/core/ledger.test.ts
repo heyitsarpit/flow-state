@@ -127,10 +127,11 @@ describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", (
   it("a NotSent row and an unknown row with the same tag come back told apart by channel", () => {
     const actor = { machine: "Shop/Pay", name: "s1" };
 
+    // Only a decline has no Attempt (WriteLanes R10); the unknown is of a sent Attempt.
     const row = (channel: Channel) => ({
       operation: "pay",
       lane: Option.none<string>(),
-      attempt: Option.none<string>(),
+      attempt: channel === "notSent" ? Option.none<string>() : Option.some("att-1-1"),
       channel,
       reason: "Cancelled",
       value: null,
@@ -158,9 +159,9 @@ describe("a boot reads records in key order (Restore R3: the boot sorts by recor
             operation: "pay",
             lane: Option.none(),
             attempt: Option.none(),
-            channel: "unknown",
-            reason: "Restored",
-            value: null,
+            channel: "notSent",
+            reason: "Rejected",
+            value: { why: "Rejected" },
             kept: false,
           },
         ]),

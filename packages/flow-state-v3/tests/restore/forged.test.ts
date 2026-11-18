@@ -8,9 +8,15 @@ import {
   boundToGone,
   boundToLocal,
   boundToOtherMachine,
+  displacedRepeated,
   forgedBindings,
+  forgedEndings,
+  owedMadeUpSuccess,
   owedOtherLane,
   owedOtherLaneText,
+  owedRowRepeated,
+  seenUndeclared,
+  seenUndeclaredText,
 } from "../../fixtures/shop/stories/findings.ts";
 import { readLane, readOperationLane } from "../../fixtures/sign-in/stories/findings.ts";
 import { account } from "../../fixtures/transfers/app.ts";
@@ -173,6 +179,46 @@ describe("records naming a state, a schedule or an Attempt (Restore R5, R7; Code
 
     expect(undecodable(run, 2)).toContain(owedOtherLaneText.key);
     expect(delivered(run, 2)).toEqual([]);
+    checked(run);
+  });
+});
+
+describe("records owing an ending a release never owes (Restore R5; WriteLanes R5, R10, I15)", () => {
+  for (const [rule, story, forged] of [
+    [
+      "WriteLanes R10, I15: an owed record holding one Attempt's success twice",
+      owedRowRepeated,
+      forgedEndings.repeatedRow,
+    ],
+    [
+      "WriteLanes R10: an owed record holding a success with no Attempt, which only a decline lacks,",
+      owedMadeUpSuccess,
+      forgedEndings.madeUpSuccess,
+    ],
+    [
+      "WriteLanes R5: a lane record owing one displaced Attempt twice, whose ids never repeat,",
+      displacedRepeated,
+      forgedEndings.repeatedDisplaced,
+    ],
+  ] as const)
+    it(`Restore R5, ${rule} is quarantined and reported, and nothing is heard from it`, async () => {
+      const run = await story.run();
+
+      expect(undecodable(run, 2)).toContain(forged.key);
+      expect(delivered(run, 2)).toEqual([]);
+      expect(run.checkpoints.restored.read(mainCart)?.memory["lines"]).toEqual({
+        l1: { quantity: 1, variantId: "v1" },
+      });
+      checked(run);
+    });
+});
+
+describe("an actor record remembering an undeclared slot (Restore R5; Codec R5)", () => {
+  it("Codec R5: an actor record whose last-seen selections name a slot its machine never declared is quarantined and reported, never read with the slot dropped", async () => {
+    const run = await seenUndeclared.run();
+
+    expect(undecodable(run, 2)).toContain(seenUndeclaredText.key);
+    expect(run.checkpoints.restored.read(mainCart)?.memory["lines"]).toEqual({});
     checked(run);
   });
 });

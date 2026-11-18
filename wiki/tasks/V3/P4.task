@@ -1001,6 +1001,19 @@ tasks
             quarantined (lanes negative-zero reloads clean); a forged schedule `send` (pinned by its Schema); an owed
             row of a read operation passing (Restore R7's stopped read needs it); FNV-1a by hand (Effect's `Hash.string`
             is another algorithm).
+        comment     2026-11-18T23:17:35Z
+            Fix round: all 4 blocking and 3 routed items fixed, each red first for its stated reason. (1) Renamed key:
+            decodeActor quarantines memory whose input fields do not give the key's name (restore.test.ts guest-cart
+            test; borrowed-records now ensures guestCart; the sweep renames value-named keys to another valid name and
+            checks input fields name the actor). (2) Held class narrowed: one Attempt ends once, only a decline lacks an
+            Attempt, displaced Attempts never repeat (forged.test.ts, 3 tests; fixtures shop/owed-row-repeated,
+            owed-made-up-success, displaced-repeated); Q4 keeps queue edits, displaced removed, repeated declines or
+            unknowns, rebinding and literal or lane/owed rekeys. (3) Restore R5/Q4/T6, Codec R4/R5 rewritten; specs.log
+            note. (4) Owed row lane and operation, graph keys and RestoredRow.operation branded (record-brands.test.ts).
+            Routed: I17 excuses only the acknowledging batch's own lane record (rules.test.ts); undeclared seen and
+            baseline slots refused (forged.test.ts, shop/seen-undeclared); escaping in src/core/key-text.ts, key
+            templates in identity.ts. Faults --only 13 of 13 (5 new, 6 retargeted). Suite 1211 pass, 23 expected fail;
+            check 0; stress 0.
 
     T95
         title       Callback results checked before they enter a turn

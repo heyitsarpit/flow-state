@@ -3,13 +3,15 @@ import type { Canonical } from "./codec.ts";
 import type { Compiled, Values } from "./compiled.ts";
 import {
   actorNameOf,
+  type IdentityKey,
+  identityKeyOf,
+  memoryNamesActor,
   type NamedActor,
-  readActorKey,
   type RecordKey,
   type StateName,
   stateNameOf,
 } from "./identity.ts";
-import { exact, FORMAT, FormatJson, readerOf, textOf, Count } from "./record-format.ts";
+import { exact, FORMAT, FormatJson, keyedBy, readerOf, textOf, Count } from "./record-format.ts";
 import {
   type Frame,
   readSelected,
@@ -29,7 +31,7 @@ export type RestoredActor = Omit<ActorRecord, "actor" | "state" | "context" | "g
   readonly actor: NamedActor;
   readonly state: StateName;
   readonly context: ReadonlyMap<string, NamedActor>;
-  readonly graph: ReadonlyMap<string, ReadonlyMap<string, NamedActor>>;
+  readonly graph: ReadonlyMap<IdentityKey, ReadonlyMap<string, NamedActor>>;
 };
 
 // A binding to a provider of `compiled`'s machine: its id and a name its identity reads.
@@ -74,11 +76,7 @@ const partsOf = (machines: ReadonlyMap<string, Compiled>, compiled: Compiled) =>
       ),
     ),
     context,
-    graph: Schema.Record(Schema.String, Schema.Record(Schema.String, anyBinding)).check(
-      Schema.makeFilter((graph) =>
-        Object.keys(graph).every((key) => Option.isSome(readActorKey(machines, key))),
-      ),
-    ),
+    graph: keyedBy(identityKeyOf(machines), Schema.Record(Schema.String, anyBinding)),
   };
 };
 
@@ -299,6 +297,11 @@ export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
     });
   });
 
+// A slot a record names, which its machine must declare: an undeclared one fails the record with
+// `why`, never dropped.
+const declaredSlot = (compiled: Compiled, slot: string, why: string) =>
+  Result.fromNullishOr(compiled.context.get(slot), () => why);
+
 // A reaction's saved baseline inputs, each read back through its slot's or field's Schema; its
 // memory is the shared copy it names.
 const frameOf = (
@@ -309,16 +312,14 @@ const frameOf = (
 ) =>
   Result.gen(function* () {
     const slots = yield* Result.all(
-      Object.entries(frame.slots).flatMap(([slot, saved]) =>
-        Option.toArray(
-          Option.map(Option.fromUndefinedOr(compiled.context.get(slot)), (declared) =>
-            saved.value === undefined
-              ? Result.succeed([slot, Option.none<Selected>()] as const)
-              : Result.map(
-                  Result.mapError(readSelected(declared.walk, saved.value), () => "frame"),
-                  (s) => [slot, Option.some(s)] as const,
-                ),
-          ),
+      Object.entries(frame.slots).map(([slot, saved]) =>
+        Result.flatMap(declaredSlot(compiled, slot, "frame"), (declared) =>
+          saved.value === undefined
+            ? Result.succeed([slot, Option.none<Selected>()] as const)
+            : Result.map(
+                Result.mapError(readSelected(declared.walk, saved.value), () => "frame"),
+                (s) => [slot, Option.some(s)] as const,
+              ),
         ),
       ),
     );
@@ -446,15 +447,16 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
 
       const r = yield* read(format, value);
 
+      // Input fields never change, so memory whose input names another actor is not this one's.
+      if (!memoryNamesActor(compiled, actor.name, r.memory)) return yield* Result.fail("name");
+
       const seen = new Map(
         yield* Result.all(
-          Object.entries(r.seen).flatMap(([slot, json]) =>
-            Option.toArray(
-              Option.map(Option.fromUndefinedOr(compiled.context.get(slot)), (declared) =>
-                Result.map(
-                  Result.mapError(readSelected(declared.walk, json), () => "seen"),
-                  (s) => [slot, s] as const,
-                ),
+          Object.entries(r.seen).map(([slot, json]) =>
+            Result.flatMap(declaredSlot(compiled, slot, "seen"), (declared) =>
+              Result.map(
+                Result.mapError(readSelected(declared.walk, json), () => "seen"),
+                (s) => [slot, s] as const,
               ),
             ),
           ),
@@ -495,7 +497,12 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
         seen,
         frames,
         graph: new Map(
-          Object.entries(r.graph).map(([k, wired]) => [k, new Map(Object.entries(wired))]),
+          Object.entries(r.graph).map(([k, wired]) => [
+            // SAFETY: each key was read by the graph's IdentityKey Schema; entries loses its brand.
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Object.entries types keys as string
+            k as IdentityKey,
+            new Map(Object.entries(wired)),
+          ]),
         ),
       } satisfies RestoredActor;
     });

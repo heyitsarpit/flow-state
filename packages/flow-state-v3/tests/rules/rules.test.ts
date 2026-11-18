@@ -317,6 +317,26 @@ const repeatedAt = (run: StoryRun, at: number, times: number) => {
       } satisfies StoryRun);
 };
 
+// A real run with one more evidence record at the end of tab open `open`.
+const reportedIn = (run: StoryRun, open: number, evidence: Evidence) => {
+  const last = run.trace.events.findLastIndex((e) => e.tab.open === open);
+  const at = run.trace.events.slice(0, last + 1).filter((e) => e.record._tag === "Runtime").length;
+  const sequence = (run.trace.events[last]?.sequence ?? 0) + 0.5;
+
+  return {
+    ...run,
+    evidence: run.evidence.toSpliced(at, 0, evidence),
+    trace: {
+      ...run.trace,
+      events: run.trace.events.toSpliced(last + 1, 0, {
+        sequence,
+        tab: { name: "main", open },
+        record: TraceRecord.Runtime({ evidence }),
+      }),
+    },
+  } satisfies StoryRun;
+};
+
 // A real run whose end cut is changed by `edit`.
 const endedWith = (run: StoryRun, edit: (end: Cut) => Cut) => ({
   ...run,
@@ -445,6 +465,35 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     expect(restored >= 0).toBe(true);
     expect(acknowledgedHeardAgain.breaches(repeatedAt(run, restored, 0))).toHaveLength(1);
     expect(acknowledgedHeardAgain.breaches(run)).toEqual([]);
+  });
+
+  it("WriteAhead I17: an acknowledged Attempt unheard is excused only by its own lane record left unread, never by a sibling lane's, nor by an open whose store failed to load", async () => {
+    const run = checked(await lostThenReload.run());
+    const restored = run.evidence.findIndex((e) => e._tag === "Ended" && e.reason === "Restored");
+    const unheard = repeatedAt(run, restored, 0);
+
+    const lane = run.end.records.batches
+      .filter((b) => b.status === "landed" && b.acknowledges.length > 0)
+      .flatMap((b) => b.keys.filter((k) => k.startsWith("lane/")))[0];
+
+    expect(lane).toBeDefined();
+
+    const unread = (key: string) =>
+      Evidence.Reported({ code: "RecordUndecodable", record: Option.some(key), reason: "schema" });
+
+    const sibling = `${(lane ?? "").slice(0, (lane ?? "").indexOf("|"))}|Bank/other|{}`;
+
+    const unloaded = Evidence.Reported({
+      code: "StorageFailure",
+      record: Option.none(),
+      reason: "load",
+    });
+
+    expect(acknowledgedHeardAgain.breaches(reportedIn(unheard, 2, unread(lane ?? "")))).toEqual([]);
+    expect(acknowledgedHeardAgain.breaches(reportedIn(unheard, 2, unread(sibling)))).toHaveLength(
+      1,
+    );
+    expect(acknowledgedHeardAgain.breaches(reportedIn(unheard, 2, unloaded))).toEqual([]);
   });
 
   it("Codec I7: a stored key of no record kind is a breach; the Runtime's own records are not", async () => {

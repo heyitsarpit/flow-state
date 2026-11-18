@@ -6,8 +6,9 @@ const RECORDS = "tests/restore/records.test.ts";
 
 /**
  * Wrong runtimes for reading saved records: a format, key, name, contract, key text, state,
- * schedule, Attempt, binding or input digest read without its check, a lane or row of an operation
- * the machine never writes, and a record of an undeclared machine kept or a lane of one discarded.
+ * schedule, Attempt, binding, input digest, memory input or slot read without its check, a lane or
+ * row of an operation the machine never writes, an ending owed twice or with no Attempt, and a
+ * record of an undeclared machine kept or a lane of one discarded.
  */
 export const recordFaults: ReadonlyArray<Fault> = [
   {
@@ -96,8 +97,8 @@ export const recordFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "(Option.contains(keyTextOf(operation, record.input), keyText) &&",
-        replace: "(true &&",
+        find: "            Option.contains(keyTextOf(operation, record.input), keyText) &&",
+        replace: "            true &&",
       },
     ],
   },
@@ -108,9 +109,9 @@ export const recordFaults: ReadonlyArray<Fault> = [
     rule: "Restore R5",
     edits: [
       {
-        file: "src/core/record.ts",
-        find: "Schema.makeFilter((name: string) => compiled.operations.has(name)),",
-        replace: "Schema.makeFilter((_: string) => true),",
+        file: "src/core/identity.ts",
+        find: "Schema.makeFilter((name: string) => compiled.operations.has(name))",
+        replace: "Schema.makeFilter((_: string) => true)",
       },
     ],
   },
@@ -121,7 +122,7 @@ export const recordFaults: ReadonlyArray<Fault> = [
     rule: "Restore R5",
     edits: [
       {
-        file: "src/core/record.ts",
+        file: "src/core/identity.ts",
         find: "Schema.makeFilter((tail: string) => Result.isSuccess(laneTailParts(compiled, tail))),",
         replace: "Schema.makeFilter((_: string) => true),",
       },
@@ -187,8 +188,8 @@ export const recordFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "          ) === record.digest),",
-        replace: "          ) !== undefined),",
+        find: "            ) === record.digest)),",
+        replace: "            ) !== undefined)),",
       },
     ],
   },
@@ -229,6 +230,72 @@ export const recordFaults: ReadonlyArray<Fault> = [
         file: "src/core/record.ts",
         find: "    format: Schema.Literal(FORMAT),\n    attempt: AttemptIdSchema,",
         replace: "    format: Schema.Number,\n    attempt: AttemptIdSchema,",
+      },
+    ],
+  },
+  {
+    name: "memory-input-unchecked",
+    tests: [RESTORE],
+    says: "an actor record whose memory's input fields name another actor restores under its key, as that other actor",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/identity.ts",
+        find: "  Result.getOrUndefined(nameOfValue(compiled, memory)) === name;",
+        replace: "  Result.isSuccess(nameOfValue(compiled, memory));",
+      },
+    ],
+  },
+  {
+    name: "owed-ending-repeated-read",
+    tests: [FORGED],
+    says: "an owed record holding one Attempt's success twice is read, so the success is heard twice",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "        return new Set(ended).size === ended.length;",
+        replace: "        return ended.length >= 0;",
+      },
+    ],
+  },
+  {
+    name: "owed-success-unattempted-read",
+    tests: [FORGED],
+    says: "an owed row with no Attempt is read whatever its channel, so a success nobody sent is heard",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '        exact({ operation, ...row, attempt: Schema.Null, channel: Schema.Literal("notSent") }),',
+        replace: "        exact({ operation, ...row, attempt: Schema.Null }),",
+      },
+    ],
+  },
+  {
+    name: "displaced-repeated-read",
+    tests: [FORGED],
+    says: "a lane record listing one displaced Attempt twice is read, so its unknown is heard twice",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "        new Set(record.displaced).size === record.displaced.length &&",
+        replace: "        record.displaced.length >= 0 &&",
+      },
+    ],
+  },
+  {
+    name: "seen-slot-dropped",
+    tests: [FORGED],
+    says: "an actor record remembering a slot its machine never declared is read with the slot dropped",
+    rule: "Codec R5",
+    edits: [
+      {
+        file: "src/core/actor-record.ts",
+        find: "          Object.entries(r.seen).map(([slot, json]) =>",
+        replace:
+          "          Object.entries(r.seen).filter(([slot]) => compiled.context.has(slot)).map(([slot, json]) =>",
       },
     ],
   },

@@ -28,8 +28,8 @@ const accountedBy = (e: Evidence) => {
  * its saved ending, or unknown Restored. Only
  * identities started again in a later open are judged, since a disposed identity's endings wait
  * for an adopting ensure; an open whose store failed to load read nothing, so it is no later open
- * (Restore R9); and an Attempt whose lane record a later boot could not read is reported there
- * instead, its key held until a cancel (Restore R5).
+ * (Restore R9); and an Attempt whose own lane record, which its acknowledging batch wrote, a
+ * later boot could not read is reported there instead, its key held until a cancel (Restore R5).
  */
 export const acknowledgedHeardAgain: Rule = {
   rule: "WriteAhead I17",
@@ -48,11 +48,11 @@ export const acknowledgedHeardAgain: Rule = {
               (o) => o > open && !unloaded.has(o),
             );
 
-            // A lane key names its contract, not its operation, so any lane record of the identity
-            // a later boot could not read may be this Attempt's.
-            const quarantined = [...unread].some(
-              ([key, opens]) =>
-                key.startsWith(`lane/${actor}|`) && [...opens].some((o) => o > open),
+            // The lane record the acknowledging batch wrote is this Attempt's; only that record
+            // left unread by a later boot excuses it, never another lane of the identity.
+            const quarantined = b.keys.some(
+              (key) =>
+                key.startsWith("lane/") && [...(unread.get(key) ?? [])].some((o) => o > open),
             );
 
             return heard.length > 0 || later.length === 0 || quarantined

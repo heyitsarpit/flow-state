@@ -43,6 +43,24 @@ export const exact = <F extends Schema.Struct.Fields>(fields: F) => {
 };
 
 /**
+ * A Record each of whose keys reads by `key`: a key it does not read fails it, where a Record's own
+ * key Schema would only leave that key unselected.
+ */
+export const keyedBy = <K extends Schema.Record.Key, V extends Schema.Top>(key: K, value: V) => {
+  const reads = Schema.is(key);
+
+  const strict: Schema.Top = Schema.StructWithRest(Schema.Struct({}), [
+    Schema.Record(key, value),
+    Schema.Record(Schema.String.check(Schema.makeFilter((k: string) => !reads(k))), Schema.Never),
+  ]);
+
+  // SAFETY: the second rest only refuses keys the first does not read, so what it decodes is the
+  // first Record's own Type.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the rest narrows the input, never the output
+  return strict as Schema.$Record<K, V>;
+};
+
+/**
  * A count: a safe integer, never negative.
  */
 export const Count = Schema.Number.check(

@@ -1,5 +1,6 @@
 import { type Brand, Data, Equal, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
+import { escapeSegment } from "./key-text.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
 import type { IssueCode, ScheduleDeadline } from "./vocabulary.ts";
@@ -22,7 +23,7 @@ export const actorKey = (actor: ActorId) => {
 
   if (known !== undefined) return known;
 
-  const key = `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
+  const key = `${actor.machine}/${escapeSegment(actor.name)}`;
   keys.set(actor, key);
 
   return key;

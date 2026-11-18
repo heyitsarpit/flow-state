@@ -38,7 +38,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     rule: "Codec I7",
     edits: [
       {
-        file: "src/core/record.ts",
+        file: "src/core/identity.ts",
         find: "export const owedRecordKey = (key: string) => `owed/${key}`;",
         replace: "export const owedRecordKey = (key: string) => `kept/${key}`;",
       },

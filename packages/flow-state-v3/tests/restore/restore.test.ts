@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
-import { mainCart } from "../../fixtures/shop/app.ts";
+import { guestCart, mainCart } from "../../fixtures/shop/app.ts";
 import { add, storeStory } from "../../fixtures/shop/stories/usual.ts";
 import {
   borrowedRecords,
@@ -297,6 +297,7 @@ describe("records whose key or content names no record of the cart (Restore R5; 
         ...borrowedRecords.lanes,
         ...borrowedRecords.other,
         borrowedRecords.gone,
+        borrowedRecords.actors[1],
       ]
         .map(({ key }) => `RecordUndecodable ${key}`)
         .toSorted(),
@@ -316,7 +317,17 @@ describe("records whose key or content names no record of the cart (Restore R5; 
       ...borrowedRecords.actors,
       ...borrowedRecords.other,
     ])
-      expect(restored.records.stored.get(key)).toBe(text);
+      expect(booted.records.stored.get(key)).toBe(text);
+  });
+
+  it("Restore R5: the main cart's record under the guest's key is quarantined and reported at the guest cart's ensure, since its input fields name another cart; the guest cart starts fresh as the guest's", async () => {
+    const run = checked(await borrowedRecordsReload.run());
+    const { restored } = run.checkpoints;
+    const guest = borrowedRecords.actors[1];
+
+    expect(reports(run, 2)).toContain(`RecordUndecodable ${guest.key}`);
+    expect(restored.read(guestCart)?.memory["owner"]).toBe("guest");
+    expect(restored.read(guestCart)?.memory["lines"]).toEqual({});
   });
 });
 

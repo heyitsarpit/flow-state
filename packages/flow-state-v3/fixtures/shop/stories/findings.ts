@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
-import { mainCart, mainFlow, mainShopper } from "../app.ts";
+import { guestCart, mainCart, mainFlow, mainShopper } from "../app.ts";
 import { Carts } from "../server/carts.ts";
 import { add, setQuantity, storeStory } from "./usual.ts";
 
@@ -253,7 +253,8 @@ export const borrowedRecords = {
 
 /**
  * The main cart adds a line; then the store holds records whose key and content disagree, and the
- * tab reloads: the main cart restores its own line and hears no ending it never made.
+ * tab reloads: the main cart restores its own line and hears no ending it never made, and the
+ * guest cart starts fresh as the guest's, never from the main cart's record under its key.
  */
 export const borrowedRecordsReload = storeStory("shop/borrowed-records")
   .ensure(mainCart)
@@ -270,12 +271,13 @@ export const borrowedRecordsReload = storeStory("shop/borrowed-records")
   .reload({ reattach: false })
   .checkpoint("booted")
   .ensure(mainCart)
+  .ensure(guestCart)
   .checkpoint("restored");
 
-// An owed record of the main cart holding one unknown ending with no Attempt, which wakes the cart
-// at the boot with the context its record was saved with.
+// An owed record of the main cart holding one declined add, which has no Attempt and wakes the
+// cart at the boot with the context its record was saved with.
 const mainOwedNoAttempt =
-  '{"format":4,"rows":[{"attempt":null,"channel":"unknown","kept":false,"operation":"add","reason":"Restored","value":null}]}';
+  '{"format":4,"rows":[{"attempt":null,"channel":"notSent","kept":false,"operation":"add","reason":"Rejected","value":{"why":"Rejected"}}]}';
 
 // The main cart's record holding one line `l9`, with its shopper slot bound to `provider` (JSON)
 // and its graph as `graph` (JSON).
@@ -346,10 +348,7 @@ export const boundGraphToLocal = boundReload("shop/bound-graph-to-local", forged
  */
 export const owedOtherLaneText = {
   key: 'owed/Shop/Cart/{"owner":"main"}',
-  text: owedOf({ lane: "Shop/add-line|GARBAGE" }).replace(
-    '"attempt":"att-000000000000000000006d61696e3a39-9"',
-    '"attempt":null',
-  ),
+  text: owedOf({ lane: "Shop/add-line|GARBAGE" }),
 } as const;
 
 /**
@@ -364,3 +363,81 @@ export const owedOtherLane = storeStory("shop/owed-other-lane")
   .checkpoint("booted")
   .ensure(mainCart)
   .checkpoint("restored");
+
+// A success of the main cart's add, as an owed row saves it: of Attempt `attempt` on its add lane,
+// or with no Attempt and no lane.
+const addedRow = (attempt: "nine" | "none") =>
+  attempt === "nine"
+    ? '{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"success","kept":false,"lane":"Shop/add-line|{\\"cartId\\":\\"main\\"}","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}'
+    : '{"attempt":null,"channel":"success","kept":false,"operation":"add","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}';
+
+/**
+ * Records a release never writes, each well-formed field by field, as a damaged disk or a bad copy
+ * could leave them: an owed record holding one Attempt's success twice, one holding a success with
+ * no Attempt (only a decline has none), and a lane record owing one displaced Attempt twice.
+ */
+export const forgedEndings = {
+  repeatedRow: {
+    key: 'owed/Shop/Cart/{"owner":"main"}',
+    text: `{"format":4,"rows":[${addedRow("nine")},${addedRow("nine")}]}`,
+  },
+  madeUpSuccess: {
+    key: 'owed/Shop/Cart/{"owner":"main"}',
+    text: `{"format":4,"rows":[${addedRow("none")}]}`,
+  },
+  repeatedDisplaced: {
+    key: `${mainLane}|Shop/add-line|{"cartId":"main"}`,
+    text: '{"displaced":["att-000000000000000000006d61696e3a39-9","att-000000000000000000006d61696e3a39-9"],"format":4}',
+  },
+} as const;
+
+// The main cart adds a line; then the store holds `forged`, and the tab reloads and ensures the
+// cart.
+const forgedReload = (id: string, forged: { readonly key: string; readonly text: string }) =>
+  storeStory(id)
+    .ensure(mainCart)
+    .send(mainCart, add("l1", "v1"))
+    .world(Fake.storage.put(forged.key, forged.text))
+    .reload({ reattach: false })
+    .checkpoint("booted")
+    .ensure(mainCart)
+    .checkpoint("restored");
+
+/**
+ * An owed record holding one Attempt's success twice: set aside and reported, and the cart never
+ * hears it twice.
+ */
+export const owedRowRepeated = forgedReload("shop/owed-row-repeated", forgedEndings.repeatedRow);
+
+/**
+ * An owed record holding a success with no Attempt: set aside and reported, and the cart hears no
+ * success nobody sent.
+ */
+export const owedMadeUpSuccess = forgedReload(
+  "shop/owed-made-up-success",
+  forgedEndings.madeUpSuccess,
+);
+
+/**
+ * A lane record owing one displaced Attempt twice: set aside and reported, and the cart never hears
+ * that Attempt's unknown twice.
+ */
+export const displacedRepeated = forgedReload(
+  "shop/displaced-repeated",
+  forgedEndings.repeatedDisplaced,
+);
+
+/**
+ * The main cart's record remembering a selection of a slot its machine never declared, as a
+ * damaged disk could leave it: set aside and reported, and the cart starts fresh.
+ */
+export const seenUndeclaredText = {
+  key: 'actor/Shop/Cart/{"owner":"main"}',
+  text: mainCartText("l9").replace('"seen":{"shopper":""}', '"seen":{"gone":"","shopper":""}'),
+} as const;
+
+/**
+ * The main cart adds a line; then its record remembers a slot it never declared, and the tab
+ * reloads and ensures the cart.
+ */
+export const seenUndeclared = forgedReload("shop/seen-undeclared", seenUndeclaredText);
