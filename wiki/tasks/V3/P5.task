@@ -265,6 +265,9 @@ tasks
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Server rendering where it is built: dehydrate with N actors and settled
             reads, payload bytes, merge-on-hydrate time.
+        comment     2026-11-18T03:09:18Z
+            Routed from @task.V3.T83 (2026-11-18): the identity grace test (Actors R6) needs a Story step that advances
+            a local actor's grace on TestClock; it stays skipped until then.
     T31
         title       CLI outputs designed for people
         status      draft

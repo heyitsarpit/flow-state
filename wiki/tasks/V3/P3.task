@@ -2915,6 +2915,12 @@ tasks
             greens once the rule-title pattern is gone (the 66 static checks; it.fails counted apart). Not done: the
             grace test needs a Story step for a local actor, a test-tooling addition; the guard-size item.
             types/vite-plus-test.d.ts gained skipIf (outside May change).
+        comment     2026-11-18T03:09:18Z
+            Rulings (orchestrator, 2026-11-18): (1) the five re-printed saved stress Stories stand; the review checks
+            storage words are still drawn elsewhere. (3) skipIf in types/vite-plus-test.d.ts is approved, extra file.
+            (4) the grace test stays skipped with its comment, routed to @task.V3.T29 (a Story step for local actors).
+            Still owed before review: the guard-size acceptance item and an explanation of each of the 54 dead-core
+            greens. Records change only through wk.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
