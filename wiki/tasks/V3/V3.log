@@ -1347,3 +1347,7 @@ note 2026-11-18T18:51:12Z
     Amendment (the user, 2026-11-19): the raw-throw class is parked until a general solution; T81 tombstoned into P9's
     T98. Known instances land as it.fails; T94 closes on that; then P3 close-out, then P4 from T92. Why: it blocked core
     work.
+
+note 2026-11-18T18:56:59Z
+    T94 done (0a492802): review blocker waived into T98 by the user's parking decision; 9 instances are it.fails tests.
+    P3 has no open Task left; its close-out review (R11) and completion audit (R18) start now.
