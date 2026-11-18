@@ -1176,3 +1176,7 @@ note 2026-11-17T22:33:33Z
     Speed baseline at 970916c1 (alone, 12 cores): suite 54 s, stress 65 s, faults 256 s (unchanged run times out at 240
     s under 8 copies). Was 75, 112 and 220 s at 26ad0259; 12, 9 and 28 s at 313e8a45. The rest is CPU-bound sweep work:
     pair seeds and reload sweeps (@task.V3.T83).
+
+note 2026-11-18T00:35:55Z
+    Test efficacy audit started (the user, 2026-11-18): one Opus lead with Haiku sidecars, read-only, output a proposal
+    file; what each test layer buys, what to remove or simplify. T83's Q1 to Q3 wait on it.
