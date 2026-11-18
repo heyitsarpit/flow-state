@@ -3739,3 +3739,38 @@ tasks
             - The faults the reload sweep catches today are still caught.
             - The replay form stays in the tree, disabled with a comment on how to turn it back on.
             - The suite's wall time, alone, is recorded before and after; `nub run check` passes.
+
+    T91
+        title       Stress pair sweep at 200 seeds; duplicate planted faults merged
+        status      open
+        priority    medium
+        blocked_by  [@T20]
+        description
+            The stress tier's pair sweep runs 200 seeds instead of 1,000, and planted faults that give the same signal
+            are merged.
+
+            **Why now:** the user accepted both on 2026-11-18, after @task.V3.T83. Past the reachable phases, the stress
+            seeds only probe for forbidden phases, and the sampled kill matrix found no catch there. Faults that break
+            the same rule and are caught by the same tests cost a run each and add no signal. The faults runner has only
+            counted catches honestly since 849bbbe2, so merges are judged on its new output.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/test-efficacy-2026-11-18.md (sections b and e),
+            @task.V3.T83 (its last comments), `packages/flow-state-v3/tests/generated/pairs.ts`, `tools/faults/run.ts`,
+            the `tests/*-faults.ts` files.
+
+            **Risk:** a fault that looks like a duplicate may differ in a rule or a path no test separates yet. Merge
+            only faults whose rule and catching tests are both identical, and keep each removed fault in the tree,
+            disabled, with a comment saying what it plants (the user's rule, 2026-11-18).
+
+            May change: `packages/flow-state-v3/tests/`, `tools/faults/`. Evidence: this Task's comments.
+
+            False pass: a merge that drops a distinct fault → caught by listing each merged pair's rule and catching
+            tests before and after.
+        acceptance
+            - The stress pair sweep's seed count is 200, from one source; the default suite's stop at the reachable
+              phases and its cap are unchanged.
+            - Every fault is listed with its rule and catching tests, from one honest `nub run faults` run alone; each
+              merged group has an identical rule and identical catching tests, and the list is in a Task comment.
+            - Removed faults stay in the tree, disabled, with a comment on what each plants and how to turn it back on.
+            - `nub run faults` time and the stress time, alone, before and after; the caught list is otherwise
+              unchanged; `nub run check` passes.

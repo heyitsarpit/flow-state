@@ -260,8 +260,9 @@ instructions
       message; the package's suite (without the stress runs) may run whenever useful, and `nub run check` and that suite
       run before each checkpoint commit; a builder that needs a ruling states it and keeps doing independent work.
     - Big test commands run at the end of a Task (the user, 2026-11-16): the stress runs (stress Stories, their reload
-      sweeps, generated stress seeds) sit behind a flag outside the default suite; they and `nub run faults` run once at
-      a Task's close, in its review, and at a phase's close, never mid-Task. Both are kept fast enough not to matter.
+      sweeps, generated stress seeds) sit behind a flag outside the default suite; they run once at a Task's close, in
+      its review, and at a phase's close, never mid-Task. `nub run faults` runs on demand (the user, 2026-11-18): when a
+      Task changes the test tooling, the run rules or the planted faults, in that Task's review, and at a phase's close.
     - A checkpoint is a builder commit at the end of a coherent step. At a Task's close the builder runs the stress runs
       and the generated Stories over fresh seeds; every new failure lands as a fix or an inverted test before review.
 
@@ -284,8 +285,7 @@ instructions
     - Convergence threshold 2 (the user, 2026-11-12; R35's default). Tests before convergence (the user, 2026-11-16):
       first every known behaviour of the part gets its fixtures, Stories and tests (missing fixtures built), the
       repeated class shown red; only then gather, redesign and build, so the redesign can't drop a behaviour.
-    - `nub run faults` runs at the end of every Task (the user, 2026-11-16); a fault the tests miss lands as a run rule
-      or a Story test.
+    - When `nub run faults` runs (on demand, above), a fault the tests miss lands as a run rule or a Story test.
     - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
       quality is otherwise left to lint (the user, 2026-11-14).
     - A ruling is asked as two traces of the same Story, not as prose.
