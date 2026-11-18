@@ -440,7 +440,8 @@ invariants
     I7  retryCount equals the number of invoked re-sends of that Attempt. [@R5]
 
     I8  A lane exists iff it has a head, and a Kept row makes none exist; its W length is 0 under reject, at most 1 
-        under latest, any length under serialize. [@R6, @R7]
+        under latest, any length under serialize. A lane record with no head holds only displaced Attempts owed an
+        ending (@spec.WriteAhead.R5) and restores no lane. [@R6, @R7]
 
     I9  Every retry and cancel on a lane acts on one Attempt: the one the lane's last send carried, or, before any 
         send, the head waiting to be invoked. [@R6]

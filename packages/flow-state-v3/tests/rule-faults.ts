@@ -183,8 +183,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["tests/restore/restore.test.ts", "tests/transfers/durability.test.ts"],
     "the first record that fails to decode ends the boot's read, so later records never restore",
     "src/core/record.ts",
-    "if (Result.isFailure(done)) quarantined.push({ key, reason: done.failure });",
-    "if (Result.isFailure(done)) return { records, lanes, rows, quarantined: [...quarantined, { key, reason: done.failure }] };",
+    "if (Result.isFailure(done)) quarantined.push({ key, kind, reason: done.failure });",
+    "if (Result.isFailure(done)) return { records, lanes: restoredLanes, rows, quarantined: [...quarantined, { key, kind, reason: done.failure }], discarded };",
   ),
   fault(
     "restored-lane-dropped",
@@ -192,8 +192,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["tests/restore/restore.test.ts"],
     "every restored Held lane is dropped at the boot",
     "src/core/record.ts",
-    "return { id, actor, inFlight: r.inFlight, lane, endings };",
-    "return { id, actor, inFlight: r.inFlight, lane: Option.filter(lane, () => false), endings };",
+    "(l) => void restoredLanes.push(l)",
+    "(l) => void restoredLanes.push({ ...l, lane: Option.none() })",
   ),
   fault(
     "refused-write-landed",

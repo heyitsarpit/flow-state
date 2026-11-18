@@ -51,7 +51,8 @@ requirements
                 schedules), .each copies by key with their counters, a writing placement's reset
                 value, each placement's last mapped value, and stream bookmarks with their slice.
                 It holds no ending: an ending not yet heard, a stopped read's Interrupted included,
-                is a row of the identity's owed record (R5). It holds no props and no emit.
+                is a row of the identity's owed record (R5). It holds no props and no emit, and no
+                `machine` or `name`: its key names the identity (@spec.Codec.R5).
 
                 Persisted Schemas encode and decode synchronously without services; unsupported
                 values fail encoding instead of being coerced, omitted or stringified.
@@ -70,15 +71,18 @@ requirements
                 acknowledged and not Held (Acknowledging to Cancelling: it may be on the wire), and
                 false for a Held head. A lane record holds no ending and no `mayHaveApplied`.
 
-                Built so far (`encodeLane`, src/core/record.ts): `format`, `machine`, `name`,
-                `operation`, `attempt`, `input`, `retryCount`, `inFlight`, `queue` and `displaced`.
-                Not built yet, though R5 requires them: the creating subject path and the releasing
-                mark. A lane gone Idle while a displaced Attempt's ending is still owed keeps its
-                record, with no head (`attempt` and `input` null), until that ending comes.
+                Built so far (`encodeLane`, src/core/record.ts): `format`, `attempt`, `input`,
+                `digest` (of the input's canonical text, so an input changed on disk is told),
+                `retryCount`, `inFlight`, `queue` and `displaced`; the identity, contract and key
+                text are its key. Not built yet, though R5 requires them: the creating subject path
+                and the releasing mark. A lane gone Idle while a displaced Attempt's ending is still
+                owed keeps its record, with no head, until that ending comes: `format` and
+                `displaced` alone, at least one; it restores no lane (@spec.WriteLanes.I8).
 
                 An identity's unheard endings are one record of their own, `owed/<identity>`:
-                `format`, `machine`, `name` and its rows in the order they were owed, each with its
-                `operation`, `attempt`, `lane`, `channel`, `reason`, `value` (stored raw and mapped
+                `format` and its rows in the order they were owed, at least one, each with its
+                `lane` (the lane's place after the identity, whose contract gives the operation) or,
+                with no lane, its `operation`, and its `attempt`, `channel`, `reason`, `value` (stored raw and mapped
                 through the current definition at delivery) and `kept`. `channel` is `success`,
                 `failure`, `notSent` or `unknown`, and names the ending's origin, so an author's
                 failure and Flow's NotSent stay distinct after a reload (@spec.WriteLanes.R3,

@@ -55,8 +55,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tx.ts",
-        find: "    world.persistence &&\n    !actor.name.startsWith(LOCAL_PREFIX);",
-        replace: "    world.persistence;",
+        find: "world.persistence && !isLocalName(actor.name);",
+        replace: "world.persistence;",
       },
     ],
   },

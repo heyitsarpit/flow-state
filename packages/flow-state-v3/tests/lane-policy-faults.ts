@@ -159,7 +159,7 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/lanes.ts",
-        find: "      !tx.world().persistence &&\n      !incarnation.actor.name.startsWith(LOCAL_PREFIX)\n",
+        find: "      !tx.world().persistence &&\n      !isLocalName(incarnation.actor.name)\n",
         replace: "      !tx.world().persistence\n",
       },
     ],

@@ -394,3 +394,20 @@ note 2026-11-18T10:47:11Z
 note 2026-11-18T18:54:56Z
     @spec.Actors.R25: an admit-hook throw now also goes back to its caller as a FlowError Defect; dispose still fails
     with it. Why: Story turn limits rely on the rethrow (@task.V3.T94). Reverse: drop the rethrow in the driver's run.
+
+note 2026-11-18T22:30:38Z
+    @spec.Restore R1, R5, R7, R8: format 4; identity in the key alone; identifiers decoded by Schemas built from the
+    app; a head's input checked by digest; lanes keyed by contract; undeclared actor records discarded; Q4 holds
+    forgeries for the user. Why: @task.V3.T92. Reverse: from commit 60627ca2^.
+
+note 2026-11-18T22:30:38Z
+    @spec.Codec.R5: each fact stored once (no identity, contract or key text in content; headless lane holds displaced
+    alone); Schemas built from the app refuse added fields. Why: @task.V3.T92. Reverse: from 60627ca2^.
+
+note 2026-11-18T22:30:38Z
+    @spec.WriteAhead R4, R5: no machine or name in records; lane adds digest, headless holds format and displaced alone;
+    owed rows name a lane or an operation. Why: @task.V3.T92. Reverse: from 60627ca2^.
+
+note 2026-11-18T22:30:38Z
+    @spec.WriteLanes.I8: a headless lane record restores no lane, so I8 and WriteAhead R5 agree; that reading ends every
+    displaced Attempt (lane-record.test.ts). Why: @task.V3.T92. Reverse: drop it.
