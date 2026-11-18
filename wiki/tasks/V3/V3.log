@@ -1180,3 +1180,6 @@ note 2026-11-17T22:33:33Z
 note 2026-11-18T00:35:55Z
     Test efficacy audit started (the user, 2026-11-18): one Opus lead with Haiku sidecars, read-only, output a proposal
     file; what each test layer buys, what to remove or simplify. T83's Q1 to Q3 wait on it.
+
+note 2026-11-18T00:39:21Z
+    06:09 wake: tooling bench skipped; the efficacy audit is running the faults kill matrix, and benches run alone.
