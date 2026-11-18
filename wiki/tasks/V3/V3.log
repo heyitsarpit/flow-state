@@ -1334,3 +1334,7 @@ note 2026-11-18T17:54:38Z
 note 2026-11-18T17:55:39Z
     Session ended (the user, 2026-11-18): no agents, cron or caffeinate; tree clean. Next: T94, then T81 (P3), then P4
     from T92. Weekly usage 96 %, resets 2026-11-20 22:00 UTC. Resume: run the loop in wiki/tasks/V3/epic.task.
+
+note 2026-11-18T17:58:33Z
+    Run resumed at ff72cba4 (workflow@2befdbd): weekly usage 0 % after reset; no live agents; cron :07 and caffeinate
+    on. Current Task T94; first action: one Opus lead builds it, requirements first.
