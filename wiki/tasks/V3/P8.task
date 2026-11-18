@@ -83,3 +83,7 @@ tasks
             Routed from T66's review (PASS at `3e1fb97b`): the bench should say "per turn" is run time over turns,
             including inspector and trace work; name the limiter (check-benchmark question 1); run scopes are never
             closed, which may skew p99 over 1,100 runs.
+        comment     2026-11-18T19:39:03Z
+            Owes (proposed, P3 close fix round): 17 bench leftovers, review items A29, A32, A33, A78, A83 to A89 and A93
+            to A98 (serialize's quadratic queue copy, per-actor retained bytes, bench tool robustness).
+            See code:wiki/tasks/V3/P3-routing.md.

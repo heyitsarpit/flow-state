@@ -20,8 +20,6 @@ type Value = unknown;
 
 type Parsed = Exit.Exit<Value, SchemaIssue.Issue>;
 
-type Parse = (input: Value) => Parsed;
-
 type Parser = (input: Value, options: SchemaAST.ParseOptions) => Parsed;
 
 /**
@@ -158,9 +156,6 @@ const withContextOf = (built: Ast, ast: Ast) => {
   return Predicate.isFunction(replace) ? replace(built, context) : built;
 };
 
-// RETURN_TYPE: a defect is a failed parse.
-const died = (error: Value): Parsed => Exit.die(error);
-
 // A link's transformation as `decodeTo` takes it: Effect appends a middleware link the same way.
 const transformationOf = (transformation: SchemaAST.Link["transformation"]) =>
   // SAFETY: `decodeTo` appends `new Link(from, transformation)`, which takes a middleware too.
@@ -178,10 +173,6 @@ const inputKey = (input: Value) =>
     : input;
 
 const NONE = { none: true };
-
-// A parse that a Schema's own code (a check, a transformation) throws out of fails instead.
-const guarded = (parse: Parse) => (input: Value) =>
-  Result.getOrElse(Result.try({ try: () => parse(input), catch: died }), (failure) => failure);
 
 /**
  * Compiles a parser over an AST that keeps its own stack: each `Schema.suspend` becomes a hole
@@ -413,9 +404,9 @@ const compile = (root: Ast) => {
     return resultOf(walk, holed, input) ?? Exit.die("cycle");
   };
 
-  if (holed === root) return guarded((input) => parserOf(root)(input, NO_OPTIONS));
+  if (holed === root) return (input: Value) => parserOf(root)(input, NO_OPTIONS);
 
-  return guarded((input) => {
+  return (input: Value) => {
     const direct = new Walk(BUDGET);
     const result = within(direct, () => parserOf(holed)(input, NO_OPTIONS));
 
@@ -424,7 +415,7 @@ const compile = (root: Ast) => {
     const walk = new Walk(0);
 
     return within(walk, () => stacked(walk, input));
-  });
+  };
 };
 
 /**

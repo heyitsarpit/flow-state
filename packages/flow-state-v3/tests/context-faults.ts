@@ -424,13 +424,14 @@ export const contextFaults: ReadonlyArray<Fault> = [
   {
     name: "throwing-slot-decode-escapes-boot",
     tests: ["src/core/actor-record.test.ts"],
-    says: "a slot Schema whose decode throws at the boot escapes quarantine",
+    says: "a slot Schema whose decode throws at the boot escapes quarantine: the walker throws the parser's defect again",
     rule: "Restore R5",
     edits: [
       {
         file: "src/core/boundary.ts",
-        find: "  Result.getOrElse(Result.try({ try: () => parse(input), catch: died }), (failure) => failure);",
-        replace: "  parse(input);",
+        find: '    : Result.fail<"schema">("schema");',
+        replace:
+          '    : Result.fail<"schema">(Exit.hasDies(parsed) ? Effect.runSync(parsed) : "schema");',
       },
     ],
   },

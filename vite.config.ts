@@ -259,9 +259,9 @@ export default defineConfig({
         },
       },
       {
-        // A public call refuses only by throwing a FlowError, and only these two modules throw one:
-        // error.ts's raise and the entry wrappers. Every other throw in src is a listed defect site.
-        files: [`${productionSource}/error.ts`, `${productionSource}/entry.ts`],
+        // A public call refuses only by throwing a FlowError, and only error.ts throws one, from its
+        // raise; the entry wrappers call it. Every other throw in src is a listed defect site.
+        files: [`${productionSource}/error.ts`],
         rules: { "lint-bomb/no-throw-in-core": "off" },
       },
       {

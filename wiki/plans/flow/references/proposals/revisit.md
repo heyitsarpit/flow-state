@@ -174,3 +174,9 @@ Deferred items.
 - **The capture edge's state as one union** (2026-11-19, P3's close-out, low).
   code:packages/flow-state-v3/src/host/edge.ts keeps `marked`, `tickets`, `again` and `out` as loose fields beside its `Wake` union, so "a batch out" and "marks
   waiting" are combined by hand in `pump` and `onHidden`. Reopen when the edge is next changed (T28's adapters, T58).
+- **The faults runner's leftovers** (2026-11-19, P3's close fix round; review items A17, A107 to A110 in
+  code:wiki/tasks/V3/P3-routing.md). In code:tools/faults/run.ts and code:tools/faults/group.ts: a spawn error (vp
+  or cwd missing) leaves `runGrouped` pending forever under bun; `String(chunk)` can split a UTF-8 character
+  (use `setEncoding`); `unchangedWhole` counts a run with no summary as finished; group.test's timeout case never
+  asserts the sleepers' pids; the unchanged run's red names can be dropped from what it prints. Reopen when the
+  runner is next changed.

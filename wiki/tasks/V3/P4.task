@@ -71,6 +71,7 @@ tasks
         status      draft
         priority    high
         blocked_by  [@task.V3.T9]
+        satisfies   [@plan.Inspection.O2, @plan.Persistence.O4]
         description
             Run the fixtures, including Pay and checkout, in real Chrome and Safari on production, through a minimal
             React binding and IndexedDB persistence.
@@ -121,12 +122,23 @@ tasks
         comment     2026-11-17T15:28:53Z
             Owed from T85 (b6090c05): time the hide handler in real Chromium and Safari (Node: about 6 us per changed
             actor, 6.2 ms for 1,000) before any idle pre-encoding.
+        comment     2026-11-18T19:39:04Z
+            Owes (proposed, P3 close fix round): equal codec bytes on every host (@plan.Inspection.O2), hidden-tab
+            resume after restore (@plan.Persistence.O4), and review item A28, a dev host workClock so SlowWork fires
+            outside tests. See code:wiki/tasks/V3/P3-routing.md.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
         status      draft
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
-        satisfies   [@plan.Machines.O1, @plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O6, @plan.Machines.O8]
+        satisfies   [
+                    @plan.Machines.O1,
+                    @plan.Machines.O3,
+                    @plan.Machines.O5,
+                    @plan.Machines.O6,
+                    @plan.Machines.O8,
+                    @plan.Runtime.O6
+                    ]
         description
             Build fragments on production: traits, `.each` copies, nested fragments, `.resumable()`, subject paths, and
             the remaining schedule forms.
@@ -197,6 +209,9 @@ tasks
             Routed from @task.V3.T81 (2026-11-18): Turn R14 says a negative computed delay counts as zero, but
             core/turn.ts refuses the turn; an inverted test in tests/player/sleep-timer.test.ts names the rule.
             Schedules are this Task's, so it owns the fix.
+        comment     2026-11-18T19:39:04Z
+            Owes (proposed, P3 close fix round): placements released within the disposal bound with ReleaseOverdue
+            (@plan.Runtime.O6); link added. See code:wiki/tasks/V3/P3-routing.md.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -251,12 +266,22 @@ tasks
         comment     2026-11-16T14:34:18Z
             Routed from T20: Restore R4 and T14 (restored resource data reads stale, key-only entries stay passive) wait
             for resource({ persist: true }), which is this slice's.
+        comment     2026-11-18T19:39:02Z
+            Owes (proposed, P3 close fix round): restored resource requests and data (@plan.Persistence.O4, link waits
+            on a wk fix); review item A5, WriteLanes R4 not-retained unknown, row shapes, outstanding; faults for the
+            coverage gaps Reads R6 and WriteLanes R4, R12, R14. See code:wiki/tasks/V3/P3-routing.md.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
         priority    high
         blocked_by  [@task.V3.T20, @T57, @T92]
-        satisfies   [@plan.Persistence.O5, @plan.Runtime.O3]
+        satisfies   [
+                    @plan.Persistence.O5,
+                    @plan.Runtime.O3,
+                    @plan.Persistence.O4,
+                    @plan.Persistence.O6,
+                    @plan.Runtime.O6
+                    ]
         description
             Build release versions on production: key fingerprints, identity versions, saved-shape resets with record
             migration, and `previous` holds.
@@ -306,6 +331,11 @@ tasks
             were never written down: a saved state the machine lacks is restored and runs (Restore R7); actor-record
             frames are positional with no length check. Missed: no sample saves a state or frame shape the current
             version lacks.
+        comment     2026-11-18T19:39:04Z
+            Owes (proposed, P3 close fix round): @plan.Persistence.O4 restore tests (subscription path, new ids, no
+            input, no replay, endings before new events, late results) and the unbuilt pending reset; parked endings for
+            O6 and Runtime O6; faults for the Restore and WriteAhead gaps in code:wiki/tasks/V3/P3-coverage.md.
+            See code:wiki/tasks/V3/P3-routing.md.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -480,6 +510,10 @@ tasks
             - Fixtures first (code:wiki/conventions/fixtures.md): step 8 of code:wiki/conventions/fixture-catalog.md:
               `kanban`, `chat`, `draft` gain the features, scenarios and sources of their rows; each scenario red before
               the build, and the step's cells marked used at the close.
+        comment     2026-11-18T19:39:05Z
+            Owes (proposed, P3 close fix round): review items A64 and A65 from T86, rename the ShopApi, CartApi and
+            GitApi keys and place commands.ts, contracts.ts and the cells' Pay base by the fixture layout.
+            See code:wiki/tasks/V3/P3-routing.md.
 
     T76
         title        Declared props on local actors
@@ -617,6 +651,7 @@ tasks
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
         status      draft
         priority    high
+        satisfies   [@plan.Runtime.O1]
         description
             Saved records decode through Schemas built from the compiled app, with branded identifiers and each fact
             stored once, so the boot never acts on a record nobody checked.
@@ -669,21 +704,26 @@ tasks
               lane's `queue` and `inFlight` are not read.
             - Restore and Codec Specs updated with `specs.log` notes; `nub run check`, the suite and stress pass; `nub
               run faults --only` catches this Task's planted faults.
-        comment     2026-11-18T19:05:43Z
-            Routed (daily faults, 2026-11-19): throwing-slot-decode-escapes-boot [Restore R5] is missed by the whole
-            suite since T94's catch-alls; land a check that a throwing slot decode at boot ends in quarantine, red on
-            the plant, before T92's fix work.
         comment     2026-11-18T19:14:15Z
             Routed from P3's close-out (medium): identity and key text are parsed by hand at six sites (record.ts KINDS
             and lane-id prefix, incarnations.ts:409, world.ts:471, LOCAL_PREFIX in identity.ts, tx.ts, lanes.ts,
             refs.ts); the one Identity Schema replaces them. Also T20's unrouted review item: a read operation's lane
             record with a head restores Held and never ends or is reported (laneRecord checks declared, not write).
             Missed: no sample forges a read-operation lane.
+        comment     2026-11-18T19:19:24Z
+            The Restore R5 throwing-slot fault routed here was landed in P3's close fix round: the plant was equivalent
+            (Effect's parser returns a throwing Schema as a defect exit), so the dead guard was removed and the fault
+            retargeted to the walker rethrowing it; caught by targets.
+        comment     2026-11-18T19:39:05Z
+            Owes (proposed, P3 close fix round): the durable identity of app, machine and actor (@plan.Runtime.O1);
+            review item A48, an owed row's ending kind as one tagged value; faults for the Codec gaps in
+            code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
 
     T95
         title       Callback results checked before they enter a turn
         status      draft
         priority    high
+        satisfies   [@plan.Runtime.O5]
         description
             Every user callback's result is checked before it enters a turn: an `updateMemory` patch by its keys and
             each field's Schema, an ending mapper's payload by its event's check.
@@ -718,6 +758,10 @@ tasks
             - The palette's per-turn median grows by at most 10 % with checks on, or production checks keys only,
               recorded with the bench numbers.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+        comment     2026-11-18T19:39:05Z
+            Owes (proposed, P3 close fix round): @plan.Runtime.O5 tests: an unencodable selection is UnencodableValue, a
+            context change never resets memory, capture never sees half a wave; faults for the Turn gaps in
+            code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
 
     T96
         title       Actor-to-actor send(ref, event) action with the loop guard
@@ -771,6 +815,10 @@ tasks
         comment     2026-11-18T19:14:16Z
             Routed from P3's close-out (low): RuntimeDefaults.loopGuard (defaults.ts:39) is read nowhere; follow-ups
             only yield at drainYield. Wire it with the send action and plant its fault.
+        comment     2026-11-18T19:39:05Z
+            Owes (proposed, P3 close fix round): review items A26, RuntimeDefaults made internal or frozen when
+            loopGuard gets its reader, and A30, follow-ups.test.ts's title and Actors I21's wording on bursts.
+            See code:wiki/tasks/V3/P3-routing.md.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
@@ -813,3 +861,87 @@ tasks
               code:wiki/conventions/fixture-catalog.md as a Story or sample, not as a hand test, and was red on its
               planted fault before the seam file is deleted.
             - The routed items in the Approach are each done or routed on with a reason in this Task's comments.
+        comment     2026-11-18T19:39:06Z
+            Owes (proposed, P3 close fix round): review item A118, T94's admit-throw acceptance as a Story test, not a
+            runtime.test.ts case. See code:wiki/tasks/V3/P3-routing.md.
+
+    T99
+        title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
+        status      draft
+        priority    high
+        satisfies   [@plan.Runtime.O6, @plan.Diagnostics.O3]
+        description
+            Build the rest of Runtime life that @plan.Runtime.O6 promises: `runtime.unsettledWrites()`, CleanupFailed,
+            HoldForgotten, `runPromise` and the disposal order, each with a Story test.
+
+            **Why now:** P3's completion audit found Runtime O6 partly undelivered with no later owner (proposed for the
+            user's read, P3 close fix round). @task.V3.T9 and @task.V3.T55 built disposal, the bound and forget; these
+            parts were left out of their slices.
+
+            **Read first:** @plan.Runtime.O6, @spec.Actors (R21 to R25, the Life table),
+            code:packages/flow-state-v3/src/host/runtime.ts, code:packages/flow-state-v3/src/core/disposal.ts.
+
+            **Risk:** `runPromise` with an AbortSignal is a public entry point; its name and shape are in the Plan but
+            the signature is the user's read. It must keep the whole Cause until projected (@plan.Diagnostics.O3).
+
+            **Approach:** red first, one Story or host test per missing part: `unsettledWrites()` listing non-Idle lanes
+            by identity, including unbound lane records listed and reported at each boot until adopted; a cleanup
+            failure rejecting dispose with CleanupFailed, quarantining the ref and keeping the Cause; forget dropping a
+            hold whose operation is gone with HoldForgotten evidence; ready, ensureActor, createActor and runPromise
+            refusing RuntimeDisposed after disposal starts; actor disposal idempotent; consumers disposed before
+            providers; queued unstarted events dropped; no machine event run at disposal. Then build each.
+
+            May change: `src/`, `tests/`, `fixtures/`, @spec.Actors with `specs.log` notes. Evidence: this
+            Task's comments.
+
+            False pass: a test reading the code's own report of unsettled writes → caught by a Story whose Fake observes
+            the lane still Held when the list names it. Gates: `nub run faults --only` on a planted fault per new rule.
+            Stops: `runPromise`'s public signature. User's read: the CleanupFailed quarantine of a ref.
+        acceptance
+            - Each part in the Approach has a Story or host test, red before its code, and a planted fault caught by it.
+            - `runtime.unsettledWrites()` lists exactly the non-Idle lanes by identity, unbound lane records included.
+            - CleanupFailed, HoldForgotten and RuntimeDisposed for `runPromise` are reported as @plan.Runtime.O6 says,
+              with the whole Cause kept on the FlowError.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+        comment     2026-11-18T19:39:14Z
+            Also owes (proposed, P3 close fix round): faults for the Actors gaps I29, I37, I38 and R21
+            in code:wiki/tasks/V3/P3-coverage.md.
+
+    T100
+        title       Diagnostics completed: whole Causes through cleanup and a safe renderer
+        status      draft
+        priority    medium
+        satisfies   [@plan.Diagnostics.O1, @plan.Diagnostics.O3, @plan.Diagnostics.O4]
+        description
+            Finish Diagnostics: a safe Diagnostic renderer (@plan.Diagnostics.O4) and whole Causes kept through cleanup
+            (@plan.Diagnostics.O3), each with a test.
+
+            **Why now:** P3's completion audit found no renderer, Diagnostics R10 and I10 untested, and the cleanup and
+            interruption parts of O3 untested, with no later owner (proposed for the user's read, P3 close fix round).
+            The CLI prints `Cause.pretty` to its output (code:packages/flow-state-v3/src/host/cli/main.ts), which
+            O3 forbids.
+
+            **Read first:** @spec.Diagnostics (R9, R10, I10), @plan.Diagnostics.O1,
+            @plan.Diagnostics.O3, code:packages/flow-state-v3/src/error.ts.
+
+            **Approach:** red first: a render test over control characters in path, details, summary and help, raw input
+            and a Cause on the error (I10); a cleanup failure beside an execution failure keeps both, the execution
+            failure primary; only cleanup failing makes the first cleanup failure primary in phase order; an interrupted
+            owned Effect classifies Interruption; the CLI prints a rendered Diagnostic and never a Cause or stack. Then
+            build the renderer and route the CLI through it.
+
+            May change: `src/`, `tests/`, @spec.Diagnostics with `specs.log` notes. Evidence: this Task's comments.
+
+            False pass: a renderer test that renders only clean strings → caught by the I10 test's hostile table,
+            planted with a renderer that skips escaping. Gates: `nub run faults --only` on a planted fault per new rule.
+            User's read: the rendered text's format.
+        acceptance
+            - A Diagnostic renders with its code, path, safe details and help, escapes every control character, and
+              shows no raw input, stack, Cause or invented location; checked by an I10 test red on a
+              non-escaping renderer.
+            - Cleanup and interruption keep the whole Cause as @plan.Diagnostics.O3 says, each part shown by a test.
+            - The CLI's output carries no `Cause.pretty`, stack or fiber id.
+            - `nub run check` and the suite pass; `nub run faults --only` catches this Task's planted faults.
+        comment     2026-11-18T19:39:14Z
+            Also owes (proposed, P3 close fix round): faults for the Diagnostics gaps I1, I2, R4, R7 to R10
+            in code:wiki/tasks/V3/P3-coverage.md.

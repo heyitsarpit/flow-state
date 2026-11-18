@@ -58,7 +58,7 @@ tasks
         priority    high
 
         blocked_by  [@task.V3.T21]
-        satisfies   [@plan.Operations.O1, @plan.Operations.O4]
+        satisfies   [@plan.Operations.O1, @plan.Operations.O4, @plan.Persistence.O4, @plan.Runtime.O6]
         description
             Write the streams Spec, then build streams on production with a real EventSource path. Adds `Fake.stream` on
             `Fake.server`; a Story shows `UnplacedStream`.
@@ -78,13 +78,23 @@ tasks
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Streams: feed delivery per item, latest partition writes, catch-up with
             N items.
+        comment     2026-11-18T19:39:02Z
+            Owes (proposed, P3 close fix round): feeds restoring their baseline or bookmark (@plan.Persistence.O4) and
+            stream sessions released within the bound with ReleaseOverdue (@plan.Runtime.O6); links added.
+            See code:wiki/tasks/V3/P3-routing.md.
     T24
         title       Entity store
         status      draft
         priority    high
 
         blocked_by  [@task.V3.T21]
-        satisfies   [@plan.EntityDomains.O1, @plan.EntityDomains.O2, @plan.EntityDomains.O3, @plan.EntityDomains.O5]
+        satisfies   [
+                    @plan.EntityDomains.O1,
+                    @plan.EntityDomains.O2,
+                    @plan.EntityDomains.O3,
+                    @plan.EntityDomains.O5,
+                    @plan.Persistence.O6
+                    ]
         description
             Write the entities Spec, then build the entity store on production from @plan.EntityDomains.
 
@@ -103,6 +113,9 @@ tasks
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Entity store: repair cost against records and active answers, record
             queue depth as a scale series.
+        comment     2026-11-18T19:39:02Z
+            Owes (proposed, P3 close fix round): @plan.Persistence.O6's basedOn per record and predicted keys, both
+            unbuilt; the satisfies link is added. See code:wiki/tasks/V3/P3-routing.md.
     T27
         title       Multi-tab
         status      draft
@@ -157,12 +170,16 @@ tasks
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Lazy features: time to first use of a lazy entry, chunk bytes, a turn
             that activates a feature.
+        comment     2026-11-18T19:39:03Z
+            Owes (proposed, P3 close fix round): capture and restore never load lazy code (@plan.Persistence.O4) and
+            silent baselines at lazy adoption (@plan.Runtime.O5); links wait on a wk fix.
+            See code:wiki/tasks/V3/P3-routing.md.
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft
         priority    high
         blocked_by  [@task.V3.T58]
-        satisfies   [@plan.Persistence.O1, @plan.Persistence.O3]
+        satisfies   [@plan.Persistence.O1, @plan.Persistence.O3, @plan.Inspection.O2, @plan.Persistence.O6]
         description
             Complete `layerIndexedDb` from @task.V3.T58's minimal adapter (which already meets Safari's D1 to D4 in
             `packages/flow-state-v3/prototypes/safari/RESULTS.md`): the `database` option, the rest of
@@ -183,6 +200,11 @@ tasks
         comment     2026-11-18T05:36:53Z
             Routed from @task.V3.T20 (2026-11-18): session's boot-queue catalog item; nothing can be sent before ready
             today, so it waits for the host adapters.
+        comment     2026-11-18T19:39:02Z
+            Owes (proposed, P3 close fix round): strict UTF-8 and byte arrays callers cannot mutate
+            (@plan.Inspection.O2); a direct test that the adapter waits for the acknowledgement, no silent downgrade on
+            transient storage failure, Attempt ids never reused across Runtimes (@plan.Persistence.O6).
+            See code:wiki/tasks/V3/P3-routing.md.
     T49
         title       Inspection and the flow-state/inspect route
         status      draft
@@ -214,6 +236,10 @@ tasks
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: the rest of @plan.Inspection.O4's Trace (header fields, checkpoints inside the
             Trace, a Runtime-wide sequence) and one render taking a model or a trace.
+        comment     2026-11-18T19:39:04Z
+            Owes (proposed, P3 close fix round): trace artifacts and Model bytes through the one codec, and codec
+            failures as FlowError CodecMalformed or CodecSchemaMismatch (@plan.Inspection.O2; link waits on a wk fix).
+            See code:wiki/tasks/V3/P3-routing.md.
     T29
         title       The rest of Story and Fake, and `story describe`
         status      draft
@@ -286,6 +312,10 @@ tasks
             player speaker.ts), so a dropped key passes; quieting ignores machine timers (generate.ts:347), so long
             timers end runs 'quiet'; disposeRuntime discards its Exit (run.ts:504). Missed: no planted fault targets the
             harness itself for these.
+        comment     2026-11-18T19:39:03Z
+            Owes (proposed, P3 close fix round): FlowError's evidence field (@plan.Diagnostics.O1; link waits on a wk
+            fix); review items A18 (finding 13), A22, A23, A31, A44, A45, A46, A59, A105, test-tooling and Fake
+            leftovers. See code:wiki/tasks/V3/P3-routing.md.
     T31
         title       CLI outputs designed for people
         status      draft
@@ -350,3 +380,6 @@ tasks
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. React: selector evaluations and re-renders per turn, subscriber fan-out
             at 1, 100 and 10k useView on one actor; frame time is P8's.
+        comment     2026-11-18T19:39:03Z
+            Owes (proposed, P3 close fix round): SSR payloads through the one codec (@plan.Inspection.O2) and silent
+            baselines at hydration (@plan.Runtime.O5); links wait on a wk fix. See code:wiki/tasks/V3/P3-routing.md.

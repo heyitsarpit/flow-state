@@ -105,6 +105,7 @@ tasks
         title       Raw-throw class: one general solution for public refusals and construction trust
         status      draft
         priority    high
+        satisfies   [@plan.Diagnostics.O1, @plan.Runtime.O1]
         description
             One general solution for the raw-throw class: no public path of Flow, built or handed out, throws anything
             but a FlowError on any argument, and construction trusts only what it made.
@@ -147,3 +148,7 @@ tasks
             names (StorageFailure, StorageSilent, StorageRefused, StoreRefused, forgetFailed), two reasonOf
             (record-format.ts:19, boundary.ts:452), and details.reason is free text against Diagnostics O1's closed
             reasons; design it once here.
+        comment     2026-11-18T19:39:06Z
+            Owes (proposed, P3 close fix round): closed details.reason values (@plan.Diagnostics.O1); construction runs
+            nothing and call sites supply no wiring (@plan.Runtime.O1); review item A13, refusal text built twice;
+            faults for the Compile gaps in code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.

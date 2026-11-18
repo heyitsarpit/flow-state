@@ -35,7 +35,7 @@ export const LIMITS = {
   otherWorld: limitFrom(3800),
   /** Every context Story reloaded at its end, once and three times: 4.8 s. */
   reloadAtEnd: limitFrom(4800),
-  /** One fixture's pair sweep: the usual tier 4.1 s, every drive seed (stress) 5.5 s (shop-store's 1,000). */
+  /** One fixture's pair sweep: the usual tier 4.1 s, every drive seed (stress) 5.5 s (shop-store's and auth-session's 1,000). */
   pairSweep: limitFrom(5500),
   /** The pair sweep's own tool tests over a peeking or first-only shop: 2.2 s. */
   pairSweepTool: limitFrom(2200),

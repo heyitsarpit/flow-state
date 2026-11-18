@@ -93,6 +93,18 @@ comment 2026-11-18T19:14:33Z
     (unsettledWrites unbuilt); Diagnostics O1 and O3, Inspection O2, Persistence O4 and O6 and Runtime O1 and O5 are
     partial and need an owner check. Next: write the coverage record (rules by catching fault), then the user decides on
     the uncovered outcome parts and the Restore R5 miss.
+comment 2026-11-18T19:39:15Z
+    Coverage record of the P3 suite: code:wiki/tasks/V3/P3-coverage.md (proposed, as P2's, for @plan.Runtime's
+    verification entry). 85 of the 143 Spec rules P3 Tasks cite have a caught fault; 58 gaps recorded with proposed
+    owners; faults 296 of 296 (throwing-slot-decode-escapes-boot retargeted, its dead guard removed).
+comment 2026-11-18T19:39:15Z
+    Close routing (proposed, for the user's read): code:wiki/tasks/V3/P3-routing.md gives each undelivered outcome part
+    an owner (new @task.V3.T99, @task.V3.T100) and each of 54 orphaned review items one fate: 35 to owner Tasks, 5 to
+    revisit.md, 2 fixed, 12 dropped.
+comment 2026-11-18T19:39:35Z
+    Sidecars (2 Haiku, read-only): the review-item sweep accepted, changed: 14 NONE rows re-grepped and held; A5 added
+    (deferred, no Task); A57, A58, A92, A101 found resolved in code. The outcome survey accepted, changed: 10 absence
+    claims re-grepped and held; its runPromise hits are Effect.runPromise, not a Runtime method.
 tasks
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf
