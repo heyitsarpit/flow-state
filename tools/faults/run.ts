@@ -13,6 +13,11 @@
 // to the cores and memory (below) run at once, each its own scratch directory, removed at the
 // end, on failure, or when the run is stopped.
 //
+// FLOW_FAULTS_EVERY_CATCH=true lists every catching test, to tell which faults give the same
+// signal: a fault's target run then covers the target files of every fault of its rule and does
+// not stop at its first failing test. A fault the targets miss is still judged by the whole suite,
+// stopping at its first failing test, so its list is partial.
+//
 //   bun tools/faults/run.ts
 import { type ChildProcess, execFile } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -42,6 +47,7 @@ const EXPECTED_FAIL = "expected fail: ";
 // What one run may print: the most measured is 7.2 MiB (the dead core's verbose usual tier); the
 // buffer only holds what is printed, so a large margin costs nothing until a run needs it.
 const BUFFER = 256 * 1024 * 1024;
+const EVERY_CATCH = process.env["FLOW_FAULTS_EVERY_CATCH"] === "true";
 
 type Edit = Fault["edits"][number];
 
@@ -148,12 +154,12 @@ let knownRed: ReadonlySet<string> = new Set();
 // A fault's verdict over some files, where a test red in the unchanged run never counts as the
 // catch. The run stops at its first failing test unless one of its files holds such a test, and a
 // stopped run that lost its failed test's report runs again whole.
-const judged = async (root: string, files: ReadonlyArray<string>) => {
+const judged = async (root: string, files: ReadonlyArray<string>, everyCatch = false) => {
   const paths = new Set(files.map((file) => join(pkg, file)));
-  const mayBail = ![...knownRed].some((test) => files.length === 0 || paths.has(test.split(" > ")[0] ?? ""));
+  const mayBail = !everyCatch && ![...knownRed].some((test) => files.length === 0 || paths.has(test.split(" > ")[0] ?? ""));
   const first = await run(root, files, mayBail ? ["--bail=1"] : []);
   const result = verdictOf(first) === "NOT JUDGED (no failed test)" ? await run(root, files) : first;
-  const tests = result.kind === "ran" ? failedTestsOf(result.out).filter((test) => !knownRed.has(test)) : [];
+  const tests = result.kind === "ran" ? failedTestsOf(result.out).filter((test) => !knownRed.has(test)).toSorted() : [];
   const verdict = verdictOf(result);
 
   return {
@@ -272,8 +278,12 @@ const verdictFor = async (root: string, fault: Fault) => {
 
   let outcome = { verdict: "STALE", by: "", tests: [] as ReadonlyArray<string> };
 
+  const targets = EVERY_CATCH
+    ? [...new Set(faults.filter((other) => other.rule === fault.rule).flatMap((other) => other.tests))]
+    : fault.tests;
+
   await planted(root, fault.edits, async () => {
-    const targeted = await judged(root, fault.tests);
+    const targeted = await judged(root, targets, EVERY_CATCH);
 
     outcome = targeted.verdict.startsWith("caught")
       ? { ...targeted, by: "targets" }

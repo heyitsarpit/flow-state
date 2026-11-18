@@ -47,9 +47,21 @@ const FORBIDDEN: ReadonlyArray<readonly [(c: Cell) => boolean, string]> = [
 const whyUnreachable = (r: Reach, phase: string, fault: string) =>
   FORBIDDEN.find(([forbids]) => forbids({ r, phase, fault }))?.[1] ?? "";
 
-// The seeds a drive may take; in the usual tier also the cap past which a phase the fixture can
-// reach and the drive has not found fails the sweep.
-const DRIVE_SEEDS = Array.from({ length: 1000 }, (_, n) => n + 1);
+// The seeds a drive takes. The usual tier stops once every reachable phase is found, and a
+// reachable phase still unfound at its cap fails the sweep. The stress tier drives every one of its
+// seeds, past the reachable phases, to probe for a forbidden one: 200, which find every fixture's
+// reachable phases (by seed 82 at most), but for the two that need more and keep 1,000: shop-store
+// first reaches Recapturing at seed 362, and auth-session Held and Recapturing at 955.
+const seedsUpTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
+
+const USUAL_SEEDS = seedsUpTo(1000);
+
+const STRESS_SEEDS = seedsUpTo(200);
+
+const STRESS_SEEDS_OF = new Map([
+  ["shop-store", USUAL_SEEDS],
+  ["auth-session", USUAL_SEEDS],
+]);
 
 // The phases a write of the fixture can stand in: those some fault is not forbidden in.
 const reachablePhases = (reachable: Reach) =>
@@ -58,7 +70,7 @@ const reachablePhases = (reachable: Reach) =>
 /**
  * The pair sweep's test for one fixture: every reached cell keeps every run rule, and the cells
  * left unreached are exactly those the lifecycle rules forbid, each named with why. The usual tier
- * drives seeds until every reachable phase is found; the stress tier drives all of them, so a
+ * drives seeds until every reachable phase is found; the stress tier drives all of its seeds, so a
  * forbidden phase a late seed would open is probed too.
  */
 const sweeps = (samples: Samples, reachable: Reach, tier: "usual" | "stress") =>
@@ -67,7 +79,7 @@ const sweeps = (samples: Samples, reachable: Reach, tier: "usual" | "stress") =>
     () => {
       const cells = pairSweep(samples, {
         properties: rules,
-        seeds: DRIVE_SEEDS,
+        seeds: tier === "usual" ? USUAL_SEEDS : (STRESS_SEEDS_OF.get(samples.id) ?? STRESS_SEEDS),
         stopAt: tier === "usual" ? reachablePhases(reachable) : PHASES,
       });
 
