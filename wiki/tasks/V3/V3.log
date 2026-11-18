@@ -1342,3 +1342,8 @@ note 2026-11-18T17:58:33Z
 note 2026-11-18T18:39:39Z
     T94 review ISSUES (233087b4): inert data hands out raw-throwing functions (textOfKey, O.x.commit().make); confirmed.
     Third instance of the raw-throw class, so convergence by threshold 2; fix round held for the user's go.
+
+note 2026-11-18T18:51:12Z
+    Amendment (the user, 2026-11-19): the raw-throw class is parked until a general solution; T81 tombstoned into P9's
+    T98. Known instances land as it.fails; T94 closes on that; then P3 close-out, then P4 from T92. Why: it blocked core
+    work.

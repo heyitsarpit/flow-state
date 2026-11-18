@@ -2575,10 +2575,11 @@ tasks
             driver item (Actors R25) moved to @task.V3.T94.
 
     T81
-        title       Construction decodes whole: one config Schema, Flow-made values by identity, builders that capture
-        status      open
-        priority    high
-        blocked_by  [@T82, @T94]
+        title           Construction decodes whole: one config Schema, Flow-made values by identity, builders that 
+                        capture
+        status          tombstone
+        priority        high
+        blocked_by      [@T82, @T94]
         description
             `definition()` and `machine()` accept a value only after one complete Schema decode, trust a Flow-made value
             only by identity, and refuse everything else with a FlowError.
@@ -2632,45 +2633,45 @@ tasks
             - No builder reads its arguments: a test calls each with a Proxy that throws on every trap and gets a value.
             - `definition` and `machine` decode through `walkerOf` with one Schema each; the decoded value is used.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
-        comment     2026-11-16T15:07:26Z
+        comment         2026-11-16T15:07:26Z
             Paused for T9's fix round before any commit; no code changed. Resume: requirements commit first (four bugs
             plus Defect fold as it.fails tests), then the Schema decode; design notes: rules as Schema checks per field,
             Flow code in each check's annotation, cross-field rules after decode.
-        comment     2026-11-16T15:07:48Z
+        comment         2026-11-16T15:07:48Z
             Decided by the orchestrator (user-delegated, 2026-11-16): split the test that expects a duplicate state name
             beside a wrong-kind state; with one decode, list-wide rules run once items decode, and Compile R2 asks only
             for what construction finds.
-        comment     2026-11-16T15:21:44Z
+        comment         2026-11-16T15:21:44Z
             Requirements, each an it.fails check red today (acceptance 1): (1) Actors R14 + Compile R14: send accepts
             E.X's envelope, a DateFromString field checked by its Type side (runtime.test.ts); (2) Compile R2, R4: an
             uncertain-shaped event with no fields is WrongKind at events.X, not a TypeError; (3) Compile R4: context {
             c: 5 } is WrongKind at context.c; (4) Compile R2, R4: a null or string handler and a non-name armOn element
             are WrongKind (construction.test.ts).
-        comment     2026-11-16T15:21:45Z
+        comment         2026-11-16T15:21:45Z
             Requirements, continued: (5) Diagnostics I5, R6: a throwing callback is reported Defect, not CallbackDefect
             (creation.test.ts); (6) Diagnostics I5: a failing services Layer rejects ready() with Defect, not
             ServiceFailed (runtime.test.ts). Acceptance 2 (one Schema, hand-written shape checks gone) is shown by the
             diff; acceptance 3 by a planted fault per new refusal. False pass: each refused form has a @ts-expect-error
             twin in tests/types/.
-        comment     2026-11-16T15:37:32Z
+        comment         2026-11-16T15:37:32Z
             Built at bafacd30: one Schema (code:packages/flow-state-v3/src/config.ts) decodes definition and machine
             body kinds first; rules then run over the trusted value, so a field's rules wait for its kinds (R2 lists
             what it finds; the split test is the user's call). Six requirements green; nine new planted faults caught.
             Lines: construction.ts, compile-body.ts and config.ts total 996, against 989 before, because the machine
             body's kinds are now checked too: the 250 to 350 line estimate did not hold.
-        comment     2026-11-16T15:37:32Z
+        comment         2026-11-16T15:37:32Z
             Decisions: the body callback's types accept a misspelled alternative or schedule key, so only construction
             refuses it (UnknownField, no type twin); a union whose single right-kind member fails reports that member's
             issue in place; extra file config.ts. Gates at bafacd30: check 0, suite 740 + 2 expected fail, stress 29,
             faults 193 of 193 in 46 s.
-        comment     2026-11-16T15:51:42Z
+        comment         2026-11-16T15:51:42Z
             Close review (partial): gates green at bcb8f3c8 (check 0, suite 740+2xfail, stress 29, faults 193/193); all
             six requirements red at c5a59ca9 for the right reason, green now. Found: definition(null) still throws a raw
             TypeError (definition.ts:519 Object.keys before the decode; likely blocking, acceptance 1); a misspelled
             gaurd/every passes tsc (probe), so construction alone refuses it; the decode's value is discarded
             (config.ts:219), leaving casts and about 40 duplicate lines. Unchecked: verdict, routing to T79 (operations
             return TypeError, {sec:5} schedule accepted, constant start unchecked, send keeps extra payload keys).
-        comment     2026-11-17T12:37:31Z
+        comment         2026-11-17T12:37:31Z
             Routed from @task.V3.T79 (proposed, the T79 review's ruling), construction work this Task's decoded config
             owns: the first review's 3m (private-marker unwrap at compiled-parts.ts:95, construction.ts:209,
             definition.ts:559, 613), 3n (events merged at machine.ts:169, compiled-parts.ts:133, definition.ts:599; path
@@ -2682,137 +2683,137 @@ tasks
             twice, definition.ts:540, 599), 1i (SelectArg/GuardArg twice, two inputFieldsOf, reaction shape three times,
             FlowError.code beside diagnostics), 1j (inputFieldsOf per call, runtime.ts:145) and A5 (the payload Struct
             built three times, definition.ts:423, 570, compiled-parts.ts:121; driver send keeps a payload's extra keys).
-        comment     2026-11-17T13:08:01Z
+        comment         2026-11-17T13:08:01Z
             Returned from @task.V3.T79 (proposed): this Task's close review routed three construction items to T79:
             operations returning a TypeError, a {sec: 5} schedule accepted, and a constant start unchecked. They are
             construction checks that the decoded config owns, as are the T79 findings routed here (3m to 3o, the second
             review's 1e to 1j and A5), so they stay with T81.
-        comment     2026-11-17T20:57:08Z
+        comment         2026-11-17T20:57:08Z
             Back to in_progress (orchestrator, 2026-11-18): not reviewable yet; the routed T79 items (3m to 3o, 1e to
             1j, A5, the three returned checks), the fixtures-first item and the partial review's definition(null)
             TypeError are unbuilt. Requirements and fixture proof first, then build.
-        comment     2026-11-17T21:05:35Z
+        comment         2026-11-17T21:05:35Z
             Re-checked at 6ff4c65a. Fixed already: the four section-1 bugs and the Defect fold (green since bafacd30);
             1a's send side (code:packages/flow-state-v3/src/host/driver.ts#send checks the Type side); 1b to 1d
             (config.ts decodes them); 1f in bodies (path arrays); 1h's throw before findings (the decode runs first);
             1j's codec rebuild (on Compiled now). Still open: everything below.
-        comment     2026-11-17T21:05:36Z
+        comment         2026-11-17T21:05:36Z
             Requirements for acceptance 1, each an it.fails in tests/compile/construction.test.ts, red today for its
             reason: (1) Compile R2, R4: definition(null) and definition(undefined) are WrongKind at the configuration
             (raw TypeError today, definition.ts:534); (2) R2, R4: operations returning no record is WrongKind at
             operations (accepted today); (3) R2, R4: an operations value that is not an operation is WrongKind at it
             (TypeError today, operation-checks.ts:43);
-        comment     2026-11-17T21:05:38Z
+        comment         2026-11-17T21:05:38Z
             Requirements, continued: (4) R4: a delay { sec: 5 } is UnknownField at schedule.sec (accepted as 0 ms today,
             compile-body.ts:174); (5) R4, R6: a constant start its Schema refuses is WrongKind at memory.<field>
             (accepted today, config.ts:68); (6) R3: a same-named guard or action of another definition is ForeignToken
             (compile-body.ts:85, 127 check by name);
-        comment     2026-11-17T21:05:39Z
+        comment         2026-11-17T21:05:39Z
             Requirements, continued: (7) R3: an onContext event of another definition, E.X or E.X.from, is ForeignToken
             (machine.ts:208 never checks it); (8) R2: a failure tag holding a dot is one path segment
             (operation-checks.ts:34 splits it). Type twins for (1) to (5) pass in tests/types/; (6) and (7) have none,
             since token types carry no owner (ruling below). Acceptance 3: each of (1) to (8) gets a planted fault at
             the build.
-        comment     2026-11-17T21:05:41Z
+        comment         2026-11-17T21:05:41Z
             Requirements for acceptance 2, behaviour-neutral, checked by the close review at these places (no runtime
             test): the decoded value is discarded (config.ts:212), so casts stay (definition.ts:407, machine.ts:117,
             compile-body.ts:164); 3m unwrap thrice (compiled-parts.ts:95, construction.ts:187, definition.ts:560); 3n
             events merged thrice (machine.ts:158, compiled-parts.ts:131, definition.ts:600) and paths indexed twice
             (machine.ts:155, definition.ts:478);
-        comment     2026-11-17T21:05:42Z
+        comment         2026-11-17T21:05:42Z
             Acceptance 2, continued: 3o endings walked twice (compiled-parts.ts:47, operation-checks.ts:10); 1g contract
             ids and key-in-input checked twice (operation-checks.ts:42, 98; core/well-formed.ts:47, 167); 1h tokens
             built twice (definition.ts:541, 600), tree walked twice (definition.ts:542, machine.ts:150); 1i SelectArg
             twice (definition.ts:203, handles.ts:5), two inputFieldsOf, FlowError.code stored; 1j inputFieldsOf per call
             (runtime.ts:156); A5 Struct thrice.
-        comment     2026-11-17T21:05:43Z
+        comment         2026-11-17T21:05:43Z
             Needs a ruling, so no requirement yet: (a) send keeps a payload's extra keys (a handler sees them; no Spec
             rule narrows a payload; proposed reading Codec R6, the decoded value); (b) a throwing operations or body
             callback, or machine(null), escapes raw (Diagnostics R1, R3 don't say construction wraps it); (c) Compile
             R14 type gap for (6) and (7): a token brand per definition is a public type change.
-        comment     2026-11-17T21:38:10Z
+        comment         2026-11-17T21:38:10Z
             Requirement added from the fixtures: (9) Compile R2, R4: a context slot that is another definition (not a
             Provider.select slot) is one WrongKind at the slot; today it gives 21 findings, one per key of the
             definition (config.ts:85 decodes it as a Struct). Inverted in tests/sign-in/trusted-device.test.ts. The
             fixtures' other reds are (1) to (5) in real-shaped form, each an it.fails in
             tests/transfers/standing-order.test.ts or trusted-device.test.ts.
-        comment     2026-11-17T21:38:12Z
+        comment         2026-11-17T21:38:12Z
             Extra files named (epic "May change" is a guide): tests/rules/rules.ts (the Turn R24 run rule accepts
             undefined, as Turn R23 holds it for an inactive fragment's slice and an optional field holds it; it broke
             the E2 Stories), tests/generated/mix.test.ts (part ids follow the mix's new bank set),
             fixtures/transfers/stories/usual.ts (two constants exported for the mix). Found, not mine: Fake.server
             overwrites an endpoint's words with a same-named control (Accounts.balance), so a balance read cannot be
             held or dropped; known Compile R14 gap needs machine<typeof D> for a nested schedule (trusted-device.ts).
-        comment     2026-11-17T21:38:13Z
+        comment         2026-11-17T21:38:13Z
             Fixture review, 3 Haiku sidecars (scenarios; expected results against Specs; runners and code), each finding
             verified. Accepted: mix lost the old set's steps, failures and receipt edges (folded into bank-planned); S6
             orders and S1 with S9 missing (added); L3 missing (order-offline); sample edges (pause at the ends, 2^53
             cents, seen at the ends, unreadable laptop record); a denial the device test could not see; miscited rules
             (Restore R4, Reads R6, Compile R6);
-        comment     2026-11-17T21:38:14Z
+        comment         2026-11-17T21:38:14Z
             Review log, continued. Accepted: stale flag as a phase (TRUSTED is now FRESH and DUE), a week's edge a
             millisecond short, a misleading doc, duplicated date helpers, missing docs, line comments, the catalog's
             sources ("shaped on", or no source), its journeys and owners. Changed: the R24 rule keeps its relaxation
             with a corrected doc (Turn R23).
-        comment     2026-11-17T21:38:16Z
+        comment         2026-11-17T21:38:16Z
             Review log, rejected: refused payloads in samples (a refused send is a Story script fault; hand tests cover
             them); S3, S8 and the cycle shapes (not where a payload codec differs); a pair sweep of bank-planned (its
             writes are the transfers set's, already swept); reason strings and Effect's Duration keys "not in Spec"
             (R4's unknown fields and Duration.Input fix them); toEqual on reloads (undefined counts as absent); shared
             test helpers (the test kit is T80's).
-        comment     2026-11-17T21:38:17Z
+        comment         2026-11-17T21:38:17Z
             Fixture proof (fixtures.md), transforming event field and construction refusals (Compile R2 to R5, R14;
             Actors R14; Codec I1): fixtures transfers (changed: new StandingOrder ⇠ customer, journey 6) and sign-in
             (changed: new TrustedDevice ⇠ session, journey 6), each a DateFromString field on public events; usual
             transfers/standing-order, sign-in/trust-device; load L4 transfers/stress-many-orders (S2 × 32),
             sign-in/stress-many-devices (S2 × 16), L3 transfers/order-offline;
-        comment     2026-11-17T21:38:19Z
+        comment         2026-11-17T21:38:19Z
             Proof, continued: structure S1 with S9 transfers/order-chain, sign-in/device-chain; S6 order-first,
             order-customer-forgotten, device-first, device-session-forgotten, both parent-first builders refused; S7
             thirteen construction builders in stories/structure.ts; samples bank-orders, auth-devices (E1, E2, E3, E5,
             E6, E7 at the date ends, null, undefined, absent, 2^53, unreadable records); refused payloads E2, E7 by
             hand test.
-        comment     2026-11-17T21:38:20Z
+        comment         2026-11-17T21:38:20Z
             Proof, continued: combos persistence, context, reload sweep, generator, pair sweep; app mix bank-planned and
             bank-planned-edges. Variety: two apps, value-named consumers of a context, flat and nested; a third app is
             left (the acceptance names two). Sources: kamp.us ban.unit.test.ts:36, :43, shaped on; the rest no source.
             Red today: nine construction refusals; every Story green (bug 1a fixed at bafacd30). Sign-in stays out of
             the mix (one-network check).
-        comment     2026-11-17T21:39:13Z
+        comment         2026-11-17T21:39:13Z
             Rulings (orchestrator, 2026-11-18): (a) send hands handlers the decoded payload, so extra keys are dropped
             (decode once and trust the result); a Spec line and a specs.log note at the build. (b) a throwing operations
             or body callback and machine(null) become FlowErrors (Defect with the cause; WrongKind for null), since
             every construction refusal is a FlowError. (c) a per-definition brand on token types is a public type
             change: proposed for the user, not built; the runtime refusal of foreign tokens is built. (d) a third app
             with a transforming field joins at the build; sign-in's exclusion from the app mix stays noted.
-        comment     2026-11-17T21:39:13Z
+        comment         2026-11-17T21:39:13Z
             Paused (the user's P3 order, 2026-11-18): requirements a37c5001 and fixture proof 8ae66b27 are in; the build
             resumes after T83 and T20. Resume: the rulings above, then build until the nine inverted checks pass.
-        comment     2026-11-18T10:02:32Z
+        comment         2026-11-18T10:02:32Z
             Resumed at e8608463 (no construction file changed since a37c5001). Rulings as requirements, each an it.fails
             red for its reason: (10) Actors R14: send hands the handler the decoded payload, extra keys dropped
             (runtime.test.ts); (11) Diagnostics R1, R6: a throwing operations callback is one Defect at operations with
             the thrown cause; (12) a throwing body is one Defect at body; (13) Compile R2, R4: machine(null) is
             WrongKind at definition (construction.test.ts).
-        comment     2026-11-18T10:21:36Z
+        comment         2026-11-18T10:21:36Z
             Built to review: all nine inverted checks and the four ruling checks pass (6c3fdaed and the next commit).
             One decode gates construction (config.ts: delays as Duration inputs, a marked value of another kind is one
             WrongKind, the operations record decoded); foreign guards, actions and reaction events refused by their
             definition's owner; throwing callbacks and machine(null) are FlowErrors; send narrows a checked payload to
             its declared fields (Actors R14).
-        comment     2026-11-18T10:21:37Z
+        comment         2026-11-18T10:21:37Z
             Decisions: send narrows after the type check instead of decoding whole, since a whole decode took the
             palette stress from 14 s past its 104 s limit (specs.log, reverse there); a third app is player's SleepTimer
             (DurationFromMillis driving a computed delay); extra files src/events.ts (event tokens out of definition.ts,
             past the size limit), src/core/boundary.ts#admitted, tests/construction-faults.ts. Faults: 15 named, all
             caught (--only).
-        comment     2026-11-18T10:21:38Z
+        comment         2026-11-18T10:21:38Z
             Acceptance 2 left as is, each for the close review: casts stay where literal types come back from runtime
             records (the decode checks, the generics carry types); the tree is still walked in definition and machine,
             and the contract-id and key rules run per definition and per app (two scopes); reaction shape,
             FlowError.code and inputFieldsOf per call unchanged. Done: 3m one unwrap, 3n events from E, 3o endingsOf,
             1f, 1h tokens once, 1i SelectArg once, A5 one codec. Gates: check 0, suite 1127 + 13 xfail, stress 73/73.
-        comment     2026-11-18T10:40:52Z
+        comment         2026-11-18T10:40:52Z
             Independent close review: ISSUES at 094981e8. Gates on HEAD 7cd1b257, run alone: check 0; suite 1127 + 13
             xfail, none T81's; stress 73/73. Five of the 13 new faults were planted with --only (definition-null-raw,
             delay-object-unchecked, foreign-action-by-name, mark-issue-per-key, send-keeps-extra-keys), and each was
@@ -2851,29 +2852,29 @@ tasks
             withDecodingDefault keys and eager per-field walkers (older than T81, and no rule asks); line comments and
             duplicate cast helpers (house pattern, moved rather than added); spot assertions in load tests (the run
             rules check every run).
-        comment     2026-11-18T10:42:26Z
+        comment         2026-11-18T10:42:26Z
             Fix round, blockers red first (it.fails, each red for its reason): (14) Compile R2, R4: a bound missing
             input, key, failure, unknown, notSent or contract, or with an ending lacking from, is one WrongKind at it
             (TypeError or accepted today); (15) a reaction or schedule ending lacking from is WrongKind; (16) Turn R14:
             NaN or infinite delay parts are DelayOutOfRange (0 ms today); (17) Compile R14, Actors R14: E.X and send of
             null, a number or no tag throw InvalidEvent.
-        comment     2026-11-18T10:42:27Z
+        comment         2026-11-18T10:42:27Z
             Also red: (18) Compile R12: states named ~path and ~flow are ReservedStateName; (19) machine(def, undefined)
             is WrongKind at body. Small fixes in the round: admitted's doc, the catalog's refused.ts references,
             SleepTimer delays of −1 and 2^31 ms, and the transforming-field runtime test now asserts the Date.
-        comment     2026-11-18T10:48:32Z
+        comment         2026-11-18T10:48:32Z
             Fix round to review: blockers (14) to (19) green (red at cffa36b6). Bounds and endings are Schema members
             (config.ts Bound, Ending, judged whole: one WrongKind); NaN or infinite delay parts are DelayOutOfRange;
             E.X, send and a Story step given null or a number throw InvalidEvent; ~path and ~flow reserved (Compile R12,
             specs.log); machine without a body is WrongKind. Small fixes done. Faults: 8 new, 11 run with --only, all
             caught. Gates: check 0, suite 1139 + 14.
-        comment     2026-11-18T10:48:34Z
+        comment         2026-11-18T10:48:34Z
             Needs routing: (a) Turn R14 says a computed −1 ms delay counts as zero, but core/turn.ts:274 refuses the
             turn; inverted in tests/player/sleep-timer.test.ts, owner to be named. (b) Null payloads stay out of the
             step samples: a refused send fails a Story by design, so a generated run cannot carry one without a Story
             word for an expected refusal (T29's area); the class is covered by hand tests in all three apps and a
             Story test.
-        comment     2026-11-18T10:56:47Z
+        comment         2026-11-18T10:56:47Z
             Fix-round review: ISSUES at fe825899 (44284000..fe825899). Gates run alone: check 0; suite 1139 + 14 xfail;
             faults ending-mapper-optional, event-payload-not-record-raw, story-send-untagged-raw planted with --only, 3
             of 3 caught by their named tests; load 2 to 11 from the user's indexing, left alone. Blocking (acceptance 1,
@@ -2896,19 +2897,19 @@ tasks
             see); E.X.from as a schedule send refused ForeignToken (a FlowError, wording only); a plain-copy ending
             accepted by operations but not reactions (older than the round); the send guard in runtime.ts and run.ts
             (two edges, small); line comments and fixtures.md in test names (house pattern).
-        comment     2026-11-18T11:00:35Z
+        comment         2026-11-18T11:00:35Z
             Convergence round, the class first: tests/compile/corruption.test.ts takes every construction value the
             fixtures use (bounds, endings, schedules, delays, armOn, handlers, history, guards, actions, context slots,
             memory fields, event fields, payloads) and corrupts one field at a time (dropped, wrong kind, null, the mark
             only, and inside an ending). Red on 9cacdc5a: schedule sends, guards and actions throw raw; E.X of a
             field-less event accepts 5, a string, true, [].
-        comment     2026-11-18T11:03:48Z
+        comment         2026-11-18T11:03:48Z
             Convergence round to review: the corruption sweep (red at 1a5a5fac) is green. Every marked token (state,
             history, guard, action, entry, event, a callable member by its own fields) decodes through a full Struct,
             not its mark, so no downstream read is unchecked; E.X refuses a non-record payload and an explicit
             undefined. Also: computed NaN delay and machine(def, 5) tested; the Story null-send test asserts the code.
             Faults: 3 new, 10 run with --only, all caught. Gates: check 0, suite 1154 + 14.
-        comment     2026-11-18T11:21:42Z
+        comment         2026-11-18T11:21:42Z
             Convergence review: ISSUES at 26dff407 (c035894e..26dff407). All three blockers are of the raw-throw class
             (acceptance 1), each red on HEAD, probed with bun. (1) A handle's call arguments are unchecked and its make
             runs unwrapped in machine(): O.save.retryable(undefined) or (null) in a guard, and retryable(f, null), throw
@@ -2940,11 +2941,14 @@ tasks
             (Effect's own Schema.is hangs on it; no rule can decide it); schedule {} or a Date as 0 ms (Effect's
             Duration.Input, as ruled last round); NaN cents and an empty payload field name (Schema.Number admits NaN;
             no rule); a forged token whose make throws (closed by fixing (1)).
-        comment     2026-11-18T17:43:48Z
+        comment         2026-11-18T17:43:48Z
             The user's answers to the re-plan (2026-11-18, replan-2026-11-18.md): Q1 B (boundary Task @task.V3.T94
             first, then this Task, construction only), Q2 B (T80 to the end of P4), Q3 A (ruling c to revisit.md), Q4 A
             (send action), Q5 A (code:wiki/conventions/boundaries.md), Q6 P5 order accepted. Rewritten per section 3;
             open, blocked by T94.
+        deletion_reason
+            Parked in P9 as @task.V3.T98 (the user, 2026-11-19): the raw-throw class waits for one general solution; wk
+            cannot move a Task between phases.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
@@ -4475,3 +4479,8 @@ tasks
             (Diagnostics R1 keeps defects distinct); Diagnostic and FlowError constructors (Effect error constructors);
             attachInspector re-entry hang (not on a public route); frozen Map writes (TypeError by the freeze contract);
             arity undercount (no shipped entry has default or rest params).
+        comment     2026-11-18T18:51:11Z
+            Decision (the user, 2026-11-19): the raw-throw class is parked in @task.V3.T98; the review's blocker and
+            routed items move there. T94 closes once the confirmed instances land as it.fails tests titled by
+            Diagnostics R1, with R25's specs.log note, the admit trap disarmed and boundaries.md's status current.
+            Reverse: reopen T98's items here.

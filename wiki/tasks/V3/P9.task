@@ -100,3 +100,42 @@ tasks
             - **User's read:** the results.
         acceptance
             The user's real-phone results are recorded and meet the budgets.
+
+    T98
+        title       Raw-throw class: one general solution for public refusals and construction trust
+        status      draft
+        priority    high
+        description
+            One general solution for the raw-throw class: no public path of Flow, built or handed out, throws anything
+            but a FlowError on any argument, and construction trusts only what it made.
+
+            **Why now:** parked, not now (the user, 2026-11-19): the class reached its third instance (T81's failure
+            limit, T94's sweep, T94's review) and was blocking core work; the user chose to leave the known instances in
+            as inverted tests and solve the class once, later, with a general design instead of case by case. This Task
+            holds everything the class owes so the core phases can proceed.
+
+            **Read first:** @task.V3.T81 (its full approach and requirements 1 to 19, in its comments), @task.V3.T94
+            (its review of 2026-11-18 and the decisions in its comments),
+            code:wiki/conventions/boundaries.md, @spec.Diagnostics.
+
+            **Risk:** the known instances stay red as `it.fails` tests titled by Diagnostics R1; any later Task that
+            adds a public function inherits the gap until this lands. Run convergence here (threshold already passed):
+            every known instance red first, then one redesign from scratch for the whole class, with T81's and T94's
+            approaches as prior art only.
+
+            Owes, from T81: definitions, machines and tokens checked by identity (`WeakSet` membership), not by `~`
+            marks; builders that capture their arguments unread; one complete Schema decode per entry through
+            `walkerOf`; its planted faults `token-by-shape`, `builder-reads-early`, `decode-not-walker`. From T94's
+            review: inert data that hands out callable functions (a bound contract's `textOfKey`, an operation's `make`)
+            — taken off the public types or wrapped, with the surface walk entering inert data; the testing route walked
+            too (`defineConfig(null)`); `run()`'s lost catch-all; the `no-mark-probe` lint missing bracket reads.
+
+            May change: `src/`, `tests/`, `fixtures/`, `tools/lint-bomb/FLOW-STATE.md`, @spec.Compile and
+            @spec.Diagnostics with `specs.log` notes. Evidence: this Task's comments.
+        acceptance
+            - Every inverted test of the class (titled by Diagnostics R1) is green and no longer inverted.
+            - The surface test walks the root and testing routes and enters inert data: no reachable function is
+              unwrapped or unregistered.
+            - No `~owner`, `~flow` or `HandleId` remains in `src/`; Flow-made values are checked by identity only.
+            - No builder reads its arguments: each called with an all-traps-throw Proxy returns a value.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
