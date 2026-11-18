@@ -1014,6 +1014,73 @@ tasks
             baseline slots refused (forged.test.ts, shop/seen-undeclared); escaping in src/core/key-text.ts, key
             templates in identity.ts. Faults --only 13 of 13 (5 new, 6 retargeted). Suite 1211 pass, 23 expected fail;
             check 0; stress 0.
+        comment     2026-11-18T23:35:34Z
+            Fix-round review (independent lead, 5 Haiku sidecars, one blind) at `59dff388`: ISSUES, 2 blocking. The four
+            earlier findings are closed: the guest-cart rename, the repeated row, the made-up success with no Attempt
+            and the repeated displaced Attempt are each green, and each is red under its fault. Spec losing text is
+            gone, and the owed row and graph brands are in. Gates by exit code: suite 0 (1211 pass, 23 expected fail),
+            `nub run check` 0, stress 0, `nub run faults --only` on the 5 new faults: 5 of 5 caught. The guest-cart test
+            was also replayed red under its fault by hand.
+
+            Blocking (owner @task.V3.T92):
+
+            1. Made-up and wrong endings from an owed row with an Attempt and no lane. This is the class of the earlier
+               finding 2, closed only for a null Attempt. code:packages/flow-state-v3/src/core/record.ts#owedSchemaOf
+               takes `{operation, attempt}` rows with any channel. The release writes such a row only as HoldRefused's
+               unknown StorageRefused (code:packages/flow-state-v3/src/core/lane-moves.ts), so a decode can
+               tell. Replayed:
+               - A main-cart owed row `success`/`add` with a minted-form Attempt delivers `Added`, and line l5 appears.
+               - The same row with the Held head's own Attempt delivers `Added`, but the head stays Held, and the next
+                 Add is declined NotSent Rejected (a stuck key).
+
+               Missing coverage: the sweep never moves a row between its lane and operation forms, and no forged sample
+               holds a lane-less success.
+            2. The boot fails on a deep format-1 actor record. `valueOfOne`
+               (code:packages/flow-state-v3/src/core/actor-record.ts) recurses on the host stack. Replayed: 20000 nested
+               `some` tags in `seen` give "open 2 of the tab did not boot". The same depth in format 4 is quarantined,
+               and 500 levels boot. That breaks acceptance 4 and @spec.Restore R5 ("the boot goes on"). Missing
+               coverage: the sweep skips records deeper than 64 and generates no older-format actor record.
+
+            Two reviews in a row found an owed or lane shape the release never writes but decode accepts. Threshold 2:
+            the fix should be one Schema per row shape the release writes (with lane: any channel, with an Attempt;
+            without lane: unknown with an Attempt, or a notSent decline without one), not another case.
+
+            Routed (not blocking):
+
+            - WriteAhead I17 run rule (owner @task.V3.T92): one batch carries the whole Runtime's writes (persist.ts
+              `capture`), so any unread lane key in the acknowledging batch excuses the Attempt, another identity's
+              included. Match the Attempt's own lane. The rules.test.ts sibling is not in the batch, so it never
+              shows this.
+            - Removed slot, ruled by two traces of one held add, the record as saved against the same record naming an
+              extra slot. Both give AddUnsure then Added, and l1 is restored in both, so no ending is lost; quarantine
+              loses only state and memory. Context bindings refused undeclared slots before the fix. R7's shape names no
+              slots, so whether a removed slot is a release change (dropped) goes to @task.V3.T56 with R7's shape.
+            - `memoryNamesActor` and `declaredSlot` check meaning by hand after the Schema read (actor-record.ts),
+              against @spec.Codec R5 (owner @task.V3.T92, low).
+            - Q4 (the user's read): `$.displaced emptied` on a headless lane is decode-refused yet judged held, so only
+              the boot is checked. A lane copied under another name repeats its Attempt across two records (a boot-level
+              check could tell; a per-record decode cannot). The `it.fails` passes on any failure.
+            - An update patch is merged unguarded (turn.ts `accept`), so an input field written through a widened patch
+              is saved and then quarantined at the next boot (owner @task.V3.T98, low).
+            - A void write's success value is saved `null` and read back `null`, not `undefined` (record.ts `rowJson`,
+              decode), and `unsaved` would save a decline as an unknown with no Attempt, which decode now refuses; both
+              by reading only (owner @task.V3.T92, low).
+            - Restore T6 keeps broken wraps; test comments saying "held for the user" go stale (low).
+
+            Checked and confirmed: the shop and session rows' change to declines is true. Every identity unknown row
+            carries an Attempt, and declines are notSent with none (lanes.ts, lane-moves.ts `Decline`, `endQueue`), so
+            no real case is hidden. No held mutant other than headless `displaced emptied` can be told by one record's
+            decode. Rejected: an unknown plus a success of one Attempt (WriteLanes I15 allows it); a machine id holding
+            `|` (not shown, pre-existing).
+
+            Sidecars, each finding re-checked:
+            - Accepted after replay: the blind sidecar's lane-less Attempt row (blocking 1) and deep format-1 record
+              (blocking 2); the I17 batch widening (read in persist.ts); the producer sweep (no current writer makes a
+              refused row).
+            - Changed: the slot finding became a two-trace ruling (routed, not blocking); the hand-check finding went
+              from blocking to routed, since no ending is wrong.
+            - Rejected: an unknown plus a success of one Attempt; the guest test "uncaught" (the fault tool stops at the
+              first red, and both tests are red by hand).
 
     T95
         title       Callback results checked before they enter a turn
