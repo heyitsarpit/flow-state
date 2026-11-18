@@ -8,7 +8,7 @@ story transfers/lost-then-reload
    7 main:1 turn Bank/Transfers/acct-1 Send READY -> READY parts [states.READY.on.Send[0] READY -> self] members [commit transfer {"transferId":"t1"}]
    8 main:1 minted transfer att-000000000000000000006d61696e3a31-1 for Bank/Transfers/acct-1 key {"transferId":"t1"}
    9 main:1 published Bank/Transfers/acct-1 READY {"notice":""}
-  10 main:1 write acknowledge [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}] acknowledges [att-000000000000000000006d61696e3a31-1] landed
+  10 main:1 write acknowledge [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|Bank/transfer|{"transferId":"t1"}] acknowledges [att-000000000000000000006d61696e3a31-1] landed
   11 main:1 sent transfer att-000000000000000000006d61696e3a31-1
   12 main:1 request Bank.transfer {"transferId":"t1","cents":500,"key":"att-000000000000000000006d61696e3a31-1"} held at response
   13 main:1 step 3 checkpoint sending
@@ -20,5 +20,5 @@ story transfers/lost-then-reload
   19 main:2 delivered transfer att-000000000000000000006d61696e3a31-1 as Unsure to Bank/Transfers/acct-1
   20 main:2 turn Bank/Transfers/acct-1 Unsure READY -> READY parts [on.Unsure[0] root -> self]
   21 main:2 published Bank/Transfers/acct-1 READY {"notice":"check your statement"}
-  22 main:2 write flush [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}, owed/Bank/Transfers/acct-1] landed
+  22 main:2 write flush [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|Bank/transfer|{"transferId":"t1"}, owed/Bank/Transfers/acct-1] landed
   23 main:2 step 6 checkpoint reloaded

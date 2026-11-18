@@ -43,7 +43,11 @@ const sameGraph = (a: Wiring, b: Wiring) =>
   a.size === b.size && [...a].every(([key, bound]) => b.get(key) === bound);
 
 // An identity's records in the order a batch writes them: its actor record, its lanes, its owed record.
-const rank = Mark.$match({ Actor: () => 0, Lane: () => 1, Owed: () => 2 });
+const rank = Mark.$match({ Actor: () => 0, Discarded: () => 0, Lane: () => 1, Owed: () => 2 });
+
+// The identity a mark's key belongs to; a discarded record, whose machine no entry declares, is
+// its own.
+const identityKeyOf = (m: Mark) => (Mark.$is("Discarded")(m) ? m.key : actorKey(m.actor));
 
 /**
  * Persistence of a step: setters mark the record keys a step changes, and a capture encodes every
@@ -188,7 +192,6 @@ export const makePersistence = (tx: Tx) => {
             : encodeLane(
                 compiled,
                 operation,
-                actor,
                 lane,
                 owing.map((d) => d.head.id),
               ),
@@ -232,6 +235,7 @@ export const makePersistence = (tx: Tx) => {
       Actor: ({ actor }) => actorWrite(actor),
       Lane: ({ lane }) => laneWrite(lane),
       Owed: ({ actor }) => owedWrite(actor),
+      Discarded: ({ key }) => Result.succeed<Write>({ key, record: Option.none() }),
     });
 
   // An identity starts to wait: reported once, as it starts.
@@ -294,6 +298,14 @@ export const makePersistence = (tx: Tx) => {
     if (!persisted(actor)) return;
     now = true;
     mark(actorRecordKey(actorKey(actor)), Mark.Actor({ actor }));
+  };
+
+  /**
+   * Marks a record the boot discards as removed: captured at once.
+   */
+  const discard = (key: string) => {
+    now = true;
+    mark(key, Mark.Discarded({ key }));
   };
 
   /**
@@ -397,7 +409,7 @@ export const makePersistence = (tx: Tx) => {
     const identities = new Map<string, Array<readonly [string, Mark]>>();
 
     for (const entry of new Map([...again, ...tx.world().marked])) {
-      const key = actorKey(entry[1].actor);
+      const key = identityKeyOf(entry[1]);
       const keys = identities.get(key);
 
       if (keys === undefined) identities.set(key, [entry]);
@@ -419,10 +431,11 @@ export const makePersistence = (tx: Tx) => {
   ) => {
     const withheld = new Map(
       held.flatMap(({ keys, failure }) =>
-        keys.slice(0, 1).map(([, m]) => {
+        keys.slice(0, 1).flatMap(([, m]) => {
+          if (Mark.$is("Discarded")(m)) return [];
           reportWithheld(m.actor, failure);
 
-          return [actorKey(m.actor), m.actor] as const;
+          return [[actorKey(m.actor), m.actor] as const];
         }),
       ),
     );
@@ -484,6 +497,7 @@ export const makePersistence = (tx: Tx) => {
     saveActor,
     keepEnded,
     removeActor,
+    discard,
     saveLane,
     saveAwaited,
     saveOwed,

@@ -2,14 +2,14 @@ import { Option, Predicate, Result, Schema, Struct } from "effect";
 import type { Canonical } from "./codec.ts";
 import type { Compiled, Values } from "./compiled.ts";
 import {
-  ActorJson,
-  actorOf,
-  decodeBy,
-  FORMAT,
-  Format,
-  FormatJson,
-  textOf,
-} from "./record-format.ts";
+  actorNameOf,
+  type NamedActor,
+  readActorKey,
+  type RecordKey,
+  type StateName,
+  stateNameOf,
+} from "./identity.ts";
+import { exact, FORMAT, FormatJson, readerOf, textOf, Count } from "./record-format.ts";
 import {
   type Frame,
   readSelected,
@@ -18,58 +18,122 @@ import {
   selectedOf,
   type Source,
 } from "./slots.ts";
-import { ScheduleDeadline } from "./vocabulary.ts";
-import type { ActorId, ActorRecord, Wiring } from "./world.ts";
+import type { ActorId, ActorRecord } from "./world.ts";
 
-const WiredJson = Schema.Record(Schema.String, ActorJson);
-
-const RecordHead = {
-  machine: Schema.String,
-  name: Schema.String,
-  state: Schema.String,
-  // FLOW_STATE_ALLOW_UNKNOWN: read by the machine's memory walker; the host's parser made it JSON.
-  memory: Schema.Unknown,
-  schedules: Schema.Array(ScheduleDeadline),
-  context: WiredJson,
+/**
+ * An actor record as the boot reads it back: under the key it was read from, its identity, state
+ * and every binding branded by the checks that read them.
+ */
+export type RestoredActor = Omit<ActorRecord, "actor" | "state" | "context" | "graph"> & {
+  readonly key: RecordKey;
+  readonly actor: NamedActor;
+  readonly state: StateName;
+  readonly context: ReadonlyMap<string, NamedActor>;
+  readonly graph: ReadonlyMap<string, ReadonlyMap<string, NamedActor>>;
 };
+
+// A binding to a provider of `compiled`'s machine: its id and a name its identity reads.
+const bindingOf = (compiled: Compiled) =>
+  exact({ machine: Schema.Literal(compiled.id), name: actorNameOf(compiled) });
+
+// A Union of Schemas, or one that reads nothing when there are none.
+const anyOf = <S extends Schema.Top>(members: ReadonlyArray<S>) =>
+  members.length === 0 ? Schema.Never : Schema.Union(members);
+
+// The Schemas of every part of an actor record that a machine's declaration decides: its state,
+// its memory, the schedules it declares, its own slots' bindings each to its slot's provider, and
+// the bindings up its graph, each to a provider of a machine the app declares.
+const partsOf = (machines: ReadonlyMap<string, Compiled>, compiled: Compiled) => {
+  const anyBinding = anyOf([...machines.values()].map(bindingOf));
+
+  const schedules = new Map(
+    [...compiled.states.values()].flatMap((n) => n.schedules.map((s) => [s.name, s] as const)),
+  );
+
+  const context = exact(
+    Object.fromEntries(
+      [...compiled.context].map(([slot, declared]) => {
+        const provider = machines.get(declared.provider);
+
+        return [
+          slot,
+          Schema.optionalKey(provider === undefined ? Schema.Never : bindingOf(provider)),
+        ];
+      }),
+    ),
+  );
+
+  return {
+    state: stateNameOf(compiled),
+    memory: compiled.memoryJson,
+    schedules: Schema.Array(
+      anyOf(
+        [...schedules.values()].map((s) =>
+          exact({ name: Schema.Literal(s.name), dueAt: Instant, send: Schema.Literal(s.send) }),
+        ),
+      ),
+    ),
+    context,
+    graph: Schema.Record(Schema.String, Schema.Record(Schema.String, anyBinding)).check(
+      Schema.makeFilter((graph) =>
+        Object.keys(graph).every((key) => Option.isSome(readActorKey(machines, key))),
+      ),
+    ),
+  };
+};
+
+// A deadline on the Runtime's clock, which starts at zero and never runs back.
+const Instant = Schema.Number.check(Schema.makeFilter((n: number) => Number.isFinite(n) && n >= 0));
 
 // A reaction's baseline inputs that differ from the record's last-seen slots and memory: a slot
 // with no `value` was never selected then; `memory` names the shared copy of the memory fields it
 // read, when they differ from the record's own.
 const FrameJson = Schema.NullOr(
-  Schema.Struct({
-    slots: Schema.Record(Schema.String, Schema.Struct({ value: Schema.optionalKey(Schema.Json) })),
-    memory: Schema.NullOr(Schema.Number),
+  exact({
+    slots: Schema.Record(Schema.String, exact({ value: Schema.optionalKey(Schema.Json) })),
+    memory: Schema.NullOr(Count),
   }),
 );
 
-const ActorRecordJson = Schema.Struct({
-  ...RecordHead,
-  format: Schema.Literal(FORMAT),
-  seen: Schema.Record(Schema.String, Schema.Json),
-  reactions: Schema.Array(FrameJson),
-  memories: Schema.Array(Schema.Record(Schema.String, Schema.Json)),
-  graph: Schema.Record(Schema.String, WiredJson),
-});
+// The current format: exactly its fields, each baseline naming a shared copy the record holds.
+const recordFour = (parts: ReturnType<typeof partsOf>) =>
+  exact({
+    ...parts,
+    format: Schema.Literal(FORMAT),
+    seen: Schema.Record(Schema.String, Schema.Json),
+    reactions: Schema.Array(FrameJson),
+    memories: Schema.Array(Schema.Record(Schema.String, Schema.Json)),
+  });
+
+// Format 3: the current format's fields beside the identity its content repeated, which the key
+// names; an older format's fields beyond its own are not read.
+const recordThree = (parts: ReturnType<typeof partsOf>) =>
+  Schema.Struct({
+    ...parts,
+    format: Schema.Literal(3),
+    seen: Schema.Record(Schema.String, Schema.Json),
+    reactions: Schema.Array(FrameJson),
+    memories: Schema.Array(Schema.Record(Schema.String, Schema.Json)),
+  });
 
 // Format 2: each reaction's baseline carried its own copy of the memory fields it read.
-const ActorRecordTwoJson = Schema.Struct({
-  ...RecordHead,
-  format: Schema.Literal(2),
-  seen: Schema.Record(Schema.String, Schema.Json),
-  reactions: Schema.Array(
-    Schema.NullOr(
-      Schema.Struct({
-        slots: Schema.Record(
-          Schema.String,
-          Schema.Struct({ value: Schema.optionalKey(Schema.Json) }),
-        ),
-        memory: Schema.Record(Schema.String, Schema.Json),
-      }),
+const recordTwo = (parts: ReturnType<typeof partsOf>) =>
+  Schema.Struct({
+    ...parts,
+    format: Schema.Literal(2),
+    seen: Schema.Record(Schema.String, Schema.Json),
+    reactions: Schema.Array(
+      Schema.NullOr(
+        Schema.Struct({
+          slots: Schema.Record(
+            Schema.String,
+            Schema.Struct({ value: Schema.optionalKey(Schema.Json) }),
+          ),
+          memory: Schema.Record(Schema.String, Schema.Json),
+        }),
+      ),
     ),
-  ),
-  graph: Schema.Record(Schema.String, WiredJson),
-});
+  });
 
 // Format 1's last-seen forms: JSON as it was selected, and undefined, Options, arrays and plain
 // objects tagged.
@@ -80,12 +144,13 @@ const SeenOne = Schema.Struct({
   fields: Schema.optionalKey(Schema.Json),
 });
 
-const ActorRecordOneJson = Schema.Struct({
-  ...RecordHead,
-  format: Schema.Literal(1),
-  seen: Schema.Record(Schema.String, SeenOne),
-  unknown: Schema.optionalKey(Schema.Array(Schema.String)),
-});
+const recordOne = (parts: ReturnType<typeof partsOf>) =>
+  Schema.Struct({
+    ...Struct.omit(parts, ["graph"]),
+    format: Schema.Literal(1),
+    seen: Schema.Record(Schema.String, SeenOne),
+    unknown: Schema.optionalKey(Schema.Array(Schema.String)),
+  });
 
 // FLOW_STATE_ALLOW_UNKNOWN: a format-1 form is JSON read by its tag; its value has its selector's type.
 type OneValue = unknown;
@@ -218,8 +283,6 @@ export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
 
     return yield* textOf({
       format: FORMAT,
-      machine: record.actor.machine,
-      name: record.actor.name,
       state: record.state,
       memory,
       schedules: record.schedules,
@@ -240,7 +303,7 @@ export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
 // memory is the shared copy it names.
 const frameOf = (
   compiled: Compiled,
-  frame: NonNullable<typeof FrameJson.Type>,
+  frame: NonNullable<Current["reactions"][number]>,
   memories: ReadonlyArray<ReadonlyMap<string, Values[string]>>,
   own: Values,
 ) =>
@@ -290,24 +353,98 @@ const copyOf = (compiled: Compiled, copy: { readonly [name: string]: Schema.Json
     (fields) => new Map(fields),
   );
 
+// The current format's record, as every older format's step gives it.
+type Current = ReturnType<typeof recordFour>["Type"];
+
+// A format-2 actor record in the current format: each baseline's own memory copy becomes a shared
+// copy it names.
+// RETURN_TYPE: the current format's record, as every step gives it.
+const stepTwo = (two: ReturnType<typeof recordTwo>["Type"]): Current => {
+  const memories: Array<{ readonly [name: string]: Schema.Json }> = [];
+
+  return {
+    ...two,
+    format: FORMAT,
+    reactions: two.reactions.map((frame) => {
+      if (frame === null) return null;
+
+      if (Object.keys(frame.memory).length === 0) return { slots: frame.slots, memory: null };
+
+      return { slots: frame.slots, memory: memories.push(frame.memory) - 1 };
+    }),
+    memories,
+  };
+};
+
+// A format-1 actor record in the current format: each saved slot's value passes through its
+// slot's Schema and stays its last-seen selection where the Schema takes it; a slot saved
+// unknown, or one its Schema refuses, was never selected; each reaction's baseline reads the
+// record's own slots and memory, as format 1 did.
+const stepOne = (compiled: Compiled, one: ReturnType<typeof recordOne>["Type"]) =>
+  Result.map(
+    Result.all(
+      Object.entries(one.seen).map(([slot, form]) =>
+        Result.map(valueOfOne(form), (value) =>
+          Option.toArray(
+            Option.flatMap(Option.fromUndefinedOr(compiled.context.get(slot)), (declared) =>
+              Option.map(Result.getSuccess(selectedOf(declared.walk, value)), (s) => [
+                slot,
+                s.json,
+              ]),
+            ),
+          ),
+        ),
+      ),
+    ),
+    // RETURN_TYPE: the current format's record, as every step gives it.
+    (seen): Current => ({
+      ...Struct.omit(one, ["unknown"]),
+      format: FORMAT,
+      seen: Object.fromEntries(seen.flat()),
+      reactions: compiled.reactions.map(() => ({ slots: {}, memory: null })),
+      memories: [],
+      graph: {},
+    }),
+  );
+
+// The readers of one machine's actor records, by format, each giving the current format.
+const readersOf = (machines: ReadonlyMap<string, Compiled>, compiled: Compiled) => {
+  const parts = partsOf(machines, compiled);
+  const four = readerOf(recordFour(parts), "schema");
+  const three = readerOf(recordThree(parts), "schema");
+  const two = readerOf(recordTwo(parts), "schema");
+  const one = readerOf(recordOne(parts), "schema");
+
+  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its format names.
+  return (format: 1 | 2 | 3 | 4, value: unknown) => {
+    if (format === FORMAT) return four(value);
+
+    if (format === 3) return Result.map(three(value), (r) => ({ ...r, format: FORMAT }));
+
+    if (format === 2) return Result.map(two(value), stepTwo);
+
+    return Result.flatMap(one(value), (r) => stepOne(compiled, r));
+  };
+};
+
 /**
- * An actor record read back with the machine it names: the current format by its Schema, formats 1
- * and 2 through their pure steps; its slots, baseline inputs and memory each through their own
+ * An actor record read back by the machine its key names: the current format by its Schema,
+ * formats 1 to 3 through their pure steps; its state, schedules and bindings by Schemas built
+ * from the app's machines, and its slots, baseline inputs and memory each through their own
  * Schemas.
  */
 export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
-  const machineOf = (r: { readonly machine: string }) =>
-    Result.fromNullishOr(machines.get(r.machine), () => "machine");
+  const readers = new Map<string, ReturnType<typeof readersOf>>();
+  const formatOf = readerOf(FormatJson, "format");
 
-  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
-  const actorRecord = (value: unknown) =>
+  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key and format name.
+  return (key: RecordKey, compiled: Compiled, actor: NamedActor, value: unknown) =>
     Result.gen(function* () {
-      const { format } = yield* decodeBy(FormatJson, "format")(value);
+      const { format } = yield* formatOf(value);
+      const read = readers.get(compiled.id) ?? readersOf(machines, compiled);
+      readers.set(compiled.id, read);
 
-      const r = yield* stepsTo(format, value);
-
-      const compiled = yield* machineOf(r);
-      const memory = yield* Result.mapError(compiled.walk.decode(r.memory), () => "memory");
+      const r = yield* read(format, value);
 
       const seen = new Map(
         yield* Result.all(
@@ -325,7 +462,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
       );
 
       const memories = yield* Result.all(r.memories.map((copy) => copyOf(compiled, copy)));
-      const own = { memory };
+      const self = { memory: r.memory };
 
       // Baselines that do not match the machine's reactions in number are read from the record's
       // own slots and memory.
@@ -335,100 +472,31 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
               r.reactions.map((frame) =>
                 frame === null
                   ? Result.succeed(Option.none<Frame>())
-                  : Result.map(frameOf(compiled, frame, memories, own), (f) =>
+                  : Result.map(frameOf(compiled, frame, memories, self), (f) =>
                       Option.some<Frame>(f),
                     ),
               ),
             )
           : compiled.reactions.map(() =>
-              Option.some<Frame>({ slots: new Map(), memory: new Map(), source: own }),
+              Option.some<Frame>({ slots: new Map(), memory: new Map(), source: self }),
             );
 
-      const graph: Wiring = new Map(
-        Object.entries(r.graph).map(([key, wired]) => [
-          key,
-          new Map(Object.entries(wired).map(([slot, p]) => [slot, actorOf(p)])),
-        ]),
-      );
-
       return {
-        actor: actorOf(r),
+        key,
+        actor,
         state: r.state,
-        memory,
+        memory: r.memory,
         schedules: r.schedules,
-        context: new Map(Object.entries(r.context).map(([slot, p]) => [slot, actorOf(p)])),
-        seen,
-        frames,
-        graph,
-      } satisfies ActorRecord;
-    });
-
-  // A record of any format this release reads, in the current format.
-  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its format names.
-  const stepsTo = (format: typeof Format.Type, value: unknown) => {
-    if (format === FORMAT) return decodeBy(ActorRecordJson, "schema")(value);
-
-    if (format === 2) return Result.map(decodeBy(ActorRecordTwoJson, "schema")(value), stepTwo);
-
-    return stepOne(value);
-  };
-
-  // A format-2 actor record in the current format: each baseline's own memory copy becomes a
-  // shared copy it names.
-  // RETURN_TYPE: the current format's record, read again by its Schema's type.
-  const stepTwo = (two: typeof ActorRecordTwoJson.Type): typeof ActorRecordJson.Type => {
-    const memories: Array<{ readonly [name: string]: Schema.Json }> = [];
-
-    return {
-      ...two,
-      format: FORMAT,
-      reactions: two.reactions.map((frame) => {
-        if (frame === null) return null;
-
-        if (Object.keys(frame.memory).length === 0) return { slots: frame.slots, memory: null };
-
-        return { slots: frame.slots, memory: memories.push(frame.memory) - 1 };
-      }),
-      memories,
-    };
-  };
-
-  // A format-1 actor record, read by the current format's Schema: each saved slot's value passes
-  // through its slot's Schema and stays its last-seen selection where the Schema takes it; a slot
-  // saved unknown, or one its Schema refuses, was never selected; each reaction's baseline reads the
-  // record's own slots and memory, as format 1 did.
-  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by format 1's Schema.
-  const stepOne = (value: unknown) =>
-    Result.gen(function* () {
-      const one = yield* decodeBy(ActorRecordOneJson, "schema")(value);
-      const compiled = yield* machineOf(one);
-
-      const seen = yield* Result.all(
-        Object.entries(one.seen).map(([slot, form]) =>
-          Result.map(valueOfOne(form), (value) =>
-            Option.toArray(
-              Option.flatMap(Option.fromUndefinedOr(compiled.context.get(slot)), (declared) =>
-                Option.map(Result.getSuccess(selectedOf(declared.walk, value)), (s) => [
-                  slot,
-                  s.json,
-                ]),
-              ),
-            ),
+        context: new Map(
+          Object.entries(r.context).flatMap(([slot, p]) =>
+            p === undefined ? [] : [[slot, p] as const],
           ),
         ),
-      );
-
-      const stepped: typeof ActorRecordJson.Type = {
-        ...Struct.omit(one, ["unknown"]),
-        format: FORMAT,
-        seen: Object.fromEntries(seen.flat()),
-        reactions: compiled.reactions.map(() => ({ slots: {}, memory: null })),
-        memories: [],
-        graph: {},
-      };
-
-      return stepped;
+        seen,
+        frames,
+        graph: new Map(
+          Object.entries(r.graph).map(([k, wired]) => [k, new Map(Object.entries(wired))]),
+        ),
+      } satisfies RestoredActor;
     });
-
-  return actorRecord;
 };

@@ -7,6 +7,7 @@ import { samples, seededStress, stories, stressSamples } from "./stories/usual.t
 import { negativeZero, twoSpellings } from "./stories/edges.ts";
 import { crowd4, crowdOf, serializeDeepOf } from "./stories/load.ts";
 import { disposedWithWork, oneKeyTwoActors, reloadedWithWork } from "./stories/structure.ts";
+import { headlessLaneQueued } from "./stories/findings.ts";
 
 /**
  * The lanes fixture, as every runner reads it.
@@ -23,6 +24,7 @@ export const lanes = manifest({
     reloadedWithWork,
     twoSpellings,
     negativeZero,
+    headlessLaneQueued,
   },
   samples: [samples],
   stressSamples: [stressSamples],

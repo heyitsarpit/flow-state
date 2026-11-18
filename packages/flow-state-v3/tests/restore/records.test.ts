@@ -220,7 +220,7 @@ type Mutant = {
   readonly json: Schema.Json;
   // The key the corrupt record is put under: its own, or a corrupt one.
   readonly key: Option.Option<string>;
-  // For a corrupt binding name, the machine the binding names.
+  // For a corrupt binding name or key name, the machine the name is of.
   readonly provider: Option.Option<string>;
 };
 
@@ -344,10 +344,11 @@ const mutantsOf = (root: Schema.Json) => {
 };
 
 // Restore R5's limit, extended to queued commits and displaced Attempts as proposed: a well-formed
-// queued commit or displaced Attempt added or removed, or an owed row repeated, cannot be told
-// from a real one, so its ending is judged only for a boot that never fails. An owed record with
-// no rows is never written (WriteAhead I20), so emptied rows are judged in full.
-const UNTELLABLE = /^\$\.(?:queue|displaced) (?:emptied|item repeated)$/u;
+// queued commit or displaced Attempt added or removed, or an owed row repeated (an Attempt may owe
+// several kept endings, each its own row, WriteLanes R10), cannot be told from a real one, so its
+// ending is judged only for a boot that never fails. An owed record with no rows is never written
+// (WriteAhead I20), so emptied rows are judged in full.
+const UNTELLABLE = /^\$\.(?:(?:queue|displaced) (?:emptied|item repeated)|rows item repeated)$/u;
 
 // A record holds exactly its kind's fields (Codec R5): a field added to any of its own objects is
 // quarantined. Inside a value a user Schema decodes (memory, last-seen selections and baselines, a
@@ -356,11 +357,13 @@ const UNTELLABLE = /^\$\.(?:queue|displaced) (?:emptied|item repeated)$/u;
 const FIELD_ADDED = / field added$/u;
 const USER_VALUE = /^\$\.(?:memory|seen|memories|input|queue)\b|\.value\b|\.slots\./u;
 
-// A binding renamed to another name its provider's machine gives (a literal name lengthened) names
-// another identity a ref's context could have bound, so an ensure by the entry's wiring is refused
-// as it would be for a real record (ConflictingActorRef): held for the user, not a Spec limit. A
-// name the provider's machine does not decode is judged in full.
-const REBOUND = /^\$\.(?:context\.[^.]+|graph\..+\.[^.]+)\.name lengthened$/u;
+// A binding renamed to another name its provider's machine gives (a literal name emptied or
+// lengthened) names another identity a ref's context could have bound, so an ensure by the entry's
+// wiring is refused as it would be for a real record (ConflictingActorRef); a record moved under a
+// key naming another identity of a literal-named machine is that identity's record. Both are held
+// for the user, not a Spec limit. A name the machine does not decode is judged in full.
+const REBOUND = /^\$\.(?:context\.[^.]+|graph\..+\.[^.]+)\.name (?:emptied|lengthened)$/u;
+const REKEYED = /^key name = /u;
 
 const lastOpen = (run: StoryRun) =>
   run.trace.events.reduce((open, e) => Math.max(open, e.tab.open), 0);
@@ -469,25 +472,26 @@ const asleepIn = (machines: Machines, stored: ReadonlyMap<string, string>) => {
   return [...new Map(asleep).values()];
 };
 
-// How one corrupt record is judged: as Restore R5's limit, as a rebinding, or in full.
-type Judged = "untellable" | "rebound" | "full";
+// How one corrupt record is judged: a forged but well-formed record held for the user, or in full.
+type Judged = "held" | "full";
 
-// RETURN_TYPE: the judgement names its three cases.
+// RETURN_TYPE: the judgement names its two cases.
 const judgedAs = (machines: Machines, mutant: Mutant): Judged => {
-  if (UNTELLABLE.test(mutant.path)) return "untellable";
+  if (UNTELLABLE.test(mutant.path)) return "held";
 
   const literal = Option.exists(
     Option.flatMap(mutant.provider, (id) => Option.fromUndefinedOr(machines.get(id))),
     (c) => c.fields.every((f) => f.source._tag !== "Input"),
   );
 
-  return REBOUND.test(mutant.path) && literal ? "rebound" : "full";
+  return (REBOUND.test(mutant.path) || REKEYED.test(mutant.path)) && literal ? "held" : "full";
 };
 
 // Why one finished run of a corrupt record breaks Restore R5: a run rule's breach, or, when the
-// record was not quarantined and reported, a world the boot left ill-formed.
+// record was not quarantined and reported, a world the boot left ill-formed. A held record is
+// judged only for a boot that never fails.
 const judge = (machines: Machines, key: string, judged: Judged, done: StoryRun, lanes: number) => {
-  if (judged === "untellable")
+  if (judged === "held")
     return unless(
       done.end.inspection.lifecycle === "Open",
       `the Runtime is ${done.end.inspection.lifecycle}`,
@@ -517,30 +521,47 @@ const judgeSaved = (machines: Machines, saved: Saved, done: StoryRun) => [
 // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is printed.
 const failed = (judged: Judged, fault: unknown) =>
   unless(
-    judged === "rebound" && String(fault).includes("ConflictingActorRef"),
+    judged === "held" && String(fault).includes("ConflictingActorRef"),
     `the run failed: ${String(fault)}`,
   );
+
+// Which corrupt records a run judges: every one, the held ones only as Restore R5's limit, or the
+// held ones alone, in full.
+type Scope = "spec" | "held";
 
 /**
  * One corrupt record booted in its Story's own saved world: the Story runs to the cut, the corrupt
  * text replaces the record, the tab reloads and every identity the boot left asleep is ensured.
  * Gives why each result breaks Restore R5. The record as saved runs first and must break nothing,
- * so a failure is the corrupt field's, not the way it was booted.
+ * so a failure is the corrupt field's, not the way it was booted. A record that must be
+ * quarantined also has its own identity ensured, since an actor record's quarantine is reported
+ * at the ensure that starts it fresh.
  */
-const bootCorrupt = async (saved: Saved, mutants: ReadonlyArray<Mutant>) => {
+const bootCorrupt = async (saved: Saved, mutants: ReadonlyArray<Mutant>, scope: Scope) => {
   const machines = compiledOf(saved.fixture);
 
-  const ensures = asleepIn(machines, saved.stored).map((actor) =>
-    Step.ensure({ actor, context: new Map() }),
+  const ensuresOf = (actors: ReadonlyArray<{ readonly machine: string; readonly name: string }>) =>
+    actors.map((actor) => Step.ensure({ actor, context: new Map() }));
+
+  const asleep = asleepIn(machines, saved.stored);
+
+  const own = Option.toArray(
+    Option.map(
+      Option.filter(
+        partsOf(machines, saved.key),
+        (p) => !asleep.some((a) => a.machine === p.machine && a.name === p.name),
+      ),
+      (p) => ({ machine: p.machine, name: p.name }),
+    ),
   );
 
-  const run = (key: string, json: Schema.Json) =>
+  const run = (key: string, json: Schema.Json, strict = false) =>
     saved.story.run({
       steps: [
         ...saved.steps,
         Step.world({ words: [Fake.storage.put(key, canonicalText(json))] }),
         Step.reload({ reattach: false, heldWrites: "abort" }),
-        ...ensures,
+        ...ensuresOf(strict ? [...asleep, ...own] : asleep),
       ],
     });
 
@@ -556,11 +577,11 @@ const bootCorrupt = async (saved: Saved, mutants: ReadonlyArray<Mutant>) => {
   for (const why of asSaved.why) found.push(`${where} as saved: ${why}`);
 
   const boot = (mutant: Mutant) => {
-    const judged = judgedAs(machines, mutant);
+    const judged = scope === "held" ? "full" : judgedAs(machines, mutant);
     const key = Option.getOrElse(mutant.key, () => saved.key);
     const strict = FIELD_ADDED.test(mutant.path) && !USER_VALUE.test(mutant.path);
 
-    return run(key, mutant.json).then(
+    return run(key, mutant.json, strict).then(
       (done) =>
         strict
           ? unless(quarantinedIn(done, key), "a field its kind lacks was read")
@@ -570,7 +591,11 @@ const bootCorrupt = async (saved: Saved, mutants: ReadonlyArray<Mutant>) => {
     );
   };
 
-  for (const mutant of [...mutants, ...keyMutantsOf(machines, saved)])
+  const chosen = [...mutants, ...keyMutantsOf(machines, saved)].filter(
+    (m) => scope === "spec" || judgedAs(machines, m) === "held",
+  );
+
+  for (const mutant of chosen)
     for (const why of await boot(mutant))
       found.push(`${where} ${mutant.path}: ${why.slice(0, 200)}`);
 
@@ -615,7 +640,10 @@ const keyMutantsOf = (machines: Machines, saved: Saved) =>
         path: `key ${segment} = ${key}`,
         json,
         key: Option.some(key),
-        provider: Option.none<string>(),
+        provider:
+          segment === "name" && !key.includes("/~1")
+            ? Option.some(p.machine)
+            : Option.none<string>(),
       }));
     },
   });
@@ -624,14 +652,24 @@ const keyMutantsOf = (machines: Machines, saved: Saved) =>
 const stores = storesOf();
 
 describe("corrupt saved records (Restore R5, I10; Codec R5)", () => {
-  // Open: a record's fields that name a state, a schedule, an Attempt or a provider, its retry
-  // count and its queued inputs are decoded as text or not at all and trusted, so a corrupt one
-  // restores an ill-formed world, breaks a run rule or stops the app's ensure.
-  it.fails("Restore R5: a saved record with any one field corrupted is quarantined and reported, or restores a well-formed world; the boot never fails", async () => {
+  it("Restore R5: a saved record with any one field corrupted is quarantined and reported, or restores a well-formed world; the boot never fails", async () => {
     const failures: Array<string> = [];
 
     for (const saved of savedRecords(await stores))
-      failures.push(...(await bootCorrupt(saved, mutantsOf(parse(saved.text)))));
+      failures.push(...(await bootCorrupt(saved, mutantsOf(parse(saved.text)), "spec")));
+
+    expect(failures).toEqual([]);
+  }, 120_000);
+
+  // Held for the user: no decode tells a queued commit or a displaced Attempt added or removed, a
+  // binding renamed to another name its provider gives, or a record moved under another name of a
+  // literal-named machine from a record a release wrote; until the user rules on the threat model,
+  // each is judged only for a boot that never fails.
+  it.fails("Restore R5: a forged but well-formed saved record is quarantined and reported, or restores a well-formed world", async () => {
+    const failures: Array<string> = [];
+
+    for (const saved of savedRecords(await stores))
+      failures.push(...(await bootCorrupt(saved, mutantsOf(parse(saved.text)), "held")));
 
     expect(failures).toEqual([]);
   }, 120_000);
@@ -682,9 +720,7 @@ const repeatedIn = (machines: Machines, key: string, text: string) =>
   });
 
 describe("each fact stored once (Codec R5; WriteAhead R4, R5)", () => {
-  // Open: every record also holds the identity its key names, a lane its operation, and an owed
-  // row its lane's operation.
-  it.fails("Codec R5: no saved record holds what its key determines, an owed row names its lane only by its key, and a lane with no head stores no queue or inFlight", async () => {
+  it("Codec R5: no saved record holds what its key determines, an owed row names its lane only by its key, and a lane with no head stores no queue or inFlight", async () => {
     const repeated = new Set<string>();
 
     for (const store of await stores) {
@@ -728,9 +764,7 @@ const sourceFiles = (dir: string): ReadonlyArray<string> =>
   );
 
 describe("identity parsed in one place (Codec R5; Restore R5)", () => {
-  // Open: identity and key text are cut and prefixed by hand in several modules beside the
-  // identity module.
-  it.fails("Codec R5: identity, record key and lane key text are parsed only by the identity module", () => {
+  it("Codec R5: identity, record key and lane key text are parsed only by the identity module", () => {
     const sites = sourceFiles("src")
       .filter((file) => file !== "src/core/identity.ts")
       .flatMap((file) =>
@@ -762,9 +796,7 @@ const laneKeyOff = (machines: Machines, key: string) =>
   });
 
 describe("a lane named by its contract (Restore R8; WriteLanes R6)", () => {
-  // Open: a lane's key and record name its operation, so a renamed operation whose contract the
-  // machine still writes cannot be rewritten to it (OpRenamed) and is quarantined.
-  it.fails("Restore R8: every saved lane's key names its identity, the contract its machine writes and its key text, and no operation name", async () => {
+  it("Restore R8: every saved lane's key names its identity, the contract its machine writes and its key text, and no operation name", async () => {
     const off = new Set<string>();
 
     for (const store of await stores) {

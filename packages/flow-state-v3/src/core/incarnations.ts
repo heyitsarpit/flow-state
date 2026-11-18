@@ -1,6 +1,6 @@
 import { Duration, Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
-import { inputOfName } from "./identity.ts";
+import { inputOfName, startOrder } from "./identity.ts";
 import type { Start } from "./input.ts";
 import { makeContext } from "./context.ts";
 import { type Arming, armingsOf } from "./turn.ts";
@@ -20,7 +20,6 @@ import {
   IssueSource,
   Mail,
   Timer,
-  startOrder,
   type Use,
   type Wiring,
 } from "./world.ts";
@@ -406,10 +405,22 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     // A lane or owed record the boot could not read is reported at each boot while it stays.
     for (const q of restored.quarantined)
-      if (!q.key.startsWith("actor/"))
+      if (!Option.contains(q.kind, "actor"))
         tx.act(
           Act.Reported({ code: "RecordUndecodable", record: Option.some(q.key), reason: q.reason }),
         );
+
+    // An actor record of a machine no entry declares is discarded, with a diagnostic.
+    for (const key of restored.discarded) {
+      tx.act(
+        Act.Reported({
+          code: "RecordUndecodable",
+          record: Option.some(key),
+          reason: "discarded: no entry declares its machine",
+        }),
+      );
+      persistence.discard(key);
+    }
 
     // A lane's saved queue and displaced heads end at the boot, in lane-id order after the saved
     // rows; the lane's record is rewritten without them in the same batch as the rows.

@@ -50,16 +50,14 @@ const delivered = (run: StoryRun, open: number) =>
   inOpen(run, open).flatMap((e) => (e._tag === "Delivered" ? [`${e.operation} ${e.event}`] : []));
 
 describe("an actor record's context bindings (Restore R1, R5; WriteAhead I3; Actors R18)", () => {
-  // Open: a record's bindings are read as text, so an owing identity woken at the boot binds
-  // whatever its record names.
   for (const [rule, story] of [
     ["a local shopper", boundToLocal],
     ["a cart under a name no cart has, in a slot a shopper provides", boundToOtherMachine],
     ["a machine no entry declares", boundToGone],
-    ["a graph binding its provider's slot to a local actor", () => boundGraphToLocal],
+    ["a graph binding its provider's slot to a local actor", boundGraphToLocal],
   ] as const)
-    it.fails(`Restore R5: an owing cart whose record binds ${rule} is quarantined and reported; it starts fresh at its ensure and the boot goes on`, async () => {
-      const run = await story().run();
+    it(`Restore R5: an owing cart whose record binds ${rule} is quarantined and reported; it starts fresh at its ensure and the boot goes on`, async () => {
+      const run = await story.run();
       const { booted, restored } = run.checkpoints;
 
       expect(booted.inspection.lifecycle).toBe("Open");
@@ -75,9 +73,7 @@ describe("an actor record's context bindings (Restore R1, R5; WriteAhead I3; Act
 });
 
 describe("a lane record of a read operation (Restore R5; WriteLanes R6; Reads R6)", () => {
-  // Open: a lane record's operation is checked as declared, not as a write, so a read's lane
-  // restores Held and is never ended or reported.
-  it.fails("Restore R5: a lane record naming a read operation is quarantined and reported, and no lane of the read is held", async () => {
+  it("Restore R5: a lane record naming a read operation is quarantined and reported, and no lane of the read is held", async () => {
     const run = await readOperationLane.run();
     const { restored } = run.checkpoints;
 
@@ -88,10 +84,8 @@ describe("a lane record of a read operation (Restore R5; WriteLanes R6; Reads R6
 });
 
 describe("a lane record with no head (Restore R5; WriteAhead R5; WriteLanes I8)", () => {
-  // Open: a headless lane record's queue and inFlight are read, so a queue no release wrote ends a
-  // commit never made and wakes its identity.
-  it.fails("Restore R5: a lane record with no head is never read for a queue or for being in flight: no commit ends and the boot wakes no one for it", async () => {
-    const run = await headlessLaneQueued().run();
+  it("Restore R5: a lane record with no head is never read for a queue or for being in flight: no commit ends and the boot wakes no one for it", async () => {
+    const run = await headlessLaneQueued.run();
     const { booted } = run.checkpoints;
 
     expect(delivered(run, 2)).toEqual([]);
@@ -102,9 +96,8 @@ describe("a lane record with no head (Restore R5; WriteAhead R5; WriteLanes I8)"
 });
 
 describe("a forged binding in a provider chain, reloaded at the deepest node (Restore R5; WriteAhead I3)", () => {
-  // Open: the session woken at the boot binds the local org its record names.
-  it.fails("Restore R5: a session in the middle of a chain whose record binds a local org is quarantined and reported; it hears its owed ending and the chain runs from the deepest node", async () => {
-    const run = await chainBoundToLocal().run();
+  it("Restore R5: a session in the middle of a chain whose record binds a local org is quarantined and reported; it hears its owed ending and the chain runs from the deepest node", async () => {
+    const run = await chainBoundToLocal.run();
     const { booted, restored } = run.checkpoints;
 
     expect(booted.inspection.lifecycle).toBe("Open");
@@ -119,9 +112,7 @@ describe("a forged binding in a provider chain, reloaded at the deepest node (Re
 });
 
 describe("a Held lane record whose Attempt was nulled (Restore R5; WriteAhead R5)", () => {
-  // Open: a lane record with no Attempt is read as a lane with no head, so the Held head and its
-  // ending are lost with no report.
-  it.fails("Restore R5: a lane record with no Attempt that still holds an input is quarantined and reported, and its lane still holds", async () => {
+  it("Restore R5: a lane record with no Attempt that still holds an input is quarantined and reported, and its lane still holds", async () => {
     const run = await heldAttemptNulled.run();
 
     expect(undecodable(run, 2)).toContain(heldNulled.key);
@@ -131,8 +122,7 @@ describe("a Held lane record whose Attempt was nulled (Restore R5; WriteAhead R5
 });
 
 describe("an actor record of a machine no entry declares (Restore R8)", () => {
-  // Open: such a record is quarantined silently and kept, not discarded with a diagnostic.
-  it.fails("Restore R8: an actor record of a machine no entry declares is discarded with a diagnostic, and its lanes are quarantined and reported", async () => {
+  it("Restore R8: an actor record of a machine no entry declares is discarded with a diagnostic, and its lanes are quarantined and reported", async () => {
     const run = await borrowedRecordsReload.run();
 
     expect(reported(run, 2)).toContain(gone.actor);
@@ -142,8 +132,7 @@ describe("an actor record of a machine no entry declares (Restore R8)", () => {
 });
 
 describe("records naming a state, a schedule or an Attempt (Restore R5, R7; Codec R5)", () => {
-  // Open: a record's state, schedule names and Attempts are decoded as text and trusted.
-  it.fails("Restore R5, R7: an actor record with no shape stamp in a state its machine lacks is quarantined and reported, never reset, and the actor starts fresh", async () => {
+  it("Restore R5, R7: an actor record with no shape stamp in a state its machine lacks is quarantined and reported, never reset, and the actor starts fresh", async () => {
     const run = await stateUndeclared.run();
 
     expect(undecodable(run, 2)).toContain(forgedAccount.state.key);
@@ -151,7 +140,7 @@ describe("records naming a state, a schedule or an Attempt (Restore R5, R7; Code
     checked(run);
   });
 
-  it.fails("Restore R5: a quarantined lane record is reported at each boot while it stays, and reloads never fail", async () => {
+  it("Restore R5: a quarantined lane record is reported at each boot while it stays, and reloads never fail", async () => {
     const run = await attemptReloaded.run();
 
     for (const open of [2, 3, 4])
@@ -160,7 +149,7 @@ describe("records naming a state, a schedule or an Attempt (Restore R5, R7; Code
     checked(run);
   });
 
-  it.fails("Restore R5: an actor record arming a schedule its machine never declared is quarantined and reported, and no such timer arms", async () => {
+  it("Restore R5: an actor record arming a schedule its machine never declared is quarantined and reported, and no such timer arms", async () => {
     const run = await scheduleUndeclared.run();
 
     expect(undecodable(run, 2)).toContain(forgedAccount.schedule.key);
@@ -170,7 +159,7 @@ describe("records naming a state, a schedule or an Attempt (Restore R5, R7; Code
     checked(run);
   });
 
-  it.fails("Restore R5: a lane record whose Attempt is not one the Runtime mints is quarantined and reported, and no ending is heard for it", async () => {
+  it("Restore R5: a lane record whose Attempt is not one the Runtime mints is quarantined and reported, and no ending is heard for it", async () => {
     const run = await attemptForged.run();
 
     expect(undecodable(run, 2)).toContain(forgedAccount.attempt.key);
@@ -179,7 +168,7 @@ describe("records naming a state, a schedule or an Attempt (Restore R5, R7; Code
     checked(run);
   });
 
-  it.fails("Restore R5: an owed row naming a lane by key text its operation's key never gives is quarantined and reported, and nothing is heard from it", async () => {
+  it("Restore R5: an owed row naming a lane by key text its operation's key never gives is quarantined and reported, and nothing is heard from it", async () => {
     const run = await owedOtherLane.run();
 
     expect(undecodable(run, 2)).toContain(owedOtherLaneText.key);

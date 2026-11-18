@@ -42,6 +42,7 @@ import {
   signedOutUndefined,
   teamForgotten,
 } from "./stories/structure.ts";
+import { chainBoundToLocal } from "./stories/findings.ts";
 
 /**
  * The session fixture, as every runner reads it.
@@ -78,6 +79,7 @@ export const session = manifest({
     importPastStack,
     digestRefused,
     unreadRecovers,
+    chainBoundToLocal,
     archiveLarge,
     guestDotReturns,
     corruptSeen,

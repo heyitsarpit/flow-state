@@ -119,15 +119,15 @@ export const removedLineAnswer = checkingOut("shop/removed-line-answer")
  * with a field no cart's name has.
  */
 export const unreadableNames = {
-  lane: 'lane/Shop/Cart/{"owner":7}|add|{"cartId":"main"}',
+  lane: 'lane/Shop/Cart/{"owner":7}|Shop/add-line|{"cartId":"main"}',
   laneText:
-    '{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":3,"inFlight":true,"input":{"cartId":"main","lineId":"l1","variantId":"v1"},"machine":"Shop/Cart","name":"{\\"owner\\":7}","operation":"add","queue":[],"retryCount":0}',
+    '{"attempt":"att-000000000000000000006d61696e3a31-1","digest":"840bff58","displaced":[],"format":4,"inFlight":true,"input":{"cartId":"main","lineId":"l1","variantId":"v1"},"queue":[],"retryCount":0}',
   actor: 'actor/Shop/Cart/{"owner":7}',
   actorText:
-    '{"context":{},"format":3,"graph":{},"machine":"Shop/Cart","memories":[],"memory":{"adding":"l1","errors":{},"lines":{},"notice":"","owner":"7","wanted":{}},"name":"{\\"owner\\":7}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}',
+    '{"context":{},"format":4,"graph":{},"memories":[],"memory":{"adding":"l1","errors":{},"lines":{},"notice":"","owner":"7","wanted":{}},"reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}',
   owed: 'owed/Shop/Cart/{"owner":"main","x":1}',
   owedText:
-    '{"format":3,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\",\\"x\\":1}","rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}',
+    '{"format":4,"rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","channel":"unknown","kept":false,"operation":"add","reason":"Restored","value":null}]}',
 } as const;
 
 /**
@@ -153,7 +153,7 @@ const jsonText = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 // another release could leave it.
 const owedCartRecord = (name: string) => ({
   key: `owed/Shop/Cart/${name}`,
-  text: `{"format":3,"machine":"Shop/Cart","name":${jsonText(name)},"rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}`,
+  text: '{"format":4,"rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","channel":"unknown","kept":false,"operation":"add","reason":"Restored","value":null}]}',
 });
 
 /**
@@ -165,7 +165,7 @@ export const oddNames = {
   owed: ["~5", "", '{"owner":"\\x"}', '{ "owner": "main" }'].map(owedCartRecord),
   actor: "actor/Shop/Cart/~5",
   actorText:
-    '{"context":{},"format":3,"graph":{},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{},"notice":"","owner":"5","wanted":{}},"name":"~5","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}',
+    '{"context":{},"format":4,"graph":{},"memories":[],"memory":{"adding":"","errors":{},"lines":{},"notice":"","owner":"5","wanted":{}},"reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}',
 } as const;
 
 /**
@@ -186,11 +186,14 @@ export const oddRecordNames = storeStory("shop/odd-record-names")
 
 // The main cart's record as it saves it, holding one line `lineId`.
 const mainCartText = (lineId: string) =>
-  `{"context":{"shopper":{"machine":"Shop/Shopper","name":"main"}},"format":3,"graph":{"Shop/Shopper/main":{}},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{"${lineId}":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"name":"{\\"owner\\":\\"main\\"}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}`;
+  `{"context":{"shopper":{"machine":"Shop/Shopper","name":"main"}},"format":4,"graph":{"Shop/Shopper/main":{}},"memories":[],"memory":{"adding":"","errors":{},"lines":{"${lineId}":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}`;
 
-// An owed record of `machine`'s `name`, holding one unknown ending of `operation` on `lane` (JSON).
-const owedOf = (machine: string, name: string, operation: string, lane: string) =>
-  `{"format":3,"machine":${jsonText(machine)},"name":${jsonText(name)},"rows":[{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"unknown","kept":false,"lane":${lane},"operation":${jsonText(operation)},"reason":"Restored","value":null}]}`;
+// An owed record holding one unknown ending: on the lane `lane` names after its identity, or of
+// `operation` with no lane.
+const owedOf = (row: { readonly lane: string } | { readonly operation: string }) =>
+  `{"format":4,"rows":[{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"unknown","kept":false,${
+    "lane" in row ? `"lane":${jsonText(row.lane)}` : `"operation":${jsonText(row.operation)}`
+  },"reason":"Restored","value":null}]}`;
 
 // The main cart's lane keys start here.
 const mainLane = 'lane/Shop/Cart/{"owner":"main"}';
@@ -198,58 +201,53 @@ const mainLane = 'lane/Shop/Cart/{"owner":"main"}';
 // A Held head's input for the main cart.
 const heldInput = '{"cartId":"main","lineId":"l1","variantId":"v1"}';
 
-// A lane record of the main cart for `operation`: Held with `input` (JSON), or with no head
-// (`null`) and an Attempt a cancel displaced.
-const laneOf = (operation: string, input: string) =>
-  input === "null"
-    ? `{"attempt":null,"displaced":["att-000000000000000000006d61696e3a39-9"],"format":3,"inFlight":false,"input":null,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","operation":${jsonText(operation)},"queue":[],"retryCount":0}`
-    : `{"attempt":"att-000000000000000000006d61696e3a39-9","displaced":[],"format":3,"inFlight":false,"input":${input},"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","operation":${jsonText(operation)},"queue":[],"retryCount":0}`;
+// A lane record of the main cart's add: Held with the held input, or with no head and an Attempt
+// a cancel displaced.
+const laneOf = (head: "held" | "headless") =>
+  head === "headless"
+    ? '{"displaced":["att-000000000000000000006d61696e3a39-9"],"format":4}'
+    : `{"attempt":"att-000000000000000000006d61696e3a39-9","digest":"840bff58","displaced":[],"format":4,"inFlight":false,"input":${heldInput},"queue":[],"retryCount":0}`;
 
-// An owed record naming the main cart, holding an unknown ending for an Attempt it never made.
-const mainOwedText = `{"format":3,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","rows":[{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}`;
+// An owed record holding an unknown ending of an add for an Attempt the main cart never made.
+const mainOwedText = owedOf({ operation: "add" });
 
 /**
  * Records whose key and content disagree, as a damaged disk or a bad copy could leave them: the
- * main cart's record with another line under a local key and under the guest's key, an owed
- * record naming the main cart under a local key and under a key that does not round-trip, and
- * records of one kind under another kind's prefix.
+ * main cart's record with another line under a local key and under the guest's key (read as the
+ * guest's: the key alone names the identity), an owed record under a local key and under a key that
+ * does not round-trip, records of one kind under another kind's prefix, rows and lanes of
+ * operations or contracts the cart never writes or by key text their key never gives, and records
+ * of a machine no entry declares.
  */
 export const borrowedRecords = {
   owed: [
     { key: "owed/Shop/Cart/~7", text: mainOwedText },
     { key: 'owed/Shop/Cart/{"owner":"main"} ', text: mainOwedText },
     { key: 'owed/Shop/Cart/{"owner":"wrong-kind"}', text: mainCartText("l7") },
-    { key: "owed/Gone/x", text: owedOf("Gone", "x", "add", "null") },
-    { key: "owed//x", text: owedOf("", "x", "add", "null") },
-    {
-      key: 'owed/Shop/Cart/{"owner":"gone-op"}',
-      text: owedOf("Shop/Cart", '{"owner":"gone-op"}', "gone", "null"),
-    },
+    { key: "owed/Gone/x", text: mainOwedText },
+    { key: "owed//x", text: mainOwedText },
+    { key: 'owed/Shop/Cart/{"owner":"gone-op"}', text: owedOf({ operation: "gone" }) },
     {
       key: 'owed/Shop/Cart/{"owner":"other-lane"}',
-      text: owedOf(
-        "Shop/Cart",
-        '{"owner":"other-lane"}',
-        "add",
-        jsonText('Shop/Cart/{"owner":"main"}|add|{"cartId":"main"}'),
-      ),
+      text: owedOf({ lane: 'add|{"cartId":"main"}' }),
     },
   ],
   lanes: [
-    { key: `${mainLane}|add|GARBAGE`, text: laneOf("add", "null") },
-    { key: `${mainLane}|add|`, text: laneOf("add", "null") },
-    { key: `${mainLane}|add|{ "cartId": "main" }`, text: laneOf("add", "null") },
-    { key: `${mainLane}|set|{"cartId":"main"}`, text: laneOf("add", "null") },
-    { key: `${mainLane}|add|{"cartId":"other"}`, text: laneOf("add", heldInput) },
-    { key: `${mainLane}|gone|{"cartId":"main"}`, text: laneOf("gone", "null") },
-    { key: "lane/Gone/x|add|{}", text: laneOf("add", "null").replace('"Shop/Cart"', '"Gone"') },
+    { key: `${mainLane}|Shop/add-line|GARBAGE`, text: laneOf("headless") },
+    { key: `${mainLane}|Shop/add-line|`, text: laneOf("headless") },
+    { key: `${mainLane}|Shop/add-line|{ "cartId": "main" }`, text: laneOf("headless") },
+    { key: `${mainLane}|Shop/set-quantity|{"cartId":"main"}`, text: laneOf("headless") },
+    { key: `${mainLane}|Shop/add-line|{"cartId":"other"}`, text: laneOf("held") },
+    { key: `${mainLane}|gone|{"cartId":"main"}`, text: laneOf("headless") },
+    { key: `${mainLane}|add|{"cartId":"main"}`, text: laneOf("headless") },
+    { key: "lane/Gone/x|add|{}", text: laneOf("headless") },
   ],
   actors: [
     { key: "actor/Shop/Cart/~5", text: mainCartText("l9") },
     { key: 'actor/Shop/Cart/{"owner":"guest"}', text: mainCartText("l8") },
     { key: 'actor/Shop/Cart/{"owner":"wrong-kind"}', text: mainOwedText },
-    { key: "actor/Gone/x", text: mainCartText("l6").replace('"Shop/Cart"', '"Gone"') },
   ],
+  gone: { key: "actor/Gone/x", text: mainCartText("l6") },
   other: [{ key: "junk/x", text: mainOwedText }],
 } as const;
 
@@ -265,6 +263,7 @@ export const borrowedRecordsReload = storeStory("shop/borrowed-records")
       ...borrowedRecords.owed,
       ...borrowedRecords.lanes,
       ...borrowedRecords.actors,
+      borrowedRecords.gone,
       ...borrowedRecords.other,
     ].map(({ key, text }) => Fake.storage.put(key, text)),
   )
@@ -275,12 +274,13 @@ export const borrowedRecordsReload = storeStory("shop/borrowed-records")
 
 // An owed record of the main cart holding one unknown ending with no Attempt, which wakes the cart
 // at the boot with the context its record was saved with.
-const mainOwedNoAttempt = `{"format":3,"machine":"Shop/Cart","name":"{\\"owner\\":\\"main\\"}","rows":[{"attempt":null,"channel":"unknown","kept":false,"lane":null,"operation":"add","reason":"Restored","value":null}]}`;
+const mainOwedNoAttempt =
+  '{"format":4,"rows":[{"attempt":null,"channel":"unknown","kept":false,"operation":"add","reason":"Restored","value":null}]}';
 
 // The main cart's record holding one line `l9`, with its shopper slot bound to `provider` (JSON)
 // and its graph as `graph` (JSON).
 const boundCartText = (provider: string, graph: string) =>
-  `{"context":{"shopper":${provider}},"format":3,"graph":${graph},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{"l9":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"name":"{\\"owner\\":\\"main\\"}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}`;
+  `{"context":{"shopper":${provider}},"format":4,"graph":${graph},"memories":[],"memory":{"adding":"","errors":{},"lines":{"l9":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}`;
 
 /**
  * The main cart's record with its shopper slot bound to an identity no ref gives it, as a damaged
@@ -315,26 +315,25 @@ const boundReload = (id: string, text: string) =>
     .ensure(mainCart)
     .checkpoint("restored");
 
-// The three below break a run rule or the boot until records decode their bindings, so each is a
-// builder its test runs; the manifest registers each once it passes.
-
 /**
  * The main cart's record bound to a local shopper: the record is set aside and reported, no local
  * shopper starts, and the cart starts fresh and hears its owed ending.
  */
-export const boundToLocal = () => boundReload("shop/bound-to-local", forgedBindings.local);
+export const boundToLocal = boundReload("shop/bound-to-local", forgedBindings.local);
 
 /**
  * The main cart's shopper slot bound to a cart under a name no cart has: set aside and reported,
  * and the boot goes on.
  */
-export const boundToOtherMachine = () =>
-  boundReload("shop/bound-to-other-machine", forgedBindings.otherMachine);
+export const boundToOtherMachine = boundReload(
+  "shop/bound-to-other-machine",
+  forgedBindings.otherMachine,
+);
 
 /**
  * The main cart's shopper slot bound to a machine no entry declares: set aside and reported.
  */
-export const boundToGone = () => boundReload("shop/bound-to-gone", forgedBindings.gone);
+export const boundToGone = boundReload("shop/bound-to-gone", forgedBindings.gone);
 
 /**
  * The main cart's graph binding its shopper's own slot to a local actor: set aside and reported.
@@ -347,12 +346,10 @@ export const boundGraphToLocal = boundReload("shop/bound-graph-to-local", forged
  */
 export const owedOtherLaneText = {
   key: 'owed/Shop/Cart/{"owner":"main"}',
-  text: owedOf(
-    "Shop/Cart",
-    '{"owner":"main"}',
-    "add",
-    jsonText('Shop/Cart/{"owner":"main"}|add|GARBAGE'),
-  ).replace('"attempt":"att-000000000000000000006d61696e3a39-9"', '"attempt":null'),
+  text: owedOf({ lane: "Shop/add-line|GARBAGE" }).replace(
+    '"attempt":"att-000000000000000000006d61696e3a39-9"',
+    '"attempt":null',
+  ),
 } as const;
 
 /**

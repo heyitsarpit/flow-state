@@ -2,11 +2,10 @@ import { Option, Predicate, Result, Schema } from "effect";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import type { Rule } from "./rules.ts";
 
-// Formats 1 and 2 are read through their steps, so a store may still hold them until the record is
-// written again.
-const Actor = { format: Schema.Literals([1, 2, 3]), machine: Schema.String, name: Schema.String };
+// Each kind's fields as WriteAhead R4 and R5 list them, in the current format, and the timer
+// shapes R4 gives. The identity, a lane's contract and its key text are the record's key.
+const FORMAT = { format: Schema.Literal(4) };
 
-// Each kind's fields as WriteAhead R4 and R5 list them, and the timer shapes R4 gives.
 const Timer = Schema.Union([
   Schema.Struct({
     name: Schema.String,
@@ -20,32 +19,41 @@ const Timer = Schema.Union([
   }),
 ]);
 
+const Row = {
+  attempt: Schema.NullOr(Schema.String),
+  channel: Schema.Literals(["success", "failure", "notSent", "unknown"]),
+  reason: Schema.String,
+  value: Schema.Json,
+  kept: Schema.Boolean,
+};
+
 const KINDS = {
   "actor/": Schema.Struct({
-    ...Actor,
+    ...FORMAT,
     state: Schema.String,
     memory: Schema.Json,
     schedules: Schema.Array(Timer),
   }),
-  "lane/": Schema.Struct({
-    ...Actor,
-    operation: Schema.String,
-    attempt: Schema.NullOr(Schema.String),
-    retryCount: Schema.Number,
-    inFlight: Schema.Boolean,
-  }),
+  "lane/": Schema.Union([
+    Schema.Struct({
+      ...FORMAT,
+      attempt: Schema.String,
+      input: Schema.Json,
+      digest: Schema.String,
+      retryCount: Schema.Number,
+      inFlight: Schema.Boolean,
+      queue: Schema.Array(Schema.Json),
+      displaced: Schema.Array(Schema.String),
+    }),
+    Schema.Struct({ ...FORMAT, displaced: Schema.NonEmptyArray(Schema.String) }),
+  ]),
   "owed/": Schema.Struct({
-    ...Actor,
-    rows: Schema.Array(
-      Schema.Struct({
-        operation: Schema.String,
-        attempt: Schema.NullOr(Schema.String),
-        lane: Schema.NullOr(Schema.String),
-        channel: Schema.Literals(["success", "failure", "notSent", "unknown"]),
-        reason: Schema.String,
-        value: Schema.Json,
-        kept: Schema.Boolean,
-      }),
+    ...FORMAT,
+    rows: Schema.NonEmptyArray(
+      Schema.Union([
+        Schema.Struct({ lane: Schema.String, ...Row }),
+        Schema.Struct({ operation: Schema.String, ...Row }),
+      ]),
     ),
   }),
 } as const;

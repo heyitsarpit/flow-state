@@ -39,8 +39,8 @@ export const unconfirmedPrefill = choosing("sign-in/unconfirmed-prefill")
  * bad copy could leave it: a read keeps no lane, so no release writes one.
  */
 export const readLane = {
-  key: 'lane/Auth/Session/{"email":"elif@kamp.us"}|me|{"email":"elif@kamp.us"}',
-  text: '{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":3,"inFlight":false,"input":{"email":"elif@kamp.us"},"machine":"Auth/Session","name":"{\\"email\\":\\"elif@kamp.us\\"}","operation":"me","queue":[],"retryCount":0}',
+  key: 'lane/Auth/Session/{"email":"elif@kamp.us"}|Auth/me|{"email":"elif@kamp.us"}',
+  text: '{"attempt":"att-000000000000000000006d61696e3a31-1","digest":"8642c4c0","displaced":[],"format":4,"inFlight":false,"input":{"email":"elif@kamp.us"},"queue":[],"retryCount":0}',
 } as const;
 
 /**

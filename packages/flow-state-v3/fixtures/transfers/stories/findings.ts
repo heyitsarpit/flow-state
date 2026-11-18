@@ -7,7 +7,7 @@ const accountRecord = "actor/Bank/Transfers/acct-1";
 
 // The account's record in state `state` with `schedules` (JSON).
 const accountText = (state: string, schedules: string) =>
-  `{"context":{},"format":3,"graph":{},"machine":"Bank/Transfers","memories":[],"memory":{"notice":""},"name":"acct-1","reactions":[],"schedules":${schedules},"seen":{},"state":"${state}"}`;
+  `{"context":{},"format":4,"graph":{},"memories":[],"memory":{"notice":""},"reactions":[],"schedules":${schedules},"seen":{},"state":"${state}"}`;
 
 /**
  * Records of the account as a damaged disk or a bad copy could leave them: its record in a state
@@ -21,8 +21,8 @@ export const forgedAccount = {
     text: accountText("READY", '[{"dueAt":20000,"name":"gone","send":"Nudge"}]'),
   },
   attempt: {
-    key: 'lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}',
-    text: '{"attempt":"x","displaced":[],"format":3,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}',
+    key: 'lane/Bank/Transfers/acct-1|Bank/transfer|{"transferId":"t1"}',
+    text: '{"attempt":"x","digest":"67fe5a62","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}',
   },
 } as const;
 
@@ -79,8 +79,8 @@ export const attemptReloaded = bankStory("transfers/attempt-reloaded")
  * set aside and reported rather than read as headless and its head lost with no ending.
  */
 export const heldNulled = {
-  key: 'lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}',
-  text: '{"attempt":null,"displaced":[],"format":3,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}',
+  key: 'lane/Bank/Transfers/acct-1|Bank/transfer|{"transferId":"t1"}',
+  text: '{"attempt":null,"digest":"67fe5a62","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}',
 } as const;
 
 /**

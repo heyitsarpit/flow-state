@@ -33,7 +33,7 @@ const accountedBy = (e: Evidence) => {
 export const acknowledgedHeardAgain: Rule = {
   rule: "WriteAhead I17",
   breaches: (run: StoryRun) => {
-    const { owner, ended, started, operation, unread } = opensOf(run);
+    const { owner, ended, started, unread } = opensOf(run);
 
     return run.end.records.batches.flatMap((b) =>
       b.status !== "landed"
@@ -44,10 +44,11 @@ export const acknowledgedHeardAgain: Rule = {
             const heard = [...(ended.get(attempt) ?? [])];
             const later = [...(started.get(actor) ?? [])].filter((o) => o > open);
 
+            // A lane key names its contract, not its operation, so any lane record of the identity
+            // a later boot could not read may be this Attempt's.
             const quarantined = [...unread].some(
               ([key, opens]) =>
-                key.startsWith(`lane/${actor}|${operation.get(attempt) ?? ""}|`) &&
-                [...opens].some((o) => o > open),
+                key.startsWith(`lane/${actor}|`) && [...opens].some((o) => o > open),
             );
 
             return heard.length > 0 || later.length === 0 || quarantined
@@ -76,7 +77,6 @@ const leftBy = (e: Evidence) => {
 const opensOf = (run: StoryRun) => {
   const places = placesOf(run);
   const owner = new Map<string, string>();
-  const operation = new Map<string, string>();
   const ended = new Map<string, Set<number>>();
   const started = new Map<string, Set<number>>();
 
@@ -85,7 +85,6 @@ const opensOf = (run: StoryRun) => {
 
     if (e._tag === "Minted") {
       owner.set(e.attempt, nameOf(e.actor));
-      operation.set(e.attempt, e.operation);
     }
 
     if (e._tag === "Incarnated") addTo(started, nameOf(e.actor), open);
@@ -93,7 +92,7 @@ const opensOf = (run: StoryRun) => {
     for (const attempt of leftBy(e)) addTo(ended, attempt, open);
   }
 
-  return { owner, operation, ended, started, unread: unreadBy(run, places) };
+  return { owner, ended, started, unread: unreadBy(run, places) };
 };
 
 // The records each open's boot could not read, by key.

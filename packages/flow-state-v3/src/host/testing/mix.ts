@@ -1,4 +1,5 @@
 import { Option } from "effect";
+import { machineOfKey } from "../../core/identity.ts";
 import { type App, machineOf, type RuntimeConfig } from "../runtime.ts";
 import { TraceRecord } from "../trace.ts";
 import type { StoryRun, Subject } from "./run.ts";
@@ -113,13 +114,16 @@ export const sharedOf = (run: StoryRun, parts: ReadonlyArray<Samples>) => {
   const servers = new Map(parts.flatMap((p) => p.servers.map((s) => [s.server.name, p.id])));
   const byMachine = new Map(machines);
 
-  const keyOwner = (key: string) => {
-    const rest = key.slice(key.indexOf("/") + 1);
-
-    return Option.toArray(
-      Option.fromUndefinedOr(machines.find(([m]) => rest.startsWith(`${m}/`))?.[1]),
+  const keyOwner = (key: string) =>
+    Option.toArray(
+      Option.flatMap(
+        machineOfKey(
+          machines.map(([m]) => m),
+          key,
+        ),
+        (m) => Option.fromUndefinedOr(byMachine.get(m)),
+      ),
     );
-  };
 
   const ownersOf = (record: TraceRecord) =>
     TraceRecord.$match(record, {
