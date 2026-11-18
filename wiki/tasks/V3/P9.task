@@ -139,3 +139,11 @@ tasks
             - No `~owner`, `~flow` or `HandleId` remains in `src/`; Flow-made values are checked by identity only.
             - No builder reads its arguments: each called with an all-traps-throw Proxy returns a value.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+        comment     2026-11-18T19:14:16Z
+            Routed from P3's close-out, owed by the class but not named above: the ~token probes (machine.ts:121,
+            events.ts:96, config.ts:93); E.X(undefined) and E.X(new Date()) (T81, 11:21Z); operation-checks.ts:72 reads
+            an inherited key such as constructor; the testing route's raw throws in Story.app, generate, samplesOf,
+            pairSweep, forkReloads (T94 review). Error attribution is decided per module: one store refusal has five
+            names (StorageFailure, StorageSilent, StorageRefused, StoreRefused, forgetFailed), two reasonOf
+            (record-format.ts:19, boundary.ts:452), and details.reason is free text against Diagnostics O1's closed
+            reasons; design it once here.

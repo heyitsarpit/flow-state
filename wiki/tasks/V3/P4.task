@@ -301,6 +301,11 @@ tasks
             the transfers second reload, both the head heard again on each restore (Restore R3). Restore R3 says once
             and Restore I6 and WriteLanes I15 say once per incarnation; settle that first. Restore R5's new wording will
             need R6's version rule aligned.
+        comment     2026-11-18T19:14:15Z
+            Routed from P3's close-out: two items routed here by T20 (07:05Z, 2026-11-18) and T9 (02:11Z, 2026-11-17)
+            were never written down: a saved state the machine lacks is restored and runs (Restore R7); actor-record
+            frames are positional with no length check. Missed: no sample saves a state or frame shape the current
+            version lacks.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -668,6 +673,12 @@ tasks
             Routed (daily faults, 2026-11-19): throwing-slot-decode-escapes-boot [Restore R5] is missed by the whole
             suite since T94's catch-alls; land a check that a throwing slot decode at boot ends in quarantine, red on
             the plant, before T92's fix work.
+        comment     2026-11-18T19:14:15Z
+            Routed from P3's close-out (medium): identity and key text are parsed by hand at six sites (record.ts KINDS
+            and lane-id prefix, incarnations.ts:409, world.ts:471, LOCAL_PREFIX in identity.ts, tx.ts, lanes.ts,
+            refs.ts); the one Identity Schema replaces them. Also T20's unrouted review item: a read operation's lane
+            record with a head restores Held and never ends or is reported (laneRecord checks declared, not write).
+            Missed: no sample forges a read-operation lane.
 
     T95
         title       Callback results checked before they enter a turn
@@ -757,6 +768,9 @@ tasks
             Decision (the user, 2026-11-19): send(ref, event) stays as accepted (re-plan Q4 A), as in XState's sendTo,
             framed as a rare escape hatch: docs and examples prefer context, entities and view routing first. Reverse:
             re-plan section 7's B or C.
+        comment     2026-11-18T19:14:16Z
+            Routed from P3's close-out (low): RuntimeDefaults.loopGuard (defaults.ts:39) is read nowhere; follow-ups
+            only yield at drainYield. Wire it with the send action and plant its fault.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft

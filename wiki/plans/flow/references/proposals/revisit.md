@@ -171,3 +171,6 @@ Deferred items.
   type error, not only the run-time ForeignToken refusal `machine()` gives (built, by `WeakSet` membership). Not built:
   correctness is met at run time, and every token type would change. Reopen if foreign tokens show up in real apps
   often enough that a type error would save the round trip.
+- **The capture edge's state as one union** (2026-11-19, P3's close-out, low).
+  code:packages/flow-state-v3/src/host/edge.ts keeps `marked`, `tickets`, `again` and `out` as loose fields beside its `Wake` union, so "a batch out" and "marks
+  waiting" are combined by hand in `pump` and `onHidden`. Reopen when the edge is next changed (T28's adapters, T58).

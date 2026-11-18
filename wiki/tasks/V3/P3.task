@@ -76,6 +76,23 @@ description
     `6b9fe478`, was written for the conformance suite: it is background only, and its acceptance does not carry over.
     The old suite's known gaps for each Task are in Appendix A
     of code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
+comment 2026-11-18T19:14:32Z
+    CLOSE-OUT REVIEW (R11) at 636eb699: ISSUES, nothing blocking but one exit criterion for the user. Gates by exit
+    code, run alone: suite 0 (1180 pass, 23 it.fails), test:stress 0, check 0, lint:rules 0; daily faults 295 of 296,
+    missing throwing-slot-decode-escapes-boot (Restore R5; routed to @task.V3.T92, inside the user-parked record-trust
+    class). System question: identity text and error attribution are decided per module (routed to T92 and @task.V3.T98,
+    each a system pass there); trust boundaries are held by T98 plus the items added to it. No outside imports, no
+    temporary names in src; routed: harness gaps to @task.V3.T29, loopGuard to @task.V3.T96, unrouted T9 and T20 items
+    to T56 and T92, the edge's loose state to revisit.md. About 30 smaller review items across T18, T55, T83, T85 to T91
+    and T94 have no recorded fate; the orchestrator routes or drops them.
+comment 2026-11-18T19:14:33Z
+    COMPLETION AUDIT (R18) at 636eb699: ISSUES. Every Task done (T81 tombstoned into T98: the raw-throw class, 9
+    it.fails, deferred by the user). Broken exit criteria: the coverage record was never extended past P2's (eff65a6b),
+    so the suite audit has no record to pass; faults 295 of 296; and Plan outcomes P3 Tasks satisfy are partly
+    undelivered with no later owner, verified for Diagnostics O4 (no renderer, Diagnostics R10 untested) and Runtime O6
+    (unsettledWrites unbuilt); Diagnostics O1 and O3, Inspection O2, Persistence O4 and O6 and Runtime O1 and O5 are
+    partial and need an owner check. Next: write the coverage record (rules by catching fault), then the user decides on
+    the uncovered outcome parts and the Restore R5 miss.
 tasks
     T54
         title       Core consolidation: owed-endings ledger, one start, diff-written records, acts into evidenceOf

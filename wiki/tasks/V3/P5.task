@@ -279,6 +279,13 @@ tasks
         comment     2026-11-18T10:48:49Z
             Routed from @task.V3.T81 (2026-11-18): null and non-object payloads can't enter step samples, because a
             refused send fails a Story; a Story word for an expected refusal would let generated runs carry them.
+        comment     2026-11-18T19:14:16Z
+            Routed from P3's suite audit (medium; harness, each verified): a reload variant that skips drops the
+            breaches it recorded first (tests/rules/sweep.ts:166); skipBound counts window positions instead of checking
+            skips fall inside them (sweep.ts:143); fake servers ignore idempotency keys (shop.ts:51, sign-in auth.ts,
+            player speaker.ts), so a dropped key passes; quieting ignores machine timers (generate.ts:347), so long
+            timers end runs 'quiet'; disposeRuntime discards its Exit (run.ts:504). Missed: no planted fault targets the
+            harness itself for these.
     T31
         title       CLI outputs designed for people
         status      draft
