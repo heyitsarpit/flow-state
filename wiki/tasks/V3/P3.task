@@ -1015,6 +1015,39 @@ tasks
             plants; Restore R5 rewritten (specs.log). Double-reload skips inside hold windows are now counted and named
             in the assertion. Gates by exit code: check 0, suite 0 (38 s), stress 0 (64 s), faults 0 (259 of 259). Load:
             mds_stores ~97%, mediaanalysisd ~31% (the user's).
+        comment     2026-11-18T06:34:18Z
+            Convergence review at 7ff63975 (diff 6a640a71..7ff63975): ISSUES, three blocking. B-1 (Restore R5): a
+            headless lane record's key text is never checked, and the held-lane operation and key-text checks are
+            untested. Scratch Story: after main adds l1, put idle lane records displacing att-forged-9 under
+            lane/Shop/Cart/{"owner":"main"}|add|GARBAGE, ...|add| and ...|add|{"cartId":"zzz"}; reload: main hears
+            AddUnsure three times for one Attempt it never made, nothing reported. Dropping both lane checks in
+            laneRecord (src/core/record.ts) passes the full suite; record-key-unchecked is a no-op for lanes. Missed
+            because shop/borrowed-records holds owed and actor records only: no lane record, held or headless, under
+            another operation or key text. Fix: read a lane key's text by its operation's key fields and require it to
+            name itself back, as names do. B-2 (Restore R5): owed records of a machine no entry declares (owed/Gone/x,
+            owed//x) are read: their rows wait in inspection.owed, never quarantined or reported, while R5 now says any
+            record whose identity no ref could give is quarantined; decodeName passes Option.none. Missed because no
+            sample has an undeclared or empty machine. Quarantine them as lane and actor records are (R8), or state it
+            in R5. B-3 (Actors R9, R19 sweep, tests/rules/reloads.ts doubledAt): a skip in either run returns before the
+            fault check, so the second run's fault is counted as a skip. Clean build: shop/usual at 6 and 8 the first
+            run skips and the second faults (nothing held at Shop.confirm, which storeEmptied refuses), counted skipped;
+            transfers/refused-held-write at 2-4 and refused-resend-capture at 2-3 compare nothing (7 skips of 256). 'A
+            Story's end never skips' is not asserted. Missed because the assertion compares the skips with themselves.
+            Fix: report a faulted run before any skip, and assert the end position ran. Verified: actor and owed keys
+            are exact (escaped %, / and |; case and escapes differ; duplicates impossible); newer or null formats
+            quarantine before the identity read and still hold by key; missing identity fields quarantine. The 'not
+            checkable' owed row holds: Attempts are minted per boot seed and every runtime-written row names the
+            identity's own Attempt (after forget, the adopting ensure hears its own lane's, Actors R21).
+            record-name-unread covers both old per-kind faults (shop/unreadable-name's lane, shop/odd-record-names).
+            Gates by exit code, run alone: check 0, suite 0, test:stress 0; faults not run (nothing planted into the
+            list). No outside imports, temporary names or re-created Effect. Load: mds_stores ~73%, mediaanalysisd ~43%
+            (the user's). Routed to @task.V3.T56: Restore R5's exact lane key (operation and key text) quarantines R6's
+            key#identityTag and old-fingerprint lanes, identityIn reads names by the current identity only (now
+            quarantining what R6 lists OldVersionActor), and R8's OpRenamed must re-key since the lane id carries the
+            operation (WriteLanes R6 says a lane names none): reconcile R5 with R6 and R8. Sidecars (3 Haiku, high):
+            accepted the headless lane key, undeclared-machine owed and skip masking; changed the R6/R8 items to routed
+            (no identity versions in src); rejected 'any singleton name' (actorIdOf gives any non-~ literal) and 'owed
+            row names another lane' (inert: Kept lookups are per actor and a lane id carries its actor).
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
