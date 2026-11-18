@@ -935,6 +935,35 @@ tasks
             exists). For the user's page: a record saved under a name this release cannot read is set aside and reported
             RecordUndecodable instead of waking an actor with empty input; Stories gain Fake.storage.refuseHeld() for a
             disk that takes a write and then refuses it.
+        comment     2026-11-18T05:36:35Z
+            Review at 3923e5ec (check-task over the whole acceptance, diff 55c9b524..3923e5ec): ISSUES, one blocking.
+            B-1 (Restore R5, Q-2): decodeName (src/core/identity.ts) passes any name starting with ~ before decoding, so
+            records under a value-named machine's ~ name restore. Scratch Story: owed/ and actor/ Shop/Cart/~5 put,
+            reload: Cart ~5 is Incarnated, delivered AddUnsure and runs a turn. Local actors never have records
+            (WriteAhead I3), so a record under a ~ name must be quarantined. Missed because Q-2's Story samples two name
+            shapes only (a number field, an extra field); no edge-value sample of record names (local prefix, a
+            singleton under ~) and no case table for decodeName. Verified: the old pair red replays (session and
+            shop-store, Acknowledging x storage refusal did not fire); the runtime is right (one batch out, edge.ts out;
+            transfers/refused-held-write ends NotSent StorageRefused); refuseHeld is general (oldest held, as release)
+            and the Stories R11 edit is right. The old refused-capture plant is equivalent (passes write-ahead-records
+            with the plant; dropping the refused-key carry is caught by WriteAhead I12); the Recapturing plant is a real
+            stall and also breaks R13. The either-run skip drops 1 of 254 double-reload positions
+            (transfers/refused-held-write at 2); an always-stale restore plant is still caught (session/archive-large at
+            9). Gates by exit code, run alone: check 0, suite 0 (37 s), test:stress 0 (62 s), faults 0 (258 of 258 by
+            targets). Load: mediaanalysisd ~72%, mds_stores ~42% (the user's). No outside imports, temporary names or
+            re-created Effect. Not blocking: the actor-record name check has no fault and no test sees its removal (lane
+            and owed checks already stop the wake), so drop it or make it observable; Restore R5's name clause reads
+            under the current identity and will contradict R6 (OldVersionActor) when T56 builds versions, so word it by
+            the record's identity version; Restore R3 'once' vs Restore I6 and WriteLanes I15 'once per incarnation' is
+            a Spec contradiction the T56 routing rests on, and neither T56 nor T28 has a routed comment yet
+            (orchestrator); refusedHeldWrite does not check the StorageFailure evidence (R13); SKIPPED also matches a
+            wire 'nothing held at', so narrow the twice-skip to the store's text; sweep waitsOnHeld matches acknowledge
+            batches only (Recapturing still uses refuse); View.heldWrites now equals heldAcknowledges.length;
+            Restore.spec line 102 has a trailing space. Sidecars (4 Haiku, high), accepted: ~ hole, actor-check
+            unobservable, R6 conflict, R13 evidence, wire regex, heldWrites, trailing space. Changed: the re-plant only
+            mis-tags its rule (it is real); the twice-skip only hides one position. Rejected: inputOfName defect
+            reachable (refs are canonical; snapshot needs a ref), refusals of other writes counted as fired and tryCell
+            flags (both old code), and the noted cosmetics.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
