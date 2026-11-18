@@ -1257,3 +1257,6 @@ note 2026-11-18T07:18:03Z
 note 2026-11-18T07:49:22Z
     T91 done: review PASS (75f334c5); stress 54 s, faults 258 s alone, no faults merged (14 groups all distinct). T90
     started.
+
+note 2026-11-18T07:51:05Z
+    T20's user's page read (the user, 2026-11-18); the next slice's close is not held.
