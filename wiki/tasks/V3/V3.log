@@ -1260,3 +1260,8 @@ note 2026-11-18T07:49:22Z
 
 note 2026-11-18T07:51:05Z
     T20's user's page read (the user, 2026-11-18); the next slice's close is not held.
+
+note 2026-11-18T09:24:45Z
+    Amendment (2026-11-18, the user): whole nub run faults at most daily (first wake with no lead; phase close); a Task
+    plants only its faults with --only; any proof step capped at 10 min; reviews run the suite once, stress only if
+    touched. instructions and cadence edited. Commit: 44eaad1a.
