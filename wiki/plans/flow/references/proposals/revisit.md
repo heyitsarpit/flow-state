@@ -166,3 +166,8 @@ Deferred items.
   there (25 bugs, 19 from the deep `Origin` walk). Replaced by Effect Schema, small Flow-side wrappers and lint
   ([replan-2026-11-18.md](replan-2026-11-18.md) section 1). Reopen if Flow's own wrappers and the surface test keep
   missing a source across Tasks.
+- **A per-definition type brand on tokens** (2026-11-18, the user: re-plan Q3 A; @task.V3.T81's ruling c). Tokens
+  would carry their definition's `id` literal as a phantom type, so another definition's guard, action or event is a
+  type error, not only the run-time ForeignToken refusal `machine()` gives (built, by `WeakSet` membership). Not built:
+  correctness is met at run time, and every token type would change. Reopen if foreign tokens show up in real apps
+  often enough that a type error would save the round trip.

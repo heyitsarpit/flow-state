@@ -14,9 +14,10 @@ description
     **Order:** @task.V3.T54, @task.V3.T18, @task.V3.T55, @task.V3.T19, @task.V3.T20, @task.V3.T17, @task.V3.T9, the
     order the user set; then @task.V3.T79 (code convergence with the step's edit operations), @task.V3.T86 (fixture
     layout), @task.V3.T85 (capture on issue), @task.V3.T84 (no caps), @task.V3.T87 (bench), @task.V3.T88 (tsrs),
-    @task.V3.T83 (fast tests), T20's close, @task.V3.T81 (construction bugs) and @task.V3.T80 (the user, 2026-11-16;
-    reordered by the user's Q14 A, 2026-11-17). A `blocked_by` link is a real dependency only; where several Tasks are
-    ready, take the earliest in this order.
+    @task.V3.T83 (fast tests), T20's close, @task.V3.T94 (public entry points) and @task.V3.T81 (construction) (the
+    user, 2026-11-16; reordered by the user's Q14 A, 2026-11-17; re-planned by the user's answers of 2026-11-18, T80
+    moved to P4 as @task.V3.T97). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the
+    earliest in this order.
 
     **Verified by:**
 
@@ -2505,10 +2506,10 @@ tasks
             ready and dispose' (one defect, one channel per call, as R25 says).
 
     T80
-        title       Host tests on Story and Fake; the seam harness deleted
-        status      open
-        priority    medium
-        blocked_by  [@T82]
+        title           Host tests on Story and Fake; the seam harness deleted
+        status          tombstone
+        priority        medium
+        blocked_by      [@T82]
         description
             Flow's own host tests run on Story and Fake only, and `src/host/testing/seam.ts` is deleted.
 
@@ -2533,22 +2534,22 @@ tasks
             - Fixtures first (code:wiki/conventions/fixtures.md): each ported host test lands in a fixture of
               code:wiki/conventions/fixture-catalog.md as a Story or sample, not as a hand test, and was red on its
               planted fault before the seam file is deleted.
-        comment     2026-11-16T14:23:55Z
+        comment         2026-11-16T14:23:55Z
             Fold in the second review's T80 findings (10, section 5 and abstraction A7, a test kit):
             code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md. First: the pair sweeps run
             all seeds when a phase can't be reached (82 s of 131 s CPU; the seed count is a named tooling default
             measured by @task.V3.T83, D25); add the lanes and player fixtures to the reload sweeps.
-        comment     2026-11-16T14:31:06Z
+        comment         2026-11-16T14:31:06Z
             Routed from T74's fix-round review: Failure.shrinks counts accepted shrinks, not the candidates its doc
             claims, so the shrink-budget assertion (a named tooling default measured by @task.V3.T83) can't fail;
             failure words (generate.ts:364,366) and write salts (:494-499) still leak across dropped fixtures; one
             answer keying with re-pasted saved Stories would replace the mixed/single split (generate.ts:281).
-        comment     2026-11-16T15:38:51Z
+        comment         2026-11-16T15:38:51Z
             Fixtures first (the user, 2026-11-16): add a coverage test that each built public feature, by its API name,
             appears in some fixture's machine, and give every fixture's step samples its Schemas' edge values (empty,
             undefined or None) under the stress profile; updated 2026-11-17: edge values for each Schema plus real-size
             values; no codec or queue bounds (D23, D24).
-        comment     2026-11-17T12:37:31Z
+        comment         2026-11-17T12:37:31Z
             Routed from @task.V3.T79 (proposed, the T79 review's ruling): the first code-quality review's 2g
             (generate.ts sourceOf: `offline`, `offlineLeft`, `online`, `quieted` and +Infinity placeholders, timers
             mixing `due` and `afterCalls`, generate.ts:412-738) and 5f (split `buildRuntime`, host/runtime.ts, after
@@ -2556,55 +2557,81 @@ tasks
             only when every phase is found, so a fixture with a forbidden phase drives all 1,000 seeds; sweep.ts
             pairSweep, tests/generated/pairs.ts). May change widens to `src/core` for 5f's split and the hook's removal
             (proposed amendment).
-        comment     2026-11-17T12:48:52Z
+        comment         2026-11-17T12:48:52Z
             Routed from @task.V3.T79 (proposed): the first review's 2h (sweep.ts tryCell: given, fired, stood and
             replayed booleans plus refusedBefore; fired set in two places) and 2i (fake.ts Batch: status beside
             answered, which is Some exactly when not held, and keys repeating writes; the Story records' public
             batch shape).
-        comment     2026-11-17T13:08:01Z
+        comment         2026-11-17T13:08:01Z
             Routed from @task.V3.T79 (proposed): the second review's 3g clock queue. host/testing/clock.ts settle queues
             tasks with indexOf, splice and shift, so a settle is quadratic in the tasks it runs; the test clock
             is T80's.
-        comment     2026-11-17T13:23:59Z
+        comment         2026-11-17T13:23:59Z
             Routed from T79's PASS review (8d456ffc): a throw from perform or the admit hook skips the rest of the
             step's commands while the Runtime stays Open (driver.ts:168-173); it should stop the Runtime as Actors
             R25 does.
+        deletion_reason
+            Moved to P4 as @task.V3.T97 (the user, 2026-11-18, re-plan Q2 B): wk cannot move a Task between phases. Its
+            driver item (Actors R25) moved to @task.V3.T94.
 
     T81
-        title       Construction config decoded by one Schema; four construction bugs fixed
-        status      review
+        title       Construction decodes whole: one config Schema, Flow-made values by identity, builders that capture
+        status      open
         priority    high
-        blocked_by  [@T82]
+        blocked_by  [@T82, @T94]
         description
-            Construction config is decoded by one Schema, so the types, construction and the Runtime agree on what a
-            definition and machine accept.
+            `definition()` and `machine()` accept a value only after one complete Schema decode, trust a Flow-made value
+            only by identity, and refuse everything else with a FlowError.
 
-            **Why now:** three shape checkers disagree, with four reproduced bugs: an event field like `DateFromString`
-            passes `E.X` but `send` refuses it; a malformed payload or a `null` handler throws a raw `TypeError` instead
-            of a `FlowError`; a bad `context` slot is accepted.
+            **Why now:** T81 hit the failure limit (V3.log, 2026-11-18T11:22) on three blockers of the raw-throw class:
+            (1) a handle's call arguments are read before any check (`O.save.retryable(undefined)` throws in the body,
+            `retryable(5)` is accepted); (2) `machine()` trusts its definition by the copyable `~owner` mark (`machine({
+            "~owner": Symbol() })` throws raw); (3) a cyclic or throwing value inside the config escapes as Effect's
+            adapter error, because `findingsAgainst` (code:packages/flow-state-v3/src/config.ts) runs Effect's parser
+            rather than the cycle-safe walker. Each review found the next hole because tokens are checked by shape,
+            builders read early, and the decode is not the walker. Rebuilt on the boundary Task's catch-all (the user,
+            2026-11-18, re-plan Q1 B); construction only.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md (section 1 and
-            A1), @spec.Compile, @spec.Diagnostics, code:packages/flow-state-v3/src/construction.ts.
+            **Read first:** this Task's requirements 1 to 19 and its 2026-11-18T11:21:42Z review below, @spec.Compile,
+            code:packages/flow-state-v3/src/config.ts, code:wiki/conventions/boundaries.md.
 
-            **Approach:** each bug lands first as a failing construction test naming its Compile or Diagnostics rule;
-            then the hand-written checks of construction.ts, compile-body.ts's guards and definition.ts's context filter
-            become one Schema decode (A1), removing an estimated 250 to 350 lines.
+            **Risk:** the `WeakSet` check makes a token from a second copy of the package foreign; one package copy per
+            app is already assumed (one Effect copy since T93).
 
-            May change: `src/`, `tests/`. Evidence: this Task's comments.
+            **Approach:** first, the three blockers land as known-gap tests (`it.fails`, red for their stated reason).
+            Then, in order:
 
-            False pass: a decode that accepts what the types refuse → caught by a type test and a construction test for
-            each refused form, side by side.
+            - `src/made.ts`: one module `WeakSet` of definitions and machines Flow made, and one `WeakSet` per
+              definition of its tokens (states, events, guards, actions, entries, handles' calls). `machine()` checks
+              membership; a guard, action or event is foreign when its definition's set lacks it. `~owner`, `~flow`,
+              `HandleId` and `decodedWhole` are deleted.
+            - Builders capture: `retryable`, `commit`, `idle`, `lookup`, `resource`, `transaction`, `.outcomes`,
+              `Flow.initial` and `actorRef` store their arguments unread; the `definition` or `machine` decode checks
+              them, so `retryable(5)` is `WrongKind` at its path.
+            - One complete Schema per entry (`DefinitionArgs`, `MachineArgs`), decoded through `walkerOf`, so a cycle or
+              a throwing getter is a finding with its cause; the decoded value, branded with `Schema.brand`, is the one
+              internals take, and the casts and `trusted<T>()` that the discarded value forced go away.
+
+            The per-definition type brand on tokens (ruling c) is not built: moved to revisit.md (the user, 2026-11-18,
+            Q3 A); the run-time ForeignToken refusal stands.
+
+            May change: `src/`, `tests/`, `fixtures/`, @spec.Compile and @spec.Diagnostics with `specs.log` notes.
+            Evidence: this Task's comments.
+
+            False pass: a decode that still accepts by shape (a partial token, a copied definition) → caught by the
+            boundary Task's hostile-value table, which includes copied and partial tokens at every position. Gates: `nub
+            run faults --only` on its planted faults `token-by-shape` (membership check skipped), `builder-reads-early`
+            (`retryable` reads `times`) and `decode-not-walker` (Effect's parser restored), each caught by its named
+            test. User's read: each new refusal code or path.
         acceptance
-            - The four bugs in the review's section 1 are each shown red by a construction test, then fixed; every
-              refusal is a `FlowError` with a code from Diagnostics' list.
-            - One Schema decodes definition and machine config; construction.ts's hand-written shape checks are gone.
-            - `nub run check`, the suite and `nub run faults` pass, with a planted fault per new refusal caught by
-              its target.
-            - Fixtures first (code:wiki/conventions/fixtures.md): construction refusals and event Schemas that transform
-              are covered in `transfers` and `sign-in` (changed: one event field with a transforming Schema such as
-              `DateFromString`), across many scenarios: usual and stress Stories and step samples with null and
-              undefined payloads, a bad context slot and values at the Schema's bounds; the generator, the reload sweep
-              and the app mix reach them.
+            - The three blockers are red first as known-gap tests, each for its stated reason, then green.
+            - Requirements 1 to 19 (this Task's comments) stay green; every refusal is a FlowError with a code from
+              Diagnostics' list.
+            - No `~owner`, `~flow` or `HandleId` remains in `src/`; Flow-made values are checked by `WeakSet`
+              membership only.
+            - No builder reads its arguments: a test calls each with a Proxy that throws on every trap and gets a value.
+            - `definition` and `machine` decode through `walkerOf` with one Schema each; the decoded value is used.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
         comment     2026-11-16T15:07:26Z
             Paused for T9's fix round before any commit; no code changed. Resume: requirements commit first (four bugs
             plus Defect fold as it.fails tests), then the Schema decode; design notes: rules as Schema checks per field,
@@ -2913,6 +2940,11 @@ tasks
             (Effect's own Schema.is hangs on it; no rule can decide it); schedule {} or a Date as 0 ms (Effect's
             Duration.Input, as ruled last round); NaN cents and an empty payload field name (Schema.Number admits NaN;
             no rule); a forged token whose make throws (closed by fixing (1)).
+        comment     2026-11-18T17:43:48Z
+            The user's answers to the re-plan (2026-11-18, replan-2026-11-18.md): Q1 B (boundary Task @task.V3.T94
+            first, then this Task, construction only), Q2 B (T80 to the end of P4), Q3 A (ruling c to revisit.md), Q4 A
+            (send action), Q5 A (code:wiki/conventions/boundaries.md), Q6 P5 order accepted. Rewritten per section 3;
+            open, blocked by T94.
 
     T82
         title       Fixtures grow into their catalog apps: manifests and step 1
@@ -4318,3 +4350,54 @@ tasks
             nested. Scratch effect/cli + NodeServices.layer found FileSystem, Terminal, ChildProcessSpawner (deleted).
             flow-state untouched. Exit 0: check, lint:rules, test (1127 passed, 21 xfail, 15 skipped, matches).
             Terminal.make size: unused is minimal and typechecks. Not run: test:stress.
+
+    T94
+        title       Every public entry point refuses with a FlowError; a surface test finds any that doesn't
+        status      open
+        priority    high
+        description
+            Every public function Flow exports or hands out either refuses with a FlowError or is an inert builder, and
+            a test proves it without a hand-kept list.
+
+            **Why now:** T81's last three blockers and the routed raw throws (`app`, `runtimeSetup`, `actorRef`,
+            `createActor`, `ensureActor`, `disposeActor`, `resource`, `transaction`, `send` with a throwing getter) are
+            one class: no public function has a catch-all, so anything a check missed escapes as a raw TypeError. The
+            corruption sweep (`tests/compile/corruption.test.ts`) lists its slots by hand, which is how T81's blockers 1
+            and 2 were missed. Also from @task.V3.T80 (its 2026-11-17T13:23:59Z comment): a throw from `perform` or the
+            admit hook skips the rest of the step's commands while the Runtime stays Open
+            (code:packages/flow-state-v3/src/host/driver.ts); it must stop the Runtime as Actors R25 does.
+
+            **Read first:** code:wiki/conventions/boundaries.md,
+            code:packages/flow-state-v3/src/core/boundary.ts#walkerOf,
+            code:packages/flow-state-v3/tests/compile/corruption.test.ts, @spec.Diagnostics; the re-plan's section
+            2, code:wiki/plans/flow/references/proposals/replan-2026-11-18.md.
+
+            **Approach:** `src/entry.ts` exports `entry(name, run)` for sync calls and `entryEffect(name, run)` for
+            Effect-returning ones (`ready`, `dispose`), whose refusal is `Effect.fail` (Diagnostics R1). Each wraps
+            `run` in `Result.try`; a FlowError passes through, anything else is `Defect` at `name` with the cause. Every
+            public function goes through one, or is registered as a builder. The surface test builds every fixture app's
+            definitions, machines, app, Runtime and one actor, walks every function-valued property reachable from them
+            and from `src/index.ts`, and requires each to be a registered entry or builder, naming the path of any
+            other. A hostile-value table (null, undefined, NaN, ±Infinity, a Date, a Map, a function, a cycle, a
+            throwing getter, a Proxy that throws on every trap, a copied token) runs at every argument position of every
+            entry; each call returns or throws a FlowError, under a 1 s bound. The driver's stray throw stops the
+            Runtime (Actors R25), red first.
+
+            May change: `src/`, `tests/`, `tools/lint-bomb/FLOW-STATE.md`, `vite.config.ts` (lint), `wiki/conventions/`,
+            @spec.Diagnostics with a `specs.log` note. Evidence: this Task's comments.
+
+            False pass: an entry point the walk can't reach (a function only a callback receives) → caught by the walk
+            also visiting the arguments Flow passes to body and operations callbacks (`S`, `E`, `O`). Gates: `nub run
+            faults --only` on its planted faults `entry-unwrapped` (one export loses its wrapper), `stray-throw-raw`
+            (the wrapper rethrows the cause) and `driver-throw-stays-open`, each caught by its named test. User's read:
+            the list of functions registered as builders, and any entry point given a new refusal code.
+        acceptance
+            - The surface test passes on every fixture app, and fails naming the path when one export's wrapper
+              is removed.
+            - Every hostile value at every argument position of every entry gives a FlowError or a normal return; no raw
+              error and no hang.
+            - Lint: `hasProperty(_, "~` is banned in `src/`; `throw` outside `src/error.ts`, `src/entry.ts` and the
+              core's listed defect sites is flagged; each remaining disable carries its reason.
+            - A throw from `perform` or the admit hook stops the Runtime (Actors R25), shown red first by a Story test.
+            - code:wiki/conventions/boundaries.md stays current: any source this Task adds or moves changes its row.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.

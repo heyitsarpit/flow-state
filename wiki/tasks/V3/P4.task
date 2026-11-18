@@ -56,9 +56,10 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21,
-    @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T23. A `blocked_by` link is a real dependency only; where several
-    Tasks are ready, take the earliest in this order.
+    **Order:** @task.V3.T92, @task.V3.T95, @task.V3.T96, @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76,
+    @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T23, @task.V3.T97
+    (re-plan section 8, the user, 2026-11-18). A `blocked_by` link is a real dependency only; where several Tasks are
+    ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -608,55 +609,185 @@ tasks
               and the step's cells marked used at the close.
 
     T92
-        title       Records decoded into meaning: one Identity Schema, each fact stored once
+        title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
         status      draft
         priority    high
         description
-            Saved records decode into meaning, through one `Identity` Schema built from the compiled app, with each fact
-            stored once, so the boot can't be misled by a record whose fields disagree.
+            Saved records decode through Schemas built from the compiled app, with branded identifiers and each fact
+            stored once, so the boot never acts on a record nobody checked.
 
-            **Why now:** @task.V3.T20 hit the failure limit on one class: restore trusts a part of a record nobody
-            checked. Four reviews in a row found one more part (a `~` name, a key naming another identity, lane keys,
-            context bindings). The cause is structural, not a missed requirement:
+            **Why now:** @task.V3.T20 hit the failure limit on one class: restore trusted a part of a record nobody
+            checked; four reviews each found one more (a `~` name, a key naming another identity, lane keys, context
+            bindings). The record Schemas in code:packages/flow-state-v3/src/core/record.ts decode shape only
+            (`machine`, `name`, `operation`, `lane` are `Schema.String`), meaning is then checked by hand, and identity
+            is stored in both key and content. T20's bindings blocker is parked here as an inverted Restore R5 test. It
+            must land before @task.V3.T56 (versions these records) and real storage (@task.V3.T58, @task.V3.T28).
 
-            - the record Schemas in code:packages/flow-state-v3/src/core/record.ts decode shape only (`machine`, `name`,
-              `operation`, `lane` are plain strings), and meaning is then checked field by field by hand, so every
-              forgotten field is a hole;
-            - the same fact is stored twice: an identity in the key and in the content, a lane's operation and key text
-              in its key and its content, owed rows naming lanes keyed elsewhere; each copy is a consistency check
-              someone must remember.
+            **Read first:** @spec.Restore (R2, R5), @spec.Codec, @task.V3.T20 (its 2026-11-18T06:49 field list and 07:05
+            review), code:wiki/conventions/boundaries.md.
 
-            Both break house rules: decode once at the boundary and trust the result; store facts, derive
-            views (AGENTS.md).
+            **Risk:** a Codec and Restore Spec change, so it gets the whole-system check; the format is internal and
+            unreleased, so nothing migrates.
 
-            **Read first:** @spec.Restore (R5, R2), @spec.Codec, @spec.WriteAhead (I3), T20's reviews (review commits
-            17ec5c6d, 59361083, 2e211305, 8c0446d9).
+            **Approach:** first, decide with evidence whether an actor record's context bindings can be derived from its
+            machine and its ref's input; if so, stop saving them. Then:
 
-            **Approach (proposed):** first, check whether an actor record's context bindings can be derived from its
-            machine and the ref's input; if so, stop saving them. Then: one `Identity` Schema from the compiled app (a
-            declared, persisted machine and a name a ref could produce) used wherever a record names an actor (its own
-            identity, bindings, lanes, owed rows); refined Schemas for operations and lanes; identity kept only in the
-            key, content holding only what the key doesn't determine; per-field checks deleted. Proof: a generated test
-            that corrupts one field of real saved records at a time and requires each to be quarantined or harmless, the
-            boot never failing.
+            - branded identifiers, each a Schema built from Compiled with `Schema.brand`: `ActorName` (a declared,
+              persisted machine and a name a ref could give, never `~`), `RecordKey` (`kind/machine/name`, decoded into
+              an `ActorName`), `LaneKey` (operation declared as a write, key text as the operation's key fields written
+              back exactly), `AttemptId`, `StateName` (a literal union per machine);
+            - each fact stored once: identity only in the key; a lane's operation and key text only in its `LaneKey`;
+              owed rows name their lane by `LaneKey`; a headless lane stores no `queue` or `inFlight`;
+            - full record decoding: one Schema per record kind (actor, lane by operation kind, owed) over those brands,
+              through the walker; every hand check in `record.ts` and `actor-record.ts` after decode deleted;
+            - the proof: a generated test that corrupts one field of real saved records at a time (from the fixtures'
+              Stories), needing no list of fields.
 
-            **Risk:** a Codec and Restore Spec change, so it gets the whole-system check. The format is internal and
-            unreleased, so no saved data migrates. It must land before @task.V3.T56, which versions these records, and
-            before real storage (@task.V3.T58, @task.V3.T28, @task.V3.T27).
+            No real blocker on T81 or the boundary Task: the boot decode is internal and already uses the walker.
 
-            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, the Specs named above. Evidence: this
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, @spec.Restore, @spec.Codec with
+            `specs.log` notes. Evidence: this Task's comments.
+
+            False pass: a decode that still accepts a field by hand check → caught by the corrupt-one-field test, which
+            needs no list of fields. Gates: `nub run faults --only` on T20's restore faults (`record-key-unchecked`,
+            `lane-key-text-unread`, `local-name-restored` and the rest) and the new `binding-unchecked`, each caught by
+            its named test. User's read: whether bindings are derived or saved; any record a corrupt field leaves
+            provably harmless.
+        acceptance
+            - Bindings: derived or saved, decided with evidence; if saved, decoded as `ActorName`s.
+            - Every place a record names an actor, a lane, an Attempt or a state takes the branded type; `record.ts` has
+              no `Schema.String` for an identifier and no hand meaning check after decode.
+            - A record's content holds nothing its key determines.
+            - The corrupt-one-field test: each corrupt record is quarantined and reported (RecordUndecodable) or shown
+              harmless; the boot never fails.
+            - T20's inverted Restore R5 bindings test passes; a read-operation lane record is quarantined; a headless
+              lane's `queue` and `inFlight` are not read.
+            - Restore and Codec Specs updated with `specs.log` notes; `nub run check`, the suite and stress pass; `nub
+              run faults --only` catches this Task's planted faults.
+
+    T95
+        title       Callback results checked before they enter a turn
+        status      draft
+        priority    high
+        description
+            Every user callback's result is checked before it enters a turn: an `updateMemory` patch by its keys and
+            each field's Schema, an ending mapper's payload by its event's check.
+
+            **Why now:** found while drafting the boundary map: `updateMemory`'s patch is spread outside its `call`
+            (code:packages/flow-state-v3/src/core/turn.ts#accept), so its keys and values are trusted, and an ending
+            mapper's payload enters the turn unchecked against its event
+            (code:packages/flow-state-v3/src/core/serve.ts). It is the "user callback results" row of the boundary map,
+            the one source with no owner.
+
+            **Read first:** code:wiki/conventions/boundaries.md, @spec.Turn, @spec.Diagnostics, @spec.Codec (R6).
+
+            **Risk:** checking patch values walks large patches twice: the palette's `Configure` patches 100,000
+            commands. The bench decides whether production checks values or only keys (dev and test always check both).
+
+            **Approach:** red first, a Story per gap (an unknown patch key, a patch value its field's Schema refuses, a
+            mapper payload its event refuses); then one callback wrapper keeping the cause and slot replaces `call`
+            (core/turn.ts) and `callSlot` (core/compiled.ts), with the result check inside it.
+
+            May change: `src/core/`, `tests/`, `fixtures/`, @spec.Turn and @spec.Diagnostics with `specs.log` notes.
+            Evidence: this Task's comments.
+
+            False pass: a check that runs in dev but not in the host the Story uses → caught by the Story asserting the
+            refusal under the stress profile. Gates: `nub run faults --only` on its planted faults `patch-unchecked` and
+            `mapper-payload-unchecked`, each caught by its named test; the palette bench, `nub run bench --only
+            scale.command-palette.list-length-100000.per-turn-ms --dev`, before and after. User's read: whether
+            production checks patch values, from the bench.
+        acceptance
+            - An unknown patch key, a patch value its field's Schema refuses and a mapper payload its event refuses each
+              refuse the turn with a FlowError naming the slot, shown red first by a Story test.
+            - One callback wrapper keeps the thrown cause and slot; `call` and `callSlot` are gone.
+            - The palette's per-turn median grows by at most 10 % with checks on, or production checks keys only,
+              recorded with the bench numbers.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+
+    T96
+        title       Actor-to-actor send(ref, event) action with the loop guard
+        status      draft
+        priority    high
+        blocked_by  [@T95]
+
+        satisfies   [@plan.Runtime.O4]
+        description
+            A machine sends a public event to another actor with a `send(toRef, toEvent)` action, delivered as a later
+            turn of the target, with the loop guard that bounds a chain of sends.
+
+            **Why now:** the user's decision (2026-11-18, re-plan Q4 A). Host code is the only way one actor reaches
+            another today, which Stories and `flow check` can't see; step-1 fixture cells in pay, sync, transfers,
+            palette and player wait on it. The Plans already specify it: @plan.Runtime.O4 (the send table by target),
+            @plan.LazyFeatures (a send never adopts), Actors R13 and I20 (the loop guard, built with the action).
+
+            **Read first:** @plan.Runtime.O4, @spec.Actors (R13, I20),
+            code:wiki/plans/flow/references/proposals/replan-2026-11-18.md (section
+            7), code:wiki/conventions/boundaries.md.
+
+            **Risk:** two machines that send to each other import each other's Machine for the ref; this Task checks
+            whether a ref by definition is needed, and that is a public API call for the user.
+
+            **Approach:** `send` is a builder: it captures its two callbacks unread; `machine()` decodes it as an
+            action. At run time `toRef`'s result decodes as a ref and `toEvent`'s through the target's event check, both
+            in the callback wrapper. Delivery follows O4's table: never creates, never adopts, may restore. The guard:
+            past `RuntimeDefaults.loopGuard` events sent by turns from one admitted event, the turn that would send one
+            more is refused `InvalidTurn` naming the chain; context updates never count (D13). Listener-originated
+            chains (Actors Q4) stay as they are.
+
+            May change: `src/`, `tests/`, `fixtures/`, @spec.Actors with a `specs.log` note. Evidence: this
             Task's comments.
 
-            False pass: a decode that still accepts a field by hand-check → caught by the corrupt-one-field test, which
-            needs no list of fields.
+            False pass: a guard that counts but never refuses → caught by a ping-pong Story past the guard that must end
+            refused. Gates: `nub run faults --only` on its planted faults `send-creates-target`, `send-adopts-lazy` and
+            `loop-guard-off`, each caught by its named test. Stops: a public API change beyond `send(toRef, toEvent)` (a
+            ref by definition). User's read: the send's final signature.
         acceptance
-            - Whether context bindings can be derived is decided with evidence; saved only if they can't be.
-            - Every record kind decodes through Schemas that check meaning; every place a record names an actor goes
-              through one `Identity` Schema; no field's meaning is checked by hand after decoding.
-            - Each fact is stored once; a record's content holds nothing its key determines.
-            - A generated test corrupts one field of real saved records at a time: each corrupt record is quarantined
-              and reported, or provably harmless; the boot never fails.
-            - T20's inverted Restore R5 test for unchecked bindings passes; the read-operation lane that never ends and
-              the headless lane's trusted `queue` and `inFlight` are resolved.
-            - Restore and Codec Specs updated with `specs.log` notes; `nub run check`, the suite, the stress runs and
-              `nub run faults` pass.
+            - `send(toRef, toEvent)` delivers by every row of @plan.Runtime.O4's send table, each row a Story in
+              a fixture.
+            - The waiting step-1 cells in pay, sync, transfers, palette and player use it and pass.
+            - A chain past `RuntimeDefaults.loopGuard` is refused `InvalidTurn` naming the chain; a context update chain
+              is not.
+            - A send's target ref and event are checked; a bad one refuses the sender's turn with a FlowError.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+    T97
+        title       Host tests on Story and Fake; the seam harness deleted
+        status      draft
+        priority    medium
+        description
+            Flow's own host tests run on Story and Fake only, and `src/host/testing/seam.ts` is deleted.
+
+            **Why now:** moved from @task.V3.T80 in P3 (the user, 2026-11-18, re-plan Q2 B) so P3 closes on
+            construction. seam drives the Runtime directly for four host test files (about 2,000 lines) beside Story and
+            Fake, with its own store, host and seed copies, against the Epic's "one runtime, one way to run it". T80's
+            driver item (Actors R25) moved to the boundary Task.
+
+            **Read first:** @task.V3.T80 (its routed items, in its comments),
+            code:wiki/plans/flow/references/proposals/code-quality-review-2026-11-16.md (section 4),
+            code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md (section 5,
+            A7), code:packages/flow-state-v3/src/host/testing/seam.ts.
+
+            **Risk:** coverage must not drop: port one file at a time, keep every rule each test cites, and keep each
+            planted fault caught by its target.
+
+            **Approach:** the routed items, all test tooling, land with the port: the pair sweeps stop once every
+            reachable phase is found; lanes and player join the reload sweeps; a coverage test that each public feature
+            appears in a fixture; edge values in every fixture's step samples; `Failure.shrinks` counts what its doc
+            says; failure words and write salts stop leaking across dropped fixtures; generate.ts's placeholders (2g)
+            and sweep.ts's booleans (2h); Fake's `Batch` stores no derived status (2i); the test clock's settle is not
+            quadratic (3g); `buildRuntime` split once the test-only `admit` hook is gone (5f, widening May change
+            to `src/core`).
+
+            May change: `src/host/testing/`, `src/host/*.test.ts`, `src/core/` (5f only), `tests/`. Evidence: this
+            Task's comments.
+
+            False pass: a ported test that no longer reaches the rule it cites → caught by `nub run faults --only` on
+            each ported file's faults, before and after, with the same faults caught.
+        acceptance
+            - `lanes.test.ts`, `ledger.test.ts`, `life.test.ts` and `identity.test.ts` run as Story tests over Fake,
+              each citing the same rules; `seam.ts` and its copies of the store, host and seed are gone.
+            - `nub run faults --only` catches the same faults before and after, each by its own target; the suite and
+              stress pass.
+            - Fixtures first (code:wiki/conventions/fixtures.md): each ported host test lands in a fixture of
+              code:wiki/conventions/fixture-catalog.md as a Story or sample, not as a hand test, and was red on its
+              planted fault before the seam file is deleted.
+            - The routed items in the Approach are each done or routed on with a reason in this Task's comments.

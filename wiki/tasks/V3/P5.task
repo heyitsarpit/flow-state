@@ -12,6 +12,11 @@ description
     **Starts when:** P4's completion audit passes. This card and its Tasks are rewritten with skill:to-epic and
     skill:to-task when the phase starts; until then they hold only the order, the Plan links and the blockers.
 
+    **Order:** @task.V3.T24, @task.V3.T25, @task.V3.T28, @task.V3.T27, @task.V3.T48, @task.V3.T49, @task.V3.T29,
+    @task.V3.T30, @task.V3.T31: the fixture catalog's steps 11 to 18, with T31 last since it ends on the user's
+    acceptance (re-plan section 8, the user, 2026-11-18). A `blocked_by` link is a real dependency only; where several
+    Tasks are ready, take the earliest in this order.
+
     **Verified by:** per feature, Story tests, run rules and compile-time tests written from its Spec, with a planted
     fault for each new rule; skill:check-runtime where users touch it; skill:check-task per Task.
 
