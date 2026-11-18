@@ -896,3 +896,7 @@ note 2026-11-18T22:37:53Z
 note 2026-11-18T22:55:31Z
     T92 close review ISSUES (01a3eb6c), 4 blocking, all T92's: renamed-key record keeps old input, held class too wide,
     stale Spec text, filtered strings not brands. Fix round started. OpRenamed drop logged as Pending D31 for the user.
+
+note 2026-11-18T23:18:20Z
+    T92 fix round in (59dff388): all four blockers fixed, gates green. Second close review started; it checks whether a
+    removed slot quarantining records breaks the R7/R8 ruling.
