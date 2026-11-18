@@ -1304,3 +1304,8 @@ note 2026-11-18T11:22:01Z
     Stop (failure limit, 2026-11-18): T81's convergence review (08c16517) found three more raw throws (handle arguments,
     machine()'s definition checked by mark only, cyclic or throwing config). T81 waits for the user's call; no lead
     runs.
+
+note 2026-11-18T11:55:53Z
+    Boundary design started (the user, 2026-11-18): one Opus lead with 4 Haiku sidecars proposes one validation and
+    error structure for the whole codebase, with prevention; output proposals/boundaries-2026-11-18.md. T81 and T92 wait
+    on it.
