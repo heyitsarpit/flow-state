@@ -160,3 +160,9 @@ Deferred items.
   the hand-rolled `parseArgs` in `bench/options.ts`, `bench/backfill.ts` and `tools/faults/` onto `effect/cli`, as
   `src/host/cli/main.ts` already is. Both modules are unstable; the faults runner runs under bun, unchecked against the
   Node platform layer. Pick up only when either tool next needs a fix; not while the current code works.
+- **`module-composer`, a layers-and-rings package** (2026-11-18, the user: not adopted, "its value to me is dubious").
+  `Layer(name, enter)` with a catch-all, `Checked<typeof X>` brands, `X.is` for object layers and type-level
+  composition proofs; code at `/Users/arpit/Developer/workflow/module-composer`, its Opus review in `REVIEW-opus.md`
+  there (25 bugs, 19 from the deep `Origin` walk). Replaced by Effect Schema, small Flow-side wrappers and lint
+  ([replan-2026-11-18.md](replan-2026-11-18.md) section 1). Reopen if Flow's own wrappers and the surface test keep
+  missing a source across Tasks.

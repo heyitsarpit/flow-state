@@ -6,6 +6,8 @@ checked data just by its parameter types. The intended nesting of layers is stat
 proofs**: type-level files that compile only if the code makes them true. This is a small, general package
 (working name `checked`), not Flow-specific. Flow is its first user.
 
+**Superseded (2026-11-18):** by [replan-2026-11-18.md](replan-2026-11-18.md); `module-composer` is not adopted.
+
 Everything here is **proposed**. Prior art, superseded by this file:
 code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md (doors, nominal tokens), and the layer-manifest
 spike on branch `worktree-agent-a215f85639e31d688`. A 10-minute spike of this design passed (section 8).

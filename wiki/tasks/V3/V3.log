@@ -1316,3 +1316,8 @@ note 2026-11-18T17:18:55Z
 
 note 2026-11-18T17:19:00Z
     The skill-pin amendment above landed in b75b6c60.
+
+note 2026-11-18T17:28:07Z
+    Decision (the user, 2026-11-18): module-composer is not adopted ("its value to me is dubious"); trust work uses
+    Effect Schema (Schema.brand, full decoding), small Flow-side wrappers and lint. Re-plan proposed in
+    proposals/replan-2026-11-18.md; prior art in revisit.md.

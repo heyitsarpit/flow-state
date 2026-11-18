@@ -8,6 +8,8 @@
   requires.
 - No public function has a catch-all, so whatever was missed escapes as a raw `TypeError`.
 
+**Superseded (2026-11-18):** by [replan-2026-11-18.md](replan-2026-11-18.md); `module-composer` is not adopted.
+
 Proposed fix, all of it **proposed**:
 
 - **Builders capture.** They return a branded token holding their arguments and site.
