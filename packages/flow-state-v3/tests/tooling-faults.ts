@@ -120,8 +120,8 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "        for (const { actor, context, count } of uses.values())\n          for (let k = 0; k < count; k++) attach(actor, context);",
-        replace: "        uses.clear();",
+        find: "    for (const { actor, context, count } of uses.values())\n      for (let k = 0; k < count; k++) attach(opened, actor, context);",
+        replace: "    uses.clear();",
       },
     ],
   },
@@ -281,6 +281,46 @@ export const toolingFaults: ReadonlyArray<Fault> = [
         find: '        mark(out, "refused");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));',
         replace:
           '        apply(out.writes);\n        mark(out, "landed");\n        Deferred.doneUnsafe(out.answer, Exit.void);',
+      },
+    ],
+  },
+  {
+    name: "fork-store-empty",
+    tests: ["tests/stories/fork.test.ts"],
+    says: "a forked reload starts the store empty instead of from the saved records, batches and words",
+    rule: "Stories R18",
+    edits: [{ file: "src/host/testing/run.ts", find: "    saved.store,\n", replace: "    noStore,\n" }],
+  },
+  {
+    name: "fork-servers-fresh",
+    tests: ["tests/stories/fork.test.ts"],
+    says: "a forked reload starts every fake server fresh instead of from the saved truth, calls and words",
+    rule: "Stories R18",
+    edits: [{ file: "src/host/testing/run.ts", find: "    saved.servers,\n", replace: "    noServers,\n" }],
+  },
+  {
+    name: "fork-actors-dropped",
+    tests: ["tests/stories/fork.test.ts"],
+    says: "a forked reload forgets the actors the Story holds, so it ensures none of them again",
+    rule: "Stories R18",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "  const uses = new Map(saved.uses);",
+        replace: "  const uses = new Map<string, Use>();",
+      },
+    ],
+  },
+  {
+    name: "fork-clock-zero",
+    tests: ["tests/stories/fork.test.ts"],
+    says: "a forked reload boots its open at time 0 instead of the saved time",
+    rule: "Stories R18",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "        const opened = reopen(saved.now, reload);",
+        replace: "        const opened = reopen(0, reload);",
       },
     ],
   },

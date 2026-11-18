@@ -171,25 +171,63 @@ type Logged = { readonly server: AnyServer; readonly endpoint: string; readonly 
 type Pending = { readonly word: "hold" | "drop"; readonly at: At; readonly step: number };
 
 /**
+ * The fake servers between two steps, as `save` copies them: each server's truth, every call, the
+ * wire words still waiting, the held calls, the handler faults, the answers whose waiter is gone,
+ * each server's slot number and the network.
+ */
+export type ServersSaved = {
+  // FLOW_STATE_ALLOW_UNKNOWN: each server's truth, of its own Schema.
+  readonly truths: ReadonlyMap<AnyServer, unknown>;
+  readonly log: ReadonlyArray<Logged>;
+  readonly pending: ReadonlyMap<string, ReadonlyArray<Pending>>;
+  readonly held: ReadonlyArray<Held>;
+  readonly faults: ReadonlyArray<string>;
+  // FLOW_STATE_ALLOW_UNKNOWN: held answers whose waiter was interrupted, of their endpoints' own types.
+  readonly gone: ReadonlySet<Deferred.Deferred<unknown, unknown>>;
+  readonly ids: ReadonlyMap<AnyServer, number>;
+  readonly offline: boolean;
+};
+
+/**
+ * The fake servers before anything reaches them: every server at its `initial`, online.
+ */
+export const noServers: ServersSaved = {
+  truths: new Map(),
+  log: [],
+  pending: new Map(),
+  held: [],
+  faults: [],
+  gone: new Set(),
+  ids: new Map(),
+  offline: false,
+};
+
+// A copy that shares nothing a later step changes: held calls, log entries and truths are replaced,
+// never changed, so only the collections and the waiting words' queues are copied.
+const serversOf = (saved: ServersSaved) => ({
+  truths: new Map(saved.truths),
+  log: [...saved.log],
+  pending: new Map(Array.from(saved.pending, ([slot, left]) => [slot, Array.from(left)])),
+  held: [...saved.held],
+  faults: [...saved.faults],
+  gone: new Set(saved.gone),
+  ids: new Map(saved.ids),
+  offline: saved.offline,
+});
+
+/**
  * A run's fake servers: their truth, every call each endpoint received, and the wire words.
  * `alive` says whether a tab's open may still be answered; `step` is the index of the step
- * running; `arrived` hears each call's log index as it arrives.
+ * running; `arrived` hears each call's log index as it arrives; `from` is where they start.
  */
 export const makeWorld = (
   alive: (open: number) => boolean,
   step: () => number,
   arrived: (index: number) => void,
+  from: ServersSaved = noServers,
 ) => {
-  // FLOW_STATE_ALLOW_UNKNOWN: each server's truth, of its own Schema.
-  const truths = new Map<AnyServer, unknown>();
-  const log: Array<Logged> = [];
-  const pending = new Map<string, Array<Pending>>();
-  const held: Array<Held> = [];
-  const faults: Array<string> = [];
-  // FLOW_STATE_ALLOW_UNKNOWN: held answers whose waiter was interrupted, of their endpoints' own types.
-  const gone = new Set<Deferred.Deferred<unknown, unknown>>();
-  const ids = new Map<AnyServer, number>();
-  let offline = false;
+  const { truths, log, pending, held, faults, gone, ids } = serversOf(from);
+  let { offline } = from;
 
   const slot = (server: AnyServer, endpoint: string) => {
     if (!ids.has(server)) ids.set(server, ids.size);
@@ -318,6 +356,7 @@ export const makeWorld = (
     });
 
   return {
+    save: () => serversOf({ truths, log, pending, held, faults, gone, ids, offline }),
     service: (open: number) =>
       FakeWorld.of({
         serve: (server) =>
@@ -392,20 +431,42 @@ type Out = {
 };
 
 /**
+ * The store between two steps, as `save` copies it: its records, the storage words still armed,
+ * the refused loads still waiting, and every batch it received with its writes.
+ */
+export type StoreSaved = {
+  readonly data: ReadonlyMap<string, string>;
+  readonly next: ReadonlyArray<{ readonly word: "hold" | "refuse"; readonly step: number }>;
+  readonly loads: ReadonlyArray<{ readonly step: number }>;
+  readonly batches: ReadonlyArray<Out>;
+};
+
+/**
+ * The store before anything is written: no records, words or batches.
+ */
+export const noStore: StoreSaved = { data: new Map(), next: [], loads: [], batches: [] };
+
+// Batches are replaced, never changed, so only the collections are copied.
+const storeOf = (saved: StoreSaved) => ({
+  data: new Map(saved.data),
+  next: [...saved.next],
+  loads: [...saved.loads],
+  batches: [...saved.batches],
+});
+
+/**
  * The run's durable store: its records, the batches it received, and the storage words. `issued`
  * hears each batch's index as it is issued; `step` is the index of the step running; a `seed`
- * shuffles the order each open loads the records in.
+ * shuffles the order each open loads the records in; `from` is where it starts.
  */
 export const makeStore = (
   alive: (open: number) => boolean,
   issued: (index: number) => void,
   step: () => number,
   seed: Option.Option<number>,
+  from: StoreSaved = noStore,
 ) => {
-  const data = new Map<string, string>();
-  const next: Array<{ readonly word: "hold" | "refuse"; readonly step: number }> = [];
-  const loads: Array<{ readonly step: number }> = [];
-  const batches: Array<Out> = [];
+  const { data, next, loads, batches } = storeOf(from);
 
   const apply = (writes: ReadonlyArray<Bytes>) => {
     for (const w of writes)
@@ -423,6 +484,7 @@ export const makeStore = (
   };
 
   return {
+    save: () => storeOf({ data, next, loads, batches }),
     data: () => new Map(data),
     batches: () => batches.map((b) => b.batch),
     // RETURN_TYPE: the Store contract a tab's Host carries.

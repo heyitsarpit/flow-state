@@ -8,7 +8,8 @@ derives_from  [@plan.Testing.O1, @plan.Testing.O2, @plan.Testing.O3, @plan.Testi
               @plan.Pending.D12]
 provides      Story, Story.Step, Fake.server, Fake.call, Fake.control, Fake.world, Fake.Lost, Fake.storage,
               Fake.network, the run,
-              checkpoints, the runtime cut inspect(runtime), the trace run.trace and render(trace, "text")
+              checkpoints, the runtime cut inspect(runtime), the trace run.trace and render(trace, "text"),
+              forkReloads
 
 requirements
     R1  A Story is an inert chain
@@ -206,6 +207,18 @@ requirements
                 handler never runs, and the call is logged dropped at request. A wire word given meanwhile is not
                 used by an offline call; it waits for the endpoint's next call once the network is back online.
 
+    R18  A reload forks from a saved world
+        source  @R13 (a dead open never runs again, so a reload keeps only the run's world); @R14 (the world
+                before a step is the same in every run of the steps before it).
+        must    `forkReloads(story, visit)` runs the Story's own steps once and, before each step and after the
+                last, gives `visit` the position and `fork(reload, rest)`: the run `story.run({ steps })` gives for
+                the Story's steps before that position, then `reload`, then `rest`. The saved world is all a reload
+                keeps: the registry's truth, the call log, the waiting wire words, the held calls and the network;
+                the store's records, batches and armed storage words; the actors the Story holds with their context
+                and counts; the evidence, trace and checkpoints so far; the open count and the time. The open
+                itself is not saved, since a reload abandons it, so a fork starts with its reload. A fork never
+                changes the Story's own run or another fork; a fault of the own run fails the whole call.
+
 open
     Q1  Cut from @plan.Testing for this first slice.
         outcome  Story.machine and Story.fragment, tabs, together, setContext, hydration, frames, the address
@@ -311,6 +324,10 @@ invariants
     I22  Every call that arrives while the network is offline is logged dropped at request and changes no server's 
          truth. [@R17]
 
+    I23  For every Story s, position p, reload r and steps x, the fork at p of r then x and `s.run({ steps: 
+         [...s.steps.slice(0, p), r, ...x] })` give equal evidence, checkpoints, end and trace, or
+        reject alike; `forkReloads`' own run equals `s.run()`. [@R13, @R14, @R18]
+
 composition
     flow
         Design note. A Story's run boots open 1 of its tab at time 0 and applies the steps in order. A step drives
@@ -411,6 +428,10 @@ coverage
         enforced_by  [@I22]
         open_by      [@Q1]
 
+    @R18
+        enforced_by  [@I23]
+        proven_by    [@T16]
+
 tests
     T1  Inert chain: a fixture whose Layer counts its builds is in a Story; the count is 0 after building the Story and 
         two branches from one prefix, and one per open after run(); the prefix's `steps` are unchanged by the
@@ -479,3 +500,8 @@ tests
     T15  Network words: offline with a hold given, two transfers are dropped at request with no receipt and end unknown 
          NoResponse; once online, the next transfer is held by the waiting hold and its release answers it
              (planted fault: the offline word reaches the servers). [@I9, @I22]
+    T16  Forked reloads: on the median-length Story with a held call, a held write, the network down and a reload, the 
+         fork at every position in each reload mode gives the replay's evidence, trace, checkpoints, end
+            time, inspection, records and calls, and the own run equals `run()`; the reload sweep under
+            FLOW_REPLAY_SWEEP=true fails at any position whose verdict differs (planted faults: a fork that starts
+            the store empty, the servers fresh, the actors dropped or the clock at 0). [@I23]

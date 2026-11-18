@@ -1,9 +1,18 @@
-import { type Duration, type Layer, Option } from "effect";
+import { type Duration, Effect, type Layer, Option } from "effect";
 import type { AnyDefinition, EventOf } from "../../definition.ts";
 import { flowError } from "../../error.ts";
 import { actorIdOf, type ActorRef, machineOf, type RuntimeSetup, SetupId } from "../runtime.ts";
 import type { FakeWorld } from "./fake.ts";
-import { run, type StoryRun, type Subject } from "./run.ts";
+import {
+  attempt,
+  type Reload,
+  run,
+  runForked,
+  type RunFault,
+  startRun,
+  type StoryRun,
+  type Subject,
+} from "./run.ts";
 import { Step, type WorldWord } from "./steps.ts";
 import { overridesBy } from "../wiring.ts";
 
@@ -194,3 +203,56 @@ export const Story = {
     return storyOf(subject, options.id);
   },
 };
+
+/**
+ * Runs a reload at every position of a Story, each forked from the world saved there instead of
+ * replayed from boot.
+ *
+ * **When to use**
+ *
+ * A sweep that inserts a reload at each position of a Story: replaying the steps before each one
+ * makes the sweep's cost grow with the square of the Story's length, and forking skips them.
+ *
+ * **Details**
+ *
+ * Runs the Story's own steps once. Before each step and after the last, `visit` gets the position
+ * `at` and `fork(reload, rest)`, the run `story.run({ steps })` gives for the Story's first `at`
+ * steps, then `reload`, then `rest`. The saved world is all a reload keeps: the fake servers'
+ * truth, calls, waiting words and held calls, the store's records, batches and armed words, the
+ * actors the Story holds, what the run recorded so far, the tab's open count and the time. The
+ * tab itself is not saved, since a reload abandons it, so a fork starts with its reload. Returns
+ * the Story's own run.
+ *
+ * **Gotchas**
+ *
+ * - A fault of the Story's own run fails the whole call, at the step that faulted.
+ * - A fork is a run of its own: it never changes the Story's own run or another fork.
+ */
+export const forkReloads = Effect.fn("forkReloads")(function* <E>(
+  story: Story<string>,
+  visit: (
+    at: number,
+    fork: (reload: Reload, rest: ReadonlyArray<Step>) => Effect.Effect<StoryRun, RunFault>,
+  ) => Effect.Effect<void, E>,
+) {
+  const subject = story[SubjectId];
+
+  const own = yield* attempt(() =>
+    startRun(subject, story.id, { seed: Option.none(), lenient: false }, Option.none()),
+  );
+
+  for (const [at, next] of [...story.steps.map(Option.some), Option.none<Step>()].entries()) {
+    const saved = own.save();
+
+    yield* visit(at, (reload, rest) =>
+      attempt(() => runForked(subject, story.id, saved, reload, rest)),
+    );
+
+    yield* Option.match(next, {
+      onNone: () => Effect.void,
+      onSome: (step) => attempt(() => own.step(step)),
+    });
+  }
+
+  return yield* attempt(() => own.finish().run);
+});

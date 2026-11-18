@@ -282,7 +282,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "      Option.some(tab.built.admission.ensure(actor, context)),",
+        find: "      Option.some(on.built.admission.ensure(actor, context)),",
         replace: "      context.size === 0 ? Option.none() : Option.some(context),",
       },
     ],
@@ -389,8 +389,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "      Option.some(tab.built.admission.ensure(actor, context)),",
-        replace: "      Option.some(tab.built.admission.ensure(actor, new Map())),",
+        find: "      Option.some(on.built.admission.ensure(actor, context)),",
+        replace: "      Option.some(on.built.admission.ensure(actor, new Map())),",
       },
     ],
   },

@@ -372,3 +372,8 @@ note 2026-11-18T06:39:57Z
     @spec.Restore R5: the boundary check now covers every trusted field: declared machine for every kind, a lane key's
     operation and key text (read and named back, headless too), an owed row's operation and lane (T20). Reverse: the
     clause from 7ff63975.
+
+note 2026-11-18T08:06:19Z
+    @spec.Stories R18, I23, T16 added: a reload forks from a saved world (forkReloads) and gives the run a replay gives,
+    so the reload sweep no longer replays each position's prefix (T90). Reverse: drop R18 and turn FLOW_REPLAY_SWEEP's
+    replay form back on as the sweep.

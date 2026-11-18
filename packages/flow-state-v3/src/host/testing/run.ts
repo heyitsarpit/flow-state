@@ -27,6 +27,10 @@ import {
   FakeWorld,
   makeStore,
   makeWorld,
+  noServers,
+  noStore,
+  type ServersSaved,
+  type StoreSaved,
 } from "./fake.ts";
 import { testing } from "./seam.ts";
 import {
@@ -137,6 +141,9 @@ const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limi
   };
 };
 
+// One open of the tab, live until a reload abandons it.
+type Opened = ReturnType<typeof openTab>;
+
 /**
  * What a step source reads before it gives the next step: the calls held at the fake servers, each
  * endpoint's call count, every write batch's status, the held store writes (oldest first, each as
@@ -180,57 +187,75 @@ export type Drawn<Names extends string = string> = {
   readonly unused: ReadonlyArray<number>;
 };
 
-/**
- * Runs a subject over a step array and returns what it recorded; a Story's `run()` calls it.
- */
-// RETURN_TYPE: the exported StoryRun contract keeps the checkpoints' names.
-const runSteps = <Names extends string>(
-  subject: Subject,
-  id: string,
-  steps: ReadonlyArray<Step>,
-  seed: Option.Option<number> = Option.none(),
-): StoryRun<Names> => {
-  let next = 0;
+type Use = { readonly actor: ActorId; readonly context: Wiring; readonly count: number };
 
-  return runFrom<Names>(subject, id, () => steps[next++] ?? "done", { seed, lenient: false }).run;
+/**
+ * A run's world between two steps, kept so a reload there can be forked from it: the fake servers,
+ * the store, the actors the Story holds with their context and counts, what the run recorded so
+ * far, the tab's open count and the time. The tab itself is not kept: a reload abandons it, and a
+ * dead tab is never drained or adjusted again.
+ */
+export type Saved = {
+  readonly servers: ServersSaved;
+  readonly store: StoreSaved;
+  readonly uses: ReadonlyMap<string, Use>;
+  readonly evidence: ReadonlyArray<Evidence>;
+  readonly noted: ReadonlyArray<Noted>;
+  readonly checkpoints: ReadonlyMap<string, Cut>;
+  readonly steps: ReadonlyArray<Step>;
+  readonly open: number;
+  readonly now: number;
 };
 
 /**
- * Runs a subject over the steps a source gives, one at a time, each after the source has read the
- * run's view; skipped draws leave no step.
+ * A reload step, the step a fork starts with.
  */
-// RETURN_TYPE: the Drawn contract keeps the checkpoints' names.
-export const runFrom = <Names extends string>(
+export type Reload = Extract<Step, { readonly _tag: "reload" }>;
+
+// The world before a run's first open: nothing stored, called or recorded.
+const before: Saved = {
+  servers: noServers,
+  store: noStore,
+  uses: new Map(),
+  evidence: [],
+  noted: [],
+  checkpoints: new Map(),
+  steps: [],
+  open: 1,
+  now: 0,
+};
+
+/**
+ * Starts a run of a subject, booted from its world words or forked by a reload from a saved world,
+ * and returns its steps: `step` runs one, `view` is what a source reads before it, `save` keeps
+ * the world between two steps, and `finish` ends the run.
+ */
+// RETURN_TYPE: the run's step functions, whose finish keeps the checkpoints' names.
+export const startRun = <Names extends string>(
   subject: Subject,
   id: string,
-  source: Source,
   options: Options,
-): Drawn<Names> => {
+  from: Option.Option<{ readonly saved: Saved; readonly reload: Reload }>,
+) => {
   if (id === "") scriptFault("a Story's id is empty");
+  const saved = Option.match(from, { onNone: () => before, onSome: (fork) => fork.saved });
 
-  const evidence: Array<Evidence> = [];
-  const checkpoints = new Map<string, Cut>();
+  const evidence = [...saved.evidence];
+  const checkpoints = new Map(saved.checkpoints);
+  const uses = new Map(saved.uses);
 
-  const uses = new Map<
-    string,
-    {
-      readonly actor: ActorId;
-      readonly context: Wiring;
-      readonly count: number;
-    }
-  >();
-
-  let current = 1;
-  let stepAt = -1;
+  let current = saved.open;
+  let stepAt = saved.steps.length - 1;
   const turns = { instant: -1, count: 0 };
   const alive = (open: number) => open === current;
-  const noted: Array<Noted> = [];
+  const noted = [...saved.noted];
   const note = (event: Noted) => void noted.push(event);
 
   const fakes = makeWorld(
     alive,
     () => stepAt,
     (index) => note({ kind: "call", index }),
+    saved.servers,
   );
 
   const store = makeStore(
@@ -238,6 +263,7 @@ export const runFrom = <Names extends string>(
     (index) => note({ kind: "batch", index }),
     () => stepAt,
     options.seed,
+    saved.store,
   );
 
   const limits: Limits = {
@@ -297,9 +323,71 @@ export const runFrom = <Names extends string>(
     else fakes.word(word);
   };
 
-  for (const word of subject.world) apply(word);
+  // An ensure passes the Runtime's admission, as the public ensureActor does, with the ref's
+  // context overrides; an ensure again after a reload passes it with the ones it was first given.
+  const attach = (on: Opened, actor: ActorId, context: Wiring) =>
+    testing.attach(
+      on.built,
+      actor,
+      "story",
+      false,
+      Option.some(on.built.admission.ensure(actor, context)),
+    );
 
-  let tab = boot(current, 0);
+  // A reload at `now`: the store ends the old open's held writes, the tab's next open boots over
+  // the same store and fake servers, and every actor the Story still uses is ensured again.
+  const reopen = (now: number, { reattach, heldWrites }: Reload) => {
+    if (heldWrites === "land") store.landHeld(current);
+    else store.abortHeld(current);
+    current += 1;
+    const opened = boot(current, now);
+
+    if (!reattach) uses.clear();
+
+    for (const { actor, context, count } of uses.values())
+      for (let k = 0; k < count; k++) attach(opened, actor, context);
+
+    return opened;
+  };
+
+  const steps = [...saved.steps];
+
+  // Records a step before it runs: its index, its trace record, and a fresh count of the turns of
+  // its instant.
+  const begin = (step: Step, now: number) => {
+    const n = steps.push(step) - 1;
+    stepAt = n;
+    note({ kind: "record", open: current, record: TraceRecord.Step({ index: n, step }) });
+    Object.assign(turns, { instant: now, count: 0 });
+
+    return n;
+  };
+
+  // A step ends with its tab idle and no handler fault.
+  const settled = (on: Opened, n: number) => {
+    if (!on.idle()) scriptFault(`step ${n} left open ${current} of the tab busy`);
+    const faults = fakes.faults();
+
+    if (faults.length > 0) scriptFault(faults.join("; "));
+  };
+
+  const opening = () =>
+    Option.match(from, {
+      onNone: () => {
+        for (const word of subject.world) apply(word);
+
+        return boot(current, 0);
+      },
+      onSome: ({ reload }) => {
+        const n = begin(reload, saved.now);
+        const opened = reopen(saved.now, reload);
+        settled(opened, n);
+
+        return opened;
+      },
+    });
+
+  let tab = opening();
 
   // The tab's Runtime is disposed once its life has left Open for good: disposing or disposed.
   const disposed = () => {
@@ -361,19 +449,6 @@ export const runFrom = <Names extends string>(
     if (disposed()) scriptFault(`${what} after disposeRuntime`);
   };
 
-  // An ensure passes the Runtime's admission, as the public ensureActor does, with the ref's
-  // context overrides; an ensure again after a reload passes it with the ones it was first given.
-  const attach = (actor: ActorId, context: Wiring) =>
-    testing.attach(
-      tab.built,
-      actor,
-      "story",
-      false,
-      Option.some(tab.built.admission.ensure(actor, context)),
-    );
-
-  const steps: Array<Step> = [];
-
   // RETURN_TYPE: the exported View contract a source reads.
   const view = (): View => ({
     held: fakes.held(),
@@ -386,18 +461,13 @@ export const runFrom = <Names extends string>(
     lanes: () => inspect(tab.built.runtime).lanes,
   });
 
-  for (let pulled = source(view()); pulled !== "done"; pulled = source(view())) {
-    if (pulled === "skip") continue;
-    const step = pulled;
-    const n = steps.push(step) - 1;
-    stepAt = n;
-    note({ kind: "record", open: current, record: TraceRecord.Step({ index: n, step }) });
-    Object.assign(turns, { instant: tab.now(), count: 0 });
+  const step = (next: Step) => {
+    const n = begin(next, tab.now());
 
-    Step.$match(step, {
+    Step.$match(next, {
       ensure: ({ actor, context }) => {
         live("ensure");
-        attach(actor, context);
+        attach(tab, actor, context);
         const count = uses.get(actorKey(actor))?.count ?? 0;
         uses.set(actorKey(actor), { actor, context, count: count + 1 });
       },
@@ -435,18 +505,8 @@ export const runFrom = <Names extends string>(
         if (!Option.exists(tab.perform(TestClock.adjust(duration)), Exit.isSuccess))
           scriptFault("advance did not end");
       },
-      reload: ({ reattach, heldWrites }) => {
-        const now = tab.now();
-
-        if (heldWrites === "land") store.landHeld(current);
-        else store.abortHeld(current);
-        current += 1;
-        tab = boot(current, now);
-
-        if (!reattach) uses.clear();
-
-        for (const { actor, context, count } of uses.values())
-          for (let k = 0; k < count; k++) attach(actor, context);
+      reload: (reload) => {
+        tab = reopen(tab.now(), reload);
       },
       checkpoint: ({ name }) => {
         if (checkpoints.has(name)) scriptFault(`checkpoint ${name} twice`);
@@ -454,61 +514,153 @@ export const runFrom = <Names extends string>(
       },
     });
 
-    if (!tab.idle()) scriptFault(`step ${n} left open ${current} of the tab busy`);
-    const faults = fakes.faults();
+    settled(tab, n);
+  };
 
-    if (faults.length > 0) scriptFault(faults.join("; "));
-  }
+  // RETURN_TYPE: the exported Saved contract a fork starts from.
+  const save = (): Saved => ({
+    servers: fakes.save(),
+    store: store.save(),
+    uses: new Map(uses),
+    evidence: [...evidence],
+    noted: [...noted],
+    checkpoints: new Map(checkpoints),
+    steps: [...steps],
+    open: current,
+    now: tab.now(),
+  });
 
-  const unused = [...fakes.unused(), ...store.unused()];
+  // RETURN_TYPE: the Drawn contract keeps the checkpoints' names.
+  const finish = (): Drawn<Names> => {
+    const unused = [...fakes.unused(), ...store.unused()];
 
-  if (unused.length > 0 && !options.lenient) scriptFault(unused.join("; "));
+    if (unused.length > 0 && !options.lenient) scriptFault(unused.join("; "));
 
-  // SAFETY: a Story's own steps hold one checkpoint word per name its type collected as Names, each taken once (checked above); a run of other steps is typed with string Names.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- the checkpoints the steps named, keyed by name
-  const named = Object.fromEntries(checkpoints) as StoryRun<Names>["checkpoints"];
+    // SAFETY: a Story's own steps hold one checkpoint word per name its type collected as Names, each taken once (checked above); a run of other steps is typed with string Names.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- the checkpoints the steps named, keyed by name
+    const named = Object.fromEntries(checkpoints) as StoryRun<Names>["checkpoints"];
 
-  const log = fakes.log();
-  const batches = store.batches();
+    const log = fakes.log();
+    const batches = store.batches();
 
-  const resolve = (event: Noted, sequence: number) => {
-    const at = (tab: Tab, record: TraceRecord) => ({ sequence, tab, record });
+    const resolve = (event: Noted, sequence: number) => {
+      const at = (tab: Tab, record: TraceRecord) => ({ sequence, tab, record });
 
-    if (event.kind === "record") return Option.some(at(mainTab(event.open), event.record));
+      if (event.kind === "record") return Option.some(at(mainTab(event.open), event.record));
 
-    if (event.kind === "call")
-      return Option.map(Option.fromUndefinedOr(log[event.index]), ({ server, endpoint, entry }) =>
+      if (event.kind === "call")
+        return Option.map(Option.fromUndefinedOr(log[event.index]), ({ server, endpoint, entry }) =>
+          at(
+            entry.tab,
+            TraceRecord.Request({
+              server: server.name,
+              endpoint,
+              input: entry.input,
+              status: entry.status,
+            }),
+          ),
+        );
+
+      return Option.map(Option.fromUndefinedOr(batches[event.index]), (batch) =>
         at(
-          entry.tab,
-          TraceRecord.Request({
-            server: server.name,
-            endpoint,
-            input: entry.input,
-            status: entry.status,
+          batch.tab,
+          TraceRecord.Write({
+            purpose: batch.purpose,
+            keys: batch.keys,
+            acknowledges: batch.acknowledges,
+            status: batch.status,
           }),
         ),
       );
+    };
 
-    return Option.map(Option.fromUndefinedOr(batches[event.index]), (batch) =>
-      at(
-        batch.tab,
-        TraceRecord.Write({
-          purpose: batch.purpose,
-          keys: batch.keys,
-          acknowledges: batch.acknowledges,
-          status: batch.status,
-        }),
-      ),
-    );
+    const events = noted.flatMap((event, n) => Option.toArray(resolve(event, n + 1)));
+
+    return {
+      run: { steps, evidence, checkpoints: named, end: cut(), trace: { storyId: id, events } },
+      unused: [...fakes.unusedAt(), ...store.unusedAt()],
+    };
   };
 
-  const events = noted.flatMap((event, n) => Option.toArray(resolve(event, n + 1)));
-
-  return {
-    run: { steps, evidence, checkpoints: named, end: cut(), trace: { storyId: id, events } },
-    unused: [...fakes.unusedAt(), ...store.unusedAt()],
-  };
+  return { step, view, save, finish };
 };
+
+/**
+ * Runs a subject over the steps a source gives, one at a time, each after the source has read the
+ * run's view; skipped draws leave no step.
+ */
+// RETURN_TYPE: the Drawn contract keeps the checkpoints' names.
+export const runFrom = <Names extends string>(
+  subject: Subject,
+  id: string,
+  source: Source,
+  options: Options,
+): Drawn<Names> => {
+  const started = startRun<Names>(subject, id, options, Option.none());
+
+  for (let pulled = source(started.view()); pulled !== "done"; pulled = source(started.view()))
+    if (pulled !== "skip") started.step(pulled);
+
+  return started.finish();
+};
+
+/**
+ * Runs a subject over a step array and returns what it recorded; a Story's `run()` calls it.
+ */
+// RETURN_TYPE: the exported StoryRun contract keeps the checkpoints' names.
+const runSteps = <Names extends string>(
+  subject: Subject,
+  id: string,
+  steps: ReadonlyArray<Step>,
+  seed: Option.Option<number> = Option.none(),
+): StoryRun<Names> => {
+  let next = 0;
+
+  return runFrom<Names>(subject, id, () => steps[next++] ?? "done", { seed, lenient: false }).run;
+};
+
+/**
+ * Runs a reload from a saved world, then the steps after it, and returns what the whole run
+ * recorded, the saved part included.
+ */
+// RETURN_TYPE: the exported StoryRun contract, with string Names as any run of other steps.
+export const runForked = (
+  subject: Subject,
+  id: string,
+  saved: Saved,
+  reload: Reload,
+  rest: ReadonlyArray<Step>,
+): StoryRun => {
+  const started = startRun(
+    subject,
+    id,
+    { seed: Option.none(), lenient: false },
+    Option.some({ saved, reload }),
+  );
+
+  for (const next of rest) started.step(next);
+
+  return started.finish().run;
+};
+
+/**
+ * Why a run may fail: a script fault, a turn or settle limit, or an ensure or dispose the Runtime
+ * refuses.
+ */
+export type RunFault = StoryFailed | StoryTurnLimit | FlowError;
+
+/**
+ * Runs part of a run as an Effect: a script fault or limit fails it, an ensure or dispose the
+ * Runtime refuses fails it with that FlowError; anything else thrown fails it as StoryFailed.
+ */
+export const attempt = <A>(part: () => A) =>
+  Effect.try({
+    try: part,
+    catch: (fault) =>
+      fault instanceof StoryFailed || fault instanceof StoryTurnLimit || fault instanceof FlowError
+        ? fault
+        : new StoryFailed({ problem: `the run threw: ${String(fault)}` }),
+  });
 
 /**
  * Runs a subject over a step array as an Effect: a script fault or limit fails it, an ensure or
@@ -521,13 +673,7 @@ export const runEffect = Effect.fn("runEffect")(function* <Names extends string>
   steps: ReadonlyArray<Step>,
   seed: Option.Option<number> = Option.none(),
 ) {
-  return yield* Effect.try({
-    try: () => runSteps<Names>(subject, id, steps, seed),
-    catch: (fault) =>
-      fault instanceof StoryFailed || fault instanceof StoryTurnLimit || fault instanceof FlowError
-        ? fault
-        : new StoryFailed({ problem: `the run threw: ${String(fault)}` }),
-  });
+  return yield* attempt(() => runSteps<Names>(subject, id, steps, seed));
 });
 
 /**

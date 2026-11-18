@@ -1,13 +1,17 @@
+import { Effect, Formatter } from "effect";
 import { expect, it } from "vite-plus/test";
 import { manifests } from "../../fixtures/index.ts";
 import {
   type Batch,
+  forkReloads,
+  type Reload,
   Step,
   StoryFailed,
   type Story,
   type StoryRun,
   type WorldWord,
 } from "../../src/host/testing/index.ts";
+import { switchedOn } from "../switches.ts";
 import { breachesOf } from "./rules.ts";
 
 /**
@@ -164,9 +168,6 @@ const faultOf = (fault: unknown) =>
     ? ({ kind: "skipped" } satisfies Variant)
     : ({ kind: "faulted", fault: String(fault) } satisfies Variant);
 
-const variantOf = (story: Story<string>, steps: ReadonlyArray<Step>) =>
-  story.run({ steps }).then((run) => ({ kind: "ran", run }) satisfies Variant, faultOf);
-
 // What one variant adds to the sweep: a skip, or the breaches and faults it shows.
 const judgedVariant = (name: string, variant: Variant) => {
   if (variant.kind === "skipped") return { skipped: true, failed: [] };
@@ -180,56 +181,158 @@ const judgedVariant = (name: string, variant: Variant) => {
   };
 };
 
+type Judged = ReturnType<typeof judgedVariant>;
+
+/**
+ * A Story's reload sweep in one mode: each position's verdict in order, and the Story's own run,
+ * or why it failed.
+ */
+export type Swept = {
+  readonly verdicts: ReadonlyArray<Judged>;
+  readonly own:
+    | { readonly kind: "ran"; readonly run: StoryRun }
+    | { readonly kind: "failed"; readonly fault: string };
+};
+
+const nameAt = (story: Story<string>, at: number) => `${story.id} with a reload at ${at}`;
+
+// The cut right after the reload lets Restore I1 judge every position.
+const reloaded = Step.checkpoint({ name: "~reloaded" });
+
+/**
+ * The replay form: each position runs the Story from boot with the reload inserted, so a sweep
+ * replays every step before it again.
+ */
+// RETURN_TYPE: the Swept contract both forms give, so their verdicts compare position by position.
+export const replayed = async (story: Story<string>, reload: Reload): Promise<Swept> => {
+  const verdicts: Array<Judged> = [];
+
+  for (let at = 0; at <= story.steps.length; at += 1) {
+    const steps = story.steps.toSpliced(at, 0, reload, reloaded);
+
+    // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
+    const variant = await story
+      .run({ steps })
+      .then((run) => ({ kind: "ran", run }) satisfies Variant, faultOf);
+
+    verdicts.push(judgedVariant(nameAt(story, at), variant));
+  }
+
+  return story.run().then(
+    (run) => ({ verdicts, own: { kind: "ran", run } }),
+    // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is matched.
+    (fault: unknown) => ({ verdicts, own: { kind: "failed", fault: String(fault) } }),
+  );
+};
+
+/**
+ * The forked form: the Story runs once, and each position's reload forks from the world saved
+ * there, the same run the replay form gives.
+ */
+// RETURN_TYPE: the Swept contract both forms give, so their verdicts compare position by position.
+export const forked = (story: Story<string>, reload: Reload): Promise<Swept> => {
+  const verdicts: Array<Judged> = [];
+
+  // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a sweep runs its forks at the test's edge, one Story at a time
+  return Effect.runPromise(
+    forkReloads(story, (at, fork) =>
+      fork(reload, [reloaded, ...story.steps.slice(at)]).pipe(
+        Effect.match({
+          onSuccess: (run) => ({ kind: "ran", run }) satisfies Variant,
+          onFailure: faultOf,
+        }),
+        Effect.map((variant) => void verdicts.push(judgedVariant(nameAt(story, at), variant))),
+      ),
+    ).pipe(
+      Effect.match({
+        onSuccess: (run) => ({ verdicts, own: { kind: "ran", run } }) satisfies Swept,
+        onFailure: (fault) =>
+          ({ verdicts, own: { kind: "failed", fault: String(fault) } }) satisfies Swept,
+      }),
+    ),
+  );
+};
+
+/**
+ * Where two sweeps of one Story differ: each position whose verdict differs, the number of
+ * positions, and the own run's outcome. A Story whose own run failed is swept only up to the step
+ * that failed, so then only the positions both reached are compared.
+ */
+export const differences = (story: Story<string>, a: Swept, b: Swept) => {
+  const same = (x: Judged, y: Judged) =>
+    x.skipped === y.skipped && x.failed.join("\n") === y.failed.join("\n");
+
+  const ownOf = (s: Swept) => (s.own.kind === "ran" ? "ran" : s.own.fault);
+
+  const positions = a.verdicts.flatMap((x, at) => {
+    const y = b.verdicts[at];
+
+    return y === undefined || same(x, y)
+      ? []
+      : [`${story.id} at ${at}: ${Formatter.format(x)} against ${Formatter.format(y)}`];
+  });
+
+  const counts =
+    a.own.kind === "ran" && b.own.kind === "ran" && a.verdicts.length !== b.verdicts.length
+      ? [`${story.id}: ${a.verdicts.length} positions against ${b.verdicts.length}`]
+      : [];
+
+  const own =
+    ownOf(a) === ownOf(b) ? [] : [`${story.id}'s own run: ${ownOf(a)} against ${ownOf(b)}`];
+
+  return [...positions, ...counts, ...own];
+};
+
+// The sweep forks each position from the world saved there. FLOW_REPLAY_SWEEP=true turns the
+// replay form back on: each position is replayed from boot and judged as before, and the sweep
+// fails wherever the forked form's verdict differs from it.
+const replay = switchedOn("FLOW_REPLAY_SWEEP");
+
 /**
  * Runs every fixture Story with a reload inserted at every step, under the run rules, and returns
- * the breaches and, per Story, the variants skipped beyond its bound.
+ * the breaches, per Story the variants skipped beyond its bound, and under FLOW_REPLAY_SWEEP where
+ * the forked and replayed forms differ.
  */
 export const sweep = async (
   stories: ReadonlyArray<Story<string>>,
   reattach: boolean,
   heldWrites: "abort" | "land" = "abort",
 ) => {
+  const reload = Step.reload({ reattach, heldWrites });
   const failed: Array<string> = [];
   const overBound: Array<string> = [];
+  const differ: Array<string> = [];
   let variants = 0;
   let skipped = 0;
 
   for (const story of stories) {
-    let skips = 0;
+    // oxlint-disable-next-line no-await-in-loop -- one Story at a time: each sweep is its own world
+    const fork = await forked(story, reload);
+    // oxlint-disable-next-line no-await-in-loop -- one Story at a time: each sweep is its own world
+    const judged = replay ? await replayed(story, reload) : fork;
 
-    for (let at = 0; at <= story.steps.length; at += 1) {
-      // The cut right after the reload lets Restore I1 judge every position.
-      const steps = story.steps.toSpliced(
-        at,
-        0,
-        Step.reload({ reattach, heldWrites }),
-        Step.checkpoint({ name: "~reloaded" }),
-      );
-
-      const name = `${story.id} with a reload at ${at}`;
-      variants += 1;
-      // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
-      const judged = judgedVariant(name, await variantOf(story, steps));
-
-      skips += judged.skipped ? 1 : 0;
-      failed.push(...judged.failed);
-    }
-
+    if (replay) differ.push(...differences(story, fork, judged));
+    const skips = judged.verdicts.filter((v) => v.skipped).length;
+    variants += judged.verdicts.length;
     skipped += skips;
-    // oxlint-disable-next-line no-await-in-loop -- one run at a time: the Story's own run, for its holds
-    const own = await story.run();
-    const bound = skipBound(story, own.end.records.batches, reattach);
+    failed.push(...judged.verdicts.flatMap((v) => v.failed));
 
-    if (skips > bound) overBound.push(`${story.id}: ${skips} variants skipped, bound ${bound}`);
+    if (judged.own.kind === "failed") failed.push(`${story.id}'s own run: ${judged.own.fault}`);
+    else {
+      const bound = skipBound(story, judged.own.run.end.records.batches, reattach);
+
+      if (skips > bound) overBound.push(`${story.id}: ${skips} variants skipped, bound ${bound}`);
+    }
   }
 
-  return { variants, skipped, failed, overBound };
+  return { variants, skipped, failed, overBound, differ };
 };
 
 /**
  * The sweep's assertions: no breach, no Story skipping past its bound, and most variants run.
  */
 export const swept = (result: Awaited<ReturnType<typeof sweep>>) => {
+  expect(result.differ).toEqual([]);
   expect(result.failed).toEqual([]);
   expect(result.overBound).toEqual([]);
   expect(result.variants).toBeGreaterThan(result.skipped);

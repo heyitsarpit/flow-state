@@ -2,7 +2,7 @@
  * Flow's test tooling, the design of the public `flow-state/testing` route, reached by this path
  * inside the package until that route exports it.
  */
-export { Story } from "./story.ts";
+export { forkReloads, Story } from "./story.ts";
 
 export { defineConfig } from "./config.ts";
 
@@ -30,7 +30,7 @@ export { Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
 
 export type { At, Tab } from "./steps.ts";
 
-export type { Cut, StoryRun } from "./run.ts";
+export type { Cut, Reload, RunFault, StoryRun } from "./run.ts";
 
 export { generate, profileTables, propertyTest } from "./generate.ts";
 
