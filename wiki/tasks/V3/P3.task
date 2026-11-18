@@ -2889,6 +2889,18 @@ tasks
             200 s file sum, palette/stress-36 40 s per mode alone) need fork-from-cut (finding 2, M-L). Faults: the
             unchanged run now times out at 240 s under the 8 copies (was 8 reds in time); cause likely the extra files'
             import cost under contention, not isolated.
+        comment     2026-11-18T02:30:18Z
+            Scope widened (the user, 2026-11-18), from
+            code:wiki/plans/flow/references/proposals/test-efficacy-2026-11-18.md: pair sweep stops at the reachable
+            phases in the default suite, all 1,000 seeds kept in stress (Q1 B); faults copies sized to the cores (about
+            4 x 3), 240 s kept; double reload only in hold windows and at the end; CLI runs one Story per fixture, story
+            list whole; section (c)'s prunes and rewrites; breach cases for the 9 unproven rules; it.fails replaces
+            mayStayGreen. From the r2 proposal: the generator also draws forget, a lost response and a refused load; the
+            bench-limit tests leave the default suite.
+        comment     2026-11-18T02:30:18Z
+            Disable, don't delete (the user, 2026-11-18): every cut test, shard or strategy stays in the tree, unlinked
+            or skipped behind a named switch, with a comment saying what it checks and how to turn it back on, so it can
+            be re-enabled later. Fork-from-cut is @task.V3.T90; the r2 proposal's other cuts are not taken.
 
     T84
         title       No size or queue caps: one loop guard and a slow-work warning
@@ -3612,3 +3624,38 @@ tasks
             tools/lint-bomb/src/rules/typescript/no-large-production-file.test.ts. The release-age gate is not bypassed:
             apply after it clears (about 2026-11-18 03:30Z), then record bench tooling.
 
+    T90
+        title       Reload sweep forked from a saved cut, same verdicts
+        status      open
+        priority    medium
+        blocked_by  [@T83]
+        description
+            The reload sweep forks each reload position from a saved runtime cut instead of replaying the Story from
+            boot, with the same verdicts.
+
+            **Why now:** the reload sweep is the largest default-suite cost left after @task.V3.T83 (about 113 s of file
+            time). Every position and all three modes still count (11 of 30 sampled catches broke only at interior
+            positions, and each mode had a catch of its own), so the time can only come from the replay, which is
+            quadratic in a Story's length. Estimated saving about 60 s of file time, low confidence until built.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/test-efficacy-2026-11-18.md (section e, Q2),
+            @task.V3.T83, `packages/flow-state-v3/tests/rules/reloads.ts` and
+            `tests/rules/sweep.ts`, `src/host/testing/`.
+
+            **Risk:** a cut that misses part of the world (fake servers, the store, the clock, open calls) gives a
+            different run and silently weakens the sweep. Both forms run over every fixture Story and compare verdicts
+            before the replay form is switched off; the replay form is kept, disabled, so it can be turned back on (the
+            user, 2026-11-18).
+
+            May change: `packages/flow-state-v3/tests/`, `src/host/testing/`. Evidence: this Task's comments.
+
+            False pass: a fork that resets part of the world passes a sweep the replay would fail → caught by the
+            side-by-side verdict comparison over every Story and by the planted faults the sweep catches today.
+        acceptance
+            - Each reload position forks from a cut taken at that position; the cut holds every live actor, the fake
+              servers' state and open calls, the store and the clock.
+            - Over every fixture Story, the forked and replayed forms give the same verdicts in all three modes, shown
+              once side by side.
+            - The faults the reload sweep catches today are still caught.
+            - The replay form stays in the tree, disabled with a comment on how to turn it back on.
+            - The suite's wall time, alone, is recorded before and after; `nub run check` passes.

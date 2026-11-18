@@ -1183,3 +1183,8 @@ note 2026-11-18T00:35:55Z
 
 note 2026-11-18T00:39:21Z
     06:09 wake: tooling bench skipped; the efficacy audit is running the faults kill matrix, and benches run alone.
+
+note 2026-11-18T02:30:18Z
+    Decision (the user, 2026-11-18): T83 takes the first efficacy proposal plus the generator gap and the bench-limit
+    move; cut tests are disabled with a comment, never deleted. New T90 (fork-from-cut) after T20. P3 order: T83, T20,
+    T90, T81, T80.
