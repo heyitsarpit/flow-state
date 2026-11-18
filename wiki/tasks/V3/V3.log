@@ -1354,3 +1354,7 @@ note 2026-11-18T18:56:59Z
 
 note 2026-11-18T18:57:44Z
     User's page written, unread: wiki/plans/flow/references/pages/T94-public-entry-points.md.
+
+note 2026-11-18T19:05:43Z
+    Daily faults 295 of 296: throwing-slot-decode-escapes-boot [Restore R5] missed, likely masked by T94's catch-alls;
+    routed to T92.

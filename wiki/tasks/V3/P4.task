@@ -664,6 +664,10 @@ tasks
               lane's `queue` and `inFlight` are not read.
             - Restore and Codec Specs updated with `specs.log` notes; `nub run check`, the suite and stress pass; `nub
               run faults --only` catches this Task's planted faults.
+        comment     2026-11-18T19:05:43Z
+            Routed (daily faults, 2026-11-19): throwing-slot-decode-escapes-boot [Restore R5] is missed by the whole
+            suite since T94's catch-alls; land a check that a throwing slot decode at boot ends in quarantine, red on
+            the plant, before T92's fix work.
 
     T95
         title       Callback results checked before they enter a turn
