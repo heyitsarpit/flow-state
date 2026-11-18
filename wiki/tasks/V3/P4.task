@@ -941,6 +941,66 @@ tasks
             For the user's read: Restore Q4 (well-formed forgeries held); and an actor record under another identity's
             key keeps its memory's input fields as saved (owner main under the guest key): no check compares them with
             the name.
+        comment     2026-11-18T22:54:47Z
+            Close review (independent lead, 7 Haiku sidecars, one blind) at `0ddd7554`, fix round `1d2e1566` included:
+            ISSUES, 4 blocking. Gates by exit code: suite 0 (1205 pass, 23 expected fail), `nub run check` 0, stress 0,
+            `nub run faults --only` binding-unchecked, input-digest-unchecked, lane-operation-unkeyed,
+            undeclared-machine-kept, state-unchecked, record-key-unchecked: 6 of 6 caught. Acceptance: bindings, Restore
+            R5 inverted test with read-op and headless lanes, fixtures registered, the six sites gone: PASS; brands,
+            each fact once, corrupt-one-field, Spec edits: ISSUES.
+
+            Blocking (owner @task.V3.T92):
+
+            1. Wrong ending: the main cart's record under the guest key restores as the guest cart with `owner` "main"
+               and main's lines, and its Add sends `addLine` with `cartId` "main" (replayed: shop/borrowed-records, then
+               ensure `guestCart` and Add). A decode can tell it: input fields are write-once and the key's name decodes
+               to the input (code:packages/flow-state-v3/src/core/identity.ts#decodeName), so this is content the key
+               determines (acceptance 3), not Q4. Q4's "a key renamed to another name a ref could give" holds only for
+               literal-named machines. Missing coverage: key mutants are only emptied, `~1` or lengthened
+               (records.test.ts `keyMutantsOf`), so no valid other name is tried; borrowed-records never ensures the
+               guest cart and restore.test.ts checks only the bytes kept.
+            2. Doubled and made-up endings the held class excuses, each detectable and replayed: an owed row repeated
+               with its Attempt delivers `Added` twice in one incarnation (@spec.WriteLanes.I15, I16); a displaced
+               Attempt repeated in a headless lane delivers `AddUnsure` twice (Attempt ids never repeat,
+               @spec.WriteLanes.R5); an owed `success` row with `attempt` null delivers a made-up `Added` (only a
+               decline has no Attempt, @spec.WriteLanes.R10). UNTELLABLE excuses `rows item repeated` and `displaced
+               item repeated`; src/host/ledger.test.ts (325-352) shows two rows of one Attempt only with different
+               channels (unknown, then success), never identical rows, so it does not support the widening; the
+               requirements review already blocked the repeated row. Missing coverage: no uniqueness or
+               channel-and-Attempt check in the owed and lane Schemas; why the sweep never nulled a success row's
+               Attempt is unchecked (likely no saved store holds one).
+            3. Spec edits leave the losing text (acceptance 8; Epic "the losing text is gone"): Codec R5 still says a
+               name "its lane and owed records carry too" (Codec.spec:57); Restore R5 says each older format "reaches
+               the current one by a pure step" and two sentences later that lane and owed records are "never stepped"
+               (Restore.spec:92, 100); Restore T6 says an older format "restores through the pure step"; Restore.spec
+               101-103 and Q4 (236-239) have trailing spaces and broken wraps. Missing coverage: none in code; the
+               whole-system reader check missed them.
+            4. Acceptance 2 by its letter: record.ts types an owed row's `lane` and `operation` as filtered
+               `Schema.String` (the lane is then branded unchecked by `laneKeyOf`), and actor-record.ts types graph keys
+               the same way. Meaning is checked at decode, so no ending is wrong; decode them to `LaneKey` and
+               `RecordKey`-style brands. Missing coverage: src/core/record-brands.test.ts checks the decoded record
+               types, not the owed row's lane.
+
+            Routed (not blocking):
+
+            - WriteAhead I17 run rule (owner @task.V3.T92): skipping opens whose load failed is sound (only a refused
+              store load reports it, and that open writes nothing); but the quarantine match `lane/${actor}|` now
+              excuses any Attempt of an identity with any unreadable lane, and `nameOf` is unescaped. Missing: a
+              rules.test.ts I17 case with an unloaded open and with a sibling lane quarantined.
+            - Undeclared `seen`, slot and memory-copy names are dropped silently (actor-record.ts), while Codec R5 now
+              refuses a field added outside a user value; harmless, align Spec or code (owner @task.V3.T92).
+            - `actorKey` escaping lives in world.ts and its unescape in identity.ts; key templates in record.ts (owner
+              @task.V3.T92, low).
+            - Plans still name OpRenamed (Persistence.plan 269-281, Inspection.plan, Diagnostics.plan): the
+              orchestrator, as an @plan.Pending decision. Restore R8's "Such a lane's record still reads" predates this
+              Task (owner @task.V3.T56).
+
+            Checked and confirmed: WriteLanes I8's reading ends every displaced Attempt (a headless lane's Attempt is
+            heard unknown at the next start; record.ts decode, replayed); the lane key by contract, the digest and the
+            undeclared machine discard are each red on their planted fault. Rejected: Flow's own multi-field lane keys
+            quarantined (lanes negative-zero reloads clean); a forged schedule `send` (pinned by its Schema); an owed
+            row of a read operation passing (Restore R7's stopped read needs it); FNV-1a by hand (Effect's `Hash.string`
+            is another algorithm).
 
     T95
         title       Callback results checked before they enter a turn
