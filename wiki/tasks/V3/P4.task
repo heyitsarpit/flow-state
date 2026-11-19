@@ -56,11 +56,11 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76,
-    @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23,
-    @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the user, 2026-11-19, so T96 is
-    next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only;
-    where several Tasks are ready, take the earliest in this order.
+    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T58, @task.V3.T57,
+    @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22,
+    @task.V3.T100, @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the
+    user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link
+    is a real dependency only; where several Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -2299,6 +2299,11 @@ tasks
         comment     2026-11-19T08:46:10Z
             Decision (the user, 2026-11-19): Q10 (an unreported quarantine) and the quarantine lift on disposeActor are
             delegated: whichever the redesign shows correct, decided by the orchestrator and noted.
+        comment     2026-11-19T09:16:53Z
+            Decision (the user, 2026-11-19, Q4): the lifetimes redesign (proposals/runtime-lifetimes-2026-11-19.md,
+            c701e254) is accepted; T99 is rebuilt on it, in a worktree (the user's call, overriding the no-worktree
+            default for this build). The Cause-fold branch t99-cause-fold stays as prior art. The proposal's Q1 to Q3,
+            Q10 and the quarantine lift are decided by correctness and noted.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
@@ -2361,3 +2366,99 @@ tasks
         comment     2026-11-19T07:28:24Z
             Owns from T99 (proposed, catalog): CleanupFailed under load (L1 × many Pays with sessions; transfers) and
             step samples offering disposeRuntime over the failing port fakes.
+
+    T102
+        title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
+        status      draft
+        priority    medium
+        description
+            The core's reason codes, runtime ids, chain state and turn cause each become one typed shape, so the wrong
+            combinations the current shapes allow can't be written.
+
+            **Why now:** the idiom survey of 2026-11-19 (user's B) found four core shapes that work today but each
+            permit a silent wrong behaviour on a later change: `forget` drops held lanes only while a free-string reason
+            equals `"operation"` (code:packages/flow-state-v3/src/core/record.ts#OPERATION_GONE); consumer start order
+            is parsed back out of an incarnation id's text (code:packages/flow-state-v3/src/core/world.ts#startOrder); a
+            chain id is `chains.size + 1` with a `0` sentinel, correct only while chains are cleared all at once
+            (code:packages/flow-state-v3/src/core/tx.ts); a turn's cause is three `Option`s plus a `source` that repeats
+            them, with invalid mixes representable (code:packages/flow-state-v3/src/core/serve.ts#turn).
+
+            **Read first:** code:packages/flow-state-v3/src/core/record.ts, code:packages/flow-state-v3/src/core/tx.ts,
+            code:packages/flow-state-v3/src/core/serve.ts, @spec.Turn, @spec.Actors (R13, the loop guard's chains).
+
+            **Approach:** each item names its wrong ending first (the user's rule: every check prevents one), then red,
+            then the shape:
+
+            - reason and decline codes: one `Schema.Literals` set each, used by `Result.fail`, `quarantined` and
+              `Guard.Check`; `retiredOperation` matches a member, not a string;
+            - runtime ids: branded `IncarnationId`, `AttemptId`, `ChainId` from one mint; `Incarnation` stores `started`
+              (the mint's counter), and no code parses an id;
+            - chain state: `Following = Idle | Admitted | Chained` replaces the two `let`s; `Mail.chain`
+              is `Option<ChainId>`;
+            - turn cause: `Cause = Event | Firing | Ending`, with the own lane and the source derived.
+
+            Out of scope: the ending triple, lane-record nullables, `~flow` probes and findings by mutation
+            (trust-boundaries consult with @task.V3.T92 and @task.V3.T98); the edge's capture state and the mailbox
+            (@task.V3.T99's lifetimes redesign); the root `""` path and per-slot maps (left for the convergence that
+            next touches tree or slots). The raw-throw class stays in @task.V3.T98.
+
+            May change: `packages/flow-state-v3/src/core/`, `tests/`, @spec.Turn and @spec.Actors with `specs.log`
+            notes. Evidence: this Task's comments.
+
+            False pass: a brand added in types while code still builds and parses ids as text → caught by a lint plant
+            banning `.slice(`/`lastIndexOf` on id fields and a test that renames the mint's format.
+        acceptance
+            - Each of the four items has its wrong ending named and a check red before its change.
+            - No core code compares a reason or decline code to a bare string, or parses an id's text.
+            - Chain ids are minted; a partial clear of chains keeps every live chain's guard count (a test shows it).
+            - `turn()` takes one tagged cause; the own lane and the issue source are derived from it.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches a planted fault per new check;
+              the bench shows no regression on the turn hot path (`nub run bench --only <turn ids> --dev`).
+
+    T103
+        title       Typed Story assertions and fakes: typed read, evidence by token, Fake.port
+        status      draft
+        priority    medium
+        description
+            Story assertions and fakes are typed by the definitions they touch: a cut's `read(ref)` returns the ref's
+            typed snapshot, evidence is selected by event token, and a fake port maps its lost answer once.
+
+            **Why now:** the idiom survey (2026-11-19) found Story assertions reading `memory["lines"]` with no typo
+            check (about 146 sites), evidence filtered by event-name strings that a rename silently empties (about 25, a
+            false-pass risk), and 37 repeats of the same `catchTag("FakeLost", ...)` in fake layers. The user accepted
+            all three (C1, C2, C3). Every later Task writes Stories, so it lands early.
+
+            **Read first:** code:packages/flow-state-v3/src/host/testing/run.ts (`Cut`, `read`),
+            code:packages/flow-state-v3/src/host/snapshot.ts, code:packages/flow-state-v3/src/host/testing/fake.ts,
+            @plan.Testing (O1 to O4).
+
+            **Approach:**
+
+            - C1: `read<D>(ref: ActorRef<D>): Snapshot<D> | undefined`, with `memory` typed as the definition's outside
+              view of memory (the `Def.Snapshot` codec's type); decode through `Def.Snapshot` where a field's stored
+              form differs from its type. Delete the hand casts in `tests/number-input/reads.ts` and
+              `tests/command-palette/reads.ts`, and convert the `memory["field"]` sites.
+            - C2: `Fake.port(Api, server, { lost: () => new PortError() })` builds a fake port's Layer once; convert the
+              9 `server/layer.ts` files.
+            - C3: `turnsOf(run, Def.E.X)` (and siblings where the survey's filters need them) on the testing route;
+              convert the ad hoc filters.
+
+            Each new word gets a type test that a typo or a foreign token fails to compile. New testing words are public
+            API on `flow-state/testing`: names and shapes are the user's read.
+
+            May change: `packages/flow-state-v3/src/host/testing/`, `src/host/snapshot.ts`, `tests/`, `fixtures/`,
+            @plan.Pending (a Testing Plan decision for each word). Evidence: this Task's comments.
+
+            False pass: a typed `read` that casts instead of decoding → caught by a Story whose memory holds a field
+            with a different stored form (a bigint or a date), asserted through `read`.
+        acceptance
+            - `read(ref).memory.<field>` is typed from the definition; a misspelt field fails to compile (a type test),
+              and a field whose stored form differs decodes correctly.
+            - No test indexes `memory["..."]` or casts a snapshot by hand; the two cast helpers are gone.
+            - `turnsOf(run, Def.E.X)` selects evidence by token; a foreign or misspelt token fails to compile; no test
+              filters evidence by an event-name string.
+            - Every fake port is built with `Fake.port`; no `catchTag("FakeLost", ...)` remains in a fake layer.
+            - Each new testing word has a @plan.Pending decision; `nub run check` and the suite pass.
+        comment     2026-11-19T09:18:55Z
+            Decision (the user, 2026-11-19): C1 (typed read), C2 (Fake.port) and C3 (evidence by token) accepted, in one
+            Task early in P4.
