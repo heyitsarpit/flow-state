@@ -7,6 +7,7 @@ goal
     that evidence holds and the user says yes, then removed from here with the merge commit noted on the Epic.
 decisions
     D1  @plan.Operations.O3: a cancel during a send leaves the call Held
+         (accepted, merged into the Plans 2026-11-20)
         Change O3's phrase that says a cancel settles a call on the wire, to match @spec.WriteLanes.R14 as revised: the
         call follows its own ending and stays Held. **Why:** the phrase came from the old design's `HeldThisTurn`, which
         is about the `cancel` concurrency policy (the R4 entry of the spec log, in git history before its deletion on
@@ -17,50 +18,61 @@ decisions
         that turn publishes its lane-only change", as @spec.Turn.R19 and the same outcome's step-one rule already say.
         **Why:** otherwise rows stay stale after a denied ending (the Invariant audit's G7,
         code:wiki/plans/flow/references/proposals/invariant-audit-2026-11-11.md). **Proven by:** P3's Turn cases for
-        @spec.Turn.I15 showing the row change. Found in @task.V3.T42.
+        @spec.Turn.I15 showing the row change. Found in @task.V3.T42. Routed (2026-11-20): partly built; finished and
+        merged by @task.V3.T105.
     D3  @plan.Runtime.O6: disposal invokes nothing
         Drop "and invokes what the lane table promotes" from O6's disposal paragraph, which the same outcome contradicts
         ("from its start nothing is invoked"); @spec.Actors.R22 and @spec.Actors.I30 follow the second reading. **Why:**
-        the audit's G17. **Proven by:** P3's disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found
-        in @task.V3.T42.
+        the audit's G17. **Proven by:** P3's disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found in
+        @task.V3.T42. Routed (2026-11-20): partly built; finished and merged by @task.V3.T105.
     D4  @plan.Operations.O3: a refused turn's ending is redelivered once
         Change O3's "a pre-commit defect is not retried for that input" to: a refused turn's ending is redelivered once,
         and a second refusal is final until the next boot or adoption, as @spec.Actors.R15 and @spec.Actors.I24 say and
         the CQ1 ruling chose; @spec.WriteLanes.R10 is widened to match. **Proven by:** P4's production turn passing
-        TURN-01 with the issue count asserted. Found in @task.V3.T8.
+        TURN-01 with the issue count asserted. Found in @task.V3.T8. Routed (2026-11-20): partly built; finished and
+        merged by @task.V3.T105.
     D5  @plan.Testing.O1: a run accepts a step array
+         (accepted, merged into the Plans 2026-11-20)
         Add that `run({ steps })` runs a Story's setup and fixtures over another `Story.Step` array. **Why:** the reload
         sweep inserts steps and generated Stories shrink them; both need a chained Story's data form run back. **Proven
-        by:** @task.V3.T64's sweep and @task.V3.T70's shrinking. Found in @task.V3.T63.
+        by:** @task.V3.T64's sweep and @task.V3.T70's shrinking. Found in @task.V3.T63. Code: `run` also takes `{ steps,
+        seed }`.
     D6  @plan.Testing.O1: an app Story step disposes the whole Runtime
+         (accepted, merged into the Plans 2026-11-20)
         Add `disposeRuntime()` beside `dispose(ref, { how })`, and drop @plan.Package's line that keeps `disposeRuntime`
         on an internal route for Flow's own suite. **Why:** @spec.Actors.R22 and @spec.Diagnostics.I8 speak of disposing
         a Runtime with work in flight, which no app step reaches. **Proven by:** a Story disposing with a call in
-        flight, in @task.V3.T63. Found in @task.V3.T63.
+        flight, in @task.V3.T63. Found in @task.V3.T63. Code: takes `{ forget?: true }` (a Runtime's `dispose({ forget
+        })`), which the decision omits.
     D7  @plan.Testing.O3: endpoints and controls are `Fake.call` and `Fake.control`; transports use `Fake.http`
         Name the helpers that build `Fake.server`'s endpoints and controls, and the transport binding: a Layer of
         Effect's `HttpClient` (`Fake.http`) rather than a replaced global `fetch`. **Why:** the reference apps use
         `Fake.call` and `Fake.control`, and Effect adapters take `HttpClient`
         (code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md, Q5 and Q7). **Proven by:**
         @task.V3.T63's fixtures for `Fake.call` and `Fake.control`, and the first Promise-based adapter over `Fake.http`
-        (@task.V3.T29). Found in @task.V3.T63.
+        (@task.V3.T29). Found in @task.V3.T63. Routed (2026-11-20): partly built; finished and merged by @task.V3.T29.
     D8  @plan.Testing.O4: `read(target)` also takes a fake endpoint
+         (accepted, merged into the Plans 2026-11-20)
         Widen O4's `read(target)` so an endpoint returns each call it received with its status (held, answered,
         dropped), as the reference stories read `cut.read(Stripe.confirm)`. **Why:** "exactly one call reached the
         server" needs the call log, and a fake's truth does not always show it. **Proven by:** @task.V3.T63's Pay Story
-        and @task.V3.T64's run rules over calls. Found in @task.V3.T63.
+        and @task.V3.T64's run rules over calls. Found in @task.V3.T63. Code: statuses are answered, held or dropped at
+        request or response, and handled; each entry also has tab and step.
     D9  @plan.Package.O1: `flow-state/testing` exports `storeContract`; `flow-state/persistence` exports `Store`
         Add `storeContract(name, layer)`, the store contract as a plain `@effect/vitest` function of a `Store` Layer, so
         a custom store adapter is checked as Flow's own are, and export the `Store` service tag beside `layerIndexedDb`
         and `layerMemory`, which @plan.Persistence.O1 asks authors to implement. **Why:** a custom store is the
         likeliest adapter users write (the user, 2026-11-15, reuse proposal Q8). **Proven by:** @task.V3.T58 running it
-        on `Fake.storage` and real IndexedDB, and @task.V3.T28 on both adapters.
+        on `Fake.storage` and real IndexedDB, and @task.V3.T28 on both adapters. Routed (2026-11-20): partly built;
+        finished and merged by @task.V3.T58.
     D10  @plan.Testing.O1: `reload({ reattach: false })`
+         (accepted, merged into the Plans 2026-11-20)
         Add an option to the reload step that boots the new page without re-attaching the Story's uses. **Why:** O1's
         reload always re-attaches, which hides a boot that fails to wake owed identities; the reload sweep needs a
         variant that attaches nothing. **Proven by:** @task.V3.T64's second sweep variant catching a planted fault that
         skips the boot wake. Found in @task.V3.T64.
     D11  @plan.Testing.O3: `reload({ heldWrites: "land" })`
+         (accepted, merged into the Plans 2026-11-20)
         Add an option to the reload step that lands every held store write as the old tab dies, unheard; the default
         stays "abort", as O3's "aborted on close" says. **Why:** an IndexedDB transaction can commit and its tab die
         before it hears `complete` (@spec.Restore.R3, @spec.WriteAhead.T8's first kill point); without the option no
@@ -69,6 +81,7 @@ decisions
         Restored with no request sent, and its planted fault. Judged by the orchestrator, for the user's read. Found
         in @task.V3.T67.
     D12  @plan.Testing.O3: `Fake.network.offline()` and `online()`
+         (accepted, merged into the Plans 2026-11-20)
         Add world words that take the whole network down and back: while offline, every call is lost at request and
         reaches no server, and wire words given meanwhile wait for the network. **Why:** the stress profile's offline
         span (every answer Lost or Never for 5 to 120 s) needs one word for every endpoint at once, not a drop armed per
@@ -289,7 +302,7 @@ decisions
         by:** the mint's counter type and T99's requirements review accepting the drop. Owner: @task.V3.T99. Proposed,
         for the user's yes.
     D34  @plan.Runtime.O6: whoever ends work hears its cleanup failure, and late failures go to the host's report
-         (proposed)
+         (accepted, merged into the Plans 2026-11-20)
         **Before:** O6 says a cleanup failure rejects dispose with CleanupFailed and quarantines the ref, and that
         dispose waits within a bound. **After:** add "Whoever ends work hears its cleanup failure: a Runtime disposal
         rejects dispose, an actor's end quarantines its ref, and an aborted `runPromise` rejects with it. Each failure
@@ -299,28 +312,33 @@ decisions
         Owner its failures' hearer; a Cause after the bound has no caller left, so `Host.report` keeps it whole (its Q1
         A). **Proven by:** the host cells in code:packages/flow-state-v3/src/host/cleanups.test.ts and faults
         `late-cause-dropped`, `abort-interrupts-wait`, `unheard-quarantine-dropped`. Owner: @task.V3.T99. Proposed, for
-        the user's yes.
-    D35  @plan.Testing.O4: `read(ref)` returns `Snapshot<D>`, typed by the ref's definition (proposed)
+        the user's yes. Code matches; accepted by the user 2026-11-19 (the Owners redesign).
+    D35  @plan.Testing.O4: `read(ref)` returns `Snapshot<D>`, typed by the ref's definition
+         (accepted, merged into the Plans 2026-11-20)
         **Before:** `read(ref).memory` is `Values`, read as `memory["lines"]`; a misspelt field compiles. **After:**
         `state` is the definition's leaf union and `memory` its whole memory (private fields included), each field its
         decoded value, with no decode at read since memory holds Type values; a quarantined record whose fresh start is
         refused fails the read with StoryFailed. `Snapshot` with no definition stays erased. **Why:** the user's C1.
         **Proven by:** code:packages/flow-state-v3/tests/types/testing.compile.ts, faults `read-encodes-memory`,
         `refused-start-read`. Owner: @task.V3.T103. Name and shape are the user's read.
-    D36  @plan.Testing.O4: `publishedOf(run, ref)` (proposed)
+    D36  @plan.Testing.O4: `publishedOf(run, ref)`
+         (accepted, merged into the Plans 2026-11-20)
         **After:** every snapshot an actor published, in order, typed as `read`. **Why:** a checkpoint cannot show the
         memories between two steps, and the number-input Stories cast them by hand. Owner: @task.V3.T103.
-    D37  @plan.Testing.O4: `turnsOf(run, Def.E.X, { actor? })` (proposed)
+    D37  @plan.Testing.O4: `turnsOf(run, Def.E.X, { actor? })`
+         (accepted, merged into the Plans 2026-11-20)
         **After:** the turns that definition's actors ran on that event; with `actor`, one actor's, and the token must
         be of its definition. A misspelt token, a name string or a foreign token is a type error; a same-named event of
         another machine never matches. **Why:** the user's C3; a renamed event emptied name filters, a false pass.
         **Proven by:** the compile test, fault `token-ignores-definition`, lint `flow-state/no-event-name-filter`.
         Owner: @task.V3.T103.
-    D38  @plan.Testing.O4: `evidenceOf(run, Def.E.X, { actor? })` (proposed)
+    D38  @plan.Testing.O4: `evidenceOf(run, Def.E.X, { actor? })`
+         (accepted, merged into the Plans 2026-11-20)
         **After:** every record naming that event (Turn, Delivered, Unhandled, Denied, SendTargetAbsent), narrowed by
         `_tag`; one word covers the kinds, so no `deliveriesOf` or `unhandledOf`. **Why:** Delivered and
         Turn-or-Unhandled filters. Owner: @task.V3.T103.
-    D39  @plan.Testing.O3: `Fake.server(name, { ..., lost: () => PortError })`, required (proposed)
+    D39  @plan.Testing.O3: `Fake.server(name, { ..., lost: () => PortError })`, required
+         (accepted, merged into the Plans 2026-11-20)
         **Before:** every port fake mapped `Fake.Lost` with `catchTag("FakeLost", ...)` per method. **After:** each
         server names its lost error once; an endpoint fails with its failure or that error, so a port fake passes calls
         through, and endpoints may declare the port's error classes. A server behind no port names `Fake.Lost`; O3's

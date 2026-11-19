@@ -134,6 +134,9 @@ tasks
             outside tests. See code:wiki/tasks/V3/P3-routing.md.
         comment     2026-11-18T20:40:33Z
             Routed (P3 compaction, 2026-11-19): T85's flush-on-hide timing is measured in real browsers here.
+        comment     2026-11-19T19:10:42Z
+            Routed (orchestrator, 2026-11-20): @plan.Pending.D9 is not built; storeContract(name, layer) and the
+            flow-state/persistence route land here, then D9 merges into Package.plan.
     T57
         title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
         status      draft
@@ -3582,6 +3585,10 @@ tasks
             determine. Sites today: fixtures/sign-in/machines/session.ts (handle from email),
             tests/turn/creation.test.ts, tests/stories/read.test.ts, src/core/tree.test.ts; the catalog rows
             are dropped.
+        comment     2026-11-19T19:10:43Z
+            Routed (orchestrator, 2026-11-20): @plan.Pending.D2 (a denied or unhandled ending's lane-only change
+            publishes), D3 (disposal invokes nothing) and D4 (a refused turn's ending is redelivered once) are mostly
+            built; pin each with a Story, fix any gap, then merge them into Machines, Runtime and Operations Plans.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine

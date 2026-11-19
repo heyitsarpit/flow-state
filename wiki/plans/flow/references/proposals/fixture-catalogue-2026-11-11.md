@@ -1,5 +1,8 @@
 # Fixture catalogue: a wide net of application shapes (proposed, 2026-11-11)
 
+**Status (2026-11-20):** acted on: superseded by fixture-catalog-review-2026-11-17 and
+code:wiki/conventions/fixture-catalog.md. The text below is prior art.
+
 **Bottom line (proposed):** 26 small fixtures, each a different real application, cover all 35 Flow features listed
 below. Each feature is hit by at least 2 shapes and most by 3 to 16, and any two shapes differ in at least 4
 features. The weak spots are lazy features (2 shapes) and three features no runtime has yet: context waves, restartOn

@@ -1,5 +1,8 @@
 # UI primitives: merge guide for Q1, Q2, Q3 and Q5 (2026-11-16, proposed)
 
+**Status (2026-11-20):** acted on: applied for the decisions in ui-primitives-decisions-2026-11-16.md. The text below is
+prior art.
+
 **Bottom line:** this guide lists every Plan and Spec record that the accepted Q1, Q2, Q3 and Q5 decisions change.
 For each record it gives the current text, the proposed replacement and the records that must change with it.
 Nothing is merged yet, and every replacement below is proposed. Before any merge, the user should look at three

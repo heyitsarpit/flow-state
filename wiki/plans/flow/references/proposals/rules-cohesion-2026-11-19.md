@@ -1,5 +1,7 @@
 # Rules cohesion across Flow's features (proposed, 2026-11-19)
 
+**Status (2026-11-20):** acted on: design input to @task.V3.T106, cited from its comments. The text below is prior art.
+
 **Bottom line (proposed, nothing here is decided):** the rules design in @task.V3.T106 covers every Flow feature with
 three changes and no rule kind per feature. (1) Value rules read the snapshot a guard already reads
 (`{ state, memory, props, context, schedules, operations }`, Turn R12), not only state and memory; that alone covers

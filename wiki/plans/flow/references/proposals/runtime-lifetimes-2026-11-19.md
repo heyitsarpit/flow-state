@@ -1,5 +1,8 @@
 # Runtime lifetimes: owners, one judge, one close (2026-11-19, proposed)
 
+**Status (2026-11-20):** acted on: accepted as Owners (the user, 2026-11-19); built by @task.V3.T99, merged as
+@plan.Pending.D34. The text below is prior art.
+
 **Bottom line:** Every fiber the host starts belongs to an **Owner**: an Effect `Scope` holding that owner's fibers
 plus the cleanup failures found when they ended. Every fiber's `Exit` is split by one function, `judge`, inside the
 fiber, before it ends. The caller gets an `Ending`, never a raw Cause. Any non-interrupt reason of an interrupted

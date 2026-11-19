@@ -1,5 +1,8 @@
 # UI primitives to rebuild on Flow, from ui-sdk (proposed, 2026-11-16)
 
+**Status (2026-11-20):** acted on: decided in
+code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md. The text below is prior art.
+
 **Bottom line (proposed):** rebuild seven ui-sdk primitives as fixtures, in this order: the command palette, the
 async combobox, the toaster, the menu with submenus, the number input, the lazy tree and the token input. Each one is
 a different behaviour pattern Flow claims to handle: keyed pending actions, debounced latest-wins search with paging,

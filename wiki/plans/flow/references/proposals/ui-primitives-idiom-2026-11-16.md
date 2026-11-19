@@ -1,5 +1,8 @@
 # UI primitives, third pass: are the existing-feature routes idiomatic? (proposed, 2026-11-16)
 
+**Status (2026-11-20):** acted on: decided in
+code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md. The text below is prior art.
+
 **Bottom line (proposed):** four of the second pass's routes are clean or tolerable Flow code and confirm its drops:
 gesture state kept out of the persisted machine, actions injected as services, ids carried in the commit's input,
 and `.each` copies for constant per-item timers. Three are leaky and reach many unrelated scenarios, so each is a

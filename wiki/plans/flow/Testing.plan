@@ -32,16 +32,17 @@ outcomes
         name (Story.Step).
 
         Steps: send(target?, ...events), together(...inputs), world(...controls), advance (@O2), checkpoint(name, { at?
-        }); app Stories add ensure(ref), detach(ref), dispose(ref, { how? }), openTab(name, { from? }), closeTab(name),
-        reload(name), dehydrate and hydrate; machine Stories `setContext`, `props(values)`, dispose() and ensure()
-        (another incarnation of the same identity); fragment Stories enter(input?, { subject? }), leave(options?),
-        guards(answers) (the stand-in's guard answers, default allow) and reset(subject) for traits, with public events
-        and `hostEvents` sendable.
+        }); app Stories add ensure(ref), detach(ref), dispose(ref, { how? }), `disposeRuntime({ forget? })`,
+        openTab(name, { from? }), closeTab(name), `reload({ reattach?, heldWrites? })`, dehydrate and hydrate; machine
+        Stories `setContext`, `props(values)`, dispose() and ensure() (another incarnation of the same identity);
+        fragment Stories enter(input?, { subject? }), leave(options?), guards(answers) (the stand-in's guard answers,
+        default allow) and reset(subject) for traits, with public events and `hostEvents` sendable.
 
         In a fragment Story, notifications (whenAbandoned's included) are callback records and exits are exit records,
         as in a host; in every Story, an accepted turn's emits are emit records, in turn order, heard or not. run() is
-        the one execution boundary; it takes no options and returns a Promise of a StoryRun with frames, steps,
-        checkpoints, end, evidence, payloads and trace.
+        the one execution boundary; it returns a Promise of a StoryRun with frames, steps, checkpoints, end, evidence,
+        payloads and trace. `run({ steps })` runs the same subject over another `Story.Step` array (the reload sweep
+        inserts steps and generated Stories shrink them), and `run({ steps, seed })` also sets the seed.
 
         One address names a thing everywhere: { actor?, instance?, copy?, operation?, schedule?, timer?, key?, tab?,
         life? }; wire matches, the attempt and lane reads, record filters, advance({ next }) and step targets take it,
@@ -50,8 +51,11 @@ outcomes
         fragment's read or stream is named by instance and operation name.
 
         App ensure(ref) attaches one use and detach(ref) ends one (ActorAbsent with none held); ensure takes no input
-        (@plan.Runtime.O3). dispose is `disposeActor` and { how: "forget" } is forget. `openTab` and reload re-attach
-        the Story's uses; a focused Story holds its subject.
+        (@plan.Runtime.O3). dispose is `disposeActor` and { how: "forget" } is forget. `disposeRuntime()` disposes the
+        whole Runtime with work in flight, as `runtime.dispose()` does, and `disposeRuntime({ forget: true })` also
+        deletes the scope's records. `openTab` and reload re-attach the Story's uses, while `reload({ reattach: false
+        })` attaches none, so only what the boot itself wakes is live and a boot that fails to wake owed identities
+        shows; a focused Story holds its subject.
 
         App send(target, event) targets that exact ref or address; focused send(event) targets its actor. send may
         restore an actor from its record, never create one. Only public events can be sent; internal and mapped events
@@ -164,13 +168,18 @@ outcomes
         before the subject starts (the world option), and reached through declared endpoints.
 
         Fake.server gives run-scoped truth, endpoints and controls; the Story controls the wire with four words: hold,
-        release, drop, duplicate. A fake's handle is pure and synchronous and decides the result, never the wire; fakes
-        have one result shape and one answer list, route tables, a combination rule and a run-scoped server registry;
-        each request carries its provenance (via).
+        release, drop, duplicate. `Fake.network.offline()` and `online()` take the whole network down and back: offline,
+        every call is lost at request and reaches no server, and wire words given meanwhile wait for the network. A
+        fake's handle is pure and synchronous and decides the result, never the wire; fakes have one result shape and
+        one answer list, route tables, a combination rule and a run-scoped server registry; each request carries its
+        provenance (via).
 
-        Fake.Lost, Fake.Refused and Fake.Closed are mapped by the transport binding; a crashed server is the binding's
-        failure. Fixtures cannot inject operation outcomes directly: every ending comes from a fake's answer through the
-        commit's real classification, or from a lifecycle step.
+        Each `Fake.server` names `lost: () => error` once, the error a lost answer fails with: a port fake names the
+        port's own error, so it passes every call through with no mapping, and an endpoint's failure Schema may be the
+        port's error class. A server behind no port names `Fake.Lost`; Fake.Lost, Fake.Refused and Fake.Closed are
+        mapped by the transport binding for those only, and a crashed server is the binding's failure. Fixtures cannot
+        inject operation outcomes directly: every ending comes from a fake's answer through the commit's real
+        classification, or from a lifecycle step.
 
         A broken fake rejects the run with StoryFakeError (reason NoRoute, InvalidInput, Crashed, UnplacedStream or
         InvalidRefusal). Unused wire rules are reported (UnusedWireRule). Fixtures provide every service the setup's
@@ -184,8 +193,9 @@ outcomes
 
         Every run has fresh scoped providers and server truth. Stateful fakes remember writes and idempotency results
         and update that truth before emitting pushes. Story persistence always uses Fake.storage, a fresh in-memory
-        store with a purpose per write, FIFO per tab, aborted on close, under the scope lock; setup and fixtures never
-        open external storage or inherit a live store.
+        store with a purpose per write, FIFO per tab, aborted on close (`reload({ heldWrites: "land" })` lands every
+        held write instead, as the old tab dies, unheard: a transaction that commits before its tab is killed), under
+        the scope lock; setup and fixtures never open external storage or inherit a live store.
 
         A tab opened from another (openTab's from) carries storage only. Storage fixtures may seed encoded records
         before bootstrap, but cannot bypass production validation. Acquisition failures still trigger @O8 cleanup.
@@ -210,9 +220,20 @@ outcomes
         partially published context waves never appear as complete.
 
         A checkpoint is read after the run, every read answered from what was captured then: state, memory, operations,
-        schedules (machine and fragment Stories), read(target) (an actor's snapshot by ref, undefined if absent, or a
-        fake's truth), lane, records (one list, each record with tab: { name, open }), inspection (its work replaces
-        pending), entity(...) returning { data, predicted, uncertain, unconfirmed } or undefined, attempt and now.
+        schedules (machine and fragment Stories), read(target) (an actor's `Snapshot<D>` by ref, undefined if absent,
+        typed by the ref's definition: `state` is its leaf union and `memory` its whole memory, private fields included,
+        each field its decoded value; a quarantined record whose fresh start is refused fails the read with StoryFailed;
+        a fake endpoint's calls, each with its input, tab, step and status (`answered`, held or dropped at request or
+        response, or `handled`); or a fake's truth), lane, records (one list, each record with tab: { name, open }),
+        inspection (its work replaces pending), entity(...) returning { data, predicted, uncertain, unconfirmed } or
+        undefined, attempt and now.
+
+        `publishedOf(run, ref)` returns every snapshot an actor published, in order, typed as `read`. `turnsOf(run,
+        Def.E.X, { actor? })` returns the turns that definition's actors ran on that event, and `evidenceOf(run,
+        Def.E.X, { actor? })` every record naming it (Turn, Delivered, Unhandled, Denied, SendTargetAbsent), narrowed by
+        `_tag`. Both select by the event token, so a misspelt token, a name string or a foreign token is a type error
+        and a same-named event of another machine never matches; `actor` keeps one actor's, and the token must be of
+        its definition.
 
         A read that could name two things is AmbiguousRead; a step addressing an absent subject is SubjectAbsent. Field
         and queue meanings follow @plan.EntityDomains.O2; lanes follow @plan.Operations.O6.

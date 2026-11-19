@@ -1,5 +1,7 @@
 # Type gaps, deep pass (proposed)
 
+**Status (2026-11-20):** acted on: folded into @task.V3.T104 (the user, 2026-11-19). The text below is prior art.
+
 Status: proposed. Nothing here is decided. It extends @task.V3.T104 and does not repeat it.
 
 Nine families explain the remaining type gaps. Each family drops a narrow type at one carrier type, and one

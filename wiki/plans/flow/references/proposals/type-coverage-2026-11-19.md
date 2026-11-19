@@ -1,5 +1,7 @@
 # Type coverage, tool-driven pass (proposed)
 
+**Status (2026-11-20):** acted on: folded into @task.V3.T104 (the user, 2026-11-19). The text below is prior art.
+
 Status: proposed. Nothing here is decided. It tests @task.V3.T104 and the deep survey
 (code:wiki/plans/flow/references/proposals/type-gaps-deep-2026-11-19.md) against user-shaped code, and does not
 repeat them.

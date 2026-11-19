@@ -1,5 +1,8 @@
 # One runtime, one way to run it: the test system after conformance (2026-11-15)
 
+**Status (2026-11-20):** acted on: decided: Stories, the CLI and inspection are Flow's own test harness (the user,
+2026-11-15). The text below is prior art.
+
 **Status: proposed.** Decided by the user on 2026-11-15: the conformance suite goes, and Stories, the CLI and
 inspection become the core's own test harness. Everything else here is proposed. This file changes no code,
 plan, Spec, Task or the Epic. It superseded an earlier draft, `stories-as-harness-2026-11-15.md` (deleted; in

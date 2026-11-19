@@ -325,6 +325,9 @@ tasks
         comment     2026-11-18T20:40:33Z
             Routed (P3 compaction, 2026-11-19): a Fake.server control call overwrites an earlier one; decide queue or
             refuse, test-first.
+        comment     2026-11-19T19:10:43Z
+            Routed (orchestrator, 2026-11-20): @plan.Pending.D7 is partly built (Fake.call and Fake.control exist, no
+            Fake.http transport binding); finish it here, then D7 merges into Testing.plan.
     T31
         title       CLI outputs designed for people
         status      draft

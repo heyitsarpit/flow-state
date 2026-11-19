@@ -369,12 +369,16 @@ outcomes
         ending drops it; a kill before the final capture restores unknown { Restored }, after it unknown { Disposed } is
         parked; the store hears the parked reason at the restore.
 
-        No module starts work once disposal starts. A cleanup failure rejects dispose with CleanupFailed, quarantines
-        the ref (later ensures report the same failure) and keeps the full Cause; it is never reported as success.
+        No module starts work once disposal starts. Whoever ends work hears its cleanup failure: a Runtime disposal
+        rejects dispose, an actor's end quarantines its ref (later ensures report the same failure) and an aborted
+        `runPromise` rejects with it. Each failure is an Issue CleanupFailed when it is found, keeps the full Cause and
+        is never reported as success.
 
-        Runtime disposal waits for the final persistence write within the same disposal bound; a write still pending
-        then reports StorageFailure (@plan.Persistence.O3). The terminal snapshot keeps the last committed state and
-        memory; disposal runs no machine event.
+        Runtime disposal waits for every cleanup at most the disposal bound; past it dispose rejects CleanupFailed
+        carrying CleanupOverdue, and each later failure goes to the host's report. It also waits for the final
+        persistence write within the same bound; a write still pending then reports StorageFailure
+        (@plan.Persistence.O3). The terminal snapshot keeps the last committed state and memory; disposal runs no
+        machine event.
 
         runtime.dispose({ forget: true }) also deletes the scope's stored records (@plan.Persistence.O5); plain dispose
         keeps them. Reference: references/dispatch-desk/app/host.ts.

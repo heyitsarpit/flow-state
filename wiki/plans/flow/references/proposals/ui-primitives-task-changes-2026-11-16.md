@@ -1,5 +1,8 @@
 # UI primitives: proposed Task changes for Q1, Q2, Q3 and Q5 (2026-11-16, proposed)
 
+**Status (2026-11-20):** acted on: applied for the decisions in ui-primitives-decisions-2026-11-16.md. The text below is
+prior art.
+
 **Bottom line:** the accepted decisions need three new Tasks and changes to ten open or draft Tasks. Nothing here
 is applied.
 

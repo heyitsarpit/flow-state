@@ -1,5 +1,8 @@
 # Record size bounds: one rule, revised (proposed)
 
+**Status (2026-11-20):** acted on: decided by @plan.Pending.D23 and D24 (no arbitrary limits). The text below is prior
+art.
+
 **Rule:** no send ever waits on a record that may not encode. Lane and owed records encode by construction;
 when an actor record cannot, its plain writes wait and every ticket that would wait with them is refused at once.
 

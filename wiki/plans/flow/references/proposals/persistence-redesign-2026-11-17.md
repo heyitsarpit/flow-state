@@ -1,5 +1,7 @@
 # Persistence redesign: capture on issue (2026-11-17, proposed)
 
+**Status (2026-11-20):** acted on: accepted and merged as @plan.Pending.D30. The text below is prior art.
+
 **Bottom line:** steps should stop encoding records. Each step only marks which record keys changed. When the
 edge issues a batch, one pure `Capture` step projects every dirty key from the current World through compiled
 encoders. Those encoders are memoised by value reference, so an unchanged value is never encoded twice. A key stays

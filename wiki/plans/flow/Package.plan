@@ -38,8 +38,6 @@ outcomes
 
         Every other setting or operation is a member of these values, inferred data or an Effect primitive. No route
         re-exports another route's names or internal services, stores, ManagedRuntime or mutable harnesses.
-        flow-state/internal/testing, which exports disposeRuntime for Flow's own suite, is not a supported route and is
-        not one of the six.
 
         flow-state/react keeps the "use client" directive in its emitted JavaScript; a Next.js Server Component may
         import its components, and hooks run only on the client. flow-state/server resolves to the real module under

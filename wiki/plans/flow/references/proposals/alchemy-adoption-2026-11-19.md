@@ -1,5 +1,8 @@
 # Alchemy adoption (proposed, 2026-11-19)
 
+**Status (2026-11-20):** acted on: ideas 1 and 2 adopted as @task.V3.T106 (the user, 2026-11-19); the rest not adopted.
+The text below is prior art.
+
 **Bottom line (proposed, nothing here is decided):** admit three ideas and one research item. (1) Rules on the
 definition: `invariants`, `transitions` and `eventually` on a machine's `definition`, and `relations` on an `app`,
 checked by the Story runner, the generator and both sweeps with no extra call. (2) Each rule reports whether any run

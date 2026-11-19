@@ -1,5 +1,8 @@
 # UI primitives, second pass: which features are general (proposed, 2026-11-16)
 
+**Status (2026-11-20):** acted on: decided in
+code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md. The text below is prior art.
+
 **Bottom line (proposed):** add no new machine feature for the UI primitives. Five of the first pass's NEW items and
 gaps can be written today or with planned features, and this file shows the code for each:
 

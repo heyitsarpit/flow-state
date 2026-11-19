@@ -1,5 +1,7 @@
 # Fixture catalog review: coverage first, fewer and richer apps (proposed, 2026-11-17)
 
+**Status (2026-11-20):** acted on: adopted as code:wiki/conventions/fixture-catalog.md. The text below is prior art.
+
 **Bottom line (proposed):** backport the late features into the apps that would really use them and merge
 overlapping fixtures, going from 23 named fixtures to 14 (28 to 19 with the five UI primitives). After that, every
 public feature has at least three homes in unrelated apps. Today 25 of the 51 features in the matrix below have
