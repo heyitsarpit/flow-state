@@ -929,3 +929,7 @@ note 2026-11-19T00:39:07Z
 note 2026-11-19T00:47:32Z
     Decision (the user, 2026-11-19): T95 cut, its lead stopped before any change; no wrong ending it would prevent.
     Items to T99 and T57; T96 unblocked and next. Lesson: no Task without a Story showing the wrong ending it prevents.
+
+note 2026-11-19T00:56:05Z
+    T96 started (send(ref, event), the rare escape hatch): requirements and fixtures first, then the requirements
+    review.

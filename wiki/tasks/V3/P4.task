@@ -1278,7 +1278,7 @@ tasks
 
     T96
         title       Actor-to-actor send(ref, event) action with the loop guard
-        status      draft
+        status      in_progress
         priority    high
 
 
@@ -1300,11 +1300,13 @@ tasks
             whether a ref by definition is needed, and that is a public API call for the user.
 
             **Approach:** `send` is a builder: it captures its two callbacks unread; `machine()` decodes it as an
-            action. At run time `toRef`'s result decodes as a ref and `toEvent`'s through the target's event check, both
-            in the callback wrapper. Delivery follows O4's table: never creates, never adopts, may restore. The guard:
-            past `RuntimeDefaults.loopGuard` events sent by turns from one admitted event, the turn that would send one
-            more is refused `InvalidTurn` naming the chain; context updates never count (D13). Listener-originated
-            chains (Actors Q4) stay as they are.
+            action. At run time the event goes through the target's event check, the same one a handle's `send` runs
+            (the target's events aren't in the sender's types, so this check prevents a wrong ending); the ref is a
+            Flow-made value, typed by TypeScript. T95 was cut (the user, 2026-11-19): no general callback wrapper, and
+            every check names the wrong ending it prevents. Delivery follows O4's table: never creates, never adopts,
+            may restore. The guard: past `RuntimeDefaults.loopGuard` events sent by turns from one admitted event, the
+            turn that would send one more is refused `InvalidTurn` naming the chain; context updates never count (D13).
+            Listener-originated chains (Actors Q4) stay as they are.
 
             May change: `src/`, `tests/`, `fixtures/`, @spec.Actors with a `specs.log` note. Evidence: this
             Task's comments.
