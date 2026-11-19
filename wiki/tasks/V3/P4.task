@@ -4009,3 +4009,30 @@ tasks
             accepted (v3 unshipped, format-3 records only in tests, read back by format 3's step); the build gives state
             tokens their provider type, and the construction check compares definitions by identity, not by id, for
             factories and shared ids. The requirements review checks each.
+        comment     2026-11-19T23:01:15Z
+            Requirements review: ISSUES, three blocking gaps; each is a Story or check to add before the build. All 22
+            `it.fails` re-run as plain tests fail on their assertions (reactions absent, refusals empty, FORMAT 3), none
+            on a missing API; context values already match on the stub; suite green alone (1543 pass, 47 expected fail,
+            no type errors).
+              - B1 A7 entry rule: no Story pins a never-compared baseline (first entry into a non-default state whose
+                slot already has a value: a build firing with `previous` undefined passes) or a same-value re-read after
+                entry (an entry that does not move the baseline doubles unseen). Add both to sync, with a persisted
+                variant if the experiment stays.
+              - B2 Compile R19 rule 3: a read that is not a Flow token, and `Flow.context(Schema)` with no spec, are
+                dropped silently by the stub (`select` gets undefined, provider ""); no refusal check. Add one at
+                `context.<slot>.reads.<key>` and `context.<slot>`.
+              - B3 Compile R4: every state-token read is a leaf (`SIGNED_IN`, `COOLING`); a build matching the state
+                exactly passes. Add a Story reading a compound state token while in its child.
+              - Non-blocking, for the build: the 11 `wrong` type lines are green today by design; close check is zero
+                `// wrong:` left, each an `@ts-expect-error` where tsc reports it (L158, L162, L205 sit on closing
+                lines); pin the payload mapper's `value` as number. Delete stub wording ("until context slots are
+                built", "the build's choice"). Proof gaps: :12Z and :13Z name no journey, S1/S9 no load, the experiment
+                one app; catalog's session bullet says "unchanged" against its 30 conversions (workspace is
+                `fixtures/session`); reactions grep 62, not 61, so close on a zero grep. `tests/refusals.ts` duplicates
+                construction.test's helper and shares tests/rules' name.
+              - Rulings: format 4 holds (index-keyed frames predate it; format 3 lives only in tests); identity holds (a
+                factory's two definitions are two providers; module copies follow ref wiring's identity rule); one
+                comparison on entry holds for the paused Story, gaps in B1.
+              - Sidecars (6 Haiku): accepted B1–B3 and the notes above; rejected A→B→A as lost (value semantics, Turn
+                R22), `when` reading memory at entry (as Actors R9's wave), "it.fails passes on any error" (re-run),
+                factory refusal as false.
