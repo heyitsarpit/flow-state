@@ -14,10 +14,10 @@ description
     are rewritten with skill:to-epic and skill:to-task when the phase starts; until then they hold only the order, the
     Plan links and the blockers.
 
-    **Order:** @task.V3.T24, @task.V3.T25, @task.V3.T28, @task.V3.T27, @task.V3.T48, @task.V3.T49, @task.V3.T29,
-    @task.V3.T30, @task.V3.T31: the fixture catalog's steps 11 to 18, with T31 last since it ends on the user's
-    acceptance (re-plan section 8, the user, 2026-11-18). A `blocked_by` link is a real dependency only; where several
-    Tasks are ready, take the earliest in this order.
+    **Order:** @task.V3.T106, @task.V3.T24, @task.V3.T25, @task.V3.T28, @task.V3.T27, @task.V3.T48, @task.V3.T49,
+    @task.V3.T29, @task.V3.T30, @task.V3.T31: the fixture catalog's steps 11 to 18, with T31 last since it ends on the
+    user's acceptance (re-plan section 8, the user, 2026-11-18). A `blocked_by` link is a real dependency only; where
+    several Tasks are ready, take the earliest in this order.
 
     **Verified by:** per feature, Story tests, run rules and compile-time tests written from its Spec, with a planted
     fault for each new rule; skill:check-runtime where users touch it; skill:check-task per Task.
@@ -394,3 +394,49 @@ tasks
         comment     2026-11-18T19:39:03Z
             Owes (proposed, P3 close fix round): SSR payloads through the one codec (@plan.Inspection.O2) and silent
             baselines at hydration (@plan.Runtime.O5); links wait on a wk fix. See code:wiki/tasks/V3/P3-routing.md.
+
+    T106
+        title       Rules on definitions, judged by every run, with unseen rules reported
+        status      draft
+        priority    high
+        description
+            App authors declare rules on their own definitions, and every run of the runtime judges them and reports how
+            far each was actually exercised, so a rule that saw nothing shows as unseen instead of passing.
+
+            **Why now:** adopted by the user (2026-11-19) from the Alchemy study
+            (code:wiki/plans/flow/references/proposals/alchemy-adoption-2026-11-19.md, ideas 1 and 2). It extends the
+            2026-11-15 decision that the runtime tests itself through its public Stories, generator and sweeps, with no
+            second model: the rules are written in the same language, on the declaration they are about, and judged
+            against the real runs. Today an app's own guarantees are hand-written checks in single Stories (for example
+            NUMBER-12's bounds filter).
+
+            **Read first:** code:wiki/plans/flow/references/proposals/alchemy-adoption-2026-11-19.md, @plan.Testing,
+            @plan.Machines, code:packages/flow-state-v3/tests/rules, and Alchemy's Domain rules in
+            `codebases/alchemy/packages/domain/src` as prior art.
+
+            **Approach:** design first, by the structural-fix recipe (a blind design from the problem, Alchemy as prior
+            art read from source, a comparison, then build):
+
+            - rule kinds on `definition`: `invariants` (memory and state), `transitions` (before and after a turn),
+              `eventually` (true at the end of a run that ran its course); `relations` across actors on the `app`;
+            - every Story, generated run, reload sweep and pair sweep judges them with no extra call; a breach fails the
+              run with the shortest Story that shows it;
+            - each rule reports how often its subject came up; an unseen rule is reported, never counted as a pass; the
+              report is computed, never stored, and replaces the hand-kept rule coverage claims;
+            - open design questions to settle with evidence: rules on nested states, how relations follow context-update
+              order, what `flow check` and `flow explain` show, and the cost on the bench.
+
+            New public words (the rule fields, the report) are a new concept accepted by the user; their names and
+            shapes are the user's read. Planted faults stay the check that a rule can fail.
+
+            May change: `packages/flow-state-v3/src/`, `src/host/testing/`, `tests/`, `fixtures/`, a new Spec via
+            skill:to-spec, and @plan.Testing and @plan.Machines through @plan.Pending. Evidence: this Task's comments.
+        acceptance
+            - A design proposal compares at least two shapes and is accepted before the build; its Spec is written
+              with skill:to-spec.
+            - Rules declared on a fixture's definition are judged in every Story, generated run and sweep; a planted
+              breach fails with its shortest Story.
+            - Each rule reports its exercise count; an unseen rule is reported, never passed; NUMBER-12's hand check and
+              at least one other become declared rules.
+            - `nub run check`, the suite and stress pass; each new rule kind has a planted fault caught by `nub run
+              faults --only`.

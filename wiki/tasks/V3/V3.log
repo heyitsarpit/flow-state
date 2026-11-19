@@ -1075,3 +1075,7 @@ note 2026-11-19T14:58:19Z
 note 2026-11-19T15:02:19Z
     Alchemy adoption proposal in (5980b0ef): rules on definitions (new concept, the user's call), unseen-rule reporting
     and an exhaustive generator profile (small), cell-table enumeration (research). T104 started.
+
+note 2026-11-19T15:09:45Z
+    Decision (the user, 2026-11-19): adopt Alchemy ideas 1 and 2: rules on definitions judged by every run, and unseen
+    rules reported. New T106, first in P5, design first. Ideas 3 and 4 not adopted for now.
