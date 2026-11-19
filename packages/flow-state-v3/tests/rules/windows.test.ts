@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type Story } from "../../src/host/testing/index.ts";
 import { inHoldWindow } from "./sweep.ts";
 
-const send = { _tag: "Send", transferId: "t1", cents: 500 } as const;
+const send = Transfers.E.Send({ transferId: "t1", cents: 500 });
 
 // The reload positions of a Story inside a hold window, from its own run's writes.
 const heldAt = async (story: Story<string>) => {

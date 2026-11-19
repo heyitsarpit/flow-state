@@ -78,7 +78,7 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
   it("Actors R5: a value names the actor by its input fields, whatever their order or the fields beside them", () => {
     const runtime = ready();
     const first = runtime.ensureActor(north);
-    first.send({ _tag: "Type", text: "hi" });
+    first.send(Editor.E.Type({ text: "hi" }));
 
     const reordered = runtime.ensureActor(
       actorRef(EditorMachine, { ticketId: "T-42", workspaceId: "north", page: 3 }),
@@ -91,7 +91,7 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
 
   it("Actors R5: two values with different input fields name two actors", () => {
     const runtime = ready();
-    runtime.ensureActor(north).send({ _tag: "Type", text: "hi" });
+    runtime.ensureActor(north).send(Editor.E.Type({ text: "hi" }));
 
     const south = runtime.ensureActor(
       actorRef(EditorMachine, { workspaceId: "south", ticketId: "T-42" }),
@@ -147,7 +147,7 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
 
     const run = await Story.app(setup, { id: "identity/singleton", fixtures: [] })
       .ensure(one)
-      .send(one, { _tag: "Tick" })
+      .send(one, Clock.E.Tick())
       .checkpoint("ticked")
       .run();
 
@@ -157,11 +157,11 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
   it("Actors R5: a Story names a value-named actor by its input", async () => {
     const run = await Story.app(setup, { id: "identity/story", fixtures: [] })
       .ensure(north)
-      .send(north, { _tag: "Type", text: "a" })
-      .send(actorRef(EditorMachine, { ticketId: "T-42", workspaceId: "north" }), {
-        _tag: "Type",
-        text: "b",
-      })
+      .send(north, Editor.E.Type({ text: "a" }))
+      .send(
+        actorRef(EditorMachine, { ticketId: "T-42", workspaceId: "north" }),
+        Editor.E.Type({ text: "b" }),
+      )
       .checkpoint("typed")
       .run();
 
@@ -175,7 +175,7 @@ describe("createActor (Actors R6)", () => {
     const input = { workspaceId: "north", ticketId: "T-42" };
     const first = runtime.createActor(EditorMachine, { input });
     const second = runtime.createActor(EditorMachine, { input });
-    first.send({ _tag: "Type", text: "x" });
+    first.send(Editor.E.Type({ text: "x" }));
 
     expect(Option.map(first.getSnapshot(), (s) => s.memory["draft"])).toEqual(Option.some("x"));
     expect(Option.map(second.getSnapshot(), (s) => s.memory["draft"])).toEqual(Option.some(""));
@@ -190,7 +190,7 @@ describe("createActor (Actors R6)", () => {
     const runtime = ready();
     const local = runtime.createActor(ClockMachine, { input: {} });
     await Effect.runPromise(Effect.sleep(PAST_GRACE));
-    local.send({ _tag: "Tick" });
+    local.send(Clock.E.Tick());
 
     expect(Option.map(local.getSnapshot(), (s) => s.memory["ticks"])).toEqual(Option.some(1));
 
@@ -226,7 +226,7 @@ describe("isolation (Actors R24, I34)", () => {
     const a = ready();
     const b = ready();
     const handle = a.ensureActor(north);
-    handle.send({ _tag: "Type", text: "a" });
+    handle.send(Editor.E.Type({ text: "a" }));
 
     expect(thrownCode(() => b.disposeActor(handle))).toBe("ForeignActorRef");
     expect(Option.map(b.ensureActor(north).getSnapshot(), (s) => s.memory["draft"])).toEqual(

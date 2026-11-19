@@ -16,7 +16,7 @@ import {
   wallBadge,
   workspaceSetup,
 } from "../../fixtures/session/app.ts";
-import { BadgeMachine } from "../../fixtures/session/machines/badge.ts";
+import { Badge, BadgeMachine } from "../../fixtures/session/machines/badge.ts";
 import { corruptRecord, oversizedRecord } from "../../fixtures/session/stories/edges.ts";
 import { avatarWall, wall } from "../../fixtures/session/stories/load.ts";
 import {
@@ -207,14 +207,14 @@ describe("one badge's mailbox (fixtures.md L2; Actors R14)", () => {
 
       for (let n = 0; n < BURST; n += 1)
         try {
-          handle.send({ _tag: "Ping" });
+          handle.send(Badge.E.Ping());
         } catch (error) {
           assert.ok(error instanceof FlowError);
           refused.push(error.code);
         }
     });
 
-    handle.send({ _tag: "Ping" });
+    handle.send(Badge.E.Ping());
 
     expect(refused).toEqual([]);
     expect(Option.map(handle.getSnapshot(), (s) => s.memory["pings"])).toEqual(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { command, shortcutsOf } from "../../fixtures/command-palette/machines/commands.ts";
 import { palette } from "../../fixtures/command-palette/app.ts";
+import { Palette } from "../../fixtures/command-palette/machines/palette.ts";
 import { Commands } from "../../fixtures/command-palette/server/commands.ts";
 import {
   commands,
@@ -11,6 +12,8 @@ import {
 } from "../../fixtures/command-palette/stories/usual.ts";
 import { played } from "../rules/played.ts";
 import { callsAt, denials, highlightAt, memoryAt, pendingAt, resultsAt, shownAt } from "./reads.ts";
+
+const E = Palette.E;
 
 const started = (id: string) => paletteStory(id).ensure(palette).send(palette, configure(commands));
 
@@ -24,7 +27,9 @@ describe("command palette: highlight", () => {
 
   it("PALETTE-2: typing ranks the commands and highlights the best match", async () => {
     const run = await played(
-      started("PALETTE-2").send(palette, { _tag: "Typed", text: "se" }).checkpoint("typed"),
+      started("PALETTE-2")
+        .send(palette, E.Typed({ text: "se" }))
+        .checkpoint("typed"),
     );
 
     expect(shownAt(run.checkpoints.typed)).toEqual(["settings", "emoji"]);
@@ -34,13 +39,13 @@ describe("command palette: highlight", () => {
   it("PALETTE-3: moving skips disabled commands and wraps", async () => {
     const run = await played(
       started("PALETTE-3")
-        .send(palette, { _tag: "Move", by: 1 })
+        .send(palette, E.Move({ by: 1 }))
         .checkpoint("one")
-        .send(palette, { _tag: "Move", by: 1 })
+        .send(palette, E.Move({ by: 1 }))
         .checkpoint("two")
-        .send(palette, { _tag: "Move", by: -1 })
-        .send(palette, { _tag: "Move", by: -1 })
-        .send(palette, { _tag: "Move", by: -1 })
+        .send(palette, E.Move({ by: -1 }))
+        .send(palette, E.Move({ by: -1 }))
+        .send(palette, E.Move({ by: -1 }))
         .checkpoint("wrapped"),
     );
 
@@ -54,7 +59,7 @@ describe("command palette: highlight", () => {
       paletteStory("PALETTE-11")
         .ensure(palette)
         .send(palette, configure([command("Alpha", "Alpha"), command("Beta", "Beta")]))
-        .send(palette, { _tag: "Highlight", key: "Beta" })
+        .send(palette, E.Highlight({ key: "Beta" }))
         .send(palette, configure([command("Gamma", "Gamma"), command("Beta", "Beta")]))
         .checkpoint("kept")
         .send(palette, configure([command("Gamma", "Gamma")]))
@@ -71,9 +76,9 @@ describe("command palette: highlight", () => {
         .ensure(palette)
         .send(palette, configure(commands, { ...fuzzy, autoHighlight: false }))
         .checkpoint("start")
-        .send(palette, { _tag: "Typed", text: "cal" })
+        .send(palette, E.Typed({ text: "cal" }))
         .checkpoint("typed")
-        .send(palette, { _tag: "Move", by: 1 })
+        .send(palette, E.Move({ by: 1 }))
         .checkpoint("moved"),
     );
 
@@ -88,9 +93,9 @@ describe("command palette: running (WriteLanes R2, I13)", () => {
     const run = await played(
       started("PALETTE-4")
         .world(Commands.run.hold())
-        .send(palette, { _tag: "Enter" })
+        .send(palette, E.Enter())
         .checkpoint("pending")
-        .send(palette, { _tag: "Run", key: "calendar" })
+        .send(palette, E.Run({ key: "calendar" }))
         .checkpoint("again")
         .world(Commands.run.release())
         .checkpoint("settled"),
@@ -106,10 +111,10 @@ describe("command palette: running (WriteLanes R2, I13)", () => {
   it("PALETTE-5: a run of a disabled or pending command is denied, so the view leaves a link where it is", async () => {
     const run = await played(
       started("PALETTE-5")
-        .send(palette, { _tag: "Run", key: "calculator" })
+        .send(palette, E.Run({ key: "calculator" }))
         .world(Commands.run.hold())
-        .send(palette, { _tag: "Run", key: "calendar" })
-        .send(palette, { _tag: "Run", key: "calendar" })
+        .send(palette, E.Run({ key: "calendar" }))
+        .send(palette, E.Run({ key: "calendar" }))
         .checkpoint("end")
         .world(Commands.run.release()),
     );
@@ -125,12 +130,12 @@ describe("command palette: running (WriteLanes R2, I13)", () => {
     const run = await played(
       started("PALETTE-6")
         .world(Commands.fail({ command: "profile", reason: "offline" }))
-        .send(palette, { _tag: "Run", key: "profile" })
+        .send(palette, E.Run({ key: "profile" }))
         .checkpoint("failed")
         .advance("1 second")
         .checkpoint("kept")
         .world(Commands.heal({ command: "profile" }), Commands.run.hold())
-        .send(palette, { _tag: "Run", key: "profile" })
+        .send(palette, E.Run({ key: "profile" }))
         .checkpoint("again")
         .world(Commands.run.release())
         .checkpoint("ran"),
@@ -147,8 +152,8 @@ describe("command palette: running (WriteLanes R2, I13)", () => {
     const run = await played(
       started("PALETTE-7")
         .world(Commands.run.hold(), Commands.run.hold())
-        .send(palette, { _tag: "Run", key: "profile" })
-        .send(palette, { _tag: "Run", key: "settings" })
+        .send(palette, E.Run({ key: "profile" }))
+        .send(palette, E.Run({ key: "settings" }))
         .world(Commands.fail({ command: "profile", reason: "offline" }), Commands.run.release())
         .checkpoint("failed")
         .world(Commands.run.release()),
@@ -162,13 +167,13 @@ describe("command palette: running (WriteLanes R2, I13)", () => {
     const run = await played(
       started("PALETTE-8")
         .world(Commands.run.hold(), Commands.run.hold())
-        .send(palette, { _tag: "Run", key: "profile" })
-        .send(palette, { _tag: "Run", key: "settings" })
-        .send(palette, { _tag: "Run", key: "profile" })
+        .send(palette, E.Run({ key: "profile" }))
+        .send(palette, E.Run({ key: "settings" }))
+        .send(palette, E.Run({ key: "profile" }))
         .checkpoint("both")
         .world(Commands.run.release())
         .checkpoint("one")
-        .send(palette, { _tag: "Run", key: "profile" })
+        .send(palette, E.Run({ key: "profile" }))
         .checkpoint("again")
         .world(Commands.run.release()),
     );
@@ -184,10 +189,10 @@ describe("command palette: pages", () => {
   it("PALETTE-9: a command with sub-commands opens its page, and Back in the empty field goes back with the text", async () => {
     const run = await played(
       started("PALETTE-9")
-        .send(palette, { _tag: "Typed", text: "them" })
-        .send(palette, { _tag: "Run", key: "theme" })
+        .send(palette, E.Typed({ text: "them" }))
+        .send(palette, E.Run({ key: "theme" }))
         .checkpoint("opened")
-        .send(palette, { _tag: "Back" })
+        .send(palette, E.Back())
         .checkpoint("back"),
     );
 
@@ -205,13 +210,13 @@ describe("command palette: pages", () => {
   it("PALETTE-10: Escape clears the text, then goes back a page, then is denied so an outer dialog gets it (Turn R2)", async () => {
     const run = await played(
       started("PALETTE-10")
-        .send(palette, { _tag: "Run", key: "theme" })
-        .send(palette, { _tag: "Typed", text: "da" })
-        .send(palette, { _tag: "Escape" })
+        .send(palette, E.Run({ key: "theme" }))
+        .send(palette, E.Typed({ text: "da" }))
+        .send(palette, E.Escape())
         .checkpoint("cleared")
-        .send(palette, { _tag: "Escape" })
+        .send(palette, E.Escape())
         .checkpoint("back")
-        .send(palette, { _tag: "Escape" })
+        .send(palette, E.Escape())
         .checkpoint("left"),
     );
 
@@ -226,9 +231,9 @@ describe("command palette: pages", () => {
     const run = await played(
       started("PALETTE-PAGE-1")
         .checkpoint("top")
-        .send(palette, { _tag: "Run", key: "theme" })
+        .send(palette, E.Run({ key: "theme" }))
         .checkpoint("theme")
-        .send(palette, { _tag: "Run", key: "missing" })
+        .send(palette, E.Run({ key: "missing" }))
         .checkpoint("missing"),
     );
 
@@ -240,7 +245,9 @@ describe("command palette: pages", () => {
 
   it("PALETTE-PAGE-2: commands and their shortcuts are found on every page", async () => {
     const run = await played(
-      started("PALETTE-PAGE-2").send(palette, { _tag: "Run", key: "dark" }).checkpoint("ran"),
+      started("PALETTE-PAGE-2")
+        .send(palette, E.Run({ key: "dark" }))
+        .checkpoint("ran"),
     );
 
     expect(shortcutsOf(memoryAt(run.checkpoints.ran).commands)).toEqual([

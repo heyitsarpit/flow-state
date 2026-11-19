@@ -1,7 +1,7 @@
 import { Duration, Option } from "effect";
 import type { cellsCheckout } from "../fixtures/cells/app.ts";
 import { checkout, shop, shopSetup } from "../fixtures/shop/app.ts";
-import { PayMachine } from "../fixtures/services/shop/machines/pay.ts";
+import { Pay, PayMachine } from "../fixtures/services/shop/machines/pay.ts";
 import { Shop } from "../fixtures/services/shop/server/shop.ts";
 import { ShopFake, ShopFakeSteadfast } from "../fixtures/services/shop/server/layer.ts";
 import { ShopLive } from "../fixtures/services/shop/adapters/shop.ts";
@@ -14,12 +14,12 @@ import { TraceRecord } from "../src/host/trace.ts";
 /**
  * The cart the checkout cases start.
  */
-export const START = { _tag: "Start", cartId: "c1", intentId: "pi1" } as const;
+export const START = Pay.E.Start({ cartId: "c1", intentId: "pi1" });
 
 /**
  * The shopper presses pay.
  */
-export const VISA = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
+export const VISA = Pay.E.PayRequested({ paymentMethodId: "visa" });
 
 /**
  * How long UNSURE waits before it reads the order and the intent again: its `check` schedule.

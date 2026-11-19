@@ -1,12 +1,13 @@
 import { expect, it } from "vite-plus/test";
 import { cellsCheckout } from "../../fixtures/cells/app.ts";
+import { Cells } from "../../fixtures/cells/machines/cells.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import { endings, laneFacts, row, START, state, VISA } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
-const ABORT = { _tag: "AbortPay" } as const;
+const ABORT = Cells.E.AbortPay();
 
 it("LANE-08: a cancel before the acknowledgement lands ends the charge NotSent Cancelled, never sent (WriteLanes R14)", async () => {
   const run = await played(

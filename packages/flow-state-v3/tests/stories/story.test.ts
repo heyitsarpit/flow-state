@@ -3,6 +3,7 @@ import { Effect, Layer, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { stories as payStories } from "../../fixtures/shop/stories/usual.ts";
 import { account, bank, bankSetup } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { BankFake } from "../../fixtures/transfers/server/layer.ts";
 import {
@@ -47,8 +48,8 @@ describe("Story", () => {
     let built = 0;
     const counted = Layer.merge(BankFake, Layer.effectDiscard(Effect.sync(() => void built++)));
     const prefix = Story.app(bankSetup, { id: "story/inert", fixtures: [counted] }).ensure(account);
-    const one = prefix.send(account, { _tag: "Send", transferId: "t1", cents: 500 });
-    const two = prefix.send(account, { _tag: "Send", transferId: "t2", cents: 600 }).reload();
+    const one = prefix.send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }));
+    const two = prefix.send(account, Transfers.E.Send({ transferId: "t2", cents: 600 })).reload();
 
     expect(built).toBe(0);
     expect(prefix.steps.map((s) => s._tag)).toEqual(["ensure"]);
@@ -91,7 +92,7 @@ describe("Story", () => {
     const run = checked(
       await Story.app(counting, { id: "story/fixtures", fixtures: [BankFake] })
         .ensure(account)
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .reload()
         .run(),
     );
@@ -113,7 +114,7 @@ describe("Story", () => {
     // @ts-expect-error a widened checkpoint name
     usual.checkpoint(widened);
     // @ts-expect-error an event the definition does not declare
-    usual.send(account, { _tag: "Bogus" });
+    usual.send(account, { _tag: "Bogus" }); // oxlint-disable-line flow-state/no-raw-event -- the type error is the test
 
     const run = checked(await usual.run());
 
@@ -132,7 +133,7 @@ describe("Story", () => {
   it("rejects a fault of its script with StoryFailed, beside a control run that lands (Stories R4, I17)", async () => {
     const lands = bankStory("story/faults")
       .ensure(account)
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }));
 
     expect(endings(checked(await lands.run()).evidence)).toEqual(["success success"]);
 
@@ -161,7 +162,7 @@ describe("Story", () => {
       ["Thrower.boom threw", lands.world(throwing.boom({}))],
       [
         "after disposeRuntime",
-        lands.disposeRuntime().send(account, { _tag: "Resend", transferId: "t1" }),
+        lands.disposeRuntime().send(account, Transfers.E.Resend({ transferId: "t1" })),
       ],
       ["did not boot", noBoot],
       ["empty", Story.app(bankSetup, { id: "", fixtures: [BankFake] })],
@@ -222,7 +223,7 @@ describe("Story", () => {
     const fault = await faultOf(
       Story.app(setup, { id: "story/ping", fixtures: [] })
         .ensure(pinger)
-        .send(pinger, { _tag: "Go", id: "1" })
+        .send(pinger, Pinger.E.Go({ id: "1" }))
         .run(),
     );
 
@@ -280,7 +281,7 @@ describe("Story", () => {
     const fault = await faultOf(
       Story.app(setup, { id: "story/ping-bound", fixtures: [] })
         .ensure(pinger)
-        .send(pinger, { _tag: "Go", id: "1" })
+        .send(pinger, Pinger.E.Go({ id: "1" }))
         .run(),
     );
 
@@ -321,7 +322,7 @@ describe("Story", () => {
     const fault = await faultOf(
       Story.app(setup, { id: "story/spin", fixtures: [] })
         .ensure(spinner)
-        .send(spinner, { _tag: "Go", id: "1" })
+        .send(spinner, Spinner.E.Go({ id: "1" }))
         .run(),
     );
 

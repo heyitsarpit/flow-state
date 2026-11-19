@@ -2,8 +2,11 @@ import { RuntimeDefaults } from "../../src/index.ts";
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
+  Cancel,
   CancelMachine,
+  Latest,
   LatestMachine,
+  Serialize,
   SerializeMachine,
 } from "../../fixtures/lanes/machines/clients.ts";
 import {
@@ -38,7 +41,9 @@ const machines = { latest: LatestMachine, serialize: SerializeMachine, cancel: C
 
 const FLOW = { repo: "flow" };
 
-const commit = { _tag: "Commit", ...FLOW } as const;
+const definitions = { latest: Latest, serialize: Serialize, cancel: Cancel };
+
+const commit = Serialize.E.Commit(FLOW);
 
 type Tag = "Commit" | "Twice" | "RetryCommit" | "CancelCommit" | "Cancel" | "Retry";
 
@@ -65,7 +70,7 @@ const seen = (records: Records) =>
 const meeting = (policy: Policy, phase: Phase) => {
   const client = clients[policy];
   const story = lanesStory(`lane-cells/${policy}-${phase}`).ensure(client);
-  const send = (s: Story, tag: Tag) => s.send(client, { _tag: tag, ...FLOW });
+  const send = (s: Story, tag: Tag) => s.send(client, definitions[policy].E[tag](FLOW));
 
   const reached: Record<Phase, () => Story> = {
     Idle: () => send(story, "Commit"),
@@ -216,7 +221,7 @@ for (const [policy, sends, want] of [
     ["notSent Restored", "notSent Restored", "unknown Restored"],
   ],
   ["latest", [commit, commit], ["notSent Restored", "unknown Restored"]],
-  ["cancel", [commit, { _tag: "CancelCommit", ...FLOW }], ["unknown Cancelled", OK]],
+  ["cancel", [commit, Cancel.E.CancelCommit(FLOW)], ["unknown Cancelled", OK]],
 ] as const)
   it(`${policy}: a reload with commits waiting ends each one Restored, once (Restore R3; WriteLanes R10)`, async () => {
     const client = clients[policy];
@@ -243,7 +248,7 @@ it("under cancel a displaced Attempt whose lane ended first is heard unknown Res
       .ensure(cancelClient)
       .world(Git.sync.hold())
       .send(cancelClient, commit)
-      .send(cancelClient, { _tag: "CancelCommit", ...FLOW })
+      .send(cancelClient, Cancel.E.CancelCommit(FLOW))
       .reload()
       .ensure(cancelClient)
       .advance("1 second")
@@ -280,7 +285,7 @@ it("serialize: a cancel of a Held head releases it and promotes the queued commi
       .send(serializeClient, commit)
       .send(serializeClient, commit)
       .checkpoint("held")
-      .send(serializeClient, { _tag: "Cancel", ...FLOW })
+      .send(serializeClient, Serialize.E.Cancel(FLOW))
       .advance("1 second")
       .checkpoint("after"),
   );

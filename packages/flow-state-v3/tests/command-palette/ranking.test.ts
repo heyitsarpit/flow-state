@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { command, group, separator } from "../../fixtures/command-palette/machines/commands.ts";
 import { palette } from "../../fixtures/command-palette/app.ts";
+import { Palette } from "../../fixtures/command-palette/machines/palette.ts";
 import {
   commands,
   configure,
@@ -9,6 +10,8 @@ import {
 } from "../../fixtures/command-palette/stories/usual.ts";
 import { played } from "../rules/played.ts";
 import { resultsAt, shownAt } from "./reads.ts";
+
+const E = Palette.E;
 
 const scored = (scores: Readonly<Record<string, number>>) => ({ ...fuzzy, scores });
 
@@ -23,7 +26,7 @@ describe("command palette: ranking", () => {
           palette,
           configure(labelled("Show emoji teams", "Assets", "Quick setup", "Settings", "Set")),
         )
-        .send(palette, { _tag: "Typed", text: "set" })
+        .send(palette, E.Typed({ text: "set" }))
         .checkpoint("typed"),
     );
 
@@ -41,13 +44,13 @@ describe("command palette: ranking", () => {
       paletteStory("PALETTE-RANK-2")
         .ensure(palette)
         .send(palette, configure(labelled("Grep", "Git push", "Calendar")))
-        .send(palette, { _tag: "Typed", text: "gp" })
+        .send(palette, E.Typed({ text: "gp" }))
         .checkpoint("gp")
-        .send(palette, { _tag: "Typed", text: "git ps" })
+        .send(palette, E.Typed({ text: "git ps" }))
         .checkpoint("spaced")
-        .send(palette, { _tag: "Typed", text: "xyz" })
+        .send(palette, E.Typed({ text: "xyz" }))
         .checkpoint("none")
-        .send(palette, { _tag: "Typed", text: "rac" })
+        .send(palette, E.Typed({ text: "rac" }))
         .checkpoint("reversed"),
     );
 
@@ -62,7 +65,7 @@ describe("command palette: ranking", () => {
       paletteStory("PALETTE-RANK-3")
         .ensure(palette)
         .send(palette, configure(labelled("Reclaim", "Éclair")))
-        .send(palette, { _tag: "Typed", text: "ECL" })
+        .send(palette, E.Typed({ text: "ECL" }))
         .checkpoint("typed"),
     );
 
@@ -74,7 +77,7 @@ describe("command palette: ranking", () => {
       paletteStory("PALETTE-RANK-4")
         .ensure(palette)
         .send(palette, configure(commands))
-        .send(palette, { _tag: "Typed", text: "se" })
+        .send(palette, E.Typed({ text: "se" }))
         .checkpoint("typed"),
     );
 
@@ -89,8 +92,8 @@ describe("command palette: ranking", () => {
       paletteStory("PALETTE-RANK-5")
         .ensure(palette)
         .send(palette, configure(commands))
-        .send(palette, { _tag: "Typed", text: "se" })
-        .send(palette, { _tag: "Typed", text: "" })
+        .send(palette, E.Typed({ text: "se" }))
+        .send(palette, E.Typed({ text: "" }))
         .checkpoint("empty"),
     );
 
@@ -102,7 +105,7 @@ describe("command palette: ranking", () => {
       paletteStory("PALETTE-RANK-6")
         .ensure(palette)
         .send(palette, configure(labelled("a", "bb", "ccc"), scored({ a: 0, bb: 1, ccc: 2 })))
-        .send(palette, { _tag: "Typed", text: "x" })
+        .send(palette, E.Typed({ text: "x" }))
         .checkpoint("typed"),
     );
 
@@ -116,7 +119,7 @@ describe("command palette: ranking", () => {
       paletteStory("PALETTE-RANK-7")
         .ensure(palette)
         .send(palette, configure(list, scored({ Apple: 1, Apricot: 1, Avocado: 1 })))
-        .send(palette, { _tag: "Typed", text: "a" })
+        .send(palette, E.Typed({ text: "a" }))
         .checkpoint("still")
         .send(palette, configure(list, scored({ Apple: 1, Apricot: 1, Avocado: 2, Banana: 1 })))
         .checkpoint("moved"),

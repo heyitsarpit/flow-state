@@ -98,9 +98,9 @@ describe("commit inputs and lane keys of any depth (Codec R1, R4; WriteLanes R12
         const run = checked(
           await Story.app(shelfSetup, { id: `deep/shelf-${depth}`, fixtures: [GitFake] })
             .ensure(shelf)
-            .send(shelf, { _tag: "Publish", depth: 3 })
+            .send(shelf, Shelf.E.Publish({ depth: 3 }))
             .world(Git.sync.hold())
-            .send(shelf, { _tag: "Publish", depth })
+            .send(shelf, Shelf.E.Publish({ depth }))
             .checkpoint("held")
             .reload()
             .advance("1 second")
@@ -152,9 +152,9 @@ describe("actor names of any depth (Codec R1, R4; Actors R2)", () => {
       const run = checked(
         await Story.app(albumSetup, { id: "deep/album", fixtures: [] })
           .ensure(album)
-          .send(album, { _tag: "Look" })
+          .send(album, Album.E.Look())
           .reload()
-          .send(album, { _tag: "Look" })
+          .send(album, Album.E.Look())
           .checkpoint("after")
           .run(),
       );

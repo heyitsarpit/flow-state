@@ -88,7 +88,7 @@ const settledChain = (firstCopies: number) => {
   const seen: Array<Evidence> = [];
   const handles = built.refs.map((ref) => runtime.ensureActor(ref));
   attachInspector(runtime, (e) => void seen.push(e));
-  runtime.ensureActor(actorRef(HeadMachine, "head")).send({ _tag: "Bump" });
+  runtime.ensureActor(actorRef(HeadMachine, "head")).send(Head.E.Bump());
 
   return {
     values: handles.map((h) => Option.map(h.getSnapshot(), (s) => s.memory["n"])),

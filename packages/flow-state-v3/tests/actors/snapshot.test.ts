@@ -50,11 +50,11 @@ describe("the snapshot (Turn R23, R25; Runtime O3)", () => {
 
   it("Turn R25, I31: a refused turn's issue stays until its own source succeeds; another source's success leaves it", async () => {
     const run = await story("snapshot/issues")
-      .send(lamp, { _tag: "Flip" })
+      .send(lamp, Lamp.E.Flip())
       .checkpoint("refused")
-      .send(lamp, { _tag: "Fix" })
+      .send(lamp, Lamp.E.Fix())
       .checkpoint("other")
-      .send(lamp, { _tag: "Flip" })
+      .send(lamp, Lamp.E.Flip())
       .checkpoint("cleared")
       .run();
 
@@ -66,7 +66,7 @@ describe("the snapshot (Turn R23, R25; Runtime O3)", () => {
 
   it("Turn R25, I31: a new incarnation inherits no issue", async () => {
     const run = await story("snapshot/new-incarnation")
-      .send(lamp, { _tag: "Flip" })
+      .send(lamp, Lamp.E.Flip())
       .dispose(lamp)
       .ensure(lamp)
       .checkpoint("again")
@@ -77,8 +77,8 @@ describe("the snapshot (Turn R23, R25; Runtime O3)", () => {
 
   it("Runtime O3: after disposeActor a snapshot reads the last incarnation's terminal state, disposed", async () => {
     const run = await story("snapshot/terminal")
-      .send(lamp, { _tag: "Fix" })
-      .send(lamp, { _tag: "Flip" })
+      .send(lamp, Lamp.E.Fix())
+      .send(lamp, Lamp.E.Flip())
       .dispose(lamp)
       .checkpoint("disposed")
       .run();

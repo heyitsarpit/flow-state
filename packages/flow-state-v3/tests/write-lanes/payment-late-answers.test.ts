@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { type Cut, Fake } from "../../src/host/testing/index.ts";
 import {
@@ -17,7 +18,7 @@ import {
 } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
-const LEAVE = { _tag: "Leave" } as const;
+const LEAVE = Pay.E.Leave();
 
 const landed = (cut: Cut) => [
   Object.keys(cut.read(Shop).orders).length,

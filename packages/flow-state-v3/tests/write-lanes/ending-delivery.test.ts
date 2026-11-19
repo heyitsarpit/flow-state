@@ -1,13 +1,13 @@
 import { expect, it } from "vite-plus/test";
 import { checkout, secondCheckout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { before, endings, issues, memory, type Records, state, VISA } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
-const cart = (intentId: string) =>
-  ({ _tag: "Start", cartId: `cart-${intentId}`, intentId }) as const;
+const cart = (intentId: string) => Pay.E.Start({ cartId: `cart-${intentId}`, intentId });
 
 const restored = (run: StoryRun) =>
   endings(run.evidence, "pay").filter((e) => e.reason === "Restored").length;
@@ -31,7 +31,7 @@ it("DLV-01: two charges of one shopper on the wire are each restored once (Write
       .world(Shop.confirm.hold(), Shop.confirm.hold())
       .send(checkout, cart("pi1"))
       .send(checkout, VISA)
-      .send(checkout, { _tag: "Leave" })
+      .send(checkout, Pay.E.Leave())
       .checkpoint("left")
       .send(checkout, cart("pi2"))
       .send(checkout, VISA)
@@ -123,7 +123,7 @@ it("DLV-06: a kept ending leaves no lane to queue on, so the next charge decline
   const run = await played(
     refusedCharge("DLV-06")
       .checkpoint("refused")
-      .send(checkout, { _tag: "Leave" })
+      .send(checkout, Pay.E.Leave())
       .checkpoint("left")
       .send(checkout, cart("pi1"))
       .checkpoint("card")

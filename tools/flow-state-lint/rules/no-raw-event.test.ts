@@ -50,7 +50,24 @@ const files: Record<string, { text: ReadonlyArray<string>; fires: ReadonlyArray<
     fires: [],
   },
   "fixtures/shop/app.ts": { text: ['const e = { _tag: "Add" };'], fires: [] },
-  "tests/planted.ts": { text: ['story.send(Cart, { _tag: "Bogus" });'], fires: [] },
+  // A test: like a machine file, only a literal passed to `send(...)` is an event. A deliberate raw send
+  // carries a disable comment with its reason (a disabled line is not reported).
+  "tests/planted.ts": {
+    text: [
+      'await story.send(Cart, { _tag: "Add", lineId: "l1" });', // fires
+      'story.send(Cart, [{ _tag: "Add", lineId: "l1" }]);', // fires
+      'const r = send(Cart, () => ({ _tag: "Add", lineId: "l1" }));', // fires
+      'story.send(Cart, Cart.E.Add({ lineId: "l1" }));',
+      'story.send(Cart, Cart.E.Add({ line: { _tag: "Open", id: 1 } }));',
+      "// oxlint-disable-next-line flow-state/no-raw-event -- an unknown tag is refused",
+      'story.send(Cart, { _tag: "Bogus" });',
+      'const tagged = { _tag: "NotFound", id: "x" };',
+      'const fail = Effect.fail({ _tag: "NoResponse" } as const);',
+      'const is = (e: { _tag: string }) => e._tag === "Add";',
+    ],
+    fires: [1, 2, 3],
+  },
+  "tests/rules/planted.ts": { text: ['story.send(Cart, { _tag: "Add" });'], fires: [1] },
   "src/host/testing/planted.ts": { text: ['const e = { _tag: "Add" };'], fires: [] },
   "../../elsewhere/fixtures/shop/stories/planted.ts": { text: ['const e = { _tag: "Add" };'], fires: [] },
 };

@@ -137,10 +137,10 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     const run = checked(
       await notesStory("restore/unencodable")
         .ensure(notes)
-        .send(notes, { _tag: "Grow", count: 5000 })
+        .send(notes, Notes.E.Grow({ count: 5000 }))
         .checkpoint("good")
-        .send(notes, { _tag: "Scribble" })
-        .send(notes, { _tag: "Scribble" })
+        .send(notes, Notes.E.Scribble())
+        .send(notes, Notes.E.Scribble())
         .checkpoint("withheld")
         .reload()
         .checkpoint("reloaded")
@@ -159,11 +159,11 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     const run = checked(
       await notesStory("restore/unencodable-end")
         .ensure(notes)
-        .send(notes, { _tag: "Scribble" })
+        .send(notes, Notes.E.Scribble())
         .detach(notes)
         .advance("1 second")
         .checkpoint("waiting")
-        .send(notes, { _tag: "Grow", count: 2 })
+        .send(notes, Notes.E.Grow({ count: 2 }))
         .advance("1 second")
         .checkpoint("ended")
         .run(),
@@ -180,12 +180,12 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     const run = checked(
       await notesStory("restore/unencodable-send")
         .ensure(notes)
-        .send(notes, { _tag: "Scribble" })
-        .send(notes, { _tag: "Sync", repo: "flow" })
+        .send(notes, Notes.E.Scribble())
+        .send(notes, Notes.E.Sync({ repo: "flow" }))
         .advance("11 seconds")
         .checkpoint("refused")
-        .send(notes, { _tag: "Grow", count: 1 })
-        .send(notes, { _tag: "Sync", repo: "flow" })
+        .send(notes, Notes.E.Grow({ count: 1 }))
+        .send(notes, Notes.E.Sync({ repo: "flow" }))
         .advance("1 second")
         .checkpoint("sent")
         .run(),
@@ -206,9 +206,9 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
       await notesStory("restore/unencodable-before-capture")
         .ensure(notes)
         .world(Fake.storage.hold())
-        .send(notes, { _tag: "Grow", count: 1 })
-        .send(notes, { _tag: "Sync", repo: "flow" })
-        .send(notes, { _tag: "Scribble" })
+        .send(notes, Notes.E.Grow({ count: 1 }))
+        .send(notes, Notes.E.Sync({ repo: "flow" }))
+        .send(notes, Notes.E.Scribble())
         .world(Fake.storage.release())
         .advance("1 second")
         .checkpoint("refused")
@@ -226,7 +226,7 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     const run = checked(
       await notesStory("restore/unencodable-input")
         .ensure(notes)
-        .send(notes, { _tag: "Sync", repo: "\uD800" })
+        .send(notes, Notes.E.Sync({ repo: "\uD800" }))
         .advance("1 second")
         .checkpoint("after")
         .run(),
@@ -243,7 +243,7 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     const run = checked(
       await notesStory("restore/unencodable-document")
         .ensure(notes)
-        .send(notes, { _tag: "Publish", doc: ["\uD800"] })
+        .send(notes, Notes.E.Publish({ doc: ["\uD800"] }))
         .advance("1 second")
         .checkpoint("after")
         .run(),
@@ -256,7 +256,7 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
   });
 
   it("Codec R1: twelve commits of 200,000 characters on one lane, 2.4 MB queued, are all sent and end; nothing declines or is reported", async () => {
-    const big = { _tag: "Sync", repo: "r".repeat(200_000) } as const;
+    const big = Notes.E.Sync({ repo: "r".repeat(200_000) });
 
     const queued = Array.from({ length: 12 }).reduce<Story>(
       (s) => s.send(notes, big),
@@ -281,10 +281,10 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
       await notesStory("restore/unencodable-disposal")
         .ensure(notes)
         .world(Git.sync.hold())
-        .send(notes, { _tag: "Sync", repo: "flow" })
-        .send(notes, { _tag: "Sync", repo: "flow" })
-        .send(notes, { _tag: "Scribble" })
-        .send(notes, { _tag: "Sync", repo: "flow" })
+        .send(notes, Notes.E.Sync({ repo: "flow" }))
+        .send(notes, Notes.E.Sync({ repo: "flow" }))
+        .send(notes, Notes.E.Scribble())
+        .send(notes, Notes.E.Sync({ repo: "flow" }))
         .disposeRuntime()
         .advance(RuntimeDefaults.disposalBound)
         .reload()
@@ -311,9 +311,9 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
       const run = checked(
         await notesStory("restore/deep-input")
           .ensure(notes)
-          .send(notes, { _tag: "Publish", doc: nest(100_000) })
+          .send(notes, Notes.E.Publish({ doc: nest(100_000) }))
           .world(Git.sync.hold())
-          .send(notes, { _tag: "Publish", doc: nest(100_001) })
+          .send(notes, Notes.E.Publish({ doc: nest(100_001) }))
           .checkpoint("held")
           .reload()
           .advance("1 second")

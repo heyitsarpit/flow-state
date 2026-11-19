@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { cellsCheckout } from "../../fixtures/cells/app.ts";
+import { Cells } from "../../fixtures/cells/machines/cells.ts";
 import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
@@ -91,7 +92,7 @@ describe("PAY-12 (WriteLanes R2, R14, R10)", () => {
   it("PAY-12/cancel-on-wire: a cancel of a charge on the wire ends it unknown Cancelled and holds the lane", async () => {
     const run = await played(
       cellsOnWire("PAY-12/cancel-on-wire", Shop.confirm.hold())
-        .send(cellsCheckout, { _tag: "AbortPay" })
+        .send(cellsCheckout, Cells.E.AbortPay())
         .checkpoint("aborted"),
     );
 

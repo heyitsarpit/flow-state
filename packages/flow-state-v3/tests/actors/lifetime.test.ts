@@ -1,6 +1,7 @@
 import { Duration } from "effect";
 import { expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { before, coalescedStory, type Records, START, state } from "../checkout.ts";
 import { RuntimeDefaults } from "../../src/index.ts";
@@ -32,7 +33,7 @@ it("ACT-02/dirty-record-written-at-end: a free actor with an unwritten change en
     coalescedStory("ACT-02/dirty-record-written-at-end")
       .ensure(checkout)
       .send(checkout, START)
-      .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+      .send(checkout, Pay.E.CardChosen({ paymentMethodId: "visa" }))
       .detach(checkout)
       .advance("1 second")
       .checkpoint("free"),

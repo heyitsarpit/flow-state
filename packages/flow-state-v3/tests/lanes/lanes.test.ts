@@ -2,7 +2,7 @@ import { Effect, Option } from "effect";
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
 import { lanesSetup, serializeClient } from "../../fixtures/lanes/app.ts";
-import { SerializeMachine } from "../../fixtures/lanes/machines/clients.ts";
+import { Serialize, SerializeMachine } from "../../fixtures/lanes/machines/clients.ts";
 import { negativeZero, twoSpellings } from "../../fixtures/lanes/stories/edges.ts";
 import { DEEP_QUEUE, serializeDeep } from "../../fixtures/lanes/stories/load.ts";
 import {
@@ -49,14 +49,14 @@ describe("the lane policies with deep queues (fixtures.md L2)", () => {
 
       for (let n = 0; n < BURST; n += 1)
         try {
-          client.send({ _tag: "Cancel", repo: "flow" });
+          client.send(Serialize.E.Cancel({ repo: "flow" }));
         } catch (error) {
           assert.ok(error instanceof FlowError);
           refused.push(error.code);
         }
     });
 
-    client.send({ _tag: "Cancel", repo: "flow" });
+    client.send(Serialize.E.Cancel({ repo: "flow" }));
 
     expect(refused).toEqual([]);
     expect(turns).toBe(1 + BURST);

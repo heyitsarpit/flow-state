@@ -2,6 +2,7 @@ import { Effect, Exit, Layer, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { BankApi, Declined, NoResponse, Receipt } from "../../fixtures/transfers/services.ts";
 import { account, bankSetup } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { BankFake } from "../../fixtures/transfers/server/layer.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
@@ -18,11 +19,11 @@ describe("Fake server", () => {
     const run = checked(
       await bankStory("fake/control")
         .ensure(account)
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .checkpoint("first")
         .world(Bank.limit({ cents: 400 }))
         .checkpoint("lowered")
-        .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t2", cents: 500 }))
         .checkpoint("declined")
         .run(),
     );
@@ -70,7 +71,7 @@ describe("Fake server", () => {
       .ensure(account)
       .world(Bank.limit({ cents: 10 }))
       .reload()
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
       .checkpoint("reloaded");
 
     const first = checked(await story.run());
@@ -94,7 +95,7 @@ describe("Fake server", () => {
         world: [Bank.limit({ cents: 100 })],
       })
         .ensure(account)
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .run(),
     );
 
@@ -136,7 +137,7 @@ describe("Fake server", () => {
 
     const fault = await Story.app(bankSetup, { id: "fake/broken", fixtures: [BrokenFake] })
       .ensure(account)
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
       .run()
       .then(
         () => undefined,

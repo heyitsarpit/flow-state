@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type StoryRun } from "../../src/host/testing/index.ts";
@@ -17,7 +18,7 @@ describe("Fake storage words", () => {
       await bankStory("storage/hold")
         .ensure(account)
         .world(Fake.storage.hold())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .checkpoint("acknowledging")
         .world(Fake.storage.release())
         .checkpoint("sent")
@@ -39,7 +40,7 @@ describe("Fake storage words", () => {
       await bankStory("storage/refuse")
         .ensure(account)
         .world(Fake.storage.refuse())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .checkpoint("refused")
         .run(),
     );
@@ -58,7 +59,7 @@ describe("Fake storage words", () => {
     const held = bankStory("storage/held-at-reload")
       .ensure(account)
       .world(Fake.storage.hold())
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }));
 
     const aborted = checked(await held.reload().checkpoint("reloaded").run());
     const landed = checked(await held.reload({ heldWrites: "land" }).checkpoint("reloaded").run());
@@ -89,7 +90,7 @@ describe("Fake storage words", () => {
       await bankStory("storage/held-across-dispose")
         .ensure(account)
         .world(Fake.storage.hold())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .disposeRuntime()
         .world(Fake.storage.release())
         .checkpoint("released")

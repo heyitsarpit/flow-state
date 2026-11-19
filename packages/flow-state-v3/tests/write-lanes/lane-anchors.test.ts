@@ -1,6 +1,7 @@
 import { expect, it } from "vite-plus/test";
 import { checkout, secondCheckout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import { before, laneFacts, memory, onWire, row, START, state, VISA } from "../checkout.ts";
@@ -18,7 +19,7 @@ it("PAY-21: two shoppers' held charges are anchored to their own keys; one's rel
       .send(checkout, VISA)
       .advance("1 second")
       .ensure(secondCheckout)
-      .send(secondCheckout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
+      .send(secondCheckout, Pay.E.Start({ cartId: "c2", intentId: "pi2" }))
       .world(Shop.confirm.drop({ at: "response" }))
       .send(secondCheckout, VISA)
       .checkpoint("held")
@@ -55,7 +56,7 @@ const lostVoid = [
 // of the second re-send is held at the end.
 const voidTwice = (id: string) =>
   onWire(id, Shop.confirm.hold())
-    .send(checkout, { _tag: "Leave" })
+    .send(checkout, Pay.E.Leave())
     .checkpoint("left")
     .world(Fake.storage.hold(), Shop.confirm.release())
     .checkpoint("confirmed")

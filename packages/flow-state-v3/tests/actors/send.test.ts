@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { account, savings } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { attachInspector } from "../../src/host/inspect.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
@@ -24,7 +25,7 @@ const absent = (run: StoryRun) =>
 const turns = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Turn" ? [`${e.actor.name} ${e.event}`] : []));
 
-const send = (transferId: string) => ({ _tag: "Send" as const, transferId, cents: 100 });
+const send = (transferId: string) => Transfers.E.Send({ transferId, cents: 100 });
 
 describe("the send table (Actors R16, I25)", () => {
   it("Actors R16: a send to an identity with no record and no actor is dropped with SendTargetAbsent NoRecord, and creates nothing", async () => {
@@ -122,14 +123,14 @@ describe("no mailbox cap (Actors R14, I22)", () => {
 
       for (let n = 0; n < BURST; n += 1)
         try {
-          counter.send({ _tag: "Tick" });
+          counter.send(Counter.E.Tick());
         } catch (error) {
           assert.ok(error instanceof FlowError);
           refused.push(error.code);
         }
     });
 
-    counter.send({ _tag: "Tick" });
+    counter.send(Counter.E.Tick());
 
     expect(refused).toEqual([]);
     expect(Option.map(counter.getSnapshot(), (s) => s.memory["ticks"])).toEqual(

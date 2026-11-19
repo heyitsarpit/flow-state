@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type Cut, type StoryRun, type WorldWord } from "../../src/host/testing/index.ts";
@@ -19,7 +20,7 @@ const wired = async (word: WorldWord, ...after: ReadonlyArray<WorldWord | "30 se
   const sent = bankStory("wire/word")
     .ensure(account)
     .world(word)
-    .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+    .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
     .checkpoint("first");
 
   const followed = after.reduce(
@@ -30,7 +31,7 @@ const wired = async (word: WorldWord, ...after: ReadonlyArray<WorldWord | "30 se
   return checked(
     await followed
       .checkpoint("between")
-      .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+      .send(account, Transfers.E.Send({ transferId: "t2", cents: 500 }))
       .checkpoint("next")
       .run(),
   );
@@ -84,11 +85,11 @@ describe("Fake wire words", () => {
       await bankStory("wire/offline")
         .ensure(account)
         .world(Fake.network.offline(), Bank.transfer.hold())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-        .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
+        .send(account, Transfers.E.Send({ transferId: "t2", cents: 500 }))
         .checkpoint("offline")
         .world(Fake.network.online())
-        .send(account, { _tag: "Send", transferId: "t3", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t3", cents: 500 }))
         .checkpoint("online")
         .world(Bank.transfer.release())
         .checkpoint("released")

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { issues, memory, onWire, START, state } from "../checkout.ts";
 import { played } from "../rules/played.ts";
@@ -39,7 +40,7 @@ it("TURN-02: an event the state does not handle changes nothing and is no issue 
       .ensure(checkout)
       .send(checkout, START)
       .checkpoint("card")
-      .send(checkout, { _tag: "Done" })
+      .send(checkout, Pay.E.Done())
       .checkpoint("done"),
   );
 

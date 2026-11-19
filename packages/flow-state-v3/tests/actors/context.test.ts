@@ -264,7 +264,7 @@ describe("context binding (Actors R18, I28)", () => {
     const { runtime } = ready();
     const handle = runtime.ensureActor(counted);
     const before = asides.reads;
-    runtime.ensureActor(main).send({ _tag: "SignIn", user: "ada" });
+    runtime.ensureActor(main).send(Session.E.SignIn({ user: "ada" }));
 
     expect(Option.map(handle.getSnapshot(), (s) => s.context)).toEqual(
       Option.some({ user: "ada", aside: "" }),
@@ -276,11 +276,11 @@ describe("context binding (Actors R18, I28)", () => {
     const { runtime } = ready();
     const handle = runtime.ensureActor(glow);
     const switched = runtime.ensureActor(lamp);
-    switched.send({ _tag: "Toggle" });
+    switched.send(Lamp.E.Toggle());
 
     expect(Option.map(handle.getSnapshot(), (s) => s.issues.length)).toEqual(Option.some(1));
 
-    switched.send({ _tag: "Toggle" });
+    switched.send(Lamp.E.Toggle());
 
     expect(Option.map(handle.getSnapshot(), (s) => s.issues)).toEqual(Option.some([]));
   });
@@ -414,7 +414,7 @@ describe("onContext defects (Turn R22)", () => {
     const echo = runtime.ensureActor(actorRef(EchoMachine, "echo"));
     const session = runtime.ensureActor(main);
 
-    for (const user of ["x", "", "y", ""]) session.send({ _tag: "SignIn", user });
+    for (const user of ["x", "", "y", ""]) session.send(Session.E.SignIn({ user }));
 
     expect(Option.map(echo.getSnapshot(), (s) => s.memory["echoes"])).toEqual(Option.some(0));
     expect(Option.map(echo.getSnapshot(), (s) => s.issues.length)).toEqual(Option.some(0));
@@ -426,8 +426,8 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     const { runtime, seen } = ready();
     const handle = runtime.ensureActor(badge);
     const session = runtime.ensureActor(main);
-    session.send({ _tag: "SignIn", user: "ada" });
-    session.send({ _tag: "SignIn", user: "ada" });
+    session.send(Session.E.SignIn({ user: "ada" }));
+    session.send(Session.E.SignIn({ user: "ada" }));
 
     expect(turnsOf(seen, "UserChanged")).toBe(1);
     expect(Option.map(handle.getSnapshot(), (s) => s.memory["greeting"])).toEqual(
@@ -440,7 +440,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     const { runtime, seen } = ready();
     const handle = runtime.ensureActor(badge);
     const session = runtime.ensureActor(main);
-    session.send({ _tag: "SignIn", user: "boom" });
+    session.send(Session.E.SignIn({ user: "boom" }));
 
     const read = Option.getOrThrow(handle.getSnapshot());
     expect(read.context).toEqual({ user: "boom", broken: 0 });
@@ -454,7 +454,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     const handle = runtime.ensureActor(pair);
     runtime.ensureActor(actorRef(WatcherMachine, "left"));
     runtime.ensureActor(actorRef(WatcherMachine, "right"));
-    runtime.ensureActor(main).send({ _tag: "SignIn", user: "ada" });
+    runtime.ensureActor(main).send(Session.E.SignIn({ user: "ada" }));
 
     expect(Option.map(handle.getSnapshot(), (s) => s.memory["pairs"])).toEqual(
       Option.some(["ada|ada"]),
@@ -464,7 +464,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
   it("Actors R19, I27: a consumer bound to a provider and to that provider's consumer gets one update per wave, after both settle", () => {
     const { runtime } = ready();
     const handle = runtime.ensureActor(actorRef(BothMachine, "both"));
-    runtime.ensureActor(main).send({ _tag: "SignIn", user: "ada" });
+    runtime.ensureActor(main).send(Session.E.SignIn({ user: "ada" }));
 
     expect(Option.map(handle.getSnapshot(), (s) => s.memory["pairs"])).toEqual(
       Option.some(["ada|ada"]),
@@ -477,8 +477,8 @@ describe("issues by source (Turn R25; Actors R19)", () => {
     const { runtime } = ready();
     const handle = runtime.ensureActor(badge);
     const session = runtime.ensureActor(main);
-    session.send({ _tag: "SignIn", user: "boom" });
-    session.send({ _tag: "SignIn", user: "ada" });
+    session.send(Session.E.SignIn({ user: "boom" }));
+    session.send(Session.E.SignIn({ user: "ada" }));
 
     expect(Option.map(handle.getSnapshot(), (s) => s.issues)).toEqual(Option.some([]));
     expect(Option.map(handle.getSnapshot(), (s) => s.context["broken"])).toEqual(Option.some(3));
@@ -489,7 +489,7 @@ describe("issues by source (Turn R25; Actors R19)", () => {
     runtime.ensureActor(badge);
     const session = runtime.ensureActor(main);
 
-    for (const user of ["boom1", "boom2", "boom3"]) session.send({ _tag: "SignIn", user });
+    for (const user of ["boom1", "boom2", "boom3"]) session.send(Session.E.SignIn({ user }));
 
     expect(seen.filter((e) => e._tag === "Issue")).toHaveLength(1);
   });
@@ -500,7 +500,7 @@ describe("context in callbacks (Turn R12)", () => {
   it.fails("Turn R12: a guard and an update receive the turn's context", () => {
     const { runtime } = ready();
     const reader = runtime.ensureActor(actorRef(ReaderMachine, "reader"));
-    reader.send({ _tag: "Read" });
+    reader.send(Reader.E.Read());
 
     expect(Option.map(reader.getSnapshot(), (s) => s.memory["read"])).toEqual(
       Option.some("context"),
@@ -587,9 +587,9 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
         .ensure(keptWatcher)
         .detach(keptWatcher)
         .advance("1 second")
-        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .send(keptSession, KeptSession.E.SignIn({ user: "ada" }))
         .advance("1 second")
-        .send(keptWatcher, { _tag: "Ping" })
+        .send(keptWatcher, KeptWatcher.E.Ping())
         .checkpoint("back")
         .run(),
     );
@@ -607,9 +607,9 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
         .ensure(strict)
         .detach(strict)
         .advance("1 second")
-        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .send(keptSession, KeptSession.E.SignIn({ user: "ada" }))
         .reload({ reattach: false })
-        .send(strict, { _tag: "Ping" })
+        .send(strict, KeptStrict.E.Ping())
         .checkpoint("back")
         .run(),
     );
@@ -624,7 +624,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
     const run = checked(
       await Story.app(kept, { id: "context/reload-override", fixtures: [] })
         .ensure(otherSession)
-        .send(otherSession, { _tag: "SignIn", user: "bob" })
+        .send(otherSession, KeptSession.E.SignIn({ user: "bob" }))
         .ensure(overridden)
         .reload()
         .checkpoint("reloaded")
@@ -638,7 +638,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
     const run = checked(
       await Story.app(kept, { id: "context/reload", fixtures: [] })
         .ensure(keptWatcher)
-        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .send(keptSession, KeptSession.E.SignIn({ user: "ada" }))
         .reload()
         .checkpoint("reloaded")
         .run(),
@@ -662,9 +662,9 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
         .detach(keptWatcher)
         .advance("1 second")
         .reload()
-        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .send(keptSession, KeptSession.E.SignIn({ user: "ada" }))
         .advance("1 second")
-        .send(keptWatcher, { _tag: "Ping" })
+        .send(keptWatcher, KeptWatcher.E.Ping())
         .checkpoint("back")
         .run(),
     );
@@ -679,10 +679,10 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
         .ensure(keptWatcher)
         .detach(keptWatcher)
         .advance("1 second")
-        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .send(keptSession, KeptSession.E.SignIn({ user: "ada" }))
         .advance("1 second")
         .reload()
-        .send(keptWatcher, { _tag: "Ping" })
+        .send(keptWatcher, KeptWatcher.E.Ping())
         .checkpoint("back")
         .run(),
     );
@@ -694,11 +694,11 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
     const run = checked(
       await Story.app(kept, { id: "context/unchanged-return", fixtures: [] })
         .ensure(keptWatcher)
-        .send(keptSession, { _tag: "SignIn", user: "ada" })
+        .send(keptSession, KeptSession.E.SignIn({ user: "ada" }))
         .detach(keptWatcher)
         .advance("1 second")
         .reload()
-        .send(keptWatcher, { _tag: "Ping" })
+        .send(keptWatcher, KeptWatcher.E.Ping())
         .checkpoint("back")
         .run(),
     );
@@ -752,11 +752,11 @@ describe("a kept baseline across a reload (Turn R22; Restore R2)", () => {
   const story = (reloaded: boolean) => {
     const before = Story.app(echoing, { id: "context/kept-echo", fixtures: [] })
       .ensure(echo)
-      .send(keptSession, { _tag: "SignIn", user: "a" })
-      .send(keptSession, { _tag: "SignIn", user: "y" });
+      .send(keptSession, KeptSession.E.SignIn({ user: "a" }))
+      .send(keptSession, KeptSession.E.SignIn({ user: "y" }));
 
     return (reloaded ? before.reload() : before)
-      .send(keptSession, { _tag: "SignIn", user: "a" })
+      .send(keptSession, KeptSession.E.SignIn({ user: "a" }))
       .checkpoint("back");
   };
 

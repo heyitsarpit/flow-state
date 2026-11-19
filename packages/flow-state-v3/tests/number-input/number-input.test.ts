@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 import { defaults } from "../../fixtures/number-input/machines/stepping.ts";
 import { quantity } from "../../fixtures/number-input/app.ts";
-import { StepperMachine } from "../../fixtures/number-input/machines/stepper.ts";
+import { Stepper, StepperMachine } from "../../fixtures/number-input/machines/stepper.ts";
 import { bounded, numberStory, usual } from "../../fixtures/number-input/stories/usual.ts";
 import { actorRef } from "../../src/index.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 import { fieldOf, published } from "./reads.ts";
+
+const E = Stepper.E;
 
 const other = actorRef(StepperMachine, "other");
 
@@ -20,17 +22,17 @@ const denials = (run: StoryRun) =>
 const configured = (id: string, settings: Partial<typeof defaults>) =>
   numberStory(id)
     .ensure(quantity)
-    .send(quantity, { _tag: "Configure", settings: { ...defaults, ...settings } });
+    .send(quantity, E.Configure({ settings: { ...defaults, ...settings } }));
 
 describe("number input: ported cases", () => {
   it("NUMBER-1: a + at its bound is denied AtBound, a disabled field's + is denied Disabled, and − at the bound still steps (Turn R2, R12)", async () => {
     const atMax = await played(
       configured("NUMBER-1/at-max", { max: 10 })
-        .send(quantity, { _tag: "Set", value: 10 })
-        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+        .send(quantity, E.Set({ value: 10 }))
+        .send(quantity, E.Press({ direction: 1, size: "step" }))
         .checkpoint("refused")
-        .send(quantity, { _tag: "Press", direction: -1, size: "step" })
-        .send(quantity, { _tag: "Release" })
+        .send(quantity, E.Press({ direction: -1, size: "step" }))
+        .send(quantity, E.Release())
         .checkpoint("down"),
     );
 
@@ -40,8 +42,8 @@ describe("number input: ported cases", () => {
 
     const disabled = await played(
       configured("NUMBER-1/disabled", { max: 10, disabled: true })
-        .send(quantity, { _tag: "Set", value: 5 })
-        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+        .send(quantity, E.Set({ value: 5 }))
+        .send(quantity, E.Press({ direction: 1, size: "step" }))
         .checkpoint("refused"),
     );
 
@@ -52,12 +54,12 @@ describe("number input: ported cases", () => {
   it("NUMBER-2: End goes to the highest value on the step grid, + is then at its bound, and a small step still moves (Turn R2)", async () => {
     const run = await played(
       configured("NUMBER-2", { min: 0, max: 10, step: 3 })
-        .send(quantity, { _tag: "Set", value: 3 })
-        .send(quantity, { _tag: "Key", key: "End" })
+        .send(quantity, E.Set({ value: 3 }))
+        .send(quantity, E.Key({ key: "End" }))
         .checkpoint("end")
-        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
-        .send(quantity, { _tag: "Press", direction: 1, size: "small" })
-        .send(quantity, { _tag: "Release" })
+        .send(quantity, E.Press({ direction: 1, size: "step" }))
+        .send(quantity, E.Press({ direction: 1, size: "small" }))
+        .send(quantity, E.Release())
         .checkpoint("small"),
     );
 
@@ -69,12 +71,12 @@ describe("number input: ported cases", () => {
   it("NUMBER-3: typing follows the value only while it is a number within the bounds, and leaving clamps and commits it", async () => {
     const run = await played(
       configured("NUMBER-3", { min: 1, max: 10 })
-        .send(quantity, { _tag: "Set", value: 5 })
+        .send(quantity, E.Set({ value: 5 }))
         .checkpoint("set")
-        .send(quantity, { _tag: "Typed", text: "7" })
-        .send(quantity, { _tag: "Typed", text: "70" })
+        .send(quantity, E.Typed({ text: "7" }))
+        .send(quantity, E.Typed({ text: "70" }))
         .checkpoint("typed")
-        .send(quantity, { _tag: "Blur" })
+        .send(quantity, E.Blur())
         .checkpoint("left"),
     );
 
@@ -93,17 +95,17 @@ describe("number input: ported cases", () => {
   it("NUMBER-4: a percent without a step keeps a typed percent and steps by one percent, ten for a large step (value only; the shown text is the view's)", async () => {
     const run = await played(
       configured("NUMBER-4", { percent: true })
-        .send(quantity, { _tag: "Typed", text: "25%" })
-        .send(quantity, { _tag: "Blur" })
+        .send(quantity, E.Typed({ text: "25%" }))
+        .send(quantity, E.Blur())
         .checkpoint("typed")
-        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
-        .send(quantity, { _tag: "Release" })
+        .send(quantity, E.Press({ direction: 1, size: "step" }))
+        .send(quantity, E.Release())
         .checkpoint("up")
-        .send(quantity, { _tag: "StepBy", direction: -1, size: "step" })
-        .send(quantity, { _tag: "StepBy", direction: -1, size: "step" })
+        .send(quantity, E.StepBy({ direction: -1, size: "step" }))
+        .send(quantity, E.StepBy({ direction: -1, size: "step" }))
         .checkpoint("down")
-        .send(quantity, { _tag: "Press", direction: 1, size: "large" })
-        .send(quantity, { _tag: "Release" })
+        .send(quantity, E.Press({ direction: 1, size: "large" }))
+        .send(quantity, E.Release())
         .checkpoint("large"),
     );
 
@@ -116,15 +118,15 @@ describe("number input: ported cases", () => {
   it("NUMBER-5: a percent showing two fraction digits keeps a typed 3.75%; with none it snaps to whole percents (value only)", async () => {
     const fine = await played(
       configured("NUMBER-5/fine", { percent: true, fractionDigits: 2 })
-        .send(quantity, { _tag: "Typed", text: "3.75%" })
-        .send(quantity, { _tag: "Blur" })
+        .send(quantity, E.Typed({ text: "3.75%" }))
+        .send(quantity, E.Blur())
         .checkpoint("left"),
     );
 
     const whole = await played(
       configured("NUMBER-5/whole", { percent: true })
-        .send(quantity, { _tag: "Typed", text: "3.75%" })
-        .send(quantity, { _tag: "Blur" })
+        .send(quantity, E.Typed({ text: "3.75%" }))
+        .send(quantity, E.Blur())
         .checkpoint("left"),
     );
 
@@ -135,9 +137,9 @@ describe("number input: ported cases", () => {
   it("NUMBER-6: steps from empty start at 0, within the bounds", async () => {
     const run = await played(
       configured("NUMBER-6", { min: 5 })
-        .send(quantity, { _tag: "StepBy", direction: 1, size: "step" })
+        .send(quantity, E.StepBy({ direction: 1, size: "step" }))
         .ensure(other)
-        .send(other, { _tag: "StepBy", direction: -1, size: "step" })
+        .send(other, E.StepBy({ direction: -1, size: "step" }))
         .checkpoint("stepped"),
     );
 
@@ -148,13 +150,13 @@ describe("number input: ported cases", () => {
   it("NUMBER-7: a commit after a value set from outside reports the user's change back to an earlier value", async () => {
     const run = await played(
       configured("NUMBER-7", {})
-        .send(quantity, { _tag: "Set", value: 4 })
-        .send(quantity, { _tag: "Typed", text: "6" })
-        .send(quantity, { _tag: "Blur" })
+        .send(quantity, E.Set({ value: 4 }))
+        .send(quantity, E.Typed({ text: "6" }))
+        .send(quantity, E.Blur())
         .checkpoint("first")
-        .send(quantity, { _tag: "Set", value: 4 })
-        .send(quantity, { _tag: "Typed", text: "6" })
-        .send(quantity, { _tag: "Blur" })
+        .send(quantity, E.Set({ value: 4 }))
+        .send(quantity, E.Typed({ text: "6" }))
+        .send(quantity, E.Blur())
         .checkpoint("second"),
     );
 
@@ -165,9 +167,9 @@ describe("number input: ported cases", () => {
   it("NUMBER-8: a controller step leaves nothing for the next blur to commit", async () => {
     const run = await played(
       configured("NUMBER-8", {})
-        .send(quantity, { _tag: "Set", value: 1 })
-        .send(quantity, { _tag: "StepBy", direction: 1, size: "step" })
-        .send(quantity, { _tag: "Blur" })
+        .send(quantity, E.Set({ value: 1 }))
+        .send(quantity, E.StepBy({ direction: 1, size: "step" }))
+        .send(quantity, E.Blur())
         .checkpoint("left"),
     );
 
@@ -201,8 +203,8 @@ describe("number input: timers", () => {
   it("NUMBER-10: a hold that reaches the bound stops repeating at the next tick and commits once, on release (Turn R14)", async () => {
     const run = await played(
       configured("NUMBER-10", { max: 20 })
-        .send(quantity, { _tag: "Set", value: 18 })
-        .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+        .send(quantity, E.Set({ value: 18 }))
+        .send(quantity, E.Press({ direction: 1, size: "step" }))
         .advance("399 millis")
         .checkpoint("399")
         .advance("1 millis")
@@ -213,7 +215,7 @@ describe("number input: timers", () => {
         .checkpoint("460")
         .advance("1 second")
         .checkpoint("stopped")
-        .send(quantity, { _tag: "Release" })
+        .send(quantity, E.Release())
         .checkpoint("later"),
     );
 
@@ -239,10 +241,10 @@ describe("number input: timers", () => {
   it("NUMBER-11: leaving the field mid-wheel commits at once, and the wheel's timer dies with its state (Turn R14)", async () => {
     const run = await played(
       configured("NUMBER-11", bounded)
-        .send(quantity, { _tag: "Set", value: 5 })
-        .send(quantity, { _tag: "Wheel", direction: 1 })
+        .send(quantity, E.Set({ value: 5 }))
+        .send(quantity, E.Wheel({ direction: 1 }))
         .advance("100 millis")
-        .send(quantity, { _tag: "Blur" })
+        .send(quantity, E.Blur())
         .checkpoint("left")
         .advance("1 second")
         .checkpoint("later"),

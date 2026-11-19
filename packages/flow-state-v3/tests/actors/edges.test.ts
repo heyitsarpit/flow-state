@@ -85,7 +85,7 @@ describe("edges of persistence and names", () => {
     attachInspector(runtime, (e) => void seen.push(e));
     const local = runtime.createActor(DraftMachine, { input: {} });
 
-    local.send({ _tag: "Save", text: "a" });
+    local.send(Draft.E.Save({ text: "a" }));
 
     expect(seen.filter((e) => e._tag === "Sent").map((e) => e.operation)).toEqual(["save"]);
     expect(endings(seen)).toEqual([]);
@@ -97,7 +97,7 @@ describe("edges of persistence and names", () => {
     attachInspector(runtime, (e) => void seen.push(e));
     const shared = runtime.ensureActor(actorRef(DraftMachine, "d"));
 
-    shared.send({ _tag: "Save", text: "a" });
+    shared.send(Draft.E.Save({ text: "a" }));
 
     expect(endings(seen)).toEqual(["notSent NoPersistence"]);
   });
@@ -177,8 +177,8 @@ describe("an app error named like a decline (WriteLanes R2)", () => {
 
     const run = await Story.app(posting, { id: "edges/still-unknown", fixtures: [] })
       .ensure(poster)
-      .send(poster, { _tag: "Post", text: "a" })
-      .send(poster, { _tag: "Retry" })
+      .send(poster, Post.E.Post({ text: "a" }))
+      .send(poster, Post.E.Retry())
       .checkpoint("answered")
       .run();
 

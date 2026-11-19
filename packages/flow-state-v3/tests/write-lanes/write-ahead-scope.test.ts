@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { account, savings } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import { RuntimeDefaults } from "../../src/index.ts";
@@ -11,8 +12,8 @@ describe("one batch out per scope (WriteAhead R12, I23)", () => {
       .ensure(savings)
       .checkpoint("before")
       .world(Fake.storage.hold())
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .send(savings, { _tag: "Send", transferId: "t1", cents: 300 })
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
+      .send(savings, Transfers.E.Send({ transferId: "t1", cents: 300 }))
       .checkpoint("both")
       .world(Fake.storage.release())
       .run();
@@ -28,8 +29,8 @@ describe("one batch out per scope (WriteAhead R12, I23)", () => {
     const run = await bankStory("WRITE-AHEAD/one-step-two-identities")
       .ensure(account)
       .ensure(savings)
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-      .send(savings, { _tag: "Send", transferId: "t1", cents: 300 })
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
+      .send(savings, Transfers.E.Send({ transferId: "t1", cents: 300 }))
       .advance("10 seconds")
       .checkpoint("quiet")
       .disposeRuntime()

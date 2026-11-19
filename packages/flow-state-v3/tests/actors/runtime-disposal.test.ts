@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { cellsCheckout } from "../../fixtures/cells/app.ts";
 import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
 import { serializeClient } from "../../fixtures/lanes/app.ts";
+import { Serialize } from "../../fixtures/lanes/machines/clients.ts";
 import { lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
@@ -29,7 +30,7 @@ import {
 import { played } from "../rules/played.ts";
 import { switchedOn } from "../switches.ts";
 
-const SYNC = { _tag: "Commit", repo: "flow" } as const;
+const SYNC = Serialize.E.Commit({ repo: "flow" });
 
 // How many times a turn heard an ending as this event.
 const heard = (records: Records, event: string) =>

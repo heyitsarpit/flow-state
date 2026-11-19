@@ -38,7 +38,7 @@ void machine(Payer, ({ S }) => ({
           Account.E.Credit.from(({ event }) => ({ cents: event.cents })),
         ),
         send(payee, Account.E.Freeze()),
-        send(payee, ({ memory }) => ({ _tag: "Credit", cents: memory.paid })),
+        send(payee, ({ memory }) => Account.E.Credit({ cents: memory.paid })),
       ],
     },
   },
@@ -79,7 +79,7 @@ void machine(Payer, ({ S }) => ({
           Other.E.Credit.from(({ event }) => ({ cents: event.payee })),
         ),
         // @ts-expect-error -- a callback must return one of Account's public events
-        send(payee, () => ({ _tag: "Settled" })),
+        send(payee, () => ({ _tag: "Settled" })), // oxlint-disable-line flow-state/no-raw-event -- the type error is the test
       ],
     },
   },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { Fake } from "../../src/host/testing/index.ts";
 import {
@@ -20,7 +21,7 @@ import {
 import { played } from "../rules/played.ts";
 import { reloadOnWire } from "./reload-on-wire.ts";
 
-const LEAVE = { _tag: "Leave" } as const;
+const LEAVE = Pay.E.Leave();
 
 describe("PAY-06 (WriteLanes R2, WriteLanes R8, WriteLanes R10)", () => {
   it("PAY-06/interruptible: a charge that never answers ends unknown at its deadline, and its late landing ends nothing more", async () => {

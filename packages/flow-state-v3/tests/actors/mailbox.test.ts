@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import { account, savings } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { checked } from "../rules/rules.ts";
 
-const send = (transferId: string) => ({ _tag: "Send" as const, transferId, cents: 100 });
+const send = (transferId: string) => Transfers.E.Send({ transferId, cents: 100 });
 
 // Two accounts each owe two endings at the reload's start, so their mail is queued together.
 const owedTwiceEach = bankStory("mailbox/rotation")

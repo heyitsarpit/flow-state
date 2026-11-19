@@ -36,7 +36,7 @@ describe("constants of any depth (Codec R1; Compile R15)", () => {
     // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a test boots its Runtime once, at its edge
     Effect.runSync(runtime.ready());
     const handle = runtime.ensureActor(actorRef(TemplateMachine, "one"));
-    handle.send({ _tag: "Touch" });
+    handle.send(Template.E.Touch());
 
     expect(Option.map(handle.getSnapshot(), (s) => s.memory.touched)).toEqual(Option.some(1));
   });

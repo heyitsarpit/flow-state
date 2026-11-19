@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { serializeClient } from "../../fixtures/lanes/app.ts";
+import { Serialize } from "../../fixtures/lanes/machines/clients.ts";
 import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { mainCart } from "../../fixtures/shop/app.ts";
@@ -15,13 +16,14 @@ import {
   unreadableNames,
 } from "../../fixtures/shop/stories/findings.ts";
 import { account } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
 
-const send = (transferId: string) => ({ _tag: "Send", transferId, cents: 500 }) as const;
+const send = (transferId: string) => Transfers.E.Send({ transferId, cents: 500 });
 
 // The evidence of one open of the tab, in order.
 const inOpen = (run: StoryRun, open: number) =>
@@ -64,8 +66,8 @@ describe("an identity owed a row the boot derives is live at ready (Restore R1, 
       await lanesStory("restore/held-head-queue")
         .ensure(serializeClient)
         .world(Git.sync.drop())
-        .send(serializeClient, { _tag: "Commit", repo: "flow" })
-        .send(serializeClient, { _tag: "Commit", repo: "flow" })
+        .send(serializeClient, Serialize.E.Commit({ repo: "flow" }))
+        .send(serializeClient, Serialize.E.Commit({ repo: "flow" }))
         .reload({ reattach: false })
         .checkpoint("after")
         .run(),
@@ -153,7 +155,7 @@ describe("record formats (Restore R5, I10, I13)", () => {
           .checkpoint("reloaded")
           .send(account, send("t1"))
           .checkpoint("declined")
-          .send(account, { _tag: "Abandon", transferId: "t1" })
+          .send(account, Transfers.E.Abandon({ transferId: "t1" }))
           .checkpoint("cleared")
           .reload()
           .checkpoint("again")

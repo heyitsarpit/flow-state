@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { cellsCheckout } from "../../fixtures/cells/app.ts";
+import { Cells } from "../../fixtures/cells/machines/cells.ts";
 import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
@@ -137,7 +138,7 @@ describe("PAY-15 on Cells (WriteLanes R14)", () => {
       cellsStory("PAY-15/cancel-idle")
         .ensure(cellsCheckout)
         .send(cellsCheckout, START)
-        .send(cellsCheckout, { _tag: "AbortPay" })
+        .send(cellsCheckout, Cells.E.AbortPay())
         .checkpoint("aborted"),
     );
 
@@ -153,7 +154,7 @@ describe("PAY-15 on Cells (WriteLanes R14)", () => {
         .send(cellsCheckout, START)
         .world(Shop.confirm.hold())
         .send(cellsCheckout, VISA)
-        .send(cellsCheckout, { _tag: "AbortPay" })
+        .send(cellsCheckout, Cells.E.AbortPay())
         .checkpoint("aborted"),
     );
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory, deadline, usual } from "../../fixtures/transfers/stories/usual.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
@@ -16,7 +17,7 @@ const actorRecords = (cut: Cut) =>
 
 const sent = bankStory("steps/sent")
   .ensure(account)
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }));
 
 describe("Story step words", () => {
   it("ensure and send land two keyed transfers at once (WriteLanes R6)", async () => {
@@ -30,10 +31,10 @@ describe("Story step words", () => {
   it("send restores from a record but never creates an actor (Stories R3)", async () => {
     const run = checked(
       await bankStory("steps/send-absent")
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .checkpoint("sent")
         .ensure(account)
-        .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t2", cents: 500 }))
         .checkpoint("ensured")
         .run(),
     );
@@ -96,7 +97,7 @@ describe("Story step words", () => {
       await bankStory("steps/dispose-on-wire")
         .ensure(account)
         .world(Bank.transfer.hold())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .disposeRuntime()
         .checkpoint("disposing")
         .advance(SHORT_OF_BOUND)
@@ -118,7 +119,7 @@ describe("Story step words", () => {
       await bankStory("steps/world")
         .ensure(account)
         .world(Bank.limit({ cents: 100 }))
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .checkpoint("declined")
         .run(),
     );
@@ -165,7 +166,7 @@ describe("Story step words", () => {
       await bankStory("steps/checkpoint")
         .ensure(account)
         .world(Bank.transfer.hold())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .advance("2 seconds")
         .checkpoint("held")
         .world(Bank.transfer.release())
@@ -199,7 +200,7 @@ describe("Story step words", () => {
     const story = bankStory("steps/two-reads")
       .ensure(account)
       .world(Bank.transfer.hold())
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 });
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }));
 
     const once = checked(await story.checkpoint("first").run());
     const twice = checked(await story.checkpoint("first").checkpoint("second").run());

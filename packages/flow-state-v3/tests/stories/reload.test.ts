@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { type Cut, Fake, type StoryRun } from "../../src/host/testing/index.ts";
@@ -16,9 +17,9 @@ describe("A tab's opens", () => {
     const run = checked(
       await bankStory("reload/seeded")
         .ensure(account)
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .reload()
-        .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t2", cents: 500 }))
         .run(),
     );
 
@@ -34,9 +35,9 @@ describe("A dead tab", () => {
   it("writes nothing after a reload: its held write is aborted at the reload, and a release finds nothing held (Stories R13, I13, I14)", async () => {
     const story = bankStory("reload/held-write")
       .ensure(account)
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
       .world(Fake.storage.hold())
-      .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+      .send(account, Transfers.E.Send({ transferId: "t2", cents: 500 }))
       .reload()
       .checkpoint("reloaded");
 
@@ -58,10 +59,10 @@ describe("A dead tab", () => {
       await bankStory("reload/release-reaches-the-live-tab")
         .ensure(account)
         .world(Fake.storage.hold())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .reload()
         .world(Fake.storage.hold())
-        .send(account, { _tag: "Send", transferId: "t2", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t2", cents: 500 }))
         .world(Fake.storage.release())
         .checkpoint("released")
         .run(),
@@ -85,7 +86,7 @@ describe("A dead tab", () => {
     const story = bankStory("reload/held-call")
       .ensure(account)
       .world(Bank.transfer.hold())
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
       .reload()
       .checkpoint("reloaded");
 
@@ -109,7 +110,7 @@ describe("A dead tab", () => {
       await bankStory("reload/clock")
         .ensure(account)
         .world(Bank.transfer.hold())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .advance("10 seconds")
         .reload()
         .checkpoint("reloaded")
@@ -132,10 +133,10 @@ describe("A dead tab", () => {
       await bankStory("reload/oldest-held")
         .ensure(account)
         .world(Bank.transfer.hold())
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .reload()
         .world(Bank.transfer.hold())
-        .send(account, { _tag: "Resend", transferId: "t1" })
+        .send(account, Transfers.E.Resend({ transferId: "t1" }))
         .world(Bank.transfer.release())
         .checkpoint("released")
         .advance("31 seconds")

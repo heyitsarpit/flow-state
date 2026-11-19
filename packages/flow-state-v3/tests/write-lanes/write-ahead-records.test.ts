@@ -1,6 +1,7 @@
 import { Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { account, savings } from "../../fixtures/transfers/app.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import {
   bankStory,
@@ -38,10 +39,10 @@ describe("lane records of Held heads (WriteAhead R5, I24)", () => {
       await bankStory("WRITE-AHEAD/refused-resend-capture")
         .ensure(account)
         .world(Bank.transfer.drop({ at: "response" }))
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .checkpoint("held")
         .world(Fake.storage.refuse())
-        .send(account, { _tag: "Resend", transferId: "t1" })
+        .send(account, Transfers.E.Resend({ transferId: "t1" }))
         .advance("10 seconds")
         .checkpoint("refused")
         .run(),
@@ -92,9 +93,9 @@ describe("a re-send's capture (WriteAhead R13)", () => {
       await bankStory("WRITE-AHEAD/resend-capture-count")
         .ensure(account)
         .world(Bank.transfer.drop({ at: "response" }))
-        .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+        .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
         .world(Fake.storage.hold())
-        .send(account, { _tag: "Resend", transferId: "t1" })
+        .send(account, Transfers.E.Resend({ transferId: "t1" }))
         .checkpoint("capturing")
         .run(),
     );
@@ -110,9 +111,9 @@ describe("a re-send's capture (WriteAhead R13)", () => {
     const run2 = await bankStory("WRITE-AHEAD/resend-capture-count-landed")
       .ensure(account)
       .world(Bank.transfer.drop({ at: "response" }))
-      .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+      .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
       .world(Fake.storage.hold())
-      .send(account, { _tag: "Resend", transferId: "t1" })
+      .send(account, Transfers.E.Resend({ transferId: "t1" }))
       .reload({ heldWrites: "land" })
       .checkpoint("booted")
       .run();
@@ -198,7 +199,7 @@ describe("what a step touched is written (WriteAhead I21)", () => {
     const run = checked(
       await Story.app(lampSetup, { id: "WRITE-AHEAD/unhandled-firing", fixtures: [] })
         .ensure(lamp)
-        .send(lamp, { _tag: "Touch" })
+        .send(lamp, Lamp.E.Touch())
         .checkpoint("armed")
         .advance("1 second")
         .checkpoint("fired")
@@ -236,9 +237,9 @@ describe("the default capture interval (WriteAhead R10, I12, Q3)", () => {
     const run = checked(
       await Story.app(quietLampSetup, { id: "WRITE-AHEAD/default-interval", fixtures: [] })
         .ensure(lamp)
-        .send(lamp, { _tag: "Press" })
+        .send(lamp, Lamp.E.Press())
         .advance("3 seconds")
-        .send(lamp, { _tag: "Press" })
+        .send(lamp, Lamp.E.Press())
         .advance("1999 millis")
         .checkpoint("before")
         .advance("1 millis")
