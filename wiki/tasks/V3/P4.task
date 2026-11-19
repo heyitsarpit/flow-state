@@ -3331,6 +3331,84 @@ tasks
               is recorded.
             - Process slips each reported by its sidecar: a few shell redirects to log files in the scratchpad; nothing
               reached the repository.
+        comment     2026-11-19T15:52:08Z
+            Requirements review (independent lead, aa6ae676 and b43179e4): ISSUES, four blocking; the build waits on a
+            record fix. The wiring holds: a planted wrong `toEqualTypeOf` in a `*.test-d.ts` exits 1 (scratch copy), and
+            the suite exits 0 with typecheck on. `nub run check` exits 0. F9's red is a real run: lifting `it.fails`
+            shows `T-99` and a stray `noets`. All 98 `wrong` lines compile today (`@ts-expect-error` on each reports an
+            unused directive), and every flipped assertion fails with the narrow type.
+
+            Blocking:
+
+            1. Type tests aren't two-sided. The Method comment's pairing rule wasn't applied line by line. Missing: a
+               positive on the same parameter beside each `wrong` line.
+               - `excess-keys.test-d.ts:183-207` (Fake): the only assertion is `.not.toBeAny()`, true either way, with
+                 no positive handler.
+               - `snapshot.test-d.ts:59,60,68` have no outside-view positive. Once `Unreadable` (no `memory`) joins
+                 `getSnapshot()`'s union, their `@ts-expect-error` passes for the wrong reason even if `OutsideOf` never
+                 lands. These need a positive narrowed past `Unreadable`.
+               - Also one-sided:
+                 - `contract.test-d.ts`: `cancel`, `retryable` (:95-98) and the app wiring entry (:208-218).
+                 - `endings.test-d.ts` blocks A and B (:49-82) have no assertion.
+                 - `app.test-d.ts`: `ensure`, `detach`, `dispose` (:58-69) and the selectors (:78-98).
+                 - `evidence.test-d.ts`: `from`, `operation`, `event` (:66-75).
+                 - `state-reads.test-d.ts:28-30`, `tokens.test-d.ts:67-76,92-100`.
+            2. Two tests can never flip under the design.
+               - `evidence.test-d.ts:149` (Req 6 claims e6) conflicts with the limit that `Cut.calls` stays wide.
+               - `evidence.test-d.ts:104` (`attempt === actor`) trips only if `RuntimeCut.actor` becomes `ActorKey`,
+                 which carrier 8 doesn't state; by the recorded brand limit it otherwise compiles.
+               - Pick one side for each. Missing: a replay of each test line against its carrier's design.
+            3. Survey gaps have no requirement and no reason, against A2 and Req 12:
+               - seam 14 `RuntimeConfig<R>` (the `run-promise.ts:51` cast);
+               - F9's excess keys in `.from` and `send` returns (`ExactBody` doesn't name them; no test);
+               - e17/N8 controls naming an endpoint;
+               - e25's three testing words;
+               - seven of e26's ten construction refusals;
+               - g28 `owed[].reason` (`src/host/inspect.ts:64`);
+               - the bench `Row.*` fields typed `Schema.String`, and the tier union copied four times;
+               - T103 routed item 4: Fake cleanup errors outside `ServiceOf`. Missing: the gap-to-requirement replay ran
+                 over neither survey's N7, N8 or "Also logged" lists.
+            4. One recorded limit is false: "a negative `captureMs` is a run-time refusal". `src/config.ts:372-374`
+               checks only `Schema.Finite`, and `src/host/edge.ts:154` treats a negative value as 0. Either refuse it in
+               the Schema or record that a negative value acts as 0.
+
+            Not blocking, fix in the records:
+
+            - Req 10 (e13, e16, N5, N8 guards) has no carrier in the Design comment. Add one, such as `GuardArg<M, P,
+              S>` and `StateRead<L>`.
+            - The Stories R11 drop also cites R11 for `Cut.records.stored`, but R11 speaks of `put` only. The drop still
+              holds, because `put` writes raw keys into the same map (`src/host/testing/run.ts:357`); state that reason.
+            - g25 holds for the typo form. `Quarantine.Retired` still carries free text (`src/core/world.ts:431`).
+            - The description's Approach 5 still names a `RecordKey` brand that the design drops, so
+              `tests/rules/records.ts:129` needs a reason.
+            - The cast count "9 after carriers" is 11 once `compile-body.ts:135,149` is counted.
+            - `IncarnationId` is in Approach 8 but not in carrier 8.
+            - Req 14's 26 sites are now 28: `tokens.test-d.ts:98` is new.
+            - e20's exports have no test line.
+            - Persistence also needs a store (`runtime.ts:284`).
+
+            Sidecar log (6 Sonnet):
+
+            - **Accepted:**
+              - the blind list's coverage gaps, merged into 3;
+              - both deep-survey and coverage-survey maps, giving 2, 3 and the record items;
+              - type tests A and B, giving 1 (I re-ran the wiring plant);
+              - the drops and shapes sidecar's false limit, giving 4, and its partial g9 fix (re-run).
+            - **Rejected:**
+              - "`app.test-d.ts:115-119` can't flip": the design moves the default to `StoryRun<never>`.
+              - "Req 17 leaves the lint alias hole": T103 offered converting the three filters as its fix.
+              - The blind list's scope cuts (remove `services`, defer F7) and its frozen cast-inventory script: scope is
+                the user's, and the inventory is replayed at close.
+
+            Open shapes (for the orchestrator):
+
+            - **g9/N7:** partly solvable with no new shape. A `const T extends ReadonlyArray<unknown>` mapped tuple on
+              `onContext` refuses a mapper or `when` whose annotation disagrees with `select`. Two reactions of
+              different value types still compile (re-probed). It cannot infer unannotated mappers or `when`, and it
+              adds a second `machine` parameter that breaks the three explicit `machine<typeof X>` sites. Inference
+              needs the curried `react` shape.
+            - **N2:** not solvable without a new shape. A generic `Flow.initial<S, F = Values>` checks an annotated
+              callback (mock probe), but the common unannotated `fields["email"]` stays erased.
 
     T105
         title       Start order stated as a rule; T102's routed checks built
