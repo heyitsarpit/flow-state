@@ -41,9 +41,9 @@ outcomes
         ForeignActorRef. Lookup neither subscribes nor holds a use.
 
         Before attachment, ensure returns a stable handle with a pure snapshot: default states, the memory built from
-        the Flow.input fields, constant Flow.initial values and computed initials, this render's props (Schema defaults
-        for those not given), available passive provider context, active lifecycle, no issues, active resource lanes
-        Pending with undefined data or a pure placeholder; inactive lanes absent.
+        the Flow.input fields, constant Flow.initial values, this render's props (Schema defaults for those not given),
+        available passive provider context, active lifecycle, no issues, active resource lanes Pending with undefined
+        data or a pure placeholder; inactive lanes absent.
 
         A pre-attach handle of an identity the Runtime holds a record for reads the Runtime's copy, so a quick return
         never flashes the initial state. Pending lanes alone do not mark optimistic writes predicted. Attached actors

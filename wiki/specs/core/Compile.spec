@@ -56,15 +56,15 @@ requirements
                 for an optional key. A field with none is a type error. Two different defaults, or 
                 a Schema default beside Flow.initial, reject as TwoDefaults. A default whose Effect 
                 is not a succeeded value rejects as ImpureDefault (proposed name) without being 
-                run. A computed initial reads input or constant fields, never another computed field; reading one is
-                    that callback's defect: the actor is not created and a Defect issue naming the callback's slot is 
-                        reported.
+                run. Flow.initial takes a constant only: a function is a type error and, untyped, a construction
+                error (InvalidConfiguration at `["memory", field]`), since a computed start stores a value other
+                fields determine (the user, 2026-11-20; @task.V3.T105).
 
     R6  Pure creation
         source  @plan.Machines.O1.
         must    Creation checks a present input by the Input Schema's type side with no 
-                transforming decode, copies the input fields, applies constant then computed 
-                initials, and reads no clock or randomness. It runs once per incarnation and never
+                transforming decode, copies the input fields, applies constant initials, and reads no clock or 
+                randomness. It runs once per incarnation and never
                 on restore, adoption or hydration; there only R8's defaults run, and only for fields
                 the record lacks. Decision (agent, 2026-11-11): audit C24 (spec-log.md, T42).
 
@@ -76,7 +76,7 @@ requirements
 
     R8  Defaults at restore
         source  @plan.Machines.O1.
-        must    At restore a field the record lacks takes its default or computed initial, an 
+        must    At restore a field the record lacks takes its default or initial, an 
                 optional key stays absent, and an input field with no default refuses the record 
                 with RestoreMissingInput. A field has one default, the same at creation and restore.
 
@@ -239,13 +239,13 @@ invariants
 
     I5  For every memory field f: exactly one source among Flow.input, Flow.initial and optional absence. [@R5]
 
-    I6  No default or computed initial is executed during Construction. [@R5]
+    I6  No default or initial is executed during Construction. [@R5]
 
     I7  creation(input) is a function of input alone: equal inputs give equal memory, and it reads no clock or 
         randomness. [@R6]
 
-    I8  Restore, adoption and hydration never invoke creation, and run no default or computed initial for a field the 
-        record has. Reworded 2026-11-11 (audit C24). [@R6, @R8]
+    I8  Restore, adoption and hydration never invoke creation, and run no default or initial for a field the record 
+        has. Reworded 2026-11-11 (audit C24). [@R6, @R8]
 
     I9  On a value-named machine, every input field is required, has no default and encodes toa string. [@R7]
 

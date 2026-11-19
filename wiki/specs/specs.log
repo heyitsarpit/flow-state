@@ -491,3 +491,7 @@ note 2026-11-19T13:01:30Z
 note 2026-11-19T18:54:20Z
     Core Specs now state context slots per the accepted proposal: Flow.context, C.slot.change, one provider per slot
     (Compile R19, I18, T13). Source: @task.V3.T107. Reverse: restore Provider.select and the reaction select.
+
+note 2026-11-19T19:07:44Z
+    Flow.initial takes a constant only (the user, 2026-11-20): Compile R5, R6, R8, I6, I8 drop computed initials; built
+    by @task.V3.T105. Reverse: restore the computed start.

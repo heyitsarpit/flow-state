@@ -36,9 +36,9 @@ outcomes
         or Flow.ignore (@plan.Operations.O3), otherwise UnknownNotUncertain at construction.
 
         Memory is a record of Schema fields; a field's start is written on the field. Flow.input(s) is supplied by the
-        creator, and the definition's Input type is exactly these fields; Flow.initial(s, value) is a constant start and
-        Flow.initial(s, ({ ...fields }) => value) a pure computed start from input or constant fields, never from
-        another computed field; Flow.private(s) is seen only by its owner.
+        creator, and the definition's Input type is exactly these fields; Flow.initial(s, value) is a constant start,
+        and only a constant: a start computed from other fields would store a value they already determine, so derive it
+        where it is read instead (the user, 2026-11-20; @task.V3.T105); Flow.private(s) is seen only by its owner.
 
         Every field starts from exactly one source: Flow.input, Flow.initial, or absence for an optional key; a field
         with none is a type error, and Flow.input and Flow.initial never share a field. A field has one default, the
@@ -57,16 +57,16 @@ outcomes
         marker is a type error.
 
         Creation is pure and runs once per incarnation: it checks a present input by the Input Schema's type side, with
-        no transforming decode, copies the input fields, applies constant then computed initials, and reads no clock or
-        randomness, because it also runs in render (@plan.React.O2). It never runs on restore, adoption or hydration.
+        no transforming decode, copies the input fields, applies constant initials, and reads no clock or randomness,
+        because it also runs in render (@plan.React.O2). It never runs on restore, adoption or hydration.
 
         Input fields are ordinary memory afterwards. A machine's input fields are read-only (writing one is a type
         error), since they name the actor (@plan.Runtime.O3); on a value-named machine they are required, default-free
         and string-encoded, else IdentityFieldOptional (proposed name).
 
-        A fragment's input fields stay writable. At restore a field the record lacks takes its default or computed
-        initial, an optional key stays absent, and an input field with no default refuses the record
-        (RestoreMissingInput); record versions, resets and dropped fields are @plan.Persistence.O5.
+        A fragment's input fields stay writable. At restore a field the record lacks takes its default or initial, an
+        optional key stays absent, and an input field with no default refuses the record (RestoreMissingInput); record
+        versions, resets and dropped fields are @plan.Persistence.O5.
 
         Optional context declares each slot whole with Flow.context (@plan.Machines.O7); context binding is
         @plan.Runtime.O5. operations is ({ E }) => ({ name: contract.outcomes({ ... }) | contract }): each server

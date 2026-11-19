@@ -54,7 +54,6 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | compound `states`                                             |1 |. |. |. |. |. |. |. |U |U |2 |. |2 |. |4 |. |
 | `S.X.history`, `history.child`, `S.previous.history`          |1 |. |. |. |. |. |. |. |. |U |2 |. |. |. |. |. |
 | `Flow.input` value-named actors                               |1 |. |. |1 |U |. |U |. |. |U |. |. |. |2 |4 |4 |
-| `Flow.initial` computed                                       |. |. |. |. |. |1 |. |. |U |. |2 |. |2 |. |. |. |
 | `Flow.private`                                                |. |. |. |1 |. |1 |. |. |. |U |. |. |. |. |. |. |
 | guards, `deny`, `check`                                       |1 |. |. |U |. |U |. |U |U |. |2 |4 |. |. |. |. |
 | `trait`                                                       |2 |. |. |2 |. |. |. |. |. |. |. |4 |2 |. |4 |4 |
@@ -646,7 +645,7 @@ not checked here).
     `NotSent { Rejected }` (T `begin`, `verify`); `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed` (`Auth/SignIn`);
     endings, `Flow.uncertain`, `unknown` (`Auth/SignIn`); `HoldForgotten` (`signOutRetiredLink`), `UnboundLane`
     (`unsureSaveRemoved`); no `CleanupFailed` yet: no sign-in port fake fails a cleanup.
-  - **step 1:** `Flow.initial` computed (`AuthSession`'s handle from the email); `Flow.private` (`AuthSession`'s refresh
+  - **step 1:** `Flow.private` (`AuthSession`'s refresh
     token); `Flow.context`, `onContext`, `C.slot.change` (`ReturnTo` ⇠ `session`); `forget`, `unsettledWrites` (sign-out
     forgets `AuthSession`); `persist`, restore, reload (`AuthSession`, `ReturnTo`).
   - **step 2:** `subroutine` with exits (`Reauth` in `AuthSession`).
@@ -907,7 +906,7 @@ An order form of steppers, grown around today's stepper. Source: ui-sdk's number
 - **Operations:** R `stock` (step 6, feeds `max`); T `saveOrder` (step 6, `latest`).
 - **Journeys:** 1. Order: R `stock` → steppers get `max` → hold to repeat → blur emits `Committed` → T `saveOrder`.
 - **Features by step:**
-  - **used today:** compound `states` (`Number/Stepper`); `Flow.initial` computed (`Number/Stepper`); guards, `deny`,
+  - **used today:** compound `states` (`Number/Stepper`); guards, `deny`,
     `check` (`Number/Stepper`); `schedules` with `armOn` (hold to repeat).
   - **step 6:** `props`, `onProps` (`min`, `max`, `step`, with defaults); `emits`, `onEmit` (`Committed`, heard by
     `OrderForm`); `createActor`, `disposeActor` (steppers local to `OrderForm`); `resource`, `O.x.lookup` (R `stock`);
@@ -986,7 +985,7 @@ here) for the booking; no source for the quote.
   3. Explain: open the explainer (lazy).
 - **Features by step:**
   - **step 2:** compound `states` (`Quote`'s steps); `S.X.history`, `history.child`, `S.previous.history` (Back through
-    `Quote`); `Flow.initial` computed (`Quote`'s start date); guards, `deny`, `check` (`Quote` checks each step);
+    `Quote`); guards, `deny`, `check` (`Quote` checks each step);
     `subroutine` with exits (`Vehicle`, `Driver` (reused)); `schedules` with `armOn` (the slot hold's expiry);
     `persist`, restore, reload (`Quote`).
   - **step 4:** `resource`, `O.x.lookup` (R `postcode`, `slots`); `reject`, `NotSent { Rejected }` (T `holdSlot`);
@@ -1074,7 +1073,7 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   3. Scroll: offscreen sensors freeze and resume.
   4. Reconnect: the connection drops → stale readings refetch.
 - **Features by step:**
-  - **step 2:** compound `states` (`Room`'s heater cycle); `Flow.initial` computed (`Room`'s target from the zone mode);
+  - **step 2:** compound `states` (`Room`'s heater cycle);
     `trait` (`Panel` on `Room`); `.each({ of, max, by })` (`Sensor` ◂ `Room`); `.resumable()` (`Sensor`s offscreen);
     raise into copies (`Room` raises `Pause` into its sensors); `schedules` with `armOn` (`Sensor` polls); `keys`,
     `paused`, `pausedBy`, `restartOn`, `disarmOn` (per-sensor keys; vacation `pausedBy`); an Effect `Schedule` as

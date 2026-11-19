@@ -3541,7 +3541,7 @@ tasks
             T104's F3 token brand must keep a definition's id literal, which T107's one-provider ban needs.
 
     T105
-        title       Start order stated as a rule; T102's routed checks built
+        title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
         status      draft
         priority    medium
         description
@@ -3569,10 +3569,19 @@ tasks
               chains, planted.
             - The two stale texts are fixed and `lanes.ts` reports no lane without an empty-string id.
             - `nub run check`, the suite and `nub run faults --only` on the new faults pass.
+            - Computed `Flow.initial` is gone: a function start is a two-sided type error and, untyped,
+              InvalidConfiguration at `["memory", field]` (planted fault); `src/flow.ts`'s Computed start, its creation
+              step and every fixture, test and docs site are removed or rewritten (a value derived where it is read, or
+              an input) (@spec.Compile.R5).
         comment     2026-11-19T15:35:36Z
             Routed (rules cohesion pass, 2026-11-19, read not run): restore re-arms saved timers by name with no check
             that their state is active (src/core/incarnations.ts:228); confirm with a Story and fix if a timer fires in
             an inactive state.
+        comment     2026-11-19T19:07:36Z
+            Added (the user, 2026-11-20): computed Flow.initial is banned, since it stores a value other fields
+            determine. Sites today: fixtures/sign-in/machines/session.ts (handle from email),
+            tests/turn/creation.test.ts, tests/stories/read.test.ts, src/core/tree.test.ts; the catalog rows
+            are dropped.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
