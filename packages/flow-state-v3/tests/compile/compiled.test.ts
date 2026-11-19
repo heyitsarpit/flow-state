@@ -144,10 +144,10 @@ describe("Diagnostic (Diagnostics R2, I2, T1)", () => {
   });
 
   it("refuses an unknown code, a non-finite number, a wrong tag and a missing field", () => {
-    expect(decode({ ...valid, code: "Nope" })._tag).toBe("None");
-    expect(decode({ ...valid, path: [Number.POSITIVE_INFINITY] })._tag).toBe("None");
-    expect(decode({ ...valid, details: { n: Number.NaN } })._tag).toBe("None");
-    expect(decode({ ...valid, _tag: "Other" })._tag).toBe("None");
-    expect(decode({ ...valid, help: undefined })._tag).toBe("None");
+    expect(Option.isNone(decode({ ...valid, code: "Nope" }))).toBe(true);
+    expect(Option.isNone(decode({ ...valid, path: [Number.POSITIVE_INFINITY] }))).toBe(true);
+    expect(Option.isNone(decode({ ...valid, details: { n: Number.NaN } }))).toBe(true);
+    expect(Option.isNone(decode({ ...valid, _tag: "Other" }))).toBe(true);
+    expect(Option.isNone(decode({ ...valid, help: undefined }))).toBe(true);
   });
 });

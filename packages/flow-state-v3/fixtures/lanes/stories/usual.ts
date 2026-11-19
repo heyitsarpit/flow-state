@@ -59,9 +59,7 @@ const latestLong = Latest.E.Commit(longRepo);
 const serializeLong = Serialize.E.Commit(longRepo);
 const cancelLong = Cancel.E.Commit(longRepo);
 
-const lanesSamples = (
-  values: Readonly<Record<string, { readonly _tag: "Commit"; readonly repo: string }>>,
-) =>
+const lanesSamples = (values: Readonly<Record<string, ReturnType<typeof Latest.E.Commit>>>) =>
   samplesOf({
     id: "lanes",
     story: lanesStory("lanes/samples"),

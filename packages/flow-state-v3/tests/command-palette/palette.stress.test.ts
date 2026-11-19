@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { stress } from "../../fixtures/command-palette/stories/usual.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
@@ -48,7 +49,7 @@ const published = (l: Ledger, at: number, errors: Readonly<Record<string, string
 const recorded = (l: Ledger, e: Evidence, at: number) => {
   if (e._tag === "Minted") return minted(l, e.attempt, String(e.key["command"]));
 
-  if (e._tag === "Ended" && e.attempt._tag === "Some")
+  if (e._tag === "Ended" && Option.isSome(e.attempt))
     return endedFor(l, e.attempt.value, e.channel);
 
   return e._tag === "Published" ? published(l, at, asPalette(e.memory).errors) : l;

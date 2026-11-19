@@ -45,7 +45,13 @@ type Ledger = {
   readonly recordedUnowed: Array<{ readonly at: number; readonly attempt: string }>;
 };
 
-export const REFUSALS: ReadonlySet<string> = new Set(["Defect", "InvalidTurn", "GuardDefect"]);
+type IssueCode = Extract<Evidence, { readonly _tag: "Issue" }>["code"];
+
+export const REFUSALS: ReadonlySet<IssueCode> = new Set<IssueCode>([
+  "Defect",
+  "InvalidTurn",
+  "GuardDefect",
+]);
 
 export const CHANNELS: ReadonlySet<string> = new Set(["success", "failure", "notSent", "unknown"]);
 

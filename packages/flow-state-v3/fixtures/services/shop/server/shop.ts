@@ -1,9 +1,7 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../../src/host/testing/index.ts";
-import { ServerError } from "../services.ts";
+import { Busy, CardDeclined, Intent, Order, ServerError } from "../services.ts";
 
-const Busy = Schema.TaggedStruct("Busy", { retryAfterMs: Schema.Number });
-const CardDeclined = Schema.TaggedStruct("CardDeclined", { code: Schema.String });
 const Challenge = Schema.TaggedStruct("Challenge", {});
 const LandThenFail = Schema.TaggedStruct("LandThenFail", {});
 
@@ -18,13 +16,6 @@ const ShopTruth = Schema.Struct({
 });
 
 type Truth = typeof ShopTruth.Type;
-
-const Intent = Schema.Struct({
-  status: Schema.String,
-  clientSecret: Schema.optionalKey(Schema.String),
-});
-
-const Order = Schema.Struct({ orderId: Schema.String });
 
 const key = { key: Schema.String };
 

@@ -53,7 +53,7 @@ export type Fault = (typeof FAULTS)[number];
  * not put it there again, or the fault could not fire while a write stood there.
  */
 export type Cell = {
-  readonly phase: string;
+  readonly phase: Phase["_tag"];
   readonly fault: Fault;
   readonly outcome:
     | { readonly _tag: "Reached"; readonly breaches: ReadonlyArray<string>; readonly story: string }
@@ -67,7 +67,7 @@ export type Cell = {
 
 type Reach = { readonly prefix: ReadonlyArray<Step>; readonly actor: ActorId };
 
-const standing = (view: View, phase: string, actor: ActorId) =>
+const standing = (view: View, phase: Phase["_tag"], actor: ActorId) =>
   view.lanes().some((lane) => lane.phase === phase && lane.actor === actorKey(actor));
 
 // Drives one seed and notes, for each phase, the steps before a write first stood in it.
@@ -94,7 +94,7 @@ const reachOf = (samples: Samples, seed: number, found: Map<string, Reach>) => {
 };
 
 // Only a head on the wire has a call whose answer can be lost.
-const ON_WIRE: ReadonlySet<string> = new Set(["OnWire", "Cancelling"]);
+const ON_WIRE: ReadonlySet<Phase["_tag"]> = new Set<Phase["_tag"]>(["OnWire", "Cancelling"]);
 
 // Whether a call's input carries an Attempt's id, the idempotency key a write sends, as any of its
 // values.
@@ -105,7 +105,7 @@ const carries = (input: unknown, attempt: string): boolean =>
 
 // The held call of the write standing in the phase: the one carrying its Attempt's id, and only
 // when it is its endpoint's oldest held call, the one a wire word acts on.
-const callOf = (view: View, phase: string, actor: ActorId) =>
+const callOf = (view: View, phase: Phase["_tag"], actor: ActorId) =>
   Option.flatMap(
     Option.fromUndefinedOr(
       view.lanes().find((lane) => lane.phase === phase && lane.actor === actorKey(actor)),
@@ -120,7 +120,7 @@ const callOf = (view: View, phase: string, actor: ActorId) =>
 
 // Whether the oldest held store write acknowledges the write standing in the phase: one batch is
 // out at a time, so no later write can be issued while the write waits on it.
-const waitsOnHeld = (view: View, phase: string, actor: ActorId) =>
+const waitsOnHeld = (view: View, phase: Phase["_tag"], actor: ActorId) =>
   view
     .lanes()
     .some(
@@ -133,7 +133,7 @@ const waitsOnHeld = (view: View, phase: string, actor: ActorId) =>
 // The steps of a fault given while a write stands in its phase, or none when it cannot fire there.
 // A storage refusal refuses the held write the write waits on; with none, it refuses the next
 // write, which fires later, when that write is issued, and is judged then.
-const faultOf = (fault: Fault, phase: string, actor: ActorId, view: View) => {
+const faultOf = (fault: Fault, phase: Phase["_tag"], actor: ActorId, view: View) => {
   const steps: Record<Fault, () => ReadonlyArray<Step>> = {
     reload: () => [Step.reload({ reattach: true, heldWrites: "abort" })],
     "lost answer": () =>
@@ -175,7 +175,7 @@ const refusedOf = (view: View) => view.writes.filter((w) => w === "refused").len
 const tryCell = (
   samples: Samples,
   id: string,
-  phase: string,
+  phase: Phase["_tag"],
   fault: Fault,
   reach: Reach,
   nudge: Option.Option<Step>,
@@ -265,7 +265,7 @@ const tryCell = (
 // RETURN_TYPE: the exported Cell contract, which the two outcomes' literals would widen.
 const cellOf = (
   samples: Samples,
-  phase: string,
+  phase: Phase["_tag"],
   fault: Fault,
   reach: Reach,
   properties: ReadonlyArray<Property>,

@@ -1,6 +1,6 @@
 import { Effect, Fiber, Schema } from "effect";
 import { Outcome, transaction } from "../../../../src/index.ts";
-import { capturableStatus, ShopApi } from "../services.ts";
+import { capturableStatus, ShopApi, TimedOut } from "../services.ts";
 
 const LOST = ["NoResponse", "ServerError"] as const;
 
@@ -55,7 +55,7 @@ export const pay = transaction({
       Effect.catchTag(LOST, (e) => Outcome.unknown(e)),
       Effect.timeoutOrElse({
         duration: PAY_DEADLINE,
-        orElse: () => Outcome.unknown({ _tag: "TimedOut" as const }),
+        orElse: () => Outcome.unknown(new TimedOut()),
       }),
     ),
 });

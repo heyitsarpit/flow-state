@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Brand, Option } from "effect";
 import { describe, it } from "vite-plus/test";
-import { Cue, cell, LaneState, type Move, table } from "./cells.ts";
+import { Cue, cell, LaneState, Move, table } from "./cells.ts";
 import { type CallId, Phase, sentBefore, type TicketId } from "./world.ts";
 
 const ticket = Brand.nominal<TicketId>()("ticket-1");
@@ -47,26 +47,28 @@ const stateOf = (name: StateName, sent = false) =>
     : LaneState.Head({ head: head(phases[name], sent || name === "Held"), queued: 0 });
 
 // A move as the row states it: its tag and the fields the Spec rule fixes.
-const shown = (move: Move) => {
-  if (move._tag === "Decline") return `Decline ${move.why}`;
-
-  if (move._tag === "EndUnsent") return `EndUnsent ${move.why}`;
-
-  if (move._tag === "Flush") return `Flush ${move.purpose}`;
-
-  if (move._tag === "Become") return `Become ${move.phase._tag}`;
-
-  if (move._tag === "Queue") return move.latest ? "Queue latest" : "Queue";
-
-  if (move._tag === "Replace") return `Replace ${move.ended}`;
-
-  if (move._tag === "Displace") return move.owed ? "Displace owed" : "Displace evidence";
-
-  if (move._tag !== "Answer") return move._tag;
-  const interrupts = Option.isSome(move.interrupt) ? " interrupt" : "";
-
-  return `Answer ${move.channel} ${move.reason}${interrupts}`;
-};
+const shown = (move: Move) =>
+  Move.$match(move, {
+    Stay: () => "Stay",
+    Mint: () => "Mint",
+    Decline: ({ why }) => `Decline ${why}`,
+    Queue: ({ latest }) => (latest ? "Queue latest" : "Queue"),
+    Replace: ({ ended }) => `Replace ${ended}`,
+    Displace: ({ owed }) => (owed ? "Displace owed" : "Displace evidence"),
+    Become: ({ phase }) => `Become ${phase._tag}`,
+    Owe: () => "Owe",
+    Withdraw: () => "Withdraw",
+    EndUnsent: ({ why }) => `EndUnsent ${why}`,
+    Release: () => "Release",
+    Interrupt: () => "Interrupt",
+    Flush: ({ purpose }) => `Flush ${purpose}`,
+    Send: () => "Send",
+    Resend: () => "Resend",
+    HoldRefused: () => "HoldRefused",
+    Answer: ({ channel, reason, interrupt }) =>
+      `Answer ${channel} ${reason}${Option.isSome(interrupt) ? " interrupt" : ""}`,
+    Impossible: () => "Impossible",
+  });
 
 const allOf = (move: string) => Object.fromEntries(states.map((s) => [s, move]));
 

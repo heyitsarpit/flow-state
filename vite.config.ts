@@ -258,6 +258,7 @@ export default defineConfig({
           "flow-state/no-mark-probe": ["error", { only: ["src"], exceptTests: true }],
           // Decides by path itself: fixtures/<app>/stories and fixtures/<app>/machines only.
           "flow-state/no-raw-event": "error",
+          "flow-state/no-hand-option": ["error", { only: ["src", "tests", "fixtures"] }],
         },
       },
       {

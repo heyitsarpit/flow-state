@@ -1,3 +1,4 @@
+import type { Evidence } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 
 const unsaved = (cut: Cut, at: string) =>
@@ -24,7 +25,11 @@ export const ownedRowsSaved = {
 
 // What a start reports between its Incarnated and its first turn: the published snapshot, each
 // row it queues, and each unknown Restored it owes.
-const START_REPORTS: ReadonlySet<string> = new Set(["Published", "Unparked", "Ended"]);
+const START_REPORTS: ReadonlySet<Evidence["_tag"]> = new Set<Evidence["_tag"]>([
+  "Published",
+  "Unparked",
+  "Ended",
+]);
 
 /**
  * Actors R10, I40: a start is the one delivery point, so a row leaves Waiting (Unparked) only in

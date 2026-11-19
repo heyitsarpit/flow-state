@@ -103,7 +103,7 @@ const REPLACED = {
   Held: Option.some<LaneFact>("Released"),
 } as const satisfies Record<Phase["_tag"], Option.Option<LaneFact>>;
 
-const COMMITS: ReadonlyArray<string> = [
+const COMMITS: ReadonlyArray<Cue["_tag"]> = [
   "CommitReject",
   "CommitLatest",
   "CommitSerialize",

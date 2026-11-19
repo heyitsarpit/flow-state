@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { Effect, Option, Schema } from "effect";
 import type { Bench } from "./declare.ts";
 import { NOT_RUN, type Options, TIERS, TIMED_OUT, tierOf } from "./options.ts";
-import { Report } from "./report.ts";
+import { FailedReport, Report, TimedOutReport } from "./report.ts";
 import { countersText } from "./result.ts";
 import { WARM_CAP_MS } from "./sample.ts";
 import type { Spawned } from "./timing.ts";
@@ -74,7 +74,7 @@ const reportsOf = (lines: ReadonlyArray<string>) =>
   lines.flatMap((l) => Option.toArray(Schema.decodeUnknownOption(Report)(l)));
 
 const notRun = (ids: ReadonlyArray<string>) =>
-  ids.map((id) => ({ _tag: "Failed", id, problem: NOT_RUN }) satisfies Report);
+  ids.map((id) => FailedReport.make({ id, problem: NOT_RUN }));
 
 /**
  * The process groups of a run's live workers, so a cap, a timeout, a signal or the run's exit
@@ -210,13 +210,11 @@ const workerRun = Effect.fn("workerRun")(function* (
       reports.push(...notRun([current, ...rest]));
       left.capped = true;
     } else if (run.killed === "bench") {
-      reports.push({ _tag: "TimedOut", id: current, problem: TIMED_OUT, samples: [] });
+      reports.push(TimedOutReport.make({ id: current, problem: TIMED_OUT, samples: [] }));
       left.ids = rest;
     } else {
       reports.push(
-        ...[current, ...rest].map(
-          (id) => ({ _tag: "Failed", id, problem: run.exited }) satisfies Report,
-        ),
+        ...[current, ...rest].map((id) => FailedReport.make({ id, problem: run.exited })),
       );
     }
   }

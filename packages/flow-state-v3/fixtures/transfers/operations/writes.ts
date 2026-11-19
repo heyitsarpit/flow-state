@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 import { Outcome, transaction } from "../../../src/index.ts";
-import { BankApi } from "../services.ts";
+import { BankApi, TimedOut } from "../services.ts";
 
 /**
  * One transfer, keyed by its id: a lost answer, or no answer within 30 seconds, is unknown.
@@ -16,7 +16,7 @@ export const transfer = transaction({
       Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
       Effect.timeoutOrElse({
         duration: "30 seconds",
-        orElse: () => Outcome.unknown({ _tag: "TimedOut" as const }),
+        orElse: () => Outcome.unknown(new TimedOut()),
       }),
     ),
 });

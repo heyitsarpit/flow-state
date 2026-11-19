@@ -454,10 +454,10 @@ describe("Schemas and event constructors (Compile R14)", () => {
     const event = Schema.decodeUnknownOption(Lamp.Event);
     const state = Schema.decodeUnknownOption(Lamp.State);
 
-    expect(event({ _tag: "Dim", level: 1 })._tag).toBe("Some");
-    expect(event({ _tag: "Saved" })._tag).toBe("None");
-    expect(state("ON.DIM")._tag).toBe("Some");
-    expect(state("ON")._tag).toBe("None");
+    expect(Option.isSome(event({ _tag: "Dim", level: 1 }))).toBe(true);
+    expect(Option.isNone(event({ _tag: "Saved" }))).toBe(true);
+    expect(Option.isSome(state("ON.DIM"))).toBe(true);
+    expect(Option.isNone(state("ON"))).toBe(true);
   });
 });
 
@@ -565,7 +565,7 @@ describe("the snapshot (Turn R23, Compile R14)", () => {
     expect(decode({ state: "CLEAN", memory: { body: "hi", draftKey: "k" } })).toEqual(
       Option.some({ state: "CLEAN", memory: { body: "hi" } }),
     );
-    expect(decode({ state: "DIRTY", memory: { body: "" } })._tag).toBe("None");
+    expect(Option.isNone(decode({ state: "DIRTY", memory: { body: "" } }))).toBe(true);
   });
 });
 

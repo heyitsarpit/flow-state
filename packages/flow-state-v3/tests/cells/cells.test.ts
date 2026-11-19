@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { CellsMachine } from "../../fixtures/cells/machines/cells.ts";
 import { cellsCheckout } from "../../fixtures/cells/app.ts";
@@ -25,7 +26,7 @@ describe("the usual and long Cells Stories", () => {
     expect(payment(unsure)).toEqual(
       expect.objectContaining({ value: expect.objectContaining({ uncertain: true }) }),
     );
-    expect(payment(aborted)).toEqual(expect.objectContaining({ _tag: "None" }));
+    expect(payment(aborted)).toEqual(Option.none());
     expect(released).toHaveLength(1);
     expect(end.read(cellsCheckout)?.state).toBe("LEFT");
     expect(end.read(Shop).orders).toEqual({ c1: "o1" });

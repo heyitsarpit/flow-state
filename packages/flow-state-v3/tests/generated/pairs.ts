@@ -4,11 +4,13 @@ import { FAULTS, generate, PHASES, pairSweep, type Samples } from "../../src/hos
 import { rules } from "../rules/rules.ts";
 import { LIMITS } from "../limits.ts";
 
-const ON_WIRE = new Set(["OnWire", "Cancelling"]);
+type PhaseTag = (typeof PHASES)[number];
 
-const PERSISTED_PHASES = new Set(["Acknowledging", "Recapturing", "Withdrawing"]);
+const ON_WIRE = new Set<PhaseTag>(["OnWire", "Cancelling"]);
 
-type Cell = { readonly r: Reach; readonly phase: string; readonly fault: string };
+const PERSISTED_PHASES = new Set<PhaseTag>(["Acknowledging", "Recapturing", "Withdrawing"]);
+
+type Cell = { readonly r: Reach; readonly phase: PhaseTag; readonly fault: string };
 
 // The lifecycle rules that forbid a cell, each with why, in the order they are read.
 const FORBIDDEN: ReadonlyArray<readonly [(c: Cell) => boolean, string]> = [
@@ -44,7 +46,7 @@ const FORBIDDEN: ReadonlyArray<readonly [(c: Cell) => boolean, string]> = [
 ];
 
 // Why a cell cannot be reached, from the lifecycle rules, or none when it can.
-const whyUnreachable = (r: Reach, phase: string, fault: string) =>
+const whyUnreachable = (r: Reach, phase: PhaseTag, fault: string) =>
   FORBIDDEN.find(([forbids]) => forbids({ r, phase, fault }))?.[1] ?? "";
 
 // The seeds a drive takes. The usual tier stops once every reachable phase is found, and a

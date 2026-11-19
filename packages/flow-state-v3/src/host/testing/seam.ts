@@ -180,7 +180,7 @@ export const sameAttempt = (e: Evidence, attempt: string) =>
 export const tagsOf = (
   seen: ReadonlyArray<Evidence>,
   attempt: string,
-  tags: ReadonlyArray<string>,
+  tags: ReadonlyArray<Evidence["_tag"]>,
 ) =>
   seen.flatMap((e) =>
     tags.includes(e._tag) && (!("attempt" in e) || attempt === "" || sameAttempt(e, attempt))

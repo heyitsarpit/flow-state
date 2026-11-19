@@ -28,6 +28,11 @@ export class Declined extends Schema.TaggedError<Declined>()("Declined", { code:
 export class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
 
 /**
+ * The bank's answer did not come back within the commit's deadline.
+ */
+export class TimedOut extends Schema.TaggedError<TimedOut>()("TimedOut", {}) {}
+
+/**
  * The bank's answer to a transfer it made.
  */
 export const Receipt = Schema.Struct({ receipt: Schema.String });

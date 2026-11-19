@@ -157,6 +157,9 @@ on internal modules and `off` on public entrypoint modules.
   - `no-raw-event`: a raw `{ _tag: ... }` literal in `fixtures/<app>/stories` (any), or inside a `send(...)`
     call in `fixtures/<app>/machines`. Build events with the definition's token (`Cart.E.Add({ ... })`); a
     helper returning tokens is fine. Fake servers, adapters, services and `tests/` are not covered.
+  - `no-hand-option`: `_tag` compared with `"Some"` or `"None"`, or written as one in an object, in `src`,
+    `tests` and `fixtures`. Read an `Option` with `Option.isSome`, `Option.isNone` or `Option.match`; build it
+    with `Option.some` or `Option.none`.
 - `no-throw-in-core` is off in `src/error.ts` (`raise`, the one throw of a FlowError) and `src/entry.ts`
   (the public-function wrappers); every other FlowError goes through `raise`. The listed defect sites
   keep a disable with their reason: `core/defect.ts`, `core/frozen.ts` (a write to an admitted value),

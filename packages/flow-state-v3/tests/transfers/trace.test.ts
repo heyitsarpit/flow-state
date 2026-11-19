@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/app.ts";
 import { TransfersMachine } from "../../fixtures/transfers/machines/transfers.ts";
@@ -42,10 +43,7 @@ describe("A run's trace (Stories R16)", () => {
     const { sending, reloaded } = run.checkpoints;
 
     expect(row(sending, "t1")).toEqual(
-      expect.objectContaining({
-        _tag: "Some",
-        value: { pending: true, uncertain: false, waiting: false, retryCount: 0 },
-      }),
+      Option.some({ pending: true, uncertain: false, waiting: false, retryCount: 0 }),
     );
     expect(reloaded.now).toBe(5000);
     expect(reloaded.read(Bank.transfer).map((c) => c.status)).toEqual(["held at response"]);
@@ -54,10 +52,7 @@ describe("A run's trace (Stories R16)", () => {
       expect.objectContaining({ contract: "Bank/transfer", state: "Held" }),
     ]);
     expect(row(reloaded, "t1")).toEqual(
-      expect.objectContaining({
-        _tag: "Some",
-        value: { pending: false, uncertain: true, waiting: false, retryCount: 0 },
-      }),
+      Option.some({ pending: false, uncertain: true, waiting: false, retryCount: 0 }),
     );
     expect(reloaded.read(account)?.memory).toEqual({ notice: "check your statement" });
 
@@ -110,7 +105,7 @@ describe("A run's trace (Stories R16)", () => {
         : [],
     );
 
-    expect(attempts).toEqual([expect.objectContaining({ _tag: "Some", value: keys[0] })]);
+    expect(attempts).toEqual([Option.some(keys[0])]);
   });
 
   it("stamps a run-wide sequence from 1 with no gap, and its evidence is run.evidence (Stories I20)", async () => {

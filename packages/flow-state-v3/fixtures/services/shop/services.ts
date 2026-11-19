@@ -6,6 +6,11 @@ import { Context, Effect, Schema } from "effect";
 export class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
 
 /**
+ * The shop's answer did not come back within the commit's deadline.
+ */
+export class TimedOut extends Schema.TaggedError<TimedOut>()("TimedOut", {}) {}
+
+/**
  * The shop answered with a server error.
  */
 export const ServerError = Schema.TaggedStruct("ServerError", {});
@@ -20,26 +25,56 @@ type Lost = NoResponse | ServerError;
 /**
  * The card issuer refused the charge.
  */
-export type CardDeclined = { readonly _tag: "CardDeclined"; readonly code: string };
+export const CardDeclined = Schema.TaggedStruct("CardDeclined", { code: Schema.String });
+
+/**
+ * The card issuer refused the charge.
+ */
+export type CardDeclined = typeof CardDeclined.Type;
 
 /**
  * The payment queue turned the charge away for now.
  */
-export type Busy = { readonly _tag: "Busy"; readonly retryAfterMs?: number };
+export const Busy = Schema.TaggedStruct("Busy", {
+  retryAfterMs: Schema.optionalKey(Schema.Number),
+});
 
-type IntentBusy = { readonly _tag: "IntentBusy"; readonly status: string };
+/**
+ * The payment queue turned the charge away for now.
+ */
+export type Busy = typeof Busy.Type;
 
-type OrderExists = { readonly _tag: "OrderExists"; readonly order: { readonly orderId: string } };
+/**
+ * An order the shop already holds.
+ */
+export const Order = Schema.Struct({ orderId: Schema.String });
+
+const IntentBusy = Schema.TaggedStruct("IntentBusy", { status: Schema.String });
+
+const OrderExists = Schema.TaggedStruct("OrderExists", { order: Order });
 
 /**
  * The authorization was captured before the void arrived.
  */
-export type AlreadyCaptured = { readonly _tag: "AlreadyCaptured"; readonly chargeId: string };
+export const AlreadyCaptured = Schema.TaggedStruct("AlreadyCaptured", { chargeId: Schema.String });
+
+/**
+ * The authorization was captured before the void arrived.
+ */
+export type AlreadyCaptured = typeof AlreadyCaptured.Type;
 
 /**
  * A payment intent as the shop reports it.
  */
-export type Intent = { readonly status: string; readonly clientSecret?: string };
+export const Intent = Schema.Struct({
+  status: Schema.String,
+  clientSecret: Schema.optionalKey(Schema.String),
+});
+
+/**
+ * A payment intent as the shop reports it.
+ */
+export type Intent = typeof Intent.Type;
 
 type Idem = { readonly idempotencyKey: string };
 
@@ -53,11 +88,11 @@ export class ShopApi extends Context.Service<
     readonly confirm: (
       input: { readonly intentId: string; readonly paymentMethodId: string },
       options: Idem,
-    ) => Effect.Effect<Intent, CardDeclined | Busy | IntentBusy | Lost>;
+    ) => Effect.Effect<Intent, CardDeclined | Busy | typeof IntentBusy.Type | Lost>;
     readonly placeOrder: (
       input: { readonly cartId: string; readonly intentId: string },
       options: Idem,
-    ) => Effect.Effect<{ readonly orderId: string }, OrderExists | Lost>;
+    ) => Effect.Effect<typeof Order.Type, typeof OrderExists.Type | Lost>;
     readonly voidAuthorization: (
       input: { readonly intentId: string },
       options: Idem,
@@ -65,7 +100,7 @@ export class ShopApi extends Context.Service<
     readonly intent: (input: { readonly intentId: string }) => Effect.Effect<Intent, Lost>;
     readonly orderFor: (input: {
       readonly cartId: string;
-    }) => Effect.Effect<{ readonly orderId: string } | null, Lost>;
+    }) => Effect.Effect<typeof Order.Type | null, Lost>;
   }
 >()("flow-state-v3/fixtures/pay/ShopApi") {}
 

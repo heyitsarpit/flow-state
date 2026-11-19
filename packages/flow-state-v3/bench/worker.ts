@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { Console, Data, Effect, Option, Schema } from "effect";
-import { Report } from "./report.ts";
+import { DoneReport, FailedReport, Report, TimedOutReport } from "./report.ts";
 import { BENCHES, benchesFrom } from "./list.ts";
 import type { Bench } from "./declare.ts";
 import { measure, type Settings, TimedOut, WARM_CAP, WARM_CAP_MS } from "./sample.ts";
@@ -64,14 +64,14 @@ const one = (id: string, benches: ReadonlyArray<Bench>, settings: Settings) =>
       totalMs: performance.now() - startedAt,
     };
 
-    const report: Report = { _tag: "Done", id, ...measured, timing, shape: fixture };
+    const report: Report = DoneReport.make({ id, ...measured, timing, shape: fixture });
 
     return report;
   }).pipe(
     Effect.catchTags({
-      BenchFailed: ({ problem }) => Effect.succeed<Report>({ _tag: "Failed", id, problem }),
+      BenchFailed: ({ problem }) => Effect.succeed<Report>(FailedReport.make({ id, problem })),
       BenchTimedOut: ({ problem, samples }) =>
-        Effect.succeed<Report>({ _tag: "TimedOut", id, problem, samples }),
+        Effect.succeed<Report>(TimedOutReport.make({ id, problem, samples })),
     }),
     Effect.flatMap((report) => Console.log(Schema.encodeSync(Report)(report))),
   );
