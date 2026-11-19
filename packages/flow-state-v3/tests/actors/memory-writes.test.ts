@@ -34,19 +34,25 @@ const memoryAfter = (event: typeof Ticket.E.Note | typeof Ticket.E.Rename) => {
 
   ticket.send(event({}));
 
-  return Option.map(ticket.getSnapshot(), (s) => s.memory);
+  return ticket.getSnapshot();
 };
 
-describe("a turn's memory write (Compile R7, R14)", () => {
-  it.fails("Compile R7: a write naming an input field leaves the identity field as created", () => {
-    expect(Option.map(memoryAfter(Ticket.E.Rename), (m) => m["ticketId"])).toEqual(
-      Option.some("T-1"),
+describe("a turn's memory write (Compile R7, R14, Turn R8)", () => {
+  it("Compile R7, Turn R8: a write naming an input field is refused whole; the identity field stays as created", () => {
+    const after = memoryAfter(Ticket.E.Rename);
+
+    expect(Option.map(after, (s) => s.memory)).toEqual(Option.some({ ticketId: "T-1", notes: 0 }));
+    expect(Option.map(after, (s) => s.issues.map((d) => d.code))).toEqual(
+      Option.some(["InvalidConfiguration"]),
     );
   });
 
-  it.fails("Compile R14: a write naming an undeclared field leaves memory in its Memory Schema's shape", () => {
-    expect(Option.map(memoryAfter(Ticket.E.Note), (m) => Object.keys(m).toSorted())).toEqual(
-      Option.some(["notes", "ticketId"]),
+  it("Compile R14, Turn R8: a write naming an undeclared field is refused whole; memory keeps its Memory Schema's shape", () => {
+    const after = memoryAfter(Ticket.E.Note);
+
+    expect(Option.map(after, (s) => s.memory)).toEqual(Option.some({ ticketId: "T-1", notes: 0 }));
+    expect(Option.map(after, (s) => s.issues.map((d) => d.code))).toEqual(
+      Option.some(["InvalidConfiguration"]),
     );
   });
 });

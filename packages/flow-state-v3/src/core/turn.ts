@@ -384,25 +384,45 @@ const unchanged = (patch: Values, memory: Values) =>
     (k) => Object.hasOwn(memory, k) && (patch[k] === memory[k] || sameValue(patch[k], memory[k])),
   );
 
+// Whether the machine may write a field: declared, and not an input field.
+const writableField = (compiled: Compiled, name: string) => {
+  for (const field of compiled.fields)
+    if (field.name === name) return field.source._tag !== "Input";
+
+  return false;
+};
+
+// Whether a patch names only fields the machine may write.
+const writable = (compiled: Compiled, patch: Values) => {
+  for (const name of Object.keys(patch)) if (!writableField(compiled, name)) return false;
+
+  return true;
+};
+
 // RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
 const accept = (alternative: Alternative, handler: string, input: TurnInput): TurnResult => {
   const read = { memory: input.memory, event: input.payload, now: input.now };
 
+  // A patch that throws is a defect; one naming a field the machine may not write refuses the turn.
   const patched = Option.match(alternative.update, {
     onNone: () => Result.succeed(input.memory),
-    onSome: (update) =>
-      Result.map(
-        call(update.slot, () => update.run(read)),
-        (patch) => {
-          // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the turn's after memory: one patch, merged once
-          const after = { ...input.memory, ...patch };
+    onSome: (update) => {
+      const written = call(update.slot, () => update.run(read));
 
-          return unchanged(patch, input.memory) ? input.memory : after;
-        },
-      ),
+      if (Result.isFailure(written))
+        return Result.fail(TurnResult.Refused({ code: "Defect", ...written.failure }));
+
+      if (!writable(input.compiled, written.success))
+        return Result.fail(TurnResult.Refused({ code: "InvalidTurn", slot: update.slot }));
+
+      // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the turn's after memory: one patch, merged once
+      const after = { ...input.memory, ...written.success };
+
+      return Result.succeed(unchanged(written.success, input.memory) ? input.memory : after);
+    },
   });
 
-  if (Result.isFailure(patched)) return TurnResult.Refused({ code: "Defect", ...patched.failure });
+  if (Result.isFailure(patched)) return patched.failure;
   const memory = patched.success;
   const select = { memory, event: input.payload };
   const actions: Array<Resolved> = [];

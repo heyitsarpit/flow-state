@@ -7,6 +7,46 @@ import type { Fault } from "./faults.ts";
  */
 export const typedCoreFaults: ReadonlyArray<Fault> = [
   {
+    name: "patch-writes-input",
+    tests: ["tests/actors/memory-writes.test.ts"],
+    says: "a turn's memory write may name an input field, so an identity field is rewritten",
+    rule: "Compile R7",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: '    if (field.name === name) return field.source._tag !== "Input";',
+        replace: "    if (field.name === name) return true;",
+      },
+    ],
+  },
+  {
+    name: "patch-writes-undeclared",
+    tests: ["tests/actors/memory-writes.test.ts"],
+    says: "a turn's memory write may name a field the machine never declared",
+    rule: "Compile R14",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: '    if (field.name === name) return field.source._tag !== "Input";\n\n  return false;',
+        replace:
+          '    if (field.name === name) return field.source._tag !== "Input";\n\n  return true;',
+      },
+    ],
+  },
+  {
+    name: "capture-ms-negative",
+    tests: ["tests/surface/surface.test.ts"],
+    says: "a negative captureMs passes the setup's Schema and acts as 0",
+    rule: "Diagnostics R5",
+    edits: [
+      {
+        file: "src/config.ts",
+        find: "Schema.Number.check(Schema.isFinite().abort(), Schema.isGreaterThanOrEqualTo(0))",
+        replace: "Schema.Number.check(Schema.isFinite().abort())",
+      },
+    ],
+  },
+  {
     name: "chain-id-from-count",
     tests: ["src/core/serve.test.ts"],
     says: "a chain id is one past the live chains, so after a partial clear a new chain resets a live chain's count",
