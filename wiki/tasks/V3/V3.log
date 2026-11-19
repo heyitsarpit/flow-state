@@ -1125,3 +1125,7 @@ note 2026-11-19T21:56:53Z
 note 2026-11-19T22:02:04Z
     Decision (the user, 2026-11-20): T104 page Q1 A for now (removed Step constructors stay removed); final call
     tomorrow. Page read.
+
+note 2026-11-19T22:51:04Z
+    T107 requirements in (4538c32a): 20 requirements, 22 inverted tests, 11 type lines, four new consumers. Requirements
+    review started.
