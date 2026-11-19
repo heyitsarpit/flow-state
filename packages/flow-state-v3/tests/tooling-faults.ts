@@ -355,7 +355,8 @@ export const toolingFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/testing/run.ts",
         find: "            : snapshot,",
-        replace: "            : { ...snapshot, memory: JSON.parse(JSON.stringify(snapshot.memory)) },",
+        replace:
+          "            : { ...snapshot, memory: JSON.parse(JSON.stringify(snapshot.memory)) },",
       },
     ],
   },
@@ -394,7 +395,8 @@ export const toolingFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/testing/fake.ts",
         find: '          } else mark(index, "dropped at request");\n\n          return Effect.fail(server.lost());',
-        replace: '          } else mark(index, "dropped at request");\n\n          return Effect.fail(new FakeLost());',
+        replace:
+          '          } else mark(index, "dropped at request");\n\n          return Effect.fail(new FakeLost());',
       },
     ],
   },
