@@ -54,6 +54,10 @@ export type Input = Data.TaggedEnum<{
   DisposeRuntime: {};
   DisposeActor: { actor: ActorId };
   Forget: { actor: ActorId };
+  // A host's Effect run with the app's services; the core admits it and changes nothing.
+  Run: {};
+  // The Runtime's Scope closed after its disposal: how many of its cleanups failed.
+  Closed: { failures: number };
 }>;
 
 /**

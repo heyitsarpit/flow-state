@@ -367,14 +367,38 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     expect(publishedPlainData.breaches(plain)).toEqual([]);
   });
 
-  it("Actors I30: a call arriving at or after its open's disposeRuntime step is a breach; one before it is not", async () => {
+  it("Actors I30: a call arriving after its open's disposeRuntime step and before its RuntimeDisposed record is a breach; one before or after them is not", async () => {
     const run = checked(await lostThenReload.run());
-    const disposing = { ...run, steps: [Step.disposeRuntime({ forget: false }), ...run.steps] };
+    const tab = { name: "main", open: 1 };
 
-    const firstOpen = run.end.calls.filter((c) => c.tab.open === 1);
+    const disposing = {
+      sequence: 0,
+      tab,
+      record: TraceRecord.Step({ index: 0, step: Step.disposeRuntime({ forget: false }) }),
+    };
+
+    const disposed = {
+      sequence: 0,
+      tab,
+      record: TraceRecord.Runtime({ evidence: Evidence.RuntimeDisposed() }),
+    };
+
+    const traced = (events: StoryRun["trace"]["events"]) => ({
+      ...run,
+      trace: { ...run.trace, events },
+    });
+
+    const firstOpen = run.trace.events.filter(
+      (e) => e.tab.open === 1 && TraceRecord.$is("Request")(e.record),
+    );
 
     expect(firstOpen.length > 0).toBe(true);
-    expect(nothingInvokedDisposing.breaches(disposing)).toHaveLength(firstOpen.length);
+    expect(nothingInvokedDisposing.breaches(traced([disposing, ...run.trace.events]))).toHaveLength(
+      firstOpen.length,
+    );
+    expect(
+      nothingInvokedDisposing.breaches(traced([disposing, disposed, ...run.trace.events])),
+    ).toEqual([]);
     expect(nothingInvokedDisposing.breaches(run)).toEqual([]);
   });
 

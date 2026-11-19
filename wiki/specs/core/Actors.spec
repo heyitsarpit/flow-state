@@ -351,7 +351,10 @@ requirements
                 At Runtime disposal a cleanup is a services finalizer or the interrupt cleanup of
                 a call the Scope's close interrupts; each failure is also reported as an Issue
                 CleanupFailed, which carries no Cause (@spec.Diagnostics.R9), and every call to
-                dispose gets the same rejection. Proposed (the T99 lead, 2026-11-19).
+                dispose gets the same rejection. Proposed (the T99 lead, 2026-11-19). A stated limit:
+                a cleanup inside the call's own race (a deadline by `Effect.timeoutOrElse`) is lost,
+                since Effect's race drops a loser's Cause when its parent is interrupted; the host
+                sees only the interruption.
 
                 Runtime disposal waits for its writes within the same bound, measured from the call to
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
@@ -379,8 +382,9 @@ requirements
         must    Runtimes share no mutable state: actors, store, services, storage, clock or
                 evidence. A handle from one Runtime is rejected by another. Incarnation ids and
                 request generations never repeat within a Runtime or across restore; Attempt ids
-                follow @spec.WriteLanes.R5. Exhausting a counter refuses new work with
-                IdentityExhausted before any change.
+                follow @spec.WriteLanes.R5. No IdentityExhausted code exists: counters are numbers per
+                open that would need 2^53 mints, and every id carries the session seed, so a restore
+                repeats none.
 
     R25  A defect stops the Runtime
         source  @plan.Runtime.O3.
@@ -634,6 +638,11 @@ algorithm
             for a ticket nothing awaits changes nothing); elsewhere drops.
         - Capture: Open and Disposing run (it reads the World and writes nothing but its batch,
             @spec.WriteAhead.R10); elsewhere drops, so a stopped Runtime writes nothing more.
+        - Run (runPromise, R27): the call row, Open runs; proposed, and its Booting cell waits on the user's
+            read of runPromise. The core changes nothing for it.
+        - Closed (the host closed the Scope after the disposal, with its count of failed cleanups): Disposed
+            runs, emitting one Issue CleanupFailed per failure (R23); elsewhere drops. Proposed (the T99 lead,
+            2026-11-19).
 
 composition
     flow

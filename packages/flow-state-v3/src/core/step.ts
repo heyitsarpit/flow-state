@@ -138,6 +138,8 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     DisposeRuntime: () => disposal.disposeRuntime(),
     DisposeActor: ({ actor }) => incarnations.dispose(actor, false),
     Forget: ({ actor }) => incarnations.dispose(actor, true),
+    Run: () => undefined,
+    Closed: ({ failures }) => disposal.closed(failures),
   });
 
   Life.$match(tx.world().life, {

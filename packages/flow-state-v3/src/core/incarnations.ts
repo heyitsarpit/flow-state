@@ -7,7 +7,7 @@ import { type Arming, armingsOf } from "./turn.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
-import { actorRecordKey, decodeRecords } from "./record.ts";
+import { actorRecordKey, decodeRecords, laneRecordKey, OPERATION_GONE } from "./record.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { isInFlight, type Tx } from "./tx.ts";
 import {
@@ -354,13 +354,36 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
    */
   const dispose = (actor: ActorId, forgetting: boolean) => {
     const incarnation = incarnationOf(actor);
+    const key = actorKey(actor);
 
     if (incarnation !== undefined) retire(incarnation);
 
-    tx.drop("records", actorKey(actor));
+    tx.drop("records", key);
     tx.dropUses(actor);
     removeActor(actor);
     ledger.suspend(actor, forgetting);
+    tx.dropMail(actor);
+
+    if (tx.world().quarantined.has(actorRecordKey(key)))
+      tx.drop("quarantined", actorRecordKey(key));
+
+    if (forgetting) forgetRetired(actor);
+  };
+
+  // A held lane whose operation this release no longer has never decoded; forget drops its record.
+  const forgetRetired = (actor: ActorId) => {
+    const own = laneRecordKey(`${actorKey(actor)}|`);
+
+    const retired = [...tx.world().quarantined].filter(
+      ([record, reason]) => reason === OPERATION_GONE && record.startsWith(own),
+    );
+
+    for (const [record] of retired) {
+      tx.drop("quarantined", record);
+      persistence.saveLane(actor, record.slice(laneRecordKey("").length));
+      const [operation = ""] = record.slice(own.length).split("|");
+      tx.act(Act.HoldForgotten({ actor, operation, record }));
+    }
   };
 
   /**
@@ -466,6 +489,29 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     ]);
 
     for (const actor of owing.values()) ensure(actor, Option.none(), "wake", Option.none());
+    reportUnbound(restored.lanes);
+  };
+
+  // A lane no actor holds is reported at each boot, until an adopting ensure or its owner's cancel
+  // ends it.
+  const reportUnbound = (
+    lanes: ReadonlyArray<{ readonly id: string; readonly actor: ActorId }>,
+  ) => {
+    const unbound = lanes.filter(
+      ({ id, actor }) =>
+        tx.world().lanes.has(id) &&
+        incarnationOf(actor) === undefined &&
+        !tx.world().records.has(actorKey(actor)),
+    );
+
+    for (const { id } of unbound)
+      tx.act(
+        Act.Reported({
+          code: "UnboundLane",
+          record: Option.some(laneRecordKey(id)),
+          reason: "no actor record holds it",
+        }),
+      );
   };
 
   return {

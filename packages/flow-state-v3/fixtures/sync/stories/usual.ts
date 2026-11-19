@@ -1,7 +1,13 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { client, docsRepo, emptyRepo, gitGrownSetup, gitSetup } from "../app.ts";
 import { Git } from "../../services/git/server/git.ts";
-import { GitFake, GitFakeConnectionCloseFails } from "../../services/git/server/layer.ts";
+import { RuntimeDefaults } from "../../../src/index.ts";
+import {
+  GitFake,
+  GitFakeCancelsAbandoned,
+  GitFakeCleanupThrows,
+  GitFakeConnectionCloseFails,
+} from "../../services/git/server/layer.ts";
 
 /**
  * The grown Git app over its port fake, with no steps yet: every Story of the repositories starts
@@ -67,6 +73,40 @@ export const connectionCloseFails = Story.app(gitSetup, {
   .send(client, syncRepo("docs"))
   .checkpoint("synced")
   .disposeRuntime()
+  .checkpoint("signed out");
+
+/**
+ * A client's sync hangs at the Git host and its user signs out, over a Git client whose cleanup of
+ * an abandoned sync throws: the sync ends unknown at the disposal's bound, and its cleanup fails.
+ */
+export const interruptCleanupFails = Story.app(gitSetup, {
+  id: "sync/interrupt-cleanup-fails",
+  fixtures: [GitFakeCleanupThrows],
+})
+  .ensure(client)
+  .world(Git.sync.hold())
+  .send(client, syncRepo("docs"))
+  .disposeRuntime()
+  .advance(RuntimeDefaults.disposalBound)
+  .checkpoint("signed out");
+
+/**
+ * A client's sync hangs at the Git host and its user signs out, over a Git client that, when a
+ * sync is abandoned, reads the remote head and then cancels the push over its connection; the head
+ * read is slow, so the cancel goes out only after the disposal's bound has passed.
+ */
+export const signOutWhileSyncing = Story.app(gitSetup, {
+  id: "sync/sign-out-while-syncing",
+  fixtures: [GitFakeCancelsAbandoned],
+})
+  .ensure(client)
+  .world(Git.sync.hold())
+  .send(client, syncRepo("docs"))
+  .world(Git.remoteHead.hold())
+  .disposeRuntime()
+  .advance(RuntimeDefaults.disposalBound)
+  .checkpoint("bound passed")
+  .world(Git.remoteHead.release())
   .checkpoint("signed out");
 
 /**

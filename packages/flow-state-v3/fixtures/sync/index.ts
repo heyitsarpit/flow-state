@@ -9,6 +9,8 @@ import {
   emptyName,
   leaveWhileSyncing,
   connectionCloseFails,
+  interruptCleanupFails,
+  signOutWhileSyncing,
   openRepo,
 } from "./stories/usual.ts";
 import { retryEdges } from "./stories/edges.ts";
@@ -40,6 +42,8 @@ export const sync = manifest({
     emptyName,
     leaveWhileSyncing,
     connectionCloseFails,
+    interruptCleanupFails,
+    signOutWhileSyncing,
     manyRepos,
     repoFirst,
     reloadedInBackoff,

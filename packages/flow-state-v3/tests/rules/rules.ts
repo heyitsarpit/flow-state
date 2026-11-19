@@ -10,6 +10,7 @@ import { refusedTurnIssueOnly } from "./refusals.ts";
 import { unchangedPartsKept } from "./memory.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
+import { TraceRecord } from "../../src/host/trace.ts";
 import {
   CHANNELS,
   type Delivery,
@@ -341,40 +342,31 @@ export const publishedOnce: Rule = {
   ],
 };
 
-const opensOf = (run: StoryRun) => {
-  const opens: Array<number> = [];
-  let open = 1;
-
-  for (const step of run.steps) {
-    if (step._tag === "reload") open += 1;
-    opens.push(open);
-  }
-
-  return opens;
-};
-
 /**
- * Actors I30, over what the fake servers received: after the Runtime's disposal starts, no commit
- * or read is invoked, so no call of a tab's open arrives at or after its `disposeRuntime` step.
+ * Actors I30, over what the fake servers received, in the trace's order: after the Runtime's
+ * disposal starts no commit or read is invoked, so no call of a tab's open arrives between its
+ * `disposeRuntime` step and its RuntimeDisposed record. Once disposed the Runtime runs no work of
+ * its own, so a later call is an app's cleanup of an interrupted call (Actors R23), not an
+ * invocation.
  */
 export const nothingInvokedDisposing: Rule = {
   rule: "Actors I30",
   breaches: (run) => {
-    const opens = opensOf(run);
-    const disposedAt = new Map<number, number>();
+    const disposingFrom = new Map<number, number>();
+    const disposed = new Set<number>();
 
-    for (const [n, step] of run.steps.entries()) {
-      const open = opens[n] ?? 1;
+    return run.trace.events.flatMap(({ tab, record }) => {
+      if (TraceRecord.$is("Step")(record) && record.step._tag === "disposeRuntime")
+        if (!disposingFrom.has(tab.open)) disposingFrom.set(tab.open, record.index);
 
-      if (step._tag === "disposeRuntime" && !disposedAt.has(open)) disposedAt.set(open, n);
-    }
+      if (TraceRecord.$is("Runtime")(record) && record.evidence._tag === "RuntimeDisposed")
+        disposed.add(tab.open);
 
-    return run.end.calls.flatMap((c) => {
-      const from = disposedAt.get(c.tab.open);
+      const from = disposingFrom.get(tab.open);
 
-      return from !== undefined && c.step >= from
+      return TraceRecord.$is("Request")(record) && from !== undefined && !disposed.has(tab.open)
         ? [
-            `Actors I30: ${c.server}.${c.endpoint} received a call from tab ${c.tab.name}:${c.tab.open} at step ${c.step}, after that open's disposal began at step ${from}`,
+            `Actors I30: ${record.server}.${record.endpoint} received a call from tab ${tab.name}:${tab.open}, after that open's disposal began at step ${from}`,
           ]
         : [];
     });

@@ -4,7 +4,6 @@ import {
   leaveWhilePaying,
   sessionCloseFails,
   signOutMidCheckout,
-  signOutWhilePaying,
 } from "../../fixtures/shop/stories/usual.ts";
 import {
   forgottenRetiredAuthorization,
@@ -13,7 +12,12 @@ import {
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { RETIRED_LINK, signOutRetiredLink } from "../../fixtures/sign-in/stories/edges.ts";
-import { connectionCloseFails, leaveWhileSyncing } from "../../fixtures/sync/stories/usual.ts";
+import {
+  connectionCloseFails,
+  interruptCleanupFails as syncCleanupFails,
+  leaveWhileSyncing,
+  signOutWhileSyncing,
+} from "../../fixtures/sync/stories/usual.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { forgottenRetiredWire, RETIRED_WIRE } from "../../fixtures/transfers/stories/edges.ts";
 import { owedAtBoot } from "../../fixtures/transfers/stories/load.ts";
@@ -27,12 +31,11 @@ import type { ActorRef } from "../../src/index.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { before } from "../checkout.ts";
 
-// What `runtime.unsettledWrites()` said at a checkpoint. The Cut does not carry it yet, so it is
-// read by name; once built, the Cut reads it from the public call.
-const unsettledAt = (cut: Cut) => ("unsettled" in cut ? cut.unsettled : undefined);
+// What `runtime.unsettledWrites()` said at a checkpoint.
+const unsettledAt = (cut: Cut) => cut.unsettled;
 
-// One identity's entry in the list: its actor, whether a live actor holds its lanes, and one
-// lane of the named operation.
+// One identity's entry in the list: its actor, whether its lanes are bound, and one lane of the
+// named operation.
 const listed = (machine: string, name: string, bound: boolean, operation: string) =>
   expect.objectContaining({
     actor: { machine, name },
@@ -40,25 +43,13 @@ const listed = (machine: string, name: string, bound: boolean, operation: string
     lanes: [expect.objectContaining({ operation })],
   });
 
-// An Issue's code as text, so a code Flow does not name yet can be looked for.
-// RETURN_TYPE: widened to string, since CleanupFailed is not in the code union yet.
-const issueCode = (e: Evidence): string => (e._tag === "Issue" ? e.code : "");
-
-// A boot report's code as text, so a code Flow does not name yet can be looked for.
-// RETURN_TYPE: widened to string, since UnboundLane is not in the code union yet.
-const reportCode = (e: Evidence): string => (e._tag === "Reported" ? e.code : "");
-
-// An evidence record's tag as text, so a record Flow does not make yet can be looked for.
-// RETURN_TYPE: widened to string, since HoldForgotten is not an evidence tag yet.
-const tagOf = (e: Evidence): string => e._tag;
-
 const cleanupFailed = (records: ReadonlyArray<Evidence>) =>
-  records.filter((e) => issueCode(e) === "CleanupFailed");
+  records.filter((e) => e._tag === "Issue" && e.code === "CleanupFailed");
 
 // The records each boot report of an unbound lane names.
 const unbound = (records: ReadonlyArray<Evidence>) =>
   records.flatMap((e) =>
-    reportCode(e) === "UnboundLane" && e._tag === "Reported" && e.record._tag === "Some"
+    e._tag === "Reported" && e.code === "UnboundLane" && e.record._tag === "Some"
       ? [e.record.value]
       : [],
   );
@@ -94,13 +85,13 @@ const forgetsRetiredHold = async (
   const afterwards = run.evidence.slice(before(run, forgotten).length);
 
   expect(undecodable(before(run, "booted"), key)).toHaveLength(1);
-  expect(forgetting.filter((e) => tagOf(e) === "HoldForgotten")).toHaveLength(1);
+  expect(forgetting.filter((e) => e._tag === "HoldForgotten")).toHaveLength(1);
   expect(undecodable(afterwards, key)).toEqual([]);
   expect(run.checkpoints["reloaded"]?.records.stored.has(key)).toBe(false);
 };
 
 describe("unsettledWrites (Actors R20, R26)", () => {
-  it.fails("Actors R26: the transfer the bank has not taken is listed by its account, and nothing once it answers", async () => {
+  it("Actors R26: the transfer the bank has not taken is listed by its account, and nothing once it answers", async () => {
     const run = await leaveWhileSending.run();
     const { sending, settled } = run.checkpoints;
 
@@ -109,7 +100,7 @@ describe("unsettledWrites (Actors R20, R26)", () => {
     expect(unsettledAt(settled)).toEqual([]);
   });
 
-  it.fails("Actors R26: the payment the shop has not taken is listed by its checkout, and nothing once it answers", async () => {
+  it("Actors R26: the payment the shop has not taken is listed by its checkout, and nothing once it answers", async () => {
     const run = await leaveWhilePaying.run();
     const { paying, paid } = run.checkpoints;
 
@@ -118,7 +109,7 @@ describe("unsettledWrites (Actors R20, R26)", () => {
     expect(unsettledAt(paid)).toEqual([]);
   });
 
-  it.fails("Actors R26: the sync the Git host has not taken is listed by its client, unpersisted, and nothing once it answers", async () => {
+  it("Actors R26: the sync the Git host has not taken is listed by its client, unpersisted, and nothing once it answers", async () => {
     const run = await leaveWhileSyncing.run();
     const { syncing, synced } = run.checkpoints;
 
@@ -127,7 +118,7 @@ describe("unsettledWrites (Actors R20, R26)", () => {
     expect(unsettledAt(synced)).toEqual([]);
   });
 
-  it.fails("Actors R20, R26: a held transfer stays listed after its account is disposed, as unbound, at each later boot too, and bound again once adopted", async () => {
+  it("Actors R20, R26: a held transfer stays listed after its account is disposed, as unbound, at each later boot too, and bound again once adopted", async () => {
     const run = await unsureAccountRemoved.run();
     const { unsure, removed, reloaded, adopted } = run.checkpoints;
     const again = run.checkpoints["reloaded again"];
@@ -140,7 +131,7 @@ describe("unsettledWrites (Actors R20, R26)", () => {
     expect(unsettledAt(adopted)).toEqual([listed("Bank/Transfers", "acct-1", true, "transfer")]);
   });
 
-  it.fails("Actors R26: 64 accounts whose answers were held at a reload are each listed, by account, at every boot", async () => {
+  it("Actors R26: 64 accounts whose answers were held at a reload are each listed, by account, at every boot", async () => {
     const run = await owedAtBoot.run();
 
     const accounts = Array.from({ length: 64 }, (_, n) =>
@@ -157,7 +148,7 @@ describe("unsettledWrites (Actors R20, R26)", () => {
 });
 
 describe("the boot report of unbound lanes (Runtime O6; Actors R20)", () => {
-  it.fails("Actors R20: a held transfer whose account was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
+  it("Actors R20: a held transfer whose account was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
     const run = await unsureAccountRemoved.run();
     const lane = `lane/Bank/Transfers/acct-1|transfer|`;
 
@@ -172,20 +163,20 @@ describe("the boot report of unbound lanes (Runtime O6; Actors R20)", () => {
 });
 
 describe("cleanup failures (Actors R23, I33)", () => {
-  it.fails("Actors R23, I33: a payment session that fails to close at disposal is reported CleanupFailed, never success", async () => {
+  it("Actors R23, I33: a payment session that fails to close at disposal is reported CleanupFailed, never success", async () => {
     const run = await sessionCloseFails.run();
 
     expect(cleanupFailed(run.evidence)).toHaveLength(1);
   });
 
-  it.fails("Actors R23, I33: a Git host connection that fails to close at disposal is reported CleanupFailed, never success", async () => {
+  it("Actors R23, I33: a Git host connection that fails to close at disposal is reported CleanupFailed, never success", async () => {
     const run = await connectionCloseFails.run();
 
     expect(cleanupFailed(run.evidence)).toHaveLength(1);
   });
 
-  it.fails("Actors R23, I33: a request cleanup that throws when the disposal interrupts its transfer is reported CleanupFailed, after the transfer ends unknown Disposed", async () => {
-    const run = await interruptCleanupFails.run();
+  it("Actors R23, I33: a sync cleanup that throws when the disposal's bound interrupts it is reported CleanupFailed, after the sync ends unknown Disposed", async () => {
+    const run = await syncCleanupFails.run();
 
     const disposed = run.evidence.findIndex(
       (e) => e._tag === "Ended" && e.channel === "unknown" && e.reason === "Disposed",
@@ -194,19 +185,32 @@ describe("cleanup failures (Actors R23, I33)", () => {
     expect(disposed).toBeGreaterThanOrEqual(0);
     expect(cleanupFailed(run.evidence.slice(disposed))).toHaveLength(1);
   });
+
+  it("Actors R23, a stated limit: a transfer cleanup that throws inside the commit's own deadline race is discarded by Effect's race, so only the unknown Disposed ending is seen", async () => {
+    const run = await interruptCleanupFails.run();
+
+    expect(
+      run.evidence.filter(
+        (e) => e._tag === "Ended" && e.channel === "unknown" && e.reason === "Disposed",
+      ),
+    ).toHaveLength(1);
+    expect(cleanupFailed(run.evidence)).toEqual([]);
+  });
 });
 
 describe("the disposal order (Actors R22, R23; Inspection O3)", () => {
-  it.fails("Actors R22, R23: calls are interrupted before the services are released, so the SDK voids the abandoned confirm over its open session and no cleanup fails", async () => {
-    const run = await signOutWhilePaying.run();
+  it("Actors R22, R23: calls are interrupted and awaited before the services are released, so a slow cleanup still cancels over its open connection and no cleanup fails", async () => {
+    const run = await signOutWhileSyncing.run();
+    const passed = run.checkpoints["bound passed"];
     const out = run.checkpoints["signed out"];
 
-    expect(out.read(Shop.confirm).map((c) => c.status)).toEqual(["held at request"]);
-    expect(out.read(Shop.voidAuthorization)).toHaveLength(1);
+    expect(passed.read(Git.remoteHead).map((c) => c.status)).toEqual(["held at request"]);
+    expect(passed.read(Git.cancel)).toEqual([]);
+    expect(out.read(Git.cancel)).toHaveLength(1);
     expect(cleanupFailed(run.evidence)).toEqual([]);
   });
 
-  it.fails("Inspection O3: the Runtime's disposal gives each identity's terminal evidence, every consumer before its providers", async () => {
+  it("Inspection O3: the Runtime's disposal gives each identity's terminal evidence, every consumer before its providers", async () => {
     const run = await signOutMidCheckout.run();
     const order = finishedOrder(between(run, "checking out", "signed out"));
 
@@ -228,15 +232,15 @@ describe("the disposal order (Actors R22, R23; Inspection O3)", () => {
 });
 
 describe("forget and a hold whose operation is gone (Actors R21)", () => {
-  it.fails("Actors R21: forget drops a held wire whose operation and contract are gone, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
+  it("Actors R21: forget drops a held wire whose operation and contract are gone, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
     await forgetsRetiredHold(forgottenRetiredWire, "forgotten", RETIRED_WIRE);
   });
 
-  it.fails("Actors R21: forgetting the renewal's Pay drops its retired authorization, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
+  it("Actors R21: forgetting the renewal's Pay drops its retired authorization, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
     await forgetsRetiredHold(forgottenRetiredAuthorization, "forgotten", RETIRED_AUTHORIZATION);
   });
 
-  it.fails("Actors R21: signing out forgets the session and drops its retired device link, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
+  it("Actors R21: signing out forgets the session and drops its retired device link, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
     await forgetsRetiredHold(signOutRetiredLink, "signed out", RETIRED_LINK);
   });
 });

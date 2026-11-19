@@ -413,3 +413,8 @@ note 2026-11-19T05:10:19Z
     @spec.Actors R20, R22, R26, I45, composition flow, proposed (T99 requirements review): disposeActor drops mail and
     quarantine; boots report UnboundLane; terminal evidence consumers first, calls interrupted before services release;
     bound as @plan.Runtime.O6 says. Reverse: delete those paragraphs; I45 back to "incarnation".
+
+note 2026-11-19T06:40:00Z
+    @spec.Actors R24: IdentityExhausted dropped, unreachable (per-open counters, seeded ids; @plan.Runtime.C2 still
+    names it, proposed for @plan.Pending). R23 states the race limit; the Life table gains Run and Closed (T99 build).
+    Reverse: restore R24's last sentence and drop the two rows.

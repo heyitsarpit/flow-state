@@ -303,9 +303,6 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       answers (Actors R26). No source. built: `shop/leave-while-paying`.
     - [x] A payment SDK session that fails to close when the services are released at sign-out: CleanupFailed
       (Actors R23). No source. built: `shop/session-close-fails`, port fake `ShopFakeSessionCloseFails`.
-    - [x] Disposal order: a confirm held at sign-out is interrupted before the services are released, so the SDK
-      voids it over its still-open session and no cleanup fails (Actors R22, R23). No source. built:
-      `shop/sign-out-while-paying`, port fake `ShopFakeVoidsAbandoned`.
     - [x] Disposal order, S1 × 3 and S2 (shopper, cart, badge, flow and Pay all open at sign-out): each identity's
       terminal evidence comes consumers before providers (Inspection O3). No source. built:
       `shop/sign-out-mid-checkout`.
@@ -317,7 +314,8 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       next ensure reports CleanupFailed (Actors R23). left: the user's read on the quarantine of a ref.
     - [ ] `runPromise` from a host (Actors R27). left: its public signature, the user's read.
     - [ ] CleanupFailed and HoldForgotten under load (L1 × many Pays with sessions; L4 with retired holds), and step
-      samples offering `disposeRuntime` over the failing port fakes. left: @task.V3.T99's build, once the codes exist.
+      samples offering `disposeRuntime` over the failing port fakes. left: not built in @task.V3.T99's round
+      (the codes exist now); proposed for its close review to route.
 
 ### cells
 
@@ -444,6 +442,13 @@ retry.
   - [x] Variety, unpersisted: a Git host connection that fails to close when the services are released at sign-out:
     CleanupFailed (Actors R23; @task.V3.T99). No source. built: `sync/connection-close-fails`, port fake
     `GitFakeConnectionCloseFails`.
+  - [x] A Git client's abort hook throws when the disposal's bound interrupts a hung sync: CleanupFailed after
+    unknown Disposed (Actors R23; @task.V3.T99). No source. built: `sync/interrupt-cleanup-fails`, port fake
+    `GitFakeCleanupThrows`.
+  - [x] Disposal order: a sync abandoned at sign-out reads the head (slowly) and then cancels over its connection;
+    every call is interrupted and awaited before the services are released, so the cancel goes out and no cleanup
+    fails (Actors R22, R23; @task.V3.T99). No source. built: `sync/sign-out-while-syncing`, port fake
+    `GitFakeCancelsAbandoned`, endpoint `Git.cancel`.
 
 ### transfers
 
@@ -586,14 +591,15 @@ kamp.us for rows restored after a failure.
       UnboundLane at each of two boots, then bound once adopted (Actors R20, R26; Runtime O6). No source. built:
       `transfers/unsure-account-removed`.
     - [x] L1 × 64 and L4: every held account listed at each boot (Actors R26). built: `transfers/stress-owed-at-boot`.
-    - [x] A bank client's interrupt cleanup throws when the disposal's bound interrupts a hung transfer: CleanupFailed
-      after unknown Disposed (Actors R23). No source. built: `transfers/interrupt-cleanup-fails`, port fake
-      `BankFakeCleanupThrows`.
+    - [x] A bank client's interrupt cleanup throws when the disposal's bound interrupts a hung transfer: inside the
+      commit's 30-second deadline race, so Effect drops its Cause and only unknown Disposed is seen (Actors R23's
+      stated limit; the reported case is `sync/interrupt-cleanup-fails`). No source. built:
+      `transfers/interrupt-cleanup-fails`, port fake `BankFakeCleanupThrows`.
     - [x] E7: forget drops a held wire whose operation and contract an earlier release had, with HoldForgotten, and
       the next boot neither reports nor keeps it (Actors R21). No source. built: `transfers/forgotten-retired-wire`.
     - [ ] L5, S6 child-first and forget-with-hold orders, and step samples offering hold, drop and release words for
-      `unsettledWrites`; CleanupFailed and HoldForgotten under load. left: @task.V3.T99's build, with the Cut's
-      `unsettled` read.
+      `unsettledWrites`; CleanupFailed and HoldForgotten under load. left: not built in @task.V3.T99's round (the
+      Cut's `unsettled` read exists now); proposed for its close review to route.
 
 ### sign-in
 

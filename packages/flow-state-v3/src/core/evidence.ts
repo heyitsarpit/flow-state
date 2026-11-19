@@ -18,9 +18,13 @@ export type LaneFact =
 
 /**
  * A diagnostic about the Runtime's records: one that cannot encode, one the boot could not read and
- * kept aside, or a store that failed to load.
+ * kept aside, a store that failed to load, or a lane record no actor holds, reported at each boot.
  */
-export type ReportCode = "UnencodableValue" | "RecordUndecodable" | "StorageFailure";
+export type ReportCode =
+  | "UnencodableValue"
+  | "RecordUndecodable"
+  | "StorageFailure"
+  | "UnboundLane";
 
 /**
  * Why a send reached no actor: its target has no record, its record does not decode, or it is a
@@ -132,6 +136,7 @@ export type Evidence = Data.TaggedEnum<{
   RuntimeDisposed: {};
   Published: { actor: Who; state: string; memory: Values };
   Reported: { code: ReportCode; record: Option.Option<string>; reason: string };
+  HoldForgotten: { actor: Who; operation: string; record: string };
   SlowWork: { work: "turn" | "capture"; input: string; ms: number; budgetMs: number };
 }>;
 

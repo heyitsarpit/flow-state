@@ -455,6 +455,11 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     ownBoxes.clear();
   };
 
+  // One identity's mailbox, dropped whole.
+  const dropMail = (actor: ActorId) => {
+    if (world.mail.has(actorKey(actor))) emptied(actorKey(actor));
+  };
+
   const takeFresh = () => {
     const taken = fresh;
     fresh = [];
@@ -526,6 +531,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     takeOldest,
     unreference,
     clearMail,
+    dropMail,
     takeFresh,
     dirtyActors: () => dirty,
     incarnationOf: (actor: ActorId) => world.incarnations.get(actorKey(actor)),

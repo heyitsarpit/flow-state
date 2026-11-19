@@ -137,6 +137,16 @@ const table = {
   Stored: answer,
   Refused: answer,
   Capture: answer,
+  Run: call,
+  Closed: {
+    Inert: drop,
+    Booting: drop,
+    Open: drop,
+    Failed: drop,
+    Disposing: drop,
+    Disposed: run,
+    Stopped: drop,
+  },
 } as const satisfies { readonly [I in Input["_tag"]]: Row };
 
 /**

@@ -108,7 +108,7 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(renewed?.memory["paymentMethodId"]).toBe("visa");
   });
 
-  it.fails("Actors R20, R16: with a batch out, a send to a disposed Pay whose record did not decode drops NoRecord, and opening it starts it fresh with no report", async () => {
+  it("Actors R20, R16: with a batch out, a send to a disposed Pay whose record did not decode drops NoRecord, and opening it starts it fresh with no report", async () => {
     const run = await played(renewalDisposingDamagedPay);
     const { disposed, opened } = run.checkpoints;
 

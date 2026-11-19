@@ -46,6 +46,7 @@ const DIAGNOSTIC_OF = {
   GuardDefect: "GuardDefect",
   Defect: "Defect",
   StorageFailure: "StorageFailure",
+  CleanupFailed: "CleanupFailed",
 } as const satisfies Record<IssueCode, Code>;
 
 // An open issue as the Diagnostic a snapshot shows: its identity and source in the path, the

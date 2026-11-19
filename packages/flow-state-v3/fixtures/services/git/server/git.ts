@@ -17,7 +17,8 @@ const ServerError = Schema.TaggedStruct("ServerError", {});
 /**
  * The Git host's truth: one sync per idempotency key, replayed for a key it has seen, each moving
  * the repository's head; a head nobody synced is `a1b2c3`. `rateLimit` queues a delay that turns
- * the next new sync away; `outage` breaks the next head read.
+ * the next new sync away; `outage` breaks the next head read. A cancel of a half-sent sync is
+ * taken and changes nothing.
  */
 export const Git = Fake.server("Git", {
   truth: GitTruth,
@@ -60,6 +61,12 @@ export const Git = Fake.server("Git", {
               exit: Exit.fail({ _tag: "ServerError" as const }),
             }
           : { truth, exit: Exit.succeed({ head: truth.heads[repo] ?? "a1b2c3" }) },
+    }),
+    cancel: Fake.call({
+      request: { key: Schema.String },
+      success: Schema.Struct({}),
+      failure: Schema.Never,
+      handle: (truth: Truth) => ({ truth, exit: Exit.succeed({}) }),
     }),
   },
   controls: {

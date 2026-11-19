@@ -5,6 +5,7 @@ import { codecFaults } from "./codec-faults.ts";
 import { contextFaults } from "./context-faults.ts";
 import { lanePolicyFaults } from "./lane-policy-faults.ts";
 import { lifeFaults } from "./life-faults.ts";
+import { runtimeLifeFaults } from "./runtime-life-faults.ts";
 import { mixFaults } from "./mix-faults.ts";
 import { toolingFaults } from "./tooling-faults.ts";
 import { structureFaults } from "./structure-faults.ts";
@@ -302,6 +303,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...consolidationFaults,
   ...lanePolicyFaults,
   ...lifeFaults,
+  ...runtimeLifeFaults,
   ...writeAheadFaults,
   ...restoreFaults,
   ...ruleFaults,

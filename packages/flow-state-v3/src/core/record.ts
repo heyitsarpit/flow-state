@@ -74,6 +74,12 @@ export const actorRecordKey = (key: string) => `actor/${key}`;
  */
 export const laneRecordKey = (lane: string) => `lane/${lane}`;
 
+/**
+ * Why a boot keeps a lane record aside whose identity decodes but whose operation its machine no
+ * longer declares: a hold an earlier release left.
+ */
+export const OPERATION_GONE = "operation";
+
 type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
   readonly kept: boolean;
 };
@@ -270,7 +276,7 @@ export const decodeRecords = (
 
       const operation = yield* Result.fromNullishOr(
         compiled.operations.get(r.operation),
-        () => "operation",
+        () => OPERATION_GONE,
       );
 
       const actor = actorOf(r);

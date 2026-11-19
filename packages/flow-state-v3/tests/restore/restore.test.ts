@@ -239,7 +239,11 @@ describe("an undecodable actor record (Restore R5, I11)", () => {
     expect(quarantined.read(account)?.lifecycle).toBe("quarantined");
     expect(quarantined.read(account)?.issues.map((i) => i.code)).toEqual(["RecordUndecodable"]);
     expect(quarantined.records.stored.get(actorKey)).toBe(broken);
-    expect(reports(run, 2)).toEqual([`RecordUndecodable ${actorKey}`]);
+    // Its lane is unbound at the boot: the record does not decode and no actor runs (Actors R20).
+    expect(reports(run, 2)).toEqual([
+      `UnboundLane lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}`,
+      `RecordUndecodable ${actorKey}`,
+    ]);
     // The adopted lane's Held head is heard at the fresh start.
     expect(heard(run, 2, "transfer")).toEqual(["Unsure"]);
     expect(fresh.read(account)?.lifecycle).toBe("active");

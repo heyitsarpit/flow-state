@@ -664,7 +664,7 @@ const countOf = (handle: {
 }) => Option.map(handle.getSnapshot(), (s) => s.memory["count"]);
 
 describe("mail at disposeActor (Actors R10, R20)", () => {
-  it.fails("Actors R10: events queued past the dispose step's drain never reach the new incarnation an ensure in the same host task starts", () => {
+  it("Actors R10: events queued past the dispose step's drain never reach the new incarnation an ensure in the same host task starts", () => {
     const { built, tab } = bootWith(
       app({ id: "fan", machines: { tally: TallyMachine, fan: FanMachine } }),
       new Map(),
@@ -700,7 +700,7 @@ const brokenLine = Layer.merge(
 );
 
 describe("a cleanup that fails at disposal (Actors R23, I33; Diagnostics R8)", () => {
-  it.fails("Actors R23, I33: a services finalizer that fails rejects dispose with CleanupFailed keeping the whole Cause, and a second dispose shares it", async () => {
+  it("Actors R23, I33: a services finalizer that fails rejects dispose with CleanupFailed keeping the whole Cause, and a second dispose shares it", async () => {
     const runtime = ready(brokenLine);
     const first = await Effect.runPromiseExit(runtime.dispose());
     const second = await Effect.runPromiseExit(runtime.dispose());

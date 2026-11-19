@@ -351,7 +351,8 @@ describe("the final write (Actors R23, I43, I44)", () => {
     expect(disposals(before(run, "within"))).toBe(0);
     expect(issues(before(run, "within"))).not.toContain("StorageFailure");
     expect(disposals(atBound)).toBe(1);
-    expect(atBound.map((e) => e._tag).slice(-2)).toEqual(["Issue", "RuntimeDisposed"]);
+    // The disposal ends with each identity's terminal evidence, then RuntimeDisposed (Inspection O3).
+    expect(atBound.map((e) => e._tag).slice(-3)).toEqual(["Issue", "Finished", "RuntimeDisposed"]);
     expect(issues(atBound)).toEqual(["StorageFailure"]);
   });
 });

@@ -5,7 +5,15 @@ import type { LedgerSteps } from "./ledger.ts";
 import { Life } from "./life.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import type { Tx } from "./tx.ts";
-import { Command, type TicketId, Timer } from "./world.ts";
+import {
+  type ActorId,
+  actorKey,
+  Command,
+  startOrder,
+  type TicketId,
+  Timer,
+  type World,
+} from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import { onWire } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
@@ -34,8 +42,11 @@ export const makeDisposal = (
       Stopped: () => Option.none<TicketId>(),
     });
 
+  // Each live identity ends with the Runtime, every consumer before its providers.
   const end = () => {
     disarmWhere((t) => Timer.$is("Bound")(t));
+
+    for (const actor of consumersFirst(tx.world())) tx.act(Act.Finished({ actor }));
     tx.setLife(Life.Disposed());
     tx.act(Act.RuntimeEnded());
   };
@@ -112,5 +123,48 @@ export const makeDisposal = (
     end();
   };
 
-  return { disposeRuntime, boundPassed, answered, write, disposalEnds };
+  /**
+   * The host closed the Runtime's Scope after the disposal: each cleanup that failed there is an
+   * Issue CleanupFailed.
+   */
+  const closed = (failures: number) => {
+    for (let n = 0; n < failures; n += 1) tx.act(Act.CleanupFailed());
+  };
+
+  return { disposeRuntime, boundPassed, answered, write, disposalEnds, closed };
+};
+
+/**
+ * The live identities, each after every live consumer bound to it, in start order otherwise.
+ */
+const consumersFirst = (world: World) => {
+  const live = [...world.incarnations.values()].toSorted((a, b) => startOrder(a) - startOrder(b));
+
+  const consumersLeft = new Map(
+    live.map((i) => [
+      actorKey(i.actor),
+      [...(world.consumersOf.get(actorKey(i.actor)) ?? [])].filter((k) => world.incarnations.has(k))
+        .length,
+    ]),
+  );
+
+  const ready = live.filter((i) => consumersLeft.get(actorKey(i.actor)) === 0);
+  const order: Array<ActorId> = [];
+
+  for (let at = 0; at < ready.length; at += 1) {
+    const next = ready[at];
+
+    if (next === undefined) continue;
+    order.push(next.actor);
+
+    for (const key of new Set([...next.bound.values()].map(actorKey))) {
+      const left = (consumersLeft.get(key) ?? 0) - 1;
+      consumersLeft.set(key, left);
+      const provider = world.incarnations.get(key);
+
+      if (left === 0 && provider !== undefined) ready.push(provider);
+    }
+  }
+
+  return order;
 };

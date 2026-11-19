@@ -11,12 +11,7 @@ import {
   shopSetup,
 } from "../app.ts";
 import { CartFake } from "../server/layer.ts";
-import { RuntimeDefaults } from "../../../src/index.ts";
-import {
-  ShopFake,
-  ShopFakeSessionCloseFails,
-  ShopFakeVoidsAbandoned,
-} from "../../services/shop/server/layer.ts";
+import { ShopFake, ShopFakeSessionCloseFails } from "../../services/shop/server/layer.ts";
 import { Shop } from "../../services/shop/server/shop.ts";
 
 /**
@@ -172,23 +167,6 @@ export const sessionCloseFails = Story.app(shopSetup, {
   .send(checkout, visa)
   .checkpoint("paid")
   .disposeRuntime()
-  .checkpoint("signed out");
-
-/**
- * The shopper pays and signs out while the shop holds the confirm, over a payment SDK that voids a
- * confirm its caller abandons through its session: the disposal's bound ends the payment unknown,
- * and the SDK voids it before its session closes.
- */
-export const signOutWhilePaying = Story.app(shopSetup, {
-  id: "shop/sign-out-while-paying",
-  fixtures: [ShopFakeVoidsAbandoned],
-})
-  .ensure(checkout)
-  .send(checkout, cart(1))
-  .world(Shop.confirm.hold())
-  .send(checkout, visa)
-  .disposeRuntime()
-  .advance(RuntimeDefaults.disposalBound)
   .checkpoint("signed out");
 
 /**

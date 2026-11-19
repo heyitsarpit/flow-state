@@ -37,4 +37,5 @@ export type {
   Runtime,
   RuntimeSetup,
   Snapshot,
+  Unsettled,
 } from "./host/runtime.ts";

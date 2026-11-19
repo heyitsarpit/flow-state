@@ -32,6 +32,8 @@ const inputs = {
   Stored: Input.Stored({ ticket }),
   Refused: Input.Refused({ ticket }),
   Capture: Input.Capture({ tickets: [], again: new Map() }),
+  Run: Input.Run(),
+  Closed: Input.Closed({ failures: 1 }),
 } as const;
 
 const lives = {
@@ -66,6 +68,8 @@ const spec: Record<keyof typeof inputs, ReadonlyArray<Cell>> = {
   Stored: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
   Refused: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
   Capture: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
+  Run: ["not ready", "not ready", "run", "not ready", "disposed", "disposed", "disposed"],
+  Closed: ["drop", "drop", "drop", "drop", "drop", "run", "drop"],
 };
 
 const RUN: Cell = "run";

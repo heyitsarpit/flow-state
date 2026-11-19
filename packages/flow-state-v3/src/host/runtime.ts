@@ -16,6 +16,7 @@ import type { Evidence } from "../core/evidence.ts";
 import { dependentsOf, Input } from "../core/step.ts";
 import { endedBy, isStopped, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
+import { makeClose, type Unsettled, unsettledOf } from "./close.ts";
 import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
@@ -33,6 +34,8 @@ import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
 import { Host, type Platform } from "./host.ts";
 
 export { type Snapshot, snapshotIn, snapshotOf } from "./snapshot.ts";
+
+export type { Unsettled } from "./close.ts";
 
 export { actorIdOf, actorRef, type ActorRef, type RefName } from "./refs.ts";
 
@@ -158,7 +161,10 @@ export const configOf = <R>(setup: RuntimeSetup<R>) =>
  * `createActor` creates a new local actor from its input: it never persists, no ref names it, and
  * it lives until disposed. `dispose()` keeps the scope's saved data; `dispose({ forget: true })`
  * deletes every record of the scope and succeeds only once the deletion landed, failing
- * `StorageFailure` when the store refused it.
+ * `StorageFailure` when the store refused it. Disposal ends the core's work, interrupts every
+ * call and waits for it, then releases the services; a cleanup that fails there rejects every
+ * `dispose()` with `CleanupFailed`, keeping each Cause. `unsettledWrites()` lists every identity
+ * with a write still out, for a host's `beforeunload`.
  */
 export type Runtime = {
   readonly ready: () => Effect.Effect<void, FlowError>;
@@ -172,6 +178,7 @@ export type Runtime = {
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
     options?: { readonly forget?: boolean },
   ) => Effect.Effect<void, FlowError>;
+  readonly unsettledWrites: () => ReadonlyArray<Unsettled>;
 };
 
 /**
@@ -275,9 +282,8 @@ export const buildRuntime = (
     fibers,
     persistence,
     captureMs: config.persistence?.captureMs ?? Duration.toMillis(RuntimeDefaults.captureInterval),
-    stopped: () =>
-      // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the driver stops synchronously, inside the step that failed; the Scope closes on its own fiber
-      void Effect.runFork(Scope.close(scope, Exit.void)),
+    // The driver stops synchronously, inside the step that failed; the close runs on its own fiber.
+    stopped: () => fibers.detach(Effect.suspend(() => close)),
     admit,
     // A callback that throws detaches only itself; sinks never change a step.
     sink: (batch) => {
@@ -395,6 +401,8 @@ export const buildRuntime = (
       Effect.mapError(() => forgetFailed),
     );
   });
+
+  const close = makeClose(driver, fibers, scope);
 
   // Local actors are numbered by the Runtime that creates them; they never persist or outlive it.
   let locals = 0;
@@ -556,17 +564,24 @@ export const buildRuntime = (
         driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
       },
     ),
-    // The core's disposal ends first: calls settling within its bound are parked, then a forget
-    // deletes the scope's records, and the Scope closes every fiber whatever the forget did.
+    // The core's disposal ends first (calls settling within its bound are parked), the Runtime
+    // closes, then a forget deletes the scope's records whatever the close reported.
     dispose: entryEffect(
       "dispose",
       // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
-      (options?: { readonly forget?: boolean }) =>
-        driver.dispose.pipe(
-          Effect.andThen(options?.forget === true ? forget() : Effect.void),
-          Effect.ensuring(Scope.close(scope, Exit.void)),
-        ),
+      (options?: { readonly forget?: boolean }) => {
+        const forgetting = options?.forget === true;
+
+        return Effect.gen(function* () {
+          driver.input(Input.DisposeRuntime());
+          const closed = yield* Effect.exit(close);
+          const forgotten = forgetting ? yield* Effect.exit(forget()) : Exit.void;
+
+          return yield* Exit.isFailure(closed) ? closed : forgotten;
+        });
+      },
     ),
+    unsettledWrites: entry("unsettledWrites", () => unsettledOf(driver)),
   };
 
   internals.set(runtime, {

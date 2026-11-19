@@ -26,6 +26,7 @@ export const Code = Schema.Literals([
   "SharedContract",
   "KeyFieldOptional",
   "StorageFailure",
+  "CleanupFailed",
 ]);
 
 /**

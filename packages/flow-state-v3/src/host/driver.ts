@@ -66,9 +66,9 @@ const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
  *
  * Inputs that arrive while a step's commands run are queued and run in order after it; the step
  * runs or drops each as the core's `admit` says. `offer` throws the error a rejected public call
- * names. `dispose` starts the core's disposal and completes when the core's life reads Disposed:
- * the core waits for calls on the wire and its own writes, within its bound. The Runtime's Scope
- * is about to interrupt every fiber.
+ * names. `ended` completes when the core's life reads Disposed (the core waits for calls on the
+ * wire and its own writes, within its bound), or fails with the defect that stopped it.
+ * `cleanups` holds each call cleanup that failed after the life left Open.
  */
 export const makeDriver = (options: {
   readonly machines: Machines;
@@ -102,11 +102,25 @@ export const makeDriver = (options: {
       defect(`no operation ${machine}.${operation}`),
     );
 
+  // The whole Cause of each call interrupted once the Runtime runs no more calls (its life left
+  // Open) whose cleanup died: a late result is dropped, so its Exit is judged here, before
+  // admission.
+  // FLOW_STATE_ALLOW_UNKNOWN: a call's error is the contract's own.
+  const cleanups: Array<Cause.Cause<unknown>> = [];
+
   // FLOW_STATE_ALLOW_UNKNOWN: a call's value, error and services are the contract's own.
   const call = (id: CallId, effect: () => Effect.Effect<unknown, unknown, unknown>) =>
-    fibers.fork(`call/${id}`, provided(Effect.suspend(effect)), (exit) =>
-      input(Input.Settled({ call: id, result: resultOf(exit) })),
-    );
+    fibers.fork(`call/${id}`, provided(Effect.suspend(effect)), (exit) => {
+      if (
+        Exit.isFailure(exit) &&
+        Cause.hasInterrupts(exit.cause) &&
+        Cause.hasDies(exit.cause) &&
+        !Verdict.$is("Run")(admit(world.life, Input.Run()))
+      )
+        cleanups.push(exit.cause);
+
+      input(Input.Settled({ call: id, result: resultOf(exit) }));
+    });
 
   const perform = (command: Command) =>
     Command.$match(command, {
@@ -318,11 +332,8 @@ export const makeDriver = (options: {
 
       input(Input.Send({ actor, tag, payload: decoded.value }));
     },
-    dispose: Effect.suspend(() => {
-      input(Input.DisposeRuntime());
-
-      return Deferred.await(disposed);
-    }),
+    // Every interrupt cleanup that failed once the life left Open, oldest first, read only.
+    cleanups: () => cleanups.slice(),
   };
 };
 

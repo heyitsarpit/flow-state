@@ -16,6 +16,7 @@ import {
   type RuntimeConfig,
   type Snapshot,
   snapshotIn,
+  type Unsettled,
 } from "../runtime.ts";
 import { type Trace, TraceRecord } from "../trace.ts";
 import { tabClock } from "./clock.ts";
@@ -44,9 +45,9 @@ import {
 } from "./steps.ts";
 
 /**
- * What a run shows at one step's end, captured then: the time, the runtime cut, the store's
- * records and write batches, every call the fake servers received, and `read` for an actor, a fake
- * server or an endpoint.
+ * What a run shows at one step's end, captured then: the time, the runtime cut, what
+ * `unsettledWrites()` lists, the store's records and write batches, every call the fake servers
+ * received, and `read` for an actor, a fake server or an endpoint.
  *
  * **Details**
  *
@@ -59,6 +60,7 @@ import {
 export type Cut = {
   readonly now: number;
   readonly inspection: RuntimeCut;
+  readonly unsettled: ReadonlyArray<Unsettled>;
   readonly records: {
     readonly stored: ReadonlyMap<string, string>;
     readonly batches: ReadonlyArray<Batch>;
@@ -441,6 +443,7 @@ export const startRun = <Names extends string>(
     return {
       now: tab.now(),
       inspection: inspect(tab.built.runtime),
+      unsettled: tab.built.runtime.unsettledWrites(),
       records: { stored: store.data(), batches: store.batches() },
       calls: log.map((l) => ({ ...l.entry, server: l.server.name, endpoint: l.endpoint })),
       read,
