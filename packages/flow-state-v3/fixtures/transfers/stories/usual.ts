@@ -291,13 +291,13 @@ export const stressManyReceipts = () =>
  * The key a transfer `t1` of the account `acct-1` holds its lane under, and that lane's record
  * Held, as another release of the app would have saved it with a newer format.
  */
-export const t1Lane = 'lane/Bank/Transfers/acct-1|Bank/transfer|{"transferId":"t1"}';
+export const t1Lane = 'lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}';
 
 /**
  * `t1`'s lane record Held, in a newer format than this release reads.
  */
 export const newerT1Lane =
-  '{"_tag":"Head","attempt":"att-000000000000000000006d61696e3a31-1","digest":"67fe5a62","displaced":[],"format":5,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}';
+  '{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}';
 
 /**
  * The key `acct-1`'s actor record is saved under, and a record there that does not decode.

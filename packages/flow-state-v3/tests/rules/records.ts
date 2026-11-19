@@ -2,10 +2,11 @@ import { Option, Predicate, Result, Schema } from "effect";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import type { Rule } from "./rules.ts";
 
-// Each kind's fields as WriteAhead R4 and R5 list them, in the current format, and the timer
-// shapes R4 gives. The identity, a lane's contract and its key text are the record's key.
-const FORMAT = { format: Schema.Literal(4) };
+// Formats 1 and 2 are read through their steps, so a store may still hold them until the record is
+// written again.
+const Actor = { format: Schema.Literals([1, 2, 3]), machine: Schema.String, name: Schema.String };
 
+// Each kind's fields as WriteAhead R4 and R5 list them, and the timer shapes R4 gives.
 const Timer = Schema.Union([
   Schema.Struct({
     name: Schema.String,
@@ -19,66 +20,32 @@ const Timer = Schema.Union([
   }),
 ]);
 
-const Kept = { kept: Schema.Boolean };
-
 const KINDS = {
   "actor/": Schema.Struct({
-    ...FORMAT,
+    ...Actor,
     state: Schema.String,
     memory: Schema.Json,
     schedules: Schema.Array(Timer),
   }),
-  "lane/": Schema.Union([
-    Schema.Struct({
-      _tag: Schema.Literal("Head"),
-      ...FORMAT,
-      attempt: Schema.String,
-      input: Schema.Json,
-      digest: Schema.String,
-      retryCount: Schema.Number,
-      inFlight: Schema.Boolean,
-      queue: Schema.Array(Schema.Json),
-      displaced: Schema.Array(Schema.String),
-    }),
-    Schema.Struct({
-      _tag: Schema.Literal("Displaced"),
-      ...FORMAT,
-      displaced: Schema.NonEmptyArray(Schema.String),
-    }),
-  ]),
+  "lane/": Schema.Struct({
+    ...Actor,
+    operation: Schema.String,
+    attempt: Schema.NullOr(Schema.String),
+    retryCount: Schema.Number,
+    inFlight: Schema.Boolean,
+  }),
   "owed/": Schema.Struct({
-    ...FORMAT,
-    rows: Schema.NonEmptyArray(
-      Schema.Union([
-        Schema.Struct({
-          _tag: Schema.Literal("Answered"),
-          lane: Schema.String,
-          attempt: Schema.String,
-          channel: Schema.Literals(["success", "failure", "unknown"]),
-          reason: Schema.String,
-          value: Schema.optionalKey(Schema.Json),
-          ...Kept,
-        }),
-        Schema.Struct({
-          _tag: Schema.Literal("Unsent"),
-          lane: Schema.String,
-          attempt: Schema.String,
-          reason: Schema.String,
-          ...Kept,
-        }),
-        Schema.Struct({
-          _tag: Schema.Literal("Refused"),
-          operation: Schema.String,
-          attempt: Schema.String,
-          ...Kept,
-        }),
-        Schema.Struct({
-          _tag: Schema.Literal("Declined"),
-          operation: Schema.String,
-          reason: Schema.String,
-          ...Kept,
-        }),
-      ]),
+    ...Actor,
+    rows: Schema.Array(
+      Schema.Struct({
+        operation: Schema.String,
+        attempt: Schema.NullOr(Schema.String),
+        lane: Schema.NullOr(Schema.String),
+        channel: Schema.Literals(["success", "failure", "notSent", "unknown"]),
+        reason: Schema.String,
+        value: Schema.Json,
+        kept: Schema.Boolean,
+      }),
     ),
   }),
 } as const;
@@ -103,11 +70,9 @@ const byKey = (a: string, b: string) => {
 const primitiveText = (json: Schema.Json) =>
   Result.getOrElse(Schema.encodeUnknownResult(JsonText)(json), () => "");
 
-/**
- * The value as canonical text (Codec R2): every object's keys sorted, no whitespace. Written with
- * its own stack, so text of any depth is judged.
- */
-export const canonicalText = (root: Schema.Json) => {
+// The value as canonical text (Codec R2): every object's keys sorted, no whitespace. Written with
+// its own stack, so text of any depth is judged.
+const canonicalText = (root: Schema.Json) => {
   const out: Array<string> = [];
   const stack: Array<() => void> = [];
   const text = (piece: string) => () => void out.push(piece);
@@ -269,7 +234,7 @@ export const onlyActorsWithheld: Rule = {
 /**
  * Codec I7, at every cut: every key the Runtime wrote is `actor/`, `lane/` or `owed/`, its text is
  * canonical (sorted keys, no whitespace) and decodes by its kind's Schema with the current
- * `format`, no lane record has `mayHaveApplied`, and every owed row has its kind's tag. Canonical text
+ * `format`, no lane record has `mayHaveApplied`, and every owed row has a channel. Canonical text
  * that decodes is its own round trip. A record the Story put in the store itself is not judged.
  */
 export const recordKinds: Rule = {

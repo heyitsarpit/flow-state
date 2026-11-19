@@ -78,7 +78,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/actor-record.ts",
-        find: '  ["none", () => leaf(Option.none())],',
+        find: '  ["none", () => Result.succeed(Option.none())],',
         replace: '  ["none", () => notAForm],',
       },
     ],

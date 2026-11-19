@@ -2,7 +2,6 @@ import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
 import { laptop, mainReturn, mainSession } from "../app.ts";
 import { Profiles } from "../server/profiles.ts";
 import { EARLIEST, EPOCH, LATEST } from "./edges.ts";
-import { readLane } from "./findings.ts";
 import {
   elifSaved,
   LAPTOP_SEEN,
@@ -90,25 +89,4 @@ export const deviceSamples = samplesOf({
       .send(laptop, seenEpoch)
       .send(laptop, seenEarliest)
       .send(laptop, { _tag: "Revoke" }),
-});
-
-/**
- * Elif's session with records on disk no release wrote, for generated runs: a lane record for her
- * session's read, which a reload must set aside and report.
- */
-export const recordSamples = samplesOf({
-  id: "auth-records",
-  story: sessionStory("auth-records/samples"),
-  names: { setup: "authGrownSetup", fixtures: ["AuthFake", "ProfileFake"] },
-  actors: { mainSession },
-  servers: { Profiles },
-  failures: [Fake.storage.put(readLane.key, readLane.text)],
-  landedFailures: [],
-  values: {},
-  controls: [elifSaved],
-  steps: (story) =>
-    story
-      .send(mainSession, signedIn)
-      .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
-      .send(mainSession, { _tag: "SubmitHandle" }),
 });

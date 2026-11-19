@@ -10,9 +10,16 @@ import { makeLedger } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
 import { type Env, type Machines, makeTx } from "./tx.ts";
-import { startOrder } from "./identity.ts";
 import { admit, Life, Verdict } from "./life.ts";
-import { type ActorId, actorKey, Mail, Timer, type TimerId, type World } from "./world.ts";
+import {
+  type ActorId,
+  actorKey,
+  Mail,
+  startOrder,
+  Timer,
+  type TimerId,
+  type World,
+} from "./world.ts";
 
 export { CallResult, Input } from "./input.ts";
 

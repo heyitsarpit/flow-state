@@ -1,7 +1,8 @@
 import { Option, Result } from "effect";
 import { publicMemory } from "../core/compiled.ts";
 import type { Values } from "../core/compiled.ts";
-import { actorRecordKey, inputOfName } from "../core/identity.ts";
+import { inputOfName } from "../core/identity.ts";
+import { actorRecordKey } from "../core/record.ts";
 import { create } from "../core/tree.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { actorLifecycleOf, restingLifecycleOf } from "../core/life.ts";

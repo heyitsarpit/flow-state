@@ -30,30 +30,6 @@ const EditorMachine = machine(Editor, ({ S }) => ({
   on: { Type: { updateMemory: ({ event, memory }) => ({ draft: memory.draft + event.text }) } },
 }));
 
-// An editor whose update hands back a patch wider than its type: it also names an input field.
-const Renamer = definition({
-  id: "Identity/Renamer",
-  states: ["EDITING"],
-  events: { Type: { text: Schema.String } },
-  memory: {
-    workspaceId: Flow.input(Schema.String),
-    draft: Flow.initial(Schema.String, ""),
-  },
-});
-
-const RenamerMachine = machine(Renamer, ({ S }) => ({
-  default: S.EDITING,
-  on: {
-    Type: {
-      updateMemory: ({ event }) => {
-        const patch = { draft: event.text, workspaceId: "south" };
-
-        return patch;
-      },
-    },
-  },
-}));
-
 const Clock = definition({
   id: "Identity/Clock",
   states: ["TICKING"],
@@ -70,10 +46,7 @@ const ClockMachine = machine(Clock, ({ S }) => ({
 const PAST_GRACE = Duration.millis(Duration.toMillis(RuntimeDefaults.freeGrace) * 1.5);
 
 const setup = runtimeSetup({
-  app: app({
-    id: "identity",
-    machines: { editor: EditorMachine, clock: ClockMachine, renamer: RenamerMachine },
-  }),
+  app: app({ id: "identity", machines: { editor: EditorMachine, clock: ClockMachine } }),
 });
 
 const ready = () => {
@@ -193,18 +166,6 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
       .run();
 
     expect(run.checkpoints.typed.read(north)?.memory["draft"]).toBe("ab");
-  });
-});
-
-describe("input fields never change (Compile R7; Actors R5)", () => {
-  it("Compile R7: an update whose patch names an input field is refused, and the actor keeps the name and memory it had", () => {
-    const runtime = ready();
-    const north = runtime.ensureActor(actorRef(RenamerMachine, { workspaceId: "north" }));
-    north.send({ _tag: "Type", text: "hi" });
-
-    expect(Option.map(north.getSnapshot(), (s) => s.memory)).toEqual(
-      Option.some({ workspaceId: "north", draft: "" }),
-    );
   });
 });
 

@@ -394,39 +394,3 @@ note 2026-11-18T10:47:11Z
 note 2026-11-18T18:54:56Z
     @spec.Actors.R25: an admit-hook throw now also goes back to its caller as a FlowError Defect; dispose still fails
     with it. Why: Story turn limits rely on the rethrow (@task.V3.T94). Reverse: drop the rethrow in the driver's run.
-
-note 2026-11-18T22:30:38Z
-    @spec.Restore R1, R5, R7, R8: format 4; identity in the key alone; identifiers decoded by Schemas built from the
-    app; a head's input checked by digest; lanes keyed by contract; undeclared actor records discarded; Q4 holds
-    forgeries for the user. Why: @task.V3.T92. Reverse: from commit 60627ca2^.
-
-note 2026-11-18T22:30:38Z
-    @spec.Codec.R5: each fact stored once (no identity, contract or key text in content; headless lane holds displaced
-    alone); Schemas built from the app refuse added fields. Why: @task.V3.T92. Reverse: from 60627ca2^.
-
-note 2026-11-18T22:30:38Z
-    @spec.WriteAhead R4, R5: no machine or name in records; lane adds digest, headless holds format and displaced alone;
-    owed rows name a lane or an operation. Why: @task.V3.T92. Reverse: from 60627ca2^.
-
-note 2026-11-18T22:30:38Z
-    @spec.WriteLanes.I8: a headless lane record restores no lane, so I8 and WriteAhead R5 agree; that reading ends every
-    displaced Attempt (lane-record.test.ts). Why: @task.V3.T92. Reverse: drop it.
-
-note 2026-11-18T23:12:00Z
-    @spec.Restore R5, Q4, T6; @spec.Codec R4, R5: a saved memory's input fields must give its key's name; a row with no
-    Attempt is a decline, one Attempt ends once, displaced Attempts never repeat; undeclared slots refused; Q4 narrowed
-    to what no decode tells; old-format text made actor-only. Why: @task.V3.T92 close review. Reverse: from 14fad556.
-
-note 2026-11-19T00:06:35Z
-    @spec.WriteAhead.R5, @spec.Codec.R5: each lane and owed row kind is one tagged Schema the writer encodes with and
-    the boot decodes with, so a decode accepts only what an encode produces; a void write's value is absent. Why:
-    @task.V3.T92 convergence. Reverse: from commit 6c729dbf.
-
-note 2026-11-19T00:06:35Z
-    @spec.Restore.Q4: narrowed to a displaced Attempt removed from a lane that keeps its head; a note leaves the
-    cross-record cases (a lane copied under another name, a success beside a Held head of its Attempt) open for the
-    user. Why: @task.V3.T92 convergence. Reverse: drop the note.
-
-note 2026-11-19T00:06:35Z
-    @spec.Compile.R7: a patch wider than its type that changes an input field refuses the turn InvalidTurn. Why:
-    @task.V3.T92 convergence (a saved record then failed its next boot). Reverse: drop the sentence.

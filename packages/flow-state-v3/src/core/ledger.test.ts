@@ -127,22 +127,18 @@ describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", (
   it("a NotSent row and an unknown row with the same tag come back told apart by channel", () => {
     const actor = { machine: "Shop/Pay", name: "s1" };
 
-    // Only a decline has no Attempt (WriteLanes R10); the unknown is a Held head's refused capture.
     const row = (channel: Channel) => ({
       operation: "pay",
       lane: Option.none<string>(),
-      attempt: channel === "notSent" ? Option.none<string>() : Option.some("att-1-1"),
+      attempt: Option.none<string>(),
       channel,
-      reason: "StorageRefused",
-      value: { why: "StorageRefused" },
+      reason: "Cancelled",
+      value: null,
       kept: false,
     });
 
     const stored = new Map([
-      [
-        `owed/${actorKey(actor)}`,
-        encodeOwedText(PayMachine.compiled, actor, [row("notSent"), row("unknown")]),
-      ],
+      [`owed/${actorKey(actor)}`, encodeOwedText(actor, [row("notSent"), row("unknown")])],
     ]);
 
     assert.deepEqual(
@@ -157,14 +153,14 @@ describe("a boot reads records in key order (Restore R3: the boot sorts by recor
     const record = (name: string) =>
       [
         `owed/Shop/Pay/${name}`,
-        encodeOwedText(PayMachine.compiled, { machine: "Shop/Pay", name }, [
+        encodeOwedText({ machine: "Shop/Pay", name }, [
           {
             operation: "pay",
             lane: Option.none(),
             attempt: Option.none(),
-            channel: "notSent",
-            reason: "Rejected",
-            value: { why: "Rejected" },
+            channel: "unknown",
+            reason: "Restored",
+            value: null,
             kept: false,
           },
         ]),

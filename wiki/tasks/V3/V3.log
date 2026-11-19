@@ -917,3 +917,7 @@ note 2026-11-19T00:28:52Z
     Stop (failure limit, 2026-11-19): T92's third close review (2edcb74b) found the same root cause after convergence:
     an owed record whose rows end one Attempt twice in an order no writer makes. T92 waits for the user's Q5; no lead
     runs.
+
+note 2026-11-19T00:38:20Z
+    Decision (the user, 2026-11-19): T92 deferred; its work saved on branch t92-format-4, flow-rewrite restored to
+    fef46251's code and Specs (check 0, suite 1181). Pending D31 waits with it. Next: T95.

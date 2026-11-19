@@ -54,8 +54,8 @@ export const codecFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/actor-record.ts",
-        find: "      return { slots: frame.slots, memory: memories.push(frame.memory) - 1 };",
-        replace: "      return { slots: frame.slots, memory: null };",
+        find: "        return { slots: frame.slots, memory: memories.push(frame.memory) - 1 };",
+        replace: "        return { slots: frame.slots, memory: null };",
       },
     ],
   },

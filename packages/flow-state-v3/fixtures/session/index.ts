@@ -12,7 +12,6 @@ import {
   digestHeard,
   digestQuiet,
   formatOneAvatar,
-  deepFormatOne,
   guestDotReturns,
   inboxSamples,
   threadHeard,
@@ -43,7 +42,6 @@ import {
   signedOutUndefined,
   teamForgotten,
 } from "./stories/structure.ts";
-import { chainBoundToLocal } from "./stories/findings.ts";
 
 /**
  * The session fixture, as every runner reads it.
@@ -80,12 +78,10 @@ export const session = manifest({
     importPastStack,
     digestRefused,
     unreadRecovers,
-    chainBoundToLocal,
     archiveLarge,
     guestDotReturns,
     corruptSeen,
     formatOneAvatar,
-    deepFormatOne,
   },
   samples: [samples, grownSamples, inboxSamples, nestsSamples],
   stressSamples: [stressSamples, nestsStressSamples],

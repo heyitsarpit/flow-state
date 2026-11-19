@@ -1,6 +1,5 @@
 import { type Brand, Data, Equal, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
-import { escapeSegment } from "./key-text.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
 import type { IssueCode, ScheduleDeadline } from "./vocabulary.ts";
@@ -23,7 +22,7 @@ export const actorKey = (actor: ActorId) => {
 
   if (known !== undefined) return known;
 
-  const key = `${actor.machine}/${escapeSegment(actor.name)}`;
+  const key = `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
   keys.set(actor, key);
 
   return key;
@@ -33,6 +32,12 @@ export const actorKey = (actor: ActorId) => {
  * Whether two identities are the same: the same machine and name.
  */
 export const sameActor = (a: ActorId, b: ActorId) => a.machine === b.machine && a.name === b.name;
+
+/**
+ * The id a write lane is kept under: its identity, operation and key text.
+ */
+export const laneId = (actor: ActorId, operation: string, keyText: string) =>
+  `${actorKey(actor)}|${operation}|${keyText}`;
 
 /**
  * A storage ticket's id: the batch an acknowledgement or capture waits on.
@@ -356,13 +361,12 @@ export type ActorRecord = {
 
 /**
  * A record key a step changed, with the identity whose record it is: its actor record, one of its
- * lane records, or its owed record; or a record the boot discards, whose machine no entry declares.
+ * lane records, or its owed record.
  */
 export type Mark = Data.TaggedEnum<{
   Actor: { actor: ActorId };
   Lane: { actor: ActorId; lane: string };
   Owed: { actor: ActorId };
-  Discarded: { key: string };
 }>;
 
 /**
@@ -459,6 +463,12 @@ export const waitOf = (lane: Lane) =>
     Cancelling: ({ call }) => Option.some<string>(call),
     Held: () => Option.none<string>(),
   });
+
+/**
+ * The order incarnations started in: the counter their id was minted with.
+ */
+export const startOrder = (incarnation: Incarnation) =>
+  Number(incarnation.id.slice(incarnation.id.lastIndexOf("-") + 1));
 
 /**
  * A world's indexes rebuilt from its facts by scanning: what the step operations keep up to date.

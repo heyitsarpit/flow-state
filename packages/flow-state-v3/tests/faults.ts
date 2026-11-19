@@ -9,7 +9,6 @@ import { mixFaults } from "./mix-faults.ts";
 import { toolingFaults } from "./tooling-faults.ts";
 import { structureFaults } from "./structure-faults.ts";
 import { constructionFaults } from "./construction-faults.ts";
-import { recordFaults } from "./record-faults.ts";
 import { restoreFaults } from "./restore-faults.ts";
 import { ruleFaults } from "./rule-faults.ts";
 import { stepFaults } from "./step-faults.ts";
@@ -147,8 +146,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '          retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
-        replace: "          retryCount: 0,",
+        find: '            retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
+        replace: "            retryCount: 0,",
       },
     ],
   },
@@ -305,7 +304,6 @@ export const faults: ReadonlyArray<Fault> = [
   ...lifeFaults,
   ...writeAheadFaults,
   ...restoreFaults,
-  ...recordFaults,
   ...ruleFaults,
   ...structureFaults,
   ...constructionFaults,

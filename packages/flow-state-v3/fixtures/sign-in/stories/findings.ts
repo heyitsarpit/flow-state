@@ -1,4 +1,3 @@
-import { Fake } from "../../../src/host/testing/index.ts";
 import { mainSession } from "../app.ts";
 import { Profiles } from "../server/profiles.ts";
 import { sessionStory, signedIn } from "./usual.ts";
@@ -33,23 +32,3 @@ export const unconfirmedPrefill = choosing("sign-in/unconfirmed-prefill")
   .checkpoint("asked")
   .send(mainSession, { _tag: "ConfirmHandle" })
   .checkpoint("confirmed");
-
-/**
- * A lane record of Elif's session for its `me` read, Held with an Attempt, as a damaged disk or a
- * bad copy could leave it: a read keeps no lane, so no release writes one.
- */
-export const readLane = {
-  key: 'lane/Auth/Session/{"email":"elif@kamp.us"}|Auth/me|{"email":"elif@kamp.us"}',
-  text: '{"_tag":"Head","attempt":"att-000000000000000000006d61696e3a31-1","digest":"8642c4c0","displaced":[],"format":4,"inFlight":false,"input":{"email":"elif@kamp.us"},"queue":[],"retryCount":0}',
-} as const;
-
-/**
- * Elif signs in; then the store holds a lane record for her session's read, and the tab reloads
- * and ensures the session: the record is set aside and reported, and no read is held.
- */
-export const readOperationLane = choosing("sign-in/read-operation-lane")
-  .world(Fake.storage.put(readLane.key, readLane.text))
-  .reload({ reattach: false })
-  .checkpoint("booted")
-  .ensure(mainSession)
-  .checkpoint("restored");

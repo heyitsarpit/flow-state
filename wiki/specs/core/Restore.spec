@@ -16,9 +16,8 @@ requirements
         source  @plan.Persistence.O4.
         must    ready() restores a compatible scope before actor work starts. Restored records stay
                 records until an ensure, a subscription or a send reaches them, except an Owing
-                identity (`model`: an owed record, a lane record whose head is in flight or holds a
-                queue, or a lane record holding displaced Attempts, whose endings the boot derives;
-                a lane record with no head holds displaced Attempts alone, @spec.WriteAhead.R5), which
+                identity (`model`: an owed record, a lane record whose `inFlight` is true, or a lane
+                record holding a queue or displaced Attempts, whose endings the boot derives), which
                 is restored live at ready and kept as work in flight until those turns run.
 
                 The boot decodes the records, sorts them by record key so that the store's load
@@ -89,45 +88,32 @@ requirements
                 to the last good capture, or starts fresh, and ready succeeds; a fresh start loses
                 the scope's acknowledged Attempts and their holds (a stated limit).
 
-                Format 4 is current; a newer, null or non-integer format is quarantined, its lane
-                still holding by its id. An actor record of formats 1 to 3 reaches it by a pure step
-                at the boot, and the identity its content repeated is not read: the key names it.
-                Format 2's step turns each baseline's own memory copy into a shared one. Format 1's
-                step reads each tagged last-seen value back through its slot's Schema (one the
-                Schema refuses, or saved unknown, was never selected) and reads each reaction's
-                baseline again from the record's own slots and memory; a form no release wrote
-                quarantines the record. A lane or owed record has no step: one of an older format is
-                quarantined, since formats before 4 were never released. Saved baselines that do not
-                match the machine's reactions in number are read the same way. A Schema whose decode
-                throws quarantines its record as a refusal does; the boot goes on.
-
+                Each older record format reaches the current one by a pure step at the boot; a
+                newer, null or non-integer format is quarantined, its lane still holding by its id.
+                Format 3 is current. Format 2's step turns each baseline's own memory copy into a
+                shared one. Format 1's step reads each tagged last-seen value back through its slot's
+                Schema (one the Schema refuses, or saved unknown, was never selected) and reads each
+                reaction's baseline again from the record's own slots and memory; a form no release
+                wrote quarantines the record. Saved baselines that do not match the machine's
+                reactions in number are read the same way. A Schema whose decode throws quarantines
+                its record as a refusal does; the boot goes on.
                 A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
-                too. A record's identity is its key alone (@spec.Codec.R5), read in one place: its
-                kind, a declared and persisted machine, and a name a ref of its identity version
-                could give (never a local actor's, @spec.WriteAhead.I3; a name that identity decodes
-                and whose input names it back). An actor record's memory holds input fields that
-                give that same name, since input fields never change (@spec.Compile.R7). A lane's key
-                also carries the contract of a write operation its machine declares and its key
-                text, which reads by that operation's key fields and names itself back, and is the
-                text a Held head's input gives; the head's input must also match the digest saved
-                beside it, so an input changed on disk is never re-sent under its Attempt. An owed
-                row is an ending of an Attempt on a lane, named by its place after the identity and
-                read as a lane key is, or names an operation its machine declares; only a decline
-                has no Attempt (@spec.WriteLanes.R10), and an Attempt ends once, so no two rows of
-                a record hold a success, failure or NotSent of one Attempt. Attempt ids never
-                repeat (@spec.WriteLanes.R5), so a lane record lists no displaced Attempt twice or
-                beside its head. Every other identifier a record holds is decoded by a Schema built
-                from the compiled app: a state is a leaf its machine declares, a schedule one it
-                declares, a slot one it declares, an Attempt one the Runtime mints, a binding a name
-                its slot's provider machine gives (a graph binding, one of a declared machine), a
-                retry count a non-negative safe integer; and a record holds exactly its kind's
-                fields. Any other record is quarantined, so no record speaks for an identity, lane
-                or Attempt its key and Schemas do not name. A well-formed forgery no decode can tell
-                from a real record is held (Q4). A quarantined record keeps its bytes until the
-                identity writes that record again: an actor's first save, an owed record's next
-                change, a lane's cancel. Until then a quarantined lane or owed record is reported
-                RecordUndecodable at each boot; its head and rows cannot be read, so none is heard,
-                and the report stands in for them.
+                too. Each record names an identity in its content; it is read only when that
+                identity is one a ref of its identity version could give (never a local actor's
+                name, @spec.WriteAhead.I3; a name that identity decodes and whose input names it
+                back), its machine is declared, and its key is the key that identity's record of
+                this kind is saved under. A lane's key also carries its operation, which the machine
+                declares, and its key text, which reads by that operation's key fields and names
+                itself back, and is the text a Held head's input gives. An owed row's operation is
+                its machine's, and a lane it names is that identity's lane of that operation. Any
+                other record is quarantined, so no record speaks for an identity its key does not
+                name. An owed row naming an Attempt the identity never made cannot be told from a
+                real one. A quarantined record keeps its bytes
+                until the identity writes that record again: an actor's first save, an owed record's next change, a 
+                lane's cancel. Until
+                then a quarantined lane or owed record is reported RecordUndecodable at each boot;
+                its head and rows cannot be read, so none is heard, and the report stands in for
+                them.
 
                 An actor record that does not decode is quarantined:
 
@@ -165,9 +151,7 @@ requirements
                 definition with its count. Its owed rows, a stopped read's Interrupted included,
                 stay owed (@spec.WriteLanes.R12).
 
-                The identity check comes first; a record with no shape stamp never resets: a state
-                its machine lacks is then a malformed value, quarantined by R5, not a release
-                change. Any
+                The identity check comes first; a record with no shape stamp never resets. Any
                 structural Schema change to a stored field is another Schema version, so it resets
                 the record, a harmless validation change included (the runner's ruling; a stated
                 price). Its writes in flight are
@@ -186,20 +170,17 @@ requirements
                 other head (@spec.WriteLanes `algorithm`, start); one R5 quarantines is not read.
 
                 A lane is (identity, contract id, key) and names no operation (@spec.WriteLanes.R6),
-                and a contract has at most one write operation (SharedContract). The lane's key
-                names its contract and its record stores no operation, so a lane whose operation was
-                renamed reads under its contract's write operation if the contract still has one;
-                nothing is rewritten and a rename cannot collide. If the contract has none, the lane
-                is quarantined, and forget drops its hold with HoldForgotten (proposed name).
-                Decision (agent, 2026-11-19): the lane key carries the contract id, the only form
-                in which a renamed operation finds its contract. Reverse: key lanes by operation
-                again and rewrite them (OpRenamed). LaneRekeyCollision (proposed name) belongs only to
+                and a contract has at most one write operation (SharedContract). The lane record
+                still stores the operation's name as data, which is not part of the lane's identity.
+                So when a lane record's `operation` is gone, the boot rewrites it to the contract's write operation
+                (OpRenamed, proposed name) if the contract still has one; a rename cannot collide.
+                If the contract has none, the lane is quarantined, and forget drops its hold with
+                HoldForgotten (proposed name). LaneRekeyCollision (proposed name) belongs only to
                 R6's identity-version re-key: a re-key onto an existing record is refused, the mover
                 quarantined and nothing overwritten.
 
-                Actor records for a machine no entry declares are discarded with a diagnostic
-                (RecordUndecodable, its reason naming the discard) and their lanes and owed records
-                quarantined (the runner's ruling). There is no key-equality adoption.
+                Actor records for a machine no entry declares are discarded with a diagnostic and
+                their lanes quarantined (the runner's ruling). There is no key-equality adoption.
 
     R9  Storage failures
         source  @plan.Persistence.O5.
@@ -229,23 +210,12 @@ open
                  in tests/faults.ts that `nub run faults` must catch. Until then every Requirement's evidence
                  is open.
 
-    Q2  LaneRekeyCollision and FieldDropped's rewrite have no planted fault yet.
+    Q2  OpRenamed, LaneRekeyCollision, the undeclared-machine discard and FieldDropped's rewrite have no planted fault 
+        yet.
         outcome  Each gets a planted fault when built.
 
     Q3  I19's check was listed under @task.V3.T20, but resets are @task.V3.T56's since the split.
         outcome  @task.V3.T56 builds I19's check (Spec test T5).
-
-    Q4  Whether a well-formed forgery no decode can tell from a real record is in the threat model: a queued commit 
-        added or removed, a displaced Attempt removed from a lane that keeps its head, a decline or an unknown
-        ending repeated, a binding renamed to another name a ref could give, a literal-named actor's record or any
-        lane or owed record moved under another name its machine gives.
-        outcome  Held for the user's ruling (proposed): until then each is judged only for a boot that never fails;
-                 one test pins that only this class is left, and an inverted test names it.
-        note     Open for the user: some of these are told across records, not by one. A lane record copied under
-            another name repeats its Attempt in two lane records, and an owed `Answered` success on a lane
-            beside a Held head of the same Attempt ends a head that stays; a boot-wide check over every
-            record it read (one Attempt in one lane, ended once) could quarantine both, where a per-record
-            decode cannot.
 
 model
     Boot = one ready() of a persistent Runtime: read, upgrade formats, check versions and shapes,
@@ -303,8 +273,8 @@ invariants
          after restore, before any owed row or lane delivery of that incarnation. (A silent context baseline is
         @spec.Turn.R22's.) [@R2]
 
-    I20  A lane whose operation was renamed restores under its contract's write operation when the contract has one, 
-         and is quarantined otherwise; nothing is rewritten, so no lane is overwritten. [@R8]
+    I20  A lane record whose `operation` is gone is rewritten to its contract's write operation when the contract has 
+         one, and quarantined otherwise; no such rewrite overwrites or collides with another lane. [@R8]
 
 composition
     flow
@@ -375,14 +345,12 @@ tests
         after, unknown { Restored }. [@I8]
     T5  Stopped reads and resets after reload: a stopped read is heard after a reload; a reset a reload lost runs at 
         the boot. Planted fault: a reload that drops the stopped read. [@I2, @I19]
-    T6  Record formats: every record states its format; an older actor record format restores through its pure step, an 
-        older lane or owed record is quarantined, and an old actor record's timers read
-            as `dueAt`; the current format restores as written, a `left` timer included; a newer, null,
-                fractional or string format is quarantined and its lane still holds.
-                    Planted faults: a null format read as 1; a fraction floored; a string coerced; a newer format read; 
-                        an
-                    old timer read as `left`.
-                    [@I10, @I13]
+    T6  Record formats: every record states its format; an older format restores through the pure step, its timers read 
+        as `dueAt`; the current format restores as written, a `left` timer included; a newer, null,
+            fractional or string format is quarantined and its lane still holds.
+                Planted faults: a null format read as 1; a fraction floored; a string coerced; a newer format read; an
+                old timer read as `left`.
+                [@I10, @I13]
     T7  Undecodable records: memory that cannot decode is quarantined; the fresh actor over it is saved. Planted 
         faults: undecodable memory kept; the fresh actor never saved. [@I10, @I11]
     T8  Versions: an old-version record is listed, not restored; a release that changes a key keeps the old-version 
@@ -406,6 +374,6 @@ tests
     T14  Restored data is stale: a restored resource entry reads stale, a live placement refetches it with its own 
          input, and a key-only entry starts nothing. A planted fault is written with this test.
              [@I9]
-    T15  A renamed operation: a lane whose operation was renamed, over a contract that still has a write operation, 
-         restores under it; over a contract with none, it is quarantined and forget drops its hold. Planted fault:
-             lane-operation-unkeyed. [@I20]
+    T15  A renamed operation: a lane record whose operation name is gone, over a contract that still has a write 
+         operation, restores under it with OpRenamed; over a contract with none, it is quarantined and forget drops
+             its hold. No planted fault yet (Q2). [@I20]

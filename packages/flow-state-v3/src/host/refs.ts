@@ -1,5 +1,5 @@
 import { Option, Predicate, Result } from "effect";
-import { inputFieldsOf, isLocalName, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
+import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { ActorId } from "../core/world.ts";
 import type { AnyDefinition, InputOf, Machine } from "../definition.ts";
 import { entry } from "../entry.ts";
@@ -65,7 +65,7 @@ export const actorIdOf = (ref: ActorRef): ActorId => {
   const compiled = ref.machine.compiled;
 
   if (inputFieldsOf(compiled).length === 0) {
-    if (Predicate.isString(ref.value) && !isLocalName(ref.value))
+    if (Predicate.isString(ref.value) && !ref.value.startsWith(LOCAL_PREFIX))
       return { machine: compiled.id, name: ref.value };
 
     return raise(

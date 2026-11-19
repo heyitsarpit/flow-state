@@ -120,8 +120,8 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "          queue: l.queue.map((q) => q.input),",
-        replace: "          queue: [],",
+        find: "            queue,\n",
+        replace: "            queue: queue.slice(0, 0),\n",
       },
     ],
   },
@@ -159,7 +159,7 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/lanes.ts",
-        find: "      !tx.world().persistence &&\n      !isLocalName(incarnation.actor.name)\n",
+        find: "      !tx.world().persistence &&\n      !incarnation.actor.name.startsWith(LOCAL_PREFIX)\n",
         replace: "      !tx.world().persistence\n",
       },
     ],

@@ -19,15 +19,7 @@ import {
   orderSamples,
   plannedSamples,
   plannedStressSamples,
-  recordSamples,
 } from "./stories/samples.ts";
-import {
-  attemptForged,
-  heldAttemptNulled,
-  scheduleUndeclared,
-  attemptReloaded,
-  stateUndeclared,
-} from "./stories/findings.ts";
 import {
   chain,
   customerForgotten,
@@ -47,11 +39,6 @@ export const transfers = manifest({
   app: bankPlanned,
   stories: {
     ...stories,
-    stateUndeclared,
-    attemptReloaded,
-    scheduleUndeclared,
-    attemptForged,
-    heldAttemptNulled,
     formBoundLate,
     checkAndSend,
     chain,
@@ -70,8 +57,8 @@ export const transfers = manifest({
     orderChain,
     orderOffline,
   },
-  samples: [samples, formSamples, orderSamples, plannedSamples, recordSamples],
-  stressSamples: [stressSamples, formSamples, orderSamples, plannedStressSamples, recordSamples],
+  samples: [samples, formSamples, orderSamples, plannedSamples],
+  stressSamples: [stressSamples, formSamples, orderSamples, plannedStressSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 45 },
   mix: Option.some({ usual: plannedSamples, stress: plannedStressSamples }),

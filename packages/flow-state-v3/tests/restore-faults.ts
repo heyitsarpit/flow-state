@@ -19,8 +19,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "      (encoded) => textOf(encoded.record),",
-        replace: "      (encoded) => textOf({ ...encoded.record, mayHaveApplied: false }),",
+        find: "      ...head,\n",
+        replace: "      ...head,\n      mayHaveApplied: false,\n",
       },
     ],
   },
@@ -38,7 +38,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     rule: "Codec I7",
     edits: [
       {
-        file: "src/core/identity.ts",
+        file: "src/core/record.ts",
         find: "export const owedRecordKey = (key: string) => `owed/${key}`;",
         replace: "export const owedRecordKey = (key: string) => `kept/${key}`;",
       },
@@ -104,8 +104,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "  return r.value === undefined ? answered : { ...answered, value: r.value };",
-        replace: "  return { ...answered, value: r.value };",
+        find: "  value: r.value === undefined ? null : r.value,",
+        replace: "  value: r.value,",
       },
     ],
   },
@@ -145,6 +145,32 @@ export const restoreFaults: ReadonlyArray<Fault> = [
         file: "src/core/incarnations.ts",
         find: '    tx.replace("quarantined", new Map(restored.quarantined.map((q) => [q.key, q.reason])));',
         replace: '    tx.replace("quarantined", new Map());',
+      },
+    ],
+  },
+  {
+    name: "null-format-read-as-current",
+    tests: [RESTORE],
+    says: "a record whose format is null is read as the current format",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record-format.ts",
+        find: "export const Format = Schema.Literals([1, 2, FORMAT]);",
+        replace: "export const Format = Schema.NullOr(Schema.Literals([1, FORMAT]));",
+      },
+    ],
+  },
+  {
+    name: "newer-format-read",
+    tests: [RESTORE],
+    says: "a record of any numeric format is read, a newer or fractional one included",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record-format.ts",
+        find: "export const Format = Schema.Literals([1, 2, FORMAT]);",
+        replace: "export const Format = Schema.Number;",
       },
     ],
   },
@@ -299,8 +325,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '            channel: "notSent" as const,\n            reason: "Restored",',
-        replace: '            channel: "unknown" as const,\n            reason: "Restored",',
+        find: '          channel: "notSent" as const,',
+        replace: '          channel: "unknown" as const,',
       },
     ],
   },
@@ -314,6 +340,124 @@ export const restoreFaults: ReadonlyArray<Fault> = [
         file: "src/core/ledger.ts",
         find: "    const lanes = tx.lanesOf(actor).toSorted(([a], [b]) => byCodeUnits(a, b));",
         replace: "    const lanes = tx.lanesOf(actor).toSorted(([a], [b]) => byCodeUnits(b, a));",
+      },
+    ],
+  },
+  {
+    name: "local-name-restored",
+    tests: [RESTORE],
+    says: "a record under a local actor's name restores and wakes an actor",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/identity.ts",
+        find: '  if (name.startsWith(LOCAL_PREFIX)) return Result.fail("name");',
+        replace: "  if (name.startsWith(LOCAL_PREFIX)) return Result.succeed({});",
+      },
+    ],
+  },
+  {
+    name: "record-key-unchecked",
+    tests: [RESTORE],
+    says: "a record restores as the identity its content names, whatever key it is under",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '      const keyed = kind === "lane/" ? key.startsWith(`${own}|`) : key === own;',
+        replace: "      const keyed = true;",
+      },
+    ],
+  },
+  {
+    name: "record-name-unread",
+    tests: [RESTORE],
+    says: "a record restores under a name its machine's identity cannot read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      yield* decodeName(yield* machineOf(named), named.name);\n",
+        replace: "      yield* machineOf(named);\n",
+      },
+    ],
+  },
+  {
+    name: "record-machine-unread",
+    tests: [RESTORE],
+    says: "a record of a machine no entry declares is read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      yield* decodeName(yield* machineOf(named), named.name);\n",
+        replace:
+          "      const known = machines.get(named.machine);\n      if (known !== undefined) yield* decodeName(known, named.name);\n",
+      },
+    ],
+  },
+  {
+    name: "lane-operation-unkeyed",
+    tests: [RESTORE],
+    says: "a lane record restores under a key of another operation",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '      if (!id.startsWith(own)) return yield* Result.fail("key");\n',
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "lane-key-text-unread",
+    tests: [RESTORE],
+    says: "a lane key's text is never read, so a headless lane under any text restores",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      yield* keyNamesItself(operation, id.slice(own.length));\n",
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "held-lane-other-key",
+    tests: [RESTORE],
+    says: "a Held head restores under a key its input does not name",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '(text) => (id === `${own}${text}` ? Result.succeed(text) : Result.fail("key")),',
+        replace: "(text) => Result.succeed(text),",
+      },
+    ],
+  },
+  {
+    name: "owed-row-operation-unread",
+    tests: [RESTORE],
+    says: "an owed row of an operation its machine does not declare is read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '    if (Option.exists(compiled, (c) => !c.operations.has(operation)))\n      return Result.fail("operation");\n',
+        replace: "",
+      },
+    ],
+  },
+  {
+    name: "owed-row-other-lane",
+    tests: [RESTORE],
+    says: "an owed row naming another identity's lane is read",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "      onSome: (id) => id.startsWith(`${actorKey(actor)}|${operation}|`),",
+        replace: "      onSome: () => true,",
       },
     ],
   },

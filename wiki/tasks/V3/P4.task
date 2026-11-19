@@ -58,9 +58,9 @@ description
 
     **Order:** @task.V3.T92, @task.V3.T95, @task.V3.T96, @task.V3.T99, @task.V3.T58, @task.V3.T57, @task.V3.T77,
     @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100,
-    @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T99 and T100 from P3's close, the orchestrator,
-    2026-11-19). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in
-    this order.
+    @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred by the user, 2026-11-19, so T95 is
+    next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only;
+    where several Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -662,7 +662,7 @@ tasks
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
-        status      review
+        status      draft
         priority    high
         satisfies   [@plan.Runtime.O1]
         description
@@ -755,9 +755,8 @@ tasks
             1. Bindings (@spec.Restore R5, R1; @spec.WriteAhead I3; T20 07:05 review): an owing cart whose record binds
                a local shopper, a cart under an undecodable name, an undeclared machine, or a graph entry to a local
                actor is quarantined and reported, starts fresh at its ensure and hears its owed row; the boot goes on.
-               Red: ConflictingActorRef twice, "open 2 did not boot", no report.
-               code:packages/flow-state-v3/tests/restore/forged.test.ts; T20's inverted test in
-               tests/restore/restore.test.ts stays.
+               Red: ConflictingActorRef twice, "open 2 did not boot", no report. `tests/restore/forged.test.ts` (on
+               t92-format-4); T20's inverted test in tests/restore/restore.test.ts stays.
             2. Brands (@spec.Restore R5; @spec.Codec R5): an actor record in an undeclared state, one arming an
                undeclared schedule, a lane whose Attempt is not minted form, an owed row naming a lane by key text its
                operation never gives: each quarantined and reported. Red: none reported. The compile-time check (decoded
@@ -765,8 +764,8 @@ tasks
                brands: a red type test cannot sit beside `nub run check` at zero.
             3. Each fact once (@spec.Codec R5; @spec.WriteAhead R4, R5): over every fixture Story's checkpoints and end,
                no record holds a field equal to its key's machine, name, operation or key text, no owed row with a lane
-               holds `operation`, and no headless lane holds `queue` or `inFlight`. Red: 1128
-               repeats. code:packages/flow-state-v3/tests/restore/records.test.ts
+               holds `operation`, and no headless lane holds `queue` or `inFlight`. Red: 1128 repeats.
+               `tests/restore/records.test.ts` (on t92-format-4)
             4. Corrupt one field (@spec.Restore R5, I10): every record kind of every fixture Story, one field at a time
                by JSON type (no field list), booted in its Story's saved world: quarantined and reported, or a
                well-formed world with every run rule; the run never fails; the record as saved must be canonical,
@@ -1026,10 +1025,9 @@ tasks
             Blocking (owner @task.V3.T92):
 
             1. Made-up and wrong endings from an owed row with an Attempt and no lane. This is the class of the earlier
-               finding 2, closed only for a null Attempt. code:packages/flow-state-v3/src/core/record.ts#owedSchemaOf
-               takes `{operation, attempt}` rows with any channel. The release writes such a row only as HoldRefused's
-               unknown StorageRefused (code:packages/flow-state-v3/src/core/lane-moves.ts), so a decode can
-               tell. Replayed:
+               finding 2, closed only for a null Attempt. `owedSchemaOf` in `record.ts` (on t92-format-4) takes
+               `{operation, attempt}` rows with any channel. The release writes such a row only as HoldRefused's unknown
+               StorageRefused (code:packages/flow-state-v3/src/core/lane-moves.ts), so a decode can tell. Replayed:
                - A main-cart owed row `success`/`add` with a minted-form Attempt delivers `Added`, and line l5 appears.
                - The same row with the Held head's own Attempt delivers `Added`, but the head stays Held, and the next
                  Add is declined NotSent Rejected (a stuck key).
@@ -1206,6 +1204,10 @@ tasks
               - format-4 text from before `_tag` (never released);
               - the Compile R7 fragment exemption (no fragments in src);
               - writer bindings the decode refuses (wiring checks the machine; canonical text closes -0).
+        comment     2026-11-19T00:38:19Z
+            Deferred (the user, 2026-11-19) after the failure-limit stop: format 4 work saved on branch t92-format-4
+            (tip d92e802f); flow-rewrite's code and Specs restored to fef46251. Next attempt questions the record format
+            itself (eliminate contradictory states by structure), with this branch's tests as its requirements.
 
     T95
         title       Callback results checked before they enter a turn

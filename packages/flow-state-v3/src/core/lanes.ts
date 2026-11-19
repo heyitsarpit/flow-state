@@ -8,9 +8,10 @@ import { Audience, keptOn, type LedgerSteps, Route } from "./ledger.ts";
 import { LaneView } from "./turn.ts";
 import { isInFlight, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import { type ActorId, type CallId, Command, type Incarnation, Phase } from "./world.ts";
+import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
 import type { Persistence } from "./persist.ts";
-import { isLocalName, laneId, laneRecordKey } from "./identity.ts";
+import { LOCAL_PREFIX } from "./identity.ts";
+import { laneRecordKey } from "./record.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {
@@ -61,7 +62,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
             operation,
             Option.getOrElse(key, () => ({})),
           ),
-          (text) => laneId(incarnation.actor, operation.contract, text),
+          (text) => laneId(incarnation.actor, operation.name, text),
         )
       : Option.filter(own, (id) => tx.world().lanes.get(id)?.operation === operation.name);
   };
@@ -164,14 +165,14 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     if (
       tx.machines.get(incarnation.actor.machine)?.persist === true &&
       !tx.world().persistence &&
-      !isLocalName(incarnation.actor.name)
+      !incarnation.actor.name.startsWith(LOCAL_PREFIX)
     ) {
       decline(incarnation.actor, operation.name, "NoPersistence");
 
       return member;
     }
 
-    const id = laneId(incarnation.actor, operation.contract, text.value);
+    const id = laneId(incarnation.actor, operation.name, text.value);
 
     // A lane record the boot could not read still holds its key until a cancel clears it.
     if (tx.world().quarantined.has(laneRecordKey(id))) {

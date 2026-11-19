@@ -3,7 +3,7 @@ import type { Compiled, Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
 import type { OwedId } from "./ledger.ts";
 import type { Evidence } from "./evidence.ts";
-import { isLocalName, startOrder } from "./identity.ts";
+import { LOCAL_PREFIX } from "./identity.ts";
 import { Act, evidenceOf } from "./evidence-of.ts";
 import {
   type ActorId,
@@ -16,6 +16,7 @@ import {
   Mail,
   type Out,
   Phase,
+  startOrder,
   type TicketId,
   Timer,
   type TimerId,
@@ -421,7 +422,9 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
 
   // A local actor never persists, whatever its machine declares.
   const persisted = (actor: ActorId) =>
-    machines.get(actor.machine)?.persist === true && world.persistence && !isLocalName(actor.name);
+    machines.get(actor.machine)?.persist === true &&
+    world.persistence &&
+    !actor.name.startsWith(LOCAL_PREFIX);
 
   return {
     machines,

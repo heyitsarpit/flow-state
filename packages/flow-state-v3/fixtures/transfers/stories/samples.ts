@@ -1,12 +1,11 @@
+import { Schema } from "effect";
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
 import { account, mainCustomer, rent, savings, sendForm } from "../app.ts";
 import { Accounts } from "../server/accounts.ts";
 import { Bank } from "../server/bank.ts";
 import { EARLIEST, EPOCH, LATEST } from "./edges.ts";
-import { forgedAccount } from "./findings.ts";
 import {
   acct1Record,
-  bankStory,
   brokenRecord,
   grownStory,
   newerT1Lane,
@@ -97,21 +96,31 @@ export const orderSamples = samplesOf({
 
 const rentRecord = 'actor/Bank/StandingOrder/{"order":"rent"}';
 
+const jsonText = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+
 // Owed records a damaged disk or a bad copy could leave, each holding one unknown ending: under
 // names no ref gives (local names, an empty one, a broken escape, one that does not name itself
 // back), and naming the account under a key of another identity or one that does not round-trip.
 const oddOwed = [
-  "owed/Bank/StandingOrder/~rent",
-  "owed/Bank/StandingOrder/",
-  'owed/Bank/StandingOrder/{"order":"\\u12"}',
-  'owed/Bank/StandingOrder/{"order":"rent","x":1}',
-  "owed/Bank/Transfers/~acct-1",
-  "owed/Bank/Transfers/~acct-9",
-  "owed/Bank/Transfers/acct-1 ",
-].map((key) =>
+  { machine: "Bank/StandingOrder", name: "~rent", key: "owed/Bank/StandingOrder/~rent" },
+  { machine: "Bank/StandingOrder", name: "", key: "owed/Bank/StandingOrder/" },
+  {
+    machine: "Bank/StandingOrder",
+    name: '{"order":"\\u12"}',
+    key: 'owed/Bank/StandingOrder/{"order":"\\u12"}',
+  },
+  {
+    machine: "Bank/StandingOrder",
+    name: '{"order":"rent","x":1}',
+    key: 'owed/Bank/StandingOrder/{"order":"rent","x":1}',
+  },
+  { machine: "Bank/Transfers", name: "~acct-1", key: "owed/Bank/Transfers/~acct-1" },
+  { machine: "Bank/Transfers", name: "acct-1", key: "owed/Bank/Transfers/~acct-9" },
+  { machine: "Bank/Transfers", name: "acct-1", key: "owed/Bank/Transfers/acct-1 " },
+].map(({ machine, name, key }) =>
   Fake.storage.put(
     key,
-    '{"format":4,"rows":[{"_tag":"Declined","kept":false,"operation":"transfer","reason":"Rejected"}]}',
+    `{"format":3,"machine":${jsonText(machine)},"name":${jsonText(name)},"rows":[{"attempt":null,"channel":"unknown","kept":false,"lane":null,"operation":"transfer","reason":"Restored","value":null}]}`,
   ),
 );
 
@@ -206,25 +215,3 @@ export const plannedSamples = plannedSamplesOf(false);
  * shows an empty balance.
  */
 export const plannedStressSamples = plannedSamplesOf(true);
-
-/**
- * The account with records on disk no release wrote, for generated runs: its record in a state it
- * lacks or arming a schedule it never declared, and a Held transfer lane with an Attempt the
- * Runtime never mints, each of which a reload must set aside and report.
- */
-export const recordSamples = samplesOf({
-  id: "bank-records",
-  story: bankStory("bank-records/samples"),
-  names: { setup: "bankSetup", fixtures: ["BankFake"] },
-  actors: { account },
-  servers: { Bank },
-  failures: [
-    Fake.storage.put(forgedAccount.state.key, forgedAccount.state.text),
-    Fake.storage.put(forgedAccount.schedule.key, forgedAccount.schedule.text),
-    Fake.storage.put(forgedAccount.attempt.key, forgedAccount.attempt.text),
-  ],
-  landedFailures: [],
-  values: { sendT1, resendT1 },
-  controls: [],
-  steps: (story) => story.send(account, sendT1).send(account, resendT1),
-});

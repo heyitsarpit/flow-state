@@ -27,14 +27,13 @@ const accountedBy = (e: Evidence) => {
  * that open, and was not superseded or released there, is heard in a later open of its identity:
  * its saved ending, or unknown Restored. Only
  * identities started again in a later open are judged, since a disposed identity's endings wait
- * for an adopting ensure; an open whose store failed to load read nothing, so it is no later open
- * (Restore R9); and an Attempt whose own lane record, which its acknowledging batch wrote, a
- * later boot could not read is reported there instead, its key held until a cancel (Restore R5).
+ * for an adopting ensure; and an Attempt whose lane record a later boot could not read is reported
+ * there instead, its key held until a cancel (Restore R5).
  */
 export const acknowledgedHeardAgain: Rule = {
   rule: "WriteAhead I17",
   breaches: (run: StoryRun) => {
-    const { owner, laneOwner, ended, started, unread, unloaded } = opensOf(run);
+    const { owner, ended, started, operation, unread } = opensOf(run);
 
     return run.end.records.batches.flatMap((b) =>
       b.status !== "landed"
@@ -43,17 +42,12 @@ export const acknowledgedHeardAgain: Rule = {
             const open = b.tab.open;
             const actor = owner.get(attempt) ?? "";
             const heard = [...(ended.get(attempt) ?? [])];
+            const later = [...(started.get(actor) ?? [])].filter((o) => o > open);
 
-            const later = [...(started.get(actor) ?? [])].filter(
-              (o) => o > open && !unloaded.has(o),
-            );
-
-            // Only a lane record of this Attempt's own identity that the acknowledging batch wrote,
-            // left unread by a later boot, excuses it: one batch carries every identity's writes.
-            const quarantined = b.keys.some(
-              (key) =>
-                key.startsWith(`lane/${laneOwner.get(attempt) ?? ""}|`) &&
-                [...(unread.get(key) ?? [])].some((o) => o > open),
+            const quarantined = [...unread].some(
+              ([key, opens]) =>
+                key.startsWith(`lane/${actor}|${operation.get(attempt) ?? ""}|`) &&
+                [...opens].some((o) => o > open),
             );
 
             return heard.length > 0 || later.length === 0 || quarantined
@@ -65,10 +59,6 @@ export const acknowledgedHeardAgain: Rule = {
     );
   },
 };
-
-// An identity's name as its record keys write it (Codec R5).
-const escapeName = (name: string) =>
-  name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C");
 
 const addTo = (map: Map<string, Set<number>>, key: string, open: number) =>
   map.set(key, (map.get(key) ?? new Set()).add(open));
@@ -86,7 +76,7 @@ const leftBy = (e: Evidence) => {
 const opensOf = (run: StoryRun) => {
   const places = placesOf(run);
   const owner = new Map<string, string>();
-  const laneOwner = new Map<string, string>();
+  const operation = new Map<string, string>();
   const ended = new Map<string, Set<number>>();
   const started = new Map<string, Set<number>>();
 
@@ -95,7 +85,7 @@ const opensOf = (run: StoryRun) => {
 
     if (e._tag === "Minted") {
       owner.set(e.attempt, nameOf(e.actor));
-      laneOwner.set(e.attempt, `${e.actor.machine}/${escapeName(e.actor.name)}`);
+      operation.set(e.attempt, e.operation);
     }
 
     if (e._tag === "Incarnated") addTo(started, nameOf(e.actor), open);
@@ -103,16 +93,7 @@ const opensOf = (run: StoryRun) => {
     for (const attempt of leftBy(e)) addTo(ended, attempt, open);
   }
 
-  // The opens whose store failed to load: they run with no persistence and read no record.
-  const unloaded = new Set(
-    run.evidence.flatMap((e, at) =>
-      e._tag === "Reported" && e.code === "StorageFailure" && e.reason === "load"
-        ? [places[at]?.open ?? 0]
-        : [],
-    ),
-  );
-
-  return { owner, laneOwner, ended, started, unread: unreadBy(run, places), unloaded };
+  return { owner, operation, ended, started, unread: unreadBy(run, places) };
 };
 
 // The records each open's boot could not read, by key.

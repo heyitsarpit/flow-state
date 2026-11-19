@@ -6,7 +6,6 @@ import {
   Delay,
   Guard,
   type Schedule,
-  Source,
   type Values,
 } from "./compiled.ts";
 import type { Part } from "./evidence.ts";
@@ -338,20 +337,6 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
   });
 
   if (Result.isFailure(patched)) return TurnResult.Refused({ code: "Defect", ...patched.failure });
-
-  // Input fields never change: a patch wider than its type that names one is refused.
-  const renames = input.compiled.fields.some(
-    (f) =>
-      Source.$is("Input")(f.source) &&
-      patched.success !== input.memory &&
-      !sameValue(patched.success[f.name], input.memory[f.name]),
-  );
-
-  if (renames)
-    return TurnResult.Refused({
-      code: "InvalidTurn",
-      slot: Option.match(alternative.update, { onNone: () => "", onSome: (u) => u.slot }),
-    });
   const memory = patched.success;
   const select = { memory, event: input.payload };
   const actions: Array<Resolved> = [];
