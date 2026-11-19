@@ -2379,7 +2379,7 @@ tasks
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
-        status      draft
+        status      in_progress
         priority    medium
         description
             The core's reason codes, runtime ids, chain state and turn cause each become one typed shape, so the wrong
