@@ -114,3 +114,60 @@ export const MirrorStatusMachine = machine(MirrorStatus, ({ S, E }) => ({
     },
   },
 }));
+
+/**
+ * A replica that follows a mirror, named by its own remote: the upstream it pushes each new commit
+ * of the followed mirror to, how many pushes it may make, and how many it has made.
+ */
+export const Replica = definition({
+  id: "Git/Replica",
+  states: ["IDLE", "FOLLOWING"],
+  events: { Follow: { upstream: Schema.String, maxPushes: Schema.Number } },
+  internalEvents: { Taken: { sha: Schema.String } },
+  memory: {
+    upstream: Flow.initial(Schema.String, ""),
+    maxPushes: Flow.initial(Schema.Number, 0),
+    pushed: Flow.initial(Schema.Number, 0),
+  },
+  context: {
+    taken: Mirror.Provider.select(
+      Schema.Struct({ seen: Schema.Number, sha: Schema.String }),
+      (m) => ({ seen: m.memory.seen, sha: m.memory.lastSha }),
+    ),
+  },
+});
+
+/**
+ * The replica: following, each push its mirror takes is pushed on to its upstream as a new push,
+ * up to its limit.
+ */
+export const ReplicaMachine = machine(Replica, ({ S, E }) => ({
+  default: S.IDLE,
+  onContext: [
+    {
+      select: ({ context }) => context.taken,
+      event: E.Taken.from((taken: { readonly sha: string }) => ({ sha: taken.sha })),
+    },
+  ],
+  on: {
+    Follow: {
+      target: S.FOLLOWING,
+      updateMemory: ({ event }) => ({ upstream: event.upstream, maxPushes: event.maxPushes }),
+    },
+    Taken: {},
+  },
+  states: {
+    FOLLOWING: {
+      on: {
+        Taken: [
+          {
+            guard: [({ memory }) => memory.pushed < memory.maxPushes || deny("LimitReached")],
+            updateMemory: ({ memory }) => ({ pushed: memory.pushed + 1 }),
+            actions: [send(upstreamOf, ({ event }) => ({ _tag: "Push", sha: event.sha, hops: 0 }))],
+          },
+          {},
+        ],
+      },
+    },
+  },
+}));

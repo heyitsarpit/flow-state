@@ -1,4 +1,5 @@
 import { samplesOf, Story } from "../../../src/host/testing/index.ts";
+import { RuntimeDefaults } from "../../../src/index.ts";
 import { household, musicHomeSetup, room } from "../app.ts";
 import { Speaker } from "../server/speaker.ts";
 import { SpeakerFake } from "../server/layer.ts";
@@ -120,6 +121,32 @@ export const groupReplays = Array.from({ length: REPLAYS }, (_, n) => `t${String
   .checkpoint("end");
 
 /**
+ * How many rooms the fan-out group names: more than half the loop guard, so its sends (a `Next` and
+ * a `Play` per room) pass the guard though the household's chain of `Next`s does not.
+ */
+export const FAN_OUT = RuntimeDefaults.loopGuard * 0.6;
+
+const fanOut = Array.from({ length: FAN_OUT }, (_, n) => `wing-${String(n)}`);
+
+/**
+ * The household plays a group naming every speaker of a large venue, none of them open.
+ */
+export const groupPastGuard = homeStory("player/group-past-guard")
+  .ensure(household)
+  .send(household, playGroup(fanOut, "t1"))
+  .checkpoint("stopped");
+
+const group = playGroup(["lounge"], "t1");
+
+const empty = playGroup([], "t1");
+
+const absent = playGroup(["lounge", "attic"], "t2");
+
+const unnameable = playGroup([UNNAMEABLE], "t1");
+
+const next = { _tag: "Next" } as const;
+
+/**
  * What a listener can ask the household, for generated runs: play a group, an empty group, a group
  * with a room never opened or a name with no encoded form, and go on with the next room; the
  * speaker refuses a track.
@@ -132,18 +159,13 @@ export const householdSamples = samplesOf({
   servers: { Speaker },
   failures: [Speaker.block({ trackId: "t1" })],
   landedFailures: [],
-  values: {
-    group: playGroup(["lounge"], "t1"),
-    empty: playGroup([], "t1"),
-    absent: playGroup(["lounge", "attic"], "t2"),
-    unnameable: playGroup([UNNAMEABLE], "t1"),
-    next: { _tag: "Next" },
-  },
+  values: { group, empty, absent, unnameable, next },
   controls: [],
   steps: (story) =>
     story
-      .send(household, playGroup(["lounge"], "t1"))
-      .send(household, playGroup([], "t1"))
-      .send(household, playGroup(["lounge", "attic"], "t2"))
-      .send(household, { _tag: "Next" }),
+      .send(household, group)
+      .send(household, empty)
+      .send(household, absent)
+      .send(household, unnameable)
+      .send(household, next),
 });

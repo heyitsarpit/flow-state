@@ -1322,7 +1322,8 @@ tasks
         acceptance
             - `send(toRef, toEvent)` delivers by every row of @plan.Runtime.O4's send table, each row a Story in
               a fixture.
-            - The waiting step-1 cells in pay, sync, transfers, palette and player use it and pass.
+            - The waiting step-1 cells in shop, sync and player use it and pass (amended 2026-11-19: transfers and
+              palette cut by the orchestrator's ruling, transfers because its machine takes no input, Actors R5).
             - A chain past `RuntimeDefaults.loopGuard` is refused `InvalidTurn` naming the chain; a context update chain
               is not.
             - A send's target ref and event are checked; a bad one refuses the sender's turn with a FlowError.
@@ -1530,6 +1531,28 @@ tasks
         comment     2026-11-19T02:02:34Z
             Decision (the user, 2026-11-19): send never infers its target; no one-argument overload, since it would
             expose actor names as strings. A send always takes an explicit ref.
+        comment     2026-11-19T02:21:54Z
+            Fix round: the six requirements-review findings, each a check (inverted until the build; replayed, each red
+            because the send is undelivered today). Suite exit 0 (1212 passed, 48 expected fail), `nub run check`
+            exit 0.
+
+            1. Guard counts: `player/group-past-guard` (one PlayGroup of 3,000 unopened rooms: 2 sends a room, chain of
+               Nexts shorter than the guard; the Next that would send #5001 refused, 2,499 started) tells total from
+               depth; `sync/replica-loop` (new `Git/Replica`, an `onContext` turn sending) counts an onContext turn's
+               sends, refused on the replica. Tests in `tests/player/household.test.ts`, `tests/sync/sends.test.ts`.
+            2. R6: `shop/renewal-ending-pay` holds a second `Start` (intent `pi-week-2`) unwritten; the next incarnation
+               must hold it, so restoring from the last acknowledged record (`pi-weekly`) fails.
+            3. Samples: household, git-mirrors and shop-checkout-sends steps send every declared value;
+               `tests/generated/samples-values.test.ts` checks every samples set (`bank-planned` inverted, owner
+               @task.V3.T97). The extra step left shop-checkout-sends' pair sweep short of Held while Pay never writes,
+               so that sweep moved to `tests/generated/pairs-sends.test.ts`, inverted until the build.
+            4. Owners: catalog rows left to @task.V3.T99 (booting) and @task.V3.T48 (NotAdopted).
+            5. BuyNow dropped. Its rows moved to `Shop/Subscription` (weekly renewal by schedule, sending to its own Pay
+               `renewal`), not CheckoutFlow, whose context binds its Pay (a use, so it never ends while the flow lives),
+               nor Household, whose rooms cannot persist (a persisted machine on an unpersisted setup is declined
+               NoPersistence). Stories `shop/renewal-*`; tests `tests/shop/renewals.test.ts`. A week is past the
+               generated runs' think times, so renewals are not in the samples.
+            6. Acceptance 2 amended to shop, sync, player; the catalog's transfers reason now cites Actors R5.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft

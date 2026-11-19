@@ -11,6 +11,7 @@ import {
   mirrorImportsRef,
   mirrorLoop,
   mirrorSamples,
+  replicaLoop,
   repoCommits,
 } from "./stories/sends.ts";
 
@@ -34,6 +35,7 @@ export const sync = manifest({
     mirrorLoop,
     mirrorChainWithStatus,
     mirrorImportsRef,
+    replicaLoop,
   },
   samples: [samples, repoSamples, mirrorSamples],
   stressSamples: [samples, repoSamples, mirrorSamples],

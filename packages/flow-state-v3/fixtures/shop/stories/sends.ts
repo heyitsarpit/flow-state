@@ -1,5 +1,13 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
-import { buyNow, checkout, mainCart, mainFlow, mainShopper, storeExpressSetup } from "../app.ts";
+import {
+  checkout,
+  mainCart,
+  mainFlow,
+  mainShopper,
+  renewalPay,
+  storeSubscribedSetup,
+  subscription,
+} from "../app.ts";
 import { CartFake } from "../server/layer.ts";
 import { ShopFake } from "../../services/shop/server/layer.ts";
 import { Carts } from "../server/carts.ts";
@@ -10,6 +18,10 @@ import { add, storeStory } from "./usual.ts";
  * The flow's request to pay with a card.
  */
 export const payWith = (paymentMethodId: string) => ({ _tag: "PayWith", paymentMethodId }) as const;
+
+const payWithVisa = payWith("visa");
+
+const payWithNothing = payWith("");
 
 /**
  * Ada's checkout is started for her cart; she adds a line, steps through the address, method and
@@ -43,156 +55,179 @@ export const checkoutSendSamples = samplesOf({
   servers: { Shop, Carts },
   failures: [Shop.decline({ code: "card_declined" })],
   landedFailures: [],
-  values: { payWith: payWith("visa"), payWithNothing: payWith("") },
+  values: { payWithVisa, payWithNothing },
   controls: [],
   steps: (story) =>
     story
       .send(checkout, { _tag: "Start", cartId: "main", intentId: "pi-main" })
+      .send(mainFlow, payWithNothing)
       .send(mainCart, add("l1", "v1"))
       .send(mainFlow, { _tag: "Begin" })
       .send(mainFlow, { _tag: "AddressEntered", line1: "12 Canal St" })
       .send(mainFlow, { _tag: "MethodChosen", method: "express" })
       .send(mainFlow, { _tag: "SlotChosen", slot: "9-12" })
-      .send(mainFlow, payWith("visa")),
+      .send(mainFlow, payWithVisa),
 });
 
 /**
- * The shop with the one-click buy button over its port fakes, with no steps yet: every Story of the
- * buy button starts here.
+ * The shop with the weekly box subscription over its port fakes, with no steps yet: every Story of
+ * a renewal starts here.
  */
-export const expressStory = (id: string) =>
-  Story.app(storeExpressSetup, { id, fixtures: [ShopFake, CartFake] });
+export const renewalStory = (id: string) =>
+  Story.app(storeSubscribedSetup, { id, fixtures: [ShopFake, CartFake] });
 
 /**
- * A click on the buy button with the saved card.
+ * How long the subscription waits between renewals.
  */
-export const buy = { _tag: "Buy", paymentMethodId: "visa" } as const;
+export const WEEK = "7 days";
 
-const start = { _tag: "Start", cartId: "main", intentId: "pi-main" } as const;
+/**
+ * The shopper subscribes with the saved card.
+ */
+export const subscribe = { _tag: "Subscribe", paymentMethodId: "visa" } as const;
 
-// The checkout is started for the main cart and the buy button is on the page.
+const subscribeNothing = { _tag: "Subscribe", paymentMethodId: "" } as const;
+
+const start = { _tag: "Start", cartId: "weekly", intentId: "pi-weekly" } as const;
+
+const cancel = { _tag: "Cancel" } as const;
+
+// The renewal's Pay is started for the weekly box and the shopper subscribes.
 const started = (id: string) =>
-  expressStory(id).ensure(checkout).ensure(buyNow).send(checkout, start);
+  renewalStory(id)
+    .ensure(renewalPay)
+    .ensure(subscription)
+    .send(renewalPay, start)
+    .send(subscription, subscribe);
 
 /**
- * The checkout's confirm is held while it pays; the checkout is closed and its grace passes while
- * the confirm is on the wire; the buy button is clicked; then the confirm lands.
+ * The renewal's confirm is held while it pays by another card; the Pay is closed and its grace
+ * passes while the confirm is on the wire; the week passes and the subscription renews; then the
+ * confirm lands.
  */
-export const buyBusyCheckout = started("shop/buy-busy-checkout")
+export const renewalBusyPay = started("shop/renewal-busy-pay")
   .world(Shop.confirm.hold())
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "amex" })
-  .detach(checkout)
+  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "amex" })
+  .detach(renewalPay)
   .advance("1 second")
-  .send(buyNow, buy)
-  .checkpoint("clicked")
+  .advance(WEEK)
+  .checkpoint("renewed")
   .world(Shop.confirm.release())
   .checkpoint("landed");
 
 /**
- * The checkout is closed and ends with its record; the buy button is clicked with the confirm held,
- * and a second passes; the checkout is opened again and asked to pay; the held confirm lands, the
- * checkout is closed, and the grace passes.
+ * The renewal's Pay is closed and ends with its record; the week passes with the confirm held, so
+ * the subscription renews; a second later the confirm is still on the wire; the Pay is opened and
+ * asked to pay again; the held confirm lands, the Pay is closed, and the grace passes.
  */
-export const buyEndedCheckout = started("shop/buy-ended-checkout")
-  .detach(checkout)
+export const renewalEndedPay = started("shop/renewal-ended-pay")
+  .detach(renewalPay)
   .advance("1 second")
   .checkpoint("ended")
   .world(Shop.confirm.hold())
-  .send(buyNow, buy)
-  .checkpoint("clicked")
+  .advance(WEEK)
+  .checkpoint("renewed")
   .advance("1 second")
   .checkpoint("held past the grace")
-  .ensure(checkout)
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .ensure(renewalPay)
+  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "visa" })
   .world(Shop.confirm.release())
-  .detach(checkout)
+  .detach(renewalPay)
   .advance("1 second")
   .checkpoint("after the grace");
 
 /**
- * The checkout's confirm answer is lost, so it is unsure; it is closed and ends with that unsure
- * charge held in its record; then the buy button is clicked.
+ * The renewal's confirm answer is lost, so it is unsure; the Pay is closed and ends with that
+ * unsure charge held in its record; then the week passes and the subscription renews.
  */
-export const buyUnsureCheckout = started("shop/buy-unsure-checkout")
+export const renewalUnsurePay = started("shop/renewal-unsure-pay")
   .world(Shop.confirm.drop({ at: "response" }))
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "amex" })
+  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "amex" })
   .checkpoint("unsure")
-  .detach(checkout)
+  .detach(renewalPay)
   .advance("1 second")
-  .send(buyNow, buy)
-  .checkpoint("clicked");
+  .advance(WEEK)
+  .checkpoint("renewed");
 
 /**
- * The buy button is clicked before any checkout was opened.
+ * The shopper subscribes before the renewal's Pay was ever opened; the week passes.
  */
-export const buyUnopenedCheckout = expressStory("shop/buy-unopened-checkout")
-  .ensure(buyNow)
-  .send(buyNow, buy)
-  .checkpoint("clicked");
+export const renewalUnopenedPay = renewalStory("shop/renewal-unopened-pay")
+  .ensure(subscription)
+  .send(subscription, subscribe)
+  .advance(WEEK)
+  .checkpoint("renewed");
 
 /**
- * The checkout is started and forgotten; then the buy button is clicked.
+ * The renewal's Pay is started and forgotten; then the week passes.
  */
-export const buyForgottenCheckout = started("shop/buy-forgotten-checkout")
-  .dispose(checkout, { how: "forget" })
-  .send(buyNow, buy)
-  .checkpoint("clicked");
+export const renewalForgottenPay = started("shop/renewal-forgotten-pay")
+  .dispose(renewalPay, { how: "forget" })
+  .advance(WEEK)
+  .checkpoint("renewed");
 
 /**
- * The checkout's saved record is text no release can read; the tab reloads; then the buy button
- * is clicked.
+ * The shopper subscribes; the renewal's saved record is text no release can read; the tab reloads;
+ * then the week passes.
  */
-export const buyDamagedCheckout = expressStory("shop/buy-damaged-checkout")
-  .ensure(buyNow)
-  .world(Fake.storage.put("actor/Checkout/Pay/checkout-1", "{not a record"))
+export const renewalDamagedPay = renewalStory("shop/renewal-damaged-pay")
+  .ensure(subscription)
+  .send(subscription, subscribe)
+  .world(Fake.storage.put("actor/Checkout/Pay/renewal", "{not a record"))
   .reload()
-  .send(buyNow, buy)
-  .checkpoint("clicked");
+  .advance(WEEK)
+  .checkpoint("renewed");
 
 /**
- * The store holds every write; a card is chosen at the checkout, which is closed and its grace
- * passes, so it ends with that change unwritten; the buy button is clicked; then the store lets the writes through.
+ * The renewal's Pay is started and saved; the store then holds every write while the shopper
+ * leaves the Pay and starts it again for next week's intent, so that change is unwritten; the Pay
+ * is closed and its grace passes, so it ends with the change unwritten; the week passes and the
+ * subscription renews; then the store lets the writes through.
  */
-export const buyEndingCheckout = started("shop/buy-ending-checkout")
+export const renewalEndingPay = started("shop/renewal-ending-pay")
+  .checkpoint("saved")
   .world(Fake.storage.hold())
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "amex" })
-  .detach(checkout)
+  .send(renewalPay, { _tag: "Leave" })
+  .send(renewalPay, { _tag: "Start", cartId: "weekly", intentId: "pi-week-2" })
+  .detach(renewalPay)
   .advance("1 second")
-  .send(buyNow, buy)
-  .checkpoint("clicked")
+  .advance(WEEK)
+  .checkpoint("renewed")
   .world(Fake.storage.release())
   .checkpoint("released");
 
 /**
- * The store holds every write while the checkout is disposed, so its removal is not acknowledged;
- * the buy button is clicked; then the store lets the writes through.
+ * The store holds every write while the renewal's Pay is disposed, so its removal is not
+ * acknowledged; the week passes and the subscription renews; then the store lets the writes
+ * through.
  */
-export const buyDisposingCheckout = started("shop/buy-disposing-checkout")
+export const renewalDisposingPay = started("shop/renewal-disposing-pay")
   .world(Fake.storage.hold())
-  .dispose(checkout)
-  .send(buyNow, buy)
-  .checkpoint("clicked")
+  .dispose(renewalPay)
+  .advance(WEEK)
+  .checkpoint("renewed")
   .world(Fake.storage.release())
   .checkpoint("released");
 
 /**
- * What a shopper can do with the buy button and the checkout, for generated runs: start the
- * checkout, click buy (an empty card among them), close the checkout; the card is declined.
+ * What a shopper can do with the subscription and its renewal's Pay, for generated runs: start the
+ * Pay, subscribe (with an empty card among them), cancel; the card is declined. A week is past the
+ * generated runs' think times, so no renewal falls due in them.
  */
-export const buyNowSamples = samplesOf({
-  id: "shop-buy-now",
-  story: expressStory("shop/buy-now-samples").ensure(buyNow),
-  names: { setup: "storeExpressSetup", fixtures: ["ShopFake", "CartFake"] },
-  actors: { buyNow, checkout },
+export const renewalSamples = samplesOf({
+  id: "shop-renewals",
+  story: renewalStory("shop/renewals-samples").ensure(subscription),
+  names: { setup: "storeSubscribedSetup", fixtures: ["ShopFake", "CartFake"] },
+  actors: { subscription, renewalPay },
   servers: { Shop },
   failures: [Shop.decline({ code: "card_declined" })],
   landedFailures: [],
-  values: { buy, buyNothing: { _tag: "Buy", paymentMethodId: "" }, start },
+  values: { subscribe, subscribeNothing, start, cancel },
   controls: [],
   steps: (story) =>
     story
-      .send(checkout, start)
-      .send(buyNow, buy)
-      .send(buyNow, { _tag: "Buy", paymentMethodId: "" })
-      .send(checkout, { _tag: "Leave" }),
+      .send(renewalPay, start)
+      .send(subscription, subscribe)
+      .send(subscription, subscribeNothing)
+      .send(subscription, cancel),
 });

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
-import { docsRepo, mirrorA, mirrorB, statusA } from "../../fixtures/sync/app.ts";
+import { docsRepo, mirrorA, mirrorB, replicaA, statusA } from "../../fixtures/sync/app.ts";
 import {
   mirrorChainWithStatus,
   mirrorImportsRef,
   mirrorLoop,
   mirrorStory,
+  replicaLoop,
   repoCommits,
 } from "../../fixtures/sync/stories/sends.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
@@ -61,5 +62,16 @@ describe("the loop guard (Actors R13, I20)", () => {
     expect(arrived.read(mirrorA)?.memory["seen"]).toBe(HALF + 1);
     expect(arrived.read(mirrorB)?.memory["seen"]).toBe(HALF);
     expect(arrived.read(statusA)?.memory["seen"]).toBe(HALF + 1);
+  });
+
+  it.fails("Actors R13, I20: sends made by onContext turns count: a replica pushing each commit its mirror takes, through a context update, to a mirror forwarding back is stopped at the loop guard, the replica's turn refused", async () => {
+    const run = checked(await replicaLoop.run());
+    const stopped = run.checkpoints.stopped;
+
+    expect(refusedTurns(stopped, replicaA)).toHaveLength(1);
+    expect(refusedTurns(stopped, mirrorB)).toEqual([]);
+    expect(stopped.read(replicaA)?.memory["pushed"]).toBe(HALF);
+    expect(stopped.read(mirrorB)?.memory["seen"]).toBe(HALF);
+    expect(stopped.read(mirrorA)?.memory["seen"]).toBe(HALF + 1);
   });
 });

@@ -148,9 +148,9 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     `PayWith` sends `CardChosen` then `PayRequested` to `Checkout/Pay` (one event and one handler added: the product
     pays from its pay step). From step 2,
     `AddressForm` is a trait on its address step and `ThreeDSecure` a `subroutine` in its pay step.
-  - `BuyNow` (step 1), shared, unpersisted: the product page's one-click button; `Buy` sends `CardChosen` then
-    `PayRequested` to `Checkout/Pay`. It holds no context binding to Pay, so the send table's persisted rows have a
-    target that can end, be forgotten or be disposed.
+  - `Subscription` (step 1), shared, persisted: a weekly box; each week its schedule's `Due` sends `CardChosen` then
+    `PayRequested` to its renewal's `Checkout/Pay`. It reads nothing of that Pay, so the send table's persisted rows
+    have a target that can end, be forgotten or be disposed (`CheckoutFlow` binds its Pay as context, a use).
   - `ProductPage` (step 18), local, server rendered.
 - **Operations:**
   - R: `intentStatus` (have), `orderForCart` (have), `product` (step 4), `cart` (step 4), `addressLookup` (step 4).
@@ -174,8 +174,8 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     `S.previous.history` (Back into `CheckoutFlow`'s shipping step restores its sub-step); `Flow.input` value-named
     actors (`Cart`, named by shopper); guards, `deny`, `check` (`CheckoutFlow` checks the cart isn't empty); `context`,
     `onContext`, `Provider.select` (`Cart` and `CheckoutFlow` ⇠ `shopper`); `ConflictingActorRef`, duplicate `.each`
-    key, missing service (a second `Cart` ref with another shopper, refused); `send(ref, event)` (`CheckoutFlow` and `BuyNow` send
-    `CardChosen` and `PayRequested` to `Checkout/Pay`); `latest`, `Superseded` (T `setQuantity`, `latest` per line key);
+    key, missing service (a second `Cart` ref with another shopper, refused); `send(ref, event)` (`CheckoutFlow` and `Subscription`
+    send `CardChosen` and `PayRequested` to `Checkout/Pay`); `latest`, `Superseded` (T `setQuantity`, `latest` per line key);
     `notSent:`, `otherwise`, `Flow.ignore`, mapper `Defect` (T `addLine` maps `notSent:` to a line error).
   - **step 2:** `trait` (`AddressForm` on `CheckoutFlow`'s address step); `subroutine` with exits (`ThreeDSecure` in
     `CheckoutFlow`'s pay step); `.each({ of, max, by })` (`CartLine` ◂ `Cart`); raise into copies ("clear cart" raised
@@ -249,14 +249,15 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       @task.V3.T30, needs server rendering.
     - [x] `CheckoutFlow` sends `CardChosen` and `PayRequested` to `Checkout/Pay`. No source. built:
       `shop/checkout-sends`, inverted (Actors R16), owner @task.V3.T96.
-    - [x] The send table's persisted rows through `BuyNow`: kept by work in flight, ended and restored (work in
-      flight, then the grace), restored with a held unknown delivered first, never created, forgotten, a record that
-      does not decode, ending with its last write unacknowledged, being disposed. No source. built:
-      `shop/buy-busy-checkout`, `shop/buy-ended-checkout`, `shop/buy-unsure-checkout`, `shop/buy-unopened-checkout`,
-      `shop/buy-forgotten-checkout`, `shop/buy-damaged-checkout`, `shop/buy-ending-checkout`,
-      `shop/buy-disposing-checkout`, inverted (Actors R16, I14), owner @task.V3.T96.
-    - [ ] A send from a turn the boot runs (a persisted actor while the Runtime boots). left: no kept app has a
-      persisted sender owed an ending at boot; the user's call (@task.V3.T96 comment).
+    - [x] The send table's persisted rows through `Subscription`'s renewal: kept by work in flight, ended and restored
+      (work in flight, then the grace), restored with a held unknown delivered first, never created, forgotten, a
+      record that does not decode, ending with an unwritten change the next incarnation holds, being disposed. No
+      source. built: `shop/renewal-busy-pay`, `shop/renewal-ended-pay`, `shop/renewal-unsure-pay`,
+      `shop/renewal-unopened-pay`, `shop/renewal-forgotten-pay`, `shop/renewal-damaged-pay`,
+      `shop/renewal-ending-pay`, `shop/renewal-disposing-pay`, inverted (Actors R16, I14), owner @task.V3.T96.
+    - [ ] A send to a persisted actor while the Runtime boots, queued. left: @task.V3.T99, needs a persisted sender
+      owed an ending at boot.
+    - [ ] A send to a lazy entry not adopted, dropped NotAdopted. left: @task.V3.T48, needs lazy entries.
   - [x] **Variety:** a full checkout (`shop/checkout-steps`) against `cells`' one-click (`cells/usual`); a guest shopper
     (`shop/guest-browse`) against a signed-in one (`shop/browse`). built.
   - **Findings:**
@@ -370,6 +371,8 @@ retry.
   - `Git/Mirror` (step 1), shared, named by remote, unpersisted: forwards each push to its upstream mirror until the
     push's hop count reaches its time to live. Two mirrors linked to each other are the loop guard's runaway chain.
   - `Git/MirrorStatus` (step 1), shared, ⇠ a mirror's count, so each hop is also a context update.
+  - `Git/Replica` (step 1), shared, ⇠ a mirror's count and last commit; its `onContext` turn pushes each new commit
+    to its upstream mirror, so a send made by an `onContext` turn is in a runaway chain.
   - `RateLimit` (step 2), a trait on `Repo`.
 - **Operations:** T `sync` (have); R `remoteHead` (have); S `headPushes` (step 12, `latest`, into `Repo`).
 - **Journeys:**
@@ -405,8 +408,9 @@ retry.
     R16), owner @task.V3.T96.
   - [x] Loop guard: two mirrors forwarding to each other stop at `RuntimeDefaults.loopGuard`; a chain of exactly the
     guard with a context update at each hop is never refused; an import of a branch name where a commit belongs is
-    refused on the sender. No source. built: `sync/mirror-loop`, `sync/mirror-chain-with-status`,
-    `sync/mirror-imports-ref`, inverted (Actors R13, I20), owner @task.V3.T96.
+    refused on the sender; a replica's `onContext` sends counted, stopping its loop at the guard. No source. built:
+    `sync/mirror-loop`, `sync/mirror-chain-with-status`, `sync/mirror-imports-ref`, `sync/replica-loop`, inverted
+    (Actors R13, I20), owner @task.V3.T96.
   - [ ] **Findings:** a 4xx that isn't a rate limit is not retried. Copies [liveRetry.unit.test.ts:27][kp-retry] "does
     NOT retry a genuine 4xx app error". left: needs a `BadRequest` failure on `Git/sync`, an edit to an old contract
     this row does not allow; the user's call.
@@ -501,8 +505,9 @@ kamp.us for rows restored after a failure.
   - [x] **Variety:** a shared account against a form of its own. built: `transfers/check-and-send`.
   - [ ] **Variety:** a local form. left: @task.V3.T76, needs a Story word that drives a `createActor` actor
     (`Story.machine`); the form is shared until then.
-  - [x] `Customer` sends `Send` to the source account: cut (the orchestrator, 2026-11-19). It repeats shop's
-    one-to-one command shape, and `send` is a rare escape hatch.
+  - [x] `Customer` sends `Send` to the source account: cut (the orchestrator, 2026-11-19). `TransfersMachine` takes
+    no input, so it is named by a literal (Actors R5) and a send to an account held in memory does not type-check;
+    naming it by value changes its identity, which additive growth forbids.
   - **Standing orders (@task.V3.T81):**
     - [x] Usual: the rent planned from a date, paused until one, reloaded and resumed; a plan over the balance
       returns to the draft. Shaped on [ban.unit.test.ts:36][kp-ban] "permanent ban (no expiry) → banned, carries
@@ -865,6 +870,7 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
   - [x] L1 × 16 rooms playing at once under L5 (bursts of seeks). built: `player/sixteen-rooms`.
   - [x] `Household` plays a group of rooms together, one room at a time by a send to itself. No source. built:
     `player/group-play`; S2 × 64: `player/group-of-64`; forty plays past the guard in total: `player/group-replays`;
+    one play whose sends pass the guard though its chain does not: `player/group-past-guard`;
     a room in its grace, an ended unpersisted room, a disposed and an unopened room, a room name with no encoded
     form: `player/group-in-grace`, `player/group-room-ended`, `player/group-rooms-absent`, `player/group-bad-room`;
     inverted (Actors R13, R16, I25), owner @task.V3.T96.

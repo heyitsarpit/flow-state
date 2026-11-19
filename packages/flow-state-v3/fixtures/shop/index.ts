@@ -2,7 +2,7 @@ import { actorRef } from "../../src/index.ts";
 import { PayMachine } from "../services/shop/machines/pay.ts";
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { storeExpress, storeExpressSetup } from "./app.ts";
+import { storeSubscribed, storeSubscribedSetup } from "./app.ts";
 import {
   long,
   samples,
@@ -30,15 +30,15 @@ import {
 import { manyShoppers, quantityClicks } from "./stories/load.ts";
 import { samples as storeSamples } from "./stories/samples.ts";
 import {
-  buyBusyCheckout,
-  buyDamagedCheckout,
-  buyDisposingCheckout,
-  buyEndedCheckout,
-  buyEndingCheckout,
-  buyForgottenCheckout,
-  buyNowSamples,
-  buyUnopenedCheckout,
-  buyUnsureCheckout,
+  renewalBusyPay,
+  renewalDamagedPay,
+  renewalDisposingPay,
+  renewalEndedPay,
+  renewalEndingPay,
+  renewalForgottenPay,
+  renewalSamples,
+  renewalUnopenedPay,
+  renewalUnsurePay,
   checkoutSendSamples,
   checkoutSends,
 } from "./stories/sends.ts";
@@ -55,8 +55,8 @@ import {
  */
 export const shop = manifest({
   name: "shop",
-  setup: storeExpressSetup,
-  app: storeExpress,
+  setup: storeSubscribedSetup,
+  app: storeSubscribed,
   stories: {
     ...stories,
     flowBoundLate,
@@ -83,17 +83,17 @@ export const shop = manifest({
     oddRecordNames,
     borrowedRecordsReload,
     checkoutSends,
-    buyBusyCheckout,
-    buyEndedCheckout,
-    buyUnsureCheckout,
-    buyUnopenedCheckout,
-    buyForgottenCheckout,
-    buyDamagedCheckout,
-    buyEndingCheckout,
-    buyDisposingCheckout,
+    renewalBusyPay,
+    renewalEndedPay,
+    renewalUnsurePay,
+    renewalUnopenedPay,
+    renewalForgottenPay,
+    renewalDamagedPay,
+    renewalEndingPay,
+    renewalDisposingPay,
   },
-  samples: [samples, storeSamples, checkoutSendSamples, buyNowSamples],
-  stressSamples: [samples, storeSamples, checkoutSendSamples, buyNowSamples],
+  samples: [samples, storeSamples, checkoutSendSamples, renewalSamples],
+  stressSamples: [samples, storeSamples, checkoutSendSamples, renewalSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
@@ -104,10 +104,6 @@ export const shop = manifest({
     },
     {
       samples: storeSamples,
-      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
-    },
-    {
-      samples: checkoutSendSamples,
       reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
     },
   ],

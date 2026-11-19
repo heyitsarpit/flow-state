@@ -12,6 +12,7 @@ import {
   groupPlay,
   groupRoomEnded,
   groupReplays,
+  groupPastGuard,
   groupRoomsAbsent,
   householdSamples,
 } from "./stories/sends.ts";
@@ -41,6 +42,7 @@ export const player = manifest({
     groupBadRoom,
     groupOfSixtyFour,
     groupReplays,
+    groupPastGuard,
   },
   samples: [samples, timerSamples, householdSamples],
   stressSamples: [samples, timerSamples, householdSamples],

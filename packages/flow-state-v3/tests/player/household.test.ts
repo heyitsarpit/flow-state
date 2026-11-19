@@ -2,10 +2,12 @@ import { describe, expect, it } from "vite-plus/test";
 import { household, room } from "../../fixtures/player/app.ts";
 import {
   BUILDING,
+  FAN_OUT,
   GROUP,
   groupBadRoom,
   groupInGrace,
   groupOfSixtyFour,
+  groupPastGuard,
   groupPlay,
   groupRoomEnded,
   groupReplays,
@@ -23,6 +25,7 @@ import {
 } from "../actors/sends.ts";
 import { checked } from "../rules/rules.ts";
 import { played } from "../rules/played.ts";
+import { RuntimeDefaults } from "../../src/index.ts";
 
 const { idOf, is } = readerOf(homeStory("ids"));
 
@@ -103,5 +106,17 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
     expect(refusedTurns(end, household)).toEqual([]);
     expect(end.read(household)?.memory["started"]).toBe(REPLAYS * BUILDING);
     expect(end.read(room("room-0"))?.memory["trackId"]).toBe(`t${String(REPLAYS)}`);
+  });
+
+  it.fails("Actors R13, I20: one group play whose sends together pass the loop guard is stopped there, though its chain of Nexts is shorter than the guard: the guard counts every send of one admitted event, not a chain's length", async () => {
+    const run = checked(await groupPastGuard.run());
+    const stopped = run.checkpoints.stopped;
+    // PlayGroup sends one Next; each room's Next sends a Next and a Play.
+    const started = Math.floor((RuntimeDefaults.loopGuard - 1) / 2);
+
+    expect(FAN_OUT < RuntimeDefaults.loopGuard).toBe(true);
+    expect(refusedTurns(stopped, household)).toHaveLength(1);
+    expect(stopped.read(household)?.memory["started"]).toBe(started);
+    expect(droppedSends(run)).toHaveLength(started);
   });
 });

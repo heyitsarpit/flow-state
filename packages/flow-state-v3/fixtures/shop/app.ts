@@ -6,7 +6,7 @@ import { CartMachine } from "./machines/cart.ts";
 import { CartBadgeMachine } from "./machines/cart-badge.ts";
 import { CheckoutFlowMachine } from "./machines/checkout-flow.ts";
 import { ShopperMachine } from "./machines/shopper.ts";
-import { BuyNowMachine } from "./machines/buy-now.ts";
+import { SubscriptionMachine } from "./machines/subscription.ts";
 import { ShopLive } from "../services/shop/adapters/shop.ts";
 
 /**
@@ -110,24 +110,29 @@ export const storeSetup = runtimeSetup({
 });
 
 /**
- * The product page's one-click buy button.
+ * The weekly box subscription of this device's shopper.
  */
-export const buyNow = actorRef(BuyNowMachine, "buy-now");
+export const subscription = actorRef(SubscriptionMachine, "weekly");
 
 /**
- * The shop grown with the product page's one-click buy button.
+ * The Pay the subscription renews through, apart from the cart's checkout.
  */
-export const storeExpress = app({
+export const renewalPay = actorRef(PayMachine, "renewal");
+
+/**
+ * The shop grown with the weekly box subscription.
+ */
+export const storeSubscribed = app({
   id: "shop",
-  machines: { ...store.machines, buyNow: BuyNowMachine },
+  machines: { ...store.machines, subscription: SubscriptionMachine },
 });
 
 /**
  * The grown shop's real setup: the payments and cart services over HTTP, persisted, each capture
  * written at once.
  */
-export const storeExpressSetup = runtimeSetup({
-  app: storeExpress,
+export const storeSubscribedSetup = runtimeSetup({
+  app: storeSubscribed,
   services: Layer.mergeAll(ShopLive("https://shop.example"), CartLive("https://cart.example")),
   scope: "shop",
   persistence: { captureMs: 0 },

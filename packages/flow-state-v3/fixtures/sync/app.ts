@@ -2,7 +2,7 @@ import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { GitLive } from "../services/git/adapters/git.ts";
 import { SyncMachine } from "./machines/sync.ts";
 import { RepoMachine } from "./machines/repo.ts";
-import { MirrorMachine, MirrorStatusMachine } from "./machines/mirror.ts";
+import { MirrorMachine, MirrorStatusMachine, ReplicaMachine } from "./machines/mirror.ts";
 
 /**
  * The sync app: one machine.
@@ -79,7 +79,12 @@ export const gitGrownSetup = runtimeSetup({
 });
 
 /**
- * The Git app grown further with push mirrors and a mirror's status line.
+ * The replica that follows mirror `a`.
+ */
+export const replicaA = actorRef(ReplicaMachine, "replica-a");
+
+/**
+ * The Git app grown further with push mirrors, a mirror's status line and a replica of a mirror.
  */
 export const gitMirrored = app({
   id: "git",
@@ -88,6 +93,7 @@ export const gitMirrored = app({
     repo: { machine: RepoMachine, context: { head: client, cooling: client } },
     mirror: MirrorMachine,
     status: { machine: MirrorStatusMachine, context: { seen: mirrorA } },
+    replica: { machine: ReplicaMachine, context: { taken: mirrorA } },
   },
 });
 
