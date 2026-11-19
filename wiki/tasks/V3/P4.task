@@ -3063,3 +3063,9 @@ tasks
             StoryRun helpers, a guard's state as string. Guard: turn on the type-aware no-unsafe-* lint rules (about 18
             fixes, 8 reasoned disables); noPropertyAccessFromIndexSignature and a type-coverage threshold are not worth
             it; T104's two-sided type tests stay the gate.
+        comment     2026-11-19T14:45:48Z
+            Method (user-prompted, 2026-11-19; delegated): type tests use Vitest's type testing
+            (https://vitest.dev/guide/testing-types): *.test-d.ts files with exact expectTypeOf(...).toEqualTypeOf<T>()
+            (fails on any, unknown, never or a looser record), run in the suite with --typecheck. Every @ts-expect-error
+            is paired with a positive exact assertion on the same parameter, so it cannot pass for the wrong reason; the
+            existing tests/types/*.compile.ts files are converted the same way.
