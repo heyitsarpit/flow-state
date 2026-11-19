@@ -1,9 +1,10 @@
-import { Option, Schema } from "effect";
+import { Option, Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { definition } from "../definition.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
 import { decodeRecords } from "./record.ts";
+import { FORMAT } from "./record-format.ts";
 
 const Feed = definition({
   id: "Test/Feed",
@@ -149,5 +150,56 @@ describe("format 2 records at the boot (Restore R5)", () => {
 
     expect(restored.quarantined).toEqual([]);
     expect(frame?.pipe(Option.map((f) => f.memory.get("heard")))).toEqual(Option.some(7));
+  });
+});
+
+const Watch = definition({
+  id: "Test/Watch",
+  persist: true,
+  states: ["SHOWN"],
+  events: {},
+  internalEvents: { Heard: {} },
+  memory: { heard: Flow.initial(Schema.Number, 0) },
+  context: {
+    count: Flow.context(Schema.Number, {
+      reads: { items: Feed.M.items },
+      select: ({ items }) => items.length,
+    }),
+  },
+});
+
+const WatchMachine = machine(Watch, ({ S, E, C }) => ({
+  default: S.SHOWN,
+  onContext: [C.count.change({ event: E.Heard })],
+  on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
+}));
+
+// A format-3 record whose reaction's baseline was read from a count of 1 while its slot last saw
+// 2: a baseline a `when` or mapper defect kept.
+const formatThree =
+  '{"context":{"count":{"machine":"Test/Feed","name":"f"}},"format":3,"graph":{},' +
+  '"machine":"Test/Watch","memories":[],"memory":{"heard":0},"name":"w",' +
+  '"reactions":[{"memory":null,"slots":{"count":{"value":1}}}],"schedules":[],' +
+  '"seen":{"count":2},"state":"SHOWN"}';
+
+// A restored record keeps each reaction's baseline as its slot's value, under `baselines`; the
+// field's name is the build's choice.
+// FLOW_STATE_ALLOW_UNKNOWN: a restored record, read for a field the build has yet to add.
+const baselinesOf = (record: unknown) =>
+  Predicate.hasProperty(record, "baselines") ? Option.some(record.baselines) : Option.none();
+
+describe("a reaction's baseline is its slot's value (Actors R18, Turn R22, Restore R5)", () => {
+  it.fails("Restore R5, Actors R18: the record format is 4, which saves each reaction's baseline as its slot's value only", () => {
+    expect(FORMAT).toBe(4);
+  });
+
+  it.fails("Restore R5, Actors R18: the format-3 step reads a reaction's baseline from its frame's value of the reaction's slot, so a kept baseline is neither lost nor made up", () => {
+    const restored = decodeRecords(
+      new Map([...machines, [WatchMachine.compiled.id, WatchMachine.compiled]]),
+      new Map([["actor/Test/Watch/w", formatThree]]),
+    );
+
+    expect(restored.quarantined).toEqual([]);
+    expect(baselinesOf(restored.records[0])).toEqual(Option.some([1]));
   });
 });

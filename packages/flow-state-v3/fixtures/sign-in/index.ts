@@ -1,6 +1,13 @@
 import { Option } from "effect";
 import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
-import { authTrusted, authTrustedSetup, sessionOf } from "./app.ts";
+import { authBannered, authBanneredSetup, sessionOf } from "./app.ts";
+import {
+  bannerLoadFails,
+  bannerNewAccount,
+  bannerReloaded,
+  bannerSamples,
+  bannerSignsIn,
+} from "./stories/context.ts";
 import {
   long,
   samples,
@@ -37,10 +44,14 @@ import {
  */
 export const signIn = manifest({
   name: "sign-in",
-  setup: authTrustedSetup,
-  app: authTrusted,
+  setup: authBanneredSetup,
+  app: authBannered,
   stories: {
     ...stories,
+    bannerSignsIn,
+    bannerNewAccount,
+    bannerLoadFails,
+    bannerReloaded,
     returnSavedLate,
     reloadedMidHandle,
     handleRetry,
@@ -66,8 +77,8 @@ export const signIn = manifest({
     deviceChain,
     signOutRetiredLink,
   },
-  samples: [samples, sessionSamples, deviceSamples],
-  stressSamples: [samples, sessionSamples, deviceSamples],
+  samples: [samples, sessionSamples, deviceSamples, bannerSamples],
+  stressSamples: [samples, sessionSamples, deviceSamples, bannerSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),

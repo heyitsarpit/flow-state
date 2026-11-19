@@ -1,8 +1,8 @@
 import { actorRef } from "../../src/index.ts";
 import { PayMachine } from "../services/shop/machines/pay.ts";
 import { Option } from "effect";
-import { manifest } from "../manifest.ts";
-import { storeSubscribed, storeSubscribedSetup } from "./app.ts";
+import { benchStress, benchTurn, manifest } from "../manifest.ts";
+import { storePulsing, storePulsingSetup } from "./app.ts";
 import {
   long,
   samples,
@@ -31,7 +31,7 @@ import {
   unreadableName,
   waitsWhileBusy,
 } from "./stories/findings.ts";
-import { manyShoppers, quantityClicks } from "./stories/load.ts";
+import { manyShoppers, pulseBurst, quantityClicks } from "./stories/load.ts";
 import { samples as storeSamples } from "./stories/samples.ts";
 import {
   renewalBusyPay,
@@ -48,6 +48,7 @@ import {
   checkoutSendSamples,
   checkoutSends,
 } from "./stories/sends.ts";
+import { pulseAdds, pulseReloadMidAdd, pulseReloaded, pulseSamples } from "./stories/context.ts";
 import {
   chain,
   flowBoundLate,
@@ -61,8 +62,8 @@ import {
  */
 export const shop = manifest({
   name: "shop",
-  setup: storeSubscribedSetup,
-  app: storeSubscribed,
+  setup: storePulsingSetup,
+  app: storePulsing,
   stories: {
     ...stories,
     flowBoundLate,
@@ -103,9 +104,13 @@ export const shop = manifest({
     unsurePayRemoved,
     renewalDisposingDamagedPay,
     forgottenRetiredAuthorization,
+    pulseAdds,
+    pulseBurst,
+    pulseReloaded,
+    pulseReloadMidAdd,
   },
-  samples: [samples, storeSamples, checkoutSendSamples, renewalSamples],
-  stressSamples: [samples, storeSamples, checkoutSendSamples, renewalSamples],
+  samples: [samples, storeSamples, checkoutSendSamples, renewalSamples, pulseSamples],
+  stressSamples: [samples, storeSamples, checkoutSendSamples, renewalSamples, pulseSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
@@ -126,6 +131,6 @@ export const shop = manifest({
   bench: {
     probe: (n) => actorRef(PayMachine, `checkout-${String(n)}`),
     persist: Option.some(() => long),
-    stories: [],
+    stories: [benchStress(benchTurn(() => pulseBurst))],
   },
 });

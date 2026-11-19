@@ -1,8 +1,8 @@
-import type { Duration, Option } from "effect";
+import type { Duration, Option, Schema } from "effect";
 import type { Action, Denial, Guard, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import type { BoundInput, BoundKey, Ending } from "./contract.ts";
-import type { ChildrenOf, NamesOf, PayloadOf } from "./definition.ts";
+import type { ChildrenOf, ContextSlot, NamesOf, PayloadOf } from "./definition.ts";
 import type { Entry } from "./flow.ts";
 import type { GuardArg, SelectArg } from "./handles.ts";
 import type { SendToken } from "./send.ts";
@@ -229,4 +229,101 @@ export type StateConfig<
 export type RootToken<L extends string = string, C extends string = string> = {
   // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: child is the name, otherwise undefined
   child(read: StateRead<L>): C | undefined;
+};
+
+/**
+ * A public memory field of a definition, read as context (`X.M.field`): its value's type `V`, its
+ * definition's id `Id` and what a ref to its provider must have, `P`.
+ */
+export type MemoryToken<V = unknown, Id extends string = string, P = unknown> = {
+  readonly "~flow": "memory";
+  readonly "~field": string;
+  // FLOW_STATE_ALLOW_UNKNOWN: the encoded side of a field's Schema is the field's own.
+  readonly schema: Schema.Codec<V, unknown>;
+  // A phantom type: the definition that made the token.
+  readonly "~definition"?: Id;
+  // A phantom type: the provider's state tree and memory, which the wiring's ref must have.
+  readonly "~provider"?: P;
+};
+
+/**
+ * A definition's current state name, read as context (`X.state`): one of its leaf paths `L`.
+ */
+export type StateNameToken<L extends string = string, Id extends string = string, P = unknown> = {
+  readonly "~flow": "stateName";
+  readonly schema: Schema.Codec<L, string>;
+  // A phantom type: the definition that made the token.
+  readonly "~definition"?: Id;
+  // A phantom type: the provider's state tree and memory, which the wiring's ref must have.
+  readonly "~provider"?: P;
+};
+
+/**
+ * What a derived slot may read: a memory field, a state (true while the provider is in it or
+ * below it) or the state's name.
+ */
+export type ReadToken = { readonly "~flow": "memory" | "stateName" | "state" };
+
+/**
+ * The value a read gives a derived slot's select.
+ */
+export type ValueOfRead<T> =
+  T extends MemoryToken<infer V>
+    ? V
+    : T extends StateNameToken<infer L>
+      ? L
+      : T extends { readonly "~flow": "state" }
+        ? boolean
+        : never;
+
+type ProviderOfRead<T> = T extends { readonly "~provider"?: infer P }
+  ? Exclude<P, undefined>
+  : never;
+
+type ReadValues<R> = { readonly [K in keyof R]: ValueOfRead<R[K]> };
+
+/**
+ * `Flow.context`: a context slot read from one provider's tokens.
+ */
+export type ContextOfTokens = {
+  <V, Id extends string, P>(token: MemoryToken<V, Id, P>): ContextSlot<V, P>;
+  <L extends string, Id extends string, P>(token: StateNameToken<L, Id, P>): ContextSlot<L, P>;
+  (token: StateToken): ContextSlot<boolean>;
+  <V, I, const R extends Readonly<Record<string, ReadToken>>>(
+    schema: Schema.Codec<V, I>,
+    spec: {
+      readonly reads: R;
+      // FLOW_STATE_ALLOW_UNKNOWN: a select's result, checked by the slot's Schema when selected.
+      readonly select: (values: ReadValues<R>) => unknown;
+    },
+    // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- a slot's phantom provider is the optional key ContextSlot declares
+  ): ContextSlot<V, ProviderOfRead<R[keyof R]>>;
+};
+
+/**
+ * A reaction to a slot's change, as `C.slot.change` makes it.
+ */
+export type Change = {
+  readonly "~flow": "change";
+  readonly slot: string;
+  // FLOW_STATE_ALLOW_UNKNOWN: the authored spec, read by the machine that receives it.
+  readonly spec: unknown;
+};
+
+/**
+ * What `C.slot.change` takes: when a change counts, and the event it enqueues.
+ */
+export type ChangeSpec<Memory, Id extends string> = {
+  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: with no when, every change enqueues the event
+  readonly when?: (current: never, previous: never, extra: { readonly memory: Memory }) => boolean;
+  readonly event: Ending<never, Id>;
+};
+
+/**
+ * A machine's context tokens: one per declared slot, each with `.change`.
+ */
+export type ContextTokens<Cx, Memory, Id extends string> = {
+  readonly [K in keyof Cx & string]: {
+    readonly change: (spec: ChangeSpec<Memory, Id>) => Change;
+  };
 };

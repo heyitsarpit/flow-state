@@ -4,6 +4,7 @@ import { CartLive } from "./adapters/carts.ts";
 import { PayMachine } from "../services/shop/machines/pay.ts";
 import { CartMachine } from "./machines/cart.ts";
 import { CartBadgeMachine } from "./machines/cart-badge.ts";
+import { CartPulseMachine } from "./machines/cart-pulse.ts";
 import { CheckoutFlowMachine } from "./machines/checkout-flow.ts";
 import { ShopperMachine } from "./machines/shopper.ts";
 import { SubscriptionMachine } from "./machines/subscription.ts";
@@ -133,6 +134,33 @@ export const storeSubscribed = app({
  */
 export const storeSubscribedSetup = runtimeSetup({
   app: storeSubscribed,
+  services: Layer.mergeAll(ShopLive("https://shop.example"), CartLive("https://cart.example")),
+  scope: "shop",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The header's mini-cart of the main cart.
+ */
+export const mainPulse = actorRef(CartPulseMachine, "pulse-main");
+
+/**
+ * The grown shop with the header's mini-cart, which reads the main cart's lines and item count.
+ */
+export const storePulsing = app({
+  id: "shop",
+  machines: {
+    ...storeSubscribed.machines,
+    pulse: { machine: CartPulseMachine, context: { lines: mainCart, count: mainCart } },
+  },
+});
+
+/**
+ * The shop with the mini-cart: the payments and cart services over HTTP, persisted, each capture
+ * written at once.
+ */
+export const storePulsingSetup = runtimeSetup({
+  app: storePulsing,
   services: Layer.mergeAll(ShopLive("https://shop.example"), CartLive("https://cart.example")),
   scope: "shop",
   persistence: { captureMs: 0 },

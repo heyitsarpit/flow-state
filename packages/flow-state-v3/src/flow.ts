@@ -1,6 +1,7 @@
-import { Data, Effect, Predicate, type Schema } from "effect";
+import { Data, Effect, Option, Predicate, type Schema } from "effect";
 import type { Denial, Values } from "./core/compiled.ts";
 import { builder } from "./entry.ts";
+import type { ContextOfTokens } from "./tokens.ts";
 
 /**
  * A Schema that decodes and encodes with no services, as every Flow field does.
@@ -60,6 +61,91 @@ export type Entry = { readonly "~flow": "entry" };
 const entry: Entry = { "~flow": "entry" };
 
 /**
+ * How a token reads its provider's outside snapshot, kept by the token's identity.
+ */
+export type Reader = {
+  readonly provider: string;
+  readonly schema: Plain;
+  // FLOW_STATE_ALLOW_UNKNOWN: the value a read takes from the snapshot, typed at the token.
+  readonly read: (snapshot: { readonly state: string; readonly memory: Values }) => unknown;
+};
+
+const readers = new WeakMap<WeakKey, Reader>();
+
+/**
+ * Records how a token Flow made reads its provider.
+ */
+// RETURN_TYPE: the token as given, so its maker returns it in place.
+export const reading = <T extends WeakKey>(token: T, reader: Reader): T => {
+  readers.set(token, reader);
+
+  return token;
+};
+
+// FLOW_STATE_ALLOW_UNKNOWN: an authored token, recognised by identity.
+const readerOf = (token: unknown) =>
+  Predicate.isObject(token) ? Option.fromUndefinedOr(readers.get(token)) : Option.none<Reader>();
+
+// FLOW_STATE_ALLOW_UNKNOWN: a select's result, checked by the slot's Schema when it is selected.
+type Select = (values: Values) => unknown;
+
+// FLOW_STATE_ALLOW_UNKNOWN: a function an author passed as select, checked callable by its caller.
+const selectOf = (given: unknown) =>
+  // SAFETY: the select an author wrote for these reads, called with exactly their values.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a select's argument type is erased here and restored at its declaration
+  given as Select;
+
+// FLOW_STATE_ALLOW_UNKNOWN: an authored token or Schema, and a derived slot's spec.
+const contextSlot = (first: unknown, ...spec: ReadonlyArray<unknown>) => slotOf(first, spec[0]);
+
+// A derived slot's reads and select, read from its spec only when its definition decodes it.
+// FLOW_STATE_ALLOW_UNKNOWN: an authored spec, read by its fields.
+const derivedOf = (spec: unknown) => {
+  const reads =
+    Predicate.hasProperty(spec, "reads") && Predicate.isObject(spec.reads) ? spec.reads : {};
+
+  const given = Predicate.hasProperty(spec, "select") ? spec.select : undefined;
+  const select = Predicate.isFunction(given) ? selectOf(given) : () => undefined;
+
+  const known = Object.entries(reads).flatMap(([name, token]) =>
+    Option.match(readerOf(token), { onNone: () => [], onSome: (r) => [[name, r] as const] }),
+  );
+
+  return { select, known };
+};
+
+// A slot whose provider and select come from its tokens, read when its definition decodes it.
+// FLOW_STATE_ALLOW_UNKNOWN: an authored token or Schema, and an authored spec.
+const slotOf = (first: unknown, spec: unknown) =>
+  spec === undefined
+    ? Option.match(readerOf(first), {
+        onNone: () => ({
+          "~flow": "context",
+          provider: "",
+          schema: first,
+          select: () => undefined,
+        }),
+        onSome: (r) => ({
+          "~flow": "context",
+          provider: r.provider,
+          schema: r.schema,
+          select: r.read,
+        }),
+      })
+    : {
+        "~flow": "context",
+        get provider() {
+          return derivedOf(spec).known[0]?.[1].provider ?? "";
+        },
+        schema: first,
+        select: (snapshot: { readonly state: string; readonly memory: Values }) => {
+          const { select, known } = derivedOf(spec);
+
+          return select(Object.fromEntries(known.map(([name, r]) => [name, r.read(snapshot)])));
+        },
+      };
+
+/**
  * Flow's markers for definitions and schedules.
  *
  * **When to use**
@@ -99,6 +185,12 @@ export const Flow = {
     }),
   ),
   entry,
+  context: builder(
+    "Flow.context",
+    // SAFETY: each overload returns the ContextSlot its arguments declare; definition decodes it.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the overloads are the public contract
+    contextSlot as ContextOfTokens,
+  ),
 };
 
 /**

@@ -2,6 +2,7 @@ import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { GitLive } from "../services/git/adapters/git.ts";
 import { SyncMachine } from "./machines/sync.ts";
 import { RepoMachine } from "./machines/repo.ts";
+import { AutoPullMachine } from "./machines/auto-pull.ts";
 import { MirrorMachine, MirrorStatusMachine, ReplicaMachine } from "./machines/mirror.ts";
 
 /**
@@ -112,5 +113,29 @@ export const gitMirrored = app({
  */
 export const gitMirroredSetup = runtimeSetup({
   app: gitMirrored,
+  services: GitLive("https://git.example"),
+});
+
+/**
+ * The editor's auto-pull of the main client's head.
+ */
+export const autoPull = actorRef(AutoPullMachine, "editor");
+
+/**
+ * The mirrored Git app grown with the editor's auto-pull, which reads the main client.
+ */
+export const gitWatched = app({
+  id: "git",
+  machines: {
+    ...gitMirrored.machines,
+    autoPull: { machine: AutoPullMachine, context: { head: client, limited: client } },
+  },
+});
+
+/**
+ * The watched Git app's real setup: the Git host over HTTP.
+ */
+export const gitWatchedSetup = runtimeSetup({
+  app: gitWatched,
   services: GitLive("https://git.example"),
 });

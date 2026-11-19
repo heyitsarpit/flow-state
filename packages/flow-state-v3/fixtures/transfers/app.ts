@@ -4,6 +4,7 @@ import { AccountsLive } from "./adapters/accounts.ts";
 import { BankLive } from "./adapters/bank.ts";
 import { TransfersMachine } from "./machines/transfers.ts";
 import { CustomerMachine } from "./machines/customer.ts";
+import { AccountSwitcherMachine } from "./machines/account-switcher.ts";
 import { TransferFormMachine } from "./machines/transfer-form.ts";
 import { StandingOrderMachine } from "./machines/standing-order.ts";
 
@@ -114,6 +115,35 @@ export const bankPlanned = app({
  */
 export const bankPlannedSetup = runtimeSetup({
   app: bankPlanned,
+  services: Layer.mergeAll(
+    BankLive("https://bank.example"),
+    AccountsLive("https://accounts.example"),
+  ),
+  scope: "bank",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The header's account switcher, bound to the main customer.
+ */
+export const switcher = actorRef(AccountSwitcherMachine, "switcher");
+
+/**
+ * The planned bank app grown with the header's account switcher.
+ */
+export const bankSwitching = app({
+  id: "bank",
+  machines: {
+    ...bankPlanned.machines,
+    switcher: { machine: AccountSwitcherMachine, context: { account: mainCustomer } },
+  },
+});
+
+/**
+ * The switching bank app's real setup, as the planned app's.
+ */
+export const bankSwitchingSetup = runtimeSetup({
+  app: bankSwitching,
   services: Layer.mergeAll(
     BankLive("https://bank.example"),
     AccountsLive("https://accounts.example"),

@@ -16,7 +16,14 @@ import {
   treeOf,
   unwrapPrivate,
 } from "./construction.ts";
-import type { Field, Input, Plain, Private, Uncertain } from "./flow.ts";
+import {
+  type Field,
+  type Input,
+  type Plain,
+  type Private,
+  reading,
+  type Uncertain,
+} from "./flow.ts";
 
 export type EventFields = Fields | Uncertain;
 
@@ -108,7 +115,14 @@ export type {
   WriteHandle,
 } from "./tokens.ts";
 
-import type { Handles, RootToken, StateRead, StateToken, StateTokens } from "./tokens.ts";
+import type {
+  Handles,
+  MemoryToken,
+  RootToken,
+  StateNameToken,
+  StateRead,
+  StateTokens,
+} from "./tokens.ts";
 
 import type { Tokens } from "./event-tokens.ts";
 
@@ -274,6 +288,14 @@ export type Definition<
       selector: (snapshot: ProviderSnapshot<LeavesOf<States>, OutsideOf<M>>) => NoInfer<V>,
     ) => ContextSlot<V, ProvidedBy<States, M>>;
   };
+  readonly M: {
+    readonly [K in keyof MemoryOf<M> & string]-?: MemoryToken<
+      MemoryOf<M>[K],
+      Id,
+      ProvidedBy<States, M>
+    >;
+  };
+  readonly state: StateNameToken<LeavesOf<States>, Id, ProvidedBy<States, M>>;
   readonly S: StateTokens<States, "", Id, LeavesOf<States>> & {
     readonly root: RootToken<LeavesOf<States>, NamesOf<States>>;
   };
@@ -306,15 +328,24 @@ const childUnder = (path: string, read: StateRead) => {
   return path === "" || atOrBelow(state, path) ? state.split(".")[depth] : undefined;
 };
 
-// RETURN_TYPE: the StateToken protocol: a target and a guard element with its reads.
-const stateToken = (path: string): StateToken => ({
-  "~flow": "state",
+// What a state token holds: its path and its reads, before it is recorded as a context read.
+const stateParts = (path: string) => ({
+  "~flow": "state" as const,
   "~path": path,
   is: entry(`S.${path}.is`, (read: StateRead) => atOrBelow(readOf(read), path)),
   child: entry(`S.${path}.child`, (read: StateRead) => childUnder(path, read)),
 });
 
-const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>) => {
+// A state token, recorded as a context read of its definition: true at the state or below it.
+// RETURN_TYPE: the token as given, with whatever its compound holds beside it.
+const asRead = <T extends { readonly "~path": string }>(token: T, id: string): T =>
+  reading(token, {
+    provider: id,
+    schema: Schema.Boolean,
+    read: (snapshot) => atOrBelow(snapshot.state, token["~path"]),
+  });
+
+const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>, id: string) => {
   const byPath = new Map(nodes.map((n) => [n.path, n]));
 
   // RETURN_TYPE: recursive: each state's token by name, a compound's children under it.
@@ -327,12 +358,15 @@ const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>)
         return [
           node?.name ?? path,
           kids.length === 0
-            ? stateToken(path)
-            : {
-                ...build(kids),
-                ...stateToken(path),
-                history: { "~flow": "history", "~path": path },
-              },
+            ? asRead(stateParts(path), id)
+            : asRead(
+                {
+                  ...build(kids),
+                  ...stateParts(path),
+                  history: { "~flow": "history", "~path": path },
+                },
+                id,
+              ),
         ];
       }),
     );
@@ -472,7 +506,32 @@ export const definition = entry(
           select: selector,
         })),
       },
-      S: trusted<Made["S"]>(tokenTree(tree.nodes, tree.top)),
+      M: trusted<Made["M"]>(
+        Object.fromEntries(
+          Object.entries(memory).map(([name, field]) => [
+            name,
+            reading(
+              { "~flow": "memory", "~field": name, schema: schemaOfField(field) },
+              {
+                provider: config.id,
+                schema: schemaOfField(field),
+                read: (snapshot) => snapshot.memory[name],
+              },
+            ),
+          ]),
+        ),
+      ),
+      state: trusted<Made["state"]>(
+        reading(
+          { "~flow": "stateName", schema: Schema.Literals(leaves) },
+          {
+            provider: config.id,
+            schema: Schema.Literals(leaves),
+            read: (snapshot) => snapshot.state,
+          },
+        ),
+      ),
+      S: trusted<Made["S"]>(tokenTree(tree.nodes, tree.top, config.id)),
       E,
       O: trusted<Made["O"]>(handles),
       Event: trusted<Made["Event"]>(Schema.Union(envelopes)),

@@ -6,6 +6,7 @@ import { SignInMachine } from "./machines/sign-in.ts";
 import { ReturnToMachine } from "./machines/return-to.ts";
 import { AuthSessionMachine } from "./machines/session.ts";
 import { TrustedDeviceMachine } from "./machines/trusted-device.ts";
+import { SessionBannerMachine } from "./machines/session-banner.ts";
 
 /**
  * The sign-in app: one machine.
@@ -104,6 +105,39 @@ export const authTrusted = app({
  */
 export const authTrustedSetup = runtimeSetup({
   app: authTrusted,
+  services: Layer.mergeAll(
+    AuthLive("https://auth.example"),
+    ProfileLive("https://profile.example"),
+  ),
+  scope: "auth",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The account bar's banner of the main session.
+ */
+export const mainBanner = actorRef(SessionBannerMachine, "banner");
+
+/**
+ * The sign-in app grown with the account bar's banner, which reads the main session's state.
+ */
+export const authBannered = app({
+  id: "auth",
+  machines: {
+    ...authTrusted.machines,
+    banner: {
+      machine: SessionBannerMachine,
+      context: { signedIn: mainSession, phase: mainSession },
+    },
+  },
+});
+
+/**
+ * The grown sign-in app's real setup: the auth and profile services over HTTP, persisted, each
+ * capture written at once.
+ */
+export const authBanneredSetup = runtimeSetup({
+  app: authBannered,
   services: Layer.mergeAll(
     AuthLive("https://auth.example"),
     ProfileLive("https://profile.example"),

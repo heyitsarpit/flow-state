@@ -2,7 +2,13 @@ import { actorRef } from "../../src/index.ts";
 import { TransfersMachine } from "./machines/transfers.ts";
 import { Option } from "effect";
 import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
-import { bankPlanned, bankPlannedSetup } from "./app.ts";
+import { bankSwitching, bankSwitchingSetup } from "./app.ts";
+import {
+  switcherEdges,
+  switcherRecent,
+  switcherReloaded,
+  switcherSamples,
+} from "./stories/context.ts";
 import {
   long,
   samples,
@@ -44,8 +50,8 @@ import {
  */
 export const transfers = manifest({
   name: "transfers",
-  setup: bankPlannedSetup,
-  app: bankPlanned,
+  setup: bankSwitchingSetup,
+  app: bankSwitching,
   stories: {
     ...stories,
     formBoundLate,
@@ -69,9 +75,12 @@ export const transfers = manifest({
     interruptCleanupFails,
     unsureAccountRemoved,
     forgottenRetiredWire,
+    switcherRecent,
+    switcherEdges,
+    switcherReloaded,
   },
-  samples: [samples, formSamples, orderSamples, plannedSamples],
-  stressSamples: [stressSamples, formSamples, orderSamples, plannedStressSamples],
+  samples: [samples, formSamples, orderSamples, plannedSamples, switcherSamples],
+  stressSamples: [stressSamples, formSamples, orderSamples, plannedStressSamples, switcherSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 45 },
   mix: Option.some({ usual: plannedSamples, stress: plannedStressSamples }),

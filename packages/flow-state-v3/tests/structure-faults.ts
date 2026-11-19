@@ -146,9 +146,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "    try: () => body({ S: definition.S, E: definition.E, O: definition.O }),",
-        replace:
-          "    try: () => [body({ S: definition.S, E: definition.E, O: definition.O }), body({ S: definition.S, E: definition.E, O: definition.O })][1],",
+        find: "      try: () => body(handed),",
+        replace: "      try: () => [body(handed), body(handed)][1],",
       },
     ],
   },

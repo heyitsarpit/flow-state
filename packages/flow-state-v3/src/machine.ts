@@ -23,10 +23,11 @@ import {
 import { bodyFindings } from "./config.ts";
 import { codecOf } from "./events.ts";
 import { flowErrorOf, invalid, raise, refuse } from "./error.ts";
-import { entry, inert } from "./entry.ts";
+import { builder, entry, inert } from "./entry.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { Ending, ErasedEnding } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
+import type { Change, ChangeSpec, ContextTokens } from "./tokens.ts";
 import { type Compile, nodesOf, tokenMaps } from "./compile-body.ts";
 
 type Parts<D> =
@@ -64,7 +65,11 @@ type StatesBody<D, L, P extends string> = {
   readonly [N in NamesOf<L>]?: NodeBody<D, ChildrenOf<L, N>, `${P}${N}.`>;
 };
 
-type NodeBody<D, C, P extends string> = [C] extends [never] ? LeafBody<D> : CompoundBody<D, C, P>;
+type NodeBody<D, C, P extends string> = ([C] extends [never]
+  ? LeafBody<D>
+  : CompoundBody<D, C, P>) & {
+  readonly onContext?: ReadonlyArray<Change>;
+};
 
 type CompoundBody<D, L, P extends string> = {
   readonly on?: Handlers<D>;
@@ -95,7 +100,7 @@ export type Reaction<D extends AnyDefinition> = {
 
 export type MachineBody<D extends AnyDefinition> = {
   readonly on?: Handlers<D>;
-  readonly onContext?: ReadonlyArray<Reaction<D>>;
+  readonly onContext?: ReadonlyArray<Reaction<D> | Change>;
   readonly default: StateToken<`${NamesOf<Parts<D>["Tree"]>}`, Parts<D>["Id"]>;
   readonly states?: StatesBody<D, Parts<D>["Tree"], "">;
 };
@@ -106,11 +111,14 @@ export type MachineBody<D extends AnyDefinition> = {
 export type AnyBody = {
   readonly default?: StateToken;
   readonly on?: Values;
-  readonly onContext?: ReadonlyArray<{
-    readonly select: (input: { readonly context: Values; readonly memory: Values }) => unknown;
-    readonly when?: (current: never, previous: never) => boolean;
-    readonly event: ErasedEnding;
-  }>;
+  readonly onContext?: ReadonlyArray<
+    | {
+        readonly select: (input: { readonly context: Values; readonly memory: Values }) => unknown;
+        readonly when?: (current: never, previous: never) => boolean;
+        readonly event: ErasedEnding;
+      }
+    | Change
+  >;
   readonly schedules?: Readonly<Record<string, ScheduleConfig<Values, Values>>>;
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
@@ -131,6 +139,34 @@ const erasedWhen = (when: (current: never, previous: never) => boolean) =>
 const tokenOf = (ending: ErasedEnding) =>
   // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own tokens by mark until its decode checks them by identity
   Predicate.hasProperty(ending, "~token") ? ending["~token"] : ending;
+
+// The reactions `C.slot.change` made, compiled to nothing until context slots are built.
+const changes = new WeakSet();
+
+// RETURN_TYPE: a type guard states the reaction kind it narrows to.
+const isChange = (reaction: WeakKey): reaction is Change => changes.has(reaction);
+
+// The `C` tokens of a definition's slots: one per slot, each with `.change`.
+const changeTokens = (slots: ReadonlyArray<string>) =>
+  Object.fromEntries(
+    slots.map((slot) => [
+      slot,
+      {
+        change: builder("C.change", (spec: ChangeSpec<Values, string>) => {
+          const change: Change = { "~flow": "change", slot, spec };
+
+          changes.add(change);
+
+          return change;
+        }),
+      },
+    ]),
+  );
+
+const trustedTokens = <T>(tokens: Values) =>
+  // SAFETY: one change token per declared slot, as ContextTokens types them.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the slots' value types are erased in the runtime tokens
+  tokens as T;
 
 const erasedBody = <B>(body: B) =>
   // SAFETY: MachineBody's records are On records and bodies over the definition's own events and states.
@@ -165,6 +201,7 @@ export const machine = entry(
       readonly S: D["S"];
       readonly E: D["E"];
       readonly O: D["O"];
+      readonly C: ContextTokens<D["context"], Parts<D>["Memory"], Parts<D>["Id"]>;
     }) => MachineBody<D>,
   ): Machine<D> => {
     // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own definitions by mark until its decode checks them by identity
@@ -188,8 +225,17 @@ export const machine = entry(
         ),
       ]);
 
+    const handed = {
+      S: definition.S,
+      E: definition.E,
+      O: definition.O,
+      C: trustedTokens<ContextTokens<D["context"], Parts<D>["Memory"], Parts<D>["Id"]>>(
+        changeTokens(Object.keys(definition.context)),
+      ),
+    };
+
     const written = Result.try({
-      try: () => body({ S: definition.S, E: definition.E, O: definition.O }),
+      try: () => body(handed),
       // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
       catch: (cause: unknown) => cause,
     });
@@ -229,7 +275,9 @@ export const machine = entry(
 
     const compiledTree = nodesOf(compile, config, Option.none(), []);
 
-    for (const [at, reaction] of (config.onContext ?? []).entries())
+    const reactions = (config.onContext ?? []).flatMap((r) => (isChange(r) ? [] : [r]));
+
+    for (const [at, reaction] of reactions.entries())
       if (!compile.sends.has(tokenOf(reaction.event)))
         compile.findings.push(
           invalid(
@@ -276,7 +324,7 @@ export const machine = entry(
           },
         ]),
       ),
-      reactions: (config.onContext ?? []).map((reaction, at) => ({
+      reactions: reactions.map((reaction, at) => ({
         select: { slot: `onContext.${at}.select`, run: reaction.select },
         when: Option.map(Option.fromUndefinedOr(reaction.when), (when) => ({
           slot: `onContext.${at}.when`,

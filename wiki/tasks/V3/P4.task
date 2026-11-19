@@ -3850,7 +3850,7 @@ tasks
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@T104]
         description
@@ -3912,3 +3912,93 @@ tasks
             Record shape (orchestrator, 2026-11-20): Actors R18 now saves a reaction's baseline as its slot's value
             only, dropping the memory inputs it read; that changes the record format, so the build lines up with
             @task.V3.T56 and @task.V3.T92's record work before shipping it.
+        comment     2026-11-19T22:50:10Z
+            Requirements (20, one per acceptance item A1–A7 plus the record risk); 22 runtime checks are `it.fails` and
+            11 type lines are marked `wrong` in `tests/types/context.test-d.ts`, all red until the build. The API's
+            signature is a stub so fixtures compile: `Flow.context` maps onto today's slot, `C.slot.change` compiles to
+            nothing (`src/tokens.ts`, `src/flow.ts`, `src/definition.ts`, `src/machine.ts`, `src/config.ts`;
+            `tests/structure-faults.ts` re-pointed).
+            - A1 fixtures: the fixtures.md proof comments below.
+            - A2 Q1 `reads` of two providers, a state token of a second provider included, fails to compile (Compile
+              R19): wrong lines. The build must give S tokens a provider brand: today a state token's provider is
+              `unknown`, which absorbs the union and any ref.
+            - A2 Q2 a `Flow.private` field has no `M` token (Compile R19): wrong `void Cart.M.secret`, `today` keyof.
+            - A2 Q3 a select returning another type fails (Compile R4): wrong line.
+            - A2 Q4 `when` and a payload mapper typed by the slot (Turn R22): two wrong lines, `today` when type.
+            - A2 Q5 `.change` on an undeclared slot fails (Compile R19): a paired `@ts-expect-error`, green on
+              the signature.
+            - A2 Q6 two providers through a widened type: `InvalidConfiguration` at `context.count.reads.name` (Compile
+              R19, I18, T13): `tests/shop/context.test.ts`. Fault `context-mixed-provider` planted at build, `nub run
+              faults --only`.
+            - A2 Q7 the check compares definitions, not ids: a non-literal factory and a second definition under one id
+              are refused at the second read; T104's brand covers literal ids only (Compile R19):
+              `tests/actors/context-slots.test.ts`, type positive.
+            - A3 Q8–Q10 pass-through, state token (boolean), `X.state` (leaf path), derived reads (Compile R4, Actors
+              R18): shop, sign-in, transfers, sync Stories; type positives.
+            - A3 Q11 a turn changing none of a slot's reads runs no select (Actors R18, Turn T16): counting select in
+              `tests/actors/context-slots.test.ts`; fault `context-recompute-every-turn` at build;
+              bench `shop/stress-pulse-burst`.
+            - A3 Q12 admission, reload and return select every slot (Actors R9, R18): the three reload Stories.
+            - A4 Q13 `.change` takes `when(current, previous, { memory })` and `event` only; a declined change is still
+              the baseline; equal is silent (Turn R22, I28): `shop/pulse-adds` (4 Counted, 3 Grew), sync, sign-in.
+            - A4 Q14 `when` reads memory: `transfers/switcher-*`. A4 Q15 a payload from the slot's value: shop, sign-in.
+            - A4 Q16 a reaction whose event no state handles is refused at `onContext.0.event` (Compile R19, I18).
+            - A5 Q17 Compiled lists each slot's provider and reads and each reaction's slot; `dataView` test (Compile
+              R19, I18).
+            - A6 Q18 `Provider.select` and a reaction's own select are gone: wrong lines. Conversion inventory: 70
+              slots, 61 reactions. Five fixture reactions read memory beside a slot (`nests.ts` PinHeard, `inbox.ts`
+              Busy and three Archive reactions): their results are re-derived from Turn R22 at conversion, and Archive's
+              payload moves into its `on` handler. The diamond tests in `tests/actors/context.test.ts` (Pair, Both)
+              become one reaction per slot.
+            - A7 Q19 state-scoped `onContext`: one comparison on entry (recommended; the user's read):
+              `sync/auto-pull-paused`, `-unchanged`; a reaction in a state that does not handle its event is refused;
+              fault `context-scoped-entry-silent` at build.
+            - Risk Q20 record: format 4 saves a reaction's baseline as its slot's value, only where it differs from the
+              last-seen value (a defect kept it). Format 3's step reads it from the frame's value of the reaction's
+              slot, else last-seen; formats 1–2 chain through. Safe now: v3 has not shipped, so the package's tests hold
+              the only format-3 records. Checks: `src/core/actor-record.test.ts`. The user's read.
+        comment     2026-11-19T22:50:12Z
+            Context slot forms (Compile R4, R19; Actors R18): fixtures shop, sign-in, transfers, sync (changed);
+            machines `CartPulse`, `SessionBanner`, `AccountSwitcher`, `AutoPull`; usual `shop/pulse-adds`,
+            `sign-in/banner-signs-in`, `transfers/switcher-recent`, `sync/auto-pull-watching`; load L5
+            `shop/stress-pulse-burst`; structure S1 × 3 + S9 `shop/pulse-reloaded`, S7 `mixedProviderPulse` builder;
+            samples `shop-pulse` (E1, E6), `sign-in-banner` (E1, E3), `transfers-switcher` (E1, E3), `sync-auto-pull`
+            (E1, E3), E3 `largePulse`, E8 `shop/pulse-reload-mid-add`; combos persistence and reload (cart, session,
+            switcher), a held lane; workspace's 30 sites are converted in place; sources hydrogen
+            cart-tracker.test.ts:358 for the pulse, else none; red today: the dataView reads, the refusal, the skip.
+        comment     2026-11-19T22:50:13Z
+            `.change` with `when`, a payload and `{ memory }` (Turn R22, I28; Compile R19): machines `CartPulse` (`when`
+            current > previous, payload), `SessionBanner` (payload, `when` on a state token), `AccountSwitcher` (`when`
+            reads memory), `AutoPull` (`when`); usual `shop/pulse-adds`, `sign-in/banner-new-account`,
+            `transfers/switcher-recent`; load L5 `shop/stress-pulse-burst`; structure S9 `pulse-reloaded`,
+            `banner-reloaded`, `switcher-reloaded`, S7 `unhandledPulse` builder; samples as above, E4
+            `transfers/switcher-edges`; combos persistence, reload; sources none; red today: every reaction
+            (C.slot.change compiles to nothing).
+        comment     2026-11-19T22:50:15Z
+            State-scoped `onContext` experiment (Turn R22, Actors R9; Compile R4 to change if kept): fixture sync
+            (changed), machine `AutoPull`, journey pause while editing; usual `sync/auto-pull-paused`,
+            `sync/auto-pull-unchanged`; load none (left: the experiment is kept or rejected first); structure S7
+            `pausedPull` builder; samples `sync-auto-pull` (pause, resume, E1, E3); combos a top-level reaction beside
+            it; sources none; red today: all three tests.
+        comment     2026-11-19T22:50:16Z
+            Fixture review by 7 Haiku sidecars (expected results, stress and edges, combinations, registration,
+            cohesion, type tests, Specs). Each finding replayed or read by the lead. Accepted: E8's assertion did not
+            follow (rewritten ordering-agnostic, now a guard); the burst was not L5 (held answer added); `largePulse`
+            built on call, out of the sweep; `benchStress`; samples gained E6 past 2^53 and E1/E3 repository names;
+            `when`-decline-moves-baseline was unobservable (raise after lower, `turnsOf` counts added); sign-in and
+            transfers titles claimed what they did not test (retitled); type wrong lines were unpairable (rewritten as
+            statements with positives); the S-token provider hole (A2 Q1); shared `tests/refusals.ts`; temporary names
+            removed; refusal builders moved to `stories/structure.ts`, the burst to `stories/load.ts`. Changed: pairs
+            and mix unchanged, since each provider's sets are already swept and only `AccountSwitcher` persists (revisit
+            at the build). Rejected: "setups fail on Provider.select" (it still exists; the suite passes), "plain `it`
+            tests are red" (they pass), "AutoPull must call a server" (pulling is the editor's own view; Peek is the
+            call), "CartPulse duplicates CartBadge" (answered versus optimistic count), E8 in samples (the generator
+            adds reloads).
+        comment     2026-11-19T22:50:17Z
+            Proposed Spec changes (none edited): Compile R4, a pass-through takes any read token, and `onContext` may
+            sit in a state if the experiment stays; Compile R16, the data view lists slot reads and reaction slots;
+            Compile R19, the check compares definitions by identity, refusal paths `onContext.i.event` and
+            `states.<path>.onContext.i.event`; Actors R9, slots recompute and reactions compare; Actors R18, WriteAhead
+            R4, Restore R5, format 4 (Q20); Codec R6, "reaction inputs" become slot values; Turn R22, per-reaction
+            baselines and a never-selected slot's first value as a silent baseline; StaticCli R5, explain and graph show
+            provider field → slot → event edges (may route to @task.V3.T106).

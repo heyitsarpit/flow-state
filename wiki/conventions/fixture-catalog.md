@@ -153,6 +153,9 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
   - `Cart` (step 1), shared, named by shopper, ⇠ `shopper`. From step 2, `CartLine` ◂ `Cart` via `.each`.
   - `Cart` ⇢ its item count and whether it waits on the cart service (`count`, `busy`).
   - `CartBadge` (step 1), shared, ⇠ `cart`: the item count as context, bumping on each change.
+  - `CartPulse` (@task.V3.T107), shared, ⇠ `cart`: the mini-cart's lines (pass-through) and the count the shopper
+    sees, edits included before the service answers (derived from `lines` and `wanted`); pulses on a larger count
+    (`when`) and shows every count (a payload). Beside `CartBadge`, which counts answered items only.
   - `CheckoutFlow` (step 1), shared per cart, ⇠ `shopper`. Its steps are address → shipping → pay under `history`;
     ⇠ `count` and `busy` from `Cart`, and ⇠ `payment`: `Checkout/Pay`'s state, which ends the flow at PAID. Its
     `PayWith` sends `CardChosen` then `PayRequested` to `Checkout/Pay` (one event and one handler added: the product
@@ -206,6 +209,15 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
   - **step 18:** server rendering, hydration (`ProductPage`); `DehydrateCommitInFlight`, `DehydrateUnsettled`,
     `Hydration*` (a request rendered while `addLine` is in flight (`DehydrateCommitInFlight`)).
 - **Scenarios:**
+  - **Context forms** (@task.V3.T107; inverted tests in `tests/shop/context.test.ts` until built):
+    - [ ] Usual: pass-through, derived, `when`, payload; an equal count silent, a declined change still the
+      baseline. `shop/pulse-adds`. Copies [cart-tracker.test.ts:358][hy-track] "publishes product_added_to_cart
+      ... when quantity increases".
+    - [ ] L5: 64 edits while the first answer is held. `shop/stress-pulse-burst` (bench, stress).
+    - [ ] S1 × 3 with S9 at the mini-cart: silent after the reload. `shop/pulse-reloaded`. E8: a reload after a
+      lost add answer. `shop/pulse-reload-mid-add` (a guard; green on the signature).
+    - [ ] E3: 1,000 lines, the `largePulse` builder. S7: a slot of two providers, a reaction nothing handles, the
+      `mixedProviderPulse` and `unhandledPulse` builders. Samples `shop-pulse`: E1, E6.
   - **Usual:**
     - [x] Checkout with an unsure charge, a recheck, then an order. Source: Stripe's flow, not checked. built:
       `shop/lost-confirm`, `shop/usual`.
@@ -411,6 +423,9 @@ retry.
   - `Git/MirrorStatus` (step 1), shared, ⇠ a mirror's count, so each hop is also a context update.
   - `Git/Replica` (step 1), shared, ⇠ a mirror's count and last commit; its `onContext` turn pushes each new commit
     to its upstream mirror, so a send made by an `onContext` turn is in a runaway chain.
+  - `Git/AutoPull` (@task.V3.T107), shared, ⇠ the client's `head` (pass-through) and `COOLING` (a state token): pulls
+    a moved head into the editor while watching, its reaction declared in `WATCHING` (the state-scoped experiment);
+    shows each rate limit (`when`).
   - `RateLimit` (step 2), a trait on `Repo`.
 - **Operations:** T `sync` (have); R `remoteHead` (have); S `headPushes` (step 12, `latest`, into `Repo`).
 - **Journeys:**
@@ -430,6 +445,11 @@ retry.
   - **step 7:** release versions, saved-shape reset, migration (release 2 of `Repo`).
   - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `headPushes` into `Repo`).
 - **Scenarios:**
+  - **Context forms** (@task.V3.T107; inverted tests in `tests/sync/context.test.ts` until built):
+    - [ ] Usual: pulls while watching, a rate limit shown once. `sync/auto-pull-watching`. No source.
+    - [ ] State-scoped `onContext`: two moves while paused, one pull on resuming (one comparison on entry).
+      `sync/auto-pull-paused`; no move, no pull: `sync/auto-pull-unchanged`. S7: a reaction in a state that does not
+      handle its event, the `pausedPull` builder. Samples `sync-auto-pull`: E1, E3 repository names.
   - [x] **Usual:** sync, peek (have); a repository opened with a token reads its client's head and backoff. built:
     `sync/usual`, `sync/open-repo`.
   - [x] **Load:** L1 × 64 repositories on their own clients, every other one rate limited, every fourth answer lost
@@ -476,6 +496,8 @@ kamp.us for rows restored after a failure.
 - **Machines:**
   - `Bank/Transfers` (have), shared, named by account.
   - `Customer` (step 1), shared, ⇢ `customer`, holding refs to the accounts.
+  - `AccountSwitcher` (@task.V3.T107), shared, persisted, ⇠ `customer` (pass-through): lists the five accounts
+    chosen most recently, `when` reading its own memory to skip one already listed.
   - `TransferForm` (step 1), ⇠ `customer`, reading R `balance`; shared until a Story can drive a local actor
     (@task.V3.T76). From step 2, `StepUp` is a `subroutine` in it.
   - `ChequeDeposit` (step 4), shared, named by deposit, ⇠ `customer`.
@@ -522,6 +544,10 @@ kamp.us for rows restored after a failure.
   - **@task.V3.T81:** an event field whose Schema transforms (`StandingOrder`'s `DateFromString` dates); construction
     refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
+  - **Context forms** (@task.V3.T107; inverted tests in `tests/transfers/context.test.ts` until built):
+    - [ ] Usual: `when(current, previous, { memory })`. `transfers/switcher-recent`. No source.
+    - [ ] E1, E3, E4 (five, then seven accounts): `transfers/switcher-edges`. Reload: `transfers/switcher-reloaded`.
+      Samples `transfers-switcher`: E1, E3.
   - [x] **Usual:** send, decline, lose the answer, resend once, abandon (have); the form reads its customer's account
     and checks the balance before a send. built: `transfers/usual`, `transfers/declined`,
     `transfers/lost-then-reload`, `transfers/long`, `transfers/check-and-send`.
@@ -629,6 +655,8 @@ not checked here).
   - `AuthSession` (step 1), shared, persisted, ⇢ `session`, holding a ref to `Auth/SignIn`. From step 2, `Reauth`
     is a `subroutine` in it; from step 3 it hears `SignedIn`.
   - `ReturnTo` (step 1), shared, persisted, ⇠ `session`, holding the route and draft to resume.
+  - `SessionBanner` (@task.V3.T107), shared, ⇠ `session`'s `SIGNED_IN` (a state token) and its state (`X.state`):
+    shows each step (a payload) and welcomes once on signing in (`when`).
   - `PasswordSignIn` (step 7), shared, release 2.
   - `TrustedDevice` (@task.V3.T81), shared, persisted, named by device, ⇠ `session`; its `Trust.until` and
     `Seen.at` are `DateFromString` fields, the second nullable.
@@ -656,6 +684,10 @@ not checked here).
   - **@task.V3.T81:** an event field whose Schema transforms (`TrustedDevice`'s `DateFromString` dates);
     construction refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
+  - **Context forms** (@task.V3.T107; inverted tests in `tests/sign-in/context.test.ts` until built):
+    - [ ] Usual: state token and `X.state` reads. `sign-in/banner-signs-in`, `sign-in/banner-new-account`, a lost
+      read `sign-in/banner-load-fails`; silent after a reload `sign-in/banner-reloaded` (a guard). No source.
+      Samples `sign-in-banner`: E1, E3 handles, an empty email.
   - [x] **Usual:** sign in with a code (have). A retried handle save releases the held redirect. Copies
     [AuthPage.test.tsx:89][kp-auth] "retry on the stuck surface re-attempts and, on success, RELEASES the redirect".
     built: `sign-in/usual`, `sign-in/handle-retry`.

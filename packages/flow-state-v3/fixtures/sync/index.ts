@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import { benchStress, benchTurn, manifest } from "../manifest.ts";
-import { gitMirrored, gitMirroredSetup, clientOf } from "./app.ts";
+import { gitWatched, gitWatchedSetup, clientOf } from "./app.ts";
+import { pullPaused, pullSamples, pullUnchanged, pullWatching } from "./stories/context.ts";
 import {
   long,
   samples,
@@ -33,8 +34,8 @@ import {
  */
 export const sync = manifest({
   name: "sync",
-  setup: gitMirroredSetup,
-  app: gitMirrored,
+  setup: gitWatchedSetup,
+  app: gitWatched,
   stories: {
     ...stories,
     repoOpenedInBackoff,
@@ -55,9 +56,12 @@ export const sync = manifest({
     replicaLoop,
     replicasLoop,
     replicaPairs,
+    pullWatching,
+    pullPaused,
+    pullUnchanged,
   },
-  samples: [samples, repoSamples, mirrorSamples],
-  stressSamples: [samples, repoSamples, mirrorSamples],
+  samples: [samples, repoSamples, mirrorSamples, pullSamples],
+  stressSamples: [samples, repoSamples, mirrorSamples, pullSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),
