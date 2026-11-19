@@ -3,18 +3,20 @@ import { describe, expectTypeOf, it } from "vite-plus/test";
 import {
   actorRef,
   definition,
+  type Ending,
   Flow,
   machine,
   type Machine,
+  type ReadEndings,
   resource,
   send,
   transaction,
+  type UnknownEnding,
+  type WriteEndings,
 } from "../../src/index.ts";
 
-// Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
-// check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
-// `.not` of the narrow type, or the wide type itself) then fails too: make it the exact narrow
-// type. A positive assertion that holds today stays as it is.
+// Each wrong line is refused under `@ts-expect-error`; beside it the correct use of the same
+// parameter compiles and is asserted exactly, so no line fails because a type became `never`.
 
 type Declined = { readonly _tag: "Declined"; readonly code: string };
 
@@ -61,9 +63,11 @@ const internalEvents = {
 type PayEndings = Parameters<typeof pay.outcomes>[0];
 
 describe("Compile R9, WriteLanes R3: a write's endings take the commit's values", () => {
-  it("today success, unknown and each failure take one erased ending", () => {
-    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<PayEndings["unknown"]>();
-    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<PayEndings["failure"]["Declined"]>();
+  it("success takes the commit's value, each failure its error, unknown an uncertain event", () => {
+    expectTypeOf<PayEndings>().toEqualTypeOf<WriteEndings<Declined | Busy, Receipt>>();
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt>>();
+    expectTypeOf<PayEndings["failure"]["Declined"]>().toEqualTypeOf<Ending<Declined>>();
+    expectTypeOf<PayEndings["unknown"]>().toEqualTypeOf<UnknownEnding>();
   });
 
   it("a success token whose payload no value fills", () => {
@@ -74,8 +78,14 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
       internalEvents,
       operations: ({ E }) => ({
         p: pay.outcomes({
-          success: E.Got, // wrong: Got needs { cents }, and a bare token supplies nothing
-          failure: { Declined: E.Dec.from((e: Declined) => ({ code: e.code })), Busy: E.Busy },
+          // @ts-expect-error Compile R9: Got needs { cents }, and a bare token supplies nothing
+          success: E.Got,
+          failure: { Declined: E.Dec.from((e) => ({ code: e.code })), Busy: E.Busy },
+          unknown: E.Unsure,
+        }),
+        right: pay.outcomes({
+          success: E.Got.from((v) => ({ cents: v.receipt })),
+          failure: { Declined: E.Busy, Busy: E.Busy },
           unknown: E.Unsure,
         }),
       }),
@@ -92,15 +102,19 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
         certain: pay.outcomes({
           success: E.Busy,
           failure: { Declined: E.Busy, Busy: E.Busy },
-          unknown: E.Ok, // wrong: Ok is a certain event
+          // @ts-expect-error Compile R9: Ok is a certain event
+          unknown: E.Ok,
         }),
         filled: pay.outcomes({
           success: E.Busy,
           failure: { Declined: E.Busy, Busy: E.Busy },
-          unknown: E.Uncertain, // wrong: no value fills `why`
+          // @ts-expect-error Compile R9: no value fills `why`
+          unknown: E.Uncertain,
         }),
       }),
     });
+
+    expectTypeOf(internalEvents.Unsure).not.toBeNever();
   });
 
   it("a mapper whose parameter is not the commit's value", () => {
@@ -111,9 +125,11 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
       internalEvents,
       operations: ({ E }) => ({
         p: pay.outcomes({
-          success: E.Done.from((v: { receiptt: number }) => ({ receipt: v.receiptt })), // wrong
+          // @ts-expect-error Compile R9: a Receipt has no receiptt
+          success: E.Done.from((v: { receiptt: number }) => ({ receipt: v.receiptt })),
           failure: {
-            Declined: E.Dec.from((e: { readonly zzz: string }) => ({ code: e.zzz })), // wrong
+            // @ts-expect-error Compile R9: a Declined has no zzz
+            Declined: E.Dec.from((e: { readonly zzz: string }) => ({ code: e.zzz })),
             Busy: E.Busy,
           },
           unknown: E.Unsure,
@@ -138,7 +154,8 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
       internalEvents,
       operations: ({ E }) => ({
         p: pay.outcomes({
-          success: E.Done.from(() => ({ receipt: 1, reciept: 2 })), // wrong: `reciept`
+          // @ts-expect-error Compile R14: reciept is no field of Done
+          success: E.Done.from(() => ({ receipt: 1, reciept: 2 })),
           failure: { Declined: E.Busy, Busy: E.Busy },
           unknown: E.Unsure,
         }),
@@ -154,7 +171,8 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
           actions: [
             send(
               () => actorRef(TargetMachine, "t"),
-              Target.E.Credit.from(() => ({ cents: 1, cnets: 2 })), // wrong: `cnets`
+              // @ts-expect-error Compile R14: cnets is no field of Credit
+              Target.E.Credit.from(() => ({ cents: 1, cnets: 2 })),
             ),
             send(
               () => actorRef(TargetMachine, "t"),
@@ -177,16 +195,15 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
       operations: ({ E }) => ({
         p: pay.outcomes({
           success: E.Done.from((v) => {
-            expectTypeOf(v).not.toEqualTypeOf<Receipt>();
-            expectTypeOf(v).toBeNever();
+            expectTypeOf(v).toEqualTypeOf<Receipt>();
 
-            return { receipt: 1 };
+            return { receipt: v.receipt };
           }),
           failure: {
             Declined: E.Dec.from((e) => {
-              expectTypeOf(e).not.toEqualTypeOf<Declined>();
+              expectTypeOf(e).toEqualTypeOf<Declined>();
 
-              return { code: "x" };
+              return { code: e.code };
             }),
             Busy: E.Busy,
           },
@@ -196,7 +213,7 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
     });
   });
 
-  it("a write's failures are exhaustive today", () => {
+  it("a write's failures are exhaustive", () => {
     definition({
       id: "types/endings/E",
       states: ["A"],
@@ -218,13 +235,17 @@ describe("Compile R9, Reads R1: a read's failures are its lookup's tags, each ma
       events,
       internalEvents,
       operations: ({ E }) => ({
-        typo: look.outcomes({ success: E.Busy, failure: { Gon: E.Busy } }), // wrong: no Gon
-        none: look.outcomes({ success: E.Busy, failure: {} }), // wrong: Gone is unmapped
+        // @ts-expect-error Reads R1: Gon is no failure tag of the lookup
+        typo: look.outcomes({ success: E.Busy, failure: { Gon: E.Busy } }),
+        // @ts-expect-error Reads R1: Gone is unmapped
+        none: look.outcomes({ success: E.Busy, failure: {} }),
         right: look.outcomes({ success: E.Busy, failure: { Gone: E.Busy } }),
       }),
     });
 
-    expectTypeOf<keyof Parameters<typeof look.outcomes>[0]["failure"]>().toEqualTypeOf<string>();
+    expectTypeOf<Parameters<typeof look.outcomes>[0]>().toEqualTypeOf<
+      ReadEndings<Gone, { readonly cents: number }>
+    >();
   });
 });
 
@@ -232,17 +253,20 @@ describe("Turn R15, Compile R14: a schedule sends an event no value fills only i
   it("a schedule sending an event with a required field", () => {
     const Timed = definition({ id: "types/endings/Timed", states: ["A"], events, internalEvents });
 
-    machine(Timed, ({ S, E }) => ({
+    const right = machine(Timed, ({ S, E }) => ({
       default: S.A,
       states: {
         A: {
           schedules: {
-            bad: { schedule: "1 second", send: E.Need }, // wrong: no value fills `n`
+            // @ts-expect-error Turn R15: no value fills `n`
+            bad: { schedule: "1 second", send: E.Need },
             ok: { schedule: "1 second", send: E.Busy },
           },
         },
       },
     }));
+
+    expectTypeOf(right).toEqualTypeOf<Machine<typeof Timed>>();
   });
 });
 
@@ -252,9 +276,10 @@ declare const event: (typeof Events)["Event"]["Type"];
 
 describe("Compile R14: a definition's Event Schema decodes to its own events", () => {
   it("a misspelt tag on a decoded event", () => {
-    expectTypeOf(event._tag).not.toEqualTypeOf<"Ad" | "Go">();
-    expectTypeOf(event._tag).toEqualTypeOf<string>();
+    expectTypeOf(event._tag).toEqualTypeOf<"Ad" | "Go">();
 
-    void (event._tag === "Zzz"); // wrong: no such event
+    // @ts-expect-error Compile R14: Zzz is no event of the definition
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the wrong line the tag union refuses
+    void (event._tag === "Zzz");
   });
 });

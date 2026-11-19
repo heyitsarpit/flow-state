@@ -89,31 +89,9 @@ export type EventOf<D extends AnyDefinition> = {
   readonly [K in keyof D["events"] & string]: Envelope<K, PayloadOf<D["events"][K]>>;
 }[keyof D["events"] & string];
 
-/**
- * One event of a definition: a constructor of its envelope that checks the payload, and an ending
- * mapping (`E.X`, `E.X.from(f)`).
- */
-export type EventToken<Name extends string, P> = ((
-  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: a payload-free constructor takes no argument
-  ...payload: Record<never, never> extends P ? [payload?: P] : [payload: P]
-) => Envelope<Name, P>) &
-  Ending & {
-    readonly tag: Name;
-    readonly from: <V>(map: (value: V) => P) => MappedEvent<Name, V, P>;
-  };
+export type { EventToken, MappedEvent, Tokens } from "./event-tokens.ts";
 
-/**
- * An event token's mapping (`E.X.from(f)`): an ending's target, or a send's event, whose payload
- * `f` computes from a value of type `V`.
- */
-export type MappedEvent<Name extends string, V, P> = {
-  readonly ending: { readonly event: Name; readonly from: Option.Option<(value: V) => P> };
-};
-
-/**
- * A definition's event tokens, by tag.
- */
-export type Tokens<Ev> = { readonly [K in keyof Ev & string]: EventToken<K, PayloadOf<Ev[K]>> };
+import type { Tokens } from "./event-tokens.ts";
 
 /**
  * A state tree: leaf names, and single-key compounds holding their children's list.
@@ -295,7 +273,7 @@ export type On<M, Ev, S extends string, W = M> = {
 
 export type ScheduleConfig<M, Ev> = {
   readonly schedule: Duration.Input | ((input: { readonly memory: M }) => number);
-  readonly send: { readonly tag: keyof Ev & string } & Ending;
+  readonly send: { readonly tag: keyof Ev & string } & Ending<void>;
   readonly armOn?: ReadonlyArray<(keyof Ev & string) | Entry>;
 };
 
@@ -414,7 +392,10 @@ export type Definition<
   readonly S: StateTokens<States> & { readonly root: RootToken };
   readonly E: Tokens<Ev & In>;
   readonly O: Handles<O, MemoryOf<M>>;
-  readonly Event: Schema.Codec<Envelope, Values>;
+  readonly Event: Schema.Codec<
+    { readonly [K in keyof Ev & string]: Envelope<K, PayloadOf<Ev[K]>> }[keyof Ev & string],
+    Values
+  >;
   readonly State: Schema.Codec<LeavesOf<States>, string>;
   readonly Input: Schema.Codec<InputOf<M>, Values>;
   readonly Memory: Schema.Codec<MemoryOf<M>, Values>;

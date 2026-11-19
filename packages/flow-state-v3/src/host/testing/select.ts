@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import type { Evidence, EvidenceOf } from "../../core/evidence.ts";
-import type { Ending } from "../../contract.ts";
+import type { ErasedEnding } from "../../contract.ts";
 import type { AnyDefinition, ActorRef, LeavesOf, MemoryOf } from "../../definition.ts";
 import { definitionOfToken } from "../../events.ts";
 import { actorIdOf } from "../runtime.ts";
@@ -35,7 +35,7 @@ export type PublishedOf<D extends AnyDefinition> = Omit<
 type TokenOf<D extends AnyDefinition> = D["E"][keyof D["E"]];
 
 // Any definition's event token, whatever its payload: what a name string is not.
-type AnyToken = Ending & { readonly tag: string };
+type AnyToken = ErasedEnding & { readonly tag: string };
 
 /**
  * A selector of the evidence records one event of one definition names, by its token; with

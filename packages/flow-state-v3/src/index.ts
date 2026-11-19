@@ -3,7 +3,14 @@
  */
 export { resource, transaction } from "./contract.ts";
 
-export type { Resource, Transaction } from "./contract.ts";
+export type {
+  Ending,
+  ReadEndings,
+  Resource,
+  Transaction,
+  UnknownEnding,
+  WriteEndings,
+} from "./contract.ts";
 
 export type { Attempt } from "./core/compiled.ts";
 

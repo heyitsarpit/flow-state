@@ -24,7 +24,7 @@ import { codecOf } from "./events.ts";
 import { flowErrorOf, invalid, raise, refuse } from "./error.ts";
 import { entry, inert } from "./entry.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
-import type { Ending } from "./contract.ts";
+import type { ErasedEnding } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
 import { type Compile, nodesOf, tokenMaps } from "./compile-body.ts";
 
@@ -78,7 +78,7 @@ export type Reaction<D extends AnyDefinition> = {
   }) => unknown;
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: with no when, every changed selection enqueues the event
   readonly when?: (current: never, previous: never) => boolean;
-  readonly event: Ending;
+  readonly event: ErasedEnding;
 };
 
 export type MachineBody<D extends AnyDefinition> = {
@@ -97,7 +97,7 @@ export type AnyBody = {
   readonly onContext?: ReadonlyArray<{
     readonly select: (input: { readonly context: Values; readonly memory: Values }) => unknown;
     readonly when?: (current: never, previous: never) => boolean;
-    readonly event: Ending;
+    readonly event: ErasedEnding;
   }>;
   readonly schedules?: Readonly<Record<string, ScheduleConfig<Values, Values>>>;
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
@@ -116,7 +116,7 @@ const erasedWhen = (when: (current: never, previous: never) => boolean) =>
   when as (current: unknown, previous: unknown) => boolean;
 
 // The event token an ending names: E.X itself, or the token E.X.from(f) was made from.
-const tokenOf = (ending: Ending) =>
+const tokenOf = (ending: ErasedEnding) =>
   // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own tokens by mark until its decode checks them by identity
   Predicate.hasProperty(ending, "~token") ? ending["~token"] : ending;
 

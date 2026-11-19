@@ -17,18 +17,18 @@ import { admissionOf, codecOf } from "./events.ts";
 import type { Field as FieldMarker } from "./flow.ts";
 
 // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the commit's or lookup's own; the mapper is written for it.
-const endingValue = (value: unknown) =>
-  // SAFETY: the runtime passes each mapper the ending value of the operation it is declared on.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-escape-hatch-assertion -- an ending's value type is erased in Compiled and restored at its mapper
-  value as never;
+const endingValue = <V>(value: unknown) =>
+  // SAFETY: the runtime passes each mapper the ending value of the operation it is declared on, whose type the ending's own V names.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- an ending's value type is erased in Compiled and restored at its mapper
+  value as V;
 
 // RETURN_TYPE: the Compiled Mapping shape.
-export const mappingOf = (ending: Ending, slot: string): Mapping => ({
+export const mappingOf = <V>(ending: Ending<V>, slot: string): Mapping => ({
   event: ending.ending.event,
   from: Option.map(ending.ending.from, (map) => ({
     slot,
     // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's own; its mapper is written for it.
-    run: (value: unknown) => map(endingValue(value), {}),
+    run: (value: unknown) => map(endingValue<V>(value), {}),
   })),
 });
 

@@ -59,6 +59,9 @@ import {
  * `read(server)` is the server's truth. `read(endpoint)` is every call the endpoint received, in
  * arrival order, with its status.
  */
+// The snapshot a ref's read gives, one per definition when the ref is a union of refs.
+type SnapshotOf<R> = R extends ActorRef<infer D> ? Snapshot<D> : never;
+
 export type Cut<Ds extends AnyDefinition = AnyDefinition> = {
   readonly now: number;
   readonly inspection: RuntimeCut;
@@ -70,7 +73,7 @@ export type Cut<Ds extends AnyDefinition = AnyDefinition> = {
   readonly calls: ReadonlyArray<CallEntry & { readonly server: string; readonly endpoint: string }>;
   readonly read: {
     // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's read: undefined for an absent actor
-    <D extends Ds>(ref: ActorRef<D>): Snapshot<D> | undefined;
+    <R extends ActorRef<Ds>>(ref: R): SnapshotOf<R> | undefined;
     <I>(endpoint: EndpointHandle<I>): ReadonlyArray<CallEntry<I>>;
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom type: it carries the type for reads and holds no value
     <T>(server: { readonly "~server": AnyServer; readonly "~truth"?: T }): T;
