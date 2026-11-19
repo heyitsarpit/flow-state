@@ -14,12 +14,27 @@ import {
 import type { Fields, StructType } from "../../contract.ts";
 import type { Values } from "../../core/compiled.ts";
 import { type Bytes, type Purpose, type Store, StoreRefused } from "../host.ts";
-import { type At, mainTab, scriptFault, type Tab, WorldWord } from "./steps.ts";
+import { type At, type Cleanup, mainTab, scriptFault, type Tab, WorldWord } from "./steps.ts";
 
 /**
  * A fake call's answer was lost: the port fake maps it to the port's own error.
  */
 export class FakeLost extends Schema.TaggedError<FakeLost>()("FakeLost", {}) {}
+
+/**
+ * A fake call's cleanup failed as the call was interrupted: the typed error of `cleanup("fails")`.
+ */
+export class FakeCleanupFailed extends Schema.TaggedError<FakeCleanupFailed>()(
+  "FakeCleanupFailed",
+  { endpoint: Schema.String },
+) {}
+
+/**
+ * A fake call's cleanup died as the call was interrupted: the defect of `cleanup("dies")`.
+ */
+export class FakeCleanupDied extends Schema.TaggedError<FakeCleanupDied>()("FakeCleanupDied", {
+  endpoint: Schema.String,
+}) {}
 
 /**
  * What happened to one call of an endpoint.
@@ -115,6 +130,8 @@ export type EndpointHandle<I = Values> = {
   readonly lose: () => WorldWord;
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
   readonly drop: (options?: { readonly at?: At }) => WorldWord;
+  // How the endpoint's next held call cleans up once interrupted.
+  readonly cleanup: (outcome: Cleanup) => WorldWord;
 };
 
 /**
@@ -153,6 +170,7 @@ const endpointOf = (server: AnyServer, name: string): EndpointHandle => ({
   lose: () => WorldWord.wire({ server, endpoint: name, word: "lose", at: "response" }),
   drop: (options) =>
     WorldWord.wire({ server, endpoint: name, word: "drop", at: options?.at ?? "request" }),
+  cleanup: (outcome) => WorldWord.cleanup({ server, endpoint: name, outcome }),
 });
 
 type Held = {
@@ -170,16 +188,19 @@ type Logged = { readonly server: AnyServer; readonly endpoint: string; readonly 
 
 type Pending = { readonly word: "hold" | "drop"; readonly at: At; readonly step: number };
 
+type Armed = { readonly outcome: Cleanup; readonly step: number };
+
 /**
  * The fake servers between two steps, as `save` copies them: each server's truth, every call, the
- * wire words still waiting, the held calls, the handler faults, the answers whose waiter is gone,
- * each server's slot number and the network.
+ * wire words still waiting, the cleanups armed for the next held calls, the held calls, the
+ * handler faults, the answers whose waiter is gone, each server's slot number and the network.
  */
 export type ServersSaved = {
   // FLOW_STATE_ALLOW_UNKNOWN: each server's truth, of its own Schema.
   readonly truths: ReadonlyMap<AnyServer, unknown>;
   readonly log: ReadonlyArray<Logged>;
   readonly pending: ReadonlyMap<string, ReadonlyArray<Pending>>;
+  readonly cleanups: ReadonlyMap<string, ReadonlyArray<Armed>>;
   readonly held: ReadonlyArray<Held>;
   readonly faults: ReadonlyArray<string>;
   // FLOW_STATE_ALLOW_UNKNOWN: held answers whose waiter was interrupted, of their endpoints' own types.
@@ -195,6 +216,7 @@ export const noServers: ServersSaved = {
   truths: new Map(),
   log: [],
   pending: new Map(),
+  cleanups: new Map(),
   held: [],
   faults: [],
   gone: new Set(),
@@ -209,6 +231,7 @@ const serversOf = (saved: ServersSaved) => ({
   truths: new Map(saved.truths),
   log: [...saved.log],
   pending: new Map(Array.from(saved.pending, ([slot, left]) => [slot, Array.from(left)])),
+  cleanups: new Map(Array.from(saved.cleanups, ([slot, left]) => [slot, Array.from(left)])),
   held: [...saved.held],
   faults: [...saved.faults],
   gone: new Set(saved.gone),
@@ -227,7 +250,7 @@ export const makeWorld = (
   arrived: (index: number) => void,
   from: ServersSaved = noServers,
 ) => {
-  const { truths, log, pending, held, faults, gone, ids } = serversOf(from);
+  const { truths, log, pending, cleanups, held, faults, gone, ids } = serversOf(from);
   let { offline } = from;
 
   const slot = (server: AnyServer, endpoint: string) => {
@@ -263,11 +286,26 @@ export const makeWorld = (
       ),
     );
 
+  // A held call waits for its answer; interrupted, its waiter is gone, and the cleanup armed for it
+  // dies or fails.
   const wait = (entry: Held) => {
     held.push(entry);
+    const key = slot(entry.server, entry.endpoint);
+    const armed = Option.fromUndefinedOr(cleanups.get(key)?.shift());
+    const endpoint = `${entry.server.name}.${entry.endpoint}`;
+
+    const cleanup = Option.match(armed, {
+      onNone: () => Effect.void,
+      onSome: ({ outcome }) =>
+        outcome === "fails"
+          ? Effect.fail(new FakeCleanupFailed({ endpoint }))
+          : Effect.die(new FakeCleanupDied({ endpoint })),
+    });
 
     return Deferred.await(entry.answer).pipe(
-      Effect.onInterrupt(() => Effect.sync(() => void gone.add(entry.answer))),
+      Effect.onInterrupt(() =>
+        Effect.sync(() => void gone.add(entry.answer)).pipe(Effect.andThen(cleanup)),
+      ),
     );
   };
 
@@ -357,7 +395,7 @@ export const makeWorld = (
     });
 
   return {
-    save: () => serversOf({ truths, log, pending, held, faults, gone, ids, offline }),
+    save: () => serversOf({ truths, log, pending, cleanups, held, faults, gone, ids, offline }),
     service: (open: number) =>
       FakeWorld.of({
         serve: (server) =>
@@ -377,6 +415,10 @@ export const makeWorld = (
           const key = slot(server, endpoint);
           pending.set(key, [...(pending.get(key) ?? []), { word: kind, at, step: step() }]);
         },
+        cleanup: ({ server, endpoint, outcome }) => {
+          const key = slot(server, endpoint);
+          cleanups.set(key, [...(cleanups.get(key) ?? []), { outcome, step: step() }]);
+        },
         storage: () => scriptFault("a storage word reached the fake servers"),
         stored: () => scriptFault("a storage word reached the fake servers"),
         network: ({ word: kind }) => {
@@ -389,11 +431,18 @@ export const makeWorld = (
     log: () => [...log],
     truths: () => new Map(truths),
     faults: () => [...faults],
-    unused: () =>
-      [...pending].flatMap(([key, left]) =>
+    unused: () => [
+      ...[...pending].flatMap(([key, left]) =>
         left.map((p) => `${p.word} at ${p.at} on ${key} never used`),
       ),
-    unusedAt: () => [...pending.values()].flatMap((left) => left.map((p) => p.step)),
+      ...[...cleanups].flatMap(([key, left]) =>
+        left.map((c) => `cleanup ${c.outcome} on ${key} never used`),
+      ),
+    ],
+    unusedAt: () => [
+      ...[...pending.values()].flatMap((left) => left.map((p) => p.step)),
+      ...[...cleanups.values()].flatMap((left) => left.map((c) => c.step)),
+    ],
     held: () =>
       held.map((h) => ({
         server: h.server,
@@ -611,7 +660,9 @@ class FakeServer<A> extends Effectable.Class<A, never, FakeWorld> {
  * an endpoint's next call (`hold`, `drop`) or its oldest held call (`release`, or `lose`, which
  * runs the handler as release does and loses its answer); they decide
  * delivery, never the answer, which is always a handler's. A call no word acts on is answered at
- * once.
+ * once. `cleanup("dies" | "fails")` arms the endpoint's next held call: interrupted, its cleanup
+ * dies with `FakeCleanupDied` or fails with `FakeCleanupFailed`, as a request whose abort handler
+ * throws does.
  *
  * **Gotchas**
  *

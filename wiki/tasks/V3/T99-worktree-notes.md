@@ -69,10 +69,63 @@ cut from an old commit). For the orchestrator to post on @task.V3.T99; nothing h
 - Noted, not changed: `close.ts` holds the forget request in two slots (`wanted`, `late`); a tagged state would read
   better.
 
+## Prevention (built, the lead)
+
+- **Run rule `everyTaskAccounted`** (`tests/rules/owners.ts`, Actors R23 and Diagnostics R8): Owners take a
+  `Traced` hook (`Option`, none in production) and record `Task` (started, then its Ending tag and whether its
+  cleanup failed) and `Report` (causes, own, `heardBy` closer or parent) into the Story trace; the root and an overdue
+  close report too. The rule checks per open: one start and at most one end per task, a report only after every task
+  of its Owner ended, causes = failed tasks + own + nested reports, Issues CleanupFailed = failed tasks + own. Red
+  first by crafted traces in `rules.test.ts`, then by the planted `report-drops-task-failures` (the rule's breach is
+  the failure) and `report-before-tasks-end`.
+- **World word `cleanup("dies" | "fails")`** on a fake endpoint: arms its next held call; interrupted, the cleanup
+  dies `FakeCleanupDied` or fails `FakeCleanupFailed`. The generator arms one with half its holds. Fixture Stories
+  `sign-in/read-cleanup-dies` and `sign-in/save-cleanup-dies`, tests in `tests/sign-in/cleanups.test.ts`; red by the
+  planted `fake-cleanup-ignored`. Proposal §5.3's `storage`, `services` targets and `interrupted`, `hangs` outcomes
+  are not built (not asked here).
+- **Trace cost:** Task records grow traces by about a third, which pushed `sweep-3` (`player/group-replays`, 28k to
+  39k events) past its limit. `places.ts` `savedAfter` scanned every event per call (WriteLanes I27 was 3.2 s of 3.9 s
+  rule time there); it now reads each run's landed batches once. `sweep-3` runs all four tests in 52 s, under the 59 s
+  one mode took before.
+- **Saved stress Stories:** `sign-in/stress-36` and `sync/stress-36` now print a `cleanup("dies")` beside one hold,
+  pasted in.
+
+## Finding for a decision
+
+- **Typed cleanup failures are lost under a catch.** In Effect 4.1.4 an `OnFailure` continuation (`catchTag`,
+  `catchTags`, any `catch*`) that runs on an interrupted fiber gets the fiber's interrupt cause, dropping the cleanup's
+  `Fail` (a `Die` survives). Every fixture port catches `FakeLost`, so `cleanup("fails")` never reaches the Owner;
+  pinned as a Gotcha test in `tests/sign-in/cleanups.test.ts`. Diagnostics R8 ("complete causes survive cleanup")
+  cannot hold for app code that catches; the Spec or docs should say so, or Owners must hear cleanups another way.
+
+## Gates and bench (after the prevention build)
+
+- Suite exit 0 (1,324 passed, 25 expected fail), `nub run check` exit 0, `lint:rules` exit 0; fresh generated seeds
+  (`FLOW_SEEDS=20`, generated and mix) pass with the rule on. Stress exit 1: only the known `lanes` saved stress Story
+  (`longCommit` against a literal).
+- Faults `--only` in scratch copies: `report-drops-task-failures`, `report-before-tasks-end`, `fake-cleanup-ignored`
+  and the rewritten `issue-not-at-once`, 4 of 4 caught.
+- Bench `--dev`, load 6 to 8 (another agent running), before then after (ms per turn): shop long 0.0615 then 0.0636,
+  session long 0.133 then 0.137, sync long 0.0217 then 0.0222, transfers long 0.0488 then 0.0508,
+  `scale.lanes.actors-256` 0.0622 then 0.0658. Benches run Stories, so these include the dev trace; production
+  passes no hook.
+
+## Haiku review of the prevention diff (2, effort high), each verified
+
+- Accepted: an overdue close's Issue had no counted cause (it now reports `overdue`); `fake-cleanup-ignored` left an
+  unused local a typecheck would kill (now swallows the cleanup instead); `slotOf` read a cleanup word as storage; a
+  generator comment overclaimed; `slotted` renamed `key`.
+- Changed: the Issue count breaks in lives that admit no CleanupFailed (boot failed, stopped); written as a Gotcha on
+  the rule, since no fixture Story does either.
+- Rejected: a cleanup bound to the wrong hold (the generator arms one hold per endpoint at a time, and a cleanup is
+  taken by the next held call, as documented); a dropped used hold in printed steps (follows from the last); a late
+  cleanup failing a generated run (dies and fails never hang, so no close is overdue); runPromise's `() => undefined`
+  hearer (its causes are in the call's Exit and an Issue); production cost with no hook (only `Option.isSome` checks).
+- Noted, not changed: an interrupted held fake call stays in `held` (pre-existing); a cleanup consumed by a call that is
+  later released is silent by design; comments on non-exported code (house practice, lint clean).
+
 ## Not done (resume here)
 
-1. The run rule `everyTaskAccounted` (proposal §5.2): dev trace records `Task` and `Report` from the Owners, and the
-   rule in `tests/rules/`. Owners would take a trace hook beside `judged`.
-2. The world word `cleanup` for fakes (proposal §5.3) in `src/host/testing/steps.ts` and `fake.ts`, and the
-   generator offering it wherever `hold` can be picked.
-3. The `lanes` saved stress Story mismatch, to check on e4ec9e86 and route to the fixtures owner.
+1. The close review of T99.
+2. The `lanes` saved stress Story mismatch, from the main line's fixture rewrite (being fixed there).
+3. The typed-cleanup finding above, for a decision.

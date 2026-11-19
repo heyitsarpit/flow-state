@@ -202,7 +202,7 @@ export const long = Array.from({ length: 9 }, (_, n) => n)
  */
 export const seededStress = Story.app(authSetup, { id: "sign-in/stress-36", fixtures: [AuthFake] })
   .world(Auth.throttle({}))
-  .world(Auth.verify.hold())
+  .world(Auth.verify.hold(), Auth.verify.cleanup("dies"))
   .ensure(screen)
   .send(screen, resend)
   .send(screen, resend)

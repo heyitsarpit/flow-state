@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { definition, machine } from "../../../src/index.ts";
+import { definition, machine, RuntimeDefaults } from "../../../src/index.ts";
 import { ReturnTo } from "../machines/return-to.ts";
 import { AuthSession } from "../machines/session.ts";
 import { TrustedDevice } from "../machines/trusted-device.ts";
@@ -48,6 +48,31 @@ export const reloadedMidHandle = sessionStory("sign-in/reloaded-mid-handle")
   .send(mainSession, AuthSession.E.SubmitHandle())
   .reload()
   .checkpoint("reloaded");
+
+/**
+ * Elif signs in while the profile read is held; the tab closes before it answers, and the read's
+ * abort handler throws as the read is cancelled.
+ */
+export const readCleanupDies = sessionStory("sign-in/read-cleanup-dies")
+  .ensure(mainSession)
+  .world(Profiles.me.hold(), Profiles.me.cleanup("dies"))
+  .send(mainSession, signedIn)
+  .disposeRuntime()
+  .checkpoint("closed");
+
+/**
+ * Elif submits a handle while its save is held; the tab closes, the disposal's bound passes, and
+ * the save's abort handler throws as the save is cancelled.
+ */
+export const saveCleanupDies = sessionStory("sign-in/save-cleanup-dies")
+  .ensure(mainSession)
+  .send(mainSession, signedIn)
+  .send(mainSession, AuthSession.E.Handle({ handle: "elif-kaya" }))
+  .world(Profiles.setUsername.hold(), Profiles.setUsername.cleanup("dies"))
+  .send(mainSession, AuthSession.E.SubmitHandle())
+  .disposeRuntime()
+  .advance(RuntimeDefaults.disposalBound)
+  .checkpoint("closed");
 
 /**
  * The session is disposed while the return is bound to it.

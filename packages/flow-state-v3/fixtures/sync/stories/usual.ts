@@ -187,7 +187,7 @@ const peekDocs = Sync.E.Peek({ repo: "docs" });
  */
 export const seededStress = Story.app(gitSetup, { id: "sync/stress-36", fixtures: [GitFake] })
   .world(Git.rateLimit({ retryAfterMs: 2000 }))
-  .world(Git.remoteHead.hold())
+  .world(Git.remoteHead.hold(), Git.remoteHead.cleanup("dies"))
   .ensure(client)
   .send(client, pushedFlow)
   .send(client, pushedFlow)

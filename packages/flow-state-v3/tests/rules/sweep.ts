@@ -31,7 +31,9 @@ export const skippable = (fault: StoryFailed) =>
   fault.problem.split("; ").every((p) => SKIPPED.some((s) => s.test(p)));
 
 const slotOf = (word: WorldWord) =>
-  word._tag === "wire" ? `${word.server.name}.${word.endpoint}` : "storage";
+  word._tag === "wire" || word._tag === "cleanup"
+    ? `${word.server.name}.${word.endpoint}`
+    : "storage";
 
 const opens = (word: WorldWord) =>
   (word._tag === "wire" || word._tag === "storage") && word.word === "hold";
