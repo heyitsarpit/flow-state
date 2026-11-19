@@ -941,3 +941,7 @@ note 2026-11-19T01:39:08Z
 note 2026-11-19T01:44:52Z
     Fixture fit audit (2 Haiku, verified): no clear wrong-tool cell beyond send's two; flagged repeats are combinations
     or refusal and load cases, left to each Task's lead. Per the user, no further cuts.
+
+note 2026-11-19T01:45:21Z
+    T96 requirements and fixtures in (d443aceb): 15 requirements, send in shop, player, sync; five calls ruled on T96.
+    fixtures.md corrected: repeats across apps are fine (the user). Requirements review starts.

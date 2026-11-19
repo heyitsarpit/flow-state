@@ -25,8 +25,8 @@ the way they do in real apps:
   when no existing app could carry the feature naturally.
 - **The right tool.** A feature appears only where a real product would choose it over what Flow already offers. A
   cell a simpler feature covers is cut, with the reason in the catalog row: mirrored data goes through context, not
-  sends; a value the parent owns is a prop, not memory. Variety counts different uses, never the same use in more
-  apps (the user, 2026-11-19).
+  sends; a value the parent owns is a prop, not memory. Repeating a use across apps is fine: the aim is coverage,
+  varied use cases and combinations with many other Flow features, not avoiding duplication (the user, 2026-11-19).
 - **Additive growth.** An app grows by new machines added around the old ones, not by rewriting them. An existing
   machine keeps its id, states, memory and Stories, and every Story id stays. A new machine reaches an old one by
   consuming a context the old one already provides or reading its snapshot; it sends an old machine's existing
