@@ -2416,12 +2416,12 @@ tasks
               the bench shows no regression on the turn hot path (`nub run bench --only <turn ids> --dev`).
 
     T103
-        title       Typed Story assertions and fakes: typed read, evidence by token, Fake.port
+        title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
         status      draft
         priority    medium
         description
             Story assertions and fakes are typed by the definitions they touch: a cut's `read(ref)` returns the ref's
-            typed snapshot, evidence is selected by event token, and a fake port maps its lost answer once.
+            typed snapshot, evidence is selected by event token, and a fake server names its lost answer's error once.
 
             **Why now:** the idiom survey (2026-11-19) found Story assertions reading `memory["lines"]` with no typo
             check (about 146 sites), evidence filtered by event-name strings that a rename silently empties (about 25, a
@@ -2438,8 +2438,10 @@ tasks
               view of memory (the `Def.Snapshot` codec's type); decode through `Def.Snapshot` where a field's stored
               form differs from its type. Delete the hand casts in `tests/number-input/reads.ts` and
               `tests/command-palette/reads.ts`, and convert the `memory["field"]` sites.
-            - C2: `Fake.port(Api, server, { lost: () => new PortError() })` builds a fake port's Layer once; convert the
-              9 `server/layer.ts` files.
+            - C2 (revised, the user, 2026-11-19): `Fake.server(name, endpoints, { lost: () => new PortError() })`, an
+              option on the existing word, so a lost answer fails with the port's error and fake layers need no
+              `catchTag("FakeLost", ...)`; the server may answer with the port's error classes, so the port errors left
+              plain (`CardDeclined`, `Busy` and the rest) become classes without per-method mapping. No `Fake.port`.
             - C3: `turnsOf(run, Def.E.X)` (and siblings where the survey's filters need them) on the testing route;
               convert the ad hoc filters.
 
@@ -2457,8 +2459,11 @@ tasks
             - No test indexes `memory["..."]` or casts a snapshot by hand; the two cast helpers are gone.
             - `turnsOf(run, Def.E.X)` selects evidence by token; a foreign or misspelt token fails to compile; no test
               filters evidence by an event-name string.
-            - Every fake port is built with `Fake.port`; no `catchTag("FakeLost", ...)` remains in a fake layer.
+            - Each fake server names its lost error; no `catchTag("FakeLost", ...)` remains in a fake layer, and every
+              port error is a class or a TaggedStruct.
             - Each new testing word has a @plan.Pending decision; `nub run check` and the suite pass.
         comment     2026-11-19T09:18:55Z
             Decision (the user, 2026-11-19): C1 (typed read), C2 (Fake.port) and C3 (evidence by token) accepted, in one
             Task early in P4.
+        comment     2026-11-19T09:36:14Z
+            Decision (the user, 2026-11-19): C2 revised to a lost option on Fake.server instead of a new Fake.port word.

@@ -1018,3 +1018,7 @@ note 2026-11-19T09:16:53Z
 note 2026-11-19T09:27:43Z
     Committed in slices (the user, 2026-11-19): fixture idioms, tests on tokens with no-raw-event widened, records. T102
     and T103 added to P4; T99 rebuilds on the lifetimes redesign in a worktree.
+
+note 2026-11-19T09:51:27Z
+    Decisions (the user, 2026-11-19): T103's C2 is a lost option on Fake.server; fakes stay at the port (Flow is not a
+    network library); a live port fake as the demo backend is proposed for P6.
