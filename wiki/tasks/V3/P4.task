@@ -4036,3 +4036,8 @@ tasks
               - Sidecars (6 Haiku): accepted B1–B3 and the notes above; rejected A→B→A as lost (value semantics, Turn
                 R22), `when` reading memory at entry (as Actors R9's wave), "it.fails passes on any error" (re-run),
                 factory refusal as false.
+        comment     2026-11-19T23:01:38Z
+            Rulings (orchestrator) on the requirements review: B1 to B3 accepted; each lands as a red Story or check
+            before the build, with the non-blocking record fixes (proof gaps, the session fixture's 30 sites listed,
+            stub comments, the three misplaced wrong markers, the payload mapper's argument pinned, close on a
+            zero-reaction grep). Then the build runs to review.

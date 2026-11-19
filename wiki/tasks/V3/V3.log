@@ -1129,3 +1129,7 @@ note 2026-11-19T22:02:04Z
 note 2026-11-19T22:51:04Z
     T107 requirements in (4538c32a): 20 requirements, 22 inverted tests, 11 type lines, four new consumers. Requirements
     review started.
+
+note 2026-11-19T23:01:39Z
+    T107 requirements review: ISSUES, three blocking (state-scoped entry cases, non-token reads dropped silently,
+    compound state tokens); all three land as red checks first, then the build lead runs to review.
