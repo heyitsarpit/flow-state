@@ -205,12 +205,12 @@ describe("Reads R1, Compile R9: a key names required input fields, kept as a tup
 
 describe("Turn R23: a snapshot's operations are keyed by the definition's operation names", () => {
   it("a misspelt operation name", () => {
-    expectTypeOf(snap.operations).not.toEqualTypeOf<
+    expectTypeOf(snap.operations).toEqualTypeOf<
       ReadonlyMap<"pay" | "find", ReadonlyMap<string, Row>>
     >();
-    expectTypeOf(snap.operations).toEqualTypeOf<ReadonlyMap<string, ReadonlyMap<string, Row>>>();
 
-    snap.operations.get("typo"); // wrong: no such operation
+    // @ts-expect-error Turn R23: typo is no operation of Cart
+    snap.operations.get("typo");
     snap.operations.get("pay");
   });
 });

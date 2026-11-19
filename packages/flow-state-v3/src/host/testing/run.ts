@@ -1,4 +1,4 @@
-import { type Cause, Effect, Exit, Layer, Option, Predicate, Result } from "effect";
+import { type Cause, Effect, Exit, Layer, Option, Predicate } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
@@ -9,7 +9,7 @@ import type { AnyDefinition } from "../../definition.ts";
 import { FlowError } from "../../error.ts";
 import { Host } from "../host.ts";
 import { attachInspector, inspect, type RuntimeCut } from "../inspect.ts";
-import { freshStart } from "../snapshot.ts";
+import { actorRecordKey } from "../../core/record.ts";
 import {
   actorIdOf,
   type ActorRef,
@@ -59,7 +59,7 @@ import {
  * `read(server)` is the server's truth. `read(endpoint)` is every call the endpoint received, in
  * arrival order, with its status.
  */
-export type Cut = {
+export type Cut<Ds extends AnyDefinition = AnyDefinition> = {
   readonly now: number;
   readonly inspection: RuntimeCut;
   readonly unsettled: ReadonlyArray<Unsettled>;
@@ -70,7 +70,7 @@ export type Cut = {
   readonly calls: ReadonlyArray<CallEntry & { readonly server: string; readonly endpoint: string }>;
   readonly read: {
     // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's read: undefined for an absent actor
-    <D extends AnyDefinition>(ref: ActorRef<D>): Snapshot<D> | undefined;
+    <D extends Ds>(ref: ActorRef<D>): Snapshot<D> | undefined;
     <I>(endpoint: EndpointHandle<I>): ReadonlyArray<CallEntry<I>>;
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom type: it carries the type for reads and holds no value
     <T>(server: { readonly "~server": AnyServer; readonly "~truth"?: T }): T;
@@ -81,11 +81,13 @@ export type Cut = {
  * A finished run: its steps, every evidence record in order, each checkpoint by name, `end`, a cut
  * after the last step, and `trace`, every step, evidence record, call and write in order.
  */
-export type StoryRun<Names extends string = string> = {
+export type StoryRun<Names extends string = never, Ds extends AnyDefinition = AnyDefinition> = {
+  // A phantom method, so a run of one app reads as a run of any app where its app is not read.
+  "~app"?(app: Ds): void;
   readonly steps: ReadonlyArray<Step>;
   readonly evidence: ReadonlyArray<Evidence>;
-  readonly checkpoints: { readonly [K in Names]: Cut };
-  readonly end: Cut;
+  readonly checkpoints: { readonly [K in Names]: Cut<Ds> };
+  readonly end: Cut<Ds>;
   readonly trace: Trace;
 };
 
@@ -475,18 +477,16 @@ export const startRun = <Names extends string>(
 
       const actor = actorOf(target);
 
-      return Option.getOrUndefined(
-        Option.map(snapshotIn(world, machines, actor), (snapshot) =>
-          snapshot.lifecycle === "quarantined" &&
-          Option.exists(Option.fromUndefinedOr(machines.get(actor.machine)), (compiled) =>
-            Result.isFailure(freshStart(compiled, actor)),
-          )
-            ? scriptFault(
-                `${actor.name} is quarantined and its fresh start is refused, so it has no typed memory to read; read its issue from inspection`,
-              )
-            : snapshot,
-        ),
-      );
+      const snapshot = snapshotIn(world, machines, actor);
+
+      // A quarantined record whose fresh start is refused has no snapshot, whatever the
+      // Runtime's life; reading it is a script fault, not an absent actor.
+      if (Option.isNone(snapshot) && world.quarantined.has(actorRecordKey(actorKey(actor))))
+        return scriptFault(
+          `${actor.name} is quarantined and its fresh start is refused, so it has no typed memory to read; read its issue from inspection`,
+        );
+
+      return Option.getOrUndefined(snapshot);
     }
 
     return {

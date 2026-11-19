@@ -91,7 +91,7 @@ const unboundAtEachBoot = async (
 // Forget drops a held lane whose operation and contract are gone, with HoldForgotten, so the next
 // boot neither reports nor keeps it.
 const forgetsRetiredHold = async (
-  story: { readonly run: () => Promise<StoryRun> },
+  story: { readonly run: () => Promise<StoryRun<string>> },
   forgotten: string,
   key: string,
 ) => {

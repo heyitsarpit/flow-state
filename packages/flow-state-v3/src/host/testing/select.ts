@@ -9,7 +9,11 @@ import { scriptFault } from "./steps.ts";
 /**
  * What the selectors read: a run's evidence, in order.
  */
-export type Recorded = { readonly evidence: ReadonlyArray<Evidence> };
+export type Recorded<Ds extends AnyDefinition = AnyDefinition> = {
+  // A phantom method: the app's definitions, so a selector takes only their tokens and refs.
+  "~app"?(app: Ds): void;
+  readonly evidence: ReadonlyArray<Evidence>;
+};
 
 /**
  * An evidence record that names an event: a turn, a delivery, an event nothing handled, a denial
@@ -38,13 +42,20 @@ type AnyToken = Ending & { readonly tag: string };
  * `{ actor }`, of that actor only, whose definition the token must then be one of.
  */
 export type Selector<R> = {
-  (run: Recorded, token: AnyToken): ReadonlyArray<R>;
-  <D extends AnyDefinition>(
-    run: Recorded,
+  <Ds extends AnyDefinition>(run: Recorded<Ds>, token: AppToken<Ds>): ReadonlyArray<R>;
+  <Ds extends AnyDefinition, D extends Ds>(
+    run: Recorded<Ds>,
     token: NoInfer<TokenOf<D>>,
     options: { readonly actor: ActorRef<D> },
   ): ReadonlyArray<R>;
 };
+
+// A token of one of a run's app's definitions; any token when the run's app is erased.
+type AppToken<Ds extends AnyDefinition> = AnyDefinition extends Ds
+  ? AnyToken
+  : Ds extends AnyDefinition
+    ? TokenOf<Ds>
+    : never;
 
 // RETURN_TYPE: a type guard narrows a record to the kinds that name an event.
 const isEventRecord = (e: Evidence): e is EventRecord => NAMES_EVENT[e._tag];
@@ -153,7 +164,10 @@ export const turnsOf = selector(isTurn);
  * To assert on each memory an actor published between two steps, which a checkpoint, a single
  * cut, cannot show.
  */
-export const publishedOf = <D extends AnyDefinition>(run: Recorded, ref: ActorRef<D>) => {
+export const publishedOf = <D extends Ds, Ds extends AnyDefinition = AnyDefinition>(
+  run: Recorded<Ds>,
+  ref: ActorRef<D>,
+) => {
   const id = actorIdOf(ref);
 
   return run.evidence.filter(

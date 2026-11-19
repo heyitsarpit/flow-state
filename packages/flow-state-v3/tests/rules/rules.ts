@@ -34,7 +34,7 @@ import {
  */
 export type Rule = {
   readonly rule: string;
-  readonly breaches: (run: StoryRun) => ReadonlyArray<string>;
+  readonly breaches: (run: StoryRun<string>) => ReadonlyArray<string>;
 };
 
 const endingText = (d: Delivery) =>
@@ -399,10 +399,10 @@ export const nothingInvokedDisposing: Rule = {
   },
 };
 
-const checkpointCut = (run: StoryRun, name: string) =>
+const checkpointCut = (run: StoryRun<string>, name: string) =>
   Option.fromUndefinedOr(Object.entries(run.checkpoints).find(([key]) => key === name)?.[1]);
 
-const cutAfter = (run: StoryRun, n: number) => {
+const cutAfter = (run: StoryRun<string>, n: number) => {
   const next = run.steps[n + 1];
 
   if (next === undefined) return Option.some(run.end);

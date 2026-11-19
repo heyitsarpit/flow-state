@@ -73,7 +73,7 @@ describe("Story", () => {
     expect(endings(again.evidence)).toEqual(["success success", "success success"]);
     expect(again.evidence).toEqual(first.evidence);
     expect(data(again.end)).toEqual(data(first.end));
-    expect(data(again.checkpoints["sent"] ?? again.end)).toEqual(data(first.checkpoints.sent));
+    expect(data(again.checkpoints.sent)).toEqual(data(first.checkpoints.sent));
   });
 
   it("never builds the setup's own services, so a Story's tab runs on its fixtures (Stories R7, I19)", async () => {

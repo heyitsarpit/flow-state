@@ -82,6 +82,11 @@ export type ServicesOf<A extends App> = {
 }[keyof A["machines"]];
 
 /**
+ * The definitions an app runs: its machines' definitions, as a union.
+ */
+export type DefsOf<A extends App> = MachineOf<A["machines"][keyof A["machines"]]>["definition"];
+
+/**
  * Declares an app: the closed list of machines a Runtime may run.
  *
  * **When to use**
@@ -119,7 +124,7 @@ export type Actor<D extends AnyDefinition = AnyDefinition> = {
   readonly machine: Machine<D>;
   // A method, so a handle of one machine reads as a handle of any machine.
   send(event: EventOf<D>): void;
-  readonly getSnapshot: () => Option.Option<Snapshot>;
+  readonly getSnapshot: () => Option.Option<Snapshot<D, "outside">>;
 };
 
 // The Runtime and identity each handle belongs to, kept beside it rather than on it, so no
@@ -173,14 +178,16 @@ export const configOf = <R>(setup: RuntimeSetup<R>) =>
  * failed, defective or interrupted Effect rejects with a FlowError coded `RunFailed` keeping the
  * whole Cause; aborting the signal interrupts the Effect.
  */
-export type Runtime<R = never> = {
+export type Runtime<R = never, A extends App = App> = {
+  // A phantom type: the app, whose definitions are the only ones its words take.
+  readonly "~app"?: A;
   readonly ready: () => Effect.Effect<void, FlowError>;
-  readonly ensureActor: <D extends AnyDefinition>(ref: ActorRef<D>) => Actor<D>;
-  readonly createActor: <D extends AnyDefinition>(
+  readonly ensureActor: <D extends DefsOf<A>>(ref: ActorRef<D>) => Actor<D>;
+  readonly createActor: <D extends DefsOf<A>>(
     machine: Machine<D>,
     options: { readonly input: InputOf<D["memory"]> },
   ) => Actor<D>;
-  readonly disposeActor: <D extends AnyDefinition>(actor: Actor<D> | ActorRef<D>) => void;
+  readonly disposeActor: <D extends DefsOf<A>>(actor: Actor<D> | ActorRef<D>) => void;
   readonly dispose: (
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
     options?: { readonly forget?: boolean },
@@ -197,9 +204,10 @@ export type Runtime<R = never> = {
 /**
  * What a Runtime is set up with; `R` is the services its app's contracts require.
  */
-export type RuntimeSetup<R = never> = {
-  readonly construct: () => Runtime<R>;
+export type RuntimeSetup<R = never, A extends App = App> = {
+  readonly construct: () => Runtime<R, A>;
   readonly "~services"?: R;
+  readonly "~app"?: A;
 };
 
 /**
@@ -250,7 +258,7 @@ const verdictOf = (compiled: Compiled) => {
  * Builds a Runtime over a platform, with its driver beside it for Flow's own suite (the public
  * Runtime does not carry it); `traced` hears each Owner's tasks and reports for a dev trace.
  */
-export const buildRuntime = <R = never>(
+export const buildRuntime = <R = never, A extends App = App>(
   config: RuntimeConfig,
   platform: Platform,
   admit: (evidence: ReadonlyArray<Evidence>) => void,
@@ -499,7 +507,7 @@ export const buildRuntime = <R = never>(
     },
   };
 
-  const runtime: Runtime<R> = {
+  const runtime: Runtime<R, A> = {
     ready: entryEffect("ready", ready),
     // Before ready succeeds, no handle exists: the core's life rejects the ensure.
     ensureActor: entry("ensureActor", <D extends AnyDefinition>(ref: ActorRef<D>) => {
@@ -606,15 +614,15 @@ export const buildRuntime = <R = never>(
 export const runtimeSetup = entry(
   "runtimeSetup",
   // RETURN_TYPE: the exported RuntimeSetup contract keeps the services the app requires.
-  <A extends App>(config: SetupConfig<A>): RuntimeSetup<ServicesOf<A>> => {
+  <A extends App>(config: SetupConfig<A>): RuntimeSetup<ServicesOf<A>, A> => {
     refuse(setupFindings(config));
     app(config.app);
 
-    const setup: RuntimeSetup<ServicesOf<A>> = {
+    const setup: RuntimeSetup<ServicesOf<A>, A> = {
       construct: entry(
         "construct",
         () =>
-          buildRuntime<ServicesOf<A>>(config, browserPlatform(), () => undefined, Option.none())
+          buildRuntime<ServicesOf<A>, A>(config, browserPlatform(), () => undefined, Option.none())
             .runtime,
       ),
     };

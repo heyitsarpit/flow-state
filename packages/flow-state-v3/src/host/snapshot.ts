@@ -5,7 +5,7 @@ import { inputOfName } from "../core/identity.ts";
 import { actorRecordKey } from "../core/record.ts";
 import { create } from "../core/tree.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
-import { actorLifecycleOf, restingLifecycleOf } from "../core/life.ts";
+import { actorLifecycleOf, type Lifecycle, restingLifecycleOf } from "../core/life.ts";
 import { rowOf, type Row } from "../core/rows.ts";
 import type { Machines } from "../core/tx.ts";
 import type { IssueCode } from "../core/vocabulary.ts";
@@ -18,9 +18,21 @@ import {
   sourceText,
   type World,
 } from "../core/world.ts";
-import type { AnyDefinition, LeavesOf, Machine, MemoryOf, Operations } from "../definition.ts";
+import type {
+  AnyDefinition,
+  ContextOf,
+  LeavesOf,
+  Machine,
+  MemoryOf,
+  Operations,
+  OutsideOf,
+} from "../definition.ts";
 import { type Code, Diagnostic } from "../error.ts";
 import type { Driver } from "./driver.ts";
+
+// A definition whose leaves are text is the erased one: its snapshot keeps text and Values.
+type Erased<D extends AnyDefinition> =
+  LeavesOf<D["states"]> extends infer L ? (string extends L ? true : false) : never;
 
 /**
  * What a handle shows of an identity: its leaf state, its memory and its write lanes'
@@ -28,16 +40,27 @@ import type { Driver } from "./driver.ts";
  *
  * **Details**
  *
- * `Snapshot<D>` types `state` as the definition's leaf paths and `memory` as its whole memory, each
- * field's decoded value, `Flow.private` fields included; a Story's `read(ref)` returns it.
- * `Snapshot` with no definition is erased: `state` is a string and `memory` is `Values`.
+ * `Snapshot<D>` types `state` as the definition's leaf paths, `operations` by the definition's
+ * operation names and `context` by its slots, each absent while the actor rests. `View` is whose
+ * memory it shows: `"inside"`, a Story's `read(ref)`, has every field, `Flow.private` ones
+ * included; `"outside"`, a handle's `getSnapshot()`, omits the private ones. `Snapshot` with no
+ * definition is erased: `state` is a string and `memory` and `context` are `Values`.
  */
-export type Snapshot<D extends AnyDefinition = AnyDefinition> = {
-  readonly state: AnyDefinition extends D ? string : LeavesOf<D["states"]>;
-  readonly memory: AnyDefinition extends D ? Values : MemoryOf<D["memory"]>;
-  readonly operations: Operations;
-  readonly lifecycle: "active" | "disposing" | "disposed" | "stopped" | "quarantined";
-  readonly context: Values;
+export type Snapshot<
+  D extends AnyDefinition = AnyDefinition,
+  View extends "inside" | "outside" = "inside",
+> = {
+  readonly state: Erased<D> extends true ? string : LeavesOf<D["states"]>;
+  readonly memory: Erased<D> extends true
+    ? Values
+    : View extends "outside"
+      ? OutsideOf<D["memory"]>
+      : MemoryOf<D["memory"]>;
+  readonly operations: Erased<D> extends true
+    ? Operations
+    : ReadonlyMap<keyof D["operations"] & string, ReadonlyMap<string, Row>>;
+  readonly lifecycle: Lifecycle;
+  readonly context: Erased<D> extends true ? Values : Partial<ContextOf<D["context"]>>;
   readonly issues: ReadonlyArray<Diagnostic>;
   readonly schedules: ReadonlyArray<{ readonly key: string; readonly dueAt: number }>;
 };
@@ -87,11 +110,9 @@ const operationsOf = (world: World, machines: Machines, actor: ActorId): Operati
   return rows;
 };
 
-/**
- * The memory an ensure would start an identity with, or the field whose start is refused: what a
- * quarantined record's snapshot shows.
- */
-export const freshStart = (compiled: Compiled, actor: ActorId) =>
+// The memory an ensure would start an identity with, or the field whose start is refused: what a
+// quarantined record's snapshot shows.
+const freshStart = (compiled: Compiled, actor: ActorId) =>
   create(compiled, inputOfName(compiled, actor.name));
 
 // RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
@@ -134,10 +155,12 @@ export const snapshotIn = (
   const quarantined = world.quarantined.get(actorRecordKey(key));
 
   // A record the boot could not read shows the fresh start an ensure would make, with its issue.
+  // When that start is refused too there is no memory to show, so there is no snapshot; the boot's
+  // RecordUndecodable evidence names the record.
   if (quarantined !== undefined && compiled !== undefined)
-    return Option.some({
+    return Option.map(Result.getSuccess(freshStart(compiled, actor)), (memory) => ({
       state: compiled.initial,
-      memory: Result.getOrElse(freshStart(compiled, actor), () => ({})),
+      memory,
       operations,
       lifecycle: restingLifecycleOf(world.life, "quarantined"),
       context: {},
@@ -152,7 +175,7 @@ export const snapshotIn = (
         }),
       ],
       schedules: [],
-    });
+    }));
 
   return Option.map(Option.fromUndefinedOr(ended), (x) => ({
     state: x.state,
@@ -166,16 +189,17 @@ export const snapshotIn = (
 };
 
 // An outside snapshot omits the machine's Flow.private fields; Stories and Inspection see them.
-export const outside = (machine: Machine, snapshot: Snapshot) => {
+export const outside = <D extends AnyDefinition>(machine: Machine<D>, snapshot: Snapshot) => {
   const memory = publicMemory(machine.compiled, snapshot.memory);
 
-  return memory === snapshot.memory
-    ? snapshot
-    : {
-        ...snapshot,
-        memory,
-      };
+  return asOutside<D>(memory === snapshot.memory ? snapshot : { ...snapshot, memory });
 };
+
+// A snapshot of a machine's actor as its definition's outside view.
+const asOutside = <D extends AnyDefinition>(snapshot: Snapshot) =>
+  // SAFETY: the snapshot is of an actor of Machine<D>, whose Compiled holds D's leaves, operations and slots, and publicMemory has dropped its private fields.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's types are erased in Compiled and restored here, at the one handle boundary
+  snapshot as Snapshot<D, "outside">;
 
 // RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
 export const snapshotOf = (driver: Driver, actor: ActorId): Option.Option<Snapshot> =>

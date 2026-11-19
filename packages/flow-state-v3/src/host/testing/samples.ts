@@ -3,6 +3,7 @@ import { Duration, Formatter, Option, Predicate } from "effect";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../../core/world.ts";
 import { overridesBy } from "../wiring.ts";
 import { actorIdOf, type ActorRef } from "../runtime.ts";
+import type { AnyDefinition } from "../../definition.ts";
 import type { AnyServer } from "./fake.ts";
 import type { StoryRun } from "./run.ts";
 import { scriptFault, Step, WorldWord } from "./steps.ts";
@@ -64,18 +65,18 @@ export type Samples = {
  *
  * - A control word changes the server's truth; it never answers a call itself.
  */
-export const samplesOf = (options: {
+export const samplesOf = <Ds extends AnyDefinition>(options: {
   readonly id: string;
-  readonly story: Story;
+  readonly story: Story<never, Ds>;
   readonly names: { readonly setup: string; readonly fixtures: ReadonlyArray<string> };
-  readonly actors: Readonly<Record<string, ActorRef>>;
+  readonly actors: Readonly<Record<string, ActorRef<Ds>>>;
   readonly servers: Readonly<Record<string, { readonly "~server": AnyServer }>>;
   readonly failures: ReadonlyArray<WorldWord>;
   readonly landedFailures: ReadonlyArray<WorldWord>;
   readonly controls: ReadonlyArray<WorldWord>;
   // FLOW_STATE_ALLOW_UNKNOWN: an event a sample sends, of its own definition's type.
   readonly values: Readonly<Record<string, unknown>>;
-  readonly steps: (story: Story) => Story;
+  readonly steps: (story: Story<never, Ds>) => Story<string, Ds>;
 }) =>
   ({
     id: options.id,

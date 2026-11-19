@@ -109,10 +109,12 @@ describe("a reaction's baseline across a reload (Turn R22; Restore R2)", () => {
       await digestQuiet.run({ steps: digestQuiet.steps.toSpliced(at, 0, reload) }),
     );
 
-    for (const run of [live, reloaded])
-      expect(run.checkpoints.quiet.read(mainDigest)?.memory).toEqual(
-        expect.objectContaining({ heard: 19, busy: 2 }),
-      );
+    expect(live.checkpoints.quiet.read(mainDigest)?.memory).toEqual(
+      expect.objectContaining({ heard: 19, busy: 2 }),
+    );
+    expect(reloaded.checkpoints["quiet"]?.read(mainDigest)?.memory).toEqual(
+      expect.objectContaining({ heard: 19, busy: 2 }),
+    );
   });
 });
 

@@ -50,7 +50,7 @@ const runOnce = Effect.fn("runOnce")(function* (story: Found) {
   );
 });
 
-const checkpointLines = (run: StoryRun) =>
+const checkpointLines = (run: StoryRun<string>) =>
   run.trace.events.flatMap(({ sequence, record }) =>
     record._tag === "Step" && record.step._tag === "checkpoint"
       ? [

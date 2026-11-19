@@ -191,7 +191,8 @@ export const apps = [
 export const booted = (entry: (typeof apps)[number]) =>
   Effect.gen(function* () {
     // No service is given: a call that needs one dies, an ending the machine maps.
-    const runtime = Flow.runtimeSetup<Flow.App<Record<never, never>>>({
+    // The hostile table runs every app's probe on one erased Runtime.
+    const runtime: Flow.Runtime = Flow.runtimeSetup<Flow.App<Record<never, never>>>({
       app: entry.app,
     }).construct();
 

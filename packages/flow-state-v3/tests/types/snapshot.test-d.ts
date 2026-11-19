@@ -15,9 +15,6 @@ import {
 // `.not` of the narrow type, or the wide type itself) then fails too: make it the exact narrow
 // type. A positive assertion that holds today stays as it is.
 
-// FLOW_STATE_ALLOW_UNKNOWN: today's erased memory and context, named so a test can state it.
-type Values = Readonly<Record<string, unknown>>;
-
 const Shopper = definition({
   id: "types/snapshot/Shopper",
   states: ["IN", "OUT"],
@@ -54,16 +51,17 @@ describe("Turn R23, Actors R6: a handle's snapshot is its definition's outside v
   it("a handle's snapshot is typed by its definition", () => {
     const snap = runtime.ensureActor(shopper).getSnapshot();
 
-    expectTypeOf(snap).toEqualTypeOf<Option.Option<Snapshot>>();
+    expectTypeOf(snap).toEqualTypeOf<Option.Option<Snapshot<typeof Shopper, "outside">>>();
 
     Option.map(snap, (s) => {
-      if (!("memory" in s)) return;
+      expectTypeOf(s.state).toEqualTypeOf<"IN" | "OUT">();
+      expectTypeOf(s.memory).toEqualTypeOf<{ readonly name: string }>();
 
-      expectTypeOf(s.state).not.toEqualTypeOf<"IN" | "OUT">();
-      expectTypeOf(s.memory).not.toEqualTypeOf<{ readonly name: string }>();
-
-      void s.memory["nmae"]; // wrong: no such field
-      void (s.state === "GONE"); // wrong: no such state
+      // @ts-expect-error Turn R23: nmae is no memory field of Shopper
+      void s.memory["nmae"];
+      // @ts-expect-error Turn R23: GONE is no state of Shopper
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- the wrong line the leaf union refuses
+      void (s.state === "GONE");
     });
   });
 
@@ -73,27 +71,26 @@ describe("Turn R23, Actors R6: a handle's snapshot is its definition's outside v
     expectTypeOf(inside.memory).toEqualTypeOf<{ readonly name: string; readonly secret: string }>();
 
     Option.map(snap, (s) => {
-      if (!("memory" in s)) return;
-
-      void s.memory["secret"]; // wrong: the runtime strips `secret` here
+      // @ts-expect-error Actors R6: the runtime strips the private `secret` from a handle's snapshot
+      void s.memory["secret"];
     });
   });
 
   it("context is partial: a resting snapshot has none", () => {
-    expectTypeOf(cart.context).not.toEqualTypeOf<Partial<{ readonly shopper: string }>>();
-    expectTypeOf(cart.context).toEqualTypeOf<Values>();
+    expectTypeOf(cart.context).toEqualTypeOf<Partial<{ readonly shopper: string }>>();
 
-    void cart.context["shoper"]; // wrong: no such slot
+    // @ts-expect-error Turn R23: shoper is no slot of Cart
+    void cart.context["shoper"];
   });
 
-  it("an unreadable record has no memory", () => {
+  it("a quarantined record whose fresh start is refused has no snapshot, so no made-up memory", () => {
     const snap = runtime.ensureActor(shopper).getSnapshot();
 
     expectTypeOf(Option.map(snap, (s) => s.lifecycle)).toEqualTypeOf<
       Option.Option<"active" | "disposing" | "disposed" | "stopped" | "quarantined">
     >();
-
-    // wrong: a quarantined record whose fresh start was refused hands out `{}` as its memory
-    Option.map(snap, (s) => s.memory);
+    expectTypeOf(Option.map(snap, (s) => s.memory)).toEqualTypeOf<
+      Option.Option<{ readonly name: string }>
+    >();
   });
 });

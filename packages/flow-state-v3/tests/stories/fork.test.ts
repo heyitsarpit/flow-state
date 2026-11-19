@@ -20,7 +20,7 @@ const seen = (cut: Cut) => ({
 });
 
 // What a run shows, the parts a fork could get wrong: everything it recorded and every cut.
-const shown = (run: StoryRun) => ({
+const shown = (run: StoryRun<string>) => ({
   evidence: run.evidence,
   trace: run.trace,
   checkpoints: Object.entries(run.checkpoints).map(([name, cut]) => [name, seen(cut)]),

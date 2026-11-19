@@ -20,10 +20,8 @@ import {
   runtimeSetup,
 } from "../../src/index.ts";
 
-// Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
-// check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
-// `.not` of the narrow type, or the wide type itself) then fails too: make it the exact narrow
-// type. A positive assertion that holds today stays as it is.
+// Each wrong line is refused under `@ts-expect-error`; beside it the correct use of the same
+// parameter compiles and is asserted exactly, so no line fails because a type became `never`.
 
 const Plain = definition({
   id: "types/app/Plain",
@@ -54,22 +52,38 @@ const shopStory = Story.app(shopSetup, { id: "types/app/shop", fixtures: [] });
 declare const shopRun: Awaited<ReturnType<ReturnType<typeof shopStory.checkpoint<"a">>["run"]>>;
 declare const named: StoryRun<"a" | "b">;
 
+const sampled = {
+  names: { setup: "s", fixtures: [] },
+  servers: {},
+  failures: [],
+  landedFailures: [],
+  controls: [],
+  values: {},
+} as const;
+
 describe("Actors R24, Stories T2: a Runtime and a Story take only their app's refs", () => {
   it("a Runtime's words with a ref of a machine the app does not run", () => {
     const runtime = shopSetup.construct();
 
-    runtime.ensureActor(rent); // wrong: faults late with ForeignActorRef
-    runtime.createActor(RentMachine, { input: {} }); // wrong
-    runtime.disposeActor(rent); // wrong
+    // @ts-expect-error Actors R24: Rent is no machine of the shop app
+    runtime.ensureActor(rent);
+    // @ts-expect-error Actors R24: Rent is no machine of the shop app
+    runtime.createActor(RentMachine, { input: {} });
+    // @ts-expect-error Actors R24: Rent is no machine of the shop app
+    runtime.disposeActor(rent);
 
     expectTypeOf(runtime.ensureActor(plain)).toEqualTypeOf<Actor<typeof Plain>>();
   });
 
   it("a Story's words with a ref of a machine the app does not run", () => {
-    shopStory.send(rent, Rent.E.Pay()); // wrong
-    shopStory.ensure(rent); // wrong
-    shopStory.detach(rent); // wrong
-    shopStory.dispose(rent); // wrong
+    // @ts-expect-error Stories T2: Rent is no machine of the shop app
+    shopStory.send(rent, Rent.E.Pay());
+    // @ts-expect-error Stories T2: Rent is no machine of the shop app
+    shopStory.ensure(rent);
+    // @ts-expect-error Stories T2: Rent is no machine of the shop app
+    shopStory.detach(rent);
+    // @ts-expect-error Stories T2: Rent is no machine of the shop app
+    shopStory.dispose(rent);
 
     expectTypeOf(shopStory.send(plain, Plain.E.Go())).toEqualTypeOf(shopStory);
     expectTypeOf(shopStory.ensure(plain)).toEqualTypeOf(shopStory);
@@ -80,48 +94,42 @@ describe("Actors R24, Stories T2: a Runtime and a Story take only their app's re
     shopStory.send(plain, Rent.E.Pay());
   });
 
-  it("a cut read of a ref the app does not run reads nothing, silently", () => {
+  it("a cut reads only its app's refs", () => {
     expectTypeOf(shopRun.end.read(plain)?.memory).toEqualTypeOf<
       { readonly n: number } | undefined
     >();
 
-    shopRun.end.read(rent); // wrong: always undefined
+    // @ts-expect-error Stories T2: Rent is no machine of the shop app, so the read is always undefined
+    shopRun.end.read(rent);
   });
 
-  it("a selector or a sample over a ref or token the app does not run", () => {
-    publishedOf(shopRun, rent); // wrong: always []
-    turnsOf(shopRun, Rent.E.Pay); // wrong: always []
-    evidenceOf(shopRun, Rent.E.Pay, { actor: rent }); // wrong: always []
-
-    samplesOf({
-      id: "types/app/samples",
-      story: shopStory,
-      names: { setup: "s", fixtures: [] },
-      actors: { rent }, // wrong: rent is not in the shop app
-      servers: {},
-      failures: [],
-      landedFailures: [],
-      controls: [],
-      values: {},
-      steps: (s) => s,
-    });
-
+  it("a selector or a sample takes only its app's refs and tokens", () => {
+    // @ts-expect-error Stories T2: Rent is no machine of the shop app
+    publishedOf(shopRun, rent);
+    // @ts-expect-error Stories T2: Pay is no event of the shop app
+    turnsOf(shopRun, Rent.E.Pay);
+    // @ts-expect-error Stories T2: Rent is no machine of the shop app
+    evidenceOf(shopRun, Rent.E.Pay, { actor: rent });
     // @ts-expect-error Stories T2: Pay is no event of Plain's actor
     turnsOf(shopRun, Rent.E.Pay, { actor: plain });
 
+    samplesOf({
+      ...sampled,
+      id: "types/app/samples",
+      story: shopStory,
+      // @ts-expect-error Stories T2: Rent is no machine of the shop app
+      actors: { rent },
+      steps: (s) => s,
+    });
+
     expectTypeOf(publishedOf(shopRun, plain)).toEqualTypeOf<Array<PublishedOf<typeof Plain>>>();
-    expectTypeOf(turnsOf(shopRun, Plain.E.Go)[0]?.event).not.toEqualTypeOf<"Go" | undefined>();
+    expectTypeOf(turnsOf(shopRun, Plain.E.Go)).not.toBeNever();
     expectTypeOf(
       samplesOf({
+        ...sampled,
         id: "types/app/right",
         story: shopStory,
-        names: { setup: "s", fixtures: [] },
         actors: { plain },
-        servers: {},
-        failures: [],
-        landedFailures: [],
-        controls: [],
-        values: {},
         steps: (s) => s,
       }).id,
     ).toEqualTypeOf<string>();
@@ -133,19 +141,22 @@ describe("Stories R12, T2: a run keeps its checkpoint names", () => {
     const story = shopStory.checkpoint("a");
     const run = await story.run({ steps: story.steps });
 
-    expectTypeOf(run).not.toEqualTypeOf<StoryRun<"a">>();
-    expectTypeOf(run).toEqualTypeOf<StoryRun>();
+    expectTypeOf(run.checkpoints).toEqualTypeOf<{ readonly a: (typeof run)["end"] }>();
 
-    void run.checkpoints["nonsense"]; // wrong: no such checkpoint
+    // @ts-expect-error Stories R12: nonsense is no checkpoint of this run
+    void run.checkpoints.nonsense;
   });
 
   it("a helper over an unnamed run cannot index a checkpoint by name", () => {
-    const helper = (run: StoryRun) => run.checkpoints["zzz"]; // wrong: names are lost
+    // @ts-expect-error Stories R12: an unnamed run has no checkpoint names
+    const helper = (run: StoryRun) => run.checkpoints.zzz;
+    const named_ = <N extends string>(run: StoryRun<N>, name: N) => run.checkpoints[name];
 
     void helper;
+    expectTypeOf(named_(named, "a").now).toEqualTypeOf<number>();
   });
 
-  it("a named run refuses an unknown name today", () => {
+  it("a named run refuses an unknown name", () => {
     void named.checkpoints.a;
     // @ts-expect-error Stories R12: c is no checkpoint of this run
     void named.checkpoints.c;

@@ -1,7 +1,15 @@
 import { type Duration, Effect, type Layer, Option } from "effect";
 import type { AnyDefinition, EventOf } from "../../definition.ts";
 import { flowError, raise } from "../../error.ts";
-import { actorIdOf, type ActorRef, configOf, machineOf, type RuntimeSetup } from "../runtime.ts";
+import {
+  actorIdOf,
+  type ActorRef,
+  type App,
+  configOf,
+  type DefsOf,
+  machineOf,
+  type RuntimeSetup,
+} from "../runtime.ts";
 import type { FakeWorld } from "./fake.ts";
 import {
   attempt,
@@ -61,35 +69,47 @@ export const SubjectId = "~flow-state/Subject";
  * A scripted run of an app over fakes: inert data until `run()`. Each step word returns a new
  * Story with one more step; `Names` are its checkpoints' names.
  */
-export type Story<Names extends string = never> = {
+export type Story<Names extends string = never, Ds extends AnyDefinition = AnyDefinition> = {
   readonly [StoryId]: string;
   readonly [SubjectId]: Subject;
   readonly id: string;
-  readonly steps: ReadonlyArray<Step>;
-  readonly ensure: <D extends AnyDefinition>(ref: ActorRef<D>) => Story<Names>;
-  readonly detach: <D extends AnyDefinition>(ref: ActorRef<D>) => Story<Names>;
-  readonly send: <D extends AnyDefinition>(ref: ActorRef<D>, event: EventOf<D>) => Story<Names>;
-  readonly dispose: <D extends AnyDefinition>(
+  readonly steps: Steps<Names>;
+  readonly ensure: <D extends Ds>(ref: ActorRef<D>) => Story<Names, Ds>;
+  readonly detach: <D extends Ds>(ref: ActorRef<D>) => Story<Names, Ds>;
+  readonly send: <D extends Ds>(ref: ActorRef<D>, event: EventOf<D>) => Story<Names, Ds>;
+  readonly dispose: <D extends Ds>(
     ref: ActorRef<D>,
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
     options?: { readonly how?: "forget" },
-  ) => Story<Names>;
+  ) => Story<Names, Ds>;
   readonly disposeRuntime: (
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Runtime's public option: an omitted option keeps saved data
     options?: { readonly forget?: true },
-  ) => Story<Names>;
-  readonly world: (...words: ReadonlyArray<WorldWord>) => Story<Names>;
-  readonly advance: (duration: Duration.Input) => Story<Names>;
+  ) => Story<Names, Ds>;
+  readonly world: (...words: ReadonlyArray<WorldWord>) => Story<Names, Ds>;
+  readonly advance: (duration: Duration.Input) => Story<Names, Ds>;
   readonly reload: (
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
     options?: { readonly reattach?: boolean; readonly heldWrites?: "abort" | "land" },
-  ) => Story<Names>;
-  readonly checkpoint: <N extends string>(name: N & NewName<N, Names>) => Story<Names | N>;
+  ) => Story<Names, Ds>;
+  readonly checkpoint: <N extends string>(name: N & NewName<N, Names>) => Story<Names | N, Ds>;
   readonly run: {
-    (): Promise<StoryRun<Names>>;
-    (options: { readonly steps: ReadonlyArray<Step> }): Promise<StoryRun>;
-    (options: { readonly steps: ReadonlyArray<Step>; readonly seed: number }): Promise<StoryRun>;
+    (): Promise<StoryRun<Names, Ds>>;
+    <N extends string>(options: { readonly steps: Steps<N> }): Promise<StoryRun<N, Ds>>;
+    <N extends string>(options: {
+      readonly steps: Steps<N>;
+      readonly seed: number;
+    }): Promise<StoryRun<N, Ds>>;
   };
+};
+
+/**
+ * A Story's steps as data, with the names of the checkpoints among them: `run({ steps })` keeps
+ * those names. An array built by hand has none it can promise, so its run's names are text.
+ */
+export type Steps<Names extends string = string> = ReadonlyArray<Step> & {
+  // A phantom method: the checkpoint names, which a spread or a hand-built array drops.
+  "~names"?(names: Names): void;
 };
 
 const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>) => actorIdOf(ref);
@@ -99,7 +119,10 @@ const actorOf = <D extends AnyDefinition>(ref: ActorRef<D>) => actorIdOf(ref);
  * of several fixtures from their merged subject.
  */
 // RETURN_TYPE: the exported Story contract with no checkpoints yet.
-export const storyOf = (subject: Subject, id: string): Story => {
+export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
+  subject: Subject,
+  id: string,
+): Story<never, Ds> => {
   // A Story's ref names an identity only of a machine its app runs.
   const own = (ref: ActorRef) => {
     if (Object.values(subject.config.app.machines).some((e) => machineOf(e) === ref.machine))
@@ -118,7 +141,7 @@ export const storyOf = (subject: Subject, id: string): Story => {
   };
 
   // RETURN_TYPE: each step returns the Story contract with its names so far.
-  const chain = <Names extends string>(steps: ReadonlyArray<Step>): Story<Names> => {
+  const chain = <Names extends string>(steps: ReadonlyArray<Step>): Story<Names, Ds> => {
     const next = (step: Step) => chain<Names>([...steps, step]);
 
     return {
@@ -186,22 +209,22 @@ export const storyOf = (subject: Subject, id: string): Story => {
  */
 export const Story = {
   // RETURN_TYPE: the exported Story contract with no checkpoints yet.
-  app: <R, const Fx extends ReadonlyArray<Fixture>>(
-    setup: RuntimeSetup<R>,
+  app: <R, A extends App, const Fx extends ReadonlyArray<Fixture>>(
+    setup: RuntimeSetup<R, A>,
     options: {
       readonly id: string;
       readonly fixtures: Fx & Covering<R, Fx>;
       // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
       readonly world?: ReadonlyArray<WorldWord>;
     },
-  ): Story => {
+  ): Story<never, DefsOf<A>> => {
     const subject = {
       config: configOf(setup),
       fixtures: options.fixtures,
       world: options.world ?? [],
     };
 
-    return storyOf(subject, options.id);
+    return storyOf<DefsOf<A>>(subject, options.id);
   },
 };
 

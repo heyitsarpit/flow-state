@@ -242,7 +242,9 @@ describe("isolation (Actors R24, I34)", () => {
       "stray",
     );
 
+    // @ts-expect-error Actors R24: Stray is no machine of this app; an untyped caller is refused at run time
     expect(thrownCode(() => runtime.ensureActor(stray))).toBe("ForeignActorRef");
+    // @ts-expect-error Actors R24: Stray is no machine of this app
     expect(thrownCode(() => runtime.disposeActor(stray))).toBe("ForeignActorRef");
   });
 });

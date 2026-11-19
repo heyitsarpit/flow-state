@@ -61,7 +61,7 @@ type Above = { readonly provider: Upstream; readonly ref: ActorRef };
 // A chain whose first link enqueues `firstCopies` events per change and every other link one.
 const chainOf = (firstCopies: number) => {
   const pairs: Array<readonly [string, ChainEntry]> = [["head", HeadMachine]];
-  const refs: Array<ActorRef> = [];
+  const refs: Array<ActorRef<ReturnType<typeof link>["definition"]>> = [];
   let upstream: Above = { provider: Head, ref: actorRef(HeadMachine, "head") };
 
   for (let at = 1; at <= LINKS; at += 1) {

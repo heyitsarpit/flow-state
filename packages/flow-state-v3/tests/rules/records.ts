@@ -239,7 +239,7 @@ export const onlyActorsWithheld: Rule = {
  */
 export const recordKinds: Rule = {
   rule: "Codec I7",
-  breaches: (run: StoryRun) => {
+  breaches: (run: StoryRun<string>) => {
     const put = putBy(run);
 
     return [

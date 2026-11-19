@@ -120,7 +120,7 @@ const KEY = "actor/Restore/Notes/mine";
 const reported = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Reported" ? [`${e.code} ${e.reason}`] : []));
 
-const savedCount = (run: StoryRun, checkpoint: string) => {
+const savedCount = (run: StoryRun<string>, checkpoint: string) => {
   const text = run.checkpoints[checkpoint]?.records.stored.get(KEY);
 
   return text === undefined

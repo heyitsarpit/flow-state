@@ -187,21 +187,28 @@ export const lifecycleOf = (life: Life) => life._tag;
  * A live actor's public lifecycle under the Runtime's life: disposing while the Runtime disposes,
  * disposed once it has, active otherwise. Reported in snapshots; it decides nothing.
  */
-export const actorLifecycleOf = (life: Life) =>
-  Life.$match(life, {
-    Inert: () => "active" as const,
-    Booting: () => "active" as const,
-    Open: () => "active" as const,
-    Failed: () => "active" as const,
-    Disposing: () => "disposing" as const,
-    Disposed: () => "disposed" as const,
-    Stopped: () => "stopped" as const,
-  });
+export const actorLifecycleOf = (life: Life) => LIFECYCLE_OF[life._tag];
+
+/**
+ * An actor's public lifecycle, as a snapshot reports it.
+ */
+export type Lifecycle = "active" | "disposing" | "disposed" | "stopped" | "quarantined";
+
+const LIFECYCLE_OF = {
+  Inert: "active",
+  Booting: "active",
+  Open: "active",
+  Failed: "active",
+  Disposing: "disposing",
+  Disposed: "disposed",
+  Stopped: "stopped",
+} as const satisfies Record<Life["_tag"], Lifecycle>;
 
 /**
  * The public lifecycle of an identity with no live actor (a saved record, a quarantined one or an
  * ended actor) under the Runtime's life: stopped once a defect stopped the Runtime, its own
  * otherwise.
  */
-export const restingLifecycleOf = <A extends string>(life: Life, own: A) =>
-  isStopped(life) ? ("stopped" as const) : own;
+// RETURN_TYPE: the public Lifecycle, which the branches would split into two literals.
+export const restingLifecycleOf = (life: Life, own: Lifecycle): Lifecycle =>
+  isStopped(life) ? "stopped" : own;

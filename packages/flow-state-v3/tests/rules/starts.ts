@@ -17,7 +17,7 @@ const unsaved = (cut: Cut, at: string) =>
  */
 export const ownedRowsSaved = {
   rule: "WriteAhead I20",
-  breaches: (run: StoryRun) => [
+  breaches: (run: StoryRun<string>) => [
     ...Object.entries(run.checkpoints).flatMap(([name, cut]) => unsaved(cut, name)),
     ...unsaved(run.end, "the end"),
   ],
