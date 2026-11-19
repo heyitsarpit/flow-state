@@ -2526,3 +2526,7 @@ tasks
             Fixtures (code:wiki/conventions/fixtures.md): no runtime feature changes and no fixture is added; the words
             read the existing apps, and the proof is their converted Stories. Extra files: `src/events.ts`,
             `src/index.ts` (the generic `Snapshot`), `tools/flow-state-lint/` (the rule).
+        comment     2026-11-19T12:25:16Z
+            Accepted (orchestrator, 2026-11-19): read narrows the type without decoding (memory holds typed values);
+            turnsOf and deliveriesOf match only the token's own definition; shop's port errors stay TaggedStructs (the
+            acceptance allows it). Requirements review started.
