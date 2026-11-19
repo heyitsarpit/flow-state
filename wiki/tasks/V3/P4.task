@@ -1125,6 +1125,87 @@ tasks
             than a walker encode (hot path, one exact Schema decodes it, no finding in this class); reverse by encoding
             `recordFour` in `encodeActor`. Not touched: the removed-slot question (@task.V3.T56), the raw-throw
             class (@task.V3.T98).
+        comment     2026-11-19T00:28:03Z
+            Close review after convergence (independent lead, 5 Haiku sidecars, one blind) at `dddcd6b5`: ISSUES, 2
+            blocking. Blocking 1 is the same root cause again: decode accepts an owed-row combination the runtime never
+            writes. By the failure limit (2), T92 stops for the user. Gates by exit code: suite 0 (1219 pass, 23
+            expected fail), `nub run check` 0, stress 0 (76), `nub run faults --only` on the 9 new or retargeted faults:
+            9 of 9 caught. Acceptance: bindings, the Restore R5 inverted test with read-op and headless lanes, fixtures,
+            one parser, brands: PASS. Corrupt-one-field (4) and Spec edits (8): ISSUES.
+
+            Blocking (owner @task.V3.T92):
+
+            1. Made-up ending, the same root cause. One owed record that holds an Attempt's success, failure or NotSent
+               and then another row of that same Attempt is read. Replayed (shop main cart; owed `[Answered success
+               nine, Answered unknown nine Restored]`): open 2 delivers `add Added` then `add AddUnsure` in one
+               incarnation, nothing is quarantined and `checked` is clean. That breaks @spec.WriteLanes.I16. No writer
+               makes this order. An ending vacates its head in the same batch, so a later unknown of that Attempt is
+               never owed: `ledger.ts` `start` owes Restored only to a Held head, and `applyDisplaced` drops the
+               displaced Attempt when it owes. The legal order, unknown then success (@spec.WriteLanes.I15), also boots,
+               and should. One record's decode can tell the two apart. Missing coverage: `owedSchemaOf` checks only that
+               definite endings are unique and has no order rule. `rowCombinations` forges one row at a time. No sample
+               holds a definite ending followed by another row of that Attempt.
+            2. Spec losing text (acceptance 8). Codec.spec:55 still says "a Flow-made row with no value saves `null`",
+               against WriteAhead R5 and the void-value fix. Codec I7 says "every owed row has a `channel`", and T6
+               plants "an owed row with no channel", but Refused and Declined rows store no channel. T6 also has a
+               broken wrap (197-198). Missing coverage: none in code. The reader check missed it.
+
+            Routed:
+
+            - The same class, not blocking (owner @task.V3.T92). Some reason sets are wider than any writer gives, so
+              `NOT_SENT_WHY` in forged.test.ts `WRITTEN` encodes the same overreach:
+              - an Unsent `Rejected` on a lane, which cells.ts:252-308 never gives;
+              - a Declined `Cancelled` or `StorageRefused`;
+              - an Answered success whose reason is not `success`.
+
+              Replayed: an Unsent Rejected is heard as `AddNotSent`. Each one gives only an ending that a swap to
+              another valid reason (Q4) can already give.
+            - Actor writer against the strict decode (owner @task.V3.T92). `recordFour` admits shapes `encodeActor`
+              never writes:
+              - a reactions count other than the machine's;
+              - empty, equal or unreferenced memory copies, and copy fields the machine never declared;
+              - schedules of states outside the current chain;
+              - graph bindings to any declared machine, under any slot name.
+
+              No test encodes a decoded record and compares the result, though Codec I7 claims round-trip. Nothing
+              replayed wrong: no fixture has an owing consumer whose provider has slots.
+            - Q4 (the user's read). Confirmed that a per-record decode cannot tell an `Answered` success beside a Held
+              head of the same Attempt: the lane record and the owed record are separate (@spec.WriteAhead.R5).
+              Replayed: `Added`, then the next Add gets `AddNotSent` (stuck key), and a retry would re-invoke a write
+              already heard as succeeded. `decodeRecords` sees the whole store, so a boot-wide "one Attempt, ended once"
+              check is possible. The same holds for a displaced Attempt whose ending is also owed.
+            - The deep format-1 record matches Restore R5: the slot Schema refuses the form, so the slot is unselected.
+              No ending is lost: `seen` and baselines drive only reactions, and an unselected slot can only add a fire,
+              as with any refused format-1 form. Its test asserts only `lifecycle` (low).
+            - The input-field patch matches Compile R7 and Turn R13 (a refused turn is InvalidTurn), and no fixture
+              patches an input field. In production, where memory is unfrozen, an update that mutates an input field in
+              place passes the check (@task.V3.T98, low). Compile.spec:70-71 have trailing spaces.
+            - Low (owner @task.V3.T92):
+              - the walker caches in `record.ts` are hand WeakMaps with no measurement;
+              - records.test.ts uses temporary "held for the user" strings;
+              - the new comments in core are not doc comments.
+
+            Sidecars (each finding re-checked):
+
+            - Accepted after replay:
+              - blind: the ending followed by another row (blocking 1);
+              - blind and census: an Unsent Rejected on a lane (routed);
+              - blind: Q4 cross-record (routed).
+            - Accepted by reading:
+              - the Codec stale text (blocking 2);
+              - the drift shapes A1 to A6 (routed);
+              - the reason-set census (routed).
+            - Changed:
+              - a schedule of another state, and a graph binding to another machine: routed, since a forged swap to
+                another declared state gives the same and no fixture can replay the graph case;
+              - a displaced Attempt also owed: joins Q4.
+            - Rejected:
+              - the doubled Restored across a reload (I15 allows one per reload);
+              - the Recapturing retryCount (the Spec says the count includes the re-send itself);
+              - lookup rows, and lane-less rows whose channel differs (no writer reaches them);
+              - format-4 text from before `_tag` (never released);
+              - the Compile R7 fragment exemption (no fragments in src);
+              - writer bindings the decode refuses (wiring checks the machine; canonical text closes -0).
 
     T95
         title       Callback results checked before they enter a turn
