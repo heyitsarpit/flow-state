@@ -14,17 +14,18 @@ export const Avatar = definition({
   internalEvents: { Seen: {} },
   memory: { seen: Flow.initial(Schema.Number, 0) },
   context: {
-    user: SessionMachine.definition.Provider.select(Schema.UndefinedOr(Schema.String), (s) =>
-      s.memory.user === "" ? undefined : s.memory.user,
-    ),
+    user: Flow.context(Schema.UndefinedOr(Schema.String), {
+      reads: { user: SessionMachine.definition.M.user },
+      select: ({ user }) => (user === "" ? undefined : user),
+    }),
   },
 });
 
 /**
  * The avatar: each changed user is one more seen.
  */
-export const AvatarMachine = machine(Avatar, ({ S, E }) => ({
+export const AvatarMachine = machine(Avatar, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [{ select: ({ context }) => context.user, event: E.Seen }],
+  onContext: [C.user.change({ event: E.Seen })],
   on: { Seen: { updateMemory: ({ memory }) => ({ seen: memory.seen + 1 }) } },
 }));

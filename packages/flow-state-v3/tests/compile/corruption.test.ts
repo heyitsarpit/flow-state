@@ -125,7 +125,13 @@ const SLOTS: ReadonlyArray<Slot> = [
       StandingOrder.E.AccountChanged.from((account: string) => ({ account })),
     ],
     construct: (value) =>
-      order(({ S }) => ({ default: S.DRAFT, onContext: [{ select: () => "", event: value }] })),
+      machine(StandingOrder, ({ S, C }) =>
+        loose({
+          default: S.DRAFT,
+          onContext: [C.customer.change(loose({ event: value }))],
+          on: { AccountChanged: {} },
+        }),
+      ),
   },
   {
     numbersValid: false,

@@ -23,8 +23,8 @@ export const Repo = definition({
     limited: Flow.initial(Schema.Boolean, false),
   },
   context: {
-    head: Sync.Provider.select(Schema.String, (s) => s.memory.head),
-    cooling: Sync.Provider.select(Schema.Boolean, (s) => s.state === "COOLING"),
+    head: Flow.context(Sync.M.head),
+    cooling: Flow.context(Sync.S.COOLING),
   },
 });
 
@@ -34,17 +34,11 @@ const toClient = () => actorRef(SyncMachine, "client");
  * The repository: each new head its client reads is counted, and its backoff shown; a commit tells
  * the main client to sync it, and a push the host reports tells the client it was pushed.
  */
-export const RepoMachine = machine(Repo, ({ S, E }) => ({
+export const RepoMachine = machine(Repo, ({ S, E, C }) => ({
   default: S.OPEN,
   onContext: [
-    {
-      select: ({ context }) => context.head,
-      event: E.HeadSeen.from((head: string) => ({ head })),
-    },
-    {
-      select: ({ context }) => context.cooling,
-      event: E.LimitSeen.from((limited: boolean) => ({ limited })),
-    },
+    C.head.change({ event: E.HeadSeen.from((head) => ({ head })) }),
+    C.cooling.change({ event: E.LimitSeen.from((limited) => ({ limited })) }),
   ],
   on: {
     SetToken: { updateMemory: ({ event }) => ({ token: event.token }) },

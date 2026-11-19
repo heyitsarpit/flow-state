@@ -8,7 +8,7 @@ export const Team = definition({
   states: ["ACTIVE"],
   events: { Rename: { name: Schema.String } },
   memory: { name: Flow.initial(Schema.String, "") },
-  context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
+  context: { user: Flow.context(Session.M.user) },
 });
 
 /**

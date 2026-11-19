@@ -18,22 +18,20 @@ export const Byline = definition({
     teams: Flow.initial(Schema.Number, 0),
   },
   context: {
-    user: SessionMachine.definition.Provider.select(Schema.UndefinedOr(Schema.String), (s) =>
-      s.memory.user === "" ? undefined : s.memory.user,
-    ),
-    team: TeamMachine.definition.Provider.select(Schema.String, (t) => t.memory.name),
+    user: Flow.context(Schema.UndefinedOr(Schema.String), {
+      reads: { user: SessionMachine.definition.M.user },
+      select: ({ user }) => (user === "" ? undefined : user),
+    }),
+    team: Flow.context(TeamMachine.definition.M.name),
   },
 });
 
 /**
  * The byline: each changed user is one more user seen, each changed team name one more team seen.
  */
-export const BylineMachine = machine(Byline, ({ S, E }) => ({
+export const BylineMachine = machine(Byline, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [
-    { select: ({ context }) => context.user, event: E.UserSeen },
-    { select: ({ context }) => context.team, event: E.TeamSeen },
-  ],
+  onContext: [C.user.change({ event: E.UserSeen }), C.team.change({ event: E.TeamSeen })],
   on: {
     UserSeen: { updateMemory: ({ memory }) => ({ users: memory.users + 1 }) },
     TeamSeen: { updateMemory: ({ memory }) => ({ teams: memory.teams + 1 }) },

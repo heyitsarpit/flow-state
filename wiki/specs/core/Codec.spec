@@ -101,7 +101,7 @@ requirements
                 one Schema (a cycle) has no form. A walker keeps each value's canonical text by the
                 object it is (admitted values are immutable, @spec.Turn.R24), so a step re-encodes
                 only the fields it changed. Comparison is not the walkers': memory, selections and
-                reaction inputs compare with a structural comparator on its own stack, the same
+                baselines compare with a structural comparator on its own stack, the same
                 object first, over every value kind a Schema makes, as `Equal` holds them (chosen on
                 the bench, T7). JSON text, trace text and every construction-time walk over a value
                 (a constant, the data view) keep their own stacks too. Decision (agent, the user's

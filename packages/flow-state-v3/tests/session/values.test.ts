@@ -101,7 +101,7 @@ describe("every value a selector returns, across reloads (Actors R9, R19)", () =
 });
 
 describe("a reaction's baseline across a reload (Turn R22; Restore R2)", () => {
-  it("Turn R22: a reaction reading memory keeps the baseline it last saw: a reload after a memory-only change loses no event", async () => {
+  it("Turn R22: a when reading memory: a memory-only change re-runs nothing, and the next change of the slot is judged by the new memory, a reload between included", async () => {
     const live = await played(digestQuiet);
     const at = digestQuiet.steps.findIndex((s) => s._tag === "checkpoint" && s.name === "raised");
 
@@ -109,11 +109,14 @@ describe("a reaction's baseline across a reload (Turn R22; Restore R2)", () => {
       await digestQuiet.run({ steps: digestQuiet.steps.toSpliced(at, 0, reload) }),
     );
 
-    expect(live.checkpoints.quiet.read(mainDigest)?.memory).toEqual(
-      expect.objectContaining({ heard: 19, busy: 2 }),
+    expect(live.checkpoints.raised.read(mainDigest)?.memory).toEqual(
+      expect.objectContaining({ heard: 14, busy: 1, quietFrom: 3 }),
     );
-    expect(reloaded.checkpoints["quiet"]?.read(mainDigest)?.memory).toEqual(
-      expect.objectContaining({ heard: 19, busy: 2 }),
+    expect(live.checkpoints.crossed.read(mainDigest)?.memory).toEqual(
+      expect.objectContaining({ heard: 20, busy: 2 }),
+    );
+    expect(reloaded.checkpoints["crossed"]?.read(mainDigest)?.memory).toEqual(
+      expect.objectContaining({ heard: 20, busy: 2 }),
     );
   });
 });
@@ -153,7 +156,7 @@ describe("saved records of context consumers (Restore R5; Codec R3)", () => {
     expect(run.checkpoints["signed out"].read(mainAvatar)?.memory).toEqual({ seen: 2 });
     expect(
       run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar"),
-    ).toContain('"format":3');
+    ).toContain('"format":4');
   });
 });
 
@@ -213,9 +216,9 @@ describe("a large memory read by several reactions (Turn R22; Actors R18; WriteA
         run.checkpoints[cut].read(mainArchive)?.memory.log,
       );
 
-    expect(rows("logged")).toBe(3_003);
-    expect(rows("reloaded")).toBe(3_003);
-    expect(rows("again")).toBe(3_005);
+    expect(rows("logged")).toBe(3_004);
+    expect(rows("reloaded")).toBe(3_004);
+    expect(rows("again")).toBe(3_007);
     expect(reported(run, "UnencodableValue")).toEqual([]);
   });
 });

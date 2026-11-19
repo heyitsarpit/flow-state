@@ -108,56 +108,71 @@ export const Digest = definition({
     quietFrom: Flow.initial(Schema.Number, 2),
   },
   context: {
-    latest: Inbox.Provider.select(Schema.UndefinedOr(Schema.Date), (s) =>
-      Option.getOrUndefined(Option.map(newest(s.memory.messages), arrivedAt)),
-    ),
-    unread: Inbox.Provider.select(
-      Schema.Number,
-      (s) => (s.memory.messages.length - s.memory.read) / s.memory.messages.length,
-    ),
-    owed: Inbox.Provider.select(Schema.Number, (s) => -(s.memory.messages.length - s.memory.read)),
-    bySender: Inbox.Provider.select(Schema.ReadonlyMap(Schema.String, Schema.Number), (s) =>
-      countsBySender(s.memory.messages),
-    ),
-    senders: Inbox.Provider.select(
-      Schema.ReadonlySet(Schema.String),
-      (s) => new Set(s.memory.messages.map((m) => m.from)),
-    ),
-    writers: Inbox.Provider.select(
-      Schema.Number,
-      (s) => new Set(s.memory.messages.map((m) => m.from)).size,
-    ),
-    envelope: Inbox.Provider.select(Schema.UndefinedOr(Envelope), (s) =>
-      Option.getOrUndefined(
-        Option.map(newest(s.memory.messages), (m) => new Envelope({ from: m.from, at: m.at })),
-      ),
-    ),
-    first: Inbox.Provider.select(Schema.Option(Schema.String), (s) =>
-      Option.map(Option.fromUndefinedOr(s.memory.messages[0]), (m) => m.from),
-    ),
-    summary: Inbox.Provider.select(Summary, (s) => ({
-      latest: Option.map(newest(s.memory.messages), arrivedAt),
-      ids: idsBySender(s.memory.messages),
-    })),
+    latest: Flow.context(Schema.UndefinedOr(Schema.Date), {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) => Option.getOrUndefined(Option.map(newest(messages), arrivedAt)),
+    }),
+    unread: Flow.context(Schema.Number, {
+      reads: { messages: Inbox.M.messages, read: Inbox.M.read },
+      select: ({ messages, read }) => (messages.length - read) / messages.length,
+    }),
+    owed: Flow.context(Schema.Number, {
+      reads: { messages: Inbox.M.messages, read: Inbox.M.read },
+      select: ({ messages, read }) => -(messages.length - read),
+    }),
+    bySender: Flow.context(Schema.ReadonlyMap(Schema.String, Schema.Number), {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) => countsBySender(messages),
+    }),
+    senders: Flow.context(Schema.ReadonlySet(Schema.String), {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) => new Set(messages.map((m) => m.from)),
+    }),
+    writers: Flow.context(Schema.Number, {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) => new Set(messages.map((m) => m.from)).size,
+    }),
+    envelope: Flow.context(Schema.UndefinedOr(Envelope), {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) =>
+        Option.getOrUndefined(
+          Option.map(newest(messages), (m) => new Envelope({ from: m.from, at: m.at })),
+        ),
+    }),
+    first: Flow.context(Schema.Option(Schema.String), {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) => Option.map(Option.fromUndefinedOr(messages[0]), (m) => m.from),
+    }),
+    summary: Flow.context(Summary, {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) => ({
+        latest: Option.map(newest(messages), arrivedAt),
+        ids: idsBySender(messages),
+      }),
+    }),
   },
 });
 
 /**
- * The digest: each changed slot is one more heard; the inbox turning busy or quiet against the
- * digest's own threshold is one more busy.
+ * The digest: each changed slot is one more heard; a change of writers that turns the inbox busy or
+ * quiet against the digest's own threshold is one more busy.
  */
-export const DigestMachine = machine(Digest, ({ S, E }) => ({
+export const DigestMachine = machine(Digest, ({ S, E, C }) => ({
   default: S.SHOWN,
   onContext: [
-    { select: ({ context }) => context.latest, event: E.Heard },
-    { select: ({ context }) => context.unread, event: E.Heard },
-    { select: ({ context }) => context.owed, event: E.Heard },
-    { select: ({ context }) => context.bySender, event: E.Heard },
-    { select: ({ context }) => context.senders, event: E.Heard },
-    { select: ({ context }) => context.envelope, event: E.Heard },
-    { select: ({ context }) => context.first, event: E.Heard },
-    { select: ({ context }) => context.summary, event: E.Heard },
-    { select: ({ context, memory }) => context.writers >= memory.quietFrom, event: E.Busy },
+    C.latest.change({ event: E.Heard }),
+    C.unread.change({ event: E.Heard }),
+    C.owed.change({ event: E.Heard }),
+    C.bySender.change({ event: E.Heard }),
+    C.senders.change({ event: E.Heard }),
+    C.envelope.change({ event: E.Heard }),
+    C.first.change({ event: E.Heard }),
+    C.summary.change({ event: E.Heard }),
+    C.writers.change({
+      when: (current, previous, { memory }) =>
+        current >= memory.quietFrom !== previous >= memory.quietFrom,
+      event: E.Busy,
+    }),
   ],
   on: {
     Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) },
@@ -218,15 +233,20 @@ export const ThreadView = definition({
   events: {},
   internalEvents: { Heard: {} },
   memory: { heard: Flow.initial(Schema.Number, 0) },
-  context: { thread: Inbox.Provider.select(Thread, (s) => threadOf(s.memory.messages)) },
+  context: {
+    thread: Flow.context(Thread, {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) => threadOf(messages),
+    }),
+  },
 });
 
 /**
  * The thread view: each changed tree is one more heard.
  */
-export const ThreadViewMachine = machine(ThreadView, ({ S, E }) => ({
+export const ThreadViewMachine = machine(ThreadView, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [{ select: ({ context }) => context.thread, event: E.Heard }],
+  onContext: [C.thread.change({ event: E.Heard })],
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));
 
@@ -243,27 +263,26 @@ export const Unread = definition({
   internalEvents: { Opened: { id: Schema.String } },
   memory: { opened: Flow.initial(Schema.Array(Schema.String), []) },
   context: {
-    oldest: Inbox.Provider.select(
-      Schema.NonEmptyString,
-      (s) => s.memory.messages[s.memory.read]?.id ?? "",
-    ),
+    oldest: Flow.context(Schema.NonEmptyString, {
+      reads: { messages: Inbox.M.messages, read: Inbox.M.read },
+      select: ({ messages, read }) => messages[read]?.id ?? "",
+    }),
   },
 });
 
 /**
  * The unread badge: each new oldest unread message is opened, unless it is spam.
  */
-export const UnreadMachine = machine(Unread, ({ S, E }) => ({
+export const UnreadMachine = machine(Unread, ({ S, E, C }) => ({
   default: S.SHOWN,
   onContext: [
-    {
-      select: ({ context }) => context.oldest,
-      event: E.Opened.from((id: string) => {
+    C.oldest.change({
+      event: E.Opened.from((id) => {
         if (id === "spam") throw new Error("spam");
 
         return { id };
       }),
-    },
+    }),
   ],
   on: {
     Opened: { updateMemory: ({ event, memory }) => ({ opened: [...memory.opened, event.id] }) },
@@ -271,43 +290,57 @@ export const UnreadMachine = machine(Unread, ({ S, E }) => ({
 }));
 
 /**
- * The archive: a long log of message ids, filled by an import, that three reactions read beside
- * the inbox: its size, its last entry and whether it holds the newest message. Each appends to the
- * log what it heard, so memory moves on after every wave; kept across reloads.
+ * The archive: a long log of message ids, filled by an import. Three reactions hear each newest
+ * message of the inbox, and each logs it beside the log's size, its last entry and whether it holds
+ * the message, so memory moves on after every wave; kept across reloads.
  */
 export const Archive = definition({
   id: "Workspace/Archive",
   persist: true,
   states: ["SHOWN"],
   events: { Import: { ids: Schema.Array(Schema.String) } },
-  internalEvents: { Logged: { entry: Schema.String } },
+  internalEvents: {
+    SizeHeard: { newest: Schema.String },
+    LastHeard: { newest: Schema.String },
+    HeldHeard: { newest: Schema.String },
+  },
   memory: { log: Flow.initial(Schema.Array(Schema.String), []) },
   context: {
-    newest: Inbox.Provider.select(Schema.String, (s) => s.memory.messages.at(-1)?.id ?? ""),
+    newest: Flow.context(Schema.String, {
+      reads: { messages: Inbox.M.messages },
+      select: ({ messages }) => messages.at(-1)?.id ?? "",
+    }),
   },
 });
 
+const heard = (newest: string) => ({ newest });
+
 /**
- * The archive: each reaction's change logs one entry.
+ * The archive: each newest message logs three entries, in the reactions' order.
  */
-export const ArchiveMachine = machine(Archive, ({ S, E }) => ({
+export const ArchiveMachine = machine(Archive, ({ S, E, C }) => ({
   default: S.SHOWN,
   onContext: [
-    {
-      select: ({ context, memory }) => `${context.newest}@${memory.log.length}`,
-      event: E.Logged.from((entry: string) => ({ entry: `size ${entry}` })),
-    },
-    {
-      select: ({ context, memory }) => `${context.newest}<${memory.log.at(-1) ?? ""}`,
-      event: E.Logged.from((entry: string) => ({ entry: `last ${entry}` })),
-    },
-    {
-      select: ({ context, memory }) => memory.log.includes(context.newest),
-      event: E.Logged.from((held: boolean) => ({ entry: `held ${String(held)}` })),
-    },
+    C.newest.change({ event: E.SizeHeard.from(heard) }),
+    C.newest.change({ event: E.LastHeard.from(heard) }),
+    C.newest.change({ event: E.HeldHeard.from(heard) }),
   ],
   on: {
     Import: { updateMemory: ({ event, memory }) => ({ log: [...memory.log, ...event.ids] }) },
-    Logged: { updateMemory: ({ event, memory }) => ({ log: [...memory.log, event.entry] }) },
+    SizeHeard: {
+      updateMemory: ({ event, memory }) => ({
+        log: [...memory.log, `size ${event.newest}@${String(memory.log.length)}`],
+      }),
+    },
+    LastHeard: {
+      updateMemory: ({ event, memory }) => ({
+        log: [...memory.log, `last ${event.newest}<${memory.log.at(-1) ?? ""}`],
+      }),
+    },
+    HeldHeard: {
+      updateMemory: ({ event, memory }) => ({
+        log: [...memory.log, `held ${String(memory.log.includes(event.newest))}`],
+      }),
+    },
   },
 }));

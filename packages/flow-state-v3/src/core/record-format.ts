@@ -7,11 +7,11 @@ import type { ActorId } from "./world.ts";
 /**
  * Flow's record format, stamped on every actor, lane and owed record.
  */
-export const FORMAT = 3;
+export const FORMAT = 4;
 
-// The formats a record of this release reads: the current one, and formats 1 and 2 through their
+// The formats a record of this release reads: the current one, and formats 1 to 3 through their
 // steps; a newer, null, fractional or string one is never read.
-export const Format = Schema.Literals([1, 2, FORMAT]);
+export const Format = Schema.Literals([1, 2, 3, FORMAT]);
 
 export const ActorJson = Schema.Struct({ machine: Schema.String, name: Schema.String });
 

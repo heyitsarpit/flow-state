@@ -139,8 +139,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "    if (!compile.sends.has(tokenOf(reaction.event)))",
-        replace: "    if (tokenOf(reaction.event) === undefined)",
+        find: "      else if (!compile.sends.has(tokenOf(event)))",
+        replace: "      else if (tokenOf(event) === undefined)",
       },
     ],
   },
@@ -325,6 +325,45 @@ export const constructionFaults: ReadonlyArray<Fault> = [
         file: "src/events.ts",
         find: "    const given = args.length === 0 ? {} : args[0];",
         replace: "    const given = args[0] ?? {};",
+      },
+    ],
+  },
+  {
+    name: "context-mixed-provider",
+    tests: ["tests/shop/context.test.ts", "tests/actors/context-slots.test.ts"],
+    says: "a derived slot whose reads name two providers is accepted, so it binds one of them and reads the other from the wrong actor",
+    rule: "Compile R19",
+    edits: [
+      {
+        file: "src/flow.ts",
+        find: "    else if (first !== undefined && reader.value.owner !== first.reader.owner)",
+        replace: "    else if (false)",
+      },
+    ],
+  },
+  {
+    name: "reaction-event-unhandled",
+    tests: ["tests/shop/context.test.ts"],
+    says: "a reaction whose event no state handles is accepted, so each change it hears is denied unseen",
+    rule: "Compile R19",
+    edits: [
+      {
+        file: "src/machine.ts",
+        find: "      else if (!handled(compiledTree.root, compiledTree.nodes, tag))",
+        replace: "      else if (false)",
+      },
+    ],
+  },
+  {
+    name: "context-read-not-token-accepted",
+    tests: ["tests/actors/context-slots.test.ts"],
+    says: "a derived read that is not a Flow token is dropped silently, so its select reads undefined",
+    rule: "Compile R19",
+    edits: [
+      {
+        file: "src/flow.ts",
+        find: '    if (Option.isNone(reader)) findings.push(notAToken([...at, "reads", key]));',
+        replace: "    if (Option.isNone(reader)) continue;",
       },
     ],
   },

@@ -531,7 +531,7 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
             schedules: [],
             context: new Map(),
             seen: new Map(),
-            frames: [],
+            baselines: [],
             graph: new Map(),
           },
         ],

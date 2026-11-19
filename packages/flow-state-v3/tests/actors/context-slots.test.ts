@@ -58,7 +58,7 @@ const setup = runtimeSetup({
 });
 
 describe("a slot recomputes only when one of its reads changed (Actors R18)", () => {
-  it.fails("Actors R18, Turn T16: turns that change only an unread field or only the state run no select", async () => {
+  it("Actors R18, Turn T16: turns that change only an unread field or only the state run no select", async () => {
     const renamed = Story.app(setup, { id: "slots/skip-unchanged", fixtures: [] })
       .ensure(profile)
       .ensure(greeter)
@@ -112,13 +112,13 @@ const totalOf = (reads: Parameters<typeof Flow.context>[1]["reads"]) => () =>
   });
 
 describe("construction refuses a slot of two providers by definition, not by id (Compile R19)", () => {
-  it.fails("Compile R19, I18: two definitions of one factory, whose ids the type cannot tell apart, are refused at the second read", () => {
+  it("Compile R19, I18: two definitions of one factory, whose ids the type cannot tell apart, are refused at the second read", () => {
     expect(refusal(totalOf({ a: listOf("a").M.size, b: listOf("b").M.size }))).toEqual([
       ["InvalidConfiguration", "context.total.reads.b"],
     ]);
   });
 
-  it.fails("Compile R19, I18: two definitions under one id are two providers, refused at the second read", () => {
+  it("Compile R19, I18: two definitions under one id are two providers, refused at the second read", () => {
     expect(refusal(totalOf({ name: Profile.M.name, twin: Twin.M.name }))).toEqual([
       ["InvalidConfiguration", "context.total.reads.twin"],
     ]);
@@ -150,7 +150,7 @@ const slotOf = (slot: () => unknown) => () =>
   });
 
 describe("construction refuses a read that is not a Flow token, and a slot with neither token nor spec (Compile R19)", () => {
-  it.fails("Compile R19, I18: a derived read that is not a Flow token is refused at its key", () => {
+  it("Compile R19, I18: a derived read that is not a Flow token is refused at its key", () => {
     expect(
       refusal(
         slotOf(() =>
@@ -163,7 +163,7 @@ describe("construction refuses a read that is not a Flow token, and a slot with 
     ).toEqual([["InvalidConfiguration", "context.slot.reads.other"]]);
   });
 
-  it.fails("Compile R19, I18: Flow.context given a Schema and no spec is refused at its slot", () => {
+  it("Compile R19, I18: Flow.context given a Schema and no spec is refused at its slot", () => {
     expect(refusal(slotOf(() => Flow.context(loose(Schema.String))))).toEqual([
       ["InvalidConfiguration", "context.slot"],
     ]);
@@ -233,5 +233,52 @@ describe("a compound state token reads true in any of its children (Compile R4)"
     expect(at("idle")).toEqual({ here: true, at: "HERE.IDLE" });
     expect(at("typing")).toEqual({ here: true, at: "HERE.TYPING" });
     expect(at("left")).toEqual({ here: false, at: "AWAY" });
+  });
+});
+
+// The member's sidebar entry, which lights when the member arrives.
+const Entry = definition({
+  id: "Slots/Entry",
+  states: ["SHOWN"],
+  events: {},
+  internalEvents: { Lit: {} },
+  context: { here: Flow.context(Member.S.HERE) },
+});
+
+describe("only C makes a reaction (Compile R19)", () => {
+  it("Compile R19, I18: a reaction in the old shape is refused, and one another machine's C made is refused", () => {
+    const made: Array<unknown> = [];
+
+    machine(Entry, ({ S, E, C }) => {
+      made.push(C.here.change({ event: E.Lit }));
+
+      return { default: S.SHOWN, on: { Lit: {} } };
+    });
+
+    expect(
+      refusal(() =>
+        machine(Entry, ({ S, E }) =>
+          loose({
+            default: S.SHOWN,
+            onContext: [{ select: () => 1, event: E.Lit }],
+            on: { Lit: {} },
+          }),
+        ),
+      ),
+    ).toEqual([["InvalidConfiguration", "onContext.0"]]);
+    expect(
+      refusal(() =>
+        machine(Entry, ({ S }) => loose({ default: S.SHOWN, onContext: made, on: { Lit: {} } })),
+      ),
+    ).toEqual([["InvalidConfiguration", "onContext.0"]]);
+    expect(
+      refusal(() =>
+        machine(Entry, ({ S, E, C }) => ({
+          default: S.SHOWN,
+          onContext: [C.here.change({ event: E.Lit })],
+          on: { Lit: {} },
+        })),
+      ),
+    ).toEqual([]);
   });
 });

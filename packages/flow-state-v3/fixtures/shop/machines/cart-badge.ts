@@ -13,19 +13,19 @@ export const CartBadge = definition({
   events: {},
   internalEvents: { CountChanged: { count: Schema.Number } },
   memory: { bumps: Flow.initial(Schema.Number, 0) },
-  context: { cart: Cart.Provider.select(Schema.Number, (c) => itemsIn(c.memory.lines)) },
+  context: {
+    cart: Flow.context(Schema.Number, {
+      reads: { lines: Cart.M.lines },
+      select: ({ lines }) => itemsIn(lines),
+    }),
+  },
 });
 
 /**
  * The badge: a changed count is one bump.
  */
-export const CartBadgeMachine = machine(CartBadge, ({ S, E }) => ({
+export const CartBadgeMachine = machine(CartBadge, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [
-    {
-      select: ({ context }) => context.cart,
-      event: E.CountChanged.from((count: number) => ({ count })),
-    },
-  ],
+  onContext: [C.cart.change({ event: E.CountChanged.from((count) => ({ count })) })],
   on: { CountChanged: { updateMemory: ({ memory }) => ({ bumps: memory.bumps + 1 }) } },
 }));

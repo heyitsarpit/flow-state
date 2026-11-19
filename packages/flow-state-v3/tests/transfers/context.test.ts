@@ -10,7 +10,7 @@ import { played } from "../rules/played.ts";
 const LONG = "a".repeat(10_000);
 
 describe("the switcher's `when` reads its memory (Turn R22)", () => {
-  it.fails("Turn R22: a pass-through slot; `when(current, previous, { memory })` skips an account already listed", async () => {
+  it("Turn R22: a pass-through slot; `when(current, previous, { memory })` skips an account already listed", async () => {
     const run = await played(switcherRecent);
 
     expect(run.checkpoints.none.read(switcher)).toEqual(
@@ -24,7 +24,7 @@ describe("the switcher's `when` reads its memory (Turn R22)", () => {
     );
   });
 
-  it.fails("Turn R22, E1, E3, E4: no account is never listed, a long id is, and the list keeps the newest five", async () => {
+  it("Turn R22, E1, E3, E4: no account is never listed, a long id is, and the list keeps the newest five", async () => {
     const run = await played(switcherEdges);
 
     expect(run.checkpoints.blank.read(switcher)?.memory).toEqual({ recent: ["acct-x"] });
@@ -34,7 +34,7 @@ describe("the switcher's `when` reads its memory (Turn R22)", () => {
     });
   });
 
-  it.fails("Turn R22, Restore R2: a restored switcher keeps its list and reads its account again with nothing listed twice; a new account is listed", async () => {
+  it("Turn R22, Restore R2: a restored switcher keeps its list and reads its account again with nothing listed twice; a new account is listed", async () => {
     const run = await played(switcherReloaded);
 
     expect(run.checkpoints.reloaded.read(switcher)).toEqual(

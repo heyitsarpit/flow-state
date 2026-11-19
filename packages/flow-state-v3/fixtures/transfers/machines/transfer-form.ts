@@ -24,7 +24,7 @@ export const TransferForm = definition({
     balance: Flow.initial(Schema.Number, 0),
     notice: Flow.initial(Schema.String, ""),
   },
-  context: { customer: Customer.Provider.select(Schema.String, (c) => c.memory.account) },
+  context: { customer: Flow.context(Customer.M.account) },
   operations: ({ E }) => ({
     balance: balance.outcomes({
       success: E.BalanceRead.from((v: { readonly cents: number }) => ({ cents: v.cents })),
@@ -45,14 +45,9 @@ const fromAccount = ({ memory }: { readonly memory: { readonly account: string }
  * The form: Check reads the account's balance and is ready when the amount fits it. Guards cannot
  * read context, so the form keeps the account its `onContext` reaction reports.
  */
-export const TransferFormMachine = machine(TransferForm, ({ S, E, O }) => ({
+export const TransferFormMachine = machine(TransferForm, ({ S, E, O, C }) => ({
   default: S.EDITING,
-  onContext: [
-    {
-      select: ({ context }) => context.customer,
-      event: E.AccountChanged.from((account: string) => ({ account })),
-    },
-  ],
+  onContext: [C.customer.change({ event: E.AccountChanged.from((account) => ({ account })) })],
   on: {
     AccountChanged: {
       target: S.EDITING,

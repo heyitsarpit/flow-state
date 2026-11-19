@@ -8,7 +8,7 @@ export const Badge = definition({
   states: ["SHOWN"],
   events: { Ping: {} },
   memory: { pings: Flow.initial(Schema.Number, 0) },
-  context: { team: Team.Provider.select(Schema.String, (t) => t.memory.name) },
+  context: { team: Flow.context(Team.M.name) },
 });
 
 /**

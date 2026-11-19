@@ -21,7 +21,7 @@ export type Decline = typeof Decline.Type;
 /**
  * Why a boot could not read a record: its text is not canonical JSON, its key names no kind, or a
  * part of it fails its check (its format, its kind's Schema, its machine, its name, its operation,
- * its key or lane, a lane's input, or an actor's memory, last-seen selections or frames).
+ * its key or lane, a lane's input, or an actor's memory, last selections or baselines).
  */
 export const ReadFailure = Schema.Literals([
   "text",

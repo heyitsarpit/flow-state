@@ -67,7 +67,7 @@ const Cart = definition({
   events: { Pay: { id: Schema.String, cents: Schema.Number }, Reset: {} },
   internalEvents: { Paid: {}, Found: {}, Unsure: Flow.uncertain({}) },
   memory: { cents: Flow.initial(Schema.Number, 0) },
-  context: { shopper: Shopper.Provider.select(Schema.String, (s) => s.memory.name) },
+  context: { shopper: Flow.context(Shopper.M.name) },
   operations: ({ E }) => ({
     pay: pay.outcomes({ success: E.Paid, failure: {}, unknown: E.Unsure }),
     find: find.outcomes({ success: E.Found, failure: {} }),

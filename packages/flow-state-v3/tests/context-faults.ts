@@ -32,15 +32,15 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "baseline-forgets-frame",
+    name: "baseline-saved-as-slot",
     tests: ["tests/session/values.test.ts", "tests/actors/context.test.ts"],
-    says: "a restored baseline is read from the last-seen slots and the current memory, not from the inputs it was read from, so a kept or memory-reading baseline moves on reload",
-    rule: "Turn R22",
+    says: "a record saves no reaction's own baseline, so a baseline a defect kept reads back as its slot's last value and a reload makes up an event",
+    rule: "Actors R18",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "          selectionOf(compiled, reaction, new Map([...seen, ...frame.slots]), memoryOf(frame)),",
-        replace: "          selectionOf(compiled, reaction, seen, record.memory),",
+        file: "src/core/actor-record.ts",
+        find: "  return sameForm(baseline, Option.fromUndefinedOr(record.seen.get(slot)))",
+        replace: "  return sameForm(baseline, baseline)",
       },
     ],
   },
@@ -86,14 +86,13 @@ export const contextFaults: ReadonlyArray<Fault> = [
   {
     name: "never-selected-slot-heard-as-same",
     tests: ["tests/actors/context.test.ts"],
-    says: "a slot never selected counts as equal to any selection, so a return never hears its first value",
+    says: "a reaction with no baseline owes its slot's value nothing, so a return never hears a slot's first value",
     rule: "Actors R9",
     edits: [
       {
-        file: "src/core/slots.ts",
-        find: "  Option.isNone(a) ? Option.isNone(b) : Option.exists(b, (y) => sameValue(a.value.value, y.value));",
-        replace:
-          "  Option.isNone(a) ? true : Option.exists(b, (y) => sameValue(a.value.value, y.value));",
+        file: "src/core/context.ts",
+        find: "      onNone: () => true,\n      onSome: (b) => !sameValue(b.value, c.value),",
+        replace: "      onNone: () => false,\n      onSome: (b) => !sameValue(b.value, c.value),",
       },
     ],
   },
@@ -107,7 +106,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
         file: "src/core/context.ts",
         find: "        onFailure: (slot) => {\n          next = raise(next, {",
         replace:
-          "        onFailure: (slot) => {\n          baselines[at] = Option.some(now);\n          next = raise(next, {",
+          "        onFailure: (slot) => {\n          baselines[at] = Option.some(current);\n          next = raise(next, {",
       },
     ],
   },
@@ -127,17 +126,17 @@ export const contextFaults: ReadonlyArray<Fault> = [
   {
     name: "equal-context-not-silent",
     tests: ["tests/actors/context.test.ts"],
-    says: "a wave whose selections are equal still runs the reactions and enqueues their events",
+    says: "a wave whose values are equal still runs the reactions and enqueues their events",
     rule: "Turn R22",
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    if (!changed && incarnation.stale.size === 0) {",
+        find: "    if (!changed && !owes(read)) {",
         replace: "    if (changed && !changed) {",
       },
       {
         file: "src/core/context.ts",
-        find: "      if (equal) {\n        baselines[at] = Option.some(now);\n        next = clear(next, IssueSource.OnContext({ at }));\n        continue;\n      }\n",
+        find: "      if (Option.exists(previous, (p) => sameValue(p.value, current.value))) {\n        baselines[at] = Option.some(current);\n        next = clear(next, IssueSource.OnContext({ at }));\n        continue;\n      }\n",
         replace: "",
       },
     ],
@@ -224,13 +223,13 @@ export const contextFaults: ReadonlyArray<Fault> = [
   {
     name: "changed-slot-owes-no-wave",
     tests: ["tests/actors/context.test.ts"],
-    says: "a start from a record whose slot's selection changed owes no wave, so a change it missed is never heard",
+    says: "a start from a record takes its providers' current values as its baselines, so a change it missed is never heard",
     rule: "Actors R9",
     edits: [
       {
         file: "src/core/context.ts",
-        find: "          ? []\n          : [[slot, last] as const];",
-        replace: "          ? []\n          : [];",
+        find: "    return { ...incarnation, baselines };",
+        replace: "    return { ...incarnation, baselines: incarnation.baselines };",
       },
     ],
   },
@@ -242,9 +241,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    return { ...incarnation, stale, baselines };",
+        find: "    return { ...incarnation, baselines };",
         replace:
-          "    const context = new Map([...incarnation.context].map(([slot, v]) => [slot, Option.getOrElse(stale.get(slot) ?? Option.some(v), () => v)]));\n    return { ...incarnation, context, stale, baselines };",
+          "    return { ...incarnation, context: new Map([...incarnation.context, ...record.seen]), baselines };",
       },
     ],
   },
@@ -335,9 +334,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "    if (bound.stale.size > 0) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));",
+        find: "    if (context.owes(bound)) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));",
         replace:
-          '    if (bound.stale.size > 0 && actor.name === "") enqueue(Mail.Context({ actor, chain: tx.chainNow() }));',
+          '    if (context.owes(bound) && actor.name === "") enqueue(Mail.Context({ actor, chain: tx.chainNow() }));',
       },
     ],
   },
@@ -451,28 +450,42 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "selector-rerun-unchanged",
-    tests: ["tests/actors/context.test.ts"],
-    says: "a wave runs every selector again, its provider's snapshot unchanged or not",
-    rule: "Actors R19",
+    name: "context-recompute-every-turn",
+    tests: ["tests/actors/context-slots.test.ts", "tests/actors/context.test.ts"],
+    says: "a wave runs every slot's select again, whether one of its reads changed or not",
+    rule: "Actors R18",
     edits: [
       {
         file: "src/core/context.ts",
-        find: "      if (stands(Option.fromUndefinedOr(last), provider.value, incarnation, slot)) continue;",
-        replace: "      if (last !== undefined && last.from === undefined) continue;",
+        find: "      if (last !== undefined && sameReads(last, reads) && !failing(incarnation, slot)) continue;",
+        replace: "",
       },
     ],
   },
   {
     name: "troubled-slot-skipped",
     tests: ["tests/actors/context.test.ts"],
-    says: "a slot whose selector failed is not read again when its provider returns to its last good snapshot, so its issue stays open",
+    says: "a slot whose select failed is not read again when its provider returns to its last good reads, so its issue stays open",
     rule: "Actors R19",
     edits: [
       {
         file: "src/core/context.ts",
-        find: '  ) && !consumer.issues.some((i) => IssueSource.$is("Context")(i.source) && i.source.slot === slot);',
-        replace: "  ) && consumer.issues.length >= 0;",
+        find: '  consumer.issues.some((i) => IssueSource.$is("Context")(i.source) && i.source.slot === slot);',
+        replace: "  consumer.issues.length < 0;",
+      },
+    ],
+  },
+  {
+    name: "first-value-after-none-silent",
+    tests: ["tests/session/values.test.ts", "tests/actors/context.test.ts"],
+    says: "a slot's first value after its select failed at the start is taken silently, so the change is never heard",
+    rule: "Turn R22",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "      if (Option.exists(previous, (p) => sameValue(p.value, current.value))) {",
+        replace:
+          "      if (Option.isNone(previous) || Option.exists(previous, (p) => sameValue(p.value, current.value))) {",
       },
     ],
   },

@@ -37,10 +37,16 @@ export const CheckoutFlow = definition({
     slot: Flow.initial(Schema.String, ""),
   },
   context: {
-    count: Cart.Provider.select(Schema.Number, (c) => itemsIn(c.memory.lines)),
-    busy: Cart.Provider.select(Schema.Boolean, (c) => waiting(c.memory)),
-    shopper: Shopper.Provider.select(Schema.String, (s) => s.memory.name),
-    payment: Pay.Provider.select(Schema.String, (p) => p.state),
+    count: Flow.context(Schema.Number, {
+      reads: { lines: Cart.M.lines },
+      select: ({ lines }) => itemsIn(lines),
+    }),
+    busy: Flow.context(Schema.Boolean, {
+      reads: { adding: Cart.M.adding, wanted: Cart.M.wanted },
+      select: waiting,
+    }),
+    shopper: Flow.context(Shopper.M.name),
+    payment: Flow.context(Pay.state),
   },
 });
 
@@ -53,25 +59,13 @@ const toPay = () => actorRef(PayMachine, "checkout-1");
  * `onContext` reactions report them. Paying with a card tells the checkout's Pay the card, then to
  * pay with it.
  */
-export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E }) => ({
+export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E, C }) => ({
   default: S.BROWSING,
   onContext: [
-    {
-      select: ({ context }) => context.count,
-      event: E.CartChanged.from((count: number) => ({ count })),
-    },
-    {
-      select: ({ context }) => context.busy,
-      event: E.CartWaiting.from((busy: boolean) => ({ waiting: busy })),
-    },
-    {
-      select: ({ context }) => context.shopper,
-      event: E.ShopperChanged.from((name: string) => ({ name })),
-    },
-    {
-      select: ({ context }) => context.payment,
-      event: E.PaymentChanged.from((state: string) => ({ state })),
-    },
+    C.count.change({ event: E.CartChanged.from((count) => ({ count })) }),
+    C.busy.change({ event: E.CartWaiting.from((busy) => ({ waiting: busy })) }),
+    C.shopper.change({ event: E.ShopperChanged.from((name) => ({ name })) }),
+    C.payment.change({ event: E.PaymentChanged.from((state) => ({ state })) }),
   ],
   on: {
     CartChanged: { updateMemory: ({ event }) => ({ lineCount: event.count }) },

@@ -151,8 +151,9 @@ requirements
                 in the definition. Its data view, with closures as names, carries every event with 
                 its payload Schemas, the Flow.uncertain events, each memory field with its Schema,
                 source and privacy, each prop and emit with its Schema, each operation's key
-                fields, input fields and services, and each fragment's kind, events, emits and
-                ports. There is no runtime codec for Compiled itself:
+                fields, input fields and services, each context slot's provider and reads, each
+                reaction's slot, and each fragment's kind, events, emits and ports. There is no
+                runtime codec for Compiled itself:
                 it is never encoded or decoded as a whole. (The codecs below are of single memory
                 fields, held as functions on Compiled.)
 
@@ -194,15 +195,19 @@ requirements
                 compatible provider; a gap or an incompatible provider is refused at admission 
                 (Actors Spec R18). Call sites never supply wiring.
 
-    R19  Context slots and reactions (proposed)
+    R19  Context slots and reactions
         source  wiki/plans/flow/references/proposals/context-slots-2026-11-20.md; @task.V3.T107.
         must    A slot binds to one provider, so every token in a derived slot's `reads` comes from one
                 definition: a type error, and for casts and plain JavaScript an InvalidConfiguration at
-                `["context", slot, "reads", key]`. A read of a `Flow.private` field has no `M` token and fails
-                to compile. A reaction whose event no state handles is a construction error. Compiled holds,
-                for each slot, its provider definition and the provider fields (and state reads) it reads,
-                and for each reaction its slot, so the field-level edge from a provider's field to a
-                consumer's event follows from the data view alone. No string names a slot or a field.
+                `["context", slot, "reads", key]`. The check compares definitions by identity, not by id:
+                two definitions of one factory, or two under one id, are two providers. A read that is not
+                a Flow token is refused at its key, and a slot with neither a token nor `{ reads, select }`
+                at `["context", slot]`. A read of a `Flow.private` field has no `M` token and fails to
+                compile. A reaction whose event no state handles is refused at `["onContext", i, "event"]`.
+                Compiled holds, for each slot, its provider and each read by name (a memory field, a state
+                path or the state name; a pass-through's one read is named by its slot), and for each
+                reaction its slot, so the field-level edge from a provider's field to a consumer's event
+                follows from the data view alone. No string names a slot or a field.
 
 open
     Q1  Executable checks are not built.
@@ -271,7 +276,7 @@ invariants
 
     I17  For every machine entry, resolved wiring is total over declared slots and each provider is compatible. [@R18]
 
-    I18  (proposed) Every derived slot's reads come from one provider definition; every reaction's event is handled by 
+    I18  Every derived slot's reads come from one provider definition; every reaction's event is handled by 
         some state; Compiled's data view lists each slot's provider fields and each reaction's slot. [@R19]
 
 composition
@@ -401,6 +406,6 @@ tests
     T12  Identity fields: a value-named machine with an optional, defaulted or non-string-encoded
             input field is refused IdentityFieldOptional; a fragment input field stays writable.
             A planted fault is written with this test (Q2). [@I9]
-    T13  (proposed) A `reads` mixing two providers is a type error and, untyped, InvalidConfiguration at
+    T13  A `reads` mixing two providers is a type error and, untyped, InvalidConfiguration at
             `["context", slot, "reads", key]`; a reaction whose event no state handles is refused; Compiled lists each
             slot's provider fields and each reaction's slot. A planted fault drops the mixed-provider check. [@I18]

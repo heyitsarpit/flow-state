@@ -25,7 +25,7 @@ export const TrustedDevice = definition({
     label: Schema.optional(Schema.String),
     signedIn: Flow.initial(Schema.Boolean, false),
   },
-  context: { session: AuthSession.Provider.select(Schema.Boolean, (s) => s.state === "SIGNED_IN") },
+  context: { session: Flow.context(AuthSession.S.SIGNED_IN) },
 });
 
 /**
@@ -33,14 +33,9 @@ export const TrustedDevice = definition({
  * trusted after a sign-out until it is revoked; a week after it is trusted it is due to be
  * confirmed again; it records when it was last seen.
  */
-export const TrustedDeviceMachine = machine<typeof TrustedDevice>(TrustedDevice, ({ S, E }) => ({
+export const TrustedDeviceMachine = machine<typeof TrustedDevice>(TrustedDevice, ({ S, E, C }) => ({
   default: S.UNTRUSTED,
-  onContext: [
-    {
-      select: ({ context }) => context.session,
-      event: E.SessionReady.from((ready: boolean) => ({ ready })),
-    },
-  ],
+  onContext: [C.session.change({ event: E.SessionReady.from((ready) => ({ ready })) })],
   on: {
     SessionReady: { updateMemory: ({ event }) => ({ signedIn: event.ready }) },
     Seen: { updateMemory: ({ event }) => ({ lastSeen: event.at }) },

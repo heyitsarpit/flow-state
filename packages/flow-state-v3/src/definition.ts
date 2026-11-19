@@ -6,7 +6,7 @@ import { fieldsOf, tokensOf, trusted } from "./events.ts";
 import { readHandle, writeHandle } from "./handles.ts";
 import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
 import { flowErrorOf, raise, refuse } from "./error.ts";
-import { builder, entry } from "./entry.ts";
+import { entry } from "./entry.ts";
 import {
   definitionFindings,
   isMarker,
@@ -22,6 +22,7 @@ import {
   type Plain,
   type Private,
   reading,
+  slotReadsOf,
   type Uncertain,
 } from "./flow.ts";
 
@@ -118,6 +119,7 @@ export type {
 import type {
   Handles,
   MemoryToken,
+  ReadToken,
   RootToken,
   StateNameToken,
   StateRead,
@@ -169,24 +171,17 @@ type LeavesOfLiteral<L, P extends string> = {
 }[NamesOf<L>];
 
 /**
- * What a provider's selector reads: one complete outside snapshot of the provider.
- */
-export type ProviderSnapshot<State = string, Memory = Values> = {
-  readonly state: State;
-  readonly memory: Memory;
-};
-
-/**
- * A context slot: a value of its Schema, selected from one complete snapshot of another
- * definition's actor (`Provider.select(schema, selector)`). The machine entry or the ref wires
+ * A context slot (`Flow.context`): a value of its Schema read from one provider's tokens, a
+ * pass-through's one token or a derived slot's reads and select. The machine entry or the ref wires
  * which actor provides it.
  */
 export type ContextSlot<V = unknown, P = unknown> = {
   readonly "~flow": "context";
-  readonly provider: string;
   // FLOW_STATE_ALLOW_UNKNOWN: the encoded side of a slot's Schema is the Schema's own.
   readonly schema: Schema.Codec<V, unknown>;
-  readonly select: (snapshot: ProviderSnapshot<never, never>) => V;
+  readonly form: "pass" | "derived";
+  // A pass-through's token, or a derived slot's `{ reads, select }`.
+  readonly spec: ReadToken | { readonly reads: Readonly<Record<string, ReadToken>> };
   // A phantom type: the provider's state tree and memory, which the wiring's ref must have.
   readonly "~provider"?: P;
 };
@@ -255,13 +250,13 @@ type DefinitionConfig<
  * envelopes, `State` its leaf paths, `Input` what a creator supplies, `Memory` the whole memory and
  * `Snapshot` an outside snapshot's state and memory, without the `Flow.private` fields.
  *
- * `Provider.select(schema, selector)` makes a context slot another definition declares: it selects
- * a value of `schema` from one complete outside snapshot of the actor that provides it. A selection
- * passes through the Schema's JSON form once, so a consumer reads, saves and compares the same
- * value live and after a reload; a selection the Schema cannot encode is the selector's defect.
+ * `M`, `S` and `state` are what another definition's context slots read: `M` has one token per
+ * public memory field (a `Flow.private` field has none), `S` each state, true while the actor is in
+ * it or below it, and `state` the current state's name. A slot's value passes through its Schema's
+ * JSON form once, so a consumer reads, saves and compares the same value live and after a reload.
  *
  * ```ts
- * context: { user: Session.Provider.select(Schema.UndefinedOr(Schema.String), (s) => s.memory.user) }
+ * context: { user: Flow.context(Session.M.user), signedIn: Flow.context(Session.S.SIGNED_IN) }
  * ```
  */
 export type Definition<
@@ -282,21 +277,15 @@ export type Definition<
   readonly memory: M;
   readonly context: Cx;
   readonly operations: O;
-  readonly Provider: {
-    readonly select: <V, I>(
-      schema: Schema.Codec<V, I>,
-      selector: (snapshot: ProviderSnapshot<LeavesOf<States>, OutsideOf<M>>) => NoInfer<V>,
-    ) => ContextSlot<V, ProvidedBy<States, M>>;
-  };
   readonly M: {
-    readonly [K in keyof MemoryOf<M> & string]-?: MemoryToken<
-      MemoryOf<M>[K],
+    readonly [K in keyof OutsideOf<M> & string]-?: MemoryToken<
+      OutsideOf<M>[K],
       Id,
       ProvidedBy<States, M>
     >;
   };
   readonly state: StateNameToken<LeavesOf<States>, Id, ProvidedBy<States, M>>;
-  readonly S: StateTokens<States, "", Id, LeavesOf<States>> & {
+  readonly S: StateTokens<States, "", Id, LeavesOf<States>, ProvidedBy<States, M>> & {
     readonly root: RootToken<LeavesOf<States>, NamesOf<States>>;
   };
   readonly E: Tokens<Ev & In, Id>;
@@ -336,16 +325,23 @@ const stateParts = (path: string) => ({
   child: entry(`S.${path}.child`, (read: StateRead) => childUnder(path, read)),
 });
 
+// The definition a context read comes from: by identity and by id.
+type Origin = { readonly owner: symbol; readonly provider: string };
+
 // A state token, recorded as a context read of its definition: true at the state or below it.
 // RETURN_TYPE: the token as given, with whatever its compound holds beside it.
-const asRead = <T extends { readonly "~path": string }>(token: T, id: string): T =>
+const asRead = <T extends { readonly "~path": string }>(token: T, origin: Origin): T =>
   reading(token, {
-    provider: id,
+    ...origin,
     schema: Schema.Boolean,
-    read: (snapshot) => atOrBelow(snapshot.state, token["~path"]),
+    read: { kind: "state", path: token["~path"] },
   });
 
-const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>, id: string) => {
+const tokenTree = (
+  nodes: ReadonlyArray<TreeNode>,
+  paths: ReadonlyArray<string>,
+  origin: Origin,
+) => {
   const byPath = new Map(nodes.map((n) => [n.path, n]));
 
   // RETURN_TYPE: recursive: each state's token by name, a compound's children under it.
@@ -358,14 +354,14 @@ const tokenTree = (nodes: ReadonlyArray<TreeNode>, paths: ReadonlyArray<string>,
         return [
           node?.name ?? path,
           kids.length === 0
-            ? asRead(stateParts(path), id)
+            ? asRead(stateParts(path), origin)
             : asRead(
                 {
                   ...build(kids),
                   ...stateParts(path),
                   history: { "~flow": "history", "~path": path },
                 },
-                id,
+                origin,
               ),
         ];
       }),
@@ -419,6 +415,7 @@ export const definition = entry(
     refuse(inDeclarationOrder(keys, configFindings(config)));
 
     const owner = Symbol(config.id);
+    const origin = { owner, provider: config.id };
     const internal = config.internalEvents ?? trusted<In>({});
     const context = config.context ?? trusted<Cx>({});
     const memory = config.memory ?? trusted<M>({});
@@ -462,6 +459,9 @@ export const definition = entry(
           operations,
           keys,
         ),
+        ...Object.entries(context).flatMap(([name, slot]) =>
+          Result.match(slotReadsOf(name, slot), { onFailure: (f) => f, onSuccess: () => [] }),
+        ),
       ]),
     );
 
@@ -498,40 +498,34 @@ export const definition = entry(
       memory,
       context,
       operations,
-      Provider: {
-        select: builder("Provider.select", (schema, selector) => ({
-          "~flow": "context",
-          provider: config.id,
-          schema,
-          select: selector,
-        })),
-      },
       M: trusted<Made["M"]>(
         Object.fromEntries(
-          Object.entries(memory).map(([name, field]) => [
-            name,
-            reading(
-              { "~flow": "memory", "~field": name, schema: schemaOfField(field) },
-              {
-                provider: config.id,
-                schema: schemaOfField(field),
-                read: (snapshot) => snapshot.memory[name],
-              },
-            ),
-          ]),
+          Object.entries(memory).flatMap(([name, field]) =>
+            isPrivate(field)
+              ? []
+              : [
+                  [
+                    name,
+                    reading(
+                      { "~flow": "memory", "~field": name, schema: schemaOfField(field) },
+                      {
+                        ...origin,
+                        schema: schemaOfField(field),
+                        read: { kind: "memory", field: name },
+                      },
+                    ),
+                  ],
+                ],
+          ),
         ),
       ),
       state: trusted<Made["state"]>(
         reading(
           { "~flow": "stateName", schema: Schema.Literals(leaves) },
-          {
-            provider: config.id,
-            schema: Schema.Literals(leaves),
-            read: (snapshot) => snapshot.state,
-          },
+          { ...origin, schema: Schema.Literals(leaves), read: { kind: "stateName" } },
         ),
       ),
-      S: trusted<Made["S"]>(tokenTree(tree.nodes, tree.top, config.id)),
+      S: trusted<Made["S"]>(tokenTree(tree.nodes, tree.top, origin)),
       E,
       O: trusted<Made["O"]>(handles),
       Event: trusted<Made["Event"]>(Schema.Union(envelopes)),

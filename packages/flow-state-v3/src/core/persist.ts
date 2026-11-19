@@ -15,7 +15,6 @@ import {
   type Incarnation,
   type Lane,
   type LaneId,
-  lastSeenOf,
   Mark,
   type Marks,
   type Ticket,
@@ -108,12 +107,8 @@ export const makePersistence = (tx: Tx) => {
       send: a.send,
     })),
     context: incarnation.bound,
-    seen: new Map(
-      [...lastSeenOf(incarnation)].flatMap(([slot, s]) =>
-        Option.toArray(Option.map(s, (v) => [slot, v] as const)),
-      ),
-    ),
-    frames: incarnation.baselines.map((b) => Option.map(b, (x) => x.frame)),
+    seen: new Map([...incarnation.context].filter(([slot]) => incarnation.bound.has(slot))),
+    baselines: incarnation.baselines,
     graph,
   });
 

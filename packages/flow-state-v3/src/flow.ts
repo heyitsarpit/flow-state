@@ -1,6 +1,7 @@
-import { Data, Effect, Option, Predicate, type Schema } from "effect";
+import { Data, Effect, Option, Predicate, Result, Schema } from "effect";
 import type { Denial, Values } from "./core/compiled.ts";
 import { builder } from "./entry.ts";
+import { type Finding, invalid } from "./error.ts";
 import type { ContextOfTokens } from "./tokens.ts";
 
 /**
@@ -61,13 +62,23 @@ export type Entry = { readonly "~flow": "entry" };
 const entry: Entry = { "~flow": "entry" };
 
 /**
- * How a token reads its provider's outside snapshot, kept by the token's identity.
+ * What a context read takes from its provider's snapshot: a public memory field, whether the
+ * provider is at a state or below it, or the provider's state name.
+ */
+export type ContextRead =
+  | { readonly kind: "memory"; readonly field: string }
+  | { readonly kind: "state"; readonly path: string }
+  | { readonly kind: "stateName" };
+
+/**
+ * How a token reads its provider: the definition that made it, by identity and by id, the read's
+ * Schema and what it reads; kept by the token's identity.
  */
 export type Reader = {
+  readonly owner: symbol;
   readonly provider: string;
   readonly schema: Plain;
-  // FLOW_STATE_ALLOW_UNKNOWN: the value a read takes from the snapshot, typed at the token.
-  readonly read: (snapshot: { readonly state: string; readonly memory: Values }) => unknown;
+  readonly read: ContextRead;
 };
 
 const readers = new WeakMap<WeakKey, Reader>();
@@ -82,11 +93,168 @@ export const reading = <T extends WeakKey>(token: T, reader: Reader): T => {
   return token;
 };
 
+/**
+ * How a token Flow made reads its provider; none for any other value.
+ */
 // FLOW_STATE_ALLOW_UNKNOWN: an authored token, recognised by identity.
-const readerOf = (token: unknown) =>
+export const readerOf = (token: unknown) =>
   Predicate.isObject(token) ? Option.fromUndefinedOr(readers.get(token)) : Option.none<Reader>();
 
-// FLOW_STATE_ALLOW_UNKNOWN: a select's result, checked by the slot's Schema when it is selected.
+// A slot as written, read only when its definition reads it: a pass-through's token, or a
+// Schema and a derived slot's spec.
+// FLOW_STATE_ALLOW_UNKNOWN: an authored token or Schema, and a derived slot's spec.
+const contextSlot = (first: unknown, ...spec: ReadonlyArray<unknown>) =>
+  spec.length === 0
+    ? {
+        "~flow": "context",
+        schema: Option.match(readerOf(first), { onNone: () => first, onSome: (r) => r.schema }),
+        form: "pass",
+        spec: first,
+      }
+    : { "~flow": "context", schema: first, form: "derived", spec: spec[0] };
+
+// A derived slot's reads and select, or undefined for a part its spec lacks or hides.
+// FLOW_STATE_ALLOW_UNKNOWN: an authored spec, read by its fields.
+const partsOf = (spec: unknown) =>
+  Result.getOrElse(
+    Result.try(() => ({
+      reads: Predicate.hasProperty(spec, "reads") ? spec.reads : undefined,
+      select: Predicate.hasProperty(spec, "select") ? spec.select : undefined,
+    })),
+    () => ({ reads: undefined, select: undefined }),
+  );
+
+/**
+ * A slot as its definition reads it: its one provider and each read by name (a pass-through's
+ * one read is named by its slot), with its select; or the findings that refuse it.
+ */
+export const slotReadsOf = (
+  name: string,
+  slot: {
+    // FLOW_STATE_ALLOW_UNKNOWN: an authored slot's parts, checked here before they are trusted.
+    readonly schema: unknown;
+    readonly form: "pass" | "derived";
+    // FLOW_STATE_ALLOW_UNKNOWN: as above.
+    readonly spec: unknown;
+  },
+) => {
+  const at = ["context", name];
+
+  if (!Schema.isSchema(slot.schema))
+    return Result.fail([
+      invalid(
+        [...at, "schema"],
+        "WrongKind",
+        `context slot ${name} has no Schema`,
+        "Read a token, Flow.context(X.M.field), or derive: Flow.context(Schema, { reads, select }).",
+      ),
+    ]);
+
+  return slot.form === "pass" ? passOf(name, slot.spec) : derivedOf(name, slot.spec);
+};
+
+// A pass-through's one read, named by its slot; refused at the slot when it is not a Flow token.
+// FLOW_STATE_ALLOW_UNKNOWN: an authored token, recognised by identity.
+const passOf = (name: string, token: unknown) => {
+  const at = ["context", name];
+
+  return Option.match(readerOf(token), {
+    onNone: () =>
+      Result.fail([
+        invalid(
+          at,
+          "WrongKind",
+          `context slot ${name} has no token to read and no reads`,
+          "Read a token, Flow.context(X.M.field), or derive: Flow.context(Schema, { reads, select }).",
+        ),
+      ]),
+    onSome: (reader) =>
+      Result.succeed({
+        provider: reader,
+        reads: [{ name, reader }],
+        select: (values: Values) => values[name],
+      }),
+  });
+};
+
+// A derived slot's reads by name, all of one provider, with its select; refused at each read that
+// is not a Flow token or names a second provider, and at a missing select or reads.
+// FLOW_STATE_ALLOW_UNKNOWN: an authored spec, read by its fields.
+const derivedOf = (name: string, spec: unknown) => {
+  const at = ["context", name];
+  const parts = partsOf(spec);
+  const select = parts.select;
+  const reads = Predicate.isObject(parts.reads) ? Object.entries(parts.reads) : [];
+  const findings: Array<Finding> = [];
+
+  if (!Predicate.isFunction(select))
+    findings.push(
+      invalid(
+        [...at, "select"],
+        "WrongKind",
+        `context slot ${name} has no select function`,
+        "Give a derived slot select: (reads) => value.",
+      ),
+    );
+
+  if (reads.length === 0)
+    findings.push(
+      invalid(
+        [...at, "reads"],
+        "WrongKind",
+        `context slot ${name} reads nothing`,
+        "Name the slot's reads: { reads: { lines: Cart.M.lines } }.",
+      ),
+    );
+
+  const known = readsOf(at, reads, findings);
+  const first = known[0];
+
+  return first === undefined || findings.length > 0 || !Predicate.isFunction(select)
+    ? Result.fail(findings)
+    : Result.succeed({ provider: first.reader, reads: known, select: selectOf(select) });
+};
+
+// Each read of one provider by name, the first read's; a read that is not a Flow token, or names a
+// second provider, adds its finding instead.
+const readsOf = (
+  at: ReadonlyArray<string>,
+  // FLOW_STATE_ALLOW_UNKNOWN: authored tokens, recognised by identity.
+  reads: ReadonlyArray<readonly [string, unknown]>,
+  findings: Array<Finding>,
+) => {
+  const known: Array<{ readonly name: string; readonly reader: Reader }> = [];
+
+  for (const [key, token] of reads) {
+    const reader = readerOf(token);
+    const first = known[0];
+
+    if (Option.isNone(reader)) findings.push(notAToken([...at, "reads", key]));
+    else if (first !== undefined && reader.value.owner !== first.reader.owner)
+      findings.push(secondProvider([...at, "reads", key], reader.value, first.reader));
+    else known.push({ name: key, reader: reader.value });
+  }
+
+  return known;
+};
+
+const notAToken = (at: ReadonlyArray<string>) =>
+  invalid(
+    at,
+    "WrongKind",
+    `${at.join(".")} is not a Flow token`,
+    "Read a provider's X.M.field, X.S.STATE or X.state.",
+  );
+
+const secondProvider = (at: ReadonlyArray<string>, read: Reader, first: Reader) =>
+  invalid(
+    at,
+    "TwoProviders",
+    `${at.join(".")} comes from ${read.provider}, not ${first.provider}`,
+    "A slot binds one provider: give the other provider's values a slot of their own.",
+  );
+
+// FLOW_STATE_ALLOW_UNKNOWN: a select's result, checked by the slot's Schema when selected.
 type Select = (values: Values) => unknown;
 
 // FLOW_STATE_ALLOW_UNKNOWN: a function an author passed as select, checked callable by its caller.
@@ -94,56 +262,6 @@ const selectOf = (given: unknown) =>
   // SAFETY: the select an author wrote for these reads, called with exactly their values.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a select's argument type is erased here and restored at its declaration
   given as Select;
-
-// FLOW_STATE_ALLOW_UNKNOWN: an authored token or Schema, and a derived slot's spec.
-const contextSlot = (first: unknown, ...spec: ReadonlyArray<unknown>) => slotOf(first, spec[0]);
-
-// A derived slot's reads and select, read from its spec only when its definition decodes it.
-// FLOW_STATE_ALLOW_UNKNOWN: an authored spec, read by its fields.
-const derivedOf = (spec: unknown) => {
-  const reads =
-    Predicate.hasProperty(spec, "reads") && Predicate.isObject(spec.reads) ? spec.reads : {};
-
-  const given = Predicate.hasProperty(spec, "select") ? spec.select : undefined;
-  const select = Predicate.isFunction(given) ? selectOf(given) : () => undefined;
-
-  const known = Object.entries(reads).flatMap(([name, token]) =>
-    Option.match(readerOf(token), { onNone: () => [], onSome: (r) => [[name, r] as const] }),
-  );
-
-  return { select, known };
-};
-
-// A slot whose provider and select come from its tokens, read when its definition decodes it.
-// FLOW_STATE_ALLOW_UNKNOWN: an authored token or Schema, and an authored spec.
-const slotOf = (first: unknown, spec: unknown) =>
-  spec === undefined
-    ? Option.match(readerOf(first), {
-        onNone: () => ({
-          "~flow": "context",
-          provider: "",
-          schema: first,
-          select: () => undefined,
-        }),
-        onSome: (r) => ({
-          "~flow": "context",
-          provider: r.provider,
-          schema: r.schema,
-          select: r.read,
-        }),
-      })
-    : {
-        "~flow": "context",
-        get provider() {
-          return derivedOf(spec).known[0]?.[1].provider ?? "";
-        },
-        schema: first,
-        select: (snapshot: { readonly state: string; readonly memory: Values }) => {
-          const { select, known } = derivedOf(spec);
-
-          return select(Object.fromEntries(known.map(([name, r]) => [name, r.read(snapshot)])));
-        },
-      };
 
 /**
  * Flow's markers for definitions and schedules.
@@ -156,6 +274,15 @@ const slotOf = (first: unknown, spec: unknown) =>
  * - `Flow.private(field)`: a field kept from outside snapshots.
  * - `Flow.uncertain(fields)`: an internal event an operation's unknown ending maps to.
  * - `Flow.entry`: in a schedule's `armOn`, arm it on its state's entry too.
+ * - `Flow.context(X.M.field)`: a context slot that passes a provider's public memory field
+ *   through; `Flow.context(X.S.STATE)` reads whether the provider is in a state, and
+ *   `Flow.context(X.state)` its state's name. `Flow.context(Schema, { reads, select })` derives a
+ *   value from several reads of one provider, recomputed only when one of them changed.
+ *
+ * **Gotchas**
+ *
+ * - Every read of one slot comes from one provider: a type error, and a construction error past
+ *   the types. Values from two machines need two slots.
  */
 export const Flow = {
   initial: builder(

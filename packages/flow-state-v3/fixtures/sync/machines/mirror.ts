@@ -94,20 +94,15 @@ export const MirrorStatus = definition({
   events: {},
   internalEvents: { Counted: { seen: Schema.Number } },
   memory: { seen: Flow.initial(Schema.Number, 0), updates: Flow.initial(Schema.Number, 0) },
-  context: { seen: Mirror.Provider.select(Schema.Number, (m) => m.memory.seen) },
+  context: { seen: Flow.context(Mirror.M.seen) },
 });
 
 /**
  * The status line: each change in its mirror's count is shown.
  */
-export const MirrorStatusMachine = machine(MirrorStatus, ({ S, E }) => ({
+export const MirrorStatusMachine = machine(MirrorStatus, ({ S, E, C }) => ({
   default: S.SHOWING,
-  onContext: [
-    {
-      select: ({ context }) => context.seen,
-      event: E.Counted.from((seen: number) => ({ seen })),
-    },
-  ],
+  onContext: [C.seen.change({ event: E.Counted.from((seen) => ({ seen })) })],
   on: {
     Counted: {
       updateMemory: ({ memory, event }) => ({ seen: event.seen, updates: memory.updates + 1 }),
@@ -130,10 +125,10 @@ export const Replica = definition({
     pushed: Flow.initial(Schema.Number, 0),
   },
   context: {
-    taken: Mirror.Provider.select(
-      Schema.Struct({ seen: Schema.Number, sha: Schema.String }),
-      (m) => ({ seen: m.memory.seen, sha: m.memory.lastSha }),
-    ),
+    taken: Flow.context(Schema.Struct({ seen: Schema.Number, sha: Schema.String }), {
+      reads: { seen: Mirror.M.seen, sha: Mirror.M.lastSha },
+      select: ({ seen, sha }) => ({ seen, sha }),
+    }),
   },
 });
 
@@ -141,14 +136,9 @@ export const Replica = definition({
  * The replica: following, each push its mirror takes is pushed on to its upstream as a new push,
  * up to its limit.
  */
-export const ReplicaMachine = machine(Replica, ({ S, E }) => ({
+export const ReplicaMachine = machine(Replica, ({ S, E, C }) => ({
   default: S.IDLE,
-  onContext: [
-    {
-      select: ({ context }) => context.taken,
-      event: E.Taken.from((taken: { readonly sha: string }) => ({ sha: taken.sha })),
-    },
-  ],
+  onContext: [C.taken.change({ event: E.Taken.from((taken) => ({ sha: taken.sha })) })],
   on: {
     Follow: {
       target: S.FOLLOWING,

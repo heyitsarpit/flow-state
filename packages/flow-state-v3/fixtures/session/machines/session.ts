@@ -20,7 +20,7 @@ export const Session = definition({
     displayName: Flow.initial(Schema.String, ""),
     notice: Flow.initial(Schema.String, ""),
   },
-  context: { org: Org.Provider.select(Schema.String, (o) => o.memory.name) },
+  context: { org: Flow.context(Org.M.name) },
   operations: ({ E }) => ({
     signIn: signIn.outcomes({
       success: E.SignedIn.from((p: { readonly user: string; readonly displayName: string }) => ({

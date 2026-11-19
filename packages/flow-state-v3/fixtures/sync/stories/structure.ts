@@ -47,17 +47,18 @@ export const repoOpenedInBackoff = backingOffClient("sync/repo-opened-in-backoff
   .checkpoint("opened");
 
 /**
- * A head reaction declared in the paused state, which does not handle its event (S7): refused when
- * the machine is built.
+ * A head reaction written in the paused state's body, where no reaction is declared (S7): refused
+ * when the machine is built, since only the root declares `onContext`. A state body's extra key is
+ * not a type error today, so construction is what refuses it.
  */
 export const pausedPull = () =>
   machine(AutoPull, ({ S, E, C }) => ({
     default: S.WATCHING,
-    on: { Throttled: {} },
+    on: { Throttled: {}, HeadMoved: {} },
     states: {
-      WATCHING: { on: { HeadMoved: {}, Pause: S.PAUSED } },
+      WATCHING: { on: { Pause: S.PAUSED } },
       PAUSED: {
-        onContext: [C.head.change({ event: E.HeadMoved.from((head: string) => ({ head })) })],
+        onContext: [C.head.change({ event: E.HeadMoved.from((head) => ({ head })) })],
         on: { Resume: S.WATCHING },
       },
     },

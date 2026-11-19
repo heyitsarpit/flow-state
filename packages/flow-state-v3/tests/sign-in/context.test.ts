@@ -9,7 +9,7 @@ import {
 import { played } from "../rules/played.ts";
 
 describe("the banner reads its session's state as context (Compile R4, Turn R22)", () => {
-  it.fails("Compile R4, Turn R22: a state token reads a boolean and X.state the step's name; each step is shown and signing in welcomes once", async () => {
+  it("Compile R4, Turn R22: a state token reads a boolean and X.state the step's name; each step is shown and signing in welcomes once", async () => {
     const run = await played(bannerSignsIn);
 
     expect(run.checkpoints.out.read(mainBanner)).toEqual(
@@ -26,7 +26,7 @@ describe("the banner reads its session's state as context (Compile R4, Turn R22)
     );
   });
 
-  it.fails("Turn R22, Actors R18: a memory-only turn of the session changes none of the banner's reads; a new account's steps are each shown once", async () => {
+  it("Turn R22, Actors R18: a memory-only turn of the session changes none of the banner's reads; a new account's steps are each shown once", async () => {
     const run = await played(bannerNewAccount);
 
     expect(run.checkpoints.choosing.read(mainBanner)?.memory).toEqual({
@@ -41,7 +41,7 @@ describe("the banner reads its session's state as context (Compile R4, Turn R22)
     });
   });
 
-  it.fails("Turn R22: a lost account read shows both steps and welcomes no one", async () => {
+  it("Turn R22: a lost account read shows both steps and welcomes no one", async () => {
     const run = await played(bannerLoadFails);
 
     expect(run.checkpoints.out.read(mainBanner)).toEqual(

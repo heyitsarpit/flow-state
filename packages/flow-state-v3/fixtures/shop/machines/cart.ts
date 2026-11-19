@@ -41,7 +41,7 @@ export const Cart = definition({
     errors: Flow.initial(Schema.Record(Schema.String, Schema.String), {}),
     notice: Flow.initial(Schema.String, ""),
   },
-  context: { shopper: Shopper.Provider.select(Schema.String, (s) => s.memory.name) },
+  context: { shopper: Flow.context(Shopper.M.name) },
   operations: ({ E }) => ({
     add: addLine.outcomes({
       success: E.Added.from((l: Line) => l),

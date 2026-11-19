@@ -51,12 +51,12 @@ const Line = definition({
   events: {},
   internalEvents: { Noted: {}, Renamed: {} },
   memory: { seen: Flow.initial(Schema.String, "") },
-  context: { name: Lead.Provider.select(Schema.String, (l) => l.memory.name) },
+  context: { name: Flow.context(Lead.M.name) },
 });
 
-const LineMachine = machine(Line, ({ S, E }) => ({
+const LineMachine = machine(Line, ({ S, E, C }) => ({
   default: S.ON,
-  onContext: [{ select: ({ context }) => context.name, event: E.Renamed }],
+  onContext: [C.name.change({ event: E.Renamed })],
   on: {
     Noted: { updateMemory: ({ memory }) => ({ seen: `${memory.seen}n` }) },
     Renamed: { updateMemory: ({ memory }) => ({ seen: `${memory.seen}r` }) },
@@ -126,14 +126,14 @@ const Echo = definition({
   events: {},
   internalEvents: { Renamed: {} },
   memory: { echoed: Flow.initial(Schema.Number, 0) },
-  context: { name: Lead.Provider.select(Schema.String, (l) => l.memory.name) },
+  context: { name: Flow.context(Lead.M.name) },
 });
 
 const leadRef = { machine: LeadMachine, value: "lead", context: {} };
 
-const EchoMachine = machine(Echo, ({ S, E }) => ({
+const EchoMachine = machine(Echo, ({ S, E, C }) => ({
   default: S.ON,
-  onContext: [{ select: ({ context }) => context.name, event: E.Renamed }],
+  onContext: [C.name.change({ event: E.Renamed })],
   on: {
     Renamed: {
       updateMemory: ({ memory }) => ({ echoed: memory.echoed + 1 }),

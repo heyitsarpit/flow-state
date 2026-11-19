@@ -35,7 +35,7 @@ export const StandingOrder = definition({
     pausedUntil: Flow.initial(Schema.NullOr(Schema.DateFromString), null),
     notice: Flow.initial(Schema.String, ""),
   },
-  context: { customer: Customer.Provider.select(Schema.String, (c) => c.memory.account) },
+  context: { customer: Flow.context(Customer.M.account) },
   operations: ({ E }) => ({
     balance: balance.outcomes({
       success: E.BalanceRead.from((v: { readonly cents: number }) => ({ cents: v.cents })),
@@ -59,14 +59,9 @@ export const fromAccount = ({ memory }: { readonly memory: { readonly account: s
  * The order: a plan reads the account's balance and is scheduled when the amount fits it; a
  * scheduled order pauses until a date, or with no end, and resumes.
  */
-export const StandingOrderMachine = machine(StandingOrder, ({ S, E, O }) => ({
+export const StandingOrderMachine = machine(StandingOrder, ({ S, E, O, C }) => ({
   default: S.DRAFT,
-  onContext: [
-    {
-      select: ({ context }) => context.customer,
-      event: E.AccountChanged.from((account: string) => ({ account })),
-    },
-  ],
+  onContext: [C.customer.change({ event: E.AccountChanged.from((account) => ({ account })) })],
   on: {
     AccountChanged: { updateMemory: ({ event }) => ({ account: event.account }) },
     Plan: {

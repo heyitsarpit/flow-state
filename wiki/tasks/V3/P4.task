@@ -3864,7 +3864,7 @@ tasks
             context chain.
 
             **Read first:** code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md,
-            code:packages/flow-state-v3/src/machine.ts#Reaction,
+            code:packages/flow-state-v3/src/core/compiled.ts#Reaction,
             code:packages/flow-state-v3/src/core/compiled.ts#ContextSlot,
             code:packages/flow-state-v3/src/host/wiring.ts.
 

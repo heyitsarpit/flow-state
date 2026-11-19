@@ -162,7 +162,8 @@ export const NestsMachine = machine(Nests, ({ S }) => ({
 
 /**
  * The nests' viewer: it reads each nest and the title, and counts each change of a nest it hears;
- * it pins a folder tree of its own, and hears the title beside its pin. Kept across reloads.
+ * it pins a folder tree of its own, and hears a changed title while its pin holds a folder. Kept
+ * across reloads.
  */
 export const NestView = definition({
   id: "Workspace/NestView",
@@ -187,31 +188,34 @@ export const NestView = definition({
     pinned: Flow.initial(Folder, { kids: [] }),
   },
   context: {
-    lists: Nests.Provider.select(Schema.Json, (n) => n.memory.lists),
-    folders: Nests.Provider.select(Folder, (n) => n.memory.folders),
-    maps: Nests.Provider.select(Index, (n) => indexOf(n.memory.index)),
-    title: Nests.Provider.select(Schema.String, (n) => n.memory.title),
-    tree: Nests.Provider.select(Index, (n) => n.memory.tree),
-    boxed: Nests.Provider.select(Schema.Option(Folder), (n) => n.memory.boxed),
+    lists: Flow.context(Nests.M.lists),
+    folders: Flow.context(Nests.M.folders),
+    maps: Flow.context(Index, {
+      reads: { index: Nests.M.index },
+      select: ({ index }) => indexOf(index),
+    }),
+    title: Flow.context(Nests.M.title),
+    tree: Flow.context(Nests.M.tree),
+    boxed: Flow.context(Nests.M.boxed),
   },
 });
 
 /**
- * The viewer: each changed nest is one more heard of its kind; a changed title alone is heard by
- * none of them, but by the pin's reaction, which reads the title beside its own pinned tree.
+ * The viewer: each changed nest is one more heard of its kind; a changed title is heard by the pin's
+ * reaction only, and only while the pinned tree holds a kid.
  */
-export const NestViewMachine = machine(NestView, ({ S, E }) => ({
+export const NestViewMachine = machine(NestView, ({ S, E, C }) => ({
   default: S.SHOWN,
   onContext: [
-    { select: ({ context }) => context.lists, event: E.ListsHeard },
-    { select: ({ context }) => context.folders, event: E.FoldersHeard },
-    { select: ({ context }) => context.maps, event: E.MapsHeard },
-    { select: ({ context }) => context.tree, event: E.TreesHeard },
-    { select: ({ context }) => context.boxed, event: E.KindsHeard },
-    {
-      select: ({ context, memory }) => ({ title: context.title, pinned: memory.pinned }),
+    C.lists.change({ event: E.ListsHeard }),
+    C.folders.change({ event: E.FoldersHeard }),
+    C.maps.change({ event: E.MapsHeard }),
+    C.tree.change({ event: E.TreesHeard }),
+    C.boxed.change({ event: E.KindsHeard }),
+    C.title.change({
+      when: (_title, _previous, { memory }) => memory.pinned.kids.length > 0,
       event: E.PinHeard,
-    },
+    }),
   ],
   on: {
     Pin: { updateMemory: ({ event }) => ({ pinned: foldersOf(event.depth) }) },

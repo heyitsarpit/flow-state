@@ -23,9 +23,11 @@ const HeadMachine = machine(Head, ({ S }) => ({
   on: { Bump: { updateMemory: ({ memory }) => ({ n: memory.n + 1 }) } },
 }));
 
-type Upstream = Pick<typeof Head, "Provider">;
+// What a link reads of its upstream, the head or another link: a number field `n`, its definition
+// left open.
+type Upstream = { readonly M: { readonly n: Omit<typeof Head.M.n, "~definition" | "~provider"> } };
 
-// One link of a context chain: it selects its upstream's n, and its onContext event copies it, so
+// One link of a context chain: it reads its upstream's n, and its onContext event copies it, so
 // each link adds two follow-ups to the event that started the chain: its context update and its
 // event.
 const link = (at: number, upstream: Upstream, copies: number) => {
@@ -35,15 +37,14 @@ const link = (at: number, upstream: Upstream, copies: number) => {
     events: {},
     internalEvents: { Copy: { n: Schema.Number } },
     memory: { n: Flow.initial(Schema.Number, 0) },
-    context: { up: upstream.Provider.select(Schema.Number, (s) => s.memory.n) },
+    context: { up: Flow.context(upstream.M.n) },
   });
 
-  return machine(Link, ({ S, E }) => ({
+  return machine(Link, ({ S, E, C }) => ({
     default: S.ON,
-    onContext: Array.from({ length: copies }, () => ({
-      select: ({ context }: { readonly context: { readonly up: number } }) => context.up,
-      event: E.Copy.from((n: number) => ({ n })),
-    })),
+    onContext: Array.from({ length: copies }, () =>
+      C.up.change({ event: E.Copy.from((n) => ({ n })) }),
+    ),
     on: { Copy: { updateMemory: ({ event }) => ({ n: event.n }) } },
   }));
 };

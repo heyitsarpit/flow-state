@@ -76,8 +76,8 @@ export const threadHeard = grownStory("session/thread-heard")
 
 /**
  * Ada and Bob both write, so the digest turns busy at its threshold of two senders; the reader
- * raises the threshold to three, which re-runs nothing; then Ada writes again, and the digest
- * hears that the inbox is no longer busy.
+ * raises the threshold to three, which re-runs nothing, since no slot changed; then Carol writes,
+ * a third sender, and the digest hears the inbox turn busy again at the new threshold.
  */
 export const digestQuiet = inbox("session/digest-quiet")
   .send(mainInbox, arrive("m1", "ada", 1_000))
@@ -85,8 +85,8 @@ export const digestQuiet = inbox("session/digest-quiet")
   .checkpoint("busy")
   .send(mainDigest, Digest.E.Quiet({ from: 3 }))
   .checkpoint("raised")
-  .send(mainInbox, arrive("m3", "ada", 3_000))
-  .checkpoint("quiet");
+  .send(mainInbox, arrive("m3", "carol", 3_000))
+  .checkpoint("crossed");
 
 /**
  * Ada signs in to the main session and Bob to the guest's; the guest's online dot is shown, which
@@ -215,8 +215,8 @@ export const unreadRecovers = grownStory("session/unread-recovers")
 const imported = Array.from({ length: 3_001 }, (_, n) => `a-${n}`);
 
 /**
- * The archive imports 3,001 ids; a message arrives and two of its three memory-reading reactions log
- * it; the tab reloads; another message arrives.
+ * The archive imports 3,001 ids; a message arrives and each of its three reactions logs it beside
+ * the log; the tab reloads; another message arrives.
  */
 export const archiveLarge = grownStory("session/archive-large")
   .ensure(mainInbox)

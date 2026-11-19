@@ -143,10 +143,10 @@ export const deviceChain = trusted("sign-in/device-chain")
 const device = { id: "Auth/TrustedDevice", states: ["UNTRUSTED"], events: { Revoke: {} } } as const;
 
 /**
- * A device whose session slot is the session's definition itself, not `Provider.select`.
+ * A device whose session slot is the session's definition itself, not `Flow.context`.
  */
 export const deviceWithDefinitionAsContext = () =>
-  // @ts-expect-error Compile R4: a context slot is Provider.select's
+  // @ts-expect-error Compile R4: a context slot is Flow.context's
   definition({ ...device, context: { session: AuthSession } });
 
 /**

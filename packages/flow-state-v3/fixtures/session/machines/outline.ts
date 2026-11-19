@@ -32,14 +32,14 @@ export const Preview = definition({
   events: {},
   internalEvents: { Heard: {} },
   memory: { heard: Flow.initial(Schema.Number, 0) },
-  context: { doc: Outline.Provider.select(Schema.Json, (o) => o.memory.doc) },
+  context: { doc: Flow.context(Outline.M.doc) },
 });
 
 /**
  * The preview: each changed document is one more heard.
  */
-export const PreviewMachine = machine(Preview, ({ S, E }) => ({
+export const PreviewMachine = machine(Preview, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [{ select: ({ context }) => context.doc, event: E.Heard }],
+  onContext: [C.doc.change({ event: E.Heard })],
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));

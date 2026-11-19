@@ -59,7 +59,7 @@ describe("Machines O1, Compile R4, R5: a definition's fields and operations", ()
     void definition({
       ...lamp,
       context: {
-        // @ts-expect-error a context slot that is not Provider.select's (Compile R4; construction.test pairs it)
+        // @ts-expect-error a context slot that is not Flow.context's (Compile R4; construction.test pairs it)
         c: 5,
       },
     });

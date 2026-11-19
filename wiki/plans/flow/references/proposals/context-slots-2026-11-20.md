@@ -11,7 +11,7 @@ field-level edges from a provider's field to a consumer's event, so static analy
 string keys, `when`'s arguments are untyped (`never`), and the graph only knows "the consumer depends on all of the
 provider". T104 found this while typing context; the user asked for a shape designed with static analysis in mind.
 
-**Read first:** code:packages/flow-state-v3/src/machine.ts#Reaction,
+**Read first:** code:packages/flow-state-v3/src/core/compiled.ts#Reaction,
 code:packages/flow-state-v3/src/core/compiled.ts#ContextSlot, code:packages/flow-state-v3/src/host/wiring.ts,
 code:packages/flow-state-v3/fixtures/session/machines/agenda.ts.
 
@@ -132,6 +132,11 @@ merge.
   experiment in @task.V3.T107 beside the rest; kept only if its Stories and faults show it adds no bugs, rejected
   otherwise. It must settle what a state-scoped reaction does with changes made while its state was inactive: a
   silent baseline on entry, or one comparison on entry (as a returning actor's one wave, @spec.Actors.R9).
+  **Verdict: rejected** (@task.V3.T107, built and tried on `sync`'s auto-pull). Neither entry rule is right: one
+  comparison on entry tells a paused state's reaction a head move the watching state already pulled
+  (`sync/auto-pull-repaused` shows one false new commit), and a silent baseline on entry loses the moves made while
+  paused (`sync/auto-pull-paused` resumes without them). A top-level reaction whose event each state handles its own
+  way passes both Stories, so reactions stay top level and a state body's `onContext` is refused.
 - **The name `.change`** is accepted; `.from` stays an event-payload word only.
 - **Cost:** about 30 `Provider.select` sites and every `onContext` site change; `M` is a new token family.
 - **Prior art:** reselect's explicit input selectors (static dependencies, versus Recoil and Jotai tracking them at

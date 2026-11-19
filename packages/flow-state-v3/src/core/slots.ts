@@ -1,7 +1,6 @@
 import { Option, Result, type Schema } from "effect";
 import type { Walker } from "./boundary.ts";
 import { Canonical, parseCanonical, writeCanonical } from "./codec.ts";
-import type { Values } from "./compiled.ts";
 import { sameValue } from "./same.ts";
 
 /**
@@ -15,35 +14,9 @@ export type Selected = {
   readonly text: Canonical;
   // FLOW_STATE_ALLOW_UNKNOWN: the selector's own result this was read from; none when restored.
   readonly raw: Option.Option<unknown>;
-  // The provider snapshot it was selected from; none when restored.
-  readonly from: Option.Option<{ readonly state: string; readonly memory: Values }>;
-};
-
-/**
- * The inputs a reaction's selection read: each slot it read, none for a slot never selected, and
- * each memory field it read, from `source`, the memory object it read them from, which baselines
- * read in one wave share.
- */
-export type Frame = {
-  readonly slots: ReadonlyMap<string, Option.Option<Selected>>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a memory field has its field Schema's type, typed at the definition.
-  readonly memory: ReadonlyMap<string, unknown>;
-  readonly source: Source;
-};
-
-/**
- * The memory a baseline read its fields from: the actor's memory object, or a saved copy read back.
- */
-// FLOW_STATE_ALLOW_UNKNOWN: a memory field has its field Schema's type.
-export type Source = Values | ReadonlyMap<string, unknown>;
-
-/**
- * A reaction's baseline: its last selection and the inputs it was read from.
- */
-export type Baseline = {
-  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns.
-  readonly selection: unknown;
-  readonly frame: Frame;
+  // The values of the slot's reads it was selected from, in their order; none when restored.
+  // FLOW_STATE_ALLOW_UNKNOWN: each read has its field's or state's type.
+  readonly reads: Option.Option<ReadonlyArray<unknown>>;
 };
 
 /**
@@ -70,7 +43,7 @@ export const readSelected = (
             json,
             text: new Canonical({ text }),
             raw: Option.none(),
-            from: Option.none(),
+            reads: Option.none(),
           }) satisfies Selected,
       ),
   );

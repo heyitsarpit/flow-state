@@ -1,7 +1,8 @@
-import { Equal, Option, Predicate, Result } from "effect";
-import { callSlot, type Compiled, publicMemory, type Values } from "./compiled.ts";
+import { Equal, Option, Result } from "effect";
+import { callSlot, type Compiled, type ContextRead, type Values } from "./compiled.ts";
 import { sameValue } from "./same.ts";
-import { type Frame, type Selected, sameSlot, selectedOf, type Source } from "./slots.ts";
+import { type Selected, sameSlot, selectedOf } from "./slots.ts";
+import { atOrBelow } from "./tree.ts";
 import type { Tx } from "./tx.ts";
 import {
   type ActorId,
@@ -28,27 +29,37 @@ export type ContextNeeds = {
   readonly save: (incarnation: Incarnation) => void;
 };
 
-// An actor's outside snapshot, as a provider's selector reads it: its leaf and memory without its
-// Flow.private fields.
-const outsideOf = (compiled: Compiled, incarnation: Incarnation) => ({
-  state: incarnation.state,
-  memory: publicMemory(compiled, incarnation.memory),
-});
+// What one read takes from a provider: a public memory field, whether it is at a state or below
+// it, or its state's name.
+const readOf = (read: ContextRead, provider: Incarnation) => {
+  switch (read.kind) {
+    case "memory":
+      return provider.memory[read.field];
+    case "state":
+      return atOrBelow(provider.state, read.path);
+    case "stateName":
+      return provider.state;
+  }
+};
 
-// Whether a slot's last selection stands without running its selector: a selector is pure (R19),
-// so the very snapshot it was read from (the same leaf and the same memory object, which an
-// immutable memory keeps only while unchanged) selects it again; a slot with an open issue is read
-// again, since only that can clear it.
-const stands = (
-  last: Option.Option<Selected>,
-  provider: Incarnation,
-  consumer: Incarnation,
-  slot: string,
-) =>
-  Option.exists(
-    Option.flatMap(last, (l) => l.from),
-    (from) => from.memory === provider.memory && from.state === provider.state,
-  ) && !consumer.issues.some((i) => IssueSource.$is("Context")(i.source) && i.source.slot === slot);
+// Whether a slot's last selection was read from these very values: a select is pure (R19), and an
+// immutable memory keeps an unchanged field's identity, so the same reads select it again.
+// FLOW_STATE_ALLOW_UNKNOWN: each read has its field's or state's type.
+const sameReads = (last: Selected, reads: ReadonlyArray<unknown>) =>
+  Option.exists(last.reads, (r) => r.length === reads.length && r.every((v, i) => v === reads[i]));
+
+// Whether a slot's select failed last time: only reading it again can clear its issue.
+const failing = (consumer: Incarnation, slot: string) =>
+  consumer.issues.some((i) => IssueSource.$is("Context")(i.source) && i.source.slot === slot);
+
+// Whether a reaction owes its slot's value a comparison: its slot has a value it has not compared.
+const differs = (baseline: Option.Option<Selected>, current: Option.Option<Selected>) =>
+  Option.exists(current, (c) =>
+    Option.match(baseline, {
+      onNone: () => true,
+      onSome: (b) => !sameValue(b.value, c.value),
+    }),
+  );
 
 /**
  * Context binding and waves: a consumer binds each slot to one
@@ -99,9 +110,10 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     });
   };
 
-  // Each slot's selection from its provider's current snapshot, through its Schema; a selector that
-  // throws, or returns what its Schema cannot encode, keeps the slot's last selection and raises one
-  // issue.
+  // Each slot's selection from its provider's current reads, through its Schema. A slot none of
+  // whose reads changed keeps its selection and runs no select, unless its last select failed; a
+  // select that throws, or returns what its Schema cannot encode, keeps the slot's last selection
+  // and raises one issue.
   const selected = (compiled: Compiled, incarnation: Incarnation) => {
     let next: Incarnation = incarnation;
     // In declaration order, whatever order a record held them in.
@@ -116,29 +128,25 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         Option.fromUndefinedOr(incarnationOf(id)),
       );
 
-      const providing = Option.flatMap(provider, (p) =>
-        Option.fromUndefinedOr(tx.machines.get(p.actor.machine)),
-      );
+      if (Option.isNone(provider)) continue;
 
-      if (Option.isNone(provider) || Option.isNone(providing)) continue;
+      const reads = declared.reads.map((read) => readOf(read, provider.value));
 
-      if (stands(Option.fromUndefinedOr(last), provider.value, incarnation, slot)) continue;
+      if (last !== undefined && sameReads(last, reads) && !failing(incarnation, slot)) continue;
 
-      const from = Option.some({ state: provider.value.state, memory: provider.value.memory });
+      const named = Object.fromEntries(declared.reads.map((read, i) => [read.name, reads[i]]));
 
-      const value = Result.flatMap(
-        callSlot(declared.select, outsideOf(providing.value, provider.value)),
-        (raw) =>
-          last !== undefined && Option.exists(last.raw, (r) => r === raw)
-            ? Result.succeed({ ...last, from })
-            : Result.mapBoth(selectedOf(declared.walk, raw), {
-                onFailure: () => declared.select.slot,
-                onSuccess: (selected) => ({
-                  ...selected,
-                  value: tx.env.admit(selected.value),
-                  from,
-                }),
+      const value = Result.flatMap(callSlot(declared.select, named), (raw) =>
+        last !== undefined && Option.exists(last.raw, (r) => r === raw)
+          ? Result.succeed({ ...last, reads: Option.some(reads) })
+          : Result.mapBoth(selectedOf(declared.walk, raw), {
+              onFailure: () => declared.select.slot,
+              onSuccess: (selected) => ({
+                ...selected,
+                value: tx.env.admit(selected.value),
+                reads: Option.some(reads),
               }),
+            }),
       );
 
       next = settle(next, slot, value, values);
@@ -147,84 +155,27 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     return { ...next, context: values };
   };
 
-  // A reaction's selection over these slots and memory, with the inputs it read: the context and
-  // memory it is handed record each slot and field read, so its baseline can be read again from
-  // them after a reload.
-  const selectionOf = (
-    compiled: Compiled,
-    reaction: Compiled["reactions"][number],
-    slots: ReadonlyMap<string, Option.Option<Selected>>,
-    memory: Values,
-  ) => {
-    const readSlots = new Map<string, Option.Option<Selected>>();
-    // FLOW_STATE_ALLOW_UNKNOWN: a memory field has its field Schema's type.
-    const readFields = new Map<string, unknown>();
-
-    const present = Object.fromEntries(
-      [...slots].flatMap(([slot, s]) => Option.toArray(Option.map(s, (v) => [slot, v.value]))),
+  // Each reaction's baseline as it starts: its slot's value, silently; none for a slot whose select
+  // failed, whose first value is then a change.
+  const baselinesOf = (compiled: Compiled, incarnation: Incarnation) =>
+    compiled.reactions.map((reaction) =>
+      Option.fromUndefinedOr(incarnation.context.get(reaction.slot)),
     );
 
-    // A slot asked for by `in` or listed by its keys is read as well: its presence is an input.
-    const context = new Proxy(present, {
-      has: (target, key) => {
-        if (Predicate.isString(key) && compiled.context.has(key))
-          readSlots.set(key, slots.get(key) ?? Option.none());
+  /**
+   * Whether a consumer's reactions owe a comparison: one's slot has a value it has not compared.
+   */
+  const owes = (incarnation: Incarnation) => {
+    const compiled = tx.machines.get(incarnation.actor.machine);
 
-        return key in target;
-      },
-      getOwnPropertyDescriptor: (target, key) => {
-        if (Predicate.isString(key) && compiled.context.has(key))
-          readSlots.set(key, slots.get(key) ?? Option.none());
-
-        return Reflect.getOwnPropertyDescriptor(target, key);
-      },
-      ownKeys: (target) => {
-        for (const slot of compiled.context.keys())
-          readSlots.set(slot, slots.get(slot) ?? Option.none());
-
-        return Reflect.ownKeys(target);
-      },
-      get: (target, key) => {
-        if (!Predicate.isString(key)) return undefined;
-
-        if (compiled.context.has(key)) readSlots.set(key, slots.get(key) ?? Option.none());
-
-        return target[key];
-      },
-    });
-
-    const fields = new Proxy(memory, {
-      get: (target, key) => {
-        if (!Predicate.isString(key)) return undefined;
-
-        if (Object.hasOwn(target, key)) readFields.set(key, target[key]);
-
-        return target[key];
-      },
-    });
-
-    const selection = callSlot(reaction.select, { context, memory: fields });
-
-    return Result.map(selection, (value) => ({
-      selection: value,
-      frame: { slots: readSlots, memory: readFields, source: memory } satisfies Frame,
-    }));
-  };
-
-  // Each slot's current selection, none for one never selected.
-  const slotsOf = (compiled: Compiled, incarnation: Incarnation) =>
-    new Map(
-      [...compiled.context.keys()].map((slot) => [
-        slot,
-        Option.fromUndefinedOr(incarnation.context.get(slot)),
-      ]),
-    );
-
-  const baselinesOf = (compiled: Compiled, incarnation: Incarnation) => {
-    const slots = slotsOf(compiled, incarnation);
-
-    return compiled.reactions.map((reaction) =>
-      Result.getSuccess(selectionOf(compiled, reaction, slots, incarnation.memory)),
+    return (
+      compiled !== undefined &&
+      compiled.reactions.some((reaction, at) =>
+        differs(
+          incarnation.baselines[at] ?? Option.none(),
+          Option.fromUndefinedOr(incarnation.context.get(reaction.slot)),
+        ),
+      )
     );
   };
 
@@ -305,60 +256,37 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     return busy(actor);
   };
 
-  // Runs each reaction whose selection differs from its baseline, in declaration order: its
-  // baseline becomes the selection and, when its `when` allows it, its event is kept to enqueue.
-  // An equal selection keeps its baseline, read from the new inputs. A select, when or mapper that
-  // throws raises one issue of its reaction and keeps its baseline.
+  // Runs each reaction whose slot's value differs from its baseline, in declaration order:
+  // its baseline becomes the value and, when its `when` allows it, its event is kept to enqueue. An
+  // equal value is silent; a first value after none (a select that failed at the start) is a
+  // change. A when or mapper that throws raises one issue of its reaction and keeps its baseline.
   const react = (compiled: Compiled, read: Incarnation) => {
     let next: Incarnation = read;
-    const baselines = [...read.baselines];
+    const baselines = compiled.reactions.map((_, at) => read.baselines[at] ?? Option.none());
     const events: Array<{ readonly tag: string; readonly payload: Values }> = [];
-    const slots = slotsOf(compiled, read);
 
     for (const [at, reaction] of compiled.reactions.entries()) {
+      const current = read.context.get(reaction.slot);
       const previous = baselines[at] ?? Option.none();
 
-      const current = Result.flatMap(selectionOf(compiled, reaction, slots, read.memory), (now) =>
-        Result.try({
-          try: () => ({
-            now,
-            equal: Option.exists(previous, (p) => sameValue(p.selection, now.selection)),
-          }),
-          catch: () => reaction.select.slot,
-        }),
-      );
+      if (current === undefined) continue;
 
-      if (Result.isFailure(current)) {
-        next = raise(next, {
-          source: IssueSource.OnContext({ at }),
-          code: "Defect",
-          slot: Option.some(current.failure),
-        });
-        continue;
-      }
-
-      const { now, equal } = current.success;
-
-      if (equal) {
-        baselines[at] = Option.some(now);
+      if (Option.exists(previous, (p) => sameValue(p.value, current.value))) {
+        baselines[at] = Option.some(current);
         next = clear(next, IssueSource.OnContext({ at }));
         continue;
       }
 
-      const allowed = Option.match(reaction.when, {
+      // A first value after none is a change; `when` judges a change between two values.
+      const allowed = Option.match(Option.all([reaction.when, previous]), {
         onNone: () => Result.succeed(true),
-        onSome: (when) =>
-          callSlot(
-            when,
-            now.selection,
-            Option.getOrUndefined(Option.map(previous, (p) => p.selection)),
-          ),
+        onSome: ([when, p]) => callSlot(when, current.value, p.value, { memory: read.memory }),
       });
 
       const payload = Result.flatMap(allowed, (yes) =>
         Option.match(reaction.event.from, {
           onNone: () => Result.succeed(Option.some<Values>({})),
-          onSome: (from) => Result.map(callSlot(from, now.selection), Option.some),
+          onSome: (from) => Result.map(callSlot(from, current.value), Option.some),
         }).pipe(Result.map((p) => (yes ? p : Option.none<Values>()))),
       );
 
@@ -370,9 +298,9 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
             slot: Option.some(slot),
           });
         },
-        // A changed selection becomes the baseline even when `when` declines; a defect keeps it.
+        // A changed value becomes the baseline even when `when` declines; a defect keeps it.
         onSuccess: (given) => {
-          baselines[at] = Option.some(now);
+          baselines[at] = Option.some(current);
           next = clear(next, IssueSource.OnContext({ at }));
 
           if (Option.isSome(given))
@@ -385,10 +313,11 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   };
 
   /**
-   * Serves a context update: reads every provider again; when a slot changed, or a start from a
-   * record still owes its reactions the selections they missed, runs the reactions, each enqueuing
-   * its event, in declaration order, when its selection changed and its `when` allows it. An equal
-   * selection is silent. It publishes only a changed slot or issue.
+   * Serves a context update: reads every provider again; when a slot changed, or a reaction owes
+   * its slot's value a comparison (a return's one wave),
+   * runs the reactions, each enqueuing its event, in declaration order, when its slot's value
+   * changed and its `when` allows it. An equal value is silent. It publishes only a changed slot or
+   * issue.
    */
   const update = (actor: ActorId) => {
     const incarnation = incarnationOf(actor);
@@ -406,7 +335,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         ),
     );
 
-    if (!changed && incarnation.stale.size === 0) {
+    if (!changed && !owes(read)) {
       if (read.issues !== incarnation.issues) {
         keep(read);
         needs.publish(read);
@@ -416,7 +345,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     }
 
     const { next, baselines, events } = react(compiled, read);
-    const after = { ...next, baselines, stale: new Map() };
+    const after = { ...next, baselines };
     needs.save(after);
 
     if (changed || after.issues !== incarnation.issues) needs.publish(after);
@@ -427,61 +356,24 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   };
 
   /**
-   * A consumer starting from a record: its context is its providers' current one, and each slot
-   * whose saved selection differs stays owed to its reactions. Each reaction's baseline is read
-   * again from the inputs it was last read from, so a reload restores what it last saw, a kept
-   * baseline included. A reload of a consistent saved world owes nothing.
+   * A consumer starting from a record: its context is its providers' current one, and each
+   * reaction's baseline is the one its record saved, a baseline a defect kept included. A reaction
+   * whose slot's value differs is owed one wave; a reload of a consistent saved world owes nothing.
    */
   const restore = (incarnation: Incarnation, record: ActorRecord) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
     if (compiled === undefined) return incarnation;
 
-    const stale = new Map(
-      [...incarnation.bound.keys()].flatMap((slot) => {
-        const last = Option.fromUndefinedOr(record.seen.get(slot));
-
-        return sameSlot(last, Option.fromUndefinedOr(incarnation.context.get(slot)))
-          ? []
-          : [[slot, last] as const];
-      }),
+    const baselines = compiled.reactions.map((_, at) =>
+      Option.map(record.baselines[at] ?? Option.none(), (b) => ({
+        ...b,
+        value: tx.env.admit(b.value),
+      })),
     );
 
-    const seen = new Map(
-      [...compiled.context.keys()].map((slot) => [
-        slot,
-        Option.fromUndefinedOr(record.seen.get(slot)),
-      ]),
-    );
-
-    // Baselines read from one saved copy read one memory object, so a save shares it again.
-    const memories = new Map<Source, Values>();
-
-    const memoryOf = (frame: Frame) => {
-      const known = memories.get(frame.source);
-
-      if (known !== undefined) return known;
-
-      const memory =
-        frame.memory.size === 0
-          ? record.memory
-          : { ...record.memory, ...Object.fromEntries(frame.memory) };
-
-      memories.set(frame.source, memory);
-
-      return memory;
-    };
-
-    const baselines = compiled.reactions.map((reaction, at) =>
-      Option.flatMap(record.frames[at] ?? Option.none(), (frame) =>
-        Result.getSuccess(
-          selectionOf(compiled, reaction, new Map([...seen, ...frame.slots]), memoryOf(frame)),
-        ),
-      ),
-    );
-
-    return { ...incarnation, stale, baselines };
+    return { ...incarnation, baselines };
   };
 
-  return { bind, unbind, wave, settling, update, restore };
+  return { bind, unbind, wave, settling, update, owes, restore };
 };

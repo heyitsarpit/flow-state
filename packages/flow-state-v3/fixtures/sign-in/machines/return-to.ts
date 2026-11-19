@@ -13,21 +13,16 @@ export const ReturnTo = definition({
   events: { Save: { route: Schema.String, draft: Schema.String }, Submit: {} },
   internalEvents: { SessionReady: { ready: Schema.Boolean } },
   memory: { route: Flow.initial(Schema.String, ""), draft: Flow.initial(Schema.String, "") },
-  context: { session: AuthSession.Provider.select(Schema.Boolean, (s) => s.state === "SIGNED_IN") },
+  context: { session: Flow.context(AuthSession.S.SIGNED_IN) },
 });
 
 /**
  * The return: saved before the redirect, it returns once its session is signed in with nothing
  * held, and a submit there clears the draft.
  */
-export const ReturnToMachine = machine(ReturnTo, ({ S, E }) => ({
+export const ReturnToMachine = machine(ReturnTo, ({ S, E, C }) => ({
   default: S.IDLE,
-  onContext: [
-    {
-      select: ({ context }) => context.session,
-      event: E.SessionReady.from((ready: boolean) => ({ ready })),
-    },
-  ],
+  onContext: [C.session.change({ event: E.SessionReady.from((ready) => ({ ready })) })],
   on: {
     Save: {
       target: S.WAITING,

@@ -30,7 +30,7 @@ const Cart = definition({
   states: ["OPEN"],
   events: {},
   memory: { count: Flow.initial(Schema.Number, 0) },
-  context: { shopper: Shopper.Provider.select(Schema.String, (s) => s.memory.name) },
+  context: { shopper: Flow.context(Shopper.M.name) },
 });
 
 const ShopperMachine = machine(Shopper, ({ S }) => ({ default: S.IN, on: { Leave: S.OUT } }));

@@ -2,7 +2,7 @@ import type { Duration, Option, Schema } from "effect";
 import type { Action, Denial, Guard, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import type { BoundInput, BoundKey, Ending } from "./contract.ts";
-import type { ChildrenOf, ContextSlot, NamesOf, PayloadOf } from "./definition.ts";
+import type { ChildrenOf, ContextOf, ContextSlot, NamesOf, PayloadOf } from "./definition.ts";
 import type { Entry } from "./flow.ts";
 import type { GuardArg, SelectArg } from "./handles.ts";
 import type { SendToken } from "./send.ts";
@@ -13,8 +13,9 @@ import type { SendToken } from "./send.ts";
 export type StateRead<L extends string = string> = L | { readonly state: L };
 
 /**
- * A state of a definition, as a target or a guard element: `Path` its path, `Id` its definition's
- * id, `L` the definition's leaves and `C` its direct children's names.
+ * A state of a definition, as a target, a guard element or a context read: `Path` its path, `Id`
+ * its definition's id, `L` the definition's leaves, `C` its direct children's names and `P` what a
+ * ref to its definition's actor must have when a slot reads it.
  *
  * **Details**
  *
@@ -26,11 +27,14 @@ export type StateToken<
   Id extends string = string,
   L extends string = string,
   C extends string = string,
+  P = unknown,
 > = {
   readonly "~flow": "state";
   readonly "~path": Path;
   // A phantom type: the definition that made the token, so it fits only that definition's body.
   readonly "~definition"?: Id;
+  // A phantom type: the provider's state tree and memory, which a slot's wiring ref must have.
+  readonly "~provider"?: P;
   // A method, so a token reading its own leaves assigns to one reading any.
   is(read: StateRead<L>): boolean;
   // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: child is the name, otherwise undefined
@@ -56,13 +60,14 @@ export type StateTokens<
   P extends string = "",
   Id extends string = string,
   Leaves extends string = string,
-> = string extends NamesOf<L> ? Values : StateTokensLiteral<L, P, Id, Leaves>;
+  Pr = unknown,
+> = string extends NamesOf<L> ? Values : StateTokensLiteral<L, P, Id, Leaves, Pr>;
 
-type StateTokensLiteral<L, P extends string, Id extends string, Leaves extends string> = {
+type StateTokensLiteral<L, P extends string, Id extends string, Leaves extends string, Pr> = {
   readonly [N in NamesOf<L>]: [ChildrenOf<L, N>] extends [never]
-    ? StateToken<`${P}${N}`, Id, Leaves, never>
-    : StateToken<`${P}${N}`, Id, Leaves, NamesOf<ChildrenOf<L, N>>> &
-        StateTokensLiteral<ChildrenOf<L, N>, `${P}${N}.`, Id, Leaves> & {
+    ? StateToken<`${P}${N}`, Id, Leaves, never, Pr>
+    : StateToken<`${P}${N}`, Id, Leaves, NamesOf<ChildrenOf<L, N>>, Pr> &
+        StateTokensLiteral<ChildrenOf<L, N>, `${P}${N}.`, Id, Leaves, Pr> & {
           readonly history: HistoryToken<`${P}${N}`, Id>;
         };
 };
@@ -280,6 +285,18 @@ type ProviderOfRead<T> = T extends { readonly "~provider"?: infer P }
   ? Exclude<P, undefined>
   : never;
 
+type IdOfRead<T> = T extends { readonly "~definition"?: infer Id } ? Exclude<Id, undefined> : never;
+
+type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
+
+// Reads of two definitions, whose ids form a union: a slot binds one provider.
+type OneProvider<R> =
+  true extends IsUnion<IdOfRead<R[keyof R]>>
+    ? {
+        readonly "~error": "every read of one slot comes from one provider: use a slot per provider";
+      }
+    : Record<never, never>;
+
 type ReadValues<R> = { readonly [K in keyof R]: ValueOfRead<R[K]> };
 
 /**
@@ -288,13 +305,12 @@ type ReadValues<R> = { readonly [K in keyof R]: ValueOfRead<R[K]> };
 export type ContextOfTokens = {
   <V, Id extends string, P>(token: MemoryToken<V, Id, P>): ContextSlot<V, P>;
   <L extends string, Id extends string, P>(token: StateNameToken<L, Id, P>): ContextSlot<L, P>;
-  (token: StateToken): ContextSlot<boolean>;
+  <Id extends string, P>(token: StateToken<string, Id, string, string, P>): ContextSlot<boolean, P>;
   <V, I, const R extends Readonly<Record<string, ReadToken>>>(
     schema: Schema.Codec<V, I>,
     spec: {
-      readonly reads: R;
-      // FLOW_STATE_ALLOW_UNKNOWN: a select's result, checked by the slot's Schema when selected.
-      readonly select: (values: ReadValues<R>) => unknown;
+      readonly reads: R & OneProvider<R>;
+      readonly select: (values: ReadValues<R>) => NoInfer<V>;
     },
     // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- a slot's phantom provider is the optional key ContextSlot declares
   ): ContextSlot<V, ProviderOfRead<R[keyof R]>>;
@@ -306,17 +322,20 @@ export type ContextOfTokens = {
 export type Change = {
   readonly "~flow": "change";
   readonly slot: string;
-  // FLOW_STATE_ALLOW_UNKNOWN: the authored spec, read by the machine that receives it.
-  readonly spec: unknown;
+  // FLOW_STATE_ALLOW_UNKNOWN: the authored when, decoded by the machine that receives it.
+  readonly when: Option.Option<unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the authored event, decoded by the machine that receives it.
+  readonly event: unknown;
 };
 
 /**
- * What `C.slot.change` takes: when a change counts, and the event it enqueues.
+ * What `C.slot.change` takes: when a change of the slot's value `V` counts, and the event it
+ * enqueues, mapped from the value.
  */
-export type ChangeSpec<Memory, Id extends string> = {
+export type ChangeSpec<V, Memory, Id extends string> = {
   // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: with no when, every change enqueues the event
-  readonly when?: (current: never, previous: never, extra: { readonly memory: Memory }) => boolean;
-  readonly event: Ending<never, Id>;
+  readonly when?: (current: V, previous: V, extra: { readonly memory: Memory }) => boolean;
+  readonly event: Ending<V, Id>;
 };
 
 /**
@@ -324,6 +343,6 @@ export type ChangeSpec<Memory, Id extends string> = {
  */
 export type ContextTokens<Cx, Memory, Id extends string> = {
   readonly [K in keyof Cx & string]: {
-    readonly change: (spec: ChangeSpec<Memory, Id>) => Change;
+    readonly change: (spec: ChangeSpec<ContextOf<Cx>[K], Memory, Id>) => Change;
   };
 };

@@ -172,7 +172,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
             [...r.seen].map(([slot, s]) => [slot, { ...s, value: tx.env.admit(s.value) }] as const),
           ),
       }),
-      stale: new Map(),
       baselines: [],
       grace: Option.none(),
     };
@@ -236,7 +235,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     ledger.start(actor);
 
     // The owed wave waits in its mailbox after the owed rows, ahead of the event that returned it.
-    if (bound.stale.size > 0) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));
+    if (context.owes(bound)) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));
   };
 
   const fireWaiting = (actor: ActorId) => {

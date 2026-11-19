@@ -20,10 +20,13 @@ export const CalendarMachine = machine(Calendar, ({ S }) => ({
   on: { Show: { updateMemory: ({ event }) => ({ from: event.from, to: event.to }) } },
 }));
 
-const daysOf = (s: { readonly memory: { readonly from: number; readonly to: number } }) =>
-  Array.from({ length: Math.max(0, s.memory.to - s.memory.from) }, (_, n) => s.memory.from + n);
+const daysOf = ({ from, to }: { readonly from: number; readonly to: number }) =>
+  Array.from({ length: Math.max(0, to - from) }, (_, n) => from + n);
 
 const Days = Schema.Array(Schema.Number);
+
+const days = () =>
+  Flow.context(Days, { reads: { from: Calendar.M.from, to: Calendar.M.to }, select: daysOf });
 
 /**
  * The agenda beside the calendar: every day in the range it shows, thousands when the range is
@@ -36,15 +39,15 @@ export const Agenda = definition({
   events: {},
   internalEvents: { Heard: {} },
   memory: { heard: Flow.initial(Schema.Number, 0) },
-  context: { days: Calendar.Provider.select(Days, daysOf) },
+  context: { days: days() },
 });
 
 /**
  * The agenda: each changed list of days is one more heard.
  */
-export const AgendaMachine = machine(Agenda, ({ S, E }) => ({
+export const AgendaMachine = machine(Agenda, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [{ select: ({ context }) => context.days, event: E.Heard }],
+  onContext: [C.days.change({ event: E.Heard })],
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));
 
@@ -58,14 +61,14 @@ export const Peek = definition({
   events: {},
   internalEvents: { Heard: {} },
   memory: { heard: Flow.initial(Schema.Number, 0) },
-  context: { days: Calendar.Provider.select(Days, daysOf) },
+  context: { days: days() },
 });
 
 /**
  * The glance: each changed list of days is one more heard.
  */
-export const PeekMachine = machine(Peek, ({ S, E }) => ({
+export const PeekMachine = machine(Peek, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [{ select: ({ context }) => context.days, event: E.Heard }],
+  onContext: [C.days.change({ event: E.Heard })],
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));

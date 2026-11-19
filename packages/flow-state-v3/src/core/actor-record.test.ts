@@ -1,8 +1,9 @@
-import { Option, Predicate, Schema } from "effect";
+import { Option, Result, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { definition } from "../definition.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
+import { encodeActor } from "./actor-record.ts";
 import { decodeRecords } from "./record.ts";
 import { FORMAT } from "./record-format.ts";
 
@@ -22,11 +23,18 @@ const Header = definition({
   events: {},
   memory: { seen: Flow.initial(Schema.Number, 0) },
   context: {
-    first: Feed.Provider.select(Schema.Option(Schema.String), (f) =>
-      Option.fromUndefinedOr(f.memory.items[0]),
-    ),
-    last: Feed.Provider.select(Schema.UndefinedOr(Schema.String), (f) => f.memory.items.at(-1)),
-    count: Feed.Provider.select(Schema.Number, (f) => f.memory.items.length),
+    first: Flow.context(Schema.Option(Schema.String), {
+      reads: { items: Feed.M.items },
+      select: ({ items }) => Option.fromUndefinedOr(items[0]),
+    }),
+    last: Flow.context(Schema.UndefinedOr(Schema.String), {
+      reads: { items: Feed.M.items },
+      select: ({ items }) => items.at(-1),
+    }),
+    count: Flow.context(Schema.Number, {
+      reads: { items: Feed.M.items },
+      select: ({ items }) => items.length,
+    }),
   },
 });
 
@@ -49,14 +57,17 @@ const Shout = definition({
   events: {},
   internalEvents: { Heard: {} },
   memory: { heard: Flow.initial(Schema.Number, 0) },
-  context: { word: Feed.Provider.select(Loud, (f) => f.memory.items[0] ?? "") },
+  context: {
+    word: Flow.context(Loud, {
+      reads: { items: Feed.M.items },
+      select: ({ items }) => items[0] ?? "",
+    }),
+  },
 });
 
-const ShoutMachine = machine(Shout, ({ S, E }) => ({
+const ShoutMachine = machine(Shout, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [
-    { select: ({ context, memory }) => `${context.word}${memory.heard}`, event: E.Heard },
-  ],
+  onContext: [C.word.change({ event: E.Heard })],
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));
 
@@ -72,6 +83,14 @@ const shout = (seen: string, reactions: string) =>
   `"schedules":[],"seen":${seen},"state":"SHOWN"}`;
 
 const key = "actor/Test/Header/h";
+
+type Baselines = ReadonlyArray<Option.Option<{ readonly value: unknown }>>;
+
+// Each restored baseline's value, undefined for one with none; nothing when no record restored.
+const valuesOf = (records: ReadonlyArray<{ readonly baselines: Baselines }>) =>
+  records.flatMap((r) =>
+    r.baselines.map((b) => Option.getOrUndefined(Option.map(b, (x) => x.value))),
+  );
 
 const formatOne = (seen: string) =>
   '{"context":{"first":{"machine":"Test/Feed","name":"f"}},"format":1,"machine":"Test/Header",' +
@@ -128,28 +147,27 @@ describe("format 2 records at the boot (Restore R5)", () => {
     expect(restored.quarantined.map((q) => q.key)).toEqual(["actor/Test/Shout/s"]);
   });
 
-  it("Restore R5: saved baselines that do not match the machine's reactions in number are read from the record's own slots and memory", () => {
+  it("Restore R5: saved baselines that do not match the machine's reactions in number are their slots' last values", () => {
     const restored = decodeRecords(
       machines,
       new Map([["actor/Test/Shout/s", shout('{"word":"hi"}', "[null,null]")]]),
     );
 
     expect(restored.quarantined).toEqual([]);
-    expect(restored.records[0]?.frames.map(Option.isSome)).toEqual([true]);
+    expect(valuesOf(restored.records)).toEqual(["hi"]);
   });
 
-  it("Restore R5: the format-2 step keeps each baseline's own memory copy, now a shared one it names", () => {
+  it("Restore R5: the format-2 step goes on through format 3's: a baseline keeps its own value of its slot, and the memory it read is dropped", () => {
     const two =
       '{"context":{"word":{"machine":"Test/Feed","name":"f"}},"format":2,"graph":{},' +
       '"machine":"Test/Shout","memory":{"heard":0},"name":"s",' +
-      '"reactions":[{"memory":{"heard":7},"slots":{}}],"schedules":[],"seen":{"word":"hi"},' +
-      '"state":"SHOWN"}';
+      '"reactions":[{"memory":{"heard":7},"slots":{"word":{"value":"ho"}}}],"schedules":[],' +
+      '"seen":{"word":"hi"},"state":"SHOWN"}';
 
     const restored = decodeRecords(machines, new Map([["actor/Test/Shout/s", two]]));
-    const frame = restored.records[0]?.frames[0];
 
     expect(restored.quarantined).toEqual([]);
-    expect(frame?.pipe(Option.map((f) => f.memory.get("heard")))).toEqual(Option.some(7));
+    expect(valuesOf(restored.records)).toEqual(["ho"]);
   });
 });
 
@@ -174,32 +192,62 @@ const WatchMachine = machine(Watch, ({ S, E, C }) => ({
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));
 
-// A format-3 record whose reaction's baseline was read from a count of 1 while its slot last saw
-// 2: a baseline a `when` or mapper defect kept.
-const formatThree =
-  '{"context":{"count":{"machine":"Test/Feed","name":"f"}},"format":3,"graph":{},' +
-  '"machine":"Test/Watch","memories":[],"memory":{"heard":0},"name":"w",' +
-  '"reactions":[{"memory":null,"slots":{"count":{"value":1}}}],"schedules":[],' +
-  '"seen":{"count":2},"state":"SHOWN"}';
+const watchMachines = new Map([...machines, [WatchMachine.compiled.id, WatchMachine.compiled]]);
 
-// A restored record keeps each reaction's baseline as its slot's value, under `baselines`; the
-// field's name is the build's choice.
-// FLOW_STATE_ALLOW_UNKNOWN: a restored record, read for a field the build has yet to add.
-const baselinesOf = (record: unknown) =>
-  Predicate.hasProperty(record, "baselines") ? Option.some(record.baselines) : Option.none();
+// A format-3 record of the watch: its one reaction's frame as given, its slot last seen at 2.
+const formatThree = (frame: string) =>
+  '{"context":{"count":{"machine":"Test/Feed","name":"f"}},"format":3,"graph":{},' +
+  '"machine":"Test/Watch","memories":[{"heard":5}],"memory":{"heard":0},"name":"w",' +
+  `"reactions":[${frame}],"schedules":[],"seen":{"count":2},"state":"SHOWN"}`;
+
+const restoredWatch = (frame: string) =>
+  decodeRecords(watchMachines, new Map([["actor/Test/Watch/w", formatThree(frame)]]));
 
 describe("a reaction's baseline is its slot's value (Actors R18, Turn R22, Restore R5)", () => {
-  it.fails("Restore R5, Actors R18: the record format is 4, which saves each reaction's baseline as its slot's value only", () => {
+  it("Restore R5, Actors R18: the record format is 4, which saves each reaction's baseline as its slot's value only", () => {
     expect(FORMAT).toBe(4);
   });
 
-  it.fails("Restore R5, Actors R18: the format-3 step reads a reaction's baseline from its frame's value of the reaction's slot, so a kept baseline is neither lost nor made up", () => {
-    const restored = decodeRecords(
-      new Map([...machines, [WatchMachine.compiled.id, WatchMachine.compiled]]),
-      new Map([["actor/Test/Watch/w", formatThree]]),
-    );
+  it("Restore R5, Actors R18: the format-3 step reads a reaction's baseline from its frame's value of the reaction's slot, so a kept baseline is neither lost nor made up", () => {
+    const restored = restoredWatch('{"memory":0,"slots":{"count":{"value":1}}}');
 
     expect(restored.quarantined).toEqual([]);
-    expect(baselinesOf(restored.records[0])).toEqual(Option.some([1]));
+    expect(valuesOf(restored.records)).toEqual([1]);
+  });
+
+  it("Restore R5: a format-3 frame that saved no value of the reaction's slot reads the slot's last value; a frame of a slot never selected reads none; no frame reads none", () => {
+    expect(valuesOf(restoredWatch('{"memory":null,"slots":{}}').records)).toEqual([2]);
+    expect(
+      restoredWatch('{"memory":null,"slots":{"count":{}}}').records[0]?.baselines.map(
+        Option.isSome,
+      ),
+    ).toEqual([false]);
+    expect(restoredWatch("null").records[0]?.baselines.map(Option.isSome)).toEqual([false]);
+  });
+});
+
+describe("format 4 saves a reaction's baseline only where it differs from its slot (Restore R5, Actors R18)", () => {
+  // A format-4 record of the watch whose one reaction saved the baseline given, its slot last seen
+  // at 2.
+  const formatFour = (reaction: string) =>
+    '{"context":{"count":{"machine":"Test/Feed","name":"f"}},"format":4,"graph":{},' +
+    '"machine":"Test/Watch","memory":{"heard":0},"name":"w",' +
+    `"reactions":[${reaction}],"schedules":[],"seen":{"count":2},"state":"SHOWN"}`;
+
+  it("Restore R5, Actors R18: a baseline equal to its slot is saved null, one that differs by its value, and none as an empty object; each reads back and writes the same text", () => {
+    for (const [reaction, value] of [
+      ["null", 2],
+      ['{"value":1}', 1],
+      ["{}", undefined],
+    ] as const) {
+      const text = formatFour(reaction);
+      const restored = decodeRecords(watchMachines, new Map([["actor/Test/Watch/w", text]]));
+      const record = restored.records[0];
+
+      expect(valuesOf(restored.records)).toEqual([value]);
+      expect(
+        record === undefined ? Result.fail("none") : encodeActor(WatchMachine.compiled, record),
+      ).toEqual(Result.succeed(text));
+    }
   });
 });

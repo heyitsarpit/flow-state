@@ -17,7 +17,7 @@ import { refusal } from "../refusals.ts";
 const line = (variantId: string, quantity: number) => ({ variantId, quantity });
 
 describe("the mini-cart reads its cart through context slots (Actors R18, Turn R22)", () => {
-  it.fails("Turn R22, Compile R4: a pass-through and a derived slot; a larger count pulses, every change is shown once, an equal one is silent", async () => {
+  it("Turn R22, Compile R4: a pass-through and a derived slot; a larger count pulses, every change is shown once, an equal one is silent", async () => {
     const run = await played(pulseAdds);
     const at = (name: keyof typeof run.checkpoints) => run.checkpoints[name].read(mainPulse);
 
@@ -57,7 +57,7 @@ describe("the mini-cart reads its cart through context slots (Actors R18, Turn R
     expect(turnsOf(run, CartPulse.E.Grew)).toHaveLength(3);
   });
 
-  it.fails("Turn R22, L5: edits faster than the cart service answers pulse once per larger count; the late answers change nothing shown", async () => {
+  it("Turn R22, L5: edits faster than the cart service answers pulse once per larger count; the late answers change nothing shown", async () => {
     const run = await played(pulseBurst);
     const expected = { pulses: BURST + 1, shown: BURST + 1 };
 
@@ -70,7 +70,7 @@ describe("the mini-cart reads its cart through context slots (Actors R18, Turn R
     );
   });
 
-  it.fails("Turn R22, Actors R18, S1 + S9: a reload at the deepest node reads the count again silently; the next raise pulses once", async () => {
+  it("Turn R22, Actors R18, S1 + S9: a reload at the deepest node reads the count again silently; the next raise pulses once", async () => {
     const run = await played(pulseReloaded);
 
     expect(run.checkpoints.reloaded.read(mainPulse)).toEqual(
@@ -92,10 +92,18 @@ describe("the mini-cart reads its cart through context slots (Actors R18, Turn R
     expect(pulse?.context["count"]).toBe(1);
     expect([0, 1]).toContain(pulse?.memory.shown);
     expect(pulse?.memory.pulses).toBe(pulse?.memory.shown);
-    expect(turnsOf(run, CartPulse.E.Counted).length).toBe(pulse?.memory.shown);
+
+    // The mini-cart before the reload heard the add's wish; only the turns after it count.
+    const reloaded = run.evidence.findLastIndex(
+      (e) => e._tag === "Incarnated" && e.actor.name === mainPulse.value,
+    );
+
+    expect(
+      turnsOf({ ...run, evidence: run.evidence.slice(reloaded) }, CartPulse.E.Counted),
+    ).toHaveLength(pulse?.memory.shown ?? -1);
   });
 
-  it.fails("Actors R18, E3: a cart of a thousand lines is read whole and counted", async () => {
+  it("Actors R18, E3: a cart of a thousand lines is read whole and counted", async () => {
     const run = checked(await largePulse().run());
     const pulse = run.checkpoints.full.read(mainPulse);
 
@@ -105,19 +113,19 @@ describe("the mini-cart reads its cart through context slots (Actors R18, Turn R
 });
 
 describe("construction refuses a slot of two providers and a reaction nothing handles (Compile R19, I18)", () => {
-  it.fails("Compile R19, I18, T13: a derived slot whose reads name two providers is InvalidConfiguration at the second read", () => {
+  it("Compile R19, I18, T13: a derived slot whose reads name two providers is InvalidConfiguration at the second read", () => {
     expect(refusal(mixedProviderPulse)).toEqual([
       ["InvalidConfiguration", "context.count.reads.name"],
     ]);
   });
 
-  it.fails("Compile R19, I18: a reaction whose event no state handles is refused at its event", () => {
+  it("Compile R19, I18: a reaction whose event no state handles is refused at its event", () => {
     expect(refusal(unhandledPulse)).toEqual([["InvalidConfiguration", "onContext.0.event"]]);
   });
 });
 
 describe("Compiled holds the field-level edges (Compile R19, I18)", () => {
-  it.fails("Compile R19, I18: each slot lists its provider and the fields it reads; each reaction names its slot", () => {
+  it("Compile R19, I18: each slot lists its provider and the fields it reads; each reaction names its slot", () => {
     const view = dataView(CartPulseMachine.compiled);
 
     expect(view).toEqual(

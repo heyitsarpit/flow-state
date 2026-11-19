@@ -385,7 +385,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
   {
     name: "context-of-any-kind",
     tests: [CONSTRUCTION],
-    says: "a context slot that is not Provider.select's is accepted",
+    says: "a context slot that is not Flow.context's is accepted",
     rule: "Compile R4",
     edits: [
       {

@@ -13,17 +13,15 @@ export const Presence = definition({
   events: {},
   internalEvents: { Saw: { user: Schema.String } },
   memory: { user: Flow.initial(Schema.String, "") },
-  context: { user: SessionMachine.definition.Provider.select(Schema.String, (s) => s.memory.user) },
+  context: { user: Flow.context(SessionMachine.definition.M.user) },
 });
 
 /**
  * Presence: each changed user is the one it shows.
  */
-export const PresenceMachine = machine(Presence, ({ S, E }) => ({
+export const PresenceMachine = machine(Presence, ({ S, E, C }) => ({
   default: S.ONLINE,
-  onContext: [
-    { select: ({ context }) => context.user, event: E.Saw.from((user: string) => ({ user })) },
-  ],
+  onContext: [C.user.change({ event: E.Saw.from((user) => ({ user })) })],
   on: { Saw: { updateMemory: ({ event }) => ({ user: event.user }) } },
 }));
 
@@ -38,14 +36,14 @@ export const Dot = definition({
   events: { Ping: {} },
   internalEvents: { Heard: {} },
   memory: { heard: Flow.initial(Schema.Number, 0) },
-  context: { online: Presence.Provider.select(Schema.String, (p) => p.memory.user) },
+  context: { online: Flow.context(Presence.M.user) },
 });
 
 /**
  * The dot: each changed user is one more heard.
  */
-export const DotMachine = machine(Dot, ({ S, E }) => ({
+export const DotMachine = machine(Dot, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [{ select: ({ context }) => context.online, event: E.Heard }],
+  onContext: [C.online.change({ event: E.Heard })],
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) }, Ping: {} },
 }));

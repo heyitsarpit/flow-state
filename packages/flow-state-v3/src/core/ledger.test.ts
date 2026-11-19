@@ -58,7 +58,6 @@ const live = (world: World): World => ({
         issues: [],
         bound: new Map(),
         context: new Map(),
-        stale: new Map(),
         baselines: [],
         grace: Option.none(),
         memory: {},

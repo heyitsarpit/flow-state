@@ -505,3 +505,18 @@ note 2026-11-19T21:32:35Z
     Restore R5: a quarantined actor whose fresh start is refused has no snapshot (none); RecordUndecodable names it and
     a Story's read fails. Code since T104 (src/host/snapshot.ts); R5 said every quarantined actor reads lifecycle
     quarantined.
+
+note 2026-11-19T23:47:55Z
+    @spec.Compile: R19 and I18 built and no longer proposed; R19 names the identity check, the not-a-token and no-spec
+    refusals and the data view's reads; R16 lists slot reads and reaction slots (@task.V3.T107). Reverse: restore the
+    proposed text.
+
+note 2026-11-19T23:47:56Z
+    @spec.Turn.R22: a slot with no value when its baseline is set has none, and its first value is a change; when judges
+    two values only; reactions are top level, the state-scoped experiment rejected (@task.V3.T107). Why: the unread
+    badge's first message after a refused start must open. Reverse: silent first value.
+
+note 2026-11-19T23:47:56Z
+    @spec.Restore.R5, R2; @spec.Codec.R6: format 4 saves a reaction's baseline as its slot's value where it differs from
+    last-seen; format 3's step reads the frame's value of the reaction's slot (@task.V3.T107). Reverse: restore format 3
+    frames.

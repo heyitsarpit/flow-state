@@ -43,8 +43,8 @@ requirements
                 included, and set a silent baseline from each slot's saved last-seen value: a
                 slot whose current value equals it gets no onContext event, so a reload of a
                 consistent saved world hears none; one that differs gets the one wave of
-                @spec.Actors.R9, at a reload as at a return. Each reaction's baseline is read again
-                from its slot's saved value (@spec.Turn.R22). A writing 
+                @spec.Actors.R9, at a reload as at a return. Each reaction's baseline is the one its
+                record saved, its slot's last-seen value where it saved none (@spec.Turn.R22). A writing 
                 placement whose re-taken reset value differs from the
                 recorded one resets as a pending reset, the first turn after restore, before the
                 owed rows and the lane deliveries of R3 (round-14/step.ts, "a reset lost by the
@@ -90,12 +90,16 @@ requirements
 
                 Each older record format reaches the current one by a pure step at the boot; a
                 newer, null or non-integer format is quarantined, its lane still holding by its id.
-                Format 3 is current. Format 2's step turns each baseline's own memory copy into a
-                shared one. Format 1's step reads each tagged last-seen value back through its slot's
-                Schema (one the Schema refuses, or saved unknown, was never selected) and reads each
-                reaction's baseline again from the record's own slots and memory; a form no release
-                wrote quarantines the record. Saved baselines that do not match the machine's
-                reactions in number are read the same way. A Schema whose decode throws quarantines
+                Format 4 is current: a reaction's baseline is saved as its slot's value, only where
+                it differs from the slot's last-seen value. Format 3's step takes each baseline from
+                its saved frame's value of the reaction's slot, else the slot's last-seen value (a
+                frame with no value: no baseline); the memory a frame read is dropped. Format 2's
+                step reaches format 3 with its frames' slots. Format 1's step reads each tagged
+                last-seen value back through its slot's Schema (one the Schema refuses, or saved
+                unknown, was never selected) and takes each baseline from its slot's last-seen
+                value; a form no release wrote quarantines the record. Saved baselines that do not
+                match the machine's reactions in number are their slots' last-seen values. A Schema whose decode throws 
+                quarantines
                 its record as a refusal does; the boot goes on.
                 A text that is not the record's canonical encoding (@spec.Codec.R3) is quarantined
                 too. Each record names an identity in its content; it is read only when that

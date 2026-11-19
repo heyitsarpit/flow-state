@@ -1,12 +1,11 @@
 import { Option, Predicate, Result, Schema } from "effect";
 import { walkerOf } from "./core/boundary.ts";
 import { nameSchemaOf } from "./core/identity.ts";
-import type { Values } from "./core/compiled.ts";
+import type { Level, Node, Values } from "./core/compiled.ts";
 import { leafOf } from "./core/tree.ts";
 import {
   type AnyDefinition,
   type ChildrenOf,
-  type ContextOf,
   type Definition,
   type LeavesOf,
   type Machine,
@@ -25,9 +24,10 @@ import { codecOf } from "./events.ts";
 import { flowErrorOf, invalid, raise, refuse } from "./error.ts";
 import { builder, entry, inert } from "./entry.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
-import type { Ending, ErasedEnding } from "./contract.ts";
+import type { ErasedEnding } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
-import type { Change, ChangeSpec, ContextTokens } from "./tokens.ts";
+import type { Change, ContextTokens } from "./tokens.ts";
+import { slotReadsOf } from "./flow.ts";
 import { type Compile, nodesOf, tokenMaps } from "./compile-body.ts";
 
 type Parts<D> =
@@ -65,11 +65,7 @@ type StatesBody<D, L, P extends string> = {
   readonly [N in NamesOf<L>]?: NodeBody<D, ChildrenOf<L, N>, `${P}${N}.`>;
 };
 
-type NodeBody<D, C, P extends string> = ([C] extends [never]
-  ? LeafBody<D>
-  : CompoundBody<D, C, P>) & {
-  readonly onContext?: ReadonlyArray<Change>;
-};
+type NodeBody<D, C, P extends string> = [C] extends [never] ? LeafBody<D> : CompoundBody<D, C, P>;
 
 type CompoundBody<D, L, P extends string> = {
   readonly on?: Handlers<D>;
@@ -79,28 +75,13 @@ type CompoundBody<D, L, P extends string> = {
 };
 
 /**
- * What a machine body returns: the root's default child and handlers, and each state's body,
- * mirroring the definition's tree: a compound has a default direct child and its children's
- * bodies; a leaf has neither.
+ * What a machine body returns: the root's default child, handlers and reactions, and each state's
+ * body, mirroring the definition's tree: a compound has a default direct child and its children's
+ * bodies; a leaf has neither. `onContext` holds the `C.slot.change` reactions, live in every state.
  */
-/**
- * An `onContext` reaction: `select` reads the context and memory when a context wave reaches the
- * actor; a changed selection becomes the baseline and, unless `when(current, previous)` declines,
- * enqueues `event` (`E.X`, or `E.X.from((current) => payload)`).
- */
-export type Reaction<D extends AnyDefinition> = {
-  readonly select: (input: {
-    readonly context: ContextOf<D["context"]>;
-    readonly memory: Parts<D>["Memory"];
-  }) => unknown;
-  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: with no when, every changed selection enqueues the event
-  readonly when?: (current: never, previous: never) => boolean;
-  readonly event: Ending<never, Parts<D>["Id"]>;
-};
-
 export type MachineBody<D extends AnyDefinition> = {
   readonly on?: Handlers<D>;
-  readonly onContext?: ReadonlyArray<Reaction<D> | Change>;
+  readonly onContext?: ReadonlyArray<Change>;
   readonly default: StateToken<`${NamesOf<Parts<D>["Tree"]>}`, Parts<D>["Id"]>;
   readonly states?: StatesBody<D, Parts<D>["Tree"], "">;
 };
@@ -111,57 +92,65 @@ export type MachineBody<D extends AnyDefinition> = {
 export type AnyBody = {
   readonly default?: StateToken;
   readonly on?: Values;
-  readonly onContext?: ReadonlyArray<
-    | {
-        readonly select: (input: { readonly context: Values; readonly memory: Values }) => unknown;
-        readonly when?: (current: never, previous: never) => boolean;
-        readonly event: ErasedEnding;
-      }
-    | Change
-  >;
+  readonly onContext?: ReadonlyArray<Change>;
   readonly schedules?: Readonly<Record<string, ScheduleConfig<Values, Values>>>;
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
 
-// FLOW_STATE_ALLOW_UNKNOWN: a provider's snapshot as the runtime reads it, typed at the definition.
-const erasedSelect = (select: (snapshot: never) => unknown) =>
-  // SAFETY: a selector written for its provider's outside snapshot; the runtime passes exactly that.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the provider's state and memory types are erased in Compiled and restored by the binding
-  select as (snapshot: { readonly state: string; readonly memory: Values }) => unknown;
+// A reaction as the body's decode checked it.
+type Decoded = {
+  readonly when: Option.Option<
+    (current: never, previous: never, extra: { readonly memory: Values }) => boolean
+  >;
+  readonly event: ErasedEnding;
+};
 
-// FLOW_STATE_ALLOW_UNKNOWN: a reaction's selections, typed by its select.
-const erasedWhen = (when: (current: never, previous: never) => boolean) =>
-  // SAFETY: when is written for the values its select returns; the runtime passes exactly those.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a reaction's selection type is erased in Compiled
-  when as (current: unknown, previous: unknown) => boolean;
+const decodedOf = (change: Change) =>
+  // SAFETY: the body's decode checked every reaction's when is an Option of a function and its event an ending.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a decoded reaction, its slot's value type erased
+  change as Decoded;
+
+// FLOW_STATE_ALLOW_UNKNOWN: a reaction's values, typed by its slot.
+const erasedWhen = (when: Option.Option.Value<Decoded["when"]>) =>
+  // SAFETY: when is written for its slot's values; the runtime passes exactly those.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a slot's value type is erased in Compiled
+  when as (current: unknown, previous: unknown, extra: { readonly memory: Values }) => boolean;
 
 // The event token an ending names: E.X itself, or the token E.X.from(f) was made from.
 const tokenOf = (ending: ErasedEnding) =>
   // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own tokens by mark until its decode checks them by identity
   Predicate.hasProperty(ending, "~token") ? ending["~token"] : ending;
 
-// The reactions `C.slot.change` made, compiled to nothing until context slots are built.
-const changes = new WeakSet();
+// The `C` tokens of a definition's slots, one per slot with `.change`, and the reactions they made,
+// so a body's reaction is known to be this machine's by identity.
+const changeTokens = (slots: ReadonlyArray<string>) => {
+  const made = new WeakSet<Change>();
 
-// RETURN_TYPE: a type guard states the reaction kind it narrows to.
-const isChange = (reaction: WeakKey): reaction is Change => changes.has(reaction);
-
-// The `C` tokens of a definition's slots: one per slot, each with `.change`.
-const changeTokens = (slots: ReadonlyArray<string>) =>
-  Object.fromEntries(
+  const tokens = Object.fromEntries(
     slots.map((slot) => [
       slot,
       {
-        change: builder("C.change", (spec: ChangeSpec<Values, string>) => {
-          const change: Change = { "~flow": "change", slot, spec };
+        // FLOW_STATE_ALLOW_UNKNOWN: the authored spec, read by its fields and decoded with the body.
+        change: builder("C.change", (spec: unknown) => {
+          const change: Change = {
+            "~flow": "change",
+            slot,
+            when: Option.fromUndefinedOr(
+              Predicate.hasProperty(spec, "when") ? spec.when : undefined,
+            ),
+            event: Predicate.hasProperty(spec, "event") ? spec.event : undefined,
+          };
 
-          changes.add(change);
+          made.add(change);
 
           return change;
         }),
       },
     ]),
   );
+
+  return { tokens, made };
+};
 
 const trustedTokens = <T>(tokens: Values) =>
   // SAFETY: one change token per declared slot, as ContextTokens types them.
@@ -173,19 +162,27 @@ const erasedBody = <B>(body: B) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's event and memory types are erased in Compiled
   body as AnyBody;
 
+// Whether some state, or the root, has a handler for an event.
+const handled = (root: Level, nodes: ReadonlyArray<Node>, tag: string) =>
+  root.has(tag) || nodes.some((n) => n.on.has(tag));
+
 /**
  * Compiles a definition and its handlers into a Machine.
  *
  * **When to use**
  *
- * In a `*.machine.ts` file. The body runs exactly once with `{ S, E, O }` and returns static
+ * In a `*.machine.ts` file. The body runs exactly once with `{ S, E, O, C }` and returns static
  * configuration that mirrors the definition's tree: the root's and each compound's default direct
- * child, and each state's handlers and schedules.
+ * child, and each state's handlers, schedules and `onContext` reactions.
  *
  * **Details**
  *
  * The active leaf's handlers are tried first, then each ancestor's, then the root's. A compound
  * target enters its default leaf; `S.X.history` enters X's last active child, else its default.
+ *
+ * `C.slot.change({ when, event })` turns a change of a context slot's value into one of the
+ * machine's events, `E.X` or `E.X.from((value) => payload)`; `when(current, previous, { memory })`
+ * may decline it. Guards, targets and memory updates stay in that event's `on` handler.
  *
  * **Gotchas**
  *
@@ -225,12 +222,14 @@ export const machine = entry(
         ),
       ]);
 
+    const changes = changeTokens(Object.keys(definition.context));
+
     const handed = {
       S: definition.S,
       E: definition.E,
       O: definition.O,
       C: trustedTokens<ContextTokens<D["context"], Parts<D>["Memory"], Parts<D>["Id"]>>(
-        changeTokens(Object.keys(definition.context)),
+        changes.tokens,
       ),
     };
 
@@ -275,18 +274,50 @@ export const machine = entry(
 
     const compiledTree = nodesOf(compile, config, Option.none(), []);
 
-    const reactions = (config.onContext ?? []).flatMap((r) => (isChange(r) ? [] : [r]));
+    const reactions = (config.onContext ?? []).map((change, i) => ({
+      change,
+      at: ["onContext", i],
+    }));
 
-    for (const [at, reaction] of reactions.entries())
-      if (!compile.sends.has(tokenOf(reaction.event)))
+    for (const { change, at } of reactions) {
+      const { event } = decodedOf(change);
+      const tag = event.ending.event;
+
+      if (!changes.made.has(change))
         compile.findings.push(
           invalid(
-            ["onContext", at, "event"],
+            at,
+            "ForeignToken",
+            "the reaction was not made by this machine's C tokens",
+            "Write reactions with the C the machine body receives: C.slot.change({ when, event }).",
+          ),
+        );
+      else if (!compile.sends.has(tokenOf(event)))
+        compile.findings.push(
+          invalid(
+            [...at, "event"],
             "ForeignToken",
             "the reaction's event is not this definition's",
             "Use the tokens the machine body receives: S, E and O of this definition.",
           ),
         );
+      else if (!handled(compiledTree.root, compiledTree.nodes, tag))
+        compile.findings.push(
+          invalid(
+            [...at, "event"],
+            "UnhandledEvent",
+            `no state handles ${tag}, the reaction's event`,
+            "Handle the event in an on block of the root or of a state.",
+          ),
+        );
+    }
+
+    const context = Object.entries(definition.context).map(([slot, declared]) =>
+      Result.map(slotReadsOf(slot, declared), (read) => [slot, read, declared] as const),
+    );
+
+    for (const failed of context.flatMap((c) => (Result.isFailure(c) ? [c.failure] : [])))
+      compile.findings.push(...failed);
 
     refuse(compile.findings);
 
@@ -314,24 +345,39 @@ export const machine = entry(
         ]),
       ),
       context: new Map(
-        Object.entries(definition.context).map(([slot, declared]) => [
-          slot,
-          {
-            provider: declared.provider,
-            json: Schema.toCodecJson(declared.schema),
-            walk: walkerOf(Schema.toCodecJson(declared.schema)),
-            select: { slot: `context.${slot}`, run: erasedSelect(declared.select) },
-          },
-        ]),
+        context.flatMap((c) =>
+          Result.isSuccess(c)
+            ? [
+                [
+                  c.success[0],
+                  {
+                    provider: c.success[1].provider.provider,
+                    reads: c.success[1].reads.map(({ name, reader }) => ({
+                      name,
+                      ...reader.read,
+                    })),
+                    json: Schema.toCodecJson(c.success[2].schema),
+                    walk: walkerOf(Schema.toCodecJson(c.success[2].schema)),
+                    select: { slot: `context.${c.success[0]}`, run: c.success[1].select },
+                  },
+                ] as const,
+              ]
+            : [],
+        ),
       ),
-      reactions: reactions.map((reaction, at) => ({
-        select: { slot: `onContext.${at}.select`, run: reaction.select },
-        when: Option.map(Option.fromUndefinedOr(reaction.when), (when) => ({
-          slot: `onContext.${at}.when`,
-          run: erasedWhen(when),
-        })),
-        event: mappingOf(reaction.event, `onContext.${at}.event`),
-      })),
+      reactions: reactions.map(({ change, at }) => {
+        const { when, event } = decodedOf(change);
+        const slot = at.join(".");
+
+        return {
+          slot: change.slot,
+          when: Option.map(when, (w) => ({
+            slot: `${slot}.when`,
+            run: erasedWhen(w),
+          })),
+          event: mappingOf(event, `${slot}.event`),
+        };
+      }),
       wiring: new Map<string, ActorId>(),
     };
 

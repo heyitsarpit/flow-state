@@ -16,9 +16,9 @@ import type { AnyDefinition, EventFields } from "./definition.ts";
 import { admissionOf, codecOf } from "./events.ts";
 import type { Field as FieldMarker } from "./flow.ts";
 
-// FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's or the reaction's own; the mapper is written for it.
+// FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's or the slot's own; the mapper is written for it.
 const endingValue = <V>(value: unknown) =>
-  // SAFETY: the runtime passes each mapper the value of what it is declared on: an operation's ending value, whose type the ending's own V names, or an onContext reaction's selection, which its mapper's own parameter types (unchecked against select, owed to the context slots).
+  // SAFETY: the runtime passes each mapper the value of what it is declared on: an operation's ending value, or a reaction's slot value, whose type the ending's own V names.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- an ending's value type is erased in Compiled and restored at its mapper
   value as V;
 

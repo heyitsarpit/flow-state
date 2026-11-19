@@ -110,10 +110,10 @@ const order = { id: "Bank/StandingOrder", states: ["DRAFT"], events: { Resume: {
 export const orderFromUnsetConfig = () => definition(undefined);
 
 /**
- * An order whose customer slot names its provider's id instead of `Provider.select`.
+ * An order whose customer slot names its provider's id instead of `Flow.context`.
  */
 export const orderWithBareContext = () =>
-  // @ts-expect-error Compile R4: a context slot is Provider.select's
+  // @ts-expect-error Compile R4: a context slot is Flow.context's
   definition({ ...order, context: { customer: "Bank/Customer" } });
 
 /**
@@ -172,15 +172,13 @@ export const orderLookingUpFormsBalance = () =>
  * name.
  */
 export const orderHearingFormsEvent = () =>
-  machine(StandingOrder, ({ S }) => ({
+  machine(StandingOrder, ({ S, C }) => ({
     default: S.DRAFT,
     onContext: [
-      {
-        select: ({ context }: { readonly context: { readonly customer: string } }) =>
-          context.customer,
+      C.customer.change({
         // @ts-expect-error Compile R12: another definition's event
         event: TransferForm.E.AccountChanged.from((account: string) => ({ account })),
-      },
+      }),
     ],
   }));
 
@@ -209,14 +207,12 @@ export const orderWithHandBuiltRead = () =>
  * An order whose context reaction names its event by a hand-written ending with no mapper.
  */
 export const orderWithHandWrittenEnding = () =>
-  machine(StandingOrder, ({ S }) => ({
+  machine(StandingOrder, ({ S, C }) => ({
     default: S.DRAFT,
     onContext: [
-      {
-        select: ({ context }: { readonly context: { readonly customer: string } }) =>
-          context.customer,
+      C.customer.change({
         // @ts-expect-error Compile R9: an ending is an event token or its mapping
         event: { ending: { event: "AccountChanged" } },
-      },
+      }),
     ],
   }));

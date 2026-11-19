@@ -3,6 +3,7 @@ import { describe, expectTypeOf, it } from "vite-plus/test";
 import {
   type ActorRef,
   actorRef,
+  type Ending,
   definition,
   Flow,
   type Machine,
@@ -10,10 +11,8 @@ import {
   type Snapshot,
 } from "../../src/index.ts";
 
-// Inverted: each line marked `wrong` compiles today. When context slots are built the line fails
-// the check: put `@ts-expect-error` on it, naming the rule. Each assertion marked `today` asserts
-// today's wide type and then fails too: make it the narrow type its comment names. Beside each
-// wrong line, the correct use of the same parameter is asserted exactly.
+// Two-sided: each `@ts-expect-error` line is a misuse the types refuse, naming the rule; beside it
+// the correct use of the same parameter is asserted exactly.
 
 const Cart = definition({
   id: "types/context/Cart",
@@ -84,11 +83,13 @@ describe("Compile R4, R19: each form's slot has the type its reads give", () => 
 describe("Compile R19: a slot reads one provider", () => {
   it("reads from two definitions", () => {
     Flow.context(Schema.Number, {
-      reads: { lines: Cart.M.items, name: Shopper.M.name }, // wrong: Compile R19, two providers
+      // @ts-expect-error Compile R19, two providers
+      reads: { lines: Cart.M.items, name: Shopper.M.name },
       select: ({ lines }) => lines.length,
     });
     Flow.context(Schema.Number, {
-      reads: { lines: Cart.M.items, guest: Shopper.S.GUEST }, // wrong: Compile R19, a state token of a second provider
+      // @ts-expect-error Compile R19, a state token of a second provider
+      reads: { lines: Cart.M.items, guest: Shopper.S.GUEST },
       select: ({ lines }) => lines.length,
     });
 
@@ -103,10 +104,10 @@ describe("Compile R19: a slot reads one provider", () => {
 
 describe("Compile R19: a Flow.private field has no M token", () => {
   it("a read of the private field", () => {
-    void Cart.M.secret; // wrong: Compile R19, `secret` is Flow.private
+    // @ts-expect-error Compile R19, `secret` is Flow.private
+    void Cart.M.secret;
 
-    // today: the narrow type is "items" | "coupon".
-    expectTypeOf<keyof typeof Cart.M>().toEqualTypeOf<"items" | "coupon" | "secret">();
+    expectTypeOf<keyof typeof Cart.M>().toEqualTypeOf<"items" | "coupon">();
   });
 });
 
@@ -114,7 +115,8 @@ describe("Compile R4, R19: a derived select returns its Schema's type", () => {
   it("a select returning a string for a number slot", () => {
     Flow.context(Schema.Number, {
       reads: { lines: Cart.M.items },
-      select: ({ lines }) => lines.join(","), // wrong: Compile R4, a string for Schema.Number
+      // @ts-expect-error Compile R4, a string for Schema.Number
+      select: ({ lines }) => lines.join(","),
     });
 
     expectTypeOf(
@@ -135,17 +137,14 @@ describe("Turn R22: .change's when and payload read the slot's type", () => {
       onContext: [
         C.count.change({
           when: (current, previous, { memory }) => {
-            // today: the narrow type is number.
-            expectTypeOf(current).toEqualTypeOf<never>();
-            // today: the narrow type is number.
-            expectTypeOf(previous).toEqualTypeOf<never>();
+            expectTypeOf(current).toEqualTypeOf<number>();
+            expectTypeOf(previous).toEqualTypeOf<number>();
             expectTypeOf(memory).toEqualTypeOf<{ readonly limit: number }>();
 
             return current > memory.limit;
           },
           event: E.Bumped.from((value) => {
-            // today: the narrow type is number.
-            expectTypeOf(value).toEqualTypeOf<never>();
+            expectTypeOf(value).toEqualTypeOf<number>();
 
             return { count: value };
           }),
@@ -158,19 +157,23 @@ describe("Turn R22: .change's when and payload read the slot's type", () => {
   it("a when or a payload mapper written for another type", () => {
     machine(Badge, ({ S, E, C }) => {
       const wrongWhen = C.count.change({
+        // @ts-expect-error Turn R22, a string for a number slot
         when: (current: string) => current === "",
         event: E.Seen,
-      }); // wrong: Turn R22, a string for a number slot
+      });
 
       const wrongPayload = C.count.change({
+        // @ts-expect-error Turn R22, a string for a number slot
         event: E.Bumped.from((value: string) => ({ count: value.length })),
-      }); // wrong: Turn R22, a string for a number slot
+      });
 
-      // today: the narrow type reads `current` and `previous` as number.
+      expectTypeOf<Parameters<typeof C.count.change>[0]["event"]>().toEqualTypeOf<
+        Ending<number, "types/context/Badge">
+      >();
       expectTypeOf<NonNullable<Parameters<typeof C.count.change>[0]["when"]>>().toEqualTypeOf<
         (
-          current: never,
-          previous: never,
+          current: number,
+          previous: number,
           extra: { readonly memory: { readonly limit: number } },
         ) => boolean
       >();
@@ -201,13 +204,15 @@ describe("Turn R22: .change's when and payload read the slot's type", () => {
 
 describe("Compile R19: Provider.select and a reaction's own select are gone", () => {
   it("the old forms", () => {
-    void Cart.Provider; // wrong: Compile R19, Provider.select is gone
+    // @ts-expect-error Compile R19, Provider.select is gone
+    void Cart.Provider;
 
     const legacy = machine(Badge, ({ S, E }) => ({
       default: S.SHOWN,
+      // @ts-expect-error Compile R19, a reaction's own select is gone
       onContext: [{ select: ({ context }) => context.count, event: E.Seen }],
       on: { Seen: {} },
-    })); // wrong: Compile R19, a reaction's own select is gone
+    }));
 
     expectTypeOf(
       machine(Badge, ({ S, E, C }) => ({
@@ -218,8 +223,7 @@ describe("Compile R19: Provider.select and a reaction's own select are gone", ()
     ).toEqualTypeOf<Machine<typeof Badge>>();
     expectTypeOf(legacy).toEqualTypeOf<Machine<typeof Badge>>();
 
-    // today: the narrow type has no `Provider` key.
-    expectTypeOf<"Provider" extends keyof typeof Cart ? true : false>().toEqualTypeOf<true>();
+    expectTypeOf<"Provider" extends keyof typeof Cart ? true : false>().toEqualTypeOf<false>();
   });
 });
 
@@ -243,7 +247,8 @@ describe("Compile R19: factory-made definitions keep a literal id each", () => {
     expectTypeOf(Done.id).toEqualTypeOf<"types/context/List/done">();
 
     Flow.context(Schema.Number, {
-      reads: { todo: Todo.M.size, done: Done.M.size }, // wrong: Compile R19, two providers of one factory
+      // @ts-expect-error Compile R19, two providers of one factory
+      reads: { todo: Todo.M.size, done: Done.M.size },
       select: ({ todo, done }) => todo + done,
     });
 
@@ -285,7 +290,8 @@ const shopperRef = actorRef(ShopperMachine, "shopper");
 
 describe("Compile R18, R19: a slot is wired to an actor of its provider", () => {
   it("a state-token slot wired to another definition's actor", () => {
-    actorRef(BadgeMachine, "wrong", { context: { inCheckout: shopperRef } }); // wrong: Compile R18, the Shopper is not the slot's provider
+    // @ts-expect-error Compile R18, the Shopper is not the slot's provider
+    actorRef(BadgeMachine, "wrong", { context: { inCheckout: shopperRef } });
 
     expectTypeOf(
       actorRef(BadgeMachine, "badge", { context: { inCheckout: cartRef, items: cartRef } }),

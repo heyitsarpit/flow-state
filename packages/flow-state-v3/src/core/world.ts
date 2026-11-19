@@ -4,7 +4,7 @@ import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
 import type { IssueCode, ReadFailure, ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
-import type { Baseline, Frame, Selected } from "./slots.ts";
+import type { Selected } from "./slots.ts";
 
 /**
  * An actor's identity: its machine and its name.
@@ -153,7 +153,8 @@ export type Armed = {
  * outermost first: a re-entry is a new activation, so work its old activation owns ends late.
  * `history` holds each exited compound's last active child. `bound` names the provider of each
  * context slot, `context` holds each slot's selection and `baselines` each `onContext` reaction's
- * last selection with the inputs it read. `grace` is the timer of a free incarnation's grace.
+ * baseline: the value of its slot it last compared. `grace` is the timer of a free incarnation's
+ * grace.
  * `started` is the mint's count when it started: live incarnations are ordered by it.
  */
 export type Incarnation = {
@@ -168,25 +169,10 @@ export type Incarnation = {
   readonly issues: ReadonlyArray<Issue>;
   readonly bound: ReadonlyMap<string, ActorId>;
   readonly context: ReadonlyMap<string, Selected>;
-  // The slots whose reactions have not been told their current selection yet, with the one each
-  // last saw: none for a slot never selected then.
-  readonly stale: ReadonlyMap<string, Option.Option<Selected>>;
-  // None for a reaction whose select has never given a selection.
-  readonly baselines: ReadonlyArray<Option.Option<Baseline>>;
+  // None for a reaction that has not been live while its slot had a value.
+  readonly baselines: ReadonlyArray<Option.Option<Selected>>;
   readonly grace: Option.Option<TimerId>;
 };
-
-/**
- * Each bound slot's last-seen selection: the one its reactions still owe a wave for, else its
- * current one; none for a slot never selected.
- */
-export const lastSeenOf = (incarnation: Incarnation) =>
-  new Map(
-    [...incarnation.bound.keys()].map((slot) => [
-      slot,
-      incarnation.stale.get(slot) ?? Option.fromUndefinedOr(incarnation.context.get(slot)),
-    ]),
-  );
 
 /**
  * What raised an issue: an event's turn, a schedule's, an operation's ending, a context slot's
@@ -425,10 +411,10 @@ export type ActorRecord = {
   readonly memory: Values;
   readonly schedules: ReadonlyArray<typeof ScheduleDeadline.Type>;
   readonly context: ReadonlyMap<string, ActorId>;
-  // Each slot's last-seen selection; a slot never selected has none.
+  // Each slot's last selection; a slot never selected has none.
   readonly seen: ReadonlyMap<string, Selected>;
-  // Each reaction's baseline inputs that differ from `seen` and `memory`; none with no baseline.
-  readonly frames: ReadonlyArray<Option.Option<Frame>>;
+  // Each reaction's baseline, the value of its slot it last compared; none with no baseline.
+  readonly baselines: ReadonlyArray<Option.Option<Selected>>;
   // The bindings of every provider up its context graph, which a provider started again for it keeps.
   readonly graph: Wiring;
 };

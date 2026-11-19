@@ -124,18 +124,27 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
 
     expectTypeOf(Own.operations.own["~definition"]).toEqualTypeOf<"types/tokens/Own" | undefined>();
 
-    machine(Pay, ({ S }) => ({
+    const Reacting = definition({
+      id: "types/tokens/Reacting",
+      states: ["IDLE"],
+      events: {},
+      internalEvents,
+      context: { on: Flow.context(Other.S.ON) },
+    });
+
+    machine(Reacting, ({ S, C }) => ({
       default: S.IDLE,
-      // @ts-expect-error Compile R12: Other's Ok as Pay's reaction
-      onContext: [{ select: () => 1, event: Other.E.Ok }],
+      // @ts-expect-error Compile R12: Other's Ok as Reacting's reaction
+      onContext: [C.on.change({ event: Other.E.Ok })],
     }));
 
     expectTypeOf(
-      machine(Pay, ({ S, E }) => ({
+      machine(Reacting, ({ S, E, C }) => ({
         default: S.IDLE,
-        onContext: [{ select: () => 1, event: E.Ok }],
+        onContext: [C.on.change({ event: E.Ok })],
+        on: { Ok: {} },
       })),
-    ).toEqualTypeOf<Machine<typeof Pay>>();
+    ).toEqualTypeOf<Machine<typeof Reacting>>();
     expectTypeOf(Other.E.Ok).not.toEqualTypeOf(Pay.E.Ok);
   });
 

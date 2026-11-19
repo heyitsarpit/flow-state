@@ -141,12 +141,17 @@ const MemoryField = Schema.Union([
   help: "Start the field with Flow.input, Flow.initial, or an optional field Schema.",
 });
 
+// A slot's reads and select are judged by their tokens' identity when the definition reads them.
 const ContextSlot = Schema.Struct({
   "~flow": Schema.Literal("context"),
-  provider: Schema.String,
-  schema: FieldSchema,
-  select: Fn,
-}).annotate({ help: "Declare a context slot with Provider.select(schema, selector)." });
+  // FLOW_STATE_ALLOW_UNKNOWN: a pass-through's Schema comes from its token, judged with its reads.
+  schema: Schema.Unknown,
+  form: Schema.Literals(["pass", "derived"]),
+  // FLOW_STATE_ALLOW_UNKNOWN: a token, or a derived slot's reads and select, judged by identity.
+  spec: Schema.Unknown,
+}).annotate({
+  help: "Declare a context slot with Flow.context(X.M.field) or Flow.context(Schema, { reads, select }).",
+});
 
 const DefinitionConfig = Schema.Struct({
   id: Schema.String.annotate({ help: "Give the definition a string id." }),
@@ -214,13 +219,13 @@ const ScheduleEntry = Schema.Struct({
   help: "Write a schedule as { schedule, send: E.X, armOn: [event names or Flow.entry] }.",
 });
 
-// A slot's change reaction, as `C.slot.change` makes it.
+// A slot's change reaction, as `C.slot.change` makes it: when a change counts, and its event.
 const Change = Schema.Struct({
   "~flow": Schema.Literal("change"),
   slot: Schema.String,
-  // FLOW_STATE_ALLOW_UNKNOWN: the authored spec, read when context slots compile it.
-  spec: Schema.Unknown,
-});
+  when: Schema.Option(Fn),
+  event: Ending,
+}).annotate({ help: "Write a reaction as C.slot.change({ when, event })." });
 
 // RETURN_TYPE: recursive: a state body holds its children's bodies; only its decoding is read.
 // FLOW_STATE_ALLOW_UNKNOWN: an authored body, decoded here before it is trusted.
@@ -228,7 +233,6 @@ const StateBody: Schema.Decoder<unknown> = Schema.Struct({
   default: Schema.optionalKey(StateToken),
   on: Schema.optionalKey(On),
   schedules: Schema.optionalKey(Schema.Record(Schema.String, ScheduleEntry)),
-  onContext: Schema.optionalKey(Schema.Array(Change)),
   states: Schema.optionalKey(
     Schema.Record(Schema.String, Schema.UndefinedOr(Schema.suspend(() => StateBody))),
   ),
@@ -237,14 +241,7 @@ const StateBody: Schema.Decoder<unknown> = Schema.Struct({
 const MachineBody = Schema.Struct({
   default: Schema.optionalKey(StateToken),
   on: Schema.optionalKey(On),
-  onContext: Schema.optionalKey(
-    Schema.Array(
-      Schema.Union([
-        Schema.Struct({ select: Fn, when: Schema.optionalKey(Fn), event: Ending }),
-        Change,
-      ]),
-    ),
-  ),
+  onContext: Schema.optionalKey(Schema.Array(Change)),
   states: Schema.optionalKey(Schema.Record(Schema.String, Schema.UndefinedOr(StateBody))),
 }).annotate({ help: "A machine body declares default, on, onContext and states." });
 

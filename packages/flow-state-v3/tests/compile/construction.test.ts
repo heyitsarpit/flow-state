@@ -623,7 +623,7 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
     ).toEqual([["InvalidConfiguration", "WrongKind", "events.X"]]);
   });
 
-  it("Compile R4: a context slot that is not Provider.select's is refused WrongKind", () => {
+  it("Compile R4: a context slot that is not Flow.context's is refused WrongKind", () => {
     expect(
       refusal(() =>
         definition(loose({ id: "Compile/Context", states: ["A"], events: {}, context: { c: 5 } })),
@@ -691,6 +691,14 @@ const Twin = definition({
   operations: ({ E }) => ({
     save: save.outcomes({ success: E.Saved, failure: {}, unknown: E.Unsure }),
   }),
+});
+
+// A lamp that reads whether its twin is off as context.
+const Lit = definition({
+  id: "Compile/Lit",
+  states: ["OFF", { ON: ["DIM", "BRIGHT"] }],
+  events: { Flip: {} },
+  context: { twin: Flow.context(Twin.S.OFF) },
 });
 
 // Each diagnostic of a refused construction as [code, reason, path], its path kept as segments.
@@ -796,13 +804,14 @@ describe("construction refuses every malformed form with one FlowError (Compile 
   it("Compile R3: an onContext event of another definition, as E.X or E.X.from(f), is refused ForeignToken", () => {
     expect(
       refusal(() =>
-        machine(Lamp, ({ S }) =>
+        machine(Lit, ({ S, C }) =>
           loose({
             default: S.OFF,
             onContext: [
-              { select: () => 1, event: Twin.E.Flip },
-              { select: () => 1, event: Twin.E.Flip.from(() => ({})) },
+              C.twin.change(loose({ event: Twin.E.Flip })),
+              C.twin.change(loose({ event: Twin.E.Flip.from(() => ({})) })),
             ],
+            on: { Flip: {} },
             states: { ON: { default: S.ON.DIM } },
           }),
         ),
@@ -914,10 +923,10 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
   it("Compile R2, R4: a reaction or schedule ending with no from is refused WrongKind, never a raw TypeError", () => {
     expect(
       refusal(() =>
-        machine(Lamp, ({ S }) =>
+        machine(Lit, ({ S, C }) =>
           loose({
             default: S.OFF,
-            onContext: [{ select: () => 1, event: { ending: { event: "Flip" } } }],
+            onContext: [C.twin.change(loose({ event: { ending: { event: "Flip" } } }))],
             states: {
               OFF: { schedules: { off: { schedule: 5, send: { ending: { event: "Flip" } } } } },
               ON: { default: S.ON.DIM },

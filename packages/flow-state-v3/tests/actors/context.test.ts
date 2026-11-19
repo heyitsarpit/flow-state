@@ -37,23 +37,21 @@ const Badge = definition({
   internalEvents: { UserChanged: { user: Schema.String } },
   memory: { greeting: Flow.initial(Schema.String, "") },
   context: {
-    user: Session.Provider.select(Schema.String, (s) => s.memory.user),
-    broken: Session.Provider.select(Schema.Number, (s) => {
-      if (s.memory.user.startsWith("boom")) throw new Error("boom");
+    user: Flow.context(Session.M.user),
+    broken: Flow.context(Schema.Number, {
+      reads: { user: Session.M.user },
+      select: ({ user }) => {
+        if (user.startsWith("boom")) throw new Error("boom");
 
-      return s.memory.user.length;
+        return user.length;
+      },
     }),
   },
 });
 
-const BadgeMachine = machine(Badge, ({ S, E }) => ({
+const BadgeMachine = machine(Badge, ({ S, E, C }) => ({
   default: S.SHOWN,
-  onContext: [
-    {
-      select: ({ context }) => context.user,
-      event: E.UserChanged.from((user: string) => ({ user })),
-    },
-  ],
+  onContext: [C.user.change({ event: E.UserChanged.from((user) => ({ user })) })],
   on: { UserChanged: { updateMemory: ({ event }) => ({ greeting: `hi ${event.user}` }) } },
 }));
 
@@ -62,7 +60,7 @@ const Reader = definition({
   states: ["READING"],
   events: { Read: {} },
   memory: { read: Flow.initial(Schema.String, "") },
-  context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
+  context: { user: Flow.context(Session.M.user) },
 });
 
 const ReaderMachine = machine(Reader, ({ S }) => ({
@@ -81,14 +79,12 @@ const Watcher = definition({
   events: {},
   internalEvents: { Seen: { user: Schema.String } },
   memory: { seen: Flow.initial(Schema.String, "") },
-  context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
+  context: { user: Flow.context(Session.M.user) },
 });
 
-const WatcherMachine = machine(Watcher, ({ S, E }) => ({
+const WatcherMachine = machine(Watcher, ({ S, E, C }) => ({
   default: S.WATCHING,
-  onContext: [
-    { select: ({ context }) => context.user, event: E.Seen.from((user: string) => ({ user })) },
-  ],
+  onContext: [C.user.change({ event: E.Seen.from((user) => ({ user })) })],
   on: { Seen: { updateMemory: ({ event }) => ({ seen: event.user }) } },
 }));
 
@@ -99,18 +95,18 @@ const Pair = definition({
   internalEvents: { Paired: { pair: Schema.String } },
   memory: { pairs: Flow.initial(Schema.Array(Schema.String), []) },
   context: {
-    left: Watcher.Provider.select(Schema.String, (s) => s.memory.seen),
-    right: Watcher.Provider.select(Schema.String, (s) => s.memory.seen),
+    left: Flow.context(Watcher.M.seen),
+    right: Flow.context(Watcher.M.seen),
   },
 });
 
-const PairMachine = machine(Pair, ({ S, E }) => ({
+// Its reactions are declared right first: one update per wave runs them in that order, while an
+// update per provider change hears the left watcher first.
+const PairMachine = machine(Pair, ({ S, E, C }) => ({
   default: S.PAIRED,
   onContext: [
-    {
-      select: ({ context }) => `${context.left}|${context.right}`,
-      event: E.Paired.from((pair: string) => ({ pair })),
-    },
+    C.right.change({ event: E.Paired.from((seen) => ({ pair: `right ${seen}` })) }),
+    C.left.change({ event: E.Paired.from((seen) => ({ pair: `left ${seen}` })) }),
   ],
   on: {
     Paired: { updateMemory: ({ event, memory }) => ({ pairs: [...memory.pairs, event.pair] }) },
@@ -124,18 +120,18 @@ const Both = definition({
   internalEvents: { Paired: { pair: Schema.String } },
   memory: { pairs: Flow.initial(Schema.Array(Schema.String), []) },
   context: {
-    user: Session.Provider.select(Schema.String, (s) => s.memory.user),
-    seen: Watcher.Provider.select(Schema.String, (s) => s.memory.seen),
+    user: Flow.context(Session.M.user),
+    seen: Flow.context(Watcher.M.seen),
   },
 });
 
-const BothMachine = machine(Both, ({ S, E }) => ({
+// Its reactions are declared seen first: one update after both providers settle runs them in that
+// order, while an update at the session's change hears the user before the watcher has seen it.
+const BothMachine = machine(Both, ({ S, E, C }) => ({
   default: S.PAIRED,
   onContext: [
-    {
-      select: ({ context }) => `${context.user}|${context.seen}`,
-      event: E.Paired.from((pair: string) => ({ pair })),
-    },
+    C.seen.change({ event: E.Paired.from((seen) => ({ pair: `seen ${seen}` })) }),
+    C.user.change({ event: E.Paired.from((user) => ({ pair: `user ${user}` })) }),
   ],
   on: {
     Paired: { updateMemory: ({ event, memory }) => ({ pairs: [...memory.pairs, event.pair] }) },
@@ -151,11 +147,14 @@ const Counted = definition({
   states: ["READY"],
   events: {},
   context: {
-    user: Session.Provider.select(Schema.String, (s) => s.memory.user),
-    aside: Session.Provider.select(Schema.String, (s) => {
-      asides.reads += 1;
+    user: Flow.context(Session.M.user),
+    aside: Flow.context(Schema.String, {
+      reads: { user: Session.M.user },
+      select: ({ user }) => {
+        asides.reads += 1;
 
-      return s.memory.user;
+        return user;
+      },
     }),
   },
 });
@@ -175,10 +174,13 @@ const Glow = definition({
   states: ["SHOWN"],
   events: {},
   context: {
-    lit: Lamp.Provider.select(Schema.String, (s) => {
-      if (s.state === "OFF") throw new Error("dark");
+    lit: Flow.context(Schema.String, {
+      reads: { state: Lamp.state },
+      select: ({ state }) => {
+        if (state === "OFF") throw new Error("dark");
 
-      return s.state;
+        return state;
+      },
     }),
   },
 });
@@ -191,7 +193,7 @@ const Node = definition({
   id: "Context/Node",
   states: ["ON"],
   events: {},
-  context: { up: UpstreamNode.Provider.select(Schema.String, (s) => s.state) },
+  context: { up: Flow.context(UpstreamNode.state) },
 });
 
 const NodeMachine = machine(Node, ({ S }) => ({ default: S.ON }));
@@ -375,26 +377,25 @@ describe("onContext defects (Turn R22)", () => {
     events: {},
     internalEvents: { Echoed: { user: Schema.String } },
     memory: { echoes: Flow.initial(Schema.Number, 0) },
-    context: { user: Session.Provider.select(Schema.String, (s) => s.memory.user) },
+    context: { user: Flow.context(Session.M.user) },
   });
 
   // Its mapper throws for the user "x"; its when throws for the user "y".
-  const EchoMachine = machine(Echo, ({ S, E }) => ({
+  const EchoMachine = machine(Echo, ({ S, E, C }) => ({
     default: S.SHOWN,
     onContext: [
-      {
-        select: ({ context }) => context.user,
-        when: (next: string) => {
+      C.user.change({
+        when: (next) => {
           if (next === "y") throw new Error("when");
 
           return true;
         },
-        event: E.Echoed.from((user: string) => {
+        event: E.Echoed.from((user) => {
           if (user === "x") throw new Error("mapper");
 
           return { user };
         }),
-      },
+      }),
     ],
     on: { Echoed: { updateMemory: ({ memory }) => ({ echoes: memory.echoes + 1 }) } },
   }));
@@ -457,7 +458,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     runtime.ensureActor(main).send(Session.E.SignIn({ user: "ada" }));
 
     expect(Option.map(handle.getSnapshot(), (s) => s.memory.pairs)).toEqual(
-      Option.some(["ada|ada"]),
+      Option.some(["right ada", "left ada"]),
     );
   });
 
@@ -467,7 +468,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     runtime.ensureActor(main).send(Session.E.SignIn({ user: "ada" }));
 
     expect(Option.map(handle.getSnapshot(), (s) => s.memory.pairs)).toEqual(
-      Option.some(["ada|ada"]),
+      Option.some(["seen ada", "user ada"]),
     );
   });
 });
@@ -526,14 +527,12 @@ const KeptWatcher = definition({
   events: { Ping: {} },
   internalEvents: { Seen: { user: Schema.String } },
   memory: { seen: Flow.initial(Schema.String, "") },
-  context: { user: KeptSession.Provider.select(Schema.String, (s) => s.memory.user) },
+  context: { user: Flow.context(KeptSession.M.user) },
 });
 
-const KeptWatcherMachine = machine(KeptWatcher, ({ S, E }) => ({
+const KeptWatcherMachine = machine(KeptWatcher, ({ S, E, C }) => ({
   default: S.WATCHING,
-  onContext: [
-    { select: ({ context }) => context.user, event: E.Seen.from((user: string) => ({ user })) },
-  ],
+  onContext: [C.user.change({ event: E.Seen.from((user) => ({ user })) })],
   on: { Seen: { updateMemory: ({ event }) => ({ seen: event.user }) }, Ping: {} },
 }));
 
@@ -546,19 +545,20 @@ const KeptStrict = definition({
   internalEvents: { Seen: { user: Schema.String } },
   memory: { seen: Flow.initial(Schema.String, "") },
   context: {
-    user: KeptSession.Provider.select(Schema.String, (s) => {
-      if (s.memory.user === "") throw new Error("nobody");
+    user: Flow.context(Schema.String, {
+      reads: { user: KeptSession.M.user },
+      select: ({ user }) => {
+        if (user === "") throw new Error("nobody");
 
-      return s.memory.user;
+        return user;
+      },
     }),
   },
 });
 
-const KeptStrictMachine = machine(KeptStrict, ({ S, E }) => ({
+const KeptStrictMachine = machine(KeptStrict, ({ S, E, C }) => ({
   default: S.WATCHING,
-  onContext: [
-    { select: ({ context }) => context.user, event: E.Seen.from((user: string) => ({ user })) },
-  ],
+  onContext: [C.user.change({ event: E.Seen.from((user) => ({ user })) })],
   on: { Seen: { updateMemory: ({ event }) => ({ seen: event.user }) }, Ping: {} },
 }));
 
@@ -712,21 +712,20 @@ const KeptEcho = definition({
   events: {},
   internalEvents: { Echoed: {} },
   memory: { echoes: Flow.initial(Schema.Number, 0) },
-  context: { user: KeptSession.Provider.select(Schema.String, (s) => s.memory.user) },
+  context: { user: Flow.context(KeptSession.M.user) },
 });
 
-const KeptEchoMachine = machine(KeptEcho, ({ S, E }) => ({
+const KeptEchoMachine = machine(KeptEcho, ({ S, E, C }) => ({
   default: S.SHOWN,
   onContext: [
-    {
-      select: ({ context }) => context.user,
-      when: (next: string) => {
+    C.user.change({
+      when: (next) => {
         if (next === "y") throw new Error("when");
 
         return true;
       },
       event: E.Echoed,
-    },
+    }),
   ],
   on: { Echoed: { updateMemory: ({ memory }) => ({ echoes: memory.echoes + 1 }) } },
 }));

@@ -335,29 +335,41 @@ export type Compiled = {
 };
 
 /**
- * A context slot as the runtime binds it: the machine that provides it, its selector over one
- * outside snapshot of the provider, and the JSON codec of its Schema, through which every selection
- * passes once: it is saved in that form and read back equal.
+ * What a context read takes from its provider's snapshot, named as its slot's select receives it:
+ * a public memory field, whether the provider is at a state or below it, or its state's name.
+ */
+export type ContextRead = { readonly name: string } & (
+  | { readonly kind: "memory"; readonly field: string }
+  | { readonly kind: "state"; readonly path: string }
+  | { readonly kind: "stateName" }
+);
+
+/**
+ * A context slot as the runtime binds it: the machine that provides it, what it reads of that
+ * machine's snapshot, its select over those reads, and the JSON codec of its Schema, through which
+ * every selection passes once: it is saved in that form and read back equal.
  */
 export type ContextSlot = {
   readonly provider: string;
+  readonly reads: ReadonlyArray<ContextRead>;
   // FLOW_STATE_ALLOW_UNKNOWN: a selection's JSON codec, typed at the definition.
   readonly json: Schema.Codec<unknown, unknown>;
   // FLOW_STATE_ALLOW_UNKNOWN: the selection's walkers, built from its JSON codec.
   readonly walk: Walker<unknown, unknown>;
   // FLOW_STATE_ALLOW_UNKNOWN: a selected value has the slot's type, typed at the definition.
-  readonly select: Slot<(snapshot: { readonly state: string; readonly memory: Values }) => unknown>;
+  readonly select: Slot<(reads: Values) => unknown>;
 };
 
 /**
- * An `onContext` reaction: what it selects from context and memory, when a change counts, and the
- * event it enqueues.
+ * A `C.slot.change` reaction: the slot whose value it compares, when a change counts, and the event
+ * it enqueues.
  */
 export type Reaction = {
-  // FLOW_STATE_ALLOW_UNKNOWN: a reaction's selection has the type its select returns.
-  readonly select: Slot<(input: { readonly context: Values; readonly memory: Values }) => unknown>;
-  // FLOW_STATE_ALLOW_UNKNOWN: the reaction's current and previous selections.
-  readonly when: Option.Option<Slot<(current: unknown, previous: unknown) => boolean>>;
+  readonly slot: string;
+  readonly when: Option.Option<
+    // FLOW_STATE_ALLOW_UNKNOWN: the slot's current and previous values, typed at the definition.
+    Slot<(current: unknown, previous: unknown, extra: { readonly memory: Values }) => boolean>
+  >;
   readonly event: Mapping;
 };
 
