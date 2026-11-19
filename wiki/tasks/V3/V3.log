@@ -1099,3 +1099,13 @@ note 2026-11-19T17:36:23Z
 note 2026-11-19T18:53:25Z
     Context slots accepted (the user, 2026-11-20): Flow.context on the definition, C.slot.change in the machine, one
     provider per slot; built by @task.V3.T107 after @task.V3.T104.
+
+note 2026-11-19T19:22:18Z
+    Run resumed at workflow@7aa4288: current Task @task.V3.T104, no live agents, tree clean at 1a3c4cc0. Wake cron
+    cdedf1d8 recreated; daily faults run started. First action: a fresh lead resumes T104 from its 2026-11-19T16:56
+    status comment.
+
+note 2026-11-19T20:31:08Z
+    T104 in review (9f1c0cff); close review started. Daily faults: 380 of 390 caught; 9 stale plants and one unjudged
+    routed to T104's fix round. For the user: renaming testing.compile.ts and send.compile.ts edits links in
+    @plan.Pending.

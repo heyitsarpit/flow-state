@@ -3576,6 +3576,12 @@ tasks
             L>, Ending<V, Id>, UnknownEnding<Id>, WriteEndings and ReadEndings with Id, Bound's and Definition's Id,
             Tokens and EventToken with Id, NamedEvidence<R, D>, ServiceIds<S>, Saving; plus the earlier slices' list in
             the 2026-11-19T16:56:58Z status.
+        comment     2026-11-19T20:31:07Z
+            Routed (orchestrator): the daily faults run (380 of 390 caught) found 9 stale plants (mint-not-replayable,
+            setup-services-built, trace-own-path, read-encodes-memory, refused-start-read, owed-record-keyed-kept,
+            lane-operation-unkeyed, detail-accepts-nan, lane-record-off-kind) and walker-on-call-stack planted with no
+            failing test. T104 reworked the code they target, so its fix round re-plants each and shows it caught with
+            `nub run faults --only`.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
