@@ -26,9 +26,9 @@ const sync = transaction({
   concurrency: "serialize",
   services: [GitApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(GitApi), (api) =>
-      api.sync(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    GitApi.use((api) => api.sync(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });
 
 // A publish of a document as deep as its author made it, through the same Git host.
@@ -39,9 +39,9 @@ const publish = transaction({
   concurrency: "serialize",
   services: [GitApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(GitApi), (api) =>
-      api.sync({ repo: input.repo }, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    GitApi.use((api) => api.sync({ repo: input.repo }, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });
 
 const Notes = definition({

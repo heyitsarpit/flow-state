@@ -98,17 +98,20 @@ const meeting = (policy: Policy, phase: Phase) => {
   return (wire ? freed.world(Git.sync.release()) : freed).advance("1 second").checkpoint("after");
 };
 
+// An ending as `seen` writes it: `unknown`, or its channel and reason.
+type Code = "unknown" | "success success" | "notSent Cancelled" | "unknown Cancelled";
+
 type Expected = {
   readonly waiting: boolean;
-  readonly endings: ReadonlyArray<string>;
+  readonly endings: ReadonlyArray<Code>;
   readonly superseded: number;
   readonly released: number;
 };
 
-const cell = (waiting: boolean, ended: ReadonlyArray<string>, superseded = 0, released = 0) =>
+const cell = (waiting: boolean, ended: ReadonlyArray<Code>, superseded = 0, released = 0) =>
   ({ waiting, endings: ended, superseded, released }) satisfies Expected;
 
-const OK = "success success";
+const OK: Code = "success success";
 
 // Each cell written from WriteLanes `algorithm` (commit under latest, serialize and cancel),
 // R7, R8 (promotion) and R14, with Reads R14's `waiting`, before the code was run.

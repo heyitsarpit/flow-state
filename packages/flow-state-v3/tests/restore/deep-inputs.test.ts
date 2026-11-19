@@ -29,9 +29,9 @@ const publish = transaction({
   concurrency: "serialize",
   services: [GitApi],
   commit: (_input, { attempt }) =>
-    Effect.flatMap(Effect.service(GitApi), (api) =>
-      api.sync({ repo: "flow" }, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    GitApi.use((api) => api.sync({ repo: "flow" }, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });
 
 const Shelf = definition({

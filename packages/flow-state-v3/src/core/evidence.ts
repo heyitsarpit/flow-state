@@ -27,6 +27,15 @@ export type ReportCode =
   | "UnboundLane";
 
 /**
+ * What a diagnostic reports: its code, the record it names when it names one, and the reason.
+ */
+export type Reported = {
+  readonly code: ReportCode;
+  readonly record: Option.Option<string>;
+  readonly reason: string;
+};
+
+/**
  * Why a send reached no actor: its target has no record, its record does not decode, or it is a
  * lazy entry not adopted.
  */
@@ -135,7 +144,7 @@ export type Evidence = Data.TaggedEnum<{
   Finished: { actor: Who };
   RuntimeDisposed: {};
   Published: { actor: Who; state: string; memory: Values };
-  Reported: { code: ReportCode; record: Option.Option<string>; reason: string };
+  Reported: Reported;
   HoldForgotten: { actor: Who; operation: string; record: string };
   SlowWork: { work: "turn" | "capture"; input: string; ms: number; budgetMs: number };
 }>;
@@ -144,3 +153,8 @@ export type Evidence = Data.TaggedEnum<{
  * Constructors and matchers for {@link Evidence}.
  */
 export const Evidence = Data.taggedEnum<Evidence>();
+
+/**
+ * The one {@link Evidence} variant a tag names; a misspelt tag does not compile.
+ */
+export type EvidenceOf<T extends Evidence["_tag"]> = Extract<Evidence, { readonly _tag: T }>;

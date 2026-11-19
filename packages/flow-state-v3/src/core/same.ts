@@ -19,7 +19,7 @@ const differ: Level = Option.none();
 const settled: Level = Option.some([]);
 
 // RETURN_TYPE: a type guard states the type it narrows to.
-const isList = (value: Container): value is ReadonlyArray<Node> => Array.isArray(value);
+export const isList = (value: Container): value is ReadonlyArray<Node> => Array.isArray(value);
 
 // Two leaves equal as `Equal` holds them: the same value, or both NaN.
 const sameLeaf = (a: Node, b: Node) =>

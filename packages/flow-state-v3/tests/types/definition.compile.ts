@@ -1,13 +1,11 @@
-import { Context, Effect, Schema, SchemaGetter } from "effect";
+import { Context, Schema, SchemaGetter } from "effect";
 import { definition, Flow } from "../../src/index.ts";
 
 class Rates extends Context.Service<Rates, { readonly factor: number }>()("types/Rates") {}
 
 const NeedsRates = Schema.Number.pipe(
   Schema.decodeTo(Schema.Number, {
-    decode: SchemaGetter.transformEffect((n: number) =>
-      Effect.map(Effect.service(Rates), (rates) => n * rates.factor),
-    ),
+    decode: SchemaGetter.transformEffect((n: number) => Rates.useSync((rates) => n * rates.factor)),
     encode: SchemaGetter.transform((n: number) => n),
   }),
 );

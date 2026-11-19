@@ -7,7 +7,8 @@ import {
   type LaneFact,
   type Member,
   type Part,
-  type ReportCode,
+  type RecordedWhy,
+  type Reported,
   type SendDrop,
 } from "./evidence.ts";
 import type { IssueCode } from "./vocabulary.ts";
@@ -24,7 +25,7 @@ type RowRef = { readonly operation: string; readonly attempt: Option.Option<stri
 export type Act = Data.TaggedEnum<{
   RowWaits: { row: RowRef };
   RowQueued: { row: RowRef };
-  RowRecorded: { row: RowRef; why: "evidence" | "letGo" };
+  RowRecorded: { row: RowRef; why: RecordedWhy };
   Heard: { row: RowRef; event: string; actor: ActorId };
   Turned: {
     actor: ActorId;
@@ -66,7 +67,7 @@ export type Act = Data.TaggedEnum<{
     commands: ReadonlyArray<Command>;
   };
   ReadReplaced: { operation: string };
-  Reported: { code: ReportCode; record: Option.Option<string>; reason: string };
+  Reported: Reported;
   Silent: { operation: string; attempt: string };
   Ended: {
     actor: ActorId;

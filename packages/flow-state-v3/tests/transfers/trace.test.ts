@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { account } from "../../fixtures/transfers/app.ts";
 import { TransfersMachine } from "../../fixtures/transfers/machines/transfers.ts";
@@ -7,6 +7,9 @@ import { lostThenReload } from "../../fixtures/transfers/stories/usual.ts";
 import { type Cut, Step } from "../../src/host/testing/index.ts";
 import { render, type TraceEvent, TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
+
+// The field read off a stored lane record; a change to its format fails the decode.
+const LaneRecord = Schema.fromJsonString(Schema.Struct({ inFlight: Schema.Boolean }));
 
 // A record's kind is its key's text before the first slash (Codec R5).
 const kinds = (keys: ReadonlyArray<string>) =>
@@ -89,7 +92,9 @@ describe("A run's trace (Stories R16)", () => {
     const lanes = [...reloaded.records.stored].filter(([key]) => key.startsWith("lane/"));
 
     expect(reloaded.inspection.lanes.map((l) => l.state)).toEqual(["Held"]);
-    expect(lanes.map(([, value]) => JSON.parse(value).inFlight)).toEqual([false]);
+    expect(lanes.map(([, value]) => Schema.decodeUnknownSync(LaneRecord)(value).inFlight)).toEqual([
+      false,
+    ]);
   });
 
   it("names the ending's Attempt as the request's idempotency key (WriteLanes R5)", async () => {

@@ -1,5 +1,6 @@
 import { type Brand, Data, Option } from "effect";
 import { Act } from "./evidence-of.ts";
+import type { RecordedWhy } from "./evidence.ts";
 import type { Persistence } from "./persist.ts";
 import { ROOT_ACTIVATION, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
@@ -72,7 +73,7 @@ export type Owed = {
  */
 export type Closed = Data.TaggedEnum<{
   Delivered: {};
-  Recorded: { why: "evidence" | "letGo" };
+  Recorded: { why: RecordedWhy };
 }>;
 
 /**
@@ -166,7 +167,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   // Queued and Retrying rows, each in its own identity's mailbox.
   const unreferenced = (row: Owed) => tx.unreference(row.actor, row.id);
 
-  const recorded = (row: Owed, why: "evidence" | "letGo") => tx.act(Act.RowRecorded({ row, why }));
+  const recorded = (row: Owed, why: RecordedWhy) => tx.act(Act.RowRecorded({ row, why }));
 
   // A row the owed record held at the step's start: every row owed to the identity at a step's end
   // is in it, a row still in the mailbox included.
@@ -228,27 +229,28 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
    * delivered, and a refusal queues a Queued row once more behind queued mail and keeps a
    * Retrying one.
    */
-  const tryOne = (actor: ActorId, id: OwedId, hear: (row: Owed) => Heard) =>
-    Option.match(find(actor, id), {
-      onNone: () => undefined,
-      onSome: (row) => {
-        if (!Delivery.$is("Queued")(row.delivery) && !Delivery.$is("Retrying")(row.delivery))
-          return;
+  const tryOne = (actor: ActorId, id: OwedId, hear: (row: Owed) => Heard) => {
+    const found = find(actor, id);
 
-        const heard = hear(row);
-        const now = find(actor, id);
+    if (Option.isNone(found)) return;
 
-        if (Option.isNone(now)) return;
+    const row = found.value;
 
-        if (heard === "Unmapped") close(now.value, Closed.Recorded({ why: "evidence" }));
-        else if (heard === "Heard") close(now.value, Closed.Delivered());
-        else if (Delivery.$is("Queued")(now.value.delivery)) queue(now.value, Delivery.Retrying());
-        else if (Delivery.$is("Retrying")(now.value.delivery)) {
-          replace(now.value, Option.some({ ...now.value, delivery: Delivery.Kept() }));
-          saved(now.value, Delivery.Kept());
-        }
-      },
-    });
+    if (!Delivery.$is("Queued")(row.delivery) && !Delivery.$is("Retrying")(row.delivery)) return;
+
+    const heard = hear(row);
+    const now = find(actor, id);
+
+    if (Option.isNone(now)) return;
+
+    if (heard === "Unmapped") close(now.value, Closed.Recorded({ why: "evidence" }));
+    else if (heard === "Heard") close(now.value, Closed.Delivered());
+    else if (Delivery.$is("Queued")(now.value.delivery)) queue(now.value, Delivery.Retrying());
+    else if (Delivery.$is("Retrying")(now.value.delivery)) {
+      replace(now.value, Option.some({ ...now.value, delivery: Delivery.Kept() }));
+      saved(now.value, Delivery.Kept());
+    }
+  };
 
   /**
    * An identity can no longer hear: its Queued and Retrying rows wait, lane or not, and rows owed

@@ -374,10 +374,9 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         onSuccess: (given) => {
           baselines[at] = Option.some(now);
           next = clear(next, IssueSource.OnContext({ at }));
-          Option.match(given, {
-            onNone: () => undefined,
-            onSome: (p) => void events.push({ tag: reaction.event.event, payload: p }),
-          });
+
+          if (Option.isSome(given))
+            events.push({ tag: reaction.event.event, payload: given.value });
         },
       });
     }

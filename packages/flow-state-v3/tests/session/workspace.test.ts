@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
 import {
@@ -36,6 +36,14 @@ import {
 import { attachInspector } from "../../src/host/inspect.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
+
+// The fields read off a stored avatar record; a change to its format fails the decode.
+const AvatarRecord = Schema.fromJsonString(
+  Schema.Struct({
+    memory: Schema.Struct({ seen: Schema.Number }),
+    seen: Schema.Struct({ user: Schema.NullOr(Schema.String) }),
+  }),
+);
 
 describe("the workspace shell", () => {
   it("Actors R18: the shell's team and badge are live while the session's sign-in is still on the wire", async () => {
@@ -124,7 +132,7 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
   it("E2, Actors R9, R18, R19: an avatar whose user selection is undefined is saved with that value; a reload of that saved world owes no wave, so its count stays", async () => {
     const run = await played(signedOutReloaded);
     const saved = run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar");
-    const record = JSON.parse(saved ?? "{}");
+    const record = Schema.decodeUnknownSync(AvatarRecord)(saved ?? "");
 
     expect(record.memory).toEqual({ seen: 2 });
     // The slot's Schema, UndefinedOr(String), writes undefined as null.

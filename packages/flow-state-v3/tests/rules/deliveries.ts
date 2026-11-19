@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { Evidence } from "../../src/host/inspect.ts";
+import { Evidence, type EvidenceOf } from "../../src/host/inspect.ts";
 
 type Who = { readonly machine: string; readonly name: string };
 
@@ -45,7 +45,7 @@ type Ledger = {
   readonly recordedUnowed: Array<{ readonly at: number; readonly attempt: string }>;
 };
 
-type IssueCode = Extract<Evidence, { readonly _tag: "Issue" }>["code"];
+type IssueCode = EvidenceOf<"Issue">["code"];
 
 export const REFUSALS: ReadonlySet<IssueCode> = new Set<IssueCode>([
   "Defect",
@@ -129,7 +129,7 @@ const justOwed = (ledger: Ledger, at: number, attempt: string) => {
   return before?._tag === "Ended" && Option.contains(before.attempt, attempt);
 };
 
-const owed = (ledger: Ledger, e: Extract<Evidence, { _tag: "Ended" }>, at: number) =>
+const owed = (ledger: Ledger, e: EvidenceOf<"Ended">, at: number) =>
   Option.match(e.attempt, {
     onNone: () => undefined,
     onSome: (attempt) => {
@@ -184,7 +184,7 @@ const started = (ledger: Ledger, actor: string) => {
     }
 };
 
-const delivered = (ledger: Ledger, e: Extract<Evidence, { _tag: "Delivered" }>, at: number) => {
+const delivered = (ledger: Ledger, e: EvidenceOf<"Delivered">, at: number) => {
   const attempt = textOf(e.attempt);
   const r = rowsOf(ledger, attempt);
 

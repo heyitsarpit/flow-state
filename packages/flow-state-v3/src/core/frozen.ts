@@ -1,4 +1,5 @@
 import { Predicate } from "effect";
+import { isList } from "./same.ts";
 
 // FLOW_STATE_ALLOW_UNKNOWN: an admitted value, frozen node by node; its own types are the app's.
 type Node = unknown;
@@ -8,9 +9,6 @@ type Fields = Readonly<Record<PropertyKey, Node>>;
 
 // An object or array met in an admitted value.
 type Container = Fields | ReadonlyArray<Node>;
-
-// RETURN_TYPE: a type guard states the type it narrows to.
-const isList = (value: Container): value is ReadonlyArray<Node> => Array.isArray(value);
 
 // The methods that change a Map, a Set or a Date in place.
 const MAP_WRITES = ["set", "delete", "clear"];

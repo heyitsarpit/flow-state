@@ -34,6 +34,8 @@ export const attachInspector = entry(
 
 export { Evidence };
 
+export type { EvidenceOf } from "../core/evidence.ts";
+
 /**
  * One read of a Runtime's state, as plain data: every live actor's snapshot, each write lane,
  * each owed ending, each armed timer, the uses of each identity and the lifecycle.

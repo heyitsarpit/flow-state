@@ -8,7 +8,7 @@ import { oneStart, ownedRowsSaved } from "./starts.ts";
 import { mailboxOrder } from "./mailbox.ts";
 import { refusedTurnIssueOnly } from "./refusals.ts";
 import { unchangedPartsKept } from "./memory.ts";
-import type { Evidence } from "../../src/host/inspect.ts";
+import type { Evidence, EvidenceOf } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import {
@@ -139,7 +139,7 @@ export const nothingAfterDefinite: Rule = {
 };
 
 const endedWrong = (
-  e: Extract<Evidence, { _tag: "Ended" }>,
+  e: EvidenceOf<"Ended">,
   at: number,
   sent: ReadonlySet<string>,
   starting: boolean,

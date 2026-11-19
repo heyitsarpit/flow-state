@@ -279,10 +279,8 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       // Every hold writes the Held head's record, not in flight.
       Answer: ({ channel, reason, value, interrupt }) => {
         const lane = laneAt(at);
-        Option.match(interrupt, {
-          onNone: () => undefined,
-          onSome: (call) => tx.command(Command.Interrupt({ call })),
-        });
+
+        if (Option.isSome(interrupt)) tx.command(Command.Interrupt({ call: interrupt.value }));
 
         if (channel === "unknown") hold(at, lane);
         else vacate(at, lane);
