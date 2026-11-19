@@ -2728,6 +2728,11 @@ tasks
             - `SAVED_DELIVERY` as a duplicate of `IN_MAILBOX`, since the two tables mean different things;
             - worker-args' `node:util` parser, which is one table refusing unknown flags;
             - owners-only misses outside A8's list (`ManagedRuntime`, `Runtime`).
+        comment     2026-11-19T14:58:06Z
+            Done (orchestrator, 2026-11-19): close review PASS (5aae1ef8). Ruling on start order (reversing it changes
+            BlockedByDependents' message order and swaps consumers' context turns): keep Incarnation.started; a proposed
+            Actors rule says live identities handled together go in start order. That rule and the routed items go
+            to @task.V3.T105.
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
