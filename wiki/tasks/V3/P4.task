@@ -229,7 +229,8 @@ tasks
                     @plan.Operations.O3,
                     @plan.Operations.O5,
                     @plan.Operations.O6,
-                    @plan.Runtime.O2
+                    @plan.Runtime.O2,
+                    @plan.Persistence.O4
                     ]
         description
             Build operations with their required services, and reads from @spec.Reads.
@@ -1365,3 +1366,6 @@ tasks
         comment     2026-11-18T20:15:24Z
             Also owes (proposed, P3 R18 rerun): Diagnostics O2's InvariantViolation code is unbuilt; Actors R25 stops
             the Runtime on the raw defect instead. Decide the code or drop it from the Plan (the user's read).
+        comment     2026-11-19T00:25:12Z
+            Decision (the user, 2026-11-19): InvariantViolation (Diagnostics O2) is built here, as the P3
+            audit proposed.

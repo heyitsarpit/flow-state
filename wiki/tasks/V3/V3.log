@@ -908,3 +908,7 @@ note 2026-11-18T23:36:06Z
 note 2026-11-19T00:10:06Z
     T92 convergence in (bf18e67f): one tagged Schema per lane and owed row kind, shared by writer and boot; both
     blockers fixed, gates green. Third close review started; the failure limit is 2.
+
+note 2026-11-19T00:25:12Z
+    Decisions (the user, 2026-11-19): accepted P3's outcome routing, Pending D31 (merge once T92's rename Story passes)
+    and InvariantViolation in T100. wk's refused satisfies links hand-added to T21, T29, T30, T48, T49 (the user's yes).

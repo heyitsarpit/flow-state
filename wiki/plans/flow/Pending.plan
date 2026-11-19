@@ -269,4 +269,5 @@ decisions
         format 4), so a renamed operation finds its lane with no rewrite and no `OpRenamed`; Persistence's rename
         paragraph and the two proposed-name lists drop it. **Why:** with only the old name in the key the boot cannot
         find the contract (@spec.Restore R8, revised in format 4). **Proven by:** T92's rename Story reloading under a
-        renamed operation with its lane intact. Owner: @task.V3.T92. Proposed, for the user's yes.
+        renamed operation with its lane intact. Owner: @task.V3.T92. Accepted (the user, 2026-11-19); merged once T92's
+        rename Story passes.

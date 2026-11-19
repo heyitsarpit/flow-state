@@ -151,7 +151,9 @@ tasks
                     @plan.LazyFeatures.O2,
                     @plan.LazyFeatures.O3,
                     @plan.LazyFeatures.O4,
-                    @plan.LazyFeatures.O5
+                    @plan.LazyFeatures.O5,
+                    @plan.Persistence.O4,
+                    @plan.Runtime.O5
                     ]
         description
             Write the lazy-features Spec, then build lazy app entries on production from @plan.LazyFeatures.
@@ -216,7 +218,8 @@ tasks
                     @plan.Inspection.O3,
                     @plan.Inspection.O4,
                     @plan.Inspection.O5,
-                    @plan.Inspection.O6
+                    @plan.Inspection.O6,
+                    @plan.Inspection.O2
                     ]
         description
             Write the inspection Spec, then build the rest of @plan.Inspection: `inspect(app)`, `trace.export` and
@@ -255,7 +258,8 @@ tasks
                     @plan.Testing.O3,
                     @plan.Testing.O4,
                     @plan.Testing.O6,
-                    @plan.Testing.O8
+                    @plan.Testing.O8,
+                    @plan.Diagnostics.O1
                     ]
         description
             Extend the first slice (@task.V3.T63 to @task.V3.T70) that Flow's own tests run on: `Story.machine`,
@@ -355,7 +359,9 @@ tasks
                     @plan.ServerRendering.O6,
                     @plan.ServerRendering.O7,
                     @plan.Testing.O7,
-                    @plan.Testing.O9
+                    @plan.Testing.O9,
+                    @plan.Inspection.O2,
+                    @plan.Runtime.O5
                     ]
         description
             Write the bindings' Specs, then build the React and Next.js bindings from @plan.React and
