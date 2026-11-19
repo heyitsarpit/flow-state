@@ -1,18 +1,26 @@
+import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
 import { defaults } from "../../fixtures/number-input/machines/stepping.ts";
 import { quantity } from "../../fixtures/number-input/app.ts";
 import { Stepper, StepperMachine } from "../../fixtures/number-input/machines/stepper.ts";
 import { bounded, numberStory, usual } from "../../fixtures/number-input/stories/usual.ts";
 import { actorRef } from "../../src/index.ts";
-import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
+import { publishedOf, type Cut, type StoryRun } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
-import { fieldOf, published } from "./reads.ts";
 
 const E = Stepper.E;
 
 const other = actorRef(StepperMachine, "other");
 
-const field = (cut: Cut, ref = quantity) => fieldOf(cut.read(ref)?.memory);
+// A cut without the stepper fails the test.
+const field = (cut: Cut, ref = quantity) => {
+  const snapshot = cut.read(ref);
+  assert.ok(snapshot !== undefined, "the stepper has no snapshot at this cut");
+
+  return snapshot.memory;
+};
+
+const published = (run: StoryRun) => publishedOf(run, quantity).map((p) => p.memory);
 
 const stateOf = (cut: Cut) => cut.read(quantity)?.state;
 

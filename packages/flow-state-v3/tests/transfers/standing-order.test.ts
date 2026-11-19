@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
 import { bankPlannedSetup, mainCustomer, orderOf, rent } from "../../fixtures/transfers/app.ts";
@@ -70,13 +70,20 @@ describe("a standing order planned from a date (Compile R14, Actors R14)", () =>
         }),
       }),
     );
-    expect(run.checkpoints.paused.read(rent)?.memory["pausedUntil"]).toEqual(RENT_PAUSED_UNTIL);
+    const paused = run.checkpoints.paused.read(rent)?.memory;
+
+    // A read is typed by the definition and holds each field's decoded value: a Date, never its
+    // encoded string.
+    expect(Predicate.isDate(paused?.pausedUntil)).toBe(true);
+    expect(Predicate.isDate(paused?.first)).toBe(true);
+    expect(paused?.pausedUntil).toEqual(RENT_PAUSED_UNTIL);
   });
 
   it("Codec I1, Restore R1: a paused order's dates read back equal after a reload, and it resumes", async () => {
     const run = await played(standingOrder);
 
     expect(run.checkpoints.reloaded.read(rent)).toEqual(run.checkpoints.paused.read(rent));
+    expect(run.checkpoints.reloaded.read(rent)?.memory.pausedUntil).toEqual(RENT_PAUSED_UNTIL);
     expect(run.checkpoints.resumed.read(rent)).toEqual(
       expect.objectContaining({
         state: "SCHEDULED",
@@ -108,14 +115,14 @@ describe("standing-order dates at their edges (fixtures.md E1, E2)", () => {
         memory: expect.objectContaining({ first: EPOCH, pausedUntil: null }),
       }),
     );
-    expect(planned.read(orderOf(0))?.memory["memo"]).toBeUndefined();
+    expect(planned.read(orderOf(0))?.memory.memo).toBeUndefined();
     expect(planned.read(orderOf(1))).toEqual(
       expect.objectContaining({
         state: "PAUSED",
         memory: expect.objectContaining({ first: LATEST, pausedUntil: LATEST }),
       }),
     );
-    expect(planned.read(orderOf(1))?.memory["memo"]).toBeUndefined();
+    expect(planned.read(orderOf(1))?.memory.memo).toBeUndefined();
     expect(planned.read(orderOf(2))).toEqual(
       expect.objectContaining({
         state: "SCHEDULED",
@@ -176,7 +183,7 @@ describe("a standing order under its customer (fixtures.md S1 with S9, S6)", () 
     const run = await played(orderCustomerForgotten);
     const fresh = run.checkpoints.fresh;
 
-    expect(fresh.read(mainCustomer)?.memory["account"]).toBe("");
+    expect(fresh.read(mainCustomer)?.memory.account).toBe("");
     expect(fresh.read(rent)).toEqual(
       expect.objectContaining({
         state: "SCHEDULED",

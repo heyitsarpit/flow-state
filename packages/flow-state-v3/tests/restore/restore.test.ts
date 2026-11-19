@@ -270,7 +270,7 @@ describe("records under a name that does not decode (Restore R5, I10, I11; Codec
     expect(booted.records.stored.get(lane)).toBe(unreadableNames.laneText);
     expect(booted.records.stored.get(actor)).toBe(unreadableNames.actorText);
     expect(booted.records.stored.get(owed)).toBe(unreadableNames.owedText);
-    expect(restored.read(mainCart)?.memory["lines"]).toEqual({
+    expect(restored.read(mainCart)?.memory.lines).toEqual({
       l1: { quantity: 1, variantId: "v1" },
     });
   });
@@ -286,7 +286,7 @@ describe("records under names no ref gives (Restore R5; WriteAhead I3)", () => {
     );
     expect(booted.inspection.actors).toEqual([]);
     expect(booted.records.stored.get(oddNames.actor)).toBe(oddNames.actorText);
-    expect(restored.read(mainCart)?.memory["lines"]).toEqual({
+    expect(restored.read(mainCart)?.memory.lines).toEqual({
       l1: { quantity: 1, variantId: "v1" },
     });
   });
@@ -303,7 +303,7 @@ describe("records whose key and content disagree (Restore R5; Codec R5)", () => 
         .toSorted(),
     );
     expect(booted.inspection.actors).toEqual([]);
-    expect(restored.read(mainCart)?.memory["lines"]).toEqual({
+    expect(restored.read(mainCart)?.memory.lines).toEqual({
       l1: { quantity: 1, variantId: "v1" },
     });
     expect(inOpen(run, 2).filter((e) => e._tag === "Delivered")).toEqual([]);
@@ -344,7 +344,7 @@ describe("an actor record's context bindings (Restore R5; WriteAhead I3)", () =>
     expect(restored.inspection.actors.map((a) => a.actor).filter((a) => a.includes("/~"))).toEqual(
       [],
     );
-    expect(restored.read(mainCart)?.memory["lines"]).toEqual({});
+    expect(restored.read(mainCart)?.memory.lines).toEqual({});
   });
 });
 

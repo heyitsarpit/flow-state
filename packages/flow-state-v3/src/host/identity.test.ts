@@ -51,7 +51,7 @@ describe("persisted identities (Actors R6, R9)", () => {
 
     note.send({ _tag: "Write", text: "b" });
 
-    expect(Option.map(note.getSnapshot(), (s) => s.memory["body"])).toEqual(Option.some("ab"));
+    expect(Option.map(note.getSnapshot(), (s) => s.memory.body)).toEqual(Option.some("ab"));
     expect(seen.filter((e) => e._tag === "Incarnated")).toHaveLength(2);
   });
 });

@@ -102,7 +102,7 @@ export const kindValueTests = (cases: ReadonlyArray<readonly [KindName, "past" |
         expect(depthOf(run.checkpoints.reloaded.read(mainNests)?.memory[field])).toBeGreaterThan(
           depth - 1,
         );
-        expect(run.checkpoints.reloaded.read(mainNests)?.memory["title"]).toBe("renamed");
+        expect(run.checkpoints.reloaded.read(mainNests)?.memory.title).toBe("renamed");
         expect(unencodable(run)).toEqual([]);
         expect(run.evidence.filter((e) => e._tag === "Issue")).toEqual([]);
       },

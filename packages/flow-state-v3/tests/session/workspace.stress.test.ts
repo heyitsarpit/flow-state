@@ -15,7 +15,7 @@ describe("a wall of 5,000 badges (fixtures.md S2 under L5)", () => {
 
       for (const n of [0, 2500, LAST])
         expect(renamed.read(wallBadge(n))?.context).toEqual({ team: "Platform" });
-      expect(pinged.read(wallBadge(LAST))?.memory["pings"]).toBe(2);
+      expect(pinged.read(wallBadge(LAST))?.memory.pings).toBe(2);
       expect(
         [...pinged.records.stored.keys()].filter((k) =>
           k.startsWith("actor/Workspace/Badge/wall-"),

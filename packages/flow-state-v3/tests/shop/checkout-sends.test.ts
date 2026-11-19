@@ -15,7 +15,7 @@ describe("the checkout flow pays through the checkout's Pay (Actors R16; Runtime
     expect(
       turnsOf(run, is(checkout)).filter((e) => e === "CardChosen" || e === "PayRequested"),
     ).toEqual(["CardChosen", "PayRequested"]);
-    expect(paid.read(checkout)?.memory["paymentMethodId"]).toBe("visa");
+    expect(paid.read(checkout)?.memory.paymentMethodId).toBe("visa");
     expect(paid.read(checkout)?.state).toBe("PAID");
     expect(paid.read(mainFlow)?.state).toBe("DONE");
   });

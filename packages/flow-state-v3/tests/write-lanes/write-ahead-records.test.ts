@@ -81,7 +81,7 @@ describe("an acknowledging write the store takes and then refuses (WriteAhead R1
     expect(acknowledging.inspection.lanes.map((l) => l.phase)).toEqual(["Acknowledging"]);
     expect(refused.inspection.lanes).toEqual([]);
     expect(refused.read(Bank.transfer)).toEqual([]);
-    expect(refused.read(account)?.memory["notice"]).toBe("not sent StorageRefused");
+    expect(refused.read(account)?.memory.notice).toBe("not sent StorageRefused");
     expect(refused.records.batches.map((b) => b.status)).toContain("refused");
     expect(laneFacts(run.evidence, "StorageFailure")).toBe(1);
   });

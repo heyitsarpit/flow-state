@@ -39,15 +39,15 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
       "CardChosen",
       "PayRequested",
     ]);
-    expect(run.checkpoints.landed.read(renewalPay)?.memory["paymentMethodId"]).toBe("visa");
+    expect(run.checkpoints.landed.read(renewalPay)?.memory.paymentMethodId).toBe("visa");
   });
 
   it("Actors R16 ended with a record that decodes, R7, R8: the Pay is restored with its started intent, stays while its confirm is on the wire, and ends after the grace", async () => {
     const run = await played(renewalEndedPay);
     const renewed = run.checkpoints.renewed.read(renewalPay);
 
-    expect(renewed?.memory["intentId"]).toBe("pi-weekly");
-    expect(renewed?.memory["paymentMethodId"]).toBe("visa");
+    expect(renewed?.memory.intentId).toBe("pi-weekly");
+    expect(renewed?.memory.paymentMethodId).toBe("visa");
     expect(renewed?.state).toBe("PAYING");
     expect(confirms(run.checkpoints["held past the grace"])).toHaveLength(1);
     expect(run.checkpoints["held past the grace"].read(renewalPay)?.lifecycle).toBe("active");
@@ -101,11 +101,11 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     const run = await played(renewalEndingPay);
     const renewed = run.checkpoints.renewed.read(renewalPay);
 
-    expect(run.checkpoints.saved.read(renewalPay)?.memory["intentId"]).toBe("pi-weekly");
+    expect(run.checkpoints.saved.read(renewalPay)?.memory.intentId).toBe("pi-weekly");
     expect(incarnationsOf(run, is(renewalPay))).toBe(2);
     expect(droppedSends(run)).toEqual([]);
-    expect(renewed?.memory["intentId"]).toBe("pi-week-2");
-    expect(renewed?.memory["paymentMethodId"]).toBe("visa");
+    expect(renewed?.memory.intentId).toBe("pi-week-2");
+    expect(renewed?.memory.paymentMethodId).toBe("visa");
   });
 
   it("Actors R20, R16: with a batch out, a send to a disposed Pay whose record did not decode drops NoRecord, and opening it starts it fresh with no report", async () => {
@@ -121,7 +121,7 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
       { actor: idOf(renewalPay), event: "PayRequested", reason: "NoRecord", sender: undefined },
     ]);
     expect(reported).toEqual([]);
-    expect(opened.read(renewalPay)?.memory["intentId"]).toBe("");
+    expect(opened.read(renewalPay)?.memory.intentId).toBe("");
   });
 
   it("Actors R16 being disposed: sends to a Pay whose removal the store has not acknowledged are dropped NoRecord and never restore it", async () => {

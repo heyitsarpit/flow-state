@@ -1,9 +1,11 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
+import { palette } from "../../fixtures/command-palette/app.ts";
 import { stress } from "../../fixtures/command-palette/stories/usual.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
+import { publishedOf } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
-import { asPalette, pendingAt } from "./reads.ts";
+import { pendingAt } from "./cuts.ts";
 
 type Ledger = {
   readonly commandOf: ReadonlyMap<string, string>;
@@ -46,24 +48,35 @@ const published = (l: Ledger, at: number, errors: Readonly<Record<string, string
   ],
 });
 
-const recorded = (l: Ledger, e: Evidence, at: number) => {
+// The palette's Published records, typed by its definition, by the record itself.
+type Errors = ReadonlyMap<Evidence, Readonly<Record<string, string>>>;
+
+const recorded = (l: Ledger, e: Evidence, at: number, errors: Errors) => {
   if (e._tag === "Minted") return minted(l, e.attempt, String(e.key["command"]));
 
   if (e._tag === "Ended" && Option.isSome(e.attempt))
     return endedFor(l, e.attempt.value, e.channel);
 
-  return e._tag === "Published" ? published(l, at, asPalette(e.memory).errors) : l;
+  return Option.match(Option.fromUndefinedOr(errors.get(e)), {
+    onNone: () => l,
+    onSome: (shown) => published(l, at, shown),
+  });
 };
 
-const audited = (records: ReadonlyArray<Evidence>) =>
-  records.reduce<Ledger>(
+const audited = (records: ReadonlyArray<Evidence>) => {
+  const errors: Errors = new Map(
+    publishedOf({ evidence: records }, palette).map((p) => [p, p.memory.errors]),
+  );
+
+  return records.reduce<Ledger>(
     (l, e, at) => {
-      const next = recorded(l, e, at);
+      const next = recorded(l, e, at, errors);
 
       return { ...next, most: Math.max(next.most, next.open.size) };
     },
     { commandOf: new Map(), open: new Map(), last: new Map(), twice: [], strays: [], most: 0 },
   );
+};
 
 describe("command palette: stress (Restore R3, WriteLanes I13, I15)", () => {
   it("PALETTE-14: a hundred and fifty gestures with reloads while commands are pending keep one Attempt per command in flight and every error on a command whose last ending failed", async () => {

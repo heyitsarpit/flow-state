@@ -53,7 +53,7 @@ describe("machine", () => {
     lamp.send(Lamp.E.Dim({ level: 3 }));
 
     assert.deepStrictEqual(
-      Option.map(lamp.getSnapshot(), (s) => [s.state, s.memory["level"]]),
+      Option.map(lamp.getSnapshot(), (s) => [s.state, s.memory.level]),
       Option.some(["ON", 3]),
     );
   });

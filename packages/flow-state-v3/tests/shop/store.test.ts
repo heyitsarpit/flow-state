@@ -42,14 +42,14 @@ describe("the shop around the checkout: shopper, cart, badge and checkout flow",
     const run = await played(browse);
     const at = (name: keyof typeof run.checkpoints) => run.checkpoints[name];
 
-    expect(at("empty").read(mainCart)?.memory["lines"]).toEqual({});
+    expect(at("empty").read(mainCart)?.memory.lines).toEqual({});
     expect(at("empty").read(mainBadge)?.context).toEqual({ cart: 0 });
     expect(at("added").read(mainCart)?.context).toEqual({ shopper: "ada" });
-    expect(at("added").read(mainCart)?.memory["lines"]).toEqual({ l1: line("v1", 1) });
+    expect(at("added").read(mainCart)?.memory.lines).toEqual({ l1: line("v1", 1) });
     expect(at("added").read(mainBadge)).toEqual(
       expect.objectContaining({ context: { cart: 1 }, memory: { bumps: 1 } }),
     );
-    expect(at("edited").read(mainCart)?.memory["lines"]).toEqual({
+    expect(at("edited").read(mainCart)?.memory.lines).toEqual({
       l1: line("v1", 3),
       l2: line("v2", 1),
     });
@@ -157,7 +157,7 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
   it("quantity 0 removes the line, sending 0 to the server", async () => {
     const run = await played(quantityZero);
 
-    expect(run.checkpoints.removed.read(mainCart)?.memory["lines"]).toEqual({});
+    expect(run.checkpoints.removed.read(mainCart)?.memory.lines).toEqual({});
     expect(
       run.end.calls.filter((c) => c.endpoint === "setQuantity").map((c) => c.input["quantity"]),
     ).toEqual([0]);
@@ -169,7 +169,7 @@ describe("cart lines: latest per line, refusals per line (WriteLanes R4, R7)", (
     expect(
       run.evidence.filter((e) => e._tag === "Incarnated" && e.actor.machine === "Shop/Cart"),
     ).toHaveLength(1);
-    expect(run.checkpoints.again.read(mainCart)?.memory["lines"]).toEqual({ l1: line("v1", 1) });
+    expect(run.checkpoints.again.read(mainCart)?.memory.lines).toEqual({ l1: line("v1", 1) });
   });
 });
 
@@ -218,8 +218,8 @@ describe("the shop's structures (fixtures.md S1, S3, S6, S7, S9)", () => {
     const end = run.checkpoints.end;
 
     expect(end.read(cartOf(0))?.context).toEqual({ shopper: "s0" });
-    expect(end.read(cartOf(63))?.memory["lines"]).toEqual({ l63: line("v1", 1) });
-    expect(end.read(shopperOf(63))?.memory["name"]).toBe("s63");
+    expect(end.read(cartOf(63))?.memory.lines).toEqual({ l63: line("v1", 1) });
+    expect(end.read(shopperOf(63))?.memory.name).toBe("s63");
   });
 
   it("Actors R5, Stories R3: a Story's second ref to a live cart with another shopper is refused ConflictingActorRef", async () => {
@@ -229,7 +229,7 @@ describe("the shop's structures (fixtures.md S1, S3, S6, S7, S9)", () => {
   it("S6 reloaded: an add on the wire at a reload ends unknown, and the cart retries it once (WriteAhead R14; WriteLanes R8)", async () => {
     const run = await played(reloadedMidAdd);
 
-    expect(run.checkpoints.reloaded.read(mainCart)?.memory["lines"]).toEqual({ l1: line("v1", 1) });
+    expect(run.checkpoints.reloaded.read(mainCart)?.memory.lines).toEqual({ l1: line("v1", 1) });
     expect(run.end.calls.filter((c) => c.endpoint === "addLine")).toHaveLength(2);
   });
 
@@ -242,7 +242,7 @@ describe("the shop's structures (fixtures.md S1, S3, S6, S7, S9)", () => {
   it("S6 shopper forgotten: forgetting the shopper after its consumers end starts it fresh on the next ensure (Actors R21)", async () => {
     const run = await played(shopperForgotten);
 
-    expect(run.checkpoints.fresh.read(mainShopper)?.memory["name"]).toBe("");
+    expect(run.checkpoints.fresh.read(mainShopper)?.memory.name).toBe("");
     expect(run.checkpoints.fresh.read(mainCart)?.context).toEqual({ shopper: "" });
   });
 

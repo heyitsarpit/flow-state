@@ -17,7 +17,7 @@ describe("the usual and long sign-in Stories", () => {
     expect(cooling.read(Auth.begin)).toHaveLength(2);
     expect(run.checkpoints["signed in"].read(screen)?.state).toBe("DONE");
     expect(run.checkpoints["signed in"].read(Auth).sessions).toEqual(["ada@example.com"]);
-    expect(throttled.read(screen)?.memory["notice"]).toBe("Too many codes. Wait a minute.");
+    expect(throttled.read(screen)?.memory.notice).toBe("Too many codes. Wait a minute.");
     expect(end.read(screen)?.state).toBe("EMAIL");
   });
 

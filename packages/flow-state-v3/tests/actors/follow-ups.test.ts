@@ -91,7 +91,7 @@ const settledChain = (firstCopies: number) => {
   runtime.ensureActor(actorRef(HeadMachine, "head")).send(Head.E.Bump());
 
   return {
-    values: handles.map((h) => Option.map(h.getSnapshot(), (s) => s.memory["n"])),
+    values: handles.map((h) => Option.map(h.getSnapshot(), (s) => s.memory.n)),
     issues: seen.filter((e) => e._tag === "Issue"),
   };
 };

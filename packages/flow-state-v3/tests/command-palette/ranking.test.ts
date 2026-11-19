@@ -9,7 +9,7 @@ import {
   paletteStory,
 } from "../../fixtures/command-palette/stories/usual.ts";
 import { played } from "../rules/played.ts";
-import { resultsAt, shownAt } from "./reads.ts";
+import { resultsAt, shownAt } from "./cuts.ts";
 
 const E = Palette.E;
 

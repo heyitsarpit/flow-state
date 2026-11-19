@@ -92,11 +92,11 @@ describe("device dates at their edges (fixtures.md E1, E2)", () => {
     expect(trusted.read(deviceOf(0))?.memory).toEqual(
       expect.objectContaining({ until: EPOCH, lastSeen: null }),
     );
-    expect(trusted.read(deviceOf(0))?.memory["label"]).toBeUndefined();
+    expect(trusted.read(deviceOf(0))?.memory.label).toBeUndefined();
     expect(trusted.read(deviceOf(1))?.memory).toEqual(
       expect.objectContaining({ until: LATEST, lastSeen: LATEST }),
     );
-    expect(trusted.read(deviceOf(1))?.memory["label"]).toBeUndefined();
+    expect(trusted.read(deviceOf(1))?.memory.label).toBeUndefined();
     expect(trusted.read(deviceOf(2))?.memory).toEqual(
       expect.objectContaining({ until: EARLIEST, label: "" }),
     );
@@ -155,7 +155,7 @@ describe("a trusted device under its session (fixtures.md S1 with S9, S6)", () =
         memory: expect.objectContaining({ until: LAPTOP_UNTIL, signedIn: false }),
       }),
     );
-    expect(fresh.read(laptop)?.memory["label"]).toBeUndefined();
+    expect(fresh.read(laptop)?.memory.label).toBeUndefined();
   });
 
   it("Actors R20: the laptop disposed first, then its session, leaves no actor", async () => {

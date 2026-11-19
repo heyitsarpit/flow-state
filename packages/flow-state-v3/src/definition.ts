@@ -505,7 +505,7 @@ export const definition = entry(
     const internal = config.internalEvents ?? trusted<In>({});
     const context = config.context ?? trusted<Cx>({});
     const memory = config.memory ?? trusted<M>({});
-    const E = tokensOf({ ...config.events, ...internal });
+    const E = tokensOf(config.id, { ...config.events, ...internal });
     const declare = config.operations;
 
     const called =

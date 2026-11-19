@@ -34,7 +34,7 @@ describe("a persisted session around the sign-in screen", () => {
     expect(run.checkpoints.opened.read(mainSession)?.memory).toEqual(
       expect.objectContaining({ email: "elif@kamp.us", handle: "elif", refreshToken: "" }),
     );
-    expect(run.checkpoints.stuck.read(mainSession)?.memory["refreshToken"]).toBe("rt-elif@kamp.us");
+    expect(run.checkpoints.stuck.read(mainSession)?.memory.refreshToken).toBe("rt-elif@kamp.us");
   });
 
   it("a failed handle save holds the redirect and keeps the handle; a retry that lands releases it, and the draft returns", async () => {
@@ -69,15 +69,15 @@ describe("a persisted session around the sign-in screen", () => {
     const run = await played(blankHandle);
 
     expect(setUsernames(run.checkpoints.submitted)).toBe(0);
-    expect(run.checkpoints.submitted.read(mainSession)?.memory["held"]).toBe(false);
+    expect(run.checkpoints.submitted.read(mainSession)?.memory.held).toBe(false);
   });
 
   it("WriteLanes R7: a second submit while the first is on the wire is refused, the redirect held once and released once", async () => {
     const run = await played(submitTwice);
 
     expect(setUsernames(run.checkpoints.twice)).toBe(1);
-    expect(run.checkpoints.twice.read(mainSession)?.memory["held"]).toBe(true);
-    expect(run.checkpoints.landed.read(mainSession)?.memory["held"]).toBe(false);
+    expect(run.checkpoints.twice.read(mainSession)?.memory.held).toBe(true);
+    expect(run.checkpoints.landed.read(mainSession)?.memory.held).toBe(false);
   });
 
   it("an unedited prefilled handle asks to be confirmed before it is saved", async () => {
@@ -113,7 +113,7 @@ describe("many sign-ins (fixtures.md L1, S3)", () => {
     const run = await played(manySessions);
 
     expect(run.checkpoints.end.read(sessionOf(15))?.state).toBe("SIGNED_IN");
-    expect(run.checkpoints.end.read(sessionOf(0))?.memory["handle"]).toBe("user0");
+    expect(run.checkpoints.end.read(sessionOf(0))?.memory.handle).toBe("user0");
   });
 });
 
@@ -133,7 +133,7 @@ describe("the session's ends (fixtures.md S6)", () => {
 
     expect(attempts).toHaveLength(2);
     expect(new Set(attempts).size).toBe(1);
-    expect(run.checkpoints.reloaded.read(mainSession)?.memory["held"]).toBe(false);
+    expect(run.checkpoints.reloaded.read(mainSession)?.memory.held).toBe(false);
     expect(run.checkpoints.reloaded.read(mainReturn)?.state).toBe("RETURNED");
   });
 
@@ -165,7 +165,7 @@ describe("emails at their edges (fixtures.md E1, E3)", () => {
   it("E1, Compile R5: an empty email computes an empty handle, and the screen sends it to the auth server as typed", async () => {
     const run = await played(emptyEmail);
 
-    expect(run.checkpoints.opened.read(blankSession)?.memory["handle"]).toBe("");
+    expect(run.checkpoints.opened.read(blankSession)?.memory.handle).toBe("");
     expect(
       run.end.calls.filter((c) => c.endpoint === "begin").map((c) => c.input["email"]),
     ).toEqual([""]);

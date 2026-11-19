@@ -130,7 +130,7 @@ describe("Story step words", () => {
 
   it("advance wakes the nudge at 20 s and the deadline at 30 s, not a millisecond before (Turn I22; WriteLanes R2)", async () => {
     const run = checked(await deadline.run());
-    const notice = (cut: Cut) => cut.read(account)?.memory["notice"];
+    const notice = (cut: Cut) => cut.read(account)?.memory.notice;
 
     expect(run.checkpoints["before nudge"].now).toBe(19_999);
     expect(notice(run.checkpoints["before nudge"])).toBe("");

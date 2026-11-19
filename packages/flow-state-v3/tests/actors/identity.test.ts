@@ -84,9 +84,7 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
       actorRef(EditorMachine, { ticketId: "T-42", workspaceId: "north", page: 3 }),
     );
 
-    expect(Option.map(reordered.getSnapshot(), (s) => s.memory["draft"])).toEqual(
-      Option.some("hi"),
-    );
+    expect(Option.map(reordered.getSnapshot(), (s) => s.memory.draft)).toEqual(Option.some("hi"));
   });
 
   it("Actors R5: two values with different input fields name two actors", () => {
@@ -97,7 +95,7 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
       actorRef(EditorMachine, { workspaceId: "south", ticketId: "T-42" }),
     );
 
-    expect(Option.map(south.getSnapshot(), (s) => s.memory["draft"])).toEqual(Option.some(""));
+    expect(Option.map(south.getSnapshot(), (s) => s.memory.draft)).toEqual(Option.some(""));
   });
 
   it("Actors R6, Compile R6: ensuring a value ref creates the actor from that input", () => {
@@ -151,7 +149,7 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
       .checkpoint("ticked")
       .run();
 
-    expect(run.checkpoints.ticked.read(one)?.memory["ticks"]).toBe(1);
+    expect(run.checkpoints.ticked.read(one)?.memory.ticks).toBe(1);
   });
 
   it("Actors R5: a Story names a value-named actor by its input", async () => {
@@ -165,7 +163,7 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
       .checkpoint("typed")
       .run();
 
-    expect(run.checkpoints.typed.read(north)?.memory["draft"]).toBe("ab");
+    expect(run.checkpoints.typed.read(north)?.memory.draft).toBe("ab");
   });
 });
 
@@ -177,9 +175,9 @@ describe("createActor (Actors R6)", () => {
     const second = runtime.createActor(EditorMachine, { input });
     first.send(Editor.E.Type({ text: "x" }));
 
-    expect(Option.map(first.getSnapshot(), (s) => s.memory["draft"])).toEqual(Option.some("x"));
-    expect(Option.map(second.getSnapshot(), (s) => s.memory["draft"])).toEqual(Option.some(""));
-    expect(Option.map(runtime.ensureActor(north).getSnapshot(), (s) => s.memory["draft"])).toEqual(
+    expect(Option.map(first.getSnapshot(), (s) => s.memory.draft)).toEqual(Option.some("x"));
+    expect(Option.map(second.getSnapshot(), (s) => s.memory.draft)).toEqual(Option.some(""));
+    expect(Option.map(runtime.ensureActor(north).getSnapshot(), (s) => s.memory.draft)).toEqual(
       Option.some(""),
     );
   });
@@ -192,7 +190,7 @@ describe("createActor (Actors R6)", () => {
     await Effect.runPromise(Effect.sleep(PAST_GRACE));
     local.send(Clock.E.Tick());
 
-    expect(Option.map(local.getSnapshot(), (s) => s.memory["ticks"])).toEqual(Option.some(1));
+    expect(Option.map(local.getSnapshot(), (s) => s.memory.ticks)).toEqual(Option.some(1));
 
     runtime.disposeActor(local);
     expect(Option.map(local.getSnapshot(), (s) => s.lifecycle)).toEqual(Option.some("disposed"));
@@ -229,7 +227,7 @@ describe("isolation (Actors R24, I34)", () => {
     handle.send(Editor.E.Type({ text: "a" }));
 
     expect(thrownCode(() => b.disposeActor(handle))).toBe("ForeignActorRef");
-    expect(Option.map(b.ensureActor(north).getSnapshot(), (s) => s.memory["draft"])).toEqual(
+    expect(Option.map(b.ensureActor(north).getSnapshot(), (s) => s.memory.draft)).toEqual(
       Option.some(""),
     );
     expect(thrownCode(() => a.disposeActor(handle))).toBe("none");

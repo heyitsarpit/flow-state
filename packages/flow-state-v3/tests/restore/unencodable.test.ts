@@ -152,7 +152,7 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     ]);
     expect(savedCount(run, "good")).toBe(5000);
     expect(savedCount(run, "withheld")).toBe(5000);
-    expect(run.checkpoints.reloaded.read(notes)?.memory["notes"]).toHaveLength(5000);
+    expect(run.checkpoints.reloaded.read(notes)?.memory.notes).toHaveLength(5000);
   });
 
   it("Actors R8: the end waits while the record cannot encode, and ends once it can", async () => {

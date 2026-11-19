@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
+import { quantity } from "../../fixtures/number-input/app.ts";
 import { stress } from "../../fixtures/number-input/stories/usual.ts";
+import { publishedOf } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
-import { published } from "./reads.ts";
 
 describe("number input: stress", () => {
   it("NUMBER-12: a hundred and fifty gestures keep every value within its bounds, and every commit is one per interaction and differs from its start", async () => {
     const run = await played(stress);
-    const fields = published(run);
+    const fields = publishedOf(run, quantity).map((p) => p.memory);
 
     const outOfBounds = fields.filter(
       (m) =>

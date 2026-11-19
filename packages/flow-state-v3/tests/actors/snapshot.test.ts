@@ -85,7 +85,7 @@ describe("the snapshot (Turn R23, R25; Runtime O3)", () => {
 
     const read = run.checkpoints.disposed.read(lamp);
     expect(read?.lifecycle).toBe("disposed");
-    expect(read?.memory["flips"]).toBe(1);
+    expect(read?.memory.flips).toBe(1);
   });
 
   it("Runtime O6: during and after Runtime disposal a live actor reads disposing, then disposed", async () => {

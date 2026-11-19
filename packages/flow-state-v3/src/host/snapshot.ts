@@ -1,6 +1,6 @@
 import { Option, Result } from "effect";
 import { publicMemory } from "../core/compiled.ts";
-import type { Values } from "../core/compiled.ts";
+import type { Compiled, Values } from "../core/compiled.ts";
 import { inputOfName } from "../core/identity.ts";
 import { actorRecordKey } from "../core/record.ts";
 import { create } from "../core/tree.ts";
@@ -17,17 +17,23 @@ import {
   sourceText,
   type World,
 } from "../core/world.ts";
-import type { Machine, Operations } from "../definition.ts";
+import type { AnyDefinition, LeavesOf, Machine, MemoryOf, Operations } from "../definition.ts";
 import { type Code, Diagnostic } from "../error.ts";
 import type { Driver } from "./driver.ts";
 
 /**
  * What a handle shows of an identity: its leaf state, its memory and its write lanes'
  * rows.
+ *
+ * **Details**
+ *
+ * `Snapshot<D>` types `state` as the definition's leaf paths and `memory` as its whole memory, each
+ * field's decoded value, `Flow.private` fields included; a Story's `read(ref)` returns it.
+ * `Snapshot` with no definition is erased: `state` is a string and `memory` is `Values`.
  */
-export type Snapshot = {
-  readonly state: string;
-  readonly memory: Values;
+export type Snapshot<D extends AnyDefinition = AnyDefinition> = {
+  readonly state: AnyDefinition extends D ? string : LeavesOf<D["states"]>;
+  readonly memory: AnyDefinition extends D ? Values : MemoryOf<D["memory"]>;
   readonly operations: Operations;
   readonly lifecycle: "active" | "disposing" | "disposed" | "stopped" | "quarantined";
   readonly context: Values;
@@ -80,6 +86,13 @@ const operationsOf = (world: World, machines: Machines, actor: ActorId): Operati
   return rows;
 };
 
+/**
+ * The memory an ensure would start an identity with, or the field whose start is refused: what a
+ * quarantined record's snapshot shows.
+ */
+export const freshStart = (compiled: Compiled, actor: ActorId) =>
+  create(compiled, inputOfName(compiled, actor.name));
+
 // RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
 export const snapshotIn = (
   world: World,
@@ -123,7 +136,7 @@ export const snapshotIn = (
   if (quarantined !== undefined && compiled !== undefined)
     return Option.some({
       state: compiled.initial,
-      memory: Result.getOrElse(create(compiled, inputOfName(compiled, actor.name)), () => ({})),
+      memory: Result.getOrElse(freshStart(compiled, actor), () => ({})),
       operations,
       lifecycle: restingLifecycleOf(world.life, "quarantined"),
       context: {},

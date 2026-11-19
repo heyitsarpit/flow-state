@@ -416,7 +416,7 @@ describe("onContext defects (Turn R22)", () => {
 
     for (const user of ["x", "", "y", ""]) session.send(Session.E.SignIn({ user }));
 
-    expect(Option.map(echo.getSnapshot(), (s) => s.memory["echoes"])).toEqual(Option.some(0));
+    expect(Option.map(echo.getSnapshot(), (s) => s.memory.echoes)).toEqual(Option.some(0));
     expect(Option.map(echo.getSnapshot(), (s) => s.issues.length)).toEqual(Option.some(0));
   });
 });
@@ -430,7 +430,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     session.send(Session.E.SignIn({ user: "ada" }));
 
     expect(turnsOf(seen, "UserChanged")).toBe(1);
-    expect(Option.map(handle.getSnapshot(), (s) => s.memory["greeting"])).toEqual(
+    expect(Option.map(handle.getSnapshot(), (s) => s.memory.greeting)).toEqual(
       Option.some("hi ada"),
     );
     expect(Option.map(handle.getSnapshot(), (s) => s.context["user"])).toEqual(Option.some("ada"));
@@ -446,7 +446,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     expect(read.context).toEqual({ user: "boom", broken: 0 });
     expect(read.issues.map((d) => d.path[2])).toEqual(["context broken"]);
     expect(seen.filter((e) => e._tag === "Issue")).toHaveLength(1);
-    expect(Option.map(session.getSnapshot(), (s) => s.memory["user"])).toEqual(Option.some("boom"));
+    expect(Option.map(session.getSnapshot(), (s) => s.memory.user)).toEqual(Option.some("boom"));
   });
 
   it("Actors R19, I27: in a diamond the consumer gets one update per wave, never mixing new and stale values", () => {
@@ -456,7 +456,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     runtime.ensureActor(actorRef(WatcherMachine, "right"));
     runtime.ensureActor(main).send(Session.E.SignIn({ user: "ada" }));
 
-    expect(Option.map(handle.getSnapshot(), (s) => s.memory["pairs"])).toEqual(
+    expect(Option.map(handle.getSnapshot(), (s) => s.memory.pairs)).toEqual(
       Option.some(["ada|ada"]),
     );
   });
@@ -466,7 +466,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     const handle = runtime.ensureActor(actorRef(BothMachine, "both"));
     runtime.ensureActor(main).send(Session.E.SignIn({ user: "ada" }));
 
-    expect(Option.map(handle.getSnapshot(), (s) => s.memory["pairs"])).toEqual(
+    expect(Option.map(handle.getSnapshot(), (s) => s.memory.pairs)).toEqual(
       Option.some(["ada|ada"]),
     );
   });
@@ -502,9 +502,7 @@ describe("context in callbacks (Turn R12)", () => {
     const reader = runtime.ensureActor(actorRef(ReaderMachine, "reader"));
     reader.send(Reader.E.Read());
 
-    expect(Option.map(reader.getSnapshot(), (s) => s.memory["read"])).toEqual(
-      Option.some("context"),
-    );
+    expect(Option.map(reader.getSnapshot(), (s) => s.memory.read)).toEqual(Option.some("context"));
   });
 });
 
@@ -596,7 +594,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
 
     const turns = run.evidence.flatMap((e) => (e._tag === "Turn" ? [e.event] : []));
     expect(turns).toEqual(["SignIn", "Seen", "Ping"]);
-    expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
+    expect(run.checkpoints.back.read(keptWatcher)?.memory.seen).toBe("ada");
   });
 
   it("Actors R9, R18: a slot whose selector threw at its start is saved never selected, so a return after a reload hears its first value", async () => {
@@ -614,7 +612,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
         .run(),
     );
 
-    expect(run.checkpoints.back.read(strict)?.memory["seen"]).toBe("ada");
+    expect(run.checkpoints.back.read(strict)?.memory.seen).toBe("ada");
   });
 
   it("Actors R18: a reload binds a consumer to the provider its ref named, not its entry's default", async () => {
@@ -670,7 +668,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
     );
 
     expect(afterReload(run)).toEqual(["SignIn", "Seen", "Ping"]);
-    expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
+    expect(run.checkpoints.back.read(keptWatcher)?.memory.seen).toBe("ada");
   });
 
   it("Actors R9, R18: a consumer whose provider changed after it ended, returned after a reload, gets one wave", async () => {
@@ -687,7 +685,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
         .run(),
     );
 
-    expect(run.checkpoints.back.read(keptWatcher)?.memory["seen"]).toBe("ada");
+    expect(run.checkpoints.back.read(keptWatcher)?.memory.seen).toBe("ada");
   });
 
   it("Actors R9: a consumer returned after a reload with its provider unchanged gets no wave", async () => {
@@ -765,7 +763,7 @@ describe("a kept baseline across a reload (Turn R22; Restore R2)", () => {
       // oxlint-disable-next-line no-await-in-loop -- one run at a time: each is its own world
       const run = checked(await story(reloaded).run());
 
-      expect(run.checkpoints.back.read(echo)?.memory["echoes"]).toBe(1);
+      expect(run.checkpoints.back.read(echo)?.memory.echoes).toBe(1);
     }
   });
 });

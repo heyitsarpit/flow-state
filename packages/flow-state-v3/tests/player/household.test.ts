@@ -36,19 +36,19 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
     for (const name of GROUP) {
       const snapshot = run.checkpoints.started.read(room(name));
 
-      expect(snapshot?.memory["trackId"]).toBe("t1");
+      expect(snapshot?.memory.trackId).toBe("t1");
       expect(snapshot?.state.startsWith("ON.")).toBe(true);
     }
 
     for (const name of GROUP)
       expect(turnsOf(run, is(room(name))).filter((e) => e === "Play")).toEqual(["Play"]);
-    expect(run.checkpoints.started.read(household)?.memory["started"]).toBe(3);
+    expect(run.checkpoints.started.read(household)?.memory.started).toBe(3);
   });
 
   it("Actors R16 live in the grace, I25: a room in its grace gets Play in the same incarnation, and the send is no use of it, so it ends after the grace", async () => {
     const run = await played(groupInGrace);
 
-    expect(run.checkpoints.delivered.read(room("kitchen"))?.memory["trackId"]).toBe("t1");
+    expect(run.checkpoints.delivered.read(room("kitchen"))?.memory.trackId).toBe("t1");
     expect(incarnationsOf(run, is(room("kitchen")))).toBe(1);
     expect(run.checkpoints["after the grace"].read(room("kitchen"))?.lifecycle).not.toBe("active");
     expect(endsOf(run, is(room("kitchen")))).toBe(1);
@@ -61,7 +61,7 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
       { actor: idOf(room("kitchen")), event: "Play", reason: "NoRecord", sender: idOf(household) },
     ]);
     expect(incarnationsOf(run, is(room("kitchen")))).toBe(1);
-    expect(run.checkpoints.sent.read(household)?.memory["started"]).toBe(1);
+    expect(run.checkpoints.sent.read(household)?.memory.started).toBe(1);
   });
 
   it("Actors R16 no record (disposed, never created): both sends are dropped NoRecord on the household, in send order, and neither room is created", async () => {
@@ -73,7 +73,7 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
     ]);
     expect(incarnationsOf(run, is(room("kitchen")))).toBe(1);
     expect(incarnationsOf(run, is(room("attic")))).toBe(0);
-    expect(run.checkpoints.sent.read(household)?.memory["started"]).toBe(2);
+    expect(run.checkpoints.sent.read(household)?.memory.started).toBe(2);
   });
 
   it("send check: a target ref with no encoded name refuses the sender's turn InvalidTurn; the rooms before it played and none after", async () => {
@@ -81,9 +81,9 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
     const sent = run.checkpoints.sent;
 
     expect(refusedTurns(sent, household)).toHaveLength(1);
-    expect(sent.read(household)?.memory["started"]).toBe(1);
-    expect(sent.read(room("lounge"))?.memory["trackId"]).toBe("t1");
-    expect(sent.read(room("study"))?.memory["trackId"]).toBe("");
+    expect(sent.read(household)?.memory.started).toBe(1);
+    expect(sent.read(room("lounge"))?.memory.trackId).toBe("t1");
+    expect(sent.read(room("study"))?.memory.trackId).toBe("");
   });
 
   it("S2 x 64, Actors R13: three group plays back to back each reach all sixty-four rooms once, the last track winning", async () => {
@@ -92,11 +92,11 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
     for (const n of Array.from({ length: BUILDING }, (_, i) => i)) {
       const at = room(`room-${String(n)}`);
 
-      expect(run.checkpoints.end.read(at)?.memory["trackId"]).toBe("t3");
+      expect(run.checkpoints.end.read(at)?.memory.trackId).toBe("t3");
       expect(turnsOf(run, is(at)).filter((e) => e === "Play")).toHaveLength(3);
     }
 
-    expect(run.checkpoints.end.read(household)?.memory["started"]).toBe(3 * BUILDING);
+    expect(run.checkpoints.end.read(household)?.memory.started).toBe(3 * BUILDING);
   });
 
   it("Actors R13, I20: forty group plays whose sends together pass the loop guard are never refused, since the guard counts per admitted event", async () => {
@@ -104,8 +104,8 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
     const end = run.checkpoints.end;
 
     expect(refusedTurns(end, household)).toEqual([]);
-    expect(end.read(household)?.memory["started"]).toBe(REPLAYS * BUILDING);
-    expect(end.read(room("room-0"))?.memory["trackId"]).toBe(`t${String(REPLAYS)}`);
+    expect(end.read(household)?.memory.started).toBe(REPLAYS * BUILDING);
+    expect(end.read(room("room-0"))?.memory.trackId).toBe(`t${String(REPLAYS)}`);
   });
 
   it("Actors R13, I20: one group play whose sends together pass the loop guard is stopped there, though its chain of Nexts is shorter than the guard: the guard counts every send of one admitted event, not a chain's length", async () => {
@@ -116,7 +116,7 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
 
     expect(FAN_OUT < RuntimeDefaults.loopGuard).toBe(true);
     expect(refusedTurns(stopped, household)).toHaveLength(1);
-    expect(stopped.read(household)?.memory["started"]).toBe(started);
+    expect(stopped.read(household)?.memory.started).toBe(started);
     expect(droppedSends(run)).toHaveLength(started);
   });
 });

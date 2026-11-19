@@ -32,6 +32,10 @@ export type { At, Cleanup, Tab } from "./steps.ts";
 
 export type { Cut, Reload, RunFault, StoryRun } from "./run.ts";
 
+export { evidenceOf, publishedOf, turnsOf } from "./select.ts";
+
+export type { EventRecord, PublishedOf, Recorded } from "./select.ts";
+
 export { generate, profileTables, propertyTest } from "./generate.ts";
 
 export type { Drawing, Failure, Generated, Profile, Span } from "./generate.ts";

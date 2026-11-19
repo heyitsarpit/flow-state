@@ -9,7 +9,7 @@ describe("the usual and long sync Stories", () => {
     const run = checked(await usual.run());
     const { peeked, cooling, cooled, end } = run.checkpoints;
 
-    expect(peeked.read(client)?.memory["head"]).toBe("a1b2c3");
+    expect(peeked.read(client)?.memory.head).toBe("a1b2c3");
     expect(cooling.read(client)?.state).toBe("COOLING");
     expect(cooling.read(client)?.memory).toEqual(
       expect.objectContaining({ strikes: 1, waitMs: 9000 }),

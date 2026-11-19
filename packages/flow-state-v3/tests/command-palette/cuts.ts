@@ -1,9 +1,9 @@
 import { Option } from "effect";
+import assert from "node:assert/strict";
 import { shownCommands } from "../../fixtures/command-palette/machines/commands.ts";
 import {
   highlightOf,
   PaletteMachine,
-  type PaletteMemory,
   resultsOf,
 } from "../../fixtures/command-palette/machines/palette.ts";
 import { palette } from "../../fixtures/command-palette/app.ts";
@@ -13,18 +13,14 @@ import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 const EVERY = ["calendar", "emoji", "calculator", "profile", "theme", "light", "dark", "settings"];
 
 /**
- * A palette memory record as the Runtime shows it.
+ * The palette's memory at a cut; a cut without the palette fails the test.
  */
-// FLOW_STATE_ALLOW_UNKNOWN: a snapshot's or evidence record's memory is erased to Values.
-export const asPalette = (memory: unknown) =>
-  // SAFETY: the palette's memory is the PaletteMemory record its definition declares.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a snapshot's memory is erased to Values
-  memory as PaletteMemory;
+export const memoryAt = (cut: Cut) => {
+  const snapshot = cut.read(palette);
+  assert.ok(snapshot !== undefined, "the palette has no snapshot at this cut");
 
-/**
- * The palette's memory at a cut.
- */
-export const memoryAt = (cut: Cut) => asPalette(cut.read(palette)?.memory);
+  return snapshot.memory;
+};
 
 /**
  * The entries the palette shows at a cut.

@@ -53,20 +53,18 @@ describe("the usual and long Stories", () => {
     const { paid, declined, retried, left, end } = run.checkpoints;
 
     expect(paid.read(checkout)?.state).toBe("PAID");
-    expect(paid.read(checkout)?.memory["receipt"]).toEqual({
+    expect(paid.read(checkout)?.memory.receipt).toEqual({
       orderId: "o1",
       afterUnsure: false,
       alreadyPlaced: false,
     });
     expect(paid.read(Shop.confirm)).toHaveLength(1);
     expect(declined.read(checkout)?.state).toBe("CARD");
-    expect(declined.read(checkout)?.memory["notice"]).toBe(
-      "Your card was declined (card_declined).",
-    );
+    expect(declined.read(checkout)?.memory.notice).toBe("Your card was declined (card_declined).");
     expect(retried.read(checkout)?.state).toBe("PAID");
     expect(retried.read(Shop).orders).toEqual({ c1: "o1", c2: "o2" });
     expect(left.read(checkout)?.state).toBe("LEFT");
-    expect(left.read(checkout)?.memory["notice"]).toBe("The hold on your card was released.");
+    expect(left.read(checkout)?.memory.notice).toBe("The hold on your card was released.");
     expect(left.read(Shop.voidAuthorization)).toHaveLength(1);
     expect(end.read(checkout)?.state).toBe("LEFT");
   });

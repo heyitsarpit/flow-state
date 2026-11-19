@@ -13,7 +13,7 @@ const statuses = (cut: Cut) => cut.read(Bank.transfer).map((c) => c.status);
 
 const receipts = (cut: Cut) => Object.keys(cut.read(Bank).receipts).length;
 
-const notice = (cut: Cut) => cut.read(account)?.memory["notice"];
+const notice = (cut: Cut) => cut.read(account)?.memory.notice;
 
 // One transfer under a wire word, then whatever follows, then a second transfer no word touches.
 const wired = async (word: WorldWord, ...after: ReadonlyArray<WorldWord | "30 seconds">) => {

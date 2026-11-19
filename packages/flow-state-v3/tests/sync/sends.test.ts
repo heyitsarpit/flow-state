@@ -36,8 +36,8 @@ const ROOT = `from Push to ${idOf(mirrorA).name}`;
 // Every event the turns of the run sent: each replica push and each mirror forward, one per take.
 const sentBy = (cut: Cut, replicas: ReadonlyArray<ActorRef>, forwarders: ReadonlyArray<ActorRef>) =>
   [
-    ...replicas.map((r) => cut.read(r)?.memory["pushed"]),
-    ...forwarders.map((m) => cut.read(m)?.memory["seen"]),
+    ...replicas.map((r) => cut.read(r)?.memory.pushed),
+    ...forwarders.map((m) => cut.read(m)?.memory.seen),
   ]
     .map(Number)
     .reduce((a, b) => a + b, 0);
@@ -57,7 +57,7 @@ describe("a repository tells its client to sync (Actors R16; Runtime O4's send t
 
     expect(refusedTurns(imported, mirrorA)).toHaveLength(1);
     expect(turnsOf(run, is(mirrorB))).toEqual([]);
-    expect(imported.read(mirrorB)?.memory["lastSha"]).toBe("");
+    expect(imported.read(mirrorB)?.memory.lastSha).toBe("");
   });
 });
 
@@ -71,8 +71,8 @@ describe("the loop guard (Actors R13, I20)", () => {
     expect(refused[0]?.summary).toContain(ROOT);
     expect(refused[0]?.summary).toContain(String(RuntimeDefaults.loopGuard));
     expect(refusedTurns(stopped, mirrorB)).toEqual([]);
-    expect(stopped.read(mirrorA)?.memory["seen"]).toBe(HALF);
-    expect(stopped.read(mirrorB)?.memory["seen"]).toBe(HALF);
+    expect(stopped.read(mirrorA)?.memory.seen).toBe(HALF);
+    expect(stopped.read(mirrorB)?.memory.seen).toBe(HALF);
   });
 
   it("Actors R13: a chain of exactly the loop guard's sends, each with a context update the status line hears, is never refused: context updates and their onContext events do not count", async () => {
@@ -81,9 +81,9 @@ describe("the loop guard (Actors R13, I20)", () => {
 
     expect(refusedTurns(arrived, mirrorA)).toEqual([]);
     expect(refusedTurns(arrived, mirrorB)).toEqual([]);
-    expect(arrived.read(mirrorA)?.memory["seen"]).toBe(HALF + 1);
-    expect(arrived.read(mirrorB)?.memory["seen"]).toBe(HALF);
-    expect(arrived.read(statusA)?.memory["seen"]).toBe(HALF + 1);
+    expect(arrived.read(mirrorA)?.memory.seen).toBe(HALF + 1);
+    expect(arrived.read(mirrorB)?.memory.seen).toBe(HALF);
+    expect(arrived.read(statusA)?.memory.seen).toBe(HALF + 1);
   });
 
   it("Actors R13, I20: sends made by onContext turns count: a replica pushing each commit its mirror takes, through a context update, to a mirror forwarding back is stopped at the loop guard, the replica's turn refused", async () => {
@@ -95,9 +95,9 @@ describe("the loop guard (Actors R13, I20)", () => {
     expect(refused).toHaveLength(1);
     expect(refused[0]?.summary).toContain(ROOT);
     expect(refusedTurns(stopped, mirrorB)).toEqual([]);
-    expect(stopped.read(replicaA)?.memory["pushed"]).toBe(HALF);
-    expect(stopped.read(mirrorB)?.memory["seen"]).toBe(HALF);
-    expect(stopped.read(mirrorA)?.memory["seen"]).toBe(HALF + 1);
+    expect(stopped.read(replicaA)?.memory.pushed).toBe(HALF);
+    expect(stopped.read(mirrorB)?.memory.seen).toBe(HALF);
+    expect(stopped.read(mirrorA)?.memory.seen).toBe(HALF + 1);
   });
 
   it("Actors R13, I20: one count per admitted event, shared by every consumer its context update reaches: a host push to a mirror that sends nothing, followed by two replicas feeding a mirror that forwards back, is refused once the run's sends reach the guard", async () => {

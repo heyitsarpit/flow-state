@@ -12,7 +12,7 @@ import {
 } from "../../fixtures/command-palette/stories/structure.ts";
 import type { StoryRun } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
-import { asPalette, memoryAt, shownAt } from "./reads.ts";
+import { memoryAt, shownAt } from "./cuts.ts";
 
 const reports = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Reported" ? [e.code] : []));
@@ -38,11 +38,11 @@ describe("page frames deep (fixtures.md S1 with S9)", () => {
 describe("two palettes (fixtures.md S3)", () => {
   it("Actors R5: two palettes keep their own lists and queries", async () => {
     const run = await played(twoPalettes);
-    const second = asPalette(run.checkpoints.typed.read(secondPalette)?.memory);
+    const second = run.checkpoints.typed.read(secondPalette)?.memory;
 
     expect(memoryAt(run.checkpoints.typed).query).toBe("pro");
-    expect(second.query).toBe("li");
-    expect(second.commands).toHaveLength(2);
+    expect(second?.query).toBe("li");
+    expect(second?.commands).toHaveLength(2);
   });
 });
 

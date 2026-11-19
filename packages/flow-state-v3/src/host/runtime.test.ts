@@ -296,7 +296,7 @@ describe("Runtime", () => {
 
     assert.deepStrictEqual(rings, []);
     assert.deepStrictEqual(
-      Option.map(door.getSnapshot(), (s) => s.memory["notSent"]),
+      Option.map(door.getSnapshot(), (s) => s.memory.notSent),
       Option.some("Unencodable"),
     );
   });
@@ -458,7 +458,7 @@ const countIn = (store: Map<string, string>) =>
   Effect.gen(function* () {
     const runtime = tallyOver(store, "0".repeat(32));
     yield* runtime.ready();
-    const count = Option.map(runtime.ensureActor(tally).getSnapshot(), (s) => s.memory["count"]);
+    const count = Option.map(runtime.ensureActor(tally).getSnapshot(), (s) => s.memory.count);
     yield* runtime.dispose();
 
     return count;
@@ -669,7 +669,7 @@ const FanMachine = machine(Fan, ({ S }) => ({
 
 const countOf = (handle: {
   readonly getSnapshot: () => Option.Option<{ readonly memory: Readonly<Record<string, unknown>> }>;
-}) => Option.map(handle.getSnapshot(), (s) => s.memory["count"]);
+}) => Option.map(handle.getSnapshot(), (s) => s.memory.count);
 
 describe("mail at disposeActor (Actors R10, R20)", () => {
   it("Actors R10: events queued past the dispose step's drain never reach the new incarnation an ensure in the same host task starts", () => {

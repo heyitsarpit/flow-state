@@ -53,6 +53,9 @@ export const payloadOf = (fields: Schema.Struct.Fields) => {
 // not one.
 const admissions = new WeakMap<WeakKey, ReturnType<typeof payloadOf>>();
 
+// The definition each event token was made by, by the token itself.
+const definitions = new WeakMap<WeakKey, string>();
+
 const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
   const ending = { event: tag, from: Option.none() };
   const admission = payloadOf(fields);
@@ -105,12 +108,27 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
 /**
  * A definition's event tokens, by tag: each built once with its payload Struct and walker.
  */
-export const tokensOf = <Ev extends Readonly<Record<string, EventFields>>>(events: Ev) =>
+export const tokensOf = <Ev extends Readonly<Record<string, EventFields>>>(
+  definition: string,
+  events: Ev,
+) =>
   trusted<Tokens<Ev>>(
     Object.fromEntries(
-      Object.entries(events).map(([tag, fields]) => [tag, eventToken(tag, fieldsOf(fields))]),
+      Object.entries(events).map(([tag, fields]) => {
+        const token = eventToken(tag, fieldsOf(fields));
+        definitions.set(token, definition);
+
+        return [tag, token];
+      }),
     ),
   );
+
+/**
+ * The id of the definition that made an event token, or none for a value no definition made.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: any value a caller passes as a token.
+export const definitionOfToken = (token: unknown) =>
+  Predicate.isFunction(token) ? Option.fromUndefinedOr(definitions.get(token)) : Option.none();
 
 /**
  * How a definition admits one event's payload: the Struct and its type-side walker its token was

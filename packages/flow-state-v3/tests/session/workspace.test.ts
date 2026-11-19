@@ -65,7 +65,7 @@ describe("the workspace shell", () => {
         memory: expect.objectContaining({ user: "" }),
       }),
     );
-    expect(run.checkpoints.next.read(coreTeam)?.memory["name"]).toBe("");
+    expect(run.checkpoints.next.read(coreTeam)?.memory.name).toBe("");
     expect(run.checkpoints.bob.read(coreTeam)).toEqual(
       expect.objectContaining({ context: { user: "bob" }, memory: { name: "" } }),
     );
@@ -91,15 +91,15 @@ describe("storage failures (Restore R5, R9)", () => {
   it("Restore R9: a refused write keeps the live name, and the next publication saves the newest, which a reload restores", async () => {
     const run = await played(refusedWriteRetries);
 
-    expect(run.checkpoints.refused.read(coreTeam)?.memory["name"]).toBe("Core");
-    expect(run.checkpoints.reloaded.read(coreTeam)?.memory["name"]).toBe("Platform");
+    expect(run.checkpoints.refused.read(coreTeam)?.memory.name).toBe("Core");
+    expect(run.checkpoints.reloaded.read(coreTeam)?.memory.name).toBe("Platform");
   });
 
   it("Restore R9: a refused load starts with no persistence, so its writes never overwrite the saved team, which the next boot restores", async () => {
     const run = await played(refusedLoadKeepsData);
 
-    expect(run.checkpoints.unloaded.read(coreTeam)?.memory["name"]).toBe("");
-    expect(run.checkpoints.healed.read(coreTeam)?.memory["name"]).toBe("Core");
+    expect(run.checkpoints.unloaded.read(coreTeam)?.memory.name).toBe("");
+    expect(run.checkpoints.healed.read(coreTeam)?.memory.name).toBe("Core");
   });
 });
 
@@ -120,7 +120,7 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
   it("S6 forgotten: a team forgotten after its badges end starts fresh under the next badge", async () => {
     const run = await played(teamForgotten);
 
-    expect(run.checkpoints.fresh.read(coreTeam)?.memory["name"]).toBe("");
+    expect(run.checkpoints.fresh.read(coreTeam)?.memory.name).toBe("");
   });
 
   it("E1, Actors R19: a sign-out empties the user every team below the session reads", async () => {
@@ -137,7 +137,7 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
     expect(record.memory).toEqual({ seen: 2 });
     // The slot's Schema, UndefinedOr(String), writes undefined as null.
     expect(record.seen).toEqual({ user: null });
-    expect(run.checkpoints.reloaded.read(mainAvatar)?.memory["seen"]).toBe(2);
+    expect(run.checkpoints.reloaded.read(mainAvatar)?.memory.seen).toBe(2);
     expect(Object.entries(run.checkpoints.reloaded.read(mainAvatar)?.context ?? {})).toEqual([
       ["user", undefined],
     ]);
@@ -172,7 +172,7 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
 
     for (const n of [0, 63, 64]) {
       expect(run.checkpoints["signed in"].read(wallAvatar(n))?.context).toEqual({ user: "ada" });
-      expect(run.checkpoints["signed in"].read(wallAvatar(n))?.memory["seen"]).toBe(1);
+      expect(run.checkpoints["signed in"].read(wallAvatar(n))?.memory.seen).toBe(1);
     }
   });
 
@@ -225,9 +225,7 @@ describe("one badge's mailbox (fixtures.md L2; Actors R14)", () => {
     handle.send(Badge.E.Ping());
 
     expect(refused).toEqual([]);
-    expect(Option.map(handle.getSnapshot(), (s) => s.memory["pings"])).toEqual(
-      Option.some(1 + BURST),
-    );
+    expect(Option.map(handle.getSnapshot(), (s) => s.memory.pings)).toEqual(Option.some(1 + BURST));
     expect(BadgeMachine.compiled.id).toBe("Workspace/Badge");
   });
 });

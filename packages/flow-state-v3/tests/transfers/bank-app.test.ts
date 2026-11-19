@@ -44,7 +44,7 @@ describe("the bank around the account: a customer and a transfer form", () => {
         memory: expect.objectContaining({ account: "acct-1", balance: 10_000, cents: 500 }),
       }),
     );
-    expect(run.checkpoints.sent.read(account)?.memory["notice"]).toBe("sent r1");
+    expect(run.checkpoints.sent.read(account)?.memory.notice).toBe("sent r1");
     expect(at("over")).toEqual(
       expect.objectContaining({
         state: "EDITING",
@@ -57,7 +57,7 @@ describe("the bank around the account: a customer and a transfer form", () => {
     const run = await played(chain);
 
     expect(run.checkpoints.reloaded.read(sendForm)?.context).toEqual({ customer: "acct-2" });
-    expect(run.checkpoints.reloaded.read(mainCustomer)?.memory["account"]).toBe("acct-2");
+    expect(run.checkpoints.reloaded.read(mainCustomer)?.memory.account).toBe("acct-2");
   });
 });
 
@@ -67,16 +67,16 @@ describe("many accounts (fixtures.md L1, S3 under L4)", () => {
     const end = run.checkpoints.end;
 
     expect(end.read(accountOf(5))).toBeUndefined();
-    expect(end.read(accountOf(63))?.memory["notice"]).toBe("sent r64");
+    expect(end.read(accountOf(63))?.memory.notice).toBe("sent r64");
   });
 
   it("WriteAhead R14: 64 accounts with transfers on the wire at a reload each hear unknown Restored and are unsure", async () => {
     const run = await played(owedAtBoot);
 
-    expect(run.checkpoints["first boot"].read(accountOf(0))?.memory["notice"]).toBe(
+    expect(run.checkpoints["first boot"].read(accountOf(0))?.memory.notice).toBe(
       "check your statement",
     );
-    expect(run.checkpoints.end.read(accountOf(63))?.memory["notice"]).toBe("check your statement");
+    expect(run.checkpoints.end.read(accountOf(63))?.memory.notice).toBe("check your statement");
   });
 
   it.fails("WriteLanes R10, WriteAhead R14: a second reload delivers no second unknown Restored for a Held head that already heard one", async () => {
@@ -98,7 +98,7 @@ describe("the form's and customer's ends (fixtures.md S6)", () => {
   it("S6 customer forgotten: a form ensured after the customer is forgotten reads a fresh customer", async () => {
     const run = await played(customerForgotten);
 
-    expect(run.checkpoints.fresh.read(mainCustomer)?.memory["account"]).toBe("");
+    expect(run.checkpoints.fresh.read(mainCustomer)?.memory.account).toBe("");
   });
 
   it("Actors R20, Stories R3: disposing the customer while the form is bound is refused BlockedByDependents, naming the form", async () => {

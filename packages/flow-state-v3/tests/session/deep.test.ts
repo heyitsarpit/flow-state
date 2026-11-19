@@ -58,9 +58,9 @@ describe("values of any depth (Codec R1, R4, R6; Actors R18, R19)", () => {
             (cut) => view(cut)?.["pins"],
           ),
         ).toEqual([0, 1, 1, 1, 2]);
-        expect(
-          depthOf(run.checkpoints.reloaded.read(mainNests)?.memory["folders"]),
-        ).toBeGreaterThan(depth - 1);
+        expect(depthOf(run.checkpoints.reloaded.read(mainNests)?.memory.folders)).toBeGreaterThan(
+          depth - 1,
+        );
         expect(depthOf(view("reloaded")?.["pinned"])).toBeGreaterThan(depth - 1);
         expect(run.checkpoints.pinned.records.stored.get(VIEW)).toBeDefined();
         expect(unencodable(run)).toEqual([]);
@@ -76,7 +76,7 @@ describe("values of any depth (Codec R1, R4, R6; Actors R18, R19)", () => {
       const run = checked(await deepAndWideNests().run());
 
       const heard = (cut: keyof typeof run.checkpoints) =>
-        run.checkpoints[cut].read(nestView)?.memory["folders"];
+        run.checkpoints[cut].read(nestView)?.memory.folders;
 
       expect([heard("mixed"), heard("again"), heard("reloaded")]).toEqual([1, 1, 1]);
       expect(unencodable(run)).toEqual([]);

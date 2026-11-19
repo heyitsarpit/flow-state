@@ -1,4 +1,4 @@
-import { type Cause, Effect, Exit, Layer, Option, Predicate } from "effect";
+import { type Cause, Effect, Exit, Layer, Option, Predicate, Result } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
@@ -9,6 +9,7 @@ import type { AnyDefinition } from "../../definition.ts";
 import { FlowError } from "../../error.ts";
 import { Host } from "../host.ts";
 import { attachInspector, inspect, type RuntimeCut } from "../inspect.ts";
+import { freshStart } from "../snapshot.ts";
 import {
   actorIdOf,
   type ActorRef,
@@ -69,7 +70,7 @@ export type Cut = {
   readonly calls: ReadonlyArray<CallEntry & { readonly server: string; readonly endpoint: string }>;
   readonly read: {
     // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's read: undefined for an absent actor
-    <D extends AnyDefinition>(ref: ActorRef<D>): Snapshot | undefined;
+    <D extends AnyDefinition>(ref: ActorRef<D>): Snapshot<D> | undefined;
     <I>(endpoint: EndpointHandle<I>): ReadonlyArray<CallEntry<I>>;
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom type: it carries the type for reads and holds no value
     <T>(server: { readonly "~server": AnyServer; readonly "~truth"?: T }): T;
@@ -435,7 +436,7 @@ export const startRun = <Names extends string>(
     const log = fakes.log();
 
     // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts, lint-bomb/prefer-inferred-return-types -- the Plan's read: undefined for an absent actor; an overload states its own result
-    function read<D extends AnyDefinition>(ref: ActorRef<D>): Snapshot | undefined;
+    function read<D extends AnyDefinition>(ref: ActorRef<D>): Snapshot<D> | undefined;
     // RETURN_TYPE: an overload states its own result.
     function read<I>(endpoint: EndpointHandle<I>): ReadonlyArray<CallEntry<I>>;
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/prefer-inferred-return-types -- a phantom type: it carries the type for reads and holds no value; an overload states its own result
@@ -457,7 +458,20 @@ export const startRun = <Names extends string>(
         return truths.has(server) ? truths.get(server) : server.initial;
       }
 
-      return Option.getOrUndefined(snapshotIn(world, machines, actorOf(target)));
+      const actor = actorOf(target);
+
+      return Option.getOrUndefined(
+        Option.map(snapshotIn(world, machines, actor), (snapshot) =>
+          snapshot.lifecycle === "quarantined" &&
+          Option.exists(Option.fromUndefinedOr(machines.get(actor.machine)), (compiled) =>
+            Result.isFailure(freshStart(compiled, actor)),
+          )
+            ? scriptFault(
+                `${actor.name} is quarantined and its fresh start is refused, so it has no typed memory to read; read its issue from inspection`,
+              )
+            : snapshot,
+        ),
+      );
     }
 
     return {

@@ -133,7 +133,7 @@ describe("no mailbox cap (Actors R14, I22)", () => {
     counter.send(Counter.E.Tick());
 
     expect(refused).toEqual([]);
-    expect(Option.map(counter.getSnapshot(), (s) => s.memory["ticks"])).toEqual(
+    expect(Option.map(counter.getSnapshot(), (s) => s.memory.ticks)).toEqual(
       Option.some(1 + BURST),
     );
   });

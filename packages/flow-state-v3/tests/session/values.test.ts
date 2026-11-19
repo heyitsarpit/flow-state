@@ -95,8 +95,8 @@ describe("every value a selector returns, across reloads (Actors R9, R19)", () =
   it("Actors R18, R19: a selection holding cycles never crashes the run; the thread view hears each changed tree once, across reloads", async () => {
     const run = await played(threadHeard);
 
-    expect(run.checkpoints.written.read(mainThread)?.memory["heard"]).toBe(5);
-    expect(run.checkpoints.reloaded.read(mainThread)?.memory["heard"]).toBe(5);
+    expect(run.checkpoints.written.read(mainThread)?.memory.heard).toBe(5);
+    expect(run.checkpoints.reloaded.read(mainThread)?.memory.heard).toBe(5);
   });
 });
 
@@ -166,8 +166,8 @@ describe("a large selection (Actors R18; Codec R1)", () => {
     const { short, long } = run.checkpoints;
 
     for (const actor of [mainAgenda, agendaPeek]) {
-      expect(short.read(actor)?.memory["heard"]).toBe(1);
-      expect(long.read(actor)?.memory["heard"]).toBe(2);
+      expect(short.read(actor)?.memory.heard).toBe(1);
+      expect(long.read(actor)?.memory.heard).toBe(2);
       expect(long.read(actor)?.issues).toEqual([]);
       expect(long.read(actor)?.context["days"]).toHaveLength(5_000);
     }
@@ -181,8 +181,8 @@ describe("a large selection (Actors R18; Codec R1)", () => {
     const { reloaded, back } = run.checkpoints;
 
     expect(reloaded.read(mainAgenda)?.context["days"]).toHaveLength(5_000);
-    expect(reloaded.read(mainAgenda)?.memory["heard"]).toBe(2);
-    expect(back.read(mainAgenda)?.memory["heard"]).toBe(3);
+    expect(reloaded.read(mainAgenda)?.memory.heard).toBe(2);
+    expect(back.read(mainAgenda)?.memory.heard).toBe(3);
   });
 });
 
@@ -198,7 +198,7 @@ describe("issues cleared by their own source (Turn R25; Actors R19)", () => {
     expect(sources("read")).toEqual(["context oldest"]);
     expect(sources("spam")).toEqual(["onContext 0"]);
     expect(sources("recovered")).toEqual([]);
-    expect(run.checkpoints.recovered.read(mainUnread)?.memory["opened"]).toEqual(["m1", "m3"]);
+    expect(run.checkpoints.recovered.read(mainUnread)?.memory.opened).toEqual(["m1", "m3"]);
   });
 });
 
@@ -223,11 +223,11 @@ describe("a step the store refuses (WriteAhead R13; Actors R9)", () => {
     const run = await played(digestRefused);
     const { refused, reloaded, after } = run.checkpoints;
 
-    expect(refused.read(mainDigest)?.memory["heard"]).toBe(14);
-    expect(reloaded.read(mainInbox)?.memory["messages"]).toHaveLength(1);
-    expect(reloaded.read(mainDigest)?.memory["heard"]).toBe(8);
+    expect(refused.read(mainDigest)?.memory.heard).toBe(14);
+    expect(reloaded.read(mainInbox)?.memory.messages).toHaveLength(1);
+    expect(reloaded.read(mainDigest)?.memory.heard).toBe(8);
     // From Ada's one message, her second changes five of the eight selections.
-    expect(after.read(mainDigest)?.memory["heard"]).toBe(13);
+    expect(after.read(mainDigest)?.memory.heard).toBe(13);
   });
 });
 
@@ -256,7 +256,7 @@ describe("a document 100,000 levels deep (Codec R1, R6; Actors R18)", () => {
       expect(depthOf(cut.reloaded.read(mainOutline)?.memory.doc)).toBe(100_000);
       expect(
         (["deep", "reloaded", "mixed", "mixed again"] as const).map(
-          (c) => cut[c].read(mainPreview)?.memory["heard"],
+          (c) => cut[c].read(mainPreview)?.memory.heard,
         ),
       ).toEqual([1, 1, 2, 2]);
       expect(reported(run, "UnencodableValue")).toEqual([]);
