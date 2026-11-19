@@ -3024,7 +3024,7 @@ tasks
 
     T104
         title       Type gaps closed at every module seam: carriers, handles, snapshots, evidence, casts
-        status      draft
+        status      in_progress
         priority    high
         description
             Every type Flow hands across a module seam is as narrow as what the producer holds, so a typo or a wrong
