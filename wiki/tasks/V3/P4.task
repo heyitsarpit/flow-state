@@ -1663,6 +1663,41 @@ tasks
               into a T99 note; rejected a serve-time join (bounded: the merged update's sends are follow-ups of both
               events, and either count is a real one), chain numbers from the mint (would shift every Story's ids),
               comment style (house pattern), editing git-mirrors in place (the brief asked for it).
+        comment     2026-11-19T04:05:26Z
+            Close review of the fix round: PASS (independent lead, 2026-11-19, `4e476e45..549c8d8b` at `bd834a76`). No
+            blocking finding, and the previous blocker's cause is gone: every consumer of one admitted event now shares
+            its one count. Suite exit 0 (1240 passed, 24 expected fail), `nub run check` exit 0, stress exit 0 (79),
+            `nub run faults --only` 4 of 4 new faults caught by their named tests.
+
+            - Guard: scratch step tests (deleted) on a hub whose Poke sends nothing, so the count starts in the wave. 16
+              onContext fans; a context-only middle actor feeding 8 sending leaves; both mixed; 2 and 6 host pokes whose
+              chains interleave across drain yields and join. Each stopped at exactly 5,000 sends. No count went past
+              the guard, every send was counted once (hub count = sends + pokes), refusals named `Poke to hub`, and
+              every mailbox emptied.
+            - Join (Actors R13): "take the higher count" holds. The merged update's turn follows both events, so a
+              refusal at either count is a real one. Each count is bounded, so two joined events' real follow-ups stay
+              under twice the guard. The joined pokes above stopped at 5,000 in total, as R13 says.
+            - R13 agrees with D13 and its readers. Sweeps: `shop-checkout-sends` and `git-mirrors` now run in both tiers
+              with their old reach values. Stress drives 1,000 seeds of checkout in 2.8 s.
+            - Acceptance 1 to 5 hold at HEAD.
+
+            Routed (not blocking):
+            - Text: the newest specs.log note says onContext events are never "refused", but R13 refuses their turns.
+              `RuntimeDefaults.loopGuard`'s doc says "the next send" where the whole turn is refused. The mirror-loop
+              title still says "naming the chain". "64" is stale in `tests/actors/follow-ups.test.ts:100`,
+              `tests/context-faults.ts:306` and Actors Q4 (A30). `P3-coverage.md` and the catalog's pair-sweep counts
+              are stale. The "past seed 200" claim for checkout is unrecorded.
+            - Coverage: no Story reaches a join, only `src/core/serve.test.ts`'s hand-set world. Two host sends across a
+              drain yield reach one at step level.
+
+            Sidecars (5 Haiku, effort high), each finding verified:
+            - accepted: the text and coverage items above.
+            - rejected: a commit declined at once, whose ending maps to an event that commits again, spins with no send
+              (R13 admits each ending on its own, a send-free spin, outside this Task). A chain-0 waiting update from a
+              boot-time ensure keeps its own count on an equal join (same count, only the name differs). joinWave mints
+              an unused chain number (no collision, since chains clear only all at once). Sends to absent targets are
+              counted (sent by turns).
+            - changed: "early refusal after a join" became the join note above.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
