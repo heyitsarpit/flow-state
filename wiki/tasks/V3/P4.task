@@ -2081,6 +2081,68 @@ tasks
             as a limit); the lost cleanup in a call's own race is owned by @task.V3.T100 with its it.fails; the
             revisit.md entry removed. The built parts go to a close review now; runPromise (Q7) and the quarantine (Q8)
             follow with their own review once the user answers.
+        comment     2026-11-19T06:27:38Z
+            Close review of the built parts: ISSUES (independent lead, 2026-11-19). One blocking finding; the five
+            requirements-review findings are closed and every accepted drop holds. Gates, each alone: suite exit 0 (1258
+            passed, 30 expected fail), `nub run check` exit 0, stress exit 0 (34 files), `nub run faults --only` 10 of
+            10 caught (T99's 9 plus I30's `disposal-resends-held`). Q7 and Q8's reds are expected.
+
+            Blocking:
+            1. A cleanup failure outside a call is reported as success. A store write cut at the bound is interrupted by
+               the close; if its interrupt cleanup dies, code:packages/flow-state-v3/src/host/edge.ts#makeEdge's store
+               observer reads it as a refused write, the Refused step drops in Disposed, and `dispose()` succeeds with
+               the Cause lost. That breaks @plan.Runtime.O6 ("never reported as success") and the design's "every fiber
+               Flow forks ... judged before admission"; only `call` feeds `cleanups`. R23's "a cleanup is a services
+               finalizer or a call's interrupt cleanup" is a limit the Epic forbids. Replayed as a plain host test
+               (store write `Effect.never` with a dying `onInterrupt`): dispose's Exit is a success. Missing coverage: a
+               non-call fiber's interrupt cleanup failing at close (a store write), with a fault. Structural fix
+               suggested: judge every forked fiber's Exit in one place (`fibers.fork`).
+
+            Routed, not blocking (proposed owners; the orchestrator decides):
+            - I30's check hides a class the old rule caught: a read (no Sent evidence) invoked in the step that ends the
+              disposal arrives after RuntimeDisposed, since evidence is published before commands run
+              (code:packages/flow-state-v3/src/host/driver.ts#makeDriver), and Requests after RuntimeDisposed are
+              exempt. No current code does it, and commits stay caught. Missing: a crafted run with such a Request;
+              exempt only calls invoked before disposal began. T99's Q7/Q8 round.
+            - Several services finalizers failing give one Issue: Effect merges them into one Exit, so `Closed` counts
+              one; R23 says one per failure (Cause kept). The close's doc claims an Issue for a Stopped life, whose Life
+              row drops Closed. `dispose({ forget: true })` with CleanupFailed discards forget's failure. T99's
+              Q7/Q8 round.
+            - The close's Deferred is completed only on a successful close Effect, so a throw from
+              `driver.input(Closed)` hangs every dispose; unreachable today (Closed emits no Turn). `Fiber.join` on the
+              detached fiber is the Effect feature for one shared result. T99's Q7/Q8 round, with the code notes below.
+            - Fixtures: UnboundLane is exercised only in transfers, yet the catalog's "used today" lines claim it for
+              shop, sync and sign-in; `shop/sign-out-mid-checkout` claims S1 × 3 with no S9 (fixtures.md, structure).
+              The catalog items left for this review (CleanupFailed and HoldForgotten under L1 and L4, L5, S6 orders,
+              step samples offering `disposeRuntime`, hold, drop and release) have no owner, and sync's and sign-in's
+              new Stories have none listed: untracked. T99's Q7/Q8 round.
+            - Stale text: `tests/actors/runtime-life.test.ts` and the catalog's transfers block still cite "R23's stated
+              limit", removed by the ruling. @task.V3.T100, with its it.fails.
+            - Pre-existing, not T99's diff: `dispose()` waits unbounded for an uninterruptible call or cleanup
+              (FiberMap's clear and its Scope release both await), and `ready()` can hang after dispose during Booting;
+              after a disposal write is cut, the store edge stays "out", so every later `dispose({ forget: true })` on
+              that Runtime is StorageFailure despite runtime.ts's "again once the store answers". @task.V3.T100 or
+              revisit.md. @spec.WriteLanes Q7 says an `it.fails` in policy-cells.test.ts pins a lost unknown { Restored
+              }; that file has none (the orchestrator).
+            - Code notes: `Input.Run` serves only as a query until runPromise lands; non-exported code comments added in
+              disposal.ts, input.ts, incarnations.ts, driver.ts and fibers.ts; the fault helper is copied
+              from rule-faults.ts.
+
+            Sidecars (5 Haiku, effort high), each finding verified:
+            - blind disposal (O6, Actors, code only): changed the uninterruptible hang and forget refusal into
+              pre-existing routes (FiberMap's release awaited before T99 too); rejected the Closed-throw hang as
+              blocking (unreachable) and kept it as a note; accepted WriteLanes Q7's missing pin; no ending lost or
+              doubled at the bound or by two disposes.
+            - I30: accepted the read class (verified: sink before perform, Request exemption);
+              `disposal-resends-held` caught.
+            - code quality: accepted the Fiber.join, Input.Run and comment notes; no outside imports, temporary names
+              or mangling.
+            - fixtures: accepted UnboundLane's one app, the catalog overclaims, the missing S9 and untracked items;
+              rejected the port fakes as injected endings (prior ruling: a cleanup is not an ending).
+            - O6 features and drops: accepted the one-Issue count and forget's discarded failure; found the store-write
+              Cause drop path, which I replayed as blocking 1; rejected quarantined lanes in unsettledWrites (prior
+              ruling), typed cleanup failures (finalizers are typed never), and the Open-life cleanup Cause (Q8's
+              ref quarantine).
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
