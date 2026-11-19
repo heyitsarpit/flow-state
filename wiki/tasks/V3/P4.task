@@ -2486,3 +2486,43 @@ tasks
             Task early in P4.
         comment     2026-11-19T09:36:14Z
             Decision (the user, 2026-11-19): C2 revised to a lost option on Fake.server instead of a new Fake.port word.
+        comment     2026-11-19T12:24:41Z
+            Requirements (proposed), one per acceptance line; each is red today and names the false pass it stops.
+
+            1. Typed read (C1; @plan.Testing.O4 read(target)): `Cut.read(ref)` returns `Snapshot<D> | undefined`,
+               `state` the definition's leaf union and `memory` its `MemoryOf` (Stories see `Flow.private` fields:
+               code:packages/flow-state-v3/src/host/snapshot.ts#outside is not applied). Checks: a compile test where a
+               misspelt field and a foreign state literal fail (red: `memory` is `Values`, so both compile);
+               standing-order's DateFromString fields read as `read(rent)?.memory.pausedUntil`, typed `Date | null` and
+               a `Date` before and after a reload. Stops: a misspelt field read as undefined passing `toBeUndefined()`;
+               a cast over an encoded string. Design: no decode. Memory holds each field's Type value (the Date already,
+               as the standing-order Stories show), so `Def.Snapshot`'s decode would refuse it; `read` narrows the type
+               only. Reverse: decode if memory ever holds encoded forms. Sibling `publishedOf(run, ref)` types Published
+               records the same (number-input's cast reads them).
+            2. No hand reads: no `memory["..."]` and no snapshot cast in `tests/` or `fixtures/`;
+               `tests/number-input/reads.ts` and `tests/command-palette/reads.ts` deleted. Red: 126 sites in 28 files, 2
+               cast helpers.
+            3. Evidence by token (C3): `turnsOf(run, Def.E.X, { actor? })` gives the Turn records of that definition's
+               actors for that event; `deliveriesOf` the same for Delivered (3 sites need it). The token's definition is
+               kept beside its admission (code:packages/flow-state-v3/src/events.ts), so a same-named event of another
+               machine never matches (the lanes app's clients and paged both declare `Unsure`). Checks: a compile test
+               where a misspelt token, a string and, with `actor`, another definition's token fail (red: no word); a
+               lint rule flags `.event` compared to a string literal in tests and fixtures (red: about 15 sites). Stops:
+               a renamed event emptying a filter that `toHaveLength(0)` or a `not.toContain` then passes.
+            4. Lost error (C2): `Fake.server(name, { truth, initial, endpoints, controls?, lost: () => PortError })`,
+               `lost` required; a served endpoint fails with its failure or the lost error, never `FakeLost`. Checks: a
+               compile test where a server without `lost` fails and `catchTag("FakeLost", ...)` on a served endpoint
+               fails (red: `lost` is an excess property; FakeLost is in every endpoint's error); the lose, drop and
+               offline Stories still end with the port's own error. Servers answer with the port's class, so the six
+               per-method remaps go (player Unavailable, git RateLimited twice, sign-in Taken, Throttled, WrongCode).
+               Red: 38 FakeLost uses in 9 files, 6 remaps. Stops: a layer that forgets the mapping and leaks FakeLost
+               into an ending the contract never declared. Shop's CardDeclined, Busy, IntentBusy, OrderExists and
+               AlreadyCaptured are TaggedStructs the server already answers with, unmapped: they stay.
+            5. Words and gates: a @plan.Pending decision each for typed `read`, `publishedOf`, `turnsOf`/`deliveriesOf`
+               and `lost`; faults planted and caught by name: a read that encodes memory, a `turnsOf` that ignores the
+               definition, a world that fails a lost call with FakeLost; `nub run check` at zero, the suite and the
+               stress runs pass.
+
+            Fixtures (code:wiki/conventions/fixtures.md): no runtime feature changes and no fixture is added; the words
+            read the existing apps, and the proof is their converted Stories. Extra files: `src/events.ts`,
+            `src/index.ts` (the generic `Snapshot`), `tools/flow-state-lint/` (the rule).
