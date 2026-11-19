@@ -32,6 +32,7 @@ describe("a schedule's send", () => {
     expect(() =>
       machine(Lamp, ({ S }) => ({
         default: S.ON,
+        // @ts-expect-error Compile R12: another definition's event is no schedule's
         states: { ON: { schedules: { off: { schedule: "1 second", send: Other.E.Off } } } },
       })),
     ).toThrow(

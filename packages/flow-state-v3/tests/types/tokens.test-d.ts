@@ -2,10 +2,8 @@ import { Effect, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { definition, Flow, machine, type Machine, transaction } from "../../src/index.ts";
 
-// Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
-// check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
-// `.not` of the narrow type, or the wide type itself) then fails too: make it the exact narrow
-// type. A positive assertion that holds today stays as it is.
+// Each `@ts-expect-error` names the rule its line breaks; beside it the correct use of the same
+// parameter is asserted exactly, so a wrong line cannot fail because the type became `never`.
 
 const add = transaction({
   id: "types/tokens/add",
@@ -44,18 +42,26 @@ const Cart = definition({
 
 describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carry it", () => {
   it("the id keeps its literal", () => {
-    expectTypeOf(Pay.id).not.toEqualTypeOf<"types/tokens/Pay">();
-    expectTypeOf(Pay.id).toEqualTypeOf<string>();
+    expectTypeOf(Pay.id).toEqualTypeOf<"types/tokens/Pay">();
+    expectTypeOf(Pay.S.IDLE["~definition"]).toEqualTypeOf<"types/tokens/Pay" | undefined>();
   });
 
   it("another definition's state token of the same path", () => {
-    machine(Pay, () => ({ default: Other.S.IDLE })); // wrong: Other's IDLE
-    machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: { target: Other.S.ON } } })); // wrong
-    machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: Other.S.ON } })); // wrong: as a handler
+    // @ts-expect-error Compile R12: Other's IDLE as the default
+    machine(Pay, () => ({ default: Other.S.IDLE }));
+    // @ts-expect-error Compile R12: Other's ON as a target
+    machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: { target: Other.S.ON } } }));
+    // @ts-expect-error Compile R12: Other's ON as a handler
+    machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: Other.S.ON } }));
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
-      on: { go: { guard: [Other.S.ON], target: S.ON } }, // wrong: as a guard
+      // @ts-expect-error Compile R12: Other's ON as a guard
+      on: { go: { guard: [Other.S.ON], target: S.ON } },
     }));
+
+    expectTypeOf(machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: S.ON } }))).toEqualTypeOf<
+      Machine<typeof Pay>
+    >();
 
     expectTypeOf(
       machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: { guard: [S.ON], target: S.ON } } })),
@@ -65,12 +71,14 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
   it("another definition's operation handle", () => {
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
-      on: { go: { actions: [Cart.O.add.cancel] } }, // wrong: Cart's operation
+      // @ts-expect-error Compile R12: Cart's operation in Pay's body
+      on: { go: { actions: [Cart.O.add.cancel] } },
     }));
 
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
-      on: { go: { actions: [Cart.O.add.commit(() => ({ id: "1" }))] } }, // wrong
+      // @ts-expect-error Compile R12: Cart's operation in Pay's body
+      on: { go: { actions: [Cart.O.add.commit(() => ({ id: "1" }))] } },
     }));
 
     expectTypeOf(
@@ -87,19 +95,39 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
       states: ["A"],
       events: { go: {} },
       internalEvents,
+      // @ts-expect-error Compile R12: Other's Ok and Unsure are no endings of Mine
+      operations: () => ({
+        add: add.outcomes({ success: Other.E.Ok, failure: {}, unknown: Other.E.Unsure }),
+      }),
+    });
+
+    definition({
+      id: "types/tokens/Mixed",
+      states: ["A"],
+      events: { go: {} },
+      internalEvents,
+      // @ts-expect-error Compile R12: Other's Ok beside Mixed's own Unsure
       operations: ({ E }) => ({
-        add: add.outcomes({
-          success: Other.E.Ok, // wrong: Other's Ok
-          failure: {},
-          unknown: Other.E.Unsure, // wrong: Other's Unsure
-        }),
+        add: add.outcomes({ success: Other.E.Ok, failure: {}, unknown: E.Unsure }),
+      }),
+    });
+
+    const Own = definition({
+      id: "types/tokens/Own",
+      states: ["A"],
+      events: { go: {} },
+      internalEvents,
+      operations: ({ E }) => ({
         own: add.outcomes({ success: E.Ok, failure: {}, unknown: E.Unsure }),
       }),
     });
 
+    expectTypeOf(Own.operations.own["~definition"]).toEqualTypeOf<"types/tokens/Own" | undefined>();
+
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
-      onContext: [{ select: () => 1, event: Other.E.Ok }], // wrong: Other's Ok
+      // @ts-expect-error Compile R12: Other's Ok as Pay's reaction
+      onContext: [{ select: () => 1, event: Other.E.Ok }],
     }));
 
     expectTypeOf(
@@ -108,8 +136,7 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
         onContext: [{ select: () => 1, event: E.Ok }],
       })),
     ).toEqualTypeOf<Machine<typeof Pay>>();
-    // Today one type; once branded, two (make this `.not`).
-    expectTypeOf(Other.E.Ok).toEqualTypeOf(Pay.E.Ok);
+    expectTypeOf(Other.E.Ok).not.toEqualTypeOf(Pay.E.Ok);
   });
 
   it("a path neither definition has is refused today", () => {

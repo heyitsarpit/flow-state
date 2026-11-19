@@ -8,6 +8,7 @@ import {
   type ChildrenOf,
   type ContextOf,
   type Definition,
+  type LeavesOf,
   type Machine,
   type ScheduleConfig,
   type MemoryOf,
@@ -24,28 +25,39 @@ import { codecOf } from "./events.ts";
 import { flowErrorOf, invalid, raise, refuse } from "./error.ts";
 import { entry, inert } from "./entry.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
-import type { ErasedEnding } from "./contract.ts";
+import type { Ending, ErasedEnding } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
 import { type Compile, nodesOf, tokenMaps } from "./compile-body.ts";
 
 type Parts<D> =
-  D extends Definition<infer States, infer Ev, infer In, infer M, infer _O>
+  D extends Definition<infer States, infer Ev, infer In, infer M, infer _O, infer _Cx, infer Id>
     ? {
         readonly Tree: States;
         readonly S: PathsOf<States>;
+        readonly Leaves: LeavesOf<States>;
         readonly Events: Ev & In;
         readonly Memory: MemoryOf<M>;
         readonly Writable: WritableOf<M>;
+        readonly Id: Id;
       }
     : never;
 
-type Handlers<D> = On<Parts<D>["Memory"], Parts<D>["Events"], Parts<D>["S"], Parts<D>["Writable"]>;
+type Handlers<D> = On<
+  Parts<D>["Memory"],
+  Parts<D>["Events"],
+  Parts<D>["S"],
+  Parts<D>["Writable"],
+  Parts<D>["Id"],
+  Parts<D>["Leaves"]
+>;
 
 type LeafBody<D> = StateConfig<
   Parts<D>["Memory"],
   Parts<D>["Events"],
   Parts<D>["S"],
-  Parts<D>["Writable"]
+  Parts<D>["Writable"],
+  Parts<D>["Id"],
+  Parts<D>["Leaves"]
 >;
 
 type StatesBody<D, L, P extends string> = {
@@ -57,7 +69,7 @@ type NodeBody<D, C, P extends string> = [C] extends [never] ? LeafBody<D> : Comp
 type CompoundBody<D, L, P extends string> = {
   readonly on?: Handlers<D>;
   readonly schedules?: LeafBody<D>["schedules"];
-  readonly default: StateToken<`${P}${NamesOf<L>}`>;
+  readonly default: StateToken<`${P}${NamesOf<L>}`, Parts<D>["Id"]>;
   readonly states?: StatesBody<D, L, P>;
 };
 
@@ -78,13 +90,13 @@ export type Reaction<D extends AnyDefinition> = {
   }) => unknown;
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: with no when, every changed selection enqueues the event
   readonly when?: (current: never, previous: never) => boolean;
-  readonly event: ErasedEnding;
+  readonly event: Ending<never, Parts<D>["Id"]>;
 };
 
 export type MachineBody<D extends AnyDefinition> = {
   readonly on?: Handlers<D>;
   readonly onContext?: ReadonlyArray<Reaction<D>>;
-  readonly default: StateToken<`${NamesOf<Parts<D>["Tree"]>}`>;
+  readonly default: StateToken<`${NamesOf<Parts<D>["Tree"]>}`, Parts<D>["Id"]>;
   readonly states?: StatesBody<D, Parts<D>["Tree"], "">;
 };
 

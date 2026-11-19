@@ -14,9 +14,14 @@ export type SelectArg<M, P = unknown> = { readonly memory: M; readonly event: P 
 export type SendArg<M, P> = { readonly memory: M; readonly event: P };
 
 /**
- * What a guard's callback reads: the state, the memory and the event.
+ * What a guard's callback reads: the leaf it runs in, of the definition's leaves `L`, the memory and
+ * the event.
  */
-export type GuardArg<M, P> = { readonly state: string; readonly memory: M; readonly event: P };
+export type GuardArg<M, P, L extends string = string> = {
+  readonly state: L;
+  readonly memory: M;
+  readonly event: P;
+};
 
 export const erase = <I, R>(run: (input: never) => R) =>
   // SAFETY: a callback written for its handler's event and memory; the turn passes exactly those.

@@ -43,12 +43,14 @@ export type FailureTag<E> =
  * Where one ending goes: an event token (`E.Voided`) or one with a payload mapper
  * (`E.Declined.from(f)`).
  */
-export type Ending<V = unknown> = {
+export type Ending<V = unknown, Id extends string = string> = {
   readonly ending: {
     readonly event: string;
     // FLOW_STATE_ALLOW_UNKNOWN: a mapper's context is Flow's own and read by no mapper yet.
     readonly from: Option.Option<(value: V, context: unknown) => Values>;
   };
+  // A phantom type: the definition whose event it is, so it maps only onto that definition.
+  readonly "~definition"?: Id;
 };
 
 /**
@@ -62,7 +64,9 @@ export type ErasedEnding = Ending<never>;
  * value to fill them.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: an unknown ending has no value, so its target takes any.
-export type UnknownEnding = Ending & { readonly "~uncertain": true };
+export type UnknownEnding<Id extends string = string> = Ending<unknown, Id> & {
+  readonly "~uncertain": true;
+};
 
 /**
  * The value one failure tag carries: the commit's error of that tag, `Outcome.failure` unwrapped.
@@ -78,24 +82,24 @@ export type FailureOf<E, T extends string> = Extract<
  * its error; `notSent`, optional, takes Flow's `NotSent` for a commit never sent; `unknown` takes
  * every unknown ending, onto an uncertain event with no fields.
  */
-export type WriteEndings<E, A> = {
-  readonly success: Ending<A>;
-  readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>> };
-  readonly notSent?: Ending<{ readonly why: NotSentWhy }>;
-  readonly unknown: UnknownEnding;
+export type WriteEndings<E, A, Id extends string = string> = {
+  readonly success: Ending<A, Id>;
+  readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>, Id> };
+  readonly notSent?: Ending<{ readonly why: NotSentWhy }, Id>;
+  readonly unknown: UnknownEnding<Id>;
 };
 
 /**
  * A read's endings mapped onto the declarer's events: its value, each of its failure tags with its
  * error, and Flow's `Defect` and `Interrupted`.
  */
-export type ReadEndings<E, A> = {
-  readonly success: Ending<A>;
-  readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>> } & {
+export type ReadEndings<E, A, Id extends string = string> = {
+  readonly success: Ending<A, Id>;
+  readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>, Id> } & {
     // FLOW_STATE_ALLOW_UNKNOWN: Flow's defect and interruption carry no value a mapper reads.
-    readonly Defect?: Ending;
+    readonly Defect?: Ending<unknown, Id>;
     // FLOW_STATE_ALLOW_UNKNOWN: as above.
-    readonly Interrupted?: Ending;
+    readonly Interrupted?: Ending<unknown, Id>;
   };
 };
 
@@ -108,6 +112,7 @@ export type Bound<
   R = unknown,
   I = Values,
   Ky = Values,
+  Id extends string = string,
 > = (K extends "write"
   ? BoundFields & {
       readonly kind: "write";
@@ -119,6 +124,8 @@ export type Bound<
   readonly "~requires"?: R;
   readonly "~input"?: I;
   readonly "~key"?: Ky;
+  // A phantom type: the definition whose events its endings map onto.
+  readonly "~definition"?: Id;
 };
 
 /**
@@ -267,9 +274,9 @@ export type Transaction<
     input: StructType<F>,
     context: { readonly attempt: Attempt<StructType<F>, KeyRecord<F, Key>> },
   ) => Effect.Effect<A, E, R>;
-  readonly outcomes: (
-    endings: WriteEndings<E, A>,
-  ) => Bound<"write", R, StructType<F>, KeyRecord<F, Key>>;
+  readonly outcomes: <Id extends string = string>(
+    endings: WriteEndings<E, A, Id>,
+  ) => Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>;
 };
 
 /**
@@ -290,9 +297,9 @@ export type Resource<
   readonly staleTime: Duration.Input;
   readonly gcTime: Duration.Input;
   readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
-  readonly outcomes: (
-    endings: ReadEndings<E, A>,
-  ) => Bound<"read", R, StructType<F>, KeyRecord<F, Key>>;
+  readonly outcomes: <Id extends string = string>(
+    endings: ReadEndings<E, A, Id>,
+  ) => Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id>;
 };
 
 /**
@@ -332,24 +339,26 @@ export const transaction = entry(
       concurrency: config.concurrency,
       services: config.services,
       commit: entry(`${config.id}.commit`, config.commit),
-      outcomes: entry(`${config.id}.outcomes`, (endings: WriteEndings<E, A>) =>
-        inert<Bound<"write", R, StructType<F>, KeyRecord<F, Key>>>({
-          kind: "write",
-          contract: config.id,
-          identity,
-          ...codecsOf(config.input, config.key),
-          key: config.key,
-          concurrency: config.concurrency,
-          call: (input, context) =>
-            config.commit(
-              trusted<StructType<F>>(input),
-              trustedAttempt<StructType<F>, KeyRecord<F, Key>>(context),
-            ),
-          success: endings.success,
-          failure: endings.failure,
-          notSent: Option.fromUndefinedOr(endings.notSent),
-          unknown: endings.unknown,
-        }),
+      outcomes: entry(
+        `${config.id}.outcomes`,
+        <Id extends string>(endings: WriteEndings<E, A, Id>) =>
+          inert<Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>>({
+            kind: "write",
+            contract: config.id,
+            identity,
+            ...codecsOf(config.input, config.key),
+            key: config.key,
+            concurrency: config.concurrency,
+            call: (input, context) =>
+              config.commit(
+                trusted<StructType<F>>(input),
+                trustedAttempt<StructType<F>, KeyRecord<F, Key>>(context),
+              ),
+            success: endings.success,
+            failure: endings.failure,
+            notSent: Option.fromUndefinedOr(endings.notSent),
+            unknown: endings.unknown,
+          }),
       ),
     };
 
@@ -388,18 +397,20 @@ export const resource = entry(
       staleTime: config.staleTime,
       gcTime: config.gcTime,
       lookup: entry(`${config.id}.lookup`, config.lookup),
-      outcomes: entry(`${config.id}.outcomes`, (endings: ReadEndings<E, A>) =>
-        inert<Bound<"read", R, StructType<F>, KeyRecord<F, Key>>>({
-          kind: "read",
-          contract: config.id,
-          identity,
-          ...codecsOf(config.input, config.key),
-          key: config.key,
-          concurrency: "reject",
-          call: (input) => config.lookup(trusted<StructType<F>>(input)),
-          success: endings.success,
-          failure: endings.failure,
-        }),
+      outcomes: entry(
+        `${config.id}.outcomes`,
+        <Id extends string>(endings: ReadEndings<E, A, Id>) =>
+          inert<Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id>>({
+            kind: "read",
+            contract: config.id,
+            identity,
+            ...codecsOf(config.input, config.key),
+            key: config.key,
+            concurrency: "reject",
+            call: (input) => config.lookup(trusted<StructType<F>>(input)),
+            success: endings.success,
+            failure: endings.failure,
+          }),
       ),
     };
 

@@ -224,6 +224,8 @@ export default defineConfig({
         files: [
           `${productionSource}/contract.ts`,
           `${productionSource}/definition.ts`,
+          `${productionSource}/event-tokens.ts`,
+          `${productionSource}/tokens.ts`,
           `${productionSource}/machine.ts`,
           `${productionSource}/flow.ts`,
           `${productionSource}/error.ts`,

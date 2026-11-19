@@ -587,6 +587,7 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
           states: ["A"],
           events: {},
           internalEvents: { Unsure: Flow.uncertain({}) },
+          // @ts-expect-error Compile R12: another definition's event is no ending of this one
           operations: ({ E }) => ({
             save: save.outcomes({ success: Other.E.Gone, failure: {}, unknown: E.Unsure }),
           }),
@@ -596,7 +597,7 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
   });
 
   it("an operation keyed by a field outside its input is refused at construction, before any Runtime", () => {
-    const bound = save.outcomes(
+    const bound = save.outcomes<"Compile/KeyOutside">(
       loose({
         success: { ending: { event: "Saved", from: Option.none() } },
         failure: {},

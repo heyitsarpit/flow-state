@@ -108,11 +108,11 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
 /**
  * A definition's event tokens, by tag: each built once with its payload Struct and walker.
  */
-export const tokensOf = <Ev extends Readonly<Record<string, EventFields>>>(
-  definition: string,
+export const tokensOf = <Ev extends Readonly<Record<string, EventFields>>, Id extends string>(
+  definition: Id,
   events: Ev,
 ) =>
-  trusted<Tokens<Ev>>(
+  trusted<Tokens<Ev, Id>>(
     Object.fromEntries(
       Object.entries(events).map(([tag, fields]) => {
         const token = eventToken(tag, fieldsOf(fields));

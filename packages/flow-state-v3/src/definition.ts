@@ -1,11 +1,9 @@
-import { type Duration, Option, Predicate, Result, Schema } from "effect";
-import type { Action, Compiled, Denial, Guard, Values } from "./core/compiled.ts";
-import type { Row } from "./core/rows.ts";
+import { Predicate, Result, Schema } from "effect";
+import type { Compiled, Values } from "./core/compiled.ts";
 import { atOrBelow, chainOf } from "./core/tree.ts";
-import type { Bound, BoundInput, BoundKey, Ending, Fields } from "./contract.ts";
+import type { Bound, Fields } from "./contract.ts";
 import { fieldsOf, tokensOf, trusted } from "./events.ts";
-import { type GuardArg, readHandle, type SelectArg, writeHandle } from "./handles.ts";
-import type { SendToken } from "./send.ts";
+import { readHandle, writeHandle } from "./handles.ts";
 import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
 import { flowErrorOf, raise, refuse } from "./error.ts";
 import { builder, entry } from "./entry.ts";
@@ -18,7 +16,7 @@ import {
   treeOf,
   unwrapPrivate,
 } from "./construction.ts";
-import type { Entry, Field, Input, Plain, Private, Uncertain } from "./flow.ts";
+import type { Field, Input, Plain, Private, Uncertain } from "./flow.ts";
 
 export type EventFields = Fields | Uncertain;
 
@@ -91,6 +89,27 @@ export type EventOf<D extends AnyDefinition> = {
 
 export type { EventToken, MappedEvent, Tokens } from "./event-tokens.ts";
 
+export type {
+  ActionToken,
+  AlternativeConfig,
+  GuardElement,
+  GuardToken,
+  Handler,
+  HistoryToken,
+  On,
+  Operations,
+  ReadHandle,
+  RootToken,
+  ScheduleConfig,
+  StateConfig,
+  StateRead,
+  StateToken,
+  StateTokens,
+  WriteHandle,
+} from "./tokens.ts";
+
+import type { Handles, RootToken, StateRead, StateToken, StateTokens } from "./tokens.ts";
+
 import type { Tokens } from "./event-tokens.ts";
 
 /**
@@ -134,153 +153,6 @@ type LeavesOfLiteral<L, P extends string> = {
     ? `${P}${N}`
     : LeavesOfLiteral<ChildrenOf<L, N>, `${P}${N}.`>;
 }[NamesOf<L>];
-
-/**
- * What a state read takes: a snapshot or a leaf path.
- */
-export type StateRead = string | { readonly state: string };
-
-/**
- * A state of a definition, as a target or a guard element.
- *
- * **Details**
- *
- * `is(snapshot)` holds at this state or below it; `child(snapshot)` is the active direct child's
- * name, or `undefined`.
- */
-export type StateToken<Path extends string = string> = {
-  readonly "~flow": "state";
-  readonly "~path": Path;
-  readonly is: (read: StateRead) => boolean;
-  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: child is the name, otherwise undefined
-  readonly child: (read: StateRead) => string | undefined;
-};
-
-/**
- * A compound's history as a target (`S.X.history`): its last active child, else its default.
- */
-export type HistoryToken<Path extends string = string> = {
-  readonly "~flow": "history";
-  readonly "~path": Path;
-};
-
-/**
- * The state tokens of a tree: each state by name, a compound's children under it with its
- * `history`.
- */
-export type StateTokens<L, P extends string = ""> =
-  string extends NamesOf<L> ? Values : StateTokensLiteral<L, P>;
-
-type StateTokensLiteral<L, P extends string> = {
-  readonly [N in NamesOf<L>]: [ChildrenOf<L, N>] extends [never]
-    ? StateToken<`${P}${N}`>
-    : StateToken<`${P}${N}`> &
-        StateTokensLiteral<ChildrenOf<L, N>, `${P}${N}.`> & {
-          readonly history: HistoryToken<`${P}${N}`>;
-        };
-};
-
-/**
- * A lane member or lookup in an alternative's `actions`.
- */
-export type ActionToken<P = unknown> = {
-  readonly "~flow": "action";
-  readonly "~owner": symbol;
-  readonly operation: string;
-  readonly make: (at: string) => Action;
-  // A phantom type: the event its select reads, so it fits only a handler of that event.
-  readonly "~event"?: (event: P) => void;
-};
-
-/**
- * An operation's guard (`O.x.idle`, `O.x.retryable`) in an alternative's `guard`.
- */
-export type GuardToken<P = unknown> = {
-  readonly "~flow": "guard";
-  readonly "~owner": symbol;
-  readonly operation: string;
-  readonly make: (at: string) => Guard;
-  // A phantom type: the event its key reads, so it fits only a handler of that event.
-  readonly "~event"?: (event: P) => void;
-};
-
-/**
- * The write lanes a snapshot shows: each operation's rows, keyed by the key's canonical text.
- */
-export type Operations = ReadonlyMap<string, ReadonlyMap<string, Row>>;
-
-/**
- * A write operation's members, guards and row read (`O.x.get`).
- */
-export type WriteHandle<M, I, K = Values> = {
-  readonly commit: <P>(select: (input: SelectArg<M, P>) => I) => ActionToken<P>;
-  readonly retry: ActionToken & (<P>(key: (input: SelectArg<M, P>) => K) => ActionToken<P>);
-  readonly cancel: ActionToken & (<P>(key: (input: SelectArg<M, P>) => K) => ActionToken<P>);
-  readonly idle: <P>(key: (input: GuardArg<M, P>) => K) => GuardToken<P>;
-  readonly retryable: {
-    (options: { readonly times: number }): GuardToken;
-    <P>(key: (input: GuardArg<M, P>) => K, options: { readonly times: number }): GuardToken<P>;
-  };
-  readonly get: (operations: Operations, key: K) => Option.Option<Row>;
-};
-
-/**
- * A read operation's lookup and cancel.
- */
-export type ReadHandle<M, I> = {
-  readonly lookup: <P>(select: (input: SelectArg<M, P>) => I) => ActionToken<P>;
-  readonly cancel: ActionToken;
-};
-
-type Handles<O, M> = {
-  readonly [K in keyof O]: O[K] extends { readonly kind: "write" }
-    ? WriteHandle<M, BoundInput<O[K]>, BoundKey<O[K]>>
-    : ReadHandle<M, BoundInput<O[K]>>;
-};
-
-export type GuardElement<M, P> =
-  | StateToken
-  | GuardToken<P>
-  | ((input: GuardArg<M, P>) => true | Denial);
-
-/**
- * One alternative of a handler: its target, guards, memory patch and actions: lane members,
- * lookups and sends, in written order.
- */
-export type AlternativeConfig<M, P, S extends string, W = M> = {
-  readonly target?: StateToken<S> | HistoryToken<S> | "self";
-  readonly guard?: GuardElement<M, P> | ReadonlyArray<GuardElement<M, P>>;
-  readonly updateMemory?: (input: {
-    readonly memory: M;
-    readonly event: P;
-    readonly now: number;
-  }) => Partial<W>;
-  readonly actions?: ReadonlyArray<ActionToken<P> | SendToken<M, P>>;
-};
-
-type OneAlternative<M, P, S extends string, W> =
-  | AlternativeConfig<M, P, S, W>
-  | StateToken<S>
-  | HistoryToken<S>;
-
-export type Handler<M, P, S extends string, W = M> =
-  | OneAlternative<M, P, S, W>
-  | ReadonlyArray<OneAlternative<M, P, S, W>>;
-
-export type On<M, Ev, S extends string, W = M> = {
-  readonly [K in keyof Ev]?: Handler<M, PayloadOf<Ev[K]>, S, W>;
-};
-
-export type ScheduleConfig<M, Ev> = {
-  readonly schedule: Duration.Input | ((input: { readonly memory: M }) => number);
-  readonly send: { readonly tag: keyof Ev & string } & Ending<void>;
-  readonly armOn?: ReadonlyArray<(keyof Ev & string) | Entry>;
-};
-
-export type StateConfig<M, Ev, S extends string, W = M> = {
-  readonly on?: On<M, Ev, S, W>;
-  readonly schedules?: Readonly<Record<string, ScheduleConfig<M, Ev>>>;
-};
 
 /**
  * What a provider's selector reads: one complete outside snapshot of the provider.
@@ -329,23 +201,16 @@ type DefinitionConfig<
   M extends MemoryConfig,
   O extends Readonly<Record<string, Bound>>,
   Cx extends ContextConfig,
+  Id extends string,
 > = {
-  readonly id: string;
+  readonly id: Id;
   readonly persist?: boolean;
   readonly states: States;
   readonly events: Ev;
   readonly internalEvents?: In;
   readonly memory?: M;
   readonly context?: Cx;
-  readonly operations?: (tokens: { readonly E: Tokens<In> }) => O;
-};
-
-/**
- * The root's state reads: `S.root.child(snapshot)` is the active top-level state.
- */
-export type RootToken = {
-  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: child is the name, otherwise undefined
-  readonly child: (read: StateRead) => string | undefined;
+  readonly operations?: (tokens: { readonly E: Tokens<In, Id> }) => O;
 };
 
 /**
@@ -373,9 +238,10 @@ export type Definition<
   M extends MemoryConfig = MemoryConfig,
   O extends Readonly<Record<string, Bound>> = Readonly<Record<string, Bound>>,
   Cx extends ContextConfig = ContextConfig,
+  Id extends string = string,
 > = {
   readonly "~owner": symbol;
-  readonly id: string;
+  readonly id: Id;
   readonly persist: boolean;
   readonly states: States;
   readonly events: Ev;
@@ -389,9 +255,11 @@ export type Definition<
       selector: (snapshot: ProviderSnapshot<LeavesOf<States>, OutsideOf<M>>) => NoInfer<V>,
     ) => ContextSlot<V, ProvidedBy<States, M>>;
   };
-  readonly S: StateTokens<States> & { readonly root: RootToken };
-  readonly E: Tokens<Ev & In>;
-  readonly O: Handles<O, MemoryOf<M>>;
+  readonly S: StateTokens<States, "", Id, LeavesOf<States>> & {
+    readonly root: RootToken<LeavesOf<States>, NamesOf<States>>;
+  };
+  readonly E: Tokens<Ev & In, Id>;
+  readonly O: Handles<O, MemoryOf<M>, Id, LeavesOf<States>>;
   readonly Event: Schema.Codec<
     { readonly [K in keyof Ev & string]: Envelope<K, PayloadOf<Ev[K]>> }[keyof Ev & string],
     Values
@@ -484,11 +352,13 @@ export const definition = entry(
     // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
     const In extends Readonly<Record<string, EventFields>> = Record<never, never>,
     M extends MemoryConfig = Record<never, never>,
-    O extends Readonly<Record<string, Bound>> = Record<never, never>,
+    O extends Readonly<Record<string, Bound<"write" | "read", unknown, Values, Values, Id>>> =
+      Record<never, never>,
     Cx extends ContextConfig = Record<never, never>,
+    const Id extends string = string,
   >(
-    config: DefinitionConfig<States, Ev, In, M, O, Cx>,
-  ): Definition<States, Ev, In, M, O, Cx> => {
+    config: DefinitionConfig<States, Ev, In, M, O, Cx, Id>,
+  ): Definition<States, Ev, In, M, O, Cx, Id> => {
     const keys = Predicate.isObject(config) ? Object.keys(config) : [];
 
     refuse(inDeclarationOrder(keys, configFindings(config)));
@@ -504,7 +374,7 @@ export const definition = entry(
       declare === undefined
         ? Result.succeed(trusted<O>({}))
         : Result.try({
-            try: () => declare({ E: pick<Tokens<In>>(E, Object.keys(internal)) }),
+            try: () => declare({ E: pick<Tokens<In, Id>>(E, Object.keys(internal)) }),
             // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
             catch: (cause: unknown) => cause,
           });
