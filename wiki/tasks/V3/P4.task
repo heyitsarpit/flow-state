@@ -2866,68 +2866,79 @@ tasks
             now running.
 
     T104
-        title       Type gaps closed: handles, snapshots, evidence, cuts and records typed by what Flow knows
+        title       Type gaps closed at every module seam: carriers, handles, snapshots, evidence, casts
         status      draft
         priority    high
         description
-            Every public type Flow hands back is as narrow as what Flow knows: a definition's, contract's, ref's or
-            fake's own names and Schema types flow through to handles, snapshots, evidence, cuts and records, so a typo
-            or a wrong value fails to compile instead of reading undefined or matching nothing.
+            Every type Flow hands across a module seam is as narrow as what the producer holds, so a typo or a wrong
+            value fails to compile instead of reading undefined, matching nothing or reaching the runtime; every type
+            cast is removed or kept as a verified boundary.
 
-            **Why now:** the user found `snapshot.operations` untyped beside a typed state and memory ("a very stupid
-            type gap"); three surveys (2026-11-19) then found the same freedom across the API: Flow erases a type it
-            holds at the point it hands a value out. The worst: operation handles drop the contract's fields, so
-            `O.pay.commit(({ memory }) => ({ amnt: memory.cents }))` compiles (about 91 sites); a cut's
-            `records.stored.has("lane/Typo")` and `calls.filter(c => c.endpoint === "setQuantiy")` assertions pass for
-            the wrong reason.
+            **Why now:** the user found `snapshot.operations` untyped beside a typed state and memory. Four surveys
+            (2026-11-19) found one freedom across the API: a producer holds a narrow type and the seam to its consumer
+            erases it (a shared erased intermediate such as `Bound`, `Compiled`, `Values` or `Ending`; a string key for
+            a typed reference; two copies of one shape). The deep survey maps 21 seams (14 lossy), 9 carrier families
+            and 34 new gaps (31 probe-confirmed). Worst: `O.pay.commit(({ memory }) => ({ amnt: memory.cents }))`
+            compiles (about 91 sites); `cut.read(foreignRef)` returns undefined and passes (498 sites); `updateMemory`
+            may silently rewrite a `Flow.input` field.
 
-            **Read first:** code:packages/flow-state-v3/src/definition.ts#Handles,
-            code:packages/flow-state-v3/src/contract.ts, code:packages/flow-state-v3/src/host/snapshot.ts,
-            code:packages/flow-state-v3/src/host/testing/run.ts, code:packages/flow-state-v3/src/core/evidence.ts.
+            **Read first:** code:wiki/plans/flow/references/proposals/type-gaps-deep-2026-11-19.md (families, seams,
+            cast inventory, probes), code:packages/flow-state-v3/src/definition.ts#Handles,
+            code:packages/flow-state-v3/src/contract.ts, code:packages/flow-state-v3/src/host/snapshot.ts.
 
-            **Approach:** the broad fix first (the user's convergence rule): find where the type is held and where it is
-            dropped, and carry it through once (phantom type parameters on `Bound`, `ContextSlot`, `Ending`, `Snapshot`,
-            a `RecordKey` brand), rather than patching each signature. Then, each with a type test that a misspelling
-            fails to compile, ranked by false-pass risk:
+            **Approach:** fix the carrier at each seam, once, so one change closes every gap on it (the convergence
+            rule); never patch a signature alone. In order:
 
-            1. Operations: handles keep the contract's input and key fields (`commit`, `lookup`, `retry`, `cancel`,
-               `idle`, `retryable`, `get`); `Snapshot<D>.operations` keyed by the definition's operation names;
-               `attempt.input` and `attempt.key` typed; a runtime handle's `getSnapshot()` returns `Snapshot<D>`
-               (T103's amendment).
-            2. Test cuts and records: `records.stored` and `Fake.storage.put` take a `RecordKey` brand from the
-               record-key helpers; `calls` typed by endpoint handle (or dropped for `read(endpoint)`); evidence
-               selectable by operation token; `RuntimeCut` rows use the existing `Phase`, `Channel` and `Timer` tags.
-            3. Context: `Snapshot.context` typed; context wiring keys typed by the machine's slots and values by the
-               slot's provider (`ContextSlot<V, P>`).
-            4. Callbacks and tokens: a guard's `state` and `StateToken.is`/`child` typed by the machine's leaves;
-               `onContext`'s `select`/`when` and `Ending.from` carry their value type instead of `never`; read
-               contracts' failure tags checked like write contracts'; `Definition.Event` decodes to `EventOf`.
-            5. The escapes behind them: `trusted<A>(value: unknown)` and `erase<I, R>` take the expected shape so a
-               rename cannot compile against the wrong type; `endingValue`'s `never` cast replaced by the carried value
-               type; samples keep their event type; typed run rejections for tests.
-            6. From T103's review: a stopped Runtime's `read` must not return `{}` as typed memory;
-               `no-event-name-filter` aliases; a token whose machine never starts selecting nothing (a run rule or
-               a refusal).
+            1. F9 excess keys: an arrow's returned object is not excess-checked, so `updateMemory` (and other returned
+               shapes) accept extra keys; confirm with a Story whether a `Flow.input` field is rewritten (a wrong
+               ending, red first), then an exactness check via a `const` parameter.
+            2. F1 contract (`Bound` with phantom input, key, success and failure; `transaction`'s key a `const` tuple)
+               together with `ContextSlot<V, P>`: typed operation handles (`commit`, `lookup`, `retry`, `cancel`,
+               `idle`, `retryable`, `get`), `attempt.input` and `attempt.key`, `Snapshot.operations` keyed by operation
+               name, typed context and context wiring.
+            3. F5 snapshot view (`Snapshot<D, View>`): a runtime handle's `getSnapshot()` and `Snapshot.context` typed
+               without claiming `Flow.private` fields stripped at run time or context a resting snapshot returns
+               as `{}`.
+            4. F4 app (`RuntimeSetup<R, A>`): Stories know their app's machines, so a foreign ref in `cut.read` fails
+               to compile.
+            5. F6 evidence names with F8 closed vocabularies: evidence typed by operation and event; `RuntimeCut` rows,
+               diagnostics details and the bench use the existing unions; a `RecordKey` brand for records in cuts and
+               `Fake.storage`; `calls` typed by endpoint.
+            6. F2 endings (`Ending<V>`, `WriteEndings<E, A>`): mappers carry their value type; the `never` cast and 104
+               hand annotations go.
+            7. F3 definition brand on tokens: another definition's token fails to compile, not only at construction.
+            8. F7 id brands for attempt, lane, incarnation and actor ids at their seams (record-boundary brands stay
+               with @task.V3.T92).
+            9. The three seams with duplicated shapes (`inspect.ts` phase, channel and delivery; the lifecycle union;
+               the call shape) use the one core type.
+            10. The cast sweep: 74 removable casts now, 9 after their carriers; the three false SAFETY comments; every
+                kept cast states its boundary or limit.
 
-            Each item names its false pass or wrong ending; an item a survey reported that does not hold at the code
-            (checked by a type test) is dropped with the reason. Public type changes are small and delegated; a new type
-            parameter on a public word (`ContextSlot<V, P>`) is noted for the user's read.
+            Also: T103's routed items (a stopped Runtime's `read` returning `{}` as memory; `no-event-name-filter`
+            aliases; a token whose machine never starts). New public type parameters (`ContextSlot<V, P>`,
+            `RuntimeSetup<R, A>`, `Snapshot<D, View>`, `Ending<V>`, token brands) are delegated, since users rarely
+            write them, and each is noted for the user's read.
 
-            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`, @spec.Stories
-            and the Plans' code examples via @plan.Pending. Evidence: this Task's comments.
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`, `tools/flow-state-lint/`,
+            @spec.Stories, @spec.Diagnostics and the Plans' code examples via @plan.Pending. Evidence: this
+            Task's comments.
 
-            False pass: a type test that passes because the type is `any` or `never` → each type test also asserts the
-            correct spelling compiles (both sides), so a widened type fails it.
+            False pass: a type test that passes because the type became `any` or `never` → every type test is two-sided
+            (the wrong line fails to compile and the correct one compiles), as the survey's probes are.
         acceptance
-            - Each kept item has a two-sided type test: the misspelt or wrong value fails to compile, the correct one
-              compiles; red (compiling) before its change.
-            - No public signature in `src/index.ts` or `src/host/testing/index.ts` returns `string`, `Values`, `unknown`
-              or `never` where the definition, contract, ref or fake already holds a narrower type, except where a
-              survey item was dropped with its reason.
-            - `trusted` and `erase` take the expected shape; no type comes from a return annotation alone.
-            - T103's routed items are closed or routed with a reason.
-            - `nub run check`, the suite and stress pass; any new lint rule or run rule has planted faults caught by
-              `nub run faults --only`.
+            - F9 is settled first: either a Story shows a `Flow.input` field rewritten (red, then fixed) or the survey's
+              claim is disproved with evidence; returned shapes are exact.
+            - Each lossy seam in the survey's map is closed by its carrier, with a two-sided type test per gap it
+              closes; no gap in the survey or T104's earlier list is left without a test or a recorded reason.
+            - No public signature in `src/index.ts` or `src/host/testing/index.ts` hands out `string`, `Values`,
+              `unknown` or `never` where the producer holds a narrower type, except at the survey's seven
+              legitimate seams.
+            - Every `as` cast in the package is removed or carries a verified boundary or TypeScript-limit reason;
+              `trusted` and `erase` take the expected shape; no SAFETY comment is false.
+            - T103's routed items are closed or routed with a reason; each new public type parameter is noted for the
+              user's read.
+            - `nub run check`, `nub run lint:rules`, the suite and stress pass; any new lint or run rule has planted
+              faults caught by `nub run faults --only`; `nub run docs:build` passes.
         comment     2026-11-19T13:22:51Z
             Scope (the user, 2026-11-19): every type cast is scrutinised: each as-cast, satisfies-in-place-of-a-type,
             trusted/erase helper and no-unsafe-type-assertion disable is removed, or kept only as a verified boundary or
