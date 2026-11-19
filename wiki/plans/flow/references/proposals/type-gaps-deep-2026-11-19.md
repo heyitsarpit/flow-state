@@ -13,6 +13,9 @@ change to that carrier restores most of the family. Four carriers matter most:
 A fifth issue is not a carrier: TypeScript does not check excess keys on an arrow's returned object. That is why
 `updateMemory: () => ({ count: 1, who: "x" })` compiles and silently rewrites a `Flow.input` field.
 
+A seam map (section "Seams") shows that 14 of 21 module seams drop a type the producer holds, and each is
+closed by one of the carriers.
+
 Counts:
 
 - 34 new gaps, 31 of them confirmed by a two-sided probe.
@@ -359,6 +362,155 @@ machine(D, ({ S }) => ({ default: S.IDLE, on: { go: { updateMemory: () => ({ cou
 // error: 'who' is never in WritableOf<M>
 ```
 
+## Seams
+
+Most gaps sit at a seam: two modules built apart, where the value crosses and its type does not. 21 seams were
+mapped. 14 lose a type the producer holds, and 7 erase it legitimately. Every lossy seam is closed by a carrier
+from the Families above, so the seams add no new fixes; they show where each fix has to land.
+
+Four signs mark a lossy seam:
+
+- **(E)** a shared erased intermediate (`Compiled`, `Values`, `Bound`, `Ending`, `Record<string, …>`).
+- **(S)** a string key standing in for a typed reference.
+- **(D)** two modules each declaring their own copy of one shape.
+- **(P)** a phantom the producer has and drops.
+
+The lead read every seam in the code; the gaps they cause were probed above. "Narrow → wide" gives the
+producer's type, then the consumer's.
+
+### Lossy seams
+
+1. **Contract → handle.** `transaction`/`resource` (src/contract.ts) → `Handles` (src/definition.ts:251).
+   - Types: `Transaction<F, A, E, R>` → `Bound<K, R>` → `WriteHandle<M, Values>`.
+   - Sign: (E) `Bound`.
+   - Carrier: F1, phantom `~input`, `~key`, `~success`, `~failure` on `Bound`.
+   - Closes: T104 item 1 (handles, `attempt`) and gap 10.
+2. **Contract → ending → definition events.** `outcomes(endings)` → `operation-checks.ts` and
+   `compiled-parts.ts:23`.
+   - Types: `A`, `E` and the token's `P` → `Ending` with `from: (value: never)`.
+   - Sign: (E) `Ending`. The event is checked by name only, at src/operation-checks.ts:14.
+   - Carrier: F2, `Ending<V>` and `WriteEndings<E, A>`.
+   - Closes: T104 items 4 and 5 (`Ending.from`, `endingValue`) and gaps 4 to 9.
+3. **Definition tokens → machine body and `operations`.** `S`, `E` and `O` tokens → `compile-body.ts`.
+   - Types: a definition with its `id` → `"~owner": symbol`, checked at run time (`ForeignToken`).
+   - Signs: (S) and (P). The id is held as a value, never as a type.
+   - Carrier: F3, a `const Id` brand on tokens.
+   - Closes: gaps 11 to 13, and the fixtures' false SAFETY claim.
+4. **Definition → `Compiled` → turn callbacks.** `machine(D, body)` → `Compiled` closures (src/machine.ts:107-126,
+   src/compile-body.ts).
+   - Types: the body's `M`, `P`, `S` and the slot's `V` → `(input: never) => R`, cast back by `erase` and
+     `trusted`.
+   - Sign: (E) `Compiled`.
+   - Verdict: half legitimate. The core is untyped by design, and `Machine<D>` keeps `D` beside `compiled`, so no
+     user-facing type is lost here. The defect is the casts' targets. Today they are chosen at each call; with F2
+     and `ContextSlot<V, P>` they become derived, one erase point per family.
+   - Closes: the (a) and (b) casts in handles.ts, compile-body.ts and machine.ts.
+5. **Provider definition → consumer's context slot.** `Provider.select(schema, selector)` → `ContextSlot<V>` →
+   `ContextConfig` → the ref's or entry's `context` wiring.
+   - Types: the provider's `LeavesOf` and `OutsideOf` and its id → `ContextSlot<V>` with
+     `select: (snapshot: ProviderSnapshot<never, never>)`, then `Readonly<Record<string, ActorRef>>` wiring
+     (src/host/runtime.ts:51).
+   - Signs: (E), (S) and (P). The slot drops which provider it reads, and wiring is keyed by a free string.
+   - Carrier: `ContextSlot<V, P>` (T104 item 3), with wiring typed by a NEW
+     `{ [K in keyof Cx]: ActorRef<ProviderOf<Cx[K]>> }`.
+   - Closes: T104 item 3 and the `erasedSelect` cast.
+6. **App → Runtime and Story.** `runtimeSetup<A>` → `Runtime<R>`, `Story.app` → `Cut`, `publishedOf`,
+   `samplesOf`.
+   - Types: `A` (the app's machines) → services `R` only.
+   - Sign: (P).
+   - Carrier: F4, `RuntimeSetup<R, A>`.
+   - Closes: gaps 14 to 18.
+7. **Runtime → actor handle → snapshot.** `driver` and `snapshotOf` → `Actor<D>.getSnapshot()`
+   (src/host/runtime.ts:119) and `Cut.read`.
+   - Types: `Actor<D>` → `Snapshot` erased. `Snapshot<D>` keeps `operations: Operations` and `context: Values`.
+   - Signs: (P) and (E) `Values`. There is also a view mismatch: the runtime strips private fields, but the type
+     says inside memory.
+   - Carrier: F5, `Snapshot<D, View>`, with operations keyed by F1 and `context: Partial<ContextOf>`.
+   - Closes: T104 item 1 (`getSnapshot`, `operations`), T104 item 3 (`context`) and gaps 19 to 21.
+8. **Core lifecycle → snapshot.** `actorLifecycleOf` (src/core/life.ts:190) → `Snapshot.lifecycle`
+   (src/host/snapshot.ts:38).
+   - Sign: (D). The union is written twice.
+   - Carrier: one exported `Lifecycle`.
+   - Closes: S4 G6, and the 8 `as const` casts in life.ts.
+9. **Runtime → evidence.** The core builds `Evidence` (src/core/evidence.ts:73-150) → the selectors in
+   src/host/testing/select.ts and `attachInspector`.
+   - Types: the event tag, leaves and operation names (held by the definition, and by the selector's token or
+     ref) → `string`.
+   - Sign: (E) heterogeneous `string` rows. The core legitimately mixes actors; the selector does not.
+   - Carrier: F6, `Evidence<N>` narrowed by the selector. The core keeps the wide default.
+   - Closes: gaps 22 to 25, and T104 item 2's "evidence selectable by operation token".
+10. **Core state → inspection.** `driver` world → `RuntimeCut` (src/host/inspect.ts:52-77).
+    - Types: `Phase["_tag"]`, `Channel`, `Delivery["_tag"]`, the timer kind, `ActorId` and `Snapshot<D>` →
+      `phase`, `channel`, `delivery`, `reason` and `kind` as `string`, `actor: string` and an erased `Snapshot`.
+    - Sign: (D). `inspect.ts` declares its own row shapes. `lifecycle: Life["_tag"]` shows the right pattern
+      already in the same type.
+    - Carrier: build the rows from the core types (`Phase["_tag"]`, `Channel`, `Delivery["_tag"]`), with no
+      generics. `actors[].snapshot` follows F4 and F5.
+    - Closes: T104 item 2 (`RuntimeCut` tags) and gap 28.
+11. **Fake server → cut and trace.** `Fake` endpoints (`EndpointHandle`, typed `I`) → `Cut.calls`
+    (src/host/testing/run.ts:70) and `TraceRecord.Request` (src/host/trace.ts:22).
+    - Types: an endpoint's request `I` and its server and endpoint names → `CallEntry<Values>` with
+      `server: string` and `endpoint: string`.
+    - Signs: (S) and (D). The call shape is written twice, in `Cut.calls` and `TraceRecord.Request`.
+    - Carrier: drop `Cut.calls` for `read(endpoint)`, which is already typed (T104 item 2). Derive
+      `TraceRecord.Request` from `CallEntry`.
+    - Closes: T104 item 2 (`calls`) and the 19 `c.endpoint === "…"` sites.
+12. **Record keys → storage, cut and fake.** `actorRecordKey` and `laneRecordKey` (src/core/record.ts) →
+    `Store.load`, `Bytes.key` (src/host/host.ts:16), `Cut.records.stored` and `Fake.storage.put`.
+    - Types: a record kind and its identity → `string`.
+    - Sign: (S).
+    - Carrier: the `RecordKey` brand (T104 item 2), extended to the F7 ids (`AttemptId`, `LaneId`,
+      `IncarnationId`, `ActorKey`).
+    - Closes: T104 item 2 (records) and gap 26.
+13. **Issues → diagnostics.** The core's issue codes and Flow's `Finding`s (src/host/snapshot.ts:66, :148;
+    src/operation-checks.ts:88; src/error.ts:156) → `Diagnostic.details`.
+    - Types: per-code detail keys (`reason`, `refused`, `slot`) → `Record<string, Detail>`.
+    - Sign: (E) a `Record<string, …>`.
+    - Carrier: F8, `Diagnostic` as a union by code.
+    - Closes: gap 27.
+14. **Services → run-promise and driver.** `SetupConfig<A>` (`ServicesLayer<ServicesOf<A>>`) →
+    `RuntimeConfig.services: Layer<never, unknown>` (src/host/runtime.ts:225) → `run-promise.ts:51`.
+    - Types: `R` → erased.
+    - Sign: (P).
+    - Carrier: `RuntimeConfig<R>`.
+    - Closes: the `run-promise.ts:51` (b) cast.
+
+### Legitimate seams
+
+- **Record encoder → decoder** (src/core/record.ts, src/core/record-format.ts, `Store`). This is a persisted
+  format, so it is `Values` and text by necessity.
+  - Recovery: decoded once at load with the machine's own codecs (`Format`, `ActorJson`, the memory codec). A
+    record that fails goes to quarantine. The type returns at `Snapshot<D>`, not before.
+  - One defect: the quarantine reason is free text, so it needs a `QuarantineWhy` union (gap 25).
+- **Contract input → commit call** (src/contract.ts:254, :306). Here `Compiled` holds `Values`.
+  - Recovery: decoded once, by the lane walker at commit or the lane record at load, then cast once at the single
+    call boundary. This is a valid (c).
+- **Host JSON → codec** (src/core/codec.ts:288). This is wire data.
+  - Recovery: decoded once, by the codec's own walk.
+- **`Compiled` call effect → driver** (src/host/driver.ts:52). This is a heterogeneous runtime list of every
+  contract's effect.
+  - Recovery: the Runtime provides the services that `RuntimeSetup<R>` checked, so the type is not recovered,
+    only guaranteed.
+- **The core's world and evidence log.** This mixes many actors in one runtime list.
+  - Recovery: narrowed per selector (seam 9), not in the core.
+- **CLI discovery → Story** (src/host/cli/discover.ts, `Story<string>`). This is a glob and a dynamic import.
+  - Recovery: none statically. src/host/cli/discover.ts:100 checks the Story's app at run time.
+- **Bench declaration → history CSV** (bench/declare.ts, bench/history.ts). This is a persisted CSV.
+  - Recovery: decoded once with `Schema`. Two defects remain on the producer side: a `kind` and `id`/`concern`
+    that are not tied together, and `Schema.String` rows where literal unions exist (gaps 30 and 31, S4 G10 and
+    G11).
+
+### What the seam map changes
+
+- **Order:** seams 1, 2, 5 and 6 are the four carriers. Each feeds several seams downstream:
+  - `Bound` feeds seams 7 and 9.
+  - `Ending` feeds seam 4.
+  - `ContextSlot<V, P>` feeds seam 7's `context`.
+  - `RuntimeSetup<R, A>` feeds seams 7, 9 and 10.
+
+  So the suggested order below stands, with `ContextSlot<V, P>` moved up beside F1.
+- **(D) seams need no generics:** 8, 10 and 11. They reuse a type that already exists, so they can land first.
+
 ## New gaps
 
 The gaps below are not in T104. Probe "yes" means a two-sided check confirmed it: the wrong line compiles today,
@@ -604,7 +756,8 @@ derived from the carrier rather than chosen by the writer.
 
 ## Suggested order to merge into T104
 
-1. **F1 `Bound` carrier and a `const` key.** This unblocks T104 item 1, `attempt`, `Snapshot.operations` and F2.
+1. **F1 `Bound` carrier and a `const` key, with `ContextSlot<V, P>` beside it.** This unblocks T104 items 1 and 3,
+   `attempt`, `Snapshot.operations` and F2 (seams 1 and 5).
 2. **F5 snapshot view, together with T104 item 1's `getSnapshot`.** This fixes the private-memory and `context: {}`
    lies before they are typed in.
 3. **F9 `updateMemory` exactness.** The silent input-field write is a correctness bug, not only a typo.
