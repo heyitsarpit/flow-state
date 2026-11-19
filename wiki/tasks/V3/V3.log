@@ -921,3 +921,7 @@ note 2026-11-19T00:28:52Z
 note 2026-11-19T00:38:20Z
     Decision (the user, 2026-11-19): T92 deferred; its work saved on branch t92-format-4, flow-rewrite restored to
     fef46251's code and Specs (check 0, suite 1181). Pending D31 waits with it. Next: T95.
+
+note 2026-11-19T00:39:07Z
+    T95 started: text gains a design-first step (structure over per-check, the user's convergence point), fixtures line
+    and raw-throw scope. Lead writes requirements and fixtures, then stops for the requirements review.

@@ -1211,7 +1211,7 @@ tasks
 
     T95
         title       Callback results checked before they enter a turn
-        status      draft
+        status      in_progress
         priority    high
         satisfies   [@plan.Runtime.O5]
         description
@@ -1233,6 +1233,15 @@ tasks
             mapper payload its event refuses); then one callback wrapper keeping the cause and slot replaces `call`
             (core/turn.ts) and `callSlot` (core/compiled.ts), with the result check inside it.
 
+            Design first (the user, 2026-11-19, after T92): before the per-check list, the requirements ask whether a
+            structure removes the class, so a callback result can't enter a turn unchecked by construction (one wrapper
+            every callback passes through, results decoded by the slot's Schema), rather than adding checks one by one;
+            the first commit states the choice and why.
+
+            Fixtures: no catalog step; the refusals are edge values for code:wiki/conventions/fixtures.md (hostile
+            patches and mapper payloads in the fixtures' step samples, the palette's large patch as load). The raw-throw
+            class stays parked in @task.V3.T98.
+
             May change: `src/core/`, `tests/`, `fixtures/`, @spec.Turn and @spec.Diagnostics with `specs.log` notes.
             Evidence: this Task's comments.
 
@@ -1245,6 +1254,8 @@ tasks
             - An unknown patch key, a patch value its field's Schema refuses and a mapper payload its event refuses each
               refuse the turn with a FlowError naming the slot, shown red first by a Story test.
             - One callback wrapper keeps the thrown cause and slot; `call` and `callSlot` are gone.
+            - Fixtures first (code:wiki/conventions/fixtures.md): the hostile patch and payload samples are in the
+              fixtures' step samples and run by every runner before the build; the proof is posted as a Task comment.
             - The palette's per-turn median grows by at most 10 % with checks on, or production checks keys only,
               recorded with the bench numbers.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
