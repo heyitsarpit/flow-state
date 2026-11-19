@@ -2656,3 +2656,9 @@ tasks
               in `tests/sign-in/cleanups.test.ts`.
             - Extra files: `src/definition.ts`, `src/events.ts`, `tools/flow-state-lint/` (`no-event-name-filter`),
               `vite.config.ts`, `package.json`, `tools/lint-bomb/FLOW-STATE.md`, `wiki/specs/testing/Stories.spec`.
+        comment     2026-11-19T13:15:50Z
+            Amendment (orchestrator, user-prompted 2026-11-19; small, delegated): Snapshot<D> types operations too
+            (outer keys as the definition's operation names, inner key text a string), and a runtime handle's
+            getSnapshot() returns Snapshot<D>, so the five src unit-test dot reads become checked. Built in the fix
+            round after the close review, with a type test that a misspelt operation name and a misspelt memory field on
+            a handle fail to compile.
