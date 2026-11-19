@@ -3582,6 +3582,91 @@ tasks
             lane-operation-unkeyed, detail-accepts-nan, lane-record-off-kind) and walker-on-call-stack planted with no
             failing test. T104 reworked the code they target, so its fix round re-plants each and shows it caught with
             `nub run faults --only`.
+        comment     2026-11-19T20:48:54Z
+            Close review (independent lead, 9f1c0cff): ISSUES, four blocking. The suite exits 0 with typecheck on (1494
+            passed, 25 expected fail, no type errors) and `nub run check` exits 0; faults and stress were not run.
+
+            Blocking:
+
+            1. Nine fault plants no longer apply after T104's edits. A script matched each plant's `find` text against
+               its file. Stale: mint-not-replayable, setup-services-built, trace-own-path, read-encodes-memory,
+               refused-start-read, owed-record-keyed-kept, lane-operation-unkeyed, detail-accepts-nan,
+               lane-record-off-kind. walker-on-call-stack applies but has no failing test (the orchestrator's routing).
+               Missed because the close ran `faults --only` for the new plants only; no check fails when a plant's
+               `find` text stops matching.
+            2. A3 is broken: public signatures still hand out text where the app holds names. A scratch probe compiles
+               each of these:
+               - `turnsOf` rows' `actor.machine` and `parts` (`src/host/testing/select.ts:47`);
+               - `TraceRecord.Request.endpoint` (`src/host/trace.ts:22`; the design derived it from `CallEntry`, but it
+                 wasn't built);
+               - `Cut.inspection` actors' `snapshot.state`, lanes' `operation` and
+                 `uses` (`src/host/inspect.ts:63,66,87`);
+               - `Cut.unsettled` / `unsettledWrites()` operation (`src/host/close.ts:41,44`);
+               - `Step.send` with any actor and envelope.
+
+               By signature, these erase the app's `Ds`:
+               - `forkReloads` (`story.ts:256`, `Story<string>`, fork returns `StoryRun`);
+               - `Property.breaches`, `Samples.story`, `Generated.run` (`samples.ts:18,28`, `generate.ts:823`), so a
+                 property's `run.end.read(foreignRef)` compiles: F4's class;
+               - `WriteHandle.get(operations: Operations)` (`src/tokens.ts:123`), which takes another definition's
+                 `snapshot.operations` and silently returns none;
+               - `WorldWord` constructors and `FakeWorld.serve`.
+
+               Missed because no export was replayed (Req 16) and no type test covers these words.
+            3. g23 is recorded as closed but is open. "Flow's own writes are typed at decline and notSent" is false:
+               `decline` (`src/core/lanes.ts:135`) and `notSent` (`src/core/lane-moves.ts:115`) take `why: string`, so
+               `"Rejectd"` compiles. Missed because its check was `nub run check` over the call sites, which a `string`
+               parameter always passes.
+            4. Type tests are still one-sided, the requirements review's first finding. These refusals have no exact
+               positive on the same parameter:
+               - `app.test-d.ts:70,72,111,113` (`:126` is only `.not.toBeNever()`);
+               - `contract.test-d.ts:140`;
+               - `evidence.test-d.ts:158` (only `toExtend`) and `:164`;
+               - `excess-keys.test-d.ts:109,260`;
+               - `definition.test-d.ts:45,53,63,69`, `machine.test-d.ts:134`, `tree.test-d.ts:18,62`;
+               - `schedule-send.test.ts:16,35`.
+
+               A probe shows each carrier refuses in isolation, so no wrong ending is hidden; the false-pass guard is
+               what's missing.
+
+            Not blocking (fix in the round, or route):
+
+            - `excess-keys.test-d.ts:19,53-55` says "construction refuses at load". A probe shows body, alternative and
+              list keys are refused at load (InvalidConfiguration), but a returned key (`cuont`) constructs and is
+              refused only at the turn (InvalidTurn, Turn R8). Send event keys are checked when the send runs. Correct
+              the text.
+            - @spec.Restore R5 still says a quarantined actor "reads lifecycle quarantined with its issue". When the
+              fresh start is refused, `getSnapshot()` is now none (`src/host/snapshot.ts:157`). Add the case to R5.
+            - Req 15 is unmet: `testing.compile.ts`, `send.compile.ts` and `schedule-send.test.ts` remain, and the
+              relink waits on the user. Req 18 is unmet: a second `loose` at `src/host/runtime.test.ts:95`; also
+              `recordCodec` (`contract.ts:218`) duplicates `codecOf` (`events.ts:17`).
+            - `actorRef` with untyped options and no `context` now throws at ensure (`src/host/refs.ts:51`; it was
+              `?? {}`).
+            - Route to owners, all outside T104's type range and older than T104:
+              - a lookup input has no run-time Schema check (@spec.Reads);
+              - untyped `scope` or `persistence` alone saves nothing (Actors R1);
+              - `generate.ts` `ruleOf` maps an unknown rule to the turn limit (unreachable now that the rule is typed);
+              - a non-object `updateMemory` return escapes the turn (`src/core/turn.ts:383`, Turn R10).
+
+            The builder's calls:
+
+            - Accepted: dropping `RuntimeConfig<R>` (`SetupConfig<A>` types services at setup; the cast is per call);
+              services checked by constraint (an extra Layer is harmless); `as const` (none of them asserts);
+              Diagnostics R2 (g27's typo is the case; the four writers and every bracket reader are typed; not shaped to
+              fit the code).
+
+            Sidecar log (6 Haiku, effort high):
+
+            - Accepted: blind (Restore R5, actorRef, routed items); cohesion (loose, codec duplicate); two-sided
+              (finding 4, re-read); survey replay (g23, re-read); exports (finding 2, re-probed); casts (excess-keys
+              text, re-probed).
+            - Rejected:
+              - computed `Flow.initial` (owed by @task.V3.T105) and the context-slot Specs (@task.V3.T107);
+              - a send-token brand (no case);
+              - the `lanes.ts` SAFETY claim (the encode walks the shape);
+              - the checkpoints cast (probed: a sliced or empty run drops the names);
+              - string-keyed World maps (@task.V3.T92);
+              - the repeated `InFlight | Held` and tier unions (no ending).
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
