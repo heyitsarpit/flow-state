@@ -1022,3 +1022,7 @@ note 2026-11-19T09:27:43Z
 note 2026-11-19T09:51:27Z
     Decisions (the user, 2026-11-19): T103's C2 is a lost option on Fake.server; fakes stay at the port (Flow is not a
     network library); a live port fake as the demo backend is proposed for P6.
+
+note 2026-11-19T11:30:34Z
+    Decision (orchestrator, user-confirmed 2026-11-19, Q11 A): Flow reports every cleanup failure reaching the effect it
+    runs; typed failures inside the app's own error handling follow Effect; dying cleanups are always reported.
