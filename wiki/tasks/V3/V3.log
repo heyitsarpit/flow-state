@@ -1063,3 +1063,7 @@ note 2026-11-19T13:20:20Z
 note 2026-11-19T14:42:57Z
     T102 built, in review (b5aebb79): typed reason catalogue, one id mint, Following state, Trigger, exhaustive
     dispatch, two lint rules. Close review started; it settles whether incarnation start order is observable.
+
+note 2026-11-19T14:57:57Z
+    T102 done (5aae1ef8); start order ruled observable, its rule and T102's routed checks in new T105 after T104.
+    Alchemy clone updated in codebases; an Opus lead writes an adoption proposal (30 min budget).

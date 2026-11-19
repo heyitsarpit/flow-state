@@ -56,11 +56,12 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T58,
-    @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56,
-    @task.V3.T22, @task.V3.T100, @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and
-    T95 cut by the user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A
-    `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in this order.
+    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T105,
+    @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73,
+    @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92
+    deferred and T95 cut by the user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the orchestrator,
+    2026-11-19). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in
+    this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -2384,7 +2385,7 @@ tasks
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
-        status      review
+        status      done
         priority    medium
         description
             The core's reason codes, runtime ids, chain state and turn cause each become one typed shape, so the wrong
@@ -3121,3 +3122,33 @@ tasks
             (fails on any, unknown, never or a looser record), run in the suite with --typecheck. Every @ts-expect-error
             is paired with a positive exact assertion on the same parameter, so it cannot pass for the wrong reason; the
             existing tests/types/*.compile.ts files are converted the same way.
+
+    T105
+        title       Start order stated as a rule; T102's routed checks built
+        status      draft
+        priority    medium
+        description
+            Live identities handled together go in start order by a stated rule, and T102's routed checks are built, so
+            the gaps its review found are caught.
+
+            **Why now:** T102's close review showed start order is observable (reversing it changes
+            `BlockedByDependents`' message order and swaps consumers' context-update turns) yet no Spec rule says so,
+            and a fault reversing it passed the whole suite; a few checks T102 described were not built.
+
+            **Read first:** @task.V3.T102 (its close review), @spec.Actors.
+
+            **Approach:** add a proposed Actors rule (consumers of a wave, a provider's dependents, dispose among peers
+            and graces go in start order) with a `specs.log` note; pin `cartFirst` in `store.test.ts` so the
+            `start-order-reversed` fault is caught; build the mail-between-items test (removing `tx.followNone()` in
+            `serve.ts` must fail a test); close `no-tag-chain`'s `[...].includes(x._tag)` and early-return gaps with
+            plants; fix the two stale texts (`SAVED_DELIVERY`'s comment, `FLOW-STATE.md`'s file-level disable claim);
+            replace `lanes.ts`'s `id: ""` report with an Option or a tagged no-lane case.
+
+            May change: `packages/flow-state-v3/src/`, `tests/`, `tools/flow-state-lint/`,
+            `tools/lint-bomb/FLOW-STATE.md`, @spec.Actors with a `specs.log` note. Evidence: this Task's comments.
+        acceptance
+            - The start-order rule is in Actors (proposed) and `start-order-reversed` is caught by a named test.
+            - Removing `tx.followNone()` fails a test; `no-tag-chain` refuses `.includes(x._tag)` and early-return
+              chains, planted.
+            - The two stale texts are fixed and `lanes.ts` reports no lane without an empty-string id.
+            - `nub run check`, the suite and `nub run faults --only` on the new faults pass.
