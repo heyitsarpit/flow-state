@@ -1001,3 +1001,8 @@ note 2026-11-19T07:18:27Z
 note 2026-11-19T07:30:11Z
     T99 fully built, in review (4cd855c1): every fiber's exit checked at close, runPromise (Q7 A), quarantine (Q8 A).
     Second close review started; it checks the three-bound close and the quarantine lift on disposeActor.
+
+note 2026-11-19T07:51:21Z
+    T99 second close review ISSUES (41429856): typed cleanup failures and abort lose the Cause (same root cause twice,
+    so convergence by structure: one Cause fold at close); the suite gate was red. For the user: an unreported
+    quarantine.

@@ -2285,6 +2285,12 @@ tasks
             - Code quality: accepted the implicit read state, the repeated observers, the predicates, the test citation
               and the stale comment. Rejected "the Plan's public option" in suppressions as a temporary name: a Plan is
               a durable record.
+        comment     2026-11-19T07:51:20Z
+            Convergence (orchestrator, 2026-11-19; threshold 2: a cleanup failure missing dispose's rejection, twice).
+            Structure first: the close folds every forked fiber's whole Exit with Effect's Cause algebra, and anything
+            but a pure interrupt is CleanupFailed with that Cause, so no per-kind check exists to miss (die, typed
+            failure, abort). Tests first for every fiber kind by every cleanup outcome. The read quarantine becomes one
+            tagged state, not three maps. Failure limit 2 applies after this.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
