@@ -3030,7 +3030,7 @@ tasks
 
     T104
         title       Type gaps closed at every module seam: carriers, handles, snapshots, evidence, casts
-        status      review
+        status      done
         priority    high
         description
             Every type Flow hands across a module seam is as narrow as what the producer holds, so a typo or a wrong
@@ -3781,6 +3781,10 @@ tasks
               - walker-on-call-stack's text: it predates T104.
               - empty `edits`: no plant has them.
               - the repeated unions, the `Operations` alias and `Owed.reason`: no ending, and the design records them.
+        comment     2026-11-19T21:55:14Z
+            Done (orchestrator): second close review PASS at 1ef090b7, nothing blocking; follow-ups routed to
+            @task.V3.T105. Proposed, for the user: the Step.ensure/detach/send/dispose, WorldWord and FakeWorld removal
+            from the public testing entry (2dcd3cf4) stands until the user decides; reverse by re-exporting them.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
@@ -3833,6 +3837,13 @@ tasks
             (@spec.Actors R1); a non-object updateMemory return escapes the turn
             (code:packages/flow-state-v3/src/core/turn.ts, @spec.Turn R10); generate.ts maps an unknown rule name to the
             turn limit (unreachable now). Each lands as an inverted test first.
+        comment     2026-11-19T21:55:14Z
+            Routed from T104's second close review (orchestrator): unsettledWrites derives its rows from the app with no
+            caller parameter (a named narrower app mistypes rows today); one helper for the three ForeignActorRef raises
+            (story.ts own, runtime.ts ownRef, the run); paired-refusals lint holes, each a plant in its test first
+            (unplaced refusals, toEqualTypeOf<any> or bare, another object's or key's member); siblings still erased
+            (publishedOf actor, SendTargetAbsent.sender, step arrays on StoryRun, Samples, Generated, pairSweep
+            options); stale text at schedule-send.test-d.ts:5-6 and the lifecycle list at inspect.ts:46.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine

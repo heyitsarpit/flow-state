@@ -1113,3 +1113,7 @@ note 2026-11-19T20:31:08Z
 note 2026-11-19T20:49:47Z
     T104 close review: ISSUES, four blocking (stale plants, wide public signatures, g23, one-sided type tests);
     one-sided tests hit threshold 2, so the fix round lands guards. Fix-round lead started.
+
+note 2026-11-19T21:55:30Z
+    T104 done (1ef090b7): second close review PASS; follow-ups routed to @task.V3.T105. Proposed for the user: the
+    public Step constructors, WorldWord and FakeWorld removal. Next: @task.V3.T107.
