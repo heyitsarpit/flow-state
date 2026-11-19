@@ -15,9 +15,10 @@ description
     Plan links and the blockers.
 
     **Order:** @task.V3.T106, @task.V3.T24, @task.V3.T25, @task.V3.T28, @task.V3.T27, @task.V3.T48, @task.V3.T49,
-    @task.V3.T29, @task.V3.T30, @task.V3.T31: the fixture catalog's steps 11 to 18, with T31 last since it ends on the
-    user's acceptance (re-plan section 8, the user, 2026-11-18). A `blocked_by` link is a real dependency only; where
-    several Tasks are ready, take the earliest in this order.
+    @task.V3.T29, @task.V3.T30, @task.V3.T108, @task.V3.T31: the fixture catalog's steps 11 to 18 (T108, split from T30,
+    waits on its proposal), with T31 last since it ends on the user's acceptance (re-plan section 8, the user,
+    2026-11-18). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in
+    this order.
 
     **Verified by:** per feature, Story tests, run rules and compile-time tests written from its Spec, with a planted
     fault for each new rule; skill:check-runtime where users touch it; skill:check-task per Task.
@@ -364,21 +365,19 @@ tasks
                     @plan.ServerRendering.O6,
                     @plan.ServerRendering.O7,
                     @plan.Testing.O7,
-                    @plan.Testing.O9,
                     @plan.Inspection.O2,
                     @plan.Runtime.O5
                     ]
         description
             Write the bindings' Specs, then build the React and Next.js bindings from @plan.React and
-            @plan.ServerRendering, with the Story `hydrate` path, `StoryPlayer` and `definePresentation`
-            (@plan.Testing.O7, @plan.Testing.O9).
+            @plan.ServerRendering, with the Story `hydrate` path (@plan.Testing.O7). `StoryPlayer` and
+            `definePresentation` moved to @task.V3.T108.
 
             **Read first:** @plan.React.O1, O2, O3, @plan.ServerRendering.O1, @plan.Machines.O2,
             code:wiki/conventions/view-commands.md, code:wiki/conventions/controlled-values.md.
         acceptance
             - The bindings' Requirements hold, shown in real Chrome and Safari.
-            - Request render and Hydrate without mismatch on a Next.js host; React 18 and 19; the Story `hydrate` path
-              and `StoryPlayer`.
+            - Request render and Hydrate without mismatch on a Next.js host; React 18 and 19; the Story `hydrate` path.
             - `useActor(machine, { input, props })` shows this render's props before attach and queues a changed value
               from a layout effect, in FIFO order with sends; a `props` option on `useActorByRef` is a type error.
             - `useOnEmit` delivers an actor's emits after the commit of the first render at or after their turn, in
@@ -397,6 +396,15 @@ tasks
         comment     2026-11-18T19:39:03Z
             Owes (proposed, P3 close fix round): SSR payloads through the one codec (@plan.Inspection.O2) and silent
             baselines at hydration (@plan.Runtime.O5); links wait on a wk fix. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-19T21:28:06Z
+            Presentation is blocked on a proposal (the user, 2026-11-20): the StoryPlayer and definePresentation part of
+            this Task cannot proceed until
+            code:wiki/plans/flow/references/proposals/react-instrumentation-bippy-2026-11-20.md (bippy instrumentation,
+            overlay features, controls, themes) is accepted or rejected. The React and Next.js bindings may proceed.
+        comment     2026-11-19T21:32:16Z
+            Split (the user, 2026-11-20): StoryPlayer and definePresentation moved to @task.V3.T108, which waits on the
+            bippy proposal; this Task is the bindings and the Story hydrate path only, and the presentation block noted
+            above no longer applies here.
 
     T106
         title       Rules on definitions, judged by every run, with unseen rules reported
@@ -469,3 +477,28 @@ tasks
             (handlers it may skip), so old tests needed no switch. Proposed hybrid for the design: generated runs and
             sweeps judge rules automatically (Flow's Verify); hand-written Stories judge by default with the user's
             expect/skip/off switch; a require-style list fails a suite whose named rules stay unseen.
+    T108
+        title       Story presentation: StoryPlayer and definePresentation
+        status      draft
+        priority    high
+        blocked_by  [@T30]
+        satisfies   [@plan.Testing.O9]
+        description
+            Build Story presentation from @plan.Testing.O9: `StoryPlayer` and `definePresentation` over the React
+            bindings @task.V3.T30 builds.
+
+            **Why now:** split from @task.V3.T30 (the user, 2026-11-20) so the bindings can proceed while presentation
+            waits on its proposal.
+
+            **Read first:** @plan.Testing.O9, @plan.Testing.O4 (`StoryFrame`),
+            code:wiki/plans/flow/references/proposals/react-instrumentation-bippy-2026-11-20.md,
+            code:wiki/plans/flow/references/checkout/app/presentation.ts.
+
+            **Risk:** this Task cannot proceed until the bippy proposal is accepted or rejected (the user, 2026-11-20).
+            Its acceptance is rewritten from the outcome: accepted adds the overlay features, controls and themes;
+            rejected leaves @plan.Testing.O9 as written.
+        acceptance
+            - The bippy proposal is accepted or rejected by the user, and this acceptance is rewritten from the outcome
+              before any code.
+            - `StoryPlayer` plays, steps and scrubs a recorded run without executing again; playback starts no Flow
+              work; scenes reject unknown checkpoints (@plan.Testing.O9, V9), shown in real Chrome and Safari.
