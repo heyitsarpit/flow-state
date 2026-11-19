@@ -7,7 +7,7 @@ import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts
 import { Audience, keptOn, type LedgerSteps, Route } from "./ledger.ts";
 import { LaneView } from "./turn.ts";
 import { isInFlight, pick, type Tx } from "./tx.ts";
-import type { Channel } from "./vocabulary.ts";
+import type { Channel, Decline } from "./vocabulary.ts";
 import {
   type ActorId,
   type CallId,
@@ -133,7 +133,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   };
 
   // A commit declined before its lane's table: no Attempt, no lane, one owed row.
-  const decline = (actor: ActorId, operation: string, why: string) =>
+  const decline = (actor: ActorId, operation: string, why: Decline) =>
     void ledger.owe({
       actor,
       to: Audience.Identity(),

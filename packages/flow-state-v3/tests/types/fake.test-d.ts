@@ -60,6 +60,15 @@ describe("Stories R8: a server's endpoints and controls have distinct names", ()
 
     void clashing;
     expectTypeOf(Counter.bump).toEqualTypeOf<EndpointHandle<{ readonly n: number }>>();
+    expectTypeOf(
+      Fake.server("types/fake/Fine", {
+        truth: Truth,
+        initial: { count: 0 },
+        endpoints: { bump },
+        controls: { reset: clash },
+        lost: () => new Error("lost"),
+      }).reset({}),
+    ).toEqualTypeOf<ControlWord>();
     expectTypeOf(Counter.reset).toEqualTypeOf<(input: { readonly n: number }) => ControlWord>();
   });
 });

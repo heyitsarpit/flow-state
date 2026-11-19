@@ -254,8 +254,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tx.ts",
-        find: "    return `att-${env.seed}-${world.attempts}`;",
-        replace: "    return `att-${env.seed}-${world.attempts}-${performance.now()}`;",
+        find: "    return branded<AttemptId>(`att-${env.seed}-${world.attempts}`);",
+        replace:
+          "    return branded<AttemptId>(`att-${env.seed}-${world.attempts}-${performance.now()}`);",
       },
     ],
   },

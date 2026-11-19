@@ -500,3 +500,8 @@ note 2026-11-19T19:39:58Z
     @spec.Diagnostics R2: details are the keys Flow writes (reason, contract, first, refused, slot), each typed, so a
     misspelt key fails to compile; decode drops an unknown key and refuses a wrong value. Source: @task.V3.T104.
     Reverse: the open string-keyed record.
+
+note 2026-11-19T21:32:35Z
+    Restore R5: a quarantined actor whose fresh start is refused has no snapshot (none); RecordUndecodable names it and
+    a Story's read fails. Code since T104 (src/host/snapshot.ts); R5 said every quarantined actor reads lifecycle
+    quarantined.

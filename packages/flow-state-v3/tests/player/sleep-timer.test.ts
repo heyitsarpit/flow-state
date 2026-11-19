@@ -7,7 +7,7 @@ import { sixteenTimers } from "../../fixtures/player/stories/load.ts";
 import { after, LONGEST_MS, sleepTimer } from "../../fixtures/player/stories/usual.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
-import { loose } from "../loose.ts";
+import { loose } from "../../src/test/loose.ts";
 
 const invalidEvent = (error: unknown) =>
   error instanceof FlowError && error.code === "InvalidEvent";

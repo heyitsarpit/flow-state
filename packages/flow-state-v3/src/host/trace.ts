@@ -1,12 +1,11 @@
 import { printValue } from "./print.ts";
 import { Data, Duration, Option } from "effect";
-import type { Values } from "../core/compiled.ts";
 import { Evidence, type Member, MemberTarget, type Part } from "../core/evidence.ts";
 import { actorKey } from "../core/world.ts";
 import type { Purpose } from "./host.ts";
 import { OwnerRecord } from "./owners/owners.ts";
-import type { Batch, CallStatus } from "./testing/fake.ts";
-import { Step, type Tab, WorldWord } from "./testing/steps.ts";
+import type { Batch, CallEntry, CallName } from "./testing/fake.ts";
+import { Step, StepData, type Tab, WorldWord } from "./testing/steps.ts";
 
 /**
  * What one trace event records: a step at its start, a call an endpoint received, a store write
@@ -19,7 +18,7 @@ import { Step, type Tab, WorldWord } from "./testing/steps.ts";
  */
 export type TraceRecord = Data.TaggedEnum<{
   Step: { index: number; step: Step };
-  Request: { server: string; endpoint: string; input: Values; status: CallStatus };
+  Request: CallName & Pick<CallEntry, "input" | "status">;
   Write: {
     purpose: Purpose;
     keys: ReadonlyArray<string>;
@@ -93,7 +92,7 @@ const wordText = (word: WorldWord) =>
   });
 
 const stepText = (step: Step) =>
-  Step.$match(step, {
+  StepData.$match(step, {
     ensure: ({ actor }) => `ensure ${actorKey(actor)}`,
     detach: ({ actor }) => `detach ${actorKey(actor)}`,
     send: ({ actor, event: { _tag, ...payload } }) =>

@@ -3,29 +3,32 @@ import { Duration, Formatter, Option, Predicate } from "effect";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../../core/world.ts";
 import { overridesBy } from "../wiring.ts";
 import { actorIdOf, type ActorRef } from "../runtime.ts";
-import type { AnyDefinition } from "../../definition.ts";
+import type { AnyDefinition, EventOf } from "../../definition.ts";
 import type { AnyServer } from "./fake.ts";
 import type { StoryRun } from "./run.ts";
-import { scriptFault, Step, WorldWord } from "./steps.ts";
+import { scriptFault, Step, StepData, WorldWord } from "./steps.ts";
 import type { Story } from "./story.ts";
 
 /**
- * A property of a run, as a run rule is: a name and a function from a finished run to its
- * breaches. An empty list means the run keeps it.
+ * A property of a run, as a run rule is: a name and a function from a finished run of the app's
+ * definitions `Ds` to its breaches. An empty list means the run keeps it.
  */
-export type Property<R extends string = string> = {
+export type Property<R extends string = string, Ds extends AnyDefinition = AnyDefinition> = {
   readonly rule: R;
-  readonly breaches: (run: StoryRun) => ReadonlyArray<string>;
+  readonly breaches: (run: StoryRun<never, Ds>) => ReadonlyArray<string>;
 };
+
+// An event of any of the app's definitions.
+type EventIn<Ds extends AnyDefinition> = Ds extends AnyDefinition ? EventOf<Ds> : never;
 
 /**
  * What a generated run draws its steps from: a fixture's app, the steps a person takes, its actors,
  * its fake servers and the control words that make them fail, each with the name the fixture gives
  * it, so a run prints as code to paste into the fixture.
  */
-export type Samples = {
+export type Samples<Ds extends AnyDefinition = AnyDefinition> = {
   readonly id: string;
-  readonly story: Story;
+  readonly story: Story<never, Ds>;
   readonly setup: string;
   readonly fixtures: ReadonlyArray<string>;
   readonly steps: ReadonlyArray<Step>;
@@ -38,8 +41,7 @@ export type Samples = {
   readonly failures: ReadonlyArray<WorldWord>;
   readonly landedFailures: ReadonlyArray<WorldWord>;
   readonly controls: ReadonlyArray<WorldWord>;
-  // FLOW_STATE_ALLOW_UNKNOWN: an event a sample sends, of its own definition's type.
-  readonly values: ReadonlyArray<{ readonly name: string; readonly value: unknown }>;
+  readonly values: ReadonlyArray<{ readonly name: string; readonly value: EventIn<Ds> }>;
 };
 
 /**
@@ -65,6 +67,7 @@ export type Samples = {
  *
  * - A control word changes the server's truth; it never answers a call itself.
  */
+// RETURN_TYPE: the exported Samples contract, by the Story's app.
 export const samplesOf = <Ds extends AnyDefinition>(options: {
   readonly id: string;
   readonly story: Story<never, Ds>;
@@ -74,30 +77,28 @@ export const samplesOf = <Ds extends AnyDefinition>(options: {
   readonly failures: ReadonlyArray<WorldWord>;
   readonly landedFailures: ReadonlyArray<WorldWord>;
   readonly controls: ReadonlyArray<WorldWord>;
-  // FLOW_STATE_ALLOW_UNKNOWN: an event a sample sends, of its own definition's type.
-  readonly values: Readonly<Record<string, unknown>>;
+  readonly values: Readonly<Record<string, EventIn<Ds>>>;
   readonly steps: (story: Story<never, Ds>) => Story<string, Ds>;
-}) =>
-  ({
-    id: options.id,
-    story: options.story,
-    setup: options.names.setup,
-    fixtures: options.names.fixtures,
-    steps: options.steps(options.story).steps,
-    actors: Object.entries(options.actors).map(([name, ref]) => ({
-      name,
-      actor: actorIdOf(ref),
-      context: overridesBy(ref, (_slot, p) => actorIdOf(p)),
-    })),
-    servers: Object.entries(options.servers).map(([name, server]) => ({
-      name,
-      server: server["~server"],
-    })),
-    failures: options.failures,
-    landedFailures: options.landedFailures,
-    controls: options.controls,
-    values: Object.entries(options.values).map(([name, value]) => ({ name, value })),
-  }) satisfies Samples;
+}): Samples<Ds> => ({
+  id: options.id,
+  story: options.story,
+  setup: options.names.setup,
+  fixtures: options.names.fixtures,
+  steps: options.steps(options.story).steps,
+  actors: Object.entries(options.actors).map(([name, ref]) => ({
+    name,
+    actor: actorIdOf(ref),
+    context: overridesBy(ref, (_slot, p) => actorIdOf(p)),
+  })),
+  servers: Object.entries(options.servers).map(([name, server]) => ({
+    name,
+    server: server["~server"],
+  })),
+  failures: options.failures,
+  landedFailures: options.landedFailures,
+  controls: options.controls,
+  values: Object.entries(options.values).map(([name, value]) => ({ name, value })),
+});
 
 // FLOW_STATE_ALLOW_UNKNOWN: an event or control input is any plain value of its own Schema.
 const literal = (value: unknown) => printValue(value, "literal");
@@ -144,7 +145,7 @@ const reloadOptions = (reattach: boolean, heldWrites: "abort" | "land") => {
 };
 
 const printStep = (samples: Samples, step: Step) =>
-  Step.$match(step, {
+  StepData.$match(step, {
     ensure: ({ actor }) => `.ensure(${actorName(samples, actor)})`,
     detach: ({ actor }) => `.detach(${actorName(samples, actor)})`,
     send: ({ actor, event }) =>

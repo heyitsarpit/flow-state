@@ -12,7 +12,7 @@ import {
 } from "./generate.ts";
 import type { Source, View } from "./run.ts";
 import { type Property, print, type Samples } from "./samples.ts";
-import { Step, StoryFailed, WorldWord } from "./steps.ts";
+import { Step, StepData, StoryFailed, WorldWord } from "./steps.ts";
 
 /**
  * The phases a write's head can stand in, as the pair sweep crosses them.
@@ -135,18 +135,18 @@ const waitsOnHeld = (view: View, phase: Phase["_tag"], actor: ActorId) =>
 // write, which fires later, when that write is issued, and is judged then.
 const faultOf = (fault: Fault, phase: Phase["_tag"], actor: ActorId, view: View) => {
   const steps: Record<Fault, () => ReadonlyArray<Step>> = {
-    reload: () => [Step.reload({ reattach: true, heldWrites: "abort" })],
+    reload: () => [StepData.reload({ reattach: true, heldWrites: "abort" })],
     "lost answer": () =>
       Option.match(ON_WIRE.has(phase) ? callOf(view, phase, actor) : Option.none(), {
         onNone: () => [],
         onSome: ({ server, endpoint }) => [
-          Step.world({
+          StepData.world({
             words: [WorldWord.wire({ server, endpoint, word: "lose", at: "response" })],
           }),
         ],
       }),
     "storage refusal": () => [
-      Step.world({
+      StepData.world({
         words: [
           WorldWord.storage({
             word: waitsOnHeld(view, phase, actor) ? "refuseHeld" : "refuse",
@@ -156,12 +156,12 @@ const faultOf = (fault: Fault, phase: Phase["_tag"], actor: ActorId, view: View)
     ],
     // An app closes a provider's consumers before it: the Runtime refuses it while they are bound.
     "actor disposal": () =>
-      closing(view, actor).map((closed) => Step.dispose({ actor: closed, how: "dispose" })),
-    forget: () => [Step.dispose({ actor, how: "forget" })],
-    release: () => Array.from({ length: view.uses(actor) }, () => Step.detach({ actor })),
+      closing(view, actor).map((closed) => StepData.dispose({ actor: closed, how: "dispose" })),
+    forget: () => [StepData.dispose({ actor, how: "forget" })],
+    release: () => Array.from({ length: view.uses(actor) }, () => StepData.detach({ actor })),
     "disposal bound": () => [
-      Step.disposeRuntime({ forget: false }),
-      Step.advance({ duration: RuntimeDefaults.disposalBound }),
+      StepData.disposeRuntime({ forget: false }),
+      StepData.advance({ duration: RuntimeDefaults.disposalBound }),
     ],
   };
 
@@ -191,7 +191,7 @@ const tryCell = (
 
   const waits = [
     ...Option.toArray(nudge),
-    Step.world({ words: [WorldWord.storage({ word: "release" })] }),
+    StepData.world({ words: [WorldWord.storage({ word: "release" })] }),
   ];
 
   const quietly: Source = (view) => {
@@ -226,7 +226,7 @@ const tryCell = (
     if (!fired && stood && waitsOnHeld(view, phase, reach.actor)) {
       fired = true;
 
-      return Step.world({ words: [WorldWord.storage({ word: "refuseHeld" })] });
+      return StepData.world({ words: [WorldWord.storage({ word: "refuseHeld" })] });
     }
 
     const step = !fired && stood ? waits.shift() : undefined;

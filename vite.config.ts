@@ -63,9 +63,10 @@ const sourceFromTests = {
     "!**/src/host/trace.ts",
     "!**/src/host/cli/main.ts",
     "!**/src/entry.ts",
+    "!**/src/test/loose.ts",
   ],
   message:
-    "A test imports only the public entry, the test tooling, inspection, the CLI's main and the registry of public functions.",
+    "A test imports only the public entry, the test tooling, inspection, the CLI's main, the registry of public functions and the untyped caller's helper.",
 };
 
 export default defineConfig({
@@ -280,6 +281,7 @@ export default defineConfig({
           "flow-state/no-raw-event": "error",
           // Decides by path itself: tests and fixtures only.
           "flow-state/no-event-name-filter": "error",
+          "flow-state/paired-refusals": "error",
           "flow-state/no-hand-option": ["error", { only: ["src", "tests", "fixtures"] }],
           "flow-state/no-id-text": ["error", { only: ["src/core"], exceptTests: true }],
           "flow-state/no-tag-chain": ["error", { only: ["src"], exceptTests: true }],

@@ -502,7 +502,7 @@ export type World = {
   readonly reads: ReadonlyMap<CallId, Read>;
   readonly displaced: ReadonlyMap<string, Displaced>;
   readonly mail: ReadonlyMap<string, ReadonlyArray<Mail>>;
-  readonly uses: ReadonlyMap<string, ReadonlyArray<Use>>;
+  readonly uses: ReadonlyMap<ActorKey, ReadonlyArray<Use>>;
   readonly timers: ReadonlyMap<TimerId, Timer>;
   readonly counter: number;
   readonly attempts: number;

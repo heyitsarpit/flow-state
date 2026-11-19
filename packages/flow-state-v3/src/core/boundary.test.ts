@@ -161,3 +161,32 @@ describe("a decoding default past the call stack's budget (Codec R6)", () => {
     expect(stamps.size).toBe(depth);
   });
 });
+
+describe("a value deeper than the call stack (Codec R6)", () => {
+  it("Codec R6: a list 100,000 levels deep decodes, encodes and checks off the call stack, its depth kept", () => {
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the type of a Schema.optionalKey field, as the Schema reads it
+    type Link = { readonly next?: Link };
+
+    const Link: Schema.Codec<Link> = Schema.Struct({
+      next: Schema.optionalKey(Schema.suspend(() => Link)),
+    });
+
+    const depth = 100_000;
+
+    const input = Array.from({ length: depth - 1 }).reduce<Link>((inner) => ({ next: inner }), {});
+
+    const levels = (value: Link) => {
+      let count = 0;
+
+      for (let at: Link | undefined = value; at !== undefined; at = at.next) count += 1;
+
+      return count;
+    };
+
+    const walker = walkerOf(Link);
+
+    expect(Result.map(walker.decode(input), levels)).toEqual(Result.succeed(depth));
+    expect(Result.map(walker.encode(input), levels)).toEqual(Result.succeed(depth));
+    expect(walker.is(input)).toBe(true);
+  });
+});

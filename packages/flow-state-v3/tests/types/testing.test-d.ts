@@ -1,4 +1,3 @@
-// Type-checked by `nub run check`, not run as a test file: wiki records link this path.
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { rent } from "../../fixtures/transfers/app.ts";
 import { StandingOrder } from "../../fixtures/transfers/machines/standing-order.ts";
@@ -31,9 +30,15 @@ describe("Stories read(target), evidence by token", () => {
 
     // Evidence is selected by token: a misspelt token, a name string, and with `actor` another
     // definition's token fail to compile.
-    void turnsOf(run, StandingOrder.E.Pause);
-
-    void evidenceOf(run, StandingOrder.E.Pause, { actor: rent });
+    expectTypeOf(turnsOf(run, StandingOrder.E.Pause)[0]?.actor.machine).toEqualTypeOf<
+      string | undefined
+    >();
+    expectTypeOf(
+      turnsOf(run, StandingOrder.E.Pause, { actor: rent })[0]?.actor.machine,
+    ).toEqualTypeOf<(typeof StandingOrder)["id"] | undefined>();
+    expectTypeOf(
+      evidenceOf(run, StandingOrder.E.Pause, { actor: rent })[0]?.actor.machine,
+    ).toEqualTypeOf<(typeof StandingOrder)["id"] | undefined>();
 
     // @ts-expect-error a token the definition does not declare
     void turnsOf(run, StandingOrder.E.Pase);

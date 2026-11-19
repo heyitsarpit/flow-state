@@ -26,6 +26,7 @@ import {
   waitAtMost,
 } from "./owners/owners.ts";
 import type { Store } from "./host.ts";
+import type { AnyDefinition } from "../definition.ts";
 
 /**
  * One identity with writes still out, as `runtime.unsettledWrites()` lists it.
@@ -36,12 +37,19 @@ import type { Store } from "./host.ts";
  * adopting ensure or its owner's cancel. Each lane names its operation, its key text (none for an
  * unkeyed operation), its head's Attempt and its state: `Held` when its outcome is unsure,
  * `InFlight` for any other head (queued for its write, on the wire, or waiting to re-send).
+ *
+ * `Ds` is the Runtime's app's definitions: each identity's machine and its lanes' operations are
+ * one definition's.
  */
-export type Unsettled = {
-  readonly actor: { readonly machine: string; readonly name: string };
+export type Unsettled<Ds extends AnyDefinition = AnyDefinition> = Ds extends AnyDefinition
+  ? UnsettledOf<Ds["id"], keyof Ds["operations"] & string>
+  : never;
+
+type UnsettledOf<Machine extends string, Operation extends string> = {
+  readonly actor: { readonly machine: Machine; readonly name: string };
   readonly bound: boolean;
   readonly lanes: ReadonlyArray<{
-    readonly operation: string;
+    readonly operation: Operation;
     readonly key: Option.Option<string>;
     readonly attempt: AttemptId;
     readonly state: "InFlight" | "Held";
@@ -49,10 +57,15 @@ export type Unsettled = {
 };
 
 /**
- * Every identity with a non-Idle lane, by key, each lane in lane order.
+ * Every identity with a non-Idle lane, by key, each lane in lane order, named by the Runtime's
+ * app's definitions `Ds`.
  */
-// RETURN_TYPE: the exported Unsettled contract.
-export const unsettledOf = (driver: Driver): ReadonlyArray<Unsettled> => {
+// RETURN_TYPE: the exported Unsettled contract, by the app's definitions.
+export function unsettledOf<Ds extends AnyDefinition>(driver: Driver): ReadonlyArray<Unsettled<Ds>>;
+// The core's world mixes every machine's lanes, so the rows it builds are named by text; each
+// machine and operation comes from a lane the app's own definition opened.
+// RETURN_TYPE: the wide rows the overload above names by the app.
+export function unsettledOf(driver: Driver): ReadonlyArray<Unsettled> {
   const world = driver.world();
 
   const byActor = Arr.groupBy(
@@ -72,7 +85,7 @@ export const unsettledOf = (driver: Driver): ReadonlyArray<Unsettled> => {
         state: isInFlight(lane) ? ("InFlight" as const) : ("Held" as const),
       })),
     }));
-};
+}
 
 // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
 const cleanupFailed = (failures: readonly [Cause.Cause<unknown>, ...Array<Cause.Cause<unknown>>]) =>

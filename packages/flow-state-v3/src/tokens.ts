@@ -101,9 +101,17 @@ export type GuardToken<P = unknown, Id extends string = string> = {
 export type Operations = ReadonlyMap<string, ReadonlyMap<string, Row>>;
 
 /**
- * A write operation's members, guards and row read (`O.x.get`).
+ * A write operation's members, guards and row read (`O.x.get`); `get` reads a snapshot of its own
+ * definition, whose operations are `N`.
  */
-export type WriteHandle<M, I, K = Values, Id extends string = string, L extends string = string> = {
+export type WriteHandle<
+  M,
+  I,
+  K = Values,
+  Id extends string = string,
+  L extends string = string,
+  N extends string = string,
+> = {
   readonly commit: <P>(select: (input: SelectArg<M, P>) => I) => ActionToken<P, Id>;
   // FLOW_STATE_ALLOW_UNKNOWN: a keyless member reads no event, so it fits a handler of any.
   readonly retry: ActionToken<unknown, Id> &
@@ -120,7 +128,10 @@ export type WriteHandle<M, I, K = Values, Id extends string = string, L extends 
       options: { readonly times: number },
     ): GuardToken<P, Id>;
   };
-  readonly get: (operations: Operations, key: K) => Option.Option<Row>;
+  readonly get: (
+    operations: ReadonlyMap<N, ReadonlyMap<string, Row>>,
+    key: K,
+  ) => Option.Option<Row>;
 };
 
 /**
@@ -134,7 +145,7 @@ export type ReadHandle<M, I, Id extends string = string> = {
 
 export type Handles<O, M, Id extends string, L extends string> = {
   readonly [K in keyof O]: O[K] extends { readonly kind: "write" }
-    ? WriteHandle<M, BoundInput<O[K]>, BoundKey<O[K]>, Id, L>
+    ? WriteHandle<M, BoundInput<O[K]>, BoundKey<O[K]>, Id, L, keyof O & string>
     : ReadHandle<M, BoundInput<O[K]>, Id>;
 };
 

@@ -108,7 +108,9 @@ describe("Operations O1, V1, WriteLanes R4: a contract and its endings", () => {
       }),
     });
 
-    void transaction({ ...order, concurrency: "serialize" });
+    expectTypeOf(transaction({ ...order, concurrency: "serialize" }).concurrency).toEqualTypeOf<
+      "serialize" | "cancel" | "latest" | "reject"
+    >();
 
     void transaction({
       ...order,

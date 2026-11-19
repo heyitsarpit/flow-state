@@ -73,6 +73,10 @@ describe("Actors R24, Stories T2: a Runtime and a Story take only their app's re
     runtime.disposeActor(rent);
 
     expectTypeOf(runtime.ensureActor(plain)).toEqualTypeOf<Actor<typeof Plain>>();
+    expectTypeOf(runtime.createActor(PlainMachine, { input: {} })).toEqualTypeOf<
+      Actor<typeof Plain>
+    >();
+    expectTypeOf(runtime.disposeActor(plain)).toEqualTypeOf<void>();
   });
 
   it("a Story's words with a ref of a machine the app does not run", () => {
@@ -123,7 +127,13 @@ describe("Actors R24, Stories T2: a Runtime and a Story take only their app's re
     });
 
     expectTypeOf(publishedOf(shopRun, plain)).toEqualTypeOf<Array<PublishedOf<typeof Plain>>>();
-    expectTypeOf(turnsOf(shopRun, Plain.E.Go)).not.toBeNever();
+    expectTypeOf(turnsOf(shopRun, Plain.E.Go)[0]?.to).toEqualTypeOf<"A" | "B" | undefined>();
+    expectTypeOf(turnsOf(shopRun, Plain.E.Go, { actor: plain })[0]?.event).toEqualTypeOf<
+      "Go" | undefined
+    >();
+    expectTypeOf(evidenceOf(shopRun, Plain.E.Go, { actor: plain })[0]?.event).toEqualTypeOf<
+      "Go" | undefined
+    >();
     expectTypeOf(
       samplesOf({
         ...sampled,
@@ -153,11 +163,14 @@ describe("Stories R12, T2: a run keeps its checkpoint names", () => {
     const named_ = <N extends string>(run: StoryRun<N>, name: N) => run.checkpoints[name];
 
     void helper;
+    expectTypeOf<
+      keyof ReturnType<(run: StoryRun) => typeof run.checkpoints>
+    >().toEqualTypeOf<never>();
     expectTypeOf(named_(named, "a").now).toEqualTypeOf<number>();
   });
 
   it("a named run refuses an unknown name", () => {
-    void named.checkpoints.a;
+    expectTypeOf(named.checkpoints.a.now).toEqualTypeOf<number>();
     // @ts-expect-error Stories R12: c is no checkpoint of this run
     void named.checkpoints.c;
   });

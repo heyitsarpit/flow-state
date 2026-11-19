@@ -39,6 +39,15 @@ describe("Machines O1, Compile R4, R5: a definition's fields and operations", ()
     // @ts-expect-error a field Schema that needs services (Persistence O2)
     void Flow.initial(NeedsRates, 0);
 
+    const withEvent = definition({ ...lamp, events: { X: {} } });
+    const withContext = definition({ ...lamp, context: {} });
+    const withOperations = definition({ ...lamp, operations: () => ({}) });
+
+    expectTypeOf<keyof typeof withEvent.events>().toEqualTypeOf<"X">();
+    expectTypeOf<keyof typeof withEvent.events.X>().toEqualTypeOf<never>();
+    expectTypeOf<keyof typeof withContext.context>().toEqualTypeOf<never>();
+    expectTypeOf<keyof typeof withOperations.operations>().toEqualTypeOf<never>();
+
     void definition({
       ...lamp,
       events: {

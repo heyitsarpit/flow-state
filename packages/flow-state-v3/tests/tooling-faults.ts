@@ -147,8 +147,22 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "    const opened = openTab({ ...subject.config, services }, host, now, limits);",
-        replace: "    const opened = openTab({ services, ...subject.config }, host, now, limits);",
+        find: "    const opened = openTab({ ...subject.config, services }, host, now, limits, (record) =>",
+        replace:
+          "    const opened = openTab({ services, ...subject.config }, host, now, limits, (record) =>",
+      },
+    ],
+  },
+  {
+    name: "raw-step-unowned",
+    tests: ["tests/stories/foreign.test.ts"],
+    says: "a run takes steps of another app's Story and runs them against a machine its app lacks",
+    rule: "Actors R24",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "      (e) => machineOf(e).compiled.id === actor.machine,",
+        replace: "      (e) => machineOf(e).compiled.id !== \"\",",
       },
     ],
   },
@@ -160,9 +174,9 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/cli/main.ts",
-        find: '    yield* document(render(ran.trace, "text"));',
+        find: '    yield* document([render(ran.trace, "text").replace(/\\n$/, "")]);',
         replace:
-          '    yield* document(render({ ...ran.trace, events: ran.trace.events.slice(0, -1) }, "text"));',
+          '    yield* document([render({ ...ran.trace, events: ran.trace.events.slice(0, -1) }, "text").replace(/\\n$/, "")]);',
       },
     ],
   },
@@ -354,22 +368,23 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "            : snapshot,",
+        find: "      return Option.getOrUndefined(snapshot);",
         replace:
-          "            : { ...snapshot, memory: JSON.parse(JSON.stringify(snapshot.memory)) },",
+          "      return Option.getOrUndefined(Option.map(snapshot, (s) => ({ ...s, memory: JSON.parse(JSON.stringify(s.memory)) })));",
       },
     ],
   },
   {
     name: "refused-start-read",
     tests: ["tests/stories/read.test.ts"],
-    says: "a quarantined record whose fresh start is refused reads as a snapshot whose memory is {}",
+    says: "a quarantined record whose fresh start is refused reads as absent, so the test goes on instead of failing",
     rule: "Stories R12",
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: '          snapshot.lifecycle === "quarantined" &&',
-        replace: '          snapshot.lifecycle === "never" &&',
+        find: "      if (Option.isNone(snapshot) && world.quarantined.has(actorRecordKey(actorKey(actor))))",
+        replace:
+          "      if (Option.isNone(snapshot) && world.quarantined.has(actorRecordKey(actorKey(actor))) && false)",
       },
     ],
   },

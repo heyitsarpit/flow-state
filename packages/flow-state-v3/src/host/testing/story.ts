@@ -21,7 +21,7 @@ import {
   type StoryRun,
   type Subject,
 } from "./run.ts";
-import { Step, type WorldWord } from "./steps.ts";
+import { Step, StepData, type WorldWord } from "./steps.ts";
 import { overridesBy } from "../wiring.ts";
 
 /**
@@ -151,25 +151,27 @@ export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
       steps,
       ensure: (ref) =>
         next(
-          Step.ensure({
+          StepData.ensure({
             actor: own(ref),
             context: overridesBy(ref, (_slot, p) => own(p)),
           }),
         ),
-      detach: (ref) => next(Step.detach({ actor: own(ref) })),
-      send: (ref, event) => next(Step.send({ actor: own(ref), event })),
-      dispose: (ref, how) => next(Step.dispose({ actor: own(ref), how: how?.how ?? "dispose" })),
-      disposeRuntime: (options) => next(Step.disposeRuntime({ forget: options?.forget === true })),
-      world: (...words) => next(Step.world({ words })),
-      advance: (duration) => next(Step.advance({ duration })),
+      detach: (ref) => next(StepData.detach({ actor: own(ref) })),
+      send: (ref, event) => next(StepData.send({ actor: own(ref), event })),
+      dispose: (ref, how) =>
+        next(StepData.dispose({ actor: own(ref), how: how?.how ?? "dispose" })),
+      disposeRuntime: (options) =>
+        next(StepData.disposeRuntime({ forget: options?.forget === true })),
+      world: (...words) => next(StepData.world({ words })),
+      advance: (duration) => next(StepData.advance({ duration })),
       reload: (options) =>
         next(
-          Step.reload({
+          StepData.reload({
             reattach: options?.reattach ?? true,
             heldWrites: options?.heldWrites ?? "abort",
           }),
         ),
-      checkpoint: (name) => chain([...steps, Step.checkpoint({ name })]),
+      checkpoint: (name) => chain([...steps, StepData.checkpoint({ name })]),
       // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts, lint-bomb/no-optional-domain-properties -- run() runs the Story's own steps; an omitted seed keeps the Story's own world
       run: (given?: { readonly steps: ReadonlyArray<Step>; readonly seed?: number }) =>
         run<Names>(subject, id, given?.steps ?? steps, Option.fromUndefinedOr(given?.seed)),
@@ -252,17 +254,24 @@ export const Story = {
  * - A fault of the Story's own run fails the whole call, at the step that faulted.
  * - A fork is a run of its own: it never changes the Story's own run or another fork.
  */
-export const forkReloads = Effect.fn("forkReloads")(function* <E>(
-  story: Story<string>,
+export const forkReloads = Effect.fn("forkReloads")(function* <
+  Names extends string,
+  Ds extends AnyDefinition,
+  E,
+>(
+  story: Story<Names, Ds>,
   visit: (
     at: number,
-    fork: (reload: Reload, rest: ReadonlyArray<Step>) => Effect.Effect<StoryRun, RunFault>,
+    fork: (
+      reload: Reload,
+      rest: ReadonlyArray<Step>,
+    ) => Effect.Effect<StoryRun<never, Ds>, RunFault>,
   ) => Effect.Effect<void, E>,
 ) {
   const subject = story[SubjectId];
 
   const own = yield* attempt(() =>
-    startRun(subject, story.id, { seed: Option.none(), lenient: false }, Option.none()),
+    startRun<Names>(subject, story.id, { seed: Option.none(), lenient: false }, Option.none()),
   );
 
   const forkAt = (at: number) => {
@@ -280,5 +289,7 @@ export const forkReloads = Effect.fn("forkReloads")(function* <E>(
 
   yield* forkAt(story.steps.length);
 
-  return yield* attempt(() => own.finish().run);
+  const run: StoryRun<Names, Ds> = yield* attempt(() => own.finish().run);
+
+  return run;
 });

@@ -12,7 +12,9 @@ export type { EventOf } from "../../definition.ts";
 
 export type { Covering, Fixture } from "./story.ts";
 
-export { Fake, FakeCleanupDied, FakeCleanupFailed, FakeLost, FakeWorld } from "./fake.ts";
+export { Fake, FakeCleanupDied, FakeCleanupFailed, FakeLost } from "./fake.ts";
+
+export type { FakeWorld } from "./fake.ts";
 
 export type {
   AnyServer,
@@ -26,9 +28,9 @@ export type {
   ServiceOf,
 } from "./fake.ts";
 
-export { Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
+export { Step, StoryFailed, StoryTurnLimit } from "./steps.ts";
 
-export type { At, Cleanup, ControlWord, Tab } from "./steps.ts";
+export type { At, Cleanup, ControlWord, Tab, WorldWord } from "./steps.ts";
 
 export type { Cut, Reload, RunFault, StoryRun } from "./run.ts";
 

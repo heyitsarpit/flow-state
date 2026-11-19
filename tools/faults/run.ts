@@ -105,10 +105,12 @@ const makeCopy = () => {
       "// FLOW_FAULTS_TIER picks the usual tests or the stress files; named files run in either.",
       'const tier = process.env["FLOW_FAULTS_TIER"];',
       'const stress = "packages/**/*.stress.test.ts";',
+      "// The plants' own check reads the planted text, so it would fail for every fault planted.",
+      'const plants = "packages/flow-state-v3/tests/faults.test.ts";',
       "export default defineConfig({",
       "  test: {",
       '    include: [tier === "stress" ? stress : "packages/**/*.test.ts"],',
-      '    exclude: [...configDefaults.exclude, ...(tier === "usual" ? [stress] : [])],',
+      '    exclude: [...configDefaults.exclude, plants, ...(tier === "usual" ? [stress] : [])],',
       "  },",
       "});",
       "",
@@ -252,18 +254,18 @@ const mayStayGreen = [
   /tests\/write-lanes\/one-builder\.test\.ts > /u,
   // The compiler and the Runtime's check of a Compiled run no step; their own faults are planted
   // in tests/structure-faults.ts. A compile test that runs a turn lives elsewhere.
-  /tests\/compile\/(construction|compiled)\.test\.ts > /u,
-  // Also static, each running no step: the closed code list, a constant's data view, and the
-  // compile-time type checks.
+  /tests\/compile\/(construction|compiled|schedule-send)\.test\.ts > /u,
+  // Also static, each running no step: the closed code list and a constant's data view.
   /tests\/compile\/codes\.test\.ts > the closed code list [^>]*> Diagnostics R7: the public union/u,
   /tests\/compile\/deep-constants\.test\.ts > [^>]+> Codec R1, Inspection: the machine's data view/u,
-  /tests\/types\/schedule-send\.test\.ts > a schedule's send > Compile T11: /u,
   // A fixture written wrong is refused when its machine is built, before any Runtime.
   / > [^>]* written wrong is refused at construction [^>]*> /u,
   // An ensure, create or name refused at admission, before the step: an input with no encoded
   // form, a foreign ref, a missing context provider.
   /tests\/actors\/identity\.test\.ts > [^>]+> Actors R(6, I9: an input that type-checks|6: createActor checks its input|24: a ref of a machine this Runtime's app does not run)/u,
   /tests\/restore\/deep-inputs\.test\.ts > [^>]+> Codec R4: a name with no JSON text/u,
+  // A step of another app's Story is refused before the step runs.
+  /tests\/stories\/foreign\.test\.ts > [^>]+> Actors R24: steps of another app's Story are refused/u,
   /tests\/session\/workspace\.test\.ts > [^>]+> S7, Actors R18, Stories R3: a Story's ensure of a status with no team/u,
   // The run rules over crafted runs: the oracle judged with no core, each rule seen firing.
   /tests\/rules\/rules\.test\.ts > run rules over (crafted runs|the fake store's batches|crafted runs, each rule seen firing) > /u,

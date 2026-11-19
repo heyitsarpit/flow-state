@@ -6,7 +6,7 @@ import type { Life } from "../../core/life.ts";
 import { retain } from "../../core/tx.ts";
 import { type ActorId, actorKey, indexDrift, type Wiring } from "../../core/world.ts";
 import type { AnyDefinition } from "../../definition.ts";
-import { FlowError } from "../../error.ts";
+import { FlowError, flowError, raise } from "../../error.ts";
 import { Host } from "../host.ts";
 import { attachInspector, inspect, type RuntimeCut } from "../inspect.ts";
 import { actorRecordKey } from "../../core/record.ts";
@@ -17,6 +17,7 @@ import {
   type RuntimeConfig,
   type Snapshot,
   snapshotIn,
+  machineOf,
   type Unsettled,
 } from "../runtime.ts";
 import type { OwnerRecord } from "../owners/owners.ts";
@@ -26,6 +27,7 @@ import {
   type AnyServer,
   type Batch,
   type CallEntry,
+  type CallName,
   type EndpointHandle,
   FakeWorld,
   makeStore,
@@ -40,6 +42,7 @@ import {
   mainTab,
   scriptFault,
   Step,
+  StepData,
   StoryFailed,
   StoryTurnLimit,
   type Tab,
@@ -64,13 +67,13 @@ type SnapshotOf<R> = R extends ActorRef<infer D> ? Snapshot<D> : never;
 
 export type Cut<Ds extends AnyDefinition = AnyDefinition> = {
   readonly now: number;
-  readonly inspection: RuntimeCut;
-  readonly unsettled: ReadonlyArray<Unsettled>;
+  readonly inspection: RuntimeCut<Ds>;
+  readonly unsettled: ReadonlyArray<Unsettled<Ds>>;
   readonly records: {
     readonly stored: ReadonlyMap<string, string>;
     readonly batches: ReadonlyArray<Batch>;
   };
-  readonly calls: ReadonlyArray<CallEntry & { readonly server: string; readonly endpoint: string }>;
+  readonly calls: ReadonlyArray<CallEntry & CallName>;
   readonly read: {
     // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's read: undefined for an absent actor
     <R extends ActorRef<Ds>>(ref: R): SnapshotOf<R> | undefined;
@@ -518,18 +521,38 @@ export const startRun = <Names extends string>(
     lanes: () => inspect(tab.built.runtime).lanes,
   });
 
+  // A step names an identity only of a machine the app runs, as the Story's own words check: a
+  // step array may come from another app's Story.
+  const own = (actor: ActorId) =>
+    Object.values(subject.config.app.machines).some(
+      (e) => machineOf(e).compiled.id === actor.machine,
+    )
+      ? actor
+      : raise(
+          flowError([
+            {
+              code: "ForeignActorRef",
+              path: [id, actor.machine],
+              summary: `${actor.machine} is not a machine of this Story's app`,
+              help: "Run steps of a Story of this setup's app.",
+            },
+          ]),
+        );
+
   const step = (next: Step) => {
     const n = begin(next, tab.now());
 
-    Step.$match(next, {
+    StepData.$match(next, {
       ensure: ({ actor, context }) => {
         live("ensure");
+        own(actor);
         attach(tab, actor, context);
         const count = uses.get(actorKey(actor))?.count ?? 0;
         uses.set(actorKey(actor), { actor, context, count: count + 1 });
       },
       detach: ({ actor }) => {
         live("detach");
+        own(actor);
         const used = uses.get(actorKey(actor));
 
         if (used === undefined || used.count <= 1) uses.delete(actorKey(actor));
@@ -538,6 +561,7 @@ export const startRun = <Names extends string>(
       },
       send: ({ actor, event }) => {
         live("send");
+        own(actor);
 
         if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))
           return testing.send(tab.built, actor, "", {});
@@ -547,6 +571,7 @@ export const startRun = <Names extends string>(
       },
       dispose: ({ actor, how }) => {
         live("dispose");
+        own(actor);
 
         if (how === "forget") testing.forget(tab.built, actor);
         else {

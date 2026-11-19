@@ -140,6 +140,9 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
   });
 
   it("a path neither definition has is refused today", () => {
+    expectTypeOf(machine(Pay, ({ S }) => ({ default: S.IDLE }))).toEqualTypeOf<
+      Machine<typeof Pay>
+    >();
     // @ts-expect-error Compile R12: NOPE is no state of Other
     machine(Pay, () => ({ default: Other.S.NOPE }));
   });

@@ -12,6 +12,7 @@ import {
   type RuntimeCut,
 } from "../../src/host/inspect.ts";
 import {
+  type EventRecord,
   evidenceOf,
   type Failure,
   Fake,
@@ -71,6 +72,9 @@ describe("Stories R16, Turn R23: evidence a selector returns names its definitio
     expectTypeOf(turnsOf(run, D.E.go, { actor: d1 })[0]?.to).toEqualTypeOf<
       "IDLE" | "ON.A" | "ON.B" | undefined
     >();
+    expectTypeOf(turns.filter((t) => t.to === "IDLE" || t.from === "ON.A")).toEqualTypeOf<
+      Array<(typeof turns)[number]>
+    >();
 
     // @ts-expect-error Stories R16: NOPE is no state of D
     turns.filter((t) => t.to === "NOPE");
@@ -106,6 +110,10 @@ describe("Stories R16, Turn R23: evidence a selector returns names its definitio
   });
 
   it("a misspelt field or tag is refused today", () => {
+    expectTypeOf(turnsOf(run, D.E.go)[0]?.event).toEqualTypeOf<
+      "go" | "stop" | "Placed" | "Unsure" | undefined
+    >();
+    expectTypeOf(evidenceOf(run, D.E.go)[0]?._tag).toEqualTypeOf<EventRecord["_tag"] | undefined>();
     // @ts-expect-error Turn R23: `too` is no field of a turn
     turnsOf(run, D.E.go).filter((t) => t.too === "A");
     // @ts-expect-error Turn R23: Delivred is no evidence tag
@@ -150,10 +158,26 @@ describe("Diagnostics R7, WriteLanes R10: the runtime cut's rows use Flow's clos
   });
 
   it("slow work names the input it ran", () => {
-    type SlowInput = Parameters<typeof Evidence.SlowWork>[0]["input"];
-
-    expectTypeOf<"Boot">().toExtend<SlowInput>();
-    expectTypeOf<SlowInput>().not.toEqualTypeOf<string>();
+    expectTypeOf<Parameters<typeof Evidence.SlowWork>[0]["input"]>().toEqualTypeOf<
+      | "Start"
+      | "Boot"
+      | "BootFailed"
+      | "Ensure"
+      | "Create"
+      | "Serve"
+      | "Release"
+      | "Send"
+      | "Settled"
+      | "Fired"
+      | "Stored"
+      | "Refused"
+      | "Capture"
+      | "DisposeRuntime"
+      | "DisposeActor"
+      | "Forget"
+      | "Run"
+      | "CleanupFailed"
+    >();
 
     // @ts-expect-error Diagnostics R11: Bootz is no input
     Evidence.SlowWork({ work: "turn", input: "Bootz", ms: 1, budgetMs: 1 });
@@ -161,6 +185,9 @@ describe("Diagnostics R7, WriteLanes R10: the runtime cut's rows use Flow's clos
 
   it("a lane's state and the cut's lifecycle are unions today", () => {
     expectTypeOf(cut.lanes[0]?.state).toEqualTypeOf<"InFlight" | "Held" | undefined>();
+    expectTypeOf(cut.lifecycle).toEqualTypeOf<
+      "Inert" | "Booting" | "Open" | "Failed" | "Disposing" | "Disposed" | "Stopped"
+    >();
     // @ts-expect-error Diagnostics R7: Opne is no lifecycle
     void (cut.lifecycle === "Opne");
   });

@@ -5,6 +5,7 @@ import {
   app,
   definition,
   Flow,
+  type Machine,
   machine,
   resource,
   type Snapshot,
@@ -116,11 +117,27 @@ describe("Compile R14, Reads R1: an operation handle takes its contract's input 
     O.pay.retryable(() => ({ nope: 1 }), { times: 2 });
     // @ts-expect-error Reads R1: the key is { id }
     O.pay.get(new Map(), { nope: 1 });
-    O.pay.retry(() => ({ id: "a" }));
-    O.pay.retryable(() => ({ id: "a" }), { times: 2 });
+    expectTypeOf(O.pay.retry<Record<never, never>>)
+      .parameter(0)
+      .returns.toEqualTypeOf<PayKey>();
+    expectTypeOf(O.pay.retryable<Record<never, never>>)
+      .parameter(0)
+      .returns.toEqualTypeOf<PayKey>();
   });
 
   it("a selector's event is its handler's event", () => {
+    expectTypeOf(
+      machine(Cart, ({ S, O: H }) => ({
+        default: S.OPEN,
+        on: {
+          Pay: {
+            guard: [H.pay.idle(({ event }) => ({ id: event.id }))],
+            actions: [H.pay.commit(({ event }) => ({ id: event.id, cents: event.cents }))],
+          },
+        },
+      })),
+    ).toEqualTypeOf<Machine<typeof Cart>>();
+
     machine(Cart, ({ S, O: H }) => ({
       default: S.OPEN,
       on: {
@@ -211,7 +228,7 @@ describe("Turn R23: a snapshot's operations are keyed by the definition's operat
 
     // @ts-expect-error Turn R23: typo is no operation of Cart
     snap.operations.get("typo");
-    snap.operations.get("pay");
+    expectTypeOf(snap.operations.get("pay")).toEqualTypeOf<ReadonlyMap<string, Row> | undefined>();
   });
 });
 

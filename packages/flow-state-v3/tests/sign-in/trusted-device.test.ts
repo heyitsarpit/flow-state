@@ -20,7 +20,7 @@ import {
 import { LAPTOP_SEEN, LAPTOP_UNTIL, trustDevice } from "../../fixtures/sign-in/stories/usual.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
-import { loose } from "../loose.ts";
+import { loose } from "../../src/test/loose.ts";
 
 const refusal = (construct: () => unknown) => {
   try {

@@ -112,7 +112,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   };
 
   // A never-sent Attempt's NotSent keeps its lane: when Kept, it blocks that key.
-  const notSent = (at: At, why: string, attempt: AttemptId) =>
+  const notSent = (at: At, why: NotSentWhy, attempt: AttemptId) =>
     void ledger.owe({
       ...oweOf(at, Option.some(attempt)),
       lane: Option.some(at.id),

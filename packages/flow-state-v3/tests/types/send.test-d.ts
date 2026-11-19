@@ -1,4 +1,3 @@
-// Type-checked by `nub run check`, not run as a test file: wiki records link this path.
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { Schema } from "effect";
 import { actorRef, definition, Flow, machine, type Machine, send } from "../../src/index.ts";

@@ -70,9 +70,29 @@ export type Step = Data.TaggedEnum<{
 }>;
 
 /**
- * Constructors and matchers for {@link Step}.
+ * Constructors and matchers for every {@link Step}, actor steps included: Flow's own tooling builds
+ * steps from refs its app already checked.
  */
-export const Step = Data.taggedEnum<Step>();
+export const StepData = Data.taggedEnum<Step>();
+
+/**
+ * The step words a script writes by hand, with the matchers for {@link Step}.
+ *
+ * **Details**
+ *
+ * An actor's steps (ensure, detach, send, dispose) are written with the Story's own words, which
+ * take only its app's refs and each ref's own events; a hand-written actor step would name any
+ * machine and any envelope.
+ */
+export const Step = {
+  disposeRuntime: StepData.disposeRuntime,
+  world: StepData.world,
+  advance: StepData.advance,
+  reload: StepData.reload,
+  checkpoint: StepData.checkpoint,
+  $is: StepData.$is,
+  $match: StepData.$match,
+};
 
 /**
  * A run's fault of its script, not of the app: it rejects `run()`.

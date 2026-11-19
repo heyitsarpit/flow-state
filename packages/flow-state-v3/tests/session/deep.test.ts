@@ -14,7 +14,7 @@ import { render } from "../../src/host/trace.ts";
 import { FlowError } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
 import { DEEP_TIMEOUT, depthOf, kindValueTests, unencodable, VIEW } from "./deep-cases.ts";
-import { loose } from "../loose.ts";
+import { loose } from "../../src/test/loose.ts";
 
 // A folder tree `depth` deep whose innermost kid is a number: a payload its Schema refuses.
 const brokenFolder = (depth: number) => {

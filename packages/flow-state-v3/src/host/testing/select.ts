@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { Evidence, type EvidenceOf, type Member } from "../../core/evidence.ts";
+import { Evidence, type EvidenceOf, type Member, type Part } from "../../core/evidence.ts";
 import type { Ending, ErasedEnding } from "../../contract.ts";
 import type { AnyDefinition, ActorRef, LeavesOf, MemoryOf } from "../../definition.ts";
 import { definitionOfToken } from "../../events.ts";
@@ -35,6 +35,7 @@ export type PublishedOf<D extends AnyDefinition> = Omit<
 type TokenOf<D extends AnyDefinition> = D["E"][keyof D["E"]];
 
 type Named<D extends AnyDefinition> = {
+  readonly machine: D["id"];
   readonly states: LeavesOf<D["states"]>;
   readonly events: (keyof D["events"] | keyof D["internalEvents"]) & string;
   readonly operations: keyof D["operations"] & string;
@@ -44,17 +45,36 @@ type NamedMember<N extends Named<AnyDefinition>> = {
   readonly [K in keyof Member]: K extends "operation" ? N["operations"] : Member[K];
 };
 
+// Every path on the way to the given leaves, the leaves included (`ON`, `ON.PLAYING`).
+type PathsTo<L extends string> = L extends `${infer Head}.${infer Rest}`
+  ? Head | `${Head}.${PathsTo<Rest>}`
+  : L;
+
+// An alternative a turn ran: the node that held it (`root` for the machine's own) and its target
+// (`self` for none), named by the definition; `at` is the alternative's place in the body.
+type NamedPart<P extends string> = {
+  readonly [K in keyof Part]: K extends "node"
+    ? P | "root"
+    : K extends "target"
+      ? P | "self"
+      : Part[K];
+};
+
 type NamedBy<R, N extends Named<AnyDefinition>> = R extends unknown
   ? {
-      readonly [K in keyof R]: K extends "from" | "to"
-        ? N["states"]
-        : K extends "event"
-          ? N["events"]
-          : K extends "operation"
-            ? N["operations"]
-            : K extends "members"
-              ? ReadonlyArray<NamedMember<N>>
-              : R[K];
+      readonly [K in keyof R]: K extends "actor"
+        ? { readonly machine: N["machine"]; readonly name: string }
+        : K extends "parts"
+          ? ReadonlyArray<NamedPart<PathsTo<N["states"]>>>
+          : K extends "from" | "to"
+            ? N["states"]
+            : K extends "event"
+              ? N["events"]
+              : K extends "operation"
+                ? N["operations"]
+                : K extends "members"
+                  ? ReadonlyArray<NamedMember<N>>
+                  : R[K];
     }
   : never;
 

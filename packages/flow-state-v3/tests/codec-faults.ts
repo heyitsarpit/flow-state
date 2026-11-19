@@ -62,6 +62,7 @@ export const codecFaults: ReadonlyArray<Fault> = [
   {
     name: "walker-on-call-stack",
     tests: [
+      "src/core/boundary.test.ts",
       "tests/session/deep.test.ts",
       "tests/session/deep-tree.test.ts",
       "tests/session/deep-maps.test.ts",

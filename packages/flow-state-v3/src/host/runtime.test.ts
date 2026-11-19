@@ -22,6 +22,7 @@ import { snapshotIn } from "./snapshot.ts";
 import { bootWith } from "./testing/seam.ts";
 import { Life } from "../core/life.ts";
 import { emptyWorld, Quarantine } from "../core/world.ts";
+import { loose } from "../test/loose.ts";
 
 class Bell extends Context.Service<
   Bell,
@@ -91,11 +92,6 @@ const bell = bellFor([]);
 const doors = app({ id: "test", machines: { door: DoorMachine } });
 
 const front = actorRef(DoorMachine, "front");
-
-const loose = (value: unknown) =>
-  // SAFETY: each refused event is one the types reject; send must refuse it at run time too.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller send guards against
-  value as never;
 
 const ready = (services: Layer.Layer<Bell> = bell) => {
   const runtime = runtimeSetup({ app: doors, services }).construct();

@@ -5,6 +5,7 @@ import type { NotSentWhy } from "./core/cells.ts";
 import type { Attempt, Commit, Concurrency, Lookup, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
 import { entry, inert } from "./entry.ts";
+import { codecOf } from "./events.ts";
 
 /**
  * The services a contract lists: the Context keys its function calls.
@@ -211,15 +212,6 @@ type BoundFields = {
   readonly failure: Readonly<Record<string, ErasedEnding>>;
 };
 
-/**
- * A Schema over a contract's own fields, as the record codec Compiled holds: built once, when the
- * contract is bound.
- */
-const recordCodec = <T, S = Schema.Top>(schema: S) =>
-  // SAFETY: a Struct of a contract's own field Schemas decodes to a record of those fields, and every Flow field Schema needs no services.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the contract's field types are erased in Compiled
-  schema as Schema.Codec<Values, T>;
-
 // A key's text from a value's key fields, by its key's walker: its key fields in name order as
 // JSON text, the bytes `JSON.stringify` writes, with no call stack; none when they have no encoded
 // form.
@@ -238,9 +230,9 @@ const codecsOf = <F extends Fields>(fields: F, key: ReadonlyArray<keyof F & stri
 
   return {
     input,
-    inputJson: recordCodec<Values>(Schema.toCodecJson(input)),
+    inputJson: codecOf<Values>(Schema.toCodecJson(input)),
     keyText: Schema.fromJsonString(keyJson),
-    keyJson: recordCodec<Values>(keyJson),
+    keyJson: codecOf<Values>(keyJson),
     textOfKey: keyTextBy(walkerOf(keyJson), key),
   };
 };

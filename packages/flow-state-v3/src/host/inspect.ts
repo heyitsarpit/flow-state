@@ -5,11 +5,26 @@ import { laneKeyText } from "../core/lane-moves.ts";
 import { type Life, lifecycleOf } from "../core/life.ts";
 import type { Delivery } from "../core/ledger.ts";
 import type { Channel } from "../core/vocabulary.ts";
-import { type ActorKey, actorKey, type AttemptId, type Phase, Timer } from "../core/world.ts";
+import {
+  type ActorKey,
+  actorKey,
+  type AttemptId,
+  type Phase,
+  Timer,
+  type Use,
+} from "../core/world.ts";
 import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
 import { entry } from "../entry.ts";
-import { internalsOf, type Runtime, type Snapshot, snapshotOf } from "./runtime.ts";
+import type { AnyDefinition } from "../definition.ts";
+import {
+  type App,
+  type DefsOf,
+  internalsOf,
+  type Runtime,
+  type Snapshot,
+  snapshotOf,
+} from "./runtime.ts";
 
 /**
  * Attaches a callback to a Runtime's evidence.
@@ -38,7 +53,7 @@ export { Evidence };
 
 export type { EvidenceOf, LaneFact, ReportCode } from "../core/evidence.ts";
 
-export type { ActorKey, AttemptId } from "../core/world.ts";
+export type { ActorKey, AttemptId, Use } from "../core/world.ts";
 
 export type { Channel } from "../core/vocabulary.ts";
 
@@ -58,12 +73,13 @@ export type PhaseTag = Phase["_tag"];
  * is not listed), `phase` its head's phase tag, `key` its key text (none for an unkeyed operation)
  * and `retryCount` its head's re-sends. An owed row's `delivery` is its delivery tag. A timer's
  * `dueAt` is known for a schedule only. `lifecycle` is the Runtime's life: Inert, Booting, Open, Failed, Disposing or Disposed.
+ * `Ds` is the Runtime's app's definitions: snapshots and operation names are theirs.
  */
-export type RuntimeCut = {
-  readonly actors: ReadonlyArray<{ readonly actor: ActorKey; readonly snapshot: Snapshot }>;
+export type RuntimeCut<Ds extends AnyDefinition = AnyDefinition> = {
+  readonly actors: ReadonlyArray<{ readonly actor: ActorKey; readonly snapshot: SnapshotOf<Ds> }>;
   readonly lanes: ReadonlyArray<{
     readonly actor: ActorKey;
-    readonly operation: string;
+    readonly operation: OperationOf<Ds>;
     readonly contract: string;
     readonly state: "InFlight" | "Held";
     readonly key: Option.Option<string>;
@@ -73,7 +89,7 @@ export type RuntimeCut = {
   }>;
   readonly owed: ReadonlyArray<{
     readonly actor: ActorKey;
-    readonly operation: string;
+    readonly operation: OperationOf<Ds>;
     readonly attempt: Option.Option<AttemptId>;
     readonly channel: Channel;
     readonly reason: string;
@@ -84,9 +100,19 @@ export type RuntimeCut = {
     readonly actor: Option.Option<ActorKey>;
     readonly dueAt: Option.Option<number>;
   }>;
-  readonly uses: ReadonlyArray<{ readonly actor: string; readonly uses: ReadonlyArray<string> }>;
+  readonly uses: ReadonlyArray<{ readonly actor: ActorKey; readonly uses: ReadonlyArray<Use> }>;
   readonly lifecycle: Life["_tag"];
 };
+
+// One snapshot of any of the app's definitions.
+type SnapshotOf<Ds extends AnyDefinition> = Ds extends AnyDefinition ? Snapshot<Ds> : never;
+
+/**
+ * An operation name of any of the app's definitions.
+ */
+export type OperationOf<Ds extends AnyDefinition> = Ds extends AnyDefinition
+  ? keyof Ds["operations"] & string
+  : never;
 
 const contractOf = (driver: Driver, machine: string, operation: string) =>
   Option.match(operationOf(driver.machines, machine, operation), {
@@ -177,6 +203,9 @@ const cutOf = (driver: Driver): RuntimeCut => {
  * - A batch out is the persistence edge's, not the Runtime's state, so the cut does not show it.
  * - This first slice covers actors, lanes, owed endings, timers, uses and the lifecycle only.
  */
-export const inspect = entry("inspect", (runtime: Runtime) => cutOf(internalsOf(runtime).driver));
+export const inspect: <R, A extends App>(runtime: Runtime<R, A>) => RuntimeCut<DefsOf<A>> = entry(
+  "inspect",
+  (runtime: Runtime) => cutOf(internalsOf(runtime).driver),
+);
 
 export { dataView } from "../core/data-view.ts";

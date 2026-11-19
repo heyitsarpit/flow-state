@@ -12,10 +12,11 @@ import { builder, entry } from "./entry.ts";
 export const fieldsOf = (x: EventFields) => (isUncertain(x) ? x.fields : x);
 
 /**
- * A Struct built over a runtime record of field Schemas, as the record codec Compiled holds.
+ * A Struct built over a runtime record of field Schemas, as the record codec Compiled holds: a
+ * definition's memory, payload or name, or a contract's input or key.
  */
 export const codecOf = <E, S = Schema.Top>(schema: S) =>
-  // SAFETY: a Struct of a definition's own field Schemas decodes to a record of those fields, and every Flow field Schema needs no services.
+  // SAFETY: a Struct of a definition's or a contract's own field Schemas decodes to a record of those fields, and every Flow field Schema needs no services.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Schema.Struct over a runtime record has no static field types
   schema as Schema.Codec<Values, E>;
 

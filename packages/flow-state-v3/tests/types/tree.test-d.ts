@@ -15,6 +15,11 @@ const Player = definition({
 
 type Outside = typeof Player.Snapshot.Type;
 
+expectTypeOf((snapshot: Outside) => snapshot.memory).returns.toEqualTypeOf<{
+  readonly docId: string;
+  readonly pos: number;
+}>();
+
 // @ts-expect-error an outside snapshot's type omits Flow.private fields (Turn R23)
 export const secretOf = (snapshot: Outside) => snapshot.memory.secret;
 

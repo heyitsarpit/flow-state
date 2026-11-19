@@ -39,8 +39,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "export const owedRecordKey = (key: string) => `owed/${key}`;",
-        replace: "export const owedRecordKey = (key: string) => `kept/${key}`;",
+        find: "export const owedRecordKey = (key: ActorKey) => `owed/${key}`;",
+        replace: "export const owedRecordKey = (key: ActorKey) => `kept/${key}`;",
       },
     ],
   },
@@ -404,7 +404,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '      if (!id.startsWith(own)) return yield* read(failed("key"));\n',
+        find: '      if (!text.startsWith(own)) return yield* read(failed("key"));\n',
         replace: "",
       },
     ],

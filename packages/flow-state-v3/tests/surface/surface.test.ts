@@ -13,7 +13,7 @@ import {
   surfaceOf,
   usual,
 } from "./surface.ts";
-import { loose } from "../loose.ts";
+import { loose } from "../../src/test/loose.ts";
 
 // A Runtime's own calls run last, its dispose last of all, so every other call meets a live one.
 const rank = (reached: Reached) => {

@@ -4,7 +4,7 @@ import { AuthSession } from "../../fixtures/sign-in/machines/session.ts";
 import { TrustedDevice } from "../../fixtures/sign-in/machines/trusted-device.ts";
 import { fromAccount, StandingOrder } from "../../fixtures/transfers/machines/standing-order.ts";
 import { definition, Diagnostic, Flow, FlowError, machine } from "../../src/index.ts";
-import { loose } from "../loose.ts";
+import { loose } from "../../src/test/loose.ts";
 
 // FLOW_STATE_ALLOW_UNKNOWN: a valid construction value, taken apart one field at a time.
 type Sample = unknown;

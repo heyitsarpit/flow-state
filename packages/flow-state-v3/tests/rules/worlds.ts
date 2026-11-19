@@ -4,6 +4,16 @@ import { Step, type Story } from "../../src/host/testing/index.ts";
 import { RuntimeDefaults } from "../../src/index.ts";
 import { checked } from "./rules.ts";
 
+type Ensure = Extract<Step, { readonly _tag: "ensure" }>;
+
+// A rule over every app's Stories has refs of none, so it writes an ensure step as data.
+// RETURN_TYPE: an ensure step, as a Story holds it.
+const ensureOf = (actor: Ensure["actor"], context: Ensure["context"]): Step => ({
+  _tag: "ensure",
+  actor,
+  context,
+});
+
 /**
  * Declares the tests that run each of the given Stories under another world: another seed, and
  * an ending reload after which every actor that wrote attaches.
@@ -48,15 +58,14 @@ export const underAnotherWorld = (which: string, stories: ReadonlyArray<Story<st
             Step.checkpoint({ name: "~reloaded" }),
             // Each writer is ensured with the context its Story's ref gave it, as an app does.
             ...[...writers].map(([key, actor]) =>
-              Step.ensure({
+              ensureOf(
                 actor,
-                context:
-                  story.steps.flatMap((s) =>
-                    s._tag === "ensure" && `${s.actor.machine}/${s.actor.name}` === key
-                      ? [s.context]
-                      : [],
-                  )[0] ?? new Map(),
-              }),
+                story.steps.flatMap((s) =>
+                  s._tag === "ensure" && `${s.actor.machine}/${s.actor.name}` === key
+                    ? [s.context]
+                    : [],
+                )[0] ?? new Map(),
+              ),
             ),
             Step.advance({ duration: RuntimeDefaults.disposalBound }),
           ];

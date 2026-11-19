@@ -71,6 +71,7 @@ describe("Turn R23, Actors R6: a handle's snapshot is its definition's outside v
     expectTypeOf(inside.memory).toEqualTypeOf<{ readonly name: string; readonly secret: string }>();
 
     Option.map(snap, (s) => {
+      expectTypeOf(s.memory).toEqualTypeOf<{ readonly name: string }>();
       // @ts-expect-error Actors R6: the runtime strips the private `secret` from a handle's snapshot
       void s.memory["secret"];
     });

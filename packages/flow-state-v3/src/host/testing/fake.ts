@@ -77,6 +77,12 @@ export type CallEntry<I = Values> = {
 };
 
 /**
+ * Which endpoint of which server a logged call reached, by name: the run's call log mixes every
+ * server of the run, so it names them as text; a typed read is `read(endpoint)`.
+ */
+export type CallName = { readonly server: string; readonly endpoint: string };
+
+/**
  * One endpoint of a fake server: its request fields, its answer's Schemas and its handler.
  */
 export type Endpoint<T, F extends Fields, S extends Schema.Top, X extends Schema.Top> = {

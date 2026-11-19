@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { definition, Flow, FlowError, machine, transaction } from "../../src/index.ts";
-import { loose } from "../loose.ts";
+import { loose } from "../../src/test/loose.ts";
 
 // Each diagnostic of a refused construction as [code, reason, path].
 const refusal = (construct: () => unknown) => {

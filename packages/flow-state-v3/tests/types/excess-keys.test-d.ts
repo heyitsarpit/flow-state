@@ -1,7 +1,7 @@
 // @effect-diagnostics missingEffectContext:off -- the wrong lines that a contract's services list refuses also miss a service in Effect's own check
 import { Context, Effect, Exit, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
-import { type EndpointHandle, Fake } from "../../src/host/testing/index.ts";
+import { type ControlWord, type EndpointHandle, Fake } from "../../src/host/testing/index.ts";
 import {
   actorRef,
   app,
@@ -16,7 +16,8 @@ import { transaction } from "../../src/index.ts";
 
 // Each `@ts-expect-error` names the rule its line breaks; beside it the correct use of the same
 // parameter is asserted exactly. Lines still marked `wrong` compile: their type half is owed, with
-// the reason beside them, and construction refuses each at load.
+// the reason beside them; construction refuses a body, alternative or list key at load, and the
+// turn refuses a returned key whole.
 
 const Pay = definition({
   id: "types/ExcessPay",
@@ -35,6 +36,13 @@ class OtherApi extends Context.Service<OtherApi, { readonly yo: () => number }>(
 
 describe("Compile R7, R14, T6: a returned memory write is exact", () => {
   it("an input field written beside a writable one", () => {
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { updateMemory: ({ memory }) => ({ count: memory.count + 1 }) } },
+      })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
+
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
       on: {
@@ -51,8 +59,9 @@ describe("Compile R7, R14, T6: a returned memory write is exact", () => {
   });
 
   // Owed, a TypeScript limit: a returned object is not excess-checked, and an exact body inferred
-  // from the return breaks the contextual typing of handles and sends. Construction refuses the
-  // key at load (Turn R8: the turn refuses an undeclared field whole).
+  // from the return breaks the contextual typing of handles and sends. Construction does not see a
+  // returned key: the machine builds, and the turn that returns it is refused whole (InvalidTurn,
+  // Turn R8).
   it("Compile R14 (owed in types): a misspelt field beside a writable one compiles", () => {
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
@@ -61,12 +70,12 @@ describe("Compile R7, R14, T6: a returned memory write is exact", () => {
   });
 
   it("the writable field alone compiles; the input field or the typo alone is refused today", () => {
-    const counted = machine(Pay, ({ S }) => ({
-      default: S.IDLE,
-      on: { go: { updateMemory: () => ({ count: 1 }) } },
-    }));
-
-    expectTypeOf(counted).toEqualTypeOf<Machine<typeof Pay>>();
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { updateMemory: () => ({ count: 1 }) } },
+      })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
 
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
@@ -104,6 +113,10 @@ describe("Compile R4, R14 (owed in types): a machine body is exact", () => {
   });
 
   it("a nested state's unknown key is refused today", () => {
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({ default: S.IDLE, states: { ON: { on: { go: S.IDLE } } } })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
+
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
       // @ts-expect-error Compile R4: `onn` is no state key
@@ -121,9 +134,10 @@ describe("Runtime O1: an app entry and the setup's options are exact", () => {
     // @ts-expect-error Runtime O1: a ref is no machine
     app({ id: "types/b", machines: { c: ref } });
 
-    const right = app({ id: "types/c", machines: { c: { machine: PayMachine, context: {} } } });
-
-    expectTypeOf(right.machines.c.machine).toEqualTypeOf<Machine<typeof Pay>>();
+    expectTypeOf(
+      app({ id: "types/c", machines: { c: { machine: PayMachine, context: {} } } }).machines.c
+        .machine,
+    ).toEqualTypeOf<Machine<typeof Pay>>();
   });
 
   it("persistence and scope only together", () => {
@@ -172,16 +186,16 @@ describe("Reads R1, Compile R14: a contract's services are its commit's requirem
       commit: () => CartApi.use((api) => Effect.succeed(api.hi())),
     });
 
-    const right = transaction({
-      id: "types/needs3",
-      input: { id: Schema.String },
-      key: ["id"],
-      concurrency: "reject",
-      services: [CartApi],
-      commit: () => CartApi.use((api) => Effect.succeed(api.hi())),
-    });
-
-    expectTypeOf(right).toEqualTypeOf<
+    expectTypeOf(
+      transaction({
+        id: "types/needs3",
+        input: { id: Schema.String },
+        key: ["id"],
+        concurrency: "reject",
+        services: [CartApi],
+        commit: () => CartApi.use((api) => Effect.succeed(api.hi())),
+      }),
+    ).toEqualTypeOf<
       Transaction<{ readonly id: typeof Schema.String }, number, never, CartApi, readonly ["id"]>
     >();
   });
@@ -193,9 +207,9 @@ describe("Compile R4, R14: a definition's literals are kept", () => {
     // @ts-expect-error Compile R4: a widened states list loses every path's type
     definition({ id: "types/Hoisted", states, events: { go: {} } });
 
-    const Literal = definition({ id: "types/Literal", states: ["IDLE", "ON"], events: {} });
-
-    expectTypeOf(Literal.S.IDLE["~path"]).toEqualTypeOf<"IDLE">();
+    expectTypeOf(
+      definition({ id: "types/Literal", states: ["IDLE", "ON"], events: {} }).S.IDLE["~path"],
+    ).toEqualTypeOf<"IDLE">();
   });
 
   it("a duplicate state, an empty compound and an empty id", () => {
@@ -208,15 +222,15 @@ describe("Compile R4, R14: a definition's literals are kept", () => {
     // @ts-expect-error Compile R4: an empty id
     definition({ id: "", states: ["A"], events: {} });
 
-    const right = definition({
+    const right = {
       id: "types/Right",
       states: ["A", { P: ["B"] }, { Q: ["B"] }],
       events: {},
-    });
+    } as const;
 
-    expectTypeOf(right.S.P.B["~path"]).toEqualTypeOf<"P.B">();
-    expectTypeOf(right.S.Q.B["~path"]).toEqualTypeOf<"Q.B">();
-    expectTypeOf(right.id).toEqualTypeOf<"types/Right">();
+    expectTypeOf(definition(right).S.P.B["~path"]).toEqualTypeOf<"P.B">();
+    expectTypeOf(definition(right).S.Q.B["~path"]).toEqualTypeOf<"Q.B">();
+    expectTypeOf(definition(right).id).toEqualTypeOf<"types/Right">();
   });
 });
 
@@ -262,13 +276,27 @@ describe("Stories R8: a fake's handler reads the server's truth", () => {
       lost: () => new Error("lost"),
     });
 
+    const add = Fake.control({ n: Schema.Number }, (truth: { readonly count: number }, input) => ({
+      count: truth.count + input.n,
+    }));
+
     const honestServer = Fake.server("types/H", {
       truth: Truth,
       initial: { count: 0 },
       endpoints: { honest },
+      controls: { add },
       lost: () => new Error("lost"),
     });
 
-    expectTypeOf(honestServer.honest).toEqualTypeOf<EndpointHandle<{ readonly n: number }>>();
+    expectTypeOf(
+      Fake.server("types/H", {
+        truth: Truth,
+        initial: { count: 0 },
+        endpoints: { honest },
+        controls: { add },
+        lost: () => new Error("lost"),
+      }).honest,
+    ).toEqualTypeOf<EndpointHandle<{ readonly n: number }>>();
+    expectTypeOf(honestServer.add({ n: 1 })).toEqualTypeOf<ControlWord>();
   });
 });

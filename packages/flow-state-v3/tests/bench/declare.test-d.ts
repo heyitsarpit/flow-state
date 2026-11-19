@@ -27,6 +27,11 @@ describe("a bench's id starts with its concern", () => {
       "turn" | "scale" | "persist" | "values" | "startup" | "memory" | "tooling"
     >();
 
+    expectTypeOf(
+      bench({ id: "turn.app.y-ms", concern: "turn", tags: [], size: { n: 1, unit: "run" }, load })
+        .concern,
+    ).toEqualTypeOf<"turn" | "scale" | "persist" | "values" | "startup" | "memory" | "tooling">();
+
     // @ts-expect-error the id names the memory concern, the bench the turn one
     bench({ id: "memory.app.x-ms", concern: "turn", tags: [], size: { n: 1, unit: "run" }, load });
     // @ts-expect-error the id names no concern

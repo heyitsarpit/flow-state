@@ -10,6 +10,7 @@ import { noMarkProbeRule } from "./rules/no-mark-probe.ts";
 import { noRawEventRule } from "./rules/no-raw-event.ts";
 import { noSpecIdsRule } from "./rules/no-spec-ids.ts";
 import { ownersOnlyRule } from "./rules/owners-only.ts";
+import { pairedRefusalsRule } from "./rules/paired-refusals.ts";
 
 const flowStateLintPlugin = eslintCompatPlugin({
   meta: { name: "flow-state" },
@@ -23,6 +24,7 @@ const flowStateLintPlugin = eslintCompatPlugin({
     "no-id-text": noIdTextRule,
     "no-tag-chain": noTagChainRule,
     "owners-only": ownersOnlyRule,
+    "paired-refusals": pairedRefusalsRule,
     ...bans,
   },
 });

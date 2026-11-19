@@ -71,6 +71,8 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
   });
 
   it("a success token whose payload no value fills", () => {
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt>>();
+
     definition({
       id: "types/endings/A",
       states: ["A"],
@@ -114,10 +116,13 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
       }),
     });
 
-    expectTypeOf(internalEvents.Unsure).not.toBeNever();
+    expectTypeOf<PayEndings["unknown"]>().toEqualTypeOf<UnknownEnding>();
   });
 
   it("a mapper whose parameter is not the commit's value", () => {
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt>>();
+    expectTypeOf<PayEndings["failure"]["Declined"]>().toEqualTypeOf<Ending<Declined>>();
+
     definition({
       id: "types/endings/C",
       states: ["A"],
@@ -146,6 +151,8 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
     });
 
     const TargetMachine = machine(Target, ({ S }) => ({ default: S.A }));
+
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt>>();
 
     definition({
       id: "types/endings/Extra",
@@ -214,6 +221,10 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
   });
 
   it("a write's failures are exhaustive", () => {
+    expectTypeOf<Parameters<typeof pay.outcomes>[0]>().toEqualTypeOf<
+      WriteEndings<Declined | Busy, Receipt>
+    >();
+
     definition({
       id: "types/endings/E",
       states: ["A"],
@@ -253,20 +264,24 @@ describe("Turn R15, Compile R14: a schedule sends an event no value fills only i
   it("a schedule sending an event with a required field", () => {
     const Timed = definition({ id: "types/endings/Timed", states: ["A"], events, internalEvents });
 
-    const right = machine(Timed, ({ S, E }) => ({
+    expectTypeOf(
+      machine(Timed, ({ S, E }) => ({
+        default: S.A,
+        states: { A: { schedules: { ok: { schedule: "1 second", send: E.Busy } } } },
+      })),
+    ).toEqualTypeOf<Machine<typeof Timed>>();
+
+    machine(Timed, ({ S, E }) => ({
       default: S.A,
       states: {
         A: {
           schedules: {
             // @ts-expect-error Turn R15: no value fills `n`
             bad: { schedule: "1 second", send: E.Need },
-            ok: { schedule: "1 second", send: E.Busy },
           },
         },
       },
     }));
-
-    expectTypeOf(right).toEqualTypeOf<Machine<typeof Timed>>();
   });
 });
 

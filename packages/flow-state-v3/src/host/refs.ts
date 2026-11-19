@@ -48,7 +48,8 @@ export const actorRef = entry(
   ): ActorRef<D> => ({
     machine,
     value: nameOrValue,
-    context: options === undefined ? {} : slotRefs(options.context),
+    // An untyped caller's options may lack `context`: such a ref uses its entry's wiring too.
+    context: options?.context === undefined ? {} : slotRefs(options.context),
   }),
 );
 

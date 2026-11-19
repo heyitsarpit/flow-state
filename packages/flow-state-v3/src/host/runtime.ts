@@ -192,7 +192,9 @@ export type Runtime<R = never, A extends App = App> = {
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
     options?: { readonly forget?: boolean },
   ) => Effect.Effect<void, FlowError>;
-  readonly unsettledWrites: () => ReadonlyArray<Unsettled>;
+  // Generic, so a Runtime of one app is still a Runtime where its app is not read; the default is
+  // the app's own definitions.
+  readonly unsettledWrites: <Ds extends DefsOf<A> = DefsOf<A>>() => ReadonlyArray<Unsettled<Ds>>;
   // A method, so a Runtime of any services is still a Runtime where its services are not read.
   runPromise<A, E>(
     effect: Effect.Effect<A, E, R>,
@@ -590,7 +592,7 @@ export const buildRuntime = <R = never, A extends App = App>(
         });
       },
     ),
-    unsettledWrites: entry("unsettledWrites", () => unsettledOf(driver)),
+    unsettledWrites: entry("unsettledWrites", <Ds extends DefsOf<A>>() => unsettledOf<Ds>(driver)),
     runPromise: entry("runPromise", makeRunPromise<R>(driver)),
   };
 

@@ -1,3 +1,4 @@
+import type { AnyDefinition } from "../../definition.ts";
 // @effect-diagnostics unstableApiUsage:off -- generation and shrinking are Effect's Arbitrary, which Effect marks unstable; chosen over a generator of our own.
 import { Arbitrary, Duration, Effect, Option, Schema } from "effect";
 import { type ActorId, sameActor } from "../../core/world.ts";
@@ -5,7 +6,7 @@ import type { AnyServer } from "./fake.ts";
 import { mixOf, sharedOf } from "./mix.ts";
 import { runFrom, type Source, type StoryRun, type View } from "./run.ts";
 import { type Property, print, printMix, type Samples } from "./samples.ts";
-import { type Cleanup, Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
+import { type Cleanup, Step, StepData, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
 import { SubjectId } from "./story.ts";
 
 /**
@@ -257,7 +258,7 @@ export type Span = {
   readonly untilStep: number;
 };
 
-const advance = (ms: number) => Step.advance({ duration: `${ms} millis` });
+const advance = (ms: number) => StepData.advance({ duration: `${ms} millis` });
 
 const millisOf = (step: Step) =>
   step._tag === "advance" ? Duration.toMillis(Duration.fromInputUnsafe(step.duration)) : 0;
@@ -314,17 +315,17 @@ const wire = (
   word: "hold" | "drop" | "release" | "lose",
   where: "request" | "response",
 ) =>
-  Step.world({
+  StepData.world({
     words: [WorldWord.wire({ server: at.server, endpoint: at.endpoint, word, at: where })],
   });
 
 const storage = (word: "hold" | "refuse" | "release" | "refuseHeld" | "refuseLoad") =>
-  Step.world({ words: [WorldWord.storage({ word })] });
+  StepData.world({ words: [WorldWord.storage({ word })] });
 
 const network = (word: "offline" | "online") =>
-  Step.world({ words: [WorldWord.network({ word })] });
+  StepData.world({ words: [WorldWord.network({ word })] });
 
-const control = (word: WorldWord) => Step.world({ words: [word] });
+const control = (word: WorldWord) => StepData.world({ words: [word] });
 
 // Two quiet rounds in a row, so a release that wakes more work is followed by one more round.
 const QUIET_ROUNDS = 2;
@@ -336,7 +337,7 @@ const QUIET_LIMIT = 1540;
 // The latest an answer is drawn to come back: a late answer arrives 61 to 120 s after its call.
 const LATEST_ANSWER = "2 minutes";
 
-const QUIET = Step.advance({ duration: LATEST_ANSWER });
+const QUIET = StepData.advance({ duration: LATEST_ANSWER });
 
 /**
  * Quiets the world: releases every held call and write, then moves time past every deadline and
@@ -387,7 +388,7 @@ const CLEANUPS: ReadonlyArray<Option.Option<Cleanup>> = [
 // arms a cleanup that dies or fails half the time, so a mix crosses each kind of task with one.
 const armedSteps = (pools: Pools, at: Endpoint, answer: Answer, n: number) => {
   const hold = [
-    Step.world({
+    StepData.world({
       words: [
         WorldWord.wire({ server: at.server, endpoint: at.endpoint, word: "hold", at: "request" }),
         ...Option.toArray(
@@ -465,7 +466,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
   let pending: ReadonlyArray<string> = [];
 
   const queue: Array<Step> = pools.actors.flatMap((slot) =>
-    Option.toArray(Option.map(slot, ({ actor, context }) => Step.ensure({ actor, context }))),
+    Option.toArray(Option.map(slot, ({ actor, context }) => StepData.ensure({ actor, context }))),
   );
 
   const front: Array<Step> = [];
@@ -620,7 +621,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
           ),
           {
             onNone: () => [],
-            onSome: (it) => [Step.ensure({ actor: it.actor, context: it.context })],
+            onSome: (it) => [StepData.ensure({ actor: it.actor, context: it.context })],
           },
         )
       : [];
@@ -655,7 +656,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
         const heldWrites = landOnReload ? "land" : "abort";
         landOnReload = false;
 
-        const reload = Step.reload({ reattach: b % 2 === 0, heldWrites });
+        const reload = StepData.reload({ reattach: b % 2 === 0, heldWrites });
 
         // In a stress run one reload in four finds the store unreadable, so the tab runs on with no
         // persistence.
@@ -663,7 +664,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
       },
       // In a stress run every other disposal forgets the Runtime's records too.
       disposeRuntime: () =>
-        live ? [Step.disposeRuntime({ forget: drawing === "stress" && b % 2 === 1 })] : [],
+        live ? [StepData.disposeRuntime({ forget: drawing === "stress" && b % 2 === 1 })] : [],
       // An app closes a provider's consumers before it: the Runtime refuses it while they are bound.
       disposeActor: () =>
         live
@@ -672,9 +673,9 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
               onSome: (it) =>
                 b % 2 === 0
                   ? closing(view, it.actor).map((closed) =>
-                      Step.dispose({ actor: closed, how: "dispose" }),
+                      StepData.dispose({ actor: closed, how: "dispose" }),
                     )
-                  : [Step.dispose({ actor: it.actor, how: "forget" })],
+                  : [StepData.dispose({ actor: it.actor, how: "forget" })],
             })
           : [],
       navigate: () =>
@@ -682,8 +683,8 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
           ? Option.toArray(
               Option.map(actor, (it) =>
                 view.uses(it.actor) > 0
-                  ? Step.detach({ actor: it.actor })
-                  : Step.ensure({ actor: it.actor, context: it.context }),
+                  ? StepData.detach({ actor: it.actor })
+                  : StepData.ensure({ actor: it.actor, context: it.context }),
               ),
             )
           : [],
@@ -818,9 +819,9 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
  * - An answer is drawn for each endpoint's next call; further calls of that endpoint within the same
  *   step are answered at once.
  */
-export type Generated = {
+export type Generated<Ds extends AnyDefinition = AnyDefinition> = {
   readonly steps: ReadonlyArray<Step>;
-  readonly run: StoryRun;
+  readonly run: StoryRun<never, Ds>;
   readonly pending: ReadonlyArray<string>;
   readonly offline: Option.Option<Span>;
   readonly tally: ReadonlyMap<string, string>;
@@ -920,10 +921,11 @@ export const generateSource = (samples: Samples, drawing: Drawing, seed: number)
  * Runs one drawing of a fixture's samples, or of several fixtures' in one Runtime, from a seed and
  * returns the run it gives.
  */
-export const generate = (
-  fixtures: Fixtures,
+// RETURN_TYPE: the exported Generated contract, by the samples' app.
+export const generate = <Ds extends AnyDefinition>(
+  fixtures: Samples<Ds> | ReadonlyArray<Samples<Ds>>,
   options: { readonly drawing: Drawing; readonly seed: number },
-) => {
+): Generated<Ds> => {
   const all = partsOf(fixtures);
 
   return drawnRun(
@@ -1150,11 +1152,11 @@ const inconclusive = (
  * - Several fixtures must not share a machine, a server or a capture interval (a script fault).
  */
 // RETURN_TYPE: the exported Failure contract, which the shrunk run's branches would split.
-export const propertyTest = <const R extends string>(
-  fixtures: Fixtures,
+export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
+  fixtures: Samples<Ds> | ReadonlyArray<Samples<Ds>>,
   options: {
     readonly profile: Profile;
-    readonly properties: ReadonlyArray<Property<R>>;
+    readonly properties: ReadonlyArray<Property<R, Ds>>;
     readonly seeds: ReadonlyArray<number>;
   },
 ): ReadonlyArray<Failure<R>> => {

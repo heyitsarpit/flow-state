@@ -24,7 +24,7 @@ import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { evidenceOf, type StoryRun } from "../../src/host/testing/index.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
-import { loose } from "../loose.ts";
+import { loose } from "../../src/test/loose.ts";
 
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));

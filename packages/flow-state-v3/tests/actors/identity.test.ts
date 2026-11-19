@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Duration, Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Story } from "../../src/host/testing/index.ts";
+import { loose } from "../../src/test/loose.ts";
 import { attachInspector, type Evidence } from "../../src/host/inspect.ts";
 import {
   actorRef,
@@ -246,6 +247,20 @@ describe("isolation (Actors R24, I34)", () => {
     expect(thrownCode(() => runtime.ensureActor(stray))).toBe("ForeignActorRef");
     // @ts-expect-error Actors R24: Stray is no machine of this app
     expect(thrownCode(() => runtime.disposeActor(stray))).toBe("ForeignActorRef");
+  });
+});
+
+describe("a ref's options (Actors R6)", () => {
+  it("Actors R6: an untyped caller's options with no context name a ref that uses its entry's wiring, as an omitted option does", () => {
+    const runtime = runtimeSetup({
+      app: app({ id: "options", machines: { clock: ClockMachine } }),
+    }).construct();
+
+    Effect.runSync(runtime.ready());
+
+    expect(thrownCode(() => runtime.ensureActor(actorRef(ClockMachine, "c", loose({}))))).toBe(
+      "none",
+    );
   });
 });
 
