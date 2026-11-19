@@ -2932,3 +2932,7 @@ tasks
             Scope (the user, 2026-11-19): every type cast is scrutinised: each as-cast, satisfies-in-place-of-a-type,
             trusted/erase helper and no-unsafe-type-assertion disable is removed, or kept only as a verified boundary or
             TypeScript limit with its reason; a SAFETY comment is a claim to check, not a reason to keep.
+        comment     2026-11-19T13:41:25Z
+            Lens (the user, 2026-11-19): type gaps sit at module seams, where data crosses and its type does not; T104
+            maps each seam (producer, consumer, type on each side) and fixes the carrier at the seam, so one change
+            closes every gap on it.
