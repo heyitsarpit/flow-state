@@ -360,7 +360,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["packages/flow-state-v3/src/**/*.ts"],
-      exclude: ["**/test/**", "**/*.compile.ts", "**/*.d.ts"],
+      exclude: ["**/test/**", "**/*.d.ts"],
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage/flow-state-v3",
     },

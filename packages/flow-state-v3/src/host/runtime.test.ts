@@ -559,6 +559,38 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
     );
   });
 
+  it("Turn R23, Actors R25: a quarantined record whose fresh start is refused has no snapshot under a stopped Runtime, never {} as its memory", () => {
+    // A computed start reading another computed field: its fresh start is always refused.
+    const Note = definition({
+      id: "Test/RefusedStart",
+      persist: true,
+      states: ["READY"],
+      events: {},
+      memory: {
+        body: Flow.initial(Schema.String, "hello"),
+        length: Flow.initial(Schema.Number, (fields) => String(fields["body"]).length),
+        double: Flow.initial(Schema.Number, (fields) => Number(fields["length"]) * 2),
+      },
+    });
+
+    const NoteMachine = machine(Note, ({ S }) => ({ default: S.READY }));
+    const machines = new Map([[NoteMachine.compiled.id, NoteMachine.compiled]]);
+    const note = { machine: NoteMachine.compiled.id, name: "note" };
+
+    const world = {
+      ...emptyWorld(true),
+      life: Life.Stopped(),
+      quarantined: new Map([
+        [
+          `actor/${note.machine}/${note.name}`,
+          Quarantine.Unreadable({ code: "text", detail: Option.some("not JSON") }),
+        ],
+      ]),
+    };
+
+    assert.deepStrictEqual(snapshotIn(world, machines, note), Option.none());
+  });
+
   it("Actors R25: nothing more is written, so a reload restores the last landed state", async () => {
     const store = new Map<string, string>();
     const first = tallyOver(store, "0".repeat(32));
