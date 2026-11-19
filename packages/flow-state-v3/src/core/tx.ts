@@ -17,6 +17,7 @@ import {
   NO_CHAIN,
   type Out,
   Phase,
+  rootOf,
   startOrder,
   type TicketId,
   Timer,
@@ -334,8 +335,30 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   // follow-ups.
   let fresh: Array<Mail> = [];
 
-  // The loop guard's chain of the item being served: the mail its turn enqueues follows it.
+  // The item being served and the loop guard's chain it follows: the mail its turns enqueue follows
+  // the chain. An item that follows none is admitted, and starts one at the first mail it enqueues.
+  let serving: Mail | undefined = undefined;
   let chain = NO_CHAIN;
+
+  const chainNow = () => {
+    if (chain !== NO_CHAIN || serving === undefined) return chain;
+
+    // Chains are only ever cleared all at once, so the next number is one past their count.
+    chain = world.chains.size + 1;
+    put("chains", chain, { root: rootOf(serving), sent: 0 });
+
+    return chain;
+  };
+
+  const follow = (mail: Mail) => {
+    serving = mail;
+    chain = Mail.$is("Event")(mail) || Mail.$is("Context")(mail) ? mail.chain : NO_CHAIN;
+  };
+
+  const followNone = () => {
+    serving = undefined;
+    chain = NO_CHAIN;
+  };
 
   const box = (key: string) => {
     const mail = draft("mail");
@@ -371,6 +394,21 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     fresh.push(...mails);
     box(key).unshift(...mails);
     dirty.add(key);
+  };
+
+  // A second wave reaching a context update that waits: the update follows whichever of the two
+  // chains has counted more, so joining never lowers the count its turns' sends add to.
+  const joinWave = (actor: ActorId) => {
+    const key = actorKey(actor);
+    const next = chainNow();
+    const sent = (id: number) => world.chains.get(id)?.sent ?? 0;
+
+    const at = (world.mail.get(key) ?? []).findIndex(
+      (m) => Mail.$is("Context")(m) && sent(next) > sent(m.chain),
+    );
+
+    if (at === -1) return;
+    box(key)[at] = Mail.Context({ actor, chain: next });
   };
 
   const emptied = (key: string) => {
@@ -481,10 +519,10 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     fire,
     enqueue,
     enqueueFirst,
-    chainNow: () => chain,
-    follow: (next: number) => {
-      chain = next;
-    },
+    chainNow,
+    follow,
+    followNone,
+    joinWave,
     takeOldest,
     unreference,
     clearMail,

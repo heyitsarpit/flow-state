@@ -50,8 +50,9 @@ const whyUnreachable = (r: Reach, phase: string, fault: string) =>
 // The seeds a drive takes. The usual tier stops once every reachable phase is found, and a
 // reachable phase still unfound at its cap fails the sweep. The stress tier drives every one of its
 // seeds, past the reachable phases, to probe for a forbidden one: 200, which find every fixture's
-// reachable phases (by seed 82 at most), but for the two that need more and keep 1,000: shop-store
-// first reaches Recapturing at seed 362, and auth-session Held and Recapturing at 955.
+// reachable phases (by seed 82 at most), but for the three that need more and keep 1,000: shop-store
+// first reaches Recapturing at seed 362, shop-checkout-sends past seed 200, and auth-session Held
+// and Recapturing at 955.
 const seedsUpTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
 
 const USUAL_SEEDS = seedsUpTo(1000);
@@ -60,6 +61,7 @@ const STRESS_SEEDS = seedsUpTo(200);
 
 const STRESS_SEEDS_OF = new Map([
   ["shop-store", USUAL_SEEDS],
+  ["shop-checkout-sends", USUAL_SEEDS],
   ["auth-session", USUAL_SEEDS],
 ]);
 

@@ -46,9 +46,10 @@ export type SendEvent<In, D extends AnyDefinition> =
  *
  * **Gotchas**
  *
- * - The sends one admitted event's turns make are counted, follow-ups included; the turn that would
- *   pass `RuntimeDefaults.loopGuard` is refused `InvalidTurn`, naming the chain. Context updates
- *   never count.
+ * - The sends one admitted event's turns make are counted, follow-ups included, and so are the
+ *   sends of every `onContext` turn its context updates reach; the turn that would pass
+ *   `RuntimeDefaults.loopGuard` is refused `InvalidTurn`, naming the admitted event. Context
+ *   updates and their `onContext` events never count.
  * - Two machines that send to each other import each other's Machine: annotate one as
  *   `const AMachine: Machine<typeof A> = machine(A, ...)` so TypeScript can type the cycle.
  *

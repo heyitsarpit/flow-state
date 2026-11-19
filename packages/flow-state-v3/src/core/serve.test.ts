@@ -4,6 +4,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { definition } from "../definition.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
+import { send } from "../send.ts";
+import { RuntimeDefaults } from "./defaults.ts";
 import { Input } from "./input.ts";
 import { Life } from "./life.ts";
 import { pendingOwners } from "./serve.ts";
@@ -105,5 +107,96 @@ describe("a context update that waits for its providers (Actors R19)", () => {
     const served = step(machines, queued, Input.Serve(), env).world;
 
     expect(served.incarnations.get(actorKey(line))?.memory).toEqual({ seen: "rn" });
+  });
+});
+
+const Echo = definition({
+  id: "Serve/Echo",
+  states: ["ON"],
+  events: {},
+  internalEvents: { Renamed: {} },
+  memory: { echoed: Flow.initial(Schema.Number, 0) },
+  context: { name: Lead.Provider.select(Schema.String, (l) => l.memory.name) },
+});
+
+const leadRef = { machine: LeadMachine, value: "lead", context: {} };
+
+const EchoMachine = machine(Echo, ({ S, E }) => ({
+  default: S.ON,
+  onContext: [{ select: ({ context }) => context.name, event: E.Renamed }],
+  on: {
+    Renamed: {
+      updateMemory: ({ memory }) => ({ echoed: memory.echoed + 1 }),
+      actions: [send(() => leadRef, Lead.E.Rename({ name: "Core" }))],
+    },
+  },
+}));
+
+const echo = { machine: "Serve/Echo", name: "echo" };
+
+// The echo's update waits on one admitted event's count while the lead's rename, on another's,
+// changes the name it reads; each count has sent as given. Returns the echo once served.
+const joined = (waiting: number, joining: number) => {
+  const machines = new Map([
+    [lead.machine, { ...LeadMachine.compiled, wiring: new Map() }],
+    [echo.machine, { ...EchoMachine.compiled, wiring: new Map([["name", lead]]) }],
+  ]);
+
+  const env = { now: 0, seed: "0", admit: makeFreezer() };
+  const open = { ...emptyWorld(false), life: Life.Open() };
+
+  const ensured = step(
+    machines,
+    open,
+    Input.Ensure({
+      actor: echo,
+      use: Option.some("story"),
+      start: "create",
+      wiring: Option.none(),
+    }),
+    env,
+  ).world;
+
+  const queued = {
+    ...ensured,
+    chains: new Map([
+      [1, { root: "Started to echo", sent: waiting }],
+      [2, { root: "Rename to lead", sent: joining }],
+    ]),
+    mail: new Map([
+      [actorKey(echo), [Mail.Context({ actor: echo, chain: 1 })]],
+      [
+        actorKey(lead),
+        [Mail.Event({ actor: lead, tag: "Rename", payload: { name: "Core" }, chain: 2 })],
+      ],
+    ]),
+  };
+
+  return step(machines, queued, Input.Serve(), env).world.incarnations.get(actorKey(echo));
+};
+
+const refusalOf = (served: ReturnType<typeof joined>) =>
+  (served?.issues ?? []).map((i) => `${i.code} ${Option.getOrElse(i.slot, () => "")}`);
+
+describe("a second wave reaching a context update that waits (Actors R13, I20)", () => {
+  // Two admitted events' chains meet only when an update waits across rotations: set by hand.
+  it("Actors R13, I20: the waiting update follows the joining wave's count when it is higher, so its onContext turn's send is refused at the loop guard", () => {
+    const served = joined(0, RuntimeDefaults.loopGuard);
+    const guard = String(RuntimeDefaults.loopGuard);
+
+    expect(served?.memory).toEqual({ echoed: 0 });
+    expect(refusalOf(served)).toEqual([
+      `InvalidTurn loop guard: ${guard} events sent from Rename to lead`,
+    ]);
+  });
+
+  it("Actors R13, I20: the waiting update keeps its own count when the joining wave's is lower, so its onContext turn's send is still refused at the loop guard", () => {
+    const served = joined(RuntimeDefaults.loopGuard, 0);
+    const guard = String(RuntimeDefaults.loopGuard);
+
+    expect(served?.memory).toEqual({ echoed: 0 });
+    expect(refusalOf(served)).toEqual([
+      `InvalidTurn loop guard: ${guard} events sent from Started to echo`,
+    ]);
   });
 });

@@ -14,7 +14,6 @@ import {
   IssueSource,
   type Lane,
   Mail,
-  NO_CHAIN,
   withIssue,
   withoutIssue,
 } from "./world.ts";
@@ -95,16 +94,11 @@ export const makeServe = (
   const depthBelow = (incarnation: Incarnation, owner: number) =>
     incarnation.activations.filter((a) => a < owner).length;
 
-  // Counts a turn's sends toward the loop guard of the chain it follows, starting one at its first
-  // send; fails with the refusal's slot, naming the chain, when they would pass the guard.
-  const counted = (incarnation: Incarnation, tag: string, count: number) => {
-    const now = tx.chainNow();
-    const id = now === NO_CHAIN ? tx.next() : now;
-
-    const chain = tx.world().chains.get(id) ?? {
-      root: `${tag} to ${incarnation.actor.name}`,
-      sent: 0,
-    };
+  // Counts a turn's sends toward the loop guard of the admitted event it follows; fails with the
+  // refusal's slot, naming that event, when they would pass the guard.
+  const counted = (count: number) => {
+    const id = tx.chainNow();
+    const chain = tx.world().chains.get(id) ?? { root: "", sent: 0 };
 
     if (chain.sent + count > RuntimeDefaults.loopGuard)
       return Result.fail(
@@ -112,7 +106,6 @@ export const makeServe = (
       );
 
     tx.put("chains", id, { ...chain, sent: chain.sent + count });
-    tx.follow(id);
 
     return Result.succeed(id);
   };
@@ -180,8 +173,7 @@ export const makeServe = (
       Accepted: (accepted) => {
         const sends = accepted.actions.filter(Resolved.$is("Send"));
 
-        const chain =
-          sends.length === 0 ? Option.none() : Option.some(counted(incarnation, tag, sends.length));
+        const chain = sends.length === 0 ? Option.none() : Option.some(counted(sends.length));
 
         // The turn that would send past the loop guard is refused whole, naming its chain.
         if (Option.isSome(chain) && Result.isFailure(chain.value)) {
@@ -351,10 +343,8 @@ export const makeServe = (
     });
   };
 
-  const serve = (mail: Mail) => {
-    tx.follow(Mail.$is("Event")(mail) || Mail.$is("Context")(mail) ? mail.chain : NO_CHAIN);
-
-    return Mail.$match(mail, {
+  const serve = (mail: Mail) =>
+    Mail.$match(mail, {
       Event: ({ actor, tag, payload }) => {
         const incarnation = incarnationOf(actor);
 
@@ -403,7 +393,6 @@ export const makeServe = (
           ledger.tryOne(actor, id, (row) => serveEnding(incarnation, row));
       },
     });
-  };
 
   // A context update whose providers have not settled waits at the front of its mailbox: it is
   // read once they have, so one wave gives one consistent update, and mail behind it stays behind
@@ -417,9 +406,12 @@ export const makeServe = (
     return true;
   };
 
-  // Serves one item; returns the mail its turns enqueued, which follows it.
+  // Serves one item; returns the mail its turns enqueued, which follows it and the loop guard's
+  // chain it follows or starts. Mail enqueued between items follows none.
   const served = (mail: Mail) => {
+    tx.follow(mail);
     serve(mail);
+    tx.followNone();
 
     return tx.takeFresh();
   };

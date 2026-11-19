@@ -407,9 +407,10 @@ retry.
   - [x] `Repo` sends `SyncRepo` and `Pushed` to `Git/Sync`. No source. built: `sync/repo-commits` (Actors R16).
   - [x] Loop guard: two mirrors forwarding to each other stop at `RuntimeDefaults.loopGuard`; a chain of exactly the
     guard with a context update at each hop is never refused; an import of a branch name where a commit belongs is
-    refused on the sender; a replica's `onContext` sends counted, stopping its loop at the guard. No source. built:
-    `sync/mirror-loop`, `sync/mirror-chain-with-status`, `sync/mirror-imports-ref`, `sync/replica-loop` (Actors R13,
-    I20).
+    refused on the sender; a replica's `onContext` sends counted, stopping its loop at the guard; one count shared
+    by two replicas that one send-less push reaches, alone or each feeding its own mirror pair. No source. built:
+    `sync/mirror-loop`, `sync/mirror-chain-with-status`, `sync/mirror-imports-ref`, `sync/replica-loop`,
+    `sync/replicas-loop`, `sync/replica-pairs` (Actors R13, I20).
   - [ ] **Findings:** a 4xx that isn't a rate limit is not retried. Copies [liveRetry.unit.test.ts:27][kp-retry] "does
     NOT retry a genuine 4xx app error". left: needs a `BadRequest` failure on `Git/sync`, an edit to an old contract
     this row does not allow; the user's call.

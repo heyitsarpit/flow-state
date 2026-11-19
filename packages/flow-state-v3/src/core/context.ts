@@ -266,7 +266,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
   /**
    * A provider changed: each live consumer bound to it gets one context update, unless one already
-   * waits in its mailbox.
+   * waits in its mailbox, which the wave joins.
    */
   const wave = (provider: ActorId) => {
     for (const consumer of tx.consumersOf(provider)) {
@@ -275,6 +275,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       );
 
       if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));
+      else tx.joinWave(consumer.actor);
     }
   };
 

@@ -25,12 +25,18 @@ const dropped = (reason: string) => [
   { actor: idOf(renewalPay), event: "PayRequested", reason, sender: idOf(subscription) },
 ];
 
+const isRenewal = (event: string) => event === "CardChosen" || event === "PayRequested";
+
 describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4's send table)", () => {
   it("Actors R16 live, kept by work in flight, R7: a closed Pay with a confirm on the wire gets both sends in the same incarnation", async () => {
     const run = await played(renewalBusyPay);
 
     expect(incarnationsOf(run, is(renewalPay))).toBe(1);
-    expect(turnsOf(run, is(renewalPay)).filter((e) => e === "CardChosen")).toEqual(["CardChosen"]);
+    expect(turnsOf(run, is(renewalPay)).filter(isRenewal)).toEqual([
+      "PayRequested",
+      "CardChosen",
+      "PayRequested",
+    ]);
     expect(run.checkpoints.landed.read(renewalPay)?.memory["paymentMethodId"]).toBe("visa");
   });
 
@@ -45,6 +51,11 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(run.checkpoints["held past the grace"].read(renewalPay)?.lifecycle).toBe("active");
     expect(incarnationsOf(run, is(renewalPay))).toBe(2);
     expect(endsOf(run, is(renewalPay))).toBe(2);
+    expect(turnsOf(run, is(renewalPay)).filter(isRenewal)).toEqual([
+      "CardChosen",
+      "PayRequested",
+      "PayRequested",
+    ]);
   });
 
   it("Actors R16 restored and delivered last, I14: the restored Pay hears its held charge's unknown Restored before the sends", async () => {
@@ -70,10 +81,17 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(incarnationsOf(run, is(renewalPay))).toBe(1);
   });
 
-  it("Actors R16 a record that does not decode: both sends are dropped RecordUndecodable and create no Pay", async () => {
+  it("Actors R16 a record that does not decode: a handle's send and both of the subscription's are dropped RecordUndecodable and create no Pay", async () => {
     const run = await played(renewalDamagedPay);
 
-    expect(droppedSends(run)).toEqual(dropped("RecordUndecodable"));
+    const asked = {
+      actor: idOf(renewalPay),
+      event: "PayRequested",
+      reason: "RecordUndecodable",
+      sender: undefined,
+    };
+
+    expect(droppedSends(run)).toEqual([asked, ...dropped("RecordUndecodable")]);
     expect(incarnationsOf(run, is(renewalPay))).toBe(0);
   });
 

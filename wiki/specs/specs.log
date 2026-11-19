@@ -399,3 +399,8 @@ note 2026-11-19T02:39:04Z
     @spec.Actors R16 over R20: a send to an actor being disposed drops NoRecord whether or not the removal is
     acknowledged (the Runtime's copy of the record goes at once). R13, I20: the guard is built and counts onContext
     turns' sends; R16: drops name their sender (T96). Reverse: restore R20's sentence.
+
+note 2026-11-19T03:22:47Z
+    @spec.Actors R13: one guard count per admitted event, shared by every consumer its context update reaches; onContext
+    events are never counted or refused, their turns' sends count; a joined waiting update follows the higher count; the
+    refusal names the admitted event (T96 close review). Reverse: restore the earlier R13 text.

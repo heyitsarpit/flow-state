@@ -12,6 +12,8 @@ import {
   mirrorLoop,
   mirrorSamples,
   replicaLoop,
+  replicasLoop,
+  replicaPairs,
   repoCommits,
 } from "./stories/sends.ts";
 
@@ -36,6 +38,8 @@ export const sync = manifest({
     mirrorChainWithStatus,
     mirrorImportsRef,
     replicaLoop,
+    replicasLoop,
+    replicaPairs,
   },
   samples: [samples, repoSamples, mirrorSamples],
   stressSamples: [samples, repoSamples, mirrorSamples],
@@ -49,6 +53,10 @@ export const sync = manifest({
     },
     {
       samples: repoSamples,
+      reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: true },
+    },
+    {
+      samples: mirrorSamples,
       reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: true },
     },
   ],

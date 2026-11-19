@@ -305,6 +305,60 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "loop-guard-per-consumer",
+    tests: ["tests/sync/sends.test.ts"],
+    says: "an admitted event that has sent nothing gives each consumer its context update reaches its own count, so a fan-out of onContext sends passes the loop guard",
+    rule: "Actors R13, I20",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));",
+        replace:
+          "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: (tx.world().chains.get(tx.chainNow())?.sent ?? 0) > 0 ? tx.chainNow() : 0 }));",
+      },
+    ],
+  },
+  {
+    name: "loop-guard-wave-keeps-first",
+    tests: ["src/core/serve.test.ts"],
+    says: "a context update that waits keeps the first wave's count when a later wave joins it, so the later event's sends add to a lower count",
+    rule: "Actors R13, I20",
+    edits: [
+      {
+        file: "src/core/tx.ts",
+        find: '(m) => Mail.$is("Context")(m) && sent(next) > sent(m.chain),',
+        replace: '(m) => Mail.$is("Context")(m) && sent(next) < 0,',
+      },
+    ],
+  },
+  {
+    name: "loop-guard-wave-takes-later",
+    tests: ["src/core/serve.test.ts"],
+    says: "a context update that waits always takes a later wave's count when it joins, so a lower count replaces the one its sends add to",
+    rule: "Actors R13, I20",
+    edits: [
+      {
+        file: "src/core/tx.ts",
+        find: '(m) => Mail.$is("Context")(m) && sent(next) > sent(m.chain),',
+        replace: '(m) => Mail.$is("Context")(m) && m.chain !== next,',
+      },
+    ],
+  },
+  {
+    name: "loop-guard-names-refused-turn",
+    tests: ["tests/sync/sends.test.ts"],
+    says: "the loop guard's refusal names the refused turn's event, not the admitted event the count began with",
+    rule: "Actors R13",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "                  slot: Option.some(chain.value.failure),",
+        replace:
+          '                  slot: Option.some(`${chain.value.failure.split(" from ")[0] ?? ""} from ${tag} to ${incarnation.actor.name}`),',
+      },
+    ],
+  },
+  {
     name: "mailbox-capped",
     tests: ["tests/actors/send.test.ts"],
     says: "an external send is refused while 1,024 sends wait to be stepped",

@@ -106,6 +106,10 @@ export const shop = manifest({
       samples: storeSamples,
       reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
     },
+    {
+      samples: checkoutSendSamples,
+      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+    },
   ],
   bench: {
     probe: (n) => actorRef(PayMachine, `checkout-${String(n)}`),

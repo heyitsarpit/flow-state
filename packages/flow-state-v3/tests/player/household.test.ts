@@ -76,7 +76,7 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
     expect(run.checkpoints.sent.read(household)?.memory["started"]).toBe(2);
   });
 
-  it("send check: a target ref with no encoded name refuses the sender's turn with a FlowError; the rooms before it played and none after", async () => {
+  it("send check: a target ref with no encoded name refuses the sender's turn InvalidTurn; the rooms before it played and none after", async () => {
     const run = await played(groupBadRoom);
     const sent = run.checkpoints.sent;
 

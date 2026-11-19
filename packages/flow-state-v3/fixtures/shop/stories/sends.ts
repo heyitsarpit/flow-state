@@ -169,13 +169,14 @@ export const renewalForgottenPay = started("shop/renewal-forgotten-pay")
 
 /**
  * The shopper subscribes; the renewal's saved record is text no release can read; the tab reloads;
- * then the week passes.
+ * the shopper asks the Pay to pay; then the week passes.
  */
 export const renewalDamagedPay = renewalStory("shop/renewal-damaged-pay")
   .ensure(subscription)
   .send(subscription, subscribe)
   .world(Fake.storage.put("actor/Checkout/Pay/renewal", "{not a record"))
   .reload()
+  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "visa" })
   .advance(WEEK)
   .checkpoint("renewed");
 

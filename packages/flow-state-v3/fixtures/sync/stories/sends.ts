@@ -1,6 +1,16 @@
 import { samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { RuntimeDefaults } from "../../../src/index.ts";
-import { client, docsRepo, gitMirroredSetup, mirrorA, mirrorB, replicaA, statusA } from "../app.ts";
+import {
+  client,
+  docsRepo,
+  gitMirroredSetup,
+  mirrorA,
+  mirrorB,
+  mirrorOf,
+  replicaA,
+  replicaB,
+  statusA,
+} from "../app.ts";
 import { GitFake } from "../../services/git/server/layer.ts";
 import { Git } from "../../services/git/server/git.ts";
 
@@ -87,6 +97,50 @@ export const replicaLoop = mirrorStory("sync/replica-loop")
   .send(mirrorA, push(0))
   .checkpoint("stopped");
 
+const FAR = RuntimeDefaults.loopGuard + 10;
+
+/**
+ * A replica's link: it pushes each commit its mirror takes to `upstream`, far past the loop guard.
+ */
+export const follow = (upstream: string) => ({ _tag: "Follow", upstream, maxPushes: FAR }) as const;
+
+/**
+ * Two replicas follow the first mirror, which forwards nowhere; each pushes every commit it takes
+ * to the second mirror, which forwards to the first, a misconfiguration; a host push reaches the
+ * first.
+ */
+export const replicasLoop = mirrorStory("sync/replicas-loop")
+  .ensure(mirrorA)
+  .ensure(mirrorB)
+  .ensure(replicaA)
+  .ensure(replicaB)
+  .send(mirrorB, link("a", FAR))
+  .send(replicaA, follow("b"))
+  .send(replicaB, follow("b"))
+  .send(mirrorA, push(0))
+  .checkpoint("stopped");
+
+/**
+ * Two replicas follow the first mirror, each feeding its own pair of mirrors that forward to each
+ * other, a misconfiguration; a host push reaches the first mirror.
+ */
+export const replicaPairs = mirrorStory("sync/replica-pairs")
+  .ensure(mirrorA)
+  .ensure(replicaA)
+  .ensure(replicaB)
+  .ensure(mirrorOf("b"))
+  .ensure(mirrorOf("c"))
+  .ensure(mirrorOf("d"))
+  .ensure(mirrorOf("e"))
+  .send(mirrorOf("b"), link("c", FAR))
+  .send(mirrorOf("c"), link("b", FAR))
+  .send(mirrorOf("d"), link("e", FAR))
+  .send(mirrorOf("e"), link("d", FAR))
+  .send(replicaA, follow("b"))
+  .send(replicaB, follow("d"))
+  .send(mirrorA, push(0))
+  .checkpoint("stopped");
+
 const commit = { _tag: "Commit" } as const;
 
 const pushSeen = { _tag: "PushSeen" } as const;
@@ -105,16 +159,23 @@ const importSha = { _tag: "Import", ref: SHA } as const;
 
 const importRef = { _tag: "Import", ref: "main" } as const;
 
+const followB = { _tag: "Follow", upstream: "b", maxPushes: 3 } as const;
+
+const followNowhere = { _tag: "Follow", upstream: "", maxPushes: 3 } as const;
+
+const followNoPushes = { _tag: "Follow", upstream: "b", maxPushes: 0 } as const;
+
 /**
  * What a developer and the host can do around a repository and two mirrors, for generated runs:
  * commit and report a push; link a mirror (to nothing among them), push at no hops and at the time
- * to live, and import a commit or a branch name; the host rate-limits.
+ * to live, and import a commit or a branch name; have a replica of the first push on to the second,
+ * to nothing among them, or with no pushes allowed; the host rate-limits.
  */
 export const mirrorSamples = samplesOf({
   id: "git-mirrors",
   story: mirrorStory("git-mirrors/samples").ensure(client),
   names: { setup: "gitMirroredSetup", fixtures: ["GitFake"] },
-  actors: { client, docsRepo, mirrorA, mirrorB, statusA },
+  actors: { client, docsRepo, mirrorA, mirrorB, statusA, replicaA },
   servers: { Git },
   failures: [Git.rateLimit({ retryAfterMs: 0 })],
   landedFailures: [],
@@ -128,6 +189,9 @@ export const mirrorSamples = samplesOf({
     pushedAtLive,
     importSha,
     importRef,
+    followB,
+    followNowhere,
+    followNoPushes,
   },
   controls: [],
   steps: (story) =>
@@ -140,5 +204,8 @@ export const mirrorSamples = samplesOf({
       .send(mirrorA, pushedAtLive)
       .send(mirrorA, importSha)
       .send(mirrorA, importRef)
+      .send(replicaA, followB)
+      .send(replicaA, followNowhere)
+      .send(replicaA, followNoPushes)
       .send(docsRepo, pushSeen),
 });

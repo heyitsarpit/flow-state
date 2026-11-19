@@ -84,6 +84,16 @@ export const gitGrownSetup = runtimeSetup({
 export const replicaA = actorRef(ReplicaMachine, "replica-a");
 
 /**
+ * A second replica of mirror `a`.
+ */
+export const replicaB = actorRef(ReplicaMachine, "replica-b");
+
+/**
+ * The push mirror of a named remote.
+ */
+export const mirrorOf = (remote: string) => actorRef(MirrorMachine, { remote });
+
+/**
  * The Git app grown further with push mirrors, a mirror's status line and a replica of a mirror.
  */
 export const gitMirrored = app({

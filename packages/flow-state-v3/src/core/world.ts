@@ -424,15 +424,26 @@ export type World = {
 };
 
 /**
- * The sends counted toward the loop guard for one admitted event, and the turn that sent first,
- * as the refusal names it. An event or context update carries its chain's number, 0 for none.
+ * The sends counted toward the loop guard for one admitted event, and that event, as the refusal
+ * names it. An event or context update carries its chain's number, 0 for none.
  */
 export type Chain = { readonly root: string; readonly sent: number };
 
 /**
- * The chain number of mail no turn's send started.
+ * The chain number of mail that follows no admitted event: it is admitted itself when served.
  */
 export const NO_CHAIN = 0;
+
+/**
+ * How the loop guard's refusal names the admitted item a chain began with.
+ */
+export const rootOf = (mail: Mail) =>
+  Mail.$match(mail, {
+    Event: ({ actor, tag }) => `${tag} to ${actor.name}`,
+    Context: ({ actor }) => `a context update of ${actor.name}`,
+    Ending: ({ actor }) => `an ending of ${actor.name}`,
+    Firing: ({ actor, schedule }) => `schedule ${schedule} of ${actor.name}`,
+  });
 
 /**
  * A world with nothing in it.

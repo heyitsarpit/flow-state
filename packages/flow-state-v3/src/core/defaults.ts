@@ -22,8 +22,9 @@ import { Duration } from "effect";
  *   step stays within `slowWorkBudget` at the bench's slowest ordinary turn.
  * - `loopGuard`: how many events the turns of one admitted event may send before the next send is
  *   refused as a runaway chain. Set so a runaway chain stops within about a second at the bench's
- *   slowest ordinary turn. It counts only events sent by turns, so it waits for an actor-to-actor
- *   send action; context updates never count.
+ *   slowest ordinary turn. It counts only events sent by turns, among them the turns of the
+ *   `onContext` events its context updates reach; the context updates and those events never
+ *   count.
  * - `slowWorkBudget`: a step slower than this is reported SlowWork, on a host that times work
  *   (dev only): one 60 Hz frame, about a hundred times the bench's ordinary turn.
  *

@@ -170,13 +170,17 @@ requirements
     R13  Order across actors
         source  @plan.Runtime.O4.
         must    Follow-ups (the events and context updates a served event's turns enqueue) run first,
-                oldest first within each actor. The loop guard: up to `RuntimeDefaults.loopGuard`
-                events sent by turns count per admitted event, across every follow-up it starts,
-                including the turns of the `onContext` events its context updates enqueue; a turn
-                that would send one more is refused InvalidTurn and undone, its issue naming the
-                guard and the turn that sent first. Context updates and the onContext events they
-                enqueue never count and are never refused by it, since ContextCycle bounds a context
-                chain; endings and firings are not counted either. Otherwise one event runs from the
+                oldest first within each actor. The loop guard: one count per admitted event, shared
+                by every follow-up it starts and every consumer its context updates reach; up to
+                `RuntimeDefaults.loopGuard` events sent by turns count, the sends of the turns of
+                the `onContext` events among them; a turn that would send one more is refused
+                InvalidTurn and undone, its issue naming the guard and the admitted event. A context
+                update a later wave joins while it waits follows whichever count is higher. The
+                context updates and the onContext events themselves are never counted, and never
+                refused for being enqueued, since ContextCycle bounds a context chain; a turn of an
+                onContext event that would send past the guard is refused like any other. Endings
+                and firings are not counted either, and each is an admitted event of its own.
+                Otherwise one event runs from the
                 next actor in rotation, oldest first. The guard counts the events one admitted
                 event's turns send, a chain inside one admission, not how often events are admitted.
                 A step serves at most `RuntimeDefaults.drainYield` mail items, then yields to the

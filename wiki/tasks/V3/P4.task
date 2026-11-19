@@ -1324,9 +1324,10 @@ tasks
               a fixture.
             - The waiting step-1 cells in shop, sync and player use it and pass (amended 2026-11-19: transfers and
               palette cut by the orchestrator's ruling, transfers because its machine takes no input, Actors R5).
-            - A chain past `RuntimeDefaults.loopGuard` is refused `InvalidTurn` naming the chain; a context update chain
-              is not.
-            - A send's target ref and event are checked; a bad one refuses the sender's turn with a FlowError.
+            - A chain past `RuntimeDefaults.loopGuard` is refused `InvalidTurn` naming the admitted event, the count
+              shared by every consumer its context updates reach; a context update chain is not.
+            - A send's target ref and event are checked; a bad one refuses the sender's turn `InvalidTurn` (amended
+              2026-11-19: the refusal is InvalidTurn, not a FlowError, by the close review).
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
         comment     2026-11-18T19:06:48Z
             Decision (the user, 2026-11-19): send(ref, event) stays as accepted (re-plan Q4 A), as in XState's sendTo,
@@ -1631,6 +1632,37 @@ tasks
             count, the onContext events themselves never do); R13 is reworded to say so, no change to D13. R16 over
             R20's Plan text goes to @plan.Pending D32 for the user. Routed in-range items (weak assertions, replicaA
             sample, pairs list in the manifest, acceptance 4 wording) land in the fix round.
+        comment     2026-11-19T03:44:34Z
+            For the user (routed, not fixed): `Shop/Subscription` passes "The right tool" only weakly: its catalog
+            reason is still the test's need, and `Due` sends no `Start`, so each week reuses the last intent; a week is
+            past generated runs' think times, so its renewals never come due there and the action path's persisted rows
+            are hand Stories only. Options: name a product source and have `Due` start the week's intent, or accept it
+            as is.
+        comment     2026-11-19T03:44:34Z
+            Fix round: close review's blocking finding fixed red first; status review. Suite 1240 passed, 24 expected
+            fail; stress 79; `nub run check` exit 0; `nub run faults --only` 11 of 11 caught.
+
+            - Guard (blocking): one count per admitted event, started at the first mail its turns enqueue and named by
+              it (code:packages/flow-state-v3/src/core/tx.ts#chainNow); a joined waiting update takes the higher count
+              (#joinWave). Red then green: `sync/replicas-loop` (one push, two replicas, sends exactly the guard),
+              `sync/replica-pairs` (hit the 10,000-turn limit; now refused at the guard), two join tests in
+              `src/core/serve.test.ts`. Faults: loop-guard-per-consumer, loop-guard-wave-keeps-first,
+              loop-guard-wave-takes-later, loop-guard-names-refused-turn; loop-guard-off, -counts-turns,
+              -context-restarts and context-update-skips-mailbox re-run.
+            - R13 reworded (one count shared by every consumer; onContext events never counted, their turns' sends count
+              and are refused like any other), specs.log note.
+            - Weak assertions: the root named for real (`Push to a`) in mirror-loop, replica-loop and both new Stories;
+              restore order and busy row's PayRequested as exact turn lists; a handle send's RecordUndecodable in
+              `shop/renewal-damaged-pay` (send-undecodable-as-no-record re-run).
+            - Samples: `replicaA` with Follow, its empty-upstream and zero-push edges; pairs-sends moved into the shop
+              and sync manifests' `pairs` (shop-checkout-sends needs 1,000 stress seeds, as shop-store does).
+            - Text: acceptance 3 and 4, two test titles (InvalidTurn), loopGuard and send docs. Routed: dispose-path
+              items to @task.V3.T99; Subscription to the user above. Not done: A26 and the message in `Issue.slot`.
+            - Sidecars (2 Haiku, effort high): accepted the one-way join test (reverse case and fault added), Follow
+              edges, R13's refused wording, the unasserted checkpoint; changed a restore behind a stale waiting update
+              into a T99 note; rejected a serve-time join (bounded: the merged update's sends are follow-ups of both
+              events, and either count is a real one), chain numbers from the mint (would shift every Story's ids),
+              comment style (house pattern), editing git-mirrors in place (the brief asked for it).
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
@@ -1728,6 +1760,12 @@ tasks
         comment     2026-11-19T02:01:48Z
             Owes (T96 requirements review, 2026-11-19): send's O4 row 'a persisted actor while the Runtime boots is
             queued' (@plan.Runtime.O4), as a Story once a persisted sender is owed an ending at boot.
+        comment     2026-11-19T03:43:28Z
+            Routed from T96's close review (pre-existing, dispose and end paths): mail queued to an actor disposed
+            before it is served is dropped with no evidence; a send's restore ensures a disposed provider of the
+            restored consumer; dispose keeps the quarantine entry, so a disposed undecodable identity reports
+            RecordUndecodable; an actor ended with mail still in its box (a grace firing in the same batch) keeps it, so
+            a later restore can meet a stale waiting context update; chains empty only when every mailbox does.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
