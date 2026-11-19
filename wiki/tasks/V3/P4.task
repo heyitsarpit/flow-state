@@ -3027,7 +3027,7 @@ tasks
 
     T104
         title       Type gaps closed at every module seam: carriers, handles, snapshots, evidence, casts
-        status      in_progress
+        status      review
         priority    high
         description
             Every type Flow hands across a module seam is as narrow as what the producer holds, so a typo or a wrong
@@ -3542,6 +3542,40 @@ tasks
             Superseded (the user, 2026-11-20): the owed onContext tuple refusal is dropped; @task.V3.T107 replaces
             reactions with C.slot.change per code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md.
             T104's F3 token brand must keep a definition's id literal, which T107's one-provider ban needs.
+        comment     2026-11-19T19:52:32Z
+            Build status (lead, resumed): F3 brand, state reads, F6 names, details keys, name filters and F9's cheap
+            types landed (c0359aed, 647ace06, 3c1b791d), check and suite at exit 0. Changed: a Diagnostic's details are
+            a closed record of the keys Flow writes, not a union by code, so readers need no narrowing
+            (@spec.Diagnostics R2 edited); body and returned-key exactness stays owed in types (an inferred exact body
+            breaks handles' and sends' contextual typing; construction refuses at load), recorded in
+            excess-keys.test-d.ts; services check by constraint (R extends the listed ids), so an unneeded service
+            passes. Next: RuntimeConfig<R>, compile.ts conversion, cast sweep and no-unsafe rules, the stopped-Runtime
+            run test, close gates.
+        comment     2026-11-19T20:29:57Z
+            Sidecar log (lead, close): two Haiku reviewers (casts, cohesion); every finding re-read in code. Accepted:
+            two false SAFETY claims corrected (a read's input is checked by type only, contract.ts trusted; a reaction
+            mapper reads its selection, endingValue), Attempt.id branded, IssueCode derived from RefusedCode, stale docs
+            (ids, SelectArg, forked run), fake Described from AnyEndpoint. Rejected: boundary.test.ts erase (target
+            named in the helper); ProvidedBy id, reaction mapper vs select, ProviderOf placement (@task.V3.T107 replaces
+            them); ActorKey-keyed maps and Row or evidence attempt brands (internal, @task.V3.T92's record brands);
+            guard token L, UncertainMark, Operations alias, FailureOf, PhaseTag (no wrong ending). Routed, no rule asks
+            it yet: a lookup's input has no run-time Schema check (@spec.Reads); scope or persistence alone is refused
+            only in types; generate.ts maps an unknown rule name to the turn limit.
+        comment     2026-11-19T20:30:07Z
+            Close (lead): ready for review at 082cb950. check, lint:rules, the suite, stress, generated Stories over ten
+            fresh seeds each and docs:build exit 0. Decided while building (each reversible in its commit): Diagnostic
+            details are a closed record of Flow's keys, not a union by code (@spec.Diagnostics R2 edited); body and
+            returned-key exactness stays owed in types (TypeScript does not excess-check a returned object, and an
+            inferred exact body breaks handles' and sends' contextual typing; construction refuses at load; recorded in
+            excess-keys.test-d.ts), while a write naming an input field fails to compile; services are checked by
+            constraint, so an unneeded service passes; RuntimeConfig<R> is dropped (Layer's output is contravariant, so
+            an absent Layer needs the same cast at the setup); as const is not counted as a cast; testing.compile.ts and
+            send.compile.ts keep their names because @plan.Pending and a closed Task's comment link them (proposed:
+            relink, on the user's yes). New public types for the user's read: StateToken<Path, Id, L, C>,
+            HistoryToken<Path, Id>, ActionToken<P, Id>, GuardToken<P, Id>, StateRead<L>, RootToken<L, C>, GuardArg<M, P,
+            L>, Ending<V, Id>, UnknownEnding<Id>, WriteEndings and ReadEndings with Id, Bound's and Definition's Id,
+            Tokens and EventToken with Id, NamedEvidence<R, D>, ServiceIds<S>, Saving; plus the earlier slices' list in
+            the 2026-11-19T16:56:58Z status.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
