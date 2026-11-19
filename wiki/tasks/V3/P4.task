@@ -2785,3 +2785,7 @@ tasks
             - T103's routed items are closed or routed with a reason.
             - `nub run check`, the suite and stress pass; any new lint rule or run rule has planted faults caught by
               `nub run faults --only`.
+        comment     2026-11-19T13:22:51Z
+            Scope (the user, 2026-11-19): every type cast is scrutinised: each as-cast, satisfies-in-place-of-a-type,
+            trusted/erase helper and no-unsafe-type-assertion disable is removed, or kept only as a verified boundary or
+            TypeScript limit with its reason; a SAFETY comment is a claim to check, not a reason to keep.
