@@ -246,11 +246,11 @@ const codecsOf = <F extends Fields>(fields: F, key: ReadonlyArray<keyof F & stri
 };
 
 /**
- * A call's input as the contract's own type: the runtime decodes every input with the contract's
- * input Schema before it calls.
+ * A call's input as the contract's own type: a write's input is checked by its input walker, and a
+ * read's is what its handle's `lookup` select returned, typed by the contract's input.
  */
 const trusted = <A>(input: Values) =>
-  // SAFETY: the runtime passes only inputs its operation's input walker checked at the commit (core/lanes.ts) or decoded from a lane record (core/record.ts).
+  // SAFETY: a write's input passed its operation's input walker at the commit (core/lanes.ts) or decoded from a lane record (core/record.ts); a read's input is checked by type only, at its `lookup` select.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the contract's input type is erased in Compiled and restored here, at the one call boundary
   input as A;
 

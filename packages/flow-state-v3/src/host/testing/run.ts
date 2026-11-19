@@ -688,7 +688,7 @@ const runSteps = <Names extends string>(
  * Runs a reload from a saved world, then the steps after it, and returns what the whole run
  * recorded, the saved part included.
  */
-// RETURN_TYPE: the exported StoryRun contract, with string Names as any run of other steps.
+// RETURN_TYPE: the exported StoryRun contract, its checkpoint names erased as any run of other steps.
 export const runForked = (
   subject: Subject,
   id: string,

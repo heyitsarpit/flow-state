@@ -1,5 +1,6 @@
 import { Data, type Effect, Option, Result, type Schema } from "effect";
 import type { Walker } from "./boundary.ts";
+import type { AttemptId } from "./world.ts";
 
 /**
  * A user closure named by its place in the definition (`operations.pay.failure.CardDeclined`), so
@@ -229,7 +230,7 @@ export type CommitContext = { readonly attempt: Attempt };
  * The Attempt a commit runs as.
  */
 export type Attempt<I = Values, K = Values> = {
-  readonly id: string;
+  readonly id: AttemptId;
   readonly operation: string;
   readonly key: K;
   readonly input: I;

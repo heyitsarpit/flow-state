@@ -106,11 +106,7 @@ type AnyEndpoint = Endpoint<unknown, Fields, Schema.Top, Schema.Top>;
 type AnyControl = Control<unknown, Fields>;
 
 // What a server's types read of an endpoint: its request and its answer's Schemas.
-type Described = {
-  readonly request: Fields;
-  readonly success: Schema.Top;
-  readonly failure: Schema.Top;
-};
+type Described = Omit<AnyEndpoint, "handle">;
 
 // FLOW_STATE_ALLOW_UNKNOWN: an endpoint of a server whose truth is `T`, its request and answer its own.
 type EndpointOf<T> = Described & {

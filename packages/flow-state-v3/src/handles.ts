@@ -4,7 +4,7 @@ import type { ActionToken, GuardToken, Operations } from "./definition.ts";
 import { builder, entry, inert } from "./entry.ts";
 
 /**
- * What a member's select or key callback reads: the memory, and no event.
+ * What a member's select or key callback reads: the memory, and its handler's event.
  */
 export type SelectArg<M, P = unknown> = { readonly memory: M; readonly event: P };
 

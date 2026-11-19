@@ -17,12 +17,12 @@ export type ActorId = { readonly machine: string; readonly name: string };
 export type ActorKey = string & Brand.Brand<"flow-state/ActorKey">;
 
 /**
- * The id a write lane is kept under, made only by {@link laneId}.
+ * The id a write lane is kept under, made by {@link laneId}, or read back from a saved lane record.
  */
 export type LaneId = string & Brand.Brand<"flow-state/LaneId">;
 
 /**
- * An Attempt's id, made only by the world's mint.
+ * An Attempt's id, made by the world's mint, or read back from a saved lane record.
  */
 export type AttemptId = string & Brand.Brand<"flow-state/AttemptId">;
 

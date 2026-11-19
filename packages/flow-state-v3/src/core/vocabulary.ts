@@ -57,7 +57,12 @@ export type Channel = typeof Channel.Type;
 /**
  * Why a turn was refused before commit.
  */
-export type RefusedCode = "Defect" | "InvalidTurn" | "GuardDefect";
+export const RefusedCode = Schema.Literals(["Defect", "InvalidTurn", "GuardDefect"]);
+
+/**
+ * The decoded {@link RefusedCode}.
+ */
+export type RefusedCode = typeof RefusedCode.Type;
 
 /**
  * The codes of the issues reported: a turn's refusal, a callback's or a call's defect, a final
@@ -65,12 +70,10 @@ export type RefusedCode = "Defect" | "InvalidTurn" | "GuardDefect";
  * Scope closed.
  */
 export const IssueCode = Schema.Literals([
-  "Defect",
-  "InvalidTurn",
-  "GuardDefect",
+  ...RefusedCode.literals,
   "StorageFailure",
   "CleanupFailed",
-] as const satisfies ReadonlyArray<RefusedCode | "StorageFailure" | "CleanupFailed">);
+]);
 
 /**
  * The decoded {@link IssueCode}.
