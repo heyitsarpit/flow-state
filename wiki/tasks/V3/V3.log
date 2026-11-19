@@ -987,3 +987,6 @@ note 2026-11-19T06:28:09Z
 note 2026-11-19T06:53:04Z
     Decisions (the user, 2026-11-19): T99 Q7 A (runPromise refuses before ready, RunFailed) and Q8 A (quarantine kept);
     Pending D32 and D33 accepted and merged into Runtime, Persistence, Diagnostics; Subscription stays.
+
+note 2026-11-19T06:56:11Z
+    T96's user's page read (the user, 2026-11-19); the next slice's close is not held.
