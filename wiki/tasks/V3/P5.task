@@ -460,3 +460,9 @@ tasks
             stress behaviour past a rule). Per rule by token and for all rules; never silent: the report lists every
             rule skipped or expected, so a disabled rule cannot pass unnoticed. Flow's own run rules get the
             same switch.
+        comment     2026-11-19T15:57:57Z
+            Prior art (Alchemy, codebases/alchemy/packages/domain/src/Story.ts and Verify.ts): Stories never judge
+            invariants; only an explicit Verify.model test does, with require (rules that must stay proved) and allow
+            (handlers it may skip), so old tests needed no switch. Proposed hybrid for the design: generated runs and
+            sweeps judge rules automatically (Flow's Verify); hand-written Stories judge by default with the user's
+            expect/skip/off switch; a require-style list fails a suite whose named rules stay unseen.
