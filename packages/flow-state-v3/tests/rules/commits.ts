@@ -34,7 +34,7 @@ const accountedBy = (e: Evidence) => {
 export const acknowledgedHeardAgain: Rule = {
   rule: "WriteAhead I17",
   breaches: (run: StoryRun) => {
-    const { owner, ended, started, unread, unloaded } = opensOf(run);
+    const { owner, laneOwner, ended, started, unread, unloaded } = opensOf(run);
 
     return run.end.records.batches.flatMap((b) =>
       b.status !== "landed"
@@ -48,11 +48,12 @@ export const acknowledgedHeardAgain: Rule = {
               (o) => o > open && !unloaded.has(o),
             );
 
-            // The lane record the acknowledging batch wrote is this Attempt's; only that record
-            // left unread by a later boot excuses it, never another lane of the identity.
+            // Only a lane record of this Attempt's own identity that the acknowledging batch wrote,
+            // left unread by a later boot, excuses it: one batch carries every identity's writes.
             const quarantined = b.keys.some(
               (key) =>
-                key.startsWith("lane/") && [...(unread.get(key) ?? [])].some((o) => o > open),
+                key.startsWith(`lane/${laneOwner.get(attempt) ?? ""}|`) &&
+                [...(unread.get(key) ?? [])].some((o) => o > open),
             );
 
             return heard.length > 0 || later.length === 0 || quarantined
@@ -64,6 +65,10 @@ export const acknowledgedHeardAgain: Rule = {
     );
   },
 };
+
+// An identity's name as its record keys write it (Codec R5).
+const escapeName = (name: string) =>
+  name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C");
 
 const addTo = (map: Map<string, Set<number>>, key: string, open: number) =>
   map.set(key, (map.get(key) ?? new Set()).add(open));
@@ -81,6 +86,7 @@ const leftBy = (e: Evidence) => {
 const opensOf = (run: StoryRun) => {
   const places = placesOf(run);
   const owner = new Map<string, string>();
+  const laneOwner = new Map<string, string>();
   const ended = new Map<string, Set<number>>();
   const started = new Map<string, Set<number>>();
 
@@ -89,6 +95,7 @@ const opensOf = (run: StoryRun) => {
 
     if (e._tag === "Minted") {
       owner.set(e.attempt, nameOf(e.actor));
+      laneOwner.set(e.attempt, `${e.actor.machine}/${escapeName(e.actor.name)}`);
     }
 
     if (e._tag === "Incarnated") addTo(started, nameOf(e.actor), open);
@@ -105,7 +112,7 @@ const opensOf = (run: StoryRun) => {
     ),
   );
 
-  return { owner, ended, started, unread: unreadBy(run, places), unloaded };
+  return { owner, laneOwner, ended, started, unread: unreadBy(run, places), unloaded };
 };
 
 // The records each open's boot could not read, by key.

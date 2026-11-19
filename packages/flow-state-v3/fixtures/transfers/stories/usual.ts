@@ -297,7 +297,7 @@ export const t1Lane = 'lane/Bank/Transfers/acct-1|Bank/transfer|{"transferId":"t
  * `t1`'s lane record Held, in a newer format than this release reads.
  */
 export const newerT1Lane =
-  '{"attempt":"att-000000000000000000006d61696e3a31-1","digest":"67fe5a62","displaced":[],"format":5,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}';
+  '{"_tag":"Head","attempt":"att-000000000000000000006d61696e3a31-1","digest":"67fe5a62","displaced":[],"format":5,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}';
 
 /**
  * The key `acct-1`'s actor record is saved under, and a record there that does not decode.

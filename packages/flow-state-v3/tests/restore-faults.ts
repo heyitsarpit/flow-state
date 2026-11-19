@@ -19,8 +19,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "      ...head,\n",
-        replace: "      ...head,\n      mayHaveApplied: false,\n",
+        find: "      (encoded) => textOf(encoded.record),",
+        replace: "      (encoded) => textOf({ ...encoded.record, mayHaveApplied: false }),",
       },
     ],
   },
@@ -104,8 +104,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "  value: r.value === undefined ? null : r.value,",
-        replace: "  value: r.value,",
+        find: "  return r.value === undefined ? answered : { ...answered, value: r.value };",
+        replace: "  return { ...answered, value: r.value };",
       },
     ],
   },
@@ -299,8 +299,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '          channel: "notSent" as const,',
-        replace: '          channel: "unknown" as const,',
+        find: '            channel: "notSent" as const,\n            reason: "Restored",',
+        replace: '            channel: "unknown" as const,\n            reason: "Restored",',
       },
     ],
   },

@@ -8,6 +8,7 @@ import {
   kindOfKey,
   type LaneKey,
   laneKeyOf,
+  type LaneTail,
   laneTailOf,
   laneTailOfMachine,
   type NamedActor,
@@ -18,9 +19,12 @@ import {
   type RecordKey,
   type RecordKind,
 } from "./identity.ts";
-import type { Compiled, Operation, Values } from "./compiled.ts";
-import { Count, digestOf, exact, FORMAT, readerOf, reasonOf, textOf } from "./record-format.ts";
-import { Channel } from "./vocabulary.ts";
+import type { Compiled, Operation } from "./compiled.ts";
+import { walkerOf, type Walker } from "./boundary.ts";
+import { NotSentWhy } from "./cells.ts";
+import { defect } from "./defect.ts";
+import { Count, digestOf, exact, FORMAT, reasonOf, textOf } from "./record-format.ts";
+import { Decline } from "./vocabulary.ts";
 import { keyTextOf } from "./lane-moves.ts";
 import { type Owed, Route } from "./ledger.ts";
 import { type ActorId, byCodeUnits, type Lane, Phase } from "./world.ts";
@@ -29,93 +33,166 @@ type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason
   readonly kept: boolean;
 };
 
-// A row as saved: a row on a lane names it by its place after the identity, which its key names,
-// and the lane's contract gives its operation; any other row names its operation. A Flow-made row
-// with no value saves `null`.
-const rowJson = (actor: ActorId, r: OwedRow) => ({
-  ...Option.match(r.lane, {
-    onNone: () => ({ operation: r.operation }),
-    onSome: (lane) => ({ lane: laneTailOf(actor, lane) }),
-  }),
-  attempt: Option.getOrNull(r.attempt),
-  channel: r.channel,
-  reason: r.reason,
-  value: r.value === undefined ? null : r.value,
-  kept: r.kept,
-});
+// An owed record's rows, by its machine, one Schema the writer encodes with and the boot decodes
+// with, so a row is read only in a shape a release writes: an ending on its lane, of its Attempt,
+// answered (on a definite or unknown channel, with the value it carries, if any) or never sent (its
+// why); the unknown StorageRefused a store's refusal of a Held head's capture owes, of its Attempt
+// with no lane; and a decline, with neither. A row on a lane names it by its place after the
+// identity, and the lane's contract gives its operation; any other row names its operation.
+const rowSchemaOf = (compiled: Compiled) => {
+  const lane = laneTailOfMachine(compiled);
+  const operation = operationNameOf(compiled);
+
+  return Schema.toTaggedUnion("_tag")(
+    Schema.Union([
+      exact({
+        _tag: Schema.Literal("Answered"),
+        lane,
+        attempt: AttemptIdSchema,
+        channel: Schema.Literals(["success", "failure", "unknown"]),
+        reason: Schema.String,
+        value: Schema.optionalKey(Schema.Json),
+        kept: Schema.Boolean,
+      }),
+      exact({
+        _tag: Schema.Literal("Unsent"),
+        lane,
+        attempt: AttemptIdSchema,
+        reason: NotSentWhy,
+        kept: Schema.Boolean,
+      }),
+      exact({
+        _tag: Schema.Literal("Refused"),
+        operation,
+        attempt: AttemptIdSchema,
+        kept: Schema.Boolean,
+      }),
+      exact({ _tag: Schema.Literal("Declined"), operation, reason: Decline, kept: Schema.Boolean }),
+    ]),
+  );
+};
+
+// An owed record's Schema, by its machine: at least one row; an Attempt ends once, so no two rows
+// hold a success, failure or NotSent of the same Attempt.
+const owedSchemaOf = (compiled: Compiled) =>
+  exact({
+    format: Schema.Literal(FORMAT),
+    rows: Schema.NonEmptyArray(rowSchemaOf(compiled)).check(
+      Schema.makeFilter((rows) => {
+        const ended = rows.flatMap((r) =>
+          (r._tag === "Answered" && r.channel !== "unknown") || r._tag === "Unsent"
+            ? [r.attempt]
+            : [],
+        );
+
+        return new Set(ended).size === ended.length;
+      }),
+    ),
+  });
+
+// Each machine's owed record and row walkers, built once.
+const owedWalkers = new WeakMap<
+  Compiled,
+  {
+    readonly rows: ReturnType<typeof rowSchemaOf>;
+    readonly row: ReturnType<typeof walkerOf<ReturnType<typeof rowSchemaOf>>>;
+    readonly record: ReturnType<typeof walkerOf<ReturnType<typeof owedSchemaOf>>>;
+  }
+>();
+
+const owedWalkersOf = (compiled: Compiled) => {
+  const known = owedWalkers.get(compiled);
+
+  if (known !== undefined) return known;
+
+  const rows = rowSchemaOf(compiled);
+  const made = { rows, row: walkerOf(rows), record: walkerOf(owedSchemaOf(compiled)) };
+  owedWalkers.set(compiled, made);
+
+  return made;
+};
+
+// A row on a lane as its kind saves it: never sent, with its why, or answered, with its value if
+// it has one. A row with no Attempt is none a release owes: its encode fails.
+const laneRowOf = (lane: string, r: OwedRow) => {
+  const attempt = Option.getOrElse(r.attempt, () => "");
+
+  if (r.channel === "notSent")
+    return { _tag: "Unsent", lane, attempt, reason: r.reason, kept: r.kept };
+
+  const answered = {
+    _tag: "Answered",
+    lane,
+    attempt,
+    channel: r.channel,
+    reason: r.reason,
+    kept: r.kept,
+  };
+
+  return r.value === undefined ? answered : { ...answered, value: r.value };
+};
+
+// A row as its kind saves it: on its lane; a store's refusal, of its Attempt with no lane; or a
+// decline, with neither.
+const rowOf = (actor: ActorId, r: OwedRow) =>
+  Option.match(r.lane, {
+    onSome: (lane) => laneRowOf(laneTailOf(actor, lane), r),
+    onNone: () =>
+      Option.match(r.attempt, {
+        onSome: (attempt) => ({ _tag: "Refused", operation: r.operation, attempt, kept: r.kept }),
+        onNone: () => ({
+          _tag: "Declined",
+          operation: r.operation,
+          reason: r.reason,
+          kept: r.kept,
+        }),
+      }),
+  });
 
 // A row whose value cannot be saved even alone is saved as the ending a crash before its save
-// would have restored: its Attempt's unknown Restored.
+// would have restored: its Attempt's unknown Restored. Only an answered row carries a value.
 const unsaved = (r: OwedRow) =>
   ({ ...r, channel: "unknown", reason: "Restored", value: undefined }) satisfies OwedRow;
 
 /**
- * An identity's saved rows as one canonical text, in owed order. Every row is kept; a value with no
- * canonical form is saved as its Attempt's unknown Restored and counted in `unsaved`.
+ * An identity's saved rows as one canonical text, in owed order, each encoded by its machine's row
+ * Schema. Every row is kept; a value with no canonical form is saved as its Attempt's unknown
+ * Restored and counted in `unsaved`. A row no release owes is a defect.
  */
-export const encodeOwed = (actor: ActorId, rows: ReadonlyArray<OwedRow>) => {
-  const saved = rows.map((r) =>
-    Result.isSuccess(toCanonicalRow(actor, r))
-      ? { row: rowJson(actor, r), lost: false }
-      : { row: rowJson(actor, unsaved(r)), lost: true },
-  );
+export const encodeOwed = (compiled: Compiled, actor: ActorId, rows: ReadonlyArray<OwedRow>) => {
+  const walkers = owedWalkersOf(compiled);
 
-  return Result.map(textOf({ format: FORMAT, rows: saved.map((s) => s.row) }), (text) => ({
-    text,
-    unsaved: saved.filter((s) => s.lost).length,
-  }));
-};
+  const encodes = (r: OwedRow) =>
+    Result.isSuccess(Result.flatMap(walkers.row.encode(rowOf(actor, r)), textOf));
 
-const toCanonicalRow = (actor: ActorId, r: OwedRow) => textOf(rowJson(actor, r));
+  const saved = rows.map((r) => {
+    if (encodes(r)) return { row: rowOf(actor, r), lost: false };
 
-/**
- * A lane's record as canonical text: its Attempt with its encoded input and that input's digest,
- * the retryCount it carries on the wire (a re-send waiting for this capture counts itself),
- * whether it is in flight, the encoded inputs of the commits queued behind it, and the Attempts of
- * the displaced heads whose endings it owes. A lane gone Idle while it still owes a displaced
- * Attempt's ending keeps a record of those alone. Its identity, contract and key text are its key.
- */
-export const encodeLane = (
-  compiled: Compiled,
-  operationName: string,
-  lane: Option.Option<Lane>,
-  displaced: ReadonlyArray<string>,
-) => {
-  const operation = compiled.operations.get(operationName);
+    if (!encodes(unsaved(r)))
+      return defect(`an owed row no release owes: ${r.operation} ${r.channel} ${r.reason}`);
 
-  if (operation === undefined) return Result.fail("operation");
-
-  const record = (head: Values) =>
-    textOf({
-      format: FORMAT,
-      ...head,
-      displaced,
-    });
-
-  return Option.match(lane, {
-    onNone: () => record({}),
-    onSome: (l) =>
-      Result.flatMap(Result.all(l.queue.map((q) => operation.walk.input.text(q.input))), (queue) =>
-        Result.flatMap(operation.walk.input.text(l.head.input), (input) =>
-          record({
-            attempt: l.head.id,
-            input,
-            digest: digestOf(input.text),
-            retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),
-            inFlight: !Phase.$is("Held")(l.head.phase),
-            queue,
-          }),
-        ),
-      ),
+    return { row: rowOf(actor, unsaved(r)), lost: true };
   });
+
+  return Result.map(
+    Result.flatMap(
+      Result.mapError(
+        walkers.record.encode({ format: FORMAT, rows: saved.map((s) => s.row) }),
+        () => "rows",
+      ),
+      textOf,
+    ),
+    (text) => ({ text, unsaved: saved.filter((s) => s.lost).length }),
+  );
 };
 
-// A lane record's Schemas, by its operation: a head with its input, which gives the key text its
-// key names and the digest saved beside it, and the inputs queued behind it; or the displaced
-// Attempts alone, at least one. Attempt ids never repeat, so no displaced Attempt is listed twice
-// or is the head's own.
+// A lane record's Schemas, by its operation, one Schema the writer encodes with and the boot
+// decodes with: a head with its input, which gives the key text its key names and the digest saved
+// beside it, and the inputs queued behind it; or the displaced Attempts alone, at least one.
+// Attempt ids never repeat, so no displaced Attempt is listed twice or is the head's own.
 const laneSchemaOf = (operation: Operation) => {
   const head = exact({
+    _tag: Schema.Literal("Head"),
     format: Schema.Literal(FORMAT),
     attempt: AttemptIdSchema,
     input: operation.inputJson,
@@ -127,15 +204,19 @@ const laneSchemaOf = (operation: Operation) => {
   });
 
   const headless = exact({
+    _tag: Schema.Literal("Displaced"),
     format: Schema.Literal(FORMAT),
     displaced: Schema.NonEmptyArray(AttemptIdSchema),
   });
 
-  return exact({ keyText: Schema.String, record: Schema.Union([head, headless]) }).check(
+  return exact({
+    keyText: Schema.String,
+    record: Schema.toTaggedUnion("_tag")(Schema.Union([head, headless])),
+  }).check(
     Schema.makeFilter(
       ({ keyText, record }) =>
         new Set(record.displaced).size === record.displaced.length &&
-        (!("attempt" in record) ||
+        (record._tag === "Displaced" ||
           (!record.displaced.includes(record.attempt) &&
             Option.contains(keyTextOf(operation, record.input), keyText) &&
             Result.getOrUndefined(
@@ -145,39 +226,67 @@ const laneSchemaOf = (operation: Operation) => {
   );
 };
 
-// An owed record's Schema, by its machine: at least one row, each an ending of an Attempt on a lane
-// of a contract the machine writes, by key text that names itself back, or naming an operation the
-// machine declares; only a decline has no Attempt. An Attempt ends once: no two rows of one record
-// hold a success, failure or NotSent of the same Attempt.
-const owedSchemaOf = (compiled: Compiled) => {
-  const row = {
-    attempt: AttemptIdSchema,
-    channel: Channel,
-    reason: Schema.String,
-    value: Schema.Json,
-    kept: Schema.Boolean,
-  };
+// Each operation's lane record walker, built once.
+const laneWalkers = new WeakMap<
+  Operation,
+  ReturnType<typeof walkerOf<ReturnType<typeof laneSchemaOf>>>
+>();
 
-  const operation = operationNameOf(compiled);
+const laneWalkerOf = (operation: Operation) => {
+  const known = laneWalkers.get(operation);
 
-  return exact({
-    format: Schema.Literal(FORMAT),
-    rows: Schema.NonEmptyArray(
-      Schema.Union([
-        exact({ lane: laneTailOfMachine(compiled), ...row }),
-        exact({ operation, ...row }),
-        exact({ operation, ...row, attempt: Schema.Null, channel: Schema.Literal("notSent") }),
-      ]),
-    ).check(
-      Schema.makeFilter((rows) => {
-        const ended = rows.flatMap((r) =>
-          r.attempt !== null && r.channel !== "unknown" ? [r.attempt] : [],
-        );
+  if (known !== undefined) return known;
 
-        return new Set(ended).size === ended.length;
-      }),
-    ),
+  const made = walkerOf(laneSchemaOf(operation));
+  laneWalkers.set(operation, made);
+
+  return made;
+};
+
+/**
+ * A lane's record as canonical text, encoded by its operation's lane Schema: its Attempt with its
+ * input and that input's digest, the retryCount it carries on the wire (a re-send waiting for this
+ * capture counts itself), whether it is in flight, the inputs of the commits queued behind it, and
+ * the Attempts of the displaced heads whose endings it owes. A lane gone Idle while it still owes a
+ * displaced Attempt's ending keeps a record of those alone. Its identity, contract and key text are
+ * its key.
+ */
+export const encodeLane = (
+  compiled: Compiled,
+  operationName: string,
+  lane: Option.Option<Lane>,
+  displaced: ReadonlyArray<string>,
+) => {
+  const operation = compiled.operations.get(operationName);
+
+  if (operation === undefined) return Result.fail("operation");
+
+  const record = Option.match(lane, {
+    onNone: () =>
+      Result.succeed({ keyText: "", record: { _tag: "Displaced", format: FORMAT, displaced } }),
+    onSome: (l) =>
+      Result.map(operation.walk.input.text(l.head.input), (input) => ({
+        keyText: Option.getOrElse(keyTextOf(operation, l.head.input), () => ""),
+        record: {
+          _tag: "Head",
+          format: FORMAT,
+          attempt: l.head.id,
+          input: l.head.input,
+          digest: digestOf(input.text),
+          retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),
+          inFlight: !Phase.$is("Held")(l.head.phase),
+          queue: l.queue.map((q) => q.input),
+          displaced,
+        },
+      })),
   });
+
+  return Result.flatMap(record, (r) =>
+    Result.flatMap(
+      Result.mapError(laneWalkerOf(operation).encode(r), () => "lane"),
+      (encoded) => textOf(encoded.record),
+    ),
+  );
 };
 
 /**
@@ -248,34 +357,57 @@ export const decodeRecords = (
   stored: ReadonlyMap<string, string>,
 ): Restored => {
   const actorRecord = decodeActor(machines);
-  const laneReader = memo((operation: Operation) => readerOf(laneSchemaOf(operation), "schema"));
-  const owedReader = memo((compiled: Compiled) => readerOf(owedSchemaOf(compiled), "schema"));
+  const laneReader = (operation: Operation) => decodedBy(laneWalkerOf(operation));
+  const owedReader = (compiled: Compiled) => decodedBy(owedWalkersOf(compiled).record);
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const rowsRecord = (parts: KeyParts, value: unknown) =>
     Result.map(owedReader(parts.compiled)(value), (r) =>
       r.rows.map((e) => {
-        // A row on a lane takes its operation from the lane's contract.
-        const { operation, lane } =
-          "lane" in e
-            ? {
-                operation: operationOfTail(parts.compiled, e.lane),
-                lane: Option.some(laneKeyOf(parts.actor, e.lane)),
-              }
-            : { operation: e.operation, lane: Option.none<LaneKey>() };
+        const of = { kept: e.kept, actor: parts.actor, route: Route.Current() };
+        const why = (reason: string) => ({ why: reason });
 
-        return {
-          kept: e.kept,
-          actor: parts.actor,
-          operation,
-          attempt: Option.fromNullOr(e.attempt),
-          lane,
-          channel: e.channel,
-          reason: e.reason,
-          // A Flow-made unknown row saved with no value reads back with none.
-          value: e.channel === "unknown" && e.value === null ? undefined : e.value,
-          route: Route.Current(),
-        } satisfies RestoredRow;
+        // A row on a lane takes its operation from the lane's contract.
+        const onLane = (tail: LaneTail, attempt: AttemptId) => ({
+          operation: operationOfTail(parts.compiled, tail),
+          lane: Option.some(laneKeyOf(parts.actor, tail)),
+          attempt: Option.some(attempt),
+        });
+
+        return owedWalkersOf(parts.compiled).rows.match(e, {
+          Answered: (a) => ({
+            ...of,
+            ...onLane(a.lane, a.attempt),
+            channel: a.channel,
+            reason: a.reason,
+            value: a.value,
+          }),
+          Unsent: (u) => ({
+            ...of,
+            ...onLane(u.lane, u.attempt),
+            channel: "notSent" as const,
+            reason: u.reason,
+            value: why(u.reason),
+          }),
+          Refused: (f) => ({
+            ...of,
+            operation: f.operation,
+            lane: Option.none<LaneKey>(),
+            attempt: Option.some(f.attempt),
+            channel: "unknown" as const,
+            reason: "StorageRefused",
+            value: why("StorageRefused"),
+          }),
+          Declined: (d) => ({
+            ...of,
+            operation: d.operation,
+            lane: Option.none<LaneKey>(),
+            attempt: Option.none<AttemptId>(),
+            channel: "notSent" as const,
+            reason: d.reason,
+            value: why(d.reason),
+          }),
+        }) satisfies RestoredRow;
       }),
     );
 
@@ -288,7 +420,7 @@ export const decodeRecords = (
         const { actor, id, key } = parts;
         const operation = parts.operationName;
         const ended = { kept: false, actor, operation, route: Route.Current() };
-        const head = "attempt" in r ? Option.some(r) : Option.none();
+        const head = r._tag === "Head" ? Option.some(r) : Option.none();
 
         // A saved queue and the displaced heads a cancel was pending on are not restored as work:
         // each queued commit ends NotSent Restored and each displaced Attempt unknown Restored,
@@ -374,16 +506,11 @@ export const decodeRecords = (
   return { records, lanes: restoredLanes, rows, quarantined, discarded };
 };
 
+// A walker's decode, failing as a record its Schema refuses.
+// FLOW_STATE_ALLOW_UNKNOWN: a canonical JSON value, decoded here once by the Schema its key names.
+const decodedBy =
+  <A>(walker: Walker<A, unknown>) =>
+  (value: unknown) =>
+    Result.mapError(walker.decode(value), () => "schema");
+
 type LaneParts = Extract<KeyParts, { readonly kind: "lane" }>;
-
-// A function kept by its argument: each Schema's reader is built once per boot.
-const memo = <K, V>(make: (key: K) => V) => {
-  const made = new Map<K, V>();
-
-  return (key: K) => {
-    const known = made.get(key) ?? make(key);
-    made.set(key, known);
-
-    return known;
-  };
-};

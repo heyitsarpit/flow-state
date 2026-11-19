@@ -496,7 +496,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     expect(acknowledgedHeardAgain.breaches(reportedIn(unheard, 2, unloaded))).toEqual([]);
   });
 
-  it.fails("WriteAhead I17: an acknowledged Attempt unheard is never excused by another identity's lane record left unread, though one batch wrote both", async () => {
+  it("WriteAhead I17: an acknowledged Attempt unheard is never excused by another identity's lane record left unread, though one batch wrote both", async () => {
     const run = checked(await lostThenReload.run());
     const restored = run.evidence.findIndex((e) => e._tag === "Ended" && e.reason === "Restored");
     const other = "lane/Bank/Transfers/other|Bank%2Ftransfer|{}";

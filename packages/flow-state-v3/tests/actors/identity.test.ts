@@ -197,7 +197,7 @@ describe("identity by value (Actors R5, I7, I8, T4)", () => {
 });
 
 describe("input fields never change (Compile R7; Actors R5)", () => {
-  it.fails("Compile R7: an update whose patch names an input field is refused, and the actor keeps the name and memory it had", () => {
+  it("Compile R7: an update whose patch names an input field is refused, and the actor keeps the name and memory it had", () => {
     const runtime = ready();
     const north = runtime.ensureActor(actorRef(RenamerMachine, { workspaceId: "north" }));
     north.send({ _tag: "Type", text: "hi" });

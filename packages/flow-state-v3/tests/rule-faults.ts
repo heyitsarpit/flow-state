@@ -318,8 +318,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["src/host/ledger.test.ts", "tests/write-lanes/write-ahead-records.test.ts"],
     "a Held head's lane record is written in flight",
     "src/core/record.ts",
-    '            inFlight: !Phase.$is("Held")(l.head.phase),',
-    "            inFlight: true,",
+    '          inFlight: !Phase.$is("Held")(l.head.phase),',
+    "          inFlight: true,",
   ),
   fault(
     "batch-drops-first-record",

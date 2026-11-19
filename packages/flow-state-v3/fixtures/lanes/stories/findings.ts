@@ -9,7 +9,7 @@ import { lanesStory } from "./usual.ts";
  */
 export const headlessQueued = {
   key: 'lane/Lanes/serialize/serialize-1|Lanes/sync-serialize|{"repo":"flow"}',
-  text: '{"attempt":null,"displaced":[],"format":4,"inFlight":true,"input":null,"queue":[{"repo":"flow"}],"retryCount":0}',
+  text: '{"_tag":"Displaced","attempt":null,"displaced":[],"format":4,"inFlight":true,"input":null,"queue":[{"repo":"flow"}],"retryCount":0}',
 } as const;
 
 /**

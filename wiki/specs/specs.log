@@ -416,3 +416,17 @@ note 2026-11-18T23:12:00Z
     @spec.Restore R5, Q4, T6; @spec.Codec R4, R5: a saved memory's input fields must give its key's name; a row with no
     Attempt is a decline, one Attempt ends once, displaced Attempts never repeat; undeclared slots refused; Q4 narrowed
     to what no decode tells; old-format text made actor-only. Why: @task.V3.T92 close review. Reverse: from 14fad556.
+
+note 2026-11-19T00:06:35Z
+    @spec.WriteAhead.R5, @spec.Codec.R5: each lane and owed row kind is one tagged Schema the writer encodes with and
+    the boot decodes with, so a decode accepts only what an encode produces; a void write's value is absent. Why:
+    @task.V3.T92 convergence. Reverse: from commit 6c729dbf.
+
+note 2026-11-19T00:06:35Z
+    @spec.Restore.Q4: narrowed to a displaced Attempt removed from a lane that keeps its head; a note leaves the
+    cross-record cases (a lane copied under another name, a success beside a Held head of its Attempt) open for the
+    user. Why: @task.V3.T92 convergence. Reverse: drop the note.
+
+note 2026-11-19T00:06:35Z
+    @spec.Compile.R7: a patch wider than its type that changes an input field refuses the turn InvalidTurn. Why:
+    @task.V3.T92 convergence (a saved record then failed its next boot). Reverse: drop the sentence.

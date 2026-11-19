@@ -212,7 +212,14 @@ export const makePersistence = (tx: Tx) => {
     const owed =
       rows.length === 0
         ? Result.succeed({ text: Option.none<string>(), unsaved: 0 })
-        : Result.map(encodeOwed(actor, rows), (o) => ({ ...o, text: Option.some(o.text) }));
+        : Result.flatMap(
+            Result.fromNullishOr(tx.machines.get(actor.machine), () => "machine"),
+            (compiled) =>
+              Result.map(encodeOwed(compiled, actor, rows), (o) => ({
+                ...o,
+                text: Option.some(o.text),
+              })),
+          );
 
     // A value that cannot be saved even alone is reported; its row is saved as unknown Restored.
     if (Result.isSuccess(owed) && owed.success.unsaved > 0)

@@ -34,7 +34,7 @@ const OwedRows = Schema.fromJsonString(
     rows: Schema.Array(
       Schema.Struct({
         channel: Schema.String,
-        value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })),
+        value: Schema.optionalKey(Schema.Struct({ receipt: Schema.String })),
       }),
     ),
   }),
@@ -46,7 +46,7 @@ const owedParts = (cut: Cut) => [...cut.records.stored.keys()].filter((k) => k.s
 const receipts = (cut: Cut) =>
   owedParts(cut).flatMap((key) =>
     Schema.decodeUnknownSync(OwedRows)(cut.records.stored.get(key)).rows.map((r) =>
-      r.value === null ? r.channel : r.value.receipt.length,
+      r.value === undefined ? r.channel : r.value.receipt.length,
     ),
   );
 

@@ -84,10 +84,13 @@ requirements
                 for its kind, so the lane Schema has no `mayHaveApplied`; a field added at any depth
                 outside a user Schema's value is refused, a slot the machine does not declare in the
                 last-seen selections or a baseline included. A memory field the release lacks, in
-                the memory or a shared copy, is dropped (@spec.Restore.R7). A row's `channel` is one of
-                `success`, `failure`, `notSent` and `unknown` and names its ending's origin, so a
-                decoded author failure and a decoded Flow.NotSent with the same tag stay distinct
-                (@spec.WriteLanes.I39). A row's Flow-made ending is encoded by the Schemas of
+                the memory or a shared copy, is dropped (@spec.Restore.R7). Each record and row kind is one
+                tagged Schema the writer encodes with and the boot decodes with (a lane's `Head` and
+                `Displaced`, an owed row's `Answered`, `Unsent`, `Refused` and `Declined`,
+                @spec.WriteAhead.R5), so a decode accepts only what an encode produces. A row's kind
+                and channel name its ending's origin, so a decoded author failure and a decoded
+                Flow.NotSent with the same tag stay distinct (@spec.WriteLanes.I39). A row's Flow-made ending is 
+                encoded by the Schemas of
                 Flow.NotSent and Flow.Unknown (@spec.WriteLanes.R3). There is no `parked/` or
                 `kept/` kind. A key of no kind, or a record its kind's Schema refuses, is
                 undecodable and handled by @spec.Restore.R5; it is never coerced. Decision (user,

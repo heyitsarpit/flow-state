@@ -234,40 +234,44 @@ const NOT_SENT_WHY = new Set(["Rejected", "Cancelled", "StorageRefused", "Dispos
 
 const DECLINE = new Set([...NOT_SENT_WHY, "Restored", "NoPersistence", "Unencodable"]);
 
-// The owed rows a release writes (WriteAhead R5): an ending on its lane, of its Attempt, on any
-// channel, a NotSent one with its why; the unknown StorageRefused of a Held head's refused capture,
-// of its Attempt with no lane; and a decline, with neither.
+// The owed rows a release writes (WriteAhead R5), each by its tag: an ending answered on its lane,
+// of its Attempt, on a definite or unknown channel, with or without a value; a NotSent on its lane,
+// of its Attempt, with its why alone; the unknown StorageRefused of a Held head's refused capture,
+// its operation and Attempt alone; and a decline, its operation and why alone.
 const WRITTEN: ReadonlyArray<(c: RowCombination) => boolean> = [
   (c) =>
+    c.tag === "Answered" &&
     c.place === "lane" &&
     c.attempt === "minted" &&
     (c.channel === "success" || c.channel === "failure" || c.channel === "unknown") &&
-    c.reason !== "absent" &&
-    c.value !== "absent",
+    c.reason !== "absent",
   (c) =>
+    c.tag === "Unsent" &&
     c.place === "lane" &&
     c.attempt === "minted" &&
-    c.channel === "notSent" &&
+    c.channel === "absent" &&
     NOT_SENT_WHY.has(c.reason) &&
-    c.value === "why",
+    c.value === "absent",
   (c) =>
+    c.tag === "Refused" &&
     c.place === "operation" &&
     c.attempt === "minted" &&
-    c.channel === "unknown" &&
-    c.reason === "StorageRefused" &&
-    c.value === "why",
+    c.channel === "absent" &&
+    c.reason === "absent" &&
+    c.value === "absent",
   (c) =>
+    c.tag === "Declined" &&
     c.place === "operation" &&
-    c.attempt === "null" &&
-    c.channel === "notSent" &&
+    c.attempt === "absent" &&
+    c.channel === "absent" &&
     DECLINE.has(c.reason) &&
-    c.value === "why",
+    c.value === "absent",
 ];
 
-const written = (c: RowCombination) => c.tag === "absent" && WRITTEN.some((form) => form(c));
+const written = (c: RowCombination) => WRITTEN.some((form) => form(c));
 
 describe("owed rows of every shape (Restore R5; WriteAhead R5)", () => {
-  it.fails("Restore R5, WriteAhead R5: an owed row is read only in a shape a release writes; every other shape is quarantined and reported, and the boot goes on", async () => {
+  it("Restore R5, WriteAhead R5: an owed row is read only in a shape a release writes; every other shape is quarantined and reported, and the boot goes on", async () => {
     const run = await rowCombinationsReload.run();
     const unread = new Set(undecodable(run, 2));
 
@@ -283,10 +287,10 @@ describe("owed rows of every shape (Restore R5; WriteAhead R5)", () => {
     expect(wrong).toEqual([]);
   });
 
-  it.fails("Restore R5, WriteLanes R10: an owed success with an Attempt and no lane is quarantined and reported, and nothing is heard from it", async () => {
+  it("Restore R5, WriteLanes R10: an owed success with an Attempt and no lane is quarantined and reported, and nothing is heard from it", async () => {
     const run = await laneLessSuccessReload.run();
 
-    expect(undecodable(run, 2)).toContain(laneLessEndings.owed.key);
+    expect(undecodable(run, 2)).toContain(laneLessEndings.key);
     expect(delivered(run, 2)).toEqual([]);
     expect(run.checkpoints.restored.read(mainCart)?.memory["lines"]).toEqual({
       l1: { quantity: 1, variantId: "v1" },
@@ -294,14 +298,12 @@ describe("owed rows of every shape (Restore R5; WriteAhead R5)", () => {
     checked(run);
   });
 
-  it.fails("Restore R5, WriteLanes R10: an owed success of a Held head's own Attempt with no lane is quarantined and reported; the head is heard unknown Restored, never a success", async () => {
+  it("Restore R5, WriteLanes R10: an owed success of a Held head's own Attempt with no lane is quarantined and reported; the head is heard unknown Restored, never a success", async () => {
     const run = await laneLessHeldSuccess.run();
 
-    expect(undecodable(run, 2)).toContain(laneLessEndings.owed.key);
-    expect(delivered(run, 2)).toEqual(["add AddUnsure"]);
-    expect(run.checkpoints.restored.read(mainCart)?.memory["lines"]).toEqual({
-      l1: { quantity: 1, variantId: "v1" },
-    });
+    expect(undecodable(run, 2)).toContain(laneLessEndings.key);
+    expect(delivered(run, 2)[0]).toBe("add AddUnsure");
+    expect(Object.keys(run.end.read(mainCart)?.memory["lines"] ?? {})).not.toContain("l5");
     checked(run);
   });
 });

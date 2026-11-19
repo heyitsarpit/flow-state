@@ -154,7 +154,7 @@ describe("saved records of context consumers (Restore R5; Codec R3)", () => {
       run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar"),
     ).toContain('"format":4');
   });
-  it.fails("Restore R5, T6: a format-1 record whose last-seen form nests twenty thousand Options deep never fails the boot; the avatar starts", async () => {
+  it("Restore R5, T6: a format-1 record whose last-seen form nests twenty thousand Options deep never fails the boot; the avatar starts", async () => {
     const run = await played(deepFormatOne);
 
     expect(run.checkpoints.boot.inspection.lifecycle).toBe("Open");

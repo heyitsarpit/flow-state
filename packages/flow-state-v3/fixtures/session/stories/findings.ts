@@ -13,7 +13,7 @@ export const forgedChain = {
     '{"context":{"org":{"machine":"Workspace/Org","name":"~1"}},"format":4,"graph":{"Workspace/Org/~1":{}},"memories":[],"memory":{"displayName":"ada","notice":"","user":"ada"},"reactions":[],"schedules":[],"seen":{"org":"Acme"},"state":"SIGNED_IN"}',
   owed: "owed/Workspace/Session/main",
   owedText:
-    '{"format":4,"rows":[{"attempt":null,"channel":"notSent","kept":false,"operation":"signIn","reason":"Rejected","value":{"why":"Rejected"}}]}',
+    '{"format":4,"rows":[{"_tag":"Declined","kept":false,"operation":"signIn","reason":"Rejected"}]}',
 } as const;
 
 /**

@@ -111,7 +111,7 @@ const oddOwed = [
 ].map((key) =>
   Fake.storage.put(
     key,
-    '{"format":4,"rows":[{"attempt":null,"channel":"unknown","kept":false,"operation":"transfer","reason":"Restored","value":null}]}',
+    '{"format":4,"rows":[{"_tag":"Declined","kept":false,"operation":"transfer","reason":"Rejected"}]}',
   ),
 );
 

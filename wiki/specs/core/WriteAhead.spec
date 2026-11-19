@@ -71,20 +71,31 @@ requirements
                 acknowledged and not Held (Acknowledging to Cancelling: it may be on the wire), and
                 false for a Held head. A lane record holds no ending and no `mayHaveApplied`.
 
-                Built so far (`encodeLane`, src/core/record.ts): `format`, `attempt`, `input`,
-                `digest` (of the input's canonical text, so an input changed on disk is told),
-                `retryCount`, `inFlight`, `queue` and `displaced`; the identity, contract and key
-                text are its key. Not built yet, though R5 requires them: the creating subject path
-                and the releasing mark. A lane gone Idle while a displaced Attempt's ending is still
-                owed keeps its record, with no head, until that ending comes: `format` and
-                `displaced` alone, at least one; it restores no lane (@spec.WriteLanes.I8).
+                Built so far (`encodeLane`, src/core/record.ts), one tagged kind per lane shape, each
+                encoded by the Schema the boot decodes with: `Head` holds `format`, `attempt`,
+                `input`, `digest` (of the input's canonical text, so an input changed on disk is
+                told), `retryCount`, `inFlight`, `queue` and `displaced`; the identity, contract and
+                key text are its key. Not built yet, though R5 requires them: the creating subject
+                path and the releasing mark. A lane gone Idle while a displaced Attempt's ending is
+                still owed keeps its record, with no head, until that ending comes: `Displaced`,
+                `format` and `displaced` alone, at least one; it restores no lane
+                (@spec.WriteLanes.I8).
 
                 An identity's unheard endings are one record of their own, `owed/<identity>`:
-                `format` and its rows in the order they were owed, at least one, each with its
-                `lane` (the lane's place after the identity, whose contract gives the operation) or,
-                with no lane, its `operation`, and its `attempt`, `channel`, `reason`, `value` (stored raw and mapped
-                through the current definition at delivery) and `kept`. `channel` is `success`,
-                `failure`, `notSent` or `unknown`, and names the ending's origin, so an author's
+                `format` and its rows in the order they were owed, at least one, each `kept` and one
+                of four tagged kinds, the only rows a release owes, so a row of any other shape is
+                refused:
+                - `Answered`: an ending on its lane, of its Attempt, on `success`, `failure` or
+                    `unknown`, with its `reason` and its `value` if it has one (stored raw and mapped
+                    through the current definition at delivery; a void write's has none);
+                - `Unsent`: a never-sent Attempt's NotSent on its lane, with its why as `reason`;
+                - `Refused`: the unknown StorageRefused a store's refusal of a Held head's capture
+                    owes, its `operation` and `attempt` alone, with no lane;
+                - `Declined`: a decline, its `operation` and why as `reason` alone, with no Attempt
+                    and no lane.
+                A row on a lane names it by `lane` (its place after the identity, whose contract
+                gives the operation). What a kind determines (a Refused row's channel, a NotSent's
+                `{ why }`) is not stored. The channel names the ending's origin, so an author's
                 failure and Flow's NotSent stay distinct after a reload (@spec.WriteLanes.R3,
                 @spec.WriteLanes.I39). Every row of a persisted identity that is owed to the
                 identity and alive at a step's end is in it, a derived unknown { Restored } once

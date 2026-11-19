@@ -54,6 +54,9 @@ const TillMachine = machine(Till, ({ S }) => ({ default: S.OPEN, states: { OPEN:
 
 const actor = { machine: "Persist/Till", name: "front" };
 
+// The till's one ring lane.
+const LANE = laneId(actor, "Persist/ring", "{}");
+
 const machines = new Map([[actor.machine, TillMachine.compiled]]);
 
 // The batch the edge would issue now: a Capture step over a copy of the World a step left.
@@ -119,8 +122,8 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
     actor,
     to: Audience.Identity(),
     operation: "ring",
-    attempt: Option.some("att-1"),
-    lane: Option.some("lane-1"),
+    attempt: Option.some("att-0-1"),
+    lane: Option.some(LANE),
     channel: "success",
     reason: "Success",
     value: { receipt: "r1" },
@@ -132,11 +135,11 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
 
   expect([...tx.world().mail.values()].flat()).toHaveLength(1);
   expect(writes.map((w) => Option.map(w.record, (r) => jsonOf(r)["rows"]))).toEqual([
-    Option.some([expect.objectContaining({ attempt: "att-1", channel: "success", kept: false })]),
+    Option.some([expect.objectContaining({ attempt: "att-0-1", channel: "success", kept: false })]),
   ]);
 });
 
-it.fails("WriteAhead R5, Codec R5: a void write's success saved on its owed row reads back with no value, never null", () => {
+it("WriteAhead R5, Codec R5: a void write's success saved on its owed row reads back with no value, never null", () => {
   const { tx, persistence, ledger } = stepOver();
 
   ledger.owe({
@@ -144,7 +147,7 @@ it.fails("WriteAhead R5, Codec R5: a void write's success saved on its owed row 
     to: Audience.Identity(),
     operation: "ring",
     attempt: Option.some("att-0-1"),
-    lane: Option.some(laneId(actor, "Persist/ring", "{}")),
+    lane: Option.some(LANE),
     channel: "success",
     reason: "success",
     value: undefined,
@@ -170,8 +173,8 @@ const owing = (receipts: ReadonlyArray<string>, from = stepOver()) => {
       actor,
       to: Audience.Identity(),
       operation: "ring",
-      attempt: Option.some(`att-${n}`),
-      lane: Option.none(),
+      attempt: Option.some(`att-0-${n + 1}`),
+      lane: Option.some(LANE),
       channel: "success",
       reason: "Success",
       value: { receipt },
@@ -215,7 +218,7 @@ const OwedEndings = Schema.Struct({
 
 const OwedReceipts = Schema.Struct({
   rows: Schema.Array(
-    Schema.Struct({ value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })) }),
+    Schema.Struct({ value: Schema.optionalKey(Schema.Struct({ receipt: Schema.String })) }),
   ),
 });
 
@@ -233,24 +236,24 @@ it("WriteAhead I20, I21; Codec R1: 1,300 rows and twelve values of 200,000 chara
   expect(reports).toEqual([]);
 });
 
-it("Codec R4: only a value with no canonical form is saved as its Attempt's unknown Restored with null, reported; a valid one beside it is kept", () => {
+it("Codec R4: only a value with no canonical form is saved as its Attempt's unknown Restored with no value, reported; a valid one beside it is kept", () => {
   const { world, owed, reports } = owing(["\uD800", "ninebytes"]);
 
   expect(world.withheld.size).toBe(0);
-  expect(receiptsIn(owed)).toEqual([null, { receipt: "ninebytes" }]);
+  expect(receiptsIn(owed)).toEqual([undefined, { receipt: "ninebytes" }]);
   expect(endingsIn(owed)).toEqual(["unknown Restored", "success Success"]);
   expect(reports).toEqual([expect.objectContaining({ code: "UnencodableValue" })]);
 });
 
-it("Codec R4: a Flow-made row with no value saves null and is never reported", () => {
+it("Codec R4: a Flow-made row with no value saves none and is never reported", () => {
   const from = stepOver();
 
   from.ledger.owe({
     actor,
     to: Audience.Identity(),
     operation: "ring",
-    attempt: Option.some("att-0"),
-    lane: Option.none(),
+    attempt: Option.some("att-0-1"),
+    lane: Option.some(LANE),
     channel: "unknown",
     reason: "Restored",
     value: undefined,
@@ -300,8 +303,8 @@ const success = {
   actor,
   to: Audience.Identity(),
   operation: "ring",
-  attempt: Option.some("att-1"),
-  lane: Option.none(),
+  attempt: Option.some("att-0-1"),
+  lane: Option.some(LANE),
   channel: "success" as const,
   reason: "Success",
   value: {},
@@ -311,11 +314,11 @@ const success = {
 it("WriteAhead I11: an identity whose actor record cannot encode at a capture writes none of its records, and writes them all once it can", () => {
   const first = stepOver({ count: "many" });
 
-  first.ledger.owe({ ...success, lane: Option.some("lane-1"), channel: "unknown", reason: "Lost" });
-  first.persistence.setLane("lane-1", {
+  first.ledger.owe({ ...success, lane: Option.some(LANE), channel: "unknown", reason: "Lost" });
+  first.persistence.setLane(LANE, {
     actor,
     operation: "ring",
-    head: { id: "att-1", input: {}, retryCount: 0, owner: ROOT_ACTIVATION, phase: Phase.Held() },
+    head: { id: "att-0-1", input: {}, retryCount: 0, owner: ROOT_ACTIVATION, phase: Phase.Held() },
     queue: [],
   });
   first.persistence.saveActor(actor);
@@ -325,7 +328,7 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
   expect(writesOf(held)).toEqual([]);
   expect([...held.world.marked.keys()].toSorted()).toEqual([
     `actor/${actorKey(actor)}`,
-    "lane/lane-1",
+    `lane/${LANE}`,
     `owed/${actorKey(actor)}`,
   ]);
 
@@ -334,8 +337,8 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
 
   expect(writesOf(captured(second.tx.out().world))).toEqual([
     `actor/${actorKey(actor)}=1`,
-    "lane/lane-1=att-1",
-    `owed/${actorKey(actor)}=att-1`,
+    `lane/${LANE}=att-0-1`,
+    `owed/${actorKey(actor)}=att-0-1`,
   ]);
 });
 
@@ -345,7 +348,7 @@ it("WriteAhead I20, I22: a row saved while still in the mailbox leaves the owed 
   first.persistence.close();
   const saved = captured(first.tx.out().world);
 
-  expect(writesOf(saved)).toEqual([`owed/${actorKey(actor)}=att-1`]);
+  expect(writesOf(saved)).toEqual([`owed/${actorKey(actor)}=att-0-1`]);
 
   const second = stepOver({ count: 1 }, saved.world);
   second.ledger.tryOne(actor, id, () => {
@@ -472,8 +475,8 @@ it("WriteAhead R13: a ticket whose identity's actor record cannot encode at its 
   const first = stepOver({ count: "many" });
   first.persistence.saveActor(actor);
 
-  const ticket = first.persistence.saveAwaited(actor, "lane-1", {
-    attempt: "att-1",
+  const ticket = first.persistence.saveAwaited(actor, LANE, {
+    attempt: "att-0-1",
     purpose: "acknowledge",
   });
 
@@ -494,19 +497,25 @@ it("WriteAhead R13: a ticket whose identity's actor record stops encoding before
   const lane = {
     actor,
     operation: "ring",
-    head: { id: "att-1", input: {}, retryCount: 0, owner: ROOT_ACTIVATION, phase: Phase.Unsent() },
+    head: {
+      id: "att-0-1",
+      input: {},
+      retryCount: 0,
+      owner: ROOT_ACTIVATION,
+      phase: Phase.Unsent(),
+    },
     queue: [],
   };
 
   first.persistence.saveActor(actor);
 
-  const ticket = first.persistence.saveAwaited(actor, "lane-1", {
-    attempt: "att-1",
+  const ticket = first.persistence.saveAwaited(actor, LANE, {
+    attempt: "att-0-1",
     purpose: "acknowledge",
   });
 
   for (const id of Option.toArray(ticket))
-    first.persistence.setLane("lane-1", {
+    first.persistence.setLane(LANE, {
       ...lane,
       head: { ...lane.head, phase: Phase.Acknowledging({ ticket: id }) },
     });

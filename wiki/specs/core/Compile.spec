@@ -66,7 +66,8 @@ requirements
 
     R7  Identity fields
         source  @plan.Machines.O1.
-        must    A machine's input fields are read-only (writing one is a type error). On a 
+        must    A machine's input fields are read-only (writing one is a type error; a patch wider than
+                its type that changes one refuses the turn InvalidTurn). On a 
                 value-named machine they are required, default-free and string-encoded, else 
                 IdentityFieldOptional (proposed name). A fragment's input fields stay writable.
 

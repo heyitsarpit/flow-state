@@ -68,6 +68,7 @@ const partsOf = (machines: ReadonlyMap<string, Compiled>, compiled: Compiled) =>
   return {
     state: stateNameOf(compiled),
     memory: compiled.memoryJson,
+    seen: bySlot(compiled, Schema.Json),
     schedules: Schema.Array(
       anyOf(
         [...schedules.values()].map((s) =>
@@ -83,50 +84,57 @@ const partsOf = (machines: ReadonlyMap<string, Compiled>, compiled: Compiled) =>
 // A deadline on the Runtime's clock, which starts at zero and never runs back.
 const Instant = Schema.Number.check(Schema.makeFilter((n: number) => Number.isFinite(n) && n >= 0));
 
+// The declared slots of `compiled`, each optional, each holding `value`: a record names no slot its
+// machine never declared.
+const bySlot = <S extends Schema.Top>(compiled: Compiled, value: S) =>
+  exact(
+    Object.fromEntries(
+      [...compiled.context.keys()].map((slot) => [slot, Schema.optionalKey(value)]),
+    ),
+  );
+
 // A reaction's baseline inputs that differ from the record's last-seen slots and memory: a slot
 // with no `value` was never selected then; `memory` names the shared copy of the memory fields it
 // read, when they differ from the record's own.
-const FrameJson = Schema.NullOr(
-  exact({
-    slots: Schema.Record(Schema.String, exact({ value: Schema.optionalKey(Schema.Json) })),
-    memory: Schema.NullOr(Count),
-  }),
-);
+const frameJsonOf = (compiled: Compiled) =>
+  Schema.NullOr(
+    exact({
+      slots: bySlot(compiled, exact({ value: Schema.optionalKey(Schema.Json) })),
+      memory: Schema.NullOr(Count),
+    }),
+  );
 
 // The current format: exactly its fields, each baseline naming a shared copy the record holds.
-const recordFour = (parts: ReturnType<typeof partsOf>) =>
+const recordFour = (parts: ReturnType<typeof partsOf>, frameJson: ReturnType<typeof frameJsonOf>) =>
   exact({
     ...parts,
     format: Schema.Literal(FORMAT),
-    seen: Schema.Record(Schema.String, Schema.Json),
-    reactions: Schema.Array(FrameJson),
+    reactions: Schema.Array(frameJson),
     memories: Schema.Array(Schema.Record(Schema.String, Schema.Json)),
   });
 
 // Format 3: the current format's fields beside the identity its content repeated, which the key
 // names; an older format's fields beyond its own are not read.
-const recordThree = (parts: ReturnType<typeof partsOf>) =>
+const recordThree = (
+  parts: ReturnType<typeof partsOf>,
+  frameJson: ReturnType<typeof frameJsonOf>,
+) =>
   Schema.Struct({
     ...parts,
     format: Schema.Literal(3),
-    seen: Schema.Record(Schema.String, Schema.Json),
-    reactions: Schema.Array(FrameJson),
+    reactions: Schema.Array(frameJson),
     memories: Schema.Array(Schema.Record(Schema.String, Schema.Json)),
   });
 
 // Format 2: each reaction's baseline carried its own copy of the memory fields it read.
-const recordTwo = (parts: ReturnType<typeof partsOf>) =>
+const recordTwo = (parts: ReturnType<typeof partsOf>, compiled: Compiled) =>
   Schema.Struct({
     ...parts,
     format: Schema.Literal(2),
-    seen: Schema.Record(Schema.String, Schema.Json),
     reactions: Schema.Array(
       Schema.NullOr(
         Schema.Struct({
-          slots: Schema.Record(
-            Schema.String,
-            Schema.Struct({ value: Schema.optionalKey(Schema.Json) }),
-          ),
+          slots: bySlot(compiled, Schema.Struct({ value: Schema.optionalKey(Schema.Json) })),
           memory: Schema.Record(Schema.String, Schema.Json),
         }),
       ),
@@ -144,7 +152,7 @@ const SeenOne = Schema.Struct({
 
 const recordOne = (parts: ReturnType<typeof partsOf>) =>
   Schema.Struct({
-    ...Struct.omit(parts, ["graph"]),
+    ...Struct.omit(parts, ["graph", "seen"]),
     format: Schema.Literal(1),
     seen: Schema.Record(Schema.String, SeenOne),
     unknown: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -155,29 +163,31 @@ type OneValue = unknown;
 
 type FormFields = { readonly [key: string]: OneValue };
 
+// One form read: the forms it holds, and how their values make its own.
+type OneStep = {
+  readonly parts: ReadonlyArray<OneValue>;
+  readonly make: (values: ReadonlyArray<OneValue>) => OneValue;
+};
+
 // A form no release wrote.
 const notAForm = Result.fail("seen");
 
-// The value a format-1 last-seen form held: JSON as it is, and undefined, Options, arrays and
-// plain objects tagged; fails on any other form.
-// RETURN_TYPE: recursive: an Option, array or object form holds forms.
-const valueOfOne = (form: OneValue): Result.Result<OneValue, string> =>
-  Predicate.isObject(form) && !Array.isArray(form) && Predicate.isString(form["~"])
-    ? (formsOne.get(form["~"])?.(form) ?? notAForm)
-    : notAForm;
+const leaf = (value: OneValue) => Result.succeed<OneStep>({ parts: [], make: () => value });
 
 // Each format-1 tag's reading, looked up by the tag alone.
-const formsOne = new Map<string, (form: FormFields) => Result.Result<OneValue, string>>([
-  ["json", (f) => (Object.hasOwn(f, "value") ? Result.succeed(f["value"]) : notAForm)],
-  ["undefined", () => Result.succeed(undefined)],
-  ["none", () => Result.succeed(Option.none())],
-  ["some", (f) => Result.map(valueOfOne(f["value"]), (v) => Option.some(v))],
+const formsOne = new Map<string, (form: FormFields) => Result.Result<OneStep, string>>([
+  ["json", (f) => (Object.hasOwn(f, "value") ? leaf(f["value"]) : notAForm)],
+  ["undefined", () => leaf(undefined)],
+  ["none", () => leaf(Option.none())],
+  ["some", (f) => Result.succeed({ parts: [f["value"]], make: ([v]) => Option.some(v) })],
   [
     "array",
     (f) => {
       const items = f["items"];
 
-      return Array.isArray(items) ? Result.all(items.map(valueOfOne)) : notAForm;
+      return Array.isArray(items)
+        ? Result.succeed({ parts: items, make: (values) => values })
+        : notAForm;
     },
   ],
   [
@@ -185,17 +195,53 @@ const formsOne = new Map<string, (form: FormFields) => Result.Result<OneValue, s
     (f) => {
       const fields = f["fields"];
 
-      return Predicate.isObject(fields) && !Array.isArray(fields)
-        ? Result.map(
-            Result.all(
-              Object.entries(fields).map(([k, v]) => Result.map(valueOfOne(v), (x) => [k, x])),
-            ),
-            Object.fromEntries,
-          )
-        : notAForm;
+      if (!Predicate.isObject(fields) || Array.isArray(fields)) return notAForm;
+      const keys = Object.keys(fields);
+
+      return Result.succeed({
+        parts: Object.values(fields),
+        make: (values) => Object.fromEntries(keys.map((k, i) => [k, values[i]])),
+      });
     },
   ],
 ]);
+
+const stepOfOne = (form: OneValue) =>
+  Predicate.isObject(form) && !Array.isArray(form) && Predicate.isString(form["~"])
+    ? (formsOne.get(form["~"])?.(form) ?? notAForm)
+    : notAForm;
+
+// A pending piece of a format-1 read: a form to read, or a form whose parts are read and whose
+// value is made from them.
+type OneTask = { readonly form: OneValue } | { readonly made: OneStep };
+
+/**
+ * The value a format-1 last-seen form held: JSON as it is, and undefined, Options, arrays and
+ * plain objects tagged; fails on any other form. Read on its own stack, so a form of any depth is
+ * read.
+ */
+const valueOfOne = (root: OneValue) => {
+  const values: Array<OneValue> = [];
+  const tasks: Array<OneTask> = [{ form: root }];
+
+  for (let task = tasks.pop(); task !== undefined; task = tasks.pop()) {
+    if ("made" in task) {
+      const parts = values.splice(values.length - task.made.parts.length);
+      values.push(task.made.make(parts));
+      continue;
+    }
+
+    const step = stepOfOne(task.form);
+
+    if (Result.isFailure(step)) return notAForm;
+    tasks.push({ made: step.success });
+
+    for (let i = step.success.parts.length - 1; i >= 0; i -= 1)
+      tasks.push({ form: step.success.parts[i] });
+  }
+
+  return Result.succeed<OneValue>(values[0]);
+};
 
 const wiredJson = (wired: ReadonlyMap<string, ActorId>) =>
   Object.fromEntries([...wired].map(([slot, p]) => [slot, { machine: p.machine, name: p.name }]));
@@ -297,11 +343,6 @@ export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
     });
   });
 
-// A slot a record names, which its machine must declare: an undeclared one fails the record with
-// `why`, never dropped.
-const declaredSlot = (compiled: Compiled, slot: string, why: string) =>
-  Result.fromNullishOr(compiled.context.get(slot), () => why);
-
 // A reaction's saved baseline inputs, each read back through its slot's or field's Schema; its
 // memory is the shared copy it names.
 const frameOf = (
@@ -312,14 +353,16 @@ const frameOf = (
 ) =>
   Result.gen(function* () {
     const slots = yield* Result.all(
-      Object.entries(frame.slots).map(([slot, saved]) =>
-        Result.flatMap(declaredSlot(compiled, slot, "frame"), (declared) =>
-          saved.value === undefined
-            ? Result.succeed([slot, Option.none<Selected>()] as const)
-            : Result.map(
-                Result.mapError(readSelected(declared.walk, saved.value), () => "frame"),
-                (s) => [slot, Option.some(s)] as const,
-              ),
+      [...compiled.context].flatMap(([slot, declared]) =>
+        Option.toArray(
+          Option.map(Option.fromUndefinedOr(frame.slots[slot]), (saved) =>
+            saved.value === undefined
+              ? Result.succeed([slot, Option.none<Selected>()] as const)
+              : Result.map(
+                  Result.mapError(readSelected(declared.walk, saved.value), () => "frame"),
+                  (s) => [slot, Option.some(s)] as const,
+                ),
+          ),
         ),
       ),
     );
@@ -408,23 +451,36 @@ const stepOne = (compiled: Compiled, one: ReturnType<typeof recordOne>["Type"]) 
     }),
   );
 
+// A record under the name its key gives: input fields never change, so a record whose memory's
+// input fields name another actor is not this one's.
+const named = <T extends { readonly memory: Values }, E>(
+  compiled: Compiled,
+  record: Schema.Codec<T, E>,
+) =>
+  exact({ name: Schema.String, record }).check(
+    Schema.makeFilter((r) => memoryNamesActor(compiled, r.name, r.record.memory)),
+  );
+
 // The readers of one machine's actor records, by format, each giving the current format.
 const readersOf = (machines: ReadonlyMap<string, Compiled>, compiled: Compiled) => {
   const parts = partsOf(machines, compiled);
-  const four = readerOf(recordFour(parts), "schema");
-  const three = readerOf(recordThree(parts), "schema");
-  const two = readerOf(recordTwo(parts), "schema");
-  const one = readerOf(recordOne(parts), "schema");
+  const frameJson = frameJsonOf(compiled);
+  const four = readerOf(named(compiled, recordFour(parts, frameJson)), "schema");
+  const three = readerOf(named(compiled, recordThree(parts, frameJson)), "schema");
+  const two = readerOf(named(compiled, recordTwo(parts, compiled)), "schema");
+  const one = readerOf(named(compiled, recordOne(parts)), "schema");
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its format names.
-  return (format: 1 | 2 | 3 | 4, value: unknown) => {
-    if (format === FORMAT) return four(value);
+  return (format: 1 | 2 | 3 | 4, name: string, value: unknown) => {
+    const record = { name, record: value };
 
-    if (format === 3) return Result.map(three(value), (r) => ({ ...r, format: FORMAT }));
+    if (format === FORMAT) return Result.map(four(record), (r) => r.record);
 
-    if (format === 2) return Result.map(two(value), stepTwo);
+    if (format === 3) return Result.map(three(record), (r) => ({ ...r.record, format: FORMAT }));
 
-    return Result.flatMap(one(value), (r) => stepOne(compiled, r));
+    if (format === 2) return Result.map(two(record), (r) => stepTwo(r.record));
+
+    return Result.flatMap(one(record), (r) => stepOne(compiled, r.record));
   };
 };
 
@@ -445,18 +501,17 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
       const read = readers.get(compiled.id) ?? readersOf(machines, compiled);
       readers.set(compiled.id, read);
 
-      const r = yield* read(format, value);
-
-      // Input fields never change, so memory whose input names another actor is not this one's.
-      if (!memoryNamesActor(compiled, actor.name, r.memory)) return yield* Result.fail("name");
+      const r = yield* read(format, actor.name, value);
 
       const seen = new Map(
         yield* Result.all(
-          Object.entries(r.seen).map(([slot, json]) =>
-            Result.flatMap(declaredSlot(compiled, slot, "seen"), (declared) =>
-              Result.map(
-                Result.mapError(readSelected(declared.walk, json), () => "seen"),
-                (s) => [slot, s] as const,
+          [...compiled.context].flatMap(([slot, declared]) =>
+            Option.toArray(
+              Option.map(Option.fromUndefinedOr(r.seen[slot]), (json) =>
+                Result.map(
+                  Result.mapError(readSelected(declared.walk, json), () => "seen"),
+                  (s) => [slot, s] as const,
+                ),
               ),
             ),
           ),

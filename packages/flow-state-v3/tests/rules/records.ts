@@ -19,13 +19,7 @@ const Timer = Schema.Union([
   }),
 ]);
 
-const Row = {
-  attempt: Schema.NullOr(Schema.String),
-  channel: Schema.Literals(["success", "failure", "notSent", "unknown"]),
-  reason: Schema.String,
-  value: Schema.Json,
-  kept: Schema.Boolean,
-};
+const Kept = { kept: Schema.Boolean };
 
 const KINDS = {
   "actor/": Schema.Struct({
@@ -36,6 +30,7 @@ const KINDS = {
   }),
   "lane/": Schema.Union([
     Schema.Struct({
+      _tag: Schema.Literal("Head"),
       ...FORMAT,
       attempt: Schema.String,
       input: Schema.Json,
@@ -45,14 +40,44 @@ const KINDS = {
       queue: Schema.Array(Schema.Json),
       displaced: Schema.Array(Schema.String),
     }),
-    Schema.Struct({ ...FORMAT, displaced: Schema.NonEmptyArray(Schema.String) }),
+    Schema.Struct({
+      _tag: Schema.Literal("Displaced"),
+      ...FORMAT,
+      displaced: Schema.NonEmptyArray(Schema.String),
+    }),
   ]),
   "owed/": Schema.Struct({
     ...FORMAT,
     rows: Schema.NonEmptyArray(
       Schema.Union([
-        Schema.Struct({ lane: Schema.String, ...Row }),
-        Schema.Struct({ operation: Schema.String, ...Row }),
+        Schema.Struct({
+          _tag: Schema.Literal("Answered"),
+          lane: Schema.String,
+          attempt: Schema.String,
+          channel: Schema.Literals(["success", "failure", "unknown"]),
+          reason: Schema.String,
+          value: Schema.optionalKey(Schema.Json),
+          ...Kept,
+        }),
+        Schema.Struct({
+          _tag: Schema.Literal("Unsent"),
+          lane: Schema.String,
+          attempt: Schema.String,
+          reason: Schema.String,
+          ...Kept,
+        }),
+        Schema.Struct({
+          _tag: Schema.Literal("Refused"),
+          operation: Schema.String,
+          attempt: Schema.String,
+          ...Kept,
+        }),
+        Schema.Struct({
+          _tag: Schema.Literal("Declined"),
+          operation: Schema.String,
+          reason: Schema.String,
+          ...Kept,
+        }),
       ]),
     ),
   }),
@@ -244,7 +269,7 @@ export const onlyActorsWithheld: Rule = {
 /**
  * Codec I7, at every cut: every key the Runtime wrote is `actor/`, `lane/` or `owed/`, its text is
  * canonical (sorted keys, no whitespace) and decodes by its kind's Schema with the current
- * `format`, no lane record has `mayHaveApplied`, and every owed row has a channel. Canonical text
+ * `format`, no lane record has `mayHaveApplied`, and every owed row has its kind's tag. Canonical text
  * that decodes is its own round trip. A record the Story put in the store itself is not judged.
  */
 export const recordKinds: Rule = {

@@ -355,13 +355,20 @@ const mutantsOf = (root: Schema.Json) => {
 };
 
 // Restore R5's limit (Q4): a well-formed queued commit added or removed, a displaced Attempt
-// removed, or a decline or an unknown ending repeated (an Attempt may owe several unknowns, each
-// its own row, WriteLanes R10, I15; two commits may be declined alike) cannot be told from a real
-// one, so its ending is judged only for a boot that never fails. A repeated success, failure or
-// NotSent of one Attempt, a repeated displaced Attempt and an owed record with no rows are judged
-// in full (WriteLanes R5, R10; WriteAhead I20).
+// removed from a lane that keeps its head, or a decline or an unknown ending repeated (an Attempt
+// may owe several unknowns, each its own row, WriteLanes R10, I15; two commits may be declined
+// alike) cannot be told from a real one, so its ending is judged only for a boot that never fails.
+// A repeated success, failure or NotSent of one Attempt, a repeated displaced Attempt, a lane with
+// no head and no displaced Attempt, and an owed record with no rows are judged in full (WriteLanes
+// R5, R10; WriteAhead I20).
 const UNTELLABLE = /^\$\.(?:queue (?:emptied|item repeated)|displaced emptied)$/u;
 const ROW_REPEATED = /^\$\.rows item repeated$/u;
+
+// A lane record with no head whose displaced Attempts were emptied holds nothing a release writes.
+const emptiedHeadless = (mutant: Mutant) =>
+  mutant.path === "$.displaced emptied" &&
+  isJsonObject(mutant.json) &&
+  mutant.json["_tag"] === "Displaced";
 
 // Whether a record's first owed row is one a second copy of cannot be told from: a decline, which
 // has no Attempt, or an unknown ending.
@@ -372,7 +379,9 @@ const firstRowUntellable = (json: Schema.Json) => {
   return (
     first !== undefined &&
     isJsonObject(first) &&
-    (first["attempt"] === null || first["channel"] === "unknown")
+    (first["_tag"] === "Declined" ||
+      first["_tag"] === "Refused" ||
+      (first["_tag"] === "Answered" && first["channel"] === "unknown"))
   );
 };
 
@@ -538,7 +547,8 @@ type Judged = "held" | "full";
 
 // RETURN_TYPE: the judgement names its two cases.
 const judgedAs = (machines: Machines, mutant: Mutant): Judged => {
-  if (UNTELLABLE.test(mutant.path) || RENAMED.test(mutant.path)) return "held";
+  if ((UNTELLABLE.test(mutant.path) && !emptiedHeadless(mutant)) || RENAMED.test(mutant.path))
+    return "held";
 
   if (ROW_REPEATED.test(mutant.path)) return firstRowUntellable(mutant.json) ? "held" : "full";
 
@@ -752,6 +762,16 @@ const otherNameOf = (name: string) => {
 // Every fixture's stores, run once for the tests below.
 const stores = storesOf();
 
+// The held records, each booted and judged in full, run once for the two tests that read them.
+const heldFailures = stores.then(async (all) => {
+  const failures: Array<string> = [];
+
+  for (const saved of savedRecords(all))
+    failures.push(...(await bootCorrupt(saved, mutantsOf(parse(saved.text)), "held")));
+
+  return failures;
+});
+
 describe("corrupt saved records (Restore R5, I10; Codec R5)", () => {
   it("Restore R5: a saved record with any one field corrupted is quarantined and reported, or restores a well-formed world; the boot never fails", async () => {
     const failures: Array<string> = [];
@@ -763,17 +783,25 @@ describe("corrupt saved records (Restore R5, I10; Codec R5)", () => {
   }, 120_000);
 
   // Held for the user (Restore Q4): no decode tells a queued commit added or removed, a displaced
-  // Attempt removed, a decline or an unknown ending repeated, a binding renamed to another name its
-  // provider gives, or a record moved under another name of a literal-named machine from a record a
-  // release wrote; until the user rules on the threat model, each is judged only for a boot that
-  // never fails.
+  // Attempt removed from a lane that keeps its head, a decline or an unknown ending repeated, a
+  // binding renamed to another name its provider gives, or a record moved under another name of a
+  // literal-named machine from a record a release wrote; until the user rules on the threat model,
+  // each is judged only for a boot that never fails. The first test pins that only that class is
+  // left: every held record boots, and none fails for anything but a breach of its own.
+  it("Restore R5 (Q4): every forged but well-formed saved record boots, and only the held class is left unjudged", async () => {
+    const failures = await heldFailures;
+
+    expect(
+      failures.filter(
+        (f) =>
+          f.includes(" as saved: ") ||
+          (f.includes("the run failed") && !f.includes("ConflictingActorRef")),
+      ),
+    ).toEqual([]);
+  }, 120_000);
+
   it.fails("Restore R5: a forged but well-formed saved record is quarantined and reported, or restores a well-formed world", async () => {
-    const failures: Array<string> = [];
-
-    for (const saved of savedRecords(await stores))
-      failures.push(...(await bootCorrupt(saved, mutantsOf(parse(saved.text)), "held")));
-
-    expect(failures).toEqual([]);
+    expect(await heldFailures).toEqual([]);
   }, 120_000);
 });
 

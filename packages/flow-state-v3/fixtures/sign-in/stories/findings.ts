@@ -40,7 +40,7 @@ export const unconfirmedPrefill = choosing("sign-in/unconfirmed-prefill")
  */
 export const readLane = {
   key: 'lane/Auth/Session/{"email":"elif@kamp.us"}|Auth/me|{"email":"elif@kamp.us"}',
-  text: '{"attempt":"att-000000000000000000006d61696e3a31-1","digest":"8642c4c0","displaced":[],"format":4,"inFlight":false,"input":{"email":"elif@kamp.us"},"queue":[],"retryCount":0}',
+  text: '{"_tag":"Head","attempt":"att-000000000000000000006d61696e3a31-1","digest":"8642c4c0","displaced":[],"format":4,"inFlight":false,"input":{"email":"elif@kamp.us"},"queue":[],"retryCount":0}',
 } as const;
 
 /**

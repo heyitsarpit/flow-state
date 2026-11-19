@@ -236,11 +236,16 @@ open
         outcome  @task.V3.T56 builds I19's check (Spec test T5).
 
     Q4  Whether a well-formed forgery no decode can tell from a real record is in the threat model: a queued commit 
-        added or removed, a displaced Attempt removed, a decline or an unknown ending repeated, a binding
-        renamed to another name a ref could give, a literal-named actor's record or any lane or owed record moved
-        under another name its machine gives.
-        outcome  Held for the user's ruling (proposed): until then each is judged only for a boot that never fails,
-                 and an inverted test names the class.
+        added or removed, a displaced Attempt removed from a lane that keeps its head, a decline or an unknown
+        ending repeated, a binding renamed to another name a ref could give, a literal-named actor's record or any
+        lane or owed record moved under another name its machine gives.
+        outcome  Held for the user's ruling (proposed): until then each is judged only for a boot that never fails;
+                 one test pins that only this class is left, and an inverted test names it.
+        note     Open for the user: some of these are told across records, not by one. A lane record copied under
+            another name repeats its Attempt in two lane records, and an owed `Answered` success on a lane
+            beside a Held head of the same Attempt ends a head that stays; a boot-wide check over every
+            record it read (one Attempt in one lane, ended once) could quarantine both, where a per-record
+            decode cannot.
 
 model
     Boot = one ready() of a persistent Runtime: read, upgrade formats, check versions and shapes,

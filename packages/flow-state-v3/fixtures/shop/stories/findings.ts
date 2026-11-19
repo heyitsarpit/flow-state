@@ -121,13 +121,13 @@ export const removedLineAnswer = checkingOut("shop/removed-line-answer")
 export const unreadableNames = {
   lane: 'lane/Shop/Cart/{"owner":7}|Shop/add-line|{"cartId":"main"}',
   laneText:
-    '{"attempt":"att-000000000000000000006d61696e3a31-1","digest":"840bff58","displaced":[],"format":4,"inFlight":true,"input":{"cartId":"main","lineId":"l1","variantId":"v1"},"queue":[],"retryCount":0}',
+    '{"_tag":"Head","attempt":"att-000000000000000000006d61696e3a31-1","digest":"840bff58","displaced":[],"format":4,"inFlight":true,"input":{"cartId":"main","lineId":"l1","variantId":"v1"},"queue":[],"retryCount":0}',
   actor: 'actor/Shop/Cart/{"owner":7}',
   actorText:
     '{"context":{},"format":4,"graph":{},"memories":[],"memory":{"adding":"l1","errors":{},"lines":{},"notice":"","owner":"7","wanted":{}},"reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}',
   owed: 'owed/Shop/Cart/{"owner":"main","x":1}',
   owedText:
-    '{"format":4,"rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","channel":"unknown","kept":false,"operation":"add","reason":"Restored","value":null}]}',
+    '{"format":4,"rows":[{"_tag":"Refused","attempt":"att-000000000000000000006d61696e3a31-1","kept":false,"operation":"add"}]}',
 } as const;
 
 /**
@@ -153,7 +153,7 @@ const jsonText = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 // another release could leave it.
 const owedCartRecord = (name: string) => ({
   key: `owed/Shop/Cart/${name}`,
-  text: '{"format":4,"rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","channel":"unknown","kept":false,"operation":"add","reason":"Restored","value":null}]}',
+  text: '{"format":4,"rows":[{"_tag":"Refused","attempt":"att-000000000000000000006d61696e3a31-1","kept":false,"operation":"add"}]}',
 });
 
 /**
@@ -188,12 +188,12 @@ export const oddRecordNames = storeStory("shop/odd-record-names")
 const mainCartText = (lineId: string) =>
   `{"context":{"shopper":{"machine":"Shop/Shopper","name":"main"}},"format":4,"graph":{"Shop/Shopper/main":{}},"memories":[],"memory":{"adding":"","errors":{},"lines":{"${lineId}":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}`;
 
-// An owed record holding one unknown ending: on the lane `lane` names after its identity, or of
-// `operation` with no lane.
+// An owed record holding one unknown ending: Restored, on the lane `lane` names after its
+// identity, or a store's refusal of `operation`'s Held head, with no lane.
 const owedOf = (row: { readonly lane: string } | { readonly operation: string }) =>
-  `{"format":4,"rows":[{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"unknown","kept":false,${
-    "lane" in row ? `"lane":${jsonText(row.lane)}` : `"operation":${jsonText(row.operation)}`
-  },"reason":"Restored","value":null}]}`;
+  "lane" in row
+    ? `{"format":4,"rows":[{"_tag":"Answered","attempt":"att-000000000000000000006d61696e3a39-9","channel":"unknown","kept":false,"lane":${jsonText(row.lane)},"reason":"Restored"}]}`
+    : `{"format":4,"rows":[{"_tag":"Refused","attempt":"att-000000000000000000006d61696e3a39-9","kept":false,"operation":${jsonText(row.operation)}}]}`;
 
 // The main cart's lane keys start here.
 const mainLane = 'lane/Shop/Cart/{"owner":"main"}';
@@ -205,8 +205,8 @@ const heldInput = '{"cartId":"main","lineId":"l1","variantId":"v1"}';
 // a cancel displaced.
 const laneOf = (head: "held" | "headless") =>
   head === "headless"
-    ? '{"displaced":["att-000000000000000000006d61696e3a39-9"],"format":4}'
-    : `{"attempt":"att-000000000000000000006d61696e3a39-9","digest":"840bff58","displaced":[],"format":4,"inFlight":false,"input":${heldInput},"queue":[],"retryCount":0}`;
+    ? '{"_tag":"Displaced","displaced":["att-000000000000000000006d61696e3a39-9"],"format":4}'
+    : `{"_tag":"Head","attempt":"att-000000000000000000006d61696e3a39-9","digest":"840bff58","displaced":[],"format":4,"inFlight":false,"input":${heldInput},"queue":[],"retryCount":0}`;
 
 // An owed record holding an unknown ending of an add for an Attempt the main cart never made.
 const mainOwedText = owedOf({ operation: "add" });
@@ -277,7 +277,7 @@ export const borrowedRecordsReload = storeStory("shop/borrowed-records")
 // An owed record of the main cart holding one declined add, which has no Attempt and wakes the
 // cart at the boot with the context its record was saved with.
 const mainOwedNoAttempt =
-  '{"format":4,"rows":[{"attempt":null,"channel":"notSent","kept":false,"operation":"add","reason":"Rejected","value":{"why":"Rejected"}}]}';
+  '{"format":4,"rows":[{"_tag":"Declined","kept":false,"operation":"add","reason":"Rejected"}]}';
 
 // The main cart's record holding one line `l9`, with its shopper slot bound to `provider` (JSON)
 // and its graph as `graph` (JSON).
@@ -364,12 +364,12 @@ export const owedOtherLane = storeStory("shop/owed-other-lane")
   .ensure(mainCart)
   .checkpoint("restored");
 
-// A success of the main cart's add, as an owed row saves it: of Attempt `attempt` on its add lane,
-// or with no Attempt and no lane.
+// A success of the main cart's add on its add lane, as an owed row saves it: of Attempt nine, or
+// with no Attempt.
 const addedRow = (attempt: "nine" | "none") =>
   attempt === "nine"
-    ? '{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"success","kept":false,"lane":"Shop/add-line|{\\"cartId\\":\\"main\\"}","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}'
-    : '{"attempt":null,"channel":"success","kept":false,"operation":"add","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}';
+    ? '{"_tag":"Answered","attempt":"att-000000000000000000006d61696e3a39-9","channel":"success","kept":false,"lane":"Shop/add-line|{\\"cartId\\":\\"main\\"}","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}'
+    : '{"_tag":"Answered","channel":"success","kept":false,"lane":"Shop/add-line|{\\"cartId\\":\\"main\\"}","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}';
 
 /**
  * Records a release never writes, each well-formed field by field, as a damaged disk or a bad copy
@@ -387,7 +387,7 @@ export const forgedEndings = {
   },
   repeatedDisplaced: {
     key: `${mainLane}|Shop/add-line|{"cartId":"main"}`,
-    text: '{"displaced":["att-000000000000000000006d61696e3a39-9","att-000000000000000000006d61696e3a39-9"],"format":4}',
+    text: '{"_tag":"Displaced","displaced":["att-000000000000000000006d61696e3a39-9","att-000000000000000000006d61696e3a39-9"],"format":4}',
   },
 } as const;
 
@@ -442,44 +442,42 @@ export const seenUndeclaredText = {
  */
 export const seenUndeclared = forgedReload("shop/seen-undeclared", seenUndeclaredText);
 
-// The Attempt the shape samples name: one the main cart never made, or with a Held head below.
+// The Attempt the shape samples name, one the main cart never made.
 const nine = "att-000000000000000000006d61696e3a39-9";
 
-// A success of the main cart's add with Attempt nine and no lane, which only a store's refusal of a
+// A success of the main cart's add with `attempt` and no lane, which only a store's refusal of a
 // Held head's capture owes, and then unknown.
-const laneLessSuccess =
-  '{"attempt":"att-000000000000000000006d61696e3a39-9","channel":"success","kept":false,"operation":"add","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}';
+const laneLessSuccess = (attempt: string) =>
+  `{"format":4,"rows":[{"_tag":"Answered","attempt":"${attempt}","channel":"success","kept":false,"operation":"add","reason":"success","value":{"lineId":"l5","quantity":1,"variantId":"v1"}}]}`;
 
 /**
  * Owed records holding a success with an Attempt and no lane, which no release writes: one for an
- * Attempt the cart never made, and one for the Held head's own Attempt beside that head's lane
- * record.
+ * Attempt the cart never made, and one for its first Attempt, Held at the reload.
  */
 export const laneLessEndings = {
-  owed: {
-    key: 'owed/Shop/Cart/{"owner":"main"}',
-    text: `{"format":4,"rows":[${laneLessSuccess}]}`,
-  },
-  lane: { key: `${mainLane}|Shop/add-line|{"cartId":"main"}`, text: laneOf("held") },
+  key: 'owed/Shop/Cart/{"owner":"main"}',
+  never: laneLessSuccess(nine),
+  held: laneLessSuccess("att-000000000000000000006d61696e3a31-1"),
 } as const;
 
 /**
  * The main cart adds a line; then the store holds a success with an Attempt and no lane, and the
  * tab reloads and ensures the cart.
  */
-export const laneLessSuccessReload = forgedReload("shop/lane-less-success", laneLessEndings.owed);
+export const laneLessSuccessReload = forgedReload("shop/lane-less-success", {
+  key: laneLessEndings.key,
+  text: laneLessEndings.never,
+});
 
 /**
- * The main cart adds a line; then the store holds a Held add of Attempt nine and a success of that
- * same Attempt with no lane, and the tab reloads, ensures the cart and adds again.
+ * The main cart adds a line whose answer never comes; then the store holds a success of that add's
+ * Attempt with no lane, and the tab reloads and ensures the cart.
  */
 export const laneLessHeldSuccess = storeStory("shop/lane-less-held-success")
   .ensure(mainCart)
+  .world(Carts.addLine.hold({ at: "response" }))
   .send(mainCart, add("l1", "v1"))
-  .world(
-    Fake.storage.put(laneLessEndings.lane.key, laneLessEndings.lane.text),
-    Fake.storage.put(laneLessEndings.owed.key, laneLessEndings.owed.text),
-  )
+  .world(Fake.storage.put(laneLessEndings.key, laneLessEndings.held))
   .reload({ reattach: false })
   .checkpoint("booted")
   .ensure(mainCart)

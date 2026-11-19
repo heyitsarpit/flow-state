@@ -22,7 +22,7 @@ export const forgedAccount = {
   },
   attempt: {
     key: 'lane/Bank/Transfers/acct-1|Bank/transfer|{"transferId":"t1"}',
-    text: '{"attempt":"x","digest":"67fe5a62","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}',
+    text: '{"_tag":"Head","attempt":"x","digest":"67fe5a62","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}',
   },
 } as const;
 
@@ -80,7 +80,7 @@ export const attemptReloaded = bankStory("transfers/attempt-reloaded")
  */
 export const heldNulled = {
   key: 'lane/Bank/Transfers/acct-1|Bank/transfer|{"transferId":"t1"}',
-  text: '{"attempt":null,"digest":"67fe5a62","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}',
+  text: '{"_tag":"Head","attempt":null,"digest":"67fe5a62","displaced":[],"format":4,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"queue":[],"retryCount":0}',
 } as const;
 
 /**

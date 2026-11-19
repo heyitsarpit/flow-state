@@ -72,8 +72,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '            retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
-        replace: "            retryCount: l.head.retryCount,",
+        find: '          retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
+        replace: "          retryCount: l.head.retryCount,",
       },
     ],
   },

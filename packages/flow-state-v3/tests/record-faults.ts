@@ -262,13 +262,14 @@ export const recordFaults: ReadonlyArray<Fault> = [
   {
     name: "owed-success-unattempted-read",
     tests: [FORGED],
-    says: "an owed row with no Attempt is read whatever its channel, so a success nobody sent is heard",
+    says: "an answered row with no Attempt is read, so a success nobody sent is heard",
     rule: "Restore R5",
     edits: [
       {
         file: "src/core/record.ts",
-        find: '        exact({ operation, ...row, attempt: Schema.Null, channel: Schema.Literal("notSent") }),',
-        replace: "        exact({ operation, ...row, attempt: Schema.Null }),",
+        find: '        lane,\n        attempt: AttemptIdSchema,\n        channel: Schema.Literals(["success", "failure", "unknown"]),',
+        replace:
+          '        lane,\n        attempt: Schema.optionalKey(AttemptIdSchema),\n        channel: Schema.Literals(["success", "failure", "unknown"]),',
       },
     ],
   },
@@ -293,9 +294,108 @@ export const recordFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/actor-record.ts",
-        find: "          Object.entries(r.seen).map(([slot, json]) =>",
+        find: "    seen: bySlot(compiled, Schema.Json),",
+        replace: "    seen: Schema.Record(Schema.String, Schema.Json),",
+      },
+    ],
+  },
+  {
+    name: "owed-row-fields-widened",
+    tests: [FORGED],
+    says: "a store's refusal row is read whatever channel, reason and value it also holds",
+    rule: "WriteAhead R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '        _tag: Schema.Literal("Refused"),\n        operation,\n        attempt: AttemptIdSchema,',
         replace:
-          "          Object.entries(r.seen).filter(([slot]) => compiled.context.has(slot)).map(([slot, json]) =>",
+          '        _tag: Schema.Literal("Refused"),\n        operation,\n        attempt: AttemptIdSchema,\n        channel: Schema.optionalKey(Schema.String),\n        reason: Schema.optionalKey(Schema.String),\n        value: Schema.optionalKey(Schema.Json),',
+      },
+    ],
+  },
+  {
+    name: "unsent-reason-unchecked",
+    tests: [FORGED],
+    says: "a NotSent row on a lane is read with any reason, so a why no cell gives is heard",
+    rule: "WriteAhead R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "        reason: NotSentWhy,",
+        replace: "        reason: Schema.String,",
+      },
+    ],
+  },
+  {
+    name: "answered-lane-less-read",
+    tests: [FORGED],
+    says: "an answered row with an Attempt and no lane is read as its operation's, so a success nobody owed is heard",
+    rule: "WriteLanes R10",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: '        _tag: Schema.Literal("Answered"),\n        lane,',
+        replace:
+          '        _tag: Schema.Literal("Answered"),\n        lane: Schema.optionalKey(lane),\n        operation: Schema.optionalKey(operation),',
+      },
+      {
+        file: "src/core/record.ts",
+        find: "            ...onLane(a.lane, a.attempt),",
+        replace:
+          "            ...(a.lane === undefined\n              ? { operation: a.operation, lane: Option.none(), attempt: Option.some(a.attempt) }\n              : onLane(a.lane, a.attempt)),",
+      },
+    ],
+  },
+  {
+    name: "void-value-read-null",
+    tests: ["src/core/persist.test.ts"],
+    says: "a void write's success saved with no value reads back null",
+    rule: "WriteAhead R5",
+    edits: [
+      {
+        file: "src/core/record.ts",
+        find: "            value: a.value,",
+        replace: "            value: a.value ?? null,",
+      },
+    ],
+  },
+  {
+    name: "format-one-read-on-stack",
+    tests: ["tests/session/values.test.ts"],
+    says: "a format-1 last-seen form is read on the call stack, so a deep one fails the boot",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/actor-record.ts",
+        find: "    const step = stepOfOne(task.form);",
+        replace:
+          '    const step = Result.map(stepOfOne(task.form), (s) => ({\n      ...s,\n      parts: s.parts.map((p) => ({ "~": "json", value: Result.getOrThrow(valueOfOne(p)) })),\n    }));',
+      },
+    ],
+  },
+  {
+    name: "input-field-patched",
+    tests: ["tests/actors/identity.test.ts"],
+    says: "an update whose patch names an input field renames the actor's memory",
+    rule: "Compile R7",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "  if (renames)\n",
+        replace: "  if (renames && input.now < 0)\n",
+      },
+    ],
+  },
+  {
+    name: "i17-other-identity-excuses",
+    tests: ["tests/rules/rules.test.ts"],
+    says: "an unheard Attempt is excused by any unread lane record its batch wrote, another identity's too",
+    rule: "WriteAhead I17",
+    edits: [
+      {
+        file: "tests/rules/commits.ts",
+        find: '                key.startsWith(`lane/${laneOwner.get(attempt) ?? ""}|`) &&',
+        replace: '                key.startsWith("lane/") &&',
       },
     ],
   },

@@ -147,8 +147,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '            retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
-        replace: "            retryCount: 0,",
+        find: '          retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
+        replace: "          retryCount: 0,",
       },
     ],
   },
