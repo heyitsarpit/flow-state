@@ -139,4 +139,22 @@ inWorkdir(({ pkg, write, lint, lines }) => {
   assert.deepEqual(lines(found, bare, "owners-only"), [1], bare);
 });
 
+// Inverted: forms the rule misses today that host code could write by accident. Each line drops or reads a
+// Cause, or closes a Scope, outside an Owner. When the rule covers them, this block fails: move each line into
+// `fires`.
+const missed = [
+  "Effect.ignoreCause(Effect.void);",
+  "Scope.close(Other, Exit.void);",
+  "let Late = Other; Late ??= Effect; Late.forkDetach(Effect.void);",
+  "let Either = Other; Either ||= Effect; Either.forkDetach(Effect.void);",
+  'declare const ended: Exit.Exit<number>; if (ended._tag === "Failure") void ended.cause;',
+];
+
+inWorkdir(({ pkg, write, lint, lines }) => {
+  const file = join(pkg, "src/host/missed.ts");
+  write(file, `${imports}\nimport { Scope } from "effect";\n${missed.join("\n")}\n`);
+
+  assert.deepEqual(lines(lint(), file, "owners-only"), [], "owners-only reports none of the missed forms today");
+});
+
 console.log("flow-state owners-only tests passed");

@@ -199,4 +199,52 @@ describe("a second wave reaching a context update that waits (Actors R13, I20)",
       `InvalidTurn loop guard: ${guard} events sent from Started to echo`,
     ]);
   });
+
+  // Inverted: a chain id is one past the count of chains, so after a partial clear the next
+  // admitted event's chain takes a live chain's id and resets its count to zero.
+  it.fails("Actors R13: a partial clear of chains keeps every live chain's count, so the waiting update's send is still refused at the loop guard", () => {
+    const machines = new Map([
+      [lead.machine, { ...LeadMachine.compiled, wiring: new Map() }],
+      [echo.machine, { ...EchoMachine.compiled, wiring: new Map([["name", lead]]) }],
+    ]);
+
+    const env = { now: 0, seed: "0", admit: makeFreezer() };
+    const open = { ...emptyWorld(false), life: Life.Open() };
+
+    const ensured = step(
+      machines,
+      open,
+      Input.Ensure({
+        actor: echo,
+        use: Option.some("story"),
+        start: "create",
+        wiring: Option.none(),
+      }),
+      env,
+    ).world;
+
+    // Chain 1 was cleared; chain 2 is live, at the guard, and the echo's update follows it.
+    const queued = {
+      ...ensured,
+      chains: new Map([[2, { root: "Started to echo", sent: RuntimeDefaults.loopGuard }]]),
+      mail: new Map([
+        [actorKey(echo), [Mail.Context({ actor: echo, chain: 2 })]],
+        [
+          actorKey(lead),
+          [Mail.Event({ actor: lead, tag: "Rename", payload: { name: "Core" }, chain: NO_CHAIN })],
+        ],
+      ]),
+    };
+
+    const served = step(machines, queued, Input.Serve(), env).world.incarnations.get(
+      actorKey(echo),
+    );
+
+    const guard = String(RuntimeDefaults.loopGuard);
+
+    expect(served?.memory).toEqual({ echoed: 0 });
+    expect(refusalOf(served)).toEqual([
+      `InvalidTurn loop guard: ${guard} events sent from Started to echo`,
+    ]);
+  });
 });

@@ -2433,6 +2433,88 @@ tasks
         comment     2026-11-19T12:18:22Z
             Owes (T99 reviews, 2026-11-19): owners-only misses an Exit read by value and some forms written by accident
             (Effect.ignoreCause, Scope.close, ??=); close them, type-aware if needed.
+        comment     2026-11-19T13:31:07Z
+            Design (lead, proposed): one broad change, typed closed sets with exhaustive branches. Each fact the core
+            branches on is born as a declared type (a literal catalogue, a branded minted id or a tagged enum), and each
+            branch over it is a `$match` or a `satisfies Record<Tag, …>` table; text is written only for storage
+            and display.
+
+            The freedom it removes: the core may recover a decision from text another site wrote (a reason word, an id's
+            digits, a key's segments, a `0` sentinel) or from an open mix of Options, `let`s and `$is ||` chains, so an
+            edit to one side compiles and goes wrong silently.
+
+            Applied:
+
+            1. Record reads: one `ReadFailure` literal catalogue for every quarantine reason; `quarantined` holds
+               `Unreadable { code, detail } | Retired { operation }`, so forget matches `Retired` and parses no key.
+            2. Ids: the one mint brands every runtime id (`IncarnationId`, `AttemptId`, `ChainId` beside the four
+               branded now); `Incarnation.started` holds the mint's count; a saved Attempt id is branded by its Schema
+               at the record boundary.
+            3. Loop-guard state: `Following = Idle | Admitted | Chained` replaces the two `let`s; `Mail.chain` is
+               `Option<ChainId>`; chain ids are minted.
+            4. Turn: `turn(incarnation, cause)` with `Cause = Event | Firing | Ending`; the own lane and the issue
+               source are derived from it.
+            5. Dispatch: Delivery and Heard by `$match`; the `$is` chains become tag tables.
+
+            Compared with per-item fixes (a typed `OPERATION_GONE`, a regex in startOrder, `max + 1` chain ids, a
+            run-time check in turn): each closes its own trace and leaves the siblings open (isSaved, onWire, COMMITS,
+            the Mail chain test, forgetRetired's key slice). The broad change costs about the same and closes them all.
+            Guard: two lint rules with plants, `no-id-text` (no slice, split, lastIndexOf, startsWith or Number on an id
+            or key in the core) and `no-tag-chain` (no `$is` chain on one subject).
+
+            Separate classes, each its own structure: the bench worker's argv as one Schema both sides use; owners-only
+            closed by syntax, since oxlint JS plugins see no types.
+        comment     2026-11-19T13:31:08Z
+            Requirements (proposed), mapped to acceptance A1 to A5 and to the proposed additions A6 (exhaustive
+            dispatch), A7 (worker argv) and A8 (owners-only); each names its wrong ending and a check red today.
+            Inverted lines are in code:packages/flow-state-v3/src/core/shapes.test.ts: each compiles today and fails the
+            type check once typed.
+
+            1. Reason codes (A1, A2; @spec.Actors R21). Wrong ending: a reworded or reused `"operation"` reason makes
+               forget keep a retired hold (its key blocked after forget) or drop an unreadable lane record. Check:
+               inverted line 1, a misspelt reason compiles; the build adds a test that forget drops a `Retired` hold and
+               keeps an `Unreadable` one.
+            2. Runtime ids (A1, A2; @spec.Actors R13, the start order of waves, graces and dispose's evidence). Wrong
+               ending: a changed mint format makes startOrder `NaN`, so those run in an unstable order; a lane id passes
+               as an Attempt id. Check: inverted lines 2 and 3; `no-id-text` plants with the rule (red: startOrder,
+               retiredOperation, forgetRetired's slice, the boot's `actor/` prefix test).
+            3. Chain ids (A3; @spec.Actors R13, I20). Wrong ending: after a partial clear a new chain takes a live
+               chain's id and resets its count, so a runaway chain passes the loop guard. Check: `it.fails` in
+               code:packages/flow-state-v3/src/core/serve.test.ts (red: `echoed: 1`; with no id collision it passes).
+            4. Following state (A1, A3; @spec.Actors R13: mail between items follows none). Wrong ending: an edit that
+               clears `serving` but not `chain` makes host mail follow a stale chain (a false refusal); a new Mail tag
+               with a chain reads as none. Check: inverted line 4 (the `0` sentinel); the build adds a pin for mail
+               between items and a fault that keeps the chain. The code is right today, so the red is structural.
+            5. Turn cause (A4; @spec.Turn R25, I31, R21). Wrong ending: an event or schedule turn given an own lane
+               retries or cancels as that lane's owner, or an issue raised under a source not its cause's is cleared by
+               the wrong turn. Check: inverted line 5, such a route compiles.
+            6. Exhaustive dispatch (A6; AGENTS.md, no implicit state machines; @spec.Actors R15). Wrong ending: a new
+               Delivery tag leaves a refused row neither queued again nor kept; a new Phase in sentBefore re-sends as a
+               first send. Check: `no-tag-chain` plants with the rule (red: 9 sites: sentBefore, isSaved, tryOne twice,
+               suspended, inMailbox, onWire, disposal's disarm set, tx's follow; COMMITS becomes a table too).
+            7. Worker argv (A7). Wrong ending: a flag renamed in workerArgs is dropped by the worker (`--timeout-ms`
+               lost: no timeout; `--budget` lost: numbers recorded at another budget); `--runs abc` runs `NaN`. Check:
+               two `it.fails` in code:packages/flow-state-v3/tests/bench/worker-args.test.ts (red: exit 0; `5` read as a
+               bench id).
+            8. owners-only (A8; FLOW-STATE.md, Owners). Wrong ending: host code drops a Cause with `Effect.ignoreCause`,
+               closes a Scope outside its Owner, reads a failed Exit's `.cause`, or aliases Effect by `??=` or `||=`,
+               and lint passes. Check: the inverted `missed` block in
+               code:tools/flow-state-lint/rules/owners-only.test.ts (red: no report; a control line fires). Exit by
+               value is caught by syntax (a `.cause` read outside Owners); run-promise.ts's one read keeps a
+               reasoned suppression.
+            9. Gates (A5): `nub run check`, the suite and stress; a fault per new check caught by `nub run faults
+               --only`; `nub run bench --only <turn ids> --dev` shows no regression.
+
+            Dropped, with why:
+
+            - A decline-code catalogue in the core: no core branch reads a decline code; the false pass is in public
+              evidence reads (@task.V3.T104). Reverse: add it here if T104 declines it.
+            - `isSaved`'s `reason === "Restored"` and cells' reason literals: part of the ending triple, out of scope.
+              Open call: type the compare by `Decline` now (one line, no shape change), or leave it to the consult.
+            - Single-tag Life and Verdict checks: binary by meaning, no default to fall into.
+
+            Fixtures (code:wiki/conventions/fixtures.md): no public feature changes; the proof is the existing Stories.
+            Extra files: `bench/worker.ts`, `bench/workers.ts`, `tests/bench/`, `tools/flow-state-lint/`.
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
