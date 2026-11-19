@@ -15,7 +15,7 @@ import { runCommand } from "../operations/writes.ts";
 // One open page and the text the field held when it opened, which Back gives back.
 const Frame = Schema.Struct({ page: Schema.String, query: Schema.String });
 
-const Palette = definition({
+export const Palette = definition({
   id: "Palette/Palette",
   persist: true,
   states: ["READY"],

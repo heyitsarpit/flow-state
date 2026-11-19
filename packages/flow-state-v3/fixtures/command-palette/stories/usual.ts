@@ -1,6 +1,7 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { command, type Entries, group, type Scores, separator } from "../machines/commands.ts";
 import { palette, paletteSetup } from "../app.ts";
+import { Palette } from "../machines/palette.ts";
 import { Commands } from "../server/commands.ts";
 import { CommandsFake } from "../server/layer.ts";
 
@@ -42,7 +43,7 @@ export const fuzzy = { autoHighlight: true, scores: null } as const;
 export const configure = (
   list: typeof Entries.Type,
   props: { readonly autoHighlight: boolean; readonly scores: typeof Scores.Type } = fuzzy,
-) => ({ _tag: "Configure", commands: list, ...props }) as const;
+) => Palette.E.Configure({ commands: list, ...props });
 
 /**
  * A person types "pro" and presses Enter on Profile, whose action is held; opens the theme page,
@@ -52,17 +53,17 @@ export const configure = (
 export const usual = paletteStory("palette/usual")
   .ensure(palette)
   .send(palette, configure(commands))
-  .send(palette, { _tag: "Typed", text: "pro" })
+  .send(palette, Palette.E.Typed({ text: "pro" }))
   .checkpoint("ranked")
   .world(Commands.run.hold(), Commands.run.hold())
-  .send(palette, { _tag: "Enter" })
-  .send(palette, { _tag: "Typed", text: "" })
-  .send(palette, { _tag: "Run", key: "theme" })
-  .send(palette, { _tag: "Typed", text: "da" })
-  .send(palette, { _tag: "Enter" })
+  .send(palette, Palette.E.Enter())
+  .send(palette, Palette.E.Typed({ text: "" }))
+  .send(palette, Palette.E.Run({ key: "theme" }))
+  .send(palette, Palette.E.Typed({ text: "da" }))
+  .send(palette, Palette.E.Enter())
   .checkpoint("pending")
-  .send(palette, { _tag: "Escape" })
-  .send(palette, { _tag: "Escape" })
+  .send(palette, Palette.E.Escape())
+  .send(palette, Palette.E.Escape())
   .checkpoint("back")
   .world(Commands.run.release(), Commands.run.release())
   .checkpoint("settled");
@@ -85,7 +86,7 @@ const QUERIES = ["", "se", "pro", "da"] as const;
 
 const nextSeed = (seed: number) => (Math.imul(seed, 1_103_515_245) + 12_345) >>> 0;
 
-const run = (s: PaletteStory, key: string) => s.send(palette, { _tag: "Run", key });
+const run = (s: PaletteStory, key: string) => s.send(palette, Palette.E.Run({ key }));
 
 const busy = (m: Model, key: string) =>
   m.held.some((h) => h.live && h.key === key) || m.unsure.includes(key);
@@ -130,12 +131,12 @@ const released = (failing: boolean) => (m: Model) => {
 
 const typed = (m: Model, { seed }: Draw) => ({
   ...m,
-  story: m.story.send(palette, { _tag: "Typed", text: QUERIES[seed % QUERIES.length] ?? "" }),
+  story: m.story.send(palette, Palette.E.Typed({ text: QUERIES[seed % QUERIES.length] ?? "" })),
 });
 
-const moved = (m: Model) => ({ ...m, story: m.story.send(palette, { _tag: "Move", by: 1 }) });
+const moved = (m: Model) => ({ ...m, story: m.story.send(palette, Palette.E.Move({ by: 1 })) });
 
-const escaped = (m: Model) => ({ ...m, story: m.story.send(palette, { _tag: "Escape" }) });
+const escaped = (m: Model) => ({ ...m, story: m.story.send(palette, Palette.E.Escape()) });
 
 const paged = (m: Model) => ({ ...m, story: run(m.story, "theme").advance("5 millis") });
 
@@ -202,16 +203,16 @@ export const stress = ended.held
   .checkpoint("end");
 
 const configured = configure(commands);
-const typingPro = { _tag: "Typed", text: "pro" } as const;
-const clearing = { _tag: "Typed", text: "" } as const;
-const moving = { _tag: "Move", by: 1 } as const;
-const highlighting = { _tag: "Highlight", key: "settings" } as const;
-const runningProfile = { _tag: "Run", key: "profile" } as const;
-const runningTheme = { _tag: "Run", key: "theme" } as const;
-const runningDark = { _tag: "Run", key: "dark" } as const;
-const entering = { _tag: "Enter" } as const;
-const goingBack = { _tag: "Back" } as const;
-const escaping = { _tag: "Escape" } as const;
+const typingPro = Palette.E.Typed({ text: "pro" });
+const clearing = Palette.E.Typed({ text: "" });
+const moving = Palette.E.Move({ by: 1 });
+const highlighting = Palette.E.Highlight({ key: "settings" });
+const runningProfile = Palette.E.Run({ key: "profile" });
+const runningTheme = Palette.E.Run({ key: "theme" });
+const runningDark = Palette.E.Run({ key: "dark" });
+const entering = Palette.E.Enter();
+const goingBack = Palette.E.Back();
+const escaping = Palette.E.Escape();
 
 const numbered = (count: number) =>
   Array.from({ length: count }, (_, n) => command(`c${n}`, `Command ${n}`));

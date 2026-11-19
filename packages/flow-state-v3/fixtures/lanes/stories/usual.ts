@@ -2,6 +2,7 @@ import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { GitFake } from "../../services/git/server/layer.ts";
 import { cancelClient, lanesSetup, latestClient, serializeClient } from "../app.ts";
+import { Cancel, Latest, Serialize } from "../machines/clients.ts";
 import { GitFakeSteadfast, GitFakeUnanswered } from "../server/layer.ts";
 
 /**
@@ -21,32 +22,32 @@ export const usual = lanesStory("lanes/usual")
   .ensure(serializeClient)
   .ensure(cancelClient)
   .world(Git.sync.hold())
-  .send(latestClient, { _tag: "Commit", ...flow })
-  .send(latestClient, { _tag: "Commit", ...flow })
-  .send(latestClient, { _tag: "Commit", ...flow })
-  .send(serializeClient, { _tag: "Commit", ...flow })
-  .send(serializeClient, { _tag: "Commit", ...flow })
-  .send(cancelClient, { _tag: "Commit", ...flow })
-  .send(cancelClient, { _tag: "Commit", ...flow })
+  .send(latestClient, Latest.E.Commit(flow))
+  .send(latestClient, Latest.E.Commit(flow))
+  .send(latestClient, Latest.E.Commit(flow))
+  .send(serializeClient, Serialize.E.Commit(flow))
+  .send(serializeClient, Serialize.E.Commit(flow))
+  .send(cancelClient, Cancel.E.Commit(flow))
+  .send(cancelClient, Cancel.E.Commit(flow))
   .checkpoint("waiting")
   .world(Git.sync.release())
   .advance("1 second")
   .checkpoint("settled")
   .world(Git.sync.drop())
-  .send(serializeClient, { _tag: "Commit", ...flow })
-  .send(serializeClient, { _tag: "Commit", ...flow })
+  .send(serializeClient, Serialize.E.Commit(flow))
+  .send(serializeClient, Serialize.E.Commit(flow))
   .checkpoint("held")
-  .send(serializeClient, { _tag: "Cancel", ...flow })
+  .send(serializeClient, Serialize.E.Cancel(flow))
   .advance("1 second")
   .checkpoint("released");
 
-const events = (repo: string) =>
-  (["Commit", "Twice", "RetryCommit", "CancelCommit", "Cancel", "Retry"] as const).map((tag) => ({
-    _tag: tag,
-    repo,
-  }));
+const tags = ["Commit", "Twice", "RetryCommit", "CancelCommit", "Cancel", "Retry"] as const;
 
-const clients = [latestClient, serializeClient, cancelClient];
+const clients = [
+  { ref: latestClient, E: Latest.E },
+  { ref: serializeClient, E: Serialize.E },
+  { ref: cancelClient, E: Cancel.E },
+];
 
 /**
  * The repository name's edge value: a million characters, so a lane record holds megabytes; the
@@ -54,7 +55,9 @@ const clients = [latestClient, serializeClient, cancelClient];
  */
 export const longRepo = { repo: "r".repeat(1_000_000) };
 
-const longCommit = { _tag: "Commit", ...longRepo } as const;
+const latestLong = Latest.E.Commit(longRepo);
+const serializeLong = Serialize.E.Commit(longRepo);
+const cancelLong = Cancel.E.Commit(longRepo);
 
 const lanesSamples = (
   values: Readonly<Record<string, { readonly _tag: "Commit"; readonly repo: string }>>,
@@ -71,9 +74,9 @@ const lanesSamples = (
     controls: [],
     steps: (story) =>
       clients.reduce(
-        (s, client) =>
-          [...events("flow"), ...Object.values(values)].reduce(
-            (t, event) => t.send(client, event),
+        (s, { ref, E }) =>
+          [...tags.map((tag) => E[tag](flow)), ...Object.values(values)].reduce(
+            (t, event) => t.send(ref, event),
             s,
           ),
         story,
@@ -90,9 +93,9 @@ export const samples = lanesSamples({});
  * The samples with the repository names' edge values, for the stress runs: commits of a
  * million-character repository.
  */
-export const stressSamples = lanesSamples({ longCommit });
+export const stressSamples = lanesSamples({ longCommit: latestLong });
 
-const commit = { _tag: "Commit", ...flow } as const;
+const commit = Cancel.E.Commit(flow);
 
 /**
  * A stress run from seed 36, printed by the generator and pasted here. The saved-stress test checks
@@ -104,105 +107,105 @@ export const seededStress = Story.app(lanesSetup, { id: "lanes/stress-36", fixtu
   .world(Fake.storage.hold())
   .ensure(serializeClient)
   .ensure(cancelClient)
-  .send(cancelClient, { _tag: "CancelCommit", repo: "flow" })
-  .send(cancelClient, { _tag: "CancelCommit", repo: "flow" })
-  .send(latestClient, { _tag: "Commit", repo: "flow" })
-  .send(latestClient, { _tag: "Commit", repo: "flow" })
-  .send(serializeClient, { _tag: "RetryCommit", repo: "flow" })
-  .send(cancelClient, { _tag: "CancelCommit", repo: "flow" })
-  .send(serializeClient, { _tag: "Retry", repo: "flow" })
-  .send(latestClient, { _tag: "RetryCommit", repo: "flow" })
+  .send(cancelClient, Cancel.E.CancelCommit(flow))
+  .send(cancelClient, Cancel.E.CancelCommit(flow))
+  .send(latestClient, Latest.E.Commit(flow))
+  .send(latestClient, Latest.E.Commit(flow))
+  .send(serializeClient, Serialize.E.RetryCommit(flow))
+  .send(cancelClient, Cancel.E.CancelCommit(flow))
+  .send(serializeClient, Serialize.E.Retry(flow))
+  .send(latestClient, Latest.E.RetryCommit(flow))
   .reload({ reattach: false })
-  .send(serializeClient, longCommit)
-  .send(serializeClient, { _tag: "Cancel", repo: "flow" })
-  .send(cancelClient, { _tag: "Cancel", repo: "flow" })
-  .send(cancelClient, { _tag: "Retry", repo: "flow" })
-  .send(serializeClient, { _tag: "Commit", repo: "flow" })
-  .send(serializeClient, { _tag: "Retry", repo: "flow" })
-  .send(latestClient, { _tag: "Twice", repo: "flow" })
+  .send(serializeClient, serializeLong)
+  .send(serializeClient, Serialize.E.Cancel(flow))
+  .send(cancelClient, Cancel.E.Cancel(flow))
+  .send(cancelClient, Cancel.E.Retry(flow))
+  .send(serializeClient, Serialize.E.Commit(flow))
+  .send(serializeClient, Serialize.E.Retry(flow))
+  .send(latestClient, Latest.E.Twice(flow))
   .world(Fake.storage.hold())
-  .send(serializeClient, { _tag: "CancelCommit", repo: "flow" })
-  .send(serializeClient, { _tag: "Cancel", repo: "flow" })
-  .send(serializeClient, { _tag: "Cancel", repo: "flow" })
+  .send(serializeClient, Serialize.E.CancelCommit(flow))
+  .send(serializeClient, Serialize.E.Cancel(flow))
+  .send(serializeClient, Serialize.E.Cancel(flow))
   .world(Fake.network.offline())
-  .send(cancelClient, { _tag: "Retry", repo: "flow" })
+  .send(cancelClient, Cancel.E.Retry(flow))
   .dispose(cancelClient, { how: "forget" })
-  .send(latestClient, { _tag: "Twice", repo: "flow" })
-  .send(latestClient, { _tag: "Twice", repo: "flow" })
+  .send(latestClient, Latest.E.Twice(flow))
+  .send(latestClient, Latest.E.Twice(flow))
   .advance("20 millis")
   .disposeRuntime()
   .reload({ heldWrites: "land" })
   .advance("7 millis")
-  .send(serializeClient, { _tag: "Commit", repo: "flow" })
+  .send(serializeClient, Serialize.E.Commit(flow))
   .advance("20 millis")
-  .send(serializeClient, { _tag: "Retry", repo: "flow" })
+  .send(serializeClient, Serialize.E.Retry(flow))
   .advance("3 millis")
-  .send(latestClient, { _tag: "CancelCommit", repo: "flow" })
+  .send(latestClient, Latest.E.CancelCommit(flow))
   .world(Fake.storage.refuse())
-  .send(cancelClient, { _tag: "Twice", repo: "flow" })
+  .send(cancelClient, Cancel.E.Twice(flow))
   .advance("16 millis")
-  .send(cancelClient, { _tag: "RetryCommit", repo: "flow" })
-  .send(serializeClient, { _tag: "CancelCommit", repo: "flow" })
-  .send(cancelClient, { _tag: "Cancel", repo: "flow" })
-  .send(cancelClient, longCommit)
-  .send(serializeClient, { _tag: "Commit", repo: "flow" })
-  .send(cancelClient, { _tag: "Commit", repo: "flow" })
-  .send(cancelClient, { _tag: "Commit", repo: "flow" })
-  .send(serializeClient, { _tag: "Twice", repo: "flow" })
-  .send(serializeClient, { _tag: "Twice", repo: "flow" })
+  .send(cancelClient, Cancel.E.RetryCommit(flow))
+  .send(serializeClient, Serialize.E.CancelCommit(flow))
+  .send(cancelClient, Cancel.E.Cancel(flow))
+  .send(cancelClient, cancelLong)
+  .send(serializeClient, Serialize.E.Commit(flow))
+  .send(cancelClient, Cancel.E.Commit(flow))
+  .send(cancelClient, Cancel.E.Commit(flow))
+  .send(serializeClient, Serialize.E.Twice(flow))
+  .send(serializeClient, Serialize.E.Twice(flow))
   .advance("5 millis")
-  .send(serializeClient, { _tag: "Twice", repo: "flow" })
+  .send(serializeClient, Serialize.E.Twice(flow))
   .advance("2 millis")
-  .send(latestClient, longCommit)
+  .send(latestClient, latestLong)
   .advance("17 millis")
-  .send(latestClient, { _tag: "Twice", repo: "flow" })
-  .send(latestClient, { _tag: "Retry", repo: "flow" })
-  .send(latestClient, { _tag: "CancelCommit", repo: "flow" })
+  .send(latestClient, Latest.E.Twice(flow))
+  .send(latestClient, Latest.E.Retry(flow))
+  .send(latestClient, Latest.E.CancelCommit(flow))
   .advance("18 millis")
-  .send(cancelClient, { _tag: "RetryCommit", repo: "flow" })
-  .send(latestClient, { _tag: "Twice", repo: "flow" })
-  .send(latestClient, { _tag: "Commit", repo: "flow" })
+  .send(cancelClient, Cancel.E.RetryCommit(flow))
+  .send(latestClient, Latest.E.Twice(flow))
+  .send(latestClient, Latest.E.Commit(flow))
   .world(Fake.storage.refuse())
-  .send(latestClient, { _tag: "Retry", repo: "flow" })
-  .send(serializeClient, longCommit)
-  .send(serializeClient, longCommit)
+  .send(latestClient, Latest.E.Retry(flow))
+  .send(serializeClient, serializeLong)
+  .send(serializeClient, serializeLong)
   .world(Fake.storage.refuseLoad())
   .reload({ reattach: false })
   .advance("4 millis")
-  .send(cancelClient, { _tag: "Twice", repo: "flow" })
+  .send(cancelClient, Cancel.E.Twice(flow))
   .advance("10 millis")
-  .send(cancelClient, { _tag: "CancelCommit", repo: "flow" })
-  .send(serializeClient, { _tag: "Commit", repo: "flow" })
-  .send(cancelClient, { _tag: "CancelCommit", repo: "flow" })
-  .send(latestClient, longCommit)
-  .send(serializeClient, { _tag: "Cancel", repo: "flow" })
-  .send(latestClient, longCommit)
-  .send(cancelClient, { _tag: "RetryCommit", repo: "flow" })
-  .send(serializeClient, { _tag: "Cancel", repo: "flow" })
-  .send(latestClient, { _tag: "Retry", repo: "flow" })
-  .send(serializeClient, { _tag: "RetryCommit", repo: "flow" })
-  .send(serializeClient, { _tag: "Cancel", repo: "flow" })
-  .send(latestClient, { _tag: "Cancel", repo: "flow" })
+  .send(cancelClient, Cancel.E.CancelCommit(flow))
+  .send(serializeClient, Serialize.E.Commit(flow))
+  .send(cancelClient, Cancel.E.CancelCommit(flow))
+  .send(latestClient, latestLong)
+  .send(serializeClient, Serialize.E.Cancel(flow))
+  .send(latestClient, latestLong)
+  .send(cancelClient, Cancel.E.RetryCommit(flow))
+  .send(serializeClient, Serialize.E.Cancel(flow))
+  .send(latestClient, Latest.E.Retry(flow))
+  .send(serializeClient, Serialize.E.RetryCommit(flow))
+  .send(serializeClient, Serialize.E.Cancel(flow))
+  .send(latestClient, Latest.E.Cancel(flow))
   .advance("20 millis")
-  .send(serializeClient, { _tag: "RetryCommit", repo: "flow" })
-  .send(latestClient, { _tag: "Commit", repo: "flow" })
-  .send(serializeClient, { _tag: "CancelCommit", repo: "flow" })
-  .send(latestClient, longCommit)
+  .send(serializeClient, Serialize.E.RetryCommit(flow))
+  .send(latestClient, Latest.E.Commit(flow))
+  .send(serializeClient, Serialize.E.CancelCommit(flow))
+  .send(latestClient, latestLong)
   .advance("15 millis")
-  .send(latestClient, { _tag: "Commit", repo: "flow" })
-  .send(serializeClient, { _tag: "Twice", repo: "flow" })
-  .send(latestClient, { _tag: "Retry", repo: "flow" })
+  .send(latestClient, Latest.E.Commit(flow))
+  .send(serializeClient, Serialize.E.Twice(flow))
+  .send(latestClient, Latest.E.Retry(flow))
   .advance("8 millis")
-  .send(latestClient, { _tag: "Cancel", repo: "flow" })
-  .send(serializeClient, { _tag: "Retry", repo: "flow" })
+  .send(latestClient, Latest.E.Cancel(flow))
+  .send(serializeClient, Serialize.E.Retry(flow))
   .advance("7 millis")
-  .send(cancelClient, { _tag: "Cancel", repo: "flow" })
-  .send(serializeClient, { _tag: "Retry", repo: "flow" })
-  .send(latestClient, { _tag: "CancelCommit", repo: "flow" })
+  .send(cancelClient, Cancel.E.Cancel(flow))
+  .send(serializeClient, Serialize.E.Retry(flow))
+  .send(latestClient, Latest.E.CancelCommit(flow))
   .advance("15 millis")
-  .send(cancelClient, longCommit)
+  .send(cancelClient, cancelLong)
   .advance("15 millis")
-  .send(serializeClient, { _tag: "Retry", repo: "flow" })
+  .send(serializeClient, Serialize.E.Retry(flow))
   .advance("56438 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
@@ -215,7 +218,7 @@ export const seededStress = Story.app(lanesSetup, { id: "lanes/stress-36", fixtu
  */
 export const nearBound = Array.from({ length: 12 })
   .reduce<Story>(
-    (s) => s.send(serializeClient, longCommit),
+    (s) => s.send(serializeClient, serializeLong),
     lanesStory("lanes/stress-near-bound")
       .ensure(serializeClient)
       .ensure(cancelClient)
@@ -223,13 +226,13 @@ export const nearBound = Array.from({ length: 12 })
   )
   .checkpoint("full")
   .world(Git.sync.lose())
-  .send(serializeClient, { _tag: "Retry", ...longRepo })
+  .send(serializeClient, Serialize.E.Retry(longRepo))
   .advance("1 second")
-  .send(serializeClient, { _tag: "Cancel", ...longRepo })
+  .send(serializeClient, Serialize.E.Cancel(longRepo))
   .advance("1 second")
   .world(Git.sync.hold())
-  .send(cancelClient, longCommit)
-  .send(cancelClient, { _tag: "CancelCommit", ...longRepo })
+  .send(cancelClient, cancelLong)
+  .send(cancelClient, Cancel.E.CancelCommit(longRepo))
   .world(Git.sync.release())
   .advance("1 second")
   .checkpoint("settled");
@@ -246,7 +249,7 @@ const unanswered = (id: string) =>
 export const stressDisplacedPastItems = () =>
   Array.from({ length: 4200 })
     .reduce<Story>(
-      (s) => s.send(cancelClient, { _tag: "CancelCommit", ...flow }),
+      (s) => s.send(cancelClient, Cancel.E.CancelCommit(flow)),
       unanswered("lanes/stress-displaced-past-items"),
     )
     .checkpoint("full")

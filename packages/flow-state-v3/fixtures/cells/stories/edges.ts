@@ -1,7 +1,8 @@
 import { cellsCheckout } from "../app.ts";
+import { Cells } from "../machines/cells.ts";
 import { cellsStory } from "./usual.ts";
 
-const visa = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
+const visa = Cells.E.PayRequested({ paymentMethodId: "visa" });
 
 // A key well past any id a real payment provider issues.
 const LONG_ID = 100_000;
@@ -9,7 +10,7 @@ const LONG_ID = 100_000;
 const paidWith = (id: string, intentId: string) =>
   cellsStory(id)
     .ensure(cellsCheckout)
-    .send(cellsCheckout, { _tag: "Start", cartId: "c1", intentId })
+    .send(cellsCheckout, Cells.E.Start({ cartId: "c1", intentId }))
     .send(cellsCheckout, visa);
 
 /**
@@ -17,7 +18,7 @@ const paidWith = (id: string, intentId: string) =>
  */
 export const emptyIds = cellsStory("cells/empty-ids")
   .ensure(cellsCheckout)
-  .send(cellsCheckout, { _tag: "Start", cartId: "", intentId: "" })
+  .send(cellsCheckout, Cells.E.Start({ cartId: "", intentId: "" }))
   .send(cellsCheckout, visa)
   .checkpoint("paid");
 

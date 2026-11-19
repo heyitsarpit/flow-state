@@ -12,16 +12,15 @@ import { CartFake } from "../server/layer.ts";
 import { ShopFake } from "../../services/shop/server/layer.ts";
 import { Carts } from "../server/carts.ts";
 import { Shop } from "../../services/shop/server/shop.ts";
-import { add, storeStory } from "./usual.ts";
+import { Cart } from "../machines/cart.ts";
+import { CheckoutFlow } from "../machines/checkout-flow.ts";
+import { Subscription } from "../machines/subscription.ts";
+import { Pay } from "../../services/shop/machines/pay.ts";
+import { storeStory } from "./usual.ts";
 
-/**
- * The flow's request to pay with a card.
- */
-export const payWith = (paymentMethodId: string) => ({ _tag: "PayWith", paymentMethodId }) as const;
+const payWithVisa = CheckoutFlow.E.PayWith({ paymentMethodId: "visa" });
 
-const payWithVisa = payWith("visa");
-
-const payWithNothing = payWith("");
+const payWithNothing = CheckoutFlow.E.PayWith({ paymentMethodId: "" });
 
 /**
  * Ada's checkout is started for her cart; she adds a line, steps through the address, method and
@@ -32,14 +31,14 @@ export const checkoutSends = storeStory("shop/checkout-sends")
   .ensure(mainCart)
   .ensure(checkout)
   .ensure(mainFlow)
-  .send(checkout, { _tag: "Start", cartId: "main", intentId: "pi-main" })
-  .send(mainCart, add("l1", "v1"))
-  .send(mainFlow, { _tag: "Begin" })
-  .send(mainFlow, { _tag: "AddressEntered", line1: "12 Canal St" })
-  .send(mainFlow, { _tag: "MethodChosen", method: "express" })
-  .send(mainFlow, { _tag: "SlotChosen", slot: "9-12" })
+  .send(checkout, Pay.E.Start({ cartId: "main", intentId: "pi-main" }))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+  .send(mainFlow, CheckoutFlow.E.Begin())
+  .send(mainFlow, CheckoutFlow.E.AddressEntered({ line1: "12 Canal St" }))
+  .send(mainFlow, CheckoutFlow.E.MethodChosen({ method: "express" }))
+  .send(mainFlow, CheckoutFlow.E.SlotChosen({ slot: "9-12" }))
   .checkpoint("pay")
-  .send(mainFlow, payWith("visa"))
+  .send(mainFlow, CheckoutFlow.E.PayWith({ paymentMethodId: "visa" }))
   .checkpoint("paid");
 
 /**
@@ -59,13 +58,13 @@ export const checkoutSendSamples = samplesOf({
   controls: [],
   steps: (story) =>
     story
-      .send(checkout, { _tag: "Start", cartId: "main", intentId: "pi-main" })
+      .send(checkout, Pay.E.Start({ cartId: "main", intentId: "pi-main" }))
       .send(mainFlow, payWithNothing)
-      .send(mainCart, add("l1", "v1"))
-      .send(mainFlow, { _tag: "Begin" })
-      .send(mainFlow, { _tag: "AddressEntered", line1: "12 Canal St" })
-      .send(mainFlow, { _tag: "MethodChosen", method: "express" })
-      .send(mainFlow, { _tag: "SlotChosen", slot: "9-12" })
+      .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+      .send(mainFlow, CheckoutFlow.E.Begin())
+      .send(mainFlow, CheckoutFlow.E.AddressEntered({ line1: "12 Canal St" }))
+      .send(mainFlow, CheckoutFlow.E.MethodChosen({ method: "express" }))
+      .send(mainFlow, CheckoutFlow.E.SlotChosen({ slot: "9-12" }))
       .send(mainFlow, payWithVisa),
 });
 
@@ -84,13 +83,13 @@ export const WEEK = "7 days";
 /**
  * The shopper subscribes with the saved card.
  */
-export const subscribe = { _tag: "Subscribe", paymentMethodId: "visa" } as const;
+export const subscribe = Subscription.E.Subscribe({ paymentMethodId: "visa" });
 
-const subscribeNothing = { _tag: "Subscribe", paymentMethodId: "" } as const;
+const subscribeNothing = Subscription.E.Subscribe({ paymentMethodId: "" });
 
-const start = { _tag: "Start", cartId: "weekly", intentId: "pi-weekly" } as const;
+const start = Pay.E.Start({ cartId: "weekly", intentId: "pi-weekly" });
 
-const cancel = { _tag: "Cancel" } as const;
+const cancel = Subscription.E.Cancel();
 
 // The renewal's Pay is started for the weekly box and the shopper subscribes.
 const started = (id: string) =>
@@ -108,7 +107,7 @@ const started = (id: string) =>
 export const renewalBusyPay = started("shop/renewal-busy-pay")
   .advance("604797 seconds")
   .world(Shop.confirm.hold())
-  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "amex" })
+  .send(renewalPay, Pay.E.PayRequested({ paymentMethodId: "amex" }))
   .detach(renewalPay)
   .advance("1 second")
   .advance("2 seconds")
@@ -131,7 +130,7 @@ export const renewalEndedPay = started("shop/renewal-ended-pay")
   .advance("1 second")
   .checkpoint("held past the grace")
   .ensure(renewalPay)
-  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(renewalPay, Pay.E.PayRequested({ paymentMethodId: "visa" }))
   .world(Shop.confirm.release())
   .detach(renewalPay)
   .advance("1 second")
@@ -143,7 +142,7 @@ export const renewalEndedPay = started("shop/renewal-ended-pay")
  */
 export const renewalUnsurePay = started("shop/renewal-unsure-pay")
   .world(Shop.confirm.drop({ at: "response" }))
-  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "amex" })
+  .send(renewalPay, Pay.E.PayRequested({ paymentMethodId: "amex" }))
   .checkpoint("unsure")
   .detach(renewalPay)
   .advance("1 second")
@@ -176,7 +175,7 @@ export const renewalDamagedPay = renewalStory("shop/renewal-damaged-pay")
   .send(subscription, subscribe)
   .world(Fake.storage.put("actor/Checkout/Pay/renewal", "{not a record"))
   .reload()
-  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(renewalPay, Pay.E.PayRequested({ paymentMethodId: "visa" }))
   .advance(WEEK)
   .checkpoint("renewed");
 
@@ -194,7 +193,7 @@ export const renewalDisposingDamagedPay = renewalStory("shop/renewal-disposing-d
   .world(Fake.storage.hold())
   .send(subscription, cancel)
   .dispose(renewalPay)
-  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(renewalPay, Pay.E.PayRequested({ paymentMethodId: "visa" }))
   .checkpoint("disposed")
   .ensure(renewalPay)
   .checkpoint("opened")
@@ -238,8 +237,8 @@ export const forgottenRetiredAuthorization = renewalStory("shop/forgotten-retire
 export const renewalEndingPay = started("shop/renewal-ending-pay")
   .checkpoint("saved")
   .world(Fake.storage.hold())
-  .send(renewalPay, { _tag: "Leave" })
-  .send(renewalPay, { _tag: "Start", cartId: "weekly", intentId: "pi-week-2" })
+  .send(renewalPay, Pay.E.Leave())
+  .send(renewalPay, Pay.E.Start({ cartId: "weekly", intentId: "pi-week-2" }))
   .detach(renewalPay)
   .advance("1 second")
   .advance(WEEK)

@@ -55,7 +55,7 @@ const clientUnder = (concurrency: Policy) => {
     }),
   });
 
-  return machine(Client, ({ S, O }) => ({
+  const Machine = machine(Client, ({ S, O }) => ({
     default: S.READY,
     on: {
       Commit: { actions: [O.sync.commit(byRepo)] },
@@ -70,19 +70,40 @@ const clientUnder = (concurrency: Policy) => {
       Unsure: {},
     },
   }));
+
+  return { Client, Machine };
 };
+
+const latest = clientUnder("latest");
+const serialize = clientUnder("serialize");
+const cancel = clientUnder("cancel");
+
+/**
+ * The definition of the sync client whose writes run under `latest`.
+ */
+export const Latest = latest.Client;
 
 /**
  * The sync client whose writes run under `latest`.
  */
-export const LatestMachine = clientUnder("latest");
+export const LatestMachine = latest.Machine;
+
+/**
+ * The definition of the sync client whose writes run under `serialize`.
+ */
+export const Serialize = serialize.Client;
 
 /**
  * The sync client whose writes run under `serialize`.
  */
-export const SerializeMachine = clientUnder("serialize");
+export const SerializeMachine = serialize.Machine;
+
+/**
+ * The definition of the sync client whose writes run under `cancel`.
+ */
+export const Cancel = cancel.Client;
 
 /**
  * The sync client whose writes run under `cancel`.
  */
-export const CancelMachine = clientUnder("cancel");
+export const CancelMachine = cancel.Machine;

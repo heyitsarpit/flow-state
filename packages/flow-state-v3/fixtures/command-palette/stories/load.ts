@@ -1,5 +1,6 @@
 import { Fake } from "../../../src/host/testing/index.ts";
 import { palette } from "../app.ts";
+import { Palette } from "../machines/palette.ts";
 import { commands, configure, paletteStory } from "./usual.ts";
 
 /**
@@ -8,8 +9,8 @@ import { commands, configure, paletteStory } from "./usual.ts";
 export const emptyQueryOrder = paletteStory("palette/empty-query-order")
   .ensure(palette)
   .send(palette, configure(commands))
-  .send(palette, { _tag: "Typed", text: "pro" })
-  .send(palette, { _tag: "Typed", text: "" })
+  .send(palette, Palette.E.Typed({ text: "pro" }))
+  .send(palette, Palette.E.Typed({ text: "" }))
   .checkpoint("cleared");
 
 const keystrokes = ["s", "se", "set", "sett", "setti", "settin", "setting", "settings"];
@@ -20,7 +21,7 @@ const keystrokes = ["s", "se", "set", "sett", "setti", "settin", "setting", "set
  */
 export const typingUnderHeldStore = keystrokes
   .reduce(
-    (story, text) => story.send(palette, { _tag: "Typed", text }),
+    (story, text) => story.send(palette, Palette.E.Typed({ text })),
     paletteStory("palette/typing-under-held-store")
       .ensure(palette)
       .send(palette, configure(commands))

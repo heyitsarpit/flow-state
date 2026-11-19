@@ -4,7 +4,8 @@ import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { mainCart } from "../../fixtures/shop/app.ts";
-import { add, storeStory } from "../../fixtures/shop/stories/usual.ts";
+import { Cart } from "../../fixtures/shop/machines/cart.ts";
+import { storeStory } from "../../fixtures/shop/stories/usual.ts";
 import {
   borrowedRecords,
   borrowedRecordsReload,
@@ -328,7 +329,7 @@ describe("an actor record's context bindings (Restore R5; WriteAhead I3)", () =>
     const run = checked(
       await storeStory("restore/bound-to-local")
         .ensure(mainCart)
-        .send(mainCart, add("l1", "v1"))
+        .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
         .world(Fake.storage.put('actor/Shop/Cart/{"owner":"main"}', bound))
         .reload({ reattach: false })
         .ensure(mainCart)

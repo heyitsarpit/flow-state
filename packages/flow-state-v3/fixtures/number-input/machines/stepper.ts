@@ -16,7 +16,7 @@ const Started = Schema.NullOr(Schema.Struct({ from: Value }));
 
 const Commit = Schema.Struct({ seq: Schema.Number, value: Value });
 
-const Stepper = definition({
+export const Stepper = definition({
   id: "Number/Stepper",
   states: ["IDLE", "HOLD_DELAY", "HOLD_REPEAT", "HOLD_STOPPED", "WHEELING"],
   events: {

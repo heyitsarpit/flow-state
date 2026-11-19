@@ -1,8 +1,10 @@
 import { actorRef } from "../../../src/index.ts";
 import { guestShopper, mainBadge, mainCart, mainFlow, mainShopper } from "../app.ts";
-import { CartMachine } from "../machines/cart.ts";
+import { Cart, CartMachine } from "../machines/cart.ts";
+import { CheckoutFlow } from "../machines/checkout-flow.ts";
+import { Shopper } from "../machines/shopper.ts";
 import { Carts } from "../server/carts.ts";
-import { add, setQuantity, storeStory } from "./usual.ts";
+import { storeStory } from "./usual.ts";
 
 /**
  * Shopper, cart and badge, three layers; the add's answer is lost after it landed; the tab reloads
@@ -12,10 +14,10 @@ export const chain = storeStory("shop/chain")
   .ensure(mainShopper)
   .ensure(mainCart)
   .ensure(mainBadge)
-  .send(mainShopper, { _tag: "SignIn", name: "ada" })
+  .send(mainShopper, Shopper.E.SignIn({ name: "ada" }))
   .world(Carts.addLine.drop({ at: "response" }))
-  .send(mainCart, add("l1", "v1"))
-  .send(mainCart, setQuantity("l1", 2))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+  .send(mainCart, Cart.E.SetQuantity({ lineId: "l1", quantity: 2 }))
   .reload({ reattach: false })
   .ensure(mainBadge)
   .checkpoint("reloaded");
@@ -26,7 +28,7 @@ const everything = (id: string) =>
     .ensure(mainCart)
     .ensure(mainBadge)
     .ensure(mainFlow)
-    .send(mainCart, add("l1", "v1"));
+    .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }));
 
 /**
  * The checkout flow is disposed first, then the badge, the cart and the shopper; the Pay the flow
@@ -46,9 +48,9 @@ export const flowFirst = everything("shop/flow-first")
  */
 export const shopperForgotten = storeStory("shop/shopper-forgotten")
   .ensure(mainShopper)
-  .send(mainShopper, { _tag: "SignIn", name: "ada" })
+  .send(mainShopper, Shopper.E.SignIn({ name: "ada" }))
   .ensure(mainCart)
-  .send(mainCart, add("l1", "v1"))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
   .detach(mainCart)
   .advance("1 second")
   .dispose(mainShopper, { how: "forget" })
@@ -61,7 +63,7 @@ export const shopperForgotten = storeStory("shop/shopper-forgotten")
 export const reloadedMidAdd = storeStory("shop/reloaded-mid-add")
   .ensure(mainCart)
   .world(Carts.addLine.hold({ at: "response" }))
-  .send(mainCart, add("l1", "v1"))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
   .reload()
   .checkpoint("reloaded");
 
@@ -86,7 +88,7 @@ export const conflictingCart = () =>
 export const flowBoundLate = storeStory("shop/flow-bound-late")
   .ensure(mainShopper)
   .ensure(mainCart)
-  .send(mainCart, add("l1", "v1"))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
   .ensure(mainFlow)
-  .send(mainFlow, { _tag: "Begin" })
+  .send(mainFlow, CheckoutFlow.E.Begin())
   .checkpoint("begun");

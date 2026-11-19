@@ -1,8 +1,11 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 
 import { numberSetup, quantity } from "../app.ts";
+import { Stepper } from "../machines/stepper.ts";
 import { defaults } from "../machines/stepping.ts";
 import { numberFixtures } from "../server/layer.ts";
+
+const E = Stepper.E;
 
 /**
  * The number input app with no steps yet: every number input Story starts here.
@@ -22,28 +25,28 @@ export const bounded = { ...defaults, min: 0, max: 20, step: 1, wheel: true };
  */
 export const usual = numberStory("number-input/usual")
   .ensure(quantity)
-  .send(quantity, { _tag: "Configure", settings: bounded })
-  .send(quantity, { _tag: "Set", value: 5 })
-  .send(quantity, { _tag: "Press", direction: 1, size: "step" })
+  .send(quantity, E.Configure({ settings: bounded }))
+  .send(quantity, E.Set({ value: 5 }))
+  .send(quantity, E.Press({ direction: 1, size: "step" }))
   .advance("1 second")
   .checkpoint("held")
-  .send(quantity, { _tag: "Release" })
+  .send(quantity, E.Release())
   .checkpoint("released")
-  .send(quantity, { _tag: "Wheel", direction: -1 })
+  .send(quantity, E.Wheel({ direction: -1 }))
   .advance("100 millis")
-  .send(quantity, { _tag: "Wheel", direction: -1 })
+  .send(quantity, E.Wheel({ direction: -1 }))
   .advance("100 millis")
-  .send(quantity, { _tag: "Wheel", direction: -1 })
+  .send(quantity, E.Wheel({ direction: -1 }))
   .advance("299 millis")
   .checkpoint("wheeling")
   .advance("1 millis")
   .checkpoint("wheeled")
-  .send(quantity, { _tag: "Typed", text: "12" })
-  .send(quantity, { _tag: "Blur" })
+  .send(quantity, E.Typed({ text: "12" }))
+  .send(quantity, E.Blur())
   .checkpoint("typed")
-  .send(quantity, { _tag: "Set", value: 4 })
-  .send(quantity, { _tag: "Typed", text: "12" })
-  .send(quantity, { _tag: "Blur" })
+  .send(quantity, E.Set({ value: 4 }))
+  .send(quantity, E.Typed({ text: "12" }))
+  .send(quantity, E.Blur())
   .checkpoint("end");
 
 type NumberStory = ReturnType<typeof numberStory>;
@@ -51,20 +54,20 @@ type NumberStory = ReturnType<typeof numberStory>;
 const nextSeed = (seed: number) => (Math.imul(seed, 1_103_515_245) + 12_345) >>> 0;
 
 const gestures = [
-  (s: NumberStory) => s.send(quantity, { _tag: "Press", direction: 1, size: "step" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Press", direction: -1, size: "large" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Press", direction: 1, size: "small" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Release" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Cancel" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Wheel", direction: 1 }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Wheel", direction: -1 }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Typed", text: "19.5" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Typed", text: "250" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Blur" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Key", key: "End" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Key", key: "Home" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "StepBy", direction: 1, size: "step" }),
-  (s: NumberStory) => s.send(quantity, { _tag: "Set", value: 20 }),
+  (s: NumberStory) => s.send(quantity, E.Press({ direction: 1, size: "step" })),
+  (s: NumberStory) => s.send(quantity, E.Press({ direction: -1, size: "large" })),
+  (s: NumberStory) => s.send(quantity, E.Press({ direction: 1, size: "small" })),
+  (s: NumberStory) => s.send(quantity, E.Release()),
+  (s: NumberStory) => s.send(quantity, E.Cancel()),
+  (s: NumberStory) => s.send(quantity, E.Wheel({ direction: 1 })),
+  (s: NumberStory) => s.send(quantity, E.Wheel({ direction: -1 })),
+  (s: NumberStory) => s.send(quantity, E.Typed({ text: "19.5" })),
+  (s: NumberStory) => s.send(quantity, E.Typed({ text: "250" })),
+  (s: NumberStory) => s.send(quantity, E.Blur()),
+  (s: NumberStory) => s.send(quantity, E.Key({ key: "End" })),
+  (s: NumberStory) => s.send(quantity, E.Key({ key: "Home" })),
+  (s: NumberStory) => s.send(quantity, E.StepBy({ direction: 1, size: "step" })),
+  (s: NumberStory) => s.send(quantity, E.Set({ value: 20 })),
 ] as const;
 
 const burst = (story: NumberStory, seed: number) => {
@@ -73,7 +76,7 @@ const burst = (story: NumberStory, seed: number) => {
   const moved = gesture(story).advance(`${gap} millis`);
 
   return (seed >>> 4) % 33 === 0
-    ? moved.reload().send(quantity, { _tag: "Configure", settings: bounded })
+    ? moved.reload().send(quantity, E.Configure({ settings: bounded }))
     : moved;
 };
 
@@ -86,25 +89,25 @@ export const stress = Array.from({ length: 150 }, (_, n) => n)
   .reduce(({ story, seed }) => ({ story: burst(story, seed), seed: nextSeed(seed) }), {
     story: numberStory("number-input/stress")
       .ensure(quantity)
-      .send(quantity, { _tag: "Configure", settings: bounded }),
+      .send(quantity, E.Configure({ settings: bounded })),
     seed: 7,
   })
   .story.checkpoint("end");
 
-const configured = { _tag: "Configure", settings: bounded } as const;
-const setFive = { _tag: "Set", value: 5 } as const;
-const cleared = { _tag: "Set", value: null } as const;
-const stepUp = { _tag: "Press", direction: 1, size: "step" } as const;
-const largeDown = { _tag: "Press", direction: -1, size: "large" } as const;
-const smallUp = { _tag: "Press", direction: 1, size: "small" } as const;
-const released = { _tag: "Release" } as const;
-const cancelled = { _tag: "Cancel" } as const;
-const wheelUp = { _tag: "Wheel", direction: 1 } as const;
-const typedFraction = { _tag: "Typed", text: "19.5" } as const;
-const typedJunk = { _tag: "Typed", text: "abc" } as const;
-const blurred = { _tag: "Blur" } as const;
-const home = { _tag: "Key", key: "Home" } as const;
-const end = { _tag: "Key", key: "End" } as const;
+const configured = E.Configure({ settings: bounded });
+const setFive = E.Set({ value: 5 });
+const cleared = E.Set({ value: null });
+const stepUp = E.Press({ direction: 1, size: "step" });
+const largeDown = E.Press({ direction: -1, size: "large" });
+const smallUp = E.Press({ direction: 1, size: "small" });
+const released = E.Release();
+const cancelled = E.Cancel();
+const wheelUp = E.Wheel({ direction: 1 });
+const typedFraction = E.Typed({ text: "19.5" });
+const typedJunk = E.Typed({ text: "abc" });
+const blurred = E.Blur();
+const home = E.Key({ key: "Home" });
+const end = E.Key({ key: "End" });
 
 const sampleEvents = {
   configured,

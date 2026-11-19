@@ -1,7 +1,7 @@
 import { actorRef } from "../../../src/index.ts";
 import { type Command, command } from "../machines/commands.ts";
 import { palette } from "../app.ts";
-import { PaletteMachine } from "../machines/palette.ts";
+import { Palette, PaletteMachine } from "../machines/palette.ts";
 import { commands, configure, paletteStory } from "./usual.ts";
 
 /**
@@ -21,7 +21,7 @@ const levels = (depth: number) => Array.from({ length: depth }, (_, n) => `level
 const deep = (id: string, depth: number) =>
   levels(depth)
     .reduce(
-      (story, key) => story.send(palette, { _tag: "Run", key }),
+      (story, key) => story.send(palette, Palette.E.Run({ key })),
       paletteStory(id)
         .ensure(palette)
         .send(palette, configure([nested(0, depth)])),
@@ -33,7 +33,7 @@ const deep = (id: string, depth: number) =>
  */
 export const framesEight = levels(8)
   .reduce(
-    (story) => story.send(palette, { _tag: "Back" }),
+    (story) => story.send(palette, Palette.E.Back()),
     deep("palette/frames-8", 8).reload().checkpoint("reloaded"),
   )
   .checkpoint("top");
@@ -51,6 +51,6 @@ export const twoPalettes = paletteStory("palette/two-palettes")
   .ensure(secondPalette)
   .send(palette, configure(commands))
   .send(secondPalette, configure([command("light", "Light"), command("dark", "Dark")]))
-  .send(palette, { _tag: "Typed", text: "pro" })
-  .send(secondPalette, { _tag: "Typed", text: "li" })
+  .send(palette, Palette.E.Typed({ text: "pro" }))
+  .send(secondPalette, Palette.E.Typed({ text: "li" }))
   .checkpoint("typed");

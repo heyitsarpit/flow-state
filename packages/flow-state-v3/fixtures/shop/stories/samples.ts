@@ -1,7 +1,10 @@
 import { samplesOf } from "../../../src/host/testing/index.ts";
 import { mainBadge, mainCart, mainFlow, mainShopper } from "../app.ts";
 import { Carts } from "../server/carts.ts";
-import { add, setQuantity, storeStory } from "./usual.ts";
+import { Cart } from "../machines/cart.ts";
+import { CheckoutFlow } from "../machines/checkout-flow.ts";
+import { Shopper } from "../machines/shopper.ts";
+import { storeStory } from "./usual.ts";
 
 /**
  * What a shopper and the cart service can do in the shop around the checkout, for generated runs:
@@ -20,16 +23,16 @@ export const samples = samplesOf({
   controls: [],
   steps: (story) =>
     story
-      .send(mainShopper, { _tag: "SignIn", name: "ada" })
-      .send(mainShopper, { _tag: "SignOut" })
-      .send(mainCart, add("l1", "v1"))
-      .send(mainCart, add("l2", "v2"))
-      .send(mainCart, setQuantity("l1", 3))
-      .send(mainCart, setQuantity("l1", 0))
-      .send(mainCart, setQuantity("l2", -1))
-      .send(mainFlow, { _tag: "Begin" })
-      .send(mainFlow, { _tag: "AddressEntered", line1: "12 Canal St" })
-      .send(mainFlow, { _tag: "MethodChosen", method: "express" })
-      .send(mainFlow, { _tag: "SlotChosen", slot: "9-12" })
-      .send(mainFlow, { _tag: "Back" }),
+      .send(mainShopper, Shopper.E.SignIn({ name: "ada" }))
+      .send(mainShopper, Shopper.E.SignOut())
+      .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+      .send(mainCart, Cart.E.Add({ lineId: "l2", variantId: "v2" }))
+      .send(mainCart, Cart.E.SetQuantity({ lineId: "l1", quantity: 3 }))
+      .send(mainCart, Cart.E.SetQuantity({ lineId: "l1", quantity: 0 }))
+      .send(mainCart, Cart.E.SetQuantity({ lineId: "l2", quantity: -1 }))
+      .send(mainFlow, CheckoutFlow.E.Begin())
+      .send(mainFlow, CheckoutFlow.E.AddressEntered({ line1: "12 Canal St" }))
+      .send(mainFlow, CheckoutFlow.E.MethodChosen({ method: "express" }))
+      .send(mainFlow, CheckoutFlow.E.SlotChosen({ slot: "9-12" }))
+      .send(mainFlow, CheckoutFlow.E.Back()),
 });

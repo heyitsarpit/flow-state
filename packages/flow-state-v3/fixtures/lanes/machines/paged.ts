@@ -20,7 +20,7 @@ export const syncPage = transaction({
     ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
 });
 
-const Paged = definition({
+export const Paged = definition({
   id: "Lanes/paged",
   persist: true,
   states: ["READY"],

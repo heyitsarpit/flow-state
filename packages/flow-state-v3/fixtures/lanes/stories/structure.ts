@@ -2,13 +2,14 @@ import { Story } from "../../../src/host/testing/index.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { GitFake } from "../../services/git/server/layer.ts";
 import { lanesGrownSetup, secondSerialize, serializeClient } from "../app.ts";
+import { Serialize } from "../machines/clients.ts";
 
 /**
  * The grown lanes app over the Git port fake, with no steps yet.
  */
 export const grownStory = (id: string) => Story.app(lanesGrownSetup, { id, fixtures: [GitFake] });
 
-const commit = (repo: string) => ({ _tag: "Commit", repo }) as const;
+const commit = (repo: string) => Serialize.E.Commit({ repo });
 
 /**
  * Two `serialize` clients commit to the same repository; the first one's answer is lost.

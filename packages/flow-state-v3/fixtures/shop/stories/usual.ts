@@ -10,7 +10,11 @@ import {
   checkout,
   shopSetup,
 } from "../app.ts";
+import { Cart } from "../machines/cart.ts";
+import { CheckoutFlow } from "../machines/checkout-flow.ts";
+import { Shopper } from "../machines/shopper.ts";
 import { CartFake } from "../server/layer.ts";
+import { Pay } from "../../services/shop/machines/pay.ts";
 import { ShopFake, ShopFakeSessionCloseFails } from "../../services/shop/server/layer.ts";
 import { Shop } from "../../services/shop/server/shop.ts";
 
@@ -22,18 +26,6 @@ export const storeStory = (id: string) =>
   Story.app(storeSetup, { id, fixtures: [ShopFake, CartFake] });
 
 /**
- * Adds a line of a variant.
- */
-export const add = (lineId: string, variantId: string) =>
-  ({ _tag: "Add", lineId, variantId }) as const;
-
-/**
- * Sets a line's quantity.
- */
-export const setQuantity = (lineId: string, quantity: number) =>
-  ({ _tag: "SetQuantity", lineId, quantity }) as const;
-
-/**
  * Ada signs in, adds two lines and edits one; the cart reads her name and the badge the cart's
  * count, bumping on each change; she signs out.
  */
@@ -42,13 +34,13 @@ export const browse = storeStory("shop/browse")
   .ensure(mainCart)
   .ensure(mainBadge)
   .checkpoint("empty")
-  .send(mainShopper, { _tag: "SignIn", name: "ada" })
-  .send(mainCart, add("l1", "v1"))
+  .send(mainShopper, Shopper.E.SignIn({ name: "ada" }))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
   .checkpoint("added")
-  .send(mainCart, add("l2", "v2"))
-  .send(mainCart, setQuantity("l1", 3))
+  .send(mainCart, Cart.E.Add({ lineId: "l2", variantId: "v2" }))
+  .send(mainCart, Cart.E.SetQuantity({ lineId: "l1", quantity: 3 }))
   .checkpoint("edited")
-  .send(mainShopper, { _tag: "SignOut" })
+  .send(mainShopper, Shopper.E.SignOut())
   .checkpoint("signed out");
 
 /**
@@ -57,7 +49,7 @@ export const browse = storeStory("shop/browse")
 export const guestBrowse = storeStory("shop/guest-browse")
   .ensure(guestShopper)
   .ensure(guestCart)
-  .send(guestCart, add("g1", "v1"))
+  .send(guestCart, Cart.E.Add({ lineId: "g1", variantId: "v1" }))
   .checkpoint("added");
 
 /**
@@ -69,27 +61,27 @@ export const checkoutSteps = storeStory("shop/checkout-steps")
   .ensure(mainShopper)
   .ensure(mainCart)
   .ensure(mainFlow)
-  .send(mainFlow, { _tag: "Begin" })
+  .send(mainFlow, CheckoutFlow.E.Begin())
   .checkpoint("empty cart")
-  .send(mainCart, add("l1", "v1"))
-  .send(mainFlow, { _tag: "Begin" })
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+  .send(mainFlow, CheckoutFlow.E.Begin())
   .checkpoint("address")
-  .send(mainFlow, { _tag: "AddressEntered", line1: "12 Canal St" })
+  .send(mainFlow, CheckoutFlow.E.AddressEntered({ line1: "12 Canal St" }))
   .checkpoint("method")
-  .send(mainFlow, { _tag: "MethodChosen", method: "express" })
-  .send(mainFlow, { _tag: "SlotChosen", slot: "9-12" })
+  .send(mainFlow, CheckoutFlow.E.MethodChosen({ method: "express" }))
+  .send(mainFlow, CheckoutFlow.E.SlotChosen({ slot: "9-12" }))
   .checkpoint("pay")
-  .send(mainFlow, { _tag: "Back" })
+  .send(mainFlow, CheckoutFlow.E.Back())
   .checkpoint("back to slot")
-  .send(mainFlow, { _tag: "Back" })
+  .send(mainFlow, CheckoutFlow.E.Back())
   .checkpoint("back to method")
   .reload()
   .checkpoint("reloaded")
-  .send(mainFlow, { _tag: "Back" })
+  .send(mainFlow, CheckoutFlow.E.Back())
   .checkpoint("address again")
   .ensure(checkout)
-  .send(checkout, { _tag: "Start", cartId: "main", intentId: "pi-main" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, Pay.E.Start({ cartId: "main", intentId: "pi-main" }))
+  .send(checkout, Pay.E.PayRequested({ paymentMethodId: "visa" }))
   .checkpoint("paid");
 
 /**
@@ -97,9 +89,9 @@ export const checkoutSteps = storeStory("shop/checkout-steps")
  */
 export const shopStory = (id: string) => Story.app(shopSetup, { id, fixtures: [ShopFake] });
 
-const cart = (n: number) => ({ _tag: "Start", cartId: `c${n}`, intentId: `pi${n}` }) as const;
+const cart = (n: number) => Pay.E.Start({ cartId: `c${n}`, intentId: `pi${n}` });
 
-const visa = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
+const visa = Pay.E.PayRequested({ paymentMethodId: "visa" });
 
 /**
  * The key the checkout's owed rows are saved under, and a record there in a newer format, as a
@@ -129,7 +121,7 @@ export const unreadOwed = shopStory("shop/unread-owed")
  */
 export const lostConfirm = shopStory("shop/lost-confirm")
   .ensure(checkout)
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
+  .send(checkout, Pay.E.Start({ cartId: "c1", intentId: "pi1" }))
   .world(Shop.confirm.hold({ at: "response" }))
   .send(checkout, visa)
   .advance("59999 millis")
@@ -199,9 +191,9 @@ export const signOutMidCheckout = storeStory("shop/sign-out-mid-checkout")
   .ensure(mainCart)
   .ensure(mainBadge)
   .ensure(mainFlow)
-  .send(mainShopper, { _tag: "SignIn", name: "ada" })
-  .send(mainCart, add("l1", "v1"))
-  .send(mainFlow, { _tag: "Begin" })
+  .send(mainShopper, Shopper.E.SignIn({ name: "ada" }))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+  .send(mainFlow, CheckoutFlow.E.Begin())
   .checkpoint("checking out")
   .disposeRuntime()
   .checkpoint("signed out")
@@ -215,7 +207,7 @@ export const signOutMidCheckout = storeStory("shop/sign-out-mid-checkout")
  */
 export const busyRefused = shopStory("shop/busy-refused")
   .ensure(checkout)
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
+  .send(checkout, Pay.E.Start({ cartId: "c1", intentId: "pi1" }))
   .world(Shop.busy({ retryAfterMs: -1 }))
   .send(checkout, visa)
   .checkpoint("refused")
@@ -238,7 +230,7 @@ export const usual = shopStory("shop/usual")
   .world(Shop.confirm.release())
   .checkpoint("paid")
   .advance("2 seconds")
-  .send(checkout, { _tag: "Done" })
+  .send(checkout, Pay.E.Done())
   .send(checkout, cart(2))
   .world(Shop.decline({ code: "card_declined" }))
   .send(checkout, visa)
@@ -247,11 +239,11 @@ export const usual = shopStory("shop/usual")
   .send(checkout, visa)
   .advance("1500 millis")
   .checkpoint("retried")
-  .send(checkout, { _tag: "Done" })
+  .send(checkout, Pay.E.Done())
   .send(checkout, cart(3))
   .world(Shop.confirm.hold({ at: "response" }))
   .send(checkout, visa)
-  .send(checkout, { _tag: "Leave" })
+  .send(checkout, Pay.E.Leave())
   .world(Shop.confirm.release())
   .checkpoint("left")
   .detach(checkout)
@@ -262,14 +254,14 @@ export const usual = shopStory("shop/usual")
 type ShopStory = ReturnType<typeof shopStory>;
 
 const paid = (story: ShopStory) =>
-  story.send(checkout, visa).advance("1 second").send(checkout, { _tag: "Done" });
+  story.send(checkout, visa).advance("1 second").send(checkout, Pay.E.Done());
 
 const landedButLost = (story: ShopStory) =>
   story
     .world(Shop.confirm.drop({ at: "response" }))
     .send(checkout, visa)
     .advance("3 seconds")
-    .send(checkout, { _tag: "Done" });
+    .send(checkout, Pay.E.Done());
 
 const lostThenResent = (story: ShopStory) =>
   story
@@ -277,13 +269,13 @@ const lostThenResent = (story: ShopStory) =>
     .send(checkout, visa)
     .advance("3 seconds")
     .advance("1 second")
-    .send(checkout, { _tag: "Done" });
+    .send(checkout, Pay.E.Done());
 
 const declinedThenLeft = (story: ShopStory) =>
   story
     .world(Shop.decline({ code: "card_declined" }))
     .send(checkout, visa)
-    .send(checkout, { _tag: "Leave" })
+    .send(checkout, Pay.E.Leave())
     .detach(checkout)
     .advance("2 seconds")
     .ensure(checkout);
@@ -304,6 +296,10 @@ export const long = Array.from({ length: 14 }, (_, n) => n)
   .reduce(round, shopStory("shop/long").ensure(checkout))
   .checkpoint("end");
 
+const chosen = Pay.E.CardChosen({ paymentMethodId: "visa" });
+const startOne = Pay.E.Start({ cartId: "c1", intentId: "pi1" });
+const startTwo = Pay.E.Start({ cartId: "c2", intentId: "pi2" });
+
 /**
  * A stress run from seed 36, printed by the generator and pasted here: lost and refused answers
  * and writes, an offline span, disposals and reloads. The reload sweep and the bench run it as any
@@ -313,106 +309,106 @@ export const seededStress = Story.app(shopSetup, { id: "shop/stress-36", fixture
   .world(Shop.crash({ endpoint: "confirm" }))
   .ensure(checkout)
   .world(Fake.storage.hold())
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "Leave" })
+  .send(checkout, chosen)
+  .send(checkout, visa)
+  .send(checkout, chosen)
+  .send(checkout, startOne)
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, visa)
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, Pay.E.Leave())
   .reload({ reattach: false })
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "Done" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, visa)
+  .send(checkout, startTwo)
+  .send(checkout, visa)
+  .send(checkout, Pay.E.Done())
+  .send(checkout, visa)
   .world(Fake.storage.hold())
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, startOne)
   .world(Fake.network.offline())
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
+  .send(checkout, startTwo)
   .dispose(checkout, { how: "forget" })
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "Done" })
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, Pay.E.Done())
   .advance("20 millis")
   .disposeRuntime()
   .reload({ heldWrites: "land" })
   .advance("7 millis")
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, visa)
   .world(Fake.storage.refuse())
   .advance("20 millis")
-  .send(checkout, { _tag: "Done" })
+  .send(checkout, Pay.E.Done())
   .advance("3 millis")
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, visa)
   .advance("16 millis")
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "Done" })
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+  .send(checkout, visa)
+  .send(checkout, Pay.E.Done())
+  .send(checkout, startOne)
+  .send(checkout, chosen)
   .world(Fake.storage.refuse())
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+  .send(checkout, visa)
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, startTwo)
+  .send(checkout, chosen)
   .world(Fake.storage.hold())
   .advance("5 millis")
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
+  .send(checkout, startTwo)
   .advance("2 millis")
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, visa)
   .advance("17 millis")
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+  .send(checkout, startOne)
+  .send(checkout, visa)
+  .send(checkout, chosen)
   .advance("18 millis")
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+  .send(checkout, startTwo)
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, startTwo)
+  .send(checkout, startTwo)
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, chosen)
   .world(Fake.storage.refuseLoad())
   .reload({ reattach: false })
   .advance("4 millis")
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, visa)
   .advance("10 millis")
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-  .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-  .send(checkout, { _tag: "Leave" })
+  .send(checkout, chosen)
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, startTwo)
+  .send(checkout, startTwo)
+  .send(checkout, startOne)
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, startTwo)
+  .send(checkout, startOne)
+  .send(checkout, chosen)
+  .send(checkout, visa)
+  .send(checkout, startOne)
+  .send(checkout, Pay.E.Leave())
   .advance("20 millis")
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, startOne)
+  .send(checkout, visa)
   .advance("15 millis")
-  .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-  .send(checkout, { _tag: "Leave" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, startOne)
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, visa)
   .advance("8 millis")
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "Done" })
+  .send(checkout, visa)
+  .send(checkout, Pay.E.Done())
   .advance("7 millis")
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-  .send(checkout, { _tag: "CheckAgain" })
-  .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .send(checkout, visa)
+  .send(checkout, Pay.E.CheckAgain())
+  .send(checkout, visa)
   .advance("15 millis")
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
+  .send(checkout, startTwo)
   .advance("15 millis")
-  .send(checkout, { _tag: "Start", cartId: "c2", intentId: "pi2" })
+  .send(checkout, startTwo)
   .advance("56438 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
@@ -443,12 +439,12 @@ export const samples = samplesOf({
     story
       .send(checkout, cart(1))
       .send(checkout, cart(2))
-      .send(checkout, { _tag: "CardChosen", paymentMethodId: "visa" })
+      .send(checkout, chosen)
       .send(checkout, visa)
       .send(checkout, visa)
-      .send(checkout, { _tag: "Leave" })
-      .send(checkout, { _tag: "CheckAgain" })
-      .send(checkout, { _tag: "Done" }),
+      .send(checkout, Pay.E.Leave())
+      .send(checkout, Pay.E.CheckAgain())
+      .send(checkout, Pay.E.Done()),
 });
 
 /**

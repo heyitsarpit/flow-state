@@ -1,11 +1,12 @@
 import { Fake } from "../../../src/host/testing/index.ts";
 import { cellsCheckout } from "../app.ts";
 import { Shop } from "../../services/shop/server/shop.ts";
+import { Cells } from "../machines/cells.ts";
 import { cellsStory } from "./usual.ts";
 
-const start = { _tag: "Start", cartId: "c1", intentId: "pi1" } as const;
+const start = Cells.E.Start({ cartId: "c1", intentId: "pi1" });
 
-const visa = { _tag: "PayRequested", paymentMethodId: "visa" } as const;
+const visa = Cells.E.PayRequested({ paymentMethodId: "visa" });
 
 /**
  * A charge is on the wire, its answer held, when the Runtime is disposed; the disposal's bound

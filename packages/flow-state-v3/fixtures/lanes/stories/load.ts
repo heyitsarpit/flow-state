@@ -1,10 +1,10 @@
 import { actorRef } from "../../../src/index.ts";
 import { Git } from "../../services/git/server/git.ts";
-import { SerializeMachine } from "../machines/clients.ts";
+import { Serialize, SerializeMachine } from "../machines/clients.ts";
 import { serializeClient } from "../app.ts";
 import { lanesStory } from "./usual.ts";
 
-const commit = { _tag: "Commit", repo: "flow" } as const;
+const commit = Serialize.E.Commit({ repo: "flow" });
 
 /**
  * How many commits `serialize-deep` queues behind its head: well past any queue a real client

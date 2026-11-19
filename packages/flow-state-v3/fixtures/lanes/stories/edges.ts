@@ -1,5 +1,7 @@
 import { Git } from "../../services/git/server/git.ts";
 import { pagedClient, serializeClient } from "../app.ts";
+import { Paged } from "../machines/paged.ts";
+import { Serialize } from "../machines/clients.ts";
 import { grownStory } from "./structure.ts";
 
 /**
@@ -9,8 +11,8 @@ import { grownStory } from "./structure.ts";
 export const twoSpellings = grownStory("lanes/two-spellings")
   .ensure(serializeClient)
   .world(Git.sync.hold())
-  .send(serializeClient, { _tag: "Commit", repo: "café" })
-  .send(serializeClient, { _tag: "Commit", repo: "café" })
+  .send(serializeClient, Serialize.E.Commit({ repo: "café" }))
+  .send(serializeClient, Serialize.E.Commit({ repo: "café" }))
   .checkpoint("both")
   .world(Git.sync.release());
 
@@ -20,8 +22,8 @@ export const twoSpellings = grownStory("lanes/two-spellings")
 export const negativeZero = grownStory("lanes/negative-zero")
   .ensure(pagedClient)
   .world(Git.sync.hold())
-  .send(pagedClient, { _tag: "CommitPage", repo: "flow", page: 0 })
-  .send(pagedClient, { _tag: "CommitPage", repo: "flow", page: -0 })
+  .send(pagedClient, Paged.E.CommitPage({ repo: "flow", page: 0 }))
+  .send(pagedClient, Paged.E.CommitPage({ repo: "flow", page: -0 }))
   .checkpoint("both")
   .world(Git.sync.release())
   .checkpoint("drained");
