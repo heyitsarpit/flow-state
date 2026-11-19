@@ -18,6 +18,15 @@ import type { Persistence } from "./persist.ts";
 import { onWire } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
 
+// The timers a disposal disarms: schedules and graces start no more work; a storage silence still
+// fires, and the bound is the disposal's own.
+const DISARMED_AT_DISPOSAL = {
+  Schedule: true,
+  Grace: true,
+  Silent: false,
+  Bound: false,
+} as const satisfies Record<Timer["_tag"], boolean>;
+
 /**
  * Runtime disposal: admission closes, queued endings wait, nothing new is invoked, no lane
  * drops, and calls on the wire and the disposal's writes are waited for up to the bound.
@@ -74,7 +83,7 @@ export const makeDisposal = (
       }),
     );
     tx.replace("reads", new Map());
-    disarmWhere((t) => Timer.$is("Schedule")(t) || Timer.$is("Grace")(t));
+    disarmWhere((t) => DISARMED_AT_DISPOSAL[t._tag]);
 
     for (const incarnation of tx.world().incarnations.values()) saveActor(incarnation.actor);
     armTimer(Timer.Bound(), tx.env.now + Duration.toMillis(RuntimeDefaults.disposalBound));

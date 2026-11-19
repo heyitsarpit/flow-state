@@ -363,12 +363,34 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     tx.drop("displaced", key);
     saveLane(d.actor, d.lane);
 
-    if (Move.$is("Answer")(move)) {
-      for (const call of Option.toArray(move.interrupt)) tx.command(Command.Interrupt({ call }));
-      owedOrRecorded(d, { channel: move.channel, reason: move.reason, value: move.value });
-    } else if (Move.$is("EndUnsent")(move))
-      owedOrRecorded(d, { channel: "notSent", reason: move.why, value: { why: move.why } });
-    else defect(`a displaced head has no move ${move._tag} for ${cue._tag}`);
+    // A displaced head only stays, ends with its call's answer, or ends unsent.
+    const impossible = () => defect(`a displaced head has no move ${move._tag} for ${cue._tag}`);
+
+    Move.$match(move, {
+      Answer: (answer) => {
+        for (const call of Option.toArray(answer.interrupt))
+          tx.command(Command.Interrupt({ call }));
+        owedOrRecorded(d, { channel: answer.channel, reason: answer.reason, value: answer.value });
+      },
+      EndUnsent: ({ why }) =>
+        owedOrRecorded(d, { channel: "notSent", reason: why, value: { why } }),
+      Stay: impossible,
+      Mint: impossible,
+      Decline: impossible,
+      Queue: impossible,
+      Replace: impossible,
+      Displace: impossible,
+      Become: impossible,
+      Owe: impossible,
+      Withdraw: impossible,
+      Release: impossible,
+      Interrupt: impossible,
+      Flush: impossible,
+      Send: impossible,
+      Resend: impossible,
+      HoldRefused: impossible,
+      Impossible: impossible,
+    });
 
     return true;
   };
@@ -415,7 +437,16 @@ export const onWireAs = (lane: Lane, call: string) =>
  * Whether a lane's head is on the wire.
  */
 export const onWire = (lane: Lane) =>
-  Phase.$is("OnWire")(lane.head.phase) || Phase.$is("Cancelling")(lane.head.phase);
+  Phase.$match(lane.head.phase, {
+    Acknowledging: () => false,
+    Unsent: () => false,
+    Withdrawing: () => false,
+    Recapturing: () => false,
+    Resending: () => false,
+    OnWire: () => true,
+    Cancelling: () => true,
+    Held: () => false,
+  });
 
 /**
  * Whether a lane's head awaits a store ticket's answer.

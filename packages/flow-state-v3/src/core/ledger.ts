@@ -123,6 +123,16 @@ const SAVED_DELIVERY = {
   Kept: true,
 } as const satisfies Record<Delivery["_tag"], boolean>;
 
+/**
+ * Whether a row's try is in its identity's mailbox: Queued and Retrying rows.
+ */
+export const IN_MAILBOX = {
+  Queued: true,
+  Retrying: true,
+  Waiting: false,
+  Kept: false,
+} as const satisfies Record<Delivery["_tag"], boolean>;
+
 const SAVED_ORIGIN = {
   Decided: false,
   HeldAtStart: true,
@@ -271,21 +281,34 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
 
     const row = found.value;
 
-    if (!Delivery.$is("Queued")(row.delivery) && !Delivery.$is("Retrying")(row.delivery)) return;
+    if (!IN_MAILBOX[row.delivery._tag]) return;
 
     const heard = hear(row);
     const now = find(actor, id);
 
     if (Option.isNone(now)) return;
 
-    if (heard === "Unmapped") close(now.value, Closed.Recorded({ why: "evidence" }));
-    else if (heard === "Heard") close(now.value, Closed.Delivered());
-    else if (Delivery.$is("Queued")(now.value.delivery)) queue(now.value, Delivery.Retrying());
-    else if (Delivery.$is("Retrying")(now.value.delivery)) {
-      replace(now.value, Option.some({ ...now.value, delivery: Delivery.Kept() }));
-      saved(now.value, Delivery.Kept());
-    }
+    afterTry[heard](now.value);
   };
+
+  // A refused try: a Queued row queues once more, Retrying; a Retrying one is Kept. A row out of
+  // the mailbox was moved by the turn itself and stays as it is.
+  const refused = (row: Owed) =>
+    Delivery.$match(row.delivery, {
+      Queued: () => queue(row, Delivery.Retrying()),
+      Retrying: () => {
+        replace(row, Option.some({ ...row, delivery: Delivery.Kept() }));
+        saved(row, Delivery.Kept());
+      },
+      Waiting: () => undefined,
+      Kept: () => undefined,
+    });
+
+  const afterTry = {
+    Unmapped: (row) => close(row, Closed.Recorded({ why: "evidence" })),
+    Heard: (row) => close(row, Closed.Delivered()),
+    Refused: refused,
+  } as const satisfies Record<Heard, (row: Owed) => void>;
 
   /**
    * An identity can no longer hear: its Queued and Retrying rows wait, lane or not, and rows owed
@@ -294,11 +317,11 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const forgotten = (row: Owed) =>
     close(row, Closed.Recorded({ why: Delivery.$is("Kept")(row.delivery) ? "letGo" : "evidence" }));
 
-  const suspended = (row: Owed) => {
-    if (Audience.$is("Life")(row.to)) close(row, Closed.Recorded({ why: "evidence" }));
-    else if (Delivery.$is("Queued")(row.delivery) || Delivery.$is("Retrying")(row.delivery))
-      wait(row);
-  };
+  const suspended = (row: Owed) =>
+    Audience.$match(row.to, {
+      Life: () => close(row, Closed.Recorded({ why: "evidence" })),
+      Identity: () => (IN_MAILBOX[row.delivery._tag] ? wait(row) : undefined),
+    });
 
   const suspend = (actor: ActorId, forget: boolean) => {
     for (const row of rowsOf(tx.world().owed, actor)) (forget ? forgotten : suspended)(row);
@@ -320,15 +343,21 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
     for (const [id, lane] of lanes)
       persistence.setLane(id, { ...lane, head: { ...lane.head, owner: OwnedBy.Root() } });
 
+    // A row already in the mailbox keeps its try.
     for (const row of rowsOf(tx.world().owed, actor))
-      if (Delivery.$is("Waiting")(row.delivery)) {
-        tx.act(Act.RowQueued({ row }));
-        adopt(row, Delivery.Queued());
-        saved(row, row.delivery);
-      } else if (Delivery.$is("Kept")(row.delivery)) {
-        adopt(row, Delivery.Retrying());
-        saved(row, row.delivery);
-      }
+      Delivery.$match(row.delivery, {
+        Waiting: () => {
+          tx.act(Act.RowQueued({ row }));
+          adopt(row, Delivery.Queued());
+          saved(row, row.delivery);
+        },
+        Kept: () => {
+          adopt(row, Delivery.Retrying());
+          saved(row, row.delivery);
+        },
+        Queued: () => undefined,
+        Retrying: () => undefined,
+      });
 
     for (const [id, lane] of lanes)
       if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))

@@ -104,12 +104,21 @@ const REPLACED = {
   Held: Option.some<LaneFact>("Released"),
 } as const satisfies Record<Phase["_tag"], Option.Option<LaneFact>>;
 
-const COMMITS: ReadonlyArray<Cue["_tag"]> = [
-  "CommitReject",
-  "CommitLatest",
-  "CommitSerialize",
-  "CommitCancel",
-];
+// The cues that are a commit, under each concurrency policy.
+const COMMITS = {
+  CommitReject: true,
+  CommitLatest: true,
+  CommitSerialize: true,
+  CommitCancel: true,
+  Retry: false,
+  Cancel: false,
+  TurnEnded: false,
+  Stored: false,
+  Refused: false,
+  Answered: false,
+  DisposalStarts: false,
+  BoundPassed: false,
+} as const satisfies Record<Cue["_tag"], boolean>;
 
 const queuedOf = (state: LaneState) =>
   LaneState.$match(state, { Idle: () => 0, Head: ({ queued }) => queued });
@@ -194,7 +203,7 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
           : [Evidence.Minted({ operation, attempt: h.id, actor, key })],
       );
 
-      const commit = COMMITS.includes(cue._tag);
+      const commit = COMMITS[cue._tag];
 
       const ended =
         commit && replaced

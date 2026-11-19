@@ -273,11 +273,19 @@ export const byCodeUnits = (a: string, b: string) => Number(a > b) - Number(a < 
  * Whether a head's Attempt was sent before: it was re-sent, or it is Held, Recapturing or
  * Resending. Derived, never stored.
  */
-export const sentBefore = (head: Head) =>
-  head.retryCount > 0 ||
-  Phase.$is("Held")(head.phase) ||
-  Phase.$is("Recapturing")(head.phase) ||
-  Phase.$is("Resending")(head.phase);
+export const sentBefore = (head: Head) => head.retryCount > 0 || SENT_BEFORE[head.phase._tag];
+
+// The phases only an Attempt sent before reaches.
+const SENT_BEFORE = {
+  Acknowledging: false,
+  Unsent: false,
+  Withdrawing: false,
+  Recapturing: true,
+  Resending: true,
+  OnWire: false,
+  Cancelling: false,
+  Held: true,
+} as const satisfies Record<Phase["_tag"], boolean>;
 
 /**
  * A commit waiting behind a lane's head: its input and owning activation. It has no Attempt until

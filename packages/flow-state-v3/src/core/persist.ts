@@ -1,6 +1,6 @@
 import { Duration, Option, Result } from "effect";
 import { Act } from "./evidence-of.ts";
-import { Audience, Delivery, type Owed, rowsOf } from "./ledger.ts";
+import { Audience, Delivery, IN_MAILBOX, type Owed, rowsOf } from "./ledger.ts";
 import { encodeActor } from "./actor-record.ts";
 import { actorRecordKey, encodeLane, encodeOwed, laneRecordKey, owedRecordKey } from "./record.ts";
 import { RuntimeDefaults } from "./defaults.ts";
@@ -28,9 +28,7 @@ const toIdentity = (row: Owed) => Audience.$is("Identity")(row.to);
 
 // A row whose try is still in the mailbox: a step that ends with one (a drain stopped at its cap)
 // marks the owed record, which no move into or out of a saved delivery did.
-const inMailbox = (row: Owed) =>
-  toIdentity(row) &&
-  (Delivery.$is("Queued")(row.delivery) || Delivery.$is("Retrying")(row.delivery));
+const inMailbox = (row: Owed) => toIdentity(row) && IN_MAILBOX[row.delivery._tag];
 
 // Each live incarnation's last record text with the graph it was encoded with: an incarnation is
 // immutable, so the same one under the same bindings encodes the same text.

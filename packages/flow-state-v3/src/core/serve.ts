@@ -118,22 +118,23 @@ export const makeServe = (
     operation: Operation,
     ending: Pick<Owed, "channel" | "reason">,
   ): Option.Option<Mapping> => {
-    if (ending.channel === "success") return Option.some(operation.success);
+    // The channel picks the mapper: a NotSent never reaches a failure tag of the same name.
+    const byChannel = {
+      success: () => Option.some(operation.success),
+      notSent: () =>
+        Operation.$match(operation, {
+          Write: (w) => w.notSent,
+          Read: () => Option.none<Mapping>(),
+        }),
+      failure: () => Option.fromUndefinedOr(operation.failure.get(ending.reason)),
+      unknown: () =>
+        Operation.$match(operation, {
+          Write: (w) => Option.some(w.unknown),
+          Read: () => Option.none<Mapping>(),
+        }),
+    } as const satisfies Record<Owed["channel"], () => Option.Option<Mapping>>;
 
-    // The origin picks the mapper: a NotSent never reaches a failure tag of the same name.
-    if (ending.channel === "notSent")
-      return Operation.$match(operation, {
-        Write: (w) => w.notSent,
-        Read: () => Option.none(),
-      });
-
-    if (ending.channel === "failure")
-      return Option.fromUndefinedOr(operation.failure.get(ending.reason));
-
-    return Operation.$match(operation, {
-      Write: (w) => Option.some(w.unknown),
-      Read: () => Option.none(),
-    });
+    return byChannel[ending.channel]();
   };
 
   // A refusal raises its source's issue, replacing that source's earlier one. Issues are not part
