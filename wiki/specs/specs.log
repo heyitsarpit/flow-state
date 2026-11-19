@@ -416,7 +416,8 @@ note 2026-11-19T05:10:19Z
 
 note 2026-11-19T05:45:55Z
     @spec.Actors R24: IdentityExhausted dropped, unreachable (per-open counters, seeded ids; @plan.Runtime.C2 still
-    names it, proposed for @plan.Pending). The Life table gains Run and Closed (T99 build); R23's race limit was later removed.
+    names it, proposed for @plan.Pending). The Life table gains Run and Closed (T99 build); R23's race limit was
+    later removed.
     Reverse: restore R24's last sentence and drop the two rows.
 
 note 2026-11-19T06:06:40Z
