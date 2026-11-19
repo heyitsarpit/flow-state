@@ -314,6 +314,11 @@ export const ownersOnlyRule = defineRule({
         if (member === undefined) return report(node, `${held.module}[…]`);
         if (isBanned(held.module, member)) report(node, `${held.module}.${member}`);
       },
+      // `const { cause } = exit`: a Cause taken out by a pattern is read by value too.
+      ObjectPattern(node: ESTree.ObjectPattern) {
+        for (const property of node.properties)
+          if (patternKey(property) === "cause") report(property, ".cause");
+      },
       VariableDeclarator(node: ESTree.VariableDeclarator) {
         const held = node.init === null ? undefined : heldBy(node.init);
 

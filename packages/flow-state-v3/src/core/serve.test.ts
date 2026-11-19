@@ -218,8 +218,8 @@ describe("a second wave reaching a context update that waits (Actors R13, I20)",
     ]);
   });
 
-  // A chain id was once one past the count of chains, so after a partial clear the next admitted
-  // event's chain took a live chain's id and reset its count to zero.
+  // A chain id one past the count of chains would, after a partial clear, give the next admitted
+  // event's chain a live chain's id and reset its count to zero.
   it("Actors R13: a partial clear of chains keeps every live chain's count, so the waiting update's send is still refused at the loop guard", () => {
     const machines = new Map([
       [lead.machine, { ...LeadMachine.compiled, wiring: new Map() }],

@@ -393,7 +393,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "    for (const queued of lane.queue) owners.add(queued.owner);",
+        find: "    for (const queued of lane.queue) add(queued.owner);",
         replace: "",
       },
     ],

@@ -14,6 +14,7 @@ import { restoreFaults } from "./restore-faults.ts";
 import { ruleFaults } from "./rule-faults.ts";
 import { stepFaults } from "./step-faults.ts";
 import { writeAheadFaults } from "./write-ahead-faults.ts";
+import { typedCoreFaults } from "./typed-core-faults.ts";
 
 /**
  * A planted fault: a named wrong behaviour of the runtime, the test files that catch it, the Spec
@@ -305,6 +306,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...lifeFaults,
   ...runtimeLifeFaults,
   ...writeAheadFaults,
+  ...typedCoreFaults,
   ...restoreFaults,
   ...ruleFaults,
   ...structureFaults,
@@ -323,9 +325,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/ledger.ts",
-        find: '        else if (heard === "Heard") close(now.value, Closed.Delivered());',
-        replace:
-          '        else if (heard === "Heard" && Delivery.$is("Queued")(now.value.delivery))\n          queue(now.value, Delivery.Retrying());\n        else if (heard === "Heard") close(now.value, Closed.Delivered());',
+        find: "    Heard: (row) => close(row, Closed.Delivered()),",
+        replace: "    Heard: refused,",
       },
     ],
   },

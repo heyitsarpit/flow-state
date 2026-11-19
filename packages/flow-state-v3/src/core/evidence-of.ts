@@ -1,5 +1,5 @@
 import { Data, Option } from "effect";
-import { type Cue, LaneState } from "./cells.ts";
+import { Cue, LaneState } from "./cells.ts";
 import type { Values } from "./compiled.ts";
 import {
   type Channel,
@@ -12,7 +12,7 @@ import {
   type SendDrop,
 } from "./evidence.ts";
 import type { IssueCode } from "./vocabulary.ts";
-import { type ActorId, Command, type Phase } from "./world.ts";
+import { type ActorId, Command, Phase } from "./world.ts";
 
 // An owed row as its reports name it.
 type RowRef = { readonly operation: string; readonly attempt: Option.Option<string> };
@@ -218,7 +218,7 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
 
       // Queued commits a commit dropped, with no Attempt: latest keeps only the newest.
       const droppedCount =
-        commit && (replaced || cue._tag === "CommitLatest") ? queuedOf(before) : 0;
+        commit && (replaced || Cue.$is("CommitLatest")(cue)) ? queuedOf(before) : 0;
 
       const dropped = Array.from({ length: droppedCount }, () =>
         Evidence.Lane({ kind: "Superseded", operation, attempt: Option.none() }),
@@ -228,30 +228,36 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
         Command.$is("Invoke")(c) ? [Evidence.Sent({ operation, attempt: c.attempt.id })] : [],
       );
 
-      const retried =
-        cue._tag === "Retry"
-          ? Option.match(was, {
-              onNone: () => [
-                Evidence.Lane({ kind: "NothingToResend", operation, attempt: Option.none() }),
-              ],
-              onSome: (h) =>
-                h.phase._tag === "Held"
-                  ? []
-                  : [Evidence.Lane({ kind: "InFlight", operation, attempt })],
-            })
-          : [];
+      // What a retry, a cancel or a refused write tells beyond the lane's move.
+      const none = () => [];
 
-      const released =
-        cue._tag === "Cancel" &&
-        Option.exists(was, (h) => Option.contains(REPLACED[h.phase._tag], "Released"))
-          ? [Evidence.Lane({ kind: "Released", operation, attempt })]
-          : [];
+      const told = Cue.$match(cue, {
+        Retry: () =>
+          Option.match(was, {
+            onNone: () => [
+              Evidence.Lane({ kind: "NothingToResend", operation, attempt: Option.none() }),
+            ],
+            onSome: (h) =>
+              Phase.$is("Held")(h.phase)
+                ? []
+                : [Evidence.Lane({ kind: "InFlight", operation, attempt })],
+          }),
+        Cancel: () =>
+          Option.exists(was, (h) => Option.contains(REPLACED[h.phase._tag], "Released"))
+            ? [Evidence.Lane({ kind: "Released", operation, attempt })]
+            : [],
+        Refused: () => [Evidence.Lane({ kind: "StorageFailure", operation, attempt })],
+        CommitReject: none,
+        CommitLatest: none,
+        CommitSerialize: none,
+        CommitCancel: none,
+        TurnEnded: none,
+        Stored: none,
+        Answered: none,
+        DisposalStarts: none,
+        BoundPassed: none,
+      });
 
-      const refused =
-        cue._tag === "Refused"
-          ? [Evidence.Lane({ kind: "StorageFailure", operation, attempt })]
-          : [];
-
-      return [...ended, ...dropped, ...minted, ...retried, ...released, ...refused, ...sent];
+      return [...ended, ...dropped, ...minted, ...told, ...sent];
     },
   });

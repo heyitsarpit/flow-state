@@ -20,55 +20,48 @@ import {
   withIssue,
   withoutIssue,
 } from "./world.ts";
+import type { LaneSteps } from "./lanes.ts";
+import type { IncarnationSteps } from "./incarnations.ts";
 
 /**
  * What a turn answers: a public or internal event, a schedule's firing, or an owed ending's mapped
  * event, with the activation it is late for when that activation has been left. Only an ending's
  * turn acts on its own lane.
  */
-export type Cause = Data.TaggedEnum<{
+export type Trigger = Data.TaggedEnum<{
   Event: { tag: string };
   Firing: { schedule: string };
   Ending: { row: Owed; late: Option.Option<ActivationId> };
 }>;
 
 /**
- * Constructors and matchers for {@link Cause}.
+ * Constructors and matchers for {@link Trigger}.
  */
-export const Cause = Data.taggedEnum<Cause>();
+export const Trigger = Data.taggedEnum<Trigger>();
 
-// The source whose issue a turn raises or clears.
-const sourceOf = (cause: Cause) =>
-  Cause.$match(cause, {
-    Event: ({ tag }) => IssueSource.Event({ tag }),
-    Firing: ({ schedule }) => IssueSource.Schedule({ name: schedule }),
-    Ending: ({ row }) => IssueSource.Operation({ name: row.operation }),
+// What a turn's trigger decides: the activation it is late for, the lane it acts on as owner, the
+// row it hears, and the source whose issue it raises or clears.
+const routeOf = (trigger: Trigger) =>
+  Trigger.$match(trigger, {
+    Event: ({ tag }) => ({
+      late: Option.none<ActivationId>(),
+      own: Option.none<string>(),
+      ending: Option.none<Owed>(),
+      source: IssueSource.Event({ tag }),
+    }),
+    Firing: ({ schedule }) => ({
+      late: Option.none<ActivationId>(),
+      own: Option.none<string>(),
+      ending: Option.none<Owed>(),
+      source: IssueSource.Schedule({ name: schedule }),
+    }),
+    Ending: ({ row, late }) => ({
+      late,
+      own: row.lane,
+      ending: Option.some(row),
+      source: IssueSource.Operation({ name: row.operation }),
+    }),
   });
-
-// The lane a turn acts on as its owner: an ending's own lane, none otherwise.
-const ownLaneOf = (cause: Cause) =>
-  Cause.$match(cause, {
-    Event: () => Option.none<string>(),
-    Firing: () => Option.none<string>(),
-    Ending: ({ row }) => row.lane,
-  });
-
-const endingOf = (cause: Cause) =>
-  Cause.$match(cause, {
-    Event: () => Option.none<Owed>(),
-    Firing: () => Option.none<Owed>(),
-    Ending: ({ row }) => Option.some(row),
-  });
-
-const lateOf = (cause: Cause) =>
-  Cause.$match(cause, {
-    Event: () => Option.none<ActivationId>(),
-    Firing: () => Option.none<ActivationId>(),
-    Ending: ({ late }) => late,
-  });
-
-import type { LaneSteps } from "./lanes.ts";
-import type { IncarnationSteps } from "./incarnations.ts";
 
 const HEARD: Heard = "Heard";
 
@@ -168,17 +161,12 @@ export const makeServe = (
     return Result.succeed(id);
   };
 
-  const turn = (incarnation: Incarnation, tag: string, payload: Values, cause: Cause) => {
+  const turn = (incarnation: Incarnation, tag: string, payload: Values, trigger: Trigger) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
     if (compiled === undefined) return HEARD;
 
-    const route = {
-      late: lateOf(cause),
-      own: ownLaneOf(cause),
-      ending: endingOf(cause),
-      source: sourceOf(cause),
-    };
+    const route = routeOf(trigger);
 
     const owning = pendingOwners(tx.lanesOf(incarnation.actor).map(([, lane]) => lane));
 
@@ -380,7 +368,7 @@ export const makeServe = (
         }),
     });
 
-    const cause = Cause.Ending({ row: ending, late });
+    const trigger = Trigger.Ending({ row: ending, late });
 
     if (Result.isFailure(payload)) {
       publish(
@@ -388,7 +376,11 @@ export const makeServe = (
           incarnation,
           tx.refuse(
             incarnation.actor,
-            { source: sourceOf(cause), code: "InvalidTurn", slot: Option.some(payload.failure) },
+            {
+              source: routeOf(trigger).source,
+              code: "InvalidTurn",
+              slot: Option.some(payload.failure),
+            },
             Option.some(ending),
           ),
         ),
@@ -397,7 +389,7 @@ export const makeServe = (
       return REFUSED;
     }
 
-    return turn(incarnation, mapping.value.event, payload.success, cause);
+    return turn(incarnation, mapping.value.event, payload.success, trigger);
   };
 
   const serve = (mail: Mail) =>
@@ -405,7 +397,7 @@ export const makeServe = (
       Event: ({ actor, tag, payload }) => {
         const incarnation = incarnationOf(actor);
 
-        if (incarnation !== undefined) turn(incarnation, tag, payload, Cause.Event({ tag }));
+        if (incarnation !== undefined) turn(incarnation, tag, payload, Trigger.Event({ tag }));
       },
       Firing: ({ actor, incarnation: id, schedule, arming }) => {
         const incarnation = incarnationOf(actor);
@@ -423,7 +415,7 @@ export const makeServe = (
         schedules.delete(schedule);
         const left = { ...incarnation, schedules };
         setIncarnation(left);
-        turn(left, armed.send, {}, Cause.Firing({ schedule }));
+        turn(left, armed.send, {}, Trigger.Firing({ schedule }));
       },
       Context: ({ actor }) => incarnations.context.update(actor),
       Ending: ({ actor, id }) => {

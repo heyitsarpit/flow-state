@@ -9,7 +9,6 @@ import {
   Format,
   FormatJson,
   readFailed,
-  type ReadFailure,
   textOf,
 } from "./record-format.ts";
 import {
@@ -20,7 +19,7 @@ import {
   selectedOf,
   type Source,
 } from "./slots.ts";
-import { ScheduleDeadline } from "./vocabulary.ts";
+import { type ReadFailure, ScheduleDeadline } from "./vocabulary.ts";
 import type { ActorId, ActorRecord, Wiring } from "./world.ts";
 
 const WiredJson = Schema.Record(Schema.String, ActorJson);

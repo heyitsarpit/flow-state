@@ -1,4 +1,3 @@
-/* oxlint-disable flow-state/no-id-text -- the boot's key checks: a record's key is read here, and only here, until one key parser owns record keys */
 import { Option, Predicate, Result, Schema } from "effect";
 import { decodeCanonical, parseCanonical, toCanonicalJson, writeJson } from "./codec.ts";
 import { decodeActor } from "./actor-record.ts";
@@ -11,11 +10,10 @@ import {
   Format,
   FormatJson,
   readFailed,
-  type ReadFailure,
   reasonOf,
   textOf,
 } from "./record-format.ts";
-import { Channel } from "./vocabulary.ts";
+import { Channel, type ReadFailure } from "./vocabulary.ts";
 import { keyTextOf } from "./lane-moves.ts";
 import { type Owed, Route } from "./ledger.ts";
 import {
@@ -184,6 +182,9 @@ const unreadable = (code: ReadFailure) => Quarantine.Unreadable({ code, detail: 
 
 const failed = (code: ReadFailure) => Result.fail(code);
 
+// A read failure as the quarantine it puts the record in.
+const read = <A>(result: Result.Result<A, ReadFailure>) => Result.mapError(result, unreadable);
+
 /**
  * A saved Waiting or Kept row as a boot reads it back: owed to its identity, delivered current
  * from the active leaf.
@@ -240,6 +241,7 @@ export const decodeRecords = (
 
     return Option.match(lane, {
       onNone: () => true,
+      // oxlint-disable-next-line flow-state/no-id-text -- a saved row's lane key check: record keys are read only in this module
       onSome: (id) => id.startsWith(`${actorKey(actor)}|${operation}|`),
     })
       ? Result.succeed(operation)
@@ -282,49 +284,55 @@ export const decodeRecords = (
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const laneRecord = (id: string, value: unknown) =>
     Result.gen(function* () {
-      const r = yield* decodeBy(LaneRecordJson, "schema")(value);
-      const compiled = yield* machineOf(r);
+      const r = yield* read(decodeBy(LaneRecordJson, "schema")(value));
+      const compiled = yield* read(machineOf(r));
       const actor = actorOf(r);
       const own = `${actorKey(actor)}|${r.operation}|`;
 
-      if (!id.startsWith(own)) return yield* failed("key");
+      // oxlint-disable-next-line flow-state/no-id-text -- the boot's lane key check: record keys are read only in this module
+      if (!id.startsWith(own)) return yield* read(failed("key"));
 
       const operation = yield* Result.fromNullishOr(compiled.operations.get(r.operation), () =>
         Quarantine.Retired({ actor, operation: r.operation, lane: id }),
       );
 
-      yield* keyNamesItself(operation, id.slice(own.length));
+      // oxlint-disable-next-line flow-state/no-id-text -- the boot's lane key check: record keys are read only in this module
+      yield* read(keyNamesItself(operation, id.slice(own.length)));
 
-      const lane = yield* Option.match(Option.fromNullOr(r.attempt), {
-        onNone: () => Result.succeed(Option.none<Lane>()),
-        onSome: (attempt) =>
-          Result.flatMap(
-            Result.mapError(operation.walk.input.decode(r.input), readFailed("input")),
-            (input) =>
-              Result.map(
-                Result.flatMap(
-                  Result.fromNullishOr(
-                    Option.getOrUndefined(keyTextOf(operation, input)),
-                    readFailed("key"),
+      const lane = yield* read(
+        Option.match(Option.fromNullOr(r.attempt), {
+          onNone: () => Result.succeed(Option.none<Lane>()),
+          onSome: (attempt) =>
+            Result.flatMap(
+              Result.mapError(operation.walk.input.decode(r.input), readFailed("input")),
+              (input) =>
+                Result.map(
+                  Result.flatMap(
+                    Result.fromNullishOr(
+                      Option.getOrUndefined(keyTextOf(operation, input)),
+                      readFailed("key"),
+                    ),
+                    (text) =>
+                      // oxlint-disable-next-line flow-state/no-id-text -- the boot's lane key check: record keys are read only in this module
+                      id === `${own}${text}` ? Result.succeed(text) : failed("key"),
                   ),
-                  (text) => (id === `${own}${text}` ? Result.succeed(text) : failed("key")),
+                  () =>
+                    Option.some<Lane>({
+                      actor,
+                      operation: r.operation,
+                      head: {
+                        id: attempt,
+                        input,
+                        retryCount: r.retryCount,
+                        owner: OwnedBy.Root(),
+                        phase: Phase.Held(),
+                      },
+                      queue: [],
+                    }),
                 ),
-                () =>
-                  Option.some<Lane>({
-                    actor,
-                    operation: r.operation,
-                    head: {
-                      id: attempt,
-                      input,
-                      retryCount: r.retryCount,
-                      owner: OwnedBy.Root(),
-                      phase: Phase.Held(),
-                    },
-                    queue: [],
-                  }),
-              ),
-          ),
-      });
+            ),
+        }),
+      );
 
       const ended = { kept: false, actor, operation: r.operation, route: Route.Current() };
 
@@ -378,6 +386,7 @@ export const decodeRecords = (
       yield* decodeName(yield* machineOf(named), named.name);
       const own = `${kind}${actorKey(actorOf(named))}`;
 
+      // oxlint-disable-next-line flow-state/no-id-text -- a record's key names its identity: record keys are read only in this module
       const keyed = kind === "lane/" ? key.startsWith(`${own}|`) : key === own;
 
       return yield* keyed ? Result.succeed(named) : failed("key");
@@ -392,6 +401,7 @@ export const decodeRecords = (
   const quarantined: Array<Quarantined> = [];
 
   for (const [key, text] of entries) {
+    // oxlint-disable-next-line flow-state/no-id-text -- a record's kind is its key's prefix: record keys are read only in this module
     const kind = KINDS.find((k) => key.startsWith(k));
 
     const read = Result.flatMap(
@@ -422,10 +432,8 @@ export const decodeRecords = (
         );
 
       if (kind === "lane/")
-        return Result.mapError(
-          Result.map(laneRecord(key.slice(kind.length), json), (l) => void lanes.push(l)),
-          (f) => (Predicate.isString(f) ? unreadable(f) : f),
-        );
+        // oxlint-disable-next-line flow-state/no-id-text -- a lane's id is its key after `lane/`: record keys are read only in this module
+        return Result.map(laneRecord(key.slice(kind.length), json), (l) => void lanes.push(l));
 
       return Result.mapError(
         Result.map(rowsRecord(json), (r) => void rows.push(...r)),

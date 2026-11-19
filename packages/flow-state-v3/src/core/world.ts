@@ -2,9 +2,8 @@ import { type Brand, Data, Equal, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
-import type { IssueCode, ScheduleDeadline } from "./vocabulary.ts";
+import type { IssueCode, ReadFailure, ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
-import type { ReadFailure } from "./record-format.ts";
 import type { Baseline, Frame, Selected } from "./slots.ts";
 
 /**

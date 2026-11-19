@@ -312,8 +312,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/ledger.ts",
-        find: '          channel: "unknown",\n          reason: "Restored",',
-        replace: '          channel: "notSent",\n          reason: "Restored",',
+        find: '            channel: "unknown",\n            reason: "Restored",',
+        replace: '            channel: "notSent",\n            reason: "Restored",',
       },
     ],
   },
@@ -404,7 +404,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '      if (!id.startsWith(own)) return yield* Result.fail("key");\n',
+        find: '      if (!id.startsWith(own)) return yield* read(failed("key"));\n',
         replace: "",
       },
     ],
@@ -417,7 +417,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: "      yield* keyNamesItself(operation, id.slice(own.length));\n",
+        find: "      yield* read(keyNamesItself(operation, id.slice(own.length)));\n",
         replace: "",
       },
     ],
@@ -430,8 +430,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '(text) => (id === `${own}${text}` ? Result.succeed(text) : Result.fail("key")),',
-        replace: "(text) => Result.succeed(text),",
+        find: 'id === `${own}${text}` ? Result.succeed(text) : failed("key"),',
+        replace: "Result.succeed(text),",
       },
     ],
   },
@@ -443,7 +443,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record.ts",
-        find: '    if (Option.exists(compiled, (c) => !c.operations.has(operation)))\n      return Result.fail("operation");\n',
+        find: '    if (Option.exists(compiled, (c) => !c.operations.has(operation))) return failed("operation");\n',
         replace: "",
       },
     ],

@@ -2384,7 +2384,7 @@ tasks
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
-        status      in_progress
+        status      review
         priority    medium
         description
             The core's reason codes, runtime ids, chain state and turn cause each become one typed shape, so the wrong
@@ -2633,6 +2633,48 @@ tasks
 
             `no-id-text` exempts record.ts's decode key cuts with a reasoned disable: they are @task.V3.T92's single key
             parser. Dropped, as before: a decline catalogue (accepted); single-tag predicates.
+        comment     2026-11-19T14:42:07Z
+            Built (lead): all 11 requirements, in slices from `a42a92fd`. Runtime ids come from one mint
+            (`IncarnationId`, `ActivationId`, `ArmingId`, `ChainId`, the last on its own never-reset count so no other
+            id shifts); `OwnedBy = Root | State` replaces the `0` owner; `Following` and `Mail.chain: Option<ChainId>`
+            replace the two `let`s and the sentinel; `turn()` takes one `Trigger` (named so, not `Cause`, to stay clear
+            of Effect's), with lateness, own lane, row and source from one match; quarantine is `Unreadable { code } |
+            Retired { operation, lane }` over the `ReadFailure` catalogue in `vocabulary.ts`; Flow's restored marker is
+            the row's `Origin`; Delivery, Heard, Move and Cue dispatch by `$match` or tag tables. Lint: `no-tag-chain`,
+            `no-id-text` (record.ts's key cuts carry per-line reasoned disables, for @task.V3.T92's key parser),
+            owners-only gains `ignoreCause`, `Scope.close`, `.cause` reads (dotted or destructured) and
+            logical-assignment aliases. The bench worker reads and the run writes one flag table.
+
+            Checks: every inverted line is now a `@ts-expect-error` beside a control in `src/core/shapes.test.ts`; the
+            `it.fails` reds (partial clear, restored marker, worker argv) pass; a forget test keeps `Unreadable` and
+            drops `Retired`. Faults in `tests/typed-core-faults.ts` (5), each caught by its target; 12 earlier faults
+            whose anchors this Task moved were re-anchored and re-run. Extra files: `bench/`, `tests/bench/`,
+            `tools/flow-state-lint/`, `tools/lint-bomb/FLOW-STATE.md`, `package.json` (lint:rules), `vite.config.ts`,
+            `src/host/testing/` (three tag chains), `src/host/run-promise.ts`.
+
+            Not done, for the orchestrator: stress (the round's rules forbid it); a same-tier bench baseline (dev tier
+            `turn.session.long` 0.149 ms/turn; `--compare` needs a worktree); spec notes (no rule changed meaning).
+        comment     2026-11-19T14:42:08Z
+            Build reviews (2 Haiku, high; lead verified each): 12 accepted and fixed, 9 rejected, 2 routed.
+
+            Accepted: evidence-of's tag ternaries matched by `Cue.$match`; record.ts's file-level disable made per-line;
+            lane decode fails with one `Quarantine` type (no string sniffing); `no-id-text` covers `replace`, `at`,
+            `Number.parseInt`, `+id`; `no-tag-chain` reads template tags; owners-only refuses a destructured `cause`; 12
+            stale fault anchors re-anchored (a missing anchor reports stale, not caught); four route matches folded into
+            one; `Cause` renamed `Trigger`; `ReadFailure` moved to `vocabulary.ts` (world.ts no longer imports a codec
+            module); activation, arming and chain brands by `Brand.nominal` (two casts gone); history-narrating test
+            comments rewritten.
+
+            Rejected: one counter for chains (it would shift every pinned minted id in the trace files); deriving
+            `Retired.lane`, `Quarantined.kind` or `Incarnation.started` from text (each is decoded or minted once and
+            stored, which is the point); switch plants (`switch-exhaustiveness-check` already covers them); single-tag
+            predicates (accepted by the requirements review); renaming `chainNow`, `OwnedBy`, `Audience.Life` (existing
+            or clear); `Schema.Literals` for the catalogue (T98's `details.reason` reuses it); `src/core/test/ids.ts`
+            stays (test folder, exempt).
+
+            Routed: `start-order-reversed` is missed by the whole suite and no Spec rule says live identities go in
+            start order (proposed: an Actors rule, then the fault); faults `setup-services-built` and `trace-own-path`
+            were stale before this Task.
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error

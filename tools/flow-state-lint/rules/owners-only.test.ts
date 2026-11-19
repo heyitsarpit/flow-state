@@ -147,6 +147,7 @@ const accidental = [
   "let Late = Other; Late ??= Effect; Late.forkDetach(Effect.void);",
   "let Either = Other; Either ||= Effect; Either.forkDetach(Effect.void);",
   'declare const ended: Exit.Exit<number>; if (ended._tag === "Failure") void ended.cause;',
+  "const { cause: taken } = Other;",
 ];
 
 const accidentalQuiet = ["void Scope.make();", "void { cause: Other };", "Scope.provide(Other);"];
@@ -155,7 +156,7 @@ inWorkdir(({ pkg, write, lint, lines }) => {
   const file = join(pkg, "src/host/accidental.ts");
   write(file, `${imports}\nimport { Scope } from "effect";\n${[...accidental, ...accidentalQuiet].join("\n")}\n`);
 
-  assert.deepEqual(lines(lint(), file, "owners-only"), [7, 8, 9, 10, 11], "each accidental form fires");
+  assert.deepEqual(lines(lint(), file, "owners-only"), [7, 8, 9, 10, 11, 12], "each accidental form fires");
 });
 
 console.log("flow-state owners-only tests passed");

@@ -1,7 +1,7 @@
 import { Brand, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Audience, Delivery, Origin, type Owed, type OwedId, Route } from "./ledger.ts";
-import { Cause } from "./serve.ts";
+import { Trigger } from "./serve.ts";
 import { activation, chain, incarnation } from "./test/ids.ts";
 import {
   type ActivationId,
@@ -52,12 +52,12 @@ const typed = () => [
   Mail.Event({ actor, tag: "Noted", payload: {}, chain: 0 }),
 
   // Turn R25, R21: only an ending's turn has a row, an own lane and lateness.
-  Cause.Ending({ row, late: Option.none<ActivationId>() }),
-  Cause.Event({ tag: "Noted" }),
+  Trigger.Ending({ row, late: Option.none<ActivationId>() }),
+  Trigger.Event({ tag: "Noted" }),
   // @ts-expect-error Turn R25: an event's turn carries no ending row
-  Cause.Event({ tag: "Noted", row }),
+  Trigger.Event({ tag: "Noted", row }),
   // @ts-expect-error Turn R21: a schedule's turn is never late
-  Cause.Firing({ schedule: "tick", late: Option.some(activation(1)) }),
+  Trigger.Firing({ schedule: "tick", late: Option.some(activation(1)) }),
 ];
 
 const quarantines = () => [

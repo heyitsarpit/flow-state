@@ -183,8 +183,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["tests/restore/restore.test.ts", "tests/transfers/durability.test.ts"],
     "the first record that fails to decode ends the boot's read, so later records never restore",
     "src/core/record.ts",
-    "if (Result.isFailure(done)) quarantined.push({ key, reason: done.failure });",
-    "if (Result.isFailure(done)) return { records, lanes, rows, quarantined: [...quarantined, { key, reason: done.failure }] };",
+    "      quarantined.push({ key, kind: Option.fromUndefinedOr(kind), reason: done.failure });",
+    "      return { records, lanes, rows, quarantined: [...quarantined, { key, kind: Option.fromUndefinedOr(kind), reason: done.failure }] };",
   ),
   fault(
     "restored-lane-dropped",
@@ -246,8 +246,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["tests/turn/schedules.test.ts"],
     "an entered state keeps the activation at its depth instead of a new one",
     "src/core/serve.ts",
-    "activations: [...kept, ...move.enters.map(() => tx.next())],",
-    "activations: [...kept, ...move.enters.map((_, i) => incarnation.activations[kept.length + i] ?? tx.next())],",
+    "activations: [...kept, ...move.enters.map(() => tx.mintActivation())],",
+    "activations: [...kept, ...move.enters.map((_, i) => incarnation.activations[kept.length + i] ?? tx.mintActivation())],",
   ),
   fault(
     "exits-outermost-first",

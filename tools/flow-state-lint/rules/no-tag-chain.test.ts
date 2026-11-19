@@ -23,6 +23,7 @@ plantRules({
       // `_tag` compares, chained or in a ternary ladder.
       'const d = e._tag === "Turn" || e._tag === "Delivered";',
       'const f = x._tag === "A" ? 1 : x._tag === "B" ? 2 : 3;',
+      "const f2 = x._tag === `A` || x._tag === `B`;",
       'if (m._tag === "Answer") Other.gen(); else if (Move.$is("EndUnsent")(m)) Other.gen(); else Other.gen();',
     ],
     quiet: [
@@ -45,6 +46,9 @@ plantRules({
       "const q = Number(id);",
       "const r = id === `${own}${text}`;",
       'const s = row.key.endsWith("|");',
+      "const s2 = Number.parseInt(incarnationId);",
+      "const s3 = +id;",
+      'const s4 = laneKey.replace("lane/", "");',
     ],
     quiet: [
       'const t = name.startsWith("~");',

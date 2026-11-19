@@ -55,9 +55,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/ledger.ts",
-        find: "      persistence.setLane(id, { ...lane, head: { ...lane.head, owner: ROOT_ACTIVATION } });",
+        find: "      persistence.setLane(id, { ...lane, head: { ...lane.head, owner: OwnedBy.Root() } });",
         replace:
-          "      persistence.sendLane(id, { ...lane, head: { ...lane.head, owner: ROOT_ACTIVATION } });",
+          "      persistence.sendLane(id, { ...lane, head: { ...lane.head, owner: OwnedBy.Root() } });",
       },
     ],
   },

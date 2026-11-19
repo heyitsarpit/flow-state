@@ -12,8 +12,8 @@ const NUMBERS = {
   run: "run",
 } as const;
 
-// The module a worker loads its benches from, instead of the package's own list.
-const BENCHES = "benches";
+// The flag naming the module a worker loads its benches from, instead of the package's own list.
+const LIST_FLAG = "benches";
 
 /**
  * What a worker runs: the bench ids, each flag's value when the run sets it.
@@ -45,7 +45,7 @@ export const writeWorkerArgs = (args: WorkerArgs) => [
   ...Record.toEntries(NUMBERS).flatMap(([field, flag]) =>
     flagged(flag, Option.map(args.numbers[field], String)),
   ),
-  ...flagged(BENCHES, args.benches),
+  ...flagged(LIST_FLAG, args.benches),
 ];
 
 /**
@@ -60,8 +60,11 @@ export const readWorkerArgs = (argv: ReadonlyArray<string>) =>
           args: [...argv],
           allowPositionals: true,
           strict: true,
-          options: Object.fromEntries(
-            [...Object.values(NUMBERS), BENCHES].map((flag) => [flag, { type: "string" as const }]),
+          options: Record.fromEntries(
+            [...Record.values(NUMBERS), LIST_FLAG].map((flag) => [
+              flag,
+              { type: "string" as const },
+            ]),
           ),
         }),
       catch: (fault) =>
@@ -86,5 +89,5 @@ export const readWorkerArgs = (argv: ReadonlyArray<string>) =>
       ),
     );
 
-    return { ids: positionals, numbers, benches: text(BENCHES) } satisfies WorkerArgs;
+    return { ids: positionals, numbers, benches: text(LIST_FLAG) } satisfies WorkerArgs;
   });

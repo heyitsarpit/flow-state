@@ -66,8 +66,8 @@ export const stepFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "        owner === ROOT_ACTIVATION || incarnation.activations.includes(owner)\n",
-        replace: "        owner === ROOT_ACTIVATION || incarnation.activations.length >= 0\n",
+        find: "            incarnation.activations.includes(activation)\n",
+        replace: "            incarnation.activations.length >= 0\n",
       },
     ],
   },

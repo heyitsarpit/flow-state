@@ -19,6 +19,32 @@ export const Decline = Schema.Literals([
 export type Decline = typeof Decline.Type;
 
 /**
+ * Why a boot could not read a record: its text is not canonical JSON, its key names no kind, or a
+ * part of it fails its check (its format, its kind's Schema, its machine, its name, its operation,
+ * its key or lane, a lane's input, or an actor's memory, last-seen selections or frames).
+ */
+export const ReadFailure = Schema.Literals([
+  "text",
+  "kind",
+  "format",
+  "schema",
+  "machine",
+  "name",
+  "operation",
+  "key",
+  "lane",
+  "input",
+  "memory",
+  "seen",
+  "frame",
+]);
+
+/**
+ * The decoded {@link ReadFailure}.
+ */
+export type ReadFailure = typeof ReadFailure.Type;
+
+/**
  * The channel an ending was decided on.
  */
 export const Channel = Schema.Literals(["success", "failure", "unknown", "notSent"]);

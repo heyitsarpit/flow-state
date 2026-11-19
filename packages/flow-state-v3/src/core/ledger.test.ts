@@ -381,8 +381,8 @@ describe("Flow's restored marker is not a reason (WriteLanes I15)", () => {
     assert.equal(marksOwed("Lost"), false);
   });
 
-  // isSaved once read the reason text, so a host's own reason spelled Restored passed for Flow's
-  // marker and the row was written as if it outlived its step.
+  // A marker read from the reason text would let a host's own reason spelled Restored pass for
+  // Flow's, and write the row as if it outlived its step.
   it("a host unknown whose reason is spelled Restored, queued, marks no owed record", () => {
     assert.equal(marksOwed("Restored"), false);
   });

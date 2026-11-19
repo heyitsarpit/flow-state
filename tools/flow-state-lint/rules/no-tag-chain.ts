@@ -7,8 +7,10 @@ import type { Options } from "./shared.ts";
 
 const comparisons = new Set(["===", "!==", "==", "!="]);
 
+// A string known before running: a literal, or a template with no expressions.
 const isString = (node: ESTree.Node | null | undefined) =>
-  node?.type === "Literal" && typeof node.value === "string";
+  (node?.type === "Literal" && typeof node.value === "string") ||
+  (node?.type === "TemplateLiteral" && node.expressions.length === 0);
 
 // What a tag test reads, when the node is one: `X.$is("A")(subject)` or `subject._tag === "A"`,
 // negated or in parentheses.

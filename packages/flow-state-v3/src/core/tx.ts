@@ -1,4 +1,4 @@
-import { Option, Struct } from "effect";
+import { Brand, Option, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
 import { makeFollowing } from "./following.ts";
@@ -64,13 +64,12 @@ const branded = <Id extends string>(id: string) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a brand is type-only; the mint is where it is given
   id as Id;
 
-/**
- * A minted count as its kind: activations, armings and chains are numbered by the mint alone.
- */
-const counted = <Id extends number>(count: number) =>
-  // SAFETY: the world's mint gives each count once, from the counter its kind uses.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a brand is type-only; the mint is where it is given
-  count as Id;
+// The brands the mint gives its counted kinds: activations, armings and chains.
+const activationOf = Brand.nominal<ActivationId>();
+
+const armingOf = Brand.nominal<ArmingId>();
+
+const chainOf = Brand.nominal<ChainId>();
 
 type Ids = {
   readonly timer: TimerId;
@@ -196,20 +195,21 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   const mintActivation = () => {
     world.counter += 1;
 
-    return counted<ActivationId>(world.counter);
+    return activationOf(world.counter);
   };
 
   const mintArming = () => {
     world.counter += 1;
 
-    return counted<ArmingId>(world.counter);
+    return armingOf(world.counter);
   };
 
-  // Chains have their own count, never reset: a chain cleared early never gives its id again.
+  // Chains have their own count, never reset, so a chain cleared early never gives its id again;
+  // apart from the shared counter, so starting one shifts no other minted id.
   const mintChain = () => {
     world.chainCount += 1;
 
-    return counted<ChainId>(world.chainCount);
+    return chainOf(world.chainCount);
   };
 
   const addTo = (field: "lanesOfActor" | "consumersOf", key: string, member: string) => {

@@ -14,7 +14,7 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/ledger.ts",
-        find: "head: { ...lane.head, owner: ROOT_ACTIVATION } });",
+        find: "head: { ...lane.head, owner: OwnedBy.Root() } });",
         replace: "head: lane.head });",
       },
     ],

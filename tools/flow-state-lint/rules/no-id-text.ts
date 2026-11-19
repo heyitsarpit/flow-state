@@ -17,6 +17,11 @@ const cuts = new Set([
   "endsWith",
   "match",
   "includes",
+  "replace",
+  "replaceAll",
+  "at",
+  "charAt",
+  "search",
 ]);
 
 const parsers = new Set(["Number", "parseInt", "parseFloat"]);
@@ -71,8 +76,21 @@ export const noIdTextRule = defineRule({
         if (callee.type === "MemberExpression" && cuts.has(propertyName(callee)) && isId(callee.object))
           report(node, `.${propertyName(callee)}`);
 
-        if (callee.type === "Identifier" && parsers.has(callee.name) && isId(node.arguments[0]))
-          report(node, `${callee.name}(…)`);
+        // `Number(id)`, `parseInt(id)` and `Number.parseInt(id)`.
+        const parser =
+          callee.type === "Identifier"
+            ? callee.name
+            : callee.type === "MemberExpression" &&
+                callee.object.type === "Identifier" &&
+                callee.object.name === "Number"
+              ? propertyName(callee)
+              : "";
+
+        if (parsers.has(parser) && isId(node.arguments[0])) report(node, `${parser}(…)`);
+      },
+      // `+id`: a number read out of an id's text.
+      UnaryExpression(node: ESTree.UnaryExpression) {
+        if (node.operator === "+" && isId(node.argument)) report(node, "+id");
       },
       // `id === \`${own}${text}\``: an id rebuilt from parts to compare is its text read back.
       BinaryExpression(node: ESTree.BinaryExpression) {

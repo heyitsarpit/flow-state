@@ -1,6 +1,7 @@
 import { Result, Schema } from "effect";
 import { CodecFailure, encodeCanonical } from "./codec.ts";
 import type { Values } from "./compiled.ts";
+import type { ReadFailure } from "./vocabulary.ts";
 import type { ActorId } from "./world.ts";
 
 /**
@@ -15,32 +16,6 @@ export const Format = Schema.Literals([1, 2, FORMAT]);
 export const ActorJson = Schema.Struct({ machine: Schema.String, name: Schema.String });
 
 export const FormatJson = Schema.Struct({ format: Format });
-
-/**
- * Why a boot could not read a record: its text is not canonical JSON, its key names no kind, or a
- * part of it fails its check (its format, its kind's Schema, its machine, its name, its operation,
- * its key or lane, a lane's input, or an actor's memory, last-seen selections or frames).
- */
-export const ReadFailure = Schema.Literals([
-  "text",
-  "kind",
-  "format",
-  "schema",
-  "machine",
-  "name",
-  "operation",
-  "key",
-  "lane",
-  "input",
-  "memory",
-  "seen",
-  "frame",
-]);
-
-/**
- * The decoded {@link ReadFailure}.
- */
-export type ReadFailure = typeof ReadFailure.Type;
 
 /**
  * A failure of a record's read, for `mapError` and `fromNullishOr`.
