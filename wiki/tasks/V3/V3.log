@@ -968,3 +968,7 @@ note 2026-11-19T04:06:09Z
 note 2026-11-19T04:06:38Z
     T99 started (runtime life): text gains the wrong-ending rule for every part and routed item, design first, fixtures
     line. Lead writes requirements and fixtures, then stops for the requirements review.
+
+note 2026-11-19T04:38:42Z
+    T99 requirements and fixtures in (885f0f24): 6 requirements kept, 5 parts and 12 routed items dropped with reasons.
+    Requirements review started, checking every drop. For the user: runPromise's signature, the ref quarantine.
