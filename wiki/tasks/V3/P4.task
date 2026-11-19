@@ -2203,6 +2203,88 @@ tasks
               rejected the T100-owned it.fails, Open-life cleanups (not at close), runPromise waiting on an
               uninterruptible Effect (Effect.runPromise's semantics), Task ids in wiki, extending the usual Story
               (orchestrator ruling), Story-only proof of runPromise and the quarantine (owned: T97, T100).
+        comment     2026-11-19T07:50:41Z
+            Second close review (fix round `70ca4def..4cd855c1`): ISSUES (independent lead, 2026-11-19). Three blocking
+            findings; the first two have the same root cause as the previous blocker: a cleanup failure that never
+            reaches the rejection. Gates, each alone: suite exit 1 (1279 passed, 25 expected fail, 1364 unhandled
+            errors), `nub run check` exit 0, stress exit 0 (34 files), `nub run faults --only` 9 of 9 new faults caught.
+
+            Blocking:
+            1. Same root cause as before: a fiber's interrupt cleanup that fails with a typed error at the close is
+               reported as success. `cleanupDied` in code:packages/flow-state-v3/src/host/driver.ts#makeDriver checks
+               for a defect only, but Effect's `onInterrupt` and `onExit` cleanups can fail with a typed error, so the
+               Exit holds an Interrupt and a Fail. Replayed as plain host tests: a store write whose cleanup fails
+               `StoreRefused`, a runPromise Effect, and a read each leave `dispose()` with a success. That breaks
+               @plan.Runtime.O6 ("never reported as success") and R23. Missing: a typed cleanup failure at the close for
+               each kind of fiber, with a fault. Suggested fix: any Exit of a fiber the close interrupted that is more
+               than an Interrupt counts as a failed cleanup.
+            2. When the signal aborts a runPromise, the Effect's own cleanup failure is lost. `Fiber.interrupt` in
+               code:packages/flow-state-v3/src/host/run-promise.ts#makeRunPromise throws away the inner fiber's Exit, so
+               the rejection is RunFailed with only an Interrupt. The defect also goes nowhere else, since the life is
+               still Open. Replayed: an abort whose cleanup dies gives a Cause without that defect. That breaks Q7 A
+               ("the whole Cause") and acceptance item 5. Missing: an abort test whose cleanup dies or fails.
+            3. The suite gate is red: `nub run test` exits 1. code:packages/flow-state-v3/tests/surface/surface.test.ts
+               throws hostile values at every entry, and each runPromise call returns a Promise that rejects RunFailed
+               (for example "Not a valid effect: null") and is never handled. Deterministic, alone too. Missing: the
+               walker settles a returned Promise; and a decision on whether runPromise refuses a value that is not an
+               Effect at the boundary (@spec.Diagnostics R1).
+
+            Asked checks:
+            - The bound holds. A fully hung close can take three bounds (core, then fibers, then services), plus an
+              unbounded forget. O6 and R23 bound the writes "from the call to dispose", and those all settle within the
+              core's first bound. The two later stages decide no ending, and an overdue stage is CleanupOverdue, so no
+              ending is lost. The catch is a stage that finishes after its bound: any Cause it adds after the snapshot
+              is dropped, though dispose still rejects.
+            - The quarantine lift is a reasonable reading of "until a cancel", but it is proposed and needs the user. An
+              owner's cancel is a machine action and needs a live incarnation, which a quarantined ref can't get, so a
+              literal cancel could never lift it. Trace 1: disposeActor with a read out, its cleanup dies, every ensure
+              throws CleanupFailed with the Cause, a second disposeActor lifts it, and the next ensure starts fresh.
+              Trace 2: disposeActor with a read out and its cleanup dies, then no ensure; a second disposeActor or
+              `dispose()` succeeds, and the Cause is reported nowhere (no Issue, not in CleanupFailed). Replayed for
+              `dispose()`. A restart drops it too, since the quarantine is in memory.
+            - runPromise passes apart from 2 and 3: it refuses RuntimeNotReady and RuntimeDisposed with nothing run, a
+              failure is RunFailed with the whole Cause, and disposal interrupts it. Typing is `Runtime<R>` with a
+              method `runPromise`. A signal that is already aborted still runs the Effect's synchronous start, as
+              `Effect.runPromise` does.
+            - I30 catches both earlier classes (a Sent, and a Request after a Turn of the disposing open) and hides
+              nothing. It over-flags two cases: a cleanup request from an interrupted read before RuntimeDisposed, and
+              one after any Turn during the wait.
+            - `Fiber.join` is right: every joiner gets the one Exit, and an interrupted caller only removes its
+              own observer.
+
+            Routed, not blocking (proposed owners; the orchestrator decides):
+            - An unreported quarantine lost at `dispose()`, disposeActor or a restart (trace 2): the user, with the
+              lift. The same goes for local actors' reads (no ensure can name `~N`) and for whether a grace end
+              quarantines (it shares `retire`). Neither was replayed.
+            - A `dispose({ forget: true })` whose caller is interrupted skips the forget, since the forget runs in the
+              caller's fiber (pre-existing). `runPromise(runtime.dispose(...))` interrupts itself and skips the forget
+              (not replayed). @task.V3.T100.
+            - Overdue stages: a Cause added late is dropped, and services are released under fibers still
+              running. @task.V3.T100.
+            - The read quarantine checks for a defect only, so a read body that dies after its Interrupt is quarantined
+              too. The per-read state is spread over `reading`, `endedReads` and `quarantined`, an implicit state
+              machine against AGENTS.md. The `call` and Lookup observers repeat each other, and the comment on a read's
+              "own wrapper" names nothing that exists. T99's fix round.
+            - Stale text: the Life table's Run row still says its Booting cell waits on the user. `runtime-life.test.ts`
+              cites R18 for a dependency rule. T99's fix round.
+
+            Sidecars (6 Haiku, effort high), each finding verified:
+            - Blind (O6, Q7, Q8, Actors, code): accepted the typed cleanup (blocking 1, replayed). Changed the
+              quarantine at disposal into trace 2 (replayed). Routed the interrupted forget and the superseded read (an
+              Open-life cleanup). Rejected the Booting ready hang (already routed) and the hang on an uninterruptible
+              runPromise (the user's Effect, `Effect.runPromise` semantics). Noted the aborted-signal prefix.
+            - Fiber kinds: accepted the defect-only check (1). Rejected "a dying cleanup loses its Interrupt": a probe
+              on Effect 4.1.4 shows onInterrupt, onExit, ensuring and acquireRelease keep it; only a race, a timeout or
+              a scoped child drop the defect entirely, which is @task.V3.T100's class.
+            - Bound and quarantine: accepted the three-bound fact and judged it within O6. Accepted late Causes and
+              trace 2. Rejected the ensure-after-lift race, which is a tested behaviour. The in-flight ticketless
+              capture at the end of disposal was not verified: @task.V3.T100 to check.
+            - runPromise: accepted the abort Cause loss (2, replayed). Verified the join semantics. Rejected the close
+              fiber parked at construct (a Deferred wait, no work). Noted the bivariant method.
+            - I30 and faults: accepted (above). All nine faults are real mutations caught for the stated reason.
+            - Code quality: accepted the implicit read state, the repeated observers, the predicates, the test citation
+              and the stale comment. Rejected "the Plan's public option" in suppressions as a temporary name: a Plan is
+              a durable record.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
