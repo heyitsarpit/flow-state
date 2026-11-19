@@ -124,8 +124,8 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     ["src/host/cleanups.test.ts"],
     "an ensure reports only what was heard before, so a failure that landed after the last ensure is reported nowhere",
     "src/host/driver.ts",
-    "      Partly: ({ heard, unheard }) => Cause.combine(heard, unheard),",
-    "      Partly: ({ heard }) => heard,",
+    "  Partly: ({ heard, unheard }) => Cause.combine(heard, unheard),",
+    "  Partly: ({ heard }) => heard,",
   ),
   fault(
     "late-quarantine-lost",

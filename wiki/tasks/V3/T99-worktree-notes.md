@@ -126,9 +126,12 @@ cut from an old commit). For the orchestrator to post on @task.V3.T99; nothing h
 
 ## Not done (resume here)
 
-1. The close review of T99.
-2. The `lanes` saved stress Story mismatch, from the main line's fixture rewrite (being fixed there).
-3. The typed-cleanup finding above, for a decision.
+1. The re-review of this fix round (below).
+2. The `lanes` saved stress Story mismatch, from the main line's fixture rewrite (fixed on flow-rewrite).
+3. Routed to @task.V3.T100: the close's own failure ignored in `close.ts` (finding 4), unguarded Owner callbacks
+   (`traced`, `judged`, a Runtime `report`), and dispose during Booting (finding 8).
+4. For the user: R23's two bounds (below) and @plan.Pending D34, which still says dispose "rejects CleanupOverdue"
+   (a Plan, so not edited here).
 
 ## Close review (independent lead, 2026-11-19): ISSUES
 
@@ -210,3 +213,52 @@ temporary names or core impurity in the diff.
 - Code quality: accepted 7. Rejected the abort listener cleanup (the task's end always removes it) and
   `Schedule` as a sleep (pre-existing edge code).
 - Spec: accepted 2 and 5.
+
+## Fix round (the T99 lead, 2026-11-19)
+
+Each finding, then its check; every new cell was red before its fix unless said.
+
+- **1, doubled Cause (fixed).** A ref's quarantine is one tagged state: Unheard, Heard, Partly (heard and unheard
+  apart). An ensure throws every Cause the ref holds and marks them heard; a lift and the close take only the
+  unheard. Check: `src/host/cleanups.test.ts` "two incarnations of one ref", all 60 orders of ensure, ensure, the
+  second failure, disposeActor and dispose against an oracle written from R23 (red: 2 orders, the first Cause
+  twice). Faults `heard-quarantine-repeated`, `ensure-forgets-unheard`; `lift-drops-unheard` rewritten.
+- **2, typed boundary (Q11 A, decided).** Written into Actors R23, I48 and Diagnostics R8 in the user's words.
+  Check: "a cleanup failure inside the app's own error handling", per combinator (`catchTag`, `catch`, `mapError`,
+  `tapError`, `retry`, `catchCause`): a typed cleanup failure is lost and a dying one quarantines; no handler, the
+  typed one quarantines. Pins Effect 4.1.4, so not red first.
+- **3, owners-only (fixed).** Refuses every runner, aliases (`const`, `let` then `=`, package aliases), nested
+  patterns, casts, static and run-time keys, rest patterns, default and `effect/internal` imports, `require`,
+  `import = require`, dynamic `import()` (static or not), re-exports and exported aliases, a watched module used as
+  a value, and Cause reads (`catchCause`, `tapCause`, `onExit`, `sandbox`, `Exit.match`, `Cause.pretty`, ...). No
+  seeded names: only imported ones are watched. `src/host/cli` is exempt (a program no Runtime runs), planted
+  silent. Check: `owners-only.test.ts` (red: 27, then 18 more lines missed by the earlier rule). Exit or Cause read
+  by value (`exit.cause`) stays uncovered: it needs type-aware lint (FLOW-STATE.md says so).
+- **5, Spec against code (fixed).** R23: dispose rejects CleanupFailed holding CleanupOverdue; the close waits two
+  bounds (the core's, then one for the Owner tree from the core's end), chosen by correctness since one shared
+  deadline makes every cleanup after a hung call overdue (marked Decision (agent), reverse in the text; the user may
+  prefer it proposed); an Issue only in Open, Disposing and Disposed, elsewhere the Runtime's report alone, checked
+  by "a cleanup failure in a life that records no Issue" (Stopped; the code already held, so green from the start);
+  a stopped Runtime's defect leads its rejection. R27's abort sentences marked proposed, Q7 A's text restored. I47
+  and I48 cited by `everyTaskAccounted` and cleanups cells. One `wk log add specs` note each.
+- **6, self-reported count (fixed).** An Owner's own Scope release is traced as its task `scope` (`releaseTraced`),
+  and Report no longer carries `own`; the rule counts every failure from Task records. Check: crafted traces in
+  `rules.test.ts` with a failed Scope and a nested report (each dropped is a breach), the "Owner's own Scope" cell,
+  fault `report-drops-own-scope`; `services-released-before-calls` and `report-before-tasks-end` rewritten.
+- **7, code quality (partly).** `driver.ts` doc fixed. The rest stays for @task.V3.T102.
+- **Faults:** `faults --only` in scratch copies, 7 of 7 caught by targets (the three new and four rewritten).
+
+**Haiku review of the fix round (2, effort high), each verified:**
+
+- Accepted: owners-only still missed `require`, `import = require`, template and run-time `import()`, `Reflect.get`,
+  spread, array, member and default-parameter escapes, nested package patterns, and re-exports from `effect`
+  (fixed by refusing a watched module used as a value, planted); the bare-name seed flagged shadowed names (seed
+  removed, harness imports them); the CLI exemption was untested (planted); the rule doc claimed nested counts came
+  from Task records (reworded: each Owner's own check anchors them); `close.ts` still said one bound; R23 lacked the
+  stopped Runtime's order.
+- Rejected: `Stream.run*`, `Channel.run*`, `Layer.launch` (they return Effects, which still run in an Owner); a
+  closed Owner's no-op hearer and runPromise's (a closed child runs nothing; a run's failures are in its Exit, as
+  the close review held); `unheard()` not marking entries (read once, after no ensure or lift can run); the Gotcha
+  "pins a loss" (Q11 A); the orders oracle relying on the close awaiting incarnations (that is R23's rule); I48
+  stating Q11 inline (asked in both places).
+- Routed: an Exit read by value (needs type-aware lint, @task.V3.T102).

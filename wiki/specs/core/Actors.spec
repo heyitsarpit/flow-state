@@ -367,7 +367,8 @@ requirements
                 other life (Inert, Booting, Failed, Stopped) no Issue is recorded, and the failure
                 is reported through the Runtime's report alone: dispose's rejection, or the host's
                 report once late. Every call to dispose gets the same rejection; a forget's
-                StorageFailure is kept beside it. A ref is quarantined by any failed cleanup of its
+                StorageFailure is kept beside it. A Runtime a defect stopped rejects with the defect
+                first and the CleanupFailed beside it (R25). A ref is quarantined by any failed cleanup of its
                 incarnation's reads, a read cancelled while open included (held to the
                 incarnation's end), and also when a new incarnation of it is already live: every
                 later ensure throws CleanupFailed with every Cause the ref holds until a

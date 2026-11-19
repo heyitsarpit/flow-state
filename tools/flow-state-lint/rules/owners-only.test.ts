@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 
-import { inWorkdir, plantRules } from "./test-support.ts";
+import { imports, inWorkdir, plantRules } from "./test-support.ts";
 
 const fires = [
   "Effect.forkDetach(Effect.void);",
@@ -58,6 +58,28 @@ const fires = [
   "Cause.pretty(Other);",
   "Cause.squash(Other);",
   "Cause.isDieReason(Other);",
+  // Sources the rule cannot follow, refused outright.
+  'import Required = require("effect/Effect");',
+  'const required = require("effect/Effect");',
+  "void import(`effect/Effect`);",
+  "void import(String(Other));",
+  // Re-exports from the package.
+  'export * as Reexport from "effect";',
+  'export { Effect as Handed } from "effect";',
+  "export { Fx };",
+  "export const Exported = Effect;",
+  "export default Effect;",
+  // A module handed on as a value, where no name follows it.
+  'Reflect.get(Effect, "forkDetach");',
+  "void { ...Effect };",
+  "void [Effect][0];",
+  "Other.held = Effect;",
+  "void ((Given = Effect) => Given);",
+  "void { Effect };",
+  "Other.gen(Pkg.Effect);",
+  "void Pkg[String(Other)];",
+  // A nested pattern taking a module out of the package.
+  "const { Effect: { forkDetach: nested } } = Pkg;",
 ];
 
 const quiet = [
@@ -72,6 +94,12 @@ const quiet = [
   "const Same = Other; Same.forkDetach();",
   'Effect["forEach"]([], () => Effect.void);',
   'void import("node:path");',
+  "type Typed = Effect.Effect<Cause.Cause<unknown>>;",
+  "type Queried = typeof Effect;",
+  "void { Effect: 1, [Other.gen()]: 2 };",
+  "void Other.Effect;",
+  "class Keyed { Effect = 1; Cause() { return 2; } }",
+  "const Same2 = Pkg.Effect.forEach;",
 ];
 
 plantRules({
@@ -94,9 +122,12 @@ plantRules({
 
 // The Owners module and the test tooling may do what the rule refuses elsewhere in the host.
 inWorkdir(({ pkg, write, lint, lines }) => {
-  const files = ["src/host/owners/owners.ts", "src/host/testing/clock.ts"].map((path) => join(pkg, path));
+  // The CLI is a program of its own, which no Runtime runs.
+  const files = ["src/host/owners/owners.ts", "src/host/testing/clock.ts", "src/host/cli/main.ts"].map((path) =>
+    join(pkg, path),
+  );
 
-  for (const file of files) write(file, `${fires.join("\n")}\n`);
+  for (const file of files) write(file, `${imports}\n${fires.join("\n")}\n`);
 
   // A member imported bare from its module is refused at the import, under any local name.
   const bare = join(pkg, "src/host/bare.ts");

@@ -44,10 +44,13 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   `Fiber.interrupt*`, `interruptUnsafe`) or reads a Cause or a failed Exit (`Effect.catchCause*`,
   `catchDefect`, `tapCause*`, `tapDefect`, `sandbox`, `matchCause*`, `onError*`, `onExit*`;
   `Cause.has*`, `find*`, `filter*`, `pretty*`, `squash`, `map`, reason tests; `Exit.isFailure`,
-  `has*`, `find*`, `filter*`, `match`, `getCause`). Any import name, alias, cast or static key
-  counts; a run-time key, a rest pattern, `effect/internal`, a dynamic `import()` and a re-export
-  of a watched module are refused outright. Every task runs in an Owner, whose one judge hands its
-  caller an `Ending`; a second reader of an Exit is how a cleanup's failure is misread or lost.
+  `has*`, `find*`, `filter*`, `match`, `getCause`). Any import name, alias, nested pattern, cast
+  or static key counts; a run-time key, a rest pattern, `effect/internal`, `require`, a dynamic
+  `import()`, a re-export or exported alias of a watched module, and a watched module used as a
+  value (passed, spread, stored, returned) are refused outright. Not covered: an Exit or Cause
+  read by value (`exit.cause`, a finalizer's Exit), which needs type-aware lint. Every task runs
+  in an Owner, whose one judge hands its caller an `Ending`; a second reader of an Exit is how a
+  cleanup's failure is misread or lost.
 
 ## Rules: 70 in lint-bomb
 

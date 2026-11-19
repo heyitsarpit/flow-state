@@ -136,7 +136,7 @@ export const makeForget = (
   });
 
 /**
- * A close that did not end within the disposal's bound: a cleanup that cannot be interrupted or
+ * A close that did not end within one disposal bound of the core's end: a cleanup that cannot be interrupted or
  * never returns. Dispose stops waiting for it; the close goes on, and each failure it finds later
  * goes to the host's report.
  */

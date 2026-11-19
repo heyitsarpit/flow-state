@@ -116,7 +116,9 @@ const reportBreaches = (
  *   open, or its tab abandoned by a reload) may hold tasks still running.
  * - A report hears every failed cleanup: its causes are its tasks' failed cleanups and the causes
  *   of each nested Owner its close started. An Owner's own Scope's release is one of its tasks
- *   (keyed `scope`), so every count comes from the Task records, never from the report it checks.
+ *   (keyed `scope`), so its own count comes from its Task records, never from the report it
+ *   checks; a nested Owner's causes come from that Owner's report, which its own check holds to
+ *   its Task records in turn.
  * - Every failed cleanup is an Issue CleanupFailed: as many Issues as failed endings, so a Cause
  *   that is not a pure interrupt is never dropped unseen. A close past its bound is an `overdue`
  *   Owner whose one task failed.

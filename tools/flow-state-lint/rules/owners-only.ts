@@ -25,9 +25,6 @@ const isBanned = (module: string, member: string) => banned[module]?.(member) ==
 // Effect's private modules: anything reached there escapes the rule's names.
 const isInternal = (source: string) => source === "effect/internal" || source.startsWith("effect/internal/");
 
-const importedName = (specifier: ESTree.ImportSpecifier) =>
-  specifier.imported.type === "Identifier" ? specifier.imported.name : String(specifier.imported.value);
-
 // The module an `effect/<Module>` import names, if it is one the rule watches.
 const moduleOf = (source: string) => {
   const module = source.startsWith("effect/") ? source.slice("effect/".length) : "";
@@ -39,28 +36,37 @@ const moduleOf = (source: string) => {
 // private ones.
 const isWatched = (source: string) => source === "effect" || moduleOf(source) !== undefined || isInternal(source);
 
-// An expression with its casts and parentheses taken off: `(Effect as any)` is `Effect`.
-const bare = (node: ESTree.Node): ESTree.Node =>
+const nameOf = (node: ESTree.Node) => (node.type === "Identifier" ? node.name : String((node as ESTree.Literal).value));
+
+// The wrappers that leave an expression's value as it is: casts, parentheses and optional chains.
+const isWrapper = (node: ESTree.Node) =>
   node.type === "TSAsExpression" ||
   node.type === "TSSatisfiesExpression" ||
   node.type === "TSNonNullExpression" ||
   node.type === "TSTypeAssertion" ||
   node.type === "ParenthesizedExpression" ||
-  node.type === "ChainExpression"
-    ? bare(node.expression)
-    : node;
+  node.type === "ChainExpression";
+
+// An expression with its wrappers taken off: `(Effect as any)` is `Effect`.
+const bare = (node: ESTree.Node): ESTree.Node => (isWrapper(node) ? bare(node.expression) : node);
+
+// The outermost wrapper around an expression, so its parent is where the value is used.
+const outermost = (node: ESTree.Node): ESTree.Node =>
+  node.parent !== undefined && node.parent !== null && isWrapper(node.parent) ? outermost(node.parent) : node;
+
+// A string known before running: a literal, or a template with no expressions.
+const staticText = (node: ESTree.Node | null | undefined) =>
+  node === null || node === undefined
+    ? undefined
+    : node.type === "Literal"
+      ? String(node.value)
+      : node.type === "TemplateLiteral" && node.expressions.length === 0
+        ? (node.quasis[0]?.value.cooked ?? undefined)
+        : undefined;
 
 // The key a member access names when it is known before running: `.x`, `["x"]` and `` [`x`] ``.
-const staticKey = (node: ESTree.MemberExpression) => {
-  const key = node.property;
-
-  if (key.type === "Identifier" && !node.computed) return key.name;
-  if (key.type === "Literal") return String(key.value);
-
-  return key.type === "TemplateLiteral" && key.expressions.length === 0
-    ? (key.quasis[0]?.value.cooked ?? undefined)
-    : undefined;
-};
+const staticKey = (node: ESTree.MemberExpression) =>
+  node.property.type === "Identifier" && !node.computed ? node.property.name : staticText(node.property);
 
 // A pattern property's key, when it is known before running.
 const patternKey = (property: ESTree.Node) =>
@@ -68,9 +74,53 @@ const patternKey = (property: ESTree.Node) =>
     ? undefined
     : property.key.type === "Identifier" && !property.computed
       ? property.key.name
-      : property.key.type === "Literal"
-        ? String(property.key.value)
-        : undefined;
+      : staticText(property.key);
+
+// Where a watched name may stand without handing the module on: a member access on it (checked there), a
+// name or pattern bound to it (watched under that name), a type, an import, or a key that is not a
+// reference at all.
+const isTracked = (at: ESTree.Node, name: ESTree.Node) => {
+  const parent = at.parent;
+
+  if (parent === undefined || parent === null) return true;
+
+  // A key that names a property, field or method is not a reference.
+  if (
+    "key" in parent &&
+    parent.key === name &&
+    !("computed" in parent && parent.computed) &&
+    !("shorthand" in parent && parent.shorthand)
+  )
+    return true;
+
+  switch (parent.type) {
+    case "MemberExpression":
+      return parent.object === at || (parent.property === name && !parent.computed);
+    case "VariableDeclarator":
+      return parent.id === name || parent.id.type === "Identifier" || parent.id.type === "ObjectPattern";
+    case "AssignmentExpression":
+      return parent.left === name || parent.left.type === "Identifier" || parent.left.type === "ObjectPattern";
+    case "AssignmentPattern":
+      return parent.left === name;
+    case "ImportSpecifier":
+    case "ImportDefaultSpecifier":
+    case "ImportNamespaceSpecifier":
+    case "TSQualifiedName":
+    case "TSTypeReference":
+    case "TSTypeQuery":
+      return true;
+    default:
+      return (
+        (parent.type === "FunctionDeclaration" ||
+          parent.type === "FunctionExpression" ||
+          parent.type === "ArrowFunctionExpression") &&
+        parent.params.includes(name as ESTree.ParamPattern)
+      );
+  }
+};
+
+// What a binding holds: one watched module, or the whole package.
+type Held = { readonly module: string } | { readonly package: true };
 
 export const ownersOnlyRule = defineRule({
   meta: {
@@ -85,43 +135,43 @@ export const ownersOnlyRule = defineRule({
     schema: optionsSchema,
   },
   createOnce(context) {
-    // Local names bound to a watched module (`Effect`, `import { Effect as Fx }`, `import * as E from
-    // "effect/Effect"`, `const E = Effect`), and to the package itself (`import * as Pkg from "effect"`).
+    // Local names bound to a watched module (`import { Effect }`, `import { Effect as Fx }`, `import * as E
+    // from "effect/Effect"`, `const E = Effect`), and to the package itself (`import * as Pkg from "effect"`).
     let modules = new Map<string, string>();
     let packages = new Set<string>();
 
     const report = (node: ESTree.Node, name: string) =>
       context.report({ node, messageId: "owned", data: { name } });
 
-    // The watched module an expression is, if it is one: a local name bound to it, or `Pkg.Effect`.
-    const moduleNamed = (node: ESTree.Node): string | undefined => {
+    // What an expression holds, if it is watched: a local name bound to a module or the package, or
+    // `Pkg.Effect`.
+    const heldBy = (node: ESTree.Node): Held | undefined => {
       const object = bare(node);
 
-      if (object.type === "Identifier") return modules.get(object.name);
+      if (object.type === "Identifier") {
+        const module = modules.get(object.name);
+
+        return module !== undefined ? { module } : packages.has(object.name) ? { package: true } : undefined;
+      }
+
       if (object.type !== "MemberExpression") return undefined;
 
-      const parent = bare(object.object);
+      const parent = heldBy(object.object);
       const key = staticKey(object);
 
-      return parent.type === "Identifier" && packages.has(parent.name) && key !== undefined && key in banned
-        ? key
+      return parent !== undefined && "package" in parent && key !== undefined && key in banned
+        ? { module: key }
         : undefined;
     };
 
-    const isPackage = (node: ESTree.Node) => {
-      const object = bare(node);
-
-      return object.type === "Identifier" && packages.has(object.name);
-    };
-
-    // A name given a module (`const E = Effect`) or the package (`const P = Pkg`) watches it under that
-    // name; a pattern taking members out of either is checked member by member.
-    const bind = (target: ESTree.Node, value: ESTree.Node) => {
-      const module = moduleNamed(value);
+    // A name given what an expression holds watches it under that name; a pattern taking members out
+    // is checked member by member, and a nested pattern under the package watches each module it takes.
+    const bind = (target: ESTree.Node, held: Held) => {
+      if (target.type === "AssignmentPattern") return bind(target.left, held);
 
       if (target.type === "Identifier") {
-        if (module !== undefined) modules.set(target.name, module);
-        else if (isPackage(value)) packages.add(target.name);
+        if ("module" in held) modules.set(target.name, held.module);
+        else packages.add(target.name);
 
         return;
       }
@@ -130,26 +180,34 @@ export const ownersOnlyRule = defineRule({
 
       for (const property of target.properties) {
         const key = patternKey(property);
+        const where = "module" in held ? held.module : "effect";
 
-        if (module !== undefined && (key === undefined || isBanned(module, key)))
-          report(property, `${module}.${key ?? "[…]"}`);
-        // `const { Effect: Fx } = Pkg`: the module under the pattern's name.
-        else if (
-          isPackage(value) &&
-          key !== undefined &&
-          key in banned &&
-          property.type === "Property" &&
-          property.value.type === "Identifier"
-        )
-          modules.set(property.value.name, key);
+        if (key === undefined) report(property, `${where}[…]`);
+        else if ("module" in held) {
+          if (isBanned(held.module, key)) report(property, `${held.module}.${key}`);
+        } else if (key in banned && property.type === "Property") bind(property.value, { module: key });
       }
+    };
+
+    // A watched source reached by a form the rule cannot follow: refused outright.
+    const refuseSource = (node: ESTree.Node, source: string | undefined) => {
+      if (source === undefined) report(node, "import(…)");
+      else if (isWatched(source)) report(node, source);
+    };
+
+    // A watched module used as a value anywhere the rule does not follow it: passed, spread, stored,
+    // returned or exported.
+    const checkEscape = (node: ESTree.Node, name: string) => {
+      const at = outermost(node);
+
+      if (!isTracked(at, node)) report(node, `${name} as a value`);
     };
 
     return {
       before() {
         const rel = relativePath(context.filename);
         const given: Options = context.options[0] ?? {};
-        modules = new Map(Object.keys(banned).map((name) => [name, name]));
+        modules = new Map();
         packages = new Set();
 
         return rel !== undefined && appliesTo(rel, given);
@@ -161,7 +219,7 @@ export const ownersOnlyRule = defineRule({
         if (isInternal(source)) return report(node, source);
 
         for (const specifier of node.specifiers) {
-          const name = specifier.type === "ImportSpecifier" ? importedName(specifier) : "*";
+          const name = specifier.type === "ImportSpecifier" ? nameOf(specifier.imported) : "*";
 
           // `import * as E`, `import E` and `import { default as E }`: the whole module or package.
           if (name === "*" || name === "default") {
@@ -176,52 +234,88 @@ export const ownersOnlyRule = defineRule({
           else if (module !== undefined && isBanned(module, name)) report(specifier, `${module}.${name}`);
         }
       },
-      // `import("effect/Effect")`: a module reached at run time escapes every name the rule watches.
-      ImportExpression(node: ESTree.ImportExpression) {
-        const source = bare(node.source);
+      // `import E = require("effect/Effect")`.
+      TSImportEqualsDeclaration(node: ESTree.TSImportEqualsDeclaration) {
+        const reference = node.moduleReference;
 
-        if (source.type === "Literal" && isWatched(String(source.value))) report(node, String(source.value));
+        if (reference.type === "TSExternalModuleReference") refuseSource(node, staticText(reference.expression) ?? "");
       },
-      // `export { forkDetach } from "effect/Effect"`: a banned member handed on under another module's name.
+      // `import("effect/Effect")`: a module reached at run time escapes every name the rule watches, and
+      // so does a source known only at run time.
+      ImportExpression(node: ESTree.ImportExpression) {
+        refuseSource(node, staticText(bare(node.source)));
+      },
+      // `require("effect/Effect")`.
+      CallExpression(node: ESTree.CallExpression) {
+        if (node.callee.type === "Identifier" && node.callee.name === "require")
+          refuseSource(node, staticText(node.arguments[0]) ?? "");
+      },
+      // `export { forkDetach } from "effect/Effect"`, `export { Effect } from "effect"` and `export { E }`
+      // of a watched name: a module or member handed on under another file's names.
       ExportNamedDeclaration(node: ESTree.ExportNamedDeclaration) {
         const source = node.source === null ? undefined : String(node.source.value);
 
-        if (source === undefined) return;
-        if (isInternal(source)) return report(node, source);
+        if (source !== undefined && isInternal(source)) return report(node, source);
 
-        const module = moduleOf(source);
+        const module = source === undefined ? undefined : moduleOf(source);
 
         for (const specifier of node.specifiers) {
-          const local = specifier.local.type === "Identifier" ? specifier.local.name : String(specifier.local.value);
+          const local = nameOf(specifier.local);
 
-          if (module !== undefined && (local === "default" || isBanned(module, local)))
-            report(specifier, `${module}.${local}`);
+          const handsOn =
+            source === undefined
+              ? modules.has(local) || packages.has(local)
+              : source === "effect"
+                ? local in banned
+                : module !== undefined && (local === "default" || isBanned(module, local));
+
+          if (handsOn) report(specifier, source === undefined ? local : `${source}.${local}`);
         }
       },
-      // `export * from "effect/Effect"`: every banned member handed on at once.
+      // `export * from "effect/Effect"` and `export * as Pkg from "effect"`: every banned member at once.
       ExportAllDeclaration(node: ESTree.ExportAllDeclaration) {
         const source = String(node.source.value);
 
-        if (moduleOf(source) !== undefined || isInternal(source)) report(node, source);
+        if (isWatched(source)) report(node, source);
+      },
+      Identifier(node: ESTree.Node) {
+        if (node.type === "Identifier" && (modules.has(node.name) || packages.has(node.name)))
+          checkEscape(node, node.name);
       },
       MemberExpression(node: ESTree.MemberExpression) {
         const member = staticKey(node);
 
         if (member === "interruptUnsafe") return report(node, member);
 
-        const module = moduleNamed(node.object);
+        const held = heldBy(node.object);
 
-        if (module === undefined) return;
+        if (held === undefined) return;
+
+        if ("package" in held) {
+          // `Pkg.Effect` handed on as a value, and `Pkg[name]`, which may be any watched module.
+          if (member === undefined) return report(node, "effect[…]");
+          if (member in banned) checkEscape(node, `effect.${member}`);
+
+          return;
+        }
 
         // `Effect[name]`: a key known only at run time may be any banned member.
-        if (member === undefined) return report(node, `${module}[…]`);
-        if (isBanned(module, member)) report(node, `${module}.${member}`);
+        if (member === undefined) return report(node, `${held.module}[…]`);
+        if (isBanned(held.module, member)) report(node, `${held.module}.${member}`);
       },
       VariableDeclarator(node: ESTree.VariableDeclarator) {
-        if (node.init !== null) bind(node.id, node.init);
+        const held = node.init === null ? undefined : heldBy(node.init);
+
+        if (held === undefined) return;
+
+        // `export const E = Effect`: the module handed on under another file's names.
+        if (node.parent?.parent?.type === "ExportNamedDeclaration") report(node, "an exported alias");
+        bind(node.id, held);
       },
       AssignmentExpression(node: ESTree.AssignmentExpression) {
-        if (node.operator === "=") bind(node.left, node.right);
+        const held = node.operator === "=" ? heldBy(node.right) : undefined;
+
+        if (held !== undefined) bind(node.left, held);
       },
     };
   },
