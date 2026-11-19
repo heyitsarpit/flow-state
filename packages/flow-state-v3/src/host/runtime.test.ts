@@ -327,6 +327,7 @@ describe("the Runtime's host listeners (Actors R22)", () => {
       { app: app({ id: "listeners", machines: {} }) },
       platform,
       () => undefined,
+      Option.none(),
     );
 
     Effect.runSync(runtime.ready());
@@ -368,6 +369,7 @@ describe("a defect inside a step (Actors R25)", () => {
       },
       platform,
       () => undefined,
+      Option.none(),
     );
 
     const booted = await Effect.runPromiseExit(runtime.ready());
@@ -445,6 +447,7 @@ const tallyOver = (store: Map<string, string>, sessionSeed: string) =>
       }),
     ),
     () => undefined,
+    Option.none(),
   ).runtime;
 
 const tally = actorRef(TallyMachine, "t");
@@ -602,6 +605,7 @@ const trappedHost = () => {
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted throw these tests are about
       if (trap.admit) throw new Error("the admit hook refused the step");
     },
+    Option.none(),
   );
 
   return { runtime, trap };

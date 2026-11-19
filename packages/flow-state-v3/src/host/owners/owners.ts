@@ -79,6 +79,45 @@ const notAnEffect = <A, E>(work: Effect.Effect<A, E>) =>
 // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
 export type Hear = (failures: ReadonlyArray<Cause.Cause<unknown>>) => void;
 
+/**
+ * What an Owner tells a dev trace: each task as it starts and as it ends, and each close's report.
+ *
+ * **Details**
+ *
+ * A `Task` names its Owner, its number in that Owner (from 0, in the order tasks start), its key and
+ * its phase: `started`, or the tag of its {@link Ending}; `failed` is whether its cleanup failed.
+ * A `Report` is what one close heard: `causes` in all, `own` of them from the Owner's own Scope.
+ * `heardBy` is `parent` when the close was started by its parent's close, whose report counts these
+ * causes again, and `closer` when it went to whoever else started it. `parent` names the Owner
+ * this one is nested in.
+ */
+export type OwnerRecord = Data.TaggedEnum<{
+  Task: {
+    owner: string;
+    task: number;
+    key: string;
+    phase: "started" | Ending<never>["_tag"];
+    failed: boolean;
+  };
+  Report: {
+    owner: string;
+    parent: Option.Option<string>;
+    heardBy: "closer" | "parent";
+    causes: number;
+    own: number;
+  };
+}>;
+
+/**
+ * Constructors and matchers for {@link OwnerRecord}.
+ */
+export const OwnerRecord = Data.taggedEnum<OwnerRecord>();
+
+/**
+ * Where an Owner's records go: a dev trace's hook, or none in production, which builds no record.
+ */
+export type Traced = Option.Option<(record: OwnerRecord) => void>;
+
 // An Owner runs work until its close starts; every later closer only waits for the first.
 type Phase = Data.TaggedEnum<{
   Open: {};
@@ -86,6 +125,9 @@ type Phase = Data.TaggedEnum<{
 }>;
 
 const Phase = Data.taggedEnum<Phase>();
+
+// Who started a close: the Owner's parent, as its own close, or anyone else.
+type HeardBy = "closer" | "parent";
 
 /**
  * An Owner: an Effect Scope, the keyed tasks forked in it, the Owners nested in it, and the failed
@@ -104,28 +146,46 @@ const Phase = Data.taggedEnum<Phase>();
  *   the Scope, which interrupts and awaits every task. `hear` gets every failure judged in this
  *   Owner and in each nested Owner this close started. A second `end` only waits.
  * - A closed Owner runs nothing: a task forked into it never starts and is heard as Interrupted.
+ * - `name` names the Owner in `traced`'s records; a nested Owner's name follows its parent's.
  *
  * **Gotchas**
  *
  * - `onEnding` runs inside the task's fiber, before the fiber ends, so a close that awaits the task
  *   has heard its ending.
  */
-// RETURN_TYPE: an Owner makes Owners nested in it, so its type is named, not inferred.
+// RETURN_TYPE: the Owner contract, without the close its parent holds.
 export const makeOwner = (
   parent: Scope.Scope,
   context: () => Context.Context<never>,
   // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
   judged: (failure: Cause.Cause<unknown>) => void,
-  closed: () => void = () => undefined,
-): Owner => {
+  name: string,
+  traced: Traced,
+): Owner =>
+  build(parent, context, judged, { name, parent: Option.none() }, traced, () => undefined);
+
+// An Owner as its parent holds it: with the close the parent's own close starts.
+type Held = Owner & { readonly close: (hear: Hear, by: HeardBy) => Deferred.Deferred<void> };
+
+// RETURN_TYPE: an Owner makes Owners nested in it, so its type is named, not inferred.
+const build = (
+  parent: Scope.Scope,
+  context: () => Context.Context<never>,
+  // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+  judged: (failure: Cause.Cause<unknown>) => void,
+  named: { readonly name: string; readonly parent: Option.Option<string> },
+  traced: Traced,
+  closed: () => void,
+): Held => {
   // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- an Owner's Scope is a child of its parent's, closed by the Owner's own close
   const scope = Scope.forkUnsafe(parent);
   // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- an Owner is built synchronously, in its parent's Scope
   const tasks = Effect.runSync(FiberMap.make<string>().pipe(Scope.provide(scope)));
   // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
   const failures: Array<Cause.Cause<unknown>> = [];
-  const children = new Set<Owner>();
+  const children = new Set<Held>();
   let phase: Phase = Phase.Open();
+  let numbered = 0;
 
   const run = <A, E>(effect: Effect.Effect<A, E>) => detach(effect, context);
 
@@ -136,12 +196,31 @@ export const makeOwner = (
   ) => {
     if (Phase.$is("Closing")(phase)) return onEnd(Ending.Interrupted(), Exit.interrupt());
 
+    const task = numbered;
+    numbered += 1;
+
+    if (Option.isSome(traced))
+      traced.value(
+        OwnerRecord.Task({ owner: named.name, task, key, phase: "started", failed: false }),
+      );
+
     // A value that is not an Effect (a host's runPromise of anything) dies inside the task, so it
     // is judged too: Effect's own loop ends such a fiber without running its finalizers.
     const fiber = run(
       Effect.onExit(notAnEffect(work), (exit) =>
         Effect.sync(() => {
           const { ending, failure } = judge(exit);
+
+          if (Option.isSome(traced))
+            traced.value(
+              OwnerRecord.Task({
+                owner: named.name,
+                task,
+                key,
+                phase: ending._tag,
+                failed: Option.isSome(failure),
+              }),
+            );
 
           for (const cause of Option.toArray(failure)) {
             failures.push(cause);
@@ -157,7 +236,7 @@ export const makeOwner = (
   };
 
   // Starts the close once and returns what it completes; a later start returns the first's.
-  const stop = (hear: Hear) => {
+  const stop = (hear: Hear, by: HeardBy) => {
     if (Phase.$is("Closing")(phase)) return phase.done;
 
     const done = Deferred.makeUnsafe<void>();
@@ -168,13 +247,27 @@ export const makeOwner = (
         // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
         const nested: Array<Cause.Cause<unknown>> = [];
 
-        for (const child of children) yield* child.end((found) => void nested.push(...found));
+        for (const child of children)
+          yield* Deferred.await(child.close((found) => void nested.push(...found), "parent"));
 
         const own = yield* releaseScope(scope);
 
         for (const cause of own) judged(cause);
 
-        hear([...failures, ...nested, ...own]);
+        const heard = [...failures, ...nested, ...own];
+
+        if (Option.isSome(traced))
+          traced.value(
+            OwnerRecord.Report({
+              owner: named.name,
+              parent: named.parent,
+              heardBy: by,
+              causes: heard.length,
+              own: own.length,
+            }),
+          );
+
+        hear(heard);
       }).pipe(
         // A hearer that throws still ends the close, so no closer waits for ever.
         Effect.ensuring(
@@ -189,7 +282,7 @@ export const makeOwner = (
     return done;
   };
 
-  const owner: Owner = {
+  const owner: Held = {
     fork: (key, work, onEnding) => forkJudged(key, work, (ending) => onEnding(ending)),
     forkWhole: (key, work, onExit) => forkJudged(key, work, (_, exit) => onExit(exit)),
     cancel: (key) => {
@@ -198,8 +291,15 @@ export const makeOwner = (
 
       for (const child of children) child.cancel(key);
     },
-    child: () => {
-      const made = makeOwner(scope, context, judged, () => void children.delete(made));
+    child: (name) => {
+      const made = build(
+        scope,
+        context,
+        judged,
+        { name: `${named.name}/${name}`, parent: Option.some(named.name) },
+        traced,
+        () => void children.delete(made),
+      );
 
       if (Phase.$is("Closing")(phase)) made.stop(() => undefined);
       else children.add(made);
@@ -209,8 +309,9 @@ export const makeOwner = (
     finalize: (cleanup) =>
       // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- construct() is synchronous; an Owner registers its cleanups as the host builds
       Effect.runSync(Scope.addFinalizer(scope, Effect.sync(cleanup))),
-    stop: (hear) => void stop(hear),
-    end: (hear) => Deferred.await(stop(hear)),
+    stop: (hear) => void stop(hear, "closer"),
+    end: (hear) => Deferred.await(stop(hear, "closer")),
+    close: stop,
   };
 
   return owner;
@@ -233,7 +334,8 @@ export type Owner = {
   ) => void;
   // Interrupts the task under a key, in this Owner or any nested one.
   readonly cancel: (key: string) => void;
-  readonly child: () => Owner;
+  // An Owner nested in this one, named under this one's name.
+  readonly child: (name: string) => Owner;
   readonly finalize: (cleanup: () => void) => void;
   // Starts the close, heard by `hear` unless another close started first.
   readonly stop: (hear: Hear) => void;

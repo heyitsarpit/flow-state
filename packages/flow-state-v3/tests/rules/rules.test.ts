@@ -24,6 +24,7 @@ import { oneStart, ownedRowsSaved } from "./starts.ts";
 import { refusedTurnIssueOnly } from "./refusals.ts";
 import { mailboxOrder } from "./mailbox.ts";
 import { unchangedPartsKept } from "./memory.ts";
+import { everyTaskAccounted } from "./owners.ts";
 
 const who = { machine: "Checkout/Pay", name: "checkout-1" };
 
@@ -557,5 +558,54 @@ describe("run rules over crafted runs, each rule seen firing", () => {
 
     expect(onlyActorsWithheld.breaches(lane)).toHaveLength(1);
     expect(onlyActorsWithheld.breaches(actor)).toEqual([]);
+  });
+
+  it("Actors R23: a report while a task runs, a failed cleanup the report misses, or one with no Issue is a breach; every task ended and heard is not", async () => {
+    const real = await shopStory("rules/owners").ensure(checkout).run();
+
+    const task = (n: number, phase: "started" | "Interrupted", failed = false) =>
+      TraceRecord.Task({ owner: "work", task: n, key: `call/c${n}`, phase, failed });
+
+    const report = (causes: number) =>
+      TraceRecord.Report({
+        owner: "work",
+        parent: Option.none(),
+        heardBy: "closer",
+        causes,
+        own: 0,
+      });
+
+    const issue = TraceRecord.Runtime({
+      evidence: Evidence.Issue({
+        code: "CleanupFailed",
+        ending: Option.none(),
+        slot: Option.none(),
+      }),
+    });
+
+    const traced = (records: ReadonlyArray<TraceRecord>) =>
+      ({
+        ...real,
+        trace: {
+          storyId: "rules/owners",
+          events: records.map((record, n) => ({
+            sequence: n + 1,
+            tab: { name: "main", open: 1 },
+            record,
+          })),
+        },
+      }) satisfies StoryRun;
+
+    const heard = traced([task(0, "started"), task(0, "Interrupted", true), issue, report(1)]);
+    const running = traced([task(0, "started"), report(0)]);
+    const missed = traced([task(0, "started"), task(0, "Interrupted", true), issue, report(0)]);
+    const unseen = traced([task(0, "started"), task(0, "Interrupted", true), report(1)]);
+    const twice = traced([task(0, "started"), task(0, "Interrupted"), task(0, "Interrupted")]);
+
+    expect(everyTaskAccounted.breaches(heard)).toEqual([]);
+    expect(everyTaskAccounted.breaches(running)).toHaveLength(1);
+    expect(everyTaskAccounted.breaches(missed)).toHaveLength(1);
+    expect(everyTaskAccounted.breaches(unseen)).toHaveLength(1);
+    expect(everyTaskAccounted.breaches(twice)).toHaveLength(1);
   });
 });

@@ -79,8 +79,8 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     ["src/host/cleanups.test.ts"],
     "a failed cleanup is no Issue when it is judged, so a read cancelled while its actor lives leaves no evidence",
     "src/host/runtime.ts",
-    "  const work = makeOwner(root, context, () => driver.input(Input.CleanupFailed()));",
-    "  const work = makeOwner(root, context, () => undefined);",
+    '  const work = makeOwner(root, context, () => driver.input(Input.CleanupFailed()), "work", traced);',
+    '  const work = makeOwner(root, context, () => undefined, "work", traced);',
   ),
   fault(
     "cancel-skips-reads",
@@ -115,7 +115,7 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     ["src/host/cleanups.test.ts"],
     "an ended actor's cleanup that fails once no ensure can run quarantines a ref nobody will ensure, so it is reported nowhere",
     "src/host/driver.ts",
-    "    if (!Verdict.$is(\"Run\")(admit(world.life, Input.Run()))) return report.hear(failures);\n",
+    '    if (!Verdict.$is("Run")(admit(world.life, Input.Run()))) return report.hear(failures);\n',
     "",
   ),
   fault(
@@ -261,5 +261,23 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     "src/core/incarnations.ts",
     "    tx.dropMail(actor);",
     "",
+  ),
+  fault(
+    "report-drops-task-failures",
+    "Actors R23",
+    ["tests/sign-in/cleanups.test.ts"],
+    "an Owner's close reports only its nested Owners' and its own Scope's failures, dropping its tasks' failed cleanups",
+    "src/host/owners/owners.ts",
+    "        const heard = [...failures, ...nested, ...own];",
+    "        const heard = [...nested, ...own];",
+  ),
+  fault(
+    "report-before-tasks-end",
+    "Actors R23",
+    ["tests/sign-in/cleanups.test.ts"],
+    "an Owner reports before its Scope closes, so its tasks are still running when its closer hears it",
+    "src/host/owners/owners.ts",
+    "        const own = yield* releaseScope(scope);\n",
+    "        const own: Array<Cause.Cause<unknown>> = [];\n        yield* Effect.forkDetach(releaseScope(scope));\n",
   ),
 ];

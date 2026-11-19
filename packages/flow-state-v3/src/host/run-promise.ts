@@ -26,6 +26,9 @@ const runFailed = (cause: Cause.Cause<unknown>) =>
  * the rejection keeps the whole Cause, a failed cleanup included.
  */
 export const makeRunPromise = <R>(driver: Driver) => {
+  // Each call's Owner is numbered in the order calls are admitted.
+  let runs = 0;
+
   const admitted = <A, E>(effect: Effect.Effect<A, E, R>, signal: Option.Option<AbortSignal>) =>
     Effect.gen(function* () {
       const verdict = driver.verdict(Input.Run());
@@ -46,7 +49,8 @@ export const makeRunPromise = <R>(driver: Driver) => {
       // SAFETY: the boot provides every service the app's contracts list, which is `R`.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the app's services are erased in the Runtime and provided by its Owners
       const provided = effect as Effect.Effect<A, E>;
-      const call = driver.work.child();
+      const call = driver.work.child(`run ${runs}`);
+      runs += 1;
 
       // The one who ends this call hears its cleanup's failure; the whole Exit already keeps it.
       const end = () => call.stop(() => undefined);

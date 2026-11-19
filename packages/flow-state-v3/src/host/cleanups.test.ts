@@ -511,7 +511,12 @@ describe("an ended actor's cleanup that outlives the Runtime's close (Actors R23
   it("Actors R23: a read whose cleanup fails only after dispose stopped waiting goes to the host's report, as no ensure can hear it", () => {
     const gate = Deferred.makeUnsafe<void>();
     const tab = reporting(platformOver(new Map(), 1));
-    const runtime = readyOver(tab, lineWith(Effect.andThen(Deferred.await(gate), Effect.die(late))));
+
+    const runtime = readyOver(
+      tab,
+      lineWith(Effect.andThen(Deferred.await(gate), Effect.die(late))),
+    );
+
     runtime.ensureActor(phone).send({ _tag: "Look" });
     tab.settle();
     runtime.disposeActor(phone);
@@ -543,6 +548,7 @@ const readyObserved = (tab: Tab, services: Layer.Layer<Line>) => {
     (batch) => {
       for (const e of batch) if (Evidence.$is("Issue")(e)) issues.push(e.code);
     },
+    Option.none(),
   );
 
   Effect.runSync(built.runtime.ready());
@@ -670,6 +676,8 @@ describe("a store write interrupted at the close (Restore R10, Actors R23)", () 
       Scope.makeUnsafe(),
       () => tab.platform,
       () => undefined,
+      "work",
+      Option.none(),
     );
 
     const answers: Array<boolean> = [];

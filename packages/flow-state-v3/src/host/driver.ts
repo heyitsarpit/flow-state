@@ -151,7 +151,7 @@ export const makeDriver = (options: {
     Option.getOrElse(
       Option.map(Option.fromUndefinedOr(incarnations.get(id)), (held) => held.owner),
       () => {
-        const owner = work.child();
+        const owner = work.child(`incarnation ${id}`);
         incarnations.set(id, { owner, actor });
 
         return owner;

@@ -22,7 +22,7 @@ export type TestRuntime = ReturnType<typeof buildRuntime>;
  */
 export const testing = {
   build: (config: RuntimeConfig, platform: Platform) =>
-    buildRuntime(config, platform, () => undefined),
+    buildRuntime(config, platform, () => undefined, Option.none()),
   attach: (
     { driver }: TestRuntime,
     actor: ActorId,

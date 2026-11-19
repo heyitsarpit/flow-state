@@ -18,7 +18,8 @@ import {
   snapshotIn,
   type Unsettled,
 } from "../runtime.ts";
-import { type Trace, TraceRecord } from "../trace.ts";
+import type { OwnerRecord } from "../owners/owners.ts";
+import { type Trace, TraceRecord, traceOfOwner } from "../trace.ts";
 import { tabClock } from "./clock.ts";
 import {
   type AnyServer,
@@ -127,9 +128,21 @@ type Limits = {
 
 // One open of the tab: its clock and event loop, and one Runtime whose every step is admitted by
 // the turn limit before it applies.
-const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limits: Limits) => {
+const openTab = (
+  config: RuntimeConfig,
+  host: Host["Service"],
+  now: number,
+  limits: Limits,
+  traced: (record: OwnerRecord) => void,
+) => {
   const tab = tabClock(host, now, () => limits.fail("Settle"));
-  const built = buildRuntime(config, tab.platform, (evidence) => limits.admit(evidence, tab.now()));
+
+  const built = buildRuntime(
+    config,
+    tab.platform,
+    (evidence) => limits.admit(evidence, tab.now()),
+    Option.some(traced),
+  );
 
   return {
     built,
@@ -304,7 +317,10 @@ export const startRun = <Names extends string>(
       report: (cause) => void late.push(cause),
     });
 
-    const opened = openTab({ ...subject.config, services }, host, now, limits);
+    // Each Owner's tasks and reports go into the trace, as this open's records.
+    const opened = openTab({ ...subject.config, services }, host, now, limits, (record) =>
+      note({ kind: "record", open, record: traceOfOwner(record) }),
+    );
 
     attachInspector(opened.built.runtime, (e) => {
       evidence.push(e);

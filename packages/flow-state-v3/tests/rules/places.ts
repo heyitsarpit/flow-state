@@ -15,18 +15,53 @@ export const placesOf = (run: StoryRun) =>
     e.record._tag === "Runtime" ? [{ open: e.tab.open, sequence: e.sequence }] : [],
   );
 
+// Each open's landed batches, in trace order: each one's sequence and its keys without their kind.
+type Landed = Map<number, Array<{ readonly sequence: number; readonly keys: Array<string> }>>;
+
+const landedOf = (run: StoryRun) => {
+  const landed: Landed = new Map();
+
+  for (const e of run.trace.events)
+    if (e.record._tag === "Write" && e.record.status === "landed") {
+      const batches = landed.get(e.tab.open) ?? [];
+      landed.set(e.tab.open, batches);
+      batches.push({
+        sequence: e.sequence,
+        keys: e.record.keys.map((k) => k.split("/").slice(1).join("/")),
+      });
+    }
+
+  return landed;
+};
+
+// Per run, read once: its landed batches, and the latest landed batch of an open carrying an
+// actor's records.
+const savedOf = new WeakMap<
+  StoryRun,
+  { readonly landed: Landed; readonly latest: Map<string, number> }
+>();
+
+const latestLanded = (run: StoryRun, open: number, actor: string) => {
+  const saved = savedOf.get(run) ?? { landed: landedOf(run), latest: new Map<string, number>() };
+  savedOf.set(run, saved);
+  const key = `${open}|${actor}`;
+  const found = saved.latest.get(key);
+
+  if (found !== undefined) return found;
+
+  const batches = saved.landed.get(open) ?? [];
+  const latest = batches.findLast((b) => b.keys.some((k) => k.startsWith(actor)))?.sequence ?? -1;
+  saved.latest.set(key, latest);
+
+  return latest;
+};
+
 // Whether what the record at `at` changed for an actor was saved before its open ended: a batch of
 // the same open, issued after it and carrying one of that actor's records, landed.
 const savedAfter = (run: StoryRun, places: ReadonlyArray<Place>, at: number, actor: string) =>
-  Option.exists(Option.fromUndefinedOr(places[at]), (place) =>
-    run.trace.events.some(
-      (e) =>
-        e.sequence > place.sequence &&
-        e.tab.open === place.open &&
-        e.record._tag === "Write" &&
-        e.record.status === "landed" &&
-        e.record.keys.some((k) => k.split("/").slice(1).join("/").startsWith(actor)),
-    ),
+  Option.exists(
+    Option.fromUndefinedOr(places[at]),
+    (place) => latestLanded(run, place.open, actor) > place.sequence,
   );
 
 /**

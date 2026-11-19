@@ -17,7 +17,14 @@ import { isInFlight } from "../core/tx.ts";
 import { actorKey, byCodeUnits } from "../core/world.ts";
 import { type FlowError, flowError, flowErrorOf } from "../error.ts";
 import type { Driver } from "./driver.ts";
-import { detach, releaseScope, type RuntimeReport, waitAtMost } from "./owners/owners.ts";
+import {
+  detach,
+  OwnerRecord,
+  releaseScope,
+  type RuntimeReport,
+  type Traced,
+  waitAtMost,
+} from "./owners/owners.ts";
 import type { Store } from "./host.ts";
 
 /**
@@ -157,6 +164,7 @@ export const makeClose = (
   report: RuntimeReport,
   forget: () => Effect.Effect<void, FlowError>,
   context: () => Context.Context<never>,
+  traced: Traced,
 ) => {
   // Whether a dispose asked to forget before the close reached its forget.
   const wanted = { forget: false };
@@ -167,6 +175,17 @@ export const makeClose = (
 
     for (const _ of released) driver.input(Input.CleanupFailed());
 
+    if (Option.isSome(traced))
+      traced.value(
+        OwnerRecord.Report({
+          owner: "root",
+          parent: Option.none(),
+          heardBy: "closer",
+          causes: released.length,
+          own: released.length,
+        }),
+      );
+
     report.hear(released);
   });
 
@@ -176,7 +195,20 @@ export const makeClose = (
 
     const overdue = Option.isNone(waited) ? [Cause.fail(new CleanupOverdue({}))] : [];
 
-    if (overdue.length > 0) driver.input(Input.CleanupFailed());
+    if (overdue.length > 0) {
+      driver.input(Input.CleanupFailed());
+
+      if (Option.isSome(traced))
+        traced.value(
+          OwnerRecord.Report({
+            owner: "overdue",
+            parent: Option.none(),
+            heardBy: "closer",
+            causes: 1,
+            own: 1,
+          }),
+        );
+    }
 
     const failures = [...report.late(), ...overdue, ...driver.unheard()];
     const forgot = wanted.forget;

@@ -27,7 +27,7 @@ import { makeDriver, type Driver } from "./driver.ts";
 import { actorIdOf, type ActorRef } from "./refs.ts";
 import { defect } from "../core/defect.ts";
 import { browserPlatform } from "./platform/browser.ts";
-import { makeOwner, makeRuntimeReport } from "./owners/owners.ts";
+import { makeOwner, makeRuntimeReport, type Traced } from "./owners/owners.ts";
 import { makeRunPromise } from "./run-promise.ts";
 import { makeWiring } from "./wiring.ts";
 import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
@@ -245,12 +245,13 @@ const verdictOf = (compiled: Compiled) => {
 
 /**
  * Builds a Runtime over a platform, with its driver beside it for Flow's own suite (the public
- * Runtime does not carry it).
+ * Runtime does not carry it); `traced` hears each Owner's tasks and reports for a dev trace.
  */
 export const buildRuntime = <R = never>(
   config: RuntimeConfig,
   platform: Platform,
   admit: (evidence: ReadonlyArray<Evidence>) => void,
+  traced: Traced,
 ) => {
   const entries = Object.values(config.app.machines);
 
@@ -275,7 +276,7 @@ export const buildRuntime = <R = never>(
   let services = Context.empty();
   const context = () => Context.merge(services, platform);
   // Each failed cleanup is an Issue as it is judged.
-  const work = makeOwner(root, context, () => driver.input(Input.CleanupFailed()));
+  const work = makeOwner(root, context, () => driver.input(Input.CleanupFailed()), "work", traced);
   const report = makeRuntimeReport(host.report);
   const booted = Deferred.makeUnsafe<void, FlowError>();
 
@@ -382,7 +383,7 @@ export const buildRuntime = <R = never>(
 
   const forget = makeForget(driver, persistence ? host.store : Option.none(), booted);
 
-  const close = makeClose(driver, root, report, forget, context);
+  const close = makeClose(driver, root, report, forget, context, traced);
 
   // Local actors are numbered by the Runtime that creates them; they never persist or outlive it.
   let locals = 0;
@@ -609,7 +610,9 @@ export const runtimeSetup = entry(
     const setup: RuntimeSetup<ServicesOf<A>> = {
       construct: entry(
         "construct",
-        () => buildRuntime<ServicesOf<A>>(config, browserPlatform(), () => undefined).runtime,
+        () =>
+          buildRuntime<ServicesOf<A>>(config, browserPlatform(), () => undefined, Option.none())
+            .runtime,
       ),
     };
 

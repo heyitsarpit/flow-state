@@ -61,6 +61,7 @@ const timed = (clock: Option.Option<{ ms: number }>) => {
       }),
     ),
     () => undefined,
+    Option.none(),
   );
 
   attachInspector(runtime, (e) => void seen.push(e));
