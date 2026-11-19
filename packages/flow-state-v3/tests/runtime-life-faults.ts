@@ -110,6 +110,15 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     "",
   ),
   fault(
+    "late-quarantine-lost",
+    "Actors R23",
+    ["src/host/cleanups.test.ts"],
+    "an ended actor's cleanup that fails once no ensure can run quarantines a ref nobody will ensure, so it is reported nowhere",
+    "src/host/driver.ts",
+    "    if (!Verdict.$is(\"Run\")(admit(world.life, Input.Run()))) return report.hear(failures);\n",
+    "",
+  ),
+  fault(
     "unheard-quarantine-dropped",
     "Actors R23",
     ["src/host/cleanups.test.ts"],
@@ -169,8 +178,8 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     ["src/host/close.test.ts"],
     "disposeActor never lifts a ref's quarantine, so the ref stays refused for ever",
     "src/host/runtime.ts",
-    "        driver.lift(actor);",
-    "",
+    " driver.lift(actor);",
+    " void actor;",
   ),
   fault(
     "forget-failure-discarded",

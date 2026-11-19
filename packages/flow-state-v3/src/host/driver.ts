@@ -131,6 +131,9 @@ export const makeDriver = (options: {
   const quarantine = (actor: ActorId, failures: ReadonlyArray<Cause.Cause<unknown>>) => {
     if (failures.length === 0) return;
 
+    // Once no ensure can run, no ensure can report it: the Runtime's report hears it instead.
+    if (!Verdict.$is("Run")(admit(world.life, Input.Run()))) return report.hear(failures);
+
     const key = actorKey(actor);
     const held = Option.map(Option.fromUndefinedOr(quarantined.get(key)), (q) => q.cause);
 

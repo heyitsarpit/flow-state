@@ -1,4 +1,4 @@
-import { Effect, Exit, Layer, Option, Predicate } from "effect";
+import { type Cause, Effect, Exit, Layer, Option, Predicate } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
@@ -243,6 +243,9 @@ export const startRun = <Names extends string>(
   const saved = Option.match(from, { onNone: () => before, onSome: (fork) => fork.saved });
 
   const evidence = [...saved.evidence];
+  // Each cleanup that failed after a dispose stopped waiting for it, which breaks the run.
+  // FLOW_STATE_ALLOW_UNKNOWN: a late cleanup fails with whatever it threw.
+  const late: Array<Cause.Cause<unknown>> = [];
   const checkpoints = new Map(saved.checkpoints);
   const uses = new Map(saved.uses);
 
@@ -298,8 +301,7 @@ export const startRun = <Names extends string>(
       sessionSeed: seedOf(mainTab(open), options.seed),
       freezeValues: true,
       workClock: Option.none(),
-      // A Story's fakes end every cleanup within the bound; a late one breaks the run.
-      report: () => scriptFault("a cleanup failed after dispose stopped waiting for it"),
+      report: (cause) => void late.push(cause),
     });
 
     const opened = openTab({ ...subject.config, services }, host, now, limits);
@@ -547,6 +549,9 @@ export const startRun = <Names extends string>(
     const unused = [...fakes.unused(), ...store.unused()];
 
     if (unused.length > 0 && !options.lenient) scriptFault(unused.join("; "));
+
+    if (late.length > 0)
+      scriptFault(`${late.length} cleanups failed after dispose stopped waiting for them`);
 
     // SAFETY: a Story's own steps hold one checkpoint word per name its type collected as Names, each taken once (checked above); a run of other steps is typed with string Names.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- the checkpoints the steps named, keyed by name

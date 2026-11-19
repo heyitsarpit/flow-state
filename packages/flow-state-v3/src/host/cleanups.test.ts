@@ -507,6 +507,32 @@ describe("a cleanup that outlives the close's bound (Actors R22, R23)", () => {
     });
 });
 
+describe("an ended actor's cleanup that outlives the Runtime's close (Actors R23)", () => {
+  it("Actors R23: a read whose cleanup fails only after dispose stopped waiting goes to the host's report, as no ensure can hear it", () => {
+    const gate = Deferred.makeUnsafe<void>();
+    const tab = reporting(platformOver(new Map(), 1));
+    const runtime = readyOver(tab, lineWith(Effect.andThen(Deferred.await(gate), Effect.die(late))));
+    runtime.ensureActor(phone).send({ _tag: "Look" });
+    tab.settle();
+    runtime.disposeActor(phone);
+    const disposing = Effect.runFork(runtime.dispose());
+    tab.settle();
+    tab.advance(BOUND);
+    tab.settle();
+
+    assert.ok(
+      Option.exists(Option.fromUndefinedOr(disposing.pollUnsafe()), Exit.isFailure),
+      "dispose rejected CleanupOverdue",
+    );
+
+    Deferred.doneUnsafe(gate, Exit.void);
+    tab.settle();
+
+    assert.equal(tab.reports.length, 1, "one late report");
+    assert.ok(tab.reports.every((cause) => keeps(cause, late)));
+  });
+});
+
 // A Runtime of the app over a tab, ready, with every Issue code it reported.
 const readyObserved = (tab: Tab, services: Layer.Layer<Line>) => {
   const issues: Array<string> = [];
@@ -619,9 +645,19 @@ describe("a quarantine no ensure reported (Actors R23)", () => {
     tab.settle();
     runtime.disposeActor(phone);
     tab.settle();
-    thrownBy(() => runtime.ensureActor(phone));
+    assert.deepStrictEqual(
+      Option.map(flowOf(thrownBy(() => runtime.ensureActor(phone))), (r) => r.code),
+      Option.some("CleanupFailed"),
+      "an ensure reported it",
+    );
 
-    assert.deepStrictEqual(disposeHeard(runtime, tab), Option.none());
+    const disposing = Effect.runFork(runtime.dispose());
+    tab.settle();
+
+    assert.ok(
+      Option.exists(Option.fromUndefinedOr(disposing.pollUnsafe()), Exit.isSuccess),
+      "dispose settled with a success",
+    );
   });
 });
 
@@ -677,6 +713,9 @@ describe("dispose and forget (Actors R20, R22, R23)", () => {
 
     const caller = Effect.runFork(runtime.dispose({ forget: true }));
     tab.settle();
+
+    assert.equal(caller.pollUnsafe(), undefined, "the close still waits for the call");
+
     caller.interruptUnsafe();
     await Effect.runPromise(Effect.yieldNow);
     tab.advance(BOUND);

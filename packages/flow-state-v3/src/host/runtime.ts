@@ -546,8 +546,10 @@ export const buildRuntime = <R = never>(
       <D extends AnyDefinition>(target: Actor<D> | ActorRef<D>) => {
         const actor = identityOf(target);
         admission.dispose(actor);
-        // Lifted first: this disposal's own reads may quarantine the ref again as they end.
-        driver.lift(actor);
+
+        // Lifted first, by a disposal that runs: this disposal's own reads may quarantine the ref
+        // again as they end.
+        if (Verdict.$is("Run")(driver.verdict(Input.DisposeActor({ actor })))) driver.lift(actor);
         driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
       },
     ),

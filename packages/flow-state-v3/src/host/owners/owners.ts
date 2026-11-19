@@ -175,9 +175,15 @@ export const makeOwner = (
         for (const cause of own) judged(cause);
 
         hear([...failures, ...nested, ...own]);
-        closed();
-        Deferred.doneUnsafe(done, Exit.void);
-      }),
+      }).pipe(
+        // A hearer that throws still ends the close, so no closer waits for ever.
+        Effect.ensuring(
+          Effect.sync(() => {
+            closed();
+            Deferred.doneUnsafe(done, Exit.void);
+          }),
+        ),
+      ),
     );
 
     return done;

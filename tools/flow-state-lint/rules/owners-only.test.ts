@@ -18,6 +18,11 @@ const fires = [
   "Cause.findErrorOption(Other);",
   "Exit.isFailure(Other);",
   "Other.interruptUnsafe();",
+  "Fx.forkDetach(Effect.void);",
+  "E.runFork(Effect.void);",
+  "Pkg.Effect.forkChild(Effect.void);",
+  "const { forkDetach } = Effect;",
+  "Effect.runCallback(Effect.void);",
 ];
 
 const quiet = [
@@ -51,9 +56,14 @@ inWorkdir(({ pkg, write, lint, lines }) => {
 
   for (const file of files) write(file, `${fires.join("\n")}\n`);
 
+  // A member imported bare from its module is refused at the import, under any local name.
+  const bare = join(pkg, "src/host/bare.ts");
+  write(bare, 'import { forkDetach as detached, forEach } from "effect/Effect";\nexport { detached, forEach };\n');
+
   const found = lint();
 
   for (const file of files) assert.deepEqual(lines(found, file, "owners-only"), [], file);
+  assert.deepEqual(lines(found, bare, "owners-only"), [1], bare);
 });
 
 console.log("flow-state owners-only tests passed");

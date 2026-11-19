@@ -36,6 +36,14 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   - `tests/` and `bench/` import from `src/` only `src/index.ts`, `src/host/testing/index.ts`,
     `src/host/inspect.ts`, `src/host/trace.ts` and `src/host/cli/main.ts` (the CLI tests call
     `main(argv)`, since there is no `flow` bin yet).
+- Owners, enforced by `flow-state/owners-only` with plants in
+  `tools/flow-state-lint/rules/owners-only.test.ts`: in `src/host/` outside `src/host/owners/`,
+  `src/host/testing/` and `src/host/platform/`, no code forks, runs a fiber, races or times out
+  work (`Effect.fork*`, `Effect.runFork*`, `Effect.runCallback`, `Effect.race*`, `Effect.timeout*`,
+  `FiberMap`, `FiberSet`, `FiberHandle`, `Fiber.interrupt*`, `interruptUnsafe`) or reads a Cause
+  (`Cause.has*`, `Cause.find*`, `Exit.isFailure`), under any import name. Every task runs in an
+  Owner, whose one judge hands its caller an `Ending`; a second reader of an Exit is how a
+  cleanup's failure is misread or lost.
 
 ## Rules: 70 in lint-bomb
 
