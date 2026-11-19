@@ -949,3 +949,7 @@ note 2026-11-19T01:45:21Z
 note 2026-11-19T02:01:49Z
     T96 requirements review ISSUES (37b8f894): 6 blocking coverage gaps; rulings on T96. Fix round, then build, by one
     fresh lead, with the user's send decisions (form A, callback form kept, mutual sends allowed).
+
+note 2026-11-19T02:51:25Z
+    T96 built, in review (bfd05140): one delivery path for handle and machine sends, loop guard, token and callback
+    forms; Actors R13, R16, R20, I20 edited. Close review started (no sidecars in the build, so a harder read).
