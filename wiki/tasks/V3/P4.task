@@ -1521,6 +1521,12 @@ tasks
             - Story adversary: accepted 2 and the three weak-assertion notes; rejected "live tests may already pass" and
               "`sender` hides the row" (replayed: every drop list and turn list is empty today).
             - rulings and types: accepted the transfers analysis (6) and the inertness and annotation notes.
+        comment     2026-11-19T02:01:48Z
+            Rulings (orchestrator, 2026-11-19) on the requirements review: finding 4, the booting row is owned by
+            @task.V3.T99 (catalog and T99 updated by the fix round); finding 5, BuyNow is dropped and its
+            persisted-target rows move to a sender a product would have (CheckoutFlow or Household); finding 6,
+            acceptance 2 names shop, player and sync only (small amendment); transfers stays out by the user's
+            no-more-cuts call, ruling 2 stands.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
@@ -1615,6 +1621,9 @@ tasks
             Moved from cut T95 (2026-11-19): @plan.Runtime.O5 tests (an unencodable selection is UnencodableValue, a
             context change never resets memory, capture never sees half a wave) and faults for the Turn gaps
             in code:wiki/tasks/V3/P3-coverage.md.
+        comment     2026-11-19T02:01:48Z
+            Owes (T96 requirements review, 2026-11-19): send's O4 row 'a persisted actor while the Runtime boots is
+            queued' (@plan.Runtime.O4), as a Story once a persisted sender is owed an ending at boot.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer

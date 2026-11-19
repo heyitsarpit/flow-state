@@ -945,3 +945,7 @@ note 2026-11-19T01:44:52Z
 note 2026-11-19T01:45:21Z
     T96 requirements and fixtures in (d443aceb): 15 requirements, send in shop, player, sync; five calls ruled on T96.
     fixtures.md corrected: repeats across apps are fine (the user). Requirements review starts.
+
+note 2026-11-19T02:01:49Z
+    T96 requirements review ISSUES (37b8f894): 6 blocking coverage gaps; rulings on T96. Fix round, then build, by one
+    fresh lead, with the user's send decisions (form A, callback form kept, mutual sends allowed).
