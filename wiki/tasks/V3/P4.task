@@ -350,6 +350,9 @@ tasks
         comment     2026-11-18T20:40:32Z
             Routed (P3 compaction, 2026-11-19): WriteLanes Q7's open test in tests/restore/restore.test.ts is owned here
             (Q7 still names T20); Compile R8 (RestoreMissingInput, unbuilt) is owned here as T17 routed it, not T98.
+        comment     2026-11-19T06:28:09Z
+            Owes (T99 close review, 2026-11-19): WriteLanes Q7 says an it.fails pins its lost ending, but that test file
+            has none; add it or fix Q7's text.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -2143,6 +2146,15 @@ tasks
               Cause drop path, which I replayed as blocking 1; rejected quarantined lanes in unsettledWrites (prior
               ruling), typed cleanup failures (finalizers are typed never), and the Open-life cleanup Cause (Q8's
               ref quarantine).
+        comment     2026-11-19T06:28:09Z
+            Rulings (orchestrator, 2026-11-19) on the close review: in this fix round, the blocker (a store write's
+            failing interrupt cleanup reported as success) and coverage for any non-call fiber's failing cleanup; I30
+            tightened again (a request a turn invoked after RuntimeDisposed is a breach; only requests with no invoking
+            turn are exempt); forget's failure kept beside CleanupFailed; UnboundLane in the catalog's other apps, the
+            S9 reload, owners for the load, S6 and step-sample items; stale 'R23's stated limit' text; the hand-made
+            shared result replaced by Effect's Fiber.join or Deferred. Routed: one Issue per failing finalizer to
+            @task.V3.T100; dispose hanging on an uninterruptible call, and forget's StorageFailure after a cut write,
+            stay here as red checks if in range or route to T100; WriteLanes Q7's missing it.fails to @task.V3.T56.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer

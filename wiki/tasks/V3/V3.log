@@ -979,3 +979,7 @@ note 2026-11-19T04:54:53Z
 
 note 2026-11-19T06:06:11Z
     T99 built except Q7, Q8 (603078ee). R23 limit removed, gap owned by T100. Close review of the built parts started.
+
+note 2026-11-19T06:28:09Z
+    T99 close review ISSUES (f223dc72): a store write's failing cleanup reported as success. Fix round started with the
+    I30 check tightened again and in-range coverage; Q7 and Q8 still wait on the user.
