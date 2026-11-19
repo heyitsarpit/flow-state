@@ -1219,6 +1219,9 @@ tasks
             Deferred (the user, 2026-11-19) after the failure-limit stop: format 4 work saved on branch t92-format-4
             (tip d92e802f); flow-rewrite's code and Specs restored to fef46251. Next attempt questions the record format
             itself (eliminate contradictory states by structure), with this branch's tests as its requirements.
+        comment     2026-11-19T07:01:22Z
+            Decision (the user, 2026-11-19): the Fable consult on trust boundaries (records here and public values in
+            @task.V3.T98, one design) waits until P4 closes or later; these deferred items block nothing now.
 
     T95
         title           Callback results checked before they enter a turn
