@@ -3312,6 +3312,25 @@ tasks
 
             Extra files beyond "May change": code:vite.config.ts (typecheck, test-d as production tests),
             code:types/vite-plus-test.d.ts (`expectTypeOf` in the shim).
+        comment     2026-11-19T15:40:14Z
+            Sidecar log (lead): five Sonnet probes, one per carrier group; every probe re-run (after files 0 errors,
+            stripped files 24, 9, 44, 30 and 44 errors, all on wrong lines), today files read whole and ported as the
+            inverted type tests.
+
+            - s1 (F1, ContextSlot): accepted; changed: `attempt.operation` dropped (bound after the contract), and
+              `ActorRef.context` stays wide (11 breaks), so only the `actorRef` and `app` inputs check wiring.
+            - s2 (F2): accepted; changed: `endingValue` keeps one cast with a derived target, which needs F1's phantoms;
+              g9 and N7 recorded as a limit, with the curried shape left to the user.
+            - s3 (F3, F9): accepted, with its finding that the constrained `const B` loses today's refusals and that
+              F3's bare tokens need F9's `ExactBody`; rejected as gaps: operations-record and nested `states` excess
+              keys (already refused).
+            - s4 (F4, F5, N3): accepted, with its fix of the survey's `AnyDefinition extends D` (contravariant) and the
+              `publishedOf` parameter order.
+            - s5 (F6-F8, N5, N8): accepted; changed: `Fake.storage.put` and stored keys stay raw (@spec.Stories R11),
+              `Ended` keeps its flat shape (reason recorded), g25 dropped (gone since T102). Its brand limit on `===`
+              is recorded.
+            - Process slips each reported by its sidecar: a few shell redirects to log files in the scratchpad; nothing
+              reached the repository.
 
     T105
         title       Start order stated as a rule; T102's routed checks built
