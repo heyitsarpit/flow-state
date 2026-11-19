@@ -422,3 +422,8 @@ note 2026-11-19T05:45:55Z
 note 2026-11-19T06:06:40Z
     Actors R23: the stated limit on a cleanup lost in a call's own deadline race removed; the gap is an it.fails owned
     by T100 (the Epic's no-limits rule). Reverse: restore the sentence.
+
+note 2026-11-19T07:14:20Z
+    Actors R23, R27: Q7 and Q8 written as the user decided; R23 widens a cleanup to any fiber the close interrupts,
+    bounds each close stage by the disposal bound, keeps forget's failure, and adds the ref quarantine lifted by
+    disposeActor (proposed: the lift). Reverse: restore the prior R23 and R27 text.

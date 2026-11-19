@@ -26,6 +26,7 @@ describe("the closed code list (Diagnostics R7)", () => {
         "SharedContract",
         "KeyFieldOptional",
         "StorageFailure",
+        "RunFailed",
         "CleanupFailed",
       ].toSorted(),
     );

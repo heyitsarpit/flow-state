@@ -155,6 +155,26 @@ export const leaveWhilePaying = shopStory("shop/leave-while-paying")
   .checkpoint("paid");
 
 /**
+ * The shop takes a payment but its answer is lost, and the shopper leaves the checkout, so the app
+ * removes it; the tab reloads twice before the shopper opens the checkout again and it takes the
+ * unsure payment back.
+ */
+export const unsurePayRemoved = shopStory("shop/unsure-pay-removed")
+  .ensure(checkout)
+  .send(checkout, cart(1))
+  .world(Shop.confirm.drop({ at: "response" }))
+  .send(checkout, visa)
+  .checkpoint("unsure")
+  .dispose(checkout)
+  .checkpoint("removed")
+  .reload({ reattach: false })
+  .checkpoint("reloaded")
+  .reload({ reattach: false })
+  .checkpoint("reloaded again")
+  .ensure(checkout)
+  .checkpoint("adopted");
+
+/**
  * The shopper pays and signs out, so the app disposes its Runtime, over a payment SDK whose session
  * fails to close when the services are released.
  */
@@ -171,7 +191,8 @@ export const sessionCloseFails = Story.app(shopSetup, {
 
 /**
  * Ada signs in, fills her cart and starts checking out, with the badge on screen; she signs out,
- * so the app disposes its Runtime with every screen still open.
+ * so the app disposes its Runtime with every screen still open; the tab reloads with only the
+ * badge on screen.
  */
 export const signOutMidCheckout = storeStory("shop/sign-out-mid-checkout")
   .ensure(mainShopper)
@@ -183,7 +204,10 @@ export const signOutMidCheckout = storeStory("shop/sign-out-mid-checkout")
   .send(mainFlow, { _tag: "Begin" })
   .checkpoint("checking out")
   .disposeRuntime()
-  .checkpoint("signed out");
+  .checkpoint("signed out")
+  .reload({ reattach: false })
+  .ensure(mainBadge)
+  .checkpoint("badge reopened");
 
 /**
  * The shop turns a confirm away as busy with a negative retry delay: the turn that would arm that

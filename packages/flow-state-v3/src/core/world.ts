@@ -572,7 +572,7 @@ export type Command = Data.TaggedEnum<{
       readonly mayHaveApplied: boolean;
     };
   };
-  Lookup: { call: CallId; machine: string; operation: string; input: Values };
+  Lookup: { call: CallId; actor: ActorId; operation: string; input: Values };
   Interrupt: { call: CallId };
   Arm: { timer: TimerId; at: number };
   Disarm: { timer: TimerId };

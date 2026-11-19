@@ -246,7 +246,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     rule: "Restore I18",
     edits: [
       {
-        file: "src/host/runtime.ts",
+        file: "src/host/close.ts",
         find: "    if (!opened || !driver.world().persistence || !driver.stored())",
         replace: "    if (!opened || !driver.world().persistence)",
       },
@@ -259,7 +259,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     rule: "Restore R10",
     edits: [
       {
-        file: "src/host/runtime.ts",
+        file: "src/host/close.ts",
         find: "    if (!opened || !driver.world().persistence || !driver.stored())",
         replace: "    if (!driver.world().persistence || !driver.stored())",
       },
@@ -272,7 +272,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     rule: "Restore R10",
     edits: [
       {
-        file: "src/host/runtime.ts",
+        file: "src/host/close.ts",
         find: "      return yield* Effect.fail(forgetFailed);",
         replace: "      return yield* Effect.fail(forgetFailed);\n\n    if (opened) return;",
       },

@@ -3,7 +3,7 @@ import {
   Context,
   Duration,
   Effect,
-  type Exit,
+  Exit,
   FiberMap,
   Option,
   Scheduler,
@@ -11,18 +11,21 @@ import {
 } from "effect";
 
 /**
- * The Runtime's keyed fibers (calls, timers, persistence wakes), all owned by its one Scope.
+ * The Runtime's keyed fibers (calls, timers, persistence wakes, store writes), owned by a child of
+ * its one Scope.
  *
  * **Details**
  *
- * Forking under a live key interrupts that key's fiber; `clear`, and closing the Scope, interrupt
- * every fiber.
+ * Forking under a live key interrupts that key's fiber; `close`, and closing the Runtime's Scope,
+ * interrupt every fiber, and a fiber forked after either is interrupted at once.
  * Each fiber runs with the Runtime's services and platform, so a call, a timer's sleep and a
  * commit's own deadline share one Clock and Scheduler.
  */
 export const makeFibers = (scope: Scope.Scope, context: () => Context.Context<never>) => {
+  const own = Scope.forkUnsafe(scope);
+
   // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- construct() is synchronous; the host builds its fiber registry once, in the Runtime's Scope
-  const map = Effect.runSync(FiberMap.make<string>().pipe(Scope.provide(scope)));
+  const map = Effect.runSync(FiberMap.make<string>().pipe(Scope.provide(own)));
 
   return {
     fork: <A, E>(
@@ -39,6 +42,8 @@ export const makeFibers = (scope: Scope.Scope, context: () => Context.Context<ne
 
       FiberMap.setUnsafe(map, key, fiber);
       fiber.addObserver(onExit);
+
+      return fiber;
     },
     // A cleanup run when the Runtime's Scope closes.
     finalize: (cleanup: () => void) =>
@@ -50,15 +55,16 @@ export const makeFibers = (scope: Scope.Scope, context: () => Context.Context<ne
         // oxlint-disable-next-line lint-bomb/no-unsafe-fiber-methods -- a cancel interrupts at once; the fiber's exit settles it
         onSome: (fiber) => fiber.interruptUnsafe(),
       }),
-    // Interrupts every fiber and waits until each has exited, its cleanups run.
-    clear: FiberMap.clear(map),
-    // Runs an Effect on the Runtime's services and scheduler outside the registry, so `clear`
+    // Interrupts every fiber and waits until each has exited, its cleanups run; later forks are
+    // interrupted at once.
+    close: Scope.close(own, Exit.void),
+    // Runs an Effect on the Runtime's services and scheduler outside the registry, so `close`
     // never interrupts it: the Runtime's own close.
-    detach: <E>(effect: Effect.Effect<void, E>) => {
+    detach: <A, E>(effect: Effect.Effect<A, E>) => {
       const services = context();
 
       // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- the host boundary runs the Runtime's close as a fiber
-      Effect.runForkWith(services)(effect, {
+      return Effect.runForkWith(services)(effect, {
         scheduler: Context.get(services, Scheduler.Scheduler),
       });
     },

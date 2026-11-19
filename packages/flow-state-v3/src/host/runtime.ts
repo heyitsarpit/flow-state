@@ -16,7 +16,7 @@ import type { Evidence } from "../core/evidence.ts";
 import { dependentsOf, Input } from "../core/step.ts";
 import { endedBy, isStopped, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
-import { makeClose, type Unsettled, unsettledOf } from "./close.ts";
+import { makeClose, makeForget, type Unsettled, unsettledOf } from "./close.ts";
 import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
@@ -29,6 +29,7 @@ import { actorIdOf, type ActorRef } from "./refs.ts";
 import { defect } from "../core/defect.ts";
 import { browserPlatform } from "./platform/browser.ts";
 import { makeFibers } from "./fibers.ts";
+import { makeRunPromise } from "./run-promise.ts";
 import { makeWiring } from "./wiring.ts";
 import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
 import { Host, type Platform } from "./host.ts";
@@ -164,9 +165,13 @@ export const configOf = <R>(setup: RuntimeSetup<R>) =>
  * `StorageFailure` when the store refused it. Disposal ends the core's work, interrupts every
  * call and waits for it, then releases the services; a cleanup that fails there rejects every
  * `dispose()` with `CleanupFailed`, keeping each Cause. `unsettledWrites()` lists every identity
- * with a write still out, for a host's `beforeunload`.
+ * with a write still out, for a host's `beforeunload`. `runPromise(effect, { signal })` runs a host
+ * Effect with the app's services `R` in the Runtime's Scope, so a disposal interrupts it: it rejects
+ * `RuntimeNotReady` before ready and `RuntimeDisposed` once disposal starts, running nothing; a
+ * failed, defective or interrupted Effect rejects with a FlowError coded `RunFailed` keeping the
+ * whole Cause; aborting the signal interrupts the Effect.
  */
-export type Runtime = {
+export type Runtime<R = never> = {
   readonly ready: () => Effect.Effect<void, FlowError>;
   readonly ensureActor: <D extends AnyDefinition>(ref: ActorRef<D>) => Actor<D>;
   readonly createActor: <D extends AnyDefinition>(
@@ -179,13 +184,19 @@ export type Runtime = {
     options?: { readonly forget?: boolean },
   ) => Effect.Effect<void, FlowError>;
   readonly unsettledWrites: () => ReadonlyArray<Unsettled>;
+  // A method, so a Runtime of any services is still a Runtime where its services are not read.
+  runPromise<A, E>(
+    effect: Effect.Effect<A, E, R>,
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option, as Effect.runPromise takes it: an omitted signal never aborts
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<A>;
 };
 
 /**
  * What a Runtime is set up with; `R` is the services its app's contracts require.
  */
 export type RuntimeSetup<R = never> = {
-  readonly construct: () => Runtime;
+  readonly construct: () => Runtime<R>;
   readonly "~services"?: R;
 };
 
@@ -237,7 +248,7 @@ const verdictOf = (compiled: Compiled) => {
  * Builds a Runtime over a platform, with its driver beside it for Flow's own suite (the public
  * Runtime does not carry it).
  */
-export const buildRuntime = (
+export const buildRuntime = <R = never>(
   config: RuntimeConfig,
   platform: Platform,
   admit: (evidence: ReadonlyArray<Evidence>) => void,
@@ -363,42 +374,7 @@ export const buildRuntime = (
     });
   });
 
-  const forgetFailed = flowError([
-    {
-      code: "StorageFailure",
-      path: ["dispose", "forget"],
-      summary: "the store did not delete the scope's records",
-      help: "The saved data may still be there; dispose with forget again once the store answers.",
-    },
-  ]);
-
-  // A forget removes every record the scope holds in one batch, after the disposal's own writes. It
-  // fails with no store call when it cannot know it deleted everything: a write of the disposal
-  // still unanswered may land later, and a Runtime that never booted, or whose load failed, never
-  // owned what it would delete. A Runtime that never persisted has nothing to forget.
-  const forget = Effect.fn("Runtime.forget")(function* () {
-    const store = host.store;
-
-    if (!persistence || Option.isNone(store)) return;
-
-    const opened = (yield* Deferred.isDone(booted))
-      ? Exit.isSuccess(yield* Effect.exit(Deferred.await(booted)))
-      : false;
-
-    if (!opened || !driver.world().persistence || !driver.stored())
-      return yield* Effect.fail(forgetFailed);
-
-    yield* store.value.load.pipe(
-      Effect.flatMap((saved) =>
-        store.value.write(
-          [...saved.keys()].map((key) => ({ key, value: Option.none() })),
-          "flush",
-          [],
-        ),
-      ),
-      Effect.mapError(() => forgetFailed),
-    );
-  });
+  const forget = makeForget(driver, persistence ? host.store : Option.none(), booted);
 
   const close = makeClose(driver, fibers, scope);
 
@@ -513,7 +489,7 @@ export const buildRuntime = (
     },
   };
 
-  const runtime: Runtime = {
+  const runtime: Runtime<R> = {
     ready: entryEffect("ready", ready),
     // Before ready succeeds, no handle exists: the core's life rejects the ensure.
     ensureActor: entry("ensureActor", <D extends AnyDefinition>(ref: ActorRef<D>) => {
@@ -529,6 +505,11 @@ export const buildRuntime = (
 
       // The life decides first; then the context graph is checked, before any work.
       if (!Verdict.$is("Run")(driver.verdict(probe))) driver.offer(probe, what);
+
+      // A ref whose ended actor's cleanup failed reports that failure until it is disposed.
+      const failed = driver.quarantine(actor);
+
+      if (Option.isSome(failed)) raise(failed.value);
 
       const graph = admission.ensure(actor, overridesOf(ref));
       driver.offer(Input.Ensure({ ...probe, wiring: Option.some(graph) }), what);
@@ -559,11 +540,14 @@ export const buildRuntime = (
       <D extends AnyDefinition>(target: Actor<D> | ActorRef<D>) => {
         const actor = identityOf(target);
         admission.dispose(actor);
+        // Lifted first: this disposal's own reads may quarantine the ref again as they end.
+        driver.lift(actor);
         driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
       },
     ),
     // The core's disposal ends first (calls settling within its bound are parked), the Runtime
-    // closes, then a forget deletes the scope's records whatever the close reported.
+    // closes, then a forget deletes the scope's records whatever the close reported; a failed
+    // close and a failed forget are both kept.
     dispose: entryEffect(
       "dispose",
       // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
@@ -575,11 +559,12 @@ export const buildRuntime = (
           const closed = yield* Effect.exit(close);
           const forgotten = forgetting ? yield* Effect.exit(forget()) : Exit.void;
 
-          return yield* Exit.isFailure(closed) ? closed : forgotten;
+          return yield* Exit.asVoidAll([closed, forgotten]);
         });
       },
     ),
     unsettledWrites: entry("unsettledWrites", () => unsettledOf(driver)),
+    runPromise: entry("runPromise", makeRunPromise<R>(driver)),
   };
 
   internals.set(runtime, {
@@ -616,7 +601,7 @@ export const runtimeSetup = entry(
     const setup: RuntimeSetup<ServicesOf<A>> = {
       construct: entry(
         "construct",
-        () => buildRuntime(config, browserPlatform(), () => undefined).runtime,
+        () => buildRuntime<ServicesOf<A>>(config, browserPlatform(), () => undefined).runtime,
       ),
     };
 

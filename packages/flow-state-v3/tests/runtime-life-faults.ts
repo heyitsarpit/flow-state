@@ -12,7 +12,9 @@ const fault = (
 
 /**
  * Wrong runtimes of the Runtime's life and its end: a write list that hides unbound lanes, a
- * cleanup failure dropped, services released before calls, terminal evidence providers first, a
+ * cleanup failure dropped (a finalizer's, a call's, a store write's), a forget's failure discarded,
+ * a close that waits unbounded or runs per caller, services released before calls, terminal
+ * evidence providers first, a
  * forget that keeps a retired hold, a boot that hides an unbound lane, and a disposeActor that
  * keeps its record's quarantine or its mail; each planted alone like the runtime's other faults.
  */
@@ -32,8 +34,8 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     ["src/host/runtime.test.ts", "tests/actors/runtime-life.test.ts"],
     "a services finalizer that fails at disposal is dropped, so dispose succeeds",
     "src/host/close.ts",
-    "      onFailure: (cause) => [...driver.cleanups(), cause],",
-    "      onFailure: () => driver.cleanups(),",
+    "    const failures = [stopped, released].reduce(",
+    "    const failures = [stopped].reduce(",
   ),
   fault(
     "interrupt-cleanup-dropped",
@@ -45,13 +47,94 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     "        cleanups.slice();",
   ),
   fault(
+    "store-cleanup-dropped",
+    "Actors R23",
+    ["src/host/close.test.ts"],
+    "a store write's interrupt cleanup that fails at the close is dropped as a refused write, so dispose succeeds",
+    "src/host/driver.ts",
+    "  const edge = makeEdge(options.platform, fibers, {",
+    "  const edge = makeEdge(options.platform, options.fibers, {",
+  ),
+  fault(
+    "cleanup-judged-for-calls-only",
+    "Actors R23",
+    ["src/host/close.test.ts"],
+    "only a call's failing interrupt cleanup is judged; any other fiber's is lost at the close",
+    "src/host/driver.ts",
+    "          cleanupDied(exit.cause) &&",
+    '          key.startsWith("call/") &&\n          cleanupDied(exit.cause) &&',
+  ),
+  fault(
+    "run-promise-after-dispose-runs",
+    "Actors R27",
+    ["src/host/runtime.test.ts", "src/host/close.test.ts"],
+    "runPromise admits an Effect before ready and once disposal starts, so it runs on unready or released services",
+    "src/host/run-promise.ts",
+    "    const verdict = driver.verdict(Input.Run());",
+    "    const verdict = Verdict.Run();",
+  ),
+  fault(
+    "run-promise-ignores-signal",
+    "Actors R27",
+    ["src/host/runtime.test.ts"],
+    "runPromise never hears its AbortSignal, so an aborted Effect runs on",
+    "src/host/run-promise.ts",
+    "Effect.runPromiseExit(admitted(effect), options)",
+    "Effect.runPromiseExit(admitted(effect), {})",
+  ),
+  fault(
+    "ref-quarantine-dropped",
+    "Actors R23",
+    ["src/host/close.test.ts"],
+    "a read's cleanup that dies after its actor ended is dropped, so the next ensure starts the ref as if nothing failed",
+    "src/host/driver.ts",
+    "                quarantined.set(actorKey(actor), exit.cause);",
+    "                void exit;",
+  ),
+  fault(
+    "ref-quarantine-kept",
+    "Actors R23",
+    ["src/host/close.test.ts"],
+    "disposeActor never lifts a ref's quarantine, so the ref stays refused for ever",
+    "src/host/runtime.ts",
+    "        driver.lift(actor);",
+    "",
+  ),
+  fault(
+    "forget-failure-discarded",
+    "Actors R23",
+    ["src/host/close.test.ts"],
+    "dispose({ forget: true }) whose close fails CleanupFailed discards the forget's StorageFailure",
+    "src/host/runtime.ts",
+    "          return yield* Exit.asVoidAll([closed, forgotten]);",
+    "          return yield* Exit.isFailure(closed) ? closed : forgotten;",
+  ),
+  fault(
+    "close-waits-unbounded",
+    "Actors R22",
+    ["src/host/close.test.ts"],
+    "the close waits for a cleanup that cannot be interrupted or never returns, so dispose never ends",
+    "src/host/close.ts",
+    "          Effect.timeoutOption(RuntimeDefaults.disposalBound),",
+    "          Effect.asSome,",
+  ),
+  fault(
+    "close-run-per-caller",
+    "Actors R23",
+    ["src/host/runtime.test.ts"],
+    "each dispose runs its own close instead of joining the one close, so a later dispose loses the first's cleanup failures",
+    "src/host/close.ts",
+    "  return Fiber.join(fibers.detach(close));",
+    "  return Effect.suspend(() => Fiber.join(fibers.detach(close)));",
+  ),
+  fault(
     "services-released-before-calls",
     "Actors R22",
     ["tests/actors/runtime-life.test.ts"],
     "the Scope releases the services before every call is interrupted and awaited, so a slow cleanup runs on a closed service",
     "src/host/close.ts",
-    "    yield* fibers.clear;\n    const released = yield* Effect.exit(Scope.close(scope, Exit.void));",
-    "    const released = yield* Effect.exit(Scope.close(scope, Exit.void));\n    yield* fibers.clear;",
+    '    const stopped = yield* withinBound("fibers", fibers.close);\n    const released = yield* withinBound("services", Scope.close(scope, Exit.void));',
+    '    const released = yield* withinBound("services", Scope.close(scope, Exit.void));\n    const stopped = yield* withinBound("fibers", fibers.close);',
   ),
   fault(
     "providers-finished-first",

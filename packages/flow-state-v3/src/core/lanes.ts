@@ -265,7 +265,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     tx.command(
       Command.Lookup({
         call,
-        machine: incarnation.actor.machine,
+        actor: incarnation.actor,
         operation: operation.name,
         input,
       }),

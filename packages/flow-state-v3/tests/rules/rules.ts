@@ -342,40 +342,58 @@ export const publishedOnce: Rule = {
   ],
 };
 
+// One record of a disposing open, judged by what that open has recorded: RuntimeDisposed at any
+// time, a Turn since its disposal began.
+const invokedWhileDisposing = (
+  record: TraceRecord,
+  recorded: ReadonlySet<string>,
+  where: string,
+) => {
+  if (TraceRecord.$is("Runtime")(record) && record.evidence._tag === "Sent")
+    return [
+      `Actors I30: ${record.evidence.operation} ${record.evidence.attempt} was sent from ${where}`,
+    ];
+
+  const exempt = recorded.has("RuntimeDisposed") && !recorded.has("Turn");
+
+  return TraceRecord.$is("Request")(record) && !exempt
+    ? [`Actors I30: ${record.server}.${record.endpoint} received a call from ${where}`]
+    : [];
+};
+
 /**
  * Actors I30, in the trace's order: after the Runtime's disposal starts no commit or read is
  * invoked, so no commit is Sent from its `disposeRuntime` step on, and no call of a tab's open
- * arrives between that step and its RuntimeDisposed record. Once disposed the Runtime runs no work
- * of its own, so a later call is an app's cleanup of an interrupted call (Actors R23), not an
- * invocation.
+ * arrives from that step on unless no turn could have invoked it. Only a turn invokes a read, and
+ * a step's records come before the calls its work makes, so a call after a Turn of the disposing
+ * open, or before its RuntimeDisposed record, is a breach. A call after RuntimeDisposed with no
+ * such Turn is an app's cleanup of an interrupted call (Actors R23), not an invocation.
  */
 export const nothingInvokedDisposing: Rule = {
   rule: "Actors I30",
   breaches: (run) => {
     const disposingFrom = new Map<number, number>();
-    const disposed = new Set<number>();
+    const recorded = new Map<number, Set<string>>();
 
     return run.trace.events.flatMap(({ tab, record }) => {
       if (TraceRecord.$is("Step")(record) && record.step._tag === "disposeRuntime")
         if (!disposingFrom.has(tab.open)) disposingFrom.set(tab.open, record.index);
 
-      if (TraceRecord.$is("Runtime")(record) && record.evidence._tag === "RuntimeDisposed")
-        disposed.add(tab.open);
-
       const from = disposingFrom.get(tab.open);
+      const tags = recorded.get(tab.open) ?? new Set<string>();
+      recorded.set(tab.open, tags);
+
+      if (TraceRecord.$is("Runtime")(record))
+        if (record.evidence._tag === "RuntimeDisposed" || from !== undefined)
+          tags.add(record.evidence._tag);
 
       if (from === undefined) return [];
 
-      if (TraceRecord.$is("Runtime")(record) && record.evidence._tag === "Sent")
-        return [
-          `Actors I30: ${record.evidence.operation} ${record.evidence.attempt} was sent from tab ${tab.name}:${tab.open}, after that open's disposal began at step ${from}`,
-        ];
-
-      return TraceRecord.$is("Request")(record) && !disposed.has(tab.open)
-        ? [
-            `Actors I30: ${record.server}.${record.endpoint} received a call from tab ${tab.name}:${tab.open}, after that open's disposal began at step ${from}`,
-          ]
-        : [];
+      return invokedWhileDisposing(
+        record,
+        tags,
+        `tab ${tab.name}:${tab.open}, after that open's disposal began at step ${from}`,
+      );
     });
   },
 };

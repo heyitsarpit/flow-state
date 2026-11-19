@@ -17,7 +17,7 @@ import {
 } from "../index.ts";
 import { Host } from "./host.ts";
 import { attachInspector, type Evidence, inspect } from "./inspect.ts";
-import { buildRuntime, type Runtime } from "./runtime.ts";
+import { buildRuntime } from "./runtime.ts";
 import { snapshotIn } from "./snapshot.ts";
 import { bootWith } from "./testing/seam.ts";
 import { Life } from "../core/life.ts";
@@ -732,19 +732,6 @@ describe("a cleanup that fails at disposal (Actors R23, I33; Diagnostics R8)", (
   });
 });
 
-// The proposed `runtime.runPromise(effect, { signal })`, read by name until the Runtime's type
-// carries it.
-const runPromiseOf =
-  (runtime: Runtime) =>
-  <A, E>(
-    effect: Effect.Effect<A, E, Bell>,
-    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the proposed public option: an omitted signal never aborts
-    options: { readonly signal?: AbortSignal } = {},
-  ) =>
-    "runPromise" in runtime && Predicate.isFunction(runtime.runPromise)
-      ? Promise.resolve(runtime.runPromise(effect, options))
-      : Promise.reject(new Error("the Runtime has no runPromise"));
-
 // What a promise rejected with.
 // FLOW_STATE_ALLOW_UNKNOWN: whatever a promise rejected with.
 const rejection = (promise: Promise<unknown>) =>
@@ -754,11 +741,11 @@ const rejection = (promise: Promise<unknown>) =>
   );
 
 describe("runtime.runPromise (Actors R27, R22; Diagnostics R8)", () => {
-  it.fails("Actors R27: runPromise runs an Effect with the app's installed services", async () => {
+  it("Actors R27: runPromise runs an Effect with the app's installed services", async () => {
     const rings: Array<string> = [];
     const runtime = ready(bellFor(rings));
 
-    const rang = await runPromiseOf(runtime)(
+    const rang = await runtime.runPromise(
       Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding")),
     );
 
@@ -766,48 +753,68 @@ describe("runtime.runPromise (Actors R27, R22; Diagnostics R8)", () => {
     assert.deepStrictEqual(rings, ["ding"]);
   });
 
-  it.fails("Actors R4, R27: runPromise before ready rejects RuntimeNotReady and runs nothing", async () => {
+  it("Actors R4, R27: runPromise before ready rejects RuntimeNotReady and runs nothing", async () => {
     const rings: Array<string> = [];
     const runtime = runtimeSetup({ app: doors, services: bellFor(rings) }).construct();
 
     const refused = await rejection(
-      runPromiseOf(runtime)(Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding"))),
+      runtime.runPromise(Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding"))),
     );
 
     assert.deepStrictEqual(codeOf(refused), Option.some("RuntimeNotReady"));
     assert.deepStrictEqual(rings, []);
   });
 
-  it.fails("Actors R22, R27: runPromise rejects RuntimeDisposed once disposal has started, and runs nothing", async () => {
+  it("Actors R22, R27: runPromise rejects RuntimeDisposed once disposal has started, and runs nothing", async () => {
     const rings: Array<string> = [];
     const runtime = ready(bellFor(rings));
     await Effect.runPromise(runtime.dispose());
 
     const refused = await rejection(
-      runPromiseOf(runtime)(Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding"))),
+      runtime.runPromise(Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding"))),
     );
 
     assert.deepStrictEqual(codeOf(refused), Option.some("RuntimeDisposed"));
     assert.deepStrictEqual(rings, []);
   });
 
-  it.fails("Actors R27, Diagnostics R8: a failed Effect rejects with a FlowError that keeps its whole Cause", async () => {
+  it("Actors R27, Diagnostics R8: a failed Effect rejects with a FlowError coded RunFailed that keeps its whole Cause", async () => {
     const runtime = ready();
-    const failed = await rejection(runPromiseOf(runtime)(Effect.fail("the line is busy")));
+    const failed = await rejection(runtime.runPromise(Effect.fail("the line is busy")));
 
     assert.ok(failed instanceof FlowError);
+    assert.equal(failed.code, "RunFailed");
     assert.equal(failed.diagnostics[0].classification, "Failure");
     assert.ok(causeOf(failed).includes("the line is busy"));
   });
 
-  it.fails("Actors R27, Diagnostics R8: aborting the signal interrupts the Effect, and the rejection keeps its Interruption Cause", async () => {
+  it("Actors R27, Diagnostics R8: aborting the signal interrupts the Effect, and the rejection keeps its Interruption Cause", async () => {
     const runtime = ready();
     const abort = new AbortController();
-    const running = rejection(runPromiseOf(runtime)(Effect.never, { signal: abort.signal }));
+    const hungUp: Array<string> = [];
+
+    const running = rejection(
+      runtime.runPromise(
+        Effect.onInterrupt(Effect.never, () => Effect.sync(() => void hungUp.push("hung up"))),
+        { signal: abort.signal },
+      ),
+    );
+
     abort.abort();
     const interrupted = await running;
 
     assert.ok(interrupted instanceof FlowError);
+    assert.equal(interrupted.code, "RunFailed");
     assert.equal(interrupted.diagnostics[0].classification, "Interruption");
+    assert.deepStrictEqual(hungUp, ["hung up"]);
+  });
+
+  it("Actors R22, R27: an Effect runPromise is running is interrupted by the Runtime's disposal, and rejects RunFailed", async () => {
+    const runtime = ready();
+    const running = rejection(runtime.runPromise(Effect.never));
+    await Effect.runPromise(runtime.dispose());
+    const interrupted = await running;
+
+    assert.deepStrictEqual(codeOf(interrupted), Option.some("RunFailed"));
   });
 });

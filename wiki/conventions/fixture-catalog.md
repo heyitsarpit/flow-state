@@ -172,7 +172,7 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     Restored }` (`lostConfirm`, `unreadOwed`); owed endings, quarantine (`Checkout/Pay`); `persist`, restore, reload
     (`Checkout/Pay`); `forget`, `unsettledWrites` (`leaveWhilePaying`, the renewal's Pay forgotten); Runtime per
     scope, `dispose` (sign-out); `CleanupFailed`, `HoldForgotten`, `UnboundLane` (`sessionCloseFails`,
-    `forgottenRetiredAuthorization`).
+    `forgottenRetiredAuthorization`, `unsurePayRemoved`).
   - **step 1:** compound `states` (`CheckoutFlow`'s address, shipping and pay steps); `S.X.history`, `history.child`,
     `S.previous.history` (Back into `CheckoutFlow`'s shipping step restores its sub-step); `Flow.input` value-named
     actors (`Cart`, named by shopper); guards, `deny`, `check` (`CheckoutFlow` checks the cart isn't empty); `context`,
@@ -304,18 +304,24 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     - [x] A payment SDK session that fails to close when the services are released at sign-out: CleanupFailed
       (Actors R23). No source. built: `shop/session-close-fails`, port fake `ShopFakeSessionCloseFails`.
     - [x] Disposal order, S1 × 3 and S2 (shopper, cart, badge, flow and Pay all open at sign-out): each identity's
-      terminal evidence comes consumers before providers (Inspection O3). No source. built:
-      `shop/sign-out-mid-checkout`.
+      terminal evidence comes consumers before providers (Inspection O3); then S9, a reload reopening only the badge,
+      restores its cart and shopper and nothing else. No source. built: `shop/sign-out-mid-checkout`.
+    - [x] An unsure payment whose checkout was removed is reported UnboundLane at each of two boots, then bound once
+      adopted (Actors R20; Runtime O6). No source. built: `shop/unsure-pay-removed`.
     - [x] E7: forgetting the renewal's Pay drops an authorization an earlier release held, with HoldForgotten, and
       the next boot neither reports nor keeps it (Actors R21). No source. built: `shop/forgotten-retired-authorization`.
     - [x] Finding: with a batch out, a disposed Pay whose record did not decode drops a send NoRecord, and an ensure
       starts it fresh unreported (Actors R20). No source. built: `shop/renewal-disposing-damaged-pay`.
     - [ ] A Pay disposed while its intent-status read is out, whose cleanup throws: the ref is quarantined and the
-      next ensure reports CleanupFailed (Actors R23). left: the user's read on the quarantine of a ref.
-    - [ ] `runPromise` from a host (Actors R27). left: its public signature, the user's read.
-    - [ ] CleanupFailed and HoldForgotten under load (L1 × many Pays with sessions; L4 with retired holds), and step
-      samples offering `disposeRuntime` over the failing port fakes. left: not built in @task.V3.T99's round
-      (the codes exist now); proposed for its close review to route.
+      next ensure reports CleanupFailed until a disposeActor lifts it (Actors R23). Built as host tests
+      (`src/host/close.test.ts`, a status read); left for the shop: a port fake whose status read's cleanup
+      throws, owner @task.V3.T100.
+    - [ ] `runPromise` from a host (Actors R27). Built as host tests (`src/host/runtime.test.ts`); left: a Story
+      step that calls it, owner @task.V3.T97 (host tests on Story and Fake).
+    - [ ] CleanupFailed under load (L1 × many Pays with sessions), and step samples offering `disposeRuntime` over the
+      failing port fakes. left: owner @task.V3.T100 (whole Causes through cleanup).
+    - [ ] HoldForgotten under L4 with retired holds. left: owner @task.V3.T56 (release versions write the retired
+      records a forget drops).
 
 ### cells
 
@@ -404,7 +410,8 @@ retry.
   - **used today:** guards, `deny`, `check` (`O.sync.idle`); `schedules` with `armOn` (the computed backoff);
     `resource`, `O.x.lookup` (R `remoteHead`); `reject`, `NotSent { Rejected }` (T `sync`); endings, `Flow.uncertain`,
     `unknown` (`Git/Sync`); `forget`, `unsettledWrites` (`leaveWhileSyncing`, unpersisted); Runtime per scope,
-    `dispose` (sign-out); `CleanupFailed`, `HoldForgotten`, `UnboundLane` (`connectionCloseFails`).
+    `dispose` (sign-out); `CleanupFailed` (`connectionCloseFails`); no `HoldForgotten` or `UnboundLane`: an
+    unpersisted app keeps no lane record across a boot.
   - **step 1:** `Flow.input` value-named actors (`Repo`, named by repo); `Flow.private` (`Repo`'s token); `send(ref,
     event)` (`Repo` sends `SyncRepo` and `Pushed` to `Git/Sync`).
   - **step 2:** `trait` (`RateLimit` on `Repo`); `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn` (`RateLimit`'s
@@ -592,14 +599,14 @@ kamp.us for rows restored after a failure.
       `transfers/unsure-account-removed`.
     - [x] L1 × 64 and L4: every held account listed at each boot (Actors R26). built: `transfers/stress-owed-at-boot`.
     - [x] A bank client's interrupt cleanup throws when the disposal's bound interrupts a hung transfer: inside the
-      commit's 30-second deadline race, so Effect drops its Cause and only unknown Disposed is seen (Actors R23's
-      stated limit; the reported case is `sync/interrupt-cleanup-fails`). No source. built:
+      commit's 30-second deadline race, so Effect drops its Cause and only unknown Disposed is seen; an `it.fails`
+      owned by @task.V3.T100 (the reported case is `sync/interrupt-cleanup-fails`). No source. built:
       `transfers/interrupt-cleanup-fails`, port fake `BankFakeCleanupThrows`.
     - [x] E7: forget drops a held wire whose operation and contract an earlier release had, with HoldForgotten, and
       the next boot neither reports nor keeps it (Actors R21). No source. built: `transfers/forgotten-retired-wire`.
     - [ ] L5, S6 child-first and forget-with-hold orders, and step samples offering hold, drop and release words for
-      `unsettledWrites`; CleanupFailed and HoldForgotten under load. left: not built in @task.V3.T99's round (the
-      Cut's `unsettled` read exists now); proposed for its close review to route.
+      `unsettledWrites`. left: owner @task.V3.T56 (forget and reload orders over held lanes).
+    - [ ] CleanupFailed under load. left: owner @task.V3.T100. HoldForgotten under load. left: owner @task.V3.T56.
 
 ### sign-in
 
@@ -626,8 +633,8 @@ not checked here).
 - **Features by step:**
   - **used today:** guards, `deny`, `check` (`Auth/SignIn`); `schedules` with `armOn` (cooldown and lockout); `reject`,
     `NotSent { Rejected }` (T `begin`, `verify`); `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed` (`Auth/SignIn`);
-    endings, `Flow.uncertain`, `unknown` (`Auth/SignIn`); `CleanupFailed`, `HoldForgotten`, `UnboundLane`
-    (`signOutRetiredLink`).
+    endings, `Flow.uncertain`, `unknown` (`Auth/SignIn`); `HoldForgotten` (`signOutRetiredLink`), `UnboundLane`
+    (`unsureSaveRemoved`); no `CleanupFailed` yet: no sign-in port fake fails a cleanup.
   - **step 1:** `Flow.initial` computed (`AuthSession`'s handle from the email); `Flow.private` (`AuthSession`'s refresh
     token); `context`, `onContext`, `Provider.select` (`ReturnTo` ⇠ `session`); `forget`, `unsettledWrites` (sign-out
     forgets `AuthSession`); `persist`, restore, reload (`AuthSession`, `ReturnTo`).
@@ -661,6 +668,8 @@ not checked here).
     - [x] E7: signing out forgets a value-named session holding a device link an earlier release had; the link is
       dropped with HoldForgotten and the next boot neither reports nor keeps it (Actors R21; @task.V3.T99). No
       source. built: `sign-in/sign-out-retired-link`.
+    - [x] An unsure handle save whose session was removed is reported UnboundLane at each of two boots, then bound
+      once adopted (Actors R20; @task.V3.T99). No source. built: `sign-in/unsure-save-removed`.
   - [ ] **Combinations:** release 2 (step 7): left: @task.V3.T56. Strict Mode (step 18): left: @task.V3.T30.
   - [x] **Variety:** an unedited prefilled handle needs confirming. Copies [UsernameBootstrap.test.tsx:32][kp-boot]
     "does NOT commit the unedited email prefill on the first submit — it asks to confirm". built:

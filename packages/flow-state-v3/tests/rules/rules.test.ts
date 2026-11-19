@@ -399,14 +399,65 @@ describe("run rules over crafted runs, each rule seen firing", () => {
         e.record.evidence._tag === "Sent",
     );
 
-    expect(firstOpen.length > 0 && sent.length > 0).toBe(true);
+    // Calls after the first open's first turn: a turn may have invoked them.
+    const firstTurn = run.trace.events.findIndex(
+      (e) =>
+        e.tab.open === 1 &&
+        TraceRecord.$is("Runtime")(e.record) &&
+        e.record.evidence._tag === "Turn",
+    );
+
+    const afterTurn = firstOpen.filter((e) => run.trace.events.indexOf(e) > firstTurn);
+
+    expect(firstOpen.length > 0 && sent.length > 0 && firstTurn >= 0).toBe(true);
     expect(nothingInvokedDisposing.breaches(traced([disposing, ...run.trace.events]))).toHaveLength(
       firstOpen.length + sent.length,
     );
     expect(
       nothingInvokedDisposing.breaches(traced([disposing, disposed, ...run.trace.events])),
-    ).toHaveLength(sent.length);
+    ).toHaveLength(afterTurn.length + sent.length);
     expect(nothingInvokedDisposing.breaches(run)).toEqual([]);
+  });
+
+  it("Actors I30: a read a turn invoked in the step that ends the disposal is a breach though it arrives after RuntimeDisposed; a cleanup's call with no turn since the disposal began is not", async () => {
+    const run = checked(await lostThenReload.run());
+    const tab = { name: "main", open: 1 };
+
+    const disposing = {
+      sequence: 0,
+      tab,
+      record: TraceRecord.Step({ index: 0, step: Step.disposeRuntime({ forget: false }) }),
+    };
+
+    const disposed = {
+      sequence: 0,
+      tab,
+      record: TraceRecord.Runtime({ evidence: Evidence.RuntimeDisposed() }),
+    };
+
+    const traced = (events: StoryRun["trace"]["events"]) => ({
+      ...run,
+      trace: { ...run.trace, events },
+    });
+
+    const turn = run.trace.events
+      .filter(
+        (e) =>
+          e.tab.open === 1 &&
+          TraceRecord.$is("Runtime")(e.record) &&
+          e.record.evidence._tag === "Turn",
+      )
+      .slice(0, 1);
+
+    const call = run.trace.events
+      .filter((e) => e.tab.open === 1 && TraceRecord.$is("Request")(e.record))
+      .slice(0, 1);
+
+    expect([turn.length, call.length]).toEqual([1, 1]);
+    expect(
+      nothingInvokedDisposing.breaches(traced([disposing, ...turn, disposed, ...call])),
+    ).toHaveLength(1);
+    expect(nothingInvokedDisposing.breaches(traced([disposing, disposed, ...call]))).toEqual([]);
   });
 
   it("Restore I1: after a reload, an owed row of an identity with an actor record and no incarnation is a breach; with no row, or after a load the store refused, it is not", async () => {

@@ -349,9 +349,15 @@ requirements
         must    A cleanup failure rejects dispose with CleanupFailed, quarantines the ref (later
                 ensures report the same failure) and keeps the full Cause; it is never success.
                 At Runtime disposal a cleanup is a services finalizer or the interrupt cleanup of
-                a call the Scope's close interrupts; each failure is also reported as an Issue
-                CleanupFailed, which carries no Cause (@spec.Diagnostics.R9), and every call to
-                dispose gets the same rejection. Proposed (the T99 lead, 2026-11-19).
+                any fiber the close interrupts (a call, a store write, a runPromise Effect), and
+                the close waits for each stage (fibers, then services) at most the disposal
+                bound: a stage still running then is a failed cleanup too. Each failure is also
+                reported as an Issue CleanupFailed, which carries no Cause
+                (@spec.Diagnostics.R9), and every call to dispose gets the same rejection; a
+                forget's StorageFailure is kept beside it. At an actor's disposal, a read whose
+                interrupt cleanup dies quarantines its ref: every later ensure throws
+                CleanupFailed with that Cause until a disposeActor of the ref lifts it. Decision
+                (user, 2026-11-19): "Q8 A"; the rest proposed (the T99 lead, 2026-11-19).
 
                 Runtime disposal waits for its writes within the same bound, measured from the call to
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
@@ -411,9 +417,10 @@ requirements
         must    runtime.runPromise(effect, { signal }) runs an Effect with the app's installed
                 services in the Runtime's Scope. Admission is `admit`'s: before ready it rejects
                 RuntimeNotReady, once disposal starts RuntimeDisposed, and it runs nothing then.
-                A failure, defect or interruption rejects with a FlowError that keeps the whole
-                Cause (@spec.Diagnostics.R8); an aborted signal interrupts the Effect. Proposed:
-                the signature is the user's read.
+                A failure, defect or interruption rejects with a FlowError coded RunFailed that
+                keeps the whole Cause (@spec.Diagnostics.R8); an aborted signal interrupts the
+                Effect, and a Runtime disposal interrupts it too. Decision (user, 2026-11-19):
+                "Q7 A".
 
 open
     Q1  Executable checks are not built.

@@ -45,10 +45,10 @@ export const ruleFaults: ReadonlyArray<Fault> = [
   fault(
     "forget-keeps-record",
     "Actors R21",
-    ["tests/stories/steps.test.ts", "tests/shop/store.test.ts"],
+    ["tests/stories/steps.test.ts", "tests/shop/store.test.ts", "tests/sign-in/session.test.ts"],
     "forget keeps the identity's record, so the next ensure starts from the old state",
     "src/core/incarnations.ts",
-    '    tx.drop("records", actorKey(actor));\n    tx.dropUses(actor);',
+    '    tx.drop("records", key);\n    tx.dropUses(actor);',
     "    tx.dropUses(actor);",
   ),
   fault(
@@ -138,8 +138,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["tests/compile/codes.test.ts"],
     "a denial reason Flow never raises as a diagnostic joins the closed code list",
     "src/error.ts",
-    '  "StorageFailure",\n]);',
-    '  "StorageFailure",\n  "InFlight",\n]);',
+    '  "CleanupFailed",\n]);',
+    '  "CleanupFailed",\n  "InFlight",\n]);',
   ),
   fault(
     "lane-record-off-kind",

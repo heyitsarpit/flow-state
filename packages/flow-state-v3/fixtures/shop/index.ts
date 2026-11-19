@@ -14,6 +14,7 @@ import {
   leaveWhilePaying,
   sessionCloseFails,
   signOutMidCheckout,
+  unsurePayRemoved,
 } from "./stories/usual.ts";
 import { busyEdges } from "./stories/edges.ts";
 import {
@@ -99,6 +100,7 @@ export const shop = manifest({
     leaveWhilePaying,
     sessionCloseFails,
     signOutMidCheckout,
+    unsurePayRemoved,
     renewalDisposingDamagedPay,
     forgottenRetiredAuthorization,
   },

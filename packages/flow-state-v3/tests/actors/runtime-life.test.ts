@@ -4,7 +4,9 @@ import {
   leaveWhilePaying,
   sessionCloseFails,
   signOutMidCheckout,
+  unsurePayRemoved,
 } from "../../fixtures/shop/stories/usual.ts";
+import { unsureSaveRemoved } from "../../fixtures/sign-in/stories/usual.ts";
 import {
   forgottenRetiredAuthorization,
   RETIRED_AUTHORIZATION,
@@ -72,6 +74,23 @@ const finishedOrder = (records: ReadonlyArray<Evidence>) =>
   records.flatMap((e) => (e._tag === "Finished" ? [e.actor.machine] : []));
 
 const machineOf = (ref: ActorRef) => ref.machine.compiled.id;
+
+// A held lane of a removed identity is reported UnboundLane once at each of two boots, never
+// before its removal, and not once an ensure adopts it.
+const unboundAtEachBoot = async (
+  story: { readonly run: () => Promise<StoryRun> },
+  lane: string,
+) => {
+  const run = await story.run();
+
+  const named = (records: ReadonlyArray<Evidence>) =>
+    unbound(records).map((r) => r.startsWith(lane));
+
+  expect(named(between(run, "unsure", "removed"))).toEqual([]);
+  expect(named(between(run, "removed", "reloaded"))).toEqual([true]);
+  expect(named(between(run, "reloaded", "reloaded again"))).toEqual([true]);
+  expect(named(between(run, "reloaded again", "adopted"))).toEqual([]);
+};
 
 // Forget drops a held lane whose operation and contract are gone, with HoldForgotten, so the next
 // boot neither reports nor keeps it.
@@ -149,16 +168,15 @@ describe("unsettledWrites (Actors R20, R26)", () => {
 
 describe("the boot report of unbound lanes (Runtime O6; Actors R20)", () => {
   it("Actors R20: a held transfer whose account was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
-    const run = await unsureAccountRemoved.run();
-    const lane = `lane/Bank/Transfers/acct-1|transfer|`;
+    await unboundAtEachBoot(unsureAccountRemoved, "lane/Bank/Transfers/acct-1|transfer|");
+  });
 
-    const named = (records: ReadonlyArray<Evidence>) =>
-      unbound(records).map((r) => r.startsWith(lane));
+  it("Actors R20: an unsure payment whose checkout was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
+    await unboundAtEachBoot(unsurePayRemoved, "lane/Checkout/Pay/");
+  });
 
-    expect(named(between(run, "unsure", "removed"))).toEqual([]);
-    expect(named(between(run, "removed", "reloaded"))).toEqual([true]);
-    expect(named(between(run, "reloaded", "reloaded again"))).toEqual([true]);
-    expect(named(between(run, "reloaded again", "adopted"))).toEqual([]);
+  it("Actors R20: an unsure handle save whose session was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
+    await unboundAtEachBoot(unsureSaveRemoved, "lane/Auth/Session/");
   });
 });
 
@@ -186,8 +204,8 @@ describe("cleanup failures (Actors R23, I33)", () => {
     expect(cleanupFailed(run.evidence.slice(disposed))).toHaveLength(1);
   });
 
-  // R23's stated limit: inside the commit's own deadline race (`Effect.timeoutOrElse`), Effect drops
-  // the cleanup's Cause when the call is interrupted, so the host never sees it.
+  // A gap, red until it is fixed: inside the commit's own deadline race (`Effect.timeoutOrElse`),
+  // Effect drops the cleanup's Cause when the call is interrupted, so the host never sees it.
   it.fails("Actors R23, I33: a transfer cleanup that throws inside the commit's deadline race when the disposal's bound interrupts it is reported CleanupFailed", async () => {
     const run = await interruptCleanupFails.run();
 
@@ -230,6 +248,15 @@ describe("the disposal order (Actors R22, R23; Inspection O3)", () => {
 
     for (const [consumer, provider] of consumes)
       expect(order.indexOf(machineOf(consumer)) < order.indexOf(machineOf(provider))).toBe(true);
+  });
+
+  it("Actors R18, R22: after the sign-out, a reload that reopens only the badge restores its cart and shopper, and nothing else", async () => {
+    const run = await signOutMidCheckout.run();
+    const live = run.checkpoints["badge reopened"].inspection.actors.map((a) => a.actor);
+    const opened = (ref: ActorRef) => live.some((key) => key.startsWith(`${machineOf(ref)}/`));
+
+    expect([mainBadge, mainCart, mainShopper].map(opened)).toEqual([true, true, true]);
+    expect([mainFlow, checkout].map(opened)).toEqual([false, false]);
   });
 });
 

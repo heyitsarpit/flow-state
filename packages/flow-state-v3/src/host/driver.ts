@@ -16,8 +16,15 @@ import {
   step,
   stopped,
 } from "../core/step.ts";
-import { type CallId, Command, emptyWorld, type World } from "../core/world.ts";
-import { flowError, lifeRejection, raise } from "../error.ts";
+import {
+  type ActorId,
+  actorKey,
+  type CallId,
+  Command,
+  emptyWorld,
+  type World,
+} from "../core/world.ts";
+import { flowError, flowErrorOf, lifeRejection, raise } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
 import { type Fibers, sleepUntil } from "./fibers.ts";
@@ -57,6 +64,10 @@ const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
   });
 };
 
+// Whether a failed fiber was interrupted and its interrupt cleanup died.
+const cleanupDied = <E>(cause: Cause.Cause<E>) =>
+  Cause.hasInterrupts(cause) && Cause.hasDies(cause);
+
 /**
  * The one impure loop: it owns the world, runs each step, and performs the step's commands with
  * Effect: calls and timers as keyed fibers in the Runtime's Scope, writes through the persistence
@@ -68,7 +79,8 @@ const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
  * runs or drops each as the core's `admit` says. `offer` throws the error a rejected public call
  * names. `ended` completes when the core's life reads Disposed (the core waits for calls on the
  * wire and its own writes, within its bound), or fails with the defect that stopped it.
- * `cleanups` holds each call cleanup that failed after the life left Open.
+ * `cleanups` holds each interrupt cleanup of a forked fiber (a call, a store write) that failed
+ * after the life left Open.
  */
 export const makeDriver = (options: {
   readonly machines: Machines;
@@ -79,13 +91,48 @@ export const makeDriver = (options: {
   readonly sink: (evidence: ReadonlyArray<Evidence>) => void;
   readonly admit: (evidence: ReadonlyArray<Evidence>) => void;
 }) => {
-  const { machines, fibers } = options;
+  const { machines } = options;
   const clock = Context.get(options.platform, Clock.Clock);
   const host = Context.get(options.platform, Host);
   let world: World = emptyWorld(options.persistence);
   const inbox: Array<Input> = [];
   let running = false;
   const disposed = Deferred.makeUnsafe<void>();
+
+  // The whole Cause of each fiber interrupted once the Runtime runs no more work (its life left
+  // Open) whose cleanup died: a late result or answer is dropped, so its Exit is judged here, before
+  // admission.
+  // FLOW_STATE_ALLOW_UNKNOWN: a call's error is the contract's own.
+  const cleanups: Array<Cause.Cause<unknown>> = [];
+
+  // The whole Cause of each actor's read whose interrupt cleanup died once the actor ended, by
+  // identity: an ensure reports it until a disposeActor of that identity lifts it.
+  // FLOW_STATE_ALLOW_UNKNOWN: a read's error is the contract's own.
+  const quarantined = new Map<string, Cause.Cause<unknown>>();
+
+  // Each read on the wire by its actor, and the reads interrupted because their actor ended.
+  const reading = new Map<CallId, ActorId>();
+  const endedReads = new Set<CallId>();
+
+  // Every fiber the driver and its edge fork, each Exit judged before its own observer.
+  const fibers: Fibers = {
+    ...options.fibers,
+    fork: <A, E>(
+      key: string,
+      effect: Effect.Effect<A, E>,
+      onExit: (exit: Exit.Exit<A, E>) => void,
+    ) =>
+      options.fibers.fork(key, effect, (exit) => {
+        if (
+          Exit.isFailure(exit) &&
+          cleanupDied(exit.cause) &&
+          !Verdict.$is("Run")(admit(world.life, Input.Run()))
+        )
+          cleanups.push(exit.cause);
+
+        onExit(exit);
+      }),
+  };
 
   const edge = makeEdge(options.platform, fibers, {
     captureMs: options.captureMs,
@@ -101,25 +148,11 @@ export const makeDriver = (options: {
       defect(`no operation ${machine}.${operation}`),
     );
 
-  // The whole Cause of each call interrupted once the Runtime runs no more calls (its life left
-  // Open) whose cleanup died: a late result is dropped, so its Exit is judged here, before
-  // admission.
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's error is the contract's own.
-  const cleanups: Array<Cause.Cause<unknown>> = [];
-
   // FLOW_STATE_ALLOW_UNKNOWN: a call's value, error and services are the contract's own.
   const call = (id: CallId, effect: () => Effect.Effect<unknown, unknown, unknown>) =>
-    fibers.fork(`call/${id}`, provided(Effect.suspend(effect)), (exit) => {
-      if (
-        Exit.isFailure(exit) &&
-        Cause.hasInterrupts(exit.cause) &&
-        Cause.hasDies(exit.cause) &&
-        !Verdict.$is("Run")(admit(world.life, Input.Run()))
-      )
-        cleanups.push(exit.cause);
-
-      input(Input.Settled({ call: id, result: resultOf(exit) }));
-    });
+    fibers.fork(`call/${id}`, provided(Effect.suspend(effect)), (exit) =>
+      input(Input.Settled({ call: id, result: resultOf(exit) })),
+    );
 
   const perform = (command: Command) =>
     Command.$match(command, {
@@ -131,12 +164,37 @@ export const makeDriver = (options: {
             ),
           Read: () => defect(`${machine}.${operation} is not a write`),
         }),
-      Lookup: ({ call: id, machine, operation, input: given }) =>
-        Operation.$match(operationAt(machine, operation), {
-          Read: (op) => call(id, () => op.call.run(given)),
-          Write: () => defect(`${machine}.${operation} is not a read`),
+      Lookup: ({ call: id, actor, operation, input: given }) =>
+        Operation.$match(operationAt(actor.machine, operation), {
+          Read: (op) => {
+            reading.set(id, actor);
+            fibers.fork(
+              `call/${id}`,
+              provided(Effect.suspend(() => op.call.run(given))),
+              (exit) => {
+                reading.delete(id);
+
+                // The read's own wrapper may keep only the defect of its interrupt cleanup.
+                if (
+                  endedReads.delete(id) &&
+                  Exit.isFailure(exit) &&
+                  Cause.hasDies(exit.cause) &&
+                  Verdict.$is("Run")(admit(world.life, Input.Run()))
+                )
+                  quarantined.set(actorKey(actor), exit.cause);
+
+                input(Input.Settled({ call: id, result: resultOf(exit) }));
+              },
+            );
+          },
+          Write: () => defect(`${actor.machine}.${operation} is not a read`),
         }),
-      Interrupt: ({ call }) => fibers.cancel(`call/${call}`),
+      Interrupt: ({ call }) => {
+        const actor = reading.get(call);
+
+        if (actor !== undefined && !world.incarnations.has(actorKey(actor))) endedReads.add(call);
+        fibers.cancel(`call/${call}`);
+      },
       Arm: ({ timer, at }) =>
         fibers.fork(`timer/${timer}`, sleepUntil(clock, at), (exit) => {
           if (Exit.isSuccess(exit)) input(Input.Fired({ timer }));
@@ -298,6 +356,8 @@ export const makeDriver = (options: {
     // The Runtime's failure, once its life is Stopped: the defect that stopped it.
     ended: Deferred.await(disposed),
     machines,
+    // The Runtime's fibers, each Exit judged as the driver's own are: a host's Effect forks here.
+    fibers,
     world: () => world,
     pending: () => inbox.length > 0,
     stored: () => edge.settled(),
@@ -332,6 +392,24 @@ export const makeDriver = (options: {
     },
     // Every interrupt cleanup that failed once the life left Open, oldest first, read only.
     cleanups: () => cleanups.slice(),
+    // The CleanupFailed an identity's ensure reports, with the whole Cause its ended actor's read
+    // left, if any.
+    quarantine: (actor: ActorId) =>
+      Option.map(Option.fromUndefinedOr(quarantined.get(actorKey(actor))), (cause) =>
+        flowErrorOf(
+          [
+            {
+              code: "CleanupFailed",
+              path: [actor.machine, actor.name],
+              summary: `${actor.name}'s cleanup failed when its actor ended`,
+              help: "Fix the failing cleanup; disposeActor on this ref lifts the quarantine.",
+            },
+          ],
+          cause,
+        ),
+      ),
+    // A disposeActor of the identity: its quarantine is lifted.
+    lift: (actor: ActorId) => void quarantined.delete(actorKey(actor)),
   };
 };
 

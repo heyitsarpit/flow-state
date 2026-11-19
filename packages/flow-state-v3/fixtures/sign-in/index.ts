@@ -1,7 +1,15 @@
 import { Option } from "effect";
 import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
 import { authTrusted, authTrustedSetup, sessionOf } from "./app.ts";
-import { long, samples, seededStress, stories, handleRetry, trustDevice } from "./stories/usual.ts";
+import {
+  long,
+  samples,
+  seededStress,
+  stories,
+  handleRetry,
+  trustDevice,
+  unsureSaveRemoved,
+} from "./stories/usual.ts";
 import {
   deviceDateEdges,
   longEmail,
@@ -34,6 +42,7 @@ export const signIn = manifest({
     returnSavedLate,
     reloadedMidHandle,
     handleRetry,
+    unsureSaveRemoved,
     blankHandle,
     submitTwice,
     unconfirmedPrefill,

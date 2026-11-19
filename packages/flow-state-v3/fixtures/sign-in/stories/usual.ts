@@ -94,6 +94,31 @@ export const handleRetry = sessionStory("sign-in/handle-retry")
   .checkpoint("submitted");
 
 /**
+ * Elif chooses a handle whose save, and its one resend, the profile service took but never
+ * answered; she closes her profile on this device, so the app removes her session without
+ * forgetting it, and the tab reloads twice before she opens it again and the session takes the
+ * unsure save back.
+ */
+export const unsureSaveRemoved = sessionStory("sign-in/unsure-save-removed")
+  .ensure(mainSession)
+  .send(mainSession, signedIn)
+  .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
+  .world(
+    Profiles.setUsername.drop({ at: "response" }),
+    Profiles.setUsername.drop({ at: "response" }),
+  )
+  .send(mainSession, { _tag: "SubmitHandle" })
+  .checkpoint("unsure")
+  .dispose(mainSession)
+  .checkpoint("removed")
+  .reload({ reattach: false })
+  .checkpoint("reloaded")
+  .reload({ reattach: false })
+  .checkpoint("reloaded again")
+  .ensure(mainSession)
+  .checkpoint("adopted");
+
+/**
  * The sign-in app over its port fake, with no steps yet: every sign-in Story starts here.
  */
 export const authStory = (id: string) => Story.app(authSetup, { id, fixtures: [AuthFake] });

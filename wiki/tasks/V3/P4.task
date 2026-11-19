@@ -357,6 +357,10 @@ tasks
         comment     2026-11-19T06:28:09Z
             Owes (T99 close review, 2026-11-19): WriteLanes Q7 says an it.fails pins its lost ending, but that test file
             has none; add it or fix Q7's text.
+        comment     2026-11-19T07:28:18Z
+            Owns from T99 (proposed, catalog): HoldForgotten under L4 with retired holds; L5, S6 child-first and
+            forget-with-hold orders and step samples for unsettledWrites (code:wiki/conventions/fixture-catalog.md,
+            transfers and shop Runtime life).
     T22
         title       CLI check, explain and graph
         status      draft
@@ -1760,10 +1764,13 @@ tasks
         comment     2026-11-18T19:39:06Z
             Owes (proposed, P3 close fix round): review item A118, T94's admit-throw acceptance as a Story test, not a
             runtime.test.ts case. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-19T07:28:19Z
+            Owns from T99 (proposed, catalog): a Story step that calls runtime.runPromise; it is proven by host tests
+            only (code:packages/flow-state-v3/src/host/runtime.test.ts).
 
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
-        status      in_progress
+        status      review
         priority    high
         satisfies   [@plan.Runtime.O6, @plan.Diagnostics.O3]
         description
@@ -2169,6 +2176,33 @@ tasks
             RuntimeNotReady before ready and RuntimeDisposed once disposing, a failing effect rejected as FlowError
             RunFailed with the whole Cause; Q8 A, a ref whose actor-level cleanup failed is quarantined (later ensures
             report the same failure) until a cancel. Both are built in this Task; their reds stop being it.fails.
+        comment     2026-11-19T07:29:20Z
+            Fix round and Q7/Q8 build: every item has a red-first check and a planted fault, all caught (nub run faults
+            --only, 18 of 18). Suite 1279 passed, 25 expected fail; stress 34 files pass; nub run check 0; docs
+            build done.
+
+            - 1 blocker and class: the driver judges every forked fiber's Exit (calls, store writes, runPromise) before
+              its observer; tests in code:packages/flow-state-v3/src/host/close.test.ts; faults
+              store-cleanup-dropped, cleanup-judged-for-calls-only.
+            - 2 I30: a Request after a Turn of the disposing open is a breach; crafted run in
+              code:packages/flow-state-v3/tests/rules/rules.test.ts, red against the old rule.
+            - 3 forget kept beside CleanupFailed (Exit.asVoidAll); fault forget-failure-discarded.
+            - 4 fixtures: UnboundLane in shop/unsure-pay-removed and sign-in/unsure-save-removed, sync corrected
+              (unpersisted); S9 reload on shop/sign-out-mid-checkout; load, S6 and step-sample owners T100 and T56
+              (comments there).
+            - 5 stale limit text removed (test, catalog). 6 one shared close: Fiber.join of the detached close fiber;
+              fault close-run-per-caller.
+            - 7 hang fixed here: each close stage waits at most the disposal bound, overdue is CleanupFailed
+              (CleanupOverdue); fault close-waits-unbounded. Forget's refusal after a cut write routed to T100 (no
+              ending lost, no hang).
+            - Q7 runPromise (code:packages/flow-state-v3/src/host/run-promise.ts), RunFailed code; faults
+              run-promise-after-dispose-runs, run-promise-ignores-signal. Q8 ref quarantine, lifted by disposeActor
+              (proposed reading of 'until a cancel'); faults ref-quarantine-dropped, ref-quarantine-kept.
+            - Haiku review (2, effort high): accepted read quarantine keyed to reads ended with their actor (B1, B2),
+              Lookup's duplicate machine dropped, I30 doc placement, sign-in story wording, close doc, helper reuse;
+              rejected the T100-owned it.fails, Open-life cleanups (not at close), runPromise waiting on an
+              uninterruptible Effect (Effect.runPromise's semantics), Task ids in wiki, extending the usual Story
+              (orchestrator ruling), Story-only proof of runPromise and the quarantine (owned: T97, T100).
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
@@ -2223,3 +2257,11 @@ tasks
             deadline (Effect.timeoutOrElse) is never reported CleanupFailed, since the race drops the loser's Cause;
             Actors R23 keeps the rule (not a limit). Shown by transfers/interrupt-cleanup-fails, an it.fails; fix by
             owning the deadline so the loser's Exit reaches the host.
+        comment     2026-11-19T07:28:11Z
+            Routed from T99's fix round (proposed): after a disposal write is cut, the edge stays out, so every later
+            dispose({ forget: true }) on that Runtime fails StorageFailure, though its help says to retry once the store
+            answers. No ending is lost, doubled or invented and nothing hangs; the fix is the help text or a retry path.
+            Also the shop port fake whose status read's cleanup throws (ref quarantine Story).
+        comment     2026-11-19T07:28:24Z
+            Owns from T99 (proposed, catalog): CleanupFailed under load (L1 × many Pays with sessions; transfers) and
+            step samples offering disposeRuntime over the failing port fakes.
