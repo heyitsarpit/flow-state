@@ -3720,6 +3720,67 @@ tasks
 
             For the user's read: hand-built `Step` data stays the run's erased script (the type is public; its actor
             fields are checked at run time, not by type); `unsettledWrites<Ds>` lets a caller name a narrower app.
+        comment     2026-11-19T21:54:39Z
+            Close review after the fix round (independent lead, 1ef090b7): PASS, nothing blocking. The suite exits 0
+            with typecheck on (1520 passed, 25 expected fail, no type errors), `nub run check` exits 0, and the rule's
+            plants pass. `faults --only` caught all six plants re-run here: raw-step-unowned, refused-start-read,
+            walker-on-call-stack, lane-operation-unkeyed, read-encodes-memory, setup-services-built. Stress was not run,
+            since no stress Story or sweep changed.
+
+            The first review's findings are closed:
+
+            1. Plants: each of the 14 named finds occurs once and plants its stated wrong.
+               code:packages/flow-state-v3/tests/faults.test.ts goes red on a stale plant (mint-not-replayable, made
+               stale in a scratch copy).
+            2. A3: every listed word carries the app, with a two-sided test in `public.test-d.ts`. The exceptions are
+               the builder's calls below.
+            3. g23: `decline` takes `Decline` and `notSent` takes `NotSentWhy`.
+            4. One-sided tests: `flow-state/paired-refusals` is at 0. It goes red when a real positive is
+               removed (`public.test-d.ts:99`).
+            5. Smaller items: the excess-keys text, Restore R5, one `loose`, `codecOf` and the `actorRef` wiring are
+               all fixed.
+
+            Builder's calls:
+
+            - Removing `Step.ensure/detach/send/dispose`, `WorldWord` and `FakeWorld` from the public entry is for the
+              user to decide. It removes public words, which is more than a flag, default, name or placement. Stories
+              lose nothing: each removed constructor has a Story or Fake word that builds the same step from a checked
+              ref. Hand-built `Step` data still runs and is refused at run time with ForeignActorRef. Stories R2
+              still holds.
+            - `unsettledWrites<Ds>`: rejected as unsound, but it does not block. Nothing infers the parameter, so a
+              caller can name it: `runtime.unsettledWrites<typeof Pay>()` compiles and types Ship's rows as Pay's
+              (probe). Routed: derive the rows from `A` with no caller parameter, as `inspect` does.
+            - `Request.endpoint` stays text: accepted. The trace mixes servers, the same limit as `Cut.calls`, and it
+              reuses `CallName`.
+            - ForeignActorRef on another app's steps: accepted, since it matches the public Runtime's `ownRef` (Stories
+              R3 parity). It is a third copy of that raise, beside `story.ts` `own` and `runtime.ts` `ownRef`. Routed:
+              one helper.
+
+            Not blocking, routed. No check is red on current code for these.
+
+            - The `paired-refusals` lint rule has holes. It skips any refusal it cannot place: an array element, an
+              argument line, or a directive followed by an `oxlint-disable` line (five in the tree, all paired today).
+              It also accepts these as positives: `toEqualTypeOf<any>`, a bare `toEqualTypeOf()`, `["not"]`, another
+              object's member with the same name, and another key of the same object. A refusal outside `it` is checked
+              against the whole file. Probed in a scratch copy with the rule's harness. The missing coverage is plants
+              of these shapes in code:tools/flow-state-lint/rules/paired-refusals.test.ts.
+            - Siblings left erased: `publishedOf`'s `actor` and `evidenceOf`'s `SendTargetAbsent.sender` (`ActorId`);
+              the step arrays on `StoryRun`, `Samples` and `Generated` (the `Step` call); and `pairSweep`'s options.
+            - Text: `schedule-send.test-d.ts:5-6` cites `construction.test.ts`, which has no schedule case; the right
+              file is `tests/compile/schedule-send.test.ts`. The lifecycle list at `inspect.ts:46` is older than T104
+              and still lists six tags.
+
+            Sidecar log (5 Haiku, effort high; every finding re-read, and the probes re-run where cited):
+
+            - Accepted: unsettledWrites (cohesion, blind, exports); the lint holes (re-probed); the ForeignActorRef
+              duplicate; the siblings (exports); the schedule-send text (blind).
+            - Rejected:
+              - "Restore R5 contradicts itself": the new bullet is the exception to the old one.
+              - "Stories R3 lacks ForeignActorRef": R3's parity with the public Runtime covers it.
+              - lane-operation-unkeyed masked for names of unequal length: caught here, and not in this Task's range.
+              - walker-on-call-stack's text: it predates T104.
+              - empty `edits`: no plant has them.
+              - the repeated unions, the `Operations` alias and `Owed.reason`: no ending, and the design records them.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
