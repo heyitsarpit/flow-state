@@ -7,6 +7,20 @@ import type { Fault } from "./faults.ts";
  */
 export const toolingFaults: ReadonlyArray<Fault> = [
   {
+    name: "fake-cleanup-ignored",
+    tests: ["tests/sign-in/cleanups.test.ts"],
+    says: "a held fake call's armed cleanup is swallowed when the call is interrupted, so no Story sees a cleanup fail",
+    rule: "Actors R23",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: "Effect.sync(() => void gone.add(entry.answer)).pipe(Effect.andThen(cleanup)),",
+        replace:
+          "Effect.sync(() => void gone.add(entry.answer)).pipe(Effect.andThen(cleanup), Effect.catchCause(() => Effect.void)),",
+      },
+    ],
+  },
+  {
     name: "abort-fails-the-waiter",
     tests: ["tests/stories/storage.test.ts"],
     says: "a reload's abort of the dying tab's held write fails its waiter, so the dead tab runs again",

@@ -1,4 +1,4 @@
-import { Context, Data, type Effect, type Option } from "effect";
+import { type Cause, Context, Data, type Effect, type Option } from "effect";
 
 /**
  * Why the runtime writes a batch: to acknowledge an Attempt before its send, to capture a lane
@@ -50,7 +50,8 @@ export type Store = {
  * monotonic millisecond reader (`performance.now` in dev): a host that gives one has each step
  * timed, and a step slower than `RuntimeDefaults.slowWorkBudget` reported SlowWork; production
  * gives none and times nothing. A test host gives none unless its test controls the readings, so
- * evidence stays deterministic.
+ * evidence stays deterministic. `report` takes each cleanup failure found after `dispose()` stopped
+ * waiting for its bound, with its whole Cause, as a page reports an unhandled error.
  */
 export class Host extends Context.Service<
   Host,
@@ -61,6 +62,8 @@ export class Host extends Context.Service<
     readonly sessionSeed: string;
     readonly freezeValues: boolean;
     readonly workClock: Option.Option<() => number>;
+    // FLOW_STATE_ALLOW_UNKNOWN: a late cleanup fails with whatever it threw.
+    readonly report: (cause: Cause.Cause<unknown>) => void;
   }
 >()("flow-state/Host") {}
 

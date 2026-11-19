@@ -60,7 +60,19 @@ export const makeDisposal = (
 
     lanes.everyLane(Cue.DisposalStarts());
 
-    for (const call of tx.world().reads.keys()) tx.command(Command.Interrupt({ call }));
+    tx.command(
+      Command.EndWork({
+        owners: consumersFirst(tx.world()).flatMap((actor) =>
+          Option.toArray(
+            Option.map(
+              Option.fromUndefinedOr(tx.world().incarnations.get(actorKey(actor))),
+              (i) => i.id,
+            ),
+          ),
+        ),
+        reportTo: "runtime",
+      }),
+    );
     tx.replace("reads", new Map());
     disarmWhere((t) => Timer.$is("Schedule")(t) || Timer.$is("Grace")(t));
 
@@ -122,15 +134,7 @@ export const makeDisposal = (
     end();
   };
 
-  /**
-   * The host closed the Runtime's Scope after the disposal: each cleanup that failed there is an
-   * Issue CleanupFailed.
-   */
-  const closed = (failures: number) => {
-    for (let n = 0; n < failures; n += 1) tx.act(Act.CleanupFailed());
-  };
-
-  return { disposeRuntime, boundPassed, answered, write, disposalEnds, closed };
+  return { disposeRuntime, boundPassed, answered, write, disposalEnds };
 };
 
 // The live identities, each after every live consumer bound to it, in start order otherwise: the

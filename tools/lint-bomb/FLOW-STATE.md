@@ -36,6 +36,21 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   - `tests/` and `bench/` import from `src/` only `src/index.ts`, `src/host/testing/index.ts`,
     `src/host/inspect.ts`, `src/host/trace.ts` and `src/host/cli/main.ts` (the CLI tests call
     `main(argv)`, since there is no `flow` bin yet).
+- Owners, enforced by `flow-state/owners-only` with plants in
+  `tools/flow-state-lint/rules/owners-only.test.ts`: in `src/host/` outside `src/host/owners/`,
+  `src/host/testing/`, `src/host/platform/`, `src/host/cli/` (a program of its own, which no
+  Runtime runs) and test files, no code forks, runs, races or times out work (`Effect.fork*`,
+  `Effect.run*`, `Effect.race*`, `Effect.timeout*`, `FiberMap`, `FiberSet`, `FiberHandle`,
+  `Fiber.interrupt*`, `interruptUnsafe`) or reads a Cause or a failed Exit (`Effect.catchCause*`,
+  `catchDefect`, `tapCause*`, `tapDefect`, `sandbox`, `matchCause*`, `onError*`, `onExit*`;
+  `Cause.has*`, `find*`, `filter*`, `pretty*`, `squash`, `map`, reason tests; `Exit.isFailure`,
+  `has*`, `find*`, `filter*`, `match`, `getCause`). Any import name, alias, nested pattern, cast
+  or static key counts; a run-time key, a rest pattern, `effect/internal`, `require`, a dynamic
+  `import()`, a re-export or exported alias of a watched module, and a watched module used as a
+  value (passed, spread, stored, returned) are refused outright. Not covered: an Exit or Cause
+  read by value (`exit.cause`, a finalizer's Exit), which needs type-aware lint. Every task runs
+  in an Owner, whose one judge hands its caller an `Ending`; a second reader of an Exit is how a
+  cleanup's failure is misread or lost.
 
 ## Rules: 70 in lint-bomb
 

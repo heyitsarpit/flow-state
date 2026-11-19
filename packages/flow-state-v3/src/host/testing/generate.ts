@@ -5,7 +5,7 @@ import type { AnyServer } from "./fake.ts";
 import { mixOf, sharedOf } from "./mix.ts";
 import { runFrom, type Source, type StoryRun, type View } from "./run.ts";
 import { type Property, print, printMix, type Samples } from "./samples.ts";
-import { Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
+import { type Cleanup, Step, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
 import { SubjectId } from "./story.ts";
 
 /**
@@ -374,9 +374,31 @@ export const quieting = (): Source => {
   };
 };
 
-// What the step words of an armed answer are, before the call it answers arrives.
+// How a held call's cleanup ends once interrupted, by its pick: one in four dies, one in four
+// fails, the rest are clean.
+const CLEANUPS: ReadonlyArray<Option.Option<Cleanup>> = [
+  Option.some("dies"),
+  Option.some("fails"),
+  Option.none(),
+  Option.none(),
+];
+
+// What the step words of an armed answer are, before the call it answers arrives: a held call
+// arms a cleanup that dies or fails half the time, so a mix crosses each kind of task with one.
 const armedSteps = (pools: Pools, at: Endpoint, answer: Answer, n: number) => {
-  const hold = [wire(at, "hold", "request")];
+  const hold = [
+    Step.world({
+      words: [
+        WorldWord.wire({ server: at.server, endpoint: at.endpoint, word: "hold", at: "request" }),
+        ...Option.toArray(
+          Option.map(Option.flatten(pick(CLEANUPS, n)), (outcome) =>
+            WorldWord.cleanup({ server: at.server, endpoint: at.endpoint, outcome }),
+          ),
+        ),
+      ],
+    }),
+  ];
+
   const lostButLanded = [wire(at, "drop", "response")];
 
   const steps: Record<Answer, () => ReadonlyArray<Step>> = {

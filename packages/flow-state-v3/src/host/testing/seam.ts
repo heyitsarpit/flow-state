@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Predicate } from "effect";
+import { type Cause, Context, Effect, Layer, Option, Predicate } from "effect";
 import { TestClock } from "effect/testing";
 import type { Values } from "../../core/compiled.ts";
 import { Input } from "../../core/step.ts";
@@ -22,7 +22,7 @@ export type TestRuntime = ReturnType<typeof buildRuntime>;
  */
 export const testing = {
   build: (config: RuntimeConfig, platform: Platform) =>
-    buildRuntime(config, platform, () => undefined),
+    buildRuntime(config, platform, () => undefined, Option.none()),
   attach: (
     { driver }: TestRuntime,
     actor: ActorId,
@@ -75,12 +75,16 @@ export const platformOver = (
   hung = false,
   refusals: { readonly left: Array<true> } = { left: [] },
 ) => {
+  // FLOW_STATE_ALLOW_UNKNOWN: a late cleanup fails with whatever it threw.
+  const reports: Array<Cause.Cause<unknown>> = [];
+
   const host = Host.of({
     hidden: () => false,
     onHidden: () => () => undefined,
     sessionSeed: seed.toString(16).padStart(32, "0"),
     freezeValues: true,
     workClock: Option.none(),
+    report: (cause) => void reports.push(cause),
     store: Option.some({
       load: Effect.sync(() => new Map(store)),
       write: (writes) => {
@@ -106,6 +110,7 @@ export const platformOver = (
 
   return {
     platform: tab.platform,
+    reports,
     settle: tab.settle,
     advance: (ms: number) => void tab.perform(TestClock.adjust(ms)),
   };

@@ -6,6 +6,7 @@ import { localNeverRestored, onlyActorsWithheld, putBy, recordKinds } from "./re
 import { atStart, knownAt, placesOf } from "./places.ts";
 import { oneStart, ownedRowsSaved } from "./starts.ts";
 import { mailboxOrder } from "./mailbox.ts";
+import { everyTaskAccounted } from "./owners.ts";
 import { refusedTurnIssueOnly } from "./refusals.ts";
 import { unchangedPartsKept } from "./memory.ts";
 import type { Evidence, EvidenceOf } from "../../src/host/inspect.ts";
@@ -552,6 +553,7 @@ export const rules: ReadonlyArray<Rule> = [
   acknowledgedBeforeSent,
   oneBatchOut,
   mailboxOrder,
+  everyTaskAccounted,
 ];
 
 /**

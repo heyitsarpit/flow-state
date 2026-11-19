@@ -427,3 +427,58 @@ note 2026-11-19T07:14:20Z
     Actors R23, R27: Q7 and Q8 written as the user decided; R23 widens a cleanup to any fiber the close interrupts,
     bounds each close stage by the disposal bound, keeps forget's failure, and adds the ref quarantine lifted by
     disposeActor (proposed: the lift). Reverse: restore the prior R23 and R27 text.
+
+note 2026-11-19T09:53:44Z
+    Actors R20 (proposed): an identity's mailbox belongs to its lineage, which disposeActor and forget end; replaces
+    the drop-mail clause. Mail stays keyed by identity with one drop at the lineage's end. Reverse: restore the clause.
+
+note 2026-11-19T09:53:44Z
+    Actors R22 (proposed): the host closes its Owner tree once, work (calls, store writes, reads, runPromise) before
+    services by Scope order; replaces 'interrupts every call, then releases services'. Reverse: restore the prior text.
+
+note 2026-11-19T09:53:44Z
+    Actors R23 (proposed): a failed cleanup is any non-interrupt reason; whoever ends work hears it; one bound on the
+    whole close, later causes to Host.report; a cancelled read quarantines at its end, also over a live new incarnation;
+    unheard quarantines reach dispose. Reverse: restore the prior R23.
+
+note 2026-11-19T09:53:44Z
+    Actors R27 (proposed): an aborted signal interrupts the Effect, never the wait, so the rejection keeps every
+    cleanup failure; a signal aborted before the call runs nothing. Reverse: restore the prior R27 sentence.
+
+note 2026-11-19T09:53:45Z
+    Actors algorithm (proposed): CleanupFailed replaces Closed, one per judged failure, running in Open, Disposing and
+    Disposed. Reverse: restore Closed (Disposed only, with a count).
+
+note 2026-11-19T09:53:45Z
+    Actors composition (proposed): the Owner tree replaces the one Scope with a FiberMap; I47 (one judge per task) and
+    I48 (every failed cleanup reaches its closer's report and one Issue) added. Reverse: drop I47, I48, restore the
+    text.
+
+note 2026-11-19T11:42:04Z
+    @spec.Actors R23: dispose rejects CleanupFailed whose Cause holds CleanupOverdue, not CleanupOverdue itself, as the
+    code and tests do. Reverse: reject CleanupOverdue alone.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: the close waits two bounds (core's, then the Owner tree's from the core's end), not one; one
+    shared deadline would make every cleanup after a hung call overdue. Reverse: one deadline from the dispose call.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: an Issue CleanupFailed only in lives that record it (Open, Disposing, Disposed); elsewhere the
+    failure goes through the Runtime's report alone. Tested in cleanups.test.ts (Stopped). Reverse: admit CleanupFailed
+    in more lives.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: each Cause reported exactly once beyond ensures; a ref keeps reported and unreported Causes apart
+    (proposed, the T99 lead). Reverse: merge them, which reports a heard Cause again.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R27: the abort sentences beyond Q7 A marked proposed (the T99 lead); Q7 A's text restored as decided.
+    Reverse: fold them into the decision once the user confirms.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23, I48, @spec.Diagnostics R8: typed cleanup failures inside app error handling follow Effect's rules;
+    dying cleanups always reported. Decision (user, 2026-11-19): Q11 A. Pinned per combinator in cleanups.test.ts.
+
+note 2026-11-19T11:42:06Z
+    @spec.Actors I47, I48: now cited by everyTaskAccounted's breaches and by cleanups.test.ts cells; the rule counts an
+    Owner's own Scope as its task 'scope'. Reverse: cite R23 only.

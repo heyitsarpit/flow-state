@@ -268,6 +268,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         actor: incarnation.actor,
         operation: operation.name,
         input,
+        owner: incarnation.id,
       }),
     );
   };

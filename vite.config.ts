@@ -259,6 +259,14 @@ export default defineConfig({
           // Decides by path itself: fixtures/<app>/stories and fixtures/<app>/machines only.
           "flow-state/no-raw-event": "error",
           "flow-state/no-hand-option": ["error", { only: ["src", "tests", "fixtures"] }],
+          "flow-state/owners-only": [
+            "error",
+            {
+              only: ["src/host"],
+              except: ["src/host/owners", "src/host/testing", "src/host/platform", "src/host/cli"],
+              exceptTests: true,
+            },
+          ],
         },
       },
       {

@@ -14,7 +14,7 @@ export const mixFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "          if (!landed) again = new Map([...marks, ...again]);\n          settle(carried, landed);\n",
+        find: "        if (!landed) again = new Map([...marks, ...again]);\n        settle(carried, landed);\n",
         replace: [
           "          if (!landed) again = new Map([...marks, ...again]);",
           "        const machineOf = (t: (typeof carried)[number]) =>",

@@ -83,6 +83,10 @@ requirements
                 Interruption. Execution or cancellation stays primary; when only cleanup fails, the
                 first cleanup failure is primary; the rest keep phase order and multiplicity.
 
+                Flow reports every cleanup failure that reaches the effect it runs; inside the
+                app's own error handling, typed failures follow Effect's rules; cleanups that die
+                are always reported (@spec.Actors.R23). Decision (user, 2026-11-19): "Q11 A".
+
                 Operation failure, defect, interruption and an unknown remote ending stay distinct.
                 Promise adapters and Effect's own AbortSignal keep the complete Cause until the host
                 projects the result, and Exit and Cause survive evidence acceptance as well as

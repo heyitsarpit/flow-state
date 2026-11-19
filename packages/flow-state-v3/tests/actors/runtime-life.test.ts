@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { mainBadge, mainCart, mainFlow, mainShopper, checkout } from "../../fixtures/shop/app.ts";
 import {
@@ -51,9 +52,7 @@ const cleanupFailed = (records: ReadonlyArray<Evidence>) =>
 // The records each boot report of an unbound lane names.
 const unbound = (records: ReadonlyArray<Evidence>) =>
   records.flatMap((e) =>
-    e._tag === "Reported" && e.code === "UnboundLane" && e.record._tag === "Some"
-      ? [e.record.value]
-      : [],
+    e._tag === "Reported" && e.code === "UnboundLane" ? Option.toArray(e.record) : [],
   );
 
 // The evidence between two checkpoints.
@@ -63,10 +62,7 @@ const between = (run: StoryRun, from: string, to: string) =>
 const undecodable = (records: ReadonlyArray<Evidence>, key: string) =>
   records.filter(
     (e) =>
-      e._tag === "Reported" &&
-      e.code === "RecordUndecodable" &&
-      e.record._tag === "Some" &&
-      e.record.value === key,
+      e._tag === "Reported" && e.code === "RecordUndecodable" && Option.contains(e.record, key),
   );
 
 // The order in which the identities' terminal evidence came, by machine.

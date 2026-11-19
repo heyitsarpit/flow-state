@@ -6,6 +6,7 @@ import { noHandOptionRule } from "./rules/no-hand-option.ts";
 import { noMarkProbeRule } from "./rules/no-mark-probe.ts";
 import { noRawEventRule } from "./rules/no-raw-event.ts";
 import { noSpecIdsRule } from "./rules/no-spec-ids.ts";
+import { ownersOnlyRule } from "./rules/owners-only.ts";
 
 const flowStateLintPlugin = eslintCompatPlugin({
   meta: { name: "flow-state" },
@@ -15,6 +16,7 @@ const flowStateLintPlugin = eslintCompatPlugin({
     "no-mark-probe": noMarkProbeRule,
     "no-raw-event": noRawEventRule,
     "no-hand-option": noHandOptionRule,
+    "owners-only": ownersOnlyRule,
     ...bans,
   },
 });

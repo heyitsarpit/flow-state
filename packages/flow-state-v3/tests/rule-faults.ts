@@ -201,8 +201,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["tests/stories/storage.test.ts"],
     "a write the store refused is answered landed, so live lane state moves on as if stored",
     "src/host/edge.ts",
-    "const landed = Exit.isSuccess(exit);",
-    "const landed = true;",
+    "            Failed: () => answer(false),",
+    "            Failed: () => answer(true),",
   ),
   fault(
     "boot-wakes-every-record",

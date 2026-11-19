@@ -72,8 +72,10 @@ export const inWorkdir = (body: (dir: Workdir) => void) => {
   }
 };
 
-const imports = [
+// The imports every planted file starts with.
+export const imports = [
   'import { Effect, Effect as Fx } from "effect";',
+  'import { Cause, Exit, Fiber, FiberMap, FiberSet } from "effect";',
   'import * as E from "effect/Effect";',
   'import * as Pkg from "effect";',
   "const Other = { gen: () => 1 };",

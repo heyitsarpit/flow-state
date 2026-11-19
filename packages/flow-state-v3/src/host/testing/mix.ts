@@ -130,6 +130,9 @@ export const sharedOf = (run: StoryRun, parts: ReadonlyArray<Samples>) => {
         "actor" in evidence
           ? Option.toArray(Option.fromUndefinedOr(byMachine.get(evidence.actor.machine)))
           : [],
+      // An Owner's task names its key, never the fixture that forked it.
+      Task: () => [],
+      Report: () => [],
     });
 
   const touched = new Map<number, Set<string>>();

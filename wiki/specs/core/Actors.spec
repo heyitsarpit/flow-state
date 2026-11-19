@@ -299,8 +299,10 @@ requirements
                 The identity's owed rows are suspended and stay owed: its owed record is not removed
                 with its actor record (@spec.WriteAhead.R5).
 
-                Proposed (the T99 lead, 2026-11-19): the removal also drops the identity's queued mail,
-                so none reaches a later incarnation (R10), and the boot's quarantine of its actor record,
+                Proposed (the T99 lead, 2026-11-19): an identity's mailbox belongs to its lineage (the
+                incarnations that share one record), which `disposeActor` and forget end in their own
+                step, so no queued mail reaches a later incarnation (R10); the removal also drops the
+                boot's quarantine of its actor record,
                 so a send drops NoRecord and an ensure starts fresh unreported while a batch is out. Each
                 boot reports every unbound lane record as UnboundLane (proposed name, @spec.Restore.R6),
                 naming its record, until an adopting ensure or its owner's cancel ends it.
@@ -340,24 +342,48 @@ requirements
 
                 Proposed (the T99 lead, 2026-11-19): the order is one plan the host runs. The core's
                 disposal ends with each live identity's terminal evidence (Finished), every consumer
-                before its providers (@plan.Inspection.O3); then the host interrupts every call and
-                awaits it, and only then releases the services, so an interrupt cleanup never runs on
-                released services.
+                before its providers (@plan.Inspection.O3); then the host closes its Owner tree once:
+                work (every call, store write, read and `runPromise`) before services, by Scope order,
+                so an interrupt cleanup never runs on released services.
 
     R23  Disposal failure and the last write
         source  @plan.Runtime.O6.
         must    A cleanup failure rejects dispose with CleanupFailed, quarantines the ref (later
                 ensures report the same failure) and keeps the full Cause; it is never success.
-                At Runtime disposal a cleanup is a services finalizer or the interrupt cleanup of
-                any fiber the close interrupts (a call, a store write, a runPromise Effect), and
-                the close waits for each stage (fibers, then services) at most the disposal
-                bound: a stage still running then is a failed cleanup too. Each failure is also
-                reported as an Issue CleanupFailed, which carries no Cause
-                (@spec.Diagnostics.R9), and every call to dispose gets the same rejection; a
-                forget's StorageFailure is kept beside it. At an actor's disposal, a read whose
-                interrupt cleanup dies quarantines its ref: every later ensure throws
-                CleanupFailed with that Cause until a disposeActor of the ref lifts it. Decision
+                A cleanup is a services finalizer or the cleanup of any task the host ends; it
+                failed when the task's Cause holds anything beside the interrupt (a defect or a
+                typed failure). Whoever ends work hears its failures: Runtime disposal rejects
+                every dispose, an actor's end quarantines its ref, an aborted `runPromise` rejects
+                with it. Runtime disposal waits at most two disposal bounds: the core's, for its
+                calls and writes (below), then one more for the close of its Owner tree, measured
+                from the core's end; past it dispose rejects CleanupFailed whose Cause holds
+                CleanupOverdue, and each failure found later goes to the host's report with its
+                whole Cause. Decision (agent: the T99 lead, 2026-11-19): two bounds, not one shared
+                deadline. Why: work that uses the whole first bound would leave the close no time,
+                so every cleanup after a hung call would be reported overdue. Reverse: give the
+                close what is left of one bound measured from the call to dispose. Each failure is
+                reported as an Issue CleanupFailed when it is found, in a life that records it
+                (Open, Disposing, Disposed), which carries no Cause (@spec.Diagnostics.R9); in any
+                other life (Inert, Booting, Failed, Stopped) no Issue is recorded, and the failure
+                is reported through the Runtime's report alone: dispose's rejection, or the host's
+                report once late. Every call to dispose gets the same rejection; a forget's
+                StorageFailure is kept beside it. A Runtime a defect stopped rejects with the defect
+                first and the CleanupFailed beside it (R25). A ref is quarantined by any failed cleanup of its
+                incarnation's reads, a read cancelled while open included (held to the
+                incarnation's end), and also when a new incarnation of it is already live: every
+                later ensure throws CleanupFailed with every Cause the ref holds until a
+                disposeActor of the ref lifts it. Each Cause is reported exactly once beyond those
+                ensures: a quarantine no ensure reported is never lost (a lift, or the Runtime's
+                disposal, puts it in dispose's CleanupFailed), and one an ensure reported is never
+                reported again, so a ref keeps its reported and unreported Causes apart. Decision
                 (user, 2026-11-19): "Q8 A"; the rest proposed (the T99 lead, 2026-11-19).
+
+                Flow reports every cleanup failure that reaches the effect it runs; inside the
+                app's own error handling, typed failures follow Effect's rules; cleanups that die
+                are always reported. In Effect 4.1.4 an error-channel combinator on an interrupted
+                fiber (`catch*`, `mapError`, `tapError`, `retry`, `catchCause`) keeps only the
+                interrupt, so a typed cleanup failure under one never reaches Flow, while a defect
+                does. Decision (user, 2026-11-19): "Q11 A".
 
                 Runtime disposal waits for its writes within the same bound, measured from the call to
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
@@ -420,7 +446,9 @@ requirements
                 A failure, defect or interruption rejects with a FlowError coded RunFailed that
                 keeps the whole Cause (@spec.Diagnostics.R8); an aborted signal interrupts the
                 Effect, and a Runtime disposal interrupts it too. Decision (user, 2026-11-19):
-                "Q7 A".
+                "Q7 A". Proposed (the T99 lead, 2026-11-19): the signal interrupts the Effect,
+                never the wait, so the rejection keeps every cleanup failure; a signal aborted
+                before the call runs nothing.
 
 open
     Q1  Executable checks are not built.
@@ -598,6 +626,14 @@ invariants
     I46  runPromise runs its Effect only on `admit`'s Run, and each rejection is a FlowError keeping the whole Cause. 
          [@R27]
 
+    I47  Every task the host starts is judged exactly once, by one judge, before its fiber ends. Proposed (the T99 
+         lead, 2026-11-19). [@R23]
+
+    I48  Every non-interrupt reason of an interrupted task reaches the report of whoever closed its Owner, and one
+         Issue CleanupFailed in a life that records it. Proposed (the T99 lead, 2026-11-19). A reason reaches the
+         task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
+         rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
+
 owner Life
     lifetime  one Runtime. Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); I42
               moved here from `invariants`, id kept.
@@ -644,8 +680,8 @@ algorithm
             @spec.WriteAhead.R10); elsewhere drops, so a stopped Runtime writes nothing more.
         - Run (runPromise, R27): the call row, Open runs; proposed, and its Booting cell waits on the user's
             read of runPromise. The core changes nothing for it.
-        - Closed (the host closed the Scope after the disposal, with its count of failed cleanups): Disposed
-            runs, emitting one Issue CleanupFailed per failure (R23); elsewhere drops. Proposed (the T99 lead,
+        - CleanupFailed (the host judged one failed cleanup as it found it): Open, Disposing and Disposed
+            run, emitting one Issue CleanupFailed (R23); elsewhere drops. Proposed (the T99 lead,
             2026-11-19).
 
 composition
@@ -656,11 +692,14 @@ composition
 
         One impure driver owns the loop and the inbox, and turns commands into Effects
         (round-14/driver.ts). In production (src/host/) the inbox stays one synchronous loop,
-        since Inspection O3 delivers at the end of each step; the fibers are a FiberMap owned by
-        the Runtime's one Scope, which also holds the services Layer, so closing it interrupts
-        every call and releases every service. Dispose runs the core's disposal (its bound
-        included), then interrupts and awaits every fiber, then closes the Scope, so an interrupt
-        there settles into a closed core and its cleanup runs on live services (R22, R23).
+        since Inspection O3 delivers at the end of each step. Every task runs in an Owner (a
+        Scope, its keyed tasks, its nested Owners and the failed cleanups judged in it), and one
+        judge splits each task's Exit inside its fiber. The tree: the Runtime's root holds the
+        services' Scope first and the work Owner second; work holds calls, store writes, timers,
+        an Owner per incarnation with reads and one per `runPromise`. Dispose runs the core's
+        disposal (its bound included), then closes work and then the root, so an interrupt there
+        settles into a closed core and its cleanup runs on live services (R22, R23). Proposed (the
+        T99 lead, 2026-11-19).
 
         Owed rows. An incarnation's end, `disposeActor` and Runtime disposal call the ledger's
         `suspend`; reload, return and adoption call its `start`; forget closes the identity's

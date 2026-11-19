@@ -29,6 +29,8 @@ const shown = (e: TraceEvent) =>
       evidence._tag === "Ended"
         ? [[e.tab.open, "ending", evidence.operation, evidence.channel, evidence.reason]]
         : [],
+    Task: () => [],
+    Report: () => [],
   });
 
 // An account's transfer row.

@@ -70,6 +70,8 @@ const ownersOf = (record: Generated["run"]["trace"]["events"][number]["record"])
     case "Runtime":
       return "actor" in record.evidence ? owner.machine(record.evidence.actor.machine) : [];
     case "Step":
+    case "Task":
+    case "Report":
       return [];
   }
 };

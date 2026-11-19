@@ -4,12 +4,13 @@ import type { Values } from "../core/compiled.ts";
 import { Evidence, type Member, MemberTarget, type Part } from "../core/evidence.ts";
 import { actorKey } from "../core/world.ts";
 import type { Purpose } from "./host.ts";
+import { OwnerRecord } from "./owners/owners.ts";
 import type { Batch, CallStatus } from "./testing/fake.ts";
 import { Step, type Tab, WorldWord } from "./testing/steps.ts";
 
 /**
  * What one trace event records: a step at its start, a call an endpoint received, a store write
- * batch, or one Runtime evidence record.
+ * batch, one Runtime evidence record, or an Owner's task or close report.
  *
  * **Details**
  *
@@ -26,7 +27,12 @@ export type TraceRecord = Data.TaggedEnum<{
     status: Batch["status"];
   };
   Runtime: { evidence: Evidence };
+  Task: OwnerFields<"Task">;
+  Report: OwnerFields<"Report">;
 }>;
+
+// An Owner's record's fields, without its tag.
+type OwnerFields<T extends OwnerRecord["_tag"]> = Omit<Extract<OwnerRecord, { _tag: T }>, "_tag">;
 
 /**
  * Constructors and matchers for {@link TraceRecord}.
@@ -80,6 +86,7 @@ const wordText = (word: WorldWord) =>
     control: ({ server, control, input }) => `${server.name}.${control} ${json(input)}`,
     wire: ({ server, endpoint, word: kind, at }) =>
       `${server.name}.${endpoint} ${kind}${kind === "release" ? "" : ` at ${at}`}`,
+    cleanup: ({ server, endpoint, outcome }) => `${server.name}.${endpoint} cleanup ${outcome}`,
     storage: ({ word: kind }) => `storage ${kind}`,
     stored: ({ key, text }) => `storage put ${key} ${text}`,
     network: ({ word: kind }) => `network ${kind}`,
@@ -147,6 +154,18 @@ const recordText = (record: TraceRecord) =>
     Write: ({ purpose, keys, acknowledges, status }) =>
       `write ${purpose} [${keys.join(", ")}]${listText("acknowledges", acknowledges)} ${status}`,
     Runtime: ({ evidence }) => evidenceText(evidence),
+    Task: ({ owner, task, key, phase, failed }) =>
+      `task ${owner}#${task} ${key} ${phase}${failed ? ", cleanup failed" : ""}`,
+    Report: ({ owner, heardBy, causes }) => `report ${owner} to its ${heardBy}: ${causes} causes`,
+  });
+
+/**
+ * An Owner's record as a trace record.
+ */
+export const traceOfOwner = (record: OwnerRecord) =>
+  OwnerRecord.$match(record, {
+    Task: ({ _tag, ...task }) => TraceRecord.Task(task),
+    Report: ({ _tag, ...report }) => TraceRecord.Report(report),
   });
 
 const renderers = {
@@ -173,8 +192,9 @@ const renderers = {
  *
  * `"text"` prints a header naming the Story, then one line per event in sequence order: its
  * sequence, its tab as `name:open`, and the step with its arguments, the request with its server, endpoint,
- * input and status, the write with its purpose, keys and status, or the evidence record with its
- * fields. Two runs of one Story print the same text.
+ * input and status, the write with its purpose, keys and status, the evidence record with its
+ * fields, or an Owner's task (Owner#number, key, phase) or close report. Two runs of one Story print
+ * the same text.
  *
  * @example
  * ```ts

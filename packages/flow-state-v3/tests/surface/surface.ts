@@ -345,9 +345,28 @@ const serviceFree = (effect: Effect.Effect<unknown, unknown, unknown>) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- isEffect cannot know an Effect's services
   effect as Effect.Effect<unknown, unknown>;
 
-// An Effect entry's Effect succeeds or fails with a FlowError, and never dies.
-const returnedMisuse = (registered: Registered, returned: Met) =>
-  registered.kind === "effect" && Effect.isEffect(returned)
+// A returned Promise is settled, and rejects only with a FlowError.
+const settledMisuse = (returned: PromiseLike<Met>) =>
+  Effect.callback<Option.Option<string>>((resume) => {
+    returned.then(
+      () => resume(Effect.succeed(Option.none())),
+      (rejected: Met) =>
+        resume(
+          Effect.succeed(
+            rejected instanceof Flow.FlowError
+              ? Option.none()
+              : Option.some("a Promise that rejected with something else"),
+          ),
+        ),
+    );
+  });
+
+// An Effect entry's Effect succeeds or fails with a FlowError, and never dies; a returned Promise
+// is settled, and rejects only with a FlowError.
+const returnedMisuse = (registered: Registered, returned: Met) => {
+  if (Predicate.isPromise(returned)) return settledMisuse(returned);
+
+  return registered.kind === "effect" && Effect.isEffect(returned)
     ? Effect.map(Effect.exit(serviceFree(returned)), (exit) =>
         Exit.isSuccess(exit) ||
         (Option.exists(Cause.findErrorOption(exit.cause), (e) => e instanceof Flow.FlowError) &&
@@ -356,6 +375,7 @@ const returnedMisuse = (registered: Registered, returned: Met) =>
           : Option.some("an Effect that did not fail with a FlowError"),
       )
     : Effect.succeed(Option.none<string>());
+};
 
 /**
  * How one call of a public function broke its kind's contract, if it did: a raw throw from an

@@ -147,7 +147,7 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "  fibers.finalize(\n    host.onHidden(",
+        find: "  work.finalize(\n    host.onHidden(",
         replace: "  Array.of(\n    host.onHidden(",
       },
     ],

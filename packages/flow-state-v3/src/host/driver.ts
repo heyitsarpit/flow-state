@@ -1,5 +1,16 @@
 import { asItIs, makeFreezer } from "../core/frozen.ts";
-import { Cause, Clock, Context, Deferred, Duration, Effect, Exit, Option, Result } from "effect";
+import {
+  Cause,
+  Clock,
+  Context,
+  Data,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Option,
+  Result,
+} from "effect";
 import { admitted } from "../core/boundary.ts";
 import { RuntimeDefaults } from "../core/defaults.ts";
 import { Operation, operationOf } from "../core/compiled.ts";
@@ -27,7 +38,7 @@ import {
 import { flowError, flowErrorOf, lifeRejection, raise } from "../error.ts";
 import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
-import { type Fibers, sleepUntil } from "./fibers.ts";
+import { Ending, type Owner, type RuntimeReport, sleepUntil } from "./owners/owners.ts";
 import { Host, type Platform } from "./host.ts";
 
 /**
@@ -41,18 +52,16 @@ const provided = (effect: Effect.Effect<unknown, unknown, unknown>) =>
   effect as Effect.Effect<unknown, unknown>;
 
 /**
- * How a call ended, read from its fiber's Exit and whole Cause, outside the fiber:
- * a defect first, then Flow's own marks, then a plain error as a failure.
+ * How a call ended, as the core hears it: Flow's own marks, then a plain error as a failure; an
+ * interrupted call is Interrupted, its cleanup's failure being its Owner's.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a call's value and error are the contract's own.
-const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
-  if (Exit.isSuccess(exit)) return CallResult.Success({ value: exit.value });
-
-  if (Cause.hasDies(exit.cause)) return CallResult.Defect();
-
-  return Option.match(Cause.findErrorOption(exit.cause), {
-    onNone: () => CallResult.Interrupted(),
-    onSome: (error) => {
+const resultOf = (ending: Ending<unknown>) =>
+  Ending.$match(ending, {
+    Done: ({ value }) => CallResult.Success({ value }),
+    Died: () => CallResult.Defect(),
+    Interrupted: () => CallResult.Interrupted(),
+    Failed: ({ error }) => {
       if (error instanceof OutcomeUnknown)
         return CallResult.Unknown({ reason: reasonOf(error.error), error: error.error });
 
@@ -62,16 +71,50 @@ const resultOf = (exit: Exit.Exit<unknown, unknown>) => {
       return CallResult.Failure({ reason: reasonOf(error), error });
     },
   });
-};
 
-// Whether a failed fiber was interrupted and its interrupt cleanup died.
-const cleanupDied = <E>(cause: Cause.Cause<E>) =>
-  Cause.hasInterrupts(cause) && Cause.hasDies(cause);
+// A ref whose ended actors' cleanups failed: failures no ensure has reported, failures one has, or
+// both, when a failure lands after an ensure reported the earlier ones.
+type Quarantine = Data.TaggedEnum<{
+  // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+  Unheard: { unheard: Cause.Cause<unknown> };
+  // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+  Heard: { heard: Cause.Cause<unknown> };
+  // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+  Partly: { heard: Cause.Cause<unknown>; unheard: Cause.Cause<unknown> };
+}>;
+
+const Quarantine = Data.taggedEnum<Quarantine>();
+
+// The quarantine once a cleanup failure lands: it joins the failures no ensure has reported.
+// FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+const failedIn = (held: Option.Option<Quarantine>, cause: Cause.Cause<unknown>) =>
+  Option.match(held, {
+    onNone: () => Quarantine.Unheard({ unheard: cause }),
+    onSome: Quarantine.$match({
+      Unheard: ({ unheard }) => Quarantine.Unheard({ unheard: Cause.combine(unheard, cause) }),
+      Heard: ({ heard }) => Quarantine.Partly({ heard, unheard: cause }),
+      Partly: ({ heard, unheard }) =>
+        Quarantine.Partly({ heard, unheard: Cause.combine(unheard, cause) }),
+    }),
+  });
+
+// Every failure a quarantine holds, in the order they landed: what an ensure reports.
+const wholeOf = Quarantine.$match({
+  Unheard: ({ unheard }) => unheard,
+  Heard: ({ heard }) => heard,
+  Partly: ({ heard, unheard }) => Cause.combine(heard, unheard),
+});
+
+// The failures no ensure has reported, if any: what a lift or the Runtime's close reports.
+const unheardOf = Quarantine.$match({
+  Unheard: ({ unheard }) => Option.some(unheard),
+  Heard: () => Option.none(),
+  Partly: ({ unheard }) => Option.some(unheard),
+});
 
 /**
  * The one impure loop: it owns the world, runs each step, and performs the step's commands with
- * Effect: calls and timers as keyed fibers in the Runtime's Scope, writes through the persistence
- * edge.
+ * Effect: calls and timers as keyed tasks of an Owner, writes through the persistence edge.
  *
  * **Details**
  *
@@ -79,13 +122,15 @@ const cleanupDied = <E>(cause: Cause.Cause<E>) =>
  * runs or drops each as the core's `admit` says. `offer` throws the error a rejected public call
  * names. `ended` completes when the core's life reads Disposed (the core waits for calls on the
  * wire and its own writes, within its bound), or fails with the defect that stopped it.
- * `cleanups` holds each interrupt cleanup of a forked fiber (a call, a store write) that failed
- * after the life left Open.
+ * Every task runs in an Owner: writes, timers and store writes in the Runtime's work, each read in
+ * its incarnation's. Each failed cleanup is an Issue as it is judged; an incarnation's end
+ * quarantines its ref with its failures, and the Runtime's disposal reports them to `report`.
  */
 export const makeDriver = (options: {
   readonly machines: Machines;
   readonly platform: Platform;
-  readonly fibers: Fibers;
+  readonly work: Owner;
+  readonly report: RuntimeReport;
   readonly persistence: boolean;
   readonly captureMs: number;
   readonly sink: (evidence: ReadonlyArray<Evidence>) => void;
@@ -99,42 +144,45 @@ export const makeDriver = (options: {
   let running = false;
   const disposed = Deferred.makeUnsafe<void>();
 
-  // The whole Cause of each fiber interrupted once the Runtime runs no more work (its life left
-  // Open) whose cleanup died: a late result or answer is dropped, so its Exit is judged here, before
-  // admission.
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's error is the contract's own.
-  const cleanups: Array<Cause.Cause<unknown>> = [];
+  const { work, report } = options;
 
-  // The whole Cause of each actor's read whose interrupt cleanup died once the actor ended, by
-  // identity: an ensure reports it until a disposeActor of that identity lifts it.
-  // FLOW_STATE_ALLOW_UNKNOWN: a read's error is the contract's own.
-  const quarantined = new Map<string, Cause.Cause<unknown>>();
+  // Each ref whose ended actor's cleanup failed, by identity: an ensure reports it until a
+  // disposeActor of that identity lifts it.
+  const quarantined = new Map<string, Quarantine>();
 
-  // Each read on the wire by its actor, and the reads interrupted because their actor ended.
-  const reading = new Map<CallId, ActorId>();
-  const endedReads = new Set<CallId>();
+  // The Owner of each incarnation's reads, made at its first read, until its work ends.
+  const incarnations = new Map<string, { readonly owner: Owner; readonly actor: ActorId }>();
 
-  // Every fiber the driver and its edge fork, each Exit judged before its own observer.
-  const fibers: Fibers = {
-    ...options.fibers,
-    fork: <A, E>(
-      key: string,
-      effect: Effect.Effect<A, E>,
-      onExit: (exit: Exit.Exit<A, E>) => void,
-    ) =>
-      options.fibers.fork(key, effect, (exit) => {
-        if (
-          Exit.isFailure(exit) &&
-          cleanupDied(exit.cause) &&
-          !Verdict.$is("Run")(admit(world.life, Input.Run()))
-        )
-          cleanups.push(exit.cause);
+  // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+  const quarantine = (actor: ActorId, failures: ReadonlyArray<Cause.Cause<unknown>>) => {
+    if (failures.length === 0) return;
 
-        onExit(exit);
-      }),
+    // Once no ensure can run, no ensure can report it: the Runtime's report hears it instead.
+    if (!Verdict.$is("Run")(admit(world.life, Input.Run()))) return report.hear(failures);
+
+    const key = actorKey(actor);
+
+    quarantined.set(
+      key,
+      failedIn(
+        Option.fromUndefinedOr(quarantined.get(key)),
+        failures.reduce((all, cause) => Cause.combine(all, cause)),
+      ),
+    );
   };
 
-  const edge = makeEdge(options.platform, fibers, {
+  const ownerOf = (id: string, actor: ActorId) =>
+    Option.getOrElse(
+      Option.map(Option.fromUndefinedOr(incarnations.get(id)), (held) => held.owner),
+      () => {
+        const owner = work.child(`incarnation ${id}`);
+        incarnations.set(id, { owner, actor });
+
+        return owner;
+      },
+    );
+
+  const edge = makeEdge(options.platform, work, {
     captureMs: options.captureMs,
     capture: (tickets, again) => input(Input.Capture({ tickets, again })),
     answered: (ticket, landed) =>
@@ -149,57 +197,64 @@ export const makeDriver = (options: {
     );
 
   // FLOW_STATE_ALLOW_UNKNOWN: a call's value, error and services are the contract's own.
-  const call = (id: CallId, effect: () => Effect.Effect<unknown, unknown, unknown>) =>
-    fibers.fork(`call/${id}`, provided(Effect.suspend(effect)), (exit) =>
-      input(Input.Settled({ call: id, result: resultOf(exit) })),
+  const call = (owner: Owner, id: CallId, effect: () => Effect.Effect<unknown, unknown, unknown>) =>
+    owner.fork(`call/${id}`, provided(Effect.suspend(effect)), (ending) =>
+      input(Input.Settled({ call: id, result: resultOf(ending) })),
     );
+
+  // A task that only wakes the core when it runs to its end: a sleep or a yield.
+  // FLOW_STATE_ALLOW_UNKNOWN: whatever the task returns, which only its end matters.
+  const onDone = (then: () => void) => (ending: Ending<unknown>) => {
+    if (Ending.$is("Done")(ending)) then();
+  };
 
   const perform = (command: Command) =>
     Command.$match(command, {
       Invoke: ({ call: id, machine, operation, input: given, attempt }) =>
         Operation.$match(operationAt(machine, operation), {
           Write: (op) =>
-            call(id, () =>
+            call(work, id, () =>
               op.call.run(given, { attempt: { ...attempt, operation, input: given } }),
             ),
           Read: () => defect(`${machine}.${operation} is not a write`),
         }),
-      Lookup: ({ call: id, actor, operation, input: given }) =>
+      Lookup: ({ call: id, actor, operation, input: given, owner }) =>
         Operation.$match(operationAt(actor.machine, operation), {
-          Read: (op) => {
-            reading.set(id, actor);
-            fibers.fork(
-              `call/${id}`,
-              provided(Effect.suspend(() => op.call.run(given))),
-              (exit) => {
-                reading.delete(id);
-
-                // The read's own wrapper may keep only the defect of its interrupt cleanup.
-                if (
-                  endedReads.delete(id) &&
-                  Exit.isFailure(exit) &&
-                  Cause.hasDies(exit.cause) &&
-                  Verdict.$is("Run")(admit(world.life, Input.Run()))
-                )
-                  quarantined.set(actorKey(actor), exit.cause);
-
-                input(Input.Settled({ call: id, result: resultOf(exit) }));
-              },
-            );
-          },
+          Read: (op) => call(ownerOf(owner, actor), id, () => op.call.run(given)),
           Write: () => defect(`${actor.machine}.${operation} is not a read`),
         }),
-      Interrupt: ({ call }) => {
-        const actor = reading.get(call);
+      Interrupt: ({ call }) => work.cancel(`call/${call}`),
+      // Each named incarnation's Owner closes in turn; the Runtime's close takes over any not yet
+      // closing, and then hears them itself.
+      EndWork: ({ owners, reportTo }) => {
+        const ending = owners.flatMap((id) => {
+          const held = Option.fromUndefinedOr(incarnations.get(id));
+          incarnations.delete(id);
 
-        if (actor !== undefined && !world.incarnations.has(actorKey(actor))) endedReads.add(call);
-        fibers.cancel(`call/${call}`);
+          return Option.toArray(held);
+        });
+
+        if (ending.length > 0)
+          work.fork(
+            `end/${owners.join(",")}`,
+            Effect.forEach(
+              ending,
+              ({ owner, actor }) =>
+                owner.end(
+                  reportTo === "ref" ? (failures) => quarantine(actor, failures) : report.hear,
+                ),
+              { concurrency: 1, discard: true },
+            ),
+            () => undefined,
+          );
       },
       Arm: ({ timer, at }) =>
-        fibers.fork(`timer/${timer}`, sleepUntil(clock, at), (exit) => {
-          if (Exit.isSuccess(exit)) input(Input.Fired({ timer }));
-        }),
-      Disarm: ({ timer }) => fibers.cancel(`timer/${timer}`),
+        work.fork(
+          `timer/${timer}`,
+          sleepUntil(clock, at),
+          onDone(() => input(Input.Fired({ timer }))),
+        ),
+      Disarm: ({ timer }) => work.cancel(`timer/${timer}`),
       Persist: ({ due, refused }) => edge.accept(due, refused),
       Write: ({ writes, marks, tickets, refused }) => edge.write(writes, marks, tickets, refused),
     });
@@ -306,9 +361,11 @@ export const makeDriver = (options: {
 
       // Mail the step's drain left is served by a later step, after a yield to the host's tasks.
       if (owesServe(world))
-        fibers.fork("serve", Effect.yieldNow, (exit) => {
-          if (Exit.isSuccess(exit)) input(Input.Serve());
-        });
+        work.fork(
+          "serve",
+          Effect.yieldNow,
+          onDone(() => input(Input.Serve())),
+        );
 
       if (isDisposed(world.life)) Deferred.doneUnsafe(disposed, Exit.void);
     }
@@ -356,8 +413,8 @@ export const makeDriver = (options: {
     // The Runtime's failure, once its life is Stopped: the defect that stopped it.
     ended: Deferred.await(disposed),
     machines,
-    // The Runtime's fibers, each Exit judged as the driver's own are: a host's Effect forks here.
-    fibers,
+    // The Runtime's work, whose tasks are judged as the driver's own are: a host's Effect runs here.
+    work,
     world: () => world,
     pending: () => inbox.length > 0,
     stored: () => edge.settled(),
@@ -390,13 +447,16 @@ export const makeDriver = (options: {
 
       input(Input.Send({ actor, tag, payload: decoded.value }));
     },
-    // Every interrupt cleanup that failed once the life left Open, oldest first, read only.
-    cleanups: () => cleanups.slice(),
-    // The CleanupFailed an identity's ensure reports, with the whole Cause its ended actor's read
-    // left, if any.
-    quarantine: (actor: ActorId) =>
-      Option.map(Option.fromUndefinedOr(quarantined.get(actorKey(actor))), (cause) =>
-        flowErrorOf(
+    // The CleanupFailed an identity's ensure reports, with the whole Cause its ended actor's reads
+    // left, if any; the failure is heard from then on.
+    quarantine: (actor: ActorId) => {
+      const key = actorKey(actor);
+
+      return Option.map(Option.fromUndefinedOr(quarantined.get(key)), (held) => {
+        const cause = wholeOf(held);
+        quarantined.set(key, Quarantine.Heard({ heard: cause }));
+
+        return flowErrorOf(
           [
             {
               code: "CleanupFailed",
@@ -406,10 +466,22 @@ export const makeDriver = (options: {
             },
           ],
           cause,
-        ),
-      ),
-    // A disposeActor of the identity: its quarantine is lifted.
-    lift: (actor: ActorId) => void quarantined.delete(actorKey(actor)),
+        );
+      });
+    },
+    // A disposeActor of the identity lifts its quarantine; a failure no ensure reported goes to the
+    // Runtime's report, so it is never lost.
+    lift: (actor: ActorId) => {
+      const key = actorKey(actor);
+
+      report.hear(
+        Option.toArray(Option.flatMap(Option.fromUndefinedOr(quarantined.get(key)), unheardOf)),
+      );
+
+      quarantined.delete(key);
+    },
+    // Every quarantined failure no ensure reported, for the Runtime's close.
+    unheard: () => [...quarantined.values()].flatMap((q) => Option.toArray(unheardOf(q))),
   };
 };
 

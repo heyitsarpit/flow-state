@@ -119,6 +119,8 @@ const printWord = (samples: Samples, word: WorldWord) =>
 
       return `${serverName(samples, server)}.${endpoint}.${kind}(${where})`;
     },
+    cleanup: ({ server, endpoint, outcome }) =>
+      `${serverName(samples, server)}.${endpoint}.cleanup(${literal(outcome)})`,
     storage: ({ word: kind }) => `Fake.storage.${kind}()`,
     stored: ({ key, text }) => `Fake.storage.put(${literal(key)}, ${literal(text)})`,
     network: ({ word: kind }) => `Fake.network.${kind}()`,

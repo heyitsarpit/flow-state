@@ -22,12 +22,20 @@ export type Tab = { readonly name: string; readonly open: number };
 export const mainTab = (open: number) => ({ name: "main", open });
 
 /**
- * One word a `world` step applies, as data: a fake control, a wire word on an endpoint, or a
- * storage word. Made by a server's controls and endpoints and by `Fake.storage`, never by hand.
+ * How a fake call's cleanup ends when the call is interrupted: it dies with a defect, or fails
+ * with a typed error.
+ */
+export type Cleanup = "dies" | "fails";
+
+/**
+ * One word a `world` step applies, as data: a fake control, a wire word on an endpoint, how an
+ * endpoint's next held call cleans up, or a storage word. Made by a server's controls and
+ * endpoints and by `Fake.storage`, never by hand.
  */
 export type WorldWord = Data.TaggedEnum<{
   control: { server: AnyServer; control: string; input: Values };
   wire: { server: AnyServer; endpoint: string; word: "hold" | "release" | "lose" | "drop"; at: At };
+  cleanup: { server: AnyServer; endpoint: string; outcome: Cleanup };
   storage: { word: "hold" | "refuse" | "release" | "refuseHeld" | "refuseLoad" };
   stored: { key: string; text: string };
   network: { word: "offline" | "online" };

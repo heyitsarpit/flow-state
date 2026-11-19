@@ -1,4 +1,5 @@
 import { Context, Option } from "effect";
+import { flowErrorOf } from "../../error.ts";
 import { Host } from "../host.ts";
 
 // A fresh 128-bit seed per boot from the platform's entropy, as 32 hex digits, so no two boots
@@ -26,5 +27,21 @@ export const browserPlatform = () =>
       sessionSeed: entropy(),
       freezeValues: false,
       workClock: Option.none(),
+      // A cleanup that failed after dispose stopped waiting is reported as an unhandled error is,
+      // as a FlowError keeping its whole Cause.
+      report: (cause) =>
+        globalThis.reportError(
+          flowErrorOf(
+            [
+              {
+                code: "CleanupFailed",
+                path: ["dispose"],
+                summary: "a cleanup failed after dispose stopped waiting for it",
+                help: "Fix the failing cleanup; its cause is on this error.",
+              },
+            ],
+            cause,
+          ),
+        ),
     }),
   );

@@ -1,4 +1,4 @@
-import { Effect, Exit, Layer, Option, Predicate } from "effect";
+import { type Cause, Effect, Exit, Layer, Option, Predicate } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
@@ -18,7 +18,8 @@ import {
   snapshotIn,
   type Unsettled,
 } from "../runtime.ts";
-import { type Trace, TraceRecord } from "../trace.ts";
+import type { OwnerRecord } from "../owners/owners.ts";
+import { type Trace, TraceRecord, traceOfOwner } from "../trace.ts";
 import { tabClock } from "./clock.ts";
 import {
   type AnyServer,
@@ -127,9 +128,21 @@ type Limits = {
 
 // One open of the tab: its clock and event loop, and one Runtime whose every step is admitted by
 // the turn limit before it applies.
-const openTab = (config: RuntimeConfig, host: Host["Service"], now: number, limits: Limits) => {
+const openTab = (
+  config: RuntimeConfig,
+  host: Host["Service"],
+  now: number,
+  limits: Limits,
+  traced: (record: OwnerRecord) => void,
+) => {
   const tab = tabClock(host, now, () => limits.fail("Settle"));
-  const built = buildRuntime(config, tab.platform, (evidence) => limits.admit(evidence, tab.now()));
+
+  const built = buildRuntime(
+    config,
+    tab.platform,
+    (evidence) => limits.admit(evidence, tab.now()),
+    Option.some(traced),
+  );
 
   return {
     built,
@@ -243,6 +256,9 @@ export const startRun = <Names extends string>(
   const saved = Option.match(from, { onNone: () => before, onSome: (fork) => fork.saved });
 
   const evidence = [...saved.evidence];
+  // Each cleanup that failed after a dispose stopped waiting for it, which breaks the run.
+  // FLOW_STATE_ALLOW_UNKNOWN: a late cleanup fails with whatever it threw.
+  const late: Array<Cause.Cause<unknown>> = [];
   const checkpoints = new Map(saved.checkpoints);
   const uses = new Map(saved.uses);
 
@@ -298,9 +314,13 @@ export const startRun = <Names extends string>(
       sessionSeed: seedOf(mainTab(open), options.seed),
       freezeValues: true,
       workClock: Option.none(),
+      report: (cause) => void late.push(cause),
     });
 
-    const opened = openTab({ ...subject.config, services }, host, now, limits);
+    // Each Owner's tasks and reports go into the trace, as this open's records.
+    const opened = openTab({ ...subject.config, services }, host, now, limits, (record) =>
+      note({ kind: "record", open, record: traceOfOwner(record) }),
+    );
 
     attachInspector(opened.built.runtime, (e) => {
       evidence.push(e);
@@ -545,6 +565,9 @@ export const startRun = <Names extends string>(
     const unused = [...fakes.unused(), ...store.unused()];
 
     if (unused.length > 0 && !options.lenient) scriptFault(unused.join("; "));
+
+    if (late.length > 0)
+      scriptFault(`${late.length} cleanups failed after dispose stopped waiting for them`);
 
     // SAFETY: a Story's own steps hold one checkpoint word per name its type collected as Names, each taken once (checked above); a run of other steps is typed with string Names.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-object-iteration-result-cast -- the checkpoints the steps named, keyed by name

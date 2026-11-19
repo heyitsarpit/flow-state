@@ -24,6 +24,7 @@ import { oneStart, ownedRowsSaved } from "./starts.ts";
 import { refusedTurnIssueOnly } from "./refusals.ts";
 import { mailboxOrder } from "./mailbox.ts";
 import { unchangedPartsKept } from "./memory.ts";
+import { everyTaskAccounted } from "./owners.ts";
 
 const who = { machine: "Checkout/Pay", name: "checkout-1" };
 
@@ -557,5 +558,101 @@ describe("run rules over crafted runs, each rule seen firing", () => {
 
     expect(onlyActorsWithheld.breaches(lane)).toHaveLength(1);
     expect(onlyActorsWithheld.breaches(actor)).toEqual([]);
+  });
+
+  it("Actors R23, I47, I48: a report while a task runs, a failed cleanup the report misses, or one with no Issue is a breach; every task ended and heard is not", async () => {
+    const real = await shopStory("rules/owners").ensure(checkout).run();
+
+    const task = (n: number, phase: "started" | "Interrupted", failed = false) =>
+      TraceRecord.Task({ owner: "work", task: n, key: `call/c${n}`, phase, failed });
+
+    // An Owner's own Scope released as its task `scope`.
+    const scope = (owner: string, n: number, phase: "started" | "Died" | "Done", failed = false) =>
+      TraceRecord.Task({ owner, task: n, key: "scope", phase, failed });
+
+    const report = (causes: number, owner = "work", parent = Option.none<string>()) =>
+      TraceRecord.Report({
+        owner,
+        parent,
+        heardBy: Option.isSome(parent) ? "parent" : "closer",
+        causes,
+      });
+
+    const issue = TraceRecord.Runtime({
+      evidence: Evidence.Issue({
+        code: "CleanupFailed",
+        ending: Option.none(),
+        slot: Option.none(),
+      }),
+    });
+
+    const traced = (records: ReadonlyArray<TraceRecord>) =>
+      ({
+        ...real,
+        trace: {
+          storyId: "rules/owners",
+          events: records.map((record, n) => ({
+            sequence: n + 1,
+            tab: { name: "main", open: 1 },
+            record,
+          })),
+        },
+      }) satisfies StoryRun;
+
+    const heard = traced([task(0, "started"), task(0, "Interrupted", true), issue, report(1)]);
+    const running = traced([task(0, "started"), report(0)]);
+    const missed = traced([task(0, "started"), task(0, "Interrupted", true), issue, report(0)]);
+    const unseen = traced([task(0, "started"), task(0, "Interrupted", true), report(1)]);
+    const twice = traced([task(0, "started"), task(0, "Interrupted"), task(0, "Interrupted")]);
+
+    expect(everyTaskAccounted.breaches(heard)).toEqual([]);
+    expect(everyTaskAccounted.breaches(running)).toHaveLength(1);
+    expect(everyTaskAccounted.breaches(missed)).toHaveLength(1);
+    expect(everyTaskAccounted.breaches(unseen)).toHaveLength(1);
+    expect(everyTaskAccounted.breaches(twice)).toHaveLength(1);
+
+    // An Owner's own Scope failing: counted from its Task records, never from the report.
+    const ownHeard = traced([
+      scope("work", 0, "started"),
+      scope("work", 0, "Died", true),
+      issue,
+      report(1),
+    ]);
+
+    const ownDropped = traced([
+      scope("work", 0, "started"),
+      scope("work", 0, "Died", true),
+      issue,
+      report(0),
+    ]);
+
+    expect(everyTaskAccounted.breaches(ownHeard)).toEqual([]);
+    expect(everyTaskAccounted.breaches(ownDropped)).toHaveLength(1);
+
+    // A nested Owner's causes count again in the report of the parent whose close ended it.
+    const child = (causes: number) => report(causes, "work/child", Option.some("work"));
+
+    const nestedHeard = traced([
+      scope("work/child", 0, "started"),
+      scope("work/child", 0, "Died", true),
+      issue,
+      child(1),
+      scope("work", 0, "started"),
+      scope("work", 0, "Done"),
+      report(1),
+    ]);
+
+    const nestedDropped = traced([
+      scope("work/child", 0, "started"),
+      scope("work/child", 0, "Died", true),
+      issue,
+      child(1),
+      scope("work", 0, "started"),
+      scope("work", 0, "Done"),
+      report(0),
+    ]);
+
+    expect(everyTaskAccounted.breaches(nestedHeard)).toEqual([]);
+    expect(everyTaskAccounted.breaches(nestedDropped)).toHaveLength(1);
   });
 });

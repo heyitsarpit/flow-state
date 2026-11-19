@@ -285,3 +285,14 @@ decisions
         **Why:** a refusal no run can reach is dead surface; @spec.Actors R24 already dropped it (T99 build). **Proven
         by:** the mint's counter type and T99's requirements review accepting the drop. Owner: @task.V3.T99. Proposed,
         for the user's yes.
+    D34  @plan.Runtime.O6: whoever ends work hears its cleanup failure, and late failures go to the host's report
+         (proposed)
+        **Before:** O6 says a cleanup failure rejects dispose with CleanupFailed and quarantines the ref, and that
+        dispose waits within a bound. **After:** add "Whoever ends work hears its cleanup failure: a Runtime disposal
+        rejects dispose, an actor's end quarantines its ref, and an aborted `runPromise` rejects with it. Each failure
+        is an Issue CleanupFailed when it is found." and "Runtime disposal waits for every cleanup at most the disposal
+        bound; past it dispose rejects CleanupOverdue, and each later failure goes to the host's report." **Why:** the
+        Owner redesign (proposals/runtime-lifetimes-2026-11-19.md) makes the one who closes an Owner its failures'
+        hearer; a Cause after the bound has no caller left, so `Host.report` keeps it whole (its Q1 A). **Proven by:**
+        the host cells in code:packages/flow-state-v3/src/host/cleanups.test.ts and faults `late-cause-dropped`,
+        `abort-interrupts-wait`, `unheard-quarantine-dropped`. Owner: @task.V3.T99. Proposed, for the user's yes.
