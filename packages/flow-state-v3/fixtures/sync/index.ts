@@ -1,7 +1,15 @@
 import { Option } from "effect";
 import { benchStress, benchTurn, manifest } from "../manifest.ts";
 import { gitMirrored, gitMirroredSetup, clientOf } from "./app.ts";
-import { long, samples, seededStress, stories, emptyName, openRepo } from "./stories/usual.ts";
+import {
+  long,
+  samples,
+  seededStress,
+  stories,
+  emptyName,
+  leaveWhileSyncing,
+  openRepo,
+} from "./stories/usual.ts";
 import { retryEdges } from "./stories/edges.ts";
 import { samples as repoSamples } from "./stories/samples.ts";
 import { manyRepos } from "./stories/load.ts";
@@ -29,6 +37,7 @@ export const sync = manifest({
     repoOpenedInBackoff,
     openRepo,
     emptyName,
+    leaveWhileSyncing,
     manyRepos,
     repoFirst,
     reloadedInBackoff,

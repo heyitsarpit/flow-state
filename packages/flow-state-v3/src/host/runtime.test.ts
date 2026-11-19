@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Cause, Context, Effect, Exit, Layer, Option, Schema } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Option, Predicate, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
 import {
   actorRef,
@@ -15,7 +15,7 @@ import {
 } from "../index.ts";
 import { Host } from "./host.ts";
 import { attachInspector, type Evidence, inspect } from "./inspect.ts";
-import { buildRuntime } from "./runtime.ts";
+import { buildRuntime, type Runtime } from "./runtime.ts";
 import { snapshotIn } from "./snapshot.ts";
 import { Life } from "../core/life.ts";
 import { emptyWorld } from "../core/world.ts";
@@ -638,5 +638,118 @@ describe("a throw from the admit hook or from a step's work (Actors R25)", () =>
       Exit.isFailure(disposed) &&
         Cause.pretty(disposed.cause).includes("cannot read its visibility"),
     );
+  });
+});
+
+// A FlowError's code as text, so a code Flow does not name yet can be compared.
+// FLOW_STATE_ALLOW_UNKNOWN: whatever a call rejected or failed with.
+// RETURN_TYPE: widened to string, since CleanupFailed is not in the code union yet.
+const codeOf = (e: unknown): string => (e instanceof FlowError ? e.code : "");
+
+// The whole Cause a FlowError keeps, printed.
+// FLOW_STATE_ALLOW_UNKNOWN: whatever a call rejected or failed with.
+const causeOf = (e: unknown) =>
+  e instanceof FlowError && Cause.isCause(e.cause) ? Cause.pretty(e.cause) : "";
+
+// The bell's line, which fails to close when the services are released.
+const brokenLine = Layer.merge(
+  bell,
+  Layer.effectDiscard(Effect.addFinalizer(() => Effect.die("the bell's line did not close"))),
+);
+
+describe("a cleanup that fails at disposal (Actors R23, I33; Diagnostics R8)", () => {
+  it.fails("Actors R23, I33: a services finalizer that fails rejects dispose with CleanupFailed keeping the whole Cause, and a second dispose shares it", async () => {
+    const runtime = ready(brokenLine);
+    const first = await Effect.runPromiseExit(runtime.dispose());
+    const second = await Effect.runPromiseExit(runtime.dispose());
+
+    for (const exit of [first, second]) {
+      const error = Exit.isFailure(exit)
+        ? Option.getOrUndefined(Cause.findErrorOption(exit.cause))
+        : undefined;
+
+      assert.equal(codeOf(error), "CleanupFailed");
+      assert.ok(causeOf(error).includes("the bell's line did not close"));
+    }
+  });
+});
+
+// The proposed `runtime.runPromise(effect, { signal })`, read by name until the Runtime's type
+// carries it.
+const runPromiseOf =
+  (runtime: Runtime) =>
+  <A, E>(
+    effect: Effect.Effect<A, E, Bell>,
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the proposed public option: an omitted signal never aborts
+    options: { readonly signal?: AbortSignal } = {},
+  ) =>
+    "runPromise" in runtime && Predicate.isFunction(runtime.runPromise)
+      ? Promise.resolve(runtime.runPromise(effect, options))
+      : Promise.reject(new Error("the Runtime has no runPromise"));
+
+// What a promise rejected with.
+// FLOW_STATE_ALLOW_UNKNOWN: whatever a promise rejected with.
+const rejection = (promise: Promise<unknown>) =>
+  promise.then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+
+describe("runtime.runPromise (Actors R27, R22; Diagnostics R8)", () => {
+  it.fails("Actors R27: runPromise runs an Effect with the app's installed services", async () => {
+    const rings: Array<string> = [];
+    const runtime = ready(bellFor(rings));
+
+    const rang = await runPromiseOf(runtime)(
+      Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding")),
+    );
+
+    assert.equal(rang, "ding");
+    assert.deepStrictEqual(rings, ["ding"]);
+  });
+
+  it.fails("Actors R4, R27: runPromise before ready rejects RuntimeNotReady and runs nothing", async () => {
+    const rings: Array<string> = [];
+    const runtime = runtimeSetup({ app: doors, services: bellFor(rings) }).construct();
+
+    const refused = await rejection(
+      runPromiseOf(runtime)(Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding"))),
+    );
+
+    assert.equal(codeOf(refused), "RuntimeNotReady");
+    assert.deepStrictEqual(rings, []);
+  });
+
+  it.fails("Actors R22, R27: runPromise rejects RuntimeDisposed once disposal has started, and runs nothing", async () => {
+    const rings: Array<string> = [];
+    const runtime = ready(bellFor(rings));
+    await Effect.runPromise(runtime.dispose());
+
+    const refused = await rejection(
+      runPromiseOf(runtime)(Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding"))),
+    );
+
+    assert.equal(codeOf(refused), "RuntimeDisposed");
+    assert.deepStrictEqual(rings, []);
+  });
+
+  it.fails("Actors R27, Diagnostics R8: a failed Effect rejects with a FlowError that keeps its whole Cause", async () => {
+    const runtime = ready();
+    const failed = await rejection(runPromiseOf(runtime)(Effect.fail("the line is busy")));
+
+    assert.ok(failed instanceof FlowError);
+    assert.equal(failed.diagnostics[0].classification, "Failure");
+    assert.ok(causeOf(failed).includes("the line is busy"));
+  });
+
+  it.fails("Actors R27, Diagnostics R8: aborting the signal interrupts the Effect, and the rejection keeps its Interruption Cause", async () => {
+    const runtime = ready();
+    const abort = new AbortController();
+    const running = rejection(runPromiseOf(runtime)(Effect.never, { signal: abort.signal }));
+    abort.abort();
+    const interrupted = await running;
+
+    assert.ok(interrupted instanceof FlowError);
+    assert.equal(interrupted.diagnostics[0].classification, "Interruption");
   });
 });

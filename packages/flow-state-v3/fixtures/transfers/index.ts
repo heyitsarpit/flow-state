@@ -11,8 +11,17 @@ import {
   stressSamples,
   checkAndSend,
   standingOrder,
+  leaveWhileSending,
+  interruptCleanupFails,
+  unsureAccountRemoved,
 } from "./stories/usual.ts";
-import { centsEdges, longId, orderDateEdges, twoSpellings } from "./stories/edges.ts";
+import {
+  centsEdges,
+  forgottenRetiredWire,
+  longId,
+  orderDateEdges,
+  twoSpellings,
+} from "./stories/edges.ts";
 import { manyAccounts, manyOrders, orderOffline, owedAtBoot } from "./stories/load.ts";
 import {
   samples as formSamples,
@@ -56,6 +65,10 @@ export const transfers = manifest({
     orderFirst,
     orderChain,
     orderOffline,
+    leaveWhileSending,
+    interruptCleanupFails,
+    unsureAccountRemoved,
+    forgottenRetiredWire,
   },
   samples: [samples, formSamples, orderSamples, plannedSamples],
   stressSamples: [stressSamples, formSamples, orderSamples, plannedStressSamples],

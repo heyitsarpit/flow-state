@@ -1818,6 +1818,145 @@ tasks
             restored consumer; dispose keeps the quarantine entry, so a disposed undecodable identity reports
             RecordUndecodable; an actor ended with mail still in its box (a grace firing in the same batch) keeps it, so
             a later restore can meet a stale waiting context update; chains empty only when every mailbox does.
+        comment     2026-11-19T04:36:34Z
+            Design (proposed, the lead): one admission table and one exit channel, run as one ordered disposal; no guard
+            per entry point.
+
+            - (A) A guard per call: runPromise checks the life, dispose catches Scope.close's failure, the fiber
+              observer checks interrupt cleanups, forget checks the operation. Four places kept in step by hand; a call
+              fiber's Exit already reaches the step after Disposed and `admit` drops it, so a guard there races
+              the life.
+            - (B, chosen) runPromise is a row of `admit`, so I42's totality test covers it with no new guard. Every
+              fiber Flow forks (calls, reads, timers, a runPromise Effect) lives in the Runtime's FiberMap, and one host
+              function judges its Exit before admission, so an interrupt cleanup's failure is never dropped with a late
+              result. dispose is one Effect the driver runs in order (DisposeRuntime, wait for Disposed, close the
+              Scope, fold every cleanup Cause in phase order) into one Deferred, so every caller shares one result,
+              CleanupFailed included.
+            - (C) A child Scope per incarnation, closed consumers first: an idiomatic Scope tree, but actors own no
+              finalizers (only calls and the services Layer do), so it buys an order no one can observe, mirrors the
+              World in the host and allocates per actor under L1.
+
+            Why B: correctness first, it removes the lost-cleanup and per-call-guard classes; one table and one channel
+            read at a glance; its cost is one Exit inspection per settled fiber, which `resultOf` already pays. Reverse:
+            per-call guards.
+        comment     2026-11-19T04:36:34Z
+            Requirements (proposed): 6 kept, mapped to the acceptance (A1 to A6 in order); 5 parts and 12 routed items
+            dropped. Each red was replayed as a plain test and fails at the line named. @spec.Actors gains R26, R27 and
+            R23's disposal sentence, proposed (specs.log 2026-11-19T04:24:26Z).
+
+            Kept:
+            - Q1 (A2) `unsettledWrites` lists exactly the non-Idle lanes by identity, bound or unbound, at every boot
+              (Actors R26, R20). Wrong ending: a host warns of nothing while a write is out, or warns for ever after it
+              settled. Check: 5 `it.fails` in code:packages/flow-state-v3/tests/actors/runtime-life.test.ts over
+              transfers, shop, sync, an unbound hold across a reload and adoption, and 64 accounts at each boot. Red:
+              the Cut has no `unsettled`, after each Fake-status guard passed.
+            - Q2 (A5) a cleanup failure at Runtime disposal rejects every dispose with CleanupFailed keeping the whole
+              Cause, and is reported as an Issue (Actors R23, I33; Diagnostics R8). Wrong ending: today the first
+              dispose dies with the raw defect and a second succeeds; an interrupt cleanup's failure past the bound is
+              dropped and dispose succeeds. Check: the host test in
+              code:packages/flow-state-v3/src/host/runtime.test.ts, `shop/session-close-fails`,
+              `transfers/interrupt-cleanup-fails`. Red: no FlowError on the first Exit, success on the second; no Issue.
+            - Q3 (A5) forget drops a hold whose operation and contract are gone, with HoldForgotten (Actors R21). Wrong
+              ending: a hold no cancel can reach is reported at every boot and kept on disk for ever. Check:
+              `transfers/forgotten-retired-wire`. Red: no HoldForgotten; the next boot reports the record again and
+              it stays.
+            - Q4 (A5) runPromise runs an Effect with the installed services, rejects RuntimeNotReady before ready and
+              RuntimeDisposed once disposal starts, runs nothing then, and rejects with a FlowError keeping the whole
+              Cause; an aborted signal interrupts (Actors R27, R4, R22; Diagnostics R8). Wrong ending: an Effect forked
+              after disposal runs on released services. Check: 5 host `it.fails`. Red: the Runtime has no runPromise.
+            - Q5 (A5) an actor-level cleanup failure quarantines the ref; later ensures report it (Actors R23). Case: a
+              Pay disposed while its intent-status read is out, whose cleanup throws. Wrong ending: retire drops the
+              read before its Exit arrives, so the failure is lost and the next ensure reacquires. Check: not written;
+              the user's read.
+            - Q6 (A1, A4, A6) a planted fault per kept rule, caught by `nub run faults --only`:
+              `unsettled-skips-unbound`, `cleanup-failure-dropped`, `forget-keeps-gone-hold`,
+              `run-promise-after-dispose-runs`; the build plants them.
+
+            Dropped parts:
+            - ready, ensureActor, createActor rejecting RuntimeDisposed: built by `admit`'s call row; T24 and the fault
+              `ensure-while-disposing-runs` catch it.
+            - Idempotent disposal: DisposeActor and DisposeRuntime drop while Disposing or Disposed, and a second
+              dispose() awaits one Deferred; the shared CleanupFailed result is Q2.
+            - Consumers before providers: no order is observable; the core disposes every identity in one step, actors
+              own no finalizers, the services Layer releases in reverse by its Scope, and no consumer binds while
+              Disposing (T24).
+            - Queued events dropped: disposal clears mail after suspending owed rows; the
+              fault `disposal-queue-cancelled`.
+            - No machine event at disposal: a Disposing step runs no drain; Settled applies endings to lanes and
+              parks them.
+
+            Dropped routed items:
+            - Actors faults I29, I37, I38, R21: planted by @task.V3.T101 (code:wiki/tasks/V3/P3-coverage.md).
+            - IdentityExhausted: unreachable; counters are per-open numbers needing 2^53 mints (285 years at a million a
+              second), and every id carries the session seed, so a restore repeats none. Proposed for @plan.Pending.
+            - Actors R1's per-operation refusal: the services Layer type refuses a missing service; an untyped caller is
+              @task.V3.T98's class.
+            - Runtime O5: an unencodable selection keeps the last context and raises one issue, never failing the turn
+              (only the code differs); memory changes only by a turn's patch; a capture between a wave's yielded steps
+              is reconciled by R9's restore wave. No ending or value is lost.
+            - Turn R1, T16 faults: one leaf path per incarnation makes two leaves unrepresentable; T16's cases are
+              caught by `equal-selection-heard` and `throwing-selector-drops-value`.
+            - send's booting row: the boot opens the life before waking owed identities, so a restored sender's sends
+              follow the send table; an external send before ready is a loud RuntimeNotReady; the queue is R4's proposed
+              feature, a scope call.
+            - T96's dispose paths: mail dropped with a disposed actor owes no ending (owed rows are suspended) and a
+              send has no result; a send's restore ensures a disposed provider fresh from input, as any ensure after
+              disposeActor (R9); the kept quarantine did not reproduce (disposeActor of an undecodable identity with
+              storage held, then a send, reports NoRecord); an end with mail is unreachable (graces() disarms any
+              identity with mail, and a disarmed timer's Fired finds none); chains are memory only and clear once
+              mail drains.
+
+            Stop, `runPromise`'s signature, proposed with Effect's prior art (`Effect.runPromise(effect, { signal })`,
+            `ManagedRuntime.runPromise`): `runtime.runPromise<A, E>(effect: Effect<A, E, ServicesOf<App>>, options?: {
+            readonly signal?: AbortSignal }): Promise<A>`. Admission by `admit` (RuntimeNotReady before ready, rather
+            than awaiting it, as ensureActor does); the Effect forks in the Runtime's Scope, so dispose interrupts it;
+            every rejection is a FlowError classified from the whole Cause (Diagnostics R6, R8), its first finding
+            RunFailed (proposed code), the Cause on `cause`.
+        comment     2026-11-19T04:36:34Z
+            Fixtures proof (code:wiki/conventions/fixtures.md): 8 new Stories in transfers, shop and sync, registered in
+            their manifests, red as `it.fails` titled by rule; catalog items written under each app's "Runtime life".
+
+            - unsettledWrites (Actors R26, R20): transfers, shop, sync (changed), machines Bank/Transfers, Checkout/Pay,
+              Git/Sync, journey "close the tab with a write out"; usual `transfers/leave-while-sending`,
+              `shop/leave-while-paying`, `sync/leave-while-syncing` (unpersisted); load L1 × 64 and L4
+              `transfers/stress-owed-at-boot`; structure: a hold disposed, reloaded and adopted
+              `transfers/unsure-account-removed`; samples none yet; combos persistence and reload; sources none; red
+              today: the Cut has no `unsettled`.
+            - CleanupFailed (Actors R23): shop (changed, port fake `ShopFakeSessionCloseFails`), transfers (changed,
+              port fake `BankFakeCleanupThrows`), journey "sign out"; usual `shop/session-close-fails`,
+              `transfers/interrupt-cleanup-fails` (after unknown Disposed); load and structure none yet; samples none;
+              sources none; red today: no Issue CleanupFailed, and dispose's first Exit is a raw defect, its second
+              a success.
+            - HoldForgotten (Actors R21): transfers (changed), journey "close the account"; edge E7
+              `transfers/forgotten-retired-wire` (a lane record of a retired operation and contract, put as an earlier
+              release left it); load none yet; red today: no HoldForgotten, the record is reported at the next boot
+              and kept.
+            - runPromise (Actors R27): no fixture until its signature is decided (the stop); host tests only.
+
+            Left, as catalog items: L5, S6 child-first and forget-with-hold orders, step samples with hold, drop and
+            release words, CleanupFailed and HoldForgotten under load, a third app for each (@task.V3.T99's build, with
+            the Cut read); the ref quarantine Story (the user's read); runPromise's Story (its signature).
+
+            Sidecar review (4 Haiku, effort high: fit, expected results, coverage, registration and package rules):
+            - Accepted: Pay's operation is `pay`, not `confirm` (fixed); "the tab closes" is not a disposal, so the
+              disposal Stories are a sign-out; "holds its answer" contradicted a hold at request; "send lock" named
+              nothing real (now an interrupt cleanup); dispose and forget now have distinct product verbs; the
+              disposed-hold Story has no S code, so it moved to usual.ts; the interrupt Story now checks unknown
+              Disposed first; the 64-account check names each account; a literal bound became
+              `RuntimeDefaults.disposalBound`; a third, unpersisted app (sync); catalog items.
+            - Changed: no rule demanded CleanupFailed as evidence, so R23 now says it is also an Issue with no Cause
+              (Diagnostics R9); the list shape the tests pin is now written in R26.
+            - Rejected: the port fakes inject a cleanup failure, but fixtures.md forbids injected endings, and a cleanup
+              is not an ending (ShopFakeSteadfast is the precedent); a hand-written retired lane record, since
+              `Fake.storage.put` is the tool for what an earlier release left and releases.ts is not built; the
+              interrupt cleanup's defect read as R25, since R25 is a defect inside a step and this is a call fiber's
+              cleanup; a rename onto `transfer` (Restore R5), since the record's contract is gone too; listing a
+              quarantined lane in R26, which lists lanes; "later ensures report it" at Runtime disposal, where later
+              calls are RuntimeDisposed (the ref quarantine is Q5); "not yet" comments in the tests, which describe the
+              by-name reads the build removes.
+
+            Extra files: fixtures/services/shop/server/layer.ts, fixtures/sync/{index,stories/usual}.ts,
+            src/host/runtime.test.ts, wiki/conventions/fixture-catalog.md.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer

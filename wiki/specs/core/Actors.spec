@@ -5,7 +5,7 @@ basis         A guide, revisable whenever building shows it wrong; each change a
               Written from the merged flow plans (proposed).
 location      packages/flow-state-v3/src
 provides      runtimeSetup, Runtime, actorRef, ensureActor, createActor, send, disposeActor,
-              forget, dispose, unsettledWrites
+              forget, dispose, unsettledWrites, runPromise
 derives_from  [
               @plan.Runtime.O2, @plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5,
               @plan.Runtime.O6, @plan.Runtime.O7, @plan.Runtime.C2, @plan.Runtime.V2,
@@ -336,6 +336,10 @@ requirements
         source  @plan.Runtime.O6.
         must    A cleanup failure rejects dispose with CleanupFailed, quarantines the ref (later
                 ensures report the same failure) and keeps the full Cause; it is never success.
+                At Runtime disposal a cleanup is a services finalizer or the interrupt cleanup of
+                a call the Scope's close interrupts; each failure is also reported as an Issue
+                CleanupFailed, which carries no Cause (@spec.Diagnostics.R9), and every call to
+                dispose gets the same rejection. Proposed (the T99 lead, 2026-11-19).
 
                 Runtime disposal waits for its writes within the same bound, measured from the call to
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
@@ -378,6 +382,24 @@ requirements
                 RuntimeDisposed, every snapshot reads lifecycle stopped, and nothing more is written,
                 so a reload restores the last landed state. The Runtime's Scope closes. Decision
                 (the user, 2026-11-17, Q21 A).
+
+    R26  unsettledWrites
+        source  @plan.Runtime.O6.
+        must    runtime.unsettledWrites() lists, by identity, exactly the non-Idle lanes, each
+                identity saying whether a live actor holds its lanes (bound) or none does
+                (unbound, R20 and R21), for a host's beforeunload. An unbound lane is listed at
+                every boot until an adopting ensure or its owner's cancel ends it. A Story's
+                checkpoint reads it as `unsettled`. Proposed (the T99 lead, 2026-11-19): one entry
+                per identity, `{ actor, bound, lanes }`, each lane naming its operation.
+
+    R27  runPromise
+        source  @plan.Runtime.O2; @plan.Runtime.O6; @plan.Diagnostics.O3.
+        must    runtime.runPromise(effect, { signal }) runs an Effect with the app's installed
+                services in the Runtime's Scope. Admission is `admit`'s: before ready it rejects
+                RuntimeNotReady, once disposal starts RuntimeDisposed, and it runs nothing then.
+                A failure, defect or interruption rejects with a FlowError that keeps the whole
+                Cause (@spec.Diagnostics.R8); an aborted signal interrupts the Effect. Proposed:
+                the signature is the user's read.
 
 open
     Q1  Executable checks are not built.
@@ -548,6 +570,12 @@ invariants
     I44  The disposal's first write holds every record dirty when its start cells have run, and every change made 
          within the bound is written in a later batch; a reload after the disposal's write landed restores exactly
         the state before the bound. [@R23]
+
+    I45  unsettledWrites names an identity exactly when it has a non-Idle lane, as bound exactly when it has an 
+         incarnation. [@R26]
+
+    I46  runPromise runs its Effect only on `admit`'s Run, and each rejection is a FlowError keeping the whole Cause. 
+         [@R27]
 
 owner Life
     lifetime  one Runtime. Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); I42
@@ -728,6 +756,14 @@ coverage
 
     @R25
         enforced_by  [@I42]
+        open_by      [@Q1]
+
+    @R26
+        enforced_by  [@I45]
+        open_by      [@Q1]
+
+    @R27
+        enforced_by  [@I46]
         open_by      [@Q1]
 
 tests

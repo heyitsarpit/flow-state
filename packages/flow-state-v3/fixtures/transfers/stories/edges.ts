@@ -1,6 +1,32 @@
 import { Schema } from "effect";
+import { Fake } from "../../../src/host/testing/index.ts";
 import { cafeComposed, cafeDecomposed, account, mainCustomer, orderOf } from "../app.ts";
-import { grownStory, plannedStory } from "./usual.ts";
+import { bankStory, grownStory, plannedStory } from "./usual.ts";
+
+/**
+ * The key of a wire held on the main account, an operation an earlier release of the app had.
+ */
+export const RETIRED_WIRE = 'lane/Bank/Transfers/acct-1|wire|{"wireId":"w1"}';
+
+const retiredWire =
+  '{"attempt":"att-0-1","displaced":[],"format":3,"inFlight":false,' +
+  '"input":{"cents":500,"wireId":"w1"},"machine":"Bank/Transfers","name":"acct-1",' +
+  '"operation":"wire","queue":[],"retryCount":0}';
+
+/**
+ * An earlier release sent wires, an operation and contract this one no longer has, and left one
+ * held on the main account; the customer closes the account, so the app forgets it, and the tab
+ * reloads.
+ */
+export const forgottenRetiredWire = bankStory("transfers/forgotten-retired-wire")
+  .world(Fake.storage.put(RETIRED_WIRE, retiredWire))
+  .reload()
+  .checkpoint("booted")
+  .ensure(account)
+  .dispose(account, { how: "forget" })
+  .checkpoint("forgotten")
+  .reload()
+  .checkpoint("reloaded");
 
 /**
  * A date at milliseconds from the epoch, decoded by its Schema.

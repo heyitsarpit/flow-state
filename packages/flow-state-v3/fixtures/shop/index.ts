@@ -11,6 +11,8 @@ import {
   browse,
   checkoutSteps,
   guestBrowse,
+  leaveWhilePaying,
+  sessionCloseFails,
 } from "./stories/usual.ts";
 import { busyEdges } from "./stories/edges.ts";
 import {
@@ -91,6 +93,8 @@ export const shop = manifest({
     renewalDamagedPay,
     renewalEndingPay,
     renewalDisposingPay,
+    leaveWhilePaying,
+    sessionCloseFails,
   },
   samples: [samples, storeSamples, checkoutSendSamples, renewalSamples],
   stressSamples: [samples, storeSamples, checkoutSendSamples, renewalSamples],

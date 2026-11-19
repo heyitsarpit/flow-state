@@ -43,6 +43,19 @@ export const gitStory = (id: string) => Story.app(gitSetup, { id, fixtures: [Git
 const syncRepo = (repo: string) => ({ _tag: "SyncRepo", repo }) as const;
 
 /**
+ * A client syncs a repository and its user goes to close the tab before the Git host has taken the
+ * sync, so the page warns that changes are still syncing; once the host answers nothing is left to
+ * warn about.
+ */
+export const leaveWhileSyncing = gitStory("sync/leave-while-syncing")
+  .ensure(client)
+  .world(Git.sync.hold())
+  .send(client, syncRepo("docs"))
+  .checkpoint("syncing")
+  .world(Git.sync.release())
+  .checkpoint("synced");
+
+/**
  * A client peeks and syncs, meets a broken head read and a rate limit it cools down from, is
  * closed and opened again, and a second sync of a repository already on the wire is turned away.
  */

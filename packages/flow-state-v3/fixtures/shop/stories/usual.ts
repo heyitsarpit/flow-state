@@ -11,7 +11,7 @@ import {
   shopSetup,
 } from "../app.ts";
 import { CartFake } from "../server/layer.ts";
-import { ShopFake } from "../../services/shop/server/layer.ts";
+import { ShopFake, ShopFakeSessionCloseFails } from "../../services/shop/server/layer.ts";
 import { Shop } from "../../services/shop/server/shop.ts";
 
 /**
@@ -140,6 +140,34 @@ export const lostConfirm = shopStory("shop/lost-confirm")
   .checkpoint("reloaded")
   .advance("10 seconds")
   .checkpoint("after");
+
+/**
+ * The shopper pays and goes to close the tab before the shop has taken the confirm, so the page
+ * warns that a payment is still out; once the shop answers nothing is left to warn about.
+ */
+export const leaveWhilePaying = shopStory("shop/leave-while-paying")
+  .ensure(checkout)
+  .send(checkout, cart(1))
+  .world(Shop.confirm.hold())
+  .send(checkout, visa)
+  .checkpoint("paying")
+  .world(Shop.confirm.release())
+  .checkpoint("paid");
+
+/**
+ * The shopper pays and signs out, so the app disposes its Runtime, over a payment SDK whose session
+ * fails to close when the services are released.
+ */
+export const sessionCloseFails = Story.app(shopSetup, {
+  id: "shop/session-close-fails",
+  fixtures: [ShopFakeSessionCloseFails],
+})
+  .ensure(checkout)
+  .send(checkout, cart(1))
+  .send(checkout, visa)
+  .checkpoint("paid")
+  .disposeRuntime()
+  .checkpoint("signed out");
 
 /**
  * The shop turns a confirm away as busy with a negative retry delay: the turn that would arm that

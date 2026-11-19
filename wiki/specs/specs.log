@@ -404,3 +404,7 @@ note 2026-11-19T03:22:47Z
     @spec.Actors R13: one guard count per admitted event, shared by every consumer its context update reaches; onContext
     events are never counted or refused, their turns' sends count; a joined waiting update follows the higher count; the
     refusal names the admitted event (T96 close review). Reverse: restore the earlier R13 text.
+
+note 2026-11-19T04:24:26Z
+    @spec.Actors R26, R27 added, proposed: unsettledWrites and runPromise had no requirement, so their failing checks
+    had no rule to cite (T99 requirements). Reverse: delete R26 and R27 and their coverage entries.

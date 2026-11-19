@@ -35,3 +35,14 @@ export const ShopFake = Layer.effect(ShopApi, shopApi(false));
  * answer even when its caller is interrupted.
  */
 export const ShopFakeSteadfast = Layer.effect(ShopApi, shopApi(true));
+
+/**
+ * The port fake over a payment SDK whose session, opened when the services start, fails to close
+ * when they are released, as an SDK whose disconnect rejects does.
+ */
+export const ShopFakeSessionCloseFails = Layer.effect(
+  ShopApi,
+  Effect.tap(shopApi(false), () =>
+    Effect.addFinalizer(() => Effect.die("the payment session did not close")),
+  ),
+);

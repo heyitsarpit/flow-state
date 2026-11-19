@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
+import { RuntimeDefaults } from "../../../src/index.ts";
 import {
   account,
   bankGrownSetup,
@@ -11,7 +12,7 @@ import {
   sendForm,
 } from "../app.ts";
 import { Bank } from "../server/bank.ts";
-import { AccountsFake, BankFake } from "../server/layer.ts";
+import { AccountsFake, BankFake, BankFakeCleanupThrows } from "../server/layer.ts";
 
 const isoDate = Schema.decodeSync(Schema.DateFromString);
 
@@ -174,6 +175,51 @@ export const heldAtDisposal = bankStory("transfers/held-at-disposal")
   .checkpoint("disposed")
   .reload()
   .checkpoint("reloaded");
+
+/**
+ * The customer sends a transfer and goes to close the tab before the bank has taken it, so the
+ * page warns that a transfer is still sending; once the bank answers nothing is left to warn about.
+ */
+export const leaveWhileSending = bankStory("transfers/leave-while-sending")
+  .ensure(account)
+  .world(Bank.transfer.hold())
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .checkpoint("sending")
+  .world(Bank.transfer.release())
+  .checkpoint("settled");
+
+/**
+ * A transfer's answer is lost, so it is held; the customer removes the account from this device,
+ * leaving the hold with no actor; the tab reloads with nothing open, and adding the account back
+ * takes the hold again.
+ */
+export const unsureAccountRemoved = bankStory("transfers/unsure-account-removed")
+  .ensure(account)
+  .world(Bank.transfer.drop({ at: "response" }))
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .checkpoint("unsure")
+  .dispose(account)
+  .checkpoint("removed")
+  .reload({ reattach: false })
+  .checkpoint("reloaded")
+  .ensure(account)
+  .checkpoint("adopted");
+
+/**
+ * The customer signs out, so the app disposes its Runtime, while a transfer hangs at the bank,
+ * over a bank client whose cleanup on an interrupted request throws: the transfer ends unknown at
+ * the disposal's bound, and its cleanup fails.
+ */
+export const interruptCleanupFails = Story.app(bankSetup, {
+  id: "transfers/interrupt-cleanup-fails",
+  fixtures: [BankFakeCleanupThrows],
+})
+  .ensure(account)
+  .world(Bank.transfer.hold())
+  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .disposeRuntime()
+  .advance(RuntimeDefaults.disposalBound)
+  .checkpoint("signed out");
 
 /**
  * The store refuses a transfer's acknowledging write, so the transfer is never sent.

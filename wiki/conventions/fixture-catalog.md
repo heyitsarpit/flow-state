@@ -295,6 +295,14 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       `bank-planned-edges`.
     - [x] A context consumer restored by a reload publishes once (Turn I9). built: `shop/browse` with a reload that
       attaches nothing.
+  - **Runtime life** (@task.V3.T99; each test is an `it.fails` until its feature is built):
+    - [x] A payment the shop has not taken is listed by `unsettledWrites` for a close warning, and nothing once it
+      answers (Actors R26). No source. built: `shop/leave-while-paying`.
+    - [x] A payment SDK session that fails to close when the services are released at sign-out: CleanupFailed
+      (Actors R23). No source. built: `shop/session-close-fails`, port fake `ShopFakeSessionCloseFails`.
+    - [ ] A Pay disposed while its intent-status read is out, whose cleanup throws: the ref is quarantined and the
+      next ensure reports CleanupFailed (Actors R23). left: the user's read on the quarantine of a ref.
+    - [ ] `runPromise` from a host (Actors R27). left: its public signature, the user's read.
 
 ### cells
 
@@ -414,6 +422,9 @@ retry.
   - [ ] **Findings:** a 4xx that isn't a rate limit is not retried. Copies [liveRetry.unit.test.ts:27][kp-retry] "does
     NOT retry a genuine 4xx app error". left: needs a `BadRequest` failure on `Git/sync`, an edit to an old contract
     this row does not allow; the user's call.
+  - [x] Variety, unpersisted: a sync the Git host has not taken is listed by `unsettledWrites` for a close warning,
+    and nothing once it answers (Actors R26; @task.V3.T99, an `it.fails` until built). No source. built:
+    `sync/leave-while-syncing`.
 
 ### transfers
 
@@ -548,6 +559,20 @@ kamp.us for rows restored after a failure.
       StorageRefused; a lost answer whose Held save and re-send capture are both refused is saved Held once the
       disk has room (WriteAhead R5, R13). No source. built: `transfers/refused-held-write`,
       `transfers/refused-resend-capture`.
+  - **Runtime life** (@task.V3.T99; each test is an `it.fails` until its feature is built):
+    - [x] Usual: a transfer the bank has not taken is listed by `unsettledWrites` for a close warning, and nothing
+      once it answers (Actors R26). No source. built: `transfers/leave-while-sending`.
+    - [x] A held transfer stays listed after its account is removed (`disposeActor`), unbound, at the next boot,
+      and bound once adopted (Actors R20, R26). No source. built: `transfers/unsure-account-removed`.
+    - [x] L1 × 64 and L4: every held account listed at each boot (Actors R26). built: `transfers/stress-owed-at-boot`.
+    - [x] A bank client's interrupt cleanup throws when the disposal's bound interrupts a hung transfer: CleanupFailed
+      after unknown Disposed (Actors R23). No source. built: `transfers/interrupt-cleanup-fails`, port fake
+      `BankFakeCleanupThrows`.
+    - [x] E7: forget drops a held wire whose operation and contract an earlier release had, with HoldForgotten, and
+      the next boot neither reports nor keeps it (Actors R21). No source. built: `transfers/forgotten-retired-wire`.
+    - [ ] L5, S6 child-first and forget-with-hold orders, and step samples offering hold, drop and release words for
+      `unsettledWrites`; CleanupFailed and HoldForgotten under load. left: @task.V3.T99's build, with the Cut's
+      `unsettled` read.
 
 ### sign-in
 

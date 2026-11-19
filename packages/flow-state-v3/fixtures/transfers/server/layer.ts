@@ -19,17 +19,28 @@ export const AccountsFake = Layer.effect(
   ),
 );
 
+const bankApi = (cleanupThrows: boolean) =>
+  Effect.map(Bank, (bank) =>
+    BankApi.of({
+      transfer: (input, { idempotencyKey }) => {
+        const sent = bank
+          .transfer({ ...input, key: idempotencyKey })
+          .pipe(Effect.catchTag("FakeLost", () => Effect.fail(new NoResponse())));
+
+        return cleanupThrows
+          ? Effect.onInterrupt(sent, () => Effect.die("the request's abort hook threw"))
+          : sent;
+      },
+    }),
+  );
+
 /**
  * The port fake: `BankApi` over the bank's server, a lost answer read as the port's NoResponse.
  */
-export const BankFake = Layer.effect(
-  BankApi,
-  Effect.map(Bank, (bank) =>
-    BankApi.of({
-      transfer: (input, { idempotencyKey }) =>
-        bank
-          .transfer({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", () => Effect.fail(new NoResponse()))),
-    }),
-  ),
-);
+export const BankFake = Layer.effect(BankApi, bankApi(false));
+
+/**
+ * The port fake over a bank client whose cleanup of an interrupted transfer request throws, as a
+ * client whose abort hook throws does.
+ */
+export const BankFakeCleanupThrows = Layer.effect(BankApi, bankApi(true));
