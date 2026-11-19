@@ -1466,6 +1466,61 @@ tasks
             Decision (the user, 2026-11-19): the old form stays too: send(toRef, (input) => event), a callback returning
             the event, is accepted beside send(toRef, Target.E.X.from(fn)). Fixtures show both; docs lead with the
             token form.
+        comment     2026-11-19T02:01:11Z
+            Requirements review: ISSUES (independent lead, 2026-11-19). Six blocking findings, each naming the missing
+            coverage; the rest holds. Suite exit 0 (1186 passed, 44 expected fail), `nub run check` exit 0. Ten checks
+            replayed without `it.fails` (checkout-sends, buy-unopened, buy-damaged, buy-ending, group-in-grace,
+            group-room-ended, group-bad-room, repo-commits, mirror-imports-ref, mirror-loop): each red for its stated
+            reason; a positive control proved the readers see turns and incarnations. The `src` edits are inert:
+            `compile-body.ts` drops a send, nothing reads it.
+
+            Blocking:
+            1. Loop guard counts: no check tells the total sends of one admitted event (Actors R13: "counts the events
+               one admitted event's turns send") from a chain's depth, nor that sends made by an onContext turn count. A
+               depth-only guard, or one that exempts a chain once context is in it, passes R11 to R13 and leaves a
+               fan-out or an onContext-to-send loop unbounded. Missing: a fan-out past the guard in one admission
+               refused, and a send from an onContext turn counted.
+            2. R6 (ending and persisted) names no wrong ending: the Buy's `CardChosen visa` overwrites the held turn's
+               `amex`, so a runtime that restores from the last acknowledged record (losing the unwritten change) or
+               treats ending as ended passes `shop/buy-ending-checkout`. Missing: a field only the unacknowledged turn
+               changes, read after the send.
+            3. Samples (fixtures.md requirement 4): `samplesOf` sends only `steps`, never `values`
+               (code:packages/flow-state-v3/src/host/testing/samples.ts#samplesOf). The proof's edges are declared but
+               never offered: `payWithNothing` (E1), `unnameable`, `linkNowhere` (E1), `pushedAtLive` (E4), `importSha`.
+               Missing: those steps in `shop-checkout-sends`, `household`, `git-mirrors`.
+            4. Booting row unowned: the catalog item still ends "left: ... the user's call", not "left: @task.V3.T99",
+               and T99 names no send or booting row. Ruling (4) is not recorded where it binds. (NotAdopted is owned:
+               T48 takes step 15's cells.)
+            5. The right tool: `BuyNow` holds nothing and has one state; its catalog reason is the test's need ("so the
+               send table's persisted rows have a target that can end"). A product sends a one-click buy from the UI
+               through a handle. Missing: the persisted rows (busy, ended, unsure, damaged, ending, disposing,
+               forgotten, unopened) on a sender a product would build.
+            6. Acceptance 2 still names transfers and palette, so requirements do not map one to one. The transfers cut
+               reason ("repeats shop's one-to-one command shape") contradicts the current rule ("Repeating a use across
+               apps is fine"). Its real block is ruling (2): `TransfersMachine` takes no input, so
+               `actorRef(TransfersMachine, memory.account)` does not type-check without value-naming it, an identity
+               change additive growth forbids. Missing: an amendment note on acceptance 2 with reasons valid under
+               today's rule.
+
+            Rulings: (1), (3), (4), (5) hold. (2) is correct by Actors R5 (a no-input machine is a literal-named
+            singleton); the one fixture case it makes unwritable is transfers' run-time account, which R5 says should be
+            value-named. Not blocking: R7 (ending, not persisted) and R8 coincide in a synchronous core (player persists
+            nothing), so the Spec edit could merge the rows; `buy-busy` asserts only `CardChosen`; `repo-commits` cannot
+            tell `SyncRepo` from `Pushed`; `buy-ended` never reads "after the grace"; `PushSeen` is a stand-in for step
+            12's stream; the `Machine<typeof Def>` annotation is undocumented; `send`'s TSDoc reads as built before
+            the build.
+
+            Sidecars (4 Haiku, effort high), each finding verified:
+            - blind (acceptance, O4, Actors only): accepted total-versus-depth and onContext-turn sends (1); changed its
+              "ending" ambiguity into the R7/R8 note; rejected boot outcomes (owned elsewhere), FlowError versus
+              InvalidEvent (an invalid action refuses the turn InvalidTurn), mailbox-cap, props and firing checks (no
+              chain inside one admission).
+            - fixtures.md: accepted 3, 4, 5, 6 and the stand-in note; rejected the samples id prefix (precedent
+              `bank-form/samples`) and "refused payload in samples" (InvalidTurn is a run-rule outcome, not a
+              failed Story).
+            - Story adversary: accepted 2 and the three weak-assertion notes; rejected "live tests may already pass" and
+              "`sender` hides the row" (replayed: every drop list and turn list is empty today).
+            - rulings and types: accepted the transfers analysis (6) and the inertness and annotation notes.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
