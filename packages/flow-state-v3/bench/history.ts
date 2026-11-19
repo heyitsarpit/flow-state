@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { dirname, join } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { Schema } from "effect";
-import { CONCERNS, type Concern } from "./declare.ts";
+import { CONCERNS, type Concern, TIERS } from "./declare.ts";
 
 /**
  * Where each concern's history lives: `history/<concern>.csv`, and each record's raw samples under
@@ -33,16 +33,16 @@ export const Row = Schema.Struct({
   commit: Schema.String,
   tree: Schema.Literals(["clean", "dirty"]),
   date: Schema.String,
-  runtime: Schema.String,
+  runtime: Schema.Literals(["node", "bun"]),
   version: Schema.String,
   flags: Schema.String,
   machine: Schema.String,
   cpu: Schema.String,
   cores: Schema.FiniteFromString,
-  power: Schema.String,
+  power: Schema.Literals(["ac", "battery", "unknown"]),
   load: Schema.FiniteFromString,
   confidence: Confidence,
-  tier: Schema.Literals(["quick", "stress", "full", "dev"]),
+  tier: Schema.Literals(TIERS),
   concern: Schema.Literals(CONCERNS),
   bench: Schema.String,
   size: Schema.FiniteFromString,
@@ -61,7 +61,7 @@ export const Row = Schema.Struct({
   counters: Schema.String,
   samples: Schema.String,
   budget: Schema.String,
-  budget_state: Schema.String,
+  budget_state: Schema.Literals(["", "ok", "over"]),
 });
 
 /**

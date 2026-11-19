@@ -14,12 +14,13 @@ export type At = "request" | "response";
  * Where a call, write or trace event came from: its tab's name and which open of that tab it is,
  * counted from 1. A reload is the same tab's next open.
  */
-export type Tab = { readonly name: string; readonly open: number };
+export type Tab = { readonly name: "main"; readonly open: number };
 
 /**
  * The tab a Story runs in at a given open.
  */
-export const mainTab = (open: number) => ({ name: "main", open });
+// RETURN_TYPE: the Tab contract, whose name is the literal "main", not text.
+export const mainTab = (open: number): Tab => ({ name: "main", open });
 
 /**
  * How a fake call's cleanup ends when the call is interrupted: it dies with a defect, or fails

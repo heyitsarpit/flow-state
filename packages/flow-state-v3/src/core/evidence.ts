@@ -2,6 +2,7 @@ import { Data, type Option } from "effect";
 import type { Channel, IssueCode } from "./vocabulary.ts";
 import type { ActorId } from "./world.ts";
 import type { Values } from "./compiled.ts";
+import type { Input } from "./input.ts";
 
 export type { Channel } from "./vocabulary.ts";
 
@@ -146,7 +147,7 @@ export type Evidence = Data.TaggedEnum<{
   Published: { actor: Who; state: string; memory: Values };
   Reported: Reported;
   HoldForgotten: { actor: Who; operation: string; record: string };
-  SlowWork: { work: "turn" | "capture"; input: string; ms: number; budgetMs: number };
+  SlowWork: { work: "turn" | "capture"; input: Input["_tag"]; ms: number; budgetMs: number };
 }>;
 
 /**

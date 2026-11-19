@@ -11,7 +11,7 @@ import { makePersistence } from "./persist.ts";
 import { step } from "./step.ts";
 import { Input } from "./input.ts";
 import { makeTx } from "./tx.ts";
-import { activation, incarnation } from "./test/ids.ts";
+import { activation, attempt as attemptOf, incarnation, lane as laneOf } from "./test/ids.ts";
 import {
   actorKey,
   Command,
@@ -120,8 +120,8 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
     actor,
     to: Audience.Identity(),
     operation: "ring",
-    attempt: Option.some("att-1"),
-    lane: Option.some("lane-1"),
+    attempt: Option.some(attemptOf("att-1")),
+    lane: Option.some(laneOf("lane-1")),
     channel: "success",
     reason: "Success",
     value: { receipt: "r1" },
@@ -144,7 +144,7 @@ const owing = (receipts: ReadonlyArray<string>, from = stepOver()) => {
       actor,
       to: Audience.Identity(),
       operation: "ring",
-      attempt: Option.some(`att-${n}`),
+      attempt: Option.some(attemptOf(`att-${n}`)),
       lane: Option.none(),
       channel: "success",
       reason: "Success",
@@ -223,7 +223,7 @@ it("Codec R4: a Flow-made row with no value saves null and is never reported", (
     actor,
     to: Audience.Identity(),
     operation: "ring",
-    attempt: Option.some("att-0"),
+    attempt: Option.some(attemptOf("att-0")),
     lane: Option.none(),
     channel: "unknown",
     reason: "Restored",
@@ -274,7 +274,7 @@ const success = {
   actor,
   to: Audience.Identity(),
   operation: "ring",
-  attempt: Option.some("att-1"),
+  attempt: Option.some(attemptOf("att-1")),
   lane: Option.none(),
   channel: "success" as const,
   reason: "Success",
@@ -285,11 +285,22 @@ const success = {
 it("WriteAhead I11: an identity whose actor record cannot encode at a capture writes none of its records, and writes them all once it can", () => {
   const first = stepOver({ count: "many" });
 
-  first.ledger.owe({ ...success, lane: Option.some("lane-1"), channel: "unknown", reason: "Lost" });
-  first.persistence.setLane("lane-1", {
+  first.ledger.owe({
+    ...success,
+    lane: Option.some(laneOf("lane-1")),
+    channel: "unknown",
+    reason: "Lost",
+  });
+  first.persistence.setLane(laneOf("lane-1"), {
     actor,
     operation: "ring",
-    head: { id: "att-1", input: {}, retryCount: 0, owner: OwnedBy.Root(), phase: Phase.Held() },
+    head: {
+      id: attemptOf("att-1"),
+      input: {},
+      retryCount: 0,
+      owner: OwnedBy.Root(),
+      phase: Phase.Held(),
+    },
     queue: [],
   });
   first.persistence.saveActor(actor);
@@ -447,8 +458,8 @@ it("WriteAhead R13: a ticket whose identity's actor record cannot encode at its 
   const first = stepOver({ count: "many" });
   first.persistence.saveActor(actor);
 
-  const ticket = first.persistence.saveAwaited(actor, "lane-1", {
-    attempt: "att-1",
+  const ticket = first.persistence.saveAwaited(actor, laneOf("lane-1"), {
+    attempt: attemptOf("att-1"),
     purpose: "acknowledge",
   });
 
@@ -469,19 +480,25 @@ it("WriteAhead R13: a ticket whose identity's actor record stops encoding before
   const lane = {
     actor,
     operation: "ring",
-    head: { id: "att-1", input: {}, retryCount: 0, owner: OwnedBy.Root(), phase: Phase.Unsent() },
+    head: {
+      id: attemptOf("att-1"),
+      input: {},
+      retryCount: 0,
+      owner: OwnedBy.Root(),
+      phase: Phase.Unsent(),
+    },
     queue: [],
   };
 
   first.persistence.saveActor(actor);
 
-  const ticket = first.persistence.saveAwaited(actor, "lane-1", {
-    attempt: "att-1",
+  const ticket = first.persistence.saveAwaited(actor, laneOf("lane-1"), {
+    attempt: attemptOf("att-1"),
     purpose: "acknowledge",
   });
 
   for (const id of Option.toArray(ticket))
-    first.persistence.setLane("lane-1", {
+    first.persistence.setLane(laneOf("lane-1"), {
       ...lane,
       head: { ...lane.head, phase: Phase.Acknowledging({ ticket: id }) },
     });

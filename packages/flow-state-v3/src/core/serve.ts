@@ -10,6 +10,7 @@ import { isInFlight, type Tx } from "./tx.ts";
 import { type Heard, type LedgerSteps, type Owed, Route } from "./ledger.ts";
 import {
   type ActivationId,
+  type LaneId,
   actorKey,
   type Incarnation,
   type Issue,
@@ -45,13 +46,13 @@ const routeOf = (trigger: Trigger) =>
   Trigger.$match(trigger, {
     Event: ({ tag }) => ({
       late: Option.none<ActivationId>(),
-      own: Option.none<string>(),
+      own: Option.none<LaneId>(),
       ending: Option.none<Owed>(),
       source: IssueSource.Event({ tag }),
     }),
     Firing: ({ schedule }) => ({
       late: Option.none<ActivationId>(),
-      own: Option.none<string>(),
+      own: Option.none<LaneId>(),
       ending: Option.none<Owed>(),
       source: IssueSource.Schedule({ name: schedule }),
     }),

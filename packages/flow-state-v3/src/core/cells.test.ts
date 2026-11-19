@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Brand, Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { Cue, cell, LaneState, Move, table } from "./cells.ts";
+import { attempt } from "./test/ids.ts";
 import { type CallId, OwnedBy, Phase, sentBefore, type TicketId } from "./world.ts";
 
 const ticket = Brand.nominal<TicketId>()("ticket-1");
@@ -9,7 +10,7 @@ const ticket = Brand.nominal<TicketId>()("ticket-1");
 const call = Brand.nominal<CallId>()("call-1");
 
 const head = (phase: Phase, sent = false) => ({
-  id: "att-1",
+  id: attempt("att-1"),
   input: { tone: "a" },
   retryCount: sent ? 1 : 0,
   owner: OwnedBy.Root(),

@@ -9,9 +9,11 @@ import { type Machines, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import {
   type ActorId,
+  type AttemptId,
   Command,
   type Displaced,
   type Lane,
+  type LaneId,
   type OwnedBy,
   Phase,
   sentBefore,
@@ -36,7 +38,7 @@ export const laneKeyText = (machines: Machines, lane: Lane) =>
  * A lane's place: its id, identity, operation and key.
  */
 export type At = {
-  readonly id: string;
+  readonly id: LaneId;
   readonly actor: ActorId;
   readonly operation: string;
   readonly key: Values;
@@ -52,7 +54,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
   const open = () => Life.$is("Open")(tx.world().life);
 
-  const oweOf = (at: At, attempt: Option.Option<string>) => ({
+  const oweOf = (at: At, attempt: Option.Option<AttemptId>) => ({
     actor: at.actor,
     to: Audience.Identity(),
     operation: at.operation,
@@ -65,7 +67,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
   const operationOf = (actor: ActorId, name: string) => lookup(tx.machines, actor.machine, name);
 
-  const atOf = (id: string, lane: Lane) => ({
+  const atOf = (id: LaneId, lane: Lane) => ({
     id,
     actor: lane.actor,
     operation: lane.operation,
@@ -75,7 +77,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     }),
   });
 
-  const stateAt = (id: string) => {
+  const stateAt = (id: LaneId) => {
     const lane = tx.world().lanes.get(id);
 
     return lane === undefined
@@ -89,22 +91,28 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     return lane === undefined ? defect(`no lane ${at.id} for a head's move`) : lane;
   };
 
-  const report = (at: At, before: LaneState, cue: Cue, from: number) => {
+  const report = (
+    where: Pick<At, "actor" | "operation" | "key">,
+    before: LaneState,
+    cue: Cue,
+    from: number,
+    after: LaneState,
+  ) => {
     tx.act(
       Act.Lane({
-        actor: at.actor,
-        operation: at.operation,
-        key: at.key,
+        actor: where.actor,
+        operation: where.operation,
+        key: where.key,
         before,
         cue,
-        after: stateAt(at.id),
+        after,
         commands: tx.commandsSince(from),
       }),
     );
   };
 
   // A never-sent Attempt's NotSent keeps its lane: when Kept, it blocks that key.
-  const notSent = (at: At, why: string, attempt: string) =>
+  const notSent = (at: At, why: string, attempt: AttemptId) =>
     void ledger.owe({
       ...oweOf(at, Option.some(attempt)),
       lane: Option.some(at.id),
@@ -314,7 +322,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     const move = cell(before, cue);
     const from = tx.commandCount();
     perform(at, move, cue);
-    report(at, before, cue, from);
+    report(at, before, cue, from, stateAt(at.id));
 
     return move;
   };

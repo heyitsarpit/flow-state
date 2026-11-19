@@ -14,7 +14,7 @@ import { RuntimeDefaults } from "../core/defaults.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { Input } from "../core/step.ts";
 import { isInFlight } from "../core/tx.ts";
-import { actorKey, byCodeUnits } from "../core/world.ts";
+import { actorKey, type AttemptId, byCodeUnits } from "../core/world.ts";
 import { type FlowError, flowError, flowErrorOf } from "../error.ts";
 import type { Driver } from "./driver.ts";
 import {
@@ -43,7 +43,7 @@ export type Unsettled = {
   readonly lanes: ReadonlyArray<{
     readonly operation: string;
     readonly key: Option.Option<string>;
-    readonly attempt: string;
+    readonly attempt: AttemptId;
     readonly state: "InFlight" | "Held";
   }>;
 };

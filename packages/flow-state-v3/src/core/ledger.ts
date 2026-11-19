@@ -8,8 +8,10 @@ import { Life } from "./life.ts";
 import {
   type ActorId,
   actorKey,
+  type AttemptId,
   byCodeUnits,
   type IncarnationId,
+  type LaneId,
   Mail,
   OwnedBy,
   Phase,
@@ -79,8 +81,8 @@ export type Owed = {
   readonly actor: ActorId;
   readonly to: Audience;
   readonly operation: string;
-  readonly attempt: Option.Option<string>;
-  readonly lane: Option.Option<string>;
+  readonly attempt: Option.Option<AttemptId>;
+  readonly lane: Option.Option<LaneId>;
   readonly channel: Channel;
   readonly reason: string;
   // FLOW_STATE_ALLOW_UNKNOWN: the ending's value is the commit's or lookup's own, mapped when heard.
@@ -145,7 +147,7 @@ const isSaved = (row: Pick<Owed, "delivery" | "origin">) =>
 /**
  * Whether a Kept row names a lane: the only read that blocks a key.
  */
-export const keptOn = (ledger: Ledger, actor: ActorId, lane: string) =>
+export const keptOn = (ledger: Ledger, actor: ActorId, lane: LaneId) =>
   rowsOf(ledger, actor).some(
     (r) => Delivery.$is("Kept")(r.delivery) && Option.contains(r.lane, lane),
   );
@@ -380,7 +382,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   /**
    * Lets a lane's Kept rows go, as a cancel on its Idle lane does.
    */
-  const letGoKept = (actor: ActorId, lane: string) => {
+  const letGoKept = (actor: ActorId, lane: LaneId) => {
     for (const row of rowsOf(tx.world().owed, actor))
       if (Delivery.$is("Kept")(row.delivery) && Option.contains(row.lane, lane))
         close(row, Closed.Recorded({ why: "letGo" }));

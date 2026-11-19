@@ -12,8 +12,8 @@ import type { Story } from "./story.ts";
  * A property of a run, as a run rule is: a name and a function from a finished run to its
  * breaches. An empty list means the run keeps it.
  */
-export type Property = {
-  readonly rule: string;
+export type Property<R extends string = string> = {
+  readonly rule: R;
   readonly breaches: (run: StoryRun) => ReadonlyArray<string>;
 };
 

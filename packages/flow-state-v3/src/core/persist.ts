@@ -9,10 +9,12 @@ import {
   type ActorId,
   actorKey,
   type ActorRecord,
+  type AttemptId,
   Command,
   Due,
   type Incarnation,
   type Lane,
+  type LaneId,
   lastSeenOf,
   Mark,
   type Marks,
@@ -160,7 +162,7 @@ export const makePersistence = (tx: Tx) => {
 
   // A lane's record from its entry; a lane gone Idle that still owes a displaced Attempt's ending
   // keeps a record with no head, and one that owes nothing is removed.
-  const laneWrite = (id: string) => {
+  const laneWrite = (id: LaneId) => {
     const key = laneRecordKey(id);
     const lane = Option.fromUndefinedOr(tx.world().lanes.get(id));
     const owing = [...tx.world().displaced.values()].filter((d) => d.lane === id && d.owed);
@@ -297,7 +299,7 @@ export const makePersistence = (tx: Tx) => {
   /**
    * Marks a lane's record as changed: captured from the lane's state, or removed if it is gone.
    */
-  const saveLane = (actor: ActorId, id: string) => {
+  const saveLane = (actor: ActorId, id: LaneId) => {
     if (persisted(actor)) mark(laneRecordKey(id), Mark.Lane({ actor, lane: id }));
   };
 
@@ -307,8 +309,8 @@ export const makePersistence = (tx: Tx) => {
    */
   const saveAwaited = (
     actor: ActorId,
-    id: string,
-    wanted: { readonly attempt: string; readonly purpose: "acknowledge" | "capture" },
+    id: LaneId,
+    wanted: { readonly attempt: AttemptId; readonly purpose: "acknowledge" | "capture" },
   ) => {
     if (!persisted(actor)) return Option.none<TicketId>();
 
@@ -327,7 +329,7 @@ export const makePersistence = (tx: Tx) => {
   };
 
   // ── lanes: every change of a lane's entry marks its record.
-  const setLane = (id: string, lane: Lane) => {
+  const setLane = (id: LaneId, lane: Lane) => {
     tx.putLane(id, lane);
     saveLane(lane.actor, id);
   };
@@ -336,9 +338,9 @@ export const makePersistence = (tx: Tx) => {
    * Puts a head on the wire without a mark: its record already says what the call carries, since
    * an acknowledgement or a capture landed it in flight with the retryCount it is sent with.
    */
-  const sendLane = (id: string, lane: Lane) => tx.putLane(id, lane);
+  const sendLane = (id: LaneId, lane: Lane) => tx.putLane(id, lane);
 
-  const dropLane = (id: string, lane: Lane) => {
+  const dropLane = (id: LaneId, lane: Lane) => {
     tx.dropLane(id);
     saveLane(lane.actor, id);
   };

@@ -21,13 +21,15 @@ import { decodeRecords, encodeOwed, owedRecordKey } from "./record.ts";
 import type { Channel } from "./vocabulary.ts";
 import { makeTx } from "./tx.ts";
 import { Life } from "./life.ts";
-import { activation, incarnation } from "./test/ids.ts";
+import { activation, attempt as attemptOf, incarnation, lane as laneOf } from "./test/ids.ts";
 import { Input } from "./input.ts";
 import { step } from "./step.ts";
 import {
   actorKey,
+  type AttemptId,
   byCodeUnits,
   emptyWorld,
+  type LaneId,
   Mail,
   OwnedBy,
   Quarantine,
@@ -78,8 +80,8 @@ const ending = (lane: Option.Option<string>, to: Audience = Audience.Identity())
   actor,
   to,
   operation: "ring",
-  attempt: Option.some("att-1"),
-  lane,
+  attempt: Option.some(attemptOf("att-1")),
+  lane: Option.map(lane, laneOf),
   channel: "unknown" as const,
   reason: "Lost",
   value: undefined,
@@ -141,8 +143,8 @@ describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", (
 
     const row = (channel: Channel) => ({
       operation: "pay",
-      lane: Option.none<string>(),
-      attempt: Option.none<string>(),
+      lane: Option.none<LaneId>(),
+      attempt: Option.none<AttemptId>(),
       channel,
       reason: "Cancelled",
       value: null,
@@ -276,13 +278,13 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     const one = s.ledger.owe(ending(Option.some("L")));
     const two = s.ledger.owe(ending(Option.some("L")));
 
-    assert.ok(!keptOn(s.tx.world().owed, actor, "L"), "Queued rows block no key");
+    assert.ok(!keptOn(s.tx.world().owed, actor, laneOf("L")), "Queued rows block no key");
 
     for (const id of [one, two, one, two]) s.ledger.tryOne(actor, id, hearAs("Refused"));
 
     assert.deepStrictEqual(deliveries(s.rows()), ["Kept", "Kept"], "two Kept rows on one lane");
-    assert.ok(keptOn(s.tx.world().owed, actor, "L"));
-    assert.ok(!keptOn(s.tx.world().owed, actor, "M"));
+    assert.ok(keptOn(s.tx.world().owed, actor, laneOf("L")));
+    assert.ok(!keptOn(s.tx.world().owed, actor, laneOf("M")));
   });
 
   // WriteLanes `algorithm` ledger: "suspend ...: Queued and Retrying rows go Waiting, rows with no
@@ -400,7 +402,7 @@ describe("forget drops retired holds only (Actors R21)", () => {
       quarantined: new Map<string, Quarantine>([
         [
           retired,
-          Quarantine.Retired({ actor: shopper, operation: "gone", lane: retired.slice(5) }),
+          Quarantine.Retired({ actor: shopper, operation: "gone", lane: laneOf(retired.slice(5)) }),
         ],
         [garbled, Quarantine.Unreadable({ code: "input", detail: Option.none() })],
       ]),

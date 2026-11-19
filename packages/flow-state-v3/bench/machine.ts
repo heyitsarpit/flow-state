@@ -56,7 +56,7 @@ export const environmentOf = (cwd: string) => {
   const bun = process.versions["bun"];
 
   return {
-    runtime: bun === undefined ? "node" : "bun",
+    runtime: bun === undefined ? ("node" as const) : ("bun" as const),
     version: bun ?? process.versions.node,
     flags: process.execArgv.join(" "),
     machine: `m-${hashOf([platform(), arch(), cpu, cores.length, totalmem()].join("|"))}`,

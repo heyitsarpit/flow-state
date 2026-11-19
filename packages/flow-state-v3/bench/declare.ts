@@ -19,6 +19,18 @@ export const CONCERNS = [
 export type Concern = (typeof CONCERNS)[number];
 
 /**
+ * Every tier a run measures in: `quick` (the headline benches but the stress ones, the periodic
+ * run), `stress` (only the stress benches), `full` (every bench), or `dev` (any bench, one worker
+ * on a short budget, never recorded: for iterating).
+ */
+export const TIERS = ["quick", "stress", "full", "dev"] as const;
+
+/**
+ * One tier a run measures in.
+ */
+export type Tier = (typeof TIERS)[number];
+
+/**
  * Counts one operation did, beside its time: turns, events, effects, bytes, keys, memo hits.
  */
 export type Counters = Readonly<Record<string, number>>;
@@ -94,15 +106,18 @@ export type Bench = {
 // One 60 Hz frame, the budget of any one unit of work that blocks a page.
 const FRAME_MS = 16;
 
-type Declared = Pick<Bench, "id" | "concern" | "tags" | "size" | "load"> &
-  Partial<Omit<Bench, "id" | "concern" | "tags" | "size" | "load">>;
+type Declared<C extends Concern> = Pick<Bench, "tags" | "size" | "load"> &
+  Partial<Omit<Bench, "id" | "concern" | "tags" | "size" | "load">> & {
+    readonly id: `${NoInfer<C>}.${string}`;
+    readonly concern: C;
+  };
 
 /**
  * Declares a bench with the defaults: timed, no series, median and p99 as headline, the frame
  * budget for time, five workers that each warm up and then sample for two seconds (five samples at
- * least), no collector.
+ * least), no collector. Its id starts with its concern.
  */
-export const bench = (declared: Declared) => {
+export const bench = <const C extends Concern>(declared: Declared<C>) => {
   const measure = declared.measure ?? "ms";
 
   const made: Bench = {

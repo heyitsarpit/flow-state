@@ -11,6 +11,8 @@ import {
   type ActorId,
   actorKey,
   type ArmingId,
+  type AttemptId,
+  type LaneId,
   byStart,
   type CallId,
   type ChainId,
@@ -182,7 +184,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   const mintAttempt = () => {
     world.attempts += 1;
 
-    return `att-${env.seed}-${world.attempts}`;
+    return branded<AttemptId>(`att-${env.seed}-${world.attempts}`);
   };
 
   // An incarnation's id, with the count it was minted at: the order incarnations started in.
@@ -258,12 +260,12 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       .flatMap((key) => Option.toArray(Option.fromUndefinedOr(world.incarnations.get(key))))
       .toSorted(byStart);
 
-  const unwait = (id: string, lane: Lane) => {
+  const unwait = (id: LaneId, lane: Lane) => {
     for (const wait of Option.toArray(waitOf(lane)))
       if (world.laneOfWait.get(wait) === id) draft("laneOfWait").delete(wait);
   };
 
-  const putLane = (id: string, lane: Lane) => {
+  const putLane = (id: LaneId, lane: Lane) => {
     const key = actorKey(lane.actor);
     const before = world.lanes.get(id);
     draft("lanes").set(id, lane);
@@ -275,7 +277,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     for (const wait of Option.toArray(waitOf(lane))) draft("laneOfWait").set(wait, id);
   };
 
-  const dropLane = (id: string) => {
+  const dropLane = (id: LaneId) => {
     const before = world.lanes.get(id);
 
     if (before === undefined) return;

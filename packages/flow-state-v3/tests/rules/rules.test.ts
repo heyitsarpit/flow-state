@@ -1,10 +1,15 @@
-import { Option } from "effect";
+import { Brand, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { lostThenReload } from "../../fixtures/transfers/stories/usual.ts";
-import { Evidence } from "../../src/host/inspect.ts";
-import { type Cut, Step, type StoryRun } from "../../src/host/testing/index.ts";
+import {
+  type ActorKey,
+  type AttemptId,
+  Evidence,
+  type RuntimeCut,
+} from "../../src/host/inspect.ts";
+import { type Cut, Step, type StoryRun, type Tab } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { acknowledgedBeforeSent, oneBatchOut } from "./batches.ts";
 import { acknowledgedHeardAgain, everyCommitEndsOnce } from "./commits.ts";
@@ -28,6 +33,9 @@ import { everyTaskAccounted } from "./owners.ts";
 
 const who = { machine: "Checkout/Pay", name: "checkout-1" };
 
+// RETURN_TYPE: the one tab a Story runs in, at an open.
+const mainTabAt = (open: number): Tab => ({ name: "main", open });
+
 const attempt = "att-6d61696e3a31-1";
 
 type Placed =
@@ -40,7 +48,7 @@ const crafted = async (records: ReadonlyArray<Placed>, calls: StoryRun["end"]["c
 
   const events = records.map((r, n) => ({
     sequence: n + 1,
-    tab: { name: "main", open: r.open },
+    tab: mainTabAt(r.open),
     record:
       "evidence" in r
         ? TraceRecord.Runtime({ evidence: r.evidence })
@@ -228,7 +236,7 @@ describe("run rules over crafted runs", () => {
           server: "Shop",
           endpoint: "confirm",
           input: { key: "att-6d61696e3a31-9" },
-          tab: { name: "main", open: 1 },
+          tab: mainTabAt(1),
           step: 0,
           status: "answered",
         },
@@ -245,7 +253,7 @@ describe("run rules over the fake store's batches", () => {
     answered: Option.Option<number>,
     acknowledges: Array<string> = [],
   ) => ({
-    tab: { name: "main", open: 1 },
+    tab: mainTabAt(1),
     purpose: acknowledges.length > 0 ? ("acknowledge" as const) : ("flush" as const),
     keys: [`actor/${who.machine}/${who.name}`],
     acknowledges,
@@ -284,7 +292,7 @@ describe("run rules over the fake store's batches", () => {
         server: "Shop",
         endpoint: "confirm",
         input: { intentId: "pi1", key: attempt },
-        tab: { name: "main", open: 1 },
+        tab: mainTabAt(1),
         step,
         status: "answered" as const,
       },
@@ -324,11 +332,11 @@ const endedWith = (run: StoryRun, edit: (end: Cut) => Cut) => ({
   end: edit(run.end),
 });
 
-const owedRow = (delivery: string) => ({
-  actor: "Transfers/Account/main",
+const owedRow = (delivery: RuntimeCut["owed"][number]["delivery"]) => ({
+  actor: Brand.nominal<ActorKey>()("Transfers/Account/main"),
   operation: "transfer",
-  attempt: Option.none(),
-  channel: "success",
+  attempt: Option.none<AttemptId>(),
+  channel: "success" as const,
   reason: "success",
   delivery,
 });
@@ -370,7 +378,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
 
   it("Actors I30: a commit sent from its open's disposeRuntime step on is a breach, and so is a call arriving before its RuntimeDisposed record; a call before or after them is not", async () => {
     const run = checked(await lostThenReload.run());
-    const tab = { name: "main", open: 1 };
+    const tab = mainTabAt(1);
 
     const disposing = {
       sequence: 0,
@@ -422,7 +430,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
 
   it("Actors I30: a read a turn invoked in the step that ends the disposal is a breach though it arrives after RuntimeDisposed; a cleanup's call with no turn since the disposal began is not", async () => {
     const run = checked(await lostThenReload.run());
-    const tab = { name: "main", open: 1 };
+    const tab = mainTabAt(1);
 
     const disposing = {
       sequence: 0,
@@ -486,7 +494,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
         events: [
           {
             sequence: 1,
-            tab: { name: "main", open: 2 },
+            tab: mainTabAt(2),
             record: TraceRecord.Step({
               index: 0,
               step: asleep.steps[0] ?? Step.checkpoint({ name: "-" }),
@@ -494,7 +502,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
           },
           {
             sequence: 2,
-            tab: { name: "main", open: 2 },
+            tab: mainTabAt(2),
             record: TraceRecord.Runtime({
               evidence: Evidence.Reported({
                 code: "StorageFailure",
@@ -593,7 +601,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
           storyId: "rules/owners",
           events: records.map((record, n) => ({
             sequence: n + 1,
-            tab: { name: "main", open: 1 },
+            tab: mainTabAt(1),
             record,
           })),
         },

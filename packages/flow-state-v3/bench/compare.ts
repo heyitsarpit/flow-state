@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { CONCERNS, type Concern } from "./declare.ts";
+import { CONCERNS, type Concern, type Tier as TierName } from "./declare.ts";
 import { readRows, readSamples } from "./history.ts";
 import type { environmentOf } from "./machine.ts";
 import { budgetState, type Result } from "./result.ts";
@@ -15,7 +15,7 @@ export type Confidence = "interleaved" | "stored";
 
 // The tier a run measures in and the smallest change it counts.
 type Tier = {
-  readonly name: "quick" | "stress" | "full" | "dev";
+  readonly name: TierName;
   readonly minEffect: number;
 };
 

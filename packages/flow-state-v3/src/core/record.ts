@@ -18,9 +18,14 @@ import { keyTextOf } from "./lane-moves.ts";
 import { type Owed, Route } from "./ledger.ts";
 import {
   type ActorId,
+  type ActorKey,
   type ActorRecord,
+  type AttemptId,
   type Lane,
+  type LaneId,
   actorKey,
+  restoredAttemptId,
+  restoredLaneId,
   byCodeUnits,
   OwnedBy,
   Phase,
@@ -70,17 +75,17 @@ const IdentityJson = Schema.Struct({ machine: Schema.String, name: Schema.String
 /**
  * The key an identity's saved rows are stored under: one record, in the order they were owed.
  */
-export const owedRecordKey = (key: string) => `owed/${key}`;
+export const owedRecordKey = (key: ActorKey) => `owed/${key}`;
 
 /**
  * The key an actor's record is stored under.
  */
-export const actorRecordKey = (key: string) => `actor/${key}`;
+export const actorRecordKey = (key: ActorKey) => `actor/${key}`;
 
 /**
  * The key a lane's record is stored under.
  */
-export const laneRecordKey = (lane: string) => `lane/${lane}`;
+export const laneRecordKey = (lane: LaneId) => `lane/${lane}`;
 
 type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
   readonly kept: boolean;
@@ -199,7 +204,7 @@ type RestoredRow = Omit<Owed, "id" | "delivery" | "to" | "origin"> & { readonly 
 export type Restored = {
   readonly records: ReadonlyArray<ActorRecord>;
   readonly lanes: ReadonlyArray<{
-    readonly id: string;
+    readonly id: LaneId;
     readonly actor: ActorId;
     readonly lane: Option.Option<Lane>;
     readonly inFlight: boolean;
@@ -271,8 +276,8 @@ export const decodeRecords = (
           kept: e.kept,
           actor: actorOf(r),
           operation: e.operation,
-          attempt: Option.fromNullOr(e.attempt),
-          lane: Option.fromNullOr(e.lane),
+          attempt: Option.map(Option.fromNullOr(e.attempt), restoredAttemptId),
+          lane: Option.map(Option.fromNullOr(e.lane), restoredLaneId),
           channel: e.channel,
           reason: e.reason,
           // A Flow-made unknown row saved with no value reads back with none.
@@ -282,7 +287,7 @@ export const decodeRecords = (
     );
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
-  const laneRecord = (id: string, value: unknown) =>
+  const laneRecord = (text: string, value: unknown) =>
     Result.gen(function* () {
       const r = yield* read(decodeBy(LaneRecordJson, "schema")(value));
       const compiled = yield* read(machineOf(r));
@@ -290,7 +295,9 @@ export const decodeRecords = (
       const own = `${actorKey(actor)}|${r.operation}|`;
 
       // oxlint-disable-next-line flow-state/no-id-text -- the boot's lane key check: record keys are read only in this module
-      if (!id.startsWith(own)) return yield* read(failed("key"));
+      if (!text.startsWith(own)) return yield* read(failed("key"));
+
+      const id = restoredLaneId(text);
 
       const operation = yield* Result.fromNullishOr(compiled.operations.get(r.operation), () =>
         Quarantine.Retired({ actor, operation: r.operation, lane: id }),
@@ -321,7 +328,7 @@ export const decodeRecords = (
                       actor,
                       operation: r.operation,
                       head: {
-                        id: attempt,
+                        id: restoredAttemptId(attempt),
                         input,
                         retryCount: r.retryCount,
                         owner: OwnedBy.Root(),
@@ -342,15 +349,15 @@ export const decodeRecords = (
       const endings: ReadonlyArray<RestoredRow> = [
         ...r.queue.map(() => ({
           ...ended,
-          attempt: Option.none<string>(),
-          lane: Option.none<string>(),
+          attempt: Option.none<AttemptId>(),
+          lane: Option.none<LaneId>(),
           channel: "notSent" as const,
           reason: "Restored",
           value: { why: "Restored" },
         })),
         ...r.displaced.map((attempt) => ({
           ...ended,
-          attempt: Option.some(attempt),
+          attempt: Option.some(restoredAttemptId(attempt)),
           lane: Option.some(id),
           channel: "unknown" as const,
           reason: "Restored",

@@ -65,7 +65,8 @@ export const resultOf = (bench: Bench, runs: ReadonlyArray<Done>) => {
  * `over` when the median or the slowest sample passes the bench's budget, `ok` within it, empty
  * with no budget.
  */
-export const budgetState = (result: Result) =>
+// RETURN_TYPE: the history row's closed budget states, not text.
+export const budgetState = (result: Result): Row["budget_state"] =>
   Option.match(result.bench.budget, {
     onNone: () => "",
     onSome: (budget) => (result.median > budget || result.pooled.max > budget ? "over" : "ok"),

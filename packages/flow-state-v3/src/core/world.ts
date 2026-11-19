@@ -1,4 +1,4 @@
-import { type Brand, Data, Equal, Option } from "effect";
+import { Brand, Data, Equal, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
@@ -11,8 +11,37 @@ import type { Baseline, Frame, Selected } from "./slots.ts";
  */
 export type ActorId = { readonly machine: string; readonly name: string };
 
+/**
+ * The text an identity is stored under, made only by {@link actorKey}.
+ */
+export type ActorKey = string & Brand.Brand<"flow-state/ActorKey">;
+
+/**
+ * The id a write lane is kept under, made only by {@link laneId}.
+ */
+export type LaneId = string & Brand.Brand<"flow-state/LaneId">;
+
+/**
+ * An Attempt's id, made only by the world's mint.
+ */
+export type AttemptId = string & Brand.Brand<"flow-state/AttemptId">;
+
+const actorKeyOf = Brand.nominal<ActorKey>();
+
+const laneIdOf = Brand.nominal<LaneId>();
+
+/**
+ * A lane id read back from a saved lane record, once the boot has checked it against the record.
+ */
+export const restoredLaneId = laneIdOf;
+
+/**
+ * An Attempt id read back from a saved lane record: the one the mint made before the reload.
+ */
+export const restoredAttemptId = Brand.nominal<AttemptId>();
+
 // Each identity's key, minted once: an identity is immutable, so its key never changes.
-const keys = new WeakMap<ActorId, string>();
+const keys = new WeakMap<ActorId, ActorKey>();
 
 /**
  * The text an identity is stored under: machine, then the name with `%`, `/` and `|` escaped.
@@ -22,7 +51,10 @@ export const actorKey = (actor: ActorId) => {
 
   if (known !== undefined) return known;
 
-  const key = `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`;
+  const key = actorKeyOf(
+    `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`,
+  );
+
   keys.set(actor, key);
 
   return key;
@@ -37,7 +69,7 @@ export const sameActor = (a: ActorId, b: ActorId) => a.machine === b.machine && 
  * The id a write lane is kept under: its identity, operation and key text.
  */
 export const laneId = (actor: ActorId, operation: string, keyText: string) =>
-  `${actorKey(actor)}|${operation}|${keyText}`;
+  laneIdOf(`${actorKey(actor)}|${operation}|${keyText}`);
 
 /**
  * A storage ticket's id: the batch an acknowledgement or capture waits on.
@@ -91,7 +123,7 @@ export const OwnedBy = Data.taggedEnum<OwnedBy>();
 export type Ticket =
   | {
       readonly id: TicketId;
-      readonly attempt: string;
+      readonly attempt: AttemptId;
       readonly purpose: "acknowledge" | "capture";
     }
   | { readonly id: TicketId; readonly purpose: "flush" };
@@ -255,7 +287,7 @@ export const Phase = Data.taggedEnum<Phase>();
  * The lane's addressable Attempt, with the activation that owns it.
  */
 export type Head = {
-  readonly id: string;
+  readonly id: AttemptId;
   readonly input: Values;
   readonly retryCount: number;
   readonly owner: OwnedBy;
@@ -315,7 +347,7 @@ export type Lane = {
 export type Displaced = {
   readonly actor: ActorId;
   readonly operation: string;
-  readonly lane: string;
+  readonly lane: LaneId;
   readonly head: Head;
   readonly owed: boolean;
 };
@@ -407,7 +439,7 @@ export type ActorRecord = {
  */
 export type Mark = Data.TaggedEnum<{
   Actor: { actor: ActorId };
-  Lane: { actor: ActorId; lane: string };
+  Lane: { actor: ActorId; lane: LaneId };
   Owed: { actor: ActorId };
 }>;
 
@@ -428,7 +460,7 @@ export type Marks = ReadonlyMap<string, Mark>;
  */
 export type Quarantine = Data.TaggedEnum<{
   Unreadable: { code: ReadFailure; detail: Option.Option<string> };
-  Retired: { actor: ActorId; operation: string; lane: string };
+  Retired: { actor: ActorId; operation: string; lane: LaneId };
 }>;
 
 /**
@@ -465,7 +497,7 @@ export const quarantineText = (q: Quarantine) =>
 export type World = {
   readonly incarnations: ReadonlyMap<string, Incarnation>;
   readonly records: ReadonlyMap<string, ActorRecord>;
-  readonly lanes: ReadonlyMap<string, Lane>;
+  readonly lanes: ReadonlyMap<LaneId, Lane>;
   readonly owed: Ledger;
   readonly reads: ReadonlyMap<CallId, Read>;
   readonly displaced: ReadonlyMap<string, Displaced>;
@@ -480,8 +512,8 @@ export type World = {
   readonly quarantined: ReadonlyMap<string, Quarantine>;
   readonly ended: ReadonlyMap<string, Ended>;
   readonly life: Life;
-  readonly lanesOfActor: ReadonlyMap<string, ReadonlySet<string>>;
-  readonly laneOfWait: ReadonlyMap<string, string>;
+  readonly lanesOfActor: ReadonlyMap<string, ReadonlySet<LaneId>>;
+  readonly laneOfWait: ReadonlyMap<string, LaneId>;
   readonly consumersOf: ReadonlyMap<string, ReadonlySet<string>>;
   readonly silenceOf: ReadonlyMap<string, TimerId>;
   readonly chains: ReadonlyMap<ChainId, Chain>;
@@ -559,8 +591,8 @@ export const byStart = (a: Incarnation, b: Incarnation) => a.started - b.started
  * A world's indexes rebuilt from its facts by scanning: what the step operations keep up to date.
  */
 const indexesOf = (world: World) => {
-  const lanesOfActor = new Map<string, Set<string>>();
-  const laneOfWait = new Map<string, string>();
+  const lanesOfActor = new Map<string, Set<LaneId>>();
+  const laneOfWait = new Map<string, LaneId>();
   const consumersOf = new Map<string, Set<string>>();
   const silenceOf = new Map<string, TimerId>();
 
@@ -626,7 +658,7 @@ export type Command = Data.TaggedEnum<{
     operation: string;
     input: Values;
     attempt: {
-      readonly id: string;
+      readonly id: AttemptId;
       readonly key: Values;
       readonly retryCount: number;
       readonly mayHaveApplied: boolean;

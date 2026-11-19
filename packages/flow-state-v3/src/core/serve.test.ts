@@ -10,7 +10,7 @@ import { Input } from "./input.ts";
 import { Life } from "./life.ts";
 import { pendingOwners } from "./serve.ts";
 import { step } from "./step.ts";
-import { activation, chain } from "./test/ids.ts";
+import { activation, attempt, chain } from "./test/ids.ts";
 import { actorKey, emptyWorld, type Lane, Mail, OwnedBy, Phase } from "./world.ts";
 
 const actor = { machine: "Test/Shelf", name: "s" };
@@ -21,7 +21,7 @@ const ownedBy = (n: number) => OwnedBy.State({ activation: activation(n) });
 const lane = (phase: Phase, owner: number, queued: ReadonlyArray<number>): Lane => ({
   actor,
   operation: "save",
-  head: { id: "att-1", input: {}, retryCount: 0, owner: ownedBy(owner), phase },
+  head: { id: attempt("att-1"), input: {}, retryCount: 0, owner: ownedBy(owner), phase },
   queue: queued.map((q) => ({ input: {}, owner: ownedBy(q) })),
 });
 

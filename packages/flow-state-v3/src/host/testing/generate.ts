@@ -1007,9 +1007,9 @@ const MAX_SHRINKS = 1000;
  * fixtures it kept, and the shrunk run as steps and printed:
  * as a Story for one fixture, as steps under a comment line for several.
  */
-export type Failure = {
+export type Failure<R extends string = string> = {
   readonly seed: number;
-  readonly rule: string;
+  readonly rule: R | typeof LIMIT_RULE | typeof HORIZON_RULE;
   readonly breaches: ReadonlyArray<string>;
   readonly drawn: number;
   readonly shrinks: number;
@@ -1087,7 +1087,11 @@ const dropped = (at: Drawn, check: Check, rule: string, draws: ReadonlyArray<Dra
 };
 
 // RETURN_TYPE: the exported Failure contract, which the inconclusive and shrunk branches would split.
-const inconclusive = (seed: number, parts: ReadonlyArray<Samples>, message: string): Failure => ({
+const inconclusive = (
+  seed: number,
+  parts: ReadonlyArray<Samples>,
+  message: string,
+): Failure<never> => ({
   seed,
   rule: HORIZON_RULE,
   breaches: [`inconclusive: ${message}`],
@@ -1146,18 +1150,23 @@ const inconclusive = (seed: number, parts: ReadonlyArray<Samples>, message: stri
  * - Several fixtures must not share a machine, a server or a capture interval (a script fault).
  */
 // RETURN_TYPE: the exported Failure contract, which the shrunk run's branches would split.
-export const propertyTest = (
+export const propertyTest = <const R extends string>(
   fixtures: Fixtures,
   options: {
     readonly profile: Profile;
-    readonly properties: ReadonlyArray<Property>;
+    readonly properties: ReadonlyArray<Property<R>>;
     readonly seeds: ReadonlyArray<number>;
   },
-): ReadonlyArray<Failure> => {
+): ReadonlyArray<Failure<R>> => {
   const all = partsOf(fixtures);
 
+  // A broken rule as the properties name it, or one of Flow's own two.
+  const ruleOf = (rule: string) =>
+    options.properties.find((p) => p.rule === rule)?.rule ??
+    (rule === HORIZON_RULE ? HORIZON_RULE : LIMIT_RULE);
+
   // RETURN_TYPE: one Failure list for the passed and the shrunk branch, which inference would split.
-  const checked = (seed: number): ReadonlyArray<Failure> => {
+  const checked = (seed: number): ReadonlyArray<Failure<R>> => {
     const first: Drawn = { all, kept: all, drawing: options.profile, seed };
     const found = search(first, options, Option.none(), 0);
 
@@ -1199,7 +1208,7 @@ export const propertyTest = (
     return [
       {
         seed,
-        rule: target,
+        rule: ruleOf(target),
         breaches: last.verdicts.filter((v) => v.rule === target).flatMap((v) => v.breaches),
         drawn: found.result.initialInput.length,
         shrinks: shrunk.result.shrinks,

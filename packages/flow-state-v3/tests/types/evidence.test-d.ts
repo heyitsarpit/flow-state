@@ -1,6 +1,16 @@
 import { Effect, type Option, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
-import { Evidence, type RuntimeCut } from "../../src/host/inspect.ts";
+import {
+  type ActorKey,
+  type AttemptId,
+  type Channel,
+  Evidence,
+  type EvidenceOf,
+  type LaneFact,
+  type PhaseTag,
+  type ReportCode,
+  type RuntimeCut,
+} from "../../src/host/inspect.ts";
 import {
   evidenceOf,
   type Failure,
@@ -51,7 +61,7 @@ declare const cut: RuntimeCut;
 declare const diagnostic: Diagnostic;
 declare const error: FlowError;
 declare const tab: Tab;
-declare const failure: Failure;
+declare const failure: Failure<"no double charge">;
 
 describe("Stories R16, Turn R23: evidence a selector returns names its definition's states, events and operations", () => {
   it("a turn's states", () => {
@@ -94,30 +104,48 @@ describe("Stories R16, Turn R23: evidence a selector returns names its definitio
 
 describe("Diagnostics R7, WriteLanes R10: the runtime cut's rows use Flow's closed vocabularies", () => {
   it("an owed row's delivery and channel, a lane's phase and a timer's kind", () => {
-    expectTypeOf(cut.owed[0]?.delivery).toEqualTypeOf<string | undefined>();
-    expectTypeOf(cut.owed[0]?.channel).toEqualTypeOf<string | undefined>();
-    expectTypeOf(cut.lanes[0]?.phase).toEqualTypeOf<string | undefined>();
-    expectTypeOf(cut.timers[0]?.kind).toEqualTypeOf<string | undefined>();
+    expectTypeOf(cut.owed[0]?.delivery).toEqualTypeOf<
+      "Queued" | "Retrying" | "Waiting" | "Kept" | undefined
+    >();
+    expectTypeOf(cut.owed[0]?.channel).toEqualTypeOf<Channel | undefined>();
+    expectTypeOf(cut.lanes[0]?.phase).toEqualTypeOf<PhaseTag | undefined>();
+    expectTypeOf(cut.timers[0]?.kind).toEqualTypeOf<
+      "Schedule" | "Grace" | "Silent" | "Bound" | undefined
+    >();
+    expectTypeOf<Channel>().toEqualTypeOf<"success" | "failure" | "unknown" | "notSent">();
 
-    void (cut.owed[0]?.delivery === "Typo"); // wrong: no such delivery
-    void (cut.owed[0]?.channel === "faliure"); // wrong: no such channel
-    void (cut.lanes[0]?.phase === "OnWre"); // wrong: no such phase
-    void (cut.timers[0]?.kind === "Shedule"); // wrong: no such timer kind
+    // @ts-expect-error Diagnostics R7: Typo is no delivery
+    void (cut.owed[0]?.delivery === "Typo");
+    // @ts-expect-error Diagnostics R7: faliure is no channel
+    void (cut.owed[0]?.channel === "faliure");
+    // @ts-expect-error Diagnostics R7: OnWre is no phase
+    void (cut.lanes[0]?.phase === "OnWre");
+    // @ts-expect-error Diagnostics R7: Shedule is no timer kind
+    void (cut.timers[0]?.kind === "Shedule");
   });
 
+  // A brand is a subtype of `string`, so an `===` between two brands, or a brand and text, still
+  // compiles: the brands refuse at parameters (src/core/ids.test-d.ts), not at comparisons.
   it("a lane's attempt is an attempt id, and its actor an actor key", () => {
-    expectTypeOf(cut.lanes[0]?.actor).toEqualTypeOf<string | undefined>();
+    expectTypeOf(cut.lanes[0]?.actor).toEqualTypeOf<ActorKey | undefined>();
+    expectTypeOf(cut.lanes[0]?.attempt).toEqualTypeOf<AttemptId | undefined>();
+    expectTypeOf(cut.owed[0]?.attempt).toEqualTypeOf<Option.Option<AttemptId> | undefined>();
+  });
 
-    expectTypeOf(cut.lanes[0]?.attempt).toEqualTypeOf<string | undefined>();
-    expectTypeOf(cut.owed[0]?.attempt).toEqualTypeOf<Option.Option<string> | undefined>();
-
-    void (cut.lanes[0]?.attempt === cut.lanes[0]?.actor); // wrong: an actor's key is no attempt id
+  it("the vocabularies have public names", () => {
+    expectTypeOf<LaneFact>().not.toBeAny();
+    expectTypeOf<ReportCode>().not.toBeAny();
+    expectTypeOf<EvidenceOf<"Lane">["kind"]>().toEqualTypeOf<LaneFact>();
   });
 
   it("slow work names the input it ran", () => {
-    expectTypeOf<Parameters<typeof Evidence.SlowWork>[0]["input"]>().toEqualTypeOf<string>();
+    type SlowInput = Parameters<typeof Evidence.SlowWork>[0]["input"];
 
-    Evidence.SlowWork({ work: "turn", input: "Bootz", ms: 1, budgetMs: 1 }); // wrong: no such input
+    expectTypeOf<"Boot">().toExtend<SlowInput>();
+    expectTypeOf<SlowInput>().not.toEqualTypeOf<string>();
+
+    // @ts-expect-error Diagnostics R11: Bootz is no input
+    Evidence.SlowWork({ work: "turn", input: "Bootz", ms: 1, budgetMs: 1 });
   });
 
   it("a lane's state and the cut's lifecycle are unions today", () => {
@@ -140,15 +168,18 @@ describe("Diagnostics R2, R7: a diagnostic's details are the keys its code write
 
 describe("Stories R10, R13: the testing tooling's own names are closed", () => {
   it("a tab's name", () => {
-    expectTypeOf(tab.name).not.toEqualTypeOf<"main">();
+    expectTypeOf(tab.name).toEqualTypeOf<"main">();
 
-    void (tab.name === "mian"); // wrong: the only tab is main
+    // @ts-expect-error Stories R10: the only tab is main
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the wrong line the literal type refuses
+    void (tab.name === "mian");
   });
 
   it("a property test failure's rule", () => {
-    expectTypeOf(failure.rule).toEqualTypeOf<string>();
+    expectTypeOf(failure.rule).toEqualTypeOf<"no double charge" | "turn limit" | "inconclusive">();
 
-    void (failure.rule === "turn limt"); // wrong: Flow writes "turn limit"
+    // @ts-expect-error Stories R10: Flow writes "turn limit"
+    void (failure.rule === "turn limt");
   });
 });
 

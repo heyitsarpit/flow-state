@@ -3,7 +3,9 @@ import { operationOf } from "../core/compiled.ts";
 import { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { type Life, lifecycleOf } from "../core/life.ts";
-import { actorKey, Timer } from "../core/world.ts";
+import type { Delivery } from "../core/ledger.ts";
+import type { Channel } from "../core/vocabulary.ts";
+import { type ActorKey, actorKey, type AttemptId, type Phase, Timer } from "../core/world.ts";
 import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
 import { entry } from "../entry.ts";
@@ -34,7 +36,16 @@ export const attachInspector = entry(
 
 export { Evidence };
 
-export type { EvidenceOf } from "../core/evidence.ts";
+export type { EvidenceOf, LaneFact, ReportCode } from "../core/evidence.ts";
+
+export type { ActorKey, AttemptId } from "../core/world.ts";
+
+export type { Channel } from "../core/vocabulary.ts";
+
+/**
+ * A write lane head's phase, as the cut's `phase` names it.
+ */
+export type PhaseTag = Phase["_tag"];
 
 /**
  * One read of a Runtime's state, as plain data: every live actor's snapshot, each write lane,
@@ -49,28 +60,28 @@ export type { EvidenceOf } from "../core/evidence.ts";
  * `dueAt` is known for a schedule only. `lifecycle` is the Runtime's life: Inert, Booting, Open, Failed, Disposing or Disposed.
  */
 export type RuntimeCut = {
-  readonly actors: ReadonlyArray<{ readonly actor: string; readonly snapshot: Snapshot }>;
+  readonly actors: ReadonlyArray<{ readonly actor: ActorKey; readonly snapshot: Snapshot }>;
   readonly lanes: ReadonlyArray<{
-    readonly actor: string;
+    readonly actor: ActorKey;
     readonly operation: string;
     readonly contract: string;
     readonly state: "InFlight" | "Held";
     readonly key: Option.Option<string>;
-    readonly attempt: string;
-    readonly phase: string;
+    readonly attempt: AttemptId;
+    readonly phase: Phase["_tag"];
     readonly retryCount: number;
   }>;
   readonly owed: ReadonlyArray<{
-    readonly actor: string;
+    readonly actor: ActorKey;
     readonly operation: string;
-    readonly attempt: Option.Option<string>;
-    readonly channel: string;
+    readonly attempt: Option.Option<AttemptId>;
+    readonly channel: Channel;
     readonly reason: string;
-    readonly delivery: string;
+    readonly delivery: Delivery["_tag"];
   }>;
   readonly timers: ReadonlyArray<{
-    readonly kind: string;
-    readonly actor: Option.Option<string>;
+    readonly kind: Timer["_tag"];
+    readonly actor: Option.Option<ActorKey>;
     readonly dueAt: Option.Option<number>;
   }>;
   readonly uses: ReadonlyArray<{ readonly actor: string; readonly uses: ReadonlyArray<string> }>;
@@ -106,8 +117,8 @@ const cutOf = (driver: Driver): RuntimeCut => {
     Timer.$match(timer, {
       Schedule: ({ actor }) => Option.some(actorKey(actor)),
       Grace: ({ actor }) => Option.some(actorKey(actor)),
-      Silent: () => Option.none<string>(),
-      Bound: () => Option.none<string>(),
+      Silent: () => Option.none<ActorKey>(),
+      Bound: () => Option.none<ActorKey>(),
     });
 
   return {

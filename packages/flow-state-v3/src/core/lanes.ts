@@ -14,6 +14,7 @@ import {
   Command,
   type Incarnation,
   laneId,
+  type LaneId,
   type OwnedBy,
   Phase,
 } from "./world.ts";
@@ -48,7 +49,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   );
 
   // A head promoted outside a turn waits for no turn's end: it is acknowledged or sent at once.
-  const sendPromoted = (id: string) => {
+  const sendPromoted = (id: LaneId) => {
     const lane = tx.world().lanes.get(id);
 
     if (lane !== undefined && Phase.$is("Unsent")(lane.head.phase))
@@ -59,7 +60,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     incarnation: Incarnation,
     operation: Operation,
     key: Option.Option<Values>,
-    own: Option.Option<string>,
+    own: Option.Option<LaneId>,
   ) => {
     // An unkeyed operation has one lane, which a key-less member names wherever it runs.
     const named = Option.isSome(key) || operation.keyFields.length === 0;
@@ -79,7 +80,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     incarnation: Incarnation,
     operation: Operation,
     key: Option.Option<Values>,
-    own: Option.Option<string>,
+    own: Option.Option<LaneId>,
   ) =>
     Option.map(idFor(incarnation, operation, key, own), (id) => {
       const lane = tx.world().lanes.get(id);
@@ -112,10 +113,11 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     Option.match(at, {
       onNone: () =>
         report(
-          { id: "", actor, operation: operation.name, key: {} },
+          { actor, operation: operation.name, key: {} },
           LaneState.Idle(),
           cue,
           tx.commandCount(),
+          LaneState.Idle(),
         ),
       onSome: (a) => void apply(a, cue),
     });
@@ -218,7 +220,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     incarnation: Incarnation,
     operation: Operation,
     key: Option.Option<Values>,
-    own: Option.Option<string>,
+    own: Option.Option<LaneId>,
     owner: OwnedBy,
   ) => {
     const at = atFor(incarnation, operation, key, own);
@@ -232,7 +234,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     incarnation: Incarnation,
     operation: Operation,
     key: Option.Option<Values>,
-    own: Option.Option<string>,
+    own: Option.Option<LaneId>,
   ) =>
     Operation.$match(operation, {
       Read: () => {
@@ -350,7 +352,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   };
 
   const viewOf =
-    (incarnation: Incarnation, own: Option.Option<string>) =>
+    (incarnation: Incarnation, own: Option.Option<LaneId>) =>
     (operation: string, key: Option.Option<Values>) =>
       Option.match(
         Option.flatMap(operationOf(incarnation.actor, operation), (op) =>

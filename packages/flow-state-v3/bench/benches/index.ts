@@ -135,7 +135,7 @@ const largestApp = manifests.toSorted(
 
 // The one memory probe the quick tier runs: the heap kept per create and dispose cycle, on the
 // app with the most machines.
-const quickMemory = (m: Manifest, kind: string) =>
+const quickMemory = (m: Manifest, kind: (typeof MEASURES)[number]["kind"]) =>
   kind === "leak-per-cycle" && m.name === largestApp;
 
 const memoryBenches = (m: Manifest) =>

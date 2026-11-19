@@ -1,13 +1,9 @@
 import { Option } from "effect";
-import type { Bench, Concern } from "./declare.ts";
-
-// The tier a run measures in: `quick` (the headline benches but the stress ones, the periodic run),
-// `stress` (only the stress benches), `full` (every bench), or `dev` (any bench, one worker on a short budget, never recorded: for iterating).
-type TierName = "quick" | "stress" | "full" | "dev";
+import type { Bench, Concern, Tier } from "./declare.ts";
 
 // What a run selects benches by.
 type Selection = {
-  readonly tier: TierName;
+  readonly tier: Tier;
   readonly concerns: ReadonlyArray<Concern>;
   readonly only: Option.Option<string>;
   readonly maxN: Option.Option<number>;

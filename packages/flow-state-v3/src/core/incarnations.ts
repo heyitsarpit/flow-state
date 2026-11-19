@@ -13,8 +13,10 @@ import { isInFlight, type Tx } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
+  type ActorKey,
   type ActorRecord,
   type Armed,
+  type LaneId,
   Command,
   type Incarnation,
   IssueSource,
@@ -254,7 +256,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
   // A record the boot could not read is never restored: the identity starts fresh, reported, and
   // its first save overwrites the record.
-  const startsFresh = (key: string) => {
+  const startsFresh = (key: ActorKey) => {
     const quarantined = tx.world().quarantined.get(actorRecordKey(key));
 
     if (quarantined !== undefined)
@@ -500,7 +502,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   // A lane no actor holds is reported at each boot, until an adopting ensure or its owner's cancel
   // ends it.
   const reportUnbound = (
-    lanes: ReadonlyArray<{ readonly id: string; readonly actor: ActorId }>,
+    lanes: ReadonlyArray<{ readonly id: LaneId; readonly actor: ActorId }>,
   ) => {
     const unbound = lanes.filter(
       ({ id, actor }) =>
