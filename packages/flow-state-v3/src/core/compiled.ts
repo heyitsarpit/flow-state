@@ -62,7 +62,8 @@ export const Guard = Data.taggedEnum<Guard>();
 export type SelectInput = { readonly memory: Values; readonly event: Values };
 
 /**
- * One action of an alternative, in written order.
+ * One action of an alternative, in written order: a lane member, a lookup, or a send of a public
+ * event to another actor, whose ref and event are computed when the turn runs.
  */
 export type Action = Data.TaggedEnum<{
   Commit: { operation: string; select: Slot<(input: SelectInput) => Values> };
@@ -75,6 +76,8 @@ export type Action = Data.TaggedEnum<{
     key: Option.Option<Slot<(input: SelectInput) => Values>>;
   };
   Lookup: { operation: string; select: Slot<(input: SelectInput) => Values> };
+  // FLOW_STATE_ALLOW_UNKNOWN: a send's ref and event are the application's, checked when the turn resolves them.
+  Send: { to: Slot<(input: SelectInput) => unknown>; event: Slot<(input: SelectInput) => unknown> };
 }>;
 
 /**

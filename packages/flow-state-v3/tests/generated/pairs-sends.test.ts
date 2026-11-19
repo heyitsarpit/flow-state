@@ -19,13 +19,13 @@ const persistedWrites = {
 };
 
 describe("writes reached through a send, in the pair sweep", () => {
-  it.fails(
+  it(
     "Actors R16, combinations: shop-checkout-sends reaches every write phase of the checkout's Pay through the flow's sends",
     sweepChecks(checkoutSendSamples, persistedWrites, "usual"),
     LIMITS.pairSweep,
   );
 
-  it.fails(
+  it(
     "Actors R16, combinations: git-mirrors reaches every write phase of the client through the repository's commit",
     sweepChecks(mirrorSamples, localWrites, "usual"),
     LIMITS.pairSweep,

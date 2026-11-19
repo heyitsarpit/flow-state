@@ -8,6 +8,7 @@ import {
   type Member,
   type Part,
   type ReportCode,
+  type SendDrop,
 } from "./evidence.ts";
 import type { IssueCode } from "./vocabulary.ts";
 import { type ActorId, Command, type Phase } from "./world.ts";
@@ -34,7 +35,12 @@ export type Act = Data.TaggedEnum<{
     members: ReadonlyArray<Member>;
   };
   Unhandled: { actor: ActorId; event: string };
-  SendTargetAbsent: { actor: ActorId; event: string; reason: "NoRecord" };
+  SendTargetAbsent: {
+    actor: ActorId;
+    event: string;
+    reason: SendDrop;
+    sender: Option.Option<ActorId>;
+  };
   Denied: { actor: ActorId; event: string; reasons: ReadonlyArray<string> };
   Refused: {
     code: IssueCode;

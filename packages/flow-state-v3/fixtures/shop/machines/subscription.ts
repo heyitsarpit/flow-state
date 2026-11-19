@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { actorRef, definition, Flow, machine, send } from "../../../src/index.ts";
-import { PayMachine } from "../../services/shop/machines/pay.ts";
+import { Pay, PayMachine } from "../../services/shop/machines/pay.ts";
 
 /**
  * A weekly box subscription: the card it renews with and how many weeks it has renewed.
@@ -41,14 +41,16 @@ export const SubscriptionMachine = machine(Subscription, ({ S, E }) => ({
         Due: {
           updateMemory: ({ memory }) => ({ renewals: memory.renewals + 1 }),
           actions: [
-            send(toPay, ({ memory }) => ({
-              _tag: "CardChosen",
-              paymentMethodId: memory.paymentMethodId,
-            })),
-            send(toPay, ({ memory }) => ({
-              _tag: "PayRequested",
-              paymentMethodId: memory.paymentMethodId,
-            })),
+            send(
+              toPay,
+              Pay.E.CardChosen.from(({ memory }) => ({ paymentMethodId: memory.paymentMethodId })),
+            ),
+            send(
+              toPay,
+              Pay.E.PayRequested.from(({ memory }) => ({
+                paymentMethodId: memory.paymentMethodId,
+              })),
+            ),
           ],
         },
         Cancel: S.OFF,

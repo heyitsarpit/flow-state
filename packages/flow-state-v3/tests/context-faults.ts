@@ -119,7 +119,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "      if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor }));",
+        find: "      if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));",
         replace: "      if (!waiting) update(consumer.actor);",
       },
     ],
@@ -335,9 +335,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "    if (bound.stale.size > 0) enqueue(Mail.Context({ actor }));",
+        find: "    if (bound.stale.size > 0) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));",
         replace:
-          '    if (bound.stale.size > 0 && actor.name === "") enqueue(Mail.Context({ actor }));',
+          '    if (bound.stale.size > 0 && actor.name === "") enqueue(Mail.Context({ actor, chain: tx.chainNow() }));',
       },
     ],
   },
@@ -362,8 +362,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    tx.enqueueFirst(events.map((event) => Mail.Event({ actor, ...event })));",
-        replace: "    for (const event of events) tx.enqueue(Mail.Event({ actor, ...event }));",
+        find: "    tx.enqueueFirst(events.map((event) => Mail.Event({ actor, ...event, chain: tx.chainNow() })));",
+        replace:
+          "    for (const event of events) tx.enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow() }));",
       },
     ],
   },

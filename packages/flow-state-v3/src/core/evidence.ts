@@ -23,6 +23,12 @@ export type LaneFact =
 export type ReportCode = "UnencodableValue" | "RecordUndecodable" | "StorageFailure";
 
 /**
+ * Why a send reached no actor: its target has no record, its record does not decode, or it is a
+ * lazy entry not adopted.
+ */
+export type SendDrop = "NoRecord" | "RecordUndecodable" | "NotAdopted";
+
+/**
  * Why an ending was recorded and not delivered.
  */
 export type RecordedWhy = "evidence" | "letGo";
@@ -105,7 +111,7 @@ export type Evidence = Data.TaggedEnum<{
     why: RecordedWhy;
   };
   Unhandled: { actor: Who; event: string };
-  SendTargetAbsent: { actor: Who; event: string; reason: "NoRecord" };
+  SendTargetAbsent: { actor: Who; event: string; reason: SendDrop; sender: Option.Option<Who> };
   Denied: { actor: Who; event: string; reasons: ReadonlyArray<string> };
   Lane: {
     kind: LaneFact;

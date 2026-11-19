@@ -14,6 +14,7 @@ import {
   IssueSource,
   type Lane,
   Mail,
+  NO_CHAIN,
   withIssue,
   withoutIssue,
 } from "./world.ts";
@@ -94,6 +95,28 @@ export const makeServe = (
   const depthBelow = (incarnation: Incarnation, owner: number) =>
     incarnation.activations.filter((a) => a < owner).length;
 
+  // Counts a turn's sends toward the loop guard of the chain it follows, starting one at its first
+  // send; fails with the refusal's slot, naming the chain, when they would pass the guard.
+  const counted = (incarnation: Incarnation, tag: string, count: number) => {
+    const now = tx.chainNow();
+    const id = now === NO_CHAIN ? tx.next() : now;
+
+    const chain = tx.world().chains.get(id) ?? {
+      root: `${tag} to ${incarnation.actor.name}`,
+      sent: 0,
+    };
+
+    if (chain.sent + count > RuntimeDefaults.loopGuard)
+      return Result.fail(
+        `loop guard: ${String(RuntimeDefaults.loopGuard)} events sent from ${chain.root}`,
+      );
+
+    tx.put("chains", id, { ...chain, sent: chain.sent + count });
+    tx.follow(id);
+
+    return Result.succeed(id);
+  };
+
   const turn = (
     incarnation: Incarnation,
     tag: string,
@@ -155,6 +178,31 @@ export const makeServe = (
         return REFUSED;
       },
       Accepted: (accepted) => {
+        const sends = accepted.actions.filter(Resolved.$is("Send"));
+
+        const chain =
+          sends.length === 0 ? Option.none() : Option.some(counted(incarnation, tag, sends.length));
+
+        // The turn that would send past the loop guard is refused whole, naming its chain.
+        if (Option.isSome(chain) && Result.isFailure(chain.value)) {
+          publish(
+            raised(
+              incarnation,
+              tx.refuse(
+                incarnation.actor,
+                {
+                  source: route.source,
+                  code: "InvalidTurn",
+                  slot: Option.some(chain.value.failure),
+                },
+                route.ending,
+              ),
+            ),
+          );
+
+          return REFUSED;
+        }
+
         const base: Incarnation = Option.match(accepted.move, {
           onNone: () => ({ ...incarnation, memory: tx.env.admit(accepted.memory) }),
           onSome: (move) => {
@@ -197,6 +245,8 @@ export const makeServe = (
         const reports = tx.evidenceCount();
 
         for (const action of accepted.actions) {
+          if (Resolved.$is("Send")(action)) continue;
+
           const operation = compiled.operations.get(action.operation);
 
           if (operation === undefined) continue;
@@ -212,6 +262,7 @@ export const makeServe = (
 
               return Option.none<Member>();
             },
+            Send: () => Option.none<Member>(),
           });
 
           Option.match(member, { onNone: () => undefined, onSome: (m) => void members.push(m) });
@@ -232,6 +283,14 @@ export const makeServe = (
         publish(after);
         incarnations.context.wave(after.actor);
         flushLanes(after.actor);
+
+        // Each send is delivered after the turn has committed, in written order.
+        for (const sent of sends)
+          incarnations.deliver(
+            sent.actor,
+            { tag: sent.tag, payload: sent.payload },
+            Option.some(after.actor),
+          );
 
         return HEARD;
       },
@@ -292,8 +351,10 @@ export const makeServe = (
     });
   };
 
-  const serve = (mail: Mail) =>
-    Mail.$match(mail, {
+  const serve = (mail: Mail) => {
+    tx.follow(Mail.$is("Event")(mail) || Mail.$is("Context")(mail) ? mail.chain : NO_CHAIN);
+
+    return Mail.$match(mail, {
       Event: ({ actor, tag, payload }) => {
         const incarnation = incarnationOf(actor);
 
@@ -342,6 +403,7 @@ export const makeServe = (
           ledger.tryOne(actor, id, (row) => serveEnding(incarnation, row));
       },
     });
+  };
 
   // A context update whose providers have not settled waits at the front of its mailbox: it is
   // read once they have, so one wave gives one consistent update, and mail behind it stays behind

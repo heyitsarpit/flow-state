@@ -58,6 +58,20 @@ export const nameOfValue = (compiled: Compiled, value: unknown) => {
 };
 
 /**
+ * The name a ref's value names an actor of `compiled` by: a literal string not starting with `~`
+ * for a machine with no input, else its input fields' encoded name. Fails with the first refused
+ * input field, or with none for a bad literal or an input with no encoded form.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a ref's value is the caller's, checked here before it names an actor.
+export const refName = (compiled: Compiled, value: unknown) => {
+  if (inputFieldsOf(compiled).length > 0) return nameOfValue(compiled, value);
+
+  return Predicate.isString(value) && !value.startsWith(LOCAL_PREFIX)
+    ? Result.succeed(value)
+    : Result.fail(Option.none<string>());
+};
+
+/**
  * The input a saved record's name names: a value-named actor's input fields decoded from its name,
  * or nothing for a singleton. Fails `name` for a local
  * actor's name, since local actors never save, and for a name that does not decode by the

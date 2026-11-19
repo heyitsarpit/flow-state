@@ -274,7 +274,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         Mail.$is("Context"),
       );
 
-      if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor }));
+      if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));
     }
   };
 
@@ -423,7 +423,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
     // The reactions' events take the context update's place in the mailbox: they come before
     // the mail that was behind it.
-    tx.enqueueFirst(events.map((event) => Mail.Event({ actor, ...event })));
+    tx.enqueueFirst(events.map((event) => Mail.Event({ actor, ...event, chain: tx.chainNow() })));
   };
 
   /**

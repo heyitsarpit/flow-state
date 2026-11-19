@@ -292,11 +292,12 @@ export type Read = {
 
 /**
  * One item of an actor's mailbox; an ending is a reference to its owed row, never the ending. A
- * context update asks the actor to read its providers again: at most one waits per actor.
+ * context update asks the actor to read its providers again: at most one waits per actor. An event
+ * or context update carries the loop guard's chain it follows.
  */
 export type Mail = Data.TaggedEnum<{
-  Event: { actor: ActorId; tag: string; payload: Values };
-  Context: { actor: ActorId };
+  Event: { actor: ActorId; tag: string; payload: Values; chain: number };
+  Context: { actor: ActorId; chain: number };
   Ending: { actor: ActorId; id: OwedId };
   Firing: {
     actor: ActorId;
@@ -419,7 +420,19 @@ export type World = {
   readonly laneOfWait: ReadonlyMap<string, string>;
   readonly consumersOf: ReadonlyMap<string, ReadonlySet<string>>;
   readonly silenceOf: ReadonlyMap<string, TimerId>;
+  readonly chains: ReadonlyMap<number, Chain>;
 };
+
+/**
+ * The sends counted toward the loop guard for one admitted event, and the turn that sent first,
+ * as the refusal names it. An event or context update carries its chain's number, 0 for none.
+ */
+export type Chain = { readonly root: string; readonly sent: number };
+
+/**
+ * The chain number of mail no turn's send started.
+ */
+export const NO_CHAIN = 0;
 
 /**
  * A world with nothing in it.
@@ -447,6 +460,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   laneOfWait: new Map(),
   consumersOf: new Map(),
   silenceOf: new Map(),
+  chains: new Map(),
 });
 
 /**

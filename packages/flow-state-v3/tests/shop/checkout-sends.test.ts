@@ -8,7 +8,7 @@ import { storeStory } from "../../fixtures/shop/stories/usual.ts";
 const { is } = readerOf(storeStory("ids"));
 
 describe("the checkout flow pays through the checkout's Pay (Actors R16; Runtime O4's send table)", () => {
-  it.fails("Actors R16 live, several sends keep their order: paying from the flow tells Pay the card, then to pay, and the paid Pay ends the flow", async () => {
+  it("Actors R16 live, several sends keep their order: paying from the flow tells Pay the card, then to pay, and the paid Pay ends the flow", async () => {
     const run = await played(checkoutSends);
     const paid = run.checkpoints.paid;
 

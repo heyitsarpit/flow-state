@@ -231,7 +231,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     ledger.start(actor);
 
     // The owed wave waits in its mailbox after the owed rows, ahead of the event that returned it.
-    if (bound.stale.size > 0) enqueue(Mail.Context({ actor }));
+    if (bound.stale.size > 0) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));
   };
 
   const fireWaiting = (actor: ActorId) => {
@@ -363,6 +363,38 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     ledger.suspend(actor, forgetting);
   };
 
+  /**
+   * Delivers a public event as a later turn of the target, by the send table: a live actor gets it,
+   * an ended one is restored from the Runtime's copy of its record first, and a send never creates
+   * an actor. With no actor to deliver to, the drop is told to the sender as evidence: a record the
+   * boot could not read, or none.
+   */
+  const deliver = (
+    actor: ActorId,
+    event: { readonly tag: string; readonly payload: Values },
+    sender: Option.Option<ActorId>,
+  ) => {
+    const key = actorKey(actor);
+
+    if (incarnationOf(actor) === undefined && tx.world().records.has(key))
+      ensure(actor, Option.none(), "wake", Option.none());
+
+    if (incarnationOf(actor) !== undefined) {
+      enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow() }));
+
+      return;
+    }
+
+    tx.act(
+      Act.SendTargetAbsent({
+        actor,
+        event: event.tag,
+        reason: tx.world().quarantined.has(actorRecordKey(key)) ? "RecordUndecodable" : "NoRecord",
+        sender,
+      }),
+    );
+  };
+
   // ── after every step: free incarnations start their grace; used ones stop it. Only an
   // identity the step changed can change its verdict.
   const graces = () => {
@@ -446,6 +478,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     start,
     fireWaiting,
     ensure,
+    deliver,
     create: createLocal,
     context,
     release,

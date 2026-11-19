@@ -1282,7 +1282,7 @@ tasks
 
     T96
         title       Actor-to-actor send(ref, event) action with the loop guard
-        status      in_progress
+        status      review
         priority    high
 
 
@@ -1553,6 +1553,28 @@ tasks
                NoPersistence). Stories `shop/renewal-*`; tests `tests/shop/renewals.test.ts`. A week is past the
                generated runs' think times, so renewals are not in the samples.
             6. Acceptance 2 amended to shop, sync, player; the catalog's transfers reason now cites Actors R5.
+        comment     2026-11-19T02:50:31Z
+            Build: `send(toRef, event)` and the loop guard pass every check; status review. Suite 1236 passed, 24
+            expected fail; stress 77 passed; generated Stories over 20 fresh seeds each tier pass; `nub run check`
+            exit 0.
+
+            - Delivery: one `deliver` for a handle's and a machine's send
+              (code:packages/flow-state-v3/src/core/incarnations.ts), after the sender's turn commits, in order;
+              RecordUndecodable from the boot's quarantine; drops name their `sender`.
+            - Checks: the turn resolves the ref's name and the event by the target's Schemas; a bad one refuses
+              it InvalidTurn.
+            - Guard: mail carries its chain; context updates and their onContext events follow it, so their turns'
+              sends count.
+            - Forms: `Target.E.X.from(f)`, `Target.E.X(payload)`, a callback; `.from` now types its tag and input, so an
+              internal or foreign token fails to compile (code:packages/flow-state-v3/tests/types/send.compile.ts). The
+              Mirror's Import keeps the callback form on purpose.
+            - Faults, each caught by `nub run faults --only`: send-creates-target, absent-send-silent, send-is-a-use,
+              send-undecodable-as-no-record, send-event-unchecked, send-ref-unchecked, loop-guard-off,
+              loop-guard-counts-turns, loop-guard-context-restarts; three context faults re-pointed. send-adopts-lazy is
+              not plantable: no lazy entries until @task.V3.T48 (send-is-a-use stands in).
+            - Spec: Actors R13, R16, R20, I20 edited, specs.log note.
+            - Open: `toRef` is a callback only, since refs mostly come from memory; a constant ref is a small
+              additive form.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft

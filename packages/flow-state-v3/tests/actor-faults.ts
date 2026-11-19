@@ -182,28 +182,125 @@ export const actorFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "absent-send-silent",
-    tests: ["tests/actors/send.test.ts"],
+    tests: ["tests/actors/send.test.ts", "tests/shop/renewals.test.ts"],
     says: "a send to an identity with no actor and no record is dropped with nothing told",
     rule: "Actors R16",
     edits: [
       {
-        file: "src/core/step.ts",
-        find: '        tx.act(Act.SendTargetAbsent({ actor, event: tag, reason: "NoRecord" }));',
-        replace: "        tx.evidenceCount();",
+        file: "src/core/incarnations.ts",
+        find: "    tx.act(\n      Act.SendTargetAbsent({",
+        replace: "    [].push(\n      Act.SendTargetAbsent({",
       },
     ],
   },
   {
-    name: "send-creates-actor",
-    tests: ["tests/actors/send.test.ts"],
-    says: "a send to an identity with no actor and no record creates one",
+    name: "send-creates-target",
+    tests: [
+      "tests/actors/send.test.ts",
+      "tests/shop/renewals.test.ts",
+      "tests/player/household.test.ts",
+    ],
+    says: "a send, a handle's or a machine's, to an identity with no actor and no record creates one",
     rule: "Actors I25",
     edits: [
       {
-        file: "src/core/step.ts",
-        find: '      if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))\n        incarnations.ensure(actor, Option.none(), "wake", Option.none());',
+        file: "src/core/incarnations.ts",
+        find: '    if (incarnationOf(actor) === undefined && tx.world().records.has(key))\n      ensure(actor, Option.none(), "wake", Option.none());',
         replace:
-          '      if (incarnationOf(actor) === undefined) incarnations.ensure(actor, Option.none(), "create", Option.none());',
+          '    if (incarnationOf(actor) === undefined) ensure(actor, Option.none(), "create", Option.none());',
+      },
+    ],
+  },
+  {
+    name: "send-is-a-use",
+    tests: ["tests/player/household.test.ts"],
+    says: "a send delivered to a live actor counts as a use of it, so an actor in its grace stays",
+    rule: "Actors R16, I25",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "      enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow() }));",
+        replace:
+          '      tx.putUses(actor, [...(tx.world().uses.get(key) ?? []), "host"]);\n      enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow() }));',
+      },
+    ],
+  },
+  {
+    name: "send-undecodable-as-no-record",
+    tests: ["tests/shop/renewals.test.ts"],
+    says: "a send to an identity whose record the boot could not read is dropped NoRecord",
+    rule: "Actors R16",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: 'reason: tx.world().quarantined.has(actorRecordKey(key)) ? "RecordUndecodable" : "NoRecord",',
+        replace: 'reason: "NoRecord",',
+      },
+    ],
+  },
+  {
+    name: "send-event-unchecked",
+    tests: ["tests/sync/sends.test.ts"],
+    says: "a machine's send delivers an event its target's Schema refuses",
+    rule: "Actors R16",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "  return Option.match(admitted(entry.walk, entry.names, envelope), {",
+        replace: "  return Option.match(Option.some(envelope as Values), {",
+      },
+    ],
+  },
+  {
+    name: "send-ref-unchecked",
+    tests: ["tests/player/household.test.ts"],
+    says: "a machine's send to a ref with no encoded name is dropped instead of refusing the sender's turn",
+    rule: "Actors R16",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "  if (Result.isFailure(name)) return Result.fail({ slot: slots.to });",
+        replace:
+          '  if (Result.isFailure(name))\n    return Result.succeed(Resolved.Send({ actor: { machine: compiled.id, name: "" }, tag: "", payload: {} }));',
+      },
+    ],
+  },
+  {
+    name: "loop-guard-off",
+    tests: ["tests/sync/sends.test.ts"],
+    says: "a chain of sends is never refused, however many events one admitted event's turns send",
+    rule: "Actors R13, I20",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "    if (chain.sent + count > RuntimeDefaults.loopGuard)",
+        replace: "    if (chain.sent + count > Number.POSITIVE_INFINITY)",
+      },
+    ],
+  },
+  {
+    name: "loop-guard-counts-turns",
+    tests: ["tests/player/household.test.ts"],
+    says: "the loop guard counts the turns that send, not the events they send, so a fan-out passes it",
+    rule: "Actors R13, I20",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: '    tx.put("chains", id, { ...chain, sent: chain.sent + count });',
+        replace: '    tx.put("chains", id, { ...chain, sent: chain.sent + 1 });',
+      },
+    ],
+  },
+  {
+    name: "loop-guard-context-restarts",
+    tests: ["tests/sync/sends.test.ts"],
+    says: "a context update starts a new chain, so sends made by onContext turns escape the loop guard",
+    rule: "Actors R13, I20",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));",
+        replace: "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: 0 }));",
       },
     ],
   },

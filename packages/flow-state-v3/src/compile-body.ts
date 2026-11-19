@@ -1,6 +1,7 @@
 import { TIMER_LIMIT_MS } from "./core/defaults.ts";
 import { Duration, Option, Predicate } from "effect";
 import {
+  Action,
   type Alternative,
   Delay,
   type Denial,
@@ -9,6 +10,7 @@ import {
   type Level,
   type Node,
   type Schedule,
+  type SelectInput,
   Target,
   type UpdateInput,
   type Values,
@@ -21,6 +23,7 @@ import type {
   ScheduleConfig,
   StateToken,
 } from "./definition.ts";
+import type { SendToken } from "./send.ts";
 import { is } from "./config.ts";
 import { invalid } from "./error.ts";
 import { checkName, type TreeNode } from "./construction.ts";
@@ -114,6 +117,74 @@ const targetOf = (
   return Option.none();
 };
 
+// FLOW_STATE_ALLOW_UNKNOWN: an authored value that may be a callback.
+// RETURN_TYPE: a type guard states the callback type it narrows to.
+const isCallback = (x: unknown): x is (input: never) => unknown => Predicate.isFunction(x);
+
+// A send's event as one callback returning the envelope.
+// FLOW_STATE_ALLOW_UNKNOWN: the event a send's callback returns is checked when the turn resolves it.
+type SendCallback = (input: SelectInput) => unknown;
+
+// A send's event in one form: a token's mapping adds its tag to the payload it computes, a constant
+// is returned as written, and a callback runs as it is.
+// RETURN_TYPE: every form compiles to the one callback the Send action holds.
+const sendEventOf = (
+  // FLOW_STATE_ALLOW_UNKNOWN: a send's event in any of its three forms, told apart here.
+  event: unknown,
+): Option.Option<SendCallback> => {
+  if (isCallback(event)) return Option.some(erase<SelectInput, ReturnType<SendCallback>>(event));
+
+  if (
+    Predicate.hasProperty(event, "ending") &&
+    Predicate.hasProperty(event.ending, "event") &&
+    Predicate.isString(event.ending.event) &&
+    Predicate.hasProperty(event.ending, "from") &&
+    Option.isOption(event.ending.from)
+  ) {
+    const tag = event.ending.event;
+
+    return Option.map(
+      Option.filter(event.ending.from, isCallback),
+      (map) => (input: SelectInput) => {
+        const payload = erase<SelectInput, ReturnType<SendCallback>>(map)(input);
+
+        // A mapper that returns no record sends no event: the target's check refuses it.
+        return Predicate.isReadonlyObject(payload) ? { ...payload, _tag: tag } : payload;
+      },
+    );
+  }
+
+  return Predicate.hasProperty(event, "_tag") && Predicate.isString(event._tag)
+    ? Option.some(() => event)
+    : Option.none();
+};
+
+const sendOf = (compile: Compile, token: SendToken<Values, Values>, at: Path) =>
+  Option.match(sendEventOf(token.event), {
+    onNone: () => {
+      compile.findings.push(
+        invalid(
+          [...at, "event"],
+          "WrongKind",
+          "a send's event is not an event of its target",
+          "Send the target's token, Target.E.X.from(f) or Target.E.X(payload), or a callback returning the event.",
+        ),
+      );
+
+      return Option.none<Action>();
+    },
+    onSome: (event) =>
+      Option.some(
+        Action.Send({
+          to: {
+            slot: slotOf([...at, "to"]),
+            run: erase<SelectInput, ReturnType<SendCallback>>(token.to),
+          },
+          event: { slot: slotOf([...at, "event"]), run: event },
+        }),
+      ),
+  });
+
 // RETURN_TYPE: the Compiled shape this part builds.
 const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alternative => {
   const config: AlternativeConfig<Values, Values, string> =
@@ -128,7 +199,7 @@ const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alterna
   const actions = (config.actions ?? []).flatMap((a, i) => {
     const place = [...at, "actions", i];
 
-    if (a["~flow"] === "send") return [];
+    if (a["~flow"] === "send") return Option.toArray(sendOf(compile, a, place));
 
     if (a["~owner"] !== compile.definition["~owner"]) {
       compile.findings.push(foreign(place, "an action"));

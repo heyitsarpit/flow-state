@@ -8,7 +8,7 @@ import { Input } from "./input.ts";
 import { Life } from "./life.ts";
 import { pendingOwners } from "./serve.ts";
 import { step } from "./step.ts";
-import { actorKey, emptyWorld, type Lane, Mail, Phase } from "./world.ts";
+import { actorKey, emptyWorld, type Lane, Mail, NO_CHAIN, Phase } from "./world.ts";
 
 const actor = { machine: "Test/Shelf", name: "s" };
 
@@ -90,9 +90,15 @@ describe("a context update that waits for its providers (Actors R19)", () => {
       mail: new Map([
         [
           actorKey(line),
-          [Mail.Context({ actor: line }), Mail.Event({ actor: line, tag: "Noted", payload: {} })],
+          [
+            Mail.Context({ actor: line, chain: NO_CHAIN }),
+            Mail.Event({ actor: line, tag: "Noted", payload: {}, chain: NO_CHAIN }),
+          ],
         ],
-        [actorKey(lead), [Mail.Event({ actor: lead, tag: "Rename", payload: { name: "Core" } })]],
+        [
+          actorKey(lead),
+          [Mail.Event({ actor: lead, tag: "Rename", payload: { name: "Core" }, chain: NO_CHAIN })],
+        ],
       ]),
     };
 

@@ -77,6 +77,7 @@ const exactRecords = [
     | "laneOfWait"
     | "consumersOf"
     | "silenceOf"
+    | "chains"
   >,
 ];
 

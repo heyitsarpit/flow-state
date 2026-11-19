@@ -68,8 +68,10 @@ const GuardToken = operationToken("guard");
 
 const ActionToken = operationToken("action");
 
+// A send's event is told apart by its three forms when the body compiles.
 const SendToken = decodedWhole(
-  Schema.Struct({ "~flow": Schema.Literal("send"), to: Fn, event: Fn }),
+  // FLOW_STATE_ALLOW_UNKNOWN: a send's event in any of its forms, checked by the compiler.
+  Schema.Struct({ "~flow": Schema.Literal("send"), to: Fn, event: Schema.Unknown }),
 );
 
 const EntryToken = decodedWhole(Schema.Struct({ "~flow": Schema.Literal("entry") }));

@@ -1,4 +1,7 @@
 import { Data, Option, Predicate, Result } from "effect";
+import { admitted } from "./boundary.ts";
+import { refName } from "./identity.ts";
+import type { ActorId } from "./world.ts";
 import {
   Action,
   type Alternative,
@@ -29,13 +32,15 @@ export type LaneView = Data.TaggedEnum<{
 export const LaneView = Data.taggedEnum<LaneView>();
 
 /**
- * One action with its selects run on the after memory: what the step applies to lanes and reads.
+ * One action with its selects run on the after memory: what the step applies to lanes and reads,
+ * or a send with its target named and its event checked by the target's Schemas.
  */
 export type Resolved = Data.TaggedEnum<{
   Commit: { operation: string; input: Values };
   Retry: { operation: string; key: Option.Option<Values> };
   Cancel: { operation: string; key: Option.Option<Values> };
   Lookup: { operation: string; input: Values };
+  Send: { actor: ActorId; tag: string; payload: Values };
 }>;
 
 /**
@@ -236,8 +241,69 @@ const firstDecline = (
   return PASSED;
 };
 
+// A ref as a send's callback returns it: its machine's Compiled and the value that names the actor.
+type SentRef = {
+  readonly machine: { readonly compiled: Compiled };
+  // FLOW_STATE_ALLOW_UNKNOWN: a ref's value is the caller's, named by refName.
+  readonly value: unknown;
+};
+
+// RETURN_TYPE: a type guard states the ref shape it narrows to.
+const isRef = (
+  // FLOW_STATE_ALLOW_UNKNOWN: a send's ref, as its callback returned it.
+  ref: unknown,
+): ref is SentRef =>
+  Predicate.hasProperty(ref, "machine") &&
+  Predicate.hasProperty(ref.machine, "compiled") &&
+  Predicate.hasProperty(ref.machine.compiled, "events") &&
+  ref.machine.compiled.events instanceof Map &&
+  Predicate.hasProperty(ref, "value");
+
+// The actor a send's ref names and the public event it sends, checked by the target's own Schemas
+// as a handle's send checks it; a ref with no name or an event the target refuses fails its slot.
+const sendOf = (
+  // FLOW_STATE_ALLOW_UNKNOWN: the ref and event a send's callbacks returned.
+  ref: unknown,
+  // FLOW_STATE_ALLOW_UNKNOWN: the ref and event a send's callbacks returned.
+  envelope: unknown,
+  slots: { readonly to: string; readonly event: string },
+) => {
+  if (!isRef(ref)) return Result.fail<Failed>({ slot: slots.to });
+
+  const compiled = ref.machine.compiled;
+  const name = refName(compiled, ref.value);
+
+  if (Result.isFailure(name)) return Result.fail({ slot: slots.to });
+
+  const tag = Predicate.hasProperty(envelope, "_tag") ? envelope._tag : undefined;
+  const entry = Predicate.isString(tag) ? compiled.events.get(tag) : undefined;
+
+  if (entry === undefined || !entry.public || !Predicate.isString(tag))
+    return Result.fail({ slot: slots.event });
+
+  return Option.match(admitted(entry.walk, entry.names, envelope), {
+    onNone: () => Result.fail({ slot: slots.event }),
+    onSome: (payload) =>
+      Result.succeed(
+        Resolved.Send({ actor: { machine: compiled.id, name: name.success }, tag, payload }),
+      ),
+  });
+};
+
 const resolve = (action: Action, read: { readonly memory: Values; readonly event: Values }) =>
   Action.$match(action, {
+    Send: ({ to, event }) =>
+      Result.flatMap(
+        call(to.slot, () => to.run(read)),
+        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved send per action: the turn's result
+        (ref) =>
+          Result.flatMap(
+            // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved send per action: the turn's result
+            call(event.slot, () => event.run(read)),
+            // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved send per action: the turn's result
+            (envelope) => sendOf(ref, envelope, { to: to.slot, event: event.slot }),
+          ),
+      ),
     Commit: ({ operation, select }) =>
       Result.map(
         recordFrom(select, read),

@@ -68,11 +68,10 @@ export const MirrorMachine: Machine<typeof Mirror> = machine(Mirror, ({ S }) => 
             guard: [({ memory, event }) => event.hops < memory.maxHops || deny("Arrived")],
             updateMemory: taken,
             actions: [
-              send(upstreamOf, ({ event }) => ({
-                _tag: "Push",
-                sha: event.sha,
-                hops: event.hops + 1,
-              })),
+              send(
+                upstreamOf,
+                Mirror.E.Push.from(({ event }) => ({ sha: event.sha, hops: event.hops + 1 })),
+              ),
             ],
           },
           { updateMemory: taken },
@@ -163,7 +162,12 @@ export const ReplicaMachine = machine(Replica, ({ S, E }) => ({
           {
             guard: [({ memory }) => memory.pushed < memory.maxPushes || deny("LimitReached")],
             updateMemory: ({ memory }) => ({ pushed: memory.pushed + 1 }),
-            actions: [send(upstreamOf, ({ event }) => ({ _tag: "Push", sha: event.sha, hops: 0 }))],
+            actions: [
+              send(
+                upstreamOf,
+                Mirror.E.Push.from(({ event }) => ({ sha: event.sha, hops: 0 })),
+              ),
+            ],
           },
           {},
         ],

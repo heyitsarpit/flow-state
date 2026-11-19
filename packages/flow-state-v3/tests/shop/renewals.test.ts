@@ -26,7 +26,7 @@ const dropped = (reason: string) => [
 ];
 
 describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4's send table)", () => {
-  it.fails("Actors R16 live, kept by work in flight, R7: a closed Pay with a confirm on the wire gets both sends in the same incarnation", async () => {
+  it("Actors R16 live, kept by work in flight, R7: a closed Pay with a confirm on the wire gets both sends in the same incarnation", async () => {
     const run = await played(renewalBusyPay);
 
     expect(incarnationsOf(run, is(renewalPay))).toBe(1);
@@ -34,7 +34,7 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(run.checkpoints.landed.read(renewalPay)?.memory["paymentMethodId"]).toBe("visa");
   });
 
-  it.fails("Actors R16 ended with a record that decodes, R7, R8: the Pay is restored with its started intent, stays while its confirm is on the wire, and ends after the grace", async () => {
+  it("Actors R16 ended with a record that decodes, R7, R8: the Pay is restored with its started intent, stays while its confirm is on the wire, and ends after the grace", async () => {
     const run = await played(renewalEndedPay);
     const renewed = run.checkpoints.renewed.read(renewalPay);
 
@@ -47,7 +47,7 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(endsOf(run, is(renewalPay))).toBe(2);
   });
 
-  it.fails("Actors R16 restored and delivered last, I14: the restored Pay hears its held charge's unknown Restored before the sends", async () => {
+  it("Actors R16 restored and delivered last, I14: the restored Pay hears its held charge's unknown Restored before the sends", async () => {
     const run = await played(renewalUnsurePay);
     const turns = turnsOf(run, is(renewalPay));
 
@@ -55,7 +55,7 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(turns.indexOf("CardChosen")).toBeGreaterThan(turns.lastIndexOf("PayUnsure"));
   });
 
-  it.fails("Actors R16 no record (never created), I25: both sends are dropped NoRecord on the subscription, in order, and no Pay is created", async () => {
+  it("Actors R16 no record (never created), I25: both sends are dropped NoRecord on the subscription, in order, and no Pay is created", async () => {
     const run = await played(renewalUnopenedPay);
 
     expect(droppedSends(run)).toEqual(dropped("NoRecord"));
@@ -63,21 +63,21 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(turnsOf(run, is(subscription))).toEqual(["Subscribe", "Due"]);
   });
 
-  it.fails("Actors R16 no record (forgotten), R21: both sends to a forgotten Pay are dropped NoRecord and never bring it back", async () => {
+  it("Actors R16 no record (forgotten), R21: both sends to a forgotten Pay are dropped NoRecord and never bring it back", async () => {
     const run = await played(renewalForgottenPay);
 
     expect(droppedSends(run)).toEqual(dropped("NoRecord"));
     expect(incarnationsOf(run, is(renewalPay))).toBe(1);
   });
 
-  it.fails("Actors R16 a record that does not decode: both sends are dropped RecordUndecodable and create no Pay", async () => {
+  it("Actors R16 a record that does not decode: both sends are dropped RecordUndecodable and create no Pay", async () => {
     const run = await played(renewalDamagedPay);
 
     expect(droppedSends(run)).toEqual(dropped("RecordUndecodable"));
     expect(incarnationsOf(run, is(renewalPay))).toBe(0);
   });
 
-  it.fails("Actors R16 ending and persisted: sends to a Pay that ended with its last write unacknowledged reach its next incarnation, which holds that unwritten change", async () => {
+  it("Actors R16 ending and persisted: sends to a Pay that ended with its last write unacknowledged reach its next incarnation, which holds that unwritten change", async () => {
     const run = await played(renewalEndingPay);
     const renewed = run.checkpoints.renewed.read(renewalPay);
 
@@ -88,7 +88,7 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(renewed?.memory["paymentMethodId"]).toBe("visa");
   });
 
-  it.fails("Actors R16 being disposed: sends to a Pay whose removal the store has not acknowledged are dropped NoRecord and never restore it", async () => {
+  it("Actors R16 being disposed: sends to a Pay whose removal the store has not acknowledged are dropped NoRecord and never restore it", async () => {
     const run = await played(renewalDisposingPay);
 
     expect(droppedSends(run)).toEqual(dropped("NoRecord"));

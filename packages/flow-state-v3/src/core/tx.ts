@@ -14,6 +14,7 @@ import {
   type Issue,
   type Lane,
   Mail,
+  NO_CHAIN,
   type Out,
   Phase,
   startOrder,
@@ -333,6 +334,9 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   // follow-ups.
   let fresh: Array<Mail> = [];
 
+  // The loop guard's chain of the item being served: the mail its turn enqueues follows it.
+  let chain = NO_CHAIN;
+
   const box = (key: string) => {
     const mail = draft("mail");
     const own = mail.get(key);
@@ -477,6 +481,10 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     fire,
     enqueue,
     enqueueFirst,
+    chainNow: () => chain,
+    follow: (next: number) => {
+      chain = next;
+    },
     takeOldest,
     unreference,
     clearMail,

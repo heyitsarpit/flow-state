@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { Step, type Cut, type Story, type StoryRun } from "../../src/host/testing/index.ts";
 import type { ActorRef } from "../../src/index.ts";
 
@@ -43,21 +44,21 @@ export const endsOf = (run: StoryRun, is: (actor: Who) => boolean) =>
 
 /**
  * Every send the run dropped, in order: its target, event and reason, and the sender it was
- * reported on, read by field name so a field the record lacks reads as undefined.
+ * reported on, undefined for a host's send.
  */
 export const droppedSends = (run: StoryRun) =>
-  run.evidence.flatMap((e) => {
-    if (e._tag !== "SendTargetAbsent") return [];
-
-    return [
-      {
-        actor: e.actor,
-        event: e.event,
-        reason: e.reason,
-        sender: "sender" in e ? e.sender : undefined,
-      },
-    ];
-  });
+  run.evidence.flatMap((e) =>
+    e._tag === "SendTargetAbsent"
+      ? [
+          {
+            actor: e.actor,
+            event: e.event,
+            reason: e.reason,
+            sender: Option.getOrUndefined(e.sender),
+          },
+        ]
+      : [],
+  );
 
 /**
  * The open issues of an actor at a cut that refused one of its turns.

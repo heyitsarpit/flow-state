@@ -170,11 +170,11 @@ requirements
     R13  Order across actors
         source  @plan.Runtime.O4.
         must    Follow-ups (the events and context updates a served event's turns enqueue) run first,
-                oldest first within each actor. The loop guard, proposed and built with an
-                actor-to-actor send action: up to `RuntimeDefaults.loopGuard` events sent by turns
-                count per admitted event; an event's turn that would send one more is refused and
-                undone, with an issue naming the chain (check's denial code for it is InvalidTurn);
-                no turn sends an event until then. Context updates and the onContext events they
+                oldest first within each actor. The loop guard: up to `RuntimeDefaults.loopGuard`
+                events sent by turns count per admitted event, across every follow-up it starts,
+                including the turns of the `onContext` events its context updates enqueue; a turn
+                that would send one more is refused InvalidTurn and undone, its issue naming the
+                guard and the turn that sent first. Context updates and the onContext events they
                 enqueue never count and are never refused by it, since ContextCycle bounds a context
                 chain; endings and firings are not counted either. Otherwise one event runs from the
                 next actor in rotation, oldest first. The guard counts the events one admitted
@@ -232,12 +232,14 @@ requirements
                 - an undecodable record drops with RecordUndecodable;
                 - no record drops with NoRecord;
                 - a lazy entry not adopted drops with NotAdopted;
-                - a persisted actor during boot queues (@task.V3.T9, proposed; until then
+                - a persisted actor during boot queues (@task.V3.T99, proposed; until then
                 RuntimeNotReady, by `admit`);
-                - an actor being disposed drops with NoRecord.
+                - an actor being disposed drops with NoRecord, never restored.
 
-                Reasons go to the sender and never roll back its turn. Several sends keep their
-                order.
+                A drop is SendTargetAbsent evidence naming its sender (none for a handle's send) and
+                never rolls back the sender's turn. A machine's send checks its ref's name and its
+                event by the target's own Schemas, as a handle's send does; a bad one refuses the
+                sender's turn InvalidTurn. Several sends keep their order.
 
     R17  Complete cuts
         source  @plan.Runtime.O4.
@@ -287,8 +289,8 @@ requirements
         source  @plan.Runtime.O6.
         must    disposeActor removes the actor's record for every user, keeps its non-Idle lanes as
                 unbound lane records listed and reported at each boot until an adopting ensure or
-                its owner's cancel, and flushes the removal at once. It stops a send's restore only
-                once the removal is acknowledged. Disposing a provider with bound consumers rejects
+                its owner's cancel, and flushes the removal at once; a send to it drops NoRecord
+                (R16) whether or not the removal is acknowledged. Disposing a provider with bound consumers rejects
                 with BlockedByDependents naming them. Actor and Runtime disposal are idempotent.
                 The identity's owed rows are suspended and stay owed: its owed record is not removed
                 with its actor record (@spec.WriteAhead.R5).
@@ -466,8 +468,7 @@ invariants
 
     I19  Within one actor, events are admitted in mailbox order and one at a time. [@R12]
 
-    I20  Proposed, with an actor-to-actor send action: at most `RuntimeDefaults.loopGuard` events sent by turns run as 
-         follow-ups of one admitted event. [@R13]
+    I20  At most `RuntimeDefaults.loopGuard` events sent by turns run as follow-ups of one admitted event. [@R13]
 
     I21  An actor with pending mail is served within one rotation of the other actors with mail. [@R13]
 

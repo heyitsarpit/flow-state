@@ -248,13 +248,13 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       @task.V3.T27, needs multi-tab ownership. A server-rendered page with an add in flight (step 18): left:
       @task.V3.T30, needs server rendering.
     - [x] `CheckoutFlow` sends `CardChosen` and `PayRequested` to `Checkout/Pay`. No source. built:
-      `shop/checkout-sends`, inverted (Actors R16), owner @task.V3.T96.
+      `shop/checkout-sends` (Actors R16).
     - [x] The send table's persisted rows through `Subscription`'s renewal: kept by work in flight, ended and restored
       (work in flight, then the grace), restored with a held unknown delivered first, never created, forgotten, a
       record that does not decode, ending with an unwritten change the next incarnation holds, being disposed. No
       source. built: `shop/renewal-busy-pay`, `shop/renewal-ended-pay`, `shop/renewal-unsure-pay`,
       `shop/renewal-unopened-pay`, `shop/renewal-forgotten-pay`, `shop/renewal-damaged-pay`,
-      `shop/renewal-ending-pay`, `shop/renewal-disposing-pay`, inverted (Actors R16, I14), owner @task.V3.T96.
+      `shop/renewal-ending-pay`, `shop/renewal-disposing-pay` (Actors R16, I14).
     - [ ] A send to a persisted actor while the Runtime boots, queued. left: @task.V3.T99, needs a persisted sender
       owed an ending at boot.
     - [ ] A send to a lazy entry not adopted, dropped NotAdopted. left: @task.V3.T48, needs lazy entries.
@@ -404,13 +404,12 @@ retry.
   - [ ] **Combinations:** release 2 of `Repo`: left: @task.V3.T56, needs release versions. Pushes: left:
     @task.V3.T25, needs streams.
   - [ ] **Variety:** pushed against polled. left: @task.V3.T25, needs S `headPushes`.
-  - [x] `Repo` sends `SyncRepo` and `Pushed` to `Git/Sync`. No source. built: `sync/repo-commits`, inverted (Actors
-    R16), owner @task.V3.T96.
+  - [x] `Repo` sends `SyncRepo` and `Pushed` to `Git/Sync`. No source. built: `sync/repo-commits` (Actors R16).
   - [x] Loop guard: two mirrors forwarding to each other stop at `RuntimeDefaults.loopGuard`; a chain of exactly the
     guard with a context update at each hop is never refused; an import of a branch name where a commit belongs is
     refused on the sender; a replica's `onContext` sends counted, stopping its loop at the guard. No source. built:
-    `sync/mirror-loop`, `sync/mirror-chain-with-status`, `sync/mirror-imports-ref`, `sync/replica-loop`, inverted
-    (Actors R13, I20), owner @task.V3.T96.
+    `sync/mirror-loop`, `sync/mirror-chain-with-status`, `sync/mirror-imports-ref`, `sync/replica-loop` (Actors R13,
+    I20).
   - [ ] **Findings:** a 4xx that isn't a rate limit is not retried. Copies [liveRetry.unit.test.ts:27][kp-retry] "does
     NOT retry a genuine 4xx app error". left: needs a `BadRequest` failure on `Git/sync`, an edit to an old contract
     this row does not allow; the user's call.
@@ -872,8 +871,8 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
     `player/group-play`; S2 × 64: `player/group-of-64`; forty plays past the guard in total: `player/group-replays`;
     one play whose sends pass the guard though its chain does not: `player/group-past-guard`;
     a room in its grace, an ended unpersisted room, a disposed and an unopened room, a room name with no encoded
-    form: `player/group-in-grace`, `player/group-room-ended`, `player/group-rooms-absent`, `player/group-bad-room`;
-    inverted (Actors R13, R16, I25), owner @task.V3.T96.
+    form: `player/group-in-grace`, `player/group-room-ended`, `player/group-rooms-absent`, `player/group-bad-room`
+    (Actors R13, R16, I25).
   - [x] S6 × {room disposed, room reloaded} while its tick is armed. built: `player/room-disposed`,
     `player/room-reloaded`.
   - [x] E1: an empty room. built: `player/empty-room`. E3 corrected: a room is its player's name, not a key; a long

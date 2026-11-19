@@ -21,7 +21,7 @@ const HALF = RuntimeDefaults.loopGuard / 2;
 const { is } = readerOf(mirrorStory("ids"));
 
 describe("a repository tells its client to sync (Actors R16; Runtime O4's send table)", () => {
-  it.fails("Actors R16 live: a commit makes the client sync the repository, and a reported push syncs it again", async () => {
+  it("Actors R16 live: a commit makes the client sync the repository, and a reported push syncs it again", async () => {
     const run = await played(repoCommits);
 
     expect(syncCalls(run.checkpoints.committed)).toBe(1);
@@ -29,7 +29,7 @@ describe("a repository tells its client to sync (Actors R16; Runtime O4's send t
     expect(turnsOf(run, is(docsRepo))).toEqual(expect.arrayContaining(["Commit", "PushSeen"]));
   });
 
-  it.fails("send check: an event the target's Schema refuses (a branch name for a commit) refuses the sender's turn with a FlowError and reaches no one", async () => {
+  it("send check: an event the target's Schema refuses (a branch name for a commit) refuses the sender's turn with a FlowError and reaches no one", async () => {
     const run = await played(mirrorImportsRef);
     const imported = run.checkpoints.imported;
 
@@ -40,7 +40,7 @@ describe("a repository tells its client to sync (Actors R16; Runtime O4's send t
 });
 
 describe("the loop guard (Actors R13, I20)", () => {
-  it.fails("Actors R13, I20: two mirrors forwarding to each other stop at the loop guard: the turn that would send one more is refused InvalidTurn, undone, naming the chain", async () => {
+  it("Actors R13, I20: two mirrors forwarding to each other stop at the loop guard: the turn that would send one more is refused InvalidTurn, undone, naming the chain", async () => {
     const run = checked(await mirrorLoop.run());
     const stopped = run.checkpoints.stopped;
     const refused = refusedTurns(stopped, mirrorA);
@@ -53,7 +53,7 @@ describe("the loop guard (Actors R13, I20)", () => {
     expect(stopped.read(mirrorB)?.memory["seen"]).toBe(HALF);
   });
 
-  it.fails("Actors R13: a chain of exactly the loop guard's sends, each with a context update the status line hears, is never refused: context updates and their onContext events do not count", async () => {
+  it("Actors R13: a chain of exactly the loop guard's sends, each with a context update the status line hears, is never refused: context updates and their onContext events do not count", async () => {
     const run = checked(await mirrorChainWithStatus.run());
     const arrived = run.checkpoints.arrived;
 
@@ -64,7 +64,7 @@ describe("the loop guard (Actors R13, I20)", () => {
     expect(arrived.read(statusA)?.memory["seen"]).toBe(HALF + 1);
   });
 
-  it.fails("Actors R13, I20: sends made by onContext turns count: a replica pushing each commit its mirror takes, through a context update, to a mirror forwarding back is stopped at the loop guard, the replica's turn refused", async () => {
+  it("Actors R13, I20: sends made by onContext turns count: a replica pushing each commit its mirror takes, through a context update, to a mirror forwarding back is stopped at the loop guard, the replica's turn refused", async () => {
     const run = checked(await replicaLoop.run());
     const stopped = run.checkpoints.stopped;
 

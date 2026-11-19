@@ -49,10 +49,20 @@ export const RepoMachine = machine(Repo, ({ S, E }) => ({
   on: {
     SetToken: { updateMemory: ({ event }) => ({ token: event.token }) },
     Commit: {
-      actions: [send(toClient, ({ memory }) => ({ _tag: "SyncRepo", repo: memory.repo }))],
+      actions: [
+        send(
+          toClient,
+          Sync.E.SyncRepo.from(({ memory }) => ({ repo: memory.repo })),
+        ),
+      ],
     },
     PushSeen: {
-      actions: [send(toClient, ({ memory }) => ({ _tag: "Pushed", repo: memory.repo }))],
+      actions: [
+        send(
+          toClient,
+          Sync.E.Pushed.from(({ memory }) => ({ repo: memory.repo })),
+        ),
+      ],
     },
     HeadSeen: {
       updateMemory: ({ memory, event }) => ({ lastHead: event.head, heads: memory.heads + 1 }),

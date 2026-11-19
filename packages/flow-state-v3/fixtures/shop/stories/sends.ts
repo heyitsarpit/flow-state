@@ -101,16 +101,17 @@ const started = (id: string) =>
     .send(subscription, subscribe);
 
 /**
- * The renewal's confirm is held while it pays by another card; the Pay is closed and its grace
- * passes while the confirm is on the wire; the week passes and the subscription renews; then the
- * confirm lands.
+ * Three seconds before the week is up, the renewal's confirm is held while it pays by another card;
+ * the Pay is closed and its grace passes while the confirm is on the wire; the week is up and the
+ * subscription renews; then the confirm lands.
  */
 export const renewalBusyPay = started("shop/renewal-busy-pay")
+  .advance("604797 seconds")
   .world(Shop.confirm.hold())
   .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "amex" })
   .detach(renewalPay)
   .advance("1 second")
-  .advance(WEEK)
+  .advance("2 seconds")
   .checkpoint("renewed")
   .world(Shop.confirm.release())
   .checkpoint("landed");

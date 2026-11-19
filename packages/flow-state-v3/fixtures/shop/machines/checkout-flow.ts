@@ -128,14 +128,14 @@ export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E }) => ({
         Back: S.SHIPPING.history,
         PayWith: {
           actions: [
-            send(toPay, ({ event }) => ({
-              _tag: "CardChosen",
-              paymentMethodId: event.paymentMethodId,
-            })),
-            send(toPay, ({ event }) => ({
-              _tag: "PayRequested",
-              paymentMethodId: event.paymentMethodId,
-            })),
+            send(
+              toPay,
+              Pay.E.CardChosen.from(({ event }) => ({ paymentMethodId: event.paymentMethodId })),
+            ),
+            send(
+              toPay,
+              Pay.E.PayRequested.from(({ event }) => ({ paymentMethodId: event.paymentMethodId })),
+            ),
           ],
         },
       },

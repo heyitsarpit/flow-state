@@ -4,7 +4,8 @@ import type { Row } from "./core/rows.ts";
 import { atOrBelow, chainOf } from "./core/tree.ts";
 import type { Bound, Ending, Fields } from "./contract.ts";
 import { fieldsOf, tokensOf, trusted } from "./events.ts";
-import { type GuardArg, readHandle, type SelectArg, type SendArg, writeHandle } from "./handles.ts";
+import { type GuardArg, readHandle, type SelectArg, writeHandle } from "./handles.ts";
+import type { SendToken } from "./send.ts";
 import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
 import { flowErrorOf, raise, refuse } from "./error.ts";
 import { builder, entry } from "./entry.ts";
@@ -98,8 +99,16 @@ export type EventToken<Name extends string, P> = ((
 ) => Envelope<Name, P>) &
   Ending & {
     readonly tag: Name;
-    readonly from: <V>(map: (value: V) => P) => Ending;
+    readonly from: <V>(map: (value: V) => P) => MappedEvent<Name, V, P>;
   };
+
+/**
+ * An event token's mapping (`E.X.from(f)`): an ending's target, or a send's event, whose payload
+ * `f` computes from a value of type `V`.
+ */
+export type MappedEvent<Name extends string, V, P> = {
+  readonly ending: { readonly event: Name; readonly from: Option.Option<(value: V) => P> };
+};
 
 /**
  * A definition's event tokens, by tag.
@@ -201,16 +210,6 @@ export type ActionToken = {
   readonly "~owner": symbol;
   readonly operation: string;
   readonly make: (at: string) => Action;
-};
-
-/**
- * A send in an alternative's `actions`: the target's ref and the event, each computed when the turn
- * runs.
- */
-export type SendToken<M = never, P = never> = {
-  readonly "~flow": "send";
-  readonly to: (input: SendArg<M, P>) => ActorRef;
-  readonly event: (input: SendArg<M, P>) => Envelope;
 };
 
 /**

@@ -123,16 +123,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Create: ({ actor, input: given }) => incarnations.create(actor, given),
     Serve: () => undefined,
     Release: ({ actor, use }) => incarnations.release(actor, use),
-    Send: ({ actor, tag, payload }) => {
-      if (incarnationOf(actor) === undefined && tx.world().records.has(actorKey(actor)))
-        incarnations.ensure(actor, Option.none(), "wake", Option.none());
-
-      // A send never creates an actor: with no actor and no record it is dropped, told to the
-      // sender as evidence.
-      if (incarnationOf(actor) === undefined)
-        tx.act(Act.SendTargetAbsent({ actor, event: tag, reason: "NoRecord" }));
-      else enqueue(Mail.Event({ actor, tag, payload }));
-    },
+    Send: ({ actor, tag, payload }) => incarnations.deliver(actor, { tag, payload }, Option.none()),
     Settled: ({ call, result }) => answers.settled(call, result, open),
     Fired: ({ timer }) => fired(timer),
     Stored: ({ ticket }) => {
@@ -152,6 +143,9 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   Life.$match(tx.world().life, {
     Open: () => {
       serve.drain();
+
+      // A chain is counted while mail may still follow it; once every mailbox is empty none can.
+      if (tx.world().mail.size === 0 && tx.world().chains.size > 0) tx.replace("chains", new Map());
       incarnations.graces();
       persistence.close();
     },

@@ -57,7 +57,7 @@ const issueOf = (actor: ActorId, issue: Issue) =>
     code: DIAGNOSTIC_OF[issue.code],
     path: [actor.machine, actor.name, sourceText(issue.source)],
     details: { refused: issue.code, slot: Option.getOrNull(issue.slot) },
-    summary: `${sourceText(issue.source)} raised ${issue.code}`,
+    summary: `${sourceText(issue.source)} raised ${issue.code}${Option.match(issue.slot, { onNone: () => "", onSome: (slot) => ` at ${slot}` })}`,
     help: "Fix the callback the slot names; the issue clears when this source next succeeds.",
   });
 

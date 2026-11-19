@@ -40,7 +40,7 @@ export const HouseholdMachine: Machine<typeof Household> = machine(Household, ({
   on: {
     PlayGroup: {
       updateMemory: ({ event }) => ({ pending: event.rooms, trackId: event.trackId }),
-      actions: [send(home, () => ({ _tag: "Next" }))],
+      actions: [send(home, Household.E.Next())],
     },
     Next: [
       {
@@ -51,10 +51,10 @@ export const HouseholdMachine: Machine<typeof Household> = machine(Household, ({
           started: memory.started + 1,
         }),
         actions: [
-          send(home, () => ({ _tag: "Next" })),
+          send(home, Household.E.Next()),
           send(
             ({ memory }) => actorRef(PlayerMachine, { room: memory.current }),
-            ({ memory }) => ({ _tag: "Play", trackId: memory.trackId }),
+            PlayerMachine.definition.E.Play.from(({ memory }) => ({ trackId: memory.trackId })),
           ),
         ],
       },
