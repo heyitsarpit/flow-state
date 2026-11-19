@@ -1059,3 +1059,7 @@ note 2026-11-19T13:18:01Z
 note 2026-11-19T13:20:20Z
     T104 added to P4 after T102: type gaps closed, from three surveys and T103's amendment; operation handles first.
     Starts when T102's lead finishes (one lead at a time).
+
+note 2026-11-19T14:42:57Z
+    T102 built, in review (b5aebb79): typed reason catalogue, one id mint, Following state, Trigger, exhaustive
+    dispatch, two lint rules. Close review started; it settles whether incarnation start order is observable.
