@@ -129,3 +129,84 @@ cut from an old commit). For the orchestrator to post on @task.V3.T99; nothing h
 1. The close review of T99.
 2. The `lanes` saved stress Story mismatch, from the main line's fixture rewrite (being fixed there).
 3. The typed-cleanup finding above, for a decision.
+
+## Close review (independent lead, 2026-11-19): ISSUES
+
+One blocking finding: a Cause an ensure already heard is carried again by dispose. The design claim holds in code (no
+fork outside an Owner in `src/host`), the 8 red cells of `984ec696` and the new cells pass, and the orchestrator's
+ruling holds: a dying cleanup is always heard. Gates, each alone: suite exit 0 (1,324 passed, 25 expected fail, no
+unhandled errors), `nub run check` exit 0, stress exit 1 with only the known `lanes` saved stress Story (the sign-in
+and sync saved stress Stories pass, so they are what the generator prints), `faults --only` 8 of 8 caught
+(judge-drops-typed-cleanup, abort-interrupts-wait, store-cleanup-dropped, report-drops-task-failures,
+fake-cleanup-ignored, late-quarantine-lost, unheard-quarantine-dropped, lift-drops-unheard).
+
+**Blocking**
+
+1. **Doubled Cause: a Heard quarantine turns Unheard again** (medium; owner: T99 lead). `quarantine` in
+   `src/host/driver.ts` merges the held entry's Cause whatever its tag into a new `Unheard`, so a Cause an ensure
+   already reported goes into dispose's CleanupFailed (or a lift's report) a second time, against the lead's rule "a
+   heard one not repeated". Replayed red in a scratch copy of `cleanups.test.ts`: ensure, Look, disposeActor (cleanup
+   held), ensure, Look, disposeActor (held), the first cleanup dies c1, an ensure throws c1, the second dies c2;
+   dispose rejects with c1 and c2. Missing coverage: two incarnations of one ref whose cleanups land after an ensure
+   heard the first; the ref needs its heard and unheard Causes apart.
+
+**Routed (non-blocking)**
+
+2. **Typed-cleanup boundary is wider than `catch*`** (the user's read, with the ruling). A probe on Effect 4.1.4:
+   every error-channel continuation on an interrupted fiber drops a cleanup's `Fail` (`catchTag`, `catch`,
+   `mapError`, `tapError`, `orElseSucceed`, `retry`, even `catchCause`); a `Die` survives all of them. So a dying
+   cleanup is always heard, and the Gotcha test pins the right pair (fails lost under the port's `catchTag`, dies
+   kept in `sign-in/read-cleanup-dies`). But app code that only maps or retries an error loses a typed cleanup too,
+   so the ruling's "the user's caught error" should read "any error-channel combinator around the call". Actors R23,
+   I48, R27 and Diagnostics R8 still promise a typed cleanup failure is heard with no such condition; the Spec or the
+   docs should say it. Missing coverage: a Gotcha cell for `mapError` or `retry`.
+3. **`owners-only` lint misses forms** (low; T99 lead or @task.V3.T102). Planted through the rule's own oxlint
+   harness: missed `Effect.runPromise`, `runSync` (a runner in host code starts a fiber no Owner holds), `const E =
+   Effect; E.forkDetach`, `(Effect as any).forkDetach`, ``Effect[`forkDetach`]``, `import { default as E } from
+   "effect/Effect"`, `effect/internal/*`, dynamic `import()`, `export { forkDetach } from "effect/Effect"`, and Cause
+   reads through `catchCause`, `Exit.match`, `Cause.pretty`. Missing coverage: those forms in the test's `fires`.
+4. **The close's own failure is ignored** (low; @task.V3.T100). `close.ts` tests `waited` for none only; a tree that
+   dies (a throwing `driver.input` or trace hook) skips `report.hear(released)` and is in no rejection. Owner
+   callbacks (`traced`, `judged`, a Runtime `report`) run unguarded, so a throw drops the rest of a batch or skips a
+   task's `onEnd` (a runPromise then never settles). Production hooks do not throw. Missing coverage: a planted throw
+   in the tree and in a report.
+5. **Spec against code** (low; T99 lead). R23 and D34 say dispose "rejects CleanupOverdue"; it rejects CleanupFailed
+   whose Cause holds CleanupOverdue, as the tests pin. R23 bounds the whole close by one bound measured from the
+   dispose call; `close.ts` waits `driver.ended` (the core's bound), then gives the tree a fresh bound (up to twice;
+   `disposedPastBounds` advances twice). R23's "each failure is an Issue" omits that `life.ts` drops CleanupFailed in
+   Inert, Booting, Failed and Stopped (the Cause still reaches the rejection). R27's lead-proposed abort sentences sit
+   under "Decision (user): Q7 A"; mark them proposed. FLOW-STATE.md's owners entry omits the test-file exemption.
+   I47 and I48 are cited by no test (`everyTaskAccounted` cites R23 and Diagnostics R8).
+6. **Run rule's own term is self-reported** (low; T99 lead). `everyTaskAccounted` takes `own` from the report it
+   checks, so an Owner dropping its own Scope's failure passes; no crafted trace has `own > 0` or a nested report.
+   Missing coverage: those crafted traces. The dropped task report is caught by the rule itself (replayed: the
+   planted edit fails `breachesOf`, not a count).
+7. **Code quality** (low; T99 lead or @task.V3.T102). `close.ts` forget request in two slots (`wanted`, `late`);
+   `testing/fake.ts` keeps `cleanups` as a queue beside `pending`; `Ending.Failed` stores `error` beside the `cause`
+   it comes from; doc comments on non-exported `Hearing` and `Quarantine`; `driver.ts` doc still says "calls and
+   timers as keyed fibers in the Runtime's Scope".
+8. **Booting** (pre-existing; @task.V3.T100, already routed): dispose while services build leaves `ready()` pending,
+   and a services failure after that is answered RuntimeDisposed with its Cause dropped.
+
+**Checked and holding:** Q1 (each late Cause reaches `Host.report` once; `late()` drains Waiting), Q2, Q3, the lift
+only on a disposeActor that runs, the lineage mailbox (dropped with `retire` in one step; R10's cell and
+`dispose-keeps-mail`), the trace hook (`Option.none()` in `runtime.ts` and the browser host; records built only under
+`isSome`), the generator offers `cleanup` (one in four dies, one in four fails per armed hold), and `savedAfter`
+answers as before (sequences rise with the trace index, so the last landed batch is the latest). No outside imports,
+temporary names or core impurity in the diff.
+
+**Sidecars (6 Haiku, effort high), each verified:**
+
+- Blind: accepted the Heard merge (1, replayed). Routed the close's ignored Exit and throwing hooks (4) and Booting
+  (8). Rejected the uninterruptible runPromise hang (the user's Effect, as `Effect.runPromise`), a forget's failure
+  hidden from a plain dispose (that caller asked no forget; the forget caller hears it), a Story ignoring a dispose
+  rejection (its Issues and run rules still check), and the aborted runPromise's no-op hearer (its Exit and an Issue
+  keep the Cause).
+- Forks and lint: changed into 3 after replaying every form through oxlint; no unowned fork found in `src/host`.
+- Decisions: accepted the double (1). Rejected the queued lift (the Cause still reaches dispose) and a pending
+  runPromise heard by its caller and by dispose (two hearers, by R23 and R27). Changed the bound into 5.
+- Prevention: accepted 6. Rejected "generated cleanups rarely fire" (dispose, disposeActor and reload steps interrupt
+  held calls) and the `savedAfter` order risk (sequences are trace indexes).
+- Code quality: accepted 7. Rejected the abort listener cleanup (the task's end always removes it) and
+  `Schedule` as a sleep (pre-existing edge code).
+- Spec: accepted 2 and 5.
