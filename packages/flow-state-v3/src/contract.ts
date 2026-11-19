@@ -237,9 +237,9 @@ const codecsOf = <F extends Fields>(fields: F, key: ReadonlyArray<keyof F & stri
   const keyJson = Schema.toCodecJson(Schema.Struct(Struct.pick(fields, [...key].toSorted())));
 
   return {
-    input: recordCodec<Values>(input),
+    input,
     inputJson: recordCodec<Values>(Schema.toCodecJson(input)),
-    keyText: recordCodec<string>(Schema.fromJsonString(keyJson)),
+    keyText: Schema.fromJsonString(keyJson),
     keyJson: recordCodec<Values>(keyJson),
     textOfKey: keyTextBy(walkerOf(keyJson), key),
   };

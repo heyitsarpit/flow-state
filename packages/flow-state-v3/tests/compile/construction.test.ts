@@ -11,6 +11,7 @@ import {
   runtimeSetup,
   transaction,
 } from "../../src/index.ts";
+import { loose } from "../loose.ts";
 
 // Each diagnostic of a refused construction as [code, reason, path].
 const refusal = (construct: () => unknown) => {
@@ -38,12 +39,6 @@ const save = transaction({
 });
 
 // Untyped configuration, as a JavaScript caller would pass it.
-// FLOW_STATE_ALLOW_UNKNOWN: the test hands construction values its types forbid.
-const loose = (value: unknown) =>
-  // SAFETY: each refused form is one the types reject; construction must refuse it at run time too.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller construction guards against
-  value as never;
-
 // Names well past any a real machine uses, and a state path well past any real tree's depth.
 const LONG_NAME = 4096;
 const DEPTH = 100;

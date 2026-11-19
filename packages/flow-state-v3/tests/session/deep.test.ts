@@ -14,13 +14,9 @@ import { render } from "../../src/host/trace.ts";
 import { FlowError } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
 import { DEEP_TIMEOUT, depthOf, kindValueTests, unencodable, VIEW } from "./deep-cases.ts";
+import { loose } from "../loose.ts";
 
 // A folder tree `depth` deep whose innermost kid is a number: a payload its Schema refuses.
-const loose = (value: unknown) =>
-  // SAFETY: the refused payload is one the types reject; the send must refuse it at run time too.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller a send guards against
-  value as never;
-
 const brokenFolder = (depth: number) => {
   let tree: unknown = { kids: [7] };
 

@@ -13,12 +13,7 @@ import {
   surfaceOf,
   usual,
 } from "./surface.ts";
-
-// FLOW_STATE_ALLOW_UNKNOWN: a setup the types refuse, which runtimeSetup must refuse at run time.
-const loose = (value: unknown) =>
-  // SAFETY: the setups are what an untyped caller hands runtimeSetup.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller runtimeSetup guards against
-  value as never;
+import { loose } from "../loose.ts";
 
 // A Runtime's own calls run last, its dispose last of all, so every other call meets a live one.
 const rank = (reached: Reached) => {

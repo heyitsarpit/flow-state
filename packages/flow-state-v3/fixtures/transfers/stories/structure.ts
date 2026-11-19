@@ -101,130 +101,122 @@ export const orderChain = planned("transfers/order-chain")
   .ensure(rent)
   .checkpoint("reloaded");
 
-// FLOW_STATE_ALLOW_UNKNOWN: each builder hands construction a form its types refuse.
-const untyped = (value: unknown) =>
-  // SAFETY: every refused form here is one the types reject; construction must refuse it at run time too.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-escape-hatch-assertion -- the untyped caller construction guards against
-  value as never;
-
-const order = { id: "Bank/StandingOrder", states: ["DRAFT"], events: { Resume: {} } };
+const order = { id: "Bank/StandingOrder", states: ["DRAFT"], events: { Resume: {} } } as const;
 
 /**
  * An order whose configuration was read before its module set it: `undefined`.
  */
-export const orderFromUnsetConfig = () => definition(untyped(undefined));
+// @ts-expect-error Compile R4: a definition takes a configuration
+export const orderFromUnsetConfig = () => definition(undefined);
 
 /**
  * An order whose customer slot names its provider's id instead of `Provider.select`.
  */
 export const orderWithBareContext = () =>
-  definition(untyped({ ...order, context: { customer: "Bank/Customer" } }));
+  // @ts-expect-error Compile R4: a context slot is Provider.select's
+  definition({ ...order, context: { customer: "Bank/Customer" } });
 
 /**
  * An order whose operations callback has braces and no `return`, so it returns nothing.
  */
 export const orderWithoutReturn = () =>
-  definition(
-    untyped({
-      ...order,
-      internalEvents: { BalanceRead: { cents: Schema.Number }, BalanceFailed: {} },
-      operations: ({ E }: { readonly E: typeof StandingOrder.E }) => {
-        void balance.outcomes({
-          success: E.BalanceRead.from((v: { readonly cents: number }) => ({ cents: v.cents })),
-          failure: {
-            NoAnswer: E.BalanceFailed,
-            Defect: E.BalanceFailed,
-            Interrupted: E.BalanceFailed,
-          },
-        });
-      },
-    }),
-  );
+  definition({
+    ...order,
+    internalEvents: { BalanceRead: { cents: Schema.Number }, BalanceFailed: {} },
+    // @ts-expect-error Compile R4: the operations callback returns a record
+    operations: ({ E }) => {
+      void balance.outcomes({
+        success: E.BalanceRead.from((v: { readonly cents: number }) => ({ cents: v.cents })),
+        failure: {
+          NoAnswer: E.BalanceFailed,
+          Defect: E.BalanceFailed,
+          Interrupted: E.BalanceFailed,
+        },
+      });
+    },
+  });
 
 /**
  * An order whose amount starts at the text "0", as a form field gives it, where its Schema is a
  * number.
  */
 export const orderStartingAtText = () =>
-  definition(untyped({ ...order, memory: { cents: Flow.initial(Schema.Number, untyped("0")) } }));
+  // @ts-expect-error Compile R6: a start of its field's Schema type
+  definition({ ...order, memory: { cents: Flow.initial(Schema.Number, "0") } });
 
 /**
  * An order whose first date starts at the ISO text the date picker sends, where its Schema's type
  * is a `Date`.
  */
 export const orderFirstFromText = () =>
-  definition(
-    untyped({
-      ...order,
-      memory: {
-        first: Flow.initial(Schema.NullOr(Schema.DateFromString), untyped("2026-12-01")),
-      },
-    }),
-  );
+  definition({
+    ...order,
+    memory: {
+      // @ts-expect-error Compile R6: a start of its field's Schema type
+      first: Flow.initial(Schema.NullOr(Schema.DateFromString), "2026-12-01"),
+    },
+  });
 
 /**
  * An order whose plan looks up the transfer form's balance operation, which has its own's name.
  */
 export const orderLookingUpFormsBalance = () =>
-  machine(StandingOrder, ({ S }) =>
-    untyped({
-      default: S.DRAFT,
-      on: { Plan: { target: S.CHECKING, actions: [TransferForm.O.balance.lookup(fromAccount)] } },
-    }),
-  );
+  machine(StandingOrder, ({ S }) => ({
+    default: S.DRAFT,
+    // @ts-expect-error Compile R12: another definition's operation
+    on: { Plan: { target: S.CHECKING, actions: [TransferForm.O.balance.lookup(fromAccount)] } },
+  }));
 
 /**
  * An order whose context reaction sends the transfer form's `AccountChanged`, which has its own's
  * name.
  */
 export const orderHearingFormsEvent = () =>
-  machine(StandingOrder, ({ S }) =>
-    untyped({
-      default: S.DRAFT,
-      onContext: [
-        {
-          select: ({ context }: { readonly context: { readonly customer: string } }) =>
-            context.customer,
-          event: TransferForm.E.AccountChanged.from((account: string) => ({ account })),
-        },
-      ],
-    }),
-  );
+  machine(StandingOrder, ({ S }) => ({
+    default: S.DRAFT,
+    onContext: [
+      {
+        select: ({ context }: { readonly context: { readonly customer: string } }) =>
+          context.customer,
+        // @ts-expect-error Compile R12: another definition's event
+        event: TransferForm.E.AccountChanged.from((account: string) => ({ account })),
+      },
+    ],
+  }));
 
 /**
  * An order whose resume handler was left `null` while it was being written.
  */
 export const orderWithNullHandler = () =>
-  machine(StandingOrder, ({ S }) => untyped({ default: S.DRAFT, on: { Resume: null } }));
+  // @ts-expect-error Compile R4: a handler is never null
+  machine(StandingOrder, ({ S }) => ({ default: S.DRAFT, on: { Resume: null } }));
 
 /**
  * An order whose balance read is written out by hand, half built: a kind, a call and a success
  * ending, but no input, key or failure endings.
  */
 export const orderWithHandBuiltRead = () =>
-  definition(
-    untyped({
-      ...order,
-      internalEvents: { BalanceRead: { cents: Schema.Number } },
-      operations: ({ E }: { readonly E: typeof StandingOrder.E }) => ({
-        balance: { kind: "read", call: () => undefined, success: E.BalanceRead },
-      }),
+  definition({
+    ...order,
+    internalEvents: { BalanceRead: { cents: Schema.Number } },
+    // @ts-expect-error Compile R4: an operation is a bound contract
+    operations: ({ E }) => ({
+      balance: { kind: "read", call: () => undefined, success: E.BalanceRead },
     }),
-  );
+  });
 
 /**
  * An order whose context reaction names its event by a hand-written ending with no mapper.
  */
 export const orderWithHandWrittenEnding = () =>
-  machine(StandingOrder, ({ S }) =>
-    untyped({
-      default: S.DRAFT,
-      onContext: [
-        {
-          select: ({ context }: { readonly context: { readonly customer: string } }) =>
-            context.customer,
-          event: { ending: { event: "AccountChanged" } },
-        },
-      ],
-    }),
-  );
+  machine(StandingOrder, ({ S }) => ({
+    default: S.DRAFT,
+    onContext: [
+      {
+        select: ({ context }: { readonly context: { readonly customer: string } }) =>
+          context.customer,
+        // @ts-expect-error Compile R9: an ending is an event token or its mapping
+        event: { ending: { event: "AccountChanged" } },
+      },
+    ],
+  }));

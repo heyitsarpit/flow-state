@@ -378,6 +378,8 @@ export const definition = entry(
   >(
     config: DefinitionConfig<States, Ev, In, M, O, Cx, Id> & DefinitionCheck<States, Id>,
   ): Definition<States, Ev, In, M, O, Cx, Id> => {
+    type Made = Definition<States, Ev, In, M, O, Cx, Id>;
+
     const keys = Predicate.isObject(config) ? Object.keys(config) : [];
 
     refuse(inDeclarationOrder(keys, configFindings(config)));
@@ -466,22 +468,22 @@ export const definition = entry(
         select: builder("Provider.select", (schema, selector) => ({
           "~flow": "context",
           provider: config.id,
-          schema: trusted(schema),
+          schema,
           select: selector,
         })),
       },
-      S: trusted(tokenTree(tree.nodes, tree.top)),
+      S: trusted<Made["S"]>(tokenTree(tree.nodes, tree.top)),
       E,
-      O: trusted(handles),
-      Event: trusted(Schema.Union(envelopes)),
-      State: trusted(Schema.Literals(leaves)),
-      Input: trusted(Schema.Struct(inputs)),
-      Memory: trusted(
+      O: trusted<Made["O"]>(handles),
+      Event: trusted<Made["Event"]>(Schema.Union(envelopes)),
+      State: trusted<Made["State"]>(Schema.Literals(leaves)),
+      Input: trusted<Made["Input"]>(Schema.Struct(inputs)),
+      Memory: trusted<Made["Memory"]>(
         Schema.Struct(
           Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOfField(f)])),
         ),
       ),
-      Snapshot: trusted(
+      Snapshot: trusted<Made["Snapshot"]>(
         Schema.Struct({
           state: Schema.Literals(leaves),
           memory: Schema.Struct(

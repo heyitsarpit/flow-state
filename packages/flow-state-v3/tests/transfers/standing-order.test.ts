@@ -28,6 +28,7 @@ import {
 } from "../../fixtures/transfers/stories/usual.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
+import { loose } from "../loose.ts";
 
 const refusal = (construct: () => unknown) => {
   try {
@@ -45,11 +46,6 @@ const refusal = (construct: () => unknown) => {
 };
 
 const iso = Schema.decodeSync(Schema.DateFromString);
-
-const loose = (value: unknown) =>
-  // SAFETY: each refused payload is one the types reject; the send must refuse it at run time too.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller a send guards against
-  value as never;
 
 const invalidEvent = (error: unknown) =>
   error instanceof FlowError && error.code === "InvalidEvent";

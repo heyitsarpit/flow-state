@@ -4,15 +4,12 @@ import {
   Action,
   type Alternative,
   Delay,
-  type Denial,
   Guard,
-  type GuardInput,
   type Level,
   type Node,
   type Schedule,
   type SelectInput,
   Target,
-  type UpdateInput,
   type Values,
 } from "./core/compiled.ts";
 import type {
@@ -92,7 +89,7 @@ const guardOf = (compile: Compile, element: GuardElement<Values, Values>, at: Pa
   }
 
   return Guard.Check({
-    check: { slot: slotOf(at), run: erase<GuardInput, true | Denial>(element) },
+    check: { slot: slotOf(at), run: element },
   });
 };
 
@@ -178,7 +175,7 @@ const sendOf = (compile: Compile, token: SendToken<Values, Values>, at: Path) =>
         Action.Send({
           to: {
             slot: slotOf([...at, "to"]),
-            run: erase<SelectInput, ReturnType<SendCallback>>(token.to),
+            run: token.to,
           },
           event: { slot: slotOf([...at, "event"]), run: event },
         }),
@@ -216,7 +213,7 @@ const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alterna
     guards: guarded,
     update: Option.map(Option.fromUndefinedOr(config.updateMemory), (run) => ({
       slot: slotOf([...at, "updateMemory"]),
-      run: erase<UpdateInput, Values>(run),
+      run,
     })),
     actions,
   };

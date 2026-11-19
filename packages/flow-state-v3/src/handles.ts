@@ -64,7 +64,10 @@ export const writeHandle = (
 ) => ({
   commit: builder(`O.${operation}.commit`, (select: (input: SelectArg<Values>) => Values) =>
     member(owner, operation, (at) =>
-      Action.Commit({ operation, select: { slot: `${at}.select`, run: erase(select) } }),
+      Action.Commit({
+        operation,
+        select: { slot: `${at}.select`, run: erase<SelectInput, Values>(select) },
+      }),
     ),
   ),
   retry: keylessOrKeyed("Retry", owner, operation),
@@ -76,7 +79,11 @@ export const writeHandle = (
       "~flow": "guard",
       "~owner": owner,
       operation,
-      make: (at) => Guard.Idle({ operation, key: { slot: `${at}.key`, run: erase(select) } }),
+      make: (at) =>
+        Guard.Idle({
+          operation,
+          key: { slot: `${at}.key`, run: erase<SelectInput, Values>(select) },
+        }),
     }),
   ),
   retryable: builder(
@@ -109,7 +116,10 @@ export const writeHandle = (
 export const readHandle = (operation: string, owner: symbol) => ({
   lookup: builder(`O.${operation}.lookup`, (select: (input: SelectArg<Values>) => Values) =>
     member(owner, operation, (at) =>
-      Action.Lookup({ operation, select: { slot: `${at}.select`, run: erase(select) } }),
+      Action.Lookup({
+        operation,
+        select: { slot: `${at}.select`, run: erase<SelectInput, Values>(select) },
+      }),
     ),
   ),
   cancel: keyed("Cancel", owner, operation)(Option.none()),

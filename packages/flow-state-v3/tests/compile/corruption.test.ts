@@ -4,12 +4,7 @@ import { AuthSession } from "../../fixtures/sign-in/machines/session.ts";
 import { TrustedDevice } from "../../fixtures/sign-in/machines/trusted-device.ts";
 import { fromAccount, StandingOrder } from "../../fixtures/transfers/machines/standing-order.ts";
 import { definition, Diagnostic, Flow, FlowError, machine } from "../../src/index.ts";
-
-// FLOW_STATE_ALLOW_UNKNOWN: each corrupt value is one the types refuse; construction must refuse it.
-const loose = (value: unknown) =>
-  // SAFETY: the corrupt forms are what an untyped caller or a cast past the types hands construction.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller construction guards against
-  value as never;
+import { loose } from "../loose.ts";
 
 // FLOW_STATE_ALLOW_UNKNOWN: a valid construction value, taken apart one field at a time.
 type Sample = unknown;

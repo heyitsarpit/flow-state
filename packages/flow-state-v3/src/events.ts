@@ -44,7 +44,7 @@ export const payloadOf = (fields: Schema.Struct.Fields) => {
 
   return {
     payload,
-    walk: walkerOf(codecOf<Values>(Schema.toType(payload))),
+    walk: walkerOf(Schema.toType(payload)),
     names: Object.keys(fields),
   };
 };

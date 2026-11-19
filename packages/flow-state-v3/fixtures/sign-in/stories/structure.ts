@@ -140,100 +140,91 @@ export const deviceChain = trusted("sign-in/device-chain")
   .ensure(laptop)
   .checkpoint("reloaded");
 
-// FLOW_STATE_ALLOW_UNKNOWN: each builder hands construction a form its types refuse.
-const untyped = (value: unknown) =>
-  // SAFETY: every refused form here is one the types reject; construction must refuse it at run time too.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-escape-hatch-assertion -- the untyped caller construction guards against
-  value as never;
-
-const device = { id: "Auth/TrustedDevice", states: ["UNTRUSTED"], events: { Revoke: {} } };
+const device = { id: "Auth/TrustedDevice", states: ["UNTRUSTED"], events: { Revoke: {} } } as const;
 
 /**
  * A device whose session slot is the session's definition itself, not `Provider.select`.
  */
 export const deviceWithDefinitionAsContext = () =>
-  definition(untyped({ ...device, context: { session: AuthSession } }));
+  // @ts-expect-error Compile R4: a context slot is Provider.select's
+  definition({ ...device, context: { session: AuthSession } });
 
 /**
  * A device whose trust date is written as the text "date" instead of a field Schema.
  */
 export const deviceWithTextField = () =>
-  definition(untyped({ ...device, events: { Trust: { until: "date" } } }));
+  // @ts-expect-error Compile R4: an event field is a Schema
+  definition({ ...device, events: { Trust: { until: "date" } } });
 
 /**
  * A device that reads its account by the bare `me` contract instead of `me.outcomes(...)`.
  */
 export const deviceWithBareContract = () =>
-  definition(
-    untyped({
-      ...device,
-      internalEvents: { MeRead: { handle: Schema.String } },
-      operations: () => ({ me }),
-    }),
-  );
+  definition({
+    ...device,
+    internalEvents: { MeRead: { handle: Schema.String } },
+    // @ts-expect-error Compile R4: an operation is a bound contract
+    operations: () => ({ me }),
+  });
 
 /**
  * A device whose weekly reminder is written `{ day: 7 }`, a key no Duration has (`days` is).
  */
 export const deviceRemindingByDay = () =>
-  machine(TrustedDevice, ({ S, E }) =>
-    untyped({
-      default: S.UNTRUSTED,
-      states: {
-        TRUSTED: {
-          default: S.TRUSTED.FRESH,
-          states: {
-            FRESH: { schedules: { reverify: { schedule: { day: 7 }, send: E.Reverify } } },
-          },
+  machine(TrustedDevice, ({ S, E }) => ({
+    default: S.UNTRUSTED,
+    states: {
+      TRUSTED: {
+        default: S.TRUSTED.FRESH,
+        states: {
+          // @ts-expect-error Compile R4: a delay is a Duration input
+          FRESH: { schedules: { reverify: { schedule: { day: 7 }, send: E.Reverify } } },
         },
       },
-    }),
-  );
+    },
+  }));
 
 /**
  * A device whose revoke handler was left `null` while it was being written.
  */
 export const deviceWithNullHandler = () =>
-  machine(TrustedDevice, ({ S }) => untyped({ default: S.UNTRUSTED, on: { Revoke: null } }));
+  // @ts-expect-error Compile R4: a handler is never null
+  machine(TrustedDevice, ({ S }) => ({ default: S.UNTRUSTED, on: { Revoke: null } }));
 
 /**
  * A device whose reminder reads its days from a setting that was never set: NaN days.
  */
 export const deviceRemindingNaNDays = () =>
-  machine(TrustedDevice, ({ S, E }) =>
-    untyped({
-      default: S.UNTRUSTED,
-      states: {
-        TRUSTED: {
-          default: S.TRUSTED.FRESH,
-          states: {
-            FRESH: {
-              schedules: { reverify: { schedule: { days: Number.NaN }, send: E.Reverify } },
-            },
+  machine(TrustedDevice, ({ S, E }) => ({
+    default: S.UNTRUSTED,
+    states: {
+      TRUSTED: {
+        default: S.TRUSTED.FRESH,
+        states: {
+          FRESH: {
+            schedules: { reverify: { schedule: { days: Number.NaN }, send: E.Reverify } },
           },
         },
       },
-    }),
-  );
+    },
+  }));
 
 /**
  * A device whose reminder is set to never come: an infinite number of days.
  */
 export const deviceRemindingNever = () =>
-  machine(TrustedDevice, ({ S, E }) =>
-    untyped({
-      default: S.UNTRUSTED,
-      states: {
-        TRUSTED: {
-          default: S.TRUSTED.FRESH,
-          states: {
-            FRESH: {
-              schedules: {
-                reverify: { schedule: { days: Number.POSITIVE_INFINITY }, send: E.Reverify },
-              },
+  machine(TrustedDevice, ({ S, E }) => ({
+    default: S.UNTRUSTED,
+    states: {
+      TRUSTED: {
+        default: S.TRUSTED.FRESH,
+        states: {
+          FRESH: {
+            schedules: {
+              reverify: { schedule: { days: Number.POSITIVE_INFINITY }, send: E.Reverify },
             },
           },
         },
       },
-    }),
-  );
+    },
+  }));

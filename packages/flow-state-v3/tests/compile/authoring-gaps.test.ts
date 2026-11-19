@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { definition, Flow, FlowError, machine, transaction } from "../../src/index.ts";
+import { loose } from "../loose.ts";
 
 // Each diagnostic of a refused construction as [code, reason, path].
 const refusal = (construct: () => unknown) => {
@@ -20,12 +21,6 @@ const refusal = (construct: () => unknown) => {
 };
 
 // Untyped configuration, as a JavaScript caller would pass it.
-// FLOW_STATE_ALLOW_UNKNOWN: the test hands construction values its types forbid.
-const loose = (value: unknown) =>
-  // SAFETY: each refused form is one the types reject; construction must refuse it at run time too.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller construction guards against
-  value as never;
-
 const save = transaction({
   id: "Gaps/save",
   input: { id: Schema.String },

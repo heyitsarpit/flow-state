@@ -24,11 +24,7 @@ import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { evidenceOf, type StoryRun } from "../../src/host/testing/index.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
-
-const loose = (value: unknown) =>
-  // SAFETY: the refused payload is one the types reject; the send must refuse it at run time too.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the untyped caller a send guards against
-  value as never;
+import { loose } from "../loose.ts";
 
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));

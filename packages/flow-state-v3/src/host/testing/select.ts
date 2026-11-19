@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import type { Evidence, EvidenceOf, Member } from "../../core/evidence.ts";
+import { Evidence, type EvidenceOf, type Member } from "../../core/evidence.ts";
 import type { Ending, ErasedEnding } from "../../contract.ts";
 import type { AnyDefinition, ActorRef, LeavesOf, MemoryOf } from "../../definition.ts";
 import { definitionOfToken } from "../../events.ts";
@@ -124,8 +124,7 @@ const NAMES_EVENT = {
   readonly [K in Evidence["_tag"]]: K extends EventRecord["_tag"] ? true : false;
 };
 
-// RETURN_TYPE: a type guard narrows a record to a turn.
-const isTurn = (e: Evidence): e is EvidenceOf<"Turn"> => e._tag === "Turn";
+const isTurn = Evidence.$is("Turn");
 
 // RETURN_TYPE: the Selector contract, overloaded by whether an actor is named.
 const selector = <R extends EventRecord>(kept: (e: Evidence) => e is R): Selector<R> => {
