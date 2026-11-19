@@ -162,7 +162,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/testing/run.ts",
         find: "      (e) => machineOf(e).compiled.id === actor.machine,",
-        replace: "      (e) => machineOf(e).compiled.id !== \"\",",
+        replace: '      (e) => machineOf(e).compiled.id !== "",',
       },
     ],
   },

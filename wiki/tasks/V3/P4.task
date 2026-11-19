@@ -3030,7 +3030,7 @@ tasks
 
     T104
         title       Type gaps closed at every module seam: carriers, handles, snapshots, evidence, casts
-        status      in_progress
+        status      review
         priority    high
         description
             Every type Flow hands across a module seam is as narrow as what the producer holds, so a typo or a wrong
@@ -3679,6 +3679,47 @@ tasks
         comment     2026-11-19T21:03:01Z
             Decision (the user, 2026-11-20): rename testing.compile.ts and send.compile.ts (and schedule-send.test.ts)
             to *.test-d.ts, relinking @plan.Pending and the closed Task's comment; Req 15 closes in the fix round.
+        comment     2026-11-19T21:39:32Z
+            Sidecar log (lead, fix round): two Haiku export replays (effort high) over the two public entries; each
+            finding re-read in code.
+
+            - Accepted: `Unsettled.actor.machine` (folded into the unsettled carrier); `Step.ensure`/`detach`/`dispose`
+              erase the app like `Step.send`, and a run took another app's steps (red: InvalidEvent, not
+              ForeignActorRef; now refused, fault `raw-step-unowned`); `Samples.values` typed by the app's events.
+            - Rejected: reaction `when`/`event` and slot provider ids (@task.V3.T107 replaces reactions and slots);
+              `Machine.compiled` (the core's erased seam); `ActorRef.value`/`context` (kept wide, recorded at the
+              design); a hand-built `App` literal at `runtimeSetup` (`app()` checks entries, ensure refuses at run
+              time); contract `services` keys (nothing reads them); sample failures as `WorldWord` (recorded: fixtures
+              inject storage words).
+        comment     2026-11-19T21:39:39Z
+            Close (lead, fix round): ready for review at 2dcd3cf4. `nub run check`, `lint:rules`, the suite (1520
+            passed, 25 expected fail, no type errors), stress, generated Stories with FLOW_SEEDS=10 and `docs:build`
+            exit 0; `faults --only` catches all 11 of the round's plants.
+
+            1. Stale plants: the nine re-planted; walker-on-call-stack caught by a 100,000-deep walker test in
+               `src/core/boundary.test.ts`. Missed because no check read a plant's find text:
+               code:packages/flow-state-v3/tests/faults.test.ts now does, in the suite (red on a stale plant in a
+               scratch copy; excluded from fault copies).
+            2. A3: every listed word carries the app, each with a two-sided test in
+               code:packages/flow-state-v3/tests/types/public.test-d.ts, red at HEAD (each wrong line an unused
+               directive). Decided (reversible in the commit): actor steps, `WorldWord` and `FakeWorld` are no longer
+               public values (words come from Story, servers and `Fake.storage`); a run refuses another app's steps
+               (ForeignActorRef); a trace request is `CallName` with the call's input and status, its endpoint text
+               since the trace mixes servers, as `Cut.calls`; `unsettledWrites` is generic with the app's definitions as
+               default (a plain return made `Runtime`'s app invariant, so no narrow setup assigned to a wide one).
+            3. g23: `decline` takes `Decline`, `notSent` `NotSentWhy` (a misspelt reason fails to compile, shown in a
+               scratch copy).
+            4. One-sided type tests, threshold 2: the freedom was a refusal with nothing exact beside it.
+               `flow-state/paired-refusals` (lint, in `nub run check`) fails a `@ts-expect-error` in a type test with no
+               exact `toEqualTypeOf` naming the refused line's parameter in the same test; 65 lines red at the start, 0
+               now; plants in code:tools/flow-state-lint/rules/paired-refusals.test.ts.
+            5. Also: excess-keys text corrected; @spec.Restore R5 gains the refused fresh start (specs.log); the compile
+               files are `*.test-d.ts` (the run-time schedule refusal moved to `tests/compile/schedule-send.test.ts`);
+               one `loose` at `src/test/loose.ts` (tests may import it); `recordCodec` gone for `codecOf`; an untyped
+               ref's options without `context` use the entry's wiring (test first).
+
+            For the user's read: hand-built `Step` data stays the run's erased script (the type is public; its actor
+            fields are checked at run time, not by type); `unsettledWrites<Ds>` lets a caller name a narrower app.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
