@@ -4,15 +4,26 @@
 // Run from the project root: bun tools/plan-coverage/check.ts
 import { readFileSync, readdirSync } from "node:fs"
 import { spawnSync } from "node:child_process"
+import { Schema } from "effect"
 
-const run = (...args: ReadonlyArray<string>): any => {
+const TaskList = Schema.Struct({
+  tasks: Schema.Array(
+    Schema.Struct({ description: Schema.optional(Schema.String), satisfies: Schema.Array(Schema.String) })
+  )
+})
+
+const PlanShow = Schema.Struct({
+  plan: Schema.Struct({ outcomes: Schema.Array(Schema.Struct({ id: Schema.String, title: Schema.String })) })
+})
+
+const run = <S extends Schema.Decoder<unknown>>(schema: S, ...args: ReadonlyArray<string>): S["Type"] => {
   const out = spawnSync("wk", [...args, "--json"], {
     encoding: "utf8",
     maxBuffer: 1 << 28,
     stdio: ["ignore", "pipe", "inherit"]
   })
   if (out.status !== 0) throw new Error(`wk ${args.join(" ")} failed`)
-  return JSON.parse(out.stdout)
+  return Schema.decodeUnknownSync(Schema.fromJsonString(schema))(out.stdout)
 }
 
 const plansDir = "wiki/plans/flow"
@@ -21,7 +32,7 @@ const plans = readdirSync(plansDir)
   .map((f) => f.slice(0, -".plan".length))
   .filter((id) => id !== "Pending")
 
-const tasks: ReadonlyArray<{ description?: string; satisfies: ReadonlyArray<string> }> = run("list", "task").tasks
+const tasks = run(TaskList, "list", "task").tasks
 const normalize = (ref: string): string => ref.replace(/^@/, "").replace(/^plan\./, "")
 
 const satisfied = new Set(tasks.flatMap((t) => t.satisfies.map(normalize)))
@@ -33,11 +44,11 @@ const isRemoved = (title: string): boolean => /\(removed\)\s*$/.test(title)
 const uncovered: Array<string> = []
 let total = 0
 for (const plan of plans) {
-  for (const outcome of run("show", `@plan.${plan}`).plan.outcomes as ReadonlyArray<{ id: string; title: string }>) {
+  for (const outcome of run(PlanShow, "show", `@plan.${plan}`).plan.outcomes) {
     if (isRemoved(outcome.title)) continue
     const id = `${plan}.${outcome.id}`
     total += 1
-    const deferred = new RegExp(`(?<![\\w.])${id.replace(".", "\\.")}(?!\\w)`).test(deferredText)
+    const deferred = new RegExp(`(?<![\\w.])${id.replaceAll(".", "\\.")}(?!\\w)`).test(deferredText)
     if (!satisfied.has(id) && !deferred) uncovered.push(id)
   }
 }

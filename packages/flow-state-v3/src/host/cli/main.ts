@@ -20,9 +20,7 @@ class RunRejected extends Data.TaggedError("RunRejected")<{
   }
 }
 
-const lines = (texts: ReadonlyArray<string>) => [...texts, ""].join("\n");
-
-const document = (text: string) => Console.log(text.endsWith("\n") ? text.slice(0, -1) : text);
+const document = (texts: ReadonlyArray<string>) => Console.log(texts.join("\n"));
 
 const projectRoot = Flag.String("project-root").pipe(
   Flag.withDescription("The folder that holds flow.config.ts"),
@@ -66,7 +64,7 @@ const checkpointLines = (run: StoryRun) =>
 
 const list = Command.make("list", { projectRoot }, ({ projectRoot }) =>
   Effect.flatMap(stories(projectRoot), (found) =>
-    document(lines(found.map(({ id, app }) => `${id} ${Option.getOrElse(app, () => "-")}`))),
+    document(found.map(({ id, app }) => `${id} ${Option.getOrElse(app, () => "-")}`)),
   ),
 ).pipe(Command.withDescription("Name every Story the config lists, with its app"));
 
@@ -75,7 +73,7 @@ const run = Command.make("run", { projectRoot, storyId }, ({ projectRoot, storyI
     const story = yield* find(projectRoot, storyId);
     const ran = yield* runOnce(story);
 
-    yield* document(lines([`story ${story.id}`, ...checkpointLines(ran)]));
+    yield* document([`story ${story.id}`, ...checkpointLines(ran)]);
   }),
 ).pipe(Command.withDescription("Run a Story once and print its checkpoints"));
 
@@ -83,7 +81,8 @@ const trace = Command.make("trace", { projectRoot, storyId }, ({ projectRoot, st
   Effect.gen(function* () {
     const ran = yield* runOnce(yield* find(projectRoot, storyId));
 
-    yield* document(render(ran.trace, "text"));
+    // The text render ends with one newline of its own; `Console.log` adds that one.
+    yield* document([render(ran.trace, "text").replace(/\n$/, "")]);
   }),
 ).pipe(Command.withDescription("Run a Story once and print its trace"));
 

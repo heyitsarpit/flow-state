@@ -2,13 +2,8 @@ import { Option } from "effect";
 import type { Bench, Counters } from "./declare.ts";
 import type { Row } from "./history.ts";
 import { hashOf, type environmentOf } from "./machine.ts";
-import type { Report } from "./report.ts";
+import type { Done } from "./report.ts";
 import { madOf, medianOf, spreadOf } from "./stats.ts";
-
-/**
- * One worker's finished report.
- */
-export type Done = Extract<Report, { readonly _tag: "Done" }>;
 
 /**
  * One bench's result over its workers: each worker's samples, the median of their medians, the

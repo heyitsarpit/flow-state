@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Schema } from "effect";
-import { Report } from "./report.ts";
+import { type Done, Report } from "./report.ts";
 
 /**
  * One worker process of a run: the package it ran in, its wall time, the benches it ran and its
@@ -39,8 +39,6 @@ export const writeTiming = (root: string, name: string, spawned: ReadonlyArray<S
 
   return file;
 };
-
-type Done = Extract<Report, { readonly _tag: "Done" }>;
 
 const of = (r: Done, key: string) => r.timing[key] ?? 0;
 

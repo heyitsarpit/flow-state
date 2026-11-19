@@ -14,6 +14,11 @@ export const DoneReport = Schema.TaggedStruct("Done", {
 });
 
 /**
+ * One worker's finished report.
+ */
+export type Done = typeof DoneReport.Type;
+
+/**
  * A bench that stopped on a problem.
  */
 export const FailedReport = Schema.TaggedStruct("Failed", {
