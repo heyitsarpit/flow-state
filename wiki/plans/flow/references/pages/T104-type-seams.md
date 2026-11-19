@@ -47,4 +47,4 @@ ref, so Stories lose nothing; hand-built step data is still refused when it runs
 
 ## Status
 
-Unread.
+Read by the user, 2026-11-20. Q1 A for now: the words stay removed; the user finalises it on 2026-11-21.
