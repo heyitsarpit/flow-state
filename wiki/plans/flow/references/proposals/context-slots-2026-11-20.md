@@ -1,12 +1,11 @@
-# Context slots and reactions (proposed, 2026-11-20)
+# Context slots and reactions (accepted, 2026-11-20)
 
 **Bottom line:** a context slot is declared whole on the definition with `Flow.context`, reading its one provider
 through typed tokens; a machine reacts with `C.slot.change({ when?, event })`. No strings name a slot or a field,
 one slot has exactly one provider (a type error, then a construction error), and the compiled graph holds
 field-level edges from a provider's field to a consumer's event, so static analysis can follow them.
 
-**Accepted by the user (2026-11-20):** `C` tokens in the machine callback and the `.change({ when?, event })` shape.
-Everything else here is proposed.
+**Accepted by the user (2026-11-20):** the whole proposal except the items under Open; built by @task.V3.T107.
 
 **Why now:** a reaction's `select` and a slot's `Provider.select(Schema, fn)` are opaque functions. Slot names are
 string keys, `when`'s arguments are untyped (`never`), and the graph only knows "the consumer depends on all of the

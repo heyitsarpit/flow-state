@@ -191,7 +191,8 @@ outcomes
         Ensuring a restored actor takes no input (@plan.Runtime.O3). Restore never runs creation again or replays old
         input or turns.
 
-        Saved context bindings select the same providers and establish a silent baseline, without an `onContext` event.
+        Saved context bindings name the same providers (one per slot) and establish a silent baseline, without an
+        `onContext` event.
 
         A writing placement whose re-taken reset value differs from the recorded one resets as a pending reset, the
         first turn after restore, before the lane deliveries.

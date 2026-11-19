@@ -150,7 +150,10 @@ decisions
         `tests/rules/reloads.test.ts`). Found in @task.V3.T9's convergence. The Schema stays required: it cannot be
         inferred for a computed selection, and an optional one brings back the unknown value kind (the convergence
         review's recommendation). A selection with no canonical form is reported `UnencodableValue` and never fails the
-        turn; a Schema refusal stays the selector's defect.
+        turn; a Schema refusal stays the selector's defect. Superseded in form by the accepted context-slots proposal:
+        `Flow.context` replaces `Provider.select(schema, fn)`
+        (code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md, @task.V3.T107); the Schema stays, taken
+        from the field for a pass-through slot.
     D21  @plan.Diagnostics.O1, @plan.Operations.O1, @plan.Testing.O6: three fixture calls from @task.V3.T82 (accepted,
          the user, 2026-11-17)
         `ContextCycle` stays checked by a runtime test, since no real app reaches it without a stand-in definition of

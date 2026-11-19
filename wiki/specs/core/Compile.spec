@@ -35,13 +35,17 @@ requirements
     R4  Declared shape
         source  @plan.Machines.O1.
         must    A definition requires id, states and events, and may declare `internalEvents`,
-                memory, traits, operations, context, `props`, `emits` and persist (default false).
+                memory, traits, operations, context, `props`, `emits` and persist (default false). A context
+                slot is `Flow.context(X.M.field)` (pass-through) or
+                `Flow.context(Schema, { reads: { name: X.M.field }, select })` (derived); a read names a
+                public memory field (`X.M`), a state token (`X.S.STATE`, boolean) or `X.state`.
 
                 Machine configuration mirrors the state tree:
 
                 - the root and each compound have a default direct child and states;
                 - leaves have neither;
-                - only the root declares `onContext` and `onProps`.
+                - only the root declares `onContext` (its reactions are `C.slot.change({ when, event })`)
+                    and `onProps`.
 
                 Unknown fields, wrong kinds, empty compounds, duplicate siblings, overlapping public
                 and internal names, _tag fields and self-selecting context reject.
@@ -190,6 +194,16 @@ requirements
                 compatible provider; a gap or an incompatible provider is refused at admission 
                 (Actors Spec R18). Call sites never supply wiring.
 
+    R19  Context slots and reactions (proposed)
+        source  wiki/plans/flow/references/proposals/context-slots-2026-11-20.md; @task.V3.T107.
+        must    A slot binds to one provider, so every token in a derived slot's `reads` comes from one
+                definition: a type error, and for casts and plain JavaScript an InvalidConfiguration at
+                `["context", slot, "reads", key]`. A read of a `Flow.private` field has no `M` token and fails
+                to compile. A reaction whose event no state handles is a construction error. Compiled holds,
+                for each slot, its provider definition and the provider fields (and state reads) it reads,
+                and for each reaction its slot, so the field-level edge from a provider's field to a
+                consumer's event follows from the data view alone. No string names a slot or a field.
+
 open
     Q1  Executable checks are not built.
         outcome  Each test below is written, when its slice is built, as the cheapest check that fully
@@ -256,6 +270,9 @@ invariants
          Runtime creation refuses such a Compiled. Reworded 2026-11-11 (audit C20). [@R17]
 
     I17  For every machine entry, resolved wiring is total over declared slots and each provider is compatible. [@R18]
+
+    I18  (proposed) Every derived slot's reads come from one provider definition; every reaction's event is handled by 
+        some state; Compiled's data view lists each slot's provider fields and each reaction's slot. [@R19]
 
 composition
     flow
@@ -344,6 +361,10 @@ coverage
         enforced_by  [@I17]
         open_by      [@Q1]
 
+    @R19
+        enforced_by  [@I18]
+        open_by      [@Q1]
+
 tests
     T1  Construct every reference definition, machine and app with spies on services, storage, clock and loaders; 
         expect zero calls and a callback count of 1 per machine. No planted fault yet; one is written
@@ -380,3 +401,6 @@ tests
     T12  Identity fields: a value-named machine with an optional, defaulted or non-string-encoded
             input field is refused IdentityFieldOptional; a fragment input field stays writable.
             A planted fault is written with this test (Q2). [@I9]
+    T13  (proposed) A `reads` mixing two providers is a type error and, untyped, InvalidConfiguration at
+            `["context", slot, "reads", key]`; a reaction whose event no state handles is refused; Compiled lists each
+            slot's provider fields and each reaction's slot. A planted fault drops the mixed-provider check. [@I18]

@@ -40,11 +40,11 @@ requirements
     R2  Context and resets at restore
         source  @plan.Persistence.O4.
         must    Saved context bindings select the same providers, the ones a consumer starts
-                included, and set a silent baseline from each slot's saved last-seen selection: a
-                slot whose current selection equals it gets no onContext event, so a reload of a
+                included, and set a silent baseline from each slot's saved last-seen value: a
+                slot whose current value equals it gets no onContext event, so a reload of a
                 consistent saved world hears none; one that differs gets the one wave of
                 @spec.Actors.R9, at a reload as at a return. Each reaction's baseline is read again
-                from its saved inputs (@spec.Turn.R22). A writing 
+                from its slot's saved value (@spec.Turn.R22). A writing 
                 placement whose re-taken reset value differs from the
                 recorded one resets as a pending reset, the first turn after restore, before the
                 owed rows and the lane deliveries of R3 (round-14/step.ts, "a reset lost by the

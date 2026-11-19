@@ -68,7 +68,7 @@ outcomes
         initial, an optional key stays absent, and an input field with no default refuses the record
         (RestoreMissingInput); record versions, resets and dropped fields are @plan.Persistence.O5.
 
-        Optional context maps slots to another definition's Provider.select(schema, selector); context binding is
+        Optional context declares each slot whole with Flow.context (@plan.Machines.O7); context binding is
         @plan.Runtime.O5. operations is ({ E }) => ({ name: contract.outcomes({ ... }) | contract }): each server
         interaction is declared once by name with its endings mapped onto this definition's events (@plan.Operations.O1
         to O3); one write operation per write contract per actor, counting every fragment placement in its tree
@@ -79,9 +79,9 @@ outcomes
         token and states; leaves have neither.
 
         Nodes may declare on, activities and schedules, and fill each placed fragment in one block (traits under
-        traits.name where placed, a subroutine on its state); only the root may declare `onContext` and `onProps`. A
-        definition's handler(path, h) and guard(path?, g) type shared code as if written at path (the root
-        when omitted).
+        traits.name where placed, a subroutine on its state); only the root may declare `onContext` and `onProps`
+        (`onContext` inside a state node is open). A definition's handler(path, h) and guard(path?, g) type shared code
+        as if written at path (the root when omitted).
 
         Fragments. trait(declaration, body) is something the actor has; subroutine(declaration, body) is a state the
         actor goes into.
@@ -517,8 +517,8 @@ outcomes
         ```ts
         // user-defined: Screen, ScreenMachine, Narrowed, narrow, Toaster, ToasterMachine, READY, toasts, hovered,
         //   maxVisible, Show, Update, Dismiss, PointerEnter, PointerLeave, Expired, expire, lengths, Hovered, Hidden
-        // existing: definition, machine, context, X.Provider.select, schedules, keys, restartOn, send: E.X.from
-        // NEW: key in schedule, paused with named reasons, pausedBy in the snapshot
+        // existing: definition, machine, context, schedules, keys, restartOn, send: E.X.from
+        // NEW: key in schedule, paused with named reasons, pausedBy in the snapshot, Flow.context(X.M.field), M tokens
         import { Schema } from "effect"
         import { definition, Flow, machine } from "flow-state"
 
@@ -551,7 +551,12 @@ outcomes
             toasts: Flow.initial(Schema.Array(Schema.Struct(Toast)), []),
             hovered: Flow.initial(Schema.Boolean, false),
           },
-          context: { maxVisible: Screen.Provider.select(Schema.Number, (s) => (s.memory.narrow ? 1 : 3)) },
+          context: {
+            maxVisible: Flow.context(Schema.Number, {
+              reads: { narrow: Screen.M.narrow },
+              select: ({ narrow }) => (narrow ? 1 : 3),
+            }),
+          },
         })
 
         export const ToasterMachine = machine(Toaster, ({ S, E }) => ({
@@ -663,24 +668,51 @@ outcomes
     O7  Context reactions
         A change in context or props can raise an event into an actor, and a reaction never changes state directly.
 
-        Machine-level onContext: [{ select, when?, event }] observes context changes. select({ context, memory })
-        establishes a silent baseline at admission, restore, adoption and hydration. Only context waves re-run it, using
-        current memory; memory-only changes do not trigger it. Context propagation is @plan.Runtime.O5. Equal selections
-        under Equal.equals are silent.
+        A slot is declared whole on the definition, never in the machine or the reaction (@task.V3.T107,
+        code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md). Pass-through:
+        Flow.context(Cart.M.items); the slot's Schema is the field's and its provider is the token's definition.
+        Derived: Flow.context(Schema, { reads: { name: X.M.field, ... }, select: ({ name }) => ... }); reads is a named
+        object and select must return the Schema's type. A read names a provider's public memory field (M token), a
+        state token (boolean) or X.state; a Flow.private field has no M token, so reading one fails to compile. A slot
+        has exactly one provider: every read comes from one definition, a type error and an InvalidConfiguration at
+        ["context", slot, "reads", key] for casts and plain JavaScript; values from two machines need two slots. A turn
+        that changes none of a slot's reads skips the slot: no select, no comparison.
 
-        A changed selection becomes the baseline even if when(current, previous) declines. With no when, or when true,
-        event (bare or E.X.from(current)) enqueues after the context turn, in reaction declaration order; `onContext`
-        events queue in the actor's one FIFO mailbox with user sends, call endings and timer firings (@plan.Runtime.O4).
+        Machine-level onContext: [C.slot.change({ when?, event })] observes a slot's changes; C is a callback token per
+        slot. when(current, previous, { memory }) is typed by the slot and reads current memory. The slot's value is a
+        silent baseline at admission, restore, adoption and hydration. Only context waves recompute it; memory-only
+        changes do not trigger it. Context propagation is @plan.Runtime.O5. Equal values under Equal.equals are silent.
+
+        .change turns a value change into an event and nothing more: guards, targets, memory updates and actions stay in
+        that event's ordinary `on` handler, so every input enters the machine as a named event.
+
+        A changed value becomes the baseline even if when declines. With no when, or when true, event (bare or
+        E.X.from(current)) enqueues after the context turn, in reaction declaration order; `onContext` events queue in
+        the actor's one FIFO mailbox with user sends, call endings and timer firings (@plan.Runtime.O4).
+
+        ```ts
+        // user-defined: Badge, Cart, items, coupon, count, bumps, Bumped, SHOWN
+        // NEW: Flow.context, M tokens (one per public memory field), C.slot.change
+        context: {
+          items: Flow.context(Cart.M.items),
+          count: Flow.context(Schema.Number, {
+            reads: { lines: Cart.M.items, coupon: Cart.M.coupon },
+            select: ({ lines, coupon }) => (coupon === "" ? lines.length : lines.length + 1),
+          }),
+          session: Flow.context(AuthSession.S.SIGNED_IN), // boolean; Flow.context(Pay.state) is the state's name
+        }
+        onContext: [C.count.change({ when: (current, previous) => current > previous, event: E.Bumped })]
+        ```
 
         An actor returning after an end within a Runtime gets one wave if a provider's selection differs from the one it
         ended with; a reload's baselines are silent. A select, when or mapper defect publishes one issue, keeps the
         previous baseline and emits nothing; the next wave may try again. Reactions never change state directly.
 
-        Machine-level onProps: [{ select, when?, event }] is shaped like onContext, with select({ props, memory }). A
-        props update is its own turn that changes only props; onProps then runs, so a reaction can repair memory against
-        shrinking props. Its baseline is silent at admission; equal selections under Equal.equals are silent; defects
-        behave as for onContext; its events queue in the one FIFO mailbox. Props reuse context's delivery; only the
-        source differs: the owner at the call site, never saved.
+        Machine-level onProps: [{ select, when?, event }] keeps the select shape, with select({ props, memory }); it is
+        not changed by @task.V3.T107. A props update is its own turn that changes only props; onProps then runs, so a
+        reaction can repair memory against shrinking props. Its baseline is silent at admission; equal selections under
+        Equal.equals are silent; defects behave as for onContext; its events queue in the one FIFO mailbox. Props reuse
+        context's delivery; only the source differs: the owner at the call site, never saved.
 
         The parent component owns `count`, so it is a prop; the machine owns `index`, so it is memory. When the parent
         shrinks the list, `onProps` repairs memory by sending an event, never by writing
@@ -691,7 +723,7 @@ outcomes
         // user-defined: Carousel, CarouselMachine, SHOWING, count, index, hovered, Next, Prev, PointerEnter,
         //   PointerLeave, Shrunk, last, autoplay, Hovered, AtEnd, AtStart
         // existing: definition, machine, Flow.initial, guard, deny, updateMemory, schedules, armOn, Flow.entry,
-        //   restartOn, E.X.from, the onContext shape
+        //   restartOn, E.X.from, C.slot.change
         // NEW: props, onProps (machine root only), props in guards, paused with named reasons,
         //   armOn: [Flow.entry] beside restartOn
         import { Effect, Schema } from "effect"

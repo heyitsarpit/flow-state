@@ -1095,3 +1095,7 @@ note 2026-11-19T16:57:38Z
 
 note 2026-11-19T17:36:23Z
     Hourly wake cron a10d3b2d cancelled (the user, 2026-11-19); no wake runs now. T104 waits to resume from 4c4df672.
+
+note 2026-11-19T18:53:25Z
+    Context slots accepted (the user, 2026-11-20): Flow.context on the definition, C.slot.change in the machine, one
+    provider per slot; built by @task.V3.T107 after @task.V3.T104.

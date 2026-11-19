@@ -48,8 +48,8 @@ are under `wiki/specs/core/`.
    data view. Provides construction errors, inert construction and the closed app list.
    From @plan.Machines.O1 and @plan.Runtime.O1.
 2. **Turn** (`Turn.spec`): one actor's turn over a snapshot: states, transitions, the turn
-   algorithm, guards and `check`, schedules, placements and the owner test, `onContext`
-   reactions, the snapshot. From @plan.Machines.O2, O3, O4, O5, O6, O7 and O8.
+   algorithm, guards and `check`, schedules, placements and the owner test, context slots
+   and `C.slot.change` reactions, the snapshot. From @plan.Machines.O2, O3, O4, O5, O6, O7 and O8.
 3. **Actors** (`Actors.spec`): the Runtime around turns: setup and readiness, identity and
    lifetime, mailboxes and send, context propagation, disposal, isolation.
    From @plan.Runtime.O2, O3, O4, O5, O6 and O7.

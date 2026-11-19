@@ -201,19 +201,21 @@ requirements
 
     R22  Context reactions
         source  @plan.Machines.O7.
-        must    `onContext` select sets a silent baseline at admission, a reload restore, adoption
-                and hydration. Only context waves re-run it, the one wave a returning incarnation
-                receives included (@spec.Actors.R9); memory-only changes do not. Equal selections are
-                silent. Decision (agent, 2026-11-11): audit C13. Why: a reload restores a consistent
-                saved world, while a return may have missed provider changes. Reverse: make the
+        must    A reaction (`C.slot.change({ when, event })`) compares its slot's value: the slot's value
+                sets a silent baseline at admission, a reload restore, adoption and hydration. A slot is
+                recomputed only when one of its reads changed (@spec.Actors.R18); only context waves
+                re-run a reaction, the one wave a returning incarnation receives included
+                (@spec.Actors.R9); memory-only changes do not. Equal values are silent. Decision
+                (agent, 2026-11-11): audit C13. Why: a reload restores a consistent saved world, while a return may have
+                missed provider changes. Reverse: make the
                 return silent too (spec-log.md, T42).
 
-                A changed selection becomes the baseline even if when declines; with no when, or
-                when true, its event enqueues after the context turn, in declaration order, in the
-                one FIFO mailbox. A select, when or mapper defect publishes one issue, keeps the
-                previous baseline and emits nothing. A baseline keeps the inputs it was read from,
-                the slots and memory fields its select read, so a restore reads it again as it was,
-                a kept one included. Reactions never change state directly.
+                A changed value becomes the baseline even if `when(current, previous, { memory })`
+                declines; with no when, or when true, its event enqueues after the context turn, in
+                declaration order, in the one FIFO mailbox. A slot select, when or mapper defect
+                publishes one issue, keeps the previous baseline and emits nothing. A baseline is the
+                slot's saved value, so a restore reads it again as it was, a kept one included.
+                Reactions never select and never change state directly.
 
     R23  Snapshot shape
         source  @plan.Machines.O8.
@@ -404,7 +406,7 @@ invariants
     I27  A late turn never exits an Activation that owns an InFlight head or a queued commit. [@R21]
 
     I28  An onContext event is enqueued only after a context wave (a returning incarnation's one wave included) changed 
-         its selection, and the baseline then equals that selection. [@R22]
+         its slot's value, and the baseline then equals that value. [@R22]
 
     I29  A published snapshot is never mutated afterwards. [@R23, @R24]
 
@@ -646,8 +648,8 @@ tests
          allowed.
              Planted faults: a late exit that always leaves; one that leaves beside a queued commit; a Held head taken
              as live; a queue behind a Held head taken as not live; an active subroutine ignored. [@I27]
-    T16  onContext: a provider change wave with an equal selection, a changed one with when declining, and a throwing 
-         select. No test yet. [@I28]
+    T16  onContext: a provider change wave with an equal slot value, a changed one with when declining, a throwing 
+         when, and a wave that changes none of a slot's reads (no select run). No test yet. [@I28]
     T17  Snapshots: writing into a published snapshot fails; a later publication reuses unchanged parts by identity. 
          Planted faults: a patch or row written in place; an absent entry treated as placed. [@I29, @I30]
     T18  Issues: two sources raise issues; one source's success clears only its own; a new incarnation starts with 

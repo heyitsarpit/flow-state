@@ -289,15 +289,16 @@ outcomes
         A consumer always reads one complete, consistent snapshot of the context it depends on, and a bad context graph
         is refused before any work runs.
 
-        Provider.select(schema, selector) reads one complete provider snapshot; the selection passes once through the
-        Schema's JSON form (D20), so the consumer reads, compares and saves the same value live and after a reload. A
-        selection with no canonical form is reported `UnencodableValue` and never fails the turn; a Schema refusal is
-        the selector's defect. Memory, selections, payloads and inputs are immutable once admitted; dev and test
-        deep-freeze them so a mutation throws where it happens, and production pays nothing (D29). Unchanged values keep
-        their reference, so compiled walkers memoise by reference and equality may compare references first. Values nest
-        to any depth: every Schema in Compiled has a stack-safe encoder, decoder and comparator (D27). A context slot
-        binds to one provider for the consumer's lifetime. Context reads form an acyclic upward graph; a cycle
-        (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one rejects at admission.
+        A slot declared by Flow.context reads one complete provider snapshot through typed tokens (@plan.Machines.O7);
+        the selection passes once through the slot's Schema's JSON form (D20), so the consumer reads, compares and saves
+        the same value live and after a reload. A selection with no canonical form is reported `UnencodableValue` and
+        never fails the turn; a Schema refusal is the selector's defect. Memory, selections, payloads and inputs are
+        immutable once admitted; dev and test deep-freeze them so a mutation throws where it happens, and production
+        pays nothing (D29). Unchanged values keep their reference, so compiled walkers memoise by reference and equality
+        may compare references first. Values nest to any depth: every Schema in Compiled has a stack-safe encoder,
+        decoder and comparator (D27). A context slot has exactly one provider and binds to it for the consumer's
+        lifetime. Context reads form an acyclic upward graph; a cycle (ContextCycle), a missing provider
+        (MissingContextProvider) or an incompatible one rejects at admission.
 
         Baselines are silent: `onContext` fires for none established at admission, restore, lazy adoption or hydration;
         an actor returning after an end gets one wave if a provider's selection differs from the one it ended with in

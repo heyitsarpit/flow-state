@@ -20,7 +20,8 @@ A **shared actor** (reached by a ref: a singleton, or one actor per identity) ha
 (`useActorByRef` with props is a type error). Outside state reaches it three ways, and the machine decides how to act:
 
 - **Which actor it is:** input, the ref's identity; fixed.
-- **Another machine's state:** context; the machine reads it in guards, or `onContext` turns a change into an event.
+- **Another machine's state:** context; the machine reads it in guards, or `C.slot.change` in `onContext` turns a change
+  into an event.
 - **App code that is not a machine** (an effect, host code, a socket): an event it sends, handled as any other.
 
 Props and context share one delivery (in order, compared with `Equal.equals`, never saved); context is wired

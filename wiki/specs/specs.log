@@ -487,3 +487,7 @@ note 2026-11-19T13:01:30Z
     @spec.Stories R8, R9, R12, R17, I11: each fake server names its lost error (`lost`); `read(ref)` is typed by the
     definition; evidence is selected by token. Source: @task.V3.T103 C1 to C3. Reverse: the Fake.Lost mapping and erased
     read.
+
+note 2026-11-19T18:54:20Z
+    Core Specs now state context slots per the accepted proposal: Flow.context, C.slot.change, one provider per slot
+    (Compile R19, I18, T13). Source: @task.V3.T107. Reverse: restore Provider.select and the reaction select.

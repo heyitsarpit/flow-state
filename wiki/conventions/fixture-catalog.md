@@ -68,7 +68,7 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | an Effect `Schedule` as `schedule`                            |. |. |. |2 |. |. |. |. |. |. |. |. |2 |. |4 |. |
 | `props`, `onProps`                                            |. |. |. |. |. |. |. |5 |6 |. |. |5 |. |8 |. |. |
 | `emits`, `onEmit`                                             |. |. |. |. |. |3 |. |3 |6 |. |. |5 |. |8 |. |. |
-| `context`, `onContext`, `Provider.select`                     |1 |. |. |. |1 |1 |U |1 |. |. |. |. |2 |2 |4 |4 |
+| `Flow.context`, `onContext`, `C.slot.change`                  |1 |. |. |. |1 |1 |U |1 |. |. |. |. |2 |2 |4 |4 |
 | `ContextCycle`, `MissingContextProvider`                      |. |. |. |. |. |. |1 |. |. |. |. |. |2 |15|4 |. |
 | `ConflictingActorRef`, duplicate `.each` key, missing service |1 |. |. |. |. |. |. |. |. |. |. |4 |. |2 |. |. |
 | `createActor`, `disposeActor`                                 |. |. |. |. |1 |. |. |5 |6 |. |. |4 |. |2 |8 |8 |
@@ -121,6 +121,16 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | server rendering, hydration                                   |18|. |. |. |. |. |18|. |. |. |. |18|. |18|. |. |
 | `DehydrateCommitInFlight`, `DehydrateUnsettled`, `Hydration*` |18|. |. |. |. |. |18|. |. |. |. |18|. |18|. |. |
 | `inspect`, `trace.export`/`trace.import`, sinks, redaction    |16|. |. |. |16|16|. |. |. |. |. |. |16|. |16|. |
+
+Context forms the rows above stand for (@task.V3.T107 builds them; each has a Story and an edge-value sample):
+
+- **Pass-through:** `Flow.context(Cart.M.items)`; the slot takes the field's Schema and its provider.
+- **Derived, several reads:** `Flow.context(Schema.Number, { reads: { lines: Cart.M.items, coupon: Cart.M.coupon },
+  select })`; recomputed only when one of its reads changed; a `reads` mixing two providers is refused.
+- **State read:** `Flow.context(AuthSession.S.SIGNED_IN)` (boolean) and `Flow.context(Pay.state)` (the state's name).
+- **`.change` with `when`:** `C.count.change({ when: (current, previous) => current > previous, event: E.Bumped })`.
+- **`.change` with a payload:** `C.count.change({ event: E.Bumped.from((count) => ({ count })) })`.
+- **`when` using `{ memory }`:** `when: (current, previous, { memory }) => current > memory.limit`.
 
 ## Fixtures
 
@@ -175,11 +185,12 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     `forgottenRetiredAuthorization`, `unsurePayRemoved`).
   - **step 1:** compound `states` (`CheckoutFlow`'s address, shipping and pay steps); `S.X.history`, `history.child`,
     `S.previous.history` (Back into `CheckoutFlow`'s shipping step restores its sub-step); `Flow.input` value-named
-    actors (`Cart`, named by shopper); guards, `deny`, `check` (`CheckoutFlow` checks the cart isn't empty); `context`,
-    `onContext`, `Provider.select` (`Cart` and `CheckoutFlow` ⇠ `shopper`); `ConflictingActorRef`, duplicate `.each`
-    key, missing service (a second `Cart` ref with another shopper, refused); `send(ref, event)` (`CheckoutFlow` and `Subscription`
-    send `CardChosen` and `PayRequested` to `Checkout/Pay`); `latest`, `Superseded` (T `setQuantity`, `latest` per line key);
-    `notSent:`, `otherwise`, `Flow.ignore`, mapper `Defect` (T `addLine` maps `notSent:` to a line error).
+    actors (`Cart`, named by shopper); guards, `deny`, `check` (`CheckoutFlow` checks the cart isn't empty);
+    `Flow.context`, `onContext`, `C.slot.change` (`Cart` and `CheckoutFlow` ⇠ `shopper`); `ConflictingActorRef`,
+    duplicate `.each` key, missing service (a second `Cart` ref with another shopper, refused); `send(ref, event)`
+    (`CheckoutFlow` and `Subscription` send `CardChosen` and `PayRequested` to `Checkout/Pay`); `latest`, `Superseded`
+    (T `setQuantity`, `latest` per line key); `notSent:`, `otherwise`, `Flow.ignore`, mapper `Defect` (T `addLine` maps
+    `notSent:` to a line error).
   - **step 2:** `trait` (`AddressForm` on `CheckoutFlow`'s address step); `subroutine` with exits (`ThreeDSecure` in
     `CheckoutFlow`'s pay step); `.each({ of, max, by })` (`CartLine` ◂ `Cart`); raise into copies ("clear cart" raised
     into `CartLine`s).
@@ -365,7 +376,8 @@ A sync client whose three remotes differ only in lane policy. Kept as it is. Sou
 - **Scenarios:**
   - [x] **Usual and load:** `usual`, `seededStress`, `nearBound` (12 queued) (have). built: `lanes/usual`,
     `lanes/stress-36`, `lanes/stress-near-bound`.
-  - [x] **Load:** L2: a head and a queue well past the old 64 commits under `serialize`, every one ending, timed on the bench.
+  - [x] **Load:** L2: a head and a queue well past the old 64 commits under `serialize`, every one ending, timed on the
+    bench.
     built: `lanes/serialize-deep` (1,000 queued). Events to one actor well past the old 1,024, none refused, no
     ending lost, doubled or made up: a runtime test over `lanesSetup`, since a Story's send runs its turn before the
     next. built: `tests/lanes/lanes.test.ts` (20,000 sends).
@@ -493,10 +505,9 @@ kamp.us for rows restored after a failure.
     }` (`heldAtDisposal`); owed endings, quarantine (`quarantined`, receipts); `persist`, restore, reload
     (`Bank/Transfers`); Runtime per scope, `dispose` (sign-out, `interruptCleanupFails`); `CleanupFailed`,
     `HoldForgotten`, `UnboundLane` (`interruptCleanupFails`, `forgottenRetiredWire`, `unsureAccountRemoved`).
-  - **step 1:** `context`, `onContext`, `Provider.select` (`TransferForm` ⇠ `customer`); `createActor`, `disposeActor`
-    (`TransferForm`, a local actor); `resource`,
-    `O.x.lookup` (R `balance`); canonical keys, `InvalidKey`, `KeyOmitsInput` (account names in NFC and decomposed
-    forms; cents as bigint).
+  - **step 1:** `Flow.context`, `onContext`, `C.slot.change` (`TransferForm` ⇠ `customer`); `createActor`,
+    `disposeActor` (`TransferForm`, a local actor); `resource`, `O.x.lookup` (R `balance`); canonical keys,
+    `InvalidKey`, `KeyOmitsInput` (account names in NFC and decomposed forms; cents as bigint).
   - **step 2:** `subroutine` with exits (`StepUp` in `TransferForm`).
   - **step 4:** `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch` (R `balance`); `placeholder({ previous, input })`
     (R `balance` on an account switch); `O.x.setData`, `O.x.invalidate`, `O.x.clear` (`invalidate` R `balance` after T
@@ -636,7 +647,7 @@ not checked here).
     endings, `Flow.uncertain`, `unknown` (`Auth/SignIn`); `HoldForgotten` (`signOutRetiredLink`), `UnboundLane`
     (`unsureSaveRemoved`); no `CleanupFailed` yet: no sign-in port fake fails a cleanup.
   - **step 1:** `Flow.initial` computed (`AuthSession`'s handle from the email); `Flow.private` (`AuthSession`'s refresh
-    token); `context`, `onContext`, `Provider.select` (`ReturnTo` ⇠ `session`); `forget`, `unsettledWrites` (sign-out
+    token); `Flow.context`, `onContext`, `C.slot.change` (`ReturnTo` ⇠ `session`); `forget`, `unsettledWrites` (sign-out
     forgets `AuthSession`); `persist`, restore, reload (`AuthSession`, `ReturnTo`).
   - **step 2:** `subroutine` with exits (`Reauth` in `AuthSession`).
   - **step 3:** `emits`, `onEmit` (`SignedIn`, heard by `AuthSession`).
@@ -718,8 +729,8 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
   - `Workspace/Status` (step 1), ⇠ `team` with no default provider, so its ref must name one.
   - `Workspace/Byline` (step 1), persisted, ⇠ `user` from the session (undefined when signed out) and `team` from
     the core team; counts each change of either it hears.
-  - `Workspace/Inbox` (T9), persisted, ⇢ its messages; `Workspace/Digest` (T9), persisted, ⇠ a Date or undefined,
-    NaN, -0, a Map, a Set, a class instance, an Option and a nested mix, and a reaction reading its own memory;
+  - `Workspace/Inbox` (T9), persisted, ⇢ its messages; `Workspace/Digest` (T9), persisted, ⇠ a Date or undefined, NaN,
+    -0, a Map, a Set, a class instance, an Option and a nested mix, and a reaction whose `when` reads `{ memory }`;
     `Workspace/ThreadView` (T9), persisted, ⇠ a tree whose replies point back (cycles).
   - `Workspace/Presence` (T9), never saved, ⇠ `user`; `Workspace/Dot` (T9), persisted, ⇠ a presence its ref names.
   - `Billing` (step 15), a lazy entry, ⇠ `org`.
@@ -732,8 +743,8 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
   4. Sign out: `clear` → a new Runtime for the next account.
   5. Another tab signs out.
 - **Features by step:**
-  - **used today:** `Flow.input` value-named actors (`Workspace/Session` refs); `context`, `onContext`,
-    `Provider.select` (`Org` → `Session` → `Team` → `Badge`); `persist`, restore, reload (the workspace).
+  - **used today:** `Flow.input` value-named actors (`Workspace/Session` refs); `Flow.context`, `onContext`,
+    `C.slot.change` (`Org` → `Session` → `Team` → `Badge`); `persist`, restore, reload (the workspace).
   - **step 1:** `ContextCycle`, `MissingContextProvider` (a cycle and a missing provider as Stories); a deep mailbox,
     no ending lost (sends well past the old scale to one `Badge`); `StorageRefused`, `NoPersistence` (a failed
     storage read:
@@ -791,12 +802,16 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       (@plan.Pending.D13). built: `session/wall`, `session/avatar-wall`, `session/stress-wall`.
     - [x] E7: a corrupt saved record, quarantined. Copies [snapshot.test.ts:108][kp-snap] "returns null on a corrupt
       (non-JSON) payload, no throw". built: `session/corrupt-record`.
-    - [x] E2, E5: every value kind a selector returns (a Date or undefined, NaN, -0, Map, Set, class instance, Option,
-      nested mix, cycles) heard once per change and never at a reload; a reaction reading memory keeps the baseline it
-      read across a reload (Actors R18, R19; Turn R22). built: `session/digest-heard`, `session/thread-heard`,
+    - [x] E2, E5: every value kind a slot's select returns (a Date or undefined, NaN, -0, Map, Set, class instance,
+      Option,
+      nested mix, cycles) heard once per change and never at a reload; a `when` reading `{ memory }` hears one change
+      per slot change
+      and keeps the slot's baseline across a reload (Actors R18, R19; Turn R22). built: `session/digest-heard`,
+      `session/thread-heard`,
       `session/digest-quiet`; the inbox samples set in the generator.
     - [x] E3 corrected (@plan.Pending.D23, no codec bounds): 5,000 calendar days selected by a saved and an unsaved
-      consumer, saved and restored with nothing made up or lost; a 3,001-row log under three memory-reading reactions;
+      consumer, saved and restored with nothing made up or lost; a 3,001-row log under three reactions whose `when`
+      reads memory;
       a step the store refuses restores a consistent world. built: `session/stress-agenda-long`,
       `session/archive-large`, `session/digest-refused`, `session/unread-recovers`.
     - [x] E7: a record naming a last-seen form no release wrote, quarantined, never thrown; a format-1 record steps to
@@ -831,7 +846,8 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
       settle hydrates NO authed snapshot (anon owns none)". built: `session/new-account-runtime` ("next").
     - [ ] A boot with no host page degrades without throwing. Copies [boot.test.ts:24][kp-flags] "returns undefined when
       there is no window (outage fallback / flag off) — no throw". left: @task.V3.T30, needs server rendering.
-    - [x] A context update never counts toward the loop guard, so it never waits (@plan.Pending.D13). built: `session/avatar-wall`.
+    - [x] A context update never counts toward the loop guard, so it never waits (@plan.Pending.D13). built:
+      `session/avatar-wall`.
 
 ### command-palette
 
@@ -852,7 +868,7 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
   - **used today:** guards, `deny`, `check` (`Palette/Palette`'s `deny`); `reject`, `NotSent { Rejected }` (T
     `runCommand`); endings, `Flow.uncertain`, `unknown` (`Palette/Palette`); `persist`, restore, reload
     (`Palette/Palette`).
-  - **step 1:** `context`, `onContext`, `Provider.select` (the palette reads the `Workbench`'s documents).
+  - **step 1:** `Flow.context`, `onContext`, `C.slot.change` (the palette reads the `Workbench`'s documents).
   - **step 3:** `emits`, `onEmit` (`CommandRan`, heard by `Workbench`).
   - **step 5:** `props`, `onProps` (commands as `props`, with defaults); `createActor`, `disposeActor` (a local
     palette).
@@ -873,7 +889,8 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
   - [ ] **Structure:** each palette with its own workbench, read as context. left: needs the palette to declare a
     context slot, an edit to an old machine for a later Task; no send (the orchestrator, 2026-11-19).
   - [x] **Edges:** an empty query keeps the source order. Copies [command.test.ts:120][ui-command] "an empty query keeps
-    the source order". built: `palette/empty-query-order`. E3: entries at real scale, timed (`largeList`). built: `palette/large-list`.
+    the source order". built: `palette/empty-query-order`. E3: entries at real scale, timed (`largeList`). built:
+    `palette/large-list`.
   - [x] **Combinations:** the pair sweep (have). built: the `palette` pair sweep.
   - [ ] **Combinations:** Strict Mode (step 18). left: @task.V3.T30, needs React.
   - [ ] **Variety:** a shared and a local palette. left: @task.V3.T76, needs `props` and a Story word for a local
@@ -1061,7 +1078,7 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
     `trait` (`Panel` on `Room`); `.each({ of, max, by })` (`Sensor` ◂ `Room`); `.resumable()` (`Sensor`s offscreen);
     raise into copies (`Room` raises `Pause` into its sensors); `schedules` with `armOn` (`Sensor` polls); `keys`,
     `paused`, `pausedBy`, `restartOn`, `disarmOn` (per-sensor keys; vacation `pausedBy`); an Effect `Schedule` as
-    `schedule` (a multi-step `Schedule` for the heater); `context`, `onContext`, `Provider.select` (`House` ⇢ `mode`,
+    `schedule` (a multi-step `Schedule` for the heater); `Flow.context`, `onContext`, `C.slot.change` (`House` ⇢ `mode`,
     `Zone` ⇢ `zoneMode`, `Room` ⇠); `ContextCycle`, `MissingContextProvider` (a zone mode feeding the house; a room with
     no zone); `latest`, `Superseded` (T `setTarget`); endings, `Flow.uncertain`, `unknown` (T `setTarget`); `persist`,
     restore, reload (`House`, `Zone`, `Room`).
@@ -1117,7 +1134,7 @@ kamp.us's optimistic lists, ui-sdk's menu, combobox and toast tests.
 - **Features by step:**
   - **step 2:** `Flow.input` value-named actors (`Board`, named by board); `.each({ of, max, by })` (`Column`, `Card`,
     `ChecklistItem`); `.resumable()` (collapsed `Column`s); raise into copies ("check all" into `ChecklistItem`s);
-    `context`, `onContext`, `Provider.select` (`Workspace` ⇢ `member`; `Board` ⇠ `member` ⇢ `board`; `CardDetail` ⇠
+    `Flow.context`, `onContext`, `C.slot.change` (`Workspace` ⇢ `member`; `Board` ⇠ `member` ⇢ `board`; `CardDetail` ⇠
     `board`); `ConflictingActorRef`, duplicate `.each` key, missing service (a duplicate card key); `createActor`,
     `disposeActor` (`CardDetail`); `latest`, `Superseded` (T `moveCard` per card); endings, `Flow.uncertain`, `unknown`
     (T `moveCard`); `notSent:`, `otherwise`, `Flow.ignore`, mapper `Defect` (a mapper that throws: `Defect`); `persist`,
@@ -1238,16 +1255,16 @@ checked here).
   - **step 4:** compound `states` (`Thread`'s composing and sending); `Flow.input` value-named actors (`Thread`, named
     by thread); `trait` (`Composer` in `Thread`); `whenAbandoned` (`Composer` keeps unsent text when abandoned);
     `.each({ of, max, by })` (`ThreadList`, `Attachment`); `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn` (typing
-    timers per user); an Effect `Schedule` as `schedule` (the resend backoff); `context`, `onContext`, `Provider.select`
-    (`Account` ⇢ `session`; `Hub` ⇠ `session` ⇢ `hub`; `Thread` ⇠ `hub`); `ContextCycle`, `MissingContextProvider` (a
-    `Hub` with no `Account`, refused at boot); a deep mailbox, no ending lost (typing events well past the old 1,024);
-    `resource`, `O.x.lookup` (R `history`); `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch` (R `history`);
-    `optimistic` values on a read (T `send`'s echo on R `history`); `reject`, `NotSent { Rejected }` (T `ask`, one
-    question at a time); `serialize`, a deep queue, no ending lost (T `send` per thread); endings, `Flow.uncertain`,
-    `unknown` (T `send`, `ask`); `NotSent { Restored }`, `unknown { Restored }` (owed sends after a reload);
-    `NotSent { Disposed }`, `unknown { Disposed }` (a thread disposed mid-send); `progress` (T `upload`);
-    `idempotency` (T `send` by client message id); owed endings, quarantine (T `send`); `persist`, restore, reload
-    (`Thread`, `Hub`); Runtime per scope, `dispose` (a new Runtime per workspace).
+    timers per user); an Effect `Schedule` as `schedule` (the resend backoff); `Flow.context`, `onContext`,
+    `C.slot.change` (`Account` ⇢ `session`; `Hub` ⇠ `session` ⇢ `hub`; `Thread` ⇠ `hub`); `ContextCycle`,
+    `MissingContextProvider` (a `Hub` with no `Account`, refused at boot); a deep mailbox, no ending lost (typing events
+    well past the old 1,024); `resource`, `O.x.lookup` (R `history`); `O.x.subscribe`, `staleTime`, `gcTime`,
+    `O.x.refetch` (R `history`); `optimistic` values on a read (T `send`'s echo on R `history`); `reject`, `NotSent {
+    Rejected }` (T `ask`, one question at a time); `serialize`, a deep queue, no ending lost (T `send` per thread);
+    endings, `Flow.uncertain`, `unknown` (T `send`, `ask`); `NotSent { Restored }`, `unknown { Restored }` (owed sends
+    after a reload); `NotSent { Disposed }`, `unknown { Disposed }` (a thread disposed mid-send); `progress` (T
+    `upload`); `idempotency` (T `send` by client message id); owed endings, quarantine (T `send`); `persist`, restore,
+    reload (`Thread`, `Hub`); Runtime per scope, `dispose` (a new Runtime per workspace).
   - **step 8:** `createActor`, `disposeActor` (`Recipients`).
   - **step 11:** `guarded` (an edit proved by the message version); `entity`, `domain`, `read(...).list`/`.one`/`.byKey`
     (the `messages` domain); `predicts`, repair, `basedOn` (T `send` predicts); `.gone` tombstones (a deleted message);
@@ -1294,7 +1311,8 @@ checked here).
       comes back settled on undo".
     - [ ] A token that fails to load. Copies [token-input.test.ts:48][ui-token] "a token that fails to load leaves a
       supplied token with the id it would have generated".
-    - [ ] Closed at once; a reconnect with no bookmark; a long bookmark, timed, with no size bound (@plan.Pending.D24); E7: a position
+    - [ ] Closed at once; a reconnect with no bookmark; a long bookmark, timed, with no size bound (@plan.Pending.D24);
+      E7: a position
       that fails to decode; `missed` as `Unproven`, `Lost` and `Reset`.
   - **Combinations:**
     - [ ] Stop while a reconnect is pending. Copies [chat.test.ts:1763][ai-chat] "should stop a resumed stream while
@@ -1359,7 +1377,7 @@ migrations, kamp.us's draft storage, ui-sdk's tree tests.
   - **step 4:** `Flow.input` value-named actors (`Document`, named by document); `trait` (`ImageUpload` on `Section`);
     `whenAbandoned` (`ImageUpload` when its section is deleted); `.each({ of, max, by })` (`Section` ◂ `Document`);
     `.resumable()` (collapsed `Section`s); `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn` (the autosave debounce
-    per section); `context`, `onContext`, `Provider.select` (`Library` ⇢ `author`; `Document` ⇠ `author`); `forget`,
+    per section); `Flow.context`, `onContext`, `C.slot.change` (`Library` ⇢ `author`; `Document` ⇠ `author`); `forget`,
     `unsettledWrites` (a deleted document); `late` handlers, `LateMayNotLeave` (an upload ending after its section
     closed); `resource`, `O.x.lookup` (R `document`); `latest`, `Superseded` (T `save`); `concurrency: "cancel"` (T
     `upload` when an image is replaced); `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed` (an upload cancelled);

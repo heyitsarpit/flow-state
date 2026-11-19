@@ -118,8 +118,8 @@ requirements
                 event that restored it. Its starting turn publishes once, with its providers'
                 current selections; the wave re-runs only its reactions against the saved values,
                 and publishes only a changed slot or issue. A slot never selected before differs
-                from any selection. Each reaction's baseline is read again from the inputs it was
-                last read from (R18), so it is the one it had, a baseline a defect kept included.
+                from any selection. Each reaction's baseline is read again from its saved slot value
+                (R18), so it is the one it had, a baseline a defect kept included.
 
                 A non-persisted identity starts fresh. An ensure over an undecodable record starts
                 fresh, reports RecordUndecodable (proposed name) and adopts the identity's lanes. A
@@ -255,8 +255,11 @@ requirements
 
     R18  Context binding
         source  @plan.Runtime.O5.
-        must    Provider.select(schema, selector) reads one complete provider snapshot (the Schema is
-                proposed, @plan.Pending.D20). Each selection passes once through the Schema's JSON
+        must    A slot is `Flow.context(X.M.field)` or `Flow.context(Schema, { reads, select })` and reads
+                its one provider's public memory fields, `X.S.STATE` or `X.state` (the Schema is proposed,
+                @plan.Pending.D20; a pass-through takes the field's). A turn that changes none of a slot's
+                reads skips the slot: no select, no comparison; a reaction's `.change` compares the slot's
+                value. Each selection passes once through the Schema's JSON
                 form, a -0 written as 0; the value read back is what the consumer reads, compares and
                 saves, live and after a reload alike. A selection the Schema refuses, whose encoding
                 never ends, or whose JSON has no canonical form, is its selector's defect (R19); a
@@ -265,10 +268,8 @@ requirements
                 it starts binds the overrides its own ref gave, again at a return or a reload. A cycle
                 (ContextCycle), a missing provider (MissingContextProvider) or an incompatible one
                 rejects at admission. A record saves each bound slot's last-seen selection (none for
-                one never selected), each reaction's baseline inputs (the slots its select read, and
-                the memory fields it read in one copy shared by every baseline read from the same
-                memory, kept only where it differs from the record's memory) and the bindings of every
-                provider up its graph. Every slot value and baseline input is saved, so a reload loses
+                one never selected), each reaction's baseline (its slot's value) and the bindings of every
+                provider up its graph. Every slot value and baseline is saved, so a reload loses
                 no change a consumer has not heard and makes none up. Baselines are silent at
                 admission, adoption,
                 hydration and a reload restore; `keys` and `paused` are re-evaluated silently at the

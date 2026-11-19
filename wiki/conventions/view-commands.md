@@ -48,7 +48,7 @@ How it behaves:
 - only an accepted transition emits; the mapper reads the event, the before memory and props;
 - in React emits queue per listener in turn order and arrive after the commit of the first render whose snapshot is
   at or after their turn, so the element exists; a discarded render delivers nothing;
-- any accepted transition emits (a send, a timer, an ending, an `onContext` or `onProps` event), never entry, exit
+- any accepted transition emits (a send, a timer, an ending, a `C.slot.change` or `onProps` event), never entry, exit
   or a refused turn; Stories record emits as evidence;
 - it is never stored, saved, transferred or replayed, and is dropped when nobody listens;
 - outside React, `actor.onEmit({ ... })`.

@@ -56,12 +56,12 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T105,
-    @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73,
-    @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92
-    deferred and T95 cut by the user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the orchestrator,
-    2026-11-19). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in
-    this order.
+    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T107,
+    @task.V3.T105, @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21,
+    @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23, @task.V3.T97 (re-plan section 8, the user,
+    2026-11-18; T92 deferred and T95 cut by the user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the
+    orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the
+    earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -3535,6 +3535,10 @@ tasks
             properties; scope and persistence together); state reads and guard state; the onContext tuple refusal; the
             Diagnostic union; `RuntimeConfig<R>`; the `*.compile.ts` conversion; the three name filters; the cast sweep
             and the `no-unsafe-*` rules; docs:build, stress, faults for any new rule, and two Sonnet reviewers.
+        comment     2026-11-19T18:53:20Z
+            Superseded (the user, 2026-11-20): the owed onContext tuple refusal is dropped; @task.V3.T107 replaces
+            reactions with C.slot.change per code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md.
+            T104's F3 token brand must keep a definition's id literal, which T107's one-provider ban needs.
 
     T105
         title       Start order stated as a rule; T102's routed checks built
@@ -3569,3 +3573,53 @@ tasks
             Routed (rules cohesion pass, 2026-11-19, read not run): restore re-arms saved timers by name with no check
             that their state is active (src/core/incarnations.ts:228); confirm with a Story and fix if a timer fires in
             an inactive state.
+
+    T107
+        title       Context slots: Flow.context on the definition, C.slot.change in the machine
+        status      draft
+        priority    high
+        blocked_by  [@T104]
+        description
+            Context slots are declared whole on the definition with `Flow.context` and read their one provider through
+            typed tokens, and machines react with `C.slot.change({ when?, event })`, as the accepted proposal
+            describes (code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md).
+
+            **Why now:** a slot's `Provider.select(Schema, fn)` and a reaction's `select` are opaque functions over
+            string keys: `when`'s arguments are `never`, a selector may read a field it should not, and the graph only
+            knows "depends on all of the provider", so flow check and @task.V3.T106's structural rules cannot follow a
+            context chain.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md,
+            code:packages/flow-state-v3/src/machine.ts#Reaction,
+            code:packages/flow-state-v3/src/core/compiled.ts#ContextSlot,
+            code:packages/flow-state-v3/src/host/wiring.ts.
+
+            **Risk:** the one-provider type ban needs a definition's `id` kept as its literal; @task.V3.T104's token
+            brand (F3) provides it, so this Task follows T104. `onContext` inside a state node stays open in the
+            proposal; do not build it.
+
+            **Approach:** fixtures first (Stories for the wrong endings below), then `M` tokens, `Flow.context` in both
+            forms, `C` with `.change`, field-level edges in Compiled, skip-unchanged recomputation, then convert every
+            `Provider.select` and `onContext` site and drop the old shapes.
+
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`, `tools/flow-state-lint/`,
+            `apps/docs/`, the Specs that state context. Evidence: this Task's comments.
+
+            False pass: a type test that passes because a token became `any` → every type test is two-sided.
+        acceptance
+            - Wrong endings pinned red first: a `reads` mixing two providers, a read of a `Flow.private` field, a
+              `select` or `when` using the wrong type, and a `.change` on an undeclared slot each fail to compile
+              (two-sided type tests); a mixed-provider slot built through a cast throws `InvalidConfiguration`, and a
+              planted fault dropping that check is caught by `nub run faults --only`.
+            - `Flow.context(token)` and `Flow.context(Schema, { reads, select })` work for memory fields, state tokens
+              and `X.state`; a turn that changes none of a slot's reads runs no select (a Story or bench shows it).
+            - `.change` has only `when(current, previous, { memory })` and `event`; a reaction whose event no state
+              handles is a construction error.
+            - Compiled holds each slot's provider fields and each reaction's slot, and an inspection test reads
+              the edges.
+            - No `Provider.select` or reaction `select` remains; `nub run check`, the suite, stress and `nub run
+              docs:build` pass.
+        comment     2026-11-19T18:55:51Z
+            Record shape (orchestrator, 2026-11-20): Actors R18 now saves a reaction's baseline as its slot's value
+            only, dropping the memory inputs it read; that changes the record format, so the build lines up with
+            @task.V3.T56 and @task.V3.T92's record work before shipping it.
