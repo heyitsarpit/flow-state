@@ -3676,6 +3676,9 @@ tasks
             actorRef throw at ensure (T104's own change). One-sided type tests recur from the requirements review, so
             threshold 2: the fix lands a guard for the class (and one for stale plants), each shown red first. Older
             holes routed to @task.V3.T21 and @task.V3.T105. Rename of the two compile files waits for the user.
+        comment     2026-11-19T21:03:01Z
+            Decision (the user, 2026-11-20): rename testing.compile.ts and send.compile.ts (and schedule-send.test.ts)
+            to *.test-d.ts, relinking @plan.Pending and the closed Task's comment; Req 15 closes in the fix round.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
