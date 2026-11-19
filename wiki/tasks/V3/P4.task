@@ -2662,3 +2662,57 @@ tasks
             getSnapshot() returns Snapshot<D>, so the five src unit-test dot reads become checked. Built in the fix
             round after the close review, with a type test that a misspelt operation name and a misspelt memory field on
             a handle fail to compile.
+        comment     2026-11-19T13:16:44Z
+            Close review (independent lead, 2026-11-19): PASS, no blocking finding; all 5 acceptance lines hold at
+            df4d79c2, and the requirements review's two blocking gaps are fixed (the event lint takes any string; every
+            Fake.server type test passes `lost` and fails for its stated reason).
+
+            Gates, each once and alone: the suite exit 0 (1402 passed, 25 expected fail); `nub run check` exit 0, zero
+            warnings; the stress runs exit 0 (79 passed); `nub run faults --only` on the 4 new faults caught 4 of 4
+            by targets.
+
+            Checked and holding:
+
+            - Typed `read`: every memory path holds Type values (boot decodes at `src/core/actor-record.ts`, start
+              checks `is`); Date, Duration, Option, Map, Set and class fields read true before and after a reload. No
+              fixture has a bigint or branded memory field. The refused-start StoryFailed breaks no Story: the
+              quarantined reads in transfers, restore and renewals all have a valid fresh start.
+            - Tokens: all five event records carry the target's machine id, so lanes' same-named `Commit` and `Unsure`
+              select apart (read.test.ts pins it). The disable in `tests/rules/reloads.ts` is justified: both sides of
+              the comparison come from the compiled graph, so a rename can't empty it.
+            - `lost`: every fixture server declares it, each a port error every served endpoint declares; no
+              `catchTag("FakeLost", …)` is left. The sign-in cell's 1 CleanupFailed is the test being right (I48: with
+              no handler, a typed cleanup failure is reported); Q11 A stays pinned per combinator
+              in code:packages/flow-state-v3/src/host/cleanups.test.ts.
+            - Conversions: 191 hunks read; no expectation weakened or removed. Every new `?.memory … toBeUndefined()`
+              follows a presence check, and renewals' order check got stronger. `run.ts`'s sed edit mangled nothing.
+
+            Routed, not blocking (each names the missing coverage):
+
+            1. `read` keys its refused-start guard on `lifecycle === "quarantined"`, but under a Runtime a defect
+               stopped, `restingLifecycleOf` says `stopped`, so `{}` comes back typed as memory. This needs a
+               quarantined record whose start is refused, which only a made-up definition has, and a stopped Runtime.
+               Not shown red. Missing: a read of that record after a defect stops the Runtime. Fix by structure:
+               `snapshotIn` stops making up `{}`.
+            2. `no-event-name-filter` misses aliases, destructuring, `?.event`, `switch`, `startsWith`/`endsWith` and
+               object keys. Three name filters are left: `tests/actors/send.test.ts:67,84` (`endsWith("Send")`) and
+               `tests/number-input/number-input.stress.test.ts:40` (`fired.has`). Each expects a non-empty exact list,
+               so a rename fails it rather than passing. Convert them, or reword the acceptance line to "filters that a
+               rename empties".
+            3. A token without `actor` from a definition the run never starts compiles and returns `[]`. That is honest,
+               but a typo-free wrong machine passes `toHaveLength(0)`. Missing: typing the run by its app's definitions.
+            4. Fake cleanup errors (`FakeCleanupFailed`, `FakeCleanupDied`) reach an endpoint's channel outside
+               `ServiceOf`'s type. This predates T103.
+            5. Records: `fake.ts`'s doc and Stories R8 say a no-port server "names `Fake.Lost`"; the value is `() => new
+               Fake.Lost()`. Stories `provides` omits `turnsOf`, `evidenceOf` and `publishedOf`. The testing route's
+               `evidenceOf` shares its name with `src/core/evidence-of.ts`'s. The `EventRecord` and `Recorded` type
+               exports have no Pending entry.
+
+            For the user's read: D35 to D39 (typed `read`, `publishedOf`, `turnsOf`, `evidenceOf`, `lost`) are all
+            recorded and marked proposed.
+
+            Sidecars (6, Haiku): accepted 1, 2, 4 and the record items. Changed 3 (honest, not a false pass). Rejected:
+            - "a quarantined record with a valid start reads defaults": that is the Spec's design.
+            - "the Gotcha cell now pins only a non-matching catch": so did the old fixture, and the host cells pin it
+              per combinator.
+            - "prototypes call Fake.server without `lost`": prototypes are outside tsconfig and never production.
