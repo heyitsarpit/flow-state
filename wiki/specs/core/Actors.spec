@@ -629,10 +629,10 @@ invariants
     I47  Every task the host starts is judged exactly once, by one judge, before its fiber ends. Proposed (the T99 
          lead, 2026-11-19). [@R23]
 
-    I48  Every non-interrupt reason of an interrupted task reaches the report of whoever closed its Owner, and one
+    I48  Every non-interrupt reason of an interrupted task reaches the report of whoever closed its Owner, and one 
          Issue CleanupFailed in a life that records it. Proposed (the T99 lead, 2026-11-19). A reason reaches the
-         task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
-         rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
+        task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
+        rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
 
 owner Life
     lifetime  one Runtime. Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); I42
