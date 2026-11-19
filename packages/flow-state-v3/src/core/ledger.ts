@@ -59,10 +59,23 @@ export type Route = Data.TaggedEnum<{ Current: {}; From: { owner: OwnedBy } }>;
 export const Route = Data.taggedEnum<Route>();
 
 /**
+ * Who made an owed row: an ending a call or a lane decided, the unknown { Restored } a start owes
+ * for a Held head, or a row a boot read back from its record. Apart from the row's reason, so no
+ * contract's own reason passes for Flow's.
+ */
+export type Origin = Data.TaggedEnum<{ Decided: {}; HeldAtStart: {}; ReadBack: {} }>;
+
+/**
+ * Constructors and matchers for {@link Origin}.
+ */
+export const Origin = Data.taggedEnum<Origin>();
+
+/**
  * One owed ending: the only place an ending is held from its birth to its close.
  */
 export type Owed = {
   readonly id: OwedId;
+  readonly origin: Origin;
   readonly actor: ActorId;
   readonly to: Audience;
   readonly operation: string;
@@ -103,10 +116,21 @@ export const rowsOf = (ledger: Ledger, actor: ActorId) => ledger.get(actorKey(ac
  * Whether a row outlives the step that moves it, so the move writes its identity's owed record: it
  * waits, it is kept, or it is the unknown { Restored } a start owed for a Held head.
  */
-const isSaved = (row: Pick<Owed, "delivery" | "channel" | "reason">) =>
-  Delivery.$is("Waiting")(row.delivery) ||
-  Delivery.$is("Kept")(row.delivery) ||
-  (row.channel === "unknown" && row.reason === "Restored");
+const SAVED_DELIVERY = {
+  Queued: false,
+  Retrying: false,
+  Waiting: true,
+  Kept: true,
+} as const satisfies Record<Delivery["_tag"], boolean>;
+
+const SAVED_ORIGIN = {
+  Decided: false,
+  HeldAtStart: true,
+  ReadBack: false,
+} as const satisfies Record<Origin["_tag"], boolean>;
+
+const isSaved = (row: Pick<Owed, "delivery" | "origin">) =>
+  SAVED_DELIVERY[row.delivery._tag] || SAVED_ORIGIN[row.origin._tag];
 
 /**
  * Whether a Kept row names a lane: the only read that blocks a key.
@@ -212,8 +236,11 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
    * Owes an ending, already applied to its lane: Queued when its audience can hear it now,
    * Waiting when not; a row for an incarnation that is gone closes at once as evidence.
    */
-  const owe = (ending: Omit<Owed, "id" | "delivery">) => {
-    const row: Owed = { ...ending, id: tx.mint("owed"), delivery: Delivery.Queued() };
+  const owe = (
+    ending: Omit<Owed, "id" | "delivery" | "origin">,
+    origin: Origin = Origin.Decided(),
+  ) => {
+    const row: Owed = { ...ending, id: tx.mint("owed"), origin, delivery: Delivery.Queued() };
     setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);
 
     tx.act(Act.Ended({ actor: row.actor, ending: row }));
@@ -305,17 +332,20 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
 
     for (const [id, lane] of lanes)
       if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))
-        owe({
-          actor,
-          to: Audience.Identity(),
-          operation: lane.operation,
-          attempt: Option.some(lane.head.id),
-          lane: Option.some(id),
-          channel: "unknown",
-          reason: "Restored",
-          value: undefined,
-          route: Route.Current(),
-        });
+        owe(
+          {
+            actor,
+            to: Audience.Identity(),
+            operation: lane.operation,
+            attempt: Option.some(lane.head.id),
+            lane: Option.some(id),
+            channel: "unknown",
+            reason: "Restored",
+            value: undefined,
+            route: Route.Current(),
+          },
+          Origin.HeldAtStart(),
+        );
   };
 
   /**
@@ -332,7 +362,9 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
    * delivers them.
    */
   const restore = (
-    rows: ReadonlyArray<Omit<Owed, "id" | "delivery" | "to"> & { readonly kept: boolean }>,
+    rows: ReadonlyArray<
+      Omit<Owed, "id" | "delivery" | "to" | "origin"> & { readonly kept: boolean }
+    >,
   ) => {
     for (const { kept, ...row } of rows)
       setRows(row.actor, [
@@ -341,6 +373,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
           ...row,
           to: Audience.Identity(),
           id: tx.mint("owed"),
+          origin: Origin.ReadBack(),
           delivery: kept ? Delivery.Kept() : Delivery.Waiting(),
         },
       ]);

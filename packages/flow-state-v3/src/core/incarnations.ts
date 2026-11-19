@@ -7,7 +7,7 @@ import { type Arming, armingsOf } from "./turn.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
-import { actorRecordKey, decodeRecords, laneRecordKey, retiredOperation } from "./record.ts";
+import { actorRecordKey, decodeRecords, laneRecordKey } from "./record.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { isInFlight, type Tx } from "./tx.ts";
 import {
@@ -19,6 +19,9 @@ import {
   type Incarnation,
   IssueSource,
   Mail,
+  Quarantine,
+  quarantineText,
+  sameActor,
   Timer,
   byStart,
   type Use,
@@ -259,7 +262,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         Act.Reported({
           code: "RecordUndecodable",
           record: Option.some(actorRecordKey(key)),
-          reason: quarantined,
+          reason: quarantineText(quarantined),
         }),
       );
   };
@@ -371,14 +374,15 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   // A held lane whose operation this release no longer has never decoded; forget drops its record.
   const forgetRetired = (actor: ActorId) => {
     const retired = [...tx.world().quarantined].flatMap(([record, reason]) =>
-      Option.toArray(
-        Option.map(retiredOperation(actor, record, reason), (operation) => ({ record, operation })),
-      ),
+      Quarantine.$match(reason, {
+        Unreadable: () => [],
+        Retired: (r) => (sameActor(r.actor, actor) ? [{ record, ...r }] : []),
+      }),
     );
 
-    for (const { record, operation } of retired) {
+    for (const { record, operation, lane } of retired) {
       tx.drop("quarantined", record);
-      persistence.saveLane(actor, record.slice(laneRecordKey("").length));
+      persistence.saveLane(actor, lane);
       tx.act(Act.HoldForgotten({ actor, operation, record }));
     }
   };
@@ -460,7 +464,11 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     for (const q of restored.quarantined)
       if (!q.key.startsWith("actor/"))
         tx.act(
-          Act.Reported({ code: "RecordUndecodable", record: Option.some(q.key), reason: q.reason }),
+          Act.Reported({
+            code: "RecordUndecodable",
+            record: Option.some(q.key),
+            reason: quarantineText(q.reason),
+          }),
         );
 
     // A lane's saved queue and displaced heads end at the boot, in lane-id order after the saved

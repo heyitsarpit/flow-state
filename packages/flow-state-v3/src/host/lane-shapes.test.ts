@@ -42,6 +42,7 @@ const exactRecords = [
   true satisfies Equal<
     keyof Owed,
     | "id"
+    | "origin"
     | "actor"
     | "to"
     | "operation"

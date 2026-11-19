@@ -4,6 +4,7 @@ import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
 import type { IssueCode, ScheduleDeadline } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
+import type { ReadFailure } from "./record-format.ts";
 import type { Baseline, Frame, Selected } from "./slots.ts";
 
 /**
@@ -415,6 +416,29 @@ export const Mark = Data.taggedEnum<Mark>();
 export type Marks = ReadonlyMap<string, Mark>;
 
 /**
+ * Why a boot kept a record aside: it could not read it, or it is a lane record of an operation its
+ * machine no longer declares, a hold an earlier release left, which forget drops.
+ */
+export type Quarantine = Data.TaggedEnum<{
+  Unreadable: { code: ReadFailure; detail: Option.Option<string> };
+  Retired: { actor: ActorId; operation: string; lane: string };
+}>;
+
+/**
+ * Constructors and matchers for {@link Quarantine}.
+ */
+export const Quarantine = Data.taggedEnum<Quarantine>();
+
+/**
+ * A quarantine's reason as reports and snapshots show it: the read's detail, else its code.
+ */
+export const quarantineText = (q: Quarantine) =>
+  Quarantine.$match(q, {
+    Unreadable: ({ code, detail }) => Option.getOrElse(detail, () => code),
+    Retired: () => "operation",
+  });
+
+/**
  * Everything the Runtime decides from: plain data, replaced whole by each step.
  *
  * **Details**
@@ -446,7 +470,7 @@ export type World = {
   readonly persistence: boolean;
   readonly marked: Marks;
   readonly withheld: ReadonlyMap<string, ActorId>;
-  readonly quarantined: ReadonlyMap<string, string>;
+  readonly quarantined: ReadonlyMap<string, Quarantine>;
   readonly ended: ReadonlyMap<string, Ended>;
   readonly life: Life;
   readonly lanesOfActor: ReadonlyMap<string, ReadonlySet<string>>;

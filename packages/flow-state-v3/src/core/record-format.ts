@@ -16,6 +16,37 @@ export const ActorJson = Schema.Struct({ machine: Schema.String, name: Schema.St
 
 export const FormatJson = Schema.Struct({ format: Format });
 
+/**
+ * Why a boot could not read a record: its text is not canonical JSON, its key names no kind, or a
+ * part of it fails its check (its format, its kind's Schema, its machine, its name, its operation,
+ * its key or lane, a lane's input, or an actor's memory, last-seen selections or frames).
+ */
+export const ReadFailure = Schema.Literals([
+  "text",
+  "kind",
+  "format",
+  "schema",
+  "machine",
+  "name",
+  "operation",
+  "key",
+  "lane",
+  "input",
+  "memory",
+  "seen",
+  "frame",
+]);
+
+/**
+ * The decoded {@link ReadFailure}.
+ */
+export type ReadFailure = typeof ReadFailure.Type;
+
+/**
+ * A failure of a record's read, for `mapError` and `fromNullishOr`.
+ */
+export const readFailed = (code: ReadFailure) => () => code;
+
 export const reasonOf = (failure: CodecFailure) =>
   CodecFailure.$match(failure, {
     Malformed: ({ reason, path }) => `${reason} at ${path}`,
@@ -25,7 +56,7 @@ export const reasonOf = (failure: CodecFailure) =>
 export const textOf = (record: Values) => Result.mapError(encodeCanonical(record), reasonOf);
 
 export const decodeBy =
-  <A, I>(schema: Schema.Codec<A, I>, why: string) =>
+  <A, I>(schema: Schema.Codec<A, I>, why: ReadFailure) =>
   // FLOW_STATE_ALLOW_UNKNOWN: a canonical JSON value, decoded here once by the Schema its key names.
   (value: unknown) =>
     // A user Schema whose decode throws is the record's failure too: the boot goes on.

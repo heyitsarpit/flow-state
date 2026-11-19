@@ -22,7 +22,17 @@ import type { Channel } from "./vocabulary.ts";
 import { makeTx } from "./tx.ts";
 import { Life } from "./life.ts";
 import { activation, incarnation } from "./test/ids.ts";
-import { actorKey, byCodeUnits, emptyWorld, Mail, OwnedBy, type World } from "./world.ts";
+import { Input } from "./input.ts";
+import { step } from "./step.ts";
+import {
+  actorKey,
+  byCodeUnits,
+  emptyWorld,
+  Mail,
+  OwnedBy,
+  Quarantine,
+  type World,
+} from "./world.ts";
 
 const encodeOwedText = (...args: Parameters<typeof encodeOwed>) =>
   Result.getOrThrow(encodeOwed(...args)).text;
@@ -371,9 +381,38 @@ describe("Flow's restored marker is not a reason (WriteLanes I15)", () => {
     assert.equal(marksOwed("Lost"), false);
   });
 
-  // Inverted: isSaved reads the reason text, so a host's own reason spelled Restored passes for
-  // Flow's marker and the row is written as if it outlived its step.
-  it.fails("a host unknown whose reason is spelled Restored, queued, marks no owed record", () => {
+  // isSaved once read the reason text, so a host's own reason spelled Restored passed for Flow's
+  // marker and the row was written as if it outlived its step.
+  it("a host unknown whose reason is spelled Restored, queued, marks no owed record", () => {
     assert.equal(marksOwed("Restored"), false);
+  });
+});
+
+describe("forget drops retired holds only (Actors R21)", () => {
+  it("forget drops its identity's retired lane record and keeps one it could not read", () => {
+    const shopper = { machine: "Shop/Pay", name: "s1" };
+    const retired = `lane/${actorKey(shopper)}|gone|{}`;
+    const garbled = `lane/${actorKey(shopper)}|pay|{}`;
+
+    const world = {
+      ...emptyWorld(true),
+      life: Life.Open(),
+      quarantined: new Map<string, Quarantine>([
+        [
+          retired,
+          Quarantine.Retired({ actor: shopper, operation: "gone", lane: retired.slice(5) }),
+        ],
+        [garbled, Quarantine.Unreadable({ code: "input", detail: Option.none() })],
+      ]),
+    };
+
+    const out = step(payMachines, world, Input.Forget({ actor: shopper }), {
+      now: 0,
+      seed: "0",
+      admit: makeFreezer(),
+    });
+
+    assert.deepStrictEqual([...out.world.quarantined.keys()], [garbled]);
+    assert.deepStrictEqual(out.evidence.filter((e) => e._tag === "HoldForgotten").length, 1);
   });
 });

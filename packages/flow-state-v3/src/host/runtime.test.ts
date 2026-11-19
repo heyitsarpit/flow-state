@@ -21,7 +21,7 @@ import { buildRuntime } from "./runtime.ts";
 import { snapshotIn } from "./snapshot.ts";
 import { bootWith } from "./testing/seam.ts";
 import { Life } from "../core/life.ts";
-import { emptyWorld } from "../core/world.ts";
+import { emptyWorld, Quarantine } from "../core/world.ts";
 
 class Bell extends Context.Service<
   Bell,
@@ -540,7 +540,12 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
           },
         ],
       ]),
-      quarantined: new Map([[`actor/${garbled.machine}/${garbled.name}`, "not JSON"]]),
+      quarantined: new Map([
+        [
+          `actor/${garbled.machine}/${garbled.name}`,
+          Quarantine.Unreadable({ code: "text", detail: Option.some("not JSON") }),
+        ],
+      ]),
       ended: new Map([
         [`${gone.machine}/${gone.name}`, { state: "COUNTING", memory: { count: 2 } }],
       ]),

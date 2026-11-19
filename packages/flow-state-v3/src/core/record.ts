@@ -9,6 +9,8 @@ import {
   FORMAT,
   Format,
   FormatJson,
+  readFailed,
+  type ReadFailure,
   reasonOf,
   textOf,
 } from "./record-format.ts";
@@ -23,6 +25,7 @@ import {
   byCodeUnits,
   OwnedBy,
   Phase,
+  Quarantine,
 } from "./world.ts";
 
 const LaneRecordJson = Schema.Struct({
@@ -74,24 +77,6 @@ export const actorRecordKey = (key: string) => `actor/${key}`;
  * The key a lane's record is stored under.
  */
 export const laneRecordKey = (lane: string) => `lane/${lane}`;
-
-/**
- * Why a boot keeps a lane record aside whose identity decodes but whose operation its machine no
- * longer declares: a hold an earlier release left.
- */
-const OPERATION_GONE = "operation";
-
-/**
- * The operation of a lane record of `actor` the boot kept aside because its machine no longer
- * declares that operation: a hold an earlier release left, which forget drops.
- */
-export const retiredOperation = (actor: ActorId, key: string, reason: string) => {
-  const own = laneRecordKey(`${actorKey(actor)}|`);
-
-  return reason === OPERATION_GONE && key.startsWith(own)
-    ? Option.fromUndefinedOr(key.slice(own.length).split("|")[0])
-    : Option.none<string>();
-};
 
 type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
   readonly kept: boolean;
@@ -183,13 +168,17 @@ export const encodeLane = (
 /**
  * A record the boot could not read: kept, unchanged, under its key.
  */
-type Quarantined = { readonly key: string; readonly reason: string };
+type Quarantined = { readonly key: string; readonly reason: Quarantine };
+
+const unreadable = (code: ReadFailure) => Quarantine.Unreadable({ code, detail: Option.none() });
+
+const failed = (code: ReadFailure) => Result.fail(code);
 
 /**
  * A saved Waiting or Kept row as a boot reads it back: owed to its identity, delivered current
  * from the active leaf.
  */
-type RestoredRow = Omit<Owed, "id" | "delivery" | "to"> & { readonly kept: boolean };
+type RestoredRow = Omit<Owed, "id" | "delivery" | "to" | "origin"> & { readonly kept: boolean };
 
 /**
  * What a boot reads back: actor records, lanes by the id their key names (with no lane when the
@@ -225,7 +214,7 @@ export const decodeRecords = (
   stored: ReadonlyMap<string, string>,
 ): Restored => {
   const machineOf = (r: { readonly machine: string }) =>
-    Result.fromNullishOr(machines.get(r.machine), () => "machine");
+    Result.fromNullishOr(machines.get(r.machine), readFailed("machine"));
 
   const actorRecord = decodeActor(machines);
 
@@ -237,15 +226,14 @@ export const decodeRecords = (
     operation: string,
     lane: Option.Option<string>,
   ) => {
-    if (Option.exists(compiled, (c) => !c.operations.has(operation)))
-      return Result.fail("operation");
+    if (Option.exists(compiled, (c) => !c.operations.has(operation))) return failed("operation");
 
     return Option.match(lane, {
       onNone: () => true,
       onSome: (id) => id.startsWith(`${actorKey(actor)}|${operation}|`),
     })
       ? Result.succeed(operation)
-      : Result.fail("lane");
+      : failed("lane");
   };
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
@@ -286,31 +274,30 @@ export const decodeRecords = (
     Result.gen(function* () {
       const r = yield* decodeBy(LaneRecordJson, "schema")(value);
       const compiled = yield* machineOf(r);
-
-      const operation = yield* Result.fromNullishOr(
-        compiled.operations.get(r.operation),
-        () => OPERATION_GONE,
-      );
-
       const actor = actorOf(r);
       const own = `${actorKey(actor)}|${r.operation}|`;
 
-      if (!id.startsWith(own)) return yield* Result.fail("key");
+      if (!id.startsWith(own)) return yield* failed("key");
+
+      const operation = yield* Result.fromNullishOr(compiled.operations.get(r.operation), () =>
+        Quarantine.Retired({ actor, operation: r.operation, lane: id }),
+      );
+
       yield* keyNamesItself(operation, id.slice(own.length));
 
       const lane = yield* Option.match(Option.fromNullOr(r.attempt), {
         onNone: () => Result.succeed(Option.none<Lane>()),
         onSome: (attempt) =>
           Result.flatMap(
-            Result.mapError(operation.walk.input.decode(r.input), () => "input"),
+            Result.mapError(operation.walk.input.decode(r.input), readFailed("input")),
             (input) =>
               Result.map(
                 Result.flatMap(
                   Result.fromNullishOr(
                     Option.getOrUndefined(keyTextOf(operation, input)),
-                    () => "key",
+                    readFailed("key"),
                   ),
-                  (text) => (id === `${own}${text}` ? Result.succeed(text) : Result.fail("key")),
+                  (text) => (id === `${own}${text}` ? Result.succeed(text) : failed("key")),
                 ),
                 () =>
                   Option.some<Lane>({
@@ -360,16 +347,14 @@ export const decodeRecords = (
   // A lane key's text: its operation's key fields in their input order, as JSON text written back
   // byte for byte; its values are read by their Schemas only when a head's input names it.
   const keyNamesItself = (operation: Operation, text: string) =>
-    Result.flatMap(
-      Result.mapError(parseCanonical(text), () => "key"),
-      (json) =>
-        Predicate.isObject(json) &&
-        !Array.isArray(json) &&
-        Object.keys(json).join("\n") ===
-          operation.inputFields.filter((f) => operation.keyFields.includes(f)).join("\n") &&
-        Result.getOrUndefined(writeJson(json)) === text
-          ? Result.succeed(text)
-          : Result.fail("key"),
+    Result.flatMap(Result.mapError(parseCanonical(text), readFailed("key")), (json) =>
+      Predicate.isObject(json) &&
+      !Array.isArray(json) &&
+      Object.keys(json).join("\n") ===
+        operation.inputFields.filter((f) => operation.keyFields.includes(f)).join("\n") &&
+      Result.getOrUndefined(writeJson(json)) === text
+        ? Result.succeed(text)
+        : failed("key"),
     );
 
   // The identity a record names, trusted only when its machine is declared, it is one a ref could
@@ -385,7 +370,7 @@ export const decodeRecords = (
 
       const keyed = kind === "lane/" ? key.startsWith(`${own}|`) : key === own;
 
-      return yield* keyed ? Result.succeed(named) : Result.fail("key");
+      return yield* keyed ? Result.succeed(named) : failed("key");
     });
 
   // A store reads back in key order, whatever order the records were written in.
@@ -400,27 +385,42 @@ export const decodeRecords = (
     const kind = KINDS.find((k) => key.startsWith(k));
 
     const read = Result.flatMap(
-      Result.mapError(decodeCanonical(text), reasonOf),
+      Result.mapError(decodeCanonical(text), (f) =>
+        Quarantine.Unreadable({ code: "text", detail: Option.some(reasonOf(f)) }),
+      ),
       // A key of no kind is never read; a record is read first for its format, then for the
       // identity it names, which must be the one its key names.
       (json) =>
-        Result.map(
-          kind === undefined
-            ? Result.fail("kind")
-            : Result.flatMap(decodeBy(FormatJson, "format")(json), () =>
-                identityIn(kind, key, json),
-              ),
-          () => json,
+        Result.mapError(
+          Result.map(
+            kind === undefined
+              ? failed("kind")
+              : Result.flatMap(decodeBy(FormatJson, "format")(json), () =>
+                  identityIn(kind, key, json),
+                ),
+            () => json,
+          ),
+          unreadable,
         ),
     );
 
     const done = Result.flatMap(read, (json) => {
-      if (kind === "actor/") return Result.map(actorRecord(json), (r) => void records.push(r));
+      if (kind === "actor/")
+        return Result.mapError(
+          Result.map(actorRecord(json), (r) => void records.push(r)),
+          unreadable,
+        );
 
       if (kind === "lane/")
-        return Result.map(laneRecord(key.slice(kind.length), json), (l) => void lanes.push(l));
+        return Result.mapError(
+          Result.map(laneRecord(key.slice(kind.length), json), (l) => void lanes.push(l)),
+          (f) => (Predicate.isString(f) ? unreadable(f) : f),
+        );
 
-      return Result.map(rowsRecord(json), (r) => void rows.push(...r));
+      return Result.mapError(
+        Result.map(rowsRecord(json), (r) => void rows.push(...r)),
+        unreadable,
+      );
     });
 
     if (Result.isFailure(done)) quarantined.push({ key, reason: done.failure });

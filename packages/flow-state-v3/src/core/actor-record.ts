@@ -8,6 +8,8 @@ import {
   FORMAT,
   Format,
   FormatJson,
+  readFailed,
+  type ReadFailure,
   textOf,
 } from "./record-format.ts";
 import {
@@ -93,18 +95,18 @@ type OneValue = unknown;
 type FormFields = { readonly [key: string]: OneValue };
 
 // A form no release wrote.
-const notAForm = Result.fail("seen");
+const notAForm = Result.fail<ReadFailure>("seen");
 
 // The value a format-1 last-seen form held: JSON as it is, and undefined, Options, arrays and
 // plain objects tagged; fails on any other form.
 // RETURN_TYPE: recursive: an Option, array or object form holds forms.
-const valueOfOne = (form: OneValue): Result.Result<OneValue, string> =>
+const valueOfOne = (form: OneValue): Result.Result<OneValue, ReadFailure> =>
   Predicate.isObject(form) && !Array.isArray(form) && Predicate.isString(form["~"])
     ? (formsOne.get(form["~"])?.(form) ?? notAForm)
     : notAForm;
 
 // Each format-1 tag's reading, looked up by the tag alone.
-const formsOne = new Map<string, (form: FormFields) => Result.Result<OneValue, string>>([
+const formsOne = new Map<string, (form: FormFields) => Result.Result<OneValue, ReadFailure>>([
   ["json", (f) => (Object.hasOwn(f, "value") ? Result.succeed(f["value"]) : notAForm)],
   ["undefined", () => Result.succeed(undefined)],
   ["none", () => Result.succeed(Option.none())],
@@ -252,7 +254,7 @@ const frameOf = (
             saved.value === undefined
               ? Result.succeed([slot, Option.none<Selected>()] as const)
               : Result.map(
-                  Result.mapError(readSelected(declared.walk, saved.value), () => "frame"),
+                  Result.mapError(readSelected(declared.walk, saved.value), readFailed("frame")),
                   (s) => [slot, Option.some(s)] as const,
                 ),
           ),
@@ -262,7 +264,7 @@ const frameOf = (
 
     const memory = yield* frame.memory === null
       ? Result.succeed(new Map<string, Values[string]>())
-      : Result.fromNullishOr(memories[frame.memory], () => "frame");
+      : Result.fromNullishOr(memories[frame.memory], readFailed("frame"));
 
     // Baselines that share a copy share their source, so they share it again when saved.
     return {
@@ -280,7 +282,7 @@ const copyOf = (compiled: Compiled, copy: { readonly [name: string]: Schema.Json
         Option.toArray(
           Option.map(Option.fromUndefinedOr(compiled.fields.find((f) => f.name === name)), (f) =>
             Result.map(
-              Result.mapError(f.walk.decode(json), () => "frame"),
+              Result.mapError(f.walk.decode(json), readFailed("frame")),
               (value) => [name, value] as const,
             ),
           ),
@@ -297,7 +299,7 @@ const copyOf = (compiled: Compiled, copy: { readonly [name: string]: Schema.Json
  */
 export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
   const machineOf = (r: { readonly machine: string }) =>
-    Result.fromNullishOr(machines.get(r.machine), () => "machine");
+    Result.fromNullishOr(machines.get(r.machine), readFailed("machine"));
 
   // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its key names.
   const actorRecord = (value: unknown) =>
@@ -307,7 +309,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
       const r = yield* stepsTo(format, value);
 
       const compiled = yield* machineOf(r);
-      const memory = yield* Result.mapError(compiled.walk.decode(r.memory), () => "memory");
+      const memory = yield* Result.mapError(compiled.walk.decode(r.memory), readFailed("memory"));
 
       const seen = new Map(
         yield* Result.all(
@@ -315,7 +317,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
             Option.toArray(
               Option.map(Option.fromUndefinedOr(compiled.context.get(slot)), (declared) =>
                 Result.map(
-                  Result.mapError(readSelected(declared.walk, json), () => "seen"),
+                  Result.mapError(readSelected(declared.walk, json), readFailed("seen")),
                   (s) => [slot, s] as const,
                 ),
               ),

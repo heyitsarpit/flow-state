@@ -1,15 +1,23 @@
 import { Brand, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { Audience, Delivery, type Owed, type OwedId, Route } from "./ledger.ts";
-import { retiredOperation } from "./record.ts";
+import { Audience, Delivery, Origin, type Owed, type OwedId, Route } from "./ledger.ts";
 import { Cause } from "./serve.ts";
 import { activation, chain, incarnation } from "./test/ids.ts";
-import { type ActivationId, type Head, type Incarnation, laneId, Mail, OwnedBy } from "./world.ts";
+import {
+  type ActivationId,
+  type Head,
+  type Incarnation,
+  laneId,
+  Mail,
+  OwnedBy,
+  Quarantine,
+} from "./world.ts";
 
 const actor = { machine: "Test/Shelf", name: "s" };
 
 const row: Owed = {
   id: Brand.nominal<OwedId>()("owed-1"),
+  origin: Origin.Decided(),
   actor,
   to: Audience.Identity(),
   operation: "save",
@@ -52,16 +60,23 @@ const typed = () => [
   Cause.Firing({ schedule: "tick", late: Option.some(activation(1)) }),
 ];
 
-// Inverted: this line compiles today, because a record-read reason is a free string. When reasons
-// are typed it fails the type check: replace it with the typed pair.
-const today = () => [
-  // Actors R21: a misspelt record-read reason compiles while reasons are free strings.
-  retiredOperation(actor, "lane/Test/Shelf/s|save|{}", "operaton"),
+const quarantines = () => [
+  // Actors R21: a record the boot could not read names its reason from the catalogue; a retired
+  // hold names its operation, so forget never reads a reason's text.
+  Quarantine.Unreadable({ code: "operation", detail: Option.none() }),
+  Quarantine.Retired({ actor, operation: "save", lane: laneId(actor, "save", "{}") }),
+  // @ts-expect-error Actors R21: a misspelt reason is no read failure
+  Quarantine.Unreadable({ code: "operaton", detail: Option.none() }),
+
+  // WriteLanes I15: Flow's restored marker is the row's origin, never its reason.
+  { ...row, origin: Origin.HeldAtStart() } satisfies Owed,
+  // @ts-expect-error WriteLanes I15: the reason text is no origin
+  { ...row, origin: "Restored" } satisfies Owed,
 ];
 
 describe("the core's typed shapes", () => {
-  it("Actors R13, R21, Turn R21, R25: the controls above compile and the wrong shapes do not", () => {
+  it("Actors R13, R21, Turn R21, R25, WriteLanes I15: the controls above compile and the wrong shapes do not", () => {
     expect(typed()).toHaveLength(13);
-    expect(today()).toHaveLength(1);
+    expect(quarantines()).toHaveLength(5);
   });
 });

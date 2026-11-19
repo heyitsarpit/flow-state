@@ -14,6 +14,7 @@ import {
   actorKey,
   byCodeUnits,
   type Issue,
+  quarantineText,
   sourceText,
   type World,
 } from "../core/world.ts";
@@ -145,7 +146,7 @@ export const snapshotIn = (
           classification: "Failure",
           code: "RecordUndecodable",
           path: [actor.machine, actor.name],
-          details: { reason: quarantined },
+          details: { reason: quarantineText(quarantined) },
           summary: `the saved record of ${actor.name} could not be read`,
           help: "Ensure the actor to start it fresh; its first save replaces the record.",
         }),
