@@ -1751,7 +1751,7 @@ tasks
 
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
-        status      draft
+        status      in_progress
         priority    high
         satisfies   [@plan.Runtime.O6, @plan.Diagnostics.O3]
         description
@@ -1775,6 +1775,15 @@ tasks
             refusing RuntimeDisposed after disposal starts; actor disposal idempotent; consumers disposed before
             providers; queued unstarted events dropped; no machine event run at disposal. Then build each.
 
+            Each part earns its place (the user, 2026-11-19): the first commit names, for every part above and every
+            item routed to this Task in its comments, the wrong ending it prevents that types and existing Schemas don't
+            already stop, or drops it with the reason. Before any per-case check, it asks whether a structure removes
+            the class (for disposal: one ordered disposal plan the driver runs, not a guard per call).
+
+            Fixtures: disposal and runtime-life cases in the existing apps where a product would dispose or wait on
+            writes (code:wiki/conventions/fixtures.md, "The right tool"). The raw-throw class stays parked
+            in @task.V3.T98.
+
             May change: `src/`, `tests/`, `fixtures/`, @spec.Actors with `specs.log` notes. Evidence: this
             Task's comments.
 
@@ -1784,6 +1793,9 @@ tasks
         acceptance
             - Each part in the Approach has a Story or host test, red before its code, and a planted fault caught by it.
             - `runtime.unsettledWrites()` lists exactly the non-Idle lanes by identity, unbound lane records included.
+            - Fixtures first (code:wiki/conventions/fixtures.md): the disposal and runtime-life scenarios are in the
+              fixtures' Stories and step samples and run by every runner before the build; the proof is a Task comment.
+            - Every routed item in this Task's comments is built (with its wrong ending named) or dropped with a reason.
             - CleanupFailed, HoldForgotten and RuntimeDisposed for `runPromise` are reported as @plan.Runtime.O6 says,
               with the whole Cause kept on the FlowError.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
