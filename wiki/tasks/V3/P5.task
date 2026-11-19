@@ -440,3 +440,10 @@ tasks
               at least one other become declared rules.
             - `nub run check`, the suite and stress pass; each new rule kind has a planted fault caught by `nub run
               faults --only`.
+        comment     2026-11-19T15:22:48Z
+            Design constraints (the user, 2026-11-19): no magic strings: rules use the machine's typed S, E and O tokens
+            and live where those exist (the machine() callback); and static analysis is first class: structural rules
+            (never, terminal, reachable, every ending handled) are data over tokens, proved by flow check over the
+            compiled graph and shown by explain and graph, while value rules (invariants, transitions, eventually over
+            memory) are checked by every run. The report gives each rule's tier: proved, checked with its exercise
+            count, or unseen.
