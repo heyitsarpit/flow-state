@@ -4,12 +4,7 @@ import { DoneReport, FailedReport, Report, TimedOutReport } from "./report.ts";
 import { BENCHES, benchesFrom } from "./list.ts";
 import type { Bench } from "./declare.ts";
 import { measure, type Settings, TimedOut, WARM_CAP, WARM_CAP_MS } from "./sample.ts";
-
-const flag = (args: ReadonlyArray<string>, name: string) => {
-  const at = args.indexOf(name);
-
-  return at === -1 ? Option.none<number>() : Option.some(Number(args[at + 1]));
-};
+import { readWorkerArgs } from "./worker-args.ts";
 
 class BenchFailed extends Data.TaggedError("BenchFailed")<{ readonly problem: string }> {}
 
@@ -98,31 +93,20 @@ const watchRun = (run: number) =>
 // sampling budget; `--timeout-ms` stops a bench between samples past that time, reported timed-out.
 // Each bench is loaded, its proof run, then it warms up until steady and takes its samples, each a
 // batch of operations calibrated to at least 1 ms.
-const main = Effect.fn("worker")(function* (args: ReadonlyArray<string>) {
-  const flags = new Set([
-    "--runs",
-    "--warmup",
-    "--budget",
-    "--warm-ms",
-    "--timeout-ms",
-    "--benches",
-    "--run",
-  ]);
-
-  const ids = args.filter((a, n) => !a.startsWith("--") && !flags.has(args[n - 1] ?? ""));
+const main = Effect.fn("worker")(function* (argv: ReadonlyArray<string>) {
+  const { ids, numbers, benches: list } = yield* readWorkerArgs(argv);
 
   const settings: Settings = {
-    runs: flag(args, "--runs"),
-    budgetMs: flag(args, "--budget"),
-    warmCap: Option.getOrElse(flag(args, "--warmup"), () => WARM_CAP),
-    warmMs: Option.getOrElse(flag(args, "--warm-ms"), () => WARM_CAP_MS),
-    timeoutMs: Option.getOrElse(flag(args, "--timeout-ms"), () => Number.POSITIVE_INFINITY),
+    runs: numbers.runs,
+    budgetMs: numbers.budgetMs,
+    warmCap: Option.getOrElse(numbers.warmup, () => WARM_CAP),
+    warmMs: Option.getOrElse(numbers.warmMs, () => WARM_CAP_MS),
+    timeoutMs: Option.getOrElse(numbers.timeoutMs, () => Number.POSITIVE_INFINITY),
   };
 
-  for (const run of Option.toArray(flag(args, "--run"))) watchRun(run);
+  for (const run of Option.toArray(numbers.run)) watchRun(run);
 
-  const at = args.indexOf("--benches");
-  const benches = yield* benchesFrom(at === -1 ? BENCHES : (args[at + 1] ?? BENCHES));
+  const benches = yield* benchesFrom(Option.getOrElse(list, () => BENCHES));
 
   for (const id of ids) yield* one(id, benches, settings);
 });

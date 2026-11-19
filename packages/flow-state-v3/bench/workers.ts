@@ -7,6 +7,7 @@ import { FailedReport, Report, TimedOutReport } from "./report.ts";
 import { countersText } from "./result.ts";
 import { WARM_CAP_MS } from "./sample.ts";
 import type { Spawned } from "./timing.ts";
+import { writeWorkerArgs } from "./worker-args.ts";
 import { PACKAGE } from "./worktree.ts";
 
 // A bench's timeout: its own when it declares one (tooling runs whole suites), else four times
@@ -50,23 +51,26 @@ export const workerArgs = (
   batch: Batch,
   options: Options,
 ) => {
-  const list = options.benches === undefined ? [] : ["--benches", options.benches];
-  const args = [join(pkg, "bench", "worker.ts"), ...ids, ...list, "--run", String(process.pid)];
-  const timeoutMs = Math.max(...batch.benches.map((b) => timeoutOf(b, options)));
   const tier = TIERS[tierOf(options)];
+  const gc = batch.benches.some((b) => b.gc) && !("bun" in process.versions);
+  const node = gc ? ["--expose-gc"] : [];
 
-  if (batch.benches.some((b) => b.gc) && !("bun" in process.versions)) args.unshift("--expose-gc");
-
-  if (options.runs !== undefined) args.push("--runs", String(options.runs));
-
-  if (options.warmup !== undefined) args.push("--warmup", String(options.warmup));
-
-  if (tier.budgetMs !== undefined) args.push("--budget", String(tier.budgetMs));
-
-  if (tier.warmMs !== undefined) args.push("--warm-ms", String(tier.warmMs));
-  args.push("--timeout-ms", String(timeoutMs));
-
-  return args;
+  return [
+    ...node,
+    join(pkg, "bench", "worker.ts"),
+    ...writeWorkerArgs({
+      ids,
+      numbers: {
+        runs: Option.fromUndefinedOr(options.runs),
+        warmup: Option.fromUndefinedOr(options.warmup),
+        budgetMs: Option.fromUndefinedOr(tier.budgetMs),
+        warmMs: Option.fromUndefinedOr(tier.warmMs),
+        timeoutMs: Option.some(Math.max(...batch.benches.map((b) => timeoutOf(b, options)))),
+        run: Option.some(process.pid),
+      },
+      benches: Option.fromUndefinedOr(options.benches),
+    }),
+  ];
 };
 
 // What one worker process printed: the reports of the benches it finished.

@@ -24,7 +24,7 @@ describe("the bench worker's arguments", () => {
   });
 
   for (const flag of ["--runs", "--timeout-ms", "--run"])
-    it.fails(`${flag} abc, not a finite number, is refused at once, naming the flag`, () => {
+    it(`${flag} abc, not a finite number, is refused at once, naming the flag`, () => {
       const done = runWorker([
         ...SMALL.filter((a, n, all) => a !== flag && all[n - 1] !== flag),
         flag,
@@ -36,7 +36,7 @@ describe("the bench worker's arguments", () => {
       expect(done.stderr).toContain(flag);
     });
 
-  it.fails("a flag the worker does not know is refused at once, so a renamed flag is never dropped", () => {
+  it("a flag the worker does not know is refused at once, so a renamed flag is never dropped", () => {
     const done = runWorker([...SMALL, "--timeout", "5"]);
 
     expect(done.status).not.toBeNull();
