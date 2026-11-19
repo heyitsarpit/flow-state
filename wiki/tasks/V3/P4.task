@@ -2047,6 +2047,35 @@ tasks
 
             Combos: CleanupFailed with persistence and lanes (transfers, shop) and unpersisted (sync); HoldForgotten
             with persistence, reload and forget, string- and value-named identities (transfers, shop, sign-in).
+        comment     2026-11-19T06:05:14Z
+            Build (the lead): built and green, except runPromise (Q7) and the ref quarantine (Q8), whose reds stay
+            `it.fails`. Suite 1258 passed, 30 expected fail; stress (34 files) and generated Stories with FLOW_SEEDS=10
+            pass; `nub run check` 0; docs build done.
+
+            - Built: `runtime.unsettledWrites()` and the Cut's `unsettled`; one ordered close
+              (code:packages/flow-state-v3/src/host/close.ts#makeClose: Disposed, every fiber interrupted and awaited,
+              then the Scope) waiting on its own fiber, so every dispose shares one result; CleanupFailed (Issue via the
+              new `Closed` admit row, FlowError with every Cause); Finished per identity at Runtime disposal, consumers
+              first; UnboundLane at each boot; HoldForgotten at forget; disposeActor drops mail and its record's
+              quarantine; Life table rows Run (call row) and Closed; R24's IdentityExhausted dropped (specs.log).
+            - Faults, `nub run faults --only`, 9 of 9 caught in scratch copies: unsettled-skips-unbound,
+              cleanup-failure-dropped, interrupt-cleanup-dropped, services-released-before-calls,
+              providers-finished-first, forget-keeps-gone-hold, unbound-lane-unreported,
+              dispose-keeps-quarantine, dispose-keeps-mail.
+            - Changed from the fix round: `shop/sign-out-while-paying` was red for the wrong reason (Pay's commit
+              detaches its request), so it is replaced by `sync/sign-out-while-syncing`; an interrupt cleanup inside a
+              commit's deadline race is dropped by Effect, so `transfers/interrupt-cleanup-fails` is an `it.fails`
+              stated limit (R23, revisit.md) and `sync/interrupt-cleanup-fails` is the reported case. I30's run rule now
+              exempts calls after RuntimeDisposed (an app's cleanup) and flags any Sent after disposal starts.
+            - Haiku review (2, effort high), each verified: accepted the cached-close abandonment (redesigned as a
+              waiter, test added), Stop folding cleanup Causes beside the defect, Sent in I30, `Arr.groupBy`, the key
+              parse moved to record.ts, the stale comment, the limit test as `it.fails`; rejected Life tags in the host
+              (I42 forbids), listing quarantined lanes (prior ruling), port fakes as injected outcomes (prior ruling),
+              hand-written lane JSON (precedent); noted, pre-existing: dispose while Booting closes under the services
+              build, and the close awaits cleanups unbounded.
+            - Waits on the user: Q7 runPromise (signature, refuse or wait before ready, RunFailed); Q8 the ref
+              quarantine after an actor-level cleanup failure. Left in the catalog for the close review: CleanupFailed
+              and HoldForgotten under load and in step samples.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer

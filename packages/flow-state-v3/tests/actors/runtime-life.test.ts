@@ -186,15 +186,17 @@ describe("cleanup failures (Actors R23, I33)", () => {
     expect(cleanupFailed(run.evidence.slice(disposed))).toHaveLength(1);
   });
 
-  it("Actors R23, a stated limit: a transfer cleanup that throws inside the commit's own deadline race is discarded by Effect's race, so only the unknown Disposed ending is seen", async () => {
+  // R23's stated limit: inside the commit's own deadline race (`Effect.timeoutOrElse`), Effect drops
+  // the cleanup's Cause when the call is interrupted, so the host never sees it.
+  it.fails("Actors R23, I33: a transfer cleanup that throws inside the commit's deadline race when the disposal's bound interrupts it is reported CleanupFailed", async () => {
     const run = await interruptCleanupFails.run();
 
-    expect(
-      run.evidence.filter(
-        (e) => e._tag === "Ended" && e.channel === "unknown" && e.reason === "Disposed",
-      ),
-    ).toHaveLength(1);
-    expect(cleanupFailed(run.evidence)).toEqual([]);
+    const disposed = run.evidence.findIndex(
+      (e) => e._tag === "Ended" && e.channel === "unknown" && e.reason === "Disposed",
+    );
+
+    expect(disposed).toBeGreaterThanOrEqual(0);
+    expect(cleanupFailed(run.evidence.slice(disposed))).toHaveLength(1);
   });
 });
 

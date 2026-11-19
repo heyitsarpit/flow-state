@@ -78,7 +78,19 @@ export const laneRecordKey = (lane: string) => `lane/${lane}`;
  * Why a boot keeps a lane record aside whose identity decodes but whose operation its machine no
  * longer declares: a hold an earlier release left.
  */
-export const OPERATION_GONE = "operation";
+const OPERATION_GONE = "operation";
+
+/**
+ * The operation of a lane record of `actor` the boot kept aside because its machine no longer
+ * declares that operation: a hold an earlier release left, which forget drops.
+ */
+export const retiredOperation = (actor: ActorId, key: string, reason: string) => {
+  const own = laneRecordKey(`${actorKey(actor)}|`);
+
+  return reason === OPERATION_GONE && key.startsWith(own)
+    ? Option.fromUndefinedOr(key.slice(own.length).split("|")[0])
+    : Option.none<string>();
+};
 
 type OwedRow = Pick<Owed, "operation" | "lane" | "attempt" | "channel" | "reason" | "value"> & {
   readonly kept: boolean;

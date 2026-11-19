@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Cause, Context, Effect, Exit, Layer, Option, Predicate, Schema } from "effect";
+import { Cause, Context, Effect, Exit, Fiber, Layer, Option, Predicate, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
 import {
   actorRef,
@@ -683,10 +683,9 @@ describe("mail at disposeActor (Actors R10, R20)", () => {
   });
 });
 
-// A FlowError's code as text, so a code Flow does not name yet can be compared.
+// A FlowError's code, or none for anything else.
 // FLOW_STATE_ALLOW_UNKNOWN: whatever a call rejected or failed with.
-// RETURN_TYPE: widened to string, since CleanupFailed is not in the code union yet.
-const codeOf = (e: unknown): string => (e instanceof FlowError ? e.code : "");
+const codeOf = (e: unknown) => (e instanceof FlowError ? Option.some(e.code) : Option.none());
 
 // The whole Cause a FlowError keeps, printed.
 // FLOW_STATE_ALLOW_UNKNOWN: whatever a call rejected or failed with.
@@ -710,8 +709,25 @@ describe("a cleanup that fails at disposal (Actors R23, I33; Diagnostics R8)", (
         ? Option.getOrUndefined(Cause.findErrorOption(exit.cause))
         : undefined;
 
-      assert.equal(codeOf(error), "CleanupFailed");
+      assert.deepStrictEqual(codeOf(error), Option.some("CleanupFailed"));
       assert.ok(causeOf(error).includes("the bell's line did not close"));
+    }
+  });
+
+  it("Actors R20, R23: a first dispose whose caller is interrupted still closes once, and a later dispose gets the same CleanupFailed", async () => {
+    const runtime = ready(brokenLine);
+    const abandoned = Effect.runFork(runtime.dispose());
+    await Effect.runPromise(Fiber.interrupt(abandoned));
+    const later = await Effect.runPromiseExit(runtime.dispose());
+    const again = await Effect.runPromiseExit(runtime.dispose());
+
+    for (const exit of [later, again]) {
+      const error = Exit.isFailure(exit)
+        ? Option.getOrUndefined(Cause.findErrorOption(exit.cause))
+        : undefined;
+
+      assert.deepStrictEqual(codeOf(error), Option.some("CleanupFailed"));
+      assert.equal(causeOf(error).split("the bell's line did not close").length, 2);
     }
   });
 });
@@ -758,7 +774,7 @@ describe("runtime.runPromise (Actors R27, R22; Diagnostics R8)", () => {
       runPromiseOf(runtime)(Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding"))),
     );
 
-    assert.equal(codeOf(refused), "RuntimeNotReady");
+    assert.deepStrictEqual(codeOf(refused), Option.some("RuntimeNotReady"));
     assert.deepStrictEqual(rings, []);
   });
 
@@ -771,7 +787,7 @@ describe("runtime.runPromise (Actors R27, R22; Diagnostics R8)", () => {
       runPromiseOf(runtime)(Effect.flatMap(Effect.service(Bell), (b) => b.ring("ding"))),
     );
 
-    assert.equal(codeOf(refused), "RuntimeDisposed");
+    assert.deepStrictEqual(codeOf(refused), Option.some("RuntimeDisposed"));
     assert.deepStrictEqual(rings, []);
   });
 

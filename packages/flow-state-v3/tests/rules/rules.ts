@@ -343,10 +343,10 @@ export const publishedOnce: Rule = {
 };
 
 /**
- * Actors I30, over what the fake servers received, in the trace's order: after the Runtime's
- * disposal starts no commit or read is invoked, so no call of a tab's open arrives between its
- * `disposeRuntime` step and its RuntimeDisposed record. Once disposed the Runtime runs no work of
- * its own, so a later call is an app's cleanup of an interrupted call (Actors R23), not an
+ * Actors I30, in the trace's order: after the Runtime's disposal starts no commit or read is
+ * invoked, so no commit is Sent from its `disposeRuntime` step on, and no call of a tab's open
+ * arrives between that step and its RuntimeDisposed record. Once disposed the Runtime runs no work
+ * of its own, so a later call is an app's cleanup of an interrupted call (Actors R23), not an
  * invocation.
  */
 export const nothingInvokedDisposing: Rule = {
@@ -364,7 +364,14 @@ export const nothingInvokedDisposing: Rule = {
 
       const from = disposingFrom.get(tab.open);
 
-      return TraceRecord.$is("Request")(record) && from !== undefined && !disposed.has(tab.open)
+      if (from === undefined) return [];
+
+      if (TraceRecord.$is("Runtime")(record) && record.evidence._tag === "Sent")
+        return [
+          `Actors I30: ${record.evidence.operation} ${record.evidence.attempt} was sent from tab ${tab.name}:${tab.open}, after that open's disposal began at step ${from}`,
+        ];
+
+      return TraceRecord.$is("Request")(record) && !disposed.has(tab.open)
         ? [
             `Actors I30: ${record.server}.${record.endpoint} received a call from tab ${tab.name}:${tab.open}, after that open's disposal began at step ${from}`,
           ]

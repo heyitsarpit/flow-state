@@ -282,8 +282,6 @@ export const buildRuntime = (
     fibers,
     persistence,
     captureMs: config.persistence?.captureMs ?? Duration.toMillis(RuntimeDefaults.captureInterval),
-    // The driver stops synchronously, inside the step that failed; the close runs on its own fiber.
-    stopped: () => fibers.detach(Effect.suspend(() => close)),
     admit,
     // A callback that throws detaches only itself; sinks never change a step.
     sink: (batch) => {

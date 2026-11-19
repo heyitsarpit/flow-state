@@ -367,7 +367,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     expect(publishedPlainData.breaches(plain)).toEqual([]);
   });
 
-  it("Actors I30: a call arriving after its open's disposeRuntime step and before its RuntimeDisposed record is a breach; one before or after them is not", async () => {
+  it("Actors I30: a commit sent from its open's disposeRuntime step on is a breach, and so is a call arriving before its RuntimeDisposed record; a call before or after them is not", async () => {
     const run = checked(await lostThenReload.run());
     const tab = { name: "main", open: 1 };
 
@@ -392,13 +392,20 @@ describe("run rules over crafted runs, each rule seen firing", () => {
       (e) => e.tab.open === 1 && TraceRecord.$is("Request")(e.record),
     );
 
-    expect(firstOpen.length > 0).toBe(true);
+    const sent = run.trace.events.filter(
+      (e) =>
+        e.tab.open === 1 &&
+        TraceRecord.$is("Runtime")(e.record) &&
+        e.record.evidence._tag === "Sent",
+    );
+
+    expect(firstOpen.length > 0 && sent.length > 0).toBe(true);
     expect(nothingInvokedDisposing.breaches(traced([disposing, ...run.trace.events]))).toHaveLength(
-      firstOpen.length,
+      firstOpen.length + sent.length,
     );
     expect(
       nothingInvokedDisposing.breaches(traced([disposing, disposed, ...run.trace.events])),
-    ).toEqual([]);
+    ).toHaveLength(sent.length);
     expect(nothingInvokedDisposing.breaches(run)).toEqual([]);
   });
 

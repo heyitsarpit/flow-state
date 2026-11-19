@@ -7,7 +7,7 @@ import { type Arming, armingsOf } from "./turn.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
-import { actorRecordKey, decodeRecords, laneRecordKey, OPERATION_GONE } from "./record.ts";
+import { actorRecordKey, decodeRecords, laneRecordKey, retiredOperation } from "./record.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { isInFlight, type Tx } from "./tx.ts";
 import {
@@ -372,16 +372,15 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
   // A held lane whose operation this release no longer has never decoded; forget drops its record.
   const forgetRetired = (actor: ActorId) => {
-    const own = laneRecordKey(`${actorKey(actor)}|`);
-
-    const retired = [...tx.world().quarantined].filter(
-      ([record, reason]) => reason === OPERATION_GONE && record.startsWith(own),
+    const retired = [...tx.world().quarantined].flatMap(([record, reason]) =>
+      Option.toArray(
+        Option.map(retiredOperation(actor, record, reason), (operation) => ({ record, operation })),
+      ),
     );
 
-    for (const [record] of retired) {
+    for (const { record, operation } of retired) {
       tx.drop("quarantined", record);
       persistence.saveLane(actor, record.slice(laneRecordKey("").length));
-      const [operation = ""] = record.slice(own.length).split("|");
       tx.act(Act.HoldForgotten({ actor, operation, record }));
     }
   };

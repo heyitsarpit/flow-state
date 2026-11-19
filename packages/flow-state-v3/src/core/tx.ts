@@ -455,7 +455,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     ownBoxes.clear();
   };
 
-  // One identity's mailbox, dropped whole.
   const dropMail = (actor: ActorId) => {
     if (world.mail.has(actorKey(actor))) emptied(actorKey(actor));
   };

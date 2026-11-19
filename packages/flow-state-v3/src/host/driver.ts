@@ -78,7 +78,6 @@ export const makeDriver = (options: {
   readonly captureMs: number;
   readonly sink: (evidence: ReadonlyArray<Evidence>) => void;
   readonly admit: (evidence: ReadonlyArray<Evidence>) => void;
-  readonly stopped: () => void;
 }) => {
   const { machines, fibers } = options;
   const clock = Context.get(options.platform, Clock.Clock);
@@ -152,13 +151,12 @@ export const makeDriver = (options: {
 
   // A defect in a step leaves its world half written, so the Runtime's life ends Stopped at the
   // first one: no input runs again, the defect is the Runtime's failure, which ready and dispose
-  // report, and the host closes its Scope.
+  // report, and the host's close, waiting on `ended`, closes its Scope.
   // FLOW_STATE_ALLOW_UNKNOWN: a defect is whatever the step threw.
   const stop = (defect: unknown) => {
     world = stopped(world);
     inbox.length = 0;
     Deferred.doneUnsafe(disposed, Exit.die(defect));
-    options.stopped();
   };
 
   const budgetMs = Duration.toMillis(RuntimeDefaults.slowWorkBudget);

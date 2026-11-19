@@ -180,3 +180,8 @@ Deferred items.
   (use `setEncoding`); `unchangedWhole` counts a run with no summary as finished; group.test's timeout case never
   asserts the sleepers' pids; the unchanged run's red names can be dropped from what it prints. Reopen when the
   runner is next changed.
+- **A cleanup failure inside a call's own race** (2026-11-19, @task.V3.T99's build; @spec.Actors R23's stated limit).
+  When the disposal interrupts a call whose commit races a deadline (`Effect.timeoutOrElse`), Effect drops the
+  interrupted loser's Cause, so a throwing interrupt cleanup there is never reported CleanupFailed
+  (`transfers/interrupt-cleanup-fails`, an `it.fails`). Reopen if Effect keeps loser Causes, or if Flow owns the
+  deadline itself.

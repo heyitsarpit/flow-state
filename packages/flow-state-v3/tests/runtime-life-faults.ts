@@ -23,8 +23,8 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     ["tests/actors/runtime-life.test.ts"],
     "unsettledWrites lists only bound identities, so a host warns of nothing for a disposed hold",
     "src/host/close.ts",
-    "    .flatMap(([key, lanes]) =>",
-    "    .filter(([key]) => world.incarnations.has(key) || world.records.has(key))\n    .flatMap(([key, lanes]) =>",
+    "    .map(([key, lanes]) => ({",
+    "    .filter(([key]) => world.incarnations.has(key) || world.records.has(key))\n    .map(([key, lanes]) => ({",
   ),
   fault(
     "cleanup-failure-dropped",

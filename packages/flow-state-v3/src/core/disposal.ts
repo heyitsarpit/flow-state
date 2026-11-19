@@ -42,7 +42,6 @@ export const makeDisposal = (
       Stopped: () => Option.none<TicketId>(),
     });
 
-  // Each live identity ends with the Runtime, every consumer before its providers.
   const end = () => {
     disarmWhere((t) => Timer.$is("Bound")(t));
 
@@ -134,9 +133,8 @@ export const makeDisposal = (
   return { disposeRuntime, boundPassed, answered, write, disposalEnds, closed };
 };
 
-/**
- * The live identities, each after every live consumer bound to it, in start order otherwise.
- */
+// The live identities, each after every live consumer bound to it, in start order otherwise: the
+// order the Runtime's terminal evidence takes.
 const consumersFirst = (world: World) => {
   const live = [...world.incarnations.values()].toSorted((a, b) => startOrder(a) - startOrder(b));
 
