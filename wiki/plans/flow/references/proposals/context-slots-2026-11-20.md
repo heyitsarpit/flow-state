@@ -5,7 +5,7 @@ through typed tokens; a machine reacts with `C.slot.change({ when?, event })`. N
 one slot has exactly one provider (a type error, then a construction error), and the compiled graph holds
 field-level edges from a provider's field to a consumer's event, so static analysis can follow them.
 
-**Accepted by the user (2026-11-20):** the whole proposal except the items under Open; built by @task.V3.T107.
+**Accepted by the user (2026-11-20):** the whole proposal, `onContext` inside a state node on condition (see Open); built by @task.V3.T107.
 
 **Why now:** a reaction's `select` and a slot's `Provider.select(Schema, fn)` are opaque functions. Slot names are
 string keys, `when`'s arguments are untyped (`never`), and the graph only knows "the consumer depends on all of the
@@ -127,8 +127,11 @@ merge.
 
 ## Open
 
-- **`onContext` inside a state node** (proposed earlier, not yet answered): a reaction live only in the states that
-  handle its event, so no change is dropped silently; top level stays and means every state.
+- **`onContext` inside a state node** (accepted on condition, the user, 2026-11-20): a reaction live only in the
+  states that handle its event, so no change is dropped silently; top level stays and means every state. Built as an
+  experiment in @task.V3.T107 beside the rest; kept only if its Stories and faults show it adds no bugs, rejected
+  otherwise. It must settle what a state-scoped reaction does with changes made while its state was inactive: a
+  silent baseline on entry, or one comparison on entry (as a returning actor's one wave, @spec.Actors.R9).
 - **The name `.change`** is accepted; `.from` stays an event-payload word only.
 - **Cost:** about 30 `Provider.select` sites and every `onContext` site change; `M` is a new token family.
 - **Prior art:** reselect's explicit input selectors (static dependencies, versus Recoil and Jotai tracking them at

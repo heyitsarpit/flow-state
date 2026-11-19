@@ -3595,8 +3595,10 @@ tasks
             code:packages/flow-state-v3/src/host/wiring.ts.
 
             **Risk:** the one-provider type ban needs a definition's `id` kept as its literal; @task.V3.T104's token
-            brand (F3) provides it, so this Task follows T104. `onContext` inside a state node stays open in the
-            proposal; do not build it.
+            brand (F3) provides it, so this Task follows T104. `onContext` inside a state node is built as an experiment
+            beside the rest (accepted on condition, the user, 2026-11-20): it settles changes made while the state was
+            inactive (silent baseline or one comparison on entry), and is kept only if its Stories and faults show it
+            adds no bugs, otherwise rejected and recorded.
 
             **Approach:** fixtures first (Stories for the wrong endings below), then `M` tokens, `Flow.context` in both
             forms, `C` with `.change`, field-level edges in Compiled, skip-unchanged recomputation, then convert every
@@ -3619,6 +3621,9 @@ tasks
               the edges.
             - No `Provider.select` or reaction `select` remains; `nub run check`, the suite, stress and `nub run
               docs:build` pass.
+            - State-scoped `onContext`: either kept, with its entry rule chosen and pinned by Stories (a change while
+              the state was inactive, then entry) and a planted fault, or rejected with the evidence noted on this Task
+              and the proposal.
         comment     2026-11-19T18:55:51Z
             Record shape (orchestrator, 2026-11-20): Actors R18 now saves a reaction's baseline as its slot's value
             only, dropping the memory inputs it read; that changes the record format, so the build lines up with

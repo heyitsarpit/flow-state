@@ -80,8 +80,9 @@ outcomes
 
         Nodes may declare on, activities and schedules, and fill each placed fragment in one block (traits under
         traits.name where placed, a subroutine on its state); only the root may declare `onContext` and `onProps`
-        (`onContext` inside a state node is open). A definition's handler(path, h) and guard(path?, g) type shared code
-        as if written at path (the root when omitted).
+        (`onContext` inside a state node is an experiment in @task.V3.T107, kept only if it adds no bugs). A
+        definition's handler(path, h) and guard(path?, g) type shared code as if written at path (the root
+        when omitted).
 
         Fragments. trait(declaration, body) is something the actor has; subroutine(declaration, body) is a state the
         actor goes into.
