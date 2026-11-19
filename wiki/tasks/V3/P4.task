@@ -1087,6 +1087,43 @@ tasks
             can't, as samples, red where accepted. Then one design: each record and row kind is one tagged Schema that
             the writer encodes with and the reader decodes with, so a decode accepts only what an encode produces.
             Failure limit 2 applies after it.
+        comment     2026-11-19T00:09:28Z
+            Convergence round done (6c729dbf red checks, bf18e67f design): each lane record and owed row kind is one
+            tagged Schema that the writer encodes with and the boot decodes with, so a decode accepts only what an
+            encode produces (@spec.WriteAhead.R5, @spec.Codec.R5).
+
+            Shapes the writers produce (read from lane-moves.ts, lanes.ts, ledger.ts, persist.ts, record.ts): actor
+            record 1; lane `Head` (Held or in flight) and `Displaced`; owed rows `Answered` (on its lane, success,
+            failure or unknown, value optional: answers, cancels, disposals, Restored, unsaved), `Unsent` (on its lane,
+            a NotSent why), `Refused` (HoldRefused: operation and Attempt, no lane), `Declined` (operation and why). A
+            kind stores nothing it determines (Refused's channel, a NotSent's `{ why }`).
+
+            Findings to checks:
+            - Lane-less row with an Attempt (fix review 1): `Restore R5, WriteAhead R5: an owed row is read only in a
+              shape a release writes` boots 2400 combinations (tag, lane or operation, Attempt, channel, reason, value);
+              49 were read before, red at 6c729dbf. Plus the reviewer's two traces: shop/lane-less-success and
+              shop/lane-less-held-success (the Held head's own Attempt). Faults owed-row-fields-widened,
+              unsent-reason-unchecked, answered-lane-less-read.
+            - Deep format-1 record (fix review 2): format-1 forms are read on their own stack; session/deep-format-one
+              boots (red "did not boot" before). Decision (agent): it restores with the slot unselected, as format 1's
+              step treats any form its slot Schema refuses, not quarantined; depth no longer changes the outcome.
+              Fault format-one-read-on-stack.
+            - I17 excused only by its own identity's unread lane (rules.test.ts, fault i17-other-identity-excuses).
+            - Hand checks after the read: slot names and the name a memory's input fields give are now in the Schemas
+              (seen-slot-dropped retargeted; memory-input-unchecked caught).
+            - Void write's value: absent, never null (persist.test.ts, fault void-value-read-null).
+            - Patch changing an input field: refused InvalidTurn (@spec.Compile.R7; identity.test.ts,
+              fault input-field-patched).
+            - Q4: headless `displaced emptied` now judged in full; a plain test pins that only the held class is left
+              (no crash, no as-saved failure), and the `it.fails` reads the same run; Q4 notes the cross-record cases
+              for the user.
+
+            Gates: suite 1219 pass, 23 expected fail; stress 76 pass; `nub run check` 0; faults --only 9 new or
+            retargeted and 32 existing on the moved files, all caught; the lane-less fault replayed by hand red in all
+            three tests. Decision (agent, implementation): the actor writer keeps its per-field memoized text rather
+            than a walker encode (hot path, one exact Schema decodes it, no finding in this class); reverse by encoding
+            `recordFour` in `encodeActor`. Not touched: the removed-slot question (@task.V3.T56), the raw-throw
+            class (@task.V3.T98).
 
     T95
         title       Callback results checked before they enter a turn
