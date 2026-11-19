@@ -904,3 +904,7 @@ note 2026-11-18T23:18:20Z
 note 2026-11-18T23:36:06Z
     T92 second close review ISSUES (759785f6): an Attempt-with-no-lane owed row makes up an ending (same class twice, so
     convergence: one Schema per written shape, shared by writer and reader); deep format-1 record breaks the boot.
+
+note 2026-11-19T00:10:06Z
+    T92 convergence in (bf18e67f): one tagged Schema per lane and owed row kind, shared by writer and boot; both
+    blockers fixed, gates green. Third close review started; the failure limit is 2.
