@@ -23,6 +23,41 @@ const fires = [
   "Pkg.Effect.forkChild(Effect.void);",
   "const { forkDetach } = Effect;",
   "Effect.runCallback(Effect.void);",
+  // Every runner: a fiber started outside an Owner is one no Owner holds.
+  "Effect.runPromise(Effect.void);",
+  "Effect.runSync(Effect.void);",
+  "Effect.runFork(Effect.void);",
+  "Effect.runPromiseExit(Effect.void);",
+  // Aliases, casts and keys known before running.
+  "const Alias = Effect; Alias.forkDetach(Effect.void);",
+  "let Later = Other; Later = Effect; Later.forkDetach(Effect.void);",
+  "const AliasPkg = Pkg; AliasPkg.Effect.forkDetach(Effect.void);",
+  "const { Effect: Picked } = Pkg; Picked.runSync(Effect.void);",
+  "(Effect as any).forkDetach(Effect.void);",
+  "(Effect satisfies object).forkDetach(Effect.void);",
+  "Effect[`forkDetach`](Effect.void);",
+  'Effect["forkDetach"](Effect.void);',
+  // A key known only at run time may be any banned member; so may a rest pattern.
+  "Effect[String(Other)](Effect.void);",
+  "const { ...everything } = Effect;",
+  // Imports and exports that reach a watched module under another name.
+  'import { default as Whole } from "effect/Effect"; Whole.forkDetach(Effect.void);',
+  'import Def from "effect/Effect"; Def.runFork(Effect.void);',
+  'import { forkDaemon as inner } from "effect/internal/effect";',
+  'void import("effect/Effect");',
+  'void import("effect");',
+  'export { forkDetach } from "effect/Effect";',
+  'export { default as Reexported } from "effect/Effect";',
+  'export * from "effect/Effect";',
+  // Cause reads: through a combinator, an Exit's match, a print or a reason test.
+  "Effect.catchCause(Effect.void, () => Effect.void);",
+  "Effect.tapCause(Effect.void, () => Effect.void);",
+  "Effect.onExit(Effect.void, () => Effect.void);",
+  "Effect.sandbox(Effect.void);",
+  "Exit.match(Other, { onFailure: () => 1, onSuccess: () => 2 });",
+  "Cause.pretty(Other);",
+  "Cause.squash(Other);",
+  "Cause.isDieReason(Other);",
 ];
 
 const quiet = [
@@ -30,6 +65,13 @@ const quiet = [
   "Fiber.await(Other);",
   "Cause.combine(Other, Other);",
   "Exit.isSuccess(Other);",
+  "Effect.exit(Effect.void);",
+  "Effect.onInterrupt(Effect.void, () => Effect.void);",
+  "Cause.fail(Other);",
+  "Exit.fail(Other);",
+  "const Same = Other; Same.forkDetach();",
+  'Effect["forEach"]([], () => Effect.void);',
+  'void import("node:path");',
 ];
 
 plantRules({

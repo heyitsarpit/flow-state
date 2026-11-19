@@ -453,3 +453,32 @@ note 2026-11-19T09:53:45Z
     Actors composition (proposed): the Owner tree replaces the one Scope with a FiberMap; I47 (one judge per task) and
     I48 (every failed cleanup reaches its closer's report and one Issue) added. Reverse: drop I47, I48, restore the
     text.
+
+note 2026-11-19T11:42:04Z
+    @spec.Actors R23: dispose rejects CleanupFailed whose Cause holds CleanupOverdue, not CleanupOverdue itself, as the
+    code and tests do. Reverse: reject CleanupOverdue alone.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: the close waits two bounds (core's, then the Owner tree's from the core's end), not one; one
+    shared deadline would make every cleanup after a hung call overdue. Reverse: one deadline from the dispose call.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: an Issue CleanupFailed only in lives that record it (Open, Disposing, Disposed); elsewhere the
+    failure goes through the Runtime's report alone. Tested in cleanups.test.ts (Stopped). Reverse: admit CleanupFailed
+    in more lives.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: each Cause reported exactly once beyond ensures; a ref keeps reported and unreported Causes apart
+    (proposed, the T99 lead). Reverse: merge them, which reports a heard Cause again.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R27: the abort sentences beyond Q7 A marked proposed (the T99 lead); Q7 A's text restored as decided.
+    Reverse: fold them into the decision once the user confirms.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23, I48, @spec.Diagnostics R8: typed cleanup failures inside app error handling follow Effect's rules;
+    dying cleanups always reported. Decision (user, 2026-11-19): Q11 A. Pinned per combinator in cleanups.test.ts.
+
+note 2026-11-19T11:42:06Z
+    @spec.Actors I47, I48: now cited by everyTaskAccounted's breaches and by cleanups.test.ts cells; the rule counts an
+    Owner's own Scope as its task 'scope'. Reverse: cite R23 only.

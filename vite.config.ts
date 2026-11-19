@@ -262,7 +262,7 @@ export default defineConfig({
             "error",
             {
               only: ["src/host"],
-              except: ["src/host/owners", "src/host/testing", "src/host/platform"],
+              except: ["src/host/owners", "src/host/testing", "src/host/platform", "src/host/cli"],
               exceptTests: true,
             },
           ],

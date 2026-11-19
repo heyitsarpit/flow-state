@@ -86,7 +86,8 @@ export type Hear = (failures: ReadonlyArray<Cause.Cause<unknown>>) => void;
  *
  * A `Task` names its Owner, its number in that Owner (from 0, in the order tasks start), its key and
  * its phase: `started`, or the tag of its {@link Ending}; `failed` is whether its cleanup failed.
- * A `Report` is what one close heard: `causes` in all, `own` of them from the Owner's own Scope.
+ * An Owner's close releases its own Scope as one more task, keyed `scope`, so its finalizers'
+ * failures are counted as every task's are. A `Report` is what one close heard: `causes` in all.
  * `heardBy` is `parent` when the close was started by its parent's close, whose report counts these
  * causes again, and `closer` when it went to whoever else started it. `parent` names the Owner
  * this one is nested in.
@@ -104,7 +105,6 @@ export type OwnerRecord = Data.TaggedEnum<{
     parent: Option.Option<string>;
     heardBy: "closer" | "parent";
     causes: number;
-    own: number;
   };
 }>;
 
@@ -250,7 +250,9 @@ const build = (
         for (const child of children)
           yield* Deferred.await(child.close((found) => void nested.push(...found), "parent"));
 
-        const own = yield* releaseScope(scope);
+        const task = numbered;
+        numbered += 1;
+        const own = yield* releaseTraced(scope, traced, named.name, task);
 
         for (const cause of own) judged(cause);
 
@@ -263,7 +265,6 @@ const build = (
               parent: named.parent,
               heardBy: by,
               causes: heard.length,
-              own: own.length,
             }),
           );
 
@@ -382,6 +383,30 @@ export const releaseScope = (scope: Scope.Closeable) =>
   Effect.map(Effect.exit(Scope.close(scope, Exit.void)), (released) =>
     Exit.isFailure(released) ? Option.toArray(cleanupOf(released.cause)) : [],
   );
+
+/**
+ * {@link releaseScope}, told to a dev trace as the Owner's task `scope`: started, then `Died` with a
+ * failed cleanup when a finalizer failed (a finalizer has no typed error), else `Done`.
+ */
+export const releaseTraced = (
+  scope: Scope.Closeable,
+  traced: Traced,
+  owner: string,
+  task: number,
+) => {
+  const record = (phase: Extract<OwnerRecord, { _tag: "Task" }>["phase"], failed: boolean) => {
+    if (Option.isSome(traced))
+      traced.value(OwnerRecord.Task({ owner, task, key: "scope", phase, failed }));
+  };
+
+  return Effect.suspend(() => {
+    record("started", false);
+
+    return Effect.tap(releaseScope(scope), (own) =>
+      Effect.sync(() => record(own.length > 0 ? "Died" : "Done", own.length > 0)),
+    );
+  });
+};
 
 /**
  * Where the failures heard by the Runtime's own close go: into its rejection while it waits, to the

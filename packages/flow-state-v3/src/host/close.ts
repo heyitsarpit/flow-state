@@ -20,7 +20,7 @@ import type { Driver } from "./driver.ts";
 import {
   detach,
   OwnerRecord,
-  releaseScope,
+  releaseTraced,
   type RuntimeReport,
   type Traced,
   waitAtMost,
@@ -151,9 +151,10 @@ export class CleanupOverdue extends Data.TaggedError("CleanupOverdue")<Record<st
  * **Details**
  *
  * The close runs on its own fiber from construction, and every caller joins it, so it runs exactly
- * once whoever asks and however a caller leaves. The whole close is waited for at most the
- * disposal's bound; past it the close keeps running, dispose reports `CleanupOverdue`, and each
- * later failure goes to the host's report. Each failed cleanup the close hears (a task's, a
+ * once whoever asks and however a caller leaves. Once the core's life ends (within its own
+ * disposal bound), the Owner tree's close is waited for at most one more bound; past it the close
+ * keeps running, dispose rejects CleanupFailed holding `CleanupOverdue`, and each later failure
+ * goes to the host's report. Each failed cleanup the close hears (a task's, a
  * services finalizer's, a quarantine no ensure reported) fails it with one CleanupFailed keeping
  * every Cause; a defect that stopped the Runtime is its failure instead, with every cleanup's Cause
  * beside it. Each failure was an Issue when it was found.
@@ -171,7 +172,7 @@ export const makeClose = (
 
   const tree = Effect.gen(function* () {
     yield* driver.work.end(report.hear);
-    const released = yield* releaseScope(root);
+    const released = yield* releaseTraced(root, traced, "root", 0);
 
     for (const _ of released) driver.input(Input.CleanupFailed());
 
@@ -182,7 +183,6 @@ export const makeClose = (
           parent: Option.none(),
           heardBy: "closer",
           causes: released.length,
-          own: released.length,
         }),
       );
 
@@ -198,16 +198,31 @@ export const makeClose = (
     if (overdue.length > 0) {
       driver.input(Input.CleanupFailed());
 
+      // The wait that passed its bound, told as a task that failed with CleanupOverdue.
       if (Option.isSome(traced))
-        traced.value(
+        for (const record of [
+          OwnerRecord.Task({
+            owner: "overdue",
+            task: 0,
+            key: "close",
+            phase: "started",
+            failed: false,
+          }),
+          OwnerRecord.Task({
+            owner: "overdue",
+            task: 0,
+            key: "close",
+            phase: "Failed",
+            failed: true,
+          }),
           OwnerRecord.Report({
             owner: "overdue",
             parent: Option.none(),
             heardBy: "closer",
             causes: 1,
-            own: 1,
           }),
-        );
+        ])
+          traced.value(record);
     }
 
     const failures = [...report.late(), ...overdue, ...driver.unheard()];
@@ -217,6 +232,7 @@ export const makeClose = (
     const closed = Arr.match(failures, {
       onEmpty: () => ended,
       onNonEmpty: (all) =>
+        // oxlint-disable-next-line flow-state/owners-only -- the core's own end, not a task's: a defect that stopped the Runtime leads its rejection
         Exit.match(ended, {
           onFailure: (defect) =>
             Exit.failCause(Cause.combine(defect, Cause.die(cleanupFailed(all)))),

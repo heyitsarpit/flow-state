@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import {
   Cause,
   Context,
-  Data,
   Deferred,
   Duration,
   Effect,
@@ -12,125 +11,35 @@ import {
   Option,
   Predicate,
   Brand,
-  Result,
-  Schema,
   Scope,
 } from "effect";
 import { describe, it } from "vite-plus/test";
-import { Evidence } from "../core/evidence.ts";
 import type { TicketId } from "../core/world.ts";
 import { makeEdge } from "./edge.ts";
-import { makeOwner } from "./owners/owners.ts";
-import { buildRuntime } from "./runtime.ts";
-import {
-  actorRef,
-  app,
-  definition,
-  Flow,
-  FlowError,
-  machine,
-  resource,
-  RuntimeDefaults,
-  transaction,
-} from "../index.ts";
-import { Host, type Platform, type Store, StoreRefused } from "./host.ts";
+import { makeOwner, OwnerRecord } from "./owners/owners.ts";
+import { type FlowError, RuntimeDefaults } from "../index.ts";
+import { Host, type Store, StoreRefused } from "./host.ts";
 import type { Runtime } from "./runtime.ts";
-import { platformOver, testing } from "./testing/seam.ts";
-
-class LineDropped extends Data.TaggedError("LineDropped")<Record<string, never>> {}
-
-class Line extends Context.Service<
+import {
+  died,
+  flowOf,
+  hung,
+  keeps,
   Line,
-  {
-    readonly hold: Effect.Effect<string, LineDropped>;
-    readonly watch: Effect.Effect<string, LineDropped>;
-  }
->()("flow-state-v3/src/host/cleanups.test/Line") {}
-
-const hold = transaction({
-  id: "Cleanups/hold",
-  input: { line: Schema.String },
-  key: [],
-  concurrency: "reject",
-  services: [Line],
-  commit: () => Effect.flatMap(Effect.service(Line), (line) => line.hold),
-});
-
-const watch = resource({
-  id: "Cleanups/watch",
-  input: { line: Schema.String },
-  key: ["line"],
-  services: [Line],
-  staleTime: 0,
-  gcTime: 0,
-  lookup: () => Effect.flatMap(Effect.service(Line), (line) => line.watch),
-});
-
-const Phone = definition({
-  id: "Cleanups/Phone",
-  states: ["IDLE"],
-  events: { Dial: {}, Look: {} },
-  internalEvents: {
-    Held: {},
-    Dropped: {},
-    HoldUnsure: Flow.uncertain({}),
-    Seen: {},
-    Unseen: {},
-  },
-  operations: ({ E }) => ({
-    hold: hold.outcomes({
-      success: E.Held,
-      failure: { LineDropped: E.Dropped },
-      unknown: E.HoldUnsure,
-    }),
-    watch: watch.outcomes({
-      success: E.Seen,
-      failure: { LineDropped: E.Unseen, Defect: E.Unseen },
-    }),
-  }),
-});
-
-const PhoneMachine = machine(Phone, ({ S, O }) => ({
-  default: S.IDLE,
-  on: {
-    Dial: { actions: [O.hold.commit(() => ({ line: "one" }))] },
-    Look: { actions: [O.watch.lookup(() => ({ line: "one" }))] },
-    Held: {},
-    Dropped: {},
-    HoldUnsure: {},
-    Seen: {},
-    Unseen: {},
-  },
-}));
-
-const Note = definition({
-  id: "Cleanups/Note",
-  persist: true,
-  states: ["KEPT"],
-  events: { Write: { text: Schema.String } },
-  memory: { text: Flow.initial(Schema.String, "") },
-});
-
-const NoteMachine = machine(Note, ({ S }) => ({
-  default: S.KEPT,
-  on: { Write: { updateMemory: ({ event }) => ({ text: event.text }) } },
-}));
-
-const calls = app({ id: "cleanups", machines: { phone: PhoneMachine, note: NoteMachine } });
-
-const phone = actorRef(PhoneMachine, "home");
-
-const note = actorRef(NoteMachine, "today");
-
-// An Effect that never ends on its own; once interrupted it runs `cleanup`.
-const hung = <E>(cleanup: Effect.Effect<void, E>) =>
-  Effect.onInterrupt(Effect.never, () => cleanup);
-
-// A line whose holds and watches hang, each running `cleanup` once interrupted.
-const lineWith = (cleanup: Effect.Effect<void, LineDropped>) =>
-  Layer.succeed(Line, Line.of({ hold: hung(cleanup), watch: hung(cleanup) }));
-
-const quietLine = lineWith(Effect.void);
+  type LineDropped,
+  lineDropped,
+  lineWith,
+  note,
+  phone,
+  quietLine,
+  readyObserved,
+  readyOver,
+  rejection,
+  reporting,
+  type Tab,
+  thrownBy,
+} from "./test/cleanups.ts";
+import { platformOver } from "./testing/seam.ts";
 
 // A tab whose store writes never answer, each running `cleanup` once interrupted.
 const hungStoreTab = (cleanup: Effect.Effect<void, StoreRefused>) => {
@@ -148,73 +57,6 @@ const hungStoreTab = (cleanup: Effect.Effect<void, StoreRefused>) => {
   });
 };
 
-type Tab = {
-  readonly platform: Platform;
-  readonly settle: () => void;
-  readonly advance: (ms: number) => void;
-};
-
-// A tab whose host collects each Cause reported to it after the close stopped waiting.
-const reporting = <T extends Tab>(tab: T) => {
-  // FLOW_STATE_ALLOW_UNKNOWN: a late cleanup fails with whatever it threw.
-  const reports: Array<Cause.Cause<unknown>> = [];
-  const host = Context.get(tab.platform, Host);
-
-  return {
-    ...tab,
-    reports,
-    platform: Context.add(
-      tab.platform,
-      Host,
-      Host.of({ ...host, report: (cause) => void reports.push(cause) }),
-    ),
-  };
-};
-
-// A Runtime of the app over a tab, ready.
-const readyOver = (tab: Tab, services: Layer.Layer<Line>) => {
-  const built = testing.build(
-    { app: calls, services, scope: "test", persistence: { captureMs: 0 } },
-    tab.platform,
-  );
-
-  Effect.runSync(built.runtime.ready());
-
-  return built.runtime;
-};
-
-// What a promise rejected with, or nothing when it resolved.
-// FLOW_STATE_ALLOW_UNKNOWN: whatever a promise rejected with.
-const rejection = (promise: Promise<unknown>) =>
-  promise.then(
-    () => undefined,
-    (e: unknown) => e,
-  );
-
-// What a call threw, or nothing when it returned.
-// FLOW_STATE_ALLOW_UNKNOWN: whatever a call threw.
-const thrownBy = (call: () => unknown) =>
-  Result.match(Result.try({ try: call, catch: (e: unknown) => e }), {
-    onSuccess: () => undefined,
-    onFailure: (e) => e,
-  });
-
-// A FlowError's code and the Cause it keeps, or none for anything else.
-// FLOW_STATE_ALLOW_UNKNOWN: whatever a call rejected or threw.
-const flowOf = (e: unknown) =>
-  e instanceof FlowError && Cause.isCause(e.cause)
-    ? Option.some({ code: e.code, cause: e.cause })
-    : Option.none();
-
-// Whether a Cause keeps a cleanup's own failure: its typed error or its defect, the same value.
-// FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it was given.
-const keeps = (cause: Cause.Cause<unknown>, failure: unknown) =>
-  cause.reasons.some(
-    (r) =>
-      (Cause.isFailReason(r) && r.error === failure) ||
-      (Cause.isDieReason(r) && r.defect === failure),
-  );
-
 /**
  * How an interrupted fiber's cleanup ends: its Effect, given the typed error its kind fails with,
  * and the failure a report must keep, if any. Only a cleanup that dies or fails has failed; one that
@@ -226,16 +68,12 @@ type Outcome = {
   readonly failure: <E>(error: E) => Option.Option<unknown>;
 };
 
-const died = new Error("the cleanup died");
-
 const outcomes: ReadonlyArray<Outcome> = [
   { name: "succeeds", cleanup: () => Effect.void, failure: () => Option.none() },
   { name: "dies", cleanup: () => Effect.die(died), failure: () => Option.some(died) },
   { name: "fails with a typed error", cleanup: Effect.fail, failure: Option.some },
   { name: "is interrupted", cleanup: () => Effect.interrupt, failure: () => Option.none() },
 ];
-
-const lineDropped = new LineDropped({});
 
 const storeRefused = new StoreRefused({});
 
@@ -538,23 +376,127 @@ describe("an ended actor's cleanup that outlives the Runtime's close (Actors R23
   });
 });
 
-// A Runtime of the app over a tab, ready, with every Issue code it reported.
-const readyObserved = (tab: Tab, services: Layer.Layer<Line>) => {
-  const issues: Array<string> = [];
+// The app's own error handling around a read, each as Effect 4 runs it on an interrupted fiber.
+const handlers: ReadonlyArray<{
+  readonly name: string;
+  readonly wrap: (read: Effect.Effect<string, LineDropped>) => Effect.Effect<string, LineDropped>;
+}> = [
+  {
+    name: "catchTag",
+    wrap: (read) => Effect.catchTag(read, "LineDropped", () => Effect.succeed("caught")),
+  },
+  { name: "catch", wrap: (read) => Effect.catch(read, () => Effect.succeed("caught")) },
+  { name: "mapError", wrap: (read) => Effect.mapError(read, (e) => e) },
+  { name: "tapError", wrap: (read) => Effect.tapError(read, () => Effect.void) },
+  { name: "retry", wrap: (read) => Effect.retry(read, { times: 1 }) },
+  { name: "catchCause", wrap: (read) => Effect.catchCause(read, () => Effect.succeed("caught")) },
+];
 
-  const built = buildRuntime(
-    { app: calls, services, scope: "test", persistence: { captureMs: 0 } },
-    tab.platform,
-    (batch) => {
-      for (const e of batch) if (Evidence.$is("Issue")(e)) issues.push(e.code);
-    },
-    Option.none(),
-  );
+// The CleanupFailed an ensure throws once a read's actor is disposed, if it throws one.
+const quarantinedAfter = (read: Effect.Effect<string, LineDropped>) => {
+  const tab = platformOver(new Map(), 1);
+  const runtime = readyOver(tab, Layer.succeed(Line, Line.of({ hold: Effect.never, watch: read })));
+  runtime.ensureActor(phone).send({ _tag: "Look" });
+  tab.settle();
+  runtime.disposeActor(phone);
+  tab.settle();
 
-  Effect.runSync(built.runtime.ready());
-
-  return { runtime: built.runtime, issues };
+  return flowOf(thrownBy(() => runtime.ensureActor(phone)));
 };
+
+describe("a cleanup failure inside the app's own error handling (Actors R23, I48; Diagnostics R8)", () => {
+  it("Actors R23, I48: with no handler around the read, a cleanup's typed failure reaches the effect Flow runs and quarantines the ref", () => {
+    assert.ok(
+      Option.exists(quarantinedAfter(hung(Effect.fail(lineDropped))), (r) =>
+        keeps(r.cause, lineDropped),
+      ),
+    );
+  });
+
+  for (const handler of handlers) {
+    it(`Gotcha (Actors R23, I48; Diagnostics R8): under ${handler.name}, a cleanup's typed failure follows Effect's rules and never reaches the effect Flow runs`, () => {
+      assert.deepStrictEqual(
+        quarantinedAfter(handler.wrap(hung(Effect.fail(lineDropped)))),
+        Option.none(),
+      );
+    });
+
+    it(`Actors R23, I48: under ${handler.name}, a cleanup that dies is always reported`, () => {
+      assert.ok(
+        Option.exists(quarantinedAfter(handler.wrap(hung(Effect.die(died)))), (r) =>
+          keeps(r.cause, died),
+        ),
+      );
+    });
+  }
+});
+
+describe("a cleanup failure in a life that records no Issue (Actors R23, R25)", () => {
+  it("Actors R23, R25: a read whose cleanup dies as a Runtime a defect stopped closes is no Issue, and is reported through the Runtime's report: dispose fails with the defect and a CleanupFailed keeping the failure", () => {
+    const trap = { armed: false };
+    const seed = new String("0".repeat(32));
+
+    seed.toString = () => {
+      if (trap.armed) {
+        trap.armed = false;
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted defect that stops the Runtime
+        throw new Error("the session seed cannot be read");
+      }
+
+      return "0".repeat(32);
+    };
+
+    const tab = platformOver(new Map(), 1);
+    const host = Context.get(tab.platform, Host);
+
+    // SAFETY: the core reads a seed only as text, which calls toString.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, lint-bomb/no-chained-type-assertions -- a test host plants its defect in the seed's text
+    const sessionSeed = seed as unknown as string;
+
+    const trapped = {
+      ...tab,
+      platform: Context.add(tab.platform, Host, Host.of({ ...host, sessionSeed })),
+    };
+
+    const { runtime, issues } = readyObserved(trapped, lineWith(Effect.die(died)));
+    runtime.ensureActor(phone).send({ _tag: "Look" });
+    tab.settle();
+    trap.armed = true;
+    thrownBy(() => runtime.ensureActor(note));
+    tab.settle();
+
+    const disposing = Effect.runFork(runtime.dispose());
+    tab.settle();
+    const ended = Option.fromUndefinedOr(disposing.pollUnsafe());
+
+    assert.ok(Option.exists(ended, Exit.isFailure), "dispose failed");
+
+    const reasons = Option.match(ended, {
+      onNone: () => [],
+      onSome: (exit) => (Exit.isFailure(exit) ? exit.cause.reasons : []),
+    });
+
+    assert.ok(
+      reasons.some(
+        (r) =>
+          Cause.isDieReason(r) && r.defect instanceof Error && r.defect.message.includes("seed"),
+      ),
+      "the defect leads",
+    );
+    assert.ok(
+      reasons.some((r) =>
+        Cause.isDieReason(r)
+          ? Option.exists(
+              flowOf(r.defect),
+              (e) => e.code === "CleanupFailed" && keeps(e.cause, died),
+            )
+          : false,
+      ),
+      "the cleanup's failure beside it",
+    );
+    assert.deepStrictEqual(issues, [], "a stopped life records no Issue");
+  });
+});
 
 describe("a read cancelled while its actor lives (Actors R23)", () => {
   it("Actors R23: a read replaced while open whose cleanup dies is an Issue CleanupFailed at once, and quarantines the ref when its actor ends", () => {
@@ -667,6 +609,139 @@ describe("a quarantine no ensure reported (Actors R23)", () => {
   });
 });
 
+const firstDied = new Error("the first incarnation's cleanup died");
+
+const secondDied = new Error("the second incarnation's cleanup died");
+
+type Move = "ensure" | "the second cleanup dies" | "disposeActor" | "dispose";
+
+// Every distinct order of the moves, each once.
+// RETURN_TYPE: a recursive function's type cannot be inferred.
+const ordersOf = (moves: ReadonlyArray<Move>): ReadonlyArray<ReadonlyArray<Move>> =>
+  moves.length === 0
+    ? [[]]
+    : [
+        ...new Map(
+          moves
+            .flatMap((move, at) =>
+              ordersOf(moves.filter((_, other) => other !== at)).map((rest) => [move, ...rest]),
+            )
+            .map((order) => [order.join(", "), order] as const),
+        ).values(),
+      ];
+
+// What the ensures report, by R23 alone: each reports every failure that landed on the ref while
+// the Runtime was open and no disposeActor lifted since. The first failure has landed before any
+// move.
+const ensureReports = (order: ReadonlyArray<Move>) => {
+  const held: Array<Error> = [firstDied];
+  const reported: Array<Error> = [];
+
+  for (const move of order.slice(0, order.indexOf("dispose"))) {
+    if (move === "the second cleanup dies") held.push(secondDied);
+
+    if (move === "disposeActor") held.length = 0;
+
+    if (move === "ensure") reported.push(...held);
+  }
+
+  return reported;
+};
+
+// How many times the Causes keep a cleanup's defect.
+// FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it was given.
+const timesIn = (causes: ReadonlyArray<Cause.Cause<unknown>>, failure: unknown) =>
+  causes
+    .flatMap((cause) => cause.reasons)
+    .filter((r) => Cause.isDieReason(r) && r.defect === failure).length;
+
+// The CleanupFailed Causes a dispose rejected with, once it ended.
+const rejectedBy = (disposing: Option.Option<Fiber.Fiber<void, FlowError>>) => {
+  const ended = Option.flatMap(disposing, (fiber) => Option.fromUndefinedOr(fiber.pollUnsafe()));
+
+  assert.ok(Option.isSome(ended), "dispose ended");
+
+  return Exit.isFailure(ended.value)
+    ? Option.toArray(
+        Option.flatMap(Cause.findErrorOption(ended.value.cause), (e) => flowOf(e)),
+      ).map((r) => r.cause)
+    : [];
+};
+
+// Two incarnations of the ref ended with their reads out, the first's cleanup dead, then the
+// moves in order: what the ensures threw, what dispose rejected with and what the host heard.
+const played = (order: ReadonlyArray<Move>) => {
+  const gates = [Deferred.makeUnsafe<void>(), Deferred.makeUnsafe<void>()] as const;
+
+  const cleanups = [
+    Effect.andThen(Deferred.await(gates[0]), Effect.die(firstDied)),
+    Effect.andThen(Deferred.await(gates[1]), Effect.die(secondDied)),
+  ];
+
+  const tab = reporting(platformOver(new Map(), 1));
+  const watch = hung(Effect.suspend(() => cleanups.shift() ?? Effect.void));
+  const runtime = readyOver(tab, Layer.succeed(Line, Line.of({ hold: Effect.never, watch })));
+
+  for (const _ of gates) {
+    runtime.ensureActor(phone).send({ _tag: "Look" });
+    tab.settle();
+    runtime.disposeActor(phone);
+    tab.settle();
+  }
+
+  Deferred.doneUnsafe(gates[0], Exit.void);
+  tab.settle();
+
+  // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+  const ensured: Array<Cause.Cause<unknown>> = [];
+  let disposing = Option.none<Fiber.Fiber<void, FlowError>>();
+
+  const moves: Record<Move, () => void> = {
+    ensure: () => {
+      for (const r of Option.toArray(flowOf(thrownBy(() => runtime.ensureActor(phone)))))
+        if (r.code === "CleanupFailed") ensured.push(r.cause);
+    },
+    "the second cleanup dies": () => Deferred.doneUnsafe(gates[1], Exit.void),
+    disposeActor: () => runtime.disposeActor(phone),
+    dispose: () => {
+      disposing = Option.some(Effect.runFork(runtime.dispose()));
+    },
+  };
+
+  for (const move of order) {
+    moves[move]();
+    tab.settle();
+  }
+
+  return { ensured, rejected: rejectedBy(disposing), reports: tab.reports };
+};
+
+describe("two incarnations of one ref whose cleanups fail around an ensure (Actors R23, I48)", () => {
+  for (const order of ordersOf([
+    "ensure",
+    "ensure",
+    "the second cleanup dies",
+    "disposeActor",
+    "dispose",
+  ]))
+    it(`Actors R23, I48: the first cleanup dies, then ${order.join(", ")}: each failure is reported by every ensure that runs while it is held, and else by dispose, exactly once`, () => {
+      const { ensured, rejected, reports } = played(order);
+      const expected = ensureReports(order);
+
+      for (const failure of [firstDied, secondDied]) {
+        const ensures = expected.filter((reported) => reported === failure).length;
+
+        assert.equal(timesIn(ensured, failure), ensures, `${failure.message}: by each ensure`);
+        assert.equal(
+          timesIn(rejected, failure),
+          ensures === 0 ? 1 : 0,
+          `${failure.message}: by dispose exactly when no ensure reported it`,
+        );
+        assert.equal(timesIn(reports, failure), 0, `${failure.message}: not the host's report`);
+      }
+    });
+});
+
 describe("a store write interrupted at the close (Restore R10, Actors R23)", () => {
   it("Actors R23: a store write whose interrupt cleanup dies is never answered as refused, so no lane hears that a write which may have landed was not sent", () => {
     const tab = hungStoreTab(Effect.die(died));
@@ -704,6 +779,53 @@ describe("a store write interrupted at the close (Restore R10, Actors R23)", () 
     assert.ok(
       heard.length === 1 && heard.every((cause) => keeps(cause, died)),
       "its closer heard the cleanup's failure",
+    );
+  });
+});
+
+describe("an Owner's own Scope (Actors R23, I47, I48)", () => {
+  it("Actors R23, I47, I48: an Owner whose own finalizer dies traces its Scope's release as one failed task, judges it once, and its closer hears it", () => {
+    const tab = platformOver(new Map(), 1);
+    const records: Array<OwnerRecord> = [];
+    // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+    const judged: Array<Cause.Cause<unknown>> = [];
+    // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+    const heard: Array<Cause.Cause<unknown>> = [];
+
+    // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the test owns the Owner's parent Scope, which the Owner's close releases from
+    const owner = makeOwner(
+      Scope.makeUnsafe(),
+      () => tab.platform,
+      (cause) => void judged.push(cause),
+      "work",
+      Option.some((record) => void records.push(record)),
+    );
+
+    owner.finalize(() => {
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a finalizer that dies is what this test plants
+      throw died;
+    });
+    owner.stop((found) => void heard.push(...found));
+    tab.settle();
+
+    const scopeTasks = records.filter((r) => OwnerRecord.$is("Task")(r) && r.key === "scope");
+
+    assert.deepStrictEqual(
+      scopeTasks.map((r) => (OwnerRecord.$is("Task")(r) ? [r.phase, r.failed] : [])),
+      [
+        ["started", false],
+        ["Died", true],
+      ],
+    );
+    assert.equal(judged.length, 1, "judged once");
+    assert.ok(
+      heard.length === 1 && heard.every((cause) => keeps(cause, died)),
+      "its closer heard it",
+    );
+    assert.deepStrictEqual(
+      records.flatMap((r) => (OwnerRecord.$is("Report")(r) ? [r.causes] : [])),
+      [1],
+      "its report counts it",
     );
   });
 });

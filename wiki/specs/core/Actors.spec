@@ -354,18 +354,35 @@ requirements
                 failed when the task's Cause holds anything beside the interrupt (a defect or a
                 typed failure). Whoever ends work hears its failures: Runtime disposal rejects
                 every dispose, an actor's end quarantines its ref, an aborted `runPromise` rejects
-                with it. Runtime disposal waits for the whole close at most the disposal bound:
-                past it dispose rejects CleanupOverdue, and each failure found later goes to the
-                host's report with its whole Cause. Each failure is reported as an Issue
-                CleanupFailed when it is found, which carries no Cause (@spec.Diagnostics.R9), and
-                every call to dispose gets the same rejection; a forget's StorageFailure is kept
-                beside it. A ref is quarantined by any failed cleanup of its incarnation's reads,
-                a read cancelled while open included (held to the incarnation's end), and also
-                when a new incarnation of it is already live: every later ensure throws
-                CleanupFailed with that Cause until a disposeActor of the ref lifts it. A
-                quarantine no ensure reported is never lost: a lift, or the Runtime's disposal,
-                puts it in dispose's CleanupFailed. Decision (user, 2026-11-19): "Q8 A"; the rest
-                proposed (the T99 lead, 2026-11-19).
+                with it. Runtime disposal waits at most two disposal bounds: the core's, for its
+                calls and writes (below), then one more for the close of its Owner tree, measured
+                from the core's end; past it dispose rejects CleanupFailed whose Cause holds
+                CleanupOverdue, and each failure found later goes to the host's report with its
+                whole Cause. Decision (agent: the T99 lead, 2026-11-19): two bounds, not one shared
+                deadline. Why: work that uses the whole first bound would leave the close no time,
+                so every cleanup after a hung call would be reported overdue. Reverse: give the
+                close what is left of one bound measured from the call to dispose. Each failure is
+                reported as an Issue CleanupFailed when it is found, in a life that records it
+                (Open, Disposing, Disposed), which carries no Cause (@spec.Diagnostics.R9); in any
+                other life (Inert, Booting, Failed, Stopped) no Issue is recorded, and the failure
+                is reported through the Runtime's report alone: dispose's rejection, or the host's
+                report once late. Every call to dispose gets the same rejection; a forget's
+                StorageFailure is kept beside it. A ref is quarantined by any failed cleanup of its
+                incarnation's reads, a read cancelled while open included (held to the
+                incarnation's end), and also when a new incarnation of it is already live: every
+                later ensure throws CleanupFailed with every Cause the ref holds until a
+                disposeActor of the ref lifts it. Each Cause is reported exactly once beyond those
+                ensures: a quarantine no ensure reported is never lost (a lift, or the Runtime's
+                disposal, puts it in dispose's CleanupFailed), and one an ensure reported is never
+                reported again, so a ref keeps its reported and unreported Causes apart. Decision
+                (user, 2026-11-19): "Q8 A"; the rest proposed (the T99 lead, 2026-11-19).
+
+                Flow reports every cleanup failure that reaches the effect it runs; inside the
+                app's own error handling, typed failures follow Effect's rules; cleanups that die
+                are always reported. In Effect 4.1.4 an error-channel combinator on an interrupted
+                fiber (`catch*`, `mapError`, `tapError`, `retry`, `catchCause`) keeps only the
+                interrupt, so a typed cleanup failure under one never reaches Flow, while a defect
+                does. Decision (user, 2026-11-19): "Q11 A".
 
                 Runtime disposal waits for its writes within the same bound, measured from the call to
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
@@ -427,9 +444,10 @@ requirements
                 RuntimeNotReady, once disposal starts RuntimeDisposed, and it runs nothing then.
                 A failure, defect or interruption rejects with a FlowError coded RunFailed that
                 keeps the whole Cause (@spec.Diagnostics.R8); an aborted signal interrupts the
-                Effect, never the wait, so the rejection keeps every cleanup failure, and a Runtime
-                disposal interrupts it too; a signal aborted before the call runs nothing. Decision (user, 2026-11-19):
-                "Q7 A".
+                Effect, and a Runtime disposal interrupts it too. Decision (user, 2026-11-19):
+                "Q7 A". Proposed (the T99 lead, 2026-11-19): the signal interrupts the Effect,
+                never the wait, so the rejection keeps every cleanup failure; a signal aborted
+                before the call runs nothing.
 
 open
     Q1  Executable checks are not built.
@@ -610,8 +628,10 @@ invariants
     I47  Every task the host starts is judged exactly once, by one judge, before its fiber ends. Proposed (the T99 
          lead, 2026-11-19). [@R23]
 
-    I48  Every non-interrupt reason of an interrupted task reaches the report of whoever closed its Owner, and one 
-         Issue CleanupFailed. Proposed (the T99 lead, 2026-11-19). [@R23, @R27]
+    I48  Every non-interrupt reason of an interrupted task reaches the report of whoever closed its Owner, and one
+         Issue CleanupFailed in a life that records it. Proposed (the T99 lead, 2026-11-19). A reason reaches the
+         task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
+         rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
 
 owner Life
     lifetime  one Runtime. Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); I42

@@ -156,8 +156,7 @@ const recordText = (record: TraceRecord) =>
     Runtime: ({ evidence }) => evidenceText(evidence),
     Task: ({ owner, task, key, phase, failed }) =>
       `task ${owner}#${task} ${key} ${phase}${failed ? ", cleanup failed" : ""}`,
-    Report: ({ owner, heardBy, causes, own }) =>
-      `report ${owner} to its ${heardBy}: ${causes} causes, ${own} own`,
+    Report: ({ owner, heardBy, causes }) => `report ${owner} to its ${heardBy}: ${causes} causes`,
   });
 
 /**

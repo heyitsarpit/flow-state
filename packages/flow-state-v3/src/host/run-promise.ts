@@ -79,6 +79,6 @@ export const makeRunPromise = <R>(driver: Driver) => {
     options: { readonly signal?: AbortSignal } = {},
   ) =>
     // The admitted Effect fails only with a FlowError, which the Promise rejects with.
-    // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- runPromise is the Runtime's public Promise boundary
+    // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain, flow-state/owners-only -- runPromise is the Runtime's public Promise boundary; the Effect itself runs in its run Owner
     Effect.runPromise(admitted(effect, Option.fromUndefinedOr(options.signal)));
 };

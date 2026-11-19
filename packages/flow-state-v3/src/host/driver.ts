@@ -72,23 +72,49 @@ const resultOf = (ending: Ending<unknown>) =>
     },
   });
 
-/**
- * A ref whose ended actor's cleanup failed: the failure no ensure has reported yet, or one an
- * ensure has.
- */
+// A ref whose ended actors' cleanups failed: failures no ensure has reported, failures one has, or
+// both, when a failure lands after an ensure reported the earlier ones.
 type Quarantine = Data.TaggedEnum<{
   // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
-  Unheard: { cause: Cause.Cause<unknown> };
+  Unheard: { unheard: Cause.Cause<unknown> };
   // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
-  Heard: { cause: Cause.Cause<unknown> };
+  Heard: { heard: Cause.Cause<unknown> };
+  // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+  Partly: { heard: Cause.Cause<unknown>; unheard: Cause.Cause<unknown> };
 }>;
 
 const Quarantine = Data.taggedEnum<Quarantine>();
 
+// The quarantine once a cleanup failure lands: it joins the failures no ensure has reported.
+// FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
+const failedIn = (held: Option.Option<Quarantine>, cause: Cause.Cause<unknown>) =>
+  Option.match(held, {
+    onNone: () => Quarantine.Unheard({ unheard: cause }),
+    onSome: Quarantine.$match({
+      Unheard: ({ unheard }) => Quarantine.Unheard({ unheard: Cause.combine(unheard, cause) }),
+      Heard: ({ heard }) => Quarantine.Partly({ heard, unheard: cause }),
+      Partly: ({ heard, unheard }) =>
+        Quarantine.Partly({ heard, unheard: Cause.combine(unheard, cause) }),
+    }),
+  });
+
+// Every failure a quarantine holds, in the order they landed: what an ensure reports.
+const wholeOf = Quarantine.$match({
+  Unheard: ({ unheard }) => unheard,
+  Heard: ({ heard }) => heard,
+  Partly: ({ heard, unheard }) => Cause.combine(heard, unheard),
+});
+
+// The failures no ensure has reported, if any: what a lift or the Runtime's close reports.
+const unheardOf = Quarantine.$match({
+  Unheard: ({ unheard }) => Option.some(unheard),
+  Heard: () => Option.none(),
+  Partly: ({ unheard }) => Option.some(unheard),
+});
+
 /**
  * The one impure loop: it owns the world, runs each step, and performs the step's commands with
- * Effect: calls and timers as keyed fibers in the Runtime's Scope, writes through the persistence
- * edge.
+ * Effect: calls and timers as keyed tasks of an Owner, writes through the persistence edge.
  *
  * **Details**
  *
@@ -135,15 +161,13 @@ export const makeDriver = (options: {
     if (!Verdict.$is("Run")(admit(world.life, Input.Run()))) return report.hear(failures);
 
     const key = actorKey(actor);
-    const held = Option.map(Option.fromUndefinedOr(quarantined.get(key)), (q) => q.cause);
 
     quarantined.set(
       key,
-      Quarantine.Unheard({
-        cause: [...Option.toArray(held), ...failures].reduce((all, cause) =>
-          Cause.combine(all, cause),
-        ),
-      }),
+      failedIn(
+        Option.fromUndefinedOr(quarantined.get(key)),
+        failures.reduce((all, cause) => Cause.combine(all, cause)),
+      ),
     );
   };
 
@@ -428,8 +452,9 @@ export const makeDriver = (options: {
     quarantine: (actor: ActorId) => {
       const key = actorKey(actor);
 
-      return Option.map(Option.fromUndefinedOr(quarantined.get(key)), ({ cause }) => {
-        quarantined.set(key, Quarantine.Heard({ cause }));
+      return Option.map(Option.fromUndefinedOr(quarantined.get(key)), (held) => {
+        const cause = wholeOf(held);
+        quarantined.set(key, Quarantine.Heard({ heard: cause }));
 
         return flowErrorOf(
           [
@@ -449,14 +474,14 @@ export const makeDriver = (options: {
     lift: (actor: ActorId) => {
       const key = actorKey(actor);
 
-      for (const held of Option.toArray(Option.fromUndefinedOr(quarantined.get(key))))
-        if (Quarantine.$is("Unheard")(held)) report.hear([held.cause]);
+      report.hear(
+        Option.toArray(Option.flatMap(Option.fromUndefinedOr(quarantined.get(key)), unheardOf)),
+      );
 
       quarantined.delete(key);
     },
     // Every quarantined failure no ensure reported, for the Runtime's close.
-    unheard: () =>
-      [...quarantined.values()].flatMap((q) => (Quarantine.$is("Unheard")(q) ? [q.cause] : [])),
+    unheard: () => [...quarantined.values()].flatMap((q) => Option.toArray(unheardOf(q))),
   };
 };
 
