@@ -1527,6 +1527,9 @@ tasks
             persisted-target rows move to a sender a product would have (CheckoutFlow or Household); finding 6,
             acceptance 2 names shop, player and sync only (small amendment); transfers stays out by the user's
             no-more-cuts call, ruling 2 stands.
+        comment     2026-11-19T02:02:34Z
+            Decision (the user, 2026-11-19): send never infers its target; no one-argument overload, since it would
+            expose actor names as strings. A send always takes an explicit ref.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
