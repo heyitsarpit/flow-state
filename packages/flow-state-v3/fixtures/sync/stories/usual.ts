@@ -1,5 +1,7 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { client, docsRepo, emptyRepo, gitGrownSetup, gitSetup } from "../app.ts";
+import { Repo } from "../machines/repo.ts";
+import { Sync } from "../machines/sync.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { RuntimeDefaults } from "../../../src/index.ts";
 import {
@@ -22,12 +24,12 @@ export const repoStory = (id: string) => Story.app(gitGrownSetup, { id, fixtures
 export const openRepo = repoStory("sync/open-repo")
   .ensure(client)
   .ensure(docsRepo)
-  .send(docsRepo, { _tag: "SetToken", token: "tok-docs" })
+  .send(docsRepo, Repo.E.SetToken({ token: "tok-docs" }))
   .checkpoint("opened")
-  .send(client, { _tag: "Peek", repo: "docs" })
+  .send(client, Sync.E.Peek({ repo: "docs" }))
   .checkpoint("synced")
   .world(Git.rateLimit({ retryAfterMs: 9000 }))
-  .send(client, { _tag: "SyncRepo", repo: "docs" })
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
   .checkpoint("cooling")
   .advance("9 seconds")
   .checkpoint("cooled");
@@ -38,15 +40,13 @@ export const openRepo = repoStory("sync/open-repo")
 export const emptyName = repoStory("sync/empty-name")
   .ensure(client)
   .ensure(emptyRepo)
-  .send(client, { _tag: "Peek", repo: "" })
+  .send(client, Sync.E.Peek({ repo: "" }))
   .checkpoint("opened");
 
 /**
  * The sync app over its port fake, with no steps yet: every sync Story starts here.
  */
 export const gitStory = (id: string) => Story.app(gitSetup, { id, fixtures: [GitFake] });
-
-const syncRepo = (repo: string) => ({ _tag: "SyncRepo", repo }) as const;
 
 /**
  * A client syncs a repository and its user goes to close the tab before the Git host has taken the
@@ -56,7 +56,7 @@ const syncRepo = (repo: string) => ({ _tag: "SyncRepo", repo }) as const;
 export const leaveWhileSyncing = gitStory("sync/leave-while-syncing")
   .ensure(client)
   .world(Git.sync.hold())
-  .send(client, syncRepo("docs"))
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
   .checkpoint("syncing")
   .world(Git.sync.release())
   .checkpoint("synced");
@@ -70,7 +70,7 @@ export const connectionCloseFails = Story.app(gitSetup, {
   fixtures: [GitFakeConnectionCloseFails],
 })
   .ensure(client)
-  .send(client, syncRepo("docs"))
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
   .checkpoint("synced")
   .disposeRuntime()
   .checkpoint("signed out");
@@ -85,7 +85,7 @@ export const interruptCleanupFails = Story.app(gitSetup, {
 })
   .ensure(client)
   .world(Git.sync.hold())
-  .send(client, syncRepo("docs"))
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
   .disposeRuntime()
   .advance(RuntimeDefaults.disposalBound)
   .checkpoint("signed out");
@@ -101,7 +101,7 @@ export const signOutWhileSyncing = Story.app(gitSetup, {
 })
   .ensure(client)
   .world(Git.sync.hold())
-  .send(client, syncRepo("docs"))
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
   .world(Git.remoteHead.hold())
   .disposeRuntime()
   .advance(RuntimeDefaults.disposalBound)
@@ -116,31 +116,31 @@ export const signOutWhileSyncing = Story.app(gitSetup, {
 export const usual = gitStory("sync/usual")
   .ensure(client)
   .advance("700 millis")
-  .send(client, { _tag: "Peek", repo: "flow" })
+  .send(client, Sync.E.Peek({ repo: "flow" }))
   .advance("500 millis")
-  .send(client, syncRepo("docs"))
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
   .advance("500 millis")
-  .send(client, syncRepo("docs"))
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
   .world(Git.outage({}))
-  .send(client, { _tag: "Peek", repo: "docs" })
+  .send(client, Sync.E.Peek({ repo: "docs" }))
   .checkpoint("peeked")
   .world(Git.rateLimit({ retryAfterMs: 9000 }))
-  .send(client, syncRepo("site"))
+  .send(client, Sync.E.SyncRepo({ repo: "site" }))
   .checkpoint("cooling")
-  .send(client, syncRepo("flow"))
+  .send(client, Sync.E.SyncRepo({ repo: "flow" }))
   .advance("9 seconds")
   .checkpoint("cooled")
-  .send(client, syncRepo("flow"))
-  .send(client, syncRepo("effect"))
+  .send(client, Sync.E.SyncRepo({ repo: "flow" }))
+  .send(client, Sync.E.SyncRepo({ repo: "effect" }))
   .dispose(client)
   .ensure(client)
   .world(Git.sync.hold())
-  .send(client, syncRepo("docs"))
-  .send(client, syncRepo("docs"))
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
+  .send(client, Sync.E.SyncRepo({ repo: "docs" }))
   .checkpoint("on the wire")
   .world(Git.sync.release())
   .advance("700 millis")
-  .send(client, { _tag: "Peek", repo: "docs" })
+  .send(client, Sync.E.Peek({ repo: "docs" }))
   .checkpoint("end");
 
 type GitStory = ReturnType<typeof gitStory>;
@@ -151,15 +151,15 @@ const round = (story: GitStory, n: number) => {
   const repo = repos[n % repos.length] ?? "flow";
 
   const next = story
-    .send(client, syncRepo(repo))
-    .send(client, { _tag: "Pushed", repo })
-    .send(client, { _tag: "Pushed", repo: "site" })
-    .send(client, { _tag: "Peek", repo })
+    .send(client, Sync.E.SyncRepo({ repo }))
+    .send(client, Sync.E.Pushed({ repo }))
+    .send(client, Sync.E.Pushed({ repo: "site" }))
+    .send(client, Sync.E.Peek({ repo }))
     .world(Git.sync.drop({ at: "response" }))
-    .send(client, syncRepo(`fork-${n}`))
+    .send(client, Sync.E.SyncRepo({ repo: `fork-${n}` }))
     .world(Git.rateLimit({ retryAfterMs: 2000 }))
-    .send(client, syncRepo("effect"))
-    .send(client, syncRepo("flow"))
+    .send(client, Sync.E.SyncRepo({ repo: "effect" }))
+    .send(client, Sync.E.SyncRepo({ repo: "flow" }))
     .advance("2 seconds")
     .advance("500 millis");
 
@@ -174,12 +174,12 @@ export const long = Array.from({ length: 9 }, (_, n) => n)
   .reduce(round, gitStory("sync/long").ensure(client))
   .checkpoint("end");
 
-const flow = { _tag: "SyncRepo", repo: "flow" } as const;
-const docs = { _tag: "SyncRepo", repo: "docs" } as const;
-const pushedFlow = { _tag: "Pushed", repo: "flow" } as const;
-const pushedDocs = { _tag: "Pushed", repo: "docs" } as const;
-const peekFlow = { _tag: "Peek", repo: "flow" } as const;
-const peekDocs = { _tag: "Peek", repo: "docs" } as const;
+const flow = Sync.E.SyncRepo({ repo: "flow" });
+const docs = Sync.E.SyncRepo({ repo: "docs" });
+const pushedFlow = Sync.E.Pushed({ repo: "flow" });
+const pushedDocs = Sync.E.Pushed({ repo: "docs" });
+const peekFlow = Sync.E.Peek({ repo: "flow" });
+const peekDocs = Sync.E.Peek({ repo: "docs" });
 
 /**
  * A stress run from seed 36, printed by the generator and pasted here (each sample event under a

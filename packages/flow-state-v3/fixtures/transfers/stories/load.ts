@@ -1,18 +1,22 @@
 import { Fake } from "../../../src/host/testing/index.ts";
 import { accountOf, mainCustomer, orderOf, rent } from "../app.ts";
+import { Customer } from "../machines/customer.ts";
+import { StandingOrder } from "../machines/standing-order.ts";
+import { Transfers } from "../machines/transfers.ts";
 import { Bank } from "../server/bank.ts";
 import { dateAt } from "./edges.ts";
 import { grownStory, planRent, plannedStory } from "./usual.ts";
 
 const ACCOUNTS = Array.from({ length: 64 }, (_, n) => n);
 
-const send = (n: number) => ({ _tag: "Send", transferId: `t${String(n)}`, cents: 1 }) as const;
-
 /**
  * 64 accounts each send a transfer; the sixth is forgotten; the tab reloads twice.
  */
 export const manyAccounts = ACCOUNTS.reduce(
-  (story, n) => story.ensure(accountOf(n)).send(accountOf(n), send(n)),
+  (story, n) =>
+    story
+      .ensure(accountOf(n))
+      .send(accountOf(n), Transfers.E.Send({ transferId: `t${String(n)}`, cents: 1 })),
   grownStory("transfers/stress-many-accounts"),
 )
   .dispose(accountOf(5), { how: "forget" })
@@ -28,7 +32,7 @@ export const owedAtBoot = ACCOUNTS.reduce(
     story
       .ensure(accountOf(n))
       .world(Bank.transfer.hold({ at: "response" }))
-      .send(accountOf(n), send(n)),
+      .send(accountOf(n), Transfers.E.Send({ transferId: `t${String(n)}`, cents: 1 })),
   grownStory("transfers/stress-owed-at-boot"),
 )
   .reload()
@@ -52,16 +56,14 @@ export const firstOf = (n: number) => dateAt(n * DAY_MS);
  */
 export const manyOrders = ORDERS.reduce(
   (story, n) =>
-    story.send(orderOf(n), {
-      _tag: "Plan",
-      first: firstOf(n),
-      cents: n,
-      memo: `order ${String(n)}`,
-    }),
+    story.send(
+      orderOf(n),
+      StandingOrder.E.Plan({ first: firstOf(n), cents: n, memo: `order ${String(n)}` }),
+    ),
   ORDERS.reduce(
     (story, n) => story.ensure(orderOf(n)),
     plannedStory("transfers/stress-many-orders").ensure(mainCustomer),
-  ).send(mainCustomer, { _tag: "Choose", account: "acct-1" }),
+  ).send(mainCustomer, Customer.E.Choose({ account: "acct-1" })),
 )
   .reload()
   .reload()
@@ -74,7 +76,7 @@ export const manyOrders = ORDERS.reduce(
 export const orderOffline = plannedStory("transfers/order-offline")
   .ensure(mainCustomer)
   .ensure(rent)
-  .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
   .world(Fake.network.offline())
   .send(rent, planRent)
   .checkpoint("unavailable")

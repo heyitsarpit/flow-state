@@ -1,16 +1,19 @@
 import { samplesOf } from "../../../src/host/testing/index.ts";
 import { mainAvatar, mainByline } from "../app.ts";
 import { acme, coreTeam, globex, guestSession, mainSession } from "../app.ts";
+import { Org } from "../machines/org.ts";
+import { Session } from "../machines/session.ts";
+import { Team } from "../machines/team.ts";
 import { Identity } from "../server/identity.ts";
 import { grownStory } from "./structure.ts";
 
-const signInAda = { _tag: "SignIn", user: "ada" } as const;
-const signInBob = { _tag: "SignIn", user: "bob" } as const;
-const signOut = { _tag: "SignOut" } as const;
-const retry = { _tag: "Retry" } as const;
-const coreName = { _tag: "Rename", name: "Core" } as const;
-const platformName = { _tag: "Rename", name: "Platform" } as const;
-const acmeName = { _tag: "Rename", name: "Acme" } as const;
+const signInAda = Session.E.SignIn({ user: "ada" });
+const signInBob = Session.E.SignIn({ user: "bob" });
+const signOut = Session.E.SignOut();
+const retry = Session.E.Retry();
+const coreName = Team.E.Rename({ name: "Core" });
+const platformName = Team.E.Rename({ name: "Platform" });
+const acmeName = Org.E.Rename({ name: "Acme" });
 
 /**
  * What the grown workspace's context consumers meet, for generated runs: the header avatar and the

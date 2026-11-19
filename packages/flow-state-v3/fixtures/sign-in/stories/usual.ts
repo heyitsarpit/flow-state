@@ -9,6 +9,10 @@ import {
   mainSession,
   screen,
 } from "../app.ts";
+import { AuthSession } from "../machines/session.ts";
+import { ReturnTo } from "../machines/return-to.ts";
+import { SignIn } from "../machines/sign-in.ts";
+import { TrustedDevice } from "../machines/trusted-device.ts";
 import { Auth, CODE } from "../server/auth.ts";
 import { AuthFake, ProfileFake } from "../server/layer.ts";
 import { Profiles } from "../server/profiles.ts";
@@ -25,7 +29,7 @@ export const sessionStory = (id: string) =>
 /**
  * The account signs in on the screen, and the view tells its session.
  */
-export const signedIn = { _tag: "SignedIn" } as const;
+export const signedIn = AuthSession.E.SignedIn();
 
 /**
  * The sign-in app with trusted devices over its port fakes, with no steps yet: every Story of a
@@ -58,11 +62,11 @@ export const trustDevice = trustedStory("sign-in/trust-device")
   .world(elifSaved)
   .ensure(mainSession)
   .ensure(laptop)
-  .send(laptop, { _tag: "Trust", until: LAPTOP_UNTIL, label: "Elif's laptop" })
+  .send(laptop, TrustedDevice.E.Trust({ until: LAPTOP_UNTIL, label: "Elif's laptop" }))
   .checkpoint("signed out")
   .send(mainSession, signedIn)
-  .send(laptop, { _tag: "Trust", until: LAPTOP_UNTIL, label: "Elif's laptop" })
-  .send(laptop, { _tag: "Seen", at: LAPTOP_SEEN })
+  .send(laptop, TrustedDevice.E.Trust({ until: LAPTOP_UNTIL, label: "Elif's laptop" }))
+  .send(laptop, TrustedDevice.E.Seen({ at: LAPTOP_SEEN }))
   .checkpoint("trusted")
   .advance("604799999 millis")
   .checkpoint("just short of a week")
@@ -70,7 +74,7 @@ export const trustDevice = trustedStory("sign-in/trust-device")
   .checkpoint("a week on")
   .reload()
   .checkpoint("reloaded")
-  .send(laptop, { _tag: "Revoke" })
+  .send(laptop, TrustedDevice.E.Revoke())
   .checkpoint("revoked");
 
 /**
@@ -82,15 +86,15 @@ export const handleRetry = sessionStory("sign-in/handle-retry")
   .ensure(mainSession)
   .ensure(mainReturn)
   .checkpoint("opened")
-  .send(mainReturn, { _tag: "Save", route: "/sozluk/effect", draft: "merhaba" })
+  .send(mainReturn, ReturnTo.E.Save({ route: "/sozluk/effect", draft: "merhaba" }))
   .send(mainSession, signedIn)
-  .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
+  .send(mainSession, AuthSession.E.Handle({ handle: "elif-kaya" }))
   .world(Profiles.taken({}))
-  .send(mainSession, { _tag: "SubmitHandle" })
+  .send(mainSession, AuthSession.E.SubmitHandle())
   .checkpoint("stuck")
-  .send(mainSession, { _tag: "Retry" })
+  .send(mainSession, AuthSession.E.Retry())
   .checkpoint("released")
-  .send(mainReturn, { _tag: "Submit" })
+  .send(mainReturn, ReturnTo.E.Submit())
   .checkpoint("submitted");
 
 /**
@@ -102,12 +106,12 @@ export const handleRetry = sessionStory("sign-in/handle-retry")
 export const unsureSaveRemoved = sessionStory("sign-in/unsure-save-removed")
   .ensure(mainSession)
   .send(mainSession, signedIn)
-  .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
+  .send(mainSession, AuthSession.E.Handle({ handle: "elif-kaya" }))
   .world(
     Profiles.setUsername.drop({ at: "response" }),
     Profiles.setUsername.drop({ at: "response" }),
   )
-  .send(mainSession, { _tag: "SubmitHandle" })
+  .send(mainSession, AuthSession.E.SubmitHandle())
   .checkpoint("unsure")
   .dispose(mainSession)
   .checkpoint("removed")
@@ -123,11 +127,13 @@ export const unsureSaveRemoved = sessionStory("sign-in/unsure-save-removed")
  */
 export const authStory = (id: string) => Story.app(authSetup, { id, fixtures: [AuthFake] });
 
-const email = { _tag: "Email", email: "ada@example.com" } as const;
+const email = SignIn.E.Email({ email: "ada@example.com" });
 
-const wrong = { _tag: "Code", code: "000000" } as const;
+const wrong = SignIn.E.Code({ code: "000000" });
 
-const right = { _tag: "Code", code: CODE } as const;
+const right = SignIn.E.Code({ code: CODE });
+
+const resend = SignIn.E.Resend();
 
 /**
  * A user asks for a code, types a wrong one, resends into the cooldown, waits it out, signs in,
@@ -141,8 +147,8 @@ export const usual = authStory("sign-in/usual")
   .send(screen, wrong)
   .checkpoint("wrong")
   .advance("6 seconds")
-  .send(screen, { _tag: "Resend" })
-  .send(screen, { _tag: "Resend" })
+  .send(screen, SignIn.E.Resend())
+  .send(screen, SignIn.E.Resend())
   .checkpoint("cooling")
   .advance("30 seconds")
   .send(screen, right)
@@ -172,11 +178,7 @@ const lostThenAgain = (story: AuthStory) =>
     .send(screen, right);
 
 const resent = (story: AuthStory) =>
-  story
-    .send(screen, { _tag: "Resend" })
-    .advance("30 seconds")
-    .send(screen, wrong)
-    .send(screen, right);
+  story.send(screen, resend).advance("30 seconds").send(screen, wrong).send(screen, right);
 
 const round = (story: AuthStory, n: number) => {
   const started = story.advance("3 seconds").send(screen, email);
@@ -193,8 +195,6 @@ const round = (story: AuthStory, n: number) => {
 export const long = Array.from({ length: 9 }, (_, n) => n)
   .reduce(round, authStory("sign-in/long").ensure(screen))
   .checkpoint("end");
-
-const resend = { _tag: "Resend" } as const;
 
 /**
  * A stress run from seed 36, printed by the generator and pasted here. The reload sweep and the

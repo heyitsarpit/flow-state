@@ -77,6 +77,7 @@ export const MirrorMachine: Machine<typeof Mirror> = machine(Mirror, ({ S }) => 
           { updateMemory: taken },
         ],
         Import: {
+          // oxlint-disable-next-line flow-state/no-raw-event -- shows send's callback form, kept on purpose
           actions: [send(upstreamOf, ({ event }) => ({ _tag: "Push", sha: event.ref, hops: 0 }))],
         },
       },

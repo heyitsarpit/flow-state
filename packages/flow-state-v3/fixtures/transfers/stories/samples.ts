@@ -1,6 +1,10 @@
 import { Schema } from "effect";
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
 import { account, mainCustomer, rent, savings, sendForm } from "../app.ts";
+import { Customer } from "../machines/customer.ts";
+import { StandingOrder } from "../machines/standing-order.ts";
+import { TransferForm } from "../machines/transfer-form.ts";
+import { Transfers } from "../machines/transfers.ts";
 import { Accounts } from "../server/accounts.ts";
 import { Bank } from "../server/bank.ts";
 import { EARLIEST, EPOCH, LATEST } from "./edges.ts";
@@ -32,23 +36,23 @@ export const samples = samplesOf({
   controls: [],
   steps: (story) =>
     story
-      .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
-      .send(mainCustomer, { _tag: "Choose", account: "acct-2" })
-      .send(sendForm, { _tag: "Amount", cents: 500 })
-      .send(sendForm, { _tag: "Amount", cents: 0 })
-      .send(sendForm, { _tag: "Amount", cents: 2 ** 53 + 2 })
-      .send(sendForm, { _tag: "Check" }),
+      .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
+      .send(mainCustomer, Customer.E.Choose({ account: "acct-2" }))
+      .send(sendForm, TransferForm.E.Amount({ cents: 500 }))
+      .send(sendForm, TransferForm.E.Amount({ cents: 0 }))
+      .send(sendForm, TransferForm.E.Amount({ cents: 2 ** 53 + 2 }))
+      .send(sendForm, TransferForm.E.Check()),
 });
 
-const planAtEpoch = { _tag: "Plan", first: EPOCH, cents: 0 } as const;
-const planAtLatest = { _tag: "Plan", first: LATEST, cents: 9500, memo: undefined } as const;
-const planAtEarliest = { _tag: "Plan", first: EARLIEST, cents: 9500, memo: "" } as const;
-const pauseNoEnd = { _tag: "Pause", until: null } as const;
-const pauseUntilLatest = { _tag: "Pause", until: LATEST } as const;
-const pauseUntilSpring = { _tag: "Pause", until: RENT_PAUSED_UNTIL } as const;
-const pauseUntilEpoch = { _tag: "Pause", until: EPOCH } as const;
-const pauseUntilEarliest = { _tag: "Pause", until: EARLIEST } as const;
-const planPastSafe = { _tag: "Plan", first: RENT_PAUSED_UNTIL, cents: 2 ** 53 } as const;
+const planAtEpoch = StandingOrder.E.Plan({ first: EPOCH, cents: 0 });
+const planAtLatest = StandingOrder.E.Plan({ first: LATEST, cents: 9500, memo: undefined });
+const planAtEarliest = StandingOrder.E.Plan({ first: EARLIEST, cents: 9500, memo: "" });
+const pauseNoEnd = StandingOrder.E.Pause({ until: null });
+const pauseUntilLatest = StandingOrder.E.Pause({ until: LATEST });
+const pauseUntilSpring = StandingOrder.E.Pause({ until: RENT_PAUSED_UNTIL });
+const pauseUntilEpoch = StandingOrder.E.Pause({ until: EPOCH });
+const pauseUntilEarliest = StandingOrder.E.Pause({ until: EARLIEST });
+const planPastSafe = StandingOrder.E.Plan({ first: RENT_PAUSED_UNTIL, cents: 2 ** 53 });
 
 /**
  * What a customer and the accounts service can do around a standing order, for generated runs:
@@ -79,8 +83,8 @@ export const orderSamples = samplesOf({
   controls: [Accounts.balance({ account: "acct-1", cents: 10_000 })],
   steps: (story) =>
     story
-      .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
-      .send(mainCustomer, { _tag: "Choose", account: "acct-2" })
+      .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
+      .send(mainCustomer, Customer.E.Choose({ account: "acct-2" }))
       .send(rent, planRent)
       .send(rent, planAtEpoch)
       .send(rent, planAtLatest)
@@ -91,7 +95,7 @@ export const orderSamples = samplesOf({
       .send(rent, pauseUntilEpoch)
       .send(rent, pauseUntilEarliest)
       .send(rent, planPastSafe)
-      .send(rent, { _tag: "Resume" }),
+      .send(rent, StandingOrder.E.Resume()),
 });
 
 const rentRecord = 'actor/Bank/StandingOrder/{"order":"rent"}';
@@ -124,12 +128,12 @@ const oddOwed = [
   ),
 );
 
-const sendT1 = { _tag: "Send", transferId: "t1", cents: 500 } as const;
-const resendT1 = { _tag: "Resend", transferId: "t1" } as const;
-const sendT2 = { _tag: "Send", transferId: "t2", cents: 900 } as const;
-const abandonT2 = { _tag: "Abandon", transferId: "t2" } as const;
-const saveT1 = { _tag: "Send", transferId: "t1", cents: 300 } as const;
-const abandonSaved = { _tag: "Abandon", transferId: "t1" } as const;
+const sendT1 = Transfers.E.Send({ transferId: "t1", cents: 500 });
+const resendT1 = Transfers.E.Resend({ transferId: "t1" });
+const sendT2 = Transfers.E.Send({ transferId: "t2", cents: 900 });
+const abandonT2 = Transfers.E.Abandon({ transferId: "t2" });
+const saveT1 = Transfers.E.Send({ transferId: "t1", cents: 300 });
+const abandonSaved = Transfers.E.Abandon({ transferId: "t1" });
 
 const plannedSamplesOf = (edges: boolean) =>
   samplesOf({
@@ -183,7 +187,7 @@ const plannedSamplesOf = (edges: boolean) =>
         .send(account, sendT1)
         .send(account, resendT1)
         .send(savings, saveT1)
-        .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
+        .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
         .send(rent, planAtEpoch)
         .send(rent, pauseNoEnd);
 
@@ -196,7 +200,7 @@ const plannedSamplesOf = (edges: boolean) =>
             .send(rent, planAtLatest)
             .send(rent, planAtEarliest)
             .send(rent, pauseUntilLatest)
-            .send(rent, { _tag: "Resume" })
+            .send(rent, StandingOrder.E.Resume())
         : usual;
     },
   });

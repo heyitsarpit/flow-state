@@ -1,6 +1,9 @@
 import { Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
 import { cafeComposed, cafeDecomposed, account, mainCustomer, orderOf } from "../app.ts";
+import { Customer } from "../machines/customer.ts";
+import { StandingOrder } from "../machines/standing-order.ts";
+import { Transfers } from "../machines/transfers.ts";
 import { bankStory, grownStory, plannedStory } from "./usual.ts";
 
 /**
@@ -41,9 +44,9 @@ const LONG_ID = 100_000;
  */
 export const centsEdges = grownStory("transfers/cents-edges")
   .ensure(account)
-  .send(account, { _tag: "Send", transferId: "t-zero", cents: 0 })
-  .send(account, { _tag: "Send", transferId: "t-negative", cents: -5 })
-  .send(account, { _tag: "Send", transferId: "t-max", cents: 2 ** 53 })
+  .send(account, Transfers.E.Send({ transferId: "t-zero", cents: 0 }))
+  .send(account, Transfers.E.Send({ transferId: "t-negative", cents: -5 }))
+  .send(account, Transfers.E.Send({ transferId: "t-max", cents: 2 ** 53 }))
   .checkpoint("sent");
 
 /**
@@ -51,7 +54,7 @@ export const centsEdges = grownStory("transfers/cents-edges")
  */
 export const longId = grownStory("transfers/long-id")
   .ensure(account)
-  .send(account, { _tag: "Send", transferId: "t".repeat(LONG_ID), cents: 1 })
+  .send(account, Transfers.E.Send({ transferId: "t".repeat(LONG_ID), cents: 1 }))
   .checkpoint("sent");
 
 /**
@@ -60,8 +63,8 @@ export const longId = grownStory("transfers/long-id")
 export const twoSpellings = grownStory("transfers/two-spellings")
   .ensure(cafeComposed)
   .ensure(cafeDecomposed)
-  .send(cafeComposed, { _tag: "Send", transferId: "t1", cents: 1 })
-  .send(cafeDecomposed, { _tag: "Send", transferId: "t1", cents: 1 })
+  .send(cafeComposed, Transfers.E.Send({ transferId: "t1", cents: 1 }))
+  .send(cafeDecomposed, Transfers.E.Send({ transferId: "t1", cents: 1 }))
   .checkpoint("both");
 
 /**
@@ -89,12 +92,12 @@ export const orderDateEdges = plannedStory("transfers/order-date-edges")
   .ensure(orderOf(0))
   .ensure(orderOf(1))
   .ensure(orderOf(2))
-  .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
-  .send(orderOf(0), { _tag: "Plan", first: EPOCH, cents: 0 })
-  .send(orderOf(1), { _tag: "Plan", first: LATEST, cents: 1, memo: undefined })
-  .send(orderOf(2), { _tag: "Plan", first: EARLIEST, cents: 10_000, memo: "" })
-  .send(orderOf(0), { _tag: "Pause", until: null })
-  .send(orderOf(1), { _tag: "Pause", until: LATEST })
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
+  .send(orderOf(0), StandingOrder.E.Plan({ first: EPOCH, cents: 0 }))
+  .send(orderOf(1), StandingOrder.E.Plan({ first: LATEST, cents: 1, memo: undefined }))
+  .send(orderOf(2), StandingOrder.E.Plan({ first: EARLIEST, cents: 10_000, memo: "" }))
+  .send(orderOf(0), StandingOrder.E.Pause({ until: null }))
+  .send(orderOf(1), StandingOrder.E.Pause({ until: LATEST }))
   .checkpoint("planned")
   .reload()
   .checkpoint("reloaded");

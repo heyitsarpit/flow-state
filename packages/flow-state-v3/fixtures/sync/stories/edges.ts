@@ -1,8 +1,9 @@
 import { client } from "../app.ts";
+import { Sync } from "../machines/sync.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { repoStory } from "./usual.ts";
 
-const syncDocs = { _tag: "SyncRepo", repo: "docs" } as const;
+const syncDocs = Sync.E.SyncRepo({ repo: "docs" });
 
 /**
  * The host asks to retry after 0 ms, then 2^31 - 1 ms, then 2^31 ms: the retry-after at the edges

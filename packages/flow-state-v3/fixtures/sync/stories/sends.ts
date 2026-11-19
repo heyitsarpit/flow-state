@@ -11,6 +11,8 @@ import {
   replicaB,
   statusA,
 } from "../app.ts";
+import { Mirror, Replica } from "../machines/mirror.ts";
+import { Repo } from "../machines/repo.ts";
 import { GitFake } from "../../services/git/server/layer.ts";
 import { Git } from "../../services/git/server/git.ts";
 
@@ -26,15 +28,9 @@ export const mirrorStory = (id: string) => Story.app(gitMirroredSetup, { id, fix
 export const SHA = "0123456789abcdef0123456789abcdef01234567";
 
 /**
- * Links a mirror to the remote it forwards to, with a push's time to live in hops.
- */
-export const link = (upstream: string, maxHops: number) =>
-  ({ _tag: "Link", upstream, maxHops }) as const;
-
-/**
  * A push of `SHA` that has travelled `hops` hops.
  */
-export const push = (hops: number) => ({ _tag: "Push", sha: SHA, hops }) as const;
+export const push = (hops: number) => Mirror.E.Push({ sha: SHA, hops });
 
 /**
  * The docs repository is opened on the main client; a commit is made, then the host reports a
@@ -43,9 +39,9 @@ export const push = (hops: number) => ({ _tag: "Push", sha: SHA, hops }) as cons
 export const repoCommits = mirrorStory("sync/repo-commits")
   .ensure(client)
   .ensure(docsRepo)
-  .send(docsRepo, { _tag: "Commit" })
+  .send(docsRepo, Repo.E.Commit())
   .checkpoint("committed")
-  .send(docsRepo, { _tag: "PushSeen" })
+  .send(docsRepo, Repo.E.PushSeen())
   .checkpoint("pushed");
 
 /**
@@ -55,8 +51,8 @@ export const repoCommits = mirrorStory("sync/repo-commits")
 export const mirrorLoop = mirrorStory("sync/mirror-loop")
   .ensure(mirrorA)
   .ensure(mirrorB)
-  .send(mirrorA, link("b", RuntimeDefaults.loopGuard + 10))
-  .send(mirrorB, link("a", RuntimeDefaults.loopGuard + 10))
+  .send(mirrorA, Mirror.E.Link({ upstream: "b", maxHops: RuntimeDefaults.loopGuard + 10 }))
+  .send(mirrorB, Mirror.E.Link({ upstream: "a", maxHops: RuntimeDefaults.loopGuard + 10 }))
   .send(mirrorA, push(0))
   .checkpoint("stopped");
 
@@ -68,8 +64,8 @@ export const mirrorChainWithStatus = mirrorStory("sync/mirror-chain-with-status"
   .ensure(mirrorA)
   .ensure(mirrorB)
   .ensure(statusA)
-  .send(mirrorA, link("b", RuntimeDefaults.loopGuard))
-  .send(mirrorB, link("a", RuntimeDefaults.loopGuard))
+  .send(mirrorA, Mirror.E.Link({ upstream: "b", maxHops: RuntimeDefaults.loopGuard }))
+  .send(mirrorB, Mirror.E.Link({ upstream: "a", maxHops: RuntimeDefaults.loopGuard }))
   .send(mirrorA, push(0))
   .checkpoint("arrived");
 
@@ -79,8 +75,8 @@ export const mirrorChainWithStatus = mirrorStory("sync/mirror-chain-with-status"
 export const mirrorImportsRef = mirrorStory("sync/mirror-imports-ref")
   .ensure(mirrorA)
   .ensure(mirrorB)
-  .send(mirrorA, link("b", 10))
-  .send(mirrorA, { _tag: "Import", ref: "main" })
+  .send(mirrorA, Mirror.E.Link({ upstream: "b", maxHops: 10 }))
+  .send(mirrorA, Mirror.E.Import({ ref: "main" }))
   .checkpoint("imported");
 
 /**
@@ -92,8 +88,8 @@ export const replicaLoop = mirrorStory("sync/replica-loop")
   .ensure(mirrorA)
   .ensure(mirrorB)
   .ensure(replicaA)
-  .send(mirrorB, link("a", RuntimeDefaults.loopGuard + 10))
-  .send(replicaA, { _tag: "Follow", upstream: "b", maxPushes: RuntimeDefaults.loopGuard + 10 })
+  .send(mirrorB, Mirror.E.Link({ upstream: "a", maxHops: RuntimeDefaults.loopGuard + 10 }))
+  .send(replicaA, Replica.E.Follow({ upstream: "b", maxPushes: RuntimeDefaults.loopGuard + 10 }))
   .send(mirrorA, push(0))
   .checkpoint("stopped");
 
@@ -102,7 +98,7 @@ const FAR = RuntimeDefaults.loopGuard + 10;
 /**
  * A replica's link: it pushes each commit its mirror takes to `upstream`, far past the loop guard.
  */
-export const follow = (upstream: string) => ({ _tag: "Follow", upstream, maxPushes: FAR }) as const;
+export const follow = (upstream: string) => Replica.E.Follow({ upstream, maxPushes: FAR });
 
 /**
  * Two replicas follow the first mirror, which forwards nowhere; each pushes every commit it takes
@@ -114,7 +110,7 @@ export const replicasLoop = mirrorStory("sync/replicas-loop")
   .ensure(mirrorB)
   .ensure(replicaA)
   .ensure(replicaB)
-  .send(mirrorB, link("a", FAR))
+  .send(mirrorB, Mirror.E.Link({ upstream: "a", maxHops: FAR }))
   .send(replicaA, follow("b"))
   .send(replicaB, follow("b"))
   .send(mirrorA, push(0))
@@ -132,38 +128,38 @@ export const replicaPairs = mirrorStory("sync/replica-pairs")
   .ensure(mirrorOf("c"))
   .ensure(mirrorOf("d"))
   .ensure(mirrorOf("e"))
-  .send(mirrorOf("b"), link("c", FAR))
-  .send(mirrorOf("c"), link("b", FAR))
-  .send(mirrorOf("d"), link("e", FAR))
-  .send(mirrorOf("e"), link("d", FAR))
+  .send(mirrorOf("b"), Mirror.E.Link({ upstream: "c", maxHops: FAR }))
+  .send(mirrorOf("c"), Mirror.E.Link({ upstream: "b", maxHops: FAR }))
+  .send(mirrorOf("d"), Mirror.E.Link({ upstream: "e", maxHops: FAR }))
+  .send(mirrorOf("e"), Mirror.E.Link({ upstream: "d", maxHops: FAR }))
   .send(replicaA, follow("b"))
   .send(replicaB, follow("d"))
   .send(mirrorA, push(0))
   .checkpoint("stopped");
 
-const commit = { _tag: "Commit" } as const;
+const commit = Repo.E.Commit();
 
-const pushSeen = { _tag: "PushSeen" } as const;
+const pushSeen = Repo.E.PushSeen();
 
-const linkB = link("b", 3);
+const linkB = Mirror.E.Link({ upstream: "b", maxHops: 3 });
 
-const linkA = link("a", 3);
+const linkA = Mirror.E.Link({ upstream: "a", maxHops: 3 });
 
-const linkNowhere = link("", 3);
+const linkNowhere = Mirror.E.Link({ upstream: "", maxHops: 3 });
 
 const pushed = push(0);
 
 const pushedAtLive = push(3);
 
-const importSha = { _tag: "Import", ref: SHA } as const;
+const importSha = Mirror.E.Import({ ref: SHA });
 
-const importRef = { _tag: "Import", ref: "main" } as const;
+const importRef = Mirror.E.Import({ ref: "main" });
 
-const followB = { _tag: "Follow", upstream: "b", maxPushes: 3 } as const;
+const followB = Replica.E.Follow({ upstream: "b", maxPushes: 3 });
 
-const followNowhere = { _tag: "Follow", upstream: "", maxPushes: 3 } as const;
+const followNowhere = Replica.E.Follow({ upstream: "", maxPushes: 3 });
 
-const followNoPushes = { _tag: "Follow", upstream: "b", maxPushes: 0 } as const;
+const followNoPushes = Replica.E.Follow({ upstream: "b", maxPushes: 0 });
 
 /**
  * What a developer and the host can do around a repository and two mirrors, for generated runs:

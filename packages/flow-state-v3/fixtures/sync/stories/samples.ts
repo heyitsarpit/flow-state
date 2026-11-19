@@ -1,5 +1,7 @@
 import { samplesOf } from "../../../src/host/testing/index.ts";
 import { docsRepo, client } from "../app.ts";
+import { Repo } from "../machines/repo.ts";
+import { Sync } from "../machines/sync.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { repoStory } from "./usual.ts";
 
@@ -25,8 +27,8 @@ export const samples = samplesOf({
   controls: [],
   steps: (story) =>
     story
-      .send(docsRepo, { _tag: "SetToken", token: "tok-docs" })
-      .send(client, { _tag: "Peek", repo: "docs" })
-      .send(client, { _tag: "SyncRepo", repo: "docs" })
-      .send(client, { _tag: "Pushed", repo: "docs" }),
+      .send(docsRepo, Repo.E.SetToken({ token: "tok-docs" }))
+      .send(client, Sync.E.Peek({ repo: "docs" }))
+      .send(client, Sync.E.SyncRepo({ repo: "docs" }))
+      .send(client, Sync.E.Pushed({ repo: "docs" })),
 });

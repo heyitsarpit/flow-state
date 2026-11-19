@@ -5,7 +5,7 @@ import { begin, verify } from "../operations/writes.ts";
 
 const MAX_TRIES = 5;
 
-const SignIn = definition({
+export const SignIn = definition({
   id: "Auth/SignIn",
   persist: false,
   states: ["EMAIL", "CODE", "COOLDOWN", "LOCKED", "DONE"],

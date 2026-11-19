@@ -4,7 +4,7 @@ import { definition, Flow, machine } from "../../../src/index.ts";
 import type { Declined } from "../services.ts";
 import { transfer } from "../operations/writes.ts";
 
-const Transfers = definition({
+export const Transfers = definition({
   id: "Bank/Transfers",
   persist: true,
   states: ["READY"],

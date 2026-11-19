@@ -1,6 +1,7 @@
 import { actorRef } from "../../../src/index.ts";
 import { timerOf } from "../app.ts";
-import { PlayerMachine } from "../machines/player.ts";
+import { Player, PlayerMachine } from "../machines/player.ts";
+import { SleepTimer } from "../machines/sleep-timer.ts";
 import { after, musicStory, timedStory } from "./usual.ts";
 
 const ROOMS = Array.from({ length: 16 }, (_, n) => n);
@@ -10,7 +11,7 @@ const ROOMS = Array.from({ length: 16 }, (_, n) => n);
  */
 export const roomOf = (n: number) => actorRef(PlayerMachine, { room: `room-${String(n)}` });
 
-const seek = { _tag: "Seek", pos: 10 } as const;
+const seek = Player.E.Seek({ pos: 10 });
 
 /**
  * Sixteen rooms each play a track; each gets a burst of three seeks to 10 seconds; three seconds
@@ -20,7 +21,7 @@ export const sixteenRooms = ROOMS.reduce(
   (story, n) => story.send(roomOf(n), seek).send(roomOf(n), seek).send(roomOf(n), seek),
   ROOMS.reduce(
     (story, n) =>
-      story.ensure(roomOf(n)).send(roomOf(n), { _tag: "Play", trackId: `t${String(n)}` }),
+      story.ensure(roomOf(n)).send(roomOf(n), Player.E.Play({ trackId: `t${String(n)}` })),
     musicStory("player/sixteen-rooms"),
   ),
 )
@@ -35,7 +36,7 @@ const TIMERS = Array.from({ length: 16 }, (_, n) => n);
  */
 export const sixteenTimers = TIMERS.reduce(
   (story, n) =>
-    story.ensure(timerOf(n)).send(timerOf(n), { _tag: "Set", after: after(n * 60_000) }),
+    story.ensure(timerOf(n)).send(timerOf(n), SleepTimer.E.Set({ after: after(n * 60_000) })),
   timedStory("player/sixteen-timers"),
 )
   .advance("16 minutes")

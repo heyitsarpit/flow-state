@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { definition, machine } from "../../../src/index.ts";
+import { ReturnTo } from "../machines/return-to.ts";
 import { AuthSession } from "../machines/session.ts";
 import { TrustedDevice } from "../machines/trusted-device.ts";
 import { me } from "../operations/reads.ts";
@@ -40,11 +41,11 @@ export const screenFirst = sessionStory("sign-in/screen-first")
 export const reloadedMidHandle = sessionStory("sign-in/reloaded-mid-handle")
   .ensure(mainSession)
   .ensure(mainReturn)
-  .send(mainReturn, { _tag: "Save", route: "/pano", draft: "" })
+  .send(mainReturn, ReturnTo.E.Save({ route: "/pano", draft: "" }))
   .send(mainSession, signedIn)
-  .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
+  .send(mainSession, AuthSession.E.Handle({ handle: "elif-kaya" }))
   .world(Profiles.setUsername.hold({ at: "response" }))
-  .send(mainSession, { _tag: "SubmitHandle" })
+  .send(mainSession, AuthSession.E.SubmitHandle())
   .reload()
   .checkpoint("reloaded");
 
@@ -62,7 +63,7 @@ export const returnSavedLate = sessionStory("sign-in/return-saved-late")
   .ensure(mainSession)
   .send(mainSession, signedIn)
   .ensure(mainReturn)
-  .send(mainReturn, { _tag: "Save", route: "/pano", draft: "" })
+  .send(mainReturn, ReturnTo.E.Save({ route: "/pano", draft: "" }))
   .checkpoint("saved");
 
 /**
@@ -75,12 +76,12 @@ export const deviceSessionForgotten = trustedStory("sign-in/device-session-forgo
   .ensure(mainSession)
   .ensure(laptop)
   .send(mainSession, signedIn)
-  .send(laptop, { _tag: "Trust", until: LAPTOP_UNTIL })
+  .send(laptop, TrustedDevice.E.Trust({ until: LAPTOP_UNTIL }))
   .detach(laptop)
   .advance("1 second")
   .dispose(mainSession, { how: "forget" })
   .ensure(laptop)
-  .send(laptop, { _tag: "Trust", until: LATEST, label: "again" })
+  .send(laptop, TrustedDevice.E.Trust({ until: LATEST, label: "again" }))
   .checkpoint("fresh");
 
 const trusted = (id: string) =>
@@ -89,7 +90,7 @@ const trusted = (id: string) =>
     .ensure(mainSession)
     .ensure(laptop)
     .send(mainSession, signedIn)
-    .send(laptop, { _tag: "Trust", until: LAPTOP_UNTIL });
+    .send(laptop, TrustedDevice.E.Trust({ until: LAPTOP_UNTIL }));
 
 /**
  * The trusted laptop is disposed first, then its session.

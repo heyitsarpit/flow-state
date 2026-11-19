@@ -1,5 +1,8 @@
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
 import { laptop, mainReturn, mainSession } from "../app.ts";
+import { ReturnTo } from "../machines/return-to.ts";
+import { AuthSession } from "../machines/session.ts";
+import { TrustedDevice } from "../machines/trusted-device.ts";
 import { Profiles } from "../server/profiles.ts";
 import { EARLIEST, EPOCH, LATEST } from "./edges.ts";
 import {
@@ -28,25 +31,25 @@ export const samples = samplesOf({
   controls: [Profiles.saved({ email: "elif@kamp.us", handle: "elif" })],
   steps: (story) =>
     story
-      .send(mainReturn, { _tag: "Save", route: "/sozluk/effect", draft: "merhaba" })
-      .send(mainReturn, { _tag: "Submit" })
+      .send(mainReturn, ReturnTo.E.Save({ route: "/sozluk/effect", draft: "merhaba" }))
+      .send(mainReturn, ReturnTo.E.Submit())
       .send(mainSession, signedIn)
-      .send(mainSession, { _tag: "Handle", handle: "elif-kaya" })
-      .send(mainSession, { _tag: "Handle", handle: "" })
-      .send(mainSession, { _tag: "SubmitHandle" })
-      .send(mainSession, { _tag: "ConfirmHandle" })
-      .send(mainSession, { _tag: "Retry" }),
+      .send(mainSession, AuthSession.E.Handle({ handle: "elif-kaya" }))
+      .send(mainSession, AuthSession.E.Handle({ handle: "" }))
+      .send(mainSession, AuthSession.E.SubmitHandle())
+      .send(mainSession, AuthSession.E.ConfirmHandle())
+      .send(mainSession, AuthSession.E.Retry()),
 });
 
-const trustLaptop = { _tag: "Trust", until: LAPTOP_UNTIL, label: "Elif's laptop" } as const;
-const trustToEpoch = { _tag: "Trust", until: EPOCH } as const;
-const trustToLatest = { _tag: "Trust", until: LATEST, label: undefined } as const;
-const trustToEarliest = { _tag: "Trust", until: EARLIEST, label: "" } as const;
-const seenNow = { _tag: "Seen", at: LAPTOP_SEEN } as const;
-const seenHidden = { _tag: "Seen", at: null } as const;
-const seenLatest = { _tag: "Seen", at: LATEST } as const;
-const seenEpoch = { _tag: "Seen", at: EPOCH } as const;
-const seenEarliest = { _tag: "Seen", at: EARLIEST } as const;
+const trustLaptop = TrustedDevice.E.Trust({ until: LAPTOP_UNTIL, label: "Elif's laptop" });
+const trustToEpoch = TrustedDevice.E.Trust({ until: EPOCH });
+const trustToLatest = TrustedDevice.E.Trust({ until: LATEST, label: undefined });
+const trustToEarliest = TrustedDevice.E.Trust({ until: EARLIEST, label: "" });
+const seenNow = TrustedDevice.E.Seen({ at: LAPTOP_SEEN });
+const seenHidden = TrustedDevice.E.Seen({ at: null });
+const seenLatest = TrustedDevice.E.Seen({ at: LATEST });
+const seenEpoch = TrustedDevice.E.Seen({ at: EPOCH });
+const seenEarliest = TrustedDevice.E.Seen({ at: EARLIEST });
 const laptopRecord = 'actor/Auth/TrustedDevice/{"device":"laptop"}';
 
 /**
@@ -88,5 +91,5 @@ export const deviceSamples = samplesOf({
       .send(laptop, seenLatest)
       .send(laptop, seenEpoch)
       .send(laptop, seenEarliest)
-      .send(laptop, { _tag: "Revoke" }),
+      .send(laptop, TrustedDevice.E.Revoke()),
 });

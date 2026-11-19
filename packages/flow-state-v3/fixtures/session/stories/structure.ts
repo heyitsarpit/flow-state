@@ -11,6 +11,8 @@ import {
   mainSession,
 } from "../app.ts";
 import { BadgeMachine } from "../machines/badge.ts";
+import { Session } from "../machines/session.ts";
+import { Team } from "../machines/team.ts";
 import { actorRef } from "../../../src/index.ts";
 import { Identity } from "../server/identity.ts";
 import { IdentityFake } from "../server/layer.ts";
@@ -21,7 +23,7 @@ import { IdentityFake } from "../server/layer.ts";
 export const grownStory = (id: string) =>
   Story.app(workspaceGrownSetup, { id, fixtures: [IdentityFake] });
 
-const signInAda = { _tag: "SignIn", user: "ada" } as const;
+const signInAda = Session.E.SignIn({ user: "ada" });
 
 const shell = (id: string) =>
   grownStory(id).ensure(acme).ensure(mainSession).ensure(coreTeam).ensure(badge);
@@ -46,13 +48,13 @@ export const shellBeforeSession = grownStory("session/shell-before-session")
  */
 export const newAccountRuntime = shell("session/new-account-runtime")
   .send(mainSession, signInAda)
-  .send(coreTeam, { _tag: "Rename", name: "Core" })
+  .send(coreTeam, Team.E.Rename({ name: "Core" }))
   .disposeRuntime({ forget: true })
   .reload({ reattach: false })
   .ensure(mainSession)
   .ensure(coreTeam)
   .checkpoint("next")
-  .send(mainSession, { _tag: "SignIn", user: "bob" })
+  .send(mainSession, Session.E.SignIn({ user: "bob" }))
   .checkpoint("bob");
 
 /**
@@ -60,9 +62,9 @@ export const newAccountRuntime = shell("session/new-account-runtime")
  */
 export const refusedWriteRetries = shell("session/refused-write-retries")
   .world(Fake.storage.refuse())
-  .send(coreTeam, { _tag: "Rename", name: "Core" })
+  .send(coreTeam, Team.E.Rename({ name: "Core" }))
   .checkpoint("refused")
-  .send(coreTeam, { _tag: "Rename", name: "Platform" })
+  .send(coreTeam, Team.E.Rename({ name: "Platform" }))
   .reload()
   .checkpoint("reloaded");
 
@@ -71,11 +73,11 @@ export const refusedWriteRetries = shell("session/refused-write-retries")
  * a healthy reload after it.
  */
 export const refusedLoadKeepsData = shell("session/refused-load-keeps-data")
-  .send(coreTeam, { _tag: "Rename", name: "Core" })
+  .send(coreTeam, Team.E.Rename({ name: "Core" }))
   .world(Fake.storage.refuseLoad())
   .reload()
   .checkpoint("unloaded")
-  .send(coreTeam, { _tag: "Rename", name: "Other" })
+  .send(coreTeam, Team.E.Rename({ name: "Other" }))
   .reload()
   .checkpoint("healed");
 
@@ -95,7 +97,7 @@ export const childFirst = shell("session/child-first")
  * again, reads a fresh team.
  */
 export const teamForgotten = shell("session/team-forgotten")
-  .send(coreTeam, { _tag: "Rename", name: "Core" })
+  .send(coreTeam, Team.E.Rename({ name: "Core" }))
   .detach(badge)
   .advance("1 second")
   .dispose(coreTeam, { how: "forget" })
@@ -107,7 +109,7 @@ export const teamForgotten = shell("session/team-forgotten")
  */
 export const signedOutUndefined = shell("session/signed-out-undefined")
   .send(mainSession, signInAda)
-  .send(mainSession, { _tag: "SignOut" })
+  .send(mainSession, Session.E.SignOut())
   .checkpoint("signed out");
 
 /**
@@ -116,7 +118,7 @@ export const signedOutUndefined = shell("session/signed-out-undefined")
 export const signedOutReloaded = shell("session/signed-out-reloaded")
   .ensure(mainAvatar)
   .send(mainSession, signInAda)
-  .send(mainSession, { _tag: "SignOut" })
+  .send(mainSession, Session.E.SignOut())
   .checkpoint("signed out")
   .reload()
   .checkpoint("reloaded");
@@ -128,12 +130,12 @@ export const signedOutReloaded = shell("session/signed-out-reloaded")
 export const bylineReturns = shell("session/byline-returns")
   .ensure(mainByline)
   .send(mainSession, signInAda)
-  .send(coreTeam, { _tag: "Rename", name: "Core" })
+  .send(coreTeam, Team.E.Rename({ name: "Core" }))
   .checkpoint("shown")
   .detach(mainByline)
   .advance("1 second")
-  .send(mainSession, { _tag: "SignOut" })
-  .send(coreTeam, { _tag: "Rename", name: "Platform" })
+  .send(mainSession, Session.E.SignOut())
+  .send(coreTeam, Team.E.Rename({ name: "Platform" }))
   .checkpoint("gone")
   .ensure(mainByline)
   .checkpoint("returned")
@@ -161,7 +163,7 @@ export const missingTeam = () => grownStory("session/missing-team").ensure(teamS
 export const guestBadgeFirst = grownStory("session/guest-badge-first")
   .ensure(globex)
   .ensure(guestSession)
-  .send(guestSession, { _tag: "SignIn", user: "bob" })
+  .send(guestSession, Session.E.SignIn({ user: "bob" }))
   .ensure(guestBadge)
   .checkpoint("badge")
   .ensure(guestTeam)

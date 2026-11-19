@@ -1,6 +1,11 @@
 import type { Schema } from "effect";
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
-import { foldersOf } from "../machines/nests.ts";
+import { Calendar } from "../machines/agenda.ts";
+import { Archive, Digest, Inbox } from "../machines/inbox.ts";
+import { foldersOf, NestView, Nests } from "../machines/nests.ts";
+import { Outline } from "../machines/outline.ts";
+import { Dot } from "../machines/presence.ts";
+import { Session } from "../machines/session.ts";
 import { actorRef } from "../../../src/index.ts";
 import {
   agendaPeek,
@@ -26,10 +31,10 @@ import { Identity } from "../server/identity.ts";
 import { grownStory } from "./structure.ts";
 
 const arrive = (id: string, from: string, at: number, replyTo = "") =>
-  ({ _tag: "Arrive", id, from, at, replyTo }) as const;
+  Inbox.E.Arrive({ id, from, at, replyTo });
 
-const readAll = { _tag: "ReadAll" } as const;
-const clear = { _tag: "Clear" } as const;
+const readAll = Inbox.E.ReadAll();
+const clear = Inbox.E.Clear();
 
 const inbox = (id: string) => grownStory(id).ensure(mainInbox).ensure(mainDigest);
 
@@ -78,7 +83,7 @@ export const digestQuiet = inbox("session/digest-quiet")
   .send(mainInbox, arrive("m1", "ada", 1_000))
   .send(mainInbox, arrive("m2", "bob", 2_000))
   .checkpoint("busy")
-  .send(mainDigest, { _tag: "Quiet", from: 3 })
+  .send(mainDigest, Digest.E.Quiet({ from: 3 }))
   .checkpoint("raised")
   .send(mainInbox, arrive("m3", "ada", 3_000))
   .checkpoint("quiet");
@@ -93,20 +98,20 @@ export const guestDotReturns = grownStory("session/guest-dot-returns")
   .ensure(globex)
   .ensure(mainSession)
   .ensure(guestSession)
-  .send(mainSession, { _tag: "SignIn", user: "ada" })
-  .send(guestSession, { _tag: "SignIn", user: "bob" })
+  .send(mainSession, Session.E.SignIn({ user: "ada" }))
+  .send(guestSession, Session.E.SignIn({ user: "bob" }))
   .ensure(guestDot)
   .checkpoint("shown")
   .detach(guestDot)
   .advance("1 second")
-  .send(guestDot, { _tag: "Ping" })
+  .send(guestDot, Dot.E.Ping())
   .checkpoint("returned")
-  .send(guestSession, { _tag: "SignIn", user: "carol" })
+  .send(guestSession, Session.E.SignIn({ user: "carol" }))
   .checkpoint("carol")
   .reload({ reattach: false })
-  .send(guestDot, { _tag: "Ping" })
+  .send(guestDot, Dot.E.Ping())
   .checkpoint("reloaded")
-  .send(guestSession, { _tag: "SignIn", user: "dan" })
+  .send(guestSession, Session.E.SignIn({ user: "dan" }))
   .checkpoint("dan");
 
 /**
@@ -168,7 +173,7 @@ export const formatOneAvatar = grownStory("session/format-one-avatar")
   .checkpoint("boot")
   .ensure(mainAvatar)
   .checkpoint("restored")
-  .send(mainSession, { _tag: "SignOut" })
+  .send(mainSession, Session.E.SignOut())
   .checkpoint("signed out");
 
 /**
@@ -179,13 +184,13 @@ export const agendaLong = grownStory("session/stress-agenda-long")
   .ensure(mainCalendar)
   .ensure(mainAgenda)
   .ensure(agendaPeek)
-  .send(mainCalendar, { _tag: "Show", from: 0, to: 100 })
+  .send(mainCalendar, Calendar.E.Show({ from: 0, to: 100 }))
   .checkpoint("short")
-  .send(mainCalendar, { _tag: "Show", from: 0, to: 5_000 })
+  .send(mainCalendar, Calendar.E.Show({ from: 0, to: 5_000 }))
   .checkpoint("long")
   .reload()
   .checkpoint("reloaded")
-  .send(mainCalendar, { _tag: "Show", from: 0, to: 100 })
+  .send(mainCalendar, Calendar.E.Show({ from: 0, to: 100 }))
   .checkpoint("back");
 
 /**
@@ -216,7 +221,7 @@ const imported = Array.from({ length: 3_001 }, (_, n) => `a-${n}`);
 export const archiveLarge = grownStory("session/archive-large")
   .ensure(mainInbox)
   .ensure(mainArchive)
-  .send(mainArchive, { _tag: "Import", ids: imported })
+  .send(mainArchive, Archive.E.Import({ ids: imported }))
   .send(mainInbox, arrive("m1", "ada", 1_000))
   .checkpoint("logged")
   .reload()
@@ -265,11 +270,11 @@ export const outlineDeep = () =>
   grownStory("session/stress-outline-deep")
     .ensure(mainOutline)
     .ensure(mainPreview)
-    .send(mainOutline, { _tag: "Paste", doc: nested(100_000, "one") })
+    .send(mainOutline, Outline.E.Paste({ doc: nested(100_000, "one") }))
     .checkpoint("deep")
     .reload()
     .checkpoint("reloaded")
-    .send(mainOutline, { _tag: "Paste", doc: deepAndWide("two") })
+    .send(mainOutline, Outline.E.Paste({ doc: deepAndWide("two") }))
     .checkpoint("mixed")
     .reload()
     .checkpoint("mixed again");
@@ -296,17 +301,17 @@ export const nestAt = (kind: NestKind, depth: number, id: string) =>
   grownStory(id)
     .ensure(mainNests)
     .ensure(nestView)
-    .send(mainNests, { _tag: kind, depth })
+    .send(mainNests, Nests.E[kind]({ depth }))
     .checkpoint("deep")
-    .send(mainNests, { _tag: "Title", title: "renamed" })
+    .send(mainNests, Nests.E.Title({ title: "renamed" }))
     .checkpoint("titled")
-    .send(mainNests, { _tag: kind, depth: depth + 1 })
+    .send(mainNests, Nests.E[kind]({ depth: depth + 1 }))
     .checkpoint("deeper")
-    .send(mainNests, { _tag: kind, depth: depth + 1 })
+    .send(mainNests, Nests.E[kind]({ depth: depth + 1 }))
     .checkpoint("again")
     .reload()
     .checkpoint("reloaded")
-    .send(mainNests, { _tag: kind, depth: 3 })
+    .send(mainNests, Nests.E[kind]({ depth: 3 }))
     .checkpoint("back");
 
 /**
@@ -345,17 +350,17 @@ export const importAt = (depth: number, id: string) =>
   grownStory(id)
     .ensure(mainNests)
     .ensure(nestView)
-    .send(mainNests, { _tag: "Import", folder: foldersOf(depth) })
+    .send(mainNests, Nests.E.Import({ folder: foldersOf(depth) }))
     .checkpoint("imported")
-    .send(nestView, { _tag: "Pin", depth })
+    .send(nestView, NestView.E.Pin({ depth }))
     .checkpoint("pinned")
-    .send(mainNests, { _tag: "Title", title: "first" })
+    .send(mainNests, Nests.E.Title({ title: "first" }))
     .checkpoint("first")
-    .send(mainNests, { _tag: "Lists", depth: 2 })
+    .send(mainNests, Nests.E.Lists({ depth: 2 }))
     .checkpoint("unrelated")
     .reload()
     .checkpoint("reloaded")
-    .send(mainNests, { _tag: "Title", title: "second" })
+    .send(mainNests, Nests.E.Title({ title: "second" }))
     .checkpoint("second");
 
 /**
@@ -376,9 +381,9 @@ export const deepAndWideNests = () => {
   return grownStory("session/nests-deep-and-wide")
     .ensure(mainNests)
     .ensure(nestView)
-    .send(mainNests, { _tag: "Import", folder: wide(DEEP) })
+    .send(mainNests, Nests.E.Import({ folder: wide(DEEP) }))
     .checkpoint("mixed")
-    .send(mainNests, { _tag: "Import", folder: wide(DEEP) })
+    .send(mainNests, Nests.E.Import({ folder: wide(DEEP) }))
     .checkpoint("again")
     .reload()
     .checkpoint("reloaded");
@@ -422,15 +427,15 @@ export const inboxSamples = samplesOf({
     adaAnswers: arrive("m3", "ada", 3_000, "m2"),
     readAll,
     clear,
-    quiet: { _tag: "Quiet", from: 3 },
-    signInBob: { _tag: "SignIn", user: "bob" },
-    signOut: { _tag: "SignOut" },
-    look: { _tag: "Ping" },
+    quiet: Digest.E.Quiet({ from: 3 }),
+    signInBob: Session.E.SignIn({ user: "bob" }),
+    signOut: Session.E.SignOut(),
+    look: Dot.E.Ping(),
     spam: arrive("spam", "eve", 2_000),
-    imported: { _tag: "Import", ids: imported },
-    atItems: { _tag: "Show", from: 0, to: 4_096 },
-    pastItems: { _tag: "Show", from: 0, to: 4_097 },
-    longRange: { _tag: "Show", from: 0, to: 5_000 },
+    imported: Archive.E.Import({ ids: imported }),
+    atItems: Calendar.E.Show({ from: 0, to: 4_096 }),
+    pastItems: Calendar.E.Show({ from: 0, to: 4_097 }),
+    longRange: Calendar.E.Show({ from: 0, to: 5_000 }),
   },
   controls: [Identity.unlock({ user: "ada" })],
   steps: (story) =>
@@ -440,28 +445,28 @@ export const inboxSamples = samplesOf({
       .send(mainInbox, arrive("m3", "ada", 3_000, "m2"))
       .send(mainInbox, readAll)
       .send(mainInbox, clear)
-      .send(mainDigest, { _tag: "Quiet", from: 3 })
-      .send(guestSession, { _tag: "SignIn", user: "bob" })
-      .send(guestSession, { _tag: "SignOut" })
-      .send(guestDot, { _tag: "Ping" })
+      .send(mainDigest, Digest.E.Quiet({ from: 3 }))
+      .send(guestSession, Session.E.SignIn({ user: "bob" }))
+      .send(guestSession, Session.E.SignOut())
+      .send(guestDot, Dot.E.Ping())
       .send(mainInbox, arrive("spam", "eve", 2_000))
-      .send(mainArchive, { _tag: "Import", ids: imported })
-      .send(mainCalendar, { _tag: "Show", from: 0, to: 4_096 })
-      .send(mainCalendar, { _tag: "Show", from: 0, to: 4_097 })
-      .send(mainCalendar, { _tag: "Show", from: 0, to: 5_000 }),
+      .send(mainArchive, Archive.E.Import({ ids: imported }))
+      .send(mainCalendar, Calendar.E.Show({ from: 0, to: 4_096 }))
+      .send(mainCalendar, Calendar.E.Show({ from: 0, to: 4_097 }))
+      .send(mainCalendar, Calendar.E.Show({ from: 0, to: 5_000 })),
 });
 
 // The nests' sample values at one depth, each one object, so a printed run names it.
 const nestValuesAt = (depth: number) =>
   ({
-    deepLists: { _tag: "Lists", depth },
-    deepFolders: { _tag: "Folders", depth },
-    deepMaps: { _tag: "Maps", depth },
-    deepTree: { _tag: "Tree", depth },
-    shallowTree: { _tag: "Tree", depth: 2 },
-    deepImport: { _tag: "Import", folder: foldersOf(depth) },
-    deepPin: { _tag: "Pin", depth },
-    renamed: { _tag: "Title", title: "renamed" },
+    deepLists: Nests.E.Lists({ depth }),
+    deepFolders: Nests.E.Folders({ depth }),
+    deepMaps: Nests.E.Maps({ depth }),
+    deepTree: Nests.E.Tree({ depth }),
+    shallowTree: Nests.E.Tree({ depth: 2 }),
+    deepImport: Nests.E.Import({ folder: foldersOf(depth) }),
+    deepPin: NestView.E.Pin({ depth }),
+    renamed: Nests.E.Title({ title: "renamed" }),
   }) as const;
 
 const nestsSamplesAt = (depth: number, id: string) => {

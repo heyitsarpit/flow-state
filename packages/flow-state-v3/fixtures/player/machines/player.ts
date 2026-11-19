@@ -3,7 +3,7 @@ import { Duration, Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
 import { play } from "../operations/writes.ts";
 
-const Player = definition({
+export const Player = definition({
   id: "Music/Player",
   states: ["OFF", { ON: ["BUFFERING", "PLAYING", "PAUSED"] }],
   events: {

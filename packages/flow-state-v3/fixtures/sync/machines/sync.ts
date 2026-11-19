@@ -6,7 +6,7 @@ import { sync } from "../../services/git/operations/writes.ts";
 
 const MAX_STRIKES = 5;
 
-const Sync = definition({
+export const Sync = definition({
   id: "Git/Sync",
   persist: false,
   states: ["READY", "COOLING"],

@@ -11,6 +11,10 @@ import {
   wallBadge,
   workspaceSetup,
 } from "../app.ts";
+import { Badge } from "../machines/badge.ts";
+import { Org } from "../machines/org.ts";
+import { Session } from "../machines/session.ts";
+import { Team } from "../machines/team.ts";
 import { Identity } from "../server/identity.ts";
 import { IdentityFake } from "../server/layer.ts";
 
@@ -20,16 +24,16 @@ import { IdentityFake } from "../server/layer.ts";
 export const workspaceStory = (id: string) =>
   Story.app(workspaceSetup, { id, fixtures: [IdentityFake] });
 
-const signInAda = { _tag: "SignIn", user: "ada" } as const;
-const signInBob = { _tag: "SignIn", user: "bob" } as const;
-const signOut = { _tag: "SignOut" } as const;
-const retry = { _tag: "Retry" } as const;
-const giveUp = { _tag: "GiveUp" } as const;
-const ping = { _tag: "Ping" } as const;
-const acmeName = { _tag: "Rename", name: "Acme" } as const;
-const globexName = { _tag: "Rename", name: "Globex" } as const;
-const coreName = { _tag: "Rename", name: "Core" } as const;
-const guestsName = { _tag: "Rename", name: "Guests" } as const;
+const signInAda = Session.E.SignIn({ user: "ada" });
+const signInBob = Session.E.SignIn({ user: "bob" });
+const signOut = Session.E.SignOut();
+const retry = Session.E.Retry();
+const giveUp = Session.E.GiveUp();
+const ping = Badge.E.Ping();
+const acmeName = Org.E.Rename({ name: "Acme" });
+const globexName = Org.E.Rename({ name: "Globex" });
+const coreName = Team.E.Rename({ name: "Core" });
+const guestsName = Team.E.Rename({ name: "Guests" });
 
 // Both trees, four layers deep: organisations, sessions, teams and a badge on each team.
 const trees = (id: string) =>
@@ -62,7 +66,7 @@ export const usual = trees("session/usual")
   .send(badge, ping)
   .send(guestBadge, ping)
   .checkpoint("restored")
-  .send(guestTeam, { _tag: "Rename", name: "Visitors" })
+  .send(guestTeam, Team.E.Rename({ name: "Visitors" }))
   .checkpoint("renamed");
 
 const WALL = 24;
@@ -75,7 +79,7 @@ const wall = Array.from({ length: WALL }, (_, n) => wallBadge(n));
  */
 export const fanOut = wall
   .reduce((s, b) => s.ensure(b), trees("session/fan-out").send(coreTeam, coreName))
-  .send(coreTeam, { _tag: "Rename", name: "Platform" })
+  .send(coreTeam, Team.E.Rename({ name: "Platform" }))
   .checkpoint("renamed")
   .reload({ reattach: false })
   .send(wallBadge(0), ping)
@@ -115,11 +119,11 @@ export const longNames = workspaceStory("session/long-names")
 
 const round = (story: ReturnType<typeof workspaceStory>, n: number) => {
   const next = story
-    .send(acme, { _tag: "Rename", name: `Acme ${n}` })
+    .send(acme, Org.E.Rename({ name: `Acme ${n}` }))
     .send(mainSession, signInAda)
     .world(Identity.signIn.hold())
     .send(guestSession, signInBob)
-    .send(coreTeam, { _tag: "Rename", name: `Core ${n}` })
+    .send(coreTeam, Team.E.Rename({ name: `Core ${n}` }))
     .send(wallBadge(n % WALL), ping)
     .advance("300 millis")
     .world(Identity.signIn.lose())
@@ -127,7 +131,7 @@ const round = (story: ReturnType<typeof workspaceStory>, n: number) => {
     .world(Identity.lock({ user: "ada" }))
     .send(mainSession, signInAda)
     .world(Identity.unlock({ user: "ada" }))
-    .send(guestTeam, { _tag: "Rename", name: `Guests ${n}` })
+    .send(guestTeam, Team.E.Rename({ name: `Guests ${n}` }))
     .send(guestSession, signOut)
     .world(Identity.signIn.drop({ at: "response" }))
     .send(guestSession, signInBob)

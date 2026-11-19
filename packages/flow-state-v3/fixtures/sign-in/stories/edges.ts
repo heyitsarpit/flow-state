@@ -1,6 +1,8 @@
 import { Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
 import { blankSession, deviceOf, mainSession, screen } from "../app.ts";
+import { SignIn } from "../machines/sign-in.ts";
+import { TrustedDevice } from "../machines/trusted-device.ts";
 import { elifSaved, sessionStory, signedIn, trustedStory } from "./usual.ts";
 
 /**
@@ -44,7 +46,7 @@ export const emptyEmail = sessionStory("sign-in/empty-email")
   .ensure(blankSession)
   .checkpoint("opened")
   .ensure(screen)
-  .send(screen, { _tag: "Email", email: "" })
+  .send(screen, SignIn.E.Email({ email: "" }))
   .checkpoint("sent");
 
 /**
@@ -52,8 +54,8 @@ export const emptyEmail = sessionStory("sign-in/empty-email")
  */
 export const emptyCode = sessionStory("sign-in/empty-code")
   .ensure(screen)
-  .send(screen, { _tag: "Email", email: "elif@kamp.us" })
-  .send(screen, { _tag: "Code", code: "" })
+  .send(screen, SignIn.E.Email({ email: "elif@kamp.us" }))
+  .send(screen, SignIn.E.Code({ code: "" }))
   .checkpoint("entered");
 
 /**
@@ -61,7 +63,7 @@ export const emptyCode = sessionStory("sign-in/empty-code")
  */
 export const longEmail = sessionStory("sign-in/long-email")
   .ensure(screen)
-  .send(screen, { _tag: "Email", email: "e".repeat(LONG_EMAIL) })
+  .send(screen, SignIn.E.Email({ email: "e".repeat(LONG_EMAIL) }))
   .checkpoint("sent");
 
 /**
@@ -91,11 +93,11 @@ export const deviceDateEdges = trustedStory("sign-in/device-date-edges")
   .ensure(deviceOf(1))
   .ensure(deviceOf(2))
   .send(mainSession, signedIn)
-  .send(deviceOf(0), { _tag: "Trust", until: EPOCH })
-  .send(deviceOf(1), { _tag: "Trust", until: LATEST, label: undefined })
-  .send(deviceOf(2), { _tag: "Trust", until: EARLIEST, label: "" })
-  .send(deviceOf(0), { _tag: "Seen", at: null })
-  .send(deviceOf(1), { _tag: "Seen", at: LATEST })
+  .send(deviceOf(0), TrustedDevice.E.Trust({ until: EPOCH }))
+  .send(deviceOf(1), TrustedDevice.E.Trust({ until: LATEST, label: undefined }))
+  .send(deviceOf(2), TrustedDevice.E.Trust({ until: EARLIEST, label: "" }))
+  .send(deviceOf(0), TrustedDevice.E.Seen({ at: null }))
+  .send(deviceOf(1), TrustedDevice.E.Seen({ at: LATEST }))
   .checkpoint("trusted")
   .reload()
   .checkpoint("reloaded");

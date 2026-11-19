@@ -11,6 +11,10 @@ import {
   savings,
   sendForm,
 } from "../app.ts";
+import { Customer } from "../machines/customer.ts";
+import { StandingOrder } from "../machines/standing-order.ts";
+import { TransferForm } from "../machines/transfer-form.ts";
+import { Transfers } from "../machines/transfers.ts";
 import { Bank } from "../server/bank.ts";
 import { AccountsFake, BankFake, BankFakeCleanupThrows } from "../server/layer.ts";
 
@@ -43,7 +47,7 @@ export const RENT_PAUSED_UNTIL = isoDate("2027-03-01T00:00:00.000Z");
 /**
  * The rent planned: 9,500 cents from its first date, with a memo.
  */
-export const planRent = { _tag: "Plan", first: RENT_FIRST, cents: 9500, memo: "rent" } as const;
+export const planRent = StandingOrder.E.Plan({ first: RENT_FIRST, cents: 9500, memo: "rent" });
 
 /**
  * The customer chooses their account and plans the rent, which fits the balance and is scheduled;
@@ -53,16 +57,16 @@ export const planRent = { _tag: "Plan", first: RENT_FIRST, cents: 9500, memo: "r
 export const standingOrder = plannedStory("transfers/standing-order")
   .ensure(mainCustomer)
   .ensure(rent)
-  .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
   .send(rent, planRent)
   .checkpoint("scheduled")
-  .send(rent, { _tag: "Pause", until: RENT_PAUSED_UNTIL })
+  .send(rent, StandingOrder.E.Pause({ until: RENT_PAUSED_UNTIL }))
   .checkpoint("paused")
   .reload()
   .checkpoint("reloaded")
-  .send(rent, { _tag: "Resume" })
+  .send(rent, StandingOrder.E.Resume())
   .checkpoint("resumed")
-  .send(rent, { ...planRent, cents: 20_000 })
+  .send(rent, StandingOrder.E.Plan({ first: RENT_FIRST, cents: 20_000, memo: "rent" }))
   .checkpoint("over");
 
 /**
@@ -73,14 +77,14 @@ export const checkAndSend = grownStory("transfers/check-and-send")
   .ensure(mainCustomer)
   .ensure(sendForm)
   .ensure(account)
-  .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
-  .send(sendForm, { _tag: "Amount", cents: 500 })
-  .send(sendForm, { _tag: "Check" })
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
+  .send(sendForm, TransferForm.E.Amount({ cents: 500 }))
+  .send(sendForm, TransferForm.E.Check())
   .checkpoint("ready")
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
   .checkpoint("sent")
-  .send(sendForm, { _tag: "Amount", cents: 20_000 })
-  .send(sendForm, { _tag: "Check" })
+  .send(sendForm, TransferForm.E.Amount({ cents: 20_000 }))
+  .send(sendForm, TransferForm.E.Check())
   .checkpoint("over");
 
 /**
@@ -93,8 +97,8 @@ export const bankStory = (id: string) => Story.app(bankSetup, { id, fixtures: [B
  */
 export const usual = bankStory("transfers/usual")
   .ensure(account)
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
-  .send(account, { _tag: "Send", transferId: "t2", cents: 900 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
+  .send(account, Transfers.E.Send({ transferId: "t2", cents: 900 }))
   .checkpoint("sent");
 
 /**
@@ -102,7 +106,7 @@ export const usual = bankStory("transfers/usual")
  */
 export const declined = bankStory("transfers/declined")
   .ensure(account)
-  .send(account, { _tag: "Send", transferId: "t1", cents: 5000 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 5000 }))
   .checkpoint("declined");
 
 /**
@@ -112,7 +116,7 @@ export const declined = bankStory("transfers/declined")
 export const lostThenReload = bankStory("transfers/lost-then-reload")
   .ensure(account)
   .world(Bank.transfer.hold({ at: "response" }))
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
   .checkpoint("sending")
   .advance("5 seconds")
   .reload()
@@ -125,7 +129,7 @@ export const lostThenReload = bankStory("transfers/lost-then-reload")
 export const deadline = bankStory("transfers/deadline")
   .ensure(account)
   .world(Bank.transfer.hold())
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
   .advance("19999 millis")
   .checkpoint("before nudge")
   .advance("1 millis")
@@ -139,16 +143,16 @@ export const deadline = bankStory("transfers/deadline")
 
 const round = (story: ReturnType<typeof bankStory>, n: number) => {
   const next = story
-    .send(account, { _tag: "Send", transferId: `a${n}`, cents: 500 })
-    .send(savings, { _tag: "Send", transferId: `b${n}`, cents: 2000 })
+    .send(account, Transfers.E.Send({ transferId: `a${n}`, cents: 500 }))
+    .send(savings, Transfers.E.Send({ transferId: `b${n}`, cents: 2000 }))
     .world(Bank.transfer.hold())
-    .send(account, { _tag: "Send", transferId: `c${n}`, cents: 300 })
+    .send(account, Transfers.E.Send({ transferId: `c${n}`, cents: 300 }))
     .advance("1 second")
     .world(Bank.transfer.release())
     .world(Bank.transfer.drop({ at: "response" }))
-    .send(savings, { _tag: "Send", transferId: `d${n}`, cents: 100 })
+    .send(savings, Transfers.E.Send({ transferId: `d${n}`, cents: 100 }))
     .advance("31 seconds")
-    .send(savings, { _tag: "Resend", transferId: `d${n}` });
+    .send(savings, Transfers.E.Resend({ transferId: `d${n}` }));
 
   return n % 3 === 2 ? next.reload() : next;
 };
@@ -168,7 +172,7 @@ export const long = Array.from({ length: 9 }, (_, n) => n)
 export const heldAtDisposal = bankStory("transfers/held-at-disposal")
   .ensure(account)
   .world(Bank.transfer.drop({ at: "response" }))
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
   .checkpoint("held")
   .disposeRuntime()
   .advance("6 seconds")
@@ -183,7 +187,7 @@ export const heldAtDisposal = bankStory("transfers/held-at-disposal")
 export const leaveWhileSending = bankStory("transfers/leave-while-sending")
   .ensure(account)
   .world(Bank.transfer.hold())
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
   .checkpoint("sending")
   .world(Bank.transfer.release())
   .checkpoint("settled");
@@ -196,7 +200,7 @@ export const leaveWhileSending = bankStory("transfers/leave-while-sending")
 export const unsureAccountRemoved = bankStory("transfers/unsure-account-removed")
   .ensure(account)
   .world(Bank.transfer.drop({ at: "response" }))
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
   .checkpoint("unsure")
   .dispose(account)
   .checkpoint("removed")
@@ -218,7 +222,7 @@ export const interruptCleanupFails = Story.app(bankSetup, {
 })
   .ensure(account)
   .world(Bank.transfer.hold())
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
   .disposeRuntime()
   .advance(RuntimeDefaults.disposalBound)
   .checkpoint("signed out");
@@ -229,15 +233,15 @@ export const interruptCleanupFails = Story.app(bankSetup, {
 export const refusedWrite = bankStory("transfers/refused-write")
   .ensure(account)
   .world(Fake.storage.refuse())
-  .send(account, { _tag: "Send", transferId: "t1", cents: 500 })
+  .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
   .checkpoint("refused");
 
-const sendT1 = { _tag: "Send", transferId: "t1", cents: 500 } as const;
-const sendT2 = { _tag: "Send", transferId: "t2", cents: 900 } as const;
-const resendT1 = { _tag: "Resend", transferId: "t1" } as const;
-const abandonT2 = { _tag: "Abandon", transferId: "t2" } as const;
-const saveT1 = { _tag: "Send", transferId: "t1", cents: 300 } as const;
-const abandonSaved = { _tag: "Abandon", transferId: "t1" } as const;
+const sendT1 = Transfers.E.Send({ transferId: "t1", cents: 500 });
+const sendT2 = Transfers.E.Send({ transferId: "t2", cents: 900 });
+const resendT1 = Transfers.E.Resend({ transferId: "t1" });
+const abandonT2 = Transfers.E.Abandon({ transferId: "t2" });
+const saveT1 = Transfers.E.Send({ transferId: "t1", cents: 300 });
+const abandonSaved = Transfers.E.Abandon({ transferId: "t1" });
 
 /**
  * The store takes a transfer's acknowledging write and then refuses it, so the transfer is never
@@ -268,8 +272,6 @@ export const refusedResendCapture = bankStory("transfers/refused-resend-capture"
   .advance("1 second")
   .checkpoint("saved");
 
-const pennies = (transferId: string) => ({ _tag: "Send", transferId, cents: 1 }) as const;
-
 const ids = (count: number) => Array.from({ length: count }, (_, n) => `t${n + 1}`);
 
 // `count` transfers sent while the bank holds each one, then the account is closed, so every
@@ -277,7 +279,7 @@ const ids = (count: number) => Array.from({ length: count }, (_, n) => `t${n + 1
 const owedToClosed = (id: string, count: number) =>
   ids(count)
     .reduce(
-      (s, transferId) => s.send(account, pennies(transferId)),
+      (s, transferId) => s.send(account, Transfers.E.Send({ transferId, cents: 1 })),
       bankStory(id)
         .ensure(account)
         .world(...ids(count).map(() => Bank.transfer.hold())),

@@ -1,4 +1,5 @@
 import { docsRepo, client } from "../app.ts";
+import { Sync } from "../machines/sync.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { repoStory } from "./usual.ts";
 
@@ -6,14 +7,14 @@ const backingOffClient = (id: string) =>
   repoStory(id)
     .ensure(client)
     .world(Git.rateLimit({ retryAfterMs: 9000 }))
-    .send(client, { _tag: "SyncRepo", repo: "docs" });
+    .send(client, Sync.E.SyncRepo({ repo: "docs" }));
 
 const backingOff = (id: string) =>
   repoStory(id)
     .ensure(client)
     .ensure(docsRepo)
     .world(Git.rateLimit({ retryAfterMs: 9000 }))
-    .send(client, { _tag: "SyncRepo", repo: "docs" });
+    .send(client, Sync.E.SyncRepo({ repo: "docs" }));
 
 /**
  * The repository is disposed while its client backs off; the backoff ends.

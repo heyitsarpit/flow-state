@@ -1,6 +1,7 @@
 import { actorRef } from "../../../src/index.ts";
 import { player, timerOf } from "../app.ts";
-import { PlayerMachine } from "../machines/player.ts";
+import { Player, PlayerMachine } from "../machines/player.ts";
+import { SleepTimer } from "../machines/sleep-timer.ts";
 import { after, LONGEST_MS, musicStory, setLongest, setNow, timedStory } from "./usual.ts";
 
 /**
@@ -25,7 +26,7 @@ export const emptyRoom = musicStory("player/empty-room")
  */
 export const longRoomPlays = musicStory("player/long-room")
   .ensure(longRoom)
-  .send(longRoom, { _tag: "Play", trackId: "t1" })
+  .send(longRoom, Player.E.Play({ trackId: "t1" }))
   .checkpoint("playing");
 
 /**
@@ -33,11 +34,11 @@ export const longRoomPlays = musicStory("player/long-room")
  */
 export const seekEdges = musicStory("player/seek-edges")
   .ensure(player)
-  .send(player, { _tag: "Play", trackId: "t1" })
-  .send(player, { _tag: "Seek", pos: 100_000 })
+  .send(player, Player.E.Play({ trackId: "t1" }))
+  .send(player, Player.E.Seek({ pos: 100_000 }))
   .advance("1 second")
   .checkpoint("past")
-  .send(player, { _tag: "Seek", pos: -5 })
+  .send(player, Player.E.Seek({ pos: -5 }))
   .advance("1 second")
   .checkpoint("negative");
 
@@ -52,8 +53,8 @@ export const sleepTimerEdges = timedStory("player/sleep-timer-edges")
   .ensure(timerOf(3))
   .send(timerOf(0), setNow)
   .send(timerOf(1), setLongest)
-  .send(timerOf(2), { _tag: "Set", after: after(-1) })
-  .send(timerOf(3), { _tag: "Set", after: after(LONGEST_MS + 1) })
+  .send(timerOf(2), SleepTimer.E.Set({ after: after(-1) }))
+  .send(timerOf(3), SleepTimer.E.Set({ after: after(LONGEST_MS + 1) }))
   .advance("0 millis")
   .checkpoint("set")
   .advance(LONGEST_MS - 1)

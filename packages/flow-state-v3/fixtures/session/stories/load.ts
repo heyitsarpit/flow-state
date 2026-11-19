@@ -1,9 +1,10 @@
 import type { Story } from "../../../src/host/testing/index.ts";
 import { wallAvatar } from "../app.ts";
 import { acme, coreTeam, mainSession, wallBadge } from "../app.ts";
+import { Badge } from "../machines/badge.ts";
+import { Session } from "../machines/session.ts";
+import { Team } from "../machines/team.ts";
 import { grownStory } from "./structure.ts";
-
-const ping = { _tag: "Ping" } as const;
 
 // A wall of `count` badges on the core team; the team is renamed, then every badge is pinged twice
 // in a burst.
@@ -15,9 +16,11 @@ const wallOf = (id: string, count: number) => {
     grownStory(id).ensure(acme).ensure(mainSession).ensure(coreTeam),
   );
 
-  const renamed = built.send(coreTeam, { _tag: "Rename", name: "Platform" }).checkpoint("renamed");
+  const renamed = built.send(coreTeam, Team.E.Rename({ name: "Platform" })).checkpoint("renamed");
 
-  return [...badges, ...badges].reduce((s, b) => s.send(b, ping), renamed).checkpoint("pinged");
+  return [...badges, ...badges]
+    .reduce((s, b) => s.send(b, Badge.E.Ping()), renamed)
+    .checkpoint("pinged");
 };
 
 /**
@@ -50,5 +53,5 @@ export const wallOfSize = (count: number) => wallOf(`session/wall-${count}`, cou
 export const avatarWall = Array.from({ length: 65 }, (_, n) => wallAvatar(n))
   .reduce<Story>((s, a) => s.ensure(a), grownStory("session/avatar-wall").ensure(acme))
   .ensure(mainSession)
-  .send(mainSession, { _tag: "SignIn", user: "ada" })
+  .send(mainSession, Session.E.SignIn({ user: "ada" }))
   .checkpoint("signed in");

@@ -1,4 +1,5 @@
 import { player } from "../app.ts";
+import { Player } from "../machines/player.ts";
 import { musicStory } from "./usual.ts";
 import { roomOf } from "./load.ts";
 
@@ -8,8 +9,8 @@ import { roomOf } from "./load.ts";
 export const roomDisposed = musicStory("player/room-disposed")
   .ensure(roomOf(0))
   .ensure(roomOf(1))
-  .send(roomOf(0), { _tag: "Play", trackId: "t0" })
-  .send(roomOf(1), { _tag: "Play", trackId: "t1" })
+  .send(roomOf(0), Player.E.Play({ trackId: "t0" }))
+  .send(roomOf(1), Player.E.Play({ trackId: "t1" }))
   .advance("1 second")
   .dispose(roomOf(0))
   .advance("3 seconds")
@@ -20,7 +21,7 @@ export const roomDisposed = musicStory("player/room-disposed")
  */
 export const roomReloaded = musicStory("player/room-reloaded")
   .ensure(player)
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .advance("2 seconds")
   .reload()
   .checkpoint("reloaded");

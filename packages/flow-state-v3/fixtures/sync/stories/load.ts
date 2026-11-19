@@ -1,4 +1,5 @@
 import { clientOf, repoOf } from "../app.ts";
+import { Sync } from "../machines/sync.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { repoStory } from "./usual.ts";
 
@@ -14,7 +15,7 @@ export const manyRepos = Array.from({ length: REPOS }, (_, n) => n)
     const limited = n % 2 === 0 ? opened.world(Git.rateLimit({ retryAfterMs: 60_000 })) : opened;
     const lossy = n % 4 === 3 ? limited.world(Git.sync.drop({ at: "response" })) : limited;
 
-    return lossy.send(clientOf(n), { _tag: "SyncRepo", repo: `repo-${String(n)}` });
+    return lossy.send(clientOf(n), Sync.E.SyncRepo({ repo: `repo-${String(n)}` }));
   }, repoStory("sync/stress-many-repos"))
   .advance("1 second")
   .checkpoint("end");

@@ -1,6 +1,8 @@
 import { Schema } from "effect";
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { loungeTimer, musicSetup, musicTimedSetup, player } from "../app.ts";
+import { Player } from "../machines/player.ts";
+import { SleepTimer } from "../machines/sleep-timer.ts";
 import { Speaker } from "../server/speaker.ts";
 import { SpeakerFake } from "../server/layer.ts";
 
@@ -9,13 +11,11 @@ import { SpeakerFake } from "../server/layer.ts";
  */
 export const musicStory = (id: string) => Story.app(musicSetup, { id, fixtures: [SpeakerFake] });
 
-const playTrack = (trackId: string) => ({ _tag: "Play", trackId }) as const;
+const pause = Player.E.Pause();
 
-const pause = { _tag: "Pause" } as const;
+const resume = Player.E.Resume();
 
-const resume = { _tag: "Resume" } as const;
-
-const stop = { _tag: "Stop" } as const;
+const stop = Player.E.Stop();
 
 /**
  * A listener plays a track for three seconds, pauses, stops, resumes into the pause by history,
@@ -24,7 +24,7 @@ const stop = { _tag: "Stop" } as const;
  */
 export const usual = musicStory("player/usual")
   .ensure(player)
-  .send(player, playTrack("t1"))
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .checkpoint("playing")
   .advance("3 seconds")
   .checkpoint("three seconds")
@@ -38,16 +38,16 @@ export const usual = musicStory("player/usual")
   .send(player, resume)
   .advance("1500 millis")
   .checkpoint("playing again")
-  .send(player, { _tag: "Seek", pos: 10 })
+  .send(player, Player.E.Seek({ pos: 10 }))
   .advance("900 millis")
   .checkpoint("sought")
   .advance("200 millis")
   .checkpoint("ticked after the seek")
   .world(Speaker.block({ trackId: "t2" }))
-  .send(player, playTrack("t2"))
+  .send(player, Player.E.Play({ trackId: "t2" }))
   .checkpoint("refused")
   .world(Speaker.play.hold())
-  .send(player, playTrack("t3"))
+  .send(player, Player.E.Play({ trackId: "t3" }))
   .send(player, pause)
   .world(Speaker.play.release())
   .checkpoint("late start");
@@ -55,16 +55,19 @@ export const usual = musicStory("player/usual")
 type MusicStory = ReturnType<typeof musicStory>;
 
 const listen = (story: MusicStory, n: number) => {
-  const started = story.send(player, playTrack(`t${n}`)).advance(`${1 + (n % 3)} seconds`);
+  const started = story
+    .send(player, Player.E.Play({ trackId: `t${n}` }))
+    .advance(`${1 + (n % 3)} seconds`);
+
   const paused = n % 2 === 0 ? started.send(player, pause).advance("2 seconds") : started;
-  const sought = n % 3 === 0 ? paused.send(player, { _tag: "Seek", pos: n }) : paused;
+  const sought = n % 3 === 0 ? paused.send(player, Player.E.Seek({ pos: n })) : paused;
   const stopped = n % 4 === 0 ? sought.send(player, stop).send(player, resume) : sought;
 
   const held =
     n % 5 === 0
       ? stopped
           .world(Speaker.play.hold())
-          .send(player, playTrack(`late${n}`))
+          .send(player, Player.E.Play({ trackId: `late${n}` }))
           .send(player, pause)
           .world(Speaker.play.release())
       : stopped;
@@ -80,7 +83,7 @@ export const stress = Array.from({ length: 40 }, (_, n) => n)
   .reduce(listen, musicStory("player/stress").ensure(player))
   .checkpoint("end");
 
-const seek = { _tag: "Seek", pos: 30 } as const;
+const seek = Player.E.Seek({ pos: 30 });
 
 /**
  * What a listener and the speaker can do, for generated runs: play, pause, resume, stop and seek;
@@ -94,11 +97,11 @@ export const samples = samplesOf({
   servers: { Speaker },
   failures: [Speaker.block({ trackId: "t1" })],
   landedFailures: [],
-  values: { play: playTrack("t1"), pause, resume, stop, seek },
+  values: { play: Player.E.Play({ trackId: "t1" }), pause, resume, stop, seek },
   controls: [],
   steps: (story) =>
     story
-      .send(player, playTrack("t1"))
+      .send(player, Player.E.Play({ trackId: "t1" }))
       .send(player, pause)
       .send(player, resume)
       .send(player, seek)
@@ -118,7 +121,7 @@ export const seededStress = Story.app(musicSetup, {
   .send(player, stop)
   .send(player, stop)
   .send(player, pause)
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, resume)
   .send(player, stop)
   .send(player, stop)
@@ -128,7 +131,7 @@ export const seededStress = Story.app(musicSetup, {
   .send(player, resume)
   .send(player, pause)
   .send(player, stop)
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, resume)
   .send(player, seek)
   .send(player, stop)
@@ -147,7 +150,7 @@ export const seededStress = Story.app(musicSetup, {
   .advance("20 millis")
   .send(player, resume)
   .advance("3 millis")
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, stop)
   .advance("16 millis")
   .send(player, stop)
@@ -158,7 +161,7 @@ export const seededStress = Story.app(musicSetup, {
   .send(player, stop)
   .send(player, stop)
   .send(player, resume)
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .advance("5 millis")
   .send(player, resume)
   .advance("2 millis")
@@ -168,12 +171,12 @@ export const seededStress = Story.app(musicSetup, {
   .send(player, seek)
   .send(player, seek)
   .advance("18 millis")
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, pause)
   .send(player, pause)
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, pause)
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .reload({ reattach: false })
   .advance("4 millis")
   .send(player, pause)
@@ -183,12 +186,12 @@ export const seededStress = Story.app(musicSetup, {
   .send(player, resume)
   .send(player, pause)
   .send(player, resume)
-  .send(player, { _tag: "Play", trackId: "t1" })
-  .send(player, { _tag: "Play", trackId: "t1" })
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
+  .send(player, Player.E.Play({ trackId: "t1" }))
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, stop)
   .send(player, pause)
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, seek)
   .advance("20 millis")
   .send(player, stop)
@@ -196,20 +199,20 @@ export const seededStress = Story.app(musicSetup, {
   .send(player, resume)
   .send(player, seek)
   .advance("15 millis")
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, resume)
   .send(player, seek)
   .advance("8 millis")
   .send(player, resume)
   .send(player, stop)
   .advance("7 millis")
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .send(player, seek)
   .send(player, stop)
   .advance("15 millis")
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .advance("15 millis")
-  .send(player, { _tag: "Play", trackId: "t1" })
+  .send(player, Player.E.Play({ trackId: "t1" }))
   .advance("56438 millis")
   .world(Fake.network.online())
   .advance("2 minutes")
@@ -239,10 +242,10 @@ const HALF_HOUR_MS = 1_800_000;
 export const timedStory = (id: string) =>
   Story.app(musicTimedSetup, { id, fixtures: [SpeakerFake] });
 
-export const setHalfHour = { _tag: "Set", after: after(HALF_HOUR_MS) } as const;
-export const setNow = { _tag: "Set", after: after(0) } as const;
-export const setLongest = { _tag: "Set", after: after(LONGEST_MS) } as const;
-const cancel = { _tag: "Cancel" } as const;
+export const setHalfHour = SleepTimer.E.Set({ after: after(HALF_HOUR_MS) });
+export const setNow = SleepTimer.E.Set({ after: after(0) });
+export const setLongest = SleepTimer.E.Set({ after: after(LONGEST_MS) });
+const cancel = SleepTimer.E.Cancel();
 
 /**
  * The lounge's timer is set for half an hour: a millisecond short it is armed, at half an hour it

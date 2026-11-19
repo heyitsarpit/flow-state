@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
+import { Customer } from "../machines/customer.ts";
 import { fromAccount, StandingOrder } from "../machines/standing-order.ts";
 import { TransferForm } from "../machines/transfer-form.ts";
 import { balance } from "../operations/reads.ts";
@@ -10,7 +11,7 @@ const bound = (id: string) =>
   grownStory(id)
     .ensure(mainCustomer)
     .ensure(sendForm)
-    .send(mainCustomer, { _tag: "Choose", account: "acct-2" });
+    .send(mainCustomer, Customer.E.Choose({ account: "acct-2" }));
 
 /**
  * Customer and form, two layers; the tab reloads and only the form, the deepest node, is ensured.
@@ -49,10 +50,10 @@ export const customerFirst = () => bound("transfers/customer-first").dispose(mai
  */
 export const formBoundLate = grownStory("transfers/form-bound-late")
   .ensure(mainCustomer)
-  .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
   .ensure(sendForm)
-  .send(sendForm, { _tag: "Amount", cents: 500 })
-  .send(sendForm, { _tag: "Check" })
+  .send(sendForm, TransferForm.E.Amount({ cents: 500 }))
+  .send(sendForm, TransferForm.E.Check())
   .checkpoint("checked");
 
 /**
@@ -62,7 +63,7 @@ export const formBoundLate = grownStory("transfers/form-bound-late")
 export const orderCustomerForgotten = plannedStory("transfers/order-customer-forgotten")
   .ensure(mainCustomer)
   .ensure(rent)
-  .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
   .send(rent, planRent)
   .detach(rent)
   .advance("1 second")
@@ -75,7 +76,7 @@ const planned = (id: string) =>
   plannedStory(id)
     .ensure(mainCustomer)
     .ensure(rent)
-    .send(mainCustomer, { _tag: "Choose", account: "acct-1" })
+    .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
     .send(rent, planRent);
 
 /**

@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
 import { Team } from "./team.ts";
 
-const Badge = definition({
+export const Badge = definition({
   id: "Workspace/Badge",
   persist: true,
   states: ["SHOWN"],
