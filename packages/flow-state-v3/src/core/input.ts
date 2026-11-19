@@ -56,8 +56,8 @@ export type Input = Data.TaggedEnum<{
   Forget: { actor: ActorId };
   // A host's Effect run with the app's services; the core admits it and changes nothing.
   Run: {};
-  // The Runtime's Scope closed after its disposal: how many of its cleanups failed.
-  Closed: { failures: number };
+  // The host judged one failed cleanup of a task it ended, as it found it.
+  CleanupFailed: {};
 }>;
 
 /**

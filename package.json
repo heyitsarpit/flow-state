@@ -26,7 +26,7 @@
     "fmt:check": "vp fmt packages/flow-state-v3 --check",
     "lint": "vp lint packages/flow-state-v3",
     "lint:fix": "vp lint packages/flow-state-v3 --fix",
-    "lint:rules": "node --experimental-strip-types tools/lint-bomb/test/rules.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/bans.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-mark-probe.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-raw-event.test.ts && node --experimental-strip-types tools/flow-state-lint/imports.test.ts",
+    "lint:rules": "node --experimental-strip-types tools/lint-bomb/test/rules.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/bans.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-mark-probe.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-raw-event.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/owners-only.test.ts &&node --experimental-strip-types tools/flow-state-lint/imports.test.ts",
     "test": "vp test",
     "test:stress": "node --experimental-strip-types tools/stress/select.test.ts && FLOW_STRESS=1 vp test run packages/flow-state-v3",
     "verify": "nub run check:toolchain && nub run lint:rules && nub run check && nub run test && nub run test:stress && nub run docs:build",

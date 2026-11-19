@@ -326,11 +326,9 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     tx.put("ended", actorKey(incarnation.actor), terminal(incarnation));
 
     for (const [call, read] of tx.world().reads)
-      if (read.incarnation === incarnation.id) {
-        tx.drop("reads", call);
-        tx.command(Command.Interrupt({ call }));
-      }
+      if (read.incarnation === incarnation.id) tx.drop("reads", call);
 
+    tx.command(Command.EndWork({ owners: [incarnation.id], reportTo: "ref" }));
     tx.act(Act.Finished({ actor: incarnation.actor }));
     context.unbind(incarnation);
   };

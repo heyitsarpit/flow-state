@@ -5,6 +5,7 @@ import { derivedReportsRule } from "./rules/derived-reports.ts";
 import { noMarkProbeRule } from "./rules/no-mark-probe.ts";
 import { noRawEventRule } from "./rules/no-raw-event.ts";
 import { noSpecIdsRule } from "./rules/no-spec-ids.ts";
+import { ownersOnlyRule } from "./rules/owners-only.ts";
 
 const flowStateLintPlugin = eslintCompatPlugin({
   meta: { name: "flow-state" },
@@ -13,6 +14,7 @@ const flowStateLintPlugin = eslintCompatPlugin({
     "derived-reports": derivedReportsRule,
     "no-mark-probe": noMarkProbeRule,
     "no-raw-event": noRawEventRule,
+    "owners-only": ownersOnlyRule,
     ...bans,
   },
 });

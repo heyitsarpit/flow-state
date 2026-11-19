@@ -1,7 +1,7 @@
-import { Cause, Clock, Context, Data, Effect, Exit, Option, Schedule } from "effect";
+import { Clock, Context, Data, Effect, Option, Schedule } from "effect";
 import { RuntimeDefaults } from "../core/defaults.ts";
 import { Due, type Marks, type Ticket, type TicketId, type Write } from "../core/world.ts";
-import { type Fibers, sleepUntil } from "./fibers.ts";
+import { Ending, type Owner, sleepUntil } from "./owners/owners.ts";
 import { Host, type Platform, type Purpose } from "./host.ts";
 
 /**
@@ -43,7 +43,7 @@ const refusedRetry = Schedule.duration(RuntimeDefaults.captureInterval);
  */
 export const makeEdge = (
   platform: Platform,
-  fibers: Fibers,
+  work: Owner,
   options: {
     readonly captureMs: number;
     readonly capture: (tickets: ReadonlyArray<Ticket>, again: Marks) => void;
@@ -70,8 +70,8 @@ export const makeEdge = (
     });
 
   const issue = () => {
-    fibers.cancel(WAKE);
-    fibers.cancel(RETRY);
+    work.cancel(WAKE);
+    work.cancel(RETRY);
 
     const carried = tickets;
     const keys = again;
@@ -107,8 +107,8 @@ export const makeEdge = (
     if (!earlier) return;
     wake = Wake.At({ at });
 
-    fibers.fork(WAKE, sleepUntil(clock, at), (exit) => {
-      if (Exit.isFailure(exit)) return;
+    work.fork(WAKE, sleepUntil(clock, at), (ending) => {
+      if (!Ending.$is("Done")(ending)) return;
       wake = Wake.Now();
       pump();
     });
@@ -120,16 +120,16 @@ export const makeEdge = (
     for (const t of carried) options.answered(t.id, landed);
 
     if (!landed)
-      fibers.fork(RETRY, Effect.schedule(Effect.void, refusedRetry), (exit) => {
-        if (Exit.isFailure(exit)) return;
+      work.fork(RETRY, Effect.schedule(Effect.void, refusedRetry), (ending) => {
+        if (!Ending.$is("Done")(ending)) return;
         wake = Wake.Now();
         pump();
       });
     pump();
   };
 
-  // A hidden page captures at once whatever is marked; the listener goes with the Runtime's Scope.
-  fibers.finalize(
+  // A hidden page captures at once whatever is marked; the listener goes with the Runtime's work.
+  work.finalize(
     host.onHidden(() => {
       if (!out && (tickets.length > 0 || marked || again.size > 0)) issue();
     }),
@@ -153,8 +153,8 @@ export const makeEdge = (
 
       if (!Due.$is("Later")(when) || options.captureMs <= 0 || host.hidden()) {
         wake = Wake.Now();
-        fibers.fork(WAKE, Effect.yieldNow, (exit) => {
-          if (Exit.isSuccess(exit)) pump();
+        work.fork(WAKE, Effect.yieldNow, (ending) => {
+          if (Ending.$is("Done")(ending)) pump();
         });
       } else wakeAt(clock.currentTimeMillisUnsafe() + options.captureMs);
     },
@@ -176,21 +176,27 @@ export const makeEdge = (
         return;
       }
 
-      fibers.fork(
+      const notWritten = () => {
+        again = new Map([...marks, ...again]);
+        settle(carried, false);
+      };
+
+      work.fork(
         "store",
         host.store.value.write(
           writes.map((w) => ({ key: w.key, value: w.record })),
           purposeOf(carried),
           carried.flatMap((t) => (t.purpose === "acknowledge" ? [t.attempt] : [])),
         ),
-        (exit) => {
-          // An interrupted write is unanswered, as a hung store is.
-          if (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)) return;
-          const landed = Exit.isSuccess(exit);
-
-          if (!landed) again = new Map([...marks, ...again]);
-          settle(carried, landed);
-        },
+        (ending) =>
+          Ending.$match(ending, {
+            Done: () => settle(carried, true),
+            Failed: notWritten,
+            Died: notWritten,
+            // An interrupted write is unanswered, as a hung store is: it may have landed. Its
+            // cleanup's failure is its Owner's.
+            Interrupted: () => undefined,
+          }),
       );
     },
   };

@@ -572,8 +572,12 @@ export type Command = Data.TaggedEnum<{
       readonly mayHaveApplied: boolean;
     };
   };
-  Lookup: { call: CallId; actor: ActorId; operation: string; input: Values };
+  // A read runs in the work of the incarnation that owns it.
+  Lookup: { call: CallId; actor: ActorId; operation: string; input: Values; owner: string };
   Interrupt: { call: CallId };
+  // The end of each named incarnation's work: its reads stop and their cleanups are awaited, in
+  // order; a failed cleanup is the ref's at an incarnation's end, the Runtime's at its disposal.
+  EndWork: { owners: ReadonlyArray<string>; reportTo: "ref" | "runtime" };
   Arm: { timer: TimerId; at: number };
   Disarm: { timer: TimerId };
   Persist: { refused: ReadonlyArray<TicketId>; due: Due };

@@ -57,6 +57,7 @@ const timed = (clock: Option.Option<{ ms: number }>) => {
         sessionSeed: "0".repeat(32),
         freezeValues: true,
         workClock: Option.map(clock, (cost) => () => (at += cost.ms)),
+        report: () => undefined,
       }),
     ),
     () => undefined,

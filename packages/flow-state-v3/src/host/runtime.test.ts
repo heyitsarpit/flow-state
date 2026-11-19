@@ -319,6 +319,7 @@ describe("the Runtime's host listeners (Actors R22)", () => {
         sessionSeed: "0".repeat(32),
         freezeValues: true,
         workClock: Option.none(),
+        report: () => undefined,
       }),
     );
 
@@ -354,6 +355,7 @@ describe("a defect inside a step (Actors R25)", () => {
         sessionSeed: "0".repeat(32),
         freezeValues: true,
         workClock: Option.none(),
+        report: () => undefined,
       }),
     );
 
@@ -439,6 +441,7 @@ const tallyOver = (store: Map<string, string>, sessionSeed: string) =>
         sessionSeed,
         freezeValues: true,
         workClock: Option.none(),
+        report: () => undefined,
       }),
     ),
     () => undefined,
@@ -592,6 +595,7 @@ const trappedHost = () => {
         sessionSeed: "0".repeat(32),
         freezeValues: true,
         workClock: Option.none(),
+        report: () => undefined,
       }),
     ),
     () => {

@@ -3,7 +3,6 @@ import {
   Deferred,
   Duration,
   Effect,
-  Exit,
   Layer,
   Option,
   Predicate,
@@ -28,7 +27,7 @@ import { makeDriver, type Driver } from "./driver.ts";
 import { actorIdOf, type ActorRef } from "./refs.ts";
 import { defect } from "../core/defect.ts";
 import { browserPlatform } from "./platform/browser.ts";
-import { makeFibers } from "./fibers.ts";
+import { makeOwner, makeRuntimeReport } from "./owners/owners.ts";
 import { makeRunPromise } from "./run-promise.ts";
 import { makeWiring } from "./wiring.ts";
 import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
@@ -268,10 +267,16 @@ export const buildRuntime = <R = never>(
 
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
-  // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the Runtime owns one Scope for its whole life: its services and every fiber; dispose() closes it
-  const scope = Scope.makeUnsafe();
+  // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the Runtime owns one Scope for its whole life: its services and its work; dispose() closes it
+  const root = Scope.makeUnsafe();
+  // The services' Scope comes first and the work's second, so the root releases work first.
+  // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- a child of the Runtime's root, released when the root closes
+  const servicesScope = Scope.forkUnsafe(root);
   let services = Context.empty();
-  const fibers = makeFibers(scope, () => Context.merge(services, platform));
+  const context = () => Context.merge(services, platform);
+  // Each failed cleanup is an Issue as it is judged.
+  const work = makeOwner(root, context, () => driver.input(Input.CleanupFailed()));
+  const report = makeRuntimeReport(host.report);
   const booted = Deferred.makeUnsafe<void, FlowError>();
 
   const persistence =
@@ -290,7 +295,8 @@ export const buildRuntime = <R = never>(
       ]),
     ),
     platform,
-    fibers,
+    work,
+    report,
     persistence,
     captureMs: config.persistence?.captureMs ?? Duration.toMillis(RuntimeDefaults.captureInterval),
     admit,
@@ -316,7 +322,7 @@ export const buildRuntime = <R = never>(
     });
 
     if (config.services !== undefined)
-      services = yield* Layer.buildWithScope(config.services, scope).pipe(
+      services = yield* Layer.buildWithScope(config.services, servicesScope).pipe(
         Effect.mapError((cause) =>
           flowErrorOf(
             [
@@ -376,7 +382,7 @@ export const buildRuntime = <R = never>(
 
   const forget = makeForget(driver, persistence ? host.store : Option.none(), booted);
 
-  const close = makeClose(driver, fibers, scope);
+  const close = makeClose(driver, root, report, forget, context);
 
   // Local actors are numbered by the Runtime that creates them; they never persist or outlive it.
   let locals = 0;
@@ -546,20 +552,20 @@ export const buildRuntime = <R = never>(
       },
     ),
     // The core's disposal ends first (calls settling within its bound are parked), the Runtime
-    // closes, then a forget deletes the scope's records whatever the close reported; a failed
-    // close and a failed forget are both kept.
+    // closes, then a forget deletes the scope's records whatever the close reported, as the
+    // close's own last stage, so a caller that leaves skips nothing; a failed close and a failed
+    // forget are both kept.
     dispose: entryEffect(
       "dispose",
       // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
       (options?: { readonly forget?: boolean }) => {
         const forgetting = options?.forget === true;
 
-        return Effect.gen(function* () {
+        return Effect.suspend(() => {
+          if (forgetting) close.wantForget();
           driver.input(Input.DisposeRuntime());
-          const closed = yield* Effect.exit(close);
-          const forgotten = forgetting ? yield* Effect.exit(forget()) : Exit.void;
 
-          return yield* Exit.asVoidAll([closed, forgotten]);
+          return close.join(forgetting);
         });
       },
     ),

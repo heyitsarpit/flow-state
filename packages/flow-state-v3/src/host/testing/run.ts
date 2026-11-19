@@ -298,6 +298,8 @@ export const startRun = <Names extends string>(
       sessionSeed: seedOf(mainTab(open), options.seed),
       freezeValues: true,
       workClock: Option.none(),
+      // A Story's fakes end every cleanup within the bound; a late one breaks the run.
+      report: () => scriptFault("a cleanup failed after dispose stopped waiting for it"),
     });
 
     const opened = openTab({ ...subject.config, services }, host, now, limits);

@@ -138,12 +138,12 @@ const table = {
   Refused: answer,
   Capture: answer,
   Run: call,
-  Closed: {
+  CleanupFailed: {
     Inert: drop,
     Booting: drop,
-    Open: drop,
+    Open: run,
     Failed: drop,
-    Disposing: drop,
+    Disposing: run,
     Disposed: run,
     Stopped: drop,
   },
