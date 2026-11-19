@@ -2422,6 +2422,10 @@ tasks
             - No core code compares a reason or decline code to a bare string, or parses an id's text.
             - Chain ids are minted; a partial clear of chains keeps every live chain's guard count (a test shows it).
             - `turn()` takes one tagged cause; the own lane and the issue source are derived from it.
+            - A6: every branch over a closed set in the core is exhaustive (`$match` or a table keyed by tag), held by
+              the `no-tag-chain` lint rule with plants.
+            - A7: the bench worker rejects a malformed argument instead of reading it as a value.
+            - A8: `owners-only` refuses an Exit read by value, `Effect.ignoreCause`, `Scope.close` and `??=`, planted.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches a planted fault per new check;
               the bench shows no regression on the turn hot path (`nub run bench --only <turn ids> --dev`).
         comment     2026-11-19T10:01:58Z
@@ -2515,6 +2519,10 @@ tasks
 
             Fixtures (code:wiki/conventions/fixtures.md): no public feature changes; the proof is the existing Stories.
             Extra files: `bench/worker.ts`, `bench/workers.ts`, `tests/bench/`, `tools/flow-state-lint/`.
+        comment     2026-11-19T13:31:54Z
+            Rulings (orchestrator, 2026-11-19): A6 to A8 added to acceptance (small amendment); isSaved's bare reason
+            compare is typed through Decline now (one line, correctness), leaving the rest of the ending triple to the
+            trust consult. Requirements review started.
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
