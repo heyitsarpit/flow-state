@@ -1770,7 +1770,7 @@ tasks
 
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
-        status      review
+        status      done
         priority    high
         satisfies   [@plan.Runtime.O6, @plan.Diagnostics.O3]
         description
@@ -2304,6 +2304,12 @@ tasks
             c701e254) is accepted; T99 is rebuilt on it, in a worktree (the user's call, overriding the no-worktree
             default for this build). The Cause-fold branch t99-cause-fold stays as prior art. The proposal's Q1 to Q3,
             Q10 and the quarantine lift are decided by correctness and noted.
+        comment     2026-11-19T12:18:22Z
+            Done (orchestrator, 2026-11-19): rebuilt on the Owner redesign in a worktree; second close review PASS
+            (1b348eb2); merged into flow-rewrite as f1968531. Decisions, bench and review logs are in
+            code:wiki/tasks/V3/T99-worktree-notes.md. Routed: owners-only forms an Exit read by value and accidental
+            ones (ignoreCause, Scope.close) to @task.V3.T102; the deadline-race dying cleanup and close hardening
+            to @task.V3.T100.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
@@ -2366,6 +2372,10 @@ tasks
         comment     2026-11-19T07:28:24Z
             Owns from T99 (proposed, catalog): CleanupFailed under load (L1 × many Pays with sessions; transfers) and
             step samples offering disposeRuntime over the failing port fakes.
+        comment     2026-11-19T12:18:23Z
+            Owes (T99 reviews, 2026-11-19): a dying cleanup inside a commit's timeoutOrElse is still lost (it.fails),
+            against Q11 A's 'dying cleanups are always reported'; close hardening (a failed close ignored in close.ts,
+            unguarded Owner callbacks); dispose during Booting.
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
@@ -2420,6 +2430,9 @@ tasks
             ledger.ts isSaved, tx.ts) become tables keyed by tag (satisfies Record<Tag, boolean>), so a new tag forces a
             decision; the bench worker's hand-parsed argv moves to effect/cli or Schema.FiniteFromString. Each names its
             wrong ending first, per this Task.
+        comment     2026-11-19T12:18:22Z
+            Owes (T99 reviews, 2026-11-19): owners-only misses an Exit read by value and some forms written by accident
+            (Effect.ignoreCause, Scope.close, ??=); close them, type-aware if needed.
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
