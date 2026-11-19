@@ -128,7 +128,7 @@ describe("Diagnostic (Diagnostics R2, I2, T1)", () => {
     classification: "Failure",
     code: "InvalidConfiguration",
     path: ["states", 0],
-    details: { reason: "WrongKind", n: 1, ok: true, none: null },
+    details: { reason: "WrongKind", refused: "InvalidTurn", slot: null },
     summary: "a state is not a name",
     help: "Write a name.",
   };
@@ -143,10 +143,11 @@ describe("Diagnostic (Diagnostics R2, I2, T1)", () => {
     );
   });
 
-  it("refuses an unknown code, a non-finite number, a wrong tag and a missing field", () => {
+  it("refuses an unknown code, a non-finite number, a detail of the wrong type or value, a wrong tag and a missing field", () => {
     expect(Option.isNone(decode({ ...valid, code: "Nope" }))).toBe(true);
     expect(Option.isNone(decode({ ...valid, path: [Number.POSITIVE_INFINITY] }))).toBe(true);
-    expect(Option.isNone(decode({ ...valid, details: { n: Number.NaN } }))).toBe(true);
+    expect(Option.isNone(decode({ ...valid, details: { reason: Number.NaN } }))).toBe(true);
+    expect(Option.isNone(decode({ ...valid, details: { refused: "Nope" } }))).toBe(true);
     expect(Option.isNone(decode({ ...valid, _tag: "Other" }))).toBe(true);
     expect(Option.isNone(decode({ ...valid, help: undefined }))).toBe(true);
   });

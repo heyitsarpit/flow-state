@@ -29,10 +29,8 @@ import {
   transaction,
 } from "../../src/index.ts";
 
-// Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
-// check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
-// `.not` of the narrow type, or the wide type itself) then fails too: make it the exact narrow
-// type. A positive assertion that holds today stays as it is.
+// Each `@ts-expect-error` names the rule its line breaks; beside it the correct use of the same
+// parameter is asserted exactly, so a wrong line cannot fail because the type became `never`.
 
 const place = transaction({
   id: "types/evidence/place",
@@ -56,7 +54,8 @@ const D = definition({
 const DMachine = machine(D, ({ S }) => ({ default: S.IDLE, on: { go: S.ON.A, stop: S.IDLE } }));
 const d1 = actorRef(DMachine, "d1");
 
-declare const run: StoryRun;
+declare const run: StoryRun<never, typeof D>;
+declare const erased: StoryRun;
 declare const cut: RuntimeCut;
 declare const diagnostic: Diagnostic;
 declare const error: FlowError;
@@ -67,30 +66,42 @@ describe("Stories R16, Turn R23: evidence a selector returns names its definitio
   it("a turn's states", () => {
     const turns = turnsOf(run, D.E.go);
 
-    expectTypeOf(turns[0]?.to).not.toEqualTypeOf<"IDLE" | "ON.A" | "ON.B" | undefined>();
-    expectTypeOf(turns[0]?.to).toEqualTypeOf<string | undefined>();
-    expectTypeOf(turns[0]?.from).not.toEqualTypeOf<"IDLE" | "ON.A" | "ON.B" | undefined>();
+    expectTypeOf(turns[0]?.to).toEqualTypeOf<"IDLE" | "ON.A" | "ON.B" | undefined>();
+    expectTypeOf(turns[0]?.from).toEqualTypeOf<"IDLE" | "ON.A" | "ON.B" | undefined>();
+    expectTypeOf(turnsOf(run, D.E.go, { actor: d1 })[0]?.to).toEqualTypeOf<
+      "IDLE" | "ON.A" | "ON.B" | undefined
+    >();
 
-    turns.filter((t) => t.to === "NOPE"); // wrong: no such state
-    turns.filter((t) => t.from === "NOPE"); // wrong
-    turnsOf(run, D.E.go, { actor: d1 }).filter((t) => t.to === "NOPE"); // wrong
+    // @ts-expect-error Stories R16: NOPE is no state of D
+    turns.filter((t) => t.to === "NOPE");
+    // @ts-expect-error Stories R16: NOPE is no state of D
+    turns.filter((t) => t.from === "NOPE");
+    // @ts-expect-error Stories R16: NOPE is no state of D
+    turnsOf(run, D.E.go, { actor: d1 }).filter((t) => t.to === "NOPE");
+  });
+
+  it("a run whose app is erased reads text, as every generic rule does", () => {
+    expectTypeOf(turnsOf(erased, D.E.go)[0]?.to).toEqualTypeOf<string | undefined>();
   });
 
   it("a turn's operations and a delivery's event", () => {
     const delivered = evidenceOf(run, D.E.go).filter((e) => e._tag === "Delivered");
 
-    expectTypeOf(turnsOf(run, D.E.go)[0]?.members[0]?.operation).not.toEqualTypeOf<
+    expectTypeOf(turnsOf(run, D.E.go)[0]?.members[0]?.operation).toEqualTypeOf<
       "place" | undefined
     >();
-    expectTypeOf(delivered[0]?._tag === "Delivered" ? delivered[0].event : "go").not.toEqualTypeOf<
+    expectTypeOf(delivered[0]?._tag === "Delivered" ? delivered[0].event : "go").toEqualTypeOf<
       "go" | "stop" | "Placed" | "Unsure"
     >();
 
-    turnsOf(run, D.E.go).filter((t) => t.members.some((m) => m.operation === "plaec")); // wrong
+    // @ts-expect-error Stories R16: plaec is no operation of D
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- the wrong line typed operation names refuse
+    turnsOf(run, D.E.go).filter((t) => t.members.some((m) => m.operation === "plaec"));
 
     evidenceOf(run, D.E.go).filter(
-      // oxlint-disable-next-line flow-state/no-event-name-filter -- the wrong line typed event names refuse
-      (e) => e._tag === "Delivered" && e.event === "stpo", // wrong: no such event
+      // @ts-expect-error Stories R16: stpo is no event of D
+      // oxlint-disable-next-line flow-state/no-event-name-filter, typescript/no-unnecessary-condition -- the wrong line typed event names refuse
+      (e) => e._tag === "Delivered" && e.event === "stpo",
     );
   });
 
@@ -156,13 +167,20 @@ describe("Diagnostics R7, WriteLanes R10: the runtime cut's rows use Flow's clos
 });
 
 describe("Diagnostics R2, R7: a diagnostic's details are the keys its code writes", () => {
-  it("a misspelt detail key reads a silent null", () => {
-    expectTypeOf(diagnostic.details).toEqualTypeOf<{
-      readonly [x: string]: string | number | boolean | null;
-    }>();
+  it("a misspelt detail key is refused", () => {
+    expectTypeOf<keyof typeof diagnostic.details>().toEqualTypeOf<
+      "reason" | "contract" | "first" | "refused" | "slot"
+    >();
+    expectTypeOf(diagnostic.details.refused).toEqualTypeOf<
+      "Defect" | "InvalidTurn" | "GuardDefect" | "StorageFailure" | "CleanupFailed" | undefined
+    >();
+    expectTypeOf(diagnostic.details.slot).toEqualTypeOf<string | null | undefined>();
+    expectTypeOf(error.diagnostics[0].details.reason).toEqualTypeOf<string | undefined>();
 
-    void (diagnostic.details["reson"] ?? null); // wrong: no code writes `reson`
-    void error.diagnostics[0].details["reson"]; // wrong
+    // @ts-expect-error Diagnostics R2: no code writes `reson`
+    void (diagnostic.details["reson"] ?? null);
+    // @ts-expect-error Diagnostics R2: no code writes `reson`
+    void error.diagnostics[0].details["reson"];
   });
 });
 

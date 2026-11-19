@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 import { quantity } from "../../fixtures/number-input/app.ts";
 import { stress } from "../../fixtures/number-input/stories/usual.ts";
-import { publishedOf } from "../../src/host/testing/index.ts";
+import { Stepper } from "../../fixtures/number-input/machines/stepper.ts";
+import { publishedOf, turnsOf } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 
 describe("number input: stress", () => {
@@ -31,16 +32,14 @@ describe("number input: stress", () => {
             after.lastCommit.value),
     );
 
-    const fired = new Set(run.evidence.flatMap((e) => (e._tag === "Turn" ? [e.event] : [])));
-
     expect(stress.steps.length).toBeGreaterThanOrEqual(300);
     expect(outOfBounds).toEqual([]);
     expect(wrong).toEqual([]);
     expect(commits.filter((c) => c.after.lastCommit.seq !== 0).length).toBeGreaterThan(10);
-    expect(["RepeatDue", "Tick", "WheelDue"].filter((e) => fired.has(e))).toEqual([
-      "RepeatDue",
-      "Tick",
-      "WheelDue",
-    ]);
+    expect(
+      [Stepper.E.RepeatDue, Stepper.E.Tick, Stepper.E.WheelDue].map(
+        (token) => turnsOf(run, token).length > 0,
+      ),
+    ).toEqual([true, true, true]);
   });
 });

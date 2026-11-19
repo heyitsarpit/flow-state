@@ -5,7 +5,7 @@ import { account, savings } from "../../fixtures/transfers/app.ts";
 import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { attachInspector } from "../../src/host/inspect.ts";
-import type { StoryRun } from "../../src/host/testing/index.ts";
+import { type StoryRun, turnsOf } from "../../src/host/testing/index.ts";
 import {
   actorRef,
   app,
@@ -21,9 +21,6 @@ const absent = (run: StoryRun) =>
   run.evidence.flatMap((e) =>
     e._tag === "SendTargetAbsent" ? [`${e.actor.name} ${e.event} ${e.reason}`] : [],
   );
-
-const turns = (run: StoryRun) =>
-  run.evidence.flatMap((e) => (e._tag === "Turn" ? [`${e.actor.name} ${e.event}`] : []));
 
 const send = (transferId: string) => Transfers.E.Send({ transferId, cents: 100 });
 
@@ -64,7 +61,7 @@ describe("the send table (Actors R16, I25)", () => {
     );
 
     expect(absent(run)).toEqual([]);
-    expect(turns(run).filter((t) => t.endsWith("Send"))).toEqual(["acct-1 Send", "acct-1 Send"]);
+    expect(turnsOf(run, Transfers.E.Send).map((t) => t.actor.name)).toEqual(["acct-1", "acct-1"]);
     expect(run.evidence.filter((e) => e._tag === "Incarnated")).toHaveLength(2);
     expect(run.checkpoints.later.inspection.actors).toEqual([]);
   });
@@ -81,10 +78,10 @@ describe("the send table (Actors R16, I25)", () => {
         .run(),
     );
 
-    expect(turns(run).filter((t) => t.endsWith("Send"))).toEqual([
-      "acct-1 Send",
-      "acct-2 Send",
-      "acct-1 Send",
+    expect(turnsOf(run, Transfers.E.Send).map((t) => t.actor.name)).toEqual([
+      "acct-1",
+      "acct-2",
+      "acct-1",
     ]);
   });
 });

@@ -64,7 +64,18 @@ export type RefusedCode = "Defect" | "InvalidTurn" | "GuardDefect";
  * write still pending when the Runtime's disposal bound passes, or a cleanup that failed when its
  * Scope closed.
  */
-export type IssueCode = RefusedCode | "StorageFailure" | "CleanupFailed";
+export const IssueCode = Schema.Literals([
+  "Defect",
+  "InvalidTurn",
+  "GuardDefect",
+  "StorageFailure",
+  "CleanupFailed",
+] as const satisfies ReadonlyArray<RefusedCode | "StorageFailure" | "CleanupFailed">);
+
+/**
+ * The decoded {@link IssueCode}.
+ */
+export type IssueCode = typeof IssueCode.Type;
 
 /**
  * A schedule's saved deadline, as an actor record holds it.

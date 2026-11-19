@@ -1,6 +1,6 @@
 import { Option } from "effect";
-import type { Evidence, EvidenceOf } from "../../core/evidence.ts";
-import type { ErasedEnding } from "../../contract.ts";
+import type { Evidence, EvidenceOf, Member } from "../../core/evidence.ts";
+import type { Ending, ErasedEnding } from "../../contract.ts";
 import type { AnyDefinition, ActorRef, LeavesOf, MemoryOf } from "../../definition.ts";
 import { definitionOfToken } from "../../events.ts";
 import { actorIdOf } from "../runtime.ts";
@@ -34,6 +34,41 @@ export type PublishedOf<D extends AnyDefinition> = Omit<
 
 type TokenOf<D extends AnyDefinition> = D["E"][keyof D["E"]];
 
+type Named<D extends AnyDefinition> = {
+  readonly states: LeavesOf<D["states"]>;
+  readonly events: (keyof D["events"] | keyof D["internalEvents"]) & string;
+  readonly operations: keyof D["operations"] & string;
+};
+
+type NamedMember<N extends Named<AnyDefinition>> = {
+  readonly [K in keyof Member]: K extends "operation" ? N["operations"] : Member[K];
+};
+
+type NamedBy<R, N extends Named<AnyDefinition>> = R extends unknown
+  ? {
+      readonly [K in keyof R]: K extends "from" | "to"
+        ? N["states"]
+        : K extends "event"
+          ? N["events"]
+          : K extends "operation"
+            ? N["operations"]
+            : K extends "members"
+              ? ReadonlyArray<NamedMember<N>>
+              : R[K];
+    }
+  : never;
+
+/**
+ * An evidence record of one definition's actor, its states, events and operations named by the
+ * definition: what a selector returns.
+ */
+export type NamedEvidence<R, D extends AnyDefinition> = NamedBy<R, Named<D>>;
+
+// The definition of a run's app that made a token; any definition when the run's app is erased.
+type DefinitionOf<Ds extends AnyDefinition, T> = AnyDefinition extends Ds
+  ? AnyDefinition
+  : Extract<Ds, { readonly id: T extends Ending<never, infer I> ? I : string }>;
+
 // Any definition's event token, whatever its payload: what a name string is not.
 type AnyToken = ErasedEnding & { readonly tag: string };
 
@@ -42,12 +77,15 @@ type AnyToken = ErasedEnding & { readonly tag: string };
  * `{ actor }`, of that actor only, whose definition the token must then be one of.
  */
 export type Selector<R> = {
-  <Ds extends AnyDefinition>(run: Recorded<Ds>, token: AppToken<Ds>): ReadonlyArray<R>;
+  <Ds extends AnyDefinition, T extends AppToken<Ds> & { readonly tag: string }>(
+    run: Recorded<Ds>,
+    token: T,
+  ): ReadonlyArray<NamedEvidence<R, DefinitionOf<Ds, T>>>;
   <Ds extends AnyDefinition, D extends Ds>(
     run: Recorded<Ds>,
     token: NoInfer<TokenOf<D>>,
     options: { readonly actor: ActorRef<D> },
-  ): ReadonlyArray<R>;
+  ): ReadonlyArray<NamedEvidence<R, D>>;
 };
 
 // A token of one of a run's app's definitions; any token when the run's app is erased.
@@ -90,14 +128,27 @@ const NAMES_EVENT = {
 const isTurn = (e: Evidence): e is EvidenceOf<"Turn"> => e._tag === "Turn";
 
 // RETURN_TYPE: the Selector contract, overloaded by whether an actor is named.
-const selector =
-  <R extends EventRecord>(kept: (e: Evidence) => e is R): Selector<R> =>
-  (
+const selector = <R extends EventRecord>(kept: (e: Evidence) => e is R): Selector<R> => {
+  // RETURN_TYPE: the records named by the definition of the run's app that made the token.
+  function select<Ds extends AnyDefinition, T extends AppToken<Ds> & { readonly tag: string }>(
+    run: Recorded<Ds>,
+    token: T,
+  ): ReadonlyArray<NamedEvidence<R, DefinitionOf<Ds, T>>>;
+  // RETURN_TYPE: the records named by the actor's definition.
+  function select<Ds extends AnyDefinition, D extends Ds>(
+    run: Recorded<Ds>,
+    token: NoInfer<TokenOf<D>>,
+    options: { readonly actor: ActorRef<D> },
+  ): ReadonlyArray<NamedEvidence<R, D>>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the implementation of both overloads: each names the records' states,
+  // events and operations by the token's definition, which the filter below keeps to.
+  // RETURN_TYPE: as above; each overload's own return is what its caller reads.
+  function select(
     run: Recorded,
     token: { readonly tag: string },
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted actor matches every actor of the definition
     options?: { readonly actor?: ActorRef },
-  ) => {
+  ): ReadonlyArray<unknown> {
     const machine = Option.getOrElse(definitionOfToken(token), () =>
       scriptFault(`${String(token.tag)} is not an event token a definition made`),
     );
@@ -112,7 +163,10 @@ const selector =
           e.actor.machine === machine &&
           Option.match(actor, { onNone: () => true, onSome: (id) => id.name === e.actor.name }),
       );
-  };
+  }
+
+  return select;
+};
 
 /**
  * Every evidence record that names one event of one definition, in order: its turns, deliveries,

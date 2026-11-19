@@ -29,8 +29,9 @@ requirements
         must    Diagnostic is one Schema-backed tagged error class (Schema.TaggedError), so the Error
                 authors yield in Effect and the exported Schema that encodes and decodes it are one
                 declaration: classification (Failure, Defect or Interruption), code, path
-                (strings or finite numbers), details (string keys to string, finite number, boolean
-                or null), summary and help.
+                (strings or finite numbers), details (the keys Flow writes, each optional and of its
+                own type: reason, contract and first as text, refused an issue code, slot text or
+                null), summary and help.
 
                 Decoding rejects invalid tags, missing fields, unknown codes and out-of-domain
                 values; once a closed details.reason field's values are fixed (deferred to build

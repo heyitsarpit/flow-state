@@ -1,4 +1,5 @@
 import { Cause, Data, Option, Schema } from "effect";
+import { IssueCode } from "./core/vocabulary.ts";
 
 /**
  * Flow's closed list of diagnostic codes: the ones Flow produces. A code outside it is a defect in
@@ -45,7 +46,15 @@ export const Classification = Schema.Literals(["Failure", "Defect", "Interruptio
  */
 export type Classification = typeof Classification.Type;
 
-const Detail = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]);
+// The detail keys Flow writes: a refusal's reason, a shared contract and its first operation, and
+// an issue's refusal and the callback slot that raised it.
+const Details = Schema.Struct({
+  reason: Schema.optionalKey(Schema.String),
+  contract: Schema.optionalKey(Schema.String),
+  first: Schema.optionalKey(Schema.String),
+  refused: Schema.optionalKey(IssueCode),
+  slot: Schema.optionalKey(Schema.NullOr(Schema.String)),
+});
 
 /**
  * One finding Flow reports: its code, where it is, what was found and what to do about it.
@@ -60,7 +69,7 @@ export class Diagnostic extends Schema.TaggedError<Diagnostic>()("Diagnostic", {
   classification: Classification,
   code: Code,
   path: Schema.Array(Schema.Union([Schema.String, Schema.Finite])),
-  details: Schema.Record(Schema.String, Detail),
+  details: Details,
   summary: Schema.String,
   help: Schema.String,
 }) {}
