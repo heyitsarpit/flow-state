@@ -2571,6 +2571,11 @@ tasks
             claims one, so a parse failure would pass it. Rejected: serve.ts drain `let`s (loop locals); tree.ts path
             text and the `""` root (out of scope); `~` prefix tests (the trust consult); persist.ts flags
             (T99's lifetimes).
+        comment     2026-11-19T13:40:58Z
+            Rulings (orchestrator, 2026-11-19) on the requirements review: record decode and record-boundary brands stay
+            with @task.V3.T92 (no-id-text exempts record.ts decode with a reasoned disable); isSaved gets its own
+            Restored tag so no user reason collides (a wrong ending, fixed minimally). The lead fixes the five findings,
+            then builds to review.
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
