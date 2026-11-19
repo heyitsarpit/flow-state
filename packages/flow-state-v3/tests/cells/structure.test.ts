@@ -7,7 +7,8 @@ import {
   neverSentDisposed,
   reloadedOnWire,
 } from "../../fixtures/cells/stories/structure.ts";
-import type { StoryRun } from "../../src/host/testing/index.ts";
+import { Cells } from "../../fixtures/cells/machines/cells.ts";
+import { evidenceOf, type StoryRun } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 
 const endings = (run: StoryRun) =>
@@ -37,9 +38,9 @@ describe("the cell disposed or reloaded mid-pay (fixtures.md S6 under L3)", () =
     const run = await played(neverSentDisposed);
 
     expect(endings(run)).toEqual(["notSent Disposed"]);
-    expect(
-      run.evidence.filter((e) => e._tag === "Delivered" && e.event === "PayNotSent"),
-    ).toHaveLength(1);
+    expect(evidenceOf(run, Cells.E.PayNotSent).filter((e) => e._tag === "Delivered")).toHaveLength(
+      1,
+    );
   });
 
   it("WriteAhead R14: a charge on the wire at a reload is heard unknown Restored", async () => {

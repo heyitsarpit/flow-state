@@ -5,7 +5,7 @@ import { quantity } from "../../fixtures/number-input/app.ts";
 import { Stepper, StepperMachine } from "../../fixtures/number-input/machines/stepper.ts";
 import { bounded, numberStory, usual } from "../../fixtures/number-input/stories/usual.ts";
 import { actorRef } from "../../src/index.ts";
-import { publishedOf, type Cut, type StoryRun } from "../../src/host/testing/index.ts";
+import { evidenceOf, publishedOf, type Cut, type StoryRun } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 
 const E = Stepper.E;
@@ -261,9 +261,7 @@ describe("number input: timers", () => {
     expect(stateOf(run.checkpoints.left)).toBe("IDLE");
     expect(field(run.checkpoints.left).lastCommit).toEqual({ seq: 1, value: 6 });
     expect(
-      run.evidence.filter(
-        (e) => (e._tag === "Turn" || e._tag === "Unhandled") && e.event === "WheelDue",
-      ),
+      evidenceOf(run, E.WheelDue).filter((e) => e._tag === "Turn" || e._tag === "Unhandled"),
     ).toEqual([]);
     expect(field(run.checkpoints.later).lastCommit).toEqual({ seq: 1, value: 6 });
   });

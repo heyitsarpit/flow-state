@@ -3,6 +3,7 @@ import { account, savings } from "../../fixtures/transfers/app.ts";
 import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
+import { turnsOf } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 
 const send = (transferId: string) => Transfers.E.Send({ transferId, cents: 100 });
@@ -27,9 +28,7 @@ describe("mailboxes (Actors R12, R13)", () => {
   it("Actors R13, I21: actors with queued mail are served in rotation, one event each, oldest first within an actor", async () => {
     const run = checked(await owedTwiceEach.run());
 
-    const served = run.evidence.flatMap((e) =>
-      e._tag === "Turn" && e.event === "Unsure" ? [e.actor.name] : [],
-    );
+    const served = turnsOf(run, Transfers.E.Unsure).map((e) => e.actor.name);
 
     expect(served).toEqual(["acct-1", "acct-2", "acct-1", "acct-2"]);
   });

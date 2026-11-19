@@ -32,7 +32,10 @@ const consumers = new Set(
 
 const reactionTurns = (run: StoryRun) =>
   run.evidence.filter(
-    (e) => e._tag === "Turn" && reactionEvents.has(`${e.actor.machine} ${e.event}`),
+    (e) =>
+      e._tag === "Turn" &&
+      // oxlint-disable-next-line flow-state/no-event-name-filter -- a rule over every app's machines: the names come from their compiled reactions, so no token exists to name
+      reactionEvents.has(`${e.actor.machine} ${e.event}`),
   ).length;
 
 export const reload = Step.reload({ reattach: true, heldWrites: "abort" });
@@ -70,7 +73,7 @@ export const contextStories: ReadonlyArray<{
 ];
 
 // The run's onContext turns, or why it could not run: a script fault a reload can cause skips it.
-export const turnsOf = async (story: Story<string>, steps: ReadonlyArray<Step>) =>
+export const reactionTurnsOf = async (story: Story<string>, steps: ReadonlyArray<Step>) =>
   story.run({ steps }).then(
     (run) => reactionTurns(checked(run)),
     // FLOW_STATE_ALLOW_UNKNOWN: a rejected run's reason is untyped until it is matched.
@@ -118,8 +121,8 @@ const doubledAt = async (
     end,
   }: { readonly at: number; readonly slots: ReadonlySet<string>; readonly end: boolean },
 ) => {
-  const once = await turnsOf(story, ran.toSpliced(at, 0, reload));
-  const twice = await turnsOf(story, ran.toSpliced(at, 0, reload, reload));
+  const once = await reactionTurnsOf(story, ran.toSpliced(at, 0, reload));
+  const twice = await reactionTurnsOf(story, ran.toSpliced(at, 0, reload, reload));
   const both = [once, twice];
 
   if (both.some((v) => Predicate.isString(v) && v.startsWith("faulted")))

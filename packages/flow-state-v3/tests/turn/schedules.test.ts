@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
+import { turnsOf } from "../../src/host/testing/index.ts";
 import { before, memory, onWire, type Records, state, VISA } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
 const SLOW = "Still confirming with your bank…";
 
-const ticks = (records: Records) =>
-  records.filter((e) => e._tag === "Turn" && e.event === "CheckTick").length;
+const ticks = (records: Records) => turnsOf({ evidence: records }, Pay.E.CheckTick).length;
 
 describe("TURN-03: PAYING's 8-second slow notice (Turn R14, R15, R17, I20 to I23)", () => {
   it("TURN-03/unused: no firing while unused; the overdue deadline fires once on the returning use (Turn I22, I23)", async () => {

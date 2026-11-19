@@ -20,7 +20,7 @@ import {
 } from "../../fixtures/sync/stories/sends.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import { type ActorRef, RuntimeDefaults } from "../../src/index.ts";
-import { refusedTurns, turnsOf, readerOf } from "../actors/sends.ts";
+import { refusedTurns, turnNamesOf, readerOf } from "../actors/sends.ts";
 import { checked } from "../rules/rules.ts";
 import { played } from "../rules/played.ts";
 
@@ -48,7 +48,7 @@ describe("a repository tells its client to sync (Actors R16; Runtime O4's send t
 
     expect(syncCalls(run.checkpoints.committed)).toBe(1);
     expect(syncCalls(run.checkpoints.pushed)).toBe(2);
-    expect(turnsOf(run, is(docsRepo))).toEqual(expect.arrayContaining(["Commit", "PushSeen"]));
+    expect(turnNamesOf(run, is(docsRepo))).toEqual(expect.arrayContaining(["Commit", "PushSeen"]));
   });
 
   it("send check: an event the target's Schema refuses (a branch name for a commit) refuses the sender's turn InvalidTurn and reaches no one", async () => {
@@ -56,7 +56,7 @@ describe("a repository tells its client to sync (Actors R16; Runtime O4's send t
     const imported = run.checkpoints.imported;
 
     expect(refusedTurns(imported, mirrorA)).toHaveLength(1);
-    expect(turnsOf(run, is(mirrorB))).toEqual([]);
+    expect(turnNamesOf(run, is(mirrorB))).toEqual([]);
     expect(imported.read(mirrorB)?.memory.lastSha).toBe("");
   });
 });

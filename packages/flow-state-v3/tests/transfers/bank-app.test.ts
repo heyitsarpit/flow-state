@@ -20,7 +20,8 @@ import {
   formFirst,
 } from "../../fixtures/transfers/stories/structure.ts";
 import { checkAndSend } from "../../fixtures/transfers/stories/usual.ts";
-import type { StoryRun } from "../../src/host/testing/index.ts";
+import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
+import { evidenceOf, type StoryRun } from "../../src/host/testing/index.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
 
@@ -82,7 +83,7 @@ describe("many accounts (fixtures.md L1, S3 under L4)", () => {
   it.fails("WriteLanes R10, WriteAhead R14: a second reload delivers no second unknown Restored for a Held head that already heard one", async () => {
     const run = await played(owedAtBoot);
 
-    expect(run.evidence.filter((e) => e._tag === "Delivered" && e.event === "Unsure")).toHaveLength(
+    expect(evidenceOf(run, Transfers.E.Unsure).filter((e) => e._tag === "Delivered")).toHaveLength(
       64,
     );
   });

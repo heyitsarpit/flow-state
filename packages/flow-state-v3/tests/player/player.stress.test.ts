@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
+import { Player } from "../../fixtures/player/machines/player.ts";
 import { stress } from "../../fixtures/player/stories/usual.ts";
+import { turnsOf } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 
 const LEAVES = new Set(["OFF", "ON.BUFFERING", "ON.PLAYING", "ON.PAUSED"]);
@@ -10,9 +12,7 @@ describe("player: stress", () => {
 
     const states = run.evidence.flatMap((e) => (e._tag === "Published" ? [e.state] : []));
 
-    const ticks = run.evidence.flatMap((e) =>
-      e._tag === "Turn" && e.event === "Tick" ? [e.from] : [],
-    );
+    const ticks = turnsOf(run, Player.E.Tick).map((e) => e.from);
 
     expect(stress.steps.length).toBeGreaterThanOrEqual(250);
     expect(states.filter((s) => !LEAVES.has(s))).toEqual([]);

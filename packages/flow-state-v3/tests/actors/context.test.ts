@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { attachInspector, type Evidence } from "../../src/host/inspect.ts";
-import { Story, type StoryRun } from "../../src/host/testing/index.ts";
+import { Story, type StoryRun, turnsOf } from "../../src/host/testing/index.ts";
 import {
   actorRef,
   app,
@@ -256,8 +256,8 @@ const thrownCode = (run: () => unknown) => {
   return "none";
 };
 
-const turnsOf = (seen: ReadonlyArray<Evidence>, event: string) =>
-  seen.filter((e) => e._tag === "Turn" && e.event === event).length;
+const userChanges = (seen: ReadonlyArray<Evidence>) =>
+  turnsOf({ evidence: seen }, Badge.E.UserChanged).length;
 
 describe("context binding (Actors R18, I28)", () => {
   it("Actors R19: a wave runs only the selectors whose provider's snapshot changed", () => {
@@ -292,7 +292,7 @@ describe("context binding (Actors R18, I28)", () => {
     expect(Option.map(handle.getSnapshot(), (s) => s.context)).toEqual(
       Option.some({ user: "", broken: 0 }),
     );
-    expect(turnsOf(seen, "UserChanged")).toBe(0);
+    expect(userChanges(seen)).toBe(0);
   });
 
   it("Actors R18: a missing provider is refused at admission with MissingContextProvider, leaving nothing", () => {
@@ -429,7 +429,7 @@ describe("context waves (Actors R19, I27; Turn R22)", () => {
     session.send(Session.E.SignIn({ user: "ada" }));
     session.send(Session.E.SignIn({ user: "ada" }));
 
-    expect(turnsOf(seen, "UserChanged")).toBe(1);
+    expect(userChanges(seen)).toBe(1);
     expect(Option.map(handle.getSnapshot(), (s) => s.memory.greeting)).toEqual(
       Option.some("hi ada"),
     );
@@ -642,8 +642,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
         .run(),
     );
 
-    const seen = run.evidence.filter((e) => e._tag === "Turn" && e.event === "Seen");
-    expect(seen).toHaveLength(1);
+    expect(turnsOf(run, KeptWatcher.E.Seen)).toHaveLength(1);
   });
 
   // The turns after the reload: the provider's change, the consumer's one wave, then the event
@@ -701,7 +700,7 @@ describe("the return's wave (Actors R9, R18; Turn R22)", () => {
         .run(),
     );
 
-    expect(run.evidence.filter((e) => e._tag === "Turn" && e.event === "Seen")).toHaveLength(1);
+    expect(turnsOf(run, KeptWatcher.E.Seen)).toHaveLength(1);
   });
 });
 

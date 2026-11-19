@@ -9,7 +9,7 @@ import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
-import { Fake } from "../../src/host/testing/index.ts";
+import { evidenceOf, Fake } from "../../src/host/testing/index.ts";
 import {
   before,
   CHECK,
@@ -31,10 +31,6 @@ import { played } from "../rules/played.ts";
 import { switchedOn } from "../switches.ts";
 
 const SYNC = Serialize.E.Commit({ repo: "flow" });
-
-// How many times a turn heard an ending as this event.
-const heard = (records: Records, event: string) =>
-  records.filter((e) => e._tag === "Delivered" && e.event === event).length;
 
 // An ending made at the bound is not written, so the reload hears the head it wrote, unknown
 // Restored, once (Actors R23).
@@ -378,7 +374,9 @@ describe("a commit queued behind a Held head (Actors I38)", () => {
 
     expect(disposed(before(run, "disposed"))).toHaveLength(1);
     expect(disposals(before(run, "disposed"))).toBe(1);
-    expect(heard(run.evidence, "NotSent")).toBe(1);
+    expect(evidenceOf(run, Serialize.E.NotSent).filter((e) => e._tag === "Delivered")).toHaveLength(
+      1,
+    );
     expect(run.checkpoints.reloaded.inspection.owed).toEqual([]);
   });
 });

@@ -15,14 +15,9 @@ import {
   homeStory,
   REPLAYS,
 } from "../../fixtures/player/stories/sends.ts";
-import {
-  droppedSends,
-  endsOf,
-  incarnationsOf,
-  refusedTurns,
-  turnsOf,
-  readerOf,
-} from "../actors/sends.ts";
+import { droppedSends, endsOf, incarnationsOf, refusedTurns, readerOf } from "../actors/sends.ts";
+import { Player } from "../../fixtures/player/machines/player.ts";
+import { turnsOf } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 import { played } from "../rules/played.ts";
 import { RuntimeDefaults } from "../../src/index.ts";
@@ -41,7 +36,7 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
     }
 
     for (const name of GROUP)
-      expect(turnsOf(run, is(room(name))).filter((e) => e === "Play")).toEqual(["Play"]);
+      expect(turnsOf(run, Player.E.Play, { actor: room(name) })).toHaveLength(1);
     expect(run.checkpoints.started.read(household)?.memory.started).toBe(3);
   });
 
@@ -93,7 +88,7 @@ describe("the household plays a group of rooms (Actors R16; Runtime O4's send ta
       const at = room(`room-${String(n)}`);
 
       expect(run.checkpoints.end.read(at)?.memory.trackId).toBe("t3");
-      expect(turnsOf(run, is(at)).filter((e) => e === "Play")).toHaveLength(3);
+      expect(turnsOf(run, Player.E.Play, { actor: at })).toHaveLength(3);
     }
 
     expect(run.checkpoints.end.read(household)?.memory.started).toBe(3 * BUILDING);

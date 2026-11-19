@@ -12,8 +12,16 @@ import {
   renewalUnopenedPay,
   renewalUnsurePay,
 } from "../../fixtures/shop/stories/sends.ts";
-import type { Cut } from "../../src/host/testing/index.ts";
-import { droppedSends, endsOf, incarnationsOf, readerOf, turnsOf } from "../actors/sends.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
+import { turnsOf, type Cut } from "../../src/host/testing/index.ts";
+import {
+  droppedSends,
+  endsOf,
+  incarnationsOf,
+  readerOf,
+  turnNamesOf,
+  turnsAmong,
+} from "../actors/sends.ts";
 import { before } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
@@ -27,18 +35,16 @@ const dropped = (reason: string) => [
   { actor: idOf(renewalPay), event: "PayRequested", reason, sender: idOf(subscription) },
 ];
 
-const isRenewal = (event: string) => event === "CardChosen" || event === "PayRequested";
+// The Pay's turns on the two events the subscription sends it, in order.
+const renewals = (run: Parameters<typeof turnsAmong>[0]) =>
+  turnsAmong(run, renewalPay, [Pay.E.CardChosen, Pay.E.PayRequested]);
 
 describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4's send table)", () => {
   it("Actors R16 live, kept by work in flight, R7: a closed Pay with a confirm on the wire gets both sends in the same incarnation", async () => {
     const run = await played(renewalBusyPay);
 
     expect(incarnationsOf(run, is(renewalPay))).toBe(1);
-    expect(turnsOf(run, is(renewalPay)).filter(isRenewal)).toEqual([
-      "PayRequested",
-      "CardChosen",
-      "PayRequested",
-    ]);
+    expect(renewals(run)).toEqual(["PayRequested", "CardChosen", "PayRequested"]);
     expect(run.checkpoints.landed.read(renewalPay)?.memory.paymentMethodId).toBe("visa");
   });
 
@@ -53,19 +59,20 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(run.checkpoints["held past the grace"].read(renewalPay)?.lifecycle).toBe("active");
     expect(incarnationsOf(run, is(renewalPay))).toBe(2);
     expect(endsOf(run, is(renewalPay))).toBe(2);
-    expect(turnsOf(run, is(renewalPay)).filter(isRenewal)).toEqual([
-      "CardChosen",
-      "PayRequested",
-      "PayRequested",
-    ]);
+    expect(renewals(run)).toEqual(["CardChosen", "PayRequested", "PayRequested"]);
   });
 
   it("Actors R16 restored and delivered last, I14: the restored Pay hears its held charge's unknown Restored before the sends", async () => {
     const run = await played(renewalUnsurePay);
-    const turns = turnsOf(run, is(renewalPay));
+    const unsure = turnsOf(run, Pay.E.PayUnsure, { actor: renewalPay });
+    const chosen = turnsOf(run, Pay.E.CardChosen, { actor: renewalPay });
 
-    expect(turns.filter((e) => e === "PayUnsure")).toHaveLength(2);
-    expect(turns.indexOf("CardChosen")).toBeGreaterThan(turns.lastIndexOf("PayUnsure"));
+    expect(unsure).toHaveLength(2);
+    expect(chosen.length).toBeGreaterThan(0);
+
+    const at = (e: (typeof unsure)[number]) => run.evidence.indexOf(e);
+
+    expect(Math.min(...chosen.map(at))).toBeGreaterThan(Math.max(...unsure.map(at)));
   });
 
   it("Actors R16 no record (never created), I25: both sends are dropped NoRecord on the subscription, in order, and no Pay is created", async () => {
@@ -73,7 +80,7 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
 
     expect(droppedSends(run)).toEqual(dropped("NoRecord"));
     expect(incarnationsOf(run, is(renewalPay))).toBe(0);
-    expect(turnsOf(run, is(subscription))).toEqual(["Subscribe", "Due"]);
+    expect(turnNamesOf(run, is(subscription))).toEqual(["Subscribe", "Due"]);
   });
 
   it("Actors R16 no record (forgotten), R21: both sends to a forgotten Pay are dropped NoRecord and never bring it back", async () => {

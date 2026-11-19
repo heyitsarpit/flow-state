@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { LIMITS } from "../limits.ts";
-import { contextStories, reload, turnsOf } from "./reloads.ts";
+import { contextStories, reactionTurnsOf, reload } from "./reloads.ts";
 
 describe("reloads over a consistent saved world (Actors R9, R19; Restore R2)", () => {
   it(
@@ -14,7 +14,7 @@ describe("reloads over a consistent saved world (Actors R9, R19; Restore R2)", (
         // oxlint-disable-next-line no-await-in-loop -- one run at a time: each Story is its own world
         const counts = await Promise.all(
           [0, 1, 3].map((n) =>
-            turnsOf(story, [...ran, ...Array.from({ length: n }, () => reload)]),
+            reactionTurnsOf(story, [...ran, ...Array.from({ length: n }, () => reload)]),
           ),
         );
 
