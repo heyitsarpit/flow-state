@@ -937,3 +937,7 @@ note 2026-11-19T00:56:05Z
 note 2026-11-19T01:39:08Z
     Decision (the user, 2026-11-19): fixtures.md gains "The right tool" (a feature only where a product would choose it;
     variety counts different uses). send cut from palette and transfers fixtures in T96; the catalog audited for fit.
+
+note 2026-11-19T01:44:52Z
+    Fixture fit audit (2 Haiku, verified): no clear wrong-tool cell beyond send's two; flagged repeats are combinations
+    or refusal and load cases, left to each Task's lead. Per the user, no further cuts.

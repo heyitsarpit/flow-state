@@ -586,6 +586,10 @@ tasks
         comment      2026-11-18T20:40:33Z
             Routed (P3 compaction, 2026-11-19): typed context-slot wiring has no type test (T79 left it); add one with
             props, since both type a machine's inputs.
+        comment      2026-11-19T01:44:52Z
+            Catalog fix owed (fit audit, 2026-11-19): transfers' matrix row gives createActor to TransferForm at step 1,
+            but its machine line keeps it shared until this Task (fixture-catalog.md:422 vs :450); correct one
+            when building.
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
