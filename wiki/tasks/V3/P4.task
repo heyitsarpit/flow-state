@@ -2391,12 +2391,11 @@ tasks
             combinations the current shapes allow can't be written.
 
             **Why now:** the idiom survey of 2026-11-19 (user's B) found four core shapes that work today but each
-            permit a silent wrong behaviour on a later change: `forget` drops held lanes only while a free-string reason
-            equals `"operation"` (code:packages/flow-state-v3/src/core/record.ts#OPERATION_GONE); consumer start order
-            is parsed back out of an incarnation id's text (code:packages/flow-state-v3/src/core/world.ts#startOrder); a
-            chain id is `chains.size + 1` with a `0` sentinel, correct only while chains are cleared all at once
-            (code:packages/flow-state-v3/src/core/tx.ts); a turn's cause is three `Option`s plus a `source` that repeats
-            them, with invalid mixes representable (code:packages/flow-state-v3/src/core/serve.ts#turn).
+            permit a silent wrong behaviour on a later change (as at commit `8f156353`): `forget` drops held lanes only
+            while a free-string reason equals `"operation"` (`record.ts` `OPERATION_GONE`); consumer start order is
+            parsed back out of an incarnation id's text (`world.ts` `startOrder`); a chain id is `chains.size + 1` with
+            a `0` sentinel, correct only while chains are cleared all at once (`tx.ts`); a turn's cause is three
+            `Option`s plus a `source` that repeats them, with invalid mixes representable (`serve.ts` `turn`).
 
             **Read first:** code:packages/flow-state-v3/src/core/record.ts, code:packages/flow-state-v3/src/core/tx.ts,
             code:packages/flow-state-v3/src/core/serve.ts, @spec.Turn, @spec.Actors (R13, the loop guard's chains).

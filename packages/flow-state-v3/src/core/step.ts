@@ -11,15 +11,7 @@ import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
 import { type Env, type Machines, makeTx } from "./tx.ts";
 import { admit, Life, Verdict } from "./life.ts";
-import {
-  type ActorId,
-  actorKey,
-  Mail,
-  startOrder,
-  Timer,
-  type TimerId,
-  type World,
-} from "./world.ts";
+import { type ActorId, actorKey, Mail, byStart, Timer, type TimerId, type World } from "./world.ts";
 
 export { CallResult, Input } from "./input.ts";
 
@@ -31,7 +23,7 @@ export type { Env, Machines } from "./tx.ts";
 export const dependentsOf = (world: World, provider: ActorId) =>
   [...(world.consumersOf.get(actorKey(provider)) ?? [])]
     .flatMap((key) => Option.toArray(Option.fromUndefinedOr(world.incarnations.get(key))))
-    .toSorted((a, b) => startOrder(a) - startOrder(b))
+    .toSorted(byStart)
     .map((i) => i.actor);
 
 /**

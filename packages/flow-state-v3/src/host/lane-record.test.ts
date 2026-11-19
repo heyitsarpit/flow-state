@@ -1,7 +1,7 @@
 import { Effect, Option, Result, Schema } from "effect";
 import { expect, it } from "vite-plus/test";
 import { decodeRecords, encodeLane, laneRecordKey } from "../core/record.ts";
-import { type CallId, laneId, Phase } from "../core/world.ts";
+import { type CallId, laneId, OwnedBy, Phase } from "../core/world.ts";
 import { definition, Flow, machine, transaction } from "../index.ts";
 
 // A persisted keyed write under one policy; the call is never run here.
@@ -46,12 +46,12 @@ const restoredFrom = (
       id: "att-2",
       input,
       retryCount: 0,
-      owner: 0,
+      owner: OwnedBy.Root(),
       // SAFETY: a call id is minted text; this one stands for a call on the wire.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand has no public constructor
       phase: Phase.OnWire({ call: "call-1" as CallId }),
     },
-    queue: Array.from({ length: queued }, () => ({ input, owner: 0 })),
+    queue: Array.from({ length: queued }, () => ({ input, owner: OwnedBy.Root() })),
   };
 
   const record = Result.getOrThrow(

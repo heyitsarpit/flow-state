@@ -10,16 +10,19 @@ import { Input } from "./input.ts";
 import { Life } from "./life.ts";
 import { pendingOwners } from "./serve.ts";
 import { step } from "./step.ts";
-import { actorKey, emptyWorld, type Lane, Mail, NO_CHAIN, Phase } from "./world.ts";
+import { activation, chain } from "./test/ids.ts";
+import { actorKey, emptyWorld, type Lane, Mail, OwnedBy, Phase } from "./world.ts";
 
 const actor = { machine: "Test/Shelf", name: "s" };
+
+const ownedBy = (n: number) => OwnedBy.State({ activation: activation(n) });
 
 // RETURN_TYPE: a non-Idle lane as the World holds it.
 const lane = (phase: Phase, owner: number, queued: ReadonlyArray<number>): Lane => ({
   actor,
   operation: "save",
-  head: { id: "att-1", input: {}, retryCount: 0, owner, phase },
-  queue: queued.map((q) => ({ input: {}, owner: q })),
+  head: { id: "att-1", input: {}, retryCount: 0, owner: ownedBy(owner), phase },
+  queue: queued.map((q) => ({ input: {}, owner: ownedBy(q) })),
 });
 
 describe("pending work a late turn may not leave (Turn R21, I27)", () => {
@@ -93,13 +96,20 @@ describe("a context update that waits for its providers (Actors R19)", () => {
         [
           actorKey(line),
           [
-            Mail.Context({ actor: line, chain: NO_CHAIN }),
-            Mail.Event({ actor: line, tag: "Noted", payload: {}, chain: NO_CHAIN }),
+            Mail.Context({ actor: line, chain: Option.none() }),
+            Mail.Event({ actor: line, tag: "Noted", payload: {}, chain: Option.none() }),
           ],
         ],
         [
           actorKey(lead),
-          [Mail.Event({ actor: lead, tag: "Rename", payload: { name: "Core" }, chain: NO_CHAIN })],
+          [
+            Mail.Event({
+              actor: lead,
+              tag: "Rename",
+              payload: { name: "Core" },
+              chain: Option.none(),
+            }),
+          ],
         ],
       ]),
     };
@@ -160,14 +170,22 @@ const joined = (waiting: number, joining: number) => {
   const queued = {
     ...ensured,
     chains: new Map([
-      [1, { root: "Started to echo", sent: waiting }],
-      [2, { root: "Rename to lead", sent: joining }],
+      [chain(1), { root: "Started to echo", sent: waiting }],
+      [chain(2), { root: "Rename to lead", sent: joining }],
     ]),
+    chainCount: 2,
     mail: new Map([
-      [actorKey(echo), [Mail.Context({ actor: echo, chain: 1 })]],
+      [actorKey(echo), [Mail.Context({ actor: echo, chain: Option.some(chain(1)) })]],
       [
         actorKey(lead),
-        [Mail.Event({ actor: lead, tag: "Rename", payload: { name: "Core" }, chain: 2 })],
+        [
+          Mail.Event({
+            actor: lead,
+            tag: "Rename",
+            payload: { name: "Core" },
+            chain: Option.some(chain(2)),
+          }),
+        ],
       ],
     ]),
   };
@@ -200,9 +218,9 @@ describe("a second wave reaching a context update that waits (Actors R13, I20)",
     ]);
   });
 
-  // Inverted: a chain id is one past the count of chains, so after a partial clear the next
-  // admitted event's chain takes a live chain's id and resets its count to zero.
-  it.fails("Actors R13: a partial clear of chains keeps every live chain's count, so the waiting update's send is still refused at the loop guard", () => {
+  // A chain id was once one past the count of chains, so after a partial clear the next admitted
+  // event's chain took a live chain's id and reset its count to zero.
+  it("Actors R13: a partial clear of chains keeps every live chain's count, so the waiting update's send is still refused at the loop guard", () => {
     const machines = new Map([
       [lead.machine, { ...LeadMachine.compiled, wiring: new Map() }],
       [echo.machine, { ...EchoMachine.compiled, wiring: new Map([["name", lead]]) }],
@@ -226,12 +244,20 @@ describe("a second wave reaching a context update that waits (Actors R13, I20)",
     // Chain 1 was cleared; chain 2 is live, at the guard, and the echo's update follows it.
     const queued = {
       ...ensured,
-      chains: new Map([[2, { root: "Started to echo", sent: RuntimeDefaults.loopGuard }]]),
+      chains: new Map([[chain(2), { root: "Started to echo", sent: RuntimeDefaults.loopGuard }]]),
+      chainCount: 2,
       mail: new Map([
-        [actorKey(echo), [Mail.Context({ actor: echo, chain: 2 })]],
+        [actorKey(echo), [Mail.Context({ actor: echo, chain: Option.some(chain(2)) })]],
         [
           actorKey(lead),
-          [Mail.Event({ actor: lead, tag: "Rename", payload: { name: "Core" }, chain: NO_CHAIN })],
+          [
+            Mail.Event({
+              actor: lead,
+              tag: "Rename",
+              payload: { name: "Core" },
+              chain: Option.none(),
+            }),
+          ],
         ],
       ]),
     };

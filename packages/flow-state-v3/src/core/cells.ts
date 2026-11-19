@@ -1,7 +1,7 @@
 import { Data, Option } from "effect";
 import type { Values } from "./compiled.ts";
 import { type Channel, Decline } from "./vocabulary.ts";
-import { type CallId, type Head, Phase, sentBefore, type TicketId } from "./world.ts";
+import { type CallId, type Head, type OwnedBy, Phase, sentBefore, type TicketId } from "./world.ts";
 
 /**
  * What happens to a lane: a member, a turn's end, a store's or a call's answer, or the Runtime's
@@ -14,11 +14,11 @@ import { type CallId, type Head, Phase, sentBefore, type TicketId } from "./worl
  * call settles; from then on the ending is an owed row.
  */
 export type Cue = Data.TaggedEnum<{
-  CommitReject: { input: Values; owner: number };
-  CommitLatest: { input: Values; owner: number };
-  CommitSerialize: { input: Values; owner: number };
-  CommitCancel: { input: Values; owner: number };
-  Retry: { owner: number };
+  CommitReject: { input: Values; owner: OwnedBy };
+  CommitLatest: { input: Values; owner: OwnedBy };
+  CommitSerialize: { input: Values; owner: OwnedBy };
+  CommitCancel: { input: Values; owner: OwnedBy };
+  Retry: { owner: OwnedBy };
   Cancel: {};
   TurnEnded: {};
   Stored: {};
@@ -73,13 +73,13 @@ export type NotSentWhy = typeof NotSentWhy.Type;
  */
 export type Move = Data.TaggedEnum<{
   Stay: {};
-  Mint: { input: Values; owner: number };
+  Mint: { input: Values; owner: OwnedBy };
   Decline: { why: NotSentWhy };
-  Queue: { input: Values; owner: number; latest: boolean };
-  Replace: { input: Values; owner: number; ended: "Superseded" | "Released" };
-  Displace: { input: Values; owner: number; owed: boolean };
+  Queue: { input: Values; owner: OwnedBy; latest: boolean };
+  Replace: { input: Values; owner: OwnedBy; ended: "Superseded" | "Released" };
+  Displace: { input: Values; owner: OwnedBy; owed: boolean };
   Become: { phase: Phase };
-  Owe: { owner: number };
+  Owe: { owner: OwnedBy };
   Withdraw: { ticket: TicketId };
   EndUnsent: { why: NotSentWhy };
   Release: {};
@@ -135,7 +135,7 @@ const decline = Move.Decline({ why: "Rejected" });
 
 const declineBeside = () => decline;
 
-type Commit = { readonly input: Values; readonly owner: number };
+type Commit = { readonly input: Values; readonly owner: OwnedBy };
 
 const mint = (cue: Commit) => Move.Mint({ input: cue.input, owner: cue.owner });
 

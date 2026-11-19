@@ -7,7 +7,15 @@ import { Life } from "./life.ts";
 import { Audience, type LedgerSteps, Route } from "./ledger.ts";
 import { type Machines, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import { type ActorId, Command, type Displaced, type Lane, Phase, sentBefore } from "./world.ts";
+import {
+  type ActorId,
+  Command,
+  type Displaced,
+  type Lane,
+  type OwnedBy,
+  Phase,
+  sentBefore,
+} from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
 /**
@@ -53,7 +61,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
   // Where an ending of work an activation owns is routed from: that activation while the Runtime
   // is open, the active leaf once it is disposing.
-  const fromOwner = (owner: number) => (open() ? Route.From({ owner }) : Route.Current());
+  const fromOwner = (owner: OwnedBy) => (open() ? Route.From({ owner }) : Route.Current());
 
   const operationOf = (actor: ActorId, name: string) => lookup(tx.machines, actor.machine, name);
 
@@ -160,7 +168,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   const hold = (at: At, lane: Lane) =>
     setLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Held() } });
 
-  const headFor = (input: Values, owner: number) => ({
+  const headFor = (input: Values, owner: OwnedBy) => ({
     id: tx.mintAttempt(),
     input,
     retryCount: 0,

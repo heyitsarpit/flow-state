@@ -78,6 +78,7 @@ const exactRecords = [
     | "consumersOf"
     | "silenceOf"
     | "chains"
+    | "chainCount"
   >,
 ];
 

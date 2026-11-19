@@ -1,24 +1,28 @@
 import { Option, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
+import { makeFollowing } from "./following.ts";
 import type { OwedId } from "./ledger.ts";
 import type { Evidence } from "./evidence.ts";
 import { LOCAL_PREFIX } from "./identity.ts";
 import { Act, evidenceOf } from "./evidence-of.ts";
 import {
+  type ActivationId,
   type ActorId,
   actorKey,
+  type ArmingId,
+  byStart,
   type CallId,
+  type ChainId,
   Command,
   type Incarnation,
+  type IncarnationId,
   type Issue,
   type Lane,
   Mail,
-  NO_CHAIN,
   type Out,
   Phase,
   rootOf,
-  startOrder,
   type TicketId,
   Timer,
   type TimerId,
@@ -43,11 +47,6 @@ export type Env = {
 };
 
 /**
- * The root's activation: it lives as long as the incarnation, so work it owns is never late.
- */
-export const ROOT_ACTIVATION = 0;
-
-/**
  * Whether a lane is InFlight: every phase but Held.
  */
 export const isInFlight = (lane: Lane) => !Phase.$is("Held")(lane.head.phase);
@@ -65,12 +64,20 @@ const branded = <Id extends string>(id: string) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a brand is type-only; the mint is where it is given
   id as Id;
 
+/**
+ * A minted count as its kind: activations, armings and chains are numbered by the mint alone.
+ */
+const counted = <Id extends number>(count: number) =>
+  // SAFETY: the world's mint gives each count once, from the counter its kind uses.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a brand is type-only; the mint is where it is given
+  count as Id;
+
 type Ids = {
   readonly timer: TimerId;
   readonly call: CallId;
   readonly ticket: TicketId;
   readonly owed: OwedId;
-  readonly inc: string;
+  readonly inc: IncarnationId;
 };
 
 type MapField = {
@@ -179,10 +186,30 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     return `att-${env.seed}-${world.attempts}`;
   };
 
-  const next = () => {
+  // An incarnation's id, with the count it was minted at: the order incarnations started in.
+  const mintIncarnation = () => {
+    const id = mint("inc");
+
+    return { id, started: world.counter };
+  };
+
+  const mintActivation = () => {
     world.counter += 1;
 
-    return world.counter;
+    return counted<ActivationId>(world.counter);
+  };
+
+  const mintArming = () => {
+    world.counter += 1;
+
+    return counted<ArmingId>(world.counter);
+  };
+
+  // Chains have their own count, never reset: a chain cleared early never gives its id again.
+  const mintChain = () => {
+    world.chainCount += 1;
+
+    return counted<ChainId>(world.chainCount);
   };
 
   const addTo = (field: "lanesOfActor" | "consumersOf", key: string, member: string) => {
@@ -229,7 +256,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   const consumersOf = (provider: ActorId) =>
     [...(world.consumersOf.get(actorKey(provider)) ?? [])]
       .flatMap((key) => Option.toArray(Option.fromUndefinedOr(world.incarnations.get(key))))
-      .toSorted((a, b) => startOrder(a) - startOrder(b));
+      .toSorted(byStart);
 
   const unwait = (id: string, lane: Lane) => {
     for (const wait of Option.toArray(waitOf(lane)))
@@ -337,28 +364,12 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
 
   // The item being served and the loop guard's chain it follows: the mail its turns enqueue follows
   // the chain. An item that follows none is admitted, and starts one at the first mail it enqueues.
-  let serving: Mail | undefined = undefined;
-  let chain = NO_CHAIN;
-
-  const chainNow = () => {
-    if (chain !== NO_CHAIN || serving === undefined) return chain;
-
-    // Chains are only ever cleared all at once, so the next number is one past their count.
-    chain = world.chains.size + 1;
+  const { chainNow, follow, followNone } = makeFollowing((serving) => {
+    const chain = mintChain();
     put("chains", chain, { root: rootOf(serving), sent: 0 });
 
     return chain;
-  };
-
-  const follow = (mail: Mail) => {
-    serving = mail;
-    chain = Mail.$is("Event")(mail) || Mail.$is("Context")(mail) ? mail.chain : NO_CHAIN;
-  };
-
-  const followNone = () => {
-    serving = undefined;
-    chain = NO_CHAIN;
-  };
+  });
 
   const box = (key: string) => {
     const mail = draft("mail");
@@ -401,7 +412,9 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   const joinWave = (actor: ActorId) => {
     const key = actorKey(actor);
     const next = chainNow();
-    const sent = (id: number) => world.chains.get(id)?.sent ?? 0;
+
+    const sent = (id: Option.Option<ChainId>) =>
+      Option.match(id, { onNone: () => 0, onSome: (c) => world.chains.get(c)?.sent ?? 0 });
 
     const at = (world.mail.get(key) ?? []).findIndex(
       (m) => Mail.$is("Context")(m) && sent(next) > sent(m.chain),
@@ -505,7 +518,9 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     commandCount: () => commands.length,
     mint,
     mintAttempt,
-    next,
+    mintIncarnation,
+    mintActivation,
+    mintArming,
     persisted,
     putIncarnation,
     dropIncarnation,

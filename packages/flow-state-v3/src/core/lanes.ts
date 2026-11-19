@@ -8,7 +8,15 @@ import { Audience, keptOn, type LedgerSteps, Route } from "./ledger.ts";
 import { LaneView } from "./turn.ts";
 import { isInFlight, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import { type ActorId, type CallId, Command, type Incarnation, laneId, Phase } from "./world.ts";
+import {
+  type ActorId,
+  type CallId,
+  Command,
+  type Incarnation,
+  laneId,
+  type OwnedBy,
+  Phase,
+} from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import { LOCAL_PREFIX } from "./identity.ts";
 import { laneRecordKey } from "./record.ts";
@@ -19,7 +27,7 @@ const commitCue = {
   latest: Cue.CommitLatest,
   serialize: Cue.CommitSerialize,
   cancel: Cue.CommitCancel,
-} as const satisfies Record<Concurrency, (commit: { input: Values; owner: number }) => Cue>;
+} as const satisfies Record<Concurrency, (commit: { input: Values; owner: OwnedBy }) => Cue>;
 
 // A write's policy; a read never commits, so it has none of its own.
 const policyOf = (operation: Operation) =>
@@ -136,7 +144,12 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       route: Route.Current(),
     });
 
-  const commit = (incarnation: Incarnation, operation: Operation, given: Values, owner: number) => {
+  const commit = (
+    incarnation: Incarnation,
+    operation: Operation,
+    given: Values,
+    owner: OwnedBy,
+  ) => {
     const input = tx.env.admit(given);
     const key = pick(input, operation.keyFields);
 
@@ -206,7 +219,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     operation: Operation,
     key: Option.Option<Values>,
     own: Option.Option<string>,
-    owner: number,
+    owner: OwnedBy,
   ) => {
     const at = atFor(incarnation, operation, key, own);
     const target = targetOf(key, at);
@@ -251,7 +264,12 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       },
     });
 
-  const lookup = (incarnation: Incarnation, operation: Operation, input: Values, owner: number) => {
+  const lookup = (
+    incarnation: Incarnation,
+    operation: Operation,
+    input: Values,
+    owner: OwnedBy,
+  ) => {
     interruptReads(incarnation, operation.name, true);
 
     const call = tx.mint("call");

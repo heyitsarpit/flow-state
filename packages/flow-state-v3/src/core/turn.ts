@@ -1,7 +1,7 @@
 import { Data, Option, Predicate, Result } from "effect";
 import { admitted } from "./boundary.ts";
 import { refName } from "./identity.ts";
-import type { ActorId } from "./world.ts";
+import type { ActivationId, ActorId } from "./world.ts";
 import {
   Action,
   type Alternative,
@@ -100,7 +100,7 @@ export const TurnResult = Data.taggedEnum<TurnResult>();
 export type TurnInput = {
   readonly compiled: Compiled;
   readonly state: string;
-  readonly activations: ReadonlyArray<number>;
+  readonly activations: ReadonlyArray<ActivationId>;
   readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
   readonly tag: string;
@@ -109,7 +109,7 @@ export type TurnInput = {
   readonly from: number;
   readonly now: number;
   readonly lane: (operation: string, key: Option.Option<Values>) => LaneView;
-  readonly owns: (activation: number) => boolean;
+  readonly owns: (activation: ActivationId) => boolean;
 };
 
 type Failed = { readonly slot: string };

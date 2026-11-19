@@ -55,6 +55,37 @@ export type TimerId = string & Brand.Brand<"flow-state/TimerId">;
 export type CallId = string & Brand.Brand<"flow-state/CallId">;
 
 /**
+ * An incarnation's id: one life of an identity.
+ */
+export type IncarnationId = string & Brand.Brand<"flow-state/IncarnationId">;
+
+/**
+ * A state's activation: minted on each entry, so a later entry is a larger number.
+ */
+export type ActivationId = number & Brand.Brand<"flow-state/ActivationId">;
+
+/**
+ * A schedule's arming: minted on each arming, so a firing of an older one is told apart.
+ */
+export type ArmingId = number & Brand.Brand<"flow-state/ArmingId">;
+
+/**
+ * A loop guard chain's id: minted when an admitted item first enqueues mail.
+ */
+export type ChainId = number & Brand.Brand<"flow-state/ChainId">;
+
+/**
+ * Who owns a piece of work: the root, which lives as long as the incarnation, or the activation of
+ * the state that started it.
+ */
+export type OwnedBy = Data.TaggedEnum<{ Root: {}; State: { activation: ActivationId } }>;
+
+/**
+ * Constructors and matchers for {@link OwnedBy}.
+ */
+export const OwnedBy = Data.taggedEnum<OwnedBy>();
+
+/**
  * A ticket a batch carries: the Attempt it acknowledges or captures, or the disposal's write.
  */
 export type Ticket =
@@ -75,7 +106,7 @@ export type Write = { readonly key: string; readonly record: Option.Option<strin
  * deadline.
  */
 export type Armed = {
-  readonly arming: number;
+  readonly arming: ArmingId;
   readonly dueAt: number;
   readonly send: string;
   readonly timer: TimerId;
@@ -91,12 +122,14 @@ export type Armed = {
  * `history` holds each exited compound's last active child. `bound` names the provider of each
  * context slot, `context` holds each slot's selection and `baselines` each `onContext` reaction's
  * last selection with the inputs it read. `grace` is the timer of a free incarnation's grace.
+ * `started` is the mint's count when it started: live incarnations are ordered by it.
  */
 export type Incarnation = {
-  readonly id: string;
+  readonly id: IncarnationId;
+  readonly started: number;
   readonly actor: ActorId;
   readonly state: string;
-  readonly activations: ReadonlyArray<number>;
+  readonly activations: ReadonlyArray<ActivationId>;
   readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
   readonly schedules: ReadonlyMap<string, Armed>;
@@ -225,7 +258,7 @@ export type Head = {
   readonly id: string;
   readonly input: Values;
   readonly retryCount: number;
-  readonly owner: number;
+  readonly owner: OwnedBy;
   readonly phase: Phase;
 };
 
@@ -249,7 +282,7 @@ export const sentBefore = (head: Head) =>
  * A commit waiting behind a lane's head: its input and owning activation. It has no Attempt until
  * it is promoted.
  */
-export type Queued = { readonly input: Values; readonly owner: number };
+export type Queued = { readonly input: Values; readonly owner: OwnedBy };
 
 /**
  * A write lane while it is not Idle: an identity's operation at one key, with the commits queued
@@ -285,25 +318,25 @@ export type Displaced = {
 export type Read = {
   readonly call: CallId;
   readonly actor: ActorId;
-  readonly incarnation: string;
+  readonly incarnation: IncarnationId;
   readonly operation: string;
-  readonly owner: number;
+  readonly owner: OwnedBy;
 };
 
 /**
  * One item of an actor's mailbox; an ending is a reference to its owed row, never the ending. A
  * context update asks the actor to read its providers again: at most one waits per actor. An event
- * or context update carries the loop guard's chain it follows.
+ * or context update carries the loop guard's chain it follows, if it follows one.
  */
 export type Mail = Data.TaggedEnum<{
-  Event: { actor: ActorId; tag: string; payload: Values; chain: number };
-  Context: { actor: ActorId; chain: number };
+  Event: { actor: ActorId; tag: string; payload: Values; chain: Option.Option<ChainId> };
+  Context: { actor: ActorId; chain: Option.Option<ChainId> };
   Ending: { actor: ActorId; id: OwedId };
   Firing: {
     actor: ActorId;
-    incarnation: string;
+    incarnation: IncarnationId;
     schedule: string;
-    arming: number;
+    arming: ArmingId;
   };
 }>;
 
@@ -318,11 +351,11 @@ export const Mail = Data.taggedEnum<Mail>();
 export type Timer = Data.TaggedEnum<{
   Schedule: {
     actor: ActorId;
-    incarnation: string;
+    incarnation: IncarnationId;
     schedule: string;
-    arming: number;
+    arming: ArmingId;
   };
-  Grace: { actor: ActorId; incarnation: string };
+  Grace: { actor: ActorId; incarnation: IncarnationId };
   Silent: { ticket: TicketId };
   Bound: {};
 }>;
@@ -420,19 +453,15 @@ export type World = {
   readonly laneOfWait: ReadonlyMap<string, string>;
   readonly consumersOf: ReadonlyMap<string, ReadonlySet<string>>;
   readonly silenceOf: ReadonlyMap<string, TimerId>;
-  readonly chains: ReadonlyMap<number, Chain>;
+  readonly chains: ReadonlyMap<ChainId, Chain>;
+  readonly chainCount: number;
 };
 
 /**
  * The sends counted toward the loop guard for one admitted event, and that event, as the refusal
- * names it. An event or context update carries its chain's number, 0 for none.
+ * names it.
  */
 export type Chain = { readonly root: string; readonly sent: number };
-
-/**
- * The chain number of mail that follows no admitted event: it is admitted itself when served.
- */
-export const NO_CHAIN = 0;
 
 /**
  * How the loop guard's refusal names the admitted item a chain began with.
@@ -472,6 +501,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   consumersOf: new Map(),
   silenceOf: new Map(),
   chains: new Map(),
+  chainCount: 0,
 });
 
 /**
@@ -490,10 +520,9 @@ export const waitOf = (lane: Lane) =>
   });
 
 /**
- * The order incarnations started in: the counter their id was minted with.
+ * Orders incarnations by when they started.
  */
-export const startOrder = (incarnation: Incarnation) =>
-  Number(incarnation.id.slice(incarnation.id.lastIndexOf("-") + 1));
+export const byStart = (a: Incarnation, b: Incarnation) => a.started - b.started;
 
 /**
  * A world's indexes rebuilt from its facts by scanning: what the step operations keep up to date.

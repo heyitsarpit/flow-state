@@ -21,7 +21,8 @@ import { decodeRecords, encodeOwed, owedRecordKey } from "./record.ts";
 import type { Channel } from "./vocabulary.ts";
 import { makeTx } from "./tx.ts";
 import { Life } from "./life.ts";
-import { actorKey, byCodeUnits, emptyWorld, Mail, type World } from "./world.ts";
+import { activation, incarnation } from "./test/ids.ts";
+import { actorKey, byCodeUnits, emptyWorld, Mail, OwnedBy, type World } from "./world.ts";
 
 const encodeOwedText = (...args: Parameters<typeof encodeOwed>) =>
   Result.getOrThrow(encodeOwed(...args)).text;
@@ -36,10 +37,11 @@ const live = (world: World): World => ({
     [
       actorKey(actor),
       {
-        id: "inc-1",
+        id: incarnation("inc-1"),
+        started: 1,
         actor,
         state: "S",
-        activations: [7],
+        activations: [activation(7)],
         history: new Map(),
         issues: [],
         bound: new Map(),
@@ -71,7 +73,7 @@ const ending = (lane: Option.Option<string>, to: Audience = Audience.Identity())
   channel: "unknown" as const,
   reason: "Lost",
   value: undefined,
-  route: Route.From({ owner: 7 }),
+  route: Route.From({ owner: OwnedBy.State({ activation: activation(7) }) }),
 });
 
 const deliveries = (rows: ReadonlyArray<Owed>) => rows.map((r) => r.delivery._tag);
@@ -203,7 +205,7 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
   it("owe: Waiting, reported Parked, when no incarnation can hear; a gone incarnation's row closes as evidence", () => {
     const s = stepOver(emptyWorld(true));
     s.ledger.owe(ending(Option.none()));
-    s.ledger.owe(ending(Option.none(), Audience.Life({ incarnation: "inc-gone" })));
+    s.ledger.owe(ending(Option.none(), Audience.Life({ incarnation: incarnation("inc-gone") })));
 
     assert.deepStrictEqual(deliveries(s.rows()), ["Waiting"]);
     assert.deepStrictEqual(
@@ -280,7 +282,7 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     s.ledger.owe(ending(Option.none()));
     const retrying = s.ledger.owe(ending(Option.some("L")));
     const kept = s.ledger.owe(ending(Option.some("M")));
-    s.ledger.owe(ending(Option.some("N"), Audience.Life({ incarnation: "inc-1" })));
+    s.ledger.owe(ending(Option.some("N"), Audience.Life({ incarnation: incarnation("inc-1") })));
     s.tx.clearMail();
     s.ledger.tryOne(actor, retrying, hearAs("Refused"));
     s.tx.clearMail();

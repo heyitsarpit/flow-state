@@ -9,7 +9,7 @@ import {
   type ActorId,
   actorKey,
   Command,
-  startOrder,
+  byStart,
   type TicketId,
   Timer,
   type World,
@@ -140,7 +140,7 @@ export const makeDisposal = (
 // The live identities, each after every live consumer bound to it, in start order otherwise: the
 // order the Runtime's terminal evidence takes.
 const consumersFirst = (world: World) => {
-  const live = [...world.incarnations.values()].toSorted((a, b) => startOrder(a) - startOrder(b));
+  const live = [...world.incarnations.values()].toSorted(byStart);
 
   const consumersLeft = new Map(
     live.map((i) => [

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { definition, machine } from "../index.ts";
+import { activation } from "./test/ids.ts";
 import { LaneView, runTurn, TurnResult } from "./turn.ts";
 
 const Player = definition({
@@ -25,7 +26,7 @@ const turn = (late: boolean, from: number) =>
   runTurn({
     compiled,
     state: "ON.PLAYING",
-    activations: [1, 2],
+    activations: [activation(1), activation(2)],
     history: new Map(),
     memory: {},
     tag: "Saved",

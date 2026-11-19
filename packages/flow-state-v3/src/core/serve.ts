@@ -1,22 +1,72 @@
-import { Option, Result } from "effect";
+import { Data, Option, Result } from "effect";
 import { callSlot, type Mapping, Operation, type Values } from "./compiled.ts";
+import { defect } from "./defect.ts";
 import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { chainOf, historyAfter } from "./tree.ts";
-import { isInFlight, ROOT_ACTIVATION, type Tx } from "./tx.ts";
+import { isInFlight, type Tx } from "./tx.ts";
 import { type Heard, type LedgerSteps, type Owed, Route } from "./ledger.ts";
 import {
+  type ActivationId,
   actorKey,
   type Incarnation,
   type Issue,
   IssueSource,
   type Lane,
   Mail,
+  OwnedBy,
   withIssue,
   withoutIssue,
 } from "./world.ts";
+
+/**
+ * What a turn answers: a public or internal event, a schedule's firing, or an owed ending's mapped
+ * event, with the activation it is late for when that activation has been left. Only an ending's
+ * turn acts on its own lane.
+ */
+export type Cause = Data.TaggedEnum<{
+  Event: { tag: string };
+  Firing: { schedule: string };
+  Ending: { row: Owed; late: Option.Option<ActivationId> };
+}>;
+
+/**
+ * Constructors and matchers for {@link Cause}.
+ */
+export const Cause = Data.taggedEnum<Cause>();
+
+// The source whose issue a turn raises or clears.
+const sourceOf = (cause: Cause) =>
+  Cause.$match(cause, {
+    Event: ({ tag }) => IssueSource.Event({ tag }),
+    Firing: ({ schedule }) => IssueSource.Schedule({ name: schedule }),
+    Ending: ({ row }) => IssueSource.Operation({ name: row.operation }),
+  });
+
+// The lane a turn acts on as its owner: an ending's own lane, none otherwise.
+const ownLaneOf = (cause: Cause) =>
+  Cause.$match(cause, {
+    Event: () => Option.none<string>(),
+    Firing: () => Option.none<string>(),
+    Ending: ({ row }) => row.lane,
+  });
+
+const endingOf = (cause: Cause) =>
+  Cause.$match(cause, {
+    Event: () => Option.none<Owed>(),
+    Firing: () => Option.none<Owed>(),
+    Ending: ({ row }) => Option.some(row),
+  });
+
+const lateOf = (cause: Cause) =>
+  Cause.$match(cause, {
+    Event: () => Option.none<ActivationId>(),
+    Firing: () => Option.none<ActivationId>(),
+    Ending: ({ late }) => late,
+  });
+
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 
@@ -31,12 +81,19 @@ const UNMAPPED: Heard = "Unmapped";
  * a queue behind a Held head included. A late turn may not exit any of them.
  */
 export const pendingOwners = (lanes: Iterable<Lane>) => {
-  const owners = new Set<number>();
+  const owners = new Set<ActivationId>();
+
+  // The root is never left, so its work never strands a late turn.
+  const add = (owner: OwnedBy) =>
+    OwnedBy.$match(owner, {
+      Root: () => undefined,
+      State: ({ activation }) => void owners.add(activation),
+    });
 
   for (const lane of lanes) {
-    if (isInFlight(lane)) owners.add(lane.head.owner);
+    if (isInFlight(lane)) add(lane.head.owner);
 
-    for (const queued of lane.queue) owners.add(queued.owner);
+    for (const queued of lane.queue) add(queued.owner);
   }
 
   return owners;
@@ -91,14 +148,14 @@ export const makeServe = (
 
   // The depth a late ending is routed from: its owner's nearest surviving ancestor, which is the
   // deepest active state entered before the owner was (0 for the root).
-  const depthBelow = (incarnation: Incarnation, owner: number) =>
+  const depthBelow = (incarnation: Incarnation, owner: ActivationId) =>
     incarnation.activations.filter((a) => a < owner).length;
 
   // Counts a turn's sends toward the loop guard of the admitted event it follows; fails with the
   // refusal's slot, naming that event, when they would pass the guard.
   const counted = (count: number) => {
-    const id = tx.chainNow();
-    const chain = tx.world().chains.get(id) ?? { root: "", sent: 0 };
+    const id = Option.getOrElse(tx.chainNow(), () => defect("a turn sent outside a served item"));
+    const chain = tx.world().chains.get(id) ?? defect("a chain followed after it was cleared");
 
     if (chain.sent + count > RuntimeDefaults.loopGuard)
       return Result.fail(
@@ -110,20 +167,17 @@ export const makeServe = (
     return Result.succeed(id);
   };
 
-  const turn = (
-    incarnation: Incarnation,
-    tag: string,
-    payload: Values,
-    route: {
-      readonly late: Option.Option<number>;
-      readonly own: Option.Option<string>;
-      readonly ending: Option.Option<Owed>;
-      readonly source: IssueSource;
-    },
-  ) => {
+  const turn = (incarnation: Incarnation, tag: string, payload: Values, cause: Cause) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
     if (compiled === undefined) return HEARD;
+
+    const route = {
+      late: lateOf(cause),
+      own: ownLaneOf(cause),
+      ending: endingOf(cause),
+      source: sourceOf(cause),
+    };
 
     const owning = pendingOwners(tx.lanesOf(incarnation.actor).map(([, lane]) => lane));
 
@@ -212,7 +266,7 @@ export const makeServe = (
             return {
               ...stopNamed(incarnation, exited),
               state: move.leaf,
-              activations: [...kept, ...move.enters.map(() => tx.next())],
+              activations: [...kept, ...move.enters.map(() => tx.mintActivation())],
               history: historyAfter(incarnation.history, incarnation.state, move),
               memory: tx.env.admit(accepted.memory),
             };
@@ -225,12 +279,15 @@ export const makeServe = (
 
         // The work a transition starts is owned by the activation of the state it names: its
         // target's when it moves, its handler's otherwise, the root's at the root.
+        const ownerOf = (path: string) =>
+          Option.match(Option.fromUndefinedOr(after.activations[chainOf(path).length - 1]), {
+            onNone: () => OwnedBy.Root(),
+            onSome: (activation) => OwnedBy.State({ activation }),
+          });
+
         const owner = Option.match(accepted.move, {
-          onNone: () =>
-            accepted.handler === ""
-              ? ROOT_ACTIVATION
-              : (after.activations[chainOf(accepted.handler).length - 1] ?? ROOT_ACTIVATION),
-          onSome: (move) => after.activations[chainOf(move.target).length - 1] ?? ROOT_ACTIVATION,
+          onNone: () => (accepted.handler === "" ? OwnedBy.Root() : ownerOf(accepted.handler)),
+          onSome: (move) => ownerOf(move.target),
         });
 
         const members: Array<Member> = [];
@@ -309,7 +366,20 @@ export const makeServe = (
 
     tx.act(Act.Heard({ row: ending, event: mapping.value.event, actor: incarnation.actor }));
 
-    const source = IssueSource.Operation({ name: ending.operation });
+    // An ending is late when the activation it was routed from has been left.
+    const late = Route.$match(ending.route, {
+      Current: () => Option.none<ActivationId>(),
+      From: ({ owner }) =>
+        OwnedBy.$match(owner, {
+          Root: () => Option.none<ActivationId>(),
+          State: ({ activation }) =>
+            incarnation.activations.includes(activation)
+              ? Option.none<ActivationId>()
+              : Option.some(activation),
+        }),
+    });
+
+    const cause = Cause.Ending({ row: ending, late });
 
     if (Result.isFailure(payload)) {
       publish(
@@ -317,7 +387,7 @@ export const makeServe = (
           incarnation,
           tx.refuse(
             incarnation.actor,
-            { source, code: "InvalidTurn", slot: Option.some(payload.failure) },
+            { source: sourceOf(cause), code: "InvalidTurn", slot: Option.some(payload.failure) },
             Option.some(ending),
           ),
         ),
@@ -326,21 +396,7 @@ export const makeServe = (
       return REFUSED;
     }
 
-    // An ending is late when the activation it was routed from has been left.
-    const late = Route.$match(ending.route, {
-      Current: () => Option.none<number>(),
-      From: ({ owner }) =>
-        owner === ROOT_ACTIVATION || incarnation.activations.includes(owner)
-          ? Option.none<number>()
-          : Option.some(owner),
-    });
-
-    return turn(incarnation, mapping.value.event, payload.success, {
-      late,
-      own: ending.lane,
-      ending: Option.some(ending),
-      source,
-    });
+    return turn(incarnation, mapping.value.event, payload.success, cause);
   };
 
   const serve = (mail: Mail) =>
@@ -348,13 +404,7 @@ export const makeServe = (
       Event: ({ actor, tag, payload }) => {
         const incarnation = incarnationOf(actor);
 
-        if (incarnation !== undefined)
-          turn(incarnation, tag, payload, {
-            late: Option.none(),
-            own: Option.none(),
-            ending: Option.none(),
-            source: IssueSource.Event({ tag }),
-          });
+        if (incarnation !== undefined) turn(incarnation, tag, payload, Cause.Event({ tag }));
       },
       Firing: ({ actor, incarnation: id, schedule, arming }) => {
         const incarnation = incarnationOf(actor);
@@ -372,17 +422,7 @@ export const makeServe = (
         schedules.delete(schedule);
         const left = { ...incarnation, schedules };
         setIncarnation(left);
-        turn(
-          left,
-          armed.send,
-          {},
-          {
-            late: Option.none(),
-            own: Option.none(),
-            ending: Option.none(),
-            source: IssueSource.Schedule({ name: schedule }),
-          },
-        );
+        turn(left, armed.send, {}, Cause.Firing({ schedule }));
       },
       Context: ({ actor }) => incarnations.context.update(actor),
       Ending: ({ actor, id }) => {

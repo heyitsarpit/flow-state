@@ -2,15 +2,23 @@ import { type Brand, Data, Option } from "effect";
 import { Act } from "./evidence-of.ts";
 import type { RecordedWhy } from "./evidence.ts";
 import type { Persistence } from "./persist.ts";
-import { ROOT_ACTIVATION, type Tx } from "./tx.ts";
+import type { Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import { Life } from "./life.ts";
-import { type ActorId, actorKey, byCodeUnits, Mail, Phase } from "./world.ts";
+import {
+  type ActorId,
+  actorKey,
+  byCodeUnits,
+  type IncarnationId,
+  Mail,
+  OwnedBy,
+  Phase,
+} from "./world.ts";
 
 /**
  * Who may hear an owed ending: any incarnation of the identity, or one incarnation alone.
  */
-export type Audience = Data.TaggedEnum<{ Identity: {}; Life: { incarnation: string } }>;
+export type Audience = Data.TaggedEnum<{ Identity: {}; Life: { incarnation: IncarnationId } }>;
 
 /**
  * Constructors and matchers for {@link Audience}.
@@ -43,7 +51,7 @@ export type OwedId = string & Brand.Brand<"flow-state/OwedId">;
  * Where an owed ending's turn is routed from: the active leaf (current), or the activation that
  * owns the work, so the ending arrives late when that activation has been left.
  */
-export type Route = Data.TaggedEnum<{ Current: {}; From: { owner: number } }>;
+export type Route = Data.TaggedEnum<{ Current: {}; From: { owner: OwnedBy } }>;
 
 /**
  * Constructors and matchers for {@link Route}.
@@ -283,7 +291,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
     );
 
     for (const [id, lane] of lanes)
-      persistence.setLane(id, { ...lane, head: { ...lane.head, owner: ROOT_ACTIVATION } });
+      persistence.setLane(id, { ...lane, head: { ...lane.head, owner: OwnedBy.Root() } });
 
     for (const row of rowsOf(tx.world().owed, actor))
       if (Delivery.$is("Waiting")(row.delivery)) {

@@ -20,7 +20,7 @@ import {
   IssueSource,
   Mail,
   Timer,
-  startOrder,
+  byStart,
   type Use,
   type Wiring,
 } from "./world.ts";
@@ -52,7 +52,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     const schedules = new Map(incarnation.schedules);
 
     for (const a of deadlines) {
-      const arming = tx.next();
+      const arming = tx.mintArming();
 
       for (const armed of Option.toArray(Option.fromUndefinedOr(schedules.get(a.name))))
         disarm(armed.timer);
@@ -150,10 +150,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     const state = Option.match(from, { onNone: () => compiled.initial, onSome: (r) => r.state });
 
     const base: Incarnation = {
-      id: tx.mint("inc"),
+      ...tx.mintIncarnation(),
       actor,
       state,
-      activations: chainOf(state).map(() => tx.next()),
+      activations: chainOf(state).map(() => tx.mintActivation()),
       history: new Map(),
       memory: tx.env.admit(created.success),
       schedules: new Map(),
@@ -420,7 +420,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const graces = () => {
     const judged = [...tx.dirtyActors()]
       .flatMap((key) => Option.toArray(Option.fromUndefinedOr(tx.world().incarnations.get(key))))
-      .toSorted((a, b) => startOrder(a) - startOrder(b));
+      .toSorted(byStart);
 
     for (const incarnation of judged) {
       const busy =

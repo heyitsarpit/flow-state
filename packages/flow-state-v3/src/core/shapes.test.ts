@@ -1,40 +1,67 @@
-import { Option } from "effect";
+import { Brand, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
+import { Audience, Delivery, type Owed, type OwedId, Route } from "./ledger.ts";
 import { retiredOperation } from "./record.ts";
-import type { makeServe } from "./serve.ts";
-import { type Head, type Incarnation, IssueSource, laneId, Mail, NO_CHAIN } from "./world.ts";
+import { Cause } from "./serve.ts";
+import { activation, chain, incarnation } from "./test/ids.ts";
+import { type ActivationId, type Head, type Incarnation, laneId, Mail, OwnedBy } from "./world.ts";
 
 const actor = { machine: "Test/Shelf", name: "s" };
 
-type TurnRoute = Parameters<ReturnType<typeof makeServe>["turn"]>[3];
+const row: Owed = {
+  id: Brand.nominal<OwedId>()("owed-1"),
+  actor,
+  to: Audience.Identity(),
+  operation: "save",
+  attempt: Option.none(),
+  lane: Option.some(laneId(actor, "save", "{}")),
+  channel: "unknown",
+  reason: "Lost",
+  value: undefined,
+  route: Route.Current(),
+  delivery: Delivery.Queued(),
+};
 
-// Inverted: each line below compiles today, because the shape it writes is open text or an open
-// mix of Options. When the core's shapes are typed, each line fails the type check: put
-// `@ts-expect-error` on it, naming the rule it now enforces.
+// Each pair is a control that must compile and the wrong shape beside it, which must not.
+const typed = () => [
+  // Actors R13: only the mint makes an incarnation id; text is not one.
+  incarnation("inc-1") satisfies Incarnation["id"],
+  // @ts-expect-error Actors R13: a bare string is no incarnation id
+  "not minted" satisfies Incarnation["id"],
+
+  // Turn R21: the root owns its work by its tag, a state by its minted activation.
+  OwnedBy.Root() satisfies Head["owner"],
+  // @ts-expect-error Turn R21: the number 0 is no owner
+  0 satisfies Head["owner"],
+  activation(7) satisfies Incarnation["activations"][number],
+  // @ts-expect-error Turn R21: a bare number is no activation
+  7 satisfies Incarnation["activations"][number],
+
+  // Actors R13: mail that follows no chain says so; a chain is minted.
+  Mail.Event({ actor, tag: "Noted", payload: {}, chain: Option.none() }),
+  Mail.Event({ actor, tag: "Noted", payload: {}, chain: Option.some(chain(1)) }),
+  // @ts-expect-error Actors R13: the number 0 is no chain
+  Mail.Event({ actor, tag: "Noted", payload: {}, chain: 0 }),
+
+  // Turn R25, R21: only an ending's turn has a row, an own lane and lateness.
+  Cause.Ending({ row, late: Option.none<ActivationId>() }),
+  Cause.Event({ tag: "Noted" }),
+  // @ts-expect-error Turn R25: an event's turn carries no ending row
+  Cause.Event({ tag: "Noted", row }),
+  // @ts-expect-error Turn R21: a schedule's turn is never late
+  Cause.Firing({ schedule: "tick", late: Option.some(activation(1)) }),
+];
+
+// Inverted: this line compiles today, because a record-read reason is a free string. When reasons
+// are typed it fails the type check: replace it with the typed pair.
 const today = () => [
   // Actors R21: a misspelt record-read reason compiles while reasons are free strings.
   retiredOperation(actor, "lane/Test/Shelf/s|save|{}", "operaton"),
-  // Actors R13: any text is an incarnation id, so its start order can be parsed back out of it.
-  "not minted" satisfies Incarnation["id"],
-  // Actors R13: a lane id passes where an Attempt id is wanted.
-  laneId(actor, "save", "{}") satisfies Head["id"],
-  // Turn R21: the root's work is owned by the number 0, and any number is a state's activation.
-  0 satisfies Head["owner"],
-  7 satisfies Incarnation["activations"][number],
-  // Actors R13: mail that follows no chain carries the number 0.
-  Mail.Event({ actor, tag: "Noted", payload: {}, chain: NO_CHAIN }),
-  // Turn R25: a turn's route may name an own lane and lateness with no ending, under an event's
-  // source.
-  {
-    late: Option.some(1),
-    own: Option.some("lane"),
-    ending: Option.none(),
-    source: IssueSource.Event({ tag: "Noted" }),
-  } satisfies TurnRoute,
 ];
 
-describe("the core's open shapes (inverted until they are typed)", () => {
-  it("Actors R13, R21, Turn R25: the lines above compile today", () => {
-    expect(today()).toHaveLength(7);
+describe("the core's typed shapes", () => {
+  it("Actors R13, R21, Turn R21, R25: the controls above compile and the wrong shapes do not", () => {
+    expect(typed()).toHaveLength(13);
+    expect(today()).toHaveLength(1);
   });
 });

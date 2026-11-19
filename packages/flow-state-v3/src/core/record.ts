@@ -21,6 +21,7 @@ import {
   type Lane,
   actorKey,
   byCodeUnits,
+  OwnedBy,
   Phase,
 } from "./world.ts";
 
@@ -319,7 +320,7 @@ export const decodeRecords = (
                       id: attempt,
                       input,
                       retryCount: r.retryCount,
-                      owner: 0,
+                      owner: OwnedBy.Root(),
                       phase: Phase.Held(),
                     },
                     queue: [],

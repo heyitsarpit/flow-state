@@ -10,12 +10,14 @@ import { Life } from "./life.ts";
 import { makePersistence } from "./persist.ts";
 import { step } from "./step.ts";
 import { Input } from "./input.ts";
-import { makeTx, ROOT_ACTIVATION } from "./tx.ts";
+import { makeTx } from "./tx.ts";
+import { activation, incarnation } from "./test/ids.ts";
 import {
   actorKey,
   Command,
   emptyWorld,
   type Marks,
+  OwnedBy,
   Phase,
   type Ticket,
   Timer,
@@ -81,10 +83,11 @@ const stepOver = (
       [
         actorKey(actor),
         {
-          id: "inc-1",
+          id: incarnation("inc-1"),
+          started: 1,
           actor,
           state: "OPEN",
-          activations: [1],
+          activations: [activation(1)],
           history: new Map(),
           issues: [],
           bound: new Map(),
@@ -286,7 +289,7 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
   first.persistence.setLane("lane-1", {
     actor,
     operation: "ring",
-    head: { id: "att-1", input: {}, retryCount: 0, owner: ROOT_ACTIVATION, phase: Phase.Held() },
+    head: { id: "att-1", input: {}, retryCount: 0, owner: OwnedBy.Root(), phase: Phase.Held() },
     queue: [],
   });
   first.persistence.saveActor(actor);
@@ -350,7 +353,7 @@ it("Actors R8, WriteAhead I11: a free actor whose actor record cannot encode doe
 
   const graced = {
     ...heard.tx.out().world,
-    timers: new Map([[grace, Timer.Grace({ actor, incarnation: "inc-1" })]]),
+    timers: new Map([[grace, Timer.Grace({ actor, incarnation: incarnation("inc-1") })]]),
   };
 
   const out = step(machines, graced, Input.Fired({ timer: grace }), {
@@ -370,10 +373,11 @@ const twoOver = (memory: Readonly<Record<string, unknown>>) => {
   const first = stepOver(memory);
 
   first.tx.putIncarnation({
-    id: "inc-2",
+    id: incarnation("inc-2"),
+    started: 2,
     actor: other,
     state: "OPEN",
-    activations: [2],
+    activations: [activation(2)],
     history: new Map(),
     issues: [],
     bound: new Map(),
@@ -465,7 +469,7 @@ it("WriteAhead R13: a ticket whose identity's actor record stops encoding before
   const lane = {
     actor,
     operation: "ring",
-    head: { id: "att-1", input: {}, retryCount: 0, owner: ROOT_ACTIVATION, phase: Phase.Unsent() },
+    head: { id: "att-1", input: {}, retryCount: 0, owner: OwnedBy.Root(), phase: Phase.Unsent() },
     queue: [],
   };
 

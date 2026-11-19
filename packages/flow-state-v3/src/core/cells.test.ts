@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { Brand, Option } from "effect";
 import { describe, it } from "vite-plus/test";
 import { Cue, cell, LaneState, Move, table } from "./cells.ts";
-import { type CallId, Phase, sentBefore, type TicketId } from "./world.ts";
+import { type CallId, OwnedBy, Phase, sentBefore, type TicketId } from "./world.ts";
 
 const ticket = Brand.nominal<TicketId>()("ticket-1");
 
@@ -12,7 +12,7 @@ const head = (phase: Phase, sent = false) => ({
   id: "att-1",
   input: { tone: "a" },
   retryCount: sent ? 1 : 0,
-  owner: 0,
+  owner: OwnedBy.Root(),
   phase,
 });
 
@@ -86,7 +86,7 @@ const rows: ReadonlyArray<{
   {
     cue: "commit",
     sent: false,
-    of: Cue.CommitReject({ input: {}, owner: 0 }),
+    of: Cue.CommitReject({ input: {}, owner: OwnedBy.Root() }),
     expected: { ...allOf("Decline Rejected"), Idle: "Mint" },
   },
   // commit under latest: Idle mints; Acknowledging and Unsent end the head Superseded and the
@@ -94,7 +94,7 @@ const rows: ReadonlyArray<{
   {
     cue: "commit-latest",
     sent: false,
-    of: Cue.CommitLatest({ input: {}, owner: 0 }),
+    of: Cue.CommitLatest({ input: {}, owner: OwnedBy.Root() }),
     expected: {
       ...allOf("Queue latest"),
       Idle: "Mint",
@@ -106,7 +106,7 @@ const rows: ReadonlyArray<{
   {
     cue: "commit-serialize",
     sent: false,
-    of: Cue.CommitSerialize({ input: {}, owner: 0 }),
+    of: Cue.CommitSerialize({ input: {}, owner: OwnedBy.Root() }),
     expected: { ...allOf("Queue"), Idle: "Mint" },
   },
   // commit under cancel: Idle mints; Acknowledging and Unsent end the head Superseded;
@@ -115,7 +115,7 @@ const rows: ReadonlyArray<{
   {
     cue: "commit-cancel",
     sent: false,
-    of: Cue.CommitCancel({ input: {}, owner: 0 }),
+    of: Cue.CommitCancel({ input: {}, owner: OwnedBy.Root() }),
     expected: {
       Idle: "Mint",
       Acknowledging: "Replace Superseded",
@@ -133,7 +133,7 @@ const rows: ReadonlyArray<{
   {
     cue: "retry",
     sent: false,
-    of: Cue.Retry({ owner: 0 }),
+    of: Cue.Retry({ owner: OwnedBy.Root() }),
     expected: { ...allOf("Stay"), Held: "Owe" },
   },
   // cancel: Idle nothing; Acknowledging goes Withdrawing; Unsent ends NotSent { Cancelled };
