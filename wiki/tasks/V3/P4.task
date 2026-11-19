@@ -1957,6 +1957,69 @@ tasks
 
             Extra files: fixtures/services/shop/server/layer.ts, fixtures/sync/{index,stories/usual}.ts,
             src/host/runtime.test.ts, wiki/conventions/fixture-catalog.md.
+        comment     2026-11-19T04:54:18Z
+            Requirements review: ISSUES (independent lead, 2026-11-19). Five blocking findings, three of them wrong
+            drops, each naming the missing coverage; the kept checks hold. Suite exit 0 (1240 passed, 38 expected fail),
+            `nub run check` exit 0. All 8 `it.fails` in `tests/actors/runtime-life.test.ts` replayed as plain tests:
+            each red at its stated line (`interrupt-cleanup-fails` past its unknown Disposed check). The 5 runPromise
+            host tests share one red (no `runPromise`), as stated.
+
+            Blocking:
+            1. Wrong drop, T96's kept quarantine: it reproduces. With a batch already out (`Fake.storage.hold()`, then a
+               change that writes), `dispose(renewalPay)` over an undecodable record and a send drop RecordUndecodable,
+               not the NoRecord R20 requires "whether or not the removal is acknowledged". The lead's probe had no batch
+               out, so the removal was captured at once. Only a capture drops the entry
+               (code:packages/flow-state-v3/src/core/persist.ts#capture); `dispose` never does
+               (code:packages/flow-state-v3/src/core/incarnations.ts#dispose). Missing: `renewalDamagedPay` with a held
+               batch before the dispose, then a send and an ensure.
+            2. Wrong drop, T96's mail item: queued mail is not dropped at `disposeActor`. `Mail.Event` names no
+               incarnation and `dispose` and `retire` leave the box, so mail the dispose step's drain leaves (past
+               `drainYield`) reaches a new incarnation when `ensureActor` runs before the yielded Serve
+               (code:packages/flow-state-v3/src/host/driver.ts#makeDriver), against R10's last sentence and its delivery
+               order. Read, not run. Missing: more than `drainYield` mail queued, then `disposeActor` and `ensureActor`
+               in one host task.
+            3. Wrong drop, consumers before providers: the order is observable twice. (a) The Scope releases the
+               services Layer before the FiberMap interrupts calls (FiberMap registered at construct, services built
+               later; a Scope closes last in, first out), and the bound's cancel does not await its fiber, so a call's
+               interrupt cleanup can run on released services: a CleanupFailed that is the order's, or one hidden. Q2's
+               interrupt case and design B's "close the Scope" inherit this. (b) @plan.Inspection.O3 promises terminal
+               lifecycle evidence for consumers before providers at Runtime disposal; Runtime disposal emits none per
+               identity. Missing: calls interrupted and awaited before services release, with a Story whose interrupt
+               cleanup uses its service; and per-identity terminal evidence consumers first, or that Plan line proposed
+               for the user's read.
+            4. Missed requirement: unbound lane records are "reported at each boot" (@plan.Runtime.O6, Actors R20), and
+               no boot report exists (code:packages/flow-state-v3/src/core/incarnations.ts#boot reports only quarantined
+               records). Q1 checks listing only. Missing: a report per unbound lane at each boot (Restore R6 proposes
+               UnboundLane), or a drop with its reason.
+            5. Fixtures: the proof leaves "a third app for each" (CleanupFailed, HoldForgotten; fixtures.md requirement
+               6), but no catalog item tracks it. The coverage matrix was not regenerated: `forget`, `unsettledWrites`
+               still read `.` for shop and sync. The CleanupFailed and HoldForgotten proof lines omit combos. Missing:
+               the catalog items and the regenerated matrix.
+
+            Not blocking: the Life table has no runPromise input; name it as the call row, so I42's totality covers it.
+            Q4 checks RuntimeDisposed only after dispose resolves; add a call while Disposing. The IdentityExhausted
+            drop is right (per-open counters, seeded ids), but Actors R24 and Runtime C2 still promise it and
+            @plan.Pending has nothing; amend R24 as proposed. O5's issue code: the Plan says UnencodableValue, while the
+            code and R18 say Defect; record the Plan fix as proposed. The Q5 ref quarantine is owed to the user.
+
+            Drops that hold: ready, ensure and create (`ensure-while-disposing-runs`); idempotence; queued events
+            (`disposal-queue-cancelled`); no machine event; the send booting row (Boot opens before waking, and the boot
+            runs no turn); O5's three (selection keeps its last context, memory moves only by a patch, R9's restore wave
+            reconciles a mid-wave capture); Turn R1 and T16; R1's per-operation refusal (a cast caller is
+            @task.V3.T98's); T96 items 2, 4 and 5; Actors faults (@task.V3.T101 done). The design is right once 3(a)
+            fixes its close order: the Deferred must complete only after every forked fiber's Exit is judged.
+
+            Sidecars (5 Haiku, effort high), each finding verified:
+            - blind (description, O6, Actors only): its list matched the lead's kept set, plus the boot report
+              (accepted, 4). Rejected for T99: the Plan versus R20 acknowledgement wording, local actors' NotSent, and
+              R14 versus R22. They predate T99, and their owners are elsewhere.
+            - T96 paths: accepted the quarantine (reproduced, 1) and surviving mail (verified in code, 2). Rejected
+              stopped reads' Interrupted: it needs Reads' proposed `stopped:`, which is not T99's.
+            - disposal order: accepted Scope order and Inspection O3 (3).
+            - fixtures.md: accepted the third app, matrix and combos (5). Rejected sign-out fit (@plan.Runtime.O7 makes
+              a new user a new Runtime) and the port fakes, as the lead ruled.
+            - drops (O5, booting, ids, R1): accepted as holding. Changed IdentityExhausted and the O5 code into
+              record notes.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
