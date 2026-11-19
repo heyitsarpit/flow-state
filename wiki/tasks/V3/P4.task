@@ -2586,3 +2586,56 @@ tasks
               bigint fixture.
             - The memory, evidence and lost sidecars' findings were all checked again here. The evidence sidecar's
               literal count (8) and the lost sidecar's count (37 in 12) replace the requirements' numbers.
+        comment     2026-11-19T12:34:38Z
+            Requirements, revised after the review (proposed): replaces the earlier list; one per acceptance line, each
+            red today.
+
+            1. Typed read (C1; @plan.Testing.O4 read(target)): `Cut.read(ref)` returns `Snapshot<D> | undefined`,
+               `state` the definition's leaf union and `memory` its `MemoryOf`, private fields included. Checks: a
+               compile test where a misspelt field and a foreign state literal fail (red: `memory` is `Values`);
+               standing-order's DateFromString fields, read as `read(rent)?.memory.pausedUntil`, are typed `Date | null`
+               and are a `Date` before and after a reload. Stops: a misspelt field read as undefined passing
+               `toBeUndefined()`; a cast over an encoded string. No decode: memory holds Type values (review confirmed).
+               A quarantined record whose fresh start is refused holds `{}`, which is no typed memory: `read` fails the
+               test with StoryFailed naming the refused start instead of claiming one (red: returns `{}` as memory).
+               Sibling `publishedOf(run, ref)` types Published records the same way.
+            2. No hand reads: no `memory["..."]` and no snapshot cast in `tests/` or `fixtures/`; the number-input and
+               command-palette `reads.ts` helpers deleted. Red: 126 sites in 28 files, 2 cast helpers.
+            3. Evidence by token (C3): `turnsOf(run, Def.E.X, { actor? })` gives the Turn records of that definition's
+               actors for that event; `evidenceOf(run, Def.E.X, { actor? })` gives every record naming it (Turn,
+               Delivered, Unhandled, Denied, SendTargetAbsent), which callers narrow by `_tag`. One sibling covers every
+               kind, so number-input's Turn-or-Unhandled filter becomes `evidenceOf(run, Stepper.E.WheelDue)` filtered
+               to those two tags, and the Delivered filters use it too. The token's definition is kept by
+               `src/definition.ts` beside the token, so lanes' two `Unsure` events never match each other. Checks: a
+               compile test where a misspelt token, a string and, with `actor`, another definition's token fail (red: no
+               word); a lint rule flags an evidence record's `.event` compared with `===` or `!==` to anything, literal
+               or variable, or passed to `has` or `includes`, in tests and fixtures (red: 8 literal sites plus the
+               variable ones). The helpers that return event names for string filtering go: `tests/actors/sends.ts`
+               `turnsOf` (its callers in renewals, checkout-sends and household compare `e === "X"`),
+               `context.test.ts`'s `turnsOf(seen, event: string)` and renewals' `isRenewal`; each caller selects by
+               token. `tests/rules/reloads.ts`'s `turnsOf` (no event filter) is renamed to `reactionTurnsOf` so no test
+               helper shadows the word. Stops: a renamed event emptying a filter that `toHaveLength(0)` or
+               `not.toContain` then passes.
+            4. Lost error (C2): `Fake.server(name, { truth, initial, endpoints, controls?, lost: () => PortError })`,
+               `lost` required; a served endpoint fails with its failure or the lost error, never `FakeLost` unless the
+               server names it. Checks: a compile test where a server without `lost` fails and `catchTag("FakeLost",
+               ...)` on a served endpoint of a port-named server fails (red: `lost` is an excess property; FakeLost is
+               in every endpoint's error). Every existing `Fake.server` type test (`tests/stories/fake.test.ts`) gets
+               its `lost`, so each `@ts-expect-error` still fails for its stated reason (the bad `initial` at line 65
+               included). A server with no endpoints, such as story.test's `Thrower`, declares `lost: () => new
+               Fake.Lost()`: one rule for every server, no optional-when-empty special case, and `Fake.Lost` stays the
+               error for a server with no port. The lose, drop and offline Stories still end with the port's own error;
+               the planted resend in `tests/generated/planted.ts` catches the port's tag. Fake endpoints declare the
+               port's error classes, so the six per-method remaps of their TaggedStruct failures go (player Unavailable,
+               git RateLimited twice, sign-in Taken, Throttled, WrongCode). Red: 37 FakeLost lines in 12 files (17 in
+               tests). Stops: a layer that forgets the mapping and leaks FakeLost into an ending the contract never
+               declared. Shop's CardDeclined, Busy, IntentBusy, OrderExists and AlreadyCaptured stay TaggedStructs,
+               answered unmapped.
+            5. Words and gates: a @plan.Pending decision each for typed `read`, `publishedOf`, `turnsOf`, `evidenceOf`
+               and `lost`; faults planted and caught by name: a read that encodes memory, a `turnsOf` that ignores the
+               definition, a world that fails a lost call with FakeLost; `nub run check` at zero, the suite and the
+               stress runs pass.
+
+            Fixtures (code:wiki/conventions/fixtures.md): no runtime feature changes and no fixture is added; the proof
+            is the converted Stories. Extra files: `src/definition.ts`, `src/events.ts`, `src/index.ts` (the generic
+            `Snapshot`), `tools/flow-state-lint/` (the rule).
