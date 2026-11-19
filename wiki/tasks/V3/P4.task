@@ -3013,3 +3013,11 @@ tasks
             undefined, 498 sites), F6 with F8, F2 Ending<V>, F3, F7, the three seams with duplicated shapes, then the
             cast sweep (74 removable now, 9 after carriers; three false SAFETY comments). New public type parameters are
             delegated (users rarely write them) and noted for the user's read.
+        comment     2026-11-19T14:38:59Z
+            Scope addition (type-coverage probe, code:wiki/plans/flow/references/proposals/type-coverage-2026-11-19.md):
+            all 9 families confirmed on user-shaped code, ranked by uses (F4 refs 3,007; F9 excess keys 431; F3 token
+            brand 290; F2 endings 238; F1 handles 137); 17 new gaps added, all probe-confirmed, worst
+            ReadEndings.failure any key, Flow.initial's untyped fields, checkpoint names lost through run({ steps }) and
+            StoryRun helpers, a guard's state as string. Guard: turn on the type-aware no-unsafe-* lint rules (about 18
+            fixes, 8 reasoned disables); noPropertyAccessFromIndexSignature and a type-coverage threshold are not worth
+            it; T104's two-sided type tests stay the gate.
