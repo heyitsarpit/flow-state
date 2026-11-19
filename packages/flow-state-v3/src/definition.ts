@@ -4,7 +4,7 @@ import type { Row } from "./core/rows.ts";
 import { atOrBelow, chainOf } from "./core/tree.ts";
 import type { Bound, Ending, Fields } from "./contract.ts";
 import { fieldsOf, tokensOf, trusted } from "./events.ts";
-import { type GuardArg, readHandle, type SelectArg, writeHandle } from "./handles.ts";
+import { type GuardArg, readHandle, type SelectArg, type SendArg, writeHandle } from "./handles.ts";
 import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
 import { flowErrorOf, raise, refuse } from "./error.ts";
 import { builder, entry } from "./entry.ts";
@@ -204,6 +204,16 @@ export type ActionToken = {
 };
 
 /**
+ * A send in an alternative's `actions`: the target's ref and the event, each computed when the turn
+ * runs.
+ */
+export type SendToken<M = never, P = never> = {
+  readonly "~flow": "send";
+  readonly to: (input: SendArg<M, P>) => ActorRef;
+  readonly event: (input: SendArg<M, P>) => Envelope;
+};
+
+/**
  * An operation's guard (`O.x.idle`, `O.x.retryable`) in an alternative's `guard`.
  */
 export type GuardToken = {
@@ -253,7 +263,8 @@ export type GuardElement<M, P> =
   | ((input: GuardArg<M, P>) => true | Denial);
 
 /**
- * One alternative of a handler: its target, guards, memory patch and actions.
+ * One alternative of a handler: its target, guards, memory patch and actions: lane members,
+ * lookups and sends, in written order.
  */
 export type AlternativeConfig<M, P, S extends string, W = M> = {
   readonly target?: StateToken<S> | HistoryToken<S> | "self";
@@ -263,7 +274,7 @@ export type AlternativeConfig<M, P, S extends string, W = M> = {
     readonly event: P;
     readonly now: number;
   }) => Partial<W>;
-  readonly actions?: ReadonlyArray<ActionToken>;
+  readonly actions?: ReadonlyArray<ActionToken | SendToken<M, P>>;
 };
 
 type OneAlternative<M, P, S extends string, W> =
@@ -635,4 +646,15 @@ export type AnyDefinition = {
 export type Machine<D extends AnyDefinition = AnyDefinition> = {
   readonly definition: D;
   readonly compiled: Compiled;
+};
+
+/**
+ * A shared actor's name: its machine and either the literal name of a machine with no input, or
+ * the value that carries a machine's input fields.
+ */
+export type ActorRef<D extends AnyDefinition = AnyDefinition> = {
+  readonly machine: Machine<D>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a value ref's value is the caller's, checked at the boundary that uses it.
+  readonly value: unknown;
+  readonly context: Readonly<Record<string, ActorRef>>;
 };

@@ -1,18 +1,28 @@
 import { Option } from "effect";
-import { benchPoint, manifest } from "../manifest.ts";
-import { musicTimed, musicTimedSetup } from "./app.ts";
+import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
+import { musicHome, musicHomeSetup } from "./app.ts";
 import { samples, seededStress, sleepTimer, stories, timerSamples } from "./stories/usual.ts";
 import { emptyRoom, longRoomPlays, seekEdges, sleepTimerEdges } from "./stories/edges.ts";
 import { sixteenRooms, sixteenTimers, roomOf } from "./stories/load.ts";
 import { roomDisposed, roomReloaded } from "./stories/structure.ts";
+import {
+  groupBadRoom,
+  groupInGrace,
+  groupOfSixtyFour,
+  groupPlay,
+  groupRoomEnded,
+  groupReplays,
+  groupRoomsAbsent,
+  householdSamples,
+} from "./stories/sends.ts";
 
 /**
  * The player fixture, as every runner reads it.
  */
 export const player = manifest({
   name: "player",
-  setup: musicTimedSetup,
-  app: musicTimed,
+  setup: musicHomeSetup,
+  app: musicHome,
   stories: {
     ...stories,
     sixteenRooms,
@@ -24,9 +34,16 @@ export const player = manifest({
     sleepTimer,
     sleepTimerEdges,
     sixteenTimers,
+    groupPlay,
+    groupInGrace,
+    groupRoomEnded,
+    groupRoomsAbsent,
+    groupBadRoom,
+    groupOfSixtyFour,
+    groupReplays,
   },
-  samples: [samples, timerSamples],
-  stressSamples: [samples, timerSamples],
+  samples: [samples, timerSamples, householdSamples],
+  stressSamples: [samples, timerSamples, householdSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),
@@ -35,6 +52,7 @@ export const player = manifest({
     probe: (n) => roomOf(n),
     persist: Option.none(),
     stories: [
+      benchStress(benchTurn(() => groupReplays)),
       benchPoint(() => longRoomPlays, {
         series: "room-length",
         n: 1_000_000,

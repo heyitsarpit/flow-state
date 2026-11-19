@@ -6,6 +6,7 @@ import { CartMachine } from "./machines/cart.ts";
 import { CartBadgeMachine } from "./machines/cart-badge.ts";
 import { CheckoutFlowMachine } from "./machines/checkout-flow.ts";
 import { ShopperMachine } from "./machines/shopper.ts";
+import { BuyNowMachine } from "./machines/buy-now.ts";
 import { ShopLive } from "../services/shop/adapters/shop.ts";
 
 /**
@@ -103,6 +104,30 @@ export const store = app({
  */
 export const storeSetup = runtimeSetup({
   app: store,
+  services: Layer.mergeAll(ShopLive("https://shop.example"), CartLive("https://cart.example")),
+  scope: "shop",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The product page's one-click buy button.
+ */
+export const buyNow = actorRef(BuyNowMachine, "buy-now");
+
+/**
+ * The shop grown with the product page's one-click buy button.
+ */
+export const storeExpress = app({
+  id: "shop",
+  machines: { ...store.machines, buyNow: BuyNowMachine },
+});
+
+/**
+ * The grown shop's real setup: the payments and cart services over HTTP, persisted, each capture
+ * written at once.
+ */
+export const storeExpressSetup = runtimeSetup({
+  app: storeExpress,
   services: Layer.mergeAll(ShopLive("https://shop.example"), CartLive("https://cart.example")),
   scope: "shop",
   persistence: { captureMs: 0 },

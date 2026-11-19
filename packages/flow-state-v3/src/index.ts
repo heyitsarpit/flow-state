@@ -11,6 +11,8 @@ export { definition } from "./definition.ts";
 
 export { machine } from "./machine.ts";
 
+export { send } from "./send.ts";
+
 export type { Definition, Machine } from "./definition.ts";
 
 export { Diagnostic, FlowError } from "./error.ts";

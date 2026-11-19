@@ -5,6 +5,7 @@ import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { SpeakerHttp } from "./adapters/speaker.ts";
 import { PlayerMachine } from "./machines/player.ts";
 import { SleepTimerMachine } from "./machines/sleep-timer.ts";
+import { HouseholdMachine } from "./machines/household.ts";
 
 /**
  * The player app: one machine.
@@ -48,5 +49,31 @@ export const musicTimed = app({
  */
 export const musicTimedSetup = runtimeSetup({
   app: musicTimed,
+  services: SpeakerHttp("https://speaker.example").pipe(Layer.provide(FetchHttpClient.layer)),
+});
+
+/**
+ * The household that plays groups of rooms.
+ */
+export const household = actorRef(HouseholdMachine, "home");
+
+/**
+ * The player of a named room.
+ */
+export const room = (name: string) => actorRef(PlayerMachine, { room: name });
+
+/**
+ * The player app grown with the household around the rooms and their sleep timers.
+ */
+export const musicHome = app({
+  id: "music",
+  machines: { player: PlayerMachine, timers: SleepTimerMachine, household: HouseholdMachine },
+});
+
+/**
+ * The grown player app's real setup: the speaker over HTTP, with no persistence.
+ */
+export const musicHomeSetup = runtimeSetup({
+  app: musicHome,
   services: SpeakerHttp("https://speaker.example").pipe(Layer.provide(FetchHttpClient.layer)),
 });

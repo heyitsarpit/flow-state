@@ -2,6 +2,7 @@ import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { GitLive } from "../services/git/adapters/git.ts";
 import { SyncMachine } from "./machines/sync.ts";
 import { RepoMachine } from "./machines/repo.ts";
+import { MirrorMachine, MirrorStatusMachine } from "./machines/mirror.ts";
 
 /**
  * The sync app: one machine.
@@ -44,6 +45,21 @@ export const repoOf = (n: number) =>
   );
 
 /**
+ * The push mirror of remote `a`.
+ */
+export const mirrorA = actorRef(MirrorMachine, { remote: "a" });
+
+/**
+ * The push mirror of remote `b`.
+ */
+export const mirrorB = actorRef(MirrorMachine, { remote: "b" });
+
+/**
+ * The status line of mirror `a`.
+ */
+export const statusA = actorRef(MirrorStatusMachine, "status-a");
+
+/**
  * The Git app grown with open repositories around the sync client.
  */
 export const gitGrown = app({
@@ -59,5 +75,26 @@ export const gitGrown = app({
  */
 export const gitGrownSetup = runtimeSetup({
   app: gitGrown,
+  services: GitLive("https://git.example"),
+});
+
+/**
+ * The Git app grown further with push mirrors and a mirror's status line.
+ */
+export const gitMirrored = app({
+  id: "git",
+  machines: {
+    sync: SyncMachine,
+    repo: { machine: RepoMachine, context: { head: client, cooling: client } },
+    mirror: MirrorMachine,
+    status: { machine: MirrorStatusMachine, context: { seen: mirrorA } },
+  },
+});
+
+/**
+ * The mirrored Git app's real setup: the Git host over HTTP, with no persistence.
+ */
+export const gitMirroredSetup = runtimeSetup({
+  app: gitMirrored,
   services: GitLive("https://git.example"),
 });

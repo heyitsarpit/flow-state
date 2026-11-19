@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { definition, Flow, machine } from "../../../src/index.ts";
+import { actorRef, definition, Flow, machine, send } from "../../../src/index.ts";
 import { SyncMachine } from "./sync.ts";
 
 const Sync = SyncMachine.definition;
@@ -13,7 +13,7 @@ export const Repo = definition({
   id: "Git/Repo",
   persist: false,
   states: ["OPEN"],
-  events: { SetToken: { token: Schema.String } },
+  events: { SetToken: { token: Schema.String }, Commit: {}, PushSeen: {} },
   internalEvents: { HeadSeen: { head: Schema.String }, LimitSeen: { limited: Schema.Boolean } },
   memory: {
     repo: Flow.input(Schema.String),
@@ -28,8 +28,11 @@ export const Repo = definition({
   },
 });
 
+const toClient = () => actorRef(SyncMachine, "client");
+
 /**
- * The repository: each new head its client reads is counted, and its backoff shown.
+ * The repository: each new head its client reads is counted, and its backoff shown; a commit tells
+ * the main client to sync it, and a push the host reports tells the client it was pushed.
  */
 export const RepoMachine = machine(Repo, ({ S, E }) => ({
   default: S.OPEN,
@@ -45,6 +48,12 @@ export const RepoMachine = machine(Repo, ({ S, E }) => ({
   ],
   on: {
     SetToken: { updateMemory: ({ event }) => ({ token: event.token }) },
+    Commit: {
+      actions: [send(toClient, ({ memory }) => ({ _tag: "SyncRepo", repo: memory.repo }))],
+    },
+    PushSeen: {
+      actions: [send(toClient, ({ memory }) => ({ _tag: "Pushed", repo: memory.repo }))],
+    },
     HeadSeen: {
       updateMemory: ({ memory, event }) => ({ lastHead: event.head, heads: memory.heads + 1 }),
     },

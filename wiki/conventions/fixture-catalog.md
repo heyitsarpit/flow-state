@@ -68,12 +68,12 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | an Effect `Schedule` as `schedule`                            |. |. |. |2 |. |. |. |. |. |. |. |. |2 |. |4 |. |
 | `props`, `onProps`                                            |. |. |. |. |. |. |. |5 |6 |. |. |5 |. |8 |. |. |
 | `emits`, `onEmit`                                             |. |. |. |. |. |3 |. |3 |6 |. |. |5 |. |8 |. |. |
-| `context`, `onContext`, `Provider.select`                     |1 |. |. |. |1 |1 |U |. |. |. |. |. |2 |2 |4 |4 |
+| `context`, `onContext`, `Provider.select`                     |1 |. |. |. |1 |1 |U |1 |. |. |. |. |2 |2 |4 |4 |
 | `ContextCycle`, `MissingContextProvider`                      |. |. |. |. |. |. |1 |. |. |. |. |. |2 |15|4 |. |
 | `ConflictingActorRef`, duplicate `.each` key, missing service |1 |. |. |. |. |. |. |. |. |. |. |4 |. |2 |. |. |
 | `createActor`, `disposeActor`                                 |. |. |. |. |1 |. |. |5 |6 |. |. |4 |. |2 |8 |8 |
 | `useActor` (React)                                            |. |. |. |. |. |18|. |18|18|. |. |18|. |18|18|. |
-| `send(ref, event)`                                            |1 |. |. |1 |1 |. |. |1 |. |1 |. |. |. |8 |. |. |
+| `send(ref, event)`                                            |1 |. |. |1 |. |. |. |. |. |1 |. |. |. |8 |. |. |
 | a deep mailbox, no ending lost                                |. |. |1 |. |. |. |1 |. |. |. |. |. |. |. |4 |. |
 | `forget`, `unsettledWrites`                                   |. |. |. |. |U |1 |. |. |. |. |. |. |. |. |. |4 |
 | `late` handlers, `LateMayNotLeave`                            |4 |. |. |. |. |. |. |. |. |. |. |4 |. |. |. |4 |
@@ -144,9 +144,13 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
   - `Cart` ⇢ its item count and whether it waits on the cart service (`count`, `busy`).
   - `CartBadge` (step 1), shared, ⇠ `cart`: the item count as context, bumping on each change.
   - `CheckoutFlow` (step 1), shared per cart, ⇠ `shopper`. Its steps are address → shipping → pay under `history`;
-    ⇠ `count` and `busy` from `Cart`, and ⇠ `payment`: `Checkout/Pay`'s state, which ends the flow at PAID. Sending
-    `CardChosen` and `PayRequested` to `Checkout/Pay` waits on an actor-to-actor send action. From step 2,
+    ⇠ `count` and `busy` from `Cart`, and ⇠ `payment`: `Checkout/Pay`'s state, which ends the flow at PAID. Its
+    `PayWith` sends `CardChosen` then `PayRequested` to `Checkout/Pay` (one event and one handler added: the product
+    pays from its pay step). From step 2,
     `AddressForm` is a trait on its address step and `ThreeDSecure` a `subroutine` in its pay step.
+  - `BuyNow` (step 1), shared, unpersisted: the product page's one-click button; `Buy` sends `CardChosen` then
+    `PayRequested` to `Checkout/Pay`. It holds no context binding to Pay, so the send table's persisted rows have a
+    target that can end, be forgotten or be disposed.
   - `ProductPage` (step 18), local, server rendered.
 - **Operations:**
   - R: `intentStatus` (have), `orderForCart` (have), `product` (step 4), `cart` (step 4), `addressLookup` (step 4).
@@ -170,7 +174,7 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     `S.previous.history` (Back into `CheckoutFlow`'s shipping step restores its sub-step); `Flow.input` value-named
     actors (`Cart`, named by shopper); guards, `deny`, `check` (`CheckoutFlow` checks the cart isn't empty); `context`,
     `onContext`, `Provider.select` (`Cart` and `CheckoutFlow` ⇠ `shopper`); `ConflictingActorRef`, duplicate `.each`
-    key, missing service (a second `Cart` ref with another shopper, refused); `send(ref, event)` (`CheckoutFlow` sends
+    key, missing service (a second `Cart` ref with another shopper, refused); `send(ref, event)` (`CheckoutFlow` and `BuyNow` send
     `CardChosen` and `PayRequested` to `Checkout/Pay`); `latest`, `Superseded` (T `setQuantity`, `latest` per line key);
     `notSent:`, `otherwise`, `Flow.ignore`, mapper `Defect` (T `addLine` maps `notSent:` to a line error).
   - **step 2:** `trait` (`AddressForm` on `CheckoutFlow`'s address step); `subroutine` with exits (`ThreeDSecure` in
@@ -243,9 +247,16 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     - [ ] Quota at checkout (step 13): left: @task.V3.T28, needs store adapters. Two tabs (step 14): left:
       @task.V3.T27, needs multi-tab ownership. A server-rendered page with an add in flight (step 18): left:
       @task.V3.T30, needs server rendering.
-    - [ ] `CheckoutFlow` sends `CardChosen` and `PayRequested` to `Checkout/Pay`. left: needs an actor-to-actor
-      `send(ref, event)` action, which no Task owns (the user's call); the flow reads its Pay's state as context
-      instead.
+    - [x] `CheckoutFlow` sends `CardChosen` and `PayRequested` to `Checkout/Pay`. No source. built:
+      `shop/checkout-sends`, inverted (Actors R16), owner @task.V3.T96.
+    - [x] The send table's persisted rows through `BuyNow`: kept by work in flight, ended and restored (work in
+      flight, then the grace), restored with a held unknown delivered first, never created, forgotten, a record that
+      does not decode, ending with its last write unacknowledged, being disposed. No source. built:
+      `shop/buy-busy-checkout`, `shop/buy-ended-checkout`, `shop/buy-unsure-checkout`, `shop/buy-unopened-checkout`,
+      `shop/buy-forgotten-checkout`, `shop/buy-damaged-checkout`, `shop/buy-ending-checkout`,
+      `shop/buy-disposing-checkout`, inverted (Actors R16, I14), owner @task.V3.T96.
+    - [ ] A send from a turn the boot runs (a persisted actor while the Runtime boots). left: no kept app has a
+      persisted sender owed an ending at boot; the user's call (@task.V3.T96 comment).
   - [x] **Variety:** a full checkout (`shop/checkout-steps`) against `cells`' one-click (`cells/usual`); a guest shopper
     (`shop/guest-browse`) against a signed-in one (`shop/browse`). built.
   - **Findings:**
@@ -354,7 +365,11 @@ retry.
 - **Machines:**
   - `Git/Sync` (have), shared.
   - `Repo` (step 1), shared, named by repo, holding a `Flow.private` token and ⇠ `Git/Sync`'s head and backoff as
-    context; sending `SyncRepo` and `Pushed` waits on an actor-to-actor send action.
+    context; `Commit` sends `SyncRepo` and `PushSeen` sends `Pushed` to the main client (two events and their
+    handlers added: the product tells its client to sync; `PushSeen` stands in for S `headPushes` until step 12).
+  - `Git/Mirror` (step 1), shared, named by remote, unpersisted: forwards each push to its upstream mirror until the
+    push's hop count reaches its time to live. Two mirrors linked to each other are the loop guard's runaway chain.
+  - `Git/MirrorStatus` (step 1), shared, ⇠ a mirror's count, so each hop is also a context update.
   - `RateLimit` (step 2), a trait on `Repo`.
 - **Operations:** T `sync` (have); R `remoteHead` (have); S `headPushes` (step 12, `latest`, into `Repo`).
 - **Journeys:**
@@ -386,8 +401,12 @@ retry.
   - [ ] **Combinations:** release 2 of `Repo`: left: @task.V3.T56, needs release versions. Pushes: left:
     @task.V3.T25, needs streams.
   - [ ] **Variety:** pushed against polled. left: @task.V3.T25, needs S `headPushes`.
-  - [ ] `Repo` sends `SyncRepo` and `Pushed` to `Git/Sync`. left: needs an actor-to-actor `send(ref, event)` action,
-    which no Task owns (the user's call); today `Repo` reads its client's head and backoff as context.
+  - [x] `Repo` sends `SyncRepo` and `Pushed` to `Git/Sync`. No source. built: `sync/repo-commits`, inverted (Actors
+    R16), owner @task.V3.T96.
+  - [x] Loop guard: two mirrors forwarding to each other stop at `RuntimeDefaults.loopGuard`; a chain of exactly the
+    guard with a context update at each hop is never refused; an import of a branch name where a commit belongs is
+    refused on the sender. No source. built: `sync/mirror-loop`, `sync/mirror-chain-with-status`,
+    `sync/mirror-imports-ref`, inverted (Actors R13, I20), owner @task.V3.T96.
   - [ ] **Findings:** a 4xx that isn't a rate limit is not retried. Copies [liveRetry.unit.test.ts:27][kp-retry] "does
     NOT retry a genuine 4xx app error". left: needs a `BadRequest` failure on `Git/sync`, an edit to an old contract
     this row does not allow; the user's call.
@@ -428,7 +447,7 @@ kamp.us for rows restored after a failure.
     }` (`heldAtDisposal`); owed endings, quarantine (`quarantined`, receipts); `persist`, restore, reload
     (`Bank/Transfers`).
   - **step 1:** `context`, `onContext`, `Provider.select` (`TransferForm` ⇠ `customer`); `createActor`, `disposeActor`
-    (`TransferForm`, a local actor); `send(ref, event)` (`Customer` sends `Send` to the source account); `resource`,
+    (`TransferForm`, a local actor); `resource`,
     `O.x.lookup` (R `balance`); canonical keys, `InvalidKey`, `KeyOmitsInput` (account names in NFC and decomposed
     forms; cents as bigint).
   - **step 2:** `subroutine` with exits (`StepUp` in `TransferForm`).
@@ -482,8 +501,8 @@ kamp.us for rows restored after a failure.
   - [x] **Variety:** a shared account against a form of its own. built: `transfers/check-and-send`.
   - [ ] **Variety:** a local form. left: @task.V3.T76, needs a Story word that drives a `createActor` actor
     (`Story.machine`); the form is shared until then.
-  - [ ] `Customer` sends `Send` to the source account. left: needs an actor-to-actor `send(ref, event)` action, which
-    no Task owns (the user's call).
+  - [x] `Customer` sends `Send` to the source account: cut (the orchestrator, 2026-11-19). It repeats shop's
+    one-to-one command shape, and `send` is a rare escape hatch.
   - **Standing orders (@task.V3.T81):**
     - [x] Usual: the rent planned from a date, paused until one, reloaded and resumed; a plan over the balance
       returns to the draft. Shaped on [ban.unit.test.ts:36][kp-ban] "permanent ban (no expiry) → banned, carries
@@ -751,18 +770,19 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
 - **Machines:**
   - `Palette/Palette` (have), shared. From step 3 it emits `CommandRan`; from step 5 it declares `props` with
     defaults, so every existing Story runs unchanged and new Stories use it as a local actor.
-  - `Workbench` (step 1), shared, holding the open documents and a ref to the palette; it sends `Configure` with
-    one command per document, and from step 3 hears `CommandRan` and opens that document.
+  - `Workbench` (step 1), shared, holding the open documents, which the palette reads as context; from step 3 it
+    hears `CommandRan` and opens that document. It does not send: it mirrors data, which context and `onContext`
+    already do (the orchestrator, 2026-11-19).
 - **Operations:** T `runCommand` (have).
 - **Journeys:**
   1. Run: open → type → highlight → T `runCommand` → `Workbench` opens the document.
   2. Pages: frames with Back.
-  3. Live list: `Workbench` sends a new list mid-search.
+  3. Live list: the palette reads a new list from `Workbench` mid-search.
 - **Features by step:**
   - **used today:** guards, `deny`, `check` (`Palette/Palette`'s `deny`); `reject`, `NotSent { Rejected }` (T
     `runCommand`); endings, `Flow.uncertain`, `unknown` (`Palette/Palette`); `persist`, restore, reload
     (`Palette/Palette`).
-  - **step 1:** `send(ref, event)` (`Workbench` sends `Configure` to the palette).
+  - **step 1:** `context`, `onContext`, `Provider.select` (the palette reads the `Workbench`'s documents).
   - **step 3:** `emits`, `onEmit` (`CommandRan`, heard by `Workbench`).
   - **step 5:** `props`, `onProps` (commands as `props`, with defaults); `createActor`, `disposeActor` (a local
     palette).
@@ -780,8 +800,8 @@ An editor's command palette, grown with a workbench around it. Source: ui-sdk's 
   - [x] **Structure:** S1: frames 1, 8 and 64 deep with Back and Escape, S9 at the deepest: 1 (PALETTE-9, PALETTE-10
     with Escape), 8 with a reload at the deepest, 64 saved and restored whole. built: `palette/frames-8`, the
     `framesSixtyFour` builder. S3: two palettes. built: `palette/two-palettes`.
-  - [ ] **Structure:** each palette with its own workbench. left: needs an actor-to-actor `send(ref, event)` action
-    for `Workbench`, which no Task owns (the user's call).
+  - [ ] **Structure:** each palette with its own workbench, read as context. left: needs the palette to declare a
+    context slot, an edit to an old machine for a later Task; no send (the orchestrator, 2026-11-19).
   - [x] **Edges:** an empty query keeps the source order. Copies [command.test.ts:120][ui-command] "an empty query keeps
     the source order". built: `palette/empty-query-order`. E3: entries at real scale, timed (`largeList`). built: `palette/large-list`.
   - [x] **Combinations:** the pair sweep (have). built: the `palette` pair sweep.
@@ -843,8 +863,11 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
 - **Scenarios:**
   - [x] Usual and stress (have). built: `player/usual`, `player/stress`, `player/stress-36`.
   - [x] L1 × 16 rooms playing at once under L5 (bursts of seeks). built: `player/sixteen-rooms`.
-  - [ ] `Household` plays a group of rooms together. left: needs an actor-to-actor `send(ref, event)` action, which no
-    Task owns (the user's call).
+  - [x] `Household` plays a group of rooms together, one room at a time by a send to itself. No source. built:
+    `player/group-play`; S2 × 64: `player/group-of-64`; forty plays past the guard in total: `player/group-replays`;
+    a room in its grace, an ended unpersisted room, a disposed and an unopened room, a room name with no encoded
+    form: `player/group-in-grace`, `player/group-room-ended`, `player/group-rooms-absent`, `player/group-bad-room`;
+    inverted (Actors R13, R16, I25), owner @task.V3.T96.
   - [x] S6 × {room disposed, room reloaded} while its tick is armed. built: `player/room-disposed`,
     `player/room-reloaded`.
   - [x] E1: an empty room. built: `player/empty-room`. E3 corrected: a room is its player's name, not a key; a long
@@ -1433,8 +1456,8 @@ fixtures stay.
 ## Open
 
 Found at step 1 (@task.V3.T82), each the user's call:
-- No Task owns an actor-to-actor `send(ref, event)` action, which the step-1 cells of `pay`, `sync`, `transfers`,
-  `command-palette` and `player` name; until one does, new machines read old ones as context.
+- @task.V3.T96 owns the actor-to-actor `send(ref, event)` action for `shop`, `sync` and `player` (and `kanban` at
+  step 8); `transfers` and `command-palette` dropped it (the orchestrator, 2026-11-19).
 - `ContextCycle` needs two definitions that read each other, which module order cannot build without a stand-in
   definition of the same id; no real app reaches it today.
 - `sync`'s 4xx finding needs a `BadRequest` failure on the old `Git/sync` contract, an edit additive growth forbids.

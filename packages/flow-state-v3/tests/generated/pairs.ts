@@ -68,50 +68,50 @@ const reachablePhases = (reachable: Reach) =>
   PHASES.filter((phase) => FAULTS.some((fault) => whyUnreachable(reachable, phase, fault) === ""));
 
 /**
- * The pair sweep's test for one fixture: every reached cell keeps every run rule, and the cells
- * left unreached are exactly those the lifecycle rules forbid, each named with why. The usual tier
- * drives seeds until every reachable phase is found; the stress tier drives all of its seeds, so a
- * forbidden phase a late seed would open is probed too.
+ * The pair sweep's check for one samples set: every reached cell keeps every run rule, and the
+ * cells left unreached are exactly those the lifecycle rules forbid, each named with why. The usual
+ * tier drives seeds until every reachable phase is found; the stress tier drives all of its seeds,
+ * so a forbidden phase a late seed would open is probed too.
  */
+export const sweepChecks = (samples: Samples, reachable: Reach, tier: "usual" | "stress") => () => {
+  const cells = pairSweep(samples, {
+    properties: rules,
+    seeds: tier === "usual" ? USUAL_SEEDS : (STRESS_SEEDS_OF.get(samples.id) ?? STRESS_SEEDS),
+    stopAt: tier === "usual" ? reachablePhases(reachable) : PHASES,
+  });
+
+  const expected = PHASES.flatMap((phase) =>
+    FAULTS.flatMap((fault) => {
+      const why = whyUnreachable(reachable, phase, fault);
+
+      return why === "" ? [] : [`${phase} × ${fault}: ${why}`];
+    }),
+  );
+
+  const unreached = cells.flatMap((c) =>
+    c.outcome._tag === "Unreached"
+      ? [`${c.phase} × ${c.fault}: ${whyUnreachable(reachable, c.phase, c.fault) || c.outcome.why}`]
+      : [],
+  );
+
+  const broken = cells.flatMap((c) =>
+    c.outcome._tag === "Reached" && c.outcome.breaches.length > 0
+      ? [`${c.phase} × ${c.fault}:\n${c.outcome.breaches.join("\n")}\n${c.outcome.story}`]
+      : [],
+  );
+
+  const drive = generate(samples, { drawing: "drive", seed: 1 });
+
+  expect(drive.run.evidence.some((e) => e._tag === "Turn")).toBe(true);
+  expect(cells).toHaveLength(PHASES.length * FAULTS.length);
+  expect(broken).toEqual([]);
+  expect(unreached).toEqual(expected);
+};
+
 const sweeps = (samples: Samples, reachable: Reach, tier: "usual" | "stress") =>
   it(
     `${samples.id}: every reachable (phase, fault) cell keeps every run rule, and the unreachable ones are named`,
-    () => {
-      const cells = pairSweep(samples, {
-        properties: rules,
-        seeds: tier === "usual" ? USUAL_SEEDS : (STRESS_SEEDS_OF.get(samples.id) ?? STRESS_SEEDS),
-        stopAt: tier === "usual" ? reachablePhases(reachable) : PHASES,
-      });
-
-      const expected = PHASES.flatMap((phase) =>
-        FAULTS.flatMap((fault) => {
-          const why = whyUnreachable(reachable, phase, fault);
-
-          return why === "" ? [] : [`${phase} × ${fault}: ${why}`];
-        }),
-      );
-
-      const unreached = cells.flatMap((c) =>
-        c.outcome._tag === "Unreached"
-          ? [
-              `${c.phase} × ${c.fault}: ${whyUnreachable(reachable, c.phase, c.fault) || c.outcome.why}`,
-            ]
-          : [],
-      );
-
-      const broken = cells.flatMap((c) =>
-        c.outcome._tag === "Reached" && c.outcome.breaches.length > 0
-          ? [`${c.phase} × ${c.fault}:\n${c.outcome.breaches.join("\n")}\n${c.outcome.story}`]
-          : [],
-      );
-
-      const drive = generate(samples, { drawing: "drive", seed: 1 });
-
-      expect(drive.run.evidence.some((e) => e._tag === "Turn")).toBe(true);
-      expect(cells).toHaveLength(PHASES.length * FAULTS.length);
-      expect(broken).toEqual([]);
-      expect(unreached).toEqual(expected);
-    },
+    sweepChecks(samples, reachable, tier),
     LIMITS.pairSweep,
   );
 

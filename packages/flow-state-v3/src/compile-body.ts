@@ -128,6 +128,8 @@ const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alterna
   const actions = (config.actions ?? []).flatMap((a, i) => {
     const place = [...at, "actions", i];
 
+    if (a["~flow"] === "send") return [];
+
     if (a["~owner"] !== compile.definition["~owner"]) {
       compile.findings.push(foreign(place, "an action"));
 

@@ -2,7 +2,7 @@ import { actorRef } from "../../src/index.ts";
 import { PayMachine } from "../services/shop/machines/pay.ts";
 import { Option } from "effect";
 import { manifest } from "../manifest.ts";
-import { store, storeSetup } from "./app.ts";
+import { storeExpress, storeExpressSetup } from "./app.ts";
 import {
   long,
   samples,
@@ -30,6 +30,19 @@ import {
 import { manyShoppers, quantityClicks } from "./stories/load.ts";
 import { samples as storeSamples } from "./stories/samples.ts";
 import {
+  buyBusyCheckout,
+  buyDamagedCheckout,
+  buyDisposingCheckout,
+  buyEndedCheckout,
+  buyEndingCheckout,
+  buyForgottenCheckout,
+  buyNowSamples,
+  buyUnopenedCheckout,
+  buyUnsureCheckout,
+  checkoutSendSamples,
+  checkoutSends,
+} from "./stories/sends.ts";
+import {
   chain,
   flowBoundLate,
   flowFirst,
@@ -42,8 +55,8 @@ import {
  */
 export const shop = manifest({
   name: "shop",
-  setup: storeSetup,
-  app: store,
+  setup: storeExpressSetup,
+  app: storeExpress,
   stories: {
     ...stories,
     flowBoundLate,
@@ -69,9 +82,18 @@ export const shop = manifest({
     unreadableName,
     oddRecordNames,
     borrowedRecordsReload,
+    checkoutSends,
+    buyBusyCheckout,
+    buyEndedCheckout,
+    buyUnsureCheckout,
+    buyUnopenedCheckout,
+    buyForgottenCheckout,
+    buyDamagedCheckout,
+    buyEndingCheckout,
+    buyDisposingCheckout,
   },
-  samples: [samples, storeSamples],
-  stressSamples: [samples, storeSamples],
+  samples: [samples, storeSamples, checkoutSendSamples, buyNowSamples],
+  stressSamples: [samples, storeSamples, checkoutSendSamples, buyNowSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
@@ -82,6 +104,10 @@ export const shop = manifest({
     },
     {
       samples: storeSamples,
+      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+    },
+    {
+      samples: checkoutSendSamples,
       reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
     },
   ],

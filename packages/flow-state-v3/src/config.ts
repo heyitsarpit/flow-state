@@ -68,6 +68,10 @@ const GuardToken = operationToken("guard");
 
 const ActionToken = operationToken("action");
 
+const SendToken = decodedWhole(
+  Schema.Struct({ "~flow": Schema.Literal("send"), to: Fn, event: Fn }),
+);
+
 const EntryToken = decodedWhole(Schema.Struct({ "~flow": Schema.Literal("entry") }));
 
 // A value whose parts are judged as one: when it fails, it is one wrong kind at its own path.
@@ -161,7 +165,7 @@ const Alternative = Schema.Struct({
   target: Schema.optionalKey(Schema.Union([StateToken, HistoryToken, Schema.Literal("self")])),
   guard: Schema.optionalKey(Schema.Union([GuardElement, Schema.Array(GuardElement)])),
   updateMemory: Schema.optionalKey(Fn),
-  actions: Schema.optionalKey(Schema.Array(ActionToken)),
+  actions: Schema.optionalKey(Schema.Array(Schema.Union([ActionToken, SendToken]))),
 });
 
 const Handler = Schema.Union([StateToken, HistoryToken, Alternative]);

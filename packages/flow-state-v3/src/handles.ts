@@ -9,6 +9,11 @@ import { builder, entry, inert } from "./entry.ts";
 export type SelectArg<M> = { readonly memory: M; readonly event: never };
 
 /**
+ * What a send's callbacks read: the turn's memory after its update, and its event.
+ */
+export type SendArg<M, P> = { readonly memory: M; readonly event: P };
+
+/**
  * What a guard's callback reads: the state, the memory and the event.
  */
 export type GuardArg<M, P> = { readonly state: string; readonly memory: M; readonly event: P };

@@ -1334,6 +1334,117 @@ tasks
             Owes (proposed, P3 close fix round): review items A26, RuntimeDefaults made internal or frozen when
             loopGuard gets its reader, and A30, follow-ups.test.ts's title and Actors I21's wording on bursts.
             See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-19T01:43:16Z
+            Requirements (proposed; requirements review next): 15 rules as 21 checks, each an `it.fails` red today
+            because `machine()` accepts `send` and compiles it to nothing (the signature only:
+            code:packages/flow-state-v3/src/send.ts). Replayed by hand.
+
+            Acceptance 1, one Story per row of @plan.Runtime.O4's send table (Actors R16, I25):
+            - R1 live: delivered, a later turn of the target; two sends keep their order. `shop/checkout-sends`,
+              `player/group-play`, `sync/repo-commits`. Red: the target never gets the event.
+            - R2 live in the grace, not a use: same incarnation, ends after the grace. `player/group-in-grace`. Red:
+              no Play.
+            - R3 live, kept by work in flight (R7): same incarnation. `shop/buy-busy-checkout`. Red: no CardChosen turn.
+            - R4 ended, record decodes: restored with its memory, stays while its work is on the wire, ends after the
+              grace. `shop/buy-ended-checkout`. Red: paymentMethodId stays null.
+            - R5 restored and delivered last (I14): the held head's unknown Restored before the send.
+              `shop/buy-unsure-checkout`. Red: one PayUnsure, no restore.
+            - R6 ending and persisted (end with its last write unacknowledged): next incarnation.
+              `shop/buy-ending-checkout`. Red: one incarnation.
+            - R7 ending, not persisted: dropped NoRecord on the sender, turn stands. `player/group-room-ended`. Red:
+              no drop.
+            - R8 no record (never created, disposed, forgotten): NoRecord in send order, nothing created.
+              `player/group-rooms-absent`, `shop/buy-unopened-checkout`, `shop/buy-forgotten-checkout`. Red: no drop.
+            - R9 record does not decode: dropped RecordUndecodable. `shop/buy-damaged-checkout`. Red: no drop.
+            - R10 being disposed (removal not yet acknowledged): NoRecord, never restored.
+              `shop/buy-disposing-checkout`. Red: no drop.
+            - Left: lazy entry not adopted (NotAdopted) needs lazy entries, @task.V3.T48. Booting: no kept app has a
+              persisted sender owed an ending at boot (decision 4).
+            - A drop names its sender: `SendTargetAbsent` gains `sender` and the reasons RecordUndecodable, NotAdopted
+              (decided here: "reported on the sender" as evidence naming it; reverse by reading the sender's
+              issues instead).
+
+            Acceptance 2, the step-1 cells: shop, sync, player above; the S2 × 64 `player/group-of-64` (all 64 rooms
+            checked). transfers and command-palette cut by the orchestrator's ruling; catalog updated. Pair sweep:
+            `git-mirrors` reaches its client's writes only through a send, inverted
+            in `tests/generated/pairs-sends.test.ts`.
+
+            Acceptance 3, the loop guard (Actors R13, I20; @plan.Pending.D13):
+            - R11 past the guard: the turn that would send #5001 is refused InvalidTurn, undone, its issue naming the
+              root event and the guard. `sync/mirror-loop` (two mirrors linked to each other). Red: no refusal.
+              Catches `loop-guard-off`.
+            - R12 exactly the guard with a context update per hop: never refused (onContext events never count).
+              `sync/mirror-chain-with-status`. Red: the chain never runs.
+            - R13 counts per admitted event: forty group plays, 5,160 sends in all, never
+              refused. `player/group-replays`.
+
+            Acceptance 4, the checks; each names the wrong ending TypeScript and the Schemas do not stop:
+            - R14 a ref whose input has no encoded form (a lone surrogate room name; TS types it string) refuses the
+              sender's turn with a FlowError, after a valid send in the same turn, which must not deliver. Prevents a
+              raw throw in the core stopping the Runtime (R25). `player/group-bad-room`.
+            - R15 an event the target's Schema refuses (a branch name for a 40-hex sha; TS types it string) refuses the
+              sender's turn and reaches no one. Prevents a target memory its own Schema
+              refuses. `sync/mirror-imports-ref`.
+            - Not required: internal or unknown tags (`EventOf<D>` rejects them at compile time).
+
+            Acceptance 5 (faults, stress, gates): with the build.
+        comment     2026-11-19T01:43:17Z
+            Ref by definition (finding; decision 1 is the user's): not needed at run time, needed by the types. Two
+            machines that send to each other import each other's Machine; ES modules evaluate the cycle fine because
+            `send` reads its callbacks only in a turn (a scratch run of real `machine()` across a cycle loaded).
+            TypeScript does not: without an annotation both report TS7022 (implicitly any, referenced in its own
+            initializer), and so does any machine that sends to its own kind (`Household`, `Git/Mirror`). One `const X:
+            Machine<typeof Def>` breaks it, and a ref built from the definition (a scratch `refOf(Def, input)`)
+            needs none.
+
+            Decisions for the user (proposed, each with my recommendation):
+            1. Cyclic sends: A, document the `Machine<typeof Def>` annotation (the fixtures use it); B, `actorRef` takes
+               a definition. Recommend A: no new concept, standard TypeScript.
+            2. A machine with no input is named only by a literal (`RefName`), so a send to a name held in memory does
+               not type-check (it hid the transfers cell). A, relax `RefName` to `string`, the run-time check refusing a
+               `~` name on the sender (R14); B, keep it. Recommend A.
+            3. A send cannot reach the actor its own context is wired to, so fixtures name targets by literal
+               ("checkout-1", "client"). A, leave it (a rare escape hatch); B, a later proposal. Recommend A, logged in
+               revisit.md if accepted.
+            4. The booting row has no Story: no kept app has a persisted sender owed an ending at boot. A, leave it to
+               @task.V3.T9's boot queue; B, give `CheckoutFlow` an operation. Recommend A.
+            5. A self-continuation (`Household`'s `Next`) must be a public event, since `send` sends only public events.
+               Recommend leaving it: a host sending `Next` only starts the next room.
+
+            Small rulings (mine): `send`'s callbacks read `{ memory, event }` (`SendArg`), the after-memory as actions
+            do; Actors R20's "stops a send's restore only once the removal is acknowledged" loses to R16's NoRecord for
+            an actor being disposed (the Spec edit comes with the build, specs.log note).
+        comment     2026-11-19T01:43:17Z
+            Fixtures proof (fixtures.md), `send(toRef, toEvent)` (Actors R13, R16, I14, I20, I25):
+            - shop (changed): `CheckoutFlow` (`PayWith`, two sends to its Pay) and new `BuyNow`, journey "checkout";
+              usual `shop/checkout-sends`; structure S6 (target ended, forgotten, disposed, ending, damaged)
+              `shop/buy-*`; samples `shop-checkout-sends` (in pairs), `shop-buy-now` (empty card id, E1); combos
+              persistence, lanes, held unknown (E7 damaged record, reload); grown app `storeExpress`.
+            - player (changed): new `Household`, journey "group"; usual `player/group-play`; load S2 × 64
+              `player/group-of-64`, past the guard in total `player/group-replays` (benched, stress tier); S6 grace,
+              ended, disposed, never opened; samples `household` (empty group E1, unopened room, unnameable room); grown
+              app `musicHome`.
+            - sync (changed): `Repo` (`Commit`, `PushSeen`), new `Git/Mirror` and `Git/MirrorStatus`; usual
+              `sync/repo-commits`; loop-guard Stories `sync/mirror-loop`, `sync/mirror-chain-with-status` (benched,
+              stress tier); refused send `sync/mirror-imports-ref`; samples `git-mirrors` (link to nothing E1, push at
+              the time to live E4); combos context; grown app `gitMirrored` (old Stories keep `gitGrown`).
+            - Variety: three unrelated apps; a fan-out by self-send, a one-to-one command, a notification, a ring.
+            - Sources: none; each catalog row says so. Red today: every send undelivered (21 `it.fails`, each replayed).
+
+            Sidecar review, 4 Haiku (rules, fixtures.md, code style, adversary); each finding verified:
+            - accepted: household order claim dropped (no rule orders two actors' turns), one Play per room and all 64
+              rooms checked; a valid send before the refused one; restored memory checked; guard counted per admitted
+              event (`group-replays`); refusal names the guard; `gitMirrored` instead of growing `gitGrown`; mirror
+              phase as states; `GroupDone`; `SendArg` beside `GuardArg`, `SendToken` beside `ActionToken`, neither
+              exported; non-doc comments and the outside-file reference removed; samples name every actor (a pair sweep
+              caught it); mirror bench as stress.
+            - changed: R20/R16 tension and the booting row became decisions; "reported on the sender" fixed as an
+              evidence field.
+            - rejected: refused shapes as builders (these Stories play; only admission refusals are builders);
+              internal-tag sends (the compiler rejects them); pinning `loopGuard` (bench-set, D24); a
+              send-compiles-to-nothing finding (the build replaces it); positive controls per Story (the reload sweep
+              already plays every registered Story).
+            - moot after the orchestrator's cut: every palette and transfers finding.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft

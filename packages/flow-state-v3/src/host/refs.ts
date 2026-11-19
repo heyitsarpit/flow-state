@@ -1,20 +1,11 @@
 import { Option, Predicate, Result } from "effect";
 import { inputFieldsOf, LOCAL_PREFIX, nameOfValue } from "../core/identity.ts";
 import type { ActorId } from "../core/world.ts";
-import type { AnyDefinition, InputOf, Machine } from "../definition.ts";
+import type { ActorRef, AnyDefinition, InputOf, Machine } from "../definition.ts";
 import { entry } from "../entry.ts";
 import { flowError, raise } from "../error.ts";
 
-/**
- * A shared actor's name: its machine and either the literal name of a machine with no input, or
- * the value that carries a machine's input fields.
- */
-export type ActorRef<D extends AnyDefinition = AnyDefinition> = {
-  readonly machine: Machine<D>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a value ref's value is the caller's, checked at the boundary that uses it.
-  readonly value: unknown;
-  readonly context: Readonly<Record<string, ActorRef>>;
-};
+export type { ActorRef } from "../definition.ts";
 
 /**
  * What names an actor of `D`: a value carrying its input fields when it has any, otherwise a

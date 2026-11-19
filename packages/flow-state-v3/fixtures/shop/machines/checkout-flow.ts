@@ -1,6 +1,6 @@
 import { Schema } from "effect";
-import { definition, deny, Flow, machine } from "../../../src/index.ts";
-import { Pay } from "../../services/shop/machines/pay.ts";
+import { actorRef, definition, deny, Flow, machine, send } from "../../../src/index.ts";
+import { Pay, PayMachine } from "../../services/shop/machines/pay.ts";
 import { Cart, itemsIn, waiting } from "./cart.ts";
 import { Shopper } from "./shopper.ts";
 
@@ -19,6 +19,7 @@ export const CheckoutFlow = definition({
     MethodChosen: { method: Schema.String },
     SlotChosen: { slot: Schema.String },
     Back: {},
+    PayWith: { paymentMethodId: Schema.String },
   },
   internalEvents: {
     CartChanged: { count: Schema.Number },
@@ -43,11 +44,14 @@ export const CheckoutFlow = definition({
   },
 });
 
+const toPay = () => actorRef(PayMachine, "checkout-1");
+
 /**
  * The checkout flow: Begin is denied on an empty cart or one still waiting on the cart service;
  * Back from pay re-enters shipping at the step it left, by history; the checkout's Pay reaching PAID
  * ends it. Guards cannot read context, so the flow keeps the cart's count and waiting as its
- * `onContext` reactions report them.
+ * `onContext` reactions report them. Paying with a card tells the checkout's Pay the card, then to
+ * pay with it.
  */
 export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E }) => ({
   default: S.BROWSING,
@@ -122,6 +126,18 @@ export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E }) => ({
     PAY: {
       on: {
         Back: S.SHIPPING.history,
+        PayWith: {
+          actions: [
+            send(toPay, ({ event }) => ({
+              _tag: "CardChosen",
+              paymentMethodId: event.paymentMethodId,
+            })),
+            send(toPay, ({ event }) => ({
+              _tag: "PayRequested",
+              paymentMethodId: event.paymentMethodId,
+            })),
+          ],
+        },
       },
     },
     DONE: {},

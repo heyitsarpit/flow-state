@@ -1,19 +1,26 @@
 import { Option } from "effect";
-import { manifest } from "../manifest.ts";
-import { gitGrown, gitGrownSetup, clientOf } from "./app.ts";
+import { benchStress, benchTurn, manifest } from "../manifest.ts";
+import { gitMirrored, gitMirroredSetup, clientOf } from "./app.ts";
 import { long, samples, seededStress, stories, emptyName, openRepo } from "./stories/usual.ts";
 import { retryEdges } from "./stories/edges.ts";
 import { samples as repoSamples } from "./stories/samples.ts";
 import { manyRepos } from "./stories/load.ts";
 import { reloadedInBackoff, repoFirst, repoOpenedInBackoff } from "./stories/structure.ts";
+import {
+  mirrorChainWithStatus,
+  mirrorImportsRef,
+  mirrorLoop,
+  mirrorSamples,
+  repoCommits,
+} from "./stories/sends.ts";
 
 /**
  * The sync fixture, as every runner reads it.
  */
 export const sync = manifest({
   name: "sync",
-  setup: gitGrownSetup,
-  app: gitGrown,
+  setup: gitMirroredSetup,
+  app: gitMirrored,
   stories: {
     ...stories,
     repoOpenedInBackoff,
@@ -23,9 +30,13 @@ export const sync = manifest({
     repoFirst,
     reloadedInBackoff,
     retryEdges,
+    repoCommits,
+    mirrorLoop,
+    mirrorChainWithStatus,
+    mirrorImportsRef,
   },
-  samples: [samples, repoSamples],
-  stressSamples: [samples, repoSamples],
+  samples: [samples, repoSamples, mirrorSamples],
+  stressSamples: [samples, repoSamples, mirrorSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),
@@ -42,6 +53,6 @@ export const sync = manifest({
   bench: {
     probe: (n) => clientOf(n),
     persist: Option.none(),
-    stories: [],
+    stories: [benchStress(benchTurn(() => mirrorChainWithStatus))],
   },
 });
