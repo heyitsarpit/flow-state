@@ -3409,6 +3409,11 @@ tasks
               needs the curried `react` shape.
             - **N2:** not solvable without a new shape. A generic `Flow.initial<S, F = Values>` checks an annotated
               callback (mock probe), but the common unannotated `fields["email"]` stays erased.
+        comment     2026-11-19T15:52:38Z
+            Rulings (orchestrator, 2026-11-19) on the requirements review: all four findings land in the fix round; a
+            negative captureMs is refused at construction (it silently acted as 0). onContext gets the tuple-typed
+            refusal now; the curried react shape and a new Flow.initial shape wait for the user. The lead fixes, then
+            builds to review.
 
     T105
         title       Start order stated as a rule; T102's routed checks built
