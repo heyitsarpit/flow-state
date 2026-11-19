@@ -448,8 +448,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
       },
       {
         file: "src/host/driver.ts",
-        find: 'Effect, Exit, Option, Result } from "effect";',
-        replace: 'Effect, Exit, Option, Result, Schema } from "effect";',
+        find: '  Result,\n} from "effect";',
+        replace: '  Result,\n  Schema,\n} from "effect";',
       },
     ],
   },

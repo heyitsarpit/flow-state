@@ -427,3 +427,29 @@ note 2026-11-19T07:14:20Z
     Actors R23, R27: Q7 and Q8 written as the user decided; R23 widens a cleanup to any fiber the close interrupts,
     bounds each close stage by the disposal bound, keeps forget's failure, and adds the ref quarantine lifted by
     disposeActor (proposed: the lift). Reverse: restore the prior R23 and R27 text.
+
+note 2026-11-19T09:53:44Z
+    Actors R20 (proposed): an identity's mailbox belongs to its lineage, which disposeActor and forget end; replaces
+    the drop-mail clause. Mail stays keyed by identity with one drop at the lineage's end. Reverse: restore the clause.
+
+note 2026-11-19T09:53:44Z
+    Actors R22 (proposed): the host closes its Owner tree once, work (calls, store writes, reads, runPromise) before
+    services by Scope order; replaces 'interrupts every call, then releases services'. Reverse: restore the prior text.
+
+note 2026-11-19T09:53:44Z
+    Actors R23 (proposed): a failed cleanup is any non-interrupt reason; whoever ends work hears it; one bound on the
+    whole close, later causes to Host.report; a cancelled read quarantines at its end, also over a live new incarnation;
+    unheard quarantines reach dispose. Reverse: restore the prior R23.
+
+note 2026-11-19T09:53:44Z
+    Actors R27 (proposed): an aborted signal interrupts the Effect, never the wait, so the rejection keeps every
+    cleanup failure; a signal aborted before the call runs nothing. Reverse: restore the prior R27 sentence.
+
+note 2026-11-19T09:53:45Z
+    Actors algorithm (proposed): CleanupFailed replaces Closed, one per judged failure, running in Open, Disposing and
+    Disposed. Reverse: restore Closed (Disposed only, with a count).
+
+note 2026-11-19T09:53:45Z
+    Actors composition (proposed): the Owner tree replaces the one Scope with a FiberMap; I47 (one judge per task) and
+    I48 (every failed cleanup reaches its closer's report and one Issue) added. Reverse: drop I47, I48, restore the
+    text.

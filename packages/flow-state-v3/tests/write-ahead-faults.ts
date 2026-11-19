@@ -15,9 +15,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: '      fibers.fork(\n        "store",',
+        find: '      work.fork(\n        "store",',
         replace:
-          '      for (const t of carried) options.answered(t.id, true);\n      fibers.fork(\n        "store",',
+          '      for (const t of carried) options.answered(t.id, true);\n      work.fork(\n        "store",',
       },
     ],
   },
@@ -85,8 +85,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "    if (!landed)\n      fibers.fork(RETRY,",
-        replace: "    if (landed)\n      fibers.fork(RETRY,",
+        find: "    if (!landed)\n      work.fork(RETRY,",
+        replace: "    if (landed)\n      work.fork(RETRY,",
       },
     ],
   },
@@ -231,7 +231,7 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "          if (!landed) again = new Map([...marks, ...again]);\n",
+        find: "        if (!landed) again = new Map([...marks, ...again]);\n",
         replace: "",
       },
     ],

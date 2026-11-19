@@ -559,6 +559,72 @@ describe("a read cancelled while its actor lives (Actors R23)", () => {
 
 const ticket = Brand.nominal<TicketId>();
 
+// The CleanupFailed a dispose rejected with, keeping the cleanup's own failure, if it did.
+const disposeHeard = (runtime: Runtime, tab: Tab) => {
+  const disposing = Effect.runFork(runtime.dispose());
+  tab.settle();
+
+  return Option.flatMap(Option.fromUndefinedOr(disposing.pollUnsafe()), (exit) =>
+    Exit.isFailure(exit)
+      ? Option.flatMap(Cause.findErrorOption(exit.cause), (e) => flowOf(e))
+      : Option.none(),
+  );
+};
+
+describe("a quarantine no ensure reported (Actors R23)", () => {
+  it("Actors R23: an actor disposed while its read is out, whose cleanup dies, and never ensured again: dispose rejects CleanupFailed keeping its failure", () => {
+    const tab = platformOver(new Map(), 1);
+    const runtime = readyOver(tab, lineWith(Effect.die(died)));
+    runtime.ensureActor(phone).send({ _tag: "Look" });
+    tab.settle();
+    runtime.disposeActor(phone);
+    tab.settle();
+
+    const heard = disposeHeard(runtime, tab);
+
+    assert.deepStrictEqual(
+      Option.map(heard, (r) => r.code),
+      Option.some("CleanupFailed"),
+    );
+    assert.ok(
+      Option.exists(heard, (r) => keeps(r.cause, died)),
+      "its Cause kept",
+    );
+  });
+
+  it("Actors R23: a quarantine lifted by disposeActor before any ensure reported it goes to dispose's CleanupFailed", () => {
+    const tab = platformOver(new Map(), 1);
+    const runtime = readyOver(tab, lineWith(Effect.die(died)));
+    runtime.ensureActor(phone).send({ _tag: "Look" });
+    tab.settle();
+    runtime.disposeActor(phone);
+    tab.settle();
+    runtime.disposeActor(phone);
+
+    assert.equal(
+      thrownBy(() => runtime.ensureActor(phone)),
+      undefined,
+      "the lift frees the ref",
+    );
+    assert.ok(
+      Option.exists(disposeHeard(runtime, tab), (r) => keeps(r.cause, died)),
+      "dispose heard the lifted failure",
+    );
+  });
+
+  it("Actors R23: a quarantine an ensure reported is not reported again at dispose", () => {
+    const tab = platformOver(new Map(), 1);
+    const runtime = readyOver(tab, lineWith(Effect.die(died)));
+    runtime.ensureActor(phone).send({ _tag: "Look" });
+    tab.settle();
+    runtime.disposeActor(phone);
+    tab.settle();
+    thrownBy(() => runtime.ensureActor(phone));
+
+    assert.deepStrictEqual(disposeHeard(runtime, tab), Option.none());
+  });
+});
+
 describe("a store write interrupted at the close (Restore R10, Actors R23)", () => {
   it("Actors R23: a store write whose interrupt cleanup dies is never answered as refused, so no lane hears that a write which may have landed was not sent", () => {
     const tab = hungStoreTab(Effect.die(died));

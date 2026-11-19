@@ -176,9 +176,9 @@ export const makeEdge = (
         return;
       }
 
-      const notWritten = () => {
-        again = new Map([...marks, ...again]);
-        settle(carried, false);
+      const answer = (landed: boolean) => {
+        if (!landed) again = new Map([...marks, ...again]);
+        settle(carried, landed);
       };
 
       work.fork(
@@ -190,9 +190,9 @@ export const makeEdge = (
         ),
         (ending) =>
           Ending.$match(ending, {
-            Done: () => settle(carried, true),
-            Failed: notWritten,
-            Died: notWritten,
+            Done: () => answer(true),
+            Failed: () => answer(false),
+            Died: () => answer(false),
             // An interrupted write is unanswered, as a hung store is: it may have landed. Its
             // cleanup's failure is its Owner's.
             Interrupted: () => undefined,
