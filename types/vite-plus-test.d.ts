@@ -38,6 +38,7 @@ declare module "vite-plus/test" {
     objectContaining(expected: object): unknown;
   }
 
+  export { expectTypeOf } from "expect-type";
   export const describe: TestApi;
   export const expect: ExpectApi;
   export const it: ItApi;

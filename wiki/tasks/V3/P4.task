@@ -3127,6 +3127,191 @@ tasks
             (fails on any, unknown, never or a looser record), run in the suite with --typecheck. Every @ts-expect-error
             is paired with a positive exact assertion on the same parameter, so it cannot pass for the wrong reason; the
             existing tests/types/*.compile.ts files are converted the same way.
+        comment     2026-11-19T15:39:43Z
+            Design (lead, proposed): one change per carrier, each a phantom or a parameter the producer already holds,
+            carried across the seam to its consumer; the wide default stays assignable, so erased code (the core,
+            generic rules, `(run: StoryRun)` helpers) keeps compiling. Gap numbers are the deep survey's (`g`), its
+            entries and findings are the coverage pass's (`e`, `N`).
+
+            The freedom it removes: a consumer may hold a narrow producer's value as `Values`, `string`, `never` or an
+            erased carrier, so a typo, a foreign token or a wrong value compiles and reads undefined, matches nothing or
+            faults late.
+
+            F9 first, settled: `updateMemory` returning `{ notes, ticketId: "T-99" }` rewrites the `Flow.input` field at
+            run time, and an undeclared key enters memory (red:
+            code:packages/flow-state-v3/tests/actors/memory-writes.test.ts). Two fixes: the turn refuses a patch naming
+            a key outside the writable fields (InvalidTurn, refused whole, Turn R8), and the types refuse it first.
+
+            Carriers (each probed in the scratchpad on a copy of `src/`: wrong lines fail for the stated reason, exact
+            positives pass, `.not.toBeAny/Never/Unknown` hold, and the copy's own errors are fixed or counted):
+
+            1. F9 exact returns: `machine<D, B = unknown>`, the body returning `MachineBody<D> & B & ExactBody<B, …>`,
+               which walks only Flow's body, state, handler, alternative, reaction and schedule keys and the
+               `updateMemory` return. The constrained `const B extends MachineBody<D>` loses today's weak-type refusals,
+               so it is not used. Also exact: app entries; `runtimeSetup` takes `scope` and `persistence` together or
+               neither; an empty payload takes no fields; `services` equals the commit's `R`; a widened `states` list is
+               refused at `definition`; cheap construction refusals (duplicate state, empty compound, empty id) become
+               types; `Fake` `handle` and `apply` become properties (no method bivariance). Closes g1-3, g32-34, e2,
+               e11, e14, e15, N4, N6, part of e26. Fixtures 0 errors; tests 21 (2 intended, 10 directives to move, 4
+               need a distributive `read`).
+            2. F1 contract: `Bound` gains `~input`, `~key`, `~success`, `~failure` beside `~requires`; `const Key`
+               limited to the input's required fields; handles take `BoundInput`/`BoundKey`; `SelectArg<M, P>` carries
+               the handler's event, so `ActionToken<P>`/`GuardToken<P>`; `Attempt<I, K>`; `Snapshot.operations` keyed by
+               operation name; `ContextSlot<V, P>` with `P` the provider's states and memory, and wiring typed by it on
+               `actorRef` and `app` inputs. Closes g10, e3, e23 (input, key), seam 1 and 5, T104 items 1 and 3. Fixtures
+               0 errors; one test needs `@ts-expect-error` (`KeyFieldOptional`).
+            3. F5 snapshot view: `Snapshot<D, View = "inside">`; a handle's `getSnapshot()` is the outside view
+               (`OutsideOf`, no `Flow.private` field); `context: Partial<ContextOf<…>>`; one exported `Lifecycle`; wide
+               detection by the leaf union, not `AnyDefinition extends D` (contravariant, so `Snapshot<D>` would not
+               assign to `Snapshot`). An `Unreadable { state, lifecycle, issues }` variant with no memory replaces the
+               made-up `memory: {}` in `snapshotIn` and the stopped-Runtime `read`. Closes g19-21, e10, seam 7 and 8,
+               T103's routed item 1.
+            4. F4 app: `RuntimeSetup<R, A>` and `Runtime<R, A>` carry `~app`; `Story<Names, Ds>`, `StoryRun<Names, Ds>`,
+               `Cut<Ds>`, `Recorded<Ds>`; every ref word takes `D extends Ds`; selectors take only `Ds` tokens;
+               `publishedOf<D extends Ds, Ds>` (that order keeps `typeof publishedOf<X>`). With `Steps<Names>` and the
+               default `StoryRun<never>`, checkpoint names survive `run({ steps })` and helpers take `<N>(run:
+               StoryRun<N>)`. Closes g14-18, e1, e19, N3, the F3/F4 selector extension, T103's routed item 3. Wide types
+               still assign to their defaults.
+            5. F6 with F8: `Evidence<N extends Names = WideNames>`; tokens carry `~names`, and the selectors return rows
+               narrowed to the definition's states, events and operations. Closed vocabularies by existing unions:
+               `RuntimeCut` rows from `Phase["_tag"]`, `Channel`, `Delivery["_tag"]`, the timer kind; `SlowWork.input`
+               as `Input["_tag"]`; `decline` and `notSent` take `Decline` and `NotSentWhy`; `Diagnostic` as a union by
+               code, each with the detail keys Flow writes; `Tab.name: "main"`; `Property<R>`/`Failure<R>`; bench `kind:
+               Measure` and `bench<const C>` with `` id: `${NoInfer<C>}.${string}` ``; `Channel`, `LaneFact`,
+               `ReportCode` and `Phase` exported from inspect. `TraceRecord.Request` is derived from `CallEntry`. Closes
+               g22-24, g27-31, e4, e18, e20, e21, seam 9, 10, 13.
+            6. F2 endings: `Ending<V>`; Bound and `Compiled` hold `ErasedEnding = Ending<never>`, to which every
+               `Ending<V>` assigns; a bare token is `Ending<unknown>` only when its payload is empty; `.from(map)` takes
+               `V` from the contract; `UnknownEnding` marks a field-free uncertain event; `WriteEndings<E, A>`,
+               `ReadEndings<E, A>` (failures exhaustive, `Defect`/`Interrupted` optional); `schedules.send:
+               Ending<void>`; `Definition.Event` decodes to the definition's own envelopes. `endingValue` keeps one cast
+               whose target is derived. Closes g4-8, e7, e24, N1, seam 2, T104 items 4 and 5. Fixtures 0 errors; 36
+               fixture `.from` annotations become redundant.
+            7. F3 definition brand: `definition<const Id>` keeps `id: Id`; every token carries `~definition?: Id`;
+               `Bound` carries it too. A bare foreign state token as a handler or guard needs F9's `ExactBody`, so F3
+               lands after F9. Closes g11-13, e9, seam 3, the fixtures' false `untyped` claim. `ForeignToken` stays at
+               run time for two definitions sharing an id.
+            8. F7 ids: `ActorKey`, `LaneId`, `AttemptId` brands (`Brand.nominal`, as `TicketId`); the record key helpers
+               take them. Closes g26 at parameters and brand-to-brand compares.
+            9. The three duplicated shapes use one core type: the inspect rows (item 5), `Lifecycle` (item 3), the call
+               shape (item 5). Then the cast sweep against the inventory.
+
+            Dropped, each with evidence:
+
+            - g25 (quarantine reason): `retiredOperation` is gone; `quarantineText` returns the read's own
+              detail (T102).
+            - `attempt.operation` (e23): the definition binds the name after the contract is declared
+              (`host/driver.ts:217`); one contract may be bound under several names.
+            - Record keys at `Fake.storage.put` and `Cut.records.stored` (e8, part of seam 12): @spec.Stories R11 keeps
+              put's keys raw, since the records it stands for are the ones no key builder makes.
+            - `Unsettled.state` (part of g28): already `"InFlight" | "Held"`. Operations-record excess keys and nested
+              `states` keys: already refused.
+
+            Limits, each recorded (TypeScript, not a choice):
+
+            - A brand is a subtype of `string`, so `attempt === someText` still compiles; only parameters and
+              brand-to-brand compares refuse.
+            - `onContext` as an array literal cannot infer a reaction's value from its `select`, so g9 and N7 stay open
+              there. A curried `react(select)(event, when?)` infers both (probed): a new public shape, for the
+              user's decision.
+            - A computed `Flow.initial(schema, (fields) => …)` cannot see its siblings' types (N2): the inner call
+              resolves before `definition` has `M`. Closing it needs a new shape (memory as a callback, or a builder),
+              for the user's decision.
+            - `Ended.reason` stays `string` on the row: it mixes the contract's own failure tags with Flow's `Decline`;
+              a `TaggedEnum` variant cannot hold the correlated union. Flow's own writes are typed at `decline`
+              and `notSent`.
+            - `Cut.calls` stays the wide log generic rules read; a typed read is `read(endpoint)`, so the literal
+              compares in tests move there.
+            - `Step.checkpoint({ name })` stays text; a negative `captureMs` is a run-time refusal.
+
+            New public type parameters and names (delegated; for the user's read): `ContextSlot<V, P>`, `RuntimeSetup<R,
+            A>`, `Runtime<R, A>`, `Snapshot<D, View>`, `Story<Names, Ds>`, `StoryRun<Names, Ds>` (default
+            `StoryRun<never>`), `Cut<Ds>`, `Recorded<Ds>`, `Steps<Names>`, `Ending<V>`, `UnknownEnding`,
+            `WriteEndings<E, A>`, `ReadEndings<E, A>`, `Attempt<I, K>`, `Evidence<N>`, `Property<R>`, `Failure<R>`, the
+            token brands, `Lifecycle`, `Unreadable`, and the exported `Channel`, `LaneFact`, `ReportCode`, `Phase`.
+            Public shape changes: `getSnapshot()` may return `Unreadable`; `Fake` handlers as properties; `services`
+            must equal `R`; `scope` and `persistence` together.
+        comment     2026-11-19T15:39:44Z
+            Requirements (proposed), mapped to acceptance A1 to A6 in its order; each names the false pass or wrong
+            ending it prevents and its check. Type checks are Vitest type tests (`*.test-d.ts`, run in the default suite
+            with typecheck on, code:vite.config.ts). They land inverted: each `wrong` line compiles today and each
+            assertion states today's wide type (or the `.not` of the narrow one), so the carrier trips both and the
+            builder adds `@ts-expect-error` and makes the assertion exact. Gap numbers as in the design comment.
+
+            1. F9 at run time (A1; @spec.Compile R7, R14, @spec.Turn R8). Wrong ending: a returned memory write rewrites
+               a `Flow.input` identity field (`T-1` reads `T-99`), and an undeclared key enters memory. Check: two
+               `it.fails` in code:packages/flow-state-v3/tests/actors/memory-writes.test.ts (red: `T-99`; the stray
+               key listed).
+            2. F9 in types (A1; @spec.Compile R4, R7, R14, T6, @spec.Reads R1, Runtime O1, @spec.Stories R8). False
+               pass: a misspelt body or alternative key drops an `on` or an update silently; an app entry's `contxt`
+               leaves wiring empty; `persistence` without `scope` never saves; `services: []` lies about `R`; a fake
+               handler reads a truth field the server lacks (NaN). Check:
+               code:packages/flow-state-v3/tests/types/excess-keys.test-d.ts (g1-3, g32-34, e2, e11, e14, e15, N4, N6,
+               e26's cheap three).
+            3. F1 contract (A2; @spec.Compile R9, R14, R18, @spec.Reads R1, @spec.Turn R23). False pass: `commit(() =>
+               ({ amnt }))` compiles and fails at the lane walker; a selector returning a field-free event passes as any
+               input; a wiring ref of the wrong provider or slot reaches admission. Check:
+               code:packages/flow-state-v3/tests/types/contract.test-d.ts (g10, e3, e23, T104 items 1 and 3).
+            4. F5 snapshot view (A2; @spec.Turn R23, @spec.Actors R6). False pass: a handle's `memory.secret` reads
+               undefined though typed; `context.shopper` typed present on a resting snapshot; a quarantined record's
+               `{}` read as memory. Check: code:packages/flow-state-v3/tests/types/snapshot.test-d.ts (g19-21, e10).
+            5. F4 app (A2; @spec.Actors R24, @spec.Stories R12, T2). False pass:
+               `expect(cut.read(rent)).toBeUndefined()` or a selector's `toHaveLength(0)` passes for a machine the app
+               never runs; a checkpoint typo reads undefined. Check:
+               code:packages/flow-state-v3/tests/types/app.test-d.ts (g14-18, e1, e19, N3).
+            6. F6 with F8 (A2; @spec.Diagnostics R2, R7, @spec.WriteLanes R10, @spec.Stories R10, R16). False pass: a
+               negative filter on a misspelt state, operation, event, delivery, channel, phase, timer kind, tab, rule or
+               endpoint matches nothing; `details["reson"] ?? null` is a silent null; a bench id under the wrong
+               concern. Check: code:packages/flow-state-v3/tests/types/evidence.test-d.ts and
+               code:packages/flow-state-v3/tests/bench/declare.test-d.ts (g22, g24, g27-29, g31, e4, e6, e18, e21). g23
+               and g30 sit on closures and a local function no test can reach: `nub run check` over their call sites is
+               their check once typed.
+            7. F2 endings (A2; @spec.Compile R9, R14, @spec.Reads R1, @spec.Turn R15, @spec.WriteLanes R3). Wrong
+               ending: a success token whose payload no value fills, an unknown ending that is certain or has fields, a
+               lying mapper reading undefined, a read's failure misspelt and the real one dropped; false pass: a decoded
+               event's misspelt tag. Check: code:packages/flow-state-v3/tests/types/endings.test-d.ts (g4-8, e7, e24,
+               N1, T104 items 4 and 5).
+            8. F3 definition brand (A2; @spec.Compile R12, R14, T6). False pass: another definition's same-named ending
+               maps silently (checked by name today); a foreign state or handle compiles and faults at construction.
+               Check: code:packages/flow-state-v3/tests/types/tokens.test-d.ts (g11-13, e9).
+            9. F7 ids (A2; @spec.Actors R13). Wrong ending: an actor key passed as a lane id builds a record key no
+               reader finds. Check: code:packages/flow-state-v3/src/core/ids.test-d.ts (g26 at parameters).
+            10. State reads and guards (A2; @spec.Compile R14, @spec.Turn R12, R23). False pass: `S.ON.child(s) === "C"`
+                and a guard's `state !== "ONN"` are always false or true. Check:
+                code:packages/flow-state-v3/tests/types/state-reads.test-d.ts (e13, e16, N5, N8).
+            11. One method (A2; the Method comment). The existing `tests/types/*.compile.ts` and `schedule-send.test.ts`
+                become `*.test-d.ts` with exact assertions, each `@ts-expect-error` paired with a positive on the same
+                parameter. Check: no `*.compile.ts` is left (a grep); converted in the build, since a conversion is
+                not red.
+            12. Every gap tested or reasoned (A2). Check: the design comment's dropped and limits lists; the close
+                review replays each survey gap against a test or a recorded reason.
+            13. No wide public signature (A3). False pass: any of the above through a word not yet listed. Check: the
+                close review reads every export of code:packages/flow-state-v3/src/index.ts and
+                code:packages/flow-state-v3/src/host/testing/index.ts against the seven legitimate seams; each new find
+                lands as a type test first.
+            14. No `any` through Flow (A4; coverage "Guards"). Check: the type-aware `no-unsafe-*` rules on in
+                code:vite.config.ts at zero (red today: 26 sites; about 18 fixes and 8 reasoned disables).
+            15. Casts (A4; the Scope comment). Wrong ending: a cast's target follows a changed type silently, and three
+                SAFETY claims are false. Check: the inventory replayed at close (74 removable now, 9 after carriers);
+                `trusted` and `erase` name their target; the fixtures' `untyped` helpers become a per-site
+                `@ts-expect-error` (red: three of their forms compile without the helper); `lane-record.test.ts` uses
+                `Brand.nominal`; the nine `loose` copies become one.
+            16. T103 item 1 (A5; @spec.Turn R23). Wrong ending: a stopped Runtime's `read` of a quarantined record whose
+                start was refused returns `{}` typed as memory. Check: the `Unreadable` type in requirement 4, plus a
+                run test written first in the build (it needs a made-up definition whose fresh start is refused and a
+                defect that stops the Runtime).
+            17. T103 item 2 (A5). False pass: an aliased event-name filter dodges `no-event-name-filter`. Check:
+                selector rows are typed (requirement 6); the three left filters (`tests/actors/send.test.ts:67`, `:84`,
+                `tests/number-input/number-input.stress.test.ts:40`) select by token.
+            18. T103 item 3 (A5). Check: the selector lines in requirement 5.
+            19. New public type parameters noted (A5). Check: the design comment's list, carried to the close note for
+                the user.
+            20. Gates (A6): `nub run check`, `nub run lint:rules`, the suite with typecheck, stress, `nub run
+                docs:build`; the turn's patch refusal (requirement 1) gets a planted fault (a turn applying a
+                non-writable key) caught by `nub run faults --only`.
+
+            Extra files beyond "May change": code:vite.config.ts (typecheck, test-d as production tests),
+            code:types/vite-plus-test.d.ts (`expectTypeOf` in the shim).
 
     T105
         title       Start order stated as a rule; T102's routed checks built

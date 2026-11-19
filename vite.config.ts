@@ -29,6 +29,7 @@ const frozenTests = ["packages/flow-state/**", "packages/flow-state-rewrite/**"]
 
 const productionTests = [
   `${productionSource}/**/*.test.{ts,tsx}`,
+  `${productionSource}/**/*.test-d.ts`,
   `${productionSource}/**/*.spec.{ts,tsx}`,
   `${productionSource}/**/__tests__/**/*.{ts,tsx}`,
   `${productionSource}/**/test/**/*.{ts,tsx}`,
@@ -347,6 +348,13 @@ export default defineConfig({
   test: {
     include: stressRun ? [stressTests] : ["packages/**/*.test.ts"],
     exclude: [...configDefaults.exclude, ...frozenTests, ...(stressRun ? [] : [stressTests])],
+    // Type tests (`*.test-d.ts`) run in the default suite: the package's tsc checks them, and an
+    // exact `expectTypeOf` that fails is a failed test.
+    typecheck: {
+      enabled: !stressRun,
+      include: [`${production}/**/*.test-d.ts`],
+      tsconfig: `${production}/tsconfig.json`,
+    },
     coverage: {
       provider: "v8",
       include: ["packages/flow-state-v3/src/**/*.ts"],
