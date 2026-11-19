@@ -3847,7 +3847,7 @@ tasks
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
-        status      draft
+        status      open
         priority    high
         blocked_by  [@T104]
         description
@@ -3878,8 +3878,18 @@ tasks
             May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`, `tools/flow-state-lint/`,
             `apps/docs/`, the Specs that state context. Evidence: this Task's comments.
 
-            False pass: a type test that passes because a token became `any` → every type test is two-sided.
+            Fixtures: the catalog's context rows and its six context forms (code:wiki/conventions/fixture-catalog.md,
+            "Context forms"), each a Story and an edge-value sample in the apps the catalog names (shop, git, transfers,
+            sign-in, workspace); every existing `onContext` and `Provider.select` site converted in place.
+
+            False pass: a type test that passes because a token became `any` → every type test is two-sided, enforced by
+            `flow-state/paired-refusals`. Gates: the one-provider construction check and the skip-unchanged
+            recomputation, each with its own planted fault in `tests/faults.ts`, caught by `nub run faults --only`.
+            User's read: the state-scoped `onContext` verdict and its entry rule; any change to the saved reaction
+            baseline (Actors R18), since it changes the record format that @task.V3.T56 versions.
         acceptance
+            - Fixtures meet code:wiki/conventions/fixtures.md before any code, proved by its sidecar review; the
+              catalog's context items are each marked built (with a Story id) or left (with the later Task).
             - Wrong endings pinned red first: a `reads` mixing two providers, a read of a `Flow.private` field, a
               `select` or `when` using the wrong type, and a `.change` on an undeclared slot each fail to compile
               (two-sided type tests); a mixed-provider slot built through a cast throws `InvalidConfiguration`, and a

@@ -1117,3 +1117,7 @@ note 2026-11-19T20:49:47Z
 note 2026-11-19T21:55:30Z
     T104 done (1ef090b7): second close review PASS; follow-ups routed to @task.V3.T105. Proposed for the user: the
     public Step constructors, WorldWord and FakeWorld removal. Next: @task.V3.T107.
+
+note 2026-11-19T21:56:53Z
+    User's page written, unread: code:wiki/plans/flow/references/pages/T104-type-seams.md (Q1: the removed public Step
+    constructors). @task.V3.T107 opened with its fixtures line, gates and user's read; its lead starts.
