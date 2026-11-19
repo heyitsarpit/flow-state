@@ -3785,6 +3785,9 @@ tasks
             Done (orchestrator): second close review PASS at 1ef090b7, nothing blocking; follow-ups routed to
             @task.V3.T105. Proposed, for the user: the Step.ensure/detach/send/dispose, WorldWord and FakeWorld removal
             from the public testing entry (2dcd3cf4) stands until the user decides; reverse by re-exporting them.
+        comment     2026-11-19T22:02:03Z
+            Decision (the user, 2026-11-20): Q1 A for now: the public Step constructors, WorldWord and FakeWorld stay
+            removed; the user finalises tomorrow, leaning to keep them removed if nothing needs them.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed

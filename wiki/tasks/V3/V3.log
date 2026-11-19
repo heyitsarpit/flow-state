@@ -1121,3 +1121,7 @@ note 2026-11-19T21:55:30Z
 note 2026-11-19T21:56:53Z
     User's page written, unread: code:wiki/plans/flow/references/pages/T104-type-seams.md (Q1: the removed public Step
     constructors). @task.V3.T107 opened with its fixtures line, gates and user's read; its lead starts.
+
+note 2026-11-19T22:02:04Z
+    Decision (the user, 2026-11-20): T104 page Q1 A for now (removed Step constructors stay removed); final call
+    tomorrow. Page read.
