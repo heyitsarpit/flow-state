@@ -56,11 +56,11 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T58, @task.V3.T57,
-    @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22,
-    @task.V3.T100, @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the
-    user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link
-    is a real dependency only; where several Tasks are ready, take the earliest in this order.
+    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T58,
+    @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56,
+    @task.V3.T22, @task.V3.T100, @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and
+    T95 cut by the user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A
+    `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -2721,3 +2721,67 @@ tasks
             snapshots) and the routed items (a stopped Runtime's read returning {} as typed memory, lint alias gaps, a
             token whose machine never starts selecting nothing) move to the type-gaps Task created from the surveys
             now running.
+
+    T104
+        title       Type gaps closed: handles, snapshots, evidence, cuts and records typed by what Flow knows
+        status      draft
+        priority    high
+        description
+            Every public type Flow hands back is as narrow as what Flow knows: a definition's, contract's, ref's or
+            fake's own names and Schema types flow through to handles, snapshots, evidence, cuts and records, so a typo
+            or a wrong value fails to compile instead of reading undefined or matching nothing.
+
+            **Why now:** the user found `snapshot.operations` untyped beside a typed state and memory ("a very stupid
+            type gap"); three surveys (2026-11-19) then found the same freedom across the API: Flow erases a type it
+            holds at the point it hands a value out. The worst: operation handles drop the contract's fields, so
+            `O.pay.commit(({ memory }) => ({ amnt: memory.cents }))` compiles (about 91 sites); a cut's
+            `records.stored.has("lane/Typo")` and `calls.filter(c => c.endpoint === "setQuantiy")` assertions pass for
+            the wrong reason.
+
+            **Read first:** code:packages/flow-state-v3/src/definition.ts#Handles,
+            code:packages/flow-state-v3/src/contract.ts, code:packages/flow-state-v3/src/host/snapshot.ts,
+            code:packages/flow-state-v3/src/host/testing/run.ts, code:packages/flow-state-v3/src/core/evidence.ts.
+
+            **Approach:** the broad fix first (the user's convergence rule): find where the type is held and where it is
+            dropped, and carry it through once (phantom type parameters on `Bound`, `ContextSlot`, `Ending`, `Snapshot`,
+            a `RecordKey` brand), rather than patching each signature. Then, each with a type test that a misspelling
+            fails to compile, ranked by false-pass risk:
+
+            1. Operations: handles keep the contract's input and key fields (`commit`, `lookup`, `retry`, `cancel`,
+               `idle`, `retryable`, `get`); `Snapshot<D>.operations` keyed by the definition's operation names;
+               `attempt.input` and `attempt.key` typed; a runtime handle's `getSnapshot()` returns `Snapshot<D>`
+               (T103's amendment).
+            2. Test cuts and records: `records.stored` and `Fake.storage.put` take a `RecordKey` brand from the
+               record-key helpers; `calls` typed by endpoint handle (or dropped for `read(endpoint)`); evidence
+               selectable by operation token; `RuntimeCut` rows use the existing `Phase`, `Channel` and `Timer` tags.
+            3. Context: `Snapshot.context` typed; context wiring keys typed by the machine's slots and values by the
+               slot's provider (`ContextSlot<V, P>`).
+            4. Callbacks and tokens: a guard's `state` and `StateToken.is`/`child` typed by the machine's leaves;
+               `onContext`'s `select`/`when` and `Ending.from` carry their value type instead of `never`; read
+               contracts' failure tags checked like write contracts'; `Definition.Event` decodes to `EventOf`.
+            5. The escapes behind them: `trusted<A>(value: unknown)` and `erase<I, R>` take the expected shape so a
+               rename cannot compile against the wrong type; `endingValue`'s `never` cast replaced by the carried value
+               type; samples keep their event type; typed run rejections for tests.
+            6. From T103's review: a stopped Runtime's `read` must not return `{}` as typed memory;
+               `no-event-name-filter` aliases; a token whose machine never starts selecting nothing (a run rule or
+               a refusal).
+
+            Each item names its false pass or wrong ending; an item a survey reported that does not hold at the code
+            (checked by a type test) is dropped with the reason. Public type changes are small and delegated; a new type
+            parameter on a public word (`ContextSlot<V, P>`) is noted for the user's read.
+
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`, @spec.Stories
+            and the Plans' code examples via @plan.Pending. Evidence: this Task's comments.
+
+            False pass: a type test that passes because the type is `any` or `never` → each type test also asserts the
+            correct spelling compiles (both sides), so a widened type fails it.
+        acceptance
+            - Each kept item has a two-sided type test: the misspelt or wrong value fails to compile, the correct one
+              compiles; red (compiling) before its change.
+            - No public signature in `src/index.ts` or `src/host/testing/index.ts` returns `string`, `Values`, `unknown`
+              or `never` where the definition, contract, ref or fake already holds a narrower type, except where a
+              survey item was dropped with its reason.
+            - `trusted` and `erase` take the expected shape; no type comes from a return annotation alone.
+            - T103's routed items are closed or routed with a reason.
+            - `nub run check`, the suite and stress pass; any new lint rule or run rule has planted faults caught by
+              `nub run faults --only`.
