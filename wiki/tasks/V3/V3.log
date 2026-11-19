@@ -925,3 +925,7 @@ note 2026-11-19T00:38:20Z
 note 2026-11-19T00:39:07Z
     T95 started: text gains a design-first step (structure over per-check, the user's convergence point), fixtures line
     and raw-throw scope. Lead writes requirements and fixtures, then stops for the requirements review.
+
+note 2026-11-19T00:47:32Z
+    Decision (the user, 2026-11-19): T95 cut, its lead stopped before any change; no wrong ending it would prevent.
+    Items to T99 and T57; T96 unblocked and next. Lesson: no Task without a Story showing the wrong ending it prevents.

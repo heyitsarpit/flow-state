@@ -56,9 +56,9 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T92, @task.V3.T95, @task.V3.T96, @task.V3.T99, @task.V3.T58, @task.V3.T57, @task.V3.T77,
-    @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100,
-    @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred by the user, 2026-11-19, so T95 is
+    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76,
+    @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23,
+    @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the user, 2026-11-19, so T96 is
     next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only;
     where several Tasks are ready, take the earliest in this order.
 
@@ -215,6 +215,10 @@ tasks
         comment     2026-11-18T19:39:04Z
             Owes (proposed, P3 close fix round): placements released within the disposal bound with ReleaseOverdue
             (@plan.Runtime.O6); link added. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-19T00:47:12Z
+            Moved from cut T95 (2026-11-19): Turn I31 says a new incarnation's first snapshot carries no issue, but
+            creation raises one for a refused schedule delay and a test asserts it; decide Spec or code with two
+            traces, test-first.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -1210,10 +1214,10 @@ tasks
             itself (eliminate contradictory states by structure), with this branch's tests as its requirements.
 
     T95
-        title       Callback results checked before they enter a turn
-        status      in_progress
-        priority    high
-        satisfies   [@plan.Runtime.O5]
+        title           Callback results checked before they enter a turn
+        status          tombstone
+        priority        high
+        satisfies       [@plan.Runtime.O5]
         description
             Every user callback's result is checked before it enters a turn: an `updateMemory` patch by its keys and
             each field's Schema, an ending mapper's payload by its event's check.
@@ -1259,20 +1263,24 @@ tasks
             - The palette's per-turn median grows by at most 10 % with checks on, or production checks keys only,
               recorded with the bench numbers.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
-        comment     2026-11-18T19:39:05Z
+        comment         2026-11-18T19:39:05Z
             Owes (proposed, P3 close fix round): @plan.Runtime.O5 tests: an unencodable selection is UnencodableValue, a
             context change never resets memory, capture never sees half a wave; faults for the Turn gaps in
             code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
-        comment     2026-11-18T19:58:51Z
+        comment         2026-11-18T19:58:51Z
             Routed (P3 close, 2026-11-19): Turn I31 says a new incarnation's first snapshot carries no issue, but
             creation raises one for a refused schedule delay and a test asserts it; decide Spec or code with two
             traces, test-first.
+        deletion_reason
+            Cut (the user, 2026-11-19): no wrong ending it would prevent; TypeScript covers callback result shapes,
+            operation contracts decode outside data at the boundary, and capture encodes memory through its Schema
+            (UnencodableValue at write). Its routed items moved to @task.V3.T99 and @task.V3.T57.
 
     T96
         title       Actor-to-actor send(ref, event) action with the loop guard
         status      draft
         priority    high
-        blocked_by  [@T95]
+
 
         satisfies   [@plan.Runtime.O4]
         description
@@ -1414,6 +1422,10 @@ tasks
         comment     2026-11-18T20:40:33Z
             Routed (P3 compaction, 2026-11-19): IdentityExhausted and Actors R1's per-operation refusal had no owner;
             both are Runtime life and land here, test-first.
+        comment     2026-11-19T00:47:12Z
+            Moved from cut T95 (2026-11-19): @plan.Runtime.O5 tests (an unencodable selection is UnencodableValue, a
+            context change never resets memory, capture never sees half a wave) and faults for the Turn gaps
+            in code:wiki/tasks/V3/P3-coverage.md.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer

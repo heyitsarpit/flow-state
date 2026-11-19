@@ -14,8 +14,8 @@ entry) or stores them unread (a builder). Anything else that throws becomes a Fl
 | Refs and actor calls        | `ensureActor`, `createActor`, `disposeActor` in `entry`; a handle's Runtime by `WeakMap` | built (@task.V3.T94) |
 | Runtime options             | `ready`, `dispose`: `entryEffect`                               | built (@task.V3.T94)   |
 | Any stray throw in an entry | `entry` / `entryEffect`: FlowError Defect with the cause        | built (@task.V3.T94)   |
-| User callback results       | one callback wrapper; patch keys and values by field Schema     | @task.V3.T95           |
-| Server answers              | only through the user's mapper, then the event's check          | @task.V3.T95           |
+| User callback results       | TypeScript; memory encoded through its Schema at capture (UnencodableValue) | not checked at run time (T95 cut, the user, 2026-11-19) |
+| Server answers              | the operation contract's Schemas at the adapter boundary, then the user's mapper | built |
 | A machine's sends           | the target ref decoded, the event by the target's check         | @task.V3.T96           |
 | Saved records at boot       | one Schema per record kind, from Compiled; branded ids          | @task.V3.T92           |
 | Records across releases     | version and fingerprint stamps                                  | @task.V3.T56           |
