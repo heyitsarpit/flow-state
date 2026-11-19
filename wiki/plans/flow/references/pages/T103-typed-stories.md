@@ -19,12 +19,8 @@ export const Carts = Fake.server("Carts", { ... }, { lost: () => new NoResponse(
 A token selects only its own machine's events, so two machines that both declare `Unsure` don't mix. Filtering evidence
 by a name string is now a lint error (`flow-state/no-event-name-filter`).
 
-## For your read
+## Status
 
-The five new testing words are recorded as proposed: Pending D35 to D39 (typed `read`, `publishedOf`, `turnsOf`,
-`evidenceOf`, `lost`).
-
-## Known gaps
-
-`snapshot.operations` and a runtime handle's `getSnapshot()` are still untyped, and a stopped Runtime's read can still
-return `{}` as memory; these go to the type-gaps Task being scoped now.
+Read and closed by the user, 2026-11-20. The five testing words (Pending D35 to D39) are merged into
+@plan.Testing. Of the known gaps, typed `snapshot.operations` and `getSnapshot()` landed in @task.V3.T104's snapshot
+carrier; a stopped Runtime's read returning `{}` as memory is still owed there.
