@@ -2436,7 +2436,7 @@ tasks
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
-        status      review
+        status      done
         priority    medium
         description
             Story assertions and fakes are typed by the definitions they touch: a cut's `read(ref)` returns the ref's
@@ -2716,3 +2716,8 @@ tasks
             - "the Gotcha cell now pins only a non-matching catch": so did the old fixture, and the host cells pin it
               per combinator.
             - "prototypes call Fake.server without `lost`": prototypes are outside tsconfig and never production.
+        comment     2026-11-19T13:17:48Z
+            Done (orchestrator, 2026-11-19): close review PASS (02bd5ce4). The amendment (typed operations, typed handle
+            snapshots) and the routed items (a stopped Runtime's read returning {} as typed memory, lint alias gaps, a
+            token whose machine never starts selecting nothing) move to the type-gaps Task created from the surveys
+            now running.
