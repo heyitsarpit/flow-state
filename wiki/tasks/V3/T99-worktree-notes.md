@@ -262,3 +262,79 @@ Each finding, then its check; every new cell was red before its fix unless said.
   "pins a loss" (Q11 A); the orders oracle relying on the close awaiting incarnations (that is R23's rule); I48
   stating Q11 inline (asked in both places).
 - Routed: an Exit read by value (needs type-aware lint, @task.V3.T102).
+
+## Fix-round review (independent lead, 2026-11-19): PASS
+
+No blocking finding. The blocker is fixed and is not the same root cause again: a ref keeps its heard and unheard
+Causes apart (`Quarantine` Unheard, Heard, Partly in `src/host/driver.ts`). Each Cause reaches every ensure that runs
+while it is held, or exactly one of a lift, dispose's rejection or the host's report. Nothing doubles and nothing is
+lost. Gates, each run alone: suite exit 0 (1,399 passed, 25 expected fail); `nub run check` exit 0 with no warnings;
+`lint:rules` exit 0. Stress exit 1 with only the known `lanes` saved stress Story (`longCommit`); its fix, ab8c49bc,
+is on flow-rewrite and not on this branch. `faults --only` caught 7 of 7, all by targets: heard-quarantine-repeated,
+ensure-forgets-unheard, lift-drops-unheard, report-drops-own-scope, services-released-before-calls,
+report-before-tasks-end, report-drops-task-failures.
+
+**Checked and holding**
+
+- The 60-order table passes; the previous review's replay is one of its orders. A scratch test, now deleted, tried
+  orders the table leaves out, and every one passed with each Cause reported once:
+  - three incarnations (Heard, Partly, Heard, Partly), with the third cleanup dying or failing typed (no handler);
+  - a lift of a Partly quarantine (only the unheard Cause goes to dispose), then a new failure heard by an ensure;
+  - a cleanup landing past both bounds (the host's report alone, CleanupOverdue in the rejection);
+  - an open read ended by the free grace with no disposeActor (both ensures report it; dispose does not).
+- Once disposal starts, an ensure is refused before it reads the quarantine (`runtime.ts` ensureActor), the lift is
+  refused, and a late quarantine goes to `report.hear`, so nothing enters or leaves the map after the close reads it.
+- Spec: R23 matches the code. That covers the two bounds, CleanupFailed holding CleanupOverdue, an Issue only in
+  Open, Disposing and Disposed (the `life.ts` CleanupFailed row), a stopped Runtime's defect first, and Q11 A in the
+  user's words. R27's abort sentences are marked proposed. No temporary names or outside imports in the package diff.
+
+**Routed (non-blocking)**
+
+1. **`owners-only` still misses forms** (low; @task.V3.T102). Planted through its own oxlint harness, with a control
+   that fires. It misses `??=` and `||=` aliases, direct `eval`, `createRequire(...)("effect/Effect")`, a relative path
+   into `effect/dist`, `Runtime.makeRunMain`, `ManagedRuntime` (lint-bomb's runner rule may cover it), and
+   `Effect.ignoreCause`. It also misses `Scope.close`, a destructured or computed `interruptUnsafe`, `instanceof
+   Cause.Fail`, `import X = Effect.forkDetach`, and a use placed above its hoisted import. Most of these are deliberate
+   evasion. `Effect.ignoreCause`, `Scope.close` and `??=` could be written by accident. Missing coverage: those forms
+   in `fires`.
+2. **`everyTaskAccounted` cannot see the last hop** (low; T99 lead or @task.V3.T102). It holds each Owner's Report
+   count to its Task records, but the count is written whatever the hearer then does. A closer that drops what it
+   heard still passes the rule: the root's `report.hear(released)`, the EndWork quarantine hearer, `driver.unheard()`
+   in the close, a lift, or the Late loop. Today `cleanups.test.ts` catches each of those faults. It can also pass
+   when a fault drops the Task flag, the Issue and the count together at the judge (judge-drops-typed-cleanup).
+   `report-drops-own-scope` is caught by the cell's "its closer hears it" assertion, not by the rule, since no Story
+   plants a failing Owner finalizer. Missing coverage: a delivered count (rejection plus host report) checked against
+   the root's report, and the rule run over the own-Scope cell's records.
+3. **The rule breaks in lives that record no Issue** (low; T99 lead). This is the documented Gotcha. The trace has no
+   life marker, so the "life that records no Issue" cell would breach if it were run through `checked`.
+4. **Spec text** (low; T99 lead). Several smaller mismatches:
+   - "at most two disposal bounds" leaves out the forget's unbounded store work (Restore R10);
+   - line 327 still names ReleaseOverdue;
+   - Q2 and T17 still say CleanupFailed has no test or fault;
+   - I47 and I48 sit in no `enforced_by` list;
+   - I48 says "every non-interrupt reason" while the rule counts Causes (two dying finalizers of one Scope are one
+     Cause and one Issue);
+   - in a stopped Runtime, CleanupFailed is a `die` beside the defect, outside dispose's typed channel.
+5. **Already owned elsewhere.** A dying cleanup inside a commit's `timeoutOrElse` is still lost, which goes against
+   Q11 A's "cleanups that die are always reported". It is the existing `it.fails` `transfers/interrupt-cleanup-fails`,
+   owned by @task.V3.T100. The close's own ignored Exit and the unguarded hooks also stay with @task.V3.T100.
+
+**Sidecars (5 Haiku, effort high), each verified**
+
+- Blind (O6, the Actors Spec, the code):
+  - Accepted its "checked and clean" quarantine trace, which my scratch orders confirm.
+  - Rejected a runPromise in flight at dispose reaching both rejections: two hearers by R23 and R27, as the close
+    review held.
+  - Rejected a Runtime discarded without dispose: R23 names dispose as the sink, so this is out of range.
+  - Booting stays with @task.V3.T100.
+- Orders: accepted the grace-end and three-incarnation gaps (both replayed green). Rejected a typed variant failing
+  the oracle (its `timesIn` reads defects only; my replay counted both). The throwing host report is routed (5).
+- Lint: changed into 1 after planting every form. Its `effect/effect` case and prototype keys were not replayed and
+  are not claimed.
+- Run rule:
+  - Accepted the last-hop, judge-level and own-Scope points (2) and the life Gotcha (3).
+  - Rejected a finalizer failure on a task that was not interrupted: it is that task's own Died or Failed ending, and
+    not hidden.
+  - Rejected a body's typed failure beside an interrupt: narrow, and it is not lost.
+- Spec: accepted 4. Changed the `timeoutOrElse` finding into 5, since it is owned already. Rejected the detached
+  close fibers under I47: they are routed to @task.V3.T100.
