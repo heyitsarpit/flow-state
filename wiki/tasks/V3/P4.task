@@ -2675,6 +2675,58 @@ tasks
             Routed: `start-order-reversed` is missed by the whole suite and no Spec rule says live identities go in
             start order (proposed: an Actors rule, then the fault); faults `setup-services-built` and `trace-own-path`
             were stale before this Task.
+        comment     2026-11-19T14:56:33Z
+            Close review (independent lead, 5 Haiku sidecars at high effort, one blind): PASS, no blocking finding, at
+            `b5aebb79` (code unchanged at `53872f14`). The fix round is checked too. Gates, each run once and alone:
+            suite exit 0; `nub run check` exit 0; `lint:rules` exit 0; stress exit 0 (34 files, 79 tests); `faults
+            --only` catches all 5 of T102's faults by their targets; the dev bench shows `turn.session.long` at 0.134
+            ms/turn against the build's 0.149, so no regression.
+
+            Every acceptance item passes. Writing the old shapes back into `src/core`, lint refuses the startOrder
+            parse, the key slice, the `$is ||` chain, the `_tag` ternary ladder and the prefix test;
+            `switch-exhaustiveness-check` refuses a partial switch. The types refuse `owner: 0` and `chain: 0`. A grep
+            finds no bare-string reason or code compare. The `Restored` collision is closed: `isSaved` reads only
+            Delivery and `Origin`, and `restored-by-reason` is caught. `Trigger` clashes with nothing in Effect 4.1.4 or
+            the package. Chains have their own counter: no trace file or pinned id moved, and guard counts are keyed by
+            `ChainId`. There are no outside imports and no temporary names, and the `sed` edit to `ledger.test.ts`
+            is clean.
+
+            Start order (for the orchestrator to decide). Order is observable. With `byStart` reversed, the same
+            Stories give:
+            - `cartFirst`: "provides context to Shop/CartBadge/badge-main, Shop/CheckoutFlow/…" becomes "…CheckoutFlow…,
+              …CartBadge…". This is the public `BlockedByDependents` message and details. `store.test.ts` accepts
+              either order.
+            - `flowFirst` through disposeRuntime: the badge's and the flow's context-update turns and their publishes
+              swap (trace lines 52 to 59), and the Finished order swaps (CartBadge/CheckoutFlow, and Cart/Pay).
+
+            Recommended: keep `Incarnation.started`, which is a fact stored once and not derived from Map order. Add an
+            Actors rule (proposed): where several live identities are visited at once (a wave's consumers, a provider's
+            dependents, peers in dispose's order, graces), they go in start order. Pin `cartFirst` in `store.test.ts` to
+            start order, so the fault `start-order-reversed` is caught there.
+
+            Routed, none blocking:
+            1. Requirement 5's pin and fault for mail between items were not built. Dropping `tx.followNone()` from
+               `serve.ts` `served` passes the whole suite. Either show it is equivalent within a step
+               (`incarnations.graces()` after a yielded drain is the open path) or pin it.
+            2. Gaps in the lint guard; no current site is red. `no-tag-chain` misses `[...].includes(x._tag)` and
+               consecutive early-return `if`s on one tag. `no-id-text` goes by name only: it misses renamed bindings,
+               `test`/`exec` and `charCodeAt`.
+            3. Stale text. `ledger.ts` `SAVED_DELIVERY`'s doc comment (non-exported) still names the unknown `{ Restored
+               }`. `FLOW-STATE.md` says record.ts has a file-level disable; the disables are per line.
+            4. `lanes.ts` `applyNamed` reports with `id: ""` for no lane. This predates the Task. It goes to the next
+               change to lane moves.
+            5. The false pass's "test that renames the mint's format" was not built. `no-id-text` covers that class.
+
+            Haiku log. Accepted: start-order trace (verified by replay), chain counter, Restored trace, Trigger,
+            `ledger.test.ts` clean, lint gaps (each re-checked by planting a probe), the `""` lane id, FLOW-STATE
+            drift. Rejected:
+            - the blind sweep's single-tag predicates and literal compares on `Channel`, which are binary by meaning, as
+              accepted earlier;
+            - `~` prefix tests and the decline `code: string`, which belong to the trust consult;
+            - the `turn.ts` Verdict fall-through, which narrowing types;
+            - `SAVED_DELIVERY` as a duplicate of `IN_MAILBOX`, since the two tables mean different things;
+            - worker-args' `node:util` parser, which is one table refusing unknown flags;
+            - owners-only misses outside A8's list (`ManagedRuntime`, `Runtime`).
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
