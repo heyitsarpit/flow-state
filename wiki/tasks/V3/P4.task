@@ -2936,3 +2936,12 @@ tasks
             Lens (the user, 2026-11-19): type gaps sit at module seams, where data crosses and its type does not; T104
             maps each seam (producer, consumer, type on each side) and fixes the carrier at the seam, so one change
             closes every gap on it.
+        comment     2026-11-19T13:43:19Z
+            Scope from the deep survey (code:wiki/plans/flow/references/proposals/type-gaps-deep-2026-11-19.md; 9
+            families, 34 new gaps, 31 probe-confirmed, 21 seams): build by carrier, in order F9 first (an arrow's
+            returned object is not excess-checked, so updateMemory may silently rewrite a Flow.input field: confirm with
+            a Story, red first, as a wrong ending), then F1 Bound with ContextSlot<V, P>, F5 Snapshot<D, View> (private
+            fields and resting context must not be claimed), F4 RuntimeSetup<R, A> (cut.read of a foreign ref returning
+            undefined, 498 sites), F6 with F8, F2 Ending<V>, F3, F7, the three seams with duplicated shapes, then the
+            cast sweep (74 removable now, 9 after carriers; three false SAFETY comments). New public type parameters are
+            delegated (users rarely write them) and noted for the user's read.
