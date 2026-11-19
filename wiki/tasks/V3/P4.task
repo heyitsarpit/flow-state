@@ -1575,6 +1575,56 @@ tasks
             - Spec: Actors R13, R16, R20, I20 edited, specs.log note.
             - Open: `toRef` is a callback only, since refs mostly come from memory; a constant ref is a small
               additive form.
+        comment     2026-11-19T03:10:21Z
+            Close review: ISSUES (independent lead, 2026-11-19, at `bfd05140`; fix round `1ceaf266` checked with it).
+            One blocking finding, the loop guard; every O4 row, the checks, the forms and the faults hold. Suite exit 0
+            (1236 passed, 24 expected fail), stress exit 0 (77), `nub run check` exit 0, `nub run faults --only` 9 of 9
+            caught by their named tests.
+
+            Blocking:
+            1. The guard gives each onContext turn of a send-less admission its own budget (Actors R13, I20). `counted`
+               (code:packages/flow-state-v3/src/core/serve.ts#counted) mints a chain only at a turn's first send, so a
+               host event, ending or firing whose own turn sends nothing waves with no chain, and each consumer's
+               onContext event starts a fresh one; a waiting Context mail also keeps its first chain and drops the next
+               wave's (code:packages/flow-state-v3/src/core/context.ts#wave). Red, scratch replays on
+               `gitMirroredSetup`: one host `Push` to unlinked `mirrorA`, two replicas following it and forwarding to
+               `b` (linked back to `a`), sends 5,002; the same with each replica feeding its own mirror pair passes the
+               Story's 10,000-turn limit. Tests missed it: `sync/replica-loop` has one consumer. Missing: a Story where
+               a send-less admission's context update reaches two sending consumers, refused at the guard in total.
+
+            Routed (not blocking):
+            - Coverage: the chain's root is never asserted (`toContain("Push")` matches the source text);
+              restored-by-action not a use, two sends' order on restore, `renewal-busy-pay`'s PayRequested, a handle
+              send's RecordUndecodable all unasserted; `replicaA` absent from `git-mirrors` samples; `Subscription`'s
+              `Due` never fires in generated runs, so the action path's persisted rows are hand Stories only (the target
+              rows are reached by handle sends there); `pairs-sends.test.ts` keeps its own list outside the manifest,
+              usual tier only.
+            - Fixtures: `Subscription` passes "The right tool" only weakly: its catalog reason is still the test's need,
+              and `Due` sends no `Start`, so each week reuses the last intent. Fix in the fix round or name a
+              product source.
+            - Spec and Plans: R13 now says onContext events are "never refused by it" while their turns' sends count and
+              are refused (`sync/replica-loop`); reword, and D13's "none is refused" is for the user's read. The
+              R16-over-R20 ruling holds, as two traces of `shop/renewal-disposing-pay`: R16, one Pay incarnation and
+              NoRecord on `weekly`; old R20, Pay restored (incarnation 2) with CardChosen and PayRequested. It follows
+              O4's row, not the code, but Runtime O6 and Persistence (`disposeActor` stops a restore only once
+              acknowledged) still say the losing text: a Plan edit for the user.
+            - Text: acceptance 4 and two test titles say FlowError where the refusal is InvalidTurn;
+              `RuntimeDefaults.loopGuard`'s doc still says it waits for a send action; the guard's message sits in
+              `Issue.slot`; A26 (RuntimeDefaults frozen) still owed.
+            - Types: a foreign token with the same tag and payload compiles (`MappedEvent` carries no definition), and
+              the foreign-token negative in `tests/types/send.compile.ts` fails only on its payload; no wrong ending,
+              since the target checks the event.
+            - Pre-existing, out of range: mail queued to an actor disposed before it is served is dropped with no
+              evidence; a send's restore ensures a disposed provider of the restored consumer; dispose keeps the
+              quarantine entry, so a disposed undecodable identity reports RecordUndecodable; `chains` empties only when
+              every mailbox does.
+
+            Sidecars (5 Haiku, effort high), each finding verified: accepted the blind and guard sidecars' context
+            fan-out (1, replayed) and coalesced wave (folded into 1); the delivery, fixtures and types findings above as
+            routed. Rejected: endings and firings starting a new count (R13 says they are not counted; a spin is never
+            stopped), dropped sends counting (they are sent by turns), the Mirror's `Import` callback (the user kept the
+            callback form), the lazy row (owned by @task.V3.T48), comment style (lint passes, house pattern), the
+            deleted `buy-now.test.ts` (built and dropped within this Task).
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
