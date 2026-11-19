@@ -23,11 +23,15 @@ the way they do in real apps:
   use it.
 - **Few fixtures, rich apps.** A new feature lands in the existing apps that would use it. A new fixture is made only
   when no existing app could carry the feature naturally.
+- **The right tool.** A feature appears only where a real product would choose it over what Flow already offers. A
+  cell a simpler feature covers is cut, with the reason in the catalog row: mirrored data goes through context, not
+  sends; a value the parent owns is a prop, not memory. Variety counts different uses, never the same use in more
+  apps (the user, 2026-11-19).
 - **Additive growth.** An app grows by new machines added around the old ones, not by rewriting them. An existing
   machine keeps its id, states, memory and Stories, and every Story id stays. A new machine reaches an old one by
-  holding its ref (sending its existing events, reading its snapshot) or by consuming a context the old one already
-  provides. An edit to an old machine is allowed only where the product can't work without it, kept to one
-  declaration, with the reason in the catalog row.
+  consuming a context the old one already provides or reading its snapshot; it sends an old machine's existing
+  events only for a genuine command, as that product would. An edit to an old machine is allowed only where the
+  product can't work without it, kept to one declaration, with the reason in the catalog row.
 
 Each catalog row lists its app's machines and operations by name.
 
@@ -122,9 +126,9 @@ Each feature or behaviour a Task builds or changes gets all of these, each red b
 5. **Combinations.** Where the feature meets others (persistence, lanes, context, schedules, props, emits), the
    fixture or a second one exercises them together, and the fixture joins the app mix and a pair sweep when it
    persists or calls a server.
-6. **Variety.** More than one app shape where the feature can be used differently (a singleton and a value-named
-   actor; a shared and a local actor; nested and flat states; one tree and a forest), in at least three unrelated
-   apps.
+6. **Variety.** Each a fit by "The right tool". More than one app shape where the feature can be used differently
+   (a singleton and a value-named actor; a shared and a local actor; nested and flat states; one tree and a forest),
+   in at least three unrelated apps.
 7. **Findings.** A bug a review finds is added to `samples` or a Story here, as well as its own titled test, so
    the generator explores the cases around it.
 8. **Sources.** Where a real app or SDK has the behaviour, the scenario copies its test or user flow, and the
