@@ -957,3 +957,7 @@ note 2026-11-19T02:51:25Z
 note 2026-11-19T03:11:05Z
     T96 close review ISSUES (df9968f9): the loop guard counts per consumer when an event's turn sends nothing. Fix round
     started. R16 over R20's Plan text proposed as Pending D32 for the user.
+
+note 2026-11-19T03:45:31Z
+    T96 fix round in (549c8d8b): guard counts once per admitted event, shared across its context update's consumers; R13
+    reworded; gates green. Second close review started.
