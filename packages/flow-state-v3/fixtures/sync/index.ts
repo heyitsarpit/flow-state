@@ -1,7 +1,14 @@
 import { Option } from "effect";
 import { benchStress, benchTurn, manifest } from "../manifest.ts";
 import { gitWatched, gitWatchedSetup, clientOf } from "./app.ts";
-import { pullPaused, pullSamples, pullUnchanged, pullWatching } from "./stories/context.ts";
+import {
+  pullFirstPause,
+  pullPaused,
+  pullRepaused,
+  pullSamples,
+  pullUnchanged,
+  pullWatching,
+} from "./stories/context.ts";
 import {
   long,
   samples,
@@ -59,6 +66,8 @@ export const sync = manifest({
     pullWatching,
     pullPaused,
     pullUnchanged,
+    pullFirstPause,
+    pullRepaused,
   },
   samples: [samples, repoSamples, mirrorSamples, pullSamples],
   stressSamples: [samples, repoSamples, mirrorSamples, pullSamples],

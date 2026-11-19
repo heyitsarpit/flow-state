@@ -4,18 +4,19 @@ import { Sync } from "./sync.ts";
 
 /**
  * The editor's auto-pull: the remote head its client last read and whether the client is cooling
- * down from a rate limit, both read as context; the head it last pulled, how many pulls and how
- * many rate limits it has shown.
+ * down from a rate limit, both read as context; the head it last pulled, how many pulls, how many
+ * head moves it has shown as new commits while paused, and how many rate limits it has shown.
  */
 export const AutoPull = definition({
   id: "Git/AutoPull",
   persist: false,
   states: ["WATCHING", "PAUSED"],
   events: { Pause: {}, Resume: {} },
-  internalEvents: { HeadMoved: { head: Schema.String }, Throttled: {} },
+  internalEvents: { HeadMoved: { head: Schema.String }, Behind: {}, Throttled: {} },
   memory: {
     pulled: Flow.initial(Schema.String, ""),
     pulls: Flow.initial(Schema.Number, 0),
+    behind: Flow.initial(Schema.Number, 0),
     throttles: Flow.initial(Schema.Number, 0),
   },
   context: { head: Flow.context(Sync.M.head), limited: Flow.context(Sync.S.COOLING) },
@@ -23,8 +24,9 @@ export const AutoPull = definition({
 
 /**
  * The auto-pull: while watching, a moved head is pulled into the editor's view; the user pauses it
- * while they have local edits and resumes it after. Its head reaction is declared in the watching
- * state only; each rate limit is shown in either state.
+ * while they have local edits and resumes it after. While paused, each head move shows one more new
+ * commit, cleared on resuming. Its head reactions are declared in the watching and the paused state;
+ * each rate limit is shown in either state.
  */
 export const AutoPullMachine = machine(AutoPull, ({ S, E, C }) => ({
   default: S.WATCHING,
@@ -40,6 +42,12 @@ export const AutoPullMachine = machine(AutoPull, ({ S, E, C }) => ({
         Pause: S.PAUSED,
       },
     },
-    PAUSED: { on: { Resume: S.WATCHING } },
+    PAUSED: {
+      onContext: [C.head.change({ event: E.Behind })],
+      on: {
+        Behind: { updateMemory: ({ memory }) => ({ behind: memory.behind + 1 }) },
+        Resume: { target: S.WATCHING, updateMemory: () => ({ behind: 0 }) },
+      },
+    },
   },
 }));

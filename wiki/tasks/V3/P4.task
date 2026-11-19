@@ -4041,3 +4041,13 @@ tasks
             before the build, with the non-blocking record fixes (proof gaps, the session fixture's 30 sites listed,
             stub comments, the three misplaced wrong markers, the payload mapper's argument pinned, close on a
             zero-reaction grep). Then the build runs to review.
+        comment     2026-11-19T23:11:32Z
+            Review findings landed red (lead, build start): B1 `sync/auto-pull-first-pause` (first entry into PAUSED
+            with a held head, a re-read, then a move) and `sync/auto-pull-repaused` (the experiment's question) on
+            AutoPull's new paused reaction; B2 two refusals in `tests/actors/context-slots.test.ts`
+            (`context.slot.reads.other`, `context.slot`); B3 `slots/compound-read`, a guard (green on the stub, red for
+            an exact-state build). Proof gaps: journeys are shop 1 Browse and 2 Edit (CartPulse), sign-in 1 Sign in and
+            4 Handle (SessionBanner), transfers 1 Send (AccountSwitcher), sync 1 Commit (AutoPull); S1 × 3 and S9 run
+            under L4, the reload sweep over every manifest Story; the experiment stays in sync alone until its verdict,
+            since a second app is owed only if it is kept. Catalog: session's 30 sites listed; payload mapper pinned
+            (`today` never, built number).

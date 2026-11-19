@@ -117,8 +117,6 @@ describe("construction refuses a slot of two providers and a reaction nothing ha
 });
 
 describe("Compiled holds the field-level edges (Compile R19, I18)", () => {
-  // The view's key names are the build's choice; these assert that each slot lists its provider
-  // and its reads by name, and each reaction its slot.
   it.fails("Compile R19, I18: each slot lists its provider and the fields it reads; each reaction names its slot", () => {
     const view = dataView(CartPulseMachine.compiled);
 

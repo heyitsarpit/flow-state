@@ -64,6 +64,35 @@ export const pullUnchanged = watching("sync/auto-pull-unchanged")
   .checkpoint("resumed");
 
 /**
+ * The editor pulls the first head and the user pauses it for the first time: the head the paused
+ * state's reaction first sees is already the pulled one, and a read of the same head while paused is
+ * no move; the next move while paused shows one new commit.
+ */
+export const pullFirstPause = watching("sync/auto-pull-first-pause")
+  .send(client, peek)
+  .send(autoPull, AutoPull.E.Pause())
+  .checkpoint("paused")
+  .send(client, peek)
+  .checkpoint("reread")
+  .send(client, push)
+  .send(client, peek)
+  .checkpoint("moved");
+
+/**
+ * The editor pulls a head while watching, is paused and resumed, pulls a newer head while watching,
+ * and is paused again: the second pause has no new commit to show, since the editor already pulled
+ * the head that moved while the paused state was not active.
+ */
+export const pullRepaused = watching("sync/auto-pull-repaused")
+  .send(client, peek)
+  .send(autoPull, AutoPull.E.Pause())
+  .send(autoPull, AutoPull.E.Resume())
+  .send(client, push)
+  .send(client, peek)
+  .send(autoPull, AutoPull.E.Pause())
+  .checkpoint("repaused");
+
+/**
  * What the user and the Git host can do around the auto-pull, for generated runs: read and move
  * the head of a repository, of one with no name (E1) and of one with a 4,096-character name (E3),
  * pause and resume; the host rate limits a sync or breaks a head read.

@@ -448,8 +448,10 @@ retry.
   - **Context forms** (@task.V3.T107; inverted tests in `tests/sync/context.test.ts` until built):
     - [ ] Usual: pulls while watching, a rate limit shown once. `sync/auto-pull-watching`. No source.
     - [ ] State-scoped `onContext`: two moves while paused, one pull on resuming (one comparison on entry).
-      `sync/auto-pull-paused`; no move, no pull: `sync/auto-pull-unchanged`. S7: a reaction in a state that does not
-      handle its event, the `pausedPull` builder. Samples `sync-auto-pull`: E1, E3 repository names.
+      `sync/auto-pull-paused`; no move, no pull: `sync/auto-pull-unchanged`. A first entry into the paused state
+      whose slot already holds a value, and a re-read of it: `sync/auto-pull-first-pause`; a second pause after a
+      head the watching state pulled: `sync/auto-pull-repaused`. S7: a reaction in a state that does not handle its
+      event, the `pausedPull` builder. Samples `sync-auto-pull`: E1, E3 repository names.
   - [x] **Usual:** sync, peek (have); a repository opened with a token reads its client's head and backoff. built:
     `sync/usual`, `sync/open-repo`.
   - [x] **Load:** L1 × 64 repositories on their own clients, every other one rate limited, every fourth answer lost
@@ -1513,7 +1515,9 @@ Every existing machine, Story id and test stays. Each existing folder gains an `
 - **sign-in:** new `AuthSession`, `ReturnTo`, `PasswordSignIn`, T `setUsername`, R `me`; `Auth/SignIn` stays
   unpersisted.
 - **session:** new `Workspace/Avatar`, `Workspace/Status`, later `Billing`, reads and writes; the four machines
-  unchanged.
+  keep their behaviour. @task.V3.T107 converts its 30 context slot sites in place to `Flow.context` and its reactions
+  to `C.slot.change`: `agenda.ts` 2, `avatar.ts` 1, `badge.ts` 1, `byline.ts` 2, `inbox.ts` 12, `nests.ts` 6,
+  `outline.ts` 1, `presence.ts` 2, `session.ts` 1, `status.ts` 1, `team.ts` 1.
 - **command-palette:** new `Workbench`; `Palette/Palette` gains the `CommandRan` emit (@task.V3.T77) and `props`
   with defaults (@task.V3.T76).
 - **number-input:** new `OrderForm`; `Number/Stepper` gains props and emits with defaults (@task.V3.T78).

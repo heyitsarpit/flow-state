@@ -143,7 +143,12 @@ describe("Turn R22: .change's when and payload read the slot's type", () => {
 
             return current > memory.limit;
           },
-          event: E.Bumped.from((value) => ({ count: value })),
+          event: E.Bumped.from((value) => {
+            // today: the narrow type is number.
+            expectTypeOf(value).toEqualTypeOf<never>();
+
+            return { count: value };
+          }),
         }),
       ],
       on: { Bumped: {} },
