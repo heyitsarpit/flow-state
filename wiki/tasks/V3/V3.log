@@ -1088,3 +1088,7 @@ note 2026-11-19T15:40:52Z
 note 2026-11-19T16:11:42Z
     Amendment (the user, 2026-11-19): every requirements and close review checks cohesion (seams, duplicates, siblings,
     house patterns); one sidecar takes it as a fixed angle. Skill pin to workflow@7aa4288 (check-task step 5).
+
+note 2026-11-19T16:57:38Z
+    T104 lead stopped mid-build: 6 slices in, check and suite 0 each; what is left is in status comment 4c4df672.
+    5-hour window at 85%, so a fresh lead resumes T104 from that comment after the 00:20 reset.
