@@ -2414,6 +2414,12 @@ tasks
             - `turn()` takes one tagged cause; the own lane and the issue source are derived from it.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches a planted fault per new check;
               the bench shows no regression on the turn hot path (`nub run bench --only <turn ids> --dev`).
+        comment     2026-11-19T10:01:58Z
+            Proposed additions (idiom sweep, 2026-11-19): the ledger's Delivery dispatch (ledger.ts tryOne and the
+            restore loop) becomes an exhaustive Delivery.$match; tag sets written as $is || chains (world.ts sentBefore,
+            ledger.ts isSaved, tx.ts) become tables keyed by tag (satisfies Record<Tag, boolean>), so a new tag forces a
+            decision; the bench worker's hand-parsed argv moves to effect/cli or Schema.FiniteFromString. Each names its
+            wrong ending first, per this Task.
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
