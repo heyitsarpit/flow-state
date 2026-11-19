@@ -2523,6 +2523,54 @@ tasks
             Rulings (orchestrator, 2026-11-19): A6 to A8 added to acceptance (small amendment); isSaved's bare reason
             compare is typed through Decline now (one line, correctness), leaving the rest of the ending triple to the
             trust consult. Requirements review started.
+        comment     2026-11-19T13:40:27Z
+            Requirements review (independent lead, 5 Haiku sidecars, one blind): ISSUES, 5 blocking. The broad change is
+            the right one, but its red lists stop at the cases in hand, and two checks are red or green for the wrong
+            reason. Gates at a73a26f7+7ca752b0: suite exit 0, `nub run check` exit 0.
+
+            Blocking (each names its missing coverage):
+
+            1. Worker argv checks red for the wrong reason (A7). `turn.planted.none` is no bench
+               (tests/bench/planted.ts), so the worker exits 0 on any argv (bench/worker.ts `one`, FailedReport to
+               stdout). With a real id, `--runs abc` loops forever (bench/sample.ts `enough`: `length > NaN`; timeout
+               Infinity), `spawnSync` kills it at 60 s and the fixed test would pass on a hang. Missing: a real planted
+               id, a control run that exits 0, `status` not null, stderr naming the flag; also `--timeout-ms abc` and
+               `--run abc`. Same class: inverted type line 5 reads `Parameters<turn>[3]`, so any arity change satisfies
+               its `@ts-expect-error`, and line 1's `retiredOperation` is deleted by the design. Missing: lines written
+               against the new `Cause` and quarantine types, each with a control line that must compile.
+            2. Tag-chain siblings missed (A6). Not in the 9-site red list: ledger.ts `start` (`if Waiting … else if
+               Kept` on Delivery; Queued and Retrying fall through silently) and lane-moves.ts displaced (`Answer` /
+               `EndUnsent` / runtime `defect` default on Move). The rule says "`$is` chain on one subject" and does not
+               say it covers else-if ladders or `_tag ===` compares (evidence-of.ts ternaries). Missing: plants for an
+               else-if ladder and a `_tag ===` chain.
+            3. Sentinel and id siblings missed (A1, A2). `ROOT_ACTIVATION = 0` is a `0` owner sentinel (tx.ts, record.ts
+               writes a bare `owner: 0`, serve.ts and ledger.ts read it), and activation ids are bare numbers from the
+               mint's counter (tx.ts `next`, incarnations.ts `activations`), sharing `owner: number` with lane owners.
+               "One mint branding every runtime id" names neither. Missing: an inverted line for `owner: 0` and an
+               unbranded activation id.
+            4. `no-id-text` against record decode, and T92 overlap (check 4). record.ts decode cuts keys by text (KINDS
+               `startsWith` and `slice`, `laneRecord` `startsWith`/`slice` and a template rebuild-and-compare, `rowOf`,
+               `identityIn`); the red list names 4 sites. These are the 14 sites @task.V3.T92 requirement 7 moves into
+               one identity-module parser, and T92 also brands `AttemptId` at the record boundary, both deferred to the
+               trust consult (the user, 2026-11-19). Needed: either name record decode as the rule's one allowed place
+               and leave record-boundary brands to T92, or take T92 requirement 7 with a note on T92. The rule must also
+               catch the template rebuild-and-compare.
+            5. The `isSaved` ruling keeps the freedom (A2). `Owed.reason` is `string`, and a host `CallResult.Unknown`
+               reason, the contract's own text, flows into it (answers.ts `classify`); typing `"Restored"` through
+               `Decline` still lets a user unknown reason `Restored` read as saved. Missing: a Story with a host Unknown
+               `Restored` against the written records, landed inverted if it writes, and an explicit route to the
+               consult; else A2 holds by letter only.
+
+            Drops: decline catalogue accepted (no core branch reads a decline code; `StillUnknown` and `lanes.ts` `why:
+            string` are untyped producers, routed with the ending triple). Single-tag Life and Verdict accepted for
+            predicates; disposal.ts `disposeRuntime` is a dispatch whose else covers Inert, Booting and Failed, right by
+            meaning. Overlap: none with @task.V3.T104; T98's closed `details.reason` should reuse T102's catalogue.
+            Chain test replayed by reading: red for the id collision (tx.ts `chainNow`, `size + 1` hits live chain 2).
+
+            Notes, not blocking: owners-only's `missed` block has no control line in its workdir, though requirement 8
+            claims one, so a parse failure would pass it. Rejected: serve.ts drain `let`s (loop locals); tree.ts path
+            text and the `""` root (out of scope); `~` prefix tests (the trust consult); persist.ts flags
+            (T99's lifetimes).
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
