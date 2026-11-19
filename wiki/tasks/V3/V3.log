@@ -1109,3 +1109,7 @@ note 2026-11-19T20:31:08Z
     T104 in review (9f1c0cff); close review started. Daily faults: 380 of 390 caught; 9 stale plants and one unjudged
     routed to T104's fix round. For the user: renaming testing.compile.ts and send.compile.ts edits links in
     @plan.Pending.
+
+note 2026-11-19T20:49:47Z
+    T104 close review: ISSUES, four blocking (stale plants, wide public signatures, g23, one-sided type tests);
+    one-sided tests hit threshold 2, so the fix round lands guards. Fix-round lead started.

@@ -286,6 +286,9 @@ tasks
             Owes (proposed, P3 close fix round): restored resource requests and data (@plan.Persistence.O4, link waits
             on a wk fix); review item A5, WriteLanes R4 not-retained unknown, row shapes, outstanding; faults for the
             coverage gaps Reads R6 and WriteLanes R4, R12, R14. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-19T20:49:40Z
+            Routed from T104's close review (orchestrator): a lookup's input gets no run-time Schema check
+            (@spec.Reads); land it as an inverted test first.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -3027,7 +3030,7 @@ tasks
 
     T104
         title       Type gaps closed at every module seam: carriers, handles, snapshots, evidence, casts
-        status      review
+        status      in_progress
         priority    high
         description
             Every type Flow hands across a module seam is as narrow as what the producer holds, so a typo or a wrong
@@ -3667,6 +3670,12 @@ tasks
               - the checkpoints cast (probed: a sliced or empty run drops the names);
               - string-keyed World maps (@task.V3.T92);
               - the repeated `InFlight | Held` and tier unions (no ending).
+        comment     2026-11-19T20:49:41Z
+            Rulings (orchestrator) on the close review: findings 1-4 accepted and land in the fix round, plus the
+            excess-keys text, Restore R5's refused-start case, Req 18's second loose and recordCodec duplicate, and the
+            actorRef throw at ensure (T104's own change). One-sided type tests recur from the requirements review, so
+            threshold 2: the fix lands a guard for the class (and one for stale plants), each shown red first. Older
+            holes routed to @task.V3.T21 and @task.V3.T105. Rename of the two compile files waits for the user.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
@@ -3714,6 +3723,11 @@ tasks
             Routed (orchestrator, 2026-11-20): @plan.Pending.D2 (a denied or unhandled ending's lane-only change
             publishes), D3 (disposal invokes nothing) and D4 (a refused turn's ending is redelivered once) are mostly
             built; pin each with a Story, fix any gap, then merge them into Machines, Runtime and Operations Plans.
+        comment     2026-11-19T20:49:41Z
+            Routed from T104's close review (orchestrator): untyped scope or persistence alone saves nothing
+            (@spec.Actors R1); a non-object updateMemory return escapes the turn
+            (code:packages/flow-state-v3/src/core/turn.ts, @spec.Turn R10); generate.ts maps an unknown rule name to the
+            turn limit (unreachable now). Each lands as an inverted test first.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
