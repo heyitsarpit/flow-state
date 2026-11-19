@@ -2296,6 +2296,9 @@ tasks
             t99-cause-fold (4c2b06c6), its test table stays on flow-rewrite (984ec696, 8 reds as it.fails). A
             from-scratch Opus redesign that removes the background-work lifetime class is proposed next, then the two
             are compared and the user decides.
+        comment     2026-11-19T08:46:10Z
+            Decision (the user, 2026-11-19): Q10 (an unreported quarantine) and the quarantine lift on disposeActor are
+            delegated: whichever the redesign shows correct, decided by the orchestrator and noted.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
