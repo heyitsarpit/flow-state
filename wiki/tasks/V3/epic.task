@@ -155,7 +155,7 @@ description
     - First commit of a Task: its requirements list in the Task's comments, with each requirement as a check that
       fails today.
     - The user's page: one page at a slice's close on what an app author will notice.
-skill        workflow@2befdbd
+skill        workflow@c45246e
 run
     To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start, track and route agents;
     you never build.
@@ -292,7 +292,12 @@ instructions
       red before the fix. A class that recurs across Tasks becomes a run rule or a fixture every later Task inherits.
     - Convergence threshold 2 (the user, 2026-11-12; R35's default). Tests before convergence (the user, 2026-11-16):
       first every known behaviour of the part gets its fixtures, Stories and tests (missing fixtures built), the
-      repeated class shown red; only then gather, redesign and build, so the redesign can't drop a behaviour.
+      repeated class shown red; only then gather, redesign and build, so the redesign can't drop a behaviour. On code
+      that already runs, a convergence names the freedom the class comes from, asks what one broad solution eliminates
+      the whole class at once (here and in every part with the same freedom), and takes it away by structure
+      (skill:policy-convergence#converging-live-code): an independent blind redesign, library behaviour verified by
+      running it, a comparison with any paused fix, and a guard with plants for each structural fix (the user,
+      2026-11-19, after T99).
     - When the daily `nub run faults` misses a fault, it lands as a run rule or a Story test, owned by the Task
       in range.
     - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
