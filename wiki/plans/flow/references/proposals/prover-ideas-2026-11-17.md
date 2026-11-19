@@ -1,5 +1,9 @@
 # Prover module: ideas (2026-11-17, proposed, ideas only)
 
+**Status (2026-11-20):** acted on: superseded by alchemy-adoption-2026-11-19 and @task.V3.T106: rules sit on definitions
+and every run judges them, not separate *.props.ts files; bounded exhaustive search is T106's generator profile; static
+checks over Compiled follow context-slots-2026-11-20. The text below is prior art.
+
 **Bottom line:** Flow could offer an optional `flow-state/prove` module where properties live in `*.props.ts` files,
 apart from machines, and one command proves or refutes them. Most of it is Flow's own parts reused: `Compiled` is
 the finite graph, `step` is the transition function, Stories are the traces, run rules are the properties and

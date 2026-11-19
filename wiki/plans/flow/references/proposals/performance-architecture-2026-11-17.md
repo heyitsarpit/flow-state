@@ -1,5 +1,9 @@
 # Performance architecture audit (2026-11-17, proposed)
 
+**Status (2026-11-20):** acted on: its fixes were built in P3: records captured on issue (@task.V3.T85,
+@plan.Pending.D30), compiled walkers (@task.V3.T9, D27), fast test commands and forked reload sweeps (@task.V3.T83,
+@task.V3.T90), no caps (@task.V3.T84). The text below is prior art.
+
 **Bottom line:** the turn is cheap. `runTurn` takes 1 to 2 % of a run. The time goes to three generic mechanisms
 around it:
 
