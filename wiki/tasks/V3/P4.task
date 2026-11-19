@@ -2291,6 +2291,11 @@ tasks
             but a pure interrupt is CleanupFailed with that Cause, so no per-kind check exists to miss (die, typed
             failure, abort). Tests first for every fiber kind by every cleanup outcome. The read quarantine becomes one
             tagged state, not three maps. Failure limit 2 applies after this.
+        comment     2026-11-19T08:32:23Z
+            Paused (the user, 2026-11-19): the convergence is stopped unfinished; its Cause-fold design is on branch
+            t99-cause-fold (4c2b06c6), its test table stays on flow-rewrite (984ec696, 8 reds as it.fails). A
+            from-scratch Opus redesign that removes the background-work lifetime class is proposed next, then the two
+            are compared and the user decides.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
