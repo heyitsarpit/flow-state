@@ -1454,6 +1454,10 @@ tasks
             annotation, no API change; (2) names held in memory stay literal-typed, keeping static analysis; (3) targets
             named by literal stay; (4) the booting row is left, owner @task.V3.T99; (5) Household's Next stays public.
             For the user's read.
+        comment     2026-11-19T01:50:21Z
+            Decision (the user, 2026-11-19, Q6 A): two machines that send to each other are allowed, as XState and the
+            actor model do; document the Machine<typeof Def> annotation; flow check may list send cycles as information,
+            never refuse them.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
