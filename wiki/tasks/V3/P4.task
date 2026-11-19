@@ -2436,7 +2436,7 @@ tasks
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
-        status      in_progress
+        status      review
         priority    medium
         description
             Story assertions and fakes are typed by the definitions they touch: a cut's `read(ref)` returns the ref's
@@ -2639,3 +2639,20 @@ tasks
             Fixtures (code:wiki/conventions/fixtures.md): no runtime feature changes and no fixture is added; the proof
             is the converted Stories. Extra files: `src/definition.ts`, `src/events.ts`, `src/index.ts` (the generic
             `Snapshot`), `tools/flow-state-lint/` (the rule).
+        comment     2026-11-19T13:05:48Z
+            Built, for review: C1 to C3 meet all 5 requirements (commits 424085b2, 20a08334, 207aea2f, ba19a0a0).
+
+            - `nub run check` exit 0; `nub run lint:rules` passes; the suite (1402 passed, 25 expected fail) and the
+              stress runs (79 passed) pass; `nub run faults --only read-encodes-memory refused-start-read
+              token-ignores-definition lost-as-fakelost` catches 4 of 4 by targets.
+            - Words: D35 to D39 in @plan.Pending, all proposed for the user's read. @spec.Stories R8, R9, R12, R17 and
+              I11 are revised (logged in wiki/specs/specs.log).
+            - Changed from the plan: a sends helper, `turnsAmong(run, ref, tokens)`, keeps order across tokens for the
+              renewal and checkout filters; whole-list name comparisons use `turnNamesOf`, since they fail on a rename.
+              The 5 runtime `getSnapshot` sites in `src/` tests went to dot access too (still `Values`, since typed
+              handles are outside this Task).
+            - Cleanups: once port fakes stopped catching, the typed-cleanup cell now reports one CleanupFailed. The
+              catchTag gotcha (Q11 A) is pinned again by a local catching profile fake
+              in `tests/sign-in/cleanups.test.ts`.
+            - Extra files: `src/definition.ts`, `src/events.ts`, `tools/flow-state-lint/` (`no-event-name-filter`),
+              `vite.config.ts`, `package.json`, `tools/lint-bomb/FLOW-STATE.md`, `wiki/specs/testing/Stories.spec`.
