@@ -1462,6 +1462,10 @@ tasks
             Decision (the user, 2026-11-19): send's form is A: actions: [send(toRef, Target.E.X.from(fn))], and
             Target.E.X(payload) for a constant payload; events come from the target's definition, never raw _tag
             objects. send accepts a token's .from result (a small change, no new concept). Fixtures rewritten to it.
+        comment     2026-11-19T02:00:20Z
+            Decision (the user, 2026-11-19): the old form stays too: send(toRef, (input) => event), a callback returning
+            the event, is accepted beside send(toRef, Target.E.X.from(fn)). Fixtures show both; docs lead with the
+            token form.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
