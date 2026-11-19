@@ -2530,3 +2530,59 @@ tasks
             Accepted (orchestrator, 2026-11-19): read narrows the type without decoding (memory holds typed values);
             turnsOf and deliveriesOf match only the token's own definition; shop's port errors stay TaggedStructs (the
             acceptance allows it). Requirements review started.
+        comment     2026-11-19T12:32:59Z
+            Requirements review (independent lead, 2026-11-19): ISSUES. Two blocking gaps, both small; the three
+            accepted calls are correct. Suite exit 0 (1399 passed), `nub run check` exit 0.
+
+            Blocking (each names its missing coverage):
+
+            1. Requirement 3's lint is narrower than its acceptance line. `.event` against a string literal has 8 sites,
+               not about 15, and the rule misses the string filters that stay: the event-name helper
+               code:packages/flow-state-v3/tests/actors/sends.ts#turnsOf filtered with `e === "X"`
+               (`tests/shop/renewals.test.ts:67`, `checkout-sends.test.ts:16`, `player/household.test.ts:44,96`), the
+               local `turnsOf(seen, event: string)` in `tests/actors/context.test.ts:259` and `isRenewal`
+               (`renewals.test.ts:30`). Missing coverage: a check that flags any evidence event compared to a string,
+               literal or variable, and those helpers converted. That also clears three test helpers named `turnsOf`
+               that clash with the new word (`sends.ts`, `context.test.ts`, `tests/rules/reloads.ts:73`). Also name how
+               `number-input.test.ts:257` (Turn or Unhandled) converts, since `turnsOf` returns Turns only.
+            2. Requirement 4: a required `lost` makes `tests/stories/fake.test.ts:65` pass for the wrong reason. Its
+               `@ts-expect-error` is meant to catch the bad `initial`, but once `lost` is required, the missing `lost`
+               alone satisfies it. Missing coverage: existing Fake.server type tests get `lost`, so each still fails for
+               its stated reason. Also decide what a server without endpoints declares (`Thrower`,
+               `tests/stories/story.test.ts:140`): either `lost` is optional there, or the test uses an error made up
+               for it.
+
+            Not blocking (change the wording when the requirements are next edited):
+
+            - Requirement 1: in a quarantined snapshot whose `create` is refused, memory is `{}`
+              (code:packages/flow-state-v3/src/host/snapshot.ts#snapshotIn), not a `MemoryOf` value. Either state that
+              this path can't be reached or type it honestly.
+            - Extra files: the token-to-definition table needs `src/definition.ts`, because `tokensOf` runs there before
+              the definition exists.
+            - Requirement 4's counts: 37 FakeLost lines in 12 files. 17 of them are in tests
+              (`tests/generated/planted.ts`, `sweep.test.ts`, `stories/fake.test.ts`), and the planted resend must catch
+              the port's tag instead. The six remaps map endpoints' own TaggedStruct failures, not FakeLost. They go
+              only because fake endpoints will declare the port's classes, which requirement 4 says.
+
+            Accepted calls:
+
+            - `read` narrows without decoding: correct. Boot decodes memory before `world.records`
+              (`src/core/actor-record.ts:310`), `ended` copies live memory, and Date, Duration, Option, Map, Set and
+              class fields are all held as their Type. No fixture has a bigint or a branded memory field. Stories see
+              private fields (`Machines.plan:775`), so typing memory as `MemoryOf` is right; `Def.Snapshot` is the
+              outside view and the wrong type.
+            - `turnsOf` by the token's own definition: correct. A Turn names `actor.machine` (the definition's id), ids
+              are unique per app (DuplicateMachineId), and tokens are minted per definition, so lanes' two `Unsure`
+              events never match each other.
+            - Shop's TaggedStructs stay: correct, the acceptance allows them. `publishedOf` is justified: it deletes
+              number-input's cast over Published memory, which holds every field, private ones included.
+
+            Sidecars:
+
+            - The blind sidecar's 26 checks matched the lead's on typed read, reload, private fields, a same-named event
+              and lost.
+            - Accepted from it: the quarantined `{}`, the Unhandled site, the helper clash.
+            - Rejected as outside T103: the fake truth and endpoint Schemas never running, cleanup failures, a new
+              bigint fixture.
+            - The memory, evidence and lost sidecars' findings were all checked again here. The evidence sidecar's
+              literal count (8) and the lost sidecar's count (37 in 12) replace the requirements' numbers.
