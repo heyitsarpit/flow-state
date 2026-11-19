@@ -447,3 +447,9 @@ tasks
             compiled graph and shown by explain and graph, while value rules (invariants, transitions, eventually over
             memory) are checked by every run. The report gives each rule's tier: proved, checked with its exercise
             count, or unseen.
+        comment     2026-11-19T15:35:36Z
+            Design input (cohesion pass, code:wiki/plans/flow/references/proposals/rules-cohesion-2026-11-19.md): 8 of
+            17 features need nothing; value rules read the guard's snapshot (props, context, schedules, operation rows)
+            and transitions gain turn (event, outcome, emitted); never becomes one edge pattern; rules name their
+            subject so vacuous ones show unseen; eventually holds at every quiet point; flow check gains RuleBroken,
+            RuleSubjectUnreachable, ScheduleNeverArmed. Seven open questions in the proposal; names are the user's.

@@ -3157,3 +3157,7 @@ tasks
               chains, planted.
             - The two stale texts are fixed and `lanes.ts` reports no lane without an empty-string id.
             - `nub run check`, the suite and `nub run faults --only` on the new faults pass.
+        comment     2026-11-19T15:35:36Z
+            Routed (rules cohesion pass, 2026-11-19, read not run): restore re-arms saved timers by name with no check
+            that their state is active (src/core/incarnations.ts:228); confirm with a Story and fix if a timer fires in
+            an inactive state.
