@@ -319,7 +319,7 @@ decisions
         `state` is the definition's leaf union and `memory` its whole memory (private fields included), each field its
         decoded value, with no decode at read since memory holds Type values; a quarantined record whose fresh start is
         refused fails the read with StoryFailed. `Snapshot` with no definition stays erased. **Why:** the user's C1.
-        **Proven by:** code:packages/flow-state-v3/tests/types/testing.compile.ts, faults `read-encodes-memory`,
+        **Proven by:** code:packages/flow-state-v3/tests/types/testing.test-d.ts, faults `read-encodes-memory`,
         `refused-start-read`. Owner: @task.V3.T103. Name and shape are the user's read.
     D36  @plan.Testing.O4: `publishedOf(run, ref)`
          (accepted, merged into the Plans 2026-11-20)

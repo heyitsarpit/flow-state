@@ -1593,7 +1593,7 @@ tasks
             - Guard: mail carries its chain; context updates and their onContext events follow it, so their turns'
               sends count.
             - Forms: `Target.E.X.from(f)`, `Target.E.X(payload)`, a callback; `.from` now types its tag and input, so an
-              internal or foreign token fails to compile (code:packages/flow-state-v3/tests/types/send.compile.ts). The
+              internal or foreign token fails to compile (code:packages/flow-state-v3/tests/types/send.test-d.ts). The
               Mirror's Import keeps the callback form on purpose.
             - Faults, each caught by `nub run faults --only`: send-creates-target, absent-send-silent, send-is-a-use,
               send-undecodable-as-no-record, send-event-unchecked, send-ref-unchecked, loop-guard-off,
