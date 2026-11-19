@@ -278,3 +278,9 @@ decisions
         states over R20. **Why:** O4's row and the disposal order agree; delivering into a disposal would run a machine
         event at disposal, which O6 forbids. **Proven by:** T96's `shop/renewal-disposing-pay`, two traces in its close
         review. Owner: @task.V3.T96. Proposed, for the user's yes.
+    D33  @plan.Runtime: drop `IdentityExhausted`
+        **Before:** Runtime's constraints name `IdentityExhausted` for a session that runs out of ids. **After:** the
+        code is gone: ids come from per-open counters and seeded mints, so running out needs 2^53 ids in one open.
+        **Why:** a refusal no run can reach is dead surface; @spec.Actors R24 already dropped it (T99 build). **Proven
+        by:** the mint's counter type and T99's requirements review accepting the drop. Owner: @task.V3.T99. Proposed,
+        for the user's yes.
