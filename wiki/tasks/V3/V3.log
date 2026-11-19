@@ -972,3 +972,7 @@ note 2026-11-19T04:06:38Z
 note 2026-11-19T04:38:42Z
     T99 requirements and fixtures in (885f0f24): 6 requirements kept, 5 parts and 12 routed items dropped with reasons.
     Requirements review started, checking every drop. For the user: runPromise's signature, the ref quarantine.
+
+note 2026-11-19T04:54:53Z
+    T99 requirements review ISSUES (b84b6c8b): 3 wrong drops restored, a missed boot report, fixtures owed. Requirements
+    fix round started; runPromise and the quarantine wait for the user's Q7 and Q8.

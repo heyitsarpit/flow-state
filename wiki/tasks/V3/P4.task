@@ -2020,6 +2020,13 @@ tasks
               a new user a new Runtime) and the port fakes, as the lead ruled.
             - drops (O5, booting, ids, R1): accepted as holding. Changed IdentityExhausted and the O5 code into
               record notes.
+        comment     2026-11-19T04:54:52Z
+            Rulings (orchestrator, 2026-11-19) on the requirements review: findings 1 to 3 are restored as requirements
+            (the quarantine send's reason, mail reaching a new incarnation, disposal order); finding 3 is met by
+            building the order (calls interrupted before services are released; consumers' end-of-life evidence before
+            providers'), so Inspection O3 stands with no Plan change; finding 4 (the boot report of unbound lane
+            records) and 5 (a third app for CleanupFailed and HoldForgotten, catalog items, matrix regenerated) land as
+            checks. runPromise and the ref quarantine wait for the user (Q7, Q8); the rest proceeds.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
