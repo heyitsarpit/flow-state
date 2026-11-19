@@ -70,7 +70,8 @@ export const makeRunPromise = <R>(driver: Driver) => {
 
       return yield* Exit.isSuccess(exit)
         ? Effect.succeed(exit.value)
-        : Effect.fail(runFailed(exit.cause));
+        : // oxlint-disable-next-line flow-state/owners-only -- the run Owner already judged this Exit and handed it whole; the public Promise rejects with its Cause
+          Effect.fail(runFailed(exit.cause));
     });
 
   return <A, E>(

@@ -47,12 +47,33 @@ export type Selector<R> = {
 };
 
 // RETURN_TYPE: a type guard narrows a record to the kinds that name an event.
-const isEventRecord = (e: Evidence): e is EventRecord =>
-  e._tag === "Turn" ||
-  e._tag === "Delivered" ||
-  e._tag === "Unhandled" ||
-  e._tag === "Denied" ||
-  e._tag === "SendTargetAbsent";
+const isEventRecord = (e: Evidence): e is EventRecord => NAMES_EVENT[e._tag];
+
+// The kinds of record that name an event: exactly those with an `event` field.
+const NAMES_EVENT = {
+  Turn: true,
+  Minted: false,
+  Sent: false,
+  Ended: false,
+  Delivered: true,
+  Parked: false,
+  Unparked: false,
+  Recorded: false,
+  Unhandled: true,
+  SendTargetAbsent: true,
+  Denied: true,
+  Lane: false,
+  Issue: false,
+  Incarnated: false,
+  Finished: false,
+  RuntimeDisposed: false,
+  Published: false,
+  Reported: false,
+  HoldForgotten: false,
+  SlowWork: false,
+} as const satisfies {
+  readonly [K in Evidence["_tag"]]: K extends EventRecord["_tag"] ? true : false;
+};
 
 // RETURN_TYPE: a type guard narrows a record to a turn.
 const isTurn = (e: Evidence): e is EvidenceOf<"Turn"> => e._tag === "Turn";

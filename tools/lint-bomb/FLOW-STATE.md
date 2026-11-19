@@ -41,16 +41,25 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   `src/host/testing/`, `src/host/platform/`, `src/host/cli/` (a program of its own, which no
   Runtime runs) and test files, no code forks, runs, races or times out work (`Effect.fork*`,
   `Effect.run*`, `Effect.race*`, `Effect.timeout*`, `FiberMap`, `FiberSet`, `FiberHandle`,
-  `Fiber.interrupt*`, `interruptUnsafe`) or reads a Cause or a failed Exit (`Effect.catchCause*`,
-  `catchDefect`, `tapCause*`, `tapDefect`, `sandbox`, `matchCause*`, `onError*`, `onExit*`;
-  `Cause.has*`, `find*`, `filter*`, `pretty*`, `squash`, `map`, reason tests; `Exit.isFailure`,
-  `has*`, `find*`, `filter*`, `match`, `getCause`). Any import name, alias, nested pattern, cast
-  or static key counts; a run-time key, a rest pattern, `effect/internal`, `require`, a dynamic
-  `import()`, a re-export or exported alias of a watched module, and a watched module used as a
-  value (passed, spread, stored, returned) are refused outright. Not covered: an Exit or Cause
-  read by value (`exit.cause`, a finalizer's Exit), which needs type-aware lint. Every task runs
-  in an Owner, whose one judge hands its caller an `Ending`; a second reader of an Exit is how a
-  cleanup's failure is misread or lost.
+  `Fiber.interrupt*`, `interruptUnsafe`, `Scope.close`) or reads or drops a Cause or a failed
+  Exit (`Effect.catchCause*`, `catchDefect`, `tapCause*`, `tapDefect`, `sandbox`, `matchCause*`,
+  `onError*`, `onExit*`, `ignoreCause`; `Cause.has*`, `find*`, `filter*`, `pretty*`, `squash`,
+  `map`, reason tests; `Exit.isFailure`, `has*`, `find*`, `filter*`, `match`, `getCause`; any
+  `.cause` read, since JS plugins see no types). Any import name, alias (`=`, `??=`, `||=`,
+  `&&=`), nested pattern, cast or static key counts; a run-time key, a rest pattern,
+  `effect/internal`, `require`, a dynamic `import()`, a re-export or exported alias of a watched
+  module, and a watched module used as a value (passed, spread, stored, returned) are refused
+  outright. Every task runs in an Owner, whose one judge hands its caller an `Ending`; a second
+  reader of an Exit is how a cleanup's failure is misread or lost.
+- Closed sets, enforced by `flow-state/no-tag-chain` in `src/` (test files exempt), plants in
+  `tools/flow-state-lint/rules/no-tag-chain.test.ts`: two tests of one value's tag (`$is` or
+  `_tag ===`) joined by `||` or `&&`, in an else-if ladder or in a ternary chain are refused; a
+  tag is decided by `$match` or a table `satisfies Record<Tag, …>`, so a new tag must be decided.
+- Ids, enforced by `flow-state/no-id-text` in `src/core/` (test files exempt), same plants file:
+  no slice, split, prefix test, number parse or rebuilt-and-compared text on a name that holds an
+  id or key (`id`, `key`, `lane`, `record`, `…Id`, `…Key`); a fact about an id is stored beside
+  it when it is minted. `src/core/record.ts`, the boot's key checks, is exempt by a reasoned
+  file-level disable until one key parser owns record keys.
 
 ## Rules: 70 in lint-bomb
 

@@ -10,7 +10,11 @@ import type { Options } from "./shared.ts";
 // how a cleanup's failure gets misread or lost, and a runner outside an Owner starts a fiber no Owner holds.
 const banned: Readonly<Record<string, (member: string) => boolean>> = {
   Effect: (m) =>
-    /^(fork|run|race|timeout|catchCause|catchDefect|tapCause|tapDefect|sandbox|matchCause|onError|onExit)/u.test(m),
+    /^(fork|run|race|timeout|catchCause|catchDefect|tapCause|tapDefect|sandbox|matchCause|onError|onExit|ignoreCause)/u.test(
+      m,
+    ),
+  // A Scope is closed by the Owner that holds it, which hears its finalizers' Exit.
+  Scope: (m) => m === "close",
   FiberMap: () => true,
   FiberSet: () => true,
   FiberHandle: () => true,
@@ -21,6 +25,9 @@ const banned: Readonly<Record<string, (member: string) => boolean>> = {
 };
 
 const isBanned = (module: string, member: string) => banned[module]?.(member) === true;
+
+// The assignments that can bind a name to a watched module: plain, and the logical ones.
+const assigns = new Set(["=", "??=", "||=", "&&="]);
 
 // Effect's private modules: anything reached there escapes the rule's names.
 const isInternal = (source: string) => source === "effect/internal" || source.startsWith("effect/internal/");
@@ -287,6 +294,10 @@ export const ownersOnlyRule = defineRule({
 
         if (member === "interruptUnsafe") return report(node, member);
 
+        // A failed Exit's or an error's Cause read by value, which no import shows: the rule has no types, so
+        // every `.cause` read outside the Owners counts.
+        if (member === "cause") return report(node, ".cause");
+
         const held = heldBy(node.object);
 
         if (held === undefined) return;
@@ -313,7 +324,7 @@ export const ownersOnlyRule = defineRule({
         bind(node.id, held);
       },
       AssignmentExpression(node: ESTree.AssignmentExpression) {
-        const held = node.operator === "=" ? heldBy(node.right) : undefined;
+        const held = assigns.has(node.operator) ? heldBy(node.right) : undefined;
 
         if (held !== undefined) bind(node.left, held);
       },

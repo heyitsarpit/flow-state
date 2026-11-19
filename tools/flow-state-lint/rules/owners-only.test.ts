@@ -139,10 +139,9 @@ inWorkdir(({ pkg, write, lint, lines }) => {
   assert.deepEqual(lines(found, bare, "owners-only"), [1], bare);
 });
 
-// Inverted: forms the rule misses today that host code could write by accident. Each line drops or reads a
-// Cause, or closes a Scope, outside an Owner. When the rule covers them, this block fails: move each line into
-// `fires`.
-const missed = [
+// Forms host code could write by accident, each dropping or reading a Cause, or closing a Scope, outside an
+// Owner: every line fires. Beside them, the Scope and Cause uses that stay quiet.
+const accidental = [
   "Effect.ignoreCause(Effect.void);",
   "Scope.close(Other, Exit.void);",
   "let Late = Other; Late ??= Effect; Late.forkDetach(Effect.void);",
@@ -150,17 +149,13 @@ const missed = [
   'declare const ended: Exit.Exit<number>; if (ended._tag === "Failure") void ended.cause;',
 ];
 
+const accidentalQuiet = ["void Scope.make();", "void { cause: Other };", "Scope.provide(Other);"];
+
 inWorkdir(({ pkg, write, lint, lines }) => {
-  const file = join(pkg, "src/host/missed.ts");
-  write(file, `${imports}\nimport { Scope } from "effect";\n${missed.join("\n")}\n`);
-  // A control in the same run: a form the rule covers fires, so a file that failed to parse cannot pass.
-  const control = join(pkg, "src/host/control.ts");
-  write(control, `${imports}\nimport { Scope } from "effect";\nEffect.forkDetach(Effect.void);\n${missed.join("\n")}\n`);
+  const file = join(pkg, "src/host/accidental.ts");
+  write(file, `${imports}\nimport { Scope } from "effect";\n${[...accidental, ...accidentalQuiet].join("\n")}\n`);
 
-  const found = lint();
-
-  assert.deepEqual(lines(found, control, "owners-only"), [7], "the control fires");
-  assert.deepEqual(lines(found, file, "owners-only"), [], "owners-only reports none of the missed forms today");
+  assert.deepEqual(lines(lint(), file, "owners-only"), [7, 8, 9, 10, 11], "each accidental form fires");
 });
 
 console.log("flow-state owners-only tests passed");

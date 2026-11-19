@@ -2,7 +2,7 @@ import { type Cause, Effect, Exit, Layer, Option, Predicate, Result } from "effe
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
-import { Life } from "../../core/life.ts";
+import type { Life } from "../../core/life.ts";
 import { retain } from "../../core/tx.ts";
 import { type ActorId, actorKey, indexDrift, type Wiring } from "../../core/world.ts";
 import type { AnyDefinition } from "../../definition.ts";
@@ -108,6 +108,17 @@ type Target = ActorRef | EndpointHandle | { readonly "~server": AnyServer };
 // A runaway guard on the turns of one instant: the most an ordinary Story runs at once is 4,200
 // (4,200 cancels on one lane); Stories R-tests drive exactly 10,000 to prove the limit.
 const TURN_LIMIT = 10_000;
+
+// The lives of a Runtime that has left Open for good by disposal.
+const DISPOSED = {
+  Inert: false,
+  Booting: false,
+  Open: false,
+  Failed: false,
+  Disposing: true,
+  Disposed: true,
+  Stopped: false,
+} as const satisfies Record<Life["_tag"], boolean>;
 
 // The tab's session seed: its name, open count and the run's seed as hex, so ids never repeat
 // across reloads and differ between seeds.
@@ -340,11 +351,15 @@ export const startRun = <Names extends string>(
     return opened;
   };
 
-  const apply = (word: WorldWord) => {
-    if (WorldWord.$is("storage")(word)) store.word(word.word);
-    else if (WorldWord.$is("stored")(word)) store.put(word.key, word.text);
-    else fakes.word(word);
-  };
+  const apply = (word: WorldWord) =>
+    WorldWord.$match(word, {
+      storage: (w) => store.word(w.word),
+      stored: (w) => store.put(w.key, w.text),
+      control: (w) => fakes.word(w),
+      wire: (w) => fakes.word(w),
+      cleanup: (w) => fakes.word(w),
+      network: (w) => fakes.word(w),
+    });
 
   // An ensure passes the Runtime's admission, as the public ensureActor does, with the ref's
   // context overrides; an ensure again after a reload passes it with the ones it was first given.
@@ -416,7 +431,7 @@ export const startRun = <Names extends string>(
   const disposed = () => {
     const { life } = tab.built.driver.world();
 
-    return Life.$is("Disposing")(life) || Life.$is("Disposed")(life);
+    return DISPOSED[life._tag];
   };
 
   // RETURN_TYPE: the exported Cut contract with its overloaded read.

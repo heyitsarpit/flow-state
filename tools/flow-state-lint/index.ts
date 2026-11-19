@@ -3,6 +3,8 @@ import { eslintCompatPlugin } from "@oxlint/plugins";
 import { bans } from "./rules/bans.ts";
 import { derivedReportsRule } from "./rules/derived-reports.ts";
 import { noHandOptionRule } from "./rules/no-hand-option.ts";
+import { noIdTextRule } from "./rules/no-id-text.ts";
+import { noTagChainRule } from "./rules/no-tag-chain.ts";
 import { noEventNameFilterRule } from "./rules/no-event-name-filter.ts";
 import { noMarkProbeRule } from "./rules/no-mark-probe.ts";
 import { noRawEventRule } from "./rules/no-raw-event.ts";
@@ -18,6 +20,8 @@ const flowStateLintPlugin = eslintCompatPlugin({
     "no-raw-event": noRawEventRule,
     "no-event-name-filter": noEventNameFilterRule,
     "no-hand-option": noHandOptionRule,
+    "no-id-text": noIdTextRule,
+    "no-tag-chain": noTagChainRule,
     "owners-only": ownersOnlyRule,
     ...bans,
   },

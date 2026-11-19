@@ -462,7 +462,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     // A lane or owed record the boot could not read is reported at each boot while it stays.
     for (const q of restored.quarantined)
-      if (!q.key.startsWith("actor/"))
+      if (!Option.contains(q.kind, "actor/"))
         tx.act(
           Act.Reported({
             code: "RecordUndecodable",

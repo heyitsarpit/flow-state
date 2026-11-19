@@ -34,6 +34,7 @@ export class Canonical extends Data.Class<{ readonly text: string }> {}
 // Whether a key is an array index: such keys come first in every ECMAScript host's own key order,
 // ascending, which is also their canonical order.
 const isIndex = (key: string) => {
+  // oxlint-disable-next-line flow-state/no-id-text -- a JSON object's property name, read as ECMAScript reads it; no id
   const n = Number(key);
 
   return Number.isInteger(n) && n >= 0 && n < 4_294_967_295 && String(n) === key;

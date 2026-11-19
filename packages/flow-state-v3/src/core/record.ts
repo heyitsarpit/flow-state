@@ -1,3 +1,4 @@
+/* oxlint-disable flow-state/no-id-text -- the boot's key checks: a record's key is read here, and only here, until one key parser owns record keys */
 import { Option, Predicate, Result, Schema } from "effect";
 import { decodeCanonical, parseCanonical, toCanonicalJson, writeJson } from "./codec.ts";
 import { decodeActor } from "./actor-record.ts";
@@ -59,6 +60,11 @@ const OwedJson = Schema.Struct({
 });
 
 const KINDS = ["actor/", "lane/", "owed/"] as const;
+
+/**
+ * A kind of record, by the prefix its key starts with.
+ */
+export type RecordKind = (typeof KINDS)[number];
 
 // The identity every kind of record names.
 const IdentityJson = Schema.Struct({ machine: Schema.String, name: Schema.String });
@@ -168,7 +174,11 @@ export const encodeLane = (
 /**
  * A record the boot could not read: kept, unchanged, under its key.
  */
-type Quarantined = { readonly key: string; readonly reason: Quarantine };
+type Quarantined = {
+  readonly key: string;
+  readonly kind: Option.Option<RecordKind>;
+  readonly reason: Quarantine;
+};
 
 const unreadable = (code: ReadFailure) => Quarantine.Unreadable({ code, detail: Option.none() });
 
@@ -423,7 +433,8 @@ export const decodeRecords = (
       );
     });
 
-    if (Result.isFailure(done)) quarantined.push({ key, reason: done.failure });
+    if (Result.isFailure(done))
+      quarantined.push({ key, kind: Option.fromUndefinedOr(kind), reason: done.failure });
   }
 
   return { records, lanes, rows, quarantined };
