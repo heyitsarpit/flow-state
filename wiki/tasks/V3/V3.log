@@ -993,3 +993,7 @@ note 2026-11-19T06:56:11Z
 
 note 2026-11-19T07:01:22Z
     Decision (the user, 2026-11-19): the Fable trust-boundaries consult (T92 with T98) waits until P4 closes or later.
+
+note 2026-11-19T07:18:27Z
+    Amendment (the user, 2026-11-19): P5 starts once every P4 Task but T92 and T56 is done; those two stay open in P4
+    until the trust consult, and P4's audit waits for them.

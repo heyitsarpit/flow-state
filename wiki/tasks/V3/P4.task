@@ -66,6 +66,10 @@ description
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
     background only, and its acceptance does not carry over. The suite's coverage record is the one @task.V3.T67 starts;
     the browser run adds its own entry to it.
+comment 2026-11-19T07:18:27Z
+    Amendment (the user, 2026-11-19): P4 does not fully close for now; T92 and T56 stay open in it until the
+    trust-boundaries consult, and P5 starts once every other P4 Task is done. P4's close-out and audit run when T92 and
+    T56 close. Reverse: restore P5's start on P4's audit.
 tasks
     T58
         title       Browser slice: the fixtures in real browsers with minimal React and IndexedDB
