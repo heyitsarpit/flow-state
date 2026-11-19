@@ -1,5 +1,12 @@
 # Housekeeping decisions, 2026-11-16 (proposed)
 
+**Status (2026-11-20, decided by the orchestrator, delegated by the user):** Q1 to Q9 settled: D1, D5, D6, D8 and D10 to
+D12 merged into the Plans; D2 to D4, D7 and D9 routed (@task.V3.T105, @task.V3.T29, @task.V3.T58). Q10 B: the P2
+coverage record stays dated on @phase.V3.P2, since a Plan should not hold a record that changes with every edit and the
+suite has since been rebuilt. Q11: `draft/story-slice` kept as the local tag `archive/story-slice` (commits 32589054,
+d62ec9e4) and the branch deleted; reverse with `git branch draft/story-slice archive/story-slice`. The text below is
+prior art.
+
 **Proposed; nothing here is decided.** Eleven questions, answered as `Q1 A`. Recommendation: merge D5, D6, D8, D10,
 D11 and D12 into the Testing and Package Plans now, because tests citing each rule already pass; hold D7 and D9 (their
 named evidence is not built yet) and D1 to D4 (named evidence is P4, still ahead). Add the P2 coverage record to
