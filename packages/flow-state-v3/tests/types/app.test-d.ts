@@ -3,13 +3,22 @@ import { describe, expectTypeOf, it } from "vite-plus/test";
 import {
   evidenceOf,
   publishedOf,
+  type PublishedOf,
   samplesOf,
   Step,
   Story,
   type StoryRun,
   turnsOf,
 } from "../../src/host/testing/index.ts";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import {
+  type Actor,
+  actorRef,
+  app,
+  definition,
+  Flow,
+  machine,
+  runtimeSetup,
+} from "../../src/index.ts";
 
 // Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
 // check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
@@ -52,7 +61,8 @@ describe("Actors R24, Stories T2: a Runtime and a Story take only their app's re
     runtime.ensureActor(rent); // wrong: faults late with ForeignActorRef
     runtime.createActor(RentMachine, { input: {} }); // wrong
     runtime.disposeActor(rent); // wrong
-    runtime.ensureActor(plain);
+
+    expectTypeOf(runtime.ensureActor(plain)).toEqualTypeOf<Actor<typeof Plain>>();
   });
 
   it("a Story's words with a ref of a machine the app does not run", () => {
@@ -60,7 +70,11 @@ describe("Actors R24, Stories T2: a Runtime and a Story take only their app's re
     shopStory.ensure(rent); // wrong
     shopStory.detach(rent); // wrong
     shopStory.dispose(rent); // wrong
-    shopStory.send(plain, Plain.E.Go());
+
+    expectTypeOf(shopStory.send(plain, Plain.E.Go())).toEqualTypeOf(shopStory);
+    expectTypeOf(shopStory.ensure(plain)).toEqualTypeOf(shopStory);
+    expectTypeOf(shopStory.detach(plain)).toEqualTypeOf(shopStory);
+    expectTypeOf(shopStory.dispose(plain)).toEqualTypeOf(shopStory);
 
     // @ts-expect-error Stories T2: Pay is no event of Plain
     shopStory.send(plain, Rent.E.Pay());
@@ -94,6 +108,23 @@ describe("Actors R24, Stories T2: a Runtime and a Story take only their app's re
 
     // @ts-expect-error Stories T2: Pay is no event of Plain's actor
     turnsOf(shopRun, Rent.E.Pay, { actor: plain });
+
+    expectTypeOf(publishedOf(shopRun, plain)).toEqualTypeOf<Array<PublishedOf<typeof Plain>>>();
+    expectTypeOf(turnsOf(shopRun, Plain.E.Go)[0]?.event).not.toEqualTypeOf<"Go" | undefined>();
+    expectTypeOf(
+      samplesOf({
+        id: "types/app/right",
+        story: shopStory,
+        names: { setup: "s", fixtures: [] },
+        actors: { plain },
+        servers: {},
+        failures: [],
+        landedFailures: [],
+        controls: [],
+        values: {},
+        steps: (s) => s,
+      }).id,
+    ).toEqualTypeOf<string>();
   });
 });
 

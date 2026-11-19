@@ -1,11 +1,20 @@
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { bench } from "../../bench/declare.ts";
+import type { Row } from "../../bench/history.ts";
 
 // Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
 // check: put `@ts-expect-error` on it. The assertion of today's wide type then fails too: make it
 // the exact narrow type.
 
 const load = () => Promise.reject(new Error("not loaded"));
+
+describe("a history row's closed fields are literal unions", () => {
+  it("power, runtime and the budget state", () => {
+    expectTypeOf<Row["power"]>().toEqualTypeOf<string>();
+    expectTypeOf<Row["runtime"]>().toEqualTypeOf<string>();
+    expectTypeOf<Row["budget_state"]>().toEqualTypeOf<string>();
+  });
+});
 
 describe("a bench's id starts with its concern", () => {
   it("an id whose concern disagrees with the declared one", () => {

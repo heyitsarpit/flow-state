@@ -1,6 +1,15 @@
 import { Effect, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
-import { definition, Flow, machine, resource, transaction } from "../../src/index.ts";
+import {
+  actorRef,
+  definition,
+  Flow,
+  machine,
+  type Machine,
+  resource,
+  send,
+  transaction,
+} from "../../src/index.ts";
 
 // Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
 // check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
@@ -49,7 +58,14 @@ const internalEvents = {
   Need: { n: Schema.Number },
 };
 
+type PayEndings = Parameters<typeof pay.outcomes>[0];
+
 describe("Compile R9, WriteLanes R3: a write's endings take the commit's values", () => {
+  it("today success, unknown and each failure take one erased ending", () => {
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<PayEndings["unknown"]>();
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<PayEndings["failure"]["Declined"]>();
+  });
+
   it("a success token whose payload no value fills", () => {
     definition({
       id: "types/endings/A",
@@ -104,6 +120,52 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
         }),
       }),
     });
+  });
+
+  it("a mapper's returned payload is exact, as an ending and as a send's event", () => {
+    const Target = definition({
+      id: "types/endings/Target",
+      states: ["A"],
+      events: { Credit: { cents: Schema.Number } },
+    });
+
+    const TargetMachine = machine(Target, ({ S }) => ({ default: S.A }));
+
+    definition({
+      id: "types/endings/Extra",
+      states: ["A"],
+      events,
+      internalEvents,
+      operations: ({ E }) => ({
+        p: pay.outcomes({
+          success: E.Done.from(() => ({ receipt: 1, reciept: 2 })), // wrong: `reciept`
+          failure: { Declined: E.Busy, Busy: E.Busy },
+          unknown: E.Unsure,
+        }),
+      }),
+    });
+
+    const Sender = definition({ id: "types/endings/Sender", states: ["A"], events: { Go: {} } });
+
+    const right = machine(Sender, ({ S }) => ({
+      default: S.A,
+      on: {
+        Go: {
+          actions: [
+            send(
+              () => actorRef(TargetMachine, "t"),
+              Target.E.Credit.from(() => ({ cents: 1, cnets: 2 })), // wrong: `cnets`
+            ),
+            send(
+              () => actorRef(TargetMachine, "t"),
+              Target.E.Credit.from(() => ({ cents: 1 })),
+            ),
+          ],
+        },
+      },
+    }));
+
+    expectTypeOf(right).toEqualTypeOf<Machine<typeof Sender>>();
   });
 
   it("an unannotated mapper reads the commit's success and failure values", () => {

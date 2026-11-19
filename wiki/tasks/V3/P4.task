@@ -3414,6 +3414,88 @@ tasks
             negative captureMs is refused at construction (it silently acted as 0). onContext gets the tuple-typed
             refusal now; the curried react shape and a new Flow.initial shape wait for the user. The lead fixes, then
             builds to review.
+        comment     2026-11-19T16:00:56Z
+            Requirements, revised after the requirements review (proposed; replaces the earlier list). Mapped to A1-A6;
+            each names its wrong ending or false pass and its check. Type tests are two-sided: beside every `wrong` line
+            the correct use of the same parameter is asserted exactly (a positive that holds today, or the `.not` of the
+            narrow type that the carrier flips), and in `snapshot.test-d.ts` each read narrows past `Unreadable` first
+            (`"memory" in s`), so a wrong line cannot pass because the union lacks `memory`.
+
+            1. F9 at run time (A1; @spec.Compile R7, R14, @spec.Turn R8). A returned write rewrites a `Flow.input` field
+               and an undeclared key enters memory. Check: two `it.fails`
+               in code:packages/flow-state-v3/tests/actors/memory-writes.test.ts.
+            2. F9 in types (A1; @spec.Compile R4, R7, R14, T6, @spec.Reads R1, Runtime O1, @spec.Stories R8). Body,
+               alternative, list, app entry, setup option, empty payload, `services`, widened `states`, duplicate state,
+               empty compound, empty id, a fake handler's truth, and a mapper's returned payload (`.from`, as an ending
+               and as a send's event) are exact. Check: code:packages/flow-state-v3/tests/types/excess-keys.test-d.ts
+               and the `.from` block of `endings.test-d.ts`.
+            3. F1 contract (A2). Check: code:packages/flow-state-v3/tests/types/contract.test-d.ts (g10, e3, e23).
+            4. F5 snapshot view and `Unreadable` (A2, A5 item 1).
+               Check: code:packages/flow-state-v3/tests/types/snapshot.test-d.ts.
+            5. F4 app and checkpoint names (A2, A5 item 3).
+               Check: code:packages/flow-state-v3/tests/types/app.test-d.ts.
+            6. F6 with F8 (A2). Check: code:packages/flow-state-v3/tests/types/evidence.test-d.ts (rows, ids, slow work,
+               details, tab, rule) and code:packages/flow-state-v3/tests/bench/declare.test-d.ts (bench id, `Row.power`,
+               `runtime`, `budget_state` as literal unions); the four bench tier unions become one `Tier`. g23, g30 sit
+               on closures and a local function: `nub run check` over their call sites. `RuntimeCut` lanes, owed rows
+               and actors name the actor by `ActorKey`, so `attempt === actor` refuses (brand to brand).
+            7. F2 endings (A2). Check: code:packages/flow-state-v3/tests/types/endings.test-d.ts; `Ending`,
+               `UnknownEnding`, `WriteEndings`, `ReadEndings` become public types so the tests assert them exactly.
+            8. F3 brand (A2). Check: code:packages/flow-state-v3/tests/types/tokens.test-d.ts.
+            9. F7 ids (A2). Check: code:packages/flow-state-v3/src/core/ids.test-d.ts.
+            10. State reads and guards (A2): carrier `StateToken` threading its leaf set, `StateRead<L>`, `child`
+                returning the child union, `GuardArg<M, P, S>` with `S` the machine's leaves.
+                Check: `state-reads.test-d.ts`.
+            11. Fake (A2, A5 item 4; @spec.Stories R8, R9). A control named as an endpoint is refused (today one is
+                lost); a sample's `failures` take control words only; a port's error channel names `FakeCleanupFailed`.
+                Check: code:packages/flow-state-v3/tests/types/fake.test-d.ts. e17: a control that names an endpoint
+                takes the author's `Schema.Literals` of the endpoint names
+                (`fixtures/services/shop/server/shop.ts:146`), a fixture fix.
+            12. Runtime config (A2, seam 14): `RuntimeConfig<R>` carries the services type, so `run-promise.ts:51`'s
+                cast goes. Check: the cast inventory at close.
+            13. `captureMs` (A1-side correctness, ruling): a negative value is refused at construction naming
+                `persistence.captureMs`. Check: `it.fails` in code:packages/flow-state-v3/tests/surface/surface.test.ts.
+            14. `onContext` (A2; ruling): a tuple-typed `onContext` refuses a mapper or `when` whose annotation
+                disagrees with its `select`; the builder replaces the three explicit `machine<typeof X>` sites. Check: a
+                block in `endings.test-d.ts` written with the carrier. Unannotated inference waits for the user
+                (curried `react`).
+            15. One method (A2): the `*.compile.ts` files and `schedule-send.test.ts` become `*.test-d.ts`. Check:
+                none left.
+            16. Every gap tested or reasoned (A2, A3): the reasons list below; the close review replays both surveys'
+                maps, N7, N8 and "Also logged" against a test or a reason, and reads every export of the two
+                public entries.
+            17. No `any` through Flow (A4): type-aware `no-unsafe-*` on at zero (red today: 28 sites).
+            18. Casts (A4): the inventory replayed (74 removable now, 11 after carriers, counting
+                `compile-body.ts:135,149`); `trusted`/`erase` name their targets; the fixtures' `untyped` helpers become
+                per-site `@ts-expect-error`; `Brand.nominal` in `lane-record.test.ts`; one `loose` helper.
+            19. T103 items 1-4 (A5): 1 by req 4 plus a run test written first (a made-up refused start under a stopped
+                Runtime); 2 the three name filters select by token; 3 by req 5; 4 by req 11. New public types noted
+                (design list plus `Ending`, `UnknownEnding`, `WriteEndings`, `ReadEndings`, `RuntimeConfig<R>`).
+            20. Gates (A6): check, lint:rules, suite with typecheck, stress, docs:build; a planted fault for the patch
+                refusal (req 1) and the `captureMs` refusal caught by `nub run faults --only`.
+
+            Reasons, each a gap with no type test:
+
+            - `Cut.calls` stays the wide log generic rules read (`tests/generated/mix.test.ts`); tests that compare a
+              literal endpoint (`tests/sign-in/session.test.ts:71`, `:87`) move to the typed `read(endpoint)`.
+            - `owed[].reason` and `Ended.reason` (g28): they mix the contract's own failure tags with Flow's `Decline`;
+              Flow's own writes are typed at `decline` and `notSent`.
+            - e25's unneeded fixture or services Layer: a Layer supplying more than the app needs is harmless by
+              Layer's design.
+            - e26's other seven (multi-key compound, `states: []`, reserved `root`, a `_tag` payload field, an event in
+              both lists, an optional `Flow.input`, a duplicate key field): Low; each is refused at construction with a
+              named diagnostic, and every machine is constructed at load. A type would grow `definition`'s signature for
+              no ending kept.
+            - `Cut.records.stored`: `put` writes raw keys into the same map (`src/host/testing/run.ts:357`), so it holds
+              raw text.
+            - `Quarantine.Retired` carries the operation name as text: it is read from a persisted record, decoded
+              and erased.
+            - `tests/rules/records.ts:129`'s `as const` stays: the `RecordKey` brand was dropped, so it is a
+              literal tuple.
+            - Persistence without a store: the store is the host's (`runtime.ts:284`), not a setup field; the boot
+              reports it.
+            - `Flow.initial`'s `fields` stays erased (N2) until the user decides a shape. `IncarnationId` is
+              already branded.
 
     T105
         title       Start order stated as a rule; T102's routed checks built

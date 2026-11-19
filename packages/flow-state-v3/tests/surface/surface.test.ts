@@ -83,6 +83,25 @@ describe("the public surface (Diagnostics R1, R3; boundaries)", () => {
     expect(Predicate.isFunction(runtimeSetup(loose({ app: probe?.app })).construct)).toBe(true);
   });
 
+  // Inverted: a negative captureMs passes the Schema and acts as 0, capturing every write at once.
+  it.fails("Diagnostics R1, R5: runtimeSetup refuses a negative captureMs, naming the field", () => {
+    const [probe] = apps.slice(-1);
+
+    const refused = () => {
+      try {
+        runtimeSetup(loose({ app: probe?.app, scope: "s", persistence: { captureMs: -5 } }));
+
+        return [];
+      } catch (error) {
+        return error instanceof FlowError
+          ? error.diagnostics.map((d) => d.path.join("."))
+          : ["raw"];
+      }
+    };
+
+    expect(refused()).toEqual(["persistence.captureMs"]);
+  });
+
   it("Diagnostics R1, R3: every hostile value at every position of a shared entry gives a FlowError or a return, within a second", async () => {
     const { entries, builders } = surfaceOf(sharedRoots);
 

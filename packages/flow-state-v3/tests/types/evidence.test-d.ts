@@ -2,7 +2,6 @@ import { Effect, type Option, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { Evidence, type RuntimeCut } from "../../src/host/inspect.ts";
 import {
-  type Cut,
   evidenceOf,
   type Failure,
   Fake,
@@ -53,7 +52,6 @@ declare const diagnostic: Diagnostic;
 declare const error: FlowError;
 declare const tab: Tab;
 declare const failure: Failure;
-declare const calls: Cut["calls"];
 
 describe("Stories R16, Turn R23: evidence a selector returns names its definition's states, events and operations", () => {
   it("a turn's states", () => {
@@ -61,6 +59,7 @@ describe("Stories R16, Turn R23: evidence a selector returns names its definitio
 
     expectTypeOf(turns[0]?.to).not.toEqualTypeOf<"IDLE" | "ON.A" | "ON.B" | undefined>();
     expectTypeOf(turns[0]?.to).toEqualTypeOf<string | undefined>();
+    expectTypeOf(turns[0]?.from).not.toEqualTypeOf<"IDLE" | "ON.A" | "ON.B" | undefined>();
 
     turns.filter((t) => t.to === "NOPE"); // wrong: no such state
     turns.filter((t) => t.from === "NOPE"); // wrong
@@ -68,6 +67,15 @@ describe("Stories R16, Turn R23: evidence a selector returns names its definitio
   });
 
   it("a turn's operations and a delivery's event", () => {
+    const delivered = evidenceOf(run, D.E.go).filter((e) => e._tag === "Delivered");
+
+    expectTypeOf(turnsOf(run, D.E.go)[0]?.members[0]?.operation).not.toEqualTypeOf<
+      "place" | undefined
+    >();
+    expectTypeOf(delivered[0]?._tag === "Delivered" ? delivered[0].event : "go").not.toEqualTypeOf<
+      "go" | "stop" | "Placed" | "Unsure"
+    >();
+
     turnsOf(run, D.E.go).filter((t) => t.members.some((m) => m.operation === "plaec")); // wrong
 
     evidenceOf(run, D.E.go).filter(
@@ -97,7 +105,9 @@ describe("Diagnostics R7, WriteLanes R10: the runtime cut's rows use Flow's clos
     void (cut.timers[0]?.kind === "Shedule"); // wrong: no such timer kind
   });
 
-  it("a lane's attempt is an attempt id, not an actor's key", () => {
+  it("a lane's attempt is an attempt id, and its actor an actor key", () => {
+    expectTypeOf(cut.lanes[0]?.actor).toEqualTypeOf<string | undefined>();
+
     expectTypeOf(cut.lanes[0]?.attempt).toEqualTypeOf<string | undefined>();
     expectTypeOf(cut.owed[0]?.attempt).toEqualTypeOf<Option.Option<string> | undefined>();
 
@@ -139,14 +149,6 @@ describe("Stories R10, R13: the testing tooling's own names are closed", () => {
     expectTypeOf(failure.rule).toEqualTypeOf<string>();
 
     void (failure.rule === "turn limt"); // wrong: Flow writes "turn limit"
-  });
-});
-
-describe("Stories R10: a call is named by its endpoint", () => {
-  it("a misspelt endpoint in the call log", () => {
-    expectTypeOf(calls[0]?.endpoint).toEqualTypeOf<string | undefined>();
-
-    calls.filter((c) => c.endpoint === "confrim"); // wrong: no such endpoint
   });
 });
 

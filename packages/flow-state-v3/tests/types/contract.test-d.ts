@@ -96,6 +96,9 @@ describe("Compile R14, Reads R1: an operation handle takes its contract's input 
   it("retry, cancel, idle, retryable and get take the contract's key", () => {
     expectTypeOf<Parameters<typeof O.pay.idle>[0]>().returns.not.toEqualTypeOf<PayKey>();
     expectTypeOf<Parameters<typeof O.pay.get>[1]>().not.toEqualTypeOf<PayKey>();
+    expectTypeOf<Parameters<typeof O.pay.retry>[0]>().returns.not.toEqualTypeOf<PayKey>();
+    expectTypeOf<Parameters<typeof O.pay.cancel>[0]>().returns.not.toEqualTypeOf<PayKey>();
+    expectTypeOf<Parameters<typeof O.pay.retryable>[0]>().returns.not.toEqualTypeOf<PayKey>();
 
     O.pay.retry(() => ({ nope: 1 })); // wrong: the key is { id }
     O.pay.cancel(() => ({ nope: 1 })); // wrong
@@ -196,7 +199,9 @@ describe("Compile R18: a context slot keeps its provider, and wiring is typed by
   it("a ref of another provider, or a misspelt slot, in actorRef", () => {
     actorRef(CartMachine, "c", { context: { shopper: stranger } }); // wrong: not a Shopper
     actorRef(CartMachine, "c", { context: { shoper: shopper } }); // wrong: no such slot
-    actorRef(CartMachine, "c", { context: { shopper } });
+    expectTypeOf(actorRef(CartMachine, "c", { context: { shopper } })).toEqualTypeOf(
+      actorRef(CartMachine, "c"),
+    );
 
     actorRef(
       CartMachine,
@@ -216,5 +221,12 @@ describe("Compile R18: a context slot keeps its provider, and wiring is typed by
         stranger: StrangerMachine,
       },
     });
+
+    const right = app({
+      id: "types/wired",
+      machines: { cart: { machine: CartMachine, context: { shopper } }, shopper: ShopperMachine },
+    });
+
+    expectTypeOf(right.machines.cart.context.shopper).toEqualTypeOf(shopper);
   });
 });

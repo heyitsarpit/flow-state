@@ -1,20 +1,23 @@
 import { Context, Effect, Exit, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
-import { Fake } from "../../src/host/testing/index.ts";
+import { type EndpointHandle, Fake } from "../../src/host/testing/index.ts";
 import {
   actorRef,
   app,
   definition,
   Flow,
   machine,
+  type Machine,
   runtimeSetup,
-  transaction,
+  type Transaction,
 } from "../../src/index.ts";
+import { transaction } from "../../src/index.ts";
 
 // Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
 // check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
 // `.not` of the narrow type, or the wide type itself) then fails too: make it the exact narrow
-// type. A positive assertion that holds today stays as it is.
+// type. Beside each wrong line, the correct use of the same parameter compiles and is asserted
+// exactly, so a wrong line that fails because the type became `never` fails that assertion too.
 
 const Pay = definition({
   id: "types/ExcessPay",
@@ -54,16 +57,18 @@ describe("Compile R7, R14, T6: a returned memory write is exact", () => {
     }));
   });
 
-  it("the input field or the typo alone is refused today, by weak-type detection", () => {
+  it("the writable field alone compiles; the input field or the typo alone is refused today", () => {
+    const counted = machine(Pay, ({ S }) => ({
+      default: S.IDLE,
+      on: { go: { updateMemory: () => ({ count: 1 }) } },
+    }));
+
+    expectTypeOf(counted).toEqualTypeOf<Machine<typeof Pay>>();
+
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
       // @ts-expect-error Compile R7: `who` is no writable field
       on: { go: { updateMemory: () => ({ who: "x" }) } },
-    }));
-
-    machine(Pay, ({ S }) => ({
-      default: S.IDLE,
-      on: { go: { updateMemory: () => ({ count: 1 }) } },
     }));
   });
 });
@@ -84,6 +89,15 @@ describe("Compile R4, R14: a machine body is exact", () => {
     machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: [{ target: S.ON, bogus: 1 }] } })); // wrong
   });
 
+  it("the same body spelt right compiles", () => {
+    const right = machine(Pay, ({ S }) => ({
+      default: S.IDLE,
+      on: { go: [{ target: S.ON, updateMemory: () => ({ count: 1 }) }] },
+    }));
+
+    expectTypeOf(right).toEqualTypeOf<Machine<typeof Pay>>();
+  });
+
   it("a nested state's unknown key is refused today", () => {
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
@@ -96,29 +110,33 @@ describe("Compile R4, R14: a machine body is exact", () => {
 describe("Runtime O1: an app entry and the setup's options are exact", () => {
   const ref = actorRef(PayMachine, { who: "a" });
 
-  it("a misspelt entry key", () => {
+  it("a misspelt entry key, and a ref given as an entry", () => {
     app({ id: "types/a", machines: { c: { machine: PayMachine, contxt: { x: ref } } } }); // wrong
-  });
-
-  it("a ref given as an entry", () => {
     app({ id: "types/b", machines: { c: ref } }); // wrong: a ref is no machine
+
+    const right = app({ id: "types/c", machines: { c: { machine: PayMachine, context: {} } } });
+
+    expectTypeOf(right.machines.c.machine).toEqualTypeOf<Machine<typeof Pay>>();
   });
 
   it("persistence and scope only together", () => {
-    const shop = app({ id: "types/c", machines: { c: PayMachine } });
+    const shop = app({ id: "types/d", machines: { c: PayMachine } });
 
     runtimeSetup({ app: shop, persistence: { captureMs: 0 } }); // wrong: no scope, never saves
     runtimeSetup({ app: shop, scope: "s" }); // wrong: a scope with nothing to save
-    runtimeSetup({ app: shop, scope: "s", persistence: { captureMs: 0 } });
-    runtimeSetup({ app: shop });
+
+    expectTypeOf(
+      runtimeSetup({ app: shop, scope: "s", persistence: { captureMs: 0 } }).construct,
+    ).toEqualTypeOf(runtimeSetup({ app: shop }).construct);
   });
 });
 
 describe("Compile R14: an event's payload is exact", () => {
   it("a field given to an empty payload", () => {
     Pay.E.Ping({ extra: 1 }); // wrong: Ping has no fields
-    Pay.E.Ping();
-    Pay.E.Ping({});
+
+    expectTypeOf(Pay.E.Ping({})._tag).toEqualTypeOf<"Ping">();
+    expectTypeOf<keyof Parameters<typeof Pay.E.Ping>[0]>().toEqualTypeOf<never>();
   });
 });
 
@@ -142,7 +160,7 @@ describe("Reads R1, Compile R14: a contract's services are its commit's requirem
       commit: () => CartApi.use((api) => Effect.succeed(api.hi())),
     });
 
-    transaction({
+    const right = transaction({
       id: "types/needs3",
       input: { id: Schema.String },
       key: ["id"],
@@ -150,6 +168,10 @@ describe("Reads R1, Compile R14: a contract's services are its commit's requirem
       services: [CartApi],
       commit: () => CartApi.use((api) => Effect.succeed(api.hi())),
     });
+
+    expectTypeOf(right).toEqualTypeOf<
+      Transaction<{ readonly id: typeof Schema.String }, number, never, CartApi>
+    >();
   });
 });
 
@@ -169,6 +191,10 @@ describe("Compile R4, R14: a definition's literals are kept", () => {
     definition({ id: "types/Dup", states: ["A", "A"], events: {} }); // wrong: duplicate state
     definition({ id: "types/Empty", states: [{ P: [] }], events: {} }); // wrong: empty compound
     definition({ id: "", states: ["A"], events: {} }); // wrong: empty id
+
+    const right = definition({ id: "types/Right", states: ["A", { P: ["B"] }], events: {} });
+
+    expectTypeOf(right.S.P.B["~path"]).toEqualTypeOf<"P.B">();
   });
 });
 
@@ -194,7 +220,17 @@ describe("Stories R8: a fake's handler reads the server's truth", () => {
       }),
     );
 
-    const server = Fake.server("types/S", {
+    const honest = Fake.call({
+      request: { n: Schema.Number },
+      success: Schema.Number,
+      failure: Schema.Never,
+      handle: (truth: { readonly count: number }, request) => ({
+        truth: { count: truth.count + request.n },
+        exit: Exit.succeed(truth.count),
+      }),
+    });
+
+    const lyingServer = Fake.server("types/S", {
       truth: Truth,
       initial: { count: 0 },
       endpoints: { lying }, // wrong: `lying` reads `extra`, which the truth lacks
@@ -202,6 +238,14 @@ describe("Stories R8: a fake's handler reads the server's truth", () => {
       lost: () => new Error("lost"),
     });
 
-    expectTypeOf(server).not.toBeAny();
+    const honestServer = Fake.server("types/H", {
+      truth: Truth,
+      initial: { count: 0 },
+      endpoints: { honest },
+      lost: () => new Error("lost"),
+    });
+
+    expectTypeOf(lyingServer.lying).toEqualTypeOf<EndpointHandle<{ readonly n: number }>>();
+    expectTypeOf(honestServer.honest).toEqualTypeOf<EndpointHandle<{ readonly n: number }>>();
   });
 });

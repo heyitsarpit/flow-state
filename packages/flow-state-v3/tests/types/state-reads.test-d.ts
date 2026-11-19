@@ -25,6 +25,11 @@ describe("Compile R14, Turn R23: a state read takes and returns the definition's
   });
 
   it("child on the root token", () => {
+    expectTypeOf(D.S.root.child(read)).not.toEqualTypeOf<"IDLE" | "ON" | undefined>();
+    expectTypeOf(D.S.ON.is)
+      .parameter(0)
+      .not.toEqualTypeOf<"IDLE" | "ON.A" | "ON.B" | { readonly state: "IDLE" | "ON.A" | "ON.B" }>();
+
     void (D.S.root.child(read) === "NOPE"); // wrong: the root's children are IDLE and ON
   });
 });

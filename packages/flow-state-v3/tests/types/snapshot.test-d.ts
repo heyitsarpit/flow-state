@@ -56,8 +56,15 @@ describe("Turn R23, Actors R6: a handle's snapshot is its definition's outside v
 
     expectTypeOf(snap).toEqualTypeOf<Option.Option<Snapshot>>();
 
-    Option.map(snap, (s) => s.memory["nmae"]); // wrong: no such field
-    Option.map(snap, (s) => s.state === "GONE"); // wrong: no such state
+    Option.map(snap, (s) => {
+      if (!("memory" in s)) return;
+
+      expectTypeOf(s.state).not.toEqualTypeOf<"IN" | "OUT">();
+      expectTypeOf(s.memory).not.toEqualTypeOf<{ readonly name: string }>();
+
+      void s.memory["nmae"]; // wrong: no such field
+      void (s.state === "GONE"); // wrong: no such state
+    });
   });
 
   it("the outside view has no private field; a cut's inside view keeps it", () => {
@@ -65,7 +72,11 @@ describe("Turn R23, Actors R6: a handle's snapshot is its definition's outside v
 
     expectTypeOf(inside.memory).toEqualTypeOf<{ readonly name: string; readonly secret: string }>();
 
-    Option.map(snap, (s) => s.memory["secret"]); // wrong: the runtime strips `secret` here
+    Option.map(snap, (s) => {
+      if (!("memory" in s)) return;
+
+      void s.memory["secret"]; // wrong: the runtime strips `secret` here
+    });
   });
 
   it("context is partial: a resting snapshot has none", () => {

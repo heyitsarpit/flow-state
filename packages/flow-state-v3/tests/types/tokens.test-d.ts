@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
-import { definition, Flow, machine, transaction } from "../../src/index.ts";
+import { definition, Flow, machine, type Machine, transaction } from "../../src/index.ts";
 
 // Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
 // check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
@@ -56,7 +56,10 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
       default: S.IDLE,
       on: { go: { guard: [Other.S.ON], target: S.ON } }, // wrong: as a guard
     }));
-    machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: { target: S.ON } } }));
+
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: { guard: [S.ON], target: S.ON } } })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
   });
 
   it("another definition's operation handle", () => {
@@ -69,6 +72,13 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
       default: S.IDLE,
       on: { go: { actions: [Cart.O.add.commit(() => ({ id: "1" }))] } }, // wrong
     }));
+
+    expectTypeOf(
+      machine(Cart, ({ S, O }) => ({
+        default: S.A,
+        on: { go: { actions: [O.add.cancel, O.add.commit(() => ({ id: "1" }))] } },
+      })),
+    ).toEqualTypeOf<Machine<typeof Cart>>();
   });
 
   it("another definition's event of the same name as an ending or a reaction", () => {
@@ -91,6 +101,15 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
       default: S.IDLE,
       onContext: [{ select: () => 1, event: Other.E.Ok }], // wrong: Other's Ok
     }));
+
+    expectTypeOf(
+      machine(Pay, ({ S, E }) => ({
+        default: S.IDLE,
+        onContext: [{ select: () => 1, event: E.Ok }],
+      })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
+    // Today one type; once branded, two (make this `.not`).
+    expectTypeOf(Other.E.Ok).toEqualTypeOf(Pay.E.Ok);
   });
 
   it("a path neither definition has is refused today", () => {
