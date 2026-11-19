@@ -1092,3 +1092,6 @@ note 2026-11-19T16:11:42Z
 note 2026-11-19T16:57:38Z
     T104 lead stopped mid-build: 6 slices in, check and suite 0 each; what is left is in status comment 4c4df672.
     5-hour window at 85%, so a fresh lead resumes T104 from that comment after the 00:20 reset.
+
+note 2026-11-19T17:36:23Z
+    Hourly wake cron a10d3b2d cancelled (the user, 2026-11-19); no wake runs now. T104 waits to resume from 4c4df672.
