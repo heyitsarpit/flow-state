@@ -3496,6 +3496,45 @@ tasks
               reports it.
             - `Flow.initial`'s `fields` stays erased (N2) until the user decides a shape. `IncarnationId` is
               already branded.
+        comment     2026-11-19T16:56:58Z
+            Build status (lead): seven carrier slices landed, each with `nub run check` and the suite at exit 0
+            (b6ee3679, 927501b5, 340f7b9e, f1eb6e60, 91762ce5, c12282ef); not yet in review, since F3, F6 and F9's type
+            half are still to build.
+
+            Landed: captureMs refused below 0; a fake control never shadows an endpoint (the transfers fixture had one,
+            renamed `setBalance`); shop crash names typed; id brands (ActorKey, LaneId, AttemptId) with RuntimeCut, Tab,
+            SlowWork, Failure<R> and bench rows on closed sets; a turn's write naming an input or undeclared field
+            refused whole (Turn R8), with planted faults `patch-writes-input`, `patch-writes-undeclared`,
+            `capture-ms-negative`, each caught alone; F1 handles, keys, selector events, Attempt<I, K>, context refs by
+            provider, exact app entries; F5 outside view, partial context, operations by name, one Lifecycle; F4
+            Runtime, Story, run, cut and selectors by app, run names kept (default `StoryRun<never>`); F2 endings by
+            value, read failures exhaustive, mappers exact, schedules field-free, `Definition.Event` typed. Inverted
+            type tests flipped for each; `Ending`, `UnknownEnding`, `WriteEndings`, `ReadEndings`,
+            `ControlWord` exported.
+
+            Changed while building, each decided by the lead (small, logged here; reverse in its commit):
+
+            - No `Unreadable` variant: it made every `getSnapshot()` reader narrow first. A refused fresh start has no
+              snapshot (`Option.none`), the boot's RecordUndecodable evidence names it, and `Cut.read` faults on it
+              whatever the Runtime's life, which closes T103 item 1 by structure. Its run test (a made-up refused start
+              under a stopped Runtime) is owed.
+            - T103 item 4 is a reason, not a fix: `FakeCleanupFailed` is raised only in an interrupted call's cleanup,
+              which no caller awaits; typing it into `ServiceOf` pushed a tooling error into every fixture port
+              (21 sites).
+            - A sample's failures stay `WorldWord`: three fixtures inject damaged records (`Fake.storage.put`)
+              as failures.
+            - Brands refuse at parameters only: `attempt === actor` still compiles (both are string subtypes); recorded
+              in the test.
+            - `Cut.read` takes a union of refs (distributive), which the checkout helpers need.
+            - F9's body exactness (`ExactBody` over an inferred body) was tried and reverted: it moved every body error
+              to the enclosing key and stopped refusing a null handler and a malformed schedule, which the type tests
+              pin. The wrong ending is closed at run time; the type half is owed.
+
+            Owed before review: F3 token brand; F6 evidence names; F9 types (body, alternative, list keys; empty
+            payload; services = R; widened states; duplicate state, empty compound, empty id; Fake handlers as
+            properties; scope and persistence together); state reads and guard state; the onContext tuple refusal; the
+            Diagnostic union; `RuntimeConfig<R>`; the `*.compile.ts` conversion; the three name filters; the cast sweep
+            and the `no-unsafe-*` rules; docs:build, stress, faults for any new rule, and two Sonnet reviewers.
 
     T105
         title       Start order stated as a rule; T102's routed checks built
