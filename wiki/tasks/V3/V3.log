@@ -976,3 +976,6 @@ note 2026-11-19T04:38:42Z
 note 2026-11-19T04:54:53Z
     T99 requirements review ISSUES (b84b6c8b): 3 wrong drops restored, a missed boot report, fixtures owed. Requirements
     fix round started; runPromise and the quarantine wait for the user's Q7 and Q8.
+
+note 2026-11-19T06:06:11Z
+    T99 built except Q7, Q8 (603078ee). R23 limit removed, gap owned by T100. Close review of the built parts started.

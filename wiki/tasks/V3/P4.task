@@ -2076,6 +2076,11 @@ tasks
             - Waits on the user: Q7 runPromise (signature, refuse or wait before ready, RunFailed); Q8 the ref
               quarantine after an actor-level cleanup failure. Left in the catalog for the close review: CleanupFailed
               and HoldForgotten under load and in step samples.
+        comment     2026-11-19T06:06:11Z
+            Ruling (orchestrator, 2026-11-19): R23's stated limit removed (the Epic: a gap is never written into a Spec
+            as a limit); the lost cleanup in a call's own race is owned by @task.V3.T100 with its it.fails; the
+            revisit.md entry removed. The built parts go to a close review now; runPromise (Q7) and the quarantine (Q8)
+            follow with their own review once the user answers.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
@@ -2125,3 +2130,8 @@ tasks
         comment     2026-11-19T00:25:12Z
             Decision (the user, 2026-11-19): InvariantViolation (Diagnostics O2) is built here, as the P3
             audit proposed.
+        comment     2026-11-19T06:06:10Z
+            Owes (orchestrator, 2026-11-19; from T99): a throwing interrupt cleanup of a call whose commit races a
+            deadline (Effect.timeoutOrElse) is never reported CleanupFailed, since the race drops the loser's Cause;
+            Actors R23 keeps the rule (not a limit). Shown by transfers/interrupt-cleanup-fails, an it.fails; fix by
+            owning the deadline so the loser's Exit reaches the host.

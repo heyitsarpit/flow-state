@@ -351,10 +351,7 @@ requirements
                 At Runtime disposal a cleanup is a services finalizer or the interrupt cleanup of
                 a call the Scope's close interrupts; each failure is also reported as an Issue
                 CleanupFailed, which carries no Cause (@spec.Diagnostics.R9), and every call to
-                dispose gets the same rejection. Proposed (the T99 lead, 2026-11-19). A stated limit:
-                a cleanup inside the call's own race (a deadline by `Effect.timeoutOrElse`) is lost,
-                since Effect's race drops a loser's Cause when its parent is interrupted; the host
-                sees only the interruption.
+                dispose gets the same rejection. Proposed (the T99 lead, 2026-11-19).
 
                 Runtime disposal waits for its writes within the same bound, measured from the call to
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
