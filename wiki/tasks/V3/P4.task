@@ -1282,7 +1282,7 @@ tasks
 
     T96
         title       Actor-to-actor send(ref, event) action with the loop guard
-        status      review
+        status      done
         priority    high
 
 
@@ -1698,6 +1698,11 @@ tasks
               an unused chain number (no collision, since chains clear only all at once). Sends to absent targets are
               counted (sent by turns).
             - changed: "early refusal after a join" became the join note above.
+        comment     2026-11-19T04:05:54Z
+            Done (orchestrator, 2026-11-19): second close review PASS (7d9c2b2c). Left, cosmetic: the newest specs.log
+            note's "refused" wording, loopGuard's doc, a test title, stale "64" counts and pair-sweep counts; a Story
+            that reaches a guard join is owed to @task.V3.T99's review of the guard's readers only if a later finding
+            needs it.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
