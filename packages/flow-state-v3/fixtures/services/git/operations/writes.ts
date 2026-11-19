@@ -12,7 +12,7 @@ export const sync = transaction({
   concurrency: "reject",
   services: [GitApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(GitApi), (api) =>
-      api.sync(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    GitApi.use((api) => api.sync(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });

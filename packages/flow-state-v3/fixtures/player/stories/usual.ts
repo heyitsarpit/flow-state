@@ -112,10 +112,7 @@ export const samples = samplesOf({
  * A stress run from seed 36, printed by the generator and pasted here. The reload sweep and the
  * bench run it as any Story.
  */
-export const seededStress = Story.app(musicSetup, {
-  id: "player/stress-36",
-  fixtures: [SpeakerFake],
-})
+export const seededStress = musicStory("player/stress-36")
   .world(Speaker.block({ trackId: "t1" }))
   .ensure(player)
   .send(player, stop)

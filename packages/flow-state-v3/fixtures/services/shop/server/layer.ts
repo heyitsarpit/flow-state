@@ -1,8 +1,8 @@
 import { Effect, Layer } from "effect";
-import { ShopApi } from "../services.ts";
+import { NoResponse, ShopApi } from "../services.ts";
 import { Shop } from "./shop.ts";
 
-const lost = () => Effect.fail({ _tag: "NoResponse" } as const);
+const lost = () => Effect.fail(new NoResponse());
 
 const shopApi = (steadfast: boolean) =>
   Effect.map(Shop, (shop) =>

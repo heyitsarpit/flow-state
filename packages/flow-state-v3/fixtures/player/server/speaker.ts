@@ -8,6 +8,8 @@ const SpeakerTruth = Schema.Struct({
 
 type Truth = typeof SpeakerTruth.Type;
 
+const Unavailable = Schema.TaggedStruct("Unavailable", { why: Schema.String });
+
 /**
  * The speakers' fake: what each device plays, and the tracks they refuse.
  */
@@ -18,10 +20,10 @@ export const Speaker = Fake.server("Speaker", {
     play: Fake.call({
       request: { device: Schema.String, trackId: Schema.String, key: Schema.String },
       success: Schema.Struct({}),
-      failure: Schema.TaggedStruct("Unavailable", { why: Schema.String }),
+      failure: Unavailable,
       handle: (truth: Truth, { device, trackId }) =>
         truth.blocked.includes(trackId)
-          ? { truth, exit: Exit.fail({ _tag: "Unavailable" as const, why: "not in your region" }) }
+          ? { truth, exit: Exit.fail(Unavailable.make({ why: "not in your region" })) }
           : {
               truth: { ...truth, playing: { ...truth.playing, [device]: trackId } },
               exit: Exit.succeed({}),

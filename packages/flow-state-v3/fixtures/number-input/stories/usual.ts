@@ -130,7 +130,7 @@ const sampleEvents = {
  * A stress run from seed 36, printed by the generator and pasted here. The reload sweep and the
  * bench run it as any Story.
  */
-export const seededStress = Story.app(numberSetup, { id: "number-input/stress-36", fixtures: [] })
+export const seededStress = numberStory("number-input/stress-36")
   .ensure(quantity)
   .send(quantity, typedJunk)
   .send(quantity, typedJunk)

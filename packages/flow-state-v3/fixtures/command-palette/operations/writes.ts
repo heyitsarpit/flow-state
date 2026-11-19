@@ -13,9 +13,7 @@ export const runCommand = transaction({
   concurrency: "reject",
   services: [CommandsApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(CommandsApi), (api) =>
-      api.run(input, { idempotencyKey: attempt.id }),
-    ).pipe(
+    CommandsApi.use((api) => api.run(input, { idempotencyKey: attempt.id })).pipe(
       Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
       Effect.catchTag("ActionFailed", (e) =>
         Effect.fail(new CommandFailed({ command: input.command, reason: e.reason })),

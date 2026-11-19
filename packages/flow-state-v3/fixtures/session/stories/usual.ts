@@ -222,10 +222,7 @@ export const stressSamples = sessionSamples({
  * A stress run from seed 36, printed by the generator and pasted here. The reload sweep and the
  * bench run it as any Story.
  */
-export const seededStress = Story.app(workspaceSetup, {
-  id: "session/stress-36",
-  fixtures: [IdentityFake],
-})
+export const seededStress = workspaceStory("session/stress-36")
   .world(Identity.lock({ user: "ada" }))
   .ensure(acme)
   .world(Fake.storage.hold())

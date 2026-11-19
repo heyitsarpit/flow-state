@@ -1,8 +1,8 @@
 import { Effect, Layer } from "effect";
-import { CartApi } from "../services.ts";
+import { CartApi, NoResponse } from "../services.ts";
 import { Carts } from "./carts.ts";
 
-const lost = () => Effect.fail({ _tag: "NoResponse" } as const);
+const lost = () => Effect.fail(new NoResponse());
 
 /**
  * The cart service's port fake: `CartApi` over the carts server, a lost answer read as the port's

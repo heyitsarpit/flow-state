@@ -1,7 +1,8 @@
 import { Effect, Layer, Ref } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { checkout, shopSetup } from "../../fixtures/shop/app.ts";
-import { ShopApi } from "../../fixtures/services/shop/services.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
+import { NoResponse, ShopApi } from "../../fixtures/services/shop/services.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import {
   type Cell,
@@ -14,7 +15,7 @@ import {
 import { rules } from "../rules/rules.ts";
 import { LIMITS } from "../limits.ts";
 
-const lost = () => Effect.fail({ _tag: "NoResponse" } as const);
+const lost = () => Effect.fail(new NoResponse());
 
 // Pay's samples over another port fake, so the sweep drives the same app over a different edge.
 const over = (id: string, fake: Layer.Layer<ShopApi, never, FakeWorld>, name: string) =>
@@ -30,10 +31,10 @@ const over = (id: string, fake: Layer.Layer<ShopApi, never, FakeWorld>, name: st
     controls: [],
     steps: (story) =>
       story
-        .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-        .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-        .send(checkout, { _tag: "Leave" })
-        .send(checkout, { _tag: "Done" }),
+        .send(checkout, Pay.E.Start({ cartId: "c1", intentId: "pi1" }))
+        .send(checkout, Pay.E.PayRequested({ paymentMethodId: "visa" }))
+        .send(checkout, Pay.E.Leave())
+        .send(checkout, Pay.E.Done()),
   });
 
 // A port fake whose confirm reads the intent at the same time as it sends, so a read call is held

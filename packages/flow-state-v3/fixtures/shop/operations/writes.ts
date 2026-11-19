@@ -12,9 +12,9 @@ export const addLine = transaction({
   concurrency: "reject",
   services: [CartApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(CartApi), (api) =>
-      api.addLine(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    CartApi.use((api) => api.addLine(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });
 
 /**
@@ -28,7 +28,7 @@ export const setQuantity = transaction({
   concurrency: "latest",
   services: [CartApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(CartApi), (api) =>
-      api.setQuantity(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    CartApi.use((api) => api.setQuantity(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });

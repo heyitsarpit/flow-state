@@ -9,6 +9,10 @@ const AuthTruth = Schema.Struct({
 
 type Truth = typeof AuthTruth.Type;
 
+const Throttled = Schema.TaggedStruct("Throttled", {});
+
+const WrongCode = Schema.TaggedStruct("WrongCode", {});
+
 /**
  * The code the auth server sends to every address.
  */
@@ -25,12 +29,12 @@ export const Auth = Fake.server("Auth", {
     begin: Fake.call({
       request: { email: Schema.String, key: Schema.String },
       success: Schema.Struct({}),
-      failure: Schema.TaggedStruct("Throttled", {}),
+      failure: Throttled,
       handle: (truth: Truth, { email }) =>
         truth.throttled > 0
           ? {
               truth: { ...truth, throttled: truth.throttled - 1 },
-              exit: Exit.fail({ _tag: "Throttled" as const }),
+              exit: Exit.fail(Throttled.make({})),
             }
           : {
               truth: { ...truth, codes: { ...truth.codes, [email]: CODE } },
@@ -40,11 +44,11 @@ export const Auth = Fake.server("Auth", {
     verify: Fake.call({
       request: { email: Schema.String, code: Schema.String, key: Schema.String },
       success: Schema.Struct({}),
-      failure: Schema.TaggedStruct("WrongCode", {}),
+      failure: WrongCode,
       handle: (truth: Truth, { email, code }) =>
         truth.codes[email] === code
           ? { truth: { ...truth, sessions: [...truth.sessions, email] }, exit: Exit.succeed({}) }
-          : { truth, exit: Exit.fail({ _tag: "WrongCode" as const }) },
+          : { truth, exit: Exit.fail(WrongCode.make({})) },
     }),
   },
   controls: {

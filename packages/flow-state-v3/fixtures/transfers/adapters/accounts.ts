@@ -7,9 +7,9 @@ import {
   HttpClientResponse,
   HttpIncomingMessage,
 } from "effect/http";
-import { AccountsApi } from "../services.ts";
+import { AccountsApi, NoAnswer } from "../services.ts";
 
-const noAnswer = { _tag: "NoAnswer" } as const;
+const noAnswer = () => Effect.fail(new NoAnswer());
 
 /**
  * The accounts service over HTTP: a 2xx is the balance; anything else, or no answer, is
@@ -29,12 +29,12 @@ export const AccountsHttp = (origin: string) =>
               HttpClientResponse.matchStatus({
                 "2xx": (r) =>
                   HttpIncomingMessage.schemaBodyJson(Schema.Struct({ cents: Schema.Number }))(r),
-                orElse: () => Effect.fail(noAnswer),
+                orElse: noAnswer,
               }),
             ),
             Effect.catchTags({
-              HttpClientError: () => Effect.fail(noAnswer),
-              SchemaError: () => Effect.fail(noAnswer),
+              HttpClientError: noAnswer,
+              SchemaError: noAnswer,
             }),
           ),
       });

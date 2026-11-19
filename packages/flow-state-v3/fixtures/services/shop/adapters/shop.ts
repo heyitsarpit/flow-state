@@ -7,7 +7,7 @@ import {
   HttpClientResponse,
   HttpIncomingMessage,
 } from "effect/http";
-import { ShopApi } from "../services.ts";
+import { NoResponse, ServerError, ShopApi } from "../services.ts";
 
 const Intent = Schema.Struct({
   status: Schema.String,
@@ -16,9 +16,9 @@ const Intent = Schema.Struct({
 
 const Order = Schema.Struct({ orderId: Schema.String });
 
-const lost = { _tag: "NoResponse" } as const;
+const lost = () => Effect.fail(new NoResponse());
 
-const serverError = { _tag: "ServerError" } as const;
+const serverError = () => Effect.fail(ServerError.make({}));
 
 /**
  * The shop's API over HTTP: the production Layer of `ShopApi`, as far as Flow's own fixtures need
@@ -48,13 +48,13 @@ export const ShopHttp = (origin: string) =>
           Effect.flatMap(
             HttpClientResponse.matchStatus({
               "2xx": (r) => HttpIncomingMessage.schemaBodyJson(answer)(r),
-              "5xx": () => Effect.fail(serverError),
-              orElse: () => Effect.fail(lost),
+              "5xx": serverError,
+              orElse: lost,
             }),
           ),
           Effect.catchTags({
-            HttpClientError: () => Effect.fail(lost),
-            SchemaError: () => Effect.fail(serverError),
+            HttpClientError: lost,
+            SchemaError: serverError,
           }),
         );
 

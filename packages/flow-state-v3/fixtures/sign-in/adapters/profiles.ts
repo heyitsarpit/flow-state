@@ -7,9 +7,9 @@ import {
   HttpClientResponse,
   HttpIncomingMessage,
 } from "effect/http";
-import { ProfileApi } from "../services.ts";
+import { ProfileApi, Taken, Unanswered } from "../services.ts";
 
-const unanswered = { _tag: "Unanswered" } as const;
+const unanswered = () => Effect.fail(new Unanswered());
 
 const Handle = Schema.Struct({ handle: Schema.String });
 
@@ -34,13 +34,13 @@ export const ProfileHttp = (origin: string) =>
             Effect.flatMap(
               HttpClientResponse.matchStatus({
                 "2xx": (r) => HttpIncomingMessage.schemaBodyJson(Handle)(r),
-                409: () => Effect.fail({ _tag: "Taken" as const, handle: input.handle }),
-                orElse: () => Effect.fail(unanswered),
+                409: () => Effect.fail(new Taken({ handle: input.handle })),
+                orElse: unanswered,
               }),
             ),
             Effect.catchTags({
-              HttpClientError: () => Effect.fail(unanswered),
-              SchemaError: () => Effect.fail(unanswered),
+              HttpClientError: unanswered,
+              SchemaError: unanswered,
             }),
           ),
         me: (input) =>
@@ -50,12 +50,12 @@ export const ProfileHttp = (origin: string) =>
             Effect.flatMap(
               HttpClientResponse.matchStatus({
                 "2xx": (r) => HttpIncomingMessage.schemaBodyJson(Me)(r),
-                orElse: () => Effect.fail(unanswered),
+                orElse: unanswered,
               }),
             ),
             Effect.catchTags({
-              HttpClientError: () => Effect.fail(unanswered),
-              SchemaError: () => Effect.fail(unanswered),
+              HttpClientError: unanswered,
+              SchemaError: unanswered,
             }),
           ),
       });

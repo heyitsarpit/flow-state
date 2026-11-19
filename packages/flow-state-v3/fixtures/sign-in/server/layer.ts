@@ -1,9 +1,17 @@
 import { Effect, Layer } from "effect";
-import { AuthApi, NoResponse, ProfileApi, Throttled, WrongCode } from "../services.ts";
+import {
+  AuthApi,
+  NoResponse,
+  ProfileApi,
+  Taken,
+  Throttled,
+  Unanswered,
+  WrongCode,
+} from "../services.ts";
 import { Auth } from "./auth.ts";
 import { Profiles } from "./profiles.ts";
 
-const unanswered = () => Effect.fail({ _tag: "Unanswered" } as const);
+const unanswered = () => Effect.fail(new Unanswered());
 
 /**
  * The profile service's port fake: `ProfileApi` over the profiles server, a lost answer read as the
@@ -14,9 +22,12 @@ export const ProfileFake = Layer.effect(
   Effect.map(Profiles, (profiles) =>
     ProfileApi.of({
       setUsername: (input, { idempotencyKey }) =>
-        profiles
-          .setUsername({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", unanswered)),
+        profiles.setUsername({ ...input, key: idempotencyKey }).pipe(
+          Effect.catchTags({
+            FakeLost: unanswered,
+            Taken: ({ handle }) => Effect.fail(new Taken({ handle })),
+          }),
+        ),
       me: (input) => profiles.me(input).pipe(Effect.catchTag("FakeLost", unanswered)),
     }),
   ),

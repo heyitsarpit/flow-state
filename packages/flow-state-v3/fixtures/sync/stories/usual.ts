@@ -185,7 +185,7 @@ const peekDocs = Sync.E.Peek({ repo: "docs" });
  * A stress run from seed 36, printed by the generator and pasted here (each sample event under a
  * name the samples give it). The reload sweep and the bench run it as any Story.
  */
-export const seededStress = Story.app(gitSetup, { id: "sync/stress-36", fixtures: [GitFake] })
+export const seededStress = gitStory("sync/stress-36")
   .world(Git.rateLimit({ retryAfterMs: 2000 }))
   .world(Git.remoteHead.hold())
   .ensure(client)

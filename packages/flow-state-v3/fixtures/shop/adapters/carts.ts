@@ -7,9 +7,9 @@ import {
   HttpClientResponse,
   HttpIncomingMessage,
 } from "effect/http";
-import { CartApi, Line, NotEnough, SoldOut } from "../services.ts";
+import { CartApi, Line, NoResponse, NotEnough, SoldOut } from "../services.ts";
 
-const lost = { _tag: "NoResponse" } as const;
+const lost = () => Effect.fail(new NoResponse());
 
 /**
  * The cart service over HTTP: a 2xx is the line, a 409 the endpoint's refusal decoded, anything
@@ -40,14 +40,14 @@ export const CartHttp = (origin: string) =>
                 "2xx": (r) => HttpIncomingMessage.schemaBodyJson(Line)(r),
                 409: (r) =>
                   Effect.flatMap(HttpIncomingMessage.schemaBodyJson(SoldOut)(r), ({ lineId }) =>
-                    Effect.fail({ _tag: "SoldOut" as const, lineId }),
+                    Effect.fail(SoldOut.make({ lineId })),
                   ),
-                orElse: () => Effect.fail(lost),
+                orElse: lost,
               }),
             ),
             Effect.catchTags({
-              HttpClientError: () => Effect.fail(lost),
-              SchemaError: () => Effect.fail(lost),
+              HttpClientError: lost,
+              SchemaError: lost,
             }),
           ),
         setQuantity: (input, { idempotencyKey }) =>
@@ -58,15 +58,14 @@ export const CartHttp = (origin: string) =>
                 409: (r) =>
                   Effect.flatMap(
                     HttpIncomingMessage.schemaBodyJson(NotEnough)(r),
-                    ({ lineId, quantity }) =>
-                      Effect.fail({ _tag: "NotEnough" as const, lineId, quantity }),
+                    ({ lineId, quantity }) => Effect.fail(NotEnough.make({ lineId, quantity })),
                   ),
-                orElse: () => Effect.fail(lost),
+                orElse: lost,
               }),
             ),
             Effect.catchTags({
-              HttpClientError: () => Effect.fail(lost),
-              SchemaError: () => Effect.fail(lost),
+              HttpClientError: lost,
+              SchemaError: lost,
             }),
           ),
       });

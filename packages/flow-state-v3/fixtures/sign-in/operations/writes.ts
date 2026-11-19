@@ -12,9 +12,9 @@ export const setUsername = transaction({
   concurrency: "reject",
   services: [ProfileApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(ProfileApi), (api) =>
-      api.setUsername(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("Unanswered", (e) => Outcome.unknown(e))),
+    ProfileApi.use((api) => api.setUsername(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("Unanswered", (e) => Outcome.unknown(e)),
+    ),
 });
 
 /**
@@ -27,9 +27,9 @@ export const begin = transaction({
   concurrency: "reject",
   services: [AuthApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(AuthApi), (api) =>
-      api.begin(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    AuthApi.use((api) => api.begin(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });
 
 /**
@@ -42,7 +42,7 @@ export const verify = transaction({
   concurrency: "reject",
   services: [AuthApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(AuthApi), (api) =>
-      api.verify(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    AuthApi.use((api) => api.verify(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });

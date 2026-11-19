@@ -15,7 +15,7 @@ export const syncPage = transaction({
   concurrency: "serialize",
   services: [GitApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(GitApi), (api) =>
+    GitApi.use((api) =>
       api.sync({ repo: `${input.repo}#${String(input.page)}` }, { idempotencyKey: attempt.id }),
     ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
 });

@@ -305,7 +305,7 @@ const startTwo = Pay.E.Start({ cartId: "c2", intentId: "pi2" });
  * and writes, an offline span, disposals and reloads. The reload sweep and the bench run it as any
  * Story.
  */
-export const seededStress = Story.app(shopSetup, { id: "shop/stress-36", fixtures: [ShopFake] })
+export const seededStress = shopStory("shop/stress-36")
   .world(Shop.crash({ endpoint: "confirm" }))
   .ensure(checkout)
   .world(Fake.storage.hold())

@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 import { resource } from "../../../../src/index.ts";
 import { ShopApi } from "../services.ts";
 
@@ -12,7 +12,7 @@ export const intentStatus = resource({
   services: [ShopApi],
   staleTime: 0,
   gcTime: 0,
-  lookup: (input) => Effect.flatMap(Effect.service(ShopApi), (api) => api.intent(input)),
+  lookup: (input) => ShopApi.use((api) => api.intent(input)),
 });
 
 /**
@@ -25,5 +25,5 @@ export const orderForCart = resource({
   services: [ShopApi],
   staleTime: 0,
   gcTime: 0,
-  lookup: (input) => Effect.flatMap(Effect.service(ShopApi), (api) => api.orderFor(input)),
+  lookup: (input) => ShopApi.use((api) => api.orderFor(input)),
 });

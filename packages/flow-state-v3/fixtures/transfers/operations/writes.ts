@@ -12,9 +12,7 @@ export const transfer = transaction({
   concurrency: "reject",
   services: [BankApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(BankApi), (api) =>
-      api.transfer(input, { idempotencyKey: attempt.id }),
-    ).pipe(
+    BankApi.use((api) => api.transfer(input, { idempotencyKey: attempt.id })).pipe(
       Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
       Effect.timeoutOrElse({
         duration: "30 seconds",

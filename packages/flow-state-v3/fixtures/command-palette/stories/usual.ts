@@ -287,10 +287,7 @@ const sampleEvents = {
  * A stress run from seed 36, printed by the generator and pasted here. The reload sweep and the
  * bench run it as any Story.
  */
-export const seededStress = Story.app(paletteSetup, {
-  id: "palette/stress-36",
-  fixtures: [CommandsFake],
-})
+export const seededStress = paletteStory("palette/stress-36")
   .world(Commands.fail({ command: "profile", reason: "denied" }))
   .ensure(palette)
   .world(Fake.storage.hold())

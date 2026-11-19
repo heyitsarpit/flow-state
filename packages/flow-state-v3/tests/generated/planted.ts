@@ -1,10 +1,11 @@
 import { Effect, Layer } from "effect";
 import { checkout, shopSetup } from "../../fixtures/shop/app.ts";
-import { ShopApi } from "../../fixtures/services/shop/services.ts";
+import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
+import { NoResponse, ShopApi } from "../../fixtures/services/shop/services.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { samplesOf, Story } from "../../src/host/testing/index.ts";
 
-const lost = () => Effect.fail({ _tag: "NoResponse" } as const);
+const lost = () => Effect.fail(new NoResponse());
 
 /**
  * A planted fault in an app's edge: a port fake that, when a confirm's answer is lost, sends it
@@ -48,7 +49,7 @@ export const planted = samplesOf({
   controls: [],
   steps: (story) =>
     story
-      .send(checkout, { _tag: "Start", cartId: "c1", intentId: "pi1" })
-      .send(checkout, { _tag: "PayRequested", paymentMethodId: "visa" })
-      .send(checkout, { _tag: "Done" }),
+      .send(checkout, Pay.E.Start({ cartId: "c1", intentId: "pi1" }))
+      .send(checkout, Pay.E.PayRequested({ paymentMethodId: "visa" }))
+      .send(checkout, Pay.E.Done()),
 });

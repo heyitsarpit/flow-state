@@ -36,7 +36,7 @@ export const Git = Fake.server("Git", {
         if (retryAfterMs !== undefined)
           return {
             truth: { ...truth, limits: later },
-            exit: Exit.fail({ _tag: "RateLimited" as const, retryAfterMs }),
+            exit: Exit.fail(Limited.make({ retryAfterMs })),
           };
         const head = `h${Object.keys(truth.synced).length + 1}`;
 
@@ -58,7 +58,7 @@ export const Git = Fake.server("Git", {
         truth.outages > 0
           ? {
               truth: { ...truth, outages: truth.outages - 1 },
-              exit: Exit.fail({ _tag: "ServerError" as const }),
+              exit: Exit.fail(ServerError.make({})),
             }
           : { truth, exit: Exit.succeed({ head: truth.heads[repo] ?? "a1b2c3" }) },
     }),

@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { AccountsApi, BankApi, NoResponse } from "../services.ts";
+import { AccountsApi, BankApi, NoAnswer, NoResponse } from "../services.ts";
 import { Accounts } from "./accounts.ts";
 import { Bank } from "./bank.ts";
 
@@ -14,7 +14,7 @@ export const AccountsFake = Layer.effect(
       balance: (input) =>
         accounts
           .balance(input)
-          .pipe(Effect.catchTag("FakeLost", () => Effect.fail({ _tag: "NoAnswer" } as const))),
+          .pipe(Effect.catchTag("FakeLost", () => Effect.fail(new NoAnswer()))),
     }),
   ),
 );

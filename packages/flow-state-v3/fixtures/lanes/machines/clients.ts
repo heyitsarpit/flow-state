@@ -17,9 +17,9 @@ const syncUnder = (concurrency: Policy) =>
     concurrency,
     services: [GitApi],
     commit: (input, { attempt }) =>
-      Effect.flatMap(Effect.service(GitApi), (api) =>
-        api.sync(input, { idempotencyKey: attempt.id }),
-      ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+      GitApi.use((api) => api.sync(input, { idempotencyKey: attempt.id })).pipe(
+        Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+      ),
   });
 
 // A persisted sync client whose writes run under one policy. Each event is one turn: a commit,

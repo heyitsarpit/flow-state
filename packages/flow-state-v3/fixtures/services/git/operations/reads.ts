@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 import { resource } from "../../../../src/index.ts";
 import { GitApi } from "../services.ts";
 
@@ -12,5 +12,5 @@ export const remoteHead = resource({
   services: [GitApi],
   staleTime: 0,
   gcTime: 0,
-  lookup: (input) => Effect.flatMap(Effect.service(GitApi), (api) => api.remoteHead(input)),
+  lookup: (input) => GitApi.use((api) => api.remoteHead(input)),
 });

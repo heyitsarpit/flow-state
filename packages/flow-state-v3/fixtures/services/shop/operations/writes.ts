@@ -45,9 +45,7 @@ export const pay = transaction({
   concurrency: "reject",
   services: [ShopApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(ShopApi), (api) =>
-      onTheWire(api.confirm(input, { idempotencyKey: attempt.id })),
-    ).pipe(
+    ShopApi.use((api) => onTheWire(api.confirm(input, { idempotencyKey: attempt.id }))).pipe(
       Effect.map((v) => confirmed(v.status, v.clientSecret ?? "", attempt.mayHaveApplied)),
       Effect.catchTag("IntentBusy", (e) =>
         attempt.mayHaveApplied && capturableStatus(e.status)
@@ -72,9 +70,7 @@ export const placeOrder = transaction({
   concurrency: "reject",
   services: [ShopApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(ShopApi), (api) =>
-      api.placeOrder(input, { idempotencyKey: attempt.id }),
-    ).pipe(
+    ShopApi.use((api) => api.placeOrder(input, { idempotencyKey: attempt.id })).pipe(
       Effect.map((order) => ({ order, alreadyPlaced: false })),
       Effect.catchTag("OrderExists", (e) =>
         Outcome.success({ order: e.order, alreadyPlaced: true }),
@@ -93,7 +89,7 @@ export const voidAuthorization = transaction({
   concurrency: "reject",
   services: [ShopApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(ShopApi), (api) =>
-      api.voidAuthorization(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag(LOST, (e) => Outcome.unknown(e))),
+    ShopApi.use((api) => api.voidAuthorization(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag(LOST, (e) => Outcome.unknown(e)),
+    ),
 });

@@ -101,7 +101,7 @@ const commit = Cancel.E.Commit(flow);
  * A stress run from seed 36, printed by the generator and pasted here. The saved-stress test checks
  * it is still what that seed prints.
  */
-export const seededStress = Story.app(lanesSetup, { id: "lanes/stress-36", fixtures: [GitFake] })
+export const seededStress = lanesStory("lanes/stress-36")
   .world(Git.rateLimit({ retryAfterMs: 2000 }))
   .ensure(latestClient)
   .world(Fake.storage.hold())

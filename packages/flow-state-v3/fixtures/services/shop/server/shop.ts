@@ -1,18 +1,13 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../../src/host/testing/index.ts";
+import { ServerError } from "../services.ts";
 
 const Busy = Schema.TaggedStruct("Busy", { retryAfterMs: Schema.Number });
-
 const CardDeclined = Schema.TaggedStruct("CardDeclined", { code: Schema.String });
+const Challenge = Schema.TaggedStruct("Challenge", {});
+const LandThenFail = Schema.TaggedStruct("LandThenFail", {});
 
-const ServerError = Schema.TaggedStruct("ServerError", {});
-
-const Turn = Schema.Union([
-  Busy,
-  CardDeclined,
-  Schema.TaggedStruct("Challenge", {}),
-  Schema.TaggedStruct("LandThenFail", {}),
-]);
+const Turn = Schema.Union([Busy, CardDeclined, Challenge, LandThenFail]);
 
 const ShopTruth = Schema.Struct({
   intents: Schema.Record(Schema.String, Schema.String),
@@ -66,7 +61,7 @@ const confirm = (truth: Truth, intentId: string, key: string) => {
   if (next._tag === "LandThenFail")
     return {
       truth: capture(rest, intentId, key),
-      exit: Exit.fail({ _tag: "ServerError" as const }),
+      exit: Exit.fail(ServerError.make({})),
     };
 
   return { truth: rest, exit: Exit.fail(next) };
@@ -143,19 +138,19 @@ export const Shop = Fake.server("Shop", {
   controls: {
     busy: Fake.control({ retryAfterMs: Schema.Number }, (truth: Truth, { retryAfterMs }) => ({
       ...truth,
-      confirms: [...truth.confirms, { _tag: "Busy" as const, retryAfterMs }],
+      confirms: [...truth.confirms, Busy.make({ retryAfterMs })],
     })),
     decline: Fake.control({ code: Schema.String }, (truth: Truth, { code }) => ({
       ...truth,
-      confirms: [...truth.confirms, { _tag: "CardDeclined" as const, code }],
+      confirms: [...truth.confirms, CardDeclined.make({ code })],
     })),
     challenge: Fake.control({}, (truth: Truth) => ({
       ...truth,
-      confirms: [...truth.confirms, { _tag: "Challenge" as const }],
+      confirms: [...truth.confirms, Challenge.make({})],
     })),
     landThenFail: Fake.control({}, (truth: Truth) => ({
       ...truth,
-      confirms: [...truth.confirms, { _tag: "LandThenFail" as const }],
+      confirms: [...truth.confirms, LandThenFail.make({})],
     })),
     crash: Fake.control({ endpoint: Schema.String }, (truth: Truth, { endpoint }) => ({
       ...truth,

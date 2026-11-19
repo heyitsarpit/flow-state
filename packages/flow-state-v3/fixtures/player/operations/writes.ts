@@ -12,7 +12,7 @@ export const play = transaction({
   concurrency: "cancel",
   services: [SpeakerApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(SpeakerApi), (api) =>
-      api.play(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    SpeakerApi.use((api) => api.play(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });

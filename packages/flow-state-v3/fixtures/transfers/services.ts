@@ -3,7 +3,7 @@ import { Context, type Effect, Schema } from "effect";
 /**
  * The accounts service did not answer.
  */
-export type NoAnswer = { readonly _tag: "NoAnswer" };
+export class NoAnswer extends Schema.TaggedError<NoAnswer>()("NoAnswer", {}) {}
 
 /**
  * The accounts service: where an account's balance comes from.

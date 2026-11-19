@@ -8,6 +8,8 @@ const ProfilesTruth = Schema.Struct({
 
 type Truth = typeof ProfilesTruth.Type;
 
+const Taken = Schema.TaggedStruct("Taken", { handle: Schema.String });
+
 /**
  * The profile service's truth: each account's saved handle, none until saved, so an account with
  * none is new; a session's refresh token is named for its email. `taken` makes the next save find
@@ -20,12 +22,12 @@ export const Profiles = Fake.server("Profiles", {
     setUsername: Fake.call({
       request: { email: Schema.String, handle: Schema.String, key: Schema.String },
       success: Schema.Struct({ handle: Schema.String }),
-      failure: Schema.TaggedStruct("Taken", { handle: Schema.String }),
+      failure: Taken,
       handle: (truth: Truth, { email, handle }) =>
         truth.refusals > 0
           ? {
               truth: { ...truth, refusals: truth.refusals - 1 },
-              exit: Exit.fail({ _tag: "Taken" as const, handle }),
+              exit: Exit.fail(Taken.make({ handle })),
             }
           : {
               truth: { ...truth, handles: { ...truth.handles, [email]: handle } },

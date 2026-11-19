@@ -3,12 +3,12 @@ import { Context, type Effect, Schema } from "effect";
 /**
  * The handle is taken by someone else.
  */
-export type Taken = { readonly _tag: "Taken"; readonly handle: string };
+export class Taken extends Schema.TaggedError<Taken>()("Taken", { handle: Schema.String }) {}
 
 /**
  * The profile service did not answer.
  */
-export type Unanswered = { readonly _tag: "Unanswered" };
+export class Unanswered extends Schema.TaggedError<Unanswered>()("Unanswered", {}) {}
 
 /**
  * The profile service: where a signed-in account's handle is saved and read, with the refresh

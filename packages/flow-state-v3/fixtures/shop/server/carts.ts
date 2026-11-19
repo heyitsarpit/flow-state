@@ -34,7 +34,7 @@ const setLine = (truth: Truth, cartId: string, lineId: string, quantity: number)
   if (quantity > stock)
     return {
       truth,
-      exit: Exit.fail({ _tag: "NotEnough" as const, lineId, quantity: stored.quantity }),
+      exit: Exit.fail(NotEnough.make({ lineId, quantity: stored.quantity })),
     };
 
   const { [lineId]: _removed, ...rest } = lines;
@@ -67,7 +67,7 @@ export const Carts = Fake.server("Carts", {
         if (held !== undefined) return { truth, exit: Exit.succeed({ lineId, ...held }) };
 
         if (truth.soldOut.includes(variantId))
-          return { truth, exit: Exit.fail({ _tag: "SoldOut" as const, lineId }) };
+          return { truth, exit: Exit.fail(SoldOut.make({ lineId })) };
 
         return {
           truth: withLines(truth, cartId, { ...lines, [lineId]: { variantId, quantity: 1 } }),

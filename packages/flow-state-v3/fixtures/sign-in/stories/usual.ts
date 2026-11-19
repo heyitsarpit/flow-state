@@ -200,7 +200,7 @@ export const long = Array.from({ length: 9 }, (_, n) => n)
  * A stress run from seed 36, printed by the generator and pasted here. The reload sweep and the
  * bench run it as any Story.
  */
-export const seededStress = Story.app(authSetup, { id: "sign-in/stress-36", fixtures: [AuthFake] })
+export const seededStress = authStory("sign-in/stress-36")
   .world(Auth.throttle({}))
   .world(Auth.verify.hold())
   .ensure(screen)

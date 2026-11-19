@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 import { resource } from "../../../src/index.ts";
 import { ProfileApi } from "../services.ts";
 
@@ -12,5 +12,5 @@ export const me = resource({
   services: [ProfileApi],
   staleTime: 0,
   gcTime: 0,
-  lookup: (input) => Effect.flatMap(Effect.service(ProfileApi), (api) => api.me(input)),
+  lookup: (input) => ProfileApi.use((api) => api.me(input)),
 });

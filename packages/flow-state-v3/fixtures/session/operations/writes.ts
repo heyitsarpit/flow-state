@@ -12,7 +12,7 @@ export const signIn = transaction({
   concurrency: "latest",
   services: [IdentityApi],
   commit: (input, { attempt }) =>
-    Effect.flatMap(Effect.service(IdentityApi), (api) =>
-      api.signIn(input, { idempotencyKey: attempt.id }),
-    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+    IdentityApi.use((api) => api.signIn(input, { idempotencyKey: attempt.id })).pipe(
+      Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
+    ),
 });

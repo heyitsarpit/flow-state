@@ -432,10 +432,7 @@ export const forgetRefused = bankStory("transfers/forget-refused")
  * A stress run from seed 45, printed by the generator and pasted here. The reload sweep and the
  * bench run it as any Story.
  */
-export const seededStress = Story.app(bankSetup, {
-  id: "transfers/stress-45",
-  fixtures: [BankFake],
-})
+export const seededStress = bankStory("transfers/stress-45")
   .world(Bank.receiptLength({ chars: 262145 }))
   .world(Fake.storage.refuse())
   .ensure(account)

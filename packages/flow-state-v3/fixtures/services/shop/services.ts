@@ -1,6 +1,21 @@
 import { Context, Effect, Schema } from "effect";
 
-type Lost = { readonly _tag: "NoResponse" } | { readonly _tag: "ServerError" };
+/**
+ * The shop's answer did not come back.
+ */
+export class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
+
+/**
+ * The shop answered with a server error.
+ */
+export const ServerError = Schema.TaggedStruct("ServerError", {});
+
+/**
+ * The shop answered with a server error.
+ */
+export type ServerError = typeof ServerError.Type;
+
+type Lost = NoResponse | ServerError;
 
 /**
  * The card issuer refused the charge.

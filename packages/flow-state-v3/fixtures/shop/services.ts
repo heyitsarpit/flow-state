@@ -35,7 +35,7 @@ export type NotEnough = typeof NotEnough.Type;
 /**
  * The cart service did not answer.
  */
-export type NoResponse = { readonly _tag: "NoResponse" };
+export class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
 
 type Idem = { readonly idempotencyKey: string };
 
