@@ -346,4 +346,56 @@ export const toolingFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "read-encodes-memory",
+    tests: ["tests/transfers/standing-order.test.ts"],
+    says: "a typed read shows memory in its encoded form, so a Date field reads as its string",
+    rule: "Stories R12",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: "            : snapshot,",
+        replace: "            : { ...snapshot, memory: JSON.parse(JSON.stringify(snapshot.memory)) },",
+      },
+    ],
+  },
+  {
+    name: "refused-start-read",
+    tests: ["tests/stories/read.test.ts"],
+    says: "a quarantined record whose fresh start is refused reads as a snapshot whose memory is {}",
+    rule: "Stories R12",
+    edits: [
+      {
+        file: "src/host/testing/run.ts",
+        find: '          snapshot.lifecycle === "quarantined" &&',
+        replace: '          snapshot.lifecycle === "never" &&',
+      },
+    ],
+  },
+  {
+    name: "token-ignores-definition",
+    tests: ["tests/stories/read.test.ts"],
+    says: "an evidence selector matches an event by name alone, so another machine's same-named event matches",
+    rule: "Stories R12",
+    edits: [
+      {
+        file: "src/host/testing/select.ts",
+        find: "          e.actor.machine === machine &&",
+        replace: "          machine !== undefined &&",
+      },
+    ],
+  },
+  {
+    name: "lost-as-fakelost",
+    tests: ["tests/stories/wire.test.ts", "tests/write-lanes/payment-held.test.ts"],
+    says: "a dropped call fails with FakeLost instead of its server's lost error, so the port sees an undeclared error",
+    rule: "Stories R9",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: '          } else mark(index, "dropped at request");\n\n          return Effect.fail(server.lost());',
+        replace: '          } else mark(index, "dropped at request");\n\n          return Effect.fail(new FakeLost());',
+      },
+    ],
+  },
 ];

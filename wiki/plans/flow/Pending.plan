@@ -297,3 +297,30 @@ decisions
         A). **Proven by:** the host cells in code:packages/flow-state-v3/src/host/cleanups.test.ts and faults
         `late-cause-dropped`, `abort-interrupts-wait`, `unheard-quarantine-dropped`. Owner: @task.V3.T99. Proposed, for
         the user's yes.
+    D35  @plan.Testing.O4: `read(ref)` returns `Snapshot<D>`, typed by the ref's definition (proposed)
+        **Before:** `read(ref).memory` is `Values`, read as `memory["lines"]`; a misspelt field compiles. **After:**
+        `state` is the definition's leaf union and `memory` its whole memory (private fields included), each field its
+        decoded value, with no decode at read since memory holds Type values; a quarantined record whose fresh start is
+        refused fails the read with StoryFailed. `Snapshot` with no definition stays erased. **Why:** the user's C1.
+        **Proven by:** code:packages/flow-state-v3/tests/types/testing.compile.ts, faults `read-encodes-memory`,
+        `refused-start-read`. Owner: @task.V3.T103. Name and shape are the user's read.
+    D36  @plan.Testing.O4: `publishedOf(run, ref)` (proposed)
+        **After:** every snapshot an actor published, in order, typed as `read`. **Why:** a checkpoint cannot show the
+        memories between two steps, and the number-input Stories cast them by hand. Owner: @task.V3.T103.
+    D37  @plan.Testing.O4: `turnsOf(run, Def.E.X, { actor? })` (proposed)
+        **After:** the turns that definition's actors ran on that event; with `actor`, one actor's, and the token must
+        be of its definition. A misspelt token, a name string or a foreign token is a type error; a same-named event of
+        another machine never matches. **Why:** the user's C3; a renamed event emptied name filters, a false pass.
+        **Proven by:** the compile test, fault `token-ignores-definition`, lint `flow-state/no-event-name-filter`.
+        Owner: @task.V3.T103.
+    D38  @plan.Testing.O4: `evidenceOf(run, Def.E.X, { actor? })` (proposed)
+        **After:** every record naming that event (Turn, Delivered, Unhandled, Denied, SendTargetAbsent), narrowed by
+        `_tag`; one word covers the kinds, so no `deliveriesOf` or `unhandledOf`. **Why:** Delivered and
+        Turn-or-Unhandled filters. Owner: @task.V3.T103.
+    D39  @plan.Testing.O3: `Fake.server(name, { ..., lost: () => PortError })`, required (proposed)
+        **Before:** every port fake mapped `Fake.Lost` with `catchTag("FakeLost", ...)` per method. **After:** each
+        server names its lost error once; an endpoint fails with its failure or that error, so a port fake passes calls
+        through, and endpoints may declare the port's error classes. A server behind no port names `Fake.Lost`; O3's
+        "Fake.Lost is mapped by the transport binding" then holds for those only. **Why:** the user's C2 (revised).
+        **Proven by:** the compile test in code:packages/flow-state-v3/tests/stories/fake.test.ts, fault
+        `lost-as-fakelost`. Owner: @task.V3.T103.
