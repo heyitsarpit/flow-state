@@ -17,7 +17,7 @@ import {
   rowsOf,
 } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
-import { decodeRecords, encodeOwed } from "./record.ts";
+import { decodeRecords, encodeOwed, owedRecordKey } from "./record.ts";
 import type { Channel } from "./vocabulary.ts";
 import { makeTx } from "./tx.ts";
 import { Life } from "./life.ts";
@@ -347,5 +347,31 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     s.ledger.owe(ending(Option.some("L")));
 
     assert.deepStrictEqual(deliveries(s.rows()), ["Waiting"]);
+  });
+});
+
+describe("Flow's restored marker is not a reason (WriteLanes I15)", () => {
+  // Whether owing a host unknown ending with this reason to a live, persisted identity marks its
+  // owed record: a Queued row moves into no saved delivery, so it should not.
+  const marksOwed = (reason: string) => {
+    const tx = makeTx(new Map([[actor.machine, PayMachine.compiled]]), live(emptyWorld(true)), {
+      now: 0,
+      seed: "0",
+      admit: makeFreezer(),
+    });
+
+    makeLedger(tx, makePersistence(tx)).owe({ ...ending(Option.none()), reason });
+
+    return tx.world().marked.has(owedRecordKey(actorKey(actor)));
+  };
+
+  it("control: a host unknown Lost, queued, marks no owed record", () => {
+    assert.equal(marksOwed("Lost"), false);
+  });
+
+  // Inverted: isSaved reads the reason text, so a host's own reason spelled Restored passes for
+  // Flow's marker and the row is written as if it outlived its step.
+  it.fails("a host unknown whose reason is spelled Restored, queued, marks no owed record", () => {
+    assert.equal(marksOwed("Restored"), false);
   });
 });

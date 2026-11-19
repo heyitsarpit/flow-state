@@ -18,6 +18,9 @@ const today = () => [
   "not minted" satisfies Incarnation["id"],
   // Actors R13: a lane id passes where an Attempt id is wanted.
   laneId(actor, "save", "{}") satisfies Head["id"],
+  // Turn R21: the root's work is owned by the number 0, and any number is a state's activation.
+  0 satisfies Head["owner"],
+  7 satisfies Incarnation["activations"][number],
   // Actors R13: mail that follows no chain carries the number 0.
   Mail.Event({ actor, tag: "Noted", payload: {}, chain: NO_CHAIN }),
   // Turn R25: a turn's route may name an own lane and lateness with no ending, under an event's
@@ -32,6 +35,6 @@ const today = () => [
 
 describe("the core's open shapes (inverted until they are typed)", () => {
   it("Actors R13, R21, Turn R25: the lines above compile today", () => {
-    expect(today()).toHaveLength(5);
+    expect(today()).toHaveLength(7);
   });
 });

@@ -153,8 +153,14 @@ const missed = [
 inWorkdir(({ pkg, write, lint, lines }) => {
   const file = join(pkg, "src/host/missed.ts");
   write(file, `${imports}\nimport { Scope } from "effect";\n${missed.join("\n")}\n`);
+  // A control in the same run: a form the rule covers fires, so a file that failed to parse cannot pass.
+  const control = join(pkg, "src/host/control.ts");
+  write(control, `${imports}\nimport { Scope } from "effect";\nEffect.forkDetach(Effect.void);\n${missed.join("\n")}\n`);
 
-  assert.deepEqual(lines(lint(), file, "owners-only"), [], "owners-only reports none of the missed forms today");
+  const found = lint();
+
+  assert.deepEqual(lines(found, control, "owners-only"), [7], "the control fires");
+  assert.deepEqual(lines(found, file, "owners-only"), [], "owners-only reports none of the missed forms today");
 });
 
 console.log("flow-state owners-only tests passed");

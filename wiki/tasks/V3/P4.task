@@ -1230,6 +1230,11 @@ tasks
         comment     2026-11-19T07:01:22Z
             Decision (the user, 2026-11-19): the Fable consult on trust boundaries (records here and public values in
             @task.V3.T98, one design) waits until P4 closes or later; these deferred items block nothing now.
+        comment     2026-11-19T13:44:29Z
+            Boundary (orchestrator ruling on @task.V3.T102, 2026-11-19): T102 brands runtime ids only (incarnation,
+            chain, activation, arming); `AttemptId`, lane ids and record.ts's decode key cuts stay here. T102's
+            `no-id-text` lint exempts those cuts with a disable naming this Task's single key parser; remove it when
+            that parser lands.
 
     T95
         title           Callback results checked before they enter a turn
@@ -2576,6 +2581,59 @@ tasks
             with @task.V3.T92 (no-id-text exempts record.ts decode with a reasoned disable); isSaved gets its own
             Restored tag so no user reason collides (a wrong ending, fixed minimally). The lead fixes the five findings,
             then builds to review.
+        comment     2026-11-19T13:44:29Z
+            Requirements revised after review (lead): replaces the list above. Acceptance A1 to A5, with A6 (exhaustive
+            dispatch), A7 (worker argv) and A8 (owners-only) proposed. Each names its wrong ending and a check red
+            today; the build flips each inverted line in code:packages/flow-state-v3/src/core/shapes.test.ts to
+            `@ts-expect-error` against the new types, each beside a control line that must compile.
+
+            1. Reason codes (A1, A2; @spec.Actors R21). Wrong ending: a reworded or reused `"operation"` reason makes
+               forget keep a retired hold or drop an unreadable lane record. Shape: one `ReadFailure` catalogue;
+               `quarantined` holds `Unreadable { code, detail } | Retired { operation }`. Check: inverted line (misspelt
+               reason); fixed: a `Quarantine.Unreadable` with a misspelt code fails, a correct one compiles; a test that
+               forget drops `Retired` and keeps `Unreadable`.
+            2. Runtime ids (A1, A2; @spec.Actors R13, start order). Wrong ending: a changed mint format makes startOrder
+               `NaN`, so waves, graces and dispose's evidence run in an unstable order. Shape: `IncarnationId`,
+               `ChainId`, `ActivationId` and `ArmingId` from the one mint; `Incarnation.started`. Record-boundary ids
+               (`AttemptId`, lane ids) stay @task.V3.T92's. Check: inverted line (any text is an incarnation id);
+               `no-id-text` plants.
+            3. Activation owners (A1, A2; @spec.Turn R21). Wrong ending: `ROOT_ACTIVATION = 0` shares `owner: number`
+               with minted activations, so a bare `0` or a lane owner passes as any state's activation. Shape: `Owner =
+               Root | State { activation: ActivationId }`; no `0`. Check: inverted lines (`owner: 0`, a bare number as
+               an activation).
+            4. Chain ids (A3; @spec.Actors R13, I20). Wrong ending: after a partial clear a new chain takes a live
+               chain's id and resets its count. Check: `it.fails` in code:packages/flow-state-v3/src/core/serve.test.ts
+               (red `echoed: 1`; with no collision it passes).
+            5. Following state (A1, A3; @spec.Actors R13). Wrong ending: an edit that clears `serving` but not `chain`
+               makes host mail follow a stale chain. Shape: `Following = Idle | Admitted | Chained`; `Mail.chain:
+               Option<ChainId>`. Check: inverted line (the `0` sentinel); a pin for mail between items, killed by a
+               planted fault.
+            6. Turn cause (A4; @spec.Turn R25, I31, R21). Wrong ending: an event or schedule turn given an own lane acts
+               as its owner, or an issue is raised under a source not its cause's. Check: inverted line; fixed:
+               `Cause.Event` with an `own` or `ending` field fails, a correct `Cause.Ending` compiles.
+            7. Restored marker (A2; @spec.WriteLanes I15). Wrong ending: a host unknown reason spelled `Restored` passes
+               for Flow's marker, so its queued row writes the owed record. Shape: Flow's restored rows carry their own
+               tag, apart from `reason`; the rest of the ending triple stays with the trust consult. Check: `it.fails`
+               in code:packages/flow-state-v3/src/core/ledger.test.ts (red: marked; control `Lost` is not).
+            8. Exhaustive dispatch (A6). Wrong ending: a new tag falls into an implicit default (a refused row neither
+               queued again nor kept; a new Phase re-sent as a first send). Covers `$is` chains, else-if ladders and
+               `_tag ===` compares over closed sets: sentBefore, isSaved, tryOne, suspended, ledger `start`, inMailbox,
+               onWire, disposal's disarm set, tx's follow, COMMITS, the displaced-head ladder in lane-moves,
+               evidence-of's `_tag` ternaries. Check: `no-tag-chain` plants for an `$is` chain, an else-if ladder and a
+               `_tag ===` chain.
+            9. Worker argv (A7). Wrong ending: a flag renamed in workerArgs is dropped; `--runs abc` loops forever.
+               Shape: one Schema both sides use, unknown flags refused. Check:
+               code:packages/flow-state-v3/tests/bench/worker-args.test.ts on a real planted bench: a control exits 0;
+               `--runs`, `--timeout-ms`, `--run` with `abc` and an unknown `--timeout` each exit non-zero at once naming
+               the flag (red: `--runs abc` hangs, the rest exit 0).
+            10. owners-only (A8). Wrong ending: `Effect.ignoreCause`, `Scope.close`, a failed Exit's `.cause` or a
+                `??=`/`||=` alias in host code passes lint. Check: the inverted `missed` block with a control that fires
+                in the same run.
+            11. Gates (A5): check, suite, stress; a fault per new check caught by `nub run faults --only`; turn
+                bench `--dev`.
+
+            `no-id-text` exempts record.ts's decode key cuts with a reasoned disable: they are @task.V3.T92's single key
+            parser. Dropped, as before: a decline catalogue (accepted); single-tag predicates.
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
