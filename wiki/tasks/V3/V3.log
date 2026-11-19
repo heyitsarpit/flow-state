@@ -1084,3 +1084,7 @@ note 2026-11-19T15:40:52Z
     T104 requirements in (b43179e4): F9 confirmed a wrong ending (updateMemory rewrites Flow.input), 20 requirements,
     Vitest typecheck in the suite. Requirements review started. For the user: two new public shapes (onContext typing,
     Flow.initial).
+
+note 2026-11-19T16:11:42Z
+    Amendment (the user, 2026-11-19): every requirements and close review checks cohesion (seams, duplicates, siblings,
+    house patterns); one sidecar takes it as a fixed angle. Skill pin to workflow@7aa4288 (check-task step 5).

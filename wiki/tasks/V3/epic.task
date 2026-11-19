@@ -155,7 +155,7 @@ description
     - First commit of a Task: its requirements list in the Task's comments, with each requirement as a check that
       fails today.
     - The user's page: one page at a slice's close on what an app author will notice.
-skill        workflow@c45246e
+skill        workflow@7aa4288
 run
     To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start, track and route agents;
     you never build.
@@ -302,6 +302,11 @@ instructions
       in range.
     - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
       quality is otherwise left to lint (the user, 2026-11-14).
+    - Every requirements review and close review checks cohesion with the rest of the system (the user, 2026-11-19), for
+      each type, concept or helper the Task adds or changes: seams (a value crossing into another module keeps its
+      narrow type), duplicates (no second copy of an existing type, helper or pattern), siblings (fixing one member of a
+      family fixes its siblings) and house patterns (tokens not strings, `$match` or tag tables, branded ids, `X.use`,
+      Schema-derived types; skill:check-task step 5). One sidecar takes this as its fixed angle.
     - A ruling is asked as two traces of the same Story, not as prose.
     - At each slice's close the orchestrator writes the user's page. A second slice may not close on an unread page (the
       user, 2026-11-12); that is in stops.
