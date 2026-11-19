@@ -30,7 +30,7 @@ export const samples = samplesOf({
   names: { setup: "bankGrownSetup", fixtures: ["BankFake", "AccountsFake"] },
   actors: { mainCustomer, sendForm },
   servers: { Accounts },
-  failures: [Accounts.balance({ account: "acct-2", cents: 0 })],
+  failures: [Accounts.setBalance({ account: "acct-2", cents: 0 })],
   landedFailures: [],
   values: {},
   controls: [],
@@ -66,7 +66,7 @@ export const orderSamples = samplesOf({
   names: { setup: "bankPlannedSetup", fixtures: ["BankFake", "AccountsFake"] },
   actors: { mainCustomer, rent },
   servers: { Accounts },
-  failures: [Accounts.balance({ account: "acct-1", cents: 0 })],
+  failures: [Accounts.setBalance({ account: "acct-1", cents: 0 })],
   landedFailures: [],
   values: {
     planRent,
@@ -80,7 +80,7 @@ export const orderSamples = samplesOf({
     pauseUntilEpoch,
     pauseUntilEarliest,
   },
-  controls: [Accounts.balance({ account: "acct-1", cents: 10_000 })],
+  controls: [Accounts.setBalance({ account: "acct-1", cents: 10_000 })],
   steps: (story) =>
     story
       .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
@@ -150,7 +150,7 @@ const plannedSamplesOf = (edges: boolean) =>
           Fake.storage.put(acct1Record, brokenRecord),
           Fake.storage.put(rentRecord, brokenRecord),
           ...oddOwed,
-          Accounts.balance({ account: "acct-1", cents: 0 }),
+          Accounts.setBalance({ account: "acct-1", cents: 0 }),
         ]
       : [
           Bank.limit({ cents: 100 }),
@@ -179,7 +179,7 @@ const plannedSamplesOf = (edges: boolean) =>
           Bank.receiptLength({ chars: 0 }),
           Bank.receiptLength({ chars: 200_000 }),
           Bank.receiptLength({ chars: 262_144 }),
-          Accounts.balance({ account: "acct-1", cents: 10_000 }),
+          Accounts.setBalance({ account: "acct-1", cents: 10_000 }),
         ]
       : [Bank.limit({ cents: 1000 }), Bank.receiptLength({ chars: 0 })],
     steps: (story) => {

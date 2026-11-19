@@ -14,7 +14,15 @@ import {
 import type { Fields, StructType } from "../../contract.ts";
 import type { Values } from "../../core/compiled.ts";
 import { type Bytes, type Purpose, type Store, StoreRefused } from "../host.ts";
-import { type At, type Cleanup, mainTab, scriptFault, type Tab, WorldWord } from "./steps.ts";
+import {
+  type At,
+  type Cleanup,
+  type ControlWord,
+  mainTab,
+  scriptFault,
+  type Tab,
+  WorldWord,
+} from "./steps.ts";
 
 /**
  * A fake call's answer was lost: the lost error of a server that stands behind no port, such as one
@@ -151,7 +159,7 @@ export type Server<
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom type: it carries the type for reads and holds no value
   readonly "~truth"?: T;
 } & { readonly [K in keyof E]: EndpointHandle<StructType<E[K]["request"]>> } & {
-  readonly [K in keyof C]: (input: StructType<C[K]["fields"]>) => WorldWord;
+  readonly [K in keyof C]: (input: StructType<C[K]["fields"]>) => ControlWord;
 };
 
 // FLOW_STATE_ALLOW_UNKNOWN: an endpoint answers with its own types; the world passes them through.
@@ -698,7 +706,7 @@ export const Fake = {
       readonly initial: NoInfer<T>;
       readonly endpoints: E;
       // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
-      readonly controls?: C;
+      readonly controls?: C & { readonly [K in keyof C & keyof E]: never };
       readonly lost: () => L;
     },
   ): Server<T, E, C, L> => {

@@ -7,19 +7,28 @@ const LandThenFail = Schema.TaggedStruct("LandThenFail", {});
 
 const Turn = Schema.Union([Busy, CardDeclined, Challenge, LandThenFail]);
 
+// The endpoints a crash control can name: each one below.
+const Crashable = Schema.Literals([
+  "confirm",
+  "placeOrder",
+  "voidAuthorization",
+  "intent",
+  "orderFor",
+]);
+
 const ShopTruth = Schema.Struct({
   intents: Schema.Record(Schema.String, Schema.String),
   charges: Schema.Record(Schema.String, Schema.String),
   orders: Schema.Record(Schema.String, Schema.String),
   confirms: Schema.Array(Turn),
-  crashes: Schema.Array(Schema.String),
+  crashes: Schema.Array(Crashable),
 });
 
 type Truth = typeof ShopTruth.Type;
 
 const key = { key: Schema.String };
 
-const crashed = (truth: Truth, endpoint: string) => truth.crashes[0] === endpoint;
+const crashed = (truth: Truth, endpoint: typeof Crashable.Type) => truth.crashes[0] === endpoint;
 
 const afterCrash = (truth: Truth) => ({
   truth: { ...truth, crashes: truth.crashes.slice(1) },
@@ -143,7 +152,7 @@ export const Shop = Fake.server("Shop", {
       ...truth,
       confirms: [...truth.confirms, LandThenFail.make({})],
     })),
-    crash: Fake.control({ endpoint: Schema.String }, (truth: Truth, { endpoint }) => ({
+    crash: Fake.control({ endpoint: Crashable }, (truth: Truth, { endpoint }) => ({
       ...truth,
       crashes: [...truth.crashes, endpoint],
     })),

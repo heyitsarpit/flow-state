@@ -83,8 +83,7 @@ describe("the public surface (Diagnostics R1, R3; boundaries)", () => {
     expect(Predicate.isFunction(runtimeSetup(loose({ app: probe?.app })).construct)).toBe(true);
   });
 
-  // Inverted: a negative captureMs passes the Schema and acts as 0, capturing every write at once.
-  it.fails("Diagnostics R1, R5: runtimeSetup refuses a negative captureMs, naming the field", () => {
+  it("Diagnostics R1, R5: runtimeSetup refuses a negative captureMs, naming the field", () => {
     const [probe] = apps.slice(-1);
 
     const refused = () => {

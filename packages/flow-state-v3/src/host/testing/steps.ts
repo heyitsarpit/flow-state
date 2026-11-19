@@ -42,6 +42,12 @@ export type WorldWord = Data.TaggedEnum<{
 }>;
 
 /**
+ * A server's control word: what a fake server's control returns, and what a sample's failures and
+ * controls take.
+ */
+export type ControlWord = Data.TaggedEnum.Value<WorldWord, "control">;
+
+/**
  * Constructors and matchers for {@link WorldWord}.
  */
 export const WorldWord = Data.taggedEnum<WorldWord>();

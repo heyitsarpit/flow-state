@@ -370,7 +370,9 @@ const SetupConfig = Schema.Struct({
   persistence: Schema.optionalKey(
     Schema.Struct({
       captureMs: Schema.optionalKey(
-        Schema.Finite.annotate({ help: "Give captureMs a finite number of milliseconds." }),
+        Schema.Number.check(Schema.isFinite().abort(), Schema.isGreaterThanOrEqualTo(0)).annotate({
+          help: "Give captureMs a finite number of milliseconds, 0 or more.",
+        }),
       ),
     }),
   ),

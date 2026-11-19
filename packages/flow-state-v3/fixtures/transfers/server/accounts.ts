@@ -25,7 +25,7 @@ export const Accounts = Fake.server("Accounts", {
     }),
   },
   controls: {
-    balance: Fake.control(
+    setBalance: Fake.control(
       { account: Schema.String, cents: Schema.Number },
       (truth: Truth, { account, cents }) => ({
         balances: { ...truth.balances, [account]: cents },

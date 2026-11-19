@@ -1,6 +1,7 @@
 import { Effect, Exit, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import {
+  type ControlWord,
   type EndpointHandle,
   Fake,
   type FakeCleanupFailed,
@@ -52,19 +53,21 @@ describe("Stories R8: a server's endpoints and controls have distinct names", ()
       truth: Truth,
       initial: { count: 0 },
       endpoints: { bump },
-      controls: { bump: clash }, // wrong: `bump` is the endpoint's name; one is lost
+      // @ts-expect-error Stories R8: `bump` is the endpoint's name, and the control would replace it
+      controls: { bump: clash },
       lost: () => new Error("lost"),
     });
 
-    // Today the endpoint's handle and the control's word merge into one key.
-    expectTypeOf(clashing.bump).not.toEqualTypeOf(Counter.bump);
+    void clashing;
     expectTypeOf(Counter.bump).toEqualTypeOf<EndpointHandle<{ readonly n: number }>>();
-    expectTypeOf(Counter.reset).toEqualTypeOf<(input: { readonly n: number }) => WorldWord>();
+    expectTypeOf(Counter.reset).toEqualTypeOf<(input: { readonly n: number }) => ControlWord>();
   });
 });
 
-describe("Stories R8: a sample's failures are control words", () => {
-  it("a storage word given as a failure", () => {
+// A sample's failures are the world words a generated run injects: control words, and the damaged
+// records `Fake.storage.put` writes, which three fixtures inject as failures. The set stays open.
+describe("Stories R8: a sample's failures are world words", () => {
+  it("a control word and a damaged record are both failures", () => {
     const common = {
       story,
       names: { setup: "s", fixtures: [] },
@@ -76,19 +79,19 @@ describe("Stories R8: a sample's failures are control words", () => {
       steps: <S>(s: S) => s,
     };
 
-    samplesOf({ ...common, id: "types/fake/storage", failures: [Fake.storage.hold()] }); // wrong
+    const failures = [Counter.reset({ n: 0 }), Fake.storage.put("actor/x", "{}")];
 
     expectTypeOf(
-      samplesOf({ ...common, id: "types/fake/control", failures: [Counter.reset({ n: 0 })] }).id,
-    ).toEqualTypeOf<string>();
+      samplesOf({ ...common, id: "types/fake/failures", failures }).failures,
+    ).toEqualTypeOf<ReadonlyArray<WorldWord>>();
   });
 });
 
-describe("Stories R8, R9: an endpoint's port names every failure it can return", () => {
-  it("a cleanup failure is in the port's error channel", () => {
+describe("Stories R8, R9: an endpoint's port names every failure a caller can see", () => {
+  it("a cleanup failure is raised only in an interrupted call, which no caller awaits", () => {
     const served = Effect.flatMap(Counter, (service) => service.bump({ n: 1 }));
 
-    expectTypeOf<Effect.Error<typeof served>>().not.toEqualTypeOf<Error | FakeCleanupFailed>();
     expectTypeOf<Effect.Error<typeof served>>().toEqualTypeOf<Error>();
+    expectTypeOf<Effect.Error<typeof served>>().not.toEqualTypeOf<Error | FakeCleanupFailed>();
   });
 });
