@@ -1,32 +1,25 @@
 import { Effect, Layer } from "effect";
-import { NoResponse, ShopApi } from "../services.ts";
+import { ShopApi } from "../services.ts";
 import { Shop } from "./shop.ts";
-
-const lost = () => Effect.fail(new NoResponse());
 
 const shopApi = (steadfast: boolean) =>
   Effect.map(Shop, (shop) =>
     ShopApi.of({
       confirm: (input, { idempotencyKey }) => {
-        const sent = shop
-          .confirm({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", lost));
+        const sent = shop.confirm({ ...input, key: idempotencyKey });
 
         return steadfast ? Effect.uninterruptible(sent) : sent;
       },
-      placeOrder: (input, { idempotencyKey }) =>
-        shop.placeOrder({ ...input, key: idempotencyKey }).pipe(Effect.catchTag("FakeLost", lost)),
+      placeOrder: (input, { idempotencyKey }) => shop.placeOrder({ ...input, key: idempotencyKey }),
       voidAuthorization: (input, { idempotencyKey }) =>
-        shop
-          .voidAuthorization({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", lost)),
-      intent: (input) => shop.intent(input).pipe(Effect.catchTag("FakeLost", lost)),
-      orderFor: (input) => shop.orderFor(input).pipe(Effect.catchTag("FakeLost", lost)),
+        shop.voidAuthorization({ ...input, key: idempotencyKey }),
+      intent: shop.intent,
+      orderFor: shop.orderFor,
     }),
   );
 
 /**
- * The port fake: `ShopApi` over the shop's server, a lost answer read as the port's NoResponse.
+ * The port fake: `ShopApi` over the shop's server, whose lost answer is the port's NoResponse.
  */
 export const ShopFake = Layer.effect(ShopApi, shopApi(false));
 

@@ -1,8 +1,6 @@
 import { Effect, Layer } from "effect";
-import { GitApi, NoResponse, RateLimited } from "../../services/git/services.ts";
+import { GitApi, NoResponse } from "../../services/git/services.ts";
 import { Git } from "../../services/git/server/git.ts";
-
-const lost = () => Effect.fail(new NoResponse());
 
 /**
  * The Git port fake over a network that will not interrupt a sync: once sent, it runs to its
@@ -13,17 +11,11 @@ export const GitFakeSteadfast = Layer.effect(
   Effect.map(Git, (git) =>
     GitApi.of({
       sync: (input, { idempotencyKey }) =>
-        Effect.uninterruptible(
-          git.sync({ ...input, key: idempotencyKey }).pipe(
-            Effect.asVoid,
-            Effect.catchTags({
-              FakeLost: lost,
-              RateLimited: (e) => Effect.fail(new RateLimited({ retryAfterMs: e.retryAfterMs })),
-            }),
-          ),
-        ),
+        Effect.uninterruptible(git.sync({ ...input, key: idempotencyKey }).pipe(Effect.asVoid)),
       remoteHead: (input) =>
-        git.remoteHead(input).pipe(Effect.catchTags({ FakeLost: lost, ServerError: lost })),
+        git
+          .remoteHead(input)
+          .pipe(Effect.catchTag("ServerError", () => Effect.fail(new NoResponse()))),
     }),
   ),
 );

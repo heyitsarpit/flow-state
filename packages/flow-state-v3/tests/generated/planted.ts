@@ -1,35 +1,32 @@
 import { Effect, Layer } from "effect";
 import { checkout, shopSetup } from "../../fixtures/shop/app.ts";
 import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
-import { NoResponse, ShopApi } from "../../fixtures/services/shop/services.ts";
+import { ShopApi } from "../../fixtures/services/shop/services.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { samplesOf, Story } from "../../src/host/testing/index.ts";
 
-const lost = () => Effect.fail(new NoResponse());
-
 /**
- * A planted fault in an app's edge: a port fake that, when a confirm's answer is lost, sends it
- * again at once under a fresh idempotency key, which no Attempt was minted with.
+ * A planted fault in an app's edge: a port fake that, when a confirm's answer is lost (the port's
+ * NoResponse), sends it again at once under a fresh idempotency key, which no Attempt was minted
+ * with.
  */
 export const ResendingShopFake = Layer.effect(
   ShopApi,
   Effect.map(Shop, (shop) =>
     ShopApi.of({
       confirm: (input, { idempotencyKey }) =>
-        shop.confirm({ ...input, key: idempotencyKey }).pipe(
-          Effect.catchTag("FakeLost", () =>
-            shop.confirm({ ...input, key: `${idempotencyKey}:again` }),
-          ),
-          Effect.catchTag("FakeLost", lost),
-        ),
-      placeOrder: (input, { idempotencyKey }) =>
-        shop.placeOrder({ ...input, key: idempotencyKey }).pipe(Effect.catchTag("FakeLost", lost)),
-      voidAuthorization: (input, { idempotencyKey }) =>
         shop
-          .voidAuthorization({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", lost)),
-      intent: (input) => shop.intent(input).pipe(Effect.catchTag("FakeLost", lost)),
-      orderFor: (input) => shop.orderFor(input).pipe(Effect.catchTag("FakeLost", lost)),
+          .confirm({ ...input, key: idempotencyKey })
+          .pipe(
+            Effect.catchTag("NoResponse", () =>
+              shop.confirm({ ...input, key: `${idempotencyKey}:again` }),
+            ),
+          ),
+      placeOrder: (input, { idempotencyKey }) => shop.placeOrder({ ...input, key: idempotencyKey }),
+      voidAuthorization: (input, { idempotencyKey }) =>
+        shop.voidAuthorization({ ...input, key: idempotencyKey }),
+      intent: shop.intent,
+      orderFor: shop.orderFor,
     }),
   ),
 );

@@ -1,6 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../../src/host/testing/index.ts";
-import { Busy, CardDeclined, Intent, Order, ServerError } from "../services.ts";
+import { Busy, CardDeclined, Intent, NoResponse, Order, ServerError } from "../services.ts";
 
 const Challenge = Schema.TaggedStruct("Challenge", {});
 const LandThenFail = Schema.TaggedStruct("LandThenFail", {});
@@ -148,4 +148,5 @@ export const Shop = Fake.server("Shop", {
       crashes: [...truth.crashes, endpoint],
     })),
   },
+  lost: () => new NoResponse(),
 });

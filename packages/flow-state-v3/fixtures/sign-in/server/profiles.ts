@@ -1,5 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
+import { Taken, Unanswered } from "../services.ts";
 
 const ProfilesTruth = Schema.Struct({
   handles: Schema.Record(Schema.String, Schema.String),
@@ -7,8 +8,6 @@ const ProfilesTruth = Schema.Struct({
 });
 
 type Truth = typeof ProfilesTruth.Type;
-
-const Taken = Schema.TaggedStruct("Taken", { handle: Schema.String });
 
 /**
  * The profile service's truth: each account's saved handle, none until saved, so an account with
@@ -27,7 +26,7 @@ export const Profiles = Fake.server("Profiles", {
         truth.refusals > 0
           ? {
               truth: { ...truth, refusals: truth.refusals - 1 },
-              exit: Exit.fail(Taken.make({ handle })),
+              exit: Exit.fail(new Taken({ handle })),
             }
           : {
               truth: { ...truth, handles: { ...truth.handles, [email]: handle } },
@@ -54,4 +53,5 @@ export const Profiles = Fake.server("Profiles", {
       }),
     ),
   },
+  lost: () => new Unanswered(),
 });

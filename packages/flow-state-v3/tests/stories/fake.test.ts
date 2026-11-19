@@ -53,6 +53,7 @@ describe("Fake server", () => {
           handle: (truth: typeof Truth.Type) => ({ truth, exit: Exit.succeed({ cents: 1 }) }),
         }),
       },
+      lost: () => new NoResponse(),
     });
 
     expect(typed.transfer.hold()._tag).toBe("wire");
@@ -60,10 +61,25 @@ describe("Fake server", () => {
     expect(Bank.raise).toBeUndefined();
     // @ts-expect-error a control input of the wrong shape
     Bank.limit({ cents: "high" });
-    // @ts-expect-error a truth start that is not a value of the truth Schema
-    const bad = Fake.server("Bad", { truth: Truth, initial: { limit: "x" }, endpoints: {} });
+
+    const bad = Fake.server("Bad", {
+      truth: Truth,
+      // @ts-expect-error a truth start that is not a value of the truth Schema
+      initial: { limit: "x" },
+      endpoints: {},
+      lost: () => new NoResponse(),
+    });
 
     expect(bad["~server"].name).toBe("Bad");
+
+    // Each server names its lost error once (Stories, Fake.server's lost): one with none does not
+    // compile, and a served endpoint of a server behind a port never fails with FakeLost.
+    // @ts-expect-error a server that names no lost error
+    void Fake.server("Unnamed", { truth: Truth, initial: { limit: 0 }, endpoints: {} });
+    void Effect.map(typed, (served) =>
+      // @ts-expect-error a served endpoint fails with the port's error, never FakeLost
+      served.transfer({ cents: 1 }).pipe(Effect.catchTag("FakeLost", () => Effect.void)),
+    );
   });
 
   it("truth lasts across reloads and starts at initial in every run (Stories R4, R8)", async () => {
@@ -121,18 +137,12 @@ describe("Fake server", () => {
           },
         }),
       },
+      lost: () => new NoResponse(),
     });
 
     const BrokenFake = Layer.effect(
       BankApi,
-      Effect.map(Broken, (broken) =>
-        BankApi.of({
-          transfer: (input) =>
-            broken
-              .transfer(input)
-              .pipe(Effect.catchTag("FakeLost", () => Effect.fail(new NoResponse()))),
-        }),
-      ),
+      Effect.map(Broken, (broken) => BankApi.of({ transfer: broken.transfer })),
     );
 
     const fault = await Story.app(bankSetup, { id: "fake/broken", fixtures: [BrokenFake] })

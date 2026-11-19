@@ -17,7 +17,8 @@ import { type Bytes, type Purpose, type Store, StoreRefused } from "../host.ts";
 import { type At, type Cleanup, mainTab, scriptFault, type Tab, WorldWord } from "./steps.ts";
 
 /**
- * A fake call's answer was lost: the port fake maps it to the port's own error.
+ * A fake call's answer was lost: the lost error of a server that stands behind no port, such as one
+ * that only holds truth for its controls. A server behind a port names the port's own error instead.
  */
 export class FakeLost extends Schema.TaggedError<FakeLost>()("FakeLost", {}) {}
 
@@ -105,16 +106,18 @@ export type AnyServer = {
   readonly initial: unknown;
   readonly endpoints: Readonly<Record<string, AnyEndpoint>>;
   readonly controls: Readonly<Record<string, AnyControl>>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the server's own lost error, typed where it is declared.
+  readonly lost: () => unknown;
 };
 
 /**
  * What a port fake gets from a server: each endpoint as a function from its request to an Effect
- * of its success, failing with its failure or `Fake.Lost`.
+ * of its success, failing with its failure or the server's lost error `L`.
  */
-export type ServiceOf<E extends Readonly<Record<string, AnyEndpoint>>> = {
+export type ServiceOf<E extends Readonly<Record<string, AnyEndpoint>>, L> = {
   readonly [K in keyof E]: (
     request: StructType<E[K]["request"]>,
-  ) => Effect.Effect<E[K]["success"]["Type"], E[K]["failure"]["Type"] | FakeLost>;
+  ) => Effect.Effect<E[K]["success"]["Type"], E[K]["failure"]["Type"] | L>;
 };
 
 /**
@@ -142,7 +145,8 @@ export type Server<
   T,
   E extends Readonly<Record<string, AnyEndpoint>>,
   C extends Readonly<Record<string, AnyControl>>,
-> = Effect.Effect<ServiceOf<E>, never, FakeWorld> & {
+  L = FakeLost,
+> = Effect.Effect<ServiceOf<E, L>, never, FakeWorld> & {
   readonly "~server": AnyServer;
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom type: it carries the type for reads and holds no value
   readonly "~truth"?: T;
@@ -331,7 +335,7 @@ export const makeWorld = (
           if (offline) {
             mark(index, "dropped at request");
 
-            return Effect.fail(new FakeLost());
+            return Effect.fail(server.lost());
           }
 
           const hold = (exit: Held["exit"]) =>
@@ -364,7 +368,7 @@ export const makeWorld = (
             mark(index, "dropped at response");
           } else mark(index, "dropped at request");
 
-          return Effect.fail(new FakeLost());
+          return Effect.fail(server.lost());
         });
 
   const release = (server: AnyServer, endpoint: string, lost: boolean) => {
@@ -375,7 +379,7 @@ export const makeWorld = (
 
     if (Option.isSome(exit) && alive(entry.open) && !gone.has(entry.answer)) {
       mark(entry.index, lost ? "dropped at response" : "answered");
-      Deferred.doneUnsafe(entry.answer, lost ? Exit.fail(new FakeLost()) : exit.value);
+      Deferred.doneUnsafe(entry.answer, lost ? Exit.fail(server.lost()) : exit.value);
     } else mark(entry.index, "handled");
   };
 
@@ -664,6 +668,16 @@ class FakeServer<A> extends Effectable.Class<A, never, FakeWorld> {
  * dies with `FakeCleanupDied` or fails with `FakeCleanupFailed`, as a request whose abort handler
  * throws does.
  *
+ * `lost` names the error a lost answer fails with, once per server: the port's own (`() => new
+ * NoResponse()`), so a port fake passes every call through with no mapping. An endpoint's failure
+ * Schema may be the port's error class, so the server answers with it directly. A server behind no
+ * port names `Fake.Lost`.
+ *
+ * ```ts
+ * const Bank = Fake.server("Bank", { truth, initial, endpoints, lost: () => new NoResponse() })
+ * const BankFake = Layer.effect(BankApi, Effect.map(Bank, (bank) => BankApi.of({ transfer: bank.transfer })))
+ * ```
+ *
  * **Gotchas**
  *
  * - A held call never released is never answered; only the commit's own deadline ends it.
@@ -676,6 +690,7 @@ export const Fake = {
     T,
     const E extends Readonly<Record<string, Endpoint<T, Fields, Schema.Top, Schema.Top>>>,
     const C extends Readonly<Record<string, Control<T, Fields>>> = Record<never, never>,
+    L = never,
   >(
     name: string,
     config: {
@@ -684,14 +699,16 @@ export const Fake = {
       readonly endpoints: E;
       // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
       readonly controls?: C;
+      readonly lost: () => L;
     },
-  ): Server<T, E, C> => {
+  ): Server<T, E, C, L> => {
     const server: AnyServer = {
       name,
       truth: config.truth,
       initial: config.initial,
       endpoints: config.endpoints,
       controls: config.controls ?? {},
+      lost: config.lost,
     };
 
     const endpoints = Record.map(config.endpoints, (_, it) => endpointOf(server, it));
@@ -703,11 +720,11 @@ export const Fake = {
 
     // SAFETY: the world serves each endpoint by its name, through that endpoint's own handler, whose Exit has its own Schemas' types.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a service built key by key from the server's endpoints
-    const served = Effect.map(FakeWorld, (world) => world.serve(server) as ServiceOf<E>);
+    const served = Effect.map(FakeWorld, (world) => world.serve(server) as ServiceOf<E, L>);
 
     // SAFETY: each endpoint's handle carries its own request type only as a phantom, and each control's word takes that control's own input.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the handles and words built from the declaration, under their own names
-    return Object.assign(new FakeServer(server, served), endpoints, controls) as Server<T, E, C>;
+    return Object.assign(new FakeServer(server, served), endpoints, controls) as Server<T, E, C, L>;
   },
   // RETURN_TYPE: the Endpoint contract keeps its request, success and failure types.
   call: <T, const F extends Fields, S extends Schema.Top, X extends Schema.Top>(config: {

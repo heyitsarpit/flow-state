@@ -1,6 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
-import { ActionFailed } from "../services.ts";
+import { ActionFailed, NoResponse } from "../services.ts";
 
 const CommandsTruth = Schema.Struct({
   ran: Schema.Record(Schema.String, Schema.String),
@@ -48,4 +48,5 @@ export const Commands = Fake.server("Commands", {
       failing: Object.fromEntries(Object.entries(truth.failing).filter(([c]) => c !== command)),
     })),
   },
+  lost: () => new NoResponse(),
 });

@@ -1,6 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
-import { Profile, Refused } from "../services.ts";
+import { NoResponse, Profile, Refused } from "../services.ts";
 
 const IdentityTruth = Schema.Struct({
   sessions: Schema.Record(Schema.String, Profile),
@@ -61,4 +61,5 @@ export const Identity = Fake.server("Identity", {
       }),
     ),
   },
+  lost: () => new NoResponse(),
 });

@@ -15,8 +15,6 @@ import {
 import { rules } from "../rules/rules.ts";
 import { LIMITS } from "../limits.ts";
 
-const lost = () => Effect.fail(new NoResponse());
-
 // Pay's samples over another port fake, so the sweep drives the same app over a different edge.
 const over = (id: string, fake: Layer.Layer<ShopApi, never, FakeWorld>, name: string) =>
   samplesOf({
@@ -50,18 +48,12 @@ const PeekingShopFake = Layer.effect(
             shop.confirm({ ...input, key: idempotencyKey }),
           ],
           { concurrency: "unbounded" },
-        ).pipe(
-          Effect.map(([, confirmed]) => confirmed),
-          Effect.catchTag("FakeLost", lost),
-        ),
-      placeOrder: (input, { idempotencyKey }) =>
-        shop.placeOrder({ ...input, key: idempotencyKey }).pipe(Effect.catchTag("FakeLost", lost)),
+        ).pipe(Effect.map(([, confirmed]) => confirmed)),
+      placeOrder: (input, { idempotencyKey }) => shop.placeOrder({ ...input, key: idempotencyKey }),
       voidAuthorization: (input, { idempotencyKey }) =>
-        shop
-          .voidAuthorization({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", lost)),
-      intent: (input) => shop.intent(input).pipe(Effect.catchTag("FakeLost", lost)),
-      orderFor: (input) => shop.orderFor(input).pipe(Effect.catchTag("FakeLost", lost)),
+        shop.voidAuthorization({ ...input, key: idempotencyKey }),
+      intent: shop.intent,
+      orderFor: shop.orderFor,
     }),
   ),
 );
@@ -79,19 +71,14 @@ const FirstOnlyShopFake = Layer.effect(
           Ref.getAndUpdate(confirms, (n) => n + 1),
           (before) =>
             before === 0
-              ? shop
-                  .confirm({ ...input, key: idempotencyKey })
-                  .pipe(Effect.catchTag("FakeLost", lost))
-              : lost(),
+              ? shop.confirm({ ...input, key: idempotencyKey })
+              : Effect.fail(new NoResponse()),
         ),
-      placeOrder: (input, { idempotencyKey }) =>
-        shop.placeOrder({ ...input, key: idempotencyKey }).pipe(Effect.catchTag("FakeLost", lost)),
+      placeOrder: (input, { idempotencyKey }) => shop.placeOrder({ ...input, key: idempotencyKey }),
       voidAuthorization: (input, { idempotencyKey }) =>
-        shop
-          .voidAuthorization({ ...input, key: idempotencyKey })
-          .pipe(Effect.catchTag("FakeLost", lost)),
-      intent: (input) => shop.intent(input).pipe(Effect.catchTag("FakeLost", lost)),
-      orderFor: (input) => shop.orderFor(input).pipe(Effect.catchTag("FakeLost", lost)),
+        shop.voidAuthorization({ ...input, key: idempotencyKey }),
+      intent: shop.intent,
+      orderFor: shop.orderFor,
     }),
   ),
 );

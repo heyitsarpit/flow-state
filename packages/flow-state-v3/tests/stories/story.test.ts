@@ -147,6 +147,8 @@ describe("Story", () => {
           throw new Error("boom");
         }),
       },
+      // Behind no port: its lost error is the tooling's own.
+      lost: () => new Fake.Lost(),
     });
 
     const failing = Layer.merge(BankFake, Layer.effectDiscard(Effect.fail("no bank")));

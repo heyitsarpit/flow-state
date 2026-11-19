@@ -1,6 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
-import { Line, NotEnough, SoldOut } from "../services.ts";
+import { Line, NoResponse, NotEnough, SoldOut } from "../services.ts";
 
 const Stored = Schema.Struct({ variantId: Schema.String, quantity: Schema.Number });
 
@@ -96,4 +96,5 @@ export const Carts = Fake.server("Carts", {
       }),
     ),
   },
+  lost: () => new NoResponse(),
 });

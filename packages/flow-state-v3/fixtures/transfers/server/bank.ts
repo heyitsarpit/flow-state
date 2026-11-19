@@ -1,6 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
-import { Declined, Receipt } from "../services.ts";
+import { Declined, NoResponse, Receipt } from "../services.ts";
 
 const BankTruth = Schema.Struct({
   receipts: Schema.Record(Schema.String, Schema.String),
@@ -58,4 +58,5 @@ export const Bank = Fake.server("Bank", {
       }),
     ),
   },
+  lost: () => new NoResponse(),
 });

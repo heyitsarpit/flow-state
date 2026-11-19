@@ -1,5 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../../src/host/testing/index.ts";
+import { NoResponse, RateLimited } from "../services.ts";
 
 const GitTruth = Schema.Struct({
   synced: Schema.Record(Schema.String, Schema.String),
@@ -9,8 +10,6 @@ const GitTruth = Schema.Struct({
 });
 
 type Truth = typeof GitTruth.Type;
-
-const Limited = Schema.TaggedStruct("RateLimited", { retryAfterMs: Schema.Number });
 
 const ServerError = Schema.TaggedStruct("ServerError", {});
 
@@ -27,7 +26,7 @@ export const Git = Fake.server("Git", {
     sync: Fake.call({
       request: { repo: Schema.String, key: Schema.String },
       success: Schema.Struct({}),
-      failure: Limited,
+      failure: RateLimited,
       handle: (truth: Truth, { repo, key }) => {
         const [retryAfterMs, ...later] = truth.limits;
 
@@ -36,7 +35,7 @@ export const Git = Fake.server("Git", {
         if (retryAfterMs !== undefined)
           return {
             truth: { ...truth, limits: later },
-            exit: Exit.fail(Limited.make({ retryAfterMs })),
+            exit: Exit.fail(new RateLimited({ retryAfterMs })),
           };
         const head = `h${Object.keys(truth.synced).length + 1}`;
 
@@ -76,4 +75,5 @@ export const Git = Fake.server("Git", {
     })),
     outage: Fake.control({}, (truth: Truth) => ({ ...truth, outages: truth.outages + 1 })),
   },
+  lost: () => new NoResponse(),
 });

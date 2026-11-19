@@ -1,5 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
+import { NoResponse, Throttled, WrongCode } from "../services.ts";
 
 const AuthTruth = Schema.Struct({
   codes: Schema.Record(Schema.String, Schema.String),
@@ -8,10 +9,6 @@ const AuthTruth = Schema.Struct({
 });
 
 type Truth = typeof AuthTruth.Type;
-
-const Throttled = Schema.TaggedStruct("Throttled", {});
-
-const WrongCode = Schema.TaggedStruct("WrongCode", {});
 
 /**
  * The code the auth server sends to every address.
@@ -34,7 +31,7 @@ export const Auth = Fake.server("Auth", {
         truth.throttled > 0
           ? {
               truth: { ...truth, throttled: truth.throttled - 1 },
-              exit: Exit.fail(Throttled.make({})),
+              exit: Exit.fail(new Throttled()),
             }
           : {
               truth: { ...truth, codes: { ...truth.codes, [email]: CODE } },
@@ -48,10 +45,11 @@ export const Auth = Fake.server("Auth", {
       handle: (truth: Truth, { email, code }) =>
         truth.codes[email] === code
           ? { truth: { ...truth, sessions: [...truth.sessions, email] }, exit: Exit.succeed({}) }
-          : { truth, exit: Exit.fail(WrongCode.make({})) },
+          : { truth, exit: Exit.fail(new WrongCode()) },
     }),
   },
   controls: {
     throttle: Fake.control({}, (truth: Truth) => ({ ...truth, throttled: truth.throttled + 1 })),
   },
+  lost: () => new NoResponse(),
 });

@@ -1,5 +1,6 @@
 import { Exit, Schema } from "effect";
 import { Fake } from "../../../src/host/testing/index.ts";
+import { NoAnswer } from "../services.ts";
 
 const AccountsTruth = Schema.Struct({ balances: Schema.Record(Schema.String, Schema.Number) });
 
@@ -31,4 +32,5 @@ export const Accounts = Fake.server("Accounts", {
       }),
     ),
   },
+  lost: () => new NoAnswer(),
 });

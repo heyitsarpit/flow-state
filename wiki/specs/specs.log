@@ -482,3 +482,8 @@ note 2026-11-19T11:42:05Z
 note 2026-11-19T11:42:06Z
     @spec.Actors I47, I48: now cited by everyTaskAccounted's breaches and by cleanups.test.ts cells; the rule counts an
     Owner's own Scope as its task 'scope'. Reverse: cite R23 only.
+
+note 2026-11-19T13:01:30Z
+    @spec.Stories R8, R9, R12, R17, I11: each fake server names its lost error (`lost`); `read(ref)` is typed by the
+    definition; evidence is selected by token. Source: @task.V3.T103 C1 to C3. Reverse: the Fake.Lost mapping and erased
+    read.

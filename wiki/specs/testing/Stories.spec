@@ -91,11 +91,15 @@ requirements
 
     R8  A fake server holds truth, endpoints and controls
         source  @plan.Testing.O3; @plan.Pending.D7.
-        must    `Fake.server(name, { truth, initial, endpoints, controls })` declares a server whose truth is a
-                value of the `truth` Schema, starting at `initial`. An endpoint is
+        must    `Fake.server(name, { truth, initial, endpoints, controls, lost })` declares a server whose truth is
+                a value of the `truth` Schema, starting at `initial`; `lost` (required) makes the error a lost
+                answer fails with, the port's own (`() => new NoResponse()`), or `Fake.Lost` for a server behind no
+                port. An endpoint is
                 `Fake.call({ request, success, failure, handle })`: `handle(truth, request)` is pure and synchronous
-                and returns `{ truth, exit }`, the next truth and an Exit typed by `success` and `failure`. Called
-                from a port fake, an endpoint answers `Effect<success, failure | Fake.Lost>`. A control is
+                and returns `{ truth, exit }`, the next truth and an Exit typed by `success` and `failure`, which
+                may be the port's error classes. Called from a port fake, an endpoint answers
+                `Effect<success, failure | Lost>`, `Lost` the server's lost error, so a port fake passes calls
+                through unmapped; a server with no `lost` is a type error. A control is
                 `Fake.control(fields, (truth, input) => truth)`, used as a `world` word. Truth lives in the run's
                 registry, created on first use and shared by every open of the tab and every port fake of the run.
                 `Fake.world` is that registry as a Layer, so a port fake also runs outside a Story (a contract
@@ -108,15 +112,15 @@ requirements
                 at "request" (the default) before the server, so the handler runs only on release; at "response"
                 after the handler ran, holding its answer. `release()` acts on the endpoint's oldest held call: it
                 runs the handler if it has not run, and answers with the handler's Exit. `lose()` acts on the same
-                call the same way but loses the answer: the caller fails with `Fake.Lost`, logged dropped at
-                response. `drop({ at })` makes the
-                endpoint's next call fail with `Fake.Lost` at once: at "request" (the default) the handler never
+                call the same way but loses the answer: the caller fails with the server's lost error, logged
+                dropped at response. `drop({ at })` makes the
+                endpoint's next call fail with the server's lost error at once: at "request" (the default) the
+                handler never
                 runs; at "response" it runs once and its answer is lost. A held call never released is never
                 answered, so only the commit's own deadline ends it. When that deadline interrupts the waiter, the
                 call stays held: a later `release()` acts on it, runs the handler if it has not run, and completes
                 nothing. There is no word that answers with a given Exit: every
-                answer is a handler's, and a different answer comes from a control that changes truth. The port
-                fake maps `Fake.Lost` to the port's own error.
+                answer is a handler's, and a different answer comes from a control that changes truth.
 
     R10  Every call is logged with what happened to it
         source  @plan.Testing.O3, @plan.Testing.O4.
@@ -146,10 +150,17 @@ requirements
         must    A checkpoint, and `end`, hold the tab's time (`now`), `inspection`, the result of
                 `inspect(runtime)` at the step's end, every call each endpoint has logged with its status, each
                 server's truth, and the store's records and write batches, as values captured then. Tests read a
-                cut only through `read(ref)` (the actor's snapshot, or undefined), `read(server)` (its truth),
+                cut only through `read(ref)` (the actor's snapshot, typed by the ref's definition: `state` its leaf
+                paths, `memory` its whole memory with private fields, each field its decoded value; undefined when
+                absent; a quarantined record whose fresh start is refused has no typed memory, so reading it is
+                StoryFailed), `read(server)` (its truth),
                 `read(endpoint)` (each call it logged, with its status), `calls` (every call of every endpoint, named
                 by server and endpoint), `records` (`stored`, the store's records,
-                and `batches`, its write batches), `inspection` and `now`, and a run's endings through `run.evidence`. 
+                and `batches`, its write batches), `inspection` and `now`, and a run's endings through `run.evidence`,
+                selected by event token: `turnsOf(run, Def.E.X, { actor? })` (that definition's turns on the event),
+                `evidenceOf(run, Def.E.X, { actor? })` (every record naming it) and `publishedOf(run, ref)` (the
+                actor's published snapshots, typed as `read`); a misspelt token, a name string, or with `actor`
+                another definition's token is a type error.
                 Checkpoint names are 
                 typed: a duplicate name, a widened
                 string or reading an unknown name is a type error. `inspect(runtime)` is the runtime cut of
@@ -203,7 +214,8 @@ requirements
     R17  The network words
         source  @plan.Testing.O3; @plan.Pending.D12.
         must    `Fake.network.offline()` takes the whole network down until `Fake.network.online()`. While offline,
-                every call of every endpoint is lost at request: the caller fails with `Fake.Lost` at once, the
+                every call of every endpoint is lost at request: the caller fails with its server's lost error at
+                once, the
                 handler never runs, and the call is logged dropped at request. A wire word given meanwhile is not
                 used by an offline call; it waits for the endpoint's next call once the network is back online.
 
@@ -289,8 +301,8 @@ invariants
 
     I10  A held call is answered at most once, only by release, and only while its tab is alive. [@R9, @R13]
 
-    I11  Every ending in `run.evidence` comes from a handler's Exit through the commit's own mapping, a `Fake.Lost` 
-         through the port fake, the commit's own deadline, or a lifecycle step; no Story word supplies an
+    I11  Every ending in `run.evidence` comes from a handler's Exit through the commit's own mapping, a server's lost 
+         error, the commit's own deadline, or a lifecycle step; no Story word supplies an
         ending. [@R9]
 
     I12  Every call of an endpoint appears exactly once in `read(endpoint)`, in arrival order, with the status of R10 
