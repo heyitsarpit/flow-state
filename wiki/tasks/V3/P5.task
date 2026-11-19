@@ -411,7 +411,7 @@ tasks
             NUMBER-12's bounds filter).
 
             **Read first:** code:wiki/plans/flow/references/proposals/alchemy-adoption-2026-11-19.md, @plan.Testing,
-            @plan.Machines, code:packages/flow-state-v3/tests/rules, and Alchemy's Domain rules in
+            @plan.Machines, code:packages/flow-state-v3/tests/rules/rules.ts, and Alchemy's Domain rules in
             `codebases/alchemy/packages/domain/src` as prior art.
 
             **Approach:** design first, by the structural-fix recipe (a blind design from the problem, Alchemy as prior
