@@ -912,3 +912,8 @@ note 2026-11-19T00:10:06Z
 note 2026-11-19T00:25:12Z
     Decisions (the user, 2026-11-19): accepted P3's outcome routing, Pending D31 (merge once T92's rename Story passes)
     and InvariantViolation in T100. wk's refused satisfies links hand-added to T21, T29, T30, T48, T49 (the user's yes).
+
+note 2026-11-19T00:28:52Z
+    Stop (failure limit, 2026-11-19): T92's third close review (2edcb74b) found the same root cause after convergence:
+    an owed record whose rows end one Attempt twice in an order no writer makes. T92 waits for the user's Q5; no lead
+    runs.
