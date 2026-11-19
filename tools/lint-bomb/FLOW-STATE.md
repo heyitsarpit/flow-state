@@ -129,7 +129,8 @@ on internal modules and `off` on public entrypoint modules.
 - One rule per ban in `tools/flow-state-lint`, each over the whole package (the user, 2026-11-14: "things
   can get lost in a refactor"). `vite.config.ts` lists each rule with its options `only` and `except`
   (folders relative to the package, never single files) and `exceptTests` (a pattern); the plugin's
-  default is no exceptions. `tools/flow-state-lint/rules.test.ts` (in `lint:rules`) plants violations
+  default is no exceptions. each rule has its file and planted-violation test in `tools/flow-state-lint/rules/` (the tests run
+  in `lint:rules`); `bans.test.ts` plants violations
   and checks each rule fires inside, stays silent in its exception folders, catches the `globalThis`,
   `global` and `window` forms and ignores type positions. Effect is resolved through the imports:
   - `no-json-stringify` (no exception): equality goes through `Schema.toEquivalence`, keys through their
@@ -153,6 +154,9 @@ on internal modules and `off` on public entrypoint modules.
     `WeakSet` or `WeakMap` filled where it makes the value). Each remaining probe carries a disable with
     its reason: construction's own markers and tokens, until its decode checks identity, and the test
     tooling's own read targets.
+  - `no-raw-event`: a raw `{ _tag: ... }` literal in `fixtures/<app>/stories` (any), or inside a `send(...)`
+    call in `fixtures/<app>/machines`. Build events with the definition's token (`Cart.E.Add({ ... })`); a
+    helper returning tokens is fine. Fake servers, adapters, services and `tests/` are not covered.
 - `no-throw-in-core` is off in `src/error.ts` (`raise`, the one throw of a FlowError) and `src/entry.ts`
   (the public-function wrappers); every other FlowError goes through `raise`. The listed defect sites
   keep a disable with their reason: `core/defect.ts`, `core/frozen.ts` (a write to an admitted value),

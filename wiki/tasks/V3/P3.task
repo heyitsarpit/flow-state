@@ -50,8 +50,8 @@ description
     **Gates:**
 
     - `nub run faults`, which rejects the dead core and the named faults in code:packages/flow-state-v3/tests/faults.ts;
-    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts
-      and code:tools/flow-state-lint/rules.test.ts;
+    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts and the
+      per-rule tests such as code:tools/flow-state-lint/rules/bans.test.ts;
     - `nub run check`.
 
     **Failure limit:** 2.
