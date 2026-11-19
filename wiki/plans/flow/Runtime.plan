@@ -328,7 +328,8 @@ outcomes
         at once; an unbound lane record it leaves ends at an adopting ensure (or with its owner's cancel), listed as
         unbound under the identity and reported at each boot until then. `disposeActor` and forget stop a send's restore
         only once their removal is acknowledged; after a crash before that, the identity behaves as persisted: a plain
-        send restores it, and with no use it ends after the grace.
+        send restores it, and with no use it ends after the grace. While `disposeActor` runs, a send to that actor is
+        dropped with NoRecord (@O4); it never reaches the disposing actor.
 
         Disposing a provider while consumers are bound rejects with BlockedByDependents naming them. Actor and Runtime
         disposal are idempotent: repeated calls share one result.
@@ -395,7 +396,7 @@ constraints
         Hosts, requests, React, Stories and the CLI use the same Runtime; fixtures replace services, never the kernel.
     C2  Identities are never reused
         Actor incarnations, request generations and Attempt ids never wrap or repeat within a Runtime or across restore;
-        exhausting a counter refuses new work with IdentityExhausted before any change.
+        counters are per open and seeded, so no run can exhaust them.
 verification
     V1  Construction: closed-list errors, an unambiguous identity encoding (fields in name order,
         strings), inert constructors, Compiled refusals.

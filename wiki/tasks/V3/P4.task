@@ -1706,6 +1706,8 @@ tasks
             note's "refused" wording, loopGuard's doc, a test title, stale "64" counts and pair-sweep counts; a Story
             that reaches a guard join is owed to @task.V3.T99's review of the guard's readers only if a later finding
             needs it.
+        comment     2026-11-19T06:53:03Z
+            Decision (the user, 2026-11-19): Shop/Subscription stays as T96 built it.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
@@ -2155,6 +2157,11 @@ tasks
             shared result replaced by Effect's Fiber.join or Deferred. Routed: one Issue per failing finalizer to
             @task.V3.T100; dispose hanging on an uninterruptible call, and forget's StorageFailure after a cut write,
             stay here as red checks if in range or route to T100; WriteLanes Q7's missing it.fails to @task.V3.T56.
+        comment     2026-11-19T06:53:03Z
+            Decisions (the user, 2026-11-19): Q7 A, runtime.runPromise(effect, { signal? }): Promise<A>, refusing
+            RuntimeNotReady before ready and RuntimeDisposed once disposing, a failing effect rejected as FlowError
+            RunFailed with the whole Cause; Q8 A, a ref whose actor-level cleanup failed is quarantined (later ensures
+            report the same failure) until a cancel. Both are built in this Task; their reds stop being it.fails.
 
     T100
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer

@@ -108,6 +108,7 @@ outcomes
 
         `disposeActor` removes the actor's record, keeps its non-Idle lanes as unbound lane records, and flushes the
         removal at once; `disposeActor` and `forget` stop a send's restore only once their removal is acknowledged.
+        While `disposeActor` runs, a send to that actor is dropped with NoRecord (@plan.Runtime.O4).
 
         `forget` removes the identity's record and its parked endings (as evidence) and drops no hold, except a hold
         whose operation no longer exists (`HoldForgotten`, proposed name) (@plan.Runtime.O6).

@@ -86,7 +86,6 @@ outcomes
 
         - RuntimeNotReady, RuntimeDisposed (@plan.Runtime.O2, @plan.Runtime.O6): await ready(); create a new Runtime
           after disposal.
-        - IdentityExhausted (@plan.Runtime.C2): replace the Runtime.
         - ConflictingActorRef (@plan.Runtime.O3): give refs of one identity the same context.
         - ForeignActorRef (@plan.React.O2): use handles and refs from this Runtime's App.
         - MissingContextProvider, ContextCycle (@plan.Runtime.O5): wire every slot to an acyclic upward provider.
