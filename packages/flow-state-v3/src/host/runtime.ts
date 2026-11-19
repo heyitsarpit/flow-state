@@ -222,6 +222,14 @@ export type RuntimeConfig = {
 };
 
 /**
+ * Where and how often a Runtime saves: a scope and persistence together, or neither, since either
+ * alone saves nothing.
+ */
+export type Saving =
+  | { readonly scope?: never; readonly persistence?: never }
+  | { readonly scope: string; readonly persistence: { readonly captureMs?: number } };
+
+/**
  * A setup's services Layer: it provides `R` and needs nothing.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as a Defect.
@@ -233,11 +241,10 @@ export type ServicesLayer<R> = Layer.Layer<R, unknown>;
  */
 export type SetupConfig<A extends App> = {
   readonly app: A;
-  readonly scope?: string;
-  readonly persistence?: { readonly captureMs?: number };
-} & ([ServicesOf<A>] extends [never]
-  ? { readonly services?: ServicesLayer<never> }
-  : { readonly services: ServicesLayer<ServicesOf<A>> });
+} & Saving &
+  ([ServicesOf<A>] extends [never]
+    ? { readonly services?: ServicesLayer<never> }
+    : { readonly services: ServicesLayer<ServicesOf<A>> });
 
 // Each Compiled's verdict, judged once: a Compiled never changes, and every boot of a Runtime over
 // it would walk it again.

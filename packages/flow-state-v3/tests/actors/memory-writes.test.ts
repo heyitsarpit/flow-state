@@ -12,13 +12,14 @@ const Ticket = definition({
   },
 });
 
-// Inverted: both writes compile today, because a returned object is not checked for excess keys.
-// When returned shapes are exact, each line fails the type check: put `@ts-expect-error` on it,
-// naming Compile R7 or R14, and keep the run check beneath it for a write that reaches the core.
+// The input-field write fails the type check; the run check beneath stands for an untyped caller.
+// The misspelt key still compiles: TypeScript does not excess-check a returned object, so the run
+// refusal is its only check (the type half is owed, tests/types/excess-keys.test-d.ts).
 const TicketMachine = machine(Ticket, ({ S }) => ({
   default: S.OPEN,
   on: {
     Note: { updateMemory: ({ memory }) => ({ notes: memory.notes + 1, noets: 7 }) },
+    // @ts-expect-error Compile R7: ticketId is an input field, which names the actor
     Rename: { updateMemory: ({ memory }) => ({ notes: memory.notes, ticketId: "T-99" }) },
   },
 }));

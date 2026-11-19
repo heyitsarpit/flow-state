@@ -1,3 +1,4 @@
+// @effect-diagnostics missingEffectContext:off -- the wrong lines that a contract's services list refuses also miss a service in Effect's own check
 import { Context, Effect, Exit, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { type EndpointHandle, Fake } from "../../src/host/testing/index.ts";
@@ -13,11 +14,9 @@ import {
 } from "../../src/index.ts";
 import { transaction } from "../../src/index.ts";
 
-// Inverted: each line marked `wrong` compiles today. When its carrier lands the line fails the
-// check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type (the
-// `.not` of the narrow type, or the wide type itself) then fails too: make it the exact narrow
-// type. Beside each wrong line, the correct use of the same parameter compiles and is asserted
-// exactly, so a wrong line that fails because the type became `never` fails that assertion too.
+// Each `@ts-expect-error` names the rule its line breaks; beside it the correct use of the same
+// parameter is asserted exactly. Lines still marked `wrong` compile: their type half is owed, with
+// the reason beside them, and construction refuses each at load.
 
 const Pay = definition({
   id: "types/ExcessPay",
@@ -40,17 +39,21 @@ describe("Compile R7, R14, T6: a returned memory write is exact", () => {
       default: S.IDLE,
       on: {
         go: {
+          // @ts-expect-error Compile R7: `who` is an input field, which names the actor
           updateMemory: ({ memory }) => {
             expectTypeOf(memory).toEqualTypeOf<{ readonly who: string; readonly count: number }>();
 
-            return { count: memory.count + 1, who: "x" }; // wrong: `who` is an input field
+            return { count: memory.count + 1, who: "x" };
           },
         },
       },
     }));
   });
 
-  it("a misspelt field beside a writable one", () => {
+  // Owed, a TypeScript limit: a returned object is not excess-checked, and an exact body inferred
+  // from the return breaks the contextual typing of handles and sends. Construction refuses the
+  // key at load (Turn R8: the turn refuses an undeclared field whole).
+  it("Compile R14 (owed in types): a misspelt field beside a writable one compiles", () => {
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
       on: { go: { updateMemory: () => ({ count: 1, cuont: 2 }) } }, // wrong: `cuont`
@@ -73,7 +76,9 @@ describe("Compile R7, R14, T6: a returned memory write is exact", () => {
   });
 });
 
-describe("Compile R4, R14: a machine body is exact", () => {
+// Owed in types, as above: construction refuses each misspelt key UnknownField at load
+// (tests/compile/construction.test.ts, Compile R4).
+describe("Compile R4, R14 (owed in types): a machine body is exact", () => {
   it("a misspelt body key", () => {
     machine(Pay, ({ S }) => ({ default: S.IDLE, onn: {} })); // wrong: `onn`
   });
@@ -124,8 +129,10 @@ describe("Runtime O1: an app entry and the setup's options are exact", () => {
   it("persistence and scope only together", () => {
     const shop = app({ id: "types/d", machines: { c: PayMachine } });
 
-    runtimeSetup({ app: shop, persistence: { captureMs: 0 } }); // wrong: no scope, never saves
-    runtimeSetup({ app: shop, scope: "s" }); // wrong: a scope with nothing to save
+    // @ts-expect-error Runtime O1: persistence with no scope never saves
+    runtimeSetup({ app: shop, persistence: { captureMs: 0 } });
+    // @ts-expect-error Runtime O1: a scope with nothing to save
+    runtimeSetup({ app: shop, scope: "s" });
 
     expectTypeOf(
       runtimeSetup({ app: shop, scope: "s", persistence: { captureMs: 0 } }).construct,
@@ -135,7 +142,8 @@ describe("Runtime O1: an app entry and the setup's options are exact", () => {
 
 describe("Compile R14: an event's payload is exact", () => {
   it("a field given to an empty payload", () => {
-    Pay.E.Ping({ extra: 1 }); // wrong: Ping has no fields
+    // @ts-expect-error Compile R14: Ping has no fields
+    Pay.E.Ping({ extra: 1 });
 
     expectTypeOf(Pay.E.Ping({})._tag).toEqualTypeOf<"Ping">();
     expectTypeOf<keyof Parameters<typeof Pay.E.Ping>[0]>().toEqualTypeOf<never>();
@@ -149,7 +157,8 @@ describe("Reads R1, Compile R14: a contract's services are its commit's requirem
       input: { id: Schema.String },
       key: ["id"],
       concurrency: "reject",
-      services: [], // wrong: the commit needs CartApi
+      services: [],
+      // @ts-expect-error Reads R1: the commit needs CartApi, which services omits
       commit: () => CartApi.use((api) => Effect.succeed(api.hi())),
     });
 
@@ -158,7 +167,8 @@ describe("Reads R1, Compile R14: a contract's services are its commit's requirem
       input: { id: Schema.String },
       key: ["id"],
       concurrency: "reject",
-      services: [OtherApi], // wrong: the commit needs CartApi, not OtherApi
+      services: [OtherApi],
+      // @ts-expect-error Reads R1: the commit needs CartApi, not the OtherApi services names
       commit: () => CartApi.use((api) => Effect.succeed(api.hi())),
     });
 
@@ -180,23 +190,33 @@ describe("Reads R1, Compile R14: a contract's services are its commit's requirem
 describe("Compile R4, R14: a definition's literals are kept", () => {
   it("a hoisted states list widens the tree to text", () => {
     const states = ["IDLE", "ON"];
-    const Hoisted = definition({ id: "types/Hoisted", states, events: { go: {} } }); // wrong
+    // @ts-expect-error Compile R4: a widened states list loses every path's type
+    definition({ id: "types/Hoisted", states, events: { go: {} } });
 
     const Literal = definition({ id: "types/Literal", states: ["IDLE", "ON"], events: {} });
 
-    // FLOW_STATE_ALLOW_UNKNOWN: today's token of a widened tree, stated so its fix trips the test.
-    expectTypeOf(Hoisted.S["IDLE"]).toEqualTypeOf<unknown>();
     expectTypeOf(Literal.S.IDLE["~path"]).toEqualTypeOf<"IDLE">();
   });
 
   it("a duplicate state, an empty compound and an empty id", () => {
-    definition({ id: "types/Dup", states: ["A", "A"], events: {} }); // wrong: duplicate state
-    definition({ id: "types/Empty", states: [{ P: [] }], events: {} }); // wrong: empty compound
-    definition({ id: "", states: ["A"], events: {} }); // wrong: empty id
+    // @ts-expect-error Compile R4: A twice
+    definition({ id: "types/Dup", states: ["A", "A"], events: {} });
+    // @ts-expect-error Compile R4: a nested name twice
+    definition({ id: "types/DupIn", states: [{ P: ["B", "B"] }], events: {} });
+    // @ts-expect-error Compile R4: P has no children
+    definition({ id: "types/Empty", states: [{ P: [] }], events: {} });
+    // @ts-expect-error Compile R4: an empty id
+    definition({ id: "", states: ["A"], events: {} });
 
-    const right = definition({ id: "types/Right", states: ["A", { P: ["B"] }], events: {} });
+    const right = definition({
+      id: "types/Right",
+      states: ["A", { P: ["B"] }, { Q: ["B"] }],
+      events: {},
+    });
 
     expectTypeOf(right.S.P.B["~path"]).toEqualTypeOf<"P.B">();
+    expectTypeOf(right.S.Q.B["~path"]).toEqualTypeOf<"Q.B">();
+    expectTypeOf(right.id).toEqualTypeOf<"types/Right">();
   });
 });
 
@@ -232,11 +252,13 @@ describe("Stories R8: a fake's handler reads the server's truth", () => {
       }),
     });
 
-    const lyingServer = Fake.server("types/S", {
+    void Fake.server("types/S", {
       truth: Truth,
       initial: { count: 0 },
-      endpoints: { lying }, // wrong: `lying` reads `extra`, which the truth lacks
-      controls: { fib }, // wrong: `fib` reads `extra` too
+      // @ts-expect-error Stories R8: `lying` reads `extra`, which the truth lacks
+      endpoints: { lying },
+      // @ts-expect-error Stories R8: `fib` reads `extra` too
+      controls: { fib },
       lost: () => new Error("lost"),
     });
 
@@ -247,7 +269,6 @@ describe("Stories R8: a fake's handler reads the server's truth", () => {
       lost: () => new Error("lost"),
     });
 
-    expectTypeOf(lyingServer.lying).toEqualTypeOf<EndpointHandle<{ readonly n: number }>>();
     expectTypeOf(honestServer.honest).toEqualTypeOf<EndpointHandle<{ readonly n: number }>>();
   });
 });

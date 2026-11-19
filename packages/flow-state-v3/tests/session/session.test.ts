@@ -80,7 +80,6 @@ describe("refused context shapes (Actors R18)", () => {
       },
     }),
     services: IdentityLive("https://id.example"),
-    scope: "unwired-workspace",
   });
 
   it("Actors R18: a session with no organisation to read from is refused MissingContextProvider", () => {

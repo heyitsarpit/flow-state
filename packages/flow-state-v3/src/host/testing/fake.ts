@@ -83,10 +83,11 @@ export type Endpoint<T, F extends Fields, S extends Schema.Top, X extends Schema
   readonly request: F;
   readonly success: S;
   readonly failure: X;
-  handle(
+  // A property, not a method: a handler reading a truth the server lacks fails to compile.
+  readonly handle: (
     truth: T,
     request: StructType<F>,
-  ): { readonly truth: T; readonly exit: Exit.Exit<S["Type"], X["Type"]> };
+  ) => { readonly truth: T; readonly exit: Exit.Exit<S["Type"], X["Type"]> };
 };
 
 /**
@@ -94,7 +95,8 @@ export type Endpoint<T, F extends Fields, S extends Schema.Top, X extends Schema
  */
 export type Control<T, F extends Fields> = {
   readonly fields: F;
-  apply(truth: T, input: StructType<F>): T;
+  // A property, not a method: as an endpoint's handle.
+  readonly apply: (truth: T, input: StructType<F>) => T;
 };
 
 // FLOW_STATE_ALLOW_UNKNOWN: a server's endpoints each have their own truth and types; the run reads them erased.
@@ -102,6 +104,34 @@ type AnyEndpoint = Endpoint<unknown, Fields, Schema.Top, Schema.Top>;
 
 // FLOW_STATE_ALLOW_UNKNOWN: a server's controls each have their own truth and input; the run reads them erased.
 type AnyControl = Control<unknown, Fields>;
+
+// What a server's types read of an endpoint: its request and its answer's Schemas.
+type Described = {
+  readonly request: Fields;
+  readonly success: Schema.Top;
+  readonly failure: Schema.Top;
+};
+
+// FLOW_STATE_ALLOW_UNKNOWN: an endpoint of a server whose truth is `T`, its request and answer its own.
+type EndpointOf<T> = Described & {
+  readonly handle: (
+    truth: T,
+    request: never,
+  ) => { readonly truth: T; readonly exit: Exit.Exit<unknown, unknown> };
+};
+
+// A control of a server whose truth is `T`, its input its own.
+type ControlOf<T> = {
+  readonly fields: Fields;
+  readonly apply: (truth: T, input: never) => T;
+};
+
+// The run reads a server's endpoints and controls erased: it calls each only with its own server's
+// truth and a request or input decoded by that endpoint's or control's own fields.
+const erasedParts = <E, C>(endpoints: E, controls: C) =>
+  // SAFETY: as above; `server` takes only endpoints and controls of its own truth.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- each part's truth and request types are erased in the run and restored by its own handler
+  ({ endpoints, controls }) as Pick<AnyServer, "endpoints" | "controls">;
 
 /**
  * A fake server as the run reads it: its name, its truth's Schema and start, its endpoints and
@@ -122,7 +152,7 @@ export type AnyServer = {
  * What a port fake gets from a server: each endpoint as a function from its request to an Effect
  * of its success, failing with its failure or the server's lost error `L`.
  */
-export type ServiceOf<E extends Readonly<Record<string, AnyEndpoint>>, L> = {
+export type ServiceOf<E extends Readonly<Record<string, Described>>, L> = {
   readonly [K in keyof E]: (
     request: StructType<E[K]["request"]>,
   ) => Effect.Effect<E[K]["success"]["Type"], E[K]["failure"]["Type"] | L>;
@@ -151,8 +181,8 @@ export type EndpointHandle<I = Values> = {
  */
 export type Server<
   T,
-  E extends Readonly<Record<string, AnyEndpoint>>,
-  C extends Readonly<Record<string, AnyControl>>,
+  E extends Readonly<Record<string, Described>>,
+  C extends Readonly<Record<string, { readonly fields: Fields }>>,
   L = FakeLost,
 > = Effect.Effect<ServiceOf<E, L>, never, FakeWorld> & {
   readonly "~server": AnyServer;
@@ -696,8 +726,8 @@ export const Fake = {
   // RETURN_TYPE: the Server contract keeps its truth, endpoints and controls.
   server: <
     T,
-    const E extends Readonly<Record<string, Endpoint<T, Fields, Schema.Top, Schema.Top>>>,
-    const C extends Readonly<Record<string, Control<T, Fields>>> = Record<never, never>,
+    const E extends Readonly<Record<string, EndpointOf<T>>>,
+    const C extends Readonly<Record<string, ControlOf<T>>> = Record<never, never>,
     L = never,
   >(
     name: string,
@@ -714,8 +744,7 @@ export const Fake = {
       name,
       truth: config.truth,
       initial: config.initial,
-      endpoints: config.endpoints,
-      controls: config.controls ?? {},
+      ...erasedParts(config.endpoints, config.controls ?? {}),
       lost: config.lost,
     };
 

@@ -194,6 +194,25 @@ export type ContextOf<Cx> = {
   readonly [K in keyof Cx]: Cx[K] extends ContextSlot<infer V> ? V : never;
 };
 
+// What a states list may not hold, by sibling list: a name twice, or a compound with no children.
+type ListFault<L, Seen = never> = L extends readonly [infer H, ...infer T]
+  ? | (NameOf<H> extends Seen ? "a duplicate state name" : never)
+    | (H extends string
+        ? never
+        : ChildrenOf<readonly [H], NameOf<H>> extends readonly []
+          ? "a compound with no children"
+          : ListFault<ChildrenOf<readonly [H], NameOf<H>>>)
+    | ListFault<T, Seen | NameOf<H>>
+  : never;
+
+// A definition's literal checks: its states list kept literal and well formed, and a non-empty id.
+type DefinitionCheck<States, Id extends string> = (string extends NamesOf<States>
+  ? { readonly states: "a states list widened to string[]: write it inline" }
+  : [ListFault<States>] extends [never]
+    ? Record<never, never>
+    : { readonly states: ListFault<States> }) &
+  (Id extends "" ? { readonly id: "a non-empty id" } : Record<never, never>);
+
 type DefinitionConfig<
   States extends StateTree,
   Ev extends Readonly<Record<string, EventFields>>,
@@ -357,7 +376,7 @@ export const definition = entry(
     Cx extends ContextConfig = Record<never, never>,
     const Id extends string = string,
   >(
-    config: DefinitionConfig<States, Ev, In, M, O, Cx, Id>,
+    config: DefinitionConfig<States, Ev, In, M, O, Cx, Id> & DefinitionCheck<States, Id>,
   ): Definition<States, Ev, In, M, O, Cx, Id> => {
     const keys = Predicate.isObject(config) ? Object.keys(config) : [];
 

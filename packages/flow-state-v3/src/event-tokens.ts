@@ -15,7 +15,7 @@ export type EventToken<
   Id extends string = string,
 > = ((
   // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: a payload-free constructor takes no argument
-  ...payload: Record<never, never> extends P ? [payload?: P] : [payload: P]
+  ...payload: Record<never, never> extends P ? [payload?: NoFieldsOr<P>] : [payload: P]
 ) => Envelope<Name, P>) &
   // A bare token fills no field, so it takes any value only when its payload has none.
   (Record<never, never> extends P ? Ending<unknown, Id> : Ending<never, Id>) &
@@ -25,6 +25,9 @@ export type EventToken<
       map: (value: V) => R & { readonly [K in Exclude<keyof R, keyof P>]: never },
     ) => MappedEvent<Name, V, P, Id> & UncertainMark<IsUncertain>;
   };
+
+// A payload with no fields takes none: `{}` alone skips TypeScript's excess-key check.
+type NoFieldsOr<P> = [keyof P] extends [never] ? Readonly<Record<string, never>> : P;
 
 // An uncertain event's token and mapping are marked, so only they fill an `unknown:` ending.
 type UncertainMark<IsUncertain extends boolean> = IsUncertain extends true

@@ -165,7 +165,7 @@ export type AlternativeConfig<
     readonly memory: M;
     readonly event: P;
     readonly now: number;
-  }) => Partial<W>;
+  }) => Partial<W> & { readonly [K in Exclude<keyof M, keyof W>]?: never };
   readonly actions?: ReadonlyArray<ActionToken<P, Id> | SendToken<M, P>>;
 };
 

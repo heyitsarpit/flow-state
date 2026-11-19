@@ -13,6 +13,15 @@ import { entry, inert } from "./entry.ts";
 export type Services = ReadonlyArray<Context.Key<any, any>>;
 
 /**
+ * The services a contract's list names: each key's identifier, so its function may require those
+ * and no others.
+ */
+export type ServiceIds<S extends Services> = IdOf<S[number]>;
+
+// oxlint-disable-next-line lint-bomb/no-explicit-any -- a service key's shape varies by service; only its identifier is read
+type IdOf<K> = K extends Context.Key<infer I, any> ? I : never;
+
+/**
  * A record of field Schemas that decode and encode with no services, as every Flow payload, input
  * and memory field does.
  */
@@ -318,12 +327,19 @@ export type Resource<
 export const transaction = entry(
   "transaction",
   // RETURN_TYPE: the exported Transaction contract keeps F, A, E and R for outcomes, handles and the setup's services.
-  <const F extends Fields, const Key extends KeyFields<F>, A, E, R>(config: {
+  <
+    const F extends Fields,
+    const Key extends KeyFields<F>,
+    A,
+    E,
+    const S extends Services,
+    R extends ServiceIds<S>,
+  >(config: {
     readonly id: string;
     readonly input: F;
     readonly key: Key;
     readonly concurrency: Concurrency;
-    readonly services: Services;
+    readonly services: S;
     readonly commit: (
       input: StructType<F>,
       context: { readonly attempt: Attempt<StructType<F>, KeyRecord<F, Key>> },
@@ -377,11 +393,18 @@ export const transaction = entry(
 export const resource = entry(
   "resource",
   // RETURN_TYPE: the exported Resource contract keeps F, A, E and R for outcomes, handles and the setup's services.
-  <const F extends Fields, const Key extends KeyFields<F>, A, E, R>(config: {
+  <
+    const F extends Fields,
+    const Key extends KeyFields<F>,
+    A,
+    E,
+    const S extends Services,
+    R extends ServiceIds<S>,
+  >(config: {
     readonly id: string;
     readonly input: F;
     readonly key: Key;
-    readonly services: Services;
+    readonly services: S;
     readonly staleTime: Duration.Input;
     readonly gcTime: Duration.Input;
     readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
