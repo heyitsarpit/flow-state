@@ -2436,7 +2436,7 @@ tasks
 
     T103
         title       Typed Story assertions and fakes: typed read, evidence by token, a fake server's lost error
-        status      draft
+        status      in_progress
         priority    medium
         description
             Story assertions and fakes are typed by the definitions they touch: a cut's `read(ref)` returns the ref's
