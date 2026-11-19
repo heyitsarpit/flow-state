@@ -953,3 +953,7 @@ note 2026-11-19T02:01:49Z
 note 2026-11-19T02:51:25Z
     T96 built, in review (bfd05140): one delivery path for handle and machine sends, loop guard, token and callback
     forms; Actors R13, R16, R20, I20 edited. Close review started (no sidecars in the build, so a harder read).
+
+note 2026-11-19T03:11:05Z
+    T96 close review ISSUES (df9968f9): the loop guard counts per consumer when an event's turn sends nothing. Fix round
+    started. R16 over R20's Plan text proposed as Pending D32 for the user.

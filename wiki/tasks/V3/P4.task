@@ -1625,6 +1625,12 @@ tasks
             stopped), dropped sends counting (they are sent by turns), the Mirror's `Import` callback (the user kept the
             callback form), the lazy row (owned by @task.V3.T48), comment style (lint passes, house pattern), the
             deleted `buy-now.test.ts` (built and dropped within this Task).
+        comment     2026-11-19T03:11:05Z
+            Rulings (orchestrator, 2026-11-19) on the close review: the guard is one count per admitted event, shared by
+            every turn its context update reaches (D13: only events sent by turns count, so sends from onContext turns
+            count, the onContext events themselves never do); R13 is reworded to say so, no change to D13. R16 over
+            R20's Plan text goes to @plan.Pending D32 for the user. Routed in-range items (weak assertions, replicaA
+            sample, pairs list in the manifest, acceptance 4 wording) land in the fix round.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
