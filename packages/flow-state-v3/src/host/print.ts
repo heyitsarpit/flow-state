@@ -31,11 +31,19 @@ const leafText = (value: Value) => {
   return Option.some(Formatter.formatJson(value));
 };
 
+// FLOW_STATE_ALLOW_UNKNOWN: an object's own toJSON returns whatever it writes.
+type ToJson = (key: string) => unknown;
+
+// RETURN_TYPE: a type guard narrows to the `toJSON` JSON.stringify calls: a function of the key.
+const isToJson = (
+  // FLOW_STATE_ALLOW_UNKNOWN: any property's value, checked here.
+  f: unknown,
+): f is ToJson => Predicate.isFunction(f);
+
 // What JSON writes for an object: its `toJSON`, an error's name and message beside its fields, or
 // the object itself.
 const shown = (value: Container, key: string) => {
-  if (Predicate.hasProperty(value, "toJSON") && Predicate.isFunction(value.toJSON))
-    return value.toJSON(key);
+  if (Predicate.hasProperty(value, "toJSON") && isToJson(value.toJSON)) return value.toJSON(key);
 
   return value instanceof Error
     ? { ...Object.fromEntries(Object.entries(value)), name: value.name, message: value.message }

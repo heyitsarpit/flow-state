@@ -26,7 +26,11 @@ const isBench = (value: unknown): value is Bench =>
 export const benchesFrom = Effect.fn("benchesFrom")(function* (file: string) {
   // FLOW_STATE_ALLOW_EFFECT_TRY_PROMISE: loading a bench list is a dynamic import, a Promise.
   const loaded = yield* Effect.tryPromise({
-    try: () => import(pathToFileURL(file).href),
+    try: () =>
+      import(pathToFileURL(file).href).then(
+        // FLOW_STATE_ALLOW_UNKNOWN: a dynamic import's module, read below by its `benches` export.
+        (module: unknown) => module,
+      ),
     catch: (fault) => new ListFailed({ problem: `${file} did not load: ${String(fault)}` }),
   });
 

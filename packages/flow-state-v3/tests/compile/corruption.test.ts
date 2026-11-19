@@ -27,6 +27,9 @@ const wrongFor = (value: Sample) => (Predicate.isString(value) ? 7 : "x");
 // A shape as plain fields: a callable token's own fields copied into a record.
 const fieldsOf = (value: Record<string, Sample>) => ({ ...value });
 
+// RETURN_TYPE: a type guard narrows a sample to a list, whose items stay samples.
+const isItems = (value: Sample): value is ReadonlyArray<Sample> => Array.isArray(value);
+
 // Every corruption of one field of `value`, and of one field of its `ending`, plus the whole value
 // as null, a number, and only its mark.
 // RETURN_TYPE: recursive through a shape's `ending`.
@@ -36,7 +39,7 @@ const corruptionsOf = (value: Sample): ReadonlyArray<Corrupt> => {
     { how: "a number", value: 5, mayPass: false },
   ];
 
-  if (Array.isArray(value))
+  if (isItems(value))
     return [
       ...whole,
       ...value.flatMap((_, i) => [

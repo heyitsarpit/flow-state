@@ -103,9 +103,10 @@ const walkable = (value: unknown): value is Values =>
 
 // A walkable node's children with their paths; a derived part (a Schema's walkers) is Flow's own,
 // built from its Schema.
+// FLOW_STATE_ALLOW_UNKNOWN: a Map's entries, walked as any other node's children.
 const childrenAt = (value: Values, path: string) =>
   (value instanceof Map
-    ? [...value].map(([k, v]) => [String(k), v] as const)
+    ? [...value].map(([k, v]: readonly [unknown, unknown]) => [String(k), v] as const)
     : Object.entries(value)
   )
     .filter(([key]) => !DERIVED.has(String(key)))

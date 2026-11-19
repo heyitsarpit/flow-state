@@ -36,10 +36,11 @@ type Frame = {
 // RETURN_TYPE: every branch is a container's frame.
 const frameOf = (value: View): Frame => {
   if (value instanceof Map) {
-    const keys = [...value.keys()];
+    const keys: ReadonlyArray<View> = [...value.keys()];
+    const children: ReadonlyArray<View> = [...value.values()];
 
     return {
-      children: [...value.values()],
+      children,
       build: (views) => keys.map((k, i) => [k, views[i]]),
       views: [],
     };

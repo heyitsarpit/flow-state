@@ -257,6 +257,7 @@ const compile = (root: Ast) => {
     // SAFETY: the copy keeps every field of the transformation and its getter but `transform`.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- an Effect getter copied with one field replaced
     return Object.create(transformation, {
+      // oxlint-disable-next-line typescript/no-unsafe-assignment -- Object.create is typed any by TypeScript's own library
       decode: { value: Object.create(getter, { transform: { value: keeping } }) },
     }) as SchemaAST.Link["transformation"];
   };

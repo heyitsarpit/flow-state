@@ -503,7 +503,8 @@ const isJsonValue = Schema.is(Schema.Json);
 const isApplicationValue = (v: unknown) => {
   if (!Predicate.isObject(v)) return false;
 
-  const proto = Object.getPrototypeOf(v);
+  // FLOW_STATE_ALLOW_UNKNOWN: any object's prototype, compared by identity only.
+  const proto: unknown = Object.getPrototypeOf(v);
 
   return proto !== Object.prototype && proto !== null;
 };

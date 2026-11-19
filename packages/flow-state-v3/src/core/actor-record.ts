@@ -409,10 +409,10 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
           Result.map(valueOfOne(form), (value) =>
             Option.toArray(
               Option.flatMap(Option.fromUndefinedOr(compiled.context.get(slot)), (declared) =>
-                Option.map(Result.getSuccess(selectedOf(declared.walk, value)), (s) => [
-                  slot,
-                  s.json,
-                ]),
+                Option.map(
+                  Result.getSuccess(selectedOf(declared.walk, value)),
+                  (s) => [slot, s.json] as const,
+                ),
               ),
             ),
           ),

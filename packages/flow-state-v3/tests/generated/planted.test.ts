@@ -12,7 +12,7 @@ const scope = { Story, Fake, shopSetup, ResendingShopFake, checkout, Shop };
 // Evaluates a printed Story's text as the fixture would, after pasting it.
 // RETURN_TYPE: evaluated code has no type of its own; the text is a printed Story.
 const pasted = (text: string): Story<string> =>
-  // oxlint-disable-next-line typescript/no-implied-eval, no-new-func -- the test pastes the printed text as code, which is what it checks
+  // oxlint-disable-next-line typescript/no-implied-eval, no-new-func, typescript/no-unsafe-call, typescript/no-unsafe-return -- the test pastes the printed text as code, which is what it checks
   new Function(...Object.keys(scope), `return ${text}`)(...Object.values(scope));
 
 describe("a planted fault found from a seed (WriteLanes I6)", () => {

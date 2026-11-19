@@ -49,11 +49,14 @@ export const foldersOf = (depth: number) => {
   return tree;
 };
 
+// RETURN_TYPE: a type guard narrows a JSON value to its list form.
+const isList = (json: Schema.Json): json is ReadonlyArray<Schema.Json> => Array.isArray(json);
+
 // The index a nest of lists reads as: a Map for each list, the innermost holding the note.
 const indexOf = (lists: Schema.Json) => {
   let depth = 0;
 
-  for (let at = lists; Array.isArray(at); at = at[0] ?? null) depth += 1;
+  for (let at = lists; isList(at); at = at[0] ?? null) depth += 1;
 
   let index: Index = new Map([["name", "note"]]);
 

@@ -58,8 +58,12 @@ type Fields = Readonly<Record<PropertyKey, unknown>>;
 // FLOW_STATE_ALLOW_UNKNOWN: an array's items are checked one by one before they are trusted.
 type Items = ReadonlyArray<unknown>;
 
+// RETURN_TYPE: a type guard narrows to a list, whose items keep their own type.
+const isItems = (value: Fields | Items): value is Items => Array.isArray(value);
+
 const isPlainObject = (value: Fields | Items) => {
-  const proto = Object.getPrototypeOf(value);
+  // FLOW_STATE_ALLOW_UNKNOWN: any object's prototype, compared by identity only.
+  const proto: unknown = Object.getPrototypeOf(value);
 
   return proto === Object.prototype || proto === null;
 };
@@ -154,7 +158,7 @@ const frameOf = (value: Fields | Items, order: Order) => {
 const childOf = (frame: Frame, at: number) => {
   const { source } = frame;
 
-  if (Array.isArray(source)) return source[at];
+  if (isItems(source)) return source[at];
 
   return Option.match(frame.keys, {
     onNone: () => null,

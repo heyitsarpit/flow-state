@@ -84,9 +84,12 @@ const canonicalText = (root: Schema.Json) => {
     text(close),
   ];
 
+  // RETURN_TYPE: a type guard narrows a JSON value to its list form.
+  const isJsonList = (j: Schema.Json): j is ReadonlyArray<Schema.Json> => Array.isArray(j);
+
   // RETURN_TYPE: a container's steps write its items, so one of them names the step type.
   const stepsOf = (json: Schema.Json): ReadonlyArray<() => void> => {
-    if (Array.isArray(json))
+    if (isJsonList(json))
       return around(
         "[",
         json.map((item) => [write(item)]),

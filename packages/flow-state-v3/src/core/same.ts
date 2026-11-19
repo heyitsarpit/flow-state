@@ -125,7 +125,7 @@ const frameOf = (value: Container, ids: Map<Node, number>): Frame => {
     return {
       value,
       head: "M",
-      nodes: [...value].map(([k, v]) => [k, v]),
+      nodes: [...value].map(([k, v]: Pair) => [k, v]),
       sorted: true,
       keys: [],
       reach,

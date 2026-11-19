@@ -35,7 +35,9 @@ const storyIdOf = (value: unknown) =>
     : [];
 
 // RETURN_TYPE: a module namespace is untyped until its exports are read.
-const load = async (href: string): Promise<Readonly<Record<string, unknown>>> => import(href);
+const load = async (href: string): Promise<Readonly<Record<string, unknown>>> =>
+  // oxlint-disable-next-line typescript/no-unsafe-return -- a dynamic import is typed any by TypeScript; its exports are read one by one below
+  import(href);
 
 const exportedStoryIds = async (name: string) => {
   const modules = await Promise.all(storyFiles(name).map(load));

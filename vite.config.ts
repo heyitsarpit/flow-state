@@ -98,7 +98,12 @@ export default defineConfig({
       "typescript/no-extraneous-class": "error",
       "typescript/no-misused-promises": "error",
       "typescript/no-namespace": "error",
+      "typescript/no-unsafe-argument": "error",
+      "typescript/no-unsafe-assignment": "error",
+      "typescript/no-unsafe-call": "error",
       "typescript/no-unsafe-function-type": "error",
+      "typescript/no-unsafe-member-access": "error",
+      "typescript/no-unsafe-return": "error",
       "typescript/no-unsafe-type-assertion": "error",
       "typescript/no-unnecessary-condition": "error",
       "typescript/no-unnecessary-type-arguments": "error",
@@ -218,6 +223,18 @@ export default defineConfig({
       "lint-bomb/no-public-entrypoint-export-drift": "off",
     },
     overrides: [
+      {
+        // A type test holds each wrong line as an error-typed value beside its exact right one; its
+        // exact assertions, which fail on any, are its guard.
+        files: [`${production}/**/*.test-d.ts`, `${production}/tests/types/*.compile.ts`],
+        rules: {
+          "typescript/no-unsafe-argument": "off",
+          "typescript/no-unsafe-assignment": "off",
+          "typescript/no-unsafe-call": "off",
+          "typescript/no-unsafe-member-access": "off",
+          "typescript/no-unsafe-return": "off",
+        },
+      },
       {
         // Public option bags use `?:` under exactOptionalPropertyTypes, as Effect does
         // (tools/lint-bomb/FLOW-STATE.md). The suite's machines are app code over those bags.
