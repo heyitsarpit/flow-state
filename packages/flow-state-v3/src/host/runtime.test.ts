@@ -10,13 +10,16 @@ import {
   FlowError,
   machine,
   Outcome,
+  RuntimeDefaults,
   runtimeSetup,
+  send,
   transaction,
 } from "../index.ts";
 import { Host } from "./host.ts";
 import { attachInspector, type Evidence, inspect } from "./inspect.ts";
 import { buildRuntime, type Runtime } from "./runtime.ts";
 import { snapshotIn } from "./snapshot.ts";
+import { bootWith } from "./testing/seam.ts";
 import { Life } from "../core/life.ts";
 import { emptyWorld } from "../core/world.ts";
 
@@ -638,6 +641,45 @@ describe("a throw from the admit hook or from a step's work (Actors R25)", () =>
       Exit.isFailure(disposed) &&
         Cause.pretty(disposed.cause).includes("cannot read its visibility"),
     );
+  });
+});
+
+// More bumps than the sending step's drain and the dispose step's drain serve together, so the
+// ensure's step finds some still in the mail.
+const PAST_DRAIN = 2 * RuntimeDefaults.drainYield + 50;
+
+const Fan = definition({ id: "Test/Fan", states: ["ON"], events: { Burst: {} } });
+
+const FanMachine = machine(Fan, ({ S }) => ({
+  default: S.ON,
+  on: {
+    Burst: {
+      actions: Array.from({ length: PAST_DRAIN }, () => send(() => tally, Tally.E.Bump({ by: 1 }))),
+    },
+  },
+}));
+
+const countOf = (handle: {
+  readonly getSnapshot: () => Option.Option<{ readonly memory: Readonly<Record<string, unknown>> }>;
+}) => Option.map(handle.getSnapshot(), (s) => s.memory["count"]);
+
+describe("mail at disposeActor (Actors R10, R20)", () => {
+  it.fails("Actors R10: events queued past the dispose step's drain never reach the new incarnation an ensure in the same host task starts", () => {
+    const { built, tab } = bootWith(
+      app({ id: "fan", machines: { tally: TallyMachine, fan: FanMachine } }),
+      new Map(),
+      1,
+    );
+
+    const first = built.runtime.ensureActor(tally);
+    built.runtime.ensureActor(actorRef(FanMachine, "f")).send({ _tag: "Burst" });
+    const served = countOf(first);
+    built.runtime.disposeActor(tally);
+    const fresh = built.runtime.ensureActor(tally);
+    tab.settle();
+
+    assert.ok(Option.exists(served, (n) => Predicate.isNumber(n) && n < PAST_DRAIN));
+    assert.deepStrictEqual(countOf(fresh), Option.some(0));
   });
 });
 

@@ -299,6 +299,12 @@ requirements
                 The identity's owed rows are suspended and stay owed: its owed record is not removed
                 with its actor record (@spec.WriteAhead.R5).
 
+                Proposed (the T99 lead, 2026-11-19): the removal also drops the identity's queued mail,
+                so none reaches a later incarnation (R10), and the boot's quarantine of its actor record,
+                so a send drops NoRecord and an ensure starts fresh unreported while a batch is out. Each
+                boot reports every unbound lane record as UnboundLane (proposed name, @spec.Restore.R6),
+                naming its record, until an adopting ensure or its owner's cancel ends it.
+
     R21  forget
         source  @plan.Runtime.O6.
         must    forget removes the identity's record so the next ensure starts fresh; every owed row
@@ -331,6 +337,12 @@ requirements
                 stays owed. Decision (agent, 2026-11-11): ruling CQ6 and audit gap G5. Why: a
                 never-sent commit must still end, and the next incarnation is the only one left to
                 hear it. Reverse: restore the pre-T42 text (spec-log.md, T42).
+
+                Proposed (the T99 lead, 2026-11-19): the order is one plan the host runs. The core's
+                disposal ends with each live identity's terminal evidence (Finished), every consumer
+                before its providers (@plan.Inspection.O3); then the host interrupts every call and
+                awaits it, and only then releases the services, so an interrupt cleanup never runs on
+                released services.
 
     R23  Disposal failure and the last write
         source  @plan.Runtime.O6.
@@ -386,8 +398,9 @@ requirements
     R26  unsettledWrites
         source  @plan.Runtime.O6.
         must    runtime.unsettledWrites() lists, by identity, exactly the non-Idle lanes, each
-                identity saying whether a live actor holds its lanes (bound) or none does
-                (unbound, R20 and R21), for a host's beforeunload. An unbound lane is listed at
+                identity saying whether its lanes are bound (it has an incarnation or a decoded actor
+                record) or unbound (neither, R20 and R21, @plan.Runtime.O6), for a host's beforeunload. An unbound lane 
+                is listed at
                 every boot until an adopting ensure or its owner's cancel ends it. A Story's
                 checkpoint reads it as `unsettled`. Proposed (the T99 lead, 2026-11-19): one entry
                 per identity, `{ actor, bound, lanes }`, each lane naming its operation.
@@ -572,7 +585,7 @@ invariants
         the state before the bound. [@R23]
 
     I45  unsettledWrites names an identity exactly when it has a non-Idle lane, as bound exactly when it has an 
-         incarnation. [@R26]
+         incarnation or a decoded actor record. [@R26]
 
     I46  runPromise runs its Effect only on `admit`'s Run, and each rejection is a FlowError keeping the whole Cause. 
          [@R27]
@@ -633,8 +646,8 @@ composition
         since Inspection O3 delivers at the end of each step; the fibers are a FiberMap owned by
         the Runtime's one Scope, which also holds the services Layer, so closing it interrupts
         every call and releases every service. Dispose runs the core's disposal (its bound
-        included) before it closes the Scope, so an interrupt there settles into a closed core
-        (R22).
+        included), then interrupts and awaits every fiber, then closes the Scope, so an interrupt
+        there settles into a closed core and its cleanup runs on live services (R22, R23).
 
         Owed rows. An incarnation's end, `disposeActor` and Runtime disposal call the ledger's
         `suspend`; reload, return and adoption call its `start`; forget closes the identity's

@@ -1,7 +1,7 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { client, docsRepo, emptyRepo, gitGrownSetup, gitSetup } from "../app.ts";
 import { Git } from "../../services/git/server/git.ts";
-import { GitFake } from "../../services/git/server/layer.ts";
+import { GitFake, GitFakeConnectionCloseFails } from "../../services/git/server/layer.ts";
 
 /**
  * The grown Git app over its port fake, with no steps yet: every Story of the repositories starts
@@ -54,6 +54,20 @@ export const leaveWhileSyncing = gitStory("sync/leave-while-syncing")
   .checkpoint("syncing")
   .world(Git.sync.release())
   .checkpoint("synced");
+
+/**
+ * A client syncs a repository and its user signs out, so the app disposes its Runtime, over a Git
+ * client whose connection to the host fails to close when the services are released.
+ */
+export const connectionCloseFails = Story.app(gitSetup, {
+  id: "sync/connection-close-fails",
+  fixtures: [GitFakeConnectionCloseFails],
+})
+  .ensure(client)
+  .send(client, syncRepo("docs"))
+  .checkpoint("synced")
+  .disposeRuntime()
+  .checkpoint("signed out");
 
 /**
  * A client peeks and syncs, meets a broken head read and a rate limit it cools down from, is

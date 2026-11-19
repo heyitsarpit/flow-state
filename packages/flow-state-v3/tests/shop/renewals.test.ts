@@ -3,6 +3,7 @@ import { renewalPay, subscription } from "../../fixtures/shop/app.ts";
 import {
   renewalBusyPay,
   renewalDamagedPay,
+  renewalDisposingDamagedPay,
   renewalDisposingPay,
   renewalEndedPay,
   renewalEndingPay,
@@ -13,6 +14,7 @@ import {
 } from "../../fixtures/shop/stories/sends.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import { droppedSends, endsOf, incarnationsOf, readerOf, turnsOf } from "../actors/sends.ts";
+import { before } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
 const { idOf, is } = readerOf(renewalStory("ids"));
@@ -104,6 +106,22 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(droppedSends(run)).toEqual([]);
     expect(renewed?.memory["intentId"]).toBe("pi-week-2");
     expect(renewed?.memory["paymentMethodId"]).toBe("visa");
+  });
+
+  it.fails("Actors R20, R16: with a batch out, a send to a disposed Pay whose record did not decode drops NoRecord, and opening it starts it fresh with no report", async () => {
+    const run = await played(renewalDisposingDamagedPay);
+    const { disposed, opened } = run.checkpoints;
+
+    const reported = run.evidence
+      .slice(before(run, "disposed").length, before(run, "opened").length)
+      .filter((e) => e._tag === "Reported" && e.code === "RecordUndecodable");
+
+    expect(disposed.records.batches.map((b) => b.status)).toContain("held");
+    expect(droppedSends(run)).toEqual([
+      { actor: idOf(renewalPay), event: "PayRequested", reason: "NoRecord", sender: undefined },
+    ]);
+    expect(reported).toEqual([]);
+    expect(opened.read(renewalPay)?.memory["intentId"]).toBe("");
   });
 
   it("Actors R16 being disposed: sends to a Pay whose removal the store has not acknowledged are dropped NoRecord and never restore it", async () => {

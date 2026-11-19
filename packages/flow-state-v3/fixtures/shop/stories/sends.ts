@@ -181,6 +181,55 @@ export const renewalDamagedPay = renewalStory("shop/renewal-damaged-pay")
   .checkpoint("renewed");
 
 /**
+ * The renewal's saved record is text no release can read; after a reload the store holds every
+ * write while the shopper cancels the subscription, so a batch is out; the renewal's Pay is
+ * disposed, so its removal waits behind that batch; the shopper asks the Pay to pay and opens it
+ * again; then the store lets the writes through.
+ */
+export const renewalDisposingDamagedPay = renewalStory("shop/renewal-disposing-damaged-pay")
+  .ensure(subscription)
+  .send(subscription, subscribe)
+  .world(Fake.storage.put("actor/Checkout/Pay/renewal", "{not a record"))
+  .reload()
+  .world(Fake.storage.hold())
+  .send(subscription, cancel)
+  .dispose(renewalPay)
+  .send(renewalPay, { _tag: "PayRequested", paymentMethodId: "visa" })
+  .checkpoint("disposed")
+  .ensure(renewalPay)
+  .checkpoint("opened")
+  .world(Fake.storage.release())
+  .checkpoint("released");
+
+/**
+ * The key of an authorization held on the renewal's Pay, an operation an earlier release of the
+ * shop had.
+ */
+export const RETIRED_AUTHORIZATION = 'lane/Checkout/Pay/renewal|authorize|{"intentId":"pi-weekly"}';
+
+const retiredAuthorization =
+  '{"attempt":"att-0-1","displaced":[],"format":3,"inFlight":false,' +
+  '"input":{"intentId":"pi-weekly"},"machine":"Checkout/Pay","name":"renewal",' +
+  '"operation":"authorize","queue":[],"retryCount":0}';
+
+/**
+ * An earlier release authorized renewals before paying, an operation and contract this one no
+ * longer has, and left one authorization held on the renewal's Pay; the shopper subscribes and
+ * cancels the weekly box, so the app forgets the renewal's Pay, and the tab reloads.
+ */
+export const forgottenRetiredAuthorization = renewalStory("shop/forgotten-retired-authorization")
+  .world(Fake.storage.put(RETIRED_AUTHORIZATION, retiredAuthorization))
+  .reload()
+  .checkpoint("booted")
+  .ensure(subscription)
+  .send(subscription, subscribe)
+  .send(subscription, cancel)
+  .dispose(renewalPay, { how: "forget" })
+  .checkpoint("forgotten")
+  .reload()
+  .checkpoint("reloaded");
+
+/**
  * The renewal's Pay is started and saved; the store then holds every write while the shopper
  * leaves the Pay and starts it again for next week's intent, so that change is unwritten; the Pay
  * is closed and its grace passes, so it ends with the change unwritten; the week passes and the

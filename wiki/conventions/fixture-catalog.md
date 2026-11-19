@@ -75,7 +75,8 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | `useActor` (React)                                            |. |. |. |. |. |18|. |18|18|. |. |18|. |18|18|. |
 | `send(ref, event)`                                            |1 |. |. |1 |. |. |. |. |. |1 |. |. |. |8 |. |. |
 | a deep mailbox, no ending lost                                |. |. |1 |. |. |. |1 |. |. |. |. |. |. |. |4 |. |
-| `forget`, `unsettledWrites`                                   |. |. |. |. |U |1 |. |. |. |. |. |. |. |. |. |4 |
+| `forget`, `unsettledWrites`                                   |U |. |. |U |U |1 |. |. |. |. |. |. |. |. |. |4 |
+| `CleanupFailed`, `HoldForgotten`, `UnboundLane`               |U |. |. |U |U |U |. |. |. |. |. |. |. |. |. |. |
 | `late` handlers, `LateMayNotLeave`                            |4 |. |. |. |. |. |. |. |. |. |. |4 |. |. |. |4 |
 | `resource`, `O.x.lookup`                                      |U |. |. |U |1 |. |. |. |6 |. |4 |4 |4 |4 |4 |4 |
 | `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch`         |4 |. |. |. |4 |. |4 |. |. |. |. |4 |4 |4 |4 |. |
@@ -114,7 +115,7 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | release versions, saved-shape reset, migration                |. |. |. |7 |7 |7 |. |. |. |. |7 |. |. |7 |. |7 |
 | multi-tab ownership (Web Lock, second tab)                    |14|. |. |. |. |. |14|. |. |. |. |. |. |. |. |14|
 | storage failures: corrupt, quota, slow read, non-durable      |13|. |. |. |. |. |1 |. |. |. |. |. |. |. |. |13|
-| Runtime per scope, `dispose`                                  |. |. |. |. |. |. |1 |. |. |. |. |. |. |. |4 |4 |
+| Runtime per scope, `dispose`                                  |U |. |. |U |U |. |1 |. |. |. |. |. |. |. |4 |4 |
 | lazy entries `{ id, load }`, adoption, dormant records        |. |. |. |. |. |. |15|. |. |. |15|. |. |15|. |. |
 | `EntryMismatch`, a failed load, a send to an unadopted entry  |. |. |. |. |. |. |15|. |. |. |15|. |. |15|. |. |
 | server rendering, hydration                                   |18|. |. |. |. |. |18|. |. |. |. |18|. |18|. |. |
@@ -169,7 +170,9 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     { Cancelled }`, `CancelMissed` (`Checkout/Pay` voids); endings, `Flow.uncertain`, `unknown` (`Checkout/Pay`);
     Attempts: `O.x.retry`, `retryable`, `StillUnknown` (`Checkout/Pay` checks again); `NotSent { Restored }`, `unknown {
     Restored }` (`lostConfirm`, `unreadOwed`); owed endings, quarantine (`Checkout/Pay`); `persist`, restore, reload
-    (`Checkout/Pay`).
+    (`Checkout/Pay`); `forget`, `unsettledWrites` (`leaveWhilePaying`, the renewal's Pay forgotten); Runtime per
+    scope, `dispose` (sign-out); `CleanupFailed`, `HoldForgotten`, `UnboundLane` (`sessionCloseFails`,
+    `forgottenRetiredAuthorization`).
   - **step 1:** compound `states` (`CheckoutFlow`'s address, shipping and pay steps); `S.X.history`, `history.child`,
     `S.previous.history` (Back into `CheckoutFlow`'s shipping step restores its sub-step); `Flow.input` value-named
     actors (`Cart`, named by shopper); guards, `deny`, `check` (`CheckoutFlow` checks the cart isn't empty); `context`,
@@ -300,9 +303,21 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       answers (Actors R26). No source. built: `shop/leave-while-paying`.
     - [x] A payment SDK session that fails to close when the services are released at sign-out: CleanupFailed
       (Actors R23). No source. built: `shop/session-close-fails`, port fake `ShopFakeSessionCloseFails`.
+    - [x] Disposal order: a confirm held at sign-out is interrupted before the services are released, so the SDK
+      voids it over its still-open session and no cleanup fails (Actors R22, R23). No source. built:
+      `shop/sign-out-while-paying`, port fake `ShopFakeVoidsAbandoned`.
+    - [x] Disposal order, S1 × 3 and S2 (shopper, cart, badge, flow and Pay all open at sign-out): each identity's
+      terminal evidence comes consumers before providers (Inspection O3). No source. built:
+      `shop/sign-out-mid-checkout`.
+    - [x] E7: forgetting the renewal's Pay drops an authorization an earlier release held, with HoldForgotten, and
+      the next boot neither reports nor keeps it (Actors R21). No source. built: `shop/forgotten-retired-authorization`.
+    - [x] Finding: with a batch out, a disposed Pay whose record did not decode drops a send NoRecord, and an ensure
+      starts it fresh unreported (Actors R20). No source. built: `shop/renewal-disposing-damaged-pay`.
     - [ ] A Pay disposed while its intent-status read is out, whose cleanup throws: the ref is quarantined and the
       next ensure reports CleanupFailed (Actors R23). left: the user's read on the quarantine of a ref.
     - [ ] `runPromise` from a host (Actors R27). left: its public signature, the user's read.
+    - [ ] CleanupFailed and HoldForgotten under load (L1 × many Pays with sessions; L4 with retired holds), and step
+      samples offering `disposeRuntime` over the failing port fakes. left: @task.V3.T99's build, once the codes exist.
 
 ### cells
 
@@ -390,7 +405,8 @@ retry.
 - **Features by step:**
   - **used today:** guards, `deny`, `check` (`O.sync.idle`); `schedules` with `armOn` (the computed backoff);
     `resource`, `O.x.lookup` (R `remoteHead`); `reject`, `NotSent { Rejected }` (T `sync`); endings, `Flow.uncertain`,
-    `unknown` (`Git/Sync`).
+    `unknown` (`Git/Sync`); `forget`, `unsettledWrites` (`leaveWhileSyncing`, unpersisted); Runtime per scope,
+    `dispose` (sign-out); `CleanupFailed`, `HoldForgotten`, `UnboundLane` (`connectionCloseFails`).
   - **step 1:** `Flow.input` value-named actors (`Repo`, named by repo); `Flow.private` (`Repo`'s token); `send(ref,
     event)` (`Repo` sends `SyncRepo` and `Pushed` to `Git/Sync`).
   - **step 2:** `trait` (`RateLimit` on `Repo`); `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn` (`RateLimit`'s
@@ -425,6 +441,9 @@ retry.
   - [x] Variety, unpersisted: a sync the Git host has not taken is listed by `unsettledWrites` for a close warning,
     and nothing once it answers (Actors R26; @task.V3.T99, an `it.fails` until built). No source. built:
     `sync/leave-while-syncing`.
+  - [x] Variety, unpersisted: a Git host connection that fails to close when the services are released at sign-out:
+    CleanupFailed (Actors R23; @task.V3.T99). No source. built: `sync/connection-close-fails`, port fake
+    `GitFakeConnectionCloseFails`.
 
 ### transfers
 
@@ -460,7 +479,8 @@ kamp.us for rows restored after a failure.
     Attempts: `O.x.retry`, `retryable`, `StillUnknown` (resend once); `NotSent { Restored }`, `unknown { Restored }`
     (`lostThenReload`); `StorageRefused`, `NoPersistence` (`refusedWrite`); `NotSent { Disposed }`, `unknown { Disposed
     }` (`heldAtDisposal`); owed endings, quarantine (`quarantined`, receipts); `persist`, restore, reload
-    (`Bank/Transfers`).
+    (`Bank/Transfers`); Runtime per scope, `dispose` (sign-out, `interruptCleanupFails`); `CleanupFailed`,
+    `HoldForgotten`, `UnboundLane` (`interruptCleanupFails`, `forgottenRetiredWire`, `unsureAccountRemoved`).
   - **step 1:** `context`, `onContext`, `Provider.select` (`TransferForm` ⇠ `customer`); `createActor`, `disposeActor`
     (`TransferForm`, a local actor); `resource`,
     `O.x.lookup` (R `balance`); canonical keys, `InvalidKey`, `KeyOmitsInput` (account names in NFC and decomposed
@@ -562,8 +582,9 @@ kamp.us for rows restored after a failure.
   - **Runtime life** (@task.V3.T99; each test is an `it.fails` until its feature is built):
     - [x] Usual: a transfer the bank has not taken is listed by `unsettledWrites` for a close warning, and nothing
       once it answers (Actors R26). No source. built: `transfers/leave-while-sending`.
-    - [x] A held transfer stays listed after its account is removed (`disposeActor`), unbound, at the next boot,
-      and bound once adopted (Actors R20, R26). No source. built: `transfers/unsure-account-removed`.
+    - [x] A held transfer stays listed after its account is removed (`disposeActor`), unbound, and is reported
+      UnboundLane at each of two boots, then bound once adopted (Actors R20, R26; Runtime O6). No source. built:
+      `transfers/unsure-account-removed`.
     - [x] L1 × 64 and L4: every held account listed at each boot (Actors R26). built: `transfers/stress-owed-at-boot`.
     - [x] A bank client's interrupt cleanup throws when the disposal's bound interrupts a hung transfer: CleanupFailed
       after unknown Disposed (Actors R23). No source. built: `transfers/interrupt-cleanup-fails`, port fake
@@ -599,7 +620,8 @@ not checked here).
 - **Features by step:**
   - **used today:** guards, `deny`, `check` (`Auth/SignIn`); `schedules` with `armOn` (cooldown and lockout); `reject`,
     `NotSent { Rejected }` (T `begin`, `verify`); `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed` (`Auth/SignIn`);
-    endings, `Flow.uncertain`, `unknown` (`Auth/SignIn`).
+    endings, `Flow.uncertain`, `unknown` (`Auth/SignIn`); `CleanupFailed`, `HoldForgotten`, `UnboundLane`
+    (`signOutRetiredLink`).
   - **step 1:** `Flow.initial` computed (`AuthSession`'s handle from the email); `Flow.private` (`AuthSession`'s refresh
     token); `context`, `onContext`, `Provider.select` (`ReturnTo` ⇠ `session`); `forget`, `unsettledWrites` (sign-out
     forgets `AuthSession`); `persist`, restore, reload (`AuthSession`, `ReturnTo`).
@@ -630,6 +652,9 @@ not checked here).
       a long email round-trips as the begin key, timed. built: `sign-in/long-email` (100,000 characters).
     - [x] E5 corrected: the lockout delay is 60 seconds per wrong try, computed from the tries, so −1, 0 and 2^31 ms
       are unreachable here; computed-delay edges are built in `shop/busy-edges` and `sync/retry-edges`.
+    - [x] E7: signing out forgets a value-named session holding a device link an earlier release had; the link is
+      dropped with HoldForgotten and the next boot neither reports nor keeps it (Actors R21; @task.V3.T99). No
+      source. built: `sign-in/sign-out-retired-link`.
   - [ ] **Combinations:** release 2 (step 7): left: @task.V3.T56. Strict Mode (step 18): left: @task.V3.T30.
   - [x] **Variety:** an unedited prefilled handle needs confirming. Copies [UsernameBootstrap.test.tsx:32][kp-boot]
     "does NOT commit the unedited email prefill on the first submit — it asks to confirm". built:

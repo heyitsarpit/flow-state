@@ -408,3 +408,8 @@ note 2026-11-19T03:22:47Z
 note 2026-11-19T04:24:26Z
     @spec.Actors R26, R27 added, proposed: unsettledWrites and runPromise had no requirement, so their failing checks
     had no rule to cite (T99 requirements). Reverse: delete R26 and R27 and their coverage entries.
+
+note 2026-11-19T05:10:19Z
+    @spec.Actors R20, R22, R26, I45, composition flow, proposed (T99 requirements review): disposeActor drops mail and
+    quarantine; boots report UnboundLane; terminal evidence consumers first, calls interrupted before services release;
+    bound as @plan.Runtime.O6 says. Reverse: delete those paragraphs; I45 back to "incarnation".

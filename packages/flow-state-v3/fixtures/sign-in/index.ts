@@ -2,7 +2,13 @@ import { Option } from "effect";
 import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
 import { authTrusted, authTrustedSetup, sessionOf } from "./app.ts";
 import { long, samples, seededStress, stories, handleRetry, trustDevice } from "./stories/usual.ts";
-import { deviceDateEdges, longEmail, emptyCode, emptyEmail } from "./stories/edges.ts";
+import {
+  deviceDateEdges,
+  longEmail,
+  emptyCode,
+  emptyEmail,
+  signOutRetiredLink,
+} from "./stories/edges.ts";
 import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
 import { manyDevices, manyScreens, manySessions, reloadInLockout } from "./stories/load.ts";
 import { deviceSamples, samples as sessionSamples } from "./stories/samples.ts";
@@ -45,6 +51,7 @@ export const signIn = manifest({
     deviceSessionForgotten,
     deviceFirst,
     deviceChain,
+    signOutRetiredLink,
   },
   samples: [samples, sessionSamples, deviceSamples],
   stressSamples: [samples, sessionSamples, deviceSamples],

@@ -11,7 +11,12 @@ import {
   shopSetup,
 } from "../app.ts";
 import { CartFake } from "../server/layer.ts";
-import { ShopFake, ShopFakeSessionCloseFails } from "../../services/shop/server/layer.ts";
+import { RuntimeDefaults } from "../../../src/index.ts";
+import {
+  ShopFake,
+  ShopFakeSessionCloseFails,
+  ShopFakeVoidsAbandoned,
+} from "../../services/shop/server/layer.ts";
 import { Shop } from "../../services/shop/server/shop.ts";
 
 /**
@@ -166,6 +171,39 @@ export const sessionCloseFails = Story.app(shopSetup, {
   .send(checkout, cart(1))
   .send(checkout, visa)
   .checkpoint("paid")
+  .disposeRuntime()
+  .checkpoint("signed out");
+
+/**
+ * The shopper pays and signs out while the shop holds the confirm, over a payment SDK that voids a
+ * confirm its caller abandons through its session: the disposal's bound ends the payment unknown,
+ * and the SDK voids it before its session closes.
+ */
+export const signOutWhilePaying = Story.app(shopSetup, {
+  id: "shop/sign-out-while-paying",
+  fixtures: [ShopFakeVoidsAbandoned],
+})
+  .ensure(checkout)
+  .send(checkout, cart(1))
+  .world(Shop.confirm.hold())
+  .send(checkout, visa)
+  .disposeRuntime()
+  .advance(RuntimeDefaults.disposalBound)
+  .checkpoint("signed out");
+
+/**
+ * Ada signs in, fills her cart and starts checking out, with the badge on screen; she signs out,
+ * so the app disposes its Runtime with every screen still open.
+ */
+export const signOutMidCheckout = storeStory("shop/sign-out-mid-checkout")
+  .ensure(mainShopper)
+  .ensure(mainCart)
+  .ensure(mainBadge)
+  .ensure(mainFlow)
+  .send(mainShopper, { _tag: "SignIn", name: "ada" })
+  .send(mainCart, add("l1", "v1"))
+  .send(mainFlow, { _tag: "Begin" })
+  .checkpoint("checking out")
   .disposeRuntime()
   .checkpoint("signed out");
 

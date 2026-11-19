@@ -190,8 +190,8 @@ export const leaveWhileSending = bankStory("transfers/leave-while-sending")
 
 /**
  * A transfer's answer is lost, so it is held; the customer removes the account from this device,
- * leaving the hold with no actor; the tab reloads with nothing open, and adding the account back
- * takes the hold again.
+ * leaving the hold with no actor; the tab reloads twice with nothing open, and adding the account
+ * back takes the hold again.
  */
 export const unsureAccountRemoved = bankStory("transfers/unsure-account-removed")
   .ensure(account)
@@ -202,6 +202,8 @@ export const unsureAccountRemoved = bankStory("transfers/unsure-account-removed"
   .checkpoint("removed")
   .reload({ reattach: false })
   .checkpoint("reloaded")
+  .reload({ reattach: false })
+  .checkpoint("reloaded again")
   .ensure(account)
   .checkpoint("adopted");
 

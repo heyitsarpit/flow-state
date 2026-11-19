@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vite-plus/test";
-import { leaveWhilePaying, sessionCloseFails } from "../../fixtures/shop/stories/usual.ts";
+import { mainBadge, mainCart, mainFlow, mainShopper, checkout } from "../../fixtures/shop/app.ts";
+import {
+  leaveWhilePaying,
+  sessionCloseFails,
+  signOutMidCheckout,
+  signOutWhilePaying,
+} from "../../fixtures/shop/stories/usual.ts";
+import {
+  forgottenRetiredAuthorization,
+  RETIRED_AUTHORIZATION,
+} from "../../fixtures/shop/stories/sends.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
-import { leaveWhileSyncing } from "../../fixtures/sync/stories/usual.ts";
+import { RETIRED_LINK, signOutRetiredLink } from "../../fixtures/sign-in/stories/edges.ts";
+import { connectionCloseFails, leaveWhileSyncing } from "../../fixtures/sync/stories/usual.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { forgottenRetiredWire, RETIRED_WIRE } from "../../fixtures/transfers/stories/edges.ts";
 import { owedAtBoot } from "../../fixtures/transfers/stories/load.ts";
@@ -12,6 +23,7 @@ import {
   unsureAccountRemoved,
 } from "../../fixtures/transfers/stories/usual.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
+import type { ActorRef } from "../../src/index.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { before } from "../checkout.ts";
 
@@ -32,12 +44,24 @@ const listed = (machine: string, name: string, bound: boolean, operation: string
 // RETURN_TYPE: widened to string, since CleanupFailed is not in the code union yet.
 const issueCode = (e: Evidence): string => (e._tag === "Issue" ? e.code : "");
 
+// A boot report's code as text, so a code Flow does not name yet can be looked for.
+// RETURN_TYPE: widened to string, since UnboundLane is not in the code union yet.
+const reportCode = (e: Evidence): string => (e._tag === "Reported" ? e.code : "");
+
 // An evidence record's tag as text, so a record Flow does not make yet can be looked for.
 // RETURN_TYPE: widened to string, since HoldForgotten is not an evidence tag yet.
 const tagOf = (e: Evidence): string => e._tag;
 
 const cleanupFailed = (records: ReadonlyArray<Evidence>) =>
   records.filter((e) => issueCode(e) === "CleanupFailed");
+
+// The records each boot report of an unbound lane names.
+const unbound = (records: ReadonlyArray<Evidence>) =>
+  records.flatMap((e) =>
+    reportCode(e) === "UnboundLane" && e._tag === "Reported" && e.record._tag === "Some"
+      ? [e.record.value]
+      : [],
+  );
 
 // The evidence between two checkpoints.
 const between = (run: StoryRun, from: string, to: string) =>
@@ -51,6 +75,29 @@ const undecodable = (records: ReadonlyArray<Evidence>, key: string) =>
       e.record._tag === "Some" &&
       e.record.value === key,
   );
+
+// The order in which the identities' terminal evidence came, by machine.
+const finishedOrder = (records: ReadonlyArray<Evidence>) =>
+  records.flatMap((e) => (e._tag === "Finished" ? [e.actor.machine] : []));
+
+const machineOf = (ref: ActorRef) => ref.machine.compiled.id;
+
+// Forget drops a held lane whose operation and contract are gone, with HoldForgotten, so the next
+// boot neither reports nor keeps it.
+const forgetsRetiredHold = async (
+  story: { readonly run: () => Promise<StoryRun> },
+  forgotten: string,
+  key: string,
+) => {
+  const run = await story.run();
+  const forgetting = between(run, "booted", forgotten);
+  const afterwards = run.evidence.slice(before(run, forgotten).length);
+
+  expect(undecodable(before(run, "booted"), key)).toHaveLength(1);
+  expect(forgetting.filter((e) => tagOf(e) === "HoldForgotten")).toHaveLength(1);
+  expect(undecodable(afterwards, key)).toEqual([]);
+  expect(run.checkpoints["reloaded"]?.records.stored.has(key)).toBe(false);
+};
 
 describe("unsettledWrites (Actors R20, R26)", () => {
   it.fails("Actors R26: the transfer the bank has not taken is listed by its account, and nothing once it answers", async () => {
@@ -80,14 +127,16 @@ describe("unsettledWrites (Actors R20, R26)", () => {
     expect(unsettledAt(synced)).toEqual([]);
   });
 
-  it.fails("Actors R20, R26: a held transfer stays listed after its account is disposed, as unbound, at the next boot too, and bound again once adopted", async () => {
+  it.fails("Actors R20, R26: a held transfer stays listed after its account is disposed, as unbound, at each later boot too, and bound again once adopted", async () => {
     const run = await unsureAccountRemoved.run();
     const { unsure, removed, reloaded, adopted } = run.checkpoints;
+    const again = run.checkpoints["reloaded again"];
 
     expect(unsure.read(Bank.transfer).map((c) => c.status)).toEqual(["dropped at response"]);
     expect(unsettledAt(unsure)).toEqual([listed("Bank/Transfers", "acct-1", true, "transfer")]);
     expect(unsettledAt(removed)).toEqual([listed("Bank/Transfers", "acct-1", false, "transfer")]);
     expect(unsettledAt(reloaded)).toEqual([listed("Bank/Transfers", "acct-1", false, "transfer")]);
+    expect(unsettledAt(again)).toEqual([listed("Bank/Transfers", "acct-1", false, "transfer")]);
     expect(unsettledAt(adopted)).toEqual([listed("Bank/Transfers", "acct-1", true, "transfer")]);
   });
 
@@ -107,9 +156,30 @@ describe("unsettledWrites (Actors R20, R26)", () => {
   });
 });
 
+describe("the boot report of unbound lanes (Runtime O6; Actors R20)", () => {
+  it.fails("Actors R20: a held transfer whose account was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
+    const run = await unsureAccountRemoved.run();
+    const lane = `lane/Bank/Transfers/acct-1|transfer|`;
+
+    const named = (records: ReadonlyArray<Evidence>) =>
+      unbound(records).map((r) => r.startsWith(lane));
+
+    expect(named(between(run, "unsure", "removed"))).toEqual([]);
+    expect(named(between(run, "removed", "reloaded"))).toEqual([true]);
+    expect(named(between(run, "reloaded", "reloaded again"))).toEqual([true]);
+    expect(named(between(run, "reloaded again", "adopted"))).toEqual([]);
+  });
+});
+
 describe("cleanup failures (Actors R23, I33)", () => {
   it.fails("Actors R23, I33: a payment session that fails to close at disposal is reported CleanupFailed, never success", async () => {
     const run = await sessionCloseFails.run();
+
+    expect(cleanupFailed(run.evidence)).toHaveLength(1);
+  });
+
+  it.fails("Actors R23, I33: a Git host connection that fails to close at disposal is reported CleanupFailed, never success", async () => {
+    const run = await connectionCloseFails.run();
 
     expect(cleanupFailed(run.evidence)).toHaveLength(1);
   });
@@ -126,15 +196,47 @@ describe("cleanup failures (Actors R23, I33)", () => {
   });
 });
 
+describe("the disposal order (Actors R22, R23; Inspection O3)", () => {
+  it.fails("Actors R22, R23: calls are interrupted before the services are released, so the SDK voids the abandoned confirm over its open session and no cleanup fails", async () => {
+    const run = await signOutWhilePaying.run();
+    const out = run.checkpoints["signed out"];
+
+    expect(out.read(Shop.confirm).map((c) => c.status)).toEqual(["held at request"]);
+    expect(out.read(Shop.voidAuthorization)).toHaveLength(1);
+    expect(cleanupFailed(run.evidence)).toEqual([]);
+  });
+
+  it.fails("Inspection O3: the Runtime's disposal gives each identity's terminal evidence, every consumer before its providers", async () => {
+    const run = await signOutMidCheckout.run();
+    const order = finishedOrder(between(run, "checking out", "signed out"));
+
+    const consumes = [
+      [mainBadge, mainCart],
+      [mainCart, mainShopper],
+      [mainFlow, mainCart],
+      [mainFlow, mainShopper],
+      [mainFlow, checkout],
+    ] as const;
+
+    expect(order.toSorted()).toEqual(
+      [mainShopper, mainCart, mainBadge, mainFlow, checkout].map(machineOf).toSorted(),
+    );
+
+    for (const [consumer, provider] of consumes)
+      expect(order.indexOf(machineOf(consumer)) < order.indexOf(machineOf(provider))).toBe(true);
+  });
+});
+
 describe("forget and a hold whose operation is gone (Actors R21)", () => {
   it.fails("Actors R21: forget drops a held wire whose operation and contract are gone, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
-    const run = await forgottenRetiredWire.run();
-    const forgetting = between(run, "booted", "forgotten");
-    const afterwards = run.evidence.slice(before(run, "forgotten").length);
+    await forgetsRetiredHold(forgottenRetiredWire, "forgotten", RETIRED_WIRE);
+  });
 
-    expect(undecodable(before(run, "booted"), RETIRED_WIRE)).toHaveLength(1);
-    expect(forgetting.filter((e) => tagOf(e) === "HoldForgotten")).toHaveLength(1);
-    expect(undecodable(afterwards, RETIRED_WIRE)).toEqual([]);
-    expect(run.checkpoints.reloaded.records.stored.has(RETIRED_WIRE)).toBe(false);
+  it.fails("Actors R21: forgetting the renewal's Pay drops its retired authorization, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
+    await forgetsRetiredHold(forgottenRetiredAuthorization, "forgotten", RETIRED_AUTHORIZATION);
+  });
+
+  it.fails("Actors R21: signing out forgets the session and drops its retired device link, with HoldForgotten, so the next boot neither reports nor keeps it", async () => {
+    await forgetsRetiredHold(signOutRetiredLink, "signed out", RETIRED_LINK);
   });
 });

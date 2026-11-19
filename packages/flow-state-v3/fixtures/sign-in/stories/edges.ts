@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { Fake } from "../../../src/host/testing/index.ts";
 import { blankSession, deviceOf, mainSession, screen } from "../app.ts";
 import { elifSaved, sessionStory, signedIn, trustedStory } from "./usual.ts";
 
@@ -9,6 +10,32 @@ export const dateAt = Schema.decodeSync(Schema.DateFromMillis);
 
 // An email well past any real address.
 const LONG_EMAIL = 100_000;
+
+/**
+ * The key of a device link held on Elif's session, an operation an earlier release of the app had.
+ */
+export const RETIRED_LINK =
+  'lane/Auth/Session/{"email":"elif@kamp.us"}|linkDevice|{"device":"phone"}';
+
+const retiredLink =
+  '{"attempt":"att-0-1","displaced":[],"format":3,"inFlight":false,' +
+  '"input":{"device":"phone"},"machine":"Auth/Session","name":"{\\"email\\":\\"elif@kamp.us\\"}",' +
+  '"operation":"linkDevice","queue":[],"retryCount":0}';
+
+/**
+ * An earlier release linked devices to a session, an operation and contract this one no longer
+ * has, and left a link held on Elif's session; she signs out, so the app forgets her session, and
+ * the tab reloads.
+ */
+export const signOutRetiredLink = sessionStory("sign-in/sign-out-retired-link")
+  .world(Fake.storage.put(RETIRED_LINK, retiredLink))
+  .reload()
+  .checkpoint("booted")
+  .ensure(mainSession)
+  .dispose(mainSession, { how: "forget" })
+  .checkpoint("signed out")
+  .reload()
+  .checkpoint("reloaded");
 
 /**
  * A session with an empty email is opened, and the screen is sent an empty email.
