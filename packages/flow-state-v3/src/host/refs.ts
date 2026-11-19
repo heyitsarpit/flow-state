@@ -2,6 +2,7 @@ import { Option, Result } from "effect";
 import { inputFieldsOf, LOCAL_PREFIX, refName } from "../core/identity.ts";
 import type { ActorId } from "../core/world.ts";
 import type { ActorRef, AnyDefinition, InputOf, Machine } from "../definition.ts";
+import type { ContextRefs } from "./context-refs.ts";
 import { entry } from "../entry.ts";
 import { flowError, raise } from "../error.ts";
 
@@ -43,9 +44,20 @@ export const actorRef = entry(
     machine: Machine<D>,
     nameOrValue: N & RefName<D, N>,
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: a ref with no context uses its machine entry's wiring
-    options?: { readonly context: Readonly<Record<string, ActorRef>> },
-  ): ActorRef<D> => ({ machine, value: nameOrValue, context: options?.context ?? {} }),
+    options?: { readonly context: ContextRefs<D["context"]> },
+  ): ActorRef<D> => ({
+    machine,
+    value: nameOrValue,
+    context: options === undefined ? {} : slotRefs(options.context),
+  }),
 );
+
+// A ref's context refs as the runtime reads them: a ref by slot name. The typed form checks each
+// ref's provider.
+const slotRefs = <Cx>(refs: ContextRefs<Cx>) =>
+  // SAFETY: ContextRefs<Cx> is a record of refs keyed by slot name, so it is the wide record.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a mapped type over a generic key set does not assign to its record (a TypeScript limit)
+  refs as Readonly<Record<string, ActorRef>>;
 
 /**
  * The identity a ref names, checked: a value's input fields by their Schemas, a literal name by

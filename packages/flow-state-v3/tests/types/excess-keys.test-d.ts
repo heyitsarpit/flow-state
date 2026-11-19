@@ -111,8 +111,10 @@ describe("Runtime O1: an app entry and the setup's options are exact", () => {
   const ref = actorRef(PayMachine, { who: "a" });
 
   it("a misspelt entry key, and a ref given as an entry", () => {
-    app({ id: "types/a", machines: { c: { machine: PayMachine, contxt: { x: ref } } } }); // wrong
-    app({ id: "types/b", machines: { c: ref } }); // wrong: a ref is no machine
+    // @ts-expect-error Runtime O1: contxt is no entry key
+    app({ id: "types/a", machines: { c: { machine: PayMachine, contxt: { x: ref } } } });
+    // @ts-expect-error Runtime O1: a ref is no machine
+    app({ id: "types/b", machines: { c: ref } });
 
     const right = app({ id: "types/c", machines: { c: { machine: PayMachine, context: {} } } });
 
@@ -170,7 +172,7 @@ describe("Reads R1, Compile R14: a contract's services are its commit's requirem
     });
 
     expectTypeOf(right).toEqualTypeOf<
-      Transaction<{ readonly id: typeof Schema.String }, number, never, CartApi>
+      Transaction<{ readonly id: typeof Schema.String }, number, never, CartApi, readonly ["id"]>
     >();
   });
 });

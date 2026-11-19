@@ -228,11 +228,11 @@ export type CommitContext = { readonly attempt: Attempt };
 /**
  * The Attempt a commit runs as.
  */
-export type Attempt = {
+export type Attempt<I = Values, K = Values> = {
   readonly id: string;
   readonly operation: string;
-  readonly key: Values;
-  readonly input: Values;
+  readonly key: K;
+  readonly input: I;
   readonly retryCount: number;
   readonly mayHaveApplied: boolean;
 };

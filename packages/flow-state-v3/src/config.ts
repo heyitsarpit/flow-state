@@ -408,5 +408,5 @@ const kindIs = <T extends { readonly "~flow": string }>(kind: T["~flow"]) => {
 export const is = {
   state: kindIs<StateTokenOf>("state"),
   history: kindIs<HistoryTokenOf>("history"),
-  guard: kindIs<GuardTokenOf>("guard"),
+  guard: kindIs<GuardTokenOf<never>>("guard"),
 };

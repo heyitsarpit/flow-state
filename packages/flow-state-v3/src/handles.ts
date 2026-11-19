@@ -6,7 +6,7 @@ import { builder, entry, inert } from "./entry.ts";
 /**
  * What a member's select or key callback reads: the memory, and no event.
  */
-export type SelectArg<M> = { readonly memory: M; readonly event: never };
+export type SelectArg<M, P = unknown> = { readonly memory: M; readonly event: P };
 
 /**
  * What a send's callbacks read: the turn's memory after its update, and its event.

@@ -509,6 +509,7 @@ describe("required fields and key fields (Compile R4, T3)", () => {
     const loose_ = transaction({
       id: "Compile/loose",
       input: { id: Schema.optionalKey(Schema.String) },
+      // @ts-expect-error Reads R1: an optional field is no key field; the run-time refusal is checked below
       key: ["id"],
       concurrency: "reject",
       services: [],

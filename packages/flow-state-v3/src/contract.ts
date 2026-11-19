@@ -75,7 +75,12 @@ export type ReadEndings = {
  * A contract bound to a definition's events: what `operations` declares under one name, in the
  * shape the compiler reads.
  */
-export type Bound<K extends "write" | "read" = "write" | "read", R = unknown> = (K extends "write"
+export type Bound<
+  K extends "write" | "read" = "write" | "read",
+  R = unknown,
+  I = Values,
+  Ky = Values,
+> = (K extends "write"
   ? BoundFields & {
       readonly kind: "write";
       readonly call: Commit;
@@ -84,7 +89,38 @@ export type Bound<K extends "write" | "read" = "write" | "read", R = unknown> = 
     }
   : BoundFields & { readonly kind: "read"; readonly call: Lookup }) & {
   readonly "~requires"?: R;
+  readonly "~input"?: I;
+  readonly "~key"?: Ky;
 };
+
+/**
+ * The decoded input a bound contract takes, as its handles' selects return it.
+ */
+export type BoundInput<B> = B extends { readonly "~input"?: infer I }
+  ? Exclude<I, undefined>
+  : never;
+
+/**
+ * The key fields of a bound contract's input, as its handles' key callbacks return them.
+ */
+export type BoundKey<B> = B extends { readonly "~key"?: infer Ky } ? Exclude<Ky, undefined> : never;
+
+type RequiredKeyOf<T> = {
+  readonly [P in keyof T]-?: Record<never, never> extends Pick<T, P> ? never : P;
+}[keyof T];
+
+/**
+ * The fields a contract's key may name: its input's required fields.
+ */
+export type KeyFields<F extends Fields> = ReadonlyArray<RequiredKeyOf<StructType<F>> & string>;
+
+/**
+ * A key as a record: the input's key fields and their values.
+ */
+export type KeyRecord<F extends Fields, Key extends ReadonlyArray<string>> = Pick<
+  StructType<F>,
+  Key[number] & keyof StructType<F>
+>;
 
 /**
  * Every ending a bound contract maps, each with its place in the contract's endings: `success`,
@@ -175,35 +211,58 @@ const trusted = <A>(input: Values) =>
   input as A;
 
 /**
+ * A commit's Attempt as the contract's own types: its input and key are the call's input, which
+ * the runtime checked, and that input's key fields.
+ */
+const trustedAttempt = <I, K>(context: { readonly attempt: Attempt }) =>
+  // SAFETY: the host builds the Attempt's input and key from the call's input, checked as above, and the operation's key fields.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the Attempt's input and key types are erased in Compiled and restored here, at the one call boundary
+  context as { readonly attempt: Attempt<I, K> };
+
+/**
  * A server write, declared once: inert until a machine commits it.
  */
-export type Transaction<F extends Fields = Fields, A = never, E = never, R = never> = {
+export type Transaction<
+  F extends Fields = Fields,
+  A = never,
+  E = never,
+  R = never,
+  Key extends ReadonlyArray<string> = ReadonlyArray<keyof F & string>,
+> = {
   readonly kind: "transaction";
   readonly id: string;
   readonly input: Schema.Struct<F>;
-  readonly key: ReadonlyArray<keyof F & string>;
+  readonly key: Key;
   readonly concurrency: Concurrency;
   readonly services: Services;
   readonly commit: (
     input: StructType<F>,
-    context: { readonly attempt: Attempt },
+    context: { readonly attempt: Attempt<StructType<F>, KeyRecord<F, Key>> },
   ) => Effect.Effect<A, E, R>;
-  readonly outcomes: (endings: WriteEndings<E>) => Bound<"write", R>;
+  readonly outcomes: (
+    endings: WriteEndings<E>,
+  ) => Bound<"write", R, StructType<F>, KeyRecord<F, Key>>;
 };
 
 /**
  * A server read, declared once: inert until a machine looks it up.
  */
-export type Resource<F extends Fields = Fields, A = never, E = never, R = never> = {
+export type Resource<
+  F extends Fields = Fields,
+  A = never,
+  E = never,
+  R = never,
+  Key extends ReadonlyArray<string> = ReadonlyArray<keyof F & string>,
+> = {
   readonly kind: "resource";
   readonly id: string;
   readonly input: Schema.Struct<F>;
-  readonly key: ReadonlyArray<keyof F & string>;
+  readonly key: Key;
   readonly services: Services;
   readonly staleTime: Duration.Input;
   readonly gcTime: Duration.Input;
   readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
-  readonly outcomes: (endings: ReadEndings) => Bound<"read", R>;
+  readonly outcomes: (endings: ReadEndings) => Bound<"read", R, StructType<F>, KeyRecord<F, Key>>;
 };
 
 /**
@@ -222,20 +281,20 @@ export type Resource<F extends Fields = Fields, A = never, E = never, R = never>
 export const transaction = entry(
   "transaction",
   // RETURN_TYPE: the exported Transaction contract keeps F, A, E and R for outcomes, handles and the setup's services.
-  <const F extends Fields, A, E, R>(config: {
+  <const F extends Fields, const Key extends KeyFields<F>, A, E, R>(config: {
     readonly id: string;
     readonly input: F;
-    readonly key: ReadonlyArray<keyof F & string>;
+    readonly key: Key;
     readonly concurrency: Concurrency;
     readonly services: Services;
     readonly commit: (
       input: StructType<F>,
-      context: { readonly attempt: Attempt },
+      context: { readonly attempt: Attempt<StructType<F>, KeyRecord<F, Key>> },
     ) => Effect.Effect<A, E, R>;
-  }): Transaction<F, A, E, R> => {
+  }): Transaction<F, A, E, R, Key> => {
     const identity = Symbol(config.id);
 
-    const contract: Transaction<F, A, E, R> = {
+    const contract: Transaction<F, A, E, R, Key> = {
       kind: "transaction",
       id: config.id,
       input: Schema.Struct(config.input),
@@ -244,14 +303,18 @@ export const transaction = entry(
       services: config.services,
       commit: entry(`${config.id}.commit`, config.commit),
       outcomes: entry(`${config.id}.outcomes`, (endings: WriteEndings<E>) =>
-        inert<Bound<"write", R>>({
+        inert<Bound<"write", R, StructType<F>, KeyRecord<F, Key>>>({
           kind: "write",
           contract: config.id,
           identity,
           ...codecsOf(config.input, config.key),
           key: config.key,
           concurrency: config.concurrency,
-          call: (input, context) => config.commit(trusted<StructType<F>>(input), context),
+          call: (input, context) =>
+            config.commit(
+              trusted<StructType<F>>(input),
+              trustedAttempt<StructType<F>, KeyRecord<F, Key>>(context),
+            ),
           success: endings.success,
           failure: endings.failure,
           notSent: Option.fromUndefinedOr(endings.notSent),
@@ -275,18 +338,18 @@ export const transaction = entry(
 export const resource = entry(
   "resource",
   // RETURN_TYPE: the exported Resource contract keeps F, A, E and R for outcomes, handles and the setup's services.
-  <const F extends Fields, A, E, R>(config: {
+  <const F extends Fields, const Key extends KeyFields<F>, A, E, R>(config: {
     readonly id: string;
     readonly input: F;
-    readonly key: ReadonlyArray<keyof F & string>;
+    readonly key: Key;
     readonly services: Services;
     readonly staleTime: Duration.Input;
     readonly gcTime: Duration.Input;
     readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
-  }): Resource<F, A, E, R> => {
+  }): Resource<F, A, E, R, Key> => {
     const identity = Symbol(config.id);
 
-    const contract: Resource<F, A, E, R> = {
+    const contract: Resource<F, A, E, R, Key> = {
       kind: "resource",
       id: config.id,
       input: Schema.Struct(config.input),
@@ -296,7 +359,7 @@ export const resource = entry(
       gcTime: config.gcTime,
       lookup: entry(`${config.id}.lookup`, config.lookup),
       outcomes: entry(`${config.id}.outcomes`, (endings: ReadEndings) =>
-        inert<Bound<"read", R>>({
+        inert<Bound<"read", R, StructType<F>, KeyRecord<F, Key>>>({
           kind: "read",
           contract: config.id,
           identity,

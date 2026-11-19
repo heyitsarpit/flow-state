@@ -19,6 +19,7 @@ import { makeClose, makeForget, type Unsettled, unsettledOf } from "./close.ts";
 import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
+import type { CheckedEntries } from "./context-refs.ts";
 import { type FlowError, flowError, flowErrorOf, lifeRejection, raise, refuse } from "../error.ts";
 import { entry, entryEffect } from "../entry.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
@@ -95,7 +96,9 @@ export type ServicesOf<A extends App> = {
 export const app = entry(
   "app",
   // RETURN_TYPE: the App contract runtimeSetup takes, keeping its machines' types.
-  <const M extends Readonly<Record<string, AppEntry>>>(config: App<M>): App<M> => {
+  <const M extends Readonly<Record<string, AppEntry>>>(
+    config: App<M> & { readonly machines: CheckedEntries<NoInfer<M>> },
+  ): App<M> => {
     refuse(
       appFindings({
         ...config,

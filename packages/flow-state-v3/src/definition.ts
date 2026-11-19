@@ -2,7 +2,7 @@ import { type Duration, Option, Predicate, Result, Schema } from "effect";
 import type { Action, Compiled, Denial, Guard, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import { atOrBelow, chainOf } from "./core/tree.ts";
-import type { Bound, Ending, Fields } from "./contract.ts";
+import type { Bound, BoundInput, BoundKey, Ending, Fields } from "./contract.ts";
 import { fieldsOf, tokensOf, trusted } from "./events.ts";
 import { type GuardArg, readHandle, type SelectArg, writeHandle } from "./handles.ts";
 import type { SendToken } from "./send.ts";
@@ -205,21 +205,25 @@ type StateTokensLiteral<L, P extends string> = {
 /**
  * A lane member or lookup in an alternative's `actions`.
  */
-export type ActionToken = {
+export type ActionToken<P = unknown> = {
   readonly "~flow": "action";
   readonly "~owner": symbol;
   readonly operation: string;
   readonly make: (at: string) => Action;
+  // A phantom type: the event its select reads, so it fits only a handler of that event.
+  readonly "~event"?: (event: P) => void;
 };
 
 /**
  * An operation's guard (`O.x.idle`, `O.x.retryable`) in an alternative's `guard`.
  */
-export type GuardToken = {
+export type GuardToken<P = unknown> = {
   readonly "~flow": "guard";
   readonly "~owner": symbol;
   readonly operation: string;
   readonly make: (at: string) => Guard;
+  // A phantom type: the event its key reads, so it fits only a handler of that event.
+  readonly "~event"?: (event: P) => void;
 };
 
 /**
@@ -230,35 +234,35 @@ export type Operations = ReadonlyMap<string, ReadonlyMap<string, Row>>;
 /**
  * A write operation's members, guards and row read (`O.x.get`).
  */
-export type WriteHandle<M, I> = {
-  readonly commit: (select: (input: SelectArg<M>) => I) => ActionToken;
-  readonly retry: ActionToken & ((key: (input: SelectArg<M>) => Values) => ActionToken);
-  readonly cancel: ActionToken & ((key: (input: SelectArg<M>) => Values) => ActionToken);
-  readonly idle: (key: (input: GuardArg<M, never>) => Values) => GuardToken;
+export type WriteHandle<M, I, K = Values> = {
+  readonly commit: <P>(select: (input: SelectArg<M, P>) => I) => ActionToken<P>;
+  readonly retry: ActionToken & (<P>(key: (input: SelectArg<M, P>) => K) => ActionToken<P>);
+  readonly cancel: ActionToken & (<P>(key: (input: SelectArg<M, P>) => K) => ActionToken<P>);
+  readonly idle: <P>(key: (input: GuardArg<M, P>) => K) => GuardToken<P>;
   readonly retryable: {
     (options: { readonly times: number }): GuardToken;
-    (key: (input: GuardArg<M, never>) => Values, options: { readonly times: number }): GuardToken;
+    <P>(key: (input: GuardArg<M, P>) => K, options: { readonly times: number }): GuardToken<P>;
   };
-  readonly get: (operations: Operations, key: Values) => Option.Option<Row>;
+  readonly get: (operations: Operations, key: K) => Option.Option<Row>;
 };
 
 /**
  * A read operation's lookup and cancel.
  */
 export type ReadHandle<M, I> = {
-  readonly lookup: (select: (input: SelectArg<M>) => I) => ActionToken;
+  readonly lookup: <P>(select: (input: SelectArg<M, P>) => I) => ActionToken<P>;
   readonly cancel: ActionToken;
 };
 
 type Handles<O, M> = {
   readonly [K in keyof O]: O[K] extends { readonly kind: "write" }
-    ? WriteHandle<M, Values>
-    : ReadHandle<M, Values>;
+    ? WriteHandle<M, BoundInput<O[K]>, BoundKey<O[K]>>
+    : ReadHandle<M, BoundInput<O[K]>>;
 };
 
 export type GuardElement<M, P> =
   | StateToken
-  | GuardToken
+  | GuardToken<P>
   | ((input: GuardArg<M, P>) => true | Denial);
 
 /**
@@ -273,7 +277,7 @@ export type AlternativeConfig<M, P, S extends string, W = M> = {
     readonly event: P;
     readonly now: number;
   }) => Partial<W>;
-  readonly actions?: ReadonlyArray<ActionToken | SendToken<M, P>>;
+  readonly actions?: ReadonlyArray<ActionToken<P> | SendToken<M, P>>;
 };
 
 type OneAlternative<M, P, S extends string, W> =
@@ -313,18 +317,25 @@ export type ProviderSnapshot<State = string, Memory = Values> = {
  * definition's actor (`Provider.select(schema, selector)`). The machine entry or the ref wires
  * which actor provides it.
  */
-export type ContextSlot<V = unknown> = {
+export type ContextSlot<V = unknown, P = unknown> = {
   readonly "~flow": "context";
   readonly provider: string;
   // FLOW_STATE_ALLOW_UNKNOWN: the encoded side of a slot's Schema is the Schema's own.
   readonly schema: Schema.Codec<V, unknown>;
   readonly select: (snapshot: ProviderSnapshot<never, never>) => V;
+  // A phantom type: the provider's state tree and memory, which the wiring's ref must have.
+  readonly "~provider"?: P;
 };
 
 /**
  * A definition's context slots, by name.
  */
 export type ContextConfig = Readonly<Record<string, ContextSlot>>;
+
+/**
+ * What a slot keeps of its provider: its state tree and memory, the parts its selector reads.
+ */
+export type ProvidedBy<States, M> = { readonly states: States; readonly memory: M };
 
 /**
  * The values a definition's context slots select, by slot.
@@ -398,7 +409,7 @@ export type Definition<
     readonly select: <V, I>(
       schema: Schema.Codec<V, I>,
       selector: (snapshot: ProviderSnapshot<LeavesOf<States>, OutsideOf<M>>) => NoInfer<V>,
-    ) => ContextSlot<V>;
+    ) => ContextSlot<V, ProvidedBy<States, M>>;
   };
   readonly S: StateTokens<States> & { readonly root: RootToken };
   readonly E: Tokens<Ev & In>;

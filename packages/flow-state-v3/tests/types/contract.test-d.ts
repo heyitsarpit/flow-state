@@ -16,9 +16,6 @@ import {
 // `.not` of the narrow type, or the wide type itself) then fails too: make it the exact narrow
 // type. A positive assertion that holds today stays as it is.
 
-// FLOW_STATE_ALLOW_UNKNOWN: today's erased input and key, named so a test can state it.
-type Values = Readonly<Record<string, unknown>>;
-
 type PayInput = { readonly id: string; readonly cents: number };
 
 type PayKey = { readonly id: string };
@@ -60,7 +57,7 @@ const Stranger = definition({
   id: "types/Stranger",
   states: ["IDLE"],
   events: {},
-  memory: { name: Flow.initial(Schema.String, "") },
+  memory: { alias: Flow.initial(Schema.String, "") },
 });
 
 const Cart = definition({
@@ -82,30 +79,45 @@ declare const snap: Snapshot<typeof Cart>;
 
 describe("Compile R14, Reads R1: an operation handle takes its contract's input and key", () => {
   it("commit and lookup select the contract's input", () => {
-    expectTypeOf<Parameters<typeof O.pay.commit>[0]>().returns.not.toEqualTypeOf<PayInput>();
-    expectTypeOf<Parameters<typeof O.pay.commit>[0]>().returns.toEqualTypeOf<Values>();
-    expectTypeOf<Parameters<typeof O.find.lookup>[0]>().returns.not.toEqualTypeOf<PayKey>();
+    expectTypeOf(O.pay.commit<Record<never, never>>)
+      .parameter(0)
+      .returns.toEqualTypeOf<PayInput>();
+    expectTypeOf(O.find.lookup<Record<never, never>>)
+      .parameter(0)
+      .returns.toEqualTypeOf<PayKey>();
 
-    O.pay.commit(({ memory }) => ({ amnt: memory.cents })); // wrong: no such input field
-    O.pay.commit(() => ({})); // wrong: id and cents are missing
-    O.pay.commit(() => ({ id: 1, cents: "x" })); // wrong: wrong field types
-    O.find.lookup(() => ({ idd: "x" })); // wrong: no such input field
+    // @ts-expect-error Reads R1: amnt is no input field, and id and cents are missing
+    O.pay.commit(({ memory }) => ({ amnt: memory.cents }));
+    // @ts-expect-error Reads R1: id and cents are missing
+    O.pay.commit(() => ({}));
+    // @ts-expect-error Reads R1: id is text and cents a number
+    O.pay.commit(() => ({ id: 1, cents: "x" }));
+    // @ts-expect-error Reads R1: idd is no input field
+    O.find.lookup(() => ({ idd: "x" }));
     O.pay.commit(() => ({ id: "a", cents: 1 }));
   });
 
   it("retry, cancel, idle, retryable and get take the contract's key", () => {
-    expectTypeOf<Parameters<typeof O.pay.idle>[0]>().returns.not.toEqualTypeOf<PayKey>();
-    expectTypeOf<Parameters<typeof O.pay.get>[1]>().not.toEqualTypeOf<PayKey>();
-    expectTypeOf<Parameters<typeof O.pay.retry>[0]>().returns.not.toEqualTypeOf<PayKey>();
-    expectTypeOf<Parameters<typeof O.pay.cancel>[0]>().returns.not.toEqualTypeOf<PayKey>();
-    expectTypeOf<Parameters<typeof O.pay.retryable>[0]>().returns.not.toEqualTypeOf<PayKey>();
+    expectTypeOf(O.pay.idle<Record<never, never>>)
+      .parameter(0)
+      .returns.toEqualTypeOf<PayKey>();
+    expectTypeOf(O.pay.get).parameter(1).toEqualTypeOf<PayKey>();
+    expectTypeOf(O.pay.cancel<Record<never, never>>)
+      .parameter(0)
+      .returns.toEqualTypeOf<PayKey>();
 
-    O.pay.retry(() => ({ nope: 1 })); // wrong: the key is { id }
-    O.pay.cancel(() => ({ nope: 1 })); // wrong
-    O.pay.idle(() => ({ nope: 1 })); // wrong
-    O.pay.retryable(() => ({ nope: 1 }), { times: 2 }); // wrong
-    O.pay.get(new Map(), { nope: 1 }); // wrong
+    // @ts-expect-error Reads R1: the key is { id }
+    O.pay.retry(() => ({ nope: 1 }));
+    // @ts-expect-error Reads R1: the key is { id }
+    O.pay.cancel(() => ({ nope: 1 }));
+    // @ts-expect-error Reads R1: the key is { id }
+    O.pay.idle(() => ({ nope: 1 }));
+    // @ts-expect-error Reads R1: the key is { id }
+    O.pay.retryable(() => ({ nope: 1 }), { times: 2 });
+    // @ts-expect-error Reads R1: the key is { id }
+    O.pay.get(new Map(), { nope: 1 });
     O.pay.retry(() => ({ id: "a" }));
+    O.pay.retryable(() => ({ id: "a" }), { times: 2 });
   });
 
   it("a selector's event is its handler's event", () => {
@@ -115,19 +127,20 @@ describe("Compile R14, Reads R1: an operation handle takes its contract's input 
         Pay: {
           actions: [
             H.pay.commit(({ event }) => {
-              expectTypeOf(event).not.toEqualTypeOf<{
+              expectTypeOf(event).toEqualTypeOf<{
                 readonly id: string;
                 readonly cents: number;
               }>();
-              expectTypeOf(event).toBeNever();
 
-              return { id: "a", cents: 1 };
+              return { id: event.id, cents: event.cents };
             }),
           ],
         },
         Reset: {
-          guard: [H.pay.idle(({ event }) => event)], // wrong: Reset carries no id
-          actions: [H.pay.commit(({ event }) => event)], // wrong: Reset is no input
+          // @ts-expect-error Reads R1: Reset carries no id, so its event is no key
+          guard: [H.pay.idle(({ event }) => event)],
+          // @ts-expect-error Reads R1: Reset carries no id or cents, so its event is no input
+          actions: [H.pay.commit(({ event }) => event)],
         },
       },
     }));
@@ -139,11 +152,23 @@ describe("Reads R1, Compile R9: a key names required input fields, kept as a tup
     transaction({
       id: "types/optionalKey",
       input: { a: Schema.String, b: Schema.optionalKey(Schema.String) },
-      key: ["b"], // wrong: b is optional
+      // @ts-expect-error Reads R1: b is optional, so it names no key
+      key: ["b"],
       concurrency: "reject",
       services: [],
       commit: () => Effect.succeed(1),
     });
+
+    const keyed = transaction({
+      id: "types/requiredKey",
+      input: { a: Schema.String, b: Schema.optionalKey(Schema.String) },
+      key: ["a"],
+      concurrency: "reject",
+      services: [],
+      commit: () => Effect.succeed(1),
+    });
+
+    expectTypeOf(keyed.key).toEqualTypeOf<readonly ["a"]>();
 
     transaction({
       id: "types/typoKey",
@@ -164,12 +189,13 @@ describe("Reads R1, Compile R9: a key names required input fields, kept as a tup
       concurrency: "reject",
       services: [],
       commit: (_input, { attempt }) => {
-        expectTypeOf(attempt.input).not.toEqualTypeOf<{ readonly a: string; readonly n: number }>();
-        expectTypeOf(attempt.key).not.toEqualTypeOf<{ readonly a: string }>();
-        expectTypeOf(attempt.input).toEqualTypeOf<Values>();
+        expectTypeOf(attempt.input).toEqualTypeOf<{ readonly a: string; readonly n: number }>();
+        expectTypeOf(attempt.key).toEqualTypeOf<{ readonly a: string }>();
 
-        void attempt.input["nope"]; // wrong: no such input field
-        void attempt.key["n"]; // wrong: n is no key field
+        // @ts-expect-error Reads R1: nope is no input field
+        void attempt.input["nope"];
+        // @ts-expect-error Reads R1: n is no key field
+        void attempt.key["n"];
 
         return Effect.succeed(1);
       },
@@ -197,8 +223,10 @@ describe("Compile R18: a context slot keeps its provider, and wiring is typed by
   const stranger = actorRef(StrangerMachine, "x");
 
   it("a ref of another provider, or a misspelt slot, in actorRef", () => {
-    actorRef(CartMachine, "c", { context: { shopper: stranger } }); // wrong: not a Shopper
-    actorRef(CartMachine, "c", { context: { shoper: shopper } }); // wrong: no such slot
+    // @ts-expect-error Compile R18: a Stranger is no Shopper
+    actorRef(CartMachine, "c", { context: { shopper: stranger } });
+    // @ts-expect-error Compile R18: shoper is no slot of Cart
+    actorRef(CartMachine, "c", { context: { shoper: shopper } });
     expectTypeOf(actorRef(CartMachine, "c", { context: { shopper } })).toEqualTypeOf(
       actorRef(CartMachine, "c"),
     );
@@ -215,8 +243,10 @@ describe("Compile R18: a context slot keeps its provider, and wiring is typed by
     app({
       id: "types/wiring",
       machines: {
-        cart: { machine: CartMachine, context: { shopper: stranger } }, // wrong: not a Shopper
-        other: { machine: CartMachine, context: { shoper: shopper } }, // wrong: no such slot
+        // @ts-expect-error Compile R18: a Stranger is no Shopper
+        cart: { machine: CartMachine, context: { shopper: stranger } },
+        // @ts-expect-error Compile R18: shoper is no slot of Cart
+        other: { machine: CartMachine, context: { shoper: shopper } },
         shopper: ShopperMachine,
         stranger: StrangerMachine,
       },
