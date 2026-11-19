@@ -453,3 +453,10 @@ tasks
             and transitions gain turn (event, outcome, emitted); never becomes one edge pattern; rules name their
             subject so vacuous ones show unseen; eventually holds at every quiet point; flow check gains RuleBroken,
             RuleSubjectUnreachable, ScheduleNeverArmed. Seven open questions in the proposal; names are the user's.
+        comment     2026-11-19T15:56:43Z
+            Design constraint (the user, 2026-11-19), public: rule checking can be turned off or redirected explicitly
+            in Stories and runs, for Flow's own tests and users' alike, in three modes: checked (default), expected to
+            break (the Story passes only if the named rules break, like it.fails for a rule), and off (to drive edge and
+            stress behaviour past a rule). Per rule by token and for all rules; never silent: the report lists every
+            rule skipped or expected, so a disabled rule cannot pass unnoticed. Flow's own run rules get the
+            same switch.
