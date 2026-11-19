@@ -1458,6 +1458,10 @@ tasks
             Decision (the user, 2026-11-19, Q6 A): two machines that send to each other are allowed, as XState and the
             actor model do; document the Machine<typeof Def> annotation; flow check may list send cycles as information,
             never refuse them.
+        comment     2026-11-19T01:57:31Z
+            Decision (the user, 2026-11-19): send's form is A: actions: [send(toRef, Target.E.X.from(fn))], and
+            Target.E.X(payload) for a constant payload; events come from the target's definition, never raw _tag
+            objects. send accepts a token's .from result (a small change, no new concept). Fixtures rewritten to it.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
