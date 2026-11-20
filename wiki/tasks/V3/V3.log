@@ -1382,3 +1382,6 @@ note 2026-11-20T17:41:10Z
 note 2026-11-20T17:48:23Z
     Paused for the 5-hour window (93%; weekly 98%): no agents run until the reset (~20:50 UTC weekly, 19:50 UTC 5-hour);
     next: merge advisor-consult on the user's word, then the eleven-design cohesion check.
+
+note 2026-11-20T17:48:29Z
+    Correction to the pause note: the weekly window resets at 19:00 UTC and the 5-hour window at 19:50 UTC.
