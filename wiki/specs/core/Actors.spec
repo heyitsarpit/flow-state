@@ -647,10 +647,10 @@ invariants
         task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
         rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
 
-    I49  A provider's dependents, a wave's consumers and the identities whose graces a step judges are visited in
+    I49  A provider's dependents, a wave's consumers and the identities whose graces a step judges are visited in 
          incarnation start order, oldest first; a disposal ends next the oldest identity whose live consumers have all
-         ended, so a provider may end after a younger peer. Reversing either changes BlockedByDependents' message, the
-         order of consumers' context-update turns or the order of endings. Proposed (@task.V3.T105).
+        ended, so a provider may end after a younger peer. Reversing either changes BlockedByDependents' message, the
+        order of consumers' context-update turns or the order of endings. Proposed (@task.V3.T105).
         [@R28]
 
 owner Life
