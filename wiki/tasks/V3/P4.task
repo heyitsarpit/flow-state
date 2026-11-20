@@ -2042,6 +2042,7 @@ tasks
         title       Schedule issues derived from timer state, proven by sequence tests
         status      in_progress
         priority    high
+        blocked_by  [@proposal.spec-handover#cohesion-of-all-eleven-designs]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
         description
             Schedule issues are no longer stored: each timer keeps the last outcome of each of its own checks, and the
@@ -2229,4 +2230,3 @@ tasks
             tests. R25 states the check order and that an arming start clears a send issue; re-entry's inherited key set
             is decided with two traces. The refused arming at creation moves from @task.V3.T100 to here
             (Arming.Refused). Fix round waits behind the design work the user asked for.
-        blocked_by [@proposal.spec-handover#cohesion-of-all-eleven-designs]
