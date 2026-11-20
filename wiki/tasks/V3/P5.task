@@ -143,6 +143,10 @@ tasks
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Multi-tab: ownership handoff and write contention across two real tabs
             (with P8's browser suite).
+        comment     2026-11-20T04:04:06Z
+            Moved from @task.V3.T58 (orchestrator, 2026-11-20, small amendment for the user's read): Safari D4, the Web
+            Lock released on bfcache (packages/flow-state-v3/prototypes/safari/RESULTS.md), is lock ownership, so it is
+            checked here, not by T58's adapter.
     T48
         title       Lazy features
         status      draft
