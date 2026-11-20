@@ -1201,3 +1201,7 @@ note 2026-11-20T05:38:12Z
 
 note 2026-11-20T06:21:42Z
     T58 close review cut off by a network error (no comment written); resumed by message with its context.
+
+note 2026-11-20T06:22:56Z
+    T58 close review: ISSUES, one blocking (forget runs after the Store's connection closes, so it deletes nothing on
+    IndexedDB); fix round started.

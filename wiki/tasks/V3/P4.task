@@ -74,7 +74,7 @@ comment 2026-11-19T07:18:27Z
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@task.V3.T9]
         satisfies   [@plan.Persistence.O4]
@@ -458,6 +458,12 @@ tasks
               refused keys riding a new mark (edge allows "at the latest", ruled before), hung plain batches, marks at
               issue, dispose during boot and the missing scope claim (code this Task did not change, or T27), the barrel
               loading vite-plus/test (imports fine in node and bun).
+        comment     2026-11-20T06:22:55Z
+            Rulings (orchestrator) on the close review: the blocker is accepted: forget runs before the services (and
+            the Store) are released; it lands red first on a Store whose resources close with the services, a
+            fixture-level fake beside Fake.storage, and every close and dispose path is checked for the same order. Also
+            in the round: Actors I4 reworded to match R3; the runner stops after a signal and hard-kills at its
+            10-minute cap. Runtime.plan's load-first lines wait for the user's yes.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
