@@ -3787,7 +3787,7 @@ tasks
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
-        status      in_progress
+        status      review
         priority    medium
         description
             Start order becomes a stated rule, computed `Flow.initial` is removed, and the checks routed here from T102,
@@ -4079,6 +4079,39 @@ tasks
             snapshot.ts and FLOW-STATE.md:193 to the removal list; 4 accepted: scope alone gets its red check.
             Acceptance 1 and 2 amended to match ruling 1 and to take T102's no-id-text gaps. The build lands these
             red first.
+        comment     2026-11-20T02:29:12Z
+            Build (lead): every acceptance item built, red first; ready for review at b2e1223f. Decisions: R28's
+            disposal clause loses no ending either way (same endings, suite green both orders); the FIFO consumersFirst
+            broke R28 (Pay before the older shopper), so the code takes the oldest ready identity and R28 states it
+            (specs.log). Creation is total and trusts input its entry checked, so no fresh start can be refused: the
+            refused-start snapshot branch, runtime.test.ts:559 and refused-start-read are retired by structure (T56
+            re-adds one if migration needs it); creation-skips-input-check, computed-reads-computed,
+            spread-escapes-computed-guard and callback-defect-outside-list are void and removed. Changed:
+            paired-refusals plants 36 and 44 stay quiet (a member read can be the refused call's own result; a nested
+            key's object is the parameter its positive asserts); the pairSweep type test now refuses another app's
+            property and accepts any app's, as generic run rules need. The restored-schedule Story stays inline in
+            trusted-device.test.ts (its record comes from a run). Extra files: src/error.ts, src/core/following.ts,
+            src/core/evidence-of.ts, src/core/lane-moves.ts, tests/compile/corruption.test.ts,
+            tests/stories/story.test.ts, wiki/conventions/fixture-catalog.md.
+        comment     2026-11-20T02:29:23Z
+            Sidecar log (2 Haiku at high: correctness, cohesion; each finding re-read in code). Accepted: byStart in
+            consumersFirst's insert; one help-annotation reader in config.ts; the turn helper renamed (endedBy clashed
+            with life.ts); new private comments dropped. Rejected: an Input field accepting undefined (identity fields
+            must be required and string-encoded); the ~ input hole (local actors never save, so never restore); a Date
+            or Map patch (types forbid it, same check as select callbacks); boundary casts in generate.ts and sweep.ts
+            (one SAFETY cast per seam); saved as a duplicate of handle (the server's handle and the draft differ after
+            an edit); L3/L4/T6 labels (fixture and Spec ids); the other two ForeignActorRef raises (different paths and
+            texts). Noted, not fixed: no-id-text's renamed set is file-scoped, so a same-named plain string in another
+            function is a false positive.
+        comment     2026-11-20T02:29:23Z
+            Close (lead): ready for review. Gates at b2e1223f: nub run check 0; suite exit 0 (1601 passed, 26 expected
+            fail); lint:rules pass; faults --only on 11 plants caught 11; stress files and generated Stories with
+            FLOW_SEEDS=5 pass; docs:build exit 0. For the user's read: R28 as proposed (disposal takes the oldest ready
+            identity); the retired refused-fresh-start branch; public changes from the Flow.initial removal
+            (Flow.initial takes a constant only, Initial's shape is { schema, value }, Source.Computed gone); typed
+            testing words (StoryRun, Samples and Generated steps, publishedOf actor, a dropped send's sender, pairSweep
+            and propertyTest properties by app; Flow's two rule names refused); unsettledWrites takes no type argument;
+            scope alone refused. Merging Pending D2-D4 waits for the user.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine

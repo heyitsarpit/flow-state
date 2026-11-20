@@ -647,7 +647,7 @@ invariants
         task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
         rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
 
-    I49  Identities handled together are visited in incarnation start order, oldest first; reversing it changes
+    I49  Identities handled together are visited in incarnation start order, oldest first; reversing it changes 
          BlockedByDependents' message and the order of consumers' context-update turns. Proposed (@task.V3.T105).
         [@R28]
 
