@@ -1336,6 +1336,10 @@ tasks
             Failure (2026-11-20): root cause: schedule issues lose their owner across occasions (several writers over
             time). Count: 2 after convergence. Revision: 53a6ce47. Review: 108d00cf. The failure limit is reached; T57
             stays open and the run stops for the user's ruling on Turn R25 and the next step.
+        comment     2026-11-20T15:33:05Z
+            Amendment (the user, 2026-11-20): the fourth close review's B1 and B2 move to @task.V3.T118, which redesigns
+            the issue seam (Fable's proposal, accepted); T57 closes once T118's first commit lands both as inverted
+            tests titled by their rules. T57's timers, decide, occasions and tables stand as reviewed.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -1410,6 +1414,10 @@ tasks
             placement released within the disposal bound is an activity placement, owned here). Not split: reads and
             write lanes share lane state, and lookups live in code:packages/flow-state-v3/src/core/lanes.ts
             beside commits.
+        comment     2026-11-20T15:33:06Z
+            Routed (orchestrator, 2026-11-20, from the schedule-issues proposal's search of other parts): operation
+            issues are keyed by name only and cleared by any ending of that name, the same stored-residue freedom as
+            T57's schedule issues; land it as an inverted test first, then derive the issue from lane state.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -3595,6 +3603,10 @@ tasks
             Breakdown review (orchestrator, 2026-11-20, R48): takes the error vocabulary from T98 (a closed
             details.reason, one name for a store refusal) and FlowError's evidence field from T29: one owner for the
             error vocabulary.
+        comment     2026-11-20T15:33:06Z
+            Routed (orchestrator, 2026-11-20, from the schedule-issues proposal's search of other parts): creation
+            issues are never cleared, the same stored-residue freedom; land it as an inverted test first, then derive or
+            clear the issue by its own check.
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
@@ -6086,3 +6098,50 @@ tasks
             - The shard passes under its bound, or the bound is re-measured and recorded with its reason (a count may
               change only by a recorded re-measurement).
             - A per-firing cost that grew is found by profile and removed, or recorded as the cost of a rule.
+
+    T118
+        title       Schedule issues derived from timer state, proven by sequence tests
+        status      draft
+        priority    high
+        satisfies   [@plan.Machines.O5, @plan.Machines.O8]
+        description
+            Schedule issues are no longer stored: each timer keeps the last outcome of each of its own checks, and the
+            snapshot reads issues from those fields, so no later occasion can take or clear another's issue.
+
+            **Why now:** four close reviews of @task.V3.T57 each found an issue or hold lost across occasions (its
+            fourth: a hold restored with every pause reason removed stays held forever; an arming issue replaced by
+            another check's throw, then cleared while the key stays unarmed). The second failure after convergence hit
+            the failure limit; the user accepted Fable's redesign of the issue seam (2026-11-20).
+
+            **Read first:** code:wiki/plans/flow/references/proposals/schedule-issues-2026-11-20.md (the design, the R25
+            text, P1, P2), @task.V3.T57 (its four close reviews),
+            code:packages/flow-state-v3/src/core/schedule-decision.ts, @spec.Turn (R14 to R17, R19, R25, R27).
+
+            **Risk:** the redesign keeps `decide`, the occasions and T57's tables; it must not reopen what they prove.
+            The record format moves from 5 to 6, with a step and restore after a definition edit (a reason, key or
+            schedule added, removed or renamed).
+
+            **Approach:** the whole Task at once (the Epic's rule). First commit: the exhaustive sequence test (every
+            3-step sequence on a two-key fixture, checked after each step against the ledger of owed firings from the
+            Spec), red on today's code, with T57's fourth-review B1 and B2 as inverted tests titled by their rules; then
+            the requirements review; then the build.
+
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`, @spec.Turn and
+            @spec.WriteAhead with `specs.log` notes. Evidence: this Task's comments.
+
+            False pass: a sequence test whose expected results come from running the code → caught by the ledger derived
+            from the Spec before any code, and a blind derivation of a sample of steps. User's read: the new R25 text;
+            P1 (a key that leaves or a state that exits drops its issues); P2 (a refused start marked in the record and
+            retried on restore, format 6).
+        acceptance
+            - The sequence test exists, every 3-step sequence on one two-key fixture checked after each step against the
+              Spec's ledger of owed firings, and was red on the code before this Task's build.
+            - T57's fourth-review B1 (a hold restored with no reasons left) and B2 (an arming issue replaced, then
+              cleared while unarmed) pass, each first landed as an inverted test.
+            - No schedule issue is stored: a type cannot hold one, a lint rule refuses one, and four planted faults (a
+              stored issue, a check writing another's field, a skipped hold step, a lost refused marker) are caught.
+            - Turn R25 carries the proposal's text; P1 and P2 are in Turn and WriteAhead R4, each with a
+              `specs.log` note.
+            - Record format 6 with its step from 5; restore after a reason, key or schedule is added, removed
+              or renamed.
+            - `nub run check`, the suite, stress and generated Stories over fresh seeds, and `nub run docs:build` pass.

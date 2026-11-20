@@ -1336,3 +1336,8 @@ note 2026-11-20T15:15:15Z
 note 2026-11-20T15:18:42Z
     Fable consult started (the user, 2026-11-20): 30 minutes, up to 10 Haiku sidecars, on schedule issues across time
     (T57's B1, B2); proposal only, to wiki/plans/flow/references/proposals/schedule-issues-2026-11-20.md.
+
+note 2026-11-20T15:33:07Z
+    Decisions (the user, 2026-11-20): Fable's schedule-issue redesign adopted with its R25 text, P1 and P2; new
+    @task.V3.T118 builds it first; T57 closes once T118 lands B1 and B2 as inverted tests; siblings routed to T21 and
+    T100.
