@@ -10,7 +10,7 @@ const HOUR = 3_600_000;
 /**
  * The house on vacation holds the lounge's polls and its heating checks; the tab reloads with the
  * room the deepest node; after the reload the house comes home and the held check finishes its
- * time left before the checks start again from the first.
+ * time left, then the series goes on at its saved attempt and ends after its third check.
  */
 export const reloadedPaused = loungeWithSensors(homeStory("home/reloaded-paused"))
   .send(lounge, Room.E.SetTarget({ celsius: 22 }))
@@ -25,7 +25,9 @@ export const reloadedPaused = loungeWithSensors(homeStory("home/reloaded-paused"
   .advance("3 minutes")
   .checkpoint("left finished")
   .advance("5 minutes")
-  .checkpoint("step one again");
+  .checkpoint("step one again")
+  .advance("10 minutes")
+  .checkpoint("series over");
 
 /**
  * S6, house first: the house's saved vacation is restored before the room, whose temperature poll
@@ -70,18 +72,39 @@ export const roomFirst = homeStory("home/room-first")
   .checkpoint("house after");
 
 /**
- * The lounge is left unused for twenty minutes during its heating checks, then used again: the
- * overdue check fires once, and the next is five minutes from that firing.
+ * The lounge is left unused for twenty minutes during its heating checks and polls, then used
+ * again: the overdue check and each overdue poll fire once.
  */
-export const unusedOverdue = loungeWithSensors(homeStory("home/unused-overdue"))
-  .send(lounge, Room.E.SetTarget({ celsius: 22 }))
-  .detach(lounge)
-  .advance("20 minutes")
-  .checkpoint("waiting")
-  .ensure(lounge)
-  .checkpoint("returned")
+export const unusedReturn = (id: string) =>
+  loungeWithSensors(homeStory(id))
+    .send(lounge, Room.E.SetTarget({ celsius: 22 }))
+    .detach(lounge)
+    .advance("20 minutes")
+    .checkpoint("waiting")
+    .ensure(lounge)
+    .checkpoint("returned");
+
+/**
+ * As {@link unusedReturn}, then the next check is five minutes from the overdue one's firing.
+ */
+export const unusedOverdue = unusedReturn("home/unused-overdue")
   .advance("5 minutes")
   .checkpoint("next step");
+
+/**
+ * A vacation holds the lounge's temperature poll; the tab reloads, and the house comes home
+ * before the lounge is opened again: its saved hold's reason is false at the restore, so the poll
+ * resumes from its time left.
+ */
+export const vacationEndedUnused = loungeWithSensors(homeStory("home/vacation-ended-unused"))
+  .send(house, House.E.StartVacation({ until: 10 * HOUR }))
+  .advance("30 seconds")
+  .reload({ reattach: false })
+  .ensure(house)
+  .send(house, House.E.Arrive())
+  .advance("5 seconds")
+  .ensure(lounge)
+  .checkpoint("room after");
 
 /**
  * Refused shape: `armOn` on a keyed schedule, a construction error.

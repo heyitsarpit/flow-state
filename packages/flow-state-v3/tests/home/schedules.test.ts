@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { house, roomOf } from "../../fixtures/home/app.ts";
 import { House } from "../../fixtures/home/machines/house.ts";
 import { Room } from "../../fixtures/home/machines/room.ts";
-import { noSensors, vacationEdges } from "../../fixtures/home/stories/edges.ts";
+import { noSensors, reconnectBackoff, vacationEdges } from "../../fixtures/home/stories/edges.ts";
 import { manyRooms, ROOMS } from "../../fixtures/home/stories/load.ts";
 import {
   houseFirst,
@@ -10,6 +10,8 @@ import {
   roomFirst,
   roomsAddedMidTick,
   unusedOverdue,
+  unusedReturn,
+  vacationEndedUnused,
 } from "../../fixtures/home/stories/structure.ts";
 import {
   boost,
@@ -52,6 +54,15 @@ describe("paused timers (Turn R27, R19; Machines O8)", () => {
       poll: [running("m1", 70_000), running("t1", 123_000)],
       check: { dueAt: 360_000 },
     });
+  });
+
+  it.fails("Turn R19: a denied ending's admission is a lane change that re-checks paused, so the held poll resumes", async () => {
+    const run = await played(usual);
+
+    expect(evidenceOf(run, Room.E.Saved).map((e) => e._tag)).toContain("Denied");
+    expect(timersOf(run.checkpoints.saved.read(lounge))).toEqual(
+      expect.objectContaining({ poll: [running("m1", 70_000), running("t1", 123_000)] }),
+    );
   });
 
   it.fails("Turn R19: an unhandled ending's lane change still re-checks paused, so the held polls resume", async () => {
@@ -214,6 +225,34 @@ describe("an Effect Schedule stepped by the host (Turn R15, R16, I33, I34)", () 
     );
     expect(run.checkpoints["next step"].read(lounge)?.memory.checks).toEqual([1, 2]);
   });
+
+  it.fails("Turn R17, I22: on its return each overdue key's poll fires once, never a catch-up burst", async () => {
+    const run = await played(unusedReturn("home/unused-return"));
+
+    expect(turnsOf(run, Room.E.Polled)).toHaveLength(2);
+    expect(run.checkpoints.returned.read(lounge)?.memory.polls).toEqual({
+      m1: 1_200_000,
+      t1: 1_200_000,
+    });
+  });
+});
+
+describe("a host-stepped step past the timer limit (Turn R15)", () => {
+  it.fails("Turn R15 (fixtures.md E5): a step past 2^31 − 1 ms lets the firing that computed it commit, then ends the schedule with one issue", async () => {
+    const run = await played(reconnectBackoff);
+
+    expect(run.checkpoints["first reminder"].read(lounge)?.memory.notice).toBe(
+      "Reconnect the thermostat (reminder 1).",
+    );
+    expect(timersOf(run.checkpoints["first reminder"].read(lounge))).toEqual({
+      reconnect: { dueAt: 3_600_000 + 50 * 3_600_000 },
+    });
+    expect(run.checkpoints["second reminder"].read(lounge)?.memory.notice).toBe(
+      "Reconnect the thermostat (reminder 2).",
+    );
+    expect(timersOf(run.checkpoints["second reminder"].read(lounge))).toEqual({});
+    expect(run.checkpoints["second reminder"].read(lounge)?.issues).toHaveLength(1);
+  });
 });
 
 describe("restore of held timers (Turn R17, R27)", () => {
@@ -233,6 +272,21 @@ describe("restore of held timers (Turn R17, R27)", () => {
 
     expect(run.checkpoints["left finished"].read(lounge)?.memory.checks).toEqual([1, 2]);
     expect(run.checkpoints["step one again"].read(lounge)?.memory.checks).toEqual([1, 2, 3]);
+  });
+
+  it.fails("Machines O5 (Pending D40): a restored series continues at its saved attempt, so a reload adds no firing and the series ends after its third check", async () => {
+    const run = await played(reloadedPaused);
+
+    expect(run.checkpoints["series over"].read(lounge)?.memory.checks).toEqual([1, 2, 3]);
+    expect(timerNames(run.checkpoints["series over"].read(lounge))).not.toContain("check");
+  });
+
+  it.fails("Turn R17, R27: a saved hold whose reason is false at the restore resumes from its left", async () => {
+    const run = await played(vacationEndedUnused);
+
+    expect(timersOf(run.checkpoints["room after"].read(lounge))).toEqual({
+      poll: [running("m1", 40_000), running("t1", 95_000)],
+    });
   });
 
   it.fails("Turn R17, R27: a room opened before its house reads the restored vacation and holds its new key's full delay", async () => {

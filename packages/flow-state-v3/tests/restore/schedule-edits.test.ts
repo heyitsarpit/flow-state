@@ -1,6 +1,7 @@
 import { Duration, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Booking, WARN_MS } from "../../fixtures/wizard/machines/booking.ts";
+import { booking, wizardSetup } from "../../fixtures/wizard/app.ts";
 import { usual } from "../../fixtures/wizard/stories/usual.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { Fake, Story, turnsOf } from "../../src/host/testing/index.ts";
@@ -22,7 +23,14 @@ const Edited = definition({
   },
 });
 
-type Which = "reordered" | "added" | "removed" | "renamed" | "resent";
+type Which =
+  | "reordered"
+  | "added"
+  | "addedByEvent"
+  | "addedByRestart"
+  | "removed"
+  | "renamed"
+  | "resent";
 
 // The edited booking's machine: its hold's schedules as `which` edits them.
 const editedMachine = (which: Which) =>
@@ -54,6 +62,21 @@ const editedMachine = (which: Which) =>
     const schedules = {
       reordered: { warn, expire },
       added: { expire, warn, remind: { schedule: Duration.minutes(1), send: E.Reminded } },
+      addedByEvent: {
+        expire,
+        warn,
+        remind: { schedule: Duration.minutes(1), send: E.Reminded, armOn: [E.Extended] },
+      },
+      addedByRestart: {
+        expire,
+        warn,
+        remind: {
+          schedule: Duration.minutes(1),
+          send: E.Reminded,
+          restartOn: ({ memory }: { readonly memory: { readonly heldUntil: number } }) =>
+            memory.heldUntil,
+        },
+      },
       removed: { expire },
       renamed: { expire, nudge: warn },
       resent: { expire, warn },
@@ -131,6 +154,18 @@ describe("restore after the definition is edited (Turn R17; Machines O5)", () =>
     expect(turnsOf(run, Edited.E.Reminded)).toHaveLength(1);
   });
 
+  it("Turn R17, R14: a schedule added to the restored state that its entry would not arm (armOn an event, or restartOn alone) stays idle at the restore", async () => {
+    for (const which of ["addedByEvent", "addedByRestart"] as const) {
+      const { ref, run } = await restoredUnder(which);
+
+      expect(timersOf(run.checkpoints.restored.read(ref))).toEqual({
+        expire: { dueAt: 600_000 },
+        warn: { dueAt: 480_000 },
+      });
+      expect(turnsOf(run, Edited.E.Reminded)).toEqual([]);
+    }
+  });
+
   it("Turn R17: a removed schedule's saved deadline is dropped and never fires", async () => {
     const { ref, run } = await restoredUnder("removed");
 
@@ -154,5 +189,43 @@ describe("restore after the definition is edited (Turn R17; Machines O5)", () =>
     expect(run.checkpoints.ended.read(ref)?.state).toBe("EXPIRED");
     expect(turnsOf(run, Edited.E.Lapsed)).toHaveLength(1);
     expect(turnsOf(run, Edited.E.Expired)).toEqual([]);
+  });
+});
+
+// A booking record as a release on record format 4 saved it: held, with its two deadlines.
+const FORMAT_FOUR =
+  '{"baselines":{},"context":{},"format":4,"graph":{},"machine":"Wizard/Booking",' +
+  '"memory":{"heldUntil":600000,"slotId":"s-0900","warning":false},"name":"inspection",' +
+  '"schedules":[{"dueAt":600000,"name":"expire","send":"Expired"},' +
+  '{"dueAt":480000,"name":"warn","send":"Warned"}],"seen":{},"state":"HELD"}';
+
+describe("the step up from record format 4 (Turn R17)", () => {
+  it.fails("Turn R17: a format-4 record restores with its deadlines, and its next save is the current format with each timer's attempt", async () => {
+    const run = await played(
+      Story.app(wizardSetup, { id: "wizard/format-four", fixtures: [] })
+        .world(Fake.storage.put(RECORD, FORMAT_FOUR))
+        .reload()
+        .ensure(booking)
+        .checkpoint("restored")
+        .send(booking, Booking.E.DismissWarning())
+        .checkpoint("saved"),
+    );
+
+    expect(timersOf(run.checkpoints.restored.read(booking))).toEqual({
+      expire: { dueAt: 600_000 },
+      warn: { dueAt: 480_000 },
+    });
+
+    const saved = Schema.decodeUnknownSync(
+      Schema.fromJsonString(
+        Schema.Struct({ format: Schema.Number, schedules: Schema.Array(Schema.Unknown) }),
+      ),
+    )(run.checkpoints.saved.records.stored.get(RECORD) ?? "{}");
+
+    expect(saved.format).toBe(5);
+    expect(saved.schedules).toEqual([
+      expect.objectContaining({ name: "expire", dueAt: 600_000, attempt: 0 }),
+      expect.objectContaining({ name: "warn" }),
+    ]);
   });
 });

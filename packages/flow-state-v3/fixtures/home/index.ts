@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { benchStress, benchTurn, manifest } from "../manifest.ts";
 import { homeApp, homeSetup, roomOf } from "./app.ts";
-import { noSensors, vacationEdges } from "./stories/edges.ts";
+import { noSensors, reconnectBackoff, vacationEdges } from "./stories/edges.ts";
 import { manyRooms, seededStress } from "./stories/load.ts";
 import { samples } from "./stories/samples.ts";
 import {
@@ -10,6 +10,7 @@ import {
   roomFirst,
   roomsAddedMidTick,
   unusedOverdue,
+  vacationEndedUnused,
 } from "./stories/structure.ts";
 import { stories } from "./stories/usual.ts";
 
@@ -27,7 +28,9 @@ export const home = manifest({
     houseFirst,
     roomsAddedMidTick,
     unusedOverdue,
+    vacationEndedUnused,
     vacationEdges,
+    reconnectBackoff,
     noSensors,
     manyRooms,
     seededStress,

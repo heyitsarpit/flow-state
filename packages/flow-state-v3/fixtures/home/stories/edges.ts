@@ -29,6 +29,18 @@ export const vacationEdges = homeStory("home/vacation-edges")
   .checkpoint("longest fired");
 
 /**
+ * A room left offline: its reconnect reminders back off fifty times (an hour, then 50 hours); the
+ * third step, 2500 hours, is past the longest timer, so the second reminder lands and the
+ * reminders end with one issue.
+ */
+export const reconnectBackoff = homeStory("home/reconnect-backoff")
+  .ensure(lounge)
+  .advance("1 hour")
+  .checkpoint("first reminder")
+  .advance("50 hours")
+  .checkpoint("second reminder");
+
+/**
  * A room with no sensors: nothing polls, and a vacation holds nothing.
  */
 export const noSensors = homeStory("home/no-sensors")

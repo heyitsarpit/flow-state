@@ -1,5 +1,5 @@
 import { Duration, Option, Schedule, Schema } from "effect";
-import { definition, Flow, machine } from "../../../src/index.ts";
+import { definition, deny, Flow, machine } from "../../../src/index.ts";
 import { setTarget } from "../operations/writes.ts";
 import { House } from "./house.ts";
 
@@ -36,6 +36,7 @@ export const Room = definition({
   internalEvents: {
     Polled: { id: Schema.String, at: Schema.Number },
     Checked: { attempt: Schema.Number },
+    Nudged: { attempt: Schema.Number },
     BoostEnded: {},
     Saved: {},
     Refused: {},
@@ -67,7 +68,9 @@ export const Room = definition({
  * are held while the house is on vacation or a target is being applied, since a reading then is
  * stale, and motion keeps polling. Heating, it checks the temperature three times,
  * five minutes apart, from each new target; an open window stops the checks. A boost runs for
- * half an hour until cancelled. A save that lands after the room reached its target is not heard.
+ * half an hour until cancelled. A save that lands after the room reached its target is not heard;
+ * one that lands while heating clears a notice, and with none shown it is denied. Offline, it
+ * reminds the owner to reconnect, an hour first and fifty times longer each time.
  */
 export const RoomMachine = machine(Room, ({ S, E, O }) => {
   const saveTarget = {
@@ -114,7 +117,22 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
       Unsure: { updateMemory: () => ({ notice: "Check the thermostat." }) },
     },
     states: {
-      OFFLINE: { on: { Connected: S.ONLINE } },
+      OFFLINE: {
+        on: {
+          Connected: S.ONLINE,
+          Nudged: {
+            updateMemory: ({ event }) => ({
+              notice: `Reconnect the thermostat (reminder ${String(event.attempt)}).`,
+            }),
+          },
+        },
+        schedules: {
+          reconnect: {
+            schedule: Schedule.exponential("1 hour", 50),
+            send: E.Nudged.from(({ attempt }: { readonly attempt: number }) => ({ attempt })),
+          },
+        },
+      },
       ONLINE: {
         default: S.ONLINE.IDLE,
         on: {
@@ -149,7 +167,10 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
           HEATING: {
             on: {
               Reached: S.ONLINE.IDLE,
-              Saved: { updateMemory: () => ({ notice: "" }) },
+              Saved: {
+                guard: [({ memory }) => memory.notice !== "" || deny("NothingToClear")],
+                updateMemory: () => ({ notice: "" }),
+              },
               Checked: {
                 updateMemory: ({ event, memory }) => ({
                   checks: [...memory.checks, event.attempt],
