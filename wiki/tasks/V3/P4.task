@@ -4376,3 +4376,7 @@ tasks
             recommended: ask `when` with no previous value. Suite 1579 pass, 26 expected fail; 8 faults caught with
             --only, 3 new. Left: the release Stories are hand-written in tests/restore, not a fixture's releases.ts;
             `tests/refusals.ts` kept (a third shape, not a copy).
+        comment     2026-11-20T01:36:08Z
+            Decision (the user, 2026-11-20): Q1 A: a slot's first good value after a failed select asks when(current,
+            undefined, { memory }); previous is typed T | undefined; a reaction with no when fires. The fix lands red
+            first after T105's lead reaches review (one lead at a time).
