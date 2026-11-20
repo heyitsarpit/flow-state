@@ -1,5 +1,6 @@
 declare module "vite-plus/test" {
-  type TestBody = () => void | Promise<void>;
+  export type TestContext = { readonly skip: (note?: string) => never };
+  type TestBody = (context: TestContext) => void | Promise<void>;
   type Declare = (name: string, body: TestBody, timeout?: number) => void;
   type TestApi = Declare & { readonly skipIf: (condition: boolean) => Declare };
   type ItApi = TestApi & { readonly fails: Declare };
@@ -38,7 +39,11 @@ declare module "vite-plus/test" {
     objectContaining(expected: object): unknown;
   }
 
+  // Values the config's `provide` gives the tests, declared by merging into this interface.
+  export interface ProvidedContext {}
+
   export { expectTypeOf } from "expect-type";
+  export const inject: <K extends keyof ProvidedContext>(key: K) => ProvidedContext[K];
   export const describe: TestApi;
   export const expect: ExpectApi;
   export const it: ItApi;

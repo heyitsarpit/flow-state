@@ -346,8 +346,9 @@ requirements
                 Proposed (the T99 lead, 2026-11-19): the order is one plan the host runs. The core's
                 disposal ends with each live identity's terminal evidence (Finished), every consumer
                 before its providers (@plan.Inspection.O3); then the host closes its Owner tree once:
-                work (every call, store write, read and `runPromise`) before services, by Scope order,
-                so an interrupt cleanup never runs on released services.
+                work (every call, store write, read and `runPromise`), then a wanted forget
+                (@spec.Restore.R10), then services, the Store among them, by Scope order, so an
+                interrupt cleanup or a store use never runs on released services.
 
     R23  Disposal failure and the last write
         source  @plan.Runtime.O6.
@@ -359,7 +360,9 @@ requirements
                 every dispose, an actor's end quarantines its ref, an aborted `runPromise` rejects
                 with it. Runtime disposal waits at most two disposal bounds: the core's, for its
                 calls and writes (below), then one more for the close of its Owner tree, measured
-                from the core's end; past it dispose rejects CleanupFailed whose Cause holds
+                from the core's end, a forget's storage wait not counted (nothing bounds a wait on
+                storage), and a forget after a work close past it fails StorageFailure with no I/O,
+                since a task still closing may yet write; past it dispose rejects CleanupFailed whose Cause holds
                 CleanupOverdue, and each failure found later goes to the host's report with its
                 whole Cause. Decision (agent: the T99 lead, 2026-11-19): two bounds, not one shared
                 deadline. Why: work that uses the whole first bound would leave the close no time,
@@ -528,7 +531,8 @@ invariants
     I3  Every caller of ready() before disposal starts observes the same Exit, and the bootstrap runs at most once; a 
         ready() called after disposal starts rejects RuntimeDisposed. [@R2]
 
-    I4  No app service is acquired before persisted data is read and validated. [@R3]
+    I4  No actor starts before the services Layer, the Store in it, is acquired whole and persisted data is read
+        and validated. [@R3]
 
     I5  Before ready succeeds, no handle exists except React's pre-attach handles, and ensureActor and createActor 
         reject. [@R4]

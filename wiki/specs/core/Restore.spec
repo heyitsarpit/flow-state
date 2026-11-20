@@ -205,8 +205,11 @@ requirements
                 never claims success; so does a forget while the disposal's own write is still
                 unanswered, since that write may land after the deletion, and so does, with no I/O,
                 a forget by a Runtime that never booted or whose load failed (R9), which never owned
-                what it would delete. Ordinary disposal keeps saved data. A Runtime without
-                persistence performs no forget I/O.
+                what it would delete; and so does, with no I/O, a forget asked once the
+                disposal passed its forget, since the services, the Store among them, are then
+                released (@spec.Actors.R22). Every store use of a disposal, the forget's included,
+                runs before the services are released. Ordinary disposal keeps saved data. A
+                Runtime without persistence performs no forget I/O.
 
 open
     Q1  Executable checks are not built.

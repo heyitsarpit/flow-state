@@ -1,7 +1,7 @@
-import { Cause, Effect, Exit, Layer, Option, Predicate, Schema } from "effect";
+import { Cause, Effect, Exit, Layer, Option, Predicate, Schedule, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { attachInspector } from "../../src/host/inspect.ts";
-import { layerIndexedDb, Store } from "../../src/host/persistence.ts";
+import { layerIndexedDb, Store, StoreRefused } from "../../src/host/persistence.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
 
@@ -9,11 +9,14 @@ const Draft = definition({
   id: "StoreProvision/Draft",
   persist: true,
   states: ["EDITING"],
-  events: {},
+  events: { Type: { text: Schema.String } },
   memory: { text: Flow.initial(Schema.String, "") },
 });
 
-const DraftMachine = machine(Draft, ({ S }) => ({ default: S.EDITING }));
+const DraftMachine = machine(Draft, ({ S }) => ({
+  default: S.EDITING,
+  on: { Type: { updateMemory: ({ event }) => ({ text: event.text }) } },
+}));
 
 const drafts = app({ id: "store-provision", machines: { draft: DraftMachine } });
 
@@ -80,5 +83,116 @@ describe("the boot's order with the Store among the services (Actors R3, Q3)", (
 
     expect(order.slice(0, 2).toSorted()).toEqual(["service acquired", "store acquired"]);
     expect(order.slice(2)).toEqual(["loaded", "actor started"]);
+  });
+});
+
+// A store whose connection closes with the services, as IndexedDB's does: once its Layer's scope
+// is released every load and write refuses `closed`. Its records outlive the Layer, as a disk's do,
+// and `log` tells its uses and its close in order.
+const closingStore = (records: Map<string, string>, log: Array<string>) =>
+  Layer.effect(
+    Store,
+    Effect.acquireRelease(
+      Effect.sync(() => new Map([["open", true]])),
+      (connection) =>
+        Effect.sync(() => {
+          connection.set("open", false);
+          log.push("store closed");
+        }),
+    ).pipe(
+      Effect.map((connection) => {
+        const used = <A>(what: string, use: () => A) =>
+          Effect.suspend(() => {
+            const open = connection.get("open") === true;
+            log.push(open ? what : `${what} refused`);
+
+            return open ? Effect.sync(use) : Effect.fail(new StoreRefused({ reason: "closed" }));
+          });
+
+        return Store.of({
+          load: used("load", () => new Map(records)),
+          write: (batch) =>
+            used(batch.every((w) => Option.isNone(w.value)) ? "delete" : "write", () => {
+              for (const w of batch)
+                Option.match(w.value, {
+                  onNone: () => records.delete(w.key),
+                  onSome: (text) => records.set(w.key, text),
+                });
+            }),
+        });
+      }),
+    ),
+  );
+
+const outcomeOf = (exit: Exit.Exit<void, { readonly code: string }>) =>
+  Exit.isSuccess(exit)
+    ? "ran"
+    : Option.match(Cause.findErrorOption(exit.cause), {
+        onNone: () => "defect",
+        onSome: (e) => e.code,
+      });
+
+// A Runtime over the closing store, its draft typed and landed.
+const landedOver = async (records: Map<string, string>, log: Array<string>, captureMs: number) => {
+  const runtime = runtimeSetup({
+    app: drafts,
+    scope: "s",
+    persistence: { captureMs },
+    services: closingStore(records, log),
+  }).construct();
+
+  await Effect.runPromise(runtime.ready());
+  runtime.ensureActor(actorRef(DraftMachine, "d1")).send(Draft.E.Type({ text: "milk" }));
+
+  return runtime;
+};
+
+const landed = (records: Map<string, string>) =>
+  Effect.runPromise(
+    Effect.suspend(() => (records.size > 0 ? Effect.void : Effect.fail("not yet"))).pipe(
+      Effect.retry(Schedule.spaced("1 millis")),
+    ),
+  );
+
+describe("every store use of a disposal runs while the Store is open (Restore R10; Actors R22, R23)", () => {
+  it("Restore R10: dispose({ forget: true }) on a Store that closes with the services deletes every record before the Store closes", async () => {
+    const records = new Map<string, string>();
+    const log: Array<string> = [];
+    const runtime = await landedOver(records, log, 0);
+    await landed(records);
+
+    const exit = await Effect.runPromise(Effect.exit(runtime.dispose({ forget: true })));
+
+    expect(outcomeOf(exit)).toBe("ran");
+    expect([...records.keys()]).toEqual([]);
+    expect(log.slice(-3)).toEqual(["load", "delete", "store closed"]);
+  });
+
+  it("Actors R23: the disposal's last write lands on a Store that closes with the services, before it closes", async () => {
+    const records = new Map<string, string>();
+    const log: Array<string> = [];
+    const runtime = await landedOver(records, log, 60_000);
+
+    const exit = await Effect.runPromise(Effect.exit(runtime.dispose()));
+
+    expect(outcomeOf(exit)).toBe("ran");
+    expect([...records.values()].some((text) => text.includes("milk"))).toBe(true);
+    expect(log.slice(-2)).toEqual(["write", "store closed"]);
+  });
+
+  it("Restore R10: a forget asked once the disposal released the services fails StorageFailure with no store call", async () => {
+    const records = new Map<string, string>();
+    const log: Array<string> = [];
+    const runtime = await landedOver(records, log, 0);
+    await landed(records);
+    await Effect.runPromise(runtime.dispose());
+    const kept = new Map(records);
+    const used = log.length;
+
+    const exit = await Effect.runPromise(Effect.exit(runtime.dispose({ forget: true })));
+
+    expect(outcomeOf(exit)).toBe("StorageFailure");
+    expect(records).toEqual(kept);
+    expect(log.slice(used)).toEqual([]);
   });
 });

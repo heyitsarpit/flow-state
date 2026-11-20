@@ -13,7 +13,7 @@
 // opening a second tab in front of it and closing it again, Safari by a WebDriver new tab and a
 // switch back.
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as wait } from "node:timers/promises";
@@ -38,6 +38,15 @@ const processes = () =>
     });
 
 const alive = (pid: number) => processes().some((p) => p.pid === pid);
+
+// Notes a process this run started in the runner's pid file (FLOW_BROWSER_PIDS), as its pid and
+// command line, so the runner can hard-kill exactly it if this process is killed past its cap.
+const started = (pid: number | undefined) => {
+  const file = process.env["FLOW_BROWSER_PIDS"];
+  const command = processes().find((p) => p.pid === pid)?.command;
+  if (file === undefined || pid === undefined || command === undefined) return;
+  appendFileSync(file, `${JSON.stringify({ pid, command })}\n`);
+};
 
 // Ends one process this run started, by its exact pid, and waits up to 5 s for it to go.
 const end = async (pid: number, why: string) => {
@@ -131,6 +140,7 @@ const chrome = () => {
         ],
         { stdio: "ignore" },
       );
+      started(child.pid);
       console.log(`browser run: Chrome ${execFileSync(CHROME, ["--version"], { encoding: "utf8" }).trim()} (pid ${child.pid})`);
       const portFile = join(profile, "DevToolsActivePort");
       for (let n = 0; n < 100 && !existsSync(portFile); n++) await wait(100);
@@ -185,6 +195,7 @@ const safari = () => {
     open: async (url: string) => {
       for (const p of processes()) if (p.command.includes(SAFARI)) before.add(p.pid);
       driver = spawn(SAFARIDRIVER, ["-p", String(WEBDRIVER_PORT)], { stdio: "ignore" });
+      started(driver.pid);
       console.log(`browser run: safaridriver (pid ${driver.pid})`);
 
       for (let n = 0; n < 50; n++) {
@@ -205,6 +216,7 @@ const safari = () => {
       );
       if (launched.length !== 1) throw new Error(`expected one automation Safari, found ${launched.length}`);
       automation = launched[0]?.pid;
+      started(automation);
       console.log(`browser run: Safari ${created.capabilities.browserVersion ?? ""} (pid ${automation}, parent ${launched[0]?.ppid})`);
       await webdriver("POST", `/session/${session}/url`, { url });
       tests = await webdriver<string>("GET", `/session/${session}/window`);

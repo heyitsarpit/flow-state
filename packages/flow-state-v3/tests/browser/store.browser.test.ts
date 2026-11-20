@@ -1,4 +1,4 @@
-import { Cause, Context, Effect, Exit, Layer, Option, Scope } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Option, Schedule, Schema, Scope } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
   layerIndexedDb,
@@ -7,6 +7,7 @@ import {
   StoreScope,
 } from "../../src/host/persistence.ts";
 import { storeContract } from "../../src/host/testing/index.ts";
+import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 
 storeContract("layerIndexedDb in a real browser", layerIndexedDb());
 
@@ -177,6 +178,49 @@ describe("the IndexedDB adapter in a real browser (Persistence O1; WriteAhead R1
         );
 
         expect(counts).toEqual({ begun: 2, committed: 2 });
+      }),
+    ));
+});
+
+const Memo = definition({
+  id: "Browser/Memo",
+  persist: true,
+  states: ["OPEN"],
+  events: { Write: { text: Schema.String } },
+  memory: { text: Flow.initial(Schema.String, "") },
+});
+
+const MemoMachine = machine(Memo, ({ S }) => ({
+  default: S.OPEN,
+  on: { Write: { updateMemory: ({ event }) => ({ text: event.text }) } },
+}));
+
+const memos = app({ id: "browser-forget", machines: { memo: MemoMachine } });
+
+describe("a Runtime's disposal on real IndexedDB (Restore R10; Actors R22)", () => {
+  it("Restore R10: dispose({ forget: true }) deletes the scope's records from the page's IndexedDB before the Store closes", () =>
+    run(
+      Effect.gen(function* () {
+        const runtime = runtimeSetup({
+          app: memos,
+          scope: "s",
+          persistence: { captureMs: 0 },
+          services: layerIndexedDb({ database: "forget" }),
+        }).construct();
+
+        yield* runtime.ready();
+        runtime.ensureActor(actorRef(MemoMachine, "m1")).send(Memo.E.Write({ text: "milk" }));
+        const check = yield* storeOf(layerIndexedDb({ database: "forget" }), "browser-forget", "s");
+
+        yield* check.load.pipe(
+          Effect.flatMap((saved) => (saved.size > 0 ? Effect.void : Effect.fail("not landed"))),
+          Effect.retry({ schedule: Schedule.spaced("20 millis"), times: 100 }),
+        );
+
+        const disposed = yield* Effect.exit(runtime.dispose({ forget: true }));
+
+        expect(Exit.isSuccess(disposed)).toBe(true);
+        expect([...(yield* check.load).keys()]).toEqual([]);
       }),
     ));
 });

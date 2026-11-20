@@ -1,6 +1,6 @@
 import { commands } from "vite-plus/test/browser";
 import { Context, Duration, Effect, Layer, Schema } from "effect";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, inject, it, type TestContext } from "vite-plus/test";
 import { layerIndexedDb, Store, type StoreScope } from "../../src/host/persistence.ts";
 import { Story } from "../../src/host/testing/index.ts";
 import {
@@ -13,6 +13,13 @@ import {
   runtimeSetup,
   transaction,
 } from "../../src/index.ts";
+
+declare module "vite-plus/test" {
+  // oxlint-disable-next-line lint-bomb/use-consistent-type-definitions -- Vitest's provided values are declared by merging into its interface
+  interface ProvidedContext {
+    readonly flowBrowserAttended: boolean;
+  }
+}
 
 declare module "vitest/internal/browser" {
   // oxlint-disable-next-line lint-bomb/use-consistent-type-definitions -- Vitest's commands are declared by merging into its interface
@@ -115,8 +122,12 @@ const stored = (database: string) =>
   });
 
 // The guard before a hide is judged: the page starts shown. A window the system occludes, as
-// Safari's is while the display sleeps, starts hidden, and the case cannot be shown there.
-const shownAtStart = () => {
+// Safari's is while the display sleeps, starts hidden, and the case cannot be shown there: an
+// unattended run skips it as display-bound, and an attended run (the runner's --attended) fails.
+const shownAtStart = (context: TestContext) => {
+  if (document.visibilityState === "hidden" && !inject("flowBrowserAttended"))
+    context.skip("display-bound: the page starts hidden, so the display is asleep or locked");
+
   expect(`the page starts ${document.visibilityState}`).toBe("the page starts visible");
 };
 
@@ -129,8 +140,8 @@ const setupOver = (layer: Layer.Layer<Store, never, StoreScope>) =>
   });
 
 describe("the flush on hide in a real page (WriteAhead R10, I12, T5)", () => {
-  it("WriteAhead I12: a write waiting for the capture interval lands in IndexedDB when the page hides, long before the interval", async () => {
-    shownAtStart();
+  it("WriteAhead I12: a write waiting for the capture interval lands in IndexedDB when the page hides, long before the interval", async (context) => {
+    shownAtStart(context);
     const seen: Array<string> = [];
     const heard = () => void seen.push(document.visibilityState);
     document.addEventListener("visibilitychange", heard);
@@ -162,8 +173,8 @@ describe("the flush on hide in a real page (WriteAhead R10, I12, T5)", () => {
 });
 
 describe("the Fake page against a real page (WriteAhead R10, I12; Stories)", () => {
-  it("WriteAhead I12: changes at 0 s and 3 s land once at 5 s, the same batches on the Fake and on the real page; a hide issues one batch at once on both", async () => {
-    shownAtStart();
+  it("WriteAhead I12: changes at 0 s and 3 s land once at 5 s, the same batches on the Fake and on the real page; a hide issues one batch at once on both", async (context) => {
+    shownAtStart(context);
 
     const fake = await Story.app(setupOver(layerIndexedDb()), {
       id: "browser/fake-page",

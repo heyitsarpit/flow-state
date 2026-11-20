@@ -1,14 +1,16 @@
 import {
   Array as Arr,
   Cause,
+  Clock,
   type Context,
   Data,
   Deferred,
+  Duration,
   Effect,
   Exit,
   Fiber,
   Option,
-  type Scope,
+  Scope,
 } from "effect";
 import { RuntimeDefaults } from "../core/defaults.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
@@ -25,7 +27,7 @@ import {
   type Traced,
   waitAtMost,
 } from "./owners/owners.ts";
-import type { Store } from "./store.ts";
+import { Store, StoreRefused } from "./store.ts";
 import type { AnyDefinition } from "../definition.ts";
 
 /**
@@ -147,6 +149,31 @@ export const makeForget = (
   });
 
 /**
+ * The scope's Store as the Runtime holds it, whichever host gave it: once the services' Scope
+ * starts its release every load and write refuses `closed` without reaching the store, as a closed
+ * connection's would, so no stage of a close uses it late.
+ */
+export const heldUntilReleased = (given: Store["Service"], services: Scope.Scope) =>
+  Effect.gen(function* () {
+    const open = { services: true };
+
+    // Added after the services were built, so it runs first as they release.
+    yield* Scope.addFinalizer(
+      services,
+      Effect.sync(() => {
+        open.services = false;
+      }),
+    );
+
+    const guarded = <A>(use: Effect.Effect<A, StoreRefused>) =>
+      Effect.suspend(() =>
+        open.services ? use : Effect.fail(new StoreRefused({ reason: "closed" })),
+      );
+
+    return Store.of({ load: guarded(given.load), write: (batch) => guarded(given.write(batch)) });
+  });
+
+/**
  * A close that did not end within one disposal bound of the core's end: a cleanup that cannot be interrupted or
  * never returns. Dispose stops waiting for it; the close goes on, and each failure it finds later
  * goes to the host's report.
@@ -156,19 +183,22 @@ export class CleanupOverdue extends Data.TaggedError("CleanupOverdue")<Record<st
 /**
  * The Runtime's one close and the result every caller shares: once the core's life ends
  * (Disposed, or Stopped by a defect), the Runtime's work closes (every task interrupted and
- * awaited, each incarnation's and each runPromise's Owner first), then the root Scope releases the
- * services, then a wanted forget deletes the scope's records.
+ * awaited, each incarnation's and each runPromise's Owner first), then a wanted forget deletes the
+ * scope's records, then the root Scope releases the services, the Store among them.
  *
  * **Details**
  *
  * The close runs on its own fiber from construction, and every caller joins it, so it runs exactly
- * once whoever asks and however a caller leaves. Once the core's life ends (within its own
- * disposal bound), the Owner tree's close is waited for at most one more bound; past it the close
- * keeps running, dispose rejects CleanupFailed holding `CleanupOverdue`, and each later failure
- * goes to the host's report. Each failed cleanup the close hears (a task's, a
- * services finalizer's, a quarantine no ensure reported) fails it with one CleanupFailed keeping
- * every Cause; a defect that stopped the Runtime is its failure instead, with every cleanup's Cause
- * beside it. Each failure was an Issue when it was found.
+ * once whoever asks and however a caller leaves. Every use of the Store, the forget's included,
+ * comes before the services' release: a forget asked once the close passed its forget fails
+ * StorageFailure with no store call. Once the core's life ends (within its own disposal bound), the
+ * Owner tree's close is waited for at most one more bound, the forget's storage wait not counted;
+ * past it the close keeps running, dispose rejects CleanupFailed holding `CleanupOverdue`, and each
+ * later failure goes to the host's report. A forget after a work close past its bound fails
+ * StorageFailure with no store call: a task still closing may yet write. Each failed cleanup the
+ * close hears (a task's, a services finalizer's, a quarantine no ensure reported) fails it with
+ * one CleanupFailed keeping every Cause; a defect that stopped the Runtime is its failure instead,
+ * with every cleanup's Cause beside it. Each failure was an Issue when it was found.
  */
 export const makeClose = (
   driver: Driver,
@@ -181,8 +211,7 @@ export const makeClose = (
   // Whether a dispose asked to forget before the close reached its forget.
   const wanted = { forget: false };
 
-  const tree = Effect.gen(function* () {
-    yield* driver.work.end(report.hear);
+  const services = Effect.gen(function* () {
     const released = yield* releaseTraced(root, traced, "root", 0);
 
     for (const _ of released) driver.input(Input.CleanupFailed());
@@ -202,9 +231,28 @@ export const makeClose = (
 
   const close = Effect.gen(function* () {
     const ended = yield* Effect.exit(driver.ended);
-    const waited = yield* waitAtMost(detach(tree, context), RuntimeDefaults.disposalBound);
+    const bound = Duration.toMillis(RuntimeDefaults.disposalBound);
+    const started = yield* Clock.currentTimeMillis;
 
-    const overdue = Option.isNone(waited) ? [Cause.fail(new CleanupOverdue({}))] : [];
+    // The work closes first; the services wait for it, so they release after it however long it
+    // takes, and after the forget.
+    const work = detach(driver.work.end(report.hear), context);
+    const workClosed = Option.isSome(yield* waitAtMost(work, Duration.millis(bound)));
+    const spent = (yield* Clock.currentTimeMillis) - started;
+
+    const forgot = wanted.forget;
+
+    // A forget after a work close past its bound cannot know no task still closing will write.
+    const deletion = () => (workClosed ? forget() : Effect.fail(forgetFailed));
+    const forgotten = forgot ? yield* Effect.exit(deletion()) : Exit.void;
+
+    const released = detach(Effect.andThen(Fiber.await(work), services), context);
+
+    const servicesClosed =
+      workClosed &&
+      Option.isSome(yield* waitAtMost(released, Duration.millis(Math.max(0, bound - spent))));
+
+    const overdue = servicesClosed ? [] : [Cause.fail(new CleanupOverdue({}))];
 
     if (overdue.length > 0) {
       driver.input(Input.CleanupFailed());
@@ -237,8 +285,6 @@ export const makeClose = (
     }
 
     const failures = [...report.late(), ...overdue, ...driver.unheard()];
-    const forgot = wanted.forget;
-    const forgotten = forgot ? yield* Effect.exit(forget()) : Exit.void;
 
     const closed = Arr.match(failures, {
       onEmpty: () => ended,
@@ -256,19 +302,8 @@ export const makeClose = (
 
   const shared = detach(close, context);
 
-  // A forget asked for once the close passed its own: one shared deletion of its own.
-  const late = { forget: Option.none<Fiber.Fiber<void, FlowError>>() };
-
-  const lateForget = () =>
-    Option.getOrElse(late.forget, () => {
-      const fiber = detach(Effect.suspend(forget), context);
-      late.forget = Option.some(fiber);
-
-      return fiber;
-    });
-
   return {
-    // Asks the close to forget the scope's records as its last stage.
+    // Asks the close to forget the scope's records before it releases the services.
     wantForget: () => {
       wanted.forget = true;
     },
@@ -277,9 +312,8 @@ export const makeClose = (
       Effect.flatMap(Fiber.join(shared), ({ closed, forgot, forgotten }) => {
         if (!forgetting) return closed;
 
-        const forgetResult = forgot ? Effect.succeed(forgotten) : Fiber.await(lateForget());
-
-        return Effect.flatMap(forgetResult, (forgetExit) => Exit.asVoidAll([closed, forgetExit]));
+        // A forget asked once the close passed its own finds the Store released.
+        return Exit.asVoidAll([closed, forgot ? forgotten : Exit.fail(forgetFailed)]);
       }),
   };
 };

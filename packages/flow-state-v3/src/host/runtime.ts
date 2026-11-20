@@ -15,7 +15,7 @@ import type { Evidence } from "../core/evidence.ts";
 import { dependentsOf, Input } from "../core/step.ts";
 import { endedBy, isStopped, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
-import { makeClose, makeForget, type Unsettled, unsettledOf } from "./close.ts";
+import { heldUntilReleased, makeClose, makeForget, type Unsettled, unsettledOf } from "./close.ts";
 import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
 import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
 import type { CheckedEntries } from "./context-refs.ts";
@@ -321,7 +321,14 @@ export const buildRuntime = <R = never, A extends App = App>(
       );
 
     store = persistence
-      ? Option.orElse(Context.getOption(services, Store), () => Context.getOption(platform, Store))
+      ? yield* Effect.transposeOption(
+          Option.map(
+            Option.orElse(Context.getOption(services, Store), () =>
+              Context.getOption(platform, Store),
+            ),
+            (found) => heldUntilReleased(found, servicesScope),
+          ),
+        )
       : Option.none();
 
     if (persistence && Option.isNone(store)) return yield* failed(noStore);

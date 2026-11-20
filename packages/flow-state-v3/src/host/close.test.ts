@@ -227,6 +227,25 @@ describe("a cleanup that does not end (Actors R22, R23)", () => {
     assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime)), ["CleanupFailed"]);
   });
 
+  it("Actors R23, Restore R10: a forget after a work close past its bound fails StorageFailure beside CleanupFailed and deletes nothing", () => {
+    const store = new Map<string, string>();
+    const tab = platformOver(store, 1);
+    const runtime = readyOver(tab.platform, ringingBell(Effect.never));
+    runtime.ensureActor(note).send({ _tag: "Write", text: "milk" });
+    runtime.ensureActor(front).send({ _tag: "Ring", tone: "ding" });
+    tab.settle();
+    const kept = new Map(store);
+
+    assert.ok(kept.size > 0, "the note landed");
+
+    assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime, { forget: true })), [
+      "CleanupFailed",
+      "StorageFailure",
+    ]);
+
+    assert.deepStrictEqual(store, kept);
+  });
+
   it("Actors R22, R23: a services finalizer that never ends is waited for no longer than the bound; dispose rejects CleanupFailed", () => {
     const tab = platformOver(new Map(), 1);
 

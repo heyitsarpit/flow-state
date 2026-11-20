@@ -557,3 +557,12 @@ note 2026-11-20T02:50:40Z
 note 2026-11-20T03:08:04Z
     @spec.Turn.R22: a first good value after a failed select is judged by when(current, undefined, { memory }); no when
     still fires (user, Q1 A; @task.V3.T107). The skipped when made up an ending. Reverse: skip when for a first value.
+
+note 2026-11-20T06:35:38Z
+    @spec.Restore.R10, @spec.Actors.R22, R23: forget runs after the work closes, before the services (the Store)
+    release; asked later, or after an overdue work close, it fails StorageFailure with no I/O; its wait is outside the
+    bound (@task.V3.T58: forget after release deleted nothing). Reverse: forget after release.
+
+note 2026-11-20T06:35:38Z
+    @spec.Actors.I4: matches revised R3: no actor starts before the whole services Layer, the Store in it, is acquired
+    and storage read and validated (@task.V3.T58 close review). Reverse: 'no app service before load'.
