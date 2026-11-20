@@ -330,12 +330,12 @@ const resolve = (action: Action, read: { readonly memory: Values; readonly event
       ),
   });
 
-const delayOf = (schedule: Schedule, memory: Values) =>
+const delayOf = (schedule: Schedule, memory: Values, now: number) =>
   Delay.$match(schedule.delay, {
     Fixed: ({ ms }) => Result.succeed(ms),
     Computed: ({ ms }) =>
       Result.flatMap(
-        call(ms.slot, () => ms.run({ memory })),
+        call(ms.slot, () => ms.run({ memory, now })),
         (value) =>
           Number.isFinite(value) && value >= 0 && value <= TIMER_LIMIT_MS
             ? Result.succeed(value)
@@ -349,7 +349,7 @@ const NO_SCHEDULES: ReadonlyArray<Schedule> = [];
 /**
  * The schedules a turn arms on the states active after it, outermost first: on each entered
  * state those armed on entry, and on every active state each one that lists the event, with its
- * delay from the after memory; an invalid delay is its slot's defect.
+ * delay from the after memory and the turn's now; an invalid delay is its slot's defect.
  */
 export const armingsOf = (
   compiled: Compiled,
@@ -357,6 +357,7 @@ export const armingsOf = (
   entered: ReadonlySet<string>,
   tag: string,
   memory: Values,
+  now: number,
 ) => {
   const armed: Array<Arming> = [];
   const refused: Array<string> = [];
@@ -367,7 +368,7 @@ export const armingsOf = (
   for (const path of chainOf(leaf))
     for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
       if (arms(path, schedule)) {
-        const ms = delayOf(schedule, memory);
+        const ms = delayOf(schedule, memory, now);
 
         if (Result.isFailure(ms)) refused.push(ms.failure.slot);
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one arming per schedule armed: the turn's result
@@ -440,7 +441,7 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
   const move = moveFor(alternative, handler, input);
   const leaf = Option.match(move, { onNone: () => input.state, onSome: (m) => m.leaf });
   const entered = new Set(Option.match(move, { onNone: () => [], onSome: (m) => m.enters }));
-  const arm = armingsOf(input.compiled, leaf, entered, input.tag, memory);
+  const arm = armingsOf(input.compiled, leaf, entered, input.tag, memory, input.now);
   const [refused] = arm.refused;
 
   if (refused !== undefined) return TurnResult.Refused({ code: "InvalidTurn", slot: refused });

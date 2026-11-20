@@ -123,11 +123,12 @@ export type Alternative = {
 export type Level = ReadonlyMap<string, ReadonlyArray<Alternative>>;
 
 /**
- * When a schedule fires after its arming: a fixed delay, or one computed from the after memory.
+ * When a schedule fires after its arming: a fixed delay, or one computed from the after memory and
+ * the arming turn's now.
  */
 export type Delay = Data.TaggedEnum<{
   Fixed: { ms: number };
-  Computed: { ms: Slot<(input: { readonly memory: Values }) => number> };
+  Computed: { ms: Slot<(input: { readonly memory: Values; readonly now: number }) => number> };
 }>;
 
 /**

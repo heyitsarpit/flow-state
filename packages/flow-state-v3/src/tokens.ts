@@ -1,4 +1,4 @@
-import type { Duration, Option, Schema } from "effect";
+import type { Duration, Option, Schedule, Schema } from "effect";
 import type { Action, Denial, Guard, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import type { BoundInput, BoundKey, Ending } from "./contract.ts";
@@ -210,10 +210,72 @@ export type On<
   readonly [K in keyof Ev]?: Handler<M, PayloadOf<Ev[K]>, S, W, Id, L>;
 };
 
+/**
+ * A schedule's key: the record its `keys` returned for one timer, identity only.
+ */
+export type ScheduleKey = Readonly<Record<string, string>>;
+
+/**
+ * What a schedule's send maps from: the firing's metadata, times in Runtime Clock milliseconds.
+ */
+export type ScheduleMetadata = {
+  readonly name: string;
+  readonly attempt: number;
+  readonly armedAt: number;
+  readonly dueAt: number;
+  readonly firedAt: number;
+  // FLOW_STATE_ALLOW_UNKNOWN: an Effect Schedule's output, whatever its type; a Duration has none.
+  readonly output: unknown;
+  readonly key: ScheduleKey;
+};
+
+// What a schedule's functions read: its key (keyed schedules), the after memory, the context and,
+// for the delay, the arming turn's now.
+type ScheduleInput<M> = {
+  readonly key: ScheduleKey;
+  readonly memory: M;
+  readonly context: Values;
+  readonly now: number;
+};
+
+// The write lanes a schedule's keys and pause reasons read, by `O.x.get`.
+type ScheduleOperations = ReadonlyMap<never, ReadonlyMap<string, Row>>;
+
+// An event of this definition in `armOn` or `disarmOn`: its token.
+type ScheduleEvent<Ev, Id extends string> = {
+  readonly tag: keyof Ev & string;
+  readonly "~definition"?: Id;
+};
+
+// FLOW_STATE_ALLOW_UNKNOWN: any Effect Schedule, whatever its output; the host reads only its delays.
+type AnySchedule = Schedule.Schedule<unknown>;
+
 export type ScheduleConfig<M, Ev, Id extends string = string> = {
-  readonly schedule: Duration.Input | ((input: { readonly memory: M }) => number);
-  readonly send: { readonly tag: keyof Ev & string } & Ending<void, Id>;
-  readonly armOn?: ReadonlyArray<(keyof Ev & string) | Entry>;
+  readonly schedule:
+    | Duration.Input
+    | AnySchedule
+    | ((input: ScheduleInput<M>) => Duration.Input | AnySchedule);
+  readonly send: (
+    | { readonly tag: keyof Ev & string }
+    | { readonly ending: { readonly event: keyof Ev & string } }
+  ) &
+    Ending<ScheduleMetadata, Id>;
+  readonly armOn?: ReadonlyArray<(keyof Ev & string) | ScheduleEvent<Ev, Id> | Entry>;
+  readonly disarmOn?: ReadonlyArray<ScheduleEvent<Ev, Id>>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a selection of any type, compared by Equal.equals.
+  readonly restartOn?: (input: Omit<ScheduleInput<M>, "now">) => unknown;
+  readonly keys?: (input: {
+    readonly memory: M;
+    readonly operations: ScheduleOperations;
+  }) => ReadonlyArray<ScheduleKey>;
+  readonly paused?: Readonly<
+    Record<
+      string,
+      (
+        input: Omit<ScheduleInput<M>, "now"> & { readonly operations: ScheduleOperations },
+      ) => boolean
+    >
+  >;
 };
 
 export type StateConfig<

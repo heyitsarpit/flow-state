@@ -559,7 +559,7 @@ tasks
             Done (orchestrator): second close review PASS at 2f2e34de; the user read T105's page (2026-11-20).
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]

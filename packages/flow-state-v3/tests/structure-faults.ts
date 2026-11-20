@@ -390,7 +390,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/config.ts",
-        find: "armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, EntryToken]))),",
+        find: "armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, EventToken, EntryToken]))),",
         replace: "armOn: Schema.optionalKey(Schema.Array(Schema.Unknown)),",
       },
     ],

@@ -1,5 +1,6 @@
 import { cells } from "./cells/index.ts";
 import { commandPalette } from "./command-palette/index.ts";
+import { home } from "./home/index.ts";
 import { lanes } from "./lanes/index.ts";
 import type { Manifest } from "./manifest.ts";
 import { numberInput } from "./number-input/index.ts";
@@ -9,6 +10,7 @@ import { session } from "./session/index.ts";
 import { signIn } from "./sign-in/index.ts";
 import { sync } from "./sync/index.ts";
 import { transfers } from "./transfers/index.ts";
+import { wizard } from "./wizard/index.ts";
 
 export type { Manifest, Reach } from "./manifest.ts";
 
@@ -19,6 +21,7 @@ export type { Manifest, Reach } from "./manifest.ts";
 export const manifests: ReadonlyArray<Manifest> = [
   cells,
   commandPalette,
+  home,
   lanes,
   numberInput,
   shop,
@@ -27,4 +30,5 @@ export const manifests: ReadonlyArray<Manifest> = [
   signIn,
   sync,
   transfers,
+  wizard,
 ];

@@ -204,7 +204,14 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     const incarnation = Option.match(from, {
       onNone: () => {
-        const arm = armingsOf(compiled, base.state, new Set(chainOf(base.state)), "", base.memory);
+        const arm = armingsOf(
+          compiled,
+          base.state,
+          new Set(chainOf(base.state)),
+          "",
+          base.memory,
+          tx.env.now,
+        );
 
         // A delay refused at creation has no turn to refuse: it is an issue of the creation, named
         // by its schedule's slot, and the rest arm.

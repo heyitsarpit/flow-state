@@ -5,6 +5,7 @@ import {
   Option,
   Predicate,
   Result,
+  Schedule,
   Schema,
   SchemaAST,
   SchemaIssue,
@@ -206,13 +207,18 @@ const Delay = Schema.Union([
   Schema.String,
   Schema.Tuple([Schema.Number, Schema.Number]),
   Schema.declare(Duration.isDuration),
+  Schema.declare(Schedule.isSchedule),
   DurationObject,
 ]).annotate({ help: 'Give a schedule a Duration input, such as "5 seconds" or { seconds: 5 }.' });
 
 const ScheduleEntry = Schema.Struct({
   schedule: Delay,
   send: Ending,
-  armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, EntryToken]))),
+  armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, EventToken, EntryToken]))),
+  disarmOn: Schema.optionalKey(Schema.Array(EventToken)),
+  restartOn: Schema.optionalKey(Fn),
+  keys: Schema.optionalKey(Fn),
+  paused: Schema.optionalKey(Schema.Record(Schema.String, Fn)),
 }).annotate({
   help: "Write a schedule as { schedule, send: E.X, armOn: [event names or Flow.entry] }.",
 });

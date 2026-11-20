@@ -1,5 +1,6 @@
 import { TIMER_LIMIT_MS } from "./core/defaults.ts";
-import { Duration, Option, Predicate } from "effect";
+import { Duration, Option, Predicate, Schedule as EffectSchedule } from "effect";
+import type { ErasedEnding } from "./contract.ts";
 import {
   Action,
   type Alternative,
@@ -301,7 +302,7 @@ const scheduleOf = (
     );
   else compile.scheduleNames.set(name, slotOf(at));
 
-  if (!compile.sends.has(config.send))
+  if (!compile.sends.has(tokenOf(config.send)))
     compile.findings.push(foreign([...at, "send"], "the send event"));
 
   const armOn = config.armOn ?? [];
@@ -314,16 +315,44 @@ const scheduleOf = (
 
   const delay = config.schedule;
 
+  // Not built yet: a keyed schedule and an Effect Schedule never arm, and a computed delay reads
+  // no key or context and is refused unless it is a number.
+  const unbuilt = config.keys !== undefined || EffectSchedule.isSchedule(delay);
+
   return {
     name,
     send: config.send.ending.event,
     delay: Predicate.isFunction(delay)
-      ? Delay.Computed({ ms: { slot: slotOf([...at, "schedule"]), run: delay } })
-      : Delay.Fixed({ ms: fixedDelay(compile, delay, at) }),
-    armOn: events,
-    onEntry: armOn.length === 0 || events.length < armOn.length,
+      ? Delay.Computed({
+          ms: {
+            slot: slotOf([...at, "schedule"]),
+            run: ({ memory, now }) => {
+              const value = delay({ key: {}, memory, context: {}, now });
+
+              return Predicate.isNumber(value) ? value : Number.NaN;
+            },
+          },
+        })
+      : Delay.Fixed({ ms: fixedMs(compile, delay, at) }),
+    armOn: unbuilt ? [] : events,
+    onEntry: !unbuilt && (armOn.length === 0 || events.length < armOn.length),
   };
 };
+
+// A fixed delay's ms; an Effect Schedule, not stepped yet, has none.
+const fixedMs = (
+  compile: Compile,
+  // FLOW_STATE_ALLOW_UNKNOWN: any Effect Schedule, whatever its output.
+  delay: Duration.Input | EffectSchedule.Schedule<unknown>,
+  at: Path,
+) => (EffectSchedule.isSchedule(delay) ? 0 : fixedDelay(compile, delay, at));
+
+/**
+ * The token an ending maps onto: a mapping's own token (`E.X.from(f)`), or the token itself.
+ */
+export const tokenOf = (ending: ErasedEnding) =>
+  // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own tokens by mark until its decode checks them by identity
+  Predicate.hasProperty(ending, "~token") ? ending["~token"] : ending;
 
 const nameOf = (here: string) => (here === "" ? "the root" : here);
 

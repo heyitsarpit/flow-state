@@ -228,6 +228,20 @@ describe("run rules over crafted runs", () => {
     ]);
   });
 
+  it.fails("Turn I14: an event's refused turn is judged on its own actor's records, not on another actor's later Minted and Sent", async () => {
+    const other = { machine: "Lanes/serialize", name: "serialize-1" };
+    const queued = "att-6d61696e3a31-2";
+
+    const run = await crafted([
+      at(1)(Evidence.Issue({ code: "InvalidTurn", ending: Option.none(), slot: Option.none() })),
+      at(1)(Evidence.Published({ actor: who, state: "IDLE", memory: {} })),
+      at(1)(Evidence.Minted({ operation: "sync", attempt: queued, actor: other, key: {} })),
+      at(1)(Evidence.Sent({ operation: "sync", attempt: queued })),
+    ]);
+
+    expect(refusedTurnIssueOnly.breaches(run)).toEqual([]);
+  });
+
   it("WriteLanes I6: a request carrying an id of an Attempt's shape that was never minted is a breach", async () => {
     const run = await crafted(
       [at(1)(Evidence.Minted({ operation: "pay", attempt, actor: who, key: {} }))],
