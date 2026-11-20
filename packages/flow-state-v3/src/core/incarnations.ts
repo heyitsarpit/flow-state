@@ -214,8 +214,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
         return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.armed);
       },
-      // A saved schedule arms again only while a state of the record's chain declares it: an
-      // inactive state's schedule is stopped.
       onSome: (record) => {
         const declared = new Set(
           chainOf(record.state).flatMap((path) =>

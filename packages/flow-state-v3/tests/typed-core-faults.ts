@@ -173,7 +173,7 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/disposal.ts",
-        find: "ready.splice(ready.findLastIndex((i) => i.started > provider.started) + 1, 0, provider);",
+        find: "ready.splice(ready.findLastIndex((i) => byStart(i, provider) > 0) + 1, 0, provider);",
         replace: "ready.unshift(provider);",
       },
     ],

@@ -2,6 +2,7 @@ import {
   Duration,
   Layer,
   Match,
+  Option,
   Predicate,
   Result,
   Schema,
@@ -242,11 +243,18 @@ const MachineBody = Schema.Struct({
   states: Schema.optionalKey(Schema.Record(Schema.String, Schema.UndefinedOr(StateBody))),
 }).annotate({ help: "A machine body declares default, on, onContext and states." });
 
-const helpOf = (ast: SchemaAST.AST, inherited: string) => {
-  const help = SchemaAST.resolve(ast)?.["help"];
+// FLOW_STATE_ALLOW_UNKNOWN: an annotation's value is whatever its Schema was annotated with.
+const helpIn = (
+  annotations: Option.Option<{ readonly [key: string]: unknown }>,
+  inherited: string,
+) => {
+  const help = Option.getOrUndefined(Option.map(annotations, (a) => a["help"]));
 
   return Predicate.isString(help) ? help : inherited;
 };
+
+const helpOf = (ast: SchemaAST.AST, inherited: string) =>
+  helpIn(Option.fromUndefinedOr(SchemaAST.resolve(ast)), inherited);
 
 const where = (path: ReadonlyArray<string | number>) =>
   path.length === 0 ? "the configuration" : path.join(".");
@@ -279,11 +287,12 @@ const findingsOf = (
       invalid(path, "UnknownField", `${where(path)} is not a field here`, help),
     ],
     InvalidType: (wrong) => wrongKind(path, helpOf(wrong.ast, help)),
-    Filter: (filter) => {
-      const own = filter.filter.annotations?.["help"];
-
-      return findingsOf(filter.issue, path, Predicate.isString(own) ? own : help);
-    },
+    Filter: (filter) =>
+      findingsOf(
+        filter.issue,
+        path,
+        helpIn(Option.fromUndefinedOr(filter.filter.annotations), help),
+      ),
     InvalidValue: () => wrongKind(path, help),
     Forbidden: () => wrongKind(path, help),
     OneOf: () => wrongKind(path, help),

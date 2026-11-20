@@ -189,7 +189,6 @@ export const makeServe = (
       owns: (activation) => owning.has(activation),
     });
 
-    // An ending the turn does not take still settled its lane: the lane's change is published.
     const settled = () => {
       if (Option.isSome(route.ending)) publish(incarnation);
 

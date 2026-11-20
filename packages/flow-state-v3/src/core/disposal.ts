@@ -172,7 +172,7 @@ const consumersFirst = (world: World) => {
       const provider = world.incarnations.get(key);
 
       if (left === 0 && provider !== undefined)
-        ready.splice(ready.findLastIndex((i) => i.started > provider.started) + 1, 0, provider);
+        ready.splice(ready.findLastIndex((i) => byStart(i, provider) > 0) + 1, 0, provider);
     }
   }
 

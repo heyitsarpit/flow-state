@@ -511,9 +511,7 @@ const levelsOf = (input: TurnInput) => {
   return written ? levels : Option.toArray(implicit(input));
 };
 
-// The turn one alternative's guard verdict ends: accepted on a pass, refused on a defect, and none
-// on a decline, whose reason is kept.
-const endedBy = (
+const resultOf = (
   verdict: Verdict,
   alternative: Alternative,
   handler: string,
@@ -551,7 +549,7 @@ export const runTurn = (input: TurnInput): TurnResult => {
   for (const level of levels)
     for (const alternative of level.alternatives) {
       const verdict = firstDecline(alternative, level.node, input, read);
-      const ended = endedBy(verdict, alternative, level.node, input, reasons);
+      const ended = resultOf(verdict, alternative, level.node, input, reasons);
 
       if (Option.isSome(ended)) return ended.value;
     }

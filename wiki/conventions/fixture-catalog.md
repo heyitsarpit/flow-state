@@ -241,6 +241,12 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
       `shop/reloaded-mid-add`.
     - [x] S6 cart first, refused `BlockedByDependents` while the badge and flow are bound (Actors R20, Stories R3).
       built: the `cartFirst` builder.
+    - [x] Start order (Actors R28; @task.V3.T105): dependents, a wave's consumers, graces judged in one step and
+      the Runtime's disposal, each oldest first. No source. built: the `cartFirst` builder,
+      `shop/sign-out-mid-checkout`, `shop/flow-alone`.
+    - [x] A held order answering in a state whose guard denies it publishes its lane change (@plan.Pending.D2). No
+      source. built: `shop/order-denied-late`. A refused ending kept an hour on with no reload
+      (@plan.Pending.D4). No source. built: `shop/busy-kept-an-hour`.
     - [x] S6: a checkout flow bound after its cart has a line begins: inverted (Turn R12; its mirror's baseline is
       silent, Turn R22), owner @task.V3.T57. built: `shop/flow-bound-late`.
     - [ ] S6 with a challenge open. left: @task.V3.T57, needs `subroutine` (`ThreeDSecure`).
@@ -394,7 +400,8 @@ A sync client whose three remotes differ only in lane policy. Kept as it is. Sou
     next. built: `tests/lanes/lanes.test.ts` (20,000 sends).
   - [x] **Structure:** S3: one key under two actors, under L3. built: `lanes/one-key-two-actors`. S6 × {disposed,
     reloaded} with queued, held and running commits of several keys. built: `lanes/disposed-with-work`,
-    `lanes/reloaded-with-work`.
+    `lanes/reloaded-with-work`. L3: a head answering inside the disposal's bound promotes nothing
+    (@plan.Pending.D3). No source. built: `lanes/answered-while-disposing`.
   - [x] **Edges:** E3: long keys and strings (`longCommit`, a million characters, timed), in the stress
     samples; `Unencodable` (have).
     built: `lanes/stress-36` and the stress samples.
@@ -699,7 +706,9 @@ not checked here).
   - [x] **Structure:** S3 × 16 accounts under L4. built: `sign-in/stress-many-sessions`. S6 × {screen first,
     forgotten, reloaded}. built: `sign-in/screen-first`, `sign-in/sign-out-forgets`, `sign-in/reloaded-mid-handle`.
     Session first, refused `BlockedByDependents` while its return is bound (Actors R20). built: the `sessionFirst`
-    builder.
+    builder. A new account reloaded while choosing, its handle derived, never stored (Compile R5; @task.V3.T105).
+    No source. built: `sign-in/reloaded-choosing`. S3 × 16 new accounts choosing under L4. built:
+    `sign-in/stress-many-new-sessions`. Samples `auth-session-email-edges`: E1 and E3 emails choose a handle.
   - [x] **Structure:** S6: a return saved after its session signed in returns at once: inverted (Turn R12), owner
     @task.V3.T57. built: `sign-in/return-saved-late`.
   - [ ] **Structure:** S6 while `Reauth` runs, and S9 inside `Reauth`. left: @task.V3.T57, needs `subroutine`.
@@ -993,7 +1002,8 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
   - [x] S6 × {room disposed, room reloaded} while its tick is armed. built: `player/room-disposed`,
     `player/room-reloaded`.
   - [x] E1: an empty room. built: `player/empty-room`. E3 corrected: a room is its player's name, not a key; a long
-    room name round-trips, timed. built: `player/long-room` (a million characters).
+    room name round-trips, timed. built: `player/long-room` (a million characters). Samples `player-room-edges`:
+    both rooms play, pause, resume and stop; the label is derived where it is shown (Compile R5).
   - [x] A seek far past any track and a negative seek, taken as given (the player keeps no track length). built:
     `player/seek-edges`.
   - [x] Sleep timer (@task.V3.T81): set for half an hour, a millisecond short and at it; cancelled. built:
