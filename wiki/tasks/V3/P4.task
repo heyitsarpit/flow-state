@@ -312,6 +312,46 @@ tasks
             Chrome's hide or uses headed Chrome for that case. D9's merge into Package waits for the user. The lead's
             own calls (hide()/show() Story steps, src/host/persistence.ts, no load timeout) go to the
             requirements review.
+        comment     2026-11-20T04:14:26Z
+            Requirements review (independent lead): PASS, no blocking finding; fold the items below into the
+            requirements before code. Suite green (1611 passed, 30 expected fail); the hidden-page loop red re-run
+            flipped from a scratch copy: "expected 20 to be 1", and 1 then 2 on a visible page, so it fails for the
+            stated reason.
+
+              - Boot order: a Store provided by the services Layer can't be loaded before app services start
+                (code:packages/flow-state-v3/src/host/runtime.ts#boot loads, then builds services), which @spec.Actors
+                R3 requires and Q3 leaves open. Requirement 1 decides it by Q3's own outcome (two-phase build or "whole
+                Layer, then validate", logged in the Spec). Coverage: a Story where a service's acquisition is observed
+                against the load.
+              - Fix order for 17: no check pins "hide while a batch is held issues nothing until it answers, then the
+                marks go at once" (@spec.WriteAhead I12, R12). A fix that drops `host.hidden()` from `pump` would delay
+                those marks to the interval. Coverage: that pin, red-tested by a plant, before `pump` changes (the
+                fixtures plan has the Story; land it first).
+              - Held-then-refused pin (18): sound; the held batch is ensure's create, and Press changes the record while
+                it is held. Coverage: assert the held batch's value, and add a removal while held, then refused
+                (none exists).
+              - No load timeout: the call holds (a timeout would make up a refusal; Persistence plan line 167), but a
+                load that never answers is silent: `ready` never settles and StorageSilent arms only for awaited writes
+                (code:packages/flow-state-v3/src/core/persist.ts). Proposed, lead's small call: StorageSilent on a load
+                past `RuntimeDefaults.storageSilent`, deciding nothing; else log why Safari D3's bound was dropped.
+              - Runner guards: fail on zero tests or a run count below the expected; assert the test's own document saw
+                `visibilityState` hidden before judging 16 (Vitest runs tests in an iframe; Safari's spike hid by a new
+                tab, never a window, and never listened for visibilitychange); find the automation Safari as a child of
+                this run's safaridriver, absent from a before-run snapshot, and end it on SIGINT too.
+              - Cheaper reds: 11 (commit per transaction) and 9's request-failure half are Node units over a stub
+                transaction; 4's cases can run on `Fake.storage` and the Map store before the browsers. 6, 8
+                (versionchange, blocked, isolation), 16 and 19 are browser-only. 8 names no way to plant a request
+                failure: patch `put` in the page, not a seam in the adapter.
+              - Smaller: the visibility checks pass a platform that calls the listener on a visibilitychange to visible
+                (add hidden then visible, expect one call); the route check tests names only (static import with shapes
+                once the module exists); `Store.write` takes `purpose` and attempt ids, wiring a user's adapter would
+                see: the user's read under D9; 19 names the lifecycle it covers (freeze and discard unmodelled);
+                fixtures: "4,999 and 5,000 ms" is an interval edge, not E5, a third app is owed (fixtures.md part 6),
+                and the mix already has a transfers set.
+              - Sidecar log: six Haiku, read-only. Accepted the items above. Rejected: `hide-waits` as unseparated (it
+                is caught for the right reason, nothing lands at hide), the error-name duplicate (different layers, as
+                before), two-tab writers (@task.V3.T27), late or reordered answers (D1, one batch out), and header and
+                line-length notes (house convention; long lines predate this commit).
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
