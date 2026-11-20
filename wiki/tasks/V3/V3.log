@@ -1170,3 +1170,7 @@ note 2026-11-20T02:30:14Z
 note 2026-11-20T02:42:57Z
     T105 close review: ISSUES, one blocking (a paired-refusals hole left quiet); fix round with Spec wording, then
     T107's Turn R22 fix, in one build slot.
+
+note 2026-11-20T03:21:48Z
+    T105 (84e31e6f) and T107 (a6055013) fix rounds in review; one review lead checks both. For the user: Machines.plan's
+    when example (683-705) no longer compiles, a Plan edit.
