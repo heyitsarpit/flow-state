@@ -1194,3 +1194,7 @@ note 2026-11-20T04:04:22Z
 note 2026-11-20T04:14:53Z
     T58 requirements review PASS; six items folded in; the public Store takes no Flow wiring (orchestrator, for the
     user's read). Build lead started.
+
+note 2026-11-20T05:38:12Z
+    T58 in review (c8d91c24): Chrome 15/15, Safari 13/15; Safari's two hide cases need the display awake (re-run at
+    11:07 still hidden), owed to the user's next session at the machine. Close review started.
