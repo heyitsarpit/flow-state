@@ -3850,7 +3850,7 @@ tasks
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T104]
         description
@@ -4051,3 +4051,31 @@ tasks
             under L4, the reload sweep over every manifest Story; the experiment stays in sync alone until its verdict,
             since a second app is owed only if it is kept. Catalog: session's 30 sites listed; payload mapper pinned
             (`today` never, built number).
+        comment     2026-11-20T00:09:57Z
+            State-scoped onContext: rejected (lead, on its Stories). One comparison on entry shows a false new commit on
+            a second pause (`sync/auto-pull-repaused`, behind 1 for a head already pulled); a silent baseline on entry
+            loses the moves made while paused (`sync/auto-pull-paused` resumes on a1b2c3). A top-level reaction handled
+            per state passes both, so reactions stay top level and a state body's onContext is refused (`pausedPull`).
+            Recorded in the proposal's Open; reverse: restore the scoped compile in machine.ts and context.ts from
+            c111aa03's parent diff.
+        comment     2026-11-20T00:09:57Z
+            Close review by 2 Haiku sidecars (correctness, cohesion), each finding read against the code. Accepted: a
+            when-declined change still ran its mapper, so a mapper defect pinned the baseline (fixed, test and fault
+            `declined-change-sent`); format 4 baselines by index mis-mapped after a reorder (now keyed by slot); same-id
+            definitions pass the type ban (Compile R19 reworded: types tell ids apart, construction identities); R9 and
+            R18 wording; positional tuples, a duplicate Read type, a stale ProvidedBy doc and the unused frame failure.
+            Changed: a failing slot re-reads (kept, Actors R18 says so). Rejected: record field renames, Selected's json
+            beside text, internal doc blocks and the Plan's-word lint reasons (pre-existing conventions), AnyBody's
+            onContext (the root needs it), unbound stale slots (admission binds every slot).
+        comment     2026-11-20T00:10:09Z
+            Ready for review (commits 723979d6, c111aa03, 3e13c861). Suite 1574 pass, 25 expected fail; stress with 10
+            fresh seeds 83 pass; generated Stories over seeds 11-20 113 pass; docs:build passes; 27 planted faults
+            caught with --only, 5 new. Greps over src and fixtures: zero Provider.select, zero reaction select, zero
+            T107 wrong markers. User's reads: (1) the state-scoped experiment rejected (comment above; its code was
+            removed before c111aa03, so reversing rebuilds it); (2) record format 4, baselines saved per slot only where
+            they differ from last-seen, formats 1-3 stepped and tested; (3) public types: Definition.Provider gone, M
+            has public fields only, S tokens carry their provider, the machine body gets C with .change, ContextSlot is
+            { schema, form, spec }; (4) Turn R22: a slot's first value after a failed select is a change and when is not
+            asked. Left: tests/refusals.ts still duplicates construction.test's helper.
+        comment     2026-11-20T00:10:20Z
+            Correction to the note above: 32 planted faults were run with --only and all caught, not 27; 5 are new.
