@@ -561,7 +561,7 @@ tasks
             Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
@@ -1084,6 +1084,16 @@ tasks
                 re-export, unkeyed `key`, the coverage and flip items above. Changed: blind "disarm loses to key and
                 entry arming" to a ruling (Spec silent). Rejected: cohesion's "Machines plan shows inline keys" (O5 now
                 uses `Flow.keyed`); the "config path leak" (not reproduced, `loose` only).
+        comment     2026-11-20T11:47:53Z
+            Rulings (orchestrator) on the second close review: B1 to B3 accepted. Convergence (threshold 2): three close
+            reviews found same-turn schedule combinations ending wrong (disarm on keyed timers, disarm vs restart, pause
+            throw vs restart, issue cleared by a check that did not run); the freedom is evaluation order spread across
+            separate checks. Tests first: an exhaustive small-scope table over one schedule's same-turn inputs (arm,
+            disarm, restartOn change, each pause reason true, false or throwing, a key appearing or leaving, a firing
+            due), red where wrong; then one decision function per schedule per turn, with a guard and plants. Spec gaps
+            decided by disarm wins: a key appearing in a disarming turn and an entry arming in a disarming turn stay
+            disarmed (Turn R14). B3: the three fixtures read context through slots, not copies. Unkeyed schedules type
+            key as undefined. Coverage-run timeouts go to @task.V3.T112.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -5621,3 +5631,6 @@ tasks
             Routed (orchestrator, 2026-11-20): Turn I9's run rule counts a context-update publication caused by another
             actor's turn as part of that turn (seed 15 of T57's generated runs; predates T57); and test:coverage turns
             extra flags into file filters, so pass reporter flags through. Each red first.
+        comment     2026-11-20T11:47:54Z
+            Routed (orchestrator, 2026-11-20): under coverage, home's 64-room Story (5.4 s) and shop's large cart time
+            out; give both timeouts that hold under coverage.

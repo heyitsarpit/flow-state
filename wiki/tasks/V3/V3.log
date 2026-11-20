@@ -1275,3 +1275,7 @@ note 2026-11-20T11:27:09Z
 
 note 2026-11-20T11:40:19Z
     Decision (the user, 2026-11-20): Flow.keyed accepted; Machines O5 and its toaster example updated.
+
+note 2026-11-20T11:47:55Z
+    T57 second close review: ISSUES, three blocking; same-turn schedule combinations recur, so convergence by structure:
+    exhaustive combination table first, one decision function per schedule per turn.
