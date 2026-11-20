@@ -1322,3 +1322,8 @@ note 2026-11-20T14:55:11Z
 note 2026-11-20T15:02:19Z
     Amendment (2026-11-20, the user): pin to workflow@bb97c9d; convergence by structural cause (first finding when
     structural), scoped by the freedom, other parts searched. Commit: 52e81aa7.
+
+note 2026-11-20T15:10:12Z
+    Decision (the user, 2026-11-20): @task.V3.T113 widened to remove hand-written type guesses everywhere (about 100
+    sites): phantom token types, contract-typed ending mappers, fixture and test refactors with type tests, a lint
+    guard.

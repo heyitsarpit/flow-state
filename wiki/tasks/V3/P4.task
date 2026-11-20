@@ -5941,27 +5941,41 @@ tasks
             control-call overwrite, idempotency keys); storeContract (built by T58) is the contract for Fake.storage.
 
     T113
-        title       The typed machine: the body type carried into the snapshot
+        title       The typed machine: derived types everywhere user code needs them, no hand-written guesses
         status      draft
         priority    high
         blocked_by  [@T57]
         satisfies   [@plan.Machines.O1, @plan.Machines.O8]
         description
-            Carry the machine body type past `machine()` so a Snapshot is typed by the body plus the definition.
+            Every type user code needs from a definition, machine or contract is derived by Flow, so no handler,
+            fragment, helper, mapper or snapshot read types an event, memory, ending or key by hand.
 
             **Why now:** the body type is lost at `machine()` today, so a snapshot cannot type a schedule's `pausedBy`
             or a keyed schedule's send key, and every later Task that adds a snapshot field (props, emit summary,
             fragment summary) would otherwise add its own typing path (breakdown review, the orchestrator, 2026-11-20).
+            A survey (2026-11-20) found about 100 hand-typed parameters and 6 copied local types that nothing checks
+            against a definition: about 45 ending mappers (`E.X.from((v: {…}) => …)`, `{ why: string }` about 25 times),
+            25 memory parameters and 18 event payloads in fragments and helpers outside the `on` literal, and duplicated
+            helpers (`byRepo` in `fixtures/sync` and `fixtures/lanes`, `fromAccount` in two transfers machines). One
+            class: a type Flow knows, written by hand where inference does not reach; the user widened this Task to
+            remove it everywhere (2026-11-20).
 
             **Read first:** code:packages/flow-state-v3/src/machine.ts,
             code:wiki/plans/flow/references/proposals/advisor-questions-2026-11-20.md (question 1), @plan.Machines.O1,
             @plan.Machines.O8, @spec.Turn (R16, R27).
 
-            **Approach:** a type spike first: carry the body type and keep excess-key checks, since inferring the body
-            loses them. This Task owns the carried type's shape: @task.V3.T76 (props), @task.V3.T77 (emit summary),
+            **Approach:** design the whole Task at once, a type spike first:
+            - carry the body type and keep excess-key checks, since inferring the body loses them;
+            - a phantom, type-only `Type` on event tokens (`E.X.Type`, the envelope with its payload) and on memory
+              tokens (`Def.M.field.Type`), mirroring Schema's `.Type`;
+            - an ending mapper's parameter inferred from the operation's contract where `E.X.from` sits inside
+              `outcomes(...)`; if the spike shows that needs a new word, the fallback is one exported ending-value type
+              per contract, so `{ why: string }` copies become one name. This Task owns the carried type's shape:
+              @task.V3.T76 (props), @task.V3.T77 (emit summary),
             @task.V3.T109 (fragment summary) and @task.V3.T106 (rule tokens) only add fields through it.
 
-            May change: `src/`, `tests/types/`, `tests/`. Evidence: this Task's comments.
+            May change: `src/`, `tests/types/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`. Evidence: this
+            Task's comments.
 
             False pass: a type that infers on the happy path only → caught by type tests with a mistyped key, a shared
             body such as `PayBody`, and an excess key.
@@ -5972,6 +5986,18 @@ tasks
             - A keyed schedule's send mapper receives the typed key (Turn R16), shown by a type test.
             - An unkeyed schedule's send mapper types `key` as `undefined` (two-sided type test).
             - Excess keys in a body still fail to compile, and shared bodies still compile.
+            - `E.X.Type` and `Def.M.field.Type` exist as phantom types, each shown by two-sided type tests (the derived
+              type equals the payload or field exactly; a wrong field fails to compile).
+            - An ending mapper's parameter is the contract's value or error type, shown by two-sided type tests (a wrong
+              field fails to compile); or, if the spike rules inference out, each contract exports its ending types and
+              the tests assert those.
+            - Every site the survey found is refactored to the derived types: the fixtures' and tests' fragments,
+              helpers, ending mappers and local `type` copies, with the duplicated helpers moved to one place; `nub run
+              check` shows each site still compiles, and a changed payload in a fixture definition breaks every site
+              that reads it (one planted type change per kind).
+            - A lint rule refuses a hand-written event, memory or ending-value annotation where a derived type exists
+              (`{ readonly event: {...} }`, `{ readonly memory: {...} }`, a typed `.from` mapper parameter), with plants
+              in its test.
             - `nub run check` and the suite pass.
         comment     2026-11-20T13:01:52Z
             Breakdown review (orchestrator, 2026-11-20, R48): new Task: carries the machine body type into the snapshot.
@@ -5984,6 +6010,10 @@ tasks
         comment     2026-11-20T13:12:05Z
             Breakdown fix (orchestrator, 2026-11-20): owns the carried type's shape and takes the unkeyed send-mapper
             key pin; T76, T77, T109 and T106 only add fields through it.
+        comment     2026-11-20T15:10:12Z
+            Widened (the user, 2026-11-20): derived types everywhere user code needs them: phantom E.X.Type and
+            Def.M.field.Type, ending mappers typed by the contract, every survey site refactored with type tests, and a
+            lint guard.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
