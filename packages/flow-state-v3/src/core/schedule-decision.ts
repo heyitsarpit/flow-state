@@ -11,15 +11,14 @@ import { Timing, trackOf } from "./world.ts";
  * ran clean and its pause evidence, out. Every change to a schedule's timers is decided here.
  */
 export type Occasion = Data.TaggedEnum<{
-  // A committed turn: its state exited or entered (both on a re-entry), the event listing it in
+  // A committed turn: its state exited (and entered again on a re-entry), the event listing it in
   // `disarmOn`, and the first step of an arming the turn checked (on entry or by `armOn`).
   Turn: {
     exited: boolean;
-    entered: boolean;
     disarmed: boolean;
     armed: Option.Option<Option.Option<Step>>;
   };
-  // A context change: `restartOn` and `paused`, which may read it, at once.
+  // A context change: keys, then `restartOn` and `paused`, which may read it, at once.
   Context: {};
   // A lane change, or a firing's next step: keys and pause reasons only.
   Lanes: {};
@@ -104,10 +103,8 @@ export const checkSlotsOf = (schedule: Schedule) => [
   ...schedule.paused.map((p) => p.check.slot),
 ];
 
-/**
- * A run as the decision plans it.
- */
-export const plannedOf = (run: Run) =>
+// A run as the decision plans it.
+const plannedOf = (run: Run) =>
   ({
     arming: Option.some(run.arming),
     armedAt: run.armedAt,
@@ -123,7 +120,10 @@ export const plannedOf = (run: Run) =>
 const plannedTrack = (tracked: Tracked) =>
   ({ ...tracked, run: Option.map(tracked.run, plannedOf) }) satisfies PlannedTrack;
 
-const sameReasons = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
+/**
+ * Whether two lists of pause reasons are the same, in order.
+ */
+export const sameReasons = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
   a.length === b.length && a.every((r, n) => r === b[n]);
 
 // One timer while it is decided: whether it is new to this activation (it takes its baseline
@@ -216,7 +216,7 @@ const keyed = (pass: Pass) => {
 // restartOn: a timer new to the activation, or one with no baseline, takes the selection
 // silently; a changed one restarts after a turn or a context change, unless the turn disarmed it.
 // A lane change or a restore runs it only for a timer without a baseline.
-const restarted = (pass: Pass, working: ReadonlyArray<Working>) => {
+const selected = (pass: Pass, working: ReadonlyArray<Working>) => {
   const every = Option.isSome(pass.turn) || Occasion.$is("Context")(pass.occasion);
   const restarts = !disarmedIn(pass) && every;
 
@@ -390,7 +390,7 @@ export const decide = (
 
   const working: ReadonlyArray<Working> = keyed(pass);
 
-  restarted(pass, working);
+  selected(pass, working);
   armed(pass, working);
   paused(pass, working);
 

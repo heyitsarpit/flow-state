@@ -71,6 +71,18 @@ export const timersDecidedRule = defineRule({
           )
             report(property, "`schedules:` beside a spread");
       },
+      // `new Map(incarnation.schedules)`: a copy of the timers, made to be written.
+      NewExpression(node: ESTree.NewExpression) {
+        const [first] = node.arguments;
+
+        if (
+          node.callee.type === "Identifier" &&
+          node.callee.name === "Map" &&
+          first?.type === "MemberExpression" &&
+          propertyName(first) === "schedules"
+        )
+          report(node, "`new Map(….schedules)`");
+      },
       // `incarnation.schedules = timers`.
       AssignmentExpression(node: ESTree.AssignmentExpression) {
         if (node.left.type === "MemberExpression" && propertyName(node.left) === "schedules")

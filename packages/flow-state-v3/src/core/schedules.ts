@@ -11,6 +11,7 @@ import { Act } from "./evidence-of.ts";
 import {
   checkSlotsOf,
   decide,
+  sameReasons,
   type Decision,
   Occasion,
   Plan,
@@ -42,10 +43,10 @@ import {
   withIssue,
 } from "./world.ts";
 
-/**
- * Schedules: an incarnation's timers, each change decided for one schedule by `decide` and
- * applied here, the one place that writes them.
- */
+// Schedules: an incarnation's timers, the one place that writes them. Each schedule's change for
+// an occasion is decided by `decide` and applied by `pass`; a firing's next step is its one timer's
+// change, applied by `fired`.
+
 // FLOW_STATE_ALLOW_UNKNOWN: the rows a schedule's callbacks read, typed by the definition.
 type Operations = ReadonlyMap<string, ReadonlyMap<string, unknown>>;
 
@@ -55,21 +56,15 @@ const NO_OPERATIONS: Operations = new Map();
  * What a firing does to its timer: the next step's run, none when the series is complete or the
  * schedule is a Duration, and whether that next step was past the timer limit.
  */
-export type Next = { readonly run: Option.Option<Run>; readonly over: boolean };
+type Next = { readonly run: Option.Option<Run>; readonly over: boolean };
 
-/**
- * What a committed turn did to the schedules of its incarnation: the states it exited and
- * entered, the armings it checked, and the schedules its event lists in `disarmOn`.
- */
-export type TurnWork = {
+// What a committed turn did to the schedules of its incarnation: the states it exited, the armings
+// it checked, and the schedules its event lists in `disarmOn`.
+type TurnWork = {
   readonly exits: ReadonlyArray<string>;
-  readonly enters: ReadonlyArray<string>;
   readonly arms: ReadonlyArray<Arming>;
   readonly disarms: ReadonlyArray<string>;
 };
-
-const sameReasons = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
-  a.length === b.length && a.every((r, n) => r === b[n]);
 
 // Whether a decided run is its timer's run unchanged.
 const unchanged = (before: Run, after: PlannedRun) =>
@@ -291,11 +286,6 @@ export const makeSchedules = (tx: Tx) => {
     });
   };
 
-  /**
-   * Decides every schedule of an incarnation for one occasion and applies the decisions: each
-   * schedule no longer declared on its chain stops, and each declared one is decided from its
-   * timers before. The same incarnation when nothing changes.
-   */
   // One schedule's decided timers put in `timers`, each stopped timer's host timer disarmed;
   // whether any timer changed.
   const applied = (
@@ -322,6 +312,9 @@ export const makeSchedules = (tx: Tx) => {
     return changed || byTrack.size > 0;
   };
 
+  // Decides every schedule of an incarnation for one occasion and applies the decisions: each
+  // schedule no longer declared on its chain stops, and each declared one is decided from its
+  // timers before. The same incarnation when nothing changes.
   const pass = (
     incarnation: Incarnation,
     before: ReadonlyMap<string, Tracked>,
@@ -342,7 +335,7 @@ export const makeSchedules = (tx: Tx) => {
 
     const timers = new Map<string, Tracked>();
     const undeclared = [...before.values()].filter((t) => !names.has(t.name));
-    let next: Incarnation = incarnation;
+    let issued: Incarnation = incarnation;
     let changed = before !== incarnation.schedules || undeclared.length > 0;
 
     for (const tracked of undeclared) Option.map(tracked.run, disarmRun);
@@ -358,13 +351,13 @@ export const makeSchedules = (tx: Tx) => {
         tx.env.now,
       );
 
-      const issued = reported(next, schedule, decision);
+      const reports = reported(issued, schedule, decision);
 
-      changed = applied(incarnation, own, decision, timers) || issued !== next || changed;
-      next = issued;
+      changed = applied(incarnation, own, decision, timers) || reports !== issued || changed;
+      issued = reports;
     }
 
-    return changed ? { ...next, schedules: timers } : incarnation;
+    return changed ? { ...issued, schedules: timers } : incarnation;
   };
 
   const namesIn = (incarnation: Incarnation, paths: ReadonlyArray<string>) =>
@@ -390,12 +383,10 @@ export const makeSchedules = (tx: Tx) => {
     work: TurnWork,
   ) => {
     const exited = namesIn(incarnation, work.exits);
-    const entered = namesIn(incarnation, work.enters);
 
     return pass(incarnation, before, (schedule) =>
       Occasion.Turn({
         exited: exited.has(schedule.name),
-        entered: entered.has(schedule.name),
         disarmed: work.disarms.includes(schedule.name),
         armed: Option.map(
           Option.fromUndefinedOr(work.arms.find((a) => a.name === schedule.name)),
@@ -406,8 +397,8 @@ export const makeSchedules = (tx: Tx) => {
   };
 
   /**
-   * Re-checks an incarnation's schedules on a context change (`restartOn` and the pause reasons,
-   * restarts included) or a lane change and a firing's next step (keys and the pause reasons).
+   * Re-checks an incarnation's schedules: on a context change its keys, `restartOn` with restarts
+   * and the pause reasons; on a lane change or a firing's next step its keys and pause reasons.
    */
   const rechecked = (incarnation: Incarnation, occasion: Occasion) =>
     pass(incarnation, incarnation.schedules, () => occasion);

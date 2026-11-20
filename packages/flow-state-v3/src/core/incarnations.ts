@@ -187,7 +187,6 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
         return schedules.turned(created, created.schedules, {
           exits: [],
-          enters: entered,
           arms: arm.armed,
           disarms: [],
         });

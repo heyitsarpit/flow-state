@@ -368,7 +368,8 @@ export const armingsOf = (
   const armed: Array<Arming> = [];
   const refused: Array<string> = [];
 
-  // A schedule the event disarms is not armed, on entry either: disarm wins.
+  // A schedule the event disarms is not armed, on entry either, so its delay is never computed and
+  // cannot refuse the turn; the decision stops it.
   const arms = (path: string, schedule: Schedule) =>
     Option.isNone(schedule.keys) &&
     !schedule.disarmOn.includes(tag) &&

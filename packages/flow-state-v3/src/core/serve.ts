@@ -338,7 +338,6 @@ export const makeServe = (
           incarnation.schedules,
           {
             exits: Option.match(accepted.move, { onNone: () => [], onSome: (m) => m.exits }),
-            enters: Option.match(accepted.move, { onNone: () => [], onSome: (m) => m.enters }),
             arms: accepted.arm,
             disarms: accepted.disarm,
           },

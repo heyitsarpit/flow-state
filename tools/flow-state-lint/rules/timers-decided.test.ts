@@ -11,6 +11,7 @@ plantRules({
       "Other.schedules = new Map();",
       "Other.schedules.set('t', Other);",
       "Other.schedules.delete('t');",
+      "const copy = new Map(Other.schedules);",
     ],
     quiet: [
       "const minted = { ...Other, schedules: new Map() };",

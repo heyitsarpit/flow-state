@@ -58,11 +58,12 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   `satisfies Record<Tag, …>`, so a new tag must be decided.
 - Timers, enforced by `flow-state/timers-decided` in `src/` (test files exempt), plants in
   `tools/flow-state-lint/rules/timers-decided.test.ts`: outside `src/core/schedules.ts`, no code
-  copies an incarnation with `schedules:` replaced, assigns `.schedules`, or calls
-  `.schedules.set`, `delete` or `clear`; a new incarnation's empty `new Map()`, a record's
+  copies an incarnation with `schedules:` replaced, copies its timers with
+  `new Map(….schedules)`, assigns `.schedules`, or calls `.schedules.set`, `delete` or `clear`; a new incarnation's empty `new Map()`, a record's
   `schedules` array and `Schema.Struct` fields are not writes. Every change to a schedule's timers
   is decided by `decide` in `src/core/schedule-decision.ts`, one schedule and occasion at a time,
-  so same-turn inputs cannot combine in a second order.
+  so same-turn inputs cannot combine in a second order; a firing's next step is the writer's one
+  single-timer change (`fired`).
 - Ids, enforced by `flow-state/no-id-text` in `src/core/` (test files exempt), same plants file:
   no slice, split, prefix test, character code, pattern `test` or `exec`, number parse or
   rebuilt-and-compared text on a name that holds an id or key (`id`, `key`, `lane`, `record`,
