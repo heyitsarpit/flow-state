@@ -6101,7 +6101,7 @@ tasks
 
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
-        status      open
+        status      in_progress
         priority    high
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
         description
@@ -6145,3 +6145,82 @@ tasks
             - Record format 6 with its step from 5; restore after a reason, key or schedule is added, removed
               or renamed.
             - `nub run check`, the suite, stress and generated Stories over fresh seeds, and `nub run docs:build` pass.
+        comment     2026-11-20T16:01:46Z
+            State inventory (lead): one state, a schedule timer's check outcomes; today it is split between `Tracked`
+            and a stored issue list, which is the freedom (two writers over time). After: each field below is written
+            only by its own check.
+
+            - `keys` outcome (per schedule): today an issue at the `keys` slot in `Incarnation.issues`; read
+              every occasion.
+            - `selection` (`restartOn`): today `Tracked.baseline` plus a stored issue; read by committed turns, a
+              context change and a restore (no baseline is saved, WriteAhead R4); a throw keeps the baseline.
+            - `reasons`: today `Tracked.pausedBy` plus a stored issue; read every occasion, armed or idle; a throw keeps
+              the list.
+            - `arming` `Idle | Refused | Armed`: today `Tracked.run` (none or a run); `Refused` has no state, only a
+              stored issue. Written by a start (entry, new key, restart, restore's added schedule), `disarmOn`, exit, a
+              key leaving, a firing.
+            - last firing failure: today only a stored issue (send refused, mapper, step past the limit); written by
+              `fired` (code:packages/flow-state-v3/src/core/firings.ts) and the `Fired` occasion.
+            - Issue writers today: `reported` via `withIssuesOf` (code:packages/flow-state-v3/src/core/schedules.ts),
+              fed by `issuesAfter` (code:packages/flow-state-v3/src/core/schedule-decision.ts); `raised` (`serve.ts`,
+              refused turns of other sources); `withIssues` at creation (`incarnations.ts`, a Creation issue on a
+              schedule slot).
+            - Issue readers today: `pass` feeds stored schedule issues back into `decide` (`schedules.ts`); the snapshot
+              (`src/host/snapshot.ts`); context's open-issue check (`context.ts`, Context source only). Not saved in
+              the record.
+        comment     2026-11-20T16:01:46Z
+            Sequence test landed red (lead): every 3-step sequence of 20 steps on one two-key schedule, 8000 rows, each
+            step and the clock run out checked against the ledger
+            (code:packages/flow-state-v3/tests/turn/schedule-ledger.ts); 365 rows wrong today, inverted in
+            `tests/turn/schedule-sequences-wrong.ts`. Suite 7 s; run rules checked per row.
+
+            - Red classes: refused arming lost on reload (P2), kept after `bad` leaves or Stop (P1, R25), replaced by a
+              reason's throw (B2), held forever under a build without `paused` (B1), a stored issue surviving exit, a
+              send issue kept after a clean re-arm, and the shown issue being the latest failure, not the first in
+              check order.
+            - Blind Haiku (effort high), 30 seeded sequences (15 red, 15 green) from the Spec alone: 26 identical, 4
+              with 7 undecided cells (which issue shows when the firing or the arming fails beside a reason), 0
+              contradictions. Accepted: the order gap, now a Spec requirement. Rejected: its unexercised reading that a
+              restore keeps baselines (WriteAhead R4 saves none). Note: it read the whole proposal in one call; it
+              reports using sections 3 and 6 only.
+        comment     2026-11-20T16:01:47Z
+            Calls (lead, by correctness; each reversible by editing the ledger and its rows):
+
+            - No `armOn: [Go]` in the fixture: Turn R14 makes `armOn` on a keyed schedule a construction error. Starts
+              come from a key appearing, a `restartOn` change, re-entry and a restore's retry.
+            - No lane or context change step: their checks are subsets the refused firing (keys and reasons, I38) and a
+              write (every check) already run. Reverse: add both with a lane-keyed fixture.
+            - A restore re-reads every `restartOn` silently (R4 saves no baseline; R17, I34), so a throw there shows its
+              issue. A refused firing runs no `restartOn` (I38). Re-entry keeps a key's last reasons for a throwing A
+              (T57's ruling).
+            - One issue per source, in check order firing, `restartOn`, arming, reasons (the proposal's order; the Spec
+              is silent).
+            - A refused send's issue clears when a start arms that timer or its next firing commits; Stop does not
+              clear it.
+        comment     2026-11-20T16:01:47Z
+            Requirements (lead), one per acceptance bullet, each a check that fails today; Q1, Q2 and the red rows of Q5
+            are committed now, the rest land at the build's start because they target code that does not exist yet.
+
+            1. Sequence test: `tests/turn/schedule-sequences.test.ts`, 365 of 8000 rows inverted. Done when the list
+               is empty.
+            2. B1 and B2, inverted: "Turn R17, R27: a hold restored under a build with every pause reason removed
+               resumes from its left and fires once" (`tests/restore/schedule-edits.test.ts`); "Turn R14, R25: an arming
+               refused for one key keeps its issue while that key stays unarmed, through another check's throw on it and
+               that check's recovery" (`tests/turn/schedule-keys-table.test.ts`). Each fails today for its own reason
+               (held `left`; issues `[]`).
+            3. No stored schedule issue: a `tests/types/` pin storing an `IssueSource.Schedule` issue in
+               `Incarnation.issues` under `@ts-expect-error` (compiles today); `flow-state/timers-decided` plants for
+               `IssueSource.Schedule(` outside `scheduleIssues`, `Plan.Held(` or `Timing.Held(` outside `timed` and the
+               restore decoder, and `incarnation.issues` read in `src/host/` outside `issuesOf`; plants in
+               `tests/faults.ts`: `schedule-issue-stored`, `reason-read-touches-arming`, `hold-skipped-without-reasons`,
+               `restore-drops-refused-marker`, each caught by Q1.
+            4. Spec texts: Turn R25 is the proposal's text plus the check order of Q1; P1 (a key leaving or an exit
+               drops its issues) in R25 and R27; P2 in WriteAhead R4 (`refused: true` on an idle timer; "issues" leave
+               R4's list, none is saved) and Turn R17 (a refused start retried, every baseline re-read at restore); each
+               with a `specs.log` note. Check: `Turn.spec` holds "a key that leaves keeps its issues" today.
+            5. Format 6: a refused key's saved record holds `"format":6` and `refused: true` (5 and no marker today); a
+               format-5 record restores not refused and saves as 6. Restore after edits: reason removed (Q2, and Q1's
+               red rows that hold, then reload without `paused`); reason renamed or added, key no longer encoding or
+               keying changed, and schedule added, removed or renamed as guards in
+               `tests/restore/schedule-edits.test.ts` (the schedule ones exist and pass).
+            6. Gates: `nub run check`, the suite, stress and generated Stories at fresh seeds, `nub run docs:build`.

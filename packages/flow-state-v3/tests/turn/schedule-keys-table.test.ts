@@ -477,6 +477,41 @@ describe("two keys of one keyed schedule in one turn (Turn R14, R16, R19, R25, R
   }
 });
 
+describe("an arming refused for one key across occasions (Turn R14, R25)", () => {
+  it.fails("Turn R14, R25: an arming refused for one key keeps its issue while that key stays unarmed, through another check's throw on it and that check's recovery", async () => {
+    const ref = refOf(0);
+    const keys = ["k", "j"];
+
+    const run = await Story.app(
+      runtimeSetup({ app: app({ id: "pair", machines: { p: PairMachine } }) }),
+      { id: "table/pair/refused-kept", fixtures: [] },
+    )
+      .ensure(ref)
+      .send(ref, Pair.E.Set({ keys, far: ["j"], a: {} }))
+      .checkpoint("refused")
+      .send(ref, Pair.E.Set({ keys, far: ["j"], a: { j: "x" } }))
+      .send(ref, Pair.E.Set({ keys, far: ["j"], a: { j: "f" } }))
+      .checkpoint("recovered")
+      .run()
+      .then(checked);
+
+    const shown = (checkpoint: "refused" | "recovered") => {
+      const snapshot = run.checkpoints[checkpoint].read(ref);
+      const timers: unknown = timersOf(snapshot);
+
+      return {
+        timers: Object.keys(timersByKey(Predicate.hasProperty(timers, "t") ? timers.t : undefined)),
+        issues: (snapshot?.issues ?? []).map((i) => [issueKey(i.path), i.details["slot"]]),
+      };
+    };
+
+    expect([shown("refused"), shown("recovered")]).toEqual([
+      { timers: ["k"], issues: [["j", SLOT]] },
+      { timers: ["k"], issues: [["j", SLOT]] },
+    ]);
+  });
+});
+
 // Two keys stepped every minute by an Effect Schedule; j's send mapper throws on its first firing.
 const Mapped = definition({
   id: "Table/Mapped",

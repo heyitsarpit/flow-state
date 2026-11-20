@@ -193,6 +193,81 @@ describe("restore after the definition is edited (Turn R17; Machines O5)", () =>
   });
 });
 
+// A persisted one-minute schedule held by reason A while `a` is set, and the same machine as a
+// later build edits it, with no pause reasons.
+const Hold = definition({
+  id: "Edits/Hold",
+  persist: true,
+  states: ["ON"],
+  events: { Set: { a: Schema.Boolean } },
+  internalEvents: { Tick: {} },
+  memory: { a: Flow.initial(Schema.Boolean, false), ticks: Flow.initial(Schema.Number, 0) },
+});
+
+const holdMachine = (withPause: boolean) =>
+  machine(Hold, ({ S, E }) => ({
+    default: S.ON,
+    on: {
+      Set: { updateMemory: ({ event }) => ({ a: event.a }) },
+      Tick: { updateMemory: ({ memory }) => ({ ticks: memory.ticks + 1 }) },
+    },
+    states: {
+      ON: {
+        schedules: {
+          t: withPause
+            ? { schedule: "1 minute", send: E.Tick, paused: { A: ({ memory }) => memory.a } }
+            : { schedule: "1 minute", send: E.Tick },
+        },
+      },
+    },
+  }));
+
+const HoldPaused = holdMachine(true);
+
+const HoldPlain = holdMachine(false);
+
+const holdSetup = (withPause: boolean) =>
+  runtimeSetup({
+    app: app({ id: "hold", machines: { hold: withPause ? HoldPaused : HoldPlain } }),
+    services: layerIndexedDb(),
+    scope: "hold",
+    persistence: { captureMs: 0 },
+  });
+
+describe("a hold restored under a build without pause reasons (Turn R17, R27)", () => {
+  it.fails("Turn R17, R27: a hold restored under a build with every pause reason removed resumes from its left and fires once", async () => {
+    const held = actorRef(HoldPaused, "hold");
+    const plain = actorRef(HoldPlain, "hold");
+
+    const saved = await played(
+      Story.app(holdSetup(true), { id: "hold/saved", fixtures: [] })
+        .ensure(held)
+        .advance("10 seconds")
+        .send(held, Hold.E.Set({ a: true }))
+        .checkpoint("held"),
+    );
+
+    const records = saved.checkpoints.held.records.stored;
+
+    const run = await played(
+      Story.app(holdSetup(false), { id: "hold/edited", fixtures: [] })
+        .world(...[...records].map(([key, text]) => Fake.storage.put(key, text)))
+        .advance("10 seconds")
+        .reload()
+        .ensure(plain)
+        .checkpoint("restored")
+        .advance("10 minutes")
+        .checkpoint("ended"),
+    );
+
+    expect(timersOf(saved.checkpoints.held.read(held))).toEqual({
+      t: { left: 50_000, pausedBy: ["A"] },
+    });
+    expect(timersOf(run.checkpoints.restored.read(plain))).toEqual({ t: { dueAt: 60_000 } });
+    expect(run.checkpoints.ended.read(plain)?.memory.ticks).toBe(1);
+  });
+});
+
 // A booking record as a release on record format 4 saved it: held, with its two deadlines.
 const FORMAT_FOUR =
   '{"baselines":{},"context":{},"format":4,"graph":{},"machine":"Wizard/Booking",' +
