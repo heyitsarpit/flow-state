@@ -552,6 +552,9 @@ tasks
               forget-after-services-released, services-released-before-calls, forget-failure-discarded: 3 of 3 caught.
               No browsers, stress or bench. Sidecars (four Haiku): blind, cohesion, flip A, coverage; each finding above
               verified against the code or effect source and logged accepted, changed or rejected.
+        comment     2026-11-20T07:17:01Z
+            PASS recorded (orchestrator) at 2f2e34de; follow-ups routed to @task.V3.T112. T58 closes once the user has
+            read T107's page, with T105.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
@@ -5135,3 +5138,12 @@ tasks
             - Every Story turned red by a hostile default is replayed with its wrong side named: a runtime bug lands as
               an inverted test with its owner Task, a test that relied on a kind fake is fixed.
             - `nub run check`, the suite, stress and the generated Stories pass.
+        comment     2026-11-20T07:17:01Z
+            Routed from T58's second close review (orchestrator): the fake's own connection life (closing mid-run; a
+            boot load pending when dispose releases the services); a check that the Store wrapper refuses a late use on
+            Fake.storage; held writes on a closing store (only the final write is checked); the browser forget case
+            shown red by a runner plant on close.ts beside drop-last-write; runner hardening (the unattended Safari
+            minimum when visible, a user --reporter replacing the counting reporter, the forget test accepting any
+            record); test:coverage writes a report on failure, and the thousand-line cart test in
+            tests/shop/context.test.ts gets a timeout that holds under coverage. The last two first: every close review
+            now runs coverage.

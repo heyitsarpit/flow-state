@@ -1217,3 +1217,7 @@ note 2026-11-20T06:52:17Z
     Amendment (2026-11-20, the user): requirements reviews run five fixed sidecars (blind A and B, flip A and B,
     cohesion); close reviews run coverage with one sidecar; four earlier-surfacing build rules; @task.V3.T112 hardens
     fakes before T111. Commit: aaad16b0.
+
+note 2026-11-20T07:17:02Z
+    T58 PASS at 2f2e34de, held with T105 for T107's unread page; follow-ups to @task.V3.T112, which waits on T58, so
+    @task.V3.T57 starts.
