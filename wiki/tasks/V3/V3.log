@@ -1306,3 +1306,7 @@ note 2026-11-20T13:04:38Z
 note 2026-11-20T13:12:28Z
     Breakdown fixes from the independent review applied: T48 before T115, named seams on T24 and T48, T113 owns the
     carried type, blockers for T22, T98, T106, T115, boot queue back in T28, stale text fixed.
+
+note 2026-11-20T13:23:18Z
+    T57 third close review: ISSUES, two blocking (idle timers forget reasons; issues have four writers and no key).
+    First failure after convergence; the fix makes decide the owner of issues too and grows the table.

@@ -565,7 +565,7 @@ tasks
             Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
@@ -1222,6 +1222,15 @@ tasks
               and `refusal` checks and the dead lines. Changed "a restart with a bad delay commits" to a Spec note,
               since it is the build's documented call. Rejected restore re-deriving baselines (I34 never restarts at
               restore), a keyed key arming at restore (R16), and listRepair and props, which were routed before.
+        comment     2026-11-20T13:23:17Z
+            Rulings (orchestrator) on the third close review: B1 and B2 accepted; first failure after convergence (limit
+            2). Fix by structure, whole Task: schedule issues get one owner, decide, keyed by schedule and key, with the
+            guard extended to issue writes; the table gains a second key and idle rows whose reasons start true or
+            throwing, red first. Spec calls (code wins, whole-system check, specs.log): Turn R14, an arm decided after
+            commit (keys, restartOn) commits with an issue, only an arm inside the turn refuses it; R19 and I38, a key
+            appearing on a lane change runs schedule for that key only. Checkout's return to browsing moves from the
+            root to the checkout steps, so DONE stays. Guard plants for a literal write, Object.assign and an aliased
+            Map copy.
     T21
         title       Reads and operations (slice 5)
         status      draft
