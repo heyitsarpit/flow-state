@@ -1374,3 +1374,7 @@ note 2026-11-20T16:57:09Z
 note 2026-11-20T17:16:18Z
     Second Fable wave done: boundary channels, test tooling, errors and trust, static analysis and rules, UI and host
     (proposals). Usage 97% weekly, 88% 5-hour: the ten-design cohesion check waits for the reset.
+
+note 2026-11-20T17:41:10Z
+    Fable (medium) turn-parts design in: runTurn returns one Turn value, serve applies it and writes one Turned record;
+    occasion order fixed; a Turn parts Task ahead of T109 (proposal).
