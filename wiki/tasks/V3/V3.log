@@ -1288,3 +1288,8 @@ note 2026-11-20T12:37:44Z
 note 2026-11-20T12:50:34Z
     Amendment (2026-11-20, the user): skill pin moved to workflow@67c7dd8 (whole Task, R47 Task cycle, R48 breakdown
     review at each phase's start); the Epic adds the phase-start review and boundaries by state. Commit: bb32c950.
+
+note 2026-11-20T12:50:43Z
+    Queued (the user, 2026-11-20): a breakdown review of every open and draft Task of P4 and later against skill:to-task
+    step 1, by R48; it runs after T57's close review, before the next Task, and its re-splits are applied before that
+    Task starts.
