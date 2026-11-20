@@ -464,6 +464,11 @@ tasks
             fixture-level fake beside Fake.storage, and every close and dispose path is checked for the same order. Also
             in the round: Actors I4 reworded to match R3; the runner stops after a signal and hard-kills at its
             10-minute cap. Runtime.plan's load-first lines wait for the user's yes.
+        comment     2026-11-20T06:26:33Z
+            Safari gate closed (orchestrator, 2026-11-20, display awake with the user at the machine): node
+            tools/browser/run.ts --only safari exits 0 at 6be5e68d, 15 of 15, both hide cases passing (the flush lands
+            well before the interval; the Fake and the real page issue the same batches); automation Safari and
+            safaridriver ended by pid.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
