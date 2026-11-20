@@ -1332,3 +1332,7 @@ note 2026-11-20T15:15:15Z
     Run stopped (2026-11-20): T57's fourth close review found two lost firings (B1 restored hold with no reasons; B2 an
     arming issue replaced across occasions), the second failure after convergence; failure limit reached. Wake cron
     cancelled. Waits on the user: Turn R25 and T57's next step.
+
+note 2026-11-20T15:18:42Z
+    Fable consult started (the user, 2026-11-20): 30 minutes, up to 10 Haiku sidecars, on schedule issues across time
+    (T57's B1, B2); proposal only, to wiki/plans/flow/references/proposals/schedule-issues-2026-11-20.md.
