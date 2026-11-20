@@ -213,6 +213,17 @@ instructions
       compile, a run rule, or a Story test for a decided outcome. The lead may gather it with read-only sidecars on
       named angles (the Specs and Plans; the code and prior art; open findings; an adversary). Then build until the
       checks pass. A review finding is a missed requirement: it lands as a failing check before its fix.
+    - The whole Task at once (the user, 2026-11-20): a Task is designed and solved as one cohesive set, never item by
+      item down its requirements list. The lead considers every requirement, concern and finding together before any
+      code, and the design solves all of them at once; building and fixing one item after another is not allowed.
+      - The requirements list opens with a state inventory: each piece of state the Task changes (a timer, a lane, a
+        record, an issue), its states, and every input that can change it in one turn.
+      - Where two or more rules or inputs write the same state, the requirement is a small-scope transition table over
+        their combinations, each row's expected outcome taken from the Specs before any code; a row the Specs do not
+        decide is a Spec question settled before the build.
+      - Each such state has one owner: the design names one pure function that decides its transitions, with a guard and
+        planted faults shipped in the same Task. An implicit state machine spread across separate checks is a
+        blocking finding.
     - A feature's benches are its fixture's `bench` entries, added with its Stories (the user, 2026-11-18).
     - Fixtures first (the user, 2026-11-16): a Task that builds or changes a public feature, or lands a review finding,
       meets code:wiki/conventions/fixtures.md as part of its requirements, before any code. The orchestrator owns it and
@@ -294,7 +305,9 @@ instructions
       flip B writes, per requirement, the simplest wrong build that passes every check; cohesion, which also lists the
       whole family up front (every export of the touched entries, every sibling of a changed type or helper). The lead
       checks the mapping and re-runs the cited reds itself; no suite re-run and no fixtures-proof re-check (the close
-      review reads the fixtures).
+      review reads the fixtures). The review blocks a requirements list that goes item by item: a missing state
+      inventory, a state written by two or more rules with no transition table and owner, or an implicit state machine
+      (the user, 2026-11-20); the cohesion sidecar lists every state with more than one writer.
     - A close review's one suite run is the coverage run (`nub run test:coverage`); one sidecar reads the uncovered
       lines and branches in the files the Task changed and names, for each, the Story or edge value that would reach it,
       dead code to delete, or a defect-only path (the user, 2026-11-20). No coverage percentage or baseline. Flip A
