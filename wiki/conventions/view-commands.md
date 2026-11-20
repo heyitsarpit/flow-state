@@ -69,4 +69,4 @@ XState v5's `emit` and `actor.on` (`codebases/xstate/packages/core/src/createAct
 ## Status
 
 `emits`, `emit`, `useOnEmit` and `actor.onEmit` are accepted, not built
-(@proposal.ui-primitives-decisions Q3).
+(`ui-primitives-decisions` Q3).

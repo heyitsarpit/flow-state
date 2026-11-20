@@ -322,10 +322,10 @@ tasks
             Accepted (the user, 2026-11-17): a write whose record can't save ends NotSent { StorageRefused } at once; a
             pending result too large to save is heard once after a reload as unknown { Restored }.
         comment     2026-11-17T06:52:42Z
-            Superseded by @plan.Pending.D23 (2026-11-17): the record-bound convergence (@proposal.record-bounds-revised)
-            went with the codec bounds: lane `fits` sizing, owed parts, codec BOUNDS and CodecBoundExceeded, the
-            lane-bound tests and their faults. Kept, each for a malformed value: a row with no canonical form saved as
-            unknown Restored, and an identity withheld while its actor record cannot encode.
+            Superseded by @plan.Pending.D23 (2026-11-17): the record-bound convergence (`record-bounds-revised`) went
+            with the codec bounds: lane `fits` sizing, owed parts, codec BOUNDS and CodecBoundExceeded, the lane-bound
+            tests and their faults. Kept, each for a malformed value: a row with no canonical form saved as unknown
+            Restored, and an identity withheld while its actor record cannot encode.
         comment     2026-11-18T05:17:51Z
             Decision (agent, 2026-11-18): the pair cell Acknowledging x storage refusal was red on the tooling side: one
             batch is out at a time, so the sweep's refuse hit a later batch. Stories R11 adds Fake.storage.refuseHeld()
@@ -538,7 +538,7 @@ tasks
             between features that no single fixture reaches (the user accepted it as its own Task after
             @task.V3.T70, 2026-11-16).
 
-            **Read first:** the app-mix profile in @proposal.fixture-catalogue, @plan.Testing.O6, @task.V3.T70.
+            **Read first:** the app-mix profile in `fixture-catalogue`, @plan.Testing.O6, @task.V3.T70.
 
             **Approach:** starts once three or more fixtures can share one Runtime; a failing run shrinks by dropping
             whole fixtures first, then steps.
@@ -841,9 +841,9 @@ tasks
             passing FieldSchema (isSchema checks a TypeId only); idle(5) and lookup(undefined) accepted until run.
             Rejected: a baseless Schema.suspend constant hangs inside Effect's own Schema.is, which no rule can decide.
         comment         2026-11-18T17:43:48Z
-            The user's answers to the re-plan (2026-11-18, @proposal.replan): Q1 B (boundary Task @task.V3.T94 first,
-            then this Task, construction only), Q2 B (T80 to the end of P4), Q3 A (ruling c to revisit.md), Q4 A (send
-            action), Q5 A (@convention.boundaries), Q6 P5 order accepted.
+            The user's answers to the re-plan (2026-11-18, `replan`): Q1 B (boundary Task @task.V3.T94 first, then this
+            Task, construction only), Q2 B (T80 to the end of P4), Q3 A (ruling c to revisit.md), Q4 A (send action), Q5
+            A (@convention.boundaries), Q6 P5 order accepted.
         deletion_reason
             Parked in P9 as @task.V3.T98 (the user, 2026-11-19): the raw-throw class waits for one general solution; wk
             cannot move a Task between phases.
@@ -1064,9 +1064,8 @@ tasks
             with identical stored bytes on 151 Stories. Finding 12 skips a slot whose provider's snapshot is unchanged;
             finding 15 removes per-call re-derivations of state paths and names from `Compiled`.
 
-            **Read first:** @proposal.persistence-redesign, the audit's findings 12 and 15 in
-            @review.performance-architecture, @plan.Pending.D27 to D30, @spec.WriteAhead,
-            @spec.Restore, @convention.fixtures.
+            **Read first:** `persistence-redesign`, the audit's findings 12 and 15 in `performance-architecture`,
+            @plan.Pending.D27 to D30, @spec.WriteAhead, @spec.Restore, @convention.fixtures.
 
             **Risk:** a key cleared before its batch lands, or a ticket's record that fails to encode after its step,
             loses or doubles an ending; the redesign's guarantee table says how each holds. Built on @task.V3.T79's step
@@ -1107,6 +1106,9 @@ tasks
             (orchestrator, 2026-11-17): one encode path for batches, withholding, hide and dispose; bursts 2x cheaper;
             less total work; cost +4-8 % per turn under captureMs 0. Owed: acceptance 3's Chromium and Safari timing (no
             browser tooling yet), routed to @task.V3.T58 but not written there. Review 1's 2b went to revisit.md.
+        comment     2026-11-20T21:44:57Z
+            Absorbed the performance-architecture review (deleted); full text: git
+            show 3a84b878:wiki/plans/flow/references/proposals/2026-11-17-performance-architecture.md
 
     T86
         title       Fixtures follow their layout: flat files moved, shared services in one place, pay becomes shop
@@ -1168,7 +1170,7 @@ tasks
 
             **Read first:** `packages/flow-state-v3/bench/run.ts` and `bench/time.ts`, @task.V3.T66 (the bench as
             built), @task.V3.T35 (P8: browsers, devices and budget targets build on this), skill:check-benchmark,
-            skill:principle-explain-measurements, @review.performance-architecture (what was measured by hand today).
+            skill:principle-explain-measurements, `performance-architecture` (what was measured by hand today).
 
             **Concerns** (a first cut the lead may reshape, each its own CSV):
 
@@ -1447,7 +1449,7 @@ tasks
 
             **Read first:** @convention.boundaries, code:packages/flow-state-v3/src/core/boundary.ts#walkerOf,
             code:packages/flow-state-v3/tests/compile/corruption.test.ts, @spec.Diagnostics; the re-plan's section
-            2, @proposal.replan.
+            2, `replan`.
 
             **Approach:** `src/entry.ts` exports `entry(name, run)` for sync calls and `entryEffect(name, run)` for
             Effect-returning ones (`ready`, `dispose`), whose refusal is `Effect.fail` (Diagnostics R1). Each wraps

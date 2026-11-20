@@ -24,5 +24,5 @@ Upkeep:
 - A page whose API changes is updated with that change; its Status says what is not built yet.
 - Fixtures and Tasks cite pages (`code:wiki/conventions/<page>.md`) instead of repeating rules.
 
-Source: @proposal.conventions and
-@proposal.ui-primitives-decisions.
+Source: @proposal.conventions and the deleted `ui-primitives-decisions`. Full text of the six `ui-primitives*`
+proposals: `git show 3a84b878:wiki/plans/flow/references/proposals/<file>`.

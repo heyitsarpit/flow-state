@@ -109,7 +109,7 @@ Deferred items.
 - **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
   K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).
 - **Cross-tab sync** (2026-11-16, the user;
-  @proposal.ui-primitives-decisions Q7). Stays out of version 1
+  `ui-primitives-decisions` Q7). Stays out of version 1
   (@plan.FlowState.C2, @plan.Persistence.O7); the recommendations there are recorded, not merged. Uses: theme and
   preferences, sign-out, a cart badge, unread counts, feature flags. Interim convention: host code sends user changes
   out with `emit` and `actor.onEmit`, takes another tab's in with `send` of a Schema-decoded event, and only user
@@ -166,7 +166,7 @@ Deferred items.
   `Layer(name, enter)` with a catch-all, `Checked<typeof X>` brands, `X.is` for object layers and type-level
   composition proofs; code at `/Users/arpit/Developer/workflow/module-composer`, its Opus review in `REVIEW-opus.md`
   there (25 bugs, 19 from the deep `Origin` walk). Replaced by Effect Schema, small Flow-side wrappers and lint
-  (@proposal.replan section 1). Reopen if: Flow's own wrappers and the surface test keep
+  (`replan` section 1). Reopen if: Flow's own wrappers and the surface test keep
   missing a source across Tasks.
 - **A per-definition type brand on tokens** [deferred: user 2026-11-18] (2026-11-18, the user: re-plan Q3 A; @task.V3.T81's ruling c). Tokens
   would carry their definition's `id` literal as a phantom type, so another definition's guard, action or event is a

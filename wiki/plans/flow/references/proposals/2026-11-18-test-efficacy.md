@@ -17,7 +17,7 @@ proposed. Nothing in the package was changed.
 exist or be simplified before answering T83's three questions.
 
 **Read first:** @task.V3.T83 (last comments), @proposal.test-system,
-@review.performance-architecture.
+`performance-architecture`.
 
 **Risk:** this sample covers 71 of 255 faults, those in `tests/faults.ts`: WriteLanes, Actors, Stories, WriteAhead,
 Turn and CommandLine. The codec, compile, context, restore and consolidation fault files and the whole stress tier

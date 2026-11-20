@@ -16,8 +16,8 @@ in today's fixtures, the migration plan in Task order, and the Task text that mu
   Q16 B; built by @task.V3.T86). `cells` and `lanes` stay their own fixtures.
 - The toaster, menu and combobox live in `kanban`, the tree in `draft`, and the token input in `chat`.
 - `subroutine` and `whenAbandoned` are built by @task.V3.T57.
-- Source review: @proposal.fixture-catalog-review; check:
-  @review.fixture-catalog-check.
+- Source review: `fixture-catalog-review`, and the `fixture-catalogue` it replaced (both deleted; full text:
+  `git show 3a84b878:wiki/plans/flow/references/proposals/<file>`); check: @review.fixture-catalog-check.
 
 **This page is a task list.** Each scenario is a checklist item. At its close, the lead of each Task marks every
 item in the fixtures its step names, so the next agent starts from what is left:

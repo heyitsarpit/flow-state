@@ -552,7 +552,7 @@ note 2026-11-17T07:45:34Z
 
 note 2026-11-17T07:49:34Z
     Performance architecture audit started (the user, 2026-11-17): one Opus with four Haiku, read-only, on core, tests
-    and Story design; proposal file @review.performance-architecture feeds T9's compiled-walker lead, T83 and T84.
+    and Story design; proposal file `performance-architecture` feeds T9's compiled-walker lead, T83 and T84.
 
 note 2026-11-17T08:21:50Z
     Performance audit done (fc1dd7da): the turn is 1-2 % of a run; time goes to whole-record re-encoding per step, test
@@ -793,7 +793,7 @@ note 2026-11-18T11:22:01Z
 
 note 2026-11-18T11:55:53Z
     Boundary design started (the user, 2026-11-18): one Opus lead with 4 Haiku sidecars proposes one validation and
-    error structure for the whole codebase, with prevention; output @proposal.boundaries. T81 and T92 wait
+    error structure for the whole codebase, with prevention; output `boundaries`. T81 and T92 wait
     on it.
 
 note 2026-11-18T17:18:55Z
@@ -806,7 +806,7 @@ note 2026-11-18T17:19:00Z
 note 2026-11-18T17:28:07Z
     [decided: user 2026-11-18] module-composer is not adopted ("its value to me is dubious"); trust work uses
     Effect Schema (Schema.brand, full decoding), small Flow-side wrappers and lint. Re-plan proposed in
-    @proposal.replan; prior art in revisit.md.
+    `replan`; prior art in revisit.md.
 
 note 2026-11-18T17:44:33Z
     [decided: user 2026-11-18] re-plan accepted (Q1 B, Q2 B, Q3 A, Q4 A, Q5 A, Q6). New: T94 boundary Task (P3,
@@ -1398,3 +1398,7 @@ note 2026-11-20T17:59:31Z
 note 2026-11-20T21:03:37Z
     [decided: user 2026-11-21] wk gets a superseded status for Plans, Tasks and Specs, and inline tags parsed in
     every .plan, .task and .spec prose field; added to the wk agent-UX build.
+
+note 2026-11-20T21:44:57Z
+    Replan proposal and its superseded boundaries and layers-checked deleted; full text: git show
+    3a84b878:wiki/plans/flow/references/proposals/<2026-11-18-replan|2026-11-18-boundaries|2026-11-18-layers-checked>.md

@@ -11,12 +11,12 @@ description
     except the parts the reuse proposal supersedes.
 
     **Guides:** the reference apps' stories, tests and fakes show the intended shape; the Plan wins where they differ.
-    New fixtures come from @proposal.fixture-catalogue (shapes S01 to S29, usual and stress) and the ui-sdk waves
-    (@task.V3.T71, @task.V3.T72, @task.V3.T73); each feature Task builds the shapes its feature unlocks (the user,
-    2026-11-16). Known stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`,
-    persistence `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29),
-    `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup
-    services (they replace them). Link: code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
+    New fixtures come from `fixture-catalogue` (shapes S01 to S29, usual and stress) and the ui-sdk waves (@task.V3.T71,
+    @task.V3.T72, @task.V3.T73); each feature Task builds the shapes its feature unlocks (the user, 2026-11-16). Known
+    stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`, persistence `version`,
+    CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29), `Fake.storage.write.hold({
+    match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup services (they replace them).
+    Link: code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
     code:wiki/plans/flow/references/checkout/features/Pay/pay.test.ts,
     code:wiki/plans/flow/references/checkout/features/Cart/cart.story.ts,
     code:wiki/plans/flow/references/checkout/features/Refunds/refunds.story.ts,
@@ -486,10 +486,10 @@ tasks
             - Nothing generated is stored, except each fixture's stress Story below, which is saved as ordinary
               fixture code.
             - It runs over every fixture in `tests/generated/`.
-            - Two profiles, from the usual and stress sections of @proposal.fixture-catalogue: usual (realistic think
-              times, a healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and
-              storage write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, {
-              profile: "stress" })`.
+            - Two profiles, from the usual and stress sections of `fixture-catalogue`: usual (realistic think times, a
+              healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and storage
+              write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, { profile:
+              "stress" })`.
             - A pair sweep: for each fixture, every reachable pair of a write's lifecycle phase and a fault (reload, a
               lost answer, a refused storage write, disposal, and the rest of the catalogue's grid) is driven once with
               the usual profile until a write reaches that phase, then given that fault, with the run rules applied;
@@ -507,13 +507,13 @@ tasks
             - R3 (acceptance 3; a constraint, not a check): nothing generated is written to a file; the stress Stories
               are pasted by hand as fixture code.
             - R4 (acceptance 4): a test lists `fixtures/` and fails on a fixture with no samples.
-            - R5 (acceptance 5; @proposal.fixture-catalogue lines 1064-1097): usual draws think times 80 ms to 20 s,
-              server latency 50 to 800 ms log-uniform with a 2% tail of 2 to 5 s, at most 5% domain failures, no fault,
-              reload or disposal. Stress draws gaps of 0 to 20 ms, bursts, and per request an answer of Ok 35, Fail 10,
-              Lost 10, LostButLanded 10, FailButLanded 5, Never 5, slow (1 to 90 s) 10, reordered 10, late 5; per write
-              batch ack 75, refuse 15, hang 5, land unheard 5; exactly one offline span of 5 to 120 s in which every
-              answer is Lost or Never; per step reload 3%, Runtime disposal 1%, actor disposal or forget 1%. Each mix is
-              asserted over generated runs.
+            - R5 (acceptance 5; `fixture-catalogue` lines 1064-1097): usual draws think times 80 ms to 20 s, server
+              latency 50 to 800 ms log-uniform with a 2% tail of 2 to 5 s, at most 5% domain failures, no fault, reload
+              or disposal. Stress draws gaps of 0 to 20 ms, bursts, and per request an answer of Ok 35, Fail 10, Lost
+              10, LostButLanded 10, FailButLanded 5, Never 5, slow (1 to 90 s) 10, reordered 10, late 5; per write batch
+              ack 75, refuse 15, hang 5, land unheard 5; exactly one offline span of 5 to 120 s in which every answer is
+              Lost or Never; per step reload 3%, Runtime disposal 1%, actor disposal or forget 1%. Each mix is asserted
+              over generated runs.
             - R6 (acceptance 6): the pair sweep crosses 8 phases (Acknowledging, Unsent, Withdrawing, Recapturing,
               Resending, OnWire, Cancelling, Held) with 7 faults (reload, lost answer, storage refusal, actor disposal,
               forget, release, disposal bound): 56 cells per fixture. A cell is reached only when its fault fires while

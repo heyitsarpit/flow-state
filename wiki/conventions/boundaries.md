@@ -41,4 +41,5 @@ then the code.
 root-route function, the surface test, the lint rules, and the driver and handle links in `WeakMap`s. Parked in
 @task.V3.T98: construction's identity checks and complete decode, builders that read their arguments, functions
 handed out inside inert data, and the testing route, each red as an inverted Diagnostics R1 test. Source:
-@proposal.replan section 4.
+`replan` section 4 (deleted with `boundaries` and `layers-checked`;
+full text: `git show 3a84b878:wiki/plans/flow/references/proposals/<file>`).

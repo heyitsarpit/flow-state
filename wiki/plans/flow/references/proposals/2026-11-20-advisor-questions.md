@@ -92,7 +92,7 @@ Unblocks @task.V3.T109 and @task.V3.T110.
 - **Ask:** one model in which a placement's work is admitted, kept and released by a single rule (the subject path?)
   across traits, copies, nesting, resumable freezing and subroutines; what `whenAbandoned` sees; how `ReleaseOverdue`
   bounds release.
-- **Read:** @plan.Machines.O1, @plan.Runtime.O6, @spec.Turn.R30, @proposal.ui-primitives-decisions (§9),
+- **Read:** @plan.Machines.O1, @plan.Runtime.O6, @spec.Turn.R30, `ui-primitives-decisions` (§9),
   the fixture catalog's step 2 rows.
 
 ### 3. Emits and props as one boundary [answered: agent orchestrator 2026-11-21; two declared channels, emits recorded once and never replayed, props one owner; @proposal.spec-boundary-channels (still proposed)]

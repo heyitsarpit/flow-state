@@ -97,5 +97,5 @@ React's props and state split; XState v5's `input`, read once (`codebases/xstate
 ## Status
 
 Props, emits and `onProps` are accepted, not built
-(@proposal.ui-primitives-decisions Q3,
+(`ui-primitives-decisions` Q3,
 Q5, W8).
