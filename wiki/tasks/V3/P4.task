@@ -3790,7 +3790,7 @@ tasks
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
-        status      in_progress
+        status      review
         priority    medium
         description
             Start order becomes a stated rule, computed `Flow.initial` is removed, and the checks routed here from T102,
@@ -4182,6 +4182,21 @@ tasks
             own text: I49 reworded to match R28's disposal order; Restore and Stories Specs drop the retired refused
             fresh start; scope alone gets a named message. Routed: no-id-text renames through parameters and the
             own-rule inconclusive test to @task.V3.T100; Turn R14's negative computed delay is already @task.V3.T57's.
+        comment     2026-11-20T03:06:12Z
+            Fix round (47f4af60): ready for review. paired-refusals ties a refused key to its own call: a member read
+            counts only on a chain rooted at the key's callee or a binding or type alias of a call to it, in the same
+            test or file level; plant 36 fires, plus 4 firing and 2 quiet plants. Tree stays at zero: the 17 sites it
+            newly flagged were real positives of the same call (bindings, the callee's parameter type, an alias), so the
+            rule follows those, not new positives. Scope or persistence alone is MissingField ('persistence is missing')
+            with its help, tested. I49 scoped to R28's sites and disposal order; Restore R5 and Stories R12 drop the
+            refused fresh start (specs.log). Gates: check 0; suite exit 0 (1602 passed, 26 expected fail); lint:rules 0;
+            no new faults.ts plants, no stress Stories changed.
+        comment     2026-11-20T03:06:13Z
+            Sidecar log (1 Haiku cohesion, high; each finding read in the rule and replayed as a plant). Accepted:
+            owners matched anywhere in the positive, bare key occurrences unowned, file-scoped bindings, callOf crossing
+            statements (each now a plant or a bound); the duplicate refusal helper (refusals.ts takes a projection); the
+            stale snapshot.test-d.ts title. Rejected: a satisfies-wrapped binding and a (a?.b).c(x) callee (no site;
+            edge only).
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
