@@ -1357,3 +1357,8 @@ note 2026-11-20T16:03:01Z
 note 2026-11-20T16:21:40Z
     T118 requirements review: ISSUES, two blocking (a reload loses a firing without a saved restartOn baseline; no
     acceptance makes the rows go green); ruled. Its fix round waits behind the user's design research.
+
+note 2026-11-20T16:30:02Z
+    Decision (the user, 2026-11-20): Fable (high, Haiku sidecars) designs five concepts from the current code, old Specs
+    superseded: typed machine, fragments, saved records, reads and operations, data layer; proposals under
+    wiki/plans/flow/references/proposals/spec-*-2026-11-20.md, each with development and testing strategy and a handoff.
