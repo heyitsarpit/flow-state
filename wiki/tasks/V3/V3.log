@@ -1178,3 +1178,7 @@ note 2026-11-20T03:21:48Z
 note 2026-11-20T03:32:01Z
     T107 done (a6055013); T105 PASS at 84e31e6f, closing after the user reads T107's page; new-slot reload firing routed
     to @task.V3.T56.
+
+note 2026-11-20T03:32:24Z
+    User's page written, unread: code:wiki/plans/flow/references/pages/T107-context-slots.md (a Plan example fix for
+    your yes). T105 closes once it is read; T58 is next.
