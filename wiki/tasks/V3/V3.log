@@ -1345,3 +1345,7 @@ note 2026-11-20T15:33:07Z
 note 2026-11-20T15:33:17Z
     Run resumed (the user, 2026-11-20) at workflow@bb97c9d: current Task @task.V3.T118, no live agents; wake cron
     recreated. First action: T118's requirements lead (sequence test red first, B1 and B2 inverted).
+
+note 2026-11-20T16:02:34Z
+    T57 done (T118's c7635b2a lands B1 and B2 inverted). T118 requirements in: 8000 sequences, 365 red today, blind
+    agreement with no contradiction; requirements review started.

@@ -565,7 +565,7 @@ tasks
             Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      in_progress
+        status      done
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
@@ -1340,6 +1340,9 @@ tasks
             Amendment (the user, 2026-11-20): the fourth close review's B1 and B2 move to @task.V3.T118, which redesigns
             the issue seam (Fable's proposal, accepted); T57 closes once T118's first commit lands both as inverted
             tests titled by their rules. T57's timers, decide, occasions and tables stand as reviewed.
+        comment     2026-11-20T16:02:33Z
+            Done (orchestrator): closing condition met: T118's first commit (c7635b2a) lands the fourth review's B1 and
+            B2 as inverted tests titled by their rules; timers, decide, occasions and tables stand as reviewed.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -6224,3 +6227,8 @@ tasks
                keying changed, and schedule added, removed or renamed as guards in
                `tests/restore/schedule-edits.test.ts` (the schedule ones exist and pass).
             6. Gates: `nub run check`, the suite, stress and generated Stories at fresh seeds, `nub run docs:build`.
+        comment     2026-11-20T16:02:34Z
+            Rulings (orchestrator) on the requirements lead's calls: armOn dropped from the keyed fixture (Turn R14
+            refuses it) is accepted; the two Spec sentences (R25's check order, R17's restore re-reading every baseline)
+            go to the requirements review; the three python and sed edits are a process slip, noted, and the review
+            re-reads those files.
