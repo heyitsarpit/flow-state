@@ -23,8 +23,9 @@ const keys = ["actor/A/b", "lane/A/b|pay|{}", 'actor/A/{"id":1}'];
  *
  * **Details**
  *
- * Each case builds the Layer for its own app and scope, through `StoreScope`, so a durable store
- * can be checked on one database. The cases: an empty scope loads empty; a load gives exactly what
+ * Each case builds the Layer for its own scope of the app `contract/<name>`, through `StoreScope`,
+ * so a durable store can be checked on one database. A durable store keeps what the cases wrote:
+ * run the contract on a store that starts empty, such as a fresh browser profile. The cases: an empty scope loads empty; a load gives exactly what
  * landed, writes and removals; two batches issued back to back commit in issue order; text is kept
  * exactly; 5,000 records land in one batch; an interrupted write does not block the next; and a
  * fresh build after the first one's scope closed loads what landed.
@@ -80,9 +81,18 @@ export const storeContract = (
       "two batches issued back to back on one key commit in issue order",
       Effect.gen(function* () {
         const store = yield* storeIn("order");
-        yield* Effect.all([store.write([set("k", "first")]), store.write([set("k", "second")])], {
-          concurrency: "unbounded",
+
+        // Each write starts at once, so the first is issued before the second.
+        const first = yield* Effect.forkChild(store.write([set("k", "first")]), {
+          startImmediately: true,
         });
+
+        const second = yield* Effect.forkChild(store.write([set("k", "second")]), {
+          startImmediately: true,
+        });
+
+        yield* Fiber.join(first);
+        yield* Fiber.join(second);
 
         expect((yield* store.load).get("k")).toBe("second");
       }),
@@ -119,7 +129,13 @@ export const storeContract = (
       "an interrupted write does not block the next",
       Effect.gen(function* () {
         const store = yield* storeIn("interrupted");
-        const cut = yield* Effect.forkChild(store.write([set("a", "cut")]));
+
+        // The write starts at once and is interrupted while the store has it.
+        const cut = yield* Effect.forkChild(store.write([set("a", "cut")]), {
+          startImmediately: true,
+        });
+
+        yield* Effect.yieldNow;
         yield* Fiber.interrupt(cut);
         yield* store.write([set("b", "next")]);
 
@@ -131,9 +147,11 @@ export const storeContract = (
       "a fresh build after the first one's scope closed loads what landed",
       Effect.gen(function* () {
         const first = yield* Scope.make();
-        const store = yield* storeIn("reopened").pipe(Scope.provide(first));
-        yield* store.write([set("kept", "yes")]);
-        yield* Scope.close(first, Exit.void);
+        yield* storeIn("reopened").pipe(
+          Effect.flatMap((store) => store.write([set("kept", "yes")])),
+          Scope.provide(first),
+          Effect.ensuring(Scope.close(first, Exit.void)),
+        );
         const again = yield* storeIn("reopened");
 
         expect((yield* again.load).get("kept")).toBe("yes");

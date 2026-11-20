@@ -271,9 +271,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/platform/indexeddb.ts",
-        find: "        return answerOf(tx, [keys, values], () =>",
+        find: "    const committed = Result.try({ try: () => tx.commit(), catch: refusedBy });",
         replace:
-          "        return answerOf({ ...tx, commit: () => undefined }, [keys, values], () =>",
+          '    const committed = mode === "readonly" ? Result.succeed(undefined) : Result.try({ try: () => tx.commit(), catch: refusedBy });',
       },
     ],
   },

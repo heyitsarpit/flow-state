@@ -277,7 +277,7 @@ describe("a batch the store holds and then refuses (WriteAhead R10, R12)", () =>
     expect(touchesAt(refused)).toEqual(Option.some(1));
   });
 
-  it("WriteAhead R10: the held batch itself carried the record as it was before the press, so the refused batch's put-back is fresh, not the held value", async () => {
+  it("WriteAhead R10: the held batch itself carries the record as it was before the press (landed here as its tab dies), so the put-back after a refusal, which carries the press, is fresh", async () => {
     const run = checked(
       await Story.app(lampSetup, { id: "WRITE-AHEAD/held-then-landed", fixtures: [] })
         .world(Fake.storage.hold())

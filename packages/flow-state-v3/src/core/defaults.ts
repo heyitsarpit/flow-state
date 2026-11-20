@@ -13,8 +13,8 @@ import { Duration } from "effect";
  * - `freeGrace`: how long a shared actor free of uses and work lives before it ends.
  * - `disposalBound`: how long the Runtime's disposal waits for calls on the wire and its own
  *   writes.
- * - `storageSilent`: how long an awaited store write may stay unanswered before StorageSilent is
- *   reported; it decides nothing.
+ * - `storageSilent`: how long an awaited store write, or the boot's load, may stay unanswered
+ *   before StorageSilent is reported; it decides nothing.
  * - `captureInterval`: how long a plain dirty record may wait before its capture is issued, when
  *   the setup names no `captureMs`. A refused batch is captured again one interval later.
  * - `drainYield`: how many mail items one step serves before it yields to the host and leaves the

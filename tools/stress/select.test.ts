@@ -1,5 +1,6 @@
 // Shows the stress flag selects exactly the stress files: the default run lists every package test
-// file but the `*.stress.test.ts` ones, FLOW_STRESS=1 lists exactly those, every stress file runs
+// file but the `*.stress.test.ts` ones and the real-browser `*.browser.test.ts` ones (run only by
+// `nub run test:browser`), FLOW_STRESS=1 lists exactly those, every stress file runs
 // stress material, and no other file does.
 //
 //   node --experimental-strip-types tools/stress/select.test.ts
@@ -50,7 +51,9 @@ const listed = (stress: boolean) =>
     .map((line) => relative(repo, resolve(repo, line)))
     .toSorted();
 
-const all = testFiles(pkg).toSorted();
+const all = testFiles(pkg)
+  .filter((file) => !file.endsWith(".browser.test.ts"))
+  .toSorted();
 const stressFiles = all.filter((file) => file.endsWith(".stress.test.ts"));
 const usesStress = (file: string) => stressMaterial.some((re) => re.test(readFileSync(join(repo, file), "utf8")));
 

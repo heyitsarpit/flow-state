@@ -53,6 +53,7 @@ export default defineConfig({
       instances: [{ browser }],
       ui: false,
       headless: true,
+      screenshotFailures: false,
       commands: { ...pageCommands, __vitest_viewport: () => undefined },
     },
   },

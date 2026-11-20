@@ -47,7 +47,7 @@ const reasons = new Map<string, StoreRefused["reason"]>([
   ["AbortError", "aborted"],
 ]);
 
-// Every reason is a refusal; the error's name is kept as the reason's evidence.
+// Every reason is a refusal; the error's name decides the reason, kept as evidence.
 // FLOW_STATE_ALLOW_UNKNOWN: whatever IndexedDB threw or failed with.
 const refusedBy = (error: unknown) =>
   new StoreRefused({
@@ -59,19 +59,34 @@ const Loaded = Schema.Struct({
   values: Schema.Array(Schema.String),
 });
 
-// A transaction, refused when the connection cannot start one, as a closing connection cannot.
-const begin = (db: Connection, mode: IDBTransactionMode) =>
-  Result.try({ try: () => db.transaction(RECORDS, mode), catch: refusedBy });
+type Records = ReturnType<Transaction["objectStore"]>;
 
-// Ends a transaction once IndexedDB answers it: landed only when it completed and every request in
-// it succeeded, since a page frozen into the bfcache can fail every request and still complete.
-// Every transaction is committed at once, so a frozen one never holds the store.
-const answerOf = <A>(
-  tx: Transaction,
-  requests: ReadonlyArray<Heard<"success" | "error">>,
-  value: () => Effect.Effect<A, StoreRefused>,
+// Runs one transaction and answers once IndexedDB does: landed only when it completed and every
+// request in it succeeded, since a page frozen into the bfcache can fail every request and still
+// complete. The transaction and its requests are made inside the callback, so every listener is
+// attached before IndexedDB can answer; it is committed at once, so a frozen one never holds the
+// store. Whatever IndexedDB throws, as a closing connection does, is a refusal.
+const transact = <A>(
+  db: Connection,
+  mode: IDBTransactionMode,
+  start: (records: Records) => {
+    readonly requests: ReadonlyArray<Heard<"success" | "error">>;
+    readonly value: () => Effect.Effect<A, StoreRefused>;
+  },
 ) =>
   Effect.callback<A, StoreRefused>((resume) => {
+    const started = Result.try({
+      try: () => {
+        const tx = db.transaction(RECORDS, mode);
+
+        return { tx, ...start(tx.objectStore(RECORDS)) };
+      },
+      catch: refusedBy,
+    });
+
+    if (Result.isFailure(started)) return resume(Effect.fail(started.failure));
+
+    const { tx, requests, value } = started.success;
     let succeeded = 0;
     let failed = Option.none<StoreRefused>();
 
@@ -92,56 +107,61 @@ const answerOf = <A>(
       ),
     );
     tx.addEventListener("abort", () => resume(Effect.fail(refusedBy(tx.error))));
-    tx.commit();
+    const committed = Result.try({ try: () => tx.commit(), catch: refusedBy });
+
+    if (Result.isFailure(committed)) resume(Effect.fail(committed.failure));
   });
 
 /**
  * Writes one batch of a scope's records in one transaction.
  */
 export const writeBatch = (db: Connection, place: Place, batch: ReadonlyArray<StoreWrite>) =>
-  Effect.suspend(() =>
-    Result.match(begin(db, "readwrite"), {
-      onFailure: Effect.fail,
-      onSuccess: (tx) => {
-        const records = tx.objectStore(RECORDS);
+  transact(db, "readwrite", (records) => {
+    const requests = batch.map((w) =>
+      Option.match(w.value, {
+        onNone: () => records.delete([place.app, place.scope, w.key]),
+        onSome: (text) => records.put(text, [place.app, place.scope, w.key]),
+      }),
+    );
 
-        const requests = batch.map((w) =>
-          Option.match(w.value, {
-            onNone: () => records.delete([place.app, place.scope, w.key]),
-            onSome: (text) => records.put(text, [place.app, place.scope, w.key]),
-          }),
-        );
-
-        return answerOf(tx, requests, () => Effect.void);
-      },
-    }),
-  );
+    return { requests, value: () => Effect.void };
+  });
 
 /**
  * Reads every record of a scope in one transaction.
  */
 export const loadAll = (db: Connection, place: Place) =>
-  Effect.suspend(() =>
-    Result.match(begin(db, "readonly"), {
-      onFailure: Effect.fail,
-      onSuccess: (tx) => {
-        const records = tx.objectStore(RECORDS);
-        // Arrays sort after strings, so `[app, scope, []]` is above every key of the scope.
-        const range = IDBKeyRange.bound([place.app, place.scope], [place.app, place.scope, []]);
-        const keys = records.getAllKeys(range);
-        const values = records.getAll(range);
+  transact(db, "readonly", (records) => {
+    // Arrays sort after strings, so `[app, scope, []]` is above every key of the scope.
+    const range = IDBKeyRange.bound([place.app, place.scope], [place.app, place.scope, []]);
+    const keys = records.getAllKeys(range);
+    const values = records.getAll(range);
 
-        return answerOf(tx, [keys, values], () =>
-          Schema.decodeUnknownEffect(Loaded)({ keys: keys.result, values: values.result }).pipe(
-            Effect.mapError(() => new StoreRefused({ reason: "failed" })),
-            Effect.map(
-              (loaded) => new Map(loaded.keys.map(([, , key], n) => [key, loaded.values[n] ?? ""])),
-            ),
+    return {
+      requests: [keys, values],
+      value: () =>
+        Schema.decodeUnknownEffect(Loaded)({ keys: keys.result, values: values.result }).pipe(
+          Effect.filterOrFail(
+            (loaded) => loaded.keys.length === loaded.values.length,
+            () => new StoreRefused({ reason: "failed" }),
           ),
-        );
-      },
-    }),
-  );
+          Effect.mapError(() => new StoreRefused({ reason: "failed" })),
+          Effect.map(
+            (loaded) =>
+              new Map(
+                loaded.keys.flatMap(([, , key], n) =>
+                  Option.toArray(
+                    Option.map(
+                      Option.fromUndefinedOr(loaded.values[n]),
+                      (text) => [key, text] as const,
+                    ),
+                  ),
+                ),
+              ),
+          ),
+        ),
+    };
+  });
 
 // Opens the database, creating its one object store on first use; a connection another open
 // wants to upgrade or delete closes itself, so its later writes are refused, not stuck.
@@ -150,7 +170,11 @@ const open = (name: string) =>
     if (!Predicate.hasProperty(globalThis, "indexedDB"))
       return resume(Effect.fail(new StoreRefused({ reason: "failed" })));
 
-    const opening = globalThis.indexedDB.open(name, 1);
+    const started = Result.try({ try: () => globalThis.indexedDB.open(name, 1), catch: refusedBy });
+
+    if (Result.isFailure(started)) return resume(Effect.fail(started.failure));
+
+    const opening = started.success;
     opening.onupgradeneeded = () => void opening.result.createObjectStore(RECORDS);
     opening.onerror = () => resume(Effect.fail(refusedBy(opening.error)));
     opening.onsuccess = () => {
@@ -190,9 +214,10 @@ export const layerIndexedDb = (
     Effect.gen(function* () {
       const place = yield* StoreScope;
 
-      const connection = yield* Effect.acquireRelease(
-        Effect.result(open(options.database ?? `flow-state/${place.app}`)),
-        (opened) => Effect.sync(() => Result.map(opened, (db) => db.close())),
+      const connection = yield* Effect.result(
+        Effect.acquireRelease(open(options.database ?? `flow-state/${place.app}`), (db) =>
+          Effect.sync(() => db.close()),
+        ),
       );
 
       const withConnection = <A>(use: (db: Connection) => Effect.Effect<A, StoreRefused>) =>

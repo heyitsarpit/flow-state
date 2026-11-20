@@ -34,7 +34,8 @@ const onHidden = (listener: () => void) =>
   });
 
 /**
- * The real host's platform: the only module that touches the browser's own APIs.
+ * The real host's platform: with the IndexedDB adapter beside it, the only code that touches the
+ * browser's own APIs.
  *
  * **Details**
  *

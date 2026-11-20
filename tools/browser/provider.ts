@@ -3,10 +3,11 @@
 // /usr/bin/safaridriver and WebDriver. Nothing is downloaded.
 //
 // Each run starts only its own processes and ends only those, by exact pid: Chrome by the pid it
-// spawned; Safari's driver by its pid, and the automation Safari the driver launched by its pid,
-// found as a process absent before the run whose parent is this run's safaridriver (or launchd,
-// for a Safari the driver handed to it) and whose command line carries `--automation`. An
-// interrupted run (SIGINT, SIGTERM) ends them too.
+// spawned; Safari's driver by its pid, and the automation Safari the driver launched by its pid.
+// safaridriver has launchd start that Safari, so its parent is launchd, not the driver: it is
+// found as the one Safari absent before the run whose parent is this run's safaridriver or
+// launchd and whose command line carries `--automation`. A run that fails while opening, or is
+// interrupted (SIGINT, SIGTERM), ends them too.
 //
 // The page commands `hidePage` and `showPage` hide and show the tab the tests run in: Chrome by
 // opening a second tab in front of it and closing it again, Safari by a WebDriver new tab and a
@@ -20,7 +21,8 @@ import { defineBrowserProvider } from "@vitest/browser";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const SAFARIDRIVER = "/usr/bin/safaridriver";
-const SAFARI = "/Applications/Safari.app/Contents/MacOS/Safari";
+// Safari lives in the system cryptex on current macOS; match the bundle path inside any root.
+const SAFARI = "Safari.app/Contents/MacOS/Safari";
 const WEBDRIVER_PORT = 47823;
 
 type Page = { readonly hide: () => Promise<void>; readonly show: () => Promise<void> };
@@ -181,7 +183,7 @@ const safari = () => {
   return {
     page,
     open: async (url: string) => {
-      for (const p of processes()) if (p.command.startsWith(SAFARI)) before.add(p.pid);
+      for (const p of processes()) if (p.command.includes(SAFARI)) before.add(p.pid);
       driver = spawn(SAFARIDRIVER, ["-p", String(WEBDRIVER_PORT)], { stdio: "ignore" });
       console.log(`browser run: safaridriver (pid ${driver.pid})`);
 
@@ -196,7 +198,7 @@ const safari = () => {
       session = created.sessionId;
       const launched = processes().filter(
         (p) =>
-          p.command.startsWith(SAFARI) &&
+          p.command.includes(SAFARI) &&
           !before.has(p.pid) &&
           p.command.includes("--automation") &&
           (p.ppid === driver?.pid || p.ppid === 1),
@@ -206,6 +208,9 @@ const safari = () => {
       console.log(`browser run: Safari ${created.capabilities.browserVersion ?? ""} (pid ${automation}, parent ${launched[0]?.ppid})`);
       await webdriver("POST", `/session/${session}/url`, { url });
       tests = await webdriver<string>("GET", `/session/${session}/window`);
+      // Bring the tests' window to the front, so the page starts shown, not occluded.
+      await webdriver("POST", `/session/${session}/window`, { handle: tests });
+      await webdriver("POST", `/session/${session}/window/maximize`, {}).catch(() => undefined);
     },
     close: async () => {
       if (session !== undefined) await webdriver("DELETE", `/session/${session}`).catch(() => undefined);
@@ -244,7 +249,10 @@ export const realBrowser = () =>
           process.once("SIGINT", stop);
           process.once("SIGTERM", stop);
           current = browser.page;
-          await browser.open(url);
+          await browser.open(url).catch(async (error: unknown) => {
+            await browser.close();
+            throw error;
+          });
         },
         close: async () => {
           if (!opened) return;

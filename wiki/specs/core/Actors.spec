@@ -34,11 +34,11 @@ requirements
     R3  Bootstrap order
         source  @plan.Runtime.O2.
         must    With persistence: claim scope ownership (a Runtime refused it runs as
-                @spec.WriteAhead.R16 states), acquire storage, then read and validate
-                persisted data before any app service starts. Then acquire the remaining services,
-                install the Owing identities (@spec.Restore.R1), providers before consumers, keep
-                every other record a record, establish silent context baselines, and open the
-                Runtime to callers.
+                @spec.WriteAhead.R16 states), acquire the whole services Layer, the Store in it
+                (Q3), then read and validate persisted data before any actor starts. Then install
+                the Owing identities (@spec.Restore.R1), providers before consumers, keep every
+                other record a record, establish silent context baselines, and open the Runtime to
+                callers.
 
     R4  Bootstrap failure and early calls
         source  @plan.Runtime.O2.
@@ -477,8 +477,11 @@ open
         outcome  The slices write those checks and faults first.
 
     Q3  Can one services Layer be acquired storage-first (@plan.Runtime.Q1)?
-        outcome  If not, R3's order becomes "acquire the whole Layer, then validate"; record it
-                 here as a change.
+        outcome  No (lead, 2026-11-20, @task.V3.T58): one Effect Layer cannot be split, so the Store
+                 is acquired with the rest of the services; R3 reads "acquire the whole Layer, then
+                 load and validate before any actor starts", checked by the boot-order test in
+                 code:packages/flow-state-v3/tests/restore/store-provision.test.ts. Reverse: a
+                 separate Store Layer the boot builds first.
 
     Q4  Is a chain of sends or ensures started from a snapshots listener ever stopped (R13 says a spin is never 
         stopped)? The prototype drops, as evidence, a listener-originated send or ensure once the chain passes

@@ -114,6 +114,12 @@ const stored = (database: string) =>
     };
   });
 
+// The guard before a hide is judged: the page starts shown. A window the system occludes, as
+// Safari's is while the display sleeps, starts hidden, and the case cannot be shown there.
+const shownAtStart = () => {
+  expect(`the page starts ${document.visibilityState}`).toBe("the page starts visible");
+};
+
 const setupOver = (layer: Layer.Layer<Store, never, StoreScope>) =>
   runtimeSetup({
     app: pads,
@@ -124,6 +130,7 @@ const setupOver = (layer: Layer.Layer<Store, never, StoreScope>) =>
 
 describe("the flush on hide in a real page (WriteAhead R10, I12, T5)", () => {
   it("WriteAhead I12: a write waiting for the capture interval lands in IndexedDB when the page hides, long before the interval", async () => {
+    shownAtStart();
     const seen: Array<string> = [];
     const heard = () => void seen.push(document.visibilityState);
     document.addEventListener("visibilitychange", heard);
@@ -156,6 +163,8 @@ describe("the flush on hide in a real page (WriteAhead R10, I12, T5)", () => {
 
 describe("the Fake page against a real page (WriteAhead R10, I12; Stories)", () => {
   it("WriteAhead I12: changes at 0 s and 3 s land once at 5 s, the same batches on the Fake and on the real page; a hide issues one batch at once on both", async () => {
+    shownAtStart();
+
     const fake = await Story.app(setupOver(layerIndexedDb()), {
       id: "browser/fake-page",
       fixtures: [RemoteHangs],

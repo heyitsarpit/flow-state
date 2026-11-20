@@ -1,5 +1,4 @@
 import {
-  Clock,
   Context,
   Deferred,
   Duration,
@@ -35,7 +34,7 @@ import { makeDriver, type Driver } from "./driver.ts";
 import { actorIdOf, type ActorRef } from "./refs.ts";
 import { defect } from "../core/defect.ts";
 import { browserPlatform } from "./platform/browser.ts";
-import { Ending, makeOwner, makeRuntimeReport, sleepUntil, type Traced } from "./owners/owners.ts";
+import { Ending, makeOwner, makeRuntimeReport, type Traced } from "./owners/owners.ts";
 import { makeRunPromise } from "./run-promise.ts";
 import { makeWiring } from "./wiring.ts";
 import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
@@ -245,7 +244,6 @@ export const buildRuntime = <R = never, A extends App = App>(
 
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
-  const clock = Context.get(platform, Clock.Clock);
   // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the Runtime owns one Scope for its whole life: its services and its work; dispose() closes it
   const root = Scope.makeUnsafe();
   // The services' Scope comes first and the work's second, so the root releases work first.
@@ -260,8 +258,8 @@ export const buildRuntime = <R = never, A extends App = App>(
 
   const persistence = config.persistence !== undefined && config.scope !== undefined;
 
-  // The scope's store, found in the services once they are built; a host's own platform may give
-  // one, as Flow's test host does, and a setup's services win over it.
+  // The scope's store, found in the services once they are built, else in the platform, where
+  // Flow's test host gives one; a setup's own services win.
   let store = Option.none<Store["Service"]>();
 
   const driver = makeDriver({
@@ -322,7 +320,9 @@ export const buildRuntime = <R = never, A extends App = App>(
         Effect.catch((cause) => failed(servicesFailed(cause))),
       );
 
-    store = persistence ? Context.getOption(context(), Store) : Option.none();
+    store = persistence
+      ? Option.orElse(Context.getOption(services, Store), () => Context.getOption(platform, Store))
+      : Option.none();
 
     if (persistence && Option.isNone(store)) return yield* failed(noStore);
 
@@ -331,16 +331,9 @@ export const buildRuntime = <R = never, A extends App = App>(
     const stored = yield* Option.match(store, {
       onNone: () => Effect.succeed(Option.some<ReadonlyMap<string, string>>(new Map())),
       onSome: (given) => {
-        work.fork(
-          LOAD_SILENT,
-          sleepUntil(
-            clock,
-            clock.currentTimeMillisUnsafe() + Duration.toMillis(RuntimeDefaults.storageSilent),
-          ),
-          (ending) => {
-            if (Ending.$is("Done")(ending)) driver.input(Input.LoadSilent());
-          },
-        );
+        work.fork(LOAD_SILENT, Effect.sleep(RuntimeDefaults.storageSilent), (ending) => {
+          if (Ending.$is("Done")(ending)) driver.input(Input.LoadSilent());
+        });
 
         return given.load.pipe(
           Effect.option,

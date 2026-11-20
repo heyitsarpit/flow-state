@@ -28,10 +28,12 @@ requirements
                 record writes and removals. Missing provision is a type error, and untyped missing
                 provision fails ready with StorageFailure. construct() performs no I/O. Records are
                 stored as their canonical JSON text (@spec.Codec.R2). A `load` the store refuses is
-                a read failure (@spec.Restore.R9). Flow is to ship `layerIndexedDb` and `layerMemory` (neither is built
-                yet); it offers no adapter over Effect's KeyValueStore, whose per-key writes cannot
-                be one atomic batch. The IndexedDB Layer is specified with the host adapters, when
-                that phase starts. Decision (user, 2026-11-12): wide consult, question 4. Why: the user's
+                a read failure (@spec.Restore.R9). The Store is a service of the setup's services
+                Layer, which the Runtime builds with a `StoreScope` (app id and scope) a Store reads
+                to keep apps and scopes apart; its members see records and keys only. Flow ships
+                `layerIndexedDb` (@task.V3.T58) and is to ship `layerMemory` (@task.V3.T28); it
+                offers no adapter over Effect's KeyValueStore, whose per-key writes cannot be one
+                atomic batch. Decision (user, 2026-11-12): wide consult, question 4. Why: the user's
                 answer. Reverse: restore R2 from commit `9405af2f`.
 
     R3  Selection

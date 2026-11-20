@@ -35,7 +35,7 @@ describe("a persisted setup with no Store (WriteAhead R2)", () => {
 });
 
 describe("the persistence route (Package O1, Pending D9)", () => {
-  it("Pending D9: flow-state/persistence exports the Store service and layerIndexedDb, and importing it opens nothing", () => {
+  it("Pending D9: flow-state/persistence exports the Store service and layerIndexedDb; this file imports it in Node, where opening IndexedDB would throw", () => {
     expect(Store.key).toBe("flow-state/Store");
     expect(Predicate.isFunction(layerIndexedDb)).toBe(true);
   });
