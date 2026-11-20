@@ -364,6 +364,11 @@ tasks
             Owns from T99 (proposed, catalog): HoldForgotten under L4 with retired holds; L5, S6 child-first and
             forget-with-hold orders and step samples for unsettledWrites (code:wiki/conventions/fixture-catalog.md,
             transfers and shop Runtime life).
+        comment     2026-11-20T03:31:59Z
+            Routed from T107's close review (orchestrator): a slot added or renamed by a later release makes a reaction
+            with no when fire once on reload, against Turn R22's silent restore (Restore R5 says nothing of new slots).
+            Reproduced in a scratch probe; it needs a release Story, so it lands here as an inverted test titled by Turn
+            R22, then fixed.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -4218,10 +4223,13 @@ tasks
                 reading contract.test-d.ts:259-277 and tokens.test-d.ts:49-62 myself. Rejected: boot wake order taken
                 from a Map (incarnations.ts:488); R28 names its sites, and the order is minted when each identity
                 starts. Also rejected: comments on internal helpers, which follow the package's existing convention.
+        comment     2026-11-20T03:32:00Z
+            PASS recorded (orchestrator) at 84e31e6f; T105 closes once the user has read T107's page (a slice may not
+            close on an unread page).
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
-        status      review
+        status      done
         priority    high
         blocked_by  [@T104]
         description
@@ -4573,6 +4581,10 @@ tasks
                 - format-3 frames by index: pre-existing and test-only;
                 - a format-3 missing frame making up an event: a count mismatch steps to last-seen;
                 - comments on internal helpers: the package convention.
+        comment     2026-11-20T03:31:59Z
+            Done (orchestrator): close review after both fix rounds PASS at a6055013. previous's undefined ambiguity
+            stays a doc note on ChangeSpec (the fixes reverse Q1 A; no case loses a reaction). The new-slot reload
+            firing is routed to @task.V3.T56.
 
     T109
         title       Fragments: traits, .each copies, nesting, .resumable() and subject paths (slice 3c)

@@ -1174,3 +1174,7 @@ note 2026-11-20T02:42:57Z
 note 2026-11-20T03:21:48Z
     T105 (84e31e6f) and T107 (a6055013) fix rounds in review; one review lead checks both. For the user: Machines.plan's
     when example (683-705) no longer compiles, a Plan edit.
+
+note 2026-11-20T03:32:01Z
+    T107 done (a6055013); T105 PASS at 84e31e6f, closing after the user reads T107's page; new-slot reload firing routed
+    to @task.V3.T56.
