@@ -349,3 +349,11 @@ decisions
         "Fake.Lost is mapped by the transport binding" then holds for those only. **Why:** the user's C2 (revised).
         **Proven by:** the compile test in code:packages/flow-state-v3/tests/stories/fake.test.ts, fault
         `lost-as-fakelost`. Owner: @task.V3.T103.
+    D40  @plan.Machines.O5: a restored multi-step Schedule continues at its saved attempt
+        **Before:** "A multi-step Schedule restarts at step one; a paused one first finishes its `left`." Read
+        literally, `upTo({ times: 3 })` fires three fresh times after every reload or return, so `home/reloaded-paused`
+        shows 5 checks, not 3: a made-up firing per restore. **After:** it continues at its saved attempt, with its next
+        delay from that step (a paused one first finishes its `left`); a finished series stays finished. **Why:** the
+        reading that neither loses nor makes up a firing (T57's requirements review, B1). **Proven by:** a checkpoint
+        after the series ends in `home/reloaded-paused`, red today. Owner: @task.V3.T57. Proposed by the orchestrator,
+        built provisionally; the user confirms or reverses.

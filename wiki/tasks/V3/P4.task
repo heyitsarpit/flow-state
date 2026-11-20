@@ -847,6 +847,11 @@ tasks
                 the dismiss.
               - Rejected: "`{}` never flips" (O8 shows empty records as `{}`; it fails today on the list shape). Reverse
                 declaration order (no plausible build). Stub cohesion items the lead already left for the build.
+        comment     2026-11-20T08:33:31Z
+            Rulings (orchestrator) on the requirements review: B1 built provisionally as @plan.Pending.D40 (continue at
+            the saved attempt; the Plan's restart-at-step-one makes up firings), the user confirms; B2 to B7 accepted,
+            each red before the build; Q5 drops keys from its wording; Q17 uses code-unit key order, one order with the
+            snapshot and Turn R30; acceptance A6's flow check item moves to @task.V3.T22 (small amendment).
     T21
         title       Reads and operations (slice 5)
         status      draft

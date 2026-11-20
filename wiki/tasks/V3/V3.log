@@ -1240,3 +1240,7 @@ note 2026-11-20T07:34:49Z
 note 2026-11-20T08:11:40Z
     T57 requirements in (2a68ac9b, bf7174a2): 30 requirements, 43 red; overdue keys fire in declaration order (Turn R17)
     found. Calls ruled; requirements review started with the five-sidecar shape.
+
+note 2026-11-20T08:33:32Z
+    T57 requirements review: ISSUES, seven blocking (five found by flip B or blind B); B1 built provisionally as
+    @plan.Pending.D40, for the user. Build lead started.
