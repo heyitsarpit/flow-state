@@ -1224,3 +1224,7 @@ note 2026-11-20T07:17:02Z
 
 note 2026-11-20T07:27:50Z
     T107's page read by the user; @task.V3.T105 done (84e31e6f). T58 closes once T105's page is read.
+
+note 2026-11-20T07:28:25Z
+    User's page written, unread: code:wiki/plans/flow/references/pages/T105-start-order-and-constant-starts.md (D2 to D4
+    merge for the user's yes). T58 closes once it is read.
