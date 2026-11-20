@@ -11,6 +11,7 @@ import {
   scriptFault,
   Step,
   StepData,
+  type StepOf,
   StoryFailed,
   StoryTurnLimit,
   WorldWord,
@@ -828,7 +829,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
  *   step are answered at once.
  */
 export type Generated<Ds extends AnyDefinition = AnyDefinition> = {
-  readonly steps: ReadonlyArray<Step>;
+  readonly steps: ReadonlyArray<StepOf<Ds>>;
   readonly run: StoryRun<never, Ds>;
   readonly pending: ReadonlyArray<string>;
   readonly offline: Option.Option<Span>;
@@ -936,10 +937,12 @@ export const generate = <Ds extends AnyDefinition>(
 ): Generated<Ds> => {
   const all = partsOf(fixtures);
 
+  // SAFETY: every step and record of a run drawn from samples of Ds names one of Ds's machines.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the drawing runs erased; its steps are the samples' own
   return drawnRun(
     { all, kept: all, drawing: options.drawing, seed: options.seed },
     drawsFrom(options.drawing, options.seed),
-  );
+  ) as Generated<Ds>;
 };
 
 const LIMIT_RULE = "turn limit";
@@ -1200,7 +1203,10 @@ export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
   } & NoOwnRule<R>,
 ): ReadonlyArray<Failure<R>> => {
   const all = partsOf(fixtures);
-  const own = options.properties.find((p) => p.rule === LIMIT_RULE || p.rule === HORIZON_RULE);
+  // SAFETY: each property reads runs drawn from samples of Ds, which is every run judged here.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the search runs erased; its runs are the samples' own
+  const check = { profile: options.profile, properties: options.properties } as Check<R>;
+  const own = check.properties.find((p) => p.rule === LIMIT_RULE || p.rule === HORIZON_RULE);
 
   if (own !== undefined) scriptFault(`a property is named ${own.rule}, one of Flow's own rules`);
 
@@ -1216,10 +1222,10 @@ export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
     // over the shrunk draws, where another fixture's work no longer stands in the way.
     // RETURN_TYPE: the Drawn record both branches return.
     const drop = (at: Drawn, over: ReadonlyArray<Draw>): Drawn =>
-      target === HORIZON_RULE ? at : { ...at, kept: dropped(at, options, target, over) };
+      target === HORIZON_RULE ? at : { ...at, kept: dropped(at, check, target, over) };
 
     const once = drop(first, draws);
-    const shrunk = search(once, options, Option.some(target), MAX_SHRINKS);
+    const shrunk = search(once, check, Option.some(target), MAX_SHRINKS);
 
     if (shrunk.result._tag !== "Falsified")
       return [
@@ -1233,7 +1239,7 @@ export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
     const at = drop(once, shrunk.result.shrunkInput);
     const parts = at.kept;
     const id = idOf(at);
-    const last = judged(at, shrunk.result.shrunkInput, options.properties);
+    const last = judged(at, shrunk.result.shrunkInput, check.properties);
     const steps = Option.match(last.generated, { onNone: () => [], onSome: (g) => g.steps });
     const [only] = parts;
 
@@ -1257,7 +1263,7 @@ export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
   // RETURN_TYPE: one Failure list for the passed and the shrunk branch, which inference would split.
   const checked = (seed: number): ReadonlyArray<Failure<R>> => {
     const first: Drawn = { all, kept: all, drawing: options.profile, seed };
-    const found = search(first, options, Option.none(), 0);
+    const found = search(first, check, Option.none(), 0);
 
     const judgedNothing = (result: Exclude<typeof found.result, { readonly _tag: "Passed" }>) => [
       inconclusive(seed, all, Arbitrary.formatCheckFailure(result) ?? result._tag),

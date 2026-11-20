@@ -113,7 +113,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     Option.match(at, {
       onNone: () =>
         report(
-          { actor, operation: operation.name, key: {} },
+          { actor, operation: operation.name, key: Option.none() },
           LaneState.Idle(),
           cue,
           tx.commandCount(),

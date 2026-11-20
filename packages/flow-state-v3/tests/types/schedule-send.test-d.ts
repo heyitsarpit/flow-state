@@ -3,7 +3,7 @@ import { definition, type Machine, machine } from "../../src/index.ts";
 
 // Each wrong line is refused under `@ts-expect-error`; beside it the machine's own event in the same
 // schedule compiles and is asserted exactly. Construction refuses both at load too
-// (tests/compile/construction.test.ts).
+// (tests/compile/schedule-send.test.ts).
 
 const Lamp = definition({ id: "types/Lamp", states: ["ON"], events: { Off: {} }, memory: {} });
 

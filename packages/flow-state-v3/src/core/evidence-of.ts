@@ -60,7 +60,7 @@ export type Act = Data.TaggedEnum<{
   Lane: {
     actor: ActorId;
     operation: string;
-    key: Values;
+    key: Option.Option<Values>;
     before: LaneState;
     cue: Cue;
     after: LaneState;
@@ -200,7 +200,9 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
       const minted = Option.toArray(now).flatMap((h) =>
         Option.exists(was, (w) => w.id === h.id)
           ? []
-          : [Evidence.Minted({ operation, attempt: h.id, actor, key })],
+          : Option.toArray(key).map((k) =>
+              Evidence.Minted({ operation, attempt: h.id, actor, key: k }),
+            ),
       );
 
       const commit = COMMITS[cue._tag];

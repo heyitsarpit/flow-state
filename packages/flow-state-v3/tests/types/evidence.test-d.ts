@@ -102,6 +102,9 @@ describe("Stories R16, Turn R23: evidence a selector returns names its definitio
     // oxlint-disable-next-line typescript/no-unnecessary-condition -- the wrong line typed operation names refuse
     turnsOf(run, D.E.go).filter((t) => t.members.some((m) => m.operation === "plaec"));
 
+    expectTypeOf(evidenceOf(run, D.E.go)[0]?.event).toEqualTypeOf<
+      "go" | "stop" | "Placed" | "Unsure" | undefined
+    >();
     evidenceOf(run, D.E.go).filter(
       // @ts-expect-error Stories R16: stpo is no event of D
       // oxlint-disable-next-line flow-state/no-event-name-filter, typescript/no-unnecessary-condition -- the wrong line typed event names refuse

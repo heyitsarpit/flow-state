@@ -450,9 +450,7 @@ export const makeServe = (
   // Serves one item; returns the mail its turns enqueued, which follows it and the loop guard's
   // chain it follows or starts. Mail enqueued between items follows none.
   const served = (mail: Mail) => {
-    tx.follow(mail);
-    serve(mail);
-    tx.followNone();
+    tx.serving(mail, serve);
 
     return tx.takeFresh();
   };

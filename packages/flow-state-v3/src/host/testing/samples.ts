@@ -6,7 +6,7 @@ import { actorIdOf, type ActorRef } from "../runtime.ts";
 import type { AnyDefinition, EventOf } from "../../definition.ts";
 import type { AnyServer } from "./fake.ts";
 import type { StoryRun } from "./run.ts";
-import { scriptFault, Step, StepData, WorldWord } from "./steps.ts";
+import { scriptFault, Step, StepData, type StepOf, WorldWord } from "./steps.ts";
 import type { Story } from "./story.ts";
 
 /**
@@ -31,7 +31,7 @@ export type Samples<Ds extends AnyDefinition = AnyDefinition> = {
   readonly story: Story<never, Ds>;
   readonly setup: string;
   readonly fixtures: ReadonlyArray<string>;
-  readonly steps: ReadonlyArray<Step>;
+  readonly steps: ReadonlyArray<StepOf<Ds>>;
   readonly actors: ReadonlyArray<{
     readonly name: string;
     readonly actor: ActorId;

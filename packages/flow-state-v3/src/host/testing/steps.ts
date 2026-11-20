@@ -2,7 +2,7 @@ import { Data, type Duration } from "effect";
 import type { Values } from "../../core/compiled.ts";
 import type { Evidence } from "../../core/evidence.ts";
 import type { ActorId, Wiring } from "../../core/world.ts";
-import type { Envelope } from "../../definition.ts";
+import type { AnyDefinition, Envelope } from "../../definition.ts";
 import type { AnyServer } from "./fake.ts";
 
 /**
@@ -68,6 +68,15 @@ export type Step = Data.TaggedEnum<{
   reload: { reattach: boolean; heldWrites: "abort" | "land" };
   checkpoint: { name: string };
 }>;
+
+/**
+ * A step of one app's run: an actor step names one of the app's machines. Over an erased app it
+ * is any {@link Step}; the key a step without an actor gains is never set.
+ */
+export type StepOf<Ds extends AnyDefinition> = Step & {
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a narrowing of an actor step's own actor, written optional so the type stays covariant; no step gains the key
+  readonly actor?: { readonly machine: Ds["id"] };
+};
 
 /**
  * Constructors and matchers for every {@link Step}, actor steps included: Flow's own tooling builds

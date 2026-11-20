@@ -77,6 +77,8 @@ const ShipMachine = machine(Ship, ({ S }) => ({ default: S.READY }));
 
 type Ds = typeof Pay | typeof Ship;
 
+type Machines = Ds["id"];
+
 const setup = runtimeSetup({
   app: app({ id: "types/public/shop", machines: { pay: PayMachine, ship: ShipMachine } }),
 });
@@ -346,66 +348,71 @@ const shopSamples = (id: string) =>
     steps: (s) => s,
   });
 
-// Inverted: each line marked `wrong` compiles today. When its word carries the app the line fails
-// the check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type then
-// fails too: make it the exact narrow type named beside it.
-describe("Stories T2 (inverted): the remaining words that erase the app", () => {
+describe("Stories T2: the words that erased the app carry it", () => {
   it("Runtime O1: unsettledWrites takes no type argument, so no caller names a narrower app", () => {
     const runtime = setup.construct();
 
     expectTypeOf(runtime.unsettledWrites()).toEqualTypeOf<ReadonlyArray<Unsettled<Ds>>>();
-    void runtime.unsettledWrites<typeof Pay>(); // wrong: Ship's rows typed as Pay's
+    // @ts-expect-error Runtime O1: Ship's rows typed as Pay's
+    void runtime.unsettledWrites<typeof Pay>();
   });
 
   it("Stories R16: a published record's actor names its definition", () => {
     const [published] = publishedOf(run, pay);
 
-    // Narrow: "types/public/Pay" | undefined.
-    expectTypeOf(published?.actor.machine).toEqualTypeOf<string | undefined>();
-    void (published?.actor.machine === "types/public/Ship"); // wrong: a Pay actor's record
+    expectTypeOf(published?.actor.machine).toEqualTypeOf<"types/public/Pay" | undefined>();
+    // @ts-expect-error Stories R16: a Pay actor's record
+    void (published?.actor.machine === "types/public/Ship");
   });
 
   it("Stories R16: a dropped send's sender names a machine of the app", () => {
     const [dropped] = evidenceOf(run, Pay.E.go).filter((e) => e._tag === "SendTargetAbsent");
 
-    // Narrow: Option<{ machine: "types/public/Pay" | "types/public/Ship"; name: string }> | undefined.
     expectTypeOf(dropped?.sender).toEqualTypeOf<
-      Option.Option<{ readonly machine: string; readonly name: string }> | undefined
+      Option.Option<{ readonly machine: Machines; readonly name: string }> | undefined
     >();
-    void (dropped && Option.exists(dropped.sender, (s) => s.machine === "Paymnt")); // wrong
+    // @ts-expect-error Stories R16: no machine of the app
+    void (dropped && Option.exists(dropped.sender, (s) => s.machine === "Paymnt"));
   });
 
   it("Stories T2: a run's, a sample's and a generated run's steps name the app's machines", () => {
     const samples = shopSamples("types/public/steps");
     const generated = generate(samples, { drawing: "usual", seed: 1 });
 
-    const sentTo = (steps: ReadonlyArray<Step>) =>
-      steps.flatMap((s) => (s._tag === "send" ? [s.actor.machine] : []));
+    const [fromRun] = run.steps.flatMap((s) => (s._tag === "send" ? [s.actor.machine] : []));
 
-    // Narrow, each: Array<"types/public/Pay" | "types/public/Ship">.
-    expectTypeOf(sentTo(run.steps)).toEqualTypeOf<Array<string>>();
-    expectTypeOf(sentTo(samples.steps)).toEqualTypeOf<Array<string>>();
-    expectTypeOf(sentTo(generated.steps)).toEqualTypeOf<Array<string>>();
-    void sentTo(run.steps).includes("Paymnt"); // wrong
-    void sentTo(samples.steps).includes("Paymnt"); // wrong
-    void sentTo(generated.steps).includes("Paymnt"); // wrong
-  });
-
-  it("Stories T2: a pair sweep's properties read the samples' app", () => {
-    const stray = actorRef(
-      machine(definition({ id: "types/public/Stray3", states: ["S"], events: {} }), ({ S }) => ({
-        default: S.S,
-      })),
-      "s",
+    const [fromSamples] = samples.steps.flatMap((s) =>
+      s._tag === "send" ? [s.actor.machine] : [],
     );
 
+    const [fromGenerated] = generated.steps.flatMap((s) =>
+      s._tag === "send" ? [s.actor.machine] : [],
+    );
+
+    expectTypeOf(fromRun).toEqualTypeOf<Machines | undefined>();
+    expectTypeOf(fromSamples).toEqualTypeOf<Machines | undefined>();
+    expectTypeOf(fromGenerated).toEqualTypeOf<Machines | undefined>();
+    // @ts-expect-error Stories T2: no machine of the app
+    void (fromRun === "Paymnt");
+    // @ts-expect-error Stories T2: no machine of the app
+    void (fromSamples === "Paymnt");
+    // @ts-expect-error Stories T2: no machine of the app
+    void (fromGenerated === "Paymnt");
+  });
+
+  it("Stories T2: a pair sweep takes its samples' app's properties and any app's, never another app's", () => {
+    const Stray = definition({ id: "types/public/Stray3", states: ["S"], events: {} });
+
     const samples = shopSamples("types/public/pairs");
-    const wide: Property = { rule: "wide", breaches: (r) => (r.end.read(stray) ? ["stray"] : []) };
+    const any: Property = { rule: "any", breaches: () => [] };
     const own: Property<"own", Ds> = { rule: "own", breaches: () => [] };
+    const foreign: Property<"foreign", typeof Stray> = { rule: "foreign", breaches: () => [] };
 
     expectTypeOf(pairSweep(samples, { properties: [own], seeds: [1], stopAt: [] })).toEqualTypeOf<
       Array<Cell>
     >();
-    void pairSweep(samples, { properties: [wide], seeds: [1], stopAt: [] }); // wrong: reads Stray
+    void pairSweep(samples, { properties: [any], seeds: [1], stopAt: [] });
+    // @ts-expect-error Stories T2: a property of another app
+    void pairSweep(samples, { properties: [foreign], seeds: [1], stopAt: [] });
   });
 });

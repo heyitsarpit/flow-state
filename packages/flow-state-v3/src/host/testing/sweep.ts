@@ -1,3 +1,4 @@
+import type { AnyDefinition } from "../../definition.ts";
 import { Option, Predicate } from "effect";
 import { RuntimeDefaults } from "../../core/defaults.ts";
 import type { Phase } from "../../core/world.ts";
@@ -339,14 +340,17 @@ const cellOf = (
  * phase and a run that recorded nothing, as `propertyTest` judges them. Every cell is returned:
  * reached with its breaches, or unreached with why.
  */
-export const pairSweep = (
-  samples: Samples,
+export const pairSweep = <Ds extends AnyDefinition>(
+  samples: Samples<Ds>,
   options: {
-    readonly properties: ReadonlyArray<Property>;
+    readonly properties: ReadonlyArray<Property<string, Ds>>;
     readonly seeds: ReadonlyArray<number>;
     readonly stopAt: ReadonlyArray<Phase["_tag"]>;
   },
 ) => {
+  // SAFETY: each property reads runs drawn from samples of Ds, which is every run the sweep judges.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the sweep runs erased; its runs are the samples' own
+  const properties = options.properties as ReadonlyArray<Property>;
   const found = new Map<string, Reach>();
 
   for (const seed of options.seeds)
@@ -362,7 +366,7 @@ export const pairSweep = (
             fault,
             outcome: { _tag: "Unreached", why: "no write in the phase" },
           } satisfies Cell)
-        : cellOf(samples, phase, fault, reach, options.properties);
+        : cellOf(samples, phase, fault, reach, properties);
     }),
   );
 };

@@ -53,13 +53,15 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   reader of an Exit is how a cleanup's failure is misread or lost.
 - Closed sets, enforced by `flow-state/no-tag-chain` in `src/` (test files exempt), plants in
   `tools/flow-state-lint/rules/no-tag-chain.test.ts`: two tests of one value's tag (`$is` or
-  `_tag ===`) joined by `||` or `&&`, in an else-if ladder or in a ternary chain are refused; a
-  tag is decided by `$match` or a table `satisfies Record<Tag, …>`, so a new tag must be decided.
+  `_tag ===`) joined by `||` or `&&`, in an else-if ladder, a ternary chain or a run of early
+  returns, and `[…].includes(x._tag)`, are refused; a tag is decided by `$match` or a table
+  `satisfies Record<Tag, …>`, so a new tag must be decided.
 - Ids, enforced by `flow-state/no-id-text` in `src/core/` (test files exempt), same plants file:
-  no slice, split, prefix test, number parse or rebuilt-and-compared text on a name that holds an
-  id or key (`id`, `key`, `lane`, `record`, `…Id`, `…Key`); a fact about an id is stored beside
-  it when it is minted. `src/core/record.ts`, the boot's key checks, is exempt by a reasoned
-  file-level disable until one key parser owns record keys.
+  no slice, split, prefix test, character code, pattern `test` or `exec`, number parse or
+  rebuilt-and-compared text on a name that holds an id or key (`id`, `key`, `lane`, `record`,
+  `…Id`, `…Key`) or on a binding renamed from one; a fact about an id is stored beside it when it is
+  minted. `src/core/record.ts`, the boot's key checks, keeps a reasoned line disable at each check
+  until one key parser owns record keys.
 
 ## Rules: 70 in lint-bomb
 

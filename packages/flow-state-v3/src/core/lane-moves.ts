@@ -91,8 +91,9 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     return lane === undefined ? defect(`no lane ${at.id} for a head's move`) : lane;
   };
 
+  // A report of a named lane carries its key; one of a member whose lane cannot be named carries none.
   const report = (
-    where: Pick<At, "actor" | "operation" | "key">,
+    where: Pick<At, "actor" | "operation"> & { readonly key: Option.Option<Values> },
     before: LaneState,
     cue: Cue,
     from: number,
@@ -322,7 +323,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     const move = cell(before, cue);
     const from = tx.commandCount();
     perform(at, move, cue);
-    report(at, before, cue, from, stateAt(at.id));
+    report({ ...at, key: Option.some(at.key) }, before, cue, from, stateAt(at.id));
 
     return move;
   };

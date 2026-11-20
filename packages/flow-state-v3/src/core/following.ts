@@ -23,7 +23,8 @@ const chainOf = (mail: Mail) =>
 
 /**
  * The chain one step's mail follows, as items are served. `start` begins the chain of an admitted
- * item the first time it enqueues mail.
+ * item the first time it enqueues mail. Only `serving` sets what is followed, for one item's
+ * service, so mail enqueued between items follows none.
  */
 export const makeFollowing = (start: (serving: Mail) => ChainId) => {
   let following: Following = Following.Idle();
@@ -40,16 +41,14 @@ export const makeFollowing = (start: (serving: Mail) => ChainId) => {
       },
     });
 
-  const follow = (mail: Mail) => {
+  const serving = (mail: Mail, serve: (mail: Mail) => void) => {
     following = Option.match(chainOf(mail), {
       onNone: () => Following.Admitted({ serving: mail }),
       onSome: (chain) => Following.Chained({ chain }),
     });
-  };
-
-  const followNone = () => {
+    serve(mail);
     following = Following.Idle();
   };
 
-  return { chainNow, follow, followNone };
+  return { chainNow, serving };
 };

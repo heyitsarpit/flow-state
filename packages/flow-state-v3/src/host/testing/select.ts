@@ -26,8 +26,9 @@ export type EventRecord = Extract<Evidence, { readonly event: string }>;
  */
 export type PublishedOf<D extends AnyDefinition> = Omit<
   EvidenceOf<"Published">,
-  "state" | "memory"
+  "actor" | "state" | "memory"
 > & {
+  readonly actor: { readonly machine: D["id"]; readonly name: string };
   readonly state: LeavesOf<D["states"]>;
   readonly memory: MemoryOf<D["memory"]>;
 };
@@ -60,21 +61,23 @@ type NamedPart<P extends string> = {
       : Part[K];
 };
 
-type NamedBy<R, N extends Named<AnyDefinition>> = R extends unknown
+type NamedBy<R, N extends Named<AnyDefinition>, App extends string> = R extends unknown
   ? {
       readonly [K in keyof R]: K extends "actor"
         ? { readonly machine: N["machine"]; readonly name: string }
-        : K extends "parts"
-          ? ReadonlyArray<NamedPart<PathsTo<N["states"]>>>
-          : K extends "from" | "to"
-            ? N["states"]
-            : K extends "event"
-              ? N["events"]
-              : K extends "operation"
-                ? N["operations"]
-                : K extends "members"
-                  ? ReadonlyArray<NamedMember<N>>
-                  : R[K];
+        : K extends "sender"
+          ? Option.Option<{ readonly machine: App; readonly name: string }>
+          : K extends "parts"
+            ? ReadonlyArray<NamedPart<PathsTo<N["states"]>>>
+            : K extends "from" | "to"
+              ? N["states"]
+              : K extends "event"
+                ? N["events"]
+                : K extends "operation"
+                  ? N["operations"]
+                  : K extends "members"
+                    ? ReadonlyArray<NamedMember<N>>
+                    : R[K];
     }
   : never;
 
@@ -82,7 +85,11 @@ type NamedBy<R, N extends Named<AnyDefinition>> = R extends unknown
  * An evidence record of one definition's actor, its states, events and operations named by the
  * definition: what a selector returns.
  */
-export type NamedEvidence<R, D extends AnyDefinition> = NamedBy<R, Named<D>>;
+export type NamedEvidence<
+  R,
+  D extends AnyDefinition,
+  Ds extends AnyDefinition = AnyDefinition,
+> = NamedBy<R, Named<D>, Ds["id"]>;
 
 // The definition of a run's app that made a token; any definition when the run's app is erased.
 type DefinitionOf<Ds extends AnyDefinition, T> = AnyDefinition extends Ds
@@ -100,12 +107,12 @@ export type Selector<R> = {
   <Ds extends AnyDefinition, T extends AppToken<Ds> & { readonly tag: string }>(
     run: Recorded<Ds>,
     token: T,
-  ): ReadonlyArray<NamedEvidence<R, DefinitionOf<Ds, T>>>;
+  ): ReadonlyArray<NamedEvidence<R, DefinitionOf<Ds, T>, Ds>>;
   <Ds extends AnyDefinition, D extends Ds>(
     run: Recorded<Ds>,
     token: NoInfer<TokenOf<D>>,
     options: { readonly actor: ActorRef<D> },
-  ): ReadonlyArray<NamedEvidence<R, D>>;
+  ): ReadonlyArray<NamedEvidence<R, D, Ds>>;
 };
 
 // A token of one of a run's app's definitions; any token when the run's app is erased.
@@ -152,13 +159,13 @@ const selector = <R extends EventRecord>(kept: (e: Evidence) => e is R): Selecto
   function select<Ds extends AnyDefinition, T extends AppToken<Ds> & { readonly tag: string }>(
     run: Recorded<Ds>,
     token: T,
-  ): ReadonlyArray<NamedEvidence<R, DefinitionOf<Ds, T>>>;
+  ): ReadonlyArray<NamedEvidence<R, DefinitionOf<Ds, T>, Ds>>;
   // RETURN_TYPE: the records named by the actor's definition.
   function select<Ds extends AnyDefinition, D extends Ds>(
     run: Recorded<Ds>,
     token: NoInfer<TokenOf<D>>,
     options: { readonly actor: ActorRef<D> },
-  ): ReadonlyArray<NamedEvidence<R, D>>;
+  ): ReadonlyArray<NamedEvidence<R, D, Ds>>;
   // FLOW_STATE_ALLOW_UNKNOWN: the implementation of both overloads: each names the records' states,
   // events and operations by the token's definition, which the filter below keeps to.
   // RETURN_TYPE: as above; each overload's own return is what its caller reads.

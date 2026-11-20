@@ -20,7 +20,15 @@ import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
 import type { CheckedEntries } from "./context-refs.ts";
-import { type FlowError, flowError, flowErrorOf, lifeRejection, raise, refuse } from "../error.ts";
+import {
+  type FlowError,
+  flowError,
+  flowErrorOf,
+  foreignActorRef,
+  lifeRejection,
+  raise,
+  refuse,
+} from "../error.ts";
 import { entry, entryEffect } from "../entry.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { setupFindings } from "../config.ts";
@@ -192,9 +200,12 @@ export type Runtime<R = never, A extends App = App> = {
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data
     options?: { readonly forget?: boolean },
   ) => Effect.Effect<void, FlowError>;
-  // Generic, so a Runtime of one app is still a Runtime where its app is not read; the default is
-  // the app's own definitions.
-  readonly unsettledWrites: <Ds extends DefsOf<A> = DefsOf<A>>() => ReadonlyArray<Unsettled<Ds>>;
+  // Generic, so a Runtime of one app is still a Runtime where its app is not read; a method, so its
+  // guard is too. The rows are the app's own definitions': naming a narrower app needs an
+  // argument no caller has.
+  unsettledWrites<Ds extends DefsOf<A> = DefsOf<A>>(
+    ...exact: [DefsOf<A>] extends [Ds] ? [] : [never]
+  ): ReadonlyArray<Unsettled<Ds>>;
   // A method, so a Runtime of any services is still a Runtime where its services are not read.
   runPromise<A, E>(
     effect: Effect.Effect<A, E, R>,
@@ -434,16 +445,7 @@ export const buildRuntime = <R = never, A extends App = App>(
   const ownRef = (ref: ActorRef) => {
     if (machines.get(ref.machine.compiled.id) === ref.machine) return actorIdOf(ref);
 
-    return raise(
-      flowError([
-        {
-          code: "ForeignActorRef",
-          path: [ref.machine.compiled.id],
-          summary: `${ref.machine.compiled.id} is not a machine of this Runtime's app`,
-          help: "Use refs of the machines this Runtime's app lists.",
-        },
-      ]),
-    );
+    return foreignActorRef([ref.machine.compiled.id], ref.machine.compiled.id, "Runtime");
   };
 
   // A handle names its own Runtime's identity; another Runtime's handle is refused.

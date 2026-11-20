@@ -72,7 +72,8 @@ export type PhaseTag = Phase["_tag"];
  * definition's operation name, `contract` its contract's id, `state` InFlight or Held (an Idle lane
  * is not listed), `phase` its head's phase tag, `key` its key text (none for an unkeyed operation)
  * and `retryCount` its head's re-sends. An owed row's `delivery` is its delivery tag. A timer's
- * `dueAt` is known for a schedule only. `lifecycle` is the Runtime's life: Inert, Booting, Open, Failed, Disposing or Disposed.
+ * `dueAt` is known for a schedule only. `lifecycle` is the Runtime's life: Inert, Booting, Open, Failed, Disposing, Disposed or
+ * Stopped.
  * `Ds` is the Runtime's app's definitions: snapshots and operation names are theirs.
  */
 export type RuntimeCut<Ds extends AnyDefinition = AnyDefinition> = {

@@ -1,6 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
-import { relativePath } from "./shared.ts";
+import { propertyName, relativePath } from "./shared.ts";
 
 import type { ESTree } from "@oxlint/plugins";
 
@@ -29,13 +29,21 @@ const containerOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): Re
 
   if (holder?.type === "Property") return [holder.key.type === "Identifier" ? holder.key.name : text(holder.key)];
 
+  return [];
+};
+
+// The name a declaration binds what holds a node to, when one does: `const right = machine(…)`.
+const bindingOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): ReadonlyArray<string> => {
+  for (let at: ESTree.Node | null | undefined = node; at !== null && at !== undefined; at = at.parent)
+    if (at.type === "VariableDeclarator") return [text(at.id)];
 
   return [];
 };
 
 // What a refused line passes a wrong value to, as the text a positive must assert on: a call's
 // callee (the first call of a chain), the object of a member read, a comparison's left side, a
-// property's key.
+// property's key or the parameter the property's object fills; an argument or an array element by
+// the call or the binding that holds it.
 const subjectsOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): ReadonlyArray<string> => {
   switch (node.type) {
     case "ExpressionStatement":
@@ -81,6 +89,10 @@ const subjectsOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): Rea
 
       return first.init === null || first.init === undefined ? [text(first.id)] : subjectsOf(first.init, text);
     }
+    case "ExportNamedDeclaration":
+      return node.declaration === null || node.declaration === undefined ? [] : subjectsOf(node.declaration, text);
+    case "ArrayExpression":
+      return node.parent === undefined || node.parent === null ? [] : subjectsOf(node.parent, text);
     case "ArrowFunctionExpression":
       return node.body.type === "BlockStatement" ? [] : subjectsOf(node.body, text);
     case "ReturnStatement":
@@ -105,15 +117,21 @@ const names = (positive: string, subject: string) => {
   return false;
 };
 
-// `expectTypeOf(x)…toEqualTypeOf<T>()` with no `.not` in the chain: an exact positive.
-const isExactPositive = (node: ESTree.CallExpression) => {
-  if (node.callee.type !== "MemberExpression" || node.callee.property.type !== "Identifier") return false;
+// The type arguments that assert nothing: any type and the unknown type pass for every value.
+const loose = new Set(["TSAnyKeyword", "TSUnknownKeyword"]);
 
-  if (node.callee.property.name !== "toEqualTypeOf") return false;
+// `expectTypeOf(x)…toEqualTypeOf<T>()` with no `.not` in the chain, `not` written as a computed key
+// included, and a type argument that is neither `any` nor `unknown`: an exact positive.
+const isExactPositive = (node: ESTree.CallExpression) => {
+  if (node.callee.type !== "MemberExpression" || propertyName(node.callee) !== "toEqualTypeOf") return false;
+
+  const [type] = node.typeArguments?.params ?? [];
+
+  if (type === undefined ? node.arguments.length === 0 : loose.has(type.type)) return false;
 
   for (let at: ESTree.Node = node.callee.object; ; ) {
     if (at.type === "MemberExpression") {
-      if (at.property.type === "Identifier" && at.property.name === "not") return false;
+      if (propertyName(at) === "not") return false;
       at = at.object;
     } else if (at.type === "CallExpression") {
       if (at.callee.type === "Identifier") return at.callee.name === "expectTypeOf";
@@ -145,6 +163,8 @@ export const pairedRefusalsRule = defineRule({
       description: "Every `@ts-expect-error` in a type test has an exact positive on the same parameter in the same test.",
     },
     messages: {
+      unplaced:
+        "This refusal's line starts no statement or property the rule can read, so no positive can be checked. Put the refused value on a statement or property line of its own.",
       unpaired:
         "This refusal has no exact positive on `{{subject}}` in its test, so it passes if the type became `never`, `any` or another error. Assert the correct use with `expectTypeOf(…).toEqualTypeOf<…>()` naming `{{subject}}`.",
     },
@@ -155,6 +175,7 @@ export const pairedRefusalsRule = defineRule({
     let positives: Array<Span & { readonly text: string; readonly line: number }> = [];
     let tests: Array<Span> = [];
     let lines: Array<ESTree.Node> = [];
+    let parts: Array<ESTree.Node> = [];
 
     return {
       before() {
@@ -164,6 +185,7 @@ export const pairedRefusalsRule = defineRule({
         positives = [];
         tests = [];
         lines = [];
+        parts = [];
 
         return true;
       },
@@ -176,7 +198,17 @@ export const pairedRefusalsRule = defineRule({
       ExpressionStatement(node: ESTree.ExpressionStatement) {
         lines.push(node);
       },
+      // An argument or an array element on a line of its own is read as part of what holds it.
+      "CallExpression > *"(node: ESTree.Node) {
+        if (node.parent?.type === "CallExpression" && node.parent.callee !== node) parts.push(node);
+      },
+      "ArrayExpression > *"(node: ESTree.Node) {
+        parts.push(node);
+      },
       VariableDeclaration(node: ESTree.VariableDeclaration) {
+        lines.push(node);
+      },
+      ExportNamedDeclaration(node: ESTree.ExportNamedDeclaration) {
         lines.push(node);
       },
       ReturnStatement(node: ESTree.ReturnStatement) {
@@ -187,27 +219,54 @@ export const pairedRefusalsRule = defineRule({
       },
       "Program:exit"(program: ESTree.Program) {
         const source = context.sourceCode.getText();
+        const sourceLines = source.split("\n");
         const directives = context.sourceCode
           .getAllComments()
           .filter((comment) => /^\s*@ts-expect-error\b/u.test(comment.value));
-        const refused = new Set(directives.map((comment) => comment.loc.end.line + 1));
+        // The line a directive refuses: the next one that is not a comment line.
+        const refusedBy = (directive: (typeof directives)[number]) => {
+          let line = directive.loc.end.line + 1;
+
+          while ((sourceLines[line - 1] ?? "").trim().startsWith("//")) line += 1;
+
+          return line;
+        };
+        const refused = new Set(directives.map(refusedBy));
 
         for (const directive of directives) {
-          const line = directive.loc.end.line + 1;
+          const line = refusedBy(directive);
           // The refused line's first token, and the outermost node that starts there.
           const lineStart = source.split("\n").slice(0, line - 1).join("\n").length + 1;
           const first = lineStart + (/^\s*/u.exec(source.slice(lineStart))?.[0].length ?? 0);
-          const node = lines
-            .filter((n) => n.start === first)
-            .reduce<ESTree.Node | undefined>((outer, n) => (outer === undefined || n.end > outer.end ? n : outer), undefined);
+          const outermost = (nodes: ReadonlyArray<ESTree.Node>) =>
+            nodes
+              .filter((n) => n.start === first)
+              .reduce<ESTree.Node | undefined>((outer, n) => (outer === undefined || n.end > outer.end ? n : outer), undefined);
+          const statement = outermost(lines);
+          const part = outermost(parts);
+          const node = statement ?? part;
 
-          if (node === undefined) continue;
-          const subjects = subjectsOf(node, text).map(normal).filter((s) => s !== "");
-          const test = tests
-            .filter((t) => within(node, t))
-            .reduce<Span>((inner, t) => (t.end - t.start < inner.end - inner.start ? t : inner), program);
+          if (node === undefined) {
+            context.report({
+              loc: { start: { line, column: 0 }, end: { line, column: (sourceLines[line - 1] ?? "").length } },
+              messageId: "unplaced",
+            });
+            continue;
+          }
+          const holder = statement === undefined ? part?.parent : undefined;
+          const subjects = [...subjectsOf(holder ?? node, text), ...(holder === undefined ? [] : bindingOf(holder, text))]
+            .map(normal)
+            .filter((s) => s !== "");
+          const enclosing = tests.filter((t) => within(node, t));
+          const test = enclosing.reduce<Span>(
+            (inner, t) => (t.end - t.start < inner.end - inner.start ? t : inner),
+            program,
+          );
+          // A refusal outside every test pairs only with a positive outside every test.
+          const counts = (p: Span) =>
+            within(p, test) && (enclosing.length > 0 || !tests.some((t) => within(p, t)));
           const paired = positives.some(
-            (p) => within(p, test) && !refused.has(p.line) && subjects.some((s) => names(p.text, s)),
+            (p) => counts(p) && !refused.has(p.line) && subjects.some((s) => names(p.text, s)),
           );
 
           if (!paired) context.report({ node, messageId: "unpaired", data: { subject: subjects[0] ?? "this line" } });

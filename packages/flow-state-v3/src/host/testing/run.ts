@@ -6,7 +6,7 @@ import type { Life } from "../../core/life.ts";
 import { retain } from "../../core/tx.ts";
 import { type ActorId, actorKey, indexDrift, type Wiring } from "../../core/world.ts";
 import type { AnyDefinition } from "../../definition.ts";
-import { FlowError, flowError, raise } from "../../error.ts";
+import { FlowError, foreignActorRef } from "../../error.ts";
 import { Host } from "../host.ts";
 import { attachInspector, inspect, type RuntimeCut } from "../inspect.ts";
 import {
@@ -42,6 +42,7 @@ import {
   scriptFault,
   Step,
   StepData,
+  type StepOf,
   StoryFailed,
   StoryTurnLimit,
   type Tab,
@@ -89,7 +90,7 @@ export type Cut<Ds extends AnyDefinition = AnyDefinition> = {
 export type StoryRun<Names extends string = never, Ds extends AnyDefinition = AnyDefinition> = {
   // A phantom method, so a run of one app reads as a run of any app where its app is not read.
   "~app"?(app: Ds): void;
-  readonly steps: ReadonlyArray<Step>;
+  readonly steps: ReadonlyArray<StepOf<Ds>>;
   readonly evidence: ReadonlyArray<Evidence>;
   readonly checkpoints: { readonly [K in Names]: Cut<Ds> };
   readonly end: Cut<Ds>;
@@ -518,16 +519,7 @@ export const startRun = <Names extends string>(
       (e) => machineOf(e).compiled.id === actor.machine,
     )
       ? actor
-      : raise(
-          flowError([
-            {
-              code: "ForeignActorRef",
-              path: [id, actor.machine],
-              summary: `${actor.machine} is not a machine of this Story's app`,
-              help: "Run steps of a Story of this setup's app.",
-            },
-          ]),
-        );
+      : foreignActorRef([id, actor.machine], actor.machine, "Story");
 
   const step = (next: Step) => {
     const n = begin(next, tab.now());

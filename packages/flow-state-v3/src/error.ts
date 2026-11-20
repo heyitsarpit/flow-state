@@ -173,6 +173,25 @@ export const raise = (error: FlowError): never => {
 };
 
 /**
+ * Refuses a ref or a step that names a machine its Runtime's or its Story's app does not run.
+ */
+export const foreignActorRef = (
+  path: ReadonlyArray<string>,
+  machine: string,
+  owner: "Runtime" | "Story",
+) =>
+  raise(
+    flowError([
+      {
+        code: "ForeignActorRef",
+        path,
+        summary: `${machine} is not a machine of this ${owner}'s app`,
+        help: `Use refs of the machines this ${owner}'s app lists.`,
+      },
+    ]),
+  );
+
+/**
  * Throws one FlowError listing every finding, when there is one; an invalid construction returns
  * nothing and starts nothing.
  */

@@ -366,9 +366,9 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
 
   // The item being served and the loop guard's chain it follows: the mail its turns enqueue follows
   // the chain. An item that follows none is admitted, and starts one at the first mail it enqueues.
-  const { chainNow, follow, followNone } = makeFollowing((serving) => {
+  const { chainNow, serving } = makeFollowing((item) => {
     const chain = mintChain();
-    put("chains", chain, { root: rootOf(serving), sent: 0 });
+    put("chains", chain, { root: rootOf(item), sent: 0 });
 
     return chain;
   });
@@ -541,8 +541,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     enqueue,
     enqueueFirst,
     chainNow,
-    follow,
-    followNone,
+    serving,
     joinWave,
     takeOldest,
     unreference,

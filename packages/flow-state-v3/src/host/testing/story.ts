@@ -1,6 +1,6 @@
 import { type Duration, Effect, type Layer, Option } from "effect";
 import type { AnyDefinition, EventOf } from "../../definition.ts";
-import { flowError, raise } from "../../error.ts";
+import { foreignActorRef } from "../../error.ts";
 import {
   actorIdOf,
   type ActorRef,
@@ -128,16 +128,7 @@ export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
     if (Object.values(subject.config.app.machines).some((e) => machineOf(e) === ref.machine))
       return actorOf(ref);
 
-    return raise(
-      flowError([
-        {
-          code: "ForeignActorRef",
-          path: [id, ref.machine.compiled.id],
-          summary: `${ref.machine.compiled.id} is not a machine of this Story's app`,
-          help: "Use refs of the machines the Story's setup lists.",
-        },
-      ]),
-    );
+    return foreignActorRef([id, ref.machine.compiled.id], ref.machine.compiled.id, "Story");
   };
 
   // RETURN_TYPE: each step returns the Story contract with its names so far.
