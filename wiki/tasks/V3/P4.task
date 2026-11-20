@@ -5838,3 +5838,6 @@ tasks
             Takes T57's two routed type pins (pausedBy as a literal union, Turn R27 and Machines O8; the typed key in a
             keyed schedule's send mapper, Turn R16) from T109's comment of 2026-11-20; T76, T77 and T109 each add their
             field into this one type.
+        comment     2026-11-20T13:03:02Z
+            Routed from T57's convergence (orchestrator, 2026-11-20): an unkeyed schedule's send mapper still types key
+            as ScheduleKey; it should be undefined, two-sided.
