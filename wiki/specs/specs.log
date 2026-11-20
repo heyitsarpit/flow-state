@@ -520,3 +520,8 @@ note 2026-11-19T23:47:56Z
     @spec.Restore.R5, R2; @spec.Codec.R6: format 4 saves a reaction's baseline as its slot's value where it differs from
     last-seen; format 3's step reads the frame's value of the reaction's slot (@task.V3.T107). Reverse: restore format 3
     frames.
+
+note 2026-11-20T00:08:06Z
+    @spec.Actors: R9's wave follows a reaction's saved baseline, not the slot's last-seen value; R18 re-reads a slot
+    whose last select failed. @spec.Compile.R19: the type error tells ids apart, construction identities (@task.V3.T107
+    close review). Reverse: restore the wording.

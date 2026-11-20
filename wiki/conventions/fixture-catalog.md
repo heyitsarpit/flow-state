@@ -209,14 +209,14 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
   - **step 18:** server rendering, hydration (`ProductPage`); `DehydrateCommitInFlight`, `DehydrateUnsettled`,
     `Hydration*` (a request rendered while `addLine` is in flight (`DehydrateCommitInFlight`)).
 - **Scenarios:**
-  - **Context forms** (@task.V3.T107; inverted tests in `tests/shop/context.test.ts` until built):
-    - [ ] Usual: pass-through, derived, `when`, payload; an equal count silent, a declined change still the
+  - **Context forms** (@task.V3.T107; tests in `tests/shop/context.test.ts`):
+    - [x] Usual: pass-through, derived, `when`, payload; an equal count silent, a declined change still the
       baseline. `shop/pulse-adds`. Copies [cart-tracker.test.ts:358][hy-track] "publishes product_added_to_cart
       ... when quantity increases".
-    - [ ] L5: 64 edits while the first answer is held. `shop/stress-pulse-burst` (bench, stress).
-    - [ ] S1 × 3 with S9 at the mini-cart: silent after the reload. `shop/pulse-reloaded`. E8: a reload after a
+    - [x] L5: 64 edits while the first answer is held. built: `shop/stress-pulse-burst` (bench, stress).
+    - [x] S1 × 3 with S9 at the mini-cart: silent after the reload. built: `shop/pulse-reloaded`. E8: a reload after a
       lost add answer. `shop/pulse-reload-mid-add` (a guard; green on the signature).
-    - [ ] E3: 1,000 lines, the `largePulse` builder. S7: a slot of two providers, a reaction nothing handles, the
+    - [x] E3: 1,000 lines, the `largePulse` builder. S7: a slot of two providers, a reaction nothing handles, the
       `mixedProviderPulse` and `unhandledPulse` builders. Samples `shop-pulse`: E1, E6.
   - **Usual:**
     - [x] Checkout with an unsure charge, a recheck, then an order. Source: Stripe's flow, not checked. built:
@@ -445,13 +445,14 @@ retry.
   - **step 7:** release versions, saved-shape reset, migration (release 2 of `Repo`).
   - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `headPushes` into `Repo`).
 - **Scenarios:**
-  - **Context forms** (@task.V3.T107; inverted tests in `tests/sync/context.test.ts` until built):
-    - [ ] Usual: pulls while watching, a rate limit shown once. `sync/auto-pull-watching`. No source.
-    - [ ] State-scoped `onContext`: two moves while paused, one pull on resuming (one comparison on entry).
-      `sync/auto-pull-paused`; no move, no pull: `sync/auto-pull-unchanged`. A first entry into the paused state
-      whose slot already holds a value, and a re-read of it: `sync/auto-pull-first-pause`; a second pause after a
-      head the watching state pulled: `sync/auto-pull-repaused`. S7: a reaction in a state that does not handle its
-      event, the `pausedPull` builder. Samples `sync-auto-pull`: E1, E3 repository names.
+  - **Context forms** (@task.V3.T107; tests in `tests/sync/context.test.ts`):
+    - [x] Usual: pulls while watching, a rate limit shown once. built: `sync/auto-pull-watching`. No source.
+    - [x] Pausing, with the state-scoped `onContext` experiment rejected: one top-level head reaction, handled per
+      state. Two moves while paused, one pull on resuming. built: `sync/auto-pull-paused`; no move, no pull:
+      `sync/auto-pull-unchanged`; a pause with the head already pulled, and a re-read of it:
+      `sync/auto-pull-first-pause`; a second pause after a head the watching state pulled: `sync/auto-pull-repaused`.
+      S7: a reaction written in a state's body, refused, the `pausedPull` builder. Samples `sync-auto-pull`: E1, E3
+      repository names.
   - [x] **Usual:** sync, peek (have); a repository opened with a token reads its client's head and backoff. built:
     `sync/usual`, `sync/open-repo`.
   - [x] **Load:** L1 × 64 repositories on their own clients, every other one rate limited, every fourth answer lost
@@ -546,9 +547,9 @@ kamp.us for rows restored after a failure.
   - **@task.V3.T81:** an event field whose Schema transforms (`StandingOrder`'s `DateFromString` dates); construction
     refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
-  - **Context forms** (@task.V3.T107; inverted tests in `tests/transfers/context.test.ts` until built):
-    - [ ] Usual: `when(current, previous, { memory })`. `transfers/switcher-recent`. No source.
-    - [ ] E1, E3, E4 (five, then seven accounts): `transfers/switcher-edges`. Reload: `transfers/switcher-reloaded`.
+  - **Context forms** (@task.V3.T107; tests in `tests/transfers/context.test.ts`):
+    - [x] Usual: `when(current, previous, { memory })`. built: `transfers/switcher-recent`. No source.
+    - [x] E1, E3, E4 (five, then seven accounts): built: `transfers/switcher-edges`. Reload: `transfers/switcher-reloaded`.
       Samples `transfers-switcher`: E1, E3.
   - [x] **Usual:** send, decline, lose the answer, resend once, abandon (have); the form reads its customer's account
     and checks the balance before a send. built: `transfers/usual`, `transfers/declined`,
@@ -686,8 +687,8 @@ not checked here).
   - **@task.V3.T81:** an event field whose Schema transforms (`TrustedDevice`'s `DateFromString` dates);
     construction refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
-  - **Context forms** (@task.V3.T107; inverted tests in `tests/sign-in/context.test.ts` until built):
-    - [ ] Usual: state token and `X.state` reads. `sign-in/banner-signs-in`, `sign-in/banner-new-account`, a lost
+  - **Context forms** (@task.V3.T107; tests in `tests/sign-in/context.test.ts`):
+    - [x] Usual: state token and `X.state` reads. built: `sign-in/banner-signs-in`, `sign-in/banner-new-account`, a lost
       read `sign-in/banner-load-fails`; silent after a reload `sign-in/banner-reloaded` (a guard). No source.
       Samples `sign-in-banner`: E1, E3 handles, an empty email.
   - [x] **Usual:** sign in with a code (have). A retried handle save releases the held redirect. Copies

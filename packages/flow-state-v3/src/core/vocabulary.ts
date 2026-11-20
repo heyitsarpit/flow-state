@@ -36,7 +36,7 @@ export const ReadFailure = Schema.Literals([
   "input",
   "memory",
   "seen",
-  "frame",
+  "baseline",
 ]);
 
 /**

@@ -112,8 +112,8 @@ requirements
         must    A persisted identity reached by an ensure, a subscription or a send returns as a new
                 incarnation with a newly minted id, restored from the Runtime's copy. It receives
                 its starting turn, R10's deliveries (the Interrupted endings its end parked are among
-                its owed rows, in the order they were owed), one `onContext` wave if a provider's
-                selection differs from the last-seen value its record saved (in this Runtime or
+                its owed rows, in the order they were owed), one `onContext` wave if a slot's value
+                differs from a reaction's baseline its record saved (in this Runtime or
                 across a reload; a reload of a consistent saved world differs in nothing), then the
                 event that restored it. Its starting turn publishes once, with its providers'
                 current selections; the wave re-runs only its reactions against the saved values,
@@ -258,7 +258,8 @@ requirements
         must    A slot is `Flow.context(X.M.field)` or `Flow.context(Schema, { reads, select })` and reads
                 its one provider's public memory fields, `X.S.STATE` or `X.state` (the Schema is proposed,
                 @plan.Pending.D20; a pass-through takes the field's). A turn that changes none of a slot's
-                reads skips the slot: no select, no comparison; a reaction's `.change` compares the slot's
+                reads skips the slot: no select, no comparison, unless its last select failed (only a read again
+                clears its issue); a reaction's `.change` compares the slot's
                 value. Each selection passes once through the Schema's JSON
                 form, a -0 written as 0; the value read back is what the consumer reads, compares and
                 saves, live and after a reload alike. A selection the Schema refuses, whose encoding

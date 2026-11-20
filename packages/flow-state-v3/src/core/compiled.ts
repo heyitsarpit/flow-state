@@ -335,14 +335,18 @@ export type Compiled = {
 };
 
 /**
- * What a context read takes from its provider's snapshot, named as its slot's select receives it:
- * a public memory field, whether the provider is at a state or below it, or its state's name.
+ * What a context read takes from its provider's snapshot: a public memory field, whether the
+ * provider is at a state or below it, or its state's name.
  */
-export type ContextRead = { readonly name: string } & (
+export type Read =
   | { readonly kind: "memory"; readonly field: string }
   | { readonly kind: "state"; readonly path: string }
-  | { readonly kind: "stateName" }
-);
+  | { readonly kind: "stateName" };
+
+/**
+ * A read named as its slot's select receives it.
+ */
+export type ContextRead = { readonly name: string } & Read;
 
 /**
  * A context slot as the runtime binds it: the machine that provides it, what it reads of that

@@ -229,18 +229,18 @@ describe("a reaction's baseline is its slot's value (Actors R18, Turn R22, Resto
 describe("format 4 saves a reaction's baseline only where it differs from its slot (Restore R5, Actors R18)", () => {
   // A format-4 record of the watch whose one reaction saved the baseline given, its slot last seen
   // at 2.
-  const formatFour = (reaction: string) =>
-    '{"context":{"count":{"machine":"Test/Feed","name":"f"}},"format":4,"graph":{},' +
-    '"machine":"Test/Watch","memory":{"heard":0},"name":"w",' +
-    `"reactions":[${reaction}],"schedules":[],"seen":{"count":2},"state":"SHOWN"}`;
+  const formatFour = (baselines: string) =>
+    `{"baselines":${baselines},"context":{"count":{"machine":"Test/Feed","name":"f"}},"format":4,` +
+    '"graph":{},"machine":"Test/Watch","memory":{"heard":0},"name":"w","schedules":[],' +
+    '"seen":{"count":2},"state":"SHOWN"}';
 
-  it("Restore R5, Actors R18: a baseline equal to its slot is saved null, one that differs by its value, and none as an empty object; each reads back and writes the same text", () => {
-    for (const [reaction, value] of [
-      ["null", 2],
-      ['{"value":1}', 1],
-      ["{}", undefined],
+  it("Restore R5, Actors R18: a slot whose baselines equal it is left out, a baseline that differs is saved by its value, and none as an empty object; each reads back and writes the same text", () => {
+    for (const [baselines, value] of [
+      ["{}", 2],
+      ['{"count":[{"value":1}]}', 1],
+      ['{"count":[{}]}', undefined],
     ] as const) {
-      const text = formatFour(reaction);
+      const text = formatFour(baselines);
       const restored = decodeRecords(watchMachines, new Map([["actor/Test/Watch/w", text]]));
       const record = restored.records[0];
 

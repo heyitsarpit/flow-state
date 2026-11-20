@@ -30,11 +30,16 @@ const RecordHead = {
 // reaction with no baseline; null where it is the slot's last selection.
 const BaselineJson = Schema.NullOr(Schema.Struct({ value: Schema.optionalKey(Schema.Json) }));
 
+// Each slot's reactions' baselines, in their order among that slot's reactions, listed only for a
+// slot one of whose reactions' baselines differs from its last selection: a reaction added,
+// removed or moved among other slots' reactions keeps its own.
+const BaselinesJson = Schema.Record(Schema.String, Schema.Array(BaselineJson));
+
 const ActorRecordJson = Schema.Struct({
   ...RecordHead,
   format: Schema.Literal(FORMAT),
   seen: Schema.Record(Schema.String, Schema.Json),
-  reactions: Schema.Array(BaselineJson),
+  baselines: BaselinesJson,
   graph: Schema.Record(Schema.String, WiredJson),
 });
 
@@ -159,15 +164,30 @@ const memoryText = (compiled: Compiled, memory: Values) =>
     (fields) => Object.fromEntries(fields),
   );
 
-// A reaction's saved baseline: null where it is its slot's last selection, else its value, none
-// with no `value`.
-const baselineJson = (compiled: Compiled, record: ActorRecord, at: number) => {
-  const baseline = record.baselines[at] ?? Option.none();
-  const slot = compiled.reactions[at]?.slot ?? "";
+// Each reaction's slot and its place among that slot's reactions, in declaration order.
+const placesOf = (compiled: Compiled) =>
+  compiled.reactions.map((reaction, at) => ({
+    slot: reaction.slot,
+    n: compiled.reactions.slice(0, at).filter((r) => r.slot === reaction.slot).length,
+  }));
 
-  return sameForm(baseline, Option.fromUndefinedOr(record.seen.get(slot)))
-    ? null
-    : Option.match(baseline, { onNone: () => ({}), onSome: (b) => ({ value: b.text }) });
+// The saved baselines: null where a baseline is its slot's last selection, else its value, none
+// with no `value`; a slot all of whose baselines are null is left out.
+const baselinesJson = (compiled: Compiled, record: ActorRecord) => {
+  const bySlot = new Map<string, Array<typeof BaselineJson.Type>>();
+
+  for (const [at, { slot }] of placesOf(compiled).entries()) {
+    const baseline = record.baselines[at] ?? Option.none();
+
+    bySlot.set(slot, [
+      ...(bySlot.get(slot) ?? []),
+      sameForm(baseline, Option.fromUndefinedOr(record.seen.get(slot)))
+        ? null
+        : Option.match(baseline, { onNone: () => ({}), onSome: (b) => ({ value: b.text }) }),
+    ]);
+  }
+
+  return Object.fromEntries([...bySlot].filter(([, saved]) => saved.some((b) => b !== null)));
 };
 
 /**
@@ -189,7 +209,7 @@ export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
       schedules: record.schedules,
       context: wiredJson(record.context),
       seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.text])),
-      reactions: record.baselines.map((_, at) => baselineJson(compiled, record, at)),
+      baselines: baselinesJson(compiled, record),
       graph: Object.fromEntries([...record.graph].map(([key, w]) => [key, wiredJson(w)])),
     });
   });
@@ -198,7 +218,7 @@ export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
 // it saved none of its own.
 const baselineOf = (
   compiled: Compiled,
-  reaction: Compiled["reactions"][number],
+  reaction: { readonly slot: string },
   saved: typeof BaselineJson.Type,
   seen: ReadonlyMap<string, Selected>,
 ) => {
@@ -209,12 +229,33 @@ const baselineOf = (
   if (json === undefined) return Result.succeed(Option.none<Selected>());
 
   return Result.flatMap(
-    Result.fromNullishOr(compiled.context.get(reaction.slot), readFailed("frame")),
+    Result.fromNullishOr(compiled.context.get(reaction.slot), readFailed("baseline")),
     (declared) =>
-      Result.map(Result.mapError(readSelected(declared.walk, json), readFailed("frame")), (s) =>
+      Result.map(Result.mapError(readSelected(declared.walk, json), readFailed("baseline")), (s) =>
         Option.some(s),
       ),
   );
+};
+
+// A format-3 frame's baseline of a reaction's slot: none with no frame, else the frame's value of
+// the slot, else (null) the slot's last selection.
+const frameBaseline = (frame: typeof FrameThreeJson.Type, slot: string) => {
+  if (frame === null) return {};
+
+  return Object.hasOwn(frame.slots, slot) ? (frame.slots[slot] ?? null) : null;
+};
+
+// Format 3's frames, one per reaction, as format 4's baselines by slot.
+const framesBySlot = (compiled: Compiled, frames: ReadonlyArray<typeof FrameThreeJson.Type>) => {
+  const bySlot = new Map<string, Array<typeof BaselineJson.Type>>();
+
+  for (const [at, frame] of frames.entries()) {
+    const slot = compiled.reactions[at]?.slot ?? "";
+
+    bySlot.set(slot, [...(bySlot.get(slot) ?? []), frameBaseline(frame, slot)]);
+  }
+
+  return Object.fromEntries(bySlot);
 };
 
 /**
@@ -250,14 +291,13 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
         ),
       );
 
-      // Baselines that do not match the machine's reactions in number are their slots' last
-      // selections.
+      // A reaction with no saved baseline of its own takes its slot's last selection.
       const baselines = yield* Result.all(
-        compiled.reactions.map((reaction, at) =>
+        placesOf(compiled).map(({ slot, n }, at) =>
           baselineOf(
             compiled,
-            reaction,
-            r.reactions.length === compiled.reactions.length ? (r.reactions[at] ?? null) : null,
+            compiled.reactions[at] ?? { slot },
+            r.baselines[slot]?.[n] ?? null,
             seen,
           ),
         ),
@@ -301,18 +341,16 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
 
   // A format-3 actor record in the current format: each reaction's baseline is its frame's value
   // of the reaction's slot, else its slot's last selection; a reaction with no frame has none.
+  // Frames that do not match the machine's reactions in number are their slots' last selections.
   const stepThree = (three: typeof ActorRecordThreeJson.Type) =>
     Result.map(machineOf(three), (compiled) => {
       const stepped: typeof ActorRecordJson.Type = {
-        ...Struct.omit(three, ["memories"]),
+        ...Struct.omit(three, ["memories", "reactions"]),
         format: FORMAT,
-        reactions: three.reactions.map((frame, at) => {
-          if (frame === null) return {};
-
-          const slot = compiled.reactions[at]?.slot ?? "";
-
-          return Object.hasOwn(frame.slots, slot) ? (frame.slots[slot] ?? null) : null;
-        }),
+        baselines:
+          three.reactions.length === compiled.reactions.length
+            ? framesBySlot(compiled, three.reactions)
+            : {},
       };
 
       return stepped;
@@ -359,7 +397,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
         ...Struct.omit(one, ["unknown"]),
         format: FORMAT,
         seen: Object.fromEntries(seen.flat()),
-        reactions: compiled.reactions.map(() => null),
+        baselines: {},
         graph: {},
       };
 

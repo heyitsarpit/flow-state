@@ -1,5 +1,5 @@
 import { Data, Effect, Option, Predicate, Result, Schema } from "effect";
-import type { Denial, Values } from "./core/compiled.ts";
+import type { Denial, Read, Values } from "./core/compiled.ts";
 import { builder } from "./entry.ts";
 import { type Finding, invalid } from "./error.ts";
 import type { ContextOfTokens } from "./tokens.ts";
@@ -62,15 +62,6 @@ export type Entry = { readonly "~flow": "entry" };
 const entry: Entry = { "~flow": "entry" };
 
 /**
- * What a context read takes from its provider's snapshot: a public memory field, whether the
- * provider is at a state or below it, or the provider's state name.
- */
-export type ContextRead =
-  | { readonly kind: "memory"; readonly field: string }
-  | { readonly kind: "state"; readonly path: string }
-  | { readonly kind: "stateName" };
-
-/**
  * How a token reads its provider: the definition that made it, by identity and by id, the read's
  * Schema and what it reads; kept by the token's identity.
  */
@@ -78,7 +69,7 @@ export type Reader = {
   readonly owner: symbol;
   readonly provider: string;
   readonly schema: Plain;
-  readonly read: ContextRead;
+  readonly read: Read;
 };
 
 const readers = new WeakMap<WeakKey, Reader>();

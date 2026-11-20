@@ -422,6 +422,55 @@ describe("onContext defects (Turn R22)", () => {
   });
 });
 
+describe("a declined change maps nothing (Turn R22)", () => {
+  const Muted = definition({
+    id: "Context/Muted",
+    states: ["SHOWN"],
+    events: {},
+    internalEvents: { Echoed: { user: Schema.String } },
+    memory: { echoes: Flow.initial(Schema.Number, 0) },
+    context: { user: Flow.context(Session.M.user) },
+  });
+
+  // Its when declines the user "z", for whom its mapper would throw.
+  const MutedMachine = machine(Muted, ({ S, E, C }) => ({
+    default: S.SHOWN,
+    onContext: [
+      C.user.change({
+        when: (next) => next !== "z",
+        event: E.Echoed.from((user) => {
+          if (user === "z") throw new Error("mapper");
+
+          return { user };
+        }),
+      }),
+    ],
+    on: { Echoed: { updateMemory: ({ memory }) => ({ echoes: memory.echoes + 1 }) } },
+  }));
+
+  it("Turn R22: a change `when` declines runs no mapper and still becomes the baseline, so the next change is told against it", () => {
+    const runtime = runtimeSetup({
+      app: app({
+        id: "muted",
+        machines: {
+          session: SessionMachine,
+          muted: { machine: MutedMachine, context: { user: main } },
+        },
+      }),
+    }).construct();
+
+    Effect.runSync(runtime.ready());
+    const muted = runtime.ensureActor(actorRef(MutedMachine, "muted"));
+    const session = runtime.ensureActor(main);
+
+    session.send(Session.E.SignIn({ user: "z" }));
+    expect(Option.map(muted.getSnapshot(), (s) => s.issues.length)).toEqual(Option.some(0));
+
+    session.send(Session.E.SignIn({ user: "" }));
+    expect(Option.map(muted.getSnapshot(), (s) => s.memory.echoes)).toEqual(Option.some(1));
+  });
+});
+
 describe("context waves (Actors R19, I27; Turn R22)", () => {
   it("Turn R22: a provider change gives the consumer one onContext event; an equal selection is silent", () => {
     const { runtime, seen } = ready();

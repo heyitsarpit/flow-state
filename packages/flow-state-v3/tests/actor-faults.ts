@@ -451,4 +451,17 @@ export const actorFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "declined-change-sent",
+    tests: ["tests/actors/context.test.ts", "tests/shop/context.test.ts"],
+    says: "a change `when` declines still maps its payload and enqueues its event",
+    rule: "Turn R22",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "        !yes\n          ? Result.succeed(Option.none<Values>())",
+        replace: "        yes && !yes\n          ? Result.succeed(Option.none<Values>())",
+      },
+    ],
+  },
 ];

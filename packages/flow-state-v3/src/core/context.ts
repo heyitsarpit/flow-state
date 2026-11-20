@@ -283,11 +283,14 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         onSome: ([when, p]) => callSlot(when, current.value, p.value, { memory: read.memory }),
       });
 
+      // A declined change maps no payload, so a mapper never runs for an event that is not sent.
       const payload = Result.flatMap(allowed, (yes) =>
-        Option.match(reaction.event.from, {
-          onNone: () => Result.succeed(Option.some<Values>({})),
-          onSome: (from) => Result.map(callSlot(from, current.value), Option.some),
-        }).pipe(Result.map((p) => (yes ? p : Option.none<Values>()))),
+        !yes
+          ? Result.succeed(Option.none<Values>())
+          : Option.match(reaction.event.from, {
+              onNone: () => Result.succeed(Option.some<Values>({})),
+              onSome: (from) => Result.map(callSlot(from, current.value), Option.some),
+            }),
       );
 
       Result.match(payload, {

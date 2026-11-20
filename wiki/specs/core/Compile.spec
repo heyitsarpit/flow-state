@@ -199,8 +199,9 @@ requirements
         source  wiki/plans/flow/references/proposals/context-slots-2026-11-20.md; @task.V3.T107.
         must    A slot binds to one provider, so every token in a derived slot's `reads` comes from one
                 definition: a type error, and for casts and plain JavaScript an InvalidConfiguration at
-                `["context", slot, "reads", key]`. The check compares definitions by identity, not by id:
-                two definitions of one factory, or two under one id, are two providers. A read that is not
+                `["context", slot, "reads", key]`. The type error tells definitions apart by their literal
+                id; construction compares them by identity, so two definitions of one factory, or two
+                under one id, are refused there as two providers. A read that is not
                 a Flow token is refused at its key, and a slot with neither a token nor `{ reads, select }`
                 at `["context", slot]`. A read of a `Flow.private` field has no `M` token and fails to
                 compile. A reaction whose event no state handles is refused at `["onContext", i, "event"]`.

@@ -312,14 +312,30 @@ export const machine = entry(
         );
     }
 
-    const context = Object.entries(definition.context).map(([slot, declared]) =>
-      Result.map(slotReadsOf(slot, declared), (read) => [slot, read, declared] as const),
-    );
-
-    for (const failed of context.flatMap((c) => (Result.isFailure(c) ? [c.failure] : [])))
-      compile.findings.push(...failed);
-
     refuse(compile.findings);
+
+    // The definition refused every slot that does not read; each slot here reads one provider.
+    const context = Object.entries(definition.context).flatMap(([slot, declared]) =>
+      Result.match(slotReadsOf(slot, declared), {
+        onFailure: () => [],
+        onSuccess: ({ provider, reads, select }) => {
+          const json = Schema.toCodecJson(declared.schema);
+
+          return [
+            [
+              slot,
+              {
+                provider: provider.provider,
+                reads: reads.map(({ name, reader }) => ({ name, ...reader.read })),
+                json,
+                walk: walkerOf(json),
+                select: { slot: `context.${slot}`, run: select },
+              },
+            ] as const,
+          ];
+        },
+      }),
+    );
 
     const fields = Object.entries(definition.memory).map(([name, raw]) => fieldOf(name, raw));
     const memory = memoryCodec(fields);
@@ -344,38 +360,18 @@ export const machine = entry(
           operationOf(name, bound),
         ]),
       ),
-      context: new Map(
-        context.flatMap((c) =>
-          Result.isSuccess(c)
-            ? [
-                [
-                  c.success[0],
-                  {
-                    provider: c.success[1].provider.provider,
-                    reads: c.success[1].reads.map(({ name, reader }) => ({
-                      name,
-                      ...reader.read,
-                    })),
-                    json: Schema.toCodecJson(c.success[2].schema),
-                    walk: walkerOf(Schema.toCodecJson(c.success[2].schema)),
-                    select: { slot: `context.${c.success[0]}`, run: c.success[1].select },
-                  },
-                ] as const,
-              ]
-            : [],
-        ),
-      ),
+      context: new Map(context),
       reactions: reactions.map(({ change, at }) => {
         const { when, event } = decodedOf(change);
-        const slot = at.join(".");
+        const place = at.join(".");
 
         return {
           slot: change.slot,
           when: Option.map(when, (w) => ({
-            slot: `${slot}.when`,
+            slot: `${place}.when`,
             run: erasedWhen(w),
           })),
-          event: mappingOf(event, `${slot}.event`),
+          event: mappingOf(event, `${place}.event`),
         };
       }),
       wiring: new Map<string, ActorId>(),

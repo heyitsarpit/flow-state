@@ -192,7 +192,7 @@ export type ContextSlot<V = unknown, P = unknown> = {
 export type ContextConfig = Readonly<Record<string, ContextSlot>>;
 
 /**
- * What a slot keeps of its provider: its state tree and memory, the parts its selector reads.
+ * A provider's state tree and memory, by which a slot's wiring ref is checked.
  */
 export type ProvidedBy<States, M> = { readonly states: States; readonly memory: M };
 
