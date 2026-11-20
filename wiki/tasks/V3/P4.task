@@ -565,7 +565,7 @@ tasks
             Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
@@ -1332,6 +1332,10 @@ tasks
                 key, unsaved issues. Rejected: re-entry across turns keeping reasons (the exit drops the timer),
                 listRepair and restore keys (routed or ruled), two firing failures (one issue per source), the coverage
                 report (it read a stale file; I re-read the run), `paidThenEmptied` vacuous (checked).
+        comment     2026-11-20T15:15:15Z
+            Failure (2026-11-20): root cause: schedule issues lose their owner across occasions (several writers over
+            time). Count: 2 after convergence. Revision: 53a6ce47. Review: 108d00cf. The failure limit is reached; T57
+            stays open and the run stops for the user's ruling on Turn R25 and the next step.
     T21
         title       Reads and operations (slice 5)
         status      draft

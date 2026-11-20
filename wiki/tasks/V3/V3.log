@@ -1327,3 +1327,8 @@ note 2026-11-20T15:10:12Z
     Decision (the user, 2026-11-20): @task.V3.T113 widened to remove hand-written type guesses everywhere (about 100
     sites): phantom token types, contract-typed ending mappers, fixture and test refactors with type tests, a lint
     guard.
+
+note 2026-11-20T15:15:15Z
+    Run stopped (2026-11-20): T57's fourth close review found two lost firings (B1 restored hold with no reasons; B2 an
+    arming issue replaced across occasions), the second failure after convergence; failure limit reached. Wake cron
+    cancelled. Waits on the user: Turn R25 and T57's next step.
