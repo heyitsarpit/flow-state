@@ -74,7 +74,7 @@ comment 2026-11-19T07:18:27Z
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@task.V3.T9]
         satisfies   [@plan.Persistence.O4]
@@ -360,6 +360,66 @@ tasks
             automation Safari found as a child of this run's safaridriver); reqs 11 and part of 9 red in Node.
             Store.write takes no Flow wiring: the public Store sees plain records and keys; purpose and attempt ids stay
             on Flow's side (no leaked wiring; for the user's read).
+        comment     2026-11-20T05:36:25Z
+            Build decisions (lead, 6fc4a03a, f5ab3c6e); each reversible as noted.
+
+            - Actors Q3 answered no: one Layer cannot be split, so the services, the Store in them, are built whole,
+              then load (R3 and Q3 revised in the Spec). Reverse: a separate Store Layer built first.
+            - `StoreScope` (app id, scope), proposed: the Runtime provides it while building services, so
+              `layerIndexedDb()` names its database from the app id and keys records `[app, scope, key]`; Store members
+              see records and keys only. Reverse: app and scope as adapter options.
+            - `BatchFacts`, an internal `Context.Reference`, carries purpose and acknowledged Attempts to Flow's test
+              store; its flush default is the truth for forget's own write. Reverse: a test-only Store wrapper.
+            - `layerIndexedDb` opens at build; a failed open makes load refuse, so the Runtime runs without persistence
+              (StorageFailure), and real setups still boot in Node.
+            - A load still unanswered at `RuntimeDefaults.storageSilent` reports `Reported StorageSilent` and decides
+              nothing (`Input.LoadSilent`).
+            - `storeContract` runs cases under plain `it` with `Effect.runPromise`: Effect's language service flags
+              `@effect/vitest` `it.effect` unstable, which breaks zero warnings.
+            - Not built, with reasons: hide/show generator step kinds and new sample or mix sets (a new step kind shifts
+              every recorded seed's draws); the 5,000 ms edge and a hide during bankSwitching's acknowledgement; Safari
+              D1's bfcache arm (the Node unit and plant hold the rule); requirement 19 compares keys and order, not
+              purposes, which the public Store never sees.
+            - Finding: an actor ensured through the public API with no use ends after `freeGrace` and is captured at
+              once, so the 5 s interval applies only while something uses it; the real-page hide case keeps its pad live
+              with a sync in flight.
+        comment     2026-11-20T05:36:42Z
+            Evidence (lead): Node and Chrome green; Safari's store cases green and its two hide cases blocked by an
+            occluded page.
+
+            - `nub run check` 0; suite 1646 passed, 25 expected fail; stress 85 passed; generated Stories with
+              FLOW_SEEDS=20 green; `nub run docs:build` 0; `wk check` valid.
+            - Plants, each caught by its targets (`faults --only`): idb-landed-on-complete, idb-load-without-commit,
+              fake-store-drops-last-write, hidden-refused-retried-at-once, hidden-held-marks-wait,
+              hide-does-nothing, hide-waits.
+            - `nub run test:browser`, each browser alone: Chrome 15/15, with `--plant drop-last-write` 8 red. Safari
+              26.6: 13/13 store cases, with the plant 8 more red; both hide cases fail the guard "the page starts
+              hidden" (the user idle, display asleep, so WebKit occludes the window). They need one Safari run with the
+              user at the machine.
+            - Automation Safari: parent is launchd, not safaridriver; the runner ends the one new `--automation` Safari
+              by pid, and stops its process group on a signal or the 10-minute cap.
+        comment     2026-11-20T05:36:43Z
+            Sidecar log (lead): two Haiku close reviews, read-only; each finding checked against the code or
+            Effect's source.
+
+            - Effect (18): accepted transactions made inside the callback, IndexedDB throws as refusals, the setup's
+              Store winning (Context.merge lets the second win), contract writes started at once, the reopen scope
+              closed on failure, `Effect.sleep` for the silent timer, the length check on load; rejected a required
+              BatchFacts (forget's write has none), the edge's retry schedule and close fiber (unchanged code), and
+              per-run contract scopes (a fresh profile each run).
+            - Cohesion (22): accepted stale comments (host, browser platform, storageSilent), test titles, the Spec
+              order; rejected "a hidden mark sends refused keys at once" as a loop (a mark is app activity, and edge.ts
+              allows "at the latest"); logged the unbuilt fixture items and D1's Safari arm in the decisions comment.
+        comment     2026-11-20T05:36:52Z
+            Ready for review (lead): the Store port, `storeContract`, `layerIndexedDb`, the hide flush and the browser
+            runner are built; Safari's hide cases still need one attended run.
+
+            For the user's read, in order:
+            1. The runner and its launch: `nub run test:browser` (code:tools/browser/run.ts,
+               code:tools/browser/provider.ts), Chrome headless over the DevTools protocol, Safari through safaridriver.
+            2. The public Store shape: `Store` (`load`, `write(batch)`), `StoreRefused { reason }`, and the proposed
+               `StoreScope`, in code:packages/flow-state-v3/src/host/store.ts.
+            3. @plan.Pending.D9's merge into @plan.Package.O1 waits for the user's yes.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
