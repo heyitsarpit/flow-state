@@ -1284,3 +1284,7 @@ note 2026-11-20T12:37:44Z
     Amendment (2026-11-20, the user): a Task is solved as one cohesive set, never item by item; requirements open with a
     state inventory, transition tables where rules share state, one owner per state; reviews block item-by-item lists.
     Commit: 24e9f9c9.
+
+note 2026-11-20T12:50:34Z
+    Amendment (2026-11-20, the user): skill pin moved to workflow@67c7dd8 (whole Task, R47 Task cycle, R48 breakdown
+    review at each phase's start); the Epic adds the phase-start review and boundaries by state. Commit: bb32c950.
