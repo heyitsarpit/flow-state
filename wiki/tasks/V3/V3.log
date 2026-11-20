@@ -529,3 +529,6 @@ note 2026-11-20T21:44:57Z
 note 2026-11-20T21:48:38Z
     Pending decisions D1 to D4, D9 and D35 to D39 merged into the Plans (1e4e3a3d, 7569d069, 039b583b) and left Pending;
     D5, D6, D8, D10 to D12 and D34 stay while Specs and a proposal cite them.
+
+note 2026-11-20T22:01:09Z
+    Decided (user, 2026-11-20): @proposal.spec-handover#no-flowkeyed, No `Flow.keyed`

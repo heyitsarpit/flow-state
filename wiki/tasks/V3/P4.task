@@ -2229,3 +2229,4 @@ tasks
             tests. R25 states the check order and that an arming start clears a send issue; re-entry's inherited key set
             is decided with two traces. The refused arming at creation moves from @task.V3.T100 to here
             (Arming.Refused). Fix round waits behind the design work the user asked for.
+        blocked_by [@proposal.spec-handover#cohesion-of-all-eleven-designs]
