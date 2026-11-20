@@ -1174,6 +1174,54 @@ tasks
               says the delay refusal.
             - Open: an unkeyed schedule's send mapper still types `key` as `ScheduleKey` (runtime passes undefined); a
               delay-slot issue of one key still clears on another key's accepted firing (issues carry no key).
+        comment     2026-11-20T13:22:43Z
+            Close review of the convergence (Opus lead, five Haiku sidecars: blind, cohesion, coverage, flip A, blind
+            table): ISSUES. One `decide` holds and the table is derived from the Spec, but two endings are still wrong.
+            Coverage run: 3663 pass, 20 expected fail, 4 timeouts under coverage only (home 64 rooms, shop large cart,
+            rules sweep and seeds; each green alone, @task.V3.T97's class). Check zero. Five plants
+            (throwing-reason-runs-new-run, check-issue-cleared-unrun, last-issue-wins, new-key-arms-while-disarmed,
+            entry-arms-while-disarmed) caught by `faults --only`.
+
+            - Blocking B1 (Turn R19, R27; made-up firing): an idle timer forgets its pause reasons. They run for idle
+              timers, but `lastReasonsOf` (`schedule-decision.ts:139`) reads only a held run, so a run armed in a turn
+              where a reason throws runs. Red (scratch Story): `armOn: [Go]`, A true while idle (or held by A, then
+              Stop), then Go with A throwing: `{ dueAt: 60000 }`, fired at 60 s, A still unreadable. By R19 the armed
+              run takes the last reasons, [A]: held at its full delay. Missed because every table `idle` start is
+              reached with A and B false.
+            - Blocking B2 (Turn R25, R14; a lost firing loses its report): one key's accepted firing clears another
+              key's arming issue. Red (scratch Story): keys good and bad, bad's delay 2^31: InvalidTurn at
+              `…t.schedule`; good fires at 60 s; issues `[]`, bad unarmed. Trace A (today): bad's firing is lost with no
+              report. Trace B: the issue stays until bad arms clean or leaves. B loses nothing. Class: schedule-source
+              issues keep four writers outside `decide` (`reported`; `succeeded`, `serve.ts:276`; `raise`,
+              `firings.ts:31`; `raised`, `serve.ts:141`), with no table, and issues carry no key. Missed because the
+              table has one key and reads only the first timer (`viewOf`).
+            - The lead's Spec sentences: the first defect as the one issue is sound (issues only, one per source). A
+              throwing reason keeping the last reasons on a restarted run is sound for a held timer, which stops the
+              last review's B1; the idle case is B1 above. Reasons running for idle timers is sound for issues, but the
+              result is dropped (B1).
+            - Table: 30 rows re-derived from R14 to R17, R19, R25 and R27 agree with the oracle. I side with the lead on
+              the four rejected rows (re-entry keeps the last reasons; kept keys re-arm on re-entry; no evidence on a
+              reason change while held, Spec silent; one issue).
+            - Guard: it flags a planted write in a `firings.ts` copy and `{ ...i, schedules }`. It misses an incarnation
+              literal without a spread, `Object.assign`, and a Map copied through an alias (none of these is in src).
+              `fired` and restore's `runOf` build runs outside `decide`, so the doc's "every change" claims too much.
+            - B3 fixture: sending an emptied cart's checkout back to browsing is a real product choice. At the root,
+              though, it also sends DONE back when a paid order's cart empties, so it belongs on the checkout steps. Not
+              red: no Story empties a paid cart.
+            - Notes (no red):
+              - Turn R14 says a bad computed delay refuses the turn, yet a key or restart arming commits with an issue
+                (the build's call, with no Spec sentence). R19 and I38 conflict with a key added by a lane
+                running `schedule`.
+              - The Ring test keeps `far` true, so it cannot tell a refused turn from a committed one. `refusal` in
+                `tests/compile/schedules.test.ts` swallows throws that are not FlowError.
+              - `schedules.ts:192,197` are dead. A throwing send mapper on a firing (`firings.ts:62-64`) has no Story.
+              - The blind redesign was skipped (policy-convergence step 2); the user's ruling fixed the structure.
+            - Routed items hold: Turn I9 seed 5 was not re-run, since no stress Story changed (owner @task.V3.T97).
+              @task.V3.T113's unkeyed `key` is types only: `metadataOf` passes undefined.
+            - Sidecars: accepted the cross-key clearing, the issue writers, the guard gaps, the one-key table, the Ring
+              and `refusal` checks and the dead lines. Changed "a restart with a bad delay commits" to a Spec note,
+              since it is the build's documented call. Rejected restore re-deriving baselines (I34 never restarts at
+              restore), a keyed key arming at restore (R16), and listRepair and props, which were routed before.
     T21
         title       Reads and operations (slice 5)
         status      draft
