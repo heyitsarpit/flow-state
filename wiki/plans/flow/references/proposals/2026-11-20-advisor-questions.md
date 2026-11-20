@@ -95,7 +95,7 @@ Unblocks @task.V3.T109 and @task.V3.T110.
 - **Read:** @plan.Machines.O1, @plan.Runtime.O6, @spec.Turn.R30, @proposal.ui-primitives-decisions (§9),
   the fixture catalog's step 2 rows.
 
-### 3. Emits and props as one boundary [open: 2026-11-20]
+### 3. Emits and props as one boundary [answered: agent orchestrator 2026-11-21; two declared channels, emits recorded once and never replayed, props one owner; @proposal.spec-boundary-channels (still proposed)]
 
 Unblocks @task.V3.T77 and @task.V3.T76, and the React binding after them.
 
@@ -154,11 +154,14 @@ Unblocks @task.V3.T98.
 
 Unblocks @task.V3.T30 and @task.V3.T108.
 
+Partly answered (2026-11-21): @proposal.spec-ui-host designs the publication, hooks, emit delivery and hydration; how
+presentation fits with bippy waits on the user's answer to @proposal.react-instrumentation-bippy.
+
 - **Ask:** the binding's shape over `useSyncExternalStore` (one snapshot per published turn), emits delivered to views,
   hydration and dehydration while writes are in flight, and how presentation fits with the instrumentation proposal.
 - **Read:** @plan.React, @plan.ServerRendering, @proposal.react-instrumentation-bippy, `codebases/ui-sdk`.
 
-### 9. The entity store as the sync seam [open: 2026-11-20]
+### 9. The entity store as the sync seam [answered: agent orchestrator 2026-11-21; one judge for every confirmed source plus claims; @proposal.spec-data-layer (still proposed)]
 
 Unblocks @task.V3.T24 and @task.V3.T25.
 

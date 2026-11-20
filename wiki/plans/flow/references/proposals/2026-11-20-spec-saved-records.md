@@ -342,7 +342,7 @@ failing checks through the edit matrix on two fixtures, with Spike 1's result at
 
 ## 8. Proposed decisions
 
-**D1. Version tags live in the key; nothing is re-keyed.** Replaces boot re-keying (`LaneRekeyed`,
+**D1. Version tags live in the key; nothing is re-keyed.** [open: 2026-11-21; recommend as proposed] Replaces boot re-keying (`LaneRekeyed`,
 `LaneRekeyCollision`) in @plan.Persistence.O5.
 - Trace 1: release B changes the cart's name Schema. Today's plan: the boot re-keys the old lanes and B's fresh
   cart overwrites the old record at the same key; a revert to A finds B's record. Proposed: B writes under
@@ -350,25 +350,25 @@ failing checks through the edit matrix on two fixtures, with Spike 1's result at
 - Trace 2: two re-keys land on one target in one boot. Today: `LaneRekeyCollision`, the mover quarantined.
   Proposed: no move exists, so no collision.
 
-**D2. Compatibility is decided by decode; the shape stamp only names the reason.** Replaces the runner's ruling
+**D2. Compatibility is decided by decode; the shape stamp only names the reason.** [open: 2026-11-21; recommend as proposed] Replaces the runner's ruling
 that any structural Schema change resets the record.
 - Trace 1: `mode: Literals("a","b")` gains `"c"`. Ruling: every cart is reset, drafts lost. Proposed: restored.
 - Trace 2: `when` moves from an ISO string to epoch milliseconds. Both: the record does not read and is reset;
   proposed reports it once as `RecordShapeChanged`, not as 10,000 corrupt records.
 
-**D3. A record that carries an ending, and a `Newer` record, are never overwritten; the write is withheld and
-reported.** Replaces the runner's ruling for owed records (W8) and answers `revisit.md:29`.
+**D3.** [open: 2026-11-21; recommend as proposed] A record that carries an ending, and a `Newer` record, are never overwritten; the write is withheld and
+reported. Replaces the runner's ruling for owed records (W8) and answers `revisit.md:29`.
 - Trace 1: a stale tab on build A boots after build B saved. Today: A's fresh actor overwrites B's record; the
   user's work in B is gone. Proposed: A runs that identity unsaved and says so; B's record stands.
 - Trace 2: an owed record does not read; a new ending is owed for the identity. Today: it overwrites the record
   and the unread rows are lost. Proposed: the new ending is delivered live, its save withheld and reported.
   Price: that one ending is not durable until `forget` or a build that reads the record.
 
-**D4. An owed row is judged alone** (W7): a retired or unreadable row is kept verbatim and does not hold back
+**D4. An owed row is judged alone** [open: 2026-11-21; recommend as proposed] (W7): a retired or unreadable row is kept verbatim and does not hold back
 the others. Trace 1: rows `[paid, retired-op row, refunded]`: today none is delivered; proposed two are. Trace 2:
 all rows read: no change.
 
-**D5. Task boundary:** T92 is the codec and owns no state; T56 owns the fate, quarantine's exits included.
+**D5. Task boundary:** [open: 2026-11-21; recommend as proposed] T92 is the codec and owns no state; T56 owns the fate, quarantine's exits included.
 
 Not proposed: a rename map or `version` hook (the user's Q1 stands; `revisit.md:23` names the reopen case).
 

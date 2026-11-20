@@ -384,27 +384,27 @@ for a copy's key. **T76.** Takes nothing but "every scope reads the root's props
 
 ## 8. Proposed decisions
 
-**PD1. Subroutine states compile into the host's tree; a subroutine keeps no lifecycle state.**
+**PD1. Subroutine states compile into the host's tree; a subroutine keeps no lifecycle state.** [open: 2026-11-21; recommend as proposed]
 Trace A: `WIZARD.PROFILE`, `Cancel` targets `WIZARD.CANCELLING`; the leaf is `WIZARD.CANCELLING.ASKING` with a new
 activation and a `Start` for its slice; `No` takes exit `declined` to `WIZARD.history`: `End(Exit)`, no
 `whenAbandoned`. Trace B: in `ASKING`, WIZARD's own `Refresh: "self"` runs; `moveOf` exits nothing, the activation
 is unchanged, the row is `Keep`. Reverse by giving each instance its own leaf, as the prototype did.
 
-**PD2. Key order is the host list's order, not sorted keys.**
+**PD2. Key order is the host list's order, not sorted keys.** [open: 2026-11-21; recommend as proposed]
 Trace A: list `[r2, r1]`; `CancelAll` reaches r2 then r1; the snapshot's `uploads` is r2, r1. Trace B: the user
 reorders to `[r1, r2]` in one turn: both rows are `Keep`, no id changes, the next fan-out runs r1 first.
 
-**PD3. At an actor's end no `whenAbandoned` callback runs; the releases it lists are applied.**
+**PD3. At an actor's end no `whenAbandoned` callback runs; the releases it lists are applied.** [open: 2026-11-21; recommend as proposed]
 Trace A: `disposeActor` with copy r1 holding a lane: `End(ActorEnded)`, `Ended { releases }` goes to the lanes owner,
 no host turn runs. Trace B: the same actor returns: r1 is a `Start` with a new id; nothing of the old one arrives
 (I4). Reverse by running a last turn for the callbacks before the end.
 
-**PD4. A membership fact changed by `whenAbandoned` or `resetOn` settles in a follow-up turn, never in a loop.**
+**PD4. A membership fact changed by `whenAbandoned` or `resetOn` settles in a follow-up turn, never in a loop.** [open: 2026-11-21; recommend as proposed]
 Trace A: `onGone` for r1 removes r2 from the list: commit sets `unsettled`; before the next event the `Reset`
 occasion ends r2 and runs its `onGone`. Trace B: `onGone` writes only `gone`: facts match, no follow-up. This widens
 the Plan's "pending reset" to lists.
 
-**PD5. A Task for the turn's parts ahead of T109, sized by the spike.** Scope change; the user's call.
+**PD5. A Task for the turn's parts ahead of T109, sized by the spike.** [open: 2026-11-21; recommend as proposed] Scope change; the user's call.
 Trace A: with it, T109's first commit runs `raise` into a trait on day one. Trace B: without it, T109 builds the
 walk inside a lifecycle Task and two states get one Task.
 

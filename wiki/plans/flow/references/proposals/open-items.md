@@ -55,7 +55,7 @@ The user wants a word that means downward. Considered and not liked: `tell`, `se
 **`raise` stays for now** [deferred: agent 2026-10-29]. Not blocking. Reopen if: a better word turns up.
 
 
-## 3. `.history` versus interrupts [open: 2026-10-29]
+## 3. `.history` versus interrupts [answered: agent orchestrator 2026-11-21; closed 2026-10-30, .history stays and restores control only; confirmed in @proposal.fragment-lifetimes item 3]
 
 **The need.** An interruption should come back to where the user was: "Discard changes?" → No →
 the same wizard page; re-authenticate → the same page; a help overlay → back.
@@ -117,6 +117,9 @@ Interrupts and a computed `default` were considered and not taken; deep history 
 [merged/server-calls/proposal.md](../explorations/machine-fragments/merged/server-calls/proposal.md), which superseded `in-machine-calls-proposal.md`
 (removed). The notes below are the record of what was flagged.
 `unknown` was kept as the name. What it leaves open is in its section 8.
+
+Partly answered (2026-11-21): where `timeout` and `retry` live is settled by @proposal.machine-calls (none in Flow, the
+contract's Effect owns one send); the outcome-key rename and the `abandoned` double run stay open.
 
 The network discussion is split: decisions outside the machine (operations, adapters, errors, the
 cache and domains) are discussed first; these in-machine ones wait here.

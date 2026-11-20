@@ -425,46 +425,46 @@ Tests are Stories on fixtures, expected results derived from the tables above, e
 
 Each is proposed; two traces each.
 
-**PD1. Split T24 into confirmed records (T24a) and claims (T24b).** The states have different owners and T115
+**PD1. Split T24 into confirmed records (T24a) and claims (T24b).** [open: 2026-11-21; recommend as proposed] The states have different owners and T115
 needs only the first.
 - Trace 1: the server renders ticket 7 at `rev 4`; the client holds `rev 5` with a predicted title. Hydrate calls
   the judge: `Stale`. No claim code runs; the prediction still shows. T24a alone decides it.
 - Trace 2: a rename is unknown, the machine gives up, a later read lands. Only table 3.4 moves (`Held` to
   `GivenUp` to `Quiet`); no record is written. T24b alone decides it.
 
-**PD2. One admission function for boot, lazy adoption and the hydrate commit.** It changes reviewed boot code.
+**PD2. One admission function for boot, lazy adoption and the hydrate commit.** [open: 2026-11-21; recommend as proposed] It changes reviewed boot code.
 - Trace 1: boot with a saved `Billing` actor and `Billing` lazy: classify keeps its text; later
   `ensureActor(billingRef)` admits the entry and restores the actor in one cut; a context cycle found then exposes
   nothing and the text stays.
 - Trace 2: first load with a saved draft and a payload holding the same actor: admission sees both, the saved one
   wins, the hydrated copy never activates.
 
-**PD3. Hydrate and restore are sources to the judge, and bookmarks and schedule delays have no merge row.**
+**PD3. Hydrate and restore are sources to the judge, and bookmarks and schedule delays have no merge row.** [open: 2026-11-21; recommend as proposed]
 - Trace 1: payload field `title` unversioned, differing from the client's confirmed value: row 7, `Keep` and
   `Contested`, the loader refetches; the verdict an overlapping read reaches by row 10.
 - Trace 2: the client actor wins over its hydrated copy; its bookmark stays at 42 although the payload said 40,
   so no value is delivered twice.
 
-**PD4. Session state lives in the core step (S5's form A).** The S5 result is still marked proposed.
+**PD4. Session state lives in the core step (S5's form A).** [open: 2026-11-21; recommend as proposed] The S5 result is still marked proposed.
 - Trace 1: a value's turn and a `settle(through)` race: in the step, the bookmark ends at the last delivered
   value. As a fiber writing through the queue it ended at `through` in 512 of 2,400 runs.
 - Trace 2: a reload cut between a frame and its turn: the saved record holds both or neither.
 
-**PD5. A record whose machine is declared lazy is dormant, not quarantined; one declared nowhere is an orphan.**
+**PD5. A record whose machine is declared lazy is dormant, not quarantined; one declared nowhere is an orphan.** [open: 2026-11-21; recommend as proposed]
 This replaces `decodeRecords`' single "machine" failure.
 - Trace 1: today a `Billing` record at boot is quarantined and a send drops `RecordUndecodable`; proposed, the
   send drops `NotAdopted` and the record restores at adoption.
 - Trace 2: a record of a machine removed from the app: discarded, its lane records quarantined, as LazyFeatures O3.
 
-**PD6. Positions come from the runtime's mint, not a clock.**
+**PD6. Positions come from the runtime's mint, not a clock.** [open: 2026-11-21; recommend as proposed]
 - Trace 1: read A asked at 12, landed at 20; read B asked at 15, landed at 17 with another value: overlapping,
   `Contested`. Replays identically.
 - Trace 2: after a reload the mint restarts at 0 (`core/world.ts` `counter: 0`). No position is ever saved
   (EntityDomains C2), so a restored field holds none and an unversioned read asked after boot takes over it by
   row 8 with nothing saved to compare against.
 
-**PD7. A claim's keys are saved in a record the entity store owns, one row per Attempt, written in the batch that
-captures its first send.** Persistence O6 puts them on the lane record; LazyFeatures O3 keeps a lazy machine's lane
+**PD7.** [open: 2026-11-21; recommend as proposed] A claim's keys are saved in a record the entity store owns, one row per Attempt, written in the batch that
+captures its first send. Persistence O6 puts them on the lane record; LazyFeatures O3 keeps a lazy machine's lane
 records undecoded yet wants its uncertain write to mark entities before adoption. Both hold only if the keys are
 readable without the machine (proposal 2, section 4.1).
 - Trace 1: `Billing` is lazy and inactive; its saved rename of `Plan 3` was unknown. At boot the entity store reads

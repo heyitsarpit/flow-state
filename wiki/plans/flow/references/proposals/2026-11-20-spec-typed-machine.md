@@ -417,7 +417,7 @@ Do not add a type parameter to `Machine` or infer from the body.
 
 ## 8. Proposed decisions and sidecar log
 
-### Ask 1: where a schedule's name, key and pause reasons are declared
+### Ask 1: where a schedule's name, key and pause reasons are declared [open: 2026-11-21; recommend A, on the definition]
 
 - **A (recommended): on the definition** (section 3.6).
   - Trace 1: `snapshot.schedules.poll?.[0]?.pausedBy.includes("Vacaton")` → `TimersOf<typeof Room>` gives
@@ -431,14 +431,14 @@ Do not add a type parameter to `Machine` or infer from the body.
   - Trace 2: the keyed mapper reads `key["id"] ?? ""` as today, unless ask 3 is taken.
 - Not offered: capturing the body. Eight shapes failed (section 3.1); curried `machine(D)(body)` also failed.
 
-### Ask 2: `E.X.Type` is the payload (recommended) or the envelope
+### Ask 2: `E.X.Type` is the payload (recommended) or the envelope [open: 2026-11-21; recommend payload]
 
 - Payload. Trace 1: `({ event }: { event: typeof E.Changed.Type })` passed as `updateMemory` compiles (`e.ts` line
   21). Trace 2: `send(actor, E.Changed({ repo }))` is unaffected; the envelope stays `EventOf<D>`.
 - Envelope (T113's wording). Trace 1: the same helper is refused as a handler (`e.ts` line 23), so the 24 event
   sites cannot use it. Trace 2: a `send` helper could name one envelope, which `ReturnType<typeof E.X>` already does.
 
-### Ask 3 (only if ask 1 is B): `Flow.keyed(keys, config)`
+### Ask 3 (only if ask 1 is B): `Flow.keyed(keys, config)` [open: 2026-11-21; recommend two-argument form, only if ask 1 is B]
 
 - Two arguments. Trace 1: `K` infers from `keys`, then `send`'s mapper reads it (`e.ts` lines 36, 37). Trace 2: 14
   `Flow.keyed` call sites change shape; the accepted one-object form goes. Run only with a `keys` that takes no

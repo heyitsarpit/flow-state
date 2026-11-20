@@ -344,21 +344,21 @@ from T97's list to T112 (they are call life).
 
 ## 8. Proposed decisions
 
-**D1. `run()` judges every run; rules are named once in `flow.config.ts`.**
+**D1. `run()` judges every run; rules are named once in `flow.config.ts`.** [open: 2026-11-21; recommend as proposed]
 Trace A (today): a new Story test calls `Home.run()` without `checked`; a run rule breach passes unseen.
 Trace B (proposed): the same test rejects `StoryFailed { breaches }`; a test that wants the breaches reads them
 from the rejection. Reverse by restoring `checked`.
 
-**D2. Unused words and leftover resources are breaches (`UnusedWireRule`, `CleanupLeft`), not script faults.**
+**D2. Unused words and leftover resources are breaches (`UnusedWireRule`, `CleanupLeft`), not script faults.** [open: 2026-11-21; recommend as proposed]
 Trace A: a Story holds a call and ends; today it passes if the word was used. Proposed: `CleanupLeft` names the
 call, its step and its status. Trace B: a Story declares `refuse()` no write meets; today `StoryFailed` text
 "never used"; proposed the same failure as a named rule, visible in `flow story run` and to T106's judging.
 
-**D3. A reload step may name another setup: `app.reload({ as: SetupB })`.**
+**D3. A reload step may name another setup: `app.reload({ as: SetupB })`.** [open: 2026-11-21; recommend as proposed]
 Trace A: save a timer under build A, reload as B with the pause reason removed; the T57 B1 bug is a Story. Trace B:
 A, B, A, B over one store shows a record written by B and read by A. Without it, edit tests need a private boot.
 
-**D4. Move the coverage-run items from T97 to T117, and fake-server items from T97 to T112** (state ownership).
+**D4. Move the coverage-run items from T97 to T117, and fake-server items from T97 to T112** [open: 2026-11-21; recommend as proposed] (state ownership).
 Trace A: T117 fixes the shard but coverage still times out, so its close review cannot run. Trace B: T97 ports
 `life.test.ts` while T112 changes the same fake servers; one owner avoids two writers of `fake.ts` call life.
 

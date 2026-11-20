@@ -497,25 +497,25 @@ Every Task: fixtures first. T21's fixture list stays whole, divided by which Tas
 
 Each has two traces: the sequence under the alternative, then under the proposal.
 
-1. **Operation issues are views of rows, entries, placements and releasing calls.**
+1. **Operation issues are views of rows, entries, placements and releasing calls.** [open: 2026-11-21; recommend as proposed]
    Stored: A's `pay` ending is refused twice (Kept, A blocked); B's `pay` success is accepted; the snapshot
    shows no issue while A is blocked. Derived: the issue is A's row's refusal, shown until A's row closes.
-2. **Split T21 into four Tasks by owner** (reverses the 2026-11-20 breakdown note "not split").
+2. **Split T21 into four Tasks by owner** [open: 2026-11-21; recommend as proposed] (reverses the 2026-11-20 breakdown note "not split").
    One Task: four tables under one review, and the issue fix waits on entries. Four: the row's shape lands
    first and each table has its own review. The note's reason, shared lane state, does not hold (section 2).
-3. **An invalid lookup input ends the read as `Defect`; it does not refuse the turn.**
+3. **An invalid lookup input ends the read as `Defect`; it does not refuse the turn.** [open: 2026-11-21; recommend as proposed]
    Refuse: the handler's memory update is lost with the turn, unlike a commit's `Unencodable` decline. End:
    the turn commits, the machine hears its `Defect` mapping and leaves its loading state.
-4. **A `Cause.TimeoutError` from a write is unknown, and a type error in its `E`.**
+4. **A `Cause.TimeoutError` from a write is unknown, and a type error in its `E`.** [open: 2026-11-21; recommend as proposed]
    Without: `Effect.timeout` types as the tag `TimeoutError`, the author maps it under `failure`, the user
    retries and pays twice. With: the type error points at `Outcome.unknown`; a stray one holds the lane.
-5. **Mappers take one record `{ value, input, key, attempt }`** (T21's acceptance), not
+5. **Mappers take one record `{ value, input, key, attempt }`** [open: 2026-11-21; recommend as proposed] (T21's acceptance), not
    `(value, { input, key })` (@plan.Operations.O2's text). Record: `E.Paid.from(({ value, input }) => ...)`.
    Pair: `E.Paid.from((value, { input }) => ...)`. The sources disagree; the typed-machine concept owns it.
 6. **`ReleaseOverdue` covers every interrupted read call now and sessions later, not a write's Cancelling
    head.** Covering writes: a cancelled commit that ignores abort raises it while its lane already shows
    pending. Not covering: one signal per fact; the lane row is the write's.
-7. **`persist: true` requires `output`.** Without: entry data is saved by structural guess and restored
+7. **`persist: true` requires `output`.** [open: 2026-11-21; recommend as proposed] Without: entry data is saved by structural guess and restored
    unchecked. With: a compile error names the missing Schema, and restore decodes at the boundary.
 
 Mine to make, reported here: calls run under the Runtime's Owner; `refusal` is not saved; an operation
