@@ -4079,3 +4079,42 @@ tasks
             asked. Left: tests/refusals.ts still duplicates construction.test's helper.
         comment     2026-11-20T00:10:20Z
             Correction to the note above: 32 planted faults were run with --only and all caught, not 27; 5 are new.
+        comment     2026-11-20T00:24:48Z
+            Close review: ISSUES, three blocking findings, each red on current code by a scratch probe (not committed).
+            Suite green alone (1574 pass, 25 expected fail, no type errors); `faults --only` caught
+            context-mixed-provider, context-recompute-every-turn and declined-change-sent.
+            - F1, needs the user's call: Turn R22's new first-value clause makes up an ending. One Story, two traces,
+              `when: (c) => c === "urgent"`: user "x" at admission, then "calm": no event; user "" (the select throws)
+              at admission, then "calm": `when` is skipped and Urgent fires. Before T107 `when` was asked (previous
+              undefined). The clause contradicts R22's own "with no when, or when true" and the proposal's rule 5.
+              Options: ask `when` with previous absent (a public type change), or a when-gated reaction takes a silent
+              first value while one with no `when` fires (keeps the unread badge). Missing coverage: no Story pairs a
+              `when` with a select that fails at admission; every fixture `when` sits on a total select.
+            - F2, A3 and Actors R18 broken: when a slot's reads change but its value stays equal, `update` returns early
+              without keeping the new reads (`src/core/context.ts`, makeContext), so every later turn that changes none
+              of the reads runs the select again. A length slot renamed "ada" to "bob", then three unrelated turns:
+              three extra selects. Missing coverage: the counting Story only changes reads with a changed value, and the
+              fault plants only an every-turn recompute.
+            - F3, Restore R5 broken: format 4 saves one slot's reactions' baselines by position within the slot, with no
+              count check (`placesOf`, `decodeActor` in `src/core/actor-record.ts`). Saved [Heard 1, kept by a defect;
+              Bumped 2, last-seen]: swapping them gives Bumped 1 (a made-up wave event) and Heard 2 (lost); adding a
+              reaction first, or removing Heard, does the same, against R5's count rule. Missing coverage: every
+              actor-record test machine has one reaction; no record has two reactions on a slot, reordered, added
+              or removed.
+            - Closed: the experiment verdict (repaused and first-pause refute one comparison on entry; the silent-entry
+              half rests on 723979d6's fixture, whose runtime was never committed, so the 00:09:57 reverse note's "from
+              c111aa03's parent diff" should read "rebuild"); B1, B2, B3; the one-provider ban (a factory and a twin id
+              refused by identity; types tell literal ids only, as R19 says); close greps at zero. The excess-keys `//
+              wrong:` lines (68, 92, 98, and 103 without the colon) are T104's recorded TypeScript limit (3c1b791d), not
+              missed flips.
+            - Noted, not blocking: `reads: {}` types as provider never and its run-time refusal is untested;
+              `Flow.context({})` is refused at `context.<slot>.schema`, not R19's `context.<slot>`; a Spec id `(R19)` in
+              a src comment (context.ts, sameReads); `Change` typed three times (config Schema, tokens.ts, machine.ts
+              Decoded) with two casts; machine.ts drops a refused slot silently (`onFailure: () => []`); `Read` switches
+              on `kind` beside `$match` neighbours; machine.ts's body help omits C and onContext. `tests/refusals.ts` is
+              not a true duplicate of construction.test's helper (no reason, string code) but a third shape, and no test
+              asserts `TwoProviders`.
+            - Sidecars (5 Haiku): accepted F1, F2, F3 after my probes; changed format 3's positional frames to a note
+              (pre-existing, test-only records); rejected the R9/R22 reload contradiction (Restore R5 reconciles it),
+              defect retries on later waves (R22 keeps the baseline), and a reload binding another
+              provider (pre-existing).
