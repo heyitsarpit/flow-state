@@ -90,7 +90,7 @@ tasks
             the fake store every other test uses is unchecked against the real thing. Split from the fixture runs
             (@task.V3.T111) by the user (2026-11-20, Q3 A).
 
-            **Read first:** @plan.Persistence.O1, @plan.React.O1, @plan.Pending.D9 (`Store` and `storeContract`),
+            **Read first:** @plan.Persistence.O1, @plan.React.O1, Pending D9 (`Store` and `storeContract`),
             @task.V3.T19 (write-ahead, checked on `Fake.storage` until this Task) and @task.V3.T28 (completes the
             adapters), the Safari findings in `packages/flow-state-v3/prototypes/safari/RESULTS.md`, and the prototype
             adapter code:packages/flow-state-v3/prototypes/round-14/reality/idb.ts (reference only; the production
@@ -108,7 +108,7 @@ tasks
             the real store shows. Gates: a browser runner that runs alone and exits non-zero on any failure; the planted
             IndexedDB fault. User's read: the browser runner chosen and how it is launched.
         acceptance
-            - `storeContract(name, layer)` (@plan.Pending.D9) passes against `Fake.storage` and against real IndexedDB
+            - `storeContract(name, layer)` (Pending D9) passes against `Fake.storage` and against real IndexedDB
               in real Chrome and Safari, each run alone, and fails on a fault planted in the IndexedDB path; the
               `flow-state/persistence` route exists.
             - The IndexedDB adapter meets Safari's D1 to D4 (`prototypes/safari/RESULTS.md`); @task.V3.T28 completes it.
@@ -157,7 +157,7 @@ tasks
         comment     2026-11-20T08:54:27Z
             Still owed (routed, unverified at compaction): the browser forget case has never been shown red (a
             `forget-after-release` runner plant); the Fake's own connection life and a boot load raced by dispose go to
-            @task.V3.T112; @plan.Pending.D9's merge into Package O1 and Runtime.plan's load-first lines (47, 67, 410,
+            @task.V3.T112; Pending D9's merge into Package O1 and Runtime.plan's load-first lines (47, 67, 410,
             Q1) wait on the user's yes.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
@@ -1585,7 +1585,7 @@ tasks
             **Read first:** @task.V3.T102 (its close review), @task.V3.T104 (its two close reviews),
             @spec.Actors, @spec.Compile.
 
-            **Risk:** @plan.Pending.D2, D3 and D4 are pinned here with Stories; merging them into the Plans is a Plan
+            **Risk:** Pending D2, D3 and D4 are pinned here with Stories; merging them into the Plans is a Plan
             edit and waits for the user's yes. T107 also touches `src/core/turn.ts` and the context code; its last fix
             (Turn R22) may land between this Task's commits, so rebase nothing and commit by explicit path.
 
@@ -1617,7 +1617,7 @@ tasks
               test); one helper raises `ForeignActorRef` for the Runtime, Story and run; the erased siblings carry the
               app (two-sided tests); `paired-refusals` refuses each hole shape, each a plant in its test first; the two
               stale texts are fixed.
-            - @plan.Pending.D2, D3 and D4 each have a Story that pins the decided outcome; any gap lands red,
+            - Pending D2, D3 and D4 each have a Story that pins the decided outcome; any gap lands red,
               then fixed.
             - Stress runs and generated Stories over fresh seeds pass at close.
         comment     2026-11-20T07:27:49Z

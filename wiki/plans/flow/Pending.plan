@@ -6,33 +6,6 @@ goal
     Plan record it changes, the change, why, and the evidence that would prove it. One is merged into its Plan only once
     that evidence holds and the user says yes, then removed from here with the merge commit noted on the Epic.
 decisions
-    D1  @plan.Operations.O3: a cancel during a send leaves the call Held
-         (accepted, merged into the Plans 2026-11-20)
-        Change O3's phrase that says a cancel settles a call on the wire, to match @spec.WriteLanes.R14 as revised: the
-        call follows its own ending and stays Held. **Why:** the phrase came from the old design's `HeldThisTurn`, which
-        is about the `cancel` concurrency policy (the R4 entry of the spec log, in git history before its deletion on
-        2026-11-15). **Proven by:** P4's production lane passing the suite's cancel-on-wire cases (PAY-12, PAY-15,
-        LANE-04). Found in @task.V3.T7.
-    D2  @plan.Machines.O3: a denied or unhandled ending's lane-only change is published
-         (accepted, merged into the Plans 2026-11-20)
-        Change O3's "Unhandled or denied events publish nothing" to "publish nothing of their own; an ending admitted in
-        that turn publishes its lane-only change", as @spec.Turn.R19 and the same outcome's step-one rule already say.
-        **Why:** otherwise rows stay stale after a denied ending (the Invariant audit's G7, @review.invariant-audit).
-        **Proven by:** P3's Turn cases for @spec.Turn.I15 showing the row change. Found in @task.V3.T42. Routed
-        (2026-11-20): partly built; finished and merged by @task.V3.T105.
-    D3  @plan.Runtime.O6: disposal invokes nothing
-         (accepted, merged into the Plans 2026-11-20)
-        Drop "and invokes what the lane table promotes" from O6's disposal paragraph, which the same outcome contradicts
-        ("from its start nothing is invoked"); @spec.Actors.R22 and @spec.Actors.I30 follow the second reading. **Why:**
-        the audit's G17. **Proven by:** P3's disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found in
-        @task.V3.T42. Routed (2026-11-20): partly built; finished and merged by @task.V3.T105.
-    D4  @plan.Operations.O3: a refused turn's ending is redelivered once
-         (accepted, merged into the Plans 2026-11-20)
-        Change O3's "a pre-commit defect is not retried for that input" to: a refused turn's ending is redelivered once,
-        and a second refusal is final until the next boot or adoption, as @spec.Actors.R15 and @spec.Actors.I24 say and
-        the CQ1 ruling chose; @spec.WriteLanes.R10 is widened to match. **Proven by:** P4's production turn passing
-        TURN-01 with the issue count asserted. Found in @task.V3.T8. Routed (2026-11-20): partly built; finished and
-        merged by @task.V3.T105.
     D5  @plan.Testing.O1: a run accepts a step array
          (accepted, merged into the Plans 2026-11-20)
         Add that `run({ steps })` runs a Story's setup and fixtures over another `Story.Step` array. **Why:** the reload
@@ -60,14 +33,6 @@ decisions
         server" needs the call log, and a fake's truth does not always show it. **Proven by:** @task.V3.T63's Pay Story
         and @task.V3.T64's run rules over calls. Found in @task.V3.T63. Code: statuses are answered, held or dropped at
         request or response, and handled; each entry also has tab and step.
-    D9  @plan.Package.O1: `flow-state/testing` exports `storeContract`; `flow-state/persistence` exports `Store`
-         (accepted, merged into the Plans 2026-11-20)
-        Add `storeContract(name, layer)`, the store contract as a plain `@effect/vitest` function of a `Store` Layer, so
-        a custom store adapter is checked as Flow's own are, and export the `Store` service tag beside `layerIndexedDb`
-        and `layerMemory`, which @plan.Persistence.O1 asks authors to implement. **Why:** a custom store is the
-        likeliest adapter users write (the user, 2026-11-15, reuse proposal Q8). **Proven by:** @task.V3.T58 running it
-        on `Fake.storage` and real IndexedDB, and @task.V3.T28 on both adapters. Routed (2026-11-20): partly built;
-        finished and merged by @task.V3.T58.
     D10  @plan.Testing.O1: `reload({ reattach: false })`
          (accepted, merged into the Plans 2026-11-20)
         Add an option to the reload step that boots the new page without re-attaching the Story's uses. **Why:** O1's
@@ -317,38 +282,6 @@ decisions
         **Proven by:** the host cells in code:packages/flow-state-v3/src/host/cleanups.test.ts and faults
         `late-cause-dropped`, `abort-interrupts-wait`, `unheard-quarantine-dropped`. Owner: @task.V3.T99. Proposed, for
         the user's yes. Code matches; accepted by the user 2026-11-19 (the Owners redesign).
-    D35  @plan.Testing.O4: `read(ref)` returns `Snapshot<D>`, typed by the ref's definition
-         (accepted, merged into the Plans 2026-11-20)
-        **Before:** `read(ref).memory` is `Values`, read as `memory["lines"]`; a misspelt field compiles. **After:**
-        `state` is the definition's leaf union and `memory` its whole memory (private fields included), each field its
-        decoded value, with no decode at read since memory holds Type values; a quarantined record whose fresh start is
-        refused fails the read with StoryFailed. `Snapshot` with no definition stays erased. **Why:** the user's C1.
-        **Proven by:** code:packages/flow-state-v3/tests/types/testing.test-d.ts, faults `read-encodes-memory`,
-        `refused-start-read`. Owner: @task.V3.T103. Name and shape are the user's read.
-    D36  @plan.Testing.O4: `publishedOf(run, ref)`
-         (accepted, merged into the Plans 2026-11-20)
-        **After:** every snapshot an actor published, in order, typed as `read`. **Why:** a checkpoint cannot show the
-        memories between two steps, and the number-input Stories cast them by hand. Owner: @task.V3.T103.
-    D37  @plan.Testing.O4: `turnsOf(run, Def.E.X, { actor? })`
-         (accepted, merged into the Plans 2026-11-20)
-        **After:** the turns that definition's actors ran on that event; with `actor`, one actor's, and the token must
-        be of its definition. A misspelt token, a name string or a foreign token is a type error; a same-named event of
-        another machine never matches. **Why:** the user's C3; a renamed event emptied name filters, a false pass.
-        **Proven by:** the compile test, fault `token-ignores-definition`, lint `flow-state/no-event-name-filter`.
-        Owner: @task.V3.T103.
-    D38  @plan.Testing.O4: `evidenceOf(run, Def.E.X, { actor? })`
-         (accepted, merged into the Plans 2026-11-20)
-        **After:** every record naming that event (Turn, Delivered, Unhandled, Denied, SendTargetAbsent), narrowed by
-        `_tag`; one word covers the kinds, so no `deliveriesOf` or `unhandledOf`. **Why:** Delivered and
-        Turn-or-Unhandled filters. Owner: @task.V3.T103.
-    D39  @plan.Testing.O3: `Fake.server(name, { ..., lost: () => PortError })`, required
-         (accepted, merged into the Plans 2026-11-20)
-        **Before:** every port fake mapped `Fake.Lost` with `catchTag("FakeLost", ...)` per method. **After:** each
-        server names its lost error once; an endpoint fails with its failure or that error, so a port fake passes calls
-        through, and endpoints may declare the port's error classes. A server behind no port names `Fake.Lost`; O3's
-        "Fake.Lost is mapped by the transport binding" then holds for those only. **Why:** the user's C2 (revised).
-        **Proven by:** the compile test in code:packages/flow-state-v3/tests/stories/fake.test.ts, fault
-        `lost-as-fakelost`. Owner: @task.V3.T103.
     D40  @plan.Machines.O5: a restored multi-step Schedule continues at its saved attempt
          (accepted by the user 2026-11-20, merged into @plan.Machines.O5 2026-11-20)
         **Before:** "A multi-step Schedule restarts at step one; a paused one first finishes its `left`." Read

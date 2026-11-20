@@ -525,3 +525,7 @@ note 2026-11-20T21:03:37Z
 note 2026-11-20T21:44:57Z
     Replan proposal and its superseded boundaries and layers-checked deleted; full text: git show
     3a84b878:wiki/plans/flow/references/proposals/<2026-11-18-replan|2026-11-18-boundaries|2026-11-18-layers-checked>.md
+
+note 2026-11-20T21:48:38Z
+    Pending decisions D1 to D4, D9 and D35 to D39 merged into the Plans (1e4e3a3d, 7569d069, 039b583b) and left Pending;
+    D5, D6, D8, D10 to D12 and D34 stay while Specs and a proposal cite them.

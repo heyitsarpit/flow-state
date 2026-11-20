@@ -35,7 +35,7 @@ A function passed to `Flow.initial` fails to compile, and construction refuses i
 
 ## For your yes
 
-- Merge @plan.Pending.D2, D3 and D4 into the Plans; each is now pinned by a fixture Story.
+- Merge Pending D2, D3 and D4 into the Plans; each is now pinned by a fixture Story.
 
 ## Status
 

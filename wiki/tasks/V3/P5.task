@@ -220,7 +220,7 @@ tasks
             boot queue (routed from @task.V3.T20): sends before `ready` are queued and delivered in order; @task.V3.T115
             reads `ready`.
 
-            **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Pending.D9,
+            **Read first:** @plan.Persistence.O1, @task.V3.T58, Pending D9,
             and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
         acceptance
             - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari,
