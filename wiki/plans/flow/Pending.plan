@@ -14,6 +14,7 @@ decisions
         2026-11-15). **Proven by:** P4's production lane passing the suite's cancel-on-wire cases (PAY-12, PAY-15,
         LANE-04). Found in @task.V3.T7.
     D2  @plan.Machines.O3: a denied or unhandled ending's lane-only change is published
+         (accepted, merged into the Plans 2026-11-20)
         Change O3's "Unhandled or denied events publish nothing" to "publish nothing of their own; an ending admitted in
         that turn publishes its lane-only change", as @spec.Turn.R19 and the same outcome's step-one rule already say.
         **Why:** otherwise rows stay stale after a denied ending (the Invariant audit's G7,
@@ -21,11 +22,13 @@ decisions
         @spec.Turn.I15 showing the row change. Found in @task.V3.T42. Routed (2026-11-20): partly built; finished and
         merged by @task.V3.T105.
     D3  @plan.Runtime.O6: disposal invokes nothing
+         (accepted, merged into the Plans 2026-11-20)
         Drop "and invokes what the lane table promotes" from O6's disposal paragraph, which the same outcome contradicts
         ("from its start nothing is invoked"); @spec.Actors.R22 and @spec.Actors.I30 follow the second reading. **Why:**
         the audit's G17. **Proven by:** P3's disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found in
         @task.V3.T42. Routed (2026-11-20): partly built; finished and merged by @task.V3.T105.
     D4  @plan.Operations.O3: a refused turn's ending is redelivered once
+         (accepted, merged into the Plans 2026-11-20)
         Change O3's "a pre-commit defect is not retried for that input" to: a refused turn's ending is redelivered once,
         and a second refusal is final until the next boot or adoption, as @spec.Actors.R15 and @spec.Actors.I24 say and
         the CQ1 ruling chose; @spec.WriteLanes.R10 is widened to match. **Proven by:** P4's production turn passing
@@ -59,6 +62,7 @@ decisions
         and @task.V3.T64's run rules over calls. Found in @task.V3.T63. Code: statuses are answered, held or dropped at
         request or response, and handled; each entry also has tab and step.
     D9  @plan.Package.O1: `flow-state/testing` exports `storeContract`; `flow-state/persistence` exports `Store`
+         (accepted, merged into the Plans 2026-11-20)
         Add `storeContract(name, layer)`, the store contract as a plain `@effect/vitest` function of a `Store` Layer, so
         a custom store adapter is checked as Flow's own are, and export the `Store` service tag beside `layerIndexedDb`
         and `layerMemory`, which @plan.Persistence.O1 asks authors to implement. **Why:** a custom store is the

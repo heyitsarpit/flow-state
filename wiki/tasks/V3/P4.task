@@ -74,7 +74,7 @@ comment 2026-11-19T07:18:27Z
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
-        status      review
+        status      done
         priority    high
         blocked_by  [@task.V3.T9]
         satisfies   [@plan.Persistence.O4]
@@ -555,6 +555,8 @@ tasks
         comment     2026-11-20T07:17:01Z
             PASS recorded (orchestrator) at 2f2e34de; follow-ups routed to @task.V3.T112. T58 closes once the user has
             read T107's page, with T105.
+        comment     2026-11-20T07:33:26Z
+            Done (orchestrator): second close review PASS at 2f2e34de; the user read T105's page (2026-11-20).
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      open

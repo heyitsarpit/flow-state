@@ -361,8 +361,8 @@ outcomes
 
         A value that cannot be encoded never rejects a turn (@plan.Operations.O3). After publication, exited work
         releases, entered work starts, then finite actions start or join, invoked after the turn. Unhandled or denied
-        events publish nothing, change no revision and start no work; denials may be observed in evidence without
-        a revision.
+        events publish nothing of their own, change no revision and start no work; an ending admitted in that turn
+        publishes its lane-only change; denials may be observed in evidence without a revision.
 
         A pre-commit callback defect preserves prior state, memory, context and store truth, starts no work and
         publishes one issue-only snapshot naming the callback and path. It is not retried for that input. This includes
@@ -702,7 +702,7 @@ outcomes
           }),
           session: Flow.context(AuthSession.S.SIGNED_IN), // boolean; Flow.context(Pay.state) is the state's name
         }
-        onContext: [C.count.change({ when: (current, previous) => current > previous, event: E.Bumped })]
+        onContext: [C.count.change({ when: (current, previous) => previous === undefined || current > previous, event: E.Bumped })]
         ```
 
         An actor returning after an end within a Runtime gets one wave if a provider's selection differs from the one it

@@ -44,8 +44,8 @@ outcomes
         (ensure, create, hooks) never supply wiring. Durable identity is app id, machine id and the actor's identity
         (@O3), never an app property key. Reference: references/dispatch-desk/app/app.ts.
     O2  Setup and readiness
-        A Runtime is built without side effects and becomes ready through one shared bootstrap that reads storage before
-        any app service starts.
+        A Runtime is built without side effects and becomes ready through one shared bootstrap that acquires the whole
+        services Layer, the Store in it, then reads storage before any actor starts.
 
         runtimeSetup({ app, services?, scope?, persistence?, repairSlots?, audit? }).construct() is synchronous and
         inert. scope is an optional nonempty string naming whose data the Runtime holds, such as a user, workspace or
@@ -64,8 +64,9 @@ outcomes
         Interrupting one waiter interrupts only that wait. Bootstrap order:
 
         1. With persistence, claim scope ownership (@plan.Persistence.O7).
-        2. Acquire storage, then read and validate persisted data before any app service starts (@plan.Persistence.O5),
-           upgrading Flow's record formats and resetting records whose saved shape changed incompatibly.
+        2. Acquire the services Layer, then read and validate persisted data before any actor starts
+           (@plan.Persistence.O5), upgrading Flow's record formats and resetting records whose saved shape
+           changed incompatibly.
         3. Merge restored data with any hydrated items (@plan.ServerRendering.O5).
         4. Acquire the remaining services, install hydrated actors and the restored identities owed an ending (a lane
            InFlight at capture, or a parked ending), restored live as work in flight (providers before consumers), keep
@@ -352,9 +353,9 @@ outcomes
         and stream sessions release within the bound (a named Runtime default, D25, ReleaseOverdue); a new session waits
         for its releasing predecessor.
 
-        Disposal invokes no new commit and drops no lane: the Runtime keeps the lanes, applies their endings and invokes
-        what the lane table promotes (@plan.Operations.O3); runtime.unsettledWrites() lists non-Idle lanes by identity,
-        for a host's beforeunload.
+        Disposal invokes no new commit and drops no lane: the Runtime keeps the lanes and applies their endings, and
+        from its start nothing is invoked (@plan.Operations.O3); runtime.unsettledWrites() lists non-Idle lanes by
+        identity, for a host's beforeunload.
 
         Runtime disposal is bounded:
 
@@ -428,7 +429,8 @@ verification
         failure, no sharing between Runtimes.
 questions
     Q1  Can one services Layer be acquired storage-first?
-        Recommended: prove it against Effect 4.0.5 in S1; if not, acquire the whole Layer before restore validation.
+        Answered (2026-11-20, @task.V3.T58): no; the whole Layer is acquired, then storage is read and validated before
+        any actor starts (@spec.Actors.R3).
     Q2  Deferred to build time
         Id byte encoding; counter headroom sizes; evidence ordering details; lifecycle evidence causes; the private
         shutdown budget split.

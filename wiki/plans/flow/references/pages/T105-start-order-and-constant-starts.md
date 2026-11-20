@@ -36,4 +36,4 @@ A function passed to `Flow.initial` fails to compile, and construction refuses i
 
 ## Status
 
-Unread.
+Read by the user, 2026-11-20; the user accepted the Plan edits (D2 to D4 merge).
