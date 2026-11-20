@@ -179,3 +179,9 @@ Deferred items.
   (use `setEncoding`); `unchangedWhole` counts a run with no summary as finished; group.test's timeout case never
   asserts the sleepers' pids; the unchanged run's red names can be dropped from what it prints. Reopen when the
   runner is next changed.
+- **Abstraction audit** (2026-11-20, the user: run only when the user asks; it costs a lot and building comes first).
+  One Opus lead over the whole of `packages/flow-state-v3/src/` at a commit: each Effect or platform feature wrapped by
+  one abstraction and never re-created or called raw elsewhere; each abstraction pattern (tokens, builders, codecs,
+  fakes, run rules) reused rather than rolled again; overlapping wrappers and wrappers that hide nothing. Findings
+  feed a convergence pass. Last run: never. The orchestrator never starts it; it reports it as pending at a phase's
+  close-out.
