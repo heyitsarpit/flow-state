@@ -1318,3 +1318,7 @@ note 2026-11-20T14:10:02Z
 note 2026-11-20T14:55:11Z
     T57 back in review (53a6ce47): issues owned by decide, idle reasons kept. Close review started. @task.V3.T117 added:
     the home-rooms stress sweep is over its bound (193 s of 164 s).
+
+note 2026-11-20T15:02:19Z
+    Amendment (2026-11-20, the user): pin to workflow@bb97c9d; convergence by structural cause (first finding when
+    structural), scoped by the freedom, other parts searched. Commit: 52e81aa7.
