@@ -1353,3 +1353,7 @@ note 2026-11-20T16:02:34Z
 note 2026-11-20T16:03:01Z
     User's page written, unread: code:wiki/plans/flow/references/pages/T57-schedules.md. T118 cannot close until it is
     read.
+
+note 2026-11-20T16:21:40Z
+    T118 requirements review: ISSUES, two blocking (a reload loses a firing without a saved restartOn baseline; no
+    acceptance makes the rows go green); ruled. Its fix round waits behind the user's design research.

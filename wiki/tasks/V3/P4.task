@@ -6286,3 +6286,11 @@ tasks
             - For the orchestrator: a creation-time refused arming is stored as a Creation issue
               (`incarnations.ts:181`). It is lost on reload and never retried. It was routed to @task.V3.T100, but
               `Arming.Refused` is its natural owner (a scope call).
+        comment     2026-11-20T16:21:40Z
+            Rulings (orchestrator) on the requirements review: both blocking findings accepted: each timer's restartOn
+            baseline is saved in the record (format 6; WriteAhead R4 gains it), and a first clean value after a throw
+            compares with the last good baseline (no made-up or lost restart), with the named 4-step rows plsk, lapk,
+            nroa red first; acceptance 1 amended: the wrong list is deleted and no it.fails remains in the schedule
+            tests. R25 states the check order and that an arming start clears a send issue; re-entry's inherited key set
+            is decided with two traces. The refused arming at creation moves from @task.V3.T100 to here
+            (Arming.Refused). Fix round waits behind the design work the user asked for.
