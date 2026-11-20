@@ -561,7 +561,7 @@ tasks
             Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
@@ -996,6 +996,29 @@ tasks
             `E.X.from` call resolves before `keys` infers K (a declared key Schema does not help). `pausedBy`: a
             Snapshot is typed by its definition, which holds no body schedules; carrying the body type means inferring
             it, which loses excess-key checks. Kept as a `today` pin; proposed owner @task.V3.T109.
+        comment     2026-11-20T11:26:22Z
+            Close (fix round, lead): ready for review at the commit after 100d2a34. Body types: depth-2 delay and
+            `armOn` names keep their literals, typed context in guards, updates and schedule functions, and `Flow.keyed`
+            (proposed public API, the user's read) types `key` in `schedule`, `restartOn` and `paused`; pins flipped
+            two-sided. Not met, kept as `today` pins with proposed owner @task.V3.T109 (comment there): `pausedBy` as a
+            literal union in the snapshot (A5; a Snapshot is typed by its definition) and a typed key in the send mapper
+            (A7, a TypeScript inference limit). Disarm wins (Turn R14 sentence, specs.log). Owed checks landed, each red
+            first: exact Codec I7 timers, dying Schedule step, firing due guard, format-4 idle marker, throwing
+            `restartOn`/`paused` (R19), check issues cleared after a clean pass (R25, built). Suite 1735 pass, 23
+            expected fail; check zero; 10 plants caught by `faults --only` (new: disarm-loses-to-restart,
+            firing-not-yet-due, dying-step-silent, format-four-restarts-ended, check-issue-never-cleared,
+            check-defect-stops-timer, timer-shapes-loose; re-pointed: context-change-skips-recheck,
+            restore-keeps-stale-hold); generated +5 seeds and stress fail only on Turn I9 seeds 15 (usual) and 5
+            (stress), the context-wave run-rule class routed to @task.V3.T112, also red with this round's runtime
+            changes undone; docs build passes. Checks changed or relaxed: Turn I14 and I9 rules no longer read a
+            post-commit schedule check defect as a refused turn (`tests/rules/deliveries.ts`); inline `keys` now refused
+            at types and construction (Room, structure and Reminders use `Flow.keyed`); the R12 context test reads typed
+            `context`; D40 ids dropped from two titles. Still open: `tests/shop/store.test.ts:335` (R12 `it.fails`; the
+            fixture guard keeps its pre-R12 workaround). Cohesion sidecar (Haiku): accepted the `Flow.keyed` doc and
+            test title overclaims and the spec line length; changed nothing else; rejected the `withoutIssue` reuse (it
+            clears every issue of a source, the arming and step-limit ones too), the `~flow` discriminant (lint
+            `no-mark-probe` refuses it), and `today` markers (the convention). User's reads: `Flow.keyed`, typed
+            `context`, Turn R14's new sentence, post-commit check defects no longer counted as refusals.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -5408,6 +5431,11 @@ tasks
         comment     2026-11-20T08:11:40Z
             Routed (orchestrator, 2026-11-20): step 2's kanban rows (context, compound states, persist), unowned since
             T57's split, are this Task's.
+        comment     2026-11-20T11:26:09Z
+            Proposed owner (from @task.V3.T57 fix round, the user to confirm): typing a snapshot's timers by the machine
+            body (schedule names, keys, `pausedBy` as a literal union; `today` pin in `tests/types/schedules.test-d.ts`)
+            and a typed key in a keyed schedule's send mapper. Both need the body type carried past `machine()`, which
+            the advisor question 1 type spike at this Task's start covers; inferring the body loses excess-key checks.
 
     T110
         title       Subroutines and whenAbandoned (slice 3d)
