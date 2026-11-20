@@ -1279,3 +1279,8 @@ note 2026-11-20T11:40:19Z
 note 2026-11-20T11:47:55Z
     T57 second close review: ISSUES, three blocking; same-turn schedule combinations recur, so convergence by structure:
     exhaustive combination table first, one decision function per schedule per turn.
+
+note 2026-11-20T12:37:44Z
+    Amendment (2026-11-20, the user): a Task is solved as one cohesive set, never item by item; requirements open with a
+    state inventory, transition tables where rules share state, one owner per state; reviews block item-by-item lists.
+    Commit: 24e9f9c9.
