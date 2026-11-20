@@ -1146,3 +1146,7 @@ note 2026-11-20T00:37:54Z
     T107 fix round in (99025ff4): findings 2 and 3 fixed red first; a second reaction on one slot with the same event is
     now refused (Compile R19, orchestrator's small call, for the user's read). Only Turn R22's choice remains, the
     user's.
+
+note 2026-11-20T01:12:21Z
+    T105 requirements in (eee505dd): 20 requirements, 11 red; five small calls ruled by the orchestrator. Requirements
+    review started.

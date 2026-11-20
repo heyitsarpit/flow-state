@@ -4009,6 +4009,14 @@ tasks
         comment     2026-11-20T01:11:55Z
             Correction (lead): the requirements count 11 red (1, 3, 6, 7, 9, 10, 11, 13, 15, 16, 18), 2 green pins
             (19, 20) and 7 with no possible red (2, 4, 5, 8, 12, 14, 17), not 12, 2 and 6.
+        comment     2026-11-20T01:12:20Z
+            Rulings (orchestrator, small amendments) on the requirements lead's calls: 1 accepted: Following is scoped
+            per served item by structure, checked by review, since no mail between items is observable; 2 accepted: the
+            verdict rule is typed so ruleOf goes, checked by the type check; 3 an untyped scope alone is refused at run
+            time as the type does, with Actors R1 reworded, unless the lead finds another reader of scope, then the type
+            relaxes; 4 the lanes.ts key stand-in is in scope under acceptance 3; 5 runtime.test.ts:559 and
+            refused-start-read move to another refused fresh start (an undecodable stored record). The requirements
+            review checks each.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
