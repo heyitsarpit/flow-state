@@ -1166,3 +1166,7 @@ note 2026-11-20T01:54:30Z
 note 2026-11-20T02:30:14Z
     T105 in review (3947bdc9): disposal takes the oldest ready identity (R28 reworded), refused fresh start retired by
     structure; close review started. For the user: merging Pending D2 to D4 into the Plans.
+
+note 2026-11-20T02:42:57Z
+    T105 close review: ISSUES, one blocking (a paired-refusals hole left quiet); fix round with Spec wording, then
+    T107's Turn R22 fix, in one build slot.

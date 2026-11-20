@@ -2384,6 +2384,9 @@ tasks
             Owes (T99 reviews, 2026-11-19): a dying cleanup inside a commit's timeoutOrElse is still lost (it.fails),
             against Q11 A's 'dying cleanups are always reported'; close hardening (a failed close ignored in close.ts,
             unguarded Owner callbacks); dispose during Booting.
+        comment     2026-11-20T02:42:57Z
+            Routed from T105's close review (orchestrator): no-id-text misses renames through parameters and
+            assignments; the inconclusive half of the own-rule-name check has no run-time test. Each lands red first.
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
@@ -3787,7 +3790,7 @@ tasks
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
-        status      review
+        status      in_progress
         priority    medium
         description
             Start order becomes a stated rule, computed `Flow.initial` is removed, and the checks routed here from T102,
@@ -4173,6 +4176,12 @@ tasks
               - one-sided R28 pins (each fault caught by its own named test);
               - Plan text for D2-D4 (the merge waits for the user);
               - historical reference pages.
+        comment     2026-11-20T02:42:56Z
+            Rulings (orchestrator) on the close review: the blocking finding is accepted: paired-refusals refuses
+            another object's member (plant line 36 moves to fires), fixed in the rule. Also in the fix round, as T105's
+            own text: I49 reworded to match R28's disposal order; Restore and Stories Specs drop the retired refused
+            fresh start; scope alone gets a named message. Routed: no-id-text renames through parameters and the
+            own-rule inconclusive test to @task.V3.T100; Turn R14's negative computed delay is already @task.V3.T57's.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
