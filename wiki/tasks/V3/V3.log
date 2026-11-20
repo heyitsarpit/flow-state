@@ -1264,3 +1264,7 @@ note 2026-11-20T10:22:39Z
 note 2026-11-20T10:29:01Z
     T57 close review: ISSUES (four type items); disarm wins over restartOn (Turn R14); fix round with a 45-minute type
     spike; Turn I9 rule gap to @task.V3.T112.
+
+note 2026-11-20T10:37:58Z
+    Merged invariant-proposal (bf2e200c): @plan.Rules from the accepted rules proposal, @task.V3.T106 rewritten on it
+    (after T109, T110). Epic lists the Plan; advisor question 6 settled.

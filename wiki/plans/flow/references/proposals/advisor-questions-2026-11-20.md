@@ -21,7 +21,7 @@ development time, by the lead with the code in hand, its experiments, and the lo
 | 4 | 1. Body types | Development time: a type spike at T109's start | Code-bound; needs `tsc` probes on the real files |
 | 5 | 3. Emits and props | Development time | Mostly decided (emits and context slots accepted) |
 | 6 | 5. Reads and operations | Development time, product choices to the user | Offline, resume and retry placement are the user's |
-| 7 | 6. Rules on definitions | The user | A taste call already in the user's walk-through |
+| 7 | 6. Rules on definitions | Settled | Accepted as @plan.Rules (2026-11-20); @task.V3.T106 builds it |
 | 8 | 8. React | Development time | Clear prior art; P5 |
 | 9 | 9. Entities | Later (P5), advisor optional | Not needed before P5 |
 | 10 | 10. Repeated wiring | Development time, late audit | Needs every fixture built first |
@@ -131,14 +131,8 @@ Unblocks @task.V3.T21.
 
 ### 6. Rules on definitions
 
-Unblocks @task.V3.T106 (not accepted; out of the queue until the user accepts it).
-
-- **State:** invariants over memory with an `in:` subject seem acceptable to the user; `terminal`, `reachable` and
-  `never` are potential rejects; operation rows, turn, eventually and relations were shown, not decided; the cohesion
-  proposal's Q1 to Q7 are open.
-- **Ask:** the smallest rule language that is worth having, judged by every run, reported when unseen, and visible to
-  static analysis.
-- **Read:** `rules-cohesion-2026-11-19.md`, @task.V3.T106's comments in `wiki/tasks/V3/P5.task`.
+Settled (2026-11-20): the user accepted `rules-2026-11-20.md`, now @plan.Rules (invariants, turns and terminals,
+with rule coverage); @task.V3.T106 builds it. Kept here for the record; no advisor needed.
 
 ### 7. One answer for raw throws (trust-boundaries consult)
 

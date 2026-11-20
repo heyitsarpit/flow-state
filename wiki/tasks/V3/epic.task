@@ -9,9 +9,9 @@ description
 
     Records: Plans @plan.FlowState, @plan.Machines, @plan.Operations, @plan.Runtime, @plan.Persistence,
     @plan.EntityDomains, @plan.React, @plan.ServerRendering, @plan.Testing, @plan.Inspection, @plan.Diagnostics,
-    @plan.CommandLine, @plan.LazyFeatures, @plan.Package (status proposed). Core Specs @spec.Compile, @spec.Turn,
-    @spec.Actors, @spec.WriteLanes, @spec.Reads, @spec.WriteAhead, @spec.Restore, @spec.Diagnostics, @spec.Codec,
-    @spec.StaticCli. Deferred and open items:
+    @plan.CommandLine, @plan.LazyFeatures, @plan.Package (status proposed), @plan.Rules. Core Specs @spec.Compile,
+    @spec.Turn, @spec.Actors, @spec.WriteLanes, @spec.Reads, @spec.WriteAhead, @spec.Restore, @spec.Diagnostics,
+    @spec.Codec, @spec.StaticCli. Deferred and open items:
     code:wiki/plans/flow/references/proposals/revisit.md, code:wiki/plans/flow/references/proposals/open-items.md.
 
     Locations:
