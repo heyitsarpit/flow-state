@@ -196,12 +196,11 @@ export const makeSchedules = (tx: Tx) => {
     for (const s of entered.flatMap(of))
       if (Option.isNone(s.keys)) timers.set(s.name, idle(s.name, Option.none()));
 
-    for (const tracked of disarmed.flatMap((name) =>
-      Option.toArray(Option.fromUndefinedOr(timers.get(name))),
-    ))
+    // A disarmed schedule stops every timer it has, each key's of a keyed one.
+    for (const [track, tracked] of [...timers].filter(([, t]) => disarmed.includes(t.name)))
       for (const run of Option.toArray(tracked.run)) {
         disarmRun(run);
-        timers.set(tracked.name, { ...tracked, run: Option.none() });
+        timers.set(track, { ...tracked, run: Option.none() });
       }
 
     for (const { name, first } of arms) {
@@ -484,11 +483,18 @@ export const makeSchedules = (tx: Tx) => {
   const next = (incarnation: Incarnation, tracked: Tracked, run: Run): Next => {
     if (Option.isNone(run.series)) return { run: Option.none(), over: false };
 
+    const series = run.series.value;
     const attempt = run.attempt + 1;
     const track = trackOf(tracked.name, tracked.key);
-    const stepped = stepper(incarnation.actor, track, run.armedAt)(run.series.value, attempt + 1);
 
-    return Option.match(stepped, {
+    const stepped = Result.try(() =>
+      stepper(incarnation.actor, track, run.armedAt)(series, attempt + 1),
+    );
+
+    // A Schedule whose step throws ends as one past the limit does: with its schedule's issue.
+    if (Result.isFailure(stepped)) return { run: Option.none(), over: true };
+
+    return Option.match(stepped.success, {
       onNone: () => ({ run: Option.none(), over: false }),
       onSome: ({ ms, output }) =>
         Result.match(inRange(ms), {
@@ -507,14 +513,18 @@ export const makeSchedules = (tx: Tx) => {
   };
 
   /**
-   * The timer a firing names, while the firing still names its live arming.
+   * The timer a firing names, while the firing still names its live arming and its deadline has
+   * passed: a firing queued twice for one step finds the next step not yet due.
    */
   const firingRun = (incarnation: Incarnation, track: string, arming: Run["arming"]) =>
     Option.flatMap(Option.fromUndefinedOr(incarnation.schedules.get(track)), (tracked) =>
       Option.map(
         Option.filter(
           tracked.run,
-          (run) => run.arming === arming && Timing.$is("Running")(run.timing),
+          (run) =>
+            run.arming === arming &&
+            Timing.$is("Running")(run.timing) &&
+            run.timing.dueAt <= tx.env.now,
         ),
         (run) => ({ tracked, run }),
       ),

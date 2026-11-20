@@ -72,8 +72,8 @@ export const makeFirings = (
 
     const issued = next.over ? raise(after, schedule, schedule.slot) : after;
 
-    // An accepted turn has run its checks; any other leaves the next step to the pause reasons.
-    const settled = after === left || next.over ? schedules.settle(issued, false, false) : issued;
+    // The next step is checked against the pause reasons whatever the firing's turn decided.
+    const settled = schedules.settle(issued, false, false);
 
     if (settled !== after) setIncarnation(settled);
 

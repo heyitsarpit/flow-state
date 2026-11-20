@@ -174,4 +174,13 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "      const settled = schedules.settle(incarnation, true, false);",
     "      const settled = incarnation;",
   ),
+  fault(
+    "keyed-disarm-unkeyed-only",
+    "Turn R14, R27",
+    [HOME],
+    "disarmOn stops only an unkeyed timer, so a keyed schedule's timers keep firing",
+    "src/core/schedules.ts",
+    "filter(([, t]) => disarmed.includes(t.name))",
+    "filter(([, t]) => disarmed.includes(t.name) && Option.isNone(t.key))",
+  ),
 ];

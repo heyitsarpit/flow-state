@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { house, roomOf } from "../../fixtures/home/app.ts";
 import { House } from "../../fixtures/home/machines/house.ts";
@@ -24,7 +24,8 @@ import {
   usual,
   vacationOver,
 } from "../../fixtures/home/stories/usual.ts";
-import { evidenceOf, publishedOf, turnsOf } from "../../src/host/testing/index.ts";
+import { evidenceOf, publishedOf, Story, turnsOf } from "../../src/host/testing/index.ts";
+import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
 import { heldBy, timerNames, timersOf } from "../timers.ts";
 
@@ -379,5 +380,62 @@ describe("load (fixtures.md L1, L4)", () => {
       Array.from({ length: ROOMS }, (_, n) => (n % 2 === 0 ? 3 : 2)),
     );
     expect(vacationHeld("resumed")).toEqual(Array.from({ length: ROOMS }, () => 0));
+  });
+});
+
+// A keyed schedule disarmed by an event: each list item's reminder, stopped by Mute.
+const Reminders = definition({
+  id: "Home/Reminders",
+  states: ["ON"],
+  events: { Mute: {} },
+  internalEvents: { Reminded: { id: Schema.String } },
+  memory: {
+    items: Flow.initial(Schema.Array(Schema.String), ["a", "b"]),
+    reminded: Flow.initial(Schema.Number, 0),
+  },
+});
+
+const RemindersMachine = machine(Reminders, ({ S, E }) => ({
+  default: S.ON,
+  states: {
+    ON: {
+      on: {
+        Mute: {},
+        Reminded: { updateMemory: ({ memory }) => ({ reminded: memory.reminded + 1 }) },
+      },
+      schedules: {
+        remind: {
+          keys: ({ memory }) => memory.items.map((id) => ({ id })),
+          schedule: "1 minute",
+          send: E.Reminded.from(({ key }) => ({ id: key["id"] ?? "" })),
+          disarmOn: [E.Mute],
+        },
+      },
+    },
+  },
+}));
+
+const reminders = actorRef(RemindersMachine, "reminders");
+
+describe("disarmOn on a keyed schedule (Turn R14, R27)", () => {
+  it("Turn R14: an event a keyed schedule lists in disarmOn stops every key's timer, and nothing fires later", async () => {
+    const run = await played(
+      Story.app(
+        runtimeSetup({ app: app({ id: "reminders", machines: { reminders: RemindersMachine } }) }),
+        {
+          id: "home/keyed-disarm",
+          fixtures: [],
+        },
+      )
+        .ensure(reminders)
+        .checkpoint("armed")
+        .send(reminders, Reminders.E.Mute())
+        .advance("5 minutes")
+        .checkpoint("muted"),
+    );
+
+    expect(timerNames(run.checkpoints.armed.read(reminders))).toEqual(["remind"]);
+    expect(timersOf(run.checkpoints.muted.read(reminders))).toEqual({});
+    expect(run.checkpoints.muted.read(reminders)?.memory.reminded).toBe(0);
   });
 });

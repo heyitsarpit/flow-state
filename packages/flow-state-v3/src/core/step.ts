@@ -83,7 +83,9 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       ? incarnations.schedules.dueNow()
       : [];
 
-    for (const { id: other } of ordered) if (other !== id) tx.disarm(other);
+    const taken = ordered.some(({ id: other }) => other === id);
+
+    for (const { id: other } of ordered) if (taken && other !== id) tx.disarm(other);
 
     const timer = tx.fire(id);
 
@@ -92,9 +94,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Timer.$match(timer.value, {
       // Every schedule timer due with it fired too, and fires in the order taken before it.
       Schedule: (first) => {
-        const due = ordered.some(({ id: other }) => other === id)
-          ? ordered.map(({ fired: t }) => t)
-          : [first];
+        const due = taken ? ordered.map(({ fired: t }) => t) : [first];
 
         for (const t of due)
           if (used(t.actor))
