@@ -1366,3 +1366,7 @@ note 2026-11-20T16:30:02Z
 note 2026-11-20T16:56:58Z
     Decisions (the user, 2026-11-20): Q1 A mappers take (value, { input, key }); Q2 A schedules declared on the
     definition; Q3 A the designs' Task changes; Q4 A issues derived everywhere. Flow.keyed removal proposed.
+
+note 2026-11-20T16:57:09Z
+    Decision (the user, 2026-11-20): drop Flow.keyed; with schedules declared on the definition a keyed schedule is a
+    plain object whose key type comes from the declaration; the Declared-schedules Task removes it.
