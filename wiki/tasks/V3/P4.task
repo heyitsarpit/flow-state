@@ -4124,3 +4124,19 @@ tasks
             the class. Finding 1 (Turn R22's first good value skips when and fires) lands now as an inverted test titled
             by its rule; the fix waits on the user's choice, recommended: ask when with no previous value. The
             experiment's reverse note says rebuild.
+        comment     2026-11-20T00:37:20Z
+            Fix round (99025ff4): findings 2 and 3 fixed, each red first. F2: a select that ran for an equal value keeps
+            its new reads (`slots/skip-after-equal`, fault `equal-value-reads-dropped`). F3 by structure: format 4 keys
+            baselines by slot, then event; Compile R19 refuses a second reaction of one slot sending one event
+            (`onContext.i`), Restore R5 reworded; Stories in `tests/restore/reaction-baselines.test.ts` restore reorder,
+            add and remove over a first release's saved world; faults `baseline-by-place`,
+            `duplicate-reaction-accepted`. Reverse: key by place with a count check and drop the refusal.
+        comment     2026-11-20T00:37:23Z
+            Correction to the 00:09:57 reverse note: reversing the state-scoped experiment means rebuilding its compile
+            in machine.ts and context.ts; c111aa03's parent never held the silent-entry runtime.
+        comment     2026-11-20T00:37:24Z
+            Only finding 1 remains (Turn R22: a first good value after a failed select skips `when`). Landed inverted as
+            `it.fails` in `tests/actors/context-slots.test.ts` with the two traces; the fix waits on the user's choice,
+            recommended: ask `when` with no previous value. Suite 1579 pass, 26 expected fail; 8 faults caught with
+            --only, 3 new. Left: the release Stories are hand-written in tests/restore, not a fixture's releases.ts;
+            `tests/refusals.ts` kept (a third shape, not a copy).
