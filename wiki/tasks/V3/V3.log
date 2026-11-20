@@ -1341,3 +1341,7 @@ note 2026-11-20T15:33:07Z
     Decisions (the user, 2026-11-20): Fable's schedule-issue redesign adopted with its R25 text, P1 and P2; new
     @task.V3.T118 builds it first; T57 closes once T118 lands B1 and B2 as inverted tests; siblings routed to T21 and
     T100.
+
+note 2026-11-20T15:33:17Z
+    Run resumed (the user, 2026-11-20) at workflow@bb97c9d: current Task @task.V3.T118, no live agents; wake cron
+    recreated. First action: T118's requirements lead (sequence test red first, B1 and B2 inverted).
