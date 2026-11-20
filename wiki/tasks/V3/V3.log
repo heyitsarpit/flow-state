@@ -532,3 +532,6 @@ note 2026-11-20T21:48:38Z
 
 note 2026-11-20T22:01:09Z
     Decided (user, 2026-11-20): @proposal.spec-handover#no-flowkeyed, No `Flow.keyed`
+
+note 2026-11-20T22:06:17Z
+    [decided: user 2026-11-21] Epic loop text trimmed per @proposal.epic-trim and the pin moved to workflow@2eb3b47.

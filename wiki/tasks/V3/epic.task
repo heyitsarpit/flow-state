@@ -153,32 +153,22 @@ description
     - First commit of a Task: its requirements list in the Task's comments, with each requirement as a check that
       fails today.
     - The user's page: one page at a slice's close on what an app author will notice.
-skill        workflow@bb97c9d
+skill        workflow@2eb3b47
 run
     To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start, track and route agents;
     you never build.
 
-    1. Read this file, `wk show @epic.V3 --tree`, and the records the current Task links; on a resume, run
-       skill:catch-up first. If status is not active or the loop fields are missing, stop and tell the user.
-    2. Current Task: the in_progress one, otherwise `wk next --epic V3`. A Task in `review` comes first: start its
-       independent check before any builder. A phase's Tasks stay `draft` until it starts. Before its first Task starts,
-       run R48's breakdown review of every Task in the phase and the later open and draft Tasks it touches, against
-       skill:to-task step 1, and apply its re-splits; then write the next Task's full text with skill:to-task and open
-       it. Within a phase, follow its card's Order line.
-    3. Create the session crons from cadence; without one, run its prompt at each wake (R25).
-    4. Keep the machine awake for the run (R26), for example `caffeinate -i` on this Mac.
-    5. Recover the real agent state: agents and processes alive, branch, last checkpoint, and uncommitted work with
-       its owner.
-    6. Note "Run started" or "Run resumed": revision, current Task, live agents, first action.
-    7. Start or resume one building lead, set its Task in_progress, and confirm activity within a minute.
+    Start and resume by skill:build-a-loop#rules R1 to R7, R25 and R26: read, current Task, cron, real agent state,
+    start note, one building lead, activity, keep the machine awake (for example `caffeinate -i` on this Mac). Project
+    additions to R2: a Task in `review` comes first, and its independent check starts before any builder; a phase's
+    Tasks stay `draft` until it starts; before its first Task starts, run R48's breakdown review, apply its re-splits,
+    then write the next Task's full text with skill:to-task and open it; within a phase, follow its card's Order line.
 
     Rules: follow skill:build-a-loop#rules, skill:policy-delegation and skill:policy-verification at the library
     revision in skill; instructions override their defaults. The library is the Git repository
     `/Users/arpit/Developer/workflow/skills`, with the suite at `suites/workflow`; check its revision with `git -C
     /Users/arpit/Developer/workflow/skills rev-parse --short HEAD`, and if it differs from skill, read the pinned files
-    from its Git history or ask the user. Before changing the loop fields (run, instructions, cadence, stops), read
-    skill:build-a-loop at the pinned revision; before adding or editing a Task, read skill:to-task; before adding a
-    phase, read skill:to-epic.
+    from its Git history or ask the user.
 instructions
     **Models and agents**
 
@@ -190,45 +180,27 @@ instructions
       2026-11-14 to 2026-11-16). A review runs between builds: the builder stops at `review`, the review runs, then the
       fix round or the next Task. Extra work (merges, code-quality reviews) waits for the slot. Before starting any
       agent, the orchestrator reads the 5-hour window: above 80% only the current lead continues; above 90% it
-      checkpoints and stops until the reset. Always alone: real-browser runs and benchmarks. Up to 8 deterministic
-      processes, about 16 GB.
+      checkpoints and stops until the reset. Processes and browsers: the Constraints' serial-work line.
     - Haiku never writes or runs production code; it may run experiments or hill-climb in scratch files outside the
-      package and submit ideas (the user, 2026-11-10 and 2026-11-15). A lead reads every line a sidecar wrote, re-runs
-      each check itself, and logs each result as accepted, changed or rejected (the user, 2026-11-08).
+      package and submit ideas (the user, 2026-11-10 and 2026-11-15). A lead reads every line a sidecar wrote (the user,
+      2026-11-08); re-running and logging results is skill:policy-delegation's.
     - A lead works through three context compactions and is rotated out only when a fourth is close: finish the step,
       commit, leave a resume note (the user, 2026-11-14).
     - Leads report once per batch or stop, in at most 10 lines: verdict, commits, test counts, and what needs a decision
-      (the user, 2026-11-11). Sidecars report only to their lead.
+      (the user, 2026-11-11).
     - Constraints: the Epic's Constraints section. Limits: its Limits section.
 
     **Building a Task**
 
-    - Every brief tells the lead to run `wk brief @task.V3.Tn` and read its phase's skills first, and carries the
-      Constraints' code-style line (the user, 2026-11-09).
+    - Every brief carries the Constraints' code-style line (the user, 2026-11-09).
     - A Task's "May change" is a guide, not a fence: a Task may add its planted faults to `tests/faults.ts` and touch
       any file its acceptance needs, naming each extra file in a Task comment (2026-11-15).
-    - Requirements first (the user, 2026-11-12). A Task's first commit, before any code, is its requirements list in the
-      Task's comments: each rule with its source, mapped one to one to the Task's acceptance, and each written as a
-      check that fails today, in the cheapest form that fully covers it: a type that makes the wrong flow fail to
-      compile, a run rule, or a Story test for a decided outcome. The lead may gather it with read-only sidecars on
-      named angles (the Specs and Plans; the code and prior art; open findings; an adversary). Then build until the
-      checks pass. A review finding is a missed requirement: it lands as a failing check before its fix.
-    - The whole Task at once (the user, 2026-11-20): a Task is designed and solved as one cohesive set, never item by
-      item down its requirements list. The lead considers every requirement, concern and finding together before any
-      code, and the design solves all of them at once; building and fixing one item after another is not allowed.
-      - The requirements list opens with a state inventory: each piece of state the Task changes (a timer, a lane, a
-        record, an issue), its states, and every input that can change it in one turn.
-      - Where two or more rules or inputs write the same state, the requirement is a small-scope transition table over
-        their combinations, each row's expected outcome taken from the Specs before any code; a row the Specs do not
-        decide is a Spec question settled before the build.
-      - Each such state has one owner: the design names one pure function that decides its transitions, with a guard and
-        planted faults shipped in the same Task. An implicit state machine spread across separate checks is a
-        blocking finding.
-      - Task boundaries follow state ownership (skill:to-task step 1): every rule that writes one state sits in one
-        Task, with that state's restore and types; Tasks split only along disjoint state with a narrow seam. Before each
-        phase starts, one independent Opus lead (R48, with Haiku sidecars) reviews the phase's Tasks and the later open
-        and draft Tasks they touch against it; the orchestrator re-splits, merges or reorders before the first Task
-        starts, a scope change going to the user (the user, 2026-11-20).
+    - Requirements first (the user, 2026-11-12), by skill:execute-task step 2. The requirements list is in the Task's
+      comments, each rule with its source, mapped one to one to the Task's acceptance. The lead may gather it with
+      read-only sidecars on named angles (the Specs and Plans; the code and prior art; open findings; an adversary).
+    - The whole Task at once (the user, 2026-11-20): skill:execute-task step 1, with Task boundaries by skill:to-task
+      step 1 and R48's phase-start review. The state's one owner function ships with its guard and its planted faults in
+      the same Task; an implicit state machine spread across separate checks is a blocking finding.
     - A feature's benches are its fixture's `bench` entries, added with its Stories (the user, 2026-11-18).
     - Fixtures first (the user, 2026-11-16): a Task that builds or changes a public feature, or lands a review finding,
       meets @convention.fixtures as part of its requirements, before any code. The orchestrator owns it and checks it by
@@ -286,64 +258,49 @@ instructions
       sweep, a matrix) is capped at 10 minutes; past it, it stops, reports what it has, and the orchestrator decides
       whether more is worth it. A review runs the suite once, alone, plus the stress runs only when the Task touched
       stress Stories or the sweeps.
-    - A checkpoint is a builder commit at the end of a coherent step. At a Task's close the builder runs the stress runs
-      and the generated Stories over fresh seeds; every new failure lands as a fix or an inverted test before review.
+    - At a Task's close the builder runs the stress runs and the generated Stories over fresh seeds; every new failure
+      lands as a fix or an inverted test before review.
     - Earlier surfacing of what close reviews kept finding (the user, 2026-11-20):
-      - a rule or Spec change the builder makes mid-build becomes a requirement at once: a failing check, two traces in
-        a Task comment, and one blind Haiku sidecar on that rule before the build goes on;
+      - a rule or Spec change the builder makes mid-build (skill:execute-task step 3) also gets two traces in a Task
+        comment and one blind Haiku sidecar on that rule before the build goes on;
       - every requirements list names each real resource the Task touches (store, page, network, clock) and what its
         fake does not yet do (close, refuse after close, hold, hide); a gap is hardened in the fake or checked for real;
       - a Task touching a persisted shape shows restore after the definition is edited: a reorder, an add, a remove and
-        a rename;
-      - the builder's close note lists every check, plant or guard it changed, relaxed or moved, each with its reason;
-        the close review reads that list first.
+        a rename.
 
     **Reviews and done**
 
     - Reviews run on events, not on the clock (overrides R22): a Task's first commit, a Task's close, a Spec change, and
-      a change to the test tooling or the run rules. Each goes to one Opus lead with read-only Haiku sidecars on named
-      angles, one of them blind to the Task's requirements list (the user, 2026-11-12).
-    - A requirements review has five fixed sidecars (the user, 2026-11-20): blind A derives requirements from the
-      acceptance and Specs; blind B from the proposal, catalog and routed comments, as an adversary hunting edge cases;
-      flip A checks each red can fail only for its stated reason (no stub, missing API or a check that can never flip);
-      flip B writes, per requirement, the simplest wrong build that passes every check; cohesion, which also lists the
-      whole family up front (every export of the touched entries, every sibling of a changed type or helper). The lead
-      checks the mapping and re-runs the cited reds itself; no suite re-run and no fixtures-proof re-check (the close
-      review reads the fixtures). The review blocks a requirements list that goes item by item: a missing state
-      inventory, a state written by two or more rules with no transition table and owner, or an implicit state machine
-      (the user, 2026-11-20); the cohesion sidecar lists every state with more than one writer.
+      a change to the test tooling or the run rules. One review sidecar is blind to the Task's requirements list (the
+      user, 2026-11-12).
+    - A requirements review has five fixed sidecars (the user, 2026-11-20), covering
+      skill:check-task#at-the-requirements-review: blind A (requirements from the acceptance and Specs); blind B (from
+      the proposal, catalog and routed comments, as an adversary hunting edge cases); flip A (red for its stated
+      reason); flip B (the simplest wrong build); cohesion, which also lists the whole family up front (every export of
+      the touched entries, every sibling of a changed type or helper) and every state with more than one writer. The
+      lead checks the mapping and re-runs the cited reds itself; no suite re-run and no fixtures-proof re-check (the
+      close review reads the fixtures).
     - A close review's one suite run is the coverage run (`nub run test:coverage`); one sidecar reads the uncovered
       lines and branches in the files the Task changed and names, for each, the Story or edge value that would reach it,
       dead code to delete, or a defect-only path (the user, 2026-11-20). No coverage percentage or baseline. Flip A
       re-runs on the Task's final checks.
-    - A Task closes by R17: its author sets `review`; one independent Opus lead, with its sidecars, runs
-      skill:check-task and reviews the Task's diff in the same pass, and writes PASS or ISSUES as a Task comment; on
-      PASS with no blocking finding the orchestrator sets `done`. A phase ends with R11's close-out review and R18's
-      completion audit.
+    - A close review (R17) runs skill:check-task and reviews the Task's diff in the same pass.
     - Stopping rule (the user, 2026-11-12): a finding blocks only when it is in the Task's range, has a check red on
       current code, and is a lost, doubled, made-up or wrong ending, a hang, or a broken acceptance item; others are
       routed or noted. A fix round is checked by the next review, with no separate re-check.
-    - Every accepted review finding names why the tests missed it (the user, 2026-11-16): the fixture, Story, step
-      sample, edge value, run rule or sweep that would have caught it and was absent. The reviewer states it per
-      finding; the fix round adds that coverage for the whole class, per @convention.fixtures, and shows it red before
-      the fix. A class that recurs across Tasks becomes a run rule or a fixture every later Task inherits.
-    - Convergence follows skill:policy-convergence (the user, 2026-11-20, after T57): each finding names its structural
-      cause; a structural cause converges at its first finding, a local one at threshold 2 (the user, 2026-11-12; R35);
-      the scope is every state with the same freedom, with multiplicity and non-default starts in the table; the other
-      parts are searched for the freedom. Tests before convergence (the user, 2026-11-16): first every known behaviour
-      of the part gets its fixtures, Stories and tests, the class shown red; only then redesign. On running code the
-      freedom is taken away by structure (skill:policy-convergence#converging-live-code): a blind redesign, library
-      behaviour verified by running it, a comparison with any paused fix, and a guard with plants for every state in
-      scope (the user, 2026-11-19, after T99).
+    - Every accepted finding names why the tests missed it, by R17; its class is covered per @convention.fixtures, and a
+      class that recurs across Tasks becomes a run rule or a fixture every later Task inherits (the user, 2026-11-16).
+    - Convergence follows skill:policy-convergence (the user, 2026-11-20, after T57; the threshold for a local cause is
+      2, the user, 2026-11-12; R35). Tests before convergence (the user, 2026-11-16): first every known behaviour of the
+      part gets its fixtures, Stories and tests, the class shown red; only then redesign. On running code the freedom is
+      taken away by structure (skill:policy-convergence#converging-live-code, the user, 2026-11-19, after T99).
     - When the daily `nub run faults` misses a fault, it lands as a run rule or a Story test, owned by the Task
       in range.
     - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
       quality is otherwise left to lint (the user, 2026-11-14).
-    - Every requirements review and close review checks cohesion with the rest of the system (the user, 2026-11-19), for
-      each type, concept or helper the Task adds or changes: seams (a value crossing into another module keeps its
-      narrow type), duplicates (no second copy of an existing type, helper or pattern), siblings (fixing one member of a
-      family fixes its siblings) and house patterns (tokens not strings, `$match` or tag tables, branded ids, `X.use`,
-      Schema-derived types; skill:check-task step 5). One sidecar takes this as its fixed angle.
+    - Every requirements review and close review runs skill:check-task step 5 (cohesion) (the user, 2026-11-19), with
+      this project's house patterns: tokens not strings, `$match` or tag tables, branded ids, `X.use`, Schema-derived
+      types. One sidecar takes cohesion as its fixed angle.
     - A ruling is asked as two traces of the same Story, not as prose.
     - At each slice's close the orchestrator writes the user's page. A second slice may not close on an unread page (the
       user, 2026-11-12); that is in stops.
@@ -353,12 +310,10 @@ instructions
 
     **Records and commands**
 
-    - Records lead with the bottom line and hold each fact once: an Epic note is 1 to 3 lines with one Why and one
-      Reverse for a decision; a Task comment is a verdict, the decisions that still matter and their reason (the user,
-      2026-11-11). No progress comments, commit lists or test counts beyond the one revision verified.
-    - Commands run under 5 minutes each, stdin never read; files are written only with the Write and Edit tools
-      (memory, 2026-11-04).
-    - No worktrees: the builder works in the main checkout on `flow-rewrite` (the user, 2026-11-08; R43).
+    - An Epic note is 1 to 3 lines; a Task comment is a verdict, the decisions that still matter and their reason (the
+      user, 2026-11-11). No progress comments, commit lists or test counts beyond the one revision verified.
+    - Command time limit: 5 minutes each (memory, 2026-11-04).
+    - No worktrees (the user, 2026-11-08): the builder works in the main checkout on `flow-rewrite`.
     - No agent reads agent transcripts (the user, 2026-11-15).
 cadence
     A wake every 60 minutes (the user, 2026-11-17; was 30) checks for a Task in review, a stalled lead, the usage
