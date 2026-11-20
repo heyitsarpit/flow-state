@@ -1,0 +1,55 @@
+# Handover: turn today's concept designs into Specs (2026-11-20)
+
+**Goal:** formalise the concept designs below into `.spec` files with `skill:to-design` and `skill:to-spec`, after
+one cohesion pass and one round of the user's open decisions, so the P4 and P5 builders start from Specs that match
+the code.
+
+**Why now:** the old core Specs predate the code and are superseded; eleven designs written from the current code
+(2026-11-20) now cover the next 20 or so Tasks, but they are proposals with open seams and decisions. Building
+(@task.V3.T118's fix round first) waits for this.
+
+**Read first:**
+- code:wiki/plans/flow/references/proposals/spec-cohesion-2026-11-20.md (17 mismatches, unowned seams, build order
+  for the first five designs);
+- code:wiki/plans/flow/references/proposals/body-capture-settled-2026-11-20.md (the typing verdict: C6);
+- `wiki/tasks/V3/epic.task` `instructions` ("The whole Task at once", Task boundaries by state, convergence);
+- `wk log show V3 --last 40` (today's decisions with dates).
+
+## The designs (all proposed)
+
+In `wiki/plans/flow/references/proposals/`: `spec-typed-machine-`, `spec-fragments-`, `spec-saved-records-`,
+`spec-reads-operations-`, `spec-data-layer-`, `spec-boundary-channels-`, `spec-test-tooling-`, `spec-errors-trust-`,
+`spec-static-rules-`, `spec-ui-host-`, `spec-turn-parts-2026-11-20.md`; adopted `schedule-issues-2026-11-20.md`
+(@task.V3.T118); prior art to weigh, not decided: `advisor-consult-2026-11-20/` (the user's evening consult; its
+README lists three conflicts).
+
+## Decided by the user (2026-11-20)
+
+- Ending mappers take `(value, { input, key })`; schedules are declared on the definition and `Flow.keyed` is
+  dropped; issues are derived from state everywhere; the designs' Task changes are accepted (T21 into four, a
+  turn-parts Task before @task.V3.T109, a Declared-schedules Task, T24 split in P5).
+- Schedule issues redesign (T118) with its R25 text, P1 and P2; Firefox is not a target; old Specs are superseded by
+  running code.
+
+## Open, to settle before or while writing Specs
+
+1. **Cohesion of all eleven designs:** run the cohesion pass again over the second wave (boundary channels, test
+   tooling, errors and trust, static rules, UI and host, turn parts) against the first five and the cohesion file.
+2. **Typing:** adopt C6 (`const B` with `Exact`) in the typed-machine Spec instead of "checked, never read back";
+   declared schedules stay for the definition-only snapshot type, the keyed `key` and the saved key codec.
+3. **Conflicts with the advisor consult:** `Symbol.for` against `WeakMap` for the `Made` brand; T98's place (the
+   consult: before T106 and T109); fragment lifetimes' two holders against `settle`.
+4. **The user's public-API and scope decisions** from the second wave and turn parts, asked as one numbered round
+   (each design's last section lists them; implementation calls are the orchestrator's).
+5. **Unowned seams** (cohesion file): the resource entry store, the persisted-resource record kind, one definition
+   fingerprint, disposal order, the mint restarting at 0 against `InstanceId`.
+6. **Gaps the consults admitted:** adversary passes mostly skipped; streams half designed (`delivers: "latest"`, no
+   `reconnect`, `Feed.live`); prior-art sweeps thin (the harness refused sidecars when five ran at once).
+
+**Risk:** a Spec written from one design re-opens a seam another already fixed; write each Spec against the cohesion
+result, name its seams exactly, and keep the user's decisions.
+
+**Approach:** cohesion pass, then the user's round, then one Opus lead per concept writes its `.spec` through `wk`
+with `to-design` step 6's challenge as the adversary review the consults skipped, then one review across all Specs;
+apply the Task changes last. Run state: @task.V3.T57 done; T118 waits on its fix round; the hourly wake cron is
+session-only and gone when this session ends.
