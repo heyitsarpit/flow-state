@@ -17,10 +17,9 @@ decisions
          (accepted, merged into the Plans 2026-11-20)
         Change O3's "Unhandled or denied events publish nothing" to "publish nothing of their own; an ending admitted in
         that turn publishes its lane-only change", as @spec.Turn.R19 and the same outcome's step-one rule already say.
-        **Why:** otherwise rows stay stale after a denied ending (the Invariant audit's G7,
-        code:wiki/plans/flow/references/proposals/invariant-audit-2026-11-11.md). **Proven by:** P3's Turn cases for
-        @spec.Turn.I15 showing the row change. Found in @task.V3.T42. Routed (2026-11-20): partly built; finished and
-        merged by @task.V3.T105.
+        **Why:** otherwise rows stay stale after a denied ending (the Invariant audit's G7, @review.invariant-audit).
+        **Proven by:** P3's Turn cases for @spec.Turn.I15 showing the row change. Found in @task.V3.T42. Routed
+        (2026-11-20): partly built; finished and merged by @task.V3.T105.
     D3  @plan.Runtime.O6: disposal invokes nothing
          (accepted, merged into the Plans 2026-11-20)
         Drop "and invokes what the lane table promotes" from O6's disposal paragraph, which the same outcome contradicts
@@ -50,10 +49,10 @@ decisions
     D7  @plan.Testing.O3: endpoints and controls are `Fake.call` and `Fake.control`; transports use `Fake.http`
         Name the helpers that build `Fake.server`'s endpoints and controls, and the transport binding: a Layer of
         Effect's `HttpClient` (`Fake.http`) rather than a replaced global `fetch`. **Why:** the reference apps use
-        `Fake.call` and `Fake.control`, and Effect adapters take `HttpClient`
-        (code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md, Q5 and Q7). **Proven by:**
-        @task.V3.T63's fixtures for `Fake.call` and `Fake.control`, and the first Promise-based adapter over `Fake.http`
-        (@task.V3.T29). Found in @task.V3.T63. Routed (2026-11-20): partly built; finished and merged by @task.V3.T29.
+        `Fake.call` and `Fake.control`, and Effect adapters take `HttpClient` (@proposal.test-tooling-reuse, Q5 and Q7).
+        **Proven by:** @task.V3.T63's fixtures for `Fake.call` and `Fake.control`, and the first Promise-based adapter
+        over `Fake.http` (@task.V3.T29). Found in @task.V3.T63. Routed (2026-11-20): partly built; finished and merged
+        by @task.V3.T29.
     D8  @plan.Testing.O4: `read(target)` also takes a fake endpoint
          (accepted, merged into the Plans 2026-11-20)
         Widen O4's `read(target)` so an endpoint returns each call it received with its status (held, answered,
@@ -111,7 +110,7 @@ decisions
         Runtime's "connection restored" signal (the one O2 uses to refetch reads), with its flap count reset; it never
         loops, since a session that flaps again waits for the next signal. **Recommendation:** After; it keeps the
         no-loop rule, and every realtime client reconnects on network return. **Proven by:** the `chat` train-ride Story
-        (code:wiki/conventions/fixture-catalog.md). Found in the fixture catalog review, 2026-11-17.
+        (@convention.fixture-catalog). Found in the fixture catalog review, 2026-11-17.
     D15  @plan.Persistence.O4: what a reload does to queued writes (accepted, the user, 2026-11-17)
          (merged into the Plans at a59b615f)
         **Before:** O4 says lanes that owe an ending are restored live "so offline queued writes resume after a reload",
@@ -168,9 +167,8 @@ decisions
         inferred for a computed selection, and an optional one brings back the unknown value kind (the convergence
         review's recommendation). A selection with no canonical form is reported `UnencodableValue` and never fails the
         turn; a Schema refusal stays the selector's defect. Superseded in form by the accepted context-slots proposal:
-        `Flow.context` replaces `Provider.select(schema, fn)`
-        (code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md, @task.V3.T107); the Schema stays, taken
-        from the field for a pass-through slot.
+        `Flow.context` replaces `Provider.select(schema, fn)` (@proposal.context-slots, @task.V3.T107); the Schema
+        stays, taken from the field for a pass-through slot.
     D21  @plan.Diagnostics.O1, @plan.Operations.O1, @plan.Testing.O6: three fixture calls from @task.V3.T82 (accepted,
          the user, 2026-11-17)
         `ContextCycle` stays checked by a runtime test, since no real app reaches it without a stand-in definition of
@@ -274,15 +272,15 @@ decisions
         by:** a Story whose machine mutates memory fails in test, and the memo's hit counts on the bench.
     D30  @spec.WriteAhead, @plan.Persistence: steps mark changed record keys; one Capture encodes them when a batch is
          issued (accepted, the user, 2026-11-17, Q13 A) (merged into the Plans at 561cf35f)
-        As code:wiki/plans/flow/references/proposals/persistence-redesign-2026-11-17.md proposes: a step only marks the
-        record keys it changed; when the edge issues a batch, one pure Capture step projects every marked key from the
-        current World through D27's memoised encoders; a key stays marked until a batch carrying it lands. Record
-        layout, format and `Store` stay. A step that mints a ticket still refuses at once if its record cannot encode.
-        I20 and I21 hold at every landed state; UnencodableValue is reported at Capture; a record that becomes
-        unencodable after its ticket's step and before issue ends that commit `NotSent { StorageRefused }` with nothing
-        sent. **Why:** palette stress per turn 3.84 to 0.55 ms, hide flush about 36 to 3.2 ms, identical stored bytes on
-        151 Stories. **Proven by:** the proposal's measures on production, the reload sweep and run rules unchanged, and
-        a hide flush timed in Chromium and Safari. Owner: @task.V3.T85. Supersedes D28.
+        As @proposal.persistence-redesign proposes: a step only marks the record keys it changed; when the edge issues a
+        batch, one pure Capture step projects every marked key from the current World through D27's memoised encoders; a
+        key stays marked until a batch carrying it lands. Record layout, format and `Store` stay. A step that mints a
+        ticket still refuses at once if its record cannot encode. I20 and I21 hold at every landed state;
+        UnencodableValue is reported at Capture; a record that becomes unencodable after its ticket's step and before
+        issue ends that commit `NotSent { StorageRefused }` with nothing sent. **Why:** palette stress per turn 3.84 to
+        0.55 ms, hide flush about 36 to 3.2 ms, identical stored bytes on 151 Stories. **Proven by:** the proposal's
+        measures on production, the reload sweep and run rules unchanged, and a hide flush timed in Chromium and Safari.
+        Owner: @task.V3.T85. Supersedes D28.
     D31  @plan.Persistence, @plan.Inspection.O4, @plan.Diagnostics: lanes are keyed by contract, so `OpRenamed` goes
         **Before:** a lane is keyed by operation name; a release that renames the operation rewrites the lane to the one
         write operation over its contract and reports `OpRenamed`. **After:** a lane is keyed by its contract id (record
@@ -312,9 +310,9 @@ decisions
         rejects dispose, an actor's end quarantines its ref, and an aborted `runPromise` rejects with it. Each failure
         is an Issue CleanupFailed when it is found." and "Runtime disposal waits for every cleanup at most the disposal
         bound; past it dispose rejects CleanupFailed carrying CleanupOverdue, and each later failure goes to the host's
-        report." **Why:** the Owner redesign (proposals/runtime-lifetimes-2026-11-19.md) makes the one who closes an
-        Owner its failures' hearer; a Cause after the bound has no caller left, so `Host.report` keeps it whole (its Q1
-        A). **Proven by:** the host cells in code:packages/flow-state-v3/src/host/cleanups.test.ts and faults
+        report." **Why:** the Owner redesign (@proposal.runtime-lifetimes) makes the one who closes an Owner its
+        failures' hearer; a Cause after the bound has no caller left, so `Host.report` keeps it whole (its Q1 A).
+        **Proven by:** the host cells in code:packages/flow-state-v3/src/host/cleanups.test.ts and faults
         `late-cause-dropped`, `abort-interrupts-wait`, `unheard-quarantine-dropped`. Owner: @task.V3.T99. Proposed, for
         the user's yes. Code matches; accepted by the user 2026-11-19 (the Owners redesign).
     D35  @plan.Testing.O4: `read(ref)` returns `Snapshot<D>`, typed by the ref's definition

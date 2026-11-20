@@ -1,3 +1,6 @@
+---
+convention reusable-primitives
+---
 # Reusable primitives
 
 **The rule:** a library ships a primitive as a factory, a function that takes the app's own contract and returns a
@@ -89,4 +92,4 @@ that create XState machines.
 Built: `definition`, `machine`, `transaction`, `outcomes`. Accepted, not built: props, emits, mappers reading
 `{ input }`. Unverified: a generic contract passing through `definition()` with exhaustive `failure:` typing; check it
 when the first example is written
-([ui-primitives-decisions-2026-11-16.md](../plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md) Q8).
+(@proposal.ui-primitives-decisions Q8).

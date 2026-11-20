@@ -62,7 +62,7 @@ revisit.md, 2 fixed, 12 dropped.
   ps is empty, relative `--benches`, backfill signals, skipped finalizers, vacuous checks).
 - **@task.V3.T58** (1): A28, no dev host gives a workClock, so SlowWork fires only in tests.
 - **@task.V3.T72** (2): A64, rename the ShopApi, CartApi and GitApi keys; A65, place commands.ts, contracts.ts and
-  the cells' Pay base by code:wiki/conventions/fixtures.md.
+  the cells' Pay base by @convention.fixtures.
 - **@task.V3.T92** (1): A48, an owed row's ending kind as one tagged value (Commit, Declined, Lookup, Restored); also
   in revisit.md.
 - **@task.V3.T96** (2): A26, RuntimeDefaults is public and read live, so make it internal or frozen when loopGuard

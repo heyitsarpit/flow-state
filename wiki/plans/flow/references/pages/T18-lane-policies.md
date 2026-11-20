@@ -1,3 +1,6 @@
+---
+page T18-lane-policies
+---
 # Lane policies: what an app author notices (T18, 2026-11-16)
 
 **Bottom line:** a write operation can now say what happens when a second commit arrives while the first is still
@@ -29,12 +32,12 @@ sync.outcomes({
 
 ## What each policy does with a second commit
 
-| Policy | Second commit while one is out |
-| --- | --- |
-| `reject` | ends `notSent` Rejected at once |
-| `latest` | waits; a third replaces it (the replaced one ends `notSent`) |
-| `serialize` | queues in order, up to 64; the 65th ends `notSent` Overloaded |
-| `cancel` | the newer commit wins; the older call is interrupted and still gets its own ending |
+| Policy      | Second commit while one is out                                                     |
+| ----------- | ---------------------------------------------------------------------------------- |
+| `reject`    | ends `notSent` Rejected at once                                                    |
+| `latest`    | waits; a third replaces it (the replaced one ends `notSent`)                       |
+| `serialize` | queues in order, up to 64; the 65th ends `notSent` Overloaded                      |
+| `cancel`    | the newer commit wins; the older call is interrupted and still gets its own ending |
 
 - The operation's row reads `waiting: true` while commits are queued behind its head.
 - Disposing the actor ends queued commits `notSent` Disposed.

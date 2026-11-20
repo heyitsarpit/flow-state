@@ -1,3 +1,6 @@
+---
+convention interaction-state
+---
 # Interaction state
 
 **The rule:** frame-rate data (pointer moves) stays in refs and is written straight to the DOM; gesture milestones
@@ -9,12 +12,12 @@ copy of its own state.
 Dragging, resizing, long-press, hover intent and typeahead buffers: anything that matters only while the user is
 interacting and is wrong after a reload.
 
-| Kind                                   | Rate         | Lives in                      |
-| -------------------------------------- | ------------ | ----------------------------- |
-| pointer x, y, the element under it     | 60 to 120/s  | refs and a CSS transform      |
-| press, long-press fired, drop          | a few per gesture | a local actor (`useActor`) |
-| hover over items, typed letters        | human speed  | a trait placed on the state   |
-| the result                             | once         | one event to the persisted machine |
+| Kind                               | Rate              | Lives in                           |
+| ---------------------------------- | ----------------- | ---------------------------------- |
+| pointer x, y, the element under it | 60 to 120/s       | refs and a CSS transform           |
+| press, long-press fired, drop      | a few per gesture | a local actor (`useActor`)         |
+| hover over items, typed letters    | human speed       | a trait placed on the state        |
+| the result                         | once              | one event to the persisted machine |
 
 ## Before and after
 

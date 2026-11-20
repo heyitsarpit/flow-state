@@ -674,14 +674,14 @@ outcomes
         A change in context or props can raise an event into an actor, and a reaction never changes state directly.
 
         A slot is declared whole on the definition, never in the machine or the reaction (@task.V3.T107,
-        code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md). Pass-through:
-        Flow.context(Cart.M.items); the slot's Schema is the field's and its provider is the token's definition.
-        Derived: Flow.context(Schema, { reads: { name: X.M.field, ... }, select: ({ name }) => ... }); reads is a named
-        object and select must return the Schema's type. A read names a provider's public memory field (M token), a
-        state token (boolean) or X.state; a Flow.private field has no M token, so reading one fails to compile. A slot
-        has exactly one provider: every read comes from one definition, a type error and an InvalidConfiguration at
-        ["context", slot, "reads", key] for casts and plain JavaScript; values from two machines need two slots. A turn
-        that changes none of a slot's reads skips the slot: no select, no comparison.
+        @proposal.context-slots). Pass-through: Flow.context(Cart.M.items); the slot's Schema is the field's and its
+        provider is the token's definition. Derived: Flow.context(Schema, { reads: { name: X.M.field, ... }, select: ({
+        name }) => ... }); reads is a named object and select must return the Schema's type. A read names a provider's
+        public memory field (M token), a state token (boolean) or X.state; a Flow.private field has no M token, so
+        reading one fails to compile. A slot has exactly one provider: every read comes from one definition, a type
+        error and an InvalidConfiguration at ["context", slot, "reads", key] for casts and plain JavaScript; values from
+        two machines need two slots. A turn that changes none of a slot's reads skips the slot: no select,
+        no comparison.
 
         Machine-level onContext: [C.slot.change({ when?, event })] observes a slot's changes; C is a callback token per
         slot. when(current, previous, { memory }) is typed by the slot and reads current memory. The slot's value is a

@@ -1,3 +1,6 @@
+---
+page T54-core-consolidation
+---
 # Core consolidation: what an app author notices (T54, 2026-11-16)
 
 **Bottom line:** almost nothing changes in app code; two bugs an author could hit are fixed. Saves now leave as one

@@ -1,3 +1,6 @@
+---
+page T107-context-slots
+---
 # Context slots: what an app author notices (T107, 2026-11-20)
 
 **Bottom line:** context is declared on the definition with `Flow.context`, read from exactly one provider, and

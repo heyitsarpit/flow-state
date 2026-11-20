@@ -1,3 +1,7 @@
+---
+review invariant-audit
+status open 2026-11-11
+---
 # Invariant audit (2026-11-11, all 186 core Invariants)
 
 **Verdict: 161 of the 186 core Invariants are Essential and stay. Cut 18 (16 still owed, 2 already checked) and

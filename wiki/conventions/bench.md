@@ -1,3 +1,6 @@
+---
+convention bench
+---
 # Bench
 
 **Bottom line:** never sit blocked on a bench. Iterate with `--dev` (seconds). Every longer run (quick, `--stress`,
@@ -7,13 +10,13 @@ performance work.
 
 ## Which run, when
 
-| Command                           | Takes        | Records | Use it for                                          |
-| --------------------------------- | ------------ | ------- | --------------------------------------------------- |
-| `nub run bench --only <id> --dev` | seconds      | no      | iterating; add `--compare HEAD` for before/after    |
+| Command                           | Takes        | Records | Use it for                                            |
+| --------------------------------- | ------------ | ------- | ----------------------------------------------------- |
+| `nub run bench --only <id> --dev` | seconds      | no      | iterating; add `--compare HEAD` for before/after      |
 | `nub run bench --dev --max-n <n>` | seconds      | no      | scaling work: iterate small, check the large end once |
-| `nub run bench` (quick)           | about 40 s   | yes     | every couple of hours, or at the end of perf work   |
-| `nub run bench --stress`          | about 90 s   | yes     | perf work, or with quick when large Stories matter  |
-| `nub run bench <concern> --full`  | minutes each | yes     | perf work: one concern, baseline before, check after |
+| `nub run bench` (quick)           | about 40 s   | yes     | every couple of hours, or at the end of perf work     |
+| `nub run bench --stress`          | about 90 s   | yes     | perf work, or with quick when large Stories matter    |
+| `nub run bench <concern> --full`  | minutes each | yes     | perf work: one concern, baseline before, check after  |
 
 - **Don't block.** Start any run longer than `--dev` in the background and keep working; read its result when it
   finishes. Never sleep or poll for it. In performance work, iterate with `--dev`, `--only` and `--max-n`, and run

@@ -1,6 +1,11 @@
+---
+proposal body-types
+status accepted user 2026-11-20 [@review.advisor-holes]
+    proposed 2026-11-20
+---
 # Proposal: machine-body types that hold at any depth (2026-11-20; revised after review and hole-poking)
 
-**Status:** Questions 1 to 3: the user accepted the recommendations (2026-11-20); see advisor-holes-2026-11-20.md.
+Questions 1 to 3: the recommendations were accepted; see @review.advisor-holes.
 
 **Bottom line (proposed):** `machine()` captures the whole body as one `const` type parameter `B` and checks it
 against `B & Exact<B, MachineBody<D>>`, where `Exact` maps every key the shape lacks to `never` at every depth,
@@ -101,14 +106,14 @@ handlers reports on the whole value; a misspelt key in a returned object reports
 
 ## Real machines
 
-| Machine | What it exercises | Result under the design |
-| --- | --- | --- |
-| Stepper (`number-input`) | A callback body with a block and shared handlers | Compiles; rules spike runs on it |
-| Cart (`shop`) | `O` write handles in `actions`, lane endings | Compiles; handles keep their types |
-| CheckoutFlow (`shop`) | `C.slot.change` reactions, nested states | `onContext` entries are tokens, not walked |
-| Pay (`services/shop`) | Shared `payBody` typed by the constraint | Its explicit return type is excess-checked |
-| Room (`home`) | An Effect `Schedule` value as `schedule` | Compiles: the shape lists it as a leaf |
-| Nests (`session`) | Memory returns holding Set, Map, Option | Compiles: returned objects are checked by keys only |
+| Machine                  | What it exercises                                | Result under the design                             |
+| ------------------------ | ------------------------------------------------ | --------------------------------------------------- |
+| Stepper (`number-input`) | A callback body with a block and shared handlers | Compiles; rules spike runs on it                    |
+| Cart (`shop`)            | `O` write handles in `actions`, lane endings     | Compiles; handles keep their types                  |
+| CheckoutFlow (`shop`)    | `C.slot.change` reactions, nested states         | `onContext` entries are tokens, not walked          |
+| Pay (`services/shop`)    | Shared `payBody` typed by the constraint         | Its explicit return type is excess-checked          |
+| Room (`home`)            | An Effect `Schedule` value as `schedule`         | Compiles: the shape lists it as a leaf              |
+| Nests (`session`)        | Memory returns holding Set, Map, Option          | Compiles: returned objects are checked by keys only |
 
 ## Open questions
 
@@ -138,7 +143,7 @@ handlers reports on the whole value; a misspelt key in a returned object reports
 
 ## Revision log
 
-Review = the Sonnet review; Hole and HQ = `advisor-holes-2026-11-20.md` §4 holes and questions. No sidecars were
+Review = the Sonnet review; Hole and HQ = @review.advisor-holes §4 holes and questions. No sidecars were
 started for the revision; `fable/pkg3` (spike 9) re-ran the claims on a copy of the real package.
 
 - Review 1: fixed. `Keys` passes a shape of `unknown` through (spike 9, `s9-holes.ts` H1).

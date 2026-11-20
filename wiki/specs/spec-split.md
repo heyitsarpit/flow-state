@@ -127,7 +127,7 @@ Open for the server-rendering Spec, not settled now (carried from the plan merge
 ## How the tests use these Specs
 
 P2 builds Flow's own test system (@epic.V3; the conformance suite and its `Port` are retired, see
-`wiki/plans/flow/references/proposals/test-system-2026-11-15.md`): tests run on Flow's public Stories,
+@proposal.test-system): tests run on Flow's public Stories,
 CLI and inspection, and each rule gets a planted fault that `nub run faults` must catch. P3 builds
 the core against these Specs and their tests. Each Spec's tests name prototype cases and wrong
 runtimes from `packages/flow-state-v3/prototypes/` as the reference for how a guarantee was proven.

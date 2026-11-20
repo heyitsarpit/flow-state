@@ -1,3 +1,6 @@
+---
+convention app-actions
+---
 # App actions
 
 **The rule:** a contract calls the app's own code through an Effect service it lists in `services`; the app supplies
@@ -35,16 +38,16 @@ runtimeSetup({ app: PaletteApp, services })                          // a missin
 
 ## Why
 
-| | One Layer per Runtime |
-| --- | --- |
-| A missing implementation | a type error, then refused by name at boot |
-| Lifetime | acquired once, released when the Runtime is disposed |
-| Tests and Stories | swap one Layer (`Fake.http`, `Fake.storage`) |
-| Server and browser | a server Layer and a browser Layer |
-| The graph | one machine, never provided variants |
+|                          | One Layer per Runtime                                |
+| ------------------------ | ---------------------------------------------------- |
+| A missing implementation | a type error, then refused by name at boot           |
+| Lifetime                 | acquired once, released when the Runtime is disposed |
+| Tests and Stories        | swap one Layer (`Fake.http`, `Fake.storage`)         |
+| Server and browser       | a server Layer and a browser Layer                   |
+| The graph                | one machine, never provided variants                 |
 
 Two instances that need different actions are two factory calls, not one dispatching service
-([reusable primitives](reusable-primitives.md)).
+(@convention.reusable-primitives).
 
 ## Prior art
 
@@ -54,4 +57,4 @@ Effect's services and Layers; `references/checkout/app/setup.ts` and `references
 
 Built (`packages/flow-state-v3/src/host/runtime.ts`). Not built: the boot's refusal by service name, and reading the
 `services` list at run time
-([ui-primitives-decisions-2026-11-16.md](../plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md) Q6d).
+(@proposal.ui-primitives-decisions Q6d).

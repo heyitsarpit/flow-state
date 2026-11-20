@@ -1,6 +1,11 @@
-# Fragment lifetimes: one address, two holders (proposed, 2026-11-20; revised after review and hole-poking)
+---
+proposal fragment-lifetimes
+status accepted user 2026-11-20 [@review.advisor-holes]
+    proposed 2026-11-20
+---
+# Fragment lifetimes: one address, two holders (2026-11-20; revised after review and hole-poking)
 
-**Status:** Questions: the user accepted every recommendation (2026-11-20); see advisor-holes-2026-11-20.md, 11 to 16.
+Every recommendation was accepted; see @review.advisor-holes, 11 to 16.
 
 **Bottom line (proposed):** every placement incarnation (one life of a placed fragment; "incarnation" below) has
 one address, its subject path, and a placement kind only adds a part to it: a `.each` copy's key or a `resetOn`
@@ -12,9 +17,9 @@ Owner (from @task.V3.T99) mirrors each incarnation that has forked work, so endi
 `Owner.end`. The freedom removed: a placement kind (trait, `.each`, nesting, `.resumable()`, subroutine) deciding
 on its own what its work does.
 
-Answers question 2 of `advisor-questions-2026-11-20.md`. Consistent with @plan.Rules.O7 (rules are judged per live
+Answers question 2 of @questions.advisor-questions. Consistent with @plan.Rules.O7 (rules are judged per live
 incarnation, not while frozen). Builds on @plan.Runtime.O3, @plan.Operations.O7 and @plan.Persistence.O2. The lane
-and owed record fields named here are defined once, in `saved-records-2026-11-20.md`.
+and owed record fields named here are defined once, in @proposal.saved-records.
 
 ## 1. Class and freedom
 
@@ -37,12 +42,12 @@ or subroutine names its subject is question 1; the text below assumes `resetOn` 
 
 **Lifetime events.** Every placement maps onto four, and only these:
 
-| Event | Fired by |
-| --- | --- |
-| start | entry of the node, a key added, a `resetOn` value present or changed, actor start |
-| end | node left, key removed, a `resetOn` value absent or changed, own exit; live or frozen alike |
-| freeze | a `.resumable()` trait's node left |
-| thaw | that node entered again (the same incarnation) |
+| Event  | Fired by                                                                                    |
+| ------ | ------------------------------------------------------------------------------------------- |
+| start  | entry of the node, a key added, a `resetOn` value present or changed, actor start           |
+| end    | node left, key removed, a `resetOn` value absent or changed, own exit; live or frozen alike |
+| freeze | a `.resumable()` trait's node left                                                          |
+| thaw   | that node entered again (the same incarnation)                                              |
 
 A restore fires none of them: it gives every incarnation a new id (@spec.Restore.R1), runs no start and no
 `whenAbandoned`, and keeps frozen ones frozen. Actor disposal ends all and runs no event. A key past `max` never
@@ -138,18 +143,18 @@ Delivering parked write endings at a thaw, the one parked order, and the mid-lif
 
 ## 5. Check against step 2 rows and @plan.Machines.O1
 
-| Case | Placement | Address | Fits? |
-| --- | --- | --- | --- |
-| shop `AddressForm` | node trait on address step | `[]` | yes; lookup released on leave |
-| shop `ThreeDSecure` | subroutine in pay step | `[intentId]` by `resetOn` | yes; needs item 21 if it writes |
-| shop `CartLine`, clear cart | `.each` on `Cart` | line key | yes; raise per R30 |
-| sync `RateLimit` | root trait on `Repo` | `[]` | yes; schedules only |
-| transfers `StepUp`, sign-in `Reauth` | subroutine | `[]` | yes; reads only |
-| wizard `Vehicle`, `Driver` (reused) | two subroutines | `[]` each | reads yes; shared write: `SharedContract` |
-| home `Panel`, `Sensor`, offscreen | trait, `.each`, resumable | `[]`, key | yes; freeze keeps timers, ends sessions |
-| kanban `Column`, `Card`, `ChecklistItem` | nested `.each`, collapsed resumable | nested keys | yes; nesting composes |
-| Draft `ImageUpload` removed while frozen | `.each`, resumable | key | yes; ends frozen, `whenAbandoned` runs |
-| O1 `Upload` in `Editor` | `.each` by `ref`, max 10 | `[ref]` | yes; 11th ref never starts |
+| Case                                     | Placement                           | Address                   | Fits?                                     |
+| ---------------------------------------- | ----------------------------------- | ------------------------- | ----------------------------------------- |
+| shop `AddressForm`                       | node trait on address step          | `[]`                      | yes; lookup released on leave             |
+| shop `ThreeDSecure`                      | subroutine in pay step              | `[intentId]` by `resetOn` | yes; needs item 21 if it writes           |
+| shop `CartLine`, clear cart              | `.each` on `Cart`                   | line key                  | yes; raise per R30                        |
+| sync `RateLimit`                         | root trait on `Repo`                | `[]`                      | yes; schedules only                       |
+| transfers `StepUp`, sign-in `Reauth`     | subroutine                          | `[]`                      | yes; reads only                           |
+| wizard `Vehicle`, `Driver` (reused)      | two subroutines                     | `[]` each                 | reads yes; shared write: `SharedContract` |
+| home `Panel`, `Sensor`, offscreen        | trait, `.each`, resumable           | `[]`, key                 | yes; freeze keeps timers, ends sessions   |
+| kanban `Column`, `Card`, `ChecklistItem` | nested `.each`, collapsed resumable | nested keys               | yes; nesting composes                     |
+| Draft `ImageUpload` removed while frozen | `.each`, resumable                  | key                       | yes; ends frozen, `whenAbandoned` runs    |
+| O1 `Upload` in `Editor`                  | `.each` by `ref`, max 10            | `[ref]`                   | yes; 11th ref never starts                |
 
 ## 6. Spikes and sidecars
 
@@ -189,7 +194,7 @@ Delivering parked write endings at a thaw, the one parked order, and the mid-lif
 
 ## Revision log
 
-Review = the Sonnet review; Hole and HQ = `advisor-holes-2026-11-20.md` §3 holes and questions. No sidecars were
+Review = the Sonnet review; Hole and HQ = @review.advisor-holes §3 holes and questions. No sidecars were
 started for the revision; items were checked against the Plans, @spec.Restore.R1 and `owners.ts` directly.
 
 - Review 1: fixed. Item 21 lifts I12 for node traits too; the four records to edit are listed.

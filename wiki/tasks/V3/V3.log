@@ -1,22 +1,22 @@
 log V3
 
 note 2026-11-15T10:02:29Z
-    Decision (user, 2026-11-15): Flow's own tests run on its public Story, CLI and inspection tooling ("these are
+    [decided: user 2026-11-15] Flow's own tests run on its public Story, CLI and inspection tooling ("these are
     supposed to be public anyways ... so both things get harndened. so i'm for it"). Scope: whole run. The
     conformance suite is deleted; its last copy is commit 52a883e6.
 
 note 2026-11-15T10:02:29Z
-    Decision (user, 2026-11-15): rewrite the Epic from scratch ("just use the skill and exercise your judgment and
+    [decided: user 2026-11-15] rewrite the Epic from scratch ("just use the skill and exercise your judgment and
     forget about amendments"). Scope: this Epic and its phases; written with to-epic, to-task and build-a-loop at
     6b7288e. The earlier Epic is at 6b9fe478.
 
 note 2026-11-15T10:02:30Z
-    Decision (agent, 2026-11-15): the rewrite kept the goal, constraints, authority, limits and core-slice order, and
+    [decided: agent 2026-11-15] the rewrite kept the goal, constraints, authority, limits and core-slice order, and
     dropped the suite's rules, per-edit labels, 24-hour compaction, process watch and usage sampler. Why: the user
     asked for less process. Reverse: restore any rule from 6b9fe478.
 
 note 2026-11-15T10:10:22Z
-    Decision (agent, 2026-11-15): P2 finishes before P3 starts; blocked_by holds real dependencies only, each phase's
+    [decided: agent 2026-11-15] P2 finishes before P3 starts; blocked_by holds real dependencies only, each phase's
     order on its card. Why: T54's known bugs were found by generated runs, which T70 builds. Reverse: restore the
     blockers from 6bc69c7d.
 
@@ -33,11 +33,11 @@ note 2026-11-15T10:22:14Z
     have limits left"). No lead ran; crons and keep-awake removed.
 
 note 2026-11-15T12:55:45Z
-    Decision (user, 2026-11-15): "i'm setting the limit to 100%". Scope: whole run. The usage reserve is 100 percent
+    [decided: user 2026-11-15] "i'm setting the limit to 100%". Scope: whole run. The usage reserve is 100 percent
     weekly.
 
 note 2026-11-15T12:55:45Z
-    Decision (user, 2026-11-15): "haiku agents are not allowed to run any prod code, they may run experiments or
+    [decided: user 2026-11-15] "haiku agents are not allowed to run any prod code, they may run experiments or
     hillclimb in separate temp files and submit ideas"; on sidecar counts, "just let the lead decide". Scope: whole
     run.
 
@@ -46,7 +46,7 @@ note 2026-11-15T12:57:29Z
     Opus lead on T63; wakes every 90 minutes; caffeinate holds the Mac awake.
 
 note 2026-11-15T13:16:23Z
-    Decision (user, 2026-11-15): "just make the minimal needed patch". Scope: P2 to P10. One instructions line makes
+    [decided: user 2026-11-15] "just make the minimal needed patch". Scope: P2 to P10. One instructions line makes
     "May change" a guide; T64 gains Actors I30; T68's check count is fixed.
 
 note 2026-11-15T13:23:31Z
@@ -58,7 +58,7 @@ note 2026-11-15T13:28:48Z
     not resume or replace the lead until the user says go.
 
 note 2026-11-15T14:20:48Z
-    Decision (user, 2026-11-15): "all agreed, go ahead". The test-tooling reuse proposal is accepted; @plan.Testing.O3
+    [decided: user 2026-11-15] "all agreed, go ahead". The test-tooling reuse proposal is accepted; @plan.Testing.O3
     edited; Pending D5 to D7; T63 amended. The array-shaped first build is checkpoint `14bc60d9`.
 
 note 2026-11-15T14:21:20Z
@@ -107,7 +107,7 @@ note 2026-11-15T17:39:38Z
     I14 rewording would be the user's.
 
 note 2026-11-15T17:42:49Z
-    Decision (user, 2026-11-15): "yes rewording is allowed ... running code will override specs or plans, provided those
+    [decided: user 2026-11-15] "yes rewording is allowed ... running code will override specs or plans, provided those
     plans are evaluated broadly in light of the whole system or the builders will end up cheating".
 
 note 2026-11-15T17:42:49Z
@@ -140,7 +140,7 @@ note 2026-11-15T18:27:27Z
     Trace remainder to @task.V3.T49, exports to @task.V3.T29, nits to @task.V3.T67.
 
 note 2026-11-15T18:29:11Z
-    Decision (user, 2026-11-15): "you pick the name, i don't like either one but there should be one name only". Picked
+    [decided: user 2026-11-15] "you pick the name, i don't like either one but there should be one name only". Picked
     `tab` as `{ name, open }` (@plan.Testing and @plan.Inspection already use it); `page` goes everywhere.
 
 note 2026-11-15T18:29:11Z
@@ -192,7 +192,7 @@ note 2026-11-15T20:44:54Z
     promises routed to @task.V3.T21 and the foreign event token to @task.V3.T57.
 
 note 2026-11-15T21:01:49Z
-    Decision (user, 2026-11-16): "we can build all the machines and code proposed in ui-primitives-generality ... plot a
+    [decided: user 2026-11-16] "we can build all the machines and code proposed in ui-primitives-generality ... plot a
     course for them to be included in fixtures ... ui-sdk cloned and ... copy the scenarios".
 
 note 2026-11-15T21:01:49Z
@@ -208,11 +208,11 @@ note 2026-11-15T21:33:30Z
     justified. Routed: CLI output to @task.V3.T29, config checks and test tightening to @task.V3.T22.
 
 note 2026-11-15T21:43:28Z
-    Decision (user, 2026-11-16): "all accepted" (T70 Q1-Q4): usual and stress profiles and a stress Story per fixture in
+    [decided: user 2026-11-16] "all accepted" (T70 Q1-Q4): usual and stress profiles and a stress Story per fixture in
     @task.V3.T70; the fixture catalogue is the fixture source; app mix is @task.V3.T74.
 
 note 2026-11-15T21:44:53Z
-    Decision (user, 2026-11-16): "both accepted": @task.V3.T70 builds a pair sweep (phase by fault, the gate's
+    [decided: user 2026-11-16] "both accepted": @task.V3.T70 builds a pair sweep (phase by fault, the gate's
     deterministic floor) beside random stress seeds.
 
 note 2026-11-15T21:57:25Z
@@ -269,7 +269,7 @@ note 2026-11-16T01:20:43Z
     Weekly usage 95.
 
 note 2026-11-16T01:26:36Z
-    Decision (user, 2026-11-16): "do an optimisation pass and for all these big test commands run them rarely. even the
+    [decided: user 2026-11-16] "do an optimisation pass and for all these big test commands run them rarely. even the
     stress case should be a flag that runs rarely". Scope: whole run.
 
 note 2026-11-16T01:26:36Z
@@ -277,7 +277,7 @@ note 2026-11-16T01:26:36Z
     checkpoints use the fast suite. @task.V3.T75 builds the flag and parallel faults.
 
 note 2026-11-16T01:29:58Z
-    Decision (user, 2026-11-16): "remove that mid run requirement, full suite is probably fine if it's fast. stress runs
+    [decided: user 2026-11-16] "remove that mid run requirement, full suite is probably fine if it's fast. stress runs
     once at the end of a task and faults also runs at the end of a task". Instructions edited; whole run.
 
 note 2026-11-16T01:40:10Z
@@ -289,7 +289,7 @@ note 2026-11-16T01:53:05Z
     and, on PASS, runs P2's completion audit (R18); usage 96.
 
 note 2026-11-16T01:58:14Z
-    Decision (user, 2026-11-16): "start T54 anyways ... i have another account where i will resume this epic". T54
+    [decided: user 2026-11-16] "start T54 anyways ... i have another account where i will resume this epic". T54
     starts before P2's completion audit lands (overrides P3's start condition for T54 only). At 100% here, stop with a
     resume note for the other account.
 
@@ -306,7 +306,7 @@ note 2026-11-16T02:41:36Z
     (@phase.V3.P3); full text: this file at 8c4e7263. T18's `notSent:` key is @plan.Operations.O3's (this note said O1).
 
 note 2026-11-16T04:44:27Z
-    Decision (user, 2026-11-16): "do 1 & 2": T18's user's page written
+    [decided: user 2026-11-16] "do 1 & 2": T18's user's page written
     (wiki/plans/flow/references/pages/T18-lane-policies.md, unread); instructions gain "a gap is never written into a
     Spec as a limit". Whole run.
 
@@ -316,7 +316,7 @@ note 2026-11-16T05:31:17Z
     user's-read items kept. Full text: git before this commit.
 
 note 2026-11-16T05:36:56Z
-    Decision (user, 2026-11-16): "edit the epic for the important stuff, just 1-2 lines": instructions gain the run's
+    [decided: user 2026-11-16] "edit the epic for the important stuff, just 1-2 lines": instructions gain the run's
     lessons (--now stamps, gates by exit code, about 2% a Task); T55 gets a read-first comment.
 
 note 2026-11-16T06:20:17Z
@@ -325,11 +325,11 @@ note 2026-11-16T06:20:17Z
     suite-convergence c59b5fab, suite-leverage-survey ef115b0d). Reverse: git show <rev>:<path>.
 
 note 2026-11-16T08:20:24Z
-    Decision (user, 2026-11-16): wakes every 60 min also time the tests; over twice baseline inserts a speed Task first.
+    [decided: user 2026-11-16] wakes every 60 min also time the tests; over twice baseline inserts a speed Task first.
     Speed baseline at 313e8a45: suite 12 s, stress 9 s, faults 28 s. Reverse: cadence back to 90 min.
 
 note 2026-11-16T13:04:39Z
-    Merging the user's UI-primitives decisions (proposals ui-primitives-*-2026-11-16.md) into the Plans and Specs: five
+    Merging the user's UI-primitives decisions (proposals 2026-11-16-ui-primitives-*.md) into the Plans and Specs: five
     Sonnet mergers on disjoint files, then the Task changes, then an Opus review. The user asked for it (2026-11-16).
 
 note 2026-11-16T13:12:43Z
@@ -358,7 +358,7 @@ note 2026-11-16T13:45:09Z
     dead code, implicit state machines, derived state, Effect idiom; report to a proposal file for one convergence pass.
 
 note 2026-11-16T14:01:23Z
-    Decision (the user, 2026-11-16): emits keep their own callback namespace, { S, E, O, emits } with emit:
+    [decided: user 2026-11-16] emits keep their own callback namespace, { S, E, O, emits } with emit:
     [emits.X.from(...)], matching fragments' callbacks and exits; a record-keyed emit was weighed and dropped as
     inconsistent with them.
 
@@ -381,7 +381,7 @@ note 2026-11-16T14:24:01Z
     T79, 10 into T80; docs and routes routed to T33 and T50.
 
 note 2026-11-16T14:55:04Z
-    Decision (the user, 2026-11-16): the tests are timed every third hourly wake, not every wake. Reverse: drop the hour
+    [decided: user 2026-11-16] the tests are timed every third hourly wake, not every wake. Reverse: drop the hour
     condition from cadence.
 
 note 2026-11-16T15:05:09Z
@@ -410,18 +410,18 @@ note 2026-11-16T15:58:09Z
     between builds; 5-hour pacing at 80 and 90 percent. Commit: 1fca55c2.
 
 note 2026-11-16T16:03:41Z
-    Decision (the user, 2026-11-16): wakes every 50 minutes, so the orchestrator's 1-hour prompt cache stays warm; the
+    [decided: user 2026-11-16] wakes every 50 minutes, so the orchestrator's 1-hour prompt cache stays warm; the
     test timing stays about three-hourly. Reverse: one hourly cron.
 
 note 2026-11-16T16:04:24Z
-    Decision (the user, 2026-11-16): wakes at most 45 minutes apart (one cron, 7,52), replacing the 50-minute plan,
+    [decided: user 2026-11-16] wakes at most 45 minutes apart (one cron, 7,52), replacing the 50-minute plan,
     since separate crons drift apart. Reverse: one hourly cron.
 
 note 2026-11-16T16:06:11Z
-    Decision (the user, 2026-11-16): one wake every 30 minutes (7,37), replacing the 45-minute plan.
+    [decided: user 2026-11-16] one wake every 30 minutes (7,37), replacing the 45-minute plan.
 
 note 2026-11-16T16:09:10Z
-    Amendment (2026-11-16, the user): fixture requirements live in one place, code:wiki/conventions/fixtures.md; the two
+    Amendment (2026-11-16, the user): fixture requirements live in one place, @convention.fixtures; the two
     fixtures-first bullets became one pointing to it. Commit: 9a877f2a.
 
 note 2026-11-16T16:10:26Z
@@ -433,7 +433,7 @@ note 2026-11-16T17:43:52Z
     missed them' to policy-testing, policy-verification, review and build-a-loop R17. Commit: 2e29a000.
 
 note 2026-11-16T18:08:23Z
-    Decision (the user, 2026-11-16): "tdd comes before convergence, to make sure all known behaviours are covered by
+    [decided: user 2026-11-16] "tdd comes before convergence, to make sure all known behaviours are covered by
     tests". Scope: whole run. Applied to T20's lead at once.
 
 note 2026-11-16T18:08:23Z
@@ -441,7 +441,7 @@ note 2026-11-16T18:08:23Z
     redesign. Commit: 15132329.
 
 note 2026-11-16T18:26:05Z
-    Decision (the user, 2026-11-16): Tasks name code:wiki/conventions/fixtures.md where fixtures are built, briefs cite
+    [decided: user 2026-11-16] Tasks name @convention.fixtures where fixtures are built, briefs cite
     it too, and leads have sidecars review fixture scenarios, variety and correctness against it. Scope: whole run. P4
     and P5 linked, T28 and T29 given fixtures lines; P3 (T9, T20, T79, T80, T81) waits for the T20 lead's commit.
 
@@ -453,22 +453,22 @@ note 2026-11-16T18:33:42Z
     Amendment (2026-11-17, the user): fixture reviews check structural stress as well as load. Commit: f19db607.
 
 note 2026-11-16T19:11:10Z
-    Decision (the user, 2026-11-17): every fixture is a whole multi-machine app (several machines, several kinds of
+    [decided: user 2026-11-17] every fixture is a whole multi-machine app (several machines, several kinds of
     operation, the product's real journeys), so logic is easy to reason about and features mix realistically;
     fixtures.md says so; the catalog review adds an App block per row. Scope: whole run.
 
 note 2026-11-16T19:19:10Z
-    Decision (the user, 2026-11-17): catalog review accepted whole: 14 fixtures, pay renamed shop, primitives hosted in
+    [decided: user 2026-11-17] catalog review accepted whole: 14 fixtures, pay renamed shop, primitives hosted in
     kanban, chat and draft. vercel/ai, tus-js-client, hydrogen, tldraw cloned (not phoenix). Reviewer rewrites the
     catalog with sources, a fixture layout and a migration plan keyed to Tasks.
 
 note 2026-11-16T19:42:54Z
-    Decision (the user, 2026-11-17): fixtures grow additively. Existing machines, Stories and tests change only a little
+    [decided: user 2026-11-17] fixtures grow additively. Existing machines, Stories and tests change only a little
     and become part of a bigger app as new machines are added with each feature. Scope: whole run; the catalog review
     judges the migration plan against it.
 
 note 2026-11-16T19:45:59Z
-    Decision (the user, 2026-11-17): cells and lanes stay their own fixtures (16 apps, pay keeps its folder and ids,
+    [decided: user 2026-11-17] cells and lanes stay their own fixtures (16 apps, pay keeps its folder and ids,
     shop names the larger app); subroutine and whenAbandoned join T57's scope.
 
 note 2026-11-16T19:56:16Z
@@ -489,7 +489,7 @@ note 2026-11-16T20:16:59Z
     T49 wait on T21, T48 on T57, so each step's apps exist before its Task. P6 to P10 Tasks build no feature: no line.
 
 note 2026-11-16T20:18:55Z
-    Decision (the user, 2026-11-17): T20's two outcome changes accepted; Pending D14 to D19 accepted as recommended.
+    [decided: user 2026-11-17] T20's two outcome changes accepted; Pending D14 to D19 accepted as recommended.
 
 note 2026-11-16T20:24:19Z
     Amendment (2026-11-17, the user): the catalog is a task list; leads mark each scenario built or left with its later
@@ -508,30 +508,30 @@ note 2026-11-17T00:44:44Z
     reds). Inserted T83 (fast test commands again), taken after T9 and before T20; T20 now waits on it.
 
 note 2026-11-17T02:36:42Z
-    Decision (the user, 2026-11-17): the orchestrator's proposals accepted and recorded in Pending: D13, D20 (Schema
+    [decided: user 2026-11-17] the orchestrator's proposals accepted and recorded in Pending: D13, D20 (Schema
     stays required), D21 (T82's three fixture calls), D22 (context edge values join the catalog). send(ref, event) stays
     open.
 
 note 2026-11-17T04:21:45Z
-    Decision (the user, 2026-11-17): codec size bounds dropped (Pending D23); value sizes are judged by the bench and
+    [decided: user 2026-11-17] codec size bounds dropped (Pending D23); value sizes are judged by the bench and
     storage quota while building. It removes T9's blocker (no slot is saved unknown); T9 resumes with the removal.
 
 note 2026-11-17T04:25:45Z
-    Decision (the user, 2026-11-17): Q2 A, no size or queue caps; follow-up chain stays the one loop guard (bench-set),
+    [decided: user 2026-11-17] Q2 A, no size or queue caps; follow-up chain stays the one loop guard (bench-set),
     plus a dev slow-work warning (Pending D24). Inserted T84 to remove them, after T9 and before T83 (T83 waits on it).
 
 note 2026-11-17T04:34:17Z
-    Decision (the user, 2026-11-17): Q3 A, Q4 A, Q5 A from the limits sweep. Pending D24 extended with seven more caps,
+    [decided: user 2026-11-17] Q3 A, Q4 A, Q5 A from the limits sweep. Pending D24 extended with seven more caps,
     D25 makes timing and retry knobs named, bench-set defaults; T84 removes the caps and names the built knobs; T83
     sizes every test-tooling guard from measurement.
 
 note 2026-11-17T06:51:00Z
-    Decision (the user, 2026-11-17): Q6 A, Q7 A, Q8 A, Q9 A. T9's cap requirements move to T84; stale cap items in
+    [decided: user 2026-11-17] Q6 A, Q7 A, Q8 A, Q9 A. T9's cap requirements move to T84; stale cap items in
     Tasks and fixture docs become 'well past the old scale, timed'; fixture sizes and T83's budgets come from the bench;
     depth gets one measured platform limit (Pending D26). T9 resumes on D26.
 
 note 2026-11-17T06:55:59Z
-    Decision (the user, 2026-11-17): T9's next review, after the depth round, runs on Sonnet reviewers instead of an
+    [decided: user 2026-11-17] T9's next review, after the depth round, runs on Sonnet reviewers instead of an
     Opus lead with Haiku sidecars.
 
 note 2026-11-17T07:01:00Z
@@ -543,16 +543,16 @@ note 2026-11-17T07:04:07Z
     says so.
 
 note 2026-11-17T07:19:43Z
-    Decision (the user, 2026-11-17): Q10 A. Server-rendering maxBytes and the 1,024 Stream.callback queue join D24's
+    [decided: user 2026-11-17] Q10 A. Server-rendering maxBytes and the 1,024 Stream.callback queue join D24's
     drops; the inspector ring keeps a settable capacity with a bench-set default. Routed to T84.
 
 note 2026-11-17T07:45:34Z
-    Decision (the user, 2026-11-17): Q11 B. Pending D27: values cross into Flow through walkers compiled from their
+    [decided: user 2026-11-17] Q11 B. Pending D27: values cross into Flow through walkers compiled from their
     Schemas; equality chosen by the bench; D26's limit lifted once proven. Fresh T9 lead started; the old one retires.
 
 note 2026-11-17T07:49:34Z
     Performance architecture audit started (the user, 2026-11-17): one Opus with four Haiku, read-only, on core, tests
-    and Story design; proposal file performance-architecture-2026-11-17.md feeds T9's compiled-walker lead, T83 and T84.
+    and Story design; proposal file @review.performance-architecture feeds T9's compiled-walker lead, T83 and T84.
 
 note 2026-11-17T08:21:50Z
     Performance audit done (fc1dd7da): the turn is 1-2 % of a run; time goes to whole-record re-encoding per step, test
@@ -569,12 +569,12 @@ note 2026-11-17T08:31:12Z
     redesigns persistence projection for maximum performance with its broad implications; D28 stays proposed meanwhile.
 
 note 2026-11-17T09:02:39Z
-    Decision (the user, 2026-11-17): Q12 A, Q13 A. Pending D29: memory and selections immutable by contract, deep-frozen
+    [decided: user 2026-11-17] Q12 A, Q13 A. Pending D29: memory and selections immutable by contract, deep-frozen
     in dev and test. D30: steps mark changed keys and one Capture encodes them at issue (supersedes D28), owned by T85.
     T9's lead takes the memo and the freeze.
 
 note 2026-11-17T10:23:58Z
-    Decision (the user, 2026-11-17): Q14 A. The audit's findings 6, 7, 10, 11 move from T85 into T79's step edit
+    [decided: user 2026-11-17] Q14 A. The audit's findings 6, 7, 10, 11 move from T85 into T79's step edit
     operations; T85 keeps D30's Capture and findings 12, 15. Order: T9, T79, T85, T84, T83, T20, T81, T80. T79
     re-verifies findings after T9; its A5 payload codec goes through the boundary walkers.
 
@@ -584,27 +584,27 @@ note 2026-11-17T11:45:53Z
     layout.
 
 note 2026-11-17T11:48:29Z
-    Decision (the user, 2026-11-17): Q15 A, Q16 B, as a new Task. T86 moves fixtures into their layout, shared services
+    [decided: user 2026-11-17] Q15 A, Q16 B, as a new Task. T86 moves fixtures into their layout, shared services
     to fixtures/services/, pay to shop with its Story ids; after T79, before T85.
 
 note 2026-11-17T12:18:54Z
-    Decision (the user, 2026-11-17): Q17 A, Q18 A, Q19 A. Local actors send without persistence (Actors R6); an unknown
+    [decided: user 2026-11-17] Q17 A, Q18 A, Q19 A. Local actors send without persistence (Actors R6); an unknown
     send stays StillUnknown under an app Rejected (WriteLanes R2); unproduced diagnostic codes leave the public union.
     All three land in T79's fix round.
 
 note 2026-11-17T12:27:09Z
-    Decision (the user, 2026-11-17): Q20 B. App-frozen Maps, Sets and Dates are trusted as immutable (Turn R24 says so);
+    [decided: user 2026-11-17] Q20 B. App-frozen Maps, Sets and Dates are trusted as immutable (Turn R24 says so);
     dev and test still guard every collection Flow freezes. In T79's fix round.
 
 note 2026-11-17T13:08:34Z
-    Decision (the user, 2026-11-17): Q21 A. A mid-step defect ends the Runtime in a final Life state, stopped by a
+    [decided: user 2026-11-17] Q21 A. A mid-step defect ends the Runtime in a final Life state, stopped by a
     defect: reported once, snapshots read stopped, calls refuse, dispose returns the defect, nothing more written.
 
 note 2026-11-17T15:09:29Z
     @plan.Persistence.O3's wording fixed for D30 (@task.V3.T85; the user's plan-edit approval, 2026-11-17).
 
 note 2026-11-17T16:23:23Z
-    Decision (the user, 2026-11-17): standardise the bench, split by concern, filterable, one CSV per concern labelled
+    [decided: user 2026-11-17] standardise the bench, split by concern, filterable, one CSV per concern labelled
     by commit; new T87 (turn, scale, persist, values, tooling; record, compare, backfill), before T83, which waits on it
     and loses its bench warm-up item.
 
@@ -614,15 +614,15 @@ note 2026-11-17T16:26:55Z
     headline summary, budgets) sent to T87's lead; later feature benches routed to T24, T25, T27, T28, T29, T30, T48.
 
 note 2026-11-17T16:52:20Z
-    Decision (the user, 2026-11-17): adopt tsrs for type-aware lint and type check. New T88 (vite-plus to 1.7+, tsrs,
+    [decided: user 2026-11-17] adopt tsrs for type-aware lint and type check. New T88 (vite-plus to 1.7+, tsrs,
     same diagnostics, planted errors before and after), after T87 and before T83; Sonnet builder and Sonnet reviewer.
 
 note 2026-11-17T17:51:21Z
-    Decision (the user, 2026-11-17): Q24 A, the bench reads only manifests; raw samples local and git-ignored, CSVs
+    [decided: user 2026-11-17] Q24 A, the bench reads only manifests; raw samples local and git-ignored, CSVs
     committed; no backfill now. Today's like-for-like: small apps 10-15 % faster than c4494083. T87 lead rebuilding.
 
 note 2026-11-17T18:54:39Z
-    Decision (the user, 2026-11-18): bench on battery, power state recorded and compared like for like; run every couple
+    [decided: user 2026-11-18] bench on battery, power state recorded and compared like for like; run every couple
     of hours or for performance work, not at each Task close; quick tier keeps every Story (~95 s). T87 closing on that.
 
 note 2026-11-17T19:43:59Z
@@ -630,12 +630,12 @@ note 2026-11-17T19:43:59Z
     after T83 and before T20's close; it waits on T83 so T87's fix round and T83's edits settle first.
 
 note 2026-11-17T19:53:30Z
-    Amendment (the user, 2026-11-18): bench guidance in code:wiki/conventions/bench.md (never block on a bench; --dev
+    [decided: user 2026-11-18] bench guidance in @convention.bench (never block on a bench; --dev
     while working; longer tiers capped in the background; --full by concern in perf work); the Epic's close and cadence
     now cite it (wakes start the tooling bench in the background); AGENTS.md and fixtures.md point to it.
 
 note 2026-11-17T20:04:31Z
-    Decision (the user, 2026-11-18): T89 (bench code simplification) cancelled, set to tombstone; its proposal stays as
+    [decided: user 2026-11-18] T89 (bench code simplification) cancelled, set to tombstone; its proposal stays as
     prior art. P3 order: T87, T88, T83, T20, T81, T80.
 
 note 2026-11-17T20:06:02Z
@@ -648,20 +648,20 @@ note 2026-11-17T20:14:56Z
     say so.
 
 note 2026-11-17T21:02:11Z
-    Decision (the user, 2026-11-18): T88's upgrade is applied tomorrow (2026-11-19), not at the first wake after the
+    [decided: user 2026-11-18] T88's upgrade is applied tomorrow (2026-11-19), not at the first wake after the
     gate clears; the trial result and the orchestrator's test-line ruling stand in its comments.
 
 note 2026-11-17T21:03:30Z
-    Decision (the user, 2026-11-18): T83 no longer waits on T88; P3 order without T88 is T83, T20, T81, T80. T81's lead
+    [decided: user 2026-11-18] T83 no longer waits on T88; P3 order without T88 is T83, T20, T81, T80. T81's lead
     finishes its requirements step, then T81 pauses and T83 starts. Reverse: blocked_by @T88 back on T83.
 
 note 2026-11-17T21:12:10Z
-    Decision (the user, 2026-11-18): T83 is timeboxed to 60 minutes and uses parallel Haiku hill-climbers per part; at
+    [decided: user 2026-11-18] T83 is timeboxed to 60 minutes and uses parallel Haiku hill-climbers per part; at
     the box, what holds is committed and the remaining gaps go to the user. Overrides the Limits' no-time-budget for
     T83.
 
 note 2026-11-17T21:13:46Z
-    Decision (the user, 2026-11-18): T83's timebox is 90 minutes (was 60); a one-shot timer starts with its lead.
+    [decided: user 2026-11-18] T83's timebox is 90 minutes (was 60); a one-shot timer starts with its lead.
 
 note 2026-11-18T00:35:55Z
     Test efficacy audit started (the user, 2026-11-18): one Opus lead with Haiku sidecars, read-only, output a proposal
@@ -671,7 +671,7 @@ note 2026-11-18T00:39:21Z
     06:09 wake: tooling bench skipped; the efficacy audit is running the faults kill matrix, and benches run alone.
 
 note 2026-11-18T02:30:18Z
-    Decision (the user, 2026-11-18): T83 takes the first efficacy proposal plus the generator gap and the bench-limit
+    [decided: user 2026-11-18] T83 takes the first efficacy proposal plus the generator gap and the bench-limit
     move; cut tests are disabled with a comment, never deleted. New T90 (fork-from-cut) after T20. P3 order: T83, T20,
     T90, T81, T80.
 
@@ -724,7 +724,7 @@ note 2026-11-18T06:39:22Z
     bench only runs between leads.
 
 note 2026-11-18T06:46:14Z
-    Decision (the user, 2026-11-18): keep the current pace; the user has a usage reset in hand. The reserve stays 100 %.
+    [decided: user 2026-11-18] keep the current pace; the user has a usage reset in hand. The reserve stays 100 %.
 
 note 2026-11-18T07:06:13Z
     Stop (failure limit, 2026-11-18): T20's field-check review (8c0446d9) found a second record-trust failure after the
@@ -732,7 +732,7 @@ note 2026-11-18T07:06:13Z
     the user's call; no lead runs.
 
 note 2026-11-18T07:16:31Z
-    Decision (the user, 2026-11-18): T20's record-trust class is parked as new P4 Task T92 (records decoded into
+    [decided: user 2026-11-18] T20's record-trust class is parked as new P4 Task T92 (records decoded into
     meaning, one Identity Schema, each fact stored once), before T56. T20 closes after its inverted bindings test; then
     T91.
 
@@ -766,7 +766,7 @@ note 2026-11-18T09:59:53Z
     tier in the unchanged and dead-core runs) wait for the next Task that touches it. T81 resumed.
 
 note 2026-11-18T10:08:28Z
-    Decision (the user, 2026-11-18): T88 runs now with a Sonnet builder in its own worktree, beside T81's lead (a
+    [decided: user 2026-11-18] T88 runs now with a Sonnet builder in its own worktree, beside T81's lead (a
     one-off exception to no worktrees and one lead at a time). Its branch merges into flow-rewrite at T81's next
     checkpoint.
 
@@ -779,7 +779,7 @@ note 2026-11-18T10:41:20Z
     errors. Fix round with T81's lead; construction leftovers and nested extra keys routed to revisit.md.
 
 note 2026-11-18T10:42:59Z
-    Decision (the user, 2026-11-18): upgrade Effect to 4.1.4. New T93, a Sonnet builder in its own worktree beside T81's
+    [decided: user 2026-11-18] upgrade Effect to 4.1.4. New T93, a Sonnet builder in its own worktree beside T81's
     lead, as T88 was; merged at T81's next checkpoint.
 
 note 2026-11-18T10:57:37Z
@@ -793,7 +793,7 @@ note 2026-11-18T11:22:01Z
 
 note 2026-11-18T11:55:53Z
     Boundary design started (the user, 2026-11-18): one Opus lead with 4 Haiku sidecars proposes one validation and
-    error structure for the whole codebase, with prevention; output proposals/boundaries-2026-11-18.md. T81 and T92 wait
+    error structure for the whole codebase, with prevention; output @proposal.boundaries. T81 and T92 wait
     on it.
 
 note 2026-11-18T17:18:55Z
@@ -804,12 +804,12 @@ note 2026-11-18T17:19:00Z
     The skill-pin amendment above landed in b75b6c60.
 
 note 2026-11-18T17:28:07Z
-    Decision (the user, 2026-11-18): module-composer is not adopted ("its value to me is dubious"); trust work uses
+    [decided: user 2026-11-18] module-composer is not adopted ("its value to me is dubious"); trust work uses
     Effect Schema (Schema.brand, full decoding), small Flow-side wrappers and lint. Re-plan proposed in
-    proposals/replan-2026-11-18.md; prior art in revisit.md.
+    @proposal.replan; prior art in revisit.md.
 
 note 2026-11-18T17:44:33Z
-    Decision (the user, 2026-11-18): re-plan accepted (Q1 B, Q2 B, Q3 A, Q4 A, Q5 A, Q6). New: T94 boundary Task (P3,
+    [decided: user 2026-11-18] re-plan accepted (Q1 B, Q2 B, Q3 A, Q4 A, Q5 A, Q6). New: T94 boundary Task (P3,
     before T81); T95 callback results, T96 send action, T97 (T80 moved, tombstoned) in P4. T81 and T92 rewritten; P3,
     P4, P5 Order lines set; boundaries page added.
 
@@ -830,7 +830,7 @@ note 2026-11-18T18:39:39Z
     Third instance of the raw-throw class, so convergence by threshold 2; fix round held for the user's go.
 
 note 2026-11-18T18:51:12Z
-    Amendment (the user, 2026-11-19): the raw-throw class is parked until a general solution; T81 tombstoned into P9's
+    [decided: user 2026-11-19] the raw-throw class is parked until a general solution; T81 tombstoned into P9's
     T98. Known instances land as it.fails; T94 closes on that; then P3 close-out, then P4 from T92. Why: it blocked core
     work.
 
@@ -846,7 +846,7 @@ note 2026-11-18T19:05:43Z
     routed to T92.
 
 note 2026-11-18T19:06:48Z
-    Decision (the user, 2026-11-19): send(ref, event) stays (re-plan Q4 A), as XState's sendTo does; a rare escape
+    [decided: user 2026-11-19] send(ref, event) stays (re-plan Q4 A), as XState's sendTo does; a rare escape
     hatch, not the first way actors talk.
 
 note 2026-11-18T19:15:35Z
@@ -866,7 +866,7 @@ note 2026-11-18T19:41:16Z
     gate relaxed). T99, T100 placed in P4's order. wk refuses satisfies links on T21, T29, T30, T48, T49: for the user.
 
 note 2026-11-18T19:44:03Z
-    Decision (the user, 2026-11-19): T101 is capped at 40 minutes (ends 01:53 IST); gaps not closed by then are deferred
+    [decided: user 2026-11-19] T101 is capped at 40 minutes (ends 01:53 IST); gaps not closed by then are deferred
     for later with their proposed owners, and P3's audit counts them as deferred by the user.
 
 note 2026-11-18T19:58:51Z
@@ -919,7 +919,7 @@ note 2026-11-19T00:28:52Z
     runs.
 
 note 2026-11-19T00:38:20Z
-    Decision (the user, 2026-11-19): T92 deferred; its work saved on branch t92-format-4, flow-rewrite restored to
+    [decided: user 2026-11-19] T92 deferred; its work saved on branch t92-format-4, flow-rewrite restored to
     fef46251's code and Specs (check 0, suite 1181). Pending D31 waits with it. Next: T95.
 
 note 2026-11-19T00:39:07Z
@@ -927,7 +927,7 @@ note 2026-11-19T00:39:07Z
     and raw-throw scope. Lead writes requirements and fixtures, then stops for the requirements review.
 
 note 2026-11-19T00:47:32Z
-    Decision (the user, 2026-11-19): T95 cut, its lead stopped before any change; no wrong ending it would prevent.
+    [decided: user 2026-11-19] T95 cut, its lead stopped before any change; no wrong ending it would prevent.
     Items to T99 and T57; T96 unblocked and next. Lesson: no Task without a Story showing the wrong ending it prevents.
 
 note 2026-11-19T00:56:05Z
@@ -935,7 +935,7 @@ note 2026-11-19T00:56:05Z
     review.
 
 note 2026-11-19T01:39:08Z
-    Decision (the user, 2026-11-19): fixtures.md gains "The right tool" (a feature only where a product would choose it;
+    [decided: user 2026-11-19] fixtures.md gains "The right tool" (a feature only where a product would choose it;
     variety counts different uses). send cut from palette and transfers fixtures in T96; the catalog audited for fit.
 
 note 2026-11-19T01:44:52Z
@@ -992,10 +992,10 @@ note 2026-11-19T06:56:11Z
     T96's user's page read (the user, 2026-11-19); the next slice's close is not held.
 
 note 2026-11-19T07:01:22Z
-    Decision (the user, 2026-11-19): the Fable trust-boundaries consult (T92 with T98) waits until P4 closes or later.
+    [decided: user 2026-11-19] the Fable trust-boundaries consult (T92 with T98) waits until P4 closes or later.
 
 note 2026-11-19T07:18:27Z
-    Amendment (the user, 2026-11-19): P5 starts once every P4 Task but T92 and T56 is done; those two stay open in P4
+    [decided: user 2026-11-19] P5 starts once every P4 Task but T92 and T56 is done; those two stay open in P4
     until the trust consult, and P4's audit waits for them.
 
 note 2026-11-19T07:30:11Z
@@ -1012,7 +1012,7 @@ note 2026-11-19T08:32:23Z
     redesign of background-work lifetimes runs next as a proposal, then the two are compared for the user.
 
 note 2026-11-19T09:16:53Z
-    Decision (the user, 2026-11-19): T99's lifetimes redesign (c701e254) accepted; rebuilt in a worktree. Records stay
+    [decided: user 2026-11-19] T99's lifetimes redesign (c701e254) accepted; rebuilt in a worktree. Records stay
     uncommitted with the A/B/C work for the user's diff review.
 
 note 2026-11-19T09:27:43Z
@@ -1038,7 +1038,7 @@ note 2026-11-19T12:33:24Z
     T103 requirements review ISSUES (804a6b58), two small gaps; the lead fixes them, then builds to review.
 
 note 2026-11-19T12:37:25Z
-    Amendment (the user, 2026-11-19): skill pin workflow@2befdbd to workflow@c45246e (policy-convergence's live-code
+    [decided: user 2026-11-19] skill pin workflow@2befdbd to workflow@c45246e (policy-convergence's live-code
     section, R35's pointer); instructions' convergence line names the freedom, the one broad fix, and the
     structure-first steps.
 
@@ -1077,7 +1077,7 @@ note 2026-11-19T15:02:19Z
     and an exhaustive generator profile (small), cell-table enumeration (research). T104 started.
 
 note 2026-11-19T15:09:45Z
-    Decision (the user, 2026-11-19): adopt Alchemy ideas 1 and 2: rules on definitions judged by every run, and unseen
+    [decided: user 2026-11-19] adopt Alchemy ideas 1 and 2: rules on definitions judged by every run, and unseen
     rules reported. New T106, first in P5, design first. Ideas 3 and 4 not adopted for now.
 
 note 2026-11-19T15:40:52Z
@@ -1086,7 +1086,7 @@ note 2026-11-19T15:40:52Z
     Flow.initial).
 
 note 2026-11-19T16:11:42Z
-    Amendment (the user, 2026-11-19): every requirements and close review checks cohesion (seams, duplicates, siblings,
+    [decided: user 2026-11-19] every requirements and close review checks cohesion (seams, duplicates, siblings,
     house patterns); one sidecar takes it as a fixed angle. Skill pin to workflow@7aa4288 (check-task step 5).
 
 note 2026-11-19T16:57:38Z
@@ -1119,11 +1119,11 @@ note 2026-11-19T21:55:30Z
     public Step constructors, WorldWord and FakeWorld removal. Next: @task.V3.T107.
 
 note 2026-11-19T21:56:53Z
-    User's page written, unread: code:wiki/plans/flow/references/pages/T104-type-seams.md (Q1: the removed public Step
+    User's page written, unread: @page.T104-type-seams (Q1: the removed public Step
     constructors). @task.V3.T107 opened with its fixtures line, gates and user's read; its lead starts.
 
 note 2026-11-19T22:02:04Z
-    Decision (the user, 2026-11-20): T104 page Q1 A for now (removed Step constructors stay removed); final call
+    [decided: user 2026-11-20] T104 page Q1 A for now (removed Step constructors stay removed); final call
     tomorrow. Page read.
 
 note 2026-11-19T22:51:04Z
@@ -1156,11 +1156,11 @@ note 2026-11-20T01:29:14Z
     for a refused fresh start, scope alone unchecked); ruled and acceptance amended; build lead started.
 
 note 2026-11-20T01:36:08Z
-    Decision (the user, 2026-11-20): T107 Turn R22 Q1 A (when asked with no previous value); built after T105 reaches
+    [decided: user 2026-11-20] T107 Turn R22 Q1 A (when asked with no previous value); built after T105 reaches
     review.
 
 note 2026-11-20T01:54:30Z
-    Decision (the user, 2026-11-20, Q2 A): T57 split into schedules (@task.V3.T57), fragments (@task.V3.T109) and
+    [decided: user 2026-11-20; Q2 A] T57 split into schedules (@task.V3.T57), fragments (@task.V3.T109) and
     subroutines with whenAbandoned (@task.V3.T110); T77 and T48 now wait on T109; Order updated.
 
 note 2026-11-20T02:30:14Z
@@ -1180,11 +1180,11 @@ note 2026-11-20T03:32:01Z
     to @task.V3.T56.
 
 note 2026-11-20T03:32:24Z
-    User's page written, unread: code:wiki/plans/flow/references/pages/T107-context-slots.md (a Plan example fix for
+    User's page written, unread: @page.T107-context-slots (a Plan example fix for
     your yes). T105 closes once it is read; T58 is next.
 
 note 2026-11-20T03:35:38Z
-    Decision (the user, 2026-11-20, Q3 A): T58 split into the store in real browsers (@task.V3.T58) and the fixtures in
+    [decided: user 2026-11-20; Q3 A] T58 split into the store in real browsers (@task.V3.T58) and the fixtures in
     real browsers (@task.V3.T111); Order updated. The user asked the run not to stop while asleep.
 
 note 2026-11-20T04:04:22Z
@@ -1210,7 +1210,7 @@ note 2026-11-20T06:26:33Z
     T58's Safari hide cases pass with the display awake (15 of 15, exit 0); only the forget-order fix round remains.
 
 note 2026-11-20T06:30:36Z
-    Decision (the user, 2026-11-20, Q4 A): headless Chrome always; real Safari unattended for store tests, hide cases
+    [decided: user 2026-11-20; Q4 A] headless Chrome always; real Safari unattended for store tests, hide cases
     display-bound and required when attended.
 
 note 2026-11-20T06:52:17Z
@@ -1226,15 +1226,15 @@ note 2026-11-20T07:27:50Z
     T107's page read by the user; @task.V3.T105 done (84e31e6f). T58 closes once T105's page is read.
 
 note 2026-11-20T07:28:25Z
-    User's page written, unread: code:wiki/plans/flow/references/pages/T105-start-order-and-constant-starts.md (D2 to D4
+    User's page written, unread: @page.T105-start-order-and-constant-starts (D2 to D4
     merge for the user's yes). T58 closes once it is read.
 
 note 2026-11-20T07:34:28Z
-    Decision (the user, 2026-11-20): Plan edits accepted; Pending D2, D3, D4, D9 merged, Runtime O2 and Q1 updated to
+    [decided: user 2026-11-20] Plan edits accepted; Pending D2, D3, D4, D9 merged, Runtime O2 and Q1 updated to
     the whole-Layer boot, Machines' when example fixed (7569d069). @task.V3.T58 done.
 
 note 2026-11-20T07:34:49Z
-    User's page written, unread: code:wiki/plans/flow/references/pages/T58-store-in-real-browsers.md (StoreScope name
+    User's page written, unread: @page.T58-store-in-real-browsers (StoreScope name
     for the user). T57 finishes before T112, which T58 unblocked.
 
 note 2026-11-20T08:11:40Z
@@ -1246,7 +1246,7 @@ note 2026-11-20T08:33:32Z
     @plan.Pending.D40, for the user. Build lead started.
 
 note 2026-11-20T08:54:21Z
-    Decision (the user, 2026-11-20): T58's page read, StoreScope kept; Pending D40 accepted (merged at T57's close);
+    [decided: user 2026-11-20] T58's page read, StoreScope kept; Pending D40 accepted (merged at T57's close);
     T104 Q1 A final. Nothing waits on the user.
 
 note 2026-11-20T10:02:28Z
@@ -1258,7 +1258,7 @@ note 2026-11-20T10:03:07Z
     the close review.
 
 note 2026-11-20T10:22:39Z
-    Advisor questions written for the user: code:wiki/plans/flow/references/proposals/advisor-questions-2026-11-20.md
+    Advisor questions written for the user: @questions.advisor-questions
     (ten questions, T99 as the convergence case study); 4 and 7 are the trust consult's agenda.
 
 note 2026-11-20T10:29:01Z
@@ -1274,7 +1274,7 @@ note 2026-11-20T11:27:09Z
     waits on the user. Second close review started.
 
 note 2026-11-20T11:40:19Z
-    Decision (the user, 2026-11-20): Flow.keyed accepted; Machines O5 and its toaster example updated.
+    [decided: user 2026-11-20] Flow.keyed accepted; Machines O5 and its toaster example updated.
 
 note 2026-11-20T11:47:55Z
     T57 second close review: ISSUES, three blocking; same-turn schedule combinations recur, so convergence by structure:
@@ -1312,7 +1312,7 @@ note 2026-11-20T13:23:18Z
     First failure after convergence; the fix makes decide the owner of issues too and grows the table.
 
 note 2026-11-20T14:10:02Z
-    Decision (the user, 2026-11-20): "when T57 is closed i want you to stop". Scope: the run stops once @task.V3.T57 is
+    [decided: user 2026-11-20] "when T57 is closed i want you to stop". Scope: the run stops once @task.V3.T57 is
     done; no further lead starts.
 
 note 2026-11-20T14:55:11Z
@@ -1324,7 +1324,7 @@ note 2026-11-20T15:02:19Z
     structural), scoped by the freedom, other parts searched. Commit: 52e81aa7.
 
 note 2026-11-20T15:10:12Z
-    Decision (the user, 2026-11-20): @task.V3.T113 widened to remove hand-written type guesses everywhere (about 100
+    [decided: user 2026-11-20] @task.V3.T113 widened to remove hand-written type guesses everywhere (about 100
     sites): phantom token types, contract-typed ending mappers, fixture and test refactors with type tests, a lint
     guard.
 
@@ -1335,7 +1335,7 @@ note 2026-11-20T15:15:15Z
 
 note 2026-11-20T15:18:42Z
     Fable consult started (the user, 2026-11-20): 30 minutes, up to 10 Haiku sidecars, on schedule issues across time
-    (T57's B1, B2); proposal only, to wiki/plans/flow/references/proposals/schedule-issues-2026-11-20.md.
+    (T57's B1, B2); proposal only, to @proposal.schedule-issues.
 
 note 2026-11-20T15:33:07Z
     Decisions (the user, 2026-11-20): Fable's schedule-issue redesign adopted with its R25 text, P1 and P2; new
@@ -1351,7 +1351,7 @@ note 2026-11-20T16:02:34Z
     agreement with no contradiction; requirements review started.
 
 note 2026-11-20T16:03:01Z
-    User's page written, unread: code:wiki/plans/flow/references/pages/T57-schedules.md. T118 cannot close until it is
+    User's page written, unread: @page.T57-schedules. T118 cannot close until it is
     read.
 
 note 2026-11-20T16:21:40Z
@@ -1359,16 +1359,16 @@ note 2026-11-20T16:21:40Z
     acceptance makes the rows go green); ruled. Its fix round waits behind the user's design research.
 
 note 2026-11-20T16:30:02Z
-    Decision (the user, 2026-11-20): Fable (high, Haiku sidecars) designs five concepts from the current code, old Specs
+    [decided: user 2026-11-20] Fable (high, Haiku sidecars) designs five concepts from the current code, old Specs
     superseded: typed machine, fragments, saved records, reads and operations, data layer; proposals under
-    wiki/plans/flow/references/proposals/spec-*-2026-11-20.md, each with development and testing strategy and a handoff.
+    wiki/plans/flow/references/proposals/2026-11-20-spec-*.md, each with development and testing strategy and a handoff.
 
 note 2026-11-20T16:56:58Z
     Decisions (the user, 2026-11-20): Q1 A mappers take (value, { input, key }); Q2 A schedules declared on the
     definition; Q3 A the designs' Task changes; Q4 A issues derived everywhere. Flow.keyed removal proposed.
 
 note 2026-11-20T16:57:09Z
-    Decision (the user, 2026-11-20): drop Flow.keyed; with schedules declared on the definition a keyed schedule is a
+    [decided: user 2026-11-20] drop Flow.keyed; with schedules declared on the definition a keyed schedule is a
     plain object whose key type comes from the declaration; the Declared-schedules Task removes it.
 
 note 2026-11-20T17:16:18Z

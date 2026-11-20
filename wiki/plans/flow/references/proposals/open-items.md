@@ -1,8 +1,11 @@
+---
+revisit open-items
+---
 # To revisit
 
 Items the user flagged during the v4 keyword walkthrough. Not decided; each needs its own look.
 
-## 1. A handler that exists only so a schedule can arm (flagged 2026-10-29)
+## 1. A handler that exists only so a schedule can arm [open: 2026-10-29]
 
 From v4's `Countdown` (section 3.1):
 
@@ -49,10 +52,10 @@ The user wants a word that means downward. Considered and not liked: `tell`, `se
 `forward`, `pass`, `cue`, `drive`, `dispatch`, `emit`, `signal`, `trigger`, `passDown`, `sendDown`,
 `cascade`, `delegate`, `trickle`, `handDown`. Keep `raise` until a better word is found.
 
-**Status (2026-10-29): `raise` stays for now.** Not blocking; reopen only if a better word turns up.
+**`raise` stays for now** [deferred: agent 2026-10-29]. Not blocking. Reopen if: a better word turns up.
 
 
-## 3. `.history` versus interrupts (flagged 2026-10-29)
+## 3. `.history` versus interrupts [open: 2026-10-29]
 
 **The need.** An interruption should come back to where the user was: "Discard changes?" → No →
 the same wizard page; re-authenticate → the same page; a help overlay → back.
@@ -108,7 +111,7 @@ in flight across the interruption use the documented recipe: handle the late end
 Interrupts and a computed `default` were considered and not taken; deep history stays deferred. The rename to
 `lastChild` (one token for the target and the read) was suggested and not taken.
 
-## 4. Server calls, the in-machine half (flagged 2026-10-29)
+## 4. Server calls, the in-machine half [open: 2026-10-29]
 
 **Merged into [machine-design.md](../explorations/machine-fragments/machine-design.md) on 2026-10-30** (section 2.7), from
 [merged/server-calls/proposal.md](../explorations/machine-fragments/merged/server-calls/proposal.md), which superseded `in-machine-calls-proposal.md`
@@ -165,15 +168,15 @@ Any record carrying the key's fields type-checks against `get`; branded keys wou
 
 A hold adopted after the server's idempotency window re-sends what is a new write there; a bound would be public API (design 2.7.13's limits).
 
-## 13. A `fromRpc` adapter (deferred by the operations merge, 2026-10-30)
+## 13. A `fromRpc` adapter [deferred: agent 2026-10-30] (by the operations merge)
 
-An opt-in `resource.fromRpc` / `transaction.fromRpc` taking an existing `Rpc` for its schemas, when a real app needs it (OD13).
+An opt-in `resource.fromRpc` / `transaction.fromRpc` taking an existing `Rpc` for its schemas, when a real app needs it (OD13). Reopen if: a real app needs it.
 
-## 14. A catch-all for per-tag `unknown` (deferred by the operations merge, 2026-10-30)
+## 14. A catch-all for per-tag `unknown` [deferred: agent 2026-10-30] (by the operations merge)
 
-If listing Flow's unknown reasons in every per-tag record proves too verbose, a catch-all entry would be public API (operations merge X22).
+If listing Flow's unknown reasons in every per-tag record proves too verbose, a catch-all entry would be public API (operations merge X22). Reopen if: listing Flow's unknown reasons in every per-tag record proves too verbose.
 
-## 15. Wiring the author writes that the system should handle (flagged by the owner, 2026-10-30)
+## 15. Wiring the author writes that the system should handle [open: 2026-10-30] (flagged by the owner)
 
 Flow controls the whole stack (contracts, operations, machine, store, persistence, Stories), so integration work an
 author repeats in every app should be in the "it just works" category instead of user code. Audit every feature for
@@ -244,9 +247,9 @@ Two placements of one writing fragment are a `SharedContract` error today (rule 
 
 So `unknown { Cancelled }` after a user's stop needs no second `cancel` (record 2.8's wiring table). A tombstone clean-up needs the hold (design 2.7.7), so it would be opt-in.
 
-## 24. Releasing without interrupting (deferred by operations-in-fragments, 2026-10-31)
+## 24. Releasing without interrupting [deferred: agent 2026-10-31] (by operations-in-fragments)
 
-Let the request finish and release only the hold, if a real case needs it beside rule 60's release on leave (record RV2).
+Let the request finish and release only the hold, if a real case needs it beside rule 60's release on leave (record RV2). Reopen if: a real case needs it beside rule 60's release on leave.
 
 ## 25. An age bound on parked endings of a path that never returns (deferred by operations-in-fragments, 2026-10-31)
 
@@ -267,10 +270,10 @@ A fragment has no restore event, so a fragment waiting on a live lookup keeps a 
 `Fake.fetch(server, route)` takes a function from a web `Request` to an endpoint and input (design 2.10.4). A helper
 that maps method and path to an endpoint would remove that function for most REST fakes. Not needed for correctness.
 
-## 29. A typed `match` on `via.subject` (deferred by Stories, 2026-10-31)
+## 29. A typed `match` on `via.subject` [deferred: agent 2026-10-31] (by Stories)
 
 Requests are matched by address (rule 65); a fragment's subject path is on every record but not a `match` field. Add
-it if a Story needs to target one subject's requests without naming the copy.
+it if a Story needs to target one subject's requests without naming the copy. Reopen if: a Story needs to target one subject's requests without naming the copy.
 
 ## 30. The record-and-replay recorder (deferred by Stories, 2026-10-31)
 
@@ -282,15 +285,15 @@ capture (Inspection O5 digests cannot replay) and rots loudly when a payload sto
 `propertyTest` gives a local minimum, not every reachable combination (design 2.10.16). A bounded exhaustive search on
 the real Runtime, over the suite's small machines only, would cover the cells the executable models cover today.
 
-## 32. `together` with an `{ advance }` that also runs turns (deferred by Stories, 2026-10-31)
+## 32. `together` with an `{ advance }` that also runs turns [deferred: agent 2026-10-31] (by Stories)
 
 Inside `together({ advance })` no turn runs, so a timer chain does not re-arm there (design 2.10.2). Add a form that
-runs turns only if a case needs a chain inside a race.
+runs turns only if a case needs a chain inside a race. Reopen if: a case needs a chain inside a race.
 
-## 33. SSE transport and offline coverage (deferred by the coverage trim, 2026-10-31)
+## 33. SSE transport and offline coverage [deferred: agent 2026-10-31] (by the coverage trim)
 
 The owner trimmed the reference code to the dispatch desk plus the Checkout app, dropping the Notebook app
 ([COVERAGE.md](../COVERAGE.md), section 5.5). Four streams situations had their home there and now have none: the SSE
 recipe with `Last-Event-ID` replay as the proof (M6 4.7), a `Feed.down` caused by the browser going offline, a fact feed's
 cursor resuming across reload in a second app, and `Fake.fetch` with a streamed SSE body (design 2.10.4). Merge 6 has landed (2026-11-01; the SSE recipe is design 2.11.12.8, the cursor is now the bookmark). Add them, in a
-desk module or a small app, when a case needs them.
+desk module or a small app, when a case needs them. Reopen if: a case needs them.

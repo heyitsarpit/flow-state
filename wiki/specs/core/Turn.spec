@@ -228,7 +228,7 @@ requirements
                 declaration order, in the one FIFO mailbox. A slot with no value when its baseline
                 is set (its select failed) has none, and its first value is a change, which `when`
                 judges as `when(current, undefined, { memory })` (`previous` is typed `T | undefined`);
-                with no when it enqueues. Decision (user, 2026-11-20): "Q1 A" (@task.V3.T107). Why:
+                with no when it enqueues. [decided: user 2026-11-20] "Q1 A" (@task.V3.T107). Why:
                 skipping when made up an ending when gives false. Reverse: skip when for a first value.
                 Only the root declares reactions: a reaction in a state's body was tried and rejected
                 (a reaction is top level, its event handled per state). A slot select, when or mapper
@@ -284,7 +284,7 @@ requirements
                 composition); no module writes a report, and none is placed among earlier ones
                 after the fact. An ending's turn that is Accepted, Unhandled or Denied closes its
                 row as delivered (R9); a Refused one leaves the row to its retry
-                (@spec.Actors.R15). Decision (user, 2026-11-12): consult round 3, C1 and C2 step
+                (@spec.Actors.R15). [decided: user 2026-11-12] consult round 3, C1 and C2 step
                 A4. Why: reports derived from acts cannot disagree with what ran. Reverse: restore
                 R26 from commit `9405af2f`.
 

@@ -1,3 +1,6 @@
+---
+convention controlled-values
+---
 # Controlled values
 
 **The rule:** when the parent owns a value (React's `value` plus `onChange`), pass it as a prop and report changes
@@ -6,7 +9,7 @@ with an emit; the machine never stores it.
 ## When it applies
 
 A form library, a URL or another component already holds the value, and the machine only proposes changes. If the
-machine owns the value, it is memory started from input instead ([where a value lives](where-a-value-lives.md)).
+machine owns the value, it is memory started from input instead (@convention.where-a-value-lives).
 
 ## Before and after
 
@@ -46,5 +49,5 @@ React's controlled inputs; ui-sdk's `follow` and `setOptions`, which let state r
 ## Status
 
 Props and emits are accepted, not built
-([ui-primitives-decisions-2026-11-16.md](../plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md) Q3,
+(@proposal.ui-primitives-decisions Q3,
 Q5f).

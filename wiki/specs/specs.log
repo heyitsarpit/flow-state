@@ -147,7 +147,7 @@ note 2026-11-16T12:02:21Z
 note 2026-11-16T13:09:50Z
     Merged the user's UI-primitives decisions (props, emits, paused and keyed schedules, fan-out, R5 delays) into Turn,
     Actors, Compile, StaticCli, WriteAhead, Restore and Codec; new Turn R27-R30, I37-I39, T25-T27. Source:
-    ui-primitives-merge-guide-2026-11-16.md. Reverse: git revert this commit.
+    @proposal.ui-primitives-merge-guide. Reverse: git revert this commit.
 
 note 2026-11-16T13:15:20Z
     Actors R13: the 65th follow-up of an admitted event is refused, not the turn that would add it; endings and firings
@@ -199,7 +199,7 @@ note 2026-11-16T15:22:55Z
 note 2026-11-16T19:51:55Z
     Codec R4, R5, I7; WriteAhead R13, R14, realization: no send waits on a record that may not encode (lane records
     sized at their largest, owed rows in parts, an unsavable value as unknown { Restored }, refused tickets). Why:
-    T20's convergence, record-bounds-revised-2026-11-17.md. Reverse: restore these texts from commit `47c900b8`.
+    T20's convergence, @proposal.record-bounds-revised. Reverse: restore these texts from commit `47c900b8`.
 
 note 2026-11-16T23:25:25Z
     @spec.Actors R13, I20: only events sent by turns count toward the 64 follow-ups (@plan.Pending.D13). Why: context
@@ -477,7 +477,7 @@ note 2026-11-19T11:42:05Z
 
 note 2026-11-19T11:42:05Z
     @spec.Actors R23, I48, @spec.Diagnostics R8: typed cleanup failures inside app error handling follow Effect's rules;
-    dying cleanups always reported. Decision (user, 2026-11-19): Q11 A. Pinned per combinator in cleanups.test.ts.
+    dying cleanups always reported. [decided: user 2026-11-19] Q11 A. Pinned per combinator in cleanups.test.ts.
 
 note 2026-11-19T11:42:06Z
     @spec.Actors I47, I48: now cited by everyTaskAccounted's breaches and by cleanups.test.ts cells; the rule counts an

@@ -1,6 +1,11 @@
-# Saved records as one design (proposed, 2026-11-20; revised after review and hole-poking)
+---
+proposal saved-records
+status accepted user 2026-11-20 [@review.advisor-holes]
+    proposed 2026-11-20
+---
+# Saved records as one design (2026-11-20; revised after review and hole-poking)
 
-**Status:** the user accepted every recommendation (2026-11-20); see advisor-holes-2026-11-20.md, answers 7 to 10.
+Every recommendation was accepted; see @review.advisor-holes, answers 7 to 10.
 
 **Bottom line (proposed):** a saved record is a projection of the compiled release, never a hand-written shape. Each
 persisted machine gets its record Schemas built from Compiled: literal unions of its own state, slot, schedule and
@@ -12,8 +17,8 @@ part of this design: a rename stays remove plus add (the user's 2026-11-09 decis
 question 2. The freedom removed: **a saved fact whose meaning is checked by anything other than a Schema built from
 the current Compiled** (hand checks after a shape-only decode, per-Task format steps, re-key steps).
 
-Answers question 4 of `advisor-questions-2026-11-20.md`. Unblocks @task.V3.T92, then @task.V3.T56. This file owns
-the lane and owed record shapes that `fragment-lifetimes-2026-11-20.md` and `machine-calls-2026-11-20.md` add to.
+Answers question 4 of @questions.advisor-questions. Unblocks @task.V3.T92, then @task.V3.T56. This file owns
+the lane and owed record shapes that @proposal.fragment-lifetimes and @proposal.machine-calls add to.
 
 ## The class and its freedom
 
@@ -202,7 +207,7 @@ operation; the identity version sits in every key; `context` saves overrides onl
 
 ## Revision log
 
-Review = the Sonnet review; Hole and HQ = `advisor-holes-2026-11-20.md` §1 holes and questions. No sidecars were
+Review = the Sonnet review; Hole and HQ = @review.advisor-holes §1 holes and questions. No sidecars were
 started for the revision; every item was checked against the code and Specs directly.
 
 - Review 1: fixed. Per-entry decode for `seen`, schedules and memory; strict only for format, key, state, lane.

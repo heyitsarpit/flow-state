@@ -1,11 +1,15 @@
-# Housekeeping decisions, 2026-11-16 (proposed)
+---
+proposal housekeeping-decisions
+status merged 2026-11-20 [@plan.Testing, @plan.Package, @task.V3.T105, @task.V3.T29, @task.V3.T58]
+    accepted agent orchestrator 2026-11-20
+    proposed 2026-11-16
+---
+# Housekeeping decisions, 2026-11-16
 
-**Status (2026-11-20, decided by the orchestrator, delegated by the user):** Q1 to Q9 settled: D1, D5, D6, D8 and D10 to
+Outcome (2026-11-20, decided by the orchestrator, delegated by the user): Q1 to Q9 settled: D1, D5, D6, D8 and D10 to
 D12 merged into the Plans; D2 to D4, D7 and D9 routed (@task.V3.T105, @task.V3.T29, @task.V3.T58). Q10 B: the P2
 coverage record stays dated on @phase.V3.P2, since a Plan should not hold a record that changes with every edit and the
-suite has since been rebuilt. Q11: `draft/story-slice` kept as the local tag `archive/story-slice` (commits 32589054,
-d62ec9e4) and the branch deleted; reverse with `git branch draft/story-slice archive/story-slice`. The text below is
-prior art.
+suite has since been rebuilt. Q11 is tagged at its heading. The text below is prior art.
 
 **Proposed; nothing here is decided.** Eleven questions, answered as `Q1 A`. Recommendation: merge D5, D6, D8, D10,
 D11 and D12 into the Testing and Package Plans now, because tests citing each rule already pass; hold D7 and D9 (their
@@ -99,7 +103,7 @@ after:
 - **A. Merge the helper names now, hold `Fake.http` (recommended).**
 - **B. Hold all of D7 until the first Promise-based adapter runs.**
 
-Evidence: `Fake.call` and `Fake.control` are used in code:packages/flow-state-v3/fixtures/pay/server.ts, `transfers`,
+Evidence: `Fake.call` and `Fake.control` are used in `packages/flow-state-v3/fixtures/pay/server.ts`, `transfers`,
 `sign-in` and `command-palette`, and tested in tests/stories/fake.test.ts. `Fake.http` appears only in
 `wiki/specs/testing/Stories.spec` as unbuilt (line 205, and line 216 waits for the first Promise-based adapter,
 @task.V3.T29). So split: the helpers are proven, the binding is not.
@@ -119,7 +123,7 @@ after (A):
 - **A. Merge now (recommended).**
 - **B. Hold.**
 
-Evidence: code:packages/flow-state-v3/tests/pay/pay.test.ts lines 41, 42 and 60 read `Shop.confirm` and assert each
+Evidence: `packages/flow-state-v3/tests/pay/pay.test.ts` lines 41, 42 and 60 read `Shop.confirm` and assert each
 call's `status` (for example "held at response") and the call count; tests/checkout.ts line 106 does the same.
 
 ```text
@@ -242,7 +246,11 @@ prefer B, the record stays dated on the phase and the exit criterion "the covera
 
 ## Part 3. The `draft/story-slice` branch
 
-### Q11. Delete `draft/story-slice`, or keep it?
+### Q11. Delete `draft/story-slice`, or keep it? [decided: agent orchestrator 2026-11-20]
+
+Kept as the local tag `archive/story-slice` (commits 32589054, d62ec9e4) and the branch deleted. Why: everything of
+value on it is already on `flow-rewrite` in reviewed form; only the ten generated workload JSON files are not, and the
+tag keeps them. Reverse: `git branch draft/story-slice archive/story-slice`.
 
 - **A. Delete the local branch (recommended).** It was never pushed (`git branch -a` shows no remote copy).
 - **B. Keep it.**

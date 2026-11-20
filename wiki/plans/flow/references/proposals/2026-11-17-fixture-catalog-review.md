@@ -1,6 +1,11 @@
-# Fixture catalog review: coverage first, fewer and richer apps (proposed, 2026-11-17)
-
-**Status (2026-11-20):** acted on: adopted as code:wiki/conventions/fixture-catalog.md. The text below is prior art.
+---
+proposal fixture-catalog-review
+status merged 2026-11-17 [@convention.fixture-catalog]
+    accepted user 2026-11-17
+    proposed 2026-11-17
+supersedes @proposal.fixture-catalogue
+---
+# Fixture catalog review: coverage first, fewer and richer apps
 
 **Bottom line (proposed):** backport the late features into the apps that would really use them and merge
 overlapping fixtures, going from 23 named fixtures to 14 (28 to 19 with the five UI primitives). After that, every
@@ -12,12 +17,12 @@ SDKs, not state libraries: kamp.us (`codebases/phoenix`) and `codebases/ui-sdk` 
 tus-js-client, Shopify Hydrogen's cart, Supabase auth and realtime, the Phoenix JS client and tldraw sync on the
 web. Nothing here is decided: every change is proposed, and the user accepts each one.
 
-**Why now:** the draft catalog (code:wiki/conventions/fixture-catalog.md, uncommitted) gives each late feature
+**Why now:** the draft catalog (@convention.fixture-catalog, uncommitted) gives each late feature
 (traits, subroutines, `.each`, context, props and emits, lazy entries, `resource`, `transaction`, streams, entity
 domains) one or two planned fixtures. Most of the older fixtures stay simple machines.
 
-**Read first:** code:wiki/conventions/fixtures.md; code:wiki/conventions/fixture-catalog.md; prior art
-`fixture-catalogue-2026-11-11.md` (26 shapes) and `ui-primitives-2026-11-16.md` (how ui-sdk was mined).
+**Read first:** @convention.fixtures; @convention.fixture-catalog; prior art
+@proposal.fixture-catalogue (26 shapes) and @proposal.ui-primitives (how ui-sdk was mined).
 
 **Risk:**
 - The session fixture and several Stories are untracked and still being built, so "used today" is a snapshot of
@@ -38,59 +43,59 @@ column that absorbs them.
 
 `U` used today · `P` planned in the draft catalog · `B` proposed backport · `.` none
 
-| Feature (API name)                                        |pa|sy|tr|si|se|cp|ni|pl|wz|sr|ho|kb|ch|dr|
-| --------------------------------------------------------- |--|--|--|--|--|--|--|--|--|--|--|--|--|--|
-| compound `states`                                         |B |. |. |B |. |. |U |U |P |. |B |. |B |. |
-| `S.X.history`, `history.child`, `S.previous.history`      |B |. |. |. |. |. |. |U |P |. |. |. |. |B |
-| `Flow.input` value-named actors                           |P |B |U |. |U |. |. |U |. |. |. |B |B |B |
-| `Flow.initial` computed                                   |. |. |. |B |. |. |U |. |P |. |B |. |. |. |
-| `Flow.private`                                            |. |B |. |B |B |. |. |U |. |. |. |. |. |. |
-| guards, `deny`, `check`                                   |P |U |. |U |. |U |U |. |P |P |. |. |. |. |
-| `trait`, `whenAbandoned`                                  |B |. |. |. |. |. |. |. |P |. |P |P |B |P |
-| `subroutine` with exits                                   |B |. |B |B |. |. |. |. |P |. |. |. |. |. |
-| `.each({ of, max, by })`                                  |P |. |. |. |. |. |. |. |. |. |P |P |B |P |
-| `.resumable()`                                            |. |. |. |. |. |. |. |. |. |. |B |P |. |B |
-| raise into copies                                         |B |. |. |. |. |. |. |. |P |. |B |P |. |. |
-| `schedules` with `armOn`                                  |U |U |U |U |. |. |U |U |P |. |P |. |B |B |
-| `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn`     |. |B |. |. |. |. |. |B |. |P |P |. |B |. |
-| an Effect `Schedule` as `schedule`                        |. |B |. |. |. |. |. |. |. |. |P |. |B |B |
-| `props`, `onProps`                                        |. |. |. |. |. |B |P |. |. |P |. |. |. |. |
-| `emits`, `useOnEmit`                                      |. |. |. |B |. |P |P |. |. |B |. |P |. |. |
-| `context`, `onContext`, `Provider.select`                 |P |. |P |. |U |. |. |. |. |. |P |B |P |B |
-| refused context shapes (`ContextCycle`, missing provider) |. |. |. |. |U |. |. |. |. |. |B |. |. |. |
-| local actors: `createActor`, `useActor`, `disposeActor`   |. |. |. |. |. |B |B |. |. |P |. |B |. |. |
-| `send(ref, event)`                                        |P |. |B |. |. |. |. |. |. |. |. |B |. |. |
-| `forget`, `unsettledWrites`                               |. |. |U |B |. |. |. |. |. |. |. |. |. |P |
-| `resource`, `O.x.lookup`                                  |U |U |B |. |B |. |. |. |P |P |P |P |B |. |
-| `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch`     |. |. |B |. |B |. |. |. |. |P |P |B |B |. |
-| resource `subscribe.each`                                 |. |. |. |. |. |. |. |. |. |P |B |B |. |. |
-| `placeholder({ previous, input })`                        |. |. |B |. |. |. |. |. |. |P |. |B |. |. |
-| `O.x.setData`, `O.x.invalidate`, `O.x.clear`              |B |. |B |. |B |. |. |. |. |. |. |. |. |. |
-| `transaction` `concurrency: "reject"`                     |U |. |. |B |. |. |. |. |. |. |. |. |. |. |
-| `concurrency` latest, cancel, serialize                   |B |U |B |. |. |. |. |. |. |. |. |B |B |B |
-| endings, `Flow.uncertain`, `unknown`                      |U |U |U |U |. |U |. |U |. |. |. |B |B |B |
-| `O.x.retry`, `retryable`, `O.x.cancel`                    |U |U |U |U |. |. |. |. |. |. |. |. |B |B |
-| optimistic values on a read (`optimistic`)                |. |. |B |. |B |. |. |. |. |. |. |. |B |. |
-| `progress`, `previous` holds, `O.x.previous`, `cancelAll` |. |. |. |. |. |. |. |. |. |. |. |. |B |P |
-| `idempotency`, `guarded`                                  |B |. |B |. |. |. |. |. |. |. |. |B |. |. |
-| owed endings, quarantine                                  |U |. |U |. |. |. |. |. |. |. |. |. |B |B |
-| `stream` `delivers: "every"`, `position`, `catchUp`       |. |. |B |. |. |. |. |. |. |. |. |B |P |B |
-| `delivers: "latest"`, `Feed.callback`, `dropAt`           |. |B |. |. |. |. |. |B |. |. |P |. |B |. |
-| `reconnect`, `idleTime`, `Feed.down`/`ping`/`done`/`gone` |. |. |. |. |. |. |. |. |. |. |P |. |P |B |
-| `Feed.multiplex`, stream `subscribe.each`                 |. |. |. |. |. |. |. |. |. |. |P |B |P |. |
-| `entity`, `domain`, `read(...).list`/`.one`/`.byKey`      |P |. |B |. |. |. |. |. |. |. |. |P |B |. |
-| `predicts`, repair, `basedOn`                             |P |. |. |. |. |. |. |. |. |. |. |P |B |. |
-| `.gone` tombstones                                        |B |. |. |. |. |. |. |. |. |. |. |P |B |. |
-| `pagedBy`, `more`                                         |. |. |B |. |. |. |. |. |. |B |. |P |B |. |
-| `persist`, restore, reload                                |U |U |U |B |U |U |. |. |P |. |P |B |B |P |
-| release versions, saved-shape reset, migration            |. |P |B |P |. |. |. |. |P |. |. |B |. |P |
-| multi-tab ownership (Web Lock, second tab)                |B |. |. |. |B |. |. |. |. |. |. |. |. |P |
-| storage failures (quota, corrupt, slow read)              |B |. |. |. |B |. |. |. |. |. |. |. |. |B |
-| Runtime per scope, `dispose`                              |P |. |. |. |B |. |. |. |. |. |. |. |. |P |
-| lazy entries `{ id, load }`, adoption, dormant records    |. |. |. |. |P |. |. |. |P |. |. |B |. |. |
-| React hooks, Strict Mode, grace                           |. |. |. |B |. |B |B |. |. |B |. |B |. |. |
-| server rendering, hydration                               |B |. |. |. |. |. |. |. |. |B |. |B |. |. |
-| `inspect`, `trace.export`/`trace.import`, sinks           |B |B |B |. |. |. |. |. |. |. |. |. |B |. |
+| Feature (API name)                                        | pa  | sy  | tr  | si  | se  | cp  | ni  | pl  | wz  | sr  | ho  | kb  | ch  | dr  |
+| --------------------------------------------------------- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| compound `states`                                         | B   | .   | .   | B   | .   | .   | U   | U   | P   | .   | B   | .   | B   | .   |
+| `S.X.history`, `history.child`, `S.previous.history`      | B   | .   | .   | .   | .   | .   | .   | U   | P   | .   | .   | .   | .   | B   |
+| `Flow.input` value-named actors                           | P   | B   | U   | .   | U   | .   | .   | U   | .   | .   | .   | B   | B   | B   |
+| `Flow.initial` computed                                   | .   | .   | .   | B   | .   | .   | U   | .   | P   | .   | B   | .   | .   | .   |
+| `Flow.private`                                            | .   | B   | .   | B   | B   | .   | .   | U   | .   | .   | .   | .   | .   | .   |
+| guards, `deny`, `check`                                   | P   | U   | .   | U   | .   | U   | U   | .   | P   | P   | .   | .   | .   | .   |
+| `trait`, `whenAbandoned`                                  | B   | .   | .   | .   | .   | .   | .   | .   | P   | .   | P   | P   | B   | P   |
+| `subroutine` with exits                                   | B   | .   | B   | B   | .   | .   | .   | .   | P   | .   | .   | .   | .   | .   |
+| `.each({ of, max, by })`                                  | P   | .   | .   | .   | .   | .   | .   | .   | .   | .   | P   | P   | B   | P   |
+| `.resumable()`                                            | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | B   | P   | .   | B   |
+| raise into copies                                         | B   | .   | .   | .   | .   | .   | .   | .   | P   | .   | B   | P   | .   | .   |
+| `schedules` with `armOn`                                  | U   | U   | U   | U   | .   | .   | U   | U   | P   | .   | P   | .   | B   | B   |
+| `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn`     | .   | B   | .   | .   | .   | .   | .   | B   | .   | P   | P   | .   | B   | .   |
+| an Effect `Schedule` as `schedule`                        | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | P   | .   | B   | B   |
+| `props`, `onProps`                                        | .   | .   | .   | .   | .   | B   | P   | .   | .   | P   | .   | .   | .   | .   |
+| `emits`, `useOnEmit`                                      | .   | .   | .   | B   | .   | P   | P   | .   | .   | B   | .   | P   | .   | .   |
+| `context`, `onContext`, `Provider.select`                 | P   | .   | P   | .   | U   | .   | .   | .   | .   | .   | P   | B   | P   | B   |
+| refused context shapes (`ContextCycle`, missing provider) | .   | .   | .   | .   | U   | .   | .   | .   | .   | .   | B   | .   | .   | .   |
+| local actors: `createActor`, `useActor`, `disposeActor`   | .   | .   | .   | .   | .   | B   | B   | .   | .   | P   | .   | B   | .   | .   |
+| `send(ref, event)`                                        | P   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | B   | .   | .   |
+| `forget`, `unsettledWrites`                               | .   | .   | U   | B   | .   | .   | .   | .   | .   | .   | .   | .   | .   | P   |
+| `resource`, `O.x.lookup`                                  | U   | U   | B   | .   | B   | .   | .   | .   | P   | P   | P   | P   | B   | .   |
+| `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch`     | .   | .   | B   | .   | B   | .   | .   | .   | .   | P   | P   | B   | B   | .   |
+| resource `subscribe.each`                                 | .   | .   | .   | .   | .   | .   | .   | .   | .   | P   | B   | B   | .   | .   |
+| `placeholder({ previous, input })`                        | .   | .   | B   | .   | .   | .   | .   | .   | .   | P   | .   | B   | .   | .   |
+| `O.x.setData`, `O.x.invalidate`, `O.x.clear`              | B   | .   | B   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | .   |
+| `transaction` `concurrency: "reject"`                     | U   | .   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   |
+| `concurrency` latest, cancel, serialize                   | B   | U   | B   | .   | .   | .   | .   | .   | .   | .   | .   | B   | B   | B   |
+| endings, `Flow.uncertain`, `unknown`                      | U   | U   | U   | U   | .   | U   | .   | U   | .   | .   | .   | B   | B   | B   |
+| `O.x.retry`, `retryable`, `O.x.cancel`                    | U   | U   | U   | U   | .   | .   | .   | .   | .   | .   | .   | .   | B   | B   |
+| optimistic values on a read (`optimistic`)                | .   | .   | B   | .   | B   | .   | .   | .   | .   | .   | .   | .   | B   | .   |
+| `progress`, `previous` holds, `O.x.previous`, `cancelAll` | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | B   | P   |
+| `idempotency`, `guarded`                                  | B   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | B   | .   | .   |
+| owed endings, quarantine                                  | U   | .   | U   | .   | .   | .   | .   | .   | .   | .   | .   | .   | B   | B   |
+| `stream` `delivers: "every"`, `position`, `catchUp`       | .   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | B   | P   | B   |
+| `delivers: "latest"`, `Feed.callback`, `dropAt`           | .   | B   | .   | .   | .   | .   | .   | B   | .   | .   | P   | .   | B   | .   |
+| `reconnect`, `idleTime`, `Feed.down`/`ping`/`done`/`gone` | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | P   | .   | P   | B   |
+| `Feed.multiplex`, stream `subscribe.each`                 | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | P   | B   | P   | .   |
+| `entity`, `domain`, `read(...).list`/`.one`/`.byKey`      | P   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | P   | B   | .   |
+| `predicts`, repair, `basedOn`                             | P   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | P   | B   | .   |
+| `.gone` tombstones                                        | B   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | P   | B   | .   |
+| `pagedBy`, `more`                                         | .   | .   | B   | .   | .   | .   | .   | .   | .   | B   | .   | P   | B   | .   |
+| `persist`, restore, reload                                | U   | U   | U   | B   | U   | U   | .   | .   | P   | .   | P   | B   | B   | P   |
+| release versions, saved-shape reset, migration            | .   | P   | B   | P   | .   | .   | .   | .   | P   | .   | .   | B   | .   | P   |
+| multi-tab ownership (Web Lock, second tab)                | B   | .   | .   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | P   |
+| storage failures (quota, corrupt, slow read)              | B   | .   | .   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | B   |
+| Runtime per scope, `dispose`                              | P   | .   | .   | .   | B   | .   | .   | .   | .   | .   | .   | .   | .   | P   |
+| lazy entries `{ id, load }`, adoption, dormant records    | .   | .   | .   | .   | P   | .   | .   | .   | P   | .   | .   | B   | .   | .   |
+| React hooks, Strict Mode, grace                           | .   | .   | .   | B   | .   | B   | B   | .   | .   | B   | .   | B   | .   | .   |
+| server rendering, hydration                               | B   | .   | .   | .   | .   | .   | .   | .   | .   | B   | .   | B   | .   | .   |
+| `inspect`, `trace.export`/`trace.import`, sinks           | B   | B   | B   | .   | .   | .   | .   | .   | .   | .   | .   | .   | B   | .   |
 
 The `long` run of every fixture also exports and imports its trace. The last row marks only where a sink or a
 redacted field is part of the app.
@@ -116,10 +121,10 @@ After the backports, every row has at least three homes in apps with different s
 
 ### Count
 
-| | Existing | Planned | UI primitives (T72, T73) | Total |
-| --- | --- | --- | --- | --- |
-| Before (draft catalog) | 10 | 13 | 5 | 28 |
-| After (proposed) | 8 | 6 | 5 | 19 |
+|                        | Existing | Planned | UI primitives (T72, T73) | Total |
+| ---------------------- | -------- | ------- | ------------------------ | ----- |
+| Before (draft catalog) | 10       | 13      | 5                        | 28    |
+| After (proposed)       | 8        | 6       | 5                        | 19    |
 
 ### Merges (each proposed, accept one by one)
 
@@ -219,7 +224,7 @@ Each item is proposed, with its reason.
 ### Correct (verified against the code)
 
 6. **session:** the row says "One layer only". The fixture has four definitions, Org → Session → Team → Badge
-   (code:packages/flow-state-v3/fixtures/session/machine.ts), two roots, a middle-layer override (`guestTeam`), a
+   (`packages/flow-state-v3/fixtures/session/machine.ts`), two roots, a middle-layer override (`guestTeam`), a
    24-wide `fanOut` and `parentUnderChildren` Stories. Still missing: 8 and 32 layers, 64 and 1,024 wide, a cycle,
    a signed-out root, and a missing provider as a Story rather than a hand test.
 7. **command-palette:** "(missing) pair sweep" is wrong. `tests/generated/pairs-persisted.test.ts` sweeps it.
@@ -508,7 +513,7 @@ merge is rejected, the edit applies to the fixture that would have absorbed it.
 
 ### App blocks (one per row, proposed)
 
-Each fixture becomes a whole app (code:wiki/conventions/fixtures.md, "A fixture is a whole app"). Every block lists
+Each fixture becomes a whole app (@convention.fixtures, "A fixture is a whole app"). Every block lists
 the app's machines, then its operations, then its main journeys. Each backport in the matrix is tagged `[B]` on the
 machine and journey where it lands.
 
@@ -779,7 +784,7 @@ number-input, command-palette, pay). Session has four machines but only one tran
   5. Quota full.
   6. Release 2 migrates sections while a save is held.
 
-#### UI primitives (kept as fixtures, T72 and T73); source: ui-sdk tests already mined in `ui-primitives-2026-11-16.md`
+#### UI primitives (kept as fixtures, T72 and T73); source: ui-sdk tests already mined in @proposal.ui-primitives
 
 Each primitive gets a small host app, so it calls a real operation:
 

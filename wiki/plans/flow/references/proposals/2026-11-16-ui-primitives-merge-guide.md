@@ -1,7 +1,9 @@
-# UI primitives: merge guide for Q1, Q2, Q3 and Q5 (2026-11-16, proposed)
-
-**Status (2026-11-20):** acted on: applied for the decisions in ui-primitives-decisions-2026-11-16.md. The text below is
-prior art.
+---
+proposal ui-primitives-merge-guide
+status merged 2026-11-16 [@plan.Machines, @plan.Runtime, @plan.React, @plan.Testing, @plan.Inspection, @spec.Turn, @spec.Actors, @spec.Compile, @spec.StaticCli, @spec.WriteAhead, @spec.Restore, @spec.Codec, @task.V3.T72, @task.V3.T76, @task.V3.T77, @task.V3.T78]
+    proposed 2026-11-16
+---
+# UI primitives: merge guide for Q1, Q2, Q3 and Q5
 
 **Bottom line:** this guide lists every Plan and Spec record that the accepted Q1, Q2, Q3 and Q5 decisions change.
 For each record it gives the current text, the proposed replacement and the records that must change with it.
@@ -14,7 +16,7 @@ things:
 - five built checks (four test locations and the `busyRefused` fixture Story) that assert the old negative-delay
   rule (§7).
 
-**Read first:** [the decisions log](ui-primitives-decisions-2026-11-16.md) §1, §2, §4 and §9 to §9.4 (§9 wins
+**Read first:** @proposal.ui-primitives-decisions §1, §2, §4 and §9 to §9.4 (§9 wins
 where
 it revises).
 
@@ -24,24 +26,24 @@ companion edits).
 
 ## 1. What changes, by count
 
-| File                 | Records changed                                          | Count |
-| -------------------- | -------------------------------------------------------- | ----- |
-| Machines.plan        | O1 (5 places), O2, O3 (5 places), O4, O5 (8), O6, O7, O8, V4, V6, V8, V9 | 12 |
-| Runtime.plan         | O3, O4, O5, V4, V5                                       | 5     |
-| React.plan           | O2, O3, O4, V2, V3                                       | 5     |
-| Testing.plan         | O1, O2                                                   | 2     |
-| Inspection.plan      | O1, O4, O6                                               | 3     |
-| CommandLine.plan     | O1                                                       | 1     |
-| Persistence.plan     | O2, O3, O5                                               | 3     |
-| ServerRendering.plan | O3, O4, O5                                               | 3     |
-| Diagnostics.plan     | O2                                                       | 1     |
-| Turn.spec            | R12, R14–R17, R19, R23, I34, T6, T12; new R27–R30, I37–I39, T25–T27 | 10 + 10 new |
-| WriteAhead.spec      | R4                                                       | 1     |
-| Restore.spec         | T6                                                       | 1     |
-| Codec.spec           | R5                                                       | 1     |
-| Compile.spec         | R10, R16                                                 | 2     |
-| StaticCli.spec       | R5                                                       | 1     |
-| Actors.spec          | R6, R7, R18                                              | 3     |
+| File                 | Records changed                                                          | Count       |
+| -------------------- | ------------------------------------------------------------------------ | ----------- |
+| Machines.plan        | O1 (5 places), O2, O3 (5 places), O4, O5 (8), O6, O7, O8, V4, V6, V8, V9 | 12          |
+| Runtime.plan         | O3, O4, O5, V4, V5                                                       | 5           |
+| React.plan           | O2, O3, O4, V2, V3                                                       | 5           |
+| Testing.plan         | O1, O2                                                                   | 2           |
+| Inspection.plan      | O1, O4, O6                                                               | 3           |
+| CommandLine.plan     | O1                                                                       | 1           |
+| Persistence.plan     | O2, O3, O5                                                               | 3           |
+| ServerRendering.plan | O3, O4, O5                                                               | 3           |
+| Diagnostics.plan     | O2                                                                       | 1           |
+| Turn.spec            | R12, R14–R17, R19, R23, I34, T6, T12; new R27–R30, I37–I39, T25–T27      | 10 + 10 new |
+| WriteAhead.spec      | R4                                                                       | 1           |
+| Restore.spec         | T6                                                                       | 1           |
+| Codec.spec           | R5                                                                       | 1           |
+| Compile.spec         | R10, R16                                                                 | 2           |
+| StaticCli.spec       | R5                                                                       | 1           |
+| Actors.spec          | R6, R7, R18                                                              | 3           |
 
 **No merge:**
 
@@ -954,5 +956,5 @@ No user API; these extend the CLI records the guide already touches.
 - **No Plan text:** S8 (literal factory ids) is in `wiki/conventions/reusable-primitives.md`.
 
 
-**F3 (the user, 2026-11-16):** the merge lands directly in the Plans and Specs, following §4's batches, done by
+**F3** [decided: user 2026-11-16]: the merge lands directly in the Plans and Specs, following §4's batches, done by
 another session; Task edits follow the merge.

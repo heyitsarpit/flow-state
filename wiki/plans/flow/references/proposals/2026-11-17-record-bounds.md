@@ -1,13 +1,15 @@
-# Record size bounds: one rule (proposed)
-
-**Status (2026-11-20):** acted on: superseded by record-bounds-revised, then decided by @plan.Pending.D23 and D24 (no
-arbitrary limits). The text below is prior art.
+---
+proposal record-bounds
+status superseded 2026-11-17 [@proposal.record-bounds-revised]
+    proposed 2026-11-17
+---
+# Record size bounds: one rule
 
 **Rule:** no send ever waits on a record that may not encode. Lane and owed records encode by construction;
 only an actor record can fail, and then its plain writes wait while every ticket that would wait with them is
 refused at once.
 
-Status: proposed, the building lead of @task.V3.T20 (the convergence pass). Prior art: the WIP at `98b4f8b9`.
+Written by the building lead of @task.V3.T20 (the convergence pass). Prior art: the WIP at `98b4f8b9`.
 
 ## The class
 
@@ -18,15 +20,15 @@ awaits a waiting record (a send's acknowledgement, another lane's commit, the ac
 
 Findings this explains, from @task.V3.T20's reviews (14:47, 15:18) and the tests-first step (19:06):
 
-| Trace | Assumed at | Grew by |
-| ----- | ---------- | ------- |
-| 12 serialize Syncs of 200,000 chars withhold the identity | the input alone | queued inputs |
-| a record at the bound withholds when its head goes Held | commit time | `inFlight` false |
-| a retry's tenth digit, a cancel's displaced id | commit time | `retryCount`, `displaced` |
-| a 2.25 MB value beside a 9-byte one: both saved null | each value alone at 0 | the packing |
-| past 1,249 rows the node bound fails and withholds | one owed record | rows |
-| a receipt saved null refuses its turn at each start | the saved value | a `null` the Schema refuses |
-| transfers seed 7: a receipt in memory withholds the account for good | the actor record | memory; the ticket waits |
+| Trace                                                                | Assumed at            | Grew by                     |
+| -------------------------------------------------------------------- | --------------------- | --------------------------- |
+| 12 serialize Syncs of 200,000 chars withhold the identity            | the input alone       | queued inputs               |
+| a record at the bound withholds when its head goes Held              | commit time           | `inFlight` false            |
+| a retry's tenth digit, a cancel's displaced id                       | commit time           | `retryCount`, `displaced`   |
+| a 2.25 MB value beside a 9-byte one: both saved null                 | each value alone at 0 | the packing                 |
+| past 1,249 rows the node bound fails and withholds                   | one owed record       | rows                        |
+| a receipt saved null refuses its turn at each start                  | the saved value       | a `null` the Schema refuses |
+| transfers seed 7: a receipt in memory withholds the account for good | the actor record      | memory; the ticket waits    |
 
 ## Requirements, together
 

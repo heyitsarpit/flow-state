@@ -1,4 +1,8 @@
-# Test tooling and fakes: design and Spec (proposed, 2026-11-20)
+---
+proposal spec-test-tooling
+status proposed 2026-11-20
+---
+# Test tooling and fakes: design and Spec
 
 **Verdict:** keep `Story`, `Fake`, `run` and the generator; change three things. (1) Every fake resource gets one
 explicit life with one transition table, hostile by default, and each row is pinned by a contract function run on the
@@ -11,17 +15,17 @@ Everything below is proposed until the user accepts it. Paths are under `package
 
 ## 1. What exists
 
-| File (`src/host/testing/`) | Holds | State of it |
-| --- | --- | --- |
-| `story.ts` `Story.app`, `storyOf`, `forkReloads` | inert steps as data; `run({ steps, seed })` | holds; reviewed |
-| `steps.ts` `Step`, `WorldWord`, `StoryFailed`, `StoryTurnLimit` | the step and world vocabulary; `hide`, `show` exist | holds; missing steps in section 3.5 |
-| `run.ts` `startRun`, `run`, `runFrom`, `runForked`, `finish` | the run cursor: `tab`, `current`, `noted`, `evidence`, `page`, `late`, `uses` | holds; `finish` (631) raises two verdict parts as script faults; the dispose arm reaches `admission` and `driver` |
-| `fake.ts` `makeWorld`, `makeStore`, `Fake.*` | calls, holds, drops, offline, cleanups; store hold, refuse, refuseHeld, refuseLoad | holds; no close, no late, no never as a word, no duplicate; `Fake.storage.layer` (804) never closes |
-| `generate.ts` `generate`, `propertyTest`, `quieting` | draws steps; emulates late and reordered answers with its own `timers`, `offline`, `landOnReload` | works; about 15 mutable cursors with several writers each: an implicit state machine |
-| `sweep.ts` `pairSweep` | 8 phases by 7 faults | holds; items owed in @task.V3.T97 |
-| `store-contract.ts` `storeContract` | the Store contract (@task.V3.T58), run on a Layer | holds; header says refused and torn batches cannot be arranged |
-| `seam.ts` | drives Runtime internals for four host test files | a second way to run the runtime; deleted by @task.V3.T97 |
-| `clock.ts` `tabClock` | Effect scheduler and `TestClock` per tab | holds; settle cost owed (T97 3g) |
+| File (`src/host/testing/`)                                      | Holds                                                                                             | State of it                                                                                                       |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `story.ts` `Story.app`, `storyOf`, `forkReloads`                | inert steps as data; `run({ steps, seed })`                                                       | holds; reviewed                                                                                                   |
+| `steps.ts` `Step`, `WorldWord`, `StoryFailed`, `StoryTurnLimit` | the step and world vocabulary; `hide`, `show` exist                                               | holds; missing steps in section 3.5                                                                               |
+| `run.ts` `startRun`, `run`, `runFrom`, `runForked`, `finish`    | the run cursor: `tab`, `current`, `noted`, `evidence`, `page`, `late`, `uses`                     | holds; `finish` (631) raises two verdict parts as script faults; the dispose arm reaches `admission` and `driver` |
+| `fake.ts` `makeWorld`, `makeStore`, `Fake.*`                    | calls, holds, drops, offline, cleanups; store hold, refuse, refuseHeld, refuseLoad                | holds; no close, no late, no never as a word, no duplicate; `Fake.storage.layer` (804) never closes               |
+| `generate.ts` `generate`, `propertyTest`, `quieting`            | draws steps; emulates late and reordered answers with its own `timers`, `offline`, `landOnReload` | works; about 15 mutable cursors with several writers each: an implicit state machine                              |
+| `sweep.ts` `pairSweep`                                          | 8 phases by 7 faults                                                                              | holds; items owed in @task.V3.T97                                                                                 |
+| `store-contract.ts` `storeContract`                             | the Store contract (@task.V3.T58), run on a Layer                                                 | holds; header says refused and torn batches cannot be arranged                                                    |
+| `seam.ts`                                                       | drives Runtime internals for four host test files                                                 | a second way to run the runtime; deleted by @task.V3.T97                                                          |
+| `clock.ts` `tabClock`                                           | Effect scheduler and `TestClock` per tab                                                          | holds; settle cost owed (T97 3g)                                                                                  |
 
 Outside it: `tests/rules/rules.ts` holds 21 run rules as a plain list and `checked(run)` (574), which a test must
 remember to call; `tests/rules/sweep.ts` and `reloads.ts` run every Story at every reload position in three modes
@@ -45,19 +49,19 @@ What is wrong or missing, each from a review:
 
 ## 2. State inventory
 
-| State | Owner (one) | Values | Inputs that change it in one step |
-| --- | --- | --- | --- |
-| Store life, per store | `makeStore` | `Open`, `Closed` | services scope closes; `Fake.storage.close()` word; a fresh open after reload |
-| Write life, per batch | `makeStore` | `Held`, `Landed`, `Refused`, `Unheard` | arrival with the next word; `release`; `refuseHeld`; reload; close |
-| Load life, per open | `makeStore` | `Pending`, `Loaded`, `Refused`, `Unheard` | arrival; `refuseLoad`; `holdLoad`, release; close; tab death |
-| Call life, per call | `makeWorld` | section 3.2 | arrival with the next wire word; release; network word; clock; caller abort; tab death |
-| Network | `makeWorld` | `Online`, `Offline` | `Fake.network.offline`, `online` |
-| Page life, per tab | `startRun` | `Shown`, `Hidden`, `Gone` | `hide`, `show`, `reload`, `closeTab`, `openTab` |
-| Run cursor | `startRun` | step index, tab, open count, noted events | each step |
-| Server truth | `makeWorld` | the fixture's own value | a handler; a control word |
-| Draw cursor (generated) | `sourceOf` in `generate.ts` | random position, steps left, queue | each draw |
-| Verdict | nobody: derived | list of breaches | none; computed once from the finished run |
-| Time bounds | `tests/limits.ts` plus the `test` block of root `vite.config.ts` | numbers | a recorded re-measurement only |
+| State                   | Owner (one)                                                      | Values                                    | Inputs that change it in one step                                                      |
+| ----------------------- | ---------------------------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
+| Store life, per store   | `makeStore`                                                      | `Open`, `Closed`                          | services scope closes; `Fake.storage.close()` word; a fresh open after reload          |
+| Write life, per batch   | `makeStore`                                                      | `Held`, `Landed`, `Refused`, `Unheard`    | arrival with the next word; `release`; `refuseHeld`; reload; close                     |
+| Load life, per open     | `makeStore`                                                      | `Pending`, `Loaded`, `Refused`, `Unheard` | arrival; `refuseLoad`; `holdLoad`, release; close; tab death                           |
+| Call life, per call     | `makeWorld`                                                      | section 3.2                               | arrival with the next wire word; release; network word; clock; caller abort; tab death |
+| Network                 | `makeWorld`                                                      | `Online`, `Offline`                       | `Fake.network.offline`, `online`                                                       |
+| Page life, per tab      | `startRun`                                                       | `Shown`, `Hidden`, `Gone`                 | `hide`, `show`, `reload`, `closeTab`, `openTab`                                        |
+| Run cursor              | `startRun`                                                       | step index, tab, open count, noted events | each step                                                                              |
+| Server truth            | `makeWorld`                                                      | the fixture's own value                   | a handler; a control word                                                              |
+| Draw cursor (generated) | `sourceOf` in `generate.ts`                                      | random position, steps left, queue        | each draw                                                                              |
+| Verdict                 | nobody: derived                                                  | list of breaches                          | none; computed once from the finished run                                              |
+| Time bounds             | `tests/limits.ts` plus the `test` block of root `vite.config.ts` | numbers                                   | a recorded re-measurement only                                                         |
 
 Seams (typed values crossing):
 
@@ -77,55 +81,55 @@ Seams (typed values crossing):
 One `life` value and one queue of words per store. `Fake.storage.layer` and the Story's store become the same
 function, so `storeContract` runs on what Stories use.
 
-| Life | Input | Next | Effect seen by the app | Logged |
-| --- | --- | --- | --- | --- |
-| Open | write, no word | Open | lands | `Landed` |
-| Open | write, `hold` | Open | parked on a `Deferred` | `Held` |
-| Open | write, `refuse` | Open | fails `StoreRefused`, lands nothing | `Refused` |
-| Open | `release` on a held write | Open | lands, then answers | `Landed` |
-| Open | `refuseHeld` | Open | oldest held fails, lands nothing | `Refused` |
-| Open | load, no word | Open | answers the records (seeded order) | `Loaded` |
-| Open | load, `refuseLoad` | Open | fails; `ready` settles with the failure | `Refused` |
-| Open | load, `holdLoad` (**new**) | Open | parked; never silent: left pending is a breach at the end | `Pending` |
-| Open | close (scope finalizer, or `close` word) | Closed | held writes settle by the close mode (open item O1) | each held write |
-| Closed | write or load | Closed | fails with the Store contract's closed failure | `Refused after close` |
-| Closed | `release`, `refuseHeld` | Closed | script fault: nothing is held | none |
-| any | the calling tab died | same | never answers; a landed write still lands | `Unheard` |
+| Life   | Input                                    | Next   | Effect seen by the app                                    | Logged                |
+| ------ | ---------------------------------------- | ------ | --------------------------------------------------------- | --------------------- |
+| Open   | write, no word                           | Open   | lands                                                     | `Landed`              |
+| Open   | write, `hold`                            | Open   | parked on a `Deferred`                                    | `Held`                |
+| Open   | write, `refuse`                          | Open   | fails `StoreRefused`, lands nothing                       | `Refused`             |
+| Open   | `release` on a held write                | Open   | lands, then answers                                       | `Landed`              |
+| Open   | `refuseHeld`                             | Open   | oldest held fails, lands nothing                          | `Refused`             |
+| Open   | load, no word                            | Open   | answers the records (seeded order)                        | `Loaded`              |
+| Open   | load, `refuseLoad`                       | Open   | fails; `ready` settles with the failure                   | `Refused`             |
+| Open   | load, `holdLoad` (**new**)               | Open   | parked; never silent: left pending is a breach at the end | `Pending`             |
+| Open   | close (scope finalizer, or `close` word) | Closed | held writes settle by the close mode (open item O1)       | each held write       |
+| Closed | write or load                            | Closed | fails with the Store contract's closed failure            | `Refused after close` |
+| Closed | `release`, `refuseHeld`                  | Closed | script fault: nothing is held                             | none                  |
+| any    | the calling tab died                     | same   | never answers; a landed write still lands                 | `Unheard`             |
 
 Stored: `life`, the word queue, held entries, the records. Derived: a batch's status (from its log entry; T97 2i),
 `unused()`, what is left held.
 
 ### 3.2 Call life (owner: `makeWorld`)
 
-| Status | Input | Next | Notes |
-| --- | --- | --- | --- |
-| Arrived | network Offline | Lost at request | reaches no server (exists) |
-| Arrived | word `hold` at request | Held at request | exists |
-| Arrived | word `drop` at request | Lost at request | exists |
-| Arrived | no word, handler present | Handled | handler runs once per idempotency key (**new**, R9) |
-| Arrived | no word, no handler | Never | `Effect.never` (exists); left at the end is evidence, not a pass |
-| Held at request | `release` | Handled | FIFO per endpoint (exists) |
-| Handled | word `hold` at response | Held at response | exists |
-| Handled | word `drop` at response | Lost at response | handler effect kept (exists) |
-| Handled | word `late(duration)` (**new**) | Late | `Effect.sleep` on the tab's `TestClock`; no private timer list |
-| Handled | word `never()` (**new**) | Never | named, so a Story says it on purpose |
-| Handled | word `duplicate()` (**new**) | Answered twice | second answer after the first; the runtime must drop it |
-| Handled, Late, Held at response | answer when the caller is gone (aborted, disposed, tab dead) | Unheard | the answer is produced and logged, delivered to nobody (**new** as a logged status) |
-| any waiting | caller aborts | cleanup runs | cleanup may fail or die (exists: `FakeCleanupFailed`, `FakeCleanupDied`) |
-| Answered, Lost, Unheard | any | same | terminal |
+| Status                          | Input                                                        | Next             | Notes                                                                               |
+| ------------------------------- | ------------------------------------------------------------ | ---------------- | ----------------------------------------------------------------------------------- |
+| Arrived                         | network Offline                                              | Lost at request  | reaches no server (exists)                                                          |
+| Arrived                         | word `hold` at request                                       | Held at request  | exists                                                                              |
+| Arrived                         | word `drop` at request                                       | Lost at request  | exists                                                                              |
+| Arrived                         | no word, handler present                                     | Handled          | handler runs once per idempotency key (**new**, R9)                                 |
+| Arrived                         | no word, no handler                                          | Never            | `Effect.never` (exists); left at the end is evidence, not a pass                    |
+| Held at request                 | `release`                                                    | Handled          | FIFO per endpoint (exists)                                                          |
+| Handled                         | word `hold` at response                                      | Held at response | exists                                                                              |
+| Handled                         | word `drop` at response                                      | Lost at response | handler effect kept (exists)                                                        |
+| Handled                         | word `late(duration)` (**new**)                              | Late             | `Effect.sleep` on the tab's `TestClock`; no private timer list                      |
+| Handled                         | word `never()` (**new**)                                     | Never            | named, so a Story says it on purpose                                                |
+| Handled                         | word `duplicate()` (**new**)                                 | Answered twice   | second answer after the first; the runtime must drop it                             |
+| Handled, Late, Held at response | answer when the caller is gone (aborted, disposed, tab dead) | Unheard          | the answer is produced and logged, delivered to nobody (**new** as a logged status) |
+| any waiting                     | caller aborts                                                | cleanup runs     | cleanup may fail or die (exists: `FakeCleanupFailed`, `FakeCleanupDied`)            |
+| Answered, Lost, Unheard         | any                                                          | same             | terminal                                                                            |
 
 `times(n)` repeats a word for the next n calls; it is sugar over the word queue and writes no new state.
 
 ### 3.3 Page life (owner: `startRun`)
 
-| Life | Input | Next | Effect |
-| --- | --- | --- | --- |
-| Shown | `hide` | Hidden | listeners told; flush on hide runs |
-| Hidden | `show` | Shown | listeners told |
-| Shown, Hidden | `reload`, `closeTab` | Gone | listeners cleared; calls and writes from it become Unheard |
-| Gone | `openTab` | Shown | a fresh page; a fresh store open |
-| Gone | `hide`, `show` | Gone | script fault `TabClosed` |
-| Hidden | `reload` | Gone then Shown | **new row to test:** a reload while hidden opens shown |
+| Life          | Input                | Next            | Effect                                                     |
+| ------------- | -------------------- | --------------- | ---------------------------------------------------------- |
+| Shown         | `hide`               | Hidden          | listeners told; flush on hide runs                         |
+| Hidden        | `show`               | Shown           | listeners told                                             |
+| Shown, Hidden | `reload`, `closeTab` | Gone            | listeners cleared; calls and writes from it become Unheard |
+| Gone          | `openTab`            | Shown           | a fresh page; a fresh store open                           |
+| Gone          | `hide`, `show`       | Gone            | script fault `TabClosed`                                   |
+| Hidden        | `reload`             | Gone then Shown | **new row to test:** a reload while hidden opens shown     |
 
 ### 3.4 The verdict: derived, one function, always applied
 
@@ -148,12 +152,12 @@ export const verdictOf = (run: StoryRun, rules: ReadonlyArray<Rule>): ReadonlyAr
 
 `toolingRules` are plain `Rule` values in the same list, reading only the finished run:
 
-| Rule | Reads | Breach when |
-| --- | --- | --- |
-| `UnusedWireRule` | `run.left.words` | a wire or storage word no call or write consumed (today a script fault in `finish`) |
-| `CleanupLeft` | `run.left` after the last tab closed | a call still waiting whose caller never aborted it; a write or load still pending; a page listener still attached; a store still Open; a sleeper still on the clock; a cleanup that failed late |
-| Flow's run rules | evidence, trace, and the batches and calls the fakes received | the 21 existing rules, unchanged |
-| author rules (@task.V3.T106) | published snapshots | supplied by that Task as `Rule` values |
+| Rule                         | Reads                                                         | Breach when                                                                                                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UnusedWireRule`             | `run.left.words`                                              | a wire or storage word no call or write consumed (today a script fault in `finish`)                                                                                                             |
+| `CleanupLeft`                | `run.left` after the last tab closed                          | a call still waiting whose caller never aborted it; a write or load still pending; a page listener still attached; a store still Open; a sleeper still on the clock; a cleanup that failed late |
+| Flow's run rules             | evidence, trace, and the batches and calls the fakes received | the 21 existing rules, unchanged                                                                                                                                                                |
+| author rules (@task.V3.T106) | published snapshots                                           | supplied by that Task as `Rule` values                                                                                                                                                          |
 
 Leak detection needs no fiber inspection (Effect 4.1.4 has no `Supervisor`): everything an app can leave behind in
 a Story sits in a fake, so `left` is a read of the world's own state at the end. `left` is built in `finish`.
@@ -182,14 +186,14 @@ Stories only. `lenient` is deleted: its one use is that case.
 
 ### 3.5 Steps the neighbours need (all **new**, all data)
 
-| Step or word | For | Source |
-| --- | --- | --- |
-| `app.reload({ as: OtherSetup })` | save under build A, boot under build B; A, B, A, B | saved-records 294-308; T57 fourth review |
-| `Fake.storage.close()`, `holdLoad()` | the store closing mid-run; a load pending at dispose | @task.V3.T112 comment 07:17 |
-| `Fake.call(...).late(d)`, `.never()`, `.duplicate()`, `.times(n)` | late, never, twice | @task.V3.T112; reads-operations 443 |
-| `Fake.stream` words: replay, skip, speak after close | the data layer's frames | data-layer 386-400 (designed there; the word shape is this concept's) |
-| key list steps (add, remove, reorder), `freeze`, `thaw`, `Story.fragment` | fragment sequences | fragments 332-350; @task.V3.T29 |
-| `advance({ next })` skipping paused timers | schedules | @task.V3.T29 acceptance |
+| Step or word                                                              | For                                                  | Source                                                                |
+| ------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------- |
+| `app.reload({ as: OtherSetup })`                                          | save under build A, boot under build B; A, B, A, B   | saved-records 294-308; T57 fourth review                              |
+| `Fake.storage.close()`, `holdLoad()`                                      | the store closing mid-run; a load pending at dispose | @task.V3.T112 comment 07:17                                           |
+| `Fake.call(...).late(d)`, `.never()`, `.duplicate()`, `.times(n)`         | late, never, twice                                   | @task.V3.T112; reads-operations 443                                   |
+| `Fake.stream` words: replay, skip, speak after close                      | the data layer's frames                              | data-layer 386-400 (designed there; the word shape is this concept's) |
+| key list steps (add, remove, reorder), `freeze`, `thaw`, `Story.fragment` | fragment sequences                                   | fragments 332-350; @task.V3.T29                                       |
+| `advance({ next })` skipping paused timers                                | schedules                                            | @task.V3.T29 acceptance                                               |
 
 A fake cannot make a handler ignore abort or throw synchronously: those are properties of the user's service code,
 so they are fixture services under `fixtures/services/`, not world words.
@@ -217,12 +221,12 @@ for (const steps of sequencesOf(atoms, 3)) it(print(steps), () => Home.run({ ste
 
 ### 3.7 Commands and time
 
-| Command | What | Bound |
-| --- | --- | --- |
-| `nub run test -- <path>` | one area, quick tier | seconds |
-| `nub run test` | quick tier, type tests | the recorded suite time |
-| `nub run test:stress` | `*.stress.test.ts` | the recorded stress time |
-| `nub run faults --only <id>` | one planted fault | per fault |
+| Command                            | What                                                                       | Bound                       |
+| ---------------------------------- | -------------------------------------------------------------------------- | --------------------------- |
+| `nub run test -- <path>`           | one area, quick tier                                                       | seconds                     |
+| `nub run test`                     | quick tier, type tests                                                     | the recorded suite time     |
+| `nub run test:stress`              | `*.stress.test.ts`                                                         | the recorded stress time    |
+| `nub run faults --only <id>`       | one planted fault                                                          | per fault                   |
 | `nub run test:coverage -- <flags>` | sets `FLOW_COVERAGE=1`, passes flags through, `--coverage.reportOnFailure` | quick tier times the factor |
 
 One source for time: `tests/limits.ts` gives each long test its measured bound, and the `test` block multiplies
@@ -330,13 +334,13 @@ from T97's list to T112 (they are call life).
 
 ## 7. Handoff for the Opus leads
 
-| Task | Read first | Decided | Open, settle before code | First commit |
-| --- | --- | --- | --- | --- |
-| T117 | `tests/rules/sweep.ts`, `reloads.ts`, `tests/limits.ts`, root `vite.config.ts` test block, `bench.md` | one factor; flags pass through; report on failure | whether the per-firing cost is a rule's cost; the factor's value | a failing check that a coverage run of the two slow Stories passes; the profile |
-| T112 | `fake.ts` `makeStore` and `makeWorld`, `store-contract.ts`, `src/host/close.ts`, tables 3.1 to 3.3 | tables as written; hostile by default; red Stories are sorted, never switched off | O1 (close mode of held writes), from an IndexedDB contract case | the table tests red, the spike's count, the contract's close rows red on the fake |
-| T114 | `run.ts` `finish`, `tests/rules/rules.ts`, `generate.ts` `judged`, section 3.4 | derived verdict; `run()` judges; `Rule` shape unchanged | D1, D2 below | the leak Stories and `PropertyTestFailed` test red |
-| T97 | `seam.ts`, the four host test files, `generate.ts` `sourceOf` | port file by file; same faults caught before and after | which fixture takes each ported test | the fault list caught today, recorded by target; R1's lint rule red |
-| T29 | `steps.ts`, the neighbour seams in 3.5 | steps are data | D3; the word shapes for key lists and `Fake.stream` with their owners | type tests for each new step |
+| Task | Read first                                                                                            | Decided                                                                           | Open, settle before code                                              | First commit                                                                      |
+| ---- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| T117 | `tests/rules/sweep.ts`, `reloads.ts`, `tests/limits.ts`, root `vite.config.ts` test block, `bench.md` | one factor; flags pass through; report on failure                                 | whether the per-firing cost is a rule's cost; the factor's value      | a failing check that a coverage run of the two slow Stories passes; the profile   |
+| T112 | `fake.ts` `makeStore` and `makeWorld`, `store-contract.ts`, `src/host/close.ts`, tables 3.1 to 3.3    | tables as written; hostile by default; red Stories are sorted, never switched off | O1 (close mode of held writes), from an IndexedDB contract case       | the table tests red, the spike's count, the contract's close rows red on the fake |
+| T114 | `run.ts` `finish`, `tests/rules/rules.ts`, `generate.ts` `judged`, section 3.4                        | derived verdict; `run()` judges; `Rule` shape unchanged                           | D1, D2 below                                                          | the leak Stories and `PropertyTestFailed` test red                                |
+| T97  | `seam.ts`, the four host test files, `generate.ts` `sourceOf`                                         | port file by file; same faults caught before and after                            | which fixture takes each ported test                                  | the fault list caught today, recorded by target; R1's lint rule red               |
+| T29  | `steps.ts`, the neighbour seams in 3.5                                                                | steps are data                                                                    | D3; the word shapes for key lists and `Fake.stream` with their owners | type tests for each new step                                                      |
 
 ## 8. Proposed decisions
 

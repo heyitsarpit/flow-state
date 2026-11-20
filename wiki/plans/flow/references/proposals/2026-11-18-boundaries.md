@@ -1,4 +1,9 @@
-# Trust boundaries and errors (2026-11-18, proposed)
+---
+proposal boundaries
+status superseded 2026-11-18 [@proposal.replan]
+    proposed 2026-11-18
+---
+# Trust boundaries and errors
 
 **Bottom line:** T20 and T81 failed for four structural reasons. No fifth missing check explains them:
 
@@ -8,7 +13,7 @@
   requires.
 - No public function has a catch-all, so whatever was missed escapes as a raw `TypeError`.
 
-**Superseded (2026-11-18):** by [replan-2026-11-18.md](replan-2026-11-18.md); `module-composer` is not adopted.
+Superseded by @proposal.replan; `module-composer` is not adopted.
 
 Proposed fix, all of it **proposed**:
 

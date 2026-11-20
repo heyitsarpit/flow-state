@@ -1,15 +1,20 @@
-# Conventions: a folder that teaches the idiomatic way (accepted, 2026-11-16)
+---
+proposal conventions
+status accepted user 2026-11-16
+    proposed 2026-11-16
+---
+# Conventions: a folder that teaches the idiomatic way
 
 **Bottom line:** start `wiki/conventions/`, one page per idiomatic way of doing something in Flow, each
 with the problem, the rule, a before and after, and why. It is seeded from the conventions the user accepted in
-`ui-primitives-decisions-2026-11-16.md`; fixtures and Tasks cite its pages; the public docs' guides are rebuilt from
+@proposal.ui-primitives-decisions; fixtures and Tasks cite its pages; the public docs' guides are rebuilt from
 it once the API it uses is built. Accepted (the user, 2026-11-16): §5's four answers, all A.
 
 **Why now:** the UI-primitives review ended with more conventions than features (Q4, Q6, Q7, Q8, W8). They live
 only in a decisions log, and the docs' guides (`apps/docs/src/pages/guide/patterns.md`, `recipes.md`, last changed
 2026-07-03) teach the old API (`flow.after`, `submit`, `useResource`).
 
-**Read first:** `ui-primitives-decisions-2026-11-16.md` §3, §5 to §8, `revisit.md` ("Refresh the reference apps").
+**Read first:** @proposal.ui-primitives-decisions §3, §5 to §8, `revisit.md` ("Refresh the reference apps").
 
 ## 1. Where it lives
 

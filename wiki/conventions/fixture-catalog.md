@@ -1,11 +1,14 @@
+---
+convention fixture-catalog
+---
 # Fixture catalog
 
 **What it is:** the fixture apps. For each app it gives the machines, operations and journeys, the features each one
 adds and at which migration step, and the scenarios with the real tests they copy. After the apps come what changes
 in today's fixtures, the migration plan in Task order, and the Task text that must change. The rules for a fixture
-(additive growth, folder layout, manifest, the `S`, `L` and `E` codes) are in code:wiki/conventions/fixtures.md.
+(additive growth, folder layout, manifest, the `S`, `L` and `E` codes) are in @convention.fixtures.
 
-**Decided (the user, 2026-11-17):**
+**Decided** [decided: user 2026-11-17]:
 - 16 fixtures, each growing by new machines around the old ones: `shop`, `cells`, `lanes`, `sync`,
   `transfers`, `sign-in`, `session`, `command-palette`, `number-input`, `player`, `wizard`, `search`, `home`,
   `kanban`, `chat` and `draft`.
@@ -13,15 +16,15 @@ in today's fixtures, the migration plan in Task order, and the Task text that mu
   Q16 B; built by @task.V3.T86). `cells` and `lanes` stay their own fixtures.
 - The toaster, menu and combobox live in `kanban`, the tree in `draft`, and the token input in `chat`.
 - `subroutine` and `whenAbandoned` are built by @task.V3.T57.
-- Source review: code:wiki/plans/flow/references/proposals/fixture-catalog-review-2026-11-17.md; check:
-  code:wiki/plans/flow/references/proposals/fixture-catalog-check-2026-11-17.md.
+- Source review: @proposal.fixture-catalog-review; check:
+  @review.fixture-catalog-check.
 
 **This page is a task list.** Each scenario is a checklist item. At its close, the lead of each Task marks every
 item in the fixtures its step names, so the next agent starts from what is left:
 
 - built: tick the box and end the item with "built: Story id", once its Story or sample runs and was red before
   the build;
-- left: keep the box open and end the item with "left: @task.V3.Tn, needs the feature" when it uses a feature a
+- left: keep the box open and end the item with "left: `@task.V3.Tn`, needs the feature" when it uses a feature a
   later Task builds; anything buildable
   with features that exist is this Task's and is never left;
 - an unmarked item in a step's fixtures fails that Task's close, and its review checks every "left" reason.
@@ -49,77 +52,77 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 `pa` shop · `ce` cells · `la` lanes · `sy` sync · `tr` transfers · `si` sign-in · `se` session · `cp` command-palette ·
 `ni` number-input · `pl` player · `wz` wizard · `sr` search · `ho` home · `kb` kanban · `ch` chat · `dr` draft
 
-| Feature (API name)                                            |pa|ce|la|sy|tr|si|se|cp|ni|pl|wz|sr|ho|kb|ch|dr|
-| ------------------------------------------------------------- |--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|
-| compound `states`                                             |1 |. |. |. |. |. |. |. |U |U |2 |. |U |. |4 |. |
-| `S.X.history`, `history.child`, `S.previous.history`          |1 |. |. |. |. |. |. |. |. |U |2 |. |. |. |. |. |
-| `Flow.input` value-named actors                               |1 |. |. |1 |U |. |U |. |. |U |. |. |. |2 |4 |4 |
-| `Flow.private`                                                |. |. |. |1 |. |1 |. |. |. |U |. |. |. |. |. |. |
-| guards, `deny`, `check`                                       |1 |. |. |U |. |U |. |U |U |. |2 |4 |. |. |. |. |
-| `trait`                                                       |2 |. |. |2 |. |. |. |. |. |. |. |4 |2 |. |4 |4 |
-| `whenAbandoned`                                               |4 |. |. |. |. |. |. |. |. |. |. |. |. |. |4 |4 |
-| `subroutine` with exits                                       |2 |. |. |. |2 |2 |. |. |. |. |2 |. |. |. |. |. |
-| `.each({ of, max, by })`                                      |2 |. |. |. |. |. |. |. |. |. |. |. |2 |2 |4 |4 |
-| `.resumable()`                                                |. |. |. |. |. |. |. |. |. |. |. |. |2 |2 |. |4 |
-| raise into copies                                             |2 |. |. |. |. |. |. |. |. |. |. |. |2 |2 |. |. |
-| `schedules` with `armOn`                                      |U |. |. |U |U |U |. |. |U |U |U |. |U |. |. |. |
-| `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn`         |. |. |. |2 |. |. |. |. |. |. |. |. |U |8 |4 |4 |
-| an Effect `Schedule` as `schedule`                            |. |. |. |2 |. |. |. |. |. |. |. |. |U |. |4 |. |
-| `props`, `onProps`                                            |. |. |. |. |. |. |. |5 |6 |. |. |5 |. |8 |. |. |
-| `emits`, `onEmit`                                             |. |. |. |. |. |3 |. |3 |6 |. |. |5 |. |8 |. |. |
-| `Flow.context`, `onContext`, `C.slot.change`                  |1 |. |. |. |1 |1 |U |1 |. |. |. |. |2 |2 |4 |4 |
-| `ContextCycle`, `MissingContextProvider`                      |. |. |. |. |. |. |1 |. |. |. |. |. |2 |15|4 |. |
-| `ConflictingActorRef`, duplicate `.each` key, missing service |1 |. |. |. |. |. |. |. |. |. |. |4 |. |2 |. |. |
-| `createActor`, `disposeActor`                                 |. |. |. |. |1 |. |. |5 |6 |. |. |4 |. |2 |8 |8 |
-| `useActor` (React)                                            |. |. |. |. |. |18|. |18|18|. |. |18|. |18|18|. |
-| `send(ref, event)`                                            |1 |. |. |1 |. |. |. |. |. |1 |. |. |. |8 |. |. |
-| a deep mailbox, no ending lost                                |. |. |1 |. |. |. |1 |. |. |. |. |. |. |. |4 |. |
-| `forget`, `unsettledWrites`                                   |U |. |. |U |U |1 |. |. |. |. |. |. |. |. |. |4 |
-| `CleanupFailed`, `HoldForgotten`, `UnboundLane`               |U |. |. |U |U |U |. |. |. |. |. |. |. |. |. |. |
-| `late` handlers, `LateMayNotLeave`                            |4 |. |. |. |. |. |. |. |. |. |. |4 |. |. |. |4 |
-| `resource`, `O.x.lookup`                                      |U |. |. |U |1 |. |. |. |6 |. |4 |4 |4 |4 |4 |4 |
-| `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch`         |4 |. |. |. |4 |. |4 |. |. |. |. |4 |4 |4 |4 |. |
-| resource `subscribe.each`                                     |. |. |. |. |. |. |. |. |. |. |. |4 |4 |4 |. |8 |
-| `placeholder({ previous, input })`                            |. |. |. |. |4 |. |. |. |. |. |. |4 |. |4 |. |. |
-| `O.x.setData`, `O.x.invalidate`, `O.x.clear`                  |4 |. |. |. |4 |. |4 |. |. |. |. |4 |. |. |. |. |
-| `optimistic` values on a read                                 |4 |. |. |. |4 |. |4 |. |. |. |. |. |. |. |4 |. |
-| `reject`, `NotSent { Rejected }`                              |U |U |. |U |U |U |. |U |. |. |4 |. |. |. |4 |. |
-| `latest`, `Superseded`                                        |1 |. |U |. |. |. |. |. |6 |. |. |. |2 |2 |. |4 |
-| `serialize`, a deep queue, no ending lost                     |. |. |1 |. |. |. |. |. |. |. |. |. |. |4 |4 |. |
-| `concurrency: "cancel"`                                       |. |. |U |. |. |. |. |. |. |U |. |. |. |. |. |4 |
-| `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed`         |U |U |. |. |U |U |. |. |. |. |. |. |. |. |. |4 |
-| endings, `Flow.uncertain`, `unknown`                          |U |U |U |U |U |U |. |U |. |U |4 |. |U |2 |4 |4 |
-| Attempts: `O.x.retry`, `retryable`, `StillUnknown`            |U |. |U |. |U |. |. |. |. |. |. |. |. |. |. |4 |
-| `NotSent { Restored }`, `unknown { Restored }`                |U |. |. |. |U |. |. |. |. |. |. |. |. |. |4 |. |
-| `StorageRefused`, `NoPersistence`                             |13|. |. |. |U |. |1 |. |. |. |. |. |. |. |. |13|
-| `NotSent { OldVersion }`                                      |. |. |7 |. |. |. |. |. |. |. |. |. |. |7 |. |7 |
-| `NotSent { Disposed }`, `unknown { Disposed }`                |. |1 |. |. |U |. |. |. |. |. |. |. |. |. |4 |. |
-| `notSent:`, `otherwise`, `Flow.ignore`, mapper `Defect`       |1 |. |. |. |. |. |. |. |. |. |. |4 |. |2 |. |. |
-| canonical keys, `InvalidKey`, `KeyOmitsInput`                 |. |. |U |. |1 |. |. |. |. |. |. |4 |. |. |. |. |
-| `progress`                                                    |. |. |. |. |4 |. |. |. |. |. |. |. |. |. |4 |4 |
-| `previous` holds, `O.x.previous`                              |. |. |7 |. |7 |. |. |. |. |. |. |. |. |. |. |7 |
-| `idempotency`                                                 |4 |. |. |. |4 |. |. |. |. |. |. |. |. |. |4 |. |
-| `guarded`                                                     |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
-| owed endings, quarantine                                      |U |. |. |. |U |. |. |. |. |. |. |. |. |. |4 |4 |
-| `stream` `delivers: "every"`, `position`, `catchUp`           |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|11|
-| `delivers: "latest"`, `Feed.callback`, `dropAt`               |. |. |. |11|. |. |. |. |. |11|. |. |11|. |11|. |
-| `reconnect`, `idleTime`, `Flapping`, `ReleaseOverdue`         |. |. |. |. |. |. |. |. |. |. |. |. |11|. |11|11|
-| `Feed.live` proof, `missed` (`Unproven`, `Lost`, `Reset`)     |. |. |. |. |. |. |. |. |. |. |. |. |11|. |11|11|
-| `Feed.multiplex`, `DuplicateSession`, `UnplacedStream`        |. |. |. |. |. |. |. |. |. |. |. |. |11|11|11|. |
-| `entity`, `domain`, `read(...).list`/`.one`/`.byKey`          |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
-| `predicts`, repair, `basedOn`                                 |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
-| `.gone` tombstones                                            |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
-| `pagedBy`, `more`                                             |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
-| `persist`, restore, reload                                    |U |U |U |. |U |1 |U |U |. |. |U |. |U |2 |4 |4 |
-| release versions, saved-shape reset, migration                |. |. |. |7 |7 |7 |. |. |. |. |7 |. |. |7 |. |7 |
-| multi-tab ownership (Web Lock, second tab)                    |14|. |. |. |. |. |14|. |. |. |. |. |. |. |. |14|
-| storage failures: corrupt, quota, slow read, non-durable      |13|. |. |. |. |. |1 |. |. |. |. |. |. |. |. |13|
-| Runtime per scope, `dispose`                                  |U |. |. |U |U |. |1 |. |. |. |. |. |. |. |4 |4 |
-| lazy entries `{ id, load }`, adoption, dormant records        |. |. |. |. |. |. |15|. |. |. |15|. |. |15|. |. |
-| `EntryMismatch`, a failed load, a send to an unadopted entry  |. |. |. |. |. |. |15|. |. |. |15|. |. |15|. |. |
-| server rendering, hydration                                   |18|. |. |. |. |. |18|. |. |. |. |18|. |18|. |. |
-| `DehydrateCommitInFlight`, `DehydrateUnsettled`, `Hydration*` |18|. |. |. |. |. |18|. |. |. |. |18|. |18|. |. |
-| `inspect`, `trace.export`/`trace.import`, sinks, redaction    |16|. |. |. |16|16|. |. |. |. |. |. |16|. |16|. |
+| Feature (API name)                                            | pa  | ce  | la  | sy  | tr  | si  | se  | cp  | ni  | pl  | wz  | sr  | ho  | kb  | ch  | dr  |
+| ------------------------------------------------------------- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| compound `states`                                             | 1   | .   | .   | .   | .   | .   | .   | .   | U   | U   | 2   | .   | U   | .   | 4   | .   |
+| `S.X.history`, `history.child`, `S.previous.history`          | 1   | .   | .   | .   | .   | .   | .   | .   | .   | U   | 2   | .   | .   | .   | .   | .   |
+| `Flow.input` value-named actors                               | 1   | .   | .   | 1   | U   | .   | U   | .   | .   | U   | .   | .   | .   | 2   | 4   | 4   |
+| `Flow.private`                                                | .   | .   | .   | 1   | .   | 1   | .   | .   | .   | U   | .   | .   | .   | .   | .   | .   |
+| guards, `deny`, `check`                                       | 1   | .   | .   | U   | .   | U   | .   | U   | U   | .   | 2   | 4   | .   | .   | .   | .   |
+| `trait`                                                       | 2   | .   | .   | 2   | .   | .   | .   | .   | .   | .   | .   | 4   | 2   | .   | 4   | 4   |
+| `whenAbandoned`                                               | 4   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | 4   |
+| `subroutine` with exits                                       | 2   | .   | .   | .   | 2   | 2   | .   | .   | .   | .   | 2   | .   | .   | .   | .   | .   |
+| `.each({ of, max, by })`                                      | 2   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 2   | 2   | 4   | 4   |
+| `.resumable()`                                                | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 2   | 2   | .   | 4   |
+| raise into copies                                             | 2   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 2   | 2   | .   | .   |
+| `schedules` with `armOn`                                      | U   | .   | .   | U   | U   | U   | .   | .   | U   | U   | U   | .   | U   | .   | .   | .   |
+| `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn`         | .   | .   | .   | 2   | .   | .   | .   | .   | .   | .   | .   | .   | U   | 8   | 4   | 4   |
+| an Effect `Schedule` as `schedule`                            | .   | .   | .   | 2   | .   | .   | .   | .   | .   | .   | .   | .   | U   | .   | 4   | .   |
+| `props`, `onProps`                                            | .   | .   | .   | .   | .   | .   | .   | 5   | 6   | .   | .   | 5   | .   | 8   | .   | .   |
+| `emits`, `onEmit`                                             | .   | .   | .   | .   | .   | 3   | .   | 3   | 6   | .   | .   | 5   | .   | 8   | .   | .   |
+| `Flow.context`, `onContext`, `C.slot.change`                  | 1   | .   | .   | .   | 1   | 1   | U   | 1   | .   | .   | .   | .   | 2   | 2   | 4   | 4   |
+| `ContextCycle`, `MissingContextProvider`                      | .   | .   | .   | .   | .   | .   | 1   | .   | .   | .   | .   | .   | 2   | 15  | 4   | .   |
+| `ConflictingActorRef`, duplicate `.each` key, missing service | 1   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | .   | 2   | .   | .   |
+| `createActor`, `disposeActor`                                 | .   | .   | .   | .   | 1   | .   | .   | 5   | 6   | .   | .   | 4   | .   | 2   | 8   | 8   |
+| `useActor` (React)                                            | .   | .   | .   | .   | .   | 18  | .   | 18  | 18  | .   | .   | 18  | .   | 18  | 18  | .   |
+| `send(ref, event)`                                            | 1   | .   | .   | 1   | .   | .   | .   | .   | .   | 1   | .   | .   | .   | 8   | .   | .   |
+| a deep mailbox, no ending lost                                | .   | .   | 1   | .   | .   | .   | 1   | .   | .   | .   | .   | .   | .   | .   | 4   | .   |
+| `forget`, `unsettledWrites`                                   | U   | .   | .   | U   | U   | 1   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   |
+| `CleanupFailed`, `HoldForgotten`, `UnboundLane`               | U   | .   | .   | U   | U   | U   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   |
+| `late` handlers, `LateMayNotLeave`                            | 4   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | .   | .   | .   | 4   |
+| `resource`, `O.x.lookup`                                      | U   | .   | .   | U   | 1   | .   | .   | .   | 6   | .   | 4   | 4   | 4   | 4   | 4   | 4   |
+| `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch`         | 4   | .   | .   | .   | 4   | .   | 4   | .   | .   | .   | .   | 4   | 4   | 4   | 4   | .   |
+| resource `subscribe.each`                                     | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | 4   | 4   | .   | 8   |
+| `placeholder({ previous, input })`                            | .   | .   | .   | .   | 4   | .   | .   | .   | .   | .   | .   | 4   | .   | 4   | .   | .   |
+| `O.x.setData`, `O.x.invalidate`, `O.x.clear`                  | 4   | .   | .   | .   | 4   | .   | 4   | .   | .   | .   | .   | 4   | .   | .   | .   | .   |
+| `optimistic` values on a read                                 | 4   | .   | .   | .   | 4   | .   | 4   | .   | .   | .   | .   | .   | .   | .   | 4   | .   |
+| `reject`, `NotSent { Rejected }`                              | U   | U   | .   | U   | U   | U   | .   | U   | .   | .   | 4   | .   | .   | .   | 4   | .   |
+| `latest`, `Superseded`                                        | 1   | .   | U   | .   | .   | .   | .   | .   | 6   | .   | .   | .   | 2   | 2   | .   | 4   |
+| `serialize`, a deep queue, no ending lost                     | .   | .   | 1   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | 4   | .   |
+| `concurrency: "cancel"`                                       | .   | .   | U   | .   | .   | .   | .   | .   | .   | U   | .   | .   | .   | .   | .   | 4   |
+| `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed`         | U   | U   | .   | .   | U   | U   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   |
+| endings, `Flow.uncertain`, `unknown`                          | U   | U   | U   | U   | U   | U   | .   | U   | .   | U   | 4   | .   | U   | 2   | 4   | 4   |
+| Attempts: `O.x.retry`, `retryable`, `StillUnknown`            | U   | .   | U   | .   | U   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   |
+| `NotSent { Restored }`, `unknown { Restored }`                | U   | .   | .   | .   | U   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | .   |
+| `StorageRefused`, `NoPersistence`                             | 13  | .   | .   | .   | U   | .   | 1   | .   | .   | .   | .   | .   | .   | .   | .   | 13  |
+| `NotSent { OldVersion }`                                      | .   | .   | 7   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 7   | .   | 7   |
+| `NotSent { Disposed }`, `unknown { Disposed }`                | .   | 1   | .   | .   | U   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | .   |
+| `notSent:`, `otherwise`, `Flow.ignore`, mapper `Defect`       | 1   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | .   | 2   | .   | .   |
+| canonical keys, `InvalidKey`, `KeyOmitsInput`                 | .   | .   | U   | .   | 1   | .   | .   | .   | .   | .   | .   | 4   | .   | .   | .   | .   |
+| `progress`                                                    | .   | .   | .   | .   | 4   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | 4   |
+| `previous` holds, `O.x.previous`                              | .   | .   | 7   | .   | 7   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 7   |
+| `idempotency`                                                 | 4   | .   | .   | .   | 4   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | .   |
+| `guarded`                                                     | .   | .   | .   | .   | 12  | .   | .   | .   | .   | .   | .   | .   | .   | 12  | 12  | .   |
+| owed endings, quarantine                                      | U   | .   | .   | .   | U   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 4   | 4   |
+| `stream` `delivers: "every"`, `position`, `catchUp`           | .   | .   | .   | .   | 11  | .   | .   | .   | .   | .   | .   | .   | .   | 11  | 11  | 11  |
+| `delivers: "latest"`, `Feed.callback`, `dropAt`               | .   | .   | .   | 11  | .   | .   | .   | .   | .   | 11  | .   | .   | 11  | .   | 11  | .   |
+| `reconnect`, `idleTime`, `Flapping`, `ReleaseOverdue`         | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 11  | .   | 11  | 11  |
+| `Feed.live` proof, `missed` (`Unproven`, `Lost`, `Reset`)     | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 11  | .   | 11  | 11  |
+| `Feed.multiplex`, `DuplicateSession`, `UnplacedStream`        | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | .   | 11  | 11  | 11  | .   |
+| `entity`, `domain`, `read(...).list`/`.one`/`.byKey`          | .   | .   | .   | .   | 12  | .   | .   | .   | .   | .   | .   | .   | .   | 12  | 12  | .   |
+| `predicts`, repair, `basedOn`                                 | .   | .   | .   | .   | 12  | .   | .   | .   | .   | .   | .   | .   | .   | 12  | 12  | .   |
+| `.gone` tombstones                                            | .   | .   | .   | .   | 12  | .   | .   | .   | .   | .   | .   | .   | .   | 12  | 12  | .   |
+| `pagedBy`, `more`                                             | .   | .   | .   | .   | 12  | .   | .   | .   | .   | .   | .   | .   | .   | 12  | 12  | .   |
+| `persist`, restore, reload                                    | U   | U   | U   | .   | U   | 1   | U   | U   | .   | .   | U   | .   | U   | 2   | 4   | 4   |
+| release versions, saved-shape reset, migration                | .   | .   | .   | 7   | 7   | 7   | .   | .   | .   | .   | 7   | .   | .   | 7   | .   | 7   |
+| multi-tab ownership (Web Lock, second tab)                    | 14  | .   | .   | .   | .   | .   | 14  | .   | .   | .   | .   | .   | .   | .   | .   | 14  |
+| storage failures: corrupt, quota, slow read, non-durable      | 13  | .   | .   | .   | .   | .   | 1   | .   | .   | .   | .   | .   | .   | .   | .   | 13  |
+| Runtime per scope, `dispose`                                  | U   | .   | .   | U   | U   | .   | 1   | .   | .   | .   | .   | .   | .   | .   | 4   | 4   |
+| lazy entries `{ id, load }`, adoption, dormant records        | .   | .   | .   | .   | .   | .   | 15  | .   | .   | .   | 15  | .   | .   | 15  | .   | .   |
+| `EntryMismatch`, a failed load, a send to an unadopted entry  | .   | .   | .   | .   | .   | .   | 15  | .   | .   | .   | 15  | .   | .   | 15  | .   | .   |
+| server rendering, hydration                                   | 18  | .   | .   | .   | .   | .   | 18  | .   | .   | .   | .   | 18  | .   | 18  | .   | .   |
+| `DehydrateCommitInFlight`, `DehydrateUnsettled`, `Hydration*` | 18  | .   | .   | .   | .   | .   | 18  | .   | .   | .   | .   | 18  | .   | 18  | .   | .   |
+| `inspect`, `trace.export`/`trace.import`, sinks, redaction    | 16  | .   | .   | .   | 16  | 16  | .   | .   | .   | .   | .   | .   | 16  | .   | 16  | .   |
 
 Context forms the rows above stand for (@task.V3.T107 builds them; each has a Story and an edge-value sample):
 
@@ -1550,7 +1553,7 @@ it starts, and writes its scenarios red first. The step numbers are the matrix c
      `tests/generated/pairs-*.test.ts`, `tests/generated/profiles.test.ts`, `tests/rules/sweep.ts`, `bench/run.ts`,
      `tests/cli/cli.test.ts` and `flow.config.ts`. `tests/faults.ts` and `vite.config.ts` keep their path strings.
    - Every cell marked 1.
-2. **Fragments and schedules: @task.V3.T57,** with `subroutine` and `whenAbandoned` (the user, 2026-11-17). New:
+2. **Fragments and schedules: @task.V3.T57,** with `subroutine` and `whenAbandoned` [decided: user 2026-11-17]. New:
    `wizard`, `home` (no reads or streams yet), `kanban` (no domain yet). Every cell marked 2.
 3. **Emits: @task.V3.T77.**
 4. **Reads and operations: @task.V3.T21.** New: `search`, `chat` (no streams yet), `draft` (no streams or tabs yet).

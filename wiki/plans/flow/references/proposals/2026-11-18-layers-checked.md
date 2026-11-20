@@ -1,4 +1,9 @@
-# Layers and Checked: trust carried by types (2026-11-18, proposed)
+---
+proposal layers-checked
+status superseded 2026-11-18 [@proposal.replan]
+    proposed 2026-11-18
+---
+# Layers and Checked: trust carried by types
 
 **Bottom line:** untrusted input enters a codebase only through **layers**. A layer's output is a **`Checked`**
 type that only that layer can produce, so every other function, in any module, at any depth, proves it received
@@ -6,10 +11,10 @@ checked data just by its parameter types. The intended nesting of layers is stat
 proofs**: type-level files that compile only if the code makes them true. This is a small, general package
 (working name `checked`), not Flow-specific. Flow is its first user.
 
-**Superseded (2026-11-18):** by [replan-2026-11-18.md](replan-2026-11-18.md); `module-composer` is not adopted.
+Superseded by @proposal.replan; `module-composer` is not adopted.
 
 Everything here is **proposed**. Prior art, superseded by this file:
-code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md (doors, nominal tokens), and the layer-manifest
+@proposal.boundaries (doors, nominal tokens), and the layer-manifest
 spike on branch `worktree-agent-a215f85639e31d688`. A 10-minute spike of this design passed (section 8).
 
 ## 1. The problem
@@ -95,13 +100,13 @@ export default compose(
 
 **The vocabulary:**
 
-| Word | Meaning |
-| --- | --- |
+| Word                   | Meaning                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
 | `ring(name, why, ...)` | a level; holds `accepts` lines, modules and inner rings; several inner rings are siblings |
-| `X.accepts(A, B, ...)` | layer `X` is entered with exactly these: checked values of layers, and raw sources |
-| a module (`Core`) | ordinary code living at this level |
-| `across(X)` | an explicit exception inside `accepts`, for a sideways or outward link (not spiked yet) |
-| `compose(...)` | the whole composition |
+| `X.accepts(A, B, ...)` | layer `X` is entered with exactly these: checked values of layers, and raw sources        |
+| a module (`Core`)      | ordinary code living at this level                                                        |
+| `across(X)`            | an explicit exception inside `accepts`, for a sideways or outward link (not spiked yet)   |
+| `compose(...)`         | the whole composition                                                                     |
 
 **What the proof checks:**
 
@@ -136,14 +141,14 @@ field instead of the parent (`render(states: ReadonlyArray<string>)`). The rule:
 
 ## 5. Enforcement
 
-| Property | How |
-| --- | --- |
-| Data enters only through a layer, at any depth | **types**: `Checked` and `Raw` parameters |
-| The intended nesting holds | **composition proofs** (section 3) |
-| No one fakes a `Checked` value | by construction (unexported stamp key), plus a **lint rule** banning casts to it |
-| Imports point inward | a **folder-structure lint rule** (Flow's existing Scope import rules) |
-| A layer never lets a raw throw escape | the catch-all, by construction |
-| A copied or forged object is refused | `X.is` on object layers |
+| Property                                       | How                                                                              |
+| ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| Data enters only through a layer, at any depth | **types**: `Checked` and `Raw` parameters                                        |
+| The intended nesting holds                     | **composition proofs** (section 3)                                               |
+| No one fakes a `Checked` value                 | by construction (unexported stamp key), plus a **lint rule** banning casts to it |
+| Imports point inward                           | a **folder-structure lint rule** (Flow's existing Scope import rules)            |
+| A layer never lets a raw throw escape          | the catch-all, by construction                                                   |
+| A copied or forged object is refused           | `X.is` on object layers                                                          |
 
 Not enforced, by design: whether a layer's check is complete. The trusted type is the concept; the check's own
 decoding (a Schema) is the layer author's job.
@@ -152,7 +157,7 @@ decoding (a Schema) is the layer author's job.
 
 - **Layers (first cut):** `Definition`, `Machine`, `App`, `Ref`, `Event` (hot), `Callback` (hot), `Restored`,
   `Answer` (hot). The real list comes from the boundary map, section 1 of
-  code:wiki/plans/flow/references/proposals/boundaries-2026-11-18.md.
+  @proposal.boundaries.
 - **Identifier layers:** `ActorName`, `RecordKey`, `LaneKey`, `AttemptId`, `StateName`. Today these travel as plain
   `string` (`decodeName(compiled, name: string)`, `inputOfName(compiled, name: string)` in `src/core/identity.ts`),
   which is where T20's findings broke. T92 introduces them.
@@ -180,12 +185,12 @@ copy; hot layers remember nothing; `Layer.generic` keeps literal types (plain `L
 **Rings** (about 2 minutes of building): the public form and the type-only form compile together on correct code
 (`tsc` 0.05 s). One deliberate break of each rule:
 
-| Break | Result |
-| --- | --- |
+| Break                                            | Result                                                          |
+| ------------------------------------------------ | --------------------------------------------------------------- |
 | `Machine.accepts(Definition)`, forgetting `Body` | fails on that line: stated `Definition`, actual adds `raw:body` |
-| a World layer accepting Runtime's `Event` | fails: `"Answer reaches outside its ring"; reaches: "Event"` |
-| `peek(raw: unknown)` added to the core module | fails: `"peek takes a value its ring cannot see"` |
-| a `Layer("Forgotten", …)` with no line | the registry test reports `no line for Forgotten` |
+| a World layer accepting Runtime's `Event`        | fails: `"Answer reaches outside its ring"; reaches: "Event"`    |
+| `peek(raw: unknown)` added to the core module    | fails: `"peek takes a value its ring cannot see"`               |
+| a `Layer("Forgotten", …)` with no line           | the registry test reports `no line for Forgotten`               |
 
 **Found, to fix before it is public:**
 
@@ -204,5 +209,5 @@ copy; hot layers remember nothing; `Layer.generic` keeps literal types (plain `L
 4. **First adoption:** rebuild T81 on it and let T92 introduce the identifier layers (recommended), or a spike on
    two real modules first to measure `Accepts` at scale.
 5. **Skill:** fold this into the `policy-module-composition` skill as its mechanism (recommended).
-6. **Names:** `ring` for a level and `Layer` for a way in stay as they are for now (the user, 2026-11-18); `entry`
+6. **Names:** `ring` for a level and `Layer` for a way in stay as they are for now [decided: user 2026-11-18]; `entry`
    and `holds` (one word for both) were considered and not taken.

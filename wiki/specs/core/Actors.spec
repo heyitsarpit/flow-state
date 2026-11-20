@@ -389,7 +389,7 @@ requirements
                 are always reported. In Effect 4.1.4 an error-channel combinator on an interrupted
                 fiber (`catch*`, `mapError`, `tapError`, `retry`, `catchCause`) keeps only the
                 interrupt, so a typed cleanup failure under one never reaches Flow, while a defect
-                does. Decision (user, 2026-11-19): "Q11 A".
+                does. [decided: user 2026-11-19] "Q11 A".
 
                 Runtime disposal waits for its writes within the same bound, measured from the call to
                 dispose. Its first write is issued as soon as disposal's start cells have run, once
@@ -451,7 +451,7 @@ requirements
                 RuntimeNotReady, once disposal starts RuntimeDisposed, and it runs nothing then.
                 A failure, defect or interruption rejects with a FlowError coded RunFailed that
                 keeps the whole Cause (@spec.Diagnostics.R8); an aborted signal interrupts the
-                Effect, and a Runtime disposal interrupts it too. Decision (user, 2026-11-19):
+                Effect, and a Runtime disposal interrupts it too. [decided: user 2026-11-19]
                 "Q7 A". Proposed (the T99 lead, 2026-11-19): the signal interrupts the Effect,
                 never the wait, so the rejection keeps every cleanup failure; a signal aborted
                 before the call runs nothing.
@@ -605,11 +605,11 @@ invariants
     I35  During Runtime disposal, a call on the wire at its start is never cut short within the disposal bound: one 
          that settles before the bound ends by its own result and the disposal does not end before it settles,
         unless a refusal of the disposal's write ends it first (R23, I43); one still unsettled at the bound ends
-        unknown { Disposed }. Decision (user, 2026-11-10): "Q1 A", the bound gets its own Invariant. [@R22, @R23]
+        unknown { Disposed }. [decided: user 2026-11-10] "Q1 A", the bound gets its own Invariant. [@R22, @R23]
 
     I36  A head whose call ends definitely during Runtime disposal, within the bound, leaves no hold once the 
          disposal's write lands: the next boot restores none for it and delivers its own ending. An Attempt ended at
-        the bound restores as unknown { Restored } (R23). Decision (user, 2026-11-10): "Q1 A"; an unknown keeping its
+        the bound restores as unknown { Restored } (R23). [decided: user 2026-11-10] "Q1 A"; an unknown keeping its
         head Held is I29's. [@R22, @R23]
 
     I37  A shared actor that stays Free for the whole grace on the Runtime Clock has ended by the grace's end, unless 
@@ -652,7 +652,7 @@ invariants
     I48  Every non-interrupt reason of an interrupted task reaches the report of whoever closed its Owner, and one 
          Issue CleanupFailed in a life that records it. Proposed (the T99 lead, 2026-11-19). A reason reaches the
         task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
-        rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
+        rules; cleanups that die are always reported. [decided: user 2026-11-19] "Q11 A". [@R23, @R27]
 
     I49  A provider's dependents, a wave's consumers and the identities whose graces a step judges are visited in 
          incarnation start order, oldest first; a disposal ends next the oldest identity whose live consumers have all

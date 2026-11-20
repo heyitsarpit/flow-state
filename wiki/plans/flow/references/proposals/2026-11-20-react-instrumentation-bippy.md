@@ -1,6 +1,10 @@
-# React instrumentation with bippy (proposed, 2026-11-20)
+---
+proposal react-instrumentation-bippy
+status proposed 2026-11-20
+---
+# React instrumentation with bippy
 
-**Status:** proposed; saved for the user to explore later. Nothing here is decided. It blocks @task.V3.T108 (`StoryPlayer`
+Saved for the user to explore later. It blocks @task.V3.T108 (`StoryPlayer`
 and `definePresentation`, split from @task.V3.T30) until accepted or rejected.
 
 **Library: bippy** (`github.com/aidenybai/bippy`, MIT). It is the layer under react-scan; integrate bippy directly,
@@ -176,20 +180,20 @@ Anything not set falls back to Flow's defaults. `overlay.captions` is `"anchored
 is `boolean | { cursor: boolean }`. Features that only report (gaps, coverage, export) are not overlays: they have
 no on/off switch; you open them or ask the CLI.
 
-| # | Feature | Data it reads | Control | Default |
-|---|---|---|---|---|
-| 1 | Next-control spotlight, ghost cursor | `FrameView.next` | `overlay.spotlight` | on, no cursor |
-| 2 | Change outlines | `FrameView.changed` | `overlay.outlines` | on |
-| 3 | Actor badges | reader registry | `overlay.badges` | off |
-| 4 | Captions anchored to the component | `changed`, a scene's `anchor` | `overlay.captions`, `anchor` | anchored |
-| 5 | Auto-scroll | host node of `next`, `changed` | `overlay.scroll` | on |
-| 6 | Before → after chips | `ComponentAt` before, after | `overlay.chips` | off |
-| 7 | Click-to-explain | `getFiber(el)` → `ComponentAt`, evidence | the existing inspect control (Testing O9) | — |
-| 8 | Jump to the sender | `next.at.source` | button in inspect; `openSource` on the player | — |
-| 9 | Gap reports with a location | `NoControl` + last `path` | always on (O9 reports gaps; this adds where) | always |
-| 10 | Render-cost strip | `FrameView.renders` | `overlay.renderCost` | off |
-| 11 | Coverage summary | all `FrameView`s plus the Story's events | panel at the end of playback; `--ui` output | — |
-| 12 | Export with UI anchors | all `FrameView`s | `recordViews(...)`; CLI `story <id> --ui` | — |
+| #   | Feature                              | Data it reads                            | Control                                       | Default       |
+| --- | ------------------------------------ | ---------------------------------------- | --------------------------------------------- | ------------- |
+| 1   | Next-control spotlight, ghost cursor | `FrameView.next`                         | `overlay.spotlight`                           | on, no cursor |
+| 2   | Change outlines                      | `FrameView.changed`                      | `overlay.outlines`                            | on            |
+| 3   | Actor badges                         | reader registry                          | `overlay.badges`                              | off           |
+| 4   | Captions anchored to the component   | `changed`, a scene's `anchor`            | `overlay.captions`, `anchor`                  | anchored      |
+| 5   | Auto-scroll                          | host node of `next`, `changed`           | `overlay.scroll`                              | on            |
+| 6   | Before → after chips                 | `ComponentAt` before, after              | `overlay.chips`                               | off           |
+| 7   | Click-to-explain                     | `getFiber(el)` → `ComponentAt`, evidence | the existing inspect control (Testing O9)     | —             |
+| 8   | Jump to the sender                   | `next.at.source`                         | button in inspect; `openSource` on the player | —             |
+| 9   | Gap reports with a location          | `NoControl` + last `path`                | always on (O9 reports gaps; this adds where)  | always        |
+| 10  | Render-cost strip                    | `FrameView.renders`                      | `overlay.renderCost`                          | off           |
+| 11  | Coverage summary                     | all `FrameView`s plus the Story's events | panel at the end of playback; `--ui` output   | —             |
+| 12  | Export with UI anchors               | all `FrameView`s                         | `recordViews(...)`; CLI `story <id> --ui`     | —             |
 
 **Author: per presentation and per scene**
 
@@ -278,19 +282,19 @@ type OverlayTheme = "auto" | "light" | "dark" | "contrast"   // auto follows pre
 react-scan (`github.com/aidenybai/react-scan`, MIT) is the reference for how to use bippy and how to draw overlays
 over any app. Paths are under `packages/scan/src/` on `main`:
 
-| What to learn | Where | Feeds |
-|---|---|---|
-| Installing the hook before `react-dom` | `install-hook.ts`, `auto.ts` | `flow-state/react/instrument` |
-| Commit handling with bippy | `core/instrumentation.ts`, `core/index.ts` | `changed`, `renders` (#2, #10) |
-| Walking fibers, change descriptions | `lite/walk-fiber.ts`, `lite/change-description.ts` | #2, #6, #10 |
-| Source locations across React versions | `lite/fiber-source.ts` | `ComponentAt.source` (#7, #8) |
-| Outlines: canvas, rAF, viewport checks | `new-outlines/index.ts`, `new-outlines/canvas.ts` | #1, #2, #5 |
-| Off-main-thread drawing | `new-outlines/offscreen-canvas.worker.ts` | outlines that never slow the app |
-| Shadow DOM root for the overlay | `core/index.ts`, `new-outlines/index.ts` (`attachShadow`) | themes, isolation |
-| Inspect overlay, click-to-select | `web/views/inspector/overlay/index.tsx`, `flash-overlay.ts` | #7 |
-| Before → after values | `web/views/inspector/what-changed.tsx`, `diff-value.tsx` | #6 |
-| Toolbar and toggles | `web/toolbar.tsx`, `web/components/toggle/` | the viewer's toolbar |
-| Component names in builds | `react-component-name/` (bundler plugins) | names when builds strip them |
+| What to learn                          | Where                                                       | Feeds                            |
+| -------------------------------------- | ----------------------------------------------------------- | -------------------------------- |
+| Installing the hook before `react-dom` | `install-hook.ts`, `auto.ts`                                | `flow-state/react/instrument`    |
+| Commit handling with bippy             | `core/instrumentation.ts`, `core/index.ts`                  | `changed`, `renders` (#2, #10)   |
+| Walking fibers, change descriptions    | `lite/walk-fiber.ts`, `lite/change-description.ts`          | #2, #6, #10                      |
+| Source locations across React versions | `lite/fiber-source.ts`                                      | `ComponentAt.source` (#7, #8)    |
+| Outlines: canvas, rAF, viewport checks | `new-outlines/index.ts`, `new-outlines/canvas.ts`           | #1, #2, #5                       |
+| Off-main-thread drawing                | `new-outlines/offscreen-canvas.worker.ts`                   | outlines that never slow the app |
+| Shadow DOM root for the overlay        | `core/index.ts`, `new-outlines/index.ts` (`attachShadow`)   | themes, isolation                |
+| Inspect overlay, click-to-select       | `web/views/inspector/overlay/index.tsx`, `flash-overlay.ts` | #7                               |
+| Before → after values                  | `web/views/inspector/what-changed.tsx`, `diff-value.tsx`    | #6                               |
+| Toolbar and toggles                    | `web/toolbar.tsx`, `web/components/toggle/`                 | the viewer's toolbar             |
+| Component names in builds              | `react-component-name/` (bundler plugins)                   | names when builds strip them     |
 
 What react-scan does that we take as given: outlines drawn on one canvas in a Shadow DOM root, positioned with
 `IntersectionObserver` and `requestAnimationFrame`, optionally in an `OffscreenCanvas` worker; never per-element DOM

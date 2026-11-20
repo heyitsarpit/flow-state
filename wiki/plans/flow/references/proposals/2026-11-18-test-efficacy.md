@@ -1,3 +1,7 @@
+---
+review test-efficacy
+status open 2026-11-18
+---
 # Test efficacy audit (2026-11-18, proposed)
 
 **Bottom line:** in the kill matrix, every planted fault that a sweep caught was also caught by a hand test, a
@@ -12,8 +16,8 @@ proposed. Nothing in the package was changed.
 **Why now:** the suite takes 54 s, stress 65 s and faults 256 s (@task.V3.T83). The user asked which strategies should
 exist or be simplified before answering T83's three questions.
 
-**Read first:** @task.V3.T83 (last comments), code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md,
-code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md.
+**Read first:** @task.V3.T83 (last comments), @proposal.test-system,
+@review.performance-architecture.
 
 **Risk:** this sample covers 71 of 255 faults, those in `tests/faults.ts`: WriteLanes, Actors, Stories, WriteAhead,
 Turn and CommandLine. The codec, compile, context, restore and consolidation fault files and the whole stress tier
@@ -40,23 +44,23 @@ findings from the pair sweep. So "no unique catch" here makes a strategy a candi
 
 ## (a) What is tested, and how
 
-| Strategy | What it does | Code |
-| --- | --- | --- |
-| Hand Story tests | 67 files: outcomes by example; most call `checked` or `played` | `tests/<app>/` |
-| `src/` unit tests | 24 files: lane table, ledger, cells, codec, persist, directly | `src/**/*.test.ts` |
-| Run rules | 19 rules, applied where a test calls `checked`, `played` or a sweep | `tests/rules/*.ts` |
-| Rules once | every non-stress Story once under the rules | `tests/rules/sweep.test.ts` |
-| Another world | every Story under seed 2, and ended by a reload | `tests/rules/seeds*.test.ts` |
-| Reload sweep | every Story x every position x 3 modes; 8 rest and 12 stress shards | `tests/rules/sweep*.ts` |
-| Double reload | context Stories, at every position, one reload against two | `tests/rules/reloads.ts#onceShard` |
-| Triple reload | context Stories reloaded 0, 1 and 3 times at the end | `tests/rules/reloads.test.ts` |
-| Pair sweep | per sample set, 8 phases x 7 faults; drive seeds 1..1,000 to find phases | `tests/generated/pairs.ts` |
-| Generated | 10 seeds (stress 20) per sample set, with shrinking | `tests/generated/generated*.ts` |
-| App mix | apps run side by side, 5 seeds (stress 20) | `tests/generated/mix*.ts` |
-| CLI | `story list/run`, `trace` on every Story, direct and through the CLI | `tests/cli/cli.test.ts` |
-| Types, compile | type-level refusals, construction refusals | `tests/types/`, `tests/compile/` |
-| Stress tier | `*.stress.test.ts` under `FLOW_STRESS` | 25 files |
-| Planted faults | 255 faults + dead core, targets first, whole suite on a miss | `tools/faults/`, `tests/*faults.ts` |
+| Strategy          | What it does                                                             | Code                                |
+| ----------------- | ------------------------------------------------------------------------ | ----------------------------------- |
+| Hand Story tests  | 67 files: outcomes by example; most call `checked` or `played`           | `tests/<app>/`                      |
+| `src/` unit tests | 24 files: lane table, ledger, cells, codec, persist, directly            | `src/**/*.test.ts`                  |
+| Run rules         | 19 rules, applied where a test calls `checked`, `played` or a sweep      | `tests/rules/*.ts`                  |
+| Rules once        | every non-stress Story once under the rules                              | `tests/rules/sweep.test.ts`         |
+| Another world     | every Story under seed 2, and ended by a reload                          | `tests/rules/seeds*.test.ts`        |
+| Reload sweep      | every Story x every position x 3 modes; 8 rest and 12 stress shards      | `tests/rules/sweep*.ts`             |
+| Double reload     | context Stories, at every position, one reload against two               | `tests/rules/reloads.ts#onceShard`  |
+| Triple reload     | context Stories reloaded 0, 1 and 3 times at the end                     | `tests/rules/reloads.test.ts`       |
+| Pair sweep        | per sample set, 8 phases x 7 faults; drive seeds 1..1,000 to find phases | `tests/generated/pairs.ts`          |
+| Generated         | 10 seeds (stress 20) per sample set, with shrinking                      | `tests/generated/generated*.ts`     |
+| App mix           | apps run side by side, 5 seeds (stress 20)                               | `tests/generated/mix*.ts`           |
+| CLI               | `story list/run`, `trace` on every Story, direct and through the CLI     | `tests/cli/cli.test.ts`             |
+| Types, compile    | type-level refusals, construction refusals                               | `tests/types/`, `tests/compile/`    |
+| Stress tier       | `*.stress.test.ts` under `FLOW_STRESS`                                   | 25 files                            |
+| Planted faults    | 255 faults + dead core, targets first, whole suite on a miss             | `tools/faults/`, `tests/*faults.ts` |
 
 ## (b) Measured kill matrix and yield
 
@@ -64,22 +68,22 @@ The matrix covers 71 faults plus the dead core and the non-stress files. "Unique
 strategy catches; "shared" counts faults it catches along with another. Time is per-test file time from the
 alone run.
 
-| Strategy | Unique | Shared | Time (s) | Faults lost if removed |
-| --- | --- | --- | --- | --- |
-| Hand Story tests | 12 | 47 | 16 | 12 |
-| `src/` unit tests | 4 | 27 | 2 | 4 |
-| CLI | 4 | 29 | 40 | 4 |
-| Bench tests | 1 | 10 | 16 | 1 |
-| Reload sweep, rest | 0 | 29 | 113 | 0 |
-| Double reload (`onceShard`) | 0 | 23 | 70 | 0 |
-| Pair sweep | 0 | 29 | 107 | 0 |
-| Rules once | 0 | 25 | 2 | 0 |
-| Another world | 0 | 25 | 10 | 0 |
-| Triple reload | 0 | 18 | 4 | 0 |
-| App mix | 0 | 18 | 13 | 0 |
-| Generated (default) | 0 | 6 | about 6 | 0 |
-| Deep (`session/deep*`) | 0 | 3 | 47 | 0 |
-| Stress tier | not run | not run | 543 | not measured |
+| Strategy                    | Unique  | Shared  | Time (s) | Faults lost if removed |
+| --------------------------- | ------- | ------- | -------- | ---------------------- |
+| Hand Story tests            | 12      | 47      | 16       | 12                     |
+| `src/` unit tests           | 4       | 27      | 2        | 4                      |
+| CLI                         | 4       | 29      | 40       | 4                      |
+| Bench tests                 | 1       | 10      | 16       | 1                      |
+| Reload sweep, rest          | 0       | 29      | 113      | 0                      |
+| Double reload (`onceShard`) | 0       | 23      | 70       | 0                      |
+| Pair sweep                  | 0       | 29      | 107      | 0                      |
+| Rules once                  | 0       | 25      | 2        | 0                      |
+| Another world               | 0       | 25      | 10       | 0                      |
+| Triple reload               | 0       | 18      | 4        | 0                      |
+| App mix                     | 0       | 18      | 13       | 0                      |
+| Generated (default)         | 0       | 6       | about 6  | 0                      |
+| Deep (`session/deep*`)      | 0       | 3       | 47       | 0                      |
+| Stress tier                 | not run | not run | 543      | not measured           |
 
 - Removing every sweep and generator together (reload, double, triple, pairs, generated, mix, deep, another world,
   rules once) loses 0 of the 70 caught faults. Removing hand, `src/`, CLI and bench tests together loses 32.
@@ -167,23 +171,23 @@ Removal hazards to respect:
 
 ## (d) Per strategy: keep, simplify or remove
 
-| Strategy | Call | How, and the trade-off |
-| --- | --- | --- |
-| Hand Story tests | keep, prune | 12 unique catches for 16 s; prune (c) for clarity, not time |
-| `src/` unit tests | keep | 4 unique catches for 2 s |
-| Run rules | keep, add | Add the 9 missing crafted breach cases; a rule never seen firing is unproven |
-| Rules once, another world | keep | 25 shared catches for 12 s: the cheapest broad net |
-| Reload sweep, rest | simplify | Keep 3 modes and every position; fork from a cut (Q2) |
-| Double reload | simplify | 0 unique for 70 s: run it in hold windows and at the end |
-| Triple reload | keep | 18 shared catches for 4 s |
-| Pair sweep | simplify | Stop at the reachable phases, with a cap (Q1) |
-| Generated, mix | keep | Cheap in the default tier; the generator is the only source of unscripted sequences |
-| CLI | simplify | 4 unique; run and trace one Story per fixture, keep `story list` whole |
-| Deep | keep | 3 shared catches; the only depth checks (Codec R1) |
-| Types, compile | keep | Static and free; `nub run check` enforces the `@ts-expect-error` lines |
-| `it.fails` gap markers (29) | keep, count apart | A gap register; they catch nothing by design |
-| Stress tier | measure first | Not in this matrix; 543 s of file time. Measure its unique catches before cutting |
-| Planted faults | keep, fix | Size the copies (Q3); fix `mayStayGreen` (below) |
+| Strategy                    | Call              | How, and the trade-off                                                              |
+| --------------------------- | ----------------- | ----------------------------------------------------------------------------------- |
+| Hand Story tests            | keep, prune       | 12 unique catches for 16 s; prune (c) for clarity, not time                         |
+| `src/` unit tests           | keep              | 4 unique catches for 2 s                                                            |
+| Run rules                   | keep, add         | Add the 9 missing crafted breach cases; a rule never seen firing is unproven        |
+| Rules once, another world   | keep              | 25 shared catches for 12 s: the cheapest broad net                                  |
+| Reload sweep, rest          | simplify          | Keep 3 modes and every position; fork from a cut (Q2)                               |
+| Double reload               | simplify          | 0 unique for 70 s: run it in hold windows and at the end                            |
+| Triple reload               | keep              | 18 shared catches for 4 s                                                           |
+| Pair sweep                  | simplify          | Stop at the reachable phases, with a cap (Q1)                                       |
+| Generated, mix              | keep              | Cheap in the default tier; the generator is the only source of unscripted sequences |
+| CLI                         | simplify          | 4 unique; run and trace one Story per fixture, keep `story list` whole              |
+| Deep                        | keep              | 3 shared catches; the only depth checks (Codec R1)                                  |
+| Types, compile              | keep              | Static and free; `nub run check` enforces the `@ts-expect-error` lines              |
+| `it.fails` gap markers (29) | keep, count apart | A gap register; they catch nothing by design                                        |
+| Stress tier                 | measure first     | Not in this matrix; 543 s of file time. Measure its unique catches before cutting   |
+| Planted faults              | keep, fix         | Size the copies (Q3); fix `mayStayGreen` (below)                                    |
 
 - **Reload sweep:** 2 catches came from a single mode and 11 only from interior positions.
 - **Double reload:** most of its 7 catches break at every position. About 55 s saved; medium confidence.
@@ -218,14 +222,14 @@ Removal hazards to respect:
 These are default-suite file-time estimates against 443 s. Wall time falls by roughly a sixth to a seventh of each
 figure, since the suite is CPU-bound on 12 cores.
 
-| Change | Saves (s) | Confidence |
-| --- | --- | --- |
-| Pair sweep stops at the reachable phases | about 70 of 107 | medium (drives dominate reach) |
-| Double reload only in hold windows and at the end | about 55 of 70 | medium |
-| Reload sweep forked from a cut | about 60 of 113 | low until built |
-| CLI on one Story per fixture | about 30 of 40 | medium |
-| Hand-test pruning in (c) | under 1 | high |
-| Total | about 215 (about half the suite's file time) | medium |
+| Change                                            | Saves (s)                                    | Confidence                     |
+| ------------------------------------------------- | -------------------------------------------- | ------------------------------ |
+| Pair sweep stops at the reachable phases          | about 70 of 107                              | medium (drives dominate reach) |
+| Double reload only in hold windows and at the end | about 55 of 70                               | medium                         |
+| Reload sweep forked from a cut                    | about 60 of 113                              | low until built                |
+| CLI on one Story per fixture                      | about 30 of 40                               | medium                         |
+| Hand-test pruning in (c)                          | under 1                                      | high                           |
+| Total                                             | about 215 (about half the suite's file time) | medium                         |
 
 Faults: right-sizing the copies should end the 240 s timeouts. The suite cuts above shrink each whole-suite fallback
 by the same share.

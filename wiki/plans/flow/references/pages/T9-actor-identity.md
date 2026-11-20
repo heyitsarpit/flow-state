@@ -1,3 +1,6 @@
+---
+page T9-actor-identity
+---
 # Actor identity and context: what an app author notices (T9, 2026-11-17)
 
 **Bottom line:** a machine can read another actor's state as typed context, and react when it changes. A context

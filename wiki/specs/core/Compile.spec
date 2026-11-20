@@ -197,7 +197,7 @@ requirements
                 (Actors Spec R18). Call sites never supply wiring.
 
     R19  Context slots and reactions
-        source  wiki/plans/flow/references/proposals/context-slots-2026-11-20.md; @task.V3.T107.
+        source  @proposal.context-slots; @task.V3.T107.
         must    A slot binds to one provider, so every token in a derived slot's `reads` comes from one
                 definition: a type error, and for casts and plain JavaScript an InvalidConfiguration at
                 `["context", slot, "reads", key]`. The type error tells definitions apart by their literal

@@ -1,7 +1,10 @@
-# Runtime lifetimes: owners, one judge, one close (2026-11-19, proposed)
-
-**Status (2026-11-20):** acted on: accepted as Owners (the user, 2026-11-19); built by @task.V3.T99, merged as
-@plan.Pending.D34. The text below is prior art.
+---
+proposal runtime-lifetimes
+status merged 2026-11-20 [@task.V3.T99, @plan.Pending.D34]
+    accepted user 2026-11-19
+    proposed 2026-11-19
+---
+# Runtime lifetimes: owners, one judge, one close
 
 **Bottom line:** Every fiber the host starts belongs to an **Owner**: an Effect `Scope` holding that owner's fibers
 plus the cleanup failures found when they ended. Every fiber's `Exit` is split by one function, `judge`, inside the

@@ -1,12 +1,16 @@
+---
+review advisor-holes
+status open 2026-11-20
+---
 # Holes in the five advisor answers (proposed, 2026-11-20)
 
-**Bottom line (proposed):** a second adversarial layer over the five answers to `advisor-questions-2026-11-20.md`,
+**Bottom line (proposed):** a second adversarial layer over the five answers to @questions.advisor-questions,
 after each file's Sonnet "Review findings". Each section lists only new holes (or ones worse than stated), the
 questions still open, and a readiness line. Severity: **breaks** (loses, duplicates or invents an ending, record or
 value), **gap** (the design is silent where it must decide), **minor**. No sidecars were started: each section's
 reads were small enough to do directly. Nothing here is decided.
 
-## 1. Saved records (`saved-records-2026-11-20.md`, Q4)
+## 1. Saved records (@proposal.saved-records, Q4)
 
 ### Holes
 
@@ -78,7 +82,7 @@ reads were small enough to do directly. Nothing here is decided.
 **Readiness:** ready after named fixes for the Schema half (holes 1, 3, 4, 5); the rename and binding halves need
 the user's Q1 and Q4 first.
 
-## 2. Raw throws (`raw-throws-2026-11-20.md`, Q7)
+## 2. Raw throws (@proposal.raw-throws, Q7)
 
 ### Holes
 
@@ -126,7 +130,7 @@ the user's Q1 and Q4 first.
 **Readiness:** ready after named fixes: the copy rule (hole 1), recognition across copies (hole 2), per-entry codes,
 plus Review findings 1 and 4.
 
-## 3. Fragment lifetimes (`fragment-lifetimes-2026-11-20.md`, Q2)
+## 3. Fragment lifetimes (@proposal.fragment-lifetimes, Q2)
 
 ### Holes
 
@@ -169,7 +173,7 @@ plus Review findings 1 and 4.
 **Readiness:** ready after named fixes: the subject part (Q1, the user's), own exit (Q2), restore ids, plus Review
 findings 2, 3 and 7; item 25 must be settled with item 21, as Review finding 6 says.
 
-## 4. Body types (`body-types-2026-11-20.md`, Q1)
+## 4. Body types (@proposal.body-types, Q1)
 
 ### Holes
 
@@ -209,7 +213,7 @@ findings 2, 3 and 7; item 25 must be settled with item 21, as Review finding 6 s
 **Readiness:** ready to decide on the signature (Q1 A) with the named fixes; the second parameter's content is the
 implementer's, and Q2 is the user's, needed before T106.
 
-## 5. Machine calls (`machine-calls-2026-11-20.md`, Q5)
+## 5. Machine calls (@proposal.machine-calls, Q5)
 
 ### Holes
 
@@ -277,13 +281,13 @@ implementer's, and Q2 is the user's, needed before T106.
 The five proposals were revised in place; each ends in a "Revision log" that answers every Review finding and
 every hole above by number. Nothing is decided; no Plan, Spec, Task or code was edited.
 
-| Proposal | Verdict |
-| --- | --- |
-| `saved-records` | Ready to decide. Questions 7 to 10 choose options; the Schema half (unblocks T92) needs none. |
-| `raw-throws` | Ready after question 5 (how `Made` is recognised); `Bare<T>` on the real types is T98's first step. |
-| `fragment-lifetimes` | Ready after questions 11 and 12; the others have safe defaults. |
-| `body-types` | Ready to decide; questions 1 and 2 edit @plan.Rules and come before @task.V3.T106. |
-| `machine-calls` | §1 and §4 ready to decide; §2 and §3 ready after questions 17 and 18. |
+| Proposal             | Verdict                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `saved-records`      | Ready to decide. Questions 7 to 10 choose options; the Schema half (unblocks T92) needs none.       |
+| `raw-throws`         | Ready after question 5 (how `Made` is recognised); `Bare<T>` on the real types is T98's first step. |
+| `fragment-lifetimes` | Ready after questions 11 and 12; the others have safe defaults.                                     |
+| `body-types`         | Ready to decide; questions 1 and 2 edit @plan.Rules and come before @task.V3.T106.                  |
+| `machine-calls`      | §1 and §4 ready to decide; §2 and §3 ready after questions 17 and 18.                               |
 
 **Seams, each settled once (all proposed):**
 

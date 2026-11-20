@@ -1,3 +1,6 @@
+---
+page T99-runtime-life
+---
 # Runtime life: what an app author notices (T99, 2026-11-19)
 
 **Bottom line:** disposing a Runtime or an actor now always tells you when cleanup went wrong, never reports success
@@ -17,16 +20,16 @@ const result = await runtime.runPromise(effect, { signal })   // NEW: run an Eff
 
 ## What you notice at disposal
 
-| Case | What happens |
-| --- | --- |
-| A cleanup fails (dies, or fails with an error Flow sees) | `dispose()` rejects `CleanupFailed` with the whole cause; every caller of `dispose()` gets the same answer |
-| A cleanup is still running when the bound runs out | It counts as failed (`CleanupOverdue`, inside `CleanupFailed`); a failure that lands later goes to the host's report |
-| An actor's cleanup failed | Its ref is quarantined: each later ensure reports that failure, until `disposeActor` of the ref |
-| A failure nobody has heard yet | Never lost: it goes into `dispose()`'s `CleanupFailed`, or the host's report |
-| Queued events at `disposeActor` | Dropped; they never reach a new actor of the same name |
-| Order | Work stops before services are released; consumers end before providers |
-| A saved write held when its operation was removed | `forget` drops it with `HoldForgotten` evidence |
-| A write's record with no actor (unbound) | Listed by `unsettledWrites()` and reported `UnboundLane` at each boot |
+| Case                                                     | What happens                                                                                                         |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| A cleanup fails (dies, or fails with an error Flow sees) | `dispose()` rejects `CleanupFailed` with the whole cause; every caller of `dispose()` gets the same answer           |
+| A cleanup is still running when the bound runs out       | It counts as failed (`CleanupOverdue`, inside `CleanupFailed`); a failure that lands later goes to the host's report |
+| An actor's cleanup failed                                | Its ref is quarantined: each later ensure reports that failure, until `disposeActor` of the ref                      |
+| A failure nobody has heard yet                           | Never lost: it goes into `dispose()`'s `CleanupFailed`, or the host's report                                         |
+| Queued events at `disposeActor`                          | Dropped; they never reach a new actor of the same name                                                               |
+| Order                                                    | Work stops before services are released; consumers end before providers                                              |
+| A saved write held when its operation was removed        | `forget` drops it with `HoldForgotten` evidence                                                                      |
+| A write's record with no actor (unbound)                 | Listed by `unsettledWrites()` and reported `UnboundLane` at each boot                                                |
 
 ## One rule to know
 

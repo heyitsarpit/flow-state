@@ -1,3 +1,6 @@
+---
+convention fixtures
+---
 # Fixtures
 
 **Rule:** every public feature and behaviour is proven by a fixture app before it is built. A fixture is a small,
@@ -8,7 +11,7 @@ own tests, generator, reload sweep, app mix and bench all run. A hand-written te
 runtime behaviour, and whenever a review finds a bug. The lead lists the proof below; the orchestrator asks for it
 and the requirements review checks it (the V3 Epic's instructions, "Fixtures first").
 
-The fixtures, their scenarios, their sources and the migration plan are in code:wiki/conventions/fixture-catalog.md.
+The fixtures, their scenarios, their sources and the migration plan are in @convention.fixture-catalog.
 
 ## A fixture is a whole app
 
@@ -76,36 +79,36 @@ fixtures/services/<service>/   the contracts, fake server, adapter and any machi
 
 Catalog rows name scenarios by these codes, with parameters (`S1×{4,8,32}`).
 
-| Code | Structure                                                                                   |
-| ---- | ------------------------------------------------------------------------------------------- |
-| S1   | deep chain: a provider of a provider of a consumer, or nested placements, many layers        |
-| S2   | wide fan-out: one parent or provider, many children or consumers                            |
-| S3   | forest: several independent trees in one Runtime                                            |
-| S4   | dual role: a node that consumes one context and provides another                            |
-| S5   | override at a middle layer, with the root changing under it                                 |
-| S6   | parent ended, disposed, forgotten or reloaded under live children, in each order            |
-| S7   | refused shape: a cycle, a missing provider, a conflicting ref, a duplicate key               |
-| S8   | churn: children added and removed while work is live                                        |
-| S9   | reload at the deepest node                                                                  |
+| Code | Structure                                                                             |
+| ---- | ------------------------------------------------------------------------------------- |
+| S1   | deep chain: a provider of a provider of a consumer, or nested placements, many layers |
+| S2   | wide fan-out: one parent or provider, many children or consumers                      |
+| S3   | forest: several independent trees in one Runtime                                      |
+| S4   | dual role: a node that consumes one context and provides another                      |
+| S5   | override at a middle layer, with the root changing under it                           |
+| S6   | parent ended, disposed, forgotten or reloaded under live children, in each order      |
+| S7   | refused shape: a cycle, a missing provider, a conflicting ref, a duplicate key        |
+| S8   | churn: children added and removed while work is live                                  |
+| S9   | reload at the deepest node                                                            |
 
-| Code | Load                                                                         |
-| ---- | ---------------------------------------------------------------------------- |
-| L1   | many actors                                                                  |
-| L2   | a queue far deeper than any app builds, timed on the bench                    |
-| L3   | slow, lost, duplicated and out-of-order answers                              |
-| L4   | repeated reloads                                                             |
-| L5   | bursts faster than turns                                                     |
+| Code | Load                                                       |
+| ---- | ---------------------------------------------------------- |
+| L1   | many actors                                                |
+| L2   | a queue far deeper than any app builds, timed on the bench |
+| L3   | slow, lost, duplicated and out-of-order answers            |
+| L4   | repeated reloads                                           |
+| L5   | bursts faster than turns                                   |
 
-| Code | Edge value                                                                   |
-| ---- | ---------------------------------------------------------------------------- |
-| E1   | empty                                                                        |
-| E2   | `undefined` or `None` where allowed                                          |
-| E3   | a large value: thousands of items, long strings, deep nesting                |
-| E4   | a user-declared count (such as `.each({ max })`), at and just past            |
-| E5   | delays −1, 0, 2^31 − 1 and 2^31 ms                                           |
-| E6   | bigint keys and numbers at 2^53                                              |
-| E7   | a value or record that fails to decode                                       |
-| E8   | a reload mid-call                                                            |
+| Code | Edge value                                                         |
+| ---- | ------------------------------------------------------------------ |
+| E1   | empty                                                              |
+| E2   | `undefined` or `None` where allowed                                |
+| E3   | a large value: thousands of items, long strings, deep nesting      |
+| E4   | a user-declared count (such as `.each({ max })`), at and just past |
+| E5   | delays −1, 0, 2^31 − 1 and 2^31 ms                                 |
+| E6   | bigint keys and numbers at 2^53                                    |
+| E7   | a value or record that fails to decode                             |
+| E8   | a reload mid-call                                                  |
 
 ## Requirements per feature
 
@@ -139,17 +142,17 @@ Each feature or behaviour a Task builds or changes gets all of these, each red b
 Each fixture's `index.ts` exports one manifest, and `fixtures/index.ts` lists every manifest. The runners read that
 list, so no runner keeps its own list of fixtures:
 
-| Runner                    | Takes                                                                     |
-| ------------------------- | ------------------------------------------------------------------------- |
-| generator, usual          | every manifest's `samples`                                                |
-| generator, stress         | every manifest's `stressSamples`                                          |
-| profiles                  | every manifest's `samples`                                                |
-| app mix                   | every manifest's `mix` set                                                |
-| saved stress Stories      | every manifest's `savedStress`                                            |
-| reload sweep              | every manifest's `stories`                                                |
-| pair sweeps               | every manifest's `pairs`, split into four shard files                     |
-| bench                     | every manifest's `long` and `savedStress`                                 |
-| CLI and `flow.config.ts`  | every manifest's `app`                                                    |
+| Runner                   | Takes                                                 |
+| ------------------------ | ----------------------------------------------------- |
+| generator, usual         | every manifest's `samples`                            |
+| generator, stress        | every manifest's `stressSamples`                      |
+| profiles                 | every manifest's `samples`                            |
+| app mix                  | every manifest's `mix` set                            |
+| saved stress Stories     | every manifest's `savedStress`                        |
+| reload sweep             | every manifest's `stories`                            |
+| pair sweeps              | every manifest's `pairs`, split into four shard files |
+| bench                    | every manifest's `long` and `savedStress`             |
+| CLI and `flow.config.ts` | every manifest's `app`                                |
 
 A manifest (code:packages/flow-state-v3/fixtures/manifest.ts) holds:
 
@@ -166,7 +169,7 @@ A manifest (code:packages/flow-state-v3/fixtures/manifest.ts) holds:
 | `mix`           | the usual and stress samples set the app brings to the mix when it persists or calls a       |
 |                 | server: one set, since a mix holds each machine once                                         |
 | `pairs`         | each samples set the pair sweep drives, with its `reach`: `writes`, `persisted`,             |
-|                 | `cancelsAcknowledging` and `retainsUnknown`                                                   |
+|                 | `cancelsAcknowledging` and `retainsUnknown`                                                  |
 
 Samples are lists so an app grows a new set beside an old one: a set's seeds stay as they were, so its saved
 stress Story still replays. A refused shape (S7) is an exported Story builder that a test runs, not a registered
@@ -175,7 +178,7 @@ Story, since a refused admission rejects the run every runner makes.
 Long runs go behind the stress flag so the default suite stays fast. Planted faults (`tests/faults.ts`) and the
 lint overrides in `vite.config.ts` name fixture paths by string and are updated by hand when a path changes.
 
-The manifest's `bench` list holds the Stories worth timing; see code:wiki/conventions/bench.md.
+The manifest's `bench` list holds the Stories worth timing; see @convention.bench.
 
 ## The proof a lead gives at requirements
 
@@ -191,7 +194,7 @@ sources <file and test names>; red today: <what fails>.
 
 Property-based testing over a model of the app (fast-check's model-based testing), XState's model-based testing
 paths, and Flow's own `samplesOf` generator with the reload sweep. How a reference codebase is mined for cases:
-code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md.
+@proposal.ui-primitives.
 
 ## Not built yet
 

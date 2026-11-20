@@ -1,3 +1,7 @@
+---
+review plan-task-coverage
+status open 2026-11-11
+---
 # Plan to Task coverage check (proposed, 2026-11-11)
 
 **Bottom line (proposed):** of 265 public features and behaviours in the Plans' outcomes, 123 have no Task that
@@ -15,7 +19,7 @@ board to be checked against the Plans before production goes further.
 
 **Read first:** `wiki/specs/spec-split.md` ("Written when their phase starts"), the Tasks in
 `wiki/tasks/V3/P4.task` to `P15.task`, `packages/flow-state-v3/conformance/not-yet.ts`,
-`fixture-catalogue-2026-11-11.md` ("Features found by the Plan check").
+@proposal.fixture-catalogue ("Features found by the Plan check").
 
 **Risk:** "named" is a judgement on terse Task text. A Task named after a user-facing area (fragments, streams,
 entity store, Stories, React bindings) counts as naming the features its cited Plan outcomes list. A Task named
@@ -494,7 +498,7 @@ Each line is a proposed addition for the user's yes. Nothing has been edited in 
 
 **T47 fixtures**
 - Add the conformance-reachable rows to the catalogue: see "Features found by the Plan check" in
-  `fixture-catalogue-2026-11-11.md`.
+  @proposal.fixture-catalogue.
 
 ## Sidecar results
 

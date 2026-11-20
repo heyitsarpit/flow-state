@@ -1,8 +1,11 @@
+---
+review type-gaps-deep
+status resolved 2026-11-19 [@task.V3.T104]
+    open 2026-11-19
+---
 # Type gaps, deep pass (proposed)
 
-**Status (2026-11-20):** acted on: folded into @task.V3.T104 (the user, 2026-11-19). The text below is prior art.
-
-Status: proposed. Nothing here is decided. It extends @task.V3.T104 and does not repeat it.
+Folded into @task.V3.T104. The text below is prior art. It extends @task.V3.T104 and does not repeat it.
 
 Nine families explain the remaining type gaps. Each family drops a narrow type at one carrier type, and one
 change to that carrier restores most of the family. Four carriers matter most:
@@ -36,7 +39,7 @@ word is marked as new, renamed, existing or user-defined.
 
 ### F1. Contract carrier: `Bound` keeps only `R`
 
-- **Where it lives:** `Transaction<F, A, E, R>` and `Resource<F, A, E, R>` (code:src/contract.ts#Transaction).
+- **Where it lives:** `Transaction<F, A, E, R>` and `Resource<F, A, E, R>` (`src/contract.ts`).
 - **Where it drops:** `outcomes` returns `Bound<"write", R>` (src/contract.ts:184, :201). `BoundFields` stores
   `input` as `Codec<Values, Values>` and `key` as `ReadonlyArray<string>` (src/contract.ts:123). `Handles` then
   maps every operation to `WriteHandle<M, Values>` (src/definition.ts:251).
@@ -608,16 +611,16 @@ on the code, with any SAFETY comment treated as a claim to check. The classes:
 - **(c)** a genuine boundary.
 - **(d)** a TypeScript or Effect typing limit.
 
-| Area | (a) | (b) | (c) | (d) | Not a cast |
-| --- | --- | --- | --- | --- | --- |
-| src/*.ts | 13 | 4 | 4 | 20 | 11 |
-| src/host (not testing) | 6 | 1 | 5 | 2 | 6 |
-| src/host/testing | 9 | 0 | 1 | 5 | 0 |
-| src/core | 14 | 0 | 14 | 18 | 14 |
-| bench | 13 | 0 | 10 | 1 | 0 |
-| fixtures | 3 | 3 | 14 | 2 | 17 |
-| tests | 16 | 1 | 12 | 45 | 12 |
-| **Total** | **74** | **9** | **60** | **93** | **60** |
+| Area                   | (a)    | (b)   | (c)    | (d)    | Not a cast |
+| ---------------------- | ------ | ----- | ------ | ------ | ---------- |
+| src/*.ts               | 13     | 4     | 4      | 20     | 11         |
+| src/host (not testing) | 6      | 1     | 5      | 2      | 6          |
+| src/host/testing       | 9      | 0     | 1      | 5      | 0          |
+| src/core               | 14     | 0     | 14     | 18     | 14         |
+| bench                  | 13     | 0     | 10     | 1      | 0          |
+| fixtures               | 3      | 3     | 14     | 2      | 17         |
+| tests                  | 16     | 1     | 12     | 45     | 12         |
+| **Total**              | **74** | **9** | **60** | **93** | **60**     |
 
 The "not a cast" column holds literal-inference `as const`, exhaustiveness tables
 (`as const satisfies Record<IssueCode, Code>`), and `satisfies` against a real named type. Of the casts proper,
@@ -700,15 +703,15 @@ tests (16; S6, read by hand and not probed, low stakes):
 
 ### (b), removable once a carrier is fixed
 
-| Site | Family | Note |
-| --- | --- | --- |
-| src/compiled-parts.ts:23 `endingValue` `as never` | F2 | becomes one erase point with a derived target |
-| src/machine.ts:110 `erasedSelect` | `ContextSlot<V, P>` (T104 item 3) | the same |
-| src/machine.ts:116 `erasedWhen` | F2 (reaction value) | the same |
-| src/definition.ts:595 `Event: trusted(...)` | `EventOf<D>` (T104 item 4) | then (d): runtime union to mapped type |
-| src/host/run-promise.ts:51 `effect as Effect<A, E>` | `RuntimeConfig<R>` services carrier (S2) | `provideContext` |
-| fixtures/transfers/stories/structure.ts:160, :177, :215 (`untyped`) | F2, F3 | becomes `@ts-expect-error` |
-| tests/rules/records.ts:129 `["actor/", ...] as const` | `RecordKey` (T104 item 2) | |
+| Site                                                                | Family                                   | Note                                          |
+| ------------------------------------------------------------------- | ---------------------------------------- | --------------------------------------------- |
+| src/compiled-parts.ts:23 `endingValue` `as never`                   | F2                                       | becomes one erase point with a derived target |
+| src/machine.ts:110 `erasedSelect`                                   | `ContextSlot<V, P>` (T104 item 3)        | the same                                      |
+| src/machine.ts:116 `erasedWhen`                                     | F2 (reaction value)                      | the same                                      |
+| src/definition.ts:595 `Event: trusted(...)`                         | `EventOf<D>` (T104 item 4)               | then (d): runtime union to mapped type        |
+| src/host/run-promise.ts:51 `effect as Effect<A, E>`                 | `RuntimeConfig<R>` services carrier (S2) | `provideContext`                              |
+| fixtures/transfers/stories/structure.ts:160, :177, :215 (`untyped`) | F2, F3                                   | becomes `@ts-expect-error`                    |
+| tests/rules/records.ts:129 `["actor/", ...] as const`               | `RecordKey` (T104 item 2)                |                                               |
 
 Parameter contravariance at the `Compiled` boundary means the first three keep one cast each. Their target is then
 derived from the carrier rather than chosen by the writer.

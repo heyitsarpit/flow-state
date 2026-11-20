@@ -1,4 +1,8 @@
-# Test strategy, revision 2: most correctness per second (2026-11-18, proposed)
+---
+proposal test-strategy-r2
+status proposed 2026-11-18
+---
+# Test strategy, revision 2: most correctness per second
 
 **Bottom line:** keep one cheap, exhaustive core and spend the rest on generation aimed at where bugs come from.
 Replays of the same paths go.
@@ -24,12 +28,12 @@ Replays of the same paths go.
 cut. Stress falls from 65 s to about 30 s. Faults stays about 4 to 5 minutes, without timeouts.
 
 Every item below is proposed. This file supersedes nothing: the first proposal,
-code:wiki/plans/flow/references/proposals/test-efficacy-2026-11-18.md, stays as prior art.
+@review.test-efficacy, stays as prior art.
 
 **Why now:** the user asked for a deeper cut, focused on testing strategy for the most impact on correctness
 (@task.V3.T83).
 
-**Read first:** code:wiki/plans/flow/references/proposals/test-efficacy-2026-11-18.md (the kill matrix and its
+**Read first:** @review.test-efficacy (the kill matrix and its
 method).
 
 **Risk:** the planted-fault sample covers 71 of 255 faults, and the stress tier was not in the matrix. Every cut
@@ -40,16 +44,16 @@ below names the bug class it gives up.
 The evidence for this section is the Task records and git: 34 runtime bugs fixed since the package began, each
 with its finder.
 
-| Area | Bugs | Found by |
-| --- | --- | --- |
-| Context (waves, reload replay, provider order) | 7 | review 5, generated 1, app mix 1 |
-| Codec and value shapes (Date, NaN, Map, `-0`, `__proto__`, depth) | 6 | review 5, unknown 1 |
-| Actor lifetime and disposal | 5 | review 2, hand 1, unknown 2 |
-| Turn and schedules | 5 | review 3, run rule on a hand Story 2 |
-| Write-ahead | 4 | generated 2, hand 1, review 1 |
-| Lane endings | 4 | review 3, generated 1 |
-| Restore and reload | 2 | review 1, unknown 1 |
-| Compile | 1 | review 1 |
+| Area                                                              | Bugs | Found by                             |
+| ----------------------------------------------------------------- | ---- | ------------------------------------ |
+| Context (waves, reload replay, provider order)                    | 7    | review 5, generated 1, app mix 1     |
+| Codec and value shapes (Date, NaN, Map, `-0`, `__proto__`, depth) | 6    | review 5, unknown 1                  |
+| Actor lifetime and disposal                                       | 5    | review 2, hand 1, unknown 2          |
+| Turn and schedules                                                | 5    | review 3, run rule on a hand Story 2 |
+| Write-ahead                                                       | 4    | generated 2, hand 1, review 1        |
+| Lane endings                                                      | 4    | review 3, generated 1                |
+| Restore and reload                                                | 2    | review 1, unknown 1                  |
+| Compile                                                           | 1    | review 1                             |
 
 Findings:
 
@@ -190,11 +194,11 @@ Each one targets a bug class from section 1. None needs a second model.
 These are estimates from per-test file time. Wall time is about one eighth of file time on 12 cores; T83's last
 alone run had 54 s wall against 432 s of file time.
 
-| Command | Now | After the cuts | After fork from a cut |
-| --- | --- | --- | --- |
-| Suite | 54 s (443 s files) | about 24 s (about 195 s) | about 17 s (about 140 s) |
-| Stress | 65 s (543 s files) | about 30 s (about 200 s; the palette shards' 22 s bound the wall) | same |
-| Faults | 256 s with reds | about 4 to 5 min, no load timeouts | same |
+| Command | Now                | After the cuts                                                    | After fork from a cut    |
+| ------- | ------------------ | ----------------------------------------------------------------- | ------------------------ |
+| Suite   | 54 s (443 s files) | about 24 s (about 195 s)                                          | about 17 s (about 140 s) |
+| Stress  | 65 s (543 s files) | about 30 s (about 200 s; the palette shards' 22 s bound the wall) | same                     |
+| Faults  | 256 s with reds    | about 4 to 5 min, no load timeouts                                | same                     |
 
 Where the suite's file time goes:
 

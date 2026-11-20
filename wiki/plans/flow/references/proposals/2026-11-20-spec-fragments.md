@@ -1,4 +1,8 @@
-# Fragments: one table decides every fragment instance (proposed, 2026-11-20)
+---
+proposal spec-fragments
+status proposed 2026-11-20
+---
+# Fragments: one table decides every fragment instance
 
 A fragment instance gets no lifecycle writers of its own. Whether it exists is derived from three facts the turn
 already commits (the active chain's activations, the host's `.each` list, the `resetOn` value), and one function,
@@ -14,17 +18,17 @@ and @task.V3.T76 and feeds @task.V3.T72, @task.V3.T48 and @task.V3.T106.
 Production has no fragment feature. `trait`, `subroutine`, `.each`, `resumable`, `whenAbandoned`, `raise` (as a
 transition part) and `notify` have no hit in `packages/flow-state-v3/src/`, `fixtures/` or `tests/`.
 
-| File and symbol | What it does today | Holds or changes |
-| --- | --- | --- |
-| `world.ts#Incarnation` | one flat record per actor: state, activations, memory, schedules | gains `instances` |
-| `world.ts#OwnedBy` | `Root` or `State { activation }` owns a lane's work | holds; gains `Instance` |
-| `tree.ts#moveOf`, `#chainOf`, `#historyAfter` | one move's exits and entries; activations | unchanged (3.2) |
-| `tx.ts#mintIncarnation`, `#putIncarnation`, `#dropIncarnation` | the only mint, set and delete | mints instances |
-| `incarnations.ts#makeIncarnations` | `start`, `ensure`, `release`, `end`, `dispose`, `boot` | calls `settle` |
-| `disposal.ts#makeDisposal` | Runtime disposal within its bound | ends instances by the table |
-| `compiled.ts#Compiled`, `#Node` | one machine: `states` by path, `root`, `fields` | gains `slots`, `fragments` |
-| `turn.ts#runTurn` | one event, one alternative, one move | **missing: parts** |
-| `schedules.ts`, `world.ts#Tracked`, `#trackOf` | timers per incarnation, by track | called per scope (2.3) |
+| File and symbol                                                | What it does today                                               | Holds or changes            |
+| -------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------- |
+| `world.ts#Incarnation`                                         | one flat record per actor: state, activations, memory, schedules | gains `instances`           |
+| `world.ts#OwnedBy`                                             | `Root` or `State { activation }` owns a lane's work              | holds; gains `Instance`     |
+| `tree.ts#moveOf`, `#chainOf`, `#historyAfter`                  | one move's exits and entries; activations                        | unchanged (3.2)             |
+| `tx.ts#mintIncarnation`, `#putIncarnation`, `#dropIncarnation` | the only mint, set and delete                                    | mints instances             |
+| `incarnations.ts#makeIncarnations`                             | `start`, `ensure`, `release`, `end`, `dispose`, `boot`           | calls `settle`              |
+| `disposal.ts#makeDisposal`                                     | Runtime disposal within its bound                                | ends instances by the table |
+| `compiled.ts#Compiled`, `#Node`                                | one machine: `states` by path, `root`, `fields`                  | gains `slots`, `fragments`  |
+| `turn.ts#runTurn`                                              | one event, one alternative, one move                             | **missing: parts**          |
+| `schedules.ts`, `world.ts#Tracked`, `#trackOf`                 | timers per incarnation, by track                                 | called per scope (2.3)      |
 
 Wrong or missing, in order of weight:
 
@@ -44,14 +48,14 @@ Wrong or missing, in order of weight:
 
 ### 2.1 State this concept owns
 
-| State | Values | Inputs that change it in one step |
-| --- | --- | --- |
-| an instance's existence and status | absent, `Live`, `Frozen` | every row of table 3.3 |
-| an instance's identity | `InstanceId`, minted | a `Start` row only; never rewritten |
-| an instance's `reset` value | none, or the encoded reset value | a `Start` row only |
-| an instance's memory slice | decoded `Values` | its own handlers' `updateMemory`; `Start` seeds it |
-| a frozen instance's parked endings | list of mail | an ending for a `Frozen` instance; `Thaw` drains; `End` drops |
-| pending settle | flag per incarnation | commit sets it when committed facts differ from the settled plan |
+| State                              | Values                           | Inputs that change it in one step                                |
+| ---------------------------------- | -------------------------------- | ---------------------------------------------------------------- |
+| an instance's existence and status | absent, `Live`, `Frozen`         | every row of table 3.3                                           |
+| an instance's identity             | `InstanceId`, minted             | a `Start` row only; never rewritten                              |
+| an instance's `reset` value        | none, or the encoded reset value | a `Start` row only                                               |
+| an instance's memory slice         | decoded `Values`                 | its own handlers' `updateMemory`; `Start` seeds it               |
+| a frozen instance's parked endings | list of mail                     | an ending for a `Frozen` instance; `Thaw` drains; `End` drops    |
+| pending settle                     | flag per incarnation             | commit sets it when committed facts differ from the settled plan |
 
 Not state of this concept (derived, never stored): whether a subroutine is active (its state's activation); a copy's
 `item` (the host list's entry with its key); the snapshot's slices and keyed lists; the subject path; key order.
@@ -73,18 +77,18 @@ path is the reset values and keys along the address, outermost first (WriteLanes
 
 ### 2.3 Seams
 
-| Neighbour | Crosses | Direction |
-| --- | --- | --- |
-| typed machine (T113) | `Compiled.slots`, `Compiled.fragments`, a scope on every handler and schedule | I read |
-| typed machine (T113) | `InstanceTree<Def>`: slot names, `.each` key type, fragment emits and memory | they derive |
-| turn (no owner yet) | `Scope` (`{ memory, props, key?, item? }`); the `Settled` plan applied at commit | I offer |
-| schedules (T57, done) | occasions `Entered`, `Left`, `Frozen`, `Thawed`; `Mail.Firing` gains `instance` | I call |
-| reads and operations | `OwnedBy.Instance { id }`, `subjectOf`, `Ended { id, subject, cause, releases }` | I notify |
-| saved records | `Incarnation.instances` out; decoded instances in, ids dropped (Restore R1) | both ways |
-| emits (T77) | `Emitted { address, instance, name, payload }`; listeners keyed by slot name | I address |
-| props (T76) | nothing of their own: props stay on the root; every `Scope` carries the root's props | they own |
-| data layer | none | none |
-| lazy features (T48) | a slot whose fragment is not adopted is not wanted; adoption is a settle occasion | open (7) |
+| Neighbour             | Crosses                                                                              | Direction   |
+| --------------------- | ------------------------------------------------------------------------------------ | ----------- |
+| typed machine (T113)  | `Compiled.slots`, `Compiled.fragments`, a scope on every handler and schedule        | I read      |
+| typed machine (T113)  | `InstanceTree<Def>`: slot names, `.each` key type, fragment emits and memory         | they derive |
+| turn (no owner yet)   | `Scope` (`{ memory, props, key?, item? }`); the `Settled` plan applied at commit     | I offer     |
+| schedules (T57, done) | occasions `Entered`, `Left`, `Frozen`, `Thawed`; `Mail.Firing` gains `instance`      | I call      |
+| reads and operations  | `OwnedBy.Instance { id }`, `subjectOf`, `Ended { id, subject, cause, releases }`     | I notify    |
+| saved records         | `Incarnation.instances` out; decoded instances in, ids dropped (Restore R1)          | both ways   |
+| emits (T77)           | `Emitted { address, instance, name, payload }`; listeners keyed by slot name         | I address   |
+| props (T76)           | nothing of their own: props stay on the root; every `Scope` carries the root's props | they own    |
+| data layer            | none                                                                                 | none        |
+| lazy features (T48)   | a slot whose fragment is not adopted is not wanted; adoption is a settle occasion    | open (7)    |
 
 ## 3. The design
 
@@ -126,14 +130,14 @@ without rewriting a reviewed record. `item` is not stored: it is the host list's
 A subroutine's states compile into the host's `Compiled.states` under its placement state (`WIZARD.CANCELLING.ASKING`),
 each `Node` carrying its scope. Then the code that exists already gives every subroutine rule:
 
-| Rule (@plan.Machines.O2) | Given by |
-| --- | --- |
-| entered at its default, or is a leaf | `Node.default`, `leafOf` |
-| abandoned by a transition that exits it | `moveOf`'s exits |
-| an ancestor's `"self"` does not abandon it | `moveOf` exits nothing above the handler's boundary |
-| host events fall through to ancestors | `runTurn`'s walk up `chainOf` |
-| a new entry is a new incarnation | the placement state's new `ActivationId` |
-| history restores control only | `historyAfter`; the slice is seeded fresh by `Start` |
+| Rule (@plan.Machines.O2)                   | Given by                                             |
+| ------------------------------------------ | ---------------------------------------------------- |
+| entered at its default, or is a leaf       | `Node.default`, `leafOf`                             |
+| abandoned by a transition that exits it    | `moveOf`'s exits                                     |
+| an ancestor's `"self"` does not abandon it | `moveOf` exits nothing above the handler's boundary  |
+| host events fall through to ancestors      | `runTurn`'s walk up `chainOf`                        |
+| a new entry is a new incarnation           | the placement state's new `ActivationId`             |
+| history restores control only              | `historyAfter`; the slice is seeded fresh by `Start` |
 
 An exit is a compiled `Target` the host's filling supplies; "the filling leaves the subroutine's state" and "every
 exit is filled" are construction checks, and an exit no state takes is the `flow check` finding T109 asks for. The
@@ -148,20 +152,20 @@ that state is on the chain, with `scope` its activation. The prototype's per-fra
 
 Wanted is derived top-down, outermost slot first, hosts before their children:
 
-| Slot | Wanted while | Anchor (a change means another incarnation) |
-| --- | --- | --- |
-| root trait | the actor's incarnation is live and `resetOn` is present | host id, reset |
-| node trait | its node is on the chain and `resetOn` is present | host id, node activation, reset |
-| `.resumable()` trait | as its placement | host id, reset (the activation is not part of it) |
-| subroutine slice | its state is on the chain | host id, state activation |
-| `.each` copy | its host is live and its key is in the host's repaired list | host id, key, and the slot's own anchor |
+| Slot                 | Wanted while                                                | Anchor (a change means another incarnation)       |
+| -------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| root trait           | the actor's incarnation is live and `resetOn` is present    | host id, reset                                    |
+| node trait           | its node is on the chain and `resetOn` is present           | host id, node activation, reset                   |
+| `.resumable()` trait | as its placement                                            | host id, reset (the activation is not part of it) |
+| subroutine slice     | its state is on the chain                                   | host id, state activation                         |
+| `.each` copy         | its host is live and its key is in the host's repaired list | host id, key, and the slot's own anchor           |
 
 `facts` are: the chain and activations after the turn's move; each live host's after memory; the reset values as last
 read. A normal turn keeps reset values and reads lists and chain; the follow-up reset turn re-reads reset values.
 
 | Stored | Wanted | Step | Result and effects |
-| --- | --- | --- | --- |
-| absent | no | none | |
+| ------ | ------ | ---- | ------------------ |
+| absent | no     | none |                    |
 | Slot | Wanted while | Anchor (a change is another incarnation) |
 | `Live(a)` | `a` | `Keep` | unchanged; recurse |
 | `Live(a)` | `b ≠ a` | `End(Reset)`, `Start` | one turn; the old one's `whenAbandoned` runs |
@@ -175,11 +179,11 @@ read. A normal turn keeps reset values and reads lists and chain; the follow-up 
 
 Causes: `Exit`, `Left` (its scope's activation left), `KeyGone`, `Reset`, `HostEnded`, `ActorEnded`, `Dropped`.
 
-| Occasion | Who calls | Differences |
-| --- | --- | --- |
-| `Started` | `incarnations.ts#start` (create and return) | only `Start` rows can apply |
-| `Turn` | the turn, once, after the walk | all rows |
-| `Reset` | the follow-up turn when `unsettled` | all rows; reset values re-read |
+| Occasion  | Who calls                                   | Differences                    |
+| --------- | ------------------------------------------- | ------------------------------ |
+| `Started` | `incarnations.ts#start` (create and return) | only `Start` rows can apply    |
+| `Turn`    | the turn, once, after the walk              | all rows                       |
+| `Reset`   | the follow-up turn when `unsettled`         | all rows; reset values re-read |
 | absent | anchor `a` | `Start` | `Live`; mint id; seed memory from the input filling; `Entered`; recurse |
 | `Ended` | `end`, `dispose`, `disposal.ts` | wanted is empty; cause `ActorEnded` (PD3) |
 
@@ -192,15 +196,15 @@ differ from what was settled (a `whenAbandoned` callback changed a list, or a `r
 
 A raise whose target slot is `.each` resolves against the copies stored at turn start, in key order (PD2):
 
-| Copy at turn start | Handler on its path | Guards | Result |
-| --- | --- | --- | --- |
-| none live | | | the raise is recorded and does nothing |
-| `Live` | none | | skipped; `Unhandled` evidence naming the address |
-| `Live` | yes | one alternative accepts | its part joins the turn |
-| `Live` | yes | all decline | the whole turn is refused |
-| `Frozen` | | | not reached |
-| started by this turn | | | not reached |
-| `Live`, its key leaves in this turn | yes | accepts | part runs, emits deliver, then `End(KeyGone)` |
+| Copy at turn start                  | Handler on its path | Guards                  | Result                                           |
+| ----------------------------------- | ------------------- | ----------------------- | ------------------------------------------------ |
+| none live                           |                     |                         | the raise is recorded and does nothing           |
+| `Live`                              | none                |                         | skipped; `Unhandled` evidence naming the address |
+| `Live`                              | yes                 | one alternative accepts | its part joins the turn                          |
+| `Live`                              | yes                 | all decline             | the whole turn is refused                        |
+| `Frozen`                            |                     |                         | not reached                                      |
+| started by this turn                |                     |                         | not reached                                      |
+| `Live`, its key leaves in this turn | yes                 | accepts                 | part runs, emits deliver, then `End(KeyGone)`    |
 
 `FanOutNeverHandled` is static: no state of the fragment handles the event. Per-copy fan-out of write members stays
 deferred (open-items 7 and 26).
@@ -277,25 +281,25 @@ owns the builder types.
 
 ## 4. Requirements and Invariants
 
-| Id | Rule | Source | Fails on a wrong build when |
-| --- | --- | --- | --- |
-| R1 | a trait sits on the root, a node or a subroutine state | Machines O1 | a node trait lives off its node |
-| R2 | `.each`: one copy per repaired key; repair never refuses | Machines O1, O3 | an 11th key refuses |
-| R3 | a changed reset value is a new incarnation; null is not placed | Machines O1 | memory survives a reset |
-| R4 | `.resumable()` freezes on leave; thaws memory, timers, endings | Machines O1, O5 | a thawed slice is fresh |
-| R5 | a subroutine: default entry, exit or abandon, every exit filled | Machines O2 | `"self"` above re-enters it |
-| R6 | `whenAbandoned` once, in the ending turn, not on exit or freeze | Machines O1, O3; Turn I11 | runs on an exit |
-| R7 | a fan-out raise follows table 3.4 | Machines O1; ui-primitives R4 | a denial skips |
-| R8 | snapshot slices: undefined absent, present frozen, lists in key order | Machines O8 | frozen reads undefined |
-| R9 | restore: new ids, table 3.3 against the current definition | Restore R1, R7 | an old id survives |
-| R10 | an emit carries its address; every scope reads root props | ui-primitives Q3c, R3 | a copy's emit has no key |
-| I1 | published `Live` set equals wanted, unless `unsettled` | 3.3 | an instance is extra or missing |
-| I2 | a `Live` instance's host is `Live`; a frozen subtree is frozen | 3.3 | a child ticks when frozen |
-| I3 | an `InstanceId` is never reused, in a run or across a restore | Actors I13 | a restart keeps its id |
-| I4 | nothing owed to an ended instance reaches a later one | Actors I17 | a late ending lands in new `r1` |
-| I5 | copies' keys equal the repaired keys, in list order, at most `max` | Machines O1 | keys reorder |
-| I6 | `addressKey` is injective and never parsed | prototype D57 | keys `a/b` and slot `a`, key `b` collide |
-| I7 | only `settle`'s result changes existence or status | epic "one owner" | the type guard is bypassed |
+| Id  | Rule                                                                  | Source                        | Fails on a wrong build when              |
+| --- | --------------------------------------------------------------------- | ----------------------------- | ---------------------------------------- |
+| R1  | a trait sits on the root, a node or a subroutine state                | Machines O1                   | a node trait lives off its node          |
+| R2  | `.each`: one copy per repaired key; repair never refuses              | Machines O1, O3               | an 11th key refuses                      |
+| R3  | a changed reset value is a new incarnation; null is not placed        | Machines O1                   | memory survives a reset                  |
+| R4  | `.resumable()` freezes on leave; thaws memory, timers, endings        | Machines O1, O5               | a thawed slice is fresh                  |
+| R5  | a subroutine: default entry, exit or abandon, every exit filled       | Machines O2                   | `"self"` above re-enters it              |
+| R6  | `whenAbandoned` once, in the ending turn, not on exit or freeze       | Machines O1, O3; Turn I11     | runs on an exit                          |
+| R7  | a fan-out raise follows table 3.4                                     | Machines O1; ui-primitives R4 | a denial skips                           |
+| R8  | snapshot slices: undefined absent, present frozen, lists in key order | Machines O8                   | frozen reads undefined                   |
+| R9  | restore: new ids, table 3.3 against the current definition            | Restore R1, R7                | an old id survives                       |
+| R10 | an emit carries its address; every scope reads root props             | ui-primitives Q3c, R3         | a copy's emit has no key                 |
+| I1  | published `Live` set equals wanted, unless `unsettled`                | 3.3                           | an instance is extra or missing          |
+| I2  | a `Live` instance's host is `Live`; a frozen subtree is frozen        | 3.3                           | a child ticks when frozen                |
+| I3  | an `InstanceId` is never reused, in a run or across a restore         | Actors I13                    | a restart keeps its id                   |
+| I4  | nothing owed to an ended instance reaches a later one                 | Actors I17                    | a late ending lands in new `r1`          |
+| I5  | copies' keys equal the repaired keys, in list order, at most `max`    | Machines O1                   | keys reorder                             |
+| I6  | `addressKey` is injective and never parsed                            | prototype D57                 | keys `a/b` and slot `a`, key `b` collide |
+| I7  | only `settle`'s result changes existence or status                    | epic "one owner"              | the type guard is bypassed               |
 
 Table 3.3's rows are R1 to R4, R6 and R9 crossed with the two stored statuses; each row cites its rule in the test
 table. Table 3.4's rows are R7. Table 3.2 is R5 mapped onto code that exists.
@@ -412,14 +416,14 @@ by placement or `.resumable()`.
 
 Three Haiku sidecars ran at effort high; no adversary ran (time). Five angles of the brief's eight were not started.
 
-| Sidecar | Finding | Ruling |
-| --- | --- | --- |
-| current code | no fragment feature; `Compiled` has no fragment field | accepted; re-read `compiled.ts:409-425` |
-| current code | `Incarnation` shape; single mint, set and delete | accepted; re-read `world.ts:205-220` |
-| current code | stale check written three ways; writers spread snapshots | accepted; lines not re-read |
-| current code | driver registry may re-insert an ended id | not used; unverified, outside this concept |
-| prototype | returned a summary with no findings | rejected; I read `round-14/inc.ts` and `world.ts#Inc` myself |
-| tasks | goals and blockers of the seven Tasks | accepted; T109's comment and T113 re-read |
-| tasks | T57 close review: one key and default starts hid two bugs | accepted into 3.6 and 6; not re-read |
-| tasks | no user approval recorded for moving subroutines into T109 | changed: reported, not ruled on here |
-| tasks | Spec ids for the area | used as citations only; ids not re-read against the Spec files |
+| Sidecar      | Finding                                                    | Ruling                                                         |
+| ------------ | ---------------------------------------------------------- | -------------------------------------------------------------- |
+| current code | no fragment feature; `Compiled` has no fragment field      | accepted; re-read `compiled.ts:409-425`                        |
+| current code | `Incarnation` shape; single mint, set and delete           | accepted; re-read `world.ts:205-220`                           |
+| current code | stale check written three ways; writers spread snapshots   | accepted; lines not re-read                                    |
+| current code | driver registry may re-insert an ended id                  | not used; unverified, outside this concept                     |
+| prototype    | returned a summary with no findings                        | rejected; I read `round-14/inc.ts` and `world.ts#Inc` myself   |
+| tasks        | goals and blockers of the seven Tasks                      | accepted; T109's comment and T113 re-read                      |
+| tasks        | T57 close review: one key and default starts hid two bugs  | accepted into 3.6 and 6; not re-read                           |
+| tasks        | no user approval recorded for moving subroutines into T109 | changed: reported, not ruled on here                           |
+| tasks        | Spec ids for the area                                      | used as citations only; ids not re-read against the Spec files |

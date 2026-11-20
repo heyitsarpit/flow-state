@@ -1,8 +1,12 @@
+---
+review code-quality-review-2
+status open 2026-11-16
+---
 # Second code-quality review of flow-state-v3 (2026-11-16)
 
-**Status: proposed.** Nothing here is decided; the builder of each Task decides each item.
+Nothing here is decided; the builder of each Task decides each item.
 
-**Bottom line:** the first review (`code-quality-review-2026-11-16.md`, queued as @task.V3.T79 and @task.V3.T80)
+**Bottom line:** the first review (@review.code-quality-review, queued as @task.V3.T79 and @task.V3.T80)
 holds, with one correction (C1). This pass found three new root causes, and they carry real bugs. (1) The
 construction side checks shapes by hand in three places that disagree. A probe confirmed four bugs: an event with a
 transforming field (`Schema.DateFromString`) passes `E.X` and is then refused by `send`; a malformed payload or

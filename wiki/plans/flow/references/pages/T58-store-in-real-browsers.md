@@ -1,3 +1,6 @@
+---
+page T58-store-in-real-browsers
+---
 # Store in real browsers: what an app author notices (T58, 2026-11-20)
 
 **Bottom line:** storage is a `Store` service you can implement and check with one contract test, and Flow's own

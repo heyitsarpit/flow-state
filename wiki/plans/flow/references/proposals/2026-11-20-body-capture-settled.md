@@ -1,4 +1,8 @@
-# Body capture settled: `Exact` works on the real package (proposed, 2026-11-20)
+---
+proposal body-capture-settled
+status proposed 2026-11-20
+---
+# Body capture settled: `Exact` works on the real package
 
 **Verdict (proposed): the advisor consult is right and the typed-machine design's section 3.1 is wrong.**
 `machine()` can capture the body as a type parameter and still check it exactly. On a copy of the real package the
@@ -8,20 +12,20 @@ never read back" is a choice, not a TypeScript limit. Two corrections to the adv
 must sit behind today's conditional (`[D] extends [AnyDefinition] ? … : never` over `NoInfer<D>`), and a leaf maps
 to itself, not to `unknown`.
 
-Sources: `advisor-consult-2026-11-20/body-types-2026-11-20.md` (spikes 4, 5, 9),
-`spec-typed-machine-2026-11-20.md` section 3.1, @task.V3.T113, @task.V3.T57, @plan.Rules.O3.
+Sources: @proposal.body-types (spikes 4, 5, 9),
+@proposal.spec-typed-machine section 3.1, @task.V3.T113, @task.V3.T57, @plan.Rules.O3.
 
 ## Why the two spikes disagreed
 
 `B & Exact<B, MachineBody<D>>` with `B extends MachineBody<D>` was not among the typed-machine design's eight.
 Its shapes fall in three groups, and each fails for a reason `Exact` avoids:
 
-| Typed-machine shape | What it did | Why `Exact` differs |
-| --- | --- | --- |
-| V1, V2, V4: `BodyOf<D> & ((t: never) => B)` | `B` infers from a second, free site | `B` is constrained; no free site |
-| V3: `(t) => MachineBody<D> & B`, `B` free | the literal's keys join the target | extra keys are mapped to `never` |
-| V5: V3 plus `NoExcess` | used `keyof Spec` on unions; skipped functions and arrays | keys distribute over unions |
-| V7, V8: a parameter at `schedules` only | `D` still generic when it infers | the conditional over `NoInfer<D>` |
+| Typed-machine shape                         | What it did                                               | Why `Exact` differs               |
+| ------------------------------------------- | --------------------------------------------------------- | --------------------------------- |
+| V1, V2, V4: `BodyOf<D> & ((t: never) => B)` | `B` infers from a second, free site                       | `B` is constrained; no free site  |
+| V3: `(t) => MachineBody<D> & B`, `B` free   | the literal's keys join the target                        | extra keys are mapped to `never`  |
+| V5: V3 plus `NoExcess`                      | used `keyof Spec` on unions; skipped functions and arrays | keys distribute over unions       |
+| V7, V8: a parameter at `schedules` only     | `D` still generic when it infers                          | the conditional over `NoInfer<D>` |
 
 Its stated cause ("an inferred parameter that sees a literal learns its keys, so it can no longer be excess") is
 true and is exactly what the `never` map answers. I reproduced the failure family: variant E (V1's shape added to
@@ -34,15 +38,15 @@ TypeScript `7.0.2+effect-tsgo.0.61.0`, `effect-tsgo tsc -p tsconfig.json` (the `
 of `src/`, `fixtures/`, `tests/`, `bench/`. "Suite" is the unchanged tree; "spike" is 13 wrong and 5 valid bodies
 I added (`tests/types/spike.test-d.ts`), plus `probe.test-d.ts` for what `B` holds.
 
-| Signature | Suite errors | Spike refusals | Check time |
-| --- | --- | --- | --- |
-| Today: `body: BodyOf<NoInfer<D>>` | 0 | 2 of 13 | 0.92 s |
-| A: advisor's text, `(t: Tokens<D>) => B & Exact<…>` | 5 wanted + 1 false | misses the ternary | 1.15 s |
-| **C6: `Exact` behind the conditional, leaf maps to itself** | **5 wanted, 0 false** | **13 of 13** | **1.18 s** |
-| C3: every terminal maps to `B` | valid `cells.ts` refused; errors move | - | 2.07 s |
-| E: `BodyOf<NoInfer<D>> & (…Exact…)` | 17; 10 refusals lost | - | 1.21 s |
-| F: `B` free, `MachineBody<D> & B & Exact` | 27; errors move | - | 1.20 s |
-| G: C6 plus `& ((t: never) => B)` to keep tuples | `payBody` breaks; refusals lost | - | 1.29 s |
+| Signature                                                   | Suite errors                          | Spike refusals     | Check time |
+| ----------------------------------------------------------- | ------------------------------------- | ------------------ | ---------- |
+| Today: `body: BodyOf<NoInfer<D>>`                           | 0                                     | 2 of 13            | 0.92 s     |
+| A: advisor's text, `(t: Tokens<D>) => B & Exact<…>`         | 5 wanted + 1 false                    | misses the ternary | 1.15 s     |
+| **C6: `Exact` behind the conditional, leaf maps to itself** | **5 wanted, 0 false**                 | **13 of 13**       | **1.18 s** |
+| C3: every terminal maps to `B`                              | valid `cells.ts` refused; errors move | -                  | 2.07 s     |
+| E: `BodyOf<NoInfer<D>> & (…Exact…)`                         | 17; 10 refusals lost                  | -                  | 1.21 s     |
+| F: `B` free, `MachineBody<D> & B & Exact`                   | 27; errors move                       | -                  | 1.20 s     |
+| G: C6 plus `& ((t: never) => B)` to keep tuples             | `payBody` breaks; refusals lost       | -                  | 1.29 s     |
 
 The five wanted suite errors are the four lines `excess-keys.test-d.ts` marks "owed" and one planted fixture:
 
@@ -61,20 +65,20 @@ A's false error is why the conditional is needed (a depth-2 `send` mapper loses 
 
 ## C6 against each question
 
-| Question | Today | C6 | Evidence (C6 unless said) |
-| --- | --- | --- | --- |
-| Every refusal in `tests/types/` kept | yes | yes | no TS2578 in the run; 215 directives there, 269 in all |
-| Fixtures, `payBody`, `Machine<typeof X>` (3 sites) | yes | yes | no error in `pay.ts`, `cells.ts`, `mirror.ts` |
-| `gaurd` in an alternative | compiles | refused | `spike.test-d.ts(26,71): TS2322: 'never[]' … 'never'` |
-| `pausd` in an unkeyed schedule | compiles | refused | `spike.test-d.ts(28,120): TS2322: '{}' … 'never'` |
-| Misspelt key a handler returns | compiles | refused | `spike.test-d.ts(30,57)`, on `updateMemory` |
-| Depth-3 `armOnn`; `onn` beside `on` | compiles | refused | `spike.test-d.ts(33,60)`, `(35,159)` |
-| Depth-3 `"1 secnd"`; typo inside `Flow.keyed` | refused | refused | `spike.test-d.ts(38,24)`, `(48,158)` (both) |
-| Typo in one branch of a ternary of handlers | compiles | refused | `spike.test-d.ts(46,51)`, on the other branch |
-| Keys named `tag`, `pipe`, `ending` | - | valid passes; typo refused | `spike.test-d.ts(60,58)`, `(62,71)` |
-| Depth-2 and depth-3 literals captured in `B` | - | yes | `probe.test-d.ts`: 0 errors |
-| Declarations | 4,685,054 B | identical | Room 5875 B, Stepper 5628 B, both runs |
-| Check time, memory | 0.92 s, 1.05 GB | 1.18 s, 1.28 GB | three runs each; 4.56M to 5.94M instantiations |
+| Question                                           | Today           | C6                         | Evidence (C6 unless said)                              |
+| -------------------------------------------------- | --------------- | -------------------------- | ------------------------------------------------------ |
+| Every refusal in `tests/types/` kept               | yes             | yes                        | no TS2578 in the run; 215 directives there, 269 in all |
+| Fixtures, `payBody`, `Machine<typeof X>` (3 sites) | yes             | yes                        | no error in `pay.ts`, `cells.ts`, `mirror.ts`          |
+| `gaurd` in an alternative                          | compiles        | refused                    | `spike.test-d.ts(26,71): TS2322: 'never[]' … 'never'`  |
+| `pausd` in an unkeyed schedule                     | compiles        | refused                    | `spike.test-d.ts(28,120): TS2322: '{}' … 'never'`      |
+| Misspelt key a handler returns                     | compiles        | refused                    | `spike.test-d.ts(30,57)`, on `updateMemory`            |
+| Depth-3 `armOnn`; `onn` beside `on`                | compiles        | refused                    | `spike.test-d.ts(33,60)`, `(35,159)`                   |
+| Depth-3 `"1 secnd"`; typo inside `Flow.keyed`      | refused         | refused                    | `spike.test-d.ts(38,24)`, `(48,158)` (both)            |
+| Typo in one branch of a ternary of handlers        | compiles        | refused                    | `spike.test-d.ts(46,51)`, on the other branch          |
+| Keys named `tag`, `pipe`, `ending`                 | -               | valid passes; typo refused | `spike.test-d.ts(60,58)`, `(62,71)`                    |
+| Depth-2 and depth-3 literals captured in `B`       | -               | yes                        | `probe.test-d.ts`: 0 errors                            |
+| Declarations                                       | 4,685,054 B     | identical                  | Room 5875 B, Stepper 5628 B, both runs                 |
+| Check time, memory                                 | 0.92 s, 1.05 GB | 1.18 s, 1.28 GB            | three runs each; 4.56M to 5.94M instantiations         |
 
 `probe.test-d.ts` reads back, from a body with schedules at depth 2 and 3: the schedule names (`"beat"`,
 `"tick"`), the delay literals (`"2 seconds"`, `"1 second"`), the pause reasons (`"Muted" | "Away"`) and the

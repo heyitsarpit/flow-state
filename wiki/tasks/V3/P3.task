@@ -75,8 +75,7 @@ description
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task
     (requirements, approach, acceptance by Spec rule). The earlier text of each, in `wiki/tasks/V3/` at commit
     `6b9fe478`, was written for the conformance suite: it is background only, and its acceptance does not carry over.
-    The old suite's known gaps for each Task are in Appendix A
-    of code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md.
+    The old suite's known gaps for each Task are in Appendix A of @proposal.test-system.
 comment 2026-11-18T19:14:32Z
     Close-out (R11) at 636eb699: no blocker. Identity text and error attribution are decided per module, so each gets
     one system pass, in @task.V3.T92 and @task.V3.T98; T98 also holds the trust boundaries. Routed then: harness gaps to
@@ -133,9 +132,8 @@ tasks
             specs.log). Correction: the premise failed for mail left past the step's drain cap; @task.V3.T19 saves
             those rows.
         comment     2026-11-16T02:36:11Z
-            PASS at a3345224 after one fix round. User's page:
-            code:wiki/plans/flow/references/pages/T54-core-consolidation.md, written after T18 closed, against the slice
-            stop; the user read it 2026-11-16.
+            PASS at a3345224 after one fix round. User's page: @page.T54-core-consolidation, written after T18 closed,
+            against the slice stop; the user read it 2026-11-16.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      done
@@ -178,7 +176,7 @@ tasks
             PASS at e08f59fe after two fix rounds. Failure count 2, one root cause: a lost ending written into a Spec as
             a stated limit (queued commits, then displaced Attempts across a reload, against @plan.Operations.O3 and
             @plan.Persistence.O4, O6); both now end NotSent or unknown Restored, and the Epic's instructions say a gap
-            is never a Spec limit. User's page: code:wiki/plans/flow/references/pages/T18-lane-policies.md, accepted.
+            is never a Spec limit. User's page: @page.T18-lane-policies, accepted.
     T55
         title       Runtime life: Life and admit replace Disposal; the final write and its 5 s bound move into the core
         status      done
@@ -249,13 +247,12 @@ tasks
               inverted test is flipped; and any write discharging every dirty end, which has no reproduction yet and
               gets its test here.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first (code:wiki/conventions/fixtures.md): write-ahead is covered in `transfers`, `pay`, `sync`
-              and `lanes`, across many scenarios: usual and stress Stories and step samples with a re-send past its
-              retry cap, 64 and more queued serialize commits, a refused or hung store write, a reload between
-              acknowledge and send; the generator, the reload sweep and the app mix reach it, and those Stories fail
-              before the build.
+            - Fixtures first (@convention.fixtures): write-ahead is covered in `transfers`, `pay`, `sync` and `lanes`,
+              across many scenarios: usual and stress Stories and step samples with a re-send past its retry cap, 64 and
+              more queued serialize commits, a refused or hung store write, a reload between acknowledge and send; the
+              generator, the reload sweep and the app mix reach it, and those Stories fail before the build.
         comment     2026-11-16T09:14:34Z
-            Decision (agent, 2026-11-16): the lane and incarnation setters note every change, so a step writes all it
+            [decided: agent 2026-11-16] the lane and incarnation setters note every change, so a step writes all it
             touched; putting a head on the wire (sendLane) is the one unnoted move, since its batch already holds it in
             flight. Why: a write per send doubled batches for no new bytes. Reverse: per-move saves.
         comment     2026-11-16T09:14:34Z
@@ -274,14 +271,14 @@ tasks
             Trap: the admit cells without a public-path Story are 11, not the 12 routed: the 12th, Release x Open, no
             public call reaches; the Story detach step covers it (tests/stories/steps.test.ts).
         comment     2026-11-16T09:51:14Z
-            Decision (agent, 2026-11-16): an identity whose actor record cannot encode withholds all its records and
+            [decided: agent 2026-11-16] an identity whose actor record cannot encode withholds all its records and
             awaited tickets, and its end waits (Actors R8); other identities of the same step still land (WriteAhead I23
             amended, a core test pins it). Why: no record names another identity, and skipping the whole step would make
             every persisted send wait on one bad actor. Reverse: skip the step's whole capture.
         comment     2026-11-16T10:03:06Z
             PASS at 8c02753e after a requirements review and two close rounds. User's page:
-            code:wiki/plans/flow/references/pages/T19-durability-write-ahead.md, read 2026-11-16. Left: the hide and
-            pagehide flush has no check (the Fake host and the browser platform stub visibility), @task.V3.T58.
+            @page.T19-durability-write-ahead, read 2026-11-16. Left: the hide and pagehide flush has no check (the Fake
+            host and the browser platform stub visibility), @task.V3.T58.
     T20
         title       Durability: restore, owed endings at boot, quarantine and forget (slice 2a)
         status      done
@@ -308,12 +305,12 @@ tasks
             - The Requirements of @spec.Restore and @spec.Codec this slice builds hold, shown by Story tests with a
               reload and by the reload sweep.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first (code:wiki/conventions/fixtures.md): restore, owed endings, quarantine and forget are
-              covered in `sign-in`, `pay`, `sync` and `transfers`, across many scenarios: usual and stress Stories and
-              step samples with an undecodable record, owed values of real-world size restored intact (only a value with
-              no canonical form reports UnencodableValue; depth has no limit, @plan.Pending.D27), a forget during
-              undrained writes, a reload at every step; the generator, the reload sweep and the app mix reach them, and
-              those Stories fail before the build.
+            - Fixtures first (@convention.fixtures): restore, owed endings, quarantine and forget are covered in
+              `sign-in`, `pay`, `sync` and `transfers`, across many scenarios: usual and stress Stories and step samples
+              with an undecodable record, owed values of real-world size restored intact (only a value with no canonical
+              form reports UnencodableValue; depth has no limit, @plan.Pending.D27), a forget during undrained writes, a
+              reload at every step; the generator, the reload sweep and the app mix reach them, and those Stories fail
+              before the build.
         comment     2026-11-16T13:53:12Z
             Decision (agent, 2026-11-16), settling the Risk: Codec I7 wins and no lane record has `mayHaveApplied`,
             since Restore R3 already ends an acknowledged, never-invoked head unknown Restored; the code was right, the
@@ -325,11 +322,10 @@ tasks
             Accepted (the user, 2026-11-17): a write whose record can't save ends NotSent { StorageRefused } at once; a
             pending result too large to save is heard once after a reload as unknown { Restored }.
         comment     2026-11-17T06:52:42Z
-            Superseded by @plan.Pending.D23 (2026-11-17): the record-bound convergence
-            (proposals/record-bounds-revised-2026-11-17.md) went with the codec bounds: lane `fits` sizing, owed parts,
-            codec BOUNDS and CodecBoundExceeded, the lane-bound tests and their faults. Kept, each for a malformed
-            value: a row with no canonical form saved as unknown Restored, and an identity withheld while its actor
-            record cannot encode.
+            Superseded by @plan.Pending.D23 (2026-11-17): the record-bound convergence (@proposal.record-bounds-revised)
+            went with the codec bounds: lane `fits` sizing, owed parts, codec BOUNDS and CodecBoundExceeded, the
+            lane-bound tests and their faults. Kept, each for a malformed value: a row with no canonical form saved as
+            unknown Restored, and an identity withheld while its actor record cannot encode.
         comment     2026-11-18T05:17:51Z
             Decision (agent, 2026-11-18): the pair cell Acknowledging x storage refusal was red on the tooling side: one
             batch is out at a time, so the sweep's refuse hit a later batch. Stories R11 adds Fake.storage.refuseHeld()
@@ -366,7 +362,7 @@ tasks
             Done by the user's call (2026-11-18), parked at the failure limit: the record-trust class is structural
             (shape-only record Schemas checked by hand, identity stored twice); diagnosis and redesign are @task.V3.T92,
             before T56. The bindings blocker is an inverted Restore R5 test owned by T92. User's page:
-            code:wiki/plans/flow/references/pages/T20-durability-restore.md, read 2026-11-18.
+            @page.T20-durability-restore, read 2026-11-18.
         comment     2026-11-18T07:16:30Z
             Open it.fails owned by @task.V3.T56: Restore R3 (a Held head heard again at each start: cells parked ending,
             transfers second reload), Restore R8 (a lane whose input no longer decodes), WriteAhead I17 (a displaced
@@ -413,11 +409,11 @@ tasks
             - The known bug of this area (a delay past 2^31 - 1 ms is armed, not refused) is fixed, and its inverted
               test is flipped.
             - Each new runtime rule has a planted fault that `nub run faults` catches.
-            - Fixtures first (code:wiki/conventions/fixtures.md): compound states, history, fields and the delay bound
-              are covered in `player`, `sync`, `sign-in` and a new `wizard`, across many scenarios: usual and stress
-              Stories and step samples with delays of 2^31 - 1 and 2^31 ms, a history never entered, undefined fields, a
-              reload inside a sub-state; the generator, the reload sweep and the app mix reach them, and those Stories
-              fail before the build.
+            - Fixtures first (@convention.fixtures): compound states, history, fields and the delay bound are covered in
+              `player`, `sync`, `sign-in` and a new `wizard`, across many scenarios: usual and stress Stories and step
+              samples with delays of 2^31 - 1 and 2^31 ms, a history never entered, undefined fields, a reload inside a
+              sub-state; the generator, the reload sweep and the app mix reach them, and those Stories fail before
+              the build.
         comment     2026-11-16T09:56:26Z
             Out of this slice: Compile R8 (restore defaults, RestoreMissingInput) with record migration, @task.V3.T56;
             R10, R11 and R13 fragments, @task.V3.T57; Diagnostics R8 to R10, @task.V3.T100. src has no
@@ -437,9 +433,8 @@ tasks
             S.X.history from inside X reads the child the move exits (SCXML); endings to undeclared events and keys
             outside input are refused at construction (Compile R9).
         comment     2026-11-16T11:25:48Z
-            PASS at 59cb006e after one fix round. User's page:
-            code:wiki/plans/flow/references/pages/T17-machine-structure.md, read 2026-11-16. Left: a schedule on a
-            nested leaf loses its literal delay and armOn types in machine()'s inference
+            PASS at 59cb006e after one fix round. User's page: @page.T17-machine-structure, read 2026-11-16. Left: a
+            schedule on a nested leaf loses its literal delay and armOn types in machine()'s inference
             (tests/types/nested-schedule.compile.ts), @task.V3.T57; history across a reload (Persistence
             O2), @task.V3.T56.
     T9
@@ -465,10 +460,10 @@ tasks
         acceptance
             - The Requirements of @spec.Actors this slice builds hold, shown by Story tests and run rules.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first (code:wiki/conventions/fixtures.md): context, refs by value and mailboxes are covered in a
-              new `session` fixture and in `lanes`, across many scenarios: usual and stress Stories and step samples
-              with an undefined user, many consumers, a persisted consumer, a reload mid-way; the generator, the reload
-              sweep and the app mix reach them, and those Stories fail before the build.
+            - Fixtures first (@convention.fixtures): context, refs by value and mailboxes are covered in a new `session`
+              fixture and in `lanes`, across many scenarios: usual and stress Stories and step samples with an undefined
+              user, many consumers, a persisted consumer, a reload mid-way; the generator, the reload sweep and the app
+              mix reach them, and those Stories fail before the build.
         comment     2026-11-16T11:39:34Z
             Out of this slice: Actors R11 versions, @task.V3.T56; snapshot subscriptions and R17, @task.V3.T58;
             CleanupFailed and runPromise, @task.V3.T99 (P3-routing); IdentityExhausted and R1's per-operation refusal
@@ -508,9 +503,9 @@ tasks
             The follow-up chain stays D24's one loop guard, its number set by the bench, built with the send action;
             earlier comments saying the cap was removed meant only its 64.
         comment     2026-11-17T07:45:34Z
-            Decision (the user, 2026-11-17, Q11 B; @plan.Pending.D27): build compiled stack-safe walkers from each
-            Schema in Compiled at one value boundary, benchmark equality, and lift D26's limit once every path holds at
-            depth 100,000. Done: Flow.maxDepth is gone.
+            [decided: user 2026-11-17; Q11 B; @plan.Pending.D27] build compiled stack-safe walkers from each Schema in
+            Compiled at one value boundary, benchmark equality, and lift D26's limit once every path holds at depth
+            100,000. Done: Flow.maxDepth is gone.
         comment     2026-11-17T09:37:00Z
             Decision (agent, 2026-11-17): walkers run Effect's own parser a level at a time, each Schema.suspend a hole
             read from a table, past a 64-hole budget on an explicit stack
@@ -524,11 +519,11 @@ tasks
             memo is correct only under Turn R24's immutability contract (D29). Shared subtrees ({l: t, r: t} 40 deep)
             walk 2^40 nodes: accepted as D23's size; SlowWork reports it.
         comment     2026-11-17T10:45:36Z
-            PASS at f8c7e247 after a convergence and five review rounds. User's page:
-            code:wiki/plans/flow/references/pages/T9-actor-identity.md, read 2026-11-18. Leftovers: (a) to (e) fixed in
-            @task.V3.T79 (L1 to L5), (f) in @task.V3.T20; (g) print.ts redactables and sweep.ts carries recurse,
-            @task.V3.T29 (P3-routing A22). Trap: one planted fault was once checked in the live tree, against the
-            scratch-copy rule; specs.log refuses a note stamped before its last one.
+            PASS at f8c7e247 after a convergence and five review rounds. User's page: @page.T9-actor-identity, read
+            2026-11-18. Leftovers: (a) to (e) fixed in @task.V3.T79 (L1 to L5), (f) in @task.V3.T20; (g) print.ts
+            redactables and sweep.ts carries recurse, @task.V3.T29 (P3-routing A22). Trap: one planted fault was once
+            checked in the live tree, against the scratch-copy rule; specs.log refuses a note stamped before its
+            last one.
     T74
         title       App mix: several fixtures in one Runtime
         status      done
@@ -543,8 +538,7 @@ tasks
             between features that no single fixture reaches (the user accepted it as its own Task after
             @task.V3.T70, 2026-11-16).
 
-            **Read first:** the app-mix profile in
-            code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md, @plan.Testing.O6, @task.V3.T70.
+            **Read first:** the app-mix profile in @proposal.fixture-catalogue, @plan.Testing.O6, @task.V3.T70.
 
             **Approach:** starts once three or more fixtures can share one Runtime; a failing run shrinks by dropping
             whole fixtures first, then steps.
@@ -586,9 +580,8 @@ tasks
             side maps, 17 small duplicates with no single home, and host code that leaves Effect; every later slice
             builds on these files.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/code-quality-review-2026-11-16.md (sections 1 to 3
-            and 5 to 10, and its order in section 10), AGENTS.md "Code style (v3 production)",
-            code:tools/lint-bomb/STYLE.md, code:tools/lint-bomb/FLOW-STATE.md.
+            **Read first:** @review.code-quality-review (sections 1 to 3 and 5 to 10, and its order in section 10),
+            AGENTS.md "Code style (v3 production)", code:tools/lint-bomb/STYLE.md, code:tools/lint-bomb/FLOW-STATE.md.
 
             **Risk:** six behaviour questions came up (the review's section 9); two may be bugs: a local actor of a
             persisted machine declined `NoPersistence`, and an actor name whose input skips the JSON codec. Each gets a
@@ -611,9 +604,9 @@ tasks
             - `nub run check`, the package suite, `nub run test:stress` and `nub run faults` pass with every fault
               caught by its own target; the bench's per-turn numbers are no worse than before step 3, recorded in
               a comment.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the fixtures of
-              code:wiki/conventions/fixture-catalog.md step 1 cover every behaviour this refactor touches before it
-              starts; every fixture Story, sweep and fault passes unchanged after it.
+            - Fixtures first (@convention.fixtures): the fixtures of @convention.fixture-catalog step 1 cover every
+              behaviour this refactor touches before it starts; every fixture Story, sweep and fault passes unchanged
+              after it.
             - Step edit operations (section 1) are built with the performance audit's findings 6, 7, 10 and 11 (the
               user, 2026-11-17, Q14 A): one draft of the World's maps per step, per-World indexes, actor keys carried on
               identities, no whole-world scan or whole-map copy on the step path; a Story with many actors and a deep
@@ -628,7 +621,7 @@ tasks
             actorRef, so a wrong provider is a type error, not only a runtime refusal. No outcome was recorded and no
             type test refuses a wrong provider; nearest owner @task.V3.T98 (@plan.Runtime.O1's wiring type test).
         comment     2026-11-17T11:22:50Z
-            Decision (agent, 2026-11-17): a World a step returns is handed to the next step, which writes in place the
+            [decided: agent 2026-11-17] a World a step returns is handed to the next step, which writes in place the
             maps that World alone holds; a reader keeping a World calls retain(), and a spent World stepped again is a
             defect. Why: a copy once per step was 51% of a 1,024-actor step (world-size ratios 3.23 to 1.44, 6.64 to
             1.14). Reverse: copy every map in makeTx. Wave order among consumers stays start order (Actors R19 leaves it
@@ -644,20 +637,20 @@ tasks
             unknown StillUnknown (WriteLanes R2); Q19 A, diagnostic codes nothing produces leave the public union and
             return with the feature that produces them (22 codes left; Diagnostics R6, R7).
         comment     2026-11-17T12:27:08Z
-            Decision (the user, 2026-11-17, Q20 B): Turn R24 says Maps, Sets and Dates the app froze itself are trusted
-            as immutable and not wrapped (Immer freezes them this way in dev). Trap: it trusts Object.isFrozen alone, so
-            a bare Object.freeze(map) still takes set() silently.
+            [decided: user 2026-11-17; Q20 B] Turn R24 says Maps, Sets and Dates the app froze itself are trusted as
+            immutable and not wrapped (Immer freezes them this way in dev). Trap: it trusts Object.isFrozen alone, so a
+            bare Object.freeze(map) still takes set() silently.
         comment     2026-11-17T12:41:16Z
             Bench per turn median ms, before and after step 3: session/long 0.161 to 0.108, transfers/long 0.044 to
             0.040, pay/long 0.060 to 0.050, cells/long 0.052 to 0.044, palette/stress-36 1.782 to 1.803, lanes/stress-36
             0.203 to 0.210, outline-deep 155 to 160; the 1-3 % rises sit inside the noise bands of three alternating
             repeats on a loaded machine.
         comment     2026-11-17T13:08:34Z
-            Decision (the user, 2026-11-17, Q21 A): a defect mid-step ends the Runtime in a new final Life state,
-            stopped by a defect: the defect is reported once through the failure channel, snapshots read stopped, later
-            calls refuse RuntimeDisposed, dispose() finishes and returns the defect, and nothing more is written, so a
-            reload restores the last landed state. Built as Life Stopped (Actors R25); a host callback's throw (the
-            Story turn limit) still returns to its caller.
+            [decided: user 2026-11-17; Q21 A] a defect mid-step ends the Runtime in a new final Life state, stopped by a
+            defect: the defect is reported once through the failure channel, snapshots read stopped, later calls refuse
+            RuntimeDisposed, dispose() finishes and returns the defect, and nothing more is written, so a reload
+            restores the last landed state. Built as Life Stopped (Actors R25); a host callback's throw (the Story turn
+            limit) still returns to its caller.
         comment     2026-11-17T13:16:47Z
             Outcomes, one per finding (both fix rounds; they supersede earlier labels). Fixed: every accepted finding
             not named here, T9's L1 to L5 and section 9. Rejected: review 1's 3d (a second finding form adds a choice)
@@ -685,7 +678,7 @@ tasks
             **Why now:** seam drives the Runtime directly for four host test files (about 2,000 lines) beside Story and
             Fake, with its own store, host and seed copies, against the Epic's "one runtime, one way to run it".
 
-            **Read first:** code:wiki/plans/flow/references/proposals/code-quality-review-2026-11-16.md (section 4),
+            **Read first:** @review.code-quality-review (section 4),
             code:packages/flow-state-v3/src/host/testing/seam.ts, code:packages/flow-state-v3/src/host/testing/steps.ts.
 
             **Risk:** coverage must not drop: port one file at a time, keep every rule each test cites, and keep each
@@ -700,9 +693,9 @@ tasks
               each citing the same rules; `seam.ts` and its copies of the store, host and seed are gone.
             - `nub run faults` catches the same faults before and after, each by its own target; the suite and
               stress pass.
-            - Fixtures first (code:wiki/conventions/fixtures.md): each ported host test lands in a fixture of
-              code:wiki/conventions/fixture-catalog.md as a Story or sample, not as a hand test, and was red on its
-              planted fault before the seam file is deleted.
+            - Fixtures first (@convention.fixtures): each ported host test lands in a fixture of
+              @convention.fixture-catalog as a Story or sample, not as a hand test, and was red on its planted fault
+              before the seam file is deleted.
         comment         2026-11-16T15:38:51Z
             Fixtures first (the user, 2026-11-16; updated 2026-11-17): a coverage test that each built public feature,
             by its API name, appears in some fixture's machine; every fixture's step samples carry each Schema's edge
@@ -743,7 +736,7 @@ tasks
             2026-11-18, re-plan Q1 B); construction only.
 
             **Read first:** this Task's requirements 1 to 19 and its 2026-11-18T11:21:42Z review below, @spec.Compile,
-            code:packages/flow-state-v3/src/config.ts, code:wiki/conventions/boundaries.md.
+            code:packages/flow-state-v3/src/config.ts, @convention.boundaries.
 
             **Risk:** the `WeakSet` check makes a token from a second copy of the package foreign; one package copy per
             app is already assumed (one Effect copy since T93).
@@ -848,9 +841,9 @@ tasks
             passing FieldSchema (isSchema checks a TypeId only); idle(5) and lookup(undefined) accepted until run.
             Rejected: a baseless Schema.suspend constant hangs inside Effect's own Schema.is, which no rule can decide.
         comment         2026-11-18T17:43:48Z
-            The user's answers to the re-plan (2026-11-18, replan-2026-11-18.md): Q1 B (boundary Task @task.V3.T94
-            first, then this Task, construction only), Q2 B (T80 to the end of P4), Q3 A (ruling c to revisit.md), Q4 A
-            (send action), Q5 A (code:wiki/conventions/boundaries.md), Q6 P5 order accepted.
+            The user's answers to the re-plan (2026-11-18, @proposal.replan): Q1 B (boundary Task @task.V3.T94 first,
+            then this Task, construction only), Q2 B (T80 to the end of P4), Q3 A (ruling c to revisit.md), Q4 A (send
+            action), Q5 A (@convention.boundaries), Q6 P5 order accepted.
         deletion_reason
             Parked in P9 as @task.V3.T98 (the user, 2026-11-19): the raw-throw class waits for one general solution; wk
             cannot move a Task between phases.
@@ -861,13 +854,13 @@ tasks
         priority    high
         description
             Every fixture gets a manifest and grows into its catalog app with today's features: step 1 of
-            code:wiki/conventions/fixture-catalog.md's migration plan.
+            @convention.fixture-catalog's migration plan.
 
             **Why now:** fixtures are one-machine demos, and each runner keeps its own hand list of fixtures; later
             feature Tasks add machines to these apps step by step and need the manifests in place first.
 
-            **Read first:** code:wiki/conventions/fixtures.md, code:wiki/conventions/fixture-catalog.md (step 1 and
-            every cell marked 1), and its sources under `codebases/`.
+            **Read first:** @convention.fixtures, @convention.fixture-catalog (step 1 and every cell marked 1), and its
+            sources under `codebases/`.
 
             **Risk:** additive growth: existing machines, persisted ids, Story ids and tests stay as they are; new
             machines sit beside them and link by ref or context. The one planned edit to an old machine is the
@@ -883,10 +876,9 @@ tasks
               step 1 reads the manifests, and no hand list of fixtures is left.
             - Every catalog cell marked 1 holds on production: its machines, operations and Stories exist, and its
               scenarios were red before they were built.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 1 of code:wiki/conventions/fixture-catalog.md:
-              `pay`, `cells`, `lanes`, `sync`, `transfers`, `sign-in`, `session`, `command-palette`, `player` gain the
-              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
-              marked used at the close.
+            - Fixtures first (@convention.fixtures): step 1 of @convention.fixture-catalog: `pay`, `cells`, `lanes`,
+              `sync`, `transfers`, `sign-in`, `session`, `command-palette`, `player` gain the features, scenarios and
+              sources of their rows; each scenario red before the build, and the step's cells marked used at the close.
             - No existing machine id, persisted id or Story id changes; every existing test still passes unchanged.
         comment     2026-11-16T20:54:14Z
             Left, each with the feature it needs: the actor-to-actor send action (@task.V3.T96); a Story word for a
@@ -959,11 +951,11 @@ tasks
             verifies, applies and re-measures alone; at the box, commit what holds and report each gap with what its
             seconds buy.
         comment     2026-11-18T02:30:18Z
-            Scope widened (the user, 2026-11-18, test-efficacy-2026-11-18.md): the pair sweep stops at the reachable
-            phases in the default suite and keeps 1,000 seeds in stress (Q1 B); faults copies sized to the cores, 240 s
-            kept; double reload only in hold windows and at the end; the CLI runs one Story per fixture; breach cases
-            for the 9 unproven rules; the generator also draws forget, a lost response and a refused load. Every cut
-            test, shard or strategy stays in the tree behind a named switch with a comment (the user); fork-from-cut
+            Scope widened (the user, 2026-11-18, @review.test-efficacy): the pair sweep stops at the reachable phases in
+            the default suite and keeps 1,000 seeds in stress (Q1 B); faults copies sized to the cores, 240 s kept;
+            double reload only in hold windows and at the end; the CLI runs one Story per fixture; breach cases for the
+            9 unproven rules; the generator also draws forget, a lost response and a refused load. Every cut test, shard
+            or strategy stays in the tree behind a named switch with a comment (the user); fork-from-cut
             is @task.V3.T90.
         comment     2026-11-18T03:24:57Z
             Switches: FLOW_EVERY_RELOAD, FLOW_EVERY_STORY_CLI, FLOW_TWIN_RUNS, FLOW_BENCH_LIMITS (nub run bench:limits).
@@ -998,7 +990,7 @@ tasks
 
             **Read first:** @plan.Pending.D23, @plan.Pending.D24, @spec.Actors (the 1,024 mailbox, the follow-up cap),
             @spec.WriteLanes (serialize's 64, the `many` key), @spec.WriteAhead (scope bounds), @spec.Compile (name
-            bytes), @spec.Diagnostics, code:wiki/conventions/fixtures.md.
+            bytes), @spec.Diagnostics, @convention.fixtures.
 
             **Risk:** a cap removed may leave an ending nobody delivers: each `Overloaded`, `AdmissionOverloaded` or
             `InvalidKey`-for-size path is either gone with no ending lost, or still has a real reason, logged. Entity
@@ -1029,12 +1021,12 @@ tasks
             - The caps Q10 A added are gone the same way: the server-rendering payload's `maxBytes` and the 1,024-item
               `Stream.callback` queue, each past its old cap in a Story, sized and timed; the inspector ring's default
               capacity is a named default from the bench (@plan.Pending.D24, D25).
-            - Rework routed from code:wiki/conventions/fixture-catalog.md (items marked "rework: @task.V3.T84"): the
-              built Stories and tests that assert an old cap (`lanes/serialize-at-cap`, the 1,025th
-              `AdmissionOverloaded` runtime tests of lanes and workspace, `cells/key-at-bound` and `key-past-bound`,
-              `sign-in/email-at-bound`, `transfers/id-at-bound`, `player/room-at-bound`, the `session/wall-64`,
-              `avatar-wall-65` and `stress-wall-1024` follow-up cap, `palette/over-bound`) are reworked to "no ending
-              lost, timed", red first.
+            - Rework routed from @convention.fixture-catalog (items marked "rework: @task.V3.T84"): the built Stories
+              and tests that assert an old cap (`lanes/serialize-at-cap`, the 1,025th `AdmissionOverloaded` runtime
+              tests of lanes and workspace, `cells/key-at-bound` and `key-past-bound`, `sign-in/email-at-bound`,
+              `transfers/id-at-bound`, `player/room-at-bound`, the `session/wall-64`, `avatar-wall-65` and
+              `stress-wall-1024` follow-up cap, `palette/over-bound`) are reworked to "no ending lost, timed",
+              red first.
             - D25's built knobs (the free actor's grace, the disposal bound, StorageSilent, the refused batch's retry,
               the capture interval) are each one named Runtime default in one place, cited by name in the Specs and
               tests; each value has a bench or measurement note; the refused batch's retry derives from the capture
@@ -1072,9 +1064,9 @@ tasks
             with identical stored bytes on 151 Stories. Finding 12 skips a slot whose provider's snapshot is unchanged;
             finding 15 removes per-call re-derivations of state paths and names from `Compiled`.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/persistence-redesign-2026-11-17.md, the audit's
-            findings 12 and 15 in code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md,
-            @plan.Pending.D27 to D30, @spec.WriteAhead, @spec.Restore, code:wiki/conventions/fixtures.md.
+            **Read first:** @proposal.persistence-redesign, the audit's findings 12 and 15 in
+            @review.performance-architecture, @plan.Pending.D27 to D30, @spec.WriteAhead,
+            @spec.Restore, @convention.fixtures.
 
             **Risk:** a key cleared before its batch lands, or a ticket's record that fails to encode after its step,
             loses or doubles an ending; the redesign's guarantee table says how each holds. Built on @task.V3.T79's step
@@ -1122,9 +1114,9 @@ tasks
         priority    medium
         blocked_by  [@T79]
         description
-            Every fixture follows the layout in code:wiki/conventions/fixtures.md: flat files move into their folders,
-            services shared by several apps move to `fixtures/services/`, and `pay/` becomes `shop/` with its Story ids,
-            while every machine, Story and test survives unchanged.
+            Every fixture follows the layout in @convention.fixtures: flat files move into their folders, services
+            shared by several apps move to `fixtures/services/`, and `pay/` becomes `shop/` with its Story ids, while
+            every machine, Story and test survives unchanged.
 
             **Why now:** fixtures written before the layout still keep `contracts.ts`, `machine.ts`, `server.ts`,
             `stories.ts` and `*-http.ts` beside their `machines/`, `stories/` and `server/` folders; `cells` imports
@@ -1132,8 +1124,8 @@ tasks
             Doing it before T85, T84 and T83 means those Tasks edit the final paths once (the user, 2026-11-17, Q15 A
             and Q16 B).
 
-            **Read first:** code:wiki/conventions/fixtures.md ("What a fixture holds"),
-            code:wiki/conventions/fixture-catalog.md, `packages/flow-state-v3/fixtures/index.ts`.
+            **Read first:** @convention.fixtures ("What a fixture holds"),
+            @convention.fixture-catalog, `packages/flow-state-v3/fixtures/index.ts`.
 
             **Risk:** a moved file changes no id: machine ids, persisted ids and Story ids are strings in the code. The
             one id change is `pay/…` to `shop/…` for Story ids, updated in the catalog, saved stress seeds and every
@@ -1176,9 +1168,7 @@ tasks
 
             **Read first:** `packages/flow-state-v3/bench/run.ts` and `bench/time.ts`, @task.V3.T66 (the bench as
             built), @task.V3.T35 (P8: browsers, devices and budget targets build on this), skill:check-benchmark,
-            skill:principle-explain-measurements,
-            code:wiki/plans/flow/references/proposals/performance-architecture-2026-11-17.md (what was measured by
-            hand today).
+            skill:principle-explain-measurements, @review.performance-architecture (what was measured by hand today).
 
             **Concerns** (a first cut the lead may reshape, each its own CSV):
 
@@ -1228,7 +1218,7 @@ tasks
             `effect/cli` waits in revisit.md. The shape hash covers steps, turns and actors, not record bytes, which the
             runtime's own encoding moves.
         comment     2026-11-17T17:51:21Z
-            Decision (the user, 2026-11-17, Q24 A): the bench is manifest-driven, importing nothing from fixtures but
+            [decided: user 2026-11-17; Q24 A] the bench is manifest-driven, importing nothing from fixtures but
             fixtures/index.ts, with subjects derived per manifest and run counts from a time budget; raw samples stay
             local and git-ignored, only the CSVs are committed; no backfill now (later, from T86's commit on).
         comment     2026-11-17T18:27:24Z
@@ -1248,7 +1238,7 @@ tasks
             PASS at 72c0c209 after two fix rounds (hung benches outliving their timeouts and orphaned workers; a compare
             timing this tree on both sides; a planted list recorded). backfill.ts stays against the review's delete,
             since the user will backfill later. Leftovers: @task.V3.T35 (P3-routing A78, A83 to A98). The proposed Epic
-            close-line amendment was superseded by code:wiki/conventions/bench.md.
+            close-line amendment was superseded by @convention.bench.
 
     T88
         title       Type-aware lint and type check on tsrs: vite-plus upgraded, same diagnostics, faster check
@@ -1316,9 +1306,8 @@ tasks
             positions, and each mode had a catch of its own), so the time can only come from the replay, which is
             quadratic in a Story's length. Estimated saving about 60 s of file time, low confidence until built.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-efficacy-2026-11-18.md (section e, Q2),
-            @task.V3.T83, `packages/flow-state-v3/tests/rules/reloads.ts` and
-            `tests/rules/sweep.ts`, `src/host/testing/`.
+            **Read first:** @review.test-efficacy (section e, Q2), @task.V3.T83,
+            `packages/flow-state-v3/tests/rules/reloads.ts` and `tests/rules/sweep.ts`, `src/host/testing/`.
 
             **Risk:** a cut that misses part of the world (fake servers, the store, the clock, open calls) gives a
             different run and silently weakens the sweep. Both forms run over every fixture Story and compare verdicts
@@ -1365,9 +1354,8 @@ tasks
             the same rule and are caught by the same tests cost a run each and add no signal. The faults runner has only
             counted catches honestly since 849bbbe2, so merges are judged on its new output.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-efficacy-2026-11-18.md (sections b and e),
-            @task.V3.T83 (its last comments), `packages/flow-state-v3/tests/generated/pairs.ts`, `tools/faults/run.ts`,
-            the `tests/*-faults.ts` files.
+            **Read first:** @review.test-efficacy (sections b and e), @task.V3.T83 (its last comments),
+            `packages/flow-state-v3/tests/generated/pairs.ts`, `tools/faults/run.ts`, the `tests/*-faults.ts` files.
 
             **Risk:** a fault that looks like a duplicate may differ in a rule or a path no test separates yet. Merge
             only faults whose rule and catching tests are both identical, and keep each removed fault in the tree,
@@ -1457,10 +1445,9 @@ tasks
             admit hook skips the rest of the step's commands while the Runtime stays Open
             (code:packages/flow-state-v3/src/host/driver.ts); it must stop the Runtime as Actors R25 does.
 
-            **Read first:** code:wiki/conventions/boundaries.md,
-            code:packages/flow-state-v3/src/core/boundary.ts#walkerOf,
+            **Read first:** @convention.boundaries, code:packages/flow-state-v3/src/core/boundary.ts#walkerOf,
             code:packages/flow-state-v3/tests/compile/corruption.test.ts, @spec.Diagnostics; the re-plan's section
-            2, code:wiki/plans/flow/references/proposals/replan-2026-11-18.md.
+            2, @proposal.replan.
 
             **Approach:** `src/entry.ts` exports `entry(name, run)` for sync calls and `entryEffect(name, run)` for
             Effect-returning ones (`ready`, `dispose`), whose refusal is `Effect.fail` (Diagnostics R1). Each wraps
@@ -1489,10 +1476,10 @@ tasks
             - Lint: `hasProperty(_, "~` is banned in `src/`; `throw` outside `src/error.ts`, `src/entry.ts` and the
               core's listed defect sites is flagged; each remaining disable carries its reason.
             - A throw from `perform` or the admit hook stops the Runtime (Actors R25), shown red first by a Story test.
-            - code:wiki/conventions/boundaries.md stays current: any source this Task adds or moves changes its row.
+            - @convention.boundaries stays current: any source this Task adds or moves changes its row.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
         comment     2026-11-18T18:28:19Z
-            Decision (agent, 2026-11-18): the surface walk follows own enumerable keys, stops at Flow's inert data (a
+            [decided: agent 2026-11-18] the surface walk follows own enumerable keys, stops at Flow's inert data (a
             builder's result, Compiled, a bound contract, a walker) and Effect's own values, and treats a builder as a
             leaf; only the root route and what it hands out are walked, not the testing route. Why: user callbacks live
             only inside that data. Reverse: enter inert data and register user callbacks.
@@ -1524,16 +1511,16 @@ tasks
             dying on a dying services Layer (Diagnostics R1 keeps defects distinct); attachInspector re-entry (not on a
             public route); arity undercount (no shipped entry has default or rest params).
         comment     2026-11-18T18:51:11Z
-            Decision (the user, 2026-11-19): the raw-throw class is parked in @task.V3.T98; the review's blocker and
-            routed items move there. T94 closes once the confirmed instances land as it.fails tests titled by
-            Diagnostics R1, with R25's specs.log note, the admit trap disarmed and boundaries.md's status current.
-            Reverse: reopen T98's items here.
+            [decided: user 2026-11-19] the raw-throw class is parked in @task.V3.T98; the review's blocker and routed
+            items move there. T94 closes once the confirmed instances land as it.fails tests titled by Diagnostics R1,
+            with R25's specs.log note, the admit trap disarmed and boundaries.md's status current. Reverse: reopen T98's
+            items here.
         comment     2026-11-18T18:56:26Z
             Closed on that: nine inverted Diagnostics R1 tests, red for their stated reasons, in
             code:packages/flow-state-v3/tests/surface/surface.test.ts (textOfKey, commit and retryable make,
             defineConfig) and code:packages/flow-state-v3/tests/compile/authoring-gaps.test.ts (T81's three blockers,
-            now Defects through the catch-all; retryable(5) still accepted). User's page:
-            code:wiki/plans/flow/references/pages/T94-public-entry-points.md, read 2026-11-19.
+            now Defects through the catch-all; retryable(5) still accepted). User's page: @page.T94-public-entry-points,
+            read 2026-11-19.
 
     T101
         title       P3's coverage gaps closed: each built rule caught by a named fault

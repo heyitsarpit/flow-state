@@ -1,7 +1,9 @@
-# UI primitives to rebuild on Flow, from ui-sdk (proposed, 2026-11-16)
-
-**Status (2026-11-20):** acted on: decided in
-code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md. The text below is prior art.
+---
+proposal ui-primitives
+status merged 2026-11-16 [@plan.Machines, @plan.Runtime, @plan.React, @plan.Testing, @plan.Inspection, @spec.Turn, @spec.Actors, @spec.Compile, @spec.StaticCli, @spec.WriteAhead, @spec.Restore, @spec.Codec, @task.V3.T72, @task.V3.T76, @task.V3.T77, @task.V3.T78]
+    proposed 2026-11-16
+---
+# UI primitives to rebuild on Flow, from ui-sdk
 
 **Bottom line (proposed):** rebuild seven ui-sdk primitives as fixtures, in this order: the command palette, the
 async combobox, the toaster, the menu with submenus, the number input, the lazy tree and the token input. Each one is
@@ -21,7 +23,7 @@ complicated UI primitives rebuilt on machines and fragments, with their behaviou
 fixtures gain real variety. They later grow into Flow's own demo, a ui-sdk-style project.
 
 **Read first:** https://ui-sdk.dev, https://github.com/vercel-labs/ui (read at commit `98ba9fd0`, 2026-11-15),
-@plan.Machines, @plan.Operations, @plan.Testing, `fixture-catalogue-2026-11-11.md`,
+@plan.Machines, @plan.Operations, @plan.Testing, @proposal.fixture-catalogue,
 `code:packages/flow-state-v3/fixtures/transfers/machine.ts`.
 
 ## 1. What ui-sdk is
@@ -63,38 +65,38 @@ to the Vercel beta terms", and its APIs and behaviour may change. A plain readin
 
 Complexity runs from 1 (trivial state) to 5 (many timers, async races and parts working together). Fit is **yes**
 (build now as a fixture), **later** (worth it, after a feature or another fixture lands) or **no** (mostly visual,
-pure functions or trivial state). Feature codes follow `fixture-catalogue-2026-11-11.md` §2.
+pure functions or trivial state). Feature codes follow @proposal.fixture-catalogue §2.
 
-| Rank | Primitive (upstream name)                  | Cx | Flow features exercised                         | Fit       |
-| ---- | ------------------------------------------ | -- | ----------------------------------------------- | --------- |
-| 1    | Command palette (`command`)                | 4  | ky rj gd, write rows, check-driven keys         | yes (now) |
-| 2    | Async combobox (`combobox`, async options) | 5  | cs du lk lr gd rj, cancel, paging               | yes       |
-| 3    | Toaster (`toast`, `toaster`)               | 5  | ks rs ky rj ma, pause reasons, sends            | yes       |
-| 4    | Menu with submenus (`menu`)                | 5  | cs du ky rj lr gd, hover intent, typeahead      | yes       |
-| 5    | Number input (`number-input`, `bindHold`)  | 3  | cs du ms gd, commit once per interaction        | yes       |
-| 6    | Lazy tree (`tree`)                         | 5  | sb (`.each`) cs gd rl, step-into, reorder       | yes       |
-| 7    | Token input (`token-input`, undo stack)    | 4  | sb (`.each`) cs rl, undo groups by time         | yes       |
-| 8    | Resizable with saved layout (`resizable`)  | 3  | rl, persistence; rest is layout math            | later     |
-| 9    | Trigger menu (`trigger-menu`)              | 4  | async options per nested level                  | later     |
-| 10   | Tooltip and hover card warm group          | 3  | du, cx (a group shares "warm" state)            | later     |
-| 11   | Carousel autoplay (`carousel`)             | 3  | pause causes as a set (same need as toaster)    | later     |
-| 12   | Preferences, colour scheme                 | 2  | rl, needs cross-tab sync and SSR cookie         | later     |
-| 13   | Reorder and transfer lists                 | 3  | cs, Escape restore; overlaps S22 Kanban         | later     |
-| 14   | Inline edit (`createInlineEdit`)           | 2  | cs; overlaps S15 rows edited in place           | later     |
-| 15   | Stick to bottom (`createStickToBottom`)    | 2  | st; overlaps S04 chat                           | later     |
-| 16   | Alert dialog queue (`createConfirm`)       | 3  | questions wait for the one before; small        | later     |
-| 17   | Menubar, navigation menu                   | 3  | duplicates menu's hover intent                  | later     |
-| 18   | Autocomplete, select, listbox              | 2  | subsets of combobox                             | no        |
-| 19   | Dialog, drawer, popover, sheet             | 2  | focus trap and gesture physics are DOM          | no        |
-| 20   | OTP input                                  | 2  | paste filter and completion are pure functions  | no        |
-| 21   | Date picker, calendar, date and time input | 2  | locale parsing, pure                            | no        |
-| 22   | File input                                 | 2  | drop rules pure; uploads are S03's job          | no        |
-| 23   | Colour picker, image cropper, slider       | 1  | geometry and colour maths                       | no        |
-| 24   | Scroll area, waterfall, timeline, virtual  | 1  | geometry and time-to-pixel maths                | no        |
-| 25   | Switch, toggle, checkbox, radio, rating    | 1  | one value                                       | no        |
-| 26   | Tabs, accordion, collapsible, segmented    | 1  | one value and roving focus                      | no        |
-| 27   | Toolbar, separator, label, field, meter    | 1  | static or one value                             | no        |
-| 28   | Avatar, pagination, password input, input  | 1  | image status, page range, visibility toggle     | no        |
+| Rank | Primitive (upstream name)                  | Cx  | Flow features exercised                        | Fit       |
+| ---- | ------------------------------------------ | --- | ---------------------------------------------- | --------- |
+| 1    | Command palette (`command`)                | 4   | ky rj gd, write rows, check-driven keys        | yes (now) |
+| 2    | Async combobox (`combobox`, async options) | 5   | cs du lk lr gd rj, cancel, paging              | yes       |
+| 3    | Toaster (`toast`, `toaster`)               | 5   | ks rs ky rj ma, pause reasons, sends           | yes       |
+| 4    | Menu with submenus (`menu`)                | 5   | cs du ky rj lr gd, hover intent, typeahead     | yes       |
+| 5    | Number input (`number-input`, `bindHold`)  | 3   | cs du ms gd, commit once per interaction       | yes       |
+| 6    | Lazy tree (`tree`)                         | 5   | sb (`.each`) cs gd rl, step-into, reorder      | yes       |
+| 7    | Token input (`token-input`, undo stack)    | 4   | sb (`.each`) cs rl, undo groups by time        | yes       |
+| 8    | Resizable with saved layout (`resizable`)  | 3   | rl, persistence; rest is layout math           | later     |
+| 9    | Trigger menu (`trigger-menu`)              | 4   | async options per nested level                 | later     |
+| 10   | Tooltip and hover card warm group          | 3   | du, cx (a group shares "warm" state)           | later     |
+| 11   | Carousel autoplay (`carousel`)             | 3   | pause causes as a set (same need as toaster)   | later     |
+| 12   | Preferences, colour scheme                 | 2   | rl, needs cross-tab sync and SSR cookie        | later     |
+| 13   | Reorder and transfer lists                 | 3   | cs, Escape restore; overlaps S22 Kanban        | later     |
+| 14   | Inline edit (`createInlineEdit`)           | 2   | cs; overlaps S15 rows edited in place          | later     |
+| 15   | Stick to bottom (`createStickToBottom`)    | 2   | st; overlaps S04 chat                          | later     |
+| 16   | Alert dialog queue (`createConfirm`)       | 3   | questions wait for the one before; small       | later     |
+| 17   | Menubar, navigation menu                   | 3   | duplicates menu's hover intent                 | later     |
+| 18   | Autocomplete, select, listbox              | 2   | subsets of combobox                            | no        |
+| 19   | Dialog, drawer, popover, sheet             | 2   | focus trap and gesture physics are DOM         | no        |
+| 20   | OTP input                                  | 2   | paste filter and completion are pure functions | no        |
+| 21   | Date picker, calendar, date and time input | 2   | locale parsing, pure                           | no        |
+| 22   | File input                                 | 2   | drop rules pure; uploads are S03's job         | no        |
+| 23   | Colour picker, image cropper, slider       | 1   | geometry and colour maths                      | no        |
+| 24   | Scroll area, waterfall, timeline, virtual  | 1   | geometry and time-to-pixel maths               | no        |
+| 25   | Switch, toggle, checkbox, radio, rating    | 1   | one value                                      | no        |
+| 26   | Tabs, accordion, collapsible, segmented    | 1   | one value and roving focus                     | no        |
+| 27   | Toolbar, separator, label, field, meter    | 1   | static or one value                            | no        |
+| 28   | Avatar, pagination, password input, input  | 1   | image status, page range, visibility toggle    | no        |
 
 **Why these seven.** Each one brings at least one behaviour none of the five current fixtures has:
 
@@ -640,18 +642,18 @@ create and Escape restore. S18 inbox has the paging (`pagedBy`), entity repair a
 `paused` (a list of reasons) and `focusAfterClose`. Visible means the first `maxVisible` toasts. A toast is counting
 when it is visible, `duration` is not null, `paused` is empty and its `press` lane is idle.
 
-| Event                         | Effect                                                                     |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| Show { id, title, type, ms? } | an id already showing updates it; else insert first; settle the clocks     |
-| Update { id, patch }          | denied with `Gone` if absent (the caller learns it was closed); bump       |
-|                               | version; a type change resets duration and remaining                       |
-| Dismiss { id?, reason }       | remove one or all; focusAfterClose = next, else previous, else "return"    |
-| Expired { id } (countdown)    | Dismiss with reason `timeout`                                              |
-| Pause { reason }              | add the reason; settle the clocks (subtract time spent)                    |
-| Resume { reason }             | remove that reason only; settle the clocks (start the rest again)          |
-| Press { id, action }          | guard `O.press.idle({ id })`; commit; the toast is held while pending      |
-| Pressed { id, dismiss }       | dismiss with reason `action` if asked; settle the clocks                   |
-| PressFailed { id }            | keep the toast; settle the clocks                                          |
+| Event                         | Effect                                                                  |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| Show { id, title, type, ms? } | an id already showing updates it; else insert first; settle the clocks  |
+| Update { id, patch }          | denied with `Gone` if absent (the caller learns it was closed); bump    |
+|                               | version; a type change resets duration and remaining                    |
+| Dismiss { id?, reason }       | remove one or all; focusAfterClose = next, else previous, else "return" |
+| Expired { id } (countdown)    | Dismiss with reason `timeout`                                           |
+| Pause { reason }              | add the reason; settle the clocks (subtract time spent)                 |
+| Resume { reason }             | remove that reason only; settle the clocks (start the rest again)       |
+| Press { id, action }          | guard `O.press.idle({ id })`; commit; the toast is held while pending   |
+| Pressed { id, dismiss }       | dismiss with reason `action` if asked; settle the clocks                |
+| PressFailed { id }            | keep the toast; settle the clocks                                       |
 
 "Settle the clocks" is one pure function. Before the turn's change, every toast that was counting moves its time
 into `remaining`: `remaining -= now - countingSince`. After the change, every toast that is counting gets
@@ -931,29 +933,29 @@ Memory: `highlighted`, `pendingSub` (the submenu a hovered trigger would open), 
 current ending closes the menu), `errors` (keyed) and `focus` (where focus goes on close: `trigger` or `none`).
 Pending is derived from the `act` rows.
 
-| From            | Event                     | Guard                  | To / effect                                  |
-| --------------- | ------------------------- | ---------------------- | -------------------------------------------- |
-| CLOSED.IDLE     | Open { by }               | none                   | OPEN.ROOT; keyboard highlights first         |
-| CLOSED.IDLE     | TouchDown                 | none                   | CLOSED.PRESSING (500 ms schedule)            |
-| CLOSED.PRESSING | LongPressDue              | none                   | OPEN.ROOT, by touch                          |
-| CLOSED.PRESSING | TouchMoved, TouchUp       | none                   | CLOSED.IDLE: scrolling or a tap cancels      |
-| OPEN.ROOT       | HoverItem { key, sub }    | none                   | highlight; a submenu trigger goes SUB_WAIT   |
-| OPEN.SUB_WAIT   | SubDue (100 ms)           | none                   | SUB_SHOWN; sub = trigger                     |
-| OPEN.SUB_WAIT   | LeftTrigger               | none                   | ROOT: left before it opened, stays closed    |
-| OPEN.SUB_SHOWN  | Heading                   | none                   | SUB_CROSSING (React computed the triangle)   |
-| SUB_CROSSING    | HoverItem { key }         | none                   | restingOn = key; highlight unchanged         |
-| SUB_CROSSING    | EnteredSub                | none                   | SUB_SHOWN                                    |
-| SUB_CROSSING    | SafeAreaDue (300 ms)      | none                   | ROOT; highlight restingOn; close the sub     |
-| OPEN.ROOT       | ArrowRight on a sub       | none                   | SUB_SHOWN                                    |
-| OPEN.SUB_*      | ArrowLeft, Escape         | none                   | ROOT; highlighted = the sub's trigger        |
-| OPEN.ROOT       | Escape, Tab, OutsidePress | none                   | CLOSED; focus = trigger on Escape only       |
-| OPEN            | TypeChar { ch }           | none                   | typed += ch; highlight match; 500 ms reset   |
-| OPEN            | TypeaheadDue              | none                   | typed = ""                                   |
-| OPEN            | Pick { key }              | local item             | CLOSED; focus = trigger                      |
-| OPEN            | Act { key, closes }       | `O.act.idle({ item })` | commit (owned by this OPEN activation)       |
-| OPEN            | Acted { item }            | current, item closes   | CLOSED; focus = trigger                      |
-| root            | Acted                     | late ending            | stays: the menu was closed or reopened       |
-| any             | ActFailed { item }        | none                   | errors[item] = reason; stays open            |
+| From            | Event                     | Guard                  | To / effect                                |
+| --------------- | ------------------------- | ---------------------- | ------------------------------------------ |
+| CLOSED.IDLE     | Open { by }               | none                   | OPEN.ROOT; keyboard highlights first       |
+| CLOSED.IDLE     | TouchDown                 | none                   | CLOSED.PRESSING (500 ms schedule)          |
+| CLOSED.PRESSING | LongPressDue              | none                   | OPEN.ROOT, by touch                        |
+| CLOSED.PRESSING | TouchMoved, TouchUp       | none                   | CLOSED.IDLE: scrolling or a tap cancels    |
+| OPEN.ROOT       | HoverItem { key, sub }    | none                   | highlight; a submenu trigger goes SUB_WAIT |
+| OPEN.SUB_WAIT   | SubDue (100 ms)           | none                   | SUB_SHOWN; sub = trigger                   |
+| OPEN.SUB_WAIT   | LeftTrigger               | none                   | ROOT: left before it opened, stays closed  |
+| OPEN.SUB_SHOWN  | Heading                   | none                   | SUB_CROSSING (React computed the triangle) |
+| SUB_CROSSING    | HoverItem { key }         | none                   | restingOn = key; highlight unchanged       |
+| SUB_CROSSING    | EnteredSub                | none                   | SUB_SHOWN                                  |
+| SUB_CROSSING    | SafeAreaDue (300 ms)      | none                   | ROOT; highlight restingOn; close the sub   |
+| OPEN.ROOT       | ArrowRight on a sub       | none                   | SUB_SHOWN                                  |
+| OPEN.SUB_*      | ArrowLeft, Escape         | none                   | ROOT; highlighted = the sub's trigger      |
+| OPEN.ROOT       | Escape, Tab, OutsidePress | none                   | CLOSED; focus = trigger on Escape only     |
+| OPEN            | TypeChar { ch }           | none                   | typed += ch; highlight match; 500 ms reset |
+| OPEN            | TypeaheadDue              | none                   | typed = ""                                 |
+| OPEN            | Pick { key }              | local item             | CLOSED; focus = trigger                    |
+| OPEN            | Act { key, closes }       | `O.act.idle({ item })` | commit (owned by this OPEN activation)     |
+| OPEN            | Acted { item }            | current, item closes   | CLOSED; focus = trigger                    |
+| root            | Acted                     | late ending            | stays: the menu was closed or reopened     |
+| any             | ActFailed { item }        | none                   | errors[item] = reason; stays open          |
 
 Edge cases:
 

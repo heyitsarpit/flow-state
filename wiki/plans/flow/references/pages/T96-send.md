@@ -1,3 +1,6 @@
+---
+page T96-send
+---
 # Actor-to-actor send: what an app author notices (T96, 2026-11-19)
 
 **Bottom line:** a machine can now tell another actor to do something, from inside a transition, with `send`. It is
@@ -24,14 +27,14 @@ A send always names its target with a ref; it never guesses one.
 
 ## What happens
 
-| The target is | What happens |
-| --- | --- |
-| Live | It hears the event as its own next turn, after the sender's turn commits |
-| Ending and persisted | Queued for its next life |
-| Ended, persisted, record readable | Restored, then hears it |
-| Not persisted and gone, never created, disposed or forgotten | Dropped; the sender's evidence names `NoRecord` |
-| Being disposed | Dropped with `NoRecord` |
-| Its saved record can't be read | Dropped with `RecordUndecodable` |
+| The target is                                                | What happens                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Live                                                         | It hears the event as its own next turn, after the sender's turn commits |
+| Ending and persisted                                         | Queued for its next life                                                 |
+| Ended, persisted, record readable                            | Restored, then hears it                                                  |
+| Not persisted and gone, never created, disposed or forgotten | Dropped; the sender's evidence names `NoRecord`                          |
+| Being disposed                                               | Dropped with `NoRecord`                                                  |
+| Its saved record can't be read                               | Dropped with `RecordUndecodable`                                         |
 
 A send never creates an actor or adopts a lazy one, never counts as a use, and never rolls back the sender's turn.
 Several sends arrive in order. A bad target name or an event the target refuses refuses the sender's turn

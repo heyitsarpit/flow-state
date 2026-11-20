@@ -1,6 +1,10 @@
-# Persistence redesign: capture on issue (2026-11-17, proposed)
-
-**Status (2026-11-20):** acted on: accepted and merged as @plan.Pending.D30. The text below is prior art.
+---
+proposal persistence-redesign
+status merged 2026-11-17 [@plan.Pending.D30]
+    accepted user 2026-11-17
+    proposed 2026-11-17
+---
+# Persistence redesign: capture on issue
 
 **Bottom line:** steps should stop encoding records. Each step only marks which record keys changed. When the
 edge issues a batch, one pure `Capture` step projects every dirty key from the current World through compiled
@@ -9,12 +13,12 @@ dirty until a batch carrying it lands. The record layout, the format and the `St
 
 Measured on a prototype, against HEAD a829ebe3:
 
-| Run | Before | After | Change |
-| --- | --- | --- | --- |
-| palette stress, per turn | 3.84 ms | 0.55 ms | −86 % |
-| `session/long`, per turn | 0.191 ms | 0.147 ms | −23 % |
-| `transfers/long`, per turn | 0.057 ms | 0.050–0.052 ms | −9 to −12 % |
-| hide flush: 1,000 dirty actors (one field each) plus a 469 KB record | about 36 ms | about 3.2 ms | −91 % |
+| Run                                                                  | Before      | After          | Change      |
+| -------------------------------------------------------------------- | ----------- | -------------- | ----------- |
+| palette stress, per turn                                             | 3.84 ms     | 0.55 ms        | −86 %       |
+| `session/long`, per turn                                             | 0.191 ms    | 0.147 ms       | −23 %       |
+| `transfers/long`, per turn                                           | 0.057 ms    | 0.050–0.052 ms | −9 to −12 % |
+| hide flush: 1,000 dirty actors (one field each) plus a 469 KB record | about 36 ms | about 3.2 ms   | −91 %       |
 
 Stored bytes are identical at every checkpoint of 151 Stories.
 
@@ -33,7 +37,7 @@ listed below, and supersedes @plan.Pending.D28.
 The per-field record layout, diff records and an append-only log were measured or reasoned through and are not
 recommended (§3).
 
-**Read first:** [the performance audit](performance-architecture-2026-11-17.md) (finding 3),
+**Read first:** @review.performance-architecture (finding 3),
 @plan.Pending.D27, @plan.Pending.D28, @spec.WriteAhead (R10, R12, R13, I11, I20 to I23), @plan.Persistence.O3.
 
 ## 1. Where the time goes today
@@ -48,11 +52,11 @@ takes four generic walks:
 
 The edge's dirty map, keyed by record key, then keeps only the latest text per key. Counted on the prototype:
 
-| Run | Records encoded | Records written | Batches |
-| --- | --- | --- | --- |
-| `transfers/long` | 206 | 206 | 113 |
-| `session/long` | 665 | 665 | 180 |
-| palette stress, 5 seeds | 5,007 | 245 | 174 |
+| Run                     | Records encoded | Records written | Batches |
+| ----------------------- | --------------- | --------------- | ------- |
+| `transfers/long`        | 206             | 206             | 113     |
+| `session/long`          | 665             | 665             | 180     |
+| palette stress, 5 seeds | 5,007           | 245             | 174     |
 
 Stories settle between steps, so they show no coalescing. Bursts do: palette stress encodes 20 records for every
 one it writes, and its 469 KB command list is re-encoded at each step (13.6 ms) although it rarely changes.
@@ -173,11 +177,11 @@ matters. It is the only lever left for write bytes.
 
 **Per turn:**
 
-| Run | Today | Memo and template | Plus capture on issue |
-| --- | --- | --- | --- |
-| `transfers/long` | 0.057 ms | 0.050 ms | 0.052 ms |
-| `session/long` | 0.191 ms | 0.152 ms | 0.147 ms |
-| palette stress, 5 seeds | 3.84 ms | 0.59 ms | 0.55 ms |
+| Run                     | Today    | Memo and template | Plus capture on issue |
+| ----------------------- | -------- | ----------------- | --------------------- |
+| `transfers/long`        | 0.057 ms | 0.050 ms          | 0.052 ms              |
+| `session/long`          | 0.191 ms | 0.152 ms          | 0.147 ms              |
+| palette stress, 5 seeds | 3.84 ms  | 0.59 ms           | 0.55 ms               |
 
 With `PROTO_DIRTY` on, a revive went through the empty `World.records`, which part 1 forbids. That changed the
 digest of some other Stories, and palette ran one extra turn (4,918 against 4,917). `transfers/long` and
@@ -185,11 +189,11 @@ digest of some other Stories, and palette ran one extra turn (4,918 against 4,91
 
 **Hide flush** (synchronous encode inside the handler):
 
-| Dirty set | Today | Memoised |
-| --- | --- | --- |
-| palette's 469 KB record, unchanged list | 13.6 ms | 0.05 ms |
-| the same record, first encode since boot | 14.6 ms | 14.6 ms |
-| 1,000 actors, one changed string field each | 22.0 ms | 3.2 ms |
+| Dirty set                                   | Today   | Memoised |
+| ------------------------------------------- | ------- | -------- |
+| palette's 469 KB record, unchanged list     | 13.6 ms | 0.05 ms  |
+| the same record, first encode since boot    | 14.6 ms | 14.6 ms  |
+| 1,000 actors, one changed string field each | 22.0 ms | 3.2 ms   |
 
 **Not measured:** IndexedDB commit time in Chromium and Safari, and how long a commit can still run after
 `pagehide`.

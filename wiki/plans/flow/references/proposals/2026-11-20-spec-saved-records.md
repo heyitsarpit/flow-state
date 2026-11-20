@@ -1,4 +1,8 @@
-# Saved records and releases: one judge, one fate (proposed, 2026-11-20)
+---
+proposal spec-saved-records
+status proposed 2026-11-20
+---
+# Saved records and releases: one judge, one fate
 
 **Verdict: keep the decode pipeline and the format steps; replace the scattered "what if the definition changed"
 lookups with one judge.** Every stored key gets exactly one `Fate` from one pure function of (key, text, compiled
@@ -29,20 +33,20 @@ Paths are under `packages/flow-state-v3/src/`.
 
 **Wrong or missing (each verified in code):**
 
-| # | Finding | Where |
-|---|---------|-------|
-| W1 | Lane and owed records take `format: Format` (1 to 5) with no step: a bump re-reads old ones as current. | `record.ts:36,49` |
-| W2 | The saved `state` is copied and never checked against `compiled.states`; lookups tolerate absence. | `actor-record.ts:336`, `tree.ts:8` |
-| W3 | A removed memory field is stripped silently (Schema's default `onExcessProperty: "ignore"`). | `actor-record.ts:303` |
-| W4 | A removed slot's `seen`, a removed schedule's timer and an unreadable key are dropped by `Option.toArray`. | `actor-record.ts:309`, `schedule-restore.ts:103` |
-| W5 | Identity is stored in the key and in the content, then compared by hand. Six hand parses of key text. | `record.ts:389-399`, `no-id-text` disables |
-| W6 | Brands are `Brand.nominal` applied after hand checks; no Schema is built from Compiled for identifiers. | `world.ts:29-41` |
-| W7 | One owed row of a removed operation quarantines the whole owed record: other rows wait behind it. | `record.ts:245`, `:445` |
-| W8 | A quarantined owed record is overwritten by the next boot that derives an ending (rows lost). | @task.V3.T56 comment 2026-11-16 |
-| W9 | No release code exists: no stamp, fingerprint, identity version, `OldVersion*`, `RecordShapeChanged`. | grep, none |
-| W10 | A machine that is declared but not loaded reads as `readFailed("machine")`: quarantine, not "not now". | `actor-record.ts:293` |
-| W11 | Steps read the *current* definition (`stepFour` adds idle markers from today's state chain). | `actor-record.ts:376-401` |
-| W12 | `stepsTo` hand-chains each format (format 1 skips steps 2 and 3); nothing forces a row per kind. | `actor-record.ts:348-370` |
+| #   | Finding                                                                                                    | Where                                            |
+| --- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| W1  | Lane and owed records take `format: Format` (1 to 5) with no step: a bump re-reads old ones as current.    | `record.ts:36,49`                                |
+| W2  | The saved `state` is copied and never checked against `compiled.states`; lookups tolerate absence.         | `actor-record.ts:336`, `tree.ts:8`               |
+| W3  | A removed memory field is stripped silently (Schema's default `onExcessProperty: "ignore"`).               | `actor-record.ts:303`                            |
+| W4  | A removed slot's `seen`, a removed schedule's timer and an unreadable key are dropped by `Option.toArray`. | `actor-record.ts:309`, `schedule-restore.ts:103` |
+| W5  | Identity is stored in the key and in the content, then compared by hand. Six hand parses of key text.      | `record.ts:389-399`, `no-id-text` disables       |
+| W6  | Brands are `Brand.nominal` applied after hand checks; no Schema is built from Compiled for identifiers.    | `world.ts:29-41`                                 |
+| W7  | One owed row of a removed operation quarantines the whole owed record: other rows wait behind it.          | `record.ts:245`, `:445`                          |
+| W8  | A quarantined owed record is overwritten by the next boot that derives an ending (rows lost).              | @task.V3.T56 comment 2026-11-16                  |
+| W9  | No release code exists: no stamp, fingerprint, identity version, `OldVersion*`, `RecordShapeChanged`.      | grep, none                                       |
+| W10 | A machine that is declared but not loaded reads as `readFailed("machine")`: quarantine, not "not now".     | `actor-record.ts:293`                            |
+| W11 | Steps read the *current* definition (`stepFour` adds idle markers from today's state chain).               | `actor-record.ts:376-401`                        |
+| W12 | `stepsTo` hand-chains each format (format 1 skips steps 2 and 3); nothing forces a row per kind.           | `actor-record.ts:348-370`                        |
 
 **The freedom.** "This record names something the definition lacks" is decided at about twelve lookups, each with
 its own default: trust (W2), strip (W3), drop (W4), quarantine the lot (W7). No lookup can tell *corrupt* (same
@@ -52,29 +56,29 @@ writers (boot, capture, forget, cancel, dispose) and no table. T20, T92 and T107
 
 ## 2. State inventory
 
-| State | Values | Changed in one step by | Owner (proposed) |
-|-------|--------|------------------------|------------------|
-| S1 Stored text of a key | absent, text | capture write, forget, cancel (Idle lane), dispose | capture (`persist.ts`) |
-| S2 Fate of a key | `Live`, `Aside{reason}`, `Unverifiable` | boot, adopt, capture write, forget, cancel, dispose | `core/fate.ts` (new) |
-| S3 Format number | 1..`FORMAT` | a build | `record-format.ts` |
-| S4 Version tag (identity, lane key) | text in the key | a build that changes a name or key Schema | `core/record-key.ts` (new) |
-| S5 Shape stamp | text in the envelope | a build that changes the saved shape | `core/shape.ts` (new) |
+| State                               | Values                                  | Changed in one step by                              | Owner (proposed)           |
+| ----------------------------------- | --------------------------------------- | --------------------------------------------------- | -------------------------- |
+| S1 Stored text of a key             | absent, text                            | capture write, forget, cancel (Idle lane), dispose  | capture (`persist.ts`)     |
+| S2 Fate of a key                    | `Live`, `Aside{reason}`, `Unverifiable` | boot, adopt, capture write, forget, cancel, dispose | `core/fate.ts` (new)       |
+| S3 Format number                    | 1..`FORMAT`                             | a build                                             | `record-format.ts`         |
+| S4 Version tag (identity, lane key) | text in the key                         | a build that changes a name or key Schema           | `core/record-key.ts` (new) |
+| S5 Shape stamp                      | text in the envelope                    | a build that changes the saved shape                | `core/shape.ts` (new)      |
 
 Not this concept's state: an incarnation's memory, a lane's phase, a timer's arming. They cross the seam as typed
 values the judge has already decoded.
 
 **Seams.**
 
-| Neighbour | I take | I give |
-|-----------|--------|--------|
-| Typed machine | `Compiled` (`states`, `fields`, `walk`, `identity`, `context`, `operations`); the app's declared machine ids, eager and lazy | `StateName`, `ActorName` brands built from it |
-| Fragments | subject paths as members of `compiled.states` and of the name codec (the hook in T92's acceptance) | nothing new: a fragment's states are judged as states |
-| Reads and operations | the lane key's segments (contract, key text) and `LaneBody`/`OwedRow` Schemas per operation | `Fate` per lane key; `Restored` lanes typed; `Aside` holds by key |
-| Schedules (T118) | the saved timer Schema of format 6 (`refused`, `restartOn` baseline) | decoded timers; names the definition lacks removed and listed in `dropped` |
-| Context slots | the slot's JSON codec | `seen: None` for a slot with nothing saved; what `None` means at bind is theirs |
-| Data layer | an entity or stream record kind registered as `{ prefix, steps, bodyOf, obligation }` | the same envelope, judge and fate table |
-| Lazy features, T48 | "machine loaded" as an input | `Unverifiable` keys, re-judged at adoption |
-| T98 | nothing | nothing: a record is a source decoded once here; public arguments are T98's |
+| Neighbour            | I take                                                                                                                       | I give                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Typed machine        | `Compiled` (`states`, `fields`, `walk`, `identity`, `context`, `operations`); the app's declared machine ids, eager and lazy | `StateName`, `ActorName` brands built from it                                   |
+| Fragments            | subject paths as members of `compiled.states` and of the name codec (the hook in T92's acceptance)                           | nothing new: a fragment's states are judged as states                           |
+| Reads and operations | the lane key's segments (contract, key text) and `LaneBody`/`OwedRow` Schemas per operation                                  | `Fate` per lane key; `Restored` lanes typed; `Aside` holds by key               |
+| Schedules (T118)     | the saved timer Schema of format 6 (`refused`, `restartOn` baseline)                                                         | decoded timers; names the definition lacks removed and listed in `dropped`      |
+| Context slots        | the slot's JSON codec                                                                                                        | `seen: None` for a slot with nothing saved; what `None` means at bind is theirs |
+| Data layer           | an entity or stream record kind registered as `{ prefix, steps, bodyOf, obligation }`                                        | the same envelope, judge and fate table                                         |
+| Lazy features, T48   | "machine loaded" as an input                                                                                                 | `Unverifiable` keys, re-judged at adoption                                      |
+| T98                  | nothing                                                                                                                      | nothing: a record is a source decoded once here; public arguments are T98's     |
 
 ## 3. The design
 
@@ -188,16 +192,16 @@ One pipeline, each stage's failure a named reason:
 **Reference table: what a record names, against the definition.** `same` is "shape stamp equal". One row per cell;
 no other code may look a record's name up in a definition.
 
-| The record names | Present, reads | Present, does not read | Absent from the definition |
-|------------------|----------------|------------------------|----------------------------|
-| state (leaf, history target) | Live | n/a | same: `Unreadable`; else `Outdated(state)` |
-| memory field | Live | same: `Unreadable`; else `Outdated(memory)` | same: `Unreadable`; else dropped (`FieldDropped`), dirty |
-| (definition's field the record lacks) | n/a | n/a | the field's Schema decodes absence: Live, dirty; else `Outdated(memory)` |
-| slot: binding, `seen`, baselines | Live | same: `Unreadable`; else that slot's entries dropped | same: `Unreadable`; else dropped |
-| schedule timer: name, key, pause reason | Live | same: `Unreadable`; else that timer dropped | same: `Unreadable`; else dropped |
-| lane: contract | Live | n/a | `Retired("operation")`, hold kept |
-| lane: head's input | Live | **Live, input unread**: the lane is Held and ends unknown `Restored` | n/a |
-| owed row: operation | Live | the row kept verbatim, not delivered | the row kept verbatim, not delivered (closes W7) |
+| The record names                        | Present, reads | Present, does not read                                               | Absent from the definition                                               |
+| --------------------------------------- | -------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| state (leaf, history target)            | Live           | n/a                                                                  | same: `Unreadable`; else `Outdated(state)`                               |
+| memory field                            | Live           | same: `Unreadable`; else `Outdated(memory)`                          | same: `Unreadable`; else dropped (`FieldDropped`), dirty                 |
+| (definition's field the record lacks)   | n/a            | n/a                                                                  | the field's Schema decodes absence: Live, dirty; else `Outdated(memory)` |
+| slot: binding, `seen`, baselines        | Live           | same: `Unreadable`; else that slot's entries dropped                 | same: `Unreadable`; else dropped                                         |
+| schedule timer: name, key, pause reason | Live           | same: `Unreadable`; else that timer dropped                          | same: `Unreadable`; else dropped                                         |
+| lane: contract                          | Live           | n/a                                                                  | `Retired("operation")`, hold kept                                        |
+| lane: head's input                      | Live           | **Live, input unread**: the lane is Held and ends unknown `Restored` | n/a                                                                      |
+| owed row: operation                     | Live           | the row kept verbatim, not delivered                                 | the row kept verbatim, not delivered (closes W7)                         |
 
 - A rename is a removal plus an addition (the user's Q1, `revisit.md:23`): there is no rename map. A renamed
   state resets the actor to its initial state at the next ensure; its lanes and owed rows are untouched, so no
@@ -213,15 +217,15 @@ no other code may look a record's name up in a definition.
 **The boot writes nothing; capture is the only writer of S1** besides the removals below. `dirty` marks a `Live`
 record for the next capture.
 
-| Fate \ input | boot or adopt judges | capture writes the key | forget identity | cancel on the lane key | dispose |
-|---|---|---|---|---|---|
-| (no key) | per judge | Live | n/a | n/a | n/a |
-| Live | n/a | Live | removed | the lane's own rule | actor: removed |
-| Aside, actor, `Unreadable`/`Outdated`/`Retired` | n/a | Live (the reset) | removed | n/a | removed |
-| Aside, actor, `Newer` | n/a | **withheld**, reported once | removed | n/a | stays |
-| Aside, any, `OldVersion` | n/a | cannot happen (another key) | removed | n/a | stays |
-| Aside, lane or owed (`obligation`) | n/a | **withheld**, reported | removed, `HoldForgotten` | Idle lane: removed | stays |
-| Unverifiable | adopt: per judge | cannot happen (machine not loaded) | removed | n/a | stays |
+| Fate \ input                                    | boot or adopt judges | capture writes the key             | forget identity          | cancel on the lane key | dispose        |
+| ----------------------------------------------- | -------------------- | ---------------------------------- | ------------------------ | ---------------------- | -------------- |
+| (no key)                                        | per judge            | Live                               | n/a                      | n/a                    | n/a            |
+| Live                                            | n/a                  | Live                               | removed                  | the lane's own rule    | actor: removed |
+| Aside, actor, `Unreadable`/`Outdated`/`Retired` | n/a                  | Live (the reset)                   | removed                  | n/a                    | removed        |
+| Aside, actor, `Newer`                           | n/a                  | **withheld**, reported once        | removed                  | n/a                    | stays          |
+| Aside, any, `OldVersion`                        | n/a                  | cannot happen (another key)        | removed                  | n/a                    | stays          |
+| Aside, lane or owed (`obligation`)              | n/a                  | **withheld**, reported             | removed, `HoldForgotten` | Idle lane: removed     | stays          |
+| Unverifiable                                    | adopt: per judge     | cannot happen (machine not loaded) | removed                  | n/a                    | stays          |
 
 Rows come from: I1 (obligation rows never overwritten), I2 (boot writes nothing), R9 (`Newer` withheld), R10
 (`Unverifiable` re-judged), the user's Q1 A (an outdated actor record is reset by the fresh actor's first save).
@@ -244,23 +248,23 @@ const issues = yield* runtime.ready;               // existing
 
 ## 4. Requirements and Invariants
 
-| Id | Rule | Source | The check that fails on a wrong build |
-|----|------|--------|---------------------------------------|
-| R1 | Every stored key gets exactly one `Fate`; the boot never fails. | `record.ts#decodeRecords`; T92 | any text under any key: `judge` returns, never throws |
-| R2 | Content holds nothing its key determines. | T92 acceptance | encode, then grep the body for machine, name, operation, tags |
-| R3 | A decode accepts only what an encode produces, key included. | T92 comment 2026-11-19 | round trip on generated records; corrupt-one-field, key fields too |
-| R4 | Every identifier in a record is a brand made by a Schema built from Compiled. | boundaries.md:25 (user, 2026-11-18) | lint: no `Schema.String` for an identifier, no `Brand.nominal` in record code |
-| R5 | Each kind has a step for each older format; a step reads no definition. | @spec.Restore.R5; W1, W11 | type: `steps` total; format-n fixtures of each kind restore |
-| R6 | A name the definition lacks takes its reference-table cell; no other lookup. | W2 to W4 | edit matrix (section 6); lint on tolerant lookups |
-| R7 | Same shape and not reading is `Unreadable`; another shape is `Outdated` or dropped. | @plan.Persistence.O5 (Q1 A) | same record judged under equal and differing stamps |
-| R8 | Another identity or key tag is `OldVersion`: kept, never read into the current identity. | @plan.Persistence.O5 "Versions" | name Schema edit: old record at old key, untouched after 2 boots |
-| R9 | A `Newer` record is never overwritten by an older build. | `revisit.md:29`; T56 "downgrade" | A, B, A, B: B's record equal at the end |
-| R10 | Declared and not loaded is `Unverifiable`: body unread, bytes kept, re-judged at adoption. | T56 acceptance | lazy fixture: boot, list, adopt; fate equals an eager boot's |
-| I1 | A release never loses or invents an ending: owed rows and held lanes before equal delivered plus held after. | D15; T56 false-pass line | conservation oracle over every matrix cell |
-| I2 | The boot writes nothing to the store. | 3.5 | a store fake that counts writes before the first capture |
-| I3 | The shape stamp changes a reason, never a record's bytes or an ending. | 3.1 | flip the stamp on every matrix cell: same store, same endings |
-| I4 | Judging is idempotent: a second boot over an untouched store gives the same fates. | T20's double-reload gap | boot twice, compare `aside` and endings |
-| I5 | An owed row is judged alone: one bad row holds back no other. | W7 | owed `[ok, retired, ok]`: two delivered, one kept |
+| Id  | Rule                                                                                                         | Source                              | The check that fails on a wrong build                                         |
+| --- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------- |
+| R1  | Every stored key gets exactly one `Fate`; the boot never fails.                                              | `record.ts#decodeRecords`; T92      | any text under any key: `judge` returns, never throws                         |
+| R2  | Content holds nothing its key determines.                                                                    | T92 acceptance                      | encode, then grep the body for machine, name, operation, tags                 |
+| R3  | A decode accepts only what an encode produces, key included.                                                 | T92 comment 2026-11-19              | round trip on generated records; corrupt-one-field, key fields too            |
+| R4  | Every identifier in a record is a brand made by a Schema built from Compiled.                                | boundaries.md:25 (user, 2026-11-18) | lint: no `Schema.String` for an identifier, no `Brand.nominal` in record code |
+| R5  | Each kind has a step for each older format; a step reads no definition.                                      | @spec.Restore.R5; W1, W11           | type: `steps` total; format-n fixtures of each kind restore                   |
+| R6  | A name the definition lacks takes its reference-table cell; no other lookup.                                 | W2 to W4                            | edit matrix (section 6); lint on tolerant lookups                             |
+| R7  | Same shape and not reading is `Unreadable`; another shape is `Outdated` or dropped.                          | @plan.Persistence.O5 (Q1 A)         | same record judged under equal and differing stamps                           |
+| R8  | Another identity or key tag is `OldVersion`: kept, never read into the current identity.                     | @plan.Persistence.O5 "Versions"     | name Schema edit: old record at old key, untouched after 2 boots              |
+| R9  | A `Newer` record is never overwritten by an older build.                                                     | `revisit.md:29`; T56 "downgrade"    | A, B, A, B: B's record equal at the end                                       |
+| R10 | Declared and not loaded is `Unverifiable`: body unread, bytes kept, re-judged at adoption.                   | T56 acceptance                      | lazy fixture: boot, list, adopt; fate equals an eager boot's                  |
+| I1  | A release never loses or invents an ending: owed rows and held lanes before equal delivered plus held after. | D15; T56 false-pass line            | conservation oracle over every matrix cell                                    |
+| I2  | The boot writes nothing to the store.                                                                        | 3.5                                 | a store fake that counts writes before the first capture                      |
+| I3  | The shape stamp changes a reason, never a record's bytes or an ending.                                       | 3.1                                 | flip the stamp on every matrix cell: same store, same endings                 |
+| I4  | Judging is idempotent: a second boot over an untouched store gives the same fates.                           | T20's double-reload gap             | boot twice, compare `aside` and endings                                       |
+| I5  | An owed row is judged alone: one bad row holds back no other.                                                | W7                                  | owed `[ok, retired, ok]`: two delivered, one kept                             |
 
 Tables: the reference table's rows are R6, R7 and I5; the fate table's are in 3.5.
 
@@ -372,21 +376,21 @@ Not proposed: a rename map or `version` hook (the user's Q1 stands; `revisit.md:
 
 Four Haiku sidecars at effort high, read-only. No adversary ran: the 30 minutes went to verification.
 
-| Sidecar | Finding | Result | Why |
-|---------|---------|--------|-----|
-| Code map | Lane and owed accept formats 1 to 5 with no step | accepted | read `record.ts:36,49` and `record-format.ts:14` |
-| Code map | Saved `state` never checked | accepted | read `actor-record.ts:336` (`state: r.state`) |
-| Code map | No release, stamp or fingerprint code | accepted | own grep over `src`, no hits |
-| Code map | Removed field stripped by `onExcessProperty` default | accepted, not re-run | matches Effect's documented default; T92 must pin it by test |
-| Code map | `inFlight` duplicates phase | rejected | restored lanes are all Held; the pre-crash phase is a fact, and it is the neighbour's |
-| Code map | `baselines` conditional on `seen` is a duplicate | rejected | a compression with one rule; T107 reviewed it |
-| Plans | Q1 A: per definition, no manual version; rename is drop plus add | accepted | read @plan.Persistence.O5 lines 254-268 |
-| Plans | Most O5 details are "the runner's ruling", not the user's | accepted | read the same lines; D2 to D4 replace rulings, not user decisions |
-| Plans | D31 accepted: lanes keyed by contract | accepted, not re-read | cited as the neighbour's seam (O5) |
-| Plans | "Unverifiable now" defined in no Plan or Spec | accepted | defined here (R10) |
-| Reviews | T92 sweep never corrupted the key or made older formats | accepted, not re-read | carried into section 6 |
-| Reviews | T118 format 6 also saves the `restartOn` baseline | accepted, not re-read | a seam only; the timer Schema is T118's |
-| Reviews | Failure-limit counting differs between Tasks | changed | out of scope here; noted for the orchestrator only |
-| Prior art | `Schema.brand` adds no runtime check | accepted | hence `Literals(...).pipe(brand)` in 3.2; lead confirms on the installed version |
-| Prior art | Effect persistence has no payload versioning; `getMany` deletes what fails | accepted as contrast | the opposite of I1; nothing to reuse |
-| Prior art | XState, Temporal, redux-persist notes | not used as evidence | from the sidecar's memory, unverified |
+| Sidecar   | Finding                                                                    | Result                | Why                                                                                   |
+| --------- | -------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------- |
+| Code map  | Lane and owed accept formats 1 to 5 with no step                           | accepted              | read `record.ts:36,49` and `record-format.ts:14`                                      |
+| Code map  | Saved `state` never checked                                                | accepted              | read `actor-record.ts:336` (`state: r.state`)                                         |
+| Code map  | No release, stamp or fingerprint code                                      | accepted              | own grep over `src`, no hits                                                          |
+| Code map  | Removed field stripped by `onExcessProperty` default                       | accepted, not re-run  | matches Effect's documented default; T92 must pin it by test                          |
+| Code map  | `inFlight` duplicates phase                                                | rejected              | restored lanes are all Held; the pre-crash phase is a fact, and it is the neighbour's |
+| Code map  | `baselines` conditional on `seen` is a duplicate                           | rejected              | a compression with one rule; T107 reviewed it                                         |
+| Plans     | Q1 A: per definition, no manual version; rename is drop plus add           | accepted              | read @plan.Persistence.O5 lines 254-268                                               |
+| Plans     | Most O5 details are "the runner's ruling", not the user's                  | accepted              | read the same lines; D2 to D4 replace rulings, not user decisions                     |
+| Plans     | D31 accepted: lanes keyed by contract                                      | accepted, not re-read | cited as the neighbour's seam (O5)                                                    |
+| Plans     | "Unverifiable now" defined in no Plan or Spec                              | accepted              | defined here (R10)                                                                    |
+| Reviews   | T92 sweep never corrupted the key or made older formats                    | accepted, not re-read | carried into section 6                                                                |
+| Reviews   | T118 format 6 also saves the `restartOn` baseline                          | accepted, not re-read | a seam only; the timer Schema is T118's                                               |
+| Reviews   | Failure-limit counting differs between Tasks                               | changed               | out of scope here; noted for the orchestrator only                                    |
+| Prior art | `Schema.brand` adds no runtime check                                       | accepted              | hence `Literals(...).pipe(brand)` in 3.2; lead confirms on the installed version      |
+| Prior art | Effect persistence has no payload versioning; `getMany` deletes what fails | accepted as contrast  | the opposite of I1; nothing to reuse                                                  |
+| Prior art | XState, Temporal, redux-persist notes                                      | not used as evidence  | from the sidecar's memory, unverified                                                 |

@@ -1,8 +1,13 @@
-# Prover module: ideas (2026-11-17, proposed, ideas only)
+---
+proposal prover-ideas
+status superseded 2026-11-19 [@proposal.alchemy-adoption, @task.V3.T106]
+    proposed 2026-11-17
+---
+# Prover module: ideas (ideas only)
 
-**Status (2026-11-20):** acted on: superseded by alchemy-adoption-2026-11-19 and @task.V3.T106: rules sit on definitions
+Superseded by @proposal.alchemy-adoption and @task.V3.T106: rules sit on definitions
 and every run judges them, not separate *.props.ts files; bounded exhaustive search is T106's generator profile; static
-checks over Compiled follow context-slots-2026-11-20. The text below is prior art.
+checks over Compiled follow @proposal.context-slots. The text below is prior art.
 
 **Bottom line:** Flow could offer an optional `flow-state/prove` module where properties live in `*.props.ts` files,
 apart from machines, and one command proves or refutes them. Most of it is Flow's own parts reused: `Compiled` is
@@ -58,13 +63,13 @@ export default Prove.app(CheckoutApp, {                             // NEW: Prov
 
 Kinds in one table:
 
-| Kind | Example | Decided how (section 2) |
-| --- | --- | --- |
-| state / event | `Never.on("Pay", { in: "Empty" })` | A: `Compiled` only |
-| data invariant | `paidHasReceipt` | C or D |
-| temporal | `LeadsTo`, `Eventually` under `fair` | B, with cycle search |
-| ending | `Ending.each(...)` | B, over the reload sweep |
-| refinement | `Prove.refines(Spec, Impl)` (NEW, later) | B, trace inclusion |
+| Kind           | Example                                  | Decided how (section 2)  |
+| -------------- | ---------------------------------------- | ------------------------ |
+| state / event  | `Never.on("Pay", { in: "Empty" })`       | A: `Compiled` only       |
+| data invariant | `paidHasReceipt`                         | C or D                   |
+| temporal       | `LeadsTo`, `Eventually` under `fair`     | B, with cycle search     |
+| ending         | `Ending.each(...)`                       | B, over the reload sweep |
+| refinement     | `Prove.refines(Spec, Impl)` (NEW, later) | B, trace inclusion       |
 
 Rule of thumb: properties never import a machine's internals. They see the same public reads a Story checkpoint
 does (state, context, lanes, records), so the single graph and static analysis stay intact.

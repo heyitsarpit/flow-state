@@ -16,9 +16,9 @@ goal
     with `on` the turn that should clear a value covers most cases); `relations` across actors (it needs an actor-query
     API only to state a claim); `reachable` (the built-in unreachable-state warning and rule coverage cover it); a rule
     on where an action may be taken (drafted as `never`, `effects` and `allowed`; the word and the shape were not
-    settled, and it is kept in code:wiki/plans/flow/references/proposals/revisit.md); a `final` state that stops the
-    actor (Flow actors' lifetimes belong to the host; subroutine exits already end a sub-flow); a `when` condition that
-    coverage counts apart from the subject (kept simple; see @O5's limit).
+    settled, and it is kept in @revisit.revisit); a `final` state that stops the actor (Flow actors' lifetimes belong to
+    the host; subroutine exits already end a sub-flow); a `when` condition that coverage counts apart from the subject
+    (kept simple; see @O5's limit).
 outcomes
     O1  Rule kinds and what they read
         A machine declares rules in a `rules` block in its `machine()` callback, where its `S`, `E` and `O` tokens

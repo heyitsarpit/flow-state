@@ -1,4 +1,8 @@
-# Reads and operations: design and Spec (proposed, 2026-11-20)
+---
+proposal spec-reads-operations
+status proposed 2026-11-20
+---
+# Reads and operations: design and Spec
 
 **Verdict: keep the write lane, build reads as a second table beside it, and stop storing operation issues.**
 The lane table (`cells.ts`) and the ledger hold and stay. Reads today are one unshared call per incarnation
@@ -54,15 +58,15 @@ release within the disposal bound (`ReleaseOverdue` has no hit in the package; `
 
 ## 2. State inventory
 
-| State | Lives in | Owner |
-| --- | --- | --- |
-| S1 Lane | `world.lanes`, `world.displaced` | `cells.ts#table` (existing) |
-| S2 Owed row | `world.owed` | `ledger.ts` (existing; two new fields) |
-| S3 Entry | `world.entries` (new) | `entry-cells.ts#table` (new) |
-| S4 Read slot | `world.slots` (new; replaces `world.reads`) | the entry table's moves |
-| S5 Placement | `world.placements` (new) | `placements.ts#decide` (new) |
-| S6 Releasing call | `world.releasing` (new) | the release table in `entries.ts` (new) |
-| S7 Operation issues | nowhere: derived | `issues-of.ts` (new, a pure read) |
+| State               | Lives in                                    | Owner                                   |
+| ------------------- | ------------------------------------------- | --------------------------------------- |
+| S1 Lane             | `world.lanes`, `world.displaced`            | `cells.ts#table` (existing)             |
+| S2 Owed row         | `world.owed`                                | `ledger.ts` (existing; two new fields)  |
+| S3 Entry            | `world.entries` (new)                       | `entry-cells.ts#table` (new)            |
+| S4 Read slot        | `world.slots` (new; replaces `world.reads`) | the entry table's moves                 |
+| S5 Placement        | `world.placements` (new)                    | `placements.ts#decide` (new)            |
+| S6 Releasing call   | `world.releasing` (new)                     | the release table in `entries.ts` (new) |
+| S7 Operation issues | nowhere: derived                            | `issues-of.ts` (new, a pure read)       |
 
 Their states and the inputs that change each in one step:
 
@@ -142,13 +146,13 @@ const issuesOf = (world: World, machines: Machines, incarnation: Incarnation): R
 ];
 ```
 
-| Issue | Read from | Gone when |
-| --- | --- | --- |
-| a refused ending (`InvalidTurn`, `Defect`) | `Owed.refusal` is some | the row closes: heard, let go, recorded |
-| a read's `Defect` | `Entry.last`, for an incarnation holding it | the next applied ending; the hold leaves |
-| an unmapped failure | `Entry.last` and the operation's `failure` map | as above |
-| `UserClosure`, `SelectedNoKey` | `Placement.select` is `Failed` | its next clean run; the placement leaves |
-| `ReleaseOverdue` | `Releasing.overdue` | the call ends |
+| Issue                                      | Read from                                      | Gone when                                |
+| ------------------------------------------ | ---------------------------------------------- | ---------------------------------------- |
+| a refused ending (`InvalidTurn`, `Defect`) | `Owed.refusal` is some                         | the row closes: heard, let go, recorded  |
+| a read's `Defect`                          | `Entry.last`, for an incarnation holding it    | the next applied ending; the hold leaves |
+| an unmapped failure                        | `Entry.last` and the operation's `failure` map | as above                                 |
+| `UserClosure`, `SelectedNoKey`             | `Placement.select` is `Failed`                 | its next clean run; the placement leaves |
+| `ReleaseOverdue`                           | `Releasing.overdue`                            | the call ends                            |
 
 The source names its cause: `IssueSource.Operation({ name, key, attempt })`, both options, shown as
 `operation NAME KEY`. Two rows give two issues. A row read back Kept at boot has no refusal until its one try
@@ -228,20 +232,20 @@ Time passing writes nothing.
 
 **The entry table** (owner `entry-cells.ts#table`, applied by `entries.ts#apply`; the shape of `cells.ts`):
 
-| Cue | Idle | Running, current | Running, behind |
-| --- | --- | --- | --- |
-| Lookup | Serve if fresh, else Start and Wait | Wait | Wait |
-| Refetch | Start and Wait | Wait | Again and Wait after |
-| Placed | Start if missing or stale | Stay | Stay |
-| Trigger | Start if subscribed and missing or stale | Stay | Stay |
-| Invalidate | Stale | Stale | Stale |
-| Written | Land write | Land write | Land write |
-| Clear | Empty | Empty, Interrupt, Restart if wanted | same |
-| Settled | Impossible | Land, Owe all, Idle | Land if it may, Owe served, Restart if wanted |
-| Last hold left | Arm collect | Interrupt, Arm collect | same |
-| Held again | Disarm collect | Impossible | Impossible |
-| Collect due | Remove | Impossible | Impossible |
-| Disposal starts | Stay | Interrupt, Owe all Interrupted | same |
+| Cue             | Idle                                     | Running, current                    | Running, behind                               |
+| --------------- | ---------------------------------------- | ----------------------------------- | --------------------------------------------- |
+| Lookup          | Serve if fresh, else Start and Wait      | Wait                                | Wait                                          |
+| Refetch         | Start and Wait                           | Wait                                | Again and Wait after                          |
+| Placed          | Start if missing or stale                | Stay                                | Stay                                          |
+| Trigger         | Start if subscribed and missing or stale | Stay                                | Stay                                          |
+| Invalidate      | Stale                                    | Stale                               | Stale                                         |
+| Written         | Land write                               | Land write                          | Land write                                    |
+| Clear           | Empty                                    | Empty, Interrupt, Restart if wanted | same                                          |
+| Settled         | Impossible                               | Land, Owe all, Idle                 | Land if it may, Owe served, Restart if wanted |
+| Last hold left  | Arm collect                              | Interrupt, Arm collect              | same                                          |
+| Held again      | Disarm collect                           | Impossible                          | Impossible                                    |
+| Collect due     | Remove                                   | Impossible                          | Impossible                                    |
+| Disposal starts | Stay                                     | Interrupt, Owe all Interrupted      | same                                          |
 
 The moves:
 
@@ -289,15 +293,15 @@ type Placement = {
 
 `placements.ts#decide(placement, occasion, reads)` is the one writer, one row per occasion:
 
-| Occasion | `select` | `placed` |
-| --- | --- | --- |
-| entry, thaw | first run | the key's entry: cue Placed |
-| a committed turn, same key | `Read` | kept; no cue |
-| a committed turn, new key | `Read` | the old hold leaves exactly once; the new entry: Placed |
-| a committed turn, select threw | `Failed`, keeping the last | kept |
-| a committed turn, undefined | `Failed` (`SelectedNoKey`), last none | released |
-| `when` false | unchanged | released |
-| exit, freeze, incarnation end | removed | released |
+| Occasion                       | `select`                              | `placed`                                                |
+| ------------------------------ | ------------------------------------- | ------------------------------------------------------- |
+| entry, thaw                    | first run                             | the key's entry: cue Placed                             |
+| a committed turn, same key     | `Read`                                | kept; no cue                                            |
+| a committed turn, new key      | `Read`                                | the old hold leaves exactly once; the new entry: Placed |
+| a committed turn, select threw | `Failed`, keeping the last            | kept                                                    |
+| a committed turn, undefined    | `Failed` (`SelectedNoKey`), last none | released                                                |
+| `when` false                   | unchanged                             | released                                                |
+| exit, freeze, incarnation end  | removed                               | released                                                |
 
 Streams (@plan.Operations.O4) reuse this record with a session where the entry is; they are not T21's.
 
@@ -308,11 +312,11 @@ Streams (@plan.Operations.O4) reuse this record with a session where the entry i
 type Releasing = { operation: string; key: Values; by: ActorId; since: number; overdue: boolean };
 ```
 
-| Cue | Not releasing | Releasing | Overdue |
-| --- | --- | --- | --- |
-| Interrupt issued | add; arm `Timer.Release` | Impossible | Impossible |
-| Settled | routed to its lane or entry | remove; disarm | remove |
-| Release due | Impossible | `overdue := true`; evidence once | Impossible |
+| Cue              | Not releasing               | Releasing                        | Overdue    |
+| ---------------- | --------------------------- | -------------------------------- | ---------- |
+| Interrupt issued | add; arm `Timer.Release`    | Impossible                       | Impossible |
+| Settled          | routed to its lane or entry | remove; disarm                   | remove     |
+| Release due      | Impossible                  | `overdue := true`; evidence once | Impossible |
 
 The timer is at `since + disposalBound` (`defaults.ts:36`). A releasing call's result is evidence only. A
 release never blocks the transition that asked for it (@plan.Machines.O6): a read's next request starts
@@ -523,23 +527,23 @@ Five Haiku sidecars were asked at effort high. The host refused two at its concu
 tests; prior art), so those angles are my own reading and are thinner: no survey of TanStack Query or
 `codebases/ui-sdk` was made, and Effect's `timeoutOrElse` and `retry` were checked only for existence.
 
-| Finding | Result | Why |
-| --- | --- | --- |
-| History: `ReleaseOverdue` moved T57, T109, T21 | accepted | T21's comments confirm T21 |
-| History: per-read state in three places (P4.task:3484) | accepted, unread at source | slot and entry replace it |
-| History: restored resource data owed here | accepted | T21's comment of 2026-11-16 |
-| Host: no call timeout anywhere | accepted | the user's decision; 3.5 |
-| Host: `Command.Interrupt` misses child-Owner reads | rejected | `owners.ts:293` recurses |
-| Host: reads and commits under different Owners | changed | no bug today; wrong once shared (W4) |
-| Host: a call's value is not decoded | accepted | W8 |
-| Host: `owners.ts` parallels Scope and FiberMap | not used | outside this concept |
-| Plans: timeout decision, Operations.plan:162-164 | accepted | read at source |
-| Plans: mapper shape `(value, { input, key })` | accepted | read at source; conflicts (8.5) |
-| Plans: Persistence still names `OpRenamed` | not verified | passed to saved records |
-| Adversary: a shared request dies with its first actor | accepted | W4 |
-| Adversary: disposal interrupts no Runtime-owned read | accepted | the Disposal row; R11 |
-| Adversary: trailing start and stale settle unspecified | accepted | the Settled cells say both |
-| Adversary: a settle after the entry is collected | accepted | the release table hears it |
-| Adversary: the ledger never publishes, so issues lag | accepted | W2 |
-| Adversary: a Kept row loses its issue over a restart | changed | its start's try rewrites it |
-| Adversary: a retry changes the Attempt and re-raises | rejected | a retry re-sends the same Attempt |
+| Finding                                                | Result                     | Why                                  |
+| ------------------------------------------------------ | -------------------------- | ------------------------------------ |
+| History: `ReleaseOverdue` moved T57, T109, T21         | accepted                   | T21's comments confirm T21           |
+| History: per-read state in three places (P4.task:3484) | accepted, unread at source | slot and entry replace it            |
+| History: restored resource data owed here              | accepted                   | T21's comment of 2026-11-16          |
+| Host: no call timeout anywhere                         | accepted                   | the user's decision; 3.5             |
+| Host: `Command.Interrupt` misses child-Owner reads     | rejected                   | `owners.ts:293` recurses             |
+| Host: reads and commits under different Owners         | changed                    | no bug today; wrong once shared (W4) |
+| Host: a call's value is not decoded                    | accepted                   | W8                                   |
+| Host: `owners.ts` parallels Scope and FiberMap         | not used                   | outside this concept                 |
+| Plans: timeout decision, Operations.plan:162-164       | accepted                   | read at source                       |
+| Plans: mapper shape `(value, { input, key })`          | accepted                   | read at source; conflicts (8.5)      |
+| Plans: Persistence still names `OpRenamed`             | not verified               | passed to saved records              |
+| Adversary: a shared request dies with its first actor  | accepted                   | W4                                   |
+| Adversary: disposal interrupts no Runtime-owned read   | accepted                   | the Disposal row; R11                |
+| Adversary: trailing start and stale settle unspecified | accepted                   | the Settled cells say both           |
+| Adversary: a settle after the entry is collected       | accepted                   | the release table hears it           |
+| Adversary: the ledger never publishes, so issues lag   | accepted                   | W2                                   |
+| Adversary: a Kept row loses its issue over a restart   | changed                    | its start's try rewrites it          |
+| Adversary: a retry changes the Attempt and re-raises   | rejected                   | a retry re-sends the same Attempt    |

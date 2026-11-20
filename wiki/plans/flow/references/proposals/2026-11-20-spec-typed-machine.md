@@ -1,4 +1,8 @@
-# The typed machine: one source for every derived type (proposed, 2026-11-20)
+---
+proposal spec-typed-machine
+status proposed 2026-11-20
+---
+# The typed machine: one source for every derived type
 
 **Verdict: every type user code needs is derived from the definition (and, for endings, the contract); the machine
 body is checked against the definition and never read back.** A `tsc` spike of eight shapes shows that TypeScript
@@ -11,22 +15,22 @@ Everything here is **proposed**. Asks are in section 8. Spike files and output:
 (`a.ts.txt` to `d.ts.txt`, `e.ts`; TypeScript 7.0.2, the repo's base options).
 
 Sources: @task.V3.T113, @task.V3.T57 (type spike comment, 2026-11-20T10:49), @task.V3.T104 (`ExactBody`, reverted),
-`advisor-questions-2026-11-20.md` question 1, @plan.Machines.O1, @plan.Machines.O8, @spec.Turn (R16, R27).
+@questions.advisor-questions question 1, @plan.Machines.O1, @plan.Machines.O8, @spec.Turn (R16, R27).
 
 ## 1. What exists
 
 Paths are under `packages/flow-state-v3/`.
 
-| Part | Where | State |
-| --- | --- | --- |
-| Body check | `src/machine.ts` `BodyOf<NoInfer<D>>`, `MachineBody<D>`, private `Parts<D>` | Holds at depth 3 (T57) |
-| Machine | `src/definition.ts:586` `Machine<D> = { definition: D; compiled }` | Holds; has no body type |
-| Snapshot | `src/host/snapshot.ts:50` `Snapshot<D, View>`; `schedules: Timers` | `pausedBy` is `string[]` |
-| Event token | `src/event-tokens.ts` `EventToken`, `from: <V, R extends P>(map) => …` | `V` infers from the slot |
-| Endings | `src/contract.ts` `WriteEndings<E, A, Id>`, `ReadEndings`, `Ending<V, Id>` | Typed by the contract |
-| Schedules | `src/tokens.ts` `ScheduleParts`, `KeyedConfig`; `Flow.keyed` (`src/flow.ts:308`) | `K` not in `send` |
-| Memory token | `src/tokens.ts:377` `MemoryToken<V, Id, P>`; `Def.M` omits `Flow.private` fields | No `.Type` |
-| Definition Schemas | `Def.Event`, `Def.Memory`, `Def.Input`, `Def.State`, `Def.Snapshot` | `.Type` works today |
+| Part               | Where                                                                            | State                    |
+| ------------------ | -------------------------------------------------------------------------------- | ------------------------ |
+| Body check         | `src/machine.ts` `BodyOf<NoInfer<D>>`, `MachineBody<D>`, private `Parts<D>`      | Holds at depth 3 (T57)   |
+| Machine            | `src/definition.ts:586` `Machine<D> = { definition: D; compiled }`               | Holds; has no body type  |
+| Snapshot           | `src/host/snapshot.ts:50` `Snapshot<D, View>`; `schedules: Timers`               | `pausedBy` is `string[]` |
+| Event token        | `src/event-tokens.ts` `EventToken`, `from: <V, R extends P>(map) => …`           | `V` infers from the slot |
+| Endings            | `src/contract.ts` `WriteEndings<E, A, Id>`, `ReadEndings`, `Ending<V, Id>`       | Typed by the contract    |
+| Schedules          | `src/tokens.ts` `ScheduleParts`, `KeyedConfig`; `Flow.keyed` (`src/flow.ts:308`) | `K` not in `send`        |
+| Memory token       | `src/tokens.ts:377` `MemoryToken<V, Id, P>`; `Def.M` omits `Flow.private` fields | No `.Type`               |
+| Definition Schemas | `Def.Event`, `Def.Memory`, `Def.Input`, `Def.State`, `Def.Snapshot`              | `.Type` works today      |
 
 What holds, each run against the real `machine` in the spike:
 
@@ -57,27 +61,27 @@ What is wrong or missing:
 This concept owns no runtime state. It owns **type facts**: each one has a source that authors it and sites that
 read it. The class of bug is a fact with two sources (the definition and a hand-written copy).
 
-| Fact | Source today | Read at | Sources after |
-| --- | --- | --- | --- |
-| Event payload | definition `events`; 24 copies | handlers, helpers, sends | definition (`E.X.Type`) |
-| Memory | definition `memory`; 52 copies | handlers, helpers, snapshot | definition (`Def.Memory`, `Def.M.f.Type`) |
-| Ending value | contract `commit`; 52 annotations | `outcomes` mappers | contract (inferred) |
-| Context slot value | definition `context`; 5 annotations | `C.slot.change` mappers | definition (inferred) |
-| Schedule name | body `schedules` keys | snapshot | definition, if ask 1 is A |
-| Schedule key | body `Flow.keyed` `keys` | `schedule`, `restartOn`, `paused`, `send`, snapshot | same |
-| Pause reasons | body `paused` keys | snapshot `pausedBy` | same |
-| State paths, leaves | definition `states` | body, snapshot | definition (unchanged) |
+| Fact                | Source today                        | Read at                                             | Sources after                             |
+| ------------------- | ----------------------------------- | --------------------------------------------------- | ----------------------------------------- |
+| Event payload       | definition `events`; 24 copies      | handlers, helpers, sends                            | definition (`E.X.Type`)                   |
+| Memory              | definition `memory`; 52 copies      | handlers, helpers, snapshot                         | definition (`Def.Memory`, `Def.M.f.Type`) |
+| Ending value        | contract `commit`; 52 annotations   | `outcomes` mappers                                  | contract (inferred)                       |
+| Context slot value  | definition `context`; 5 annotations | `C.slot.change` mappers                             | definition (inferred)                     |
+| Schedule name       | body `schedules` keys               | snapshot                                            | definition, if ask 1 is A                 |
+| Schedule key        | body `Flow.keyed` `keys`            | `schedule`, `restartOn`, `paused`, `send`, snapshot | same                                      |
+| Pause reasons       | body `paused` keys                  | snapshot `pausedBy`                                 | same                                      |
+| State paths, leaves | definition `states`                 | body, snapshot                                      | definition (unchanged)                    |
 
 Seams (type values only; no runtime value crosses):
 
-| Neighbour | Direction | What crosses |
-| --- | --- | --- |
-| Fragments (T109) | they add | one row of `SnapshotFields<D>`; they asked for `InstanceTree<Def>` derived from `Def` |
-| Props (T76), emits (T77) | they add | one declared part of `Definition`, one field of `Parts<D>`, one snapshot row |
-| Rules (T106) | they read | `Parts<D>` and the token `.Type`s; no new carrier |
-| Reads and operations | they own | `Ending<V, Id>` and `WriteEndings`/`ReadEndings`; I read `V` only |
-| Saved records | they read | the declared schedule key Schema (ask 1 A) as the key's codec |
-| Data layer | none | no type crosses |
+| Neighbour                | Direction | What crosses                                                                          |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------- |
+| Fragments (T109)         | they add  | one row of `SnapshotFields<D>`; they asked for `InstanceTree<Def>` derived from `Def` |
+| Props (T76), emits (T77) | they add  | one declared part of `Definition`, one field of `Parts<D>`, one snapshot row          |
+| Rules (T106)             | they read | `Parts<D>` and the token `.Type`s; no new carrier                                     |
+| Reads and operations     | they own  | `Ending<V, Id>` and `WriteEndings`/`ReadEndings`; I read `V` only                     |
+| Saved records            | they read | the declared schedule key Schema (ask 1 A) as the key's codec                         |
+| Data layer               | none      | no type crosses                                                                       |
 
 ## 3. The design
 
@@ -88,16 +92,16 @@ body. A fact the snapshot shows must be declared on the definition.
 
 Why, from the spike (each row a variant of `machine`'s signature, same body, same refusals):
 
-| Variant | Captures | Refusals kept | Result |
-| --- | --- | --- | --- |
-| V0 today | nothing | all six | baseline |
-| V1 `BodyOf<D> & ((t: never) => B)` | whole body | 2 of 5 run, moved to the argument | excess keys lost |
-| V2 `BodyOf<D> & F` | whole body | 2 of 5 run, moved to the argument | excess keys lost |
-| V3 `(t) => MachineBody<D> & B` (T104's shape on `BodyOf`) | whole body | 2 of 6, on the property | excess keys lost |
-| V4 V1 with `const B` | whole body | 2 of 5 run, moved to the argument | excess keys lost |
-| V5 V3 plus a key validator | broken | a valid body is refused | rejected |
-| V7 a type parameter only at `schedules` | nothing (`never`) | all six | no inference: D is generic when B infers |
-| V8 V7 curried, `machine(D)(body)` | first record only | 5 of 6; valid records refused | rejected |
+| Variant                                                   | Captures          | Refusals kept                     | Result                                   |
+| --------------------------------------------------------- | ----------------- | --------------------------------- | ---------------------------------------- |
+| V0 today                                                  | nothing           | all six                           | baseline                                 |
+| V1 `BodyOf<D> & ((t: never) => B)`                        | whole body        | 2 of 5 run, moved to the argument | excess keys lost                         |
+| V2 `BodyOf<D> & F`                                        | whole body        | 2 of 5 run, moved to the argument | excess keys lost                         |
+| V3 `(t) => MachineBody<D> & B` (T104's shape on `BodyOf`) | whole body        | 2 of 6, on the property           | excess keys lost                         |
+| V4 V1 with `const B`                                      | whole body        | 2 of 5 run, moved to the argument | excess keys lost                         |
+| V5 V3 plus a key validator                                | broken            | a valid body is refused           | rejected                                 |
+| V7 a type parameter only at `schedules`                   | nothing (`never`) | all six                           | no inference: D is generic when B infers |
+| V8 V7 curried, `machine(D)(body)`                         | first record only | 5 of 6; valid records refused     | rejected                                 |
 
 The cause is one fact about TypeScript: an inferred type parameter that sees a literal learns its keys, so the same
 literal can no longer be an excess key against it. A scoped parameter avoids that but is reached only through types
@@ -356,13 +360,13 @@ Task split, by who owns each fact:
 
 Wrong endings and what catches each:
 
-| Wrong ending | Caught by |
-| --- | --- |
-| A type infers on the happy path only | two-sided tests: every R has a refused line naming its rule |
+| Wrong ending                                   | Caught by                                                        |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
+| A type infers on the happy path only           | two-sided tests: every R has a refused line naming its rule      |
 | A capture that silently loosens the body check | R7's tests unchanged, plus the six refusals at depths 1, 2 and 3 |
-| `.Type` reads as `any` or `never` | `expectTypeOf(...).toEqualTypeOf` (exact), never `toMatchTypeOf` |
-| A copy survives the sweep | the lint rule over `fixtures/`, `tests/`, `bench/` |
-| A derived type that does not track its source | I4's planted changes |
+| `.Type` reads as `any` or `never`              | `expectTypeOf(...).toEqualTypeOf` (exact), never `toMatchTypeOf` |
+| A copy survives the sweep                      | the lint rule over `fixtures/`, `tests/`, `bench/`               |
+| A derived type that does not track its source  | I4's planted changes                                             |
 
 Dimensions earlier reviews kept missing, as rows of one type-test table (`tests/types/derived.test-d.ts`):
 
@@ -400,8 +404,8 @@ after steps 3 and 5; a rise above 10% is reviewed. No run-time bench: nothing he
   rule's test with its plants failing; inverted pins for the two holes of section 3.7.
 
 **Declared schedules (step 5), if ask 1 is A.**
-- Read first: section 3.6; `src/tokens.ts:222-354`; `src/compile-schedules.ts`; `schedule-issues-2026-11-20.md`;
-  `spec-saved-records-2026-11-20.md` (who reads the key Schema).
+- Read first: section 3.6; `src/tokens.ts:222-354`; `src/compile-schedules.ts`; @proposal.schedule-issues;
+  @proposal.spec-saved-records (who reads the key Schema).
 - Decided: nothing until the user answers.
 - Settle before code: whether `key` is a field record (as `events` are) or a Schema; whether an undeclared
   schedule is a type error only or also a `FlowError` (proposed: both, as with events).

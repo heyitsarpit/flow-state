@@ -64,8 +64,7 @@ tasks
             **Approach:** benchmarks and browser runs run alone; drafted in full when P8 starts. Prove the bench the
             slices built (@task.V3.T66) and the browser run of @task.V3.T58, not rebuild them.
 
-            **Scope added** (the user, 2026-11-11, from
-            code:wiki/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): run every real-browser suite in
+            **Scope added** (the user, 2026-11-11, from @review.plan-task-coverage): run every real-browser suite in
             Chromium and WebKit, as @plan.Package.O4 states, including the T27 and T30 browser runs (K11); Firefox was
             dropped by the user (2026-11-20).
 

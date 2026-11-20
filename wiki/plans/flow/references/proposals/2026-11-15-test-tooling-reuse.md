@@ -1,13 +1,17 @@
+---
+proposal test-tooling-reuse
+status accepted user 2026-11-15
+    proposed 2026-11-15
+---
 # One set of tools: Story, Fake, inspection and the CLI shared by Flow, apps and production (2026-11-15)
 
-**Status: accepted (the user, 2026-11-15: "all agreed").** Every question in section 6 is decided as its
-recommendation: Q1 A, Q2 A, Q3 A, Q4 A, Q5 A, Q6 A, Q7 A, Q8 A, Q9 A, Q10 A, Q11 A. Q4 edited @plan.Testing.O3
+Every question in section 6 is decided as its recommendation (the user: "all agreed"): Q1 A, Q2 A, Q3 A, Q4 A, Q5 A, Q6 A, Q7 A, Q8 A, Q9 A, Q10 A, Q11 A. Q4 edited @plan.Testing.O3
 (fixtures replace the setup's services); the names and words the Plans lack are @plan.Pending D5 to D9. Where
 this file and the Plan name the same thing differently, the Plan's name wins: `Fake.storage` for `Fake.store`,
 `records` for reading the store, `run.evidence` for `run.endings`, and `read(endpoint)` (D8) for `requests`;
 `forget` is `dispose(ref, { how: "forget" })`.
 
-**Supersedes** in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md: section 2's "Three tools",
+**Supersedes** in @proposal.test-system: section 2's "Three tools",
 section 4's API, and section 12 decisions 3, 4, 6 and 9. Everything else there stands: the five kinds of test,
 what is deliberately not built, run rules and the reload sweep, planted faults and the dead core, generated
 Stories, keeping the harness honest, the evidence, and the sequence.
@@ -31,7 +35,7 @@ narrowing of the first slice, not a second design. The Spec's "the tooling is in
 confusion"). Its public shape will be copied into every fixture, Story and test T64 to T70 write. Changing it now
 costs about a day. Changing it at T29 costs a rewrite of all of them.
 
-**Read first:** `test-system-2026-11-15.md` sections 2, 4 and 12; @plan.Testing.O1 to O4;
+**Read first:** @proposal.test-system sections 2, 4 and 12; @plan.Testing.O1 to O4;
 @plan.Inspection.O1 and O4; @plan.CommandLine.O2; @plan.Package.O1; @spec.Stories; the T63 working tree under
 `packages/flow-state-v3/src/host/testing/`.
 
@@ -58,8 +62,8 @@ twin. Two things split it in practice:
   harness, these are supposed to be public anyways".
 - `wiki/tasks/V3/epic.task:56-57`: "Flow's own tests run on the test tooling users will get (Story, Fake, the
   runtime cut and trace, the CLI)".
-- `test-system-2026-11-15.md:61`: "### Three tools, all public".
-- `test-system-2026-11-15.md:366-367`: "A Story run drives only the public API and the fakes".
+- @proposal.test-system line 61: "### Three tools, all public".
+- @proposal.test-system lines 366-367: "A Story run drives only the public API and the fakes".
 - `wiki/plans/flow/Package.plan:33`: "flow-state/testing: Story, Fake (with Fake.server, Fake.storage …)".
 - `wiki/plans/flow/Testing.plan:12`: "Story.app(setup, { id, fixtures?, world?, storage?, seed? }) accepts a typed
   RuntimeSetup."
@@ -76,11 +80,11 @@ twin. Two things split it in practice:
   `@phase.V3.P2 (stops: public entry-point names)`.
 - `wiki/plans/flow/Package.plan:44-45`: "flow-state/internal/testing, which exports disposeRuntime for Flow's own
   suite, is not a supported route". This is one private function, not a second Story.
-- `test-system-2026-11-15.md:99-101`: "The Story attaches through the internal `testing.attach`". This is a seam into
+- @proposal.test-system lines 99-101: "The Story attaches through the internal `testing.attach`". This is a seam into
   the one Runtime, there because the public use is not built yet.
-- `test-system-2026-11-15.md:368`: "The tools have their own tests that use no Story". These are tests of the tools,
+- @proposal.test-system line 368: "The tools have their own tests that use no Story". These are tests of the tools,
   not a second tool.
-- `test-system-2026-11-15.md:451-452`: "The tooling lives under `src/host/` … Public routes can map to these folders
+- @proposal.test-system lines 451-452: "The tooling lives under `src/host/` … Public routes can map to these folders
   later." This is placement for lint, with export deferred.
 
 ### Where each syntax comes from
@@ -88,13 +92,13 @@ twin. Two things split it in practice:
 - **Chained:** lowercase `story.app(setup, { id, fixtures? })`, proposed in `da4776f9` (2026-11-01). It became
   `Story.app` and chained steps in @plan.Testing.O1. `superseded.md:364` records the rename. The checkout and desk
   references use it (`5cc0fe35`, 2026-11-01).
-- **Array:** the spike in `test-system-2026-11-15.md` section 4 (`:260`, `Story.app(config, [bankServer], [`). That
+- **Array:** the spike in @proposal.test-system section 4 (`:260`, `Story.app(config, [bankServer], [`). That
   file left it open: "Steps as an array or as a chain. The spike uses an array, which is the simplest thing that
   is data" (`:305`). It was then decided by the agent, not the user: "Steps are an array, and unscripted calls land"
   (`:444`). From there it went into T63's acceptance and Stories R1.
 - **Fakes:** the Plan's `Fake.server` holds typed truth, endpoints and controls. Fixtures there are client-half
   Layers (`Testing.plan:119-131`). The spike's `Fake.server(Service, () => handlers)` folds the server and the
-  client half into one closure (`test-system-2026-11-15.md:243-255`). `Fake.fetch` is in the references
+  client half into one closure (@proposal.test-system lines 243-255). `Fake.fetch` is in the references
   (`stripe.fake.ts:230`) and the type stand-in (`references/typecheck/standin/testing.ts:207`), but in no Plan or
   Spec.
 

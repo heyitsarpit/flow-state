@@ -37,8 +37,8 @@ description
     - each app explains what it demos with a write-up and in-place tooltips;
     - it shows one guarantee happening, not just a UI;
     - it runs in real Chrome and Safari;
-    - the reference-app refresh (the newest entry in code:wiki/plans/flow/references/proposals/revisit.md) is decided,
-      (Firefox is not a target: the user, 2026-11-20);
+    - the reference-app refresh (the newest entry in @revisit.revisit) is decided, (Firefox is not a target: the
+      user, 2026-11-20);
     - one app demos Story presentation.
 
     **Draws from:**
@@ -60,11 +60,9 @@ tasks
 
             **Read first:** skill:interview, skill:to-task, @plan.Package.O4.
 
-            **Scope added** (the user, 2026-11-11, from
-            code:wiki/plans/flow/references/proposals/plan-task-coverage-2026-11-11.md): the criteria include a
-            real-browser run in Chrome and Safari (@plan.Package.O4; Firefox dropped by the user, 2026-11-20), and the
-            round decides whether Dispatch Desk and the seven entity examples (K10) are P6 apps or are cut from
-            the Plan.
+            **Scope added** (the user, 2026-11-11, from @review.plan-task-coverage): the criteria include a real-browser
+            run in Chrome and Safari (@plan.Package.O4; Firefox dropped by the user, 2026-11-20), and the round decides
+            whether Dispatch Desk and the seven entity examples (K10) are P6 apps or are cut from the Plan.
 
             - **Evidence:** this Task's comments.
             - **False pass:** criteria that a UI meets without showing a guarantee → caught by the criterion "shows one

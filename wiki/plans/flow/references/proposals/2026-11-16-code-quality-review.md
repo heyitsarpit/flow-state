@@ -1,6 +1,10 @@
+---
+review code-quality-review
+status open 2026-11-16
+---
 # Code-quality review of flow-state-v3 (2026-11-16)
 
-**Status: proposed.** Nothing here is decided; the builder who runs the convergence pass decides each item.
+Nothing here is decided; the builder who runs the convergence pass decides each item.
 
 **Bottom line:** the core is pure and deterministic (no clock, entropy, timers, promises or Effect runtime outside
 `src/host/`), and `nub run report:unused` plus `tsc --noUnusedLocals` find little dead code. The debt is structural:

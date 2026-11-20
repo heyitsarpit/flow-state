@@ -1,3 +1,6 @@
+---
+page T105-start-order-and-constant-starts
+---
 # Start order and constant starts: what an app author notices (T105, 2026-11-20)
 
 **Bottom line:** a memory field starts at a constant only, so a default that depends on another field is derived

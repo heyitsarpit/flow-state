@@ -1,4 +1,8 @@
-# Errors and construction trust: one door, one catalog (proposed, 2026-11-20)
+---
+proposal spec-errors-trust
+status proposed 2026-11-20
+---
+# Errors and construction trust: one door, one catalog
 
 **Bottom line:** the raw-throw class exists because being public and being checked are two separate, hand-applied
 acts. Remove the freedom with three structures: every function Flow hands out is born through one of two doors
@@ -8,8 +12,8 @@ made; and every refusal is built from one catalog that owns codes, closed reason
 views of state; `IssueSource.Creation` is deleted. Everything here is proposed until the user accepts it.
 
 Serves @task.V3.T100 (vocabulary, renderer, whole Causes) and @task.V3.T98 (construction trust). Builds on
-[spec-cohesion](spec-cohesion-2026-11-20.md), [schedule-issues](schedule-issues-2026-11-20.md) and
-[spec-saved-records](spec-saved-records-2026-11-20.md). Paths below are under `packages/flow-state-v3/`.
+@review.spec-cohesion, @proposal.schedule-issues and
+@proposal.spec-saved-records. Paths below are under `packages/flow-state-v3/`.
 
 ## 1. What exists
 
@@ -30,42 +34,42 @@ Serves @task.V3.T100 (vocabulary, renderer, whole Causes) and @task.V3.T98 (cons
 
 **Wrong or missing (each verified in code unless marked):**
 
-| # | Gap | Where |
-|---|-----|-------|
-| G1 | A door is opt-in per function: functions inside inert data and the testing route are unwrapped | `definition.operations.x.textOfKey`, `O.x.commit(f).make`, `defineConfig` |
-| G2 | `builder` runs its body with no catch, and nothing stops the body reading its arguments | `entry.ts#builder` |
-| G3 | The decode's output is thrown away; the raw config is read again after the check | `definition.ts` 418 to 458, `machine.ts` (`bodyFindings`), `runtime.ts#runtimeSetup` |
-| G4 | Flow-made values are recognised by a copyable mark (`~owner`, `~token`, `~flow`) | `machine.ts:273`, `tokens.ts`, `handles.ts`, `compile-body.ts`, `definition.ts` |
-| G5 | `app` checks by hand; `transaction`, `resource`, `actorRef`, `layerIndexedDb` check nothing at the call | `core/well-formed.ts`, `contract.ts`, `host/refs.ts`, `host/platform/indexeddb.ts` |
-| G6 | `details.reason` is a free `String`; about 28 reasons exist only as call-site text | `error.ts#Details`, `invalid(...)` |
-| G7 | A store refusal has five names; the codec reason mapping is written twice | `StorageFailure`, `StorageSilent`, `StorageRefused`, `StoreRefused`, `forgetFailed`; `record-format.ts:25`, `boundary.ts:444` |
-| G8 | No renderer; the CLI prints `Cause.pretty` | `host/cli/main.ts:135` |
-| G9 | A Cause is squashed or dropped on five host paths (lead verifies each line) | `owners/schedule-steps.ts:27`, `driver.ts#resultOf`, `close.ts:147`, `run-promise.ts:56`, the `timeoutOrElse` race |
-| G10 | `defect()` throws a raw `Error`; no `InvariantViolation` code; no `evidence` field | `core/defect.ts`, `error.ts` |
-| G11 | `FlowError.code` is stored beside `diagnostics[0].code`, which determines it | `error.ts#FlowError` |
-| G12 | The creation issue is appended once and nothing clears it | `core/incarnations.ts` 183 to 187, `IssueSource.Creation` |
+| #   | Gap                                                                                                     | Where                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| G1  | A door is opt-in per function: functions inside inert data and the testing route are unwrapped          | `definition.operations.x.textOfKey`, `O.x.commit(f).make`, `defineConfig`                                                     |
+| G2  | `builder` runs its body with no catch, and nothing stops the body reading its arguments                 | `entry.ts#builder`                                                                                                            |
+| G3  | The decode's output is thrown away; the raw config is read again after the check                        | `definition.ts` 418 to 458, `machine.ts` (`bodyFindings`), `runtime.ts#runtimeSetup`                                          |
+| G4  | Flow-made values are recognised by a copyable mark (`~owner`, `~token`, `~flow`)                        | `machine.ts:273`, `tokens.ts`, `handles.ts`, `compile-body.ts`, `definition.ts`                                               |
+| G5  | `app` checks by hand; `transaction`, `resource`, `actorRef`, `layerIndexedDb` check nothing at the call | `core/well-formed.ts`, `contract.ts`, `host/refs.ts`, `host/platform/indexeddb.ts`                                            |
+| G6  | `details.reason` is a free `String`; about 28 reasons exist only as call-site text                      | `error.ts#Details`, `invalid(...)`                                                                                            |
+| G7  | A store refusal has five names; the codec reason mapping is written twice                               | `StorageFailure`, `StorageSilent`, `StorageRefused`, `StoreRefused`, `forgetFailed`; `record-format.ts:25`, `boundary.ts:444` |
+| G8  | No renderer; the CLI prints `Cause.pretty`                                                              | `host/cli/main.ts:135`                                                                                                        |
+| G9  | A Cause is squashed or dropped on five host paths (lead verifies each line)                             | `owners/schedule-steps.ts:27`, `driver.ts#resultOf`, `close.ts:147`, `run-promise.ts:56`, the `timeoutOrElse` race            |
+| G10 | `defect()` throws a raw `Error`; no `InvariantViolation` code; no `evidence` field                      | `core/defect.ts`, `error.ts`                                                                                                  |
+| G11 | `FlowError.code` is stored beside `diagnostics[0].code`, which determines it                            | `error.ts#FlowError`                                                                                                          |
+| G12 | The creation issue is appended once and nothing clears it                                               | `core/incarnations.ts` 183 to 187, `IssueSource.Creation`                                                                     |
 
 ## 2. State inventory
 
-| State | States | Inputs that change it | Owner |
-|-------|--------|-----------------------|-------|
-| S1 Public registry: which functions and values Flow made | absent, `entry`, `effect`, `capture`, `made(kind)` | a door or `made` runs (write once, never removed) | `src/entry.ts` |
-| S2 Trust of an outside value | `Unread`, `Admitted<A>`, refused | `admit(schema, at)` only | `src/admit.ts` (new) |
-| S3 Vocabulary | static: code, reasons, defect flag | none at run time | `src/error.ts` |
-| S4 A failure crossing cleanup | body Exit x cleanup Exits, then one FlowError | body ends, each cleanup ends or is overdue | `src/host/failures.ts` (new) |
-| S5 Issues | none stored by this concept | n/a: a view | each neighbour's state; `issues-of.ts` |
+| State                                                    | States                                             | Inputs that change it                             | Owner                                  |
+| -------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------- | -------------------------------------- |
+| S1 Public registry: which functions and values Flow made | absent, `entry`, `effect`, `capture`, `made(kind)` | a door or `made` runs (write once, never removed) | `src/entry.ts`                         |
+| S2 Trust of an outside value                             | `Unread`, `Admitted<A>`, refused                   | `admit(schema, at)` only                          | `src/admit.ts` (new)                   |
+| S3 Vocabulary                                            | static: code, reasons, defect flag                 | none at run time                                  | `src/error.ts`                         |
+| S4 A failure crossing cleanup                            | body Exit x cleanup Exits, then one FlowError      | body ends, each cleanup ends or is overdue        | `src/host/failures.ts` (new)           |
+| S5 Issues                                                | none stored by this concept                        | n/a: a view                                       | each neighbour's state; `issues-of.ts` |
 
 S1, S2 and S3 each have one writer. S4 has two (the body's ending and the cleanups'), so it gets the table in 3.5.
 
 **Seams.**
 
-| Neighbour | I take | I give |
-|-----------|--------|--------|
-| Typed machine (TM) | the public function types (`derive.ts`): a door is given its public type and never infers it | `entry(name, args, run)`: `run` sees the admitted copy; `made`/`madeOf` in place of marks |
-| Saved records (SR) | `Fate.Aside { reason }` and `Reason`'s tags, as given by `judge` | `RecordUndecodable`'s closed reasons are exactly `Reason`'s tags plus `ReadFailure`; `judge` never throws, so no door wraps it |
-| Schedule issues, RO | `Failure { code, slot }`, `StoredIssue`, `issuesOf` | `IssueCode` and `issueOf` (Issue to Diagnostic); `IssueSource.Creation` removed from `StoredIssue` |
-| Lifetimes (owners, close) | each owner's cleanup `Exit`, never a squashed value | `failureOf(body, cleanups)`: the one FlowError |
-| Test tooling | the testing route's exports | the same two doors; the surface walk covers that route |
+| Neighbour                 | I take                                                                                       | I give                                                                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Typed machine (TM)        | the public function types (`derive.ts`): a door is given its public type and never infers it | `entry(name, args, run)`: `run` sees the admitted copy; `made`/`madeOf` in place of marks                                      |
+| Saved records (SR)        | `Fate.Aside { reason }` and `Reason`'s tags, as given by `judge`                             | `RecordUndecodable`'s closed reasons are exactly `Reason`'s tags plus `ReadFailure`; `judge` never throws, so no door wraps it |
+| Schedule issues, RO       | `Failure { code, slot }`, `StoredIssue`, `issuesOf`                                          | `IssueCode` and `issueOf` (Issue to Diagnostic); `IssueSource.Creation` removed from `StoredIssue`                             |
+| Lifetimes (owners, close) | each owner's cleanup `Exit`, never a squashed value                                          | `failureOf(body, cleanups)`: the one FlowError                                                                                 |
+| Test tooling              | the testing route's exports                                                                  | the same two doors; the surface walk covers that route                                                                         |
 
 ## 3. The design
 
@@ -205,12 +209,12 @@ built only from admitted values, so no template calls a hostile `toString`. The 
 `failureOf(body: Exit, cleanups: ReadonlyArray<Exit>): Exit<A, FlowError>`. `cause` is always
 `Cause.combine(body, ...cleanups)`; classification is `classify` of that whole Cause; nothing is squashed.
 
-| Body \ cleanups | all clean | one or more fail or die | one overdue |
-|-----------------|-----------|-------------------------|-------------|
-| Success | success | `CleanupFailed`, the first cleanup primary, one diagnostic per failed cleanup in phase order | `CleanupFailed` reason `overdue` |
-| Fail(FlowError e) | `e` | `e`'s diagnostics first, then one `CleanupFailed` each | same, reason `overdue` |
-| Fail(other) or Die | `RunFailed` (or `Defect` at an entry) | that diagnostic first, then one `CleanupFailed` each | same |
-| Interrupt | the interruption, untouched | `CleanupFailed` diagnostics; the interrupt stays in `cause` | same |
+| Body \ cleanups    | all clean                             | one or more fail or die                                                                      | one overdue                      |
+| ------------------ | ------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------- |
+| Success            | success                               | `CleanupFailed`, the first cleanup primary, one diagnostic per failed cleanup in phase order | `CleanupFailed` reason `overdue` |
+| Fail(FlowError e)  | `e`                                   | `e`'s diagnostics first, then one `CleanupFailed` each                                       | same, reason `overdue`           |
+| Fail(other) or Die | `RunFailed` (or `Defect` at an entry) | that diagnostic first, then one `CleanupFailed` each                                         | same                             |
+| Interrupt          | the interruption, untouched           | `CleanupFailed` diagnostics; the interrupt stays in `cause`                                  | same                             |
 
 Rows come from R9 to R11. To feed it, every owner returns its cleanup's `Exit`: `stepOnce` returns the Exit
 instead of throwing a squash; `resultOf` keeps `Died`'s cause; `close.ts` maps a store error into the Cause; a
@@ -227,27 +231,27 @@ failed) lives in the owner's state, and `Incarnation.issues` is deleted when `St
 
 ## 4. Requirements and Invariants
 
-| Id | Rule | Source | The check that fails on a wrong build |
-|----|------|--------|----------------------------------------|
-| R1 | Every function reachable from either route, entering Flow-made values, is a door's. | @plan.Diagnostics.O1; T98 acceptance | surface walk of both routes; remove one door: the walk names the path |
-| R2 | `made` refuses a face holding an unregistered function. | this design (3.1) | plant `raw-in-face`: every construction test fails `InvariantViolation` |
-| R3 | A door's refusal is a FlowError; a non-FlowError throw is `Defect` with the thrown value as cause. | `entry.ts#refusalOf` | hostile-value table over every door, `capture` included |
-| R4 | A `capture` body reads no argument: called with all-traps-throw Proxies it returns. | T98 acceptance | Proxy sweep over every `capture`; a type test: `Unread` has no members |
-| R5 | An entry's body runs on the admitted copy: each own property of an argument is read exactly once. | boundaries.md; G3 | a counting getter on every config field reads 1; plant `reads-raw-again` |
-| R6 | A throwing getter is one `Defect` carrying what it threw; a cycle is `InvalidConfiguration` `Cyclic`. | `authoring-gaps.test.ts` 71, 83 | those two inverted tests, un-inverted |
-| R7 | A Flow-made value is accepted by identity only; a copied or forged look-alike is `WrongKind` at its path. | T98 acceptance; Q3 A | forge every kind by shape copy; grep: no `"~` in `src/` |
-| R8 | `details.reason` is closed and legal for its code; `Diagnostic` decoding refuses any other. | @plan.Diagnostics.O1 | decode a Diagnostic per (code, foreign reason): rejected; `finding` type test |
-| R9 | The reported `cause` is the combined Cause of the body and every cleanup. | @plan.Diagnostics.O3; Q7 A | body x cleanup matrix (3.5): `Cause` holds every planted failure |
-| R10 | Execution or cancellation stays primary; cleanup-only failure makes the first cleanup primary. | @plan.Diagnostics.O3 | the same matrix asserts `diagnostics` order and count |
-| R11 | A dying or overdue cleanup is always reported, raced or not. | Q11 A; T100 comment | a cleanup that dies inside a commit's timeout: `CleanupFailed` |
-| R12 | Rendering keeps code, path, reason and help; escapes every control and bidi character; shows no input, stack, Cause or location. | @plan.Diagnostics.O4 | property test over hostile strings: output is printable ASCII plus escapes |
-| R13 | CLI output holds no `Cause.pretty`, stack or fiber id. | T100 acceptance | CLI golden over a dying command; grep guard |
-| R14 | A store refusal is named `StorageFailure` at every layer. | T100 acceptance | grep: the four other names are absent from `src/` |
-| R15 | No issue is stored that state determines; a creation's refused delay clears when its timer arms. | the user (2026-11-20) | Story: create refused, re-enter and arm: issues `[]`; type: no `Creation` source |
-| I1 | `Code`, `Reason` and the defect set are each derived from `CATALOG`; no second list. | G6, G7 | type test: a code outside `CATALOG` does not compile |
-| I2 | `FlowError.code === diagnostics[0].code` always. | @plan.Diagnostics.O1 | holds by construction (getter); codec round-trip |
-| I3 | `throw` appears in `src/` only at the three sites of 3.4. | boundaries.md | lint `throw-only-listed`, no disable comments left |
-| I4 | A refused entry starts nothing and registers nothing. | `error.ts#refuse` doc | refuse `definition`, then build the same id: no `DuplicateName` |
+| Id  | Rule                                                                                                                             | Source                               | The check that fails on a wrong build                                            |
+| --- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| R1  | Every function reachable from either route, entering Flow-made values, is a door's.                                              | @plan.Diagnostics.O1; T98 acceptance | surface walk of both routes; remove one door: the walk names the path            |
+| R2  | `made` refuses a face holding an unregistered function.                                                                          | this design (3.1)                    | plant `raw-in-face`: every construction test fails `InvariantViolation`          |
+| R3  | A door's refusal is a FlowError; a non-FlowError throw is `Defect` with the thrown value as cause.                               | `entry.ts#refusalOf`                 | hostile-value table over every door, `capture` included                          |
+| R4  | A `capture` body reads no argument: called with all-traps-throw Proxies it returns.                                              | T98 acceptance                       | Proxy sweep over every `capture`; a type test: `Unread` has no members           |
+| R5  | An entry's body runs on the admitted copy: each own property of an argument is read exactly once.                                | boundaries.md; G3                    | a counting getter on every config field reads 1; plant `reads-raw-again`         |
+| R6  | A throwing getter is one `Defect` carrying what it threw; a cycle is `InvalidConfiguration` `Cyclic`.                            | `authoring-gaps.test.ts` 71, 83      | those two inverted tests, un-inverted                                            |
+| R7  | A Flow-made value is accepted by identity only; a copied or forged look-alike is `WrongKind` at its path.                        | T98 acceptance; Q3 A                 | forge every kind by shape copy; grep: no `"~` in `src/`                          |
+| R8  | `details.reason` is closed and legal for its code; `Diagnostic` decoding refuses any other.                                      | @plan.Diagnostics.O1                 | decode a Diagnostic per (code, foreign reason): rejected; `finding` type test    |
+| R9  | The reported `cause` is the combined Cause of the body and every cleanup.                                                        | @plan.Diagnostics.O3; Q7 A           | body x cleanup matrix (3.5): `Cause` holds every planted failure                 |
+| R10 | Execution or cancellation stays primary; cleanup-only failure makes the first cleanup primary.                                   | @plan.Diagnostics.O3                 | the same matrix asserts `diagnostics` order and count                            |
+| R11 | A dying or overdue cleanup is always reported, raced or not.                                                                     | Q11 A; T100 comment                  | a cleanup that dies inside a commit's timeout: `CleanupFailed`                   |
+| R12 | Rendering keeps code, path, reason and help; escapes every control and bidi character; shows no input, stack, Cause or location. | @plan.Diagnostics.O4                 | property test over hostile strings: output is printable ASCII plus escapes       |
+| R13 | CLI output holds no `Cause.pretty`, stack or fiber id.                                                                           | T100 acceptance                      | CLI golden over a dying command; grep guard                                      |
+| R14 | A store refusal is named `StorageFailure` at every layer.                                                                        | T100 acceptance                      | grep: the four other names are absent from `src/`                                |
+| R15 | No issue is stored that state determines; a creation's refused delay clears when its timer arms.                                 | the user (2026-11-20)                | Story: create refused, re-enter and arm: issues `[]`; type: no `Creation` source |
+| I1  | `Code`, `Reason` and the defect set are each derived from `CATALOG`; no second list.                                             | G6, G7                               | type test: a code outside `CATALOG` does not compile                             |
+| I2  | `FlowError.code === diagnostics[0].code` always.                                                                                 | @plan.Diagnostics.O1                 | holds by construction (getter); codec round-trip                                 |
+| I3  | `throw` appears in `src/` only at the three sites of 3.4.                                                                        | boundaries.md                        | lint `throw-only-listed`, no disable comments left                               |
+| I4  | A refused entry starts nothing and registers nothing.                                                                            | `error.ts#refuse` doc                | refuse `definition`, then build the same id: no `DuplicateName`                  |
 
 Table 3.5's rows: columns from R11, row order from R10, the cause cell from R9.
 

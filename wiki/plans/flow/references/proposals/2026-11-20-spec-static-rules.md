@@ -1,3 +1,7 @@
+---
+proposal spec-static-rules
+status proposed 2026-11-20
+---
 # Static analysis, the CLI and rules on machines: design and Spec (2026-11-20)
 
 **Verdict: three derived things and one judge.** (1) One pure edge model, `edgesOf(compiled)`, is the only thing
@@ -8,26 +12,26 @@ rule's check, it writes `RuleBroken` evidence, and the test verdict and rule cov
 Everything here is proposed. Asks are in section 8.
 
 Sources: @task.V3.T22, @task.V3.T23, @task.V3.T106, @task.V3.T31; @plan.CommandLine O1 to O6; @plan.Rules O1 to O8;
-code:wiki/plans/flow/references/proposals/rules-2026-11-20.md;
-code:wiki/plans/flow/references/proposals/spec-test-tooling-2026-11-20.md (the run verdict);
-code:wiki/plans/flow/references/proposals/spec-typed-machine-2026-11-20.md (`Parts<D>`);
-code:wiki/plans/flow/references/proposals/spec-fragments-2026-11-20.md (`Compiled.slots`, `fragments`);
-code:wiki/plans/flow/references/proposals/spec-cohesion-2026-11-20.md.
+@proposal.rules;
+@proposal.spec-test-tooling (the run verdict);
+@proposal.spec-typed-machine (`Parts<D>`);
+@proposal.spec-fragments (`Compiled.slots`, `fragments`);
+@review.spec-cohesion.
 
 ## 1. What exists
 
 Paths are under `packages/flow-state-v3/`.
 
-| Part | Where | State |
-| --- | --- | --- |
-| Compiled data | `src/core/compiled.ts` `Compiled` (409-424), `Node`, `Level`, `Alternative` (`at`, `target`, `guards`), `Guard` (`InState`, `Check`, `Idle`, `Retryable`), `Schedule`, `Operation`, `Reaction` | Holds. It has no rules, no terminals and no source locations |
-| Plain view | `src/core/data-view.ts` `dataView` (98) | Holds; two compiles of one source give equal views. Only tests read it |
-| Compile findings | `src/error.ts` `Finding`; `definitionFindings` (`src/construction.ts`), `bodyFindings` (`src/config.ts`), `operationFindings`, `reactionFindings` (`src/machine.ts` 182-200), `appFindings` (`src/core/well-formed.ts` 69) | Holds. They throw at construction; none is a `flow check` result |
-| CLI | `src/host/cli/main.ts` `main` on `effect/cli`; `discover.ts` | `story list`, `story run`, `trace` only. `--project-root` only |
-| Trace text | `src/host/trace.ts` `render` (215), `renderers.text` (181-190) | Holds as the evidence render; not the output for people |
-| Run rules | `tests/rules/rules.ts` `Rule`, `rules` (21), `breachesOf`, `checked` | Hold. Applied only where a test calls `checked` |
-| CLI tests | `tests/cli/cli.test.ts` (one file) | Exit codes 0 and 2 only; planted faults in `tests/tooling-faults.ts` 169-217 |
-| Verify | root `package.json` `verify` | Checks, tests and stress run v3. No v3 build, no `exports`, no `bin` |
+| Part             | Where                                                                                                                                                                                                                      | State                                                                        |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Compiled data    | `src/core/compiled.ts` `Compiled` (409-424), `Node`, `Level`, `Alternative` (`at`, `target`, `guards`), `Guard` (`InState`, `Check`, `Idle`, `Retryable`), `Schedule`, `Operation`, `Reaction`                             | Holds. It has no rules, no terminals and no source locations                 |
+| Plain view       | `src/core/data-view.ts` `dataView` (98)                                                                                                                                                                                    | Holds; two compiles of one source give equal views. Only tests read it       |
+| Compile findings | `src/error.ts` `Finding`; `definitionFindings` (`src/construction.ts`), `bodyFindings` (`src/config.ts`), `operationFindings`, `reactionFindings` (`src/machine.ts` 182-200), `appFindings` (`src/core/well-formed.ts` 69) | Holds. They throw at construction; none is a `flow check` result             |
+| CLI              | `src/host/cli/main.ts` `main` on `effect/cli`; `discover.ts`                                                                                                                                                               | `story list`, `story run`, `trace` only. `--project-root` only               |
+| Trace text       | `src/host/trace.ts` `render` (215), `renderers.text` (181-190)                                                                                                                                                             | Holds as the evidence render; not the output for people                      |
+| Run rules        | `tests/rules/rules.ts` `Rule`, `rules` (21), `breachesOf`, `checked`                                                                                                                                                       | Hold. Applied only where a test calls `checked`                              |
+| CLI tests        | `tests/cli/cli.test.ts` (one file)                                                                                                                                                                                         | Exit codes 0 and 2 only; planted faults in `tests/tooling-faults.ts` 169-217 |
+| Verify           | root `package.json` `verify`                                                                                                                                                                                               | Checks, tests and stress run v3. No v3 build, no `exports`, no `bin`         |
 
 What is wrong or missing:
 
@@ -52,35 +56,35 @@ What is wrong or missing:
 
 Almost everything in this concept is derived. The stored state is small, and each piece has one owner.
 
-| State | Owner | Values | Inputs that change it in one step |
-| --- | --- | --- | --- |
-| Declared rules (`Compiled.rules`) | `machine()` compile | fixed per machine | none after construction |
-| The judge's `before`, per live incarnation | host judge (`src/host/rules.ts`) | none, or the last published snapshot | publication; restore; copy entry, reset, exit, freeze; disposal |
-| `RuleBroken` evidence | host judge | append-only records in the trace | a judged check that returns false or throws |
-| Seen counts per rule, per run | host judge (test selection) | a count per rule and placement | a judged check, whatever it returned |
-| A Story's rule switch | the Story plan (data) | `{ expectBroken, off }`, fixed | none after the Story is built |
-| The invocation outcome | `main` | one `Outcome` per invocation | the one command that ran; a signal |
-| Loaded project (config, apps, Stories) | `discover` | loaded once per invocation, read-only | none (`check --watch` reloads whole) |
+| State                                      | Owner                            | Values                                | Inputs that change it in one step                               |
+| ------------------------------------------ | -------------------------------- | ------------------------------------- | --------------------------------------------------------------- |
+| Declared rules (`Compiled.rules`)          | `machine()` compile              | fixed per machine                     | none after construction                                         |
+| The judge's `before`, per live incarnation | host judge (`src/host/rules.ts`) | none, or the last published snapshot  | publication; restore; copy entry, reset, exit, freeze; disposal |
+| `RuleBroken` evidence                      | host judge                       | append-only records in the trace      | a judged check that returns false or throws                     |
+| Seen counts per rule, per run              | host judge (test selection)      | a count per rule and placement        | a judged check, whatever it returned                            |
+| A Story's rule switch                      | the Story plan (data)            | `{ expectBroken, off }`, fixed        | none after the Story is built                                   |
+| The invocation outcome                     | `main`                           | one `Outcome` per invocation          | the one command that ran; a signal                              |
+| Loaded project (config, apps, Stories)     | `discover`                       | loaded once per invocation, read-only | none (`check --watch` reloads whole)                            |
 
 Derived, never stored: the edge list, reachable leaves, findings, the run's rule verdict, rule coverage and its
 unseen reasons, every text render, the exit code and the stream.
 
 Seams (typed values crossing):
 
-| Value | Direction | Neighbour |
-| --- | --- | --- |
-| `Compiled` (plus `slots`, `fragments`, scopes) | in | compile; @task.V3.T109 (fragments) owns the new fields |
-| `Parts<D>` and token `.Type`s, from `src/derive.ts` | in | typed machine; rule check inputs are built from it |
-| Declared schedules (name, `key`, `pausedBy`) | in | typed machine; edges name a schedule by its declared name |
-| `Snapshot<D>` at each publication, and the turn's event and edge name | in | host runtime; the judge reads, never writes |
-| `RuleBroken` evidence record | out | trace, inspectors, logs; the test verdict |
-| `ruleBroken: Rule` for `verdictOf(run, rules)` | out | test tooling (@task.V3.T114); it owns the verdict |
-| `Story` read as data (steps, switch, fakes) | in | test tooling; `story describe` and `check` read the plan |
-| `Finding` rows from owner plans | in | each owner Task adds rows to the check table (section 3.2) |
-| `Result` document, version 1 | out | people, automation, @task.V3.T31 |
+| Value                                                                 | Direction | Neighbour                                                  |
+| --------------------------------------------------------------------- | --------- | ---------------------------------------------------------- |
+| `Compiled` (plus `slots`, `fragments`, scopes)                        | in        | compile; @task.V3.T109 (fragments) owns the new fields     |
+| `Parts<D>` and token `.Type`s, from `src/derive.ts`                   | in        | typed machine; rule check inputs are built from it         |
+| Declared schedules (name, `key`, `pausedBy`)                          | in        | typed machine; edges name a schedule by its declared name  |
+| `Snapshot<D>` at each publication, and the turn's event and edge name | in        | host runtime; the judge reads, never writes                |
+| `RuleBroken` evidence record                                          | out       | trace, inspectors, logs; the test verdict                  |
+| `ruleBroken: Rule` for `verdictOf(run, rules)`                        | out       | test tooling (@task.V3.T114); it owns the verdict          |
+| `Story` read as data (steps, switch, fakes)                           | in        | test tooling; `story describe` and `check` read the plan   |
+| `Finding` rows from owner plans                                       | in        | each owner Task adds rows to the check table (section 3.2) |
+| `Result` document, version 1                                          | out       | people, automation, @task.V3.T31                           |
 
 The test-tooling design names its verdict item `Breach`; the user's word is "broken" everywhere
-(code:wiki/plans/flow/references/proposals/rules-2026-11-20.md 38-40). The seam value is named `Broken`.
+(@proposal.rules 38-40). The seam value is named `Broken`.
 
 ## 3. The design
 
@@ -182,15 +186,15 @@ export const findingsOf: (app: AppModel) => ReadonlyArray<Finding>;   // every r
 
 The rows this concept owns:
 
-| Reason | Severity | Derived from |
-| --- | --- | --- |
-| `TerminalLeft` | error | an edge that fires in a leaf of a terminal and lands outside it (3.4) |
-| `TerminalEmpty`, `TerminalDuplicate` | refused at `machine()` | the `terminals` list itself |
-| `RuleSubjectUnreachable` | warning | `in` state outside `reachableOf`, or no edge of `on`'s event fires in a reachable leaf |
-| `StateUnreachable` | warning | a leaf outside `reachableOf` |
-| `LikelyStuck` | warning | a reachable leaf with no edge leaving it, unless it is under a terminal |
-| `UnhandledEvent` | warning | a declared event with no edge |
-| `DelayOutOfRange` | error | a fixed delay negative or over the timer range (@task.V3.T22 comment, 2026-11-20) |
+| Reason                               | Severity               | Derived from                                                                           |
+| ------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------- |
+| `TerminalLeft`                       | error                  | an edge that fires in a leaf of a terminal and lands outside it (3.4)                  |
+| `TerminalEmpty`, `TerminalDuplicate` | refused at `machine()` | the `terminals` list itself                                                            |
+| `RuleSubjectUnreachable`             | warning                | `in` state outside `reachableOf`, or no edge of `on`'s event fires in a reachable leaf |
+| `StateUnreachable`                   | warning                | a leaf outside `reachableOf`                                                           |
+| `LikelyStuck`                        | warning                | a reachable leaf with no edge leaving it, unless it is under a terminal                |
+| `UnhandledEvent`                     | warning                | a declared event with no edge                                                          |
+| `DelayOutOfRange`                    | error                  | a fixed delay negative or over the timer range (@task.V3.T22 comment, 2026-11-20)      |
 
 ### 3.3 One result, one writer
 
@@ -216,17 +220,17 @@ export type Outcome = Data.TaggedEnum<{
 Before: each command prints. After: a command is `Effect<Result, InvocationFailure, Env>`; it never prints and
 never names an exit code. `main` owns the outcome, and this is its whole table:
 
-| Outcome | Stream | Status | Exit |
-| --- | --- | --- | --- |
-| Answered; no error finding (warnings allowed); help; version | stdout | `completed` | 0 |
-| Answered; `check` has an error finding | stdout | `failed` | 1 |
-| Answered; `story run` whose verdict has a broken rule (ask 3) | stdout | `failed` | 1 |
-| Refused: `InvalidUsage` (before any loading) | stderr | none | 2 |
-| Refused: `ConfigLoadFailed`, a module that does not load, unknown app, machine or Story | stderr | none | 2 |
-| Refused: `RunRejected` (the run's `FlowError`: boundary and evidence, no stack) | stderr | none | 2 |
-| Refused: `OutputFailed` (printed once; a broken pipe prints nothing more) | stderr | none | 2 |
-| Refused: a defect (`flow: internal error` and the error's name; never `Cause.pretty`) | stderr | none | 2 |
-| Interrupted, after cleanup | stderr | none | 130 or 143 |
+| Outcome                                                                                 | Stream | Status      | Exit       |
+| --------------------------------------------------------------------------------------- | ------ | ----------- | ---------- |
+| Answered; no error finding (warnings allowed); help; version                            | stdout | `completed` | 0          |
+| Answered; `check` has an error finding                                                  | stdout | `failed`    | 1          |
+| Answered; `story run` whose verdict has a broken rule (ask 3)                           | stdout | `failed`    | 1          |
+| Refused: `InvalidUsage` (before any loading)                                            | stderr | none        | 2          |
+| Refused: `ConfigLoadFailed`, a module that does not load, unknown app, machine or Story | stderr | none        | 2          |
+| Refused: `RunRejected` (the run's `FlowError`: boundary and evidence, no stack)         | stderr | none        | 2          |
+| Refused: `OutputFailed` (printed once; a broken pipe prints nothing more)               | stderr | none        | 2          |
+| Refused: a defect (`flow: internal error` and the error's name; never `Cause.pretty`)   | stderr | none        | 2          |
+| Interrupted, after cleanup                                                              | stderr | none        | 130 or 143 |
 
 Text is `renderers[command](result, format)`: a pure function of the same `Result` JSON encodes, so no text line
 can state something the JSON does not hold. `flow trace` and `flow story run` keep their evidence unchanged; the
@@ -306,19 +310,19 @@ unhandled public turn publishes nothing, and a settled ending publishes without 
 `before` has four writers, so it gets the one transition table of the concept. The judge owns it; one row per
 publication kind, for one live incarnation (an actor, a fragment placement, or one `.each` copy):
 
-| Published | Invariants | Turns rules | `before` after |
-| --- | --- | --- | --- |
-| `Turn` | each whose `in` holds `after.state` (or no `in`) | each whose `on` is the event (or no `on`), with `before`, `after`; `event` only with `on` | `after` |
-| `Other` | as above | skipped, not counted | `after` |
-| `Begin` | as above | skipped, not counted | `after` |
-| `End` | not judged | skipped | none |
-| `Turn` while `before` is none | as above | skipped (a defect is logged: a turn cannot precede its first publication) | `after` |
+| Published                     | Invariants                                       | Turns rules                                                                               | `before` after |
+| ----------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- | -------------- |
+| `Turn`                        | each whose `in` holds `after.state` (or no `in`) | each whose `on` is the event (or no `on`), with `before`, `after`; `event` only with `on` | `after`        |
+| `Other`                       | as above                                         | skipped, not counted                                                                      | `after`        |
+| `Begin`                       | as above                                         | skipped, not counted                                                                      | `after`        |
+| `End`                         | not judged                                       | skipped                                                                                   | none           |
+| `Turn` while `before` is none | as above                                         | skipped (a defect is logged: a turn cannot precede its first publication)                 | `after`        |
 
 `selected` is the only difference between tests and production, so there is one judge:
 
-| Where | `selected` |
-| --- | --- |
-| A Runtime outside tests | the rules with `enabled: true`; empty means the judge is not installed at all |
+| Where                                            | `selected`                                                                             |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| A Runtime outside tests                          | the rules with `enabled: true`; empty means the judge is not installed at all          |
 | A Story, generated run, reload sweep, pair sweep | every rule except the Story's `off` (and its `expectBroken` in runs generated from it) |
 
 A broken rule becomes one `RuleBroken` evidence record; a check that throws is the same record with `threw: true`.
@@ -339,12 +343,12 @@ RuleBroken: {
 **The test verdict and coverage are derived.** The judge's records and counts are the facts; the Story's switch
 is data; one pure function maps them to the verdict item test tooling consumes (`verdictOf(run, rules)`):
 
-| Switch for the rule | Never exercised | Exercised, never broke | Broke at least once |
-| --- | --- | --- | --- |
-| checked (default) | passes; coverage: unseen | passes; coverage: seen n | `Broken(rule)`: fails on the first, lists all |
-| `expectBroken` | fails: "never broke" | fails: "never broke" | passes; later breaks are not failures |
-| `off` | not judged; out of the total | not judged | not judged (its check is never called) |
-| in both lists | refused when the Story is built | | |
+| Switch for the rule | Never exercised                 | Exercised, never broke   | Broke at least once                           |
+| ------------------- | ------------------------------- | ------------------------ | --------------------------------------------- |
+| checked (default)   | passes; coverage: unseen        | passes; coverage: seen n | `Broken(rule)`: fails on the first, lists all |
+| `expectBroken`      | fails: "never broke"            | fails: "never broke"     | passes; later breaks are not failures         |
+| `off`               | not judged; out of the total    | not judged               | not judged (its check is never called)        |
+| in both lists       | refused when the Story is built |                          |                                               |
 
 Rule coverage is `coverageOf(runs, models)`: seen counts added over runs, one row per rule and placement (copies
 added), and an unseen row's reason derived from the model: `RuleSubjectUnreachable` if the graph cannot reach it,
@@ -352,15 +356,15 @@ else "in X, never reached", "X never accepted" or "fragment never placed". It is
 
 Terminals are proved in `checks.ts`, never judged: for each leaf under a terminal and each edge that fires there,
 
-| Edge | Counts as leaving |
-| --- | --- |
+| Edge                                                                                           | Counts as leaving                                 |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | lands on a leaf outside the terminal's subtree (handler on the state, an ancestor or the root) | yes: `TerminalLeft`, naming the edge and the leaf |
-| leaf terminal, self-transition or no target | no |
-| compound terminal, lands inside its subtree | no |
-| sent by a schedule, a late ending or an `onContext` reaction | same as any sender |
-| a subroutine exit taken from the leaf | yes |
-| `InState` decider that excludes the leaf | does not fire there, so no |
-| a restart (new incarnation, restore, `resetOn`) | not an edge |
+| leaf terminal, self-transition or no target                                                    | no                                                |
+| compound terminal, lands inside its subtree                                                    | no                                                |
+| sent by a schedule, a late ending or an `onContext` reaction                                   | same as any sender                                |
+| a subroutine exit taken from the leaf                                                          | yes                                               |
+| `InState` decider that excludes the leaf                                                       | does not fire there, so no                        |
+| a restart (new incarnation, restore, `resetOn`)                                                | not an edge                                       |
 
 ### 3.5 Rule tokens and the type surface
 
@@ -409,7 +413,7 @@ Each is a check that fails on a wrong build. Sources in brackets.
   an empty `terminals` and a state listed twice, also for untyped input. [@plan.Rules.O2, O3]
 - **R9** Every Story, generated run, reload sweep and pair sweep judges every selected rule with no call in the
   test; a broken rule fails the run through `verdictOf`. [@plan.Rules.O4]
-- **R10** The judging table in 3.4 holds row by row. [@plan.Rules.O1; rules-2026-11-20 lines 15-20]
+- **R10** The judging table in 3.4 holds row by row. [@plan.Rules.O1; @proposal.rules lines 15-20]
 - **R11** The switch table in 3.4 holds cell by cell. [@plan.Rules.O4]
 - **R12** Outside tests only `enabled` rules are judged; a broken one writes `RuleBroken` with private fields
   redacted and throws nothing. [@plan.Rules.O6]
@@ -468,17 +472,17 @@ Order, each step resting on the one before:
 
 Proposed Task split, by state ownership:
 
-| Task | Owns | From |
-| --- | --- | --- |
-| T22a Results and discovery | the invocation outcome; the loaded project | T22 |
-| T22b Edge model and `graph` | nothing stored; the one derivation | T22 |
-| T22c Check table and `explain` | nothing stored; the finding registry | T22 |
-| T106a Rules declared and typed | `Compiled.rules` | T106 |
-| T106b Rules proved | nothing stored (rows in T22c's table) | T106 |
-| T106c Rules judged and covered | `before`, `RuleBroken`, seen counts, the switch | T106 |
-| T106d Fragment rules | the same, per placement and copy | T106, with T109 |
-| T23 Verify builds v3 | package `exports`, `bin`, build | unchanged |
-| T31 Outputs for people | the text renderers | unchanged |
+| Task                           | Owns                                            | From            |
+| ------------------------------ | ----------------------------------------------- | --------------- |
+| T22a Results and discovery     | the invocation outcome; the loaded project      | T22             |
+| T22b Edge model and `graph`    | nothing stored; the one derivation              | T22             |
+| T22c Check table and `explain` | nothing stored; the finding registry            | T22             |
+| T106a Rules declared and typed | `Compiled.rules`                                | T106            |
+| T106b Rules proved             | nothing stored (rows in T22c's table)           | T106            |
+| T106c Rules judged and covered | `before`, `RuleBroken`, seen counts, the switch | T106            |
+| T106d Fragment rules           | the same, per placement and copy                | T106, with T109 |
+| T23 Verify builds v3           | package `exports`, `bin`, build                 | unchanged       |
+| T31 Outputs for people         | the text renderers                              | unchanged       |
 
 T106a and T106b do not need fragments, T113 or T114, so they can run in P4 right after T22b; only T106c waits for
 T114 and only T106d for T109.
@@ -532,22 +536,22 @@ Expected results come from the tables above and the cited Plan lines, written by
 
 ## 7. Handoff for the Opus leads
 
-| Task | Read first | Decided | Open, settle before code | First commit |
-| --- | --- | --- | --- | --- |
-| T22a | 3.3; `main.ts`; `discover.ts`; @plan.CommandLine O3, O6 | one `Result`, one writer, the outcome table | asks 3, 4 | the outcome table as failing tests; hostile config and symlink tests |
-| T22b | 3.1; `compiled.ts`; `compile-body.ts` `nodesOf`; `turn.ts` 517-554 | `Edge`, over-approximation rules, names from `at` and `trigger:` | the exact `mayBeLate` bound | six hand graphs and I4 over fixtures, red |
-| T22c | 3.2; @plan.CommandLine O5; `error.ts` `Finding` | the table and its three-fixture guard | which rows are in scope now (step 4's list) | one failing fixture pair per row |
-| T106a | 3.4, 3.5; @plan.Rules O1 to O3; `machine.ts`; `config.ts` | `Compiled.rules`; `enabled` read once | the spike's result; ask 2 if it fails | `tests/types/` rule-token file and refusal tests, red |
-| T106b | 3.4 terminal table; `graph.ts` | proved, never judged; ask 1's name | none | @plan.Rules V5 cases as failing check fixtures |
-| T106c | 3.4 judge; test-tooling 3.4; `runtime.ts` publication path | one judge, `selected`, derived verdict | one turn, one publication; operation row busy timing (@plan.Rules Q1) | the judging and switch tables as failing sequence tests |
-| T106d | @plan.Rules O7; fragments design | per placement and copy | the copy's address format (cohesion 9, 12) | per-copy `before` test, red |
-| T23 | 3.6; root `package.json`; `scripts/check-toolchain.mjs` | verify's parts | whether `faults` joins verify (the user said no: end of Task) | flip `cli.test.ts` 208-209; a failing packed smoke |
-| T31 | 3.3; @plan.CommandLine O1 text rules | renderers over `Result` only | ask 5; the user accepts each output | each output as a hand-written golden |
+| Task  | Read first                                                         | Decided                                                          | Open, settle before code                                              | First commit                                                         |
+| ----- | ------------------------------------------------------------------ | ---------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| T22a  | 3.3; `main.ts`; `discover.ts`; @plan.CommandLine O3, O6            | one `Result`, one writer, the outcome table                      | asks 3, 4                                                             | the outcome table as failing tests; hostile config and symlink tests |
+| T22b  | 3.1; `compiled.ts`; `compile-body.ts` `nodesOf`; `turn.ts` 517-554 | `Edge`, over-approximation rules, names from `at` and `trigger:` | the exact `mayBeLate` bound                                           | six hand graphs and I4 over fixtures, red                            |
+| T22c  | 3.2; @plan.CommandLine O5; `error.ts` `Finding`                    | the table and its three-fixture guard                            | which rows are in scope now (step 4's list)                           | one failing fixture pair per row                                     |
+| T106a | 3.4, 3.5; @plan.Rules O1 to O3; `machine.ts`; `config.ts`          | `Compiled.rules`; `enabled` read once                            | the spike's result; ask 2 if it fails                                 | `tests/types/` rule-token file and refusal tests, red                |
+| T106b | 3.4 terminal table; `graph.ts`                                     | proved, never judged; ask 1's name                               | none                                                                  | @plan.Rules V5 cases as failing check fixtures                       |
+| T106c | 3.4 judge; test-tooling 3.4; `runtime.ts` publication path         | one judge, `selected`, derived verdict                           | one turn, one publication; operation row busy timing (@plan.Rules Q1) | the judging and switch tables as failing sequence tests              |
+| T106d | @plan.Rules O7; fragments design                                   | per placement and copy                                           | the copy's address format (cohesion 9, 12)                            | per-copy `before` test, red                                          |
+| T23   | 3.6; root `package.json`; `scripts/check-toolchain.mjs`            | verify's parts                                                   | whether `faults` joins verify (the user said no: end of Task)         | flip `cli.test.ts` 208-209; a failing packed smoke                   |
+| T31   | 3.3; @plan.CommandLine O1 text rules                               | renderers over `Result` only                                     | ask 5; the user accepts each output                                   | each output as a hand-written golden                                 |
 
 ## 8. Proposed decisions and sidecar log
 
 **Ask 1. A left terminal is reported as `TerminalLeft`.** The Plan says `TerminalLeft` (@plan.Rules.O2); the
-proposal text says `RuleBroken` (rules-2026-11-20 line 90). Recommended: `TerminalLeft`.
+proposal text says `RuleBroken` (@proposal.rules line 90). Recommended: `TerminalLeft`.
 - Trace A (`TerminalLeft`): `flow check` prints `error TerminalLeft Shop/Order on.Refund[0] can leave REFUNDED`;
   a log search for `RuleBroken` finds only runs.
 - Trace B (`RuleBroken`): the same finding and a run's evidence record share one name; a reader cannot tell a proof
@@ -585,27 +589,27 @@ Implementation calls made here (the orchestrator's to confirm): a throwing check
 
 **Sidecar log** (three Haiku sidecars, read-only; one adversary pass at the end)
 
-| Sidecar | Finding | Result | Why |
-| --- | --- | --- | --- |
-| Code map | `Compiled` has no rule, terminal or location field (`compiled.ts` 409-424) | accepted | read the type myself |
-| Code map | CLI is `story list`, `story run`, `trace` on `effect/cli`; exit 0 and 2; `Cause.pretty` at 135 | accepted | read `main.ts` whole |
-| Code map | no static analysis in `src/`; `dataView` read only by tests | accepted | `data-view.ts` read; greps not re-run |
-| Code map | `verify` has no v3 build; package has no `bin` or `exports` | accepted, not re-run | consistent with `cli.test.ts` 208-209 as reported by two sidecars |
-| Plans | terminal error named two ways (Plan O2 against proposal line 90) | accepted | Plan text read; became ask 1 |
-| Plans | `Machine` second parameter against the typed-machine design | accepted | both texts read; became 3.5 and ask 2 |
-| Plans | `story run` and broken rules have no exit code | accepted | Plan O2, O3 read; became ask 3 |
-| Plans | load failure is exit 1 or 2 in different records | accepted | became ask 4 |
-| Plans | `Flow.keyed` still in Machine.plan | rejected for this document | a neighbour's record; the user's drop stands |
-| Plans | `RuleBroken` is "evidence" in the Plan and "a verdict kind" in T106 | changed | both: the judge writes evidence, the verdict is derived from it (3.4) |
-| Reviews | parity test is its own oracle (`cli.test.ts` 109) | accepted | read through the code map; hand goldens in section 6 |
-| Reviews | one key, one copy, default starts, no sequences were the repeated misses | accepted | section 6 names each dimension |
-| Reviews | faults runner exempts all `tests/cli` | accepted, not re-read | guard in section 6 |
-| Reviews | T23 conflicts with the "no bin" test | accepted | section 1 item 6, handoff row T23 |
-| Reviews | 17 rules with no fault in the coverage record | rejected for this document | Flow's run rules belong to test tooling |
-| Adversary | accepted turns carry `Part.at`; implicit `armOn`/`disarmOn` turns are named `trigger:<node>:<tag>` | accepted | read `turn.ts` 517-523; 3.1 gained implicit edges |
-| Adversary | an unguarded alternative can decline (`LateMayNotLeave`), so shadow pruning is unsound | accepted | read `turn.ts` 143, 254; pruning removed from `firesIn` |
-| Adversary | any written handler, even a declining one, suppresses the implicit edge (`turn.ts` 554) | accepted | read the line; the model copies the rule. Whether the code's rule is intended is the turn's owner's question |
-| Adversary | a denied or unhandled public turn publishes nothing; a settled ending publishes | accepted | read `serve.ts` 233-234, 353; `Other` row reworded |
-| Adversary | create and restore both publish through `start()` | accepted | read `incarnations.ts` 194-201; `Begin` covers both |
-| Adversary | `late` is a serve-time fact, not in `Compiled` | accepted | `mayBeLate` bound replaces the boolean; `serve.ts` 390-400 not re-read |
-| Adversary | a guard that throws refuses the turn and blocks ancestors | accepted, no change | a defect, not an edge; over-approximation still holds |
+| Sidecar   | Finding                                                                                            | Result                     | Why                                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Code map  | `Compiled` has no rule, terminal or location field (`compiled.ts` 409-424)                         | accepted                   | read the type myself                                                                                         |
+| Code map  | CLI is `story list`, `story run`, `trace` on `effect/cli`; exit 0 and 2; `Cause.pretty` at 135     | accepted                   | read `main.ts` whole                                                                                         |
+| Code map  | no static analysis in `src/`; `dataView` read only by tests                                        | accepted                   | `data-view.ts` read; greps not re-run                                                                        |
+| Code map  | `verify` has no v3 build; package has no `bin` or `exports`                                        | accepted, not re-run       | consistent with `cli.test.ts` 208-209 as reported by two sidecars                                            |
+| Plans     | terminal error named two ways (Plan O2 against proposal line 90)                                   | accepted                   | Plan text read; became ask 1                                                                                 |
+| Plans     | `Machine` second parameter against the typed-machine design                                        | accepted                   | both texts read; became 3.5 and ask 2                                                                        |
+| Plans     | `story run` and broken rules have no exit code                                                     | accepted                   | Plan O2, O3 read; became ask 3                                                                               |
+| Plans     | load failure is exit 1 or 2 in different records                                                   | accepted                   | became ask 4                                                                                                 |
+| Plans     | `Flow.keyed` still in Machine.plan                                                                 | rejected for this document | a neighbour's record; the user's drop stands                                                                 |
+| Plans     | `RuleBroken` is "evidence" in the Plan and "a verdict kind" in T106                                | changed                    | both: the judge writes evidence, the verdict is derived from it (3.4)                                        |
+| Reviews   | parity test is its own oracle (`cli.test.ts` 109)                                                  | accepted                   | read through the code map; hand goldens in section 6                                                         |
+| Reviews   | one key, one copy, default starts, no sequences were the repeated misses                           | accepted                   | section 6 names each dimension                                                                               |
+| Reviews   | faults runner exempts all `tests/cli`                                                              | accepted, not re-read      | guard in section 6                                                                                           |
+| Reviews   | T23 conflicts with the "no bin" test                                                               | accepted                   | section 1 item 6, handoff row T23                                                                            |
+| Reviews   | 17 rules with no fault in the coverage record                                                      | rejected for this document | Flow's run rules belong to test tooling                                                                      |
+| Adversary | accepted turns carry `Part.at`; implicit `armOn`/`disarmOn` turns are named `trigger:<node>:<tag>` | accepted                   | read `turn.ts` 517-523; 3.1 gained implicit edges                                                            |
+| Adversary | an unguarded alternative can decline (`LateMayNotLeave`), so shadow pruning is unsound             | accepted                   | read `turn.ts` 143, 254; pruning removed from `firesIn`                                                      |
+| Adversary | any written handler, even a declining one, suppresses the implicit edge (`turn.ts` 554)            | accepted                   | read the line; the model copies the rule. Whether the code's rule is intended is the turn's owner's question |
+| Adversary | a denied or unhandled public turn publishes nothing; a settled ending publishes                    | accepted                   | read `serve.ts` 233-234, 353; `Other` row reworded                                                           |
+| Adversary | create and restore both publish through `start()`                                                  | accepted                   | read `incarnations.ts` 194-201; `Begin` covers both                                                          |
+| Adversary | `late` is a serve-time fact, not in `Compiled`                                                     | accepted                   | `mayBeLate` bound replaces the boolean; `serve.ts` 390-400 not re-read                                       |
+| Adversary | a guard that throws refuses the turn and blocks ancestors                                          | accepted, no change        | a defect, not an edge; over-approximation still holds                                                        |

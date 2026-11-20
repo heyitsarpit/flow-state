@@ -1,7 +1,9 @@
-# UI primitives: proposed Task changes for Q1, Q2, Q3 and Q5 (2026-11-16, proposed)
-
-**Status (2026-11-20):** acted on: applied for the decisions in ui-primitives-decisions-2026-11-16.md. The text below is
-prior art.
+---
+proposal ui-primitives-task-changes
+status merged 2026-11-16 [@plan.Machines, @plan.Runtime, @plan.React, @plan.Testing, @plan.Inspection, @spec.Turn, @spec.Actors, @spec.Compile, @spec.StaticCli, @spec.WriteAhead, @spec.Restore, @spec.Codec, @task.V3.T72, @task.V3.T76, @task.V3.T77, @task.V3.T78]
+    proposed 2026-11-16
+---
+# UI primitives: proposed Task changes for Q1, Q2, Q3 and Q5
 
 **Bottom line:** the accepted decisions need three new Tasks and changes to ten open or draft Tasks. Nothing here
 is applied.
@@ -10,11 +12,11 @@ is applied.
 - **Changed Tasks:** T57, T56, T21, T22, T73, T72, T9, T29, T30 and T49.
 
 Every new Task, and the schedule work added to T57, waits for the Plan merge in
-[the merge guide](ui-primitives-merge-guide-2026-11-16.md), which needs the user's yes. The user has decided the frame
+@proposal.ui-primitives-merge-guide, which needs the user's yes. The user has decided the frame
 items (§4): T72 moves from P3 to P4, T76 to T78 join P4, and the command palette keeps `Configure`.
 
-**Read first:** [the merge guide](ui-primitives-merge-guide-2026-11-16.md) §7 (build gaps),
-[the decisions log](ui-primitives-decisions-2026-11-16.md) §1.6, §5, §8 W8e and §9, skill:to-task.
+**Read first:** @proposal.ui-primitives-merge-guide §7 (build gaps),
+@proposal.ui-primitives-decisions §1.6, §5, §8 W8e and §9, skill:to-task.
 
 All quotes are exact, from the Task files as read on 2026-11-16, with the file's indent dropped.
 
@@ -35,7 +37,7 @@ Current Read first (P4.task:124):
 Proposed:
 
 > **Read first:** @plan.Machines.O5, @spec.Turn (R14 to R17, R19, R27, R30 after the merge), @spec.Compile,
-> code:wiki/plans/flow/references/proposals/ui-primitives-merge-guide-2026-11-16.md. Starts after the Plan merge it
+> @proposal.ui-primitives-merge-guide. Starts after the Plan merge it
 > lists (the user's yes).
 
 Add a Risk paragraph:
@@ -123,7 +125,7 @@ Add a paragraph:
 > **Approach (prompt):** entries store `{ id, ref, label? }`; a token's status is read from the mention lookup's
 > rows, and the selector hides failed tokens, so undo brings one back as failed. `readOnly` is a prop. The
 > composing draft is a trait on COMPOSING. Drop `value`, `loading` and token `status` from memory
-> (code:wiki/conventions/where-a-value-lives.md).
+> (@convention.where-a-value-lives).
 
 Current `blocked_by` (P4.task:289): `[@T21, @T57]`. Proposed: `[@T21, @T57, @T76, @T77]`.
 
@@ -133,8 +135,8 @@ From: Q2, Q3, Q4a, R1, W8d, W8e. W8e already proposed the first two edits.
 
 Current Read first and Risk (P3.task:910-917):
 
-> **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-generality-2026-11-16.md (toaster
-> and menu machines), code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md, the upstream core
+> **Read first:** @proposal.ui-primitives-generality (toaster
+> and menu machines), @proposal.ui-primitives, the upstream core
 > tests in `codebases/ui-sdk/packages/core/test/`: `toast.test.ts` and `toast-swipe.test.ts` (34), and
 > `menu-*.test.ts` (36), at commit `98ba9fd`.
 >
@@ -143,8 +145,8 @@ Current Read first and Risk (P3.task:910-917):
 
 Proposed:
 
-> **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§1 schedules,
-> §3 Q4a, §8 W8d), code:wiki/conventions/interaction-state.md, code:wiki/conventions/view-commands.md, the upstream
+> **Read first:** @proposal.ui-primitives-decisions (§1 schedules,
+> §3 Q4a, §8 W8d), @convention.interaction-state, @convention.view-commands, the upstream
 > core tests in `codebases/ui-sdk/packages/core/test/`: `toast.test.ts` and `toast-swipe.test.ts` (34), and
 > `menu-*.test.ts` (36), at commit `98ba9fd`.
 >
@@ -354,7 +356,7 @@ The `satisfies` lines in T76 and T77 wrap past one line here. `wk format` lays t
 T57, T76 and T77 all touch `src/core/` turn and schedule code, so they run one at a time (the Epic works serially
 anyway).
 
-## 4. Frame items (the user, 2026-11-16)
+## 4. Frame items [decided: user 2026-11-16]
 
 T72 moves from P3 to P4 (F1), with an Amendment note per skill:build-a-loop; T76 to T78 join P4 (F2); F3 (Pending or
 direct) is the user's call. The toaster needs `paused` and keyed schedules (T57), the menu needs a trait on OPEN
@@ -380,5 +382,5 @@ U1 and U2 are resolved (decisions log §9.1 R10 and R12): the palette keeps `Con
 `setProps(partial)`.
 
 
-**F3 (the user, 2026-11-16):** the Plan merge lands directly, done by another session; the Task edits here follow
+**F3** [decided: user 2026-11-16]: the Plan merge lands directly, done by another session; the Task edits here follow
 it.

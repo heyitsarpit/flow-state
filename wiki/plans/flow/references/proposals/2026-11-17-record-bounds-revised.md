@@ -1,12 +1,16 @@
-# Record size bounds: one rule, revised (proposed)
-
-**Status (2026-11-20):** acted on: decided by @plan.Pending.D23 and D24 (no arbitrary limits). The text below is prior
-art.
+---
+proposal record-bounds-revised
+status merged 2026-11-17 [@plan.Pending.D23, @plan.Pending.D24]
+    accepted user 2026-11-17
+    proposed 2026-11-17
+supersedes @proposal.record-bounds
+---
+# Record size bounds: one rule, revised
 
 **Rule:** no send ever waits on a record that may not encode. Lane and owed records encode by construction;
 when an actor record cannot, its plain writes wait and every ticket that would wait with them is refused at once.
 
-Status: proposed, the building lead of @task.V3.T20. Revises code:wiki/plans/flow/references/proposals/record-bounds-2026-11-17.md
+Written by the building lead of @task.V3.T20. Revises @proposal.record-bounds
 (the class, findings and requirements are there) after one adversarial Haiku review; that file stays as prior art.
 
 ## Design

@@ -1,3 +1,6 @@
+---
+page T94-public-entry-points
+---
 # Public entry points: what an app author notices (T94, 2026-11-19)
 
 **Bottom line:** almost every wrong call into Flow now comes back as a `FlowError`, not a raw `TypeError`, and a
@@ -6,14 +9,14 @@ user in @task.V3.T98.
 
 ## What you notice
 
-| Case | What happens |
-| --- | --- |
+| Case                                                                                | What happens                                                                              |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | A Flow function called with a wrong value (`app(null)`, a throwing getter, a Proxy) | It refuses with a `FlowError`; an Effect-returning one (`ready`, `dispose`) fails with it |
-| A bug inside Flow that a check missed | It surfaces as a `FlowError` with code `Defect`, carrying the cause |
-| `runtimeSetup(config)` with a bad config | It refuses at the call with `InvalidConfiguration`, not later at `construct` |
-| The admit hook throws | The Runtime stops; the caller gets the throw, and `dispose` fails with it |
-| A step's work throws while running | The Runtime stops quietly, as a step defect does; `dispose` fails with it |
-| The Runtime's driver, inspector hook or a handle's link | No longer reachable from any public value |
+| A bug inside Flow that a check missed                                               | It surfaces as a `FlowError` with code `Defect`, carrying the cause                       |
+| `runtimeSetup(config)` with a bad config                                            | It refuses at the call with `InvalidConfiguration`, not later at `construct`              |
+| The admit hook throws                                                               | The Runtime stops; the caller gets the throw, and `dispose` fails with it                 |
+| A step's work throws while running                                                  | The Runtime stops quietly, as a step defect does; `dispose` fails with it                 |
+| The Runtime's driver, inspector hook or a handle's link                             | No longer reachable from any public value                                                 |
 
 No new refusal codes.
 

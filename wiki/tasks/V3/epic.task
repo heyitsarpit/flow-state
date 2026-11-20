@@ -11,8 +11,7 @@ description
     @plan.EntityDomains, @plan.React, @plan.ServerRendering, @plan.Testing, @plan.Inspection, @plan.Diagnostics,
     @plan.CommandLine, @plan.LazyFeatures, @plan.Package (status proposed), @plan.Rules. Core Specs @spec.Compile,
     @spec.Turn, @spec.Actors, @spec.WriteLanes, @spec.Reads, @spec.WriteAhead, @spec.Restore, @spec.Diagnostics,
-    @spec.Codec, @spec.StaticCli. Deferred and open items:
-    code:wiki/plans/flow/references/proposals/revisit.md, code:wiki/plans/flow/references/proposals/open-items.md.
+    @spec.Codec, @spec.StaticCli. Deferred and open items: @revisit.revisit, @revisit.open-items.
 
     Locations:
 
@@ -21,9 +20,8 @@ description
     - fixtures `packages/flow-state-v3/fixtures/`, shared by the tests and the bench;
     - Flow's own tests `packages/flow-state-v3/tests/`; the bench `packages/flow-state-v3/bench/`;
     - the prototype reference `packages/flow-state-v3/prototypes/round-14/`;
-    - proposal files `wiki/plans/flow/references/proposals/`; the test system's design is
-      code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, and the tools' API
-      is code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md;
+    - proposal files `wiki/plans/flow/references/proposals/`; the test system's design is @proposal.test-system, and the
+      tools' API is @proposal.test-tooling-reuse;
     - reference apps `wiki/plans/flow/references/checkout/` and `dispatch-desk/`, guides where the P2 card says;
     - example apps `examples/` (P6); docs `apps/docs/` (P7).
 
@@ -233,22 +231,21 @@ instructions
         starts, a scope change going to the user (the user, 2026-11-20).
     - A feature's benches are its fixture's `bench` entries, added with its Stories (the user, 2026-11-18).
     - Fixtures first (the user, 2026-11-16): a Task that builds or changes a public feature, or lands a review finding,
-      meets code:wiki/conventions/fixtures.md as part of its requirements, before any code. The orchestrator owns it and
-      checks it by asking the lead for that page's proof, never by reading the tests itself; a gap returns to the lead
-      before the build, and the requirements review checks the proof, not the claim. Before posting the proof, the lead
-      has sidecars review its fixtures against every part of that page: scenarios, load and structural stress, edge
-      values, combinations, variety, real-shaped data, registration with every runner, and that each expected result is
-      correct for its cited rule; the lead verifies and logs each finding (the user, 2026-11-16). Every Task with
-      fixture work links the page in its acceptance, and every brief cites it too. What to build comes from
-      code:wiki/conventions/fixture-catalog.md (the user, 2026-11-17): each Task's fixtures line names its migration
-      step and fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively.
-      Fixture counts are set from the bench and recorded in each Story; a count may change only by a recorded
-      re-measurement (the user, 2026-11-17, Q8 A). The catalog is a task list: at the close the lead marks every
-      scenario item in those fixtures built (with its Story id) or left (with the later Task and the feature it needs),
-      never leaves one unmarked, and corrects any row the build proved wrong; only a scenario needing a later Task's
-      feature may be left, and the review checks each. The scenarios and their linked tests are best-guess guidance: the
-      lead targets proper coverage and may add, reshape or replace scenarios, writing each change back as a
-      catalog item.
+      meets @convention.fixtures as part of its requirements, before any code. The orchestrator owns it and checks it by
+      asking the lead for that page's proof, never by reading the tests itself; a gap returns to the lead before the
+      build, and the requirements review checks the proof, not the claim. Before posting the proof, the lead has
+      sidecars review its fixtures against every part of that page: scenarios, load and structural stress, edge values,
+      combinations, variety, real-shaped data, registration with every runner, and that each expected result is correct
+      for its cited rule; the lead verifies and logs each finding (the user, 2026-11-16). Every Task with fixture work
+      links the page in its acceptance, and every brief cites it too. What to build comes from
+      @convention.fixture-catalog (the user, 2026-11-17): each Task's fixtures line names its migration step and
+      fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively. Fixture counts
+      are set from the bench and recorded in each Story; a count may change only by a recorded re-measurement (the user,
+      2026-11-17, Q8 A). The catalog is a task list: at the close the lead marks every scenario item in those fixtures
+      built (with its Story id) or left (with the later Task and the feature it needs), never leaves one unmarked, and
+      corrects any row the build proved wrong; only a scenario needing a later Task's feature may be left, and the
+      review checks each. The scenarios and their linked tests are best-guess guidance: the lead targets proper coverage
+      and may add, reshape or replace scenarios, writing each change back as a catalog item.
     - Coverage before fixes and reviews (the user, 2026-11-17): a Task's bug fixing and its review wait until the
       fixtures its catalog step names are built, with every scenario written; a bug those Stories find lands as an
       inverted test with its owner Task, and is fixed by that owner against the full coverage.
@@ -328,8 +325,8 @@ instructions
       routed or noted. A fix round is checked by the next review, with no separate re-check.
     - Every accepted review finding names why the tests missed it (the user, 2026-11-16): the fixture, Story, step
       sample, edge value, run rule or sweep that would have caught it and was absent. The reviewer states it per
-      finding; the fix round adds that coverage for the whole class, per code:wiki/conventions/fixtures.md, and shows it
-      red before the fix. A class that recurs across Tasks becomes a run rule or a fixture every later Task inherits.
+      finding; the fix round adds that coverage for the whole class, per @convention.fixtures, and shows it red before
+      the fix. A class that recurs across Tasks becomes a run rule or a fixture every later Task inherits.
     - Convergence follows skill:policy-convergence (the user, 2026-11-20, after T57): each finding names its structural
       cause; a structural cause converges at its first finding, a local one at threshold 2 (the user, 2026-11-12; R35);
       the scope is every state with the same freedom, with multiplicity and non-default starts in the table; the other
@@ -350,9 +347,9 @@ instructions
     - A ruling is asked as two traces of the same Story, not as prose.
     - At each slice's close the orchestrator writes the user's page. A second slice may not close on an unread page (the
       user, 2026-11-12); that is in stops.
-    - Benchmarks follow code:wiki/conventions/bench.md (the user, 2026-11-18): no agent sits blocked on a bench; `--dev`
-      while working, every longer run capped and in the background; a Task's close runs no bench by default, and a
-      performance Task records the quick tier once at its end, its review reading `--summary`.
+    - Benchmarks follow @convention.bench (the user, 2026-11-18): no agent sits blocked on a bench; `--dev` while
+      working, every longer run capped and in the background; a Task's close runs no bench by default, and a performance
+      Task records the quick tier once at its end, its review reading `--summary`.
 
     **Records and commands**
 

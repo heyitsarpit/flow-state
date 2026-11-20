@@ -1,4 +1,8 @@
-# Actor boundary channels: emits out, props in (proposed, 2026-11-20)
+---
+proposal spec-boundary-channels
+status proposed 2026-11-20
+---
+# Actor boundary channels: emits out, props in
 
 **Bottom line:** an actor gets two declared channels across its boundary, and neither adds a second writer anywhere.
 An **emit** owns no core state at all: the turn computes it before commit and records it as one `Emitted` evidence
@@ -15,24 +19,24 @@ section 8. Paths are under `packages/flow-state-v3/` unless they start with `wik
 No part of either channel is built: `emit`, `onEmit`, `Emitted`, `props`, `onProps` and `setProps` have no hit in
 `src/`, `fixtures/` or `tests/` (the hits are comments and one fixture's parameter name).
 
-| File and symbol | What it does today | Holds or changes |
-| --- | --- | --- |
-| `src/core/serve.ts` `turn()`, accepted branch (340-362) | commit, `Turned`, lanes, schedules, `publish`, context wave, sends | holds; gains the emit records after `publish` |
-| `src/core/incarnations.ts#publish` (64-70) | the only `Act.Published` | holds; `Published` gains nothing |
-| `src/core/evidence.ts` (157) | `Published { actor, state, memory }`; no payload-carrying output | gains `Emitted` |
-| `src/core/tx.ts` (156, 502) | evidence is always collected, never elided | holds; emits rest on it |
-| `src/host/driver.ts` (336-362) | per step: admit hook, `world = out.world`, `options.sink(evidence)`, commands | holds; gains one emit consumer |
-| `src/host/driver.ts` (398-401) | an input made during a step queues in `inbox` | holds; makes delivery non-re-entrant |
-| `src/host/runtime.ts#Actor` (110-116) | `machine`, `send`, `getSnapshot`; no subscription | gains `onEmit`; local handles gain `setProps` |
-| `src/host/runtime.ts` sinks (246, 285-291) | a throwing sink is detached silently | holds for inspectors; **wrong for listeners** |
-| `src/host/runtime.ts#createActor` (517-533) | `{ input }`, name `~n`, `Input.Create` | gains `props` |
-| `src/core/world.ts#Mail` (432) | `Event`, `Firing`, `Context`, `Ending` | gains `Props` |
-| `src/core/world.ts#Incarnation` (205-220) | no props field | gains `props` (opaque) and `propsBaselines` |
-| `src/core/context.ts#react` (264), `#update` (345-377) | reactions, silent baselines, events to the mailbox front | holds; props copy the order, not the code |
-| `src/core/same.ts#sameValue` | structural equality, NaN equal to NaN | holds; the props equality |
-| `src/core/turn.ts` (432, 460, 481, 593), `schedules.ts` (87), `context.ts` (284) | each builds its own `{ memory, … }` literal | **changes**: one `readsOf` |
-| `fixtures/number-input/` (`Configure`, `settings`, `lastCommit`) | props mirrored into memory by an event | T78 replaces it |
-| `fixtures/command-palette/` (`Configure`) | shared, persisted actor | keeps `Configure` (decisions R12) |
+| File and symbol                                                                  | What it does today                                                            | Holds or changes                              |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
+| `src/core/serve.ts` `turn()`, accepted branch (340-362)                          | commit, `Turned`, lanes, schedules, `publish`, context wave, sends            | holds; gains the emit records after `publish` |
+| `src/core/incarnations.ts#publish` (64-70)                                       | the only `Act.Published`                                                      | holds; `Published` gains nothing              |
+| `src/core/evidence.ts` (157)                                                     | `Published { actor, state, memory }`; no payload-carrying output              | gains `Emitted`                               |
+| `src/core/tx.ts` (156, 502)                                                      | evidence is always collected, never elided                                    | holds; emits rest on it                       |
+| `src/host/driver.ts` (336-362)                                                   | per step: admit hook, `world = out.world`, `options.sink(evidence)`, commands | holds; gains one emit consumer                |
+| `src/host/driver.ts` (398-401)                                                   | an input made during a step queues in `inbox`                                 | holds; makes delivery non-re-entrant          |
+| `src/host/runtime.ts#Actor` (110-116)                                            | `machine`, `send`, `getSnapshot`; no subscription                             | gains `onEmit`; local handles gain `setProps` |
+| `src/host/runtime.ts` sinks (246, 285-291)                                       | a throwing sink is detached silently                                          | holds for inspectors; **wrong for listeners** |
+| `src/host/runtime.ts#createActor` (517-533)                                      | `{ input }`, name `~n`, `Input.Create`                                        | gains `props`                                 |
+| `src/core/world.ts#Mail` (432)                                                   | `Event`, `Firing`, `Context`, `Ending`                                        | gains `Props`                                 |
+| `src/core/world.ts#Incarnation` (205-220)                                        | no props field                                                                | gains `props` (opaque) and `propsBaselines`   |
+| `src/core/context.ts#react` (264), `#update` (345-377)                           | reactions, silent baselines, events to the mailbox front                      | holds; props copy the order, not the code     |
+| `src/core/same.ts#sameValue`                                                     | structural equality, NaN equal to NaN                                         | holds; the props equality                     |
+| `src/core/turn.ts` (432, 460, 481, 593), `schedules.ts` (87), `context.ts` (284) | each builds its own `{ memory, … }` literal                                   | **changes**: one `readsOf`                    |
+| `fixtures/number-input/` (`Configure`, `settings`, `lastCommit`)                 | props mirrored into memory by an event                                        | T78 replaces it                               |
+| `fixtures/command-palette/` (`Configure`)                                        | shared, persisted actor                                                       | keeps `Configure` (decisions R12)             |
 
 What is wrong or missing, in order of weight:
 
@@ -52,11 +56,11 @@ What is wrong or missing, in order of weight:
 
 ### 2.1 State this concept owns
 
-| State | Where | Values | Inputs that change it in one step |
-| --- | --- | --- | --- |
-| a local actor's props | core, `Incarnation.props` | a complete decoded record | `Create`; a served `Mail.Props` (table 3.4) |
-| an `onProps` reaction's baseline | core, `Incarnation.propsBaselines` | the last selection | `Create` (silent); a props turn (table 3.5) |
-| the listener set of one actor identity | host, `src/host/emits.ts` | ordered listeners, each `Listening` | `onEmit`; its unsubscribe; Runtime disposal (table 3.3) |
+| State                                  | Where                              | Values                              | Inputs that change it in one step                       |
+| -------------------------------------- | ---------------------------------- | ----------------------------------- | ------------------------------------------------------- |
+| a local actor's props                  | core, `Incarnation.props`          | a complete decoded record           | `Create`; a served `Mail.Props` (table 3.4)             |
+| an `onProps` reaction's baseline       | core, `Incarnation.propsBaselines` | the last selection                  | `Create` (silent); a props turn (table 3.5)             |
+| the listener set of one actor identity | host, `src/host/emits.ts`          | ordered listeners, each `Listening` | `onEmit`; its unsubscribe; Runtime disposal (table 3.3) |
 
 Not state (derived or never stored): an emit (a value of the accepted turn, then an evidence record, then nothing);
 whether an actor may take props (`Compiled.props` and how it was reached, table 3.6); a prop's default (the Schema's);
@@ -65,17 +69,17 @@ PD1 would delete the baseline row as well.
 
 ### 2.2 Seams
 
-| Neighbour | Crosses | Direction |
-| --- | --- | --- |
-| fragments (T109) | `Address`, `Part`; I add `actor` to their `Emitted { address, instance, name, payload }` | I read |
-| fragments (T109) | every `Scope` carries the root's props: `Scope.props` is `readsOf(incarnation).props` | I offer |
-| turn parts (new Task) | each accepted part returns `emits: ReadonlyArray<Emit>` in walk order; a refused part returns none | I read |
-| typed machine (T113) | `Parts<D>["Props"]`, `Parts<D>["Emits"]`; rows `props` and (types only) `emits` of `SnapshotFields` | I add |
-| saved records (T92) | nothing: `bodyOf` has no props, baseline or emit partition (I7) | none, by a type test |
-| schedules (T57) | a props turn is an occasion: `keys`, `paused`, `restartOn` are re-read after it (G1 widened) | I call |
-| React (T30) | `listen(actor, (emitted, turn) => void)` raw feed for `useOnEmit`'s per-render queue; `setProps` | I offer |
-| testing (T29) | `Story.machine` first slice, the `props(values)` step, the emits assertion | I build, T29 extends |
-| inspection, CLI | evidence and trace kind `emit`; `explain` and `graph` edges for emit parts and `onProps` | I record, they print |
+| Neighbour             | Crosses                                                                                             | Direction            |
+| --------------------- | --------------------------------------------------------------------------------------------------- | -------------------- |
+| fragments (T109)      | `Address`, `Part`; I add `actor` to their `Emitted { address, instance, name, payload }`            | I read               |
+| fragments (T109)      | every `Scope` carries the root's props: `Scope.props` is `readsOf(incarnation).props`               | I offer              |
+| turn parts (new Task) | each accepted part returns `emits: ReadonlyArray<Emit>` in walk order; a refused part returns none  | I read               |
+| typed machine (T113)  | `Parts<D>["Props"]`, `Parts<D>["Emits"]`; rows `props` and (types only) `emits` of `SnapshotFields` | I add                |
+| saved records (T92)   | nothing: `bodyOf` has no props, baseline or emit partition (I7)                                     | none, by a type test |
+| schedules (T57)       | a props turn is an occasion: `keys`, `paused`, `restartOn` are re-read after it (G1 widened)        | I call               |
+| React (T30)           | `listen(actor, (emitted, turn) => void)` raw feed for `useOnEmit`'s per-render queue; `setProps`    | I offer              |
+| testing (T29)         | `Story.machine` first slice, the `props(values)` step, the emits assertion                          | I build, T29 extends |
+| inspection, CLI       | evidence and trace kind `emit`; `explain` and `graph` edges for emit parts and `onProps`            | I record, they print |
 
 ## 3. The design
 
@@ -176,33 +180,33 @@ export const makeListeners: () => { add, remove, deliver(batch: ReadonlyArray<Ev
 
 ### 3.3 Table: one actor's listener set (owner `src/host/emits.ts`)
 
-| Input | While idle | While delivering a batch |
-| --- | --- | --- |
-| `onEmit(handlers)` | appended, `Listening` | appended; hears only emits of **later steps** |
-| unsubscribe | removed | removed; hears nothing more of this batch (checked before each call) |
-| unsubscribe twice | no change | no change |
-| an `Emitted` for this actor, handler declared | call it once per listener, in registration order | (the same) |
-| an `Emitted`, no handler for the name or no listener | dropped; the record stays in evidence | (the same) |
-| a handler throws (or a refused `send` throws inside it) | one `Reported` host report; the listener **stays**; the next listener runs | (the same) |
-| the actor is disposed or ends | the set stays (a handle follows the identity); no emits arrive | the batch finishes |
-| Runtime disposal | every set dropped | the batch stops with the driver (`driver.ts:281`) |
-| restore, reload, hydration, server render | no call: no `Emitted` exists for a turn that did not run | not reachable |
+| Input                                                   | While idle                                                                 | While delivering a batch                                             |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `onEmit(handlers)`                                      | appended, `Listening`                                                      | appended; hears only emits of **later steps**                        |
+| unsubscribe                                             | removed                                                                    | removed; hears nothing more of this batch (checked before each call) |
+| unsubscribe twice                                       | no change                                                                  | no change                                                            |
+| an `Emitted` for this actor, handler declared           | call it once per listener, in registration order                           | (the same)                                                           |
+| an `Emitted`, no handler for the name or no listener    | dropped; the record stays in evidence                                      | (the same)                                                           |
+| a handler throws (or a refused `send` throws inside it) | one `Reported` host report; the listener **stays**; the next listener runs | (the same)                                                           |
+| the actor is disposed or ends                           | the set stays (a handle follows the identity); no emits arrive             | the batch finishes                                                   |
+| Runtime disposal                                        | every set dropped                                                          | the batch stops with the driver (`driver.ts:281`)                    |
+| restore, reload, hydration, server render               | no call: no `Emitted` exists for a turn that did not run                   | not reachable                                                        |
 
 ### 3.4 Table: `Incarnation.props` (owner `src/core/props.ts`)
 
 `Props` is a branded record built only by `props.ts` (`propsAtCreate`, `propsAfter`); a spread or literal elsewhere
 is a type error, the guard spec-fragments 3.6 uses for `Instances`.
 
-| Input | Result | Evidence |
-| --- | --- | --- |
-| `Create` with `props` given | defaults overlaid with the decoded given fields | `Incarnated`, `Published` |
-| `Create` with none | every Schema default | (the same) |
-| `Mail.Props`, some field differs under `sameValue` | merged; then table 3.5; then schedules re-read; one publish | `PropsChanged`, `Published` |
-| `Mail.Props`, every field equal | nothing changes; no reaction, no publish | none |
-| `Mail.Props` for an ended or disposed actor | dropped by the life verdict, as an `Event` is | as a late send |
-| a patch that fails a prop's Schema | refused at `setProps` with `InvalidProps`; no mail, no turn | none |
-| any other mail (`Event`, `Firing`, `Ending`, `Context`) | never writes props | not applicable |
-| restore, hydration | not reachable: a local actor is never saved; a machine with props has no ref | not applicable |
+| Input                                                   | Result                                                                       | Evidence                    |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------- |
+| `Create` with `props` given                             | defaults overlaid with the decoded given fields                              | `Incarnated`, `Published`   |
+| `Create` with none                                      | every Schema default                                                         | (the same)                  |
+| `Mail.Props`, some field differs under `sameValue`      | merged; then table 3.5; then schedules re-read; one publish                  | `PropsChanged`, `Published` |
+| `Mail.Props`, every field equal                         | nothing changes; no reaction, no publish                                     | none                        |
+| `Mail.Props` for an ended or disposed actor             | dropped by the life verdict, as an `Event` is                                | as a late send              |
+| a patch that fails a prop's Schema                      | refused at `setProps` with `InvalidProps`; no mail, no turn                  | none                        |
+| any other mail (`Event`, `Firing`, `Ending`, `Context`) | never writes props                                                           | not applicable              |
+| restore, hydration                                      | not reachable: a local actor is never saved; a machine with props has no ref | not applicable              |
 
 The patch is decoded once in the host (`driver.send`'s place for events) and merged **when served**, not when
 queued, so two queued patches `{ min }` then `{ max }` both land and a send between them reads exactly the first.
@@ -214,13 +218,13 @@ future. `useActor` compares before it calls `setProps` (@plan.React.O2), so rend
 The Plan's shape is `{ select({ props, memory }), when?(now, before), event }` (@plan.Machines.O7). Rows run per
 reaction, in declaration order, only in a props turn and at `Create`.
 
-| Baseline | Selection now | `when` | Result |
-| --- | --- | --- | --- |
-| none (`Create`) | any | not called | baseline set from the **created** props, silent |
-| b | equal to b (`sameValue`) | not called | nothing |
-| b | differs | true or absent | baseline moves; the event is mapped and put at the **front** of the mailbox |
-| b | differs | false | baseline moves; no event |
-| b | `select`, `when` or the mapper throws | - | baseline kept; one issue (source `OnProps`); no event; the next props turn retries |
+| Baseline        | Selection now                         | `when`         | Result                                                                             |
+| --------------- | ------------------------------------- | -------------- | ---------------------------------------------------------------------------------- |
+| none (`Create`) | any                                   | not called     | baseline set from the **created** props, silent                                    |
+| b               | equal to b (`sameValue`)              | not called     | nothing                                                                            |
+| b               | differs                               | true or absent | baseline moves; the event is mapped and put at the **front** of the mailbox        |
+| b               | differs                               | false          | baseline moves; no event                                                           |
+| b               | `select`, `when` or the mapper throws | -              | baseline kept; one issue (source `OnProps`); no event; the next props turn retries |
 
 Reaction events go to the mailbox front (`tx.enqueueFirst`, as `context.ts:375` does), in declaration order, so no
 other mail of that actor is served between a props change and its repairs. A reaction event's handler is an ordinary
@@ -230,12 +234,12 @@ copied and one shared row test covers both.
 
 ### 3.6 Table: eligibility, who may take props
 
-| Machine declares props | Reached by | Result |
-| --- | --- | --- |
-| yes | `createActor`, `Story.machine` (and `useActor`, T30) | allowed; `setProps` on the handle |
-| yes | `actorRef(...)`, `ensureActor`, `useActorByRef`, a context provider, a `send` target | type error, and `InvalidConfiguration` (`PropsOnSharedActor`) at construction; `flow check` reports it |
-| no | any | allowed; `props` is `{}`; a local handle's `setProps({})` is silent |
-| a trait or subroutine | - | declares no props (decisions Q5c); its `Scope` reads the root's |
+| Machine declares props | Reached by                                                                           | Result                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| yes                    | `createActor`, `Story.machine` (and `useActor`, T30)                                 | allowed; `setProps` on the handle                                                                      |
+| yes                    | `actorRef(...)`, `ensureActor`, `useActorByRef`, a context provider, a `send` target | type error, and `InvalidConfiguration` (`PropsOnSharedActor`) at construction; `flow check` reports it |
+| no                     | any                                                                                  | allowed; `props` is `{}`; a local handle's `setProps({})` is silent                                    |
+| a trait or subroutine  | -                                                                                    | declares no props (decisions Q5c); its `Scope` reads the root's                                        |
 
 Construction also refuses: a prop with no Schema default (`PropWithoutDefault`, read from the Schema's structure as
 `TwoDefaults` is); a prop name colliding in the one namespace; an `emit` part naming an undeclared emit; an `emit`
@@ -264,34 +268,34 @@ the snapshot's `props`; the issue of a failing reaction, if the issues owner der
 
 ## 4. Requirements and Invariants
 
-| Id | Rule | Source | Fails on a wrong build when |
-| --- | --- | --- | --- |
-| R1 | any accepted transition may emit: send, firing, ending, `onContext` event, `onProps` event | Machines O2 | a firing's emit is missing |
-| R2 | entry, exit, a props turn, a context update and a refused turn never emit | Machines O2 | a denied `Press` records `Emitted` |
-| R3 | the emit mapper reads the event, the **before** memory, props and context | decisions Q3d, R3 | it reads the written memory |
-| R4 | a mapper defect or a payload its codec refuses refuses the turn before commit | decisions, Emits batch | memory commits and no emit follows |
-| R5 | `Emitted` follows its turn's `Published`, in written order, before the turn's sends | T77 approach | it precedes `Published` |
-| R6 | `onEmit` hears each emit once per listener, in order, with a snapshot at or after its turn; it is not a use | decisions Q3e, R6 | a handler reads the pre-turn snapshot |
-| R7 | nothing replays: a restore, reload or hydration records no `Emitted` and calls no handler | decisions Q3a | a reload re-focuses |
-| R8 | a fragment's emit carries its `Address`; its handler sits under the slot name and gets the copy's key | decisions Q3c; fragments R10 | a copy's emit has no key |
-| R9 | a copy that ends in the turn still emits | decisions, Emits batch | `Done` is lost when the copy is removed |
-| R10 | every prop has its Schema default before any use; `createActor` overlays what it is given | decisions R2 | the first snapshot lacks a prop |
-| R11 | a props update is its own turn in its FIFO place and changes only props | Machines O3, O7 | a later send reads earlier, or memory changes |
-| R12 | an equal patch is silent: no publish, no reaction, no evidence | decisions Q5d, R8 | NaN, or an equal list, publishes |
-| R13 | `onProps` follows table 3.5; its events precede all other mail | Machines O7 | a send reads shrunk props, unrepaired memory |
-| R14 | every reader of memory receives props of the same snapshot | decisions R3; T76 false pass | `paused` reads no props |
-| R15 | only local actors take props (table 3.6) | decisions R1, R9, R10 | a ref on a props machine is admitted |
-| R16 | a props turn re-reads `keys`, `paused` and `restartOn` | decisions G1, R3 | `disabled` does not pause a hold |
-| R17 | names: props, emits, memory, states, traits, operations share one namespace | Machines O1 | a prop named as a memory field compiles |
-| I1 | every `Emitted` has a `Turned` and a `Published` of the same actor before it in the same batch | 3.2 | an emit stands alone |
-| I2 | handler calls of one listener equal the `Emitted` records for its declared names since it was added, in order | 3.3 | one is skipped or doubled |
-| I3 | an emit of actor A never reaches a listener of B, including two copies of one machine | 3.3 | local `~1` hears `~2` |
-| I4 | a handler that throws detaches nothing and stops no other listener | 3.3; code `runtime.ts:285` | the second handler is not called |
-| I5 | `Incarnation.props` changes only in rows of table 3.4 | epic, one owner | an `Event` turn's output props differ |
-| I6 | `snapshot.props` holds every declared key, decoded, always | R10 | a key is `undefined` |
-| I7 | no record body, mail record or hydration payload has a props, baseline or emit field | decisions Q3a, Q5e | a type test on `bodyOf` finds one |
-| I8 | between a props change and its last reaction event, no other mail of the actor is served | 3.5 | a queued `Next` runs in between |
-| I9 | the baseline at `Create` is the selection over the created props, not the defaults | 3.5 | `count: 3` at creation fires `Shrunk` |
+| Id  | Rule                                                                                                          | Source                       | Fails on a wrong build when                   |
+| --- | ------------------------------------------------------------------------------------------------------------- | ---------------------------- | --------------------------------------------- |
+| R1  | any accepted transition may emit: send, firing, ending, `onContext` event, `onProps` event                    | Machines O2                  | a firing's emit is missing                    |
+| R2  | entry, exit, a props turn, a context update and a refused turn never emit                                     | Machines O2                  | a denied `Press` records `Emitted`            |
+| R3  | the emit mapper reads the event, the **before** memory, props and context                                     | decisions Q3d, R3            | it reads the written memory                   |
+| R4  | a mapper defect or a payload its codec refuses refuses the turn before commit                                 | decisions, Emits batch       | memory commits and no emit follows            |
+| R5  | `Emitted` follows its turn's `Published`, in written order, before the turn's sends                           | T77 approach                 | it precedes `Published`                       |
+| R6  | `onEmit` hears each emit once per listener, in order, with a snapshot at or after its turn; it is not a use   | decisions Q3e, R6            | a handler reads the pre-turn snapshot         |
+| R7  | nothing replays: a restore, reload or hydration records no `Emitted` and calls no handler                     | decisions Q3a                | a reload re-focuses                           |
+| R8  | a fragment's emit carries its `Address`; its handler sits under the slot name and gets the copy's key         | decisions Q3c; fragments R10 | a copy's emit has no key                      |
+| R9  | a copy that ends in the turn still emits                                                                      | decisions, Emits batch       | `Done` is lost when the copy is removed       |
+| R10 | every prop has its Schema default before any use; `createActor` overlays what it is given                     | decisions R2                 | the first snapshot lacks a prop               |
+| R11 | a props update is its own turn in its FIFO place and changes only props                                       | Machines O3, O7              | a later send reads earlier, or memory changes |
+| R12 | an equal patch is silent: no publish, no reaction, no evidence                                                | decisions Q5d, R8            | NaN, or an equal list, publishes              |
+| R13 | `onProps` follows table 3.5; its events precede all other mail                                                | Machines O7                  | a send reads shrunk props, unrepaired memory  |
+| R14 | every reader of memory receives props of the same snapshot                                                    | decisions R3; T76 false pass | `paused` reads no props                       |
+| R15 | only local actors take props (table 3.6)                                                                      | decisions R1, R9, R10        | a ref on a props machine is admitted          |
+| R16 | a props turn re-reads `keys`, `paused` and `restartOn`                                                        | decisions G1, R3             | `disabled` does not pause a hold              |
+| R17 | names: props, emits, memory, states, traits, operations share one namespace                                   | Machines O1                  | a prop named as a memory field compiles       |
+| I1  | every `Emitted` has a `Turned` and a `Published` of the same actor before it in the same batch                | 3.2                          | an emit stands alone                          |
+| I2  | handler calls of one listener equal the `Emitted` records for its declared names since it was added, in order | 3.3                          | one is skipped or doubled                     |
+| I3  | an emit of actor A never reaches a listener of B, including two copies of one machine                         | 3.3                          | local `~1` hears `~2`                         |
+| I4  | a handler that throws detaches nothing and stops no other listener                                            | 3.3; code `runtime.ts:285`   | the second handler is not called              |
+| I5  | `Incarnation.props` changes only in rows of table 3.4                                                         | epic, one owner              | an `Event` turn's output props differ         |
+| I6  | `snapshot.props` holds every declared key, decoded, always                                                    | R10                          | a key is `undefined`                          |
+| I7  | no record body, mail record or hydration payload has a props, baseline or emit field                          | decisions Q3a, Q5e           | a type test on `bodyOf` finds one             |
+| I8  | between a props change and its last reaction event, no other mail of the actor is served                      | 3.5                          | a queued `Next` runs in between               |
+| I9  | the baseline at `Create` is the selection over the created props, not the defaults                            | 3.5                          | `count: 3` at creation fires `Shrunk`         |
 
 Tables: 3.3 rows are R6, R7, I2 to I4 by input and phase; 3.4 rows are R10 to R12, R15 and I5 by input; 3.5 rows
 are R13 and I9 by baseline, selection and `when`; 3.6 rows are R15 and R17. Each row's test cites its rule.
@@ -357,14 +361,14 @@ Expected results come from the tables, never from running the code.
 
 Fixture leads from upstream (behaviour to port, re-read each cited test before use; section 9, sidecar 2):
 
-| Fixture | Actor | Props | Emits | Hard cases |
-| --- | --- | --- | --- | --- |
-| number input (T78) | local | `value`, `min`, `max`, `step`, `disabled`, `readOnly` | `Change` (intent), `Commit` | hold outruns the parent; `disabled` mid-hold; step from null with `min`; a typed commit is not deduped |
-| toaster (T72) | shared | none (`maxVisible` is context) | `Dismissed { id, reason }`, `Focus` | update after close never reopens; pause reasons clear separately; a promise toast dismissed while loading |
-| menu (T72) | local or shared | none needed | `Focus { target }`, `OpenChange { reason }` | refused `submenu-switch`; disabled trigger under a rest delay; pending action keeps it open |
-| combobox (T73) | local | `items`, `value`, `query`, `open`, `autoHighlight`, `maxSelected` | `Change`, `OpenChange`, `Highlight`, `LoadMore` | items arrive while open; the highlighted item is removed; `LoadMore` once per page |
-| tree (T73) | local | `items`, `expanded`, `activation` | `ExpandedChange`, `Focus { id }` | controlled `expanded`: focus only after the prop returns (an `onProps` event that emits); re-expand aborts a load |
-| token input (T73) | local | `value`, `readOnly`, `disabled` | `Change`, `Submit` | the parent replaces `value` while a token loads (a props patch against an ending, FIFO) |
+| Fixture            | Actor           | Props                                                             | Emits                                           | Hard cases                                                                                                        |
+| ------------------ | --------------- | ----------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| number input (T78) | local           | `value`, `min`, `max`, `step`, `disabled`, `readOnly`             | `Change` (intent), `Commit`                     | hold outruns the parent; `disabled` mid-hold; step from null with `min`; a typed commit is not deduped            |
+| toaster (T72)      | shared          | none (`maxVisible` is context)                                    | `Dismissed { id, reason }`, `Focus`             | update after close never reopens; pause reasons clear separately; a promise toast dismissed while loading         |
+| menu (T72)         | local or shared | none needed                                                       | `Focus { target }`, `OpenChange { reason }`     | refused `submenu-switch`; disabled trigger under a rest delay; pending action keeps it open                       |
+| combobox (T73)     | local           | `items`, `value`, `query`, `open`, `autoHighlight`, `maxSelected` | `Change`, `OpenChange`, `Highlight`, `LoadMore` | items arrive while open; the highlighted item is removed; `LoadMore` once per page                                |
+| tree (T73)         | local           | `items`, `expanded`, `activation`                                 | `ExpandedChange`, `Focus { id }`                | controlled `expanded`: focus only after the prop returns (an `onProps` event that emits); re-expand aborts a load |
+| token input (T73)  | local           | `value`, `readOnly`, `disabled`                                   | `Change`, `Submit`                              | the parent replaces `value` while a token loads (a props patch against an ending, FIFO)                           |
 
 ## 7. Handoff for the Opus leads
 

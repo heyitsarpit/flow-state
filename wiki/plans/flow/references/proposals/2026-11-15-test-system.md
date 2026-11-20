@@ -1,10 +1,11 @@
+---
+proposal test-system
+status partial user 2026-11-15 [@proposal.test-tooling-reuse]
+    proposed 2026-11-15
+---
 # One runtime, one way to run it: the test system after conformance (2026-11-15)
 
-**Status (2026-11-20):** acted on: decided: Stories, the CLI and inspection are Flow's own test harness (the user,
-2026-11-15). The text below is prior art.
-
-**Status: proposed.** Decided by the user on 2026-11-15: the conformance suite goes, and Stories, the CLI and
-inspection become the core's own test harness. Everything else here is proposed. This file changes no code,
+The conformance suite goes (the user, 2026-11-15). Everything else here is proposed. This file changes no code,
 plan, Spec, Task or the Epic. It superseded an earlier draft, `stories-as-harness-2026-11-15.md` (deleted; in
 git at `4f4ac9f5`): same direction, now with evidence, the other kinds of test, and a sequence. The work it
 describes is now Tasks T62 to T70 in `wiki/tasks/V3/P2.task`; where the two differ, the Tasks win.
@@ -17,6 +18,8 @@ describes is now Tasks T62 to T70 in `wiki/tasks/V3/P2.task`; where the two diff
   (read a run), and two CLI commands that print them. All three are product features the plans already promise.
 - **Nothing else:** no model, no second runtime, no gate file, no ledgers, no recorded outputs, no custom
   runner. Vitest runs everything.
+
+**Stories, the CLI and inspection are Flow's own test harness** [decided: user 2026-11-15].
 
 A spike proved the hard part: a Story drives the real Runtime over fakes on Effect's own `TestClock` and
 scheduler, with no host timer and identical evidence on a second run.
@@ -49,13 +52,13 @@ Four causes produced the 37 problems on the user's list (section 10 maps each on
 
 ### Five kinds of test
 
-| Kind | What it checks | Where | Needs |
-| --- | --- | --- | --- |
-| Story test | a decided outcome, by example | `tests/<area>/*.test.ts` | Story, Fake |
-| Run rule | a rule that must hold on every run | `tests/rules/*.ts` | a run to read |
-| Generated Story | sequences nobody wrote, under faults | `tests/generated/` | `propertyTest` |
-| Compile-time test | "the wrong thing is a type error" | `tests/types/*.ts` | `tsc`, already run |
-| Pure core test | the lane table and ledger, directly | `src/core/*.test.ts` | nothing; exists |
+| Kind              | What it checks                       | Where                    | Needs              |
+| ----------------- | ------------------------------------ | ------------------------ | ------------------ |
+| Story test        | a decided outcome, by example        | `tests/<area>/*.test.ts` | Story, Fake        |
+| Run rule          | a rule that must hold on every run   | `tests/rules/*.ts`       | a run to read      |
+| Generated Story   | sequences nobody wrote, under faults | `tests/generated/`       | `propertyTest`     |
+| Compile-time test | "the wrong thing is a type error"    | `tests/types/*.ts`       | `tsc`, already run |
+| Pure core test    | the lane table and ledger, directly  | `src/core/*.test.ts`     | nothing; exists    |
 
 Two more arrive with their features and need no tool: CLI output as text snapshots (`toMatchFileSnapshot`
 exists in the installed Vitest), and a small contract test that runs once against the fake store and once
@@ -123,16 +126,16 @@ The rehosted cases (`packages/flow-state-v3/tests/`, 81 cases, 0.7 s) were check
 Three Haiku agents classified all 211 Invariants by the cheapest check that fully covers each. I sampled the
 results and corrected one (WriteLanes I7 reads `retryCount` from the public row); treat the counts as a guide.
 
-| Cheapest check | Count |
-| --- | --- |
-| The feature is not built yet | 62 |
-| Holds by type or by a single constructor | 20 |
-| A rule over evidence | 34 |
-| A rule over public snapshots and rows | 10 |
-| A rule over what the fakes saw (requests, keys, written batches) | 38 |
-| Needs internal state no public read shows | 38 |
-| A compile-time or construction test | 4 |
-| Only an example can state it | 5 |
+| Cheapest check                                                   | Count |
+| ---------------------------------------------------------------- | ----- |
+| The feature is not built yet                                     | 62    |
+| Holds by type or by a single constructor                         | 20    |
+| A rule over evidence                                             | 34    |
+| A rule over public snapshots and rows                            | 10    |
+| A rule over what the fakes saw (requests, keys, written batches) | 38    |
+| Needs internal state no public read shows                        | 38    |
+| A compile-time or construction test                              | 4     |
+| Only an example can state it                                     | 5     |
 
 What this says:
 
@@ -402,19 +405,19 @@ reading the diff of fixtures, tests and core. A ruling is asked as two traces, n
 
 ## 10. How each old problem is addressed
 
-| Old problems (numbers from the user's list) | What removes them |
-| --- | --- |
-| 1 to 6: several runtimes, cost per core Task, a suite larger than its subject | no model, one runtime |
-| 7, 10, 14, 16, 20: the belief, thin scripts, lost coverage, the pairs gate | nothing generated is stored |
-| 8, 13, 29, 30: owed rows, eight owed lists, clashing rules, wrong owners | one inverted test per known bug |
-| 9, 15, 17: triage by line, what counts as caught, the mutant limit | planted faults by name, no score |
-| 11, 12: the baseline, held traces | no recorded outputs |
-| 18, 19, 23, 27: gate drift, scratch traps, slow gates, false greens | one command, about a second |
-| 21, 22: model gaps, code slips in the suite | gone with the model; lint covers `tests/` |
-| 24, 25, 31: stops for rulings, wrong assumptions, a wrong review note | rulings as traces; fewer records |
-| 26: private tooling rebuilt per builder | `flow story run`, `flow trace` |
-| 28, 32: stalls, the pending-test pattern | one builder; `it.fails` stated once |
-| 33 to 37: temporary records, lint gaps, shell writes, plants, stray files | lint and hook; faults in scratch only |
+| Old problems (numbers from the user's list)                                   | What removes them                         |
+| ----------------------------------------------------------------------------- | ----------------------------------------- |
+| 1 to 6: several runtimes, cost per core Task, a suite larger than its subject | no model, one runtime                     |
+| 7, 10, 14, 16, 20: the belief, thin scripts, lost coverage, the pairs gate    | nothing generated is stored               |
+| 8, 13, 29, 30: owed rows, eight owed lists, clashing rules, wrong owners      | one inverted test per known bug           |
+| 9, 15, 17: triage by line, what counts as caught, the mutant limit            | planted faults by name, no score          |
+| 11, 12: the baseline, held traces                                             | no recorded outputs                       |
+| 18, 19, 23, 27: gate drift, scratch traps, slow gates, false greens           | one command, about a second               |
+| 21, 22: model gaps, code slips in the suite                                   | gone with the model; lint covers `tests/` |
+| 24, 25, 31: stops for rulings, wrong assumptions, a wrong review note         | rulings as traces; fewer records          |
+| 26: private tooling rebuilt per builder                                       | `flow story run`, `flow trace`            |
+| 28, 32: stalls, the pending-test pattern                                      | one builder; `it.fails` stated once       |
+| 33 to 37: temporary records, lint gaps, shell writes, plants, stray files     | lint and hook; faults in scratch only     |
 
 ## 11. Records this would change (each needs the user's yes)
 
@@ -526,16 +529,16 @@ If the box is missed: stop, keep the bridge as the working tests, and report wha
 
 ### What each task buys
 
-| Asked for | Delivered by |
-| --- | --- |
-| One runtime | A3 |
-| A core change costs only itself | B2, C2: fixtures and Stories, no copy of the core |
-| Every rule has one home, found by its id | B5 rule names, Story test titles; a grep finds it |
-| Bugs find themselves, and shrink | B5 reload sweep, D2 |
-| Strength is shown, not assumed | A1, B7, C4: named faults and dead core, no score |
-| Fast feedback | one command; about a second today, re-measured at C4 |
-| Stories, replay, CLI and determinism keep working | B2, B3, D1 are those features |
-| The 37 problems | section 10 |
+| Asked for                                         | Delivered by                                         |
+| ------------------------------------------------- | ---------------------------------------------------- |
+| One runtime                                       | A3                                                   |
+| A core change costs only itself                   | B2, C2: fixtures and Stories, no copy of the core    |
+| Every rule has one home, found by its id          | B5 rule names, Story test titles; a grep finds it    |
+| Bugs find themselves, and shrink                  | B5 reload sweep, D2                                  |
+| Strength is shown, not assumed                    | A1, B7, C4: named faults and dead core, no score     |
+| Fast feedback                                     | one command; about a second today, re-measured at C4 |
+| Stories, replay, CLI and determinism keep working | B2, B3, D1 are those features                        |
+| The 37 problems                                   | section 10                                           |
 
 Targets to check at C4 and again after T18: no commit whose only job is making tests catch up with a core
 change; `src/testing` plus `src/inspect` smaller than `src/core`; the full check under three minutes; builders
@@ -545,16 +548,16 @@ asking for rulings only on open Spec questions.
 
 Known production bugs. The first five have a reproduction and become inverted tests.
 
-| Bug | Rule | Owner | Reproduction at the checkpoint |
-| --- | --- | --- | --- |
-| A delay past 2^31 - 1 ms is armed, not refused | Turn I14 | T17 | case `TURN-01/schedule-out-of-range` |
-| Disposal reports Done before its final write is answered | Actors I43 | T55 | `PAY-15/final-write-refused` |
-| A re-send's raised retry count is not captured before a reload | WriteLanes I7 | T19 | crash point `PAY-22@16` |
-| A flush holds only its own actor's record | WriteAhead I23 | T54 | `PART-transfers-varied-2001-shrunk` |
-| An adopted lane's later endings are routed against Actors R20 | Turn I2, I26 | T54 | `PART-cells-stress-3-shrunk` |
-| A commit queued behind a Held head is not ended at disposal | Actors I38 | T9 | two scripts, status unjudged |
-| Any write discharges every dirty end | Actors I37 | T19 | only under an edit |
-| A disposed actor's refused Unsent head never ends | WriteLanes I15 | none | none named |
+| Bug                                                            | Rule           | Owner | Reproduction at the checkpoint       |
+| -------------------------------------------------------------- | -------------- | ----- | ------------------------------------ |
+| A delay past 2^31 - 1 ms is armed, not refused                 | Turn I14       | T17   | case `TURN-01/schedule-out-of-range` |
+| Disposal reports Done before its final write is answered       | Actors I43     | T55   | `PAY-15/final-write-refused`         |
+| A re-send's raised retry count is not captured before a reload | WriteLanes I7  | T19   | crash point `PAY-22@16`              |
+| A flush holds only its own actor's record                      | WriteAhead I23 | T54   | `PART-transfers-varied-2001-shrunk`  |
+| An adopted lane's later endings are routed against Actors R20  | Turn I2, I26   | T54   | `PART-cells-stress-3-shrunk`         |
+| A commit queued behind a Held head is not ended at disposal    | Actors I38     | T9    | two scripts, status unjudged         |
+| Any write discharges every dirty end                           | Actors I37     | T19   | only under an edit                   |
+| A disposed actor's refused Unsent head never ends              | WriteLanes I15 | none  | none named                           |
 
 Behaviours no case exercises, from `conformance/core-mutants-triage.ts` at the checkpoint, by owner:
 

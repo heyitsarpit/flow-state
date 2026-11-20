@@ -1,3 +1,6 @@
+---
+convention where-a-value-lives
+---
 # Where a value lives
 
 **The rule:** every value has one home, chosen by who changes it and what it is for: input says which actor and
@@ -30,14 +33,14 @@ survive a reload belongs to a shared, persisted actor: a local actor's lanes nev
 
 Then check the memory field against six rules:
 
-| #   | If the value is…                                    | It belongs in                                         |
-| --- | --------------------------------------------------- | ----------------------------------------------------- |
-| R1  | determined by other fields                          | a helper or selector, never memory                    |
-| R2  | meaningful only in one state                        | a trait placed on that state, or the view             |
-| R3  | there only to tell the outside world                | an `emit` ([view commands](view-commands.md))         |
-| R4  | the parent's configuration                          | `props`                                               |
-| R5  | the status of a server-backed thing                 | its operation rows, `O.x.get(s, key)`                 |
-| R6  | a counter that only beats equality                  | a selection of the real content, or an emit           |
+| #   | If the value is…                     | It belongs in                               |
+| --- | ------------------------------------ | ------------------------------------------- |
+| R1  | determined by other fields           | a helper or selector, never memory          |
+| R2  | meaningful only in one state         | a trait placed on that state, or the view   |
+| R3  | there only to tell the outside world | an `emit` (@convention.view-commands)       |
+| R4  | the parent's configuration           | `props`                                     |
+| R5  | the status of a server-backed thing  | its operation rows, `O.x.get(s, key)`       |
+| R6  | a counter that only beats equality   | a selection of the real content, or an emit |
 
 ## Before and after
 
@@ -73,12 +76,12 @@ const stepper = useActor(StepperMachine, {
 // outside React: runtime.createActor(StepperMachine, { input, props }), then stepper.setProps({ max: 3 })
 ```
 
-| Value        | Read                  | Changed by        | Saved | Identity |
-| ------------ | --------------------- | ----------------- | ----- | -------- |
+| Value        | Read                  | Changed by         | Saved | Identity |
+| ------------ | --------------------- | ------------------ | ----- | -------- |
 | input field  | once, at creation     | the machine, after | yes   | yes      |
-| prop (local) | every render, live    | the parent only   | no    | no       |
-| memory       | every turn            | the machine       | yes   | no       |
-| context      | every provider change | another actor     | no    | no       |
+| prop (local) | every render, live    | the parent only    | no    | no       |
+| memory       | every turn            | the machine        | yes   | no       |
+| context      | every provider change | another actor      | no    | no       |
 
 ## Why
 
@@ -94,5 +97,5 @@ React's props and state split; XState v5's `input`, read once (`codebases/xstate
 ## Status
 
 Props, emits and `onProps` are accepted, not built
-([ui-primitives-decisions-2026-11-16.md](../plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md) Q3,
+(@proposal.ui-primitives-decisions Q3,
 Q5, W8).

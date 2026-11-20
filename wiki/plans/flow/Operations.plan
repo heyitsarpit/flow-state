@@ -106,7 +106,7 @@ outcomes
         failure: holds only the read's own error tags (exhaustive, or one event for an untagged error). A read's defect
         or interruption ends as Flow's own value, tagged by `_tag` (Defect, Interrupted), mapped under its own key with
         a required `otherwise` in a record (the key and value names are proposed in the Reads Spec's R9); a defect is
-        also an actor issue. Decision (the user, 2026-11-12): option B extends to reads.
+        also an actor issue. [decided: user 2026-11-12] option B extends to reads.
 
         A read whose mapper throws, or returns something with no shape, ends as that Defect, with the store's
         UserClosure issue. A mapping value may be Flow.ignore: no event and no handler; never on a stream key or a
@@ -160,8 +160,8 @@ outcomes
 
         An author's failure tag may spell any name, a Flow tag's included: an ending's origin is its key and type, never
         its name. Superseded, NothingToResend, InFlight and Released are evidence, never endings. Flow has no timeout
-        reason: a call's deadline is its commit's Effect (Effect.timeoutOrElse). Decision (the user, 2026-11-12): wide
-        consult W1, option B.
+        reason: a call's deadline is its commit's Effect (Effect.timeoutOrElse). [decided: user 2026-11-12] wide consult
+        W1, option B.
 
         Mapping. The operation maps each ending onto a declarer event (@plan.Machines.O1) under four keys: success:,
         failure: (an exhaustive record over the commit's own failure tags and nothing else, or one event for an untagged

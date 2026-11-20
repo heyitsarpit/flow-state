@@ -1,6 +1,11 @@
+---
+review performance-architecture
+status resolved 2026-11-20 [@task.V3.T85, @plan.Pending.D30, @task.V3.T9, @task.V3.T83, @task.V3.T90, @task.V3.T84]
+    open 2026-11-17
+---
 # Performance architecture audit (2026-11-17, proposed)
 
-**Status (2026-11-20):** acted on: its fixes were built in P3: records captured on issue (@task.V3.T85,
+Its fixes were built in P3: records captured on issue (@task.V3.T85,
 @plan.Pending.D30), compiled walkers (@task.V3.T9, D27), fast test commands and forked reload sweeps (@task.V3.T83,
 @task.V3.T90), no caps (@task.V3.T84). The text below is prior art.
 
@@ -25,14 +30,14 @@ Each has a compiled or structural fix, ranked below. Nothing here is applied; ev
 All runs used a `git archive` copy of HEAD a829ebe3 in a scratch directory, alone on the machine, on Node 24.21
 with `--cpu-prof`. "incl." means the time spent in a function and everything it calls; "self" excludes callees.
 
-| Run | Wall | Largest shares |
-| --- | --- | --- |
-| `transfers/long` x600 | 0.058 ms/turn | `project` 23 % incl., codec 16 % self, Effect ~20 % self |
-| `session/long` x300, 14 actors | 0.179 ms/turn | `project` 28 %, `actorKey` 13 % self, boot decode 7.6 % |
-| `reloads.test.ts` | 57 s | Story runs 64 %, run rules 18.6 %, `project` 15 %, boot 11 % |
-| palette stress (`-t palette`) | 82 s | `project` 76 %, codec 64 % self, Schema AST 19 % self |
-| package suite | 56 s wall | 337 s summed: reloads 55, three sweeps 110, four pair files 107, cli 32 |
-| pair reach, no properties | 6.5 s | transfers' 1,000 seeds; 8 seeds (114 ms) give the same cells |
+| Run                            | Wall          | Largest shares                                                          |
+| ------------------------------ | ------------- | ----------------------------------------------------------------------- |
+| `transfers/long` x600          | 0.058 ms/turn | `project` 23 % incl., codec 16 % self, Effect ~20 % self                |
+| `session/long` x300, 14 actors | 0.179 ms/turn | `project` 28 %, `actorKey` 13 % self, boot decode 7.6 %                 |
+| `reloads.test.ts`              | 57 s          | Story runs 64 %, run rules 18.6 %, `project` 15 %, boot 11 %            |
+| palette stress (`-t palette`)  | 82 s          | `project` 76 %, codec 64 % self, Schema AST 19 % self                   |
+| package suite                  | 56 s wall     | 337 s summed: reloads 55, three sweeps 110, four pair files 107, cli 32 |
+| pair reach, no properties      | 6.5 s         | transfers' 1,000 seeds; 8 seeds (114 ms) give the same cells            |
 
 `runTurn` itself is 2.3 % (transfers), 1.2 % (session) and 1.8 % (palette) incl. Other `session/long` shares:
 `withEntry` 5.7 % self, `graces` 6.3 %, `wave` 4.7 %. The palette stress run passes its 60 s limit; its
@@ -47,23 +52,23 @@ Across all 148 Stories that is Σ(S+1)·S = 856,668 steps.
 Costs are measured unless marked est. Effort is S (under a day), M (one to three days) or L. Home is where the
 work belongs; the evidence, design and risk of each finding follow the table.
 
-| # | Finding | Cost | Effort | Risk | Home |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Pair sweep drives all 1,000 seeds | 107 s suite file time | S | none | T83 |
-| 2 | Reload sweeps replay from boot per position | 165 s, 49 % of suite | M-L | medium | T83 |
-| 3 | Every step re-encodes touched records whole | 23-76 % of a run | M | medium | T9 + T84 |
-| 4 | Codec walks twice and sorts keys per object | 16-64 % self | M | low | T9 |
-| 5 | Generic depth walk and Schema encode first | 19 % + 3 % (palette) | M | low | T9 |
-| 6 | Whole-world scans keyed by built strings | 13 % `actorKey`; O(actors²) est. | M | medium | new Task |
-| 7 | Whole-map copies per change | 5.7 % self; O(n²) est. | M | medium | new Task, T84 |
-| 8 | Run rules re-judge every record at every cut | 18.6 % of reloads | S | low | T83 |
-| 9 | Restore re-encodes to prove canonical form | 5-7.6 % | M | low | T9 |
-| 10 | One Effect fiber per timer arm | est. 5-10 % | M | medium | new Task |
-| 11 | Each boot re-validates Compiled | ~2 % of reloads | S | none | new Task |
-| 12 | Context waves re-select every slot | 3-6 % | S | low | T9 + new Task |
-| 13 | Generator view eager per pull | est., quadratic | S | none | T83 |
-| 14 | Faults time is suite time under contention | over 5 min | S | low | T83 |
-| 15 | Turn-path re-derivations | under 1 % each | S | low | T9 |
+| #   | Finding                                      | Cost                             | Effort | Risk   | Home          |
+| --- | -------------------------------------------- | -------------------------------- | ------ | ------ | ------------- |
+| 1   | Pair sweep drives all 1,000 seeds            | 107 s suite file time            | S      | none   | T83           |
+| 2   | Reload sweeps replay from boot per position  | 165 s, 49 % of suite             | M-L    | medium | T83           |
+| 3   | Every step re-encodes touched records whole  | 23-76 % of a run                 | M      | medium | T9 + T84      |
+| 4   | Codec walks twice and sorts keys per object  | 16-64 % self                     | M      | low    | T9            |
+| 5   | Generic depth walk and Schema encode first   | 19 % + 3 % (palette)             | M      | low    | T9            |
+| 6   | Whole-world scans keyed by built strings     | 13 % `actorKey`; O(actors²) est. | M      | medium | new Task      |
+| 7   | Whole-map copies per change                  | 5.7 % self; O(n²) est.           | M      | medium | new Task, T84 |
+| 8   | Run rules re-judge every record at every cut | 18.6 % of reloads                | S      | low    | T83           |
+| 9   | Restore re-encodes to prove canonical form   | 5-7.6 %                          | M      | low    | T9            |
+| 10  | One Effect fiber per timer arm               | est. 5-10 %                      | M      | medium | new Task      |
+| 11  | Each boot re-validates Compiled              | ~2 % of reloads                  | S      | none   | new Task      |
+| 12  | Context waves re-select every slot           | 3-6 %                            | S      | low    | T9 + new Task |
+| 13  | Generator view eager per pull                | est., quadratic                  | S      | none   | T83           |
+| 14  | Faults time is suite time under contention   | over 5 min                       | S      | low    | T83           |
+| 15  | Turn-path re-derivations                     | under 1 % each                   | S      | low    | T9            |
 
 1. **Pair sweep.** Unsent, Resending and Cancelling are forbidden for every fixture, so the loop's
    `found.size < PHASES.length` never holds and all 1,000 seeds run. Evidence: `src/host/testing/sweep.ts#pairSweep`,

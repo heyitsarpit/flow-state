@@ -1,3 +1,6 @@
+---
+page T103-typed-stories
+---
 # Typed Story assertions: what an app author notices (T103, 2026-11-19)
 
 **Bottom line:** in Stories, what you read back is typed by your own definitions, so a misspelt field, state or event

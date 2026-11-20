@@ -11,7 +11,7 @@ edit, the user's yes); until then it lives here, linked from @phase.V3.P3. It ex
   across @spec.Actors, @spec.Codec, @spec.Compile, @spec.Diagnostics, @spec.Reads, @spec.Restore, @spec.Turn,
   @spec.WriteAhead and @spec.WriteLanes; the Plan outcomes those Tasks satisfy, as far as the routing file says
   (code:wiki/tasks/V3/P3-routing.md); `src/core/`, `src/host/` and the public entry points.
-- **Suite:** code:packages/flow-state-v3/tests (Story tests by Spec area and fixture app, run rules and sweeps in
+- **Suite:** `packages/flow-state-v3/tests` (Story tests by Spec area and fixture app, run rules and sweeps in
   `tests/rules/`, generated Stories and the pair sweep in `tests/generated/`, the surface test in `tests/surface/`,
   compile-time tests in `tests/types/`, CLI tests in `tests/cli/`) and the host and core tests beside the code in
   `src/`.

@@ -73,7 +73,7 @@ requirements
         must    The codes are the closed list of @plan.Diagnostics.O2; a code outside it is a 
                 defect in Flow. Names marked proposed there stay proposed until the user confirms 
                 them. The public union holds only the codes Flow produces; each other code joins
-                it with the feature that produces it. Decision (the user, 2026-11-17, Q19 A).
+                it with the feature that produces it. [decided: user 2026-11-17; Q19 A].
 
     R8  Complete causes survive cleanup
         source  @plan.Diagnostics.O3.
@@ -86,7 +86,7 @@ requirements
 
                 Flow reports every cleanup failure that reaches the effect it runs; inside the
                 app's own error handling, typed failures follow Effect's rules; cleanups that die
-                are always reported (@spec.Actors.R23). Decision (user, 2026-11-19): "Q11 A".
+                are always reported (@spec.Actors.R23). [decided: user 2026-11-19] "Q11 A".
 
                 Operation failure, defect, interruption and an unknown remote ending stay distinct.
                 Promise adapters and Effect's own AbortSignal keep the complete Cause until the host

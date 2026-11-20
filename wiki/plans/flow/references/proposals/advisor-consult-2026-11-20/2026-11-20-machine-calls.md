@@ -1,6 +1,11 @@
-# Calls made from a machine: timing, waits, reloads and input (proposed, 2026-11-20; revised after review)
+---
+proposal machine-calls
+status accepted user 2026-11-20 [@review.advisor-holes]
+    proposed 2026-11-20
+---
+# Calls made from a machine: timing, waits, reloads and input (2026-11-20; revised after review)
 
-**Status:** Questions: the user accepted every recommendation (2026-11-20); see advisor-holes-2026-11-20.md, 17 to 21.
+Every recommendation was accepted; see @review.advisor-holes, 17 to 21.
 
 **Bottom line (proposed):** Flow adds no timing or retry option. Time spent *inside one send* (a deadline, an
 immediate re-send of a failure that applied nothing) lives in the contract function's Effect; any wait the user
@@ -11,9 +16,9 @@ the function receives the decoded value: the same value live and after a reload.
 place to state a call's policy** (contract options, call-site overrides, a hidden Flow retry) and **a call input
 the function receives without it having passed the decode**.
 
-Answers question 5 of `advisor-questions-2026-11-20.md` (open items 4, 9, 10 and the lookup's input). Unblocks
-@task.V3.T21. The lane record's fields are defined once in `saved-records-2026-11-20.md`; the decode is the shared
-`decodeExit` of that file and `raw-throws-2026-11-20.md`; who holds a read is `fragment-lifetimes-2026-11-20.md`'s.
+Answers question 5 of @questions.advisor-questions (open items 4, 9, 10 and the lookup's input). Unblocks
+@task.V3.T21. The lane record's fields are defined once in @proposal.saved-records; the decode is the shared
+`decodeExit` of that file and @proposal.raw-throws; who holds a read is @proposal.fragment-lifetimes's.
 
 ## Where the data comes from
 
@@ -80,13 +85,13 @@ Today an admitted Attempt waits in InFlight for its turn's acknowledgement, reco
   like any other: its predictions stay shown and its lane's concurrency rule applies to later commits. Its exits
   are the ones @plan.Operations.O3 and O7 already give a head not yet invoked, by its history:
 
-  | Exit | Never sent (`retryCount` 0) | A re-send |
-  | --- | --- | --- |
-  | online | sent | sent |
-  | cancel | `NotSent { Cancelled }`, the next commit promoted | back to Held, released |
-  | a `latest` replacement | `Superseded`, evidence | does not arise (Held is not replaced) |
-  | disposal | nothing sent; stays in the record | the same |
-  | reload | `NotSent { Restored }` (changes @spec.Restore.R3) | `unknown { Restored }`, as today |
+  | Exit                   | Never sent (`retryCount` 0)                       | A re-send                             |
+  | ---------------------- | ------------------------------------------------- | ------------------------------------- |
+  | online                 | sent                                              | sent                                  |
+  | cancel                 | `NotSent { Cancelled }`, the next commit promoted | back to Held, released                |
+  | a `latest` replacement | `Superseded`, evidence                            | does not arise (Held is not replaced) |
+  | disposal               | nothing sent; stays in the record                 | the same                              |
+  | reload                 | `NotSent { Restored }` (changes @spec.Restore.R3) | `unknown { Restored }`, as today      |
 
   Reads stay ungated (they need an ending to render). `navigator.onLine === true` proves nothing, so
   classification is unchanged once sent.
@@ -140,12 +145,12 @@ equals its record's decode"; planted faults: skip the decode on lookup; pass the
 
 ## Fixtures
 
-| App, call | Timing today | Offline (2-B) | Reload (3-A) | Input (4) |
-| --- | --- | --- | --- | --- |
-| shop cart `addLine`, `setQuantity` | unknown on `NoResponse` | waits | queued edit → NotSent | decoded |
-| shop `pay`, `intentStatus` | 60 s; `Busy` → `WAITING` | pay waits; lookup fails | unknown, as today | lookup new |
-| transfers `transfer`, `balance` | 30 s; `retryable(times: 1)` | waits, not unknown | unsent → NotSent | lookup new |
-| sign-in `save`, `me` | `retryable(times: 3)` in machine | waits | as transfers | lookup new |
+| App, call                          | Timing today                     | Offline (2-B)           | Reload (3-A)          | Input (4)  |
+| ---------------------------------- | -------------------------------- | ----------------------- | --------------------- | ---------- |
+| shop cart `addLine`, `setQuantity` | unknown on `NoResponse`          | waits                   | queued edit → NotSent | decoded    |
+| shop `pay`, `intentStatus`         | 60 s; `Busy` → `WAITING`         | pay waits; lookup fails | unknown, as today     | lookup new |
+| transfers `transfer`, `balance`    | 30 s; `retryable(times: 1)`      | waits, not unknown      | unsent → NotSent      | lookup new |
+| sign-in `save`, `me`               | `retryable(times: 3)` in machine | waits                   | as transfers          | lookup new |
 
 No fixture needs a Flow timing option or a per-call override; every visible retry is already a machine state.
 
@@ -184,7 +189,7 @@ No fixture needs a Flow timing option or a per-call override; every visible retr
 
 ## Revision log
 
-Review = the Sonnet review; Hole and HQ = `advisor-holes-2026-11-20.md` §5 holes and questions. No sidecars were
+Review = the Sonnet review; Hole and HQ = @review.advisor-holes §5 holes and questions. No sidecars were
 started for the revision; items were checked against `record.ts`, `lanes.ts`, `contract.ts`, `host.ts` and
 @plan.Operations.O3 and O7.
 

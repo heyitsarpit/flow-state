@@ -1,3 +1,6 @@
+---
+convention view-commands
+---
 # View commands
 
 **The rule:** when the machine decides the view should do something once (focus, scroll, announce), declare it in
@@ -66,4 +69,4 @@ XState v5's `emit` and `actor.on` (`codebases/xstate/packages/core/src/createAct
 ## Status
 
 `emits`, `emit`, `useOnEmit` and `actor.onEmit` are accepted, not built
-([ui-primitives-decisions-2026-11-16.md](../plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md) Q3).
+(@proposal.ui-primitives-decisions Q3).

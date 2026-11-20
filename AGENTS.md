@@ -4,7 +4,9 @@
 - `wiki/plans/flow/` — current plans; `wiki/specs/core/` — the core's Specs (revisable guides). The old design
   (`machine-design.md`) was absorbed into them and deleted; history is at commit `20986677` (see
   `wiki/plans/flow/references/README.md`);
-  deferred and open items are in `references/proposals/` (revisit.md, open-items.md).
+  proposals, reviews and question lists are Markdown records in `references/proposals/`, named
+  `YYYY-MM-DD-<slug>.md` and linked as `@proposal.<name>`; deferred items with no home record are in its
+  `revisit.md`. `wk list defer` and `wk list question --open` find every deferral and open question.
 - `reference/` — historical. Read-only. Archived plans, tasks and Beads were deleted (commit `20986677` has them).
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
   Inside it: `src/core/` (pure), `src/host/` (Effect; `src/host/testing/` is the test tooling), `fixtures/` (machines
@@ -34,8 +36,9 @@ How to use it:
   least of all. What is true and correct is found by building: when the work shows a rule is wrong, unclear or
   missing, fix the record (decide, delete the losing text, log why) instead of bending the code to fit it.
   The user's own decisions still stand until the user changes them.
-- Write down what you decide as you go: a decision or result goes in a note or comment on its record
-  (`wk edit @id --now --text "comment=…"`), with why and how to reverse it.
+- Write down what you decide as you go: a decision goes in a note, a comment or beside the text it governs, as a
+  tag `[decided: agent <role> <date>]` with `Why:` and `Reverse:` (skill:policy-records#tags); a result goes in
+  a note or comment (`wk edit @id --now --text "comment=…"`).
 - Keep every note, comment, log and status entry short, with the bottom line first: the decision or result in
   the first sentence, then only what the reader can't find elsewhere, in the order goal, Why now, Read first,
   Risk, Approach. A note is 1 to 3 lines. Say each fact once and link to where it lives; no commit lists, gate
@@ -101,6 +104,8 @@ wk check             # see .agents/skills/wk/SKILL.md before editing Workflow re
 
 ## Working with Arpit
 
+Attended work follows skill:collaboration. The lines below add to it, override it, or repeat what matters most.
+
 ### Talking
 - Answer the question asked first. Don't act on it until I say go.
 - Be short. When I'm tired, give one example with comments on the lines I should look at.
@@ -126,12 +131,17 @@ wk check             # see .agents/skills/wk/SKILL.md before editing Workflow re
 - Design by convergence. Fixing findings one review at a time solves problems in increments and leaves case-by-case rules. So run the reviews first; once several rounds have surfaced the problems, gather every requirement and finding at once and redesign from scratch for one API that handles all of them, keeping the current draft as prior art. A holistic API is only possible after that iteration.
 
 ### Decisions and files
-- Ask me in numbered rounds: options, before/after, your recommendation. I reply with `Q1 A`. Write down only what I confirm.
+- Ask me in numbered rounds: options, before/after, your recommendation. I reply with `Q1 A`. Write down only what I
+  confirm, as a `[decided: user <date>]` tag.
 - Never present something as decided unless I accepted it. Mark everything else as proposed.
-- Before you edit, delete, or merge into a plan, list the change and wait for my yes.
-- Put new ideas in a new proposal file. Don't overwrite one. Superseded proposals stay as prior art.
-- Deferred items go in `revisit.md`.
+- Before you edit, delete, or merge into a plan, list the change and wait for my yes. This is stricter than
+  skill:collaboration's default (an accepted proposal covers the merges it names) and wins over it.
+- Put new ideas in a new proposal file in `references/proposals/`. Don't overwrite one. Superseded proposals stay as
+  prior art.
+- Defer an item where it arises, `[deferred: user <date>]` with `Reopen if:`; only items with no home record go in
+  `revisit.md`.
 - Commit only when I say. "Commit first" means commit before you change anything. Never push unless asked.
+  Messages are `<area>: <summary>` with a `Refs:` trailer naming the records the commit touches.
 - Run the linter and formatter when you're done changing code.
 
 ### Agents

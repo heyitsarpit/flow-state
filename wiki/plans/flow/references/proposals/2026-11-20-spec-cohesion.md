@@ -1,3 +1,7 @@
+---
+review spec-cohesion
+status open 2026-11-20
+---
 # Cohesion of the five concept designs (2026-11-20)
 
 **Bottom line:** the five designs (typed machine, fragments, saved records, reads and operations, data layer) and the
@@ -7,12 +11,12 @@ proposed resolutions are marked; the user's decisions are listed last.
 
 ## The documents
 
-- code:wiki/plans/flow/references/proposals/spec-typed-machine-2026-11-20.md (TM)
-- code:wiki/plans/flow/references/proposals/spec-fragments-2026-11-20.md (FR)
-- code:wiki/plans/flow/references/proposals/spec-saved-records-2026-11-20.md (SR)
-- code:wiki/plans/flow/references/proposals/spec-reads-operations-2026-11-20.md (RO)
-- code:wiki/plans/flow/references/proposals/spec-data-layer-2026-11-20.md (DL)
-- code:wiki/plans/flow/references/proposals/schedule-issues-2026-11-20.md (SI, adopted)
+- @proposal.spec-typed-machine (TM)
+- @proposal.spec-fragments (FR)
+- @proposal.spec-saved-records (SR)
+- @proposal.spec-reads-operations (RO)
+- @proposal.spec-data-layer (DL)
+- @proposal.schedule-issues (SI, adopted)
 
 ## Mismatches and proposed resolutions
 

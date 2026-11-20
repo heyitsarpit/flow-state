@@ -1,4 +1,8 @@
-# The turn's parts walk and the turn record (proposed, 2026-11-20)
+---
+proposal spec-turn-parts
+status proposed 2026-11-20
+---
+# The turn's parts walk and the turn record
 
 **Bottom line:** `runTurn` stays pure and returns one value, `Turn`: the parts the walk selected, in walk order, with
 everything each part decided. `serve.ts#turn` is the only code that applies a `Turn`, in one fixed order, and it
@@ -147,26 +151,26 @@ order, placed after the turn's `Published`. The Plan's sentence holds; only the 
 **Owner of the pure rows: `walk` in `src/core/parts.ts`, called by `runTurn`. Owner of the applied rows:
 `serve.ts#turn`.** Nothing else runs any row. Rows 8 to 16 are today's code order, unchanged.
 
-| # | Occasion | Memory read | Owner |
-| --- | --- | --- | --- |
-| 0 | Admit: pending reset first; an ending is heard | pre-turn | `serve`, the ledger |
-| 1 | Select the source | before | `runTurn` |
-| 2 | The source's patch | before | `walk` |
-| 3 | `resetOn` | before-walk | fragments, through `walk` |
-| 4 | Walk the parts depth first | before | `walk` |
-| 5 | Final `.each` lists; `whenAbandoned` parts appended | the walk's facts | `settle`, through `walk` |
-| 6 | Validate; build the after memory | the walk | `walk` |
-| 7 | Resolve actions, sends, armings, disarms | after | `walk` |
-| | **`runTurn` returns here** | | |
-| 8 | Loop guard | none | `serve` |
-| 9 | Commit the incarnation; clear the source's issue | the `Turn` | `serve` |
-| 10 | Members in walk order; `Turned`; flush lanes | the `Turn` | `serve`, the lanes owner |
-| 11 | Schedules, once | after, lanes with members | `schedules.turned` |
-| 12 | Re-check resets and lists; publish once | after | `serve` |
-| 13 | Context wave | the publication | `incarnations.context` |
-| 14 | Sends delivered in walk order | the `Turn` | `serve` |
-| 15 | Step ends; emit listeners and the judge run | `turnsOf(batch)` | the host |
-| 16 | Commands: releases, then starts | commands | the driver |
+| #   | Occasion                                            | Memory read               | Owner                     |
+| --- | --------------------------------------------------- | ------------------------- | ------------------------- |
+| 0   | Admit: pending reset first; an ending is heard      | pre-turn                  | `serve`, the ledger       |
+| 1   | Select the source                                   | before                    | `runTurn`                 |
+| 2   | The source's patch                                  | before                    | `walk`                    |
+| 3   | `resetOn`                                           | before-walk               | fragments, through `walk` |
+| 4   | Walk the parts depth first                          | before                    | `walk`                    |
+| 5   | Final `.each` lists; `whenAbandoned` parts appended | the walk's facts          | `settle`, through `walk`  |
+| 6   | Validate; build the after memory                    | the walk                  | `walk`                    |
+| 7   | Resolve actions, sends, armings, disarms            | after                     | `walk`                    |
+|     | **`runTurn` returns here**                          |                           |                           |
+| 8   | Loop guard                                          | none                      | `serve`                   |
+| 9   | Commit the incarnation; clear the source's issue    | the `Turn`                | `serve`                   |
+| 10  | Members in walk order; `Turned`; flush lanes        | the `Turn`                | `serve`, the lanes owner  |
+| 11  | Schedules, once                                     | after, lanes with members | `schedules.turned`        |
+| 12  | Re-check resets and lists; publish once             | after                     | `serve`                   |
+| 13  | Context wave                                        | the publication           | `incarnations.context`    |
+| 14  | Sends delivered in walk order                       | the `Turn`                | `serve`                   |
+| 15  | Step ends; emit listeners and the judge run         | `turnsOf(batch)`          | the host                  |
+| 16  | Commands: releases, then starts                     | commands                  | the driver                |
 
 Row notes:
 
@@ -202,17 +206,17 @@ Three rules follow from the table and each is a test (section 6):
 **Owner: `walk`.** It keeps one accumulator; these are its only writers. Every row starts from `Walking` except the
 last; "refused" means `Refused(InvalidTurn, slot)` unless a code is given.
 
-| Row | A part arrives that | Next |
-| --- | --- | --- |
-| W1 | has no target | `Walking` |
-| W2 | has a target, and no changer is set | `Walking`, changer set |
-| W3 | has a target, and a changer is set | refused: one state changer |
-| W4 | writes a key its scope already wrote | refused: disjoint memory keys |
-| W5 | has the `(address, alternative, cause.from)` of an earlier part | refused: a walk must end |
-| W6 | has a guard, mapper or patch that throws | `Refused(GuardDefect or Defect, slot)` |
-| W7 | is a raise whose child has no handler or only declines | refused (Plan O3) |
-| W8 | is a raise into `.each` whose copy has no handler or declines | `Walking`, copy skipped |
-| W9 | anything, once `Refused` | `Refused`, unchanged: the first refusal stands |
+| Row | A part arrives that                                             | Next                                           |
+| --- | --------------------------------------------------------------- | ---------------------------------------------- |
+| W1  | has no target                                                   | `Walking`                                      |
+| W2  | has a target, and no changer is set                             | `Walking`, changer set                         |
+| W3  | has a target, and a changer is set                              | refused: one state changer                     |
+| W4  | writes a key its scope already wrote                            | refused: disjoint memory keys                  |
+| W5  | has the `(address, alternative, cause.from)` of an earlier part | refused: a walk must end                       |
+| W6  | has a guard, mapper or patch that throws                        | `Refused(GuardDefect or Defect, slot)`         |
+| W7  | is a raise whose child has no handler or only declines          | refused (Plan O3)                              |
+| W8  | is a raise into `.each` whose copy has no handler or declines   | `Walking`, copy skipped                        |
+| W9  | anything, once `Refused`                                        | `Refused`, unchanged: the first refusal stands |
 
 An `Address` names one instance, the copy's key included (`[uploads, r1]`), never the slot alone. The cycle row is
 the walk's bound. It has a real reason (a raise that reaches itself through a notify would never end) and it never
@@ -251,13 +255,13 @@ const cancel: Alternative = {
 With copies `[r2, r1]`, and the host filling `onGone` with a handler that starts a `Lookup` (a filling that patched
 one host field would be refused on its second run: disjoint keys), the `Turn` is:
 
-| `parts[i]` | `part.at` | `address` | `cause` | emits | actions |
-| --- | --- | --- | --- | --- | --- |
-| 0 | `root:CancelAll:0` | `[]` | `Source` | `cancelling` | none |
-| 1 | `upload:Cancel:0` | `[uploads, r2]` | `Raise { from: 0 }` | none | none |
-| 2 | `root:onGone` | `[]` | `Exit { from: 1 }` | none | `Lookup` |
-| 3 | `upload:Cancel:0` | `[uploads, r1]` | `Raise { from: 0 }` | none | none |
-| 4 | `root:onGone` | `[]` | `Exit { from: 3 }` | none | `Lookup` |
+| `parts[i]` | `part.at`          | `address`       | `cause`             | emits        | actions  |
+| ---------- | ------------------ | --------------- | ------------------- | ------------ | -------- |
+| 0          | `root:CancelAll:0` | `[]`            | `Source`            | `cancelling` | none     |
+| 1          | `upload:Cancel:0`  | `[uploads, r2]` | `Raise { from: 0 }` | none         | none     |
+| 2          | `root:onGone`      | `[]`            | `Exit { from: 1 }`  | none         | `Lookup` |
+| 3          | `upload:Cancel:0`  | `[uploads, r1]` | `Raise { from: 0 }` | none         | none     |
+| 4          | `root:onGone`      | `[]`            | `Exit { from: 3 }`  | none         | `Lookup` |
 
 Parts 2 and 4 are the same alternative at the same address and differ only in `cause.from`, which is why the cycle
 row's identity includes it. This example is that row's test.

@@ -1,3 +1,6 @@
+---
+page T17-machine-structure
+---
 # Machine structure: what an app author notices (T17, 2026-11-16)
 
 **Bottom line:** states can nest, with history; memory gains input, computed and private fields; and a bad

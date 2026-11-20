@@ -1,4 +1,8 @@
-# Schedule issues: stop storing them (proposed, 2026-11-20)
+---
+proposal schedule-issues
+status proposed 2026-11-20
+---
+# Schedule issues: stop storing them
 
 **Verdict: redesign of one seam, not of schedules.** A schedule issue stops being a stored thing. Each timer keeps
 the last outcome of each of its own checks, and the issues are read from the timers. `decide`, the occasions, the
@@ -100,16 +104,16 @@ decide(schedule, before: Scheduled, occasion, reads, now)
 
 Each field changes only when its own check runs, or its timer goes:
 
-| Field | Written by | Goes to |
-| --- | --- | --- |
-| `keys` | every occasion's `keys` read | none on a clean read; the failure on a throw (timers kept) |
-| `selection` | `restartOn`, when the occasion runs it | `Read`, or `Failed` keeping the last baseline |
-| `reasons` | every occasion, every timer, armed or idle | `Read`, or `Failed` keeping the last reasons (R19) |
-| `arming` | a start (entry, `armOn`, new key, restart) | `Armed`, or `Refused` when its delay fails after commit |
-| `arming` | `disarmOn`; a firing's last step | `Idle` |
-| `firing` | a firing of this timer | its failure; none when the firing commits clean |
-| `firing` | a start that arms | none (today's rule: the next clean arming clears a step past the limit) |
-| whole timer | exit, its key leaving, its schedule dropped | removed, with everything it held |
+| Field       | Written by                                  | Goes to                                                                 |
+| ----------- | ------------------------------------------- | ----------------------------------------------------------------------- |
+| `keys`      | every occasion's `keys` read                | none on a clean read; the failure on a throw (timers kept)              |
+| `selection` | `restartOn`, when the occasion runs it      | `Read`, or `Failed` keeping the last baseline                           |
+| `reasons`   | every occasion, every timer, armed or idle  | `Read`, or `Failed` keeping the last reasons (R19)                      |
+| `arming`    | a start (entry, `armOn`, new key, restart)  | `Armed`, or `Refused` when its delay fails after commit                 |
+| `arming`    | `disarmOn`; a firing's last step            | `Idle`                                                                  |
+| `firing`    | a firing of this timer                      | its failure; none when the firing commits clean                         |
+| `firing`    | a start that arms                           | none (today's rule: the next clean arming clears a step past the limit) |
+| whole timer | exit, its key leaving, its schedule dropped | removed, with everything it held                                        |
 
 Nothing else writes a field. In particular a pause reason cannot touch `arming`, and one key cannot touch another:
 they are different fields of different records.
@@ -165,16 +169,16 @@ one-occasion mistake, which the existing table is built to catch.
 
 Restore decodes the saved timers against the current definition, then runs the same `decide`:
 
-| Edit | After restore |
-| --- | --- |
-| schedule removed or renamed | its timers are dropped (today's rule); their issues go with them |
-| schedule added | starts if its state's entry arms it (today's rule) |
-| keying changed, or key no longer encodes | timer dropped (today's rule, `schedule-restore.ts` `trackedOf`) |
-| key no longer listed by `keys` | timer removed by the keys read |
-| reason removed or renamed | saved `pausedBy` cut to declared names, then read fresh; `timed` resumes a free hold |
-| every reason removed (B1) | reasons read `[]`; `timed` resumes from `left` |
-| reason added | read fresh; holds silently if true |
-| saved `refused: true` | the start is tried again, silently: `Armed` from step one, or `Refused` again |
+| Edit                                     | After restore                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| schedule removed or renamed              | its timers are dropped (today's rule); their issues go with them                     |
+| schedule added                           | starts if its state's entry arms it (today's rule)                                   |
+| keying changed, or key no longer encodes | timer dropped (today's rule, `schedule-restore.ts` `trackedOf`)                      |
+| key no longer listed by `keys`           | timer removed by the keys read                                                       |
+| reason removed or renamed                | saved `pausedBy` cut to declared names, then read fresh; `timed` resumes a free hold |
+| every reason removed (B1)                | reasons read `[]`; `timed` resumes from `left`                                       |
+| reason added                             | read fresh; holds silently if true                                                   |
+| saved `refused: true`                    | the start is tried again, silently: `Armed` from step one, or `Refused` again        |
 
 The last row is why only a marker is saved, not the failure: a refused start is owed work, so restore redoes it
 and the failure is re-read from the current build. A firing's failure is a report of a past event and is not
@@ -340,21 +344,21 @@ open and closes through it: B1 and B2 land as the new Task's first red checks.
 
 Five Haiku sidecars, effort high, read-only. Each finding was checked against the code or record before use.
 
-| Sidecar | Finding | Result | Why |
-| --- | --- | --- | --- |
-| Review catalogue | all past misses, by review, with sequences | accepted | matches the T57 record lines I read |
-| Review catalogue | the user's Q1 options are in no record | accepted | only review 4's Trace B states it |
-| Spec rules | R25, R14, R19, I38 text; B1 and B2 undecided by the Specs | accepted | re-read `Turn.spec:265-273` |
-| Spec rules | WriteAhead R4: the record holds issues | accepted, a contradiction | the code saves none; see P2 |
-| Spec rules | "a clean pause read could re-arm" (reading C) | rejected | adds a retry I38 forbids |
-| Writers map | one `decide` call; undeclared schedules keep issues | accepted | read `schedules.ts:265-354` |
-| Writers map | B1: `heldOrResumed` only reachable inside the gate | accepted | `schedule-decision.ts:383-410` |
-| Writers map | lint guard blind spots (destructuring, exempt files) | accepted | basis for the type guard |
-| Adversary | over-limit firing with exit or disarm leaves no issue | changed | a consequence of P1, stated there |
-| Adversary | refused send with the key leaving loses the issue | changed | same, P1 |
-| Adversary | keyed-to-unkeyed edit keeps the first key's timer | rejected | `trackedOf` drops such a timer |
-| Adversary | a `Refused` timer never re-arms after a build fixes its delay | accepted | became P2's retry at restore |
-| Adversary | the firing's failure must come first in check order | accepted | order in `scheduleIssues` |
-| Siblings | Operation source keyed by name, cleared by any ending | accepted as a lead | sequence not run |
-| Siblings | Creation issues never cleared | accepted as a lead | read `incarnations.ts:181-187` |
-| Siblings | Event issue outlives its state | changed to a note | by design: cleared by that tag's next accepted turn |
+| Sidecar          | Finding                                                       | Result                    | Why                                                 |
+| ---------------- | ------------------------------------------------------------- | ------------------------- | --------------------------------------------------- |
+| Review catalogue | all past misses, by review, with sequences                    | accepted                  | matches the T57 record lines I read                 |
+| Review catalogue | the user's Q1 options are in no record                        | accepted                  | only review 4's Trace B states it                   |
+| Spec rules       | R25, R14, R19, I38 text; B1 and B2 undecided by the Specs     | accepted                  | re-read `Turn.spec:265-273`                         |
+| Spec rules       | WriteAhead R4: the record holds issues                        | accepted, a contradiction | the code saves none; see P2                         |
+| Spec rules       | "a clean pause read could re-arm" (reading C)                 | rejected                  | adds a retry I38 forbids                            |
+| Writers map      | one `decide` call; undeclared schedules keep issues           | accepted                  | read `schedules.ts:265-354`                         |
+| Writers map      | B1: `heldOrResumed` only reachable inside the gate            | accepted                  | `schedule-decision.ts:383-410`                      |
+| Writers map      | lint guard blind spots (destructuring, exempt files)          | accepted                  | basis for the type guard                            |
+| Adversary        | over-limit firing with exit or disarm leaves no issue         | changed                   | a consequence of P1, stated there                   |
+| Adversary        | refused send with the key leaving loses the issue             | changed                   | same, P1                                            |
+| Adversary        | keyed-to-unkeyed edit keeps the first key's timer             | rejected                  | `trackedOf` drops such a timer                      |
+| Adversary        | a `Refused` timer never re-arms after a build fixes its delay | accepted                  | became P2's retry at restore                        |
+| Adversary        | the firing's failure must come first in check order           | accepted                  | order in `scheduleIssues`                           |
+| Siblings         | Operation source keyed by name, cleared by any ending         | accepted as a lead        | sequence not run                                    |
+| Siblings         | Creation issues never cleared                                 | accepted as a lead        | read `incarnations.ts:181-187`                      |
+| Siblings         | Event issue outlives its state                                | changed to a note         | by design: cleared by that tag's next accepted turn |

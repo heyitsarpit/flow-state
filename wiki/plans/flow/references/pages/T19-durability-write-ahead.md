@@ -1,3 +1,6 @@
+---
+page T19-durability-write-ahead
+---
 # Durability, write-ahead: what an app author notices (T19, 2026-11-16)
 
 **Bottom line:** nothing changes in app code. What Flow saves now matches what the app heard: a reload never hears
@@ -6,14 +9,14 @@ bench under 0.06 ms per turn.
 
 ## What you notice after a reload
 
-| Before | Now |
-| --- | --- |
-| A retry that was waiting to save and was refused woke the actor again after a reload | It shows on disk as not in flight; the reload leaves it alone |
-| The saved retry count missed the re-send about to go out | It counts that re-send |
-| A refused save waited for the next change | It goes again within 5 s |
-| A timer that fired into a state that ignores it came back after a reload | It is gone from the record |
-| A row still queued when a step hit its 10,000-turn drain cap could be heard twice after a reload | It is heard once |
-| `ready()` after `dispose()` during boot could reject `ServiceFailed` | It always rejects `RuntimeDisposed` |
+| Before                                                                                           | Now                                                           |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| A retry that was waiting to save and was refused woke the actor again after a reload             | It shows on disk as not in flight; the reload leaves it alone |
+| The saved retry count missed the re-send about to go out                                         | It counts that re-send                                        |
+| A refused save waited for the next change                                                        | It goes again within 5 s                                      |
+| A timer that fired into a state that ignores it came back after a reload                         | It is gone from the record                                    |
+| A row still queued when a step hit its 10,000-turn drain cap could be heard twice after a reload | It is heard once                                              |
+| `ready()` after `dispose()` during boot could reject `ServiceFailed`                             | It always rejects `RuntimeDisposed`                           |
 
 Saves are batched: changes made within 5 s are written together, and the disposal writes everything changed within
 its own 5 s bound.

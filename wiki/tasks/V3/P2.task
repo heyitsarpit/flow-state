@@ -7,18 +7,16 @@ description
 
     **Goal:** Flow's own tests run on Flow's own test tooling (Story, Fake, the runtime cut, the trace, the CLI); the
     hand cases are ported onto it and the bridge is deleted. Decided by the user on 2026-11-15. The tools' API is
-    @plan.Testing as set out in code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md; the strategy
-    and evidence are in code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md, except the parts the reuse
-    proposal supersedes.
+    @plan.Testing as set out in @proposal.test-tooling-reuse; the strategy and evidence are in @proposal.test-system,
+    except the parts the reuse proposal supersedes.
 
     **Guides:** the reference apps' stories, tests and fakes show the intended shape; the Plan wins where they differ.
-    New fixtures come from code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md (shapes S01 to S29,
-    usual and stress) and the ui-sdk waves (@task.V3.T71, @task.V3.T72, @task.V3.T73); each feature Task builds the
-    shapes its feature unlocks (the user, 2026-11-16). Known stale there: `ensure` or `useActorByRef` with input,
-    `signal` in contexts, no `services:`, persistence `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({
-    times })` (later, @task.V3.T29), `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line
-    saying fixtures shadow setup services (they replace them). Link:
-    code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
+    New fixtures come from @proposal.fixture-catalogue (shapes S01 to S29, usual and stress) and the ui-sdk waves
+    (@task.V3.T71, @task.V3.T72, @task.V3.T73); each feature Task builds the shapes its feature unlocks (the user,
+    2026-11-16). Known stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`,
+    persistence `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29),
+    `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup
+    services (they replace them). Link: code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
     code:wiki/plans/flow/references/checkout/features/Pay/pay.test.ts,
     code:wiki/plans/flow/references/checkout/features/Cart/cart.story.ts,
     code:wiki/plans/flow/references/checkout/features/Refunds/refunds.story.ts,
@@ -232,8 +230,7 @@ tasks
             **Why now:** tooling, fixtures and tests are about to be written. With no rule, tests reach into `src/` and
             fixtures into tests, which is how the old suite grew a private path to the runtime.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 8 and decision
-            9), code:tools/lint-bomb/FLOW-STATE.md.
+            **Read first:** @proposal.test-system (section 8 and decision 9), code:tools/lint-bomb/FLOW-STATE.md.
 
             May change: `vite.config.ts`, `tools/flow-state-lint/`, `tools/lint-bomb/FLOW-STATE.md`, AGENTS.md's "Where
             things live". Evidence: this Task's comments.
@@ -265,13 +262,12 @@ tasks
             a run or stands in for a service. This is the first slice of @plan.Testing.O1 to @plan.Testing.O4;
             @task.V3.T29 keeps the rest.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md (the design to
-            build; sections 2, 4 and 5), @plan.Testing.O1 to @plan.Testing.O4, @spec.Restore.R3 (the Pay Story's
-            expected result), @spec.WriteLanes, code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime,
-            `src/host/testing.ts` and `src/host/testing/page.ts` (the seams the Story replaces; deleted by
-            @task.V3.T67). Guides: the reference stories, fakes and tests the P2 card lists. Prior art: commit
-            `14bc60d9`, this Task's first build in the array shape, whose run engine, cut and Pay reload path
-            carry over.
+            **Read first:** @proposal.test-tooling-reuse (the design to build; sections 2, 4 and 5), @plan.Testing.O1 to
+            @plan.Testing.O4, @spec.Restore.R3 (the Pay Story's expected result), @spec.WriteLanes,
+            code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime, `src/host/testing.ts` and
+            `src/host/testing/page.ts` (the seams the Story replaces; deleted by @task.V3.T67). Guides: the reference
+            stories, fakes and tests the P2 card lists. Prior art: commit `14bc60d9`, this Task's first build in the
+            array shape, whose run engine, cut and Pay reload path carry over.
 
             **Risk:** Pay's commit runs on a detached fiber, and what it does when its page is abandoned at a reload is
             unproven. The second risk is types: a fake must keep each service method's argument, success and failure
@@ -486,9 +482,9 @@ tasks
 
             **Read first:** @spec.WriteLanes.I3, @spec.WriteLanes.I6, @spec.WriteLanes.I15, @spec.WriteLanes.I16,
             @spec.Turn.I9, @spec.Turn.I14, @spec.Actors.I30: each rule checks the Spec's wording, exceptions included;
-            code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (sections 3.2, 3.3 and 6),
-            code:packages/flow-state-v3/tests/faults.ts, and `tests/bridge/checks/publication.ts` and
-            `tests/bridge/checks/disposal.ts` (deleted by @task.V3.T67) for older checks' logic.
+            @proposal.test-system (sections 3.2, 3.3 and 6), code:packages/flow-state-v3/tests/faults.ts, and
+            `tests/bridge/checks/publication.ts` and `tests/bridge/checks/disposal.ts` (deleted by @task.V3.T67) for
+            older checks' logic.
 
             May change: `tests/rules/`, `tests/faults.ts`, and the Story tests that call the helper. Evidence: this
             Task's comments.
@@ -636,9 +632,8 @@ tasks
             **Why now:** two test styles in one tree is how a private harness comes back. Core work (@task.V3.T54) waits
             on this.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md (section 5 and Appendix
-            A), the bridge's `tests/bridge/cases/write-lanes/payment-endings.test.ts` (deleted by this Task;
-            at `3e1fb97b`).
+            **Read first:** @proposal.test-system (section 5 and Appendix A), the bridge's
+            `tests/bridge/cases/write-lanes/payment-endings.test.ts` (deleted by this Task; at `3e1fb97b`).
 
             **Approach:** the pay, cells, sync and sign-in fixtures in the four-file shape first, each in its own folder
             (cells moves out of `fixtures/pay/`) and following the transfers fixture of @task.V3.T63 (`Fake.server` with
@@ -921,8 +916,7 @@ tasks
             through `properties`, never imported from `tests/`) and for @task.V3.T67 for the other fixtures it
             runs over.
 
-            **Read first:** @plan.Testing.O6, code:wiki/plans/flow/references/proposals/test-system-2026-11-15.md
-            (section 6).
+            **Read first:** @plan.Testing.O6, @proposal.test-system (section 6).
 
             May change: `src/host/testing/`, `tests/generated/`, `fixtures/` (step samples). Evidence: this
             Task's comments.
@@ -936,11 +930,10 @@ tasks
             - Nothing generated is stored, except each fixture's stress Story below, which is saved as ordinary
               fixture code.
             - It runs over every fixture in `tests/generated/`.
-            - Two profiles, from the usual and stress sections of
-              code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md: usual (realistic think times, a
-              healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and storage
-              write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, { profile:
-              "stress" })`.
+            - Two profiles, from the usual and stress sections of @proposal.fixture-catalogue: usual (realistic think
+              times, a healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and
+              storage write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, {
+              profile: "stress" })`.
             - A pair sweep: for each fixture, every reachable pair of a write's lifecycle phase and a fault (reload, a
               lost answer, a refused storage write, disposal, and the rest of the catalogue's grid) is driven once with
               the usual profile until a write reaches that phase, then given that fault, with the run rules applied;
@@ -958,13 +951,13 @@ tasks
             - R3 (acceptance 3; a constraint, not a check): nothing generated is written to a file; the stress Stories
               are pasted by hand as fixture code.
             - R4 (acceptance 4): a test lists `fixtures/` and fails on a fixture with no samples.
-            - R5 (acceptance 5; code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md lines
-              1064-1097): usual draws think times 80 ms to 20 s, server latency 50 to 800 ms log-uniform with a 2% tail
-              of 2 to 5 s, at most 5% domain failures, no fault, reload or disposal. Stress draws gaps of 0 to 20 ms,
-              bursts, and per request an answer of Ok 35, Fail 10, Lost 10, LostButLanded 10, FailButLanded 5, Never 5,
-              slow (1 to 90 s) 10, reordered 10, late 5; per write batch ack 75, refuse 15, hang 5, land unheard 5;
-              exactly one offline span of 5 to 120 s in which every answer is Lost or Never; per step reload 3%, Runtime
-              disposal 1%, actor disposal or forget 1%. Each mix is asserted over generated runs.
+            - R5 (acceptance 5; @proposal.fixture-catalogue lines 1064-1097): usual draws think times 80 ms to 20 s,
+              server latency 50 to 800 ms log-uniform with a 2% tail of 2 to 5 s, at most 5% domain failures, no fault,
+              reload or disposal. Stress draws gaps of 0 to 20 ms, bursts, and per request an answer of Ok 35, Fail 10,
+              Lost 10, LostButLanded 10, FailButLanded 5, Never 5, slow (1 to 90 s) 10, reordered 10, late 5; per write
+              batch ack 75, refuse 15, hang 5, land unheard 5; exactly one offline span of 5 to 120 s in which every
+              answer is Lost or Never; per step reload 3%, Runtime disposal 1%, actor disposal or forget 1%. Each mix is
+              asserted over generated runs.
             - R6 (acceptance 6): the pair sweep crosses 8 phases (Acknowledging, Unsent, Withdrawing, Recapturing,
               Resending, OnWire, Cancelling, Held) with 7 faults (reload, lost answer, storage refusal, actor disposal,
               forget, release, disposal bound): 56 cells per fixture. A cell is reached only when its fault fires while
@@ -1053,16 +1046,15 @@ tasks
             2026-11-16). These two run on production today, so they land before @task.V3.T70 and the generator runs
             over them.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-generality-2026-11-16.md (the
-            machines to build, sections on the command palette and number input),
-            code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md (behaviours and edge cases), the
-            upstream tests in `codebases/ui-sdk/packages/core/test/command.test.ts` (25) and `number-input.test.ts`
-            (12), at commit `98ba9fd`.
+            **Read first:** @proposal.ui-primitives-generality (the machines to build, sections on the command palette
+            and number input), @proposal.ui-primitives (behaviours and edge cases), the upstream tests in
+            `codebases/ui-sdk/packages/core/test/command.test.ts` (25) and `number-input.test.ts` (12), at
+            commit `98ba9fd`.
 
-            **Risk:** the idiom pass (code:wiki/plans/flow/references/proposals/ui-primitives-idiom-2026-11-16.md) found
-            the `Configure` props workaround leaky; the user reviews its proposals separately, so build with today's
-            features and note each wiring line it costs. ui-sdk is Apache-2.0: behaviour is ported, never code or test
-            text, and the package never names or reads `codebases/`.
+            **Risk:** the idiom pass (@proposal.ui-primitives-idiom) found the `Configure` props workaround leaky; the
+            user reviews its proposals separately, so build with today's features and note each wiring line it costs.
+            ui-sdk is Apache-2.0: behaviour is ported, never code or test text, and the package never names or
+            reads `codebases/`.
 
             **Approach:** one fixture folder each in the four-file shape, with a usual and a stress Story. Every
             upstream core test becomes a Story test asserting the same behaviour in our words, cited by our Spec or

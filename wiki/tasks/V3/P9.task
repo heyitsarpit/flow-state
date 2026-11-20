@@ -77,8 +77,7 @@ tasks
 
             **Why now:** the P9 exit needs every finding to have a disposition before the release.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/revisit.md,
-            code:wiki/plans/flow/references/proposals/open-items.md, code:wiki/tasks/V3/epic.task.
+            **Read first:** @revisit.revisit, @revisit.open-items, code:wiki/tasks/V3/epic.task.
 
             - **Evidence:** this Task's comments.
             - **False pass:** drops to finish → caught by the completion audit.
@@ -132,8 +131,7 @@ tasks
             to @task.V3.T100.
 
             **Read first:** @task.V3.T81 (its full approach and requirements 1 to 19, in its comments), @task.V3.T94
-            (its review of 2026-11-18 and the decisions in its comments),
-            code:wiki/conventions/boundaries.md, @spec.Diagnostics.
+            (its review of 2026-11-18 and the decisions in its comments), @convention.boundaries, @spec.Diagnostics.
 
             **Risk:** the known instances stay red as `it.fails` tests titled by Diagnostics R1; any later Task that
             adds a public function inherits the gap until this lands. Run convergence here (threshold already passed):

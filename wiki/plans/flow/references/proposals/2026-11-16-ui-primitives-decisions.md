@@ -1,29 +1,35 @@
+---
+proposal ui-primitives-decisions
+status merged 2026-11-16 [@plan.Machines, @plan.Runtime, @plan.React, @plan.Testing, @plan.Inspection, @spec.Turn, @spec.Actors, @spec.Compile, @spec.StaticCli, @spec.WriteAhead, @spec.Restore, @spec.Codec, @task.V3.T72, @task.V3.T76, @task.V3.T77, @task.V3.T78]
+    accepted user 2026-11-16
+    proposed 2026-11-16
+---
 # UI primitives: the user's decisions on the three passes (2026-11-16)
 
 **Bottom line:** this file records only what the user accepted from the three UI-primitives passes, one decision
-at a time, with the proposed wording each one gives a Plan. Nothing here is merged into a Plan or @plan.Pending yet.
+at a time, with the proposed wording each one gives a Plan. The decisions are merged into the Plans, Specs and Tasks named in the status line.
 The conventions accepted here are taught in [wiki/conventions](../../../../conventions/README.md)
-([conventions-2026-11-16.md](conventions-2026-11-16.md), accepted); each
+(@proposal.conventions, accepted); each
 section below names its page.
 
-**Read first:** `ui-primitives-2026-11-16.md` §6, `ui-primitives-generality-2026-11-16.md` §7,
-`ui-primitives-idiom-2026-11-16.md` §3.
+**Read first:** @proposal.ui-primitives §6, @proposal.ui-primitives-generality §7,
+@proposal.ui-primitives-idiom §3.
 
 Marks: `existing`, `NEW`, `user-defined`.
 
 ## 0. Status
 
-| Q   | Topic                                           | Source                          | Status         |
-| --- | ----------------------------------------------- | ------------------------------- | -------------- |
-| Q1  | `.each` fan-out                                 | generality 2                    | accepted, A    |
-| Q2  | per-key durations, `paused`, `armOn` tokens     | idiom 1, 2; first 2, 5          | accepted, A    |
-| Q3  | declared view events (`emits`)                  | idiom 3; first 3; generality 5  | accepted, A    |
-| Q4  | gesture state; send the result                  | idiom 4; first 4; generality 4  | accepted, A    |
-| Q5  | declared `props`                                | idiom 5; generality 7           | accepted, D    |
-| Q6  | services and commit-input ids stay conventions  | idiom 6                         | accepted, A    |
-| Q7  | cross-tab sync stays out of version 1           | generality 6                    | deferred       |
-| Q8  | reusable primitives: host-supplied operations   | first 6                         | convention     |
-| Q9  | build order and upstream tests                  | first 1, 7                      | in the Tasks   |
+| Q   | Topic                                          | Source                         | Status       |
+| --- | ---------------------------------------------- | ------------------------------ | ------------ |
+| Q1  | `.each` fan-out                                | generality 2                   | accepted, A  |
+| Q2  | per-key durations, `paused`, `armOn` tokens    | idiom 1, 2; first 2, 5         | accepted, A  |
+| Q3  | declared view events (`emits`)                 | idiom 3; first 3; generality 5 | accepted, A  |
+| Q4  | gesture state; send the result                 | idiom 4; first 4; generality 4 | accepted, A  |
+| Q5  | declared `props`                               | idiom 5; generality 7          | accepted, D  |
+| Q6  | services and commit-input ids stay conventions | idiom 6                        | accepted, A  |
+| Q7  | cross-tab sync stays out of version 1          | generality 6                   | deferred     |
+| Q8  | reusable primitives: host-supplied operations  | first 6                        | convention   |
+| Q9  | build order and upstream tests                 | first 1, 7                     | in the Tasks |
 
 ## 1. Q1 and Q2: schedules and `.each`
 
@@ -31,14 +37,14 @@ Marks: `existing`, `NEW`, `user-defined`.
 handlers, and `.each` fan-out was unspecified. Flow already owns deadlines across restore and hydration, so it
 should own the time left too. Read @plan.Machines.O5, @plan.Machines.O3 (lane-only changes), @task.V3.T57.
 
-- **Q1 A**, accepted by the user: clarify `.each` fan-out in @plan.Machines.O1 (-generality §7 decision 2).
-- **Q2 A**, accepted by the user: a `paused` selector, plus `key` passed to `schedule` (-idiom §3 decisions 1, 2).
-- **Q2a**, accepted by the user: `armOn` and `disarmOn` list event tokens and `Flow.entry` (§1.3.4).
-- **Q2b**, accepted by the user: `armOn: [Flow.entry]` may sit beside `restartOn`, so a timer can start on entry
+- **Q1 A** [decided: user 2026-11-16]: clarify `.each` fan-out in @plan.Machines.O1 (-generality §7 decision 2).
+- **Q2 A** [decided: user 2026-11-16]: a `paused` selector, plus `key` passed to `schedule` (-idiom §3 decisions 1, 2).
+- **Q2a** [decided: user 2026-11-16]: `armOn` and `disarmOn` list event tokens and `Flow.entry` (§1.3.4).
+- **Q2b** [decided: user 2026-11-16]: `armOn: [Flow.entry]` may sit beside `restartOn`, so a timer can start on entry
   and restart on change; today that pair is a construction error and `restartOn` alone is idle on entry.
-- **Q2c**, accepted by the user: a timer stores one fact, `dueAt` while running and `left` while paused (G9); no
+- **Q2c** [decided: user 2026-11-16]: a timer stores one fact, `dueAt` while running and `left` while paused (G9); no
   `pausedAt` stamp, which restore and hydration would have to adjust.
-- **Q2d**, accepted by the user: `paused` and `restartOn` stay two properties. `restartOn` starts over and drops the
+- **Q2d** [decided: user 2026-11-16]: `paused` and `restartOn` stay two properties. `restartOn` starts over and drops the
   time left; `paused` holds it. A merged `{ run, version }` selector was rejected as a hybrid.
 
 Q2 rejected B (`pauseOn`/`resumeOn` event lists) and C (both). Event lists cannot say "while a press is in flight"
@@ -127,9 +133,9 @@ caller sleeps (`codebases/effect-v4/packages/effect/src/Schedule.ts`, `toStep`, 
 no pause, and its gate (`Latch`) is boolean state, not events. Flow pauses its own timer: `left = dueAt - now` on
 pause, `dueAt = now + left` on resume, and the step state is kept.
 
-### 1.5 Open questions
+### 1.5 Open questions [decided: user 2026-11-16]
 
-None. Closed (the user, 2026-11-16):
+None open. Closed:
 
 - **Q1a A:** keys past `max` on `.each` are dropped with `listRepair` evidence, never refused; a fan-out raise
   reaches only live copies. The old design said so ("Repair, never refuse", machine-design.md at commit
@@ -150,7 +156,7 @@ None. Closed (the user, 2026-11-16):
 
 ## 2. Q3: declared view events (`emits`)
 
-Conventions: [view-commands](../../../../conventions/view-commands.md).
+Conventions: @convention.view-commands.
 
 **Why now:** a view reacts to state, but some commands depend on the cause or must repeat in the same state (focus
 return after Escape only, focus the first invalid field on every failed submit). Today they are stored as a request
@@ -169,7 +175,7 @@ useOnEmit(menu, { Focus: ({ target }) => refs[target].current?.focus() }) // NEW
 Note: `declaration(...)` in the idiom pass's S15 snippet is not Flow API; a trait takes a plain
 object (`references/dispatch-desk/features/Tickets/queue/row-flash.trait.ts`).
 
-### 2.1 Decisions (the user, 2026-11-16)
+### 2.1 Decisions [decided: user 2026-11-16]
 
 - **Q3 A:** add declared `emits`.
 - **Q3a A:** *(reworded in §9, R6)* in React an emit is delivered after the render that shows its turn's snapshot;
@@ -186,13 +192,13 @@ object (`references/dispatch-desk/features/Tickets/queue/row-flash.trait.ts`).
 
 None.
 
-## 3. Q4: short-lived interaction state
+## 3. Q4: short-lived interaction state [decided: user 2026-11-16]
 
-Conventions: [interaction-state](../../../../conventions/interaction-state.md).
+Conventions: @convention.interaction-state.
 
 **Why now:** the first pass kept a drag in the persisted tree (a reload restores half a move), the second sent a
 whole copied outline on drop (a lost update), and the menu clears hover and typeahead fields by hand in 9 places.
-No API change: a convention and fixture fixes. Accepted (the user, 2026-11-16).
+No API change: a convention and fixture fixes.
 
 - **Q4 A:** frame-rate data (pointer moves) stays in refs and is written to the DOM, never as events; gesture
   milestones with timing (long-press) go to a local actor, so the Runtime Clock and Stories control them; the
@@ -210,14 +216,14 @@ already gives fresh memory), coalesced events (frame-rate data stays out), a ges
 
 Open questions: none.
 
-## 4. Q5: declared `props`
+## 4. Q5: declared `props` [decided: user 2026-11-16]
 
-Conventions: [where-a-value-lives](../../../../conventions/where-a-value-lives.md),
-[controlled-values](../../../../conventions/controlled-values.md).
+Conventions: @convention.where-a-value-lives,
+@convention.controlled-values.
 
 **Why now:** configurable widgets mirror parent props into memory through a `Configure` event sent from an effect:
 the first frame shows defaults, a child's mount-time send overtakes it, two views overwrite each other silently, and
-the copies get persisted. Accepted (the user, 2026-11-16).
+the copies get persisted.
 
 Rule of thumb: a value whose change should give a new actor is input; one that keeps the same actor and changes how
 it behaves is a prop; one the machine changes is memory (possibly started from input); one from another actor is
@@ -254,14 +260,13 @@ useActor(StepperMachine, { input: { value: 1 }, props: { min: 1, max: stock, dis
 
 Open questions: none.
 
-## 5. Q6: app actions as services; what an ending knows
+## 5. Q6: app actions as services; what an ending knows [decided: user 2026-11-16]
 
-Conventions: [app-actions](../../../../conventions/app-actions.md),
-[what-an-ending-knows](../../../../conventions/what-an-ending-knows.md).
+Conventions: @convention.app-actions,
+@convention.what-an-ending-knows.
 
 **Why now:** reusable machines must run the app's own action, and an ending must know which call it belongs to.
-Checked against `packages/flow-state-v3/src/host/runtime.ts`, the fixtures and both reference apps. Accepted (the
-user, 2026-11-16).
+Checked against `packages/flow-state-v3/src/host/runtime.ts`, the fixtures and both reference apps.
 
 - **Q6a A:** app actions are Effect services in the one Runtime Layer (built: `runtime.ts:195-204`, `:274-292`;
   used by `references/checkout/app/setup.ts` and `references/dispatch-desk/app/setup.ts`). It replaced
@@ -284,11 +289,11 @@ Build gaps:
 
 Open questions: none.
 
-## 6. Q7: cross-tab sync (deferred)
+## 6. Q7: cross-tab sync (deferred) [decided: user 2026-11-16]
 
-Conventions: [cross-tab-bridge](../../../../conventions/cross-tab-bridge.md).
+Conventions: @convention.cross-tab-bridge.
 
-**Decision (the user, 2026-11-16):** cross-tab sync stays out of version 1 (@plan.FlowState.C2, @plan.Persistence.O7).
+Cross-tab sync stays out of version 1 (@plan.FlowState.C2, @plan.Persistence.O7).
 The recommendations below are recorded to revisit, not merged into the Plans; `revisit.md` holds the entry.
 
 - Uses: theme and preferences, sign-out across tabs, a cart badge, unread counts, feature flags. The dispatch desk
@@ -312,11 +317,11 @@ channel.onmessage = (e) => prefs.send(Prefs.E.Synced(decodeTheme(e.data))) // de
 - Rejected: a `storage` listener in the view (untyped, echoes); a `stream` contract for the channel (streams carry
   server-session semantics a `BroadcastChannel` lacks).
 
-## 7. Q8: reusable primitives (a convention for the docs)
+## 7. Q8: reusable primitives (a convention for the docs) [decided: user 2026-11-16]
 
-Conventions: [reusable-primitives](../../../../conventions/reusable-primitives.md).
+Conventions: @convention.reusable-primitives.
 
-**Decision (the user, 2026-11-16):** a convention for the examples and the docs' patterns guide, built on what Flow
+A convention for the examples and the docs' patterns guide, built on what Flow
 already has or has accepted; no Plan or code change and no Task. The first pass (decision 6) asked for operation
 ports; the factory below replaces them.
 
@@ -345,11 +350,11 @@ export const EditMenu = menu({ id: "App/EditMenu", act: editAct })
 - Unverified: a generic contract passing through `definition()` with exhaustive `failure:` typing. Check it when the
   example is written; a failure there is a type fix, not a feature.
 
-## 8. W8: where a stored value belongs (a convention for the docs)
+## 8. W8: where a stored value belongs (a convention for the docs) [decided: user 2026-11-16]
 
-Conventions: [where-a-value-lives](../../../../conventions/where-a-value-lives.md).
+Conventions: @convention.where-a-value-lives.
 
-**Decision (the user, 2026-11-16):** all accepted; a convention for the fixtures and the docs, no Plan change. The
+All accepted; a convention for the fixtures and the docs, no Plan change. The
 idiom pass's W8 fixes are symptoms of six rules:
 
 - **R1** a value other fields determine is derived by a helper or selector, never stored;
@@ -379,11 +384,10 @@ writes `hold: { direction, size }` once on `Press`; `startValue` moves into a tr
 once @task.V3.T17 lands. Toaster drops `remaining`, `countingSince` (Q2), `version`, `maxVisible` (context, §9 R1) and
 `focusRequest` (an emit); `paused: PauseReason[]` stays, a real fact.
 
-## 9. Review round: fixes before merging
+## 9. Review round: fixes before merging [decided: user 2026-11-16]
 
 **Why now:** an Opus review with four Haiku sidecars checked Q1, Q2, Q3 and Q5 against the Plans, Specs and v3 code;
-none needs a redesign, but none could merge as worded. Key citations were re-read before this round. All accepted
-(the user, 2026-11-16).
+none needs a redesign, but none could merge as worded. Key citations were re-read before this round. All accepted.
 
 - **R1 (Q5b):** props only on local actors in version 1: `useActor`, `createActor`, `Story.machine`.
   `useActorByRef` takes no props (a type error); a shared actor's outside configuration stays context or input, so
@@ -431,7 +435,7 @@ Companion edits, accepted as one batch:
 - **Build gap for @task.V3.T57:** `armOn` tokens are filtered out and read as `Flow.entry`
   (`src/compile-body.ts`, the `armOn` filter).
 
-### 9.1 Props: the settled model (the user, 2026-11-16)
+### 9.1 Props: the settled model [decided: user 2026-11-16]
 
 Props inject state that does not come from a machine: the owning component's values. Shared actors, reached by a ref
 (a singleton or one actor per identity), have no owner, so they take outside state through input (which actor),
@@ -450,7 +454,7 @@ context (another machine's state) or an event (app code that is not a machine), 
   writes memory is the right route. The docs show the split design instead: a local palette with props, and a
   persisted actor owning command runs. Settles the Task proposal's U1 and U2.
 
-### 9.2 `paused` names its reasons (the user, 2026-11-16)
+### 9.2 `paused` names its reasons [decided: user 2026-11-16]
 
 - **R13:** `paused` is a record of named reasons, each a function returning a boolean; any true pauses the timer.
   The snapshot shows `pausedBy`, every active reason in declaration order, beside `left`; reason names are a literal
@@ -467,7 +471,7 @@ paused: {
 // snapshot: { left: 2400, pausedBy: ["Hidden"] }
 ```
 
-### 9.3 Merge guide and Task proposal items (the user, 2026-11-16)
+### 9.3 Merge guide and Task proposal items [decided: user 2026-11-16]
 
 - **W1–W10:** the merge guide's picks (its §5), except W1: only `armOn: [Flow.entry]` may sit beside `restartOn`, as
   Q2b accepted. With R13, W2 becomes: `flow explain` lists each schedule's pause reasons by name.
@@ -477,7 +481,7 @@ paused: {
 - **F3:** the merge lands directly in the Plans and Specs, following the merge guide's batches; not through
   @plan.Pending. Another session does the merge, not this one (the user, 2026-11-16).
 
-### 9.4 Static analysis pass (the user, 2026-11-16)
+### 9.4 Static analysis pass [decided: user 2026-11-16]
 
 - **S1 rejected:** keyed schedules keep the `keys` closure with no declared key fields.
 - **S2–S8 accepted:** no user API; the CLI reads what is already accepted. S2: `explain`, `graph` and Story coverage

@@ -61,8 +61,8 @@ requirements
                 InFlight, Released and CancelMissed (proposed name) are evidence, never endings.
                 There is no timeout reason. An author's failure tag is the author's alone and may
                 spell any name, a Flow tag's included: the origin of an ending is its key and type,
-                never its name, and a saved row keeps that origin (`model`, Owed). Decision (user,
-                2026-11-12): "option B" (wide consult W1); ReservedReason is retired and the
+                never its name, and a saved row keeps that origin (`model`, Owed). [decided: user 2026-11-12] "option 
+                B" (wide consult W1); ReservedReason is retired and the
                 proposed unknown Abandoned is dropped. Why: the user's answer. Reverse: restore R3
                 from commit `9405af2f`.
 
@@ -82,7 +82,7 @@ requirements
                 a declined commit, which has none. An unmapped `notSent` is evidence (R10; whether it also leaves an 
                 issue is Q6) at run time; `check` reports it as an
                 error where it can occur (@spec.StaticCli.R10).
-                Decision (user, 2026-11-12): "option B" (wide consult W1). Why: the user's answer.
+                [decided: user 2026-11-12] "option B" (wide consult W1). Why: the user's answer.
                 Reverse: restore R4 from commit `9405af2f`.
 
                 A bare operation maps nothing: its endings are evidence. An unknown that is not
@@ -115,7 +115,7 @@ requirements
                 Attempt for the Attempt's whole life, across incarnations and restore, since
                 Attempt ids never repeat; a queued commit has no Attempt and so no handle. The row
                 view carries the head's handle (@spec.Reads.R14).
-                Decision (user, 2026-11-12): "Q1 B", an exact cancel target (R14).
+                [decided: user 2026-11-12] "Q1 B", an exact cancel target (R14).
 
                 Every send of that write carries the same id and input. The commit author puts id on
                 the wire where the API expects it; Flow sends nothing itself and derives no other
@@ -266,7 +266,7 @@ requirements
                 of a lane k names (a partial key included); otherwise the lane, its queue and every
                 ending stay as they are, nothing is promoted, and the cancel is recorded as evidence
                 CancelMissed (proposed name). So a handle from an Attempt that already ended, was
-                displaced, or is on another key's lane cancels nothing. Decision (user, 2026-11-12):
+                displaced, or is on another key's lane cancels nothing. [decided: user 2026-11-12]
                 "Q1 B", key cancel stays the default and an exact target is optional.
 
                 On the wire it interrupts the fiber, and the ending is whichever the fiber's Exit
@@ -275,7 +275,7 @@ requirements
                 promotes; the interruption gives unknown { Cancelled }, queued when the fiber exits and
                 retained (Held); an
                 unknown or defect the call itself gave is delivered as it is and holds the lane.
-                Decision (user, 2026-11-12): "Q2 B", a definite answer beats the cancel. The call's
+                [decided: user 2026-11-12] "Q2 B", a definite answer beats the cancel. The call's
                 own unknown or defect is the agent's reading of Q2 B, for the user's read
                 (spec-log.md, 2026-11-12 review fixes). Waiting to
                 be invoked: never sent, NotSent { Cancelled } and the next queued commit is

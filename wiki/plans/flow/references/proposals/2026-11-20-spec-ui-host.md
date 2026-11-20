@@ -1,4 +1,8 @@
-# UI and host: design and Spec (proposed, 2026-11-20)
+---
+proposal spec-ui-host
+status proposed 2026-11-20
+---
+# UI and host: design and Spec
 
 **Bottom line:** the host gets one new piece of state, the **Publication** (one immutable cut per drained slice, written
 only by the driver), and everything a UI reads derives from it: snapshots by a per-actor memo, `useView` through
@@ -11,20 +15,20 @@ Paths are under `packages/flow-state-v3/` unless they start with `wiki/` or `too
 
 ## 1. What exists
 
-| Area | Where | What holds | Wrong or missing |
-| --- | --- | --- | --- |
-| Handle | `src/host/runtime.ts` `Actor`, `handleOf` | follows identity; foreign handles refused | `getSnapshot` builds a new object per call |
-| Snapshot | `src/host/snapshot.ts` `snapshotIn`, `outside` | one function for live, record, quarantined, ended | never cached; no `props` row |
-| Step loop | `src/host/driver.ts` `drainInbox` | sole writer of `world`; evidence to `sink` per step | no subscribe, no notify, no version |
-| Uses, grace | `src/core/incarnations.ts`, `Input.Ensure{use}`, `Input.Release` | uses are a multiset per actor; `freeGrace` 100 ms | reachable only through `testing.attach` |
-| Ready | `runtime.ts` `ready`, core `life` | one bootstrap; store read before any actor | an ensure before ready is rejected; no boot queue |
-| Store port | `src/host/store.ts` `Store`, `StoreScope` | atomic batches; `storeContract`; reviewed (T58) | keep as is |
-| IndexedDB | `src/host/platform/indexeddb.ts` `layerIndexedDb` | 7 real-browser cases; closes on `versionchange` | version 1 only; `database` option; no `layerMemory` |
-| Hide | `src/host/platform/browser.ts` `onHidden`, `src/host/edge.ts` | flush on `visibilitychange` and `pagehide` | ignores `event.persisted`; no `pageshow` |
-| Inspection | `src/host/inspect.ts` `inspect`, `attachInspector`; `trace.ts` | `RuntimeCut` first slice; text renderer | no Model, no export or import, no buffer |
-| Stories | `src/host/testing/` `story.ts`, `run.ts`, `steps.ts` | one tab named `main`; reload, hide, show | no second tab; no frames for a player |
-| Browser runner | `tools/browser/` `run.ts`, `provider.ts` | installed Chrome (headless) and Safari (safaridriver) | runs store tests only; no fixture, no React |
-| React, player, lock | none | - | nothing exists (`src/` has no `react/`; no `navigator.locks` use) |
+| Area                | Where                                                            | What holds                                            | Wrong or missing                                                  |
+| ------------------- | ---------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------- |
+| Handle              | `src/host/runtime.ts` `Actor`, `handleOf`                        | follows identity; foreign handles refused             | `getSnapshot` builds a new object per call                        |
+| Snapshot            | `src/host/snapshot.ts` `snapshotIn`, `outside`                   | one function for live, record, quarantined, ended     | never cached; no `props` row                                      |
+| Step loop           | `src/host/driver.ts` `drainInbox`                                | sole writer of `world`; evidence to `sink` per step   | no subscribe, no notify, no version                               |
+| Uses, grace         | `src/core/incarnations.ts`, `Input.Ensure{use}`, `Input.Release` | uses are a multiset per actor; `freeGrace` 100 ms     | reachable only through `testing.attach`                           |
+| Ready               | `runtime.ts` `ready`, core `life`                                | one bootstrap; store read before any actor            | an ensure before ready is rejected; no boot queue                 |
+| Store port          | `src/host/store.ts` `Store`, `StoreScope`                        | atomic batches; `storeContract`; reviewed (T58)       | keep as is                                                        |
+| IndexedDB           | `src/host/platform/indexeddb.ts` `layerIndexedDb`                | 7 real-browser cases; closes on `versionchange`       | version 1 only; `database` option; no `layerMemory`               |
+| Hide                | `src/host/platform/browser.ts` `onHidden`, `src/host/edge.ts`    | flush on `visibilitychange` and `pagehide`            | ignores `event.persisted`; no `pageshow`                          |
+| Inspection          | `src/host/inspect.ts` `inspect`, `attachInspector`; `trace.ts`   | `RuntimeCut` first slice; text renderer               | no Model, no export or import, no buffer                          |
+| Stories             | `src/host/testing/` `story.ts`, `run.ts`, `steps.ts`             | one tab named `main`; reload, hide, show              | no second tab; no frames for a player                             |
+| Browser runner      | `tools/browser/` `run.ts`, `provider.ts`                         | installed Chrome (headless) and Safari (safaridriver) | runs store tests only; no fixture, no React                       |
+| React, player, lock | none                                                             | -                                                     | nothing exists (`src/` has no `react/`; no `navigator.locks` use) |
 
 Measured facts this design rests on (`prototypes/safari/RESULTS.md`, verdicts 2 to 5):
 
@@ -35,35 +39,35 @@ Measured facts this design rests on (`prototypes/safari/RESULTS.md`, verdicts 2 
 
 ## 2. State inventory
 
-| # | State | Owner (one writer) | States | Inputs that change it in one step |
-| --- | --- | --- | --- | --- |
-| S1 | Publication, per Runtime | `src/host/publication.ts`, called by `drainInbox` | `{ version, world }`, version rising | a drained slice whose world changed |
-| S2 | Snapshot memo, per actor | `publication.ts` `snapshotAt` | `{ version, snapshot }` | a read at a newer version |
-| S3 | Attachment, per hook instance | `src/react/attachment.ts` | `Rendered`, `Waiting`, `Attached`, `Ended` | commit effect, ready, cleanup, actor disposed |
-| S4 | Lease, per Provider with `setup` | `src/react/lease.ts` | `Held`, `Lapsing`, `Disposed` | effect setup, cleanup, grace expiry, scope change |
-| S5 | Emit queue, per listener | `src/react/listen.ts` | list of `{ version, emit }` | a publication carrying emits, a commit, unmount |
-| S6 | TabLock, per Runtime | `src/host/platform/tab-lock.ts` | `Unasked`, `Owner`, `Second`, `Released` | `ready`, grant, refusal, `pagehide`, disposal, boot failure |
-| S7 | Boot queue, per Runtime | the core's `life` (T28) | `Booting(queue)`, `Ready`, `Failed` | a call before ready, boot end |
-| S8 | Inspector buffer | `src/host/inspect.ts` | ring of evidence, `Open` or `Disposed` | sink, `drain`, `clear`, `dispose`, a throwing callback |
-| S9 | Player cursor | `src/react/player.ts` reducer | `Recording`, `Ready(cursor, playing, speed)`, `Failed` | controls, pacing tick, record end |
+| #   | State                            | Owner (one writer)                                | States                                                 | Inputs that change it in one step                           |
+| --- | -------------------------------- | ------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------- |
+| S1  | Publication, per Runtime         | `src/host/publication.ts`, called by `drainInbox` | `{ version, world }`, version rising                   | a drained slice whose world changed                         |
+| S2  | Snapshot memo, per actor         | `publication.ts` `snapshotAt`                     | `{ version, snapshot }`                                | a read at a newer version                                   |
+| S3  | Attachment, per hook instance    | `src/react/attachment.ts`                         | `Rendered`, `Waiting`, `Attached`, `Ended`             | commit effect, ready, cleanup, actor disposed               |
+| S4  | Lease, per Provider with `setup` | `src/react/lease.ts`                              | `Held`, `Lapsing`, `Disposed`                          | effect setup, cleanup, grace expiry, scope change           |
+| S5  | Emit queue, per listener         | `src/react/listen.ts`                             | list of `{ version, emit }`                            | a publication carrying emits, a commit, unmount             |
+| S6  | TabLock, per Runtime             | `src/host/platform/tab-lock.ts`                   | `Unasked`, `Owner`, `Second`, `Released`               | `ready`, grant, refusal, `pagehide`, disposal, boot failure |
+| S7  | Boot queue, per Runtime          | the core's `life` (T28)                           | `Booting(queue)`, `Ready`, `Failed`                    | a call before ready, boot end                               |
+| S8  | Inspector buffer                 | `src/host/inspect.ts`                             | ring of evidence, `Open` or `Disposed`                 | sink, `drain`, `clear`, `dispose`, a throwing callback      |
+| S9  | Player cursor                    | `src/react/player.ts` reducer                     | `Recording`, `Ready(cursor, playing, speed)`, `Failed` | controls, pacing tick, record end                           |
 
 Not state of this concept: actor uses and the actor grace (the core's, already built), the store's tickets (the
 edge's), props and emits content (boundary channels), the hydrate gate and payload (data layer).
 
 **Seams**
 
-| Value | Direction | Neighbour |
-| --- | --- | --- |
-| `Publication { version, world }` and `snapshotAt(publication, actor)` | offered | every reader: React, Stories, inspection |
-| `Input.Ensure { use: "component", start, wiring }`, `Input.Release` | consumed | the core (exists) |
-| `Props` values and the input that applies them; the `props` snapshot row | consumed | boundary channels (T76) |
-| `Emitted { actor, name, value, instance, key }` on a step's output | consumed | boundary channels (T77) |
-| `version` stamped on each emit at publication | offered | boundary channels |
-| `Payload`, `Input.Hydrate`, the request gate | consumed | data layer (T115) |
-| the render-phase overlay: `preview(machine, input, props, source)` | offered | data layer names it as T30's |
-| `Ownership = Owner \| Second` at boot | offered | saved records: boot takes it; `Second` loads and writes nothing |
-| `Store`, `StoreScope`, `storeContract` | consumed | T58, unchanged |
-| trace and Model bytes through `core/codec.ts` | consumed | saved records' codec (T92) |
+| Value                                                                    | Direction | Neighbour                                                       |
+| ------------------------------------------------------------------------ | --------- | --------------------------------------------------------------- |
+| `Publication { version, world }` and `snapshotAt(publication, actor)`    | offered   | every reader: React, Stories, inspection                        |
+| `Input.Ensure { use: "component", start, wiring }`, `Input.Release`      | consumed  | the core (exists)                                               |
+| `Props` values and the input that applies them; the `props` snapshot row | consumed  | boundary channels (T76)                                         |
+| `Emitted { actor, name, value, instance, key }` on a step's output       | consumed  | boundary channels (T77)                                         |
+| `version` stamped on each emit at publication                            | offered   | boundary channels                                               |
+| `Payload`, `Input.Hydrate`, the request gate                             | consumed  | data layer (T115)                                               |
+| the render-phase overlay: `preview(machine, input, props, source)`       | offered   | data layer names it as T30's                                    |
+| `Ownership = Owner \| Second` at boot                                    | offered   | saved records: boot takes it; `Second` loads and writes nothing |
+| `Store`, `StoreScope`, `storeContract`                                   | consumed  | T58, unchanged                                                  |
+| trace and Model bytes through `core/codec.ts`                            | consumed  | saved records' codec (T92)                                      |
 
 ## 3. The design
 
@@ -173,18 +177,18 @@ is `Equal.equals`; a thrown selector is kept against its snapshot and rethrown w
 
 A handle is created once per hook instance (`useState` initialiser) and holds its Attachment. Render never writes it.
 
-| From | Input | To | Work |
-| --- | --- | --- | --- |
-| `Rendered` | passive effect runs | `Waiting` | register `whenReady`; keep buffered sends |
-| `Rendered` | `send` | `Rendered` | append to the handle's buffer (no cap, D24) |
-| `Rendered` | render discarded (no effect ever runs) | - | nothing was registered; the buffer is garbage |
-| `Waiting` | ready succeeded | `Attached` | `acquire` (create with the pending props, or wake); deliver the buffer in order |
-| `Waiting` | ready failed | `Ended(error)` | next render throws the FlowError to the boundary |
-| `Waiting` | effect cleanup | `Rendered` | cancel the observer; never admits later |
-| `Attached` | effect cleanup (unmount, Strict Mode, Activity hide) | `Rendered` | `release()`; the core arms the actor grace |
-| `Attached` | effect runs again inside the grace | `Attached` | `acquire` again; the core disarms the grace: same incarnation |
-| `Attached` | actor disposed while mounted | `Attached` | re-ensure a fresh incarnation (Runtime O3) |
-| `Attached` | `send` | `Attached` | straight to the Runtime |
+| From       | Input                                                | To             | Work                                                                            |
+| ---------- | ---------------------------------------------------- | -------------- | ------------------------------------------------------------------------------- |
+| `Rendered` | passive effect runs                                  | `Waiting`      | register `whenReady`; keep buffered sends                                       |
+| `Rendered` | `send`                                               | `Rendered`     | append to the handle's buffer (no cap, D24)                                     |
+| `Rendered` | render discarded (no effect ever runs)               | -              | nothing was registered; the buffer is garbage                                   |
+| `Waiting`  | ready succeeded                                      | `Attached`     | `acquire` (create with the pending props, or wake); deliver the buffer in order |
+| `Waiting`  | ready failed                                         | `Ended(error)` | next render throws the FlowError to the boundary                                |
+| `Waiting`  | effect cleanup                                       | `Rendered`     | cancel the observer; never admits later                                         |
+| `Attached` | effect cleanup (unmount, Strict Mode, Activity hide) | `Rendered`     | `release()`; the core arms the actor grace                                      |
+| `Attached` | effect runs again inside the grace                   | `Attached`     | `acquire` again; the core disarms the grace: same incarnation                   |
+| `Attached` | actor disposed while mounted                         | `Attached`     | re-ensure a fresh incarnation (Runtime O3)                                      |
+| `Attached` | `send`                                               | `Attached`     | straight to the Runtime                                                         |
 
 - The actor grace has one owner, the core's `Timer.Grace`. The binding holds no timer for actors: Strict Mode's
   cleanup then setup is `Release` then `Ensure`, which the core already makes a no-op inside 100 ms.
@@ -201,14 +205,14 @@ A handle is created once per hook instance (`useState` initialiser) and holds it
 `<FlowProvider setup>` builds its Runtime in a `useState` initialiser (`construct()` is synchronous and inert, so a
 discarded render leaks nothing). `<FlowProvider runtime>` has no Lease and never disposes.
 
-| From | Input | To | Work |
-| --- | --- | --- | --- |
-| `Held` | effect cleanup | `Lapsing` | `after(grace, expire)` |
-| `Lapsing` | effect setup (Strict Mode, quick remount) | `Held` | cancel the timer; `ready()` is not called twice |
-| `Lapsing` | grace expiry | `Disposed` | `runtime.dispose()` (keeps saved data) |
-| `Held` | `setup` scope changed | new `Held`; old `Lapsing` | construct the new Runtime; children remount on its key |
-| `Held` | new `setup` value, same scope | `Held` | keep the Runtime |
-| `Disposed` | effect setup | new `Held` | construct again; TabLock waits for the old release (S6) |
+| From       | Input                                     | To                        | Work                                                    |
+| ---------- | ----------------------------------------- | ------------------------- | ------------------------------------------------------- |
+| `Held`     | effect cleanup                            | `Lapsing`                 | `after(grace, expire)`                                  |
+| `Lapsing`  | effect setup (Strict Mode, quick remount) | `Held`                    | cancel the timer; `ready()` is not called twice         |
+| `Lapsing`  | grace expiry                              | `Disposed`                | `runtime.dispose()` (keeps saved data)                  |
+| `Held`     | `setup` scope changed                     | new `Held`; old `Lapsing` | construct the new Runtime; children remount on its key  |
+| `Held`     | new `setup` value, same scope             | `Held`                    | keep the Runtime                                        |
+| `Disposed` | effect setup                              | new `Held`                | construct again; TabLock waits for the old release (S6) |
 
 ### 3.5 Emit delivery (S5), owner `src/react/listen.ts`
 
@@ -231,16 +235,16 @@ useEffect(() => { for (const e of queue.takeThrough(through)) latest.current[e.n
 A `Locks` platform service (browser: `navigator.locks.request(name, { ifAvailable: true }, hold)`; tests: a fake with
 a Chrome mode and a Safari mode) plus an in-document registry keyed by `app/scope` for the disposing-predecessor rule.
 
-| From | Input | To | Work |
-| --- | --- | --- | --- |
-| `Unasked` | `ready()`, persistence on, same-document owner disposing | `Unasked` | wait for its release, then ask |
-| `Unasked` | lock granted | `Owner` | boot with `Ownership.Owner`: the store is read only now |
-| `Unasked` | lock refused (another tab, or a live Runtime here) | `Second` | boot with `Ownership.Second`; report `SecondTabNoPersistence` |
-| `Owner` | boot failed | `Released` | release |
-| `Owner` | `pagehide` with `persisted` | `Released` | flush with `commit()`, wait its answer or abort the batch, release |
-| `Owner` | disposal or forget finished cleanup | `Released` | release last, after the Store closes |
-| `Released` or `Second` | `pageshow` with `persisted` | - | `location.reload()`: a new boot |
-| `Second` | any store call | - | none is ever made (R-L3) |
+| From                   | Input                                                    | To         | Work                                                               |
+| ---------------------- | -------------------------------------------------------- | ---------- | ------------------------------------------------------------------ |
+| `Unasked`              | `ready()`, persistence on, same-document owner disposing | `Unasked`  | wait for its release, then ask                                     |
+| `Unasked`              | lock granted                                             | `Owner`    | boot with `Ownership.Owner`: the store is read only now            |
+| `Unasked`              | lock refused (another tab, or a live Runtime here)       | `Second`   | boot with `Ownership.Second`; report `SecondTabNoPersistence`      |
+| `Owner`                | boot failed                                              | `Released` | release                                                            |
+| `Owner`                | `pagehide` with `persisted`                              | `Released` | flush with `commit()`, wait its answer or abort the batch, release |
+| `Owner`                | disposal or forget finished cleanup                      | `Released` | release last, after the Store closes                               |
+| `Released` or `Second` | `pageshow` with `persisted`                              | -          | `location.reload()`: a new boot                                    |
+| `Second`               | any store call                                           | -          | none is ever made (R-L3)                                           |
 
 - `Second` never becomes `Owner` in v1: its world diverged from the saved records, and promotion would need a
   third merge table (PD3).
@@ -352,15 +356,15 @@ Risk, highest first: emits after commit (R-E1) when the listener's view did not 
 
 **Task split by state ownership (proposed)**
 
-| Task | Owns | Change |
-| --- | --- | --- |
-| T111 | S1, S2, S3, S4; fixture pages | builds the binding's states whole (PD2); no props, emits, hydrate |
-| T28 | S7; `layerMemory` | as written |
-| T27 | S6 | as written; takes Safari D4 and R-L7 |
-| T30 | S5; props delivery; the overlay; `useNow` | no longer "the full binding": channels and hydrate over T111's states |
-| T49 | S8; Model; trace bytes | as written |
-| T116 | none | as written |
-| T108 | S9 | as written, after the bippy answer |
+| Task | Owns                                      | Change                                                                |
+| ---- | ----------------------------------------- | --------------------------------------------------------------------- |
+| T111 | S1, S2, S3, S4; fixture pages             | builds the binding's states whole (PD2); no props, emits, hydrate     |
+| T28  | S7; `layerMemory`                         | as written                                                            |
+| T27  | S6                                        | as written; takes Safari D4 and R-L7                                  |
+| T30  | S5; props delivery; the overlay; `useNow` | no longer "the full binding": channels and hydrate over T111's states |
+| T49  | S8; Model; trace bytes                    | as written                                                            |
+| T116 | none                                      | as written                                                            |
+| T108 | S9                                        | as written, after the bippy answer                                    |
 
 ## 6. Testing strategy
 
@@ -388,15 +392,15 @@ Risk, highest first: emits after commit (R-E1) when the listener's view did not 
 
 ## 7. Handoff for the Opus leads
 
-| Task | Read first | Decided | Settle before code | First commit (failing checks) |
-| --- | --- | --- | --- | --- |
-| T111 | 3.1 to 3.4; `driver.ts` `drainInbox`; `snapshot.ts` | Publication per slice; memo; tables 3.3, 3.4 | spike 1; how `after` reaches the Runtime Clock | R-P1, R-P2, R-A4 red in real React; one fixture page red in Chrome |
-| T28 | 3.7; `store.ts`; `testing/fake.ts` `makeStore` | two adapters, one contract | where the queue sits in `life` | `storeContract` over `layerMemory`; a send before ready |
-| T27 | 3.6; `prototypes/safari/RESULTS.md`; Persistence O7 | table 3.6; no promotion (PD3) | the boot input for `Second` with saved records' owner | R-L1 to R-L5 on the fake `Locks`, both modes |
-| T30 | 3.3 props note, 3.5; the boundary-channels design | delivery timing; one props slot before attach | the emit and props types from T76, T77 | R-E1 (unchanged view), R-E3 red |
-| T49 | 3.8; `inspect.ts`; `trace.ts`; Inspection O1 to O6 | Model derived; fixed import order | names marked proposed in Inspection O4 | R-I1 round trip; four malformed traces |
-| T116 | 3.9; data-layer section on `Hydrate` | real hosts, React 18 and 19 | Next.js versions pinned | a page that mismatches on a planted fault |
-| T108 | 3.9; Testing O9; the bippy proposal | cursor is the only state | the user's bippy answer | R-Y1 with a Runtime that fails on any input |
+| Task | Read first                                          | Decided                                       | Settle before code                                    | First commit (failing checks)                                      |
+| ---- | --------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------ |
+| T111 | 3.1 to 3.4; `driver.ts` `drainInbox`; `snapshot.ts` | Publication per slice; memo; tables 3.3, 3.4  | spike 1; how `after` reaches the Runtime Clock        | R-P1, R-P2, R-A4 red in real React; one fixture page red in Chrome |
+| T28  | 3.7; `store.ts`; `testing/fake.ts` `makeStore`      | two adapters, one contract                    | where the queue sits in `life`                        | `storeContract` over `layerMemory`; a send before ready            |
+| T27  | 3.6; `prototypes/safari/RESULTS.md`; Persistence O7 | table 3.6; no promotion (PD3)                 | the boot input for `Second` with saved records' owner | R-L1 to R-L5 on the fake `Locks`, both modes                       |
+| T30  | 3.3 props note, 3.5; the boundary-channels design   | delivery timing; one props slot before attach | the emit and props types from T76, T77                | R-E1 (unchanged view), R-E3 red                                    |
+| T49  | 3.8; `inspect.ts`; `trace.ts`; Inspection O1 to O6  | Model derived; fixed import order             | names marked proposed in Inspection O4                | R-I1 round trip; four malformed traces                             |
+| T116 | 3.9; data-layer section on `Hydrate`                | real hosts, React 18 and 19                   | Next.js versions pinned                               | a page that mismatches on a planted fault                          |
+| T108 | 3.9; Testing O9; the bippy proposal                 | cursor is the only state                      | the user's bippy answer                               | R-Y1 with a Runtime that fails on any input                        |
 
 ## 8. Proposed decisions
 
@@ -433,16 +437,16 @@ are small amendments the orchestrator may decide.
 Two of four Haiku sidecars ran; the host refused the other two (concurrency limit), so past reviews and prior art
 were not swept and I read the Safari results, the Plans and the code myself.
 
-| Finding | Result | Why |
-| --- | --- | --- |
-| `getSnapshot` is uncached and no subscribe exists (code sidecar) | accepted | read `runtime.ts` `handleOf`, `snapshot.ts` |
-| No React, lock, player or `layerMemory` in production (code) | accepted | `ls src`; grep |
-| Uses and the grace exist in the core (code) | accepted, extended | read `incarnations.ts`: uses are a multiset |
-| CLI has `story` and `trace` only; `package.json` has no `bin` (code) | not verified | outside this document's design |
-| T111 and T30 both build the binding (plans sidecar, item 7) | accepted | read both Tasks; became PD2 |
-| Props slot against FIFO (plans, item 2) | changed | not a contradiction once the slot is creation; PD4 |
-| Pre-attach record against hydrate first view (plans, item 3) | changed | settled by `getServerSnapshot`, 3.3 |
-| Safari coverage against Q4 A (plans, item 10) | accepted | became PD5 |
-| Merge-rule and fingerprint contradictions (plans, items 4 to 6) | rejected here | the data layer's state, not this concept's |
-| T115 and T30 lack T28 in `blocked_by` (plans, item 8) | rejected | 3.3 removes the binding's need for the boot queue |
-| Multi-tab evidence against Inspection.plan:141 (plans, item 13) | not verified | low confidence by the sidecar's own word |
+| Finding                                                              | Result             | Why                                                |
+| -------------------------------------------------------------------- | ------------------ | -------------------------------------------------- |
+| `getSnapshot` is uncached and no subscribe exists (code sidecar)     | accepted           | read `runtime.ts` `handleOf`, `snapshot.ts`        |
+| No React, lock, player or `layerMemory` in production (code)         | accepted           | `ls src`; grep                                     |
+| Uses and the grace exist in the core (code)                          | accepted, extended | read `incarnations.ts`: uses are a multiset        |
+| CLI has `story` and `trace` only; `package.json` has no `bin` (code) | not verified       | outside this document's design                     |
+| T111 and T30 both build the binding (plans sidecar, item 7)          | accepted           | read both Tasks; became PD2                        |
+| Props slot against FIFO (plans, item 2)                              | changed            | not a contradiction once the slot is creation; PD4 |
+| Pre-attach record against hydrate first view (plans, item 3)         | changed            | settled by `getServerSnapshot`, 3.3                |
+| Safari coverage against Q4 A (plans, item 10)                        | accepted           | became PD5                                         |
+| Merge-rule and fingerprint contradictions (plans, items 4 to 6)      | rejected here      | the data layer's state, not this concept's         |
+| T115 and T30 lack T28 in `blocked_by` (plans, item 8)                | rejected           | 3.3 removes the binding's need for the boot queue  |
+| Multi-tab evidence against Inspection.plan:141 (plans, item 13)      | not verified       | low confidence by the sidecar's own word           |

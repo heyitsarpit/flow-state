@@ -1,7 +1,9 @@
-# Fixture catalogue: a wide net of application shapes (proposed, 2026-11-11)
-
-**Status (2026-11-20):** acted on: superseded by fixture-catalog-review-2026-11-17 and
-code:wiki/conventions/fixture-catalog.md. The text below is prior art.
+---
+proposal fixture-catalogue
+status superseded 2026-11-17 [@proposal.fixture-catalog-review, @convention.fixture-catalog]
+    proposed 2026-11-11
+---
+# Fixture catalogue: a wide net of application shapes
 
 **Bottom line (proposed):** 26 small fixtures, each a different real application, cover all 35 Flow features listed
 below. Each feature is hit by at least 2 shapes and most by 3 to 16, and any two shapes differ in at least 4
@@ -913,7 +915,7 @@ shapes         6  6  6  3  10 4  3  5  13 9  3  3  3  7  3  3  3  8  3  4  4  4 
 
 ### Features found by the Plan check (proposed, 2026-11-11)
 
-**Bottom line (proposed):** the Plan check (`plan-task-coverage-2026-11-11.md`) found 18 runtime features that
+**Bottom line (proposed):** the Plan check (@review.plan-task-coverage) found 18 runtime features that
 conformance should exercise and that the 35 codes above leave out. The most important is actor identity by value:
 `Flow.input` appears in S07 and S15 only as a trait's input, so no shape names a shared actor by
 `actorRef(machine, value)`. One new shape (S27) and additions to 19 existing shapes cover them, each code by at

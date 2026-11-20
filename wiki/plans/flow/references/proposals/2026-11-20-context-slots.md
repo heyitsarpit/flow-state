@@ -1,4 +1,9 @@
-# Context slots and reactions (accepted, 2026-11-20)
+---
+proposal context-slots
+status accepted user 2026-11-20
+    proposed 2026-11-20
+---
+# Context slots and reactions
 
 **Bottom line:** a context slot is declared whole on the definition with `Flow.context`, reading its one provider
 through typed tokens; a machine reacts with `C.slot.change({ when?, event })`. No strings name a slot or a field,

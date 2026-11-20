@@ -1,6 +1,11 @@
-# One answer for raw throws (proposed, 2026-11-20; revised after review and hole-poking)
+---
+proposal raw-throws
+status accepted user 2026-11-20 [@review.advisor-holes]
+    proposed 2026-11-20
+---
+# One answer for raw throws (2026-11-20; revised after review and hole-poking)
 
-**Status:** the user accepted every recommendation (2026-11-20): T98 first, `Symbol.for`, testing route in T98.
+Every recommendation was accepted: T98 first, `Symbol.for`, testing route in T98.
 
 **Bottom line (proposed):** every function Flow itself makes and hands out, on any route, is made by one
 constructor that takes a Schema of its arguments, decodes them once through Effect's Exit (the Result and Sync
@@ -11,8 +16,8 @@ and is recognised in one place: a `Schema.declare` leaf. A type test over each r
 that is not a gated one. The freedom removed: **Flow code that reaches a caller, or reads a caller's value, without
 going through the decode** (opt-in wrapping, check-and-discard decodes, marks probed at many sites).
 
-Answers question 7 of `advisor-questions-2026-11-20.md`. Unblocks @task.V3.T98. Shares `decodeExit` and the boot
-rule with `saved-records-2026-11-20.md` and the `Made` brand with `body-types-2026-11-20.md`.
+Answers question 7 of @questions.advisor-questions. Unblocks @task.V3.T98. Shares `decodeExit` and the boot
+rule with @proposal.saved-records and the `Made` brand with @proposal.body-types.
 
 ## The class and its freedom
 
@@ -93,15 +98,15 @@ the identity is not woken. It is the same `decodeExit`, mapped by the boot inste
 
 ## How each part is shown, and its cost
 
-| Part | Shown by | Cost |
-| --- | --- | --- |
-| One gate | Story: the hostile table (`tests/surface/`) on every reached function, both routes | ~50 sites |
-| `run` sees only decoded | Type test: `@ts-expect-error` on reading a raw field inside `run` | Args Schemas |
-| Codes kept | The existing code tests (`InvalidEvent`, `ForeignActorRef`) unchanged | One annotation each |
-| Plain copy | Story: cyclic `states`, a getter, a trapped Proxy; Room's `Duration` still builds | One walk |
-| One recognition | Lint `no-mark-probe`, no exemptions; type test: no public `make`, `~walk` | Tokens redone |
-| Routes typed | Type test: `Bare<typeof route>` is `never`; planted fault `gate-bypass` | `route()` twice |
-| Exit-only decode | Lint: `decodeUnknownResult`/`Sync`/`Option` banned outside `decodeExit` | None at run time |
+| Part                    | Shown by                                                                           | Cost                |
+| ----------------------- | ---------------------------------------------------------------------------------- | ------------------- |
+| One gate                | Story: the hostile table (`tests/surface/`) on every reached function, both routes | ~50 sites           |
+| `run` sees only decoded | Type test: `@ts-expect-error` on reading a raw field inside `run`                  | Args Schemas        |
+| Codes kept              | The existing code tests (`InvalidEvent`, `ForeignActorRef`) unchanged              | One annotation each |
+| Plain copy              | Story: cyclic `states`, a getter, a trapped Proxy; Room's `Duration` still builds  | One walk            |
+| One recognition         | Lint `no-mark-probe`, no exemptions; type test: no public `make`, `~walk`          | Tokens redone       |
+| Routes typed            | Type test: `Bare<typeof route>` is `never`; planted fault `gate-bypass`            | `route()` twice     |
+| Exit-only decode        | Lint: `decodeUnknownResult`/`Sync`/`Option` banned outside `decodeExit`            | None at run time    |
 
 Planted faults (for `nub run faults`): `gate-bypass` (a bare function on a route), `decode-discarded` (an entry
 reading its raw argument), `mark-probed` (a token checked outside `madeBy`), plus T98's existing three. The
@@ -109,17 +114,17 @@ Exit-only lint lands with saved-records' change to `record-format.ts#decodeBy`, 
 
 ## Against the real entry points
 
-| Entry point | Today | Under the gate |
-| --- | --- | --- |
-| `definition` | `entry`; check-only decode, then raw reads; runs `operations` raw | Copy, one decode, `run` on Type |
-| `machine` (and `compile-body.ts`) | `entry`; `~owner` by `hasProperty`; raw body reads | `madeBy`; body decoded |
-| `transaction`, `resource` | `entry`; bound `call`, `textOfKey` bare | Bound contract `Made`; both internal |
-| `E.X`, `S.X.is`, `O.x.*` (`handles.ts`) | `entry`, `builder`; `make` bare; `~` marks | Gated; one brand |
-| `Flow.*`, `deny`, `send`, `Outcome.*` | `builder`; `Flow.entry` a marked object | `builder` returning `Made` |
-| `turn(...)`, `.each`, `.resumable()` (not built) | none | Born as gated builders (question 3) |
-| `app`, `runtimeSetup`, `actorRef` (`host/runtime.ts`) | `entry`; `app` returns raw config | Decoded config kept |
-| Runtime, Actor methods (`src/host/runtime.ts`) | `entry`/`entryEffect` | Same, with `Args` |
-| Testing route (`host/testing/`) | bare (`defineConfig`, `Story`, `generate`, `Fake`) | Gated (`entryEffect`) |
+| Entry point                                           | Today                                                             | Under the gate                       |
+| ----------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------ |
+| `definition`                                          | `entry`; check-only decode, then raw reads; runs `operations` raw | Copy, one decode, `run` on Type      |
+| `machine` (and `compile-body.ts`)                     | `entry`; `~owner` by `hasProperty`; raw body reads                | `madeBy`; body decoded               |
+| `transaction`, `resource`                             | `entry`; bound `call`, `textOfKey` bare                           | Bound contract `Made`; both internal |
+| `E.X`, `S.X.is`, `O.x.*` (`handles.ts`)               | `entry`, `builder`; `make` bare; `~` marks                        | Gated; one brand                     |
+| `Flow.*`, `deny`, `send`, `Outcome.*`                 | `builder`; `Flow.entry` a marked object                           | `builder` returning `Made`           |
+| `turn(...)`, `.each`, `.resumable()` (not built)      | none                                                              | Born as gated builders (question 3)  |
+| `app`, `runtimeSetup`, `actorRef` (`host/runtime.ts`) | `entry`; `app` returns raw config                                 | Decoded config kept                  |
+| Runtime, Actor methods (`src/host/runtime.ts`)        | `entry`/`entryEffect`                                             | Same, with `Args`                    |
+| Testing route (`host/testing/`)                       | bare (`defineConfig`, `Story`, `generate`, `Fake`)                | Gated (`entryEffect`)                |
 
 ## Prior art
 
@@ -165,7 +170,7 @@ Exit-only lint lands with saved-records' change to `record-format.ts#decodeBy`, 
 
 ## Revision log
 
-Review = the Sonnet review; Hole and HQ = `advisor-holes-2026-11-20.md` §2 holes and questions. No sidecars were
+Review = the Sonnet review; Hole and HQ = @review.advisor-holes §2 holes and questions. No sidecars were
 started for the revision; each item was checked against `entry.ts`, `error.ts`, `record-format.ts` and the spikes.
 
 - Review 1: fixed. `Definition` and `Machine` stay plain data; only leaves are `Made`.

@@ -1,7 +1,9 @@
-# UI primitives, third pass: are the existing-feature routes idiomatic? (proposed, 2026-11-16)
-
-**Status (2026-11-20):** acted on: decided in
-code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md. The text below is prior art.
+---
+proposal ui-primitives-idiom
+status merged 2026-11-16 [@plan.Machines, @plan.Runtime, @plan.React, @plan.Testing, @plan.Inspection, @spec.Turn, @spec.Actors, @spec.Compile, @spec.StaticCli, @spec.WriteAhead, @spec.Restore, @spec.Codec, @task.V3.T72, @task.V3.T76, @task.V3.T77, @task.V3.T78]
+    proposed 2026-11-16
+---
+# UI primitives, third pass: are the existing-feature routes idiomatic?
 
 **Bottom line (proposed):** four of the second pass's routes are clean or tolerable Flow code and confirm its drops:
 gesture state kept out of the persisted machine, actions injected as services, ids carried in the commit's input,
@@ -20,12 +22,12 @@ declared view events (`emit`), as in XState v5; and declared `props`, delivered 
 three keep the single graph, Stories and CLI inspection, because each is declared on the definition and runs on
 existing queue and clock rules. Everything here is proposed.
 
-**Why now:** the user asked whether the routes in `ui-primitives-generality-2026-11-16.md` are clean and idiomatic,
+**Why now:** the user asked whether the routes in @proposal.ui-primitives-generality are clean and idiomatic,
 or hacky and leaking internal wiring, while still hoping for generality. A route that works but reads as wiring
 reopens a feature; a clean one confirms the drop.
 
-**Read first:** `ui-primitives-generality-2026-11-16.md` §2 and §7, @plan.Machines.O5 (schedules), @plan.Machines.O7
-(onContext), @plan.Runtime.O5 (context delivery), @plan.ServerRendering.O3, `fixture-catalogue-2026-11-11.md` §3.
+**Read first:** @proposal.ui-primitives-generality §2 and §7, @plan.Machines.O5 (schedules), @plan.Machines.O7
+(onContext), @plan.Runtime.O5 (context delivery), @plan.ServerRendering.O3, @proposal.fixture-catalogue §3.
 
 Marks: `existing (built)`, `existing (Plan)`, `NEW (proposed)`, `user-defined`. A `// WIRING` mark sits on every line
 that carries a hand-made id or counter, a stamp, hand-computed time, a value copied only for a later step, a fact
@@ -577,36 +579,36 @@ can be fixed with existing features; none needs a new one:
 Four read-only Haiku sidecars (effort high): a wiring sweep, prior art, reach, and an adversary. Each claim below
 was checked against the proposal, the Plans or the cited code.
 
-| Sidecar   | Claim                                          | Log      | Why                                        |
-| --------- | ---------------------------------------------- | -------- | ------------------------------------------ |
-| wiring    | `settle` is called from 10 handlers            | accepted | counted in second pass lines 213-258       |
-| wiring    | Toaster `version` has no reader                | accepted | read §2.1                                  |
-| wiring    | `Update` resets a custom `ms` to 5000          | accepted | `fresh(event)` has no `ms` (lines 189, 220)|
-| wiring    | Menu `pendingSub` survives close               | accepted | traced lines 367, 413, 418, 448            |
-| wiring    | Menu `typed` survives close                    | accepted | exit stops schedules; Open resets 2 fields |
-| wiring    | `RemoveToken` leaves the token in `loading`    | accepted | lines 599-605 have no `loading`            |
-| wiring    | Stepper Blur mid-hold is unhandled             | changed  | Cancel from view cleanup covers it (H3)    |
-| wiring    | `restartOn` comment mismatches its function    | accepted | lines 201-202; harmless with one key       |
-| prior art | XState `after` cannot pause                    | accepted | stateUtils getDelayedTransitions           |
-| prior art | Effect has no pause primitive                  | accepted | my grep: no "pause" in Schedule, Clock,    |
-|           |                                                |          | Fiber, Latch, Effect                       |
-| prior art | vue-sonner banks remaining time by hand        | accepted | Toast.vue:441-456                          |
-| prior art | XState input is read once                      | accepted | createActor.ts:267; useActorRef.ts:29-50   |
-| prior art | TanStack onSuccess gets the call's variables   | accepted | types.ts:1117-1122; mutation.ts:246-250    |
-| prior art | no local request-id focus pattern              | accepted | cited XState v5 `emit` and Elm instead     |
-| reach     | pausable timer in 0 catalogue scenarios        | accepted | S24 deadline; S20 leaves a state           |
-| reach     | catalogue keyed timers are all constant        | accepted | S07, S15, S23, S28, S29                    |
-| reach     | S28 and S29 put changing values in input       | accepted | catalogue lines 1752, 1853                 |
-| reach     | one-shot command explicit only in S29          | changed  | widened with ui-sdk and app shapes         |
-| reach     | second pass's S04/S06 focus is not in catalogue| accepted | counted as app patterns                    |
-| adversary | negative banked time arms a negative duration  | accepted | no clamp; Machines O5 silent on negatives  |
-| adversary | restart skew accumulates per turn              | rejected | the core turn is synchronous               |
-| adversary | hydration skews `countingSince`                | accepted | ServerRendering O3 adjusts schedules only  |
-| adversary | `.each` loses a pushed-out toast's time        | accepted | the second pass's H2                       |
-| adversary | `Reorder { nodes }` reverts a rename           | accepted | whole-list payload; decision 4             |
-| adversary | an ambient-target service misroutes a retry    | changed  | a service bug; Operations O1 key rule      |
-| adversary | restored `unknown` never applies `closes`      | changed  | correct for an unknown outcome             |
-| adversary | focus counter resets on actor recreation       | changed  | needs a non-holding reader; kept as a risk |
-| adversary | `Configure` lands after a child's write        | accepted | FIFO buffer, child-first effects (React O3)|
-| adversary | two views' `Configure` compete silently        | accepted | context rejects this (Runtime O3)          |
-| adversary | an unmapped NotSent leaves a toast paused      | accepted | `held` reads lanes; no turn runs `settle`  |
+| Sidecar   | Claim                                           | Log      | Why                                         |
+| --------- | ----------------------------------------------- | -------- | ------------------------------------------- |
+| wiring    | `settle` is called from 10 handlers             | accepted | counted in second pass lines 213-258        |
+| wiring    | Toaster `version` has no reader                 | accepted | read §2.1                                   |
+| wiring    | `Update` resets a custom `ms` to 5000           | accepted | `fresh(event)` has no `ms` (lines 189, 220) |
+| wiring    | Menu `pendingSub` survives close                | accepted | traced lines 367, 413, 418, 448             |
+| wiring    | Menu `typed` survives close                     | accepted | exit stops schedules; Open resets 2 fields  |
+| wiring    | `RemoveToken` leaves the token in `loading`     | accepted | lines 599-605 have no `loading`             |
+| wiring    | Stepper Blur mid-hold is unhandled              | changed  | Cancel from view cleanup covers it (H3)     |
+| wiring    | `restartOn` comment mismatches its function     | accepted | lines 201-202; harmless with one key        |
+| prior art | XState `after` cannot pause                     | accepted | stateUtils getDelayedTransitions            |
+| prior art | Effect has no pause primitive                   | accepted | my grep: no "pause" in Schedule, Clock,     |
+|           |                                                 |          | Fiber, Latch, Effect                        |
+| prior art | vue-sonner banks remaining time by hand         | accepted | Toast.vue:441-456                           |
+| prior art | XState input is read once                       | accepted | createActor.ts:267; useActorRef.ts:29-50    |
+| prior art | TanStack onSuccess gets the call's variables    | accepted | types.ts:1117-1122; mutation.ts:246-250     |
+| prior art | no local request-id focus pattern               | accepted | cited XState v5 `emit` and Elm instead      |
+| reach     | pausable timer in 0 catalogue scenarios         | accepted | S24 deadline; S20 leaves a state            |
+| reach     | catalogue keyed timers are all constant         | accepted | S07, S15, S23, S28, S29                     |
+| reach     | S28 and S29 put changing values in input        | accepted | catalogue lines 1752, 1853                  |
+| reach     | one-shot command explicit only in S29           | changed  | widened with ui-sdk and app shapes          |
+| reach     | second pass's S04/S06 focus is not in catalogue | accepted | counted as app patterns                     |
+| adversary | negative banked time arms a negative duration   | accepted | no clamp; Machines O5 silent on negatives   |
+| adversary | restart skew accumulates per turn               | rejected | the core turn is synchronous                |
+| adversary | hydration skews `countingSince`                 | accepted | ServerRendering O3 adjusts schedules only   |
+| adversary | `.each` loses a pushed-out toast's time         | accepted | the second pass's H2                        |
+| adversary | `Reorder { nodes }` reverts a rename            | accepted | whole-list payload; decision 4              |
+| adversary | an ambient-target service misroutes a retry     | changed  | a service bug; Operations O1 key rule       |
+| adversary | restored `unknown` never applies `closes`       | changed  | correct for an unknown outcome              |
+| adversary | focus counter resets on actor recreation        | changed  | needs a non-holding reader; kept as a risk  |
+| adversary | `Configure` lands after a child's write         | accepted | FIFO buffer, child-first effects (React O3) |
+| adversary | two views' `Configure` compete silently         | accepted | context rejects this (Runtime O3)           |
+| adversary | an unmapped NotSent leaves a toast paused       | accepted | `held` reads lanes; no turn runs `settle`   |

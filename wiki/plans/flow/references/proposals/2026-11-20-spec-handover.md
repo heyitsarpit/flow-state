@@ -1,3 +1,7 @@
+---
+proposal spec-handover
+status proposed 2026-11-20
+---
 # Handover: turn today's concept designs into Specs (2026-11-20)
 
 **Goal:** formalise the concept designs below into `.spec` files with `skill:to-design` and `skill:to-spec`, after
@@ -9,17 +13,18 @@ the code.
 (@task.V3.T118's fix round first) waits for this.
 
 **Read first:**
-- code:wiki/plans/flow/references/proposals/spec-cohesion-2026-11-20.md (17 mismatches, unowned seams, build order
+- @review.spec-cohesion (17 mismatches, unowned seams, build order
   for the first five designs);
-- code:wiki/plans/flow/references/proposals/body-capture-settled-2026-11-20.md (the typing verdict: C6);
+- @proposal.body-capture-settled (the typing verdict: C6);
 - `wiki/tasks/V3/epic.task` `instructions` ("The whole Task at once", Task boundaries by state, convergence);
 - `wk log show V3 --last 40` (today's decisions with dates).
 
 ## The designs (all proposed)
 
-In `wiki/plans/flow/references/proposals/`: `spec-typed-machine-`, `spec-fragments-`, `spec-saved-records-`,
-`spec-reads-operations-`, `spec-data-layer-`, `spec-boundary-channels-`, `spec-test-tooling-`, `spec-errors-trust-`,
-`spec-static-rules-`, `spec-ui-host-`, `spec-turn-parts-2026-11-20.md`; adopted `schedule-issues-2026-11-20.md`
+The concept designs: @proposal.spec-typed-machine, @proposal.spec-fragments, @proposal.spec-saved-records,
+@proposal.spec-reads-operations, @proposal.spec-data-layer, @proposal.spec-boundary-channels,
+@proposal.spec-test-tooling, @proposal.spec-errors-trust, @proposal.spec-static-rules, @proposal.spec-ui-host,
+@proposal.spec-turn-parts; adopted @proposal.schedule-issues
 (@task.V3.T118); prior art to weigh, not decided: `advisor-consult-2026-11-20/` (the user's evening consult; its
 README lists three conflicts).
 

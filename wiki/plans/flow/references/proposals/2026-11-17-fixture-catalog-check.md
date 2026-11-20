@@ -1,3 +1,7 @@
+---
+review fixture-catalog-check
+status open 2026-11-17
+---
 # Fixture catalog check, 2026-11-17
 
 **Verdict: ISSUES.** The catalog's sources are sound (all 145 local citations exist at their exact line), but its
@@ -8,7 +12,7 @@ criterion, additive growth, it rewrites the oldest machines and renames persiste
 them (section "Additive growth"). A lead acting on it today would build fixtures that fail to boot, test the wrong
 step, or break existing Stories.
 
-Under review: code:wiki/conventions/fixture-catalog.md (uncommitted). Judged against code:wiki/conventions/fixtures.md,
+Under review: @convention.fixture-catalog (uncommitted). Judged against @convention.fixtures,
 the Plans and the V3 Tasks. `C:n` is a catalog line; paths are from the repository root. All findings below were
 re-checked by me; the log at the end says which sidecar raised each and what I did with it.
 

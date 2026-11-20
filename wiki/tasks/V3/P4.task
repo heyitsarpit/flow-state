@@ -69,9 +69,9 @@ description
     background only, and its acceptance does not carry over. The suite's coverage record is the one @task.V3.T67 starts;
     the browser run adds its own entry to it.
 comment 2026-11-19T07:18:27Z
-    Amendment (the user, 2026-11-19): P4 does not fully close for now; T92 and T56 stay open in it until the
-    trust-boundaries consult, and P5 starts once every other P4 Task is done. P4's close-out and audit run when T92 and
-    T56 close. Reverse: restore P5's start on P4's audit.
+    [decided: user 2026-11-19] P4 does not fully close for now; T92 and T56 stay open in it until the trust-boundaries
+    consult, and P5 starts once every other P4 Task is done. P4's close-out and audit run when T92 and T56 close.
+    Reverse: restore P5's start on P4's audit.
 comment 2026-11-20T13:02:22Z
     Breakdown review (orchestrator, 2026-11-20, R48): Order re-planned; T113 new; T110 repurposed; T109 absorbed
     subroutines and whenAbandoned; decoding moved from T56 to T92; Fake items to T112, test tooling to T97.
@@ -233,7 +233,7 @@ tasks
             @task.V3.T111. Extra files: `vite.config.ts` and `tools/flow-state-lint/imports.test.ts` (tests may import
             the route), `tools/lint-bomb/FLOW-STATE.md`.
         comment     2026-11-20T04:03:04Z
-            Fixtures proof (lead, code:wiki/conventions/fixtures.md), proposed; built with the `hide`/`show` steps.
+            Fixtures proof (lead, @convention.fixtures), proposed; built with the `hide`/`show` steps.
 
             Gap: every fixture setup uses `captureMs: 0`, so a hide flush is unobservable in any fixture today. Home:
             `transfers` (journey 6, standing order), with a new setup at the default interval beside `bankPlannedSetup`,
@@ -474,8 +474,8 @@ tasks
             well before the interval; the Fake and the real page issue the same batches); automation Safari and
             safaridriver ended by pid.
         comment     2026-11-20T06:30:36Z
-            Decision (the user, 2026-11-20, Q4 A): Chrome stays headless; real Safari runs its store tests unattended;
-            its hide cases are display-bound, skipped with a named reason when the page starts hidden and required in
+            [decided: user 2026-11-20; Q4 A] Chrome stays headless; real Safari runs its store tests unattended; its
+            hide cases are display-bound, skipped with a named reason when the page starts hidden and required in
             attended mode (phase closes, the user at the machine). No WebKit download. Built in this fix round.
         comment     2026-11-20T06:51:29Z
             Fix round (lead, 83f79c72, 28351ba4): the close now ends the work, then a wanted forget, then the services,
@@ -562,7 +562,7 @@ tasks
         comment     2026-11-20T07:33:26Z
             Done (orchestrator): second close review PASS at 2f2e34de; the user read T105's page (2026-11-20).
         comment     2026-11-20T08:54:20Z
-            Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
+            [decided: user 2026-11-20] T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      done
@@ -578,8 +578,7 @@ tasks
             reviewable behaviour. The toaster (@task.V3.T72) and the combobox wave (@task.V3.T73) need it.
 
             **Read first:** @plan.Machines.O5, @spec.Turn (R14 to R17, R19, R27), @spec.Compile,
-            code:wiki/conventions/interaction-state.md,
-            code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§1).
+            @convention.interaction-state, @proposal.ui-primitives-decisions (§1).
 
             **Risk:** R5 turns a computed negative delay from a refusal into zero. Five built checks use it as their
             refusal case and must move to an over-range delay (2^31 ms, which JSON carries; U4, decided by the
@@ -614,18 +613,17 @@ tasks
               definition's token (Compile T11, tightened), depth-2 widening of delay and `armOn` names, and Turn I31's
               issue on a refused delay at creation (decided with two traces). Turn R12's context in guards and updates
               is fixed here too.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the schedule rows of step 2 of
-              code:wiki/conventions/fixture-catalog.md, in the apps that row names, gain their features, scenarios and
-              sources; each scenario red before the build, and those cells marked used at the close. Step 2's fragment
-              rows are @task.V3.T109's and its subroutine rows @task.V3.T110's.
+            - Fixtures first (@convention.fixtures): the schedule rows of step 2 of @convention.fixture-catalog, in the
+              apps that row names, gain their features, scenarios and sources; each scenario red before the build, and
+              those cells marked used at the close. Step 2's fragment rows are @task.V3.T109's and its subroutine
+              rows @task.V3.T110's.
         comment     2026-11-15T20:44:54Z
             Routed from T68: a schedule's send accepts another definition's event token (ScheduleConfig.send takes
             EventToken | Ending) and machine() builds it, breaking Compile T11; pinned as it.fails
             in tests/types/schedule-send.test.ts.
         comment     2026-11-15T21:43:19Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
-            stress Story.
+            (@proposal.fixture-catalogue), each with a usual and a stress Story.
         comment     2026-11-16T01:40:10Z
             Routed from P2's close-out: the Compile T11 it.fails passes on any failure; tighten it when fixing.
         comment     2026-11-16T11:06:05Z
@@ -637,7 +635,7 @@ tasks
             it.fails in tests/actors/context.test.ts. Typing context into the machine body's callbacks is this slice's.
         comment     2026-11-16T19:45:59Z
             Scope (the user, 2026-11-17): T57 also builds subroutine and whenAbandoned, which no Task owned; their
-            fixture homes are in code:wiki/conventions/fixture-catalog.md's migration plan.
+            fixture homes are in @convention.fixture-catalog's migration plan.
         comment     2026-11-18T10:48:49Z
             Routed from @task.V3.T81 (2026-11-18): Turn R14 says a negative computed delay counts as zero, but
             core/turn.ts refuses the turn; an inverted test in tests/player/sleep-timer.test.ts names the rule.
@@ -743,9 +741,8 @@ tasks
             - 2026-11-18 (placements released within the disposal bound, ReleaseOverdue): placements are `activities`,
               not schedules; out of range after the split. Proposed owner @task.V3.T21 (comment there).
         comment     2026-11-20T08:10:40Z
-            Fixtures proof (code:wiki/conventions/fixtures.md): home (new) and wizard (new) carry the step-2 schedule
-            rows; sync's row is left for @task.V3.T109 (RateLimit is a trait). Every scenario below is red today unless
-            marked green.
+            Fixtures proof (@convention.fixtures): home (new) and wizard (new) carry the step-2 schedule rows; sync's
+            row is left for @task.V3.T109 (RateLimit is a trait). Every scenario below is red today unless marked green.
 
             - `paused`, `pausedBy` (Turn R27, R19): home, machine `Room` (`poll` keyed, `check` unkeyed), journey
               Vacation; usual `home/usual`; load L1 × 64 rooms + L4 `home/stress-many-rooms`; structure S9
@@ -866,8 +863,8 @@ tasks
             save is the denied path and reached-while-saving stays the unhandled one. B3 is two green pins (today
             nothing added arms).
         comment     2026-11-20T08:54:20Z
-            Decision (the user, 2026-11-20): @plan.Pending.D40 accepted (a restored multi-step Schedule continues at its
-            saved attempt); merge it into Machines O5 at this Task's close.
+            [decided: user 2026-11-20] @plan.Pending.D40 accepted (a restored multi-step Schedule continues at its saved
+            attempt); merge it into Machines O5 at this Task's close.
         comment     2026-11-20T09:24:11Z
             Build checkpoint 986337d3 (lead): every T57 red green, suite 1750 pass, check zero. Calls, each reversible
             in its module: the host steps a Schedule through Env.step (core asks, host runs Schedule.toStep; a step out
@@ -1029,8 +1026,8 @@ tasks
             public word and waits on the user (Plan O5's example follows the answer); the I9 and I14 run-rule change
             goes to the close review.
         comment     2026-11-20T11:40:18Z
-            Decision (the user, 2026-11-20): Flow.keyed accepted as public API; Machines O5's text and toaster example
-            now use it (orchestrator, Plan edit under the user's acceptance).
+            [decided: user 2026-11-20] Flow.keyed accepted as public API; Machines O5's text and toaster example now use
+            it (orchestrator, Plan edit under the user's acceptance).
         comment     2026-11-20T11:47:18Z
             Close review of the fix round (Opus lead, four Haiku sidecars: blind, cohesion, coverage, flip A): ISSUES.
             Three blocking: two made-up or wrong check outcomes in `settle`, and three R12 Stories routed here still
@@ -1337,9 +1334,9 @@ tasks
             time). Count: 2 after convergence. Revision: 53a6ce47. Review: 108d00cf. The failure limit is reached; T57
             stays open and the run stops for the user's ruling on Turn R25 and the next step.
         comment     2026-11-20T15:33:05Z
-            Amendment (the user, 2026-11-20): the fourth close review's B1 and B2 move to @task.V3.T118, which redesigns
-            the issue seam (Fable's proposal, accepted); T57 closes once T118's first commit lands both as inverted
-            tests titled by their rules. T57's timers, decide, occasions and tables stand as reviewed.
+            [decided: user 2026-11-20] the fourth close review's B1 and B2 move to @task.V3.T118, which redesigns the
+            issue seam (Fable's proposal, accepted); T57 closes once T118's first commit lands both as inverted tests
+            titled by their rules. T57's timers, decide, occasions and tables stand as reviewed.
         comment     2026-11-20T16:02:33Z
             Done (orchestrator): closing condition met: T118's first commit (c7635b2a) lands the fourth review's B1 and
             B2 as inverted tests titled by their rules; timers, decide, occasions and tables stand as reviewed.
@@ -1382,10 +1379,10 @@ tasks
               with `ReleaseOverdue` past it (@plan.Runtime.O6).
             - Outcome mappers receive `{ value, input, key, attempt }`, not the value alone (`src/core/serve.ts`, §5
               G3; @plan.Operations.O3).
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 4 of code:wiki/conventions/fixture-catalog.md:
-              `pay`, `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`,
-              `chat`, `draft`) gain the features, scenarios and sources of their rows; each scenario red before the
-              build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 4 of @convention.fixture-catalog: `pay`, `transfers`,
+              `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`, `draft`) gain the
+              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
+              marked used at the close.
         comment     2026-11-15T14:33:25Z
             Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
         comment     2026-11-15T20:44:53Z
@@ -1394,8 +1391,7 @@ tasks
             checked against the contract).
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
-            stress Story.
+            (@proposal.fixture-catalogue), each with a usual and a stress Story.
         comment     2026-11-16T01:40:09Z
             Routed from P2's close-out: disposal never interrupts in-flight reads (a planted fault survived the suite).
         comment     2026-11-16T14:34:18Z
@@ -1443,7 +1439,7 @@ tasks
             @task.V3.T21 because `resource({ persist: true })` writes a saved record format that this Task versions.
 
             **Read first:** @spec.Restore (R5), @plan.Persistence.O5, @plan.Machines.O5 (paused),
-            @spec.Turn.R27, code:wiki/conventions/interaction-state.md.
+            @spec.Turn.R27, @convention.interaction-state.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -1460,9 +1456,9 @@ tasks
             - An actor record's timer is `{ name, key?, dueAt }` or `{ name, key?, left }` at the next format, and a
               record of the format before it restores through a pure step with every timer read as `dueAt`
               (@spec.Restore.T6, with its planted fault "an old timer read as `left`").
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 7 of code:wiki/conventions/fixture-catalog.md:
-              `lanes`, `sync`, `transfers`, `sign-in`, `wizard`, `kanban`, `draft` gain the features, scenarios and
-              sources of their rows; each scenario red before the build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 7 of @convention.fixture-catalog: `lanes`, `sync`,
+              `transfers`, `sign-in`, `wizard`, `kanban`, `draft` gain the features, scenarios and sources of their
+              rows; each scenario red before the build, and the step's cells marked used at the close.
         comment     2026-11-16T11:06:05Z
             Routed from T17: history is not in the actor record (WriteAhead R4, Persistence O2), so S.X.history after a
             reload enters the default; land it with record migration.
@@ -1504,8 +1500,8 @@ tasks
             has none; add it or fix Q7's text.
         comment     2026-11-19T07:28:18Z
             Owns from T99 (proposed, catalog): HoldForgotten under L4 with retired holds; L5, S6 child-first and
-            forget-with-hold orders and step samples for unsettledWrites (code:wiki/conventions/fixture-catalog.md,
-            transfers and shop Runtime life).
+            forget-with-hold orders and step samples for unsettledWrites (@convention.fixture-catalog, transfers and
+            shop Runtime life).
         comment     2026-11-20T03:31:59Z
             Routed from T107's close review (orchestrator): a slot added or renamed by a later release makes a reaction
             with no when fire once on reload, against Turn R22's silent restore (Restore R5 says nothing of new slots).
@@ -1552,9 +1548,9 @@ tasks
             - `flow graph` prints each `emit` part as an edge named as in the turn's evidence, and `flow explain` lists
               each schedule's pause reasons by name, emit and `onProps` edges, one fan-out edge per copy state, and the
               copy denials that refuse (@spec.StaticCli.R5).
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 10 of code:wiki/conventions/fixture-catalog.md:
-              every fixture run with no new feature, as the step says; each scenario red before the build, and the
-              step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 10 of @convention.fixture-catalog: every fixture run with no
+              new feature, as the step says; each scenario red before the build, and the step's cells marked used at
+              the close.
         comment     2026-11-16T06:19:55Z
             Routed items: (1) O6 config checks: a config with only the brand key crashes instead of exiting 2; symlinks
             and root package.json unchecked; catch-all exits 2 silently. (2) Narrow the faults runner's tests/cli excuse
@@ -1600,9 +1596,9 @@ tasks
             - Nothing in `verify` reads the frozen packages.
             - `packages/flow-state-v3/package.json` has the six routes' `exports` map and the `flow` bin, and the
               packed-consumer smoke check passes on a packed tarball.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 10 of code:wiki/conventions/fixture-catalog.md:
-              every fixture run with no new feature, as the step says; each scenario red before the build, and the
-              step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 10 of @convention.fixture-catalog: every fixture run with no
+              new feature, as the step says; each scenario red before the build, and the step's cells marked used at
+              the close.
         comment     2026-11-16T02:04:36Z
             Routed from P2's completion audit: nub run verify no longer runs any stress file; the full gate should
             include nub run test:stress.
@@ -1620,10 +1616,9 @@ tasks
             and `subscribe.each` (@task.V3.T21) and the full schedule forms (@task.V3.T57): debounced latest-wins search
             with paging, per-branch cancellable loads, and undo history with late-settling items.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-generality-2026-11-16.md (the three
-            machines), code:wiki/plans/flow/references/proposals/ui-primitives-2026-11-16.md, the upstream core tests in
-            `codebases/ui-sdk/packages/core/test/`: `combobox*.test.ts` (24), `tree*.test.ts` (69) and
-            `token-input*.test.ts` (29), at commit `98ba9fd`.
+            **Read first:** @proposal.ui-primitives-generality (the three machines), @proposal.ui-primitives, the
+            upstream core tests in `codebases/ui-sdk/packages/core/test/`: `combobox*.test.ts` (24), `tree*.test.ts`
+            (69) and `token-input*.test.ts` (29), at commit `98ba9fd`.
 
             **Risk:** the three primitives are local actors, so their parent's configuration is declared props
             (@task.V3.T76), and view events are emits (@task.V3.T77); no `Configure` event. The proposal names three
@@ -1636,7 +1631,7 @@ tasks
             **Approach (prompt):** entries store `{ id, ref, label? }`; a token's status is read from the mention
             lookup's rows, and the selector hides failed tokens, so undo brings one back as failed. `readOnly` is a
             prop. The composing draft is a trait on COMPOSING. Drop `value`, `loading` and token `status` from
-            memory (code:wiki/conventions/where-a-value-lives.md).
+            memory (@convention.where-a-value-lives).
 
             May change: `fixtures/combobox/`, `fixtures/tree/`, `fixtures/token-input/`, `tests/`. Evidence: this
             Task's comments.
@@ -1654,10 +1649,9 @@ tasks
             - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
               `nub run faults` catches, and a dead core fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
-            - Fixtures first (code:wiki/conventions/fixtures.md): this Task's rows of step 8 of
-              code:wiki/conventions/fixture-catalog.md: the combobox in `kanban`, the tree in `draft` and the token
-              input in `chat` gain the features, scenarios and sources of their rows; each scenario red before the
-              build, and those cells marked used at the close.
+            - Fixtures first (@convention.fixtures): this Task's rows of step 8 of @convention.fixture-catalog: the
+              combobox in `kanban`, the tree in `draft` and the token input in `chat` gain the features, scenarios and
+              sources of their rows; each scenario red before the build, and those cells marked used at the close.
         comment     2026-11-20T13:01:57Z
             Breakdown review (orchestrator, 2026-11-20, R48): fixtures line names only this Task's rows of catalog step
             8: the combobox in kanban, the tree in draft and the token input in chat.
@@ -1675,10 +1669,10 @@ tasks
             compound states and history, which @task.V3.T17 builds; the menu's nested popups and stale endings exercise
             actor ownership.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§1
-            schedules, §3 Q4a, §8 W8d), code:wiki/conventions/interaction-state.md,
-            code:wiki/conventions/view-commands.md, the upstream core tests in `codebases/ui-sdk/packages/core/test/`:
-            `toast.test.ts` and `toast-swipe.test.ts` (34), and `menu-*.test.ts` (36), at commit `98ba9fd`.
+            **Read first:** @proposal.ui-primitives-decisions (§1 schedules, §3 Q4a, §8 W8d),
+            @convention.interaction-state, @convention.view-commands, the upstream core tests in
+            `codebases/ui-sdk/packages/core/test/`: `toast.test.ts` and `toast-swipe.test.ts` (34), and `menu-*.test.ts`
+            (36), at commit `98ba9fd`.
 
             **Risk:** the toaster's timer uses `paused` and per-key durations (@task.V3.T57), not stored clock stamps.
             Its pause reasons are `Hovered`, `Hidden` and `Pressing`, with `Hidden` reading `context.maxVisible` (the
@@ -1704,10 +1698,9 @@ tasks
             - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
               `nub run faults` catches, and a dead core fails every new test.
             - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
-            - Fixtures first (code:wiki/conventions/fixtures.md): this Task's rows of step 8 of
-              code:wiki/conventions/fixture-catalog.md: the toaster and the menu in `kanban` gain the features,
-              scenarios and sources of their rows; each scenario red before the build, and those cells marked used at
-              the close.
+            - Fixtures first (@convention.fixtures): this Task's rows of step 8 of @convention.fixture-catalog: the
+              toaster and the menu in `kanban` gain the features, scenarios and sources of their rows; each scenario red
+              before the build, and those cells marked used at the close.
         comment     2026-11-18T19:39:05Z
             Owes (proposed, P3 close fix round): review items A64 and A65 from T86, rename the ShopApi, CartApi and
             GitApi keys and place commands.ts, contracts.ts and the cells' Pay base by the fixture layout.
@@ -1737,8 +1730,8 @@ tasks
             **Why now:** configurable widgets mirror parent props into memory through a `Configure` event (the number
             input fixture does); the user accepted declared props instead (decisions Q5, §9 R1 to R3).
 
-            **Read first:** @spec.Turn.R28, @plan.Machines.O7, code:wiki/conventions/where-a-value-lives.md,
-            @task.V3.T9, code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9).
+            **Read first:** @spec.Turn.R28, @plan.Machines.O7, @convention.where-a-value-lives, @task.V3.T9,
+            @proposal.ui-primitives-decisions (§9).
 
             **Risk:** `Story.machine` is @task.V3.T29's; this Task builds its first slice (input, props and the props
             step) and T29 extends it (U3, decided by the orchestrator for the user, 2026-11-16). Blocked by T9, which
@@ -1765,9 +1758,9 @@ tasks
             - Local handles have `setProps(partial)` and `createActor` takes props; a ref on a machine with props is a
               type error and refused at construction (R9, R10); `PropWithoutDefault`.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 5 of code:wiki/conventions/fixture-catalog.md:
-              `command-palette`, `search` gain the features, scenarios and sources of their rows; each scenario red
-              before the build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 5 of @convention.fixture-catalog: `command-palette`, `search`
+              gain the features, scenarios and sources of their rows; each scenario red before the build, and the step's
+              cells marked used at the close.
         comment      2026-11-16T15:38:52Z
             Fixtures first (the user, 2026-11-16): local actors through createActor with props get a fixture first; its
             Stories are this Task's first requirements.
@@ -1799,8 +1792,8 @@ tasks
             failed submit) are stored today as a request plus a counter that replays after a reload; the user accepted
             emits (decisions Q3, §9 R6 and the Emits batch).
 
-            **Read first:** @spec.Turn.R29, @plan.Machines.O2, code:wiki/conventions/view-commands.md,
-            code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9).
+            **Read first:** @spec.Turn.R29, @plan.Machines.O2, @convention.view-commands,
+            @proposal.ui-primitives-decisions (§9).
 
             **Risk:** fragment emits are addressed by instance path and .each key, which need @task.V3.T109's fragments;
             that is the blocker. React delivery (`useOnEmit`) is @task.V3.T30's.
@@ -1821,9 +1814,9 @@ tasks
             - A fragment's emits are heard under its instance name and an .each copy's key, and appear in its
               summary type.
             - An `emit` evidence kind and Story emit records exist; each new rule has a planted fault.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 3 of code:wiki/conventions/fixture-catalog.md:
-              `sign-in`, `command-palette` gain the features, scenarios and sources of their rows; each scenario red
-              before the build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 3 of @convention.fixture-catalog: `sign-in`, `command-palette`
+              gain the features, scenarios and sources of their rows; each scenario red before the build, and the step's
+              cells marked used at the close.
         comment      2026-11-20T13:01:53Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T113, since its emit summary joins the one
             carried snapshot type.
@@ -1842,7 +1835,7 @@ tasks
             **Why now:** decisions W8e and §9 R7. The fixture mirrors seven props into memory, re-sends `Configure`
             after every reload, and stores `lastCommit { seq, value }` only to defeat equality.
 
-            **Read first:** code:wiki/conventions/controlled-values.md, code:wiki/conventions/where-a-value-lives.md,
+            **Read first:** @convention.controlled-values, @convention.where-a-value-lives,
             code:packages/flow-state-v3/fixtures/number-input/machines/stepper.ts, @task.V3.T71's mapping comment.
 
             **Risk:** a controlled value's emit carries the intent (`Change { by }`), not an absolute value (R7). The
@@ -1862,9 +1855,9 @@ tasks
             - Every case in T71's mapping still maps to a test asserting the same behaviour, or is listed as moved to
               view tests or dropped, with its reason.
             - `nub run check`, `nub run test` and `nub run faults` pass.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 6 of code:wiki/conventions/fixture-catalog.md:
-              `number-input` gain the features, scenarios and sources of their rows; each scenario red before the build,
-              and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 6 of @convention.fixture-catalog: `number-input` gain the
+              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
+              marked used at the close.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -1883,7 +1876,7 @@ tasks
             must land before @task.V3.T56 (versions these records) and real storage (@task.V3.T58, @task.V3.T28).
 
             **Read first:** @spec.Restore (R2, R5), @spec.Codec, @task.V3.T20 (its 2026-11-18T06:49 field list and 07:05
-            review), code:wiki/conventions/boundaries.md.
+            review), @convention.boundaries.
 
             **Risk:** a Codec and Restore Spec change, so it gets the whole-system check; the format is internal and
             unreleased, so nothing migrates.
@@ -1907,8 +1900,8 @@ tasks
             hostile argument is out of scope here; a stored record decoding to a wrong ending is in scope.
 
             Fixtures: no catalog step (no public feature). The review findings it lands are edge values for
-            code:wiki/conventions/fixtures.md: corrupt and forged saved records, drawn from every fixture's Stories, and
-            a step sample that forges a read operation's lane record, which no fixture offers today.
+            @convention.fixtures: corrupt and forged saved records, drawn from every fixture's Stories, and a step
+            sample that forges a read operation's lane record, which no fixture offers today.
 
             May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, @spec.Restore, @spec.Codec with
             `specs.log` notes. Evidence: this Task's comments.
@@ -1932,9 +1925,9 @@ tasks
             - Positional actor-record frames are length-checked, moved from @task.V3.T56.
             - `StateName` and `ActorName` accept a path supplied by the machine (a hook; fragment subject paths
               are @task.V3.T109's).
-            - Fixtures first (code:wiki/conventions/fixtures.md): the corrupt and forged record samples, including the
-              read-operation lane, are in the fixtures' step samples and run by every runner, before the build; the
-              proof is posted as a Task comment.
+            - Fixtures first (@convention.fixtures): the corrupt and forged record samples, including the read-operation
+              lane, are in the fixtures' step samples and run by every runner, before the build; the proof is posted as
+              a Task comment.
             - Identity and key text are parsed in one place: the six hand-parsing sites the P3 close-out named are gone.
             - Restore and Codec Specs updated with `specs.log` notes; `nub run check`, the suite and stress pass; `nub
               run faults --only` catches this Task's planted faults.
@@ -1987,28 +1980,27 @@ tasks
                (@spec.WriteLanes R6, @spec.Reads R6; red: not reported); a headless lane's queue and inFlight are not
                read (@spec.Restore R1; red: `sync NotSent` heard); a quarantined lane is reported at each of three boots
                (@spec.Restore R5; red: not reported).
-            6. Fixtures first (code:wiki/conventions/fixtures.md): proof in the next comment.
+            6. Fixtures first (@convention.fixtures): proof in the next comment.
             7. One parser: no `src` module but code:packages/flow-state-v3/src/core/identity.ts matches the hand-parsing
                spellings of the six routed sites plus record.ts KINDS lookup, key cuts and mix.ts. Red: 14 sites.
             8. Close gate, not a red check: Restore and Codec (and WriteAhead R4/R5, an extra file) Specs edited with
                `specs.log` notes; check, suite, stress; `nub run faults --only` T20's restore faults and
                `binding-unchecked`, planted with the binding decode since its target does not exist yet.
         comment     2026-11-18T21:25:52Z
-            Proof (code:wiki/conventions/fixtures.md). Forged and corrupt saved records (@spec.Restore R5, R1): fixtures
-            shop, sign-in, transfers, lanes (changed); machines Shop/Cart, Auth/Session, Bank/Transfers,
-            Lanes/serialize; journeys add a line, sign in, send a transfer, start a client, each then a reload with a
-            record no release wrote. Stories: shop/bound-graph-to-local, shop/owed-other-lane,
-            sign-in/read-operation-lane, transfers/state-undeclared, schedule-undeclared, attempt-forged; load L4
-            transfers/attempt-reloaded (three boots); builders shop/bound-to-local, bound-to-other-machine,
-            bound-to-gone, lanes/headless-lane-queued. Samples E7: new sets shop-records, auth-records, bank-records in
-            `samples` and `stressSamples` (old sets untouched so seeds replay). Generated corrupt records: every fixture
-            Story's checkpoint and end stores, all kinds. Combos: persistence with lanes, owed rows, context bindings,
-            schedules. Structure: none added (S1/S9 binding forgery on the session chain left for the build, it needs
-            the binding decode to be green). Sources: no real source; T20 review findings. Red today: as in the
-            requirements comment. Suite exit 0 (37 expected fail); `nub run check` exit 0. Deviation (needs the user or
-            orchestrator): the four forgeries that breach a run rule or the boot today are Story builders (the page
-            grants builders only to S7) and join `stories` and samples when green; registering them now turns the
-            sweep red.
+            Proof (@convention.fixtures). Forged and corrupt saved records (@spec.Restore R5, R1): fixtures shop,
+            sign-in, transfers, lanes (changed); machines Shop/Cart, Auth/Session, Bank/Transfers, Lanes/serialize;
+            journeys add a line, sign in, send a transfer, start a client, each then a reload with a record no release
+            wrote. Stories: shop/bound-graph-to-local, shop/owed-other-lane, sign-in/read-operation-lane,
+            transfers/state-undeclared, schedule-undeclared, attempt-forged; load L4 transfers/attempt-reloaded (three
+            boots); builders shop/bound-to-local, bound-to-other-machine, bound-to-gone, lanes/headless-lane-queued.
+            Samples E7: new sets shop-records, auth-records, bank-records in `samples` and `stressSamples` (old sets
+            untouched so seeds replay). Generated corrupt records: every fixture Story's checkpoint and end stores, all
+            kinds. Combos: persistence with lanes, owed rows, context bindings, schedules. Structure: none added (S1/S9
+            binding forgery on the session chain left for the build, it needs the binding decode to be green). Sources:
+            no real source; T20 review findings. Red today: as in the requirements comment. Suite exit 0 (37 expected
+            fail); `nub run check` exit 0. Deviation (needs the user or orchestrator): the four forgeries that breach a
+            run rule or the boot today are Story builders (the page grants builders only to S7) and join `stories` and
+            samples when green; registering them now turns the sweep red.
         comment     2026-11-18T21:25:53Z
             Fixture review (3 Haiku, effort high: coverage, rules, adversary), each finding re-checked. Accepted:
             as-saved control now requires canonical, unquarantined text; record dedupe by nested types; `$ field added`
@@ -2420,7 +2412,7 @@ tasks
             (tip d92e802f); flow-rewrite's code and Specs restored to fef46251. Next attempt questions the record format
             itself (eliminate contradictory states by structure), with this branch's tests as its requirements.
         comment     2026-11-19T07:01:22Z
-            Decision (the user, 2026-11-19): the Fable consult on trust boundaries (records here and public values in
+            [decided: user 2026-11-19] the Fable consult on trust boundaries (records here and public values in
             @task.V3.T98, one design) waits until P4 closes or later; these deferred items block nothing now.
         comment     2026-11-19T13:44:29Z
             Boundary (orchestrator ruling on @task.V3.T102, 2026-11-19): T102 brands runtime ids only (incarnation,
@@ -2451,7 +2443,7 @@ tasks
             (code:packages/flow-state-v3/src/core/serve.ts). It is the "user callback results" row of the boundary map,
             the one source with no owner.
 
-            **Read first:** code:wiki/conventions/boundaries.md, @spec.Turn, @spec.Diagnostics, @spec.Codec (R6).
+            **Read first:** @convention.boundaries, @spec.Turn, @spec.Diagnostics, @spec.Codec (R6).
 
             **Risk:** checking patch values walks large patches twice: the palette's `Configure` patches 100,000
             commands. The bench decides whether production checks values or only keys (dev and test always check both).
@@ -2465,9 +2457,9 @@ tasks
             every callback passes through, results decoded by the slot's Schema), rather than adding checks one by one;
             the first commit states the choice and why.
 
-            Fixtures: no catalog step; the refusals are edge values for code:wiki/conventions/fixtures.md (hostile
-            patches and mapper payloads in the fixtures' step samples, the palette's large patch as load). The raw-throw
-            class stays parked in @task.V3.T98.
+            Fixtures: no catalog step; the refusals are edge values for @convention.fixtures (hostile patches and mapper
+            payloads in the fixtures' step samples, the palette's large patch as load). The raw-throw class stays parked
+            in @task.V3.T98.
 
             May change: `src/core/`, `tests/`, `fixtures/`, @spec.Turn and @spec.Diagnostics with `specs.log` notes.
             Evidence: this Task's comments.
@@ -2481,8 +2473,8 @@ tasks
             - An unknown patch key, a patch value its field's Schema refuses and a mapper payload its event refuses each
               refuse the turn with a FlowError naming the slot, shown red first by a Story test.
             - One callback wrapper keeps the thrown cause and slot; `call` and `callSlot` are gone.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the hostile patch and payload samples are in the
-              fixtures' step samples and run by every runner before the build; the proof is posted as a Task comment.
+            - Fixtures first (@convention.fixtures): the hostile patch and payload samples are in the fixtures' step
+              samples and run by every runner before the build; the proof is posted as a Task comment.
             - The palette's per-turn median grows by at most 10 % with checks on, or production checks keys only,
               recorded with the bench numbers.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
@@ -2515,9 +2507,8 @@ tasks
             palette and player wait on it. The Plans already specify it: @plan.Runtime.O4 (the send table by target),
             @plan.LazyFeatures (a send never adopts), Actors R13 and I20 (the loop guard, built with the action).
 
-            **Read first:** @plan.Runtime.O4, @spec.Actors (R13, I20),
-            code:wiki/plans/flow/references/proposals/replan-2026-11-18.md (section
-            7), code:wiki/conventions/boundaries.md.
+            **Read first:** @plan.Runtime.O4, @spec.Actors (R13, I20), @proposal.replan (section
+            7), @convention.boundaries.
 
             **Risk:** two machines that send to each other import each other's Machine for the ref; this Task checks
             whether a ref by definition is needed, and that is a public API call for the user.
@@ -2549,9 +2540,9 @@ tasks
               2026-11-19: the refusal is InvalidTurn, not a FlowError, by the close review).
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
         comment     2026-11-18T19:06:48Z
-            Decision (the user, 2026-11-19): send(ref, event) stays as accepted (re-plan Q4 A), as in XState's sendTo,
-            framed as a rare escape hatch: docs and examples prefer context, entities and view routing first. Reverse:
-            re-plan section 7's B or C.
+            [decided: user 2026-11-19] send(ref, event) stays as accepted (re-plan Q4 A), as in XState's sendTo, framed
+            as a rare escape hatch: docs and examples prefer context, entities and view routing first. Reverse: re-plan
+            section 7's B or C.
         comment     2026-11-18T19:14:16Z
             Routed from P3's close-out (low): RuntimeDefaults.loopGuard (defaults.ts:39) is read nowhere; follow-ups
             only yield at drainYield. Wire it with the send action and plant its fault.
@@ -2676,16 +2667,16 @@ tasks
             named by literal stay; (4) the booting row is left, owner @task.V3.T99; (5) Household's Next stays public.
             For the user's read.
         comment     2026-11-19T01:50:21Z
-            Decision (the user, 2026-11-19, Q6 A): two machines that send to each other are allowed, as XState and the
-            actor model do; document the Machine<typeof Def> annotation; flow check may list send cycles as information,
-            never refuse them.
+            [decided: user 2026-11-19; Q6 A] two machines that send to each other are allowed, as XState and the actor
+            model do; document the Machine<typeof Def> annotation; flow check may list send cycles as information, never
+            refuse them.
         comment     2026-11-19T01:57:31Z
-            Decision (the user, 2026-11-19): send's form is A: actions: [send(toRef, Target.E.X.from(fn))], and
+            [decided: user 2026-11-19] send's form is A: actions: [send(toRef, Target.E.X.from(fn))], and
             Target.E.X(payload) for a constant payload; events come from the target's definition, never raw _tag
             objects. send accepts a token's .from result (a small change, no new concept). Fixtures rewritten to it.
         comment     2026-11-19T02:00:20Z
-            Decision (the user, 2026-11-19): the old form stays too: send(toRef, (input) => event), a callback returning
-            the event, is accepted beside send(toRef, Target.E.X.from(fn)). Fixtures show both; docs lead with the
+            [decided: user 2026-11-19] the old form stays too: send(toRef, (input) => event), a callback returning the
+            event, is accepted beside send(toRef, Target.E.X.from(fn)). Fixtures show both; docs lead with the
             token form.
         comment     2026-11-19T02:01:11Z
             Requirements review: ISSUES (independent lead, 2026-11-19). Six blocking findings, each naming the missing
@@ -2749,8 +2740,8 @@ tasks
             acceptance 2 names shop, player and sync only (small amendment); transfers stays out by the user's
             no-more-cuts call, ruling 2 stands.
         comment     2026-11-19T02:02:34Z
-            Decision (the user, 2026-11-19): send never infers its target; no one-argument overload, since it would
-            expose actor names as strings. A send always takes an explicit ref.
+            [decided: user 2026-11-19] send never infers its target; no one-argument overload, since it would expose
+            actor names as strings. A send always takes an explicit ref.
         comment     2026-11-19T02:21:54Z
             Fix round: the six requirements-review findings, each a check (inverted until the build; replayed, each red
             because the send is undelivered today). Suite exit 0 (1212 passed, 48 expected fail), `nub run check`
@@ -2923,7 +2914,7 @@ tasks
             that reaches a guard join is owed to @task.V3.T99's review of the guard's readers only if a later finding
             needs it.
         comment     2026-11-19T06:53:03Z
-            Decision (the user, 2026-11-19): Shop/Subscription stays as T96 built it.
+            [decided: user 2026-11-19] Shop/Subscription stays as T96 built it.
     T97
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
@@ -2936,10 +2927,8 @@ tasks
             Fake, with its own store, host and seed copies, against the Epic's "one runtime, one way to run it". T80's
             driver item (Actors R25) moved to the boundary Task.
 
-            **Read first:** @task.V3.T80 (its routed items, in its comments),
-            code:wiki/plans/flow/references/proposals/code-quality-review-2026-11-16.md (section 4),
-            code:wiki/plans/flow/references/proposals/code-quality-review-2-2026-11-16.md (section 5,
-            A7), code:packages/flow-state-v3/src/host/testing/seam.ts.
+            **Read first:** @task.V3.T80 (its routed items, in its comments), @review.code-quality-review (section 4),
+            @review.code-quality-review-2 (section 5, A7), code:packages/flow-state-v3/src/host/testing/seam.ts.
 
             **Risk:** coverage must not drop: port one file at a time, keep every rule each test cites, and keep each
             planted fault caught by its target.
@@ -2966,9 +2955,9 @@ tasks
               each citing the same rules; `seam.ts` and its copies of the store, host and seed are gone.
             - `nub run faults --only` catches the same faults before and after, each by its own target; the suite and
               stress pass.
-            - Fixtures first (code:wiki/conventions/fixtures.md): each ported host test lands in a fixture of
-              code:wiki/conventions/fixture-catalog.md as a Story or sample, not as a hand test, and was red on its
-              planted fault before the seam file is deleted.
+            - Fixtures first (@convention.fixtures): each ported host test lands in a fixture of
+              @convention.fixture-catalog as a Story or sample, not as a hand test, and was red on its planted fault
+              before the seam file is deleted.
             - The routed items in the Approach are each done or routed on with a reason in this Task's comments.
             - Moved from @task.V3.T112 (test tooling, not fakes): Turn I9's run rule counts a context-update publication
               caused by another actor's turn as part of that turn; `test:coverage` passes reporter flags through and
@@ -3019,8 +3008,7 @@ tasks
             the class (for disposal: one ordered disposal plan the driver runs, not a guard per call).
 
             Fixtures: disposal and runtime-life cases in the existing apps where a product would dispose or wait on
-            writes (code:wiki/conventions/fixtures.md, "The right tool"). The raw-throw class stays parked
-            in @task.V3.T98.
+            writes (@convention.fixtures, "The right tool"). The raw-throw class stays parked in @task.V3.T98.
 
             May change: `src/`, `tests/`, `fixtures/`, @spec.Actors with `specs.log` notes. Evidence: this
             Task's comments.
@@ -3031,8 +3019,8 @@ tasks
         acceptance
             - Each part in the Approach has a Story or host test, red before its code, and a planted fault caught by it.
             - `runtime.unsettledWrites()` lists exactly the non-Idle lanes by identity, unbound lane records included.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the disposal and runtime-life scenarios are in the
-              fixtures' Stories and step samples and run by every runner before the build; the proof is a Task comment.
+            - Fixtures first (@convention.fixtures): the disposal and runtime-life scenarios are in the fixtures'
+              Stories and step samples and run by every runner before the build; the proof is a Task comment.
             - Every routed item in this Task's comments is built (with its wrong ending named) or dropped with a reason.
             - CleanupFailed, HoldForgotten and RuntimeDisposed for `runPromise` are reported as @plan.Runtime.O6 says,
               with the whole Cause kept on the FlowError.
@@ -3151,8 +3139,8 @@ tasks
             every rejection is a FlowError classified from the whole Cause (Diagnostics R6, R8), its first finding
             RunFailed (proposed code), the Cause on `cause`.
         comment     2026-11-19T04:36:34Z
-            Fixtures proof (code:wiki/conventions/fixtures.md): 8 new Stories in transfers, shop and sync, registered in
-            their manifests, red as `it.fails` titled by rule; catalog items written under each app's "Runtime life".
+            Fixtures proof (@convention.fixtures): 8 new Stories in transfers, shop and sync, registered in their
+            manifests, red as `it.fails` titled by rule; catalog items written under each app's "Runtime life".
 
             - unsettledWrites (Actors R26, R20): transfers, shop, sync (changed), machines Bank/Transfers, Checkout/Pay,
               Git/Sync, journey "close the tab with a write out"; usual `transfers/leave-while-sending`,
@@ -3516,13 +3504,13 @@ tasks
             from-scratch Opus redesign that removes the background-work lifetime class is proposed next, then the two
             are compared and the user decides.
         comment     2026-11-19T08:46:10Z
-            Decision (the user, 2026-11-19): Q10 (an unreported quarantine) and the quarantine lift on disposeActor are
+            [decided: user 2026-11-19] Q10 (an unreported quarantine) and the quarantine lift on disposeActor are
             delegated: whichever the redesign shows correct, decided by the orchestrator and noted.
         comment     2026-11-19T09:16:53Z
-            Decision (the user, 2026-11-19, Q4): the lifetimes redesign (proposals/runtime-lifetimes-2026-11-19.md,
-            c701e254) is accepted; T99 is rebuilt on it, in a worktree (the user's call, overriding the no-worktree
-            default for this build). The Cause-fold branch t99-cause-fold stays as prior art. The proposal's Q1 to Q3,
-            Q10 and the quarantine lift are decided by correctness and noted.
+            [decided: user 2026-11-19; Q4] the lifetimes redesign (@proposal.runtime-lifetimes, c701e254) is accepted;
+            T99 is rebuilt on it, in a worktree (the user's call, overriding the no-worktree default for this build).
+            The Cause-fold branch t99-cause-fold stays as prior art. The proposal's Q1 to Q3, Q10 and the quarantine
+            lift are decided by correctness and noted.
         comment     2026-11-19T12:18:22Z
             Done (orchestrator, 2026-11-19): rebuilt on the Owner redesign in a worktree; second close review PASS
             (1b348eb2); merged into flow-rewrite as f1968531. Decisions, bench and review logs are in
@@ -3580,8 +3568,7 @@ tasks
             Also owes (proposed, P3 R18 rerun): Diagnostics O2's InvariantViolation code is unbuilt; Actors R25 stops
             the Runtime on the raw defect instead. Decide the code or drop it from the Plan (the user's read).
         comment     2026-11-19T00:25:12Z
-            Decision (the user, 2026-11-19): InvariantViolation (Diagnostics O2) is built here, as the P3
-            audit proposed.
+            [decided: user 2026-11-19] InvariantViolation (Diagnostics O2) is built here, as the P3 audit proposed.
         comment     2026-11-19T06:06:10Z
             Owes (orchestrator, 2026-11-19; from T99): a throwing interrupt cleanup of a call whose commit races a
             deadline (Effect.timeoutOrElse) is never reported CleanupFailed, since the race drops the loser's Cause;
@@ -3750,8 +3737,8 @@ tasks
               Open call: type the compare by `Decline` now (one line, no shape change), or leave it to the consult.
             - Single-tag Life and Verdict checks: binary by meaning, no default to fall into.
 
-            Fixtures (code:wiki/conventions/fixtures.md): no public feature changes; the proof is the existing Stories.
-            Extra files: `bench/worker.ts`, `bench/workers.ts`, `tests/bench/`, `tools/flow-state-lint/`.
+            Fixtures (@convention.fixtures): no public feature changes; the proof is the existing Stories. Extra files:
+            `bench/worker.ts`, `bench/workers.ts`, `tests/bench/`, `tools/flow-state-lint/`.
         comment     2026-11-19T13:31:54Z
             Rulings (orchestrator, 2026-11-19): A6 to A8 added to acceptance (small amendment); isSaved's bare reason
             compare is typed through Decline now (one line, correctness), leaving the rest of the ending triple to the
@@ -4010,10 +3997,10 @@ tasks
               port error is a class or a TaggedStruct.
             - Each new testing word has a @plan.Pending decision; `nub run check` and the suite pass.
         comment     2026-11-19T09:18:55Z
-            Decision (the user, 2026-11-19): C1 (typed read), C2 (Fake.port) and C3 (evidence by token) accepted, in one
-            Task early in P4.
+            [decided: user 2026-11-19] C1 (typed read), C2 (Fake.port) and C3 (evidence by token) accepted, in one Task
+            early in P4.
         comment     2026-11-19T09:36:14Z
-            Decision (the user, 2026-11-19): C2 revised to a lost option on Fake.server instead of a new Fake.port word.
+            [decided: user 2026-11-19] C2 revised to a lost option on Fake.server instead of a new Fake.port word.
         comment     2026-11-19T12:24:41Z
             Requirements (proposed), one per acceptance line; each is red today and names the false pass it stops.
 
@@ -4051,9 +4038,9 @@ tasks
                definition, a world that fails a lost call with FakeLost; `nub run check` at zero, the suite and the
                stress runs pass.
 
-            Fixtures (code:wiki/conventions/fixtures.md): no runtime feature changes and no fixture is added; the words
-            read the existing apps, and the proof is their converted Stories. Extra files: `src/events.ts`,
-            `src/index.ts` (the generic `Snapshot`), `tools/flow-state-lint/` (the rule).
+            Fixtures (@convention.fixtures): no runtime feature changes and no fixture is added; the words read the
+            existing apps, and the proof is their converted Stories. Extra files: `src/events.ts`, `src/index.ts` (the
+            generic `Snapshot`), `tools/flow-state-lint/` (the rule).
         comment     2026-11-19T12:25:16Z
             Accepted (orchestrator, 2026-11-19): read narrows the type without decoding (memory holds typed values);
             turnsOf and deliveriesOf match only the token's own definition; shop's port errors stay TaggedStructs (the
@@ -4164,8 +4151,8 @@ tasks
                definition, a world that fails a lost call with FakeLost; `nub run check` at zero, the suite and the
                stress runs pass.
 
-            Fixtures (code:wiki/conventions/fixtures.md): no runtime feature changes and no fixture is added; the proof
-            is the converted Stories. Extra files: `src/definition.ts`, `src/events.ts`, `src/index.ts` (the generic
+            Fixtures (@convention.fixtures): no runtime feature changes and no fixture is added; the proof is the
+            converted Stories. Extra files: `src/definition.ts`, `src/events.ts`, `src/index.ts` (the generic
             `Snapshot`), `tools/flow-state-lint/` (the rule).
         comment     2026-11-19T13:05:48Z
             Built, for review: C1 to C3 meet all 5 requirements (commits 424085b2, 20a08334, 207aea2f, ba19a0a0).
@@ -4267,8 +4254,8 @@ tasks
             compiles (about 91 sites); `cut.read(foreignRef)` returns undefined and passes (498 sites); `updateMemory`
             may silently rewrite a `Flow.input` field.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/type-gaps-deep-2026-11-19.md (families, seams,
-            cast inventory, probes), code:packages/flow-state-v3/src/definition.ts#Handles,
+            **Read first:** @review.type-gaps-deep (families, seams, cast inventory, probes),
+            code:packages/flow-state-v3/src/definition.ts#Handles,
             code:packages/flow-state-v3/src/contract.ts, code:packages/flow-state-v3/src/host/snapshot.ts.
 
             **Approach:** fix the carrier at each seam, once, so one change closes every gap on it (the convergence
@@ -4333,22 +4320,22 @@ tasks
             maps each seam (producer, consumer, type on each side) and fixes the carrier at the seam, so one change
             closes every gap on it.
         comment     2026-11-19T13:43:19Z
-            Scope from the deep survey (code:wiki/plans/flow/references/proposals/type-gaps-deep-2026-11-19.md; 9
-            families, 34 new gaps, 31 probe-confirmed, 21 seams): build by carrier, in order F9 first (an arrow's
-            returned object is not excess-checked, so updateMemory may silently rewrite a Flow.input field: confirm with
-            a Story, red first, as a wrong ending), then F1 Bound with ContextSlot<V, P>, F5 Snapshot<D, View> (private
-            fields and resting context must not be claimed), F4 RuntimeSetup<R, A> (cut.read of a foreign ref returning
-            undefined, 498 sites), F6 with F8, F2 Ending<V>, F3, F7, the three seams with duplicated shapes, then the
-            cast sweep (74 removable now, 9 after carriers; three false SAFETY comments). New public type parameters are
-            delegated (users rarely write them) and noted for the user's read.
+            Scope from the deep survey (@review.type-gaps-deep; 9 families, 34 new gaps, 31 probe-confirmed, 21 seams):
+            build by carrier, in order F9 first (an arrow's returned object is not excess-checked, so updateMemory may
+            silently rewrite a Flow.input field: confirm with a Story, red first, as a wrong ending), then F1 Bound with
+            ContextSlot<V, P>, F5 Snapshot<D, View> (private fields and resting context must not be claimed), F4
+            RuntimeSetup<R, A> (cut.read of a foreign ref returning undefined, 498 sites), F6 with F8, F2 Ending<V>, F3,
+            F7, the three seams with duplicated shapes, then the cast sweep (74 removable now, 9 after carriers; three
+            false SAFETY comments). New public type parameters are delegated (users rarely write them) and noted for the
+            user's read.
         comment     2026-11-19T14:38:59Z
-            Scope addition (type-coverage probe, code:wiki/plans/flow/references/proposals/type-coverage-2026-11-19.md):
-            all 9 families confirmed on user-shaped code, ranked by uses (F4 refs 3,007; F9 excess keys 431; F3 token
-            brand 290; F2 endings 238; F1 handles 137); 17 new gaps added, all probe-confirmed, worst
-            ReadEndings.failure any key, Flow.initial's untyped fields, checkpoint names lost through run({ steps }) and
-            StoryRun helpers, a guard's state as string. Guard: turn on the type-aware no-unsafe-* lint rules (about 18
-            fixes, 8 reasoned disables); noPropertyAccessFromIndexSignature and a type-coverage threshold are not worth
-            it; T104's two-sided type tests stay the gate.
+            Scope addition (type-coverage probe, @review.type-coverage): all 9 families confirmed on user-shaped code,
+            ranked by uses (F4 refs 3,007; F9 excess keys 431; F3 token brand 290; F2 endings 238; F1 handles 137); 17
+            new gaps added, all probe-confirmed, worst ReadEndings.failure any key, Flow.initial's untyped fields,
+            checkpoint names lost through run({ steps }) and StoryRun helpers, a guard's state as string. Guard: turn on
+            the type-aware no-unsafe-* lint rules (about 18 fixes, 8 reasoned disables);
+            noPropertyAccessFromIndexSignature and a type-coverage threshold are not worth it; T104's two-sided type
+            tests stay the gate.
         comment     2026-11-19T14:45:48Z
             Method (user-prompted, 2026-11-19; delegated): type tests use Vitest's type testing
             (https://vitest.dev/guide/testing-types): *.test-d.ts files with exact expectTypeOf(...).toEqualTypeOf<T>()
@@ -4765,8 +4752,8 @@ tasks
             and the `no-unsafe-*` rules; docs:build, stress, faults for any new rule, and two Sonnet reviewers.
         comment     2026-11-19T18:53:20Z
             Superseded (the user, 2026-11-20): the owed onContext tuple refusal is dropped; @task.V3.T107 replaces
-            reactions with C.slot.change per code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md.
-            T104's F3 token brand must keep a definition's id literal, which T107's one-provider ban needs.
+            reactions with C.slot.change per @proposal.context-slots. T104's F3 token brand must keep a definition's id
+            literal, which T107's one-provider ban needs.
         comment     2026-11-19T19:52:32Z
             Build status (lead, resumed): F3 brand, state reads, F6 names, details keys, name filters and F9's cheap
             types landed (c0359aed, 647ace06, 3c1b791d), check and suite at exit 0. Changed: a Diagnostic's details are
@@ -4899,8 +4886,8 @@ tasks
             threshold 2: the fix lands a guard for the class (and one for stale plants), each shown red first. Older
             holes routed to @task.V3.T21 and @task.V3.T105. Rename of the two compile files waits for the user.
         comment     2026-11-19T21:03:01Z
-            Decision (the user, 2026-11-20): rename testing.compile.ts and send.compile.ts (and schedule-send.test.ts)
-            to *.test-d.ts, relinking @plan.Pending and the closed Task's comment; Req 15 closes in the fix round.
+            [decided: user 2026-11-20] rename testing.compile.ts and send.compile.ts (and schedule-send.test.ts) to
+            *.test-d.ts, relinking @plan.Pending and the closed Task's comment; Req 15 closes in the fix round.
         comment     2026-11-19T21:39:32Z
             Sidecar log (lead, fix round): two Haiku export replays (effort high) over the two public entries; each
             finding re-read in code.
@@ -5008,11 +4995,10 @@ tasks
             @task.V3.T105. Proposed, for the user: the Step.ensure/detach/send/dispose, WorldWord and FakeWorld removal
             from the public testing entry (2dcd3cf4) stands until the user decides; reverse by re-exporting them.
         comment     2026-11-19T22:02:03Z
-            Decision (the user, 2026-11-20): Q1 A for now: the public Step constructors, WorldWord and FakeWorld stay
-            removed; the user finalises tomorrow, leaning to keep them removed if nothing needs them.
+            [decided: user 2026-11-20] Q1 A for now: the public Step constructors, WorldWord and FakeWorld stay removed;
+            the user finalises tomorrow, leaning to keep them removed if nothing needs them.
         comment     2026-11-20T08:54:19Z
-            Decision (the user, 2026-11-20): Q1 A final: the public Step constructors, WorldWord and FakeWorld
-            stay removed.
+            [decided: user 2026-11-20] Q1 A final: the public Step constructors, WorldWord and FakeWorld stay removed.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
@@ -5181,7 +5167,7 @@ tasks
 
             Acceptance 4 and 9 are gates at close.
         comment     2026-11-20T01:11:25Z
-            Fixtures proof (lead, code:wiki/conventions/fixtures.md), proposed.
+            Fixtures proof (lead, @convention.fixtures), proposed.
 
             Computed `Flow.initial` removed (@spec.Compile R5): fixtures sign-in (changed; machine `Auth/Session`,
             journey handle-retry) and player (changed; machine `Music/Player`).
@@ -5459,14 +5445,13 @@ tasks
         description
             Context slots are declared whole on the definition with `Flow.context` and read their one provider through
             typed tokens, and machines react with `C.slot.change({ when?, event })`, as the accepted proposal
-            describes (code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md).
+            describes (@proposal.context-slots).
 
             **Why now:** a slot's `Provider.select(Schema, fn)` and a reaction's `select` are opaque functions over
             string keys: `when`'s arguments are `never`, a selector may read a field it should not, and the graph only
             knows "depends on all of the provider", so flow check, explain and graph cannot follow a context chain.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md,
-            code:packages/flow-state-v3/src/core/compiled.ts#Reaction,
+            **Read first:** @proposal.context-slots, code:packages/flow-state-v3/src/core/compiled.ts#Reaction,
             code:packages/flow-state-v3/src/core/compiled.ts#ContextSlot,
             code:packages/flow-state-v3/src/host/wiring.ts.
 
@@ -5483,9 +5468,9 @@ tasks
             May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`, `tools/flow-state-lint/`,
             `apps/docs/`, the Specs that state context. Evidence: this Task's comments.
 
-            Fixtures: the catalog's context rows and its six context forms (code:wiki/conventions/fixture-catalog.md,
-            "Context forms"), each a Story and an edge-value sample in the apps the catalog names (shop, git, transfers,
-            sign-in, workspace); every existing `onContext` and `Provider.select` site converted in place.
+            Fixtures: the catalog's context rows and its six context forms (@convention.fixture-catalog, "Context
+            forms"), each a Story and an edge-value sample in the apps the catalog names (shop, git, transfers, sign-in,
+            workspace); every existing `onContext` and `Provider.select` site converted in place.
 
             False pass: a type test that passes because a token became `any` → every type test is two-sided, enforced by
             `flow-state/paired-refusals`. Gates: the one-provider construction check and the skip-unchanged
@@ -5493,8 +5478,8 @@ tasks
             User's read: the state-scoped `onContext` verdict and its entry rule; any change to the saved reaction
             baseline (Actors R18), since it changes the record format that @task.V3.T56 versions.
         acceptance
-            - Fixtures meet code:wiki/conventions/fixtures.md before any code, proved by its sidecar review; the
-              catalog's context items are each marked built (with a Story id) or left (with the later Task).
+            - Fixtures meet @convention.fixtures before any code, proved by its sidecar review; the catalog's context
+              items are each marked built (with a Story id) or left (with the later Task).
             - Wrong endings pinned red first: a `reads` mixing two providers, a read of a `Flow.private` field, a
               `select` or `when` using the wrong type, and a `.change` on an undeclared slot each fail to compile
               (two-sided type tests); a mixed-provider slot built through a cast throws `InvalidConfiguration`, and a
@@ -5743,7 +5728,7 @@ tasks
             --only, 3 new. Left: the release Stories are hand-written in tests/restore, not a fixture's releases.ts;
             `tests/refusals.ts` kept (a third shape, not a copy).
         comment     2026-11-20T01:36:08Z
-            Decision (the user, 2026-11-20): Q1 A: a slot's first good value after a failed select asks when(current,
+            [decided: user 2026-11-20] Q1 A: a slot's first good value after a failed select asks when(current,
             undefined, { memory }); previous is typed T | undefined; a reaction with no when fires. The fix lands red
             first after T105's lead reaches review (one lead at a time).
         comment     2026-11-20T03:20:45Z
@@ -5826,10 +5811,9 @@ tasks
             subroutine and `whenAbandoned` rules moved in from @task.V3.T110 because both write one fragment
             incarnation's lifecycle (breakdown review, the orchestrator, 2026-11-20).
 
-            **Read first:** @plan.Machines.O1, @spec.Compile,
-            code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9),
-            code:wiki/conventions/fixture-catalog.md (the subroutine and `whenAbandoned` rows' fixture homes). Blocked
-            by @task.V3.T57 because a trait carries schedules, which that Task finishes, and by @task.V3.T113, whose
+            **Read first:** @plan.Machines.O1, @spec.Compile, @proposal.ui-primitives-decisions (§9),
+            @convention.fixture-catalog (the subroutine and `whenAbandoned` rows' fixture homes). Blocked by
+            @task.V3.T57 because a trait carries schedules, which that Task finishes, and by @task.V3.T113, whose
             carried body type this Task's fragment summary adds a field to.
 
             **Contract:** this Task exposes the live copies of an `.each` trait in key order; @task.V3.T110 reads them.
@@ -5850,10 +5834,9 @@ tasks
             - `StateName` and `ActorName` (@task.V3.T92's Schemas) admit fragment subject paths (`.resumable()`), shown
               by a restore of a record that names one.
             - Each new runtime rule has a planted fault that `nub run faults --only` catches.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the fragment rows of step 2 of
-              code:wiki/conventions/fixture-catalog.md, in the apps that row names, and the subroutine and
-              `whenAbandoned` rows, gain their features, scenarios and sources; each scenario red before the build, and
-              those cells marked used at the close.
+            - Fixtures first (@convention.fixtures): the fragment rows of step 2 of @convention.fixture-catalog, in the
+              apps that row names, and the subroutine and `whenAbandoned` rows, gain their features, scenarios and
+              sources; each scenario red before the build, and those cells marked used at the close.
         comment     2026-11-20T08:11:40Z
             Routed (orchestrator, 2026-11-20): step 2's kanban rows (context, compound states, persist), unowned since
             T57's split, are this Task's.
@@ -5888,8 +5871,8 @@ tasks
             **Why now:** split from @task.V3.T109 in the breakdown review (the orchestrator, 2026-11-20): the copies'
             lifecycle is T109's state; this Task only reads the live copies it exposes in key order.
 
-            **Read first:** @spec.Turn (R30), @plan.Machines.O3, @task.V3.T109, code:wiki/conventions/fixture-catalog.md
-            (the raise-into-copies rows).
+            **Read first:** @spec.Turn (R30), @plan.Machines.O3, @task.V3.T109, @convention.fixture-catalog (the
+            raise-into-copies rows).
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -5900,9 +5883,8 @@ tasks
               (`Unhandled` evidence), refuses on a copy's denial, and does nothing (recorded) with no copies
               (@spec.Turn.R30); a `FanOutNeverHandled` warning exists.
             - Each new runtime rule has a planted fault that `nub run faults --only` catches.
-            - Fixtures first (code:wiki/conventions/fixtures.md): the raise-into-copies rows of
-              code:wiki/conventions/fixture-catalog.md gain their features and scenarios; each red before the build, and
-              those cells marked used at the close.
+            - Fixtures first (@convention.fixtures): the raise-into-copies rows of @convention.fixture-catalog gain
+              their features and scenarios; each red before the build, and those cells marked used at the close.
         comment     2026-11-20T13:01:52Z
             Breakdown review (orchestrator, 2026-11-20, R48): repurposed (same id): was subroutines and whenAbandoned,
             now moved to T109. It takes the Turn R30 raise into .each traits and FanOutNeverHandled from T109, reading
@@ -5925,8 +5907,8 @@ tasks
             split from the store (@task.V3.T58) by the user (2026-11-20, Q3 A). Blocked by T58, whose store, adapter and
             browser runner this uses.
 
-            **Read first:** @plan.React.O1, @plan.Inspection.O2, @task.V3.T58, code:wiki/conventions/fixture-catalog.md
-            (step 9). @task.V3.T30 builds the full React binding.
+            **Read first:** @plan.React.O1, @plan.Inspection.O2, @task.V3.T58, @convention.fixture-catalog (step 9).
+            @task.V3.T30 builds the full React binding.
 
             May change: `src/host/`, `src/react/` or the binding's folder, `fixtures/`, `tests/`, the browser-run
             folder. Evidence: this Task's comments.
@@ -5935,9 +5917,9 @@ tasks
             in the browser and a planted fault in the binding. User's read: the binding's minimal surface, and the
             hide-handler timings.
         acceptance
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 9 of code:wiki/conventions/fixture-catalog.md,
-              every fixture run with no new feature in real Chrome and Safari, each alone; each scenario red before the
-              build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 9 of @convention.fixture-catalog, every fixture run with no
+              new feature in real Chrome and Safari, each alone; each scenario red before the build, and the step's
+              cells marked used at the close.
             - The React binding is the least that renders the fixtures; `getSnapshot` returns the same object until a
               turn publishes, so `useSyncExternalStore` sees one value per turn (red first).
             - Codec bytes are equal on every host (@plan.Inspection.O2), and a hidden tab resumes after restore
@@ -6026,9 +6008,8 @@ tasks
             class: a type Flow knows, written by hand where inference does not reach; the user widened this Task to
             remove it everywhere (2026-11-20).
 
-            **Read first:** code:packages/flow-state-v3/src/machine.ts,
-            code:wiki/plans/flow/references/proposals/advisor-questions-2026-11-20.md (question 1), @plan.Machines.O1,
-            @plan.Machines.O8, @spec.Turn (R16, R27).
+            **Read first:** code:packages/flow-state-v3/src/machine.ts, @questions.advisor-questions (question 1),
+            @plan.Machines.O1, @plan.Machines.O8, @spec.Turn (R16, R27).
 
             **Approach:** design the whole Task at once, a type spike first:
             - carry the body type and keep excess-key checks, since inferring the body loses them;
@@ -6094,7 +6075,7 @@ tasks
             home-rooms Stories. The Epic takes a Task to make the tests fast again before the next one.
 
             **Read first:** @task.V3.T57 (its last close note),
-            code:packages/flow-state-v3/src/core/schedules.ts, code:wiki/conventions/bench.md.
+            code:packages/flow-state-v3/src/core/schedules.ts, @convention.bench.
 
             May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`. Evidence: this Task's comments.
         acceptance
@@ -6116,9 +6097,8 @@ tasks
             another check's throw, then cleared while the key stays unarmed). The second failure after convergence hit
             the failure limit; the user accepted Fable's redesign of the issue seam (2026-11-20).
 
-            **Read first:** code:wiki/plans/flow/references/proposals/schedule-issues-2026-11-20.md (the design, the R25
-            text, P1, P2), @task.V3.T57 (its four close reviews),
-            code:packages/flow-state-v3/src/core/schedule-decision.ts, @spec.Turn (R14 to R17, R19, R25, R27).
+            **Read first:** @proposal.schedule-issues (the design, the R25 text, P1, P2), @task.V3.T57 (its four close
+            reviews), code:packages/flow-state-v3/src/core/schedule-decision.ts, @spec.Turn (R14 to R17, R19, R25, R27).
 
             **Risk:** the redesign keeps `decide`, the occasions and T57's tables; it must not reopen what they prove.
             The record format moves from 5 to 6, with a step and restore after a definition edit (a reason, key or

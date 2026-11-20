@@ -1,9 +1,12 @@
+---
+review type-coverage
+status resolved 2026-11-19 [@task.V3.T104]
+    open 2026-11-19
+---
 # Type coverage, tool-driven pass (proposed)
 
-**Status (2026-11-20):** acted on: folded into @task.V3.T104 (the user, 2026-11-19). The text below is prior art.
-
-Status: proposed. Nothing here is decided. It tests @task.V3.T104 and the deep survey
-(code:wiki/plans/flow/references/proposals/type-gaps-deep-2026-11-19.md) against user-shaped code, and does not
+Folded into @task.V3.T104. The text below is prior art. It tests @task.V3.T104 and the deep survey
+(@review.type-gaps-deep) against user-shaped code, and does not
 repeat them.
 
 The standard tools find almost nothing, because Flow's gaps are not `any`. The `noPropertyAccessFromIndexSignature`
@@ -62,14 +65,14 @@ How probes and hovers work:
 
 ## Coverage numbers
 
-| Check | Scope | Result | Through a Flow API |
-| --- | --- | --- | --- |
-| `noPropertyAccessFromIndexSignature` | all four folders | 25 errors (TS4111): src tests 6, tests 19 | 25 |
-| type-aware `no-unsafe-*` | all four folders | 26: src 10, tests 14, fixtures 1, bench 1 | 0 |
-| `no-unsafe-type-assertion` | all four folders | 0 reported; 28 production casts carry a disable | n/a |
-| `type-coverage --strict` | package tsconfig | 139,486 of 139,676 typed (99.86%); 190 `any` | 0 |
-| Wide `string` / `number` review | public declarations | 5 new candidates, 4 accepted | 4 |
-| Two-sided probes | 65 files | 70 controls fail on their own lines; no wrong line errors | n/a |
+| Check                                | Scope               | Result                                                    | Through a Flow API |
+| ------------------------------------ | ------------------- | --------------------------------------------------------- | ------------------ |
+| `noPropertyAccessFromIndexSignature` | all four folders    | 25 errors (TS4111): src tests 6, tests 19                 | 25                 |
+| type-aware `no-unsafe-*`             | all four folders    | 26: src 10, tests 14, fixtures 1, bench 1                 | 0                  |
+| `no-unsafe-type-assertion`           | all four folders    | 0 reported; 28 production casts carry a disable           | n/a                |
+| `type-coverage --strict`             | package tsconfig    | 139,486 of 139,676 typed (99.86%); 190 `any`              | 0                  |
+| Wide `string` / `number` review      | public declarations | 5 new candidates, 4 accepted                              | 4                  |
+| Two-sided probes                     | 65 files            | 70 controls fail on their own lines; no wrong line errors | n/a                |
 
 **`noPropertyAccessFromIndexSignature`:**
 
@@ -508,13 +511,13 @@ The inventory comes from a grep (string literals and comments stripped) and the 
 - `no-unsafe-type-assertion` reports 0, because every production `as X` already carries a disable with a reason.
 - The lint rule therefore guards new casts. It does not judge the kept ones; the classes below do.
 
-| Area | `as X` | `as never` / double | Helpers | `as const` | `satisfies` | Disables | SAFETY |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| src (production) | 27 | 1 | 36 | 68 | 31 | 28 | 29 |
-| src `*.test.ts` | 3 | 4 | 20 (a local `erase`) | 12 | 28 | 5 | 5 |
-| fixtures | 0 | 2 | 3 (`trusted` Story ids) | 16 | 1 | 2 | 2 |
-| tests | 4 | 9 | 0 | 62 | 14 | 13 | 13 |
-| bench | 0 | 0 | 0 | 24 | 1 | 0 | 0 |
+| Area             | `as X` | `as never` / double | Helpers                 | `as const` | `satisfies` | Disables | SAFETY |
+| ---------------- | ------ | ------------------- | ----------------------- | ---------- | ----------- | -------- | ------ |
+| src (production) | 27     | 1                   | 36                      | 68         | 31          | 28       | 29     |
+| src `*.test.ts`  | 3      | 4                   | 20 (a local `erase`)    | 12         | 28          | 5        | 5      |
+| fixtures         | 0      | 2                   | 3 (`trusted` Story ids) | 16         | 1           | 2        | 2      |
+| tests            | 4      | 9                   | 0                       | 62         | 14          | 13       | 13     |
+| bench            | 0      | 0                   | 0                       | 24         | 1           | 0        | 0      |
 
 Five raw `as X` grep hits are not casts, and are excluded above: three multi-line `import … as` lines and two prose
 lines in `bench/options.ts`.

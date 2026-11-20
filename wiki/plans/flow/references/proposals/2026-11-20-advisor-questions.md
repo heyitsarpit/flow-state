@@ -1,3 +1,7 @@
+---
+questions advisor-questions
+status open 2026-11-20
+---
 # Questions for an advisor (2026-11-20)
 
 **Bottom line:** ten design questions for a strong outside model, in the order they block work. Questions 1 to 4 gate
@@ -13,18 +17,18 @@ An advisor earns its cost in two cases: a bug class that keeps coming back acros
 whole family), and a design that spans many modules before code exists. Everything else is better answered at
 development time, by the lead with the code in hand, its experiments, and the loop's blind redesign at convergence.
 
-| Priority | Question | Posture | Why |
-| --- | --- | --- | --- |
-| 1 | 4. Saved records | Advisor (trust-boundaries consult) | A repeating class across Restore, Codec and releases |
-| 2 | 7. Raw throws | Advisor (trust-boundaries consult) | A repeating class, fixed one entry at a time |
-| 3 | 2. Fragments | Advisor, or a blind design at T109's start | The largest unbuilt model; five open items interact |
-| 4 | 1. Body types | Development time: a type spike at T109's start | Code-bound; needs `tsc` probes on the real files |
-| 5 | 3. Emits and props | Development time | Mostly decided (emits and context slots accepted) |
-| 6 | 5. Reads and operations | Development time, product choices to the user | Offline, resume and retry placement are the user's |
-| 7 | 6. Rules on definitions | Settled | Accepted as @plan.Rules (2026-11-20); @task.V3.T106 builds it |
-| 8 | 8. React | Development time | Clear prior art; P5 |
-| 9 | 9. Entities | Later (P5), advisor optional | Not needed before P5 |
-| 10 | 10. Repeated wiring | Development time, late audit | Needs every fixture built first |
+| Priority | Question                | Posture                                        | Why                                                           |
+| -------- | ----------------------- | ---------------------------------------------- | ------------------------------------------------------------- |
+| 1        | 4. Saved records        | Advisor (trust-boundaries consult)             | A repeating class across Restore, Codec and releases          |
+| 2        | 7. Raw throws           | Advisor (trust-boundaries consult)             | A repeating class, fixed one entry at a time                  |
+| 3        | 2. Fragments            | Advisor, or a blind design at T109's start     | The largest unbuilt model; five open items interact           |
+| 4        | 1. Body types           | Development time: a type spike at T109's start | Code-bound; needs `tsc` probes on the real files              |
+| 5        | 3. Emits and props      | Development time                               | Mostly decided (emits and context slots accepted)             |
+| 6        | 5. Reads and operations | Development time, product choices to the user  | Offline, resume and retry placement are the user's            |
+| 7        | 6. Rules on definitions | Settled                                        | Accepted as @plan.Rules (2026-11-20); @task.V3.T106 builds it |
+| 8        | 8. React                | Development time                               | Clear prior art; P5                                           |
+| 9        | 9. Entities             | Later (P5), advisor optional                   | Not needed before P5                                          |
+| 10       | 10. Repeated wiring     | Development time, late audit                   | Needs every fixture built first                               |
 
 Take only 4, 7 and 2 to an advisor; the rest stay here as context for the leads that build them.
 
@@ -60,7 +64,7 @@ failures (now @task.V3.T92) and the repeated raw-throw fixes (now @task.V3.T98).
 
 ## Needed soon (P4)
 
-### 1. Machine-body types that hold at any depth
+### 1. Machine-body types that hold at any depth [answered: user 2026-11-20; the body as one const type parameter checked with Exact, @proposal.body-types]
 
 Unblocks @task.V3.T57's leftovers, then @task.V3.T109, @task.V3.T76, @task.V3.T77.
 
@@ -76,7 +80,7 @@ Unblocks @task.V3.T57's leftovers, then @task.V3.T109, @task.V3.T76, @task.V3.T7
 - **Read:** `src/machine.ts`, `src/compile-body.ts`, `tests/types/` (especially `excess-keys.test-d.ts`),
   `wiki/plans/flow/references/pages/T104-type-seams.md`.
 
-### 2. Fragments: placement, admission and release
+### 2. Fragments: placement, admission and release [answered: user 2026-11-20; one address per incarnation, two holders, @proposal.fragment-lifetimes]
 
 Unblocks @task.V3.T109 and @task.V3.T110.
 
@@ -88,10 +92,10 @@ Unblocks @task.V3.T109 and @task.V3.T110.
 - **Ask:** one model in which a placement's work is admitted, kept and released by a single rule (the subject path?)
   across traits, copies, nesting, resumable freezing and subroutines; what `whenAbandoned` sees; how `ReleaseOverdue`
   bounds release.
-- **Read:** @plan.Machines.O1, @plan.Runtime.O6, @spec.Turn.R30, `ui-primitives-decisions-2026-11-16.md` (§9),
+- **Read:** @plan.Machines.O1, @plan.Runtime.O6, @spec.Turn.R30, @proposal.ui-primitives-decisions (§9),
   the fixture catalog's step 2 rows.
 
-### 3. Emits and props as one boundary
+### 3. Emits and props as one boundary [open: 2026-11-20]
 
 Unblocks @task.V3.T77 and @task.V3.T76, and the React binding after them.
 
@@ -100,9 +104,9 @@ Unblocks @task.V3.T77 and @task.V3.T76, and the React binding after them.
 - **Ask:** where the line sits between props, context and emits; how a fragment copy's emit is addressed (instance
   path and `.each` key); that nothing is stored or replayed after a reload; how Stories assert emits with no listener.
 - **Read:** @plan.Machines.O2, @spec.Turn.R29, `wiki/conventions/view-commands.md`,
-  `context-slots-2026-11-20.md` (the accepted context design).
+  @proposal.context-slots (the accepted context design).
 
-### 4. Saved records as one design (trust-boundaries consult)
+### 4. Saved records as one design (trust-boundaries consult) [answered: user 2026-11-20; record Schemas built from Compiled, @proposal.saved-records]
 
 Unblocks @task.V3.T92 (deferred by the user) and @task.V3.T56.
 
@@ -119,7 +123,7 @@ Unblocks @task.V3.T92 (deferred by the user) and @task.V3.T56.
 
 ## Needed before P5 features
 
-### 5. Reads and operations, the in-machine half
+### 5. Reads and operations, the in-machine half [answered: user 2026-11-20; no timing or retry option in Flow, every call input decoded once at admission, @proposal.machine-calls]
 
 Unblocks @task.V3.T21.
 
@@ -129,12 +133,12 @@ Unblocks @task.V3.T21.
   waits before invocation, what survives a reload, and where its input is decoded.
 - **Read:** @plan.Operations, @spec.Reads, @spec.WriteLanes.
 
-### 6. Rules on definitions
+### 6. Rules on definitions [answered: user 2026-11-20; accepted as @plan.Rules, @proposal.rules]
 
-Settled (2026-11-20): the user accepted `rules-2026-11-20.md`, now @plan.Rules (invariants, turns and terminals,
+Accepted: @proposal.rules, now @plan.Rules (invariants, turns and terminals,
 with rule coverage); @task.V3.T106 builds it. Kept here for the record; no advisor needed.
 
-### 7. One answer for raw throws (trust-boundaries consult)
+### 7. One answer for raw throws (trust-boundaries consult) [answered: user 2026-11-20; one gated constructor with a Made brand, @proposal.raw-throws]
 
 Unblocks @task.V3.T98.
 
@@ -146,15 +150,15 @@ Unblocks @task.V3.T98.
 
 ## Needed for P5's UI and data
 
-### 8. React and Next.js bindings with server rendering
+### 8. React and Next.js bindings with server rendering [open: 2026-11-20]
 
 Unblocks @task.V3.T30 and @task.V3.T108.
 
 - **Ask:** the binding's shape over `useSyncExternalStore` (one snapshot per published turn), emits delivered to views,
   hydration and dehydration while writes are in flight, and how presentation fits with the instrumentation proposal.
-- **Read:** @plan.React, @plan.ServerRendering, `react-instrumentation-bippy-2026-11-20.md`, `codebases/ui-sdk`.
+- **Read:** @plan.React, @plan.ServerRendering, @proposal.react-instrumentation-bippy, `codebases/ui-sdk`.
 
-### 9. The entity store as the sync seam
+### 9. The entity store as the sync seam [open: 2026-11-20]
 
 Unblocks @task.V3.T24 and @task.V3.T25.
 
@@ -162,7 +166,7 @@ Unblocks @task.V3.T24 and @task.V3.T25.
   for Zero or TanStack DB without a rewrite. Entities are optional but not up for cutting.
 - **Read:** @plan.EntityDomains, @plan.Operations.
 
-### 10. Wiring every app still writes
+### 10. Wiring every app still writes [open: 2026-11-20]
 
 From open item 15 ("absorb repeated wiring").
 

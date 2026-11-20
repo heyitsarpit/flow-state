@@ -1,3 +1,6 @@
+---
+convention what-an-ending-knows
+---
 # What an ending knows
 
 **The rule:** a call's input carries what the server needs and what the ending must know as of the call's start
@@ -52,4 +55,4 @@ TanStack Query's `onSuccess(data, variables)`
 
 Mappers receiving `{ input, key, attempt }` is in the Plan (Operations O3) but not built: today they get only the
 value (`packages/flow-state-v3/src/core/serve.ts`). Props are accepted, not built
-([ui-primitives-decisions-2026-11-16.md](../plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md) Q6).
+(@proposal.ui-primitives-decisions Q6).

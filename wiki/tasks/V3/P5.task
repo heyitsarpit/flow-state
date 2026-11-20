@@ -77,13 +77,12 @@ tasks
         acceptance
             - The streams Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses a stream.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 11 of code:wiki/conventions/fixture-catalog.md:
-              `sync`, `transfers`, `player`, `home`, `kanban`, `chat`, `draft` gain the features, scenarios and sources
-              of their rows; each scenario red before the build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 11 of @convention.fixture-catalog: `sync`, `transfers`,
+              `player`, `home`, `kanban`, `chat`, `draft` gain the features, scenarios and sources of their rows; each
+              scenario red before the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
-            stress Story.
+            (@proposal.fixture-catalogue), each with a usual and a stress Story.
         comment     2026-11-17T16:26:53Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Streams: feed delivery per item, latest partition writes, catch-up with
@@ -119,13 +118,12 @@ tasks
             - The entities Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses an entity domain.
             - Exposes the per-field version comparator @task.V3.T115's merge table reads (a value, not shared state).
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 12of code:wiki/conventions/fixture-catalog.md:
-              `transfers`, `kanban`, `chat` gain the features, scenarios and sources of their rows; each scenario red
-              before the build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 12of @convention.fixture-catalog: `transfers`, `kanban`,
+              `chat` gain the features, scenarios and sources of their rows; each scenario red before the build, and the
+              step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
-            stress Story.
+            (@proposal.fixture-catalogue), each with a usual and a stress Story.
         comment     2026-11-17T16:26:53Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Entity store: repair cost against records and active answers, record
@@ -152,13 +150,12 @@ tasks
             **Read first:** @plan.Persistence.O7, @plan.Runtime.O7.
         acceptance
             - The multi-tab Spec's Requirements hold on production, shown by Stories with two tabs.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 14 of code:wiki/conventions/fixture-catalog.md:
-              `pay`, `session`, `draft` gain the features, scenarios and sources of their rows; each scenario red before
-              the build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 14 of @convention.fixture-catalog: `pay`, `session`, `draft`
+              gain the features, scenarios and sources of their rows; each scenario red before the build, and the step's
+              cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
-            stress Story.
+            (@proposal.fixture-catalogue), each with a usual and a stress Story.
         comment     2026-11-17T16:26:54Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Multi-tab: ownership handoff and write contention across two real tabs
@@ -189,13 +186,12 @@ tasks
         acceptance
             - The lazy-features Spec's Requirements hold on production, shown by Story tests.
             - Exposes an entry's adoption state as the value @task.V3.T115 transfers and merges.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 15 of code:wiki/conventions/fixture-catalog.md:
-              `session`, `wizard`, `kanban` gain the features, scenarios and sources of their rows; each scenario red
-              before the build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 15 of @convention.fixture-catalog: `session`, `wizard`,
+              `kanban` gain the features, scenarios and sources of their rows; each scenario red before the build, and
+              the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (code:wiki/plans/flow/references/proposals/fixture-catalogue-2026-11-11.md), each with a usual and a
-            stress Story.
+            (@proposal.fixture-catalogue), each with a usual and a stress Story.
         comment     2026-11-17T16:26:54Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Lazy features: time to first use of a lazy entry, chunk bytes, a turn
@@ -230,9 +226,9 @@ tasks
             - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari,
               which meets Safari's D1 to D3 (D4 is @task.V3.T27's).
             - The session boot-queue catalog item holds: sends before ready are queued and delivered in order.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 13 of code:wiki/conventions/fixture-catalog.md:
-              `pay`, `draft` gain the features, scenarios and sources of their rows; each scenario red before the build,
-              and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 13 of @convention.fixture-catalog: `pay`, `draft` gain the
+              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
+              marked used at the close.
         comment     2026-11-17T16:26:54Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Host adapters: IndexedDB write latency and flush on hide in real
@@ -272,15 +268,15 @@ tasks
             first slice: the runtime cut; the text trace is @task.V3.T65's.
 
             **Read first:** @plan.Inspection.O1, O4, O6, @plan.Machines.O2, @plan.Machines.O5,
-            code:wiki/conventions/view-commands.md, code:packages/flow-state-v3/src/host/inspect.ts,
+            @convention.view-commands, code:packages/flow-state-v3/src/host/inspect.ts,
             `packages/flow-state-v3/src/host/trace.ts` (@task.V3.T65 builds it).
         acceptance
             - The inspection Spec's Requirements hold on production, and the route is exported.
             - The Model lists props and emits Schemas and fragment emits; the event kinds add `emit`, and schedule
               events show arm, fire, restart, pause, resume and disarm (@plan.Inspection.O1, O4, O6).
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 16 of code:wiki/conventions/fixture-catalog.md:
-              `pay`, `transfers`, `sign-in`, `home`, `chat` gain the features, scenarios and sources of their rows; each
-              scenario red before the build, and the step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 16 of @convention.fixture-catalog: `pay`, `transfers`,
+              `sign-in`, `home`, `chat` gain the features, scenarios and sources of their rows; each scenario red before
+              the build, and the step's cells marked used at the close.
         comment     2026-11-15T18:27:26Z
             Routed from T65's review: the rest of @plan.Inspection.O4's Trace (header fields, checkpoints inside the
             Trace, a Runtime-wide sequence) and one render taking a model or a trace.
@@ -319,15 +315,15 @@ tasks
             `Story.machine` and its `props(values)` step land first in @task.V3.T76; this Task extends them.
 
             **Read first:** @plan.Testing.O1, @plan.Testing.O2, @plan.Pending.D5 to @plan.Pending.D10 (the names the
-            first slice added), @spec.Stories, @plan.Machines.O5, O7, code:wiki/conventions/where-a-value-lives.md,
-            @task.V3.T63, @task.V3.T69, @task.V3.T70.
+            first slice added), @spec.Stories, @plan.Machines.O5, O7, @convention.where-a-value-lives, @task.V3.T63,
+            @task.V3.T69, @task.V3.T70.
         acceptance
             - Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
             - `advance({ next })` skips paused timers (`NoDeadline` when every match is paused); `advance(d)` and
               `advance({ to })` never fire a paused timer (@plan.Testing.O2).
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 17 of code:wiki/conventions/fixture-catalog.md:
-              every fixture run with no new feature, as the step says; each scenario red before the build, and the
-              step's cells marked used at the close.
+            - Fixtures first (@convention.fixtures): step 17 of @convention.fixture-catalog: every fixture run with no
+              new feature, as the step says; each scenario red before the build, and the step's cells marked used at
+              the close.
         comment     2026-11-16T06:19:55Z
             Routed items: (1) Export Trace, TraceEvent and TraceRecord with StoryRun; the trace's page stands in for the
             Plan's tab (the user's name). (2) A usage error prints help on stdout, against @plan.CommandLine.O3; the
@@ -418,7 +414,7 @@ tasks
             table, the Story `hydrate` step) to @task.V3.T115; the Next.js host proofs to @task.V3.T116.
 
             **Read first:** @plan.React.O1, O2, O3, @plan.ServerRendering.O4, @plan.Machines.O2,
-            code:wiki/conventions/view-commands.md, code:wiki/conventions/controlled-values.md.
+            @convention.view-commands, @convention.controlled-values.
         acceptance
             - The binding's Requirements hold, shown in real Chrome and Safari; the first server render
               matches (@plan.ServerRendering.O4).
@@ -428,10 +424,9 @@ tasks
               order, never from a discarded render; a fragment's emits come under its instance name and an .each
               copy's key.
             - Server rendering delivers no emit.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 18 of code:wiki/conventions/fixture-catalog.md:
-              `pay`, `sign-in`, `session`, `command-palette`, `number-input`, `search`, `kanban`, `chat` gain the
-              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
-              marked used at the close.
+            - Fixtures first (@convention.fixtures): step 18 of @convention.fixture-catalog: `pay`, `sign-in`,
+              `session`, `command-palette`, `number-input`, `search`, `kanban`, `chat` gain the features, scenarios and
+              sources of their rows; each scenario red before the build, and the step's cells marked used at the close.
         comment     2026-11-17T16:26:53Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. React: selector evaluations and re-renders per turn, subscriber fan-out
@@ -441,9 +436,8 @@ tasks
             baselines at hydration (@plan.Runtime.O5); links wait on a wk fix. See code:wiki/tasks/V3/P3-routing.md.
         comment     2026-11-19T21:28:06Z
             Presentation is blocked on a proposal (the user, 2026-11-20): the StoryPlayer and definePresentation part of
-            this Task cannot proceed until
-            code:wiki/plans/flow/references/proposals/react-instrumentation-bippy-2026-11-20.md (bippy instrumentation,
-            overlay features, controls, themes) is accepted or rejected. The React and Next.js bindings may proceed.
+            this Task cannot proceed until @proposal.react-instrumentation-bippy (bippy instrumentation, overlay
+            features, controls, themes) is accepted or rejected. The React and Next.js bindings may proceed.
         comment     2026-11-19T21:32:16Z
             Split (the user, 2026-11-20): StoryPlayer and definePresentation moved to @task.V3.T108, which waits on the
             bippy proposal; this Task is the bindings and the Story hydrate path only, and the presentation block noted
@@ -529,8 +523,7 @@ tasks
             waits on its proposal.
 
             **Read first:** @plan.Testing.O9, @plan.Testing.O4 (`StoryFrame`),
-            code:wiki/plans/flow/references/proposals/react-instrumentation-bippy-2026-11-20.md,
-            code:wiki/plans/flow/references/checkout/app/presentation.ts.
+            @proposal.react-instrumentation-bippy, code:wiki/plans/flow/references/checkout/app/presentation.ts.
 
             **Risk:** this Task cannot proceed until the bippy proposal is accepted or rejected (the user, 2026-11-20).
             Its acceptance is rewritten from the outcome: accepted adds the overlay features, controls and themes;
@@ -619,9 +612,8 @@ tasks
               props and emits.
             - Payloads go through the one codec (@plan.Inspection.O2) and hydration sets silent
               baselines (@plan.Runtime.O5).
-            - Fixtures first (code:wiki/conventions/fixtures.md): the hydrate rows of
-              code:wiki/conventions/fixture-catalog.md gain their scenarios; each red before the build, and those cells
-              marked used at the close.
+            - Fixtures first (@convention.fixtures): the hydrate rows of @convention.fixture-catalog gain their
+              scenarios; each red before the build, and those cells marked used at the close.
         comment     2026-11-20T13:02:09Z
             Breakdown review (orchestrator, 2026-11-20, R48): new Task split from T30 by state: dehydrate, hydrate, the
             Story hydrate step, the session boot-queue item (from T28) and one merge table for actors, resources, entity

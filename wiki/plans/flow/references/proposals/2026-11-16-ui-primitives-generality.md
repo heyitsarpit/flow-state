@@ -1,7 +1,9 @@
-# UI primitives, second pass: which features are general (proposed, 2026-11-16)
-
-**Status (2026-11-20):** acted on: decided in
-code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md. The text below is prior art.
+---
+proposal ui-primitives-generality
+status merged 2026-11-16 [@plan.Machines, @plan.Runtime, @plan.React, @plan.Testing, @plan.Inspection, @spec.Turn, @spec.Actors, @spec.Compile, @spec.StaticCli, @spec.WriteAhead, @spec.Restore, @spec.Codec, @task.V3.T72, @task.V3.T76, @task.V3.T77, @task.V3.T78]
+    proposed 2026-11-16
+---
+# UI primitives, second pass: which features are general
 
 **Bottom line (proposed):** add no new machine feature for the UI primitives. Five of the first pass's NEW items and
 gaps can be written today or with planned features, and this file shows the code for each:
@@ -28,11 +30,11 @@ The one Plan change recommended is a clarification of `.each` fan-out, needed by
 make five of the seven fixtures harder, help the menu, and are neutral for the tree.
 
 **Why now:** the user wants features only where they are general and needed, judged against what machines cannot
-already express. The first pass (`ui-primitives-2026-11-16.md`, committed at `e7f0f511`, unchanged here) proposed
+already express. The first pass (@proposal.ui-primitives, committed at `e7f0f511`, unchanged here) proposed
 four NEW items from one example each, and reached for fragments without a survey of every Plan.
 
-**Read first:** `ui-primitives-2026-11-16.md` §4 and §6, @plan.Machines.O1 and O5, @plan.Operations.O3,
-@plan.Runtime.O3, @plan.React.O2 and O3, `fixture-catalogue-2026-11-11.md` §3.
+**Read first:** @proposal.ui-primitives §4 and §6, @plan.Machines.O1 and O5, @plan.Operations.O3,
+@plan.Runtime.O3, @plan.React.O2 and O3, @proposal.fixture-catalogue §3.
 
 ## 1. Plan survey
 
@@ -43,15 +45,15 @@ not wanted" need.
 
 ### 1.1 Per primitive
 
-| Primitive    | Planned feature that simplifies                   | Hole it exposes                               |
-| ------------ | ------------------------------------------------- | --------------------------------------------- |
-| 4.1 Palette  | none; pending already derives from rows           | none                                          |
-| 4.2 Combobox | mapper `{ input }` (@plan.Operations.O2)          | `readOnly: Flow.input` is identity (H1)       |
-| 4.3 Toaster  | 0-or-1-key schedule with `restartOn` (§2.1)       | `.each` fan-out unspecified (H2)              |
-| 4.4 Menu     | `closes` in the commit input (§2.2); a subroutine | exit filling's memory writes unspecified      |
-| 4.5 Number   | flat states and `armOn` run today (§2.4)          | bounds as `Flow.input` (H1); stuck hold (H3)  |
-| 4.6 Tree     | placements end loads by design (already used)     | a restored MOVING state; reload is app-only   |
-| 4.7 Token    | a quiet schedule seals undo groups (§2.3)         | draft text as identity (H1); timestamps (H4)  |
+| Primitive    | Planned feature that simplifies                   | Hole it exposes                              |
+| ------------ | ------------------------------------------------- | -------------------------------------------- |
+| 4.1 Palette  | none; pending already derives from rows           | none                                         |
+| 4.2 Combobox | mapper `{ input }` (@plan.Operations.O2)          | `readOnly: Flow.input` is identity (H1)      |
+| 4.3 Toaster  | 0-or-1-key schedule with `restartOn` (§2.1)       | `.each` fan-out unspecified (H2)             |
+| 4.4 Menu     | `closes` in the commit input (§2.2); a subroutine | exit filling's memory writes unspecified     |
+| 4.5 Number   | flat states and `armOn` run today (§2.4)          | bounds as `Flow.input` (H1); stuck hold (H3) |
+| 4.6 Tree     | placements end loads by design (already used)     | a restored MOVING state; reload is app-only  |
+| 4.7 Token    | a quiet schedule seals undo groups (§2.3)         | draft text as identity (H1); timestamps (H4) |
 
 Planned features that were checked and do not help:
 
@@ -796,15 +798,15 @@ The view sends `Cancel` from its effect cleanup, so a shared stepper never keeps
 
 ## 3. Holes the survey found
 
-| Id | Hole                                                           | Reach    | Handling                         |
-| -- | -------------------------------------------------------------- | -------- | -------------------------------- |
-| H1 | `Flow.input` is identity; a changing prop in it is a new actor | general  | convention: props by event       |
-| H2 | raising a host event into every `.each` copy is unspecified    | general  | Plan clarification (decision 2)  |
-| H3 | a shared actor mid-gesture resumes timers after its view left  | general  | convention: cancel on cleanup    |
-| H4 | timestamps in memory escape the reload and SSR clock rules     | narrow   | convention: prefer schedules     |
-| H5 | an app-wide actor nobody uses drops sends (`NoRecord`)         | general  | the Plan's rule: use it at root  |
-| H6 | a level fact (`focused: "x"`) does not re-fire on repeat       | general  | convention: a request with an id |
-| H7 | reload is an app Story step only; machine Stories cannot       | fixtures | reloading fixtures are app ones  |
+| Id  | Hole                                                           | Reach    | Handling                         |
+| --- | -------------------------------------------------------------- | -------- | -------------------------------- |
+| H1  | `Flow.input` is identity; a changing prop in it is a new actor | general  | convention: props by event       |
+| H2  | raising a host event into every `.each` copy is unspecified    | general  | Plan clarification (decision 2)  |
+| H3  | a shared actor mid-gesture resumes timers after its view left  | general  | convention: cancel on cleanup    |
+| H4  | timestamps in memory escape the reload and SSR clock rules     | narrow   | convention: prefer schedules     |
+| H5  | an app-wide actor nobody uses drops sends (`NoRecord`)         | general  | the Plan's rule: use it at root  |
+| H6  | a level fact (`focused: "x"`) does not re-fire on repeat       | general  | convention: a request with an id |
+| H7  | reload is an app Story step only; machine Stories cannot       | fixtures | reloading fixtures are app ones  |
 
 - **H1.** "A machine's input fields are read-only ... since they name the actor" (@plan.Machines.O1). "Changing
   local machine or input requires a keyed remount" (@plan.React.O2). The first pass put `readOnly` (4.2), `min`,
@@ -988,18 +990,18 @@ Nothing goes to `revisit.md`.
 
 ## 6. Corrections to the first pass
 
-| First pass                                             | Correction                                                 |
-| ------------------------------------------------------ | ---------------------------------------------------------- |
-| 4.4: the commit cannot carry `closes`; decision 5      | it can, through the input (§2.2)                          |
-| 4.3: per-toast keyed timers need NEW `key`; decision 5 | one conditional timer needs no key (§2.1)                 |
-| 4.3: `pauseOn` would remove `settle`; decision 2       | it would not; banked time stays in memory                |
-| decision 4: NEW non-restored state                     | a local actor or view state; no feature                   |
-| decision 6: NEW operation ports                        | services already inject the action                        |
-| 4.2: the Close veto needs a "NEW host port"            | `Flow.Guard` exists (@plan.Machines.O1)                   |
-| 4.2, 4.5, 4.7: props in `Flow.input`                   | identity only; props by event (H1)                        |
-| 4.7: `open.at` stored in memory                        | a quiet schedule (§2.3)                                   |
-| 4.7: COMPOSING edits skip the read-only guard          | guarded (§2.3)                                            |
-| 4.5: needs T17 and T57                                 | runs on production today, flat (§2.4)                     |
+| First pass                                             | Correction                                |
+| ------------------------------------------------------ | ----------------------------------------- |
+| 4.4: the commit cannot carry `closes`; decision 5      | it can, through the input (§2.2)          |
+| 4.3: per-toast keyed timers need NEW `key`; decision 5 | one conditional timer needs no key (§2.1) |
+| 4.3: `pauseOn` would remove `settle`; decision 2       | it would not; banked time stays in memory |
+| decision 4: NEW non-restored state                     | a local actor or view state; no feature   |
+| decision 6: NEW operation ports                        | services already inject the action        |
+| 4.2: the Close veto needs a "NEW host port"            | `Flow.Guard` exists (@plan.Machines.O1)   |
+| 4.2, 4.5, 4.7: props in `Flow.input`                   | identity only; props by event (H1)        |
+| 4.7: `open.at` stored in memory                        | a quiet schedule (§2.3)                   |
+| 4.7: COMPOSING edits skip the read-only guard          | guarded (§2.3)                            |
+| 4.5: needs T17 and T57                                 | runs on production today, flat (§2.4)     |
 
 ## 7. Decisions for the user
 
@@ -1077,29 +1079,29 @@ Four read-only Haiku sidecars (effort high): Plan survey half 1 (Machines, Opera
 EntityDomains), Plan survey half 2 (the other ten), scenario count, and an adversary expressing each gap. Each claim
 used was checked against the Plan text or built code.
 
-| Sidecar   | Claim                                                   | Log      | Why                                 |
-| --------- | ------------------------------------------------------- | -------- | ----------------------------------- |
-| survey 1  | the mapper gets `{ input }`; `closesOnActed` can go     | accepted | @plan.Operations.O3 mappers         |
-| survey 1  | a trait's expiry cannot reach its host                  | rejected | callback fillings are transitions   |
-| survey 1  | `.each` membership ends a pushed-out copy's time        | accepted | @plan.Machines.O3 membership        |
-| survey 1  | raise fan-out to copies and `max` are unspecified       | accepted | silent in @plan.Machines.O1, O3     |
-| survey 1  | `Flow.input` props reset the actor                      | accepted | @plan.Machines.O1, @plan.React.O2   |
-| survey 1  | `draft: Flow.input` makes each draft its own actor      | accepted | @plan.Runtime.O3 identity           |
-| survey 1  | a lookup subroutine forgets items on reopen             | accepted | slices undefined while inactive     |
-| survey 1  | services cover a fragment running the app's action      | accepted | @plan.Operations.O1 services        |
-| survey 1  | an app-wide toaster drops sends while unused            | changed  | true (@plan.Runtime.O4); now H5     |
-| survey 2  | grace and Activity can't be driven from a Story         | changed  | local actors only; no fixture hole  |
-| survey 2  | reload is app-only                                      | accepted | @plan.Testing.O1 step lists         |
-| survey 2  | memory timestamps escape the hydration clock rules      | accepted | SSR O5: ages and schedules only     |
-| survey 2  | a shared gesture resumes after unmount                  | accepted | @plan.React.O3, @plan.Runtime.O3    |
-| survey 2  | Pending has no entry for any gap                        | accepted | read `Pending.plan`                 |
-| survey 2  | COMPOSING skips the read-only guard                     | accepted | first-pass 4.7 sketch               |
-| scenarios | G1 to G6 needed by 0 of 54 scenarios; G7 by preferences | changed  | kept zero; widened G7's reach       |
-| scenarios | catalogue keyed durations are all constant              | accepted | S07, S15, S23, S28, S29 sketches    |
-| adversary | G1 with one timer and a `2^31 - 1` sentinel             | changed  | `keys` or flat states, no sentinel  |
-| adversary | G5 through the commit input                             | accepted | §2.2                                |
-| adversary | G6 through a request with a sequence number             | accepted | §2.1, §2.2                          |
-| adversary | the built mapper ignores its context today              | accepted | `machine.ts` passes `{}`; T21       |
+| Sidecar   | Claim                                                   | Log      | Why                                |
+| --------- | ------------------------------------------------------- | -------- | ---------------------------------- |
+| survey 1  | the mapper gets `{ input }`; `closesOnActed` can go     | accepted | @plan.Operations.O3 mappers        |
+| survey 1  | a trait's expiry cannot reach its host                  | rejected | callback fillings are transitions  |
+| survey 1  | `.each` membership ends a pushed-out copy's time        | accepted | @plan.Machines.O3 membership       |
+| survey 1  | raise fan-out to copies and `max` are unspecified       | accepted | silent in @plan.Machines.O1, O3    |
+| survey 1  | `Flow.input` props reset the actor                      | accepted | @plan.Machines.O1, @plan.React.O2  |
+| survey 1  | `draft: Flow.input` makes each draft its own actor      | accepted | @plan.Runtime.O3 identity          |
+| survey 1  | a lookup subroutine forgets items on reopen             | accepted | slices undefined while inactive    |
+| survey 1  | services cover a fragment running the app's action      | accepted | @plan.Operations.O1 services       |
+| survey 1  | an app-wide toaster drops sends while unused            | changed  | true (@plan.Runtime.O4); now H5    |
+| survey 2  | grace and Activity can't be driven from a Story         | changed  | local actors only; no fixture hole |
+| survey 2  | reload is app-only                                      | accepted | @plan.Testing.O1 step lists        |
+| survey 2  | memory timestamps escape the hydration clock rules      | accepted | SSR O5: ages and schedules only    |
+| survey 2  | a shared gesture resumes after unmount                  | accepted | @plan.React.O3, @plan.Runtime.O3   |
+| survey 2  | Pending has no entry for any gap                        | accepted | read `Pending.plan`                |
+| survey 2  | COMPOSING skips the read-only guard                     | accepted | first-pass 4.7 sketch              |
+| scenarios | G1 to G6 needed by 0 of 54 scenarios; G7 by preferences | changed  | kept zero; widened G7's reach      |
+| scenarios | catalogue keyed durations are all constant              | accepted | S07, S15, S23, S28, S29 sketches   |
+| adversary | G1 with one timer and a `2^31 - 1` sentinel             | changed  | `keys` or flat states, no sentinel |
+| adversary | G5 through the commit input                             | accepted | §2.2                               |
+| adversary | G6 through a request with a sequence number             | accepted | §2.1, §2.2                         |
+| adversary | the built mapper ignores its context today              | accepted | `machine.ts` passes `{}`; T21      |
 
 The rejected claim rests on @plan.Machines.O2 ("A callback never moves the host out of the fragment's placement
 node") and the Compile spec's "a fragment callback whose target moves the host": a callback port's filling is a host

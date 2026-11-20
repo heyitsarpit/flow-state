@@ -1,3 +1,6 @@
+---
+convention cross-tab-bridge
+---
 # Cross-tab bridge
 
 **The rule:** Flow does not sync tabs in version 1; an app that needs it bridges in host code, sending user changes
@@ -43,4 +46,4 @@ TanStack Query's experimental `broadcastQueryClient`; Zustand and Redux use the 
 ## Status
 
 Deferred: cross-tab sync is out of version 1 (FlowState C2) and listed in
-[revisit.md](../plans/flow/references/proposals/revisit.md). Emits are accepted, not built.
+@revisit.revisit. Emits are accepted, not built.

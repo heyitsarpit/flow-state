@@ -1,3 +1,6 @@
+---
+page T102-core-shapes
+---
 # Core shapes: what an app author notices (T102, 2026-11-19)
 
 **Bottom line:** almost nothing changes in app code; the core is safer inside. Every closed set the runtime branches on

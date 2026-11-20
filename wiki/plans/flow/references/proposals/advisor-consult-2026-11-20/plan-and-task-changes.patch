@@ -91,8 +91,8 @@ index 8ef8b0cc..d3bcc397 100644
              T57's split, are this Task's.
 +        comment     2026-11-20T13:14:50Z
 +            Decisions (the user, 2026-11-20): @task.V3.T98 lands first; fragment lifetimes per
-+            code:wiki/plans/flow/references/proposals/fragment-lifetimes-2026-11-20.md with resetOn as the subject part
-+            and the other recommendations accepted (see advisor-holes-2026-11-20.md, answers 11 to 16).
++            @proposal.fragment-lifetimes with resetOn as the subject part
++            and the other recommendations accepted (see @review.advisor-holes, answers 11 to 16).
  
      T110
          title       Subroutines and whenAbandoned (slice 3d)
@@ -107,7 +107,7 @@ index 2186262d..59338a02 100644
 +        comment     2026-11-20T13:14:50Z
 +            Decision (the user, 2026-11-20): turns rules with a subject use turn({ on, check }) and Machine carries rule
 +            names only (@plan.Rules.O1, O3 edited); @task.V3.T98 lands first. Types
-+            per code:wiki/plans/flow/references/proposals/body-types-2026-11-20.md.
++            per @proposal.body-types.
      T108
          title       Story presentation: StoryPlayer and definePresentation
          status      draft
@@ -123,4 +123,4 @@ index e30698d2..9edfd997 100644
 +            Decision (the user, 2026-11-20, advisor Q4 answer 4): this Task lands before @task.V3.T106 and
 +            @task.V3.T109, so turn, .each and .resumable() are born gated, and it gates the testing route too. It sits
 +            in P9 today; moving it ahead of P4's T109 is a phase change left for the user's look.
-+            Design: code:wiki/plans/flow/references/proposals/raw-throws-2026-11-20.md.
++            Design: @proposal.raw-throws.

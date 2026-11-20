@@ -1,7 +1,9 @@
-# Alchemy adoption (proposed, 2026-11-19)
-
-**Status (2026-11-20):** acted on: ideas 1 and 2 adopted as @task.V3.T106 (the user, 2026-11-19); the rest not adopted.
-The text below is prior art.
+---
+proposal alchemy-adoption
+status partial user 2026-11-19 [@task.V3.T106]
+    proposed 2026-11-19
+---
+# Alchemy adoption
 
 **Bottom line (proposed, nothing here is decided):** admit three ideas and one research item. (1) Rules on the
 definition: `invariants`, `transitions` and `eventually` on a machine's `definition`, and `relations` on an `app`,
@@ -26,20 +28,20 @@ Paths: Alchemy is under `codebases/alchemy/`, with `A:` for `codebases/alchemy/p
 
 ## Concept map
 
-| Concept | Alchemy | Flow today | Verdict |
-|---|---|---|---|
-| State invariant on the declaration | `invariants` (A:Aggregate.ts:157) | none; written ad hoc in tests | admit (1) |
-| Per-step rule over before/after | `transitions` (A:Aggregate.ts:121-130, :167) | ad hoc in tests | admit (1) |
-| Eventually, at rest | model `eventually` (A:Model.ts:167-171) | only "nothing pending" at the horizon | admit (1) |
-| Relation across instances | `Domain.Relation` (A:Relation.ts:20-31) | ad hoc, across fixtures in a mix | admit (1) |
-| Runtime's own guarantees | none (platform commit is assumed, A:Prove.ts:160-161) | 21 run rules | keep Flow's |
-| Standing per rule | proved, checked, broken, unseen (A:Verify.ts:118-123) | pass/fail; hand-kept record | admit (2) |
-| Required to be proved | `require.proved` (A:Verify.ts:80-101) | none | fold into (2) |
-| Bounded exhaustive search | BFS to `depth` 2-3 (A:Explore/internal/Search.ts:535) | none | admit (3) |
-| Delivery faults | redeliver, reorder, rerun (A:Explore.ts:90-104) | reorder, drop, lose, reload, storage | Flow more |
-| Seeded walks | `walks` with seed (A:Explore.ts:113) | seeded generator, shrink (F:generate.ts:1002) | Flow has it |
-| Counterexample as Story | `story(...)` (A:Verify.ts:718-723) | shrunk `Story.app(...)` (F:generate.ts) | Flow has it |
-| Prover over a readable subset | oxc + z3 (A:Prove/internal/Interpreter.ts:219) | none | research only |
+| Concept                            | Alchemy                                               | Flow today                                    | Verdict       |
+| ---------------------------------- | ----------------------------------------------------- | --------------------------------------------- | ------------- |
+| State invariant on the declaration | `invariants` (A:Aggregate.ts:157)                     | none; written ad hoc in tests                 | admit (1)     |
+| Per-step rule over before/after    | `transitions` (A:Aggregate.ts:121-130, :167)          | ad hoc in tests                               | admit (1)     |
+| Eventually, at rest                | model `eventually` (A:Model.ts:167-171)               | only "nothing pending" at the horizon         | admit (1)     |
+| Relation across instances          | `Domain.Relation` (A:Relation.ts:20-31)               | ad hoc, across fixtures in a mix              | admit (1)     |
+| Runtime's own guarantees           | none (platform commit is assumed, A:Prove.ts:160-161) | 21 run rules                                  | keep Flow's   |
+| Standing per rule                  | proved, checked, broken, unseen (A:Verify.ts:118-123) | pass/fail; hand-kept record                   | admit (2)     |
+| Required to be proved              | `require.proved` (A:Verify.ts:80-101)                 | none                                          | fold into (2) |
+| Bounded exhaustive search          | BFS to `depth` 2-3 (A:Explore/internal/Search.ts:535) | none                                          | admit (3)     |
+| Delivery faults                    | redeliver, reorder, rerun (A:Explore.ts:90-104)       | reorder, drop, lose, reload, storage          | Flow more     |
+| Seeded walks                       | `walks` with seed (A:Explore.ts:113)                  | seeded generator, shrink (F:generate.ts:1002) | Flow has it   |
+| Counterexample as Story            | `story(...)` (A:Verify.ts:718-723)                    | shrunk `Story.app(...)` (F:generate.ts)       | Flow has it   |
+| Prover over a readable subset      | oxc + z3 (A:Prove/internal/Interpreter.ts:219)        | none                                          | research only |
 
 ## 1. Rules on the definition
 
@@ -329,7 +331,7 @@ Six Sonnet sidecars, all read-only. I checked their claims against the code.
 - Flow run rules and sweeps: accepted. Re-read `Rule` at `rules.ts:35-38`, `rules` at :535, `checked` at :567,
   `Property`, `PHASES`/`FAULTS`, `MAX_SHRINKS` and `Unreached`. Changed: "no user invariants" rests only on a grep of
   `definition.ts`, `index.ts` and `core`.
-- Flow Specs and Plans: accepted, not re-read. The conformance-suite causes are from `test-system-2026-11-15.md`.
+- Flow Specs and Plans: accepted, not re-read. The conformance-suite causes are from @proposal.test-system.
   The per-Spec invariant counts were not re-read.
 - Adversary: the user-rule hook is accepted. "Fold `unread` into `check`" is changed to a test reporter, to keep the
   CLI small. Its rejection of tiers is changed: the report is computed and names only stable rule ids, so it is not

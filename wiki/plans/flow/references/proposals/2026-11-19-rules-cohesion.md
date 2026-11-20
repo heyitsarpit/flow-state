@@ -1,6 +1,9 @@
-# Rules cohesion across Flow's features (proposed, 2026-11-19)
-
-**Status (2026-11-20):** acted on: design input to @task.V3.T106, cited from its comments. The text below is prior art.
+---
+proposal rules-cohesion
+status merged 2026-11-20 [@task.V3.T106]
+    proposed 2026-11-19
+---
+# Rules cohesion across Flow's features
 
 **Bottom line (proposed, nothing here is decided):** the rules design in @task.V3.T106 covers every Flow feature with
 three changes and no rule kind per feature. (1) Value rules read the snapshot a guard already reads
@@ -19,7 +22,7 @@ rules proved by `flow check`; value rules judged by every run with a tier). It w
 only. This pass checks it against every other feature before the Spec is written.
 
 **Read first:** @task.V3.T106 and its design-constraint comment;
-code:wiki/plans/flow/references/proposals/alchemy-adoption-2026-11-19.md; Turn R12 (code:wiki/specs/core/Turn.spec);
+@proposal.alchemy-adoption; Turn R12 (code:wiki/specs/core/Turn.spec);
 @plan.CommandLine O5 (the built-in check list).
 
 ## Feature verdicts
@@ -27,25 +30,25 @@ code:wiki/plans/flow/references/proposals/alchemy-adoption-2026-11-19.md; Turn R
 "Input" means change (1) above, "turn" change (2), "pattern" change (3). A run rule is one of Flow's own runtime
 guarantees in `tests/rules/`, which no app can break and no app restates.
 
-| Feature | Verdict | Reason in one line (details below) |
-|---|---|---|
-| States, nested states | nothing | `S.X.is` already means "X or below" |
-| Memory | nothing | T106's three value forms |
-| Operation endings | nothing | every ending handled is already a built-in `flow check` error |
-| Operation rows, lanes | value, by input | rows are in the guard snapshot; lane mechanics are run rules |
-| Where commits start | structural, by pattern | commits are static action data |
-| Denials | value, by turn | a denied turn changes no snapshot |
-| Schedules | value, by input | arming is state-scoped by construction; armed names are in the snapshot |
-| Fragments | both, per placement | rules in the fragment body, judged per placement and copy (P4) |
-| Emits | value, by turn; structural, by pattern | emits are stored nowhere; where they start is static |
-| Props | value, by input | props sit beside memory, never in it |
-| Context | value, by input | a consumer's own context slot; provider agreement is the runtime's |
-| Sends | structural, by pattern; else `relations` | the event is static; the target is an erased callback |
-| Persistence, reloads | nothing | a restore publishes, and the reload sweep judges every rule |
-| Lifetimes, disposal | nothing | disposal is run rules and host-driven |
-| Streams | value, by input; structural, by pattern | values arrive as events; rows in the snapshot; placement static |
-| Entities | nothing | coherence has its own runtime oracle |
-| Lazy features | nothing; a report reason | check loads lazy entries; runs say "never adopted" |
+| Feature               | Verdict                                  | Reason in one line (details below)                                      |
+| --------------------- | ---------------------------------------- | ----------------------------------------------------------------------- |
+| States, nested states | nothing                                  | `S.X.is` already means "X or below"                                     |
+| Memory                | nothing                                  | T106's three value forms                                                |
+| Operation endings     | nothing                                  | every ending handled is already a built-in `flow check` error           |
+| Operation rows, lanes | value, by input                          | rows are in the guard snapshot; lane mechanics are run rules            |
+| Where commits start   | structural, by pattern                   | commits are static action data                                          |
+| Denials               | value, by turn                           | a denied turn changes no snapshot                                       |
+| Schedules             | value, by input                          | arming is state-scoped by construction; armed names are in the snapshot |
+| Fragments             | both, per placement                      | rules in the fragment body, judged per placement and copy (P4)          |
+| Emits                 | value, by turn; structural, by pattern   | emits are stored nowhere; where they start is static                    |
+| Props                 | value, by input                          | props sit beside memory, never in it                                    |
+| Context               | value, by input                          | a consumer's own context slot; provider agreement is the runtime's      |
+| Sends                 | structural, by pattern; else `relations` | the event is static; the target is an erased callback                   |
+| Persistence, reloads  | nothing                                  | a restore publishes, and the reload sweep judges every rule             |
+| Lifetimes, disposal   | nothing                                  | disposal is run rules and host-driven                                   |
+| Streams               | value, by input; structural, by pattern  | values arrive as events; rows in the snapshot; placement static         |
+| Entities              | nothing                                  | coherence has its own runtime oracle                                    |
+| Lazy features         | nothing; a report reason                 | check loads lazy entries; runs say "never adopted"                      |
 
 Details, with the evidence:
 

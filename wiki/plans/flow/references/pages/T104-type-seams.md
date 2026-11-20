@@ -1,3 +1,6 @@
+---
+page T104-type-seams
+---
 # Type seams: what an app author notices (T104, 2026-11-20)
 
 **Bottom line:** more mistakes fail to compile. A token, ending or state read now carries its own definition, so using
