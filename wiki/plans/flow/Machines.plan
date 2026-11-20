@@ -407,10 +407,12 @@ outcomes
     O5  Schedules
         A schedule fires an event on a declared timing, started and stopped by the events the machine lists.
 
-        A node or fragment body declares schedules: { name: { schedule, send, armOn?, disarmOn?, restartOn?, keys?,
-        paused? } }. schedule is a Duration.Input, an Effect Schedule, or ({ key?, memory, props, context, now }) =>
-        either, reading the after memory of its arming turn with that turn's now. Every function of a keyed schedule
-        (`schedule`, `paused`, `restartOn`, `send`) receives `key`, which is identity only.
+        A node or fragment body declares schedules: { name: { schedule, send, armOn?, disarmOn?, restartOn?, paused? }
+        }, or name: Flow.keyed({ keys, ... }) for a keyed schedule; `keys` outside Flow.keyed is refused, in types and
+        at construction, so every function of a keyed schedule types its `key`. schedule is a Duration.Input, an Effect
+        Schedule, or ({ key?, memory, props, context, now }) => either, reading the after memory of its arming turn with
+        that turn's now. Every function of a keyed schedule (`schedule`, `paused`, `restartOn`, `send`) receives `key`,
+        which is identity only.
 
         A fixed duration outside 0 to 2^31 - 1 ms, a negative one included, is a construction error (DelayOutOfRange). A
         computed finite zero or negative delay counts as zero: due at once, fired once on the next turn, never in the
@@ -519,7 +521,8 @@ outcomes
         // user-defined: Screen, ScreenMachine, Narrowed, narrow, Toaster, ToasterMachine, READY, toasts, hovered,
         //   maxVisible, Show, Update, Dismiss, PointerEnter, PointerLeave, Expired, expire, lengths, Hovered, Hidden
         // existing: definition, machine, context, schedules, keys, restartOn, send: E.X.from
-        // NEW: key in schedule, paused with named reasons, pausedBy in the snapshot, Flow.context(X.M.field), M tokens
+        // NEW: Flow.keyed, key in schedule, paused with named reasons, pausedBy in the snapshot, Flow.context(X.M.field),
+        //   M tokens
         import { Schema } from "effect"
         import { definition, Flow, machine } from "flow-state"
 
@@ -565,7 +568,7 @@ outcomes
           states: {
             READY: {
               schedules: {
-                expire: {
+                expire: Flow.keyed({
                   keys: ({ memory }) => memory.toasts.map((t) => ({ id: t.id })), // one timer per toast
                   schedule: ({ key, memory }) => lengths[memory.toasts.find((t) => t.id === key.id)?.kind ?? "info"],
                   restartOn: ({ key, memory }) => memory.toasts.find((t) => t.id === key.id)?.title, // an Update
@@ -575,7 +578,7 @@ outcomes
                       memory.toasts.findIndex((t) => t.id === key.id) >= context.maxVisible,
                   },
                   send: E.Expired.from(({ key }) => ({ id: key.id })),
-                },
+                }),
               },
             },
           },

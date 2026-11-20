@@ -1272,3 +1272,6 @@ note 2026-11-20T10:37:58Z
 note 2026-11-20T11:27:09Z
     T57 fix round in (266c9f6b): depth-2 types, typed context, disarm wins; two type pins to @task.V3.T109; Flow.keyed
     waits on the user. Second close review started.
+
+note 2026-11-20T11:40:19Z
+    Decision (the user, 2026-11-20): Flow.keyed accepted; Machines O5 and its toaster example updated.

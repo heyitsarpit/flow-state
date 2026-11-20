@@ -1024,6 +1024,9 @@ tasks
             send mapper are owned by @task.V3.T109 (its type spike at start, advisor question 1); Flow.keyed is a new
             public word and waits on the user (Plan O5's example follows the answer); the I9 and I14 run-rule change
             goes to the close review.
+        comment     2026-11-20T11:40:18Z
+            Decision (the user, 2026-11-20): Flow.keyed accepted as public API; Machines O5's text and toaster example
+            now use it (orchestrator, Plan edit under the user's acceptance).
     T21
         title       Reads and operations (slice 5)
         status      draft
