@@ -5,6 +5,7 @@ import { Fake, propertyTest, Story } from "../../src/host/testing/index.ts";
 import { breachesOf, rules } from "../rules/rules.ts";
 import { planted, ResendingShopFake } from "./planted.ts";
 import { LIMITS } from "../limits.ts";
+import { loose } from "../../src/test/loose.ts";
 
 // The names a printed Story uses, in scope as the fixture's own module has them.
 const scope = { Story, Fake, shopSetup, ResendingShopFake, checkout, Shop };
@@ -14,6 +15,16 @@ const scope = { Story, Fake, shopSetup, ResendingShopFake, checkout, Shop };
 const pasted = (text: string): Story<string> =>
   // oxlint-disable-next-line typescript/no-implied-eval, no-new-func, typescript/no-unsafe-call, typescript/no-unsafe-return -- the test pastes the printed text as code, which is what it checks
   new Function(...Object.keys(scope), `return ${text}`)(...Object.values(scope));
+
+describe("a property named for one of Flow's own rules", () => {
+  it("untyped, a property named turn limit is a script fault, so its breaches are never read as a turn limit", () => {
+    const own = { rule: "turn limit", breaches: () => [] };
+
+    expect(() =>
+      propertyTest(planted, loose({ profile: "usual", properties: [own], seeds: [1] })),
+    ).toThrow(/a property is named turn limit/u);
+  });
+});
 
 describe("a planted fault found from a seed (WriteLanes I6)", () => {
   it(

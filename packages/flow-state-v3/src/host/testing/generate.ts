@@ -1,12 +1,20 @@
 import type { AnyDefinition } from "../../definition.ts";
 // @effect-diagnostics unstableApiUsage:off -- generation and shrinking are Effect's Arbitrary, which Effect marks unstable; chosen over a generator of our own.
-import { Arbitrary, Duration, Effect, Option, Schema } from "effect";
+import { Arbitrary, Duration, Effect, Match, Option, Schema } from "effect";
 import { type ActorId, sameActor } from "../../core/world.ts";
 import type { AnyServer } from "./fake.ts";
 import { mixOf, sharedOf } from "./mix.ts";
 import { runFrom, type Source, type StoryRun, type View } from "./run.ts";
 import { type Property, print, printMix, type Samples } from "./samples.ts";
-import { type Cleanup, Step, StepData, StoryFailed, StoryTurnLimit, WorldWord } from "./steps.ts";
+import {
+  type Cleanup,
+  scriptFault,
+  Step,
+  StepData,
+  StoryFailed,
+  StoryTurnLimit,
+  WorldWord,
+} from "./steps.ts";
 import { SubjectId } from "./story.ts";
 
 /**
@@ -934,11 +942,22 @@ export const generate = <Ds extends AnyDefinition>(
   );
 };
 
-type Verdict = { readonly rule: string; readonly breaches: ReadonlyArray<string> };
-
 const LIMIT_RULE = "turn limit";
 
 const HORIZON_RULE = "inconclusive";
+
+// Flow's own two rules, which no property may take.
+type OwnRule = typeof LIMIT_RULE | typeof HORIZON_RULE;
+
+// A property named for one of Flow's own rules is a type error at the call.
+type NoOwnRule<R extends string> = [Extract<R, OwnRule>] extends [never]
+  ? unknown
+  : { readonly "a property may not be named turn limit or inconclusive": never };
+
+type Verdict<R extends string = never> = {
+  readonly rule: R | OwnRule;
+  readonly breaches: ReadonlyArray<string>;
+};
 
 /**
  * Why a quieted run judged nothing: work still pending at its horizon, or no evidence recorded.
@@ -960,7 +979,11 @@ export const inconclusiveOf = (run: StoryRun, pending: ReadonlyArray<string>) =>
 };
 
 // A run of several fixtures where no step touched two of them shared nothing: it is inconclusive.
-const unsharedOf = (parts: ReadonlyArray<Samples>, generated: Generated) => {
+// RETURN_TYPE: a Verdict, whose rule a literal array would widen to string.
+const unsharedOf = (
+  parts: ReadonlyArray<Samples>,
+  generated: Generated,
+): ReadonlyArray<Verdict> => {
   if (parts.length < 2 || generated.shared > 0) return [];
 
   return [{ rule: HORIZON_RULE, breaches: ["inconclusive: no step touched two fixtures"] }];
@@ -968,11 +991,15 @@ const unsharedOf = (parts: ReadonlyArray<Samples>, generated: Generated) => {
 
 // The breaches a run of draws gives: a turn limit, and work still pending at the horizon, are
 // breaches of their own; a script fault is a fault of the generator, so it is thrown.
-const judged = (at: Drawn, draws: ReadonlyArray<Draw>, properties: ReadonlyArray<Property>) => {
+const judged = <R extends string>(
+  at: Drawn,
+  draws: ReadonlyArray<Draw>,
+  properties: ReadonlyArray<Property<R>>,
+) => {
   try {
     const generated = drawnRun(at, draws);
 
-    const verdicts: ReadonlyArray<Verdict> = properties.flatMap((p) => {
+    const verdicts: ReadonlyArray<Verdict<R>> = properties.flatMap((p) => {
       const breaches = p.breaches(generated.run);
 
       return breaches.length > 0 ? [{ rule: p.rule, breaches }] : [];
@@ -987,11 +1014,11 @@ const judged = (at: Drawn, draws: ReadonlyArray<Draw>, properties: ReadonlyArray
       ],
     };
   } catch (fault) {
-    if (fault instanceof StoryTurnLimit)
-      return {
-        generated: Option.none<Generated>(),
-        verdicts: [{ rule: LIMIT_RULE, breaches: [fault.message] }],
-      };
+    if (fault instanceof StoryTurnLimit) {
+      const limit: Verdict = { rule: LIMIT_RULE, breaches: [fault.message] };
+
+      return { generated: Option.none<Generated>(), verdicts: [limit] };
+    }
 
     // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a script fault in a generated run is a defect of the generator, never a finding about the app
     throw fault instanceof StoryFailed
@@ -1011,7 +1038,7 @@ const MAX_SHRINKS = 1000;
  */
 export type Failure<R extends string = string> = {
   readonly seed: number;
-  readonly rule: R | typeof LIMIT_RULE | typeof HORIZON_RULE;
+  readonly rule: R | OwnRule;
   readonly breaches: ReadonlyArray<string>;
   readonly drawn: number;
   readonly shrinks: number;
@@ -1020,14 +1047,19 @@ export type Failure<R extends string = string> = {
   readonly story: string;
 };
 
-type Check = {
+type Check<R extends string> = {
   readonly profile: Profile;
-  readonly properties: ReadonlyArray<Property>;
+  readonly properties: ReadonlyArray<Property<R>>;
 };
 
 // Checks a seed's draws with Arbitrary: with no target, the run must break no rule, and the first
 // rule broken becomes the target; with a target, the run must not break it. Shrinks up to `shrinks`.
-const search = (at: Drawn, check: Check, target: Option.Option<string>, shrinks: number) => {
+const search = <R extends string>(
+  at: Drawn,
+  check: Check<R>,
+  target: Option.Option<R | OwnRule>,
+  shrinks: number,
+) => {
   let rule = target;
 
   const property = (draws: ReadonlyArray<Draw>) => {
@@ -1070,7 +1102,12 @@ const subsetsOf = (parts: ReadonlyArray<Samples>) =>
 // Drops whole fixtures while the draws still break the rule, their slots kept empty so the rest
 // pick as before: the smallest subset of the kept parts that breaks the same rule, or, past 64
 // subsets, each part in turn left out while the rest still break it.
-const dropped = (at: Drawn, check: Check, rule: string, draws: ReadonlyArray<Draw>) => {
+const dropped = <R extends string>(
+  at: Drawn,
+  check: Check<R>,
+  rule: R | OwnRule,
+  draws: ReadonlyArray<Draw>,
+) => {
   const breaks = (kept: ReadonlyArray<Samples>) =>
     judged({ ...at, kept }, draws, check.properties).verdicts.some((v) => v.rule === rule);
 
@@ -1150,6 +1187,8 @@ const inconclusive = (
  * - A run of several fixtures prints as steps under a comment line, not as a Story to paste: a
  *   Story holds one setup.
  * - Several fixtures must not share a machine, a server or a capture interval (a script fault).
+ * - A property may not be named `turn limit` or `inconclusive`, Flow's own two rules: a type error,
+ *   and untyped a script fault.
  */
 // RETURN_TYPE: the exported Failure contract, which the shrunk run's branches would split.
 export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
@@ -1158,37 +1197,28 @@ export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
     readonly profile: Profile;
     readonly properties: ReadonlyArray<Property<R, Ds>>;
     readonly seeds: ReadonlyArray<number>;
-  },
+  } & NoOwnRule<R>,
 ): ReadonlyArray<Failure<R>> => {
   const all = partsOf(fixtures);
+  const own = options.properties.find((p) => p.rule === LIMIT_RULE || p.rule === HORIZON_RULE);
 
-  // A broken rule as the properties name it, or one of Flow's own two.
-  const ruleOf = (rule: string) =>
-    options.properties.find((p) => p.rule === rule)?.rule ??
-    (rule === HORIZON_RULE ? HORIZON_RULE : LIMIT_RULE);
+  if (own !== undefined) scriptFault(`a property is named ${own.rule}, one of Flow's own rules`);
 
-  // RETURN_TYPE: one Failure list for the passed and the shrunk branch, which inference would split.
-  const checked = (seed: number): ReadonlyArray<Failure<R>> => {
-    const first: Drawn = { all, kept: all, drawing: options.profile, seed };
-    const found = search(first, options, Option.none(), 0);
-
-    if (found.result._tag === "Passed") return [];
-
-    if (found.result._tag !== "Falsified")
-      return [
-        inconclusive(seed, all, Arbitrary.formatCheckFailure(found.result) ?? found.result._tag),
-      ];
-
-    const target = Option.getOrElse(found.rule, () => LIMIT_RULE);
-
+  // RETURN_TYPE: one Failure list for every branch, which inference would split.
+  const shrinkFrom = (
+    seed: number,
+    first: Drawn,
+    draws: ReadonlyArray<Draw>,
+    target: R | OwnRule,
+  ): ReadonlyArray<Failure<R>> => {
     // An inconclusive run judged nothing about any one fixture, so none is dropped. Otherwise
     // fixtures are dropped over the first draws, the draws shrink, and fixtures are dropped again
     // over the shrunk draws, where another fixture's work no longer stands in the way.
     // RETURN_TYPE: the Drawn record both branches return.
-    const drop = (at: Drawn, draws: ReadonlyArray<Draw>): Drawn =>
-      target === HORIZON_RULE ? at : { ...at, kept: dropped(at, options, target, draws) };
+    const drop = (at: Drawn, over: ReadonlyArray<Draw>): Drawn =>
+      target === HORIZON_RULE ? at : { ...at, kept: dropped(at, options, target, over) };
 
-    const once = drop(first, found.result.initialInput);
+    const once = drop(first, draws);
     const shrunk = search(once, options, Option.some(target), MAX_SHRINKS);
 
     if (shrunk.result._tag !== "Falsified")
@@ -1210,9 +1240,9 @@ export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
     return [
       {
         seed,
-        rule: ruleOf(target),
+        rule: target,
         breaches: last.verdicts.filter((v) => v.rule === target).flatMap((v) => v.breaches),
-        drawn: found.result.initialInput.length,
+        drawn: draws.length,
         shrinks: shrunk.result.shrinks,
         fixtures: parts.map((p) => p.id),
         steps,
@@ -1222,6 +1252,29 @@ export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
             : printMix(parts, mixOf(parts), id, steps),
       },
     ];
+  };
+
+  // RETURN_TYPE: one Failure list for the passed and the shrunk branch, which inference would split.
+  const checked = (seed: number): ReadonlyArray<Failure<R>> => {
+    const first: Drawn = { all, kept: all, drawing: options.profile, seed };
+    const found = search(first, options, Option.none(), 0);
+
+    const judgedNothing = (result: Exclude<typeof found.result, { readonly _tag: "Passed" }>) => [
+      inconclusive(seed, all, Arbitrary.formatCheckFailure(result) ?? result._tag),
+    ];
+
+    return Match.valueTags(found.result, {
+      Passed: () => [],
+      Falsified: (falsified) =>
+        shrinkFrom(
+          seed,
+          first,
+          falsified.initialInput,
+          Option.getOrElse(found.rule, () => LIMIT_RULE),
+        ),
+      Exhausted: judgedNothing,
+      ReplayMismatch: judgedNothing,
+    });
   };
 
   for (const seed of options.seeds) {

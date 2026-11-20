@@ -56,6 +56,24 @@ const ternaries = (node: ESTree.ConditionalExpression): ReadonlyArray<ESTree.Nod
     ? [node.test, ...ternaries(node.alternate)]
     : [node.test];
 
+// Whether a statement leaves its block: a return or a throw, alone or last in a block.
+const leaves = (node: ESTree.Node): boolean =>
+  node.type === "ReturnStatement" ||
+  node.type === "ThrowStatement" ||
+  (node.type === "BlockStatement" && node.body.length > 0 && leaves(node.body[node.body.length - 1]!));
+
+// The tests of each run of consecutive early returns in a block: `if (a) return …; if (b) return …;`.
+const earlyReturns = (body: ReadonlyArray<ESTree.Node>): ReadonlyArray<ReadonlyArray<ESTree.IfStatement>> => {
+  const runs: Array<Array<ESTree.IfStatement>> = [[]];
+
+  for (const statement of body)
+    if (statement.type === "IfStatement" && statement.alternate === null && leaves(statement.consequent))
+      runs[runs.length - 1]!.push(statement);
+    else if (runs[runs.length - 1]!.length > 0) runs.push([]);
+
+  return runs.filter((run) => run.length > 1);
+};
+
 const repeats = (subjects: ReadonlyArray<string | undefined>) => {
   const seen = new Set<string>();
 
@@ -120,6 +138,29 @@ export const noTagChainRule = defineRule({
       IfStatement(node: ESTree.IfStatement) {
         if (node.parent?.type === "IfStatement" && node.parent.alternate === node) return;
         check(node, ladder(node));
+      },
+      BlockStatement(node: ESTree.BlockStatement) {
+        for (const run of earlyReturns(node.body))
+          check(
+            run[1]!,
+            run.map((statement) => statement.test),
+          );
+      },
+      // `["A", "B"].includes(x._tag)`: a membership test over one value's tags.
+      CallExpression(node: ESTree.CallExpression) {
+        const callee = node.callee;
+        const [read] = node.arguments;
+
+        if (
+          callee.type === "MemberExpression" &&
+          propertyName(callee) === "includes" &&
+          callee.object.type === "ArrayExpression" &&
+          callee.object.elements.length > 1 &&
+          callee.object.elements.every((element) => isString(element)) &&
+          read?.type === "MemberExpression" &&
+          propertyName(read) === "_tag"
+        )
+          context.report({ node, messageId: "chain", data: { subject: text(read.object) } });
       },
       ConditionalExpression(node: ESTree.ConditionalExpression) {
         if (node.parent?.type === "ConditionalExpression" && node.parent.alternate === node) return;

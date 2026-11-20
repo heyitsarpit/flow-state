@@ -282,7 +282,11 @@ const findingsOf = (
       invalid(path, "UnknownField", `${where(path)} is not a field here`, help),
     ],
     InvalidType: (wrong) => wrongKind(path, helpOf(wrong.ast, help)),
-    Filter: () => wrongKind(path, help),
+    Filter: (filter) => {
+      const own = filter.filter.annotations?.["help"];
+
+      return findingsOf(filter.issue, path, Predicate.isString(own) ? own : help);
+    },
     InvalidValue: () => wrongKind(path, help),
     Forbidden: () => wrongKind(path, help),
     OneOf: () => wrongKind(path, help),
@@ -387,7 +391,18 @@ const SetupConfig = Schema.Struct({
       ),
     }),
   ),
-});
+}).check(
+  Schema.makeFilter(
+    (setup) => {
+      if ((setup.scope === undefined) === (setup.persistence === undefined)) return undefined;
+
+      const missing = setup.scope === undefined ? "scope" : "persistence";
+
+      return { path: [missing], issue: "scope and persistence go together" };
+    },
+    { help: "Give scope and persistence together, or neither." },
+  ),
+);
 
 /**
  * The findings of a Runtime setup's kinds: a missing, unknown or wrong-kind field, at its path.

@@ -45,6 +45,17 @@ export const flowFirst = everything("shop/flow-first")
   .checkpoint("disposed");
 
 /**
+ * Only the checkout flow is ensured, which starts the cart, the shopper and the checkout's Pay it
+ * reads; the flow is disposed, freeing the cart and the Pay in one step, and their graces pass.
+ */
+export const flowAlone = storeStory("shop/flow-alone")
+  .ensure(mainFlow)
+  .checkpoint("bound")
+  .dispose(mainFlow)
+  .advance("1 second")
+  .checkpoint("graces passed");
+
+/**
  * The cart is let go and ends after its grace, then the shopper is forgotten; the cart, ensured
  * again, reads a fresh shopper.
  */

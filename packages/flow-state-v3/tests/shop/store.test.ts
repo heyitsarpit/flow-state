@@ -24,15 +24,25 @@ import { manyShoppers, quantityClicks } from "../../fixtures/shop/stories/load.t
 import {
   cartFirst,
   chain,
+  flowAlone,
   flowBoundLate,
   conflictingCart,
   flowFirst,
   reloadedMidAdd,
   shopperForgotten,
 } from "../../fixtures/shop/stories/structure.ts";
-import { browse, checkoutSteps, guestBrowse } from "../../fixtures/shop/stories/usual.ts";
+import {
+  browse,
+  checkoutSteps,
+  guestBrowse,
+  signOutMidCheckout,
+} from "../../fixtures/shop/stories/usual.ts";
+import type { Evidence } from "../../src/host/inspect.ts";
+import { turnsOf } from "../../src/host/testing/index.ts";
+import { CartBadge } from "../../fixtures/shop/machines/cart-badge.ts";
+import { CheckoutFlow } from "../../fixtures/shop/machines/checkout-flow.ts";
 import { busyEdges } from "../../fixtures/shop/stories/edges.ts";
-import { denials, laneFacts } from "../checkout.ts";
+import { before, denials, laneFacts } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
 const line = (variantId: string, quantity: number) => ({ variantId, quantity });
@@ -248,8 +258,59 @@ describe("the shop's structures (fixtures.md S1, S3, S6, S7, S9)", () => {
 
   it("Actors R20, Stories R3: disposing the cart while the badge and the flow are bound is refused BlockedByDependents, naming both", async () => {
     await expect(cartFirst().run()).rejects.toThrow(
-      /BlockedByDependents: .*Shop\/CartBadge.*Shop\/CheckoutFlow|BlockedByDependents: .*Shop\/CheckoutFlow.*Shop\/CartBadge/u,
+      /BlockedByDependents: (?=.*Shop\/CartBadge)(?=.*Shop\/CheckoutFlow)/u,
     );
+  });
+});
+
+// The machines of one kind of evidence, in the order it came.
+const machinesOf = (records: ReadonlyArray<Evidence>, tag: "Turn" | "Finished") =>
+  records.flatMap((e) => (e._tag === tag ? [e.actor.machine] : []));
+
+describe("identities handled together go in start order (Actors R28): shopper, cart, badge, flow, then the Pay", () => {
+  it("Actors R28: BlockedByDependents names the badge, started first, before the checkout flow", async () => {
+    await expect(cartFirst().run()).rejects.toThrow(
+      /BlockedByDependents: .*Shop\/CartBadge.*Shop\/CheckoutFlow/u,
+    );
+  });
+
+  it("Actors R28: the cart's count reaches the badge's context before the checkout flow's", async () => {
+    const run = await played(signOutMidCheckout);
+
+    const at = (turns: ReadonlyArray<Evidence>) => turns.map((t) => run.evidence.indexOf(t));
+    const [badge] = at(turnsOf(run, CartBadge.E.CountChanged));
+    const [flow] = at(turnsOf(run, CheckoutFlow.E.CartChanged));
+
+    expect(badge).toBeGreaterThanOrEqual(0);
+    expect((flow ?? -1) > (badge ?? -1)).toBe(true);
+  });
+
+  it("Actors R28: the cart and the Pay freed in one step end their graces cart first, then the shopper the cart freed", async () => {
+    const run = await played(flowAlone);
+
+    const ended = machinesOf(
+      before(run, "graces passed").slice(before(run, "bound").length),
+      "Finished",
+    );
+
+    expect(ended).toEqual(["Shop/CheckoutFlow", "Shop/Cart", "Checkout/Pay", "Shop/Shopper"]);
+  });
+
+  it("Actors R22, R28: the Runtime's disposal ends the badge and the flow, the cart once both are gone, the shopper, then the Pay", async () => {
+    const run = await played(signOutMidCheckout);
+
+    const ended = machinesOf(
+      before(run, "signed out").slice(before(run, "checking out").length),
+      "Finished",
+    );
+
+    expect(ended).toEqual([
+      "Shop/CartBadge",
+      "Shop/CheckoutFlow",
+      "Shop/Cart",
+      "Shop/Shopper",
+      "Checkout/Pay",
+    ]);
   });
 });
 

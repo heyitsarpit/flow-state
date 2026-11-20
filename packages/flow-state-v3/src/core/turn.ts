@@ -510,6 +510,25 @@ const levelsOf = (input: TurnInput) => {
   return written ? levels : Option.toArray(implicit(input));
 };
 
+// The turn one alternative's guard verdict ends: accepted on a pass, refused on a defect, and none
+// on a decline, whose reason is kept.
+const endedBy = (
+  verdict: Verdict,
+  alternative: Alternative,
+  handler: string,
+  input: TurnInput,
+  reasons: Array<string>,
+) =>
+  Verdict.$match(verdict, {
+    Pass: () => Option.some(accept(alternative, handler, input)),
+    Defect: ({ slot }) => Option.some(TurnResult.Refused({ code: "GuardDefect", slot })),
+    Declined: ({ code }) => {
+      reasons.push(code);
+
+      return Option.none<TurnResult>();
+    },
+  });
+
 /**
  * Runs one admitted event against a machine's handlers.
  *
@@ -530,14 +549,10 @@ export const runTurn = (input: TurnInput): TurnResult => {
 
   for (const level of levels)
     for (const alternative of level.alternatives) {
-      const checked = firstDecline(alternative, level.node, input, read);
+      const verdict = firstDecline(alternative, level.node, input, read);
+      const ended = endedBy(verdict, alternative, level.node, input, reasons);
 
-      if (Verdict.$is("Defect")(checked))
-        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the refusal is the turn's one result; the loop ends here
-        return TurnResult.Refused({ code: "GuardDefect", slot: checked.slot });
-
-      if (Verdict.$is("Pass")(checked)) return accept(alternative, level.node, input);
-      reasons.push(checked.code);
+      if (Option.isSome(ended)) return ended.value;
     }
 
   return reasons.length > 0 ? TurnResult.Denied({ reasons }) : TurnResult.Unhandled();

@@ -55,53 +55,44 @@ describe("the public surface (Diagnostics R1, R3; boundaries)", () => {
     });
 
   it("Diagnostics R1, R5: runtimeSetup refuses a setup its Schema refuses, naming each field", () => {
-    const refusal = (config: unknown) => {
-      try {
-        runtimeSetup(loose(config));
-
-        return [];
-      } catch (error) {
-        return error instanceof FlowError
-          ? error.diagnostics.map((d) => d.path.join("."))
-          : ["raw"];
-      }
-    };
-
     const [probe] = apps.slice(-1);
 
-    expect(refusal(null)).toEqual([""]);
-    expect(refusal({ app: probe?.app, scope: 7, persistence: { captureMs: Number.NaN } })).toEqual([
+    const fields = (config: unknown) =>
+      refusal(() => runtimeSetup(loose(config))).map(([, path]) => path);
+
+    expect(fields(null)).toEqual([""]);
+    expect(fields({ app: probe?.app, scope: 7, persistence: { captureMs: Number.NaN } })).toEqual([
       "scope",
       "persistence.captureMs",
     ]);
-    expect(refusal({ app: probe?.app, extra: true })).toEqual(["extra"]);
-    expect(refusal({ app: { id: "x", machines: {} }, services: "none" })).toEqual(["services"]);
+    expect(fields({ app: probe?.app, extra: true })).toEqual(["extra"]);
+    expect(fields({ app: { id: "x", machines: {} }, services: "none" })).toEqual(["services"]);
     expect(Predicate.isFunction(runtimeSetup(loose({ app: probe?.app })).construct)).toBe(true);
   });
 
   it("Diagnostics R1, R5: runtimeSetup refuses a negative captureMs, naming the field", () => {
     const [probe] = apps.slice(-1);
 
-    const refused = () => {
-      try {
-        runtimeSetup(loose({ app: probe?.app, scope: "s", persistence: { captureMs: -5 } }));
-
-        return [];
-      } catch (error) {
-        return error instanceof FlowError
-          ? error.diagnostics.map((d) => d.path.join("."))
-          : ["raw"];
-      }
-    };
-
-    expect(refused()).toEqual(["persistence.captureMs"]);
+    expect(
+      refusal(() =>
+        runtimeSetup(loose({ app: probe?.app, scope: "s", persistence: { captureMs: -5 } })),
+      ).map(([, path]) => path),
+    ).toEqual(["persistence.captureMs"]);
   });
 
-  it.fails("WriteAhead R1: an untyped setup with persistence and no scope is refused before construction, naming scope", () => {
+  it("WriteAhead R1: an untyped setup with persistence and no scope is refused before construction, naming scope", () => {
     const [probe] = apps.slice(-1);
 
     expect(refusal(() => runtimeSetup(loose({ app: probe?.app, persistence: {} })))).toEqual([
       ["InvalidConfiguration", "scope"],
+    ]);
+  });
+
+  it("Actors R1: an untyped setup with a scope and no persistence is refused before construction, naming persistence", () => {
+    const [probe] = apps.slice(-1);
+
+    expect(refusal(() => runtimeSetup(loose({ app: probe?.app, scope: "s" })))).toEqual([
+      ["InvalidConfiguration", "persistence"],
     ]);
   });
 

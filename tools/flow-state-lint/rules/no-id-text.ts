@@ -21,8 +21,13 @@ const cuts = new Set([
   "replaceAll",
   "at",
   "charAt",
+  "charCodeAt",
+  "codePointAt",
   "search",
 ]);
+
+// The pattern methods that run a regular expression over their argument.
+const patterns = new Set(["test", "exec"]);
 
 const parsers = new Set(["Number", "parseInt", "parseFloat"]);
 
@@ -34,17 +39,39 @@ const isIdName = (name: string) => /^(id|key|lane|record)$/u.test(name) || /[a-z
 const unwrap = (node: ESTree.Node): ESTree.Node =>
   node.type === "ParenthesizedExpression" || node.type === "TSNonNullExpression" ? unwrap(node.expression) : node;
 
-// Whether an expression names an id or a key: a variable or a member by such a name.
-const isId = (raw: ESTree.Node | null | undefined): boolean => {
-  if (raw === null || raw === undefined) return false;
+// Whether an expression names an id or a key: a variable or a member by such a name, or a variable
+// in `renamed`, bound from one.
+const isIdIn = (renamed: ReadonlySet<string>) => {
+  const isId = (raw: ESTree.Node | null | undefined): boolean => {
+    if (raw === null || raw === undefined) return false;
 
-  const node = unwrap(raw);
+    const node = unwrap(raw);
 
-  return (
-    (node.type === "Identifier" && isIdName(node.name)) ||
-    (node.type === "MemberExpression" && isIdName(propertyName(node)))
-  );
+    return (
+      (node.type === "Identifier" && (isIdName(node.name) || renamed.has(node.name))) ||
+      (node.type === "MemberExpression" && isIdName(propertyName(node)))
+    );
+  };
+
+  return isId;
 };
+
+// The names a declaration binds from an id: `const who = x.id` and `const { id: who } = x`.
+const renamedBy = (node: ESTree.VariableDeclarator, isId: (n: ESTree.Node | null | undefined) => boolean) =>
+  node.id.type === "Identifier"
+    ? isId(node.init) && !isIdName(node.id.name)
+      ? [node.id.name]
+      : []
+    : node.id.type === "ObjectPattern"
+      ? node.id.properties.flatMap((property) =>
+          property.type === "Property" &&
+          property.key.type === "Identifier" &&
+          isIdName(property.key.name) &&
+          property.value.type === "Identifier"
+            ? [property.value.name]
+            : [],
+        )
+      : [];
 
 // A runtime id is minted and a fact about it is stored beside it, typed. Reading the fact back out of the id's text
 // (a slice, a split, a prefix test, a number parse, or rebuilding the text to compare) breaks silently the day the
@@ -62,19 +89,30 @@ export const noIdTextRule = defineRule({
   },
   createOnce(context) {
     const report = (node: ESTree.Node, what: string) => context.report({ node, messageId: "text", data: { what } });
+    const renamed = new Set<string>();
+    const isId = isIdIn(renamed);
 
     return {
       before() {
         const rel = relativePath(context.filename);
         const given: Options = context.options[0] ?? {};
 
+        renamed.clear();
+
         return rel !== undefined && appliesTo(rel, given);
+      },
+      VariableDeclarator(node: ESTree.VariableDeclarator) {
+        for (const name of renamedBy(node, isId)) renamed.add(name);
       },
       CallExpression(node: ESTree.CallExpression) {
         const callee = node.callee;
 
         if (callee.type === "MemberExpression" && cuts.has(propertyName(callee)) && isId(callee.object))
           report(node, `.${propertyName(callee)}`);
+
+        // `/…/.test(id)` and `/…/.exec(id)`.
+        if (callee.type === "MemberExpression" && patterns.has(propertyName(callee)) && isId(node.arguments[0]))
+          report(node, `.${propertyName(callee)}(…)`);
 
         // `Number(id)`, `parseInt(id)` and `Number.parseInt(id)`.
         const parser =

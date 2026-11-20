@@ -126,4 +126,56 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "dependents-newest-first",
+    tests: ["tests/shop/store.test.ts"],
+    says: "a provider's dependents go newest first, so BlockedByDependents names the checkout flow before the badge",
+    rule: "Actors R28",
+    edits: [
+      {
+        file: "src/core/step.ts",
+        find: ".toSorted(byStart)",
+        replace: ".toSorted((a, b) => byStart(b, a))",
+      },
+    ],
+  },
+  {
+    name: "wave-consumers-newest-first",
+    tests: ["tests/shop/store.test.ts"],
+    says: "a context wave reaches its consumers newest first, so the checkout flow's turn runs before the badge's",
+    rule: "Actors R28",
+    edits: [
+      {
+        file: "src/core/tx.ts",
+        find: ".toSorted(byStart);",
+        replace: ".toSorted((a, b) => byStart(b, a));",
+      },
+    ],
+  },
+  {
+    name: "graces-newest-first",
+    tests: ["tests/shop/store.test.ts"],
+    says: "the graces one step judges are armed newest first, so the Pay's grace ends before the cart's",
+    rule: "Actors R28",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: ".toSorted(byStart);",
+        replace: ".toSorted((a, b) => byStart(b, a));",
+      },
+    ],
+  },
+  {
+    name: "disposal-ready-in-queue-order",
+    tests: ["tests/shop/store.test.ts"],
+    says: "the Runtime's disposal takes ready identities in the order they became ready, so the Pay ends before the older shopper",
+    rule: "Actors R28",
+    edits: [
+      {
+        file: "src/core/disposal.ts",
+        find: "ready.splice(ready.findLastIndex((i) => i.started > provider.started) + 1, 0, provider);",
+        replace: "ready.unshift(provider);",
+      },
+    ],
+  },
 ];

@@ -52,6 +52,7 @@ import { pulseAdds, pulseReloadMidAdd, pulseReloaded, pulseSamples } from "./sto
 import {
   chain,
   flowBoundLate,
+  flowAlone,
   flowFirst,
   reloadedMidAdd,
   shopperForgotten,
@@ -83,6 +84,7 @@ export const shop = manifest({
     manyShoppers,
     chain,
     flowFirst,
+    flowAlone,
     shopperForgotten,
     reloadedMidAdd,
     busyEdges,

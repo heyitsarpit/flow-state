@@ -471,8 +471,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/turn.ts",
-        find: "      reasons.push(checked.code);",
-        replace: "      reasons.splice(0, reasons.length, checked.code);",
+        find: "      reasons.push(code);",
+        replace: "      reasons.splice(0, reasons.length, code);",
       },
     ],
   },

@@ -17,8 +17,9 @@ requirements
     R1  Inert setup and services
         source  @plan.Runtime.O2.
         must    runtimeSetup(...).construct() is synchronous and inert. scope is an optional
-                nonempty string that machines, operations and conditions never read (persistence
-                requires it, @spec.WriteAhead.R1). services is a
+                nonempty string that machines, operations and conditions never read; scope and
+                persistence are given together or not at all, and an untyped setup with one alone is
+                refused at the missing one (@spec.WriteAhead.R1). services is a
                 Layer typed by the machines' R; a missing service is a type error, and the boot
                 refuses, by machine, operation and service, an operation whose service it lacks.
                 Each service is acquired once per Runtime.
@@ -453,13 +454,13 @@ requirements
                 before the call runs nothing.
 
     R28  Start order
-        source  @plan.Runtime.O4.
+        source  @plan.Runtime.O6.
         must    Where several live identities are handled together, they go in the order their
                 incarnations started, oldest first: the consumers a context wave reaches, a
-                provider's dependents (BlockedByDependents names them in that order), the identities
-                whose graces a step judges, and a Runtime disposal's peers wherever R22 puts no consumer
-                before its provider. The order is a fact
-                each incarnation stores when it starts, never read back from an id or a Map's order.
+                provider's dependents (BlockedByDependents names them in that order) and the
+                identities whose graces a step judges. A Runtime disposal ends next the oldest identity
+                whose live consumers have all ended (R22). The order is a fact each incarnation stores
+                when it starts, never read back from an id or a Map's order.
                 Proposed (@task.V3.T105, from @task.V3.T102's close review).
 
 open
@@ -646,7 +647,7 @@ invariants
         task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
         rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
 
-    I49  Identities handled together are visited in incarnation start order, oldest first; reversing it changes 
+    I49  Identities handled together are visited in incarnation start order, oldest first; reversing it changes
          BlockedByDependents' message and the order of consumers' context-update turns. Proposed (@task.V3.T105).
         [@R28]
 

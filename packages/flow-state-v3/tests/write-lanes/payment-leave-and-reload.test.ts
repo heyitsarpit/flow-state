@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
-import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
+import { Option } from "effect";
+import { Pay, PayMachine } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
-import { Fake } from "../../src/host/testing/index.ts";
+import { type Cut, evidenceOf, Fake } from "../../src/host/testing/index.ts";
 import {
   before,
   charges,
@@ -22,6 +23,16 @@ import { played } from "../rules/played.ts";
 import { reloadOnWire } from "./reload-on-wire.ts";
 
 const LEAVE = Pay.E.Leave();
+
+// The checkout's order row for its cart at a cut.
+const placeRow = (cut: Cut) =>
+  Option.getOrUndefined(
+    Option.flatMap(Option.fromUndefinedOr(cut.read(checkout)), (snapshot) =>
+      PayMachine.definition.O.place.get(snapshot.operations, {
+        cartId: snapshot.memory.cartId,
+      }),
+    ),
+  );
 
 describe("PAY-06 (WriteLanes R2, WriteLanes R8, WriteLanes R10)", () => {
   it("PAY-06/interruptible: a charge that never answers ends unknown at its deadline, and its late landing ends nothing more", async () => {
@@ -145,8 +156,14 @@ describe("PAY-07 (WriteLanes R16, WriteLanes R7)", () => {
 
     expect(denials(step)).toEqual([["LateMayNotLeave"]]);
     expect(step.filter((e) => e._tag === "Turn")).toEqual([]);
-    expect(step.filter((e) => e._tag === "Published")).toHaveLength(1);
     expect(run.checkpoints.placed.read(checkout)?.memory).toEqual(memory(run.checkpoints.before));
+    expect(placeRow(run.checkpoints.before)?.pending).toBe(true);
+    expect(placeRow(run.checkpoints.placed)).toBeUndefined();
+    expect(run.checkpoints.placed.inspection.owed.map((o) => o.operation)).not.toContain("place");
+    expect(
+      evidenceOf(run, Pay.E.Placed).filter((e) => e._tag === "Delivered" && step.includes(e)),
+    ).toHaveLength(1);
+    expect(step.filter((e) => e._tag === "Published")).toHaveLength(1);
   });
 });
 

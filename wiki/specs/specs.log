@@ -530,3 +530,13 @@ note 2026-11-20T00:54:25Z
     @spec.Actors.R28, I49 (proposed): identities handled together go in incarnation start order, a stored fact
     (@task.V3.T105, from @task.V3.T102's close review: reversing it changed BlockedByDependents and context-update
     turn order, and no rule said so). Reverse: drop R28 and I49.
+
+note 2026-11-20T01:35:18Z
+    @spec.Actors.R28: a disposal ends next the oldest identity whose consumers have ended; the FIFO consumersFirst broke
+    it (Pay before the older shopper). Both orders end every identity, suite green both ways (@task.V3.T105); code
+    fixed, source now Runtime O6. Reverse: restore the FIFO queue and the peers clause.
+
+note 2026-11-20T01:37:57Z
+    @spec.Actors.R1: scope and persistence go together or not at all, as the type says; an untyped scope alone is
+    now refused at persistence, since nothing else reads scope (@task.V3.T105 ruling 3). Reverse: make scope optional
+    alone again and drop the setup check.

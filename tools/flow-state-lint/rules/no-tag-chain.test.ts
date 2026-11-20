@@ -25,6 +25,12 @@ plantRules({
       'const f = x._tag === "A" ? 1 : x._tag === "B" ? 2 : 3;',
       "const f2 = x._tag === `A` || x._tag === `B`;",
       'if (m._tag === "Answer") Other.gen(); else if (Move.$is("EndUnsent")(m)) Other.gen(); else Other.gen();',
+      // A membership test over one subject's tags.
+      'const l2 = ["OnWire", "Cancelling"].includes(p._tag);',
+      'const l3 = [`Queued`, `Retrying`].includes(row.delivery._tag);',
+      // Consecutive early returns on one subject's tag.
+      'const l4 = () => { if (Phase.$is("Held")(p)) return 1; if (Phase.$is("OnWire")(p)) return 2; return 3; };',
+      'const l5 = () => { if (d._tag === "Queued") return 1; if (d._tag === "Kept") return 2; return 3; };',
     ],
     quiet: [
       'const g = Phase.$is("Held")(p);',
@@ -34,14 +40,9 @@ plantRules({
       'const j = e._tag === "Turn" ? 1 : 2;',
       "const k = Phase.$match(p, {});",
       'const l = a.kind === "x" || a.kind === "y";',
-    ],
-    missed: [
-      // A membership test over one subject's tags.
-      'const l2 = ["OnWire", "Cancelling"].includes(p._tag);',
-      'const l3 = [`Queued`, `Retrying`].includes(row.delivery._tag);',
-      // Consecutive early returns on one subject's tag.
-      'const l4 = () => { if (Phase.$is("Held")(p)) return 1; if (Phase.$is("OnWire")(p)) return 2; return 3; };',
-      'const l5 = () => { if (d._tag === "Queued") return 1; if (d._tag === "Kept") return 2; return 3; };',
+      'const l6 = ["x", "y"].includes(a.kind);',
+      'const l7 = () => { if (Phase.$is("Held")(p)) return 1; if (Phase.$is("Held")(q)) return 2; return 3; };',
+      'const l8 = () => { if (Phase.$is("Held")(p)) return 1; Other.gen(); if (Phase.$is("OnWire")(p)) return 2; return 3; };',
     ],
     silent: tests,
   },
@@ -57,6 +58,14 @@ plantRules({
       "const s2 = Number.parseInt(incarnationId);",
       "const s3 = +id;",
       'const s4 = laneKey.replace("lane/", "");',
+      // A binding renamed from an id, then cut.
+      "const { id: who } = incarnation; const z1 = who.slice(1);",
+      'const handle = actor.key; const z2 = handle.split("/");',
+      // A pattern tested or run against an id.
+      "const z3 = /^actor\\//u.test(key);",
+      "const z4 = /-(\\d+)$/u.exec(incarnationId);",
+      // A character code read out of an id.
+      "const z5 = id.charCodeAt(0);",
     ],
     quiet: [
       'const t = name.startsWith("~");',
@@ -66,6 +75,8 @@ plantRules({
       "const x = `${id}-${n}`;",
       'const y = key === "actor/";',
       "const z = ids.slice(1);",
+      "const who2 = actor.name; const z6 = who2.slice(1);",
+      "const z7 = /^~/u.test(name);",
     ],
     silent: [
       "src/host/planted.ts",

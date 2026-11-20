@@ -107,7 +107,7 @@ describe("Story", () => {
     // @ts-expect-error two fixtures of one service
     Story.app(bankSetup, { id: "story/two", fixtures: [BankFake, BankFake] });
     // @ts-expect-error a setup without the services its contracts list
-    runtimeSetup({ app: bank, scope: "bank" });
+    runtimeSetup({ app: bank });
     // @ts-expect-error a duplicate checkpoint name
     usual.checkpoint("sent");
     const widened: string = "later";

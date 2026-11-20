@@ -266,6 +266,10 @@ describe("Stories T2: forks and generated runs keep the Story's app", () => {
       propertyTest(samples, { profile: "usual", properties: [property], seeds: [1] })[0]?.rule,
     ).toEqualTypeOf<"no stray" | "turn limit" | "inconclusive" | undefined>();
 
+    const taken: Property<"inconclusive", Ds> = { rule: "inconclusive", breaches: () => [] };
+    // @ts-expect-error a property may not take a name of Flow's own two rules
+    void propertyTest(samples, { profile: "usual", properties: [taken], seeds: [1] });
+
     samplesOf({
       id: "types/public/wrong-values",
       story,

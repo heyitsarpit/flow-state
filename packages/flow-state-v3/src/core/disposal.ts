@@ -146,8 +146,9 @@ export const makeDisposal = (
   return { disposeRuntime, boundPassed, answered, write, disposalEnds };
 };
 
-// The live identities, each after every live consumer bound to it, in start order otherwise: the
-// order the Runtime's terminal evidence takes.
+// The live identities, each after every live consumer bound to it, the oldest ready one first
+// otherwise: the order the Runtime's terminal evidence takes. `ready` is kept newest first, so the
+// next identity is its last.
 const consumersFirst = (world: World) => {
   const live = [...world.incarnations.values()].toSorted(byStart);
 
@@ -159,13 +160,10 @@ const consumersFirst = (world: World) => {
     ]),
   );
 
-  const ready = live.filter((i) => consumersLeft.get(actorKey(i.actor)) === 0);
+  const ready = live.filter((i) => consumersLeft.get(actorKey(i.actor)) === 0).toReversed();
   const order: Array<ActorId> = [];
 
-  for (let at = 0; at < ready.length; at += 1) {
-    const next = ready[at];
-
-    if (next === undefined) continue;
+  for (let next = ready.pop(); next !== undefined; next = ready.pop()) {
     order.push(next.actor);
 
     for (const key of new Set([...next.bound.values()].map(actorKey))) {
@@ -173,7 +171,8 @@ const consumersFirst = (world: World) => {
       consumersLeft.set(key, left);
       const provider = world.incarnations.get(key);
 
-      if (left === 0 && provider !== undefined) ready.push(provider);
+      if (left === 0 && provider !== undefined)
+        ready.splice(ready.findLastIndex((i) => i.started > provider.started) + 1, 0, provider);
     }
   }
 
