@@ -185,3 +185,9 @@ Deferred items.
   fakes, run rules) reused rather than rolled again; overlapping wrappers and wrappers that hide nothing. Findings
   feed a convergence pass. Last run: never. The orchestrator never starts it; it reports it as pending at a phase's
   close-out.
+- **Structural rules on machines** (2026-11-20, the user). `terminals` was adopted into the rules proposal. Not
+  adopted: where an action may be taken, last drafted as `allowed: { Name: { actions: [O.pay.commit, O.pay.retry],
+  in: [S.CARD, S.UNSURE] } }`, proved per handler over the states it can fire in (root handlers and late endings
+  included, state guards narrowing); on the shop's Pay it would flag the root `PayRequested` committing in any state.
+  Earlier drafts (`never`, `outside`, `does`, `effects`) read as double negatives. And `reachable`, which the
+  built-in unreachable-state warning and rule coverage already cover. Reopen with several real machines in hand.

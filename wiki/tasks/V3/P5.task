@@ -411,76 +411,62 @@ tasks
             above no longer applies here.
 
     T106
-        title       Rules on definitions, judged by every run, with unseen rules reported
+        title       Rules on machines: invariants, turns and terminals, with rule coverage
         status      draft
         priority    high
+        blocked_by  [@task.V3.T109, @task.V3.T110]
+        satisfies   [
+                    @plan.Rules.O1,
+                    @plan.Rules.O2,
+                    @plan.Rules.O3,
+                    @plan.Rules.O4,
+                    @plan.Rules.O5,
+                    @plan.Rules.O6,
+                    @plan.Rules.O7,
+                    @plan.Rules.O8
+                    ]
         description
-            App authors declare rules on their own definitions, and every run of the runtime judges them and reports how
-            far each was actually exercised, so a rule that saw nothing shows as unseen instead of passing.
+            Build @plan.Rules: app authors declare `invariants`, `turns` and `terminals` in `machine()`, every Story,
+            generated run and sweep judges them, `flow check` proves terminals, and rule coverage reports what no
+            run exercised.
 
-            **Why now:** adopted by the user (2026-11-19) from the Alchemy study
-            (code:wiki/plans/flow/references/proposals/alchemy-adoption-2026-11-19.md, ideas 1 and 2). It extends the
-            2026-11-15 decision that the runtime tests itself through its public Stories, generator and sweeps, with no
-            second model: the rules are written in the same language, on the declaration they are about, and judged
-            against the real runs. Today an app's own guarantees are hand-written checks in single Stories (for example
-            NUMBER-12's bounds filter).
+            **Why now:** an app's guarantees are hand-written checks in single Stories today (NUMBER-12's bounds
+            filter), which the generator and sweeps never judge. The design was settled with the user on 2026-11-19 and
+            2026-11-20 and is the Plan; nothing in it is open but its Q1.
 
-            **Read first:** code:wiki/plans/flow/references/proposals/alchemy-adoption-2026-11-19.md, @plan.Testing,
-            @plan.Machines, code:packages/flow-state-v3/tests/rules/rules.ts, and Alchemy's Domain rules in
-            `codebases/alchemy/packages/domain/src` as prior art.
+            **Read first:** @plan.Rules (every outcome; its goal lists what was not adopted and why), @plan.Testing
+            (Stories, the generator, sweeps), @plan.Machines.O2 (fragments, tokens, `S.X.is`),
+            code:packages/flow-state-v3/tests/rules/rules.ts (Flow's run rules and `checked`),
+            code:packages/flow-state-v3/tests/number-input/number-input.stress.test.ts (NUMBER-12).
 
-            **Approach:** design first, by the structural-fix recipe (a blind design from the problem, Alchemy as prior
-            art read from source, a comparison, then build):
+            **Risk:** the type surface: `machine()` returns a fixed `Machine<D>` today
+            (code:packages/flow-state-v3/src/machine.ts#export const machine), so rule tokens need the body's type, and
+            shared bodies such as code:packages/flow-state-v3/fixtures/services/shop/machines/pay.ts#PayBody must still
+            compile (@plan.Rules.O3); write the type tests first. Rules over `operations` depend on when a row turns
+            busy (@plan.Rules.Q1). @plan.Rules.O7 needs traits and subroutines (@task.V3.T109, @task.V3.T110); its
+            `Story.fragment` part lands with @task.V3.T29, which builds `Story.fragment`.
 
-            - rule kinds on `definition`: `invariants` (memory and state), `transitions` (before and after a turn),
-              `eventually` (true at the end of a run that ran its course); `relations` across actors on the `app`;
-            - every Story, generated run, reload sweep and pair sweep judges them with no extra call; a breach fails the
-              run with the shortest Story that shows it;
-            - each rule reports how often its subject came up; an unseen rule is reported, never counted as a pass; the
-              report is computed, never stored, and replaces the hand-kept rule coverage claims;
-            - open design questions to settle with evidence: rules on nested states, how relations follow context-update
-              order, what `flow check` and `flow explain` show, and the cost on the bench.
+            **Approach:** write the Spec from @plan.Rules with skill:to-spec, then its requirements as failing checks:
+            type tests (@plan.Rules.V1), then judging in runs and the switch, rule coverage, terminals and
+            `RuleSubjectUnreachable` in `flow check`, then `enabled` and `RuleBroken` outside tests. Rename the run
+            rules' `breaches` and `breachesOf` to `broken` and `brokenOf` in the same change. Measure the suite with
+            rules on and off before setting a budget.
 
-            New public words (the rule fields, the report) are a new concept accepted by the user; their names and
-            shapes are the user's read. Planted faults stay the check that a rule can fail.
-
-            May change: `packages/flow-state-v3/src/`, `src/host/testing/`, `tests/`, `fixtures/`, a new Spec via
-            skill:to-spec, and @plan.Testing and @plan.Machines through @plan.Pending. Evidence: this Task's comments.
+            May change: `packages/flow-state-v3/src/`, `src/host/testing/`, `tests/`, `fixtures/` and a new Spec;
+            @plan.Rules only through @plan.Pending, when the build shows it wrong.
         acceptance
-            - A design proposal compares at least two shapes and is accepted before the build; its Spec is written
-              with skill:to-spec.
-            - Rules declared on a fixture's definition are judged in every Story, generated run and sweep; a planted
-              breach fails with its shortest Story.
-            - Each rule reports its exercise count; an unseen rule is reported, never passed; NUMBER-12's hand check and
-              at least one other become declared rules.
-            - `nub run check`, the suite and stress pass; each new rule kind has a planted fault caught by `nub run
-              faults --only`.
-        comment     2026-11-19T15:22:48Z
-            Design constraints (the user, 2026-11-19): no magic strings: rules use the machine's typed S, E and O tokens
-            and live where those exist (the machine() callback); and static analysis is first class: structural rules
-            (never, terminal, reachable, every ending handled) are data over tokens, proved by flow check over the
-            compiled graph and shown by explain and graph, while value rules (invariants, transitions, eventually over
-            memory) are checked by every run. The report gives each rule's tier: proved, checked with its exercise
-            count, or unseen.
-        comment     2026-11-19T15:35:36Z
-            Design input (cohesion pass, code:wiki/plans/flow/references/proposals/rules-cohesion-2026-11-19.md): 8 of
-            17 features need nothing; value rules read the guard's snapshot (props, context, schedules, operation rows)
-            and transitions gain turn (event, outcome, emitted); never becomes one edge pattern; rules name their
-            subject so vacuous ones show unseen; eventually holds at every quiet point; flow check gains RuleBroken,
-            RuleSubjectUnreachable, ScheduleNeverArmed. Seven open questions in the proposal; names are the user's.
-        comment     2026-11-19T15:56:43Z
-            Design constraint (the user, 2026-11-19), public: rule checking can be turned off or redirected explicitly
-            in Stories and runs, for Flow's own tests and users' alike, in three modes: checked (default), expected to
-            break (the Story passes only if the named rules break, like it.fails for a rule), and off (to drive edge and
-            stress behaviour past a rule). Per rule by token and for all rules; never silent: the report lists every
-            rule skipped or expected, so a disabled rule cannot pass unnoticed. Flow's own run rules get the
-            same switch.
-        comment     2026-11-19T15:57:57Z
-            Prior art (Alchemy, codebases/alchemy/packages/domain/src/Story.ts and Verify.ts): Stories never judge
-            invariants; only an explicit Verify.model test does, with require (rules that must stay proved) and allow
-            (handlers it may skip), so old tests needed no switch. Proposed hybrid for the design: generated runs and
-            sweeps judge rules automatically (Flow's Verify); hand-written Stories judge by default with the user's
-            expect/skip/off switch; a require-style list fails a suite whose named rules stay unseen.
+            - A Spec written from @plan.Rules with skill:to-spec.
+            - @plan.Rules.V1 to V7 pass; V8 passes for host Stories, and for `Story.fragment` once @task.V3.T29
+              builds it.
+            - Rule cost on the suite is measured with rules on and off and recorded in a comment on this Task.
+            - `nub run check`, the suite and stress pass.
+        comment     2026-11-20T10:16:39Z
+            Rewritten from scratch on @plan.Rules (the user, 2026-11-20); the earlier draft and its comments are in git
+            history before this change.
+        comment     2026-11-20T10:29:26Z
+            Three reviews applied to @plan.Rules (the user, 2026-11-20): examples made true on the fixtures, lane
+            changes judged by invariants, `TerminalLeft`, private fields redacted, and expectBroken, coverage and
+            fragment-copy rules defined. Blocked on T109 and T110 for the fragment part.
     T108
         title       Story presentation: StoryPlayer and definePresentation
         status      draft
