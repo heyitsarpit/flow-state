@@ -71,6 +71,9 @@ it. Its `--json` list is `decisions`.
 Text listings (`check`, `lint`, `list`, `refs`, `status --decisions`, `show --items`) stop at 50 rows and
 end with `… and N more (--limit N or --all)`; pass `--limit N` or `--all`. `--json` is complete unless
 `--limit` is given, then `total` sits beside the cut list.
+`wk agenda [--since DATE]` is what needs a judge, grouped by record: every `[open]` item with its
+recommendation, every Markdown record at `proposed`, and agent decisions since DATE (default 7 days).
+Run it instead of collecting these by hand; `--json` for programs.
 `wk brief @task.EPIC.T1` prints what a lead needs for one Task, in order: the Task as `show`
 prints it; its phase card; every Spec or Plan item it links, in full; the Epic's `## Constraints`
 bullets whose scope (after the last `;` in the bullet's final parenthesis: `whole run`, `P4`,
@@ -127,6 +130,21 @@ wk migrate docs --kind proposal --dry-run wiki/proposals  # convert older Markdo
 
 - A tag needs a heading or bold lead term on its line, except in `.log` and `.task` prose, where
   the note or comment is the item (one tag per note). In the same file, link an item as `@#slug`.
+  Prose fields of `.plan`, `.task` and `.spec` files read the same way (`@plan.ID#slug`,
+  `@task.EPIC.T1#slug`, `@spec.NAME#slug`); a tag with no lead there is a `TAG_NO_ITEM` lint finding.
+  `wk edit --tag` does not reach them yet: edit the file.
+- One home per decision: write a decision once, in the tagged item. To log it, `wk log add V3
+  --decision @proposal.rules#retry` writes a pointer from the item's own tag; a note that tags
+  `decided` or `accepted` and links an item that has one is `DUPLICATE_DECISION`.
+- A Task may wait on a question: `--set blocked_by=[@proposal.rules#names]`. It is not ready while the
+  item is `open` and is ready once `answered`, `decided`, `accepted`, `rejected` or `dropped`.
+- `wk lint` reads across records: `STATUS_DRIFT` (a `proposed` record a Task, Plan or Spec says was
+  built, merged or accepted, or another record supersedes), `QUESTION_MAYBE_ANSWERED` (an `[open]`
+  item a newer record links by slug) and seams. A record lists `- **Offers** \`Name\`: ...` and
+  `- **Needs** \`Name\` from @kind.name: ...`; `SEAM_UNMATCHED` is a Needs with no matching Offers,
+  `SEAM_UNUSED` (info) an Offers nothing needs.
+- Tag dates are your local date. A Task may be `superseded` (closed for readiness); so may a Plan or
+  Spec, whose `open_by` evidence stays allowed.
 - `--tag` writes labels on their own line at the end of the item's paragraph, replaces a label
   that is already there, and drops labels the new verb does not use. It refuses to retag a
   `decided: user` item unless `--by user` (`EDIT_USER_DECISION`).
