@@ -1208,3 +1208,7 @@ note 2026-11-20T06:22:56Z
 
 note 2026-11-20T06:26:33Z
     T58's Safari hide cases pass with the display awake (15 of 15, exit 0); only the forget-order fix round remains.
+
+note 2026-11-20T06:30:36Z
+    Decision (the user, 2026-11-20, Q4 A): headless Chrome always; real Safari unattended for store tests, hide cases
+    display-bound and required when attended.

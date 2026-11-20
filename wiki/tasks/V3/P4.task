@@ -469,6 +469,10 @@ tasks
             tools/browser/run.ts --only safari exits 0 at 6be5e68d, 15 of 15, both hide cases passing (the flush lands
             well before the interval; the Fake and the real page issue the same batches); automation Safari and
             safaridriver ended by pid.
+        comment     2026-11-20T06:30:36Z
+            Decision (the user, 2026-11-20, Q4 A): Chrome stays headless; real Safari runs its store tests unattended;
+            its hide cases are display-bound, skipped with a named reason when the page starts hidden and required in
+            attended mode (phase closes, the user at the machine). No WebKit download. Built in this fix round.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
