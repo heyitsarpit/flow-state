@@ -586,3 +586,8 @@ note 2026-11-20T10:52:09Z
     @spec.Turn: R14 says disarm wins over a changed restartOn selection in the same turn (T57 close review: re-arming
     made up a firing, a submit that clears a search query fired the debounce). Reverse: drop the sentence and the rebase
     in settle.
+
+note 2026-11-20T13:30:00Z
+    @spec.Turn: R14 disarm wins over entry and key armings (user's ruling); R19 first defect is the issue, a throwing
+    reason keeps the last reasons; R25 a check's issue clears only if it ran clean; R27 reasons run for idle timers.
+    @task.V3.T57 convergence, lead's calls by the schedule table; reverse each by dropping its sentence and rows.

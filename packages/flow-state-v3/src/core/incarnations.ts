@@ -4,6 +4,7 @@ import { inputOfName } from "./identity.ts";
 import type { Start } from "./input.ts";
 import { makeContext } from "./context.ts";
 import { armingsOf } from "./turn.ts";
+import { Occasion } from "./schedule-decision.ts";
 import { makeSchedules } from "./schedules.ts";
 import { makeScheduleRestore } from "./schedule-restore.ts";
 import { chainOf, create } from "./tree.ts";
@@ -75,7 +76,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     release: (provider, use) => release(provider, use),
     // A changed context re-checks the keys, restarts and pauses that read it.
     publish: (incarnation) => {
-      const settled = schedules.settle(incarnation, true, false, []);
+      const settled = schedules.rechecked(incarnation, Occasion.Context());
 
       if (settled !== incarnation) setIncarnation(settled);
       publish(settled);
@@ -182,17 +183,14 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),
         );
 
-        return schedules.settle(
-          schedules.apply(
-            { ...bound, issues: [...bound.issues, ...issues] },
-            entered,
-            [],
-            arm.armed,
-          ),
-          true,
-          false,
-          [],
-        );
+        const created = { ...bound, issues: [...bound.issues, ...issues] };
+
+        return schedules.turned(created, created.schedules, {
+          exits: [],
+          enters: entered,
+          arms: arm.armed,
+          disarms: [],
+        });
       },
       onSome: (record) => restore(bound, record.schedules),
     });

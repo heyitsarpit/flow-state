@@ -6,13 +6,11 @@ import type { Tx } from "./tx.ts";
 import type { SavedTimer } from "./vocabulary.ts";
 import {
   type Incarnation,
-  type Issue,
   type Run,
   type TimerKey,
   Timing,
   type Tracked,
   trackOf,
-  withIssue,
 } from "./world.ts";
 
 /**
@@ -132,36 +130,17 @@ export const makeScheduleRestore = (tx: Tx, schedules: ScheduleSteps) => {
     const declared = declaredOn(tx.machines, incarnation);
     const byName = new Map(declared.map((s) => [s.name, s]));
     const timers = new Map<string, Tracked>();
-    const issues: Array<Issue> = [];
 
     for (const tracked of saved.flatMap((t) => Option.toArray(trackedOf(incarnation, byName, t))))
       timers.set(trackOf(tracked.name, tracked.key), tracked);
 
-    for (const schedule of declared.filter((s) => Option.isNone(s.keys) && !timers.has(s.name))) {
-      const fresh: Tracked = {
-        name: schedule.name,
-        key: Option.none(),
-        baseline: Option.none(),
-        run: Option.none(),
-      };
-
-      const arming = schedule.onEntry
-        ? schedules.armed(
-            { ...incarnation, schedules: timers },
-            fresh,
-            schedule,
-            schedules.noOperations,
-          )
-        : { tracked: fresh, issue: Option.none<Issue>() };
-
-      for (const issue of Option.toArray(arming.issue)) issues.push(issue);
-      timers.set(schedule.name, arming.tracked);
-    }
-
-    return issues.reduce(
-      withIssue,
-      schedules.settle({ ...incarnation, schedules: timers }, false, true, []),
+    const adds = new Set(
+      declared
+        .filter((s) => Option.isNone(s.keys) && s.onEntry && !timers.has(s.name))
+        .map((s) => s.name),
     );
+
+    return schedules.restored(incarnation, timers, adds);
   };
 
   return { restore };

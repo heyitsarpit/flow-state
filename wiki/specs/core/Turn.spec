@@ -95,8 +95,9 @@ requirements
                 Exit stops any schedule. Only `armOn: [Flow.entry]` may sit beside `restartOn`; a turn that does both
                 arms once, from step one. A turn whose event a schedule lists in `disarmOn` leaves it disarmed even when
                 the turn changes its `restartOn` selection, which becomes the new baseline silently; a later change
-                re-arms it. An event in both lists, any other `armOn` with `restartOn`, or `armOn` on a keyed schedule
-                is a construction error. A fixed delay outside 0 to the host timer's limit, 2^31 - 1 ms
+                re-arms it. Disarm wins over every arming in that turn: an entry arming and a key that appears both
+                stay disarmed. An event in both lists, any other `armOn` with `restartOn`, or `armOn` on a keyed
+                schedule is a construction error. A fixed delay outside 0 to the host timer's limit, 2^31 - 1 ms
                 (`TIMER_LIMIT_MS`, a platform limit; so a fixed negative one) is a construction error
                 (InvalidConfiguration, details.reason DelayOutOfRange). A computed finite negative delay counts as zero:
                 due at once, fired once on the next turn, never in the arming turn. A computed delay that is NaN,
@@ -180,8 +181,10 @@ requirements
                 functions, restartOn, onContext or onProps, except that every lane change, a denied
                 or unhandled ending's admission included, re-checks `keys` and `paused`; a defect
                 there publishes one issue and keeps the previous values, and the lane change still
-                publishes. Finite work starts only from an accepted transition's
-                actions.
+                publishes. In any schedule check the issue is the first defect in check order, and the
+                previous value a throwing check keeps is its own: the key set, the baseline, or the
+                timer's last pause reasons, which a run armed or restarted in that turn takes too.
+                Finite work starts only from an accepted transition's actions.
 
     R20  The owner test
         source  @plan.Machines.O6.
@@ -257,7 +260,8 @@ requirements
     R25  Issues by source
         source  @plan.Machines.O8.
         must    A later success or release clears its own source's issue, never another source's. A 
-                new incarnation inherits no issue.
+                new incarnation inherits no issue. A schedule check's issue clears only when that check
+                ran and succeeded; an accepted firing does not clear it.
 
     R26  A turn's verdict is an act
         source  @plan.Machines.O3; @plan.Inspection.O2.
@@ -288,9 +292,10 @@ requirements
                 the active reason names in declaration order, beside `left`. `paused` is always a
                 record, never a bare function; reason names are a literal union, so `pausedBy` is
                 typed. A turn runs keys,
-                then `restartOn`, then `paused`, after each committed turn, and a context change
-                runs `restartOn` and `paused`, which may read it, at once. True holds the time
-                left of the current delay (`left = dueAt - now`, at least 0); false resumes from
+                then `restartOn`, then `paused` (for every timer, armed or idle), after each
+                committed turn, and a context change runs `restartOn` and `paused`, which may read
+                it, at once. True holds the time left of the current delay (`left = dueAt - now`, at least 0); false 
+                resumes from
                 it (`dueAt = now + left`). Paused time never counts toward a delay; an unused
                 actor, a frozen trait and a closed page still count. Arming or restarting while
                 paused holds the full delay. A multi-step Schedule pauses inside its current

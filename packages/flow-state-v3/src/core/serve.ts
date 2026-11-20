@@ -19,7 +19,6 @@ import {
   Mail,
   OwnedBy,
   withIssue,
-  withoutIssue,
 } from "./world.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
@@ -70,6 +69,13 @@ const HEARD: Heard = "Heard";
 const REFUSED: Heard = "Refused";
 
 const UNMAPPED: Heard = "Unmapped";
+
+// What a turn answers its server: how its mail was heard, and whether it committed.
+const TURNED = { heard: HEARD, committed: true } as const;
+
+const UNTURNED = { heard: HEARD, committed: false } as const;
+
+const REFUSED_TURN = { heard: REFUSED, committed: false } as const;
 
 /**
  * The activations that own an actor's pending work: each InFlight head and every queued commit,
@@ -166,7 +172,7 @@ export const makeServe = (
   const turn = (incarnation: Incarnation, tag: string, payload: Values, trigger: Trigger) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
-    if (compiled === undefined) return HEARD;
+    if (compiled === undefined) return UNTURNED;
 
     const route = routeOf(trigger);
 
@@ -196,7 +202,7 @@ export const makeServe = (
     const settled = () => {
       if (Option.isSome(route.ending)) publish(incarnation);
 
-      return HEARD;
+      return UNTURNED;
     };
 
     return TurnResult.$match(result, {
@@ -222,7 +228,7 @@ export const makeServe = (
           ),
         );
 
-        return REFUSED;
+        return REFUSED_TURN;
       },
       Accepted: (accepted) => {
         const sends = accepted.actions.filter(Resolved.$is("Send"));
@@ -246,25 +252,19 @@ export const makeServe = (
             ),
           );
 
-          return REFUSED;
+          return REFUSED_TURN;
         }
 
         const base: Incarnation = Option.match(accepted.move, {
           onNone: () => ({ ...incarnation, memory: tx.env.admit(accepted.memory) }),
           onSome: (move) => {
-            const exited = new Set(
-              move.exits.flatMap((path) =>
-                (compiled.states.get(path)?.schedules ?? []).map((s) => s.name),
-              ),
-            );
-
             const kept = incarnation.activations.slice(
               0,
               incarnation.activations.length - move.exits.length,
             );
 
             return {
-              ...schedules.stopNamed(incarnation, exited),
+              ...incarnation,
               state: move.leaf,
               activations: [...kept, ...move.enters.map(() => tx.mintActivation())],
               history: historyAfter(incarnation.history, incarnation.state, move),
@@ -273,12 +273,7 @@ export const makeServe = (
           },
         });
 
-        const after = schedules.apply(
-          withoutIssue(base, route.source),
-          Option.match(accepted.move, { onNone: () => [], onSome: (m) => m.enters }),
-          accepted.disarm,
-          accepted.arm,
-        );
+        const after = schedules.succeeded(base, route.source);
 
         setIncarnation(after);
 
@@ -336,12 +331,17 @@ export const makeServe = (
 
         flushLanes(after.actor);
 
-        // Keys, restarts and pauses read the memory and lanes the turn left.
-        const settled = schedules.settle(
+        // The turn's schedule work is decided once per schedule, after its lanes flushed: exits,
+        // entries, armings and disarms, then keys, restarts and pauses read what the turn left.
+        const settled = schedules.turned(
           incarnationOf(after.actor) ?? after,
-          true,
-          false,
-          accepted.disarm,
+          incarnation.schedules,
+          {
+            exits: Option.match(accepted.move, { onNone: () => [], onSome: (m) => m.exits }),
+            enters: Option.match(accepted.move, { onNone: () => [], onSome: (m) => m.enters }),
+            arms: accepted.arm,
+            disarms: accepted.disarm,
+          },
         );
 
         setIncarnation(settled);
@@ -356,7 +356,7 @@ export const makeServe = (
             Option.some(after.actor),
           );
 
-        return HEARD;
+        return TURNED;
       },
     });
   };
@@ -415,11 +415,15 @@ export const makeServe = (
       return REFUSED;
     }
 
-    return turn(incarnation, mapping.value.event, payload.success, trigger);
+    return turn(incarnation, mapping.value.event, payload.success, trigger).heard;
   };
 
-  const firings = makeFirings(tx, incarnations, (incarnation, schedule, payload) =>
-    turn(incarnation, schedule.send, payload, Trigger.Firing({ schedule: schedule.name })),
+  const firings = makeFirings(
+    tx,
+    incarnations,
+    (incarnation, schedule, payload) =>
+      turn(incarnation, schedule.send, payload, Trigger.Firing({ schedule: schedule.name }))
+        .committed,
   );
 
   const serve = (mail: Mail) =>

@@ -94,8 +94,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
       },
       {
         file: "src/core/serve.ts",
-        find: "          ),\n        );\n\n        return REFUSED;",
-        replace: "          ),\n        ];\n\n        return REFUSED;",
+        find: "          ),\n        );\n\n        return REFUSED_TURN;",
+        replace: "          ),\n        ];\n\n        return REFUSED_TURN;",
       },
     ],
   },
@@ -258,8 +258,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "            [],\n            arm.armed,",
-        replace: "            [],\n            arm.refused.length > 0 ? [] : arm.armed,",
+        find: "          arms: arm.armed,",
+        replace: "          arms: arm.refused.length > 0 ? [] : arm.armed,",
       },
     ],
   },

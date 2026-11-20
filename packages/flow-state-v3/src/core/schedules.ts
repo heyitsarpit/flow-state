@@ -7,24 +7,31 @@ import {
   type Series,
 } from "./compiled.ts";
 import { encodeCanonical } from "./codec.ts";
-import { checks, reasonsOf, recoveredBy, sameReasons } from "./schedule-checks.ts";
 import { Act } from "./evidence-of.ts";
+import {
+  checkSlotsOf,
+  decide,
+  type Decision,
+  Occasion,
+  Plan,
+  type PlannedRun,
+  type PlannedTrack,
+  Seen,
+} from "./schedule-decision.ts";
 import {
   declaredOn,
   dueIn,
   firstStep,
   inRange,
   operationsOf,
-  schedulesOf,
   seriesId,
-  type Step,
   waitingIn,
 } from "./schedule-plan.ts";
+import type { Arming } from "./turn.ts";
 import type { Tx } from "./tx.ts";
 import {
   type ActorId,
   type Incarnation,
-  type Issue,
   IssueSource,
   type Run,
   Timer,
@@ -36,7 +43,8 @@ import {
 } from "./world.ts";
 
 /**
- * Schedules: arming, keys, restarts, pauses and firings of an incarnation's timers.
+ * Schedules: an incarnation's timers, each change decided for one schedule by `decide` and
+ * applied here, the one place that writes them.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: the rows a schedule's callbacks read, typed by the definition.
 type Operations = ReadonlyMap<string, ReadonlyMap<string, unknown>>;
@@ -49,13 +57,31 @@ const NO_OPERATIONS: Operations = new Map();
  */
 export type Next = { readonly run: Option.Option<Run>; readonly over: boolean };
 
-// RETURN_TYPE: a Tracked, so its Options widen to the timer's.
-const idle = (name: string, key: Option.Option<TimerKey>): Tracked => ({
-  name,
-  key,
-  baseline: Option.none(),
-  run: Option.none(),
-});
+/**
+ * What a committed turn did to the schedules of its incarnation: the states it exited and
+ * entered, the armings it checked, and the schedules its event lists in `disarmOn`.
+ */
+export type TurnWork = {
+  readonly exits: ReadonlyArray<string>;
+  readonly enters: ReadonlyArray<string>;
+  readonly arms: ReadonlyArray<Arming>;
+  readonly disarms: ReadonlyArray<string>;
+};
+
+const sameReasons = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
+  a.length === b.length && a.every((r, n) => r === b[n]);
+
+// Whether a decided run is its timer's run unchanged.
+const unchanged = (before: Run, after: PlannedRun) =>
+  Option.exists(after.arming, (a) => a === before.arming) &&
+  before.attempt === after.attempt &&
+  Plan.$match(after.plan, {
+    Due: ({ dueAt }) => Timing.$is("Running")(before.timing) && before.timing.dueAt === dueAt,
+    Held: ({ left, pausedBy }) =>
+      Timing.$is("Held")(before.timing) &&
+      before.timing.left === left &&
+      sameReasons(before.timing.pausedBy, pausedBy),
+  });
 
 export const makeSchedules = (tx: Tx) => {
   const contextOf = (incarnation: Incarnation) =>
@@ -89,7 +115,7 @@ export const makeSchedules = (tx: Tx) => {
 
   const runningTimer = (
     incarnation: Incarnation,
-    tracked: Tracked,
+    tracked: Pick<Tracked, "name" | "key">,
     arming: Run["arming"],
     at: number,
   ) =>
@@ -107,121 +133,10 @@ export const makeSchedules = (tx: Tx) => {
   // A running timing to `dueAt` on a new host timer.
   const runningTo = (
     incarnation: Incarnation,
-    tracked: Tracked,
+    tracked: Pick<Tracked, "name" | "key">,
     arming: Run["arming"],
     dueAt: number,
   ) => Timing.Running({ dueAt, timer: runningTimer(incarnation, tracked, arming, dueAt) });
-
-  // A new run of a timer from its first step, armed now: it runs to its delay; a pause, checked
-  // after, holds its full delay.
-  const runFrom = (incarnation: Incarnation, tracked: Tracked, first: Step) => {
-    const arming = tx.mintArming();
-
-    return {
-      arming,
-      armedAt: tx.env.now,
-      attempt: 0,
-      series: first.series,
-      output: first.output,
-      timing: runningTo(incarnation, tracked, arming, tx.env.now + first.ms),
-    } satisfies Run;
-  };
-
-  const issueOf = (actor: ActorId, name: string, code: Issue["code"], slot: string) =>
-    tx.refuse(actor, { source: IssueSource.Schedule({ name }), code, slot: Option.some(slot) });
-
-  /**
-   * A timer armed now from its first step: a defective or out-of-range delay leaves it idle with
-   * its schedule's issue.
-   */
-  const armed = (
-    incarnation: Incarnation,
-    tracked: Tracked,
-    schedule: Schedule,
-    operations: Operations,
-  ) => {
-    Option.map(tracked.run, disarmRun);
-
-    const first = firstStep(
-      schedule,
-      readOf(incarnation, tracked.key, operations),
-      stepper(incarnation.actor, trackOf(tracked.name, tracked.key), tx.env.now),
-    );
-
-    return Result.match(first, {
-      onFailure: (slot) => ({
-        tracked: { ...tracked, run: Option.none<Run>() },
-        issue: Option.some(issueOf(incarnation.actor, schedule.name, "InvalidTurn", slot)),
-      }),
-      onSuccess: (step) => ({
-        tracked: { ...tracked, run: Option.map(step, (s) => runFrom(incarnation, tracked, s)) },
-        issue: Option.none<Issue>(),
-      }),
-    });
-  };
-
-  /**
-   * Applies a turn's schedule work to the incarnation after it: each schedule of an entered state
-   * gets its timer (idle until armed), each listed in the event's `disarmOn` stops, and each the
-   * turn arms starts from its first step, the turn having checked it.
-   */
-  const apply = (
-    incarnation: Incarnation,
-    entered: ReadonlyArray<string>,
-    disarmed: ReadonlyArray<string>,
-    arms: ReadonlyArray<{ readonly name: string; readonly first: Option.Option<Step> }>,
-  ) => {
-    if (entered.length === 0 && disarmed.length === 0 && arms.length === 0) return incarnation;
-
-    const timers = new Map(incarnation.schedules);
-    const of = schedulesOf(tx.machines, incarnation.actor.machine);
-
-    for (const s of entered.flatMap(of))
-      if (Option.isNone(s.keys)) timers.set(s.name, idle(s.name, Option.none()));
-
-    // A disarmed schedule stops every timer it has, each key's of a keyed one.
-    for (const [track, tracked] of [...timers].filter(([, t]) => disarmed.includes(t.name)))
-      for (const run of Option.toArray(tracked.run)) {
-        disarmRun(run);
-        timers.set(track, { ...tracked, run: Option.none() });
-      }
-
-    for (const { name, first } of arms) {
-      const tracked = timers.get(name) ?? idle(name, Option.none());
-
-      Option.map(tracked.run, disarmRun);
-      timers.set(name, {
-        ...tracked,
-        run: Option.map(first, (step) => runFrom(incarnation, tracked, step)),
-      });
-    }
-
-    return { ...incarnation, schedules: timers };
-  };
-
-  /**
-   * Stops every timer of the named schedules: their states were exited.
-   */
-  const stopNamed = (incarnation: Incarnation, names: ReadonlySet<string>) => {
-    if (![...incarnation.schedules.values()].some((t) => names.has(t.name))) return incarnation;
-
-    const timers = new Map<string, Tracked>();
-
-    for (const [track, tracked] of incarnation.schedules)
-      if (names.has(tracked.name)) Option.map(tracked.run, disarmRun);
-      else timers.set(track, tracked);
-
-    return { ...incarnation, schedules: timers };
-  };
-
-  /**
-   * Stops every timer: the incarnation ends.
-   */
-  const stopAll = (incarnation: Incarnation) => {
-    for (const tracked of incarnation.schedules.values()) Option.map(tracked.run, disarmRun);
-
-    return { ...incarnation, schedules: new Map<string, Tracked>() };
-  };
 
   /**
    * A key's canonical text; a key that is no record or does not encode fails.
@@ -256,216 +171,284 @@ export const makeSchedules = (tx: Tx) => {
       return Result.succeed([...seen.values()]);
     });
 
-  // A run held by its active reasons, or resumed when none holds it; the same run when nothing
-  // changes. A silent change records no evidence.
-  const paused = (
-    incarnation: Incarnation,
-    tracked: Tracked,
-    run: Run,
-    reasons: ReadonlyArray<string>,
-    silent: boolean,
-  ) => {
-    const key = Option.map(tracked.key, (k) => k.value);
-    const at = { actor: incarnation.actor, schedule: tracked.name, key };
+  // The active reason names of a timer, in declaration order, or the slot of the one that threw.
+  const reasonsOf = (schedule: Schedule, read: ScheduleInput) => {
+    const active: Array<string> = [];
 
-    return Timing.$match(run.timing, {
-      Running: ({ dueAt, timer }) => {
-        if (reasons.length === 0) return run;
+    for (const { reason, check } of schedule.paused) {
+      const held = callSlot(check, read);
 
-        const left = Math.max(dueAt - tx.env.now, 0);
-        tx.disarm(timer);
+      if (Result.isFailure(held)) return Result.fail(held.failure);
 
-        if (!silent) tx.act(Act.Paused({ ...at, reasons, left }));
-
-        return { ...run, timing: Timing.Held({ left, pausedBy: reasons }) };
-      },
-      Held: ({ left, pausedBy }) => {
-        if (reasons.length > 0)
-          return sameReasons(reasons, pausedBy)
-            ? run
-            : { ...run, timing: Timing.Held({ left, pausedBy: reasons }) };
-
-        const dueAt = tx.env.now + left;
-
-        if (!silent) tx.act(Act.Resumed({ ...at, dueAt }));
-
-        return { ...run, timing: runningTo(incarnation, tracked, run.arming, dueAt) };
-      },
-    });
-  };
-
-  /**
-   * One settle's working state: the timers it changes and the issues it raises.
-   */
-  type Pass = {
-    readonly incarnation: Incarnation;
-    readonly operations: Operations;
-    readonly timers: Map<string, Tracked>;
-    readonly issues: Array<Issue>;
-  };
-
-  const put = (pass: Pass, track: string, tracked: Tracked) => void pass.timers.set(track, tracked);
-
-  const timersOf = (pass: Pass, name: string) =>
-    [...pass.timers].filter(([, t]) => t.name === name);
-
-  const started = (pass: Pass, track: string, tracked: Tracked, schedule: Schedule) => {
-    const arming = armed(pass.incarnation, tracked, schedule, pass.operations);
-
-    for (const issue of Option.toArray(arming.issue)) pass.issues.push(issue);
-    put(pass, track, arming.tracked);
-
-    return arming.tracked;
-  };
-
-  // Keys: a new key arms, a gone key's timer stops.
-  const keysPass = (
-    pass: Pass,
-    schedule: Schedule,
-    keys: Option.Option.Value<Schedule["keys"]>,
-  ) => {
-    const listed = keysOf(keys, readOf(pass.incarnation, Option.none(), pass.operations));
-
-    if (Result.isFailure(listed)) {
-      pass.issues.push(issueOf(pass.incarnation.actor, schedule.name, "Defect", listed.failure));
-
-      return;
+      if (held.success === true) active.push(reason);
     }
 
-    const present = new Set(listed.success.map((k) => k.text));
-
-    for (const [track, tracked] of timersOf(pass, schedule.name))
-      if (!Option.exists(tracked.key, (k) => present.has(k.text))) {
-        Option.map(tracked.run, disarmRun);
-        pass.timers.delete(track);
-      }
-
-    for (const key of listed.success) {
-      const track = trackOf(schedule.name, Option.some(key));
-
-      if (!pass.timers.has(track))
-        started(pass, track, idle(schedule.name, Option.some(key)), schedule);
-    }
+    return Result.succeed<ReadonlyArray<string>>(active);
   };
 
-  // restartOn: a changed selection restarts that timer from its first step; a timer with no
-  // baseline takes one silently, and with `restart` off only those take one.
-  const restartOne = (
-    pass: Pass,
-    schedule: Schedule,
-    restartOn: Option.Option.Value<Schedule["restartOn"]>,
-    restart: boolean,
-    [track, tracked]: readonly [string, Tracked],
-  ) => {
-    const selected = callSlot(restartOn, readOf(pass.incarnation, tracked.key, pass.operations));
+  // What one schedule's functions read for the decision, after the occasion; the lanes' rows are
+  // gathered once, when a function first reads them.
+  const readsOf = (incarnation: Incarnation, schedule: Schedule, operations: () => Operations) => {
+    const read = (key: Option.Option<TimerKey>) => readOf(incarnation, key, operations());
 
-    if (Result.isFailure(selected)) {
-      pass.issues.push(issueOf(pass.incarnation.actor, schedule.name, "Defect", selected.failure));
-
-      return;
-    }
-
-    if (Option.exists(tracked.baseline, (b) => Equal.equals(b, selected.success))) return;
-
-    const restarted =
-      restart && Option.isSome(tracked.baseline)
-        ? started(pass, track, tracked, schedule)
-        : tracked;
-
-    put(pass, track, { ...restarted, baseline: Option.some(selected.success) });
-  };
-
-  // With `rebase`, every baseline takes the new selection and nothing restarts: the turn disarmed
-  // the schedule.
-  const restartPass = (
-    pass: Pass,
-    schedule: Schedule,
-    restartOn: Option.Option.Value<Schedule["restartOn"]>,
-    restart: boolean,
-    rebase: boolean,
-  ) => {
-    for (const entry of timersOf(pass, schedule.name))
-      if (restart || rebase || Option.isNone(entry[1].baseline))
-        restartOne(pass, schedule, restartOn, restart && !rebase, entry);
-  };
-
-  // paused: each armed timer is held or resumed by its reasons.
-  const pausePass = (pass: Pass, schedule: Schedule, silent: boolean) => {
-    for (const [track, tracked] of timersOf(pass, schedule.name))
-      for (const run of Option.toArray(tracked.run)) {
-        const reasons = reasonsOf(schedule, readOf(pass.incarnation, tracked.key, pass.operations));
-
-        if (Result.isFailure(reasons))
-          pass.issues.push(
-            issueOf(pass.incarnation.actor, schedule.name, "Defect", reasons.failure),
-          );
-        else {
-          const next = paused(pass.incarnation, tracked, run, reasons.success, silent);
-
-          if (next !== run) put(pass, track, { ...tracked, run: Option.some(next) });
-        }
-      }
-  };
-
-  // One schedule's checks in their order: keys, then restartOn, then the pause reasons.
-  const checkPass = (
-    pass: Pass,
-    schedule: Schedule,
-    restart: boolean,
-    silent: boolean,
-    rebase: boolean,
-  ) => {
-    for (const keys of Option.toArray(schedule.keys)) keysPass(pass, schedule, keys);
-
-    for (const restartOn of Option.toArray(schedule.restartOn))
-      restartPass(pass, schedule, restartOn, restart, rebase);
-
-    if (schedule.paused.length > 0) pausePass(pass, schedule, silent);
-  };
-
-  /**
-   * Runs an incarnation's schedule checks after a change: for each active schedule, outermost
-   * first, its keys, then with `restart` its `restartOn`, then its pause reasons. A defect raises
-   * one issue and keeps the schedule's previous values. `silent` records no pause or resume and
-   * restarts nothing: a restore's re-evaluation. A schedule in `disarmed`, which the turn's event
-   * disarmed, takes a changed selection as its baseline and stays disarmed. The same incarnation
-   * when nothing changes.
-   */
-  const settle = (
-    incarnation: Incarnation,
-    restart: boolean,
-    silent: boolean,
-    disarmed: ReadonlyArray<string>,
-  ) => {
-    const checked = declaredOn(tx.machines, incarnation).filter(checks);
-
-    if (checked.length === 0) return incarnation;
-
-    const pass: Pass = {
-      incarnation,
-      operations: operationsOf(tx.world(), tx.machines, incarnation.actor),
-      timers: new Map(incarnation.schedules),
-      issues: [],
+    return {
+      keys: () =>
+        Option.match(schedule.keys, {
+          onNone: () => Result.succeed([]),
+          onSome: (keys) => keysOf(keys, read(Option.none())),
+        }),
+      selection: (key: Option.Option<TimerKey>) =>
+        Option.match(schedule.restartOn, {
+          onNone: () => Result.succeed(undefined),
+          onSome: (restartOn) => callSlot(restartOn, read(key)),
+        }),
+      reasons: (key: Option.Option<TimerKey>) => reasonsOf(schedule, read(key)),
+      first: (key: Option.Option<TimerKey>) =>
+        firstStep(
+          schedule,
+          read(key),
+          stepper(incarnation.actor, trackOf(schedule.name, key), tx.env.now),
+        ),
     };
+  };
 
-    for (const schedule of checked)
-      checkPass(pass, schedule, restart && !silent, silent, disarmed.includes(schedule.name));
-
-    const same =
-      pass.timers.size === incarnation.schedules.size &&
-      [...pass.timers].every(([track, t]) => incarnation.schedules.get(track) === t);
-
-    const recovered = incarnation.issues.filter((issue) =>
-      recoveredBy(checked, pass.issues, issue),
+  // A decided timer as the incarnation holds it: an unchanged one is the same object; a run due
+  // keeps its host timer when its arming and deadline are unchanged, and otherwise gets a new one.
+  const trackedOf = (
+    incarnation: Incarnation,
+    before: Option.Option<Tracked>,
+    after: PlannedTrack,
+  ) => {
+    const kept = Option.filter(before, (b) =>
+      Option.match(b.run, {
+        onNone: () => Option.isNone(after.run),
+        onSome: (run) => Option.exists(after.run, (planned) => unchanged(run, planned)),
+      }),
     );
 
-    if (same && pass.issues.length === 0 && recovered.length === 0) return incarnation;
+    for (const run of Option.toArray(Option.flatMap(before, (b) => b.run)))
+      if (Option.isNone(kept)) disarmRun(run);
 
-    return pass.issues.reduce(withIssue, {
-      ...incarnation,
-      schedules: pass.timers,
-      issues: incarnation.issues.filter((issue) => !recovered.includes(issue)),
+    if (Option.exists(kept, (b) => b.baseline === after.baseline && b.key === after.key))
+      return Option.getOrThrow(kept);
+
+    const run = Option.match(kept, {
+      onSome: (b) => b.run,
+      onNone: () =>
+        Option.map(after.run, (planned) => {
+          const arming = Option.getOrElse(planned.arming, tx.mintArming);
+
+          return {
+            arming,
+            armedAt: planned.armedAt,
+            attempt: planned.attempt,
+            series: planned.series,
+            output: planned.output,
+            timing: Plan.$match(planned.plan, {
+              Due: ({ dueAt }) => runningTo(incarnation, after, arming, dueAt),
+              Held: ({ left, pausedBy }) => Timing.Held({ left, pausedBy }),
+            }),
+          } satisfies Run;
+        }),
     });
+
+    return { name: after.name, key: after.key, baseline: after.baseline, run } satisfies Tracked;
+  };
+
+  // A decision's pause evidence and issue: the first failure raises the schedule's issue; with
+  // none, an open check issue whose check ran clean clears.
+  const reported = (incarnation: Incarnation, schedule: Schedule, decision: Decision) => {
+    const at = { actor: incarnation.actor, schedule: schedule.name };
+
+    for (const seen of decision.seen)
+      tx.act(
+        Seen.$match(seen, {
+          Paused: (p) => Act.Paused({ ...at, ...p }),
+          Resumed: (r) => Act.Resumed({ ...at, ...r }),
+        }),
+      );
+
+    const source = IssueSource.Schedule({ name: schedule.name });
+
+    return Option.match(decision.raised, {
+      onSome: ({ code, slot }) =>
+        withIssue(
+          incarnation,
+          tx.refuse(incarnation.actor, { source, code, slot: Option.some(slot) }),
+        ),
+      onNone: () => {
+        const cleared = incarnation.issues.filter(
+          (i) =>
+            IssueSource.$is("Schedule")(i.source) &&
+            i.source.name === schedule.name &&
+            Option.exists(i.slot, (s) => decision.clean.has(s)),
+        );
+
+        return cleared.length === 0
+          ? incarnation
+          : { ...incarnation, issues: incarnation.issues.filter((i) => !cleared.includes(i)) };
+      },
+    });
+  };
+
+  /**
+   * Decides every schedule of an incarnation for one occasion and applies the decisions: each
+   * schedule no longer declared on its chain stops, and each declared one is decided from its
+   * timers before. The same incarnation when nothing changes.
+   */
+  // One schedule's decided timers put in `timers`, each stopped timer's host timer disarmed;
+  // whether any timer changed.
+  const applied = (
+    incarnation: Incarnation,
+    own: ReadonlyArray<Tracked>,
+    decision: Decision,
+    timers: Map<string, Tracked>,
+  ) => {
+    const byTrack = new Map(own.map((t) => [trackOf(t.name, t.key), t] as const));
+    let changed = false;
+
+    for (const after of decision.tracks) {
+      const track = trackOf(after.name, after.key);
+      const prior = Option.fromUndefinedOr(byTrack.get(track));
+      const tracked = trackedOf(incarnation, prior, after);
+
+      byTrack.delete(track);
+      timers.set(track, tracked);
+      changed = changed || !Option.exists(prior, (p) => p === tracked);
+    }
+
+    for (const gone of byTrack.values()) Option.map(gone.run, disarmRun);
+
+    return changed || byTrack.size > 0;
+  };
+
+  const pass = (
+    incarnation: Incarnation,
+    before: ReadonlyMap<string, Tracked>,
+    occasionOf: (schedule: Schedule) => Occasion,
+  ) => {
+    const declared = declaredOn(tx.machines, incarnation);
+    const names = new Set(declared.map((s) => s.name));
+    let rows: Option.Option<Operations> = Option.none();
+
+    const operations = () =>
+      Option.getOrElse(rows, () => {
+        const gathered = operationsOf(tx.world(), tx.machines, incarnation.actor);
+
+        rows = Option.some(gathered);
+
+        return gathered;
+      });
+
+    const timers = new Map<string, Tracked>();
+    const undeclared = [...before.values()].filter((t) => !names.has(t.name));
+    let next: Incarnation = incarnation;
+    let changed = before !== incarnation.schedules || undeclared.length > 0;
+
+    for (const tracked of undeclared) Option.map(tracked.run, disarmRun);
+
+    for (const schedule of declared) {
+      const own = [...before.values()].filter((t) => t.name === schedule.name);
+
+      const decision = decide(
+        schedule,
+        own,
+        occasionOf(schedule),
+        readsOf(incarnation, schedule, operations),
+        tx.env.now,
+      );
+
+      const issued = reported(next, schedule, decision);
+
+      changed = applied(incarnation, own, decision, timers) || issued !== next || changed;
+      next = issued;
+    }
+
+    return changed ? { ...next, schedules: timers } : incarnation;
+  };
+
+  const namesIn = (incarnation: Incarnation, paths: ReadonlyArray<string>) =>
+    new Set(
+      paths.flatMap(
+        (path) =>
+          tx.machines
+            .get(incarnation.actor.machine)
+            ?.states.get(path)
+            ?.schedules.map((s) => s.name) ?? [],
+      ),
+    );
+
+  /**
+   * Decides an incarnation's schedules after a committed turn, its creation included: exits
+   * stop, entries start, the turn's armings and disarms apply, then keys, `restartOn` and the
+   * pause reasons read the memory and lanes the turn left. `before` holds its timers when the
+   * turn began.
+   */
+  const turned = (
+    incarnation: Incarnation,
+    before: ReadonlyMap<string, Tracked>,
+    work: TurnWork,
+  ) => {
+    const exited = namesIn(incarnation, work.exits);
+    const entered = namesIn(incarnation, work.enters);
+
+    return pass(incarnation, before, (schedule) =>
+      Occasion.Turn({
+        exited: exited.has(schedule.name),
+        entered: entered.has(schedule.name),
+        disarmed: work.disarms.includes(schedule.name),
+        armed: Option.map(
+          Option.fromUndefinedOr(work.arms.find((a) => a.name === schedule.name)),
+          (a) => a.first,
+        ),
+      }),
+    );
+  };
+
+  /**
+   * Re-checks an incarnation's schedules on a context change (`restartOn` and the pause reasons,
+   * restarts included) or a lane change and a firing's next step (keys and the pause reasons).
+   */
+  const rechecked = (incarnation: Incarnation, occasion: Occasion) =>
+    pass(incarnation, incarnation.schedules, () => occasion);
+
+  /**
+   * An incarnation's timers from its record, re-evaluated silently: keys and the pause reasons,
+   * baselines taken silently, and each schedule in `adds` started from its first step.
+   */
+  const restored = (
+    incarnation: Incarnation,
+    timers: ReadonlyMap<string, Tracked>,
+    adds: ReadonlySet<string>,
+  ) =>
+    pass({ ...incarnation, schedules: timers }, timers, (schedule) =>
+      Occasion.Restore({ adds: adds.has(schedule.name) }),
+    );
+
+  /**
+   * Stops every timer: the incarnation ends.
+   */
+  const stopAll = (incarnation: Incarnation) => {
+    for (const tracked of incarnation.schedules.values()) Option.map(tracked.run, disarmRun);
+  };
+
+  /**
+   * An incarnation after an accepted turn of `source`: its issue clears, except a schedule's
+   * issue raised by one of its checks, which clears only when that check runs clean.
+   */
+  const succeeded = (incarnation: Incarnation, source: IssueSource) => {
+    const checks = IssueSource.$is("Schedule")(source)
+      ? declaredOn(tx.machines, incarnation)
+          .filter((schedule) => schedule.name === source.name)
+          .flatMap(checkSlotsOf)
+      : [];
+
+    const issues = incarnation.issues.filter(
+      (i) =>
+        !Equal.equals(i.source, source) || Option.exists(i.slot, (slot) => checks.includes(slot)),
+    );
+
+    return issues.length === incarnation.issues.length ? incarnation : { ...incarnation, issues };
   };
 
   /**
@@ -521,6 +504,22 @@ export const makeSchedules = (tx: Tx) => {
   };
 
   /**
+   * A fired timer's incarnation with its next run, and whether that step was past the limit.
+   */
+  const fired = (incarnation: Incarnation, tracked: Tracked, run: Run) => {
+    const after = next(incarnation, tracked, run);
+    const track = trackOf(tracked.name, tracked.key);
+
+    return {
+      incarnation: {
+        ...incarnation,
+        schedules: new Map(incarnation.schedules).set(track, { ...tracked, run: after.run }),
+      },
+      over: after.over,
+    };
+  };
+
+  /**
    * The timer a firing names, while the firing still names its live arming and its deadline has
    * passed: a firing queued twice for one step finds the next step not yet due.
    */
@@ -545,13 +544,13 @@ export const makeSchedules = (tx: Tx) => {
     Option.fromUndefinedOr(declaredOn(tx.machines, incarnation).find((s) => s.name === name));
 
   return {
-    apply,
-    armed,
-    stopNamed,
+    turned,
+    rechecked,
+    restored,
     stopAll,
-    settle,
+    succeeded,
     metadataOf,
-    next,
+    fired,
     firingRun,
     scheduleNamed,
     readOf,

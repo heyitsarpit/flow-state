@@ -14,7 +14,7 @@ story transfers/lost-then-reload
   13 main:1 turn Bank/Transfers/acct-1 Send READY -> READY parts [states.READY.on.Send[0] READY -> self] members [commit transfer {"transferId":"t1"}]
   14 main:1 minted transfer att-000000000000000000006d61696e3a31-1 for Bank/Transfers/acct-1 key {"transferId":"t1"}
   15 main:1 published Bank/Transfers/acct-1 READY {"notice":""}
-  16 main:1 task work#3 timer/timer-000000000000000000006d61696e3a31-4 started
+  16 main:1 task work#3 timer/timer-000000000000000000006d61696e3a31-5 started
   17 main:1 task work#4 timer/timer-000000000000000000006d61696e3a31-6 started
   18 main:1 task work#5 wake started
   19 main:1 task work#5 wake Done

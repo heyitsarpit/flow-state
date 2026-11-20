@@ -1,6 +1,7 @@
 import { Option, Result } from "effect";
 import { callSlot, type Schedule, type Values } from "./compiled.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
+import { Occasion } from "./schedule-decision.ts";
 import type { Tx } from "./tx.ts";
 import {
   type ActorId,
@@ -11,7 +12,6 @@ import {
   type Run,
   Timing,
   type Tracked,
-  trackOf,
   withIssue,
 } from "./world.ts";
 
@@ -22,8 +22,9 @@ import {
 export const makeFirings = (
   tx: Tx,
   incarnations: IncarnationSteps,
-  // The firing's send as a turn of the incarnation, from the schedule that fired.
-  turn: (incarnation: Incarnation, schedule: Schedule, payload: Values) => void,
+  // The firing's send as a turn of the incarnation, from the schedule that fired; true when it
+  // committed.
+  turn: (incarnation: Incarnation, schedule: Schedule, payload: Values) => boolean,
 ) => {
   const { schedules, setIncarnation, publish } = incarnations;
 
@@ -46,13 +47,8 @@ export const makeFirings = (
   const fire = (incarnation: Incarnation, schedule: Schedule, tracked: Tracked, run: Run) => {
     const dueAt = Timing.$is("Running")(run.timing) ? run.timing.dueAt : tx.env.now;
     const metadata = schedules.metadataOf(tracked, run, dueAt);
-    const next = schedules.next(incarnation, tracked, run);
-    const track = trackOf(tracked.name, tracked.key);
-
-    const left = {
-      ...incarnation,
-      schedules: new Map(incarnation.schedules).set(track, { ...tracked, run: next.run }),
-    };
+    const next = schedules.fired(incarnation, tracked, run);
+    const left = next.incarnation;
 
     setIncarnation(left);
 
@@ -61,8 +57,12 @@ export const makeFirings = (
       onSome: (from) => callSlot(from, metadata),
     });
 
-    Result.match(payload, {
-      onFailure: (slot) => publish(raise(left, schedule, slot)),
+    const committed = Result.match(payload, {
+      onFailure: (slot) => {
+        publish(raise(left, schedule, slot));
+
+        return false;
+      },
       onSuccess: (event) => turn(left, schedule, event),
     });
 
@@ -72,8 +72,9 @@ export const makeFirings = (
 
     const issued = next.over ? raise(after, schedule, schedule.slot) : after;
 
-    // The next step is checked against the pause reasons whatever the firing's turn decided.
-    const settled = schedules.settle(issued, false, false, []);
+    // A committed firing's turn decided its next step; otherwise it is checked against the pause
+    // reasons here.
+    const settled = committed ? issued : schedules.rechecked(issued, Occasion.Lanes());
 
     if (settled !== after) setIncarnation(settled);
 
@@ -112,7 +113,7 @@ export const makeFirings = (
 
       if (incarnation === undefined) continue;
 
-      const settled = schedules.settle(incarnation, false, false, []);
+      const settled = schedules.rechecked(incarnation, Occasion.Lanes());
 
       if (settled !== incarnation) setIncarnation(settled);
     }

@@ -81,8 +81,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "withoutIssue(base, route.source),",
-        replace: "{ ...base, issues: [] },",
+        find: "schedules.succeeded(base, route.source);",
+        replace: "{ ...base, issues: [] };",
       },
     ],
   },

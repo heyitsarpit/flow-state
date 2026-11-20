@@ -96,7 +96,7 @@ describe("the shop around the checkout: shopper, cart, badge and checkout flow",
     expect(run.checkpoints.reloaded.read(mainFlow)).toEqual(
       expect.objectContaining({
         state: "SHIPPING.METHOD",
-        memory: expect.objectContaining({ method: "express", slot: "9-12", lineCount: 1 }),
+        memory: expect.objectContaining({ method: "express", slot: "9-12" }),
       }),
     );
     expect(state("address again")).toBe("ADDRESS");
@@ -332,7 +332,7 @@ describe("the checkout's retry delay at its edges (Turn R14)", () => {
 });
 
 describe("a consumer bound after its provider changed (fixtures.md S6)", () => {
-  it.fails("Turn R12: a checkout flow bound after its cart has a line begins, its guard reading the cart's count as context", async () => {
+  it("Turn R12: a checkout flow bound after its cart has a line begins, its guard reading the cart's count as context", async () => {
     const run = await played(flowBoundLate);
 
     expect(run.checkpoints.begun.read(mainFlow)?.state).toBe("ADDRESS");

@@ -5,7 +5,6 @@ import { TraceRecord } from "../../src/host/trace.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
 import { timersOf } from "../timers.ts";
-import { WRONG_TODAY } from "./schedule-table-wrong.ts";
 
 // Every same-turn combination of one schedule's inputs, each row's expected outcome derived from
 // Turn R14 to R17, R19, R25 and R27, never from a run: a one-minute schedule `t` with pause
@@ -577,9 +576,65 @@ describe("one schedule's same-turn inputs (Turn R14 to R17, R19, R25, R27)", () 
 
       describe(`${kind}, ${firing ? "a firing due" : "a turn"}`, () => {
         for (const [n, row] of rows.entries())
-          (WRONG_TODAY.has(titleOf(row)) ? it.fails : it)(titleOf(row), async () => {
+          it(titleOf(row), async () => {
             expect(outcomeOf(await runOnce(), row, n)).toEqual(expected(row));
           });
       });
     }
+});
+
+// A ring re-armed on each re-entry, its delay out of range when `far`; ReenterStop disarms it.
+const Ring = definition({
+  id: "Table/Ring",
+  states: ["ON"],
+  events: { Reenter: { far: Schema.Boolean }, ReenterStop: { far: Schema.Boolean } },
+  internalEvents: { Rang: {} },
+  memory: { far: Flow.initial(Schema.Boolean, false) },
+});
+
+const RingMachine = machine(Ring, ({ S, E }) => ({
+  default: S.ON,
+  states: {
+    ON: {
+      on: {
+        Reenter: { target: S.ON, updateMemory: ({ event }) => ({ far: event.far }) },
+        ReenterStop: { target: S.ON, updateMemory: ({ event }) => ({ far: event.far }) },
+      },
+      schedules: {
+        ring: {
+          schedule: ({ memory }) => (memory.far ? 2 ** 31 : 60_000),
+          send: E.Rang,
+          disarmOn: [E.ReenterStop],
+        },
+      },
+    },
+  },
+}));
+
+const ring = actorRef(RingMachine, "ring");
+
+describe("disarm wins over an entry arming (Turn R14)", () => {
+  it("Turn R14: a re-entry by an event the schedule lists in disarmOn arms nothing, so an out-of-range delay refuses no turn; the same re-entry by another event refuses it", async () => {
+    const run = await Story.app(
+      runtimeSetup({ app: app({ id: "ring", machines: { ring: RingMachine } }) }),
+      { id: "table/ring", fixtures: [] },
+    )
+      .ensure(ring)
+      .send(ring, Ring.E.ReenterStop({ far: true }))
+      .checkpoint("disarmed")
+      .send(ring, Ring.E.Reenter({ far: true }))
+      .checkpoint("armed")
+      .run()
+      .then(checked);
+
+    const disarmed = run.checkpoints.disarmed.read(ring);
+    const armed = run.checkpoints.armed.read(ring);
+
+    expect([disarmed?.memory.far, disarmed?.issues.length, timersOf(disarmed)]).toEqual([
+      true,
+      0,
+      {},
+    ]);
+    expect(armed?.issues.map((i) => i.code)).toEqual(["InvalidConfiguration"]);
+  });
 });

@@ -291,7 +291,7 @@ export type ScheduleConfig<M, Ev, Id extends string = string, Cx = Values> = Sch
   Ev,
   Id,
   Cx,
-  ScheduleKey
+  undefined
 > & { readonly keys?: never };
 
 /**
@@ -329,7 +329,13 @@ export type KeyedSchedule<M = Values, Ev = Values, Id extends string = string, C
 /**
  * A schedule as the compiler reads it, keyed or not, its literal types erased.
  */
-export type ErasedSchedule = ScheduleParts<Values, Values, string, Values, ScheduleKey> & {
+export type ErasedSchedule = ScheduleParts<
+  Values,
+  Values,
+  string,
+  Values,
+  ScheduleKey | undefined
+> & {
   readonly keys?: KeyedConfig<Values, Values, string, Values, ScheduleKey>["keys"];
 };
 

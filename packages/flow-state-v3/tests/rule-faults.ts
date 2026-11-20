@@ -273,8 +273,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["tests/actors/snapshot.test.ts"],
     "an accepted turn clears the first open issue, whatever its source",
     "src/core/serve.ts",
-    "withoutIssue(base, route.source),",
-    "withoutIssue(base, base.issues[0]?.source ?? route.source),",
+    "schedules.succeeded(base, route.source);",
+    "schedules.succeeded(base, base.issues[0]?.source ?? route.source);",
   ),
   fault(
     "turn-publishes-twice",

@@ -368,8 +368,10 @@ export const armingsOf = (
   const armed: Array<Arming> = [];
   const refused: Array<string> = [];
 
+  // A schedule the event disarms is not armed, on entry either: disarm wins.
   const arms = (path: string, schedule: Schedule) =>
     Option.isNone(schedule.keys) &&
+    !schedule.disarmOn.includes(tag) &&
     ((entered.has(path) && schedule.onEntry) || schedule.armOn.includes(tag));
 
   const input = { key: undefined, operations: NO_OPERATIONS, ...read };

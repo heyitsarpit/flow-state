@@ -93,6 +93,57 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
     }));
   });
 
+  it("Turn R16: an unkeyed schedule's functions receive `key` as undefined, so reading a field of it is refused", () => {
+    expectTypeOf(
+      machine(Lamp, ({ S, E }) => ({
+        default: S.OFF,
+        states: {
+          OFF: {
+            schedules: {
+              tick: {
+                schedule: ({ key }) => {
+                  expectTypeOf(key).toEqualTypeOf<undefined>();
+
+                  return Duration.seconds(1);
+                },
+                send: E.Tick.from(({ attempt }) => ({ attempt })),
+                restartOn: ({ key }) => {
+                  expectTypeOf(key).toEqualTypeOf<undefined>();
+
+                  return 0;
+                },
+                paused: {
+                  Away: ({ key }) => {
+                    expectTypeOf(key).toEqualTypeOf<undefined>();
+
+                    return false;
+                  },
+                },
+              },
+            },
+          },
+          ON: { default: S.ON.DIM },
+        },
+      })),
+    ).toEqualTypeOf<Machine<typeof Lamp>>();
+
+    void machine(Lamp, ({ S, E }) => ({
+      default: S.OFF,
+      states: {
+        OFF: {
+          schedules: {
+            tock: {
+              // @ts-expect-error Turn R16: an unkeyed schedule's key is undefined
+              schedule: ({ key }) => Duration.seconds(key.id === "" ? 1 : 2),
+              send: E.Tick.from(({ attempt }) => ({ attempt })),
+            },
+          },
+        },
+        ON: { default: S.ON.DIM },
+      },
+    }));
+  });
+
   it("Turn R12, R27: a pause reason, a guard and an update receive the definition's context, typed by its slots; a value outside a slot's type is refused", () => {
     expectTypeOf(
       machine(Lamp, ({ S, E }) => ({

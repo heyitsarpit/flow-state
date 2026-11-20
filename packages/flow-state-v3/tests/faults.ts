@@ -420,23 +420,28 @@ export const faults: ReadonlyArray<Fault> = [
     rule: "Turn R14",
     edits: [
       {
-        file: "src/core/schedules.ts",
-        find: "    for (const { name, first } of arms) {",
+        file: "src/core/schedule-decision.ts",
+        find: "    w.start = w.start || Option.isSome(given) || (keyedSchedule && w.fresh) || (adds && w.fresh);",
         replace:
-          "    for (const { name, first } of arms.filter((a) => !Option.exists(Option.fromUndefinedOr(incarnation.schedules.get(a.name)), (t) => Option.isSome(t.run)))) {",
+          "    w.start =\n      w.start ||\n      (Option.isSome(given) && Option.isNone(w.track.run)) ||\n      (keyedSchedule && w.fresh) ||\n      (adds && w.fresh);",
       },
     ],
   },
   {
     name: "exit-keeps-schedules",
-    tests: ["tests/write-lanes/payment-late-answers.test.ts", "tests/player/player.test.ts"],
-    says: "leaving a state leaves its schedules armed, so they fire in the state entered",
+    tests: [
+      "tests/turn/schedules.test.ts",
+      "tests/write-lanes/payment-late-answers.test.ts",
+      "tests/player/player.test.ts",
+    ],
+    says: "leaving a state leaves its schedules' timers in the incarnation, shown and saved in the state entered",
     rule: "Turn R14",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "...schedules.stopNamed(incarnation, exited),",
-        replace: "...incarnation,",
+        file: "src/core/schedules.ts",
+        find: "    for (const tracked of undeclared) Option.map(tracked.run, disarmRun);",
+        replace:
+          "    for (const tracked of undeclared) timers.set(trackOf(tracked.name, tracked.key), tracked);",
       },
     ],
   },

@@ -143,7 +143,7 @@ describe("transfer values at their edges (fixtures.md E2, E3, E6)", () => {
 });
 
 describe("a form bound after its customer chose an account (fixtures.md S6)", () => {
-  it.fails("Turn R12: a form bound after the account was chosen checks its balance, its guard reading the account as context", async () => {
+  it("Turn R12: a form bound after the account was chosen checks its balance, its guard reading the account as context", async () => {
     const run = await played(formBoundLate);
 
     expect(run.checkpoints.checked.read(sendForm)?.state).toBe("READY");

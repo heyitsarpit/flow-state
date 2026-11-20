@@ -229,7 +229,7 @@ describe("emails at their edges (fixtures.md E1, E3)", () => {
 });
 
 describe("a return saved after its session signed in (fixtures.md S6)", () => {
-  it.fails("Turn R12: a return saved after its session is signed in returns at once, its guard reading the session as context", async () => {
+  it("Turn R12: a return saved after its session is signed in returns at once, its guard reading the session as context", async () => {
     const run = await played(returnSavedLate);
 
     expect(run.checkpoints.saved.read(mainReturn)?.state).toBe("RETURNED");

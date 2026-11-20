@@ -5,6 +5,7 @@ import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { turnsOf } from "../../src/host/testing/index.ts";
 import { before, memory, onWire, type Records, state, VISA } from "../checkout.ts";
 import { played } from "../rules/played.ts";
+import { timerNames } from "../timers.ts";
 
 const SLOW = "Still confirming with your bank…";
 
@@ -28,7 +29,7 @@ describe("TURN-03: PAYING's 8-second slow notice (Turn R14, R15, R17, I20 to I23
     expect(memory(run.checkpoints.back)?.["notice"]).toBe(SLOW);
   });
 
-  it("TURN-03/exited: no firing after PAYING is left", async () => {
+  it("TURN-03/exited: no firing after PAYING is left, and its timer leaves the snapshot (Turn R14)", async () => {
     const run = await played(
       onWire("TURN-03/exited", Shop.confirm.hold())
         .world(Shop.placeOrder.hold(), Shop.confirm.release())
@@ -38,6 +39,7 @@ describe("TURN-03: PAYING's 8-second slow notice (Turn R14, R15, R17, I20 to I23
     );
 
     expect(state(run.checkpoints.placing)).toBe("PLACING");
+    expect(timerNames(run.checkpoints.placing.read(checkout))).toEqual([]);
     expect(ticks(run.evidence)).toBe(0);
     expect(memory(run.checkpoints.later)?.["notice"]).toBe("");
   });

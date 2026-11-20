@@ -17,17 +17,24 @@ export const ReturnTo = definition({
 });
 
 /**
- * The return: saved before the redirect, it returns once its session is signed in with nothing
- * held, and a submit there clears the draft.
+ * The return: saved, it returns at once when its session, read through its context, is signed in,
+ * and otherwise once it is; a submit there clears the draft.
  */
 export const ReturnToMachine = machine(ReturnTo, ({ S, E, C }) => ({
   default: S.IDLE,
   onContext: [C.session.change({ event: E.SessionReady.from((ready) => ({ ready })) })],
   on: {
-    Save: {
-      target: S.WAITING,
-      updateMemory: ({ event }) => ({ route: event.route, draft: event.draft }),
-    },
+    Save: [
+      {
+        target: S.RETURNED,
+        guard: [({ context }) => context.session === true || deny("NotReady")],
+        updateMemory: ({ event }) => ({ route: event.route, draft: event.draft }),
+      },
+      {
+        target: S.WAITING,
+        updateMemory: ({ event }) => ({ route: event.route, draft: event.draft }),
+      },
+    ],
     SessionReady: {},
   },
   states: {

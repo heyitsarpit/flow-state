@@ -111,6 +111,35 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
     expect(refusal(withPoll(Flow.keyed(loose(fields))))).toEqual([]);
   });
 
+  it("Turn R16: the refusal of keys written outside Flow.keyed names Flow.keyed in its help", () => {
+    const construct = () =>
+      machine(Room, ({ S }) =>
+        loose({
+          default: S.OFFLINE,
+          states: {
+            ONLINE: { default: S.ONLINE.IDLE },
+            OFFLINE: {
+              schedules: {
+                poll: { keys: () => [{ id: "a" }], schedule: "1 minute", send: Room.E.BoostEnded },
+              },
+            },
+          },
+        }),
+      );
+
+    const help = (() => {
+      try {
+        construct();
+      } catch (error) {
+        if (error instanceof FlowError) return error.diagnostics.map((d) => d.help);
+      }
+
+      return [];
+    })();
+
+    expect(help.map((h) => h.includes("Flow.keyed"))).toEqual([true]);
+  });
+
   it("Compile T11: a schedule's send mapped from this definition's own event (E.X.from) constructs", () => {
     expect(
       refusal(() =>

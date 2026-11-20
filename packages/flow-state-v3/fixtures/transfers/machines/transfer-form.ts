@@ -42,17 +42,15 @@ const fromAccount = ({ memory }: { readonly memory: { readonly account: string }
 });
 
 /**
- * The form: Check reads the account's balance and is ready when the amount fits it. Guards cannot
- * read context, so the form keeps the account its `onContext` reaction reports.
+ * The form: Check reads the customer's account through its context, keeps it as the account it
+ * checked and reads that account's balance, ready when the amount fits it; a change of account
+ * returns it to editing.
  */
 export const TransferFormMachine = machine(TransferForm, ({ S, E, O, C }) => ({
   default: S.EDITING,
   onContext: [C.customer.change({ event: E.AccountChanged.from((account) => ({ account })) })],
   on: {
-    AccountChanged: {
-      target: S.EDITING,
-      updateMemory: ({ event }) => ({ account: event.account }),
-    },
+    AccountChanged: S.EDITING,
     Amount: { target: S.EDITING, updateMemory: ({ event }) => ({ cents: event.cents }) },
   },
   states: {
@@ -60,7 +58,8 @@ export const TransferFormMachine = machine(TransferForm, ({ S, E, O, C }) => ({
       on: {
         Check: {
           target: S.CHECKING,
-          guard: [({ memory }) => memory.account !== "" || deny("NoAccount")],
+          guard: [({ context }) => (context.customer ?? "") !== "" || deny("NoAccount")],
+          updateMemory: ({ context }) => ({ account: context.customer ?? "" }),
           actions: [O.balance.lookup(fromAccount)],
         },
       },

@@ -19,6 +19,7 @@ import type {
 } from "./definition.ts";
 import { type Finding, invalid } from "./error.ts";
 import type { Uncertain } from "./flow.ts";
+import type { ErasedEntry } from "./tokens.ts";
 
 const Fn = Schema.declare(Predicate.isFunction);
 
@@ -223,7 +224,7 @@ const scheduleFields = {
 // A schedule, or a keyed one as Flow.keyed makes it: its config, with keys.
 const ScheduleEntry = Schema.Union([
   Schema.Struct(scheduleFields).annotate({
-    help: "Write a schedule as { schedule, send: E.X, armOn: [E.X tokens or Flow.entry] }.",
+    help: "Write a schedule as { schedule, send: E.X, armOn: [E.X tokens or Flow.entry] }, and one with a timer per key as Flow.keyed({ keys, schedule, send: E.X }).",
   }),
   Schema.Struct({
     "~flow": Schema.Literal("keyed"),
@@ -458,4 +459,5 @@ export const is = {
   history: kindIs<HistoryTokenOf>("history"),
   guard: kindIs<GuardTokenOf<never>>("guard"),
   entry: kindIs<{ readonly "~flow": "entry" }>("entry"),
+  keyed: kindIs<Extract<ErasedEntry, { readonly "~flow": "keyed" }>>("keyed"),
 };
