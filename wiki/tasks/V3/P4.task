@@ -806,6 +806,47 @@ tasks
             shown (the 2026-11-20 rule); Turn I31's issue on a refused creation delay is kept; home and wizard join the
             app mix once the Turn I14 run-rule fix lands in this build. The four invented rules go to the
             requirements review.
+        comment     2026-11-20T08:32:42Z
+            Requirements review (Opus lead, five Haiku sidecars): ISSUES. Seven blocking gaps let the build pass on a
+            lost, doubled or made-up firing, or a hang. The mapping holds otherwise: A2's plants come with the build,
+            and A6 went to @task.V3.T22 (an acceptance amendment to note). The five test files were re-run: 37 expected
+            failures, 32 passes. Five home reds fail first on the `armOn` token bug, which is in range, so they
+            are legitimate.
+
+              - B1 (blind B, flip B; needs the user): restore and return of a multi-step Schedule. Plan O5 says
+                "restarts at step one", so a fresh `upTo({ times: 3 })` fires 3 more times after `left` (5 checks in
+                `home/reloaded-paused`, not 3). The reload makes those up. No checkpoint after the series ends
+                (`reloaded-paused`, `unused-overdue`). Proposed: continue the series at the saved `attempt`, so a reload
+                adds no firing. Two traces go to @plan.Pending; pin the series end either way.
+              - B2 (flip B): no Story re-checks `paused` on a denied ending's lane change. A3 names it, and skipping it
+                holds polls after a save.
+              - B3 (blind B, flip B): Q28 starts every schedule the record lacks. That should cover only schedules entry
+                would arm. An added schedule armed by an event or by `restartOn` alone stays idle; add that case
+                to `tests/restore/schedule-edits.test.ts`.
+              - B4 (flip B): `home/unused-overdue` counts only `check`. Count each key's `Polled` on return as one, or
+                polls that catch up pass.
+              - B5 (flip B, blind A): no restore where a saved hold's reason is false (room restored, house not yet).
+                That room must resume from `left`, not stay held.
+              - B6 (lead): the ruled format step from format 4 has no red check. A format-4 record with a deadline must
+                restore with it (`actor-record.test.ts` pattern).
+              - B7 (blind B): a host-stepped Schedule step past 2^31 − 1 (exponential) has no rule and no E5 edge, so
+                the firing could re-fire forever. Proposed: the firing commits and the schedule ends with one issue. Two
+                traces first.
+              - Four invented rules. Q5 is sound; it stops a firing during a vacation (`keys` reads no context, so drop
+                it from the wording). Q17 fires in `keys()` order, but the house key order is code-unit order
+                (`src/host/snapshot.ts#keyed`, Turn R30). Use one order (non-blocking). Q19: see B1. Q28: see B3.
+              - Kept: Turn I31's creation issue agrees with R14 and total creation, and O8 says a new incarnation
+                "inherits none". I14's wrong side is tooling: `refusedEventTurn` takes every record to the next turn,
+                whatever the actor (`tests/rules/refusals.ts`). The close review confirms home and wizard joined
+                the mix.
+              - Non-blocking, for the build: assert pause and resume evidence as values, not `render` text. `refusal` in
+                `tests/compile/schedules.test.ts` swallows non-FlowError throws, and its checks should assert
+                `details.reason`. Wizard `past` should expect `PICKING` and one issue. Rename and restore Stories reload
+                at the save instant, so a kept deadline can't be told apart; advance first. `sensor-churn`'s restart
+                falls in phase, so restart-all passes. The wizard's disarm is untested because `warn` fires before
+                the dismiss.
+              - Rejected: "`{}` never flips" (O8 shows empty records as `{}`; it fails today on the list shape). Reverse
+                declaration order (no plausible build). Stub cohesion items the lead already left for the build.
     T21
         title       Reads and operations (slice 5)
         status      draft
