@@ -315,8 +315,8 @@ const scheduleOf = (
 
   const delay = config.schedule;
 
-  // Not built yet: a keyed schedule and an Effect Schedule never arm, and a computed delay reads
-  // no key or context and is refused unless it is a number.
+  // A keyed schedule and an Effect Schedule never arm; a computed delay reads no key or context,
+  // and a value other than a number refuses its turn.
   const unbuilt = config.keys !== undefined || EffectSchedule.isSchedule(delay);
 
   return {
@@ -339,7 +339,7 @@ const scheduleOf = (
   };
 };
 
-// A fixed delay's ms; an Effect Schedule, not stepped yet, has none.
+// A fixed delay's ms; an Effect Schedule, which never arms, has none.
 const fixedMs = (
   compile: Compile,
   // FLOW_STATE_ALLOW_UNKNOWN: any Effect Schedule, whatever its output.

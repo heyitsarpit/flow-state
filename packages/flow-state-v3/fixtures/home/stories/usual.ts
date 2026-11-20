@@ -149,7 +149,8 @@ export const vacationOver = homeStory("home/vacation-over")
   .checkpoint("home");
 
 /**
- * The house leaves for a vacation of a day; the tab reloads at once and again after the day.
+ * The house leaves for a vacation of a day and the tab reloads at once: the restored deadline
+ * brings the house home when the day is over.
  */
 export const vacationReloaded = homeStory("home/vacation-reloaded")
   .ensure(house)

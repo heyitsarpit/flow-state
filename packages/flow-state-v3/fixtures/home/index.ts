@@ -4,7 +4,13 @@ import { homeApp, homeSetup, roomOf } from "./app.ts";
 import { noSensors, vacationEdges } from "./stories/edges.ts";
 import { manyRooms, seededStress } from "./stories/load.ts";
 import { samples } from "./stories/samples.ts";
-import { reloadedPaused, roomFirst, unusedOverdue } from "./stories/structure.ts";
+import {
+  houseFirst,
+  reloadedPaused,
+  roomFirst,
+  roomsAddedMidTick,
+  unusedOverdue,
+} from "./stories/structure.ts";
 import { stories } from "./stories/usual.ts";
 
 /**
@@ -18,6 +24,8 @@ export const home = manifest({
     ...stories,
     reloadedPaused,
     roomFirst,
+    houseFirst,
+    roomsAddedMidTick,
     unusedOverdue,
     vacationEdges,
     noSensors,
@@ -28,9 +36,7 @@ export const home = manifest({
   stressSamples: [samples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
-  // Out of the mix until the Turn I14 run rule judges a refused turn by its own actor: a refused
-  // vacation beside a target save still being written is misread as that turn's work
-  // (tests/rules/rules.test.ts).
+  // Joins the app mix once the run rules tell a refused turn from another actor's queued write.
   mix: Option.none(),
   pairs: [
     {

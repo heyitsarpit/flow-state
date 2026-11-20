@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { booking } from "../../fixtures/wizard/app.ts";
+import { manyBookings, QUOTES, quoteOf } from "../../fixtures/wizard/stories/load.ts";
 import { Booking } from "../../fixtures/wizard/machines/booking.ts";
 import {
   expired,
@@ -9,9 +10,20 @@ import {
   reloadedPastHold,
   usual,
 } from "../../fixtures/wizard/stories/usual.ts";
-import { turnsOf } from "../../src/host/testing/index.ts";
+import { publishedOf, turnsOf } from "../../src/host/testing/index.ts";
 import { played } from "../rules/played.ts";
 import { timersOf } from "../timers.ts";
+
+describe("load (fixtures.md L1, S3, L4)", () => {
+  it("Turn R17: sixteen bookings in one Runtime keep their own deadlines across a reload and each expires once", async () => {
+    const run = await played(manyBookings);
+
+    expect(
+      Array.from({ length: QUOTES }, (_, n) => run.checkpoints.expired.read(quoteOf(n))?.state),
+    ).toEqual(Array.from({ length: QUOTES }, () => "EXPIRED"));
+    expect(turnsOf(run, Booking.E.Expired)).toHaveLength(QUOTES);
+  });
+});
 
 describe("a held slot's expiry (Turn R14, R15, R17)", () => {
   it.fails("Turn R14: Extended, an armOn token beside Flow.entry, restarts both timers from the new end; disarmOn stops the warning", async () => {
@@ -55,12 +67,17 @@ describe("a held slot's expiry (Turn R14, R15, R17)", () => {
     expect(run.checkpoints.picking.read(booking)?.state).toBe("PICKING");
   });
 
-  it("Turn R17: deadlines that came due while the booking was unused fire once each, in deadline order, when it is opened again", async () => {
+  it.fails("Turn R17: deadlines that came due while the booking was unused fire once each, in deadline order, when it is opened again", async () => {
     const run = await played(reloadedPastHold);
 
     expect(run.checkpoints["expired once"].read(booking)?.state).toBe("EXPIRED");
     expect(turnsOf(run, Booking.E.Warned)).toHaveLength(1);
     expect(turnsOf(run, Booking.E.Expired)).toHaveLength(1);
+    const shown = publishedOf(run, booking);
+    const warned = shown.findIndex((p) => p.memory.warning);
+    const ended = shown.findIndex((p) => p.state === "EXPIRED");
+
+    expect(warned >= 0 && warned < ended).toBe(true);
   });
 
   it.fails("Turn R14: an extension inside the warning window gives the warning a negative computed delay, so it shows on the next turn", async () => {

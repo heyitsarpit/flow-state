@@ -47,6 +47,29 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
     ]);
   });
 
+  it.fails("Turn R14, Compile T11: another definition's event token in armOn or disarmOn is refused ForeignToken at it", () => {
+    expect(
+      refusal(() =>
+        machine(Clock, ({ S, E }) =>
+          loose({
+            default: S.ON,
+            states: {
+              ON: {
+                schedules: {
+                  ring: { schedule: "1 second", send: E.Off, armOn: [Bell.E.Ring] },
+                  ding: { schedule: "1 second", send: E.Off, disarmOn: [Bell.E.Ring] },
+                },
+              },
+            },
+          }),
+        ),
+      ),
+    ).toEqual([
+      ["InvalidConfiguration", "states.ON.schedules.ring.armOn.0"],
+      ["InvalidConfiguration", "states.ON.schedules.ding.disarmOn.0"],
+    ]);
+  });
+
   it("Turn R27: paused given as a bare function, untyped, is refused WrongKind at paused", () => {
     expect(
       refusal(() =>

@@ -4,9 +4,9 @@ import { Room } from "../machines/room.ts";
 import { homeStory, lounge } from "./usual.ts";
 
 /**
- * Vacations ending at the edges of a computed delay, each set at the start of a fresh hour: −1 ms,
- * 0 ms, 2^31 − 1 ms (armed, home a millisecond after a millisecond short) and 2^31 ms, past the
- * longest timer, whose turn is refused and leaves the house away.
+ * Vacations ending at the edges of a computed delay, all set at clock 0 so the end is the delay:
+ * −1 ms, 0 ms, 2^31 ms (past the longest timer: the turn is refused and the house stays home) and
+ * 2^31 − 1 ms (armed, still away a millisecond short, home at it).
  */
 export const vacationEdges = homeStory("home/vacation-edges")
   .ensure(house)

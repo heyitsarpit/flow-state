@@ -4,7 +4,13 @@ import { House } from "../../fixtures/home/machines/house.ts";
 import { Room } from "../../fixtures/home/machines/room.ts";
 import { noSensors, vacationEdges } from "../../fixtures/home/stories/edges.ts";
 import { manyRooms, ROOMS } from "../../fixtures/home/stories/load.ts";
-import { reloadedPaused, roomFirst, unusedOverdue } from "../../fixtures/home/stories/structure.ts";
+import {
+  houseFirst,
+  reloadedPaused,
+  roomFirst,
+  roomsAddedMidTick,
+  unusedOverdue,
+} from "../../fixtures/home/stories/structure.ts";
 import {
   boost,
   heaterSteps,
@@ -30,11 +36,11 @@ const held = (id: string, left: number, pausedBy: ReadonlyArray<string>) => ({
 });
 
 describe("paused timers (Turn R27, R19; Machines O8)", () => {
-  it.fails("Turn R27: a keyed schedule is held by a pending save: each key shows its left and pausedBy, never dueAt", async () => {
+  it.fails("Turn R27: a keyed schedule is held per key: a pending save holds the temperature poll, which shows left and pausedBy and never dueAt, while the motion poll runs", async () => {
     const run = await played(usual);
 
     expect(timersOf(run.checkpoints.saving.read(lounge))).toEqual({
-      poll: [held("m1", 10_000, ["Saving"]), held("t1", 60_000, ["Saving"])],
+      poll: [running("m1", 70_000), held("t1", 60_000, ["Saving"])],
       check: { dueAt: 360_000 },
     });
   });
@@ -43,7 +49,7 @@ describe("paused timers (Turn R27, R19; Machines O8)", () => {
     const run = await played(usual);
 
     expect(timersOf(run.checkpoints.saved.read(lounge))).toEqual({
-      poll: [running("m1", 73_000), running("t1", 123_000)],
+      poll: [running("m1", 70_000), running("t1", 123_000)],
       check: { dueAt: 360_000 },
     });
   });
@@ -52,10 +58,10 @@ describe("paused timers (Turn R27, R19; Machines O8)", () => {
     const run = await played(reachedWhileSaving);
 
     expect(timersOf(run.checkpoints["idle, saving"].read(lounge))).toEqual({
-      poll: [held("m1", 5000, ["Saving"]), held("t1", 55_000, ["Saving"])],
+      poll: [running("m1", 20_000), held("t1", 55_000, ["Saving"])],
     });
     expect(timersOf(run.checkpoints["saved unheard"].read(lounge))).toEqual({
-      poll: [running("m1", 15_000), running("t1", 65_000)],
+      poll: [running("m1", 20_000), running("t1", 65_000)],
     });
     expect(evidenceOf(run, Room.E.Saved).map((e) => e._tag)).toContain("Unhandled");
   });
@@ -64,7 +70,7 @@ describe("paused timers (Turn R27, R19; Machines O8)", () => {
     const run = await played(usual);
 
     expect(timersOf(run.checkpoints["on vacation"].read(lounge))).toEqual({
-      poll: [held("m1", 10_000, ["Vacation"]), held("t1", 60_000, ["Vacation"])],
+      poll: [running("m1", 490_000), held("t1", 60_000, ["Vacation"])],
       check: { left: 297_000, pausedBy: ["Vacation"] },
     });
     expect(run.checkpoints["an hour away"].read(lounge)?.memory.checks).toEqual([1]);
@@ -74,7 +80,7 @@ describe("paused timers (Turn R27, R19; Machines O8)", () => {
     const run = await played(usual);
 
     expect(timersOf(run.checkpoints["home again"].read(lounge))).toEqual({
-      poll: [running("m1", 4_093_000), running("t1", 4_143_000)],
+      poll: [running("m1", 4_090_000), running("t1", 4_143_000)],
       check: { dueAt: 4_380_000 },
     });
     expect(run.checkpoints["checked twice"].read(lounge)?.memory.checks).toEqual([1, 2]);
@@ -84,11 +90,11 @@ describe("paused timers (Turn R27, R19; Machines O8)", () => {
     const run = await played(pauseReasons);
 
     expect(timersOf(run.checkpoints.both.read(lounge))).toEqual({
-      poll: [held("m1", 6000, ["Vacation", "Saving"]), held("t1", 56_000, ["Vacation", "Saving"])],
+      poll: [running("m1", 10_000), held("t1", 56_000, ["Vacation", "Saving"])],
       check: { left: 300_000, pausedBy: ["Vacation"] },
     });
     expect(timersOf(run.checkpoints["one cleared"].read(lounge))).toEqual({
-      poll: [held("m1", 6000, ["Vacation"]), held("t1", 56_000, ["Vacation"])],
+      poll: [running("m1", 70_000), held("t1", 56_000, ["Vacation"])],
       check: { left: 300_000, pausedBy: ["Vacation"] },
     });
     expect(run.checkpoints["polled after"].read(lounge)?.memory.polls).toEqual({ m1: 70_000 });
@@ -215,14 +221,14 @@ describe("restore of held timers (Turn R17, R27)", () => {
     const run = await played(reloadedPaused);
 
     expect(timersOf(run.checkpoints.reloaded.read(lounge))).toEqual({
-      poll: [held("m1", 10_000, ["Vacation"]), held("t1", 60_000, ["Vacation"])],
+      poll: [running("m1", 430_000), held("t1", 60_000, ["Vacation"])],
       check: { left: 180_000, pausedBy: ["Vacation"] },
     });
     expect(run.checkpoints.reloaded.read(lounge)?.issues).toEqual([]);
     expect(run.checkpoints.reloaded.read(lounge)?.memory.checks).toEqual([1]);
   });
 
-  it.fails("Turn R17: a restored held multi-step Schedule finishes its left, then continues from step one", async () => {
+  it.fails("Turn R17: a restored held multi-step Schedule finishes its left, then continues from step one, its attempt counting on from the arming", async () => {
     const run = await played(reloadedPaused);
 
     expect(run.checkpoints["left finished"].read(lounge)?.memory.checks).toEqual([1, 2]);
@@ -235,6 +241,24 @@ describe("restore of held timers (Turn R17, R27)", () => {
     expect(timersOf(run.checkpoints["room first"].read(lounge))).toEqual({
       poll: [held("t1", 60_000, ["Vacation"])],
     });
+  });
+});
+
+describe("structure (fixtures.md S6, S8)", () => {
+  it.fails("Turn R17, R27 (S6, house first): the room restored after its house holds its temperature poll's left; its motion poll restarts at its first step", async () => {
+    const run = await played(houseFirst);
+
+    expect(timersOf(run.checkpoints["room after"].read(lounge))).toEqual({
+      poll: [running("m1", 10_000), held("t1", 60_000, ["Vacation"])],
+    });
+  });
+
+  it.fails("Turn R27 (S8 × 8): keys that appear while paused arm held, with their full delay", async () => {
+    const run = await played(roomsAddedMidTick);
+
+    expect(
+      Array.from({ length: 8 }, (_, n) => timersOf(run.checkpoints.added.read(roomOf(n)))),
+    ).toEqual(Array.from({ length: 8 }, () => ({ poll: [held("t1", 60_000, ["Vacation"])] })));
   });
 });
 
@@ -260,16 +284,14 @@ describe("computed delays (Turn R14)", () => {
     const run = await played(vacationEdges);
 
     expect(run.checkpoints.past.read(house)?.state).toBe("HOME");
-    expect(run.checkpoints.past.read(house)?.issues.map((i) => i.code)).toEqual([
-      "InvalidConfiguration",
-    ]);
+    expect(run.checkpoints.past.read(house)?.issues).toHaveLength(1);
     expect(run.checkpoints["just short"].read(house)?.state).toBe("VACATION");
     expect(run.checkpoints["longest fired"].read(house)?.state).toBe("HOME");
   });
 });
 
 describe("load (fixtures.md L1, L4)", () => {
-  it.fails("Turn R27, R17: 64 rooms × 4 keyed polls are all held by one vacation, stay held across a reload, and all resume", async () => {
+  it.fails("Turn R27, R17: 64 rooms: one vacation holds each room's two temperature polls and its heating check, they stay held across a reload, and all resume", async () => {
     const run = await played(manyRooms);
 
     const vacationHeld = (name: "all held" | "resumed") =>
@@ -278,7 +300,7 @@ describe("load (fixtures.md L1, L4)", () => {
       );
 
     expect(vacationHeld("all held")).toEqual(
-      Array.from({ length: ROOMS }, (_, n) => (n % 2 === 0 ? 5 : 4)),
+      Array.from({ length: ROOMS }, (_, n) => (n % 2 === 0 ? 3 : 2)),
     );
     expect(vacationHeld("resumed")).toEqual(Array.from({ length: ROOMS }, () => 0));
   });

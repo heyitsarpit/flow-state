@@ -1,6 +1,6 @@
 import { Duration } from "effect";
 import { Flow, machine } from "../../../src/index.ts";
-import { house } from "../app.ts";
+import { house, roomOf } from "../app.ts";
 import { House } from "../machines/house.ts";
 import { Room } from "../machines/room.ts";
 import { homeStory, lounge, loungeWithSensors } from "./usual.ts";
@@ -28,12 +28,40 @@ export const reloadedPaused = loungeWithSensors(homeStory("home/reloaded-paused"
   .checkpoint("step one again");
 
 /**
+ * S6, house first: the house's saved vacation is restored before the room, whose temperature poll
+ * comes back held with its left and whose motion poll restarts at its first step.
+ */
+export const houseFirst = loungeWithSensors(homeStory("home/house-first"))
+  .send(house, House.E.StartVacation({ until: 10 * HOUR }))
+  .reload({ reattach: false })
+  .ensure(house)
+  .ensure(lounge)
+  .checkpoint("room after");
+
+/**
+ * S8 × 8 under a live vacation: eight rooms are opened mid-tick, 30 seconds in, each with a
+ * temperature sensor: each new key arms while paused and holds its full delay.
+ */
+export const roomsAddedMidTick = Array.from({ length: 8 }, (_, n) => roomOf(n))
+  .reduce(
+    (story, ref) =>
+      story
+        .ensure(ref)
+        .send(ref, Room.E.Connected())
+        .send(ref, Room.E.AddSensor({ id: "t1", kind: "temperature" })),
+    loungeWithSensors(homeStory("home/rooms-added-mid-tick"))
+      .send(house, House.E.StartVacation({ until: 10 * HOUR }))
+      .advance("30 seconds"),
+  )
+  .checkpoint("added");
+
+/**
  * The room is opened before the house, while the house is already on vacation in its saved record.
  */
 export const roomFirst = homeStory("home/room-first")
   .ensure(house)
   .send(house, House.E.StartVacation({ until: 10 * HOUR }))
-  .reload()
+  .reload({ reattach: false })
   .ensure(lounge)
   .send(lounge, Room.E.Connected())
   .send(lounge, Room.E.AddSensor({ id: "t1", kind: "temperature" }))

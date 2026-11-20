@@ -116,7 +116,6 @@ const erasedWhen = (when: Option.Option.Value<Decoded["when"]>) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a slot's value type is erased in Compiled
   when as (current: unknown, previous: unknown, extra: { readonly memory: Values }) => boolean;
 
-// The event token an ending names: E.X itself, or the token E.X.from(f) was made from.
 // The `C` tokens of a definition's slots, one per slot with `.change`, and the reactions they made,
 // so a body's reaction is known to be this machine's by identity.
 const changeTokens = (slots: ReadonlyArray<string>) => {

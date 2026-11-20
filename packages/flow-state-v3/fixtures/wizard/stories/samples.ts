@@ -4,7 +4,7 @@ import { Booking } from "../machines/booking.ts";
 import { wizardStory } from "./usual.ts";
 
 /**
- * What a quote's booker can do, for generated runs: hold a slot ending a millisecond ago, now, in
+ * What a quote's booker can do, for generated runs: hold a slot with no id, or one ending a millisecond ago, now, in
  * ten minutes, at the longest delay and past it; extend, dismiss the warning, book, pick again.
  */
 export const samples = samplesOf({
@@ -19,6 +19,7 @@ export const samples = samplesOf({
   controls: [],
   steps: (story) =>
     story
+      .send(booking, Booking.E.Held({ slotId: "", heldUntil: 600_000 }))
       .send(booking, Booking.E.Held({ slotId: "s-past", heldUntil: -1 }))
       .send(booking, Booking.E.Held({ slotId: "s-now", heldUntil: 0 }))
       .send(booking, Booking.E.Held({ slotId: "s-0900", heldUntil: 600_000 }))

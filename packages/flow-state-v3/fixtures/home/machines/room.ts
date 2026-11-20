@@ -63,8 +63,9 @@ export const Room = definition({
 /**
  * The room: a target is saved to the thermostat whether the room is online or not, and an unsure
  * save may be retried twice. Online, it polls each sensor on its own timer (a motion sensor every 10 seconds, a
- * temperature sensor every minute), restarted when the sensor's kind changes and held while the
- * house is on vacation or a target is being saved. Heating, it checks the temperature three times,
+ * temperature sensor every minute), restarted when the sensor's kind changes; temperature polls
+ * are held while the house is on vacation or a target is being applied, since a reading then is
+ * stale, and motion keeps polling. Heating, it checks the temperature three times,
  * five minutes apart, from each new target; an open window stops the checks. A boost runs for
  * half an hour until cancelled. A save that lands after the room reached its target is not heard.
  */
@@ -131,8 +132,11 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
               Schedule.spaced(POLL_EVERY[kindOf(memory.sensors, key["id"] ?? "")]),
             restartOn: ({ key, memory }) => kindOf(memory.sensors, key["id"] ?? ""),
             paused: {
-              Vacation: ({ context }) => context["mode"] === "VACATION",
-              Saving: ({ memory, operations }) =>
+              Vacation: ({ key, memory, context }) =>
+                context["mode"] === "VACATION" &&
+                kindOf(memory.sensors, key["id"] ?? "") === "temperature",
+              Saving: ({ key, memory, operations }) =>
+                kindOf(memory.sensors, key["id"] ?? "") === "temperature" &&
                 Option.exists(
                   O.setTarget.get(operations, { room: memory.room }),
                   (row) => row.pending,

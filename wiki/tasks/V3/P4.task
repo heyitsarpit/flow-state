@@ -643,6 +643,161 @@ tasks
             Moved from cut T95 (2026-11-19): Turn I31 says a new incarnation's first snapshot carries no issue, but
             creation raises one for a refused schedule delay and a test asserts it; decide Spec or code with two
             traces, test-first.
+        comment     2026-11-20T08:10:37Z
+            Requirements (lead, proposed): 30 rules mapped to the acceptance (A1–A11); 43 new reds (37 `it.fails`, 6
+            inverted type lines in code:packages/flow-state-v3/tests/types/schedules.test-d.ts), 4 routed reds kept, 9
+            green pins. The API is a stub so fixtures compile: keys, paused, restartOn, disarmOn, tokens and an Effect
+            Schedule decode; a keyed schedule and a Schedule never arm; a computed delay gets the turn's `now` (built
+            here, fixtures need it). Tests: `tests/home/`, `tests/wizard/`, `tests/compile/schedules.test.ts`,
+            `tests/restore/schedule-edits.test.ts`; helper `tests/timers.ts`.
+
+            - A3 Q1 Turn R27: keyed and unkeyed take `paused`, per key (`home/usual` saving, on vacation).
+            - A3 Q2 Machines O8: `schedules` is a record by name, keyed ones keyed lists, `{ dueAt }` or `{ left,
+              pausedBy }`, absent when none (`wizard/usual` held, `home/no-sensors`; type `today`).
+            - A3 Q3 Turn R19: a lane change, an unhandled ending's included, re-checks `paused` (`home/usual` saved,
+              `home/reached-while-saving`). A denied ending shares that path; its plant comes at build.
+            - A3 Q4 Turn R17: restore re-evaluates keys and paused silently (`home/reloaded-paused`,
+              `house-first`, `room-first`).
+            - A3 Q5 New rule (decided, lead): a context change read by `keys`, `restartOn` or `paused` re-checks them.
+              Trace A: vacation starts, the room's temperature polls hold at once. Trace B: they hold only at the room's
+              next turn, so a poll fires during the vacation (a made-up reading). A wins; Turn R27 and Runtime O5 are
+              silent, Spec text at build.
+            - A4 Q6 Turn R14: `armOn`/`disarmOn` take tokens; a token never reads as Flow.entry (`home/boost` heating,
+              `src/compile-body.ts` filter); Extended restarts (`wizard/usual`, `extend-burst`).
+            - A4 Q7 Turn R14: a `disarmOn` event gets the implicit "self" (CancelBoost not Unhandled).
+            - A4 Q8 Turn R14: only `armOn: [Flow.entry]` beside `restartOn`; re-entry plus a changed selection arms once
+              from step one (`home/heater-steps`; refused builder `armOnBesideRestart`).
+            - A4 Q9 Turn R14: an event in both lists, `armOn` on a keyed schedule: refused (builders, `tests/compile/`).
+            - A4 Q10 Compile T11 sibling: another definition's token in `armOn`/`disarmOn` is refused ForeignToken.
+            - A5 Q11 Turn R27: `paused` is a record; a bare function is refused (types two-sided, untyped: green pins).
+            - A5 Q12 Turn R27: `pausedBy` in declaration order, a literal union (`home/pause-reasons`; type `today`).
+            - A5 Q13 Turn R17: a restored held multi-step Schedule finishes `left`, then step one; `attempt` counts on
+              from the arming (decided: a restore does not re-arm) (`home/reloaded-paused`).
+            - A6 Q14 `flow check` does not exist (code:packages/flow-state-v3/src/host/cli/main.ts has story and trace);
+              routed to @task.V3.T22. Construction already refuses it (`tests/compile/construction.test.ts:532`). No red
+              possible here.
+            - A7 Q15 Turn R16: every keyed function gets `key`, typed by `keys`' return (type
+              `today`; `home/sensor-churn`).
+            - A7 Q16 Turn R16: one timer per key: appears, restarts alone, leaves, returns fresh (`home/sensor-churn`).
+            - A7 Q17 New rule (decided, lead): one schedule's keys due together fire in the keys' order (I32 names
+              schedules only).
+            - A7 Q18 Machines O5: `schedule` returns a Duration.Input or a Schedule; the host steps it with
+              `Schedule.toStep` and the Runtime Clock's `now`, never `toStepWithSleep`, and hands the core the delay
+              (`home/heater-steps`, poll). Ran effect 4.1.4: `spaced(5m).pipe(upTo({ times: 3 }))` gives three delays;
+              each counts from the caller's now.
+            - A7 Q19 Turn R15, R17: an overdue step fires once, the next delay from that firing; on a returning use it
+              fires, then continues from step one (decided: no lost ending) (`home/unused-overdue`).
+            - A8 Q20 Turn R14: a computed negative delay fires once on the next turn (`home/vacation-over`,
+              `vacation-edges`, `wizard/extended-late`, `hold-edges`; routed `tests/player/sleep-timer.test.ts:32`).
+            - A8 Q21 The checks to move to 2^31 at build: `tests/turn/refusal.test.ts:18`,
+              `tests/write-lanes/ending-delivery.test.ts:18-24`, `tests/shop/pay.test.ts:82,98` with `busyRefused`
+              (`fixtures/shop/stories/usual.ts:225`), and a sixth, `busyKeptAnHour`
+              (`fixtures/shop/stories/edges.ts:37`); `sync/retry-edges`' −1 note. Plant `negative-delay-refused`.
+            - A9 Q22 Schedule evidence records pause and resume with reasons (`home/usual` trace).
+            - A10 Q23-Q26 routed: replays in the next comment.
+            - A10 Q27 Turn R17: deadlines waiting while unused fire in deadline order (red found by review,
+              `wizard/reloaded-past-hold`). Wrong side: the runtime; `fireWaiting` in `src/core/incarnations.ts` walks
+              schedules in insertion order.
+            - A11 Q28 Restore after edit (`tests/restore/schedule-edits.test.ts`): reorder and remove green pins; add
+              and rename red (decided: a schedule the record lacks starts at restore with its full delay, as entry
+              would; losing it loses an ending); a changed send red (the record's `send` copies a derived fact; restore
+              reads the definition). The record must hold per-key timers, `left`, `attempt` and `armedAt`; that format
+              change lines up with @task.V3.T56 and T92.
+            - Q29 Fake gaps (clock, timers): TestClock never fires late (browsers throttle hidden tabs): rule covered by
+              Q19, real run owed by @task.V3.T111; TestClock sleeps past 2^31 − 1 ms where `setTimeout` fires at once:
+              the build makes the driver die on such an arm, shown by a plant removing the core's range check; a real
+              clock jumps on sleep: @plan.Pending.D18.
+            - Q30 Run rule Turn I14 blames a refused event turn for another actor's later Minted and Sent
+              (`tests/rules/rules.test.ts`); wrong side: tooling. home and wizard stay out of the mix until the build
+              fixes it.
+        comment     2026-11-20T08:10:39Z
+            Replays of the routed comments (lead): two landed before T57, three stay red here, two are out of range.
+
+            - 2026-11-15 and 2026-11-16 (Compile T11, a send of another definition's token; tighten its check): landed.
+              Types refuse it (`tests/types/schedule-send.test-d.ts`), construction refuses ForeignToken with exact
+              code, reason and path (`tests/compile/schedule-send.test.ts`). Wrong side was the test (loose `it.fails`).
+              The new sibling, `E.X.from` as a send: own constructs (green once `tokenOf` checks the mapping's token),
+              another definition's is refused.
+            - 2026-11-16 (depth-2 widening of delay and `armOn` names): still red,
+              `tests/types/nested-schedule.test-d.ts`. The same widening drops a depth-2 mapper's metadata: new inverted
+              line in `tests/types/schedules.test-d.ts`. Wrong side: types.
+            - 2026-11-16 (Turn R12 context in guards and updates): still red, `tests/actors/context.test.ts:551` and
+              `tests/sync/repo.test.ts:92`; types `today` for guard, update and pause reason. Wrong side: the runtime
+              and types.
+            - 2026-11-18 (a computed −1 refused): still red, `tests/player/sleep-timer.test.ts:32`. Wrong side:
+              `core/turn.ts` `delayOf`.
+            - 2026-11-19 (Turn I31 vs a creation issue), decided by the lead: keep the issue. Trace A: a session created
+              with an idle policy of 2^31 ms shows `issues: [InvalidConfiguration at
+              states.ACTIVE.schedules.idle.schedule]` and no timer. Trace B (I31 as written): no timer and no issue, so
+              the sign-out is lost with no report. A loses no ending. The build rewrites I31: a new incarnation inherits
+              no issue; its first snapshot holds only its own creation's (Turn R14), with a `specs.log` note. Reverse:
+              drop the creation issue.
+            - 2026-11-17 (T57 builds subroutine and whenAbandoned): superseded by the split (the user,
+              2026-11-20); @task.V3.T110.
+            - 2026-11-18 (placements released within the disposal bound, ReleaseOverdue): placements are `activities`,
+              not schedules; out of range after the split. Proposed owner @task.V3.T21 (comment there).
+        comment     2026-11-20T08:10:40Z
+            Fixtures proof (code:wiki/conventions/fixtures.md): home (new) and wizard (new) carry the step-2 schedule
+            rows; sync's row is left for @task.V3.T109 (RateLimit is a trait). Every scenario below is red today unless
+            marked green.
+
+            - `paused`, `pausedBy` (Turn R27, R19): home, machine `Room` (`poll` keyed, `check` unkeyed), journey
+              Vacation; usual `home/usual`; load L1 × 64 rooms + L4 `home/stress-many-rooms`; structure S9
+              `home/reloaded-paused`, S6 house first and room first (`home/house-first`, `home/room-first`), S8 × 8
+              under a vacation `home/rooms-added-mid-tick`; samples `home-rooms` (E1 no sensors, pause reasons stacked
+              and cleared); combos persist + write lane (`reached-while-saving`) + context (House mode); sources ui-sdk
+              `toast.test.ts:247` (`home/pause-reasons`).
+            - `keys`, `restartOn` (Turn R16): home `Room.poll`, journey sensors; usual `home/sensor-churn` (a key
+              leaving and returning); structure S8 as above; samples `home-rooms`; no source.
+            - `armOn`/`disarmOn` by token (Turn R14): home `Room.boost` (`home/boost`), wizard `Booking`
+              (`wizard/usual`, `wizard/stress-extend-burst` L5 × 200); refused S7 builders `armOnKeyed`,
+              `armedAndDisarmed`, `armOnBesideRestart`; source Cal.com booker (not checked).
+            - Effect `Schedule` (Machines O5, Turn R15): home `Room.check` (`home/heater-steps`, `home/unused-overdue`)
+              and `poll`.
+            - Computed delays with `now` (Turn R14): home `House.homecoming`, wizard `Booking.expire`/`warn`; edges E5
+              −1, 0, 2^31 − 1, 2^31 in `home/vacation-edges` and `wizard/hold-edges` (2^31 refusals
+              green); `wizard/extended-late`.
+            - Restore (Turn R17): `wizard/reloaded-past-hold`, `home/vacation-reloaded`, `wizard/stress-many-bookings`
+              (L1 and S3 × 16, L4; green), and the edited-definition cases in `tests/restore/schedule-edits.test.ts`.
+            - Registration: both manifests in `fixtures/index.ts` with samples, stressSamples, saved stress seed 36,
+              pairs (home writes and persists, wizard persists), bench; `mix` none until the Turn I14 rule is fixed
+              (requirements Q30).
+
+            Left, with reason (catalog items to mark at close): home Zone, S1, S4, S5, S7 cycle and `ContextCycle` need
+            step 2's context rows, which no Task owns since the split; Sensor `.each`, `.resumable`, Panel trait:
+            @task.V3.T109; wizard Quote, Vehicle and Driver: @task.V3.T110 and the unowned compound-state rows; T
+            holdSlot, R slots: @task.V3.T21; E8 a reload mid-save: a write-ahead outcome to settle first (the build adds
+            it). Counts (64 rooms, 16 quotes, 200 extensions) are first guesses for @task.V3.T83. Variety: Effect
+            Schedule, keys and paused live in home only until kanban (@task.V3.T72), chat and draft (step 4) and
+            sync (@task.V3.T109).
+        comment     2026-11-20T08:10:42Z
+            Sidecar review of the fixtures (five Haiku, effort high: scenarios, stress and edges, expected results,
+            combinations and registration, cohesion); the lead verified each by reading the code and re-running the
+            cited reds.
+
+            - Accepted, fixed: `reload()` re-ensures actors, so `wizard/reloaded-past-hold` and `home/room-first` never
+              went unused; both now `reload({ reattach: false })`. That exposed a real red: waiting deadlines fire in
+              declaration order (requirements Q27).
+            - Accepted, fixed: vacation pausing motion polls was the wrong tool (vacation is when motion matters); both
+              reasons now hold temperature polls only, which also tests a per-key pause. Expected values re-derived.
+            - Accepted, fixed: Story docs that did not match their steps (load, edges, vacation-reloaded); the 2^31 test
+              asserted an error code the Spec does not name, now one issue; fixture comments named a test file and a
+              rule id, now plain.
+            - Accepted, added: S6 house first, S8 × 8 rooms mid-tick, wizard L1/S3 × 16, E1 empty slot id, foreign
+              tokens in `armOn`/`disarmOn` (Q10), the order check of waiting deadlines.
+            - Accepted as named rules: keyed timers due together fire in keys' order (Q17); a context change re-checks
+              paused (Q5); an added schedule starts at restore (Q28); overdue on return fires then continues from step
+              one (Q19).
+            - Changed: "`tests/timers.ts` drops left and pausedBy": only for today's list shape, which has neither; a
+              record passes through. Kept, documented.
+            - Rejected: "the I32 order contradicts the snapshot's key order": firing order and list order are
+              different things.
+            - Left for the build: the stub's unvalidated tokens, ignored `disarmOn`/`restartOn`/`paused`, dropped send
+              mapper (reuse `sendEventOf`), `ScheduleEvent` duplicating `EventToken`, `ScheduleDeadline` holding one
+              timer per name.
+            - Not acted on: wizard `Held` typed by the app until T holdSlot (@task.V3.T21); `Reached` sent, not read,
+              until R readings; the thermostat fake ignores the idempotency key (Attempts work). A shop context test
+              timed out once under the full suite and passed alone.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -705,6 +860,10 @@ tasks
         comment     2026-11-19T20:49:40Z
             Routed from T104's close review (orchestrator): a lookup's input gets no run-time Schema check
             (@spec.Reads); land it as an inverted test first.
+        comment     2026-11-20T08:10:51Z
+            Proposed (from @task.V3.T57's split, lead): placements released within the disposal bound with
+            ReleaseOverdue (@plan.Runtime.O6, routed to T57 at P3's close) belong to the activities this Task builds,
+            not to schedules. Reverse: route it back to T57.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -831,6 +990,11 @@ tasks
             to the parity tests; it also excuses any test titled with a dead-core rule id. (3) List test trims output;
             routes test checks only the name main; rename StoryId (holds the app id). (4) Duplicate Story ids are not
             rejected; the CLI parity test uses render() as its own oracle.
+        comment     2026-11-20T08:10:51Z
+            Routed from @task.V3.T57 (lead): `flow check` should report a fixed negative or over-range schedule delay
+            (Turn R14, DelayOutOfRange), as construction already does
+            (code:packages/flow-state-v3/tests/compile/construction.test.ts). No red possible until the check command
+            exists; write it red first here.
     T23
         title       `nub run verify` builds and checks v3
         status      draft

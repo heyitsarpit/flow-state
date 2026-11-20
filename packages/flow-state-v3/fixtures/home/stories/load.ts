@@ -33,8 +33,8 @@ const manyRoomsHeld = rooms
 
 /**
  * L1: 64 rooms, each with four sensors (two of each kind) polling; every other room heats; the
- * house goes on vacation for ten minutes and comes home, so every poll and check is held and
- * resumed together, and the tab reloads mid-pause (L4), every room opened again.
+ * house goes on vacation, so every temperature poll and heating check is held at once; the tab
+ * reloads mid-pause (L4) and every room is opened again; the house comes home and all resume.
  */
 export const manyRooms = rooms
   .reduce((story, ref) => story.ensure(ref), manyRoomsHeld)
