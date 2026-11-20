@@ -62,11 +62,12 @@ const sourceFromTests = {
     "!**/src/host/inspect.ts",
     "!**/src/host/trace.ts",
     "!**/src/host/cli/main.ts",
+    "!**/src/host/persistence.ts",
     "!**/src/entry.ts",
     "!**/src/test/loose.ts",
   ],
   message:
-    "A test imports only the public entry, the test tooling, inspection, the CLI's main, the registry of public functions and the untyped caller's helper.",
+    "A test imports only the public entry, the test tooling, the persistence route, inspection, the CLI's main, the registry of public functions and the untyped caller's helper.",
 };
 
 export default defineConfig({

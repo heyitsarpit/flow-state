@@ -47,6 +47,7 @@ const cases: ReadonlyArray<{ file: string; imports: string; refused: boolean }> 
   { file: "tests/pay/e.ts", imports: "../../src/core/world.ts", refused: true },
   { file: "tests/pay/f.ts", imports: "../../src/host/testing.ts", refused: true },
   { file: "tests/pay/g.ts", imports: "../../src/host/trace.ts", refused: false },
+  { file: "tests/types/a.ts", imports: "../../src/host/persistence.ts", refused: false },
   { file: "tests/pay/h.tsx", imports: "../../src/core/world.ts", refused: true },
   { file: "tests/cli/a.ts", imports: "../../src/host/cli/main.ts", refused: false },
   { file: "tests/cli/b.ts", imports: "../../src/host/cli/discover.ts", refused: true },

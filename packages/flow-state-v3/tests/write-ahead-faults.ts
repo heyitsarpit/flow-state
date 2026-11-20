@@ -224,6 +224,33 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "hide-does-nothing",
+    tests: ["src/host/hidden.test.ts"],
+    says: "a hidden page's listener issues nothing, so marked records wait for the capture interval",
+    rule: "WriteAhead T5",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "      if (!out && (tickets.length > 0 || marked || again.size > 0)) issue();\n    }),",
+        replace: "      if (out && tickets.length < 0) issue();\n    }),",
+      },
+    ],
+  },
+  {
+    name: "hide-waits",
+    tests: ["src/host/hidden.test.ts"],
+    says: "a hidden page's listener waits for the capture interval instead of issuing at once",
+    rule: "WriteAhead T5",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "      if (!out && (tickets.length > 0 || marked || again.size > 0)) issue();\n    }),",
+        replace:
+          "      if (!out && (tickets.length > 0 || marked || again.size > 0))\n        wakeAt(clock.currentTimeMillisUnsafe() + options.captureMs);\n    }),",
+      },
+    ],
+  },
+  {
     name: "refused-batch-forgotten",
     tests: ["tests/write-lanes/write-ahead-records.test.ts", "src/host/ledger.test.ts"],
     says: "a refused batch's keys are not captured again, so its records wait for their next change",

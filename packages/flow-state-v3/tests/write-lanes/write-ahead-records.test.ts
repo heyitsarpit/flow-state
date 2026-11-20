@@ -252,3 +252,25 @@ describe("the default capture interval (WriteAhead R10, I12, Q3)", () => {
     expect(run.checkpoints.due.records.batches).toHaveLength(1);
   });
 });
+
+describe("a batch the store holds and then refuses (WriteAhead R10, R12)", () => {
+  it("WriteAhead R10: a held-then-refused batch's keys are captured again from the World as it then stands, so the next batch carries the record changed while it was held", async () => {
+    const run = checked(
+      await Story.app(lampSetup, { id: "WRITE-AHEAD/held-then-refused", fixtures: [] })
+        .world(Fake.storage.hold())
+        .ensure(lamp)
+        .send(lamp, Lamp.E.Press())
+        .checkpoint("held")
+        .world(Fake.storage.refuseHeld())
+        .checkpoint("refused")
+        .run(),
+    );
+
+    const { held, refused } = run.checkpoints;
+
+    expect(held.records.batches.map((b) => b.status)).toEqual(["held"]);
+    expect(touchesAt(held)).toEqual(Option.none());
+    expect(refused.records.batches.map((b) => b.status)).toEqual(["refused", "landed"]);
+    expect(touchesAt(refused)).toEqual(Option.some(1));
+  });
+});

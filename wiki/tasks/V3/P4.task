@@ -74,7 +74,7 @@ comment 2026-11-19T07:18:27Z
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
-        status      open
+        status      in_progress
         priority    high
         blocked_by  [@task.V3.T9]
         satisfies   [@plan.Persistence.O4]
@@ -144,6 +144,166 @@ tasks
             Split (the user, 2026-11-20, Q3 A): the snapshot cache per turn, hide-handler timings, equal codec bytes,
             hidden-tab resume and the dev work clock move to @task.V3.T111; this Task keeps the store, its contract, the
             adapter, the hide flush and the refused-batch loop.
+        comment     2026-11-20T04:03:02Z
+            Requirements (lead, proposed): 19 rules mapped to the acceptance in order; 10 red in Node today (5
+            `it.fails`, 5 inverted type lines), 7 red until the browser runner and adapter exist, 2 green pins. Two new
+            plants are caught.
+
+            Store port and contract (acceptance 1)
+            1. `Store` is its own Context service in `src/host/store.ts` (`load`, one atomic `write(batch)`), with a
+               Schema'd error; `Host` loses `store` and its readers move (`runtime.ts:315,351,415`,
+               `edge.ts:84,173,186`, `close.ts:126`), so the edge's no-store branches go (@spec.WriteAhead R2 and
+               realization, @plan.Persistence.O1, @plan.Pending.D9). Check: reds 2 and 7, then review.
+            2. Persistence on without the Store: a type error (inverted line in
+               code:packages/flow-state-v3/tests/types/persistence.test-d.ts); untyped, `ready` fails StorageFailure
+               (`it.fails` in code:packages/flow-state-v3/tests/restore/store-provision.test.ts). Today it boots and
+               saves nothing. Wrong side: the runtime (`runtime.ts:314-315`).
+            3. `storeContract(name, layer)` from the testing route, a plain `@effect/vitest` function of a `Store` Layer
+               (@plan.Pending.D9). Red: inverted line.
+            4. Contract cases (@plan.Persistence.O1, @spec.WriteAhead R12): an empty scope loads empty; load is exactly
+               what landed, sets and removals; two writes issued back to back on one key commit in issue order; text
+               kept exactly (`""`, emoji, U+2028, 1 MB, 5,000 keys in one batch, keys with `/`, `|`, `{}`); an
+               interrupted write does not block the next; after scope close a fresh build loads what landed. Refusal and
+               atomicity can't be arranged through the port on real IndexedDB, so they are adapter cases (8). Red:
+               no contract.
+            5. The contract runs in the Node suite on `Fake.storage.layer` (inverted line) and on a plain Map `Store`
+               written in the test, as a user's custom adapter would be; a plant in the fake store (a batch's last write
+               dropped) turns it red.
+            6. It runs on `layerIndexedDb` in real Chrome and Safari, each alone, exiting non-zero on any failure; a
+               plant in the adapter (last write dropped) turns both red; the run asserts real IndexedDB holds the
+               records, so a fake store cannot pass. Red: no runner in the package yet (runner comment).
+            7. Route `src/host/persistence.ts` (`flow-state/persistence`): `Store`, its error, `layerIndexedDb`;
+               importing it opens nothing (@plan.Package.O1). Red: `it.fails` in `store-provision.test.ts` (a
+               path-valued import, made direct by the build). `layerMemory` completes the route in @task.V3.T28. D9
+               merges into Package O1 at close, on the user's yes.
+            8. Adapter cases in the browsers (@plan.Persistence.O1): one failing request in a 100-key batch lands
+               nothing and answers refused (planted request failure); a write on a connection closed by `versionchange`
+               is refused, not a defect; two databases don't see each other, and the default name comes from the app id;
+               after scope close `deleteDatabase` completes without `blocked`.
+
+            Safari D1 to D4 (acceptance 2; `prototypes/safari/RESULTS.md`)
+            9. D1: a write answers landed only if every request succeeded, even when `oncomplete` fires. Check: a Node
+               unit over a stub transaction (`onerror`, then `oncomplete`, must refuse) and a Safari arm (a batch in
+               `pagehide` into the bfcache is never answered landed). Plant: answer on `oncomplete` alone.
+            10. D2: the flush is issued on `visibilitychange` to hidden, which fires first; `pagehide` still flushes
+                (@spec.WriteAhead R10). Chrome lands it; Safari lands the visibilitychange batch, and a bfcache
+                `pagehide` batch may stay unanswered (R10's stated limit). Check: 13 and 16.
+            11. D3: every transaction, load included, calls `commit()`. Check: a browser spy, commits equal
+                transactions; plant: load without `commit()`. No load timeout: "nothing bounds a wait on
+                storage" (`Persistence.plan:167`).
+            12. D4 is scope ownership (the Web Lock, @plan.Persistence.O7, @spec.WriteAhead R16), not the adapter's: the
+                adapter takes no lock. Proposed amendment: D4 moves to @task.V3.T27; until the user agrees it
+                stays here.
+
+            Flush on hide (acceptance 3)
+            13. The browser platform reads `document.visibilityState` and calls the hidden listener on visibilitychange
+                to hidden and on pagehide. Red: two `it.fails` in
+                code:packages/flow-state-v3/src/host/platform/visibility.test.ts. Wrong side: the platform
+                stub (`browser.ts:24-25`).
+            14. Story steps `hide()` and `show()` per tab, beside `reload`, with the Fake host following them
+                (`run.ts:331-332`). Red: two inverted lines. Proposed name call: Testing O7 models page life as tab
+                steps, so not a `Fake` word.
+            15. Stories in `transfers` at the default interval (fixtures proof). Plants `hide-does-nothing` and
+                `hide-waits` (@spec.WriteAhead T5) are in `tests/write-ahead-faults.ts`, caught today by the edge pin in
+                code:packages/flow-state-v3/src/host/hidden.test.ts; the Stories join their targets, with T5's "hidden
+                state that waits".
+            16. On a real page in Chrome and Safari the same flush lands before the interval; the runner hides the page
+                (Chrome by a CDP target switch, Safari by a WebDriver new window).
+
+            Refused batches (acceptance 4)
+            17. On a hidden page a refused batch's keys wait one default capture interval (@spec.WriteAhead R10
+                realization). Red: `it.fails` in `hidden.test.ts`: 20 refusals at once, 1 expected; a visible page
+                gives 1. Wrong side: the runtime (code:packages/flow-state-v3/src/host/edge.ts#pump treats hidden as
+                due, skipping the retry wait).
+            18. A held-then-refused batch puts back fresh records: doesn't reproduce, pinned green in
+                code:packages/flow-state-v3/tests/write-lanes/write-ahead-records.test.ts. Marks are encoded again at
+                capture, and the Fake has `refuseHeld` now.
+
+            Fake page against a real page (acceptance 5)
+            19. The same Story steps on the Fake and a real page give equal batches (keys, count, order, purposes; ids
+                and time left out) for the hide flush and the 5 s interval (changes at 0 s and 3 s land once, at 5 s).
+                Red: no runner.
+
+            Routed comments: 2026-11-16 09:26 (hide) is 13 to 16; the edge's path works (pin, plants caught), and the
+            platform and Fake host stub it. 09:45 is 17 and 18. 2026-11-19 (D9 not built) is 1 to 7. The rest moved to
+            @task.V3.T111. Extra files: `vite.config.ts` and `tools/flow-state-lint/imports.test.ts` (tests may import
+            the route), `tools/lint-bomb/FLOW-STATE.md`.
+        comment     2026-11-20T04:03:04Z
+            Fixtures proof (lead, code:wiki/conventions/fixtures.md), proposed; built with the `hide`/`show` steps.
+
+            Gap: every fixture setup uses `captureMs: 0`, so a hide flush is unobservable in any fixture today. Home:
+            `transfers` (journey 6, standing order), with a new setup at the default interval beside `bankPlannedSetup`,
+            no machine edits. Second app for variety: `session`'s workspace, a singleton, at the default interval.
+
+            - Usual: a standing order's plan edited (a `Plan`, plain memory, so it waits for the interval), the page
+              hides, the record lands in that step; shown again, the next edit waits; a reload after the hide batch
+              landed restores it.
+            - Load: S2 × 32 orders under L1, then a hide: one batch carrying all 32 order records
+              (@spec.WriteAhead I23).
+            - Structure: S1 customer to order with S9 at the order, hidden before the reload; a hide while a batch is
+              held issues nothing until it answers, then the marks go at once (R12); a hidden page whose store refuses:
+              one batch, then one more after `RuntimeDefaults.captureInterval` (the red).
+            - Edges: a hide with nothing marked writes nothing; hide twice; show with no hide; a hide at 4,999 ms and
+              5,000 ms after an edit (E5); holds and refusals around a hide.
+            - Combinations: a hide while a transfer's acknowledgement is out, in `bankSwitching` with the
+              switcher's record.
+            - Samples: a new set beside `bank-orders` on the default setup, so old seeds keep their steps; the generator
+              gets `hide`/`show` step kinds (`generate.ts` has none today), else the set is left with that reason.
+            - Registration: the manifest, so the reload and rules sweeps run them; a new mix set on the default setup.
+            - Red today: requirements 14 (no steps) and 17. Sidecar review: 13 findings, 12 accepted or changed
+              (sidecar log).
+        comment     2026-11-20T04:03:05Z
+            Browser runner (lead, proposed; for the user's read): Vitest browser mode with a small provider of our own
+            over the installed Chrome 146 (headless, throwaway profile) and Safari 26.6 through `/usr/bin/safaridriver`;
+            nothing downloaded.
+
+            - Proven in a scratch spike, not committed: one IndexedDB test passed in each browser and went red in each
+              on a planted dropped write; exit 0 and 1. `@vitest/browser` 5.1.0 is already installed through vite-plus;
+              the build declares it in devDependencies.
+            - Risk: safaridriver leaves its `--automation` Safari running after the session ends (the spike's was ended
+              by pid); the provider must end it. Hiding a page in headless Chrome needs CDP, not yet proven.
+            - Alternatives: `@vitest/browser-webdriverio` (downloads webdriverio and chromedriver); Playwright drives
+              WebKit, not real Safari.
+            - Real-browser runs go alone, as `nub run test:browser`, outside `nub run test`.
+        comment     2026-11-20T04:03:07Z
+            Effect prior art for the Store port (lead; checked against the installed effect 4.1.4):
+
+            - `Context.Service` (Context.ts:319): used for `Store`, as `Host` is.
+            - `Schema.TaggedError` (Schema.ts:18080): used for one `StoreRefused` with a `reason` literal (quota,
+              aborted, closed, failed), replacing `Data.TaggedError` (`host.ts:17`); every reason is a refusal, the
+              reason is evidence (Safari D7).
+            - `Layer.effect` (Layer.ts:1380) with `Effect.acquireRelease` (Effect.ts:13606): used; the connection lives
+              with the Layer, built in the Runtime's services scope and closed at dispose. Effect's
+              `EventJournal.layerIndexedDb` (eventlog/EventJournal.ts:1195) is the pattern; v4 has no `Layer.scoped`.
+            - `Effect.callback` (Effect.ts:1897): used for request and transaction callbacks. Not copied: EventJournal
+              resumes on `oncomplete` without counting request successes (EventJournal.ts:1211), which Safari
+              D1 forbids.
+            - `@effect/vitest` `layer` (index.ts:363) with `buildPerTest`: used by `storeContract`, a fresh store
+              per case.
+            - `KeyValueStore`: skipped, no atomic multi-key write (KeyValueStore.ts:40) (@plan.Persistence.O1).
+            - Page lifecycle: Effect has none; it stays in `src/host/platform/browser.ts`.
+        comment     2026-11-20T04:03:08Z
+            Sidecar log (lead): five Haiku, read-only; each finding read against the code or records, checks re-run by
+            the lead.
+
+            - Blind adversary (29): accepted the missing Store, the D1 unit, the commit spy, the contract plant,
+              database isolation, connection release, the false-pass guard, runner gates, the A5 definition and the
+              user-written Store; changed the contract cases (refusals are adapter cases) and the per-browser hide
+              expectation; rejected a ticket carrying refused keys early (allowed, `edge.ts:39` "at the latest"),
+              StorageSilent, disposal and withheld records (other Tasks' and covered), write-lanes on IndexedDB
+              (@task.V3.T111), the durability split (@task.V3.T28).
+            - Checks (10): accepted the listener leak (fixed), the vacuous guard (labelled) and T5 as the plants' rule;
+              rejected "inverted lines are not red" (the package's convention, `tests/types/fake.test-d.ts:14`) and the
+              hidden reading risk (the loop breaks "never retried in a loop" either way); the held-then-refused pin
+              stays a pin.
+            - Cohesion (21): accepted wrong line cites, the route's import rule, the D9 merge, the missing catalog row,
+              D2 against R10 and O7 (fixed: `pagehide` still flushes), the load-bound cite, the Host readers; changed
+              the page word to Story steps (Testing O7) and the D4 amendment to cover T27; for the orchestrator, the
+              catalog's step 9 still names this Task after the split. Rejected the error class against the ending name
+              (different layers).
+            - Fixtures (13): accepted the generator gap, a new sample set beside the old, samples on the default setup,
+              the runners named, S and E codes, the switcher's setup, a second app and conditional expectations.
+            - Effect sweep: citations spot-checked (Context.ts:319, Effect.ts:13606 and 1897, vitest `buildPerTest`).
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
