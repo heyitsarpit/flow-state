@@ -96,6 +96,27 @@ describe("the public surface (Diagnostics R1, R3; boundaries)", () => {
     ]);
   });
 
+  it("Actors R1, WriteAhead R1: scope or persistence alone is refused as the missing partner, not as a wrong kind", () => {
+    const [probe] = apps.slice(-1);
+
+    const told = (config: unknown) =>
+      refusal(
+        () => runtimeSetup(loose(config)),
+        (d) => [String(d.details.reason), d.summary, d.help],
+      );
+
+    expect(told({ app: probe?.app, scope: "s" })).toEqual([
+      [
+        "MissingField",
+        "persistence is missing",
+        "Give scope and persistence together, or neither.",
+      ],
+    ]);
+    expect(told({ app: probe?.app, persistence: {} })).toEqual([
+      ["MissingField", "scope is missing", "Give scope and persistence together, or neither."],
+    ]);
+  });
+
   it("Diagnostics R1, R3: every hostile value at every position of a shared entry gives a FlowError or a return, within a second", async () => {
     const { entries, builders } = surfaceOf(sharedRoots);
 

@@ -152,8 +152,7 @@ requirements
                 server's truth, and the store's records and write batches, as values captured then. Tests read a
                 cut only through `read(ref)` (the actor's snapshot, typed by the ref's definition: `state` its leaf
                 paths, `memory` its whole memory with private fields, each field its decoded value; undefined when
-                absent; a quarantined record whose fresh start is refused has no typed memory, so reading it is
-                StoryFailed), `read(server)` (its truth),
+                absent), `read(server)` (its truth),
                 `read(endpoint)` (each call it logged, with its status), `calls` (every call of every endpoint, named
                 by server and endpoint), `records` (`stored`, the store's records,
                 and `batches`, its write batches), `inspection` and `now`, and a run's endings through `run.evidence`,

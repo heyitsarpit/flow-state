@@ -84,7 +84,7 @@ describe("Turn R23, Actors R6: a handle's snapshot is its definition's outside v
     void cart.context["shoper"];
   });
 
-  it("a quarantined record whose fresh start is refused has no snapshot, so no made-up memory", () => {
+  it("a snapshot is an Option whose memory is typed, a quarantined record's fresh start included", () => {
     const snap = runtime.ensureActor(shopper).getSnapshot();
 
     expectTypeOf(Option.map(snap, (s) => s.lifecycle)).toEqualTypeOf<

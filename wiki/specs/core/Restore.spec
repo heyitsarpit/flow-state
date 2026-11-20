@@ -125,9 +125,7 @@ requirements
 
                 - it reads lifecycle quarantined with its issue;
                 - an ensure starts fresh, reports RecordUndecodable (proposed name) and adopts the
-                identity's lanes;
-                - when that fresh start is itself refused, the actor has no snapshot (`getSnapshot()`
-                is none), RecordUndecodable names it, and a Story's read of it fails the test;
+                identity's lanes; a fresh start is never refused (creation is total);
                 - the fresh actor's first save overwrites the quarantined bytes (the runner's
                 ruling).
 

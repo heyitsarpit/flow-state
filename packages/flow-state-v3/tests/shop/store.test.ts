@@ -267,7 +267,7 @@ describe("the shop's structures (fixtures.md S1, S3, S6, S7, S9)", () => {
 const machinesOf = (records: ReadonlyArray<Evidence>, tag: "Turn" | "Finished") =>
   records.flatMap((e) => (e._tag === tag ? [e.actor.machine] : []));
 
-describe("identities handled together go in start order (Actors R28): shopper, cart, badge, flow, then the Pay", () => {
+describe("start order (Actors R28): dependents, a wave's consumers and graces go oldest first; a disposal ends the oldest identity whose live consumers have all ended", () => {
   it("Actors R28: BlockedByDependents names the badge, started first, before the checkout flow", async () => {
     await expect(cartFirst().run()).rejects.toThrow(
       /BlockedByDependents: .*Shop\/CartBadge.*Shop\/CheckoutFlow/u,

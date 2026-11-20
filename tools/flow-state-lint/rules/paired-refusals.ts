@@ -21,15 +21,24 @@ const normal = (text: string) =>
 // The object a refused member read reads from: `s.memory["nmae"]` is a read of `s.memory`.
 const objectOf = (node: ESTree.MemberExpression, text: (node: ESTree.Node) => string) => text(node.object);
 
+// What a positive must name: a path, or a key, which names its own object only, so a member read of
+// another object with the same name (`bell.on` beside a refused `on:`) does not pair with it.
+type Subject = { readonly name: string; readonly key: boolean };
+
+const path = (name: string): Subject => ({ name, key: false });
+
+const keyOf = (node: ESTree.Property, text: (node: ESTree.Node) => string): Subject => ({
+  name: node.key.type === "Identifier" ? node.key.name : text(node.key),
+  key: true,
+});
+
 // The parameter an object literal fills: the key of the property it is the value of. A property
 // of a call's own argument names its parameter by its key alone.
-const containerOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): ReadonlyArray<string> => {
+const containerOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): ReadonlyArray<Subject> => {
   const object = node.parent;
   const holder = object?.type === "ObjectExpression" ? object.parent : undefined;
 
-  if (holder?.type === "Property") return [holder.key.type === "Identifier" ? holder.key.name : text(holder.key)];
-
-  return [];
+  return holder?.type === "Property" ? [keyOf(holder, text)] : [];
 };
 
 // The name a declaration binds what holds a node to, when one does: `const right = machine(…)`.
@@ -40,11 +49,22 @@ const bindingOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): Read
   return [];
 };
 
+// A call's callee as a positive writes it: the first call of a chain, type arguments dropped.
+const calleeOf = (node: ESTree.CallExpression | ESTree.NewExpression, text: (node: ESTree.Node) => string): string => {
+  const callee = node.callee;
+  const object = callee.type === "MemberExpression" ? callee.object : undefined;
+  const inner = object?.type === "ChainExpression" ? object.expression : object;
+
+  if (inner?.type === "CallExpression") return calleeOf(inner, text);
+
+  return normal(text(callee).replace(/<.*>$/su, ""));
+};
+
 // What a refused line passes a wrong value to, as the text a positive must assert on: a call's
 // callee (the first call of a chain), the object of a member read, a comparison's left side, a
 // property's key or the parameter the property's object fills; an argument or an array element by
 // the call or the binding that holds it.
-const subjectsOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): ReadonlyArray<string> => {
+const subjectsOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): ReadonlyArray<Subject> => {
   switch (node.type) {
     case "ExpressionStatement":
       return subjectsOf(node.expression, text);
@@ -58,27 +78,21 @@ const subjectsOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): Rea
     case "TSSatisfiesExpression":
       return subjectsOf(node.expression, text);
     case "BinaryExpression":
-      return node.left.type === "MemberExpression" ? [text(node.left)] : subjectsOf(node.left, text);
+      return node.left.type === "MemberExpression" ? [path(text(node.left))] : subjectsOf(node.left, text);
     case "LogicalExpression":
       return subjectsOf(node.left, text);
     case "AssignmentExpression":
       return subjectsOf(node.left, text);
     case "CallExpression":
-    case "NewExpression": {
-      const callee = node.callee;
-
-      if (callee.type === "MemberExpression" && (callee.object.type === "CallExpression" || callee.object.type === "ChainExpression"))
-        return subjectsOf(callee.object, text);
-
-      return [text(callee).replace(/<.*>$/su, "")];
-    }
+    case "NewExpression":
+      return [path(calleeOf(node, text))];
     case "MemberExpression":
-      return [objectOf(node, text)];
+      return [path(objectOf(node, text))];
     case "Identifier":
-      return [node.name];
+      return [path(node.name)];
     case "Property":
       return [
-        node.key.type === "Identifier" ? node.key.name : text(node.key),
+        keyOf(node, text),
         ...(node.value.type === "CallExpression" ? subjectsOf(node.value, text) : []),
         ...containerOf(node, text),
       ];
@@ -87,7 +101,7 @@ const subjectsOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): Rea
 
       if (first === undefined) return [];
 
-      return first.init === null || first.init === undefined ? [text(first.id)] : subjectsOf(first.init, text);
+      return first.init === null || first.init === undefined ? [path(text(first.id))] : subjectsOf(first.init, text);
     }
     case "ExportNamedDeclaration":
       return node.declaration === null || node.declaration === undefined ? [] : subjectsOf(node.declaration, text);
@@ -98,20 +112,51 @@ const subjectsOf = (node: ESTree.Node, text: (node: ESTree.Node) => string): Rea
     case "ReturnStatement":
       return node.argument === null ? [] : subjectsOf(node.argument, text);
     default:
-      return [text(node).split(/[\s(]/u)[0] ?? ""];
+      return [path(text(node).split(/[\s(]/u)[0] ?? "")];
   }
 };
 
-// Whether a positive's text names a subject as a whole path, not as part of a longer name.
-const names = (positive: string, subject: string) => {
-  for (let at = positive.indexOf(subject); at >= 0; at = positive.indexOf(subject, at + 1)) {
+// The call a refused key is written in: the nearest call within its statement that holds it as an
+// argument.
+const callOf = (node: ESTree.Node) => {
+  for (let at: ESTree.Node | null | undefined = node; at?.parent !== null && at?.parent !== undefined; at = at.parent) {
+    const up = at.parent;
+
+    if (up.type === "BlockStatement" || up.type === "Program") return undefined;
+    if ((up.type === "CallExpression" || up.type === "NewExpression") && up.callee !== at) return up;
+  }
+
+  return undefined;
+};
+
+const escaped = (text: string) => text.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+
+// Whether a text names a path whole: not inside a longer name or path.
+const hasPath = (text: string, name: string) => new RegExp(`(?:^|[^\\w$.])${escaped(name)}(?![\\w$])`, "u").test(text);
+
+// Whether a member chain ending a text starts at an owner: `m.on`, `Ends.success`, or a type over
+// the owner, `Parameters<typeof m>[0].on`.
+const rootedAt = (text: string, owner: string) =>
+  new RegExp(`(?:^|[^\\w$.])${escaped(owner)}>?(?:\\.[\\w$]+)*$`, "u").test(text);
+
+// Whether a positive's text names a subject as a whole path, not as part of a longer name. A single
+// name may be read as a member (`samples.values`); a path starts its own read. A key counts only
+// beside its own call: read as a member, its chain starts at the key's callee or a binding or type
+// alias of a call to it (`const m = machine(…)`, then `m.on`); written any other way, the positive
+// names one of those. So `bell.on` does not pair with `on:` in `machine(…)`.
+const names = (positive: string, subject: Subject, owners: ReadonlyArray<string>) => {
+  const { name } = subject;
+
+  for (let at = positive.indexOf(name); at >= 0; at = positive.indexOf(name, at + 1)) {
     const before = positive[at - 1] ?? "";
-    const after = positive[at + subject.length] ?? "";
+    const after = positive[at + name.length] ?? "";
+    const joined = name.includes(".") ? /[\w$.]/u : /[\w$]/u;
+    const owned = () =>
+      before === "."
+        ? owners.some((owner) => rootedAt(positive.slice(0, at - 1), owner))
+        : owners.some((owner) => hasPath(positive, owner));
 
-    // A single name may be read as a member (`samples.values`); a path starts its own read.
-    const joined = subject.includes(".") ? /[\w$.]/u : /[\w$]/u;
-
-    if (!joined.test(before) && !/[\w$]/u.test(after)) return true;
+    if (!joined.test(before) && !/[\w$]/u.test(after) && (!subject.key || owned())) return true;
   }
 
   return false;
@@ -176,6 +221,8 @@ export const pairedRefusalsRule = defineRule({
     let tests: Array<Span> = [];
     let lines: Array<ESTree.Node> = [];
     let parts: Array<ESTree.Node> = [];
+    // Bindings and type aliases, each with the calls it stands for.
+    let calls: Array<Span & { readonly name: string; readonly stands: (callee: string) => boolean }> = [];
 
     return {
       before() {
@@ -186,8 +233,21 @@ export const pairedRefusalsRule = defineRule({
         tests = [];
         lines = [];
         parts = [];
+        calls = [];
 
         return true;
+      },
+      VariableDeclarator(node: ESTree.VariableDeclarator) {
+        if (node.init?.type !== "CallExpression" && node.init?.type !== "NewExpression") return;
+        const bound = calleeOf(node.init, text);
+
+        calls.push({ start: node.start, end: node.end, name: normal(text(node.id)), stands: (callee) => bound === callee });
+      },
+      // A type alias stands for every call it names: `type Ends = Parameters<typeof pay.outcomes>[0]`.
+      TSTypeAliasDeclaration(node: ESTree.TSTypeAliasDeclaration) {
+        const alias = normal(text(node.typeAnnotation));
+
+        calls.push({ start: node.start, end: node.end, name: node.id.name, stands: (callee) => hasPath(alias, callee) });
       },
       CallExpression(node: ESTree.CallExpression) {
         if (isExactPositive(node))
@@ -254,9 +314,10 @@ export const pairedRefusalsRule = defineRule({
             continue;
           }
           const holder = statement === undefined ? part?.parent : undefined;
-          const subjects = [...subjectsOf(holder ?? node, text), ...(holder === undefined ? [] : bindingOf(holder, text))]
-            .map(normal)
-            .filter((s) => s !== "");
+          const bound = bindingOf(holder ?? node, text).map(normal);
+          const subjects = [...subjectsOf(holder ?? node, text), ...(holder === undefined ? [] : bound.map(path))]
+            .map((s) => ({ ...s, name: normal(s.name) }))
+            .filter((s) => s.name !== "");
           const enclosing = tests.filter((t) => within(node, t));
           const test = enclosing.reduce<Span>(
             (inner, t) => (t.end - t.start < inner.end - inner.start ? t : inner),
@@ -265,11 +326,21 @@ export const pairedRefusalsRule = defineRule({
           // A refusal outside every test pairs only with a positive outside every test.
           const counts = (p: Span) =>
             within(p, test) && (enclosing.length > 0 || !tests.some((t) => within(p, t)));
+          // A binding or alias stands for the key's call only in the refusal's test or outside every test.
+          const call = callOf(holder ?? node);
+          const callee = call === undefined ? undefined : calleeOf(call, text);
+          const inScope = (c: Span) => within(c, test) || !tests.some((t) => within(c, t));
+          const owners = [
+            ...bound,
+            ...(callee === undefined
+              ? []
+              : [callee, ...calls.filter((c) => inScope(c) && c.stands(callee)).map((c) => c.name)]),
+          ];
           const paired = positives.some(
-            (p) => counts(p) && !refused.has(p.line) && subjects.some((s) => names(p.text, s)),
+            (p) => counts(p) && !refused.has(p.line) && subjects.some((s) => names(p.text, s, owners)),
           );
 
-          if (!paired) context.report({ node, messageId: "unpaired", data: { subject: subjects[0] ?? "this line" } });
+          if (!paired) context.report({ node, messageId: "unpaired", data: { subject: subjects[0]?.name ?? "this line" } });
         }
       },
     };

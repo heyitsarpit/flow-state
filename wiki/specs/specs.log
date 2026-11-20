@@ -545,3 +545,11 @@ note 2026-11-20T01:52:42Z
     @spec.Compile.R5, R6: computed Flow.initial removed (user ban); creation is total and trusts the input its entry
     checked, so a fresh start is never refused: the refused-start snapshot branch, its test and fault retired (T56
     re-adds one if migration needs it; @task.V3.T105). Reverse: restore Source.Computed and create's Result.
+
+note 2026-11-20T02:50:40Z
+    @spec.Actors.I49 (proposed): scoped to R28's sites; a disposal ends the oldest identity whose consumers ended, not
+    oldest first (@task.V3.T105 close review). Reverse: restore the one-order wording.
+
+note 2026-11-20T02:50:40Z
+    @spec.Restore.R5, @spec.Stories.R12: the refused fresh start is gone, since creation is total (@task.V3.T105 close
+    review). Reverse: restore the no-snapshot bullet and Stories' StoryFailed clause.

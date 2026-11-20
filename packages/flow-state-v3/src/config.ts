@@ -7,7 +7,7 @@ import {
   Result,
   Schema,
   SchemaAST,
-  type SchemaIssue,
+  SchemaIssue,
 } from "effect";
 import type {
   EventFields,
@@ -404,7 +404,7 @@ const SetupConfig = Schema.Struct({
 
       const missing = setup.scope === undefined ? "scope" : "persistence";
 
-      return { path: [missing], issue: "scope and persistence go together" };
+      return { path: [missing], issue: new SchemaIssue.MissingKey(undefined) };
     },
     { help: "Give scope and persistence together, or neither." },
   ),
