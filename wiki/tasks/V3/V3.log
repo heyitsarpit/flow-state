@@ -1150,3 +1150,7 @@ note 2026-11-20T00:37:54Z
 note 2026-11-20T01:12:21Z
     T105 requirements in (eee505dd): 20 requirements, 11 red; five small calls ruled by the orchestrator. Requirements
     review started.
+
+note 2026-11-20T01:29:14Z
+    T105 requirements review: ISSUES, four blocking (one of four start orderings pinned, D2 lane row unchecked, no route
+    for a refused fresh start, scope alone unchecked); ruled and acceptance amended; build lead started.

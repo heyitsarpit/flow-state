@@ -3819,9 +3819,11 @@ tasks
             May change: `packages/flow-state-v3/src/`, `tests/`, `tools/flow-state-lint/`,
             `tools/lint-bomb/FLOW-STATE.md`, @spec.Actors with a `specs.log` note. Evidence: this Task's comments.
         acceptance
-            - The start-order rule is in Actors (proposed) and `start-order-reversed` is caught by a named test.
-            - Removing `tx.followNone()` fails a test; `no-tag-chain` refuses `.includes(x._tag)` and early-return
-              chains, planted.
+            - The start-order rule is in Actors (proposed), and each of its orderings (a provider's dependents, a wave's
+              consumers, graces, disposal) is pinned by a named test that catches its own planted fault.
+            - `Following` is scoped to each served item by structure, checked by review (no mail between items is
+              observable); `no-tag-chain` refuses `.includes(x._tag)` and early-return chains, and `no-id-text` refuses
+              renamed bindings, `test`/`exec` and `charCodeAt` on an id, each planted.
             - The two stale texts are fixed and `lanes.ts` reports no lane without an empty-string id.
             - `nub run check`, the suite and `nub run faults --only` on the new faults pass.
             - Computed `Flow.initial` is gone: a function start is a two-sided type error and, untyped,
@@ -4072,6 +4074,15 @@ tasks
             ruling 3 now refuses it. Rejected: `missed` plants needing an owner Task (they are this Task's to fix); the
             persistence red "pins one fix" (WriteAhead R1 says refuse); D4 duplicating busyRefused (time alone, no boot,
             is new); `construction.ts` mislocated (the lead meant `src/construction.ts`).
+        comment     2026-11-20T01:29:14Z
+            Rulings (orchestrator) on the requirements review: 1 accepted: a test and fault per R28 ordering; for
+            disposal the lead replays both orders and names the wrong side (consumersFirst or R28's clause), keeping the
+            order that loses no ending; 2 accepted: D2's Story asserts the owed row closes as delivered (Turn I15); 3
+            ruling 5 replaced: if no reachable route refuses a fresh start once computed starts go, retire the
+            refused-start branch with its test and fault by structure (T56 re-adds one if migration needs it), and add
+            snapshot.ts and FLOW-STATE.md:193 to the removal list; 4 accepted: scope alone gets its red check.
+            Acceptance 1 and 2 amended to match ruling 1 and to take T102's no-id-text gaps. The build lands these
+            red first.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
