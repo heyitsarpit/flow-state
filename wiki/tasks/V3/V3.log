@@ -1248,3 +1248,7 @@ note 2026-11-20T08:33:32Z
 note 2026-11-20T08:54:21Z
     Decision (the user, 2026-11-20): T58's page read, StoreScope kept; Pending D40 accepted (merged at T57's close);
     T104 Q1 A final. Nothing waits on the user.
+
+note 2026-11-20T10:02:28Z
+    T57 in review (0595ecc6): schedules built, 18 plants caught; type-level schedule typing and depth-2 widening still
+    open; D40 merged.

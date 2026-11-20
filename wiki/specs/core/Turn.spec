@@ -425,8 +425,8 @@ invariants
 
     I30  A part of a snapshot whose content is unchanged is the same object in the next snapshot. [@R24]
 
-    I31  An issue is cleared only by its own source; a new incarnation inherits no issue: its first snapshot holds
-         only its own creation's (R14). [@R25]
+    I31  An issue is cleared only by its own source; a new incarnation inherits no issue: its first snapshot holds only 
+         its own creation's (R14). [@R25]
 
     I32  Firings with equal deadlines are admitted as separate turns, ordered by actor admission order, then outermost 
          state, then declaration order. [@R15]

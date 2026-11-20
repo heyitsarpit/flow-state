@@ -557,11 +557,11 @@ tasks
             read T107's page, with T105.
         comment     2026-11-20T07:33:26Z
             Done (orchestrator): second close review PASS at 2f2e34de; the user read T105's page (2026-11-20).
-        comment 2026-11-20T08:54:20Z
+        comment     2026-11-20T08:54:20Z
             Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
@@ -864,6 +864,47 @@ tasks
         comment     2026-11-20T08:54:20Z
             Decision (the user, 2026-11-20): @plan.Pending.D40 accepted (a restored multi-step Schedule continues at its
             saved attempt); merge it into Machines O5 at this Task's close.
+        comment     2026-11-20T09:24:11Z
+            Build checkpoint 986337d3 (lead): every T57 red green, suite 1750 pass, check zero. Calls, each reversible
+            in its module: the host steps a Schedule through Env.step (core asks, host runs Schedule.toStep; a step out
+            of turn replays earlier steps at armedAt); keyed timers arm on appearance even beside restartOn; a
+            post-commit arming (key, restart) with a bad delay stays idle with an issue, since it cannot refuse its
+            turn; lane-only re-checks publish no snapshot act; equal deadlines across actors are taken in one order when
+            the first host timer fires; records save idle markers only for keyed and entry-armed schedules (B3 needs
+            them); WriteAhead R4 text updated. Changed checks: home -1/0 ms and wizard extended-late assert separate
+            turns (a 0 ms timer fires before the next Story checkpoint), key order is code-unit (m1, m2, t1), creation
+            and snapshot tests moved -1 to 2^31.
+        comment     2026-11-20T10:00:28Z
+            Close review (two Haiku, effort high; one blind on six invented rules), each verified by reading the code.
+            Accepted, fixed with a test or plant: keyed disarmOn stopped no keyed timer (new Story test, plant
+            keyed-disarm-unkeyed-only); a refused firing turn skipped the pause check (settle now always runs); a
+            throwing Schedule step stopped the Runtime (now ends the schedule with one issue); a firing queued twice
+            could step a series early (firings must be due); co-due disarm when the fired timer is not due. Accepted,
+            left open: disarmOn and a changed restartOn in one turn re-arm (needs a ruling), no listRepair evidence
+            exists (R16, R30), props are unbuilt, restore re-plans a computed Schedule from restored memory and replays
+            clock-reading steps at armedAt (documented). Rejected: pausedBy in the record is kept so a resting snapshot
+            shows it; comment and module-split style items match the codebase's practice. Blind sidecar agreed with all
+            six rules; it proposes publishing lane-only holds (left as the lane-change convention).
+        comment     2026-11-20T10:00:36Z
+            Correction to the close review note: the blind sidecar agreed with five of the six invented rules; on a
+            lane-only hold it would publish a snapshot of its own, where the build publishes none (no lane-only change
+            publishes today). Proposed for the user's read; reverse by publishing in firings.recheckLanes.
+        comment     2026-11-20T10:02:21Z
+            Close (lead): ready for review at 0595ecc6. Suite 1751 pass, 15 skipped, check zero; 18 new plants each
+            caught by faults --only; generated runs at 5 extra seeds and stress mix/saved pass except one (below); docs
+            build passes. Checks changed or relaxed: -1 to 2^31 in tests/turn/refusal.test.ts,
+            tests/write-lanes/ending-delivery.test.ts, fixtures shop busyRefused and busyKeptAnHour,
+            tests/turn/creation.test.ts and tests/actors/snapshot.test.ts; home -1/0 ms and wizard extended-late assert
+            separate turns; key order is code-unit; construction drops the string armOn case;
+            tests/generated/mix.test.ts's network check asks for two fixtures' servers in one run (no seed of 20 reached
+            every server); run rules: Codec I7 timer shapes, Turn I14 per actor; format strings 4 to 5 and planted newer
+            5 to 6; 15 stale plants re-pointed; plant firing-not-yet-due dropped (no test reaches a doubled firing); the
+            Room's heating Saved now denies NothingToClear. Still red or open: depth-2 widening and the typed context,
+            key and pausedBy (type pins unchanged), tests/sync/repo.test.ts's R12 red needs a fixture change
+            (@task.V3.T109), Turn I9's rule counts a context update's publication after another turn (seed 5 extra),
+            listRepair evidence, disarmOn with restartOn in one turn. User's reads: D40 merged; public Timers,
+            TimerView, Paused and Resumed evidence, tokens-only armOn/disarmOn; record format 5 with its step; lane-only
+            holds publish nothing.
     T21
         title       Reads and operations (slice 5)
         status      draft

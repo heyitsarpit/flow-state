@@ -616,12 +616,12 @@ outcomes
 
         On restore, resume, a return after an end, or a use returning to an actor whose schedules waited, a Duration
         preserves its deadline and fires once if overdue, waiting deadlines in deadline order; a paused timer keeps its
-        `left`. A multi-step Schedule continues at its saved attempt, with its next delay from that step (a paused
-        one first finishes its `left`); a finished series stays finished. The host steps a
-        Schedule and hands the core the next delay as data. A resumable trait's schedules keep `dueAt` or `left` while
-        frozen and fire once on return if overdue. Restored `restartOn` baselines are silent, and `keys` and `paused`
-        are re-evaluated silently on restore, hydration and return. Hydration activation is @plan.ServerRendering.O5;
-        deterministic time is @plan.Testing.O2.
+        `left`. A multi-step Schedule continues at its saved attempt, with its next delay from that step (a paused one
+        first finishes its `left`); a finished series stays finished. The host steps a Schedule and hands the core the
+        next delay as data. A resumable trait's schedules keep `dueAt` or `left` while frozen and fire once on return if
+        overdue. Restored `restartOn` baselines are silent, and `keys` and `paused` are re-evaluated silently on
+        restore, hydration and return. Hydration activation is @plan.ServerRendering.O5; deterministic time
+        is @plan.Testing.O2.
     O6  Activities and outcomes in machines
         Operation activities are placed in states and traits, and their work is kept, replaced or released as the
         machine changes state.
