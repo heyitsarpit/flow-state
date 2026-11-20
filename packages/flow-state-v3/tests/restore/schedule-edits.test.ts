@@ -225,7 +225,7 @@ describe("the step up from record format 4 (Turn R17)", () => {
 
     expect(saved.format).toBe(5);
     expect(saved.schedules).toEqual([
-      expect.objectContaining({ name: "expire", dueAt: 600_000, attempt: 0 }),
+      expect.objectContaining({ name: "expire", armedAt: 600_000, dueAt: 600_000, attempt: 0 }),
       expect.objectContaining({ name: "warn" }),
     ]);
   });

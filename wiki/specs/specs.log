@@ -566,3 +566,18 @@ note 2026-11-20T06:35:38Z
 note 2026-11-20T06:35:38Z
     @spec.Actors.I4: matches revised R3: no actor starts before the whole services Layer, the Store in it, is acquired
     and storage read and validated (@task.V3.T58 close review). Reverse: 'no app service before load'.
+
+note 2026-11-20T10:30:00Z
+    @spec.Turn.R17: a restored series continues at its saved attempt (@plan.Pending.D40, user-accepted); a saved hold
+    whose reasons are false resumes from left; a schedule the record lacks starts only if entry arms it; a host step
+    past 2^31 - 1 ms commits its firing, then ends the schedule with one issue (@task.V3.T57, B1, B3, B5, B7).
+
+note 2026-11-20T10:30:00Z
+    @spec.Turn.R15, R27, I31: keyed timers due together fire in key code-unit order (one order with R30); a context
+    change re-checks restartOn and paused at once; I31 keeps a refused creation delay's issue (the new incarnation
+    inherits none). @task.V3.T57; reverse each by restoring the earlier text.
+
+note 2026-11-20T10:30:00Z
+    @spec.WriteAhead.R4: timers save armedAt, attempt and pausedBy, and idle `{ name, key? }` markers so a restore
+    tells an ended timer from an added one; restartOn baselines are not saved, since restore sets them silently
+    (@task.V3.T57, format 5). Reverse: drop the idle markers and restart-at-entry on restore.

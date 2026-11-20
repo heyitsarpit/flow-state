@@ -15,6 +15,7 @@ import { ruleFaults } from "./rule-faults.ts";
 import { stepFaults } from "./step-faults.ts";
 import { writeAheadFaults } from "./write-ahead-faults.ts";
 import { typedCoreFaults } from "./typed-core-faults.ts";
+import { scheduleFaults } from "./schedule-faults.ts";
 
 /**
  * A planted fault: a named wrong behaviour of the runtime, the test files that catch it, the Spec
@@ -308,6 +309,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...runtimeLifeFaults,
   ...writeAheadFaults,
   ...typedCoreFaults,
+  ...scheduleFaults,
   ...restoreFaults,
   ...ruleFaults,
   ...structureFaults,

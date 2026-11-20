@@ -117,7 +117,8 @@ requirements
         must    Each arming has an id; a firing from an earlier arming, or from an ended 
                 activation, is never delivered. A Duration fires once; a Schedule fires each step 
                 until complete. Equal deadlines enqueue by actor admission order, then outermost 
-                state, then declaration order, each a separate turn. An overdue step fires once, 
+                state, then declaration order, then a keyed schedule's keys in code-unit order
+                (the snapshot's key order, R30), each a separate turn. An overdue step fires once, 
                 and the next delay starts at the actual firing. The host steps a multi-step
                 Schedule and hands the core the next delay as data; a pause right after a firing
                 holds the next step's full delay.
@@ -151,10 +152,15 @@ requirements
 
                 On restore, resume or a returning use, a Duration keeps its deadline and fires once
                 if overdue, waiting deadlines in deadline order; a paused timer keeps its `left`. A
-                multi-step Schedule restarts at step one; a paused one first finishes its `left`. A
+                multi-step Schedule continues at its saved attempt, with its next delay from that
+                step (a paused one first finishes its `left`); a finished series stays finished. A
                 resumable trait's schedules keep `dueAt` or `left` while frozen and fire once on
                 return if overdue. Restored baselines are silent, and `keys` and `paused` are
-                re-evaluated silently on restore, hydration and return.
+                re-evaluated silently on restore, hydration and return: a saved hold whose reasons
+                are false resumes from its `left`. A schedule the record lacks starts at restore
+                only if its state's entry would arm it; a saved schedule the definition dropped is
+                dropped. A host-stepped step past 2^31 - 1 ms lets the firing that computed it
+                commit, then ends the schedule with one issue.
 
     R18  Placements
         source  @plan.Machines.O6.
@@ -283,7 +289,8 @@ requirements
                 the active reason names in declaration order, beside `left`. `paused` is always a
                 record, never a bare function; reason names are a literal union, so `pausedBy` is
                 typed. A turn runs keys,
-                then `restartOn`, then `paused`, after each committed turn. True holds the time
+                then `restartOn`, then `paused`, after each committed turn, and a context change
+                runs `restartOn` and `paused`, which may read it, at once. True holds the time
                 left of the current delay (`left = dueAt - now`, at least 0); false resumes from
                 it (`dueAt = now + left`). Paused time never counts toward a delay; an unused
                 actor, a frozen trait and a closed page still count. Arming or restarting while
@@ -418,7 +425,8 @@ invariants
 
     I30  A part of a snapshot whose content is unchanged is the same object in the next snapshot. [@R24]
 
-    I31  An issue is cleared only by its own source; a new incarnation's first snapshot has no issue. [@R25]
+    I31  An issue is cleared only by its own source; a new incarnation inherits no issue: its first snapshot holds
+         only its own creation's (R14). [@R25]
 
     I32  Firings with equal deadlines are admitted as separate turns, ordered by actor admission order, then outermost 
          state, then declaration order. [@R15]

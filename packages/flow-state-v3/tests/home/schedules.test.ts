@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { house, roomOf } from "../../fixtures/home/app.ts";
 import { House } from "../../fixtures/home/machines/house.ts";
@@ -24,7 +25,6 @@ import {
   vacationOver,
 } from "../../fixtures/home/stories/usual.ts";
 import { evidenceOf, publishedOf, turnsOf } from "../../src/host/testing/index.ts";
-import { render } from "../../src/host/trace.ts";
 import { played } from "../rules/played.ts";
 import { heldBy, timerNames, timersOf } from "../timers.ts";
 
@@ -112,13 +112,26 @@ describe("paused timers (Turn R27, R19; Machines O8)", () => {
   });
 
   it("Turn R27: schedule evidence records each pause and resume with its reasons", async () => {
-    const text = render((await played(usual)).trace, "text");
+    const run = await played(usual);
 
-    expect(
-      [/paused poll .*Saving/u, /resumed poll/u, /paused check .*Vacation/u].map((r) =>
-        r.test(text),
-      ),
-    ).toEqual([true, true, true]);
+    const paused = run.evidence.flatMap((e) =>
+      e._tag === "Paused" ? [[e.schedule, e.key, e.reasons, e.left] as const] : [],
+    );
+
+    const resumed = run.evidence.flatMap((e) =>
+      e._tag === "Resumed" ? [[e.schedule, e.key, e.dueAt] as const] : [],
+    );
+
+    expect(paused).toEqual([
+      ["poll", Option.some({ id: "t1" }), ["Saving"], 60_000],
+      ["poll", Option.some({ id: "t1" }), ["Vacation"], 60_000],
+      ["check", Option.none(), ["Vacation"], 297_000],
+    ]);
+    expect(resumed).toEqual([
+      ["poll", Option.some({ id: "t1" }), 123_000],
+      ["poll", Option.some({ id: "t1" }), 4_143_000],
+      ["check", Option.none(), 4_380_000],
+    ]);
   });
 });
 
@@ -136,6 +149,9 @@ describe("keyed schedules (Turn R16, R15, I35)", () => {
       m1: 40_000,
       m2: 40_000,
       t1: 40_000,
+    });
+    expect(timersOf(run.checkpoints.removed.read(lounge))).toEqual({
+      poll: [running("m2", 60_000), running("t1", 60_000)],
     });
     expect(run.checkpoints.removed.read(lounge)?.memory.polls).toEqual({
       m1: 40_000,

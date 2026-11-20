@@ -51,7 +51,7 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 
 | Feature (API name)                                            |pa|ce|la|sy|tr|si|se|cp|ni|pl|wz|sr|ho|kb|ch|dr|
 | ------------------------------------------------------------- |--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|
-| compound `states`                                             |1 |. |. |. |. |. |. |. |U |U |2 |. |2 |. |4 |. |
+| compound `states`                                             |1 |. |. |. |. |. |. |. |U |U |2 |. |U |. |4 |. |
 | `S.X.history`, `history.child`, `S.previous.history`          |1 |. |. |. |. |. |. |. |. |U |2 |. |. |. |. |. |
 | `Flow.input` value-named actors                               |1 |. |. |1 |U |. |U |. |. |U |. |. |. |2 |4 |4 |
 | `Flow.private`                                                |. |. |. |1 |. |1 |. |. |. |U |. |. |. |. |. |. |
@@ -62,9 +62,9 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | `.each({ of, max, by })`                                      |2 |. |. |. |. |. |. |. |. |. |. |. |2 |2 |4 |4 |
 | `.resumable()`                                                |. |. |. |. |. |. |. |. |. |. |. |. |2 |2 |. |4 |
 | raise into copies                                             |2 |. |. |. |. |. |. |. |. |. |. |. |2 |2 |. |. |
-| `schedules` with `armOn`                                      |U |. |. |U |U |U |. |. |U |U |2 |. |2 |. |. |. |
-| `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn`         |. |. |. |2 |. |. |. |. |. |. |. |. |2 |8 |4 |4 |
-| an Effect `Schedule` as `schedule`                            |. |. |. |2 |. |. |. |. |. |. |. |. |2 |. |4 |. |
+| `schedules` with `armOn`                                      |U |. |. |U |U |U |. |. |U |U |U |. |U |. |. |. |
+| `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn`         |. |. |. |2 |. |. |. |. |. |. |. |. |U |8 |4 |4 |
+| an Effect `Schedule` as `schedule`                            |. |. |. |2 |. |. |. |. |. |. |. |. |U |. |4 |. |
 | `props`, `onProps`                                            |. |. |. |. |. |. |. |5 |6 |. |. |5 |. |8 |. |. |
 | `emits`, `onEmit`                                             |. |. |. |. |. |3 |. |3 |6 |. |. |5 |. |8 |. |. |
 | `Flow.context`, `onContext`, `C.slot.change`                  |1 |. |. |. |1 |1 |U |1 |. |. |. |. |2 |2 |4 |4 |
@@ -88,7 +88,7 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | `serialize`, a deep queue, no ending lost                     |. |. |1 |. |. |. |. |. |. |. |. |. |. |4 |4 |. |
 | `concurrency: "cancel"`                                       |. |. |U |. |. |. |. |. |. |U |. |. |. |. |. |4 |
 | `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed`         |U |U |. |. |U |U |. |. |. |. |. |. |. |. |. |4 |
-| endings, `Flow.uncertain`, `unknown`                          |U |U |U |U |U |U |. |U |. |U |4 |. |2 |2 |4 |4 |
+| endings, `Flow.uncertain`, `unknown`                          |U |U |U |U |U |U |. |U |. |U |4 |. |U |2 |4 |4 |
 | Attempts: `O.x.retry`, `retryable`, `StillUnknown`            |U |. |U |. |U |. |. |. |. |. |. |. |. |. |. |4 |
 | `NotSent { Restored }`, `unknown { Restored }`                |U |. |. |. |U |. |. |. |. |. |. |. |. |. |4 |. |
 | `StorageRefused`, `NoPersistence`                             |13|. |. |. |U |. |1 |. |. |. |. |. |. |. |. |13|
@@ -110,7 +110,7 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | `predicts`, repair, `basedOn`                                 |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|. |
 | `.gone` tombstones                                            |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|. |
 | `pagedBy`, `more`                                             |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|. |
-| `persist`, restore, reload                                    |U |U |U |. |U |1 |U |U |. |. |2 |. |2 |2 |4 |4 |
+| `persist`, restore, reload                                    |U |U |U |. |U |1 |U |U |. |. |U |. |U |2 |4 |4 |
 | release versions, saved-shape reset, migration                |. |. |. |7 |7 |7 |. |. |. |. |7 |. |. |7 |. |7 |
 | multi-tab ownership (Web Lock, second tab)                    |14|. |. |. |. |. |14|. |. |. |. |. |. |. |. |14|
 | storage failures: corrupt, quota, slow read, non-durable      |13|. |. |. |. |. |1 |. |. |. |. |. |. |. |. |13|
@@ -1031,10 +1031,11 @@ here) for the booking; no source for the quote.
   2. Book: T `holdSlot` → the slot is taken meanwhile → pick again.
   3. Explain: open the explainer (lazy).
 - **Features by step:**
+  - **used today:** `schedules` with `armOn`, `disarmOn` by token and computed delays (`Booking`'s hold expiry and
+    warning); `persist`, restore, reload (`Booking`).
   - **step 2:** compound `states` (`Quote`'s steps); `S.X.history`, `history.child`, `S.previous.history` (Back through
     `Quote`); guards, `deny`, `check` (`Quote` checks each step);
-    `subroutine` with exits (`Vehicle`, `Driver` (reused)); `schedules` with `armOn` (the slot hold's expiry);
-    `persist`, restore, reload (`Quote`).
+    `subroutine` with exits (`Vehicle`, `Driver` (reused)) (@task.V3.T110); `persist`, restore, reload (`Quote`).
   - **step 4:** `resource`, `O.x.lookup` (R `postcode`, `slots`); `reject`, `NotSent { Rejected }` (T `holdSlot`);
     endings, `Flow.uncertain`, `unknown` (T `submitQuote`).
   - **step 7:** release versions, saved-shape reset, migration (release 2 adds a step).
@@ -1120,14 +1121,15 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   3. Scroll: offscreen sensors freeze and resume.
   4. Reconnect: the connection drops → stale readings refetch.
 - **Features by step:**
-  - **step 2:** compound `states` (`Room`'s heater cycle);
-    `trait` (`Panel` on `Room`); `.each({ of, max, by })` (`Sensor` ◂ `Room`); `.resumable()` (`Sensor`s offscreen);
-    raise into copies (`Room` raises `Pause` into its sensors); `schedules` with `armOn` (`Sensor` polls); `keys`,
-    `paused`, `pausedBy`, `restartOn`, `disarmOn` (per-sensor keys; vacation `pausedBy`); an Effect `Schedule` as
-    `schedule` (a multi-step `Schedule` for the heater); `Flow.context`, `onContext`, `C.slot.change` (`House` ⇢ `mode`,
-    `Zone` ⇢ `zoneMode`, `Room` ⇠); `ContextCycle`, `MissingContextProvider` (a zone mode feeding the house; a room with
-    no zone); `latest`, `Superseded` (T `setTarget`); endings, `Flow.uncertain`, `unknown` (T `setTarget`); `persist`,
-    restore, reload (`House`, `Zone`, `Room`).
+  - **used today:** compound `states` (`Room`'s heater cycle); `schedules` with `armOn`; `keys`, `paused`,
+    `pausedBy`, `restartOn`, `disarmOn` (per-sensor polls, vacation and saving reasons, the boost); an Effect
+    `Schedule` as `schedule` (heating checks, reconnect reminders); `latest`, endings, `Flow.uncertain`, `unknown`
+    (T `setTarget`); `persist`, restore, reload (`House`, `Room`); `Flow.context` (`Room` ⇠ `House` state).
+  - **step 2:** `trait` (`Panel` on `Room`); `.each({ of, max, by })` (`Sensor` ◂ `Room`); `.resumable()`
+    (`Sensor`s offscreen); raise into copies (`Room` raises `Pause` into its sensors) (@task.V3.T109); `onContext`,
+    `C.slot.change`, `Zone` (`House` ⇢ `mode`, `Zone` ⇢ `zoneMode`, `Room` ⇠); `ContextCycle`,
+    `MissingContextProvider` (a zone mode feeding the house; a room with no zone) (step 2's context rows, no owner
+    since the split); `Superseded` (T `setTarget`); `persist` of `Zone`.
   - **step 4:** `resource`, `O.x.lookup` (R `readings`); `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch` (R
     `readings`, refetched on focus); resource `subscribe.each` (R `readings` per sensor).
   - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `liveReadings`); `reconnect`, `idleTime`,
@@ -1146,7 +1148,7 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   - [ ] **Combinations:** `left` against `dueAt` across a reload (see @plan.Pending.D18); the stream (step 12).
   - [ ] **Variety:** a multi-step `Schedule` against one delay; keyed against unkeyed.
   - **Findings:**
-    - [ ] Pause reasons hold separately. Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one
+    - [x] Pause reasons hold separately (`home/pause-reasons`). Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one
       clearing never resumes while another holds".
     - [ ] A network failure schedules a reconnect, and a missed heartbeat falls back to one (realtime-js, not checked
       here).

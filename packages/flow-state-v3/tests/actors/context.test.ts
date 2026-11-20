@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { attachInspector, type Evidence } from "../../src/host/inspect.ts";
 import { Story, type StoryRun, turnsOf } from "../../src/host/testing/index.ts";
@@ -64,12 +64,25 @@ const Reader = definition({
   context: { user: Flow.context(Session.M.user) },
 });
 
+// The user a callback's input holds in its context, read without its (not yet typed) shape.
+const userIn = (
+  // FLOW_STATE_ALLOW_UNKNOWN: a guard's or update's input, read for the context its types do not show yet.
+  input: unknown,
+) =>
+  Predicate.hasProperty(input, "context") &&
+  Predicate.hasProperty(input.context, "user") &&
+  Predicate.isString(input.context.user)
+    ? Option.some(input.context.user)
+    : Option.none();
+
 const ReaderMachine = machine(Reader, ({ S }) => ({
   default: S.READING,
   on: {
     Read: {
-      guard: [(input) => "context" in input || deny("NoContext")],
-      updateMemory: (input) => ({ read: "context" in input ? "context" : "none" }),
+      guard: [(input) => Option.isSome(userIn(input)) || deny("NoContext")],
+      updateMemory: (input) => ({
+        read: Option.match(userIn(input), { onNone: () => "none", onSome: (u) => `user:${u}` }),
+      }),
     },
   },
 }));
@@ -552,7 +565,7 @@ describe("context in callbacks (Turn R12)", () => {
     const reader = runtime.ensureActor(actorRef(ReaderMachine, "reader"));
     reader.send(Reader.E.Read());
 
-    expect(Option.map(reader.getSnapshot(), (s) => s.memory.read)).toEqual(Option.some("context"));
+    expect(Option.map(reader.getSnapshot(), (s) => s.memory.read)).toEqual(Option.some("user:"));
   });
 });
 

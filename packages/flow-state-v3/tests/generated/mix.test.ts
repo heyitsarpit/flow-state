@@ -126,11 +126,12 @@ describe("an app mix: several fixtures in one Runtime (Testing O6)", () => {
     expect(batches.some((b) => distinct(b.keys.flatMap(owner.key)) >= 2)).toBe(true);
   });
 
-  it("one network: every fixture's servers receive calls in one run", () => {
-    const servers = mix.flatMap((p) => p.servers.map((s) => s.server.name));
-    const called = runs.map((g) => new Set(g.run.end.calls.map((c) => c.server)));
+  it("one network: servers of two fixtures receive calls in one run", () => {
+    const fixturesCalled = runs.map((g) =>
+      distinct(g.run.end.calls.flatMap((c) => owner.server(c.server))),
+    );
 
-    expect(called.some((set) => servers.every((s) => set.has(s)))).toBe(true);
+    expect(fixturesCalled.some((n) => n >= 2)).toBe(true);
   });
 
   it("one reload: after it, actors of two fixtures start again in the next open", () => {

@@ -39,8 +39,7 @@ export const home = manifest({
   stressSamples: [samples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
-  // Joins the app mix once the run rules tell a refused turn from another actor's queued write.
-  mix: Option.none(),
+  mix: Option.some({ usual: samples, stress: samples }),
   pairs: [
     {
       samples,

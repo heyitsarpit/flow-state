@@ -228,7 +228,7 @@ describe("run rules over crafted runs", () => {
     ]);
   });
 
-  it.fails("Turn I14: an event's refused turn is judged on its own actor's records, not on another actor's later Minted and Sent", async () => {
+  it("Turn I14: an event's refused turn is judged on its own actor's records, not on another actor's later Minted and Sent", async () => {
     const other = { machine: "Lanes/serialize", name: "serialize-1" };
     const queued = "att-6d61696e3a31-2";
 

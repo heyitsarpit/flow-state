@@ -20,11 +20,40 @@ const sameSnapshot = (a: Evidence, b: Evidence) =>
 const startsWork = (r: Evidence) =>
   r._tag === "Turn" || r._tag === "Minted" || r._tag === "Sent" || isRefusal(r);
 
-// An event's refused turn: what follows its issue until the next turn starts.
+// The actor whose work a record starts: a Turn's or a Minted's own, a Sent's from the Minted of its
+// Attempt; none for a refusal, which names no actor.
+const workerOf = (run: StoryRun, r: Evidence) => {
+  if (r._tag === "Turn" || r._tag === "Minted") return Option.some(nameOf(r.actor));
+
+  if (r._tag !== "Sent") return Option.none<string>();
+
+  const minted = run.evidence.find((m) => m._tag === "Minted" && m.attempt === r.attempt);
+
+  return minted?._tag === "Minted" ? Option.some(nameOf(minted.actor)) : Option.none<string>();
+};
+
+// An event's refused turn: what follows its issue until the next turn starts, judged on the refused
+// actor's own records (the actor its one snapshot names), so another actor's queued work that
+// starts in the same step is not the refused turn's.
 const refusedEventTurn = (run: StoryRun, at: number, issue: Evidence) => {
   const records = turnRecords(run.evidence, at);
-  const wrong = records.filter(startsWork);
   const consumer = consumerOf(records);
+
+  const refused = isContextIssue(issue)
+    ? consumer
+    : Option.fromUndefinedOr(
+        records.flatMap((r) => (r._tag === "Published" ? [nameOf(r.actor)] : [])).at(0),
+      );
+
+  const wrong = records.filter(
+    (r) =>
+      startsWork(r) &&
+      (Option.isNone(refused) ||
+        Option.match(workerOf(run, r), {
+          onNone: () => true,
+          onSome: (worker) => Option.contains(refused, worker),
+        })),
+  );
 
   const published = records.filter(
     (r) =>
@@ -49,7 +78,7 @@ const refusedEventTurn = (run: StoryRun, at: number, issue: Evidence) => {
  * no Turn report, no Minted or Sent, one issue, and exactly one snapshot, equal to the one before
  * the turn. Judged for a delivered ending's turn, which its Delivered record starts and whose
  * refusal names the ending, and for an event's turn, which leaves no record before its refusal and
- * is judged on what follows it.
+ * is judged on what follows it for its own actor.
  */
 export const refusedTurnIssueOnly: Rule = {
   rule: "Turn I14",
