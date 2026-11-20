@@ -1141,3 +1141,8 @@ note 2026-11-20T00:10:54Z
 note 2026-11-20T00:25:27Z
     T107 close review: ISSUES, three blocking; A3 and format-4 fixes started; Turn R22's made-up ending waits on the
     user's choice (recommended: when asked with no previous value).
+
+note 2026-11-20T00:37:54Z
+    T107 fix round in (99025ff4): findings 2 and 3 fixed red first; a second reaction on one slot with the same event is
+    now refused (Compile R19, orchestrator's small call, for the user's read). Only Turn R22's choice remains, the
+    user's.
