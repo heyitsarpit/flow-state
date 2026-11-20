@@ -1268,3 +1268,7 @@ note 2026-11-20T10:29:01Z
 note 2026-11-20T10:37:58Z
     Merged invariant-proposal (bf2e200c): @plan.Rules from the accepted rules proposal, @task.V3.T106 rewritten on it
     (after T109, T110). Epic lists the Plan; advisor question 6 settled.
+
+note 2026-11-20T11:27:09Z
+    T57 fix round in (266c9f6b): depth-2 types, typed context, disarm wins; two type pins to @task.V3.T109; Flow.keyed
+    waits on the user. Second close review started.

@@ -1019,6 +1019,11 @@ tasks
             clears every issue of a source, the arming and step-limit ones too), the `~flow` discriminant (lint
             `no-mark-probe` refuses it), and `today` markers (the convention). User's reads: `Flow.keyed`, typed
             `context`, Turn R14's new sentence, post-commit check defects no longer counted as refusals.
+        comment     2026-11-20T11:27:08Z
+            Rulings (orchestrator): pausedBy as a literal union in the snapshot and a typed key in a keyed schedule's
+            send mapper are owned by @task.V3.T109 (its type spike at start, advisor question 1); Flow.keyed is a new
+            public word and waits on the user (Plan O5's example follows the answer); the I9 and I14 run-rule change
+            goes to the close review.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -5436,6 +5441,11 @@ tasks
             body (schedule names, keys, `pausedBy` as a literal union; `today` pin in `tests/types/schedules.test-d.ts`)
             and a typed key in a keyed schedule's send mapper. Both need the body type carried past `machine()`, which
             the advisor question 1 type spike at this Task's start covers; inferring the body loses excess-key checks.
+        comment     2026-11-20T11:27:08Z
+            Routed from T57 (orchestrator, 2026-11-20): two inverted type pins: pausedBy as a literal union in the
+            snapshot (a Snapshot is typed by the definition, which holds no body schedules) and a typed key in a keyed
+            schedule's send mapper (E.X.from resolves before keys types the key). Settle them in this Task's opening
+            type spike.
 
     T110
         title       Subroutines and whenAbandoned (slice 3d)
