@@ -1394,3 +1394,7 @@ note 2026-11-20T17:49:33Z
 note 2026-11-20T17:59:31Z
     Body capture settled (Fable): the advisor's const B with Exact works on the real package with two fixes (C6): every
     refusal kept, gaurd, pausd, returned-key and depth-3 typos refused; check 0.92 s to 1.18 s. Proposal.
+
+note 2026-11-20T21:03:37Z
+    [decided: user 2026-11-21] wk gets a superseded status for Plans, Tasks and Specs, and inline tags parsed in
+    every .plan, .task and .spec prose field; added to the wk agent-UX build.
