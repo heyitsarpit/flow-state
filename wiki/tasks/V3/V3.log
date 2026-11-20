@@ -1228,3 +1228,7 @@ note 2026-11-20T07:27:50Z
 note 2026-11-20T07:28:25Z
     User's page written, unread: code:wiki/plans/flow/references/pages/T105-start-order-and-constant-starts.md (D2 to D4
     merge for the user's yes). T58 closes once it is read.
+
+note 2026-11-20T07:34:28Z
+    Decision (the user, 2026-11-20): Plan edits accepted; Pending D2, D3, D4, D9 merged, Runtime O2 and Q1 updated to
+    the whole-Layer boot, Machines' when example fixed (7569d069). @task.V3.T58 done.
