@@ -4662,8 +4662,7 @@ tasks
 
             **Why now:** a slot's `Provider.select(Schema, fn)` and a reaction's `select` are opaque functions over
             string keys: `when`'s arguments are `never`, a selector may read a field it should not, and the graph only
-            knows "depends on all of the provider", so flow check and @task.V3.T106's structural rules cannot follow a
-            context chain.
+            knows "depends on all of the provider", so flow check, explain and graph cannot follow a context chain.
 
             **Read first:** code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md,
             code:packages/flow-state-v3/src/core/compiled.ts#Reaction,
@@ -4803,7 +4802,7 @@ tasks
             `states.<path>.onContext.i.event`; Actors R9, slots recompute and reactions compare; Actors R18, WriteAhead
             R4, Restore R5, format 4 (Q20); Codec R6, "reaction inputs" become slot values; Turn R22, per-reaction
             baselines and a never-selected slot's first value as a silent baseline; StaticCli R5, explain and graph show
-            provider field → slot → event edges (may route to @task.V3.T106).
+            provider field → slot → event edges.
         comment     2026-11-19T22:51:03Z
             Rulings (orchestrator) on the requirements lead's open calls, for the user's read: state-scoped onContext
             takes one comparison on entry (the reading that loses no change made while inactive), Compile R4 to follow
