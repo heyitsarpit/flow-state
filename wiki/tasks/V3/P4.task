@@ -57,11 +57,11 @@ description
     - skill:review at a Task's first commit and its close.
 
     **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T107,
-    @task.V3.T105, @task.V3.T58, @task.V3.T111, @task.V3.T57, @task.V3.T109, @task.V3.T110, @task.V3.T77, @task.V3.T76,
-    @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23,
-    @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the user, 2026-11-19, so T96 is
-    next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only;
-    where several Tasks are ready, take the earliest in this order.
+    @task.V3.T105, @task.V3.T58, @task.V3.T112, @task.V3.T111, @task.V3.T57, @task.V3.T109, @task.V3.T110, @task.V3.T77,
+    @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100,
+    @task.V3.T23, @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the user,
+    2026-11-19, so T96 is next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link is a
+    real dependency only; where several Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -501,6 +501,12 @@ tasks
             past it, Actors R23), duplicate ps parsing and an unchecked pid-file cast (separate tool scripts), the
             closing store beside Fake.storage (the ruling asked for one), test-local helpers, the heldUntilReleased doc
             shape (not public API).
+        comment     2026-11-20T06:51:50Z
+            Checks changed (lead), for the review to read first: the hide guard now skips display-bound in unattended
+            Safari only (the user, Q4 A), and fails as before when attended or in Chrome; the runner's minimum count is
+            16, or 14 in unattended Safari, and any other skip fails the run; plants services-released-before-calls and
+            forget-failure-discarded moved to the new close text, same wrong runtimes; the late-forget expectation
+            changed from success to StorageFailure, since the Store is released by then (Restore R10).
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
@@ -5018,7 +5024,7 @@ tasks
         title       Fixtures in real browsers: minimal React, Chrome and Safari
         status      draft
         priority    high
-        blocked_by  [@T58]
+        blocked_by  [@T58, @T112]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4]
         description
             Every fixture, including Pay and checkout, runs in real Chrome and Safari on production through a minimal
@@ -5049,6 +5055,38 @@ tasks
               before any idle pre-encoding; a dev host work clock makes SlowWork fire outside tests.
 
     T112
-        title    Fakes as hostile as the real thing: store, page and servers
-        status   draft
-        priority high
+        title       Fakes as hostile as the real thing: store, page and servers
+        status      draft
+        priority    high
+        blocked_by  [@T58]
+        description
+            `Fake.storage`, the fake page and `Fake.server` do by default what their real counterparts can do to an app
+            (close, refuse after close, hold, hide, answer late or never), so every Story meets the real lifecycle.
+
+            **Why now:** T58's close review found that `dispose({ forget: true })` deleted nothing on real IndexedDB,
+            and every Node test passed only because `Fake.storage` never closes; the user made "a fake kinder than the
+            real thing" a class every later Task inherits (2026-11-20). @task.V3.T111 runs every fixture in real
+            browsers next, so the fakes should fail the same way first.
+
+            **Read first:** code:packages/flow-state-v3/src/host/testing/fake.ts,
+            code:packages/flow-state-v3/src/host/testing/store-contract.ts, @task.V3.T58 (its close review and fix
+            round), @plan.Testing. Blocked by T58, whose fix round adds a store that closes with the services.
+
+            **Risk:** hostile defaults can turn many existing Stories red; each red is replayed and its wrong side named
+            (the runtime, or a test that relied on a kind fake), never silenced by switching the behaviour off.
+
+            May change: `src/host/testing/`, `src/host/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a fake that gains a hostile behaviour no Story reaches → caught by a planted fault per behaviour
+            and the store contract run on both the fake and real IndexedDB. User's read: each fake behaviour made
+            default, and any Story that had to change.
+        acceptance
+            - For each real resource (the store, the page, a server), a list of what the real one can do and the fake
+              did not, each now done by the fake by default or recorded with its reason; `storeContract` passes on the
+              hardened `Fake.storage` and on real IndexedDB.
+            - The store closes with the services and refuses after close; the page hides and shows; a server answers
+              late, never, or after the caller is gone; each shown by a Story and a planted fault caught by `nub run
+              faults --only`.
+            - Every Story turned red by a hostile default is replayed with its wrong side named: a runtime bug lands as
+              an inverted test with its owner Task, a test that relied on a kind fake is fixed.
+            - `nub run check`, the suite, stress and the generated Stories pass.
