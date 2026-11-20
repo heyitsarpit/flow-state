@@ -1385,3 +1385,8 @@ note 2026-11-20T17:48:23Z
 
 note 2026-11-20T17:48:29Z
     Correction to the pause note: the weekly window resets at 19:00 UTC and the 5-hour window at 19:50 UTC.
+
+note 2026-11-20T17:49:33Z
+    The user's advisor-consult branch copied, not merged, to
+    wiki/plans/flow/references/proposals/advisor-consult-2026-11-20/ for consideration (five answers, holes pass, its
+    Plan and Task edits as a patch).
