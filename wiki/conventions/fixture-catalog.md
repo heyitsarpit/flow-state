@@ -99,17 +99,17 @@ it. Steps 9 (browser), 10 (CLI) and 17 (Story words) add no feature, so no cell 
 | `progress`                                                    |. |. |. |. |4 |. |. |. |. |. |. |. |. |. |4 |4 |
 | `previous` holds, `O.x.previous`                              |. |. |7 |. |7 |. |. |. |. |. |. |. |. |. |. |7 |
 | `idempotency`                                                 |4 |. |. |. |4 |. |. |. |. |. |. |. |. |. |4 |. |
-| `guarded`                                                     |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|. |
+| `guarded`                                                     |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
 | owed endings, quarantine                                      |U |. |. |. |U |. |. |. |. |. |. |. |. |. |4 |4 |
-| `stream` `delivers: "every"`, `position`, `catchUp`           |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|12|
-| `delivers: "latest"`, `Feed.callback`, `dropAt`               |. |. |. |12|. |. |. |. |. |12|. |. |12|. |12|. |
-| `reconnect`, `idleTime`, `Flapping`, `ReleaseOverdue`         |. |. |. |. |. |. |. |. |. |. |. |. |12|. |12|12|
-| `Feed.live` proof, `missed` (`Unproven`, `Lost`, `Reset`)     |. |. |. |. |. |. |. |. |. |. |. |. |12|. |12|12|
-| `Feed.multiplex`, `DuplicateSession`, `UnplacedStream`        |. |. |. |. |. |. |. |. |. |. |. |. |12|12|12|. |
-| `entity`, `domain`, `read(...).list`/`.one`/`.byKey`          |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|. |
-| `predicts`, repair, `basedOn`                                 |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|. |
-| `.gone` tombstones                                            |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|. |
-| `pagedBy`, `more`                                             |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|. |
+| `stream` `delivers: "every"`, `position`, `catchUp`           |. |. |. |. |11|. |. |. |. |. |. |. |. |11|11|11|
+| `delivers: "latest"`, `Feed.callback`, `dropAt`               |. |. |. |11|. |. |. |. |. |11|. |. |11|. |11|. |
+| `reconnect`, `idleTime`, `Flapping`, `ReleaseOverdue`         |. |. |. |. |. |. |. |. |. |. |. |. |11|. |11|11|
+| `Feed.live` proof, `missed` (`Unproven`, `Lost`, `Reset`)     |. |. |. |. |. |. |. |. |. |. |. |. |11|. |11|11|
+| `Feed.multiplex`, `DuplicateSession`, `UnplacedStream`        |. |. |. |. |. |. |. |. |. |. |. |. |11|11|11|. |
+| `entity`, `domain`, `read(...).list`/`.one`/`.byKey`          |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
+| `predicts`, repair, `basedOn`                                 |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
+| `.gone` tombstones                                            |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
+| `pagedBy`, `more`                                             |. |. |. |. |12|. |. |. |. |. |. |. |. |12|12|. |
 | `persist`, restore, reload                                    |U |U |U |. |U |1 |U |U |. |. |U |. |U |2 |4 |4 |
 | release versions, saved-shape reset, migration                |. |. |. |7 |7 |7 |. |. |. |. |7 |. |. |7 |. |7 |
 | multi-tab ownership (Web Lock, second tab)                    |14|. |. |. |. |. |14|. |. |. |. |. |. |. |. |14|
@@ -426,7 +426,7 @@ retry.
   - `Git/Sync` (have), shared.
   - `Repo` (step 1), shared, named by repo, holding a `Flow.private` token and ⇠ `Git/Sync`'s head and backoff as
     context; `Commit` sends `SyncRepo` and `PushSeen` sends `Pushed` to the main client (two events and their
-    handlers added: the product tells its client to sync; `PushSeen` stands in for S `headPushes` until step 12).
+    handlers added: the product tells its client to sync; `PushSeen` stands in for S `headPushes` until step 11).
   - `Git/Mirror` (step 1), shared, named by remote, unpersisted: forwards each push to its upstream mirror until the
     push's hop count reaches its time to live. Two mirrors linked to each other are the loop guard's runaway chain.
   - `Git/MirrorStatus` (step 1), shared, ⇠ a mirror's count, so each hop is also a context update.
@@ -436,7 +436,7 @@ retry.
     a moved head into the editor while watching, its reaction declared in `WATCHING` (the state-scoped experiment);
     shows each rate limit (`when`).
   - `RateLimit` (step 2), a trait on `Repo`.
-- **Operations:** T `sync` (have); R `remoteHead` (have); S `headPushes` (step 12, `latest`, into `Repo`).
+- **Operations:** T `sync` (have); R `remoteHead` (have); S `headPushes` (step 11, `latest`, into `Repo`).
 - **Journeys:**
   1. Commit: `Repo` sends `SyncRepo`.
   2. Rate limited: `RateLimit` pauses `Repo`'s schedules (`pausedBy`) with an exponential `Schedule`.
@@ -452,7 +452,7 @@ retry.
   - **step 2:** `trait` (`RateLimit` on `Repo`); `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn` (`RateLimit`'s
     `pausedBy` while limited); an Effect `Schedule` as `schedule` (`RateLimit`'s exponential `Schedule`).
   - **step 7:** release versions, saved-shape reset, migration (release 2 of `Repo`).
-  - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `headPushes` into `Repo`).
+  - **step 11:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `headPushes` into `Repo`).
 - **Scenarios:**
   - **Context forms** (@task.V3.T107; tests in `tests/sync/context.test.ts`):
     - [x] Usual: pulls while watching, a rate limit shown once. built: `sync/auto-pull-watching`. No source.
@@ -513,14 +513,14 @@ kamp.us for rows restored after a failure.
   - `TransferForm` (step 1), ⇠ `customer`, reading R `balance`; shared until a Story can drive a local actor
     (@task.V3.T76). From step 2, `StepUp` is a `subroutine` in it.
   - `ChequeDeposit` (step 4), shared, named by deposit, ⇠ `customer`.
-  - `Statement` (step 11), local, ⇠ `customer`.
+  - `Statement` (step 12), local, ⇠ `customer`.
   - `StandingOrder` (@task.V3.T81), shared, persisted, named by order, ⇠ `customer`, reading R `balance`; its
     `Plan.first` and `Pause.until` are `DateFromString` fields.
 - **Operations:**
   - T: `transfer` (have, `reject`; from step 4 it declares `idempotency` by transfer id, the one edit to an old
     contract, since a money write must name the server's key); `depositCheque` (step 4, `progress`).
-  - R: `balance` (step 1); `transfers` (step 11, a domain with `pagedBy`).
-  - S: `notifications` (step 12, `every`, `catchUp`).
+  - R: `balance` (step 1); `transfers` (step 12, a domain with `pagedBy`).
+  - S: `notifications` (step 11, `every`, `catchUp`).
 - **Journeys:**
   1. Send: `TransferForm` → `Customer` sends `Send` to the source account → an optimistic balance → `invalidate`
      R `balance`.
@@ -548,10 +548,10 @@ kamp.us for rows restored after a failure.
     `ChequeDeposit`); `idempotency` (T `transfer` by transfer id (one-line edit)).
   - **step 7:** `previous` holds, `O.x.previous` (a held transfer under a changed key); release versions, saved-shape
     reset, migration (release 2 of `Customer`).
-  - **step 11:** `guarded` (a record version ends an unknown transfer); `entity`, `domain`,
+  - **step 12:** `guarded` (a record version ends an unknown transfer); `entity`, `domain`,
     `read(...).list`/`.one`/`.byKey` (R `transfers` domain); `predicts`, repair, `basedOn` (a pending transfer
     predicted); `.gone` tombstones (a cancelled scheduled transfer); `pagedBy`, `more` (statement pages).
-  - **step 12:** `stream` `delivers: "every"`, `position`, `catchUp` (S `notifications`).
+  - **step 11:** `stream` `delivers: "every"`, `position`, `catchUp` (S `notifications`).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (account numbers redacted).
   - **@task.V3.T81:** an event field whose Schema transforms (`StandingOrder`'s `DateFromString` dates); construction
     refusals (builders in `stories/structure.ts`).
@@ -592,7 +592,7 @@ kamp.us for rows restored after a failure.
   - [ ] **Edges:** bigint cents as a key, named "$1n". left: @task.V3.T21, needs bigint key naming (Operations O1). E8:
     a reload mid-deposit. left: @task.V3.T21, needs `progress`.
   - [ ] **Combinations:** a read after a write (an older `balance` answer loses): left: @task.V3.T21, needs read
-    freshness. Releases (step 7): left: @task.V3.T56. Notifications (step 12): left: @task.V3.T25.
+    freshness. Releases (step 7): left: @task.V3.T56. Notifications (step 11): left: @task.V3.T25.
   - [x] **Variety:** a shared account against a form of its own. built: `transfers/check-and-send`.
   - [ ] **Variety:** a local form. left: @task.V3.T76, needs a Story word that drives a `createActor` actor
     (`Story.machine`); the form is shared until then.
@@ -978,10 +978,10 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
 - **Machines:**
   - `Music/Player` (have), shared per room.
   - `Household` (step 1), shared, holding refs to rooms and sending `Play` to a group.
-  - `Speaker` (step 12), shared per room, reading S `speakerState`.
+  - `Speaker` (step 11), shared per room, reading S `speakerState`.
   - `SleepTimer` (@task.V3.T81), shared per room, unpersisted; its `Set.after` is a `DurationFromMillis` field and
     drives a computed delay.
-- **Operations:** T `play` (have, `cancel`); S `speakerState` (step 12, `latest`, `Feed.callback`).
+- **Operations:** T `play` (have, `cancel`); S `speakerState` (step 11, `latest`, `Feed.callback`).
 - **Journeys:** 1. Play: play → history back to the last sub-state (have). 2. Group: `Household` plays a group.
   3. Buffering: `Speaker` shows the speaker's reports. 4. Sleep: set a room's sleep timer, cancel it.
 - **Features by step:**
@@ -990,7 +990,7 @@ Multi-room audio, grown with a household around today's player. Source: no sourc
     `schedules` with `armOn` (the position tick); `concurrency: "cancel"` (T `play`); endings, `Flow.uncertain`,
     `unknown` (`Music/Player`).
   - **step 1:** `send(ref, event)` (`Household` sends `Play` to grouped rooms).
-  - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `speakerState` into `Speaker`).
+  - **step 11:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `speakerState` into `Speaker`).
   - **@task.V3.T81:** an event field whose Schema transforms (`SleepTimer`'s `DurationFromMillis`), the third app.
 - **Scenarios:**
   - [x] Usual and stress (have). built: `player/usual`, `player/stress`, `player/stress-36`.
@@ -1114,7 +1114,7 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   - `Zone` (step 2), shared, named by zone, ⇠ `mode` ⇢ `zoneMode`.
   - `Room` (step 2), shared, named by room, ⇠ `zoneMode`, with `Panel` as a trait and `Sensor` ◂ `Room` via `.each`;
     sensors are `.resumable()` while offscreen.
-- **Operations:** T `setTarget` (step 2, `latest` per room); R `readings` (step 4); S `liveReadings` (step 12).
+- **Operations:** T `setTarget` (step 2, `latest` per room); R `readings` (step 4); S `liveReadings` (step 11).
 - **Journeys:**
   1. Set target: T `setTarget` → S `liveReadings` confirms the temperature.
   2. Vacation: `Room` raises `Pause` into its sensors; `pausedBy` vacation.
@@ -1132,20 +1132,20 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
     since the split); `Superseded` (T `setTarget`); `persist` of `Zone`.
   - **step 4:** `resource`, `O.x.lookup` (R `readings`); `O.x.subscribe`, `staleTime`, `gcTime`, `O.x.refetch` (R
     `readings`, refetched on focus); resource `subscribe.each` (R `readings` per sensor).
-  - **step 12:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `liveReadings`); `reconnect`, `idleTime`,
+  - **step 11:** `delivers: "latest"`, `Feed.callback`, `dropAt` (S `liveReadings`); `reconnect`, `idleTime`,
     `Flapping`, `ReleaseOverdue` (S `liveReadings`); `Feed.live` proof, `missed` (`Unproven`, `Lost`, `Reset`) (S
     `liveReadings`); `Feed.multiplex`, `DuplicateSession`, `UnplacedStream` (one connection for every room).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule events).
 - **Scenarios:**
   - [ ] **Usual:** set a target, readings on schedule, the heater cycles, a vacation pause and resume.
-  - [ ] **Load:** L1 × 256 rooms; L5: readings faster than turns, well past the old 1,024 mailbox (step 12);
+  - [ ] **Load:** L1 × 256 rooms; L5: readings faster than turns, well past the old 1,024 mailbox (step 11);
     L4 mid-pause.
   - [ ] **Structure:** S1: house → zone → room → sensor, with S9 at a sensor; S4: zone; S5: a mode override at a zone;
     S8: rooms added mid-tick; S6 × {house first, room first, reloaded} with live timers; S3: two houses; S7: a zone mode
     feeding the house (a cycle) and a room with no zone.
   - [ ] **Edges:** E1: no rooms; E5: −1, 0, 2^31 − 1, and 2^31 refused; pause reasons stacked and removed in turn; a key
     leaving and returning.
-  - [ ] **Combinations:** `left` against `dueAt` across a reload (see @plan.Pending.D18); the stream (step 12).
+  - [ ] **Combinations:** `left` against `dueAt` across a reload (see @plan.Pending.D18); the stream (step 11).
   - [ ] **Variety:** a multi-step `Schedule` against one delay; keyed against unkeyed.
   - **Findings:**
     - [x] Pause reasons hold separately (`home/pause-reasons`). Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one
@@ -1166,10 +1166,10 @@ kamp.us's optimistic lists, ui-sdk's menu, combobox and toast tests.
   - `CardMenu` and `Toaster` (step 8, @task.V3.T72), local and shared, with `Toast` ◂ `Toaster` via `.each`.
   - `AssigneePicker` (step 8, @task.V3.T73), local, with `props` and the `Picked` emit.
 - **Operations:**
-  - R: `cards`, `comments` (step 4); `boards`, `users` (step 8); `cards` becomes a domain at step 11.
-  - T: `moveCard` (step 2, `latest` per card; `guarded` from step 11); `addComment` (step 4, `serialize` per card);
+  - R: `cards`, `comments` (step 4); `boards`, `users` (step 8); `cards` becomes a domain at step 12.
+  - T: `moveCard` (step 2, `latest` per card; `guarded` from step 12); `addComment` (step 4, `serialize` per card);
     `deleteComment` (step 4); `archiveCard` (step 8); `assign` (step 8).
-  - S: `boardEvents` (step 12).
+  - S: `boardEvents` (step 11).
 - **Journeys:**
   1. Move: drag a card; the server confirms, rejects or modifies it.
   2. Discuss: open `CardDetail` → add a comment → delete one.
@@ -1195,10 +1195,10 @@ kamp.us's optimistic lists, ui-sdk's menu, combobox and toast tests.
   - **step 8:** `keys`, `paused`, `pausedBy`, `restartOn`, `disarmOn` (`Toast`'s pause reasons); `props`, `onProps`
     (`AssigneePicker`); `emits`, `onEmit` (`AssigneePicker`'s `Picked`); `send(ref, event)` (`CardMenu` sends
     `CardArrived` to another `Board`).
-  - **step 11:** `guarded` (T `moveCard`); `entity`, `domain`, `read(...).list`/`.one`/`.byKey` (the `cards` domain);
+  - **step 12:** `guarded` (T `moveCard`); `entity`, `domain`, `read(...).list`/`.one`/`.byKey` (the `cards` domain);
     `predicts`, repair, `basedOn` (T `moveCard` predicts); `.gone` tombstones (a card deleted by another user);
     `pagedBy`, `more` (`cards` pages).
-  - **step 12:** `stream` `delivers: "every"`, `position`, `catchUp` (S `boardEvents`); `Feed.multiplex`,
+  - **step 11:** `stream` `delivers: "every"`, `position`, `catchUp` (S `boardEvents`); `Feed.multiplex`,
     `DuplicateSession`, `UnplacedStream` (one connection for every board).
   - **step 15:** `ContextCycle`, `MissingContextProvider` (a lazy entry that brings a context cycle); lazy entries `{
     id, load }`, adoption, dormant records (`CardDetail`); `EntryMismatch`, a failed load, a send to an unadopted entry
@@ -1282,15 +1282,15 @@ checked here).
 - **Machines:**
   - `Account` (step 4), shared, ⇢ `session`.
   - `Hub` (step 4), shared, ⇠ `session` ⇢ `hub`, with `ThreadList` ◂ `Hub` via `.each`; `Presence` ◂ `Hub` from
-    step 12.
+    step 11.
   - `Thread` (step 4), shared, named by thread, ⇠ `hub`, with `Composer` as a trait (and `Attachment` ◂ `Composer`
     via `.each`) and `AssistantReply` ◂ `Thread`.
   - `Recipients` (step 8, @task.V3.T73), local (the token input).
 - **Operations:**
-  - R: `history` (step 4; a `messages` domain with `pagedBy` from step 11); `contacts` (step 8).
+  - R: `history` (step 4; a `messages` domain with `pagedBy` from step 12); `contacts` (step 8).
   - T: `send` (step 4; `serialize` per thread, `idempotency` by client id); `upload` (step 4, `progress`); `ask`
     (step 4, `reject`); `deleteMessage` (step 4).
-  - S: `messages`, `presence`, `reply` (step 12).
+  - S: `messages`, `presence`, `reply` (step 11).
 - **Journeys:**
   1. Join: R `history`, then S `messages`.
   2. Send: an echo, then reconciled by id.
@@ -1314,10 +1314,10 @@ checked here).
     `upload`); `idempotency` (T `send` by client message id); owed endings, quarantine (T `send`); `persist`, restore,
     reload (`Thread`, `Hub`); Runtime per scope, `dispose` (a new Runtime per workspace).
   - **step 8:** `createActor`, `disposeActor` (`Recipients`).
-  - **step 11:** `guarded` (an edit proved by the message version); `entity`, `domain`, `read(...).list`/`.one`/`.byKey`
+  - **step 12:** `guarded` (an edit proved by the message version); `entity`, `domain`, `read(...).list`/`.one`/`.byKey`
     (the `messages` domain); `predicts`, repair, `basedOn` (T `send` predicts); `.gone` tombstones (a deleted message);
     `pagedBy`, `more` (history pages).
-  - **step 12:** `stream` `delivers: "every"`, `position`, `catchUp` (S `messages`); `delivers: "latest"`,
+  - **step 11:** `stream` `delivers: "every"`, `position`, `catchUp` (S `messages`); `delivers: "latest"`,
     `Feed.callback`, `dropAt` (S `presence`); `reconnect`, `idleTime`, `Flapping`, `ReleaseOverdue` (S `messages`);
     `Feed.live` proof, `missed` (`Unproven`, `Lost`, `Reset`) (S `messages`); `Feed.multiplex`, `DuplicateSession`,
     `UnplacedStream` (one connection for every thread).
@@ -1410,10 +1410,10 @@ migrations, kamp.us's draft storage, ui-sdk's tree tests.
   - `Library` (step 4), shared, ⇢ `author`.
   - `Document` (step 4), shared, named by document, ⇠ `author`, with `Section` ◂ `Document` via `.each`
     (`.resumable()` when collapsed) and `ImageUpload` as a trait on each section; `Collaborators` ◂ `Document` from
-    step 12.
+    step 11.
   - `Outline` (step 8, @task.V3.T73), local (the tree), with lazily loaded children.
 - **Operations:** R `document` (step 4), `children` (step 8); T `save` (step 4, `latest`), `upload` (step 4,
-  `progress`, `cancel` on replace); S `ops` (step 12).
+  `progress`, `cancel` on replace); S `ops` (step 11).
 - **Journeys:**
   1. Edit: edit → autosave on a debounce.
   2. Image: paste → T `upload` → abort → resume from the offset.
@@ -1435,7 +1435,7 @@ migrations, kamp.us's draft storage, ui-sdk's tree tests.
   - **step 7:** `NotSent { OldVersion }` (a save held across release 2); `previous` holds, `O.x.previous` (T `upload`'s
     old-key lane); release versions, saved-shape reset, migration (release 2 migrates sections).
   - **step 8:** `createActor`, `disposeActor` (`Outline`); resource `subscribe.each` (R `children` per outline branch).
-  - **step 12:** `stream` `delivers: "every"`, `position`, `catchUp` (S `ops`); `reconnect`, `idleTime`, `Flapping`,
+  - **step 11:** `stream` `delivers: "every"`, `position`, `catchUp` (S `ops`); `reconnect`, `idleTime`, `Flapping`,
     `ReleaseOverdue` (S `ops`); `Feed.live` proof, `missed` (`Unproven`, `Lost`, `Reset`) (S `ops`).
   - **step 13:** `StorageRefused`, `NoPersistence` (quota refuses a save); storage failures: corrupt, quota, slow read,
     non-durable (quota and a slow read).
@@ -1561,14 +1561,15 @@ it starts, and writes its scenarios red first. The step numbers are the matrix c
    `kanban`, tree in `draft`, token input in `chat`).
 9. **Browser slice: @task.V3.T111 (after the store, @task.V3.T58).** Every fixture runs in real browsers; no new feature.
 10. **CLI: @task.V3.T22, then @task.V3.T23.** `flow check` runs clean over every fixture's app; no new feature.
-11. **Entity store: @task.V3.T24.**
-12. **Streams: @task.V3.T25.**
+11. **Streams: @task.V3.T25.**
+12. **Entity store: @task.V3.T24.**
 13. **Store adapters: @task.V3.T28** (after T58).
 14. **Multi-tab: @task.V3.T27** (after T28).
 15. **Lazy features: @task.V3.T48.**
 16. **Inspection: @task.V3.T49.** Every `long` run is also exported and imported.
-17. **Story words: @task.V3.T29** (after T49 and T23). `duplicate`, `times`, `Fake.Refused`, `Fake.Closed`, frames and
-    `together` in chat (duplicate delivery), kanban and draft; no new feature.
+17. **Story words: @task.V3.T29** (after T49 and T23). Frames and `together` in chat, kanban and draft; no new
+    feature. `duplicate`, `times`, `Fake.Refused` and `Fake.Closed` moved to @task.V3.T112 (breakdown review,
+    2026-11-20).
 18. **React and server rendering: @task.V3.T30** (after T111, T76 and T77).
 
 ## Task text to amend

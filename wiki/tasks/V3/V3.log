@@ -1293,3 +1293,8 @@ note 2026-11-20T12:50:43Z
     Queued (the user, 2026-11-20): a breakdown review of every open and draft Task of P4 and later against skill:to-task
     step 1, by R48; it runs after T57's close review, before the next Task, and its re-splits are applied before that
     Task starts.
+
+note 2026-11-20T13:02:55Z
+    Breakdown review applied by R48 (orchestrator): T109 owns fragment lifecycle (T110 now the .each fan-out); new T113
+    typed machine, T114 run verdict, T115 server data, T116 Next.js host; T97 takes test tooling, T112 every Fake;
+    decoding to T92; T98 first in P5; streams before entities.

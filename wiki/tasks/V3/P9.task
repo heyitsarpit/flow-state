@@ -50,7 +50,8 @@ tasks
         priority    medium
         blocked_by  [@task.V3.T35]
         description
-            Meet each budget on its named device, one budget at a time against P8's baseline.
+            Meet each budget on its named device that an agent can reach, one budget at a time against P8's baseline.
+            The phone rows named in @task.V3.T35's targets are @task.V3.T38's.
 
             **Why now:** the budgets are the P9 goal; P8's baselines and the user's targets are what they are
             measured against.
@@ -61,11 +62,15 @@ tasks
             - **False pass:** a speedup that skips work → caught by skill:check-benchmark.
             - **Gates:** P8's slowed builds.
         acceptance
-            Every budget met on its device in a checked comparison.
+            Every agent-reachable budget met on its device in a checked comparison; the phone rows are @task.V3.T38's.
+        comment     2026-11-20T13:02:17Z
+            Breakdown review (orchestrator, 2026-11-20, R48): covers the agent-reachable budgets only; T38 owns the
+            phone rows named in T35's targets.
     T37
         title       Every finding given a disposition
         status      draft
         priority    medium
+        blocked_by  [@T36, @T38, @T98]
         description
             Sweep every finding from every round, Epic note and revisit.md into fixed, deferred with a reason, or
             dropped with a reason checked against the Specs.
@@ -81,12 +86,16 @@ tasks
             - **User's read:** each disposition.
         acceptance
             Every finding has a disposition; `nub run verify` passes.
+        comment     2026-11-20T13:02:16Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T98 (kept in P9, now first in P5), T36
+            and T38.
     T38
         title       Quota and disk durability on a real phone
         status      draft
         priority    low
         description
-            Prepare the real-phone script for quota and disk durability, and read the results the user runs.
+            Prepare the real-phone script for quota and disk durability, and read the results the user runs. It owns the
+            phone rows named in @task.V3.T35's targets.
 
             **Why now:** an agent here reaches only browsers and a simulator, and a WebDriver session keeps no website
             data, so quota and durability were never measured on a real store.
@@ -100,11 +109,15 @@ tasks
             - **User's read:** the results.
         acceptance
             The user's real-phone results are recorded and meet the budgets.
+        comment     2026-11-20T13:02:19Z
+            Breakdown review (orchestrator, 2026-11-20, R48): owns the phone rows named in T35's targets; T36 covers the
+            agent-reachable budgets only.
 
     T98
-        title       Raw-throw class: one general solution for public refusals and construction trust
+        title       Raw-throw class: one general solution for construction trust and public refusals
         status      draft
         priority    high
+        blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T76, @task.V3.T77]
         satisfies   [@plan.Diagnostics.O1, @plan.Runtime.O1]
         description
             One general solution for the raw-throw class: no public path of Flow, built or handed out, throws anything
@@ -113,7 +126,10 @@ tasks
             **Why now:** parked, not now (the user, 2026-11-19): the class reached its third instance (T81's failure
             limit, T94's sweep, T94's review) and was blocking core work; the user chose to leave the known instances in
             as inverted tests and solve the class once, later, with a general design instead of case by case. This Task
-            holds everything the class owes so the core phases can proceed.
+            holds everything the class owes so the core phases can proceed. Split in the breakdown review (the
+            orchestrator, 2026-11-20): this Task is construction trust, and it starts P5 (every feature builds on
+            constructed values); the error vocabulary (a closed `details.reason`, one name for a store refusal) went
+            to @task.V3.T100.
 
             **Read first:** @task.V3.T81 (its full approach and requirements 1 to 19, in its comments), @task.V3.T94
             (its review of 2026-11-18 and the decisions in its comments),
@@ -152,3 +168,8 @@ tasks
             Owes (proposed, P3 close fix round): closed details.reason values (@plan.Diagnostics.O1); construction runs
             nothing and call sites supply no wiring (@plan.Runtime.O1); review item A13, refusal text built twice;
             faults for the Compile gaps in code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:01:58Z
+            Breakdown review (orchestrator, 2026-11-20, R48): split: construction trust stays here (identity checks,
+            builders capture, decode whole), and the error vocabulary moved to T100. Kept in P9 because wk has no move;
+            set first in P5's Order, blocked_by T109, T110, T76, T77, and it blocks T24, T25, T48, T106, T30, T115
+            and T37.

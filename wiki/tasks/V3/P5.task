@@ -14,11 +14,13 @@ description
     are rewritten with skill:to-epic and skill:to-task when the phase starts; until then they hold only the order, the
     Plan links and the blockers.
 
-    **Order:** @task.V3.T106, @task.V3.T24, @task.V3.T25, @task.V3.T28, @task.V3.T27, @task.V3.T48, @task.V3.T49,
-    @task.V3.T29, @task.V3.T30, @task.V3.T108, @task.V3.T31: the fixture catalog's steps 11 to 18 (T108, split from T30,
-    waits on its proposal), with T31 last since it ends on the user's acceptance (re-plan section 8, the user,
-    2026-11-18). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in
-    this order.
+    **Order:** @task.V3.T98, @task.V3.T114, @task.V3.T106, @task.V3.T25, @task.V3.T24, @task.V3.T115, @task.V3.T28,
+    @task.V3.T27, @task.V3.T48, @task.V3.T49, @task.V3.T29, @task.V3.T30, @task.V3.T116, @task.V3.T108, @task.V3.T31:
+    the fixture catalog's steps 11 to 18 (T108, split from T30, waits on its proposal), with T31 last since it ends on
+    the user's acceptance (re-plan section 8, the user, 2026-11-18). T98 (construction trust, kept in P9 because wk has
+    no move) comes first: every feature builds on constructed values. Streams come before the entity store, and server
+    data (T115) before lazy features; re-planned by the breakdown review, the orchestrator, 2026-11-20. A `blocked_by`
+    link is a real dependency only; where several Tasks are ready, take the earliest in this order.
 
     **Verified by:** per feature, Story tests, run rules and compile-time tests written from its Spec, with a planted
     fault for each new rule; skill:check-runtime where users touch it; skill:check-task per Task.
@@ -54,13 +56,16 @@ description
     - skill:check-runtime; skill:review; skill:interview for the CLI outputs round.
 
     The earlier text of each Task, written for the conformance suite, is in `wiki/tasks/V3/` at commit `6b9fe478`.
+comment 2026-11-20T13:02:20Z
+    Breakdown review (orchestrator, 2026-11-20, R48): T98 stays in P9 (wk has no move) and is first in this Order; new
+    Tasks T114, T115 and T116; T25 before T24; catalog steps 11 and 12 swapped (streams, then the entity store).
 tasks
     T25
         title       Streams
         status      draft
         priority    high
 
-        blocked_by  [@task.V3.T21]
+        blocked_by  [@task.V3.T21, @task.V3.T92, @task.V3.T56, @task.V3.T98]
         satisfies   [@plan.Operations.O1, @plan.Operations.O4, @plan.Persistence.O4, @plan.Runtime.O6]
         description
             Write the streams Spec, then build streams on production with a real EventSource path. Adds `Fake.stream` on
@@ -70,7 +75,7 @@ tasks
         acceptance
             - The streams Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses a stream.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 12 of code:wiki/conventions/fixture-catalog.md:
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 11 of code:wiki/conventions/fixture-catalog.md:
               `sync`, `transfers`, `player`, `home`, `kanban`, `chat`, `draft` gain the features, scenarios and sources
               of their rows; each scenario red before the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
@@ -85,12 +90,15 @@ tasks
             Owes (proposed, P3 close fix round): feeds restoring their baseline or bookmark (@plan.Persistence.O4) and
             stream sessions released within the bound with ReleaseOverdue (@plan.Runtime.O6); links added.
             See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:11Z
+            Breakdown review (orchestrator, 2026-11-20, R48): ordered before T24 (T24's listen(stream) reads this Task's
+            state); blocked_by adds T92, T56 and T98; catalog steps 11 and 12 swapped (streams are step 11).
     T24
         title       Entity store
         status      draft
         priority    high
 
-        blocked_by  [@task.V3.T21]
+        blocked_by  [@task.V3.T21, @T25, @task.V3.T92, @task.V3.T56, @task.V3.T98]
         satisfies   [
                     @plan.EntityDomains.O1,
                     @plan.EntityDomains.O2,
@@ -105,7 +113,7 @@ tasks
         acceptance
             - The entities Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses an entity domain.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 11 of code:wiki/conventions/fixture-catalog.md:
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 12 of code:wiki/conventions/fixture-catalog.md:
               `transfers`, `kanban`, `chat` gain the features, scenarios and sources of their rows; each scenario red
               before the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
@@ -119,6 +127,10 @@ tasks
         comment     2026-11-18T19:39:02Z
             Owes (proposed, P3 close fix round): @plan.Persistence.O6's basedOn per record and predicted keys, both
             unbuilt; the satisfies link is added. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:10Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T25 (its listen(stream) reads T25's
+            state), T92, T56 and T98. Not applied: splitting this Task into confirmed records and the prediction
+            overlay; the lead's state inventory at P5's own R48 review decides.
     T27
         title       Multi-tab
         status      draft
@@ -152,7 +164,7 @@ tasks
         status      draft
         priority    medium
 
-        blocked_by  [@task.V3.T109]
+        blocked_by  [@task.V3.T109, @task.V3.T92, @task.V3.T56, @task.V3.T98]
         satisfies   [
                     @plan.LazyFeatures.O1,
                     @plan.LazyFeatures.O2,
@@ -183,6 +195,9 @@ tasks
             Owes (proposed, P3 close fix round): capture and restore never load lazy code (@plan.Persistence.O4) and
             silent baselines at lazy adoption (@plan.Runtime.O5); links wait on a wk fix.
             See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:11Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T92, T56 and T98; reads T56's
+            unverifiable-now outcome for dormant records; supplies the adoption state to T115 as a value.
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft
@@ -190,15 +205,17 @@ tasks
         blocked_by  [@task.V3.T58]
         satisfies   [@plan.Persistence.O1, @plan.Persistence.O3, @plan.Inspection.O2, @plan.Persistence.O6]
         description
-            Complete `layerIndexedDb` from @task.V3.T58's minimal adapter (which already meets Safari's D1 to D4 in
-            `packages/flow-state-v3/prototypes/safari/RESULTS.md`): the `database` option, the rest of
-            @plan.Persistence.O1 and @plan.Persistence.O3. Extract the Story's in-memory store as `layerMemory`, the
-            production in-memory store, which `Fake.storage` then wraps with its hold, refuse and release controls.
+            Complete `layerIndexedDb` from @task.V3.T58's minimal adapter (which already meets Safari's D1 to D3 in
+            `packages/flow-state-v3/prototypes/safari/RESULTS.md`; D4 is @task.V3.T27's): the `database` option, the
+            rest of @plan.Persistence.O1 and @plan.Persistence.O3. Extract the Story's in-memory store as `layerMemory`,
+            the production in-memory store, which `Fake.storage` then wraps with its hold, refuse and release controls.
+            `layerMemory` and the `Store` port are this Task's contract with @task.V3.T112.
 
             **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Pending.D9,
             and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
         acceptance
-            - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari.
+            - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari,
+              which meets Safari's D1 to D3 (D4 is @task.V3.T27's).
             - Fixtures first (code:wiki/conventions/fixtures.md): step 13 of code:wiki/conventions/fixture-catalog.md:
               `pay`, `draft` gain the features, scenarios and sources of their rows; each scenario red before the build,
               and the step's cells marked used at the close.
@@ -214,12 +231,16 @@ tasks
             (@plan.Inspection.O2); a direct test that the adapter waits for the acknowledgement, no silent downgrade on
             transient storage failure, Attempt ids never reused across Runtimes (@plan.Persistence.O6).
             See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:10Z
+            Breakdown review (orchestrator, 2026-11-20, R48): description and acceptance cite Safari D1 to D3 only (D4
+            moved to T27); layerMemory and the Store port are its contract with T112. The session boot-queue item routed
+            above moved to T115.
     T49
         title       Inspection and the flow-state/inspect route
         status      draft
         priority    medium
 
-        blocked_by  [@task.V3.T21]
+        blocked_by  [@task.V3.T21, @T24, @T25, @T27, @T48]
         satisfies   [
                     @plan.Inspection.O1,
                     @plan.Inspection.O3,
@@ -250,6 +271,8 @@ tasks
             Owes (proposed, P3 close fix round): trace artifacts and Model bytes through the one codec, and codec
             failures as FlowError CodecMalformed or CodecSchemaMismatch (@plan.Inspection.O2; link waits on a wk fix).
             See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:12Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T24, T25, T27 and T48.
     T29
         title       The rest of Story and Fake, and `story describe`
         status      draft
@@ -263,20 +286,17 @@ tasks
                     @plan.Testing.O1,
                     @plan.Testing.O2,
                     @plan.Testing.O3,
-                    @plan.Testing.O4,
-                    @plan.Testing.O6,
-                    @plan.Testing.O8,
-                    @plan.Diagnostics.O1
+                    @plan.Testing.O4
                     ]
         description
-            Extend the first slice (@task.V3.T63 to @task.V3.T70) that Flow's own tests run on: `Story.machine`,
-            `Story.fragment`, frames, `together`, `Fake.Refused`, `Fake.Closed`, `duplicate`, `times`, `UnusedWireRule`,
-            `Fake.http` with the microtask settle (unless the first Promise-based adapter landed them earlier),
-            end-of-run cleanup (@plan.Testing.O8), StoryFrame rendering, the Plan's `FlowError` with evidence,
-            `domainPropertyOptions`, `PropertyTestFailed`, `story describe`, `--coverage`, `--trace-output`, `story
+            Extend the first slice (@task.V3.T63 to @task.V3.T70) that Flow's own tests run on: frames, `together`,
+            StoryFrame rendering, `domainPropertyOptions`, `story describe`, `--coverage`, `--trace-output`, `story
             run`'s exit code for a rejected run and `trace --at` (@plan.CommandLine.O2); and export `flow-state/testing`
-            through the map @task.V3.T23 added. Tab steps move to @task.V3.T27; hydration, `StoryPlayer` and
-            `definePresentation` to @task.V3.T30.
+            through the map @task.V3.T23 added. Moved out (breakdown review, the orchestrator, 2026-11-20):
+            `Story.machine` to @task.V3.T76, `Story.fragment` to @task.V3.T109, the Fake world items to @task.V3.T112,
+            FlowError's evidence field to @task.V3.T100, the run verdict (`PropertyTestFailed`, end-of-run cleanup,
+            `UnusedWireRule`) to @task.V3.T114. Tab steps move to @task.V3.T27; hydration to @task.V3.T115,
+            `StoryPlayer` and `definePresentation` to @task.V3.T108.
 
             `Story.machine` and its `props(values)` step land first in @task.V3.T76; this Task extends them.
 
@@ -333,11 +353,15 @@ tasks
         comment     2026-11-19T19:10:43Z
             Routed (orchestrator, 2026-11-20): @plan.Pending.D7 is partly built (Fake.call and Fake.control exist, no
             Fake.http transport binding); finish it here, then D7 merges into Testing.plan.
+        comment     2026-11-20T13:02:09Z
+            Breakdown review (orchestrator, 2026-11-20, R48): Story.machine moved to T76, Story.fragment to T109, the
+            Fake world items to T112, FlowError's evidence field to T100, and the run verdict (PropertyTestFailed,
+            cleanup, UnusedWireRule) to T114; routed items above that name them go with them. Hydration moved to T115.
     T31
         title       CLI outputs designed for people
         status      draft
         priority    medium
-        blocked_by  [@T29]
+        blocked_by  [@task.V3.T22, @T29, @T49, @T106]
         satisfies   [@plan.CommandLine.O1]
         description
             Design the CLI's outputs for people: source locations, a trace that reads like a story, a graph grouped by
@@ -350,45 +374,39 @@ tasks
             The user has accepted each output, and each has a test that states it by hand.
         comment     2026-11-15T14:33:25Z
             People outputs are @plan.CommandLine.O1; O3's JSON and exit codes are @task.V3.T22's.
+        comment     2026-11-20T13:02:15Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T22, T49 and T106 (people outputs read
+            their state).
     T30
         title       React and Next.js bindings
         status      draft
         priority    high
-        blocked_by  [@task.V3.T58, @task.V3.T76, @task.V3.T77]
+        blocked_by  [@task.V3.T58, @task.V3.T76, @task.V3.T77, @task.V3.T98]
         satisfies   [
                     @plan.React.O1,
                     @plan.React.O2,
                     @plan.React.O3,
                     @plan.React.O4,
                     @plan.React.O5,
-                    @plan.ServerRendering.O1,
-                    @plan.ServerRendering.O2,
-                    @plan.ServerRendering.O3,
-                    @plan.ServerRendering.O4,
-                    @plan.ServerRendering.O5,
-                    @plan.ServerRendering.O6,
-                    @plan.ServerRendering.O7,
-                    @plan.Testing.O7,
-                    @plan.Inspection.O2,
-                    @plan.Runtime.O5
+                    @plan.ServerRendering.O4
                     ]
         description
-            Write the bindings' Specs, then build the React and Next.js bindings from @plan.React and
-            @plan.ServerRendering, with the Story `hydrate` path (@plan.Testing.O7). `StoryPlayer` and
-            `definePresentation` moved to @task.V3.T108.
+            Write the React binding's Spec, then build the binding from @plan.React: Provider, hooks, attach, grace,
+            props and emits delivery, and eligibility, with the first server render (@plan.ServerRendering.O4).
+            `StoryPlayer` and `definePresentation` moved to @task.V3.T108; server data (dehydrate, hydrate, the merge
+            table, the Story `hydrate` step) to @task.V3.T115; the Next.js host proofs to @task.V3.T116.
 
-            **Read first:** @plan.React.O1, O2, O3, @plan.ServerRendering.O1, @plan.Machines.O2,
+            **Read first:** @plan.React.O1, O2, O3, @plan.ServerRendering.O4, @plan.Machines.O2,
             code:wiki/conventions/view-commands.md, code:wiki/conventions/controlled-values.md.
         acceptance
-            - The bindings' Requirements hold, shown in real Chrome and Safari.
-            - Request render and Hydrate without mismatch on a Next.js host; React 18 and 19; the Story `hydrate` path.
+            - The binding's Requirements hold, shown in real Chrome and Safari; the first server render
+              matches (@plan.ServerRendering.O4).
             - `useActor(machine, { input, props })` shows this render's props before attach and queues a changed value
               from a layout effect, in FIFO order with sends; a `props` option on `useActorByRef` is a type error.
             - `useOnEmit` delivers an actor's emits after the commit of the first render at or after their turn, in
               order, never from a discarded render; a fragment's emits come under its instance name and an .each
               copy's key.
-            - Server rendering delivers no emit; a paused timer transfers its `left` unchanged; the shape digest leaves
-              out props and emits.
+            - Server rendering delivers no emit.
             - Fixtures first (code:wiki/conventions/fixtures.md): step 18 of code:wiki/conventions/fixture-catalog.md:
               `pay`, `sign-in`, `session`, `command-palette`, `number-input`, `search`, `kanban`, `chat` gain the
               features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
@@ -409,12 +427,16 @@ tasks
             Split (the user, 2026-11-20): StoryPlayer and definePresentation moved to @task.V3.T108, which waits on the
             bippy proposal; this Task is the bindings and the Story hydrate path only, and the presentation block noted
             above no longer applies here.
+        comment     2026-11-20T13:02:10Z
+            Breakdown review (orchestrator, 2026-11-20, R48): split by state: this Task keeps the React binding
+            (Provider, hooks, attach, grace, props and emits delivery, eligibility; React O1 to O5, ServerRendering O4's
+            first render); server data went to T115 and the Next.js host proofs to T116; blocked_by adds T98.
 
     T106
         title       Rules on machines: invariants, turns and terminals, with rule coverage
         status      draft
         priority    high
-        blocked_by  [@task.V3.T109, @task.V3.T110]
+        blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T98, @T114]
         satisfies   [
                     @plan.Rules.O1,
                     @plan.Rules.O2,
@@ -444,7 +466,7 @@ tasks
             shared bodies such as code:packages/flow-state-v3/fixtures/services/shop/machines/pay.ts#PayBody must still
             compile (@plan.Rules.O3); write the type tests first. Rules over `operations` depend on when a row turns
             busy (@plan.Rules.Q1). @plan.Rules.O7 needs traits and subroutines (@task.V3.T109, @task.V3.T110); its
-            `Story.fragment` part lands with @task.V3.T29, which builds `Story.fragment`.
+            `Story.fragment` part lands with @task.V3.T109, which builds `Story.fragment`.
 
             **Approach:** write the Spec from @plan.Rules with skill:to-spec, then its requirements as failing checks:
             type tests (@plan.Rules.V1), then judging in runs and the switch, rule coverage, terminals and
@@ -456,8 +478,7 @@ tasks
             @plan.Rules only through @plan.Pending, when the build shows it wrong.
         acceptance
             - A Spec written from @plan.Rules with skill:to-spec.
-            - @plan.Rules.V1 to V7 pass; V8 passes for host Stories, and for `Story.fragment` once @task.V3.T29
-              builds it.
+            - @plan.Rules.V1 to V7 pass; V8 passes for host Stories and for `Story.fragment` (built by @task.V3.T109).
             - Rule cost on the suite is measured with rules on and off and recorded in a comment on this Task.
             - `nub run check`, the suite and stress pass.
         comment     2026-11-20T10:16:39Z
@@ -467,11 +488,14 @@ tasks
             Three reviews applied to @plan.Rules (the user, 2026-11-20): examples made true on the fixtures, lane
             changes judged by invariants, `TerminalLeft`, private fields redacted, and expectBroken, coverage and
             fragment-copy rules defined. Blocked on T109 and T110 for the fragment part.
+        comment     2026-11-20T13:02:13Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T98 and T114; its V8 no longer waits on
+            T29, and Story.fragment is T109's.
     T108
         title       Story presentation: StoryPlayer and definePresentation
         status      draft
         priority    high
-        blocked_by  [@T30]
+        blocked_by  [@T30, @T29, @T49]
         satisfies   [@plan.Testing.O9]
         description
             Build Story presentation from @plan.Testing.O9: `StoryPlayer` and `definePresentation` over the React
@@ -492,3 +516,116 @@ tasks
               before any code.
             - `StoryPlayer` plays, steps and scrubs a recorded run without executing again; playback starts no Flow
               work; scenes reject unknown checkpoints (@plan.Testing.O9, V9), shown in real Chrome and Safari.
+        comment     2026-11-20T13:02:14Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T29 and T49.
+
+    T114
+        title       Run verdict: what fails a run
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T69, @task.V3.T70]
+        satisfies   [@plan.Testing.O6, @plan.Testing.O8]
+        description
+            Build what fails a run: `PropertyTestFailed`, end-of-run cleanup with evidence, and `UnusedWireRule`.
+
+            **Why now:** carved from @task.V3.T29 in the breakdown review (the orchestrator, 2026-11-20): these three
+            are the run's verdict, one state of its own, and @task.V3.T106's rule judging reads it, so it need not wait
+            for the rest of Story and Fake.
+
+            **Read first:** @plan.Testing.O6, @plan.Testing.O8, @spec.Stories, @task.V3.T63, @task.V3.T69, @task.V3.T70.
+
+            May change: `src/host/testing/`, `tests/`, `fixtures/`. Evidence: this Task's comments.
+
+            False pass: a run that passes with a leaked resource or an unused wiring rule → caught by a Story that leaks
+            each and a planted fault that skips the cleanup check.
+        acceptance
+            - `PropertyTestFailed` is the verdict of a failed property run, with its evidence (@plan.Testing.O6), shown
+              by a Story test.
+            - End-of-run cleanup is checked and reported with evidence (@plan.Testing.O8); `UnusedWireRule` is reported
+              for a wiring rule no step used.
+            - Each new rule has a planted fault that `nub run faults --only` catches.
+            - `nub run check` and the suite pass.
+        comment     2026-11-20T13:02:08Z
+            Breakdown review (orchestrator, 2026-11-20, R48): new Task carved from T29: Testing O6 (PropertyTestFailed),
+            O8 (end-of-run cleanup and evidence) and UnusedWireRule, the run's verdict. T106 is blocked by it, so its V8
+            no longer waits on T29.
+
+    T115
+        title       Server data: dehydrate, hydrate and the merge table
+        status      draft
+        priority    high
+        blocked_by  [@T24, @task.V3.T98]
+        satisfies   [
+                    @plan.ServerRendering.O1,
+                    @plan.ServerRendering.O2,
+                    @plan.ServerRendering.O3,
+                    @plan.ServerRendering.O5,
+                    @plan.ServerRendering.O6,
+                    @plan.Testing.O7,
+                    @plan.Inspection.O2,
+                    @plan.Runtime.O5
+                    ]
+        description
+            Build server data: `dehydrate`, `hydrate` and the one merge table that decides what the client keeps.
+
+            **Why now:** split from @task.V3.T30 in the breakdown review (the orchestrator, 2026-11-20) by state: the
+            React binding's attach state and the transferred server data are separate. The merge table is one state
+            (actors, resources, entity fields and lazy entries), so one Task owns all its rows.
+
+            **Read first:** @plan.ServerRendering.O1, @plan.ServerRendering.O2, @plan.ServerRendering.O3,
+            @plan.ServerRendering.O5, @plan.ServerRendering.O6, @plan.Testing.O7, @plan.Inspection.O2, @plan.Runtime.O5,
+            @task.V3.T24 (supplies the per-field version comparator), @task.V3.T48 (supplies the adoption state), both
+            as values.
+
+            **Approach:** the merge table has one row each for actors, resources, entity fields and lazy entries; the
+            Story `hydrate` step runs it. The session boot-queue item (nothing can be sent before ready), routed from
+            @task.V3.T28, is built here.
+
+            May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a merge tested with an empty client → caught by Stories that hydrate over client work in
+            each row.
+        acceptance
+            - Dehydrate, bounded settling, confirmed-data transfer, merging and request isolation hold
+              (@plan.ServerRendering.O1, O2, O3, O5, O6), shown by Story tests through the `hydrate`
+              step (@plan.Testing.O7).
+            - The merge table has a row for actors, resources, entity fields and lazy entries, each shown by a Story
+              that hydrates over client work; a paused timer transfers its `left` unchanged; the shape digest leaves out
+              props and emits.
+            - Payloads go through the one codec (@plan.Inspection.O2) and hydration sets silent
+              baselines (@plan.Runtime.O5).
+            - The session boot-queue catalog item holds: sends before ready are queued and delivered in order.
+            - Fixtures first (code:wiki/conventions/fixtures.md): the hydrate rows of
+              code:wiki/conventions/fixture-catalog.md gain their scenarios; each red before the build, and those cells
+              marked used at the close.
+        comment     2026-11-20T13:02:09Z
+            Breakdown review (orchestrator, 2026-11-20, R48): new Task split from T30 by state: dehydrate, hydrate, the
+            Story hydrate step, the session boot-queue item (from T28) and one merge table for actors, resources, entity
+            fields and lazy entries. T24 supplies the per-field version comparator and T48 the adoption state,
+            as values.
+
+    T116
+        title       Next.js host proofs
+        status      draft
+        priority    medium
+        blocked_by  [@T30, @T115]
+        satisfies   [@plan.ServerRendering.O7]
+        description
+            Prove streaming and navigation work on real Next.js hosts: request render and hydrate without mismatch,
+            React 18 and 19.
+
+            **Why now:** split from @task.V3.T30 in the breakdown review (the orchestrator, 2026-11-20): the host proofs
+            are checks of the binding and the server data, with no state of their own, and run after both.
+
+            **Read first:** @plan.ServerRendering.O7, @task.V3.T30, @task.V3.T115.
+
+            May change: `fixtures/`, `tests/`, the Next.js host proof folder. Evidence: this Task's comments.
+
+            False pass: a host proof on a fake page → caught by a run on a real Next.js host.
+        acceptance
+            - Request render and hydrate run without a mismatch on a Next.js host, on React 18 and 19, with streaming
+              and navigation (@plan.ServerRendering.O7).
+            - Each proof runs on the real host, and a fault planted in the hydrate path is caught there.
+        comment     2026-11-20T13:02:09Z
+            Breakdown review (orchestrator, 2026-11-20, R48): new Task split from T30: the Next.js host proofs
+            (ServerRendering O7, React 18 and 19), after T30 and T115.
