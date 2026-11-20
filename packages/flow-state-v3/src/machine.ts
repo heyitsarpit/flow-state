@@ -166,6 +166,72 @@ const erasedBody = <B>(body: B) =>
 const handled = (root: Level, nodes: ReadonlyArray<Node>, tag: string) =>
   root.has(tag) || nodes.some((n) => n.on.has(tag));
 
+// Each reaction's refusal: one this machine's C did not make, an event of another definition or
+// one no state handles, and a second reaction of one slot sending one event, since a reaction is
+// named by its slot and event and its saved baseline finds it by them.
+const reactionFindings = (
+  compile: Compile,
+  reactions: ReadonlyArray<{
+    readonly change: Change;
+    readonly at: ReadonlyArray<string | number>;
+  }>,
+  made: WeakSet<Change>,
+  handles: (tag: string) => boolean,
+) => {
+  const named = new Set<string>();
+
+  return reactions.flatMap(({ change, at }) => {
+    const { event } = decodedOf(change);
+    const tag = event.ending.event;
+    const name = `${change.slot}.${tag}`;
+    const twice = named.has(name);
+
+    named.add(name);
+
+    if (!made.has(change))
+      return [
+        invalid(
+          at,
+          "ForeignToken",
+          "the reaction was not made by this machine's C tokens",
+          "Write reactions with the C the machine body receives: C.slot.change({ when, event }).",
+        ),
+      ];
+
+    if (!compile.sends.has(tokenOf(event)))
+      return [
+        invalid(
+          [...at, "event"],
+          "ForeignToken",
+          "the reaction's event is not this definition's",
+          "Use the tokens the machine body receives: S, E and O of this definition.",
+        ),
+      ];
+
+    if (!handles(tag))
+      return [
+        invalid(
+          [...at, "event"],
+          "UnhandledEvent",
+          `no state handles ${tag}, the reaction's event`,
+          "Handle the event in an on block of the root or of a state.",
+        ),
+      ];
+
+    if (twice)
+      return [
+        invalid(
+          at,
+          "DuplicateReaction",
+          `two reactions of slot ${change.slot} send ${tag}`,
+          "Write one reaction per slot and event: join their whens into one.",
+        ),
+      ];
+
+    return [];
+  });
+};
+
 /**
  * Compiles a definition and its handlers into a Machine.
  *
@@ -279,38 +345,11 @@ export const machine = entry(
       at: ["onContext", i],
     }));
 
-    for (const { change, at } of reactions) {
-      const { event } = decodedOf(change);
-      const tag = event.ending.event;
-
-      if (!changes.made.has(change))
-        compile.findings.push(
-          invalid(
-            at,
-            "ForeignToken",
-            "the reaction was not made by this machine's C tokens",
-            "Write reactions with the C the machine body receives: C.slot.change({ when, event }).",
-          ),
-        );
-      else if (!compile.sends.has(tokenOf(event)))
-        compile.findings.push(
-          invalid(
-            [...at, "event"],
-            "ForeignToken",
-            "the reaction's event is not this definition's",
-            "Use the tokens the machine body receives: S, E and O of this definition.",
-          ),
-        );
-      else if (!handled(compiledTree.root, compiledTree.nodes, tag))
-        compile.findings.push(
-          invalid(
-            [...at, "event"],
-            "UnhandledEvent",
-            `no state handles ${tag}, the reaction's event`,
-            "Handle the event in an on block of the root or of a state.",
-          ),
-        );
-    }
+    compile.findings.push(
+      ...reactionFindings(compile, reactions, changes.made, (tag) =>
+        handled(compiledTree.root, compiledTree.nodes, tag),
+      ),
+    );
 
     refuse(compile.findings);
 

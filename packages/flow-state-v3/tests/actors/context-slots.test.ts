@@ -44,8 +44,30 @@ const Greeter = definition({
 
 const GreeterMachine = machine(Greeter, ({ S }) => ({ default: S.SHOWN }));
 
+// How many times the name's length was selected: "ada" and "bob" select the same length.
+const lengths = { runs: 0 };
+
+const Width = definition({
+  id: "Slots/Width",
+  states: ["SHOWN"],
+  events: {},
+  context: {
+    length: Flow.context(Schema.Number, {
+      reads: { name: Profile.M.name },
+      select: ({ name }) => {
+        lengths.runs += 1;
+
+        return name.length;
+      },
+    }),
+  },
+});
+
+const WidthMachine = machine(Width, ({ S }) => ({ default: S.SHOWN }));
+
 const profile = actorRef(ProfileMachine, "me");
 const greeter = actorRef(GreeterMachine, "header");
+const width = actorRef(WidthMachine, "name-width");
 
 const setup = runtimeSetup({
   app: app({
@@ -53,6 +75,16 @@ const setup = runtimeSetup({
     machines: {
       profile: ProfileMachine,
       greeter: { machine: GreeterMachine, context: { greeting: profile } },
+    },
+  }),
+});
+
+const lengthSetup = runtimeSetup({
+  app: app({
+    id: "Slots",
+    machines: {
+      profile: ProfileMachine,
+      width: { machine: WidthMachine, context: { length: profile } },
     },
   }),
 });
@@ -83,6 +115,94 @@ describe("a slot recomputes only when one of its reads changed (Actors R18)", ()
     expect(runsToRename > 0).toBe(true);
     // The same runs as the rename alone: the seen and arrive turns change none of the slot's reads.
     expect(selects.runs).toBe(runsToRename);
+  });
+
+  it("Actors R18, Turn T16: a change of reads that selects an equal value keeps the new reads, so later turns that change none of them run no select", async () => {
+    const renamed = Story.app(lengthSetup, { id: "slots/skip-after-equal", fixtures: [] })
+      .ensure(profile)
+      .ensure(width)
+      .send(profile, Profile.E.Rename({ name: "ada" }))
+      .send(profile, Profile.E.Rename({ name: "bob" }))
+      .checkpoint("renamed");
+
+    const seen = renamed
+      .send(profile, Profile.E.Seen())
+      .send(profile, Profile.E.Seen())
+      .send(profile, Profile.E.Arrive())
+      .checkpoint("seen");
+
+    lengths.runs = 0;
+    const first = checked(await renamed.run());
+    const runsToRename = lengths.runs;
+
+    lengths.runs = 0;
+    const second = checked(await seen.run());
+
+    expect(first.checkpoints.renamed.read(width)?.context).toEqual({ length: 3 });
+    expect(second.checkpoints.seen.read(width)?.context).toEqual({ length: 3 });
+    // The rename to "bob" ran the select once more for an equal length; the three turns after it
+    // change none of its reads.
+    expect(runsToRename > 1).toBe(true);
+    expect(lengths.runs).toBe(runsToRename);
+  });
+});
+
+// An alert that rings when the profile's mood turns urgent; a mood with no name has no value, so
+// its select throws.
+const Alert = definition({
+  id: "Slots/Alert",
+  states: ["SHOWN"],
+  events: {},
+  internalEvents: { Urgent: {} },
+  memory: { rang: Flow.initial(Schema.Number, 0) },
+  context: {
+    mood: Flow.context(Schema.String, {
+      reads: { name: Profile.M.name },
+      select: ({ name }) => {
+        // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a user's select that throws: the defect at admission
+        if (name === "") throw new Error("no mood yet");
+
+        return name;
+      },
+    }),
+  },
+});
+
+const AlertMachine = machine(Alert, ({ S, E, C }) => ({
+  default: S.SHOWN,
+  onContext: [C.mood.change({ when: (mood) => mood === "urgent", event: E.Urgent })],
+  on: { Urgent: { updateMemory: ({ memory }) => ({ rang: memory.rang + 1 }) } },
+}));
+
+const alert = actorRef(AlertMachine, "alert");
+
+const alertSetup = runtimeSetup({
+  app: app({
+    id: "Slots",
+    machines: {
+      profile: ProfileMachine,
+      alert: { machine: AlertMachine, context: { mood: profile } },
+    },
+  }),
+});
+
+// Inverted until the user chooses how a first value after a failed select meets `when`.
+describe("a when-gated reaction rings only when its when allows it (Turn R22)", () => {
+  it.fails("Turn R22: a first good value after a select that failed at admission is still judged by when, so a calm mood rings no urgent alert", async () => {
+    const calm = (id: string, admitted: string) =>
+      Story.app(alertSetup, { id, fixtures: [] })
+        .ensure(profile)
+        .send(profile, Profile.E.Rename({ name: admitted }))
+        .ensure(alert)
+        .send(profile, Profile.E.Rename({ name: "calm" }))
+        .checkpoint("calm")
+        .run();
+
+    const selected = await calm("slots/alert-selected", "x");
+    const failed = await calm("slots/alert-failed", "");
+
+    expect(selected.checkpoints.calm.read(alert)?.memory).toEqual({ rang: 0 });
+    expect(failed.checkpoints.calm.read(alert)?.memory).toEqual({ rang: 0 });
   });
 });
 
@@ -277,6 +397,46 @@ describe("only C makes a reaction (Compile R19)", () => {
           default: S.SHOWN,
           onContext: [C.here.change({ event: E.Lit })],
           on: { Lit: {} },
+        })),
+      ),
+    ).toEqual([]);
+  });
+});
+
+// The member's sidebar entry, lit by its arrival and by its typing, each heard by its own event.
+const Lamp = definition({
+  id: "Slots/Lamp",
+  states: ["SHOWN"],
+  events: {},
+  internalEvents: { Lit: {}, Dimmed: {} },
+  context: { here: Flow.context(Member.S.HERE), typing: Flow.context(Member.S.HERE.TYPING) },
+});
+
+describe("a reaction is named by its slot and event (Compile R19)", () => {
+  it("Compile R19, I18: a second reaction of one slot that sends the same event is refused at its place; the same event from another slot, or another event from the same slot, is not", () => {
+    expect(
+      refusal(() =>
+        machine(Lamp, ({ S, E, C }) => ({
+          default: S.SHOWN,
+          onContext: [
+            C.here.change({ when: (here) => here, event: E.Lit }),
+            C.here.change({ event: E.Dimmed }),
+            C.here.change({ when: (here) => !here, event: E.Lit }),
+          ],
+          on: { Lit: {}, Dimmed: {} },
+        })),
+      ),
+    ).toEqual([["InvalidConfiguration", "onContext.2"]]);
+    expect(
+      refusal(() =>
+        machine(Lamp, ({ S, E, C }) => ({
+          default: S.SHOWN,
+          onContext: [
+            C.here.change({ event: E.Lit }),
+            C.here.change({ event: E.Dimmed }),
+            C.typing.change({ event: E.Lit }),
+          ],
+          on: { Lit: {}, Dimmed: {} },
         })),
       ),
     ).toEqual([]);

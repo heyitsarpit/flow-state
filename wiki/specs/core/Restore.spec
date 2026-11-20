@@ -91,7 +91,9 @@ requirements
                 Each older record format reaches the current one by a pure step at the boot; a
                 newer, null or non-integer format is quarantined, its lane still holding by its id.
                 Format 4 is current: a reaction's baseline is saved as its slot's value, only where
-                it differs from the slot's last-seen value. Format 3's step takes each baseline from
+                it differs from the slot's last-seen value, keyed by the reaction's slot and event
+                (@spec.Compile.R19), so a reaction reordered, added or removed keeps its own and a
+                reaction with none saved takes its slot's last-seen value. Format 3's step takes each baseline from
                 its saved frame's value of the reaction's slot, else the slot's last-seen value (a
                 frame with no value: no baseline); the memory a frame read is dropped. Format 2's
                 step reaches format 3 with its frames' slots. Format 1's step reads each tagged

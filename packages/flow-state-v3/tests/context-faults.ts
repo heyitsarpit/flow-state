@@ -39,8 +39,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/actor-record.ts",
-        find: "      sameForm(baseline, Option.fromUndefinedOr(record.seen.get(slot)))",
-        replace: "      sameForm(baseline, baseline)",
+        find: "    if (!sameForm(baseline, Option.fromUndefinedOr(record.seen.get(reaction.slot))))",
+        replace: "    if (!sameForm(baseline, baseline))",
       },
     ],
   },

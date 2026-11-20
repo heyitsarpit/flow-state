@@ -461,4 +461,18 @@ export const restoreFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "baseline-by-place",
+    tests: ["tests/restore/reaction-baselines.test.ts"],
+    says: "a saved baseline is read back by its place among its slot's reactions, not by its event, so a reordered machine gives it to another reaction",
+    rule: "Restore R5",
+    edits: [
+      {
+        file: "src/core/actor-record.ts",
+        find: "    ofSlot !== undefined && Object.hasOwn(ofSlot, reaction.event.event)\n      ? ofSlot[reaction.event.event]",
+        replace:
+          "    ofSlot !== undefined && Object.values(ofSlot).length > 0\n      ? Object.values(ofSlot)[0]",
+      },
+    ],
+  },
 ];

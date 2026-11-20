@@ -315,6 +315,18 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     return { next, baselines, events };
   };
 
+  // A context update that changed no slot's value and owes no comparison: a select that ran for an
+  // equal value still keeps its new reads, so the next turn that changes none of them runs no
+  // select; only a changed issue is published.
+  const quiet = (incarnation: Incarnation, read: Incarnation) => {
+    const reselected = [...read.context].some(([slot, s]) => incarnation.context.get(slot) !== s);
+    const raised = read.issues !== incarnation.issues;
+
+    if (reselected || raised) keep(read);
+
+    if (raised) needs.publish(read);
+  };
+
   /**
    * Serves a context update: reads every provider again; when a slot changed, or a reaction owes
    * its slot's value a comparison (a return's one wave),
@@ -339,10 +351,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     );
 
     if (!changed && !owes(read)) {
-      if (read.issues !== incarnation.issues) {
-        keep(read);
-        needs.publish(read);
-      }
+      quiet(incarnation, read);
 
       return;
     }

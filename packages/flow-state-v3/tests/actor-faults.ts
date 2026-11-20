@@ -464,4 +464,17 @@ export const actorFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "equal-value-reads-dropped",
+    tests: ["tests/actors/context-slots.test.ts"],
+    says: "a change of reads that selects an equal value drops the new reads, so every later turn runs the select again",
+    rule: "Actors R18",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "    if (reselected || raised) keep(read);",
+        replace: "    if (reselected && raised) keep(read);",
+      },
+    ],
+  },
 ];

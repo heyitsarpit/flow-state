@@ -27,13 +27,13 @@ const RecordHead = {
 };
 
 // A reaction's baseline where it differs from its slot's last selection: no `value` for a
-// reaction with no baseline; null where it is the slot's last selection.
-const BaselineJson = Schema.NullOr(Schema.Struct({ value: Schema.optionalKey(Schema.Json) }));
+// reaction with no baseline.
+const BaselineJson = Schema.Struct({ value: Schema.optionalKey(Schema.Json) });
 
-// Each slot's reactions' baselines, in their order among that slot's reactions, listed only for a
-// slot one of whose reactions' baselines differs from its last selection: a reaction added,
-// removed or moved among other slots' reactions keeps its own.
-const BaselinesJson = Schema.Record(Schema.String, Schema.Array(BaselineJson));
+// The baselines that differ from their slot's last selection, by slot and then by the reaction's
+// event, which name one reaction: a reaction added, removed or moved keeps its own,
+// and one with nothing saved takes its slot's last selection.
+const BaselinesJson = Schema.Record(Schema.String, Schema.Record(Schema.String, BaselineJson));
 
 const ActorRecordJson = Schema.Struct({
   ...RecordHead,
@@ -164,30 +164,25 @@ const memoryText = (compiled: Compiled, memory: Values) =>
     (fields) => Object.fromEntries(fields),
   );
 
-// Each reaction's slot and its place among that slot's reactions, in declaration order.
-const placesOf = (compiled: Compiled) =>
-  compiled.reactions.map((reaction, at) => ({
-    slot: reaction.slot,
-    n: compiled.reactions.slice(0, at).filter((r) => r.slot === reaction.slot).length,
-  }));
+// A saved baseline of a reaction: its value, none with no `value`.
+const savedOf = (baseline: Option.Option<Selected>) =>
+  Option.match(baseline, { onNone: () => ({}), onSome: (b) => ({ value: b.text }) });
 
-// The saved baselines: null where a baseline is its slot's last selection, else its value, none
-// with no `value`; a slot all of whose baselines are null is left out.
+// The saved baselines: each that differs from its slot's last selection, by slot and event.
 const baselinesJson = (compiled: Compiled, record: ActorRecord) => {
-  const bySlot = new Map<string, Array<typeof BaselineJson.Type>>();
+  const bySlot = new Map<string, Record<string, ReturnType<typeof savedOf>>>();
 
-  for (const [at, { slot }] of placesOf(compiled).entries()) {
+  for (const [at, reaction] of compiled.reactions.entries()) {
     const baseline = record.baselines[at] ?? Option.none();
 
-    bySlot.set(slot, [
-      ...(bySlot.get(slot) ?? []),
-      sameForm(baseline, Option.fromUndefinedOr(record.seen.get(slot)))
-        ? null
-        : Option.match(baseline, { onNone: () => ({}), onSome: (b) => ({ value: b.text }) }),
-    ]);
+    if (!sameForm(baseline, Option.fromUndefinedOr(record.seen.get(reaction.slot))))
+      bySlot.set(reaction.slot, {
+        ...bySlot.get(reaction.slot),
+        [reaction.event.event]: savedOf(baseline),
+      });
   }
 
-  return Object.fromEntries([...bySlot].filter(([, saved]) => saved.some((b) => b !== null)));
+  return Object.fromEntries(bySlot);
 };
 
 /**
@@ -219,12 +214,12 @@ export const encodeActor = (compiled: Compiled, record: ActorRecord) =>
 const baselineOf = (
   compiled: Compiled,
   reaction: { readonly slot: string },
-  saved: typeof BaselineJson.Type,
+  saved: Option.Option<typeof BaselineJson.Type>,
   seen: ReadonlyMap<string, Selected>,
 ) => {
-  if (saved === null) return Result.succeed(Option.fromUndefinedOr(seen.get(reaction.slot)));
+  if (Option.isNone(saved)) return Result.succeed(Option.fromUndefinedOr(seen.get(reaction.slot)));
 
-  const json = saved.value;
+  const json = saved.value.value;
 
   if (json === undefined) return Result.succeed(Option.none<Selected>());
 
@@ -238,24 +233,36 @@ const baselineOf = (
 };
 
 // A format-3 frame's baseline of a reaction's slot: none with no frame, else the frame's value of
-// the slot, else (null) the slot's last selection.
+// the slot, else nothing saved (the slot's last selection).
 const frameBaseline = (frame: typeof FrameThreeJson.Type, slot: string) => {
-  if (frame === null) return {};
+  if (frame === null) return Option.some({});
 
-  return Object.hasOwn(frame.slots, slot) ? (frame.slots[slot] ?? null) : null;
+  return Option.fromUndefinedOr(Object.hasOwn(frame.slots, slot) ? frame.slots[slot] : undefined);
 };
 
-// Format 3's frames, one per reaction, as format 4's baselines by slot.
+// Format 3's frames, one per reaction in its order, as format 4's baselines by slot and event.
 const framesBySlot = (compiled: Compiled, frames: ReadonlyArray<typeof FrameThreeJson.Type>) => {
-  const bySlot = new Map<string, Array<typeof BaselineJson.Type>>();
+  const bySlot = new Map<string, Record<string, typeof BaselineJson.Type>>();
 
-  for (const [at, frame] of frames.entries()) {
-    const slot = compiled.reactions[at]?.slot ?? "";
-
-    bySlot.set(slot, [...(bySlot.get(slot) ?? []), frameBaseline(frame, slot)]);
-  }
+  for (const [at, reaction] of compiled.reactions.entries())
+    for (const saved of Option.toArray(frameBaseline(frames[at] ?? null, reaction.slot)))
+      bySlot.set(reaction.slot, { ...bySlot.get(reaction.slot), [reaction.event.event]: saved });
 
   return Object.fromEntries(bySlot);
+};
+
+// What a record saved of a reaction's baseline: nothing where it saved none of its own.
+const savedFor = (
+  saved: typeof BaselinesJson.Type,
+  reaction: { readonly slot: string; readonly event: { readonly event: string } },
+) => {
+  const ofSlot = Object.hasOwn(saved, reaction.slot) ? saved[reaction.slot] : undefined;
+
+  return Option.fromUndefinedOr(
+    ofSlot !== undefined && Object.hasOwn(ofSlot, reaction.event.event)
+      ? ofSlot[reaction.event.event]
+      : undefined,
+  );
 };
 
 /**
@@ -293,13 +300,8 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
 
       // A reaction with no saved baseline of its own takes its slot's last selection.
       const baselines = yield* Result.all(
-        placesOf(compiled).map(({ slot, n }, at) =>
-          baselineOf(
-            compiled,
-            compiled.reactions[at] ?? { slot },
-            r.baselines[slot]?.[n] ?? null,
-            seen,
-          ),
+        compiled.reactions.map((reaction) =>
+          baselineOf(compiled, reaction, savedFor(r.baselines, reaction), seen),
         ),
       );
 

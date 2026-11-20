@@ -139,8 +139,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "      else if (!compile.sends.has(tokenOf(event)))",
-        replace: "      else if (tokenOf(event) === undefined)",
+        find: "    if (!compile.sends.has(tokenOf(event)))",
+        replace: "    if (tokenOf(event) === undefined)",
       },
     ],
   },
@@ -349,8 +349,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "      else if (!handled(compiledTree.root, compiledTree.nodes, tag))",
-        replace: "      else if (false)",
+        find: "    if (!handles(tag))",
+        replace: "    if (false)",
       },
     ],
   },
@@ -364,6 +364,19 @@ export const constructionFaults: ReadonlyArray<Fault> = [
         file: "src/flow.ts",
         find: '    if (Option.isNone(reader)) findings.push(notAToken([...at, "reads", key]));',
         replace: "    if (Option.isNone(reader)) continue;",
+      },
+    ],
+  },
+  {
+    name: "duplicate-reaction-accepted",
+    tests: ["tests/actors/context-slots.test.ts"],
+    says: "two reactions of one slot that send the same event are accepted, so their saved baselines cannot be told apart",
+    rule: "Compile R19",
+    edits: [
+      {
+        file: "src/machine.ts",
+        find: "    if (twice)",
+        replace: "    if (false)",
       },
     ],
   },

@@ -205,6 +205,8 @@ requirements
                 a Flow token is refused at its key, and a slot with neither a token nor `{ reads, select }`
                 at `["context", slot]`. A read of a `Flow.private` field has no `M` token and fails to
                 compile. A reaction whose event no state handles is refused at `["onContext", i, "event"]`.
+                A reaction is named by its slot and event, which its saved baseline is keyed by (@spec.Restore.R5):
+                a second reaction of one slot sending the same event is refused at `["onContext", i]`.
                 Compiled holds, for each slot, its provider and each read by name (a memory field, a state
                 path or the state name; a pass-through's one read is named by its slot), and for each
                 reaction its slot, so the field-level edge from a provider's field to a consumer's event

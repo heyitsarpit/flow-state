@@ -234,11 +234,11 @@ describe("format 4 saves a reaction's baseline only where it differs from its sl
     '"graph":{},"machine":"Test/Watch","memory":{"heard":0},"name":"w","schedules":[],' +
     '"seen":{"count":2},"state":"SHOWN"}';
 
-  it("Restore R5, Actors R18: a slot whose baselines equal it is left out, a baseline that differs is saved by its value, and none as an empty object; each reads back and writes the same text", () => {
+  it("Restore R5, Actors R18: a slot whose baselines equal it is left out, a baseline that differs is saved under its slot and event by its value, and none as an empty object; each reads back and writes the same text", () => {
     for (const [baselines, value] of [
       ["{}", 2],
-      ['{"count":[{"value":1}]}', 1],
-      ['{"count":[{}]}', undefined],
+      ['{"count":{"Heard":{"value":1}}}', 1],
+      ['{"count":{"Heard":{}}}', undefined],
     ] as const) {
       const text = formatFour(baselines);
       const restored = decodeRecords(watchMachines, new Map([["actor/Test/Watch/w", text]]));

@@ -29,23 +29,30 @@ type Upstream = { readonly M: { readonly n: Omit<typeof Head.M.n, "~definition" 
 
 // One link of a context chain: it reads its upstream's n, and its onContext event copies it, so
 // each link adds two follow-ups to the event that started the chain: its context update and its
-// event.
-const link = (at: number, upstream: Upstream, copies: number) => {
+// event. A link with two copies also echoes it, a second event of the same change.
+const link = (at: number, upstream: Upstream, copies: 1 | 2) => {
   const Link = definition({
     id: `Chain/Link${at}`,
     states: ["ON"],
     events: {},
-    internalEvents: { Copy: { n: Schema.Number } },
+    internalEvents: { Copy: { n: Schema.Number }, Echo: { n: Schema.Number } },
     memory: { n: Flow.initial(Schema.Number, 0) },
     context: { up: Flow.context(upstream.M.n) },
   });
 
   return machine(Link, ({ S, E, C }) => ({
     default: S.ON,
-    onContext: Array.from({ length: copies }, () =>
-      C.up.change({ event: E.Copy.from((n) => ({ n })) }),
-    ),
-    on: { Copy: { updateMemory: ({ event }) => ({ n: event.n }) } },
+    onContext:
+      copies === 2
+        ? [
+            C.up.change({ event: E.Copy.from((n) => ({ n })) }),
+            C.up.change({ event: E.Echo.from((n) => ({ n })) }),
+          ]
+        : [C.up.change({ event: E.Copy.from((n) => ({ n })) })],
+    on: {
+      Copy: { updateMemory: ({ event }) => ({ n: event.n }) },
+      Echo: { updateMemory: ({ event }) => ({ n: event.n }) },
+    },
   }));
 };
 
@@ -60,7 +67,7 @@ type ChainEntry =
 type Above = { readonly provider: Upstream; readonly ref: ActorRef };
 
 // A chain whose first link enqueues `firstCopies` events per change and every other link one.
-const chainOf = (firstCopies: number) => {
+const chainOf = (firstCopies: 1 | 2) => {
   const pairs: Array<readonly [string, ChainEntry]> = [["head", HeadMachine]];
   const refs: Array<ActorRef<ReturnType<typeof link>["definition"]>> = [];
   let upstream: Above = { provider: Head, ref: actorRef(HeadMachine, "head") };
@@ -78,7 +85,7 @@ const chainOf = (firstCopies: number) => {
 
 // Each link of a context chain adds its context update and its onContext events as follow-ups of
 // the head's bump: a chain of 34 links adds 68 or, with two events at the first link, 69.
-const settledChain = (firstCopies: number) => {
+const settledChain = (firstCopies: 1 | 2) => {
   const built = chainOf(firstCopies);
 
   const runtime = runtimeSetup({
