@@ -798,6 +798,14 @@ tasks
             - Not acted on: wizard `Held` typed by the app until T holdSlot (@task.V3.T21); `Reached` sent, not read,
               until R readings; the thermostat fake ignores the idempotency key (Attempts work). A shop context test
               timed out once under the full suite and passed alone.
+        comment     2026-11-20T08:11:39Z
+            Rulings (orchestrator) on the requirements lead's calls: step 2's non-schedule rows in home and wizard
+            (context, compound states, persist) are this Task's, since it creates those apps; kanban's rows go to
+            @task.V3.T109; ReleaseOverdue stays T109's (its acceptance has it), not T21's; per-key timers, left, attempt
+            and armedAt grow the record with a format bump and a step from format 4, restore after a definition edit
+            shown (the 2026-11-20 rule); Turn I31's issue on a refused creation delay is kept; home and wizard join the
+            app mix once the Turn I14 run-rule fix lands in this build. The four invented rules go to the
+            requirements review.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -5205,6 +5213,9 @@ tasks
             - Fixtures first (code:wiki/conventions/fixtures.md): the fragment rows of step 2 of
               code:wiki/conventions/fixture-catalog.md, in the apps that row names, gain their features, scenarios and
               sources; each scenario red before the build, and those cells marked used at the close.
+        comment     2026-11-20T08:11:40Z
+            Routed (orchestrator, 2026-11-20): step 2's kanban rows (context, compound states, persist), unowned since
+            T57's split, are this Task's.
 
     T110
         title       Subroutines and whenAbandoned (slice 3d)
