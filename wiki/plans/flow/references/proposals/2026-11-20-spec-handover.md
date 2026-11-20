@@ -30,25 +30,32 @@ README lists three conflicts).
 
 ## Decided by the user (2026-11-20)
 
-- Ending mappers take `(value, { input, key })`; schedules are declared on the definition and `Flow.keyed` is
-  dropped; issues are derived from state everywhere; the designs' Task changes are accepted (T21 into four, a
-  turn-parts Task before @task.V3.T109, a Declared-schedules Task, T24 split in P5).
-- Schedule issues redesign (T118) with its R25 text, P1 and P2; Firefox is not a target; old Specs are superseded by
-  running code.
+- **Mapper shape** [decided: user 2026-11-20]: ending mappers take `(value, { input, key })`.
+- **Declared schedules** [decided: user 2026-11-20]: schedules are declared on the definition (name, `key`,
+  `pausedBy`).
+- **No `Flow.keyed`** [decided: user 2026-11-20]: "drop it"; a keyed schedule is a plain object typed from the
+  declaration.
+- **Derived issues** [decided: user 2026-11-20]: issues are derived from state everywhere, never stored.
+- **Task changes** [decided: user 2026-11-20]: T21 into four, a turn-parts Task before @task.V3.T109, a
+  Declared-schedules Task, T24 split in P5.
+- **Schedule issues** [decided: user 2026-11-20]: @proposal.schedule-issues with its R25 text, P1 and P2, built by
+  @task.V3.T118.
+- **No Firefox** [decided: user 2026-11-20]: Firefox is not a target.
+- **Code over old Specs** [decided: user 2026-11-20]: the old core Specs are superseded by running code.
 
 ## Open, to settle before or while writing Specs
 
-1. **Cohesion of all eleven designs:** run the cohesion pass again over the second wave (boundary channels, test
+1. **Cohesion of all eleven designs** [open: 2026-11-21; recommend one read-only pass before any Spec]: run the cohesion pass again over the second wave (boundary channels, test
    tooling, errors and trust, static rules, UI and host, turn parts) against the first five and the cohesion file.
-2. **Typing:** adopt C6 (`const B` with `Exact`) in the typed-machine Spec instead of "checked, never read back";
+2. **Typing** [open: 2026-11-21; recommend adopt C6]: adopt C6 (`const B` with `Exact`) in the typed-machine Spec instead of "checked, never read back";
    declared schedules stay for the definition-only snapshot type, the keyed `key` and the saved key codec.
-3. **Conflicts with the advisor consult:** `Symbol.for` against `WeakMap` for the `Made` brand; T98's place (the
+3. **Advisor conflicts** [open: 2026-11-21; recommend settle in the cohesion pass, the user rules]: `Symbol.for` against `WeakMap` for the `Made` brand; T98's place (the
    consult: before T106 and T109); fragment lifetimes' two holders against `settle`.
-4. **The user's public-API and scope decisions** from the second wave and turn parts, asked as one numbered round
+4. **Public-API round** [open: 2026-11-21; recommend one numbered round after the cohesion pass]: the user's decisions from the second wave and turn parts, asked as one numbered round
    (each design's last section lists them; implementation calls are the orchestrator's).
-5. **Unowned seams** (cohesion file): the resource entry store, the persisted-resource record kind, one definition
+5. **Unowned seams** [open: 2026-11-21; recommend the owners the cohesion file proposes]: the resource entry store, the persisted-resource record kind, one definition
    fingerprint, disposal order, the mint restarting at 0 against `InstanceId`.
-6. **Gaps the consults admitted:** adversary passes mostly skipped; streams half designed (`delivers: "latest"`, no
+6. **Consult gaps** [open: 2026-11-21; recommend close them in each Spec's challenge step]: adversary passes mostly skipped; streams half designed (`delivers: "latest"`, no
    `reconnect`, `Feed.live`); prior-art sweeps thin (the harness refused sidecars when five ran at once).
 
 **Risk:** a Spec written from one design re-opens a seam another already fixed; write each Spec against the cohesion
@@ -56,5 +63,5 @@ result, name its seams exactly, and keep the user's decisions.
 
 **Approach:** cohesion pass, then the user's round, then one Opus lead per concept writes its `.spec` through `wk`
 with `to-design` step 6's challenge as the adversary review the consults skipped, then one review across all Specs;
-apply the Task changes last. Run state: @task.V3.T57 done; T118 waits on its fix round; the hourly wake cron is
-session-only and gone when this session ends.
+apply the Task changes last. Record decisions as tags (skill:policy-records, Tags) and commit as `<area>: <summary>`
+with a `Refs:` trailer. Run state: @task.V3.T57 done; T118 waits on its fix round; no wake cron runs.
