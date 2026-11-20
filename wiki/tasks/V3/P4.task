@@ -420,6 +420,44 @@ tasks
             2. The public Store shape: `Store` (`load`, `write(batch)`), `StoreRefused { reason }`, and the proposed
                `StoreScope`, in code:packages/flow-state-v3/src/host/store.ts.
             3. @plan.Pending.D9's merge into @plan.Package.O1 waits for the user's yes.
+        comment     2026-11-20T06:22:07Z
+            Close review (independent lead): ISSUES, one blocking: `dispose({ forget: true })` can never delete
+            on `layerIndexedDb`.
+
+            - Blocking: the Store now lives in the services, and code:packages/flow-state-v3/src/host/close.ts#makeClose
+              releases the root (services, so the IndexedDB connection) before it runs forget, so forget's load and
+              write are refused and the records stay (@plan.Persistence.O5: deleted before releasing ownership). Red on
+              current code: a scratch Store whose connection closes on release; records landed, then dispose({ forget:
+              true }) rejected StorageFailure and nothing was deleted. Missing coverage: no forget case on a Store whose
+              resources close with the services (Fake.storage never closes); add one to the Node suite and a
+              browser case.
+            - Spec, not blocking: Actors I4 still says no service before load, against revised R3 (code reads the new
+              order); Runtime.plan lines 47, 67, 410 and Q1 still say storage first (plan edit, the user's yes). Q3
+              itself follows its own prepared outcome, not the code; its close-order consequence is the blocker.
+            - Unbuilt items: none is an acceptance item. Safari D1's bfcache rule is held by the Node unit and plant
+              idb-landed-on-complete (landed only when every request succeeded); the 4,999 ms case exists; the
+              held-batch pin covers a hide during an acknowledgement.
+            - Safari hide: the guard "the page starts visible" is right (a page already hidden makes the hide a no-op
+              and fails loud, never false-passes); test 1 also checks its own document saw hidden. The attended run is
+              the only missing piece, and it still has to show a WebDriver new tab hides the tests' document.
+            - The ended-at-grace capture is intended: Actors R8 and WriteAhead R10 capture an ending incarnation
+              at once.
+            - `Store` members carry records and keys only; `StoreScope` is the least that works (the user's call on the
+              name). The runner cannot end the user's Safari: only a new process with `--automation`, absent before the
+              run, by exact pid; the group kill reaches only the vp tree.
+            - Advice, not blocking: run.ts goes on to Safari after a signal, and its cap sends SIGINT with no SIGKILL; a
+              failed Safari open with two matches ends neither; storeContract's runPromise passes no abort signal; a
+              synchronous throw mid-batch in transact leaves the transaction un-aborted; Spec-less ids in test titles
+              ("Pending D9", "Safari D1"); doc comments on two non-exported types in indexeddb.ts.
+            - Checks: suite 1646 passed, 25 expected fail; faults --only idb-landed-on-complete,
+              fake-store-drops-last-write, hidden-held-marks-wait, hidden-refused-retried-at-once: 4 of 4 caught. No
+              browsers, stress or bench run.
+            - Sidecar log (four Haiku, read-only): accepted the forget order (re-run red), I4 and Runtime.plan, the
+              runner signal and cap gaps, the abort signal, the un-aborted transaction, the doc comments and test ids;
+              changed the grace claim to intended; rejected the Context.merge comment (it is about the store lookup),
+              refused keys riding a new mark (edge allows "at the latest", ruled before), hung plain batches, marks at
+              issue, dispose during boot and the missing scope claim (code this Task did not change, or T27), the barrel
+              loading vite-plus/test (imports fine in node and bun).
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
