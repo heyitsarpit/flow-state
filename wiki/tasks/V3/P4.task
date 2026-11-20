@@ -1027,6 +1027,63 @@ tasks
         comment     2026-11-20T11:40:18Z
             Decision (the user, 2026-11-20): Flow.keyed accepted as public API; Machines O5's text and toaster example
             now use it (orchestrator, Plan edit under the user's acceptance).
+        comment     2026-11-20T11:47:18Z
+            Close review of the fix round (Opus lead, four Haiku sidecars: blind, cohesion, coverage, flip A): ISSUES.
+            Three blocking: two made-up or wrong check outcomes in `settle`, and three R12 Stories routed here still
+            red. The rest holds: depth 3 types, the run-rule change, disarm wins and the seven new plants (all caught by
+            `faults --only`). Suite under coverage: 1733 pass, 23 expected fail, two timeouts under coverage only (shop
+            large cart, home 64 rooms at 5.4 s; the first run passed 64 rooms). Check zero, `paired-refusals` included.
+
+              - Blocking B1 (Turn R19, R27; made-up firing): a restart while held, in a turn where the pause reason
+                throws, leaves the timer running. Red (scratch trace): Leave holds `check` (`{ left: 240000, pausedBy:
+                [Away] }`); one event sets `broken` and changes the target, so `restartOne` starts a fresh run and
+                `pausePass` throws and keeps it (`schedules.ts:393-406`); the timer shows `{ dueAt: 360000 }` and fires
+                while away. Missed because the heater test throws both functions with no held timer (Away returns
+                false), asserts one issue, not its slot, and no plant hits the pause-defect branch. Class: a defect in
+                any check must restore the schedule's pre-pass timers, not only skip that check.
+              - Blocking B2 (Turn R25, owed item built wrong): `recoveredBy` (`schedule-checks.ts`) clears a check's
+                issue when its check did not run. A firing or a lane move settles with `restart` off, which skips
+                `restartOn` for baselined timers (`schedules.ts:378-391`); `pausePass` skips idle timers. Red: a heater
+                with only a throwing `restartOn`, Break at 2 min, then the 5 min firing: issues go to `[]` while
+                `restartOn` still throws. Missed because the heater test never fires or moves a lane while broken. Clear
+                only the slots the pass actually ran.
+              - Blocking B3 (Turn R12, acceptance A10): three of the four R12 inverted Stories P3 routed here
+                (@task.V3.T82's done note) are still `it.fails`: `tests/shop/store.test.ts:335`,
+                `tests/transfers/bank-app.test.ts:146`, `tests/sign-in/session.test.ts:232` (sync's went to
+                `@task.V3.T109`). The runtime builds R12; the fixtures keep the `onContext` mirror, so a consumer bound
+                late begins on stale counts (checkout denied with a line). Owner: this Task. Only `store.test.ts` was
+                named before.
+              - Run rules I9 and I14, two traces. A: a refused turn's issue carries its own slot (guard, update, delay
+                `…schedule`, send mapper); none matches `isScheduleCheckIssue`, and no core path runs `keys`,
+                `restartOn` or `paused` before commit (`turn.ts:372` reads only presence), so no refusal is hidden. B: a
+                committed turn's check defect is its own Issue record after the Turn; before the change it read as a
+                refusal and blamed the turn's own Minted and Sent. Sound. Unguarded: the regex
+                (`tests/rules/deliveries.ts:71`) relies on that placement and no rule test pins it.
+              - Types: `BodyOf<NoInfer<D>>` holds at depth 3 (scratch tsc: literal delay and token, typed handler event,
+                misspelt duration, string `armOn`, excess key and unknown child refused). No pin loosened; changed pins
+                are narrower. The two T109 pins are inverted `today` lines under Turn R16 and Machines O8; types only,
+                the runtime sets `key` and `pausedBy`.
+              - `Flow.keyed` (accepted by the user): sound and the least that works; a per-entry call is needed for K
+                (closest precedent `keylessOrKeyed`, `src/handles.ts`). Non-blocking: the compiler unwraps by `"config"
+                in entry` (`compile-body.ts:326`), not an `is.keyed` like its siblings; inline `keys` is refused as a
+                generic UnknownField whose help names the plain form, not `Flow.keyed` (`config.ts:224-233`; the test
+                checks code and path only); `KeyedConfig`, `KeyedSchedule` and `ScheduleEntry` are not re-exported
+                beside `ScheduleConfig` (`definition.ts`); its doc is one bullet with no example. Unkeyed schedules
+                still type `key` as `ScheduleKey` while the runtime passes `undefined` (`tokens.ts:289-295`), so
+                `key.id` compiles and throws: owed with the round.
+              - Notes for a ruling (Spec silent, no red): a key appearing in a turn that disarms its keyed schedule arms
+                (R14 vs R16); entry arming in a turn whose event lists the schedule in `disarmOn` arms. A delay-slot
+                issue clears only at the next accepted firing, and one key's accepted firing clears another key's arming
+                issue (`serve.ts:277`, issues keyed by schedule name).
+              - Coverage: `schedule-checks.ts:31` (keys-slot recovery, new) is unreached: a `keys` that throws, then
+                recovers. Computed delays returning a Duration input (`compile-schedules.ts:218-242`) have no Story.
+                `serve.ts:341`'s `?? after` is dead. Flip A: the I7 test asserts a breach count, not its text, and has
+                no excess-key case (`rules.test.ts:584-594`); `tests/home/schedules.test.ts:287`'s title says next step
+                while its checkpoint is "step one again"; the snapshot type test's title claims more than its wide pin.
+              - Sidecars: accepted B1 and B2 (re-run as scratch Stories, red), the duck-typed unwrap, refusal help,
+                re-export, unkeyed `key`, the coverage and flip items above. Changed: blind "disarm loses to key and
+                entry arming" to a ruling (Spec silent). Rejected: cohesion's "Machines plan shows inline keys" (O5 now
+                uses `Flow.keyed`); the "config path leak" (not reproduced, `loose` only).
     T21
         title       Reads and operations (slice 5)
         status      draft
