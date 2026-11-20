@@ -4017,6 +4017,61 @@ tasks
             relaxes; 4 the lanes.ts key stand-in is in scope under acceptance 3; 5 runtime.test.ts:559 and
             refused-start-read move to another refused fresh start (an undecodable stored record). The requirements
             review checks each.
+        comment     2026-11-20T01:28:32Z
+            Requirements review (independent lead, 5 Haiku sidecars at high effort, one blind): ISSUES, 4 blocking, each
+            a cheap fix before the build. Checked at `c6218927`. The 5 `it.fails` fail as plain tests for their stated
+            reasons (null stops the Runtime; the function start is accepted; no Published in the denied step; `reverify`
+            armed in UNTRUSTED; persistence without scope accepted). `nub run check` exit 0; suite exit 0 (1587 passed,
+            31 expected fail); both lint-rule tests pass with their `missed` plants. A one-order `cartFirst` regex
+            passes clean and fails with `byStart` reversed, so requirement 1's pin catches `start-order-reversed` from
+            its target file. Today `faults --only start-order-reversed` misses it in its target and the whole usual
+            tier; the stress tier was cut at the 5-minute bound.
+
+            Blocking:
+            1. R28 is pinned at one of its four readers. `byStart` orders dependents (`step.ts:26`), a wave's consumers
+               (`tx.ts:261`), graces (`incarnations.ts:428`) and disposal (`disposal.ts:152`); only BlockedByDependents
+               gets a pin. Disposal breaks R28 today: `consumersFirst` is a FIFO queue, so A (started 1) providing B (2)
+               with C (3) unrelated ends B, C, A, where R28 gives B, A, C. Missing coverage: a pin per reader (T102's
+               replay shows `flowFirst`'s context-update turns and Finished order swap) with a fault per call site;
+               disposal's clause either reworded or fixed, red first.
+            2. D2's pin never checks the lane change it is about. `Published` carries actor, state and memory only, and
+               the test reads no row, so a runtime publishing an unchanged snapshot passes; stale rows are D2's harm.
+               Missing coverage: the order's owed row closes as delivered at `placed` (Turn I15).
+            3. Ruling 5's route does not exist. `read.test.ts` and `runtime.test.ts:559` already store an undecodable
+               record; the refusal comes from the computed start (`snapshot.ts:115` `freshStart` calls `create`). After
+               the ban `create` refuses only an Input mismatch, reached only by a quarantined `~` record
+               (`identity.ts:108`), which nothing quarantines today (Restore R5 is still `it.fails`). So `:559` flips to
+               Some and `refused-start-read` survives. Needs a new ruling: retire the refused-fresh-start branch
+               (`snapshot.ts:150-161`, `run.ts:490`) and its fault, or name a reachable route. Requirement 8 also misses
+               `snapshot.ts`, `FLOW-STATE.md:193` and the disable at `tree.ts:141`.
+            4. Scope alone has no red. Ruling 3 refuses it at run time and acceptance 6 names it, but only persistence
+               alone is checked (`surface.test.ts:100`). No other reader of scope exists: `runtime.ts:304` reads it only
+               with persistence, and `mix.ts:45` joins scopes only from fixtures that also persist. Missing coverage: an
+               `it.fails` beside `:100`.
+
+            Not blocking:
+            - Ruling 1 holds (no `chainNow` runs between items; graces and `persistence.close` only arm timers), but
+              acceptance 2 still says removing `tx.followNone()` fails a test: reword it to match the ruling.
+            - T102's routed `no-id-text` gaps (renamed bindings, `test`/`exec`, `charCodeAt`) are in neither the
+              acceptance nor the requirements: add them or route them on.
+            - Ruling 2 holds for unknown names, but a Property named "inconclusive" or "turn limit" collides with Flow's
+              own (`generate.ts:1189,1214`); the typed rule should exclude both.
+            - D3 and D4 pin the decided outcomes (Git sees one call; two issues, Kept, one charge an hour on; the boot
+              half is `pay.test.ts`). D3's `answered` checkpoint is unread: assert the head's own ending there.
+            - `trusted-device.test.ts`: `evidenceOf` selects Turns only, so a fired, unhandled `Reverify` is invisible,
+              and "a week on" is unread; the replace guard inside `it.fails` hides a broken replace.
+            - Cohesion: `disposed` copied (`runtime-disposal.test.ts:373,397`); `surface.test.ts:58` shadows the shared
+              `refusal`; two `missed` mechanisms (`test-support.ts` and `paired-refusals.test.ts`'s own loop); `Note`
+              sits after the describes; `Actors.spec:649` has a trailing space and R28 a ragged wrap; R28's source O4
+              fits less well than O6. No outside imports, temporary names or re-created Effect features.
+
+            Haiku log. Accepted: R28 readers and the disposal order (replayed in `disposal.ts`); D2's missing row;
+            ruling 5's dead route and the `snapshot.ts` site (read in `tree.ts`, `identity.ts`); scope's readers; the
+            verdict-name collision; D3's unread checkpoint; trusted-device's Turn-only selection; the cohesion items;
+            the missed `no-id-text` routing (read in T102). Changed: "scope alone dropped" stays a gap only because
+            ruling 3 now refuses it. Rejected: `missed` plants needing an owner Task (they are this Task's to fix); the
+            persistence red "pins one fix" (WriteAhead R1 says refuse); D4 duplicating busyRefused (time alone, no boot,
+            is new); `construction.ts` mislocated (the lead meant `src/construction.ts`).
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
