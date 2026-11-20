@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Schema, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { LIMITS } from "../limits.ts";
 import { GitApi } from "../../fixtures/services/git/services.ts";
@@ -18,6 +18,7 @@ import {
   runtimeSetup,
 } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 const sync = transaction({
   id: "Restore/sync",
@@ -108,7 +109,7 @@ const notes = actorRef(NotesMachine, "mine");
 
 const notesSetup = runtimeSetup({
   app: app({ id: "notes", machines: { notes: NotesMachine } }),
-  services: GitLive("https://git.example"),
+  services: Layer.merge(GitLive("https://git.example"), layerIndexedDb()),
   scope: "notes",
   persistence: { captureMs: 0 },
 });

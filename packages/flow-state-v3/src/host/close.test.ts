@@ -14,7 +14,8 @@ import {
   runtimeSetup,
   transaction,
 } from "../index.ts";
-import { Host, type Platform, type Store } from "./host.ts";
+import type { Platform } from "./host.ts";
+import { Store } from "./store.ts";
 import type { Runtime } from "./runtime.ts";
 import { platformOver, testing } from "./testing/seam.ts";
 
@@ -99,16 +100,15 @@ const causeOf = (e: unknown) =>
 // A tab whose store writes never answer, and whose interrupted write's cleanup dies with `cleanup`.
 const brokenStoreTab = (cleanup: string) => {
   const tab = platformOver(new Map(), 1);
-  const host = Context.get(tab.platform, Host);
 
-  const store: Store = {
+  const store: Store["Service"] = {
     load: Effect.succeed(new Map<string, string>()),
     write: () => Effect.onInterrupt(Effect.never, () => Effect.die(cleanup)),
   };
 
   return {
     ...tab,
-    platform: Context.add(tab.platform, Host, Host.of({ ...host, store: Option.some(store) })),
+    platform: Context.add(tab.platform, Store, store),
   };
 };
 

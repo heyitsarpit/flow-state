@@ -9,6 +9,7 @@ import { CheckoutFlowMachine } from "./machines/checkout-flow.ts";
 import { ShopperMachine } from "./machines/shopper.ts";
 import { SubscriptionMachine } from "./machines/subscription.ts";
 import { ShopLive } from "../services/shop/adapters/shop.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
  * The checkout app: Pay alone.
@@ -21,7 +22,7 @@ export const shop = app({ id: "shop", machines: { pay: PayMachine } });
  */
 export const shopSetup = runtimeSetup({
   app: shop,
-  services: ShopLive("https://shop.example"),
+  services: Layer.merge(ShopLive("https://shop.example"), layerIndexedDb()),
   scope: "shop",
   persistence: { captureMs: 0 },
 });
@@ -105,7 +106,11 @@ export const store = app({
  */
 export const storeSetup = runtimeSetup({
   app: store,
-  services: Layer.mergeAll(ShopLive("https://shop.example"), CartLive("https://cart.example")),
+  services: Layer.mergeAll(
+    ShopLive("https://shop.example"),
+    CartLive("https://cart.example"),
+    layerIndexedDb(),
+  ),
   scope: "shop",
   persistence: { captureMs: 0 },
 });
@@ -134,7 +139,11 @@ export const storeSubscribed = app({
  */
 export const storeSubscribedSetup = runtimeSetup({
   app: storeSubscribed,
-  services: Layer.mergeAll(ShopLive("https://shop.example"), CartLive("https://cart.example")),
+  services: Layer.mergeAll(
+    ShopLive("https://shop.example"),
+    CartLive("https://cart.example"),
+    layerIndexedDb(),
+  ),
   scope: "shop",
   persistence: { captureMs: 0 },
 });
@@ -161,7 +170,11 @@ export const storePulsing = app({
  */
 export const storePulsingSetup = runtimeSetup({
   app: storePulsing,
-  services: Layer.mergeAll(ShopLive("https://shop.example"), CartLive("https://cart.example")),
+  services: Layer.mergeAll(
+    ShopLive("https://shop.example"),
+    CartLive("https://cart.example"),
+    layerIndexedDb(),
+  ),
   scope: "shop",
   persistence: { captureMs: 0 },
 });

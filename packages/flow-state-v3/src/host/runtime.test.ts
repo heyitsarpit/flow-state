@@ -16,6 +16,7 @@ import {
   transaction,
 } from "../index.ts";
 import { Host } from "./host.ts";
+import { Store } from "./store.ts";
 import { attachInspector, type Evidence, inspect } from "./inspect.ts";
 import { buildRuntime } from "./runtime.ts";
 import { snapshotIn } from "./snapshot.ts";
@@ -311,7 +312,6 @@ describe("the Runtime's host listeners (Actors R22)", () => {
 
           return () => void listeners.delete(listener);
         },
-        store: Option.none(),
         sessionSeed: "0".repeat(32),
         freezeValues: true,
         workClock: Option.none(),
@@ -343,17 +343,20 @@ describe("a defect inside a step (Actors R25)", () => {
       throw new Error("the store's records cannot be read");
     };
 
-    const platform = Context.make(
-      Host,
-      Host.of({
-        hidden: () => false,
-        onHidden: () => () => undefined,
-        store: Option.some({ load: Effect.succeed(broken), write: () => Effect.void }),
-        sessionSeed: "0".repeat(32),
-        freezeValues: true,
-        workClock: Option.none(),
-        report: () => undefined,
-      }),
+    const platform = Context.add(
+      Context.make(
+        Host,
+        Host.of({
+          hidden: () => false,
+          onHidden: () => () => undefined,
+          sessionSeed: "0".repeat(32),
+          freezeValues: true,
+          workClock: Option.none(),
+          report: () => undefined,
+        }),
+      ),
+      Store,
+      Store.of({ load: Effect.succeed(broken), write: () => Effect.void }),
     );
 
     const { runtime } = buildRuntime(
@@ -420,26 +423,29 @@ const tallyOver = (store: Map<string, string>, sessionSeed: string) =>
       scope: "tally",
       persistence: { captureMs: 60_000 },
     },
-    Context.make(
-      Host,
-      Host.of({
-        hidden: () => false,
-        onHidden: () => () => undefined,
-        store: Option.some({
-          load: Effect.sync(() => new Map(store)),
-          write: (writes) =>
-            Effect.sync(() => {
-              for (const w of writes)
-                Option.match(w.value, {
-                  onNone: () => store.delete(w.key),
-                  onSome: (text) => store.set(w.key, text),
-                });
-            }),
+    Context.add(
+      Context.make(
+        Host,
+        Host.of({
+          hidden: () => false,
+          onHidden: () => () => undefined,
+          sessionSeed,
+          freezeValues: true,
+          workClock: Option.none(),
+          report: () => undefined,
         }),
-        sessionSeed,
-        freezeValues: true,
-        workClock: Option.none(),
-        report: () => undefined,
+      ),
+      Store,
+      Store.of({
+        load: Effect.sync(() => new Map(store)),
+        write: (writes) =>
+          Effect.sync(() => {
+            for (const w of writes)
+              Option.match(w.value, {
+                onNone: () => store.delete(w.key),
+                onSome: (text) => store.set(w.key, text),
+              });
+          }),
       }),
     ),
     () => undefined,
@@ -585,22 +591,25 @@ const trappedHost = () => {
       scope: "trapped",
       persistence: { captureMs: 60_000 },
     },
-    Context.make(
-      Host,
-      Host.of({
-        hidden: () => {
-          // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted throw these tests are about
-          if (trap.hidden) throw new Error("the host cannot read its visibility");
+    Context.add(
+      Context.make(
+        Host,
+        Host.of({
+          hidden: () => {
+            // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted throw these tests are about
+            if (trap.hidden) throw new Error("the host cannot read its visibility");
 
-          return false;
-        },
-        onHidden: () => () => undefined,
-        store: Option.some({ load: Effect.succeed(new Map()), write: () => Effect.void }),
-        sessionSeed: "0".repeat(32),
-        freezeValues: true,
-        workClock: Option.none(),
-        report: () => undefined,
-      }),
+            return false;
+          },
+          onHidden: () => () => undefined,
+          sessionSeed: "0".repeat(32),
+          freezeValues: true,
+          workClock: Option.none(),
+          report: () => undefined,
+        }),
+      ),
+      Store,
+      Store.of({ load: Effect.succeed(new Map()), write: () => Effect.void }),
     ),
     () => {
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the planted throw these tests are about

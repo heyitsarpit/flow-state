@@ -66,6 +66,8 @@ export type Step = Data.TaggedEnum<{
   world: { words: ReadonlyArray<WorldWord> };
   advance: { duration: Duration.Input };
   reload: { reattach: boolean; heldWrites: "abort" | "land" };
+  hide: {};
+  show: {};
   checkpoint: { name: string };
 }>;
 
@@ -98,6 +100,8 @@ export const Step = {
   world: StepData.world,
   advance: StepData.advance,
   reload: StepData.reload,
+  hide: StepData.hide,
+  show: StepData.show,
   checkpoint: StepData.checkpoint,
   $is: StepData.$is,
   $match: StepData.$match,

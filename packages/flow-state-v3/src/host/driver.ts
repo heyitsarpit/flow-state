@@ -40,6 +40,7 @@ import { OutcomeFailure, OutcomeUnknown, reasonOf } from "../flow.ts";
 import { makeEdge } from "./edge.ts";
 import { Ending, type Owner, type RuntimeReport, sleepUntil } from "./owners/owners.ts";
 import { Host, type Platform } from "./host.ts";
+import type { Store } from "./store.ts";
 
 /**
  * A call's Effect with its contract's services erased: the Runtime provides every service the
@@ -132,6 +133,7 @@ export const makeDriver = (options: {
   readonly work: Owner;
   readonly report: RuntimeReport;
   readonly persistence: boolean;
+  readonly store: () => Store["Service"];
   readonly captureMs: number;
   readonly sink: (evidence: ReadonlyArray<Evidence>) => void;
   readonly admit: (evidence: ReadonlyArray<Evidence>) => void;
@@ -184,6 +186,7 @@ export const makeDriver = (options: {
 
   const edge = makeEdge(options.platform, work, {
     captureMs: options.captureMs,
+    store: options.store,
     capture: (tickets, again) => input(Input.Capture({ tickets, again })),
     answered: (ticket, landed) =>
       input(landed ? Input.Stored({ ticket }) : Input.Refused({ ticket })),

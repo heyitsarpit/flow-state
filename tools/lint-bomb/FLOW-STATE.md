@@ -31,8 +31,8 @@ The lint rules for Flow State v3 production code. The config is the `lint` block
   - everything in `src/` outside `src/host/` imports nothing from `src/host/`, except the public
     entry `src/index.ts`, which re-exports the host's Runtime;
   - `src/` imports nothing from `fixtures/`, `tests/` or `bench/`;
-  - `fixtures/` imports from `src/` only `src/index.ts` and `src/host/testing/index.ts`, and nothing
-    from `tests/` or `bench/`;
+  - `fixtures/` imports from `src/` only `src/index.ts`, `src/host/persistence.ts` and
+    `src/host/testing/index.ts`, and nothing from `tests/` or `bench/`;
   - `tests/` and `bench/` import from `src/` only `src/index.ts`, `src/host/testing/index.ts`,
     `src/host/persistence.ts`, `src/host/inspect.ts`, `src/host/trace.ts` and `src/host/cli/main.ts` (the CLI tests call
     `main(argv)`, since there is no `flow` bin yet).
@@ -164,12 +164,13 @@ on internal modules and `off` on public entrypoint modules.
   - `no-entropy`: `Math.random` and `crypto`. Ids come from the runtime's mint, so stories, replays and
     searches reproduce a run. Except `src/host/platform`.
   - `no-clock`: `Date` and `performance`. Time comes from Effect's Clock or the fake world's. Except
-    `src/host/platform`, `bench`.
+    `src/host/platform`, `bench`, and `tests/browser`, whose real-browser runs check the platform on a
+    real page and real time.
   - `no-timers`: `setTimeout`, `clearTimeout`, `setInterval`, `queueMicrotask`. The core returns work as
-    data for the driver. Except the same two folders.
+    data for the driver. Except the same three folders.
   - `no-host-apis`: `window`, `document`, `navigator`, `indexedDB`, `localStorage`, `sessionStorage`. Only
     the platform touches them: the freeze bug, the bfcache lock, Safari's false `oncomplete`. Except
-    `src/host`.
+    `src/host`. The real-browser tests in `tests/browser` too.
   - `no-effect-runtime`: `Effect.gen`, `runSync`, `runPromise`, `runFork`, `try`, `tryPromise` and
     `Promise`, in `src` only. The turn's hot path is pure (0.2 ms p99; `Effect.try` costs 170 ns against
     7 ns). Except `src/host` and tests (`*.test.ts`, `test/`).

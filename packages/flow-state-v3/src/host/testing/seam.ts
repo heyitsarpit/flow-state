@@ -5,7 +5,8 @@ import { Input } from "../../core/step.ts";
 import type { ActorId, Use, Wiring } from "../../core/world.ts";
 import type { Machine, Operations } from "../../definition.ts";
 import type { App } from "../../index.ts";
-import { Host, type Platform, StoreRefused } from "../host.ts";
+import { Host, type Platform } from "../host.ts";
+import { Store, StoreRefused } from "../store.ts";
 import { attachInspector, type Evidence } from "../inspect.ts";
 import { buildRuntime, type RuntimeConfig, snapshotOf } from "../runtime.ts";
 import { tabClock } from "./clock.ts";
@@ -65,8 +66,8 @@ export class Bell extends Context.Service<
 
 /**
  * A platform for one boot over the Stories' own clock and event loop: fibers queue until
- * `settle`, time moves only on `advance` (TestClock), and every store write lands at once in
- * `store`, unless `hung`, when no write ever answers. Each entry in `refusals.left` refuses one
+ * `settle`, time moves only on `advance` (TestClock), and every write to the platform's Store lands
+ * at once in `store`, unless `hung`, when no write ever answers. Each entry in `refusals.left` refuses one
  * write, `StoreRefused`, in turn.
  */
 export const platformOver = (
@@ -85,12 +86,24 @@ export const platformOver = (
     freezeValues: true,
     workClock: Option.none(),
     report: (cause) => void reports.push(cause),
-    store: Option.some({
+  });
+
+  const tab = tabClock(host, 0, () => {
+    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a host test whose fibers never settle is a broken test
+    throw new Error("the boot did not settle within 100,000 tasks");
+  });
+
+  // The test host gives its store in the platform, as a setup's services would.
+  const platform = Context.add(
+    tab.platform,
+    Store,
+    Store.of({
       load: Effect.sync(() => new Map(store)),
       write: (writes) => {
         if (hung) return Effect.never;
 
-        if (refusals.left.pop() === true) return Effect.fail(new StoreRefused({}));
+        if (refusals.left.pop() === true)
+          return Effect.fail(new StoreRefused({ reason: "failed" }));
 
         return Effect.sync(() => {
           for (const w of writes)
@@ -101,17 +114,13 @@ export const platformOver = (
         });
       },
     }),
-  });
-
-  const tab = tabClock(host, 0, () => {
-    // oxlint-disable-next-line lint-bomb/no-throw-in-core -- a host test whose fibers never settle is a broken test
-    throw new Error("the boot did not settle within 100,000 tasks");
-  });
+  );
 
   return {
-    platform: tab.platform,
+    platform,
     reports,
     settle: tab.settle,
+    perform: tab.perform,
     advance: (ms: number) => void tab.perform(TestClock.adjust(ms)),
   };
 };

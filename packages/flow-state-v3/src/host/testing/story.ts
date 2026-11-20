@@ -92,6 +92,8 @@ export type Story<Names extends string = never, Ds extends AnyDefinition = AnyDe
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: an omitted option takes its default
     options?: { readonly reattach?: boolean; readonly heldWrites?: "abort" | "land" },
   ) => Story<Names, Ds>;
+  readonly hide: () => Story<Names, Ds>;
+  readonly show: () => Story<Names, Ds>;
   readonly checkpoint: <N extends string>(name: N & NewName<N, Names>) => Story<Names | N, Ds>;
   readonly run: {
     (): Promise<StoryRun<Names, Ds>>;
@@ -162,6 +164,8 @@ export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
             heldWrites: options?.heldWrites ?? "abort",
           }),
         ),
+      hide: () => next(StepData.hide()),
+      show: () => next(StepData.show()),
       checkpoint: (name) => chain([...steps, StepData.checkpoint({ name })]),
       // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts, lint-bomb/no-optional-domain-properties -- run() runs the Story's own steps; an omitted seed keeps the Story's own world
       run: (given?: { readonly steps: ReadonlyArray<Step>; readonly seed?: number }) =>
@@ -190,7 +194,9 @@ export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
  * servers, at the same time, and ensures again every actor the Story still uses; `reload({ reattach: false })`
  * ensures none, so only what the boot itself wakes is live. A store write still held at a reload
  * aborts with its tab; `reload({ heldWrites: "land" })` lands every held write as the old tab dies,
- * unheard, as a transaction that commits just before its tab is killed. `steps` is the Story as
+ * unheard, as a transaction that commits just before its tab is killed. `hide` hides the tab's
+ * page, as a visibilitychange to hidden or a pagehide does, and `show` shows it again; a reload
+ * opens the page shown. `steps` is the Story as
  * data, and `run({ steps })` runs the same subject over another step array.
  *
  * **Gotchas**

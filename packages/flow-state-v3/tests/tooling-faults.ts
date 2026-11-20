@@ -30,7 +30,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
         file: "src/host/testing/fake.ts",
         find: '      ))\n        mark(out, "aborted");',
         replace:
-          '      )) {\n        mark(out, "aborted");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));\n      }',
+          '      )) {\n        mark(out, "aborted");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({ reason: "aborted" })));\n      }',
       },
     ],
   },
@@ -147,9 +147,8 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "    const opened = openTab({ ...subject.config, services }, host, now, limits, (record) =>",
-        replace:
-          "    const opened = openTab({ services, ...subject.config }, host, now, limits, (record) =>",
+        find: "{ ...subject.config, services }",
+        replace: "{ services, ...subject.config }",
       },
     ],
   },
@@ -306,7 +305,7 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/fake.ts",
-        find: '        mark(out, "refused");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));',
+        find: '        mark(out, "refused");\n        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({ reason: "aborted" })));',
         replace:
           '        apply(out.writes);\n        mark(out, "landed");\n        Deferred.doneUnsafe(out.answer, Exit.void);',
       },

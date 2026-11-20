@@ -247,8 +247,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/close.ts",
-        find: "    if (!opened || !driver.world().persistence || !driver.stored())",
-        replace: "    if (!opened || !driver.world().persistence)",
+        find: "    if (!opened || Option.isNone(store) || !driver.world().persistence || !driver.stored())",
+        replace: "    if (!opened || Option.isNone(store) || !driver.world().persistence)",
       },
     ],
   },
@@ -260,7 +260,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/close.ts",
-        find: "    if (!opened || !driver.world().persistence || !driver.stored())",
+        find: "    if (!opened || Option.isNone(store) || !driver.world().persistence || !driver.stored())",
         replace: "    if (!driver.world().persistence || !driver.stored())",
       },
     ],

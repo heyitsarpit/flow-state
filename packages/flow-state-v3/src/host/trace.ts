@@ -103,6 +103,8 @@ const stepText = (step: Step) =>
     advance: ({ duration }) => `advance ${Duration.toMillis(duration)} ms`,
     reload: ({ reattach, heldWrites }) =>
       `reload${reattach ? "" : " without reattach"}${heldWrites === "land" ? ", held writes land" : ""}`,
+    hide: () => "hide",
+    show: () => "show",
     checkpoint: ({ name }) => `checkpoint ${name}`,
   });
 

@@ -12,6 +12,7 @@ import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../sr
 import { type Cut, Fake, Story } from "../../src/host/testing/index.ts";
 import { laneFacts } from "../checkout.ts";
 import { checked } from "../rules/rules.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 // The fields of an actor record and a lane record these tests read (Codec R5).
 const ActorRecord = Schema.fromJsonString(
@@ -190,6 +191,7 @@ const lamp = actorRef(LampMachine, "hall");
 
 const lampSetup = runtimeSetup({
   app: app({ id: "lamps", machines: { lamp: LampMachine } }),
+  services: layerIndexedDb(),
   scope: "lamps",
   persistence: { captureMs: 0 },
 });
@@ -217,6 +219,7 @@ describe("what a step touched is written (WriteAhead I21)", () => {
 
 const quietLampSetup = runtimeSetup({
   app: app({ id: "lamps", machines: { lamp: LampMachine } }),
+  services: layerIndexedDb(),
   scope: "lamps",
   persistence: {},
 });
@@ -272,5 +275,39 @@ describe("a batch the store holds and then refuses (WriteAhead R10, R12)", () =>
     expect(touchesAt(held)).toEqual(Option.none());
     expect(refused.records.batches.map((b) => b.status)).toEqual(["refused", "landed"]);
     expect(touchesAt(refused)).toEqual(Option.some(1));
+  });
+
+  it("WriteAhead R10: the held batch itself carried the record as it was before the press, so the refused batch's put-back is fresh, not the held value", async () => {
+    const run = checked(
+      await Story.app(lampSetup, { id: "WRITE-AHEAD/held-then-landed", fixtures: [] })
+        .world(Fake.storage.hold())
+        .ensure(lamp)
+        .send(lamp, Lamp.E.Press())
+        .reload({ reattach: false, heldWrites: "land" })
+        .checkpoint("held landed")
+        .run(),
+    );
+
+    expect(touchesAt(run.checkpoints["held landed"])).toEqual(Option.some(0));
+  });
+
+  it("WriteAhead R10: an actor disposed while its batch is held, then refused, has its record removed by the next batch, not put back", async () => {
+    const run = checked(
+      await Story.app(lampSetup, { id: "WRITE-AHEAD/removed-while-held", fixtures: [] })
+        .world(Fake.storage.hold())
+        .ensure(lamp)
+        .send(lamp, Lamp.E.Press())
+        .dispose(lamp)
+        .checkpoint("held")
+        .world(Fake.storage.refuseHeld())
+        .checkpoint("refused")
+        .run(),
+    );
+
+    const { held, refused } = run.checkpoints;
+
+    expect(held.records.batches.map((b) => b.status)).toEqual(["held"]);
+    expect(refused.records.batches.map((b) => b.status)).toEqual(["refused", "landed"]);
+    expect(refused.records.stored.has("actor/WriteAhead/Lamp/hall")).toBe(false);
   });
 });

@@ -29,6 +29,7 @@ import {
   twoSpellings,
 } from "./stories/edges.ts";
 import { manyAccounts, manyOrders, orderOffline, owedAtBoot } from "./stories/load.ts";
+import { visibilityStories } from "./stories/visibility.ts";
 import {
   samples as formSamples,
   orderSamples,
@@ -54,6 +55,7 @@ export const transfers = manifest({
   app: bankSwitching,
   stories: {
     ...stories,
+    ...visibilityStories,
     formBoundLate,
     checkAndSend,
     chain,

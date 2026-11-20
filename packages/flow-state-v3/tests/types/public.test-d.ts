@@ -188,7 +188,15 @@ describe("Stories T2: a trace's request row is the call log's shape", () => {
 describe("Stories T2: a hand-written step names no machine and no envelope", () => {
   it("the actor steps are the Story's own words", () => {
     expectTypeOf<keyof typeof Step>().toEqualTypeOf<
-      "disposeRuntime" | "world" | "advance" | "reload" | "checkpoint" | "$is" | "$match"
+      | "disposeRuntime"
+      | "world"
+      | "advance"
+      | "reload"
+      | "hide"
+      | "show"
+      | "checkpoint"
+      | "$is"
+      | "$match"
     >();
     expectTypeOf(story.send(pay, Pay.E.go())).toEqualTypeOf(story);
     // @ts-expect-error Stories T2: an actor step is written with the Story's send, which takes only its app's refs

@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Schema, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Folder as FolderSchema, foldersOf } from "../../fixtures/session/machines/nests.ts";
 import { DEEP, PAST_STACK } from "../../fixtures/session/stories/values.ts";
@@ -20,6 +20,7 @@ import {
 } from "../../src/index.ts";
 import { LIMITS } from "../limits.ts";
 import { checked } from "../rules/rules.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 // A publish of a folder tree, keyed on the tree itself: its key is as deep as its input.
 const publish = transaction({
@@ -77,7 +78,7 @@ const ShelfMachine = machine(Shelf, ({ S, O }) => ({
 
 const shelfSetup = runtimeSetup({
   app: app({ id: "shelves", machines: { shelf: ShelfMachine } }),
-  services: GitLive("https://git.example"),
+  services: Layer.merge(GitLive("https://git.example"), layerIndexedDb()),
   scope: "shelves",
   persistence: { captureMs: 0 },
 });
@@ -139,6 +140,7 @@ const AlbumMachine = machine(Album, ({ S }) => ({
 
 const albumSetup = runtimeSetup({
   app: app({ id: "albums", machines: { album: AlbumMachine } }),
+  services: layerIndexedDb(),
   scope: "albums",
   persistence: { captureMs: 0 },
 });

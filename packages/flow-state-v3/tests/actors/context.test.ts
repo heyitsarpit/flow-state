@@ -14,6 +14,7 @@ import {
   runtimeSetup,
 } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 const Session = definition({
   id: "Context/Session",
@@ -623,6 +624,7 @@ const kept = runtimeSetup({
       strict: { machine: KeptStrictMachine, context: { user: keptSession } },
     },
   }),
+  services: layerIndexedDb(),
   scope: "kept",
   persistence: { captureMs: 0 },
 });
@@ -788,6 +790,7 @@ describe("a kept baseline across a reload (Turn R22; Restore R2)", () => {
         echo: { machine: KeptEchoMachine, context: { user: keptSession } },
       },
     }),
+    services: layerIndexedDb(),
     scope: "kept-echo",
     persistence: { captureMs: 0 },
   });

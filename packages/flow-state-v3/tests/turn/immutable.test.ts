@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Story } from "../../src/host/testing/index.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 // A Date read from its text, as a Schema reads one.
 const dateAt = Schema.decodeUnknownSync(Schema.toCodecJson(Schema.Date));
@@ -69,6 +70,7 @@ const notes = actorRef(NotesMachine, "mine");
 
 const setup = runtimeSetup({
   app: app({ id: "immutable", machines: { notes: NotesMachine } }),
+  services: layerIndexedDb(),
   scope: "immutable",
   persistence: { captureMs: 0 },
 });

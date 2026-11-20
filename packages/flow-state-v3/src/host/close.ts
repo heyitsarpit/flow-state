@@ -25,7 +25,7 @@ import {
   type Traced,
   waitAtMost,
 } from "./owners/owners.ts";
-import type { Store } from "./host.ts";
+import type { Store } from "./store.ts";
 import type { AnyDefinition } from "../definition.ts";
 
 /**
@@ -118,31 +118,29 @@ const forgetFailed = flowError([
  *
  * It fails StorageFailure with no store call when it cannot know it deleted everything: a write of
  * the disposal still unanswered may land later, and a Runtime that never booted, or whose load
- * failed, never owned what it would delete. A Runtime with no persisting store has nothing to
- * forget.
+ * failed, never owned what it would delete. A Runtime that saves nothing has nothing to forget.
  */
 export const makeForget = (
   driver: Driver,
-  store: Option.Option<Store>,
+  persistence: boolean,
+  storeOf: () => Option.Option<Store["Service"]>,
   booted: Deferred.Deferred<void, FlowError>,
 ) =>
   Effect.fn("Runtime.forget")(function* () {
-    if (Option.isNone(store)) return;
+    if (!persistence) return;
+
+    const store = storeOf();
 
     const opened = (yield* Deferred.isDone(booted))
       ? Exit.isSuccess(yield* Effect.exit(Deferred.await(booted)))
       : false;
 
-    if (!opened || !driver.world().persistence || !driver.stored())
+    if (!opened || Option.isNone(store) || !driver.world().persistence || !driver.stored())
       return yield* Effect.fail(forgetFailed);
 
     yield* store.value.load.pipe(
       Effect.flatMap((saved) =>
-        store.value.write(
-          [...saved.keys()].map((key) => ({ key, value: Option.none() })),
-          "flush",
-          [],
-        ),
+        store.value.write([...saved.keys()].map((key) => ({ key, value: Option.none() }))),
       ),
       Effect.mapError(() => forgetFailed),
     );

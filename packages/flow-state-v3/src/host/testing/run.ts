@@ -1,4 +1,4 @@
-import { type Cause, Effect, Exit, Layer, Option, Predicate } from "effect";
+import { type Cause, Context, Effect, Exit, Layer, Option, Predicate } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
@@ -8,6 +8,7 @@ import { type ActorId, actorKey, indexDrift, type Wiring } from "../../core/worl
 import type { AnyDefinition } from "../../definition.ts";
 import { FlowError, foreignActorRef } from "../../error.ts";
 import { Host } from "../host.ts";
+import { Store } from "../store.ts";
 import { attachInspector, inspect, type RuntimeCut } from "../inspect.ts";
 import {
   actorIdOf,
@@ -151,15 +152,17 @@ type Limits = {
 const openTab = (
   config: RuntimeConfig,
   host: Host["Service"],
+  store: Store["Service"],
   now: number,
   limits: Limits,
   traced: (record: OwnerRecord) => void,
 ) => {
   const tab = tabClock(host, now, () => limits.fail("Settle"));
 
+  // The open's store is the run's, given in the platform: a Story never builds its setup's services.
   const built = buildRuntime(
     config,
-    tab.platform,
+    Context.add(tab.platform, Store, store),
     (evidence) => limits.admit(evidence, tab.now()),
     Option.some(traced),
   );
@@ -296,6 +299,10 @@ export const startRun = <Names extends string>(
     saved.servers,
   );
 
+  // The open page's visibility and the hidden listeners its Runtime registered; each open starts
+  // shown with none. The run's own state, written in place.
+  const page = { hidden: false, listeners: new Set<() => void>() };
+
   const store = makeStore(
     alive,
     (index) => note({ kind: "batch", index }),
@@ -324,13 +331,18 @@ export const startRun = <Names extends string>(
 
   const boot = (open: number, now: number) => {
     const world = Layer.succeed(FakeWorld, fakes.service(open));
+    page.hidden = false;
+    page.listeners.clear();
 
     const services = Layer.provide(Layer.mergeAll(Layer.empty, ...subject.fixtures), world);
 
     const host = Host.of({
-      hidden: () => false,
-      onHidden: () => () => undefined,
-      store: Option.some(store.at(open)),
+      hidden: () => page.hidden,
+      onHidden: (listener) => {
+        page.listeners.add(listener);
+
+        return () => void page.listeners.delete(listener);
+      },
       sessionSeed: seedOf(mainTab(open), options.seed),
       freezeValues: true,
       workClock: Option.none(),
@@ -338,8 +350,13 @@ export const startRun = <Names extends string>(
     });
 
     // Each Owner's tasks and reports go into the trace, as this open's records.
-    const opened = openTab({ ...subject.config, services }, host, now, limits, (record) =>
-      note({ kind: "record", open, record: traceOfOwner(record) }),
+    const opened = openTab(
+      { ...subject.config, services },
+      host,
+      store.at(open),
+      now,
+      limits,
+      (record) => note({ kind: "record", open, record: traceOfOwner(record) }),
     );
 
     attachInspector(opened.built.runtime, (e) => {
@@ -576,6 +593,17 @@ export const startRun = <Names extends string>(
       },
       reload: (reload) => {
         tab = reopen(tab.now(), reload);
+      },
+      // A hide calls every hidden listener of the open at once, as the page's events do; a page
+      // already hidden fires no second event.
+      hide: () => {
+        if (page.hidden) return;
+        page.hidden = true;
+
+        for (const listener of page.listeners) listener();
+      },
+      show: () => {
+        page.hidden = false;
       },
       checkpoint: ({ name }) => {
         if (checkpoints.has(name)) scriptFault(`checkpoint ${name} twice`);

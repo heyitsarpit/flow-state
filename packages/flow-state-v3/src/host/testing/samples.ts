@@ -157,6 +157,8 @@ const printStep = (samples: Samples, step: Step) =>
     world: ({ words }) => `.world(${words.map((w) => printWord(samples, w)).join(", ")})`,
     advance: ({ duration }) => `.advance(${durationText(duration)})`,
     reload: ({ reattach, heldWrites }) => `.reload(${reloadOptions(reattach, heldWrites)})`,
+    hide: () => ".hide()",
+    show: () => ".show()",
     checkpoint: ({ name }) => `.checkpoint(${Formatter.formatJson(name)})`,
   });
 

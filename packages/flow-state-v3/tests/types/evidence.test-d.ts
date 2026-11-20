@@ -165,6 +165,7 @@ describe("Diagnostics R7, WriteLanes R10: the runtime cut's rows use Flow's clos
       | "Start"
       | "Boot"
       | "BootFailed"
+      | "LoadSilent"
       | "Ensure"
       | "Create"
       | "Serve"

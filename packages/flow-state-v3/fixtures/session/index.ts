@@ -4,6 +4,7 @@ import { Option } from "effect";
 import { benchPoint, benchSeries, benchStress, benchTurn, manifest } from "../manifest.ts";
 import { workspaceGrown, workspaceGrownSetup } from "./app.ts";
 import { long, samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
+import { workspaceHide } from "./stories/visibility.ts";
 import { corruptRecord, oversizedRecord } from "./stories/edges.ts";
 import { avatarWall, wall, stressWall, wallOfSize } from "./stories/load.ts";
 import { grownSamples } from "./stories/samples.ts";
@@ -51,6 +52,7 @@ export const session = manifest({
   setup: workspaceGrownSetup,
   app: workspaceGrown,
   stories: {
+    workspaceHide,
     ...stories,
     shellBeforeSession,
     newAccountRuntime,

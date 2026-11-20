@@ -6,6 +6,8 @@ export { forkReloads, Story } from "./story.ts";
 
 export { defineConfig } from "./config.ts";
 
+export { storeContract } from "./store-contract.ts";
+
 export type { Config } from "./config.ts";
 
 export type { EventOf } from "../../definition.ts";

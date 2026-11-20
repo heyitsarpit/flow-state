@@ -1,4 +1,4 @@
-import { Duration, Option } from "effect";
+import { Duration, Option, Layer } from "effect";
 import type { cellsCheckout } from "../fixtures/cells/app.ts";
 import { checkout, shop, shopSetup } from "../fixtures/shop/app.ts";
 import { Pay, PayMachine } from "../fixtures/services/shop/machines/pay.ts";
@@ -10,6 +10,7 @@ import { shopStory } from "../fixtures/shop/stories/usual.ts";
 import type { Evidence } from "../src/host/inspect.ts";
 import { type Cut, Story, type StoryRun, type WorldWord } from "../src/host/testing/index.ts";
 import { TraceRecord } from "../src/host/trace.ts";
+import { layerIndexedDb } from "../src/host/persistence.ts";
 
 /**
  * The cart the checkout cases start.
@@ -45,7 +46,7 @@ export const coalescedStory = (id: string) =>
   Story.app(
     runtimeSetup({
       app: shop,
-      services: ShopLive("https://shop.example"),
+      services: Layer.merge(ShopLive("https://shop.example"), layerIndexedDb()),
       scope: "shop",
       persistence: { captureMs: Duration.toMillis(RuntimeDefaults.captureInterval) },
     }),

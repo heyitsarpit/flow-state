@@ -6,6 +6,7 @@ import { usual } from "../../fixtures/lanes/stories/usual.ts";
 import { evidenceOf, Fake, Story, turnsOf } from "../../src/host/testing/index.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 // A persisted note with a constant start.
 const Note = definition({
@@ -22,6 +23,7 @@ const note = actorRef(NoteMachine, "note");
 
 const notes = runtimeSetup({
   app: app({ id: "read-notes", machines: { note: NoteMachine } }),
+  services: layerIndexedDb(),
   scope: "notes",
   persistence: { captureMs: 0 },
 });

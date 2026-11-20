@@ -13,6 +13,7 @@ import {
   type Transaction,
 } from "../../src/index.ts";
 import { transaction } from "../../src/index.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 // Each `@ts-expect-error` names the rule its line breaks; beside it the correct use of the same
 // parameter is asserted exactly. Lines still marked `wrong` compile: their type half is owed, with
@@ -149,7 +150,12 @@ describe("Runtime O1: an app entry and the setup's options are exact", () => {
     runtimeSetup({ app: shop, scope: "s" });
 
     expectTypeOf(
-      runtimeSetup({ app: shop, scope: "s", persistence: { captureMs: 0 } }).construct,
+      runtimeSetup({
+        app: shop,
+        services: layerIndexedDb(),
+        scope: "s",
+        persistence: { captureMs: 0 },
+      }).construct,
     ).toEqualTypeOf(runtimeSetup({ app: shop }).construct);
   });
 });

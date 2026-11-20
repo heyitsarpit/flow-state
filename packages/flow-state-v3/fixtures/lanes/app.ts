@@ -1,7 +1,9 @@
+import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { GitLive } from "../services/git/adapters/git.ts";
 import { CancelMachine, LatestMachine, SerializeMachine } from "./machines/clients.ts";
 import { PagedMachine } from "./machines/paged.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
  * The lanes app: one sync client per write-lane policy.
@@ -16,7 +18,7 @@ export const lanesApp = app({
  */
 export const lanesSetup = runtimeSetup({
   app: lanesApp,
-  services: GitLive("https://git.example"),
+  services: Layer.merge(GitLive("https://git.example"), layerIndexedDb()),
   scope: "lanes",
   persistence: { captureMs: 0 },
 });
@@ -55,7 +57,7 @@ export const lanesGrown = app({
  */
 export const lanesGrownSetup = runtimeSetup({
   app: lanesGrown,
-  services: GitLive("https://git.example"),
+  services: Layer.merge(GitLive("https://git.example"), layerIndexedDb()),
   scope: "lanes",
   persistence: { captureMs: 0 },
 });

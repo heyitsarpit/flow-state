@@ -1,4 +1,5 @@
 import {
+  Clock,
   Context,
   Deferred,
   Duration,
@@ -17,13 +18,11 @@ import { endedBy, isStopped, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
 import { makeClose, makeForget, type Unsettled, unsettledOf } from "./close.ts";
 import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
-import type { RequirementsOf } from "../contract.ts";
 import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
 import type { CheckedEntries } from "./context-refs.ts";
 import {
   type FlowError,
   flowError,
-  flowErrorOf,
   foreignActorRef,
   lifeRejection,
   raise,
@@ -36,63 +35,44 @@ import { makeDriver, type Driver } from "./driver.ts";
 import { actorIdOf, type ActorRef } from "./refs.ts";
 import { defect } from "../core/defect.ts";
 import { browserPlatform } from "./platform/browser.ts";
-import { makeOwner, makeRuntimeReport, type Traced } from "./owners/owners.ts";
+import { Ending, makeOwner, makeRuntimeReport, sleepUntil, type Traced } from "./owners/owners.ts";
 import { makeRunPromise } from "./run-promise.ts";
 import { makeWiring } from "./wiring.ts";
 import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
 import { Host, type Platform } from "./host.ts";
+import { Store, StoreScope } from "./store.ts";
 
 export { type Snapshot, snapshotIn, snapshotOf } from "./snapshot.ts";
 
 export type { Unsettled } from "./close.ts";
 
+export {
+  type App,
+  type AppEntry,
+  type DefsOf,
+  type MachineOf,
+  machineOf,
+  type RuntimeConfig,
+  type ServicesLayer,
+  type ServicesOf,
+  noStore,
+  servicesFailed,
+  type SetupConfig,
+} from "./setup.ts";
+
+import {
+  type App,
+  type AppEntry,
+  type DefsOf,
+  machineOf,
+  noStore,
+  type RuntimeConfig,
+  type ServicesOf,
+  servicesFailed,
+  type SetupConfig,
+} from "./setup.ts";
+
 export { actorIdOf, actorRef, type ActorRef, type RefName } from "./refs.ts";
-
-/**
- * One machine an app runs: the machine, or the machine with the default wiring of its context
- * slots, each to the ref of the actor that provides it.
- */
-export type AppEntry =
-  | Machine
-  | {
-      readonly machine: Machine;
-      // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an entry with no context wires no slot by default
-      readonly context?: Readonly<Record<string, ActorRef>>;
-    };
-
-/**
- * The machine of an app entry.
- */
-export type MachineOf<E> = E extends { readonly machine: infer M extends Machine } ? M : E;
-
-/**
- * The machine of an app entry.
- */
-export const machineOf = (entry: AppEntry) => ("machine" in entry ? entry.machine : entry);
-
-/**
- * An app: every machine a Runtime may run, by key.
- */
-export type App<M extends Readonly<Record<string, AppEntry>> = Readonly<Record<string, AppEntry>>> =
-  {
-    readonly id: string;
-    readonly machines: M;
-  };
-
-/**
- * The services an app's contracts require: what its setup's services Layer, or a Story's fixtures,
- * must provide.
- */
-export type ServicesOf<A extends App> = {
-  readonly [K in keyof A["machines"]]: RequirementsOf<
-    MachineOf<A["machines"][K]>["definition"]["operations"]
-  >;
-}[keyof A["machines"]];
-
-/**
- * The definitions an app runs: its machines' definitions, as a union.
- */
-export type DefsOf<A extends App> = MachineOf<A["machines"][keyof A["machines"]]>["definition"];
 
 /**
  * Declares an app: the closed list of machines a Runtime may run.
@@ -223,42 +203,6 @@ export type RuntimeSetup<R = never, A extends App = App> = {
   readonly "~app"?: A;
 };
 
-/**
- * The Runtime's construction options.
- */
-export type RuntimeConfig = {
-  readonly app: App;
-  // FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as a Defect.
-  readonly services?: Layer.Layer<never, unknown>;
-  readonly scope?: string;
-  readonly persistence?: { readonly captureMs?: number };
-};
-
-/**
- * Where and how often a Runtime saves: a scope and persistence together, or neither, since either
- * alone saves nothing.
- */
-export type Saving =
-  | { readonly scope?: never; readonly persistence?: never }
-  | { readonly scope: string; readonly persistence: { readonly captureMs?: number } };
-
-/**
- * A setup's services Layer: it provides `R` and needs nothing.
- */
-// FLOW_STATE_ALLOW_UNKNOWN: a services Layer may fail with its own error; the boot reports it as a Defect.
-export type ServicesLayer<R> = Layer.Layer<R, unknown>;
-
-/**
- * What `runtimeSetup` takes: the services Layer is required, and must provide every service the
- * app's contracts list, unless they list none.
- */
-export type SetupConfig<A extends App> = {
-  readonly app: A;
-} & Saving &
-  ([ServicesOf<A>] extends [never]
-    ? { readonly services?: ServicesLayer<never> }
-    : { readonly services: ServicesLayer<ServicesOf<A>> });
-
 // Each Compiled's verdict, judged once: a Compiled never changes, and every boot of a Runtime over
 // it would walk it again.
 const verdicts = new WeakMap<Compiled, ReturnType<typeof malformedOf>>();
@@ -273,6 +217,8 @@ const verdictOf = (compiled: Compiled) => {
 
   return verdict;
 };
+
+const LOAD_SILENT = "load silent";
 
 /**
  * Builds a Runtime over a platform, with its driver beside it for Flow's own suite (the public
@@ -299,6 +245,7 @@ export const buildRuntime = <R = never, A extends App = App>(
 
   const sinks = new Set<(evidence: Evidence) => void>();
   const host = Context.get(platform, Host);
+  const clock = Context.get(platform, Clock.Clock);
   // oxlint-disable-next-line lint-bomb/no-unmanaged-effect-scope -- the Runtime owns one Scope for its whole life: its services and its work; dispose() closes it
   const root = Scope.makeUnsafe();
   // The services' Scope comes first and the work's second, so the root releases work first.
@@ -311,8 +258,11 @@ export const buildRuntime = <R = never, A extends App = App>(
   const report = makeRuntimeReport(host.report);
   const booted = Deferred.makeUnsafe<void, FlowError>();
 
-  const persistence =
-    config.persistence !== undefined && config.scope !== undefined && Option.isSome(host.store);
+  const persistence = config.persistence !== undefined && config.scope !== undefined;
+
+  // The scope's store, found in the services once they are built; a host's own platform may give
+  // one, as Flow's test host does, and a setup's services win over it.
+  let store = Option.none<Store["Service"]>();
 
   const driver = makeDriver({
     machines: new Map(
@@ -330,6 +280,7 @@ export const buildRuntime = <R = never, A extends App = App>(
     work,
     report,
     persistence,
+    store: () => Option.getOrElse(store, () => defect("a capture before the store was found")),
     captureMs: config.persistence?.captureMs ?? Duration.toMillis(RuntimeDefaults.captureInterval),
     admit,
     // A callback that throws detaches only itself; sinks never change a step.
@@ -344,42 +295,59 @@ export const buildRuntime = <R = never, A extends App = App>(
   const rejected = (code: "RuntimeNotReady" | "RuntimeDisposed") =>
     flowError([lifeRejection(code, "ready", "ready()", "boot", endedBy(driver.world().life))]);
 
-  // Storage is read and validated before any app service is acquired; the core's life decides
-  // whether the boot it reads still opens the Runtime.
+  // The services, the Store among them, are acquired whole, since one Layer cannot be split; then
+  // storage is read and validated before any actor starts. The core's life decides whether the boot
+  // it reads still opens the Runtime.
   const boot = Effect.fn("Runtime.boot")(function* () {
-    // A load the store refused boots with nothing and no persistence; the core reports it.
-    const stored = yield* Option.match(persistence ? host.store : Option.none(), {
-      onNone: () => Effect.succeed(Option.some<ReadonlyMap<string, string>>(new Map())),
-      onSome: (store) => store.load.pipe(Effect.option),
-    });
-
-    if (config.services !== undefined)
-      services = yield* Layer.buildWithScope(config.services, servicesScope).pipe(
-        Effect.mapError((cause) =>
-          flowErrorOf(
-            [
-              {
-                code: "Defect",
-                path: ["services"],
-                summary: "the services Layer failed to build",
-                help: "Fix the failing service; its cause is on this error.",
-              },
-            ],
-            cause,
-          ),
-        ),
-        Effect.tapError(() => Effect.sync(() => driver.input(Input.BootFailed()))),
+    const failed = (error: FlowError) =>
+      Effect.sync(() => driver.input(Input.BootFailed())).pipe(
         // A bootstrap the disposal cancelled fails as the life says, whatever its service did.
-        Effect.mapError((failed) =>
+        Effect.andThen(
           Option.match(
-            Option.liftPredicate(driver.verdict(Input.Boot({ stored })), Verdict.$is("Reject")),
+            Option.liftPredicate(
+              driver.verdict(Input.Boot({ stored: Option.none() })),
+              Verdict.$is("Reject"),
+            ),
             {
-              onSome: ({ code }) => rejected(code),
-              onNone: () => failed,
+              onSome: ({ code }) => Effect.fail(rejected(code)),
+              onNone: () => Effect.fail(error),
             },
           ),
         ),
       );
+
+    if (config.services !== undefined)
+      services = yield* Layer.buildWithScope(config.services, servicesScope).pipe(
+        Effect.provideService(StoreScope, { app: config.app.id, scope: config.scope ?? "" }),
+        Effect.catch((cause) => failed(servicesFailed(cause))),
+      );
+
+    store = persistence ? Context.getOption(context(), Store) : Option.none();
+
+    if (persistence && Option.isNone(store)) return yield* failed(noStore);
+
+    // A load the store refused boots with nothing and no persistence; the core reports it. A load
+    // still unanswered at the storage silence default is reported, and waited for.
+    const stored = yield* Option.match(store, {
+      onNone: () => Effect.succeed(Option.some<ReadonlyMap<string, string>>(new Map())),
+      onSome: (given) => {
+        work.fork(
+          LOAD_SILENT,
+          sleepUntil(
+            clock,
+            clock.currentTimeMillisUnsafe() + Duration.toMillis(RuntimeDefaults.storageSilent),
+          ),
+          (ending) => {
+            if (Ending.$is("Done")(ending)) driver.input(Input.LoadSilent());
+          },
+        );
+
+        return given.load.pipe(
+          Effect.option,
+          Effect.ensuring(Effect.sync(() => work.cancel(LOAD_SILENT))),
+        );
+      },
+    });
 
     const opened = Input.Boot({ stored });
     const verdict = driver.verdict(opened);
@@ -412,7 +380,7 @@ export const buildRuntime = <R = never, A extends App = App>(
     });
   });
 
-  const forget = makeForget(driver, persistence ? host.store : Option.none(), booted);
+  const forget = makeForget(driver, persistence, () => store, booted);
 
   const close = makeClose(driver, root, report, forget, context, traced);
 

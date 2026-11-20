@@ -4,6 +4,7 @@ import { describe, it } from "vite-plus/test";
 import { RuntimeDefaults } from "../core/defaults.ts";
 import { actorRef, app, definition, Flow, machine } from "../index.ts";
 import { Host } from "./host.ts";
+import { Store } from "./store.ts";
 import { attachInspector, type Evidence } from "./inspect.ts";
 import { browserPlatform } from "./platform/browser.ts";
 import { buildRuntime } from "./runtime.ts";
@@ -38,26 +39,29 @@ const timed = (clock: Option.Option<{ ms: number }>) => {
       scope: "slow",
       persistence: { captureMs: 0 },
     },
-    Context.make(
-      Host,
-      Host.of({
-        hidden: () => false,
-        onHidden: () => () => undefined,
-        store: Option.some({
-          load: Effect.sync(() => new Map(store)),
-          write: (writes) =>
-            Effect.sync(() => {
-              for (const w of writes)
-                Option.match(w.value, {
-                  onNone: () => store.delete(w.key),
-                  onSome: (text) => store.set(w.key, text),
-                });
-            }),
+    Context.add(
+      Context.make(
+        Host,
+        Host.of({
+          hidden: () => false,
+          onHidden: () => () => undefined,
+          sessionSeed: "0".repeat(32),
+          freezeValues: true,
+          workClock: Option.map(clock, (cost) => () => (at += cost.ms)),
+          report: () => undefined,
         }),
-        sessionSeed: "0".repeat(32),
-        freezeValues: true,
-        workClock: Option.map(clock, (cost) => () => (at += cost.ms)),
-        report: () => undefined,
+      ),
+      Store,
+      Store.of({
+        load: Effect.sync(() => new Map(store)),
+        write: (writes) =>
+          Effect.sync(() => {
+            for (const w of writes)
+              Option.match(w.value, {
+                onNone: () => store.delete(w.key),
+                onSome: (text) => store.set(w.key, text),
+              });
+          }),
       }),
     ),
     () => undefined,

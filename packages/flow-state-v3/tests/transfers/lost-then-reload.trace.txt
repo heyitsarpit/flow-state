@@ -1,43 +1,47 @@
 story transfers/lost-then-reload
-   1 main:1 step 0 ensure Bank/Transfers/acct-1
-   2 main:1 incarnated Bank/Transfers/acct-1
-   3 main:1 published Bank/Transfers/acct-1 READY {"notice":""}
-   4 main:1 task work#0 wake started
-   5 main:1 task work#0 wake Done
-   6 main:1 task work#1 store started
-   7 main:1 write flush [actor/Bank/Transfers/acct-1] landed
-   8 main:1 task work#1 store Done
-   9 main:1 step 1 world Bank.transfer hold at response
-  10 main:1 step 2 send Bank/Transfers/acct-1 Send {"transferId":"t1","cents":500}
-  11 main:1 turn Bank/Transfers/acct-1 Send READY -> READY parts [states.READY.on.Send[0] READY -> self] members [commit transfer {"transferId":"t1"}]
-  12 main:1 minted transfer att-000000000000000000006d61696e3a31-1 for Bank/Transfers/acct-1 key {"transferId":"t1"}
-  13 main:1 published Bank/Transfers/acct-1 READY {"notice":""}
-  14 main:1 task work#2 timer/timer-000000000000000000006d61696e3a31-4 started
-  15 main:1 task work#3 timer/timer-000000000000000000006d61696e3a31-6 started
-  16 main:1 task work#4 wake started
-  17 main:1 task work#4 wake Done
-  18 main:1 task work#5 store started
-  19 main:1 write acknowledge [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}] acknowledges [att-000000000000000000006d61696e3a31-1] landed
-  20 main:1 task work#5 store Done
-  21 main:1 sent transfer att-000000000000000000006d61696e3a31-1
-  22 main:1 task work#3 timer/timer-000000000000000000006d61696e3a31-6 Interrupted
-  23 main:1 task work#6 call/call-000000000000000000006d61696e3a31-7 started
-  24 main:1 request Bank.transfer {"transferId":"t1","cents":500,"key":"att-000000000000000000006d61696e3a31-1"} held at response
-  25 main:1 step 3 checkpoint sending
-  26 main:1 step 4 advance 5000 ms
-  27 main:1 step 5 reload
-  28 main:2 incarnated Bank/Transfers/acct-1
-  29 main:2 published Bank/Transfers/acct-1 READY {"notice":""}
-  30 main:2 ended transfer att-000000000000000000006d61696e3a31-1 unknown Restored for Bank/Transfers/acct-1
-  31 main:2 delivered transfer att-000000000000000000006d61696e3a31-1 as Unsure to Bank/Transfers/acct-1
-  32 main:2 turn Bank/Transfers/acct-1 Unsure READY -> READY parts [on.Unsure[0] root -> self]
-  33 main:2 published Bank/Transfers/acct-1 READY {"notice":"check your statement"}
-  34 main:2 task work#0 timer/timer-000000000000000000006d61696e3a32-4 started
-  35 main:2 task work#1 timer/timer-000000000000000000006d61696e3a32-6 started
-  36 main:2 task work#2 wake started
-  37 main:2 task work#2 wake Done
-  38 main:2 task work#3 store started
-  39 main:2 write flush [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}, owed/Bank/Transfers/acct-1] landed
-  40 main:2 task work#3 store Done
-  41 main:2 task work#1 timer/timer-000000000000000000006d61696e3a32-6 Interrupted
-  42 main:2 step 6 checkpoint reloaded
+   1 main:1 task work#0 load silent started
+   2 main:1 task work#0 load silent Interrupted
+   3 main:1 step 0 ensure Bank/Transfers/acct-1
+   4 main:1 incarnated Bank/Transfers/acct-1
+   5 main:1 published Bank/Transfers/acct-1 READY {"notice":""}
+   6 main:1 task work#1 wake started
+   7 main:1 task work#1 wake Done
+   8 main:1 task work#2 store started
+   9 main:1 write flush [actor/Bank/Transfers/acct-1] landed
+  10 main:1 task work#2 store Done
+  11 main:1 step 1 world Bank.transfer hold at response
+  12 main:1 step 2 send Bank/Transfers/acct-1 Send {"transferId":"t1","cents":500}
+  13 main:1 turn Bank/Transfers/acct-1 Send READY -> READY parts [states.READY.on.Send[0] READY -> self] members [commit transfer {"transferId":"t1"}]
+  14 main:1 minted transfer att-000000000000000000006d61696e3a31-1 for Bank/Transfers/acct-1 key {"transferId":"t1"}
+  15 main:1 published Bank/Transfers/acct-1 READY {"notice":""}
+  16 main:1 task work#3 timer/timer-000000000000000000006d61696e3a31-4 started
+  17 main:1 task work#4 timer/timer-000000000000000000006d61696e3a31-6 started
+  18 main:1 task work#5 wake started
+  19 main:1 task work#5 wake Done
+  20 main:1 task work#6 store started
+  21 main:1 write acknowledge [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}] acknowledges [att-000000000000000000006d61696e3a31-1] landed
+  22 main:1 task work#6 store Done
+  23 main:1 sent transfer att-000000000000000000006d61696e3a31-1
+  24 main:1 task work#4 timer/timer-000000000000000000006d61696e3a31-6 Interrupted
+  25 main:1 task work#7 call/call-000000000000000000006d61696e3a31-7 started
+  26 main:1 request Bank.transfer {"transferId":"t1","cents":500,"key":"att-000000000000000000006d61696e3a31-1"} held at response
+  27 main:1 step 3 checkpoint sending
+  28 main:1 step 4 advance 5000 ms
+  29 main:1 step 5 reload
+  30 main:2 task work#0 load silent started
+  31 main:2 task work#0 load silent Interrupted
+  32 main:2 incarnated Bank/Transfers/acct-1
+  33 main:2 published Bank/Transfers/acct-1 READY {"notice":""}
+  34 main:2 ended transfer att-000000000000000000006d61696e3a31-1 unknown Restored for Bank/Transfers/acct-1
+  35 main:2 delivered transfer att-000000000000000000006d61696e3a31-1 as Unsure to Bank/Transfers/acct-1
+  36 main:2 turn Bank/Transfers/acct-1 Unsure READY -> READY parts [on.Unsure[0] root -> self]
+  37 main:2 published Bank/Transfers/acct-1 READY {"notice":"check your statement"}
+  38 main:2 task work#1 timer/timer-000000000000000000006d61696e3a32-4 started
+  39 main:2 task work#2 timer/timer-000000000000000000006d61696e3a32-6 started
+  40 main:2 task work#3 wake started
+  41 main:2 task work#3 wake Done
+  42 main:2 task work#4 store started
+  43 main:2 write flush [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}, owed/Bank/Transfers/acct-1] landed
+  44 main:2 task work#4 store Done
+  45 main:2 task work#2 timer/timer-000000000000000000006d61696e3a32-6 Interrupted
+  46 main:2 step 6 checkpoint reloaded

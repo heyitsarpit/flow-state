@@ -31,6 +31,7 @@ import {
 } from "../../src/index.ts";
 import { countingHostTimers } from "./timers.ts";
 import { checked } from "../rules/rules.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 const endings = (evidence: StoryRun["evidence"]) =>
   evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
@@ -82,7 +83,7 @@ describe("Story", () => {
     const counting = runtimeSetup({
       app: bank,
       services: Layer.merge(
-        BankFake.pipe(Layer.provide(Fake.world)),
+        Layer.merge(BankFake.pipe(Layer.provide(Fake.world)), layerIndexedDb()),
         Layer.effectDiscard(Effect.sync(() => void setupBuilt++)),
       ),
       scope: "bank",

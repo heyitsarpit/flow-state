@@ -204,8 +204,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "              onSome: ({ code }) => rejected(code),",
-        replace: "              onSome: () => failed,",
+        find: "              onSome: ({ code }) => Effect.fail(rejected(code)),",
+        replace: "              onSome: () => Effect.fail(error),",
       },
     ],
   },
@@ -225,7 +225,7 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "hide-does-nothing",
-    tests: ["src/host/hidden.test.ts"],
+    tests: ["src/host/hidden.test.ts", "tests/transfers/visibility.test.ts"],
     says: "a hidden page's listener issues nothing, so marked records wait for the capture interval",
     rule: "WriteAhead T5",
     edits: [
@@ -238,7 +238,7 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "hide-waits",
-    tests: ["src/host/hidden.test.ts"],
+    tests: ["src/host/hidden.test.ts", "tests/transfers/visibility.test.ts"],
     says: "a hidden page's listener waits for the capture interval instead of issuing at once",
     rule: "WriteAhead T5",
     edits: [
@@ -247,6 +247,72 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
         find: "      if (!out && (tickets.length > 0 || marked || again.size > 0)) issue();\n    }),",
         replace:
           "      if (!out && (tickets.length > 0 || marked || again.size > 0))\n        wakeAt(clock.currentTimeMillisUnsafe() + options.captureMs);\n    }),",
+      },
+    ],
+  },
+  {
+    name: "idb-landed-on-complete",
+    tests: ["src/host/platform/indexeddb.test.ts"],
+    says: "the IndexedDB adapter answers a batch landed when its transaction completes, though a request failed",
+    rule: "WriteAhead R12",
+    edits: [
+      {
+        file: "src/host/platform/indexeddb.ts",
+        find: '        Option.match(failed, {\n          onSome: Effect.fail,\n          onNone: () =>\n            succeeded === requests.length\n              ? value()\n              : Effect.fail(new StoreRefused({ reason: "aborted" })),\n        }),',
+        replace: "        value(),",
+      },
+    ],
+  },
+  {
+    name: "idb-load-without-commit",
+    tests: ["src/host/platform/indexeddb.test.ts"],
+    says: "the IndexedDB adapter's load leaves its transaction to autocommit",
+    rule: "WriteAhead R12",
+    edits: [
+      {
+        file: "src/host/platform/indexeddb.ts",
+        find: "        return answerOf(tx, [keys, values], () =>",
+        replace:
+          "        return answerOf({ ...tx, commit: () => undefined }, [keys, values], () =>",
+      },
+    ],
+  },
+  {
+    name: "fake-store-drops-last-write",
+    tests: ["tests/restore/store-contract.test.ts"],
+    says: "the fake Store Layer drops the last write of every batch",
+    rule: "WriteAhead R12",
+    edits: [
+      {
+        file: "src/host/testing/fake.ts",
+        find: "                for (const w of batch)",
+        replace: "                for (const w of batch.slice(0, -1))",
+      },
+    ],
+  },
+  {
+    name: "hidden-refused-retried-at-once",
+    tests: ["src/host/hidden.test.ts", "tests/transfers/visibility.test.ts"],
+    says: "on a hidden page a refused batch's keys are captured again at once, in a loop",
+    rule: "WriteAhead R10",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "(again.size > 0 && due())",
+        replace: "(again.size > 0 && (due() || host.hidden()))",
+      },
+    ],
+  },
+  {
+    name: "hidden-held-marks-wait",
+    tests: ["src/host/hidden.test.ts", "tests/transfers/visibility.test.ts"],
+    says: "a hidden page's marks wait for the capture interval once a held batch answers",
+    rule: "WriteAhead I12",
+    edits: [
+      {
+        file: "src/host/edge.ts",
+        find: "(marked && (due() || host.hidden()))",
+        replace: "(marked && due())",
       },
     ],
   },
@@ -271,9 +337,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
-        find: "      if (writes.length === 0 || Option.isNone(host.store)) {",
-        replace:
-          "      if (carried.length > 0 || writes.length === 0 || Option.isNone(host.store)) {",
+        find: "      if (writes.length === 0) {",
+        replace: "      if (carried.length > 0 || writes.length === 0) {",
       },
     ],
   },

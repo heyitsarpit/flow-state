@@ -7,6 +7,7 @@ import { ReturnToMachine } from "./machines/return-to.ts";
 import { AuthSessionMachine } from "./machines/session.ts";
 import { TrustedDeviceMachine } from "./machines/trusted-device.ts";
 import { SessionBannerMachine } from "./machines/session-banner.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
  * The sign-in app: one machine.
@@ -77,6 +78,7 @@ export const authGrownSetup = runtimeSetup({
   services: Layer.mergeAll(
     AuthLive("https://auth.example"),
     ProfileLive("https://profile.example"),
+    layerIndexedDb(),
   ),
   scope: "auth",
   persistence: { captureMs: 0 },
@@ -115,6 +117,7 @@ export const authTrustedSetup = runtimeSetup({
   services: Layer.mergeAll(
     AuthLive("https://auth.example"),
     ProfileLive("https://profile.example"),
+    layerIndexedDb(),
   ),
   scope: "auth",
   persistence: { captureMs: 0 },
@@ -148,6 +151,7 @@ export const authBanneredSetup = runtimeSetup({
   services: Layer.mergeAll(
     AuthLive("https://auth.example"),
     ProfileLive("https://profile.example"),
+    layerIndexedDb(),
   ),
   scope: "auth",
   persistence: { captureMs: 0 },

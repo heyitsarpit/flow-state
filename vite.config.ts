@@ -51,8 +51,13 @@ const testsFromFixtures = {
   message: "A fixture imports no test or bench.",
 };
 const sourceFromFixtures = {
-  group: ["**/src/**", "!**/src/index.ts", "!**/src/host/testing/index.ts"],
-  message: "A fixture imports only the public entry and the test tooling.",
+  group: [
+    "**/src/**",
+    "!**/src/index.ts",
+    "!**/src/host/testing/index.ts",
+    "!**/src/host/persistence.ts",
+  ],
+  message: "A fixture imports only the public entry, the persistence route and the test tooling.",
 };
 const sourceFromTests = {
   group: [
@@ -249,6 +254,7 @@ export default defineConfig({
           `${productionSource}/flow.ts`,
           `${productionSource}/error.ts`,
           `${productionSource}/host/runtime.ts`,
+          `${productionSource}/host/setup.ts`,
           `${production}/fixtures/shop/**/*.ts`,
           `${production}/fixtures/services/shop/**/*.ts`,
         ],
@@ -270,9 +276,15 @@ export default defineConfig({
         rules: {
           "flow-state/no-json-stringify": "error",
           "flow-state/no-entropy": ["error", { except: ["src/host/platform"] }],
-          "flow-state/no-clock": ["error", { except: ["src/host/platform", "bench"] }],
-          "flow-state/no-timers": ["error", { except: ["src/host/platform", "bench"] }],
-          "flow-state/no-host-apis": ["error", { except: ["src/host"] }],
+          "flow-state/no-clock": [
+            "error",
+            { except: ["src/host/platform", "bench", "tests/browser"] },
+          ],
+          "flow-state/no-timers": [
+            "error",
+            { except: ["src/host/platform", "bench", "tests/browser"] },
+          ],
+          "flow-state/no-host-apis": ["error", { except: ["src/host", "tests/browser"] }],
           "flow-state/no-effect-runtime": [
             "error",
             { only: ["src"], except: ["src/host"], exceptTests: true },
@@ -369,7 +381,13 @@ export default defineConfig({
   },
   test: {
     include: stressRun ? [stressTests] : ["packages/**/*.test.ts"],
-    exclude: [...configDefaults.exclude, ...frozenTests, ...(stressRun ? [] : [stressTests])],
+    // The real-browser tests run only under tools/browser/vitest.config.ts (`nub run test:browser`).
+    exclude: [
+      ...configDefaults.exclude,
+      ...frozenTests,
+      `${production}/**/*.browser.test.ts`,
+      ...(stressRun ? [] : [stressTests]),
+    ],
     // Type tests (`*.test-d.ts`) run in the default suite: the package's tsc checks them, and an
     // exact `expectTypeOf` that fails is a failed test.
     typecheck: {

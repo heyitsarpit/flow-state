@@ -1,6 +1,8 @@
+import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { AppCommands } from "./adapters/commands.ts";
 import { PaletteMachine } from "./machines/palette.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
  * The palette app: one palette machine.
@@ -12,7 +14,7 @@ export const paletteApp = app({ id: "palette", machines: { palette: PaletteMachi
  */
 export const paletteSetup = runtimeSetup({
   app: paletteApp,
-  services: AppCommands,
+  services: Layer.merge(AppCommands, layerIndexedDb()),
   scope: "palette",
   persistence: { captureMs: 0 },
 });

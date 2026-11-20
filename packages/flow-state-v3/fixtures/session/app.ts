@@ -1,3 +1,4 @@
+import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { IdentityLive } from "./adapters/identity.ts";
 import { BadgeMachine } from "./machines/badge.ts";
@@ -18,6 +19,7 @@ import { OutlineMachine, PreviewMachine } from "./machines/outline.ts";
 import { DotMachine, PresenceMachine } from "./machines/presence.ts";
 import { BylineMachine } from "./machines/byline.ts";
 import { StatusMachine } from "./machines/status.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
  * The organisation every session belongs to unless its ref says otherwise.
@@ -84,9 +86,20 @@ export const workspace = app({
  */
 export const workspaceSetup = runtimeSetup({
   app: workspace,
-  services: IdentityLive("https://id.example"),
+  services: Layer.merge(IdentityLive("https://id.example"), layerIndexedDb()),
   scope: "workspace",
   persistence: { captureMs: 0 },
+});
+
+/**
+ * The workspace's setup at the default capture interval: a rename waits up to
+ * `RuntimeDefaults.captureInterval` before it is written, unless the page hides first.
+ */
+export const workspaceQuietSetup = runtimeSetup({
+  app: workspace,
+  services: Layer.merge(IdentityLive("https://id.example"), layerIndexedDb()),
+  scope: "workspace",
+  persistence: {},
 });
 
 /**
@@ -241,7 +254,7 @@ export const workspaceGrown = app({
  */
 export const workspaceGrownSetup = runtimeSetup({
   app: workspaceGrown,
-  services: IdentityLive("https://id.example"),
+  services: Layer.merge(IdentityLive("https://id.example"), layerIndexedDb()),
   scope: "workspace",
   persistence: { captureMs: 0 },
 });

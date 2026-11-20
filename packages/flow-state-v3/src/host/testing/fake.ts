@@ -13,7 +13,8 @@ import {
 } from "effect";
 import type { Fields, StructType } from "../../contract.ts";
 import type { Values } from "../../core/compiled.ts";
-import { type Bytes, type Purpose, type Store, StoreRefused } from "../host.ts";
+import { BatchFacts, type Purpose } from "../host.ts";
+import { Store, StoreRefused, StoreScope, type StoreWrite } from "../store.ts";
 import {
   type At,
   type Cleanup,
@@ -520,7 +521,7 @@ const issuedAs = { hold: "held", refuse: "refused" } as const;
 
 type Out = {
   readonly batch: Batch;
-  readonly writes: ReadonlyArray<Bytes>;
+  readonly writes: ReadonlyArray<StoreWrite>;
   readonly answer: Deferred.Deferred<void, StoreRefused>;
 };
 
@@ -563,7 +564,7 @@ export const makeStore = (
 ) => {
   const { data, next, loads, batches } = storeOf(from);
 
-  const apply = (writes: ReadonlyArray<Bytes>) => {
+  const apply = (writes: ReadonlyArray<StoreWrite>) => {
     for (const w of writes)
       Option.match(w.value, {
         onNone: () => data.delete(w.key),
@@ -582,8 +583,8 @@ export const makeStore = (
     save: () => storeOf({ data, next, loads, batches }),
     data: () => new Map(data),
     batches: () => batches.map((b) => b.batch),
-    // RETURN_TYPE: the Store contract a tab's Host carries.
-    at: (open: number): Store => ({
+    // RETURN_TYPE: the Store a tab's open writes to.
+    at: (open: number): Store["Service"] => ({
       load: Effect.suspend(() =>
         loads.shift() === undefined
           ? Option.match(seed, {
@@ -594,10 +595,10 @@ export const makeStore = (
                   Random.withSeed(`${given}:${open}`),
                 ),
             })
-          : Effect.fail(new StoreRefused({})),
+          : Effect.fail(new StoreRefused({ reason: "failed" })),
       ),
-      write: (writes, purpose, acknowledges) =>
-        Effect.suspend(() => {
+      write: (writes) =>
+        Effect.flatMap(Effect.service(BatchFacts), ({ purpose, acknowledges }) => {
           // A dead tab's fibers never run again, so this is unreachable; it writes nothing.
           if (!alive(open)) return Effect.never;
           const word = next.shift()?.word;
@@ -621,7 +622,9 @@ export const makeStore = (
 
           if (status === "held") return Deferred.await(answer);
 
-          return status === "refused" ? Effect.fail(new StoreRefused({})) : Effect.void;
+          return status === "refused"
+            ? Effect.fail(new StoreRefused({ reason: "failed" }))
+            : Effect.void;
         }),
     }),
     put: (key: string, text: string) => void data.set(key, text),
@@ -635,7 +638,7 @@ export const makeStore = (
 
       if (word === "refuseHeld") {
         mark(out, "refused");
-        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({})));
+        Deferred.doneUnsafe(out.answer, Exit.fail(new StoreRefused({ reason: "aborted" })));
 
         return;
       }
@@ -793,6 +796,36 @@ export const Fake = {
   ),
   Lost: FakeLost,
   storage: {
+    /**
+     * A fresh fake store as a `Store` Layer, outside a Story: each app and scope keeps its own
+     * records, which every later build of the same Layer loads, as a durable store's would. For
+     * `storeContract`, and for a setup's services in a test that builds the setup itself.
+     */
+    layer: () => {
+      const scopes = new Map<string, Map<string, Map<string, string>>>();
+
+      return Layer.effect(
+        Store,
+        Effect.map(Effect.service(StoreScope), ({ app, scope }) => {
+          const byScope = scopes.get(app) ?? new Map<string, Map<string, string>>();
+          const records = byScope.get(scope) ?? new Map<string, string>();
+          byScope.set(scope, records);
+          scopes.set(app, byScope);
+
+          return Store.of({
+            load: Effect.sync(() => new Map(records)),
+            write: (batch) =>
+              Effect.sync(() => {
+                for (const w of batch)
+                  Option.match(w.value, {
+                    onNone: () => records.delete(w.key),
+                    onSome: (value) => records.set(w.key, value),
+                  });
+              }),
+          });
+        }),
+      );
+    },
     hold: () => WorldWord.storage({ word: "hold" }),
     refuse: () => WorldWord.storage({ word: "refuse" }),
     release: () => WorldWord.storage({ word: "release" }),

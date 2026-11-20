@@ -111,6 +111,9 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
       });
     },
     BootFailed: () => setLife(Life.Failed()),
+    // Reported only: the boot waits on its load, since nothing bounds a wait on storage.
+    LoadSilent: () =>
+      tx.act(Act.Reported({ code: "StorageSilent", record: Option.none(), reason: "load" })),
     Ensure: ({ actor, use, start, wiring }) => incarnations.ensure(actor, use, start, wiring),
     Create: ({ actor, input: given }) => incarnations.create(actor, given),
     Serve: () => undefined,

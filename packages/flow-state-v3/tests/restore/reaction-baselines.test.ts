@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { Fake, Story } from "../../src/host/testing/index.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 // A counter whose count a badge hears; both are kept across reloads.
 const Counter = definition({
@@ -96,6 +97,7 @@ const setupOf = (badge: typeof FirstRelease) =>
         badge: { machine: badge, context: { count: actorRef(CounterMachine, "c") } },
       },
     }),
+    services: layerIndexedDb(),
     scope: "badges",
     persistence: { captureMs: 0 },
   });

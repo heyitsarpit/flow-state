@@ -1,6 +1,8 @@
+import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { ShopLive } from "../services/shop/adapters/shop.ts";
 import { CellsMachine } from "./machines/cells.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
  * The checkout app with Cells in place of Pay.
@@ -12,7 +14,7 @@ export const cellsShop = app({ id: "cells", machines: { pay: CellsMachine } });
  */
 export const cellsSetup = runtimeSetup({
   app: cellsShop,
-  services: ShopLive("https://shop.example"),
+  services: Layer.merge(ShopLive("https://shop.example"), layerIndexedDb()),
   scope: "cells",
   persistence: { captureMs: 0 },
 });

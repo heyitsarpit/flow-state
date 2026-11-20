@@ -1,4 +1,4 @@
-import { type Cause, Context, Data, type Effect, type Option } from "effect";
+import { type Cause, Context, type Option } from "effect";
 
 /**
  * Why the runtime writes a batch: to acknowledge an Attempt before its send, to capture a lane
@@ -7,37 +7,16 @@ import { type Cause, Context, Data, type Effect, type Option } from "effect";
 export type Purpose = "acknowledge" | "capture" | "flush";
 
 /**
- * One key's write in a batch: its new value, or `None` to remove it.
+ * What a batch the edge is writing is for: its purpose and the Attempts it acknowledges, provided
+ * around each Store write. A `Store` never needs it; Flow's own test store records it.
  */
-export type Bytes = { readonly key: string; readonly value: Option.Option<string> };
+export const BatchFacts = Context.Reference<{
+  readonly purpose: Purpose;
+  readonly acknowledges: ReadonlyArray<string>;
+}>("flow-state/BatchFacts", { defaultValue: () => ({ purpose: "flush", acknowledges: [] }) });
 
 /**
- * The store refused a batch, so nothing in it landed, or refused to load.
- */
-export class StoreRefused extends Data.TaggedError("StoreRefused")<Record<string, never>> {}
-
-/**
- * A scope's durable store as the runtime uses it: it loads every record at boot
- * and writes atomic batches.
- *
- * **Details**
- *
- * `load` fails `StoreRefused` when the scope cannot be read. `write` succeeds when the batch landed
- * and fails `StoreRefused` when it did not; an interrupted write is unanswered, as a hung store
- * is. `acknowledges` names the Attempts the batch acknowledges.
- */
-export type Store = {
-  readonly load: Effect.Effect<ReadonlyMap<string, string>, StoreRefused>;
-  readonly write: (
-    writes: ReadonlyArray<Bytes>,
-    purpose: Purpose,
-    acknowledges: ReadonlyArray<string>,
-  ) => Effect.Effect<void, StoreRefused>;
-};
-
-/**
- * The platform facts Effect has no service for: page visibility, the durable store and the boot's
- * entropy.
+ * The platform facts Effect has no service for: page visibility and the boot's entropy.
  *
  * **Details**
  *
@@ -58,7 +37,6 @@ export class Host extends Context.Service<
   {
     readonly hidden: () => boolean;
     readonly onHidden: (listener: () => void) => () => void;
-    readonly store: Option.Option<Store>;
     readonly sessionSeed: string;
     readonly freezeValues: boolean;
     readonly workClock: Option.Option<() => number>;

@@ -18,7 +18,8 @@ import type { TicketId } from "../core/world.ts";
 import { makeEdge } from "./edge.ts";
 import { makeOwner, OwnerRecord } from "./owners/owners.ts";
 import { type FlowError, RuntimeDefaults } from "../index.ts";
-import { Host, type Store, StoreRefused } from "./host.ts";
+import { Host } from "./host.ts";
+import { Store, StoreRefused } from "./store.ts";
 import type { Runtime } from "./runtime.ts";
 import {
   died,
@@ -44,16 +45,15 @@ import { platformOver } from "./testing/seam.ts";
 // A tab whose store writes never answer, each running `cleanup` once interrupted.
 const hungStoreTab = (cleanup: Effect.Effect<void, StoreRefused>) => {
   const tab = platformOver(new Map(), 1);
-  const host = Context.get(tab.platform, Host);
 
-  const store: Store = {
+  const store: Store["Service"] = {
     load: Effect.succeed(new Map<string, string>()),
     write: () => hung(cleanup),
   };
 
   return reporting({
     ...tab,
-    platform: Context.add(tab.platform, Host, Host.of({ ...host, store: Option.some(store) })),
+    platform: Context.add(tab.platform, Store, store),
   });
 };
 
@@ -75,7 +75,7 @@ const outcomes: ReadonlyArray<Outcome> = [
   { name: "is interrupted", cleanup: () => Effect.interrupt, failure: () => Option.none() },
 ];
 
-const storeRefused = new StoreRefused({});
+const storeRefused = new StoreRefused({ reason: "failed" });
 
 /**
  * A Runtime with one forked fiber of a kind on the wire, whose interrupt cleanup ends as the
@@ -761,6 +761,8 @@ describe("a store write interrupted at the close (Restore R10, Actors R23)", () 
 
     const edge = makeEdge(tab.platform, work, {
       captureMs: 0,
+      store: () =>
+        Store.of({ load: Effect.succeed(new Map()), write: () => hung(Effect.die(died)) }),
       capture: () => undefined,
       answered: (_, landed) => void answers.push(landed),
     });

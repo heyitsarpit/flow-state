@@ -35,6 +35,8 @@ export type Input = Data.TaggedEnum<{
   // The store's record texts, decoded by the core once; `None` when the store failed to load.
   Boot: { stored: Option.Option<ReadonlyMap<string, string>> };
   BootFailed: {};
+  // The boot's load is still unanswered at the storage silence default.
+  LoadSilent: {};
   Ensure: {
     actor: ActorId;
     use: Option.Option<Use>;

@@ -1,8 +1,9 @@
-import { Clock, Context, Data, Effect, Option, Schedule } from "effect";
+import { Clock, Context, Data, Effect, Schedule } from "effect";
 import { RuntimeDefaults } from "../core/defaults.ts";
 import { Due, type Marks, type Ticket, type TicketId, type Write } from "../core/world.ts";
 import { Ending, type Owner, sleepUntil } from "./owners/owners.ts";
-import { Host, type Platform, type Purpose } from "./host.ts";
+import { BatchFacts, Host, type Platform, type Purpose } from "./host.ts";
+import type { Store } from "./store.ts";
 
 /**
  * When the next plain batch is due: not at all, at an instant, or now.
@@ -46,6 +47,7 @@ export const makeEdge = (
   work: Owner,
   options: {
     readonly captureMs: number;
+    readonly store: () => Store["Service"];
     readonly capture: (tickets: ReadonlyArray<Ticket>, again: Marks) => void;
     readonly answered: (ticket: TicketId, landed: boolean) => void;
   },
@@ -79,14 +81,6 @@ export const makeEdge = (
     again = new Map();
     marked = false;
     wake = Wake.Idle();
-
-    // Without a store nothing is written: every ticket has what it waits for.
-    if (Option.isNone(host.store)) {
-      for (const t of carried) options.answered(t.id, true);
-
-      return;
-    }
-
     out = true;
     options.capture(carried, keys);
   };
@@ -94,7 +88,9 @@ export const makeEdge = (
   const pump = () => {
     if (out) return;
 
-    if (tickets.length > 0 || ((marked || again.size > 0) && (due() || host.hidden()))) issue();
+    // A hidden page issues new marks at once; a refused batch's keys wait for their retry.
+    if (tickets.length > 0 || (marked && (due() || host.hidden())) || (again.size > 0 && due()))
+      issue();
   };
 
   const wakeAt = (at: number) => {
@@ -170,7 +166,7 @@ export const makeEdge = (
     ) => {
       for (const ticket of refused) options.answered(ticket, false);
 
-      if (writes.length === 0 || Option.isNone(host.store)) {
+      if (writes.length === 0) {
         settle(carried, true);
 
         return;
@@ -183,11 +179,17 @@ export const makeEdge = (
 
       work.fork(
         "store",
-        host.store.value.write(
-          writes.map((w) => ({ key: w.key, value: w.record })),
-          purposeOf(carried),
-          carried.flatMap((t) => (t.purpose === "acknowledge" ? [t.attempt] : [])),
-        ),
+        options
+          .store()
+          .write(writes.map((w) => ({ key: w.key, value: w.record })))
+          .pipe(
+            Effect.provideService(BatchFacts, {
+              purpose: purposeOf(carried),
+              acknowledges: carried.flatMap((t) =>
+                t.purpose === "acknowledge" ? [t.attempt] : [],
+              ),
+            }),
+          ),
         (ending) =>
           Ending.$match(ending, {
             Done: () => answer(true),

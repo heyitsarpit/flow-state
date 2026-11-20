@@ -433,9 +433,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Diagnostics I5",
     edits: [
       {
-        file: "src/host/runtime.ts",
-        find: '                code: "Defect",\n                path: ["services"],',
-        replace: '                code: "ServiceFailed",\n                path: ["services"],',
+        file: "src/host/setup.ts",
+        find: '        code: "Defect",\n        path: ["services"],',
+        replace: '        code: "ServiceFailed",\n        path: ["services"],',
       },
     ],
   },

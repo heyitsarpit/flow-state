@@ -10,7 +10,7 @@ const showAs = (state: "hidden" | "visible") => {
 };
 
 describe("the page's visibility on the browser platform (WriteAhead R10, I12)", () => {
-  it.fails("WriteAhead R10: a visibilitychange to hidden reads hidden and calls the hidden listener at once", () => {
+  it("WriteAhead R10: a visibilitychange to hidden reads hidden and calls the hidden listener at once", () => {
     const host = Context.get(browserPlatform(), Host);
     const heard: Array<string> = [];
     const stop = host.onHidden(() => void heard.push("hidden"));
@@ -22,7 +22,7 @@ describe("the page's visibility on the browser platform (WriteAhead R10, I12)", 
     stop();
   });
 
-  it.fails("WriteAhead R10: a pagehide calls the hidden listener at once", () => {
+  it("WriteAhead R10: a pagehide calls the hidden listener at once", () => {
     const host = Context.get(browserPlatform(), Host);
     const heard: Array<string> = [];
     const stop = host.onHidden(() => void heard.push("hidden"));
@@ -31,6 +31,19 @@ describe("the page's visibility on the browser platform (WriteAhead R10, I12)", 
     stop();
 
     expect(heard).toEqual(["hidden"]);
+  });
+
+  it("WriteAhead R10: a visibilitychange to hidden and then to visible calls the hidden listener once", () => {
+    const host = Context.get(browserPlatform(), Host);
+    const heard: Array<string> = [];
+    const stop = host.onHidden(() => void heard.push("hidden"));
+
+    showAs("hidden");
+    showAs("visible");
+    stop();
+
+    expect(heard).toEqual(["hidden"]);
+    expect(host.hidden()).toBe(false);
   });
 
   it("WriteAhead R10: a hidden listener stopped before the page hides hears nothing (a guard for the listening platform)", () => {

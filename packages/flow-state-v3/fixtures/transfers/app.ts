@@ -7,6 +7,7 @@ import { CustomerMachine } from "./machines/customer.ts";
 import { AccountSwitcherMachine } from "./machines/account-switcher.ts";
 import { TransferFormMachine } from "./machines/transfer-form.ts";
 import { StandingOrderMachine } from "./machines/standing-order.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
  * The bank app: one machine.
@@ -19,7 +20,7 @@ export const bank = app({ id: "bank", machines: { transfers: TransfersMachine } 
  */
 export const bankSetup = runtimeSetup({
   app: bank,
-  services: BankLive("https://bank.example"),
+  services: Layer.merge(BankLive("https://bank.example"), layerIndexedDb()),
   scope: "bank",
   persistence: { captureMs: 0 },
 });
@@ -80,6 +81,7 @@ export const bankGrownSetup = runtimeSetup({
   services: Layer.mergeAll(
     BankLive("https://bank.example"),
     AccountsLive("https://accounts.example"),
+    layerIndexedDb(),
   ),
   scope: "bank",
   persistence: { captureMs: 0 },
@@ -118,9 +120,25 @@ export const bankPlannedSetup = runtimeSetup({
   services: Layer.mergeAll(
     BankLive("https://bank.example"),
     AccountsLive("https://accounts.example"),
+    layerIndexedDb(),
   ),
   scope: "bank",
   persistence: { captureMs: 0 },
+});
+
+/**
+ * The planned bank app's setup at the default capture interval: plain memory waits up to
+ * `RuntimeDefaults.captureInterval` before it is written, unless the page hides first.
+ */
+export const bankPlannedQuietSetup = runtimeSetup({
+  app: bankPlanned,
+  services: Layer.mergeAll(
+    BankLive("https://bank.example"),
+    AccountsLive("https://accounts.example"),
+    layerIndexedDb(),
+  ),
+  scope: "bank",
+  persistence: {},
 });
 
 /**
@@ -147,6 +165,7 @@ export const bankSwitchingSetup = runtimeSetup({
   services: Layer.mergeAll(
     BankLive("https://bank.example"),
     AccountsLive("https://accounts.example"),
+    layerIndexedDb(),
   ),
   scope: "bank",
   persistence: { captureMs: 0 },
