@@ -1298,3 +1298,7 @@ note 2026-11-20T13:02:55Z
     Breakdown review applied by R48 (orchestrator): T109 owns fragment lifecycle (T110 now the .each fan-out); new T113
     typed machine, T114 run verdict, T115 server data, T116 Next.js host; T97 takes test tooling, T112 every Fake;
     decoding to T92; T98 first in P5; streams before entities.
+
+note 2026-11-20T13:04:38Z
+    Decisions (the user, 2026-11-20): Firefox is not a target (Package O4 and the P6, P8, P10 Tasks updated); the
+    breakdown review's phase moves are approved (P5's Fake and Story words into P4, T98 first in P5).

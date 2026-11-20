@@ -88,8 +88,8 @@ outcomes
         render, Hydrate first render without mismatch, reload restore, reconnect, disposal, scope isolation and a second
         tab running without persistence.
 
-        Chromium, Gecko and WebKit, at the versions the pinned harness supplies, run its React lifetimes, real
-        IndexedDB, reloads and hydration.
+        Chromium and WebKit (Chrome and Safari), at the versions installed, run its React lifetimes, real IndexedDB,
+        reloads and hydration; Gecko (Firefox) is not a target (the user, 2026-11-20).
 
         Small and medium consumers compile with strict checking, isolatedModules and isolated declarations, and packed
         execution proves each route, including no-React and React 18 and 19 installs. Every build stage gate runs these
@@ -105,7 +105,7 @@ decisions
 constraints
     C1  Portable bytes
         Identity, key and structural codecs use ECMAScript and Web APIs (TextEncoder), never Node Buffer or UTF-16
-        counts. Equal accepted data gives equal bytes on Node, Bun, Deno, Chromium, Gecko and WebKit; limits belong
+        counts. Equal accepted data gives equal bytes on Node, Bun, Deno, Chromium and WebKit; limits belong
         to @plan.Inspection.O2.
     C2  Generated output
         dist, declarations and docs come from pinned build scripts, never hand edits.
@@ -118,4 +118,4 @@ verification
     V3  Codec vectors give equal bytes on every listed host; removed configuration fields throw
         InvalidConfiguration before any side effect.
     V4  Packed Dispatch Desk passes its Next.js, isolation, reload, uncertainty and second-tab gates
-        in Chromium, Gecko and WebKit.
+        in Chromium and WebKit.

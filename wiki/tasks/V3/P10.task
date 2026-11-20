@@ -90,4 +90,4 @@ tasks
             - **Stops:** each ship stage; the published name.
         acceptance
             - The packed-consumer check passes on the exact tarball; each requested stage done.
-            - @plan.Package.O4's proofs hold: Dispatch Desk against the tarball, the Next.js host proofs and Gecko.
+            - @plan.Package.O4's proofs hold: Dispatch Desk against the tarball, and the Next.js host proofs.
