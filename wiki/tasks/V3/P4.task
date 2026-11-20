@@ -4197,6 +4197,27 @@ tasks
             statements (each now a plant or a bound); the duplicate refusal helper (refusals.ts takes a projection); the
             stale snapshot.test-d.ts title. Rejected: a satisfies-wrapped binding and a (a?.b).c(x) callee (no site;
             edge only).
+        comment     2026-11-20T03:31:14Z
+            Fix-round review (47f4af60, 84e31e6f): PASS, no blocking finding. Checked at 204c3a87. Suite exit 0 (1604
+            passed, 25 expected fail); nub run check 0; paired-refusals plant test passes (36 in fires, 44 quiet). No
+            new faults.ts plants and no stress Stories changed, so faults and stress were not re-run.
+              - paired-refusals: a refused key now pairs only on a chain rooted at its callee, or a binding or alias of
+                a call to it. 11 sites sampled across endings, machine, tokens, evidence, contract and excess-keys type
+                tests. Each pairs with a positive of the same callee's parameter or result: an alias of its parameter
+                (PayEndings), a binding of another call to it (contract.test-d.ts:272), or the parent key's parameter
+                (plant 44's ruled shape). That is the rule as stated, not a loosening: another object's member (36, and
+                the four new firing plants) fires.
+              - Scope or persistence alone reports MissingField with the shared help, tested both ways
+                (surface.test.ts). I49 is scoped to R28's sites with disposal's oldest-ready order. Restore R5 and
+                Stories R12 no longer describe a refused fresh start. No outside imports, temporary names or re-created
+                Effect features.
+              - Noted, not blocking: paired-refusals finds owners three ways (bindingOf, a declarator's callee, an
+                alias's path), each with its own match; tests/refusals.ts names a local type Diagnostic, the same name
+                as the exported class.
+              - Sidecars (4 Haiku, high; blind Spec, cohesion, lint sites, context). Accepted: the site sample, after
+                reading contract.test-d.ts:259-277 and tokens.test-d.ts:49-62 myself. Rejected: boot wake order taken
+                from a Map (incarnations.ts:488); R28 names its sites, and the order is minted when each identity
+                starts. Also rejected: comments on internal helpers, which follow the package's existing convention.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
@@ -4515,6 +4536,43 @@ tasks
             dead directive above when removed; the fact in two doc comments (machine.ts copy dropped); R22's Why and
             Reverse. Rejected: the never-typed Decoded seam (erased, cast at erasedWhen); fixtures that ignore previous
             (no select of theirs can fail). Routed to the user: the Machines Plan text.
+        comment     2026-11-20T03:31:27Z
+            Fix-round review (99025ff4, 49d5eafb): PASS, no blocking finding. Checked at 204c3a87. Suite exit 0 (1604
+            passed, 25 expected fail); nub run check 0. faults --only on 7 plants caught 7, each by its own test:
+            equal-value-reads-dropped, baseline-by-place, duplicate-reaction-accepted, first-value-skips-when,
+            first-value-declined, first-value-after-none-silent, declined-change-sent. No stress Stories or
+            sweeps changed.
+              - Turn R22 (Q1 A): the alert traces hold (calm 0, failed then calm 0, failed then urgent 1), and the
+                no-when first value fires (context.test.ts:649). A scratch probe of fail, ok, fail, ok gave no-when
+                [0,1,1,2], and a when declining the first value [0,0,0,1]. previous: number | undefined is
+                two-sided (context.test-d.ts:157).
+              - First round: a select that runs for an equal value keeps its new reads (probe: 5 selects for 5 read
+                changes, then one event per real change). Format 4 keys baselines by slot, then event. The reorder, add
+                and remove Stories restore each reaction's own baseline. Format 3's step falls back to last-seen when
+                the frame count differs (stepThree).
+              - The Compile R19 duplicate refusal removes nothing a product needs: two whens on one slot and event join
+                with ||. Different payloads per direction need two events, since a mapper sees only the current value.
+                Stale sites: only Machines.plan:705, plus the dated proposal kept as prior art.
+              - For the user's read: previous is undefined both with no earlier value and after an earlier undefined, if
+                the slot's own values include undefined (probe: when(2, undefined) after 2, undefined, 2). No fixture
+                puts a when on such a slot. when gets true values, and the author can select a tagged value instead. A
+                change would take previous as Option<V> or refuse a when on such slots. Recommended: keep the ChangeSpec
+                note, since Q1 A chose the type.
+              - Routed, outside the fix rounds (since the build): a slot added or renamed by a later release has no
+                last-seen value, so on reload a reaction with no when fires once (probe: bumped 1 to 2). R22 says a
+                reload restore sets a silent baseline, and Restore R5 says nothing about new slots. Missing coverage: no
+                Story reloads a record saved before its slot existed.
+              - Noted, not blocking: the duplicate key is the string slot.event, so dotted names can be falsely refused
+                (machine.ts:186). A reaction already refused still takes its name, so a later valid twin also reports
+                DuplicateReaction. Compile I18 omits uniqueness. Restore R5's count-mismatch sentence reads as if it
+                covered format 4.
+              - Sidecars (4 Haiku, high; blind Spec, cohesion, lint sites, context). Each probe was re-run by me.
+                Accepted: the previous ambiguity (for the user) and the added slot (routed). Changed: the duplicate key
+                and I18 to notes. Rejected:
+                - an event rename losing a kept baseline: R5 treats it as a remove plus an add;
+                - format-3 frames by index: pre-existing and test-only;
+                - a format-3 missing frame making up an event: a count mismatch steps to last-seen;
+                - comments on internal helpers: the package convention.
 
     T109
         title       Fragments: traits, .each copies, nesting, .resumable() and subject paths (slice 3c)
