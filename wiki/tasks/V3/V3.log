@@ -1362,3 +1362,7 @@ note 2026-11-20T16:30:02Z
     Decision (the user, 2026-11-20): Fable (high, Haiku sidecars) designs five concepts from the current code, old Specs
     superseded: typed machine, fragments, saved records, reads and operations, data layer; proposals under
     wiki/plans/flow/references/proposals/spec-*-2026-11-20.md, each with development and testing strategy and a handoff.
+
+note 2026-11-20T16:56:58Z
+    Decisions (the user, 2026-11-20): Q1 A mappers take (value, { input, key }); Q2 A schedules declared on the
+    definition; Q3 A the designs' Task changes; Q4 A issues derived everywhere. Flow.keyed removal proposed.
