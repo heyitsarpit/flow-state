@@ -19,8 +19,6 @@ transaction facts, child trees, issues, receipts, and pending work.
 
 Use the app-bound harness when the proof depends on exact app ownership,
 resource seeds, fixture names, or the same service assembly used by production.
-The maintained recipes keep these tests under each package's `src/testing`
-directory.
 
 ## `test.model(machine)`
 
@@ -32,15 +30,9 @@ proof.
 ## Stories and CLI
 
 Declare stories in `src/app/behavior.ts`, export one `BehaviorGateway`, and run
-them through the installed `flow-state` bin. The root acceptance matrix executes
-every declared story for the five maintained recipes, so a story that requires
-an unavailable service or missing seed fails the release gate.
+them through the installed `flow-state` bin.
 
 ## React and browser tests
 
-Use happy-dom for focused component rendering and interaction. Use the
-package-owned Incident Console Playwright suite for real HTTP/SSE journeys and
-installed Chromium behavior; root `nub run test:browser` only delegates to it.
-
-Current evidence is indexed by `examples/FEATURE_COVERAGE.md` and summarized on
-[Current Status](/reference/status).
+Use happy-dom for focused component rendering and interaction. A consuming
+application owns its browser and network acceptance tests.

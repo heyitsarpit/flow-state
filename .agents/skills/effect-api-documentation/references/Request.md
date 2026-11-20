@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Request` API](https://www.effect.website/docs/v4/api/effect/Request). Examples assume `import { Effect, Request } from "effect"`.
 
+`Request` is a typed data value describing one lookup or operation that can execute directly or be handled by a `RequestResolver`.
+
 ## API index
 
 1. [Request.tagged](#requesttagged)
@@ -35,7 +37,7 @@ const request = GetUser({ id: "user-1" });
 Creates a class base for request values. Subclasses call `super` with their data fields, which keeps class-based domain requests compatible with the resolver protocol without adding a tag automatically.
 
 ```ts
-class GetUser extends Request.Class<{ readonly id: number }, string, Error> {
+class GetUser extends Request.Class<{ id: number }, string, Error> {
   constructor(readonly id: number) {
     super({ id })
   }
@@ -50,7 +52,7 @@ Defines a class-based request with a fixed tag and typed fields for domain model
 
 ```ts
 class GetUserById extends Request.TaggedClass("GetUserById")<
-  { readonly id: string },
+  { id: string },
   string,
   Error
 > {}

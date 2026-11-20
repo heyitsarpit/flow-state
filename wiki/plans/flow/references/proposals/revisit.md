@@ -1,0 +1,193 @@
+# Revisit
+
+Deferred items.
+
+- **Refresh the reference apps** (2026-11-15, the user; link audit of `checkout/` and `dispatch-desk/`). Both
+  predate the Plans: `ensure` and `useActorByRef` with input, `signal` in contexts, no `services:`, persistence
+  `version`, `actorRef(..., { persist })`, the cut `orphaned` handler, `outcomes` with `NotSent` under `failure:`,
+  stale `tools/cli.ts`, and docs citing the deleted design. `typecheck/standin/` is stale too, so a passing type
+  check proves little. Fits P6's example apps; until then the P2 card links only the parts still current.
+
+- **Story matchers** (2026-11-01, [merged/story-checks/decisions.md](../explorations/machine-fragments/merged/story-checks/decisions.md) C4): `toHaveLane`, `toHaveRecord` and `toBeIn` in a `flow-state/vitest` entry point. Add them if real failure messages feel weak: a matcher receives the checkpoint, so it can report the checkpoint, the step and the lanes that exist. `toBeIn` keeps "at or below this state" for parent states. They build on the checkpoint reads, so nothing blocks adding them later.
+- **Other mocking libraries** (2026-11-01, [merged/story-checks/decisions.md](../explorations/machine-fragments/merged/story-checks/decisions.md) W15): MSW handlers can run behind a Flow-owned gate through `getResponse`. A Node prototype on MSW 2.15 took 0 host tasks, kept runs isolated, and supported hold and a lost answer. `setupServer` collides between instances, and MSW's `delay` uses real time. Not run on Flow.
+- **Fake additions with no case yet** (2026-11-01, [merged/story-checks/fakes-review-1.md](../explorations/machine-fragments/merged/story-checks/fakes-review-1.md)): a server-level `pushes` observer (reopen if the desk's conversion shows forgotten pushes), a `closed` handler on `Fake.stream` (presence only so far), `release({ take: n })`, a duplex client half, `message` on `Fake.stream` (back with the first duplex fake), `Fake.response(body, init)` for an app's own `FetchHttpClient.Fetch` Layer, deriving a route table from `HttpApi`.
+- **Dev and demo servers** (2026-11-01): a `Fake` server cannot run behind the real app in a browser, so the desk's `app/demo-api.ts` is separate and has already drifted. Out of scope for now.
+- **Streams' fallback to trimmed v2** (2026-11-01, S15; design section 7 item 23): if a fourth High in how the bookmark ties to memory turns up in real code, fall back rather than add private state. 2.10.9 and the Stories record's section 11 would then need revising.
+- **A private clear mark on a stream** (2026-11-01, [merged/streams/proposal-v3.md](../explorations/machine-fragments/merged/streams/proposal-v3.md) section 10): cut; cleared items can return, visibly, after a later message and a wipe (design 2.11.8). Reopen if apps need more than the `clearedBefore` recipe.
+- **`bufferSize` on a stream** (2026-11-01, [merged/streams/proposal-v3.md](../explorations/machine-fragments/merged/streams/proposal-v3.md)): cut; the bound is a fixed 1,024. Bring it back as a rare option if a real source's bursts need another bound.
+- **From amended Stories** (2026-11-01, [merged/story-checks/stories-amended.md](../explorations/machine-fragments/merged/story-checks/stories-amended.md) section 9): a `Generate` module, if sample arrays prove too verbose for `propertyTest`'s steps; `headers` on `Fake.stream`, with the first SSE adapter that checks a content type; a `Fake.client(Stripe, (server) => layer)` carrying metadata, if `describe` must list fakes behind a Layer.
+- **Noticing a wiped origin** (2026-11-03, [round 8 RESULTS](../../../../../packages/flow-state-v3/prototypes/round-8/RESULTS.md)): Chrome can delete an origin's IndexedDB at a later open. A `localStorage` flag, "this origin has had a boot", against an empty database would let a host say so and hold back a first send. Proposed, not built. Business keys are the answer for money regardless.
+- **A "you are being let go" signal to an actor** (2026-11-07, [actor-lifetime/proposal-v6.md](actor-lifetime/proposal-v6.md)): one event a shared actor could handle when its last use ends, so it can commit a debounced draft, tell a lifted parent to stop, or cancel a step that needs the user. Not needed for correctness under the on-screen rule plus lifting up (screen-dependent work lives in the screen's state; data lives in entity domains). Reopen if real apps keep needing a message on the way out; it is new API.
+- **`concurrency: "allow"`** (2026-11-07, cut from v1 by the user in the design catch-up's label round, U5; [change-list.md](design-catch-up/change-list.md) E76; the prototype's D19). Prior art, as the design had it (OD20 F9): a lane is a set of independent Attempts, each following the `cancel` table's rows for itself (invoked, storage refused, dispose, rebind, restore included); its state is a count, `outstanding`, `pending` is `outstanding > 0`, and each Attempt has its own `HeldThisTurn` for its own ending's turn. Nothing holds. `retry`, `retryable`, `retryCount` and `progress` exist only key-less in an ending's own handler, naming that ending's Attempt (rule N2); the row is `{ key, pending, outstanding }`, with no `uncertain` or `waiting`. Operations O3 said "allow starts every commit independently and delivers every outcome in settlement order". Why cut: three corpus uses (nudge, presence, roster), written for coverage and never built in rounds 1-13; `presence` fits `cancel`, a nudge is `reject` with its own key, and a call that needs its own status takes its own key. Reopen if a real app needs every press sent with no hold and no per-call key; adding it back is one lane column.
+- **`orphaned`** (2026-11-07, moved here by the user in the design catch-up's label round, U4; [change-list.md](design-catch-up/change-list.md) E75; the prototype's D20, D88). Prior art, the design's P19 (Persistence O5): a write lane whose operation is gone, or whose key no longer decodes under the contract's key Schema, survives in a version-independent record; after ready it goes to its contract's `orphaned` handler, `orphaned: ({ attempt, retry }) => retry(attempt)`, outside any actor (which may `retry` or invalidate), or else surfaces as an issue; delivery is at least once, so the adapter must be idempotent; an orphaned retry has no actor, so its ending is evidence only. It was also where key-equality adoption sent a recorded path the placement could not produce. It was the one Attempt-argument retry left (design section 7, item 16, now closed). Replaced by quarantine (rule 46): the lane keeps its id and hold, a commit on its key declines `Rejected`, the record stays, `cancel` on that key clears it. Reopen if releases that drop an operation or change a key without a `previous` entry turn out common enough to need a handler outside the actor.
+- **Manual, app-wide and function-based record migration** (2026-11-09, the user's Q1 decision, [MIGRATION-QUESTIONS.md](../../../../../packages/flow-state-v3/prototypes/round-14/MIGRATION-QUESTIONS.md); design OD54 (1)). Not taken: a manual `version` on each definition, one app-wide version (TanStack Query's buster), `previous` on the definition with typed `to` steps (option B), and a version number with an untyped `migrate` over the encoded record (option C). Today an incompatible saved shape resets that definition's records at the boot, writes in flight kept. Reopen if apps need to carry memory across a state rename, a field rename or a merge of fields; option B's text is the prior art.
+- **An old identity's unknown hold has no user exit** (2026-11-09, design OD54 (7), stated limit). After a release changes a value-named machine's identity fields, the old identity's hold is re-keyed to `key#identityTag` and kept: no `cancel` reaches another identity version's lane, no ensure can adopt it, and `forget` keeps every hold whose operation exists. It ends only by its own ending. Reopen with a case: an identity route (`previous` for identities, or `forget` dropping it with evidence).
+- **A memory field rename is a drop plus an add** (2026-11-09, design OD54, stated limit). Compatible under the saved-shape rule: the new field takes its default and the old value is lost but for `FieldDropped`. A changed default is not in the version either.
+- **Records with no shape stamp never reset** (2026-11-09, design OD54, stated limit). Records written before Flow record format 4 decode field by field and are quarantined if they do not read; the first release with the stamp cannot judge the one before it. Lanes written before format 3 carry no contract or identity stamp, are found by name and bound to any identity of their name.
+- **`flow explain --since` across a release chain** (2026-11-09, design OD54 (a), open). It compares two compiled releases, but a record carries the shape of the release that last wrote it: r1, r2, then r3 reverting r2 prints "restores" where the boot resets. Production must keep the deployed release's compiled data, or read the stamps.
+- **Shape stamps across a Flow version-format bump** (2026-11-09, design OD54 (b), open). Saved shapes are compared raw; R7's by-format reading covers identity and key stamps only. Latent while one format exists.
+- **A revert after the new identity overwrote the old-version record** (2026-11-09, design OD54 (c), open). As built, release 2's ensure of the new identity of the same name text writes its record over release 1's old-version record (one record key), so a release 3 that reverts sees one unsure lane, not two; rule 74 names only `forget` as the removal.
+- **A re-keyed lane is saved only on its next write** (2026-11-09, design OD54 (d), open). Q17's identity tag and an operation rename are persisted once the lane is written (its ending admitted or the actor saved); until then the disk holds it under its old id. Related: a crash between the batch that writes a moved lane and the one that deletes the old leaves both on disk (OD54 (e)).
+- **`allOrNothing` on a multi-record write** (2026-11-08, design OD52, 2.8.14). Not added: a write that touches several records is not declared atomic, and a partial landing is judged per record. Reopen if a real source offers atomic multi-row writes that apps need Flow to treat as one doubt.
+- **A collection-wide version** (2026-11-09, design OD53 (19), OD52 (g)). No spelling: the judge and `guarded` compare per record, and an adapter with only a table-wide value copies it onto each row. Reopen if a real source versions whole collections and the per-row copy proves wrong.
+- **A CI probe for `GuardContradicted`** (2026-11-09, design OD52's stated limits, stage A close-out m3). The tripwire under-detects across a reload (a restored Attempt is never a first send) and is never a verification. A probe would run a `guarded` contract's adapter against a real server in CI, sending a stale base on purpose, and fail when the server accepts it. Reopen when the first real `guarded` adapter exists.
+- **Phase 3 carry list: design items the prototype never built** (2026-11-09, stage A close-out m7, m8, B3). A plan merge that takes the prototype as the main truth must mark these unproven. Not built: LIFE-19, LIFE-20, LIFE-25, LIFE-26, J, `ScheduleLeadsToWrite`, the context half of `ConflictingActorRef` (C160), the restored quiet mark's `fields` (rule 38), "two placements of one writing fragment" under `SharedContract` (the compiled table carries one op set per fragment), the `SharedContract` warning for `key: []` on a placement whose path is not empty (rule 51), and rule 13's "`byReason` keys must be Flow's reasons" for keys outside Flow's own reasons (a commit's unknown tags are in its type, which the prototype's fixtures erase; production types `outcomes` so its keys are the commit's unknown tags or Flow's reasons). Weak cases (the rule exists, the case is thin): C202 eviction by last write against creation order; C168's restore after a crash before the removal ack; C166's live-admission throw on the live path; C184's message content; jitter determinism outside replay; rule 70's wait per operation; harness excuses per actor rather than per lane (M2 item 16, M1 finding 6). The full list with evidence is in round 14's STATUS.md, "Carried to the phase 3 conformance rewrite".
+- **Mint order of disposal endings** (2026-11-10, V3 T6, deferred). The old mutant `1b.disposal-definite-w-first`
+  expects a definite head's ending before its queue's NotSent { Disposed }. No Invariant states that order, and
+  WriteLanes I21 orders cancelAll the other way, so it stays unported; adding one would be a guarantee change.
+- **`.each` `max`** (2026-11-11, fixture catalogue 5B, Plan gap 1). Machines.O1 names it, but going over it has no rule.
+- **`.each` `by`** (2026-11-11, catalogue 5B, gap 2). Machines.O1 names it, but its meaning is not stated; the
+  reference apps use it as the item's key field.
+- **A frozen trait's `resetOn`** (2026-11-11, catalogue 5B, gap 3). The Plan does not say whether it runs while frozen
+  or at thaw; the dispatch-desk panels assume a reset at return.
+- **A raise into a trait the same transition enters or thaws** (2026-11-11, catalogue 5B, gap 4). Undecided; the
+  dispatch-desk panels comment says so.
+- **A raise into a `.each` copy the same turn removes** (2026-11-11, catalogue 5B, gap 5). Not covered by the rule on
+  raises into exited fragments.
+- **KeyRequired for a key-less member on a keyed operation** (2026-11-12, T51 step-1 review ruling 4;
+  proposed). WriteLanes R9 refuses a key-less retry, retryable or cancel on a keyed operation outside its own
+  ending's handler; `src/` builds no such check. Not T51's; revisit when a fixture has a keyed operation.
+- **The reason an untagged error gets** (2026-11-12, T51 completion check; proposed). `reasonOf` gives `Error` for
+  any untagged value (`flow.ts:97`); no Spec rule names it. State it in the Turn or WriteLanes Spec.
+- **A Recapturing head held at disposal keeps `inFlight: true` on disk** (2026-11-12, T51 completion check, item 10;
+  proposed). `lane-moves.ts:219` does not re-persist it, so the next boot wakes the identity eagerly where Actors R22
+  says Held on disk. Delivery is unchanged; low severity.
+- **Actors I29 and R22 disagree on a never-sent head's lane at disposal** (2026-11-12, T51 re-check; proposed).
+  Reconcile in @spec.Actors before T9 builds disposal further.
+- **The capture window in the core** (2026-11-12, consult round 2 B2, round 3; deferred by the orchestrator). A core
+  timer and `Input.Hidden` would make batch boundaries deterministic, but add a dirty set per scope to the World
+  and change the crash gate's points. Revisit after T55, when the final write is already in the core.
+- **Concept clean of the suite** (2026-11-14, the user; deferred). Groups B, C, D and G of
+  self-contained-audit-2026-11-14.md (deleted; git before 27ff910e): Task owners and slices in the suite
+  (and the Epic's "routed gaps are owed checks" rule they serve), comment citations of records, process names
+  (liar, pilot, replan, lab, carried, frozen) and the README's stale paths. The prototype adapters are not touched;
+  T53 deletes them. Groups A, E and F (outside reads and imports) are @task.V3.T59, held the same way: much later,
+  once the project is built out, or when the user says so.
+- **The suite's second-order checks** (2026-11-14, the user; cut from @task.V3.T60). From
+  suite-convergence-2026-11-14.md (deleted; git before 27ff910e): mutation of the suite's own judging code,
+  per-gate universe ledgers, one excuse registry, a counted ledger of unknowns, and the Conformance.spec rule for
+  excusing production's known reds. Revisit if holes keep appearing after T60's planted-fault sweep, or once T54
+  removes most owed rows.
+- **An owed item's `fact`** (2026-11-14, T60 building lead; decided, owed to the later suite work). An item with
+  no Attempt is `{ subject, step }`, not the design's `{ lane, step, fact }`: no owed script has two breaks on one
+  subject in one step today, so the step pins the break. Add the fact once a sweep plants a second break there.
+  Reverse: add `fact` to `OwedItem.Item` and the engine's `excuse` call. Edit (agent: T60 building lead,
+  @task.V3.T60, 2026-11-14): this entry. Why: close review R2. Reverse: revert this commit.
+- **Hole-finding scripts** (2026-11-14, the user; not built). A planted-fault sweep over all cases, a metamorphic
+  sweep (renamed ids, reordered fields, changed seeds), a per-gate inventory diff, a records and code lint (Edit
+  labels, open owners, outside reads, temporary strings, throws in `src/`), and a requirements-map check. Build the
+  matching one only if reviews after T60 keep finding suite-machinery holes; the records lint first if review time
+  stays high.
+- **The varied belief's gaps** (2026-11-14, T61 builder; t61-second-half-review-2026-11-14.md N6). The varied
+  belief parks lookup endings after a dispose (Actors I41 closes them). It replays parked endings after a forget
+  (R21 closes them), and it gives a released actor no grace (R8). They change only which steps are drawn, never a
+  verdict. Fixing them regenerates every varied script and its owed rows, so it waits for the next re-triage
+  (T19 or T54 turning rows green).
+- **Bounded enumeration of move sequences** (2026-11-14, the user; suite-leverage-survey-2026-11-14.md item 6).
+  Every move sequence to depth 3 or 4 per pilot, through a chooser in place of the generator's random draw.
+- **`trace.ts` reads `Date.now`** (2026-11-14, T61 builder; t61-close-review-2026-11-14.md O4).
+  `code:packages/flow-state-v3/conformance/runner/trace.ts#tracedScenario` sets its case deadline with `Date.now`;
+  it should read `Clock`, as `run.ts` does.
+- **Unreached refusal cells default to T18** (2026-11-14, T61 builder; t61-close-review-2026-11-14.md O5).
+  `code:packages/flow-state-v3/conformance/parts/model-owes.ts#suiteOwner`'s last branch sends any other unforgeable
+  cell to T18 instead of failing. Today all 16 cells match an area; a new cell should fail until it is owned.
+- **Core-mutant triage keyed by line number** (2026-11-15, assumption study). `core-mutants-triage.ts` matches a
+  row by file, line and replacement text, so every core edit re-keys it by hand. Key it on the mutated text plus
+  its enclosing function, and make `mutate` report candidates beyond `--limit`.
+- **Generator write batching** (2026-11-15, T54 A2 ruling; owed to @task.V3.T15).
+  Edit (agent: T54 building lead, @task.V3.T54, 2026-11-15): owners per the A2 review. Why: PART-cells-stress-101
+  clears under the retry fix, so it is T19's; the batching gap is suite machinery. Reverse: revert A3's first commit.
+  The belief opens a commit's request at the next ack, but a commit written while a batch is out opens one ack
+  later, so PART-cells-varied-112 stays thin (`code:packages/flow-state-v3/conformance/parts/owed.ts#thinPinned`).
+  Also owed to T15: `thinFaults` never checks that a pin's owner is open; the belief hears a lost answer parked
+  while detached twice at the next start; `heldBy` is not cleared beside `unsure`; and the dropped report's reach
+  of the stoppable interrupted step end (pinned in `adversary.test.ts`). Prior art: a one-batch-in-flight model,
+  tried and reverted in A2 (thin 2 to 3, a usual script among them).
+- **`cancelAll`** (2026-11-12, the user, wide consult W1 K0; deferred). Neither reference app uses it. If it returns,
+  K1 (its own member, typed only on queuing policies) over K2 (`cancel(key, { queued: true })`).
+- **Cross-tab sync** (2026-11-16, the user;
+  [ui-primitives-decisions-2026-11-16.md](ui-primitives-decisions-2026-11-16.md) Q7). Stays out of version 1
+  (@plan.FlowState.C2, @plan.Persistence.O7); the recommendations there are recorded, not merged. Uses: theme and
+  preferences, sign-out, a cart badge, unread counts, feature flags. Interim convention: host code sends user changes
+  out with `emit` and `actor.onEmit`, takes another tab's in with `send` of a Schema-decoded event, and only user
+  events emit, so nothing echoes. Prior art: TanStack Query's `broadcastQueryClient`.
+- **Rebuild the docs' guides from `wiki/conventions/`** (2026-11-16, the user; `conventions-2026-11-16.md` decision 4).
+  `apps/docs/src/pages/guide/patterns.md` and `recipes.md` teach the old API (`flow.after`, `submit`, `useResource`);
+  leave them until the API the conventions use is built, then rebuild each guide from its page.
+- **`Git/sync` 4xx case and sign-in's mix seat** (2026-11-17, @plan.Pending.D21). A 4xx that is not a rate limit ends
+  `sync` at once, which changes the old `Git/sync` contract; sign-in's grown samples need a sixth mix part. No owner
+  until a Task changes `Git/sync` or seats more mix parts.
+- **An identity's state as one union** (2026-11-17, @task.V3.T79; the first code-quality review's 2c). Live, Resting
+  and Ended are today "which of `incarnations`, `records`, `ended` holds the key", read by `snapshotIn` alone. One
+  `identities: Map<key, Live | Resting | Ended>` would make the state a variant, but every step operation, the World
+  indexes and T85's Capture read those maps; revisit once Capture has settled the record path, so one rewrite serves
+  both.
+- **An incarnation's activations as a chain of `{ path, activation }`** (2026-11-17, @task.V3.T79; that review's 2k).
+  `activations` is positional beside `chainOf(state)`; the length arithmetic sits in `serve.ts` turn and its owner
+  lookup. Worth it only with a Turn change that touches the chain (Turn R20, R21); alone it moves risk without a
+  failing case.
+
+- **A prover module offered by Flow** (2026-11-17, the user; [prover-ideas-2026-11-17.md](prover-ideas-2026-11-17.md)).
+  Properties in `*.props.ts` files, proved or refuted over machines and apps; ideas only, not in scope now.
+- **Owed rows' ending kind as a tagged union** (2026-11-17, orchestrator; deferred). Review 1's 2b of
+  code-quality-review-2026-11-16.md: a type refactor across nine row-making sites, not Capture work; T85 left rows
+  encoded as before. Revisit when a Task next changes how owed rows are made.
+- **New test kinds: metamorphic relations and Schema-derived values** (2026-11-18, the user; after
+  [test-efficacy-2026-11-18.md](test-efficacy-2026-11-18.md)). Bug classes nobody planted, no hand-written expected
+  result, about one extra run each. Metamorphic: two runs that must agree, over every fixture and generated Story: a
+  reload at a quiet point changes nothing after it (restore); `advance(a + b)` equals `advance(a)` then `advance(b)`
+  (timers); swapping two independent actors' events keeps each one's result (shared state, context); a fake answering
+  at once or late gives the same endings when no timer depends on it (lane order); persisted and in-memory runs give
+  the same endings. Values: Effect's `Arbitrary` from each app's own Schemas through encode, decode, `send` and a save
+  and restore, back equal or refused with a FlowError (codec and value shapes, 6 of 34 past bugs). Later: generation
+  that keeps a seed only when it reaches a new state and phase pair, which also ends the 955-seed `auth-session` tail.
+  Not a reference model of the core (the Epic forbids one) and no recorded output. Trial when picked up: one small
+  Task, three or four relations and the Schema properties on transfers and session, kept only if they catch what the
+  suite misses.
+- **Construction leftovers after one Schema decode** (2026-11-18, orchestrator; @task.V3.T81's close review). Casts
+  where definitions pass literal types through; the decoded config value unused; the state tree walked twice; the
+  contract-id and key rules run at two scopes; the reaction shape, `FlowError.code` and per-call input lookup. Worth it
+  when a Task next changes construction, so one rewrite covers them.
+- **Nested extra keys in a sent payload** (2026-11-18, @task.V3.T81's close review). `send` keeps only declared
+  top-level fields; a nested object passes through as given, which Actors R14 allows. A full decode strips both but
+  cost palette stress about 8x; revisit if a nested extra key ever reaches a handler that saves it.
+- **Bench and faults runner on Effect's process and CLI modules** (2026-11-18, the user; both together or neither).
+  `bench/workers.ts`, `bench/worker.ts`, `bench/machine.ts`, `tools/faults/group.ts` and its test hand-roll `spawn`
+  with `detached`, group kills, `setTimeout` watchdogs and signal handlers (about 700 lines), the source of T87's
+  orphans and T90's stray processes. `ChildProcess` and `ChildProcessSpawner` with `NodeServices.layer` tie a process to
+  a Scope, so it dies on scope close, timeout, interrupt or error (process-group fixes in 4.0.7). The same change moves
+  the hand-rolled `parseArgs` in `bench/options.ts`, `bench/backfill.ts` and `tools/faults/` onto `effect/cli`, as
+  `src/host/cli/main.ts` already is. Both modules are unstable; the faults runner runs under bun, unchecked against the
+  Node platform layer. Pick up only when either tool next needs a fix; not while the current code works.
+- **`module-composer`, a layers-and-rings package** (2026-11-18, the user: not adopted, "its value to me is dubious").
+  `Layer(name, enter)` with a catch-all, `Checked<typeof X>` brands, `X.is` for object layers and type-level
+  composition proofs; code at `/Users/arpit/Developer/workflow/module-composer`, its Opus review in `REVIEW-opus.md`
+  there (25 bugs, 19 from the deep `Origin` walk). Replaced by Effect Schema, small Flow-side wrappers and lint
+  ([replan-2026-11-18.md](replan-2026-11-18.md) section 1). Reopen if Flow's own wrappers and the surface test keep
+  missing a source across Tasks.
+- **A per-definition type brand on tokens** (2026-11-18, the user: re-plan Q3 A; @task.V3.T81's ruling c). Tokens
+  would carry their definition's `id` literal as a phantom type, so another definition's guard, action or event is a
+  type error, not only the run-time ForeignToken refusal `machine()` gives (built, by `WeakSet` membership). Not built:
+  correctness is met at run time, and every token type would change. Reopen if foreign tokens show up in real apps
+  often enough that a type error would save the round trip.
+- **The capture edge's state as one union** (2026-11-19, P3's close-out, low).
+  code:packages/flow-state-v3/src/host/edge.ts keeps `marked`, `tickets`, `again` and `out` as loose fields beside its `Wake` union, so "a batch out" and "marks
+  waiting" are combined by hand in `pump` and `onHidden`. Reopen when the edge is next changed (T28's adapters, T58).
+- **The faults runner's leftovers** (2026-11-19, P3's close fix round; review items A17, A107 to A110 in
+  code:wiki/tasks/V3/P3-routing.md). In code:tools/faults/run.ts and code:tools/faults/group.ts: a spawn error (vp
+  or cwd missing) leaves `runGrouped` pending forever under bun; `String(chunk)` can split a UTF-8 character
+  (use `setEncoding`); `unchangedWhole` counts a run with no summary as finished; group.test's timeout case never
+  asserts the sleepers' pids; the unchanged run's red names can be dropped from what it prints. Reopen when the
+  runner is next changed.
+- **Abstraction audit** (2026-11-20, the user: run only when the user asks; it costs a lot and building comes first).
+  One Opus lead over the whole of `packages/flow-state-v3/src/` at a commit: each Effect or platform feature wrapped by
+  one abstraction and never re-created or called raw elsewhere; each abstraction pattern (tokens, builders, codecs,
+  fakes, run rules) reused rather than rolled again; overlapping wrappers and wrappers that hide nothing. Findings
+  feed a convergence pass. Last run: never. The orchestrator never starts it; it reports it as pending at a phase's
+  close-out.
+- **Structural rules on machines** (2026-11-20, the user). `terminals` was adopted into the rules proposal. Not
+  adopted: where an action may be taken, last drafted as `allowed: { Name: { actions: [O.pay.commit, O.pay.retry],
+  in: [S.CARD, S.UNSURE] } }`, proved per handler over the states it can fire in (root handlers and late endings
+  included, state guards narrowing); on the shop's Pay it would flag the root `PayRequested` committing in any state.
+  Earlier drafts (`never`, `outside`, `does`, `effects`) read as double negatives. And `reachable`, which the
+  built-in unreachable-state warning and rule coverage already cover. Reopen with several real machines in hand.

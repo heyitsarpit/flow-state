@@ -3,6 +3,8 @@
 **Unstable API.** Import this module from `effect/unstable/persistence/PersistedQueue`.
 The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/unstable/persistence/PersistedQueue) is useful for orientation, but the local pinned source is authoritative when it differs. The local checkout currently identifies the package as `effect@4.0.0-beta.98`.
 
+`PersistedQueue` stores schema-encoded work items in a durable queue so they can survive process restarts and be retried after failure.
+
 ## API index
 
 1. [make](#make)
@@ -15,7 +17,7 @@ The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/un
 
 ### Additional known APIs (not expanded)
 
-`TypeId`, `PersistedQueueFactory`, `makeFactory`, `PersistedQueueError`, `ErrorTypeId`, `makeStoreRedis`, `makeStoreSql`
+`TypeId`, `PersistedQueueFactory`, `makeFactory`, `PersistedQueueError`, `ErrorTypeId`, `makeStoreRedis`, `makeStoreSql`, `isDeadLetterCause`
 
 ### [make](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/persistence/PersistedQueue.ts:121)
 
@@ -97,3 +99,7 @@ import * as PersistedQueue from "effect/unstable/persistence/PersistedQueue"
 
 const factoryLayer = PersistedQueue.layer
 ```
+
+### Changes since 4.0.5
+
+- `offer` takes `deduplicate?: "untilExecuted" | "untilRemoved"` (4.1.3, #10316); Redis lock format changed in 4.1.0.

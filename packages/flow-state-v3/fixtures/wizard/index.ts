@@ -1,0 +1,32 @@
+import { Option } from "effect";
+import { benchTurn, manifest } from "../manifest.ts";
+import { wizardApp, wizardSetup } from "./app.ts";
+import { manyBookings, quoteOf, seededStress } from "./stories/load.ts";
+import { samples } from "./stories/samples.ts";
+import { stories } from "./stories/usual.ts";
+
+/**
+ * The wizard fixture, as every runner reads it.
+ */
+export const wizard = manifest({
+  name: "wizard",
+  setup: wizardSetup,
+  app: wizardApp,
+  stories: { ...stories, manyBookings, seededStress },
+  samples: [samples],
+  stressSamples: [samples],
+  long: Option.none(),
+  savedStress: { story: seededStress, seed: 36 },
+  mix: Option.some({ usual: samples, stress: samples }),
+  pairs: [
+    {
+      samples,
+      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+    },
+  ],
+  bench: {
+    probe: (n) => quoteOf(n),
+    persist: Option.some(() => stories.usual),
+    stories: [benchTurn(() => stories.extendBurst)],
+  },
+});

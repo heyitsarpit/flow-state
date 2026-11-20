@@ -42,6 +42,8 @@ export function createFlowTestRuntimeBoot(
         currentTimeMillis: Effect.sync(currentTimeMillisUnsafe),
         currentTimeNanosUnsafe,
         currentTimeNanos: Effect.sync(currentTimeNanosUnsafe),
+        monotonicTimeNanosUnsafe: () => testClock.monotonicTimeNanosUnsafe(),
+        monotonicTimeNanos: testClock.monotonicTimeNanos,
         sleep: (duration: Parameters<typeof testClock.sleep>[0]) => testClock.sleep(duration),
         adjust: (duration: Parameters<typeof testClock.adjust>[0]) => testClock.adjust(duration),
         setTime: (timestamp: number) => testClock.setTime(timestamp),

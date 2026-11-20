@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Queue` API](https://www.effect.website/docs/v4/api/effect/Queue). Examples assume `import { Effect, Fiber, Queue } from "effect"`.
 
+`Queue` coordinates producers and consumers through effectful offering and taking, with capacity, backpressure, shutdown, and failure semantics.
+
 ## API index
 
 1. [Queue.Queue](#queuequeue)
@@ -264,3 +266,7 @@ console.log(yield* Queue.isFull(queue)); // false
 yield* Queue.offerAll(queue, [1, 2]);
 console.log(yield* Queue.isFull(queue)); // true
 ```
+
+### Changes since 4.0.5
+
+- `sliding(0)` wakes waiting takers; zero-capacity bounded and dropping queues refuse offers with no taker (4.1.3, #10312, #10354).

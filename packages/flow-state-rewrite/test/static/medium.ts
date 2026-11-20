@@ -1,0 +1,628 @@
+import { Context, Effect, Result, Stream, type Types } from "effect";
+
+import type {
+  EventOf,
+  Implementation as ImplementationType,
+  InputOf,
+  MemoryOf,
+  RequirementsOf,
+  StateOf,
+} from "../../src/index.js";
+import { actorRef } from "../../src/runtime/actor-ref.js";
+import {
+  makeActorIdentityRegistry,
+  type ActorContextSnapshot,
+  type ActorFence,
+  type ActorIdentity,
+  type ActorKey,
+  type LocalActorIdentity,
+} from "../../src/runtime/actor-admission.js";
+import type {
+  ContextBinding,
+  ContextProjection,
+  ContextSelection,
+  ContextWave,
+  PassiveObserver,
+  ProviderRevisionVector,
+} from "../../src/runtime/context-wave.js";
+import {
+  Diagnostic,
+  Implementation,
+  app,
+  definition,
+  machine,
+  module,
+  resource,
+  stream,
+  transaction,
+} from "../../src/index.js";
+
+// This medium consumer exercises exact inference across definitions, operations, apps, and implementations.
+
+type Expect<Value extends true> = Value;
+
+type PublicDiagnostic = ReturnType<typeof Diagnostic.Failure>;
+
+type ResultSuccess<Value> = Value extends Result.Result<infer Success, unknown> ? Success : never;
+
+const resultSuccess = <Value>(result: Result.Result<Value, PublicDiagnostic>) => {
+  if (Result.isFailure(result)) throw result.failure;
+
+  return result.success;
+};
+
+type ImplementationOutput<Value> =
+  Value extends ImplementationType<infer Output, infer _Error, infer _Requirements>
+    ? Output
+    : never;
+
+type ImplementationError<Value> =
+  Value extends ImplementationType<infer _Output, infer Error, infer _Requirements> ? Error : never;
+
+type ImplementationRequirements<Value> =
+  Value extends ImplementationType<infer _Output, infer _Error, infer Requirements>
+    ? Requirements
+    : never;
+
+type Project = { id: string; title: string };
+
+type ProjectInput = { projectId: string };
+
+type AuditRecord = { projectId: string; action: "save" };
+
+class ProjectRepo extends Context.Service<
+  ProjectRepo,
+  { find: (id: string) => Effect.Effect<Project> }
+>()("StaticHarness/ProjectRepo") {}
+
+class AuditSink extends Context.Service<
+  AuditSink,
+  { write: (record: AuditRecord) => Effect.Effect<void> }
+>()("StaticHarness/AuditSink") {}
+
+class ProjectFeed extends Context.Service<
+  ProjectFeed,
+  { watch: (id: string) => Stream.Stream<Project> }
+>()("StaticHarness/ProjectFeed") {}
+
+const projectResource = resource({
+  id: "static/projects.by-id",
+  key: ({ projectId }: ProjectInput) => [projectId] as const,
+  // RETURN_TYPE: Preserves ProjectRepo and the missing channel in the medium provider proof.
+  lookup: (
+    { projectId }: ProjectInput,
+    { signal }: { signal: AbortSignal },
+  ): Effect.Effect<Project, "missing", ProjectRepo> => {
+    void signal;
+
+    return Effect.succeed({ id: projectId, title: "example" });
+  },
+});
+
+const saveProject = transaction({
+  id: "static/projects.save",
+  key: ({ projectId }: ProjectInput) => [projectId] as const,
+  // RETURN_TYPE: Preserves AuditSink and the rejected channel in the medium provider proof.
+  commit: (
+    { projectId }: ProjectInput,
+    { signal }: { signal: AbortSignal },
+  ): Effect.Effect<Project, "rejected", AuditSink> => {
+    void signal;
+
+    return Effect.succeed({ id: projectId, title: "saved" });
+  },
+});
+
+const projectUpdates = stream({
+  id: "static/projects.updates",
+  key: ({ projectId }: ProjectInput) => [projectId] as const,
+  // RETURN_TYPE: Preserves ProjectFeed and the offline channel in the medium provider proof.
+  subscribe: (
+    { projectId }: ProjectInput,
+    { signal }: { signal: AbortSignal },
+  ): Stream.Stream<Project, "offline", ProjectFeed> => {
+    void signal;
+
+    return Stream.make({ id: projectId, title: "update" });
+  },
+});
+
+const EditorResult = definition({
+  id: "static/editor",
+  states: ["idle", { ready: ["open", "closed"] }],
+  events: {
+    opened: (projectId: string) => ({ projectId }),
+    closed: "bare",
+  },
+  operations: {
+    project: projectResource,
+    save: saveProject,
+    updates: projectUpdates,
+  },
+  memory: ({ input }: { input: ProjectInput }) => ({
+    projectId: input.projectId,
+    dirty: false,
+  }),
+});
+
+const Editor = resultSuccess(EditorResult);
+
+const editorMachine = resultSuccess(
+  machine(EditorResult, ({ S, E, O }) => {
+    void E.opened;
+    void O.project;
+
+    return {
+      default: S.idle,
+      states: {
+        idle: {
+          on: { opened: { target: S.ready.S.open } },
+        },
+        ready: {
+          default: S.ready.S.open,
+          states: {
+            open: {
+              on: { closed: S.ready.S.closed },
+            },
+            closed: {},
+          },
+        },
+      },
+    };
+  }),
+);
+
+const EditorInput: InputOf<typeof Editor> = { projectId: "project-1" };
+
+const EditorMemory: MemoryOf<typeof Editor> = { projectId: "project-1", dirty: false };
+
+const EditorEvent: EventOf<typeof Editor> = resultSuccess(Editor.E.opened("project-1"));
+
+const EditorState: StateOf<typeof Editor> = Editor.S.ready.S.open;
+
+void EditorInput;
+
+void EditorMemory;
+
+void EditorEvent;
+
+void EditorState;
+
+type CorrelatedLeftInput = { leftId: string };
+
+type CorrelatedRightInput = { rightCount: number };
+
+const correlatedLeftDescriptor = resource({
+  id: "static/correlated.left",
+  key: ({ leftId }: CorrelatedLeftInput) => [leftId] as const,
+  lookup: ({ leftId }: CorrelatedLeftInput) => Effect.succeed({ id: leftId, title: "left" }),
+});
+
+const correlatedRightDescriptor = transaction({
+  id: "static/correlated.right",
+  key: ({ rightCount }: CorrelatedRightInput) => [rightCount] as const,
+  commit: ({ rightCount }: CorrelatedRightInput) =>
+    Effect.succeed({ id: String(rightCount), title: "right" }),
+});
+
+const CorrelatedLeftResult = definition({
+  id: "static/correlated-left",
+  states: ["idle", "open"],
+  events: { opened: (leftId: string) => ({ leftId }) },
+  operations: { left: correlatedLeftDescriptor },
+});
+
+const CorrelatedLeft = resultSuccess(CorrelatedLeftResult);
+
+const correlatedLeftMachine = resultSuccess(
+  machine(CorrelatedLeftResult, ({ S }) => ({
+    default: S.idle,
+    states: { idle: {}, open: {} },
+  })),
+);
+
+const CorrelatedRightResult = definition({
+  id: "static/correlated-right",
+  states: ["waiting", "complete"],
+  events: { completed: (rightCount: number) => ({ rightCount }) },
+  context: {
+    leftState: CorrelatedLeft.select(({ state }) => state),
+  },
+  operations: { right: correlatedRightDescriptor },
+});
+
+const CorrelatedRight = resultSuccess(CorrelatedRightResult);
+
+const correlatedRightMachine = resultSuccess(
+  machine(CorrelatedRightResult, ({ S }) => ({
+    default: S.waiting,
+    states: { waiting: {}, complete: {} },
+  })),
+);
+
+const correlatedRegistry = makeActorIdentityRegistry();
+
+const correlatedLeftRef = actorRef(correlatedLeftMachine, "correlated-left");
+
+const correlatedRightRef = actorRef(correlatedRightMachine, "correlated-right");
+
+const correlatedLeftIdentity = resultSuccess(correlatedRegistry.reserveStable(correlatedLeftRef));
+
+const correlatedRightIdentity = resultSuccess(correlatedRegistry.reserveStable(correlatedRightRef));
+
+const correlatedBinding = {
+  consumer: correlatedRightIdentity.key,
+  consumerIncarnation: correlatedRightIdentity.incarnation,
+  slot: "leftState",
+  provider: correlatedLeftRef,
+  providerFence: {
+    key: correlatedLeftIdentity.key,
+    incarnation: correlatedLeftIdentity.incarnation,
+    generation: 0,
+    leaseEpoch: correlatedLeftIdentity.leaseEpoch,
+  },
+  select: ({ state }: ActorContextSnapshot<typeof CorrelatedLeft>) => state,
+} satisfies ContextBinding<typeof CorrelatedRight, typeof CorrelatedLeft, "leftState">;
+
+const correlatedLeftEvent: EventOf<typeof CorrelatedLeft> = resultSuccess(
+  CorrelatedLeft.E.opened("left-1"),
+);
+
+const correlatedRightEvent: EventOf<typeof CorrelatedRight> = resultSuccess(
+  CorrelatedRight.E.completed(1),
+);
+
+const correlatedLeftState = CorrelatedLeft.S.open;
+
+const correlatedRightState = CorrelatedRight.S.complete;
+
+const correlatedLeftKey: ReturnType<typeof correlatedLeftDescriptor.key> =
+  correlatedLeftDescriptor.key({ leftId: "left-1" });
+
+const correlatedRightKey: ReturnType<typeof correlatedRightDescriptor.key> =
+  correlatedRightDescriptor.key({ rightCount: 1 });
+
+const correlatedLeftOperation = CorrelatedLeft.operations.left;
+
+const correlatedRightOperation = CorrelatedRight.operations.right;
+
+const correlatedContextValue = correlatedLeftState satisfies ContextSelection<
+  typeof CorrelatedRight,
+  typeof CorrelatedLeft,
+  "leftState"
+>["value"];
+
+// @ts-expect-error Correlated events retain their machine identity.
+const mixedCorrelatedEvent: EventOf<typeof CorrelatedRight> = correlatedLeftEvent;
+
+// @ts-expect-error Correlated states retain their machine identity.
+const mixedCorrelatedState: StateOf<typeof CorrelatedRight> = correlatedLeftState;
+
+// @ts-expect-error Descriptor keys retain their input correlation.
+const mixedCorrelatedKey: ReturnType<typeof correlatedRightDescriptor.key> = correlatedLeftKey;
+
+// @ts-expect-error Correlated operation descriptors retain their operation-family/input identity.
+const mixedCorrelatedOperation: typeof correlatedRightOperation = correlatedLeftOperation;
+
+// @ts-expect-error Context values retain the selected provider machine identity.
+const mixedCorrelatedContextValue: ContextSelection<
+  typeof CorrelatedRight,
+  typeof CorrelatedLeft,
+  "leftState"
+>["value"] = correlatedRightState;
+
+const mixedCorrelatedBinding: ContextBinding<
+  typeof CorrelatedRight,
+  typeof CorrelatedLeft,
+  "leftState"
+> = {
+  ...correlatedBinding,
+  // @ts-expect-error Context bindings cannot cross their provider machine boundary.
+  provider: correlatedRightRef,
+};
+
+export type CorrelatedMachineProofs = [
+  Expect<Types.Equals<typeof correlatedLeftEvent, EventOf<typeof CorrelatedLeft>>>,
+  Expect<Types.Equals<typeof correlatedRightEvent, EventOf<typeof CorrelatedRight>>>,
+  Expect<Types.Equals<typeof correlatedLeftState, typeof CorrelatedLeft.S.open>>,
+  Expect<Types.Equals<typeof correlatedRightState, typeof CorrelatedRight.S.complete>>,
+  Expect<Types.Equals<typeof correlatedLeftKey, [string]>>,
+  Expect<Types.Equals<typeof correlatedRightKey, [number]>>,
+  Expect<Types.Equals<typeof correlatedLeftOperation, typeof correlatedLeftDescriptor>>,
+  Expect<Types.Equals<typeof correlatedRightOperation, typeof correlatedRightDescriptor>>,
+  Expect<Types.Equals<(typeof correlatedBinding)["slot"], "leftState">>,
+  Expect<
+    Types.Equals<
+      (typeof correlatedBinding)["select"],
+      ContextBinding<typeof CorrelatedRight, typeof CorrelatedLeft, "leftState">["select"]
+    >
+  >,
+];
+
+void mixedCorrelatedEvent;
+
+void mixedCorrelatedState;
+
+void mixedCorrelatedKey;
+
+void mixedCorrelatedOperation;
+
+void correlatedContextValue;
+
+void mixedCorrelatedContextValue;
+
+void mixedCorrelatedBinding;
+
+const makeLeafMachine = <const Id extends string>(id: Id) => {
+  const currentResult = definition({
+    id,
+    states: ["ready"],
+    events: { refresh: "bare" },
+    operations: { project: projectResource, updates: projectUpdates },
+  });
+
+  return resultSuccess(
+    machine(currentResult, ({ S, E }) => ({
+      default: S.ready,
+      on: { refresh: S.ready },
+      states: { ready: { timers: { refresh: { delay: 250, target: E.refresh } } } },
+    })),
+  );
+};
+
+const Viewer = makeLeafMachine("static/viewer");
+
+const Dashboard = makeLeafMachine("static/dashboard");
+
+const Reports = makeLeafMachine("static/reports");
+
+const Importer = makeLeafMachine("static/importer");
+
+const Exporter = makeLeafMachine("static/exporter");
+
+const EditorModule = module({ id: "static/editor-module", machines: { editor: editorMachine } });
+
+const ViewerModule = module({ id: "static/viewer-module", machines: { viewer: Viewer } });
+
+const DashboardModule = module({
+  id: "static/dashboard-module",
+  machines: { dashboard: Dashboard },
+});
+
+const ReportsModule = module({ id: "static/reports-module", machines: { reports: Reports } });
+
+const ImporterModule = module({ id: "static/importer-module", machines: { importer: Importer } });
+
+const ExporterModule = module({ id: "static/exporter-module", machines: { exporter: Exporter } });
+
+const StaticApp = app({
+  id: "static-app",
+  persistenceVersion: "1",
+  modules: [
+    EditorModule,
+    ViewerModule,
+    DashboardModule,
+    ReportsModule,
+    ImporterModule,
+    ExporterModule,
+  ],
+});
+
+const staticActorRegistry = makeActorIdentityRegistry();
+
+const staticStableRef = actorRef(editorMachine, "static-editor");
+
+const staticStableIdentity = staticActorRegistry.reserveStable(staticStableRef);
+
+const staticLocalIdentity = staticActorRegistry.createLocal(editorMachine);
+
+export type ActorIdentityProofs = [
+  Expect<Types.Equals<ResultSuccess<typeof staticStableIdentity>, ActorIdentity<typeof Editor>>>,
+  Expect<
+    Types.Equals<ResultSuccess<typeof staticLocalIdentity>, LocalActorIdentity<typeof Editor>>
+  >,
+  Expect<
+    Types.Equals<
+      ResultSuccess<typeof staticStableIdentity>["ref"]["machine"],
+      typeof staticStableRef.machine
+    >
+  >,
+];
+
+const staticContextProviderResult = definition({
+  id: "static/context-provider",
+  states: ["ready"],
+  events: {},
+});
+
+const StaticContextProvider = resultSuccess(staticContextProviderResult);
+
+const staticContextProviderMachine = resultSuccess(
+  machine(staticContextProviderResult, ({ S }) => ({
+    default: S.ready,
+    states: { ready: {} },
+  })),
+);
+
+const staticContextConsumerResult = definition({
+  id: "static/context-consumer",
+  states: ["ready"],
+  events: {},
+  context: {
+    selected: StaticContextProvider.select(({ state }) => state),
+  },
+});
+
+const StaticContextConsumer = resultSuccess(staticContextConsumerResult);
+
+const staticContextConsumerMachine = resultSuccess(
+  machine(staticContextConsumerResult, ({ S }) => ({
+    default: S.ready,
+    states: { ready: {} },
+  })),
+);
+
+const staticContextRegistry = makeActorIdentityRegistry();
+
+const staticContextProviderRef = actorRef(staticContextProviderMachine, "static-provider");
+
+const staticContextConsumerRef = actorRef(staticContextConsumerMachine, "static-consumer");
+
+const staticContextProviderIdentity = resultSuccess(
+  staticContextRegistry.reserveStable(staticContextProviderRef),
+);
+
+const staticContextConsumerIdentity = resultSuccess(
+  staticContextRegistry.reserveStable(staticContextConsumerRef),
+);
+
+const staticContextFence: ActorFence = {
+  key: staticContextProviderIdentity.key,
+  incarnation: staticContextProviderIdentity.incarnation,
+  generation: 0,
+  leaseEpoch: staticContextProviderIdentity.leaseEpoch,
+};
+
+const staticContextBinding = {
+  consumer: staticContextConsumerIdentity.key,
+  consumerIncarnation: staticContextConsumerIdentity.incarnation,
+  slot: "selected",
+  provider: staticContextProviderRef,
+  providerFence: staticContextFence,
+  select: ({ state }: ActorContextSnapshot<typeof StaticContextProvider>) => state,
+} satisfies ContextBinding<typeof StaticContextConsumer, typeof StaticContextProvider, "selected">;
+
+const staticContextSnapshot: ActorContextSnapshot<typeof StaticContextProvider> = {
+  state: StaticContextProvider.S.ready,
+  memory: {},
+  context: {},
+};
+
+export type ContextProofs = [
+  Expect<Types.Equals<(typeof staticContextBinding)["slot"], "selected">>,
+  Expect<
+    Types.Equals<
+      (typeof staticContextBinding)["select"],
+      ContextBinding<
+        typeof StaticContextConsumer,
+        typeof StaticContextProvider,
+        "selected"
+      >["select"]
+    >
+  >,
+  Expect<
+    Types.Equals<typeof staticContextSnapshot, ActorContextSnapshot<typeof StaticContextProvider>>
+  >,
+  Expect<
+    Types.Equals<
+      ContextSelection<
+        typeof StaticContextConsumer,
+        typeof StaticContextProvider,
+        "selected"
+      >["value"],
+      StateOf<typeof StaticContextProvider>
+    >
+  >,
+  Expect<Types.Equals<ContextProjection<typeof StaticContextConsumer>["consumer"], ActorKey>>,
+  Expect<Types.Equals<ContextWave["providerRevision"], ProviderRevisionVector>>,
+  Expect<Types.Equals<PassiveObserver<ActorKey>["dependencies"], () => ActorKey[]>>,
+];
+
+void staticContextBinding;
+
+void staticContextSnapshot;
+
+const repoImplementation = Implementation.succeed(ProjectRepo, {
+  find: (id: string) => Effect.succeed({ id, title: "loaded" }),
+});
+
+const auditAcquire: Effect.Effect<
+  { write: (record: AuditRecord) => Effect.Effect<void> },
+  "configuration-failed",
+  ProjectRepo
+> = Effect.succeed({ write: (_record: AuditRecord) => Effect.succeed(undefined) });
+
+const auditImplementation = Implementation.effect(AuditSink, auditAcquire);
+
+const feedAcquire: Effect.Effect<
+  { watch: (id: string) => Stream.Stream<Project> },
+  "feed-unavailable",
+  ProjectRepo
+> = Effect.succeed({ watch: (id: string) => Stream.make({ id, title: "watched" }) });
+
+const feedImplementation = Implementation.effect(ProjectFeed, feedAcquire);
+
+const staticImplementation = Implementation.merge(
+  Implementation.merge(repoImplementation, auditImplementation),
+  feedImplementation,
+);
+
+export type DefinitionProofs = [
+  Expect<Types.Equals<InputOf<typeof Editor>, ProjectInput>>,
+  Expect<Types.Equals<MemoryOf<typeof Editor>, { projectId: string; dirty: boolean }>>,
+  Expect<
+    Types.Equals<
+      EventOf<typeof Editor>,
+      | ResultSuccess<ReturnType<typeof Editor.E.opened>>
+      | ResultSuccess<ReturnType<typeof Editor.E.closed>>
+    >
+  >,
+  Expect<
+    Types.Equals<
+      StateOf<typeof Editor>,
+      typeof Editor.S.idle | typeof Editor.S.ready.S.open | typeof Editor.S.ready.S.closed
+    >
+  >,
+  Expect<Types.Equals<typeof Editor.operations.project, typeof projectResource>>,
+  Expect<Types.Equals<typeof Editor.operations.save, typeof saveProject>>,
+  Expect<Types.Equals<typeof Editor.operations.updates, typeof projectUpdates>>,
+];
+
+export type OperationProofs = [
+  Expect<Types.Equals<RequirementsOf<typeof projectResource>, ProjectRepo>>,
+  Expect<Types.Equals<RequirementsOf<typeof saveProject>, AuditSink>>,
+  Expect<Types.Equals<RequirementsOf<typeof projectUpdates>, ProjectFeed>>,
+  Expect<Types.Equals<ReturnType<typeof projectResource.key>, [string]>>,
+  Expect<Types.Equals<ReturnType<typeof saveProject.key>, [string]>>,
+  Expect<Types.Equals<ReturnType<typeof projectUpdates.key>, [string]>>,
+];
+
+export type AppProofs = [
+  Expect<Types.Equals<typeof StaticApp.M.editor, typeof editorMachine>>,
+  Expect<Types.Equals<typeof StaticApp.M.viewer, typeof Viewer>>,
+  Expect<Types.Equals<typeof StaticApp.M.dashboard, typeof Dashboard>>,
+  Expect<Types.Equals<typeof StaticApp.M.reports, typeof Reports>>,
+  Expect<Types.Equals<typeof StaticApp.M.importer, typeof Importer>>,
+  Expect<Types.Equals<typeof StaticApp.M.exporter, typeof Exporter>>,
+  Expect<
+    Types.Equals<typeof StaticApp.M.editor.definition.operations.project, typeof projectResource>
+  >,
+  Expect<Types.Equals<typeof StaticApp.M.editor.definition.operations.save, typeof saveProject>>,
+  Expect<
+    Types.Equals<typeof StaticApp.M.editor.definition.operations.updates, typeof projectUpdates>
+  >,
+  Expect<Types.Equals<RequirementsOf<typeof editorMachine>, ProjectRepo | AuditSink | ProjectFeed>>,
+  Expect<Types.Equals<RequirementsOf<typeof StaticApp>, ProjectRepo | AuditSink | ProjectFeed>>,
+];
+
+export type ImplementationProofs = [
+  Expect<Types.Equals<ImplementationOutput<typeof repoImplementation>, ProjectRepo>>,
+  Expect<
+    Types.Equals<
+      ImplementationOutput<typeof staticImplementation>,
+      ProjectRepo | AuditSink | ProjectFeed
+    >
+  >,
+  Expect<
+    Types.Equals<
+      ImplementationError<typeof staticImplementation>,
+      "configuration-failed" | "feed-unavailable"
+    >
+  >,
+  // The merged provider graph supplies ProjectRepo before acquiring its dependent providers.
+  Expect<Types.Equals<ImplementationRequirements<typeof staticImplementation>, never>>,
+];
+
+void StaticApp;
+
+void staticImplementation;

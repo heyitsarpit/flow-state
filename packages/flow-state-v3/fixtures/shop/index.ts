@@ -1,0 +1,139 @@
+import { actorRef } from "../../src/index.ts";
+import { PayMachine } from "../services/shop/machines/pay.ts";
+import { Option } from "effect";
+import { benchStress, benchTurn, manifest } from "../manifest.ts";
+import { storePulsing, storePulsingSetup } from "./app.ts";
+import {
+  long,
+  samples,
+  seededStress,
+  stories,
+  browse,
+  checkoutSteps,
+  guestBrowse,
+  leaveWhilePaying,
+  sessionCloseFails,
+  signOutMidCheckout,
+  unsurePayRemoved,
+} from "./stories/usual.ts";
+import { busyEdges, busyKeptAnHour } from "./stories/edges.ts";
+import {
+  failingLineAlone,
+  independentLines,
+  quantityLost,
+  quantityNotSaved,
+  quantityZero,
+  removedLineAnswer,
+  refusedAddAlone,
+  borrowedRecordsReload,
+  oddRecordNames,
+  sameCartTwice,
+  unreadableName,
+  waitsWhileBusy,
+} from "./stories/findings.ts";
+import { manyShoppers, pulseBurst, quantityClicks } from "./stories/load.ts";
+import { samples as storeSamples } from "./stories/samples.ts";
+import {
+  renewalBusyPay,
+  renewalDamagedPay,
+  renewalDisposingDamagedPay,
+  renewalDisposingPay,
+  forgottenRetiredAuthorization,
+  renewalEndedPay,
+  renewalEndingPay,
+  renewalForgottenPay,
+  renewalSamples,
+  renewalUnopenedPay,
+  renewalUnsurePay,
+  checkoutSendSamples,
+  checkoutSends,
+} from "./stories/sends.ts";
+import { pulseAdds, pulseReloadMidAdd, pulseReloaded, pulseSamples } from "./stories/context.ts";
+import {
+  chain,
+  flowBoundLate,
+  flowAlone,
+  flowFirst,
+  reloadedMidAdd,
+  shopperForgotten,
+} from "./stories/structure.ts";
+
+/**
+ * The shop fixture, the shop around the checkout, as every runner reads it.
+ */
+export const shop = manifest({
+  name: "shop",
+  setup: storePulsingSetup,
+  app: storePulsing,
+  stories: {
+    ...stories,
+    flowBoundLate,
+    browse,
+    guestBrowse,
+    checkoutSteps,
+    independentLines,
+    failingLineAlone,
+    refusedAddAlone,
+    quantityZero,
+    sameCartTwice,
+    waitsWhileBusy,
+    quantityLost,
+    quantityNotSaved,
+    removedLineAnswer,
+    quantityClicks,
+    manyShoppers,
+    chain,
+    flowFirst,
+    flowAlone,
+    shopperForgotten,
+    reloadedMidAdd,
+    busyEdges,
+    busyKeptAnHour,
+    unreadableName,
+    oddRecordNames,
+    borrowedRecordsReload,
+    checkoutSends,
+    renewalBusyPay,
+    renewalEndedPay,
+    renewalUnsurePay,
+    renewalUnopenedPay,
+    renewalForgottenPay,
+    renewalDamagedPay,
+    renewalEndingPay,
+    renewalDisposingPay,
+    leaveWhilePaying,
+    sessionCloseFails,
+    signOutMidCheckout,
+    unsurePayRemoved,
+    renewalDisposingDamagedPay,
+    forgottenRetiredAuthorization,
+    pulseAdds,
+    pulseBurst,
+    pulseReloaded,
+    pulseReloadMidAdd,
+  },
+  samples: [samples, storeSamples, checkoutSendSamples, renewalSamples, pulseSamples],
+  stressSamples: [samples, storeSamples, checkoutSendSamples, renewalSamples, pulseSamples],
+  long: Option.some(long),
+  savedStress: { story: seededStress, seed: 36 },
+  mix: Option.some({ usual: samples, stress: samples }),
+  pairs: [
+    {
+      samples,
+      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+    },
+    {
+      samples: storeSamples,
+      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+    },
+    {
+      samples: checkoutSendSamples,
+      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+    },
+  ],
+  bench: {
+    probe: (n) => actorRef(PayMachine, `checkout-${String(n)}`),
+    persist: Option.some(() => long),
+    stories: [benchStress(benchTurn(() => pulseBurst))],
+  },
+});

@@ -1,0 +1,154 @@
+phase P9
+title Hardening and budgets
+description
+    **Class:** verifiable.
+
+    **Kind:** performance.
+
+    **Goal:** the budgets met on their named devices, and every finding from every round given a disposition.
+
+    **Starts when:** P8's completion audit passes and the user has set the targets.
+
+    **Verified by:**
+
+    - P8's benchmark and real-browser suites;
+    - skill:check-benchmark on baseline and final numbers;
+    - a test-harness-only review by an agent with no prior reading;
+    - the final review.
+
+    **One iteration:** one finding group or one budget: one isolated change, measured against the accepted baseline,
+    kept only if the checked comparison shows a gain with the tests green.
+
+    **Exit criteria:**
+
+    - budgets met on their devices;
+    - every finding has a disposition;
+    - quota and disk durability measured on a real phone by the user;
+    - `nub run verify` and `nub run faults` pass.
+
+    **False pass:** closing findings as dropped to finish.
+
+    **Caught by:** the completion audit checking each drop's reason against the Specs.
+
+    **Gates:** P8's slowed builds; `nub run faults`.
+
+    **Failure limit:** 2.
+
+    **Stops:** the real-phone run, which holds only that item.
+
+    **User's read:** each finding's disposition.
+
+    **Draws from:**
+
+    - skill:playbook-performance;
+    - skill:hillclimb;
+    - skill:check-benchmark.
+tasks
+    T36
+        title       Budgets met on named devices
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T35]
+        description
+            Meet each budget on its named device, one budget at a time against P8's baseline.
+
+            **Why now:** the budgets are the P9 goal; P8's baselines and the user's targets are what they are
+            measured against.
+
+            **Read first:** @task.V3.T35, skill:playbook-performance, skill:hillclimb, skill:check-benchmark.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** a speedup that skips work → caught by skill:check-benchmark.
+            - **Gates:** P8's slowed builds.
+        acceptance
+            Every budget met on its device in a checked comparison.
+    T37
+        title       Every finding given a disposition
+        status      draft
+        priority    medium
+        description
+            Sweep every finding from every round, Epic note and revisit.md into fixed, deferred with a reason, or
+            dropped with a reason checked against the Specs.
+
+            **Why now:** the P9 exit needs every finding to have a disposition before the release.
+
+            **Read first:** code:wiki/plans/flow/references/proposals/revisit.md,
+            code:wiki/plans/flow/references/proposals/open-items.md, code:wiki/tasks/V3/epic.task.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** drops to finish → caught by the completion audit.
+            - **Gates:** `nub run verify`.
+            - **User's read:** each disposition.
+        acceptance
+            Every finding has a disposition; `nub run verify` passes.
+    T38
+        title       Quota and disk durability on a real phone
+        status      draft
+        priority    low
+        description
+            Prepare the real-phone script for quota and disk durability, and read the results the user runs.
+
+            **Why now:** an agent here reaches only browsers and a simulator, and a WebDriver session keeps no website
+            data, so quota and durability were never measured on a real store.
+
+            **Read first:** code:packages/flow-state-v3/prototypes/safari/RESULTS.md (item 0 and the open quota and
+            durability items), @task.V3.T36.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** a simulator standing in for the phone → caught by the user's own run.
+            - **Stops:** the user's run.
+            - **User's read:** the results.
+        acceptance
+            The user's real-phone results are recorded and meet the budgets.
+
+    T98
+        title       Raw-throw class: one general solution for public refusals and construction trust
+        status      draft
+        priority    high
+        satisfies   [@plan.Diagnostics.O1, @plan.Runtime.O1]
+        description
+            One general solution for the raw-throw class: no public path of Flow, built or handed out, throws anything
+            but a FlowError on any argument, and construction trusts only what it made.
+
+            **Why now:** parked, not now (the user, 2026-11-19): the class reached its third instance (T81's failure
+            limit, T94's sweep, T94's review) and was blocking core work; the user chose to leave the known instances in
+            as inverted tests and solve the class once, later, with a general design instead of case by case. This Task
+            holds everything the class owes so the core phases can proceed.
+
+            **Read first:** @task.V3.T81 (its full approach and requirements 1 to 19, in its comments), @task.V3.T94
+            (its review of 2026-11-18 and the decisions in its comments),
+            code:wiki/conventions/boundaries.md, @spec.Diagnostics.
+
+            **Risk:** the known instances stay red as `it.fails` tests titled by Diagnostics R1; any later Task that
+            adds a public function inherits the gap until this lands. Run convergence here (threshold already passed):
+            every known instance red first, then one redesign from scratch for the whole class, with T81's and T94's
+            approaches as prior art only.
+
+            Owes, from T81: definitions, machines and tokens checked by identity (`WeakSet` membership), not by `~`
+            marks; builders that capture their arguments unread; one complete Schema decode per entry through
+            `walkerOf`; its planted faults `token-by-shape`, `builder-reads-early`, `decode-not-walker`. From T94's
+            review: inert data that hands out callable functions (a bound contract's `textOfKey`, an operation's `make`)
+            — taken off the public types or wrapped, with the surface walk entering inert data; the testing route walked
+            too (`defineConfig(null)`); `run()`'s lost catch-all; the `no-mark-probe` lint missing bracket reads.
+
+            May change: `src/`, `tests/`, `fixtures/`, `tools/lint-bomb/FLOW-STATE.md`, @spec.Compile and
+            @spec.Diagnostics with `specs.log` notes. Evidence: this Task's comments.
+        acceptance
+            - Every inverted test of the class (titled by Diagnostics R1) is green and no longer inverted.
+            - The surface test walks the root and testing routes and enters inert data: no reachable function is
+              unwrapped or unregistered.
+            - No `~owner`, `~flow` or `HandleId` remains in `src/`; Flow-made values are checked by identity only.
+            - No builder reads its arguments: each called with an all-traps-throw Proxy returns a value.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+        comment     2026-11-18T19:14:16Z
+            Routed from P3's close-out, owed by the class but not named above: the ~token probes (machine.ts:121,
+            events.ts:96, config.ts:93); E.X(undefined) and E.X(new Date()) (T81, 11:21Z); operation-checks.ts:72 reads
+            an inherited key such as constructor; the testing route's raw throws in Story.app, generate, samplesOf,
+            pairSweep, forkReloads (T94 review). Error attribution is decided per module: one store refusal has five
+            names (StorageFailure, StorageSilent, StorageRefused, StoreRefused, forgetFailed), two reasonOf
+            (record-format.ts:19, boundary.ts:452), and details.reason is free text against Diagnostics O1's closed
+            reasons; design it once here.
+        comment     2026-11-18T19:39:06Z
+            Owes (proposed, P3 close fix round): closed details.reason values (@plan.Diagnostics.O1); construction runs
+            nothing and call sites supply no wiring (@plan.Runtime.O1); review item A13, refusal text built twice;
+            faults for the Compile gaps in code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.

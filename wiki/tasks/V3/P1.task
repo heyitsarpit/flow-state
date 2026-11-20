@@ -1,0 +1,193 @@
+phase P1
+title History
+description
+    **Goal:** none; nothing here is work to do. These are the Tasks finished or retired before the Epic was rewritten on
+    2026-11-15, kept as one line each because the Specs cite them as where a ruling was made. Their full text is in
+    `wiki/tasks/V3/` at commit `6b9fe478`.
+
+    Stage A is done: the design and the prototype were reconciled, the Plans merged and the core Specs written. The Pay
+    path runs on production. Every Task marked "the conformance suite" was about the old private test system, deleted on
+    2026-11-15 (last copy at commit `52a883e6`).
+tasks
+    T1
+        title       Prototype and design reconciled (rounds 14, 15, 15b)
+        status      done
+        priority    high
+        description
+            Done; stage A.
+    T2
+        title       Entities, streams, migration, H1, H2 and M5 settled
+        status      done
+        priority    high
+        description
+            Done; stage A.
+    T3
+        title       Plans merged and core Specs written
+        status      done
+        priority    high
+        description
+            Done; stage A.
+    T4
+        title       The suite's own Spec, Conformance.spec
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.
+    T5
+        title       Suite renamed to Spec areas and behaviour names
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.
+    T6
+        title       Judged Runtime disposal per case, and tsgo in check
+        status      done
+        priority    medium
+        description
+            Done; the conformance suite, and the type check in `nub run check`.
+    T7
+        title       WriteLanes area complete
+        status      done
+        priority    high
+        description
+            Done; the conformance suite's WriteLanes area.
+    T8
+        title       Turn area complete
+        status      done
+        priority    high
+        description
+            Done; the conformance suite's Turn area.
+    T10
+        title       WriteAhead area complete
+        status      done
+        priority    high
+        description
+            Done; the conformance suite's WriteAhead area.
+    T11
+        title       Restore area complete
+        status      done
+        priority    high
+        description
+            Done; the conformance suite's Restore area.
+    T12
+        title       Reads area complete
+        status      done
+        priority    medium
+        description
+            Done; the conformance suite's Reads area.
+    T13
+        title       Static cases for Compile, Diagnostics, Codec and StaticCli
+        status      done
+        priority    medium
+        description
+            Done; the conformance suite's static cases.
+    T14
+        title       Searches and mutants as runner modes
+        status      done
+        priority    medium
+        description
+            Done; the conformance suite.
+    T15
+        title           Suite audited, fast gates in verify, coverage record, speed targets
+        status          tombstone
+        priority        high
+        deletion_reason
+            Superseded (the user, 2026-11-15): the conformance suite was deleted, so there is nothing to audit.
+    T16
+        title       The Pay path end to end on production
+        status      done
+        priority    high
+        satisfies   [@plan.Operations.O1, @plan.Operations.O3, @plan.Operations.O7]
+        description
+            Done; production. The Pay fixture runs through the public API.
+    T26
+        title       Record migration
+        status      done
+        priority    high
+        satisfies   [@plan.Persistence.O5]
+        description
+            Done; settled in the Plans.
+    T40
+        title       Suite simplified: one oracle contract, shared domain facts, dead surface removed
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.
+    T41
+        title       Coverage gate: every core Invariant checked or owned
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.
+    T42
+        title       Core Specs revised from the Invariant audit and the open rulings
+        status      done
+        priority    high
+        description
+            Done; the core Specs.
+    T43
+        title       Production code uses Effect's features instead of hand-rolled ones (audit R1 to R8)
+        status      done
+        priority    high
+        description
+            Done; production.
+    T44
+        title       The suite judges from its own facts only, gated by machines
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.
+    T45
+        title       An executable Spec model computes expected results and generates cases (pilot: persistence)
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.
+    T46
+        title           Backtest: does a search over the Spec model find the audit's protocol conflicts?
+        status          tombstone
+        priority        medium
+        deletion_reason
+            Superseded (the user, 2026-11-15): the Spec model was deleted with the conformance suite.
+    T47
+        title       Fixture infrastructure and pilot parts: shapes, scripts, capability lists, gates (slice R)
+        status      done
+        priority    high
+        description
+            Done; the conformance suite. The fixtures it wrote in the public API are in `fixtures/`.
+    T51
+        title       Production lanes reworked: one table function, reports derived from acts
+        status      done
+        priority    high
+        description
+            Done; production. The lane table is `src/core/cells.ts`.
+    T52
+        title       Suite phase-out, first cut: Pay and Cells generated, hand traces thinned
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.
+    T53
+        title           Round-14 retired: prototype adapters, mutants and limits deleted
+        status          tombstone
+        priority        medium
+        deletion_reason
+            Superseded (the user, 2026-11-15): round-14's adapters, mutants and limits went with the conformance suite.
+    T59
+        title           The suite reads and imports nothing outside the package
+        status          tombstone
+        priority        high
+        deletion_reason
+            Superseded (the user, 2026-11-15): the rule now covers the whole package and is an Epic constraint.
+    T60
+        title       The suite proves its own gates and excuses
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.
+    T61
+        title       The suite runs itself and draws varied inputs
+        status      done
+        priority    high
+        description
+            Done; the conformance suite.

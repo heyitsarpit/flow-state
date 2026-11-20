@@ -1,0 +1,160 @@
+{
+ "s4": "ran",
+ "browser": "Chrome/146.0.7680.76",
+ "headless": true,
+ "peakMb": 1037,
+ "results": [
+  {
+   "rate": 1,
+   "actors": 1,
+   "plainMeanUs": 2.8,
+   "plainTurn": {
+    "n": 2000,
+    "medianUs": 0,
+    "p99Us": 100,
+    "maxUs": 600
+   },
+   "click": {
+    "n": 300,
+    "medianUs": 0,
+    "p99Us": 200,
+    "maxUs": 700
+   },
+   "clickToSettled": {
+    "n": 300,
+    "medianUs": 5100,
+    "p99Us": 5500,
+    "maxUs": 5600
+   },
+   "issues": []
+  },
+  {
+   "rate": 1,
+   "actors": 1000,
+   "plainMeanUs": 4.3,
+   "plainTurn": {
+    "n": 2000,
+    "medianUs": 0,
+    "p99Us": 100,
+    "maxUs": 100
+   },
+   "click": {
+    "n": 300,
+    "medianUs": 0,
+    "p99Us": 200,
+    "maxUs": 300
+   },
+   "clickToSettled": {
+    "n": 300,
+    "medianUs": 5100,
+    "p99Us": 5400,
+    "maxUs": 5800
+   },
+   "issues": []
+  },
+  {
+   "rate": 1,
+   "grow": "atOnce",
+   "size": 1000,
+   "medianMs": 0.7,
+   "p99Ms": 1.5
+  },
+  {
+   "rate": 1,
+   "grow": "coalesced",
+   "size": 1000,
+   "medianMs": 0,
+   "p99Ms": 0.1
+  },
+  {
+   "rate": 1,
+   "grow": "atOnce",
+   "size": 10000,
+   "medianMs": 5.9,
+   "p99Ms": 6.6
+  },
+  {
+   "rate": 1,
+   "grow": "coalesced",
+   "size": 10000,
+   "medianMs": 0.1,
+   "p99Ms": 0.3
+  },
+  {
+   "rate": 6,
+   "actors": 1,
+   "plainMeanUs": 16.1,
+   "plainTurn": {
+    "n": 2000,
+    "medianUs": 0,
+    "p99Us": 900,
+    "maxUs": 1600
+   },
+   "click": {
+    "n": 300,
+    "medianUs": 0,
+    "p99Us": 200,
+    "maxUs": 700
+   },
+   "clickToSettled": {
+    "n": 300,
+    "medianUs": 4700,
+    "p99Us": 5900,
+    "maxUs": 5900
+   },
+   "issues": []
+  },
+  {
+   "rate": 6,
+   "actors": 1000,
+   "plainMeanUs": 389,
+   "plainTurn": {
+    "n": 2000,
+    "medianUs": 100,
+    "p99Us": 1600,
+    "maxUs": 1900
+   },
+   "click": {
+    "n": 300,
+    "medianUs": 100,
+    "p99Us": 900,
+    "maxUs": 1600
+   },
+   "clickToSettled": {
+    "n": 300,
+    "medianUs": 5000,
+    "p99Us": 6200,
+    "maxUs": 13800
+   },
+   "issues": []
+  },
+  {
+   "rate": 6,
+   "grow": "atOnce",
+   "size": 1000,
+   "medianMs": 3.6,
+   "p99Ms": 5.3
+  },
+  {
+   "rate": 6,
+   "grow": "coalesced",
+   "size": 1000,
+   "medianMs": 0,
+   "p99Ms": 1.2
+  },
+  {
+   "rate": 6,
+   "grow": "atOnce",
+   "size": 10000,
+   "medianMs": 34.8,
+   "p99Ms": 40.9
+  },
+  {
+   "rate": 6,
+   "grow": "coalesced",
+   "size": 10000,
+   "medianMs": 0.3,
+   "p99Ms": 1.7
+  }
+ ]
+}

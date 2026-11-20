@@ -1,0 +1,9 @@
+bun 1.4.2
+event turn, one actor, no module               median 0.43 us/turn  (min 0.42, max 0.63, N=50000 x5)
+event turn, one actor, persistence captures    median 1.04 us/turn  (min 1.01, max 1.21, N=50000 x5)
+whole paid path through harness, real fibers: 82 us per run (7 do(), 2 fibers, N=2000)
+press Pay in UNSURE: state PAYING, row {"pending":false,"uncertain":true,"waiting":false,"retryCount":0}, new requests after 3600000 ms 0, charges 0, authorized false, waits ["held:pay:{\"intentId\":\"pi1\"}:owner=Checkout/Pay/shopper-1"]
+late Confirmed in a new PAYING: state PAYING, row undefined, new requests after 3600000 ms 0, charges 1, authorized false, waits []
+throwing guard on Confirmed, then Leave: state LEFT, row undefined, new requests after 3600000 ms 0, charges 1, authorized false, waits []
+a module throws on the step of the only completion (D10), read at once: state PAYING, row {"pending":true,"uncertain":false,"waiting":false,"retryCount":0}, new requests after 0 ms 0, charges 1, authorized false, waits ["wire:pay:{\"intentId\":\"pi1\"}","timer:sched/Checkout/Pay/shopper-1/1000004/slow@8000","timer:timeout/att-1-1@60000"]
+the same, 61 s later: state UNSURE, row {"pending":false,"uncertain":true,"waiting":false,"retryCount":0}, new requests after 61000 ms 0, charges 1, authorized false, waits ["held:pay:{\"intentId\":\"pi1\"}:owner=Checkout/Pay/shopper-1","timer:sched/Checkout/Pay/shopper-1/1000009/check@63000"]

@@ -1,0 +1,644 @@
+[
+ {
+  "id": "e-two-out",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [
+   "PAY-03",
+   "PAY-07/late-may-not-leave",
+   "PAY-10/hang",
+   "PAY-12/shuffle",
+   "PAY-13/waiting-flushed",
+   "PAY-13/waiting-flush-lost",
+   "PAY-16/dispose-waiting-resend",
+   "PAY-18",
+   "STORE-04/Overloaded",
+   "STORE-04/Restored-W",
+   "STORE-04/Disposed",
+   "STORE-10",
+   "REFUND-01/three-refunds",
+   "REFUND-01/unsure-holds-the-charge",
+   "REFUND-01/sixty-five",
+   "HIGH-01/retry-then-cancel-releases",
+   "HIGH-01/retry-then-commit-queues-behind",
+   "MED-01/cancel-waits-for-its-ack",
+   "MED-01/cancel-refused-by-storage",
+   "MED-01/landed-without-ack-then-reload",
+   "MED-01/latest-replace-waits-for-its-ack",
+   "MED-01/other-actor-behind-a-hung-ack",
+   "MED-04",
+   "FRAG-06/waiting-never-sent-waits-for-its-ack",
+   "FRAG-15",
+   "FRAG-20/release-only-the-ending-subject",
+   "REV4-M1",
+   "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead",
+   "REV7-H1/what-a-failed-batch-owed-boards-the-next-ack",
+   "REV7-H1/a-re-send-capture-is-not-undone-by-an-older-hold-record",
+   "REV7-H1/E1-what-the-failed-batch-owed-goes-in-the-ack",
+   "REV7-H1/E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one",
+   "REV7-EDGE/M2-a-released-hold-does-not-come-back"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "e-old-wins",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-H1/a-batch-that-fails-after-a-newer-one-landed-stays-dead",
+   "REV7-H1/E1-what-the-failed-batch-owed-goes-in-the-ack",
+   "REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 255
+ },
+ {
+  "id": "e-no-merge",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-M7/a-failed-plain-write-is-not-believed",
+   "REV7-H1/L2-a-landing-resets-backoff-and-says-once",
+   "REV7-H1/backoff-grows-on-a-late-failure"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "e-poison-deletes",
+  "kills": [
+   "D89"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M9/an-ending-with-a-bad-value-is-not-lost",
+   "REV7-M9/a-skipped-batch-waits-for-an-encodable-state",
+   "REV7-EDGE/poison-a-hold-is-kept-not-lost"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 240
+ },
+ {
+  "id": "e-poison-blocks-lanes",
+  "kills": [
+   "D89"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 298
+ },
+ {
+  "id": "e-debounce",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-EDGE/a-steady-stream-still-lands-within-the-window"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 256
+ },
+ {
+  "id": "e-ignores-now",
+  "kills": [
+   "D84"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M1/a-success-does-not-come-back-as-a-hold",
+   "REV7-D80/D93-a-dispose-is-not-lost-to-a-kill"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 260
+ },
+ {
+  "id": "e-hidden-waits",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-EDGE/a-hidden-page-does-not-wait",
+   "REV7-EDGE/a-hidden-page-in-a-frozen-tab-still-does-not-need-a-timer"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "e-no-silent",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-EDGE/k-a-plain-batch-that-never-answers-is-loud"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 242
+ },
+ {
+  "id": "e-no-failure-issue",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "crash",
+  "peakMb": 44
+ },
+ {
+  "id": "e-no-backoff",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-H1/backoff-grows-on-a-late-failure"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 250
+ },
+ {
+  "id": "e-no-reset",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-H1/L2-a-landing-resets-backoff-and-says-once"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "e-ticket-unanswered",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [
+   "PAY-01",
+   "PAY-02",
+   "PAY-03",
+   "PAY-04",
+   "PAY-05",
+   "PAY-06/interruptible",
+   "PAY-06/uninterruptible",
+   "PAY-07/leaveMidCharge",
+   "PAY-07/late-in-a-new-PAYING",
+   "PAY-07/late-may-not-leave",
+   "PAY-08/reloadDuringCharge",
+   "PAY-08/reload-while-reconciling",
+   "PAY-10/refuse",
+   "PAY-11/guard",
+   "PAY-11/guard-twice",
+   "PAY-11/unknown-handler-throws-once",
+   "PAY-11/module",
+   "PAY-12/defect",
+   "PAY-12/sync",
+   "PAY-12/cancel-on-wire",
+   "PAY-12/duplicate",
+   "PAY-12/shuffle",
+   "PAY-13/hung-commit",
+   "PAY-14",
+   "PAY-15/press-pay-while-held",
+   "PAY-15/cancel-on-wire",
+   "PAY-15/busy-then-new-write",
+   "PAY-15/reload-holds-exactly-once",
+   "PAY-15/dispose-held",
+   "PAY-15/dead-activation-timer",
+   "PAY-15/retry-budget",
+   "PAY-16/restore-keeps-mayHaveApplied",
+   "PAY-16/timeout-per-send",
+   "PAY-16/resend-refused-capture",
+   "PAY-16/rejected-is-delivered",
+   "PAY-16/retry-count-persists",
+   "PAY-16/settled-during-disposal-parked",
+   "PAY-16/stale-send-fenced",
+   "PAY-16/dispose-waiting-resend",
+   "PAY-16/parked-success-is-delivered",
+   "PAY-16/disposal-ends-with-the-last-fiber",
+   "PAY-16/schedule-reads-after-memory",
+   "PAY-16/cancelled-does-not-stick",
+   "PAY-16/read-defect-issue",
+   "PAY-16/superseded-read",
+   "PAY-17/hook-throws-on-sent",
+   "PAY-17/hook-throws-on-timer",
+   "PAY-17/hook-throws-on-acked",
+   "PAY-17/core-throw-is-fatal",
+   "PAY-19/void-answers-first",
+   "PAY-19/place-answers-first",
+   "ORDER-04/a-legitimate-hour-of-polling",
+   "STORE-04/Restored-W",
+   "STORE-04/StorageRefused",
+   "STORE-09",
+   "STORE-10",
+   "REFUND-01/three-refunds",
+   "REFUND-01/unsure-holds-the-charge",
+   "REFUND-01/reload-mid-refund",
+   "HIGH-01/pay-told-not-charged",
+   "HIGH-01/retry-then-commit-queues-behind",
+   "HIGH-01/retry-then-refuse-holds",
+   "HIGH-02/lane-does-not-parse",
+   "HIGH-02/lane-names-a-removed-operation",
+   "HIGH-02/actor-of-a-removed-machine",
+   "MED-01/cancel-waits-for-its-ack",
+   "MED-01/cancel-refused-by-storage",
+   "MED-01/latest-replace-waits-for-its-ack",
+   "MED-01/other-actor-behind-a-hung-ack",
+   "SURV-03",
+   "FRAG-04/parked-then-adopted-keeps-the-text",
+   "FRAG-04/an-inflight-ending-reaches-a-new-copy-when-it-lands",
+   "FRAG-04/a-held-lane-delivers-restored-to-the-new-copy-once",
+   "FRAG-05",
+   "FRAG-06/wire-is-interrupted-and-nothing-delivered",
+   "FRAG-06/waiting-never-sent-waits-for-its-ack",
+   "FRAG-06/held-is-released-now",
+   "FRAG-06/reload-of-a-releasing-lane-delivers-nothing",
+   "FRAG-06/readd-before-idle-clears-the-mark-and-adopts",
+   "FRAG-07/another-paths-members-are-declined",
+   "FRAG-08/persisted-disposed-ending-parked-delivered-once",
+   "FRAG-09/reloadWhileConfirming",
+   "FRAG-09/webhookWins",
+   "FRAG-09/voidLostRace",
+   "FRAG-09/buyAgain",
+   "FRAG-09/summary-guard-port-and-denial",
+   "FRAG-09/host-guard-port-refuses-for-the-host",
+   "FRAG-09/a-double-click-is-rejected-in-a-callback",
+   "FRAG-10/lateChallenge",
+   "FRAG-10/lateWhilePaying",
+   "FRAG-10/helpKeepsDeadline",
+   "FRAG-10/history-restores-control-only",
+   "FRAG-10/answer-from-the-host-passes-the-exit",
+   "FRAG-10/failure-exits-with-its-reason",
+   "FRAG-10/host-event-falls-through-the-subroutine",
+   "FRAG-10/reload-inside-the-subroutine",
+   "FRAG-15",
+   "FRAG-19/copies-and-subject-paths-survive-a-reload",
+   "FRAG-19/unplaced-parked-survives-a-reload",
+   "FRAG-20/release-only-the-ending-subject",
+   "FRAG-20/a-commit-in-a-copy-the-same-turn-removes-is-marked",
+   "FRAG-20/a-late-ending-may-not-leave-an-active-subroutine",
+   "REV4-H3/leaf-this-release-removed",
+   "REV4-H3/kid-frag-this-release-removed",
+   "REV4-H3/kid-leaf-removed",
+   "REV4-H3/placement-removed",
+   "REV4-H3/no-timers",
+   "REV4-H3/no-kids",
+   "REV4-H3/activations-for-a-leaf-gone",
+   "REV4-H3/timer-of-no-shape",
+   "REV4-H3/memory-not-an-object",
+   "REV4-H3/kid-frag-is-another-fragment",
+   "REV4-H3/history-names-a-removed-node",
+   "REV4-H3/frozen-of-no-shape",
+   "REV4-H3/lane-without-w",
+   "REV4-H3/lane-head-of-no-shape",
+   "REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane",
+   "REV4-H5/key gid://shop/Product/1: armed, sent, stored",
+   "REV4-H5/key a/b: armed, sent, stored",
+   "REV4-H5/key 2026-11-02T00:00:00Z: armed, sent, stored",
+   "REV4-H5/key with space: armed, sent, stored",
+   "REV4-H5/key \"quoted\": armed, sent, stored",
+   "REV4-H5/key g1.2: armed, sent, stored",
+   "REV4-H5/one-lane-whatever-order-a-key-is-written",
+   "REV4-M1",
+   "REV4-M4",
+   "REV4-L2",
+   "REAL-03/each-by-and-item",
+   "REAL-03/unknown-maps-by-reason-and-resend-arms",
+   "REAL-03/r23-disarmOn-stops-the-resend",
+   "REAL-03/cancel-on-the-wire-maps-to-stopped-and-releases",
+   "REAL-03/a-reload-is-lost-the-bytes-are-gone",
+   "REAL-03/gives-up-after-three-resends",
+   "REAL-03/removed-copy-releases-not-delivers",
+   "REAL-03/a-reason-the-map-does-not-list-is-named-not-lost",
+   "REAL-03/persisted-host-with-the-store",
+   "REAL-04/r53-a-write-that-ends-while-frozen-parks-and-the-thaw-adopts-it",
+   "REAL-04/r52-the-cut-lookup-comes-before-a-parked-write",
+   "REAL-04/a-b-a-the-old-subjects-write-goes-to-the-old-subject",
+   "REAL-04/r54-a-pending-reset-runs-before-adoption",
+   "REV5-H2/a-frozen-ending-of-a-removed-operation-is-orphaned-not-fatal",
+   "REV5-H2/stored-names-like-prototype-keys",
+   "REV5-H2/a-module-value-of-no-shape-on-disk-does-not-disable-it",
+   "REV5-H3/w-is-off-the-disk-once-it-has-ended",
+   "REV5-H5H6/a-persisted-rebind-adopts-its-fragments-ending",
+   "REV5-H5H6/and-its-lost-answer-once-with-no-restored",
+   "REV5-H5H6/a-hold-heard-before-disposal-is-restored-to-the-rebound-life",
+   "REV5-H5H6/a-frozen-kid-adopts-at-the-thaw-not-at-the-rebind",
+   "REV5-H5H6/w-behind-a-parked-hold-ends-at-a-reload",
+   "REV5-H5H6/a-disposed-identity-sleeps-through-a-reload",
+   "REV5-M1/a-crash-during-recovery-loses-no-parked-ending",
+   "REV5-M1/nor-a-w-behind-an-acked-head",
+   "REV5-M1/the-record-goes-once-delivered",
+   "REV5-S/a-resends-capture-is-awaited",
+   "REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold",
+   "REV6-H5/the-rekeyed-lane-is-what-a-guard-reads",
+   "REV6-TEAR/a-store-with-no-atomic-batch-strands-nothing-silently",
+   "REV6-M8/a-declared-decode-gives-the-new-field-its-default",
+   "REV6-M8/without-one-the-refusal-is-as-designed",
+   "REV7-H1/a-late-failure-does-not-unsay-an-acknowledgement",
+   "REV7-H1/what-a-failed-batch-owed-boards-the-next-ack",
+   "REV7-H1/a-re-send-capture-is-not-undone-by-an-older-hold-record",
+   "REV7-H1/E1-a-failed-batch-goes-with-the-next-ack",
+   "REV7-H1/E1-what-the-failed-batch-owed-goes-in-the-ack",
+   "REV7-H1/E2-a-later-batch-does-not-land-ahead-of-an-unanswered-one",
+   "REV7-H1/a-sync-failure-too",
+   "REV7-H1/a-refused-ack-does-not-leave-saved-believing-it",
+   "REV7-M1/a-success-does-not-come-back-as-a-hold",
+   "REV7-M1/only-lane-free-memory-waits",
+   "REV7-M8/a-quarantined-lane-refuses-a-second-attempt",
+   "REV7-M8/commit-declines-while-it-stands-and-the-record-stays",
+   "REV7-M9/an-ending-with-a-bad-value-is-not-lost",
+   "REV7-M9/a-skipped-batch-waits-for-an-encodable-state",
+   "REV7-EDGE/M2-a-released-hold-does-not-come-back",
+   "REV7-EDGE/H1-one-actors-bad-record-stops-nobody-else",
+   "REV7-EDGE/poison-a-hold-is-kept-not-lost"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 234
+ },
+ {
+  "id": "e-told-ok-always",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [
+   "PAY-10/refuse",
+   "PAY-16/resend-refused-capture",
+   "STORE-04/StorageRefused",
+   "HIGH-01/pay-told-not-charged",
+   "HIGH-01/retry-then-refuse-holds",
+   "MED-01/cancel-refused-by-storage",
+   "REV7-H1/a-refused-ack-does-not-leave-saved-believing-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "e-hide-noop",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-H1/a-newer-value-is-not-replaced-by-a-retry-of-an-older-one",
+   "REV7-D80/many-values-one-write",
+   "REV7-D80/hidden-flushes-at-once",
+   "REV7-D80/a-kill-before-any-flush-loses-only-plain-memory",
+   "REV7-D80/dispose-runtime-flushes",
+   "REV7-EDGE/encoding-happens-off-the-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "drain-not-waited",
+  "kills": [
+   "D83"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 325
+ },
+ {
+  "id": "flush-lane-not-now",
+  "kills": [
+   "D84"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M1/a-success-does-not-come-back-as-a-hold"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 259
+ },
+ {
+  "id": "flush-retired-not-now",
+  "kills": [
+   "D93"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-D80/D93-a-dispose-is-not-lost-to-a-kill"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "flush-deadline-not-now",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 320
+ },
+ {
+  "id": "d26-sends-anyway",
+  "kills": [
+   "D26"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-EDGE/D26-a-tab-with-no-disk-declines-a-persisted-commit"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 252
+ },
+ {
+  "id": "d26-writes-anyway",
+  "kills": [
+   "D26"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M2/a-failed-read-runs-empty-and-writes-nothing"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 257
+ },
+ {
+  "id": "d87-no-bound",
+  "kills": [
+   "D87"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M2/a-read-that-never-answers-gets-an-issue-and-the-queue-runs"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 257
+ },
+ {
+  "id": "d87-late-answer-boots-again",
+  "kills": [
+   "D87"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M2/a-read-that-never-answers-gets-an-issue-and-the-queue-runs"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 250
+ },
+ {
+  "id": "d87-queue-unbounded",
+  "kills": [
+   "D87"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M2/the-queue-has-a-bound"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "d88-no-hold-on-bad-body",
+  "kills": [
+   "D88"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M8/commit-declines-while-it-stands-and-the-record-stays"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 245
+ },
+ {
+  "id": "d88-commit-passes",
+  "kills": [
+   "D88"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M8/a-quarantined-lane-refuses-a-second-attempt",
+   "REV7-M8/commit-declines-while-it-stands-and-the-record-stays"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 278
+ },
+ {
+  "id": "d88-idle-passes",
+  "kills": [
+   "D88"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M8/a-quarantined-lane-refuses-a-second-attempt"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 267
+ },
+ {
+  "id": "d88-row-silent",
+  "kills": [
+   "D88"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M8/a-quarantined-lane-refuses-a-second-attempt"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 241
+ },
+ {
+  "id": "d90-delete-keeps-bucket",
+  "kills": [
+   "D90"
+  ],
+  "killed": true,
+  "killers": [
+   "FRAG-08/persisted-disposed-ending-parked-delivered-once",
+   "FRAG-08/rebind-delivers-a-hold-once",
+   "FRAG-12/unbound-hold-with-a-waiter-yields",
+   "FRAG-20/adopted-ending-is-current-from-the-active-leaf",
+   "SPIKE-04/dispose-then-ensure-brings-both-back",
+   "REV5-H5H6/a-hold-heard-before-disposal-is-restored-to-the-rebound-life",
+   "REV5-H5H6/a-disposed-identity-sleeps-through-a-reload",
+   "REV7-D80/D93-a-dispose-is-not-lost-to-a-kill"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 260
+ },
+ {
+  "id": "d90-changed-misses-removed",
+  "kills": [
+   "D90"
+  ],
+  "killed": true,
+  "killers": [
+   "SPIKE-04/dispose-then-ensure-brings-both-back"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "l4-duplicate-machine-allowed",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-M2/two-machines-under-one-id-is-an-error"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 268
+ },
+ {
+  "id": "h2-json-only",
+  "kills": [
+   "D89"
+  ],
+  "killed": true,
+  "killers": [
+   "REV7-EDGE/encoding-happens-off-the-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 252
+ }
+]

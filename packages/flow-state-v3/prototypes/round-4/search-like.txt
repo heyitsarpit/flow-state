@@ -1,0 +1,23 @@
+{
+ "search": "like",
+ "verdict": "completed",
+ "perDepth": [
+  1,
+  6,
+  60,
+  412,
+  1928,
+  7353,
+  21474,
+  51705
+ ],
+ "states": 82939,
+ "edges": 283764,
+ "steps": 5352480,
+ "depthCompleted": 7,
+ "classes": {},
+ "ms": 66567,
+ "peakRssMb": 249
+}
+
+WATCH peak 237 MB, 66.8 s, exit 0, killed no

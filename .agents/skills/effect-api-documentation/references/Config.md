@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Config` API](https://www.effect.website/docs/v4/api/effect/Config). Examples assume `import { Config } from "effect"`.
 
+`Config` describes typed settings and validation; a `ConfigProvider` supplies the values from an environment, object, or other source.
+
 ## API index
 
 1. [Config.schema](#configschema)
@@ -172,3 +174,7 @@ Reads and validates a URL value from a string config source.
 ```ts
 const endpoint = Config.url("API_URL");
 ```
+
+### Changes since 4.0.5
+
+- `Config.Record` options add `trim?` and `keepEmptyValues?` ([Config.d.ts:935](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Config.d.ts:935)).

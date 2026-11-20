@@ -1,0 +1,327 @@
+# Round 10: a test system whose green means something
+
+Status: **everything here is proposed.** Decisions D129-D148 are in `../convergence-10.md`, with the findings by root cause, the design edits owed at merge, and what is left for Arpit. Builder-run: the re-audit that follows is the independent measure. No entities.
+
+Commits: stage A `fba520e2`, stage B checkpoint `ac54cec2`, stage B `3c87ea45`, the last pin `c6ef01c1`, and this file's commit.
+
+## The question, and the answer
+
+Five audits and a review found the suite much weaker than it read: 394 of 703 cases checked an empty harness, 10 of 13 searches exited 0 on no runtime, the typed compare could not fail, the lock could be laundered, the watchdog saw one process, 0 of 703 cases noticed an extra request, and 40-44% of cases failed a correct runtime with another disk format.
+
+**Now every gate is run on runtimes and copies known to be broken, and each must go red** (`conformance/falsify.ts`, standing, in the lock). Where it cannot, the limit is stated below.
+
+## What a green now means
+
+| Gate | Red on | Green on |
+| --- | --- | --- |
+| Suite | null runtime: 0 cases pass; constant hash, lying `fatal`, no evidence, no waits, an injected issue, a lying replay, a junk disk key: red, each. Named oracles alone see the injected issue and the lying replay in every case but the stated ones | round 10: 723/723 |
+| Whole output (D134) | anything that changes: requests, issues, disk by kind, actors' state and memory, evidence kinds, frames, waits, truth, distinct hashes | the locked `expected-output.txt` |
+| Searches (D131) | null and constant hash: all 14 searched red (`vacuous`) | real runtime: green, `listen.load` failing as known (H2's class) |
+| Lock and log (D135) | a pasted hash, a comment swallowing an oracle, a stale hash: red | the baseline, or each id's last log line |
+| Typed compare | a changed target: red | its 52 differences, stated as three kinds |
+| Watchdog (D129) | a grandchild's memory, an orphan, a tree on a kill: all seen and ended | |
+| Real runs (D144, D148) | `bfcache` without the contract: red | with it: green, in Chrome |
+| Mutants | 18 builder mutants, run from a git worktree of the commit: **18 killed**. One by the watchdog (`queue-loses-order`), one by output alone (`laundered-as-evidence`: no named oracle sees it), one only after this round's last pin (`second-try-lost-if-mail`) | control green |
+
+## Stage A
+
+- **D129** `watch.ts` follows the tree, and kills it.
+- **D130** End-of-case checks run on every harness a case made. The **12 failures** that followed are **not runtime bugs**: 9 replay limits (a case changing the program between lives, now said as a `release` step that S11 replays), 3 unnamed issues.
+- **D131-D133** A verdict needs evidence; every gate must fail on a broken runtime; a fatal must be named.
+- **D134** Whole output, the default assertion, captured before the runtime fixes so their effects were logged one by one.
+- **D135** Token hash, frozen baseline, a reason per id. The first token hash hashed every scenario body as nothing (the transpiler drops an unused expression); seen and fixed, and `falsify.ts` now tampers a body.
+- **D136-D141** Runtime: review H1, H2, M3 (the slice's bill, a chain per task, one notify per task); one machine per actor key; `self` and `__proto__` refused; `Symbol` and `NaN` refused by name; a linear mailbox; a hash of values. **The burst's quadratic cost was mostly `durable.ts` walking all mail each step**, not the array copy the audit named: 100,000 sends 85 s, now 0.24 s (`bench/burst.ts`, scored).
+
+## Stage B
+
+- **Rechecks of stage A found two holes:** a MailQ unit case passed on no runtime (moved to `checks/`, which `mutate-one.ts` gates), and `mutate.ts` copied live sources per mutant, so an edit during a run reached later mutants (it now snapshots once; final runs are from a git worktree).
+- **D142** The runtime's codec answers what the disk means. A correct runtime with renamed keys: **312 failing before, 112 now**; with wrapped values: **279 before, 30 now**. What remains are cases that name a stored key on purpose.
+- **D143** User data is opaque to the hash's ranks; `{pos:1}` and `{pos:2}` are two states. `Ctx.eq` compares values.
+- **D144** Real runs are scored and exit by it.
+- **D145** A server as strict as Stripe's: pruned keys, 409 in flight, a replayed 500, another body refused, every landing in the ledger. **A key applied twice fails any case** that does not name it. Pay passes both new cases because it reads the intent before a resend; that is now an author contract.
+- **D146** A frozen page runs nothing; a press on one fails the case. The round 7 case that pressed a frozen page pinned a world that does not exist, and was replaced.
+- **D147** HIGH-03: a read whose mapper throws ends in `Defect`, not `Listed`.
+- **D148** bfcache: the lock is held while live, released into the cache, and a return reloads. **Verified in Chrome**, with a red control.
+- Pins: `letgo-takes-all`; FRAG-08's vacuous check (now counts the re-send); M4 (chain sends to both actors with no settle); M5 (`delivered` pays only with a turn or a named issue); (p) as a probe (the plant `noMerge` now dies at depth 2); A07 (rule 12: every issue has an origin, except three stated codes); A02 (whole output).
+
+## Stage C: the re-audit's findings (`../conformance-audit/re-audit-round-10.md`)
+
+Commit `32c4b7af` and this file's commit. One root cause under H1, H2, M1, M4: a gate took a self-report at its word. Decisions D149-D153, proposed.
+
+| Finding | Fix | Shown by |
+| --- | --- | --- |
+| H1: the ledger trusts `evidenceOnly` | D149: the suite attributes Attempts to an actor's life and decides itself; `KeptLetGo`/`ParkedLetGo` too | `g125.laundered-as-evidence`: 0 named cases before, 2 now (`falsify.ts --part mutants`, `--no-output`) |
+| H2: type pins run by nothing | D149b: `checks/types-check.ts` (`tsc` + pin count), run by `mutate-one.ts`; `typed/` hashed with types | Three tampers in `falsify.ts`: widened refusal red on count and lock; bare refusal red on `tsc`; control green |
+| M1: a run that ran nothing passes | D153: modes declare sections and counters | `--only nothing-here` now `SCORE FAIL`; 11 new cases in `checks/score-check.ts`; bfcache green arm still `SCORE PASS` in Chrome |
+| M4: half the actions dead under a budget | D150: any action run and never moving is vacuous | `checks/search-vacuity-check.ts`; `frag`'s `resend` guarded, moves at depth 6; 14 searches still red on null and constant hash, green on round 10 |
+| M3: timer fence, disposal's read abort | D151: fault `lateCancel`; `R10-AUDIT`, `R10-AUDIT-READS` | Both mutants killed by named cases (`falsify.ts --part mutants`) |
+| M2: disk read by literal key | D152: `Ctx.record`, `Ctx.laneKeys` by codec in ten files | Renamed keys 112 → 73 failing; envelope 30 → 26 (`--no-output`) |
+| L5 | With D153 | bfcache requires `cached:true`, `back:"reload"` |
+
+Not closed: M2's remaining 73/26 (lane helpers that read one lane by full key, `corruptStored` edits, `storage` matches; not marked as pins); L1-L4, L6, L7; `checkMints` still counts `Released`/`Superseded` on the runtime's word; the ledger reads `lane.release.*` cell names as a release's sign.
+
+## Stage D: the class, not the next hop (`../conformance-audit/re-check-round-10c.md`)
+
+Commits `795ebaf9`, `d2758d47`, `9b87842e`, and this file's commit. Decisions D154-D158, proposed.
+
+The gate failed twice on one class: an oracle excused a missing obligation because the runtime said why. So every input every oracle reads is now listed and classified (`../convergence-10.md`, "Stage D"): **34 inputs: 11 observed, 3 debt-only, 6 names-only, 12 checked, 2 excuses at the runtime's word; 7 allowances in all (A1-A7)**. Six were excuses at the runtime's word before this stage, and are now names or checked.
+
+The rule (D154): **an oracle excuses only for a cause the suite observed.** A self-report may say which attempt, never why.
+
+| Finding | Fix | Shown by |
+| --- | --- | --- |
+| H1': `Released`, `lane.release.*`, the no-attempt wildcard | D154: a release names; the cause must be seen: a dispose, the owner gone, the owner's published state moving with a releasable op, or a cancel the suite drove (sent, or mapped from its timer, a reload, or an answer of another op; an answer's own event never excuses its own op's ending) | `falsify.ts --part lies`: `lie.released`, `lie.lane-cell`, `lie.lane-cell-noatt` red by (j) in 1 case each (R10-AUDIT-ENDINGS; MED-01 sees them only by output); **`lie.like2nc-released` red by (j) in 1, STORE-05 (it passed 727/727)**; `lie.save-released` by (j) in 19 (was 0) |
+| M3': a wrong supersede | D154: an oracle. A write needs `latest` and a newer attempt by the owner; a lookup a newer send, a newer ask, or the owner moving | `lie.serialize-as-latest` red by `(j) superseded` in 3 cases (was direct asserts only) |
+| More of the class | D158: `DisposeStart` turns (j) off only after a driven `disposeRuntime`; `Released` excuses (h) and `checkMints` only with a seen cause | `lie.dispose-start`, `lie.settled-released` |
+| M1': the text count | D156: directives by comment token, pinned by their words (8, not 9) | The re-check's tamper is red by its words |
+| M2': empty rows | D157: row counters per mode, cycles above zero, no negatives, no undeclared key | 12 new attacks in `checks/score-check.ts`, red, beside a green per mode |
+| M4': `corruptStored` on nothing, literal absences, a spelled scope | D158: a corruption that matches nothing throws; REV9-KEPT's absences through `Ctx.lanesOf`; `Ctx.record` by `Reads.actorKey` | Suite 727/727 |
+
+Not closed: the allowances A1-A7 (attribution by the step's turn; `delivered` checked by a `turn`; `parked`/`kept` waits; refusal pay by `turn`/`fence`; issues paying deliveries; `AbandonedFiber`; `disabled` by `ModuleDefect`) have no lie runtimes yet. D154's limits: the cancel cause is by event, not by the alternative taken; an owner's memory move beside a lie on a releasable op still excuses. M2's 73/26 literal-key presence checks; L1-L4.
+
+## Stage E: a reference of its own (`../conformance-audit/re-check-round-10d.md`)
+
+Commit `0eee5e65` and this file's commit. Decisions D159-D163, proposed.
+
+The gate failed three times on one class, each an excuse at the runtime's word one hop further. The root: the suite had no model of its own for which actor may receive an op's ending. `conformance/reference/model.ts` is that model, from the design's rules, importing nothing from `round-*`. It answers, from the compiled data and the published leaf: which live actor binds an op; whether the owner's own machine cancels it on an event; whether a move let it go; which timers a machine has. Inventory: **35 inputs, 11 observed, 3 debt-only, 5 names-only, 15 checked, 1 excuse at the runtime's word; allowances A2, A3', A4', A5, A6, A7 (A1 closed)** (`../convergence-10.md`, "Stage E").
+
+| Finding | Fix | Shown by (`falsify.ts --part lies`, `--no-output`) |
+| --- | --- | --- |
+| H1'': a park on a live bound owner | D160: a park is allowed only where the reference says nothing live binds the op, or the owner is gone or moved off it | **`a3.park-like2nc` red by (j)** (was 0/727 named); `a3.park-save` red by (j) in 2 (was 0) |
+| M1'': "owner moved", global op names | D161: per owner, by the reference; a cancel alternative is no cause by a move alone; a restored ending never excuses its own attempt | **`d154.moved-like-released` (SURV-03) red by (j)** (was 0 by (j)) |
+| Inventory 3: reload and `advance` drove every event to every actor | D161: per owner, by its own machine and its own open attempts | the per-owner causes above; no lie fires there (L2 stands) |
+| M2'' (A1): a ghost turn | D162: a turn of an actor never addressed and publishing nothing is red | `a1.ghost-like2` and `-save` red by (j) in 32 and more |
+| M3'' (A4): a refusal's retry dropped | D162: a denial pays only with a Slot of its event run after the refusal; a fence only with an actor seen gone | `a4.refused-fence`, `a4.refused-denied` red by (j) in 44 each (was 0) |
+| `bindingOf` taken at its word | D159: oracle (ref) compares `Instance.binding` with the reference every batch, where the reference is certain | Suite 727/727; no disagreement with round 10 |
+| L1: a typo under a kept directive | D163: each directive's line must error with its pinned code and words | `falsify --part tamper`: the typo tamper is red |
+| Tamper in a fresh worktree | D163: `node_modules` found up the tree, then through git's common dir | |
+
+**Where the reference disagreed with the runtime: nowhere, on certain answers.** Three disagreements on the way were the reference's own errors, each fixed in the reference, not the runtime: a placement's subject includes its `resetOn` value (D64), so a `resetOn` placement is keyed (REAL-04, FRAG-11); a keyed placement beside a plain one of the same fragment (`rows` and `once`) leaves the subject to choose (REV4-L2); a `.resumable()` placement keeps a frozen copy that a memory change can end (REV4-M3). One harness error too: reading `rt.sys.machines` for `binding` spent REV8-FATAL's planned core fault, so the adapter answers from the sealed data as booted.
+
+Not closed: A3' (a park with no attempt, and where the reference says unknown: keyed, nested or resumable fragments); A4' (a `turn` pays a refusal); A2, A5, A6, A7; L2 (the cancel-by-event limit has no lie that fires). `kept` is not reread by the reference: a double refusal on a bound owner is right (D118); its cause, the refusal, is what D162 checks.
+
+## What the new oracles exposed
+
+No new runtime bug in the named paths. Exposed instead: replay limits that hid S11 on kept endings and releases; a case pinning an impossible frozen page; a vacuous FRAG-08; HIGH-03 delivering `Listed`; the real bfcache gap (a link click made the next page a second tab); and four holes in this round's own tools (the token hash, a case passing on null, mutate copying live sources, the `truth` section holding disk bytes).
+
+## Not done, and stated
+
+- **The world:** hidden-tab throttling in the fake; plain writes queued behind a strict one (`storeWide` default); connection loss and reopening; power loss; duplicate arrivals; the 409 answer exists but no case drives a reload into it.
+- **Pins:** under-specification A05, A12, A15; review M6 (`reality/spin.ts` with a costly listener as a gate, and `task-is-microtask`); rules 47, 50, 56, 59 (see `convergence-10.md`).
+- `--swap` still boots typed output for Pay only; `typed/type-tests.ts` is not a gate (`tsc` not run this round); `bench/main.ts` measures and does not score.
+- Older mutant lists (`mutants-r9b.ts` and before) quote code round 10 changed, and were not rewritten.
+- Stories, `flow graph`, `flow story`, `flow trace`: no code. Stated, not built.
+- Whole output is a change detector: it says something changed, not that it is right. A search stopped by depth or budget needs only half its actions to have moved. A log reason can still be poor.
+
+## Gates on the final commit
+
+Stage E, on `0eee5e65` plus the falsify empty-slice check (one tree at a time, each under a time limit):
+
+| Gate | Result |
+| --- | --- |
+| Suite, `--round 10` with catalog | 727/727; unlogged none; stale lock 0; catalog disagreements none; 754 MB, 20 s. (ref) disagreements none |
+| `falsify.ts --part lies`, slices 1-4 | **35 of 35 ok: 32 red by the named oracle, 3 vacuous (`d154.moved-save-released`, `d154.event-fail-released`, `d154.event-like-released`: their probes fire in no case)** |
+| `--part tamper` | 11 ok, the typo tamper among them |
+| `--part suite` | null 0/727; constant hash 61; lying fatal 0; no evidence 36; no waits 179; injected issue 5; lying replay 2; junk key 255; D130 ok |
+| `--part mutants` | 3 killed by named oracles |
+| `--part watch` | ok |
+
+Not run in stage E: `--part search`, `mutate-one.ts`, `--swap`, the 5 s gate, the variant adapter's counts, real-browser modes, `nub run verify`, `vp fmt`.
+
+Stage D:
+
+Stage D, on the commit after `4bb9e52f` (the gates on its code, before the last `drive.ts` fix, then the suite and the lies part again after it):
+
+| Gate | Result |
+| --- | --- |
+| Suite, `--round 10` with catalog | 727/727; catalog disagreements none; 749 MB, 20 s |
+| `mutate-one.ts` on round 10 (suite, `--swap`, typed compare, date check, CLI, every `checks/` file, 5 s gate) | not killed: all green, 62 s |
+| `falsify.ts --part suite` | null 0/727; constant hash 61; lying fatal 0; no evidence 36; no waits 179; injected issue 5; lying replay 2; junk key 255; D130 checks ok |
+| `--part search` | 42 checks ok |
+| `--part tamper` | 10 checks ok, the directive-made-mention tamper among them |
+| `--part mutants` | 3 killed by named oracles |
+| `--part lies` (after the last fix) | **11 of 11 lies red by the named oracle** |
+| `--part watch` | ok |
+
+Not run in stage D: the variant adapter's 73/26 counts, real-browser modes, the 18 builder mutants through `mutate.ts`, `nub run verify`, `vp fmt`.
+
+Run on `c6ef01c1` and the log line after it, each under `watch.ts` or a time limit. Bun 1.4.2, Chrome headless, this Mac. One process tree at a time.
+
+| Gate | Result |
+| --- | --- |
+| Suite, with catalog | 723/723; unlogged none; removed none; stale lock 0; catalog disagreements none; 804 MB, 19 s |
+| `--swap` | 723/723 |
+| 5 s gate | 29 failed, 29 expected; none unexpected or different |
+| CLI pins | all pass |
+| Typed compare | 52 differences, 52 stated, exit 0 |
+| Date check, `checks/mailq-check.ts`, `checks/score-check.ts` | pass |
+| `bench/burst.ts` | 10,000 in 42 ms, 100,000 in 246 ms, ratio 5.8, pass |
+| `falsify.ts`, all four parts | every gate fails on what it should. Null 0/723; constant hash 61; lying fatal 0; no evidence 36; no waits 176; injected issue 5 (stated); lying replay 2 (stated); junk key 253; 14 searches red on null and on a constant hash, green on round 10, `listen.load` failing as known |
+| `reality/run.ts --only bfcache` | pass with the contract; **fail without it** (next page not the owner) |
+| Mutants | 18/18 killed, above |
+
+Stage C, on `32c4b7af` (code unchanged after it; docs only):
+
+| Gate | Result |
+| --- | --- |
+| Suite, with catalog | 727/727; unlogged none; removed none; stale lock 0; catalog disagreements none; 775 MB, 19 s |
+| `--swap` | 727/727 |
+| 5 s gate | 29 failed, 29 expected; none unexpected or different |
+| CLI pins, typed compare, date check, `checks/` (mailq, score, types, search-vacuity) | all exit 0 |
+| `bench/burst.ts` | 10,000 in 42 ms, 100,000 in 236 ms, ratio 5.6, pass |
+| `falsify.ts`, all five parts | every gate fails on what it should. Null 0/727; constant hash 61; lying fatal 0; no evidence 36; no waits 179; injected issue 5; lying replay 2; junk key 255; 42 search checks ok; 9 tamper checks ok; 3 mutants killed by named oracles |
+| `reality/run.ts --only bfcache` | `SCORE PASS`, `cached:true`, `back:"reload"`; `--only nothing-here` `SCORE FAIL` |
+| Variants, `--no-output` | `diskKeys` 654/727, `envelope` 701/727 |
+
+Not rerun in stage C: the 18 builder mutants through `mutate.ts` (about 20 minutes; the three that matter here are in `falsify.ts`), the other real-browser modes, `nub run verify`, `vp fmt`.
+
+Not run on the final commit: the other real-browser modes (`s3`, `atom`, `crash`, `tabs`, `desk`, `run7`, `h3`, `spin`), which are now scored but cost minutes of Chrome each; `tsc` on `typed/type-tests.ts`; the older mutant lists; `nub run verify`.
+
+## Stage F: who received each ending (re-check 10e; D164-D168, proposed)
+
+The class: (j) checked how many endings were delivered, and excused what the reference could not see, but never checked who received each one. The fix is to check the recipient, not the next hop.
+
+| Finding | Fix | Shown by (`--no-output`) |
+|---|---|---|
+| H1''' wrong copy | D164: the suite records each attempt's copy from what it drove (a send's `to`; a delivered attempt's own copy for the turn it runs; `[]` for a definition's op; else the one live copy on that path, using the `.each` key its wrapped input Slot saw). `delivered` carries `at`, the copy path it ran in. A delivery that names no copy, or a copy other than the recorded one, or one the suite could not place, is red | `e2.subject-fan-fail-att` red by (j) in 4 (FRAG-15, FRAG-21, REV4-M3, REV4-L2), was 0/727; `e2.subject-fan-att` 4 |
+| M1''' keyed and decline parks | D165: `Reference.copies` lists live copies from the published leaf, `.each` membership, each copy's published state (`inner`) and its `resetOn` values (the compiled slot on the host's published memory). A park is red if the attempt's own copy is live with the same reset values; a decline's park is checked the same way, with the copy of the turn that declined | `e1.park-keyed` 46 by (j) (was 0), `e1.park-keyed-fan-att` 7 (was 0), `a3p.park-decline` 42 (was 0) |
+| (ref) never fired | D166: every open attempt of a `.each` copy is asked with its real subject; the answer must be the recorded copy | `ref.binding-first-copy` (the adapter's `binding` answers the first copy; delivery stays right) red by (ref) in 11, only by (ref) |
+| M2''' lock | D167: `reference/` is walked into the lock | tamper `lock: a one-token change to reference/model.ts is red` |
+| A4', L2 | D168: a `turn` pays a refusal only if a Slot of that event ran after it, as D162 does for `Denied`; `types-check` finds `tsc` through git's common dir | `a4p.refused-turn` 44 by (j) (was 0) |
+| L1 | Not done. FRAG-21's second variant (a keyed failure with sends to the same actor in one tick) misses the trigger: the probe fires in no case | |
+
+Unknowns left: no delivery and no park of the suite's cases is undecided (an undecided delivery is now red). The reference still answers `unknown` in `moveLetsGo` and `cancelsOn` (whole-actor, not per copy), so a move or a fragment's cancel can still excuse a keyed let-go. A `resetOn` copy is asked by (j) only, not by (ref), since its subject part is the runtime's encoding of a value.
+
+Inventory: row 14 (`delivered`) is now checked against the suite's own copy record, not only a turn in the batch; row 15 (`parked`) is checked per copy, so A3' is closed; row 16's `turn` now pays only with a seen Slot run, so A4' is closed; row 35 ((ref)) asks per copy. Allowances: A2 (that the machine took it), A5, A6, A7.
+
+Gates at stage F: suite 729/729 with output and catalog; `falsify --part lies` 42: 39 red by the named oracle, 3 vacuous (as before); `--part tamper` all ok; 5 s gate `29 failed, 29 expected; unexpected: none`. Not rerun at stage F: `--swap`, CLI pins, `checks/`, `--part search`, `--part mutants`, `--part watch`.
+
+## Stage G: the recipient, observed (re-check 10f; D169-D172, proposed)
+
+The convergence rule, applied to (j)'s six failures on one path: the suite now observes who ran each ending's handler, instead of reading what the runtime says about the delivery. A guard of the suite's own, first on every alternative of a mapped event, is run by the runtime with the recipient's view; the suite places that view into one actor, life and copy by published memory, and compares it with the recipient it expects from its own driving (`../convergence-10.md`, stage G).
+
+| Finding | Answer | Shown by |
+| --- | --- | --- |
+| H1'''' wrong actor | D169 | `e8.wa-unknown` red by `(j) delivered to the wrong recipient` (3 of 4 named fails: PAY-12/shuffle, DRV-01, FRAG-22); `e8.wa-failure` 5 of 7. Both were 0/729 |
+| M1'''' `at` a self-report | D169: `at` is no longer read | `e5.at-intent-fail` red 5 of 6 (FRAG-15, FRAG-21, FRAG-22); `e5.at-intent-fail-3` (3+ copies) red 1 of 2 (FRAG-22). Both were 0 by (j) |
+| G1 duplicate keys | D171 | `falsify --part search`: every search ok, `odd` green on the real runtime |
+| Item 3, per-copy let-go | D170 | per copy in `moveLetsGo` and `cancelsOn`; FRAG-22's second variant is the case (a keyed failure beside another copy's turn and another actor's ending in one batch) |
+| Decline let-go by any actor | D170 | `g.decline-letgo-other-actor` red by `(j) parked, and no wait says so` in REV9-EDGE's new variant |
+| L1 `types-check` in a fresh worktree | D172 | `TYPES PASS  tsc clean, 8 directives` from a detached worktree; the link is gone after |
+
+Deleted: D164's `at` comparison and its "names no copy" check in `drive.ts`; an observed delivery is paid by its observation, not by any `turn` in the batch. Reference and runtime disagreed nowhere: 732/732, `unplaceable 0`.
+
+Earlier lies rerun under the new oracle: `e2.subject-fan-fail-att` and `e2.subject-fan-att` 5 of 6 by `(j) delivered to the wrong recipient` (they were red by the deleted `at` check); `e1.park-keyed` 47 of 66 by `(j) parked`; `a3p.park-decline` 43 of 45 by `(j) a decline parked`; `lie.evidence-only` 2 of 2 by (j); `e1.park-keyed-fan-att` 8 of 10 by `(j) parked`; `a4p.refused-turn` 45 of 45 by `(j) refused once`; `ref.binding-first-copy` red by `(ref) binding with subject`. 13 of 47 lies rerun in all, every one red by its named oracle; 34 not rerun (about 60 s each).
+
+Stated limit, not closed: `e8.wa-unknown` fires in 20 cases (re-check probe) and is red in 3. In the rest the wrong actor's view is most likely equal to the owner's (the 1,364 equal views), where the suite cannot tell them apart; not verified case by case. What would close it: actors in those cases with distinct memory, or an effect check on which candidate's published view the handler changed.
+
+Gates on the final commit: see `STATUS.md`.
+
+## Stage H: conservation, on a total identity (re-check 10g; D173-D175, proposed)
+
+The class: (j) asked "did each delivery run in its recipient?" and never "is every run it saw accounted for?" (H1⁵), and it found the recipient by memory equality (equal views). One root: no ledger of observed runs. Replaced, not patched (`../convergence-10.md`, stage H).
+
+| Finding | Answer | Shown by (`--no-output`) |
+| --- | --- | --- |
+| H1⁵ an ending also run in another actor | D173: every observed run is paid once, by an expected delivery to that recipient or a send, follow-up, timer or retry the suite saw; a run left over is red | `q3.dup-other` red by `(j) a handler run nothing accounts for` in 33 of 34 named fails (PAY-12/shuffle, ORDER-02, DRV-01, ...); was 0 |
+| H1⁵ an ending also run in another copy | D173 | `q3.dup-copy` red 9 of 11 (FRAG-07, FRAG-15, FRAG-21, ...); was 0 |
+| Equal views | D173: a suite serial in every incarnation's memory, under a symbol key no published text sees; the ear's node checks the state. Memory-equality placement deleted | `q1.wa-eq-any` red by `(j) delivered to the wrong recipient` 25 of 28 (ORDER-02, DRV-01, DRV-03, ...); was 1 of 26 |
+| A wrong delivery paid by the suite's own send (reasoned) | D173: a send pays only a run in the actor it was sent to | `q5.send-stolen` red 2 of 2 (R10-PINS, R10-AUDIT-ENDINGS) |
+| A named equal-view case | D174, FRAG-23: equal-memory actors in one state and in two states, two equal copies across two actors, an ending beside the suite's own send of its event | 4 variants green on round 10 |
+
+`RECIPIENTS` over 736 cases: observed 45,380; **ambiguous 0**; unplaceable 0; at a boot, counted not placed 256; unobserved (A2) 143; paid by the suite's sends 175; left over 0. Every identity is carried: no fixture failed to carry the serial (a memory that is not a plain object, or made by a Slot other than `initial`/`restore`, would show as ambiguous, and none did).
+
+Deleted: `placeView`, `placeAtBoot`, the structural `same`, the `indistinct` count, and the pairing of a delivery with the first observation of any of its events.
+
+Stated limits: a boot's runs are counted by event, not placed (the booting runtime is unreadable until `port.boot` returns; its restored memory carries a fresh serial). A follow-up pays a run in any copy of its actor. A serial published by two incarnations would not be counted (the first place cached wins; this said "the last scanned wins" until stage I, and D178 makes such a serial red). Delivery with no run (A2, 143) is still paid by the batch's turn.
+
+Lies on the final code commit, one slice at a time: see `STATUS.md`.
+
+## Stage I: a boot placed, and no code path added (re-check 10h; D176-D179, proposed)
+
+The class: the suite treated a boot as a step it may only count, and gave the runtime a `memory.restore` it did not have. Both are the harness deciding instead of observing. A boot's batches are now held and judged once `port.boot` returns, by the one ledger every batch uses; and only Slots the compiled data has are wrapped (`../convergence-10.md`, stage I).
+
+| Finding | Answer | Shown by (`--no-output`) |
+| --- | --- | --- |
+| H1⁶ a restored ending in another actor, at a boot | D176: placed by serial after the boot; the `o.boot` escapes in `fits` and the credits are deleted | `h.boot-other` red by `(j) delivered to the wrong recipient` 2 of 2 (MED-01, FRAG-20); MED-01 was green |
+| H1⁶ a restored ending in another copy, at a boot | D176 | `h.boot-copy` red 1 of 1 (FRAG-15); was 0 |
+| H1⁶ in its owner and another actor | D176 | `h.boot-dup` red by `(j) a handler run nothing accounts for` 2 of 2 |
+| T1 the runtime's branch for no restore never ran | D177: no restore added; a decoded memory's serial is minted at `JSON.parse` while the runtime runs | `h.restore-absent-lost` killed by named oracles in 91 (PAY-08, PAY-09, ...); was 736/736 green |
+| Two rows across a reload, a named case | D176, D177: R10-BOOT-ROWS, with a compiled restore and without | 2 variants green on round 10 |
+| The note "last scanned wins" | D178: first place kept, both say so; one serial in two places is red | 0 in the suite |
+| `d154.event-*` vacuous | D179: retired; their trigger needs a send injected between an ending's enqueue and its turn | |
+
+`RECIPIENTS` over 738 cases: observed 45,642; at a boot, placed 260; ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0.
+
+Stated limits: the state check is not made for a boot's runs (the leaf has moved by the time the boot returns). A runtime that decodes memory by anything but `JSON.parse` mints no serial and is red as ambiguous. The ear is a guard the suite adds; no branch in round 10 counts guards. A follow-up still pays a run in any copy of its actor; timer and unspent send credits still live across batches (re-check 10h, section 2).
+
+Gates on the stage I code commit: see `STATUS.md`.
+
+## Stage J: a boot judged as it happens, and no platform hook (re-check 10i; D180-D183, proposed)
+
+The class: the suite could not read the runtime during its boot, so it held the boot's batches (and skipped their state check, S1), and it reached for the platform to carry identity in (D177's `JSON.parse` swap). The runtime's published reads now answer from its first evidence (`BootArgs.reads`), and the serial of a decoded memory is minted by the Host's record decode, the store codec the suite hands the runtime (`../convergence-10.md`, stage J, with why B and the disk-based A were not taken).
+
+| Finding | Answer | Shown by (`--no-output`) |
+| --- | --- | --- |
+| S1 a restored ending from the node its owner sent from | D180: a boot's runs are state-checked at the ear, live | `h.boot-stale` red by the state check in 5 of 5 failing cases (PAY-08, PAY-15 ×2 named; 4 before R10-BOOT-STATE was added, so presumably it is the fifth, not listed by name); was 0 by (j) |
+| S1 a restored ending from any node outside the leaf's chain | D180 | `h.boot-state` red in 15 of 15; was 0 by (j) |
+| A row moved before the reload, a named case | D182: R10-BOOT-STATE | green; at 5 s it restores the uncaptured earlier state, listed in `gate-5s-expected.txt` |
+| Copies at a boot on one case | D182: FRAG-24, two copies reload | `h.boot-copy` red in 2 of 2 (FRAG-15, FRAG-24) |
+| D177 a process-wide hook | D181: `Host.decode`; the hook is deleted | at a boot, placed 264, ambiguous 0 |
+| `d154.moved-save-released` vacuous | D182: FRAG-24 has two restored `save` endings of one actor in mail at once | red by (j) 1 of 1 |
+| `--part suite` over 295 s | D183: `suite1`, `suite2`, `suite3` | see `STATUS.md` |
+
+`RECIPIENTS` over 740 cases: observed 45,646; at a boot, placed 264; ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0.
+
+Stated limits: a Port must answer its published reads during its own boot (D180). Objects of an actor record that are not memories carry a serial too (never published). A follow-up still pays a run in any copy of its actor; timer and unspent send credits still live across batches; a stale serial resolves to the current life (re-check 10h, section 2).
+
+Gates on the stage J commits: see `STATUS.md`.
+
+## Stage K: oracle (j) converged once (re-checks 10c-10j; D184-D187, proposed)
+
+Eight re-checks failed (j) one dimension further each time. `../conformance-audit/ending-check-design.md` lists the thirteen dimensions of "an ending reaches exactly the right recipient" (who: actor, copy, life; once, not zero; once, not twice; supersede; at a reload: who, routing state, restored state, restored memory; order where promised; the suite's own causes; identity), each with its source and lie, and answers them with one rule: one ledger, matched both ways, at the cause's time. What the old (j) lacked were two anchors: the expected state at a boot came from the runtime's own decode (10j S1′), and a restored ending's excuses were judged when it ran, not when it was due (10j, the boot order).
+
+| Finding | Answer | Shown by (`--no-output`) |
+| --- | --- | --- |
+| S1′ a row restored in the state its owner sent from | D184: the boot's published state checked against the record on disk (`DiskCodec.leaves`) | `h.restore-at-send` red by `(j) restored in` in 17 of 17 failing cases (probe: 19 at 10j); was 0 by (j) |
+| An input waiting on a slow load stepped before the restored endings (Medium) | D185: restored endings judged at the boot; D186: R10-BOOT-ORDER | `h.boot-order` red by `before the restored endings` in 1 of 1 (R10-BOOT-ORDER); its probe fired in no case at 10j |
+| `checkMints` at a slow load with a write in flight | D187: `quiet().loading` | R10-BOOT-ORDER green |
+| A boot's own flag and count | D184: dropped | RECIPIENTS: restored states checked against their record 1,071 |
+
+`RECIPIENTS` over 741 cases: observed 45,648; restored states checked against their record 1,071; ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0.
+
+Stated limits (`ending-check-design.md`, section 4, L1-L9): a codec and a restore that agree on a wrong leaf; the published leaf between anchors; order among one incarnation's restored endings and across actors; A2; a serial moved by a spread; a copy's binding at a boot judged at its run; timer and follow-up credits per actor; the order of a send of an unmapped event.
+
+Gates on the stage K commits: see `STATUS.md`.
+
+## Stage L: (j)'s single revision (review of stage K; D188-D192, proposed)
+
+The review (`../conformance-audit/review-ending-check.md`) found a new class with two root causes. R6: the runtime's silence counted as an excuse. R7: a cause named its recipient but not its event, start, order or count. `../conformance-audit/ending-check-design.md` is revised in place. It now lists 18 dimensions, and one rule: one ledger, matched both ways, at the cause's time, from the suite's own facts. This is the last cycle; what is left is a stated limit with a named case.
+
+| Finding | Answer | The review's lie, `--no-output` (cases with the mark / all failing) |
+| --- | --- | --- |
+| H1 the anchor opt-in by `leaves` | D188: no answer for a restored actor is red | `k.no-leaves+at-send` 107/107 (was 0 by (j)) |
+| H2 a boot owes what the runtime says | D188: owed from `disk.heads` and `disk.parked` | `k.held-silent` 8/8 (was 0) |
+| H3 "owner not alive" from what it publishes | D188: alive by the suite's record; a drop is red | `k.drop-row` 62/68, `k.drop-copy` 9/9, `k.vanish-live` 80/85 (were 0, 0, 15) |
+| H4 D11 for a definition's op only | D190: for every op, copies included | `h.boot-order` 2/2, FRAG-24's new slow-load variant among them |
+| H5 a ghost life | D188, D190: no run or publish in a disposed actor | `k.ghost-life` 9/9 (was 1) |
+| H6 the start node | D189: rule 14's start, current and late; rule 15 | `k.late-as-current` 5/6, `k.restored-from-root` 13/15 (were 0, 0) |
+| H7 A2 paid by `Unhandled` | D189: red where a token-free alternative handles the event | `k.claim-unhandled` 49/56 (was 0) |
+| M1 anchor when the runtime says `boot` | D188: before the first run | `k.ev-late+at-send` 17/17 |
+| M2 `loading` from `boot` | D188: from the fake; no boot after an answered load is red | `k.no-boot-ev+at-send` 149/152, `k.no-boot-ev+boot-order` 149/152 (were 0) |
+| M3 the event | D189: rule 13's mapping of the ending said | `k.restored-as-success` 57/60, `k.failure-as-success` 90/96 (were 0) |
+| M4 a send ahead of the restored endings | D190: no move while owed | `k.send-ahead` 1/2 (was 0) |
+| M5 streams | limit L10, with a partial check (a stream run in an incarnation that opened its session) | `k.stream-other`: limit |
+| M6 once per boot only | D190: once across boots; nothing parked on disk unowed | `k.parked-every-boot-silent` 24/25 (was 0) |
+| M7 parked order | D190: saved order per lane | `k.parked-reversed` 1/1 (was green) |
+| M8 counts printed, not gated | D191: `expected-recipients.txt` under the lock | |
+| M9 one edit turns (j) off | D191: per actor | |
+| L1 a sent head Superseded | D191 | `k.supersede-head` 11/13 (was 0) |
+| L2, L3 frozen copies; one path | limits L11, L12 | neither fires |
+| L4, L5, L6, L7 | D191, D190 | |
+
+`RECIPIENTS` over 742 cases: observed 45,650; restored states checked against their record 1,074; ambiguous 0; unplaceable 0; one serial in two places 0; unobserved (A2) 143; paid by the suite's sends 175; left over 0; start node checked 6,288; stream deliveries placed 180.
+
+Stated limits, L1-L13 (`ending-check-design.md`, section 4): a codec sharing restore's decode; the published leaf between anchors; order across actors; A2 where every handler is token-gated; a serial moved by a spread; a copy a lost reset unplaced at a boot; "late" sampled between steps; rule 15's active subroutine; the live channel is the ending evidence's word; a stream frame's session; frozen copies; two incarnations at one path; an empty boot after the runtime's own load bound.
+
+Gates on the stage L commits: see `STATUS.md`.

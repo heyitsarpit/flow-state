@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `HashMap` API](https://www.effect.website/docs/v4/api/effect/HashMap). Examples assume `import { HashMap } from "effect"`.
 
+`HashMap` provides immutable hash-map collections for keyed lookup, insertion, removal, transformation, and traversal.
+
 ## API index
 
 1. [HashMap.HashMap](#hashmaphashmap)

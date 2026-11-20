@@ -1,0 +1,49 @@
+KILLED   d58-pos-no-tick                      2 cases: REV4-H1/a-read-started-during-a-write-does-not-overwrite-it REV4-H1/the-doubt-outlives-a-failed-repair
+SURVIVED d58-ge                               0 cases: 
+KILLED   d59-read-applies                     3 cases: MED-03/stale-read-does-not-overwrite-a-confirmed-write REV4-H1/a-read-started-during-a-write-does-not-overwrite-it REV4-H1/the-doubt-outlives-a-failed-repair
+KILLED   d59-success-no-doubt                 7 cases: LIKE-01 STORE-05/retry-success-clears CART-02/repriced-under-pending HIGH-04 ...
+KILLED   d59-success-not-applied              3 cases: STORE-05/retry-success-clears REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean
+KILLED   d58-doubt-cleared-by-early-read      1 cases: REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it
+KILLED   d58-doubt-never-cleared              7 cases: LIKE-01 STORE-05/retry-success-clears HIGH-04 REV4-H1/a-read-started-during-a-write-does-not-overwrite-it ...
+KILLED   d59-threw-no-doubt                   1 cases: REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark
+KILLED   d57-carried-unchecked                1 cases: REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store
+KILLED   l4-read-replaces                     1 cases: REV4-L4
+KILLED   d57-canon-unsorted                   1 cases: REV4-H5/a-reset-value-is-the-value-not-its-key-order
+KILLED   d57-list-non-array-throws            4 cases: REV4-H4/list-null-repairs-never-refuses REV4-H4/list-five-repairs-never-refuses REV4-H4/memory-initial-of-a-bigint-on-a-persisted-machine SEARCH-ODD-SMALL
+KILLED   d57-list-bad-not-counted             3 cases: REV4-H4/list-null-repairs-never-refuses REV4-H4/list-five-repairs-never-refuses REV4-H4/list-string-repairs-never-refuses
+SURVIVED d57-valid-leaf-unchecked             0 cases: 
+KILLED   d57-valid-kid-frag-unchecked         1 cases: REV4-H3/kid-frag-is-another-fragment
+KILLED   d57-valid-history-unchecked          1 cases: REV4-H3/history-names-a-removed-node
+KILLED   d57-valid-frozen-unchecked           1 cases: REV4-H3/frozen-of-no-shape
+KILLED   d57-parked-not-sanitised             1 cases: REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane
+KILLED   h3-hold-dropped-on-second-boot       12 cases: REV4-H3/leaf-this-release-removed REV4-H3/kid-frag-this-release-removed REV4-H3/kid-leaf-removed REV4-H3/placement-removed ...
+KILLED   l5-parked-in-lane-order              5 cases: PAY-13/waiting-flushed PAY-16/settled-during-disposal-parked PAY-16/parked-success-is-delivered FRAG-19/unplaced-parked-survives-a-reload ...
+KILLED   h6-exit-still-abandons               4 cases: REAL-01/own-exit-hands-no-draft-back REAL-02/own-exit-no-draft REAL-02/kept-returns-to-the-exact-step-through-a-nested-exit REAL-02/discarded-fills-the-wizards-own-exit-two-own-exits-in-one-turn
+KILLED   h6-exit-skips-descendants            1 cases: REAL-02/own-exit-no-draft
+KILLED   m2-refreeze                          1 cases: REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above
+KILLED   m2-thaw-any                          1 cases: REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above
+KILLED   m3-frozen-not-reconciled             crash: 
+KILLED   m4-facts-dropped                     1 cases: REV4-M4
+KILLED   m4-loops-unbound                     watchdog rss at 1404 MB
+KILLED   m5-fire-not-redelivered              2 cases: REV4-M5/a-firing-that-throws-once-comes-again REV4-M5/a-firing-that-always-throws-is-final-and-bounded
+KILLED   m7-no-reorder                        1 cases: REV4-M7
+KILLED   d64-thaw-no-check                    1 cases: REAL-04/D64-a-changed-ticket-resets-on-return-with-no-frame-of-the-old-subject
+KILLED   r53-thaw-no-adoption                 2 cases: REAL-04/r53-a-write-that-ends-while-frozen-parks-and-the-thaw-adopts-it REAL-04/r52-the-cut-lookup-comes-before-a-parked-write
+KILLED   thaw-says-restored                   1 cases: REV4-M3/a-thaw-tells-its-own-hold-nothing-new
+KILLED   m1-then-regardless                   1 cases: REV4-M1
+SURVIVED l6-fire-touches                      0 cases: 
+SURVIVED d57-to-unchecked                     0 cases: 
+SURVIVED seam-deliver-unfenced                0 cases: 
+SURVIVED seam-no-retract                      0 cases: 
+SURVIVED seam-member-applied-at-once          0 cases: 
+KILLED   seam-actor-not-told-on-gone          1 cases: SPIKE-04/dispose-then-ensure-brings-both-back
+KILLED   seam-bookmark-not-on-denied          10 cases: SPIKE-01/a-value-and-its-bookmark-are-one-write SPIKE-01/a-denied-value-still-moves-the-bookmark SPIKE-02/a-reload-restores-memory-and-bookmark-together SPIKE-02/the-servers-echo-is-proof-no-notice ...
+KILLED   seam-filled-stuck                    1 cases: SPIKE-01/a-value-and-its-bookmark-are-one-write
+SURVIVED seam-old-conn-unfenced               0 cases: 
+
+not applied (0):
+
+
+34/42 killed (builder)
+
+WATCH peak 34 MB, 418.4 s, exit 0, killed no

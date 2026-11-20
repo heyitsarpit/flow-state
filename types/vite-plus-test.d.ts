@@ -1,6 +1,9 @@
 declare module "vite-plus/test" {
-  type TestBody = () => void | Promise<void>;
-  type TestApi = (name: string, body: TestBody, timeout?: number) => void;
+  export type TestContext = { readonly skip: (note?: string) => never };
+  type TestBody = (context: TestContext) => void | Promise<void>;
+  type Declare = (name: string, body: TestBody, timeout?: number) => void;
+  type TestApi = Declare & { readonly skipIf: (condition: boolean) => Declare };
+  type ItApi = TestApi & { readonly fails: Declare };
 
   interface AsyncMatchers {
     toBe(expected: unknown): Promise<void>;
@@ -24,6 +27,7 @@ declare module "vite-plus/test" {
     toEqual(expected: unknown): void;
     toHaveLength(expected: number): void;
     toHaveProperty(expected: string): void;
+    toMatchFileSnapshot(path: string): Promise<void>;
     toMatchObject(expected: unknown): void;
     toThrow(expected?: unknown): void;
   }
@@ -35,7 +39,12 @@ declare module "vite-plus/test" {
     objectContaining(expected: object): unknown;
   }
 
+  // Values the config's `provide` gives the tests, declared by merging into this interface.
+  export interface ProvidedContext {}
+
+  export { expectTypeOf } from "expect-type";
+  export const inject: <K extends keyof ProvidedContext>(key: K) => ProvidedContext[K];
   export const describe: TestApi;
   export const expect: ExpectApi;
-  export const it: TestApi;
+  export const it: ItApi;
 }

@@ -1,0 +1,21 @@
+{
+ "browser": "Chrome/146.0.7680.76",
+ "round-9:h1store-refunds-hold400": {
+  "cycles": 12,
+  "arrived": 12,
+  "keysAtAll": {
+   "2": 12
+  },
+  "twoKeysBesideAnUndecidedFirst": 0,
+  "restored": {
+   "READY": 12
+  },
+  "endings": {
+   "failure,unknown": 12
+  },
+  "final": {
+   "READY": 12
+  }
+ },
+ "peakMb": 818
+}

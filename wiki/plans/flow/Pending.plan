@@ -1,0 +1,359 @@
+plan Pending
+title   Pending Plan amendments, merged once proven
+status  proposed
+goal
+    Plan changes found while building wait here, unmerged, until building proves them right. Each decision names the
+    Plan record it changes, the change, why, and the evidence that would prove it. One is merged into its Plan only once
+    that evidence holds and the user says yes, then removed from here with the merge commit noted on the Epic.
+decisions
+    D1  @plan.Operations.O3: a cancel during a send leaves the call Held
+         (accepted, merged into the Plans 2026-11-20)
+        Change O3's phrase that says a cancel settles a call on the wire, to match @spec.WriteLanes.R14 as revised: the
+        call follows its own ending and stays Held. **Why:** the phrase came from the old design's `HeldThisTurn`, which
+        is about the `cancel` concurrency policy (the R4 entry of the spec log, in git history before its deletion on
+        2026-11-15). **Proven by:** P4's production lane passing the suite's cancel-on-wire cases (PAY-12, PAY-15,
+        LANE-04). Found in @task.V3.T7.
+    D2  @plan.Machines.O3: a denied or unhandled ending's lane-only change is published
+         (accepted, merged into the Plans 2026-11-20)
+        Change O3's "Unhandled or denied events publish nothing" to "publish nothing of their own; an ending admitted in
+        that turn publishes its lane-only change", as @spec.Turn.R19 and the same outcome's step-one rule already say.
+        **Why:** otherwise rows stay stale after a denied ending (the Invariant audit's G7,
+        code:wiki/plans/flow/references/proposals/invariant-audit-2026-11-11.md). **Proven by:** P3's Turn cases for
+        @spec.Turn.I15 showing the row change. Found in @task.V3.T42. Routed (2026-11-20): partly built; finished and
+        merged by @task.V3.T105.
+    D3  @plan.Runtime.O6: disposal invokes nothing
+         (accepted, merged into the Plans 2026-11-20)
+        Drop "and invokes what the lane table promotes" from O6's disposal paragraph, which the same outcome contradicts
+        ("from its start nothing is invoked"); @spec.Actors.R22 and @spec.Actors.I30 follow the second reading. **Why:**
+        the audit's G17. **Proven by:** P3's disposal cases (`o6.*` wrong runtimes) staying green on round 14. Found in
+        @task.V3.T42. Routed (2026-11-20): partly built; finished and merged by @task.V3.T105.
+    D4  @plan.Operations.O3: a refused turn's ending is redelivered once
+         (accepted, merged into the Plans 2026-11-20)
+        Change O3's "a pre-commit defect is not retried for that input" to: a refused turn's ending is redelivered once,
+        and a second refusal is final until the next boot or adoption, as @spec.Actors.R15 and @spec.Actors.I24 say and
+        the CQ1 ruling chose; @spec.WriteLanes.R10 is widened to match. **Proven by:** P4's production turn passing
+        TURN-01 with the issue count asserted. Found in @task.V3.T8. Routed (2026-11-20): partly built; finished and
+        merged by @task.V3.T105.
+    D5  @plan.Testing.O1: a run accepts a step array
+         (accepted, merged into the Plans 2026-11-20)
+        Add that `run({ steps })` runs a Story's setup and fixtures over another `Story.Step` array. **Why:** the reload
+        sweep inserts steps and generated Stories shrink them; both need a chained Story's data form run back. **Proven
+        by:** @task.V3.T64's sweep and @task.V3.T70's shrinking. Found in @task.V3.T63. Code: `run` also takes `{ steps,
+        seed }`.
+    D6  @plan.Testing.O1: an app Story step disposes the whole Runtime
+         (accepted, merged into the Plans 2026-11-20)
+        Add `disposeRuntime()` beside `dispose(ref, { how })`, and drop @plan.Package's line that keeps `disposeRuntime`
+        on an internal route for Flow's own suite. **Why:** @spec.Actors.R22 and @spec.Diagnostics.I8 speak of disposing
+        a Runtime with work in flight, which no app step reaches. **Proven by:** a Story disposing with a call in
+        flight, in @task.V3.T63. Found in @task.V3.T63. Code: takes `{ forget?: true }` (a Runtime's `dispose({ forget
+        })`), which the decision omits.
+    D7  @plan.Testing.O3: endpoints and controls are `Fake.call` and `Fake.control`; transports use `Fake.http`
+        Name the helpers that build `Fake.server`'s endpoints and controls, and the transport binding: a Layer of
+        Effect's `HttpClient` (`Fake.http`) rather than a replaced global `fetch`. **Why:** the reference apps use
+        `Fake.call` and `Fake.control`, and Effect adapters take `HttpClient`
+        (code:wiki/plans/flow/references/proposals/test-tooling-reuse-2026-11-15.md, Q5 and Q7). **Proven by:**
+        @task.V3.T63's fixtures for `Fake.call` and `Fake.control`, and the first Promise-based adapter over `Fake.http`
+        (@task.V3.T29). Found in @task.V3.T63. Routed (2026-11-20): partly built; finished and merged by @task.V3.T29.
+    D8  @plan.Testing.O4: `read(target)` also takes a fake endpoint
+         (accepted, merged into the Plans 2026-11-20)
+        Widen O4's `read(target)` so an endpoint returns each call it received with its status (held, answered,
+        dropped), as the reference stories read `cut.read(Stripe.confirm)`. **Why:** "exactly one call reached the
+        server" needs the call log, and a fake's truth does not always show it. **Proven by:** @task.V3.T63's Pay Story
+        and @task.V3.T64's run rules over calls. Found in @task.V3.T63. Code: statuses are answered, held or dropped at
+        request or response, and handled; each entry also has tab and step.
+    D9  @plan.Package.O1: `flow-state/testing` exports `storeContract`; `flow-state/persistence` exports `Store`
+         (accepted, merged into the Plans 2026-11-20)
+        Add `storeContract(name, layer)`, the store contract as a plain `@effect/vitest` function of a `Store` Layer, so
+        a custom store adapter is checked as Flow's own are, and export the `Store` service tag beside `layerIndexedDb`
+        and `layerMemory`, which @plan.Persistence.O1 asks authors to implement. **Why:** a custom store is the
+        likeliest adapter users write (the user, 2026-11-15, reuse proposal Q8). **Proven by:** @task.V3.T58 running it
+        on `Fake.storage` and real IndexedDB, and @task.V3.T28 on both adapters. Routed (2026-11-20): partly built;
+        finished and merged by @task.V3.T58.
+    D10  @plan.Testing.O1: `reload({ reattach: false })`
+         (accepted, merged into the Plans 2026-11-20)
+        Add an option to the reload step that boots the new page without re-attaching the Story's uses. **Why:** O1's
+        reload always re-attaches, which hides a boot that fails to wake owed identities; the reload sweep needs a
+        variant that attaches nothing. **Proven by:** @task.V3.T64's second sweep variant catching a planted fault that
+        skips the boot wake. Found in @task.V3.T64.
+    D11  @plan.Testing.O3: `reload({ heldWrites: "land" })`
+         (accepted, merged into the Plans 2026-11-20)
+        Add an option to the reload step that lands every held store write as the old tab dies, unheard; the default
+        stays "abort", as O3's "aborted on close" says. **Why:** an IndexedDB transaction can commit and its tab die
+        before it hears `complete` (@spec.Restore.R3, @spec.WriteAhead.T8's first kill point); without the option no
+        Story reaches that state. The write lands at the reload instant, so nothing from a dead tab lands later.
+        **Proven by:** @task.V3.T67's step test and the ported acknowledged-but-unheard pay cases reading unknown
+        Restored with no request sent, and its planted fault. Judged by the orchestrator, for the user's read. Found
+        in @task.V3.T67.
+    D12  @plan.Testing.O3: `Fake.network.offline()` and `online()`
+         (accepted, merged into the Plans 2026-11-20)
+        Add world words that take the whole network down and back: while offline, every call is lost at request and
+        reaches no server, and wire words given meanwhile wait for the network. **Why:** the stress profile's offline
+        span (every answer Lost or Never for 5 to 120 s) needs one word for every endpoint at once, not a drop armed per
+        endpoint. **Proven by:** @task.V3.T70's step test, the stress profile's span check and the planted fault
+        `offline-reaches-server`. Judged by the orchestrator, for the user's read. Found in @task.V3.T70.
+    D13  @plan.Runtime.O4: context updates never count toward the follow-up guard (accepted, the user, 2026-11-17)
+         (merged into the Plans at 561cf35f)
+        O4's follow-up chain, D24's one loop guard (its number comes from the bench), counts only events sent by turns;
+        a context update and the onContext events it enqueues never count, so none is refused or waits at the guard, and
+        a provider with any number of consumers updates them all in one admitted event. **Why:** O4 also says context
+        updates are never dropped, and ContextCycle already bounds a context chain; counting them refused a rename under
+        more than 64 badges. Two traces of one Story (a rename under 1,024 badges): counted, the rename is refused and
+        every badge keeps the old name; uncounted, every badge shows the new one and no issue is raised. No turn sends
+        an event until an actor-to-actor send action exists (the user's call), so the guard has no input today and is
+        built with that action. **Proven by:** tests/actors/follow-ups.test.ts, `session/avatar-wall-65`, the
+        1,024-badge wall and the planted fault `context-follow-ups-capped`. Decided by the orchestrator, delegated by
+        the user; supersedes the earlier D13 (a context update at the cap waits). Found in @task.V3.T9.
+    D14  @plan.Operations.O4: a Flapping session reopens when the connection is restored (accepted, the user, 
+         2026-11-17)
+         (merged into the Plans at a59b615f)
+        **Before:** a session that ends `Flapping` stays ended; "it never re-opens a session" (O4), so a chat after a
+        train ride hears nothing until its screen is placed again. **After:** a `Flapping` session reopens once on the
+        Runtime's "connection restored" signal (the one O2 uses to refetch reads), with its flap count reset; it never
+        loops, since a session that flaps again waits for the next signal. **Recommendation:** After; it keeps the
+        no-loop rule, and every realtime client reconnects on network return. **Proven by:** the `chat` train-ride Story
+        (code:wiki/conventions/fixture-catalog.md). Found in the fixture catalog review, 2026-11-17.
+    D15  @plan.Persistence.O4: what a reload does to queued writes (accepted, the user, 2026-11-17)
+         (merged into the Plans at a59b615f)
+        **Before:** O4 says lanes that owe an ending are restored live "so offline queued writes resume after a reload",
+        while the same outcome ends each queued commit `NotSent { Restored }`. **After:** O4 says a write in flight at
+        capture gets its ending after a reload, and queued commits end `NotSent { Restored }` for the app to send again.
+        **Recommendation:** After; the rule stays as the Spec has it, and a queued payment is never sent without the
+        user seeing it again. **Proven by:** the `transfers` Story with three queued transfers behind one in flight,
+        reloaded. Found in the fixture catalog review, 2026-11-17.
+    D16  @plan.Operations.O5: a superseded commit removes its optimistic updates (accepted, the user, 2026-11-17)
+         (merged into the Plans at a59b615f)
+        **Before:** O5 says what success, failure, `NotSent` and unknown do to a commit's optimistic updates, and
+        nothing about a commit `latest` supersedes before it is sent. **After:** a superseded commit's updates are
+        removed as a `NotSent` ending's are, without a refetch and without overwriting newer data. **Recommendation:**
+        After; the commit never reached the server, which is what `NotSent` already covers. **Proven by:** the `draft`
+        autosave Story with two saves in a row. Found in the fixture catalog review, 2026-11-17.
+    D17  @plan.Persistence.O5: a send queued before boot when storage fails (accepted, the user, 2026-11-17)
+         (merged into the Plans at a59b615f)
+        **Before:** a failed storage read flushes the pre-boot queue "with `StorageFailure`", but `Flow.NotSent` has no
+        `StorageFailure` tag (@plan.Operations.O3), so a commit in that queue has no named ending. **After:** a commit
+        flushed from the pre-boot queue ends `NotSent { NoPersistence }`, as any commit does once persistence is off,
+        and `StorageFailure` stays the issue and evidence. **Recommendation:** After; it reuses a tag with the same
+        meaning instead of adding one. **Proven by:** the `session` Story whose storage read fails with a sign-in
+        queued. Found in the fixture catalog review, 2026-11-17.
+    D18  @plan.Persistence.O2: `dueAt` is wall-clock time, and a passed timer fires once (accepted, the user, 
+         2026-11-17)
+         (merged into the Plans at a59b615f)
+        **Before:** timers persist as `{ dueAt }` and run on the Runtime Clock, with no statement of whether `dueAt` is
+        wall-clock or monotonic, or what a sleep or a clock jump does. **After:** `dueAt` is wall-clock epoch
+        milliseconds from the Runtime Clock. A timer whose `dueAt` has passed on restore or wake fires once at the next
+        turn, with no catch-up of missed repeats, and a clock moved backwards delays it. **Recommendation:** After; it
+        is the only reading that survives a reload, and firing once matches how the browser treats a sleeping page.
+        **Proven by:** the `sign-in` cooldown and `home` schedule Stories across a sleep. Found in the fixture catalog
+        review, 2026-11-17.
+    D19  @plan.Operations.O3: `flow check` warns on `concurrency: "cancel"` for a money write (accepted, the user, 
+         2026-11-17)
+         (merged into the Plans at a59b615f)
+        **Before:** under `concurrency: "cancel"` a newer commit interrupts one on the wire and that ending is only
+        evidence, while a user's `O.x.cancel` on the wire keeps the Attempt Held as `unknown { Cancelled }` (see D1). A
+        payment written with `cancel` can land twice. **After:** the two rules stay as they are, and `flow check` warns
+        when a transaction that declares `idempotency` uses `concurrency: "cancel"`. **Recommendation:** After; `cancel`
+        is right for writes where the newest wins, and the warning catches the money case without changing either rule.
+        **Proven by:** the `lanes` Story whose `Lanes/cancel` actor interrupts a call on the wire, and a `flow check`
+        case. Found in the fixture catalog review, 2026-11-17.
+    D20  @plan.Machines.O1, @plan.Runtime.O5: a context slot declares its selection's Schema (accepted, the user,
+         2026-11-17) (merged into the Plans at 561cf35f)
+        **Before:** `Provider.select(selector)`; a selection is saved by a hand-written codec, and every value kind it
+        misses (Date, NaN, Map, Set, class instances, cycles) is saved unknown and invents an `onContext` event at each
+        reload. **After:** `Provider.select(schema, selector)`, e.g. `Session.Provider.select(Schema.String, (s) =>
+        s.memory.user)`; each selection passes once through the Schema's JSON form, so the consumer reads, compares and
+        saves the same value live and after a reload, and a selection the Schema refuses is the selector's defect.
+        **Recommendation:** After; it is the standard upfront contract memory fields already use, and no value kind is
+        left unknown. **Proven by:** the `session` digest, thread and reload Stories (`tests/session/values.test.ts`,
+        `tests/rules/reloads.test.ts`). Found in @task.V3.T9's convergence. The Schema stays required: it cannot be
+        inferred for a computed selection, and an optional one brings back the unknown value kind (the convergence
+        review's recommendation). A selection with no canonical form is reported `UnencodableValue` and never fails the
+        turn; a Schema refusal stays the selector's defect. Superseded in form by the accepted context-slots proposal:
+        `Flow.context` replaces `Provider.select(schema, fn)`
+        (code:wiki/plans/flow/references/proposals/context-slots-2026-11-20.md, @task.V3.T107); the Schema stays, taken
+        from the field for a pass-through slot.
+    D21  @plan.Diagnostics.O1, @plan.Operations.O1, @plan.Testing.O6: three fixture calls from @task.V3.T82 (accepted,
+         the user, 2026-11-17)
+        `ContextCycle` stays checked by a runtime test, since no real app reaches it without a stand-in definition of
+        the same id. sync's "a 4xx that is not a rate limit ends at once" case waits for a Task that may change the old
+        `Git/sync` contract, which additive fixture growth forbids. sign-in's grown samples stay out of the app mix: a
+        sixth part fails the mix's "every server called in one run" check at five seeds. **Why:** additive growth and no
+        reach today. **Proven by:** no owner until a Task changes `Git/sync` or seats more mix parts; logged
+        in revisit.md.
+    D22  @plan.Testing.O6: context edge values join the fixture catalog (accepted, the user, 2026-11-17)
+        **Before:** the catalog names no edge values for context, so two T9 reviews found value kinds (undefined,
+        Option, Date, NaN, Map, Set, cycles) that no fixture held. **After:** a catalog row of context edge values that
+        every later Task touching context inherits: each value kind across repeated reloads, a cyclic selection, a value
+        at depth 100,000 (D27), and a source that fails and then recovers. **Why:** a class found twice becomes a
+        fixture every later Task inherits (the Epic's instructions). **Proven by:** the row's Stories in `session`, red
+        on a planted unknown path. Found in @task.V3.T9's reviews.
+    D23  @plan.Inspection.O2: the codec has no size bounds (accepted, the user, 2026-11-17)
+         (merged into the Plans at 561cf35f)
+        **Before:** one past any of depth 32, 10,000 nodes, 4,096 items per array, 262,144 bytes per string or key, or
+        2,097,152 canonical bytes is rejected, so a context slot or record past a bound is saved unknown or withheld.
+        **After:** the codec keeps canonical encoding and strict decoding, and drops the five size bounds; how big a
+        value may be is set by real-world performance measured while building (the bench), and by storage quota, which
+        is a real limit and ends as `StorageRefused`. **Why:** the numbers were arbitrary, and a bound is what made a
+        context value unsaveable; an app with 5,000 rows virtualises them or holds pointers. **Proven by:** a 5,000-item
+        selection and record saving and restoring in a Story, with the bench timing it. Found in @task.V3.T9's reviews.
+    D24  @plan.Runtime.O4, @plan.Operations.O1, @plan.Operations.O3, @plan.Persistence.O3, @plan.EntityDomains.O1,
+         @plan.EntityDomains.O5, @plan.Machines.O1: no size or queue caps; one loop guard and a slow-work warning
+         (merged into the Plans at 561cf35f)
+         (accepted, the user, 2026-11-17)
+        **Before:** fixed caps: 1,024 pending events per actor, 64 queued commits under `serialize` and per entity
+        record (`NotSent { Overloaded }`), a 4,096-item `many` key, 4,096 given-up marks per entity, 4,096 records and
+        16 MiB per persistence scope, 8,192-byte keys, 256-byte names. **After:** none of these caps. The follow-up
+        chain stays as the one loop guard (as XState's `maxIterations` and React's update depth), its number set from
+        the bench; a dev diagnostic reports a turn or capture slower than the bench's budget (as RTK's `warnAfter`).
+        Storage quota stays the real limit (`StorageRefused`). **Why:** the numbers were arbitrary; XState, Zustand,
+        Redux, RTK and redux-persist cap no size or queue, and guard loops and slow work instead. **Proven by:** Stories
+        past each old cap with no ending lost, doubled or made up, the bench timing them, and no core Spec names a
+        removed cap (Actors R13 and R14, WriteLanes serialize, WriteAhead scope bounds). Found in the limits survey
+        after @task.V3.T9's reviews. Extended (the user, 2026-11-17, Q3 A): also dropped are the 64 sends buffered
+        before React attaches (@plan.React), 256 stream entries per operation and 256 identities per write batch, the
+        key shape's 16 levels and 256 nodes (@plan.Operations.O1), the 10-segment state path (@plan.Machines), the
+        trace's 4,096 events (@plan.Inspection) and a Story's 10,000 `run.frames` (@plan.Testing). A step's mail drain
+        stays a fairness yield, not a limit, its count set from the bench. Extended again (the user, 2026-11-17, Q10 A):
+        the server-rendering payload's `maxBytes` (262,144, at most 2,097,152; @plan.ServerRendering) and the 1,024-item
+        `Stream.callback` queue (@plan.Operations) are dropped too; the inspector's ring stays a user-settable capacity
+        whose default comes from the bench (D25).
+    D25  @plan.Runtime, @plan.Persistence, @plan.Operations, @plan.EntityDomains, @plan.ServerRendering,
+         @plan.LazyFeatures: timing and retry knobs are named defaults set from measurement (accepted, the user,
+         (merged into the Plans at 561cf35f)
+         2026-11-17, Q4 A)
+        **Before:** literal values written in Plans, Specs and code: the free actor's grace 100 ms, the disposal bound 5
+        s, StorageSilent 10 s, a refused batch's retry 5 s, the lazy-load timeout 10 s, the stream reconnect schedule
+        (500 ms, x0.8 to 1.2, 30 s, `Flapping` after 8), 3 repair asks, 3 server-rendering capture retries,
+        `repairSlots` 6. **After:** each is one named Runtime default defined in one place; Specs and tests cite the
+        name, not the literal; each value is set from the bench or real measurements when its Task builds it; retries
+        use Effect's `Schedule`, and a refused batch's retry derives from the capture interval. The capture interval
+        keeps 5 s (the user's decision) until the bench says otherwise. **Why:** none of these values was measured.
+        **Proven by:** each knob's bench or measurement note on its Task. Knobs not yet built are owned by the Task that
+        builds each feature. The test-tooling guards (Story turn, settle and advance limits) are @task.V3.T83's (the
+        user's Q5 A). Found in the limits sweep, 2026-11-17.
+    D26  @plan.Inspection.O2: a value's depth has one measured platform limit (accepted, the user, 2026-11-17, Q9 A;
+         lifted by D27 once proven, 2026-11-17) (merged into the Plans at 561cf35f)
+        **Before:** after D23 a value may nest to any depth, but Effect's Schema encode and `Equal` recurse on the call
+        stack, so a 6,000-deep value under a recursive Schema kills the run and deep Maps compare wrongly. **After:**
+        depth has one limit, the deepest value Effect's Schema and equality handle on the slowest supported host,
+        measured on the bench, with headroom, defined in one place. A value past it is reported `UnencodableValue` and
+        never fails a turn, as any value with no form; size stays unbounded (D23, D24). **Why:** unlike size, depth is a
+        real limit of the libraries on a value's path, and real data is wide, not thousands of levels deep; making every
+        walk stack-safe would rebuild Effect's Schema beside it. **Proven by:** Stories at and past the measured depth
+        under `Schema.Json`, a recursive `Schema.suspend` and a Map nest, with no crash and no ending lost or made up.
+        Found in @task.V3.T9's reviews.
+    D27  @plan.Inspection.O2, @plan.Machines.O1, @plan.Runtime: every value crosses into Flow through walkers compiled
+         from its Schema (accepted, the user, 2026-11-17, Q11 B) (merged into the Plans at 561cf35f)
+        **Before:** Effect's Schema parser and `Equal` walk each value recursively at runtime, so deep values crash
+        wherever a call is unguarded (keys, payloads, inputs, reactions, traces), and D26 caps depth at 256. **After:**
+        each Schema in `Compiled` gets its own stack-safe encoder, decoder and comparator, built once from Effect's
+        Schema AST, and every value path (memory, selections, keys, payloads, inputs, commit inputs, records, traces)
+        uses them; equality is the fastest correct option measured on the bench (a compiled comparator, reference-first
+        on immutable memory, or `Equal`). Once every path is proven at depth 100,000, D26's limit is lifted. **Why:**
+        guarding calls one by one leaked in three rounds; Flow owns the compiled format, so it can do better than a
+        generic recursive walk. **Proven by:** Stories at depth 100,000 on every value path with no crash and no ending
+        lost or made up, and the bench comparing the equality options. Found in @task.V3.T9's reviews.
+    D28  @plan.Persistence.O3, @spec.WriteAhead: Later records are projected when their list is issued (superseded by 
+         D30, the user, 2026-11-17)
+        **Before:** every touched record is projected at each step's end, then coalesced, so most encoded text is thrown
+        away. **After:** a step whose writes are Awaited or Now still projects at its end, since those gate sends and
+        tickets. A record touched only by Later steps keeps the step's immutable state and is projected when its Later
+        list is issued (the interval or the flush on hide), through D27's memoised walkers; the withholding rule (an
+        identity whose actor record cannot encode writes none of its records, I11) is applied at that moment, and its
+        UnencodableValue report comes then. Same records and bytes as today. **Why:** step-end projection costs 23 to 76
+        % of a run (the performance audit's finding 3); deferring only Later work keeps every send-gating write exact.
+        **Gate:** built only if the bench, after T9's memoised walkers, still shows Later projection as a top cost.
+        **Proven by:** the reload sweep and run rules unchanged, I11 and I20 held, and a hide flush timed on the bench.
+        Owner: @task.V3.T85.
+    D29  @plan.Machines.O1, @plan.Runtime: memory and selected values are immutable by contract (accepted, the user,
+         2026-11-17, Q12 A) (merged into the Plans at 561cf35f)
+        **Before:** updates are immutable by design, but nothing checks it, so a reference cannot prove a value is
+        unchanged. **After:** memory, selections, payloads and inputs are immutable once admitted; dev and test
+        deep-freeze them so a mutation throws where it happens; production pays nothing. Unchanged values keep their
+        reference, so D27's walkers memoise by reference and equality may compare references first. **Why:** the
+        memoised encoders and reference-first equality are correct only under it (the persistence redesign). **Proven
+        by:** a Story whose machine mutates memory fails in test, and the memo's hit counts on the bench.
+    D30  @spec.WriteAhead, @plan.Persistence: steps mark changed record keys; one Capture encodes them when a batch is
+         issued (accepted, the user, 2026-11-17, Q13 A) (merged into the Plans at 561cf35f)
+        As code:wiki/plans/flow/references/proposals/persistence-redesign-2026-11-17.md proposes: a step only marks the
+        record keys it changed; when the edge issues a batch, one pure Capture step projects every marked key from the
+        current World through D27's memoised encoders; a key stays marked until a batch carrying it lands. Record
+        layout, format and `Store` stay. A step that mints a ticket still refuses at once if its record cannot encode.
+        I20 and I21 hold at every landed state; UnencodableValue is reported at Capture; a record that becomes
+        unencodable after its ticket's step and before issue ends that commit `NotSent { StorageRefused }` with nothing
+        sent. **Why:** palette stress per turn 3.84 to 0.55 ms, hide flush about 36 to 3.2 ms, identical stored bytes on
+        151 Stories. **Proven by:** the proposal's measures on production, the reload sweep and run rules unchanged, and
+        a hide flush timed in Chromium and Safari. Owner: @task.V3.T85. Supersedes D28.
+    D31  @plan.Persistence, @plan.Inspection.O4, @plan.Diagnostics: lanes are keyed by contract, so `OpRenamed` goes
+        **Before:** a lane is keyed by operation name; a release that renames the operation rewrites the lane to the one
+        write operation over its contract and reports `OpRenamed`. **After:** a lane is keyed by its contract id (record
+        format 4), so a renamed operation finds its lane with no rewrite and no `OpRenamed`; Persistence's rename
+        paragraph and the two proposed-name lists drop it. **Why:** with only the old name in the key the boot cannot
+        find the contract (@spec.Restore R8, revised in format 4). **Proven by:** T92's rename Story reloading under a
+        renamed operation with its lane intact. Owner: @task.V3.T92. Accepted (the user, 2026-11-19); merged once T92's
+        rename Story passes.
+    D32  @plan.Runtime.O6, @plan.Persistence: a send to an actor being disposed is dropped with NoRecord (accepted, the
+         user, 2026-11-19) (merged into the Plans)
+        **Before:** O6 and Persistence's disposal text read as if an event sent during `disposeActor` could still reach
+        the actor (Actors R20's older reading). **After:** a send to an actor being disposed is dropped as
+        `SendTargetAbsent { reason: "NoRecord" }`, as @plan.Runtime.O4's table already says and @spec.Actors R16 now
+        states over R20. **Why:** O4's row and the disposal order agree; delivering into a disposal would run a machine
+        event at disposal, which O6 forbids. **Proven by:** T96's `shop/renewal-disposing-pay`, two traces in its close
+        review. Owner: @task.V3.T96. Proposed, for the user's yes.
+    D33  @plan.Runtime: drop `IdentityExhausted` (accepted, the user, 2026-11-19) (merged into the Plans)
+        **Before:** Runtime's constraints name `IdentityExhausted` for a session that runs out of ids. **After:** the
+        code is gone: ids come from per-open counters and seeded mints, so running out needs 2^53 ids in one open.
+        **Why:** a refusal no run can reach is dead surface; @spec.Actors R24 already dropped it (T99 build). **Proven
+        by:** the mint's counter type and T99's requirements review accepting the drop. Owner: @task.V3.T99. Proposed,
+        for the user's yes.
+    D34  @plan.Runtime.O6: whoever ends work hears its cleanup failure, and late failures go to the host's report
+         (accepted, merged into the Plans 2026-11-20)
+        **Before:** O6 says a cleanup failure rejects dispose with CleanupFailed and quarantines the ref, and that
+        dispose waits within a bound. **After:** add "Whoever ends work hears its cleanup failure: a Runtime disposal
+        rejects dispose, an actor's end quarantines its ref, and an aborted `runPromise` rejects with it. Each failure
+        is an Issue CleanupFailed when it is found." and "Runtime disposal waits for every cleanup at most the disposal
+        bound; past it dispose rejects CleanupFailed carrying CleanupOverdue, and each later failure goes to the host's
+        report." **Why:** the Owner redesign (proposals/runtime-lifetimes-2026-11-19.md) makes the one who closes an
+        Owner its failures' hearer; a Cause after the bound has no caller left, so `Host.report` keeps it whole (its Q1
+        A). **Proven by:** the host cells in code:packages/flow-state-v3/src/host/cleanups.test.ts and faults
+        `late-cause-dropped`, `abort-interrupts-wait`, `unheard-quarantine-dropped`. Owner: @task.V3.T99. Proposed, for
+        the user's yes. Code matches; accepted by the user 2026-11-19 (the Owners redesign).
+    D35  @plan.Testing.O4: `read(ref)` returns `Snapshot<D>`, typed by the ref's definition
+         (accepted, merged into the Plans 2026-11-20)
+        **Before:** `read(ref).memory` is `Values`, read as `memory["lines"]`; a misspelt field compiles. **After:**
+        `state` is the definition's leaf union and `memory` its whole memory (private fields included), each field its
+        decoded value, with no decode at read since memory holds Type values; a quarantined record whose fresh start is
+        refused fails the read with StoryFailed. `Snapshot` with no definition stays erased. **Why:** the user's C1.
+        **Proven by:** code:packages/flow-state-v3/tests/types/testing.test-d.ts, faults `read-encodes-memory`,
+        `refused-start-read`. Owner: @task.V3.T103. Name and shape are the user's read.
+    D36  @plan.Testing.O4: `publishedOf(run, ref)`
+         (accepted, merged into the Plans 2026-11-20)
+        **After:** every snapshot an actor published, in order, typed as `read`. **Why:** a checkpoint cannot show the
+        memories between two steps, and the number-input Stories cast them by hand. Owner: @task.V3.T103.
+    D37  @plan.Testing.O4: `turnsOf(run, Def.E.X, { actor? })`
+         (accepted, merged into the Plans 2026-11-20)
+        **After:** the turns that definition's actors ran on that event; with `actor`, one actor's, and the token must
+        be of its definition. A misspelt token, a name string or a foreign token is a type error; a same-named event of
+        another machine never matches. **Why:** the user's C3; a renamed event emptied name filters, a false pass.
+        **Proven by:** the compile test, fault `token-ignores-definition`, lint `flow-state/no-event-name-filter`.
+        Owner: @task.V3.T103.
+    D38  @plan.Testing.O4: `evidenceOf(run, Def.E.X, { actor? })`
+         (accepted, merged into the Plans 2026-11-20)
+        **After:** every record naming that event (Turn, Delivered, Unhandled, Denied, SendTargetAbsent), narrowed by
+        `_tag`; one word covers the kinds, so no `deliveriesOf` or `unhandledOf`. **Why:** Delivered and
+        Turn-or-Unhandled filters. Owner: @task.V3.T103.
+    D39  @plan.Testing.O3: `Fake.server(name, { ..., lost: () => PortError })`, required
+         (accepted, merged into the Plans 2026-11-20)
+        **Before:** every port fake mapped `Fake.Lost` with `catchTag("FakeLost", ...)` per method. **After:** each
+        server names its lost error once; an endpoint fails with its failure or that error, so a port fake passes calls
+        through, and endpoints may declare the port's error classes. A server behind no port names `Fake.Lost`; O3's
+        "Fake.Lost is mapped by the transport binding" then holds for those only. **Why:** the user's C2 (revised).
+        **Proven by:** the compile test in code:packages/flow-state-v3/tests/stories/fake.test.ts, fault
+        `lost-as-fakelost`. Owner: @task.V3.T103.
+    D40  @plan.Machines.O5: a restored multi-step Schedule continues at its saved attempt
+         (accepted by the user 2026-11-20, merged into @plan.Machines.O5 2026-11-20)
+        **Before:** "A multi-step Schedule restarts at step one; a paused one first finishes its `left`." Read
+        literally, `upTo({ times: 3 })` fires three fresh times after every reload or return, so `home/reloaded-paused`
+        shows 5 checks, not 3: a made-up firing per restore. **After:** it continues at its saved attempt, with its next
+        delay from that step (a paused one first finishes its `left`); a finished series stays finished. **Why:** the
+        reading that neither loses nor makes up a firing (T57's requirements review, B1). **Proven by:** a checkpoint
+        after the series ends in `home/reloaded-paused`. Owner: @task.V3.T57.

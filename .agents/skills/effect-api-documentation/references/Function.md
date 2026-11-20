@@ -4,6 +4,8 @@ Source: [Effect v4 `Function` API](https://www.effect.website/docs/v4/api/effect
 
 The package root re-exports `pipe`, `flow`, `identity`, `absurd`, `cast`, and `hole`. The same declarations are also available through the `Function` namespace.
 
+`Function` collects small, reusable helpers for composition, adaptation, identity, and type-level function manipulation.
+
 ## API index
 
 1. [root `pipe` / `Function.pipe`](#root-pipe--functionpipe)
@@ -72,7 +74,7 @@ const add: Function.FunctionN<readonly [number, number], number> = (a, b) => a +
 ```ts
 import { Result, pipe } from "effect"
 
-type SignupInput = { readonly email: string; readonly age: string }
+type SignupInput = { email: string; age: string }
 
 const validateSignup = (input: SignupInput) =>
   pipe(
@@ -269,7 +271,7 @@ The declarations are [Function.constTrue](/Users/arpit/Developer/flow-state/code
 import { Function } from "effect"
 
 let calls = 0
-const read = Function.memoize((input: { readonly value: number }) => {
+const read = Function.memoize((input: { value: number }) => {
   calls++
   return input.value * 2
 })

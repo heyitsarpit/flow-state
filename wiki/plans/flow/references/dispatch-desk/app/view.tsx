@@ -1,0 +1,87 @@
+"use client";
+
+// The host-owned form: host.ts constructs and disposes the Runtime, and a user change supplies a
+// new one. The Next host instead passes a setup and lets FlowProvider own the Runtime.
+import { useState } from "react";
+import { FlowProvider, useActorByRef, useView } from "flow-state/react";
+import { Session } from "../features/Session/session.definition.js";
+import { SessionRef } from "../features/Session/session.ref.js";
+import { AssistantPanel } from "../features/Assistant/AssistantPanel.js";
+import { Viewers } from "../features/Presence/Viewers.js";
+import { ActivityLog } from "../features/Tickets/feed/ActivityLog.js";
+import { QueueList } from "../features/Tickets/queue/QueueList.js";
+import type { TicketPanel } from "../features/Tickets/editor/TicketPanel.js";
+import type { TicketKey } from "../features/Tickets/types.js";
+import { ToastStack } from "../features/Toasts/ToastStack.js";
+import type { DeskSetup } from "./setup.js";
+
+type PanelComponent = typeof TicketPanel;
+
+export function renderDesk(runtime: ReturnType<typeof DeskSetup.construct>, userId: string) {
+  return (
+    <FlowProvider key={userId} runtime={runtime}>
+      <Desk userId={userId} />
+    </FlowProvider>
+  );
+}
+
+// One ticket, composed from independent actors: the editor (its panel mounts the Comments and Attachments
+// traits), the watcher (shared with the queue row), the assistant and the workspace feed. Each reads its
+// own actor, so none re-renders for another's change.
+export function TicketScreen({ ticket, Panel }: { ticket: TicketKey; Panel: PanelComponent }) {
+  const me = useView(useActorByRef(SessionRef), (s) => s.memory.userId);
+
+  return (
+    <div className="ticket-screen">
+      <Panel ticket={ticket} />
+      <Viewers ticket={ticket} me={me} />
+      <AssistantPanel ticket={ticket} />
+      <ActivityLog workspaceId={ticket.workspaceId} />
+    </div>
+  );
+}
+
+export function Desk({ userId, workspaceId = "north" }: { userId: string; workspaceId?: string }) {
+  const session = useActorByRef(SessionRef, { input: { userId } });
+  const signedOut = useView(session, (snapshot) => Session.S.SIGNED_OUT.is(snapshot));
+  const [opened, setOpened] = useState<TicketKey | null>(null);
+  const [Panel, setPanel] = useState<PanelComponent | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const open = (ticket: TicketKey) => {
+    setOpened(ticket);
+    setLoadFailed(false);
+
+    if (!Panel) {
+      void import("../features/Tickets/editor/TicketPanel.js").then(
+        (module) => setPanel(() => module.TicketPanel),
+        () => setLoadFailed(true),
+      );
+    }
+  };
+
+  if (signedOut) return <p>Signed out.</p>;
+
+  let panel = null;
+
+  if (opened) {
+    if (Panel)
+      panel = (
+        <TicketScreen
+          key={JSON.stringify([opened.workspaceId, opened.ticketId])}
+          ticket={opened}
+          Panel={Panel}
+        />
+      );
+    else if (loadFailed) panel = <button onClick={() => open(opened)}>Retry opening ticket</button>;
+    else panel = <p role="status">Opening…</p>;
+  }
+
+  return (
+    <main className="desk">
+      <QueueList workspaceId={workspaceId} onOpen={open} />
+      {panel}
+      <ToastStack />
+    </main>
+  );
+}

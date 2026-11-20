@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Effect` API](https://www.effect.website/docs/v4/api/effect/Effect). Examples import modules as needed.
 
+`Effect` describes a lazy computation whose success, typed failure, service requirements, interruption, and concurrency can be composed before execution.
+
 ## API index
 
 1. [Effect.Effect](#effecteffect)
@@ -486,6 +488,19 @@ const getLength = Effect.fn("getLength")(function*(value: string) {
 });
 ```
 
+Additional arguments to `Effect.fn` are whole-call transforms. Each transform receives the previous
+Effect and the original function arguments, so use them for call-wide annotations, spans, error
+classification, retry, timeout, cleanup, or result mapping while keeping the generator body focused.
+
+```ts
+const formatLength = Effect.fn("formatLength")(
+  function*(value: string) {
+    return yield* Effect.succeed(value.length);
+  },
+  (effect, value) => effect.pipe(Effect.map((length) => `${value}: ${length}`)),
+);
+```
+
 ### [Effect.fnUntraced](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Effect.ts:13563)
 
 Defines the same reusable generator-style function without tracing metadata.
@@ -506,3 +521,11 @@ const delay = (ms: number) => Effect.callback<void>((resume) => {
   return Effect.sync(() => clearTimeout(id));
 });
 ```
+
+### Changes since 4.0.5
+
+- `catchIf` takes `Refinement<NoInfer<E>, EB>` ([Effect.d.ts:5673](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Effect.d.ts:5673)).
+- `ignore` and `ignoreCause` accept `log: "Unhandled"` (4.1.0).
+- `fnUntraced` and `fnUntracedEager` accept `({ self }, body)` (4.1.0).
+- `race`, `raceFirst`, `raceAll`, `raceAllFirst` and `timeoutOption` no longer drop a loser's result (4.1.3, #10367).
+- `try` and `tryPromise` pass an `AbortSignal` only when the thunk declares a parameter (doc change; no release note found).

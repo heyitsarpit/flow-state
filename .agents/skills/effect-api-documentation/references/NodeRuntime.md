@@ -2,6 +2,8 @@
 
 Source: [Effect v4 Node runtime guide](https://www.effect.website/docs/v4/platform/runtime). Examples assume `import { Effect } from "effect"` and `import { NodeRuntime } from "@effect/platform-node"`.
 
+`NodeRuntime` adapts an Effect program to Node.js process startup, signal handling, execution, and shutdown.
+
 ## API index
 
 1. [NodeRuntime.runMain](#noderuntimerunmain)

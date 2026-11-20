@@ -1,0 +1,581 @@
+[
+  {
+    "id": "s-before-reads-working-copy",
+    "kills": ["rule:22", "sec:2.5"],
+    "killed": true,
+    "killers": ["FRAG-03"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 159
+  },
+  {
+    "id": "s-select-reads-before",
+    "kills": ["rule:22", "sec:2.5"],
+    "killed": true,
+    "killers": ["CART-01", "CART-02/five-taps", "CART-02/repriced-under-pending"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 164
+  },
+  {
+    "id": "s-no-reset-before-walk",
+    "kills": ["rule:1", "sec:2.5"],
+    "killed": true,
+    "killers": [
+      "FRAG-02/a-raise-in-the-resetting-turn-reaches-the-fresh-one",
+      "FRAG-03",
+      "FRAG-09/reloadWhileConfirming",
+      "FRAG-09/webhookWins",
+      "FRAG-09/voidLostRace",
+      "FRAG-09/buyAgain",
+      "FRAG-09/a-double-click-is-rejected-in-a-callback",
+      "FRAG-10/lateChallenge",
+      "FRAG-10/lateWhilePaying",
+      "FRAG-10/helpKeepsDeadline",
+      "FRAG-10/history-restores-control-only",
+      "FRAG-10/answer-from-the-host-passes-the-exit",
+      "FRAG-10/failure-exits-with-its-reason",
+      "FRAG-10/host-event-falls-through-the-subroutine",
+      "FRAG-10/reload-inside-the-subroutine",
+      "FRAG-20/a-late-ending-may-not-leave-an-active-subroutine"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 160
+  },
+  {
+    "id": "s-pending-reset-after-adoption",
+    "kills": ["rule:54", "rule:1"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 235
+  },
+  {
+    "id": "s-each-ignores-max",
+    "kills": ["rule:9"],
+    "killed": true,
+    "killers": ["FRAG-01/repair-never-refuses"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 164
+  },
+  {
+    "id": "s-abandoned-reads-final-memory",
+    "kills": ["rule:6"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 236
+  },
+  {
+    "id": "s-adopted-ending-routes-late",
+    "kills": ["rule:14", "rule:54"],
+    "killed": true,
+    "killers": ["FRAG-20/adopted-ending-is-current-from-the-active-leaf"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 161
+  },
+  {
+    "id": "s-late-leaves-subroutine",
+    "kills": ["rule:15", "rule:6"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 228
+  },
+  {
+    "id": "s-late-filling-may-leave",
+    "kills": ["rule:15", "sec:2.5"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 239
+  },
+  {
+    "id": "s-commit-from-other-path-joins",
+    "kills": ["rule:51", "rule:16", "sec:2.9.3"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 242
+  },
+  {
+    "id": "s-queued-firing-not-retracted",
+    "kills": ["rule:1", "rule:8"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 235
+  },
+  {
+    "id": "s-release-every-subject",
+    "kills": ["rule:60"],
+    "killed": true,
+    "killers": ["FRAG-20/release-only-the-ending-subject"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 160
+  },
+  {
+    "id": "s-release-before-members",
+    "kills": ["rule:60", "sec:2.9.3", "sec:2.5"],
+    "killed": true,
+    "killers": ["FRAG-20/a-commit-in-a-copy-the-same-turn-removes-is-marked"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 161
+  },
+  {
+    "id": "s-rebind-keeps-releasing",
+    "kills": ["sec:2.9.3", "rule:60", "rule:54"],
+    "killed": true,
+    "killers": ["FRAG-06/readd-before-idle-clears-the-mark-and-adopts"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 165
+  },
+  {
+    "id": "s-releasing-ending-delivered",
+    "kills": ["rule:60", "rule:17", "sec:2.9.3"],
+    "killed": true,
+    "killers": [
+      "FRAG-06/wire-is-interrupted-and-nothing-delivered",
+      "FRAG-20/release-only-the-ending-subject",
+      "FRAG-20/local-sent-finishes-to-evidence"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 159
+  },
+  {
+    "id": "s-adoption-holds-before-parked",
+    "kills": ["rule:54", "rule:44"],
+    "killed": true,
+    "killers": ["FRAG-05"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 160
+  },
+  {
+    "id": "s-unplaced-ending-is-evidence",
+    "kills": ["rule:53", "rule:8", "rule:17"],
+    "killed": true,
+    "killers": [
+      "FRAG-04/parked-then-adopted-keeps-the-text",
+      "FRAG-05",
+      "FRAG-11/a-b-a-adopts-as-the-story-says",
+      "FRAG-19/unplaced-parked-survives-a-reload"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 158
+  },
+  {
+    "id": "s-unbound-ending-never-parks",
+    "kills": ["rule:44", "OD:21"],
+    "killed": true,
+    "killers": ["FRAG-08/persisted-disposed-ending-parked-delivered-once"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 159
+  },
+  {
+    "id": "s-restore-forgets-history",
+    "kills": ["D45", "cell:lane.restore.InFlight"],
+    "killed": true,
+    "killers": [
+      "PAY-16/restore-keeps-mayHaveApplied",
+      "HIGH-01/pay-told-not-charged",
+      "HIGH-01/retry-then-cancel-releases",
+      "HIGH-01/retry-then-commit-queues-behind",
+      "HIGH-01/retry-then-refuse-holds"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 156
+  },
+  {
+    "id": "s-outside-closure-is-fatal",
+    "kills": ["D46"],
+    "killed": true,
+    "killers": ["HIGH-03/confirms-throws-on-a-shape", "HIGH-03/a-read-mapper-throws"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 157
+  },
+  {
+    "id": "s-disabled-store-admits",
+    "kills": ["D46"],
+    "killed": true,
+    "killers": ["DRV-03/disabled-survives-a-refused-turn"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 156
+  },
+  {
+    "id": "s-disabled-store-sends",
+    "kills": ["D46", "D3"],
+    "killed": true,
+    "killers": ["DRV-03/a-disabled-store-holds-its-queue"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 160
+  },
+  {
+    "id": "s-defect-keeps-effects",
+    "kills": ["D46"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 233
+  },
+  {
+    "id": "s-bad-record-reaches-boot",
+    "kills": ["D46"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 238
+  },
+  {
+    "id": "s-answers-have-no-position",
+    "kills": ["D47"],
+    "killed": true,
+    "killers": [
+      "CART-02/repriced-under-pending",
+      "HIGH-04",
+      "MED-03/stale-read-does-not-overwrite-a-confirmed-write"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 166
+  },
+  {
+    "id": "s-stale-ignores-differs",
+    "kills": ["D47"],
+    "killed": true,
+    "killers": ["HIGH-04b"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 162
+  },
+  {
+    "id": "s-cancel-does-not-wait-for-ack",
+    "kills": ["D48", "cell:lane.cancel.InFlight"],
+    "killed": true,
+    "killers": [
+      "MED-01/cancel-waits-for-its-ack",
+      "MED-01/cancel-refused-by-storage",
+      "MED-01/landed-without-ack-then-reload",
+      "MED-01/other-actor-behind-a-hung-ack"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 161
+  },
+  {
+    "id": "s-ack-forgets-then",
+    "kills": ["D48", "rule:24"],
+    "killed": true,
+    "killers": [
+      "MED-01/cancel-waits-for-its-ack",
+      "MED-01/latest-replace-waits-for-its-ack",
+      "FRAG-06/waiting-never-sent-waits-for-its-ack",
+      "FRAG-20/a-commit-in-a-copy-the-same-turn-removes-is-marked"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 156
+  },
+  {
+    "id": "s-row-hides-stalled",
+    "kills": ["D49"],
+    "killed": true,
+    "killers": [
+      "DRV-03/a-disabled-store-holds-its-queue",
+      "MED-02/record-held-names-holder-and-waiter",
+      "MED-04"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 159
+  },
+  {
+    "id": "s-silence-is-refusal",
+    "kills": ["D49", "D30"],
+    "killed": true,
+    "killers": ["PAY-10/hang", "PAY-18", "MED-04"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 165
+  },
+  {
+    "id": "s-redelivery-jumps-mail",
+    "kills": ["D50"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 226
+  },
+  {
+    "id": "s-redelivery-second-cell",
+    "kills": ["D50", "rule:27"],
+    "killed": true,
+    "killers": ["PAY-11/unknown-handler-throws-once"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 159
+  },
+  {
+    "id": "s-bound-hold-yields",
+    "kills": ["D15", "D3", "OD:6"],
+    "killed": true,
+    "killers": ["FRAG-20/a-bound-hold-never-yields-an-actor-back-in-time"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 156
+  },
+  {
+    "id": "s-local-sent-not-evidence",
+    "kills": ["D21"],
+    "killed": true,
+    "killers": ["FRAG-20/local-sent-finishes-to-evidence"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 158
+  },
+  {
+    "id": "s-given-clear-no-repair",
+    "kills": ["D55"],
+    "killed": true,
+    "killers": ["LIKE-06"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 158
+  },
+  {
+    "id": "s-dispose-leaves-repair-fiber",
+    "kills": ["D51", "D6"],
+    "killed": true,
+    "killers": ["MED-07/disposal-stops-module-fibers"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 164
+  },
+  {
+    "id": "s-no-still-unknown",
+    "kills": ["rule:18", "sec:2.8.6.E8"],
+    "killed": true,
+    "killers": [
+      "PAY-05",
+      "PAY-16/restore-keeps-mayHaveApplied",
+      "STORE-05/failed-retry-does-not",
+      "STORE-11/stillunknown-keeps-its-place",
+      "FRAG-09/voidLostRace"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 159
+  },
+  {
+    "id": "s-settle-forgets-unknown",
+    "kills": ["rule:18", "D45"],
+    "killed": true,
+    "killers": [
+      "PAY-04",
+      "PAY-05",
+      "PAY-15/retry-budget",
+      "PAY-16/resend-refused-capture",
+      "PAY-16/retry-count-persists",
+      "PAY-16/dispose-waiting-resend",
+      "STORE-05/failed-retry-does-not",
+      "STORE-11/cancel-a-waiting-resend",
+      "STORE-11/stillunknown-keeps-its-place",
+      "CART-01",
+      "REFUND-01/unsure-holds-the-charge",
+      "FRAG-09/voidLostRace"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 155
+  },
+  {
+    "id": "s-retry-count-at-retry",
+    "kills": ["cell:lane.invoked.InFlight", "cell:lane.retry.Held", "rule:21"],
+    "killed": true,
+    "killers": ["PAY-16/resend-refused-capture"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 159
+  },
+  {
+    "id": "s-superseded-store-not-told",
+    "kills": ["rule:29", "rule:30", "sec:2.8.5"],
+    "killed": true,
+    "killers": [
+      "STORE-04/Superseded-head",
+      "CART-02/five-taps",
+      "MED-01/latest-replace-waits-for-its-ack"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 160
+  },
+  {
+    "id": "s-failure-forces-repair",
+    "kills": ["rule:30", "sec:2.8.6"],
+    "killed": true,
+    "killers": ["STORE-02", "FRAG-11/deleteRefused"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 156
+  },
+  {
+    "id": "s-released-mark-not-given",
+    "kills": ["rule:32", "rule:30"],
+    "killed": true,
+    "killers": ["LIKE-06"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 163
+  },
+  {
+    "id": "s-new-write-heads-queue",
+    "kills": ["D3", "rule:29", "S5"],
+    "killed": true,
+    "killers": [
+      "DRV-03/a-disabled-store-holds-its-queue",
+      "LIKE-01",
+      "LIKE-02",
+      "LIKE-03",
+      "LIKE-04",
+      "LIKE-05",
+      "STORE-03",
+      "STORE-04/Superseded-head",
+      "STORE-04/Cancelled",
+      "STORE-04/Restored-W",
+      "STORE-11/stillunknown-keeps-its-place",
+      "STORE-07/released-entry-leaves-at-the-bound",
+      "STORE-07/a-live-hold-outranks-the-bound",
+      "STORE-08",
+      "STORE-10",
+      "CART-02/five-taps",
+      "CART-02/page-and-header",
+      "REFUND-01/three-refunds",
+      "REFUND-01/unsure-holds-the-charge",
+      "LIB-01",
+      "LIB-02",
+      "HIGH-01/retry-then-commit-queues-behind",
+      "HIGH-03/confirms-throws-on-a-shape",
+      "MED-01/other-actor-behind-a-hung-ack",
+      "MED-02/record-held-names-holder-and-waiter",
+      "SURV-07",
+      "SURV-08",
+      "FRAG-12/unbound-hold-with-a-waiter-yields",
+      "FRAG-12/bound-hold-never-yields"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 157
+  },
+  {
+    "id": "s-restore-unsorted",
+    "kills": ["rule:44", "D3"],
+    "killed": false,
+    "killers": [],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 278
+  },
+  {
+    "id": "s-acked-restores-notsent",
+    "kills": ["cell:lane.restore.InFlight", "rule:17", "rule:46"],
+    "killed": true,
+    "killers": [
+      "PAY-08/reloadDuringCharge",
+      "PAY-09/ack-stored-confirmation-lost",
+      "PAY-13/hung-commit",
+      "PAY-14",
+      "PAY-16/restore-keeps-mayHaveApplied",
+      "PAY-17/core-throw-is-fatal",
+      "PAY-18",
+      "STORE-04/Restored-W",
+      "STORE-09",
+      "REFUND-01/reload-mid-refund",
+      "HIGH-01/pay-told-not-charged",
+      "HIGH-01/retry-then-cancel-releases",
+      "HIGH-01/retry-then-commit-queues-behind",
+      "HIGH-01/retry-then-refuse-holds",
+      "FRAG-09/reloadWhileConfirming",
+      "FRAG-10/reload-inside-the-subroutine",
+      "FRAG-19/copies-and-subject-paths-survive-a-reload"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 157
+  },
+  {
+    "id": "s-cancel-reads-interrupted",
+    "kills": ["cell:lane.cancel.InFlight", "rule:24"],
+    "killed": true,
+    "killers": [
+      "PAY-12/cancel-on-wire",
+      "SURV-06",
+      "FRAG-06/readd-before-idle-clears-the-mark-and-adopts"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 160
+  },
+  {
+    "id": "s-cancel-resend-says-notsent",
+    "kills": ["cell:lane.cancel.InFlight", "rule:24", "D45"],
+    "killed": true,
+    "killers": ["STORE-11/cancel-a-waiting-resend", "HIGH-01/retry-then-cancel-releases"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 158
+  },
+  {
+    "id": "s-commit-replaces-hold",
+    "kills": ["cell:lane.commit.Held", "rule:21", "OD:5"],
+    "killed": true,
+    "killers": ["LIKE-01", "LIKE-03"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 158
+  },
+  {
+    "id": "s-refused-capture-says-notsent",
+    "kills": ["cell:lane.storageRefused.InFlight", "OD:20"],
+    "killed": true,
+    "killers": [
+      "PAY-16/resend-refused-capture",
+      "HIGH-01/pay-told-not-charged",
+      "HIGH-01/retry-then-refuse-holds"
+    ],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 160
+  },
+  {
+    "id": "s-overflow-checks-first-record",
+    "kills": ["rule:35", "sec:2.8.5"],
+    "killed": true,
+    "killers": ["STORE-06"],
+    "author": "second",
+    "by": "tests",
+    "peakMb": 157
+  }
+]

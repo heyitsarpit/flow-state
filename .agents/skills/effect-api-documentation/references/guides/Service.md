@@ -3,7 +3,7 @@
 Effect service composition has three ownership steps: define a typed
 `Context.Service`, build implementations with `Layer`, and give one owner a
 `ManagedRuntime` that runs and disposes the graph. The examples target the
-Flow State package's `effect@4.0.0-beta.86` dependency.
+Flow State package's `effect@4.0.0-rc.112` dependency.
 
 ## Recipe index
 
@@ -93,7 +93,7 @@ const isolatedApp = Layer.fresh(AppLive)
 const program = Greeter.pipe(Effect.flatMap((greeter) => greeter.greet("Ada")))
 ```
 
-In beta.86, `Layer.scoped` is not a confirmed v4 export. For a resource-backed
+In rc.112, `Layer.scoped` is not a confirmed v4 export. For a resource-backed
 service, put `Effect.acquireRelease` inside `Layer.effect`; the layer's scope
 owns the finalizer.
 
@@ -178,6 +178,6 @@ const ownershipLayer = Layer.succeed(FlowAppOwnership, ownership)
 
 Accountability's vendored Effect 3 package exposes `Context.Tag` and
 `Context.GenericTag`, and its Layer module exposes `Layer.scoped`. Flow State
-pins Effect v4 beta.86 and uses `Context.Service`; those are different API
+pins Effect v4 rc.112 and uses `Context.Service`; those are different API
 surfaces. Treat an Accountability example as Effect 3 evidence, not as a v4
 export, until the consuming declarations confirm the name.

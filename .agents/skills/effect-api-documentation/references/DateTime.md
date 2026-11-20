@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `DateTime` API](https://www.effect.website/docs/v4/api/effect/DateTime). Examples assume `import { DateTime } from "effect"`.
 
+`DateTime` represents calendar date-time values and provides parsing, comparison, arithmetic, and timezone-aware operations.
+
 ## API index
 
 1. [DateTime.DateTime](#datetimedatetime)

@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Schedule` API](https://www.effect.website/docs/v4/api/effect/Schedule). Examples assume `import { Effect, Schedule } from "effect"`.
 
+`Schedule` describes reusable timing policies for retries, repetitions, polling, delays, bounds, backoff, and jitter.
+
 ## API index
 
 1. [Schedule.Schedule](#scheduleschedule)
@@ -239,3 +241,8 @@ Aligns recurrences to fixed time windows instead of delaying from the previous c
 const everyMinute = Schedule.windowed("1 minute");
 yield* Effect.repeat(Effect.log("refresh"), everyMinute);
 ```
+
+### Changes since 4.0.5
+
+- `cron(expression, tz?, { onDstOverlap? })` ([Schedule.d.ts:627](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Schedule.d.ts:627)); `Cron.prev` changes near DST (4.1.0).
+- `fixed`, `windowed` and `cron` no longer return a zero delay near the next run (4.1.2, #10251).

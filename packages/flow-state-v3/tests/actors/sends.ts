@@ -1,0 +1,90 @@
+import { Option } from "effect";
+import {
+  Step,
+  turnsOf,
+  type Cut,
+  type Story,
+  type StoryRun,
+} from "../../src/host/testing/index.ts";
+import type { ActorRef } from "../../src/index.ts";
+
+// The event tokens of a ref's definition.
+type Tokens<R extends ActorRef> = R["machine"]["definition"]["E"];
+
+type Who = { readonly machine: string; readonly name: string };
+
+/**
+ * Reads actors by their refs, as evidence names them: each ref's identity as a step of `story`
+ * records it.
+ */
+export const readerOf = (story: Story) => {
+  const idOf = (ref: ActorRef) => {
+    const step = story.detach(ref).steps.at(-1);
+
+    return step !== undefined && Step.$is("detach")(step) ? step.actor : { machine: "", name: "" };
+  };
+
+  const is = (ref: ActorRef) => {
+    const id = idOf(ref);
+
+    return (actor: Who) => actor.machine === id.machine && actor.name === id.name;
+  };
+
+  return { idOf, is };
+};
+
+/**
+ * The events an actor's turns ran, in order, across every open of the run: a whole list to compare
+ * with an expected one, never to filter by name.
+ */
+export const turnNamesOf = (run: StoryRun, is: (actor: Who) => boolean) =>
+  run.evidence.flatMap((e) => (e._tag === "Turn" && is(e.actor) ? [e.event] : []));
+
+/**
+ * The events an actor's turns ran on any of the given tokens of its definition, in the run's order.
+ */
+export const turnsAmong = <R extends ActorRef>(
+  run: StoryRun,
+  ref: R,
+  tokens: ReadonlyArray<NoInfer<Tokens<R>[keyof Tokens<R>]>>,
+) => {
+  const picked = new Set(tokens.flatMap((token) => turnsOf(run, token, { actor: ref })));
+
+  return run.evidence.flatMap((e) => (e._tag === "Turn" && picked.has(e) ? [e.event] : []));
+};
+
+/**
+ * How many incarnations of an actor began in the run.
+ */
+export const incarnationsOf = (run: StoryRun, is: (actor: Who) => boolean) =>
+  run.evidence.filter((e) => e._tag === "Incarnated" && is(e.actor)).length;
+
+/**
+ * How many incarnations of an actor ended in the run.
+ */
+export const endsOf = (run: StoryRun, is: (actor: Who) => boolean) =>
+  run.evidence.filter((e) => e._tag === "Finished" && is(e.actor)).length;
+
+/**
+ * Every send the run dropped, in order: its target, event and reason, and the sender it was
+ * reported on, undefined for a host's send.
+ */
+export const droppedSends = (run: StoryRun) =>
+  run.evidence.flatMap((e) =>
+    e._tag === "SendTargetAbsent"
+      ? [
+          {
+            actor: e.actor,
+            event: e.event,
+            reason: e.reason,
+            sender: Option.getOrUndefined(e.sender),
+          },
+        ]
+      : [],
+  );
+
+/**
+ * The open issues of an actor at a cut that refused one of its turns.
+ */
+export const refusedTurns = (cut: Cut, ref: ActorRef) =>
+  (cut.read(ref)?.issues ?? []).filter((d) => d.details["refused"] === "InvalidTurn");

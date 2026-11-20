@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Cause` API](https://www.effect.website/docs/v4/api/effect/Cause). Examples assume `import { Cause } from "effect"`.
 
+`Cause` records the structured reasons an Effect computation failed, including typed failures, defects, interruption, and sequential or parallel composition.
+
 ## API index
 
 1. [Cause.fail](#causefail)

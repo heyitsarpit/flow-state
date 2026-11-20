@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `FileSystem` API](https://www.effect.website/docs/v4/api/effect/FileSystem). Examples assume `import { Effect, FileSystem, Stream } from "effect"`.
 
+`FileSystem` provides an injectable service for effectful file and directory operations, including reading and writing file-backed streams.
+
 ## API index
 
 1. [FileSystem.FileSystem](#filesystemfilesystem)
@@ -21,7 +23,7 @@ Source: [Effect v4 `FileSystem` API](https://www.effect.website/docs/v4/api/effe
 
 ### Additional known APIs (not expanded)
 
-`TypeId`, `access`, `copy`, `copyFile`, `chmod`, `chown`, `glob`, `link`, `makeTempDirectory`, `makeTempDirectoryScoped`, `makeTempFile`, `readDirectory`, `readLink`, `realPath`, `rename`, `stat`, `symlink`, `truncate`, `utimes`, `Size`, `SizeInput`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `make`, `makeNoop`, `FileTypeId`, `isFile`, `File`, `FileDescriptor`, `SeekMode`, `WatchEvent`, `WatchBackend`
+`TypeId`, `access`, `copy`, `copyFile`, `chmod`, `chown`, `glob`, `link`, `makeTempDirectory`, `makeTempDirectoryScoped`, `makeTempFile`, `readDirectory`, `readLink`, `realPath`, `rename`, `stat`, `symlink`, `truncate`, `utimes`, `Size`, `SizeInput`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `make`, `makeNoop`, `FileTypeId`, `isFile`, `File`, `FileDescriptor`, `SeekMode`, `WatchEvent`, `WatchBackend`, `lstat`, `readDirectoryEntries`, `DirectoryEntry`
 
 ### [FileSystem.FileSystem](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/FileSystem.ts:751)
 
@@ -180,3 +182,7 @@ const testLayer = FileSystem.layerNoop({
   exists: () => Effect.succeed(true),
 });
 ```
+
+### Changes since 4.0.5
+
+- A custom `FileSystem` must provide `lstat` and `readDirectoryEntries` (4.0.6); `glob` is experimental, with a `dot?` option (4.1.0).
