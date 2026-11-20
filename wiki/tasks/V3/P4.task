@@ -57,11 +57,11 @@ description
     - skill:review at a Task's first commit and its close.
 
     **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T107,
-    @task.V3.T105, @task.V3.T58, @task.V3.T57, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21,
-    @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23, @task.V3.T97 (re-plan section 8, the user,
-    2026-11-18; T92 deferred and T95 cut by the user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the
-    orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only; where several Tasks are ready, take the
-    earliest in this order.
+    @task.V3.T105, @task.V3.T58, @task.V3.T57, @task.V3.T109, @task.V3.T110, @task.V3.T77, @task.V3.T76, @task.V3.T72,
+    @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23, @task.V3.T97
+    (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the user, 2026-11-19, so T96 is next; T99 and
+    T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only; where several
+    Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -138,28 +138,22 @@ tasks
             Routed (orchestrator, 2026-11-20): @plan.Pending.D9 is not built; storeContract(name, layer) and the
             flow-state/persistence route land here, then D9 merges into Package.plan.
     T57
-        title       Machine structure: fragments, .each, subject paths and schedules (slice 3b)
+        title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
-        satisfies   [
-                    @plan.Machines.O1,
-                    @plan.Machines.O3,
-                    @plan.Machines.O5,
-                    @plan.Machines.O6,
-                    @plan.Machines.O8,
-                    @plan.Runtime.O6
-                    ]
+        satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
         description
-            Build fragments on production: traits, `.each` copies, nested fragments, `.resumable()`, subject paths, and
-            the remaining schedule forms.
+            Build the remaining schedule forms on production: `paused` with named reasons, keyed schedules, `armOn` and
+            `disarmOn` by token, an Effect Schedule stepped by the host, and a computed negative delay as zero.
 
-            **Why now:** split from @task.V3.T17 so the compiler and the browser slice do not wait on fragment design.
+            **Why now:** split from @task.V3.T17 so the compiler and the browser slice did not wait; split again from
+            fragments (@task.V3.T109) and subroutines (@task.V3.T110) by the user (2026-11-20, Q2 A) so each part is one
+            reviewable behaviour. The toaster (@task.V3.T72) and the combobox wave (@task.V3.T73) need it.
 
-            **Read first:** @plan.Machines.O1, @plan.Machines.O5, @spec.Turn (R14 to R17, R19, R27, R30), @spec.Compile,
+            **Read first:** @plan.Machines.O5, @spec.Turn (R14 to R17, R19, R27), @spec.Compile,
             code:wiki/conventions/interaction-state.md,
-            code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§1, §9). Starts after the
-            Plan merge it lists.
+            code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§1).
 
             **Risk:** R5 turns a computed negative delay from a refusal into zero. Five built checks use it as their
             refusal case and must move to an over-range delay (2^31 ms, which JSON carries; U4, decided by the
@@ -170,11 +164,12 @@ tasks
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
-            False pass: a fragment tested only alone → caught by a fixture that places it in a host machine.
+            False pass: a schedule tested only with one key or one pause reason → caught by fixtures with several keys
+            and overlapping reasons, and a reload at every step.
         acceptance
-            - The fragment and schedule Requirements this slice builds hold, shown by Story tests and compile-time
-              tests, with a fixture that uses them.
-            - Each new runtime rule has a planted fault that `nub run faults` catches.
+            - The schedule Requirements this slice builds hold, shown by Story tests and compile-time tests, with a
+              fixture that uses them.
+            - Each new runtime rule has a planted fault that `nub run faults --only` catches.
             - Keyed and unkeyed schedules take `paused`; a timer shows `{ dueAt }` or `{ left }`, never both; every lane
               change, a denied or unhandled ending's included, re-checks `keys` and `paused`; restore re-evaluates them
               silently. Each is shown by a Story test citing @spec.Turn.R27.
@@ -183,19 +178,20 @@ tasks
               arming once from step one.
             - `paused` is a record of named reasons; the snapshot shows `pausedBy`. A restored paused multi-step
               Schedule finishes `left`, then continues from step one.
-            - A `FanOutNeverHandled` warning exists; a fixed negative delay is reported by `flow check`.
+            - A fixed negative delay is reported by `flow check`.
             - Every function of a keyed schedule receives `key`; `schedule` returns a Duration.Input or an Effect
               Schedule, and the host steps a Schedule and hands the core the next delay as data.
             - A computed negative delay fires once on the next turn; the five checks named in Risk refuse with an
               over-range delay instead, and a planted fault "a negative delay refused" is caught.
-            - A raise into an .each trait reaches every live copy in key order, skips a copy with no handler
-              (`Unhandled` evidence), refuses on a copy's denial, and does nothing (recorded) with no
-              copies (@spec.Turn.R30).
             - Schedule evidence records pause and resume.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 2 of code:wiki/conventions/fixture-catalog.md:
-              `pay`, `sync`, `transfers`, `sign-in`, `wizard`, `home`, `kanban` (new: `wizard`, `home`, `kanban`) gain
-              the features, scenarios and sources of their rows; each scenario red before the build, and the step's
-              cells marked used at the close.
+            - The routed schedule items in this Task's comments land red first, then fixed: a schedule's send of another
+              definition's token (Compile T11, tightened), depth-2 widening of delay and `armOn` names, and Turn I31's
+              issue on a refused delay at creation (decided with two traces). Turn R12's context in guards and updates
+              is fixed here too.
+            - Fixtures first (code:wiki/conventions/fixtures.md): the schedule rows of step 2 of
+              code:wiki/conventions/fixture-catalog.md, in the apps that row names, gain their features, scenarios and
+              sources; each scenario red before the build, and those cells marked used at the close. Step 2's fragment
+              rows are @task.V3.T109's and its subroutine rows @task.V3.T110's.
         comment     2026-11-15T20:44:54Z
             Routed from T68: a schedule's send accepts another definition's event token (ScheduleConfig.send takes
             EventToken | Ending) and machine() builds it, breaking Compile T11; pinned as it.fails
@@ -613,7 +609,7 @@ tasks
         title        Declared emits, heard by actor.onEmit and in Stories
         status       draft
         priority     high
-        blocked_by   [@T57]
+        blocked_by   [@T109]
         derives_from [@plan.Machines.O2]
         satisfies    [@plan.Machines.O1, @plan.Machines.O2, @plan.Runtime.O3, @plan.Testing.O1]
         description
@@ -627,7 +623,7 @@ tasks
             **Read first:** @spec.Turn.R29, @plan.Machines.O2, code:wiki/conventions/view-commands.md,
             code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9).
 
-            **Risk:** fragment emits are addressed by instance path and .each key, which need @task.V3.T57's fragments;
+            **Risk:** fragment emits are addressed by instance path and .each key, which need @task.V3.T109's fragments;
             that is the blocker. React delivery (`useOnEmit`) is @task.V3.T30's.
 
             **Approach:** the payload is computed in the walk (a pre-commit defect) and delivered after the turn
@@ -4380,3 +4376,67 @@ tasks
             Decision (the user, 2026-11-20): Q1 A: a slot's first good value after a failed select asks when(current,
             undefined, { memory }); previous is typed T | undefined; a reaction with no when fires. The fix lands red
             first after T105's lead reaches review (one lead at a time).
+
+    T109
+        title       Fragments: traits, .each copies, nesting, .resumable() and subject paths (slice 3c)
+        status      draft
+        priority    high
+        blocked_by  [@T57]
+        satisfies   [@plan.Machines.O1, @plan.Machines.O3, @plan.Machines.O6, @plan.Machines.O8, @plan.Runtime.O6]
+        description
+            Build fragments on production: traits placed on the root or a state, `.each` copies by key, nested
+            fragments, `.resumable()` and subject paths.
+
+            **Why now:** split from @task.V3.T57 by the user (2026-11-20, Q2 A). Declared emits (@task.V3.T77) address a
+            fragment's emit by instance path and `.each` key, and lazy features (@task.V3.T48) load fragments.
+
+            **Read first:** @plan.Machines.O1, @spec.Turn (R30), @spec.Compile,
+            code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9). Blocked by
+            @task.V3.T57 because a trait carries schedules, which that Task finishes.
+
+            May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a fragment tested only alone → caught by a fixture that places it in a host machine, with
+            several `.each` copies and a reload at every step.
+        acceptance
+            - The fragment Requirements this slice builds hold, shown by Story tests and compile-time tests, with a
+              fixture that places each kind in a host machine.
+            - A raise into an `.each` trait reaches every live copy in key order, skips a copy with no handler
+              (`Unhandled` evidence), refuses on a copy's denial, and does nothing (recorded) with no copies
+              (@spec.Turn.R30); a `FanOutNeverHandled` warning exists.
+            - Placements are released within the disposal bound, with `ReleaseOverdue` past it (@plan.Runtime.O6).
+            - Each new runtime rule has a planted fault that `nub run faults --only` catches.
+            - Fixtures first (code:wiki/conventions/fixtures.md): the fragment rows of step 2 of
+              code:wiki/conventions/fixture-catalog.md, in the apps that row names, gain their features, scenarios and
+              sources; each scenario red before the build, and those cells marked used at the close.
+
+    T110
+        title       Subroutines and whenAbandoned (slice 3d)
+        status      draft
+        priority    high
+        blocked_by  [@T109]
+        satisfies   [@plan.Machines.O1, @plan.Runtime.O6]
+        description
+            Build subroutines (a fragment that is a state, with its own states and exits) and `whenAbandoned` (called
+            when an incarnation ends other than by finishing).
+
+            **Why now:** the user added both to the slice on 2026-11-17, when no Task owned them; split from
+            @task.V3.T57 by the user (2026-11-20, Q2 A).
+
+            **Read first:** @plan.Machines.O1, @spec.Compile, code:wiki/conventions/fixture-catalog.md (their fixture
+            homes in the migration plan). Blocked by @task.V3.T109: a subroutine is a fragment and `whenAbandoned`
+            belongs to a fragment's incarnation.
+
+            May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a subroutine left only through its declared exit → caught by Stories that abandon it by a parent
+            transition, a disposal and a reload.
+        acceptance
+            - A subroutine placed on a state runs its own states and leaves by its exits; an exit unreachable from its
+              default is a `flow check` finding.
+            - `whenAbandoned` runs once when an incarnation ends other than by finishing, never on a normal finish, and
+              its `O.x.cancel` marks that operation's lanes for the ending incarnation's subject path.
+            - Each new runtime rule has a planted fault that `nub run faults --only` catches.
+            - Fixtures first (code:wiki/conventions/fixtures.md): the subroutine and `whenAbandoned` rows of
+              code:wiki/conventions/fixture-catalog.md gain their features and scenarios; each red before the build, and
+              those cells marked used at the close.

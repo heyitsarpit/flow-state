@@ -1158,3 +1158,7 @@ note 2026-11-20T01:29:14Z
 note 2026-11-20T01:36:08Z
     Decision (the user, 2026-11-20): T107 Turn R22 Q1 A (when asked with no previous value); built after T105 reaches
     review.
+
+note 2026-11-20T01:54:30Z
+    Decision (the user, 2026-11-20, Q2 A): T57 split into schedules (@task.V3.T57), fragments (@task.V3.T109) and
+    subroutines with whenAbandoned (@task.V3.T110); T77 and T48 now wait on T109; Order updated.

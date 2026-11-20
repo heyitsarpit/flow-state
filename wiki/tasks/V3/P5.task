@@ -148,7 +148,7 @@ tasks
         status      draft
         priority    medium
 
-        blocked_by  [@task.V3.T57]
+        blocked_by  [@task.V3.T109]
         satisfies   [
                     @plan.LazyFeatures.O1,
                     @plan.LazyFeatures.O2,
