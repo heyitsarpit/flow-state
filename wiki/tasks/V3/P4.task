@@ -1285,6 +1285,53 @@ tasks
             loop-guard-names-refused-turn); `checkoutSends` built from a shared helper; a committed firing whose next
             step is past the limit now publishes once, not twice. Specs: Turn R14, R19, R25, I38 and WriteAhead
             R4 (specs.log).
+        comment     2026-11-20T15:14:37Z
+            Close review of fix round 4 (Opus lead, four Haiku sidecars: blind, cohesion, coverage, flip A): ISSUES. B1
+            and B2 are closed by structure, but two more schedule endings are wrong, each red in a scratch Story.
+            Coverage run (vitest direct; the script drops `--coverage.reportOnFailure`): 5243 pass, 20 expected fail, 6
+            timeouts under coverage only (@task.V3.T97's class). Check zero. Six new plants and the guard's plants
+            caught (`faults --only`, 6 of 6).
+
+              - Blocking B1 (Turn R17, R27; a lost firing): a held timer restored under a build with no pause reasons
+                stays held forever. `paused` returns early when the schedule has none (`schedule-decision.ts:385`), so a
+                restored Held run is never decided. Red: hold by A, save, reload under the same machine without
+                `paused`: `{ left: 60000 }`, no Tick. Missed because the restore-after-edit cases
+                (`tests/restore/schedule-edits.test.ts`) never remove pause reasons. Cause: trust without decoding; a
+                restored run's timing is not decided against the definition.
+              - Blocking B2 (Turn R14, R25; a lost firing loses its report): an unarmed key's arming issue is replaced
+                by another check's failure, which then clears. Red: key bad refused (2^31), A throws for bad, A reads
+                clean: issues `[]`, bad unarmed and never fires. Trace A (today): the report is gone. Trace B: an arming
+                issue stays while its timer stays unarmed by it. B loses nothing; R14 says the timer "stays unarmed with
+                an InvalidTurn issue". Missed because both tables are one occasion; no sequence replaces a source's
+                issue by another check, then recovers. Cause: one issue per source while clearing is per check, so a
+                replaced failure whose condition still holds is forgotten. Needs a Spec sentence (R25) before the fix.
+              - B1 and B2 of the last review hold (scratch): Go while A throws after A was true idle, never armed or
+                after a fired keyed run with a restart; a false-then-throw arm runs. Two keys: good's firing and bad
+                leaving keep bad's issue; bad returning clean clears it.
+              - Writers: timers, schedule issues and pausedBy are written only by `decide` via `pass`, `fired`,
+                restore's input and the record writer. The guard misses empty spread resets, aliased `.set`, `pausedBy`
+                writes and world-helper calls; none is in `src` (non-blocking).
+              - Table: 24 rows re-derived from R14 to R17, R19, R25, R27 and I38 agree. I side with the lead on the 3
+                rejected rows (R19 keeps the timer's whole last list; keyed re-entry re-arms kept keys).
+              - Spec calls, each sound with two traces: an arm after commit gives an issue (refusing would undo a
+                committed turn); a lane-added key runs `schedule` for itself only (else it waits a turn, a late firing);
+                source = schedule + key (else B2); idle reasons saved (else a throw after reload fires while away).
+                Readers updated: snapshot source path, rules checker, record oracle.
+              - Rules checker: sound. A refused turn records no Turn, and every Turn publishes before the next serve, so
+                the window hides no refusal. That invariant is unpinned by a rule test (non-blocking).
+              - Fixture: `paidThenEmptied` reaches its case (cart lines `{}`, the flow hears CartChanged in DONE).
+              - T117: per-firing record writes are required (attempt and dueAt, WriteAhead R4, @plan.Machines.O5);
+                cost only.
+              - Notes: a firing's refused send turn (`serve.ts:186`) and the Lanes branch of `firingSettled`
+                (`schedules.ts:404`) have no Story; a throwing `keys` (`schedule-decision.ts:250`) neither. A Creation
+                issue on a schedule slot never clears; issues are not saved though WriteAhead R4 lists them; I38 omits
+                the silent baseline a lane change takes. Dead: `schedules.ts:190,195`,
+                `firings.ts:38`, `incarnations.ts:211`.
+              - Sidecars: accepted the writer map, the guard gaps, the reason-less restore lead (became B1), the
+                unpinned window. Changed to notes: creation issue, lane baseline, context-run keys, disarm then later
+                key, unsaved issues. Rejected: re-entry across turns keeping reasons (the exit drops the timer),
+                listRepair and restore keys (routed or ruled), two firing failures (one issue per source), the coverage
+                report (it read a stale file; I re-read the run), `paidThenEmptied` vacuous (checked).
     T21
         title       Reads and operations (slice 5)
         status      draft
