@@ -74,7 +74,7 @@ comment 2026-11-19T07:18:27Z
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
-        status      draft
+        status      open
         priority    high
         blocked_by  [@task.V3.T9]
         satisfies   [@plan.Persistence.O4]
