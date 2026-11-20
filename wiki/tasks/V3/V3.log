@@ -1390,3 +1390,7 @@ note 2026-11-20T17:49:33Z
     The user's advisor-consult branch copied, not merged, to
     wiki/plans/flow/references/proposals/advisor-consult-2026-11-20/ for consideration (five answers, holes pass, its
     Plan and Task edits as a patch).
+
+note 2026-11-20T17:59:31Z
+    Body capture settled (Fable): the advisor's const B with Exact works on the real package with two fixes (C6): every
+    refusal kept, gaurd, pausd, returned-key and depth-3 typos refused; check 0.92 s to 1.18 s. Proposal.

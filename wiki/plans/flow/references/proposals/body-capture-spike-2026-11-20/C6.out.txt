@@ -1,0 +1,65 @@
+fixtures/sync/stories/structure.ts(61,9): error TS2322: Type 'Change[]' is not assignable to type 'never'.
+tests/types/excess-keys.test-d.ts(69,19): error TS2322: Type '() => { count: number; cuont: number; }' is not assignable to type '(() => { count: number; cuont: number; }) & (() => { readonly count: unknown; readonly cuont: never; })'.
+  Type '() => { count: number; cuont: number; }' is not assignable to type '() => { readonly count: unknown; readonly cuont: never; }'.
+    Type '{ count: number; cuont: number; }' is not assignable to type '{ readonly count: unknown; readonly cuont: never; }'.
+      Types of property 'cuont' are incompatible.
+        Type 'number' is not assignable to type 'never'.
+tests/types/excess-keys.test-d.ts(93,49): error TS2322: Type '{}' is not assignable to type 'never'.
+tests/types/excess-keys.test-d.ts(99,33): error TS2322: Type '() => {}' is not assignable to type 'never'.
+tests/types/excess-keys.test-d.ts(104,76): error TS2322: Type 'number' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(26,71): error TS2322: Type 'never[]' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(28,120): error TS2322: Type '{}' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(30,57): error TS2322: Type '() => { count: number; cuont: number; }' is not assignable to type '(() => { count: number; cuont: number; }) & (() => { readonly count: unknown; readonly cuont: never; })'.
+  Type '() => { count: number; cuont: number; }' is not assignable to type '() => { readonly count: unknown; readonly cuont: never; }'.
+    Type '{ count: number; cuont: number; }' is not assignable to type '{ readonly count: unknown; readonly cuont: never; }'.
+      Types of property 'cuont' are incompatible.
+        Type 'number' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(33,60): error TS2322: Type 'EventToken<"Seek", {}, false, "types/SpikeDeep">[]' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(35,159): error TS2322: Type '{}' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(38,24): error TS2322: Type '"1 secnd"' is not assignable to type 'AnySchedule | ((input: ScheduleInput<Flat<{ readonly count: number; readonly who: string; } & {}>, Partial<ContextOf<Record<never, never>>>, undefined>) => AnySchedule | Input) | Input'.
+tests/types/spike.test-d.ts(41,31): error TS2322: Type '[]' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(41,45): error TS2322: Type 'StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly [...]; }], { ...; }>> | { ...; }' is not assignable to type '(StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly [...]; }], { ...; }>> | { ...; }) & (StateToken<...> | { ...; })'.
+  Type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], { ...; }>>; tarrg...' is not assignable to type '(StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly [...]; }], { ...; }>> | { ...; }) & (StateToken<...> | { ...; })'.
+    Type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], { ...; }>>; tarrg...' is not assignable to type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { ...; }], { ...; }>>; tarrget: StateToken<...>; } & { ...; }'.
+      Type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], { ...; }>>; tarrg...' is not assignable to type '{ readonly target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { ...; }], { ...; }>>; readonly tarrget: never; }'.
+        Types of property 'tarrget' are incompatible.
+          Type 'StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { ...; }]; }], { ...; }>>' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(44,15): error TS2322: Type '({ memory }: { readonly memory: Flat<{ readonly count: number; readonly who: string; } & {}>; readonly event: {}; readonly context: Partial<ContextOf<Record<never, never>>>; readonly now: number; }) => { ...; } | { ...; }' is not assignable to type '(({ memory }: { readonly memory: Flat<{ readonly count: number; readonly who: string; } & {}>; readonly event: {}; readonly context: Partial<ContextOf<Record<never, never>>>; readonly now: number; }) => { ...; } | { ...; }) & ((args_0: { ...; }) => { ...; } | { ...; })'.
+  Type '({ memory }: { readonly memory: Flat<{ readonly count: number; readonly who: string; } & {}>; readonly event: {}; readonly context: Partial<ContextOf<Record<never, never>>>; readonly now: number; }) => { ...; } | { ...; }' is not assignable to type '(args_0: { readonly memory: Flat<{ readonly count: number; readonly who: string; } & {}>; readonly event: {}; readonly context: Partial<ContextOf<Record<never, never>>>; readonly now: number; }) => { ...; } | { ...; }'.
+    Type '{ count: number; cuont?: never; } | { count?: never; cuont: number; }' is not assignable to type '{ readonly count: unknown; readonly cuont?: never; } | { readonly count?: unknown; readonly cuont: never; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+      Type '{ count?: never; cuont: number; }' is not assignable to type '{ readonly count: unknown; readonly cuont?: never; } | { readonly count?: unknown; readonly cuont: never; }'.
+        Type '{ count?: never; cuont: number; }' is not assignable to type '{ readonly count?: unknown; readonly cuont: never; }'.
+          Types of property 'cuont' are incompatible.
+            Type 'number' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(46,51): error TS2322: Type 'StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly [...]; }], { ...; }>> | { ...; }' is not assignable to type '(StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly [...]; }], { ...; }>> | { ...; }) & (StateToken<...> | { ...; })'.
+  Type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], { ...; }>>; tarrg...' is not assignable to type '(StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly [...]; }], { ...; }>> | { ...; }) & (StateToken<...> | { ...; })'.
+    Type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], { ...; }>>; tarrg...' is not assignable to type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { ...; }], { ...; }>>; tarrget: StateToken<...>; } & { ...; }'.
+      Type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], { ...; }>>; tarrg...' is not assignable to type '{ readonly target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { ...; }], { ...; }>>; readonly tarrget: never; }'.
+        Types of property 'tarrget' are incompatible.
+          Type 'StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { ...; }]; }], { ...; }>>' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(48,158): error TS2561: Object literal may only specify known properties, but 'pausd' does not exist in type 'KeyedConfig<Flat<{ readonly count: number; readonly who: string; } & {}>, { readonly Seek: {}; readonly Tick: {}; readonly go: {}; } & Record<never, never>, "types/SpikeDeep", Partial<...>, { ...; }>'. Did you mean to write 'paused'?
+tests/types/spike.test-d.ts(60,58): error TS2322: Type '() => { tag: string; pipe: number; cuont: number; }' is not assignable to type '(() => { tag: string; pipe: number; cuont: number; }) & (() => { readonly tag: unknown; readonly pipe: unknown; readonly cuont: never; })'.
+  Type '() => { tag: string; pipe: number; cuont: number; }' is not assignable to type '() => { readonly tag: unknown; readonly pipe: unknown; readonly cuont: never; }'.
+    Type '{ tag: string; pipe: number; cuont: number; }' is not assignable to type '{ readonly tag: unknown; readonly pipe: unknown; readonly cuont: never; }'.
+      Types of property 'cuont' are incompatible.
+        Type 'number' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(62,71): error TS2322: Type 'string' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(62,81): error TS2322: Type 'number' is not assignable to type 'never'.
+tests/types/spike.test-d.ts(65,51): error TS2322: Type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], { ...; }>>; extra...' is not assignable to type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { ...; }], { ...; }>>; extra: number; } & { ...; }'.
+  Type '{ target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], { ...; }>>; extra...' is not assignable to type '{ readonly target: StateToken<"OFF", "types/SpikeDeep", LeavesOfLiteral<readonly ["OFF", { readonly ON: readonly ["PAUSED", { readonly PLAYING: readonly ["FAST", "SLOW"]; }]; }], "">, never, ProvidedBy<readonly ["OFF", { ...; }], { ...; }>>; readonly extra: never; }'.
+    Types of property 'extra' are incompatible.
+      Type 'number' is not assignable to type 'never'.
+Files:              1066
+Lines:            487980
+Identifiers:      454226
+Symbols:         2040167
+Types:           1057886
+Instantiations:  5941466
+Memory used:    1280255K
+Memory allocs:  19558089
+Config time:      0.003s
+Parse time:       0.053s
+Bind time:        0.013s
+Check time:       1.179s
+Emit time:        0.223s
+Total time:       1.478s
