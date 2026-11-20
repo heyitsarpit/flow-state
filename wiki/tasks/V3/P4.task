@@ -3791,17 +3791,23 @@ tasks
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
-        status      draft
+        status      open
         priority    medium
         description
-            Live identities handled together go in start order by a stated rule, and T102's routed checks are built, so
-            the gaps its review found are caught.
+            Start order becomes a stated rule, computed `Flow.initial` is removed, and the checks routed here from T102,
+            T104 and the rules pass are built, each red first.
 
             **Why now:** T102's close review showed start order is observable (reversing it changes
             `BlockedByDependents`' message order and swaps consumers' context-update turns) yet no Spec rule says so,
-            and a fault reversing it passed the whole suite; a few checks T102 described were not built.
+            and a fault reversing it passed the whole suite. T104's two close reviews routed holes older than T104 here
+            (this Task's comments), and the user banned computed `Flow.initial` (2026-11-20).
 
-            **Read first:** @task.V3.T102 (its close review), @spec.Actors.
+            **Read first:** @task.V3.T102 (its close review), @task.V3.T104 (its two close reviews),
+            @spec.Actors, @spec.Compile.
+
+            **Risk:** @plan.Pending.D2, D3 and D4 are pinned here with Stories; merging them into the Plans is a Plan
+            edit and waits for the user's yes. T107 also touches `src/core/turn.ts` and the context code; its last fix
+            (Turn R22) may land between this Task's commits, so rebase nothing and commit by explicit path.
 
             **Approach:** add a proposed Actors rule (consumers of a wave, a provider's dependents, dispose among peers
             and graces go in start order) with a `specs.log` note; pin `cartFirst` in `store.test.ts` so the
@@ -3822,6 +3828,16 @@ tasks
               InvalidConfiguration at `["memory", field]` (planted fault); `src/flow.ts`'s Computed start, its creation
               step and every fixture, test and docs site are removed or rewritten (a value derived where it is read, or
               an input) (@spec.Compile.R5).
+            - Each routed hole in this Task's comments lands as an inverted test titled by its rule, then is fixed or
+              left inverted with an owner Task: restored timers in an inactive state; untyped `scope` or `persistence`
+              alone; a non-object `updateMemory` return (Turn R10); `generate.ts`'s unknown rule name.
+            - T104's follow-ups: `unsettledWrites` takes its rows from the app with no caller parameter (two-sided type
+              test); one helper raises `ForeignActorRef` for the Runtime, Story and run; the erased siblings carry the
+              app (two-sided tests); `paired-refusals` refuses each hole shape, each a plant in its test first; the two
+              stale texts are fixed.
+            - @plan.Pending.D2, D3 and D4 each have a Story that pins the decided outcome; any gap lands red,
+              then fixed.
+            - Stress runs and generated Stories over fresh seeds pass at close.
         comment     2026-11-19T15:35:36Z
             Routed (rules cohesion pass, 2026-11-19, read not run): restore re-arms saved timers by name with no check
             that their state is active (src/core/incarnations.ts:228); confirm with a Story and fix if a timer fires in
