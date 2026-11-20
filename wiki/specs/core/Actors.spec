@@ -1,19 +1,20 @@
 spec Actors
-status        proposed
-basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/specs.log.
-              Written from the merged flow plans (proposed).
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      runtimeSetup, Runtime, actorRef, ensureActor, createActor, send, disposeActor,
-              forget, dispose, unsettledWrites, runPromise
-derives_from  [
-              @plan.Runtime.O2, @plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5,
-              @plan.Runtime.O6, @plan.Runtime.O7, @plan.Runtime.C2, @plan.Runtime.V2,
-              @plan.Runtime.V3, @plan.Runtime.V4, @plan.Runtime.V5, @plan.Runtime.V6,
-              @plan.Runtime.V7
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, revisable whenever building shows it wrong; each change and its
+               reason is recorded in wiki/specs/specs.log.
+               Written from the merged flow plans (proposed).
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       runtimeSetup, Runtime, actorRef, ensureActor, createActor, send, disposeActor,
+               forget, dispose, unsettledWrites, runPromise
+derives_from   [
+               @plan.Runtime.O2, @plan.Runtime.O3, @plan.Runtime.O4, @plan.Runtime.O5,
+               @plan.Runtime.O6, @plan.Runtime.O7, @plan.Runtime.C2, @plan.Runtime.V2,
+               @plan.Runtime.V3, @plan.Runtime.V4, @plan.Runtime.V5, @plan.Runtime.V6,
+               @plan.Runtime.V7
+               ]
 
 requirements
     R1  Inert setup and services
@@ -751,117 +752,34 @@ realization typescript
         fault for any of them edits that one file (`tests/faults.ts`).
 
 coverage
-    @R1
-        enforced_by  [@I1, @I2]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I3]
-        open_by      [@Q1, @Q2]
-
-    @R3
-        enforced_by  [@I4]
-        open_by      [@Q1, @Q3]
-
-    @R4
-        enforced_by  [@I5, @I6, @I42]
-        open_by      [@Q1, @Q2]
-
-    @R5
-        enforced_by  [@I7, @I8]
-        open_by      [@Q1, @Q2]
-
-    @R6
-        enforced_by  [@I8, @I9]
-        open_by      [@Q1]
-
-    @R7
-        enforced_by  [@I10]
-        open_by      [@Q1]
-
-    @R8
-        enforced_by  [@I10, @I12, @I37, @I41]
-        open_by      [@Q1]
-
-    @R9
-        enforced_by  [@I13, @I14]
-        open_by      [@Q1]
-
-    @R10
-        enforced_by  [@I14, @I15, @I17, @I40]
-        open_by      [@Q1]
-
-    @R11
-        enforced_by  [@I39]
-        open_by      [@Q1]
-
-    @R12
-        enforced_by  [@I19]
-        open_by      [@Q1]
-
-    @R13
-        enforced_by  [@I20, @I21]
-        open_by      [@Q1, @Q4]
-
-    @R14
-        enforced_by  [@I22, @I23]
-        open_by      [@Q1, @Q2]
-
-    @R15
-        enforced_by  [@I24]
-        open_by      [@Q1]
-
-    @R16
-        enforced_by  [@I25]
-        open_by      [@Q1]
-
-    @R17
-        enforced_by  [@I26]
-        open_by      [@Q1]
-
-    @R18
-        enforced_by  [@I28]
-        open_by      [@Q1, @Q2]
-
-    @R19
-        enforced_by  [@I27]
-        open_by      [@Q1, @Q2]
-
-    @R20
-        enforced_by  [@I29, @I41]
-        open_by      [@Q1, @Q2]
-
-    @R21
-        enforced_by  [@I32]
-        open_by      [@Q1]
-
-    @R22
-        enforced_by  [@I29, @I30, @I31, @I35, @I36, @I38, @I41, @I42]
-        open_by      [@Q1]
-
-    @R23
-        enforced_by  [@I33, @I43, @I44]
-        open_by      [@Q1, @Q2]
-
-    @R24
-        enforced_by  [@I13, @I34]
-        open_by      [@Q1, @Q2]
-
-    @R25
-        enforced_by  [@I42]
-        open_by      [@Q1]
-
-    @R26
-        enforced_by  [@I45]
-        open_by      [@Q1]
-
-    @R27
-        enforced_by  [@I46]
-        open_by      [@Q1]
-
-    @R28
-        enforced_by  [@I49]
-        open_by      [@Q1]
+    @R1    enforced_by [@I1, @I2]                                          open_by [@Q1]
+    @R2    enforced_by [@I3]                                               open_by [@Q1, @Q2]
+    @R3    enforced_by [@I4]                                               open_by [@Q1, @Q3]
+    @R4    enforced_by [@I5, @I6, @I42]                                    open_by [@Q1, @Q2]
+    @R5    enforced_by [@I7, @I8]                                          open_by [@Q1, @Q2]
+    @R6    enforced_by [@I8, @I9]                                          open_by [@Q1]
+    @R7    enforced_by [@I10]                                              open_by [@Q1]
+    @R8    enforced_by [@I10, @I12, @I37, @I41]                            open_by [@Q1]
+    @R9    enforced_by [@I13, @I14]                                        open_by [@Q1]
+    @R10   enforced_by [@I14, @I15, @I17, @I40]                            open_by [@Q1]
+    @R11   enforced_by [@I39]                                              open_by [@Q1]
+    @R12   enforced_by [@I19]                                              open_by [@Q1]
+    @R13   enforced_by [@I20, @I21]                                        open_by [@Q1, @Q4]
+    @R14   enforced_by [@I22, @I23]                                        open_by [@Q1, @Q2]
+    @R15   enforced_by [@I24]                                              open_by [@Q1]
+    @R16   enforced_by [@I25]                                              open_by [@Q1]
+    @R17   enforced_by [@I26]                                              open_by [@Q1]
+    @R18   enforced_by [@I28]                                              open_by [@Q1, @Q2]
+    @R19   enforced_by [@I27]                                              open_by [@Q1, @Q2]
+    @R20   enforced_by [@I29, @I41]                                        open_by [@Q1, @Q2]
+    @R21   enforced_by [@I32]                                              open_by [@Q1]
+    @R22   enforced_by [@I29, @I30, @I31, @I35, @I36, @I38, @I41, @I42]    open_by [@Q1]
+    @R23   enforced_by [@I33, @I43, @I44]                                  open_by [@Q1, @Q2]
+    @R24   enforced_by [@I13, @I34]                                        open_by [@Q1, @Q2]
+    @R25   enforced_by [@I42]                                              open_by [@Q1]
+    @R26   enforced_by [@I45]                                              open_by [@Q1]
+    @R27   enforced_by [@I46]                                              open_by [@Q1]
+    @R28   enforced_by [@I49]                                              open_by [@Q1]
 
 tests
     T1  Setup and readiness: construct with spies (no I/O); two concurrent ready calls and a third after a failing 

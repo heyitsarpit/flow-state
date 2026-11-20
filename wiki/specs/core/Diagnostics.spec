@@ -1,18 +1,19 @@
 spec Diagnostics
-status        proposed
-basis         A guide, and one of the two Specs most likely to change (Codec,
-              Diagnostics): no test pins it yet. Revisable whenever building shows it
-              wrong; each change and its reason is recorded in wiki/specs/specs.log.
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      FlowError, Diagnostic
-derives_from  [
-              @plan.Diagnostics.O1, @plan.Diagnostics.O2, @plan.Diagnostics.O3,
-              @plan.Diagnostics.O4, @plan.Diagnostics.D1, @plan.Diagnostics.V1,
-              @plan.Diagnostics.V2, @plan.Diagnostics.V3, @plan.Diagnostics.V4,
-              @plan.Diagnostics.V5
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, and one of the two Specs most likely to change (Codec,
+               Diagnostics): no test pins it yet. Revisable whenever building shows it
+               wrong; each change and its reason is recorded in wiki/specs/specs.log.
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       FlowError, Diagnostic
+derives_from   [
+               @plan.Diagnostics.O1, @plan.Diagnostics.O2, @plan.Diagnostics.O3,
+               @plan.Diagnostics.O4, @plan.Diagnostics.D1, @plan.Diagnostics.V1,
+               @plan.Diagnostics.V2, @plan.Diagnostics.V3, @plan.Diagnostics.V4,
+               @plan.Diagnostics.V5
+               ]
 
 requirements
     R1  FlowError
@@ -164,49 +165,17 @@ invariants
     I11  A step is reported SlowWork exactly when its host times work and the step took longer than the budget. [@R11]
 
 coverage
-    @R1
-        enforced_by  [@I1]
-        open_by      [@Q1, @Q2]
-
-    @R2
-        enforced_by  [@I2]
-        open_by      [@Q1, @Q2]
-
-    @R3
-        enforced_by  [@I3]
-        open_by      [@Q1, @Q2]
-
-    @R4
-        enforced_by  [@I5]
-        open_by      [@Q1, @Q2]
-
-    @R5
-        enforced_by  [@I5]
-        open_by      [@Q1, @Q2]
-
-    @R6
-        enforced_by  [@I6]
-        open_by      [@Q1, @Q2]
-
-    @R7
-        enforced_by  [@I5]
-        open_by      [@Q1, @Q2]
-
-    @R8
-        enforced_by  [@I7, @I8]
-        open_by      [@Q1, @Q2]
-
-    @R9
-        enforced_by  [@I9]
-        open_by      [@Q1, @Q2]
-
-    @R10
-        enforced_by  [@I10]
-        open_by      [@Q1, @Q2]
-
-    @R11
-        enforced_by  [@I11]
-        proven_by    [@T7]
+    @R1    enforced_by [@I1]                            open_by [@Q1, @Q2]
+    @R2    enforced_by [@I2]                            open_by [@Q1, @Q2]
+    @R3    enforced_by [@I3]                            open_by [@Q1, @Q2]
+    @R4    enforced_by [@I5]                            open_by [@Q1, @Q2]
+    @R5    enforced_by [@I5]                            open_by [@Q1, @Q2]
+    @R6    enforced_by [@I6]                            open_by [@Q1, @Q2]
+    @R7    enforced_by [@I5]                            open_by [@Q1, @Q2]
+    @R8    enforced_by [@I7, @I8]                       open_by [@Q1, @Q2]
+    @R9    enforced_by [@I9]                            open_by [@Q1, @Q2]
+    @R10   enforced_by [@I10]                           open_by [@Q1, @Q2]
+    @R11   enforced_by [@I11]        proven_by [@T7]
 
 tests
     T1  Carrier and codec: every code in the vocabulary round-trips through the Diagnostic Schema; invalid tags, 

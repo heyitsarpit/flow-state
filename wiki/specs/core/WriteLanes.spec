@@ -1,17 +1,18 @@
 spec WriteLanes
-status        proposed
-basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/specs.log.
-              Written from the merged flow plans (proposed).
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      Outcome, Attempt, Flow.NotSent, Flow.Unknown, O.x.commit, O.x.retry, O.x.cancel,
-              O.x.idle, O.x.retryable, O.x.get
-derives_from  [
-              @plan.Operations.O3, @plan.Operations.O7, @plan.Operations.V6,
-              @plan.Operations.V8
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, revisable whenever building shows it wrong; each change and its
+               reason is recorded in wiki/specs/specs.log.
+               Written from the merged flow plans (proposed).
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       Outcome, Attempt, Flow.NotSent, Flow.Unknown, O.x.commit, O.x.retry, O.x.cancel,
+               O.x.idle, O.x.retryable, O.x.get
+derives_from   [
+               @plan.Operations.O3, @plan.Operations.O7, @plan.Operations.V6,
+               @plan.Operations.V8
+               ]
 
 requirements
     R1  Commit admission
@@ -699,73 +700,23 @@ realization typescript
         `Scheduler` as before. The disposal writes' share of its bound is the core's (@spec.Actors.R23).
 
 coverage
-    @R1
-        enforced_by  [@I1, @I2, @I24]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I3, @I25]
-        open_by      [@Q1]
-
-    @R3
-        enforced_by  [@I4, @I38, @I39]
-        open_by      [@Q1, @Q2]
-
-    @R4
-        enforced_by  [@I4, @I5, @I39]
-        open_by      [@Q1]
-
-    @R5
-        enforced_by  [@I6, @I7, @I28, @I35, @I36]
-        open_by      [@Q1]
-
-    @R6
-        enforced_by  [@I8, @I9, @I10, @I31, @I33]
-        open_by      [@Q1]
-
-    @R7
-        enforced_by  [@I8]
-        open_by      [@Q1]
-
-    @R8
-        enforced_by  [@I1, @I11, @I12, @I26, @I27]
-        open_by      [@Q1]
-
-    @R9
-        enforced_by  [@I10, @I13, @I14]
-        open_by      [@Q1, @Q2]
-
-    @R10
-        enforced_by  [@I15, @I16, @I27, @I29, @I30, @I31, @I32, @I34, @I37]
-        open_by      [@Q1, @Q7]
-
-    @R11
-        enforced_by  [@I17]
-        open_by      [@Q1]
-
-    @R12
-        enforced_by  [@I18]
-        open_by      [@Q1]
-
-    @R13
-        enforced_by  [@I19]
-        open_by      [@Q1, @Q3]
-
-    @R14
-        enforced_by  [@I12, @I20, @I32, @I40, @I41]
-        open_by      [@Q1]
-
-    @R15
-        enforced_by  [@I21]
-        open_by      [@Q1]
-
-    @R16
-        enforced_by  [@I12, @I15]
-        open_by      [@Q1, @Q2]
-
-    @R17
-        enforced_by  [@I23]
-        open_by      [@Q1]
+    @R1    enforced_by [@I1, @I2, @I24]                                          open_by [@Q1]
+    @R2    enforced_by [@I3, @I25]                                               open_by [@Q1]
+    @R3    enforced_by [@I4, @I38, @I39]                                         open_by [@Q1, @Q2]
+    @R4    enforced_by [@I4, @I5, @I39]                                          open_by [@Q1]
+    @R5    enforced_by [@I6, @I7, @I28, @I35, @I36]                              open_by [@Q1]
+    @R6    enforced_by [@I8, @I9, @I10, @I31, @I33]                              open_by [@Q1]
+    @R7    enforced_by [@I8]                                                     open_by [@Q1]
+    @R8    enforced_by [@I1, @I11, @I12, @I26, @I27]                             open_by [@Q1]
+    @R9    enforced_by [@I10, @I13, @I14]                                        open_by [@Q1, @Q2]
+    @R10   enforced_by [@I15, @I16, @I27, @I29, @I30, @I31, @I32, @I34, @I37]    open_by [@Q1, @Q7]
+    @R11   enforced_by [@I17]                                                    open_by [@Q1]
+    @R12   enforced_by [@I18]                                                    open_by [@Q1]
+    @R13   enforced_by [@I19]                                                    open_by [@Q1, @Q3]
+    @R14   enforced_by [@I12, @I20, @I32, @I40, @I41]                            open_by [@Q1]
+    @R15   enforced_by [@I21]                                                    open_by [@Q1]
+    @R16   enforced_by [@I12, @I15]                                              open_by [@Q1, @Q2]
+    @R17   enforced_by [@I23]                                                    open_by [@Q1]
 
 tests
     T1  Three channels and the Attempt's ending: success, failure and unknown each map to their event; a definite 

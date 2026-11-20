@@ -1,17 +1,18 @@
 spec Restore
-status        proposed
-basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/specs.log.
-              Written from the merged flow plans (proposed).
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      restore at ready, record formats, versions at the boot, saved-shape resets,
-              quarantine, forgetting a scope
-derives_from  [
-              @plan.Persistence.O4, @plan.Persistence.O5, @plan.Persistence.V4,
-              @plan.Persistence.V6, @plan.Persistence.V9
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, revisable whenever building shows it wrong; each change and its
+               reason is recorded in wiki/specs/specs.log.
+               Written from the merged flow plans (proposed).
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       restore at ready, record formats, versions at the boot, saved-shape resets,
+               quarantine, forgetting a scope
+derives_from   [
+               @plan.Persistence.O4, @plan.Persistence.O5, @plan.Persistence.V4,
+               @plan.Persistence.V6, @plan.Persistence.V9
+               ]
 
 requirements
     R1  Records stay records
@@ -300,45 +301,16 @@ composition
         return and adoption, and derives unknown { Restored } there.
 
 coverage
-    @R1
-        enforced_by  [@I1, @I2]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I19]
-        open_by      [@Q1, @Q3]
-
-    @R3
-        enforced_by  [@I5, @I6, @I7, @I8]
-        open_by      [@Q1]
-
-    @R4
-        enforced_by  [@I2, @I9]
-        open_by      [@Q1]
-
-    @R5
-        enforced_by  [@I10, @I11]
-        open_by      [@Q1]
-
-    @R6
-        enforced_by  [@I12, @I13]
-        open_by      [@Q1]
-
-    @R7
-        enforced_by  [@I13, @I14]
-        open_by      [@Q1, @Q2]
-
-    @R8
-        enforced_by  [@I13, @I15, @I20]
-        open_by      [@Q1, @Q2]
-
-    @R9
-        enforced_by  [@I16, @I17]
-        open_by      [@Q1]
-
-    @R10
-        enforced_by  [@I18]
-        open_by      [@Q1]
+    @R1    enforced_by [@I1, @I2]              open_by [@Q1]
+    @R2    enforced_by [@I19]                  open_by [@Q1, @Q3]
+    @R3    enforced_by [@I5, @I6, @I7, @I8]    open_by [@Q1]
+    @R4    enforced_by [@I2, @I9]              open_by [@Q1]
+    @R5    enforced_by [@I10, @I11]            open_by [@Q1]
+    @R6    enforced_by [@I12, @I13]            open_by [@Q1]
+    @R7    enforced_by [@I13, @I14]            open_by [@Q1, @Q2]
+    @R8    enforced_by [@I13, @I15, @I20]      open_by [@Q1, @Q2]
+    @R9    enforced_by [@I16, @I17]            open_by [@Q1]
+    @R10   enforced_by [@I18]                  open_by [@Q1]
 
 tests
     T1  Records stay records: a plain record stays a record at ready; an Owing one is woken, and a lane record of a 

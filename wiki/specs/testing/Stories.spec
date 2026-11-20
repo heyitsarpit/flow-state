@@ -371,77 +371,24 @@ realization typescript
         the Story test is a plain test).
 
 coverage
-    @R1
-        enforced_by  [@I1, @I2]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I2, @I3]
-        open_by      [@Q1]
-
-    @R3
-        enforced_by  [@I4], the step-word Story tests
-        open_by      [@Q1]
-
-    @R4
-        enforced_by  [@I17], the script-fault Story tests
-        open_by      [@Q1]
-
-    @R5
-        enforced_by  [@I4, @I5, @I6]
-        open_by      [@Q3]
-
-    @R6
-        enforced_by  [@I7]
-        open_by      [@Q1]
-
-    @R7
-        enforced_by  [@I1, @I19], the type of `Story.app`
-        open_by      [@Q1]
-
-    @R8
-        enforced_by  [@I9], the types of `Fake.server`, `Fake.call` and `Fake.control`
-        open_by      [@Q1]
-
-    @R9
-        enforced_by  [@I8, @I10, @I11, @I17]
-        open_by      [@Q1]
-
-    @R10
-        enforced_by  [@I8, @I9, @I12]
-        open_by      [@Q1]
-
-    @R11
-        enforced_by  [@I13, @I17]
-        open_by      [@Q1]
-
-    @R12
-        enforced_by  [@I15, @I16], the type of `checkpoints`
-        open_by      [@Q1, @Q2]
-
-    @R13
-        enforced_by  [@I6, @I10, @I13, @I14]
-        open_by      [@Q1]
-
-    @R14
-        enforced_by  [@I18]
-        open_by      [@Q1]
-
-    @R15
-        enforced_by  lint's import rules and the package's public routes
-        open_by      [@Q1]
-
-    @R16
-        enforced_by  [@I20, @I21]
-        open_by      [@Q1]
-
-    @R17
-        enforced_by  [@I22]
-        open_by      [@Q1]
-
-    @R18
-        enforced_by  [@I23]
-        proven_by    [@T16]
+    @R1    enforced_by [@I1, @I2]                                                                 open_by [@Q1]
+    @R2    enforced_by [@I2, @I3]                                                                 open_by [@Q1]
+    @R3    enforced_by [@I4], the step-word Story tests                                           open_by [@Q1]
+    @R4    enforced_by [@I17], the script-fault Story tests                                       open_by [@Q1]
+    @R5    enforced_by [@I4, @I5, @I6]                                                            open_by [@Q3]
+    @R6    enforced_by [@I7]                                                                      open_by [@Q1]
+    @R7    enforced_by [@I1, @I19], the type of `Story.app`                                       open_by [@Q1]
+    @R8    enforced_by [@I9], the types of `Fake.server`, `Fake.call` and `Fake.control`    open_by [@Q1]
+    @R9    enforced_by [@I8, @I10, @I11, @I17]                                                    open_by [@Q1]
+    @R10   enforced_by [@I8, @I9, @I12]                                                           open_by [@Q1]
+    @R11   enforced_by [@I13, @I17]                                                               open_by [@Q1]
+    @R12   enforced_by [@I15, @I16], the type of `checkpoints`                                    open_by [@Q1, @Q2]
+    @R13   enforced_by [@I6, @I10, @I13, @I14]                                                    open_by [@Q1]
+    @R14   enforced_by [@I18]                                                                     open_by [@Q1]
+    @R15   enforced_by lint's import rules and the package's public routes                        open_by [@Q1]
+    @R16   enforced_by [@I20, @I21]                                                               open_by [@Q1]
+    @R17   enforced_by [@I22]                                                                     open_by [@Q1]
+    @R18   enforced_by [@I23]                                                 proven_by [@T16]
 
 tests
     T1  Inert chain: a fixture whose Layer counts its builds is in a Story; the count is 0 after building the Story and 

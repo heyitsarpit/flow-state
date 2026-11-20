@@ -1,18 +1,19 @@
 spec Turn
-status        proposed
-basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/specs.log.
-              Written from the merged flow plans (proposed).
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      turn, check, snapshot, schedules, placements, onContext
-derives_from  [
-              @plan.Machines.O2, @plan.Machines.O3, @plan.Machines.O4, @plan.Machines.O5,
-              @plan.Machines.O6, @plan.Machines.O7, @plan.Machines.O8, @plan.Machines.V3,
-              @plan.Machines.V4, @plan.Machines.V5, @plan.Machines.V6, @plan.Machines.V7,
-              @plan.Machines.V8, @plan.Machines.V9
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, revisable whenever building shows it wrong; each change and its
+               reason is recorded in wiki/specs/specs.log.
+               Written from the merged flow plans (proposed).
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       turn, check, snapshot, schedules, placements, onContext
+derives_from   [
+               @plan.Machines.O2, @plan.Machines.O3, @plan.Machines.O4, @plan.Machines.O5,
+               @plan.Machines.O6, @plan.Machines.O7, @plan.Machines.O8, @plan.Machines.V3,
+               @plan.Machines.V4, @plan.Machines.V5, @plan.Machines.V6, @plan.Machines.V7,
+               @plan.Machines.V8, @plan.Machines.V9
+               ]
 
 requirements
     R1  One active leaf
@@ -507,125 +508,36 @@ realization typescript
         replay needs no host.
 
 coverage
-    @R1
-        enforced_by  [@I1]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I2, @I3]
-        open_by      [@Q1]
-
-    @R3
-        enforced_by  [@I4, @I5, @I6]
-        open_by      [@Q1, @Q2]
-
-    @R4
-        enforced_by  [@I4, @I5]
-        open_by      [@Q1]
-
-    @R5
-        enforced_by  [@I3, @I9, @I10]
-        open_by      [@Q1]
-
-    @R6
-        enforced_by  [@I10, @I11]
-        open_by      [@Q1]
-
-    @R7
-        enforced_by  [@I12]
-        open_by      [@Q1]
-
-    @R8
-        enforced_by  [@I14]
-        open_by      [@Q1]
-
-    @R9
-        enforced_by  [@I15]
-        open_by      [@Q1]
-
-    @R10
-        enforced_by  [@I14, @I16]
-        open_by      [@Q1]
-
-    @R11
-        enforced_by  [@I17]
-        open_by      [@Q1]
-
-    @R12
-        enforced_by  [@I12, @I18]
-        open_by      [@Q1]
-
-    @R13
-        enforced_by  [@I18]
-        open_by      [@Q1, @Q2]
-
-    @R14
-        enforced_by  [@I21]
-        open_by      [@Q1]
-
-    @R15
-        enforced_by  [@I20, @I22, @I32, @I33]
-        open_by      [@Q1, @Q2]
-
-    @R16
-        enforced_by  [@I20, @I34, @I35]
-        open_by      [@Q1, @Q2]
-
-    @R17
-        enforced_by  [@I22, @I23, @I34]
-        open_by      [@Q1]
-
-    @R18
-        enforced_by  [@I24]
-        open_by      [@Q1]
-
-    @R19
-        enforced_by  [@I25, @I38]
-        open_by      [@Q1]
-
-    @R20
-        enforced_by  [@I26]
-        open_by      [@Q1]
-
-    @R21
-        enforced_by  [@I27]
-        open_by      [@Q1]
-
-    @R22
-        enforced_by  [@I28]
-        open_by      [@Q1, @Q2]
-
-    @R23
-        enforced_by  [@I29, @I37], snapshot types
-        open_by      [@Q1]
-
-    @R24
-        enforced_by  [@I29, @I30]
-        open_by      [@Q1]
-
-    @R25
-        enforced_by  [@I31]
-        open_by      [@Q1]
-
-    @R26
-        enforced_by  [@I36]
-        open_by      [@Q1]
-
-    @R27
-        enforced_by  [@I37, @I38]
-        open_by      [@Q1]
-
-    @R28
-        enforced_by  [@I12]
-        open_by      [@Q1]
-
-    @R29
-        enforced_by  [@I39]
-        open_by      [@Q1]
-
-    @R30
-        enforced_by  [@I14]
-        open_by      [@Q1]
+    @R1    enforced_by [@I1]                           open_by [@Q1]
+    @R2    enforced_by [@I2, @I3]                      open_by [@Q1]
+    @R3    enforced_by [@I4, @I5, @I6]                 open_by [@Q1, @Q2]
+    @R4    enforced_by [@I4, @I5]                      open_by [@Q1]
+    @R5    enforced_by [@I3, @I9, @I10]                open_by [@Q1]
+    @R6    enforced_by [@I10, @I11]                    open_by [@Q1]
+    @R7    enforced_by [@I12]                          open_by [@Q1]
+    @R8    enforced_by [@I14]                          open_by [@Q1]
+    @R9    enforced_by [@I15]                          open_by [@Q1]
+    @R10   enforced_by [@I14, @I16]                    open_by [@Q1]
+    @R11   enforced_by [@I17]                          open_by [@Q1]
+    @R12   enforced_by [@I12, @I18]                    open_by [@Q1]
+    @R13   enforced_by [@I18]                          open_by [@Q1, @Q2]
+    @R14   enforced_by [@I21]                          open_by [@Q1]
+    @R15   enforced_by [@I20, @I22, @I32, @I33]        open_by [@Q1, @Q2]
+    @R16   enforced_by [@I20, @I34, @I35]              open_by [@Q1, @Q2]
+    @R17   enforced_by [@I22, @I23, @I34]              open_by [@Q1]
+    @R18   enforced_by [@I24]                          open_by [@Q1]
+    @R19   enforced_by [@I25, @I38]                    open_by [@Q1]
+    @R20   enforced_by [@I26]                          open_by [@Q1]
+    @R21   enforced_by [@I27]                          open_by [@Q1]
+    @R22   enforced_by [@I28]                          open_by [@Q1, @Q2]
+    @R23   enforced_by [@I29, @I37], snapshot types    open_by [@Q1]
+    @R24   enforced_by [@I29, @I30]                    open_by [@Q1]
+    @R25   enforced_by [@I31]                          open_by [@Q1]
+    @R26   enforced_by [@I36]                          open_by [@Q1]
+    @R27   enforced_by [@I37, @I38]                    open_by [@Q1]
+    @R28   enforced_by [@I12]                          open_by [@Q1]
+    @R29   enforced_by [@I39]                          open_by [@Q1]
+    @R30   enforced_by [@I14]                          open_by [@Q1]
 
 tests
     T1  Self and re-entry: a call started in a state, then "self", then an explicit re-entry of that state; after self 

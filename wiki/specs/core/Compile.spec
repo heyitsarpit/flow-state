@@ -1,16 +1,17 @@
 spec Compile
-status        proposed
-basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/specs.log.
-              Written from the merged flow plans (proposed).
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      definition, machine, trait, subroutine, app, Compiled
-derives_from  [
-              @plan.Machines.O1, @plan.Machines.V1, @plan.Machines.V2,
-              @plan.Runtime.O1, @plan.Runtime.V1
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, revisable whenever building shows it wrong; each change and its
+               reason is recorded in wiki/specs/specs.log.
+               Written from the merged flow plans (proposed).
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       definition, machine, trait, subroutine, app, Compiled
+derives_from   [
+               @plan.Machines.O1, @plan.Machines.V1, @plan.Machines.V2,
+               @plan.Runtime.O1, @plan.Runtime.V1
+               ]
 
 requirements
     R1  Inert construction
@@ -300,81 +301,25 @@ composition
         unknown targets and events so far (T17 owns the rest).
 
 coverage
-    @R1
-        enforced_by  [@I1]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I3]
-        open_by      [@Q1]
-
-    @R3
-        enforced_by  [@I4]
-        open_by      [@Q1]
-
-    @R4
-        enforced_by  [@I4]
-        open_by      [@Q1]
-
-    @R5
-        enforced_by  [@I5, @I6]
-        open_by      [@Q1]
-
-    @R6
-        enforced_by  [@I7, @I8]
-        open_by      [@Q1]
-
-    @R7
-        enforced_by  [@I9]
-        open_by      [@Q1, @Q2]
-
-    @R8
-        enforced_by  [@I8]
-        open_by      [@Q1]
-
-    @R9
-        enforced_by  [@I10, @I11]
-        open_by      [@Q1]
-
-    @R10
-        enforced_by  [@I3], host checks read summaries only
-        open_by      [@Q1]
-
-    @R11
-        enforced_by  [@I12]
-        open_by      [@Q1]
-
-    @R12
-        enforced_by  [@I13]
-        open_by      [@Q1]
-
-    @R13
-        enforced_by  [@I3]
-        open_by      [@Q1]
-
-    @R14
-        enforced_by  [@I4], type tests
-        open_by      [@Q1]
-
-    @R15
-        enforced_by  [@I14]
-        open_by      [@Q1]
-
-    @R16
-        enforced_by  [@I15]
-        open_by      [@Q1]
-
-    @R17
-        enforced_by  [@I15, @I16]
-        open_by      [@Q1]
-
-    @R18
-        enforced_by  [@I17]
-        open_by      [@Q1]
-
-    @R19
-        enforced_by  [@I18]
-        open_by      [@Q1]
+    @R1    enforced_by [@I1]                                     open_by [@Q1]
+    @R2    enforced_by [@I3]                                     open_by [@Q1]
+    @R3    enforced_by [@I4]                                     open_by [@Q1]
+    @R4    enforced_by [@I4]                                     open_by [@Q1]
+    @R5    enforced_by [@I5, @I6]                                open_by [@Q1]
+    @R6    enforced_by [@I7, @I8]                                open_by [@Q1]
+    @R7    enforced_by [@I9]                                     open_by [@Q1, @Q2]
+    @R8    enforced_by [@I8]                                     open_by [@Q1]
+    @R9    enforced_by [@I10, @I11]                              open_by [@Q1]
+    @R10   enforced_by [@I3], host checks read summaries only    open_by [@Q1]
+    @R11   enforced_by [@I12]                                    open_by [@Q1]
+    @R12   enforced_by [@I13]                                    open_by [@Q1]
+    @R13   enforced_by [@I3]                                     open_by [@Q1]
+    @R14   enforced_by [@I4], type tests                         open_by [@Q1]
+    @R15   enforced_by [@I14]                                    open_by [@Q1]
+    @R16   enforced_by [@I15]                                    open_by [@Q1]
+    @R17   enforced_by [@I15, @I16]                              open_by [@Q1]
+    @R18   enforced_by [@I17]                                    open_by [@Q1]
+    @R19   enforced_by [@I18]                                    open_by [@Q1]
 
 tests
     T1  Construct every reference definition, machine and app with spies on services, storage, clock and loaders; 

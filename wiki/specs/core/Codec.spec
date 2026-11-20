@@ -1,14 +1,15 @@
 spec Codec
-status        proposed
-basis         A guide, and one of the two Specs most likely to change (Codec,
-              Diagnostics): no test pins it yet. Revisable whenever building shows it
-              wrong; each change and its reason is recorded in wiki/specs/specs.log.
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      the structural codec (encode, decode) used by records, payloads, traces and the
-              Model
-derives_from  [@plan.Inspection.O2, @plan.Inspection.V3, @plan.Package.C1]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, and one of the two Specs most likely to change (Codec,
+               Diagnostics): no test pins it yet. Revisable whenever building shows it
+               wrong; each change and its reason is recorded in wiki/specs/specs.log.
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       the structural codec (encode, decode) used by records, payloads, traces and the
+               Model
+derives_from   [@plan.Inspection.O2, @plan.Inspection.V3, @plan.Package.C1]
 
 requirements
     R1  One codec, no size or depth bounds
@@ -144,29 +145,12 @@ invariants
         an equal value, or failure), at any depth, without the call stack. [@R6]
 
 coverage
-    @R1
-        enforced_by  [@I2]
-        open_by      [@Q1, @Q2]
-
-    @R2
-        enforced_by  [@I1, @I3]
-        open_by      [@Q1, @Q2]
-
-    @R3
-        enforced_by  [@I1, @I4, @I5]
-        open_by      [@Q1, @Q2]
-
-    @R4
-        enforced_by  [@I6]
-        open_by      [@Q1, @Q2]
-
-    @R5
-        enforced_by  [@I7]
-        open_by      [@Q1]
-
-    @R6
-        enforced_by  [@I8]
-        open_by      [@Q1]
+    @R1   enforced_by [@I2]              open_by [@Q1, @Q2]
+    @R2   enforced_by [@I1, @I3]         open_by [@Q1, @Q2]
+    @R3   enforced_by [@I1, @I4, @I5]    open_by [@Q1, @Q2]
+    @R4   enforced_by [@I6]              open_by [@Q1, @Q2]
+    @R5   enforced_by [@I7]              open_by [@Q1]
+    @R6   enforced_by [@I8]              open_by [@Q1]
 
 tests
     T1  Size and depth: 5,000 items, 3,000,000 bytes, and 100,000 deep beside 5,000 wide encode and decode back equal; 

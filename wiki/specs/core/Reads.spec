@@ -1,18 +1,19 @@
 spec Reads
-status        proposed
-basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/specs.log.
-              Written from the merged flow plans (proposed).
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      resource, transaction, stream (contract construction), keys, O.x.lookup,
-              O.x.refetch, O.x.subscribe, rows
-derives_from  [
-              @plan.Operations.O1, @plan.Operations.O2, @plan.Operations.O5,
-              @plan.Operations.O6, @plan.Operations.V1, @plan.Operations.V2,
-              @plan.Operations.V3, @plan.Operations.V7, @plan.Operations.V10
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, revisable whenever building shows it wrong; each change and its
+               reason is recorded in wiki/specs/specs.log.
+               Written from the merged flow plans (proposed).
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       resource, transaction, stream (contract construction), keys, O.x.lookup,
+               O.x.refetch, O.x.subscribe, rows
+derives_from   [
+               @plan.Operations.O1, @plan.Operations.O2, @plan.Operations.O5,
+               @plan.Operations.O6, @plan.Operations.V1, @plan.Operations.V2,
+               @plan.Operations.V3, @plan.Operations.V7, @plan.Operations.V10
+               ]
 
 requirements
     R1  Inert contracts
@@ -229,45 +230,16 @@ invariants
         lane record or a Kept row that blocks a key. [@R6]
 
 coverage
-    @R1
-        enforced_by  [@I1]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I2, @I3]
-        open_by      [@Q1]
-
-    @R3
-        enforced_by  [@I4, @I5]
-        open_by      [@Q1]
-
-    @R5
-        enforced_by  [@I8]
-        open_by      [@Q1]
-
-    @R6
-        enforced_by  [@I8, @I9, @I21, @I22]
-        open_by      [@Q1]
-
-    @R8
-        enforced_by  [@I8], placement input rule
-        open_by      [@Q1]
-
-    @R9
-        enforced_by  [@I20]
-        open_by      [@Q1]
-
-    @R10
-        enforced_by  [@I11]
-        open_by      [@Q1]
-
-    @R13
-        enforced_by  [@I15, @I16, @I17]
-        open_by      [@Q1]
-
-    @R14
-        enforced_by  [@I19]
-        open_by      [@Q1]
+    @R1    enforced_by [@I1]                          open_by [@Q1]
+    @R2    enforced_by [@I2, @I3]                     open_by [@Q1]
+    @R3    enforced_by [@I4, @I5]                     open_by [@Q1]
+    @R5    enforced_by [@I8]                          open_by [@Q1]
+    @R6    enforced_by [@I8, @I9, @I21, @I22]         open_by [@Q1]
+    @R8    enforced_by [@I8], placement input rule    open_by [@Q1]
+    @R9    enforced_by [@I20]                         open_by [@Q1]
+    @R10   enforced_by [@I11]                         open_by [@Q1]
+    @R13   enforced_by [@I15, @I16, @I17]             open_by [@Q1]
+    @R14   enforced_by [@I19]                         open_by [@Q1]
 
 tests
     T1  Inert contracts: construct every reference contract with service spies; zero calls. A missing services 

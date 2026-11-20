@@ -1,18 +1,19 @@
 spec WriteAhead
-status        proposed
-basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/specs.log.
-              Written from the merged flow plans (proposed).
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      persistence setup, actor and lane records, capture, durable Attempts
-derives_from  [
-              @plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3,
-              @plan.Persistence.O6, @plan.Persistence.O7, @plan.Persistence.D1, @plan.Persistence.V1,
-              @plan.Persistence.V2, @plan.Persistence.V3, @plan.Persistence.V5,
-              @plan.Persistence.V6, @plan.Persistence.V8, @plan.Persistence.V9
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, revisable whenever building shows it wrong; each change and its
+               reason is recorded in wiki/specs/specs.log.
+               Written from the merged flow plans (proposed).
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       persistence setup, actor and lane records, capture, durable Attempts
+derives_from   [
+               @plan.Persistence.O1, @plan.Persistence.O2, @plan.Persistence.O3,
+               @plan.Persistence.O6, @plan.Persistence.O7, @plan.Persistence.D1, @plan.Persistence.V1,
+               @plan.Persistence.V2, @plan.Persistence.V3, @plan.Persistence.V5,
+               @plan.Persistence.V6, @plan.Persistence.V8, @plan.Persistence.V9
+               ]
 
 requirements
     R1  Persistence is opt-in and scoped
@@ -404,69 +405,22 @@ realization typescript
         one per actor.
 
 coverage
-    @R1
-        enforced_by  [@I1, @I2]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I1], type tests
-        open_by      [@Q1]
-
-    @R3
-        enforced_by  [@I3]
-        open_by      [@Q1]
-
-    @R4
-        enforced_by  [@I4, @I20]
-        open_by      [@Q1]
-
-    @R5
-        enforced_by  [@I3, @I5, @I20, @I21, @I24]
-        open_by      [@Q1]
-
-    @R6
-        enforced_by  [@I6]
-        open_by      [@Q1]
-
-    @R7
-        enforced_by  [@I5, @I7, @I8]
-        open_by      [@Q1]
-
-    @R8
-        enforced_by  [@I9]
-        open_by      [@Q1, @Q2]
-
-    @R9
-        enforced_by  [@I10, @I22]
-        open_by      [@Q1]
-
-    @R10
-        enforced_by  [@I11, @I12, @I21, @I22]
-        open_by      [@Q1, @Q3]
-
-    @R11
-        enforced_by  [@I13]
-        open_by      [@Q1, @Q2]
-
-    @R12
-        enforced_by  [@I10, @I12, @I14, @I23]
-        open_by      [@Q1, @Q2]
-
-    @R13
-        enforced_by  [@I15]
-        open_by      [@Q1]
-
-    @R14
-        enforced_by  [@I17]
-        open_by      [@Q1]
-
-    @R15
-        enforced_by  [@I3]
-        open_by      [@Q1, @Q4]
-
-    @R16
-        enforced_by  [@I19]
-        open_by      [@Q1]
+    @R1    enforced_by [@I1, @I2]                      open_by [@Q1]
+    @R2    enforced_by [@I1], type tests               open_by [@Q1]
+    @R3    enforced_by [@I3]                           open_by [@Q1]
+    @R4    enforced_by [@I4, @I20]                     open_by [@Q1]
+    @R5    enforced_by [@I3, @I5, @I20, @I21, @I24]    open_by [@Q1]
+    @R6    enforced_by [@I6]                           open_by [@Q1]
+    @R7    enforced_by [@I5, @I7, @I8]                 open_by [@Q1]
+    @R8    enforced_by [@I9]                           open_by [@Q1, @Q2]
+    @R9    enforced_by [@I10, @I22]                    open_by [@Q1]
+    @R10   enforced_by [@I11, @I12, @I21, @I22]        open_by [@Q1, @Q3]
+    @R11   enforced_by [@I13]                          open_by [@Q1, @Q2]
+    @R12   enforced_by [@I10, @I12, @I14, @I23]        open_by [@Q1, @Q2]
+    @R13   enforced_by [@I15]                          open_by [@Q1]
+    @R14   enforced_by [@I17]                          open_by [@Q1]
+    @R15   enforced_by [@I3]                           open_by [@Q1, @Q4]
+    @R16   enforced_by [@I19]                          open_by [@Q1]
 
 tests
     T1  Off by default: a Runtime without persistence runs the reference scenarios with a storage spy that sees zero 

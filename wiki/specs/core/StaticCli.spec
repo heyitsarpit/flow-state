@@ -1,18 +1,19 @@
 spec StaticCli
-status        proposed
-basis         A guide, revisable whenever building shows it wrong; each change and its
-              reason is recorded in wiki/specs/specs.log.
-              Written from the merged flow plans (proposed).
-              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
-              differs, the code wins.
-location      packages/flow-state-v3/src
-provides      flow graph, flow check, flow explain (static), flow.config.ts discovery, CLI result
-              format
-derives_from  [
-              @plan.CommandLine.O1, @plan.CommandLine.O3, @plan.CommandLine.O5,
-              @plan.CommandLine.O6, @plan.CommandLine.V1, @plan.CommandLine.V4,
-              @plan.CommandLine.V6, @plan.CommandLine.V7
-              ]
+status         superseded
+superseded_by  @proposal.spec-handover
+basis          A guide, revisable whenever building shows it wrong; each change and its
+               reason is recorded in wiki/specs/specs.log.
+               Written from the merged flow plans (proposed).
+               Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+               differs, the code wins.
+location       packages/flow-state-v3/src
+provides       flow graph, flow check, flow explain (static), flow.config.ts discovery, CLI result
+               format
+derives_from   [
+               @plan.CommandLine.O1, @plan.CommandLine.O3, @plan.CommandLine.O5,
+               @plan.CommandLine.O6, @plan.CommandLine.V1, @plan.CommandLine.V4,
+               @plan.CommandLine.V6, @plan.CommandLine.V7
+               ]
 
 requirements
     R1  The command set
@@ -225,57 +226,19 @@ composition
         older than effect; the slice pins a matching pair first.
 
 coverage
-    @R1
-        enforced_by  [@I4]
-        open_by      [@Q1]
-
-    @R2
-        enforced_by  [@I4], user acceptance
-        open_by      [@Q1, @Q2, @Q3]
-
-    @R3
-        enforced_by  [@I12]
-        open_by      [@Q1]
-
-    @R4
-        enforced_by  [@I3]
-        open_by      [@Q1]
-
-    @R5
-        enforced_by  [@I1, @I2]
-        open_by      [@Q1, @Q2]
-
-    @R6
-        enforced_by  [@I1]
-        open_by      [@Q1]
-
-    @R7
-        enforced_by  [@I4, @I5]
-        open_by      [@Q1, @Q4]
-
-    @R8
-        enforced_by  [@I6]
-        open_by      [@Q1, @Q5]
-
-    @R9
-        enforced_by  [@I1, @I7]
-        open_by      [@Q1]
-
-    @R10
-        enforced_by  [@I8]
-        open_by      [@Q1]
-
-    @R11
-        enforced_by  [@I6]
-        open_by      [@Q1]
-
-    @R12
-        enforced_by  [@I10]
-        open_by      [@Q1]
-
-    @R13
-        enforced_by  [@I11]
-        open_by      [@Q1]
+    @R1    enforced_by [@I4]                     open_by [@Q1]
+    @R2    enforced_by [@I4], user acceptance    open_by [@Q1, @Q2, @Q3]
+    @R3    enforced_by [@I12]                    open_by [@Q1]
+    @R4    enforced_by [@I3]                     open_by [@Q1]
+    @R5    enforced_by [@I1, @I2]                open_by [@Q1, @Q2]
+    @R6    enforced_by [@I1]                     open_by [@Q1]
+    @R7    enforced_by [@I4, @I5]                open_by [@Q1, @Q4]
+    @R8    enforced_by [@I6]                     open_by [@Q1, @Q5]
+    @R9    enforced_by [@I1, @I7]                open_by [@Q1]
+    @R10   enforced_by [@I8]                     open_by [@Q1]
+    @R11   enforced_by [@I6]                     open_by [@Q1]
+    @R12   enforced_by [@I10]                    open_by [@Q1]
+    @R13   enforced_by [@I11]                    open_by [@Q1]
 
 tests
     T1  Inert static commands: run graph, check and explain on every reference app with spies on callbacks, services 
