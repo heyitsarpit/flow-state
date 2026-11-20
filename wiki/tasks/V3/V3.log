@@ -1349,3 +1349,7 @@ note 2026-11-20T15:33:17Z
 note 2026-11-20T16:02:34Z
     T57 done (T118's c7635b2a lands B1 and B2 inverted). T118 requirements in: 8000 sequences, 365 red today, blind
     agreement with no contradiction; requirements review started.
+
+note 2026-11-20T16:03:01Z
+    User's page written, unread: code:wiki/plans/flow/references/pages/T57-schedules.md. T118 cannot close until it is
+    read.
