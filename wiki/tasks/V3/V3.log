@@ -1232,3 +1232,7 @@ note 2026-11-20T07:28:25Z
 note 2026-11-20T07:34:28Z
     Decision (the user, 2026-11-20): Plan edits accepted; Pending D2, D3, D4, D9 merged, Runtime O2 and Q1 updated to
     the whole-Layer boot, Machines' when example fixed (7569d069). @task.V3.T58 done.
+
+note 2026-11-20T07:34:49Z
+    User's page written, unread: code:wiki/plans/flow/references/pages/T58-store-in-real-browsers.md (StoreScope name
+    for the user). T57 finishes before T112, which T58 unblocked.
