@@ -8,6 +8,8 @@ const RESTORE = "tests/restore/schedule-edits.test.ts";
 
 const TABLE = "tests/turn/schedule-table.test.ts";
 
+const KEYS = "tests/turn/schedule-keys-table.test.ts";
+
 const DECISION = "src/core/schedule-decision.ts";
 
 const fault = (
@@ -237,9 +239,9 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "Turn R25",
     [HOME],
     "a schedule's check defect stays an issue after its checks succeed again",
-    "src/core/schedules.ts",
-    "Option.exists(i.slot, (s) => decision.clean.has(s)),",
-    "Option.exists(i.slot, (s) => decision.clean.has(s) && false),",
+    DECISION,
+    "    if (checks.has(slot)) return !(pass.ran.get(source)?.has(slot) ?? false);",
+    "    if (checks.has(slot)) return true;",
   ),
   fault(
     "check-defect-stops-timer",
@@ -264,9 +266,9 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "Turn R25",
     [TABLE],
     "a check's issue clears in a pass where that check never ran, as for a key that left",
-    "src/core/schedules.ts",
-    "Option.exists(i.slot, (s) => decision.clean.has(s)),",
-    "Option.exists(i.slot, (s) => decision.clean.has(s) || !decision.clean.has(s)),",
+    DECISION,
+    "    if (checks.has(slot)) return !(pass.ran.get(source)?.has(slot) ?? false);",
+    "    if (checks.has(slot)) return false;",
   ),
   fault(
     "entry-arms-while-disarmed",
@@ -292,8 +294,8 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     [TABLE],
     "two checks that throw in one pass leave the later one's issue, not the first's",
     DECISION,
-    "    raised: Option.fromUndefinedOr(pass.failures[0]),",
-    "    raised: Option.fromUndefinedOr(pass.failures.at(-1)),",
+    "    if (!failed.has(source)) failed.set(source, f);",
+    "    failed.set(source, f);",
   ),
   fault(
     "timer-shapes-loose",
@@ -303,5 +305,50 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "tests/rules/records.ts",
     " && hasExactTimers(json),",
     ",",
+  ),
+  fault(
+    "idle-forgets-reasons",
+    "Turn R19",
+    [TABLE],
+    "an idle timer forgets its pause reasons, so a run armed while a reason throws runs",
+    DECISION,
+    "        pausedBy: sameReasons(reasons, w.track.pausedBy) ? w.track.pausedBy : reasons,",
+    "        pausedBy: Option.isNone(w.track.run) ? [] : reasons,",
+  ),
+  fault(
+    "firing-clears-every-key",
+    "Turn R25",
+    [KEYS],
+    "one key's accepted firing clears every key's issues, an arming issue of another key included",
+    DECISION,
+    "    if (failed.has(source)) return false;",
+    "    if (failed.has(source) || Option.isSome(committed)) return false;",
+  ),
+  fault(
+    "issues-without-key",
+    "Turn R25",
+    [KEYS],
+    "a keyed schedule's issues carry no key, so one key's issue replaces or clears another's",
+    DECISION,
+    "    source: IssueSource.Schedule({ name: schedule.name, key: keyTextOf(failure.key) }),",
+    "    source: IssueSource.Schedule({ name: schedule.name, key: Option.none() }),",
+  ),
+  fault(
+    "fired-refusal-dropped",
+    "Turn R25",
+    [KEYS],
+    "a firing whose send mapper throws raises no issue",
+    DECISION,
+    "      for (const refused of Option.toArray(occasion.refused))",
+    "      for (const refused of Option.toArray(Option.none<Failure>()))",
+  ),
+  fault(
+    "firing-keeps-own-issue",
+    "Turn R25",
+    [KEYS],
+    "a key's accepted firing keeps its own firing issue",
+    DECISION,
+    "    return !Option.exists(committed, (fired) => sourceKeyOf(fired.key) === source);",
+    "    return true;",
   ),
 ];

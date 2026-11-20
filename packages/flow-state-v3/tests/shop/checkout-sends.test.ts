@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { checkout, mainFlow } from "../../fixtures/shop/app.ts";
-import { checkoutSends } from "../../fixtures/shop/stories/sends.ts";
+import { checkoutSends, paidThenEmptied } from "../../fixtures/shop/stories/sends.ts";
 import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { turnsAmong } from "../actors/sends.ts";
 import { played } from "../rules/played.ts";
@@ -17,5 +17,16 @@ describe("the checkout flow pays through the checkout's Pay (Actors R16; Runtime
     expect(paid.read(checkout)?.memory.paymentMethodId).toBe("visa");
     expect(paid.read(checkout)?.state).toBe("PAID");
     expect(paid.read(mainFlow)?.state).toBe("DONE");
+  });
+});
+
+describe("a paid checkout stays done (Machines O8's checkout flow)", () => {
+  it("Turn R5: emptying the cart after the order is paid leaves the flow DONE; only the checkout steps return to browsing", async () => {
+    const run = await played(paidThenEmptied);
+
+    expect([
+      run.checkpoints.paid.read(mainFlow)?.state,
+      run.checkpoints.emptied.read(mainFlow)?.state,
+    ]).toEqual(["DONE", "DONE"]);
   });
 });

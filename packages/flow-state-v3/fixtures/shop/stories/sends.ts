@@ -22,24 +22,35 @@ const payWithVisa = CheckoutFlow.E.PayWith({ paymentMethodId: "visa" });
 
 const payWithNothing = CheckoutFlow.E.PayWith({ paymentMethodId: "" });
 
+// The steps to a paid checkout, under a Story id.
+const paidCheckout = (id: string) =>
+  storeStory(id)
+    .ensure(mainShopper)
+    .ensure(mainCart)
+    .ensure(checkout)
+    .ensure(mainFlow)
+    .send(checkout, Pay.E.Start({ cartId: "main", intentId: "pi-main" }))
+    .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+    .send(mainFlow, CheckoutFlow.E.Begin())
+    .send(mainFlow, CheckoutFlow.E.AddressEntered({ line1: "12 Canal St" }))
+    .send(mainFlow, CheckoutFlow.E.MethodChosen({ method: "express" }))
+    .send(mainFlow, CheckoutFlow.E.SlotChosen({ slot: "9-12" }))
+    .checkpoint("pay")
+    .send(mainFlow, CheckoutFlow.E.PayWith({ paymentMethodId: "visa" }))
+    .checkpoint("paid");
+
 /**
  * Ada's checkout is started for her cart; she adds a line, steps through the address, method and
  * slot, and pays with her card from the flow.
  */
-export const checkoutSends = storeStory("shop/checkout-sends")
-  .ensure(mainShopper)
-  .ensure(mainCart)
-  .ensure(checkout)
-  .ensure(mainFlow)
-  .send(checkout, Pay.E.Start({ cartId: "main", intentId: "pi-main" }))
-  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
-  .send(mainFlow, CheckoutFlow.E.Begin())
-  .send(mainFlow, CheckoutFlow.E.AddressEntered({ line1: "12 Canal St" }))
-  .send(mainFlow, CheckoutFlow.E.MethodChosen({ method: "express" }))
-  .send(mainFlow, CheckoutFlow.E.SlotChosen({ slot: "9-12" }))
-  .checkpoint("pay")
-  .send(mainFlow, CheckoutFlow.E.PayWith({ paymentMethodId: "visa" }))
-  .checkpoint("paid");
+export const checkoutSends = paidCheckout("shop/checkout-sends");
+
+/**
+ * Ada pays, then empties her cart: the paid order stays done.
+ */
+export const paidThenEmptied = paidCheckout("shop/paid-then-emptied")
+  .send(mainCart, Cart.E.SetQuantity({ lineId: "l1", quantity: 0 }))
+  .checkpoint("emptied");
 
 /**
  * What a shopper can do around the checkout's Pay from the flow, for generated runs: start the

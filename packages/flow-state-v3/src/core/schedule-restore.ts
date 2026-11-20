@@ -77,7 +77,7 @@ export const makeScheduleRestore = (tx: Tx, schedules: ScheduleSteps) => {
         ? Option.map(Option.fromUndefinedOr(timer.dueAt), (dueAt) =>
             schedules.runningTo(incarnation, tracked, arming, dueAt),
           )
-        : Option.some(Timing.Held({ left: timer.left, pausedBy: timer.pausedBy ?? [] }));
+        : Option.some(Timing.Held({ left: timer.left }));
 
     return Option.map(timing, (t) => {
       const series = seriesOf(incarnation, tracked, schedule);
@@ -113,6 +113,7 @@ export const makeScheduleRestore = (tx: Tx, schedules: ScheduleSteps) => {
           name: timer.name,
           key: k,
           baseline: Option.none(),
+          pausedBy: timer.pausedBy ?? [],
           run: Option.none(),
         };
 

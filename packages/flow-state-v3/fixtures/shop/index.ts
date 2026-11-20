@@ -47,6 +47,7 @@ import {
   renewalUnsurePay,
   checkoutSendSamples,
   checkoutSends,
+  paidThenEmptied,
 } from "./stories/sends.ts";
 import { pulseAdds, pulseReloadMidAdd, pulseReloaded, pulseSamples } from "./stories/context.ts";
 import {
@@ -93,6 +94,7 @@ export const shop = manifest({
     oddRecordNames,
     borrowedRecordsReload,
     checkoutSends,
+    paidThenEmptied,
     renewalBusyPay,
     renewalEndedPay,
     renewalUnsurePay,

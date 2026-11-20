@@ -135,11 +135,11 @@ export type Write = { readonly key: string; readonly record: Option.Option<strin
 
 /**
  * Where an armed timer is: running to `dueAt` on a host timer (a fired one waits while its actor is
- * unused), or held by its pause reasons with `left` milliseconds to go.
+ * unused), or held by its timer's pause reasons with `left` milliseconds to go.
  */
 export type Timing = Data.TaggedEnum<{
   Running: { dueAt: number; timer: TimerId };
-  Held: { left: number; pausedBy: ReadonlyArray<string> };
+  Held: { left: number };
 }>;
 
 /**
@@ -169,14 +169,17 @@ export type Run = {
 export type TimerKey = { readonly text: string; readonly value: Values };
 
 /**
- * One timer of an active schedule, a keyed schedule's per key: its `restartOn` baseline, and its
- * run while armed (none while idle, disarmed or done).
+ * One timer of an active schedule, a keyed schedule's per key: its `restartOn` baseline, the pause
+ * reasons it last read true, in declaration order, whether armed or idle (a held run is held by
+ * them, and a reason that throws keeps them), and its run while armed (none while idle, disarmed or
+ * done).
  */
 export type Tracked = {
   readonly name: string;
   readonly key: Option.Option<TimerKey>;
   // FLOW_STATE_ALLOW_UNKNOWN: a restart selection of any type, compared by Equal.equals.
   readonly baseline: Option.Option<unknown>;
+  readonly pausedBy: ReadonlyArray<string>;
   readonly run: Option.Option<Run>;
 };
 
@@ -217,13 +220,14 @@ export type Incarnation = {
 };
 
 /**
- * What raised an issue: an event's turn, a schedule's, an operation's ending, a context slot's
+ * What raised an issue: an event's turn, a schedule's timer (a keyed one's key by its canonical
+ * text; none for an unkeyed schedule or its `keys`), an operation's ending, a context slot's
  * selector, an `onContext` reaction, or the incarnation's creation. An issue is replaced or cleared
  * only by its own source.
  */
 export type IssueSource = Data.TaggedEnum<{
   Event: { tag: string };
-  Schedule: { name: string };
+  Schedule: { name: string; key: Option.Option<string> };
   Operation: { name: string };
   Context: { slot: string };
   OnContext: { at: number };
@@ -236,13 +240,17 @@ export type IssueSource = Data.TaggedEnum<{
 export const IssueSource = Data.taggedEnum<IssueSource>();
 
 /**
- * An issue source as a snapshot names it: `event X`, `schedule X`, `operation X`, `context X`,
- * `onContext N` or `creation`.
+ * An issue source as a snapshot names it: `event X`, `schedule X` (a keyed one's `schedule X KEY`),
+ * `operation X`, `context X`, `onContext N` or `creation`.
  */
 export const sourceText = (source: IssueSource) =>
   IssueSource.$match(source, {
     Event: ({ tag }) => `event ${tag}`,
-    Schedule: ({ name }) => `schedule ${name}`,
+    Schedule: ({ name, key }) =>
+      Option.match(key, {
+        onNone: () => `schedule ${name}`,
+        onSome: (k) => `schedule ${name} ${k}`,
+      }),
     Operation: ({ name }) => `operation ${name}`,
     Context: ({ slot }) => `context ${slot}`,
     OnContext: ({ at }) => `onContext ${at}`,
@@ -251,7 +259,8 @@ export const sourceText = (source: IssueSource) =>
 
 /**
  * An incarnation's open issue: the source that raised it, its code and the callback slot that
- * failed, if one did. Only a later accepted turn of the same source clears it.
+ * failed, if one did. Only its own source clears it: a later accepted turn of that source, or, for
+ * a schedule's check, that check running clean for that key.
  */
 export type Issue = {
   readonly source: IssueSource;
@@ -266,6 +275,30 @@ export const withIssue = (incarnation: Incarnation, issue: Issue) => ({
   ...incarnation,
   issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, issue.source)), issue],
 });
+
+/**
+ * An incarnation with more open issues appended, each its own source's.
+ */
+export const withIssues = (incarnation: Incarnation, issues: ReadonlyArray<Issue>) =>
+  issues.length === 0
+    ? incarnation
+    : { ...incarnation, issues: [...incarnation.issues, ...issues] };
+
+/**
+ * An incarnation whose issues of the sources `owns` names are `issues`, in place of the ones those
+ * sources held; the same incarnation when they are the same issues.
+ */
+export const withIssuesOf = (
+  incarnation: Incarnation,
+  owns: (source: IssueSource) => boolean,
+  issues: ReadonlyArray<Issue>,
+) => {
+  const held = incarnation.issues.filter((i) => owns(i.source));
+
+  return held.length === issues.length && held.every((i, n) => i === issues[n])
+    ? incarnation
+    : { ...incarnation, issues: [...incarnation.issues.filter((i) => !owns(i.source)), ...issues] };
+};
 
 /**
  * An incarnation with its source's issue cleared; the same incarnation when it had none.

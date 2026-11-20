@@ -228,9 +228,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "      Refused: ({ code, slot }) => {\n",
+        find: "      Refused: ({ code, slot }) => refusal(incarnation, route, { code, slot }),\n",
         replace:
-          "      Refused: ({ code, slot }) => {\n        tx.act(Act.Turned({ actor: incarnation.actor, event: tag, from: incarnation.state, to: incarnation.state, parts: [], members: [] }));\n",
+          "      Refused: ({ code, slot }) => {\n        tx.act(Act.Turned({ actor: incarnation.actor, event: tag, from: incarnation.state, to: incarnation.state, parts: [], members: [] }));\n\n        return refusal(incarnation, route, { code, slot });\n      },\n",
       },
     ],
   },

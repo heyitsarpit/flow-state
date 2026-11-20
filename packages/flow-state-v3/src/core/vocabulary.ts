@@ -81,9 +81,10 @@ export const IssueCode = Schema.Literals([
 export type IssueCode = typeof IssueCode.Type;
 
 /**
- * A schedule's saved timer, as an actor record holds it: its name, a keyed one's key, and while
- * armed its arming time, its firings since and its `dueAt`, or its `left` with the reasons that
- * held it. A timer with neither is idle: its entry armed it once and it has ended or was disarmed.
+ * A schedule's saved timer, as an actor record holds it: its name, a keyed one's key, while armed
+ * its arming time, its firings since and its `dueAt` or its `left`, and the pause reasons it last
+ * read true, armed or idle. A timer with neither `dueAt` nor `left` is idle: its entry armed it
+ * once and it has ended or was disarmed.
  */
 export const SavedTimer = Schema.Struct({
   name: Schema.String,

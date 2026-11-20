@@ -137,23 +137,34 @@ const savedRun = (run: Run) => ({
   attempt: run.attempt,
   ...Timing.$match(run.timing, {
     Running: ({ dueAt }) => ({ dueAt }),
-    Held: ({ left, pausedBy }) => ({ left, pausedBy }),
+    Held: ({ left }) => ({ left }),
   }),
 });
 
 /**
- * A record's timers: each armed timer of the incarnation, and each idle one a restore would
- * otherwise start (a keyed one, or one its state's entry arms), so a restore tells a schedule that
- * ended from one the definition added. `armsOnEntry` names the schedules their entry arms.
+ * A record's timers: each armed timer of the incarnation, each idle one a restore would otherwise
+ * start (a keyed one, or one its state's entry arms), so a restore tells a schedule that ended from
+ * one the definition added, and each idle one with pause reasons, which a reason that throws after
+ * the restore keeps. `armsOnEntry` names the schedules their entry arms.
  */
 export const savedTimersOf = (incarnation: Incarnation, armsOnEntry: (name: string) => boolean) =>
   [...incarnation.schedules.values()]
-    .filter((t) => Option.isSome(t.run) || Option.isSome(t.key) || armsOnEntry(t.name))
-    .map((tracked) => ({
-      name: tracked.name,
-      ...Option.match(tracked.key, { onNone: () => ({}), onSome: (k) => ({ key: k.value }) }),
-      ...Option.match(tracked.run, { onNone: () => ({}), onSome: savedRun }),
-    }));
+    .filter(
+      (t) =>
+        Option.isSome(t.run) ||
+        Option.isSome(t.key) ||
+        t.pausedBy.length > 0 ||
+        armsOnEntry(t.name),
+    )
+    .map((tracked) => {
+      const saved = {
+        name: tracked.name,
+        ...Option.match(tracked.key, { onNone: () => ({}), onSome: (k) => ({ key: k.value }) }),
+        ...Option.match(tracked.run, { onNone: () => ({}), onSome: savedRun }),
+      };
+
+      return tracked.pausedBy.length === 0 ? saved : { ...saved, pausedBy: tracked.pausedBy };
+    });
 
 /**
  * A timer due, with the incarnation it belongs to.

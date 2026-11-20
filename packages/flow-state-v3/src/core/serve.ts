@@ -3,6 +3,7 @@ import { callSlot, type Mapping, Operation, type Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
 import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
+import type { Failure, Firing } from "./schedule-decision.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { chainOf, historyAfter } from "./tree.ts";
@@ -19,6 +20,7 @@ import {
   Mail,
   OwnedBy,
   withIssue,
+  withoutIssue,
 } from "./world.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
@@ -31,7 +33,7 @@ import { makeFirings } from "./firings.ts";
  */
 export type Trigger = Data.TaggedEnum<{
   Event: { tag: string };
-  Firing: { schedule: string };
+  Firing: { firing: Firing };
   Ending: { row: Owed; late: Option.Option<ActivationId> };
 }>;
 
@@ -40,27 +42,34 @@ export type Trigger = Data.TaggedEnum<{
  */
 export const Trigger = Data.taggedEnum<Trigger>();
 
+// The source an ending's turn raises or clears its issue on: its operation.
+const endingSource = (row: Owed) => IssueSource.Operation({ name: row.operation });
+
 // What a turn's trigger decides: the activation it is late for, the lane it acts on as owner, the
-// row it hears, and the source whose issue it raises or clears.
+// row it hears, and the source whose issue it raises or clears; a firing's issues are its
+// schedule's decision, so it names its firing instead.
 const routeOf = (trigger: Trigger) =>
   Trigger.$match(trigger, {
     Event: ({ tag }) => ({
       late: Option.none<ActivationId>(),
       own: Option.none<LaneId>(),
       ending: Option.none<Owed>(),
-      source: IssueSource.Event({ tag }),
+      source: Option.some(IssueSource.Event({ tag })),
+      firing: Option.none<Firing>(),
     }),
-    Firing: ({ schedule }) => ({
+    Firing: ({ firing }) => ({
       late: Option.none<ActivationId>(),
       own: Option.none<LaneId>(),
       ending: Option.none<Owed>(),
-      source: IssueSource.Schedule({ name: schedule }),
+      source: Option.none<IssueSource>(),
+      firing: Option.some(firing),
     }),
     Ending: ({ row, late }) => ({
       late,
       own: row.lane,
       ending: Option.some(row),
-      source: IssueSource.Operation({ name: row.operation }),
+      source: Option.some(endingSource(row)),
+      firing: Option.none<Firing>(),
     }),
   });
 
@@ -70,12 +79,13 @@ const REFUSED: Heard = "Refused";
 
 const UNMAPPED: Heard = "Unmapped";
 
-// What a turn answers its server: how its mail was heard, and whether it committed.
-const TURNED = { heard: HEARD, committed: true } as const;
+// What a turn answers its server: how its mail was heard, whether it committed, and a firing's
+// refusal, which its schedule's decision raises.
+const TURNED = { heard: HEARD, committed: true, refused: Option.none<Failure>() } as const;
 
-const UNTURNED = { heard: HEARD, committed: false } as const;
+const UNTURNED = { heard: HEARD, committed: false, refused: Option.none<Failure>() } as const;
 
-const REFUSED_TURN = { heard: REFUSED, committed: false } as const;
+const REFUSED_TURN = { heard: REFUSED, committed: false, refused: Option.none<Failure>() } as const;
 
 /**
  * The activations that own an actor's pending work: each InFlight head and every queued commit,
@@ -169,6 +179,27 @@ export const makeServe = (
     return Result.succeed(id);
   };
 
+  // A refused turn raises its source's issue and publishes once; a firing's refusal is handed back
+  // to its schedule's decision instead.
+  const refusal = (incarnation: Incarnation, route: ReturnType<typeof routeOf>, failure: Failure) =>
+    Option.match(route.source, {
+      onNone: () => ({ heard: REFUSED, committed: false, refused: Option.some(failure) }),
+      onSome: (source) => {
+        publish(
+          raised(
+            incarnation,
+            tx.refuse(
+              incarnation.actor,
+              { source, code: failure.code, slot: Option.some(failure.slot) },
+              route.ending,
+            ),
+          ),
+        );
+
+        return REFUSED_TURN;
+      },
+    });
+
   const turn = (incarnation: Incarnation, tag: string, payload: Values, trigger: Trigger) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
@@ -216,44 +247,15 @@ export const makeServe = (
 
         return settled();
       },
-      Refused: ({ code, slot }) => {
-        publish(
-          raised(
-            incarnation,
-            tx.refuse(
-              incarnation.actor,
-              { source: route.source, code, slot: Option.some(slot) },
-              route.ending,
-            ),
-          ),
-        );
-
-        return REFUSED_TURN;
-      },
+      Refused: ({ code, slot }) => refusal(incarnation, route, { code, slot }),
       Accepted: (accepted) => {
         const sends = accepted.actions.filter(Resolved.$is("Send"));
 
         const chain = sends.length === 0 ? Option.none() : Option.some(counted(sends.length));
 
         // The turn that would send past the loop guard is refused whole, naming its chain.
-        if (Option.isSome(chain) && Result.isFailure(chain.value)) {
-          publish(
-            raised(
-              incarnation,
-              tx.refuse(
-                incarnation.actor,
-                {
-                  source: route.source,
-                  code: "InvalidTurn",
-                  slot: Option.some(chain.value.failure),
-                },
-                route.ending,
-              ),
-            ),
-          );
-
-          return REFUSED_TURN;
-        }
+        if (Option.isSome(chain) && Result.isFailure(chain.value))
+          return refusal(incarnation, route, { code: "InvalidTurn", slot: chain.value.failure });
 
         const base: Incarnation = Option.match(accepted.move, {
           onNone: () => ({ ...incarnation, memory: tx.env.admit(accepted.memory) }),
@@ -273,7 +275,10 @@ export const makeServe = (
           },
         });
 
-        const after = schedules.succeeded(base, route.source);
+        const after = Option.match(route.source, {
+          onNone: () => base,
+          onSome: (source) => withoutIssue(base, source),
+        });
 
         setIncarnation(after);
 
@@ -340,6 +345,7 @@ export const makeServe = (
             exits: Option.match(accepted.move, { onNone: () => [], onSome: (m) => m.exits }),
             arms: accepted.arm,
             disarms: accepted.disarm,
+            fired: route.firing,
           },
         );
 
@@ -402,7 +408,7 @@ export const makeServe = (
           tx.refuse(
             incarnation.actor,
             {
-              source: routeOf(trigger).source,
+              source: endingSource(ending),
               code: "InvalidTurn",
               slot: Option.some(payload.failure),
             },
@@ -417,12 +423,8 @@ export const makeServe = (
     return turn(incarnation, mapping.value.event, payload.success, trigger).heard;
   };
 
-  const firings = makeFirings(
-    tx,
-    incarnations,
-    (incarnation, schedule, payload) =>
-      turn(incarnation, schedule.send, payload, Trigger.Firing({ schedule: schedule.name }))
-        .committed,
+  const firings = makeFirings(tx, incarnations, (incarnation, schedule, payload, firing) =>
+    turn(incarnation, schedule.send, payload, Trigger.Firing({ firing })),
   );
 
   const serve = (mail: Mail) =>

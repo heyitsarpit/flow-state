@@ -1,4 +1,4 @@
-import { Equal, Option, Predicate, Result } from "effect";
+import { Option, Predicate, Result } from "effect";
 import {
   callSlot,
   type FiringMetadata,
@@ -9,10 +9,11 @@ import {
 import { encodeCanonical } from "./codec.ts";
 import { Act } from "./evidence-of.ts";
 import {
-  checkSlotsOf,
   decide,
-  sameReasons,
   type Decision,
+  type Failure,
+  type Firing,
+  isScheduleSource,
   Occasion,
   Plan,
   type PlannedRun,
@@ -33,19 +34,18 @@ import type { Tx } from "./tx.ts";
 import {
   type ActorId,
   type Incarnation,
-  IssueSource,
   type Run,
   Timer,
   type TimerKey,
   Timing,
   type Tracked,
   trackOf,
-  withIssue,
+  withIssuesOf,
 } from "./world.ts";
 
-// Schedules: an incarnation's timers, the one place that writes them. Each schedule's change for
-// an occasion is decided by `decide` and applied by `pass`; a firing's next step is its one timer's
-// change, applied by `fired`.
+// Schedules: an incarnation's timers and schedule issues, the one place that writes them. Each
+// schedule's change for an occasion is decided by `decide` and applied by `pass`; a firing's next
+// step is its one timer's change, applied by `fired`.
 
 // FLOW_STATE_ALLOW_UNKNOWN: the rows a schedule's callbacks read, typed by the definition.
 type Operations = ReadonlyMap<string, ReadonlyMap<string, unknown>>;
@@ -59,11 +59,12 @@ const NO_OPERATIONS: Operations = new Map();
 type Next = { readonly run: Option.Option<Run>; readonly over: boolean };
 
 // What a committed turn did to the schedules of its incarnation: the states it exited, the armings
-// it checked, and the schedules its event lists in `disarmOn`.
+// it checked, the schedules its event lists in `disarmOn`, and the firing whose send it was.
 type TurnWork = {
   readonly exits: ReadonlyArray<string>;
   readonly arms: ReadonlyArray<Arming>;
   readonly disarms: ReadonlyArray<string>;
+  readonly fired: Option.Option<Firing>;
 };
 
 // Whether a decided run is its timer's run unchanged.
@@ -72,10 +73,7 @@ const unchanged = (before: Run, after: PlannedRun) =>
   before.attempt === after.attempt &&
   Plan.$match(after.plan, {
     Due: ({ dueAt }) => Timing.$is("Running")(before.timing) && before.timing.dueAt === dueAt,
-    Held: ({ left, pausedBy }) =>
-      Timing.$is("Held")(before.timing) &&
-      before.timing.left === left &&
-      sameReasons(before.timing.pausedBy, pausedBy),
+    Held: ({ left }) => Timing.$is("Held")(before.timing) && before.timing.left === left,
   });
 
 export const makeSchedules = (tx: Tx) => {
@@ -224,7 +222,13 @@ export const makeSchedules = (tx: Tx) => {
     for (const run of Option.toArray(Option.flatMap(before, (b) => b.run)))
       if (Option.isNone(kept)) disarmRun(run);
 
-    if (Option.exists(kept, (b) => b.baseline === after.baseline && b.key === after.key))
+    if (
+      Option.exists(
+        kept,
+        (b) =>
+          b.baseline === after.baseline && b.key === after.key && b.pausedBy === after.pausedBy,
+      )
+    )
       return Option.getOrThrow(kept);
 
     const run = Option.match(kept, {
@@ -241,17 +245,23 @@ export const makeSchedules = (tx: Tx) => {
             output: planned.output,
             timing: Plan.$match(planned.plan, {
               Due: ({ dueAt }) => runningTo(incarnation, after, arming, dueAt),
-              Held: ({ left, pausedBy }) => Timing.Held({ left, pausedBy }),
+              Held: ({ left }) => Timing.Held({ left }),
             }),
           } satisfies Run;
         }),
     });
 
-    return { name: after.name, key: after.key, baseline: after.baseline, run } satisfies Tracked;
+    return {
+      name: after.name,
+      key: after.key,
+      baseline: after.baseline,
+      pausedBy: after.pausedBy,
+      run,
+    } satisfies Tracked;
   };
 
-  // A decision's pause evidence and issue: the first failure raises the schedule's issue; with
-  // none, an open check issue whose check ran clean clears.
+  // A decision's pause evidence, its failures each recorded, and its issues put in place of the
+  // schedule's.
   const reported = (incarnation: Incarnation, schedule: Schedule, decision: Decision) => {
     const at = { actor: incarnation.actor, schedule: schedule.name };
 
@@ -263,27 +273,9 @@ export const makeSchedules = (tx: Tx) => {
         }),
       );
 
-    const source = IssueSource.Schedule({ name: schedule.name });
+    for (const issue of decision.raised) tx.refuse(incarnation.actor, issue);
 
-    return Option.match(decision.raised, {
-      onSome: ({ code, slot }) =>
-        withIssue(
-          incarnation,
-          tx.refuse(incarnation.actor, { source, code, slot: Option.some(slot) }),
-        ),
-      onNone: () => {
-        const cleared = incarnation.issues.filter(
-          (i) =>
-            IssueSource.$is("Schedule")(i.source) &&
-            i.source.name === schedule.name &&
-            Option.exists(i.slot, (s) => decision.clean.has(s)),
-        );
-
-        return cleared.length === 0
-          ? incarnation
-          : { ...incarnation, issues: incarnation.issues.filter((i) => !cleared.includes(i)) };
-      },
-    });
+    return withIssuesOf(incarnation, isScheduleSource(schedule.name), decision.issues);
   };
 
   // One schedule's decided timers put in `timers`, each stopped timer's host timer disarmed;
@@ -346,6 +338,7 @@ export const makeSchedules = (tx: Tx) => {
       const decision = decide(
         schedule,
         own,
+        issued.issues.filter((i) => isScheduleSource(schedule.name)(i.source)),
         occasionOf(schedule),
         readsOf(incarnation, schedule, operations),
         tx.env.now,
@@ -392,13 +385,28 @@ export const makeSchedules = (tx: Tx) => {
           Option.fromUndefinedOr(work.arms.find((a) => a.name === schedule.name)),
           (a) => a.first,
         ),
+        fired: Option.filter(work.fired, (f) => f.name === schedule.name),
       }),
     );
   };
 
   /**
+   * Decides an incarnation's schedules after a firing whose send did not commit: the fired
+   * schedule hears the firing and its refusal, if it was refused; every schedule re-checks its keys
+   * and pause reasons, as on a lane change.
+   */
+  const firingSettled = (
+    incarnation: Incarnation,
+    firing: Firing,
+    refused: Option.Option<Failure>,
+  ) =>
+    pass(incarnation, incarnation.schedules, (schedule) =>
+      schedule.name === firing.name ? Occasion.Fired({ firing, refused }) : Occasion.Lanes(),
+    );
+
+  /**
    * Re-checks an incarnation's schedules: on a context change its keys, `restartOn` with restarts
-   * and the pause reasons; on a lane change or a firing's next step its keys and pause reasons.
+   * and the pause reasons; on a lane change its keys and pause reasons.
    */
   const rechecked = (incarnation: Incarnation, occasion: Occasion) =>
     pass(incarnation, incarnation.schedules, () => occasion);
@@ -421,25 +429,6 @@ export const makeSchedules = (tx: Tx) => {
    */
   const stopAll = (incarnation: Incarnation) => {
     for (const tracked of incarnation.schedules.values()) Option.map(tracked.run, disarmRun);
-  };
-
-  /**
-   * An incarnation after an accepted turn of `source`: its issue clears, except a schedule's
-   * issue raised by one of its checks, which clears only when that check runs clean.
-   */
-  const succeeded = (incarnation: Incarnation, source: IssueSource) => {
-    const checks = IssueSource.$is("Schedule")(source)
-      ? declaredOn(tx.machines, incarnation)
-          .filter((schedule) => schedule.name === source.name)
-          .flatMap(checkSlotsOf)
-      : [];
-
-    const issues = incarnation.issues.filter(
-      (i) =>
-        !Equal.equals(i.source, source) || Option.exists(i.slot, (slot) => checks.includes(slot)),
-    );
-
-    return issues.length === incarnation.issues.length ? incarnation : { ...incarnation, issues };
   };
 
   /**
@@ -537,9 +526,9 @@ export const makeSchedules = (tx: Tx) => {
   return {
     turned,
     rechecked,
+    firingSettled,
     restored,
     stopAll,
-    succeeded,
     metadataOf,
     fired,
     firingRun,

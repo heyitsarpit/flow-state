@@ -17,8 +17,8 @@ const sameSnapshot = (a: Evidence, b: Evidence) =>
   a.state === b.state &&
   Equal.equals(a.memory, b.memory);
 
-const startsWork = (r: Evidence) =>
-  r._tag === "Turn" || r._tag === "Minted" || r._tag === "Sent" || isRefusal(r);
+const startsWork = (r: Evidence, evidence: ReadonlyArray<Evidence>) =>
+  r._tag === "Turn" || r._tag === "Minted" || r._tag === "Sent" || isRefusal(r, evidence);
 
 // The actor whose work a record starts: a Turn's or a Minted's own, a Sent's from the Minted of its
 // Attempt; none for a refusal, which names no actor.
@@ -47,7 +47,7 @@ const refusedEventTurn = (run: StoryRun, at: number, issue: Evidence) => {
 
   const wrong = records.filter(
     (r) =>
-      startsWork(r) &&
+      startsWork(r, run.evidence) &&
       (Option.isNone(refused) ||
         Option.match(workerOf(run, r), {
           onNone: () => true,
@@ -84,7 +84,7 @@ export const refusedTurnIssueOnly: Rule = {
   rule: "Turn I14",
   breaches: (run) =>
     run.evidence.flatMap((e, at) => {
-      if (e._tag !== "Issue" || !isRefusal(e)) return [];
+      if (e._tag !== "Issue" || !isRefusal(e, run.evidence)) return [];
 
       if (Option.isNone(e.ending)) return refusedEventTurn(run, at, e);
       const { operation, attempt, actor } = e.ending.value;
@@ -112,7 +112,7 @@ export const refusedTurnIssueOnly: Rule = {
           r._tag === "Turn" ||
           r._tag === "Minted" ||
           r._tag === "Sent" ||
-          isRefusal(r) ||
+          isRefusal(r, run.evidence) ||
           (r._tag === "Published" && !Option.exists(before, (b) => sameSnapshot(b, r))),
       );
 

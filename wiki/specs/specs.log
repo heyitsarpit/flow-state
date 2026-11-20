@@ -591,3 +591,15 @@ note 2026-11-20T13:30:00Z
     @spec.Turn: R14 disarm wins over entry and key armings (user's ruling); R19 first defect is the issue, a throwing
     reason keeps the last reasons; R25 a check's issue clears only if it ran clean; R27 reasons run for idle timers.
     @task.V3.T57 convergence, lead's calls by the schedule table; reverse each by dropping its sentence and rows.
+
+note 2026-11-20T13:58:23Z
+    @spec.Turn R14: an arming decided after commit (keys, restartOn) commits with an issue on its own key; only an
+    arming inside the turn refuses it. Code already did this; now written (T57). Reverse: drop the sentence.
+
+note 2026-11-20T13:58:24Z
+    @spec.Turn R19, I38: a key appearing on a lane change runs schedule for that key only; an idle timer keeps its last
+    pause reasons (B1). Reverse: drop both clauses.
+
+note 2026-11-20T13:58:24Z
+    @spec.Turn R25: schedule issue sources carry the key; a check issue clears per key, a firing clears only its key's
+    firing issues (B2). Reverse: drop the keyed source.

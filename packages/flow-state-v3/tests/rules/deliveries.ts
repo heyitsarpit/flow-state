@@ -72,18 +72,48 @@ const isScheduleCheckIssue = (e: Evidence) =>
   e._tag === "Issue" &&
   Option.exists(e.slot, (slot) => /\.schedules\.[^.]+\.(?:keys|restartOn|paused\..+)$/u.test(slot));
 
+// A schedule's arming decided after a committed turn (a key appearing, a restart) raises an issue
+// of that turn at the schedule's slot, never a refusal (Turn R14): an issue at a schedule's slot
+// after a Turn that has not yet published.
+const SCHEDULE_SLOT = /\.schedules\.[^.]+\.schedule$/u;
+
+const isScheduleSlotIssue = (e: Evidence) =>
+  e._tag === "Issue" && Option.exists(e.slot, (s) => SCHEDULE_SLOT.test(s));
+
+const turnIssues = new WeakMap<ReadonlyArray<Evidence>, ReadonlySet<Evidence>>();
+
+const issuesOfTurns = (evidence: ReadonlyArray<Evidence>) => {
+  const known = turnIssues.get(evidence);
+
+  if (known !== undefined) return known;
+
+  const found = new Set<Evidence>();
+  let open = false;
+
+  for (const e of evidence) {
+    if (open && isScheduleSlotIssue(e)) found.add(e);
+
+    open = e._tag === "Turn" || (open && e._tag !== "Published");
+  }
+
+  turnIssues.set(evidence, found);
+
+  return found;
+};
+
 // A refused turn names the callback slot it refused at; a call's Defect names none.
-export const isRefusal = (e: Evidence) =>
+export const isRefusal = (e: Evidence, evidence: ReadonlyArray<Evidence>) =>
   e._tag === "Issue" &&
   REFUSALS.has(e.code) &&
   (e.code !== "Defect" || Option.isSome(e.slot)) &&
-  !isScheduleCheckIssue(e);
+  !isScheduleCheckIssue(e) &&
+  !issuesOfTurns(evidence).has(e);
 
-export const isOutcome = (e: Evidence) =>
-  e._tag === "Turn" || e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e);
+export const isOutcome = (e: Evidence, evidence: ReadonlyArray<Evidence>) =>
+  e._tag === "Turn" || e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e, evidence);
 
-export const isTurnStart = (e: Evidence) =>
-  isOutcome(e) ||
+export const isTurnStart = (e: Evidence, evidence: ReadonlyArray<Evidence>) =>
+  isOutcome(e, evidence) ||
   e._tag === "Delivered" ||
   e._tag === "Incarnated" ||
   e._tag === "Finished" ||
@@ -115,7 +145,7 @@ const refusedAfter = (evidence: ReadonlyArray<Evidence>, at: number) => {
   for (let i = at + 1; i < evidence.length; i += 1) {
     const e = evidence[i];
 
-    if (e !== undefined && isOutcome(e)) return isRefusal(e);
+    if (e !== undefined && isOutcome(e, evidence)) return isRefusal(e, evidence);
   }
 
   return false;
@@ -287,7 +317,7 @@ export const turnRecords = (evidence: ReadonlyArray<Evidence>, from: number) => 
   for (let i = from + 1; i < evidence.length; i += 1) {
     const e = evidence[i];
 
-    if (e !== undefined && isTurnStart(e)) {
+    if (e !== undefined && isTurnStart(e, evidence)) {
       end = i;
       break;
     }

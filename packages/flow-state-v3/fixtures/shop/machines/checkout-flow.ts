@@ -49,88 +49,101 @@ export const CheckoutFlow = definition({
 
 const toPay = () => actorRef(PayMachine, "checkout-1");
 
+// A cart change that emptied the cart.
+const cartEmptied = ({ event }: { readonly event: { readonly count: number } }) =>
+  event.count === 0 || deny("CartNotEmpty");
+
 /**
  * The checkout flow: Begin, reading the cart through its context, is denied on an empty cart or one
- * still waiting on the cart service; a cart emptied mid-checkout returns it to browsing; Back from
+ * still waiting on the cart service; a cart emptied at a checkout step returns it to browsing, while a
+ * paid order stays done and a cart change elsewhere is heard and changes nothing; Back from
  * pay re-enters shipping at the step it left, by history; the checkout's Pay reaching PAID ends it.
  * Paying with a card tells the checkout's Pay the card, then to pay with it.
  */
-export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E, C }) => ({
-  default: S.BROWSING,
-  onContext: [
-    C.count.change({ event: E.CartChanged.from((count) => ({ count })) }),
-    C.shopper.change({ event: E.ShopperChanged.from((name) => ({ name })) }),
-    C.payment.change({ event: E.PaymentChanged.from((state) => ({ state })) }),
-  ],
-  on: {
-    CartChanged: [
-      { target: S.BROWSING, guard: [({ event }) => event.count === 0 || deny("CartNotEmpty")] },
-      {},
+export const CheckoutFlowMachine = machine(CheckoutFlow, ({ S, E, C }) => {
+  const emptied = {
+    CartChanged: [{ target: S.BROWSING, guard: [cartEmptied] }, {}],
+  };
+
+  return {
+    default: S.BROWSING,
+    onContext: [
+      C.count.change({ event: E.CartChanged.from((count) => ({ count })) }),
+      C.shopper.change({ event: E.ShopperChanged.from((name) => ({ name })) }),
+      C.payment.change({ event: E.PaymentChanged.from((state) => ({ state })) }),
     ],
-    ShopperChanged: { updateMemory: ({ event }) => ({ shopperName: event.name }) },
-    PaymentChanged: [
-      { target: S.DONE, guard: [({ event }) => event.state === "PAID" || deny("NotPaid")] },
-      {},
-    ],
-  },
-  states: {
-    BROWSING: {
-      on: {
-        Begin: {
-          target: S.ADDRESS,
-          guard: [
-            ({ context }) => (context.count ?? 0) > 0 || deny("EmptyCart"),
-            ({ context }) => context.busy !== true || deny("CartBusy"),
-          ],
+    on: {
+      CartChanged: {},
+      ShopperChanged: { updateMemory: ({ event }) => ({ shopperName: event.name }) },
+      PaymentChanged: [
+        { target: S.DONE, guard: [({ event }) => event.state === "PAID" || deny("NotPaid")] },
+        {},
+      ],
+    },
+    states: {
+      BROWSING: {
+        on: {
+          Begin: {
+            target: S.ADDRESS,
+            guard: [
+              ({ context }) => (context.count ?? 0) > 0 || deny("EmptyCart"),
+              ({ context }) => context.busy !== true || deny("CartBusy"),
+            ],
+          },
         },
       },
-    },
-    ADDRESS: {
-      on: {
-        AddressEntered: {
-          target: S.SHIPPING,
-          updateMemory: ({ event }) => ({ line1: event.line1 }),
+      ADDRESS: {
+        on: {
+          ...emptied,
+          AddressEntered: {
+            target: S.SHIPPING,
+            updateMemory: ({ event }) => ({ line1: event.line1 }),
+          },
+          Back: S.BROWSING,
         },
-        Back: S.BROWSING,
       },
-    },
-    SHIPPING: {
-      default: S.SHIPPING.METHOD,
-      states: {
-        METHOD: {
-          on: {
-            MethodChosen: {
-              target: S.SHIPPING.SLOT,
-              updateMemory: ({ event }) => ({ method: event.method }),
+      SHIPPING: {
+        default: S.SHIPPING.METHOD,
+        on: emptied,
+        states: {
+          METHOD: {
+            on: {
+              MethodChosen: {
+                target: S.SHIPPING.SLOT,
+                updateMemory: ({ event }) => ({ method: event.method }),
+              },
+              Back: S.ADDRESS,
             },
-            Back: S.ADDRESS,
           },
-        },
-        SLOT: {
-          on: {
-            SlotChosen: { target: S.PAY, updateMemory: ({ event }) => ({ slot: event.slot }) },
-            Back: S.SHIPPING.METHOD,
+          SLOT: {
+            on: {
+              SlotChosen: { target: S.PAY, updateMemory: ({ event }) => ({ slot: event.slot }) },
+              Back: S.SHIPPING.METHOD,
+            },
           },
         },
       },
-    },
-    PAY: {
-      on: {
-        Back: S.SHIPPING.history,
-        PayWith: {
-          actions: [
-            send(
-              toPay,
-              Pay.E.CardChosen.from(({ event }) => ({ paymentMethodId: event.paymentMethodId })),
-            ),
-            send(
-              toPay,
-              Pay.E.PayRequested.from(({ event }) => ({ paymentMethodId: event.paymentMethodId })),
-            ),
-          ],
+      PAY: {
+        on: {
+          ...emptied,
+          Back: S.SHIPPING.history,
+          PayWith: {
+            actions: [
+              send(
+                toPay,
+                Pay.E.CardChosen.from(({ event }) => ({ paymentMethodId: event.paymentMethodId })),
+              ),
+              send(
+                toPay,
+                Pay.E.PayRequested.from(({ event }) => ({
+                  paymentMethodId: event.paymentMethodId,
+                })),
+              ),
+            ],
+          },
         },
       },
+      DONE: {},
     },
-    DONE: {},
-  },
-}));
+  };
+});

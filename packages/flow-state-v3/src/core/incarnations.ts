@@ -31,6 +31,7 @@ import {
   byStart,
   type Use,
   type Wiring,
+  withIssues,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
@@ -183,12 +184,13 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),
         );
 
-        const created = { ...bound, issues: [...bound.issues, ...issues] };
+        const created = withIssues(bound, issues);
 
         return schedules.turned(created, created.schedules, {
           exits: [],
           arms: arm.armed,
           disarms: [],
+          fired: Option.none(),
         });
       },
       onSome: (record) => restore(bound, record.schedules),

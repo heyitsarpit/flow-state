@@ -101,8 +101,11 @@ requirements
                 (`TIMER_LIMIT_MS`, a platform limit; so a fixed negative one) is a construction error
                 (InvalidConfiguration, details.reason DelayOutOfRange). A computed finite negative delay counts as zero:
                 due at once, fired once on the next turn, never in the arming turn. A computed delay that is NaN,
-                infinite or over 2^31 - 1 ms refuses the turn. At creation, where no turn can be refused, that schedule
-                alone stays unarmed with an InvalidTurn issue and the others arm.
+                infinite or over 2^31 - 1 ms refuses the turn when the turn itself arms it (on entry or by `armOn`).
+                An arming decided after the turn commits, by a key that appears or a `restartOn` change, cannot
+                refuse it: the turn commits, and that timer alone stays unarmed with an InvalidTurn issue on its
+                own source (its schedule and key) while the others arm. At creation, where no turn can be refused,
+                that schedule alone stays unarmed with an InvalidTurn issue and the others arm.
 
                 When no state from the routed one up to the root has a written handler for an event
                 that an active schedule lists in `armOn` or `disarmOn`, the deepest such schedule's
@@ -183,8 +186,10 @@ requirements
                 there publishes one issue and keeps the previous values, and the lane change still
                 publishes. In any schedule check the issue is the first defect in check order, and the
                 previous value a throwing check keeps is its own: the key set, the baseline, or the
-                timer's last pause reasons, which a run armed or restarted in that turn takes too.
-                Finite work starts only from an accepted transition's actions.
+                timer's last pause reasons (an idle timer keeps them as a held one does), which a run
+                armed or restarted in that turn takes too. A key that appears on a lane change arms
+                its timer: that key's `schedule` runs, and no other key's. Finite work starts only from
+                an accepted transition's actions.
 
     R20  The owner test
         source  @plan.Machines.O6.
@@ -260,8 +265,12 @@ requirements
     R25  Issues by source
         source  @plan.Machines.O8.
         must    A later success or release clears its own source's issue, never another source's. A 
-                new incarnation inherits no issue. A schedule check's issue clears only when that check
-                ran and succeeded; an accepted firing does not clear it.
+                new incarnation inherits no issue. A schedule's issue source is the schedule and its
+                timer's key (none for `keys` and an unkeyed schedule), so one key never replaces or
+                clears another's. A schedule check's issue (keys, `restartOn`, a pause reason, the
+                arming's delay) clears only when that check ran and succeeded for that key; a key's
+                accepted firing clears only that key's firing issues (its send's mapper, its send's
+                refused turn), never a check's; a key that leaves keeps its issues.
 
     R26  A turn's verdict is an act
         source  @plan.Machines.O3; @plan.Inspection.O2.
@@ -447,7 +456,8 @@ invariants
 
     I37  A timer holds `dueAt` or `left`, never both; paused time never moves `dueAt`. [@R23, @R27]
 
-    I38  Every lane change re-checks `keys` and `paused` and runs no other schedule work. [@R19, @R27]
+    I38  Every lane change re-checks `keys` and `paused` and runs no other schedule work, except that a key
+         appearing runs `schedule` for that key alone. [@R19, @R27]
 
     I39  An emit is delivered at most once per listener, after its turn, never from a refused turn or a replay. [@R29]
 

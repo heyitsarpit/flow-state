@@ -89,8 +89,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "      Refused: ({ code, slot }) => {\n        publish(\n          raised(",
-        replace: "      Refused: ({ code, slot }) => {\n        void [\n          raised(",
+        find: "      onSome: (source) => {\n        publish(\n          raised(",
+        replace: "      onSome: (source) => {\n        void [\n          raised(",
       },
       {
         file: "src/core/serve.ts",

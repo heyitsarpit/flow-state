@@ -81,8 +81,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "schedules.succeeded(base, route.source);",
-        replace: "{ ...base, issues: [] };",
+        find: "          onSome: (source) => withoutIssue(base, source),",
+        replace: "          onSome: () => ({ ...base, issues: [] }),",
       },
     ],
   },
@@ -94,9 +94,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "        publish(\n          raised(\n            incarnation,\n            tx.refuse(\n              incarnation.actor,\n              { source: route.source, code, slot: Option.some(slot) },\n              route.ending,\n            ),\n          ),\n        );",
+        find: "        publish(\n          raised(\n            incarnation,\n            tx.refuse(\n              incarnation.actor,\n              { source, code: failure.code, slot: Option.some(failure.slot) },\n              route.ending,\n            ),\n          ),\n        );",
         replace:
-          "        tx.refuse(incarnation.actor, { source: route.source, code, slot: Option.some(slot) }, route.ending);\n        publish(incarnation);",
+          "        tx.refuse(incarnation.actor, { source, code: failure.code, slot: Option.some(failure.slot) }, route.ending);\n        publish(incarnation);",
       },
     ],
   },
@@ -352,9 +352,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "                  slot: Option.some(chain.value.failure),",
+        find: '{ code: "InvalidTurn", slot: chain.value.failure }',
         replace:
-          '                  slot: Option.some(`${chain.value.failure.split(" from ")[0] ?? ""} from ${tag} to ${incarnation.actor.name}`),',
+          '{ code: "InvalidTurn", slot: `${chain.value.failure.split(" from ")[0] ?? ""} from ${tag} to ${incarnation.actor.name}` }',
       },
     ],
   },

@@ -1,18 +1,16 @@
 import { Option, Result } from "effect";
 import { callSlot, type Schedule, type Values } from "./compiled.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
-import { Occasion } from "./schedule-decision.ts";
+import { type Failure, type Firing, Occasion } from "./schedule-decision.ts";
 import type { Tx } from "./tx.ts";
 import {
   type ActorId,
   type ArmingId,
   type IncarnationId,
   type Incarnation,
-  IssueSource,
   type Run,
   Timing,
   type Tracked,
-  withIssue,
 } from "./world.ts";
 
 /**
@@ -22,33 +20,26 @@ import {
 export const makeFirings = (
   tx: Tx,
   incarnations: IncarnationSteps,
-  // The firing's send as a turn of the incarnation, from the schedule that fired; true when it
-  // committed.
-  turn: (incarnation: Incarnation, schedule: Schedule, payload: Values) => boolean,
+  // The firing's send as a turn of the incarnation: whether it committed, and its refusal when it
+  // was refused. A committed one's turn decided the firing's schedule work.
+  turn: (
+    incarnation: Incarnation,
+    schedule: Schedule,
+    payload: Values,
+    firing: Firing,
+  ) => { readonly committed: boolean; readonly refused: Option.Option<Failure> },
 ) => {
   const { schedules, setIncarnation, publish } = incarnations;
 
-  const raise = (incarnation: Incarnation, schedule: Schedule, slot: string) => {
-    const issue = tx.refuse(incarnation.actor, {
-      source: IssueSource.Schedule({ name: schedule.name }),
-      code: "InvalidTurn",
-      slot: Option.some(slot),
-    });
-
-    const next = withIssue(incarnation, issue);
-    tx.putIncarnation(next);
-
-    return next;
-  };
-
   // A timer's firing: its next step is taken from now, then its send runs as a turn; a mapper that
-  // throws refuses that turn. A next step past the timer limit ends the schedule with one issue,
-  // after the firing's turn.
+  // throws refuses that turn. A send that does not commit is decided here, with its refusal and a
+  // next step past the timer limit, and a refused or ended one publishes once.
   const fire = (incarnation: Incarnation, schedule: Schedule, tracked: Tracked, run: Run) => {
     const dueAt = Timing.$is("Running")(run.timing) ? run.timing.dueAt : tx.env.now;
     const metadata = schedules.metadataOf(tracked, run, dueAt);
     const next = schedules.fired(incarnation, tracked, run);
     const left = next.incarnation;
+    const firing: Firing = { name: schedule.name, key: tracked.key, over: next.over };
 
     setIncarnation(left);
 
@@ -57,29 +48,23 @@ export const makeFirings = (
       onSome: (from) => callSlot(from, metadata),
     });
 
-    const committed = Result.match(payload, {
-      onFailure: (slot) => {
-        publish(raise(left, schedule, slot));
-
-        return false;
-      },
-      onSuccess: (event) => turn(left, schedule, event),
+    const sent = Result.match(payload, {
+      onFailure: (slot) => ({
+        committed: false,
+        refused: Option.some<Failure>({ code: "InvalidTurn", slot }),
+      }),
+      onSuccess: (event) => turn(left, schedule, event, firing),
     });
 
     const after = tx.incarnationOf(incarnation.actor);
 
-    if (after === undefined || after.id !== incarnation.id) return;
+    if (sent.committed || after === undefined || after.id !== incarnation.id) return;
 
-    const issued = next.over ? raise(after, schedule, schedule.slot) : after;
-
-    // A committed firing's turn decided its next step; otherwise it is checked against the pause
-    // reasons here.
-    const settled = committed ? issued : schedules.rechecked(issued, Occasion.Lanes());
+    const settled = schedules.firingSettled(after, firing, sent.refused);
 
     if (settled !== after) setIncarnation(settled);
 
-    // The issue is its own refusal record, published once.
-    if (next.over) publish(settled);
+    if (Option.isSome(sent.refused) || next.over) publish(settled);
   };
 
   /**

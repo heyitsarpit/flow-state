@@ -9,7 +9,9 @@ import { timersOf } from "../timers.ts";
 // Every same-turn combination of one schedule's inputs, each row's expected outcome derived from
 // Turn R14 to R17, R19, R25 and R27, never from a run: a one-minute schedule `t` with pause
 // reasons A and B whose flags are true, false or throwing, a `restartOn` selection that stays,
-// changes or throws, and, keyed, one key that appears, stays or leaves.
+// changes or throws, and, keyed, one key that appears, stays or leaves. An idle timer starts with
+// its last reasons false, true (held by A, then disarmed) or kept by A throwing. Two keys at once
+// are in schedule-keys-table.test.ts.
 
 const Flag = Schema.Literals(["t", "f", "x"]);
 
@@ -191,7 +193,14 @@ type Kind = "entry" | "armOn" | "plain" | "keyed";
 
 const MACHINES = { entry: EntryTable, armOn: ArmOnTable, plain: PlainTable, keyed: KeyedTable };
 
-type Before = "absent" | "idle" | "running" | "held" | "running, A threw";
+type Before =
+  | "absent"
+  | "idle"
+  | "idle, held by A"
+  | "idle, A threw"
+  | "running"
+  | "held"
+  | "running, A threw";
 
 type KeyChange = "appear" | "stay" | "leave";
 
@@ -215,7 +224,14 @@ const hasRestart = (kind: Kind) => kind === "entry" || kind === "keyed";
 
 const FLAGS: ReadonlyArray<Flag> = ["t", "f", "x"];
 
-const KEPT: ReadonlyArray<Before> = ["idle", "running", "held", "running, A threw"];
+const KEPT: ReadonlyArray<Before> = [
+  "idle",
+  "idle, held by A",
+  "idle, A threw",
+  "running",
+  "held",
+  "running, A threw",
+];
 
 const TURNS = ["write", "stop", "reenter", "reenter, stop", "firing"] as const;
 
@@ -297,6 +313,8 @@ const instantOf = (row: Row) => (row.turn === "firing" ? DELAY : 10_000);
 const BEFORE = {
   absent: Option.none<TimerView>(),
   idle: Option.none<TimerView>(),
+  "idle, held by A": Option.none<TimerView>(),
+  "idle, A threw": Option.none<TimerView>(),
   running: Option.some<TimerView>({ dueAt: DELAY }),
   held: Option.some<TimerView>({ left: DELAY, pausedBy: ["A"] }),
   "running, A threw": Option.some<TimerView>({ dueAt: DELAY }),
@@ -325,18 +343,24 @@ const startsRun = (row: Row) => {
 const keptRun = (row: Row) =>
   disarms(row) || reenters(row) || row.turn === "firing" ? Option.none() : BEFORE[row.before];
 
-const heldBy = (before: Option.Option<TimerView>) =>
-  Option.match(before, {
-    onNone: () => [],
-    onSome: (timer) => ("pausedBy" in timer ? timer.pausedBy : []),
-  });
+// The reasons each start last read true (Turn R27: they run for every timer, armed or idle): an
+// idle timer keeps them as a held one does, and a reason that threw kept them.
+const LAST = {
+  absent: [],
+  idle: [],
+  "idle, held by A": ["A"],
+  "idle, A threw": ["A"],
+  running: [],
+  held: ["A"],
+  "running, A threw": [],
+} as const satisfies Record<Before, ReadonlyArray<string>>;
 
 // Turn R27, R19: the reasons in declaration order; the first that throws raises its issue and the
-// timer keeps its last reasons.
+// timer keeps its last reasons, which a run armed or restarted in that turn takes too.
 const reasonsOf = (row: Row) => {
-  if (row.a === "x") return { reasons: heldBy(BEFORE[row.before]), raised: [SLOTS.A] };
+  if (row.a === "x") return { reasons: LAST[row.before], raised: [SLOTS.A] };
 
-  if (row.b === "x") return { reasons: heldBy(BEFORE[row.before]), raised: [SLOTS.B] };
+  if (row.b === "x") return { reasons: LAST[row.before], raised: [SLOTS.B] };
 
   const active: Array<string> = [];
 
@@ -403,7 +427,8 @@ const timerAfter = (row: Row, reasons: ReadonlyArray<string>) => {
  */
 // RETURN_TYPE: the Outcome a run is compared with, whichever branch builds it.
 const expected = (row: Row): Outcome => {
-  const prior = row.before === "running, A threw" ? [SLOTS.A] : [];
+  const prior =
+    row.before === "running, A threw" || row.before === "idle, A threw" ? [SLOTS.A] : [];
 
   if (row.key === "leave") return { timer: Option.none(), issues: prior, evidence: [] };
 
@@ -446,26 +471,44 @@ const eventOf = (turn: Turn | "queue", inputs: Inputs) => {
   return Table.E.Set(inputs);
 };
 
-// What each start sends at 0, after the ensure: an armOn timer is armed by Go, a keyed one by its
-// key; idle is then disarmed, held paused by A, and "running, A threw" meets A throwing.
+type Sent = readonly [Turn | "queue", Inputs];
+
+// What each start sends after its timer is armed: idle is then disarmed (with A true for "idle,
+// held by A", then A throwing for "idle, A threw"), held paused by A, and "running, A threw" meets
+// A throwing.
+const STARTS = {
+  absent: () => [],
+  idle: (base) => [["stop", base]],
+  "idle, held by A": (base) => [["stop", { ...base, a: "t" }]],
+  "idle, A threw": (base) => [
+    ["stop", { ...base, a: "t" }],
+    ["write", { ...base, a: "x" }],
+  ],
+  running: () => [],
+  held: (base) => [["write", { ...base, a: "t" }]],
+  "running, A threw": (base) => [["write", { ...base, a: "x" }]],
+} as const satisfies Record<Before, (base: Inputs) => ReadonlyArray<Sent>>;
+
+// An armOn timer is armed by Go unless it starts idle; a keyed one by its key.
+// RETURN_TYPE: the sends a prelude spreads, whichever branch builds them.
+const armingOf = (row: Row, base: Inputs): ReadonlyArray<Sent> => {
+  if (row.kind === "armOn")
+    return row.before === "idle" ||
+      row.before === "idle, held by A" ||
+      row.before === "idle, A threw"
+      ? []
+      : [["go", base]];
+
+  return row.kind === "keyed" && row.before !== "absent" ? [["write", base]] : [];
+};
+
+// What each start sends at 0, after the ensure, then a firing row's queued inputs.
 const preludeOf = (row: Row) => {
   const keys = row.kind === "keyed" && row.before !== "absent" ? WITH_KEY : [];
   const base = { ...NONE, keys };
-  const sent: Array<readonly [Turn | "queue", Inputs]> = [];
+  const queued: ReadonlyArray<Sent> = row.turn === "firing" ? [["queue", inputsOf(row)]] : [];
 
-  if (row.kind === "armOn" && row.before !== "idle") sent.push(["go", base]);
-
-  if (row.kind === "keyed" && row.before !== "absent") sent.push(["write", base]);
-
-  if (row.before === "idle") sent.push(["stop", base]);
-
-  if (row.before === "held") sent.push(["write", { ...base, a: "t" }]);
-
-  if (row.before === "running, A threw") sent.push(["write", { ...base, a: "x" }]);
-
-  if (row.turn === "firing") sent.push(["queue", inputsOf(row)]);
-
-  return sent;
+  return [...armingOf(row, base), ...STARTS[row.before](base), ...queued];
 };
 
 // RETURN_TYPE: a literal-shaped name, as a machine with no input is named.

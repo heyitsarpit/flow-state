@@ -8,7 +8,8 @@ const memoryOf = (e: Evidence) => (e._tag === "Published" ? e.memory : {});
 type Memory = ReturnType<typeof memoryOf>;
 
 // The turns that run no update of their own: an Unhandled, Denied or refused one.
-const runsNoUpdate = (e: Evidence) => e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e);
+const runsNoUpdate = (e: Evidence, evidence: ReadonlyArray<Evidence>) =>
+  e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e, evidence);
 
 // A memory whose every field is the same value as before is the same object.
 const memoryKept = (before: Memory, now: Memory) =>
@@ -37,7 +38,7 @@ export const unchangedPartsKept: Rule = {
     return run.evidence.flatMap((e, at) => {
       if (e._tag === "Incarnated") last.delete(nameOf(e.actor));
 
-      if (isTurnStart(e)) quiet = runsNoUpdate(e);
+      if (isTurnStart(e, run.evidence)) quiet = runsNoUpdate(e, run.evidence);
 
       if (e._tag !== "Published") return [];
       const who = nameOf(e.actor);

@@ -319,11 +319,17 @@ export const publishedOnce: Rule = {
   rule: "Turn I9",
   breaches: (run) => [
     ...run.evidence
-      .slice(0, Math.max(0, run.evidence.findIndex(isTurnStart)))
+      .slice(
+        0,
+        Math.max(
+          0,
+          run.evidence.findIndex((e) => isTurnStart(e, run.evidence)),
+        ),
+      )
       .filter((e) => e._tag === "Published")
       .map(() => "Turn I9: a snapshot was published before any turn began"),
     ...run.evidence.flatMap((e, at) => {
-      if (!isTurnStart(e)) return [];
+      if (!isTurnStart(e, run.evidence)) return [];
       const records = turnRecords(run.evidence, at);
 
       const actor = isContextIssue(e) ? consumerOf(records) : outcomeActor(e);

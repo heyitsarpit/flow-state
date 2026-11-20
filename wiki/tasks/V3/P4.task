@@ -1231,6 +1231,32 @@ tasks
             appearing on a lane change runs schedule for that key only. Checkout's return to browsing moves from the
             root to the checkout steps, so DONE stays. Guard plants for a literal write, Object.assign and an aliased
             Map copy.
+        comment     2026-11-20T13:28:25Z
+            State inventory (lead, fix round 4): two states, each decided by `decide` alone after this round.
+
+              - Timer per schedule and key: run (none, due, held), baseline, and last pause reasons. Reasons move from a
+                held run to the timer, so an idle timer keeps them (B1); restore saves them for idle timers too.
+                Writers: `decide` via `pass`; a firing's next step (`fired`), unchanged.
+              - Schedule issues, one per source; the source becomes schedule and key (keys and an unkeyed schedule's
+                checks have no key). Writers today: `reported` (decision), `succeeded` (accepted firing, serve.ts),
+                `raise` (mapper throw, next step past the limit, firings.ts), `raised` (firing turn refused, loop guard,
+                serve.ts). After: `decide` returns each schedule's issues; a firing reaches it as the Turn it committed
+                or a new Fired occasion. Clearing (R25): a check's issue (keys, restartOn, a reason, the arming) clears
+                only when that check ran clean for that key; an accepted firing clears only its own key's firing issues
+                (send refused, mapper, never a check's). A key leaving or an exit keeps its issues. Every failure
+                records a Refused; the issue holds the first per source.
+        comment     2026-11-20T13:59:20Z
+            Table grown red first (lead): 1580 new rows, 688 red before the build (90 single-key idle starts with
+            reasons true or kept by a throw, 598 of the two-key table `tests/turn/schedule-keys-table.test.ts`), green
+            after; red rows not committed, since checkpoints need the suite at zero.
+
+              - Blind Haiku (effort high) derived 36 new rows from the Spec alone: 33 agree. Rejected, with reason: rows
+                2 and 11 (a throwing B keeps only its own value; R19 says the timer's last pause reasons, the whole
+                list) and row 15 (a keyed re-entry leaves kept keys idle; settled at the last convergence, Room's polls
+                re-arm). Its first pass refused the whole turn for a key's bad delay; given the R14 call, all 12 such
+                rows agree.
+              - Changed the rules checker: an issue at a schedule's slot inside a committed turn is that turn's, not a
+                refusal (R14 call); `isRefusal`, `isOutcome`, `isTurnStart` now take the run's evidence.
     T21
         title       Reads and operations (slice 5)
         status      draft
