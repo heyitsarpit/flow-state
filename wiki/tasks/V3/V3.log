@@ -1182,3 +1182,7 @@ note 2026-11-20T03:32:01Z
 note 2026-11-20T03:32:24Z
     User's page written, unread: code:wiki/plans/flow/references/pages/T107-context-slots.md (a Plan example fix for
     your yes). T105 closes once it is read; T58 is next.
+
+note 2026-11-20T03:35:38Z
+    Decision (the user, 2026-11-20, Q3 A): T58 split into the store in real browsers (@task.V3.T58) and the fixtures in
+    real browsers (@task.V3.T111); Order updated. The user asked the run not to stop while asleep.

@@ -57,11 +57,11 @@ description
     - skill:review at a Task's first commit and its close.
 
     **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T107,
-    @task.V3.T105, @task.V3.T58, @task.V3.T57, @task.V3.T109, @task.V3.T110, @task.V3.T77, @task.V3.T76, @task.V3.T72,
-    @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23, @task.V3.T97
-    (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the user, 2026-11-19, so T96 is next; T99 and
-    T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only; where several
-    Tasks are ready, take the earliest in this order.
+    @task.V3.T105, @task.V3.T58, @task.V3.T111, @task.V3.T57, @task.V3.T109, @task.V3.T110, @task.V3.T77, @task.V3.T76,
+    @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56, @task.V3.T22, @task.V3.T100, @task.V3.T23,
+    @task.V3.T97 (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the user, 2026-11-19, so T96 is
+    next; T99 and T100 from P3's close, the orchestrator, 2026-11-19). A `blocked_by` link is a real dependency only;
+    where several Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -73,17 +73,18 @@ comment 2026-11-19T07:18:27Z
     T56 close. Reverse: restore P5's start on P4's audit.
 tasks
     T58
-        title       Browser slice: the fixtures in real browsers with minimal React and IndexedDB
+        title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
         status      draft
         priority    high
         blocked_by  [@task.V3.T9]
-        satisfies   [@plan.Inspection.O2, @plan.Persistence.O4]
+        satisfies   [@plan.Persistence.O4]
         description
-            Run the fixtures, including Pay and checkout, in real Chrome and Safari on production, through a minimal
-            React binding and IndexedDB persistence.
+            `Store` becomes its own port, and one contract test passes on `Fake.storage` and on real IndexedDB in real
+            Chrome and Safari, run alone by a browser runner this Task sets up.
 
-            **Why now:** it is the browser half of the preview cut (the user, 2026-11-12), and until it runs, the fake
-            store and fake page that every other test uses are unchecked against the real thing.
+            **Why now:** it is the store half of the preview cut's browser run (the user, 2026-11-12); until it runs,
+            the fake store every other test uses is unchecked against the real thing. Split from the fixture runs
+            (@task.V3.T111) by the user (2026-11-20, Q3 A).
 
             **Read first:** @plan.Persistence.O1, @plan.React.O1, @plan.Pending.D9 (`Store` and `storeContract`),
             @task.V3.T19 (write-ahead, checked on `Fake.storage` until this Task) and @task.V3.T28 (completes the
@@ -100,16 +101,18 @@ tasks
             Task's comments.
 
             False pass: a run that never touches real IndexedDB → caught by a planted fault in the store path that only
-            the real store shows.
+            the real store shows. Gates: a browser runner that runs alone and exits non-zero on any failure; the planted
+            IndexedDB fault. User's read: the browser runner chosen and how it is launched.
         acceptance
-            - The fixtures run in real Chrome and Safari, each alone, and the run fails on a fault planted in the
-              IndexedDB path.
-            - The store contract test this Task writes passes against `Fake.storage` and against real IndexedDB in real
-              Chrome and Safari, and the same is shown for the fake page's timers and lifecycle against a real page.
-            - The React binding is the least that renders the fixtures; @task.V3.T30 builds the rest.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 9 of code:wiki/conventions/fixture-catalog.md:
-              every fixture run with no new feature, as the step says; each scenario red before the build, and the
-              step's cells marked used at the close.
+            - `storeContract(name, layer)` (@plan.Pending.D9) passes against `Fake.storage` and against real IndexedDB
+              in real Chrome and Safari, each run alone, and fails on a fault planted in the IndexedDB path; the
+              `flow-state/persistence` route exists.
+            - The IndexedDB adapter meets Safari's D1 to D4 (`prototypes/safari/RESULTS.md`); @task.V3.T28 completes it.
+            - The flush on hide and pagehide (WriteAhead R10, I12, T5) has a Fake page word, a Story, and planted faults
+              for a hide that waits or does nothing, and is checked on a real page.
+            - On a hidden page a refused batch is not retried in a loop against the 5 s rule, and a held-then-refused
+              batch puts back fresh records; each red first, checked with the store contract.
+            - The fake page's timers and lifecycle match a real page's, shown by the same Story run on both.
         comment     2026-11-16T09:26:06Z
             Routed from T19: the flush at once on visibilitychange to hidden and on pagehide (WriteAhead R10, I12, T5)
             has no check: the edge's hide path exists, but the browser platform and the Fake host stub hidden and
@@ -137,6 +140,10 @@ tasks
         comment     2026-11-19T19:10:42Z
             Routed (orchestrator, 2026-11-20): @plan.Pending.D9 is not built; storeContract(name, layer) and the
             flow-state/persistence route land here, then D9 merges into Package.plan.
+        comment     2026-11-20T03:35:37Z
+            Split (the user, 2026-11-20, Q3 A): the snapshot cache per turn, hide-handler timings, equal codec bytes,
+            hidden-tab resume and the dev work clock move to @task.V3.T111; this Task keeps the store, its contract, the
+            adapter, the hide flush and the refused-batch loop.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
@@ -4649,3 +4656,37 @@ tasks
             - Fixtures first (code:wiki/conventions/fixtures.md): the subroutine and `whenAbandoned` rows of
               code:wiki/conventions/fixture-catalog.md gain their features and scenarios; each red before the build, and
               those cells marked used at the close.
+
+    T111
+        title       Fixtures in real browsers: minimal React, Chrome and Safari
+        status      draft
+        priority    high
+        blocked_by  [@T58]
+        satisfies   [@plan.Inspection.O2, @plan.Persistence.O4]
+        description
+            Every fixture, including Pay and checkout, runs in real Chrome and Safari on production through a minimal
+            React binding over the real IndexedDB store.
+
+            **Why now:** the fixture half of the preview cut's browser run (the user, 2026-11-12) and P4's stage exit;
+            split from the store (@task.V3.T58) by the user (2026-11-20, Q3 A). Blocked by T58, whose store, adapter and
+            browser runner this uses.
+
+            **Read first:** @plan.React.O1, @plan.Inspection.O2, @task.V3.T58, code:wiki/conventions/fixture-catalog.md
+            (step 9). @task.V3.T30 builds the full React binding.
+
+            May change: `src/host/`, `src/react/` or the binding's folder, `fixtures/`, `tests/`, the browser-run
+            folder. Evidence: this Task's comments.
+
+            False pass: a fixture rendered without its persistence or reload → caught by each Story's reload sweep run
+            in the browser and a planted fault in the binding. User's read: the binding's minimal surface, and the
+            hide-handler timings.
+        acceptance
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 9 of code:wiki/conventions/fixture-catalog.md,
+              every fixture run with no new feature in real Chrome and Safari, each alone; each scenario red before the
+              build, and the step's cells marked used at the close.
+            - The React binding is the least that renders the fixtures; `getSnapshot` returns the same object until a
+              turn publishes, so `useSyncExternalStore` sees one value per turn (red first).
+            - Codec bytes are equal on every host (@plan.Inspection.O2), and a hidden tab resumes after restore
+              (@plan.Persistence.O4), each shown in both browsers.
+            - The hide handler is timed in real Chromium and Safari against Node's figure (about 6 us per changed actor)
+              before any idle pre-encoding; a dev host work clock makes SlowWork fire outside tests.
