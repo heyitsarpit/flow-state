@@ -36,7 +36,8 @@ requirements
                 to keep apps and scopes apart; its members see records and keys only. Flow ships
                 `layerIndexedDb` (@task.V3.T58) and is to ship `layerMemory` (@task.V3.T28); it
                 offers no adapter over Effect's KeyValueStore, whose per-key writes cannot be one
-                atomic batch. [decided: user 2026-11-12] wide consult, question 4. Why: the user's
+                atomic batch. **No KeyValueStore adapter** [decided: user 2026-11-12] wide consult, question 4. Why: 
+                the user's
                 answer. Reverse: restore R2 from commit `9405af2f`.
 
     R3  Selection
@@ -189,7 +190,7 @@ requirements
                 - so an awaited write waits for the batch still out, and per key a later write wins;
                 - a batch answers landed only if every request in it succeeded.
 
-                [decided: user 2026-11-12] one stream per Runtime (wide consult, question 4);
+                **One stream per Runtime** [decided: user 2026-11-12] one stream per Runtime (wide consult, question 4);
                 Decision (agent, 2026-11-12): "one out at a time" is the agent's reading of it. Why:
                 with one batch out, issue order is commit order. Reverse: allow overlapping batches
                 with per-key ordering.

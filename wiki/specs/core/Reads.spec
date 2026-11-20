@@ -74,7 +74,7 @@ requirements
                 supersedes it. The Interrupted ending of a read that a freeze or an end stops is
                 owed to the identity (@spec.Actors.R8), so it is saved with a persisted identity's
                 owed record and heard at the next Start. Each actor waiting on one shared lookup
-                (R5) gets its own row. [decided: user 2026-11-12] consult round 3 (C1, C10) and
+                (R5) gets its own row. **Read ending is owed** [decided: user 2026-11-12] consult round 3 (C1, C10) and
                 round 2, B7. Why: the audience is the creator's choice, not a property of reads.
                 Reverse: restore R6 from commit `9405af2f`.
 
@@ -109,7 +109,8 @@ requirements
                 issue and its row closes Recorded; it never ends as Defect again. Flow.ignore means
                 no event and no handler. `stopped:` is optional: unmapped, like any unmapped
                 ending, it leaves its slot's tag and an issue (whether a write's unmapped ending also
-                leaves an issue is open, @spec.WriteLanes.Q6). [decided: user 2026-11-12] "Q1 A",
+                leaves an issue is open, @spec.WriteLanes.Q6). **Unmapped stopped ending** [decided: user 2026-11-12] 
+                "Q1 A",
                 option B extends to reads. Why: the user's answer. Reverse: restore R9 from commit
                 `476c1519`. Decision (agent, 2026-11-12): the key and value names (proposed), and
                 the two rules for `stopped:` the review asked for. Why: a throwing `stopped:`
@@ -149,7 +150,8 @@ requirements
                 attempt?, progress? } (plus outstanding under serialize; { pending, retryCount,
                 attempt?, progress? } under cancel). `attempt` is the head's opaque handle
                 (@spec.WriteLanes.R5), absent with no head; O.x.cancel(k, { attempt }) cancels only
-                that request (@spec.WriteLanes.R14). [decided: user 2026-11-12] "Q1 B". A keyed
+                that request (@spec.WriteLanes.R14). **Attempt handle in row view** [decided: user 2026-11-12] "Q1 B". 
+                A keyed
                 write's rows are a keyed list of existing lanes; O.x.get(s, k) is total and a key
                 with no lane reads the idle row.
 

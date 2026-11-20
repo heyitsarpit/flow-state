@@ -82,7 +82,8 @@ requirements
                 (@spec.WriteLanes.I39). A row's Flow-made ending is encoded by the Schemas of
                 Flow.NotSent and Flow.Unknown (@spec.WriteLanes.R3). There is no `parked/` or
                 `kept/` kind. A key of no kind, or a record its kind's Schema refuses, is
-                undecodable and handled by @spec.Restore.R5; it is never coerced. [decided: user 2026-11-12] consult 
+                undecodable and handled by @spec.Restore.R5; it is never coerced. **Undecodable rows** [decided: user 
+                2026-11-12] consult 
                 round 3, C9. Why: an ending outlives both its lane and its
                 actor record. Reverse: restore R5 from commit `9405af2f`. Every record is stored as
                 its canonical text (R2) and read strictly (R3). An identity's owed rows fill one
