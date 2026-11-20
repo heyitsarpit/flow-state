@@ -4,9 +4,10 @@
 //
 // Guards: the run fails when it ran fewer tests than FLOW_BROWSER_EXPECTED (zero included), as a
 // browser that never loaded the files would, and on any skip but a display-bound one: a hide case
-// whose page started hidden while FLOW_BROWSER_ATTENDED is not 1 (tools/browser/run.ts). FLOW_BROWSER_PLANT=drop-last-write plants a fault in
-// the IndexedDB adapter as it is served, dropping every batch's last write, so the run shows it
-// goes red on a fault only the real store sees.
+// whose page started hidden while FLOW_BROWSER_ATTENDED is not 1 (tools/browser/run.ts).
+// FLOW_BROWSER_PLANT=drop-last-write plants a fault in the IndexedDB adapter as it is served,
+// dropping every batch's last write, so the run shows it goes red on a fault only the real store
+// sees.
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import type { Reporter, TestModule } from "vitest/node";

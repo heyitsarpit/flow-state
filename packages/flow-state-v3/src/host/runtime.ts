@@ -157,7 +157,8 @@ export const configOf = <R>(setup: RuntimeSetup<R>) =>
  * it lives until disposed. `dispose()` keeps the scope's saved data; `dispose({ forget: true })`
  * deletes every record of the scope and succeeds only once the deletion landed, failing
  * `StorageFailure` when the store refused it. Disposal ends the core's work, interrupts every
- * call and waits for it, then releases the services; a cleanup that fails there rejects every
+ * call and waits for it, then runs a wanted forget, then releases the services, the Store among
+ * them; a forget asked after that stage fails `StorageFailure`. A cleanup that fails rejects every
  * `dispose()` with `CleanupFailed`, keeping each Cause. `unsettledWrites()` lists every identity
  * with a write still out, for a host's `beforeunload`. `runPromise(effect, { signal })` runs a host
  * Effect with the app's services `R` in the Runtime's Scope, so a disposal interrupts it: it rejects
@@ -544,10 +545,10 @@ export const buildRuntime = <R = never, A extends App = App>(
         driver.offer(Input.DisposeActor({ actor }), `disposeActor ${actor.name}`);
       },
     ),
-    // The core's disposal ends first (calls settling within its bound are parked), the Runtime
-    // closes, then a forget deletes the scope's records whatever the close reported, as the
-    // close's own last stage, so a caller that leaves skips nothing; a failed close and a failed
-    // forget are both kept.
+    // The core's disposal ends first (calls settling within its bound are parked), then the
+    // Runtime's work closes, a wanted forget deletes the scope's records whatever the work's close
+    // reported, and the services release, all on the close's own fiber, so a caller that leaves
+    // skips nothing; a failed close and a failed forget are both kept.
     dispose: entryEffect(
       "dispose",
       // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public option: an omitted option keeps saved data

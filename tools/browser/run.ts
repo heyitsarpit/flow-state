@@ -20,7 +20,7 @@ import { setTimeout as wait } from "node:timers/promises";
 // The tests the browser files hold, and the hide cases among them a hidden start may skip; a run
 // that ran fewer than it requires fails (tools/browser/vitest.config.ts).
 const TOTAL = 16;
-const DISPLAY_BOUND = 2;
+const DISPLAY_BOUND_CASES = 2;
 const CAP_MS = 10 * 60 * 1000;
 const GRACE_MS = 15 * 1000;
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGALRM", "SIGHUP"] as const;
@@ -72,7 +72,9 @@ const notedIn = (file: string) => {
 };
 
 const killHard = (child: ChildProcess, pids: string) => {
-  const targets = [...(child.pid === undefined ? [] : treeOf(child.pid)), ...notedIn(pids)];
+  // Once the child has exited its pid may be reused: only the browsers it noted are left.
+  const live = child.pid !== undefined && child.exitCode === null && child.signalCode === null;
+  const targets = [...(live && child.pid !== undefined ? treeOf(child.pid) : []), ...notedIn(pids)];
 
   for (const { pid, command } of targets) {
     console.error(`browser run: killing pid ${pid} (${command.slice(0, 80)})`);
@@ -88,10 +90,10 @@ let stopped = false;
 
 const runIn = (browser: string) =>
   new Promise<number>((resolve) => {
-    const required = browser === "safari" && !attended ? TOTAL - DISPLAY_BOUND : TOTAL;
+    const required = browser === "safari" && !attended ? TOTAL - DISPLAY_BOUND_CASES : TOTAL;
     const ownsDisplay = browser !== "safari" || attended;
     console.log(
-      `browser run: ${browser}${plant === "" ? "" : `, plant ${plant}`}, ${ownsDisplay ? "every case required" : `${DISPLAY_BOUND} hide cases display-bound`}`,
+      `browser run: ${browser}${plant === "" ? "" : `, plant ${plant}`}, ${ownsDisplay ? "every case required" : `${DISPLAY_BOUND_CASES} hide cases display-bound`}`,
     );
     const dir = mkdtempSync(join(tmpdir(), "flow-browser-run-"));
     const pids = join(dir, "pids");
@@ -140,7 +142,11 @@ const runIn = (browser: string) =>
         if (hard !== undefined) clearTimeout(hard);
         for (const left of notedIn(pids)) {
           console.error(`browser run: ${left.pid} outlived the run; killing it`);
-          process.kill(left.pid, "SIGKILL");
+          try {
+            process.kill(left.pid, "SIGKILL");
+          } catch {
+            // Gone between the listing and the kill.
+          }
         }
         rmSync(dir, { recursive: true, force: true });
         resolve(code ?? 1);

@@ -265,6 +265,9 @@ export const realBrowser = () =>
             await browser.close();
             throw error;
           });
+          // FLOW_BROWSER_START_HIDDEN=1 hides the tests' tab before they run, as a locked display
+          // does, so the display-bound guard can be shown in either mode on any browser.
+          if (process.env["FLOW_BROWSER_START_HIDDEN"] === "1") await browser.page.hide();
         },
         close: async () => {
           if (!opened) return;

@@ -234,15 +234,13 @@ export const makeClose = (
     const bound = Duration.toMillis(RuntimeDefaults.disposalBound);
     const started = yield* Clock.currentTimeMillis;
 
-    // The work closes first; the services wait for it, so they release after it however long it
-    // takes, and after the forget.
+    // The services release after the work however long it takes, and after the forget.
     const work = detach(driver.work.end(report.hear), context);
     const workClosed = Option.isSome(yield* waitAtMost(work, Duration.millis(bound)));
     const spent = (yield* Clock.currentTimeMillis) - started;
 
     const forgot = wanted.forget;
 
-    // A forget after a work close past its bound cannot know no task still closing will write.
     const deletion = () => (workClosed ? forget() : Effect.fail(forgetFailed));
     const forgotten = forgot ? yield* Effect.exit(deletion()) : Exit.void;
 
