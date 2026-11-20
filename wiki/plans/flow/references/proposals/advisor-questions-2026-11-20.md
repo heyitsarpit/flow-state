@@ -7,6 +7,27 @@ the next Tasks in P4's Order; 4 and 7 are the agenda of the trust-boundaries con
 Each question names the class of bug and the freedom behind it, not just a symptom, because of the case study below.
 An answer should say which freedom it removes, how it is shown (a Story, a type test, a run rule), and what it costs.
 
+## Where each question is best resolved
+
+An advisor earns its cost in two cases: a bug class that keeps coming back across Tasks (no single builder sees the
+whole family), and a design that spans many modules before code exists. Everything else is better answered at
+development time, by the lead with the code in hand, its experiments, and the loop's blind redesign at convergence.
+
+| Priority | Question | Posture | Why |
+| --- | --- | --- | --- |
+| 1 | 4. Saved records | Advisor (trust-boundaries consult) | A repeating class across Restore, Codec and releases |
+| 2 | 7. Raw throws | Advisor (trust-boundaries consult) | A repeating class, fixed one entry at a time |
+| 3 | 2. Fragments | Advisor, or a blind design at T109's start | The largest unbuilt model; five open items interact |
+| 4 | 1. Body types | Development time: a type spike at T109's start | Code-bound; needs `tsc` probes on the real files |
+| 5 | 3. Emits and props | Development time | Mostly decided (emits and context slots accepted) |
+| 6 | 5. Reads and operations | Development time, product choices to the user | Offline, resume and retry placement are the user's |
+| 7 | 6. Rules on definitions | The user | A taste call already in the user's walk-through |
+| 8 | 8. React | Development time | Clear prior art; P5 |
+| 9 | 9. Entities | Later (P5), advisor optional | Not needed before P5 |
+| 10 | 10. Repeated wiring | Development time, late audit | Needs every fixture built first |
+
+Take only 4, 7 and 2 to an advisor; the rest stay here as context for the leads that build them.
+
 ## Case study: T99, when hardening failed and structure worked
 
 @task.V3.T99 ("Runtime life completed", 2026-11-19) is how this project learned to converge.
