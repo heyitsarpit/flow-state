@@ -1212,3 +1212,8 @@ note 2026-11-20T06:26:33Z
 note 2026-11-20T06:30:36Z
     Decision (the user, 2026-11-20, Q4 A): headless Chrome always; real Safari unattended for store tests, hide cases
     display-bound and required when attended.
+
+note 2026-11-20T06:52:17Z
+    Amendment (2026-11-20, the user): requirements reviews run five fixed sidecars (blind A and B, flip A and B,
+    cohesion); close reviews run coverage with one sidecar; four earlier-surfacing build rules; @task.V3.T112 hardens
+    fakes before T111. Commit: aaad16b0.
