@@ -352,6 +352,14 @@ tasks
                 is caught for the right reason, nothing lands at hide), the error-name duplicate (different layers, as
                 before), two-tab writers (@task.V3.T27), late or reordered answers (D1, one batch out), and header and
                 line-length notes (house convention; long lines predate this commit).
+        comment     2026-11-20T04:14:53Z
+            Rulings (orchestrator) on the requirements review (PASS): items 1 to 6 land before code: load before
+            services settled by Actors Q3's stated outcome; the held-batch hide check pinned first; the
+            held-then-refused pin asserts the value, plus a removed-while-held case; StorageSilent evidence on a load
+            that never answers (lead's small call); runner guards (zero tests fails, the test's own document saw hidden,
+            automation Safari found as a child of this run's safaridriver); reqs 11 and part of 9 red in Node.
+            Store.write takes no Flow wiring: the public Store sees plain records and keys; purpose and attempt ids stay
+            on Flow's side (no leaked wiring; for the user's read).
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft

@@ -1190,3 +1190,7 @@ note 2026-11-20T03:35:38Z
 note 2026-11-20T04:04:22Z
     T58 requirements in (01a0a28a): 19 requirements, 10 red, a hidden-page retry loop confirmed; Safari D4 moved to
     @task.V3.T27; runner accepted (no download). Requirements review started.
+
+note 2026-11-20T04:14:53Z
+    T58 requirements review PASS; six items folded in; the public Store takes no Flow wiring (orchestrator, for the
+    user's read). Build lead started.
