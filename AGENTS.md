@@ -31,19 +31,26 @@ or change code, and keep it current as you work.
   checked against.
 
 How to use it:
-- Start with `wk status` and `wk next`. `wk show @id` reads any record.
+- Start with `wk status`, `wk agenda` and `wk next`. `wk show @id` reads any record. Before a decision
+  round run `wk agenda` and `wk list question --open`: the answer or a recommendation may already exist.
 - Plans, Specs and Task descriptions are best-guess guidance on what to build, not contracts to fulfil, Specs
   least of all. What is true and correct is found by building: when the work shows a rule is wrong, unclear or
   missing, fix the record (decide, delete the losing text, log why) instead of bending the code to fit it.
   The user's own decisions still stand until the user changes them.
 - Write down what you decide as you go: a decision goes in a note, a comment or beside the text it governs, as a
   tag `[decided: agent <role> <date>]` with `Why:` and `Reverse:` (skill:policy-records#tags); a result goes in
-  a note or comment (`wk edit @id --now --text "comment=…"`).
+  a note or comment (`wk edit @id --now --text "comment=…"`). Never write "Decision (the user, …)" prose.
+  A decision has one home record; elsewhere leave a pointer (`wk log add --decision @item`).
+- Delete a merged or rejected proposal; never summarise it in place. The absorbing record names the commit
+  that holds it (skill:policy-records#deleting-absorbed-records). Compaction is for histories only.
+- Work the whole Task at once (skill:execute-task): state inventory, a transition table where two or more
+  rules write one state, one owner per state; never item by item (skill:to-task, skill:build-a-loop R48).
 - Keep every note, comment, log and status entry short, with the bottom line first: the decision or result in
   the first sentence, then only what the reader can't find elsewhere, in the order goal, Why now, Read first,
   Risk, Approach. A note is 1 to 3 lines. Say each fact once and link to where it lives; no commit lists, gate
   logs or copied findings tables.
 - Change a record's scope only with the user's approval. Mark everything not yet approved as proposed.
+- Commit messages are `<area>: <summary>` with a `Refs:` trailer; run `wk check --commit <file>` first.
 - Cite records rather than restating them: `@id`, `code:path#symbol`, `skill:name#heading`.
 - Every prose section is valid Markdown plus those links; lines are at most 120 characters. Run
   `wk format --write`, then `wk check`, before you finish.
