@@ -534,4 +534,8 @@ note 2026-11-20T22:01:09Z
     Decided (user, 2026-11-20): @proposal.spec-handover#no-flowkeyed, No `Flow.keyed`
 
 note 2026-11-20T22:06:17Z
-    [decided: user 2026-11-21] Epic loop text trimmed per @proposal.epic-trim and the pin moved to workflow@2eb3b47.
+    [decided: user 2026-11-21] Epic loop text trimmed per `@proposal.epic-trim` and the pin moved to workflow@2eb3b47.
+
+note 2026-11-20T22:06:31Z
+    Merged `@proposal.epic-trim` is deleted; last commit holding it: git show
+    5c2b3152:wiki/plans/flow/references/proposals/2026-11-21-epic-trim.md
