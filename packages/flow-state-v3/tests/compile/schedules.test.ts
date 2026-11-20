@@ -5,7 +5,7 @@ import {
   armOnBesideRestart,
   armOnKeyed,
 } from "../../fixtures/home/stories/structure.ts";
-import { definition, FlowError, machine } from "../../src/index.ts";
+import { definition, Flow, FlowError, machine } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
 
 // Each refusal as [code, path], or none when construction did not refuse.
@@ -88,6 +88,27 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
         ),
       ),
     ).toEqual([["InvalidConfiguration", "states.OFFLINE.schedules.nudge.paused"]]);
+  });
+
+  it("Turn R16: keys written outside Flow.keyed, untyped, are refused at keys; inside it they construct", () => {
+    const withPoll = (poll: unknown) => () =>
+      machine(Room, ({ S }) =>
+        loose({
+          default: S.OFFLINE,
+          states: { ONLINE: { default: S.ONLINE.IDLE }, OFFLINE: { schedules: { poll } } },
+        }),
+      );
+
+    const fields = {
+      keys: () => [{ id: "a" }],
+      schedule: "1 minute",
+      send: Room.E.BoostEnded,
+    };
+
+    expect(refusal(withPoll(fields))).toEqual([
+      ["InvalidConfiguration", "states.OFFLINE.schedules.poll.keys"],
+    ]);
+    expect(refusal(withPoll(Flow.keyed(loose(fields))))).toEqual([]);
   });
 
   it("Compile T11: a schedule's send mapped from this definition's own event (E.X.from) constructs", () => {

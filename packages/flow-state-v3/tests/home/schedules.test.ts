@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect";
+import { Duration, Effect, Option, Schedule, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { house, roomOf } from "../../fixtures/home/app.ts";
 import { House } from "../../fixtures/home/machines/house.ts";
@@ -284,14 +284,14 @@ describe("restore of held timers (Turn R17, R27)", () => {
     expect(run.checkpoints.reloaded.read(lounge)?.memory.checks).toEqual([1]);
   });
 
-  it("Turn R17: a restored held multi-step Schedule finishes its left, then continues from step one, its attempt counting on from the arming", async () => {
+  it("Turn R17: a restored held multi-step Schedule finishes its left, then continues at its next step, its attempt counting on from the arming", async () => {
     const run = await played(reloadedPaused);
 
     expect(run.checkpoints["left finished"].read(lounge)?.memory.checks).toEqual([1, 2]);
     expect(run.checkpoints["step one again"].read(lounge)?.memory.checks).toEqual([1, 2, 3]);
   });
 
-  it("Machines O5 (Pending D40): a restored series continues at its saved attempt, so a reload adds no firing and the series ends after its third check", async () => {
+  it("Machines O5: a restored series continues at its saved attempt, so a reload adds no firing and the series ends after its third check", async () => {
     const run = await played(reloadedPaused);
 
     expect(run.checkpoints["series over"].read(lounge)?.memory.checks).toEqual([1, 2, 3]);
@@ -437,5 +437,259 @@ describe("disarmOn on a keyed schedule (Turn R14, R27)", () => {
     expect(timerNames(run.checkpoints.armed.read(reminders))).toEqual(["remind"]);
     expect(timersOf(run.checkpoints.muted.read(reminders))).toEqual({});
     expect(run.checkpoints.muted.read(reminders)?.memory.reminded).toBe(0);
+  });
+});
+
+// A search box: typing restarts a debounce from the query; Submit searches at once, clears the
+// query and stops the debounce.
+const Search = definition({
+  id: "Home/Search",
+  states: ["READY"],
+  events: { Typed: { query: Schema.String }, Submit: {} },
+  internalEvents: { Debounced: {} },
+  memory: {
+    query: Flow.initial(Schema.String, ""),
+    searches: Flow.initial(Schema.Number, 0),
+  },
+});
+
+const SearchMachine = machine(Search, ({ S, E }) => ({
+  default: S.READY,
+  on: {
+    Typed: { updateMemory: ({ event }) => ({ query: event.query }) },
+    Submit: { updateMemory: ({ memory }) => ({ query: "", searches: memory.searches + 1 }) },
+    Debounced: { updateMemory: ({ memory }) => ({ searches: memory.searches + 1 }) },
+  },
+  states: {
+    READY: {
+      schedules: {
+        debounce: {
+          schedule: "300 millis",
+          send: E.Debounced,
+          restartOn: ({ memory }) => memory.query,
+          disarmOn: [E.Submit],
+        },
+      },
+    },
+  },
+}));
+
+const search = actorRef(SearchMachine, "search");
+
+describe("disarmOn beside restartOn (Turn R14)", () => {
+  it("Turn R14: a disarmOn event that also changes restartOn's selection leaves the schedule disarmed, and a later change re-arms it", async () => {
+    const run = await played(
+      Story.app(runtimeSetup({ app: app({ id: "search", machines: { search: SearchMachine } }) }), {
+        id: "home/submit-clears-query",
+        fixtures: [],
+      })
+        .ensure(search)
+        .send(search, Search.E.Typed({ query: "lamp" }))
+        .checkpoint("typing")
+        .send(search, Search.E.Submit())
+        .checkpoint("submitted")
+        .advance("1 second")
+        .checkpoint("quiet")
+        .send(search, Search.E.Typed({ query: "desk" }))
+        .advance("1 second")
+        .checkpoint("typed again"),
+    );
+
+    expect(timerNames(run.checkpoints.typing.read(search))).toEqual(["debounce"]);
+    expect(timersOf(run.checkpoints.submitted.read(search))).toEqual({});
+    expect(run.checkpoints.quiet.read(search)?.memory.searches).toBe(1);
+    expect(run.checkpoints["typed again"].read(search)?.memory.searches).toBe(2);
+  });
+});
+
+// A meter that reads once a minute until its Schedule dies on its second step.
+const Meter = definition({
+  id: "Home/Meter",
+  states: ["ON"],
+  events: {},
+  internalEvents: { Read: {} },
+  memory: { reads: Flow.initial(Schema.Number, 0) },
+});
+
+// A Schedule whose first step waits a minute and whose second dies.
+const diesOnSecondStep = Schedule.fromStep(
+  Effect.sync(() => {
+    let taken = 0;
+
+    return () => {
+      taken += 1;
+
+      return taken >= 2
+        ? Effect.die(new Error("the meter's Schedule broke"))
+        : Effect.succeed<[number, Duration.Duration]>([taken, Duration.minutes(1)]);
+    };
+  }),
+);
+
+const MeterMachine = machine(Meter, ({ S, E }) => ({
+  default: S.ON,
+  on: { Read: { updateMemory: ({ memory }) => ({ reads: memory.reads + 1 }) } },
+  states: { ON: { schedules: { read: { schedule: diesOnSecondStep, send: E.Read } } } },
+}));
+
+const meter = actorRef(MeterMachine, "meter");
+
+describe("a Schedule whose step dies (Turn R15, R25)", () => {
+  it("Turn R15: a step that dies after a firing keeps the firing and ends the schedule with one issue at its slot", async () => {
+    const run = await played(
+      Story.app(runtimeSetup({ app: app({ id: "meter", machines: { meter: MeterMachine } }) }), {
+        id: "home/meter-step-dies",
+        fixtures: [],
+      })
+        .ensure(meter)
+        .advance("5 minutes")
+        .checkpoint("after"),
+    );
+
+    const after = run.checkpoints.after.read(meter);
+
+    expect(after?.memory.reads).toBe(1);
+    expect(timersOf(after)).toEqual({});
+    expect(after?.issues.map((i) => i.path)).toEqual([["Home/Meter", "meter", "schedule read"]]);
+  });
+});
+
+// A ticker that counts every 50 ms, and a dashboard reading two of its values, so returning to the
+// ticker through the dashboard gives it two uses in one step.
+const Ticker = definition({
+  id: "Home/Ticker",
+  states: ["ON"],
+  events: {},
+  internalEvents: { Ticked: {} },
+  memory: { ticks: Flow.initial(Schema.Number, 0) },
+});
+
+const TickerMachine = machine(Ticker, ({ S, E }) => ({
+  default: S.ON,
+  on: { Ticked: { updateMemory: ({ memory }) => ({ ticks: memory.ticks + 1 }) } },
+  states: {
+    ON: { schedules: { tick: { schedule: Schedule.spaced("50 millis"), send: E.Ticked } } },
+  },
+}));
+
+const Dashboard = definition({
+  id: "Home/Dashboard",
+  states: ["SHOWING"],
+  events: {},
+  context: { ticks: Flow.context(Ticker.M.ticks), on: Flow.context(Ticker.state) },
+});
+
+const DashboardMachine = machine(Dashboard, ({ S }) => ({ default: S.SHOWING }));
+
+const ticker = actorRef(TickerMachine, "ticker");
+const dashboard = actorRef(DashboardMachine, "dashboard");
+
+describe("an overdue series returned to by two uses at once (Turn R15, R17, I22)", () => {
+  it("Turn R17: two uses returning in one step fire the overdue step once, then the series continues from that firing", async () => {
+    const run = await played(
+      Story.app(
+        runtimeSetup({
+          app: app({
+            id: "ticker",
+            machines: {
+              ticker: TickerMachine,
+              dashboard: { machine: DashboardMachine, context: { ticks: ticker, on: ticker } },
+            },
+          }),
+        }),
+        { id: "home/ticker-two-uses", fixtures: [] },
+      )
+        .ensure(ticker)
+        .detach(ticker)
+        .advance("80 millis")
+        .checkpoint("waiting")
+        .ensure(dashboard)
+        .checkpoint("returned")
+        .advance("50 millis")
+        .checkpoint("next step"),
+    );
+
+    expect(run.checkpoints.waiting.read(ticker)?.memory.ticks).toBe(0);
+    expect(run.checkpoints.returned.read(ticker)?.memory.ticks).toBe(1);
+    expect(run.checkpoints["next step"].read(ticker)?.memory.ticks).toBe(2);
+  });
+});
+
+// A heater check whose restart selection and pause reason throw while its sensor is broken.
+const Heater = definition({
+  id: "Home/Heater",
+  states: ["ON"],
+  events: { Break: {}, Fix: {}, SetTarget: { celsius: Schema.Number } },
+  internalEvents: { Checked: {} },
+  memory: {
+    broken: Flow.initial(Schema.Boolean, false),
+    target: Flow.initial(Schema.Number, 20),
+    checks: Flow.initial(Schema.Number, 0),
+  },
+});
+
+const unreadable = (broken: boolean) => {
+  if (broken) throw new Error("the sensor is broken");
+};
+
+const HeaterMachine = machine(Heater, ({ S, E }) => ({
+  default: S.ON,
+  on: {
+    Break: { updateMemory: () => ({ broken: true }) },
+    Fix: { updateMemory: () => ({ broken: false }) },
+    SetTarget: { updateMemory: ({ event }) => ({ target: event.celsius }) },
+    Checked: { updateMemory: ({ memory }) => ({ checks: memory.checks + 1 }) },
+  },
+  states: {
+    ON: {
+      schedules: {
+        check: {
+          schedule: "5 minutes",
+          send: E.Checked,
+          armOn: [Flow.entry],
+          restartOn: ({ memory }) => {
+            unreadable(memory.broken);
+
+            return memory.target;
+          },
+          paused: {
+            Away: ({ memory }) => {
+              unreadable(memory.broken);
+
+              return false;
+            },
+          },
+        },
+      },
+    },
+  },
+}));
+
+const heater = actorRef(HeaterMachine, "heater");
+
+describe("schedule functions that throw (Turn R19, R25)", () => {
+  it("Turn R19, R25: a restartOn and a pause reason that throw keep the timer as it was with one issue, which a later success clears", async () => {
+    const run = await played(
+      Story.app(runtimeSetup({ app: app({ id: "heater", machines: { heater: HeaterMachine } }) }), {
+        id: "home/heater-sensor-broken",
+        fixtures: [],
+      })
+        .ensure(heater)
+        .advance("2 minutes")
+        .send(heater, Heater.E.Break())
+        .checkpoint("broken")
+        .send(heater, Heater.E.SetTarget({ celsius: 23 }))
+        .checkpoint("set while broken")
+        .send(heater, Heater.E.Fix())
+        .checkpoint("fixed"),
+    );
+
+    expect(timersOf(run.checkpoints.broken.read(heater))).toEqual({ check: { dueAt: 300_000 } });
+    expect(run.checkpoints.broken.read(heater)?.issues).toHaveLength(1);
+    expect(timersOf(run.checkpoints["set while broken"].read(heater))).toEqual({
+      check: { dueAt: 300_000 },
+    });
+    expect(run.checkpoints.fixed.read(heater)?.issues).toEqual([]);
+    expect(timersOf(run.checkpoints.fixed.read(heater))).toEqual({ check: { dueAt: 420_000 } });
   });
 });

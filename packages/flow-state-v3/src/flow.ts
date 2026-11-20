@@ -262,7 +262,8 @@ const selectOf = (given: unknown) =>
  * - `Flow.uncertain(fields)`: an internal event an operation's unknown ending maps to.
  * - `Flow.entry`: in a schedule's `armOn`, arm it on its state's entry too.
  * - `Flow.keyed({ keys, schedule, send, ... })`: a schedule with one timer per record `keys`
- *   returns; each of its functions receives that timer's `key`, typed as `keys` returns it.
+ *   returns; its `schedule`, `restartOn` and pause reasons receive that timer's `key`, typed as
+ *   `keys` returns it, and its send's mapper reads the key as a `ScheduleKey`.
  * - `Flow.context(X.M.field)`: a context slot that passes a provider's public memory field
  *   through; `Flow.context(X.S.STATE)` reads whether the provider is in a state, and
  *   `Flow.context(X.state)` its state's name. `Flow.context(Schema, { reads, select })` derives a

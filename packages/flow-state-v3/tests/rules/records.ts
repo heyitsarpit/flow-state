@@ -155,8 +155,16 @@ const FLAW_TEXT: Record<Flaw, string> = {
   "has mayHaveApplied": "has a mayHaveApplied field",
 };
 
+// A timer is exactly one of its shapes: a field of another shape, such as `left` beside `dueAt`,
+// makes it none.
+const hasExactTimers = (json: Schema.Json) =>
+  Predicate.hasProperty(json, "schedules") &&
+  Option.isSome(
+    Schema.decodeUnknownOption(Schema.Array(Timer))(json.schedules, { onExcessProperty: "error" }),
+  );
+
 const IS_KIND = {
-  "actor/": Schema.is(KINDS["actor/"]),
+  "actor/": (json: Schema.Json) => Schema.is(KINDS["actor/"])(json) && hasExactTimers(json),
   "lane/": Schema.is(KINDS["lane/"]),
   "owed/": Schema.is(KINDS["owed/"]),
 } as const;

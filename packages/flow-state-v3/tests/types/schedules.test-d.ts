@@ -28,7 +28,7 @@ const Lamp = definition({
 type Mode = Partial<{ readonly mode: "HOME" | "AWAY" | "VACATION" }>;
 
 describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
-  it("Turn R16: a keyed schedule's functions receive its key as the record `keys` returns; another field and `keys` outside Flow.keyed are refused", () => {
+  it("Turn R16: a keyed schedule's schedule, restartOn and pause reasons receive its key as the record `keys` returns; another field and `keys` outside Flow.keyed are refused", () => {
     expectTypeOf(
       machine(Room, ({ S, E }) => ({
         default: S.OFFLINE,

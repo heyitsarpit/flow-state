@@ -581,3 +581,8 @@ note 2026-11-20T10:30:00Z
     @spec.WriteAhead.R4: timers save armedAt, attempt and pausedBy, and idle `{ name, key? }` markers so a restore
     tells an ended timer from an added one; restartOn baselines are not saved, since restore sets them silently
     (@task.V3.T57, format 5). Reverse: drop the idle markers and restart-at-entry on restore.
+
+note 2026-11-20T10:52:09Z
+    @spec.Turn: R14 says disarm wins over a changed restartOn selection in the same turn (T57 close review: re-arming
+    made up a firing, a submit that clears a search query fired the debounce). Reverse: drop the sentence and the rebase
+    in settle.

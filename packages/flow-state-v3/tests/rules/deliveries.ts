@@ -66,9 +66,18 @@ export const isContextIssue = (e: Evidence) =>
   e._tag === "Issue" &&
   Option.exists(e.slot, (slot) => slot.startsWith("context.") || slot.startsWith("onContext."));
 
+// A schedule's keys, restartOn and pause reasons run after a committed turn (Turn R27), so their
+// defect is an issue of a turn that stands, never a refusal.
+const isScheduleCheckIssue = (e: Evidence) =>
+  e._tag === "Issue" &&
+  Option.exists(e.slot, (slot) => /\.schedules\.[^.]+\.(?:keys|restartOn|paused\..+)$/u.test(slot));
+
 // A refused turn names the callback slot it refused at; a call's Defect names none.
 export const isRefusal = (e: Evidence) =>
-  e._tag === "Issue" && REFUSALS.has(e.code) && (e.code !== "Defect" || Option.isSome(e.slot));
+  e._tag === "Issue" &&
+  REFUSALS.has(e.code) &&
+  (e.code !== "Defect" || Option.isSome(e.slot)) &&
+  !isScheduleCheckIssue(e);
 
 export const isOutcome = (e: Evidence) =>
   e._tag === "Turn" || e._tag === "Unhandled" || e._tag === "Denied" || isRefusal(e);

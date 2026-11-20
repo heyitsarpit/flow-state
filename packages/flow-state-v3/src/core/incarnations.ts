@@ -75,7 +75,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     release: (provider, use) => release(provider, use),
     // A changed context re-checks the keys, restarts and pauses that read it.
     publish: (incarnation) => {
-      const settled = schedules.settle(incarnation, true, false);
+      const settled = schedules.settle(incarnation, true, false, []);
 
       if (settled !== incarnation) setIncarnation(settled);
       publish(settled);
@@ -191,6 +191,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           ),
           true,
           false,
+          [],
         );
       },
       onSome: (record) => restore(bound, record.schedules),

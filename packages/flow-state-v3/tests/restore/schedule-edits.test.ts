@@ -229,4 +229,28 @@ describe("the step up from record format 4 (Turn R17)", () => {
       expect.objectContaining({ name: "warn" }),
     ]);
   });
+
+  it("Turn R17: a format-4 record saved after its warning fired restores with that warning ended, so it does not fire again", async () => {
+    const warned = FORMAT_FOUR.replace('"warning":false', '"warning":true').replace(
+      ',{"dueAt":480000,"name":"warn","send":"Warned"}',
+      "",
+    );
+
+    const run = await played(
+      Story.app(wizardSetup, { id: "wizard/format-four-warned", fixtures: [] })
+        .world(Fake.storage.put(RECORD, warned))
+        .reload()
+        .ensure(booking)
+        .checkpoint("restored")
+        .advance("9 minutes")
+        .checkpoint("before expiry"),
+    );
+
+    expect(warned).not.toContain('warn"');
+    expect(timersOf(run.checkpoints.restored.read(booking))).toEqual({
+      expire: { dueAt: 600_000 },
+    });
+    expect(turnsOf(run, Booking.E.Warned)).toEqual([]);
+    expect(run.checkpoints["before expiry"].read(booking)?.state).toBe("HELD");
+  });
 });

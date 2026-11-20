@@ -337,7 +337,12 @@ export const makeServe = (
         flushLanes(after.actor);
 
         // Keys, restarts and pauses read the memory and lanes the turn left.
-        const settled = schedules.settle(incarnationOf(after.actor) ?? after, true, false);
+        const settled = schedules.settle(
+          incarnationOf(after.actor) ?? after,
+          true,
+          false,
+          accepted.disarm,
+        );
 
         setIncarnation(settled);
         publish(settled);

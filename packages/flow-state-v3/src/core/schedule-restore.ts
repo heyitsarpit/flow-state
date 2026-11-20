@@ -160,7 +160,7 @@ export const makeScheduleRestore = (tx: Tx, schedules: ScheduleSteps) => {
 
     return issues.reduce(
       withIssue,
-      schedules.settle({ ...incarnation, schedules: timers }, false, true),
+      schedules.settle({ ...incarnation, schedules: timers }, false, true, []),
     );
   };
 

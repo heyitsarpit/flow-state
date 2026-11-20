@@ -565,6 +565,35 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     expect(recordKinds.breaches(run)).toEqual([]);
   });
 
+  it("Codec I7: an actor record's timer with both dueAt and left is a breach; an idle timer is not", async () => {
+    const run = checked(await lostThenReload.run());
+
+    const [key, text] = [...run.end.records.stored].find(([k]) => k.startsWith("actor/")) ?? [
+      "",
+      "{}",
+    ];
+
+    // The record with its timers replaced by these, written as canonical text (Codec R2).
+    const withTimers = (timers: string) =>
+      endedWith(run, (end) => ({
+        ...end,
+        records: {
+          ...end.records,
+          stored: new Map([
+            ...end.records.stored,
+            [key, text.replace(/"schedules":\[[^\]]*\]/u, `"schedules":[${timers}]`)],
+          ]),
+        },
+      }));
+
+    const both = '{"armedAt":0,"attempt":0,"dueAt":5,"left":5,"name":"t","pausedBy":[]}';
+
+    expect(/"schedules":\[[^\]]*\]/u.test(text)).toBe(true);
+    expect(key.startsWith("actor/")).toBe(true);
+    expect(recordKinds.breaches(withTimers(both))).toHaveLength(1);
+    expect(recordKinds.breaches(withTimers('{"name":"t"}'))).toEqual([]);
+  });
+
   it("WriteAhead I21: an UnencodableValue naming a lane record is a breach; one naming an actor record is not", async () => {
     const reported = (record: string) =>
       at(1)(

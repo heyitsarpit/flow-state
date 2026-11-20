@@ -7,6 +7,7 @@ import {
   type Series,
 } from "./compiled.ts";
 import { encodeCanonical } from "./codec.ts";
+import { checks, reasonsOf, recoveredBy, sameReasons } from "./schedule-checks.ts";
 import { Act } from "./evidence-of.ts";
 import {
   declaredOn,
@@ -48,9 +49,6 @@ const NO_OPERATIONS: Operations = new Map();
  */
 export type Next = { readonly run: Option.Option<Run>; readonly over: boolean };
 
-const sameReasons = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
-  a.length === b.length && a.every((r, n) => r === b[n]);
-
 // RETURN_TYPE: a Tracked, so its Options widen to the timer's.
 const idle = (name: string, key: Option.Option<TimerKey>): Tracked => ({
   name,
@@ -58,21 +56,6 @@ const idle = (name: string, key: Option.Option<TimerKey>): Tracked => ({
   baseline: Option.none(),
   run: Option.none(),
 });
-
-// The active reason names of a timer, in declaration order, or the slot of the one that threw.
-const reasonsOf = (schedule: Schedule, read: ScheduleInput) => {
-  const active: Array<string> = [];
-
-  for (const { reason, check } of schedule.paused) {
-    const held = callSlot(check, read);
-
-    if (Result.isFailure(held)) return Result.fail(held.failure);
-
-    if (held.success === true) active.push(reason);
-  }
-
-  return Result.succeed<ReadonlyArray<string>>(active);
-};
 
 export const makeSchedules = (tx: Tx) => {
   const contextOf = (incarnation: Incarnation) =>
@@ -392,15 +375,18 @@ export const makeSchedules = (tx: Tx) => {
     put(pass, track, { ...restarted, baseline: Option.some(selected.success) });
   };
 
+  // With `rebase`, every baseline takes the new selection and nothing restarts: the turn disarmed
+  // the schedule.
   const restartPass = (
     pass: Pass,
     schedule: Schedule,
     restartOn: Option.Option.Value<Schedule["restartOn"]>,
     restart: boolean,
+    rebase: boolean,
   ) => {
     for (const entry of timersOf(pass, schedule.name))
-      if (restart || Option.isNone(entry[1].baseline))
-        restartOne(pass, schedule, restartOn, restart, entry);
+      if (restart || rebase || Option.isNone(entry[1].baseline))
+        restartOne(pass, schedule, restartOn, restart && !rebase, entry);
   };
 
   // paused: each armed timer is held or resumed by its reasons.
@@ -421,16 +407,36 @@ export const makeSchedules = (tx: Tx) => {
       }
   };
 
-  const checks = (s: Schedule) =>
-    Option.isSome(s.keys) || Option.isSome(s.restartOn) || s.paused.length > 0;
+  // One schedule's checks in their order: keys, then restartOn, then the pause reasons.
+  const checkPass = (
+    pass: Pass,
+    schedule: Schedule,
+    restart: boolean,
+    silent: boolean,
+    rebase: boolean,
+  ) => {
+    for (const keys of Option.toArray(schedule.keys)) keysPass(pass, schedule, keys);
+
+    for (const restartOn of Option.toArray(schedule.restartOn))
+      restartPass(pass, schedule, restartOn, restart, rebase);
+
+    if (schedule.paused.length > 0) pausePass(pass, schedule, silent);
+  };
 
   /**
    * Runs an incarnation's schedule checks after a change: for each active schedule, outermost
    * first, its keys, then with `restart` its `restartOn`, then its pause reasons. A defect raises
    * one issue and keeps the schedule's previous values. `silent` records no pause or resume and
-   * restarts nothing: a restore's re-evaluation. The same incarnation when nothing changes.
+   * restarts nothing: a restore's re-evaluation. A schedule in `disarmed`, which the turn's event
+   * disarmed, takes a changed selection as its baseline and stays disarmed. The same incarnation
+   * when nothing changes.
    */
-  const settle = (incarnation: Incarnation, restart: boolean, silent: boolean) => {
+  const settle = (
+    incarnation: Incarnation,
+    restart: boolean,
+    silent: boolean,
+    disarmed: ReadonlyArray<string>,
+  ) => {
     const checked = declaredOn(tx.machines, incarnation).filter(checks);
 
     if (checked.length === 0) return incarnation;
@@ -442,22 +448,24 @@ export const makeSchedules = (tx: Tx) => {
       issues: [],
     };
 
-    for (const schedule of checked) {
-      for (const keys of Option.toArray(schedule.keys)) keysPass(pass, schedule, keys);
-
-      for (const restartOn of Option.toArray(schedule.restartOn))
-        restartPass(pass, schedule, restartOn, restart && !silent);
-
-      if (schedule.paused.length > 0) pausePass(pass, schedule, silent);
-    }
+    for (const schedule of checked)
+      checkPass(pass, schedule, restart && !silent, silent, disarmed.includes(schedule.name));
 
     const same =
       pass.timers.size === incarnation.schedules.size &&
       [...pass.timers].every(([track, t]) => incarnation.schedules.get(track) === t);
 
-    if (same && pass.issues.length === 0) return incarnation;
+    const recovered = incarnation.issues.filter((issue) =>
+      recoveredBy(checked, pass.issues, issue),
+    );
 
-    return pass.issues.reduce(withIssue, { ...incarnation, schedules: pass.timers });
+    if (same && pass.issues.length === 0 && recovered.length === 0) return incarnation;
+
+    return pass.issues.reduce(withIssue, {
+      ...incarnation,
+      schedules: pass.timers,
+      issues: incarnation.issues.filter((issue) => !recovered.includes(issue)),
+    });
   };
 
   /**

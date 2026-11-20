@@ -90,19 +90,18 @@ requirements
     R14  Schedule arming
         source  @plan.Machines.O5.
         must    A schedule with neither `armOn` nor `restartOn` starts on entry. `armOn` and `disarmOn` list event
-                tokens, `armOn` also Flow.entry. `armOn` starts it on each accepted listed event,
-                restarting it if running, and with Flow.entry also on entry. `disarmOn` stops it;
-                stopping an idle schedule does nothing. Exit stops any schedule. Only
-                `armOn: [Flow.entry]` may sit beside `restartOn`; a turn that does both arms once,
-                from step one. An event in both lists, any other `armOn` with `restartOn`, or
-                `armOn` on a keyed schedule is a construction error. A fixed delay outside 0 to
-                the host timer's limit, 2^31 - 1 ms (`TIMER_LIMIT_MS`, a platform limit; so a fixed
-                negative one) is a construction error (InvalidConfiguration,
-                details.reason DelayOutOfRange). A computed finite negative delay counts as zero: due at
-                once, fired once on the next turn, never in the arming turn. A computed delay that
-                is NaN, infinite or over 2^31 - 1 ms refuses the turn. At creation, where no turn
-                can be refused, that schedule alone stays unarmed with an InvalidTurn issue and the
-                others arm.
+                tokens, `armOn` also Flow.entry. `armOn` starts it on each accepted listed event, restarting it if
+                running, and with Flow.entry also on entry. `disarmOn` stops it; stopping an idle schedule does nothing.
+                Exit stops any schedule. Only `armOn: [Flow.entry]` may sit beside `restartOn`; a turn that does both
+                arms once, from step one. A turn whose event a schedule lists in `disarmOn` leaves it disarmed even when
+                the turn changes its `restartOn` selection, which becomes the new baseline silently; a later change
+                re-arms it. An event in both lists, any other `armOn` with `restartOn`, or `armOn` on a keyed schedule
+                is a construction error. A fixed delay outside 0 to the host timer's limit, 2^31 - 1 ms
+                (`TIMER_LIMIT_MS`, a platform limit; so a fixed negative one) is a construction error
+                (InvalidConfiguration, details.reason DelayOutOfRange). A computed finite negative delay counts as zero:
+                due at once, fired once on the next turn, never in the arming turn. A computed delay that is NaN,
+                infinite or over 2^31 - 1 ms refuses the turn. At creation, where no turn can be refused, that schedule
+                alone stays unarmed with an InvalidTurn issue and the others arm.
 
                 When no state from the routed one up to the root has a written handler for an event
                 that an active schedule lists in `armOn` or `disarmOn`, the deepest such schedule's
