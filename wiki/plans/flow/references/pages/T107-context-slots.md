@@ -60,4 +60,4 @@ state's name. A compound state reads as true while the actor is in any of its ch
 
 ## Status
 
-Unread.
+Read by the user, 2026-11-20. The `Machines.plan` example fix waits for the user's yes.

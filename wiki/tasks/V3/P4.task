@@ -4213,7 +4213,7 @@ tasks
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
-        status      review
+        status      done
         priority    medium
         description
             Start order becomes a stated rule, computed `Flow.initial` is removed, and the checks routed here from T102,
@@ -4644,6 +4644,9 @@ tasks
         comment     2026-11-20T03:32:00Z
             PASS recorded (orchestrator) at 84e31e6f; T105 closes once the user has read T107's page (a slice may not
             close on an unread page).
+        comment     2026-11-20T07:27:49Z
+            Done (orchestrator): close review after the fix round PASS at 84e31e6f; the user read T107's
+            page (2026-11-20).
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
