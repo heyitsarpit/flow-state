@@ -3,8 +3,8 @@ status        proposed
 basis         A guide, revisable whenever building shows it wrong; each change and its
               reason is recorded in wiki/specs/specs.log.
               Written from the merged flow plans (proposed).
-              Superseded by running code (the user, 2026-11-20): the concept designs in
-              @proposal.spec-handover replace it; where the code differs, the code wins.
+              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+              differs, the code wins.
 location      packages/flow-state-v3/src
 provides      runtimeSetup, Runtime, actorRef, ensureActor, createActor, send, disposeActor,
               forget, dispose, unsettledWrites, runPromise

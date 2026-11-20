@@ -3,8 +3,8 @@ status        proposed
 basis         A guide, and one of the two Specs most likely to change (Codec,
               Diagnostics): no test pins it yet. Revisable whenever building shows it
               wrong; each change and its reason is recorded in wiki/specs/specs.log.
-              Superseded by running code (the user, 2026-11-20): the concept designs in
-              @proposal.spec-handover replace it; where the code differs, the code wins.
+              Superseded by running code: see @proposal.spec-handover#code-over-old-specs; where the code
+              differs, the code wins.
 location      packages/flow-state-v3/src
 provides      the structural codec (encode, decode) used by records, payloads, traces and the
               Model
