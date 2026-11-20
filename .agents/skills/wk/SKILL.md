@@ -140,7 +140,8 @@ wk migrate docs --kind proposal --dry-run wiki/proposals  # convert older Markdo
 - One home per decision: write a decision once, in the tagged item. To log it, `wk log add V3
   --decision @proposal.rules#retry` writes a pointer from the item's own tag; a note that tags
   `decided` or `accepted` and links an item that has one is `DUPLICATE_DECISION`.
-- A Task may wait on a question: `--set blocked_by=[@proposal.rules#names]`. It is not ready while the
+- A Task may wait on a question: `--set blocked_by=[@proposal.rules#names]`, or `wk link @task.EPIC.T1
+  @proposal.rules#names --type blocked-by` (`unlink` removes it). It is not ready while the
   item is `open` and is ready once `answered`, `decided`, `accepted`, `rejected` or `dropped`.
 - `wk lint` reads across records: `STATUS_DRIFT` (a `proposed` record a Task, Plan or Spec says was
   built, merged or accepted, or another record supersedes), `QUESTION_MAYBE_ANSWERED` (an `[open]`
