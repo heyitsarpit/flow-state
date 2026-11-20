@@ -1162,3 +1162,7 @@ note 2026-11-20T01:36:08Z
 note 2026-11-20T01:54:30Z
     Decision (the user, 2026-11-20, Q2 A): T57 split into schedules (@task.V3.T57), fragments (@task.V3.T109) and
     subroutines with whenAbandoned (@task.V3.T110); T77 and T48 now wait on T109; Order updated.
+
+note 2026-11-20T02:30:14Z
+    T105 in review (3947bdc9): disposal takes the oldest ready identity (R28 reworded), refused fresh start retired by
+    structure; close review started. For the user: merging Pending D2 to D4 into the Plans.
