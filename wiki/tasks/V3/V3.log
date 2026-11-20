@@ -1310,3 +1310,7 @@ note 2026-11-20T13:12:28Z
 note 2026-11-20T13:23:18Z
     T57 third close review: ISSUES, two blocking (idle timers forget reasons; issues have four writers and no key).
     First failure after convergence; the fix makes decide the owner of issues too and grows the table.
+
+note 2026-11-20T14:10:02Z
+    Decision (the user, 2026-11-20): "when T57 is closed i want you to stop". Scope: the run stops once @task.V3.T57 is
+    done; no further lead starts.
