@@ -507,6 +507,51 @@ tasks
             16, or 14 in unattended Safari, and any other skip fails the run; plants services-released-before-calls and
             forget-failure-discarded moved to the new close text, same wrong runtimes; the late-forget expectation
             changed from success to StorageFailure, since the Store is released by then (Restore R10).
+        comment     2026-11-20T07:16:03Z
+            Close review of the fix round (independent lead, 2f2e34de): PASS, no blocking finding.
+
+            - Close order holds: every store write is work, forked before the close and refused new once it starts;
+              services release only after `Fiber.await(work)`, so heldUntilReleased never refuses an owed write (it
+              checks at start only). The finalizer flips first: servicesScope is sequential, finalizers run in reverse
+              (effect 4.1.4). Final write, forget and Runtime dispose checked; no actor-level forget touches the Store
+              (`Input.Forget` goes through capture).
+            - New rule, two traces of one Story (a note lands, then dispose and dispose({ forget: true })): forget asked
+              before the forget stage deletes on the open Store, then services release; asked after, or after an overdue
+              work close, StorageFailure with no I/O, store unchanged. Matches Restore R10 and I18, Persistence O5
+              (before releasing ownership), and the real store, which refused that late forget anyway. Readers checked:
+              Persistence O5, Runtime O6, Testing O7, Stories.spec, Actors R22, R23. Holds; not shaped to the code.
+            - Browser forget case: never shown red. Cheap way: a `forget-after-release` runner plant rewriting close.ts
+              as served (beside drop-last-write in code:tools/browser/vitest.config.ts), Chrome headless, about a
+              minute. Not run here.
+            - Runner: the skip fires only hidden and unattended, Chrome always attended, so it cannot false-pass beyond
+              Q4 A; kills are by noted pid and command or this run's Vitest tree. FLOW_BROWSER_START_HIDDEN can only
+              cause the allowed skip; keep it as tooling. Advice: the unattended Safari floor is 14 even when the page
+              is visible (count only the display-bound skips seen); `-- --reporter=…` replaces the counting reporter;
+              stop() lists the tree without the liveness guard killHard has; the browser forget precondition counts any
+              record (Safari's profile persists).
+            - T112: the Runtime already refuses every Store use after the services release, user adapters included. T112
+              still owes the Fake's own connection life (closed mid-run, a load pending across release: the wrapper
+              checks at start, so a boot load raced by dispose runs on; result dropped, ready rejects RuntimeDisposed).
+            - Coverage: the wrapper's refusal is reached once (a boot raced by dispose); no check shows it refusing a
+              late use on Fake.storage, so the "Fake catches late use" claim is unproven (missing: a plant removing the
+              guard, over Fake). close.ts overdue trace block (lines 259-282) unreached: a Story with tracing over a
+              ring that never ends.
+            - Process: the mid-build rule change has red checks and a specs.log note but no two-traces comment or blind
+              sidecar; this review stands in. The close note says held writes were checked on the closing store; only
+              the final write is.
+            - Advice: Restore R10's reason for a late forget names the release, but the refusal starts at the forget
+              stage, as does the comment at close.ts join; heldUntilReleased's flag repeats `Scope.state` (Closed before
+              finalizers run).
+            - Rejected: a shared work-and-services bound (unchanged, R23's tree bound); the unwrapped Store in `context`
+              (only work reads it, closed first; ruled before); an unbounded forget wait (Persistence: nothing
+              bounds storage).
+            - For the orchestrator: `nub run test:coverage` writes no report when a test fails, and
+              tests/shop/context.test.ts "a cart of a thousand lines" times out under coverage (6.8 s, 7.2 s against 5
+              s), so the run needed `--coverage.reportOnFailure`. Outside this Task.
+            - Checks: test:coverage 1650 passed, 25 expected fail, 1 failed (that timeout); faults --only
+              forget-after-services-released, services-released-before-calls, forget-failure-discarded: 3 of 3 caught.
+              No browsers, stress or bench. Sidecars (four Haiku): blind, cohesion, flip A, coverage; each finding above
+              verified against the code or effect source and logged accepted, changed or rejected.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
