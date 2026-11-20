@@ -557,6 +557,8 @@ tasks
             read T107's page, with T105.
         comment     2026-11-20T07:33:26Z
             Done (orchestrator): second close review PASS at 2f2e34de; the user read T105's page (2026-11-20).
+        comment 2026-11-20T08:54:20Z
+            Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      in_progress
@@ -852,6 +854,16 @@ tasks
             the saved attempt; the Plan's restart-at-step-one makes up firings), the user confirms; B2 to B7 accepted,
             each red before the build; Q5 drops keys from its wording; Q17 uses code-unit key order, one order with the
             snapshot and Turn R30; acceptance A6's flow check item moves to @task.V3.T22 (small amendment).
+        comment     2026-11-20T08:47:42Z
+            B1 to B7 red at 5a65b35a (lead). B7 rule, two traces: A, the firing whose next step is past 2^31 - 1 ms
+            commits and the schedule ends with one issue at its schedule slot (home/reconnect-backoff: reminder 2
+            lands); B, that firing's turn is refused, losing a firing already due. A wins. B2 needed a denied ending
+            with live polls: the Room's heating Saved now denies NothingToClear when no notice shows, so home/usual's
+            save is the denied path and reached-while-saving stays the unhandled one. B3 is two green pins (today
+            nothing added arms).
+        comment     2026-11-20T08:54:20Z
+            Decision (the user, 2026-11-20): @plan.Pending.D40 accepted (a restored multi-step Schedule continues at its
+            saved attempt); merge it into Machines O5 at this Task's close.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -4430,6 +4442,9 @@ tasks
         comment     2026-11-19T22:02:03Z
             Decision (the user, 2026-11-20): Q1 A for now: the public Step constructors, WorldWord and FakeWorld stay
             removed; the user finalises tomorrow, leaning to keep them removed if nothing needs them.
+        comment     2026-11-20T08:54:19Z
+            Decision (the user, 2026-11-20): Q1 A final: the public Step constructors, WorldWord and FakeWorld
+            stay removed.
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed

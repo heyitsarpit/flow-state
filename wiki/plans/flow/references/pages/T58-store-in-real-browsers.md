@@ -39,4 +39,4 @@ at 10 minutes, with nothing downloaded. Safari's two hide cases skip when the di
 
 ## Status
 
-Unread.
+Read by the user, 2026-11-20; `StoreScope` kept.

@@ -1244,3 +1244,7 @@ note 2026-11-20T08:11:40Z
 note 2026-11-20T08:33:32Z
     T57 requirements review: ISSUES, seven blocking (five found by flip B or blind B); B1 built provisionally as
     @plan.Pending.D40, for the user. Build lead started.
+
+note 2026-11-20T08:54:21Z
+    Decision (the user, 2026-11-20): T58's page read, StoreScope kept; Pending D40 accepted (merged at T57's close);
+    T104 Q1 A final. Nothing waits on the user.
