@@ -6232,3 +6232,57 @@ tasks
             refuses it) is accepted; the two Spec sentences (R25's check order, R17's restore re-reading every baseline)
             go to the requirements review; the three python and sed edits are a process slip, noted, and the review
             re-reads those files.
+        comment     2026-11-20T16:20:43Z
+            Requirements review (Opus, 5 Haiku sidecars at effort high): ISSUES. The two blocking findings below need
+            fixes before the build. The mapping holds otherwise: Flip A re-ran all 8000 rows, and the red set equals the
+            365 listed, each in a stated class. B1 fails at `schedule-edits.test.ts:266` (held, `left`) and B2 at
+            `schedule-keys-table.test.ts:508` (issues `[]`). The three python and sed edits were re-read and are intact
+            (the reruns match, `wk check` is clean).
+
+            - Blocking 1 (Blind B, confirmed on the ledger): R17's added sentence, "a restore re-reads every baseline",
+              loses a firing. `Stop / selection throws / selection changes` re-arms `good`, which fires. With a reload
+              after the throw, it never fires: no baseline is saved, the re-read throws, and the next change is silent.
+              Proposed rule: save each timer's `restartOn` baseline in the record, as R22 saves a slot's (format 6
+              already moves). Then the restore keeps it, a kept one included, and the reload is transparent. Missing
+              coverage: 4 steps. Add named depth-4 rows `plsk` and `lapk` (a fresh key whose first `restartOn` throws:
+              is its first clean value a change, as R22 rules?), and `nroa` (a committed firing of `bad` must not clear
+              `good`'s send issue; depth 3 cannot reach it). Cause: a check's last outcome kept outside the record is
+              reconstructed at restore, the freedom this Task removes.
+            - Blocking 2 (Flip B): no acceptance item requires the rows to pass. `it.fails` passes on any failure, so a
+              build that leaves rows in `schedule-sequences-wrong.ts`, or B1 and B2 inverted, passes every gate.
+              Proposed amendment to acceptance 1: the wrong list is deleted, and no `it.fails` stays in the
+              schedule tests.
+            - Spec texts to settle before the build (requirement 4), each pinned by the ledger today:
+              - (a) The 7 order cells. The order is firing, `restartOn`, arming, reasons, as in the adopted proposal's
+                `scheduleIssues`. Trace A, latest wins: `bad appears out of range / A bad throws / A bad false` shows
+                nothing while `bad` is unarmed (B2). Trace B, fixed order: the arming issue shows throughout. Choose B,
+                and write the order into R25.
+              - (b) R25 as proposed says an issue changes "only when that same check runs again", but the ledger and the
+                proposal's table clear a send issue on a start that arms (Blind A, Blind B). Add that clause.
+              - (c) What a re-entered activation inherits. The ledger keeps a key's last reasons but no key set, so
+                `keys throw / re-entry` leaves nothing armed. P1 says the whole timer goes. One rule is needed (Blind B,
+                Blind A).
+            - Accepted, non-blocking:
+              - `etk` also breaches Codec I7 at s2, hidden by `it.fails` (Flip A). Its red class should be named, and
+                the order class reworded: a reason's issue shows over the send's.
+              - Q5's format-5 guard needs idle, held and due keyed timers (Flip B).
+              - Restore the proposal's dropped plants `refused-start-goes-idle` and `restore-keeps-undeclared-reason`,
+                and give each of the seven old schedule plants on deleted code a named new target (Flip B, Cohesion).
+              - The view has no `dueAt` or `left`, so a time shift is invisible. Per-occasion timing stays in T57's
+                tables. Showing relative `dueAt` is cheap (Blind B, Flip B).
+              - Lint reach is by name and path: `Plan.Held(` at `schedule-decision.ts:162` and `Timing.Held(` at
+                `schedules.ts:248` sit outside the allowlist. `fired`, `trackedOf` and restore's `runOf` still write the
+                run outside `decide`. The type and the plants carry the guard (Cohesion).
+              - Readers the plan omits: `context.ts:331`, `:371` (compare the issues' identity); `inspect.ts` reads no
+                issues (Cohesion).
+              - The lane and refused-firing subset rule cannot be seen by this fixture: the world changes only at
+                writes, and today `schedule-decision.ts:266` runs `restartOn` for baseline-less timers on those
+                occasions, against I38 (Blind B, Flip B).
+            - Rejected:
+              - Firings after a reload "while unused": `Step.reload({ reattach: true })` keeps uses (`run.ts:408`).
+              - P2's dependence on a reload: the user adopted it.
+              - A renamed key starting fresh: the key's identity changed (today's rule).
+              - The `keysThrow` reading of the atoms: the ledger defines it.
+            - For the orchestrator: a creation-time refused arming is stored as a Creation issue
+              (`incarnations.ts:181`). It is lost on reload and never retried. It was routed to @task.V3.T100, but
+              `Arming.Refused` is its natural owner (a scope call).
