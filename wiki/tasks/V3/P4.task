@@ -74,7 +74,7 @@ comment 2026-11-19T07:18:27Z
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@task.V3.T9]
         satisfies   [@plan.Persistence.O4]
@@ -473,6 +473,34 @@ tasks
             Decision (the user, 2026-11-20, Q4 A): Chrome stays headless; real Safari runs its store tests unattended;
             its hide cases are display-bound, skipped with a named reason when the page starts hidden and required in
             attended mode (phase closes, the user at the machine). No WebKit download. Built in this fix round.
+        comment     2026-11-20T06:51:29Z
+            Fix round (lead, 83f79c72, 28351ba4): the close now ends the work, then a wanted forget, then the services,
+            so forget deletes on IndexedDB; red first on a Store that closes with the services
+            (code:packages/flow-state-v3/tests/restore/store-provision.test.ts), green after.
+
+            - Class covered: the Runtime holds every Store through heldUntilReleased
+              (code:packages/flow-state-v3/src/host/close.ts#heldUntilReleased), which refuses closed once the services
+              release, so Fake.storage and Story stores catch any late store use too. Final write and held writes
+              checked on the closing store; a forget asked after the close's forget stage, or after an overdue work
+              close, fails StorageFailure with no I/O (both red first). Spec: Restore R10, Actors R22, R23, I4
+              (specs.log). Reverse: forget after the root's release.
+            - Why the tests missed it: no Store in any test closed with the services; Fake.storage never closes.
+            - Plants: forget-after-services-released (new), services-released-before-calls and forget-failure-discarded
+              (finds moved): 3 of 3 caught.
+            - Runner: stops after a signal (no Safari after it, exit 1, shown); at the cap, SIGINT then a SIGKILL by
+              exact pid of the Vitest tree and the browsers the provider notes (shown on a run that ignored SIGINT).
+              Safari hide cases are display-bound unless --attended or FLOW_BROWSER_ATTENDED=1 (the user, Q4 A); a phase
+              close and an attended session use it. Both modes shown with FLOW_BROWSER_START_HIDDEN=1 in Chrome: 14
+              passed and 2 skipped-display-bound, exit 0; attended, both fail the guard, exit 1.
+            - Evidence: nub run check 0; suite 1651 passed, 25 expected fail; Chrome 16/16; Safari 26.6 16/16 unattended
+              with the display awake (hide cases ran). The browser forget case was not run red on the old order.
+        comment     2026-11-20T06:51:29Z
+            Sidecar log (lead): one Haiku cohesion review of 83f79c72, read-only. Accepted: stale dispose comments in
+            runtime.ts, an unguarded SIGKILL and a reused-pid window in run.ts, a long config comment, a number and a
+            prefix both named DISPLAY_BOUND. Rejected: the zero-time services wait (work that used the whole bound is
+            past it, Actors R23), duplicate ps parsing and an unchecked pid-file cast (separate tool scripts), the
+            closing store beside Fake.storage (the ruling asked for one), test-local helpers, the heldUntilReleased doc
+            shape (not public API).
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
@@ -5019,3 +5047,8 @@ tasks
               (@plan.Persistence.O4), each shown in both browsers.
             - The hide handler is timed in real Chromium and Safari against Node's figure (about 6 us per changed actor)
               before any idle pre-encoding; a dev host work clock makes SlowWork fire outside tests.
+
+    T112
+        title    Fakes as hostile as the real thing: store, page and servers
+        status   draft
+        priority high

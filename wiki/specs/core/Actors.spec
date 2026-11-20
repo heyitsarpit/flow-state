@@ -531,8 +531,8 @@ invariants
     I3  Every caller of ready() before disposal starts observes the same Exit, and the bootstrap runs at most once; a 
         ready() called after disposal starts rejects RuntimeDisposed. [@R2]
 
-    I4  No actor starts before the services Layer, the Store in it, is acquired whole and persisted data is read
-        and validated. [@R3]
+    I4  No actor starts before the services Layer, the Store in it, is acquired whole and persisted data is read and 
+        validated. [@R3]
 
     I5  Before ready succeeds, no handle exists except React's pre-attach handles, and ensureActor and createActor 
         reject. [@R4]
