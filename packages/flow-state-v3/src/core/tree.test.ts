@@ -1,4 +1,4 @@
-import { Result, Schema, SchemaGetter } from "effect";
+import { Schema, SchemaGetter } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { definition, Flow, machine } from "../index.ts";
 import { Target } from "./compiled.ts";
@@ -124,29 +124,18 @@ describe("creation (Compile R6, I7, T4)", () => {
     memory: {
       docId: Flow.input(Slug),
       body: Flow.initial(Schema.String, ""),
-      title: Flow.initial(Schema.String, (fields) => `Untitled ${String(fields["docId"])}`),
-      words: Flow.initial(Schema.Number, (fields) => String(fields["body"]).length),
       note: Schema.optionalKey(Schema.String),
     },
   });
 
   const doc = machine(Doc, ({ S }) => ({ default: S.CLEAN })).compiled;
 
-  it("copies the input, then constants, then computed starts that read the input and constant fields", () => {
-    expect(create(doc, { docId: "d-1" })).toEqual(
-      Result.succeed({ docId: "d-1", body: "", title: "Untitled d-1", words: 0 }),
-    );
-  });
-
-  it("checks the input by its Schema's type side and refuses a missing or mistyped field", () => {
-    expect(Result.isFailure(create(doc, {}))).toBe(true);
-    expect(Result.isFailure(create(doc, { docId: 7 }))).toBe(true);
+  it("copies the input and the constants; an optional key with no default stays absent", () => {
+    expect(create(doc, { docId: "d-1" })).toEqual({ docId: "d-1", body: "" });
   });
 
   it("stores the input as given, with no transforming decode", () => {
-    expect(create(doc, { docId: "D-1" })).toEqual(
-      Result.succeed({ docId: "D-1", body: "", title: "Untitled D-1", words: 0 }),
-    );
+    expect(create(doc, { docId: "D-1" })).toEqual({ docId: "D-1", body: "" });
   });
 
   it("is a function of its input: equal inputs give equal memory", () => {

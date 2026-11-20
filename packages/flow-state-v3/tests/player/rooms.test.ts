@@ -10,6 +10,7 @@ import {
 import { sixteenRooms, roomOf } from "../../fixtures/player/stories/load.ts";
 import { roomDisposed, roomReloaded } from "../../fixtures/player/stories/structure.ts";
 import { played } from "../rules/played.ts";
+import { labelOf } from "../../fixtures/player/machines/player.ts";
 
 describe("many rooms (fixtures.md L1 under L5)", () => {
   it("L1 x 16 under L5: sixteen rooms play at once, each ticking its own position through a burst of seeks", async () => {
@@ -43,10 +44,11 @@ describe("a room's end while its tick is armed (fixtures.md S6)", () => {
 });
 
 describe("rooms and seeks at their edges (fixtures.md E1, E3)", () => {
-  it("E1, Compile R5: an empty room computes its label from the empty name", async () => {
+  it("E1, Compile R5: an empty room's label is derived from the empty name", async () => {
     const run = await played(emptyRoom);
+    const memory = run.checkpoints.opened.read(emptyRoomPlayer)?.memory;
 
-    expect(run.checkpoints.opened.read(emptyRoomPlayer)?.memory.label).toBe(": living-room");
+    expect(memory && labelOf(memory)).toBe(": living-room");
   });
 
   it("E3, Codec R1: a room name of a million characters names a player that plays", async () => {

@@ -47,6 +47,20 @@ export const manySessions = SCREENS.reduce(
   .checkpoint("end");
 
 /**
+ * 16 new accounts, none with a saved handle, sign in and choose one each; the tab reloads twice,
+ * and the first submits its email's prefix unedited, so it is asked to confirm.
+ */
+export const manyNewSessions = SCREENS.reduce(
+  (story, n) => story.ensure(sessionOf(n)).send(sessionOf(n), AuthSession.E.SignedIn()),
+  sessionStory("sign-in/stress-many-new-sessions"),
+)
+  .reload()
+  .reload()
+  .checkpoint("choosing")
+  .send(sessionOf(0), AuthSession.E.SubmitHandle())
+  .checkpoint("end");
+
+/**
  * One screen locks out after six wrong codes; the tab reloads during the lockout.
  */
 export const reloadInLockout = Array.from({ length: 6 }, (_, n) => n)

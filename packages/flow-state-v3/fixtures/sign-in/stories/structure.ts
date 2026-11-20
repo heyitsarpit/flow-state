@@ -36,6 +36,20 @@ export const screenFirst = sessionStory("sign-in/screen-first")
   .checkpoint("ended");
 
 /**
+ * A new account signs in and reaches CHOOSING with no handle typed; the tab reloads, and the
+ * email's prefix, never stored, is submitted, confirmed and saved.
+ */
+export const reloadedChoosing = sessionStory("sign-in/reloaded-choosing")
+  .ensure(mainSession)
+  .send(mainSession, signedIn)
+  .checkpoint("choosing")
+  .reload()
+  .checkpoint("reloaded")
+  .send(mainSession, AuthSession.E.SubmitHandle())
+  .send(mainSession, AuthSession.E.ConfirmHandle())
+  .checkpoint("saved");
+
+/**
  * The tab reloads while a handle save is on the wire, the redirect held.
  */
 export const reloadedMidHandle = sessionStory("sign-in/reloaded-mid-handle")

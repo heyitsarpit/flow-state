@@ -190,8 +190,7 @@ on internal modules and `off` on public entrypoint modules.
 - `no-throw-in-core` is off in `src/error.ts` (`raise`, the one throw of a FlowError) and `src/entry.ts`
   (the public-function wrappers); every other FlowError goes through `raise`. The listed defect sites
   keep a disable with their reason: `core/defect.ts`, `core/frozen.ts` (a write to an admitted value),
-  `core/tree.ts` (a computed start reading a computed field), the driver's rethrow of a host callback's
-  throw, and the test tooling's run failures and its own defects (`src/host/testing`: `StoryFailed`,
+  the driver's rethrow of a host callback's throw, and the test tooling's run failures and its own defects (`src/host/testing`: `StoryFailed`,
   `StoryTurnLimit`, a script or index fault).
 - Everywhere in `src`:
   - `switch-exhaustiveness-check` with `considerDefaultExhaustiveForUnions: false`: a `default:`

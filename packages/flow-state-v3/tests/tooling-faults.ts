@@ -368,23 +368,9 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "      return Option.getOrUndefined(snapshot);",
+        find: "      return Option.getOrUndefined(snapshotIn(world, machines, actor));",
         replace:
-          "      return Option.getOrUndefined(Option.map(snapshot, (s) => ({ ...s, memory: JSON.parse(JSON.stringify(s.memory)) })));",
-      },
-    ],
-  },
-  {
-    name: "refused-start-read",
-    tests: ["tests/stories/read.test.ts"],
-    says: "a quarantined record whose fresh start is refused reads as absent, so the test goes on instead of failing",
-    rule: "Stories R12",
-    edits: [
-      {
-        file: "src/host/testing/run.ts",
-        find: "      if (Option.isNone(snapshot) && world.quarantined.has(actorRecordKey(actorKey(actor))))",
-        replace:
-          "      if (Option.isNone(snapshot) && world.quarantined.has(actorRecordKey(actorKey(actor))) && false)",
+          "      return Option.getOrUndefined(Option.map(snapshotIn(world, machines, actor), (s) => ({ ...s, memory: JSON.parse(JSON.stringify(s.memory)) })));",
       },
     ],
   },

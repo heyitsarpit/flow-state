@@ -62,9 +62,9 @@ requirements
 
     R6  Pure creation
         source  @plan.Machines.O1.
-        must    Creation checks a present input by the Input Schema's type side with no 
-                transforming decode, copies the input fields, applies constant initials, and reads no clock or 
-                randomness. It runs once per incarnation and never
+        must    The input is checked by the Input Schema's type side with no transforming decode where
+                it enters (a ref, `createActor`, a saved record's name); creation trusts it, copies the
+                input fields, applies constant initials, and reads no clock or randomness. It runs once per incarnation and never
                 on restore, adoption or hydration; there only R8's defaults run, and only for fields
                 the record lacks. Decision (agent, 2026-11-11): audit C24 (spec-log.md, T42).
 
@@ -386,9 +386,9 @@ tests
         ReservedStateName, UnknownNotUncertain, SharedContract, KeyFieldOptional.
             Planted faults for ImpureDefault: a default that runs; a failed default taken as a value. [@I3, @I5, @I6, 
                 @I10, @I11, @I13]
-    T4  Create with an input whose Schema transforms; creation checks the type side and stores the value unchanged. 
-        Planted fault: a creation that decodes the input. [@I7]
-    T5  Restore and adopt a record twice with spies on initial functions; expect zero creation calls. Restore a record 
+    T4  Create with an input whose Schema transforms; the boundary checks the type side and creation stores the value
+        unchanged. Planted fault: a creation that decodes the input. [@I7]
+    T5  Restore and adopt a record twice with spies on Schema defaults; expect zero creation calls. Restore a record 
         lacking an input field with no default; expect RestoreMissingInput. [@I8]
     T6  Type tests: undeclared or foreign members, false from a guard, unfilled ports, writes to input fields, acting 
         fragment members outside their fragment, and a fragment callback whose target moves the host out of the 

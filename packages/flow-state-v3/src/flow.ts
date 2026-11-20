@@ -16,15 +16,12 @@ export type Plain = Schema.Codec<unknown, unknown>;
 export type OptionalField = Plain & { readonly "~type.optionality": "optional" };
 
 /**
- * A memory field with a constant start (`Flow.initial(schema, value)`), or one computed from the
- * input and constant fields (`Flow.initial(schema, (fields) => value)`).
+ * A memory field with a constant start (`Flow.initial(schema, value)`).
  */
 export type Initial<S extends Plain = Plain> = {
   readonly "~flow": "initial";
   readonly schema: S;
-  readonly start:
-    | { readonly _tag: "Constant"; readonly value: S["Type"] }
-    | { readonly _tag: "Computed"; readonly compute: (fields: Values) => S["Type"] };
+  readonly value: S["Type"];
 };
 
 /**
@@ -259,8 +256,7 @@ const selectOf = (given: unknown) =>
  *
  * **When to use**
  *
- * - `Flow.initial(schema, value)`: a memory field that starts at a constant;
- *   `Flow.initial(schema, (fields) => value)` computes it from the input and constant fields.
+ * - `Flow.initial(schema, value)`: a memory field that starts at a constant.
  * - `Flow.input(schema)`: a memory field the creator supplies; read-only afterwards.
  * - `Flow.private(field)`: a field kept from outside snapshots.
  * - `Flow.uncertain(fields)`: an internal event an operation's unknown ending maps to.
@@ -274,15 +270,18 @@ const selectOf = (given: unknown) =>
  *
  * - Every read of one slot comes from one provider: a type error, and a construction error past
  *   the types. Values from two machines need two slots.
+ * - `Flow.initial` takes a constant, never a function: a value other fields determine is derived
+ *   where it is read, or taken as an input.
  */
 export const Flow = {
   initial: builder(
     "Flow.initial",
     // RETURN_TYPE: the marker's Schema type parameter types the memory field.
-    <S extends Plain>(schema: S, value: S["Type"] | ((fields: Values) => S["Type"])): Initial<S> =>
-      Predicate.isFunction(value)
-        ? { "~flow": "initial", schema, start: { _tag: "Computed", compute: value } }
-        : { "~flow": "initial", schema, start: { _tag: "Constant", value } },
+    <S extends Plain>(schema: S, value: S["Type"]): Initial<S> => ({
+      "~flow": "initial",
+      schema,
+      value,
+    }),
   ),
   input: builder(
     "Flow.input",

@@ -3,22 +3,17 @@ import { describe, expect, it } from "vite-plus/test";
 import { secondSerialize, serializeClient } from "../../fixtures/lanes/app.ts";
 import { Cancel, Latest, Serialize } from "../../fixtures/lanes/machines/clients.ts";
 import { usual } from "../../fixtures/lanes/stories/usual.ts";
-import { evidenceOf, Fake, Story, StoryFailed, turnsOf } from "../../src/host/testing/index.ts";
+import { evidenceOf, Fake, Story, turnsOf } from "../../src/host/testing/index.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
 
-// A persisted note whose computed start reads another computed field: its fresh start is always
-// refused, so a quarantined record of it has no memory of its definition's type.
+// A persisted note with a constant start.
 const Note = definition({
   id: "Read/Note",
   persist: true,
   states: ["READY"],
   events: {},
-  memory: {
-    body: Flow.initial(Schema.String, "hello"),
-    length: Flow.initial(Schema.Number, (fields) => String(fields["body"]).length),
-    double: Flow.initial(Schema.Number, (fields) => Number(fields["length"]) * 2),
-  },
+  memory: { body: Flow.initial(Schema.String, "hello") },
 });
 
 const NoteMachine = machine(Note, ({ S }) => ({ default: S.READY }));
@@ -32,14 +27,20 @@ const notes = runtimeSetup({
 });
 
 describe("a typed read (Stories, read(target))", () => {
-  it("Stories read(target): a quarantined record whose fresh start is refused has no typed memory, so reading it fails the test instead of returning {}", async () => {
-    const run = await Story.app(notes, { id: "read/refused-start", fixtures: [] })
+  it("Stories read(target), Actors R25: a quarantined record reads as the fresh start an ensure would make, quarantined, never {}", async () => {
+    const run = await Story.app(notes, { id: "read/quarantined", fixtures: [] })
       .world(Fake.storage.put("actor/Read/Note/note", '{"format":1}'))
       .reload()
       .checkpoint("booted")
       .run();
 
-    expect(() => run.checkpoints.booted.read(note)).toThrow(StoryFailed);
+    expect(run.checkpoints.booted.read(note)).toEqual(
+      expect.objectContaining({
+        state: "READY",
+        memory: { body: "hello" },
+        lifecycle: "quarantined",
+      }),
+    );
   });
 });
 

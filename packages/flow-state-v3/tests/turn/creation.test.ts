@@ -1,12 +1,12 @@
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Result, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Story } from "../../src/host/testing/index.ts";
 import {
   actorRef,
   app,
   definition,
-  Diagnostic,
   Flow,
+  FlowError,
   machine,
   runtimeSetup,
 } from "../../src/index.ts";
@@ -39,24 +39,7 @@ const alarm = actorRef(AlarmMachine, "alarm");
 
 const alarms = runtimeSetup({ app: app({ id: "alarms", machines: { alarm: AlarmMachine } }) });
 
-const Words = definition({
-  id: "Creation/Words",
-  states: ["READY"],
-  events: {},
-  memory: {
-    body: Flow.initial(Schema.String, "hello"),
-    length: Flow.initial(Schema.Number, (fields) => String(fields["body"]).length),
-    double: Flow.initial(Schema.Number, (fields) => Number(fields["length"]) * 2),
-  },
-});
-
-const WordsMachine = machine(Words, ({ S }) => ({ default: S.READY }));
-
-const words = actorRef(WordsMachine, "words");
-
-const wordApp = runtimeSetup({ app: app({ id: "words", machines: { words: WordsMachine } }) });
-
-describe("creation (Turn R14, T6; Compile R5)", () => {
+describe("creation (Turn R14, T6)", () => {
   it("Turn R14: an out-of-range computed delay at creation is reported as an issue, and the state's other schedules are still armed", async () => {
     const run = await Story.app(alarms, { id: "creation/alarm", fixtures: [] })
       .ensure(alarm)
@@ -66,44 +49,6 @@ describe("creation (Turn R14, T6; Compile R5)", () => {
 
     expect(run.checkpoints.rang.read(alarm)?.state).toBe("RANG");
     expect(issues(run.evidence)).toEqual(["InvalidTurn"]);
-  });
-
-  it("Compile R5, Diagnostics I5: a computed start that reads another computed field is a callback defect: the actor is not created and a Defect, a code of the closed list, is reported", async () => {
-    const run = await Story.app(wordApp, { id: "creation/words", fixtures: [] })
-      .ensure(words)
-      .checkpoint("ensured")
-      .run();
-
-    expect(run.checkpoints.ensured.read(words)).toBeUndefined();
-    expect(issues(run.evidence).every(Schema.is(Diagnostic.fields.code))).toBe(true);
-    expect(issues(run.evidence)).toEqual(["Defect"]);
-  });
-
-  it("Compile R5: a computed start that spreads its fields still may not read a computed one", async () => {
-    const Spread = definition({
-      id: "Creation/Spread",
-      states: ["READY"],
-      events: {},
-      memory: {
-        body: Flow.initial(Schema.String, "hello"),
-        length: Flow.initial(Schema.Number, (fields) => String(fields["body"]).length),
-        double: Flow.initial(Schema.Number, (fields) => Number({ ...fields }["length"]) * 2),
-      },
-    });
-
-    const SpreadMachine = machine(Spread, ({ S }) => ({ default: S.READY }));
-    const spread = actorRef(SpreadMachine, "spread");
-
-    const run = await Story.app(
-      runtimeSetup({ app: app({ id: "spread", machines: { spread: SpreadMachine } }) }),
-      { id: "creation/spread", fixtures: [] },
-    )
-      .ensure(spread)
-      .checkpoint("ensured")
-      .run();
-
-    expect(run.checkpoints.ensured.read(spread)).toBeUndefined();
-    expect(issues(run.evidence)).toEqual(["Defect"]);
   });
 });
 
@@ -134,8 +79,29 @@ describe("the outside snapshot (Turn R23)", () => {
   });
 });
 
+// The reasons a definition whose handle starts from `start` is refused with.
+const reasonOf = (start: string) =>
+  Result.match(
+    Result.try({
+      try: () =>
+        definition({
+          id: "Compile/Computed",
+          states: ["A"],
+          events: {},
+          memory: { email: Flow.input(Schema.String), handle: Flow.initial(Schema.String, start) },
+        }),
+      // FLOW_STATE_ALLOW_UNKNOWN: whatever the construction threw, told apart below.
+      catch: (error: unknown) => error,
+    }),
+    {
+      onSuccess: () => [],
+      onFailure: (error) =>
+        error instanceof FlowError ? error.diagnostics.map((d) => d.details["reason"]) : ["raw"],
+    },
+  );
+
 describe("a computed start (Compile R5)", () => {
-  it.fails("Compile R5: Flow.initial given a function is refused InvalidConfiguration at the field, never run", () => {
+  it("Compile R5: Flow.initial given a function is refused InvalidConfiguration at the field, never run", () => {
     const runs = { count: 0 };
 
     const computed = loose(() => {
@@ -157,6 +123,7 @@ describe("a computed start (Compile R5)", () => {
         }),
       ),
     ).toEqual([["InvalidConfiguration", "memory.handle"]]);
+    expect(reasonOf(computed)).toEqual(["ComputedStart"]);
     expect(runs.count).toBe(0);
   });
 });

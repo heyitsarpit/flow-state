@@ -373,19 +373,6 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "spread-escapes-computed-guard",
-    tests: ["tests/turn/creation.test.ts"],
-    says: "a computed start that spreads its fields reads a computed field unguarded",
-    rule: "Compile R5",
-    edits: [
-      {
-        file: "src/core/tree.ts",
-        find: "        .map((f) => [f.name, { get: computedRead(f.name), enumerable: true }]),",
-        replace: "        .map((f) => [f.name, { get: computedRead(f.name) }]),",
-      },
-    ],
-  },
-  {
     name: "late-exit-ignores-queue",
     tests: ["src/core/serve.test.ts"],
     says: "a late turn may exit an activation that owns only queued commits",

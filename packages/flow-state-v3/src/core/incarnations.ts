@@ -1,4 +1,4 @@
-import { Duration, Option, Result } from "effect";
+import { Duration, Option } from "effect";
 import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
 import type { Start } from "./input.ts";
@@ -136,21 +136,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     if (compiled === undefined) return;
 
-    const created = Option.match(from, {
+    const memory = Option.match(from, {
       onNone: () => create(compiled, input),
-      onSome: (r) => Result.succeed(r.memory),
+      onSome: (r) => r.memory,
     });
-
-    if (Result.isFailure(created)) {
-      if (created.failure.computed)
-        tx.refuse(actor, {
-          source: CREATION,
-          code: "Defect",
-          slot: Option.some(`memory.${created.failure.field}`),
-        });
-
-      return;
-    }
 
     const state = Option.match(from, { onNone: () => compiled.initial, onSome: (r) => r.state });
 
@@ -160,7 +149,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       state,
       activations: chainOf(state).map(() => tx.mintActivation()),
       history: new Map(),
-      memory: tx.env.admit(created.success),
+      memory: tx.env.admit(memory),
       schedules: new Map(),
       issues: [],
       bound: new Map(),

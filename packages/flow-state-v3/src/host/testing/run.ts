@@ -9,7 +9,6 @@ import type { AnyDefinition } from "../../definition.ts";
 import { FlowError, flowError, raise } from "../../error.ts";
 import { Host } from "../host.ts";
 import { attachInspector, inspect, type RuntimeCut } from "../inspect.ts";
-import { actorRecordKey } from "../../core/record.ts";
 import {
   actorIdOf,
   type ActorRef,
@@ -483,16 +482,7 @@ export const startRun = <Names extends string>(
 
       const actor = actorOf(target);
 
-      const snapshot = snapshotIn(world, machines, actor);
-
-      // A quarantined record whose fresh start is refused has no snapshot, whatever the
-      // Runtime's life; reading it is a script fault, not an absent actor.
-      if (Option.isNone(snapshot) && world.quarantined.has(actorRecordKey(actorKey(actor))))
-        return scriptFault(
-          `${actor.name} is quarantined and its fresh start is refused, so it has no typed memory to read; read its issue from inspection`,
-        );
-
-      return Option.getOrUndefined(snapshot);
+      return Option.getOrUndefined(snapshotIn(world, machines, actor));
     }
 
     return {

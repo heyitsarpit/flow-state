@@ -2,7 +2,13 @@ import { Option } from "effect";
 import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
 import { musicHome, musicHomeSetup } from "./app.ts";
 import { samples, seededStress, sleepTimer, stories, timerSamples } from "./stories/usual.ts";
-import { emptyRoom, longRoomPlays, seekEdges, sleepTimerEdges } from "./stories/edges.ts";
+import {
+  emptyRoom,
+  longRoomPlays,
+  roomEdgeSamples,
+  seekEdges,
+  sleepTimerEdges,
+} from "./stories/edges.ts";
 import { sixteenRooms, sixteenTimers, roomOf } from "./stories/load.ts";
 import { roomDisposed, roomReloaded } from "./stories/structure.ts";
 import {
@@ -44,8 +50,8 @@ export const player = manifest({
     groupReplays,
     groupPastGuard,
   },
-  samples: [samples, timerSamples, householdSamples],
-  stressSamples: [samples, timerSamples, householdSamples],
+  samples: [samples, timerSamples, householdSamples, roomEdgeSamples],
+  stressSamples: [samples, timerSamples, householdSamples, roomEdgeSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),

@@ -34,6 +34,13 @@ export const mainSession = actorRef(AuthSessionMachine, { email: "elif@kamp.us" 
 export const blankSession = actorRef(AuthSessionMachine, { email: "" });
 
 /**
+ * The session of an account whose email is 100,000 characters.
+ */
+export const longSession = actorRef(AuthSessionMachine, {
+  email: `${"e".repeat(100_000)}@kamp.us`,
+});
+
+/**
  * The `n`th of many accounts' sessions.
  */
 export const sessionOf = (n: number) =>

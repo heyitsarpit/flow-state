@@ -1,5 +1,5 @@
 import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
-import { laptop, mainReturn, mainSession } from "../app.ts";
+import { blankSession, laptop, longSession, mainReturn, mainSession } from "../app.ts";
 import { ReturnTo } from "../machines/return-to.ts";
 import { AuthSession } from "../machines/session.ts";
 import { TrustedDevice } from "../machines/trusted-device.ts";
@@ -39,6 +39,30 @@ export const samples = samplesOf({
       .send(mainSession, AuthSession.E.SubmitHandle())
       .send(mainSession, AuthSession.E.ConfirmHandle())
       .send(mainSession, AuthSession.E.Retry()),
+});
+
+/**
+ * New accounts at the email's edges, for generated runs: a blank email and one of 100,000
+ * characters sign in, type a handle or keep the email's prefix, submit and confirm.
+ */
+export const emailEdgeSamples = samplesOf({
+  id: "auth-session-email-edges",
+  story: sessionStory("auth-session-email-edges/samples"),
+  names: { setup: "authGrownSetup", fixtures: ["AuthFake", "ProfileFake"] },
+  actors: { blankSession, longSession },
+  servers: { Profiles },
+  failures: [Profiles.taken({})],
+  landedFailures: [],
+  values: {},
+  controls: [],
+  steps: (story) =>
+    story
+      .send(blankSession, signedIn)
+      .send(longSession, signedIn)
+      .send(blankSession, AuthSession.E.Handle({ handle: "blank" }))
+      .send(longSession, AuthSession.E.SubmitHandle())
+      .send(blankSession, AuthSession.E.SubmitHandle())
+      .send(longSession, AuthSession.E.ConfirmHandle()),
 });
 
 const trustLaptop = TrustedDevice.E.Trust({ until: LAPTOP_UNTIL, label: "Elif's laptop" });

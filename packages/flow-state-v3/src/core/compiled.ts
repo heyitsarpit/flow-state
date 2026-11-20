@@ -160,15 +160,13 @@ export type Node = {
 };
 
 /**
- * Where a memory field starts: the creator's input, a constant, a value computed from the input
- * and constant fields, or absence (an optional key, with its Schema's default if it has one).
+ * Where a memory field starts: the creator's input, a constant, or absence (an optional key, with
+ * its Schema's default if it has one).
  */
 export type Source = Data.TaggedEnum<{
   Input: {};
   // FLOW_STATE_ALLOW_UNKNOWN: a start has its field's type, typed at the definition.
   Constant: { value: unknown };
-  // FLOW_STATE_ALLOW_UNKNOWN: a start has its field's type, typed at the definition.
-  Computed: { compute: Slot<(fields: Values) => unknown> };
   Optional: {};
 }>;
 

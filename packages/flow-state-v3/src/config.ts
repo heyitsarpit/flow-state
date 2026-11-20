@@ -122,11 +122,8 @@ const States: Schema.Codec<StateTree> = Schema.Array(
 const InitialField = Schema.Struct({
   "~flow": Schema.Literal("initial"),
   schema: FieldSchema,
-  start: Schema.Union([
-    // FLOW_STATE_ALLOW_UNKNOWN: a constant start is checked by its field's Schema, not here.
-    Schema.Struct({ _tag: Schema.Literal("Constant"), value: Schema.Unknown }),
-    Schema.Struct({ _tag: Schema.Literal("Computed"), compute: Fn }),
-  ]),
+  // FLOW_STATE_ALLOW_UNKNOWN: a constant start is checked by its field's Schema, not here.
+  value: Schema.Unknown,
 });
 
 const MemoryField = Schema.Union([

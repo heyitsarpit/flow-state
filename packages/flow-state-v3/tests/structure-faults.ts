@@ -251,19 +251,6 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [{ file: "src/error.ts", find: "  code: Code,", replace: "  code: Schema.String," }],
   },
   {
-    name: "creation-skips-input-check",
-    tests: [TREE],
-    says: "creation copies an input field without checking it by its Schema's type side",
-    rule: "Compile R6, T4",
-    edits: [
-      {
-        file: "src/core/tree.ts",
-        find: "Object.hasOwn(input, field.name) && field.is(input[field.name])",
-        replace: "Object.hasOwn(input, field.name)",
-      },
-    ],
-  },
-  {
     name: "creation-delay-drops-all",
     tests: ["tests/turn/creation.test.ts"],
     says: "one refused delay at creation drops every schedule of the initial state",
@@ -314,19 +301,6 @@ export const structureFaults: ReadonlyArray<Fault> = [
         file: "src/core/tree.ts",
         find: "const recorded = exits.includes(path)",
         replace: "const recorded = false",
-      },
-    ],
-  },
-  {
-    name: "computed-reads-computed",
-    tests: ["tests/turn/creation.test.ts"],
-    says: "a computed start reads another computed field as absent and stores the result",
-    rule: "Compile R5",
-    edits: [
-      {
-        file: "src/core/tree.ts",
-        find: ".map((f) => [f.name, { get: computedRead(f.name), enumerable: true }]),",
-        replace: ".map((f) => [f.name, { get: () => undefined, enumerable: true }]),",
       },
     ],
   },
@@ -449,19 +423,6 @@ export const structureFaults: ReadonlyArray<Fault> = [
         file: "src/host/driver.ts",
         find: '  Result,\n} from "effect";',
         replace: '  Result,\n  Schema,\n} from "effect";',
-      },
-    ],
-  },
-  {
-    name: "callback-defect-outside-list",
-    tests: ["tests/turn/creation.test.ts"],
-    says: "a throwing callback is reported with a code outside the closed list",
-    rule: "Diagnostics I5",
-    edits: [
-      {
-        file: "src/core/incarnations.ts",
-        find: '          code: "Defect",\n          slot: Option.some(`memory.',
-        replace: '          code: "CallbackDefect",\n          slot: Option.some(`memory.',
       },
     ],
   },

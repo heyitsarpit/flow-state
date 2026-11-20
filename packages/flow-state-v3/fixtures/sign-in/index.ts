@@ -25,13 +25,20 @@ import {
   signOutRetiredLink,
 } from "./stories/edges.ts";
 import { blankHandle, submitTwice, unconfirmedPrefill } from "./stories/findings.ts";
-import { manyDevices, manyScreens, manySessions, reloadInLockout } from "./stories/load.ts";
-import { deviceSamples, samples as sessionSamples } from "./stories/samples.ts";
+import {
+  manyDevices,
+  manyNewSessions,
+  manyScreens,
+  manySessions,
+  reloadInLockout,
+} from "./stories/load.ts";
+import { deviceSamples, emailEdgeSamples, samples as sessionSamples } from "./stories/samples.ts";
 import {
   deviceChain,
   deviceFirst,
   deviceSessionForgotten,
   readCleanupDies,
+  reloadedChoosing,
   reloadedMidHandle,
   returnSavedLate,
   saveCleanupDies,
@@ -54,6 +61,7 @@ export const signIn = manifest({
     bannerReloaded,
     returnSavedLate,
     reloadedMidHandle,
+    reloadedChoosing,
     handleRetry,
     unsureSaveRemoved,
     blankHandle,
@@ -65,6 +73,7 @@ export const signIn = manifest({
     saveCleanupDies,
     manyScreens,
     manySessions,
+    manyNewSessions,
     emptyEmail,
     longEmail,
     emptyCode,
@@ -77,8 +86,8 @@ export const signIn = manifest({
     deviceChain,
     signOutRetiredLink,
   },
-  samples: [samples, sessionSamples, deviceSamples, bannerSamples],
-  stressSamples: [samples, sessionSamples, deviceSamples, bannerSamples],
+  samples: [samples, sessionSamples, emailEdgeSamples, deviceSamples, bannerSamples],
+  stressSamples: [samples, sessionSamples, emailEdgeSamples, deviceSamples, bannerSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),

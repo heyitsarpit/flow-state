@@ -100,8 +100,21 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/construction.ts",
-        find: "    () => !Schema.is(schema)(start.value),",
+        find: "    () => !Schema.is(schema)(value),",
         replace: "    () => false,",
+      },
+    ],
+  },
+  {
+    name: "computed-start-accepted",
+    tests: ["tests/turn/creation.test.ts"],
+    says: "a function given to Flow.initial is judged as a constant, so it is refused only when its Schema refuses a function",
+    rule: "Compile R5",
+    edits: [
+      {
+        file: "src/construction.ts",
+        find: "  if (Predicate.isFunction(value))",
+        replace: "  if (Predicate.isFunction(value) && false)",
       },
     ],
   },

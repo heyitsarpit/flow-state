@@ -1,5 +1,5 @@
-import { Option, Result } from "effect";
-import { type Compiled, type Field, Source, Target, type Values } from "./compiled.ts";
+import { Option } from "effect";
+import { type Compiled, Source, Target, type Values } from "./compiled.ts";
 
 /**
  * The path of every state from the top level down to `leaf`: `ON.PLAYING` gives `ON`, then
@@ -120,71 +120,27 @@ export const historyAfter = (history: ReadonlyMap<string, string>, leaf: string,
 };
 
 /**
- * Why creation refused its input: a field the input lacks or does not type-check, or a computed
- * start that threw.
- */
-export type Uncreated = { readonly field: string; readonly computed: boolean };
-
-// A start that needs no computing: the input's value, a constant, or an optional key's default.
-const startOf = (field: Field, input: Values) =>
-  Source.$match(field.source, {
-    Input: () =>
-      Object.hasOwn(input, field.name) && field.is(input[field.name])
-        ? Result.succeed(Option.some(input[field.name]))
-        : Result.fail<Uncreated>({ field: field.name, computed: false }),
-    Constant: ({ value }) => Result.succeed(Option.some(value)),
-    Computed: () => Result.succeed(Option.none()),
-    Optional: () => Result.succeed(field.fallback),
-  });
-
-const computedRead = (name: string) => () => {
-  // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the read is a callback's defect, caught by create as that callback's failure
-  throw new Error(`a computed start read the computed field ${name}`);
-};
-
-/**
- * A new incarnation's memory from its input: each input field checked by its Schema's type side
- * and copied, then constant starts, then computed starts reading the input and constant fields.
+ * A new incarnation's memory from its input, which its boundary already checked: each input field
+ * copied, each constant start, and each optional key's default.
  *
  * **Details**
  *
  * Pure and deterministic: no decode transforms the input, and no clock or randomness is read. An
  * optional key the input does not give stays absent unless its Schema has a constructor default.
  */
-export const create = (compiled: Compiled, input: Values) => {
-  // FLOW_STATE_ALLOW_UNKNOWN: field values have the definition's types; creation passes them through.
-  const known = new Map<string, unknown>();
-
-  for (const field of compiled.fields) {
-    const start = startOf(field, input);
-
-    if (Result.isFailure(start)) return Result.fail(start.failure);
-
-    if (Option.isSome(start.success)) known.set(field.name, start.success.value);
-  }
-
-  // A computed start reads the input and constant fields only: reading a computed one, spread
-  // included, is its defect.
-  const read: Values = Object.defineProperties(
-    Object.fromEntries(known),
-    Object.fromEntries(
-      compiled.fields
-        .filter((f) => Source.$is("Computed")(f.source))
-        .map((f) => [f.name, { get: computedRead(f.name), enumerable: true }]),
+// RETURN_TYPE: memory is the Values every incarnation holds, not the entries' literal shape.
+export const create = (compiled: Compiled, input: Values): Values =>
+  Object.fromEntries(
+    compiled.fields.flatMap((field) =>
+      Option.toArray(
+        Option.map(
+          Source.$match(field.source, {
+            Input: () => Option.some(input[field.name]),
+            Constant: ({ value }) => Option.some(value),
+            Optional: () => field.fallback,
+          }),
+          (value) => [field.name, value] as const,
+        ),
+      ),
     ),
   );
-
-  const memory = new Map(known);
-
-  for (const field of compiled.fields)
-    if (Source.$is("Computed")(field.source)) {
-      const { compute } = field.source;
-      const value = Result.try({ try: () => compute.run(read), catch: () => field.name });
-
-      if (Result.isFailure(value))
-        return Result.fail<Uncreated>({ field: field.name, computed: true });
-      memory.set(field.name, value.success);
-    }
-
-  return Result.succeed<Values>(Object.fromEntries(memory));
-};

@@ -89,11 +89,10 @@ describe("Machines O1, Compile R4, R5: a definition's fields and operations", ()
   });
 });
 
-// Inverted: the line marked `wrong` compiles today. When computed starts are removed it fails the
-// check: put `@ts-expect-error` on it, naming the rule.
-describe("Compile R5 (inverted): Flow.initial takes a constant only", () => {
-  it("a function start, which stores a value other fields determine", () => {
+describe("Compile R5: Flow.initial takes a constant only", () => {
+  it("a function start, which stores a value other fields determine, is a type error", () => {
     expectTypeOf(Flow.initial(Schema.String, "").schema.Type).toEqualTypeOf<string>();
-    void Flow.initial(Schema.String, (fields) => String(fields["email"])); // wrong: a computed start
+    // @ts-expect-error Compile R5: a computed start
+    void Flow.initial(Schema.String, (fields: { readonly email: string }) => fields.email);
   });
 });

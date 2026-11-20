@@ -81,14 +81,12 @@ export const operationOf = (name: string, bound: Bound) => {
 };
 
 // RETURN_TYPE: the Compiled Source each start becomes.
-const sourceOf = (name: string, marked: FieldMarker): Source => {
+const sourceOf = (marked: FieldMarker): Source => {
   if (!isMarker(marked) || marked["~flow"] === "private") return Source.Optional();
 
   if (marked["~flow"] === "input") return Source.Input();
 
-  return marked.start._tag === "Computed"
-    ? Source.Computed({ compute: { slot: `memory.${name}`, run: marked.start.compute } })
-    : Source.Constant({ value: marked.start.value });
+  return Source.Constant({ value: marked.value });
 };
 
 // RETURN_TYPE: the Compiled shape this part builds.
@@ -96,7 +94,7 @@ export const fieldOf = (name: string, raw: FieldMarker): Field => {
   const marked = unwrapPrivate(raw);
   const schema = schemaOfField(raw);
 
-  const source = sourceOf(name, marked);
+  const source = sourceOf(marked);
   const json = Schema.toCodecJson(schema);
   const walk = walkerOf(json);
 

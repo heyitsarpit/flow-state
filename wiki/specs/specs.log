@@ -540,3 +540,8 @@ note 2026-11-20T01:37:57Z
     @spec.Actors.R1: scope and persistence go together or not at all, as the type says; an untyped scope alone is
     now refused at persistence, since nothing else reads scope (@task.V3.T105 ruling 3). Reverse: make scope optional
     alone again and drop the setup check.
+
+note 2026-11-20T01:52:42Z
+    @spec.Compile.R5, R6: computed Flow.initial removed (user ban); creation is total and trusts the input its entry
+    checked, so a fresh start is never refused: the refused-start snapshot branch, its test and fault retired (T56
+    re-adds one if migration needs it; @task.V3.T105). Reverse: restore Source.Computed and create's Result.

@@ -63,7 +63,8 @@ const corruptionsOf = (value: Sample): ReadonlyArray<Corrupt> => {
       return [
         { how: `${key} dropped`, value: rest, mayPass: true },
         { how: `${key} wrong`, value: { ...fields, [key]: wrongFor(inner) }, mayPass: false },
-        { how: `${key} null`, value: { ...fields, [key]: null }, mayPass: false },
+        // A field already null is left as it was, so its null is no corruption.
+        { how: `${key} null`, value: { ...fields, [key]: null }, mayPass: inner === null },
         ...(key === "ending" && isRecordLike(inner)
           ? corruptionsOf(inner).map((c) => ({
               how: `ending.${c.how}`,

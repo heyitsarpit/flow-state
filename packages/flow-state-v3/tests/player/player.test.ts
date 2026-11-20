@@ -3,24 +3,24 @@ import { player } from "../../fixtures/player/app.ts";
 import { Speaker } from "../../fixtures/player/server/speaker.ts";
 import { usual } from "../../fixtures/player/stories/usual.ts";
 import { played } from "../rules/played.ts";
+import { labelOf } from "../../fixtures/player/machines/player.ts";
 
 describe("the usual player Story", () => {
-  it("starts from its ref's input, with its constants and a computed label read from the input and the private device, OFF (Compile R5, R6; Actors R5, R6)", async () => {
+  it("starts from its ref's input and its constants, OFF, its label derived from the input and the private device (Compile R5, R6; Actors R5, R6)", async () => {
     const run = await played(usual);
 
+    const memory = {
+      room: "lounge",
+      trackId: "",
+      pos: 0,
+      notice: "",
+      device: "living-room",
+    };
+
     expect(run.evidence.find((e) => e._tag === "Published")).toEqual(
-      expect.objectContaining({
-        state: "OFF",
-        memory: {
-          room: "lounge",
-          trackId: "",
-          pos: 0,
-          notice: "",
-          device: "living-room",
-          label: "lounge: living-room",
-        },
-      }),
+      expect.objectContaining({ state: "OFF", memory }),
     );
+    expect(labelOf(memory)).toBe("lounge: living-room");
   });
 
   it("enters a compound at its default leaf and moves between its children, the tick counting only while PLAYING (Turn R1, R3, R14)", async () => {

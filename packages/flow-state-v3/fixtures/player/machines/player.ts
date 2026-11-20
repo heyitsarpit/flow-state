@@ -25,10 +25,6 @@ export const Player = definition({
     pos: Flow.initial(Schema.Number, 0),
     notice: Flow.initial(Schema.String, ""),
     device: Flow.private(Flow.initial(Schema.String, "living-room")),
-    label: Flow.initial(
-      Schema.String,
-      (fields) => `${String(fields["room"])}: ${String(fields["device"])}`,
-    ),
   },
   operations: ({ E }) => ({
     play: play.outcomes({
@@ -38,6 +34,12 @@ export const Player = definition({
     }),
   }),
 });
+
+/**
+ * The player's label, its room and its speaker, derived where it is shown.
+ */
+export const labelOf = (memory: { readonly room: string; readonly device: string }) =>
+  `${memory.room}: ${memory.device}`;
 
 /**
  * A music player: OFF, or ON while BUFFERING, PLAYING or PAUSED. Play buffers a track on the

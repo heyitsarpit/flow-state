@@ -256,15 +256,25 @@ const RESERVED_FIELD = "_tag";
 const reservedField = (at: ReadonlyArray<string | number>, owner: string) =>
   invalid(at, "ReservedField", `${owner} declares _tag`, "Rename the field: _tag is Flow's.");
 
-// A constant start its field's Schema refuses, checked by the Schema's type side, never run.
+// A start given as a function, never run, or a constant its field's Schema refuses, checked by
+// the Schema's type side.
 // RETURN_TYPE: one Finding type for every rule's literal.
 const constantFinding = (name: string, raw: Field): Option.Option<Finding> => {
   const field = unwrapPrivate(raw);
 
-  if (!isMarker(field) || field["~flow"] !== "initial" || field.start._tag !== "Constant")
-    return Option.none();
+  if (!isMarker(field) || field["~flow"] !== "initial") return Option.none();
 
-  const { schema, start } = field;
+  const { schema, value } = field;
+
+  if (Predicate.isFunction(value))
+    return Option.some(
+      invalid(
+        ["memory", name],
+        "ComputedStart",
+        `${name} starts from a function`,
+        "Start the field at a constant; derive a value other fields determine where it is read, or take it as an input.",
+      ),
+    );
 
   return Option.liftPredicate(
     invalid(
@@ -273,7 +283,7 @@ const constantFinding = (name: string, raw: Field): Option.Option<Finding> => {
       `${name}'s constant start is not a value of its Schema`,
       "Start the field at a value of its Schema's type, such as a Date for DateFromString.",
     ),
-    () => !Schema.is(schema)(start.value),
+    () => !Schema.is(schema)(value),
   );
 };
 

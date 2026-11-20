@@ -1,4 +1,4 @@
-import { Option, Result } from "effect";
+import { Option } from "effect";
 import { publicMemory } from "../core/compiled.ts";
 import type { Compiled, Values } from "../core/compiled.ts";
 import { inputOfName } from "../core/identity.ts";
@@ -110,8 +110,7 @@ const operationsOf = (world: World, machines: Machines, actor: ActorId): Operati
   return rows;
 };
 
-// The memory an ensure would start an identity with, or the field whose start is refused: what a
-// quarantined record's snapshot shows.
+// The memory an ensure would start an identity with: what a quarantined record's snapshot shows.
 const freshStart = (compiled: Compiled, actor: ActorId) =>
   create(compiled, inputOfName(compiled, actor.name));
 
@@ -155,12 +154,10 @@ export const snapshotIn = (
   const quarantined = world.quarantined.get(actorRecordKey(key));
 
   // A record the boot could not read shows the fresh start an ensure would make, with its issue.
-  // When that start is refused too there is no memory to show, so there is no snapshot; the boot's
-  // RecordUndecodable evidence names the record.
   if (quarantined !== undefined && compiled !== undefined)
-    return Option.map(Result.getSuccess(freshStart(compiled, actor)), (memory) => ({
+    return Option.some({
       state: compiled.initial,
-      memory,
+      memory: freshStart(compiled, actor),
       operations,
       lifecycle: restingLifecycleOf(world.life, "quarantined"),
       context: {},
@@ -175,7 +172,7 @@ export const snapshotIn = (
         }),
       ],
       schedules: [],
-    }));
+    });
 
   return Option.map(Option.fromUndefinedOr(ended), (x) => ({
     state: x.state,

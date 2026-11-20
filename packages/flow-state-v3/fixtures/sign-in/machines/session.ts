@@ -38,7 +38,7 @@ export const AuthSession = definition({
   },
   memory: {
     email: Flow.input(Schema.String),
-    handle: Flow.initial(Schema.String, (fields) => String(fields["email"]).split("@")[0] ?? ""),
+    handle: Flow.initial(Schema.String, ""),
     refreshToken: Flow.private(Flow.initial(Schema.String, "")),
     edited: Flow.initial(Schema.Boolean, false),
     held: Flow.initial(Schema.Boolean, false),
@@ -61,9 +61,19 @@ export const AuthSession = definition({
 
 type Memory = { readonly email: string; readonly handle: string; readonly edited: boolean };
 
+/**
+ * The handle a session would save: the one typed or loaded, a blank one included once typed, else
+ * the email's prefix, derived where it is read.
+ */
+export const chosen = (memory: Memory) => {
+  if (memory.edited || memory.handle !== "") return memory.handle;
+
+  return memory.email.split("@")[0] ?? "";
+};
+
 const handleOf = ({ memory }: { readonly memory: Memory }) => ({
   email: memory.email,
-  handle: memory.handle,
+  handle: chosen(memory),
 });
 
 const account = ({ memory }: { readonly memory: Memory }) => ({ email: memory.email });
@@ -119,7 +129,7 @@ export const AuthSessionMachine = machine(AuthSession, ({ S, O }) => {
           SubmitHandle: [
             {
               target: S.SIGNED_IN,
-              guard: [({ memory }) => memory.handle === "" || deny("HasHandle")],
+              guard: [({ memory }) => chosen(memory) === "" || deny("HasHandle")],
             },
             { target: S.CONFIRMING, guard: [({ memory }) => !memory.edited || deny("Edited")] },
             save,
@@ -132,7 +142,11 @@ export const AuthSessionMachine = machine(AuthSession, ({ S, O }) => {
           SubmitHandle: { actions: [O.save.commit(handleOf)] },
           Saved: {
             target: S.SIGNED_IN,
-            updateMemory: ({ event }) => ({ held: false, saved: event.handle }),
+            updateMemory: ({ event }) => ({
+              held: false,
+              handle: event.handle,
+              saved: event.handle,
+            }),
           },
           Refused: {
             target: S.HANDLE_FAILED,

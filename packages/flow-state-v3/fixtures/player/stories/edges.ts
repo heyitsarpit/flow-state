@@ -1,5 +1,7 @@
+import { samplesOf } from "../../../src/host/testing/index.ts";
 import { actorRef } from "../../../src/index.ts";
 import { player, timerOf } from "../app.ts";
+import { Speaker } from "../server/speaker.ts";
 import { Player, PlayerMachine } from "../machines/player.ts";
 import { SleepTimer } from "../machines/sleep-timer.ts";
 import { after, LONGEST_MS, musicStory, setLongest, setNow, timedStory } from "./usual.ts";
@@ -28,6 +30,29 @@ export const longRoomPlays = musicStory("player/long-room")
   .ensure(longRoom)
   .send(longRoom, Player.E.Play({ trackId: "t1" }))
   .checkpoint("playing");
+
+/**
+ * Players of an empty room and a million-character room, for generated runs: each plays, pauses,
+ * resumes and stops, and the speaker refuses a track.
+ */
+export const roomEdgeSamples = samplesOf({
+  id: "player-room-edges",
+  story: musicStory("player-room-edges/samples"),
+  names: { setup: "musicSetup", fixtures: ["SpeakerFake"] },
+  actors: { emptyRoomPlayer, longRoom },
+  servers: { Speaker },
+  failures: [Speaker.block({ trackId: "t1" })],
+  landedFailures: [],
+  values: {},
+  controls: [],
+  steps: (story) =>
+    story
+      .send(emptyRoomPlayer, Player.E.Play({ trackId: "t1" }))
+      .send(longRoom, Player.E.Play({ trackId: "t1" }))
+      .send(emptyRoomPlayer, Player.E.Pause())
+      .send(longRoom, Player.E.Resume())
+      .send(emptyRoomPlayer, Player.E.Stop()),
+});
 
 /**
  * A listener seeks past the end of the track, then to a negative position, a second apart.

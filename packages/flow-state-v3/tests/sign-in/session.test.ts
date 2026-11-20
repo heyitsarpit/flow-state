@@ -13,8 +13,14 @@ import {
   submitTwice,
   unconfirmedPrefill,
 } from "../../fixtures/sign-in/stories/findings.ts";
-import { manyScreens, manySessions, reloadInLockout } from "../../fixtures/sign-in/stories/load.ts";
 import {
+  manyNewSessions,
+  manyScreens,
+  manySessions,
+  reloadInLockout,
+} from "../../fixtures/sign-in/stories/load.ts";
+import {
+  reloadedChoosing,
   reloadedMidHandle,
   returnSavedLate,
   screenFirst,
@@ -23,17 +29,20 @@ import {
 } from "../../fixtures/sign-in/stories/structure.ts";
 import { handleRetry } from "../../fixtures/sign-in/stories/usual.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
+import { chosen } from "../../fixtures/sign-in/machines/session.ts";
 import { played } from "../rules/played.ts";
 
 const setUsernames = (cut: Cut) => cut.calls.filter((c) => c.endpoint === "setUsername").length;
 
 describe("a persisted session around the sign-in screen", () => {
-  it("Compile R5; Turn R23: the session's handle starts computed from its email, and a Story sees the private refresh token the profile service gave it (Machines O8)", async () => {
+  it("Compile R5; Turn R23: the session's handle starts empty and the one it would save is derived from its email, and a Story sees the private refresh token the profile service gave it (Machines O8)", async () => {
     const run = await played(handleRetry);
+    const opened = run.checkpoints.opened.read(mainSession)?.memory;
 
-    expect(run.checkpoints.opened.read(mainSession)?.memory).toEqual(
-      expect.objectContaining({ email: "elif@kamp.us", handle: "elif", refreshToken: "" }),
+    expect(opened).toEqual(
+      expect.objectContaining({ email: "elif@kamp.us", handle: "", refreshToken: "" }),
     );
+    expect(opened && chosen(opened)).toBe("elif");
     expect(run.checkpoints.stuck.read(mainSession)?.memory.refreshToken).toBe("rt-elif@kamp.us");
   });
 
@@ -89,15 +98,17 @@ describe("a persisted session around the sign-in screen", () => {
     expect(run.checkpoints.confirmed.read(mainSession)?.state).toBe("SIGNED_IN");
   });
 
-  it("Actors R21: signing out forgets the session, so the next one starts signed out with its handle computed again", async () => {
+  it("Actors R21: signing out forgets the session, so the next one starts signed out with no handle, its email's prefix chosen again", async () => {
     const run = await played(signOutForgets);
+    const fresh = run.checkpoints.fresh.read(mainSession);
 
-    expect(run.checkpoints.fresh.read(mainSession)).toEqual(
+    expect(fresh).toEqual(
       expect.objectContaining({
         state: "SIGNED_OUT",
-        memory: expect.objectContaining({ handle: "elif", refreshToken: "" }),
+        memory: expect.objectContaining({ handle: "", refreshToken: "" }),
       }),
     );
+    expect(fresh && chosen(fresh.memory)).toBe("elif");
   });
 });
 
@@ -115,9 +126,46 @@ describe("many sign-ins (fixtures.md L1, S3)", () => {
     expect(run.checkpoints.end.read(sessionOf(15))?.state).toBe("SIGNED_IN");
     expect(run.checkpoints.end.read(sessionOf(0))?.memory.handle).toBe("user0");
   });
+
+  it("S3 x 16 under L4, Compile R5: 16 new accounts choose after two reloads, each storing no handle and choosing its email's prefix; an unedited one asks to confirm", async () => {
+    const run = await played(manyNewSessions);
+    const { choosing, end } = run.checkpoints;
+
+    for (const n of [0, 7, 15]) {
+      const session = choosing.read(sessionOf(n));
+
+      expect(session?.state).toBe("CHOOSING");
+      expect(session?.memory.handle).toBe("");
+      expect(session && chosen(session.memory)).toBe(`user${String(n)}`);
+    }
+
+    expect(end.read(sessionOf(0))?.state).toBe("CONFIRMING");
+    expect(end.read(sessionOf(1))?.state).toBe("CHOOSING");
+  });
 });
 
 describe("the session's ends (fixtures.md S6)", () => {
+  it("S9, Compile R5: a new account reloaded while choosing still stores no handle, and confirming saves its email's prefix once", async () => {
+    const run = await played(reloadedChoosing);
+    const { reloaded, saved } = run.checkpoints;
+
+    expect(reloaded.read(mainSession)).toEqual(
+      expect.objectContaining({
+        state: "CHOOSING",
+        memory: expect.objectContaining({ handle: "" }),
+      }),
+    );
+    expect(saved.read(mainSession)).toEqual(
+      expect.objectContaining({
+        state: "SIGNED_IN",
+        memory: expect.objectContaining({ handle: "elif", saved: "elif" }),
+      }),
+    );
+    expect(
+      saved.calls.filter((c) => c.endpoint === "setUsername").map((c) => c.input["handle"]),
+    ).toEqual(["elif"]);
+  });
+
   it("S6 screen first: the unpersisted screen ends while the session lives on", async () => {
     const run = await played(screenFirst);
 
@@ -162,10 +210,12 @@ describe("emails at their edges (fixtures.md E1, E3)", () => {
     );
   });
 
-  it("E1, Compile R5: an empty email computes an empty handle, and the screen sends it to the auth server as typed", async () => {
+  it("E1, Compile R5: an empty email chooses an empty handle, and the screen sends it to the auth server as typed", async () => {
     const run = await played(emptyEmail);
+    const opened = run.checkpoints.opened.read(blankSession)?.memory;
 
-    expect(run.checkpoints.opened.read(blankSession)?.memory.handle).toBe("");
+    expect(opened?.handle).toBe("");
+    expect(opened && chosen(opened)).toBe("");
     expect(
       run.end.calls.filter((c) => c.endpoint === "begin").map((c) => c.input["email"]),
     ).toEqual([""]);
