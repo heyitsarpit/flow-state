@@ -16,6 +16,9 @@ Keep this list by hand: when a package is added, renamed, or deleted, change its
   `interview`), a Plan exists (else `playbook-plan`) and an Epic exists (else `to-epic`), then
   write the loop that runs the Epic into the Epic file: starting and resuming, the review cron,
   mid-run instructions, done states and stops.
+- `collaboration`: the entry point for work with the user present. Answer first and act on the
+  user's go, put decisions in numbered rounds with a recommendation, record only what the user
+  confirms, and carry a proposal from draft to merged Plans, Specs and Tasks.
 
 ## Playbooks
 
@@ -106,7 +109,10 @@ Each is the standard for one kind of work.
 - `policy-delegation`: hand work to other agents: models by harness, lead and sidecar roles for
   coding and reviews, briefs, write scopes, results from evidence.
 - `policy-code-composition`: module boundaries, interfaces, and how parts compose.
+- `policy-module-composition`: how the whole system's modules compose: layers of trust, rings, the stated
+  composition and how it stays enforced.
 - `policy-code-correctness`: valid states, invariant ownership, and operation contracts.
-- `policy-records`: what belongs in Plans, Specs, Epics, Tasks, and explorations; the decision
-  convention.
+- `policy-records`: what belongs in Plans, Specs, Epics, Tasks, and Markdown records; the syntax
+  they share: frontmatter, inline tags for decisions, deferrals and questions, and the `Refs:`
+  commit trailer.
 - `policy-writing`: plain, lead-with-the-point prose for records, skills, and instructions.

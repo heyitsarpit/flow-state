@@ -32,8 +32,8 @@ Link a Task to an existing outcome with `satisfies`: `@task.Example.T1` to `@pla
 ## Epic loop and phase card
 
 Epic loop fields follow the contract fields in this order, each at most once: `skill`, `run`,
-`instructions`, `cadence`, `stops`. Notes go in `<EPIC>.log` beside it, as `note TIMESTAMP` entries
-(timestamps never decrease; body 1 to 3 lines). A phase has `title`, optional `description`, `comment TIMESTAMP` entries, then `tasks`.
+`instructions`, `cadence`, `stops`. Notes go in `log.task` beside it, as `note TIMESTAMP` entries
+(timestamps never decrease). A phase has `title`, optional `description`, `comment TIMESTAMP` entries, then `tasks`.
 
 ```text
 epic Example
@@ -46,17 +46,16 @@ stops
     A guarantee change.
 ```
 
-Its notes, in `Example.log` in the same Epic folder (a dangling link here is an error):
+Its notes, in `log.task` in the same Epic folder (a dangling link here is a warning, not an error):
 
 ```text
 log Example
-
 note 2026-11-09T03:15:00Z
     The user: keep going.
-
 note 2026-11-09T04:00:00Z
-    Decision (agent, 2026-11-09): build the delay before the queue, for @task.Example.T1. Why: the queue calls
-    it. Reverse: stub the delay in the queue.
+    [decided: agent builder 2026-11-09] Build the delay before the queue (@task.Example.T1).
+    Why: the queue calls it.
+    Reverse: stub the delay in the queue.
 ```
 
 The phase lives in the same Epic folder, in `P1.task`:
@@ -91,6 +90,43 @@ of `--set labels=a --set labels=b`, `--set labels=[a, b]` or `--set labels=a,b`.
 ```json
 { "skills": ["/path/to/skills/suites/workflow", "/path/to/another/library"] }
 ```
+
+## Markdown record
+
+Any `.md` file under `wiki/` with frontmatter, here `wiki/proposals/2026-11-20-rules.md`. The kind
+(`proposal`) must be declared in `wiki/config.json` with its status list. Links work anywhere in
+the prose; tags follow a heading or bold lead term.
+
+````md
+---
+proposal rules
+status accepted user 2026-11-20
+    proposed 2026-11-19
+supersedes @proposal.rules-cohesion
+---
+# Rules on machines
+
+**Bottom line:** every run judges the rules written beside a machine (@task.Example.T1).
+
+- **Two rule kinds** [decided: user 2026-11-20]: `invariants` and `turns`.
+- **Retry GET only** [decided: agent builder 2026-11-20]. Why: a POST can charge twice.
+  Reverse: retry every request.
+- **Coverage view** [deferred: user 2026-11-20]. Reopen if: a team asks for it outside the CLI.
+- **Subjects on pairs** [open: 2026-11-20; recommend A]
+````
+
+```json
+{
+  "skills": ["/path/to/skills/suites/workflow"],
+  "kinds": { "proposal": { "status": ["draft", "proposed", "accepted", "partial", "rejected",
+    "superseded", "merged", "withdrawn"] }, "convention": {} },
+  "areas": ["Example", "Proposal", "Wiki"]
+}
+```
+
+Tag verbs: `proposed`, `decided`, `accepted`, `rejected`, `deferred`, `reopened`, `answered`,
+`dropped`, `open`. A commit names the records it touches in a trailer:
+`Refs: @proposal.rules @task.Example.T1`.
 
 ## Proposed Spec
 

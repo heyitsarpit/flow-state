@@ -54,7 +54,9 @@ That check does not prove the substituted adapter or full E2E integration.
 
 Gather a piece of work's requirements once, before code, and write each as a check that fails
 today; then build until they pass. "Done" means those checks are green, not that the builder says
-so. Review findings are requirements that were missed: add each as a failing check before its fix.
+so. Review findings are requirements that were missed: add each as a failing check before its fix,
+and first name why the existing tests missed it (the scenario, input, edge value, rule or sweep
+that was absent), then add that coverage for the whole class, not only the one case.
 
 - **List them once:** every rule the work must keep, each with its source (a Spec rule, an accepted
   decision), and the known cases where reality cannot show the answer. One lead gathers the list with

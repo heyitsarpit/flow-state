@@ -1,35 +1,40 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "build-a-loop": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "a1598ec5614a736441d972862a66e6ea513df465f079ba8a9403170fec8400ee"
+      "computedHash": "b7f7e96f27f9ad18dd5782f0088b9596a149593e7fbb6adfe2beb0df86cba1c4"
+    },
+    "collaboration": {
+      "source": "../workflow/skills/suites/workflow",
+      "sourceType": "local",
+      "computedHash": "06e6209305821453d999eebe396857378da00b4bd11a6430128c31bf4ddf0764"
     },
     "compact-records": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "f129ad84a6a091f62053a20443da399563aaadefb706ca3e864dd69a44a1d017"
+      "computedHash": "71e559ef043e478d21720a33faf4030a83c97760b17b5bead0110bd9591544b6"
     },
     "effect-api-documentation": {
       "source": "../workflow/skills/suites/effect",
       "sourceType": "local",
-      "computedHash": "60b41e52d6b6f8f1b651e3111af434017e92650f4572ee53b618c4f3fe74be12"
+      "computedHash": ""
     },
     "policy-testing": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "5661f9c707d11fe19b10d2ccca0200f2971fb93bc1eac91934351387c4a09323"
+      "computedHash": "f9f134fd2703f3ad7170744cfa63c1f38657e9e0c4da97094443137458277cb9"
     },
     "wk": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "a01ba1866d5d2ba1922b165def5b6db0b09c4639e44a87fdbb558cdacb0684b6"
+      "computedHash": "2d9b8f2383373632eed4f7b2742db1372100c343f78fa01a892a01a33f8bfccc"
     },
     "workflow": {
       "source": "../workflow/skills/suites/workflow",
       "sourceType": "local",
-      "computedHash": "67816236086cbdf39d2a422ce9d04972915398ca37084b67afa5976dcc093523"
+      "computedHash": "b22109d6fc4b7351450b85f830c762fcb9a77d0ae5beb2358ac938c99e0f3c29"
     }
   }
 }

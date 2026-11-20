@@ -24,6 +24,8 @@ what the user has said about this project, and when to stop. This skill writes t
 `draft` Epic file and runs nothing; the user approves the Epic and its loop together. Starting a
 run is then one line: "run the loop in `wiki/tasks/<EPIC>/epic.task`". The agent given that
 line is the orchestrator; it follows the loop's `run` and opens only the packages the loop names.
+Work with the user present, before or between runs, follows skill:collaboration; both write the
+same records.
 
 ## Start here: what must exist first
 
@@ -130,7 +132,7 @@ Write the loop into the `draft` Epic, after the user confirmed its summary.
    must say what it does first, how it judges a result, when it stops, what it may not do, and
    which of the user's instructions apply. Fix what it got wrong.
 10. **Show the user the loop,** or its difference from the confirmed loop headline, with the
-    reasons, for approval together with the Epic (skill:to-epic, section 4, step 12). Return the
+    reasons, for approval together with the Epic (skill:to-epic, section 4, step 13). Return the
     Epic path, the chosen models and why, the stops, and the cold-read result. Then stop. The Epic
     stays `draft` until the user approves both.
 
@@ -143,7 +145,7 @@ stay in Task comments.
 
 These are the defaults every loop follows; its `run` links them at the pinned library revision. A
 number in a rule is a default, with its reason: the Epic's `instructions` or `cadence` overrides it
-for that project. Rules are numbered R1 to R46 across all sections, and are cited by number and
+for that project. Rules are numbered R1 to R48 across all sections, and are cited by number and
 short name.
 
 ### Start or resume a run
@@ -185,7 +187,11 @@ short name.
   their `Matched at` revision, with no covered code changed since. A change to a suite, its test
   harness or the code it covers means proving it again (skill:policy-verification).
 - **R11 Close-out reviews.** A close-out review at the end of each phase, and of each area when a
-  phase is split into areas; at the end of a phase, the completion audit follows (R18).
+  phase is split into areas; at the end of a phase, the completion audit follows (R18). Each close-out also asks
+  one system question, apart from the per-Task checks: is any cross-cutting property being decided module by
+  module rather than once for the system, and does the code still match its composition
+  (skill:policy-module-composition)? Cross-cutting properties include trust boundaries, error attribution,
+  identity, persistence, concurrency and budgets. One decided per module goes to a system pass (R35).
 - **R12 Authority and claims.** Act within the authority in the Epic's description. Claim only what
   you checked. A step that contradicts a user constraint is a defect: stop and note it.
 - **R13 One place per fact.** New items go through skill:to-epic#adding-work-later, which also
@@ -198,8 +204,8 @@ short name.
 
 ### A new instruction from the user
 
-- **R14 Record it** as a note: `Decision (user, <date>): "<the user's words>". Scope: <the whole
-  run, or named phases or Tasks>.`
+- **R14 Record it** as a note: `[decided: user <date>] "<the user's words>". Scope: <the whole
+  run, or named phases or Tasks>.` (skill:policy-records#tags).
 - **R15 Apply it.** A new usage reserve applies at once: edit the Epic's Limits section and note
   it. If it changes the approved authority, stops, the failure limit or a phase goal, restate it
   to the user in one line ("I read this as: ...") and wait for the user's confirmation before
@@ -211,16 +217,18 @@ short name.
 - **R16 No changes on its own.** Only the user changes the frame: the constraints, the phase
   classes, the rules' overrides in `instructions`, the authority, `stops`, the failure limit, the
   usage reserve and the `skill` pin. A change the orchestrator wants is a numbered question to the
-  user; other work goes on while it waits. A change made with the user's yes is an Epic note,
-  `Amendment (<date>, <judge>): <change>. Commit: <rev>.`, with `instructions` or the description
-  edited in the same change.
+  user, in skill:collaboration#decision-rounds's form; other work goes on while it waits. A
+  change made with the user's yes is an Epic note, `Amendment (<date>, <judge>): <change>.
+  Commit: <rev>.`, with `instructions` or the description edited in the same change.
 
 ### Done states
 
 - **R17 Task done.** The author sets `status review` when it hands its work over. An independent
   agent checks it (skill:check-task) and writes its verdict in a Task comment: PASS, ISSUES or
   BLOCKED, with the revision and the evidence. On PASS, the orchestrator sets `status done`; on
-  ISSUES, the Task goes back to its author. An author never marks its own Task done.
+  ISSUES, the Task goes back to its author. An author never marks its own Task done. Each
+  accepted finding names why the tests missed it, and its fix covers that class
+  (skill:policy-testing).
 - **R18 Phase done.** A phase has no status. It is done when every Task in it is done, every
   finding of its close-out review is fixed or recorded as deferred, and its completion audit has
   written PASS as a phase comment. The completion audit also lists the Plan outcomes the phase's
@@ -229,6 +237,13 @@ short name.
   The orchestrator then notes "Phase <P> done", and compacts the phase's records with
   skill:compact-records before the next phase starts. The next phase starts only if the authority
   allows it; otherwise that is a stop.
+- **R48 Breakdown review at each phase's start.** Before a phase's first Task starts, one
+  independent lead reviews every Task in the phase, and the open and draft Tasks after it that the
+  phase's work touches, against skill:to-task step 1: boundaries along state ownership, every rule
+  that writes one state in one Task, splits only along disjoint state with a narrow seam, owners
+  before readers, and none of the signs of a wrong boundary. The orchestrator re-splits, merges or
+  reorders within its authority before the first Task starts, noting each change; a change to scope
+  is the user's.
 - **R19 Epic done.** After the last phase, a completion audit of the goal and every stage exit,
   and of every in-scope Plan outcome: each one delivered, or deferred in writing. On
   PASS, the orchestrator sets the Epic's `status closed`, removes the review cron, and appends a
@@ -317,12 +332,18 @@ short name.
 
 ### Review, convergence and verification
 
-- **R35 Converge at the threshold.** When the convergence threshold is reached, converge
-  (skill:policy-convergence); before that, patch. `instructions` may set another threshold. Minor
+- **R35 Converge at the threshold.** When the convergence threshold is reached, or at the first
+  finding whose cause is structural (skill:policy-convergence#when-to-converge-and-when-to-patch),
+  converge (skill:policy-convergence); otherwise, patch. Converging code that already runs follows
+  skill:policy-convergence#converging-live-code. `instructions` may set another threshold. Minor
   findings with different causes never count. A failure is a comment on the failing part's Task (a
   phase comment for a phase-wide part): `Failure (<date>): root cause: <class>. Count: <n>.
   Revision: <rev>. Review: <link or note>.` The count is per part and root cause, over consecutive
-  reviews; the convergence check and the failure limit read these comments.
+  reviews; the convergence check and the failure limit read these comments. A root cause is also counted across
+  parts. Each failure names its class from a short list kept as an Epic note (for example "trusts input without
+  decoding"). When one class reaches the convergence threshold summed across two or more parts, the next step is a
+  system pass, not a per-part convergence: the class's cross-cutting property is designed once for the whole
+  system (skill:policy-module-composition), and the parts are then fixed against that design.
 - **R36 Audit before relying.** Each new area's verification suites are audited by
   skill:policy-testing#audit-a-suite, with a lead that did not build them, before work relies on
   them.
@@ -331,6 +352,14 @@ short name.
   part not readily verifiable until it is extended and proven again.
 - **R38 Cited checks still apply.** A Spec, audit or record that cites a check or a mutant is
   re-checked against today's code before it is relied on (skill:policy-verification).
+- **R47 The Task cycle.** Each Task runs one cycle, designed and solved as a whole, never item by
+  item: its requirements, starting from a state inventory with a transition table and one owner for
+  each shared state, committed as failing checks (skill:execute-task, steps 1 and 2); a requirements
+  review on them before any code (skill:check-task#at-the-requirements-review); the build
+  (skill:execute-task); a close review (skill:check-task); and, on ISSUES, one fix round that takes
+  the findings together by root cause, checked by the next review. Task boundaries follow state
+  ownership (skill:to-task, step 1). `instructions` may add to any step (sidecar angles, coverage
+  runs) or drop the requirements review for a Task with no state of its own.
 
 ### Prototypes
 
@@ -347,11 +376,10 @@ These apply only when the Epic uses prototypes, to a phase whose card says "Prot
 - **R41 Specs just in time.** Write Specs only for what is about to be built; later areas get
   theirs when their phase starts. A Spec is revised whenever building shows it wrong, with the
   change and why logged.
-- **R42 Deleting absorbed files.** Only when the Epic keeps proposal or design files outside
-  itself, and its authority lists their deletion: a file that has been merged, accepted or rejected
-  is deleted, with a note naming the last commit that holds it; only deferred and open items stay.
-  Epic notes, Task comments, Plans and Specs are never deleted this way. Without that line in the
-  authority, list the files in a note for the user instead.
+- **R42 Deleting absorbed files.** Only when the Epic keeps proposals or other Markdown records
+  outside itself, and its authority lists their deletion: delete them by
+  skill:policy-records#deleting-absorbed-records, with a note naming the last commit that holds
+  each. Without that line in the authority, list the files in a note for the user instead.
 
 ### Workspace and shell
 

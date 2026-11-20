@@ -4,7 +4,8 @@ description: >-
   Start here. Router and guide for the Workflow skill library: for "where do I start?", "what
   should I run?", "what's next?", "stop", or "how does this work?", it explains the library and
   recommends the playbook or skill to run, or build-a-loop first for long work or a task that needs
-  several playbooks (it leads to interview, playbook-plan, to-epic and the loop in order).
+  several playbooks (it leads to interview, playbook-plan, to-epic and the loop in order), or
+  collaboration for an idea, a decision or a proposal worked through with the user present.
   Recommends only; does not run the work.
 metadata:
   kind: procedure
@@ -34,6 +35,7 @@ separately.
 | The user wants to | Run |
 |---|---|
 | Start long work, or work that needs several playbooks: check what is missing | skill:build-a-loop |
+| Work through an idea, a decision or a proposal with the agent while present | skill:collaboration |
 | Settle what the user wants, when intent is unclear | skill:interview |
 | Plan the work, when there is no adequate Plan | `playbook-plan` |
 | Write the Epic (phases and Tasks) from the Plan | skill:to-epic |
