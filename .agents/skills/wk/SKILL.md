@@ -117,6 +117,9 @@ wk list proposal --status accepted --since 2026-11-15
 wk list question --open
 wk list defer
 wk edit @proposal.rules --status merged --into @plan.Rules
+wk edit @spec.Old --status superseded --into @proposal.spec-handover   # Plan, Task or Spec: writes superseded_by
+wk show @plan.Road --items             # tagged items in a Plan, Epic, phase, Task or Spec prose field
+wk edit @task.Road.T1#retry --tag decided --by user   # the same --tag, on an item inside that record
 wk edit @proposal.rules#two-rule-kinds --tag decided --by user
 wk edit @revisit.flow#bulk-starts --tag deferred --by user --reopen-if "a real app needs it"
 wk edit @proposal.rules#names --tag open --recommend A
@@ -131,8 +134,9 @@ wk migrate docs --kind proposal --dry-run wiki/proposals  # convert older Markdo
 - A tag needs a heading or bold lead term on its line, except in `.log` and `.task` prose, where
   the note or comment is the item (one tag per note). In the same file, link an item as `@#slug`.
   Prose fields of `.plan`, `.task` and `.spec` files read the same way (`@plan.ID#slug`,
-  `@task.EPIC.T1#slug`, `@spec.NAME#slug`); a tag with no lead there is a `TAG_NO_ITEM` lint finding.
-  `wk edit --tag` does not reach them yet: edit the file.
+  `@plan.ID.O1#slug`, `@task.EPIC.T1#slug`, `@spec.NAME#slug`: the owner's address and the slug,
+  unique within the owner); a tag with no lead there is a `TAG_NO_ITEM` lint finding.
+  `wk show OWNER --items` lists them and `wk edit OWNER#slug --tag` changes one, touching only its lines.
 - One home per decision: write a decision once, in the tagged item. To log it, `wk log add V3
   --decision @proposal.rules#retry` writes a pointer from the item's own tag; a note that tags
   `decided` or `accepted` and links an item that has one is `DUPLICATE_DECISION`.
@@ -144,7 +148,11 @@ wk migrate docs --kind proposal --dry-run wiki/proposals  # convert older Markdo
   `- **Needs** \`Name\` from @kind.name: ...`; `SEAM_UNMATCHED` is a Needs with no matching Offers,
   `SEAM_UNUSED` (info) an Offers nothing needs.
 - Tag dates are your local date. A Task may be `superseded` (closed for readiness); so may a Plan or
-  Spec, whose `open_by` evidence stays allowed.
+  Spec, whose `open_by` evidence stays allowed. `--status superseded --into @REPLACEMENT` on a Plan,
+  Task or Spec writes `superseded_by @REPLACEMENT` after its status; the replacement is any record, a
+  Markdown record or one of its items, and one record can replace many. `wk show` prints it as
+  `Superseded by:` and, on the replacement, `Supersedes:`; `wk refs` lists it both ways. Another
+  status removes the link. `wk link --type supersedes` is still for Markdown records.
 - `--tag` writes labels on their own line at the end of the item's paragraph, replaces a label
   that is already there, and drops labels the new verb does not use. It refuses to retag a
   `decided: user` item unless `--by user` (`EDIT_USER_DECISION`).

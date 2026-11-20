@@ -134,6 +134,10 @@ For `create spec --file body=PATH`, supply only sections below the metadata head
 Edit body sections directly after creation. Preserve the supported example's section order.
 Use each operation field once; put multiple guarantees in its indented text block.
 Every coverage row needs `enforced_by`, including proposed mechanisms; retain unresolved `open_by`.
+A coverage entry is one line, `@R1   enforced_by [@I1]   proven_by [@T1]   open_by [@Q1]`, fields in that
+order; `wk format` aligns the columns and wraps only an entry over 120 characters, onto an indented line
+that starts with a field. The old form (the id alone, each field indented under it) is
+`COVERAGE_BLOCK_FORM`.
 
 ```text
 spec Example
@@ -149,9 +153,7 @@ open
 invariants
     I1 Success is reported only after the agreed operation completes. [@R1]
 coverage
-    @R1
-        enforced_by [@I1]
-        open_by [@Q1]
+    @R1   enforced_by [@I1]   open_by [@Q1]
 tests
     T1 Planned behavior check for the agreed operation.
 ```
