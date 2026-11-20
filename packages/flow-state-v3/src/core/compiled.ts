@@ -1,4 +1,11 @@
-import { Data, type Effect, Option, Result, type Schema } from "effect";
+import {
+  Data,
+  type Effect,
+  Option,
+  Result,
+  type Schedule as EffectSchedule,
+  type Schema,
+} from "effect";
 import type { Walker } from "./boundary.ts";
 import type { AttemptId } from "./world.ts";
 
@@ -30,11 +37,12 @@ export type Values = Readonly<Record<string, unknown>>;
 export type Denial = { readonly _tag: "Flow/Denial"; readonly code: string };
 
 /**
- * What one guard element reads: the pre-turn state, memory and event.
+ * What one guard element reads: the pre-turn state, memory, context and event.
  */
 export type GuardInput = {
   readonly state: string;
   readonly memory: Values;
+  readonly context: Values;
   readonly event: Values;
 };
 
@@ -87,9 +95,14 @@ export type Action = Data.TaggedEnum<{
 export const Action = Data.taggedEnum<Action>();
 
 /**
- * What an `updateMemory` reads: the pre-turn memory, the event and the turn's time.
+ * What an `updateMemory` reads: the pre-turn memory and context, the event and the turn's time.
  */
-export type UpdateInput = { readonly memory: Values; readonly event: Values; readonly now: number };
+export type UpdateInput = {
+  readonly memory: Values;
+  readonly context: Values;
+  readonly event: Values;
+  readonly now: number;
+};
 
 /**
  * Where an alternative goes: a state (a compound enters its default leaf), or a compound's history
@@ -123,12 +136,62 @@ export type Alternative = {
 export type Level = ReadonlyMap<string, ReadonlyArray<Alternative>>;
 
 /**
- * When a schedule fires after its arming: a fixed delay, or one computed from the after memory and
- * the arming turn's now.
+ * An Effect Schedule a schedule steps: the host steps it, the core holds it as a value.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: any Effect Schedule, whatever its output; only its delays are read.
+export type Series = EffectSchedule.Schedule<unknown>;
+
+/**
+ * One step of an Effect Schedule, as the host takes it: step `attempt` (1 gives the first delay)
+ * of the series `id`, armed at `armedAt`, taken at `now`. It gives the step's delay in
+ * milliseconds and its output, or none once the series is complete.
+ */
+export type StepSchedule = (request: {
+  readonly id: string;
+  readonly series: Series;
+  readonly attempt: number;
+  readonly armedAt: number;
+  readonly now: number;
+}) => Option.Option<{
+  readonly ms: number;
+  // FLOW_STATE_ALLOW_UNKNOWN: an Effect Schedule step's output, whatever its type.
+  readonly output: unknown;
+}>;
+
+/**
+ * What a schedule's functions read: its key (a keyed schedule's), the after memory, the context,
+ * the lanes' rows and the turn's time.
+ */
+export type ScheduleInput = {
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the user callback's `key?`: absent for an unkeyed schedule, as the Plan's API gives it
+  readonly key: Values | undefined;
+  readonly memory: Values;
+  readonly context: Values;
+  // FLOW_STATE_ALLOW_UNKNOWN: the lanes' rows, typed by the definition where the callback reads them.
+  readonly operations: ReadonlyMap<string, ReadonlyMap<string, unknown>>;
+  readonly now: number;
+};
+
+/**
+ * A delay as a schedule computes it: milliseconds, or an Effect Schedule the host steps.
+ */
+export type Planned = Data.TaggedEnum<{
+  Ms: { ms: number };
+  Stepped: { series: Series };
+}>;
+
+/**
+ * Constructors and matchers for {@link Planned}.
+ */
+export const Planned = Data.taggedEnum<Planned>();
+
+/**
+ * When a schedule fires after its arming: a fixed delay, an Effect Schedule, or either computed
+ * from the after memory, the key, the context and the arming turn's now.
  */
 export type Delay = Data.TaggedEnum<{
-  Fixed: { ms: number };
-  Computed: { ms: Slot<(input: { readonly memory: Values; readonly now: number }) => number> };
+  Fixed: { planned: Planned };
+  Computed: { plan: Slot<(input: ScheduleInput) => Planned> };
 }>;
 
 /**
@@ -137,14 +200,42 @@ export type Delay = Data.TaggedEnum<{
 export const Delay = Data.taggedEnum<Delay>();
 
 /**
- * One schedule a state declares.
+ * What a schedule's send maps from: the firing's metadata.
+ */
+export type FiringMetadata = {
+  readonly name: string;
+  readonly attempt: number;
+  readonly armedAt: number;
+  readonly dueAt: number;
+  readonly firedAt: number;
+  // FLOW_STATE_ALLOW_UNKNOWN: an Effect Schedule's output, whatever its type; a Duration has none.
+  readonly output: unknown;
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the send mapper's `key`: absent for an unkeyed schedule, as the Plan's metadata gives it
+  readonly key: Values | undefined;
+};
+
+/**
+ * One schedule a state declares: its delay, the event it sends (mapped from the firing's metadata
+ * when the send is `E.X.from`), the events that arm and disarm it, whether its entry arms it, its
+ * restart selection, its keys and its pause reasons in declaration order.
  */
 export type Schedule = {
   readonly name: string;
+  // The slot its delay is named by (`states.ON.schedules.tick.schedule`).
+  readonly slot: string;
   readonly send: string;
+  readonly from: Option.Option<Slot<(metadata: FiringMetadata) => Values>>;
   readonly delay: Delay;
   readonly armOn: ReadonlyArray<string>;
+  readonly disarmOn: ReadonlyArray<string>;
   readonly onEntry: boolean;
+  // FLOW_STATE_ALLOW_UNKNOWN: a restart selection of any type, compared by Equal.equals.
+  readonly restartOn: Option.Option<Slot<(input: ScheduleInput) => unknown>>;
+  readonly keys: Option.Option<Slot<(input: ScheduleInput) => ReadonlyArray<Values>>>;
+  readonly paused: ReadonlyArray<{
+    readonly reason: string;
+    readonly check: Slot<(input: ScheduleInput) => boolean>;
+  }>;
 };
 
 /**

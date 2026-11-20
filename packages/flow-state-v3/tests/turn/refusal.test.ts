@@ -15,8 +15,8 @@ const busy = (id: string, retryAfterMs: number) =>
     .checkpoint("refused");
 
 describe("TURN-01 (Turn R8, R10, I14; WriteLanes R10)", () => {
-  it("TURN-01/schedule-refused: a negative delay refuses the turn, again on its one redelivery, and leaves Pay as it was", async () => {
-    const run = await played(busy("TURN-01/schedule-refused", -1));
+  it("TURN-01/schedule-refused: a delay past 2^31 - 1 ms refuses the turn, again on its one redelivery, and leaves Pay as it was", async () => {
+    const run = await played(busy("TURN-01/schedule-refused", 2 ** 31));
     const { refused } = run.checkpoints;
 
     expect(state(refused)).toBe("PAYING");

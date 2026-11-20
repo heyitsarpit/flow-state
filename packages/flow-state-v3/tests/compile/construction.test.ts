@@ -395,7 +395,7 @@ describe("the machine adds nothing (Compile R1, R3, R4, T1, T11)", () => {
     ]);
   });
 
-  it("refuses a default that is not a direct child, two schedules of one name, an undeclared armOn event, and a fixed delay past 2^31 - 1 ms", () => {
+  it("refuses a default that is not a direct child, two schedules of one name and a fixed delay past 2^31 - 1 ms", () => {
     expect(
       refusal(() =>
         machine(Lamp, ({ S, E }) =>
@@ -406,7 +406,7 @@ describe("the machine adds nothing (Compile R1, R3, R4, T1, T11)", () => {
               ON: {
                 default: S.OFF,
                 schedules: {
-                  off: { schedule: 2_147_483_648, send: E.Flip, armOn: ["Blink"] },
+                  off: { schedule: 2_147_483_648, send: E.Flip, armOn: [E.Flip] },
                 },
               },
             },
@@ -417,7 +417,6 @@ describe("the machine adds nothing (Compile R1, R3, R4, T1, T11)", () => {
       ["InvalidConfiguration", "DefaultNotChild", "default"],
       ["InvalidConfiguration", "DefaultNotChild", "states.ON.default"],
       ["InvalidConfiguration", "DuplicateName", "states.ON.schedules.off"],
-      ["InvalidConfiguration", "UnknownEvent", "states.ON.schedules.off.armOn"],
       ["InvalidConfiguration", "DelayOutOfRange", "states.ON.schedules.off.schedule"],
     ]);
   });

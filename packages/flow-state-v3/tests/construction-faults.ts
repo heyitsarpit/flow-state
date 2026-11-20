@@ -230,7 +230,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14",
     edits: [
       {
-        file: "src/compile-body.ts",
+        file: "src/compile-schedules.ts",
         find: "  if (hasNonFinitePart(delay)) return Number.NaN;",
         replace: "  if (hasNonFinitePart(delay) && delay === null) return Number.NaN;",
       },

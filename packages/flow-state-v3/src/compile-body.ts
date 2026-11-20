@@ -1,14 +1,10 @@
-import { TIMER_LIMIT_MS } from "./core/defaults.ts";
-import { Duration, Option, Predicate, Schedule as EffectSchedule } from "effect";
-import type { ErasedEnding } from "./contract.ts";
+import { Option, Predicate } from "effect";
 import {
   Action,
   type Alternative,
-  Delay,
   Guard,
   type Level,
   type Node,
-  type Schedule,
   type SelectInput,
   Target,
   type Values,
@@ -18,56 +14,18 @@ import type {
   AnyDefinition,
   GuardElement,
   HistoryToken,
-  ScheduleConfig,
   StateToken,
 } from "./definition.ts";
 import type { SendToken } from "./send.ts";
 import { is } from "./config.ts";
 import { invalid } from "./error.ts";
-import { checkName, type TreeNode } from "./construction.ts";
+import type { TreeNode } from "./construction.ts";
+import { type Compile, foreign, type Path, slotOf } from "./compile-names.ts";
+import { scheduleOf } from "./compile-schedules.ts";
 import { erase } from "./handles.ts";
-import type { Finding } from "./error.ts";
 import type { AnyBody } from "./machine.ts";
 
 type AnyAlternative = AlternativeConfig<Values, Values, string> | StateToken | HistoryToken;
-
-type Path = ReadonlyArray<string | number>;
-
-const joined = (slot: string, segment: string) => (slot === "" ? segment : `${slot}.${segment}`);
-
-// A place's slot name, as Compiled names its closures: `states.ON.on.Flip[0].guard[1]`.
-const slotOf = (at: Path) =>
-  at.reduce<string>(
-    (slot, segment) =>
-      Predicate.isNumber(segment) ? `${slot}[${segment}]` : joined(slot, segment),
-    "",
-  );
-
-/**
- * Everything one compile reads and collects: the definition's tokens by identity, the tree, and
- * the findings in walk order.
- */
-export type Compile = {
-  readonly definition: AnyDefinition;
-  readonly nodes: ReadonlyMap<string, TreeNode>;
-  // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-  readonly tokens: ReadonlyMap<unknown, string>;
-  // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-  readonly histories: ReadonlyMap<unknown, string>;
-  readonly events: ReadonlySet<string>;
-  // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-  readonly sends: ReadonlySet<unknown>;
-  readonly findings: Array<Finding>;
-  readonly scheduleNames: Map<string, string>;
-};
-
-const foreign = (at: Path, what: string) =>
-  invalid(
-    at,
-    "ForeignToken",
-    `${what} is not this definition's`,
-    "Use the tokens the machine body receives: S, E and O of this definition.",
-  );
 
 const unknownEvent = (at: Path, event: string, help: string) =>
   invalid(at, "UnknownEvent", `no event ${event}`, help);
@@ -241,118 +199,6 @@ const levelOf = (compile: Compile, on: Values, at: Path): Level =>
       return [[event, list.map((raw, i) => alternativeOf(compile, raw, [...at, "on", event, i]))]];
     }),
   );
-
-// Whether a delay holds a NaN or infinite number: Duration reads a NaN part as 0, so each part
-// is checked as written.
-const partsOf = (delay: Duration.Input) => {
-  if (Array.isArray(delay)) return delay;
-
-  return Predicate.isObject(delay) && !Duration.isDuration(delay) ? Object.values(delay) : [];
-};
-
-const hasNonFinitePart = (delay: Duration.Input) =>
-  partsOf(delay).some((part) => Predicate.isNumber(part) && !Number.isFinite(part));
-
-// A fixed delay in ms, NaN when it has none: a number is read as written, since Duration clamps a
-// negative one and keeps Infinity.
-const msOf = (delay: Duration.Input) => {
-  if (Predicate.isNumber(delay)) return delay;
-
-  if (hasNonFinitePart(delay)) return Number.NaN;
-
-  return Option.getOrElse(
-    Option.map(Duration.fromInput(delay), Duration.toMillis),
-    () => Number.NaN,
-  );
-};
-
-const fixedDelay = (compile: Compile, delay: Duration.Input, at: Path) => {
-  const ms = msOf(delay);
-
-  if (!Number.isFinite(ms) || ms < 0 || ms > TIMER_LIMIT_MS)
-    compile.findings.push(
-      invalid(
-        [...at, "schedule"],
-        "DelayOutOfRange",
-        "a schedule's delay is not between 0 and 2^31 - 1 ms",
-        "Give the schedule a finite delay of at most 2^31 - 1 ms (about 24.8 days).",
-      ),
-    );
-
-  return ms;
-};
-
-// RETURN_TYPE: the Compiled shape this part builds.
-const scheduleOf = (
-  compile: Compile,
-  name: string,
-  config: ScheduleConfig<Values, Values>,
-  at: Path,
-): Schedule => {
-  compile.findings.push(...checkName(name, at));
-
-  if (compile.scheduleNames.has(name))
-    compile.findings.push(
-      invalid(
-        at,
-        "DuplicateName",
-        `two schedules are named ${name}`,
-        "Give every schedule of a machine its own name.",
-      ),
-    );
-  else compile.scheduleNames.set(name, slotOf(at));
-
-  if (!compile.sends.has(tokenOf(config.send)))
-    compile.findings.push(foreign([...at, "send"], "the send event"));
-
-  const armOn = config.armOn ?? [];
-  const events = armOn.filter(Predicate.isString);
-
-  for (const event of events.filter((e) => !compile.events.has(e)))
-    compile.findings.push(
-      unknownEvent([...at, "armOn"], event, "List only events the definition declares."),
-    );
-
-  const delay = config.schedule;
-
-  // A keyed schedule and an Effect Schedule never arm; a computed delay reads no key or context,
-  // and a value other than a number refuses its turn.
-  const unbuilt = config.keys !== undefined || EffectSchedule.isSchedule(delay);
-
-  return {
-    name,
-    send: config.send.ending.event,
-    delay: Predicate.isFunction(delay)
-      ? Delay.Computed({
-          ms: {
-            slot: slotOf([...at, "schedule"]),
-            run: ({ memory, now }) => {
-              const value = delay({ key: {}, memory, context: {}, now });
-
-              return Predicate.isNumber(value) ? value : Number.NaN;
-            },
-          },
-        })
-      : Delay.Fixed({ ms: fixedMs(compile, delay, at) }),
-    armOn: unbuilt ? [] : events,
-    onEntry: !unbuilt && (armOn.length === 0 || events.length < armOn.length),
-  };
-};
-
-// A fixed delay's ms; an Effect Schedule, which never arms, has none.
-const fixedMs = (
-  compile: Compile,
-  // FLOW_STATE_ALLOW_UNKNOWN: any Effect Schedule, whatever its output.
-  delay: Duration.Input | EffectSchedule.Schedule<unknown>,
-  at: Path,
-) => (EffectSchedule.isSchedule(delay) ? 0 : fixedDelay(compile, delay, at));
-
-/**
- * The token an ending maps onto: a mapping's own token (`E.X.from(f)`), or the token itself.
- */
-export const tokenOf = (ending: ErasedEnding) =>
-  // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own tokens by mark until its decode checks them by identity
-  Predicate.hasProperty(ending, "~token") ? ending["~token"] : ending;
 
 const nameOf = (here: string) => (here === "" ? "the root" : here);
 

@@ -3,7 +3,9 @@ import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
 import type { Start } from "./input.ts";
 import { makeContext } from "./context.ts";
-import { type Arming, armingsOf } from "./turn.ts";
+import { armingsOf } from "./turn.ts";
+import { makeSchedules } from "./schedules.ts";
+import { makeScheduleRestore } from "./schedule-restore.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
@@ -15,7 +17,6 @@ import {
   actorKey,
   type ActorKey,
   type ActorRecord,
-  type Armed,
   type LaneId,
   Command,
   type Incarnation,
@@ -25,6 +26,7 @@ import {
   quarantineText,
   sameActor,
   Timer,
+  trackOf,
   byStart,
   type Use,
   type Wiring,
@@ -48,59 +50,8 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const { removeActor, saveActor } = persistence;
 
   // ── incarnations.
-  const armAt = (
-    incarnation: Incarnation,
-    deadlines: ReadonlyArray<Pick<Armed, "dueAt" | "send"> & { readonly name: string }>,
-  ) => {
-    if (deadlines.length === 0) return incarnation;
-
-    const schedules = new Map(incarnation.schedules);
-
-    for (const a of deadlines) {
-      const arming = tx.mintArming();
-
-      for (const armed of Option.toArray(Option.fromUndefinedOr(schedules.get(a.name))))
-        disarm(armed.timer);
-
-      const timer = armTimer(
-        Timer.Schedule({
-          actor: incarnation.actor,
-          incarnation: incarnation.id,
-          schedule: a.name,
-          arming,
-        }),
-        a.dueAt,
-      );
-
-      schedules.set(a.name, { arming, dueAt: a.dueAt, send: a.send, timer });
-    }
-
-    return { ...incarnation, schedules };
-  };
-
-  const armSchedules = (incarnation: Incarnation, armings: ReadonlyArray<Arming>) =>
-    armAt(
-      incarnation,
-      armings.map((a) => ({ name: a.name, send: a.send, dueAt: tx.env.now + a.ms })),
-    );
-
-  const stopSchedules = (incarnation: Incarnation) => {
-    for (const armed of incarnation.schedules.values()) disarm(armed.timer);
-
-    return { ...incarnation, schedules: new Map() };
-  };
-
-  // The schedules of the states a move exits stop; the others keep their deadlines.
-  const stopNamed = (incarnation: Incarnation, names: ReadonlySet<string>) => {
-    if (![...names].some((name) => incarnation.schedules.has(name))) return incarnation;
-
-    for (const [name, armed] of incarnation.schedules) if (names.has(name)) disarm(armed.timer);
-
-    return {
-      ...incarnation,
-      schedules: new Map([...incarnation.schedules].filter(([name]) => !names.has(name))),
-    };
-  };
+  const schedules = makeSchedules(tx);
+  const { restore } = makeScheduleRestore(tx, schedules);
 
   // Every change of an incarnation is written from its state at the step's end.
   const setIncarnation = (incarnation: Incarnation) => {
@@ -122,7 +73,13 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   const context = makeContext(tx, {
     ensure: (provider, use, wiring) => ensure(provider, use, "create", wiring),
     release: (provider, use) => release(provider, use),
-    publish: (incarnation) => publish(incarnation),
+    // A changed context re-checks the keys, restarts and pauses that read it.
+    publish: (incarnation) => {
+      const settled = schedules.settle(incarnation, true, false);
+
+      if (settled !== incarnation) setIncarnation(settled);
+      publish(settled);
+    },
     save: (incarnation) => setIncarnation(incarnation),
   });
 
@@ -204,13 +161,19 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     const incarnation = Option.match(from, {
       onNone: () => {
+        const entered = chainOf(base.state);
+
         const arm = armingsOf(
           compiled,
           base.state,
-          new Set(chainOf(base.state)),
+          new Set(entered),
           "",
-          base.memory,
-          tx.env.now,
+          {
+            memory: bound.memory,
+            context: Object.fromEntries([...bound.context].map(([slot, s]) => [slot, s.value])),
+            now: tx.env.now,
+          },
+          (name, series, attempt) => schedules.stepper(actor, name, tx.env.now)(series, attempt),
         );
 
         // A delay refused at creation has no turn to refuse: it is an issue of the creation, named
@@ -219,20 +182,18 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),
         );
 
-        return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.armed);
-      },
-      onSome: (record) => {
-        const declared = new Set(
-          chainOf(record.state).flatMap((path) =>
-            (compiled.states.get(path)?.schedules ?? []).map((s) => s.name),
+        return schedules.settle(
+          schedules.apply(
+            { ...bound, issues: [...bound.issues, ...issues] },
+            entered,
+            [],
+            arm.armed,
           ),
-        );
-
-        return armAt(
-          bound,
-          record.schedules.filter((s) => declared.has(s.name)),
+          true,
+          false,
         );
       },
+      onSome: (record) => restore(bound, record.schedules),
     });
 
     setIncarnation(incarnation);
@@ -243,19 +204,22 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     if (context.owes(bound)) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));
   };
 
+  // The deadlines that came due while the actor was unused fire once each, in deadline order.
   const fireWaiting = (actor: ActorId) => {
     const incarnation = incarnationOf(actor);
 
     if (incarnation === undefined) return;
 
-    for (const [name, armed] of incarnation.schedules) {
-      const live = tx.world().timers.has(armed.timer);
-
-      if (!live && armed.dueAt <= tx.env.now)
-        enqueue(
-          Mail.Firing({ actor, incarnation: incarnation.id, schedule: name, arming: armed.arming }),
-        );
-    }
+    for (const { tracked, run } of schedules.waiting(incarnation))
+      enqueue(
+        Mail.Firing({
+          actor,
+          incarnation: incarnation.id,
+          schedule: tracked.name,
+          track: trackOf(tracked.name, tracked.key),
+          arming: run.arming,
+        }),
+      );
   };
 
   // A record the boot could not read is never restored: the identity starts fresh, reported, and
@@ -328,7 +292,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   // An ending incarnation leaves: its schedules and grace stop, its reads stop, and its handles
   // keep its terminal snapshot.
   const retire = (incarnation: Incarnation) => {
-    stopSchedules(incarnation);
+    schedules.stopAll(incarnation);
 
     for (const timer of Option.toArray(incarnation.grace)) disarm(timer);
     tx.dropIncarnation(incarnation.actor);
@@ -527,9 +491,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
   return {
     dispose,
-    armSchedules,
-    stopSchedules,
-    stopNamed,
+    schedules,
     setIncarnation,
     publish,
     start,

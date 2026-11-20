@@ -62,6 +62,7 @@ const captured = (world: World, tickets: ReadonlyArray<Ticket> = [], again: Mark
     now: 0,
     seed: "0",
     admit: makeFreezer(),
+    step: () => Option.none(),
   });
 
   const batch = out.commands.flatMap((c) => (Command.$is("Write")(c) ? [c] : []));
@@ -105,6 +106,7 @@ const stepOver = (
     now: 0,
     seed: "0",
     admit: makeFreezer(),
+    step: () => Option.none(),
   });
 
   const persistence = makePersistence(tx);
@@ -370,6 +372,7 @@ it("Actors R8, WriteAhead I11: a free actor whose actor record cannot encode doe
     now: 100,
     seed: "0",
     admit: makeFreezer(),
+    step: () => Option.none(),
   });
 
   expect(out.world.incarnations.has(actorKey(actor))).toBe(true);

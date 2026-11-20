@@ -1,6 +1,7 @@
 import { printValue } from "./print.ts";
 import { Data, Duration, Option } from "effect";
 import { Evidence, type Member, MemberTarget, type Part } from "../core/evidence.ts";
+import type { Values } from "../core/compiled.ts";
 import { actorKey } from "../core/world.ts";
 import type { Purpose } from "./host.ts";
 import { OwnerRecord } from "./owners/owners.ts";
@@ -108,6 +109,10 @@ const stepText = (step: Step) =>
     checkpoint: ({ name }) => `checkpoint ${name}`,
   });
 
+// A keyed schedule's key, as a trace line names it.
+const keyText = (key: Option.Option<Values>) =>
+  Option.match(key, { onNone: () => "", onSome: (k) => ` key ${json(k)}` });
+
 const evidenceText = (evidence: Evidence) =>
   Evidence.$match(evidence, {
     Turn: ({ actor, event, from, to, parts, members }) =>
@@ -128,6 +133,10 @@ const evidenceText = (evidence: Evidence) =>
       `send ${event} to ${actorKey(actor)}${Option.match(sender, { onNone: () => "", onSome: (from) => ` from ${actorKey(from)}` })} dropped: SendTargetAbsent ${reason}`,
     Denied: ({ actor, event, reasons }) =>
       `denied ${event} at ${actorKey(actor)}${listText("reasons", reasons)}`,
+    Paused: ({ actor, schedule, key, reasons, left }) =>
+      `paused ${schedule}${keyText(key)} at ${actorKey(actor)} with ${String(left)} ms left${listText("reasons", reasons)}`,
+    Resumed: ({ actor, schedule, key, dueAt }) =>
+      `resumed ${schedule}${keyText(key)} at ${actorKey(actor)} due ${String(dueAt)}`,
     Lane: ({ kind, operation, attempt }) => `lane ${kind} ${operation} ${attemptText(attempt)}`,
     Reported: ({ code, record, reason }) =>
       `reported ${code}${Option.match(record, { onNone: () => "", onSome: (key) => ` ${key}` })}: ${reason}`,

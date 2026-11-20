@@ -29,25 +29,25 @@ const Bell = definition({
 });
 
 describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
-  it.fails("Turn R14: armOn on a keyed schedule is refused at its armOn", () => {
+  it("Turn R14: armOn on a keyed schedule is refused at its armOn", () => {
     expect(refusal(armOnKeyed)).toEqual([
       ["InvalidConfiguration", "states.ONLINE.schedules.poll.armOn"],
     ]);
   });
 
-  it.fails("Turn R14: an event in both armOn and disarmOn is refused at the disarmOn element", () => {
+  it("Turn R14: an event in both armOn and disarmOn is refused at the disarmOn element", () => {
     expect(refusal(armedAndDisarmed)).toEqual([
       ["InvalidConfiguration", "states.ONLINE.schedules.boost.disarmOn.0"],
     ]);
   });
 
-  it.fails("Turn R14: an armOn event beside restartOn is refused at that element; armOn: [Flow.entry] beside it constructs", () => {
+  it("Turn R14: an armOn event beside restartOn is refused at that element; armOn: [Flow.entry] beside it constructs", () => {
     expect(refusal(armOnBesideRestart)).toEqual([
       ["InvalidConfiguration", "states.ONLINE.schedules.boost.armOn.1"],
     ]);
   });
 
-  it.fails("Turn R14, Compile T11: another definition's event token in armOn or disarmOn is refused ForeignToken at it", () => {
+  it("Turn R14, Compile T11: another definition's event token in armOn or disarmOn is refused ForeignToken at it", () => {
     expect(
       refusal(() =>
         machine(Clock, ({ S, E }) =>

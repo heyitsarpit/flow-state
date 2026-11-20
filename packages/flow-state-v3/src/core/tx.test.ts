@@ -6,7 +6,7 @@ import { step } from "./step.ts";
 import { retain } from "./tx.ts";
 import { emptyWorld } from "./world.ts";
 
-const env = { now: 0, seed: "0", admit: makeFreezer() };
+const env = { now: 0, seed: "0", admit: makeFreezer(), step: () => Option.none() };
 
 describe("a step's world (Turn realization)", () => {
   it("Turn realization: a world a step returned is taken by one step; stepping it again is a defect", () => {

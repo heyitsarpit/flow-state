@@ -81,8 +81,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "armSchedules(withoutIssue(base, route.source), accepted.arm);",
-        replace: "armSchedules({ ...base, issues: [] }, accepted.arm);",
+        find: "withoutIssue(base, route.source),",
+        replace: "{ ...base, issues: [] },",
       },
     ],
   },
@@ -135,8 +135,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/snapshot.ts",
-        find: "        [...live.schedules].map(([name, armed]) => ({ key: name, dueAt: armed.dueAt })),",
-        replace: "        [],",
+        find: "schedules: timersOf(savedTimersOf(live, () => false)),",
+        replace: "schedules: {},",
       },
     ],
   },

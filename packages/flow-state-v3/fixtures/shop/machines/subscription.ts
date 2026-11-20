@@ -36,7 +36,7 @@ export const SubscriptionMachine = machine(Subscription, ({ S, E }) => ({
       },
     },
     ACTIVE: {
-      schedules: { renew: { schedule: "7 days", send: E.Due, armOn: [Flow.entry, E.Due.tag] } },
+      schedules: { renew: { schedule: "7 days", send: E.Due, armOn: [Flow.entry, E.Due] } },
       on: {
         Due: {
           updateMemory: ({ memory }) => ({ renewals: memory.renewals + 1 }),

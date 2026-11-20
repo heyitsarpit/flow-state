@@ -19,7 +19,7 @@ const Alarm = definition({
   states: ["WAITING", "RANG"],
   events: {},
   internalEvents: { Ring: {}, Never: {} },
-  memory: { gap: Flow.initial(Schema.Number, -1) },
+  memory: { gap: Flow.initial(Schema.Number, 2 ** 31) },
 });
 
 const AlarmMachine = machine(Alarm, ({ S, E }) => ({

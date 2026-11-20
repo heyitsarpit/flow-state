@@ -15,13 +15,13 @@ const restored = (run: StoryRun) =>
 const tries = (records: Records, operation: string) =>
   records.filter((e) => e._tag === "Delivered" && e.operation === operation).length;
 
-// A refused ending turn: the shop turns the charge away as busy with a negative delay, which the
+// A refused ending turn: the shop turns the charge away as busy with a delay past 2^31 - 1 ms, which the
 // WAITING retry cannot arm.
 const refusedCharge = (id: string) =>
   shopStory(id)
     .ensure(checkout)
     .send(checkout, cart("pi1"))
-    .world(Shop.busy({ retryAfterMs: -1 }))
+    .world(Shop.busy({ retryAfterMs: 2 ** 31 }))
     .send(checkout, VISA);
 
 it("DLV-01: two charges of one shopper on the wire are each restored once (WriteLanes R10, I15; Restore I6)", async () => {

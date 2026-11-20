@@ -224,6 +224,8 @@ const follow = (ledger: Ledger, e: Evidence, at: number) =>
     Unparked: ({ attempt }) => named(unparked)(ledger, attempt, at),
     Recorded: ({ attempt }) => named(recorded)(ledger, attempt, at),
     Denied: nothing,
+    Paused: nothing,
+    Resumed: nothing,
     Finished: nothing,
     Issue: nothing,
     Lane: nothing,

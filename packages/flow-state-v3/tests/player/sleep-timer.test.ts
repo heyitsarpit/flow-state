@@ -29,7 +29,7 @@ describe("a sleep timer set by a Duration (Compile R14, Actors R14, Turn R14)", 
     );
   });
 
-  it.fails("Turn R14 (fixtures.md E5): a computed delay of −1 ms counts as zero, so its timer is asleep on the next turn", async () => {
+  it("Turn R14 (fixtures.md E5): a computed delay of −1 ms counts as zero, so its timer is asleep on the next turn", async () => {
     const run = await played(sleepTimerEdges);
 
     expect(run.checkpoints.set.read(timerOf(2))?.state).toBe("ASLEEP");

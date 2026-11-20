@@ -41,7 +41,7 @@ import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
 import { Host, type Platform } from "./host.ts";
 import { Store, StoreScope } from "./store.ts";
 
-export { type Snapshot, snapshotIn, snapshotOf } from "./snapshot.ts";
+export { type Snapshot, snapshotIn, snapshotOf, type TimerView, type Timers } from "./snapshot.ts";
 
 export type { Unsettled } from "./close.ts";
 

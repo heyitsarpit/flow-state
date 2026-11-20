@@ -1,5 +1,5 @@
 import { Brand, Option, Struct } from "effect";
-import type { Compiled, Values } from "./compiled.ts";
+import type { Compiled, StepSchedule, Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
 import { makeFollowing } from "./following.ts";
 import type { OwedId } from "./ledger.ts";
@@ -39,13 +39,15 @@ import {
 export type Machines = ReadonlyMap<string, Compiled>;
 
 /**
- * A step's environment: the Runtime Clock's time, the boot's session seed, and how the Runtime
- * admits a value (deep-frozen in dev and test hosts, as it is; unchanged in production).
+ * A step's environment: the Runtime Clock's time, the boot's session seed, how the Runtime admits a
+ * value (deep-frozen in dev and test hosts, as it is; unchanged in production), and how the host
+ * steps an Effect Schedule.
  */
 export type Env = {
   readonly now: number;
   readonly seed: string;
   readonly admit: <A>(value: A) => A;
+  readonly step: StepSchedule;
 };
 
 /**
@@ -148,6 +150,8 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
   const copied = new Set<MapField>(owned);
   const ownBoxes = new Set<string>();
   const dirty = new Set<string>();
+  // The identities whose lanes changed since their keys and pauses were last re-checked.
+  let moved = new Set<string>();
   const commands: Array<Command> = [];
   const evidence: Array<Evidence> = [];
 
@@ -194,17 +198,9 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     return { id, started: world.counter };
   };
 
-  const mintActivation = () => {
-    world.counter += 1;
+  const mintActivation = () => activationOf((world.counter += 1));
 
-    return activationOf(world.counter);
-  };
-
-  const mintArming = () => {
-    world.counter += 1;
-
-    return armingOf(world.counter);
-  };
+  const mintArming = () => armingOf((world.counter += 1));
 
   // Chains have their own count, never reset, so a chain cleared early never gives its id again;
   // apart from the shared counter, so starting one shifts no other minted id.
@@ -270,6 +266,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     const before = world.lanes.get(id);
     draft("lanes").set(id, lane);
     dirty.add(key);
+    moved.add(key);
 
     if (before === undefined) addTo("lanesOfActor", key, id);
     else unwait(id, before);
@@ -285,6 +282,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     const key = actorKey(before.actor);
     draft("lanes").delete(id);
     dirty.add(key);
+    moved.add(key);
     removeFrom("lanesOfActor", key, id);
     unwait(id, before);
   };
@@ -549,6 +547,13 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     dropMail,
     takeFresh,
     dirtyActors: () => dirty,
+    // The identities whose lanes changed since the last ask.
+    takeMoved: () => {
+      const taken = moved;
+      moved = new Set();
+
+      return taken;
+    },
     incarnationOf: (actor: ActorId) => world.incarnations.get(actorKey(actor)),
     used: (actor: ActorId) => (world.uses.get(actorKey(actor)) ?? []).length > 0,
     out: () => {

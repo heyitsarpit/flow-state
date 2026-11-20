@@ -81,10 +81,22 @@ export const IssueCode = Schema.Literals([
 export type IssueCode = typeof IssueCode.Type;
 
 /**
- * A schedule's saved deadline, as an actor record holds it.
+ * A schedule's saved timer, as an actor record holds it: its name, a keyed one's key, and while
+ * armed its arming time, its firings since and its `dueAt`, or its `left` with the reasons that
+ * held it. A timer with neither is idle: its entry armed it once and it has ended or was disarmed.
  */
-export const ScheduleDeadline = Schema.Struct({
+export const SavedTimer = Schema.Struct({
   name: Schema.String,
-  dueAt: Schema.Number,
-  send: Schema.String,
+  // FLOW_STATE_ALLOW_UNKNOWN: a key's values are the application's; the canonical encoder checks them.
+  key: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+  armedAt: Schema.optionalKey(Schema.Number),
+  attempt: Schema.optionalKey(Schema.Number),
+  dueAt: Schema.optionalKey(Schema.Number),
+  left: Schema.optionalKey(Schema.Number),
+  pausedBy: Schema.optionalKey(Schema.Array(Schema.String)),
 });
+
+/**
+ * The decoded {@link SavedTimer}.
+ */
+export type SavedTimer = typeof SavedTimer.Type;

@@ -1,14 +1,15 @@
-import { Option } from "effect";
+import { Option, Result } from "effect";
+import { encodeCanonical } from "../core/codec.ts";
+import { operationsOf, savedTimersOf } from "../core/schedule-plan.ts";
 import { publicMemory } from "../core/compiled.ts";
 import type { Compiled, Values } from "../core/compiled.ts";
 import { inputOfName } from "../core/identity.ts";
 import { actorRecordKey } from "../core/record.ts";
 import { create } from "../core/tree.ts";
-import { laneKeyText } from "../core/lane-moves.ts";
 import { actorLifecycleOf, type Lifecycle, restingLifecycleOf } from "../core/life.ts";
-import { rowOf, type Row } from "../core/rows.ts";
+import type { Row } from "../core/rows.ts";
 import type { Machines } from "../core/tx.ts";
-import type { IssueCode } from "../core/vocabulary.ts";
+import type { IssueCode, SavedTimer } from "../core/vocabulary.ts";
 import {
   type ActorId,
   actorKey,
@@ -62,12 +63,77 @@ export type Snapshot<
   readonly lifecycle: Lifecycle;
   readonly context: Erased<D> extends true ? Values : Partial<ContextOf<D["context"]>>;
   readonly issues: ReadonlyArray<Diagnostic>;
-  readonly schedules: ReadonlyArray<{ readonly key: string; readonly dueAt: number }>;
+  readonly schedules: Timers;
 };
 
-// A keyed list in key order, as every list of a snapshot is.
-const keyed = <A extends { readonly key: string }>(entries: ReadonlyArray<A>) =>
-  entries.toSorted((a, b) => byCodeUnits(a.key, b.key));
+/**
+ * One armed timer as a snapshot shows it: `{ dueAt }` while it runs, `{ left, pausedBy }` while its
+ * pause reasons hold it, never both. Times are Runtime Clock milliseconds.
+ */
+export type TimerView =
+  | { readonly dueAt: number }
+  | { readonly left: number; readonly pausedBy: ReadonlyArray<string> };
+
+/**
+ * A snapshot's armed timers by schedule name: a keyed schedule's as a list in key order, each with
+ * its key. A schedule with no armed timer is absent.
+ */
+export type Timers = Readonly<
+  Record<string, TimerView | ReadonlyArray<{ readonly key: Values } & TimerView>>
+>;
+
+// What a saved or live timer shows.
+// RETURN_TYPE: the snapshot's TimerView union, whichever branch builds it.
+const viewOf = (timer: SavedTimer): Option.Option<TimerView> =>
+  timer.left === undefined
+    ? Option.map(Option.fromUndefinedOr(timer.dueAt), (dueAt) => ({ dueAt }))
+    : Option.some({ left: timer.left, pausedBy: timer.pausedBy ?? [] });
+
+type KeyedView = { readonly key: Values } & TimerView;
+
+type Listed = KeyedView & { readonly text: string };
+
+// The armed timers of a saved list by schedule name, keyed ones listed with their key text.
+const viewsOf = (saved: ReadonlyArray<SavedTimer>) => {
+  const views = new Map<string, TimerView | Array<Listed>>();
+
+  for (const timer of saved)
+    for (const view of Option.toArray(viewOf(timer)))
+      if (timer.key === undefined) views.set(timer.name, view);
+      else {
+        const before = views.get(timer.name);
+        const text = Result.getOrElse(encodeCanonical(timer.key), () => "");
+        views.set(timer.name, [
+          ...(Array.isArray(before) ? before : []),
+          { key: timer.key, text, ...view },
+        ]);
+      }
+
+  return views;
+};
+
+// A keyed list in key order, without the key text it was ordered by.
+const inKeyOrder = (list: ReadonlyArray<Listed>) =>
+  list
+    .toSorted((a, b) => byCodeUnits(a.text, b.text))
+    .map(({ key, text: _text, ...view }) => ({ key, ...view }));
+
+// The armed timers of a saved list, by schedule name in code-unit order, keyed ones in key order.
+const timersOf = (saved: ReadonlyArray<SavedTimer>) => {
+  const views = viewsOf(saved);
+
+  return Object.fromEntries<TimerView | ReadonlyArray<KeyedView>>(
+    [...views.keys()]
+      .toSorted(byCodeUnits)
+      .flatMap((name) =>
+        Option.toArray(Option.fromUndefinedOr(views.get(name))).map(
+          (view) => [name, Array.isArray(view) ? inKeyOrder(view) : view] as const,
+        ),
+      ),
+  ) satisfies Timers;
+};
+
+const NO_TIMERS: Timers = {};
 
 // The diagnostic code of an issue: a refused turn (a denial code, not a diagnostic) is the
 // configuration it was given, a callback that threw is a Defect.
@@ -91,24 +157,6 @@ const issueOf = (actor: ActorId, issue: Issue) =>
     summary: `${sourceText(issue.source)} raised ${issue.code}${Option.match(issue.slot, { onNone: () => "", onSome: (slot) => ` at ${slot}` })}`,
     help: "Fix the callback the slot names; the issue clears when this source next succeeds.",
   });
-
-// RETURN_TYPE: the snapshot's Operations shape.
-const operationsOf = (world: World, machines: Machines, actor: ActorId): Operations => {
-  const rows = new Map<string, Map<string, Row>>();
-
-  for (const id of world.lanesOfActor.get(actorKey(actor)) ?? [])
-    for (const lane of Option.toArray(Option.fromUndefinedOr(world.lanes.get(id))))
-      Option.match(laneKeyText(machines, lane), {
-        onNone: () => undefined,
-        onSome: (keyText) => {
-          const byKey = rows.get(lane.operation) ?? new Map<string, Row>();
-          byKey.set(keyText, rowOf(lane));
-          rows.set(lane.operation, byKey);
-        },
-      });
-
-  return rows;
-};
 
 // The memory an ensure would start an identity with: what a quarantined record's snapshot shows.
 const freshStart = (compiled: Compiled, actor: ActorId) =>
@@ -134,9 +182,7 @@ export const snapshotIn = (
       lifecycle: actorLifecycleOf(world.life),
       context: Object.fromEntries([...live.context].map(([slot, s]) => [slot, s.value])),
       issues: live.issues.map((issue) => issueOf(actor, issue)),
-      schedules: keyed(
-        [...live.schedules].map(([name, armed]) => ({ key: name, dueAt: armed.dueAt })),
-      ),
+      schedules: timersOf(savedTimersOf(live, () => false)),
     });
 
   if (record !== undefined)
@@ -147,7 +193,7 @@ export const snapshotIn = (
       lifecycle: restingLifecycleOf(world.life, "active"),
       context: {},
       issues: [],
-      schedules: keyed(record.schedules.map((s) => ({ key: s.name, dueAt: s.dueAt }))),
+      schedules: timersOf(record.schedules),
     });
 
   const compiled = machines.get(actor.machine);
@@ -171,7 +217,7 @@ export const snapshotIn = (
           help: "Ensure the actor to start it fresh; its first save replaces the record.",
         }),
       ],
-      schedules: [],
+      schedules: NO_TIMERS,
     });
 
   return Option.map(Option.fromUndefinedOr(ended), (x) => ({
@@ -181,7 +227,7 @@ export const snapshotIn = (
     lifecycle: restingLifecycleOf(world.life, "disposed"),
     context: {},
     issues: [],
-    schedules: [],
+    schedules: NO_TIMERS,
   }));
 };
 

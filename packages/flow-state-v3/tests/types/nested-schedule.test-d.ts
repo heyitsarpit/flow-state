@@ -21,7 +21,7 @@ describe("Compile R14: a nested leaf's schedule", () => {
             PLAYING: {
               schedules: {
                 // @ts-expect-error inverted, Compile R14: the nested leaf's literals widen to string
-                tick: { schedule: "1 second", send: E.Tick, armOn: [Flow.entry, "Seek"] },
+                tick: { schedule: "1 second", send: E.Tick, armOn: [Flow.entry, E.Seek] },
               },
             },
           },
@@ -38,7 +38,7 @@ describe("Compile R14: a nested leaf's schedule", () => {
             states: {
               PLAYING: {
                 schedules: {
-                  tick: { schedule: "1 second", send: E.Tick, armOn: [Flow.entry, "Seek"] },
+                  tick: { schedule: "1 second", send: E.Tick, armOn: [Flow.entry, E.Seek] },
                 },
               },
             },

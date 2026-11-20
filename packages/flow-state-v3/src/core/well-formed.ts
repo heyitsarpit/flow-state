@@ -1,5 +1,5 @@
 import { DERIVED } from "./data-view.ts";
-import { Option, Predicate, Schema } from "effect";
+import { Option, Predicate, Schedule, Schema } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
 import type { Machine } from "../definition.ts";
 import { checkName } from "../construction.ts";
@@ -99,10 +99,13 @@ const allowed = (value: unknown, key: string) =>
 // FLOW_STATE_ALLOW_UNKNOWN: a Compiled handed to a Runtime is checked before it is trusted.
 // RETURN_TYPE: a type guard states the type it narrows to: an object, array or Map to walk.
 const walkable = (value: unknown): value is Values =>
-  !Schema.isSchema(value) && (Predicate.isObject(value) || Array.isArray(value));
+  !Schema.isSchema(value) &&
+  !Schedule.isSchedule(value) &&
+  (Predicate.isObject(value) || Array.isArray(value));
 
 // A walkable node's children with their paths; a derived part (a Schema's walkers) is Flow's own,
-// built from its Schema.
+// built from its Schema. A Schema and an Effect Schedule are values the Runtime reads by their own
+// modules, never walked.
 // FLOW_STATE_ALLOW_UNKNOWN: a Map's entries, walked as any other node's children.
 const childrenAt = (value: Values, path: string) =>
   (value instanceof Map

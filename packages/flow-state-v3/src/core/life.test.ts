@@ -9,7 +9,13 @@ import { makeTx } from "./tx.ts";
 const actor = { machine: "m", name: "a" };
 
 // Ids as the world's mint makes them: the table reads none of them.
-const tx = makeTx(new Map(), emptyWorld(false), { now: 0, seed: "0", admit: makeFreezer() });
+const tx = makeTx(new Map(), emptyWorld(false), {
+  now: 0,
+  seed: "0",
+  admit: makeFreezer(),
+  step: () => Option.none(),
+});
+
 const call = tx.mint("call");
 const timer = tx.armTimer(Timer.Bound(), 0);
 const ticket = tx.mint("ticket");

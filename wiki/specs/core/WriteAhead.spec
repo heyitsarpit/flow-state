@@ -47,8 +47,10 @@ requirements
         source  @plan.Persistence.O2.
         must    A persisted actor's record holds its state, memory, exact context bindings with each
                 slot's last-seen value (a return compares against them, @spec.Actors.R9), issues,
-                schedule timers (`{ name, key?, dueAt }` while running or `{ name, key?, left }`
-                while paused), restartOn baselines, revisions,
+                schedule timers (`{ name, key?, armedAt, attempt, dueAt }` while running,
+                `{ name, key?, armedAt, attempt, left, pausedBy }` while paused, `{ name, key? }`
+                idle, so a restore tells an ended timer from one the definition added),
+                revisions,
                 each history target's last child, resumable slices (frozen ones with their
                 schedules), .each copies by key with their counters, a writing placement's reset
                 value, each placement's last mapped value, and stream bookmarks with their slice.

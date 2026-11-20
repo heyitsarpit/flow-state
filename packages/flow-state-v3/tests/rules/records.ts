@@ -5,23 +5,34 @@ import type { Rule } from "./rules.ts";
 // Formats 1 and 2 are read through their steps, so a store may still hold them until the record is
 // written again.
 const Actor = {
-  format: Schema.Literals([1, 2, 3, 4]),
+  format: Schema.Literals([1, 2, 3, 4, 5]),
   machine: Schema.String,
   name: Schema.String,
 };
 
-// Each kind's fields as WriteAhead R4 and R5 list them, and the timer shapes R4 gives.
+// Each kind's fields as WriteAhead R4 and R5 list them, and the timer shapes R4 gives: running,
+// held, or idle; format 4's running timers carried their send instead.
+const TimerHead = {
+  name: Schema.String,
+  key: Schema.optionalKey(Schema.Record(Schema.String, Schema.Json)),
+};
+
 const Timer = Schema.Union([
   Schema.Struct({
-    name: Schema.String,
-    key: Schema.optionalKey(Schema.String),
+    ...TimerHead,
+    armedAt: Schema.Number,
+    attempt: Schema.Number,
     dueAt: Schema.Number,
   }),
   Schema.Struct({
-    name: Schema.String,
-    key: Schema.optionalKey(Schema.String),
+    ...TimerHead,
+    armedAt: Schema.Number,
+    attempt: Schema.Number,
     left: Schema.Number,
+    pausedBy: Schema.Array(Schema.String),
   }),
+  Schema.Struct({ name: Schema.String, dueAt: Schema.Number, send: Schema.String }),
+  Schema.Struct(TimerHead),
 ]);
 
 const KINDS = {

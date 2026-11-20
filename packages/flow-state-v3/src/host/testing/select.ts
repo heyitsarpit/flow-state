@@ -138,6 +138,8 @@ const NAMES_EVENT = {
   Unhandled: true,
   SendTargetAbsent: true,
   Denied: true,
+  Paused: false,
+  Resumed: false,
   Lane: false,
   Issue: false,
   Incarnated: false,

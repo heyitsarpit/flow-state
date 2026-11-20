@@ -11,7 +11,8 @@ import {
   textOf,
 } from "./record-format.ts";
 import { readSelected, sameForm, type Selected, selectedOf } from "./slots.ts";
-import { type ReadFailure, ScheduleDeadline } from "./vocabulary.ts";
+import { type ReadFailure, SavedTimer } from "./vocabulary.ts";
+import { chainOf } from "./tree.ts";
 import type { ActorId, ActorRecord, Wiring } from "./world.ts";
 
 const WiredJson = Schema.Record(Schema.String, ActorJson);
@@ -22,9 +23,13 @@ const RecordHead = {
   state: Schema.String,
   // FLOW_STATE_ALLOW_UNKNOWN: read by the machine's memory walker; the host's parser made it JSON.
   memory: Schema.Unknown,
-  schedules: Schema.Array(ScheduleDeadline),
   context: WiredJson,
 };
+
+// Formats 1 to 4: each armed schedule's deadline and send event, by name.
+const DeadlinesJson = Schema.Array(
+  Schema.Struct({ name: Schema.String, dueAt: Schema.Number, send: Schema.String }),
+);
 
 // A reaction's baseline where it differs from its slot's last selection: no `value` for a
 // reaction with no baseline.
@@ -38,6 +43,17 @@ const BaselinesJson = Schema.Record(Schema.String, Schema.Record(Schema.String, 
 const ActorRecordJson = Schema.Struct({
   ...RecordHead,
   format: Schema.Literal(FORMAT),
+  schedules: Schema.Array(SavedTimer),
+  seen: Schema.Record(Schema.String, Schema.Json),
+  baselines: BaselinesJson,
+  graph: Schema.Record(Schema.String, WiredJson),
+});
+
+// Format 4: the current record with only each armed schedule's deadline and send event.
+const ActorRecordFourJson = Schema.Struct({
+  ...RecordHead,
+  format: Schema.Literal(4),
+  schedules: DeadlinesJson,
   seen: Schema.Record(Schema.String, Schema.Json),
   baselines: BaselinesJson,
   graph: Schema.Record(Schema.String, WiredJson),
@@ -55,6 +71,7 @@ const FrameThreeJson = Schema.NullOr(
 const ActorRecordThreeJson = Schema.Struct({
   ...RecordHead,
   format: Schema.Literal(3),
+  schedules: DeadlinesJson,
   seen: Schema.Record(Schema.String, Schema.Json),
   reactions: Schema.Array(FrameThreeJson),
   memories: Schema.Array(Schema.Record(Schema.String, Schema.Json)),
@@ -65,6 +82,7 @@ const ActorRecordThreeJson = Schema.Struct({
 const ActorRecordTwoJson = Schema.Struct({
   ...RecordHead,
   format: Schema.Literal(2),
+  schedules: DeadlinesJson,
   seen: Schema.Record(Schema.String, Schema.Json),
   reactions: Schema.Array(
     Schema.NullOr(
@@ -92,6 +110,7 @@ const SeenOne = Schema.Struct({
 const ActorRecordOneJson = Schema.Struct({
   ...RecordHead,
   format: Schema.Literal(1),
+  schedules: DeadlinesJson,
   seen: Schema.Record(Schema.String, SeenOne),
   unknown: Schema.optionalKey(Schema.Array(Schema.String)),
 });
@@ -187,7 +206,7 @@ const baselinesJson = (compiled: Compiled, record: ActorRecord) => {
 
 /**
  * An actor's record as canonical text: its state, its memory encoded by the machine's memory
- * Schema, its schedules' deadlines, its context bindings, each slot's last selection in its
+ * Schema, its schedules' timers, its context bindings, each slot's last selection in its
  * Schema's canonical JSON form, each reaction's baseline where it differs from its slot's, and the
  * bindings of every provider up its graph; or why it cannot encode.
  */
@@ -267,7 +286,7 @@ const savedFor = (
 
 /**
  * An actor record read back with the machine it names: the current format by its Schema, formats 1
- * to 3 through their pure steps; its slots, baselines and memory each through their own Schemas.
+ * to 4 through their pure steps; its slots, baselines and memory each through their own Schemas.
  */
 export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
   const machineOf = (r: { readonly machine: string }) =>
@@ -329,26 +348,66 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
   const stepsTo = (format: typeof Format.Type, value: unknown) => {
     if (format === FORMAT) return decodeBy(ActorRecordJson, "schema")(value);
 
+    if (format === 4)
+      return Result.flatMap(decodeBy(ActorRecordFourJson, "schema")(value), stepFour);
+
     if (format === 3)
-      return Result.flatMap(decodeBy(ActorRecordThreeJson, "schema")(value), stepThree);
+      return Result.flatMap(
+        Result.flatMap(decodeBy(ActorRecordThreeJson, "schema")(value), stepThree),
+        stepFour,
+      );
 
     if (format === 2)
       return Result.flatMap(
-        Result.map(decodeBy(ActorRecordTwoJson, "schema")(value), stepTwo),
-        stepThree,
+        Result.flatMap(
+          Result.map(decodeBy(ActorRecordTwoJson, "schema")(value), stepTwo),
+          stepThree,
+        ),
+        stepFour,
       );
 
-    return stepOne(value);
+    return Result.flatMap(stepOne(value), stepFour);
   };
 
-  // A format-3 actor record in the current format: each reaction's baseline is its frame's value
+  // A format-4 actor record in the current format: each deadline is a timer armed at it with no
+  // firing yet; its send, which the definition declares, is dropped. A schedule its state's entry
+  // arms that has no deadline had ended or was disarmed, so it is saved idle, and a restore does
+  // not start it again.
+  const stepFour = (four: typeof ActorRecordFourJson.Type) =>
+    Result.map(machineOf(four), (compiled) => {
+      const saved = new Set(four.schedules.map((d) => d.name));
+
+      const idle = chainOf(four.state).flatMap((path) =>
+        (compiled.states.get(path)?.schedules ?? [])
+          .filter((s) => s.onEntry && Option.isNone(s.keys) && !saved.has(s.name))
+          .map((s) => ({ name: s.name })),
+      );
+
+      const stepped: typeof ActorRecordJson.Type = {
+        ...four,
+        format: FORMAT,
+        schedules: [
+          ...four.schedules.map((d) => ({
+            name: d.name,
+            armedAt: d.dueAt,
+            attempt: 0,
+            dueAt: d.dueAt,
+          })),
+          ...idle,
+        ],
+      };
+
+      return stepped;
+    });
+
+  // A format-3 actor record in format 4: each reaction's baseline is its frame's value
   // of the reaction's slot, else its slot's last selection; a reaction with no frame has none.
   // Frames that do not match the machine's reactions in number are their slots' last selections.
   const stepThree = (three: typeof ActorRecordThreeJson.Type) =>
     Result.map(machineOf(three), (compiled) => {
-      const stepped: typeof ActorRecordJson.Type = {
+      const stepped: typeof ActorRecordFourJson.Type = {
         ...Struct.omit(three, ["memories", "reactions"]),
-        format: FORMAT,
+        format: 4,
         baselines:
           three.reactions.length === compiled.reactions.length
             ? framesBySlot(compiled, three.reactions)
@@ -370,7 +429,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
     memories: [],
   });
 
-  // A format-1 actor record, read by the current format's Schema: each saved slot's value passes
+  // A format-1 actor record, read by format 4's Schema: each saved slot's value passes
   // through its slot's Schema and stays its last selection where the Schema takes it; a slot saved
   // unknown, or one its Schema refuses, was never selected; each reaction's baseline is its slot's
   // last selection, as format 1 read it.
@@ -395,9 +454,9 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
         ),
       );
 
-      const stepped: typeof ActorRecordJson.Type = {
+      const stepped: typeof ActorRecordFourJson.Type = {
         ...Struct.omit(one, ["unknown"]),
-        format: FORMAT,
+        format: 4,
         seen: Object.fromEntries(seen.flat()),
         baselines: {},
         graph: {},

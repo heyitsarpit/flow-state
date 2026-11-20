@@ -241,8 +241,8 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/step.ts",
-        find: "if (used(actor)) enqueue(",
-        replace: 'if (used(actor) || actor.name !== "") enqueue(',
+        find: "if (used(t.actor))",
+        replace: 'if (used(t.actor) || t.actor.name !== "")',
       },
     ],
   },
@@ -366,8 +366,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "publish(after);",
-        replace: "publish(after);\n        if (after.state !== incarnation.state) publish(after);",
+        find: "        setIncarnation(settled);\n        publish(settled);",
+        replace:
+          "        setIncarnation(settled);\n        publish(settled);\n        if (settled.state !== incarnation.state) publish(settled);",
       },
     ],
   },
@@ -417,10 +418,10 @@ export const faults: ReadonlyArray<Fault> = [
     rule: "Turn R14",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: "    for (const a of deadlines) {",
+        file: "src/core/schedules.ts",
+        find: "    for (const { name, first } of arms) {",
         replace:
-          "    for (const a of deadlines.filter((x) => !incarnation.schedules.has(x.name))) {",
+          "    for (const { name, first } of arms.filter((a) => !Option.exists(Option.fromUndefinedOr(incarnation.schedules.get(a.name)), (t) => Option.isSome(t.run)))) {",
       },
     ],
   },
@@ -432,7 +433,7 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "...stopNamed(incarnation, exited),",
+        find: "...schedules.stopNamed(incarnation, exited),",
         replace: "...incarnation,",
       },
     ],

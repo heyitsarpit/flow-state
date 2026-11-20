@@ -1,3 +1,4 @@
+import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { definition, machine } from "../index.ts";
 import { activation } from "./test/ids.ts";
@@ -16,7 +17,7 @@ const { compiled } = machine(Player, ({ S, E }) => ({
     ON: {
       default: S.ON.PLAYING,
       states: {
-        PLAYING: { schedules: { tick: { schedule: 1000, send: E.Tick, armOn: [E.Saved.tag] } } },
+        PLAYING: { schedules: { tick: { schedule: 1000, send: E.Tick, armOn: [E.Saved] } } },
       },
     },
   },
@@ -29,6 +30,7 @@ const turn = (late: boolean, from: number) =>
     activations: [activation(1), activation(2)],
     history: new Map(),
     memory: {},
+    context: {},
     tag: "Saved",
     payload: {},
     late,
@@ -36,6 +38,7 @@ const turn = (late: boolean, from: number) =>
     now: 0,
     lane: () => LaneView.Idle(),
     owns: () => false,
+    step: () => Option.none(),
   });
 
 describe("armOn's implicit self on a route (Turn R14, R20)", () => {

@@ -90,6 +90,7 @@ const editedMachine = (which: Which) =>
             Warned: { updateMemory: () => ({ warning: true }) },
             Expired: { target: S.EXPIRED, updateMemory: () => ({ slotId: "" }) },
             Lapsed: { target: S.EXPIRED, updateMemory: () => ({ slotId: "" }) },
+            Reminded: { updateMemory: () => ({ warning: true }) },
           },
           schedules,
         },
@@ -143,7 +144,7 @@ describe("restore after the definition is edited (Turn R17; Machines O5)", () =>
     expect(run.checkpoints.ended.read(ref)?.state).toBe("EXPIRED");
   });
 
-  it.fails("Turn R17, R14: a schedule added to the restored state starts at the restore with its full delay, as its entry would, so no ending is lost", async () => {
+  it("Turn R17, R14: a schedule added to the restored state starts at the restore with its full delay, as its entry would, so no ending is lost", async () => {
     const { ref, run } = await restoredUnder("added");
 
     expect(timersOf(run.checkpoints.restored.read(ref))).toEqual({
@@ -173,7 +174,7 @@ describe("restore after the definition is edited (Turn R17; Machines O5)", () =>
     expect(turnsOf(run, Edited.E.Warned)).toEqual([]);
   });
 
-  it.fails("Turn R17, R14: a renamed schedule is a removal and an addition: the old name's deadline is dropped and the new name starts at the restore", async () => {
+  it("Turn R17, R14: a renamed schedule is a removal and an addition: the old name's deadline is dropped and the new name starts at the restore", async () => {
     const { ref, run } = await restoredUnder("renamed");
 
     expect(timersOf(run.checkpoints.restored.read(ref))).toEqual({
@@ -183,7 +184,7 @@ describe("restore after the definition is edited (Turn R17; Machines O5)", () =>
     expect(turnsOf(run, Edited.E.Warned)).toHaveLength(1);
   });
 
-  it.fails("Turn R17: a restored deadline fires the send the current definition declares, never the one saved with it", async () => {
+  it("Turn R17: a restored deadline fires the send the current definition declares, never the one saved with it", async () => {
     const { ref, run } = await restoredUnder("resent");
 
     expect(run.checkpoints.ended.read(ref)?.state).toBe("EXPIRED");
@@ -200,7 +201,7 @@ const FORMAT_FOUR =
   '{"dueAt":480000,"name":"warn","send":"Warned"}],"seen":{},"state":"HELD"}';
 
 describe("the step up from record format 4 (Turn R17)", () => {
-  it.fails("Turn R17: a format-4 record restores with its deadlines, and its next save is the current format with each timer's attempt", async () => {
+  it("Turn R17: a format-4 record restores with its deadlines, and its next save is the current format with each timer's attempt", async () => {
     const run = await played(
       Story.app(wizardSetup, { id: "wizard/format-four", fixtures: [] })
         .world(Fake.storage.put(RECORD, FORMAT_FOUR))

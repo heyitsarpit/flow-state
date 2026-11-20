@@ -2,8 +2,8 @@ import { Brand, Data, Equal, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
-import type { IssueCode, ReadFailure, ScheduleDeadline } from "./vocabulary.ts";
-import type { Values } from "./compiled.ts";
+import type { IssueCode, ReadFailure, SavedTimer } from "./vocabulary.ts";
+import type { Series, Values } from "./compiled.ts";
 import type { Selected } from "./slots.ts";
 
 /**
@@ -134,15 +134,57 @@ export type Ticket =
 export type Write = { readonly key: string; readonly record: Option.Option<string> };
 
 /**
- * A schedule's live arming: its arming number (a firing of an older arming is discarded) and its
- * deadline.
+ * Where an armed timer is: running to `dueAt` on a host timer (a fired one waits while its actor is
+ * unused), or held by its pause reasons with `left` milliseconds to go.
  */
-export type Armed = {
+export type Timing = Data.TaggedEnum<{
+  Running: { dueAt: number; timer: TimerId };
+  Held: { left: number; pausedBy: ReadonlyArray<string> };
+}>;
+
+/**
+ * Constructors and matchers for {@link Timing}.
+ */
+export const Timing = Data.taggedEnum<Timing>();
+
+/**
+ * A timer's live arming: its arming number (a firing of an older arming is discarded), when it was
+ * armed, how many times it has fired since, the Effect Schedule it steps with that step's output
+ * (none for a Duration), and its timing.
+ */
+export type Run = {
   readonly arming: ArmingId;
-  readonly dueAt: number;
-  readonly send: string;
-  readonly timer: TimerId;
+  readonly armedAt: number;
+  readonly attempt: number;
+  readonly series: Option.Option<Series>;
+  // FLOW_STATE_ALLOW_UNKNOWN: an Effect Schedule step's output, whatever its type.
+  readonly output: unknown;
+  readonly timing: Timing;
 };
+
+/**
+ * A keyed schedule's key: the record `keys` returned and its canonical text, by which it is told
+ * apart and ordered.
+ */
+export type TimerKey = { readonly text: string; readonly value: Values };
+
+/**
+ * One timer of an active schedule, a keyed schedule's per key: its `restartOn` baseline, and its
+ * run while armed (none while idle, disarmed or done).
+ */
+export type Tracked = {
+  readonly name: string;
+  readonly key: Option.Option<TimerKey>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a restart selection of any type, compared by Equal.equals.
+  readonly baseline: Option.Option<unknown>;
+  readonly run: Option.Option<Run>;
+};
+
+/**
+ * The key a tracked timer has in its incarnation: its schedule's name, and a keyed one's key text.
+ */
+export const trackOf = (name: string, key: Option.Option<TimerKey>) =>
+  Option.match(key, { onNone: () => name, onSome: (k) => `${name}\u0000${k.text}` });
 
 /**
  * One live incarnation of an identity.
@@ -165,7 +207,7 @@ export type Incarnation = {
   readonly activations: ReadonlyArray<ActivationId>;
   readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
-  readonly schedules: ReadonlyMap<string, Armed>;
+  readonly schedules: ReadonlyMap<string, Tracked>;
   readonly issues: ReadonlyArray<Issue>;
   readonly bound: ReadonlyMap<string, ActorId>;
   readonly context: ReadonlyMap<string, Selected>;
@@ -362,6 +404,7 @@ export type Mail = Data.TaggedEnum<{
     actor: ActorId;
     incarnation: IncarnationId;
     schedule: string;
+    track: string;
     arming: ArmingId;
   };
 }>;
@@ -379,6 +422,7 @@ export type Timer = Data.TaggedEnum<{
     actor: ActorId;
     incarnation: IncarnationId;
     schedule: string;
+    track: string;
     arming: ArmingId;
   };
   Grace: { actor: ActorId; incarnation: IncarnationId };
@@ -409,7 +453,7 @@ export type ActorRecord = {
   readonly actor: ActorId;
   readonly state: string;
   readonly memory: Values;
-  readonly schedules: ReadonlyArray<typeof ScheduleDeadline.Type>;
+  readonly schedules: ReadonlyArray<SavedTimer>;
   readonly context: ReadonlyMap<string, ActorId>;
   // Each slot's last selection; a slot never selected has none.
   readonly seen: ReadonlyMap<string, Selected>;

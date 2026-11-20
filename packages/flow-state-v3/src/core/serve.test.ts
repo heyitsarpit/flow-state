@@ -74,7 +74,7 @@ describe("a context update that waits for its providers (Actors R19)", () => {
       [line.machine, { ...LineMachine.compiled, wiring: new Map([["name", lead]]) }],
     ]);
 
-    const env = { now: 0, seed: "0", admit: makeFreezer() };
+    const env = { now: 0, seed: "0", admit: makeFreezer(), step: () => Option.none() };
     const open = { ...emptyWorld(false), life: Life.Open() };
 
     const ensured = step(
@@ -152,7 +152,7 @@ const joined = (waiting: number, joining: number) => {
     [echo.machine, { ...EchoMachine.compiled, wiring: new Map([["name", lead]]) }],
   ]);
 
-  const env = { now: 0, seed: "0", admit: makeFreezer() };
+  const env = { now: 0, seed: "0", admit: makeFreezer(), step: () => Option.none() };
   const open = { ...emptyWorld(false), life: Life.Open() };
 
   const ensured = step(
@@ -226,7 +226,7 @@ describe("a second wave reaching a context update that waits (Actors R13, I20)",
       [echo.machine, { ...EchoMachine.compiled, wiring: new Map([["name", lead]]) }],
     ]);
 
-    const env = { now: 0, seed: "0", admit: makeFreezer() };
+    const env = { now: 0, seed: "0", admit: makeFreezer(), step: () => Option.none() };
     const open = { ...emptyWorld(false), life: Life.Open() };
 
     const ensured = step(

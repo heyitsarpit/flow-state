@@ -374,7 +374,7 @@ export const payBody = ({ S, E, O }: Parameters<PayBody>[0]): ReturnType<PayBody
       },
       UNSURE: {
         schedules: {
-          check: { schedule: "3 seconds", send: E.CheckTick, armOn: [Flow.entry, "CheckTick"] },
+          check: { schedule: "3 seconds", send: E.CheckTick, armOn: [Flow.entry, E.CheckTick] },
         },
         on: {
           CheckTick: {

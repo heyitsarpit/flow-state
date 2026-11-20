@@ -23,6 +23,7 @@ import {
 } from "./world.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
+import { makeFirings } from "./firings.ts";
 
 /**
  * What a turn answers: a public or internal event, a schedule's firing, or an owed ending's mapped
@@ -104,7 +105,7 @@ export const makeServe = (
 ) => {
   const { incarnationOf } = tx;
   const { commit, retry, cancel, lookup, flushLanes, viewOf } = lanes;
-  const { armSchedules, stopNamed, setIncarnation, publish } = incarnations;
+  const { schedules, setIncarnation, publish } = incarnations;
 
   // ── serving mail.
   // RETURN_TYPE: an Option of the operation's mapping, whichever channel selects it.
@@ -177,6 +178,7 @@ export const makeServe = (
       activations: incarnation.activations,
       history: incarnation.history,
       memory: incarnation.memory,
+      context: Object.fromEntries([...incarnation.context].map(([slot, s]) => [slot, s.value])),
       tag,
       payload: tx.env.admit(payload),
       late: Option.isSome(route.late),
@@ -187,6 +189,8 @@ export const makeServe = (
       now: tx.env.now,
       lane: viewOf(incarnation, route.own),
       owns: (activation) => owning.has(activation),
+      step: (name, series, attempt) =>
+        schedules.stepper(incarnation.actor, name, tx.env.now)(series, attempt),
     });
 
     const settled = () => {
@@ -260,7 +264,7 @@ export const makeServe = (
             );
 
             return {
-              ...stopNamed(incarnation, exited),
+              ...schedules.stopNamed(incarnation, exited),
               state: move.leaf,
               activations: [...kept, ...move.enters.map(() => tx.mintActivation())],
               history: historyAfter(incarnation.history, incarnation.state, move),
@@ -269,7 +273,12 @@ export const makeServe = (
           },
         });
 
-        const after = armSchedules(withoutIssue(base, route.source), accepted.arm);
+        const after = schedules.apply(
+          withoutIssue(base, route.source),
+          Option.match(accepted.move, { onNone: () => [], onSome: (m) => m.enters }),
+          accepted.disarm,
+          accepted.arm,
+        );
 
         setIncarnation(after);
 
@@ -325,9 +334,14 @@ export const makeServe = (
           }),
         );
 
-        publish(after);
-        incarnations.context.wave(after.actor);
         flushLanes(after.actor);
+
+        // Keys, restarts and pauses read the memory and lanes the turn left.
+        const settled = schedules.settle(incarnationOf(after.actor) ?? after, true, false);
+
+        setIncarnation(settled);
+        publish(settled);
+        incarnations.context.wave(after.actor);
 
         // Each send is delivered after the turn has committed, in written order.
         for (const sent of sends)
@@ -399,6 +413,10 @@ export const makeServe = (
     return turn(incarnation, mapping.value.event, payload.success, trigger);
   };
 
+  const firings = makeFirings(tx, incarnations, (incarnation, schedule, payload) =>
+    turn(incarnation, schedule.send, payload, Trigger.Firing({ schedule: schedule.name })),
+  );
+
   const serve = (mail: Mail) =>
     Mail.$match(mail, {
       Event: ({ actor, tag, payload }) => {
@@ -406,24 +424,7 @@ export const makeServe = (
 
         if (incarnation !== undefined) turn(incarnation, tag, payload, Trigger.Event({ tag }));
       },
-      Firing: ({ actor, incarnation: id, schedule, arming }) => {
-        const incarnation = incarnationOf(actor);
-        const armed = incarnation?.schedules.get(schedule);
-
-        if (
-          incarnation === undefined ||
-          incarnation.id !== id ||
-          armed === undefined ||
-          armed.arming !== arming
-        )
-          return;
-
-        const schedules = new Map(incarnation.schedules);
-        schedules.delete(schedule);
-        const left = { ...incarnation, schedules };
-        setIncarnation(left);
-        turn(left, armed.send, {}, Trigger.Firing({ schedule }));
-      },
+      Firing: firings.firing,
       Context: ({ actor }) => incarnations.context.update(actor),
       Ending: ({ actor, id }) => {
         const incarnation = incarnationOf(actor);
@@ -450,6 +451,7 @@ export const makeServe = (
   // chain it follows or starts. Mail enqueued between items follows none.
   const served = (mail: Mail) => {
     tx.serving(mail, serve);
+    firings.recheckLanes();
 
     return tx.takeFresh();
   };
@@ -492,5 +494,5 @@ export const makeServe = (
     return count;
   };
 
-  return { endingMapping, turn, serveEnding, serve, drain };
+  return { endingMapping, turn, serveEnding, serve, drain, recheckLanes: firings.recheckLanes };
 };

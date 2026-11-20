@@ -74,13 +74,39 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   const { boundPassed } = disposal;
 
   const fired = (id: TimerId) => {
+    // A schedule timer takes every schedule timer due by now with it, in firing order: by
+    // deadline, actor admission, outermost state and declaration, then key.
+    const ordered = Option.exists(
+      Option.fromUndefinedOr(tx.world().timers.get(id)),
+      Timer.$is("Schedule"),
+    )
+      ? incarnations.schedules.dueNow()
+      : [];
+
+    for (const { id: other } of ordered) if (other !== id) tx.disarm(other);
+
     const timer = tx.fire(id);
 
     if (Option.isNone(timer)) return;
 
     Timer.$match(timer.value, {
-      Schedule: ({ actor, incarnation, schedule, arming }) => {
-        if (used(actor)) enqueue(Mail.Firing({ actor, incarnation, schedule, arming }));
+      // Every schedule timer due with it fired too, and fires in the order taken before it.
+      Schedule: (first) => {
+        const due = ordered.some(({ id: other }) => other === id)
+          ? ordered.map(({ fired: t }) => t)
+          : [first];
+
+        for (const t of due)
+          if (used(t.actor))
+            enqueue(
+              Mail.Firing({
+                actor: t.actor,
+                incarnation: t.incarnation,
+                schedule: t.schedule,
+                track: t.track,
+                arming: t.arming,
+              }),
+            );
       },
       Grace: ({ actor, incarnation }) => {
         if (incarnationOf(actor)?.id === incarnation) end(actor);
@@ -139,6 +165,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
 
   Life.$match(tx.world().life, {
     Open: () => {
+      serve.recheckLanes();
       serve.drain();
 
       // A chain is counted while mail may still follow it; once every mailbox is empty none can.

@@ -12,7 +12,8 @@ import {
   Result,
 } from "effect";
 import { admitted } from "../core/boundary.ts";
-import { RuntimeDefaults } from "../core/defaults.ts";
+import { RuntimeDefaults, TIMER_LIMIT_MS } from "../core/defaults.ts";
+import { makeScheduleSteps } from "./owners/schedule-steps.ts";
 import { Operation, operationOf } from "../core/compiled.ts";
 import { defect } from "../core/defect.ts";
 import type { Values } from "../core/compiled.ts";
@@ -251,12 +252,15 @@ export const makeDriver = (options: {
             () => undefined,
           );
       },
+      // A timer past the host timer's limit would fire at once: the core never arms one.
       Arm: ({ timer, at }) =>
-        work.fork(
-          `timer/${timer}`,
-          sleepUntil(clock, at),
-          onDone(() => input(Input.Fired({ timer }))),
-        ),
+        at - clock.currentTimeMillisUnsafe() > TIMER_LIMIT_MS
+          ? defect(`timer ${timer} armed past the host timer's limit`)
+          : work.fork(
+              `timer/${timer}`,
+              sleepUntil(clock, at),
+              onDone(() => input(Input.Fired({ timer }))),
+            ),
       Disarm: ({ timer }) => work.cancel(`timer/${timer}`),
       Persist: ({ due, refused }) => edge.accept(due, refused),
       Write: ({ writes, marks, tickets, refused }) => edge.write(writes, marks, tickets, refused),
@@ -264,6 +268,9 @@ export const makeDriver = (options: {
 
   // One freezer for the Runtime's life, so a part it froze once is never walked again.
   const admitValue = host.freezeValues ? makeFreezer() : asItIs;
+
+  // One stepper for the Runtime's life: each Effect Schedule series keeps its step function.
+  const stepSchedule = makeScheduleSteps();
 
   // A defect in a step leaves its world half written, so the Runtime's life ends Stopped at the
   // first one: no input runs again, the defect is the Runtime's failure, which ready and dispose
@@ -309,6 +316,7 @@ export const makeDriver = (options: {
             now: clock.currentTimeMillisUnsafe(),
             seed: host.sessionSeed,
             admit: admitValue,
+            step: stepSchedule,
           };
 
           return { out: step(machines, world, current, env), started };

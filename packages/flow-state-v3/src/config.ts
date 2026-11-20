@@ -214,13 +214,13 @@ const Delay = Schema.Union([
 const ScheduleEntry = Schema.Struct({
   schedule: Delay,
   send: Ending,
-  armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, EventToken, EntryToken]))),
+  armOn: Schema.optionalKey(Schema.Array(Schema.Union([EventToken, EntryToken]))),
   disarmOn: Schema.optionalKey(Schema.Array(EventToken)),
   restartOn: Schema.optionalKey(Fn),
   keys: Schema.optionalKey(Fn),
   paused: Schema.optionalKey(Schema.Record(Schema.String, Fn)),
 }).annotate({
-  help: "Write a schedule as { schedule, send: E.X, armOn: [event names or Flow.entry] }.",
+  help: "Write a schedule as { schedule, send: E.X, armOn: [E.X tokens or Flow.entry] }.",
 });
 
 // A slot's change reaction, as `C.slot.change` makes it: when a change counts, and its event.
@@ -441,10 +441,11 @@ const kindIs = <T extends { readonly "~flow": string }>(kind: T["~flow"]) => {
 };
 
 /**
- * A decoded body element's token kind: a state, history or guard token.
+ * A decoded body element's token kind: a state, history, guard or entry token.
  */
 export const is = {
   state: kindIs<StateTokenOf>("state"),
   history: kindIs<HistoryTokenOf>("history"),
   guard: kindIs<GuardTokenOf<never>>("guard"),
+  entry: kindIs<{ readonly "~flow": "entry" }>("entry"),
 };

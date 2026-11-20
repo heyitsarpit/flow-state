@@ -183,7 +183,7 @@ const LampMachine = machine(Lamp, ({ S, E }) => ({
   default: S.ON,
   on: { Press: { updateMemory: ({ memory }) => ({ touches: memory.touches + 1 }) } },
   states: {
-    ON: { schedules: { tick: { schedule: "1 second", send: E.Tick, armOn: ["Touch"] } } },
+    ON: { schedules: { tick: { schedule: "1 second", send: E.Tick, armOn: [E.Touch] } } },
   },
 }));
 

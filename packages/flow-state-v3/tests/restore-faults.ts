@@ -156,8 +156,8 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record-format.ts",
-        find: "export const Format = Schema.Literals([1, 2, 3, FORMAT]);",
-        replace: "export const Format = Schema.NullOr(Schema.Literals([1, 2, 3, FORMAT]));",
+        find: "export const Format = Schema.Literals([1, 2, 3, 4, FORMAT]);",
+        replace: "export const Format = Schema.NullOr(Schema.Literals([1, 2, 3, 4, FORMAT]));",
       },
     ],
   },
@@ -169,7 +169,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/record-format.ts",
-        find: "export const Format = Schema.Literals([1, 2, 3, FORMAT]);",
+        find: "export const Format = Schema.Literals([1, 2, 3, 4, FORMAT]);",
         replace: "export const Format = Schema.Number;",
       },
     ],

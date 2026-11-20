@@ -28,7 +28,8 @@ import type { ErasedEnding } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
 import type { Change, ContextTokens } from "./tokens.ts";
 import { slotReadsOf } from "./flow.ts";
-import { type Compile, nodesOf, tokenMaps, tokenOf } from "./compile-body.ts";
+import { nodesOf, tokenMaps } from "./compile-body.ts";
+import { type Compile, tokenOf } from "./compile-names.ts";
 
 type Parts<D> =
   D extends Definition<infer States, infer Ev, infer In, infer M, infer _O, infer _Cx, infer Id>

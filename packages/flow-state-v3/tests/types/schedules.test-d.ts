@@ -2,7 +2,14 @@ import { Duration, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { House } from "../../fixtures/home/machines/house.ts";
 import { Room } from "../../fixtures/home/machines/room.ts";
-import { definition, Flow, type Machine, machine, type Snapshot } from "../../src/index.ts";
+import {
+  definition,
+  Flow,
+  type Machine,
+  machine,
+  type Snapshot,
+  type Timers,
+} from "../../src/index.ts";
 
 // Inverted: each assertion marked `today` asserts today's wide type and fails once schedules are
 // built: make it the narrow type its comment names. Each `@ts-expect-error` marked `inverted` is a
@@ -180,8 +187,6 @@ describe("paused and the snapshot's timers (Turn R27; Machines O8)", () => {
     // today: the narrow type is { readonly poll?: ReadonlyArray<{ readonly key: { readonly id: string } }
     // & ({ readonly dueAt: number } | { readonly left: number; readonly pausedBy: ReadonlyArray<"Vacation"
     // | "Saving"> })>; readonly check?: ...; readonly boost?: ... }.
-    expectTypeOf<Snapshot<typeof Room>["schedules"]>().toEqualTypeOf<
-      ReadonlyArray<{ readonly key: string; readonly dueAt: number }>
-    >();
+    expectTypeOf<Snapshot<typeof Room>["schedules"]>().toEqualTypeOf<Timers>();
   });
 });

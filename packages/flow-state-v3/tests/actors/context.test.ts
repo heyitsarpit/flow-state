@@ -547,8 +547,7 @@ describe("issues by source (Turn R25; Actors R19)", () => {
 });
 
 describe("context in callbacks (Turn R12)", () => {
-  // A known gap, owned by the machine-structure slice: guards and updates are not handed context.
-  it.fails("Turn R12: a guard and an update receive the turn's context", () => {
+  it("Turn R12: a guard and an update receive the turn's context", () => {
     const { runtime } = ready();
     const reader = runtime.ensureActor(actorRef(ReaderMachine, "reader"));
     reader.send(Reader.E.Read());

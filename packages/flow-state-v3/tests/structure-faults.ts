@@ -75,9 +75,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "publish(after);",
+        find: "        setIncarnation(settled);\n        publish(settled);",
         replace:
-          "if (after.memory !== incarnation.memory || after.state !== incarnation.state) publish(after);",
+          "        setIncarnation(settled);\n        if (settled.memory !== incarnation.memory || settled.state !== incarnation.state) publish(settled);",
       },
     ],
   },
@@ -106,9 +106,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14, I14",
     edits: [
       {
-        file: "src/core/turn.ts",
-        find: "value >= 0 && value <= TIMER_LIMIT_MS",
-        replace: "value >= 0",
+        file: "src/core/schedule-plan.ts",
+        find: "Number.isFinite(ms) && ms <= TIMER_LIMIT_MS",
+        replace: "Number.isFinite(ms)",
       },
     ],
   },
@@ -119,7 +119,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14",
     edits: [
       {
-        file: "src/compile-body.ts",
+        file: "src/compile-schedules.ts",
         find: "ms < 0 || ms > TIMER_LIMIT_MS",
         replace: "ms < 0",
       },
@@ -258,9 +258,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.armed);",
-        replace:
-          "return armSchedules({ ...bound, issues: [...bound.issues, ...issues] }, arm.refused.length > 0 ? [] : arm.armed);",
+        find: "            [],\n            arm.armed,",
+        replace: "            [],\n            arm.refused.length > 0 ? [] : arm.armed,",
       },
     ],
   },
@@ -385,12 +384,12 @@ export const structureFaults: ReadonlyArray<Fault> = [
   {
     name: "armon-of-any-kind",
     tests: [CONSTRUCTION],
-    says: "an armOn element that is neither an event name nor Flow.entry is dropped",
+    says: "an armOn element that is neither an event token nor Flow.entry is dropped",
     rule: "Compile R4",
     edits: [
       {
         file: "src/config.ts",
-        find: "armOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, EventToken, EntryToken]))),",
+        find: "armOn: Schema.optionalKey(Schema.Array(Schema.Union([EventToken, EntryToken]))),",
         replace: "armOn: Schema.optionalKey(Schema.Array(Schema.Unknown)),",
       },
     ],

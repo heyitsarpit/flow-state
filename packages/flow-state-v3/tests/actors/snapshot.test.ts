@@ -45,7 +45,7 @@ describe("the snapshot (Turn R23, R25; Runtime O3)", () => {
     const read = run.checkpoints.on.read(lamp);
 
     expect(read?.lifecycle).toBe("active");
-    expect(read?.schedules).toEqual([{ key: "dim", dueAt: 2000 }]);
+    expect(read?.schedules).toEqual({ dim: { dueAt: 2000 } });
   });
 
   it("Turn R25, I31: a refused turn's issue stays until its own source succeeds; another source's success leaves it", async () => {
@@ -100,7 +100,7 @@ const Alarm = definition({
   states: ["WAITING"],
   events: {},
   internalEvents: { Never: {} },
-  memory: { gap: Flow.initial(Schema.Number, -1) },
+  memory: { gap: Flow.initial(Schema.Number, 2 ** 31) },
 });
 
 const AlarmMachine = machine(Alarm, ({ S, E }) => ({

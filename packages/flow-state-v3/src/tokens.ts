@@ -260,7 +260,7 @@ export type ScheduleConfig<M, Ev, Id extends string = string> = {
     | { readonly ending: { readonly event: keyof Ev & string } }
   ) &
     Ending<ScheduleMetadata, Id>;
-  readonly armOn?: ReadonlyArray<(keyof Ev & string) | ScheduleEvent<Ev, Id> | Entry>;
+  readonly armOn?: ReadonlyArray<ScheduleEvent<Ev, Id> | Entry>;
   readonly disarmOn?: ReadonlyArray<ScheduleEvent<Ev, Id>>;
   // FLOW_STATE_ALLOW_UNKNOWN: a selection of any type, compared by Equal.equals.
   readonly restartOn?: (input: Omit<ScheduleInput<M>, "now">) => unknown;

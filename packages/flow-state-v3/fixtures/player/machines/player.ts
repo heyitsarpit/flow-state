@@ -77,7 +77,7 @@ export const PlayerMachine = machine(Player, ({ S, E, O }) => ({
             tick: {
               schedule: Duration.seconds(1),
               send: E.Tick,
-              armOn: [Flow.entry, E.Tick.tag, E.Seek.tag],
+              armOn: [Flow.entry, E.Tick, E.Seek],
             },
           },
           on: { Tick: { updateMemory: ({ memory }) => ({ pos: memory.pos + 1 }) } },

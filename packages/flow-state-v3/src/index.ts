@@ -44,5 +44,7 @@ export type {
   Runtime,
   RuntimeSetup,
   Snapshot,
+  TimerView,
+  Timers,
   Unsettled,
 } from "./host/runtime.ts";

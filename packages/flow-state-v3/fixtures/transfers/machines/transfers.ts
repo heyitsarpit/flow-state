@@ -63,7 +63,7 @@ export const TransfersMachine = machine(Transfers, ({ S, E, O }) => ({
         ],
         Abandon: { actions: [O.transfer.cancel(byTransfer)] },
       },
-      schedules: { nudge: { schedule: "20 seconds", send: E.Nudge, armOn: ["Send"] } },
+      schedules: { nudge: { schedule: "20 seconds", send: E.Nudge, armOn: [E.Send] } },
     },
   },
 }));

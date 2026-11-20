@@ -185,9 +185,10 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: "record.schedules.filter((s) => declared.has(s.name)),",
-        replace: "record.schedules,",
+        file: "src/core/schedule-restore.ts",
+        find: "    const byName = new Map(declared.map((s) => [s.name, s]));",
+        replace:
+          "    const byName = new Map([...(tx.machines.get(incarnation.actor.machine)?.states.values() ?? [])].flatMap((n) => n.schedules).map((s) => [s.name, s]));",
       },
     ],
   },

@@ -99,7 +99,7 @@ const visa = Pay.E.PayRequested({ paymentMethodId: "visa" });
  */
 export const checkoutOwed = "owed/Checkout/Pay/checkout-1";
 
-const newerOwed = '{"format":5,"machine":"Checkout/Pay","name":"checkout-1","rows":[]}';
+const newerOwed = '{"format":6,"machine":"Checkout/Pay","name":"checkout-1","rows":[]}';
 
 /**
  * A later release left the checkout's owed record in a newer format: each boot reports it unread
@@ -219,13 +219,13 @@ export const signOutMidCheckout = storeStory("shop/sign-out-mid-checkout")
   .checkpoint("badge reopened");
 
 /**
- * The shop turns a confirm away as busy with a negative retry delay: the turn that would arm that
+ * The shop turns a confirm away as busy with a retry delay past 2^31 - 1 ms: the turn that would arm that
  * retry is refused, refused again on its one redelivery, and given one more try after a reload.
  */
 export const busyRefused = shopStory("shop/busy-refused")
   .ensure(checkout)
   .send(checkout, Pay.E.Start({ cartId: "c1", intentId: "pi1" }))
-  .world(Shop.busy({ retryAfterMs: -1 }))
+  .world(Shop.busy({ retryAfterMs: 2 ** 31 }))
   .send(checkout, visa)
   .checkpoint("refused")
   .reload()

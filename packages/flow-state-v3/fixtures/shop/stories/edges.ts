@@ -30,7 +30,7 @@ export const busyEdges = shopStory("shop/busy-edges")
   .checkpoint("past");
 
 /**
- * The shop turns a held charge away as busy with a negative retry delay, so the turn that would
+ * The shop turns a held charge away as busy with a retry delay past 2^31 - 1 ms, so the turn that would
  * arm the retry is refused, refused again on its one redelivery, and then kept; an hour passes
  * with no reload.
  */
@@ -40,7 +40,7 @@ export const busyKeptAnHour = shopStory("shop/busy-kept-an-hour")
   .world(Shop.confirm.hold())
   .send(checkout, visa)
   .checkpoint("before")
-  .world(Shop.busy({ retryAfterMs: -1 }), Shop.confirm.release())
+  .world(Shop.busy({ retryAfterMs: 2 ** 31 }), Shop.confirm.release())
   .checkpoint("refused")
   .advance("1 hour")
   .checkpoint("later");

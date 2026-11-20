@@ -110,10 +110,9 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     rule: "WriteAhead I21",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "        setIncarnation(left);",
-        replace:
-          "        tx.set({ ...tx.world(), incarnations: new Map([...tx.world().incarnations, [actorKey(actor), left]]) });",
+        file: "src/core/firings.ts",
+        find: "    setIncarnation(left);\n\n    const payload",
+        replace: "    tx.putIncarnation(left);\n\n    const payload",
       },
     ],
   },

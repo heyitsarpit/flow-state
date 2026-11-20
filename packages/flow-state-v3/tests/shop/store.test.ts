@@ -321,9 +321,11 @@ describe("the checkout's retry delay at its edges (Turn R14)", () => {
 
     expect(at("zero")?.state).toBe("PAID");
     expect(at("longest")?.state).toBe("WAITING");
-    expect(at("longest")?.schedules.map((s) => s.dueAt - run.checkpoints.longest.now)).toEqual([
-      2 ** 31 - 1,
-    ]);
+    expect(
+      Object.values(at("longest")?.schedules ?? {})
+        .flat()
+        .map((s) => ("dueAt" in s ? s.dueAt : Number.NaN) - run.checkpoints.longest.now),
+    ).toEqual([2 ** 31 - 1]);
     expect(at("past")?.state).toBe("PAYING");
     expect(at("past")?.issues).toHaveLength(1);
   });

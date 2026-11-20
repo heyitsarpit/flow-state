@@ -80,9 +80,11 @@ describe("the client's retry-after at its edges (fixtures.md E5; Turn R14)", () 
 
     expect(at("zero")?.state).toBe("READY");
     expect(at("longest")?.state).toBe("COOLING");
-    expect(at("longest")?.schedules.map((s) => s.dueAt - run.checkpoints.longest.now)).toEqual([
-      2 ** 31 - 1,
-    ]);
+    expect(
+      Object.values(at("longest")?.schedules ?? {})
+        .flat()
+        .map((s) => ("dueAt" in s ? s.dueAt : Number.NaN) - run.checkpoints.longest.now),
+    ).toEqual([2 ** 31 - 1]);
     expect(at("past")?.state).toBe("READY");
     expect(at("past")?.issues).toHaveLength(1);
   });

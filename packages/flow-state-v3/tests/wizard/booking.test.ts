@@ -26,7 +26,7 @@ describe("load (fixtures.md L1, S3, L4)", () => {
 });
 
 describe("a held slot's expiry (Turn R14, R15, R17)", () => {
-  it.fails("Turn R14: Extended, an armOn token beside Flow.entry, restarts both timers from the new end; disarmOn stops the warning", async () => {
+  it("Turn R14: Extended, an armOn token beside Flow.entry, restarts both timers from the new end; disarmOn stops the warning", async () => {
     const run = await played(usual);
 
     expect(timersOf(run.checkpoints.held.read(booking))).toEqual({
@@ -46,7 +46,7 @@ describe("a held slot's expiry (Turn R14, R15, R17)", () => {
     expect(timersOf(run.checkpoints.booked.read(booking))).toEqual({});
   });
 
-  it.fails("Machines O8: a snapshot's schedules are a record by name, each `{ dueAt }` while running", async () => {
+  it("Machines O8: a snapshot's schedules are a record by name, each `{ dueAt }` while running", async () => {
     const run = await played(usual);
 
     expect(run.checkpoints.held.read(booking)?.schedules).toEqual({
@@ -67,7 +67,7 @@ describe("a held slot's expiry (Turn R14, R15, R17)", () => {
     expect(run.checkpoints.picking.read(booking)?.state).toBe("PICKING");
   });
 
-  it.fails("Turn R17: deadlines that came due while the booking was unused fire once each, in deadline order, when it is opened again", async () => {
+  it("Turn R17: deadlines that came due while the booking was unused fire once each, in deadline order, when it is opened again", async () => {
     const run = await played(reloadedPastHold);
 
     expect(run.checkpoints["expired once"].read(booking)?.state).toBe("EXPIRED");
@@ -80,18 +80,20 @@ describe("a held slot's expiry (Turn R14, R15, R17)", () => {
     expect(warned >= 0 && warned < ended).toBe(true);
   });
 
-  it.fails("Turn R14: an extension inside the warning window gives the warning a negative computed delay, so it shows on the next turn", async () => {
+  it("Turn R14: an extension inside the warning window gives the warning a negative computed delay, so it shows on the next turn", async () => {
     const run = await played(extendedLate);
 
-    expect(run.checkpoints.extended.read(booking)?.memory.warning).toBe(false);
+    const shown = publishedOf(run, booking).map((p) => p.memory.warning);
+
+    expect(turnsOf(run, Booking.E.Warned)).toHaveLength(2);
+    expect(shown.slice(-2)).toEqual([false, true]);
     expect(timersOf(run.checkpoints.extended.read(booking))).toEqual({
       expire: { dueAt: 630_000 },
-      warn: { dueAt: 540_000 },
     });
     expect(run.checkpoints["warned at once"].read(booking)?.memory.warning).toBe(true);
   });
 
-  it.fails("Turn R14, R15 (fixtures.md E5): holds ending −1 ms and 0 ms on expire on the next turn, the expiry first by declaration order, so the warning never fires", async () => {
+  it("Turn R14, R15 (fixtures.md E5): holds ending −1 ms and 0 ms on expire on the next turn, the expiry first by declaration order, so the warning never fires", async () => {
     const run = await played(holdEdges);
 
     expect(run.checkpoints["minus one"].read(booking)?.state).toBe("EXPIRED");
@@ -109,7 +111,7 @@ describe("a held slot's expiry (Turn R14, R15, R17)", () => {
     );
   });
 
-  it.fails("Turn R14 (fixtures.md L5): 200 extensions faster than turns restart the hold each time, and it expires once at the last end", async () => {
+  it("Turn R14 (fixtures.md L5): 200 extensions faster than turns restart the hold each time, and it expires once at the last end", async () => {
     const run = await played(extendBurst);
 
     expect(timersOf(run.checkpoints.extended.read(booking))).toEqual({

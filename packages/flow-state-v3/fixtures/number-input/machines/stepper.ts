@@ -190,7 +190,7 @@ export const StepperMachine = machine(Stepper, ({ S, E }) => {
       },
       HOLD_REPEAT: {
         schedules: {
-          repeat: { schedule: "60 millis", send: E.Tick, armOn: [Flow.entry, "Tick"] },
+          repeat: { schedule: "60 millis", send: E.Tick, armOn: [Flow.entry, E.Tick] },
         },
         on: { Tick: [again, { target: S.HOLD_STOPPED }], Release: release, Cancel: release },
       },
@@ -200,7 +200,7 @@ export const StepperMachine = machine(Stepper, ({ S, E }) => {
           settle: {
             schedule: "300 millis",
             send: E.WheelDue,
-            armOn: [Flow.entry, "Wheel"],
+            armOn: [Flow.entry, E.Wheel],
           },
         },
         on: {

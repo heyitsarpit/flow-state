@@ -69,7 +69,13 @@ const live = (world: World): World => ({
 
 // One step's working state over a world, with the ledger's functions and its reports.
 const stepOver = (world: World) => {
-  const tx = makeTx(new Map(), world, { now: 0, seed: "0", admit: makeFreezer() });
+  const tx = makeTx(new Map(), world, {
+    now: 0,
+    seed: "0",
+    admit: makeFreezer(),
+    step: () => Option.none(),
+  });
+
   const ledger = makeLedger(tx, makePersistence(tx));
 
   return { tx, ledger, rows: () => rowsOf(tx.world().owed, actor) };
@@ -371,6 +377,7 @@ describe("Flow's restored marker is not a reason (WriteLanes I15)", () => {
       now: 0,
       seed: "0",
       admit: makeFreezer(),
+      step: () => Option.none(),
     });
 
     makeLedger(tx, makePersistence(tx)).owe({ ...ending(Option.none()), reason });
@@ -411,6 +418,7 @@ describe("forget drops retired holds only (Actors R21)", () => {
       now: 0,
       seed: "0",
       admit: makeFreezer(),
+      step: () => Option.none(),
     });
 
     assert.deepStrictEqual([...out.world.quarantined.keys()], [garbled]);

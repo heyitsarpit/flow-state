@@ -256,9 +256,9 @@ describe("a saved schedule whose state is not active (Turn R14, Restore R1)", ()
 
     expect(run.checkpoints.restored.read(laptop)?.state).toBe("UNTRUSTED");
     expect(run.checkpoints.restored.read(laptop)?.memory.until).toEqual(LAPTOP_UNTIL);
-    expect(run.checkpoints.restored.read(laptop)?.schedules).toEqual([]);
+    expect(run.checkpoints.restored.read(laptop)?.schedules).toEqual({});
     expect(run.checkpoints["a week on"].read(laptop)).toEqual(
-      expect.objectContaining({ state: "UNTRUSTED", schedules: [] }),
+      expect.objectContaining({ state: "UNTRUSTED", schedules: {} }),
     );
     expect(evidenceOf(run, TrustedDevice.E.Reverify)).toEqual([]);
   });

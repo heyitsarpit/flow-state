@@ -6,14 +6,14 @@ import {
   Action,
   type Alternative,
   type Compiled,
-  Delay,
   Guard,
   type Schedule,
+  type Series,
   type Values,
 } from "./compiled.ts";
+import { firstStep, type Step } from "./schedule-plan.ts";
 import type { Part } from "./evidence.ts";
 import { sameValue } from "./same.ts";
-import { TIMER_LIMIT_MS } from "./defaults.ts";
 import { atOrBelow, chainOf, type Move, moveOf } from "./tree.ts";
 import type { RefusedCode } from "./vocabulary.ts";
 
@@ -49,10 +49,10 @@ export type Resolved = Data.TaggedEnum<{
 export const Resolved = Data.taggedEnum<Resolved>();
 
 /**
- * A schedule a turn arms at its end: its name, the event it sends and its delay, read from the
- * memory after the turn.
+ * A schedule a turn arms at its end: its name and its first step, read from the memory after the
+ * turn (none when its Effect Schedule is complete before a first step).
  */
-export type Arming = { readonly name: string; readonly send: string; readonly ms: number };
+export type Arming = { readonly name: string; readonly first: Option.Option<Step> };
 
 /**
  * What a turn decided.
@@ -73,6 +73,7 @@ export type TurnResult = Data.TaggedEnum<{
     memory: Values;
     actions: ReadonlyArray<Resolved>;
     arm: ReadonlyArray<Arming>;
+    disarm: ReadonlyArray<string>;
   };
   Denied: { reasons: ReadonlyArray<string> };
   Unhandled: {};
@@ -91,7 +92,7 @@ export const TurnResult = Data.taggedEnum<TurnResult>();
  * **Details**
  *
  * - `state`: the active leaf's path; `activations` numbers each state on its chain, outermost
- *   first; `history` holds each compound's last active child.
+ *   first; `history` holds each compound's last active child; `context` its slots' values.
  * - `late`: the event is a late ending, routed from `from`, the depth of the owner's nearest
  *   surviving ancestor (0 for the root); a current event is routed from the leaf.
  * - `lane(operation, key)`: a lane's view; a `None` key names the ending's own lane.
@@ -103,6 +104,7 @@ export type TurnInput = {
   readonly activations: ReadonlyArray<ActivationId>;
   readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
+  readonly context: Values;
   readonly tag: string;
   readonly payload: Values;
   readonly late: boolean;
@@ -110,6 +112,15 @@ export type TurnInput = {
   readonly now: number;
   readonly lane: (operation: string, key: Option.Option<Values>) => LaneView;
   readonly owns: (activation: ActivationId) => boolean;
+  readonly step: (
+    name: string,
+    series: Series,
+    attempt: number,
+  ) => Option.Option<{
+    readonly ms: number;
+    // FLOW_STATE_ALLOW_UNKNOWN: an Effect Schedule step's output, whatever its type.
+    readonly output: unknown;
+  }>;
 };
 
 type Failed = { readonly slot: string };
@@ -208,7 +219,12 @@ const guardCheck = (guard: Guard, input: TurnInput, read: GuardRead) =>
       ),
   });
 
-type GuardRead = { readonly state: string; readonly memory: Values; readonly event: Values };
+type GuardRead = {
+  readonly state: string;
+  readonly memory: Values;
+  readonly context: Values;
+  readonly event: Values;
+};
 
 const moveFor = (alternative: Alternative, handler: string, input: TurnInput) =>
   Option.map(alternative.target, (target) =>
@@ -330,52 +346,59 @@ const resolve = (action: Action, read: { readonly memory: Values; readonly event
       ),
   });
 
-const delayOf = (schedule: Schedule, memory: Values, now: number) =>
-  Delay.$match(schedule.delay, {
-    Fixed: ({ ms }) => Result.succeed(ms),
-    Computed: ({ ms }) =>
-      Result.flatMap(
-        call(ms.slot, () => ms.run({ memory, now })),
-        (value) =>
-          Number.isFinite(value) && value >= 0 && value <= TIMER_LIMIT_MS
-            ? Result.succeed(value)
-            : // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- an invalid delay refuses the turn; the loop ends here
-              Result.fail({ slot: ms.slot }),
-      ),
-  });
-
 const NO_SCHEDULES: ReadonlyArray<Schedule> = [];
+
+// FLOW_STATE_ALLOW_UNKNOWN: a turn's delay reads no rows; the map is typed as the callbacks see it.
+const NO_OPERATIONS: ReadonlyMap<string, ReadonlyMap<string, unknown>> = new Map();
 
 /**
  * The schedules a turn arms on the states active after it, outermost first: on each entered
  * state those armed on entry, and on every active state each one that lists the event, with its
- * delay from the after memory and the turn's now; an invalid delay is its slot's defect.
+ * first step from the after memory, the context and the turn's now; a delay out of range or a
+ * throwing callback is its slot's failure. Keyed schedules arm by their keys, after the turn.
  */
 export const armingsOf = (
   compiled: Compiled,
   leaf: string,
   entered: ReadonlySet<string>,
   tag: string,
-  memory: Values,
-  now: number,
+  read: { readonly memory: Values; readonly context: Values; readonly now: number },
+  step: TurnInput["step"],
 ) => {
   const armed: Array<Arming> = [];
   const refused: Array<string> = [];
 
   const arms = (path: string, schedule: Schedule) =>
-    (entered.has(path) && schedule.onEntry) || schedule.armOn.includes(tag);
+    Option.isNone(schedule.keys) &&
+    ((entered.has(path) && schedule.onEntry) || schedule.armOn.includes(tag));
+
+  const input = { key: undefined, operations: NO_OPERATIONS, ...read };
 
   for (const path of chainOf(leaf))
     for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
       if (arms(path, schedule)) {
-        const ms = delayOf(schedule, memory, now);
+        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one step callback per schedule armed: the turn's result
+        const first = firstStep(schedule, input, (series, attempt) =>
+          step(schedule.name, series, attempt),
+        );
 
-        if (Result.isFailure(ms)) refused.push(ms.failure.slot);
+        if (Result.isFailure(first)) refused.push(first.failure);
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one arming per schedule armed: the turn's result
-        else armed.push({ name: schedule.name, send: schedule.send, ms: ms.success });
+        else armed.push({ name: schedule.name, first: first.success });
       }
 
   return { armed, refused };
+};
+
+// The schedules of the states active after a turn that list its event in `disarmOn`.
+const disarmedBy = (compiled: Compiled, leaf: string, tag: string) => {
+  const names: Array<string> = [];
+
+  for (const path of chainOf(leaf))
+    for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
+      if (schedule.disarmOn.includes(tag)) names.push(schedule.name);
+
+  return names;
 };
 
 // Whether a patch changes no field: each field it names is already there with an equal value,
@@ -402,7 +425,12 @@ const writable = (compiled: Compiled, patch: Values) => {
 
 // RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
 const accept = (alternative: Alternative, handler: string, input: TurnInput): TurnResult => {
-  const read = { memory: input.memory, event: input.payload, now: input.now };
+  const read = {
+    memory: input.memory,
+    context: input.context,
+    event: input.payload,
+    now: input.now,
+  };
 
   // A patch that throws or is no record is a defect; one naming a field the machine may not write
   // refuses the turn.
@@ -441,7 +469,16 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
   const move = moveFor(alternative, handler, input);
   const leaf = Option.match(move, { onNone: () => input.state, onSome: (m) => m.leaf });
   const entered = new Set(Option.match(move, { onNone: () => [], onSome: (m) => m.enters }));
-  const arm = armingsOf(input.compiled, leaf, entered, input.tag, memory, input.now);
+
+  const arm = armingsOf(
+    input.compiled,
+    leaf,
+    entered,
+    input.tag,
+    { memory, context: input.context, now: input.now },
+    input.step,
+  );
+
   const [refused] = arm.refused;
 
   if (refused !== undefined) return TurnResult.Refused({ code: "InvalidTurn", slot: refused });
@@ -457,17 +494,19 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
     memory,
     actions,
     arm: arm.armed,
+    disarm: disarmedBy(input.compiled, leaf, input.tag),
   });
 };
 
 const lists = (input: TurnInput, path: string) => {
   for (const schedule of input.compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
-    if (schedule.armOn.includes(input.tag)) return true;
+    if (schedule.armOn.includes(input.tag) || schedule.disarmOn.includes(input.tag)) return true;
 
   return false;
 };
 
-// The implicit "self" of the deepest state on the route whose schedule lists the event in armOn.
+// The implicit "self" of the deepest state on the route whose schedule lists the event in armOn
+// or disarmOn.
 const implicit = (input: TurnInput) => {
   let node = "";
 
@@ -537,7 +576,7 @@ const resultOf = (
  * The active leaf's level is tried first, then each ancestor's, then the root's; a late ending
  * starts at the owner's nearest surviving ancestor. At each level the first alternative whose
  * guards all pass wins. When no level handles the event and an active state's schedule lists it
- * in `armOn`, that state handles it with an unguarded "self". A guard, update, select or schedule
+ * in `armOn` or `disarmOn`, that state handles it with an unguarded "self". A guard, update, select or schedule
  * callback that throws, or an invalid delay, refuses the whole turn.
  */
 // RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
@@ -545,7 +584,13 @@ export const runTurn = (input: TurnInput): TurnResult => {
   const levels = levelsOf(input);
 
   const reasons: Array<string> = [];
-  const read = { state: input.state, memory: input.memory, event: input.payload };
+
+  const read = {
+    state: input.state,
+    memory: input.memory,
+    context: input.context,
+    event: input.payload,
+  };
 
   for (const level of levels)
     for (const alternative of level.alternatives) {
