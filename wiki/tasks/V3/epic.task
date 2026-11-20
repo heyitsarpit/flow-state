@@ -155,7 +155,7 @@ description
     - First commit of a Task: its requirements list in the Task's comments, with each requirement as a check that
       fails today.
     - The user's page: one page at a slice's close on what an app author will notice.
-skill        workflow@7aa4288
+skill        workflow@67c7dd8
 run
     To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start, track and route agents;
     you never build.
@@ -163,8 +163,10 @@ run
     1. Read this file, `wk show @epic.V3 --tree`, and the records the current Task links; on a resume, run
        skill:catch-up first. If status is not active or the loop fields are missing, stop and tell the user.
     2. Current Task: the in_progress one, otherwise `wk next --epic V3`. A Task in `review` comes first: start its
-       independent check before any builder. A phase's Tasks stay `draft` until it starts; then write the next Task's
-       full text with skill:to-task and open it. Within a phase, follow its card's Order line.
+       independent check before any builder. A phase's Tasks stay `draft` until it starts. Before its first Task starts,
+       run R48's breakdown review of every Task in the phase and the later open and draft Tasks it touches, against
+       skill:to-task step 1, and apply its re-splits; then write the next Task's full text with skill:to-task and open
+       it. Within a phase, follow its card's Order line.
     3. Create the session crons from cadence; without one, run its prompt at each wake (R25).
     4. Keep the machine awake for the run (R26), for example `caffeinate -i` on this Mac.
     5. Recover the real agent state: agents and processes alive, branch, last checkpoint, and uncommitted work with
@@ -224,6 +226,11 @@ instructions
       - Each such state has one owner: the design names one pure function that decides its transitions, with a guard and
         planted faults shipped in the same Task. An implicit state machine spread across separate checks is a
         blocking finding.
+      - Task boundaries follow state ownership (skill:to-task step 1): every rule that writes one state sits in one
+        Task, with that state's restore and types; Tasks split only along disjoint state with a narrow seam. Before each
+        phase starts, one independent Opus lead (R48, with Haiku sidecars) reviews the phase's Tasks and the later open
+        and draft Tasks they touch against it; the orchestrator re-splits, merges or reorders before the first Task
+        starts, a scope change going to the user (the user, 2026-11-20).
     - A feature's benches are its fixture's `bench` entries, added with its Stories (the user, 2026-11-18).
     - Fixtures first (the user, 2026-11-16): a Task that builds or changes a public feature, or lands a review finding,
       meets code:wiki/conventions/fixtures.md as part of its requirements, before any code. The orchestrator owns it and
