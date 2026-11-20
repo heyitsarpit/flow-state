@@ -33,6 +33,8 @@ const Timer = Schema.Union([
   }),
   Schema.Struct({ name: Schema.String, dueAt: Schema.Number, send: Schema.String }),
   Schema.Struct(TimerHead),
+  // An idle timer keeps the pause reasons it last read true (Turn R19).
+  Schema.Struct({ ...TimerHead, pausedBy: Schema.NonEmptyArray(Schema.String) }),
 ]);
 
 const KINDS = {

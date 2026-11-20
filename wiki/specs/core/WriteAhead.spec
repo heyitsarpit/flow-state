@@ -49,7 +49,9 @@ requirements
                 slot's last-seen value (a return compares against them, @spec.Actors.R9), issues,
                 schedule timers (`{ name, key?, armedAt, attempt, dueAt }` while running,
                 `{ name, key?, armedAt, attempt, left, pausedBy }` while paused, `{ name, key? }`
-                idle, so a restore tells an ended timer from one the definition added),
+                idle, so a restore tells an ended timer from one the definition added, with
+                `pausedBy` when its last pause reasons were true, which a reason throwing after
+                the restore keeps, @spec.Turn.R19),
                 revisions,
                 each history target's last child, resumable slices (frozen ones with their
                 schedules), .each copies by key with their counters, a writing placement's reset

@@ -565,7 +565,7 @@ tasks
             Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
@@ -1257,6 +1257,34 @@ tasks
                 rows agree.
               - Changed the rules checker: an issue at a schedule's slot inside a committed turn is that turn's, not a
                 refusal (R14 call); `isRefusal`, `isOutcome`, `isTurnStart` now take the run's evidence.
+        comment     2026-11-20T14:53:52Z
+            Close (fix round 4, lead): ready for review. B1 and B2 fixed by structure: `decide` owns schedule issues
+            (source = schedule and key) and timers keep their last pause reasons, armed or idle, saved for idle timers
+            too. Check zero; suite 5249 pass, 20 expected fail, 15 skipped (one earlier run timed out
+            `tests/shop/context.test.ts` large cart under load, green alone, @task.V3.T97's class); docs build passes.
+
+              - Plants, each caught by `faults --only`: new `idle-forgets-reasons`, `restore-forgets-reasons`,
+                `firing-clears-every-key`, `issues-without-key`, `fired-refusal-dropped`, `firing-keeps-own-issue`;
+                guard `timers-decided` now also flags issue writes outside world.ts and `IssueSource.Schedule` outside
+                `decide`, with plants for an incarnation literal, `Object.assign`, an aliased Map copy and issue writes.
+              - Stress: generated at `FLOW_SEEDS=5` 66 of 67, the miss Turn I9 home-rooms seed 5 (@task.V3.T97).
+                `sweep-stress-land-0` times out (193 s against its 164 s limit); the pre-change tree times out too (207
+                s), so the 41 s measured limit went stale before this round. Needs an owner.
+              - Fixture: checkout's empty-cart return now sits on ADDRESS, SHIPPING and PAY; Story `paidThenEmptied`
+                keeps DONE (red first).
+              - Cohesion Haiku: accepted and fixed: stale Issue and Firing docs, the over-limit slot comment, a
+                redundant identity check, an exported helper, duplicated key text, a vague name. Rejected: creation
+                issues outside `decide` (Turn I31 makes them the creation's), Held derivable from pausedBy (Held carries
+                `left`), restore building runs (they are `decide`'s input), alias `.set` gaps (ReadonlyMap blocks them).
+        comment     2026-11-20T14:53:52Z
+            Checks changed or relaxed (lead): rules checker reads an issue at a schedule's slot inside a committed turn
+            as that turn's (`isRefusal`, `isOutcome`, `isTurnStart` take the evidence); the record oracle accepts an
+            idle timer with `pausedBy`; nine plants re-pointed to the new code (refused-turn-reported,
+            check-issue-never-cleared, check-issue-cleared-unrun, last-issue-wins, success-clears-first-issue,
+            refused-publishes-nothing, issue-cleared-by-any-source, refused-turn-raises-no-issue,
+            loop-guard-names-refused-turn); `checkoutSends` built from a shared helper; a committed firing whose next
+            step is past the limit now publishes once, not twice. Specs: Turn R14, R19, R25, I38 and WriteAhead
+            R4 (specs.log).
     T21
         title       Reads and operations (slice 5)
         status      draft

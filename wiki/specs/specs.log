@@ -603,3 +603,7 @@ note 2026-11-20T13:58:24Z
 note 2026-11-20T13:58:24Z
     @spec.Turn R25: schedule issue sources carry the key; a check issue clears per key, a firing clears only its key's
     firing issues (B2). Reverse: drop the keyed source.
+
+note 2026-11-20T14:17:28Z
+    @spec.WriteAhead R4: an idle timer's record keeps pausedBy when its last reasons were true, so a reason that throws
+    after a restore keeps them (Turn R19, T57). Reverse: drop the clause and the saved field.

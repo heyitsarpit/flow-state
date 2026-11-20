@@ -456,8 +456,8 @@ invariants
 
     I37  A timer holds `dueAt` or `left`, never both; paused time never moves `dueAt`. [@R23, @R27]
 
-    I38  Every lane change re-checks `keys` and `paused` and runs no other schedule work, except that a key
-         appearing runs `schedule` for that key alone. [@R19, @R27]
+    I38  Every lane change re-checks `keys` and `paused` and runs no other schedule work, except that a key appearing 
+         runs `schedule` for that key alone. [@R19, @R27]
 
     I39  An emit is delivered at most once per listener, after its turn, never from a refused turn or a replay. [@R29]
 

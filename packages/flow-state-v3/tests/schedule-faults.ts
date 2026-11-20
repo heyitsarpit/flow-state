@@ -316,6 +316,15 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "        pausedBy: Option.isNone(w.track.run) ? [] : reasons,",
   ),
   fault(
+    "restore-forgets-reasons",
+    "Turn R19",
+    [TABLE],
+    "a restore drops a saved timer's pause reasons, so one a reason kept while idle runs when armed",
+    "src/core/schedule-restore.ts",
+    "          pausedBy: timer.pausedBy ?? [],",
+    "          pausedBy: [],",
+  ),
+  fault(
     "firing-clears-every-key",
     "Turn R25",
     [KEYS],

@@ -1,6 +1,7 @@
 import { Option, Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Story, type StoryRun } from "../../src/host/testing/index.ts";
+import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
@@ -679,5 +680,65 @@ describe("disarm wins over an entry arming (Turn R14)", () => {
       {},
     ]);
     expect(armed?.issues.map((i) => i.code)).toEqual(["InvalidConfiguration"]);
+  });
+});
+
+// A persisted armOn schedule whose reason A reads the flag `a`; Stop disarms it.
+const Kept = definition({
+  id: "Table/Kept",
+  persist: true,
+  states: ["ON"],
+  events: { Go: { a: Flag }, Stop: { a: Flag } },
+  internalEvents: { Tick: {} },
+  memory: { a: Flow.initial(Flag, "f") },
+});
+
+const KeptMachine = machine(Kept, ({ S, E }) => ({
+  default: S.ON,
+  on: {
+    Go: { updateMemory: ({ event }) => ({ a: event.a }) },
+    Stop: { updateMemory: ({ event }) => ({ a: event.a }) },
+  },
+  states: {
+    ON: {
+      schedules: {
+        t: {
+          schedule: "1 minute",
+          send: E.Tick,
+          armOn: [E.Go],
+          disarmOn: [E.Stop],
+          paused: { A: ({ memory }) => flag(memory.a) },
+        },
+      },
+    },
+  },
+}));
+
+const kept = actorRef(KeptMachine, "kept");
+
+describe("an idle timer's pause reasons survive a reload (Turn R19, WriteAhead R4)", () => {
+  it("Turn R19: an idle timer last held by A, then kept by A throwing, is reloaded while A still throws; Go arms it held by A with its full delay", async () => {
+    const run = await Story.app(
+      runtimeSetup({
+        app: app({ id: "kept", machines: { kept: KeptMachine } }),
+        services: layerIndexedDb(),
+        scope: "kept",
+        persistence: { captureMs: 0 },
+      }),
+      { id: "table/kept", fixtures: [] },
+    )
+      .ensure(kept)
+      .send(kept, Kept.E.Stop({ a: "t" }))
+      .send(kept, Kept.E.Stop({ a: "x" }))
+      .reload()
+      .ensure(kept)
+      .send(kept, Kept.E.Go({ a: "x" }))
+      .checkpoint("armed")
+      .run()
+      .then(checked);
+
+    expect(timersOf(run.checkpoints.armed.read(kept))).toEqual({
+      t: { left: DELAY, pausedBy: ["A"] },
+    });
   });
 });
