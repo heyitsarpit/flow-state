@@ -4200,7 +4200,7 @@ tasks
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T104]
         description
@@ -4494,6 +4494,27 @@ tasks
             Decision (the user, 2026-11-20): Q1 A: a slot's first good value after a failed select asks when(current,
             undefined, { memory }); previous is typed T | undefined; a reaction with no when fires. The fix lands red
             first after T105's lead reaches review (one lead at a time).
+        comment     2026-11-20T03:20:45Z
+            Fix round (49d5eafb): ready for review. Turn R22 per Q1 A: a first good value after a failed select calls
+            when(current, undefined, { memory }); no when still fires. Red first: the inverted alert test failed at HEAD
+            (rang 1), now plain with a third trace (urgent rings once). previous is V | undefined in ChangeSpec,
+            two-sided in context.test-d.ts; cart-pulse and inbox guard previous === undefined (results unchanged).
+            Faults first-value-skips-when and first-value-declined planted; with first-value-after-none-silent and
+            declined-change-sent, 4 of 4 caught with --only. Catalog context items all marked built; the when form
+            updated. Gates: check 0; suite exit 0 (1604 passed, 25 expected fail); stress FLOW_SEEDS=10 34 files pass;
+            generated Stories FLOW_STRESS FLOW_SEEDS=10 61 pass; docs:build 0. For the user's read: (1) the state-scoped
+            onContext experiment rejected (00:09:57); (2) record format 4, baselines per slot and event, only where they
+            differ from last-seen; (3) the duplicate-reaction refusal, Compile R19 (onContext.i); (4) the R22 rule
+            above; (5) public types: Definition.Provider gone, M public fields only, S tokens carry their provider, C
+            with .change, ContextSlot { schema, form, spec }, when's previous V | undefined. Machines.plan:683-705 still
+            shows when(current, previous) => current > previous; the Plan edit waits for the user.
+        comment     2026-11-20T03:20:46Z
+            Sidecar log (1 Haiku cohesion, high; each finding read in code). Accepted: the fire side unpinned (urgent
+            trace plus fault first-value-declined); previous undefined is also an earlier undefined in a slot typed with
+            undefined (documented in ChangeSpec; for the user's read); the suppression reason restated as the rule; a
+            dead directive above when removed; the fact in two doc comments (machine.ts copy dropped); R22's Why and
+            Reverse. Rejected: the never-typed Decoded seam (erased, cast at erasedWhen); fixtures that ignore previous
+            (no select of theirs can fail). Routed to the user: the Machines Plan text.
 
     T109
         title       Fragments: traits, .each copies, nesting, .resumable() and subject paths (slice 3c)

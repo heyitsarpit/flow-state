@@ -474,7 +474,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/context.ts",
         find: "        onSome: (when) =>\n          callSlot(",
-        replace: "        onSome: (when) =>\n          Option.isNone(previous) ? Result.succeed(false) : callSlot(",
+        replace:
+          "        onSome: (when) =>\n          Option.isNone(previous) ? Result.succeed(false) : callSlot(",
       },
     ],
   },
