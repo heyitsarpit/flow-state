@@ -404,12 +404,12 @@ const RemindersMachine = machine(Reminders, ({ S, E }) => ({
         Reminded: { updateMemory: ({ memory }) => ({ reminded: memory.reminded + 1 }) },
       },
       schedules: {
-        remind: {
+        remind: Flow.keyed({
           keys: ({ memory }) => memory.items.map((id) => ({ id })),
           schedule: "1 minute",
           send: E.Reminded.from(({ key }) => ({ id: key["id"] ?? "" })),
           disarmOn: [E.Mute],
-        },
+        }),
       },
     },
   },

@@ -2,7 +2,7 @@ import { Data, Effect, Option, Predicate, Result, Schema } from "effect";
 import type { Denial, Read, Values } from "./core/compiled.ts";
 import { builder } from "./entry.ts";
 import { type Finding, invalid } from "./error.ts";
-import type { ContextOfTokens } from "./tokens.ts";
+import type { ContextOfTokens, KeyedConfig, KeyedSchedule, ScheduleKey } from "./tokens.ts";
 
 /**
  * A Schema that decodes and encodes with no services, as every Flow field does.
@@ -261,6 +261,8 @@ const selectOf = (given: unknown) =>
  * - `Flow.private(field)`: a field kept from outside snapshots.
  * - `Flow.uncertain(fields)`: an internal event an operation's unknown ending maps to.
  * - `Flow.entry`: in a schedule's `armOn`, arm it on its state's entry too.
+ * - `Flow.keyed({ keys, schedule, send, ... })`: a schedule with one timer per record `keys`
+ *   returns; each of its functions receives that timer's `key`, typed as `keys` returns it.
  * - `Flow.context(X.M.field)`: a context slot that passes a provider's public memory field
  *   through; `Flow.context(X.S.STATE)` reads whether the provider is in a state, and
  *   `Flow.context(X.state)` its state's name. `Flow.context(Schema, { reads, select })` derives a
@@ -302,6 +304,13 @@ export const Flow = {
     }),
   ),
   entry,
+  keyed: builder(
+    "Flow.keyed",
+    // RETURN_TYPE: the schedule keeps the memory, events and context it was checked against.
+    <M, Ev, Id extends string, Cx, K extends ScheduleKey>(
+      config: KeyedConfig<M, Ev, Id, Cx, K>,
+    ): KeyedSchedule<M, Ev, Id, Cx> => ({ "~flow": "keyed", config }),
+  ),
   context: builder(
     "Flow.context",
     // SAFETY: each overload returns the ContextSlot its arguments declare; definition decodes it.

@@ -11,10 +11,9 @@ import {
 } from "./core/compiled.ts";
 import { is } from "./config.ts";
 import { checkName } from "./construction.ts";
-import type { ScheduleConfig } from "./definition.ts";
 import { invalid } from "./error.ts";
 import { erase } from "./handles.ts";
-import type { ScheduleMetadata } from "./tokens.ts";
+import type { ErasedSchedule, ScheduleMetadata } from "./tokens.ts";
 import { type Compile, foreign, type Path, slotOf, tokenOf } from "./compile-names.ts";
 
 /**
@@ -62,12 +61,7 @@ const fixedDelay = (compile: Compile, delay: Duration.Input, at: Path) => {
 
 // The events that arm and disarm a schedule, with the findings of their lists: an event in both,
 // `armOn` on a keyed schedule, and an event in `armOn` beside `restartOn`.
-const armingOf = (
-  compile: Compile,
-  name: string,
-  config: ScheduleConfig<Values, Values>,
-  at: Path,
-) => {
+const armingOf = (compile: Compile, name: string, config: ErasedSchedule, at: Path) => {
   const armOn = config.armOn ?? [];
   const arming = eventsOf(compile, armOn, [...at, "armOn"]);
   const disarming = eventsOf(compile, config.disarmOn ?? [], [...at, "disarmOn"]);
@@ -108,12 +102,7 @@ const armingOf = (
 
 // A schedule's delay: computed when it is a function, else an Effect Schedule to step or a fixed
 // Duration, checked at construction.
-const delayOf = (
-  compile: Compile,
-  delay: ScheduleConfig<Values, Values>["schedule"],
-  slot: string,
-  at: Path,
-) => {
+const delayOf = (compile: Compile, delay: ErasedSchedule["schedule"], slot: string, at: Path) => {
   if (Predicate.isFunction(delay))
     return Delay.Computed({
       plan: {
@@ -134,7 +123,7 @@ const delayOf = (
 export const scheduleOf = (
   compile: Compile,
   name: string,
-  config: ScheduleConfig<Values, Values>,
+  config: ErasedSchedule,
   at: Path,
 ): Schedule => {
   compile.findings.push(...checkName(name, at));

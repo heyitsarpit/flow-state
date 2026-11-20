@@ -160,12 +160,13 @@ export type GuardElement<
   S extends string = string,
   Id extends string = string,
   L extends string = string,
-> = StateToken<S, Id> | GuardToken<P, Id> | ((input: GuardArg<M, P, L>) => true | Denial);
+  Cx = Values,
+> = StateToken<S, Id> | GuardToken<P, Id> | ((input: GuardArg<M, P, L, Cx>) => true | Denial);
 
 /**
  * One alternative of a handler: its target, guards, memory patch and actions: lane members,
  * lookups and sends, in written order. `S` is the definition's paths, `W` its writable memory, `Id`
- * its id and `L` its leaves.
+ * its id, `L` its leaves and `Cx` its context.
  */
 export type AlternativeConfig<
   M,
@@ -174,19 +175,23 @@ export type AlternativeConfig<
   W = M,
   Id extends string = string,
   L extends string = string,
+  Cx = Values,
 > = {
   readonly target?: StateToken<S, Id> | HistoryToken<S, Id> | "self";
-  readonly guard?: GuardElement<M, P, S, Id, L> | ReadonlyArray<GuardElement<M, P, S, Id, L>>;
+  readonly guard?:
+    | GuardElement<M, P, S, Id, L, Cx>
+    | ReadonlyArray<GuardElement<M, P, S, Id, L, Cx>>;
   readonly updateMemory?: (input: {
     readonly memory: M;
     readonly event: P;
+    readonly context: Cx;
     readonly now: number;
   }) => Partial<W> & { readonly [K in Exclude<keyof M, keyof W>]?: never };
   readonly actions?: ReadonlyArray<ActionToken<P, Id> | SendToken<M, P>>;
 };
 
-type OneAlternative<M, P, S extends string, W, Id extends string, L extends string> =
-  | AlternativeConfig<M, P, S, W, Id, L>
+type OneAlternative<M, P, S extends string, W, Id extends string, L extends string, Cx> =
+  | AlternativeConfig<M, P, S, W, Id, L, Cx>
   | StateToken<S, Id>
   | HistoryToken<S, Id>;
 
@@ -197,7 +202,8 @@ export type Handler<
   W = M,
   Id extends string = string,
   L extends string = string,
-> = OneAlternative<M, P, S, W, Id, L> | ReadonlyArray<OneAlternative<M, P, S, W, Id, L>>;
+  Cx = Values,
+> = OneAlternative<M, P, S, W, Id, L, Cx> | ReadonlyArray<OneAlternative<M, P, S, W, Id, L, Cx>>;
 
 export type On<
   M,
@@ -206,8 +212,9 @@ export type On<
   W = M,
   Id extends string = string,
   L extends string = string,
+  Cx = Values,
 > = {
-  readonly [K in keyof Ev]?: Handler<M, PayloadOf<Ev[K]>, S, W, Id, L>;
+  readonly [K in keyof Ev]?: Handler<M, PayloadOf<Ev[K]>, S, W, Id, L, Cx>;
 };
 
 /**
@@ -229,12 +236,12 @@ export type ScheduleMetadata = {
   readonly key: ScheduleKey;
 };
 
-// What a schedule's functions read: its key (keyed schedules), the after memory, the context and,
-// for the delay, the arming turn's now.
-type ScheduleInput<M> = {
-  readonly key: ScheduleKey;
+// What a schedule's functions read: its key `K` (keyed schedules), the after memory, the context
+// `Cx` and, for the delay, the arming turn's now.
+type ScheduleInput<M, Cx, K> = {
+  readonly key: Readonly<K>;
   readonly memory: M;
-  readonly context: Values;
+  readonly context: Cx;
   readonly now: number;
 };
 
@@ -250,11 +257,12 @@ type ScheduleEvent<Ev, Id extends string> = {
 // FLOW_STATE_ALLOW_UNKNOWN: any Effect Schedule, whatever its output; the host reads only its delays.
 type AnySchedule = Schedule.Schedule<unknown>;
 
-export type ScheduleConfig<M, Ev, Id extends string = string> = {
+// What every schedule declares, its functions reading the key `K`.
+type ScheduleParts<M, Ev, Id extends string, Cx, K> = {
   readonly schedule:
     | Duration.Input
     | AnySchedule
-    | ((input: ScheduleInput<M>) => Duration.Input | AnySchedule);
+    | ((input: ScheduleInput<M, Cx, K>) => Duration.Input | AnySchedule);
   readonly send: (
     | { readonly tag: keyof Ev & string }
     | { readonly ending: { readonly event: keyof Ev & string } }
@@ -263,20 +271,81 @@ export type ScheduleConfig<M, Ev, Id extends string = string> = {
   readonly armOn?: ReadonlyArray<ScheduleEvent<Ev, Id> | Entry>;
   readonly disarmOn?: ReadonlyArray<ScheduleEvent<Ev, Id>>;
   // FLOW_STATE_ALLOW_UNKNOWN: a selection of any type, compared by Equal.equals.
-  readonly restartOn?: (input: Omit<ScheduleInput<M>, "now">) => unknown;
-  readonly keys?: (input: {
-    readonly memory: M;
-    readonly operations: ScheduleOperations;
-  }) => ReadonlyArray<ScheduleKey>;
+  readonly restartOn?: (input: Omit<ScheduleInput<M, Cx, K>, "now">) => unknown;
   readonly paused?: Readonly<
     Record<
       string,
       (
-        input: Omit<ScheduleInput<M>, "now"> & { readonly operations: ScheduleOperations },
+        input: Omit<ScheduleInput<M, Cx, K>, "now"> & { readonly operations: ScheduleOperations },
       ) => boolean
     >
   >;
 };
+
+/**
+ * A schedule with one timer: its delay, the event it sends, what arms, disarms and restarts it,
+ * and its pause reasons. A schedule with a timer per key is written with `Flow.keyed`.
+ */
+export type ScheduleConfig<M, Ev, Id extends string = string, Cx = Values> = ScheduleParts<
+  M,
+  Ev,
+  Id,
+  Cx,
+  ScheduleKey
+> & { readonly keys?: never };
+
+/**
+ * What `Flow.keyed` takes: a schedule whose `keys` return one record per timer, and whose
+ * `schedule`, `restartOn` and `paused` each receive the timer's key `K`. Its send's mapper reads
+ * the key as a `ScheduleKey`: the mapper's call is resolved before `K` is inferred.
+ */
+export type KeyedConfig<M, Ev, Id extends string, Cx, K extends ScheduleKey> = ScheduleParts<
+  M,
+  Ev,
+  Id,
+  Cx,
+  K
+> & {
+  readonly keys: (input: {
+    readonly memory: M;
+    readonly operations: ScheduleOperations;
+  }) => ReadonlyArray<K>;
+};
+
+/**
+ * A keyed schedule as `Flow.keyed` returns it: its config, its key's type checked where it was
+ * written.
+ */
+export type KeyedSchedule<M = Values, Ev = Values, Id extends string = string, Cx = Values> = {
+  readonly "~flow": "keyed";
+  readonly config: Values;
+  // A phantom type: the memory, events, definition and context it was written for.
+  readonly "~keyed"?: (input: { readonly memory: M; readonly context: Cx }) => {
+    readonly events: Ev;
+    readonly definition: Id;
+  };
+};
+
+/**
+ * A schedule as the compiler reads it, keyed or not, its literal types erased.
+ */
+export type ErasedSchedule = ScheduleParts<Values, Values, string, Values, ScheduleKey> & {
+  readonly keys?: KeyedConfig<Values, Values, string, Values, ScheduleKey>["keys"];
+};
+
+/**
+ * A state's schedule as the compiler reads it: a schedule, or `Flow.keyed`'s wrapper of one.
+ */
+export type ErasedEntry =
+  | ErasedSchedule
+  | { readonly "~flow": "keyed"; readonly config: ErasedSchedule };
+
+/**
+ * What a state's `schedules` record holds by name: a schedule, or a keyed one.
+ */
+export type ScheduleEntry<M, Ev, Id extends string = string, Cx = Values> =
+  | ScheduleConfig<M, Ev, Id, Cx>
+  | KeyedSchedule<M, Ev, Id, Cx>;
 
 export type StateConfig<
   M,
@@ -285,9 +354,10 @@ export type StateConfig<
   W = M,
   Id extends string = string,
   L extends string = string,
+  Cx = Values,
 > = {
-  readonly on?: On<M, Ev, S, W, Id, L>;
-  readonly schedules?: Readonly<Record<string, ScheduleConfig<M, Ev, Id>>>;
+  readonly on?: On<M, Ev, S, W, Id, L, Cx>;
+  readonly schedules?: Readonly<Record<string, ScheduleEntry<M, Ev, Id, Cx>>>;
 };
 
 /**

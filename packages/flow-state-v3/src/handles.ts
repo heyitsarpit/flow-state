@@ -14,13 +14,14 @@ export type SelectArg<M, P = unknown> = { readonly memory: M; readonly event: P 
 export type SendArg<M, P> = { readonly memory: M; readonly event: P };
 
 /**
- * What a guard's callback reads: the leaf it runs in, of the definition's leaves `L`, the memory and
- * the event.
+ * What a guard's callback reads: the leaf it runs in, of the definition's leaves `L`, the memory,
+ * the event and the context `Cx`, the slots' values as the turn read them.
  */
-export type GuardArg<M, P, L extends string = string> = {
+export type GuardArg<M, P, L extends string = string, Cx = Values> = {
   readonly state: L;
   readonly memory: M;
   readonly event: P;
+  readonly context: Cx;
 };
 
 export const erase = <I, R>(run: (input: never) => R) =>

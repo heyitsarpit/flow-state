@@ -6,10 +6,10 @@ import { leafOf } from "./core/tree.ts";
 import {
   type AnyDefinition,
   type ChildrenOf,
+  type ContextOf,
   type Definition,
   type LeavesOf,
   type Machine,
-  type ScheduleConfig,
   type MemoryOf,
   type NamesOf,
   type On,
@@ -26,14 +26,15 @@ import { builder, entry, inert } from "./entry.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { ErasedEnding } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
-import type { Change, ContextTokens } from "./tokens.ts";
+import type { Change, ContextTokens, ErasedEntry } from "./tokens.ts";
 import { slotReadsOf } from "./flow.ts";
 import { nodesOf, tokenMaps } from "./compile-body.ts";
 import { type Compile, tokenOf } from "./compile-names.ts";
 
 type Parts<D> =
-  D extends Definition<infer States, infer Ev, infer In, infer M, infer _O, infer _Cx, infer Id>
+  D extends Definition<infer States, infer Ev, infer In, infer M, infer _O, infer Cx, infer Id>
     ? {
+        readonly Context: Partial<ContextOf<Cx>>;
         readonly Tree: States;
         readonly S: PathsOf<States>;
         readonly Leaves: LeavesOf<States>;
@@ -50,7 +51,8 @@ type Handlers<D> = On<
   Parts<D>["S"],
   Parts<D>["Writable"],
   Parts<D>["Id"],
-  Parts<D>["Leaves"]
+  Parts<D>["Leaves"],
+  Parts<D>["Context"]
 >;
 
 type LeafBody<D> = StateConfig<
@@ -59,7 +61,8 @@ type LeafBody<D> = StateConfig<
   Parts<D>["S"],
   Parts<D>["Writable"],
   Parts<D>["Id"],
-  Parts<D>["Leaves"]
+  Parts<D>["Leaves"],
+  Parts<D>["Context"]
 >;
 
 type StatesBody<D, L, P extends string> = {
@@ -94,9 +97,20 @@ export type AnyBody = {
   readonly default?: StateToken;
   readonly on?: Values;
   readonly onContext?: ReadonlyArray<Change>;
-  readonly schedules?: Readonly<Record<string, ScheduleConfig<Values, Values>>>;
+  readonly schedules?: Readonly<Record<string, ErasedEntry>>;
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
+
+// The body function. A conditional type, so a call that infers D instantiates it before checking
+// the body: the returned literal is then checked against the definition's own tree at every depth.
+type BodyOf<D> = [D] extends [AnyDefinition]
+  ? (tokens: {
+      readonly S: D["S"];
+      readonly E: D["E"];
+      readonly O: D["O"];
+      readonly C: ContextTokens<D["context"], Parts<D>["Memory"], Parts<D>["Id"]>;
+    }) => MachineBody<D>
+  : never;
 
 // A reaction as the body's decode checked it.
 type Decoded = {
@@ -254,15 +268,7 @@ const reactionFindings = (
 export const machine = entry(
   "machine",
   // RETURN_TYPE: the exported Machine keeps the definition's literal types.
-  <D extends AnyDefinition>(
-    definition: D,
-    body: (tokens: {
-      readonly S: D["S"];
-      readonly E: D["E"];
-      readonly O: D["O"];
-      readonly C: ContextTokens<D["context"], Parts<D>["Memory"], Parts<D>["Id"]>;
-    }) => MachineBody<D>,
-  ): Machine<D> => {
+  <D extends AnyDefinition>(definition: D, body: BodyOf<NoInfer<D>>): Machine<D> => {
     // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own definitions by mark until its decode checks them by identity
     if (!Predicate.hasProperty(definition, "~owner"))
       refuse([

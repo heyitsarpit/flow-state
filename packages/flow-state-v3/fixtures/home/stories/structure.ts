@@ -116,12 +116,12 @@ export const armOnKeyed = () =>
       ONLINE: {
         default: S.ONLINE.IDLE,
         schedules: {
-          poll: {
+          poll: Flow.keyed({
             keys: ({ memory }) => memory.sensors.map((s) => ({ id: s.id })),
             schedule: Duration.minutes(1),
             send: E.Polled.from(({ key, firedAt }) => ({ id: key["id"] ?? "", at: firedAt })),
             armOn: [E.Connected],
-          },
+          }),
         },
       },
     },

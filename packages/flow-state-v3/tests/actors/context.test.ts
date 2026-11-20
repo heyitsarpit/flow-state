@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Effect, Option, Predicate, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { attachInspector, type Evidence } from "../../src/host/inspect.ts";
 import { Story, type StoryRun, turnsOf } from "../../src/host/testing/index.ts";
@@ -64,24 +64,13 @@ const Reader = definition({
   context: { user: Flow.context(Session.M.user) },
 });
 
-// The user a callback's input holds in its context, read without its (not yet typed) shape.
-const userIn = (
-  // FLOW_STATE_ALLOW_UNKNOWN: a guard's or update's input, read for the context its types do not show yet.
-  input: unknown,
-) =>
-  Predicate.hasProperty(input, "context") &&
-  Predicate.hasProperty(input.context, "user") &&
-  Predicate.isString(input.context.user)
-    ? Option.some(input.context.user)
-    : Option.none();
-
 const ReaderMachine = machine(Reader, ({ S }) => ({
   default: S.READING,
   on: {
     Read: {
-      guard: [(input) => Option.isSome(userIn(input)) || deny("NoContext")],
-      updateMemory: (input) => ({
-        read: Option.match(userIn(input), { onNone: () => "none", onSome: (u) => `user:${u}` }),
+      guard: [({ context }) => context.user !== undefined || deny("NoContext")],
+      updateMemory: ({ context }) => ({
+        read: context.user === undefined ? "none" : `user:${context.user}`,
       }),
     },
   },

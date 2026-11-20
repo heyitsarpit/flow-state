@@ -144,24 +144,23 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
           },
         },
         schedules: {
-          poll: {
+          poll: Flow.keyed({
             keys: ({ memory }) => memory.sensors.map((s) => ({ id: s.id })),
             schedule: ({ key, memory }) =>
-              Schedule.spaced(POLL_EVERY[kindOf(memory.sensors, key["id"] ?? "")]),
-            restartOn: ({ key, memory }) => kindOf(memory.sensors, key["id"] ?? ""),
+              Schedule.spaced(POLL_EVERY[kindOf(memory.sensors, key.id)]),
+            restartOn: ({ key, memory }) => kindOf(memory.sensors, key.id),
             paused: {
               Vacation: ({ key, memory, context }) =>
-                context["mode"] === "VACATION" &&
-                kindOf(memory.sensors, key["id"] ?? "") === "temperature",
+                context.mode === "VACATION" && kindOf(memory.sensors, key.id) === "temperature",
               Saving: ({ key, memory, operations }) =>
-                kindOf(memory.sensors, key["id"] ?? "") === "temperature" &&
+                kindOf(memory.sensors, key.id) === "temperature" &&
                 Option.exists(
                   O.setTarget.get(operations, { room: memory.room }),
                   (row) => row.pending,
                 ),
             },
             send: E.Polled.from(({ key, firedAt }) => ({ id: key["id"] ?? "", at: firedAt })),
-          },
+          }),
         },
         states: {
           HEATING: {
@@ -185,7 +184,7 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
                 armOn: [Flow.entry],
                 restartOn: ({ memory }) => memory.target,
                 disarmOn: [E.WindowOpened],
-                paused: { Vacation: ({ context }) => context["mode"] === "VACATION" },
+                paused: { Vacation: ({ context }) => context.mode === "VACATION" },
               },
               boost: {
                 schedule: Duration.minutes(30),

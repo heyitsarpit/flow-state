@@ -211,17 +211,27 @@ const Delay = Schema.Union([
   DurationObject,
 ]).annotate({ help: 'Give a schedule a Duration input, such as "5 seconds" or { seconds: 5 }.' });
 
-const ScheduleEntry = Schema.Struct({
+const scheduleFields = {
   schedule: Delay,
   send: Ending,
   armOn: Schema.optionalKey(Schema.Array(Schema.Union([EventToken, EntryToken]))),
   disarmOn: Schema.optionalKey(Schema.Array(EventToken)),
   restartOn: Schema.optionalKey(Fn),
-  keys: Schema.optionalKey(Fn),
   paused: Schema.optionalKey(Schema.Record(Schema.String, Fn)),
-}).annotate({
-  help: "Write a schedule as { schedule, send: E.X, armOn: [E.X tokens or Flow.entry] }.",
-});
+};
+
+// A schedule, or a keyed one as Flow.keyed makes it: its config, with keys.
+const ScheduleEntry = Schema.Union([
+  Schema.Struct(scheduleFields).annotate({
+    help: "Write a schedule as { schedule, send: E.X, armOn: [E.X tokens or Flow.entry] }.",
+  }),
+  Schema.Struct({
+    "~flow": Schema.Literal("keyed"),
+    config: Schema.Struct({ ...scheduleFields, keys: Fn }).annotate({
+      help: "Write a keyed schedule as Flow.keyed({ keys, schedule, send: E.X }).",
+    }),
+  }),
+]);
 
 // A slot's change reaction, as `C.slot.change` makes it: when a change counts, and its event.
 const Change = Schema.Struct({

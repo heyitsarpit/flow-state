@@ -982,6 +982,20 @@ tasks
             lands as an inverted test and is split into its own Task, the user told. Disarm wins over a changed
             restartOn in the same turn (no made-up firing): Turn R14 gains the sentence with a specs.log note, red
             first. The other owed items land in the round. The Turn I9 run-rule gap goes to @task.V3.T112.
+        comment     2026-11-20T10:49:17Z
+            Type spike (lead, 15 min): depth-2 widening, typed context and typed `key` are solved; `pausedBy` in the
+            snapshot is not. Cause of the widening: the body function type is an object type, so an inferring call
+            checks the returned literal against `MachineBody<D>` with D still generic and nested state names (via
+            `ChildrenOf<D>`) drop out; typing the body as a non-distributive conditional (`BodyOf<NoInfer<D>>`,
+            `src/machine.ts`) makes TypeScript instantiate it with the inferred D. Tried and rejected: `NoInfer` on the
+            return, a conditional return only (both still widen), `const B` (keeps literals, loses depth-2 mapper
+            metadata and excess-key checks, the T104 failure), curried `machine(D)(body)` (works; 327 call sites).
+            Context: guards, updates and schedule functions take `Partial<ContextOf<…>>`. `key`: needs one generic call
+            per schedule (reverse-mapped inference over the record fails), so `Flow.keyed({ keys, … })` (proposed public
+            API) types it in `schedule`, `restartOn` and `paused`; its send mapper keeps `ScheduleKey`, since the nested
+            `E.X.from` call resolves before `keys` infers K (a declared key Schema does not help). `pausedBy`: a
+            Snapshot is typed by its definition, which holds no body schedules; carrying the body type means inferring
+            it, which loses excess-key checks. Kept as a `today` pin; proposed owner @task.V3.T109.
     T21
         title       Reads and operations (slice 5)
         status      draft

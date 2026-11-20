@@ -322,8 +322,8 @@ export const nodesOf = (
 
   const level = levelOf(compile, body.on ?? {}, at);
 
-  const schedules = Object.entries(body.schedules ?? {}).map(([name, s]) =>
-    scheduleOf(compile, name, s, [...at, "schedules", name]),
+  const schedules = Object.entries(body.schedules ?? {}).map(([name, entry]) =>
+    scheduleOf(compile, name, "config" in entry ? entry.config : entry, [...at, "schedules", name]),
   );
 
   if (isLeaf && body.states !== undefined)
