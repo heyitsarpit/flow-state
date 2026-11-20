@@ -1370,3 +1370,7 @@ note 2026-11-20T16:56:58Z
 note 2026-11-20T16:57:09Z
     Decision (the user, 2026-11-20): drop Flow.keyed; with schedules declared on the definition a keyed schedule is a
     plain object whose key type comes from the declaration; the Declared-schedules Task removes it.
+
+note 2026-11-20T17:16:18Z
+    Second Fable wave done: boundary channels, test tooling, errors and trust, static analysis and rules, UI and host
+    (proposals). Usage 97% weekly, 88% 5-hour: the ten-design cohesion check waits for the reset.
