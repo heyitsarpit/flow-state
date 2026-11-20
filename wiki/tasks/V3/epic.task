@@ -273,12 +273,32 @@ instructions
       stress Stories or the sweeps.
     - A checkpoint is a builder commit at the end of a coherent step. At a Task's close the builder runs the stress runs
       and the generated Stories over fresh seeds; every new failure lands as a fix or an inverted test before review.
+    - Earlier surfacing of what close reviews kept finding (the user, 2026-11-20):
+      - a rule or Spec change the builder makes mid-build becomes a requirement at once: a failing check, two traces in
+        a Task comment, and one blind Haiku sidecar on that rule before the build goes on;
+      - every requirements list names each real resource the Task touches (store, page, network, clock) and what its
+        fake does not yet do (close, refuse after close, hold, hide); a gap is hardened in the fake or checked for real;
+      - a Task touching a persisted shape shows restore after the definition is edited: a reorder, an add, a remove and
+        a rename;
+      - the builder's close note lists every check, plant or guard it changed, relaxed or moved, each with its reason;
+        the close review reads that list first.
 
     **Reviews and done**
 
     - Reviews run on events, not on the clock (overrides R22): a Task's first commit, a Task's close, a Spec change, and
       a change to the test tooling or the run rules. Each goes to one Opus lead with read-only Haiku sidecars on named
       angles, one of them blind to the Task's requirements list (the user, 2026-11-12).
+    - A requirements review has five fixed sidecars (the user, 2026-11-20): blind A derives requirements from the
+      acceptance and Specs; blind B from the proposal, catalog and routed comments, as an adversary hunting edge cases;
+      flip A checks each red can fail only for its stated reason (no stub, missing API or a check that can never flip);
+      flip B writes, per requirement, the simplest wrong build that passes every check; cohesion, which also lists the
+      whole family up front (every export of the touched entries, every sibling of a changed type or helper). The lead
+      checks the mapping and re-runs the cited reds itself; no suite re-run and no fixtures-proof re-check (the close
+      review reads the fixtures).
+    - A close review's one suite run is the coverage run (`nub run test:coverage`); one sidecar reads the uncovered
+      lines and branches in the files the Task changed and names, for each, the Story or edge value that would reach it,
+      dead code to delete, or a defect-only path (the user, 2026-11-20). No coverage percentage or baseline. Flip A
+      re-runs on the Task's final checks.
     - A Task closes by R17: its author sets `review`; one independent Opus lead, with its sidecars, runs
       skill:check-task and reviews the Task's diff in the same pass, and writes PASS or ISSUES as a Task comment; on
       PASS with no blocking finding the orchestrator sets `done`. A phase ends with R11's close-out review and R18's
