@@ -1,1138 +1,261 @@
 log V3
 
 note 2026-11-15T10:02:29Z
-    [decided: user 2026-11-15] Flow's own tests run on its public Story, CLI and inspection tooling ("these are
-    supposed to be public anyways ... so both things get harndened. so i'm for it"). Scope: whole run. The
-    conformance suite is deleted; its last copy is commit 52a883e6.
-
-note 2026-11-15T10:02:29Z
-    [decided: user 2026-11-15] rewrite the Epic from scratch ("just use the skill and exercise your judgment and
-    forget about amendments"). Scope: this Epic and its phases; written with to-epic, to-task and build-a-loop at
-    6b7288e. The earlier Epic is at 6b9fe478.
+    [decided: user 2026-11-15] Flow's own tests run on its public Story, CLI and inspection tooling ("these are supposed
+    to be public anyways ... so both things get harndened. so i'm for it"). Scope: whole run. The conformance suite is
+    deleted; its last copy is commit 52a883e6.
 
 note 2026-11-15T10:02:30Z
-    [decided: agent 2026-11-15] the rewrite kept the goal, constraints, authority, limits and core-slice order, and
-    dropped the suite's rules, per-edit labels, 24-hour compaction, process watch and usage sampler. Why: the user
-    asked for less process. Reverse: restore any rule from 6b9fe478.
+    [decided: user 2026-11-15] Rewrite the Epic from scratch ("just use the skill and exercise your judgment and forget
+    about amendments"); written with to-epic, to-task and build-a-loop at 6b7288e, the earlier Epic at 6b9fe478.
+    Approved ("agreed to all") with the loop; status active.
 
 note 2026-11-15T10:10:22Z
-    [decided: agent 2026-11-15] P2 finishes before P3 starts; blocked_by holds real dependencies only, each phase's
-    order on its card. Why: T54's known bugs were found by generated runs, which T70 builds. Reverse: restore the
-    blockers from 6bc69c7d.
-
-note 2026-11-15T10:16:33Z
-    Approved (user, 2026-11-15): "agreed to all" on the rewritten Epic and loop, then "okay fix and finalise
-    everything and tell me when we can start coding". Status active; T62 done on an independent PASS at 5e95c840.
-
-note 2026-11-15T10:21:13Z
-    Run started at `344aa819` ("make decisions as you see fit"); current @task.V3.T63. Decision (agent, 2026-11-15):
-    the lead starts at the 5-hour reset, as that window is at 94 percent. Reverse: start it at once.
-
-note 2026-11-15T10:22:14Z
-    Run not started: the user stopped it before any agent began ("don't start the run, end this session we don't
-    have limits left"). No lead ran; crons and keep-awake removed.
+    [decided: agent 2026-11-15] The rewrite dropped the suite's process rules and P2 finishes before P3 starts
+    (blocked_by real dependencies only). Why: the user asked for less process; T54's bugs were found by T70's generated
+    runs. Reverse: restore from 6b9fe478 and 6bc69c7d.
 
 note 2026-11-15T12:55:45Z
-    [decided: user 2026-11-15] "i'm setting the limit to 100%". Scope: whole run. The usage reserve is 100 percent
-    weekly.
+    [decided: user 2026-11-15] "i'm setting the limit to 100%": the usage reserve is 100 percent weekly (2026-11-18:
+    keep the current pace, the reserve stays 100 %). Also: "haiku agents are not allowed to run any prod code, they may
+    run experiments or hillclimb in separate temp files and submit ideas"; sidecar counts are the lead's call.
 
 note 2026-11-15T12:55:45Z
-    [decided: user 2026-11-15] "haiku agents are not allowed to run any prod code, they may run experiments or
-    hillclimb in separate temp files and submit ideas"; on sidecar counts, "just let the lead decide". Scope: whole
-    run.
-
-note 2026-11-15T12:57:29Z
-    Run started at `69fbdc14` ("okay commit and start coding"); current @task.V3.T63; weekly usage 71 of 100. One
-    Opus lead on T63; wakes every 90 minutes; caffeinate holds the Mac awake.
+    [decided: user 2026-11-15] Scope: whole run.
 
 note 2026-11-15T13:16:23Z
-    [decided: user 2026-11-15] "just make the minimal needed patch". Scope: P2 to P10. One instructions line makes
-    "May change" a guide; T64 gains Actors I30; T68's check count is fixed.
-
-note 2026-11-15T13:23:31Z
-    Review of T63's first commit `01afeb56`: ISSUES, one blocking (a dead page's released write could complete its
-    waiter and make up an ending). Fixes sent to the builder; a no-attach reload routed to @task.V3.T64.
-
-note 2026-11-15T13:28:48Z
-    Paused (user, 2026-11-15): "pause the T63 builder, we may have a confusion, don't commit anything". Wakes must
-    not resume or replace the lead until the user says go.
+    [decided: user 2026-11-15] "just make the minimal needed patch": one instructions line makes "May change" a guide.
+    Scope: P2 to P10.
 
 note 2026-11-15T14:20:48Z
-    [decided: user 2026-11-15] "all agreed, go ahead". The test-tooling reuse proposal is accepted; @plan.Testing.O3
-    edited; Pending D5 to D7; T63 amended. The array-shaped first build is checkpoint `14bc60d9`.
-
-note 2026-11-15T14:21:20Z
-    Resumed (user, 2026-11-15: "go ahead"): the T63 lead reshapes the first slice from `de417f07`.
-
-note 2026-11-15T14:22:01Z
-    Paused again (user, 2026-11-15: "don't do that, just make the records changes"): the resume was the
-    orchestrator's mistake. Wakes must not resume or replace the lead until the user says go.
-
-note 2026-11-15T14:42:21Z
-    Records repaired after review (user, 2026-11-15: "your recommendations are accepted"): Stories.spec on the Plan's
-    names, T63's Shape, the P2 folder structure, later Tasks fixed, Pending D8 and D9. No code changed.
-
-note 2026-11-15T14:51:20Z
-    Records fixed from the Haiku Q&A: T63's Shape (5 s, scope, Restore I6), T64's rules on the Specs' wording, T67's
-    answer and ack mapping, T29, T30, T58 and T28 ownership, Pending D10. No code changed.
-
-note 2026-11-15T15:22:29Z
-    Old comments removed (user, 2026-11-15: "remove all old comments"): T62's checks and T63's array-build comments;
-    git keeps them. Kept: three routing comments on T9, T21 and T31.
-
-note 2026-11-15T15:58:02Z
-    Log moved to V3.log and spec-log.md deleted (user, 2026-11-15: "recommendation accepted, but delete
-    spec-log.md"). Spec changes go to wiki/specs/specs.log; the full old notes are in git before this commit.
-
-note 2026-11-15T16:33:04Z
-    Session ended on the user's word: wakes and keep-awake removed; T63 stays paused at 14bc60d9 with its records
-    amended. To start: "run the loop in wiki/tasks/V3/epic.task".
-
-note 2026-11-15T16:35:29Z
-    Run resumed at `64b95721` (user: "run the loop in wiki/tasks/V3/epic.task"); current @task.V3.T63, weekly usage 77
-    of 100. No live agents. First action: one T63 lead reshapes `14bc60d9`'s array build to the amended Shape,
-    requirements list first.
-
-note 2026-11-15T17:16:46Z
-    T63 in review at `5425505d`: builder reports no stop, faults 28 of 29 (refused-turn-reported left to @task.V3.T64).
-    Its first-commit report was folded into the close, so one independent check covers both.
-
-note 2026-11-15T17:25:24Z
-    T63 done: independent review PASS at `5425505d` (`9264457b`); seven gaps routed to @task.V3.T64. Delegated call
-    (small public API): inspect lanes keep `operation` and add `contract` and `state`; for the user's read. Next: T64.
-
-note 2026-11-15T17:39:38Z
-    Review of T64's first commit `1c940b02`: GAPS, list fixes only (I15 looser than its Spec, I3 and I9 narrowed, I14
-    contradicted, R1 cited for Restore I1); sent to the builder. G4 kept, its pin test extended past the deadline. An
-    I14 rewording would be the user's.
+    [decided: user 2026-11-15] "all agreed, go ahead": the test-tooling reuse proposal is accepted (@plan.Testing.O3
+    edited; Pending D5 to D7); the user's later "your recommendations are accepted" fixed Stories.spec on the Plan's
+    names and added Pending D8 and D9. The array-shaped first build is checkpoint 14bc60d9.
 
 note 2026-11-15T17:42:49Z
     [decided: user 2026-11-15] "yes rewording is allowed ... running code will override specs or plans, provided those
-    plans are evaluated broadly in light of the whole system or the builders will end up cheating".
-
-note 2026-11-15T17:42:49Z
-    Scope of that decision: Turn I14 in @task.V3.T64 now; the run-wide rule waits on the user confirming its reading
-    (R15).
-
-note 2026-11-15T17:49:44Z
-    Amendment (2026-11-15, the user: "accepted", Q1 A and Q2 A): a guarantee change is no longer a stop; running code
-    overrides a Spec after a whole-system check and review. Commit: 4194ea20.
-
-note 2026-11-15T18:02:49Z
-    T64 in review at `bdd85075`: builder reports 36 of 36 faults, 328 sweep variants green, Turn I14 and I9 kept and
-    shown as runtime bugs (it.fails). Independent check started.
-
-note 2026-11-15T18:15:06Z
-    T65 in review at `0ed1e89d` (WriteAhead R5 gap pinned as it.fails); its check waits for T64's. T66 started; its
-    timed run waits until no other agent runs.
-
-note 2026-11-15T18:16:39Z
-    T64 done: independent review PASS at `bdd85075` (`6d8ec592`). Routed: rule gaps and the sweep's unasserted skips to
-    @task.V3.T70, Turn I14 and I9 bugs to @task.V3.T17, faults runner and Stories I7 to @task.V3.T67.
-
-note 2026-11-15T18:16:39Z
-    Ruling (orchestrator): Stories I7's reword failed the whole-system check (@plan.Testing.O2 still promises the turn
-    bound, no Pending entry); the Plan's bound stands until @task.V3.T67 fixes or records it. Reverse: keep the reword
-    with a Pending decision.
-
-note 2026-11-15T18:27:27Z
-    T65 done: independent review PASS at `0ed1e89d` (`8d0d6583`). Routed: WriteAhead R5 and I21 bug to @task.V3.T20,
-    Trace remainder to @task.V3.T49, exports to @task.V3.T29, nits to @task.V3.T67.
+    plans are evaluated broadly in light of the whole system or the builders will end up cheating". A guarantee change
+    is no longer a stop (Q1 A, Q2 A; commit 4194ea20).
 
 note 2026-11-15T18:29:11Z
-    [decided: user 2026-11-15] "you pick the name, i don't like either one but there should be one name only". Picked
-    `tab` as `{ name, open }` (@plan.Testing and @plan.Inspection already use it); `page` goes everywhere.
-
-note 2026-11-15T18:29:11Z
-    Why `tab`: a reload is the same tab's next open, so one name covers both; `page` collides with the web page. A dead
-    page is now a dead tab. Rename sent to @task.V3.T67. Reverse: rename back.
-
-note 2026-11-15T18:29:23Z
-    T66 in review at `3e1fb97b` (bench numbers in its comment); independent check started. T67 started: bridge port,
-    fixtures reshaped, the page-to-tab rename.
-
-note 2026-11-15T18:35:52Z
-    T66 done: independent review PASS at `3e1fb97b` (`87167d26`); bench-method items routed to @task.V3.T35.
-
-note 2026-11-15T18:48:48Z
-    Review of T67's first commit `e282eb2b`: GAPS (value-by-value case mapping, unmapped answer words, an unverifiable
-    PAY-22 check, rename grep); sent to the builder. Delegated: tab opens count from 1.
-
-note 2026-11-15T18:48:48Z
-    Ruling (orchestrator, small public API): `reload({ heldWrites: "land" })` lands held store writes as the old tab
-    dies (a committed write never heard, Restore R3); default "abort". For the user's read. Reverse: drop the option and
-    the two cases' after-reload values.
-
-note 2026-11-15T19:18:10Z
-    Review started of T67's tooling and Spec changes (`0c516c07` rename, `2abb4619` turn bound, heldWrites, faults
-    runner): a review event with no review covering it.
-
-note 2026-11-15T19:31:26Z
-    Review of T67's tooling (`0c516c07`, `2abb4619`): ISSUES, one blocking (faults exits 1 on 7 unlisted bridge tests);
-    sent to the builder. Ruling: "abort" removes the dying tab's held writes, so a release reaches only live tabs.
-
-note 2026-11-15T19:52:57Z
-    T67 in review at `f1a9eb19`: bridge deleted, 81 cases accounted (78 full, 2 it.fails, 1 dropped); independent check
-    started. AGENTS.md's bridge line updated; this run's stray faults scratch dir removed.
-
-note 2026-11-15T20:17:58Z
-    T67 done: independent review PASS at `f1a9eb19` (`f5625d6f`); the bridge is gone, one test style left. Routed: two
-    unlisted bridge drops, Turn I30 and runner limits to @task.V3.T70; temporary names to @task.V3.T54.
-
-note 2026-11-15T20:26:34Z
-    T68 in review: 9 compile-time tests, 43 promises found (26 unbuilt, owners listed); independent check started. Live
-    gap: a foreign event token passes a schedule's send and machine().
-
-note 2026-11-15T20:36:08Z
-    T68 review ISSUES at `025fe178` (`5e59bf96`): Operations V1's built forms untested and two unbuilt ones unlisted;
-    back to the builder. Delegated: pin the foreign event token now as an it.fails on Compile T11.
-
-note 2026-11-15T20:44:54Z
-    T68 done: review PASS at `88980b0c` after one fix round; 13 compile tests, 28 unbuilt promises with owners. Unbuilt
-    promises routed to @task.V3.T21 and the foreign event token to @task.V3.T57.
+    [decided: user 2026-11-15] "you pick the name, i don't like either one but there should be one name only": `tab` as
+    `{ name, open }`; `page` goes everywhere.
 
 note 2026-11-15T21:01:49Z
     [decided: user 2026-11-16] "we can build all the machines and code proposed in ui-primitives-generality ... plot a
-    course for them to be included in fixtures ... ui-sdk cloned and ... copy the scenarios".
+    course for them to be included in fixtures ... ui-sdk cloned and ... copy the scenarios". Also "all accepted"
 
 note 2026-11-15T21:01:49Z
-    Course: ui-sdk cloned to codebases/ui-sdk (`98ba9fd`); @task.V3.T71 (palette, number input) runs before T70,
-    @task.V3.T72 after T17, @task.V3.T73 after T21 and T57. Behaviour ported, never code.
-
-note 2026-11-15T21:19:55Z
-    T69 in review at `f20559bb`: 41 CLI tests, faults 46 of 46; independent check started, with the faults runner's two
-    new excuses (tests/cli, T ids) under scrutiny.
-
-note 2026-11-15T21:33:30Z
-    T69 done: independent review PASS at `f20559bb` (`bb78c35c`); the faults runner's new excuses judged narrow and
-    justified. Routed: CLI output to @task.V3.T29, config checks and test tightening to @task.V3.T22.
-
-note 2026-11-15T21:43:28Z
-    [decided: user 2026-11-16] "all accepted" (T70 Q1-Q4): usual and stress profiles and a stress Story per fixture in
-    @task.V3.T70; the fixture catalogue is the fixture source; app mix is @task.V3.T74.
-
-note 2026-11-15T21:44:53Z
-    [decided: user 2026-11-16] "both accepted": @task.V3.T70 builds a pair sweep (phase by fault, the gate's
-    deterministic floor) beside random stress seeds.
-
-note 2026-11-15T21:57:25Z
-    T71 in review at `0b5c4b41`: two ui-sdk fixtures, 29 of 37 scenarios ported, faults 51 of 51; independent check
-    started. The sweep reloads every fifth stress step, under scrutiny.
-
-note 2026-11-15T22:12:07Z
-    T71 done: independent review PASS at `0b5c4b41` (`482c25b2`); all 29 ports match upstream, 8 drops hold. Routed to
-    @task.V3.T70: full sweep (no stride), disabled shortcuts, one frame stack, NUMBER-10 follows upstream (ruling).
-
-note 2026-11-15T22:12:07Z
-    For the user's read (wiring cost): the number input's `lastCommit.seq` is a hand-kept counter the idiom pass's
-    proposed `emit` would replace.
-
-note 2026-11-15T22:20:13Z
-    Review of T70's first commit `e7464a40`: GAPS (three T71 follow-ups missing, pair grid and profiles unpinned,
-    missing false-pass guards); sent to the builder. effect/Arbitrary confirmed.
-
-note 2026-11-15T22:20:14Z
-    Delegated calls: pair sweep is 8 phases by 7 faults (catalogue's 6 plus lost answer); the DRIVE profile reaches
-    later phases. For the user's read. Reverse: 48 cells, usual-only driving.
-
-note 2026-11-15T23:51:38Z
-    T70 in review at `65255051`: generated Stories, pair sweep (129 of 392 reached), faults 51 of 51; independent check
-    started. Under scrutiny: the builder's WriteLanes I3/I15/I16 reword around crashes, seed 397, WriteAhead I23.
-
-note 2026-11-16T00:15:52Z
-    T70 review ISSUES at `65255051`: the stress profile misses the catalogue (offline span ms not seconds, small bursts,
-    coupled draws); back to the builder. The crash reword of WriteLanes I3, I15, I16 holds after two replays.
-
-note 2026-11-16T00:15:52Z
-    Delegated: lose(), run's seed and samples' values accepted as small tooling API. WriteAhead I23 (one batch out per
-    actor, against R12) held as it.fails, owner @task.V3.T19; for the user's read.
-
-note 2026-11-16T00:29:31Z
-    T70 builder rotated at its context limit (R7): a fresh lead takes its uncommitted stress-profile work and resume
-    comment `532d6140`. Delegated: `Fake.network.offline()`/`online()` accepted as small tooling API, recorded in
-    Pending.
-
-note 2026-11-16T01:13:21Z
-    T70 in review at 554531f2 after the fix round: stress profile per the fixture plan, Fake.network (Pending D12),
-    planted seed 19, faults 52 of 52.
-
-note 2026-11-16T01:14:03Z
-    T70 back in review at `554531f2` after the fix round (faults 52 of 52); the original reviewer re-checks its
-    findings, including a quiet-phase change made to get a seed under ten steps.
-
-note 2026-11-16T01:20:18Z
-    T70 done: review PASS at `554531f2` (`b9e7c6f2`) after one fix round and a builder rotation. All P2 Tasks are done;
-    next, R11's close-out review and R18's completion audit.
-
-note 2026-11-16T01:20:43Z
-    P2 close-out review and suite audit started (R11), one Opus lead; the completion audit (R18) follows its findings.
-    Weekly usage 95.
+    [decided: user 2026-11-16] (T70 Q1 to Q4: usual and stress profiles, a stress Story per fixture, the fixture
+    catalogue as source, app mix as @task.V3.T74) and "both accepted" (T70 builds a pair sweep beside random stress
+    seeds).
 
 note 2026-11-16T01:26:36Z
     [decided: user 2026-11-16] "do an optimisation pass and for all these big test commands run them rarely. even the
-    stress case should be a flag that runs rarely". Scope: whole run.
+    stress case should be a flag that runs rarely"; then "remove that mid run requirement, full suite is probably fine
+    if it's fast. stress runs once at the end of a task and faults also runs at the end of a task". Scope: whole run.
 
-note 2026-11-16T01:26:36Z
-    Applied (R15): instructions now run faults and stress at a Task's close, its review and a phase's close only;
-    checkpoints use the fast suite. @task.V3.T75 builds the flag and parallel faults.
+note 2026-11-16T02:04:13Z
+    P1 and P2 summary (2026-11-15 to 2026-11-16): the Epic was rewritten and approved, T62 done at 5e95c840, the run
+    started at 69fbdc14 after two aborted starts (usage limits) and a pause or two for the user's corrections of the T63
+    first build (reshaped from de417f07).
 
-note 2026-11-16T01:29:58Z
-    [decided: user 2026-11-16] "remove that mid run requirement, full suite is probably fine if it's fast. stress runs
-    once at the end of a task and faults also runs at the end of a task". Instructions edited; whole run.
+note 2026-11-16T02:04:13Z
+    Old comments were removed from the Tasks, the log moved to V3.log and spec-log.md deleted, 19 absorbed proposals
+    deleted at the user's word. P2 closed with a completion audit PASS at eff65a6b; the fast suite, stress and faults
+    commands were split and parallelised (T75).
 
-note 2026-11-16T01:40:10Z
-    P2 close-out (`ffa3972e`): FINDINGS; F2 to F5 go to @task.V3.T75, F1 clears when T75 is done, F6's coverage record
-    re-matches after it. Deferrals D1 to D7 routed to T17, T19, T20, T21, T22, T29, T54, T57.
+note 2026-11-16T02:04:13Z
+    Small tooling API calls the user delegated (reload heldWrites land, lose(), Fake.network.offline(), run seed,
+    samples values) are in Pending and the P2 phase comments. History in git at a9ed4037.
 
-note 2026-11-16T01:53:05Z
-    T75 in review at `96ef4847`: faults 206 s to 25 s, fast suite 18.5 s to 10.5 s, same 52 caught. One lead reviews it
-    and, on PASS, runs P2's completion audit (R18); usage 96.
-
-note 2026-11-16T01:58:14Z
-    [decided: user 2026-11-16] "start T54 anyways ... i have another account where i will resume this epic". T54
-    starts before P2's completion audit lands (overrides P3's start condition for T54 only). At 100% here, stop with a
-    resume note for the other account.
-
-note 2026-11-16T01:58:14Z
-    Rates this run (16:35Z to 01:55Z): weekly usage 77 to 96, about 2 points an hour; 9 Tasks done (T63 to T71), about 1
-    an hour, about 2 points each. Expect 1 to 2 hours of work left on this account.
-
-note 2026-11-16T02:04:36Z
-    Phase P2 done: T75 PASS and the completion audit PASS at `eff65a6b` (`0477aff6`); coverage record re-matched,
-    proposed to the user as a @plan.Runtime entry. Record compaction (R18) deferred to save usage.
-
-note 2026-11-16T02:41:36Z
-    P3's Task progress, reviews and run stops from here to 2026-11-18 were compacted into the Tasks' comments
-    (@phase.V3.P3); full text: this file at 8c4e7263. T18's `notSent:` key is @plan.Operations.O3's (this note said O1).
+note 2026-11-16T02:05:00Z
+    [decided: user 2026-11-16] "start T54 anyways ... i have another account where i will resume this epic": T54 starts
+    before P2's completion audit lands (overrides P3's start condition for T54 only).
 
 note 2026-11-16T04:44:27Z
-    [decided: user 2026-11-16] "do 1 & 2": T18's user's page written
-    (wiki/plans/flow/references/pages/T18-lane-policies.md, unread); instructions gain "a gap is never written into a
-    Spec as a limit". Whole run.
+    [decided: user 2026-11-16] "do 1 & 2": T18's user's page written, and the Epic's instructions gain "a gap is never
+    written into a Spec as a limit".
 
-note 2026-11-16T05:31:17Z
-    P2 records compacted (R18, deferred from the phase's close): 40 progress-only comments dropped from P2's done Tasks
-    (requirements lists, build and close notes, handled routings, gate counts); decisions, verdicts, mappings and the
-    user's-read items kept. Full text: git before this commit.
-
-note 2026-11-16T05:36:56Z
-    [decided: user 2026-11-16] "edit the epic for the important stuff, just 1-2 lines": instructions gain the run's
-    lessons (--now stamps, gates by exit code, about 2% a Task); T55 gets a read-first comment.
-
-note 2026-11-16T06:20:17Z
-    Deleted 19 absorbed proposals in wiki/plans/flow/references/proposals/ (user: "do it all", 2026-11-16); every file
-    is in the commit before this one, 9625d3a5 for most (agent-speed-study 75d828ae, self-contained-audit a465f7d6,
-    suite-convergence c59b5fab, suite-leverage-survey ef115b0d). Reverse: git show <rev>:<path>.
+note 2026-11-16T04:44:27Z
+    [decided: user 2026-11-16] Also: instructions gain the run's lessons (--now stamps, gates by exit code, about 2% a
+    Task); every accepted review finding names the missing coverage that let it through, and the fix adds coverage for
+    the whole class first. Whole run.
 
 note 2026-11-16T08:20:24Z
-    [decided: user 2026-11-16] wakes every 60 min also time the tests; over twice baseline inserts a speed Task first.
-    Speed baseline at 313e8a45: suite 12 s, stress 9 s, faults 28 s. Reverse: cadence back to 90 min.
+    [decided: user 2026-11-16] Wake cadence: a single cron every 30 minutes (7,37), replacing the 90, 60, 50 and 45
+    minute plans; tests are timed about every third hourly wake and a speed Task is inserted first when over twice
+    baseline (baseline at 313e8a45: suite 12 s, stress 9 s, faults 28 s). Reverse: one hourly cron.
 
-note 2026-11-16T13:04:39Z
-    Merging the user's UI-primitives decisions (proposals 2026-11-16-ui-primitives-*.md) into the Plans and Specs: five
-    Sonnet mergers on disjoint files, then the Task changes, then an Opus review. The user asked for it (2026-11-16).
-
-note 2026-11-16T13:12:43Z
-    Amendment (2026-11-16, the user: UI-primitives Task changes, F1 and F2): @task.V3.T72 moves from P3 to P4 and T76 to
-    T78 join P4, since the toaster needs paused schedules (@task.V3.T57) and emits (@task.V3.T77). Commit: the next one.
-
-note 2026-11-16T13:13:09Z
-    The T72-to-P4 Amendment and the T76-T78 Tasks landed in 686c2161.
-
-note 2026-11-16T13:15:55Z
-    Decision (the user delegated, 2026-11-16): U3, T76 builds Story.machine's first slice and T29 extends it, so T73 and
-    T78 get props in P4; U4, the five refusal checks move to a 2^31 ms delay, since JSON can't carry NaN. Reverse: edit
-    T76's and T57's Risk.
-
-note 2026-11-16T13:28:17Z
-    UI-primitives merge review ISSUES, 11 gaps fixed in ad32192d; open for the user: Machines O3 carries Pending D13's
-    wording while D13 is still pending (recommend keep, drop D13 from Pending once T17 closes). T9's close review
-    started.
-
-note 2026-11-16T13:33:50Z
-    Decision (user delegated, 2026-11-16): Pending D13 removed, its text merged into Machines O3 by cc9f81d5; T73 added
-    to P4's Order after T21. useActor's whole props vs setProps is left to T76.
-
-note 2026-11-16T13:45:09Z
-    Whole-codebase code-quality review started (the user, 2026-11-16): duplication, patterns that should be one service,
-    dead code, implicit state machines, derived state, Effect idiom; report to a proposal file for one convergence pass.
+note 2026-11-16T08:20:24Z
+    [decided: user 2026-11-16] The cron was cancelled by the user on 2026-11-19; no wake runs now.
 
 note 2026-11-16T14:01:23Z
-    [decided: user 2026-11-16] emits keep their own callback namespace, { S, E, O, emits } with emit:
-    [emits.X.from(...)], matching fragments' callbacks and exits; a record-keyed emit was weighed and dropped as
-    inconsistent with them.
+    [decided: user 2026-11-16] Emits keep their own callback namespace, `{ S, E, O, emits }` with `emit:
+    [emits.X.from(...)]`, matching fragments' callbacks and exits; a record-keyed emit was weighed and dropped as
+    inconsistent.
 
-note 2026-11-16T14:02:17Z
-    Code-quality review done (f92864c3): structural debt, no purity breach. Inserted T79 (one convergence pass: tx edit
-    operations, lifecycle unions, one home for diagnostics and keys, host idiom) and T80 (host tests onto Story and
-    Fake, seam deleted) after T9 in P3's Order.
+note 2026-11-16T15:42:00Z
+    [decided: user 2026-11-16] Fixtures-first acceptance added to 21 feature Tasks, naming existing fixtures and 14
+    proposed new ones; tooling, docs, budget and release Tasks skipped. Also "tdd comes before convergence, to make sure
+    all known behaviours are covered by tests"
 
-note 2026-11-16T14:05:51Z
-    Second code-quality review started (the user, 2026-11-16): the first's findings given as known; focus on
-    construction code, types and errors, public API, tests and bench. New findings fold into T79, T80 or a new Task.
-
-note 2026-11-16T14:11:29Z
-    Wake slip: the timing step removed a worktree at the shared scratch path, likely the second reviewer's; told it to
-    recreate one. Timings use their own path from now on (in bound: 14, 13, 38 s).
-
-note 2026-11-16T14:24:01Z
-    Second code-quality review done (c90bbc93): construction checkers disagree (four bugs) and a decline-named user
-    error escapes StillUnknown. Queued: new T81 (construction config by one Schema) before T79; 31 findings folded into
-    T79, 10 into T80; docs and routes routed to T33 and T50.
-
-note 2026-11-16T14:55:04Z
-    [decided: user 2026-11-16] the tests are timed every third hourly wake, not every wake. Reverse: drop the hour
-    condition from cadence.
-
-note 2026-11-16T15:05:09Z
-    Decisions (user-delegated, 2026-11-16): CallbackDefect and ServiceFailed fold into Defect (T81); typed context slot
-    wiring (T79); Story.app over several setups (T29).
-
-note 2026-11-16T15:05:10Z
-    Also accepted (user-delegated): the mix profile, Fake.storage.put and refuseLoad, the quarantined lifecycle, T9's
-    and T55's small API calls, an unsaveable send's unbounded wait.
-
-note 2026-11-16T15:38:39Z
-    Amendment (2026-11-16, the user): instructions gain Fixtures first: a public feature goes into a fixture with usual
-    and stress Stories and edge-value step samples before it is built; findings land in fixtures too. Commit: dbfb0c3e.
-
-note 2026-11-16T15:42:34Z
-    Fixtures-first acceptance added to 21 feature Tasks (the user, 2026-11-16), naming existing fixtures and 14 proposed
-    new ones (session, wizard, search, dashboard, thermostat, checklist and others); tooling, docs, budget and release
-    Tasks skipped.
-
-note 2026-11-16T15:48:31Z
-    Amendment (2026-11-16, the user): the orchestrator owns fixtures first and asks each lead for proof at requirements
-    (fixtures, Stories, edge samples, combinations, stress cases, red today) before the build. Commit: 5bcf7ae6.
-
-note 2026-11-16T15:58:09Z
-    Amendment (2026-11-16, the user): one lead at a time, building or reviewing, with up to eight sidecars; reviews run
-    between builds; 5-hour pacing at 80 and 90 percent. Commit: 1fca55c2.
-
-note 2026-11-16T16:03:41Z
-    [decided: user 2026-11-16] wakes every 50 minutes, so the orchestrator's 1-hour prompt cache stays warm; the
-    test timing stays about three-hourly. Reverse: one hourly cron.
-
-note 2026-11-16T16:04:24Z
-    [decided: user 2026-11-16] wakes at most 45 minutes apart (one cron, 7,52), replacing the 50-minute plan,
-    since separate crons drift apart. Reverse: one hourly cron.
-
-note 2026-11-16T16:06:11Z
-    [decided: user 2026-11-16] one wake every 30 minutes (7,37), replacing the 45-minute plan.
-
-note 2026-11-16T16:09:10Z
-    Amendment (2026-11-16, the user): fixture requirements live in one place, @convention.fixtures; the two
-    fixtures-first bullets became one pointing to it. Commit: 9a877f2a.
-
-note 2026-11-16T16:10:26Z
-    Amendment (2026-11-16, the user): every accepted review finding names the missing coverage that let it through; the
-    fix round adds coverage for the whole class first. Commit: efc71b2e.
-
-note 2026-11-16T17:43:52Z
-    Amendment (2026-11-16, the user): the workflow pin moves 6b7288e to 1b83a6d, which adds 'findings name why the tests
-    missed them' to policy-testing, policy-verification, review and build-a-loop R17. Commit: 2e29a000.
-
-note 2026-11-16T18:08:23Z
-    [decided: user 2026-11-16] "tdd comes before convergence, to make sure all known behaviours are covered by
-    tests". Scope: whole run. Applied to T20's lead at once.
-
-note 2026-11-16T18:08:23Z
-    Amendment (2026-11-16, the user): tests before convergence; every known behaviour gets fixtures and tests before a
-    redesign. Commit: 15132329.
-
-note 2026-11-16T18:26:05Z
-    [decided: user 2026-11-16] Tasks name @convention.fixtures where fixtures are built, briefs cite
-    it too, and leads have sidecars review fixture scenarios, variety and correctness against it. Scope: whole run. P4
-    and P5 linked, T28 and T29 given fixtures lines; P3 (T9, T20, T79, T80, T81) waits for the T20 lead's commit.
-
-note 2026-11-16T18:26:06Z
-    Amendment (2026-11-16, the user): fixture work links fixtures.md in each Task and brief; sidecars review fixtures
-    against it before the proof. Commit: 2a110a5e.
-
-note 2026-11-16T18:33:42Z
-    Amendment (2026-11-17, the user): fixture reviews check structural stress as well as load. Commit: f19db607.
+note 2026-11-16T15:42:00Z
+    [decided: user 2026-11-16] (whole run), and Tasks, briefs and sidecar reviews cite @convention.fixtures.
 
 note 2026-11-16T19:11:10Z
-    [decided: user 2026-11-17] every fixture is a whole multi-machine app (several machines, several kinds of
-    operation, the product's real journeys), so logic is easy to reason about and features mix realistically;
-    fixtures.md says so; the catalog review adds an App block per row. Scope: whole run.
+    [decided: user 2026-11-17] Every fixture is a whole multi-machine app (several machines, several kinds of operation,
+    the product's real journeys); the catalog review was accepted whole (14 fixtures, pay renamed shop, primitives
+    hosted in kanban, chat and draft; vercel/ai, tus-js-client, hydrogen and tldraw cloned, not phoenix).
 
-note 2026-11-16T19:19:10Z
-    [decided: user 2026-11-17] catalog review accepted whole: 14 fixtures, pay renamed shop, primitives hosted in
-    kanban, chat and draft. vercel/ai, tus-js-client, hydrogen, tldraw cloned (not phoenix). Reviewer rewrites the
-    catalog with sources, a fixture layout and a migration plan keyed to Tasks.
-
-note 2026-11-16T19:42:54Z
-    [decided: user 2026-11-17] fixtures grow additively. Existing machines, Stories and tests change only a little
-    and become part of a bigger app as new machines are added with each feature. Scope: whole run; the catalog review
-    judges the migration plan against it.
-
-note 2026-11-16T19:45:59Z
-    [decided: user 2026-11-17] cells and lanes stay their own fixtures (16 apps, pay keeps its folder and ids,
-    shop names the larger app); subroutine and whenAbandoned join T57's scope.
-
-note 2026-11-16T19:56:16Z
-    Fixture catalog committed after an independent review (ISSUES, all fixed): 16 apps, additive growth, an 18-step
-    migration plan. T82 created for step 1 (after T9, T20; before T57); 13 Tasks' fixtures lines now point at their
-    steps.
-
-note 2026-11-16T20:01:36Z
-    Amendment (2026-11-17, the user): each Task's fixtures line names its catalog step and fixtures; leads build those
-    rows from their sources and mark the cells used at the close. Commit: a2240b63.
-
-note 2026-11-16T20:15:14Z
-    Amendment (2026-11-17, the user): coverage before fixes and reviews; T82 runs first, T9 round 3 paused, then T9,
-    T20's close and T81 fix against the full fixtures. Commit: 4da9ae96.
-
-note 2026-11-16T20:16:59Z
-    Fixtures-first audit: T9, T20, T81, T79 and T80 now wait on T82; T79 and T80 gained fixtures lines; T24, T25 and
-    T49 wait on T21, T48 on T57, so each step's apps exist before its Task. P6 to P10 Tasks build no feature: no line.
+note 2026-11-16T19:11:10Z
+    [decided: user 2026-11-17] Fixtures grow additively: existing machines, Stories and tests change only a little and
+    survive (files may move into the layout, nothing is rewritten); cells and lanes stay their own fixtures (16 apps).
 
 note 2026-11-16T20:18:55Z
-    [decided: user 2026-11-17] T20's two outcome changes accepted; Pending D14 to D19 accepted as recommended.
-
-note 2026-11-16T20:24:19Z
-    Amendment (2026-11-17, the user): the catalog is a task list; leads mark each scenario built or left with its later
-    Task and needed feature, none unmarked. Commit: 583bf794.
-
-note 2026-11-16T20:28:52Z
-    Amendment (2026-11-17, the user): catalog scenarios and linked tests are guidance; the lead targets proper coverage
-    and may add, reshape or replace scenarios, writing each back as an item. Commit: 4ab72494.
-
-note 2026-11-16T20:53:22Z
-    Amendment (2026-11-17, the user): wake every 60 minutes, cron `7 * * * *` (was 30). Reverse: restore 7,37 in
-    cadence and the cron.
-
-note 2026-11-17T00:44:44Z
-    Wake timing at 9d45d087 over twice baseline: suite 33 s (12), stress 115 s (9), faults 172 s (28, unjudged on T20's
-    reds). Inserted T83 (fast test commands again), taken after T9 and before T20; T20 now waits on it.
-
-note 2026-11-17T02:36:42Z
-    [decided: user 2026-11-17] the orchestrator's proposals accepted and recorded in Pending: D13, D20 (Schema
-    stays required), D21 (T82's three fixture calls), D22 (context edge values join the catalog). send(ref, event) stays
-    open.
+    [decided: user 2026-11-17] T20's two outcome changes accepted and Pending D14 to D19 accepted as recommended; then
+    the orchestrator's proposals accepted and recorded in Pending: D13, D20 (Schema stays required), D21 (T82's three
+    fixture calls), D22 (context edge values join the catalog).
 
 note 2026-11-17T04:21:45Z
-    [decided: user 2026-11-17] codec size bounds dropped (Pending D23); value sizes are judged by the bench and
-    storage quota while building. It removes T9's blocker (no slot is saved unknown); T9 resumes with the removal.
+    [decided: user 2026-11-17] No size or queue caps: codec size bounds dropped (Pending D23), the follow-up chain stays
+    the one loop guard (bench-set) plus a dev slow-work warning (D24; Q2 A, Q3 A to Q5 A, Q10 A), timing and retry knobs
+    named with bench-set defaults (D25), depth gets one measured platform limit (D26;
 
-note 2026-11-17T04:25:45Z
-    [decided: user 2026-11-17] Q2 A, no size or queue caps; follow-up chain stays the one loop guard (bench-set),
-    plus a dev slow-work warning (Pending D24). Inserted T84 to remove them, after T9 and before T83 (T83 waits on it).
-
-note 2026-11-17T04:34:17Z
-    [decided: user 2026-11-17] Q3 A, Q4 A, Q5 A from the limits sweep. Pending D24 extended with seven more caps,
-    D25 makes timing and retry knobs named, bench-set defaults; T84 removes the caps and names the built knobs; T83
-    sizes every test-tooling guard from measurement.
-
-note 2026-11-17T06:51:00Z
-    [decided: user 2026-11-17] Q6 A, Q7 A, Q8 A, Q9 A. T9's cap requirements move to T84; stale cap items in
-    Tasks and fixture docs become 'well past the old scale, timed'; fixture sizes and T83's budgets come from the bench;
-    depth gets one measured platform limit (Pending D26). T9 resumes on D26.
+note 2026-11-17T04:21:45Z
+    [decided: user 2026-11-17] Q6 A to Q9 A, fixture counts bench-set). T84 removes the caps; T83 sizes test-tooling
+    guards from measurement.
 
 note 2026-11-17T06:55:59Z
-    [decided: user 2026-11-17] T9's next review, after the depth round, runs on Sonnet reviewers instead of an
-    Opus lead with Haiku sidecars.
-
-note 2026-11-17T07:01:00Z
-    Correction (the user, 2026-11-17): the Sonnet review is of today's Plan and Task record edits (Pending D20 to D26,
-    T83, T84, T9's amendment, the fixture docs); code reviews stay with an Opus lead and Haiku sidecars.
-
-note 2026-11-17T07:04:07Z
-    Amendment (2026-11-17, the user's Q8 A): fixture counts are bench-set and recorded; the Epic's fixtures instruction
-    says so.
-
-note 2026-11-17T07:19:43Z
-    [decided: user 2026-11-17] Q10 A. Server-rendering maxBytes and the 1,024 Stream.callback queue join D24's
-    drops; the inspector ring keeps a settable capacity with a bench-set default. Routed to T84.
+    [decided: user 2026-11-17] T9's review after the depth round runs on Sonnet reviewers instead of an Opus lead with
+    Haiku sidecars (a Sonnet review of Plan and Task record edits is separate; code reviews stay with an Opus lead and
+    Haiku sidecars).
 
 note 2026-11-17T07:45:34Z
-    [decided: user 2026-11-17] Q11 B. Pending D27: values cross into Flow through walkers compiled from their
-    Schemas; equality chosen by the bench; D26's limit lifted once proven. Fresh T9 lead started; the old one retires.
+    [decided: user 2026-11-17] Q11 B: values cross into Flow through walkers compiled from their Schemas (Pending D27);
+    equality chosen by the bench; D26's limit lifted once proven.
 
-note 2026-11-17T07:49:34Z
-    Performance architecture audit started (the user, 2026-11-17): one Opus with four Haiku, read-only, on core, tests
-    and Story design; proposal file `performance-architecture` feeds T9's compiled-walker lead, T83 and T84.
-
-note 2026-11-17T08:21:50Z
-    Performance audit done (fc1dd7da): the turn is 1-2 % of a run; time goes to whole-record re-encoding per step, test
-    replays from boot and whole-world scans. Routed: 3, 4, 5, 9, 12, 15 to T9's walkers; 1, 2, 8, 13, 14 to T83; 6, 7,
-    10, 11 to new T85 (after T9, before T84). Order: T9, T85, T84, T83, T20.
-
-note 2026-11-17T08:29:03Z
-    Decision (orchestrator, delegated by the user, 2026-11-17): Pending D28. Awaited and Now writes still project at the
-    step's end; Later-only records project when their list is issued, if the bench after T9's memo still shows the cost.
-    Owner T85. Why: deferring only non-gating work keeps I11 and every send exact.
-
-note 2026-11-17T08:31:12Z
-    Correction (the user, 2026-11-17): D28 is not decided; no hybrid for caution's sake. The performance audit lead
-    redesigns persistence projection for maximum performance with its broad implications; D28 stays proposed meanwhile.
-
-note 2026-11-17T09:02:39Z
-    [decided: user 2026-11-17] Q12 A, Q13 A. Pending D29: memory and selections immutable by contract, deep-frozen
-    in dev and test. D30: steps mark changed keys and one Capture encodes them at issue (supersedes D28), owned by T85.
-    T9's lead takes the memo and the freeze.
+note 2026-11-17T07:45:34Z
+    [decided: user 2026-11-17] Q12 A, Q13 A: memory and selections immutable by contract, deep-frozen in dev and test
+    (D29); steps mark changed keys and one Capture encodes them at issue (D30, supersedes D28, owned by T85). D28 was
+    never decided ("no hybrid for caution's sake").
 
 note 2026-11-17T10:23:58Z
-    [decided: user 2026-11-17] Q14 A. The audit's findings 6, 7, 10, 11 move from T85 into T79's step edit
-    operations; T85 keeps D30's Capture and findings 12, 15. Order: T9, T79, T85, T84, T83, T20, T81, T80. T79
-    re-verifies findings after T9; its A5 payload codec goes through the boundary walkers.
-
-note 2026-11-17T11:45:53Z
-    Correction (the user, 2026-11-17): fixtures.md's 'existing flat files stay' misread the user. The rule is that
-    machines, Stories and tests survive and grow, modified where needed, never rewritten; files may move into the
-    layout.
-
-note 2026-11-17T11:48:29Z
-    [decided: user 2026-11-17] Q15 A, Q16 B, as a new Task. T86 moves fixtures into their layout, shared services
-    to fixtures/services/, pay to shop with its Story ids; after T79, before T85.
+    [decided: user 2026-11-17] Q14 A: the audit's findings 6, 7, 10, 11 move from T85 into T79's step edit operations;
+    Q15 A, Q16 B: new T86 moves fixtures into their layout, shared services to fixtures/services/, pay to shop with its
+    Story ids.
 
 note 2026-11-17T12:18:54Z
-    [decided: user 2026-11-17] Q17 A, Q18 A, Q19 A. Local actors send without persistence (Actors R6); an unknown
-    send stays StillUnknown under an app Rejected (WriteLanes R2); unproduced diagnostic codes leave the public union.
-    All three land in T79's fix round.
+    [decided: user 2026-11-17] Q17 A, Q18 A, Q19 A: local actors send without persistence (Actors R6); an unknown send
+    stays StillUnknown under an app Rejected (WriteLanes R2); unproduced diagnostic codes leave the public union. Q20 B:
+    app-frozen Maps, Sets and Dates are trusted as immutable (Turn R24).
 
-note 2026-11-17T12:27:09Z
-    [decided: user 2026-11-17] Q20 B. App-frozen Maps, Sets and Dates are trusted as immutable (Turn R24 says so);
-    dev and test still guard every collection Flow freezes. In T79's fix round.
-
-note 2026-11-17T13:08:34Z
-    [decided: user 2026-11-17] Q21 A. A mid-step defect ends the Runtime in a final Life state, stopped by a
-    defect: reported once, snapshots read stopped, calls refuse, dispose returns the defect, nothing more written.
-
-note 2026-11-17T15:09:29Z
-    @plan.Persistence.O3's wording fixed for D30 (@task.V3.T85; the user's plan-edit approval, 2026-11-17).
+note 2026-11-17T12:18:54Z
+    [decided: user 2026-11-17] Q21 A: a mid-step defect ends the Runtime in a final Life state, stopped by a defect.
 
 note 2026-11-17T16:23:23Z
-    [decided: user 2026-11-17] standardise the bench, split by concern, filterable, one CSV per concern labelled
-    by commit; new T87 (turn, scale, persist, values, tooling; record, compare, backfill), before T83, which waits on it
-    and loses its bench warm-up item.
+    [decided: user 2026-11-17] Standardise the bench (T87): split by concern, filterable, one CSV per concern labelled
+    by commit;
 
-note 2026-11-17T16:26:55Z
-    Bench design reviewed by two Sonnets: prior art (raw samples, noise from samples, fresh processes, interleaved A/B,
-    batching, warm-up rule, environment) and Flow needs (startup, memory and leaks, inspector overhead, fixture shape,
-    headline summary, budgets) sent to T87's lead; later feature benches routed to T24, T25, T27, T28, T29, T30, T48.
+note 2026-11-17T16:23:23Z
+    [decided: user 2026-11-17] Q24 A the bench reads only manifests, raw samples local and git-ignored, CSVs committed,
+    no backfill now. 2026-11-18: bench on battery with power state recorded and compared like for like, run every couple
+    of hours or for performance work, not at each Task close; guidance in @convention.bench.
+
+note 2026-11-17T16:23:23Z
+    [decided: user 2026-11-17] T89 (bench code simplification) cancelled and deleted (bf8a14bc^).
 
 note 2026-11-17T16:52:20Z
-    [decided: user 2026-11-17] adopt tsrs for type-aware lint and type check. New T88 (vite-plus to 1.7+, tsrs,
-    same diagnostics, planted errors before and after), after T87 and before T83; Sonnet builder and Sonnet reviewer.
-
-note 2026-11-17T17:51:21Z
-    [decided: user 2026-11-17] Q24 A, the bench reads only manifests; raw samples local and git-ignored, CSVs
-    committed; no backfill now. Today's like-for-like: small apps 10-15 % faster than c4494083. T87 lead rebuilding.
-
-note 2026-11-17T18:54:39Z
-    [decided: user 2026-11-18] bench on battery, power state recorded and compared like for like; run every couple
-    of hours or for performance work, not at each Task close; quick tier keeps every Story (~95 s). T87 closing on that.
-
-note 2026-11-17T19:43:59Z
-    Bench code-quality review (Sonnet with four Haiku, b4fb7746): about 350 lines removable. New T89 applies it later,
-    after T83 and before T20's close; it waits on T83 so T87's fix round and T83's edits settle first.
-
-note 2026-11-17T19:53:30Z
-    [decided: user 2026-11-18] bench guidance in @convention.bench (never block on a bench; --dev
-    while working; longer tiers capped in the background; --full by concern in perf work); the Epic's close and cadence
-    now cite it (wakes start the tooling bench in the background); AGENTS.md and fixtures.md point to it.
-
-note 2026-11-17T20:04:31Z
-    [decided: user 2026-11-18] T89 (bench code simplification) cancelled, set to tombstone; its proposal stays as
-    prior art. P3 order: T87, T88, T83, T20, T81, T80.
-
-note 2026-11-17T20:06:02Z
-    Deleted (the user, 2026-11-18): T89 and its proposal bench-quality-review-2026-11-18.md removed entirely. Reverse:
-    git show bf8a14bc^ for both.
-
-note 2026-11-17T20:14:56Z
-    T89's deletion redone through the CLI: tombstone with deletion_reason plus cleanup_when_unreferenced=true makes wk
-    edit remove it (deleted_at does not matter); the record matches the earlier hand cut. The wk help and skill don't
-    say so.
-
-note 2026-11-17T21:02:11Z
-    [decided: user 2026-11-18] T88's upgrade is applied tomorrow (2026-11-19), not at the first wake after the
-    gate clears; the trial result and the orchestrator's test-line ruling stand in its comments.
-
-note 2026-11-17T21:03:30Z
-    [decided: user 2026-11-18] T83 no longer waits on T88; P3 order without T88 is T83, T20, T81, T80. T81's lead
-    finishes its requirements step, then T81 pauses and T83 starts. Reverse: blocked_by @T88 back on T83.
+    [decided: user 2026-11-17] Adopt tsrs for type-aware lint and type check (T88: vite-plus 1.7+, same diagnostics,
+    planted errors before and after; Sonnet builder and reviewer). 2026-11-18: T88 runs now in its own worktree beside
+    T81's lead (one-off exception), and T93 upgrades Effect to 4.1.4 the same way; both merge at T81's next checkpoint.
 
 note 2026-11-17T21:12:10Z
-    [decided: user 2026-11-18] T83 is timeboxed to 60 minutes and uses parallel Haiku hill-climbers per part; at
-    the box, what holds is committed and the remaining gaps go to the user. Overrides the Limits' no-time-budget for
-    T83.
-
-note 2026-11-17T21:13:46Z
-    [decided: user 2026-11-18] T83's timebox is 90 minutes (was 60); a one-shot timer starts with its lead.
-
-note 2026-11-18T00:35:55Z
-    Test efficacy audit started (the user, 2026-11-18): one Opus lead with Haiku sidecars, read-only, output a proposal
-    file; what each test layer buys, what to remove or simplify. T83's Q1 to Q3 wait on it.
-
-note 2026-11-18T00:39:21Z
-    06:09 wake: tooling bench skipped; the efficacy audit is running the faults kill matrix, and benches run alone.
-
-note 2026-11-18T02:30:18Z
-    [decided: user 2026-11-18] T83 takes the first efficacy proposal plus the generator gap and the bench-limit
-    move; cut tests are disabled with a comment, never deleted. New T90 (fork-from-cut) after T20. P3 order: T83, T20,
-    T90, T81, T80.
-
-note 2026-11-18T03:08:46Z
-    Speed baseline at a9886920 (alone, 12 cores): suite 36 s, stress 62 s, faults 224 s, no load timeouts. Was 54, 65
-    and 256 s at 970916c1; 12, 9 and 28 s at 313e8a45. What is left is the reload sweeps' replay, which @task.V3.T90
-    forks from a cut (@task.V3.T83).
-
-note 2026-11-18T03:24:58Z
-    Speed baseline confirmed at b6b4accf (alone): suite 36 s, stress 61 s, faults 243 s with no timeouts; acceptance as
-    a baseline is the user's call (@task.V3.T83).
-
-note 2026-11-18T03:51:49Z
-    09:21 wake: tooling bench skipped; T83's close review is running the gates alone.
-
-note 2026-11-18T04:34:18Z
-    T83 close review ISSUES (f85d6994): the grace test was a fault's only catcher; the faults runner credits tests that
-    already fail in the control, which hid two misses. Fix round started with T83's lead.
-
-note 2026-11-18T04:50:08Z
-    T83 done by the user's call: suite 36 s, stress 61 s, faults 243 s alone are the new baseline; the faults runner no
-    longer credits tests red without a fault (849bbbe2). T20 next.
-
-note 2026-11-18T04:59:11Z
-    Amendment (2026-11-18, the user): nub run faults runs on demand (tooling, run rules or faults changed; that Task's
-    review; a phase's close), not at every Task's close; new T91: stress pair sweep at 200 seeds, duplicate faults
-    merged, after T20. instructions edited. Commit: 1e4c7e00.
-
-note 2026-11-18T05:26:59Z
-    T9's user's page read and accepted (the user, 2026-11-18); T20's slice close is no longer held by it. Still open:
-    the actor-to-actor send(ref, event) action.
-
-note 2026-11-18T05:36:53Z
-    T20 close review ISSUES (one blocking): decodeName accepts any ~-prefixed name, so records under a local actor's
-    name restore and run (Restore R5). Fix round waits on the user's batching call; routing comments written on T56,
-    T28.
-
-note 2026-11-18T06:07:22Z
-    T20 fix-round review ISSUES (59361083): records whose key names another identity restore into it. Second finding of
-    one class (restore trusts record parts), so a convergence: record-trust fixtures first, then one validation at
-    decode.
-
-note 2026-11-18T06:34:44Z
-    T20 convergence review ISSUES (2e211305): lane keys without a head and owed records of undeclared machines get past
-    the one check; the double-reload sweep counts second-run faults as skips. First failure after convergence; a second
-    stops T20 for the user. Fix round: every trusted field listed, checked and planted out.
-
-note 2026-11-18T06:39:22Z
-    12:09 wake: tooling bench skipped; T20's lead is running tests, and benches run alone. Third skip today: the wake's
-    bench only runs between leads.
-
-note 2026-11-18T06:46:14Z
-    [decided: user 2026-11-18] keep the current pace; the user has a usage reset in hand. The reserve stays 100 %.
-
-note 2026-11-18T07:06:13Z
-    Stop (failure limit, 2026-11-18): T20's field-check review (8c0446d9) found a second record-trust failure after the
-    convergence: an actor record's context bindings start unchecked actors, and a bad one stops the boot. T20 waits for
-    the user's call; no lead runs.
+    [decided: user 2026-11-18] T83 no longer waits on T88 and is timeboxed to 90 minutes (first 60) with parallel Haiku
+    hill-climbers per part, overriding the Limits' no-time-budget; it takes the first efficacy proposal. Cut tests are
+    disabled with a comment, never deleted; new T90 (fork-from-cut) after T20.
 
 note 2026-11-18T07:16:31Z
-    [decided: user 2026-11-18] T20's record-trust class is parked as new P4 Task T92 (records decoded into
-    meaning, one Identity Schema, each fact stored once), before T56. T20 closes after its inverted bindings test; then
+    [decided: user 2026-11-18] T20's record-trust class is parked as new P4 Task T92 (records decoded into meaning, one
+    Identity Schema, each fact stored once), before T56; T20 closes after its inverted bindings test (1faeec1e); then
     T91.
 
-note 2026-11-18T07:18:03Z
-    T20 done (the user's call, parked at the failure limit; inverted Restore R5 bindings test 1faeec1e owned by T92).
-    User's page written, unread: wiki/plans/flow/references/pages/T20-durability-restore.md. T91 started.
-
-note 2026-11-18T07:49:22Z
-    T91 done: review PASS (75f334c5); stress 54 s, faults 258 s alone, no faults merged (14 groups all distinct). T90
-    started.
-
-note 2026-11-18T07:51:05Z
-    T20's user's page read (the user, 2026-11-18); the next slice's close is not held.
-
-note 2026-11-18T09:24:45Z
-    Amendment (2026-11-18, the user): whole nub run faults at most daily (first wake with no lead; phase close); a Task
-    plants only its faults with --only; any proof step capped at 10 min; reviews run the suite once, stress only if
-    touched. instructions and cadence edited. Commit: 44eaad1a.
-
-note 2026-11-18T09:26:44Z
-    Amendment (2026-11-18, the user): the daily faults run is a background process that blocks nothing: nub run faults
-    --background (few copies, lowest priority) at the first wake, lead or not. instructions and cadence edited. Commit:
-    c33cdfe8.
-
-note 2026-11-18T09:40:57Z
-    15:11 wake: tooling bench skipped (T90's review is running the gates); today's whole faults run counts as done
-    (T91's close ran all 265 at about 13:30), so the background run starts at tomorrow's first wake.
-
-note 2026-11-18T09:59:53Z
-    T90 done: review PASS (e3046fb8); suite 34 s, stress 43 s alone. Faults runner leftovers (spawn-error hang, stress
-    tier in the unchanged and dead-core runs) wait for the next Task that touches it. T81 resumed.
-
-note 2026-11-18T10:08:28Z
-    [decided: user 2026-11-18] T88 runs now with a Sonnet builder in its own worktree, beside T81's lead (a
-    one-off exception to no worktrees and one lead at a time). Its branch merges into flow-rewrite at T81's next
-    checkpoint.
-
-note 2026-11-18T10:22:33Z
-    T88 done: review PASS (e593999b), merged into flow-rewrite; vp check 1.9 s and 878 MB to 1.2 s and 541 MB. T81 in
-    review.
-
-note 2026-11-18T10:41:20Z
-    T81 close review ISSUES (414624d1): partly built bounds and endings, null payloads and NaN delays escape as raw
-    errors. Fix round with T81's lead; construction leftovers and nested extra keys routed to revisit.md.
-
-note 2026-11-18T10:42:59Z
-    [decided: user 2026-11-18] upgrade Effect to 4.1.4. New T93, a Sonnet builder in its own worktree beside T81's
-    lead, as T88 was; merged at T81's next checkpoint.
-
-note 2026-11-18T10:57:37Z
-    T93 done: review PASS (1f1d5b11), merged; one effect copy at 4.1.4, check 0. T81 fix-round review ISSUES (c035894e):
-    a marked but partial ending still throws raw; second finding of one class, so a convergence on construction shapes.
-
-note 2026-11-18T11:22:01Z
-    Stop (failure limit, 2026-11-18): T81's convergence review (08c16517) found three more raw throws (handle arguments,
-    machine()'s definition checked by mark only, cyclic or throwing config). T81 waits for the user's call; no lead
-    runs.
-
-note 2026-11-18T11:55:53Z
-    Boundary design started (the user, 2026-11-18): one Opus lead with 4 Haiku sidecars proposes one validation and
-    error structure for the whole codebase, with prevention; output `boundaries`. T81 and T92 wait
-    on it.
-
-note 2026-11-18T17:18:55Z
-    Amendment (2026-11-18, the user): skill pin workflow@1b83a6d to workflow@2befdbd; adds policy-module-composition,
-    R35's class register across parts, R11's system question at close-out, to-epic's composition step. Commit: pending.
-
-note 2026-11-18T17:19:00Z
-    The skill-pin amendment above landed in b75b6c60.
+note 2026-11-18T17:28:07Z
+    [decided: user 2026-11-18] module-composer is not adopted ("its value to me is dubious"); trust work uses Effect
+    Schema (Schema.brand, full decoding), small Flow-side wrappers and lint. The re-plan was accepted (Q1 B, Q2 B, Q3 A,
+    Q4 A, Q5 A, Q6):
 
 note 2026-11-18T17:28:07Z
-    [decided: user 2026-11-18] module-composer is not adopted ("its value to me is dubious"); trust work uses
-    Effect Schema (Schema.brand, full decoding), small Flow-side wrappers and lint. Re-plan proposed in
-    `replan`; prior art in revisit.md.
-
-note 2026-11-18T17:44:33Z
-    [decided: user 2026-11-18] re-plan accepted (Q1 B, Q2 B, Q3 A, Q4 A, Q5 A, Q6). New: T94 boundary Task (P3,
-    before T81); T95 callback results, T96 send action, T97 (T80 moved, tombstoned) in P4. T81 and T92 rewritten; P3,
-    P4, P5 Order lines set; boundaries page added.
-
-note 2026-11-18T17:54:38Z
-    T94 started (the user, 2026-11-18): the boundary Task, first of the re-plan; weekly usage at 96 %, so the run stops
-    at 100 % by Limits and resumes after the reset.
-
-note 2026-11-18T17:55:39Z
-    Session ended (the user, 2026-11-18): no agents, cron or caffeinate; tree clean. Next: T94, then T81 (P3), then P4
-    from T92. Weekly usage 96 %, resets 2026-11-20 22:00 UTC. Resume: run the loop in wiki/tasks/V3/epic.task.
-
-note 2026-11-18T17:58:33Z
-    Run resumed at ff72cba4 (workflow@2befdbd): weekly usage 0 % after reset; no live agents; cron :07 and caffeinate
-    on. Current Task T94; first action: one Opus lead builds it, requirements first.
-
-note 2026-11-18T18:39:39Z
-    T94 review ISSUES (233087b4): inert data hands out raw-throwing functions (textOfKey, O.x.commit().make); confirmed.
-    Third instance of the raw-throw class, so convergence by threshold 2; fix round held for the user's go.
+    [decided: user 2026-11-18] T94 boundary Task (P3, before T81), T95 callback results, T96 send action, T97 (T80
+    moved, tombstoned) in P4; T81 and T92 rewritten; boundaries page added.
 
 note 2026-11-18T18:51:12Z
-    [decided: user 2026-11-19] the raw-throw class is parked until a general solution; T81 tombstoned into P9's
-    T98. Known instances land as it.fails; T94 closes on that; then P3 close-out, then P4 from T92. Why: it blocked core
+    [decided: user 2026-11-19] The raw-throw class is parked until a general solution; T81 tombstoned into P9's T98;
+    known instances land as it.fails; T94 closes on that; then P3 close-out, then P4 from T92. Why: it blocked core
     work.
 
-note 2026-11-18T18:56:59Z
-    T94 done (0a492802): review blocker waived into T98 by the user's parking decision; 9 instances are it.fails tests.
-    P3 has no open Task left; its close-out review (R11) and completion audit (R18) start now.
+note 2026-11-18T18:51:12Z
+    [decided: user 2026-11-19] Also T101 capped at 40 minutes, gaps deferred with proposed owners and counted by P3's
+    audit as deferred by the user.
 
-note 2026-11-18T18:57:44Z
-    User's page written, unread: wiki/plans/flow/references/pages/T94-public-entry-points.md.
+note 2026-11-18T19:14:32Z
+    P3 summary (2026-11-16 to 2026-11-18): T54, T18, T55, T19, T20, T17, T9, T74, T79, T82 to T88, T90, T91, T93, T94
+    and T101 done; T80 and T81 tombstoned; the closing audit PASS at d8a8343a (rules by catching fault in
+    code:wiki/tasks/V3/P3-coverage.md, owners in code:wiki/tasks/V3/P3-routing.md).
 
-note 2026-11-18T19:05:43Z
-    Daily faults 295 of 296: throwing-slot-decode-escapes-boot [Restore R5] missed, likely masked by T94's catch-alls;
-    routed to T92.
-
-note 2026-11-18T19:06:48Z
-    [decided: user 2026-11-19] send(ref, event) stays (re-plan Q4 A), as XState's sendTo does; a rare escape
-    hatch, not the first way actors talk.
-
-note 2026-11-18T19:15:35Z
-    P3 close-out ISSUES, audit ISSUES (232d119a): coverage record unwritten, Restore R5 fault missed, outcome parts
-    unowned. One fix-round lead clears them and routes ~30 orphaned items; a fresh lead reruns R18 after.
-
-note 2026-11-18T19:16:04Z
-    T94's user's page read (the user, 2026-11-19); the next slice's close is not held.
-
-note 2026-11-18T19:39:28Z
-    P3 close fix round: faults 296 of 296, coverage and routing in wiki/tasks/V3/P3-coverage.md and P3-routing.md.
-    Proposed, for the user's read: each outcome part's owner, new draft T99 and T100 (not in P4's Order), every review
-    item's fate. wk can't link to multi-line satisfies arrays (T21, T29, T30, T48, T49).
-
-note 2026-11-18T19:41:16Z
-    P3 fix round done (ebbeca0a); 58 rules still lack a catching fault, an exit criterion, so T101 closes them in P3 (no
-    gate relaxed). T99, T100 placed in P4's order. wk refuses satisfies links on T21, T29, T30, T48, T49: for the user.
-
-note 2026-11-18T19:44:03Z
-    [decided: user 2026-11-19] T101 is capped at 40 minutes (ends 01:53 IST); gaps not closed by then are deferred
-    for later with their proposed owners, and P3's audit counts them as deferred by the user.
-
-note 2026-11-18T19:58:51Z
-    T101 in review (4f448c47): 38 of 58 gaps caught by named faults, 20 deferred by the user's cap; Turn I31
-    contradiction routed to T95. One fresh lead reviews T101 and reruns P3's R18 audit.
-
-note 2026-11-18T20:15:47Z
-    Phase P3 done: T101 review PASS and R18 audit PASS (e31dd806). For the user: InvariantViolation (Diagnostics O2)
-    build or drop, R12 counted under the time cap, gap owners in parked T98. Next: compact P3's records, then P4 from
-    T92.
-
-note 2026-11-18T20:40:34Z
-    P3 compacted (2c3798a8); its five unowned items routed to T56, T99, T29, T58, T76. P4 starts: T92 opened, lead next.
-
-note 2026-11-18T21:26:39Z
-    T92 requirements and fixtures in (77a019ea): bindings saved, 8 requirements; rulings on T92. Held for the user:
-    forged-but-valid records no decode can catch (threat model). Requirements review starts now.
-
-note 2026-11-18T21:43:00Z
-    T92 requirements review ISSUES (9d885613), 7 blocking, all coverage gaps; R7/R8 stand by ruling. The lead lands them
-    as failing checks, then builds; the close review checks the fix round.
-
-note 2026-11-18T22:37:53Z
-    T92 built, in review (0ddd7554): format 4 records, 4 Specs edited. For the user: Restore Q4 (well-formed forgeries)
-    threat model. Close review started.
-
-note 2026-11-18T22:55:31Z
-    T92 close review ISSUES (01a3eb6c), 4 blocking, all T92's: renamed-key record keeps old input, held class too wide,
-    stale Spec text, filtered strings not brands. Fix round started. OpRenamed drop logged as Pending D31 for the user.
-
-note 2026-11-18T23:18:20Z
-    T92 fix round in (59dff388): all four blockers fixed, gates green. Second close review started; it checks whether a
-    removed slot quarantining records breaks the R7/R8 ruling.
-
-note 2026-11-18T23:36:06Z
-    T92 second close review ISSUES (759785f6): an Attempt-with-no-lane owed row makes up an ending (same class twice, so
-    convergence: one Schema per written shape, shared by writer and reader); deep format-1 record breaks the boot.
-
-note 2026-11-19T00:10:06Z
-    T92 convergence in (bf18e67f): one tagged Schema per lane and owed row kind, shared by writer and boot; both
-    blockers fixed, gates green. Third close review started; the failure limit is 2.
-
-note 2026-11-19T00:25:12Z
-    Decisions (the user, 2026-11-19): accepted P3's outcome routing, Pending D31 (merge once T92's rename Story passes)
-    and InvariantViolation in T100. wk's refused satisfies links hand-added to T21, T29, T30, T48, T49 (the user's yes).
-
-note 2026-11-19T00:28:52Z
-    Stop (failure limit, 2026-11-19): T92's third close review (2edcb74b) found the same root cause after convergence:
-    an owed record whose rows end one Attempt twice in an order no writer makes. T92 waits for the user's Q5; no lead
-    runs.
+note 2026-11-18T19:14:32Z
+    User's pages for T9, T17, T18, T19, T20, T54 and T94 were read. Two failure-limit stops (T18, T20) led to structural
+    fixes. History in git at a9ed4037.
 
 note 2026-11-19T00:38:20Z
-    [decided: user 2026-11-19] T92 deferred; its work saved on branch t92-format-4, flow-rewrite restored to
-    fef46251's code and Specs (check 0, suite 1181). Pending D31 waits with it. Next: T95.
+    [decided: user 2026-11-19] T92 deferred; its work saved on branch t92-format-4 and flow-rewrite restored to
+    fef46251's code and Specs; Pending D31 waits with it. T95 cut, no wrong ending it would prevent (items to T99 and
+    T57; lesson: no Task without a Story showing the wrong ending).
 
-note 2026-11-19T00:39:07Z
-    T95 started: text gains a design-first step (structure over per-check, the user's convergence point), fixtures line
-    and raw-throw scope. Lead writes requirements and fixtures, then stops for the requirements review.
-
-note 2026-11-19T00:47:32Z
-    [decided: user 2026-11-19] T95 cut, its lead stopped before any change; no wrong ending it would prevent.
-    Items to T99 and T57; T96 unblocked and next. Lesson: no Task without a Story showing the wrong ending it prevents.
-
-note 2026-11-19T00:56:05Z
-    T96 started (send(ref, event), the rare escape hatch): requirements and fixtures first, then the requirements
-    review.
+note 2026-11-19T00:38:20Z
+    [decided: user 2026-11-19] P3's outcome routing and InvariantViolation in T100 accepted; wk's refused satisfies
+    links hand-added to T21, T29, T30, T48, T49.
 
 note 2026-11-19T01:39:08Z
     [decided: user 2026-11-19] fixtures.md gains "The right tool" (a feature only where a product would choose it;
-    variety counts different uses). send cut from palette and transfers fixtures in T96; the catalog audited for fit.
-
-note 2026-11-19T01:44:52Z
-    Fixture fit audit (2 Haiku, verified): no clear wrong-tool cell beyond send's two; flagged repeats are combinations
-    or refusal and load cases, left to each Task's lead. Per the user, no further cuts.
-
-note 2026-11-19T01:45:21Z
-    T96 requirements and fixtures in (d443aceb): 15 requirements, send in shop, player, sync; five calls ruled on T96.
-    fixtures.md corrected: repeats across apps are fine (the user). Requirements review starts.
-
-note 2026-11-19T02:01:49Z
-    T96 requirements review ISSUES (37b8f894): 6 blocking coverage gaps; rulings on T96. Fix round, then build, by one
-    fresh lead, with the user's send decisions (form A, callback form kept, mutual sends allowed).
-
-note 2026-11-19T02:51:25Z
-    T96 built, in review (bfd05140): one delivery path for handle and machine sends, loop guard, token and callback
-    forms; Actors R13, R16, R20, I20 edited. Close review started (no sidecars in the build, so a harder read).
-
-note 2026-11-19T03:11:05Z
-    T96 close review ISSUES (df9968f9): the loop guard counts per consumer when an event's turn sends nothing. Fix round
-    started. R16 over R20's Plan text proposed as Pending D32 for the user.
-
-note 2026-11-19T03:45:31Z
-    T96 fix round in (549c8d8b): guard counts once per admitted event, shared across its context update's consumers; R13
-    reworded; gates green. Second close review started.
-
-note 2026-11-19T04:06:09Z
-    T96 done (7d9c2b2c). User's page written, unread: wiki/plans/flow/references/pages/T96-send.md. Next: T99.
-
-note 2026-11-19T04:06:38Z
-    T99 started (runtime life): text gains the wrong-ending rule for every part and routed item, design first, fixtures
-    line. Lead writes requirements and fixtures, then stops for the requirements review.
-
-note 2026-11-19T04:38:42Z
-    T99 requirements and fixtures in (885f0f24): 6 requirements kept, 5 parts and 12 routed items dropped with reasons.
-    Requirements review started, checking every drop. For the user: runPromise's signature, the ref quarantine.
-
-note 2026-11-19T04:54:53Z
-    T99 requirements review ISSUES (b84b6c8b): 3 wrong drops restored, a missed boot report, fixtures owed. Requirements
-    fix round started; runPromise and the quarantine wait for the user's Q7 and Q8.
-
-note 2026-11-19T06:06:11Z
-    T99 built except Q7, Q8 (603078ee). R23 limit removed, gap owned by T100. Close review of the built parts started.
-
-note 2026-11-19T06:28:09Z
-    T99 close review ISSUES (f223dc72): a store write's failing cleanup reported as success. Fix round started with the
-    I30 check tightened again and in-range coverage; Q7 and Q8 still wait on the user.
-
-note 2026-11-19T06:53:04Z
-    Decisions (the user, 2026-11-19): T99 Q7 A (runPromise refuses before ready, RunFailed) and Q8 A (quarantine kept);
-    Pending D32 and D33 accepted and merged into Runtime, Persistence, Diagnostics; Subscription stays.
-
-note 2026-11-19T06:56:11Z
-    T96's user's page read (the user, 2026-11-19); the next slice's close is not held.
+    variety counts different uses; repeats across apps are fine); send cut from palette and transfers fixtures in T96;
+    send(ref, event) stays, as XState's sendTo, a rare escape hatch.
 
 note 2026-11-19T07:01:22Z
-    [decided: user 2026-11-19] the Fable trust-boundaries consult (T92 with T98) waits until P4 closes or later.
-
-note 2026-11-19T07:18:27Z
-    [decided: user 2026-11-19] P5 starts once every P4 Task but T92 and T56 is done; those two stay open in P4
-    until the trust consult, and P4's audit waits for them.
-
-note 2026-11-19T07:30:11Z
-    T99 fully built, in review (4cd855c1): every fiber's exit checked at close, runPromise (Q7 A), quarantine (Q8 A).
-    Second close review started; it checks the three-bound close and the quarantine lift on disposeActor.
-
-note 2026-11-19T07:51:21Z
-    T99 second close review ISSUES (41429856): typed cleanup failures and abort lose the Cause (same root cause twice,
-    so convergence by structure: one Cause fold at close); the suite gate was red. For the user: an unreported
-    quarantine.
-
-note 2026-11-19T08:32:23Z
-    T99 paused (the user, 2026-11-19): Cause-fold work on branch t99-cause-fold; its test table kept. A from-scratch
-    redesign of background-work lifetimes runs next as a proposal, then the two are compared for the user.
+    [decided: user 2026-11-19] The Fable trust-boundaries consult (T92 with T98) waits until P4 closes or later; P5
+    starts once every P4 Task but T92 and T56 is done, those two staying open in P4 until the consult, and P4's audit
+    waits for them.
 
 note 2026-11-19T09:16:53Z
-    [decided: user 2026-11-19] T99's lifetimes redesign (c701e254) accepted; rebuilt in a worktree. Records stay
-    uncommitted with the A/B/C work for the user's diff review.
+    [decided: user 2026-11-19] T99's lifetimes redesign (c701e254) accepted and rebuilt in a worktree; before that T99
+    was paused for the Cause-fold branch t99-cause-fold. Q7 A (runPromise), Q8 A (quarantine kept), Pending D32 and D33
+    accepted and merged into Runtime, Persistence, Diagnostics; Subscription stays; Q11 A:
 
-note 2026-11-19T09:27:43Z
-    Committed in slices (the user, 2026-11-19): fixture idioms, tests on tokens with no-raw-event widened, records. T102
-    and T103 added to P4; T99 rebuilds on the lifetimes redesign in a worktree.
+note 2026-11-19T09:16:53Z
+    [decided: user 2026-11-19] Flow reports every cleanup failure reaching the effect it runs, typed failures inside the
+    app's own error handling follow Effect, dying cleanups are always reported.
 
-note 2026-11-19T09:51:27Z
-    Decisions (the user, 2026-11-19): T103's C2 is a lost option on Fake.server; fakes stay at the port (Flow is not a
-    network library); a live port fake as the demo backend is proposed for P6.
-
-note 2026-11-19T11:30:34Z
-    Decision (orchestrator, user-confirmed 2026-11-19, Q11 A): Flow reports every cleanup failure reaching the effect it
-    runs; typed failures inside the app's own error handling follow Effect; dying cleanups are always reported.
-
-note 2026-11-19T12:18:23Z
-    T99 done: Owner redesign merged (f1968531), second close review PASS; suite 1399 passed, no unhandled errors. Routed
-    to T102 and T100. Next: T103, then T102, then T58.
-
-note 2026-11-19T12:18:41Z
-    User's page written, unread: wiki/plans/flow/references/pages/T99-runtime-life.md. T103 started.
-
-note 2026-11-19T12:33:24Z
-    T103 requirements review ISSUES (804a6b58), two small gaps; the lead fixes them, then builds to review.
-
-note 2026-11-19T12:37:25Z
-    [decided: user 2026-11-19] skill pin workflow@2befdbd to workflow@c45246e (policy-convergence's live-code
-    section, R35's pointer); instructions' convergence line names the freedom, the one broad fix, and the
-    structure-first steps.
-
-note 2026-11-19T12:59:34Z
-    T99's user's page read (the user, 2026-11-19); the next slice's close is not held.
-
-note 2026-11-19T13:06:22Z
-    T103 built, in review (df4d79c2): typed read, evidence by token, required lost on Fake.server, no-event-name-filter
-    lint; Pending D35 to D39 for the user's read. Close review started.
-
-note 2026-11-19T13:17:49Z
-    T103 done (02bd5ce4). Its typing amendment and routed items go to a new type-gaps Task, scoped from three running
-    type-gap surveys. Pending D35 to D39 (new testing words) wait for the user's read.
-
-note 2026-11-19T13:18:01Z
-    User's page written, unread: wiki/plans/flow/references/pages/T103-typed-stories.md.
-
-note 2026-11-19T13:20:20Z
-    T104 added to P4 after T102: type gaps closed, from three surveys and T103's amendment; operation handles first.
-    Starts when T102's lead finishes (one lead at a time).
-
-note 2026-11-19T14:42:57Z
-    T102 built, in review (b5aebb79): typed reason catalogue, one id mint, Following state, Trigger, exhaustive
-    dispatch, two lint rules. Close review started; it settles whether incarnation start order is observable.
-
-note 2026-11-19T14:57:57Z
-    T102 done (5aae1ef8); start order ruled observable, its rule and T102's routed checks in new T105 after T104.
-    Alchemy clone updated in codebases; an Opus lead writes an adoption proposal (30 min budget).
-
-note 2026-11-19T14:58:19Z
-    User's page written, unread: wiki/plans/flow/references/pages/T102-core-shapes.md. T104 starts after the Alchemy
-    proposal lead (one lead at a time).
-
-note 2026-11-19T15:02:19Z
-    Alchemy adoption proposal in (5980b0ef): rules on definitions (new concept, the user's call), unseen-rule reporting
-    and an exhaustive generator profile (small), cell-table enumeration (research). T104 started.
+note 2026-11-19T09:51:00Z
+    [decided: user 2026-11-19] T103's C2 is a lost option on Fake.server; fakes stay at the port (Flow is not a network
+    library); a live port fake as the demo backend is proposed for P6. T102 and T103 added to P4.
 
 note 2026-11-19T15:09:45Z
-    [decided: user 2026-11-19] adopt Alchemy ideas 1 and 2: rules on definitions judged by every run, and unseen
-    rules reported. New T106, first in P5, design first. Ideas 3 and 4 not adopted for now.
+    [decided: user 2026-11-19] Adopt Alchemy ideas 1 and 2: rules on definitions judged by every run, and unseen rules
+    reported (new T106, first in P5, design first); ideas 3 and 4 not adopted for now. Every requirements and close
+    review checks cohesion (seams, duplicates, siblings, house patterns), one sidecar taking it as a fixed angle.
 
-note 2026-11-19T15:40:52Z
-    T104 requirements in (b43179e4): F9 confirmed a wrong ending (updateMemory rewrites Flow.input), 20 requirements,
-    Vitest typecheck in the suite. Requirements review started. For the user: two new public shapes (onContext typing,
-    Flow.initial).
+note 2026-11-19T15:09:45Z
+    [decided: user 2026-11-19] Skill pins moved to workflow@c45246e then 7aa4288.
 
-note 2026-11-19T16:11:42Z
-    [decided: user 2026-11-19] every requirements and close review checks cohesion (seams, duplicates, siblings,
-    house patterns); one sidecar takes it as a fixed angle. Skill pin to workflow@7aa4288 (check-task step 5).
+note 2026-11-19T18:53:00Z
+    [decided: user 2026-11-20] Context slots accepted: Flow.context on the definition, C.slot.change in the machine, one
+    provider per slot; built by @task.V3.T107 after @task.V3.T104. T104 page Q1 A for now (removed Step constructors
+    stay removed; final A on 2026-11-20).
 
-note 2026-11-19T16:57:38Z
-    T104 lead stopped mid-build: 6 slices in, check and suite 0 each; what is left is in status comment 4c4df672.
-    5-hour window at 85%, so a fresh lead resumes T104 from that comment after the 00:20 reset.
-
-note 2026-11-19T17:36:23Z
-    Hourly wake cron a10d3b2d cancelled (the user, 2026-11-19); no wake runs now. T104 waits to resume from 4c4df672.
-
-note 2026-11-19T18:53:25Z
-    Context slots accepted (the user, 2026-11-20): Flow.context on the definition, C.slot.change in the machine, one
-    provider per slot; built by @task.V3.T107 after @task.V3.T104.
-
-note 2026-11-19T19:22:18Z
-    Run resumed at workflow@7aa4288: current Task @task.V3.T104, no live agents, tree clean at 1a3c4cc0. Wake cron
-    cdedf1d8 recreated; daily faults run started. First action: a fresh lead resumes T104 from its 2026-11-19T16:56
-    status comment.
-
-note 2026-11-19T20:31:08Z
-    T104 in review (9f1c0cff); close review started. Daily faults: 380 of 390 caught; 9 stale plants and one unjudged
-    routed to T104's fix round. For the user: renaming testing.compile.ts and send.compile.ts edits links in
-    @plan.Pending.
-
-note 2026-11-19T20:49:47Z
-    T104 close review: ISSUES, four blocking (stale plants, wide public signatures, g23, one-sided type tests);
-    one-sided tests hit threshold 2, so the fix round lands guards. Fix-round lead started.
-
-note 2026-11-19T21:55:30Z
-    T104 done (1ef090b7): second close review PASS; follow-ups routed to @task.V3.T105. Proposed for the user: the
-    public Step constructors, WorldWord and FakeWorld removal. Next: @task.V3.T107.
-
-note 2026-11-19T21:56:53Z
-    User's page written, unread: @page.T104-type-seams (Q1: the removed public Step
-    constructors). @task.V3.T107 opened with its fixtures line, gates and user's read; its lead starts.
-
-note 2026-11-19T22:02:04Z
-    [decided: user 2026-11-20] T104 page Q1 A for now (removed Step constructors stay removed); final call
-    tomorrow. Page read.
-
-note 2026-11-19T22:51:04Z
-    T107 requirements in (4538c32a): 20 requirements, 22 inverted tests, 11 type lines, four new consumers. Requirements
-    review started.
-
-note 2026-11-19T23:01:39Z
-    T107 requirements review: ISSUES, three blocking (state-scoped entry cases, non-token reads dropped silently,
-    compound state tokens); all three land as red checks first, then the build lead runs to review.
+note 2026-11-19T22:30:00Z
+    P4 start summary (2026-11-18 to 2026-11-19): T96, T99, T102, T103, T104 done and T105, T107 in review by 2026-11-20;
+    user's pages for T96 and T99 read. T99 ran as a worktree rebuild; the hourly wake cron was cancelled. History in git
+    at a9ed4037.
 
 note 2026-11-20T00:10:54Z
     T107 in review (e99a94ee): context slots built, state-scoped onContext rejected on its Stories, format 4 per slot,
