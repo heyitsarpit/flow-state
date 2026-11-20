@@ -189,16 +189,23 @@ export const makeServe = (
       owns: (activation) => owning.has(activation),
     });
 
+    // An ending the turn does not take still settled its lane: the lane's change is published.
+    const settled = () => {
+      if (Option.isSome(route.ending)) publish(incarnation);
+
+      return HEARD;
+    };
+
     return TurnResult.$match(result, {
       Unhandled: () => {
         tx.act(Act.Unhandled({ actor: incarnation.actor, event: tag }));
 
-        return HEARD;
+        return settled();
       },
       Denied: ({ reasons }) => {
         tx.act(Act.Denied({ actor: incarnation.actor, event: tag, reasons }));
 
-        return HEARD;
+        return settled();
       },
       Refused: ({ code, slot }) => {
         publish(

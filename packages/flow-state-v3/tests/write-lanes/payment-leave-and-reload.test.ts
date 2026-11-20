@@ -3,7 +3,7 @@ import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { Option } from "effect";
 import { Pay, PayMachine } from "../../fixtures/services/shop/machines/pay.ts";
-import { shopStory } from "../../fixtures/shop/stories/usual.ts";
+import { orderDeniedLate, shopStory } from "../../fixtures/shop/stories/usual.ts";
 import { type Cut, evidenceOf, Fake } from "../../src/host/testing/index.ts";
 import {
   before,
@@ -136,21 +136,8 @@ describe("PAY-07 (WriteLanes R16, WriteLanes R7)", () => {
     expect(denials(run.evidence).at(-1)).toEqual(["LateMayNotLeave"]);
   });
 
-  it.fails("Turn R19, I15: an order ending denied by its guard publishes its lane-only change once, and nothing of its own", async () => {
-    const run = await played(
-      onWire(
-        "PAY-07/denied-ending-publishes",
-        Shop.placeOrder.hold(),
-        Shop.voidAuthorization.hold(),
-      )
-        .send(checkout, LEAVE)
-        .send(checkout, START)
-        .world(Shop.confirm.hold())
-        .send(checkout, VISA)
-        .checkpoint("before")
-        .world(Shop.placeOrder.release())
-        .checkpoint("placed"),
-    );
+  it("Turn R19, I15: an order ending denied by its guard publishes its lane-only change once, and nothing of its own", async () => {
+    const run = await played(orderDeniedLate);
 
     const step = before(run, "placed").slice(before(run, "before").length);
 

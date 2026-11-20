@@ -1,4 +1,6 @@
+import { Duration } from "effect";
 import { Story } from "../../../src/host/testing/index.ts";
+import { RuntimeDefaults } from "../../../src/index.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { GitFake } from "../../services/git/server/layer.ts";
 import { lanesGrownSetup, secondSerialize, serializeClient } from "../app.ts";
@@ -53,3 +55,19 @@ export const reloadedWithWork = withWork("lanes/reloaded-with-work")
   .checkpoint("busy")
   .reload()
   .checkpoint("reloaded");
+
+/**
+ * L3: the Runtime is disposed with a sync on the wire and a second queued behind it; the head
+ * answers inside the disposal's bound, and the disposal runs to a millisecond short of its bound.
+ */
+export const answeredWhileDisposing = grownStory("lanes/answered-while-disposing")
+  .ensure(serializeClient)
+  .world(Git.sync.hold())
+  .send(serializeClient, Serialize.E.Commit({ repo: "flow" }))
+  .send(serializeClient, Serialize.E.Commit({ repo: "flow" }))
+  .disposeRuntime()
+  .advance("1 second")
+  .world(Git.sync.release())
+  .checkpoint("answered")
+  .advance(Duration.millis(Duration.toMillis(RuntimeDefaults.disposalBound) - 1))
+  .checkpoint("disposed");

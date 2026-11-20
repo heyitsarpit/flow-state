@@ -178,4 +178,43 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "restore-arms-inactive-schedule",
+    tests: ["tests/sign-in/trusted-device.test.ts"],
+    says: "a restore arms every saved schedule, a state's the record no longer holds included",
+    rule: "Turn R14",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "record.schedules.filter((s) => declared.has(s.name)),",
+        replace: "record.schedules,",
+      },
+    ],
+  },
+  {
+    name: "update-patch-unchecked",
+    tests: ["tests/actors/memory-writes.test.ts"],
+    says: "an update's return is merged without checking it is a record, so null escapes the turn",
+    rule: "Turn R10",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "      const written = recordFrom(update, read);",
+        replace: "      const written = call(update.slot, () => update.run(read));",
+      },
+    ],
+  },
+  {
+    name: "untaken-ending-unpublished",
+    tests: ["tests/write-lanes/payment-leave-and-reload.test.ts"],
+    says: "an ending the turn denies settles its lane but publishes nothing, so the row a screen shows stays pending",
+    rule: "Turn R19, I15",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "      if (Option.isSome(route.ending)) publish(incarnation);",
+        replace: "      if (Option.isSome(route.ending) && false) publish(incarnation);",
+      },
+    ],
+  },
 ];

@@ -147,6 +147,23 @@ export const leaveWhilePaying = shopStory("shop/leave-while-paying")
   .checkpoint("paid");
 
 /**
+ * The shopper pays and the shop's order is placed but its answer held; the shopper leaves, starts
+ * again and pays, and the held order then answers in a state whose guard denies it.
+ */
+export const orderDeniedLate = shopStory("shop/order-denied-late")
+  .ensure(checkout)
+  .send(checkout, cart(1))
+  .world(Shop.placeOrder.hold(), Shop.voidAuthorization.hold())
+  .send(checkout, visa)
+  .send(checkout, Pay.E.Leave())
+  .send(checkout, cart(1))
+  .world(Shop.confirm.hold())
+  .send(checkout, visa)
+  .checkpoint("before")
+  .world(Shop.placeOrder.release())
+  .checkpoint("placed");
+
+/**
  * The shop takes a payment but its answer is lost, and the shopper leaves the checkout, so the app
  * removes it; the tab reloads twice before the shopper opens the checkout again and it takes the
  * unsure payment back.
@@ -452,6 +469,7 @@ export const samples = samplesOf({
  */
 export const stories = {
   lostConfirm,
+  orderDeniedLate,
   busyRefused,
   usual,
   long,

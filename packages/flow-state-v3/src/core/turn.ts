@@ -403,11 +403,12 @@ const writable = (compiled: Compiled, patch: Values) => {
 const accept = (alternative: Alternative, handler: string, input: TurnInput): TurnResult => {
   const read = { memory: input.memory, event: input.payload, now: input.now };
 
-  // A patch that throws is a defect; one naming a field the machine may not write refuses the turn.
+  // A patch that throws or is no record is a defect; one naming a field the machine may not write
+  // refuses the turn.
   const patched = Option.match(alternative.update, {
     onNone: () => Result.succeed(input.memory),
     onSome: (update) => {
-      const written = call(update.slot, () => update.run(read));
+      const written = recordFrom(update, read);
 
       if (Result.isFailure(written))
         return Result.fail(TurnResult.Refused({ code: "Defect", ...written.failure }));

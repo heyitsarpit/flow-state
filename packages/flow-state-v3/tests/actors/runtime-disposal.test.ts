@@ -5,6 +5,7 @@ import { cellsStory } from "../../fixtures/cells/stories/usual.ts";
 import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { Serialize } from "../../fixtures/lanes/machines/clients.ts";
 import { lanesStory } from "../../fixtures/lanes/stories/usual.ts";
+import { answeredWhileDisposing } from "../../fixtures/lanes/stories/structure.ts";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
@@ -31,6 +32,10 @@ import { played } from "../rules/played.ts";
 import { switchedOn } from "../switches.ts";
 
 const SYNC = Serialize.E.Commit({ repo: "flow" });
+
+// The syncs a disposal ended NotSent Disposed.
+const disposedSyncs = (records: Records) =>
+  endings(records, "sync").filter((e) => e.channel === "notSent" && e.reason === "Disposed");
 
 // An ending made at the bound is not written, so the reload hears the head it wrote, unknown
 // Restored, once (Actors R23).
@@ -356,24 +361,14 @@ describe("the final write (Actors R23, I43, I44)", () => {
 
 describe("a commit queued behind a head on the wire (Actors R22, I30)", () => {
   it("Actors I30: the head answered inside the bound promotes nothing; the queued commit ends NotSent Disposed and Git sees one call", async () => {
-    const run = await played(
-      lanesStory("Actors I30 queued behind on-wire")
-        .ensure(serializeClient)
-        .world(Git.sync.hold())
-        .send(serializeClient, SYNC)
-        .send(serializeClient, SYNC)
-        .disposeRuntime()
-        .advance("1 second")
-        .world(Git.sync.release())
-        .checkpoint("answered")
-        .advance(SHORT_OF_BOUND)
-        .checkpoint("disposed"),
-    );
+    const run = await played(answeredWhileDisposing);
+    const answered = endings(before(run, "answered"), "sync");
 
-    const disposed = (records: Records) =>
-      endings(records, "sync").filter((e) => e.channel === "notSent" && e.reason === "Disposed");
-
-    expect(disposed(before(run, "disposed"))).toHaveLength(1);
+    expect(answered).toEqual([
+      { channel: "notSent", reason: "Disposed" },
+      { channel: "success", reason: "success" },
+    ]);
+    expect(disposedSyncs(before(run, "disposed"))).toHaveLength(1);
     expect(run.checkpoints.disposed.read(Git.sync)).toHaveLength(1);
     expect(disposals(before(run, "disposed"))).toBe(1);
   });
@@ -394,10 +389,7 @@ describe("a commit queued behind a Held head (Actors I38)", () => {
         .checkpoint("reloaded"),
     );
 
-    const disposed = (records: Records) =>
-      endings(records, "sync").filter((e) => e.channel === "notSent" && e.reason === "Disposed");
-
-    expect(disposed(before(run, "disposed"))).toHaveLength(1);
+    expect(disposedSyncs(before(run, "disposed"))).toHaveLength(1);
     expect(disposals(before(run, "disposed"))).toBe(1);
     expect(evidenceOf(run, Serialize.E.NotSent).filter((e) => e._tag === "Delivered")).toHaveLength(
       1,

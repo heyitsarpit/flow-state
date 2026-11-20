@@ -236,7 +236,7 @@ describe("a trusted device written wrong is refused at construction (Compile R2,
 });
 
 describe("a saved schedule whose state is not active (Turn R14, Restore R1)", () => {
-  it.fails("Turn R14: a restored schedule of a state the record does not hold is not armed, and never fires", async () => {
+  it("Turn R14: a restored schedule of a state the record does not hold is not armed, and never fires", async () => {
     const saved = await played(trustDevice);
     const text = saved.checkpoints.trusted.records.stored.get(laptopRecord) ?? "";
     const untrusted = text.replace('"state":"TRUSTED.FRESH"', '"state":"UNTRUSTED"');
@@ -257,6 +257,9 @@ describe("a saved schedule whose state is not active (Turn R14, Restore R1)", ()
     expect(run.checkpoints.restored.read(laptop)?.state).toBe("UNTRUSTED");
     expect(run.checkpoints.restored.read(laptop)?.memory.until).toEqual(LAPTOP_UNTIL);
     expect(run.checkpoints.restored.read(laptop)?.schedules).toEqual([]);
+    expect(run.checkpoints["a week on"].read(laptop)).toEqual(
+      expect.objectContaining({ state: "UNTRUSTED", schedules: [] }),
+    );
     expect(evidenceOf(run, TrustedDevice.E.Reverify)).toEqual([]);
   });
 });

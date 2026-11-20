@@ -3,6 +3,7 @@ import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
+import { busyKeptAnHour } from "../../fixtures/shop/stories/edges.ts";
 import { before, issues, memory, onWire, START, state } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
@@ -25,9 +26,7 @@ describe("TURN-01 (Turn R8, R10, I14; WriteLanes R10)", () => {
   });
 
   it("Actors R15, I24: the refused ending is redelivered once, then kept: an hour on it is not tried again and the shop sees one charge", async () => {
-    const run = await played(
-      busy("Actors R15 kept after one redelivery", -1).advance("1 hour").checkpoint("later"),
-    );
+    const run = await played(busyKeptAnHour);
 
     const { refused, later } = run.checkpoints;
 

@@ -6,7 +6,12 @@ import { lanesGrown, lanesGrownSetup } from "./app.ts";
 import { samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { negativeZero, twoSpellings } from "./stories/edges.ts";
 import { crowd4, crowdOf, serializeDeepOf } from "./stories/load.ts";
-import { disposedWithWork, oneKeyTwoActors, reloadedWithWork } from "./stories/structure.ts";
+import {
+  answeredWhileDisposing,
+  disposedWithWork,
+  oneKeyTwoActors,
+  reloadedWithWork,
+} from "./stories/structure.ts";
 
 /**
  * The lanes fixture, as every runner reads it.
@@ -20,6 +25,7 @@ export const lanes = manifest({
     crowd4,
     oneKeyTwoActors,
     disposedWithWork,
+    answeredWhileDisposing,
     reloadedWithWork,
     twoSpellings,
     negativeZero,

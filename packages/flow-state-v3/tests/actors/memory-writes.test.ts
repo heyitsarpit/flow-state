@@ -75,7 +75,7 @@ const NoteMachine = machine(Note, ({ S }) => ({
 }));
 
 describe("an update that returns no patch (Turn R10)", () => {
-  it.fails("Turn R10: an update returning null refuses its turn as a pre-commit defect; memory stays and the next event runs", () => {
+  it("Turn R10: an update returning null refuses its turn as a pre-commit defect; memory stays and the next event runs", () => {
     const runtime = runtimeSetup({
       app: app({ id: "memory-writes-patch", machines: { note: NoteMachine } }),
     }).construct();

@@ -16,7 +16,7 @@ import {
   signOutMidCheckout,
   unsurePayRemoved,
 } from "./stories/usual.ts";
-import { busyEdges } from "./stories/edges.ts";
+import { busyEdges, busyKeptAnHour } from "./stories/edges.ts";
 import {
   failingLineAlone,
   independentLines,
@@ -88,6 +88,7 @@ export const shop = manifest({
     shopperForgotten,
     reloadedMidAdd,
     busyEdges,
+    busyKeptAnHour,
     unreadableName,
     oddRecordNames,
     borrowedRecordsReload,
