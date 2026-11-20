@@ -1378,3 +1378,7 @@ note 2026-11-20T17:16:18Z
 note 2026-11-20T17:41:10Z
     Fable (medium) turn-parts design in: runTurn returns one Turn value, serve applies it and writes one Turned record;
     occasion order fixed; a Turn parts Task ahead of T109 (proposal).
+
+note 2026-11-20T17:48:23Z
+    Paused for the 5-hour window (93%; weekly 98%): no agents run until the reset (~20:50 UTC weekly, 19:50 UTC 5-hour);
+    next: merge advisor-consult on the user's word, then the eleven-design cohesion check.
