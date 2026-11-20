@@ -561,7 +561,7 @@ tasks
             Decision (the user, 2026-11-20): T58's page read; the name StoreScope is kept.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@task.V3.T17, @task.V3.T82]
         satisfies   [@plan.Machines.O3, @plan.Machines.O5, @plan.Machines.O8]
@@ -976,6 +976,12 @@ tasks
                 doubles" (it fires early, not twice).
               - Rejected: the `today` pin as a weak check (it is the convention); mapper context as a defect (no mapper
                 reads it).
+        comment     2026-11-20T10:28:59Z
+            Rulings (orchestrator) on the close review: the four type items stay here; the fix round opens with a type
+            spike capped at 45 minutes (posture 1 of the advisor questions); if the depth-2 widening still fails it
+            lands as an inverted test and is split into its own Task, the user told. Disarm wins over a changed
+            restartOn in the same turn (no made-up firing): Turn R14 gains the sentence with a specs.log note, red
+            first. The other owed items land in the round. The Turn I9 run-rule gap goes to @task.V3.T112.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -5500,3 +5506,7 @@ tasks
             record); test:coverage writes a report on failure, and the thousand-line cart test in
             tests/shop/context.test.ts gets a timeout that holds under coverage. The last two first: every close review
             now runs coverage.
+        comment     2026-11-20T10:29:00Z
+            Routed (orchestrator, 2026-11-20): Turn I9's run rule counts a context-update publication caused by another
+            actor's turn as part of that turn (seed 15 of T57's generated runs; predates T57); and test:coverage turns
+            extra flags into file filters, so pass reporter flags through. Each red first.
