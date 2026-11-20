@@ -1137,3 +1137,7 @@ note 2026-11-19T23:01:39Z
 note 2026-11-20T00:10:54Z
     T107 in review (e99a94ee): context slots built, state-scoped onContext rejected on its Stories, format 4 per slot,
     Turn R22 rule added; close review started.
+
+note 2026-11-20T00:25:27Z
+    T107 close review: ISSUES, three blocking; A3 and format-4 fixes started; Turn R22's made-up ending waits on the
+    user's choice (recommended: when asked with no previous value).

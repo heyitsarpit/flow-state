@@ -3850,7 +3850,7 @@ tasks
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T104]
         description
@@ -4118,3 +4118,9 @@ tasks
               (pre-existing, test-only records); rejected the R9/R22 reload contradiction (Restore R5 reconciles it),
               defect retries on later waves (R22 keeps the baseline), and a reload binding another
               provider (pre-existing).
+        comment     2026-11-20T00:25:26Z
+            Rulings (orchestrator) on the close review: findings 2 (A3, new reads dropped on an equal value) and 3
+            (format 4 baselines by position with no count check) accepted; each lands red, then fixed, with coverage for
+            the class. Finding 1 (Turn R22's first good value skips when and fires) lands now as an inverted test titled
+            by its rule; the fix waits on the user's choice, recommended: ask when with no previous value. The
+            experiment's reverse note says rebuild.
