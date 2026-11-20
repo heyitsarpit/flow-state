@@ -186,23 +186,24 @@ const alertSetup = runtimeSetup({
   }),
 });
 
-// Inverted until the user chooses how a first value after a failed select meets `when`.
 describe("a when-gated reaction rings only when its when allows it (Turn R22)", () => {
-  it.fails("Turn R22: a first good value after a select that failed at admission is still judged by when, so a calm mood rings no urgent alert", async () => {
-    const calm = (id: string, admitted: string) =>
+  it("Turn R22: a first good value after a select that failed at admission is still judged by when, so a calm mood rings no urgent alert and an urgent one rings once", async () => {
+    const moved = (id: string, admitted: string, mood: string) =>
       Story.app(alertSetup, { id, fixtures: [] })
         .ensure(profile)
         .send(profile, Profile.E.Rename({ name: admitted }))
         .ensure(alert)
-        .send(profile, Profile.E.Rename({ name: "calm" }))
-        .checkpoint("calm")
+        .send(profile, Profile.E.Rename({ name: mood }))
+        .checkpoint("moved")
         .run();
 
-    const selected = await calm("slots/alert-selected", "x");
-    const failed = await calm("slots/alert-failed", "");
+    const selected = await moved("slots/alert-selected", "x", "calm");
+    const failed = await moved("slots/alert-failed", "", "calm");
+    const urgent = await moved("slots/alert-failed-urgent", "", "urgent");
 
-    expect(selected.checkpoints.calm.read(alert)?.memory).toEqual({ rang: 0 });
-    expect(failed.checkpoints.calm.read(alert)?.memory).toEqual({ rang: 0 });
+    expect(selected.checkpoints.moved.read(alert)?.memory).toEqual({ rang: 0 });
+    expect(failed.checkpoints.moved.read(alert)?.memory).toEqual({ rang: 0 });
+    expect(urgent.checkpoints.moved.read(alert)?.memory).toEqual({ rang: 1 });
   });
 });
 

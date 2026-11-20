@@ -259,7 +259,8 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   // Runs each reaction whose slot's value differs from its baseline, in declaration order:
   // its baseline becomes the value and, when its `when` allows it, its event is kept to enqueue. An
   // equal value is silent; a first value after none (a select that failed at the start) is a
-  // change. A when or mapper that throws raises one issue of its reaction and keeps its baseline.
+  // change, which `when` judges with no previous value. A when or mapper that throws raises one
+  // issue of its reaction and keeps its baseline.
   const react = (compiled: Compiled, read: Incarnation) => {
     let next: Incarnation = read;
     const baselines = compiled.reactions.map((_, at) => read.baselines[at] ?? Option.none());
@@ -277,10 +278,17 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         continue;
       }
 
-      // A first value after none is a change; `when` judges a change between two values.
-      const allowed = Option.match(Option.all([reaction.when, previous]), {
+      const allowed = Option.match(reaction.when, {
         onNone: () => Result.succeed(true),
-        onSome: ([when, p]) => callSlot(when, current.value, p.value, { memory: read.memory }),
+        onSome: (when) =>
+          callSlot(
+            when,
+            current.value,
+            Option.getOrUndefined(Option.map(previous, (p) => p.value)),
+            {
+              memory: read.memory,
+            },
+          ),
       });
 
       // A declined change maps no payload, so a mapper never runs for an event that is not sent.

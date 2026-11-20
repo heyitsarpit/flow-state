@@ -331,10 +331,20 @@ export type Change = {
 /**
  * What `C.slot.change` takes: when a change of the slot's value `V` counts, and the event it
  * enqueues, mapped from the value.
+ *
+ * **Gotchas**
+ *
+ * - `previous` is `undefined` when there is no earlier value: the slot's first good value after
+ *   its select failed at admission, which `when` still decides. A slot whose own values include
+ *   `undefined` cannot tell that apart from an earlier `undefined`.
  */
 export type ChangeSpec<V, Memory, Id extends string> = {
-  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: with no when, every change enqueues the event
-  readonly when?: (current: V, previous: V, extra: { readonly memory: Memory }) => boolean;
+  readonly when?: (
+    current: V,
+    // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- previous is a plain undefined when no earlier value exists, so a when compares it directly rather than through Option
+    previous: V | undefined,
+    extra: { readonly memory: Memory },
+  ) => boolean;
   readonly event: Ending<V, Id>;
 };
 

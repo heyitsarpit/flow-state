@@ -213,11 +213,13 @@ requirements
                 A changed value becomes the baseline even if `when(current, previous, { memory })`
                 declines; with no when, or when true, its event enqueues after the context turn, in
                 declaration order, in the one FIFO mailbox. A slot with no value when its baseline
-                is set (its select failed) has none, and its first value is a change; `when` judges
-                a change between two values only. Only the root declares reactions: a reaction in a
-                state's body was tried and rejected (a reaction is top level, its event handled per
-                state). A slot select, when or mapper defect
-                publishes one issue, keeps the previous baseline and emits nothing. A baseline is the
+                is set (its select failed) has none, and its first value is a change, which `when`
+                judges as `when(current, undefined, { memory })` (`previous` is typed `T | undefined`);
+                with no when it enqueues. Decision (user, 2026-11-20): "Q1 A" (@task.V3.T107). Why:
+                skipping when made up an ending when gives false. Reverse: skip when for a first value.
+                Only the root declares reactions: a reaction in a state's body was tried and rejected
+                (a reaction is top level, its event handled per state). A slot select, when or mapper
+                defect publishes one issue, keeps the previous baseline and emits nothing. A baseline is the
                 slot's saved value, so a restore reads it again as it was, a kept one included.
                 Reactions never select and never change state directly.
 

@@ -452,6 +452,33 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "first-value-skips-when",
+    tests: ["tests/actors/context-slots.test.ts"],
+    says: "a slot's first good value after its select failed at admission skips `when` and enqueues the event",
+    rule: "Turn R22",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "  const allowed = Option.match(reaction.when, {",
+        replace:
+          "  const allowed = Option.match(Option.isNone(previous) ? Option.none() : reaction.when, {",
+      },
+    ],
+  },
+  {
+    name: "first-value-declined",
+    tests: ["tests/actors/context-slots.test.ts"],
+    says: "a slot's first good value after its select failed at admission is declined without asking `when`",
+    rule: "Turn R22",
+    edits: [
+      {
+        file: "src/core/context.ts",
+        find: "        onSome: (when) =>\n          callSlot(",
+        replace: "        onSome: (when) =>\n          Option.isNone(previous) ? Result.succeed(false) : callSlot(",
+      },
+    ],
+  },
+  {
     name: "equal-value-reads-dropped",
     tests: ["tests/actors/context-slots.test.ts"],
     says: "a change of reads that selects an equal value drops the new reads, so every later turn runs the select again",

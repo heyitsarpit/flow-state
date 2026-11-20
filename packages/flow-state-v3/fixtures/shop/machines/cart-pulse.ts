@@ -47,7 +47,10 @@ export const CartPulse = definition({
 export const CartPulseMachine = machine(CartPulse, ({ S, E, C }) => ({
   default: S.QUIET,
   onContext: [
-    C.count.change({ when: (current, previous) => current > previous, event: E.Grew }),
+    C.count.change({
+      when: (current, previous) => previous === undefined || current > previous,
+      event: E.Grew,
+    }),
     C.count.change({ event: E.Counted.from((count: number) => ({ count })) }),
   ],
   on: {

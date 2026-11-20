@@ -170,7 +170,7 @@ export const DigestMachine = machine(Digest, ({ S, E, C }) => ({
     C.summary.change({ event: E.Heard }),
     C.writers.change({
       when: (current, previous, { memory }) =>
-        current >= memory.quietFrom !== previous >= memory.quietFrom,
+        previous === undefined || current >= memory.quietFrom !== previous >= memory.quietFrom,
       event: E.Busy,
     }),
   ],

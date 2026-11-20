@@ -138,7 +138,7 @@ describe("Turn R22: .change's when and payload read the slot's type", () => {
         C.count.change({
           when: (current, previous, { memory }) => {
             expectTypeOf(current).toEqualTypeOf<number>();
-            expectTypeOf(previous).toEqualTypeOf<number>();
+            expectTypeOf(previous).toEqualTypeOf<number | undefined>();
             expectTypeOf(memory).toEqualTypeOf<{ readonly limit: number }>();
 
             return current > memory.limit;
@@ -151,6 +151,25 @@ describe("Turn R22: .change's when and payload read the slot's type", () => {
         }),
       ],
       on: { Bumped: {} },
+    }));
+  });
+
+  it("previous may be absent: a first good value after a failed select has none", () => {
+    machine(Badge, ({ S, E, C }) => ({
+      default: S.SHOWN,
+      onContext: [
+        C.count.change({
+          when: (current, previous) => {
+            expectTypeOf(previous).toEqualTypeOf<number | undefined>();
+            // @ts-expect-error Turn R22: previous is undefined after a failed select
+            const before: number = previous;
+
+            return previous === undefined || current > before;
+          },
+          event: E.Seen,
+        }),
+      ],
+      on: { Seen: {} },
     }));
   });
 
@@ -173,7 +192,8 @@ describe("Turn R22: .change's when and payload read the slot's type", () => {
       expectTypeOf<NonNullable<Parameters<typeof C.count.change>[0]["when"]>>().toEqualTypeOf<
         (
           current: number,
-          previous: number,
+          // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- asserts the public when's previous, which Turn R22 types T | undefined
+          previous: number | undefined,
           extra: { readonly memory: { readonly limit: number } },
         ) => boolean
       >();

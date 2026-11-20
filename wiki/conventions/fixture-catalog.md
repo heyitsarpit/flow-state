@@ -127,7 +127,9 @@ Context forms the rows above stand for (@task.V3.T107 builds them; each has a St
 - **Derived, several reads:** `Flow.context(Schema.Number, { reads: { lines: Cart.M.items, coupon: Cart.M.coupon },
   select })`; recomputed only when one of its reads changed; a `reads` mixing two providers is refused.
 - **State read:** `Flow.context(AuthSession.S.SIGNED_IN)` (boolean) and `Flow.context(Pay.state)` (the state's name).
-- **`.change` with `when`:** `C.count.change({ when: (current, previous) => current > previous, event: E.Bumped })`.
+- **`.change` with `when`:** `C.count.change({ when: (current, previous) => previous === undefined || current >
+  previous, event: E.Bumped })`; `previous` is undefined for a first good value after a failed select (Turn R22),
+  built: `slots/alert-selected`, `slots/alert-failed` in `tests/actors/context-slots.test.ts`.
 - **`.change` with a payload:** `C.count.change({ event: E.Bumped.from((count) => ({ count })) })`.
 - **`when` using `{ memory }`:** `when: (current, previous, { memory }) => current > memory.limit`.
 

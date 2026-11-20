@@ -553,3 +553,7 @@ note 2026-11-20T02:50:40Z
 note 2026-11-20T02:50:40Z
     @spec.Restore.R5, @spec.Stories.R12: the refused fresh start is gone, since creation is total (@task.V3.T105 close
     review). Reverse: restore the no-snapshot bullet and Stories' StoryFailed clause.
+
+note 2026-11-20T03:08:04Z
+    @spec.Turn.R22: a first good value after a failed select is judged by when(current, undefined, { memory }); no when
+    still fires (user, Q1 A; @task.V3.T107). The skipped when made up an ending. Reverse: skip when for a first value.
