@@ -90,7 +90,7 @@ tasks
             the fake store every other test uses is unchecked against the real thing. Split from the fixture runs
             (@task.V3.T111) by the user (2026-11-20, Q3 A).
 
-            **Read first:** @plan.Persistence.O1, @plan.React.O1, Pending D9 (`Store` and `storeContract`),
+            **Read first:** @plan.Persistence.O1, @plan.React.O1, @plan.Package.O1 (`Store` and `storeContract`),
             @task.V3.T19 (write-ahead, checked on `Fake.storage` until this Task) and @task.V3.T28 (completes the
             adapters), the Safari findings in `packages/flow-state-v3/prototypes/safari/RESULTS.md`, and the prototype
             adapter code:packages/flow-state-v3/prototypes/round-14/reality/idb.ts (reference only; the production
@@ -108,7 +108,7 @@ tasks
             the real store shows. Gates: a browser runner that runs alone and exits non-zero on any failure; the planted
             IndexedDB fault. User's read: the browser runner chosen and how it is launched.
         acceptance
-            - `storeContract(name, layer)` (Pending D9) passes against `Fake.storage` and against real IndexedDB
+            - `storeContract(name, layer)` (@plan.Package.O1) passes against `Fake.storage` and against real IndexedDB
               in real Chrome and Safari, each run alone, and fails on a fault planted in the IndexedDB path; the
               `flow-state/persistence` route exists.
             - The IndexedDB adapter meets Safari's D1 to D4 (`prototypes/safari/RESULTS.md`); @task.V3.T28 completes it.
@@ -157,8 +157,8 @@ tasks
         comment     2026-11-20T08:54:27Z
             Still owed (routed, unverified at compaction): the browser forget case has never been shown red (a
             `forget-after-release` runner plant); the Fake's own connection life and a boot load raced by dispose go to
-            @task.V3.T112; Pending D9's merge into Package O1 and Runtime.plan's load-first lines (47, 67, 410,
-            Q1) wait on the user's yes.
+            @task.V3.T112; D9's merge into @plan.Package.O1 and Runtime.plan's load-first lines (47, 67, 410, Q1) wait
+            on the user's yes.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      done
@@ -174,7 +174,7 @@ tasks
             reviewable behaviour. The toaster (@task.V3.T72) and the combobox wave (@task.V3.T73) need it.
 
             **Read first:** @plan.Machines.O5, @spec.Turn (R14 to R17, R19, R27), @spec.Compile,
-            @convention.interaction-state, `ui-primitives-decisions` (§1).
+            @convention.interaction-state, with §1's schedules merged into @plan.Machines.O5.
 
             **Risk:** R5 turns a computed negative delay from a refusal into zero. Five built checks use it as their
             refusal case and must move to an over-range delay (2^31 ms, which JSON carries; U4, decided by the
@@ -308,7 +308,7 @@ tasks
             checked against the contract).
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (`fixture-catalogue`), each with a usual and a stress Story.
+            (@convention.fixture-catalog), each with a usual and a stress Story.
         comment     2026-11-16T01:40:09Z
             Routed from P2's close-out: disposal never interrupts in-flight reads (a planted fault survived the suite).
         comment     2026-11-16T14:34:18Z
@@ -533,8 +533,8 @@ tasks
             and `subscribe.each` (@task.V3.T21) and the full schedule forms (@task.V3.T57): debounced latest-wins search
             with paging, per-branch cancellable loads, and undo history with late-settling items.
 
-            **Read first:** `ui-primitives-generality` (the three machines), `ui-primitives`, the upstream core tests in
-            `codebases/ui-sdk/packages/core/test/`: `combobox*.test.ts` (24), `tree*.test.ts` (69) and
+            **Read first:** @convention.fixture-catalog (the three machines: kanban, draft and chat), the upstream core
+            tests in `codebases/ui-sdk/packages/core/test/`: `combobox*.test.ts` (24), `tree*.test.ts` (69) and
             `token-input*.test.ts` (29), at commit `98ba9fd`.
 
             **Risk:** the three primitives are local actors, so their parent's configuration is declared props
@@ -586,9 +586,11 @@ tasks
             compound states and history, which @task.V3.T17 builds; the menu's nested popups and stale endings exercise
             actor ownership.
 
-            **Read first:** `ui-primitives-decisions` (§1 schedules, §3 Q4a, §8 W8d), @convention.interaction-state,
-            @convention.view-commands, the upstream core tests in `codebases/ui-sdk/packages/core/test/`:
-            `toast.test.ts` and `toast-swipe.test.ts` (34), and `menu-*.test.ts` (36), at commit `98ba9fd`.
+            **Read first:** `ui-primitives-decisions` (§1 schedules, §3 Q4a, §8 W8d; full text: git show
+            3a84b878:wiki/plans/flow/references/proposals/2026-11-16-ui-primitives-decisions.md),
+            @convention.interaction-state, @convention.view-commands, the upstream core tests in
+            `codebases/ui-sdk/packages/core/test/`: `toast.test.ts` and `toast-swipe.test.ts` (34), and `menu-*.test.ts`
+            (36), at commit `98ba9fd`.
 
             **Risk:** the toaster's timer uses `paused` and per-key durations (@task.V3.T57), not stored clock stamps.
             Its pause reasons are `Hovered`, `Hidden` and `Pressing`, with `Hidden` reading `context.maxVisible` (the
@@ -646,8 +648,8 @@ tasks
             **Why now:** configurable widgets mirror parent props into memory through a `Configure` event (the number
             input fixture does); the user accepted declared props instead (decisions Q5, §9 R1 to R3).
 
-            **Read first:** @spec.Turn.R28, @plan.Machines.O7, @convention.where-a-value-lives, @task.V3.T9,
-            `ui-primitives-decisions` (§9).
+            **Read first:** @spec.Turn.R28, @plan.Machines.O7, @convention.where-a-value-lives, @task.V3.T9; §9 R1 to R3
+            are merged into the Spec and Plan above.
 
             **Risk:** `Story.machine` is @task.V3.T29's; this Task builds its first slice (input, props and the props
             step) and T29 extends it (U3, decided by the orchestrator for the user, 2026-11-16). Blocked by T9, which
@@ -708,8 +710,8 @@ tasks
             failed submit) are stored today as a request plus a counter that replays after a reload; the user accepted
             emits (decisions Q3, §9 R6 and the Emits batch).
 
-            **Read first:** @spec.Turn.R29, @plan.Machines.O2, @convention.view-commands,
-            `ui-primitives-decisions` (§9).
+            **Read first:** @spec.Turn.R29, @plan.Machines.O2, @convention.view-commands; §9 R6 and the Emits batch are
+            merged into the Spec and Plan above.
 
             **Risk:** fragment emits are addressed by instance path and .each key, which need @task.V3.T109's fragments;
             that is the blocker. React delivery (`useOnEmit`) is @task.V3.T30's.
@@ -978,7 +980,8 @@ tasks
             palette and player wait on it. The Plans already specify it: @plan.Runtime.O4 (the send table by target),
             @plan.LazyFeatures (a send never adopts), Actors R13 and I20 (the loop guard, built with the action).
 
-            **Read first:** @plan.Runtime.O4, @spec.Actors (R13, I20), `replan` (section 7), @convention.boundaries.
+            **Read first:** @plan.Runtime.O4, @spec.Actors (R13, I20), @epic.V3 (re-plan section 7, Q4
+            A), @convention.boundaries.
 
             **Risk:** two machines that send to each other import each other's Machine for the ref; this Task checks
             whether a ref by definition is needed, and that is a public API call for the user.
@@ -1585,9 +1588,10 @@ tasks
             **Read first:** @task.V3.T102 (its close review), @task.V3.T104 (its two close reviews),
             @spec.Actors, @spec.Compile.
 
-            **Risk:** Pending D2, D3 and D4 are pinned here with Stories; merging them into the Plans is a Plan
-            edit and waits for the user's yes. T107 also touches `src/core/turn.ts` and the context code; its last fix
-            (Turn R22) may land between this Task's commits, so rebase nothing and commit by explicit path.
+            **Risk:** Pending D2 (@plan.Machines.O3), D3 (@plan.Runtime.O6) and D4 (@plan.Operations.O3) are pinned here
+            with Stories; merging them into the Plans is a Plan edit and waits for the user's yes. T107 also touches
+            `src/core/turn.ts` and the context code; its last fix (Turn R22) may land between this Task's commits, so
+            rebase nothing and commit by explicit path.
 
             **Approach:** add a proposed Actors rule (consumers of a wave, a provider's dependents, dispose among peers
             and graces go in start order) with a `specs.log` note; pin `cartFirst` in `store.test.ts` so the
@@ -1617,8 +1621,8 @@ tasks
               test); one helper raises `ForeignActorRef` for the Runtime, Story and run; the erased siblings carry the
               app (two-sided tests); `paired-refusals` refuses each hole shape, each a plant in its test first; the two
               stale texts are fixed.
-            - Pending D2, D3 and D4 each have a Story that pins the decided outcome; any gap lands red,
-              then fixed.
+            - @plan.Machines.O3, @plan.Runtime.O6 and @plan.Operations.O3 (Pending D2 to D4) each have a Story that pins
+              the decided outcome; any gap lands red, then fixed.
             - Stress runs and generated Stories over fresh seeds pass at close.
         comment     2026-11-20T07:27:49Z
             Done 2026-11-20: start order (Actors R28, I49), D2 to D4 pinned by Stories, computed `Flow.initial` removed,
@@ -1761,7 +1765,8 @@ tasks
             subroutine and `whenAbandoned` rules moved in from @task.V3.T110 because both write one fragment
             incarnation's lifecycle (breakdown review, the orchestrator, 2026-11-20).
 
-            **Read first:** @plan.Machines.O1, @spec.Compile, `ui-primitives-decisions` (§9),
+            **Read first:** @plan.Machines.O1, @spec.Compile, `ui-primitives-decisions` (§9; full text: git show
+            3a84b878:wiki/plans/flow/references/proposals/2026-11-16-ui-primitives-decisions.md),
             @convention.fixture-catalog (the subroutine and `whenAbandoned` rows' fixture homes). Blocked by
             @task.V3.T57 because a trait carries schedules, which that Task finishes, and by @task.V3.T113, whose
             carried body type this Task's fragment summary adds a field to.

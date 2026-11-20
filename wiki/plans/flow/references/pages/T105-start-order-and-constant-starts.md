@@ -28,14 +28,14 @@ A function passed to `Flow.initial` fails to compile, and construction refuses i
   refusal (not ready, disposed, quarantined, a conflicting ref, a context cycle) happens before the start.
 - **Now refused:** `scope` or `persistence` given alone ("persistence is missing", "scope is missing"); a non-object
   returned by `updateMemory`; Flow's own run-rule names used as property names.
-- **Fixed:** a denied ending's lane change now publishes, so lane rows don't go stale (Pending D2); a restored
+- **Fixed:** a denied ending's lane change now publishes, so lane rows don't go stale (@plan.Machines.O3); a restored
   schedule no longer arms in a state that isn't active.
 - **Testing:** `unsettledWrites()` takes no type argument; Story runs, samples, generated steps, `publishedOf`,
   `pairSweep` and `propertyTest` are typed by your app.
 
 ## For your yes
 
-- Merge Pending D2, D3 and D4 into the Plans; each is now pinned by a fixture Story.
+- Merge Pending D2 (@plan.Machines.O3), D3 (@plan.Runtime.O6) and D4 (@plan.Operations.O3) into the Plans; each is now pinned by a fixture Story.
 
 ## Status
 

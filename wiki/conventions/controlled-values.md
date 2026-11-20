@@ -49,5 +49,4 @@ React's controlled inputs; ui-sdk's `follow` and `setOptions`, which let state r
 ## Status
 
 Props and emits are accepted, not built
-(`ui-primitives-decisions` Q3,
-Q5f).
+(@plan.Machines.O7, @plan.Machines.O2).

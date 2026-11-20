@@ -249,9 +249,9 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     - [x] Start order (Actors R28; @task.V3.T105): dependents, a wave's consumers, graces judged in one step and
       the Runtime's disposal, each oldest first. No source. built: the `cartFirst` builder,
       `shop/sign-out-mid-checkout`, `shop/flow-alone`.
-    - [x] A held order answering in a state whose guard denies it publishes its lane change (Pending D2). No
+    - [x] A held order answering in a state whose guard denies it publishes its lane change (@plan.Machines.O3). No
       source. built: `shop/order-denied-late`. A refused ending kept an hour on with no reload
-      (Pending D4). No source. built: `shop/busy-kept-an-hour`.
+      (@plan.Operations.O3). No source. built: `shop/busy-kept-an-hour`.
     - [x] S6: a checkout flow bound after its cart has a line begins: inverted (Turn R12; its mirror's baseline is
       silent, Turn R22), owner @task.V3.T57. built: `shop/flow-bound-late`.
     - [ ] S6 with a challenge open. left: @task.V3.T57, needs `subroutine` (`ThreeDSecure`).
@@ -406,7 +406,7 @@ A sync client whose three remotes differ only in lane policy. Kept as it is. Sou
   - [x] **Structure:** S3: one key under two actors, under L3. built: `lanes/one-key-two-actors`. S6 × {disposed,
     reloaded} with queued, held and running commits of several keys. built: `lanes/disposed-with-work`,
     `lanes/reloaded-with-work`. L3: a head answering inside the disposal's bound promotes nothing
-    (Pending D3). No source. built: `lanes/answered-while-disposing`.
+    (@plan.Runtime.O6). No source. built: `lanes/answered-while-disposing`.
   - [x] **Edges:** E3: long keys and strings (`longCommit`, a million characters, timed), in the stress
     samples; `Unencodable` (have).
     built: `lanes/stress-36` and the stress samples.

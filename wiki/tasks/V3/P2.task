@@ -11,12 +11,12 @@ description
     except the parts the reuse proposal supersedes.
 
     **Guides:** the reference apps' stories, tests and fakes show the intended shape; the Plan wins where they differ.
-    New fixtures come from `fixture-catalogue` (shapes S01 to S29, usual and stress) and the ui-sdk waves (@task.V3.T71,
-    @task.V3.T72, @task.V3.T73); each feature Task builds the shapes its feature unlocks (the user, 2026-11-16). Known
-    stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`, persistence `version`,
-    CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29), `Fake.storage.write.hold({
-    match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup services (they replace them).
-    Link: code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
+    New fixtures come from @convention.fixture-catalog (shapes S01 to S29, usual and stress) and the ui-sdk waves
+    (@task.V3.T71, @task.V3.T72, @task.V3.T73); each feature Task builds the shapes its feature unlocks (the user,
+    2026-11-16). Known stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`,
+    persistence `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29),
+    `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup
+    services (they replace them). Link: code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
     code:wiki/plans/flow/references/checkout/features/Pay/pay.test.ts,
     code:wiki/plans/flow/references/checkout/features/Cart/cart.story.ts,
     code:wiki/plans/flow/references/checkout/features/Refunds/refunds.story.ts,
@@ -486,10 +486,11 @@ tasks
             - Nothing generated is stored, except each fixture's stress Story below, which is saved as ordinary
               fixture code.
             - It runs over every fixture in `tests/generated/`.
-            - Two profiles, from the usual and stress sections of `fixture-catalogue`: usual (realistic think times, a
-              healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and storage
-              write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, { profile:
-              "stress" })`.
+            - Two profiles, from the usual and stress sections of `fixture-catalogue` (full text: git show
+              3a84b878:wiki/plans/flow/references/proposals/2026-11-11-fixture-catalogue.md): usual (realistic think
+              times, a healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and
+              storage write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, {
+              profile: "stress" })`.
             - A pair sweep: for each fixture, every reachable pair of a write's lifecycle phase and a fault (reload, a
               lost answer, a refused storage write, disposal, and the rest of the catalogue's grid) is driven once with
               the usual profile until a write reaches that phase, then given that fault, with the run rules applied;

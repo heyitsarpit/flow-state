@@ -92,4 +92,4 @@ that create XState machines.
 Built: `definition`, `machine`, `transaction`, `outcomes`. Accepted, not built: props, emits, mappers reading
 `{ input }`. Unverified: a generic contract passing through `definition()` with exhaustive `failure:` typing; check it
 when the first example is written
-(`ui-primitives-decisions` Q8).
+(`ui-primitives-decisions` Q8; full text: git show 3a84b878:wiki/plans/flow/references/proposals/2026-11-16-ui-primitives-decisions.md).

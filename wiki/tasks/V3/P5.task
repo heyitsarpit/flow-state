@@ -82,7 +82,7 @@ tasks
               scenario red before the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (`fixture-catalogue`), each with a usual and a stress Story.
+            (@convention.fixture-catalog), each with a usual and a stress Story.
         comment     2026-11-17T16:26:53Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Streams: feed delivery per item, latest partition writes, catch-up with
@@ -123,7 +123,7 @@ tasks
               step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (`fixture-catalogue`), each with a usual and a stress Story.
+            (@convention.fixture-catalog), each with a usual and a stress Story.
         comment     2026-11-17T16:26:53Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Entity store: repair cost against records and active answers, record
@@ -155,7 +155,7 @@ tasks
               cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (`fixture-catalogue`), each with a usual and a stress Story.
+            (@convention.fixture-catalog), each with a usual and a stress Story.
         comment     2026-11-17T16:26:54Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Multi-tab: ownership handoff and write contention across two real tabs
@@ -191,7 +191,7 @@ tasks
               the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
-            (`fixture-catalogue`), each with a usual and a stress Story.
+            (@convention.fixture-catalog), each with a usual and a stress Story.
         comment     2026-11-17T16:26:54Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. Lazy features: time to first use of a lazy entry, chunk bytes, a turn
@@ -220,7 +220,7 @@ tasks
             boot queue (routed from @task.V3.T20): sends before `ready` are queued and delivered in order; @task.V3.T115
             reads `ready`.
 
-            **Read first:** @plan.Persistence.O1, @task.V3.T58, Pending D9,
+            **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Package.O1,
             and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
         acceptance
             - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari,

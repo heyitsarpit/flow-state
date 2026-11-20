@@ -55,4 +55,4 @@ TanStack Query's `onSuccess(data, variables)`
 
 Mappers receiving `{ input, key, attempt }` is in the Plan (Operations O3) but not built: today they get only the
 value (`packages/flow-state-v3/src/core/serve.ts`). Props are accepted, not built
-(`ui-primitives-decisions` Q6).
+(@plan.Machines.O7).

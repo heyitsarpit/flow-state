@@ -24,6 +24,6 @@ by a name string is now a lint error (`flow-state/no-event-name-filter`).
 
 ## Status
 
-Read and closed by the user, 2026-11-20. The five testing words (Pending D35 to D39) are merged into
+Read and closed by the user, 2026-11-20. The five testing words (D35 to D39: @plan.Testing.O3, @plan.Testing.O4) are merged into
 @plan.Testing. Of the known gaps, typed `snapshot.operations` and `getSnapshot()` landed in @task.V3.T104's snapshot
 carrier; a stopped Runtime's read returning `{}` as memory is still owed there.

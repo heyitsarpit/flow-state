@@ -19,7 +19,7 @@ board to be checked against the Plans before production goes further.
 
 **Read first:** `wiki/specs/spec-split.md` ("Written when their phase starts"), the Tasks in
 `wiki/tasks/V3/P4.task` to `P15.task`, `packages/flow-state-v3/conformance/not-yet.ts`,
-`fixture-catalogue` ("Features found by the Plan check").
+`fixture-catalogue` ("Features found by the Plan check"; full text: git show 3a84b878:wiki/plans/flow/references/proposals/2026-11-11-fixture-catalogue.md).
 
 **Risk:** "named" is a judgement on terse Task text. A Task named after a user-facing area (fragments, streams,
 entity store, Stories, React bindings) counts as naming the features its cited Plan outcomes list. A Task named
@@ -498,7 +498,7 @@ Each line is a proposed addition for the user's yes. Nothing has been edited in 
 
 **T47 fixtures**
 - Add the conformance-reachable rows to the catalogue: see "Features found by the Plan check" in
-  `fixture-catalogue`.
+  `fixture-catalogue` (full text above).
 
 ## Sidecar results
 

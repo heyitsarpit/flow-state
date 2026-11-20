@@ -57,4 +57,4 @@ Effect's services and Layers; `references/checkout/app/setup.ts` and `references
 
 Built (`packages/flow-state-v3/src/host/runtime.ts`). Not built: the boot's refusal by service name, and reading the
 `services` list at run time
-(`ui-primitives-decisions` Q6d).
+(`ui-primitives-decisions` Q6d; full text: git show 3a84b878:wiki/plans/flow/references/proposals/2026-11-16-ui-primitives-decisions.md).

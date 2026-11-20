@@ -194,7 +194,7 @@ sources <file and test names>; red today: <what fails>.
 
 Property-based testing over a model of the app (fast-check's model-based testing), XState's model-based testing
 paths, and Flow's own `samplesOf` generator with the reload sweep. How a reference codebase is mined for cases:
-`ui-primitives`.
+`ui-primitives` (full text: git show 3a84b878:wiki/plans/flow/references/proposals/2026-11-16-ui-primitives.md).
 
 ## Not built yet
 
