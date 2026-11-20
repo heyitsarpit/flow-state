@@ -152,3 +152,8 @@ tasks
             Owes (proposed, P3 close fix round): closed details.reason values (@plan.Diagnostics.O1); construction runs
             nothing and call sites supply no wiring (@plan.Runtime.O1); review item A13, refusal text built twice;
             faults for the Compile gaps in code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:14:49Z
+            Decision (the user, 2026-11-20, advisor Q4 answer 4): this Task lands before @task.V3.T106 and
+            @task.V3.T109, so turn, .each and .resumable() are born gated, and it gates the testing route too. It sits
+            in P9 today; moving it ahead of P4's T109 is a phase change left for the user's look.
+            Design: code:wiki/plans/flow/references/proposals/raw-throws-2026-11-20.md.

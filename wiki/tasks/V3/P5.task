@@ -467,6 +467,10 @@ tasks
             Three reviews applied to @plan.Rules (the user, 2026-11-20): examples made true on the fixtures, lane
             changes judged by invariants, `TerminalLeft`, private fields redacted, and expectBroken, coverage and
             fragment-copy rules defined. Blocked on T109 and T110 for the fragment part.
+        comment     2026-11-20T13:14:50Z
+            Decision (the user, 2026-11-20): turns rules with a subject use turn({ on, check }) and Machine carries rule
+            names only (@plan.Rules.O1, O3 edited); @task.V3.T98 lands first. Types
+            per code:wiki/plans/flow/references/proposals/body-types-2026-11-20.md.
     T108
         title       Story presentation: StoryPlayer and definePresentation
         status      draft

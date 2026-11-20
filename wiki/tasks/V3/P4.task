@@ -5394,6 +5394,10 @@ tasks
         comment     2026-11-20T08:11:40Z
             Routed (orchestrator, 2026-11-20): step 2's kanban rows (context, compound states, persist), unowned since
             T57's split, are this Task's.
+        comment     2026-11-20T13:14:50Z
+            Decisions (the user, 2026-11-20): @task.V3.T98 lands first; fragment lifetimes per
+            code:wiki/plans/flow/references/proposals/fragment-lifetimes-2026-11-20.md with resetOn as the subject part
+            and the other recommendations accepted (see advisor-holes-2026-11-20.md, answers 11 to 16).
 
     T110
         title       Subroutines and whenAbandoned (slice 3d)
