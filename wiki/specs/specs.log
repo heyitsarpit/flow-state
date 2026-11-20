@@ -525,3 +525,8 @@ note 2026-11-20T00:08:06Z
     @spec.Actors: R9's wave follows a reaction's saved baseline, not the slot's last-seen value; R18 re-reads a slot
     whose last select failed. @spec.Compile.R19: the type error tells ids apart, construction identities (@task.V3.T107
     close review). Reverse: restore the wording.
+
+note 2026-11-20T00:54:25Z
+    @spec.Actors.R28, I49 (proposed): identities handled together go in incarnation start order, a stored fact
+    (@task.V3.T105, from @task.V3.T102's close review: reversing it changed BlockedByDependents and context-update
+    turn order, and no rule said so). Reverse: drop R28 and I49.

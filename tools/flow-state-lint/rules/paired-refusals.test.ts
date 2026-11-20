@@ -6,7 +6,12 @@ import { join } from "node:path";
 
 import { inWorkdir } from "./test-support.ts";
 
-const files: Record<string, { text: ReadonlyArray<string>; fires: ReadonlyArray<number> }> = {
+// `missed` (inverted): lines the rule must report but misses today, asserted unreported. When the rule
+// learns one, move its line to `fires`.
+const files: Record<
+  string,
+  { text: ReadonlyArray<string>; fires: ReadonlyArray<number>; missed?: ReadonlyArray<number> }
+> = {
   "tests/types/planted.test-d.ts": {
     text: [
       'it("a call with no positive", () => {',
@@ -49,6 +54,65 @@ const files: Record<string, { text: ReadonlyArray<string>; fires: ReadonlyArray<
     ],
     fires: [3, 8, 24, 34],
   },
+  "tests/types/holes/planted.test-d.ts": {
+    text: [
+      'it("a refusal it cannot place: an array element", () => {',
+      "  const refs = [",
+      "    // @ts-expect-error Actors R24: a foreign ref",
+      "    rent,", // missed
+      "  ];",
+      "});",
+      'it("a refusal it cannot place: an argument line", () => {',
+      "  runtime.ensureActor(",
+      "    // @ts-expect-error Actors R24: a foreign ref",
+      "    rent,", // missed
+      "  );",
+      "});",
+      'it("a refusal it cannot place: a disable line after the directive", () => {',
+      "  // @ts-expect-error Actors R24: a foreign ref",
+      "  // oxlint-disable-next-line typescript/no-unsafe-call -- planted",
+      "  runtime.createActor(Rent, {});", // missed
+      "});",
+      'it("a positive of any", () => {',
+      "  // @ts-expect-error Actors R24: a foreign ref",
+      "  runtime.disposeActor(rent);", // missed
+      "  expectTypeOf(runtime.disposeActor(plain)).toEqualTypeOf<any>();",
+      "});",
+      'it("a bare positive", () => {',
+      "  // @ts-expect-error Actors R24: a foreign ref",
+      "  runtime.detachActor(rent);", // missed
+      "  expectTypeOf(runtime.detachActor(plain)).toEqualTypeOf();",
+      "});",
+      'it("a positive negated by a computed member", () => {',
+      "  // @ts-expect-error Actors R24: a foreign ref",
+      "  runtime.releaseActor(rent);", // missed
+      '  expectTypeOf(runtime.releaseActor(plain))["not"].toEqualTypeOf<Actor>();',
+      "});",
+      'it("another object\'s member of the same name", () => {',
+      "  machine(Lamp, () => ({",
+      "    // @ts-expect-error a key of another definition",
+      "    on: { Flip: 1 },", // missed
+      "  }));",
+      "  expectTypeOf(bell.on).toEqualTypeOf<M>();",
+      "});",
+      'it("another key of the same object", () => {',
+      "  configure({",
+      "    outer: {",
+      "      // @ts-expect-error a misspelt inner key",
+      "      innr: 1,", // missed
+      "    },",
+      "  });",
+      "  expectTypeOf(configure({ outer: { other: 1 } })).toEqualTypeOf<C>();",
+      "});",
+      "// @ts-expect-error a refusal outside any test",
+      "runtime.sendActor(rent);", // missed
+      'it("a positive in an unrelated test", () => {',
+      "  expectTypeOf(runtime.sendActor(plain)).toEqualTypeOf<Actor>();",
+      "});",
+    ],
+    fires: [],
+    missed: [4, 10, 16, 20, 25, 30, 36, 44, 50],
+  },
   "tests/actors/planted.test.ts": {
     text: ["// @ts-expect-error a run-time test's own refusal", "runtime.createActor(Rent, {});"],
     fires: [],
@@ -62,8 +126,13 @@ inWorkdir(({ pkg, write, lint, lines }) => {
 
   const found = lint();
 
-  for (const [path, { fires }] of Object.entries(files))
-    assert.deepEqual(lines(found, placed(path), "paired-refusals"), fires, `paired-refusals in ${path}`);
+  for (const [path, { fires, missed = [] }] of Object.entries(files)) {
+    const reported = lines(found, placed(path), "paired-refusals");
+
+    for (const line of missed)
+      assert.ok(!reported.includes(line), `paired-refusals now reports ${path}:${line}: move it to fires`);
+    assert.deepEqual(reported, fires, `paired-refusals in ${path}`);
+  }
 });
 
 console.log("flow-state paired-refusals tests passed");

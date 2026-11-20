@@ -3,6 +3,7 @@ import { describe, expectTypeOf, it } from "vite-plus/test";
 import type { ActorKey, OperationOf, RuntimeCut, Use } from "../../src/host/inspect.ts";
 import type {
   CallStatus,
+  Cell,
   ControlWord,
   Cut,
   EventOf,
@@ -13,10 +14,13 @@ import type {
   StoryRun,
 } from "../../src/host/testing/index.ts";
 import {
+  evidenceOf,
   Fake,
   forkReloads,
   generate,
+  pairSweep,
   propertyTest,
+  publishedOf,
   samplesOf,
   Step,
   Story,
@@ -321,5 +325,83 @@ describe("Stories R8: world words are made by servers and Fake.storage, never by
     void testing["WorldWord"];
     // @ts-expect-error Stories R8: FakeWorld is a type; a port fake reaches its server through the server's own Effect
     void testing["FakeWorld"];
+  });
+});
+
+const shopSamples = (id: string) =>
+  samplesOf({
+    id,
+    story,
+    names: { setup: "setup", fixtures: [] },
+    actors: { pay },
+    servers: {},
+    failures: [],
+    landedFailures: [],
+    controls: [],
+    values: { go: Pay.E.go() },
+    steps: (s) => s,
+  });
+
+// Inverted: each line marked `wrong` compiles today. When its word carries the app the line fails
+// the check: put `@ts-expect-error` on it, naming the rule. Each assertion of today's wide type then
+// fails too: make it the exact narrow type named beside it.
+describe("Stories T2 (inverted): the remaining words that erase the app", () => {
+  it("Runtime O1: unsettledWrites takes no type argument, so no caller names a narrower app", () => {
+    const runtime = setup.construct();
+
+    expectTypeOf(runtime.unsettledWrites()).toEqualTypeOf<ReadonlyArray<Unsettled<Ds>>>();
+    void runtime.unsettledWrites<typeof Pay>(); // wrong: Ship's rows typed as Pay's
+  });
+
+  it("Stories R16: a published record's actor names its definition", () => {
+    const [published] = publishedOf(run, pay);
+
+    // Narrow: "types/public/Pay" | undefined.
+    expectTypeOf(published?.actor.machine).toEqualTypeOf<string | undefined>();
+    void (published?.actor.machine === "types/public/Ship"); // wrong: a Pay actor's record
+  });
+
+  it("Stories R16: a dropped send's sender names a machine of the app", () => {
+    const [dropped] = evidenceOf(run, Pay.E.go).filter((e) => e._tag === "SendTargetAbsent");
+
+    // Narrow: Option<{ machine: "types/public/Pay" | "types/public/Ship"; name: string }> | undefined.
+    expectTypeOf(dropped?.sender).toEqualTypeOf<
+      Option.Option<{ readonly machine: string; readonly name: string }> | undefined
+    >();
+    void (dropped && Option.exists(dropped.sender, (s) => s.machine === "Paymnt")); // wrong
+  });
+
+  it("Stories T2: a run's, a sample's and a generated run's steps name the app's machines", () => {
+    const samples = shopSamples("types/public/steps");
+    const generated = generate(samples, { drawing: "usual", seed: 1 });
+
+    const sentTo = (steps: ReadonlyArray<Step>) =>
+      steps.flatMap((s) => (s._tag === "send" ? [s.actor.machine] : []));
+
+    // Narrow, each: Array<"types/public/Pay" | "types/public/Ship">.
+    expectTypeOf(sentTo(run.steps)).toEqualTypeOf<Array<string>>();
+    expectTypeOf(sentTo(samples.steps)).toEqualTypeOf<Array<string>>();
+    expectTypeOf(sentTo(generated.steps)).toEqualTypeOf<Array<string>>();
+    void sentTo(run.steps).includes("Paymnt"); // wrong
+    void sentTo(samples.steps).includes("Paymnt"); // wrong
+    void sentTo(generated.steps).includes("Paymnt"); // wrong
+  });
+
+  it("Stories T2: a pair sweep's properties read the samples' app", () => {
+    const stray = actorRef(
+      machine(definition({ id: "types/public/Stray3", states: ["S"], events: {} }), ({ S }) => ({
+        default: S.S,
+      })),
+      "s",
+    );
+
+    const samples = shopSamples("types/public/pairs");
+    const wide: Property = { rule: "wide", breaches: (r) => (r.end.read(stray) ? ["stray"] : []) };
+    const own: Property<"own", Ds> = { rule: "own", breaches: () => [] };
+
+    expectTypeOf(pairSweep(samples, { properties: [own], seeds: [1], stopAt: [] })).toEqualTypeOf<
+      Array<Cell>
+    >();
+    void pairSweep(samples, { properties: [wide], seeds: [1], stopAt: [] }); // wrong: reads Stray
   });
 });

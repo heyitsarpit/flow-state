@@ -452,6 +452,16 @@ requirements
                 never the wait, so the rejection keeps every cleanup failure; a signal aborted
                 before the call runs nothing.
 
+    R28  Start order
+        source  @plan.Runtime.O4.
+        must    Where several live identities are handled together, they go in the order their
+                incarnations started, oldest first: the consumers a context wave reaches, a
+                provider's dependents (BlockedByDependents names them in that order), the identities
+                whose graces a step judges, and a Runtime disposal's peers wherever R22 puts no consumer
+                before its provider. The order is a fact
+                each incarnation stores when it starts, never read back from an id or a Map's order.
+                Proposed (@task.V3.T105, from @task.V3.T102's close review).
+
 open
     Q1  Executable checks are not built.
         outcome  Each test below is written, when its slice is built, as the cheapest check that fully covers
@@ -635,6 +645,10 @@ invariants
          Issue CleanupFailed in a life that records it. Proposed (the T99 lead, 2026-11-19). A reason reaches the
         task only as Effect delivers it: inside the app's own error handling, typed failures follow Effect's
         rules; cleanups that die are always reported. Decision (user, 2026-11-19): "Q11 A". [@R23, @R27]
+
+    I49  Identities handled together are visited in incarnation start order, oldest first; reversing it changes 
+         BlockedByDependents' message and the order of consumers' context-update turns. Proposed (@task.V3.T105).
+        [@R28]
 
 owner Life
     lifetime  one Runtime. Design, agreed by the user, 2026-11-12 (@task.V3.T55, consult round 3, Part 2); I42
@@ -831,6 +845,10 @@ coverage
 
     @R27
         enforced_by  [@I46]
+        open_by      [@Q1]
+
+    @R28
+        enforced_by  [@I49]
         open_by      [@Q1]
 
 tests

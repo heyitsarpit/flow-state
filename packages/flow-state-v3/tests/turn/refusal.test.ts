@@ -3,7 +3,7 @@ import { checkout } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { Pay } from "../../fixtures/services/shop/machines/pay.ts";
 import { shopStory } from "../../fixtures/shop/stories/usual.ts";
-import { issues, memory, onWire, START, state } from "../checkout.ts";
+import { before, issues, memory, onWire, START, state } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
 // The shop turns the held charge away as busy with the given retry delay.
@@ -22,6 +22,20 @@ describe("TURN-01 (Turn R8, R10, I14; WriteLanes R10)", () => {
     expect(memory(refused)).toEqual(memory(run.checkpoints.before));
     expect(issues(run.evidence)).toEqual(["InvalidTurn", "InvalidTurn"]);
     expect(refused.read(Shop.confirm)).toHaveLength(1);
+  });
+
+  it("Actors R15, I24: the refused ending is redelivered once, then kept: an hour on it is not tried again and the shop sees one charge", async () => {
+    const run = await played(
+      busy("Actors R15 kept after one redelivery", -1).advance("1 hour").checkpoint("later"),
+    );
+
+    const { refused, later } = run.checkpoints;
+
+    expect(issues(before(run, "refused"))).toEqual(["InvalidTurn", "InvalidTurn"]);
+    expect(issues(run.evidence)).toEqual(["InvalidTurn", "InvalidTurn"]);
+    expect(refused.inspection.owed.map((o) => o.delivery)).toEqual(["Kept"]);
+    expect(later.inspection.owed.map((o) => o.delivery)).toEqual(["Kept"]);
+    expect(later.read(Shop.confirm)).toHaveLength(1);
   });
 
   it("Turn I14: a delay past 2^31 - 1 ms is refused, again on its one redelivery, and one of exactly 2^31 - 1 ms is armed", async () => {

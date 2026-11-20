@@ -124,6 +124,30 @@ describe("PAY-07 (WriteLanes R16, WriteLanes R7)", () => {
     expect(state(run.checkpoints.placed)).toBe("PAYING");
     expect(denials(run.evidence).at(-1)).toEqual(["LateMayNotLeave"]);
   });
+
+  it.fails("Turn R19, I15: an order ending denied by its guard publishes its lane-only change once, and nothing of its own", async () => {
+    const run = await played(
+      onWire(
+        "PAY-07/denied-ending-publishes",
+        Shop.placeOrder.hold(),
+        Shop.voidAuthorization.hold(),
+      )
+        .send(checkout, LEAVE)
+        .send(checkout, START)
+        .world(Shop.confirm.hold())
+        .send(checkout, VISA)
+        .checkpoint("before")
+        .world(Shop.placeOrder.release())
+        .checkpoint("placed"),
+    );
+
+    const step = before(run, "placed").slice(before(run, "before").length);
+
+    expect(denials(step)).toEqual([["LateMayNotLeave"]]);
+    expect(step.filter((e) => e._tag === "Turn")).toEqual([]);
+    expect(step.filter((e) => e._tag === "Published")).toHaveLength(1);
+    expect(run.checkpoints.placed.read(checkout)?.memory).toEqual(memory(run.checkpoints.before));
+  });
 });
 
 describe("PAY-08 (Restore R1, Restore R2, WriteLanes R8)", () => {

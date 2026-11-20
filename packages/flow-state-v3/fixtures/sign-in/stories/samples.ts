@@ -50,7 +50,11 @@ const seenHidden = TrustedDevice.E.Seen({ at: null });
 const seenLatest = TrustedDevice.E.Seen({ at: LATEST });
 const seenEpoch = TrustedDevice.E.Seen({ at: EPOCH });
 const seenEarliest = TrustedDevice.E.Seen({ at: EARLIEST });
-const laptopRecord = 'actor/Auth/TrustedDevice/{"device":"laptop"}';
+
+/**
+ * The laptop's saved record key.
+ */
+export const laptopRecord = 'actor/Auth/TrustedDevice/{"device":"laptop"}';
 
 /**
  * What Elif and the profile service can do around a trusted device, for generated runs: sign in,

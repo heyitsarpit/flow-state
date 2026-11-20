@@ -57,3 +57,38 @@ describe("a turn's memory write (Compile R7, R14, Turn R8)", () => {
     );
   });
 });
+
+const Note = definition({
+  id: "MemoryWrites/Note",
+  states: ["OPEN"],
+  events: { Clear: {}, Add: {} },
+  memory: { noteId: Flow.input(Schema.String), lines: Flow.initial(Schema.Number, 0) },
+});
+
+const NoteMachine = machine(Note, ({ S }) => ({
+  default: S.OPEN,
+  on: {
+    // @ts-expect-error Turn R10: an update returns a patch of memory, never null
+    Clear: { updateMemory: () => null },
+    Add: { updateMemory: ({ memory }) => ({ lines: memory.lines + 1 }) },
+  },
+}));
+
+describe("an update that returns no patch (Turn R10)", () => {
+  it.fails("Turn R10: an update returning null refuses its turn as a pre-commit defect; memory stays and the next event runs", () => {
+    const runtime = runtimeSetup({
+      app: app({ id: "memory-writes-patch", machines: { note: NoteMachine } }),
+    }).construct();
+
+    Effect.runSync(runtime.ready());
+    const note = runtime.ensureActor(actorRef(NoteMachine, { noteId: "N-1" }));
+
+    note.send(Note.E.Clear({}));
+    note.send(Note.E.Add({}));
+
+    const after = note.getSnapshot();
+
+    expect(Option.map(after, (s) => s.memory)).toEqual(Option.some({ noteId: "N-1", lines: 1 }));
+    expect(Option.map(after, (s) => s.issues.length)).toEqual(Option.some(1));
+  });
+});

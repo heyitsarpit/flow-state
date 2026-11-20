@@ -14,6 +14,7 @@ import {
   usual,
 } from "./surface.ts";
 import { loose } from "../../src/test/loose.ts";
+import { refusal } from "../refusals.ts";
 
 // A Runtime's own calls run last, its dispose last of all, so every other call meets a live one.
 const rank = (reached: Reached) => {
@@ -94,6 +95,14 @@ describe("the public surface (Diagnostics R1, R3; boundaries)", () => {
     };
 
     expect(refused()).toEqual(["persistence.captureMs"]);
+  });
+
+  it.fails("WriteAhead R1: an untyped setup with persistence and no scope is refused before construction, naming scope", () => {
+    const [probe] = apps.slice(-1);
+
+    expect(refusal(() => runtimeSetup(loose({ app: probe?.app, persistence: {} })))).toEqual([
+      ["InvalidConfiguration", "scope"],
+    ]);
   });
 
   it("Diagnostics R1, R3: every hostile value at every position of a shared entry gives a FlowError or a return, within a second", async () => {

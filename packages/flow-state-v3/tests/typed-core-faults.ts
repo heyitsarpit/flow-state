@@ -112,4 +112,18 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "start-order-reversed",
+    tests: ["tests/shop/store.test.ts"],
+    says: "identities handled together go newest first, so BlockedByDependents names the checkout flow before the badge",
+    rule: "Actors R28",
+    edits: [
+      {
+        file: "src/core/world.ts",
+        find: "export const byStart = (a: Incarnation, b: Incarnation) => a.started - b.started;",
+        replace:
+          "export const byStart = (a: Incarnation, b: Incarnation) => b.started - a.started;",
+      },
+    ],
+  },
 ];

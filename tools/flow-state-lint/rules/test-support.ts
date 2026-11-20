@@ -100,6 +100,9 @@ export type Plant = {
   // Each line is one use the rule must report; `quiet` lines are not uses and must stay unreported.
   readonly fires: ReadonlyArray<string>;
   readonly quiet: ReadonlyArray<string>;
+  // Inverted: uses the rule must report but misses today, asserted unreported. When the rule learns
+  // one, move it to `fires`.
+  readonly missed?: ReadonlyArray<string>;
   // Paths in the package where the rule must stay silent; outside the package it is always silent.
   readonly silent: ReadonlyArray<string>;
 };
@@ -115,7 +118,7 @@ export const plantRules = (plants: Readonly<Record<string, Plant>>) =>
       for (const path of [...inside, "../../elsewhere/planted.ts"]) {
         // One file per rule and place, so a rule's own reports are the file's reports.
         const file = path.replace(/planted/u, `${rule}-planted`);
-        const body = [...plant.fires, ...plant.quiet];
+        const body = [...plant.fires, ...plant.quiet, ...(plant.missed ?? [])];
 
         write(join(pkg, file), `${imports}\n${body.join("\n")}\n`);
         planted.set(join(pkg, file), { rule, path });

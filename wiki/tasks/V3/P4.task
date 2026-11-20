@@ -3791,7 +3791,7 @@ tasks
 
     T105
         title       Start order stated as a rule; T102's routed checks built; computed Flow.initial removed
-        status      open
+        status      in_progress
         priority    medium
         description
             Start order becomes a stated rule, computed `Flow.initial` is removed, and the checks routed here from T102,
@@ -3863,6 +3863,149 @@ tasks
             (unplaced refusals, toEqualTypeOf<any> or bare, another object's or key's member); siblings still erased
             (publishedOf actor, SendTargetAbsent.sender, step arrays on StoryRun, Samples, Generated, pairSweep
             options); stale text at schedule-send.test-d.ts:5-6 and the lifecycle list at inspect.ts:46.
+        comment     2026-11-20T01:11:24Z
+            Requirements (lead, proposed): 20 rules mapped to the acceptance in order; 12 red today (9 run or plant
+            reds, 3 type-test groups), 2 pins green, 6 with no possible red (2 holes don't reproduce, 4 text or
+            structure). Each `it.fails` and inverted line is titled by its rule; replays below name the wrong side.
+
+            Start order (acceptance 1)
+            1. @spec.Actors R28 and I49 (proposed, `specs.log`): identities handled together go in start order. Red:
+               fault `start-order-reversed` in code:packages/flow-state-v3/tests/typed-core-faults.ts, missed by the
+               whole suite (@task.V3.T102's close-review replay; `store.test.ts`'s regex takes either order). Build: pin
+               `cartFirst` to CartBadge then CheckoutFlow (badge ensured
+               first, `fixtures/shop/stories/structure.ts:27-33`).
+
+            Mail between items, lint (acceptance 2)
+            2. `tx.followNone()`: doesn't reproduce, so no test can fail. Every `served` starts with `tx.follow`;
+               nothing after the drain calls `chainNow` (graces and `persistence.close` arm timers only); its callers
+               (`context.ts:228,367`, `incarnations.ts:238,408`, `serve.ts:152`) run inside a served turn or before the
+               drain, where `Following` starts Idle in each step. Proposed: scope `Following` to one `serving(mail,
+               serve)` call so it can't be dropped.
+            3. `no-tag-chain` misses `[...].includes(x._tag)` and early-return `if`s on one tag. Red: 4 `missed` plants
+               in code:tools/flow-state-lint/rules/no-tag-chain.test.ts (harness field in `test-support.ts`).
+
+            Stale text and the no-lane report (acceptance 3)
+            4. `ledger.ts` `SAVED_DELIVERY`'s comment names `{ Restored }`; `FLOW-STATE.md:61-62` claims a file-level
+               disable. Check: review.
+            5. `lanes.ts` `id: ""` is gone at HEAD (2dcd3cf4), but `applyNamed` passes `key: {}`, a stand-in nothing
+               reads (`Minted` reads a key only when a head exists, `evidence-of.ts:200-203`). The no-lane report must
+               carry no key. Check: types, then review.
+
+            Computed Flow.initial (acceptance 5; @spec.Compile R5)
+            6. Untyped: red `it.fails` in code:packages/flow-state-v3/tests/turn/creation.test.ts (today the function is
+               accepted, not refused). The build adds the planted fault once the refusal exists.
+            7. Typed: an inverted line in code:packages/flow-state-v3/tests/types/definition.test-d.ts, which
+               compiles today.
+            8. Sites to remove or rewrite: `src/flow.ts` (Initial's Computed, the builder's function branch, doc),
+               `config.ts` (`Fn`, `InitialField` Computed, help), `compiled-parts.ts` `sourceOf`, `core/compiled.ts`
+               `Source.Computed`, `construction.ts` `constantFinding`, `core/tree.ts` (`startOf`, `computedRead`,
+               `create`'s second pass), `incarnations.ts:145-150`. Two faults become void:
+               `spread-escapes-computed-guard`, `computed-reads-computed`. Fixtures: sign-in `session.ts:41` and player
+               `player.ts:28-31`. Tests: `turn/creation.test.ts`, `stories/read.test.ts`, `core/tree.test.ts`,
+               `host/runtime.test.ts:559-575`, `sign-in/session.test.ts:31,92,165`, `player/player.test.ts:8`,
+               `player/rooms.test.ts:46-49`; Compile T5's "initial functions". Docs, bench and catalog: none. Risk:
+               `runtime.test.ts:559`'s refused fresh start uses a computed defect, and fault `refused-start-read`
+               targets that path, so it needs another refused start.
+
+            Routed holes (acceptance 6)
+            9. Restored timers in an inactive state (@spec.Turn R14: exit stops any schedule). Red: `it.fails` in
+               code:packages/flow-state-v3/tests/sign-in/trusted-device.test.ts restores an edited record into UNTRUSTED
+               with `reverify` armed (`dueAt` 604800000). Wrong side: the runtime (`incarnations.ts` `armAt`, no
+               state check).
+            10. Untyped persistence with no scope (@spec.WriteAhead R1). Red: `it.fails` in
+                code:packages/flow-state-v3/tests/surface/surface.test.ts; it constructs today, and `runtime.ts:303-304`
+                drops persistence silently. Wrong side: the runtime. Scope alone is left out: @spec.Actors R1 calls it
+                optional, but the type refuses it (needs a decision).
+            11. A non-object `updateMemory` return (@spec.Turn R10; the Machines Plan's pre-commit defect). Red:
+                `it.fails` in code:packages/flow-state-v3/tests/actors/memory-writes.test.ts. `null` stops the Runtime
+                ("RuntimeDisposed … stopped on a defect"), since `turn.ts` runs `Object.keys` outside `call`. Wrong
+                side: the runtime. A number return merges as no change; no rule calls that a defect, so it is
+                left untested.
+            12. `generate.ts` unknown rule name: doesn't reproduce. Verdict rules come only from properties (`:978`) and
+                the two constants (`:952-993`). Build: type `Verdict.rule` so `ruleOf` goes. Check: tsc.
+
+            T104 follow-ups (acceptance 7)
+            13. `unsettledWrites` takes no type argument: an inverted line in
+                code:packages/flow-state-v3/tests/types/public.test-d.ts (`unsettledWrites<typeof Pay>()` compiles).
+            14. One `ForeignActorRef` helper for `story.ts` `own`, `runtime.ts` `ownRef` and `run.ts` `own`. They differ
+                by identity, id plus identity, and id only; `run.ts` gets an `ActorId`. This is a refactor; check
+                by review.
+            15. Erased siblings carry the app. Inverted lines in the same file, each compiling today: `publishedOf`'s
+                `actor`, `SendTargetAbsent.sender`, the steps of `StoryRun`, `Samples` and `Generated`, and `pairSweep`
+                taking another app's property.
+            16. `paired-refusals` holes. Red: 9 `missed` plants in
+                code:tools/flow-state-lint/rules/paired-refusals.test.ts (unplaced array, argument and disable lines;
+                `<any>`, bare and `["not"]` positives; another object's member; another key; a refusal outside `it`).
+                Each control without its positive fires (replayed).
+            17. Stale text: `schedule-send.test-d.ts:5-6` cites `construction.test.ts`; `inspect.ts:75`'s lifecycle list
+                lacks Stopped. Check: review.
+
+            Pending decisions (acceptance 8)
+            18. @plan.Pending.D2. Red: `it.fails` in
+                code:packages/flow-state-v3/tests/write-lanes/payment-leave-and-reload.test.ts. No Published record
+                appears in the step where the order's ending is denied (`serve.ts:193-201` and `settle` publish
+                nothing). Wrong side: the runtime (@spec.Turn R19).
+            19. @plan.Pending.D3. Pin, green: code:packages/flow-state-v3/tests/actors/runtime-disposal.test.ts, a
+                commit queued behind an on-wire head that answers inside the bound gets one Git call and ends NotSent
+                Disposed. Every disposing Story also runs I30's rule.
+            20. @plan.Pending.D4. Pin, green: code:packages/flow-state-v3/tests/turn/refusal.test.ts. An hour on, still
+                two issues, Kept, one charge; the boot's one more try is `pay.test.ts` busyRefused. Merging D2-D4 into
+                the Plans waits for the user.
+
+            Acceptance 4 and 9 are gates at close.
+        comment     2026-11-20T01:11:25Z
+            Fixtures proof (lead, code:wiki/conventions/fixtures.md), proposed.
+
+            Computed `Flow.initial` removed (@spec.Compile R5): fixtures sign-in (changed; machine `Auth/Session`,
+            journey handle-retry) and player (changed; machine `Music/Player`).
+
+            - Usual: `handleRetry` and the player Stories. Their checkpoints change only where they read the
+              stored start.
+            - Load: a new variant of `manySessions` with 16 unsaved accounts, since the existing one never
+              reaches CHOOSING.
+            - Structure: a new account reloads in CHOOSING before submit, beside `reloadedMidHandle` (S9, E8).
+            - Samples: a blank email (E1) and a 100,000-character email (E3), as a new sign-in samples set; player
+              `empty-room` and `long-room`.
+            - Combos: the session persists. Its record keeps the `handle` field, so the format doesn't change.
+            - Sources: none.
+            - Proposed shape: `handle` starts at `""`, and the guards, `handleOf` and the screen read `chosen` (the
+              stored handle once edited or saved, else the email's prefix). The player's label is derived where it
+              is read.
+            - Red today: requirements 6 and 7.
+
+            New Stories (requirements 9, 18, 19, 20): they are inline in tests as the red checks. The build moves each
+            into its app's `stories/` with manifest entries and a new samples set beside the old ones:
+
+            - the restored schedule: sign-in `structure.ts`, S9;
+            - D2: shop `usual.ts`;
+            - D3: lanes `structure.ts`, under L3;
+            - D4: shop `edges.ts`.
+
+            The catalog rows for shop, lanes, sign-in and player gain these scenarios, marked "no source" where true.
+
+            Sidecar log (3 Haiku reviewers at high effort: rules, fixtures, cohesion; every finding re-read in code,
+            every check re-run).
+
+            - Accepted:
+              - scope alone dropped (no rule refuses it);
+              - R28's disposal clause reworded to consumers first;
+              - the number return dropped (no rule calls it a defect);
+              - D2 also asserts no turn and unchanged memory;
+              - D3's ending is asserted before the disposal ends;
+              - 2 `missed` line numbers corrected, with the hint made reachable;
+              - evidence selected by token (`no-event-name-filter`);
+              - the shared `refusal` helper, a samples helper and an exported `laptopRecord`;
+              - explanatory comments dropped;
+              - `rooms.test.ts` added to the sites;
+              - the fixture homes and catalog rows above.
+            - Rejected:
+              - "the fault isn't caught": a missed fault is the intended red;
+              - the `unsettledWrites` title: it names the rule the line breaks;
+              - the D4 overlap with busyRefused: this one advances time with no boot;
+              - `PAY-07/` titles: inverted tests are titled by their rule;
+              - the inverted headers: they follow `fake.test-d.ts`.
+
+            Extra files: `tools/flow-state-lint/rules/test-support.ts`, `fixtures/sign-in/stories/samples.ts`.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine

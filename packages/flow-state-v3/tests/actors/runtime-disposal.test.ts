@@ -354,6 +354,31 @@ describe("the final write (Actors R23, I43, I44)", () => {
   });
 });
 
+describe("a commit queued behind a head on the wire (Actors R22, I30)", () => {
+  it("Actors I30: the head answered inside the bound promotes nothing; the queued commit ends NotSent Disposed and Git sees one call", async () => {
+    const run = await played(
+      lanesStory("Actors I30 queued behind on-wire")
+        .ensure(serializeClient)
+        .world(Git.sync.hold())
+        .send(serializeClient, SYNC)
+        .send(serializeClient, SYNC)
+        .disposeRuntime()
+        .advance("1 second")
+        .world(Git.sync.release())
+        .checkpoint("answered")
+        .advance(SHORT_OF_BOUND)
+        .checkpoint("disposed"),
+    );
+
+    const disposed = (records: Records) =>
+      endings(records, "sync").filter((e) => e.channel === "notSent" && e.reason === "Disposed");
+
+    expect(disposed(before(run, "disposed"))).toHaveLength(1);
+    expect(run.checkpoints.disposed.read(Git.sync)).toHaveLength(1);
+    expect(disposals(before(run, "disposed"))).toBe(1);
+  });
+});
+
 describe("a commit queued behind a Held head (Actors I38)", () => {
   it("Actors I38: a commit queued behind a Held head ends NotSent Disposed before the disposal ends, and the reload delivers it once", async () => {
     const run = await played(

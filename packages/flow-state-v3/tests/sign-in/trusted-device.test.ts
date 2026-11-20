@@ -17,7 +17,16 @@ import {
   deviceWithTextField,
   sessionFirstUnderDevice,
 } from "../../fixtures/sign-in/stories/structure.ts";
-import { LAPTOP_SEEN, LAPTOP_UNTIL, trustDevice } from "../../fixtures/sign-in/stories/usual.ts";
+import {
+  elifSaved,
+  LAPTOP_SEEN,
+  LAPTOP_UNTIL,
+  trustDevice,
+  trustedStory,
+} from "../../fixtures/sign-in/stories/usual.ts";
+import { evidenceOf, Fake } from "../../src/host/testing/index.ts";
+import { TrustedDevice } from "../../fixtures/sign-in/machines/trusted-device.ts";
+import { laptopRecord } from "../../fixtures/sign-in/stories/samples.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
 import { loose } from "../../src/test/loose.ts";
@@ -223,5 +232,31 @@ describe("a trusted device written wrong is refused at construction (Compile R2,
           "states.TRUSTED.states.FRESH.schedules.reverify.schedule",
         ],
       ]);
+  });
+});
+
+describe("a saved schedule whose state is not active (Turn R14, Restore R1)", () => {
+  it.fails("Turn R14: a restored schedule of a state the record does not hold is not armed, and never fires", async () => {
+    const saved = await played(trustDevice);
+    const text = saved.checkpoints.trusted.records.stored.get(laptopRecord) ?? "";
+    const untrusted = text.replace('"state":"TRUSTED.FRESH"', '"state":"UNTRUSTED"');
+
+    expect(untrusted).not.toBe(text);
+
+    const run = await played(
+      trustedStory("sign-in/restored-schedule-inactive")
+        .world(elifSaved, Fake.storage.put(laptopRecord, untrusted))
+        .reload()
+        .ensure(mainSession)
+        .ensure(laptop)
+        .checkpoint("restored")
+        .advance("8 days")
+        .checkpoint("a week on"),
+    );
+
+    expect(run.checkpoints.restored.read(laptop)?.state).toBe("UNTRUSTED");
+    expect(run.checkpoints.restored.read(laptop)?.memory.until).toEqual(LAPTOP_UNTIL);
+    expect(run.checkpoints.restored.read(laptop)?.schedules).toEqual([]);
+    expect(evidenceOf(run, TrustedDevice.E.Reverify)).toEqual([]);
   });
 });

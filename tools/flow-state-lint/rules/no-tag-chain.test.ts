@@ -35,6 +35,14 @@ plantRules({
       "const k = Phase.$match(p, {});",
       'const l = a.kind === "x" || a.kind === "y";',
     ],
+    missed: [
+      // A membership test over one subject's tags.
+      'const l2 = ["OnWire", "Cancelling"].includes(p._tag);',
+      'const l3 = [`Queued`, `Retrying`].includes(row.delivery._tag);',
+      // Consecutive early returns on one subject's tag.
+      'const l4 = () => { if (Phase.$is("Held")(p)) return 1; if (Phase.$is("OnWire")(p)) return 2; return 3; };',
+      'const l5 = () => { if (d._tag === "Queued") return 1; if (d._tag === "Kept") return 2; return 3; };',
+    ],
     silent: tests,
   },
   "no-id-text": {

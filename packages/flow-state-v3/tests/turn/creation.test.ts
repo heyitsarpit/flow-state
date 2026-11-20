@@ -11,6 +11,8 @@ import {
   runtimeSetup,
 } from "../../src/index.ts";
 import { issues } from "../checkout.ts";
+import { refusal } from "../refusals.ts";
+import { loose } from "../../src/test/loose.ts";
 
 const Alarm = definition({
   id: "Creation/Alarm",
@@ -129,5 +131,32 @@ describe("the outside snapshot (Turn R23)", () => {
     expect(doc.getSnapshot()).toEqual(
       Option.some(expect.objectContaining({ memory: { body: "" } })),
     );
+  });
+});
+
+describe("a computed start (Compile R5)", () => {
+  it.fails("Compile R5: Flow.initial given a function is refused InvalidConfiguration at the field, never run", () => {
+    const runs = { count: 0 };
+
+    const computed = loose(() => {
+      runs.count += 1;
+
+      return "x";
+    });
+
+    expect(
+      refusal(() =>
+        definition({
+          id: "Compile/Computed",
+          states: ["A"],
+          events: {},
+          memory: {
+            email: Flow.input(Schema.String),
+            handle: Flow.initial(Schema.String, computed),
+          },
+        }),
+      ),
+    ).toEqual([["InvalidConfiguration", "memory.handle"]]);
+    expect(runs.count).toBe(0);
   });
 });
