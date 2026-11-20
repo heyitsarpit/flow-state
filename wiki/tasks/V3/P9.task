@@ -117,7 +117,7 @@ tasks
         title       Raw-throw class: one general solution for construction trust and public refusals
         status      draft
         priority    high
-        blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T76, @task.V3.T77]
+        blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T76, @task.V3.T77, @task.V3.T100]
         satisfies   [@plan.Diagnostics.O1, @plan.Runtime.O1]
         description
             One general solution for the raw-throw class: no public path of Flow, built or handed out, throws anything
@@ -173,3 +173,6 @@ tasks
             builders capture, decode whole), and the error vocabulary moved to T100. Kept in P9 because wk has no move;
             set first in P5's Order, blocked_by T109, T110, T76, T77, and it blocks T24, T25, T48, T106, T30, T115
             and T37.
+        comment     2026-11-20T13:12:06Z
+            Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T100 (its refusals use T100's
+            closed details.reason).

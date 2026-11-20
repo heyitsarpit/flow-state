@@ -1266,7 +1266,8 @@ tasks
             that no longer decodes) is @task.V3.T92's.
 
             **Why now:** an upgraded release must reset or keep each saved record correctly, and a saved shape is
-            defined only once @task.V3.T17 and @task.V3.T57 fix private and computed fields.
+            defined only once @task.V3.T17 and @task.V3.T57 fix private and computed fields. It is blocked by
+            @task.V3.T21 because `resource({ persist: true })` writes a saved record format that this Task versions.
 
             **Read first:** @spec.Restore (R5), @plan.Persistence.O5, @plan.Machines.O5 (paused),
             @spec.Turn.R27, code:wiki/conventions/interaction-state.md.
@@ -1342,11 +1343,14 @@ tasks
             lane record whose input or key no longer decodes, Restore R8; a saved state the machine lacks, R7;
             positional frames with no length check; the read-operation lane record) moved to T92. Adds an
             unverifiable-now outcome for dormant records, which T48 reads; blocked_by adds T21.
+        comment     2026-11-20T13:12:08Z
+            Breakdown fix (orchestrator, 2026-11-20): description states why it is blocked by T21 (resource persist
+            record format).
     T22
         title       CLI check, explain and graph
         status      draft
         priority    medium
-        blocked_by  [@task.V3.T17, @T77, @T109, @T110, @T57]
+        blocked_by  [@task.V3.T17, @T77, @T109, @T110, @T57, @T76]
         satisfies   [
                     @plan.CommandLine.O1,
                     @plan.CommandLine.O3,
@@ -1392,6 +1396,8 @@ tasks
         comment     2026-11-20T13:01:58Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T109, T110 and T57 (flow check reads
             fragments, subroutines and schedule delays).
+        comment     2026-11-20T13:12:06Z
+            Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T76 (acceptance names onProps edges).
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -1556,8 +1562,7 @@ tasks
             `props(values)` step.
 
             **Why now:** configurable widgets mirror parent props into memory through a `Configure` event (the number
-            input fixture does); the user accepted declared props instead (decisions Q5, §9 R1 to R3). Starts after the
-            Plan merge.
+            input fixture does); the user accepted declared props instead (decisions Q5, §9 R1 to R3).
 
             **Read first:** @spec.Turn.R28, @plan.Machines.O7, code:wiki/conventions/where-a-value-lives.md,
             @task.V3.T9, code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9).
@@ -1603,6 +1608,8 @@ tasks
         comment      2026-11-20T13:01:53Z
             Breakdown review (orchestrator, 2026-11-20, R48): takes Story.machine from T29 (T29 extends it); blocked_by
             adds T113, since its props field joins the one carried snapshot type.
+        comment      2026-11-20T13:12:09Z
+            Breakdown fix (orchestrator, 2026-11-20): Starts-after-Plan-merge sentence dropped.
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
@@ -1617,7 +1624,7 @@ tasks
 
             **Why now:** view commands that depend on the cause (focus after Escape, the first invalid field on every
             failed submit) are stored today as a request plus a counter that replays after a reload; the user accepted
-            emits (decisions Q3, §9 R6 and the Emits batch). Starts after the Plan merge.
+            emits (decisions Q3, §9 R6 and the Emits batch).
 
             **Read first:** @spec.Turn.R29, @plan.Machines.O2, code:wiki/conventions/view-commands.md,
             code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9).
@@ -1647,6 +1654,8 @@ tasks
         comment      2026-11-20T13:01:53Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T113, since its emit summary joins the one
             carried snapshot type.
+        comment      2026-11-20T13:12:09Z
+            Breakdown fix (orchestrator, 2026-11-20): Starts-after-Plan-merge sentence dropped.
 
     T78
         title       Number input on declared props and emits
@@ -1748,7 +1757,8 @@ tasks
             - A lane record whose input or key no longer decodes is quarantined (Restore R8), and a saved state the
               machine lacks is quarantined, not restored (Restore R7); both moved from @task.V3.T56.
             - Positional actor-record frames are length-checked, moved from @task.V3.T56.
-            - `StateName` and `ActorName` admit fragment subject paths (@task.V3.T109's `.resumable()`).
+            - `StateName` and `ActorName` accept a path supplied by the machine (a hook; fragment subject paths
+              are @task.V3.T109's).
             - Fixtures first (code:wiki/conventions/fixtures.md): the corrupt and forged record samples, including the
               read-operation lane, are in the fixtures' step samples and run by every runner, before the build; the
               proof is posted as a Task comment.
@@ -2249,6 +2259,9 @@ tasks
             quarantines, the length check on positional actor-record frames and the read-operation lane record;
             StateName and ActorName admit fragment subject paths (T109's .resumable()). Reason: one owner for decoding
             records into meaning.
+        comment     2026-11-20T13:12:07Z
+            Breakdown fix (orchestrator, 2026-11-20): the StateName and ActorName fragment-path line moved to T109; this
+            Task keeps the hook line.
 
     T95
         title           Callback results checked before they enter a turn
@@ -2763,8 +2776,12 @@ tasks
             appears in a fixture; edge values in every fixture's step samples; `Failure.shrinks` counts what its doc
             says; failure words and write salts stop leaking across dropped fixtures; generate.ts's placeholders (2g)
             and sweep.ts's booleans (2h); Fake's `Batch` stores no derived status (2i); the test clock's settle is not
-            quadratic (3g); `buildRuntime` split once the test-only `admit` hook is gone (5f, widening May change
-            to `src/core`).
+            quadratic (3g); `buildRuntime` split once the test-only `admit` hook is gone (5f, widening May change to
+            `src/core`); and the harness items routed from @task.V3.T29 (2026-11-18T19:14): a reload variant that skips
+            keeps the breaches it recorded first (`sweep.ts`), `skipBound` checks that skips fall inside the window
+            positions (`sweep.ts`), fake servers honour idempotency keys (`shop.ts`, sign-in `auth.ts`, player
+            `speaker.ts`), quieting counts machine timers (`generate.ts`), `disposeRuntime` keeps its Exit (`run.ts`),
+            each with a planted fault that targets the harness.
 
             May change: `src/host/testing/`, `src/host/*.test.ts`, `src/core/` (5f only), `tests/`. Evidence: this
             Task's comments.
@@ -2793,6 +2810,9 @@ tasks
             Breakdown review (orchestrator, 2026-11-20, R48): takes the test-tooling items routed to T112 on 2026-11-20
             (Turn I9 context-wave run rule; test:coverage reporter flags and a report on failure; coverage timeouts of
             shop's large cart and home's 64 rooms), since run rules and the coverage run are test tooling, not fakes.
+        comment     2026-11-20T13:12:10Z
+            Breakdown fix (orchestrator, 2026-11-20): takes the harness items routed to T29 on 2026-11-18T19:14
+            (sweep.ts, generate.ts, run.ts, fake servers) into its Approach list.
 
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
@@ -5618,7 +5638,7 @@ tasks
         status      draft
         priority    high
         blocked_by  [@T57, @T113]
-        satisfies   [@plan.Machines.O1, @plan.Machines.O6, @plan.Machines.O8, @plan.Runtime.O6]
+        satisfies   [@plan.Machines.O1, @plan.Machines.O8]
         description
             Build fragments on production: traits placed on the root or a state, `.each` copies by key, nested
             fragments, `.resumable()`, subject paths, subroutines (a fragment that is a state, with its own states and
@@ -5629,7 +5649,7 @@ tasks
             subroutine and `whenAbandoned` rules moved in from @task.V3.T110 because both write one fragment
             incarnation's lifecycle (breakdown review, the orchestrator, 2026-11-20).
 
-            **Read first:** @plan.Machines.O1, @spec.Turn (R30), @spec.Compile,
+            **Read first:** @plan.Machines.O1, @spec.Compile,
             code:wiki/plans/flow/references/proposals/ui-primitives-decisions-2026-11-16.md (§9),
             code:wiki/conventions/fixture-catalog.md (the subroutine and `whenAbandoned` rows' fixture homes). Blocked
             by @task.V3.T57 because a trait carries schedules, which that Task finishes, and by @task.V3.T113, whose
@@ -5650,6 +5670,8 @@ tasks
             - `whenAbandoned` runs once when an incarnation ends other than by finishing, never on a normal finish, and
               its `O.x.cancel` marks that operation's lanes for the ending incarnation's subject path.
             - `Story.fragment` exists (moved from @task.V3.T29): a Story word that runs a fragment alone.
+            - `StateName` and `ActorName` (@task.V3.T92's Schemas) admit fragment subject paths (`.resumable()`), shown
+              by a restore of a record that names one.
             - Each new runtime rule has a planted fault that `nub run faults --only` catches.
             - Fixtures first (code:wiki/conventions/fixtures.md): the fragment rows of step 2 of
               code:wiki/conventions/fixture-catalog.md, in the apps that row names, and the subroutine and
@@ -5673,6 +5695,9 @@ tasks
             fragment incarnation lifecycle); took Story.fragment from T29; ReleaseOverdue moved to T21; the .each raise
             moved to T110, which reads the live copies this Task exposes in key order; the two type pins and the type
             spike moved to T113 (blocked_by T113).
+        comment     2026-11-20T13:12:07Z
+            Breakdown fix (orchestrator, 2026-11-20): satisfies keeps Machines O1 and O8 (O6 and Runtime O6 are T21's);
+            acceptance takes the fragment subject-path line from T92; Read first drops Turn R30 (T110's).
 
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
@@ -5705,6 +5730,9 @@ tasks
             Breakdown review (orchestrator, 2026-11-20, R48): repurposed (same id): was subroutines and whenAbandoned,
             now moved to T109. It takes the Turn R30 raise into .each traits and FanOutNeverHandled from T109, reading
             the live copies T109 exposes in key order.
+        comment     2026-11-20T13:12:10Z
+            Breakdown fix (orchestrator, 2026-11-20): Read first keeps Turn R30, now this Task's alone (T109 no longer
+            cites it).
 
     T111
         title       Fixtures in real browsers: minimal React, Chrome and Safari
@@ -5819,8 +5847,8 @@ tasks
             @plan.Machines.O8, @spec.Turn (R16, R27).
 
             **Approach:** a type spike first: carry the body type and keep excess-key checks, since inferring the body
-            loses them. @task.V3.T76 (props), @task.V3.T77 (emit summary) and @task.V3.T109 (fragment summary) each add
-            their field into this one carried type.
+            loses them. This Task owns the carried type's shape: @task.V3.T76 (props), @task.V3.T77 (emit summary),
+            @task.V3.T109 (fragment summary) and @task.V3.T106 (rule tokens) only add fields through it.
 
             May change: `src/`, `tests/types/`, `tests/`. Evidence: this Task's comments.
 
@@ -5831,6 +5859,7 @@ tasks
               reasons (Turn R27, @plan.Machines.O8), shown by a type test that replaces the inverted pin
               in `tests/types/schedules.test-d.ts`.
             - A keyed schedule's send mapper receives the typed key (Turn R16), shown by a type test.
+            - An unkeyed schedule's send mapper types `key` as `undefined` (two-sided type test).
             - Excess keys in a body still fail to compile, and shared bodies still compile.
             - `nub run check` and the suite pass.
         comment     2026-11-20T13:01:52Z
@@ -5841,3 +5870,6 @@ tasks
         comment     2026-11-20T13:03:02Z
             Routed from T57's convergence (orchestrator, 2026-11-20): an unkeyed schedule's send mapper still types key
             as ScheduleKey; it should be undefined, two-sided.
+        comment     2026-11-20T13:12:05Z
+            Breakdown fix (orchestrator, 2026-11-20): owns the carried type's shape and takes the unkeyed send-mapper
+            key pin; T76, T77, T109 and T106 only add fields through it.

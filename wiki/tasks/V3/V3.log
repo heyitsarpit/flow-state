@@ -1302,3 +1302,7 @@ note 2026-11-20T13:02:55Z
 note 2026-11-20T13:04:38Z
     Decisions (the user, 2026-11-20): Firefox is not a target (Package O4 and the P6, P8, P10 Tasks updated); the
     breakdown review's phase moves are approved (P5's Fake and Story words into P4, T98 first in P5).
+
+note 2026-11-20T13:12:28Z
+    Breakdown fixes from the independent review applied: T48 before T115, named seams on T24 and T48, T113 owns the
+    carried type, blockers for T22, T98, T106, T115, boot queue back in T28, stale text fixed.

@@ -14,13 +14,13 @@ description
     are rewritten with skill:to-epic and skill:to-task when the phase starts; until then they hold only the order, the
     Plan links and the blockers.
 
-    **Order:** @task.V3.T98, @task.V3.T114, @task.V3.T106, @task.V3.T25, @task.V3.T24, @task.V3.T115, @task.V3.T28,
-    @task.V3.T27, @task.V3.T48, @task.V3.T49, @task.V3.T29, @task.V3.T30, @task.V3.T116, @task.V3.T108, @task.V3.T31:
+    **Order:** @task.V3.T98, @task.V3.T114, @task.V3.T106, @task.V3.T25, @task.V3.T24, @task.V3.T48, @task.V3.T115,
+    @task.V3.T28, @task.V3.T27, @task.V3.T49, @task.V3.T29, @task.V3.T30, @task.V3.T116, @task.V3.T108, @task.V3.T31:
     the fixture catalog's steps 11 to 18 (T108, split from T30, waits on its proposal), with T31 last since it ends on
     the user's acceptance (re-plan section 8, the user, 2026-11-18). T98 (construction trust, kept in P9 because wk has
-    no move) comes first: every feature builds on constructed values. Streams come before the entity store, and server
-    data (T115) before lazy features; re-planned by the breakdown review, the orchestrator, 2026-11-20. A `blocked_by`
-    link is a real dependency only; where several Tasks are ready, take the earliest in this order.
+    no move) comes first: every feature builds on constructed values. Streams come before the entity store, and lazy
+    features (T48) before server data (T115); re-planned by the breakdown review, the orchestrator, 2026-11-20. A
+    `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in this order.
 
     **Verified by:** per feature, Story tests, run rules and compile-time tests written from its Spec, with a planted
     fault for each new rule; skill:check-runtime where users touch it; skill:check-task per Task.
@@ -71,6 +71,8 @@ tasks
             Write the streams Spec, then build streams on production with a real EventSource path. Adds `Fake.stream` on
             `Fake.server`; a Story shows `UnplacedStream`.
 
+            Stream sessions use @task.V3.T21's release-within-the-bound rule and `ReleaseOverdue`, not a second copy.
+
             **Read first:** @plan.Operations.O4.
         acceptance
             - The streams Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
@@ -93,6 +95,9 @@ tasks
         comment     2026-11-20T13:02:11Z
             Breakdown review (orchestrator, 2026-11-20, R48): ordered before T24 (T24's listen(stream) reads this Task's
             state); blocked_by adds T92, T56 and T98; catalog steps 11 and 12 swapped (streams are step 11).
+        comment     2026-11-20T13:12:09Z
+            Breakdown fix (orchestrator, 2026-11-20): text says stream sessions use T21's release-within-the-bound rule
+            and ReleaseOverdue.
     T24
         title       Entity store
         status      draft
@@ -113,7 +118,8 @@ tasks
         acceptance
             - The entities Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
               that uses an entity domain.
-            - Fixtures first (code:wiki/conventions/fixtures.md): step 12 of code:wiki/conventions/fixture-catalog.md:
+            - Exposes the per-field version comparator @task.V3.T115's merge table reads (a value, not shared state).
+            - Fixtures first (code:wiki/conventions/fixtures.md): step 12of code:wiki/conventions/fixture-catalog.md:
               `transfers`, `kanban`, `chat` gain the features, scenarios and sources of their rows; each scenario red
               before the build, and the step's cells marked used at the close.
         comment     2026-11-15T21:43:20Z
@@ -131,6 +137,8 @@ tasks
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T25 (its listen(stream) reads T25's
             state), T92, T56 and T98. Not applied: splitting this Task into confirmed records and the prediction
             overlay; the lead's state inventory at P5's own R48 review decides.
+        comment     2026-11-20T13:12:05Z
+            Breakdown fix (orchestrator, 2026-11-20): acceptance exposes the per-field version comparator T115 reads.
     T27
         title       Multi-tab
         status      draft
@@ -180,6 +188,7 @@ tasks
             **Read first:** @plan.LazyFeatures.O1.
         acceptance
             - The lazy-features Spec's Requirements hold on production, shown by Story tests.
+            - Exposes an entry's adoption state as the value @task.V3.T115 transfers and merges.
             - Fixtures first (code:wiki/conventions/fixtures.md): step 15 of code:wiki/conventions/fixture-catalog.md:
               `session`, `wizard`, `kanban` gain the features, scenarios and sources of their rows; each scenario red
               before the build, and the step's cells marked used at the close.
@@ -198,6 +207,8 @@ tasks
         comment     2026-11-20T13:02:11Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T92, T56 and T98; reads T56's
             unverifiable-now outcome for dormant records; supplies the adoption state to T115 as a value.
+        comment     2026-11-20T13:12:05Z
+            Breakdown fix (orchestrator, 2026-11-20): acceptance exposes the adoption state T115 transfers and merges.
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft
@@ -209,13 +220,16 @@ tasks
             `packages/flow-state-v3/prototypes/safari/RESULTS.md`; D4 is @task.V3.T27's): the `database` option, the
             rest of @plan.Persistence.O1 and @plan.Persistence.O3. Extract the Story's in-memory store as `layerMemory`,
             the production in-memory store, which `Fake.storage` then wraps with its hold, refuse and release controls.
-            `layerMemory` and the `Store` port are this Task's contract with @task.V3.T112.
+            `layerMemory` and the `Store` port are this Task's contract with @task.V3.T112. It also owns the session
+            boot queue (routed from @task.V3.T20): sends before `ready` are queued and delivered in order; @task.V3.T115
+            reads `ready`.
 
             **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Pending.D9,
             and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
         acceptance
             - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari,
               which meets Safari's D1 to D3 (D4 is @task.V3.T27's).
+            - The session boot-queue catalog item holds: sends before ready are queued and delivered in order.
             - Fixtures first (code:wiki/conventions/fixtures.md): step 13 of code:wiki/conventions/fixture-catalog.md:
               `pay`, `draft` gain the features, scenarios and sources of their rows; each scenario red before the build,
               and the step's cells marked used at the close.
@@ -235,6 +249,9 @@ tasks
             Breakdown review (orchestrator, 2026-11-20, R48): description and acceptance cite Safari D1 to D3 only (D4
             moved to T27); layerMemory and the Store port are its contract with T112. The session boot-queue item routed
             above moved to T115.
+        comment     2026-11-20T13:12:09Z
+            Breakdown fix (orchestrator, 2026-11-20): owns the session boot queue again (sends before ready queued, in
+            order); T115 reads ready. The comment of 2026-11-20T13:02:10Z saying it moved to T115 is superseded.
     T49
         title       Inspection and the flow-state/inspect route
         status      draft
@@ -296,7 +313,8 @@ tasks
             `Story.machine` to @task.V3.T76, `Story.fragment` to @task.V3.T109, the Fake world items to @task.V3.T112,
             FlowError's evidence field to @task.V3.T100, the run verdict (`PropertyTestFailed`, end-of-run cleanup,
             `UnusedWireRule`) to @task.V3.T114. Tab steps move to @task.V3.T27; hydration to @task.V3.T115,
-            `StoryPlayer` and `definePresentation` to @task.V3.T108.
+            `StoryPlayer` and `definePresentation` to @task.V3.T108. It is blocked by @task.V3.T49 because `trace --at`
+            and `--trace-output` call T49's `Trace` value.
 
             `Story.machine` and its `props(values)` step land first in @task.V3.T76; this Task extends them.
 
@@ -357,6 +375,9 @@ tasks
             Breakdown review (orchestrator, 2026-11-20, R48): Story.machine moved to T76, Story.fragment to T109, the
             Fake world items to T112, FlowError's evidence field to T100, and the run verdict (PropertyTestFailed,
             cleanup, UnusedWireRule) to T114; routed items above that name them go with them. Hydration moved to T115.
+        comment     2026-11-20T13:12:08Z
+            Breakdown fix (orchestrator, 2026-11-20): description states why it is blocked by T49; the 2026-11-18T19:14
+            harness items moved to T97.
     T31
         title       CLI outputs designed for people
         status      draft
@@ -436,7 +457,7 @@ tasks
         title       Rules on machines: invariants, turns and terminals, with rule coverage
         status      draft
         priority    high
-        blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T98, @T114]
+        blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T98, @T114, @task.V3.T113, @task.V3.T22]
         satisfies   [
                     @plan.Rules.O1,
                     @plan.Rules.O2,
@@ -449,8 +470,9 @@ tasks
                     ]
         description
             Build @plan.Rules: app authors declare `invariants`, `turns` and `terminals` in `machine()`, every Story,
-            generated run and sweep judges them, `flow check` proves terminals, and rule coverage reports what no
-            run exercised.
+            generated run and sweep judges them, `flow check` proves terminals, and rule coverage reports what no run
+            exercised. Terminals and `RuleSubjectUnreachable` extend @task.V3.T22's `flow check` analyzer as one more
+            row, and `RuleBroken` is one more verdict kind in @task.V3.T114's run verdict.
 
             **Why now:** an app's guarantees are hand-written checks in single Stories today (NUMBER-12's bounds
             filter), which the generator and sweeps never judge. The design was settled with the user on 2026-11-19 and
@@ -461,12 +483,11 @@ tasks
             code:packages/flow-state-v3/tests/rules/rules.ts (Flow's run rules and `checked`),
             code:packages/flow-state-v3/tests/number-input/number-input.stress.test.ts (NUMBER-12).
 
-            **Risk:** the type surface: `machine()` returns a fixed `Machine<D>` today
-            (code:packages/flow-state-v3/src/machine.ts#export const machine), so rule tokens need the body's type, and
+            **Risk:** the type surface: rule tokens need the machine's body type, which comes from @task.V3.T113, and
             shared bodies such as code:packages/flow-state-v3/fixtures/services/shop/machines/pay.ts#PayBody must still
             compile (@plan.Rules.O3); write the type tests first. Rules over `operations` depend on when a row turns
-            busy (@plan.Rules.Q1). @plan.Rules.O7 needs traits and subroutines (@task.V3.T109, @task.V3.T110); its
-            `Story.fragment` part lands with @task.V3.T109, which builds `Story.fragment`.
+            busy (@plan.Rules.Q1). @plan.Rules.O7 needs traits and subroutines (@task.V3.T109) and the raise
+            (@task.V3.T110); its `Story.fragment` part lands with @task.V3.T109, which builds `Story.fragment`.
 
             **Approach:** write the Spec from @plan.Rules with skill:to-spec, then its requirements as failing checks:
             type tests (@plan.Rules.V1), then judging in runs and the switch, rule coverage, terminals and
@@ -491,6 +512,9 @@ tasks
         comment     2026-11-20T13:02:13Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T98 and T114; its V8 no longer waits on
             T29, and Story.fragment is T109's.
+        comment     2026-11-20T13:12:06Z
+            Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T113, T22 and T114; Risk and description now name
+            T113, T22, T114, T109 and T110.
     T108
         title       Story presentation: StoryPlayer and definePresentation
         status      draft
@@ -554,7 +578,7 @@ tasks
         title       Server data: dehydrate, hydrate and the merge table
         status      draft
         priority    high
-        blocked_by  [@T24, @task.V3.T98]
+        blocked_by  [@T24, @task.V3.T98, @T48]
         satisfies   [
                     @plan.ServerRendering.O1,
                     @plan.ServerRendering.O2,
@@ -572,14 +596,15 @@ tasks
             React binding's attach state and the transferred server data are separate. The merge table is one state
             (actors, resources, entity fields and lazy entries), so one Task owns all its rows.
 
-            **Read first:** @plan.ServerRendering.O1, @plan.ServerRendering.O2, @plan.ServerRendering.O3,
-            @plan.ServerRendering.O5, @plan.ServerRendering.O6, @plan.Testing.O7, @plan.Inspection.O2, @plan.Runtime.O5,
-            @task.V3.T24 (supplies the per-field version comparator), @task.V3.T48 (supplies the adoption state), both
-            as values.
+            **Read first:** @plan.ServerRendering, @task.V3.T24 (supplies the per-field version comparator),
+            @task.V3.T48 (supplies the adoption state), both as values, and @task.V3.T28 (`ready`).
+
+            **Background:** the outcomes this Task satisfies are @plan.ServerRendering.O1, @plan.ServerRendering.O2,
+            @plan.ServerRendering.O3, @plan.ServerRendering.O5, @plan.ServerRendering.O6, @plan.Testing.O7,
+            @plan.Inspection.O2 and @plan.Runtime.O5.
 
             **Approach:** the merge table has one row each for actors, resources, entity fields and lazy entries; the
-            Story `hydrate` step runs it. The session boot-queue item (nothing can be sent before ready), routed from
-            @task.V3.T28, is built here.
+            Story `hydrate` step runs it. It reads `ready` from @task.V3.T28, which owns the session boot queue.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -594,7 +619,6 @@ tasks
               props and emits.
             - Payloads go through the one codec (@plan.Inspection.O2) and hydration sets silent
               baselines (@plan.Runtime.O5).
-            - The session boot-queue catalog item holds: sends before ready are queued and delivered in order.
             - Fixtures first (code:wiki/conventions/fixtures.md): the hydrate rows of
               code:wiki/conventions/fixture-catalog.md gain their scenarios; each red before the build, and those cells
               marked used at the close.
@@ -603,6 +627,9 @@ tasks
             Story hydrate step, the session boot-queue item (from T28) and one merge table for actors, resources, entity
             fields and lazy entries. T24 supplies the per-field version comparator and T48 the adoption state,
             as values.
+        comment     2026-11-20T13:12:04Z
+            Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T48 (P5 Order puts T48 first); the session boot
+            queue went back to T28; Read first trimmed to four links.
 
     T116
         title       Next.js host proofs
