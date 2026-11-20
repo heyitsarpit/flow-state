@@ -1557,7 +1557,7 @@ it starts, and writes its scenarios red first. The step numbers are the matrix c
 7. **Releases: @task.V3.T56.**
 8. **Hosted UI primitives: @task.V3.T72** (toaster and menu in `kanban`) **and @task.V3.T73** (combobox in
    `kanban`, tree in `draft`, token input in `chat`).
-9. **Browser slice: @task.V3.T58.** Every fixture runs in real browsers; no new feature.
+9. **Browser slice: @task.V3.T111 (after the store, @task.V3.T58).** Every fixture runs in real browsers; no new feature.
 10. **CLI: @task.V3.T22, then @task.V3.T23.** `flow check` runs clean over every fixture's app; no new feature.
 11. **Entity store: @task.V3.T24.**
 12. **Streams: @task.V3.T25.**
@@ -1567,7 +1567,7 @@ it starts, and writes its scenarios red first. The step numbers are the matrix c
 16. **Inspection: @task.V3.T49.** Every `long` run is also exported and imported.
 17. **Story words: @task.V3.T29** (after T49 and T23). `duplicate`, `times`, `Fake.Refused`, `Fake.Closed`, frames and
     `together` in chat (duplicate delivery), kanban and draft; no new feature.
-18. **React and server rendering: @task.V3.T30** (after T58, T76 and T77).
+18. **React and server rendering: @task.V3.T30** (after T111, T76 and T77).
 
 ## Task text to amend
 
@@ -1587,7 +1587,7 @@ For the orchestrator. Each names a fixture that no longer exists, or a scope thi
 - @task.V3.T76 names `pager` (now `search`).
 - @task.V3.T77 names `checklist` (now `kanban`).
 
-@task.V3.T9 (`lanes`), @task.V3.T20 (`pay`) and @task.V3.T58 ("Pay and checkout") need no change, since those
+@task.V3.T9 (`lanes`), @task.V3.T20 (`pay`) and @task.V3.T111 ("Pay and checkout") need no change, since those
 fixtures stay.
 
 ## Open

@@ -304,6 +304,14 @@ tasks
             - Fixtures (13): accepted the generator gap, a new sample set beside the old, samples on the default setup,
               the runners named, S and E codes, the switcher's setup, a second app and conditional expectations.
             - Effect sweep: citations spot-checked (Context.ts:319, Effect.ts:13606 and 1897, vitest `buildPerTest`).
+        comment     2026-11-20T04:04:22Z
+            Rulings (orchestrator) on the requirements lead's calls, for the user's read: Safari D4 (Web Lock on
+            bfcache) moves to @task.V3.T27 (lock ownership; small amendment), so T58's adapter meets D1 to D3; the
+            runner is accepted: Vitest browser mode with our own provider over installed Chrome and
+            /usr/bin/safaridriver, no download; the run kills its automation Safari by exact pid and proves headless
+            Chrome's hide or uses headed Chrome for that case. D9's merge into Package waits for the user. The lead's
+            own calls (hide()/show() Story steps, src/host/persistence.ts, no load timeout) go to the
+            requirements review.
     T57
         title       Schedules: paused, keyed, Effect Schedules and computed delays (slice 3b)
         status      draft
