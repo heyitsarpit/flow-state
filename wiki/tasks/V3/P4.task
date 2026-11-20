@@ -905,6 +905,77 @@ tasks
             listRepair evidence, disarmOn with restartOn in one turn. User's reads: D40 merged; public Timers,
             TimerView, Paused and Resumed evidence, tokens-only armOn/disarmOn; record format 5 with its step; lane-only
             holds publish nothing.
+        comment     2026-11-20T10:28:28Z
+            Close review (Opus lead, four Haiku sidecars: blind, cohesion, coverage, flip A): ISSUES. The runtime holds;
+            the types four acceptance items name are unbuilt. Suite once under coverage: 1727 pass, 23 expected fail,
+            one timeout (`tests/shop/context.test.ts` large cart, 8/8 alone). Plants `restore-restarts-series`,
+            `lane-change-skips-recheck`, `format-four-drops-deadlines` and `keyed-disarm-unkeyed-only`: all caught by
+            `faults --only`. Stress mix passes. D40 is merged into Machines O5 and Turn R17 correctly. B1 to B7 are
+            all checked.
+
+            - Blocking (broken acceptance items, inverted pins red): depth-2 widening of delay and `armOn` names (A10;
+              `tests/types/nested-schedule.test-d.ts:23`, `schedules.test-d.ts:115`). Typed `key` (A7, Q15), `pausedBy`
+              as a literal union (A5, Q12, Turn R27 "so `pausedBy` is typed") and context typed in guards, updates and
+              pause reasons (A10's R12): the `today` pins at `schedules.test-d.ts:38,60,69,87,187`. Coverage is there;
+              the build is missing. Only an acceptance amendment with an owner moves them out.
+            - Ruling, `disarmOn` with a changed `restartOn` in one turn. Code: `serve.ts` `apply` disarms, then
+              `settle(restart)` re-arms (`schedules.ts:388`). A search debounce has `restartOn: query` and `disarmOn:
+              [Submit]`, and Submit clears the query. Trace A (today): the timer re-arms and fires 300 ms after the
+              submit, a made-up firing. Trace B: the timer stays disarmed and the baseline silently takes the new query;
+              a later change re-arms it. B loses nothing, so B wins. Turn R14 needs the sentence. Owed red-first in the
+              fix round; no Story covers a disarm event that also changes the selection.
+            - Owed in the fix round, each a missing check (no red today):
+              - `tests/rules/records.ts:35`: the idle branch `Struct(TimerHead)` accepts any object, so Codec I7 never
+                fails, even on a timer with both `dueAt` and `left`. Make it exact.
+              - Fixes landed without a check: a dying Schedule step (`schedules.ts:495` uncovered; needs a Schedule that
+                dies on its second step), and `firingRun`'s due guard, whose plant was dropped (needs two uses returning
+                in one step to an actor whose series is overdue).
+              - The format-4 idle marker at `actor-record.ts:383` is uncovered: a held booking saved after `warn` fired
+                must not fire `warn` again.
+              - R19's "a defect keeps the previous values" has no Story: needs a `keys`, `restartOn` or `paused`
+                callback that throws on a memory flag.
+              - Schedule-source issues are never cleared (Turn R25; no `withoutIssue` for `IssueSource.Schedule`): needs
+                a pause reason that throws, then recovers.
+              - `tests/shop/store.test.ts:335`, an R12 `it.fails` the close note misses: the fixture's guard still
+                carries the workaround from before R12 (`checkout-flow.ts:58`).
+            - Builder's open items:
+              - Seed 15, the 5th extra seed, replayed: evidence 16 is a context wave's Published, from the house's mode
+                change at 12, and I9 counts it into the lounge's AddSensor turn at 14. Context publishing predates this
+                Task, so the wrong side is the run rule (a context wave has no turn start). Routed; the orchestrator
+                names the owner.
+              - `listRepair`: a repeated key maps to one track (`keysPass`), so no firing doubles; only the evidence is
+                missing, and it is shared with `.each`. @task.V3.T109.
+              - Repo R12 stays with @task.V3.T109.
+            - Changed checks hide no ending:
+              - The mix network check is coverage only; asking that each fixture's server is reached across seeds would
+                be stronger.
+              - With heating `Saved` now denied, the accepted path is still re-checked structurally (`serve.ts` `settle`
+                after every commit). But the two tests at `tests/home/schedules.test.ts:51` and `:60` read the same
+                denied run, so the accepted ending's lane change has no Story of its own.
+              - The −1 to 2^31 moves are sound.
+            - A lane-only hold publishes nothing. Published carries only state and memory, which a hold does not change;
+              Paused evidence records the hold, and the snapshot reads live. No ending is lost. Lane-only publication is
+              D2, finished by @task.V3.T105.
+            - Format 5: the step and the reorder, add, remove and rename cases hold. Those Stories reload at the save
+              instant, so a kept deadline can't be told from a re-derived one (name matching is still caught).
+            - Notes:
+              - Spec wording: O3's pre-commit list names `keys`, `restartOn` and `paused`, which R16 and R27 run after
+                commit. R19 and I38 say "no schedule functions", yet a new key arriving from lanes must run `schedule`.
+                I32 lacks R15's key order.
+              - `schedule-steps.ts:54` leaks disarmed or restarted series until they complete.
+              - Temporary id "Pending D40" at `tests/home/schedules.test.ts:294` and `tests/schedule-faults.ts:116`. The
+                title at `:287` still says "continues from step one".
+              - Names: `Timers`, `TimerView`, `Paused` and `Resumed` are coherent (timer = the instance, schedule =
+                the declaration).
+              - Small duplicates: `msOf`/`plannedOf`; restore's `seriesOf` drops a throwing plan that `firstStep`
+                reports; mapper context is `undefined` here but `{}` for endings.
+            - Sidecars:
+              - Accepted (each re-read in code): disarm with restart, the vacuous I7 rule, the uncovered fix lines, R25,
+                the stepper leak, D40 ids, the shop R12, the Spec wording.
+              - Changed: "recheck defects publish nothing" (each records a Refused act); "a zero-delay duplicate
+                doubles" (it fires early, not twice).
+              - Rejected: the `today` pin as a weak check (it is the convention); mapper context as a defect (no mapper
+                reads it).
     T21
         title       Reads and operations (slice 5)
         status      draft
