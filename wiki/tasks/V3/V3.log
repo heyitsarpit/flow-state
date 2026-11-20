@@ -1133,3 +1133,7 @@ note 2026-11-19T22:51:04Z
 note 2026-11-19T23:01:39Z
     T107 requirements review: ISSUES, three blocking (state-scoped entry cases, non-token reads dropped silently,
     compound state tokens); all three land as red checks first, then the build lead runs to review.
+
+note 2026-11-20T00:10:54Z
+    T107 in review (e99a94ee): context slots built, state-scoped onContext rejected on its Stories, format 4 per slot,
+    Turn R22 rule added; close review started.
