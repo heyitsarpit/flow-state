@@ -1314,3 +1314,7 @@ note 2026-11-20T13:23:18Z
 note 2026-11-20T14:10:02Z
     Decision (the user, 2026-11-20): "when T57 is closed i want you to stop". Scope: the run stops once @task.V3.T57 is
     done; no further lead starts.
+
+note 2026-11-20T14:55:11Z
+    T57 back in review (53a6ce47): issues owned by decide, idle reasons kept. Close review started. @task.V3.T117 added:
+    the home-rooms stress sweep is over its bound (193 s of 164 s).

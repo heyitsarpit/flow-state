@@ -5984,3 +5984,24 @@ tasks
         comment     2026-11-20T13:12:05Z
             Breakdown fix (orchestrator, 2026-11-20): owns the carried type's shape and takes the unkeyed send-mapper
             key pin; T76, T77, T109 and T106 only add fields through it.
+
+    T117
+        title       Fast tests again: the home-rooms stress sweep back under its bound
+        status      draft
+        priority    high
+        description
+            The `sweep-stress-land-0` shard runs under its bound again, by making schedule firings cheap or by a
+            recorded re-measurement of the bound.
+
+            **Why now:** the shard runs 193 s against its 164 s bound (measured at 41 s earlier); the tree before T57's
+            last round already took 207 s. The profile points at schedule work and record writes on every firing in the
+            home-rooms Stories. The Epic takes a Task to make the tests fast again before the next one.
+
+            **Read first:** @task.V3.T57 (its last close note),
+            code:packages/flow-state-v3/src/core/schedules.ts, code:wiki/conventions/bench.md.
+
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`. Evidence: this Task's comments.
+        acceptance
+            - The shard passes under its bound, or the bound is re-measured and recorded with its reason (a count may
+              change only by a recorded re-measurement).
+            - A per-firing cost that grew is found by profile and removed, or recorded as the cost of a rule.
