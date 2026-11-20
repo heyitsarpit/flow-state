@@ -4112,6 +4112,67 @@ tasks
             testing words (StoryRun, Samples and Generated steps, publishedOf actor, a dropped send's sender, pairSweep
             and propertyTest properties by app; Flow's two rule names refused); unsettledWrites takes no type argument;
             scope alone refused. Merging Pending D2-D4 waits for the user.
+        comment     2026-11-20T02:42:28Z
+            Close review (independent lead, 6 Haiku sidecars at high effort, one blind): ISSUES, 1 blocking. Checked at
+            `3947bdc9`. Suite exit 0 (1601 passed, 26 expected fail); paired-refusals and no-tag-chain plant tests pass;
+            `faults --only` on 7 plants (4 R28 orderings, restore-arms-inactive-schedule, update-patch-unchecked,
+            computed-start-accepted) caught 7, each by its own named test.
+
+            Blocking:
+            1. Acceptance 7: paired-refusals plant 36 (a key refused in `machine(Lamp, …)` paired by
+               `expectTypeOf(bell.on)`) stays quiet by the builder's call, but the acceptance names "another object's
+               member" as a hole to refuse, and no ruling changed it. It is a false pass: the key subject `on` pairs
+               with any same-named read on any object, so a renamed key keeps its directive satisfied while the positive
+               asserts something else. Red: add 36 to `fires` in
+               code:tools/flow-state-lint/rules/paired-refusals.test.ts. Missing coverage: the plant was moved from
+               `missed` to quiet rather than made to fire. Fix it (pair a member read only through a binding of the
+               refused call), or the orchestrator rules it out of scope. Plant 44 is not a false pass: it pairs at the
+               parameter, as "an argument paired by its call" does.
+
+            Verified, not blocking:
+            - Disposal order: two traces of `signOutMidCheckout` (fault disposal-ready-in-queue-order is the old FIFO).
+              FIFO ends badge, flow, Pay, cart, shopper; HEAD ends badge, flow, cart, shopper, Pay. Same five endings,
+              R22 holds both ways, so no ending is lost. R28's clause states a rule (the oldest ready identity next),
+              not the code's accident.
+            - Refused fresh start: core `create` has no refusing route. Input is decoded at `createActor`/`actorIdOf`
+              and the ensure's name, constants at definition; a bad creation delay leaves that schedule unarmed with an
+              issue; context selects give issues. NotReady, Disposed, quarantined ref, ConflictingActorRef and
+              ContextCycle refuse at admission, before any start. The retirement made up no success.
+            - D2 asserts the owed `place` row closes, one Delivered and one Published in the step. `pairSweep` refuses a
+              disjoint app's property; a wider app's property reads a narrower run soundly. Scope alone is refused at
+              `["scope"]`/`["persistence"]`. No outside imports, temporary names or re-created Effect features.
+
+            Routed (not blocking):
+            - Specs: I49 says every handled-together set goes oldest first, but disposal doesn't (badge 3 before shopper
+              1); scope I49 to R28's sites, and the `store.test.ts:270` describe title with it. Restore R5
+              (`Restore.spec:129-131`) and Stories (`Stories.spec:155`) still describe the retired refused fresh start;
+              Compile T3 omits ComputedStart.
+            - Lint: paired-refusals pairs a refusal written on an `expectTypeOf(…)` line with any positive (unused
+              today), and counts a template `` [`not`] `` as exact. no-id-text misses renames through parameter
+              destructuring or assignment, plus `as string` and `String(id)`.
+            - Tests: the run-time own-rule guard's "inconclusive" half is untested (`planted.test.ts` covers turn limit
+              only). Scope alone reports WrongKind ("not of the kind"), dropping the filter's message, and its test
+              reads only code and path. `Flow.initial(Schema.Unknown, fn)` compiles; only run time refuses it.
+            - Cohesion: `StepOf` is applied to StoryRun, Samples and Generated but not Failure, Steps or sweep. The
+              typed actor is spelled four ways in `select.ts`. `foreignActorRef` raises itself while its siblings return
+              a Finding. The scope/persistence pairing is written three times.
+            - Outside range, pre-existing: Turn R14 says a negative computed delay counts as zero, but `turn.ts:340`
+              refuses it, and the tests agree with the code.
+
+            Haiku log:
+            - Accepted: plant 36; I49; the stale Restore and Stories texts; the `expectTypeOf`-line pairing;
+              no-id-text's misses; the inconclusive guard; scope's text; the Unknown schema; the cohesion items.
+            - Changed: "unsettledWrites keeps a type parameter" (it is refused unless it equals the app, which meets "no
+              caller parameter"); "two raw ForeignActorRef raises" (another Runtime's handle and wiring are different
+              cases; the three named raises share the helper).
+            - Rejected:
+              - "a fresh start can still be refused" (those are admission refusals; the ensure round-trip defect
+                predates this Task);
+              - `create` skipping its input check (the boundary decodes once);
+              - the superset pairSweep property;
+              - one-sided R28 pins (each fault caught by its own named test);
+              - Plan text for D2-D4 (the merge waits for the user);
+              - historical reference pages.
 
     T107
         title       Context slots: Flow.context on the definition, C.slot.change in the machine
