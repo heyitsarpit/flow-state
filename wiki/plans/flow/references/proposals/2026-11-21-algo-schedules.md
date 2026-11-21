@@ -803,7 +803,7 @@ any order it needs the user's edit.
 
 Each has two traces where behaviour differs. Recommendation first.
 
-1. **Where the `restartOn` selection gets its codec** [open: 2026-11-21; recommend A]
+1. **Where the `restartOn` selection gets its codec** [answered: user 2026-11-21; A, as recommended]
    - A: the declaration names its Schema, beside `key` and `pausedBy`; the body's `restartOn` must return that
      type, and the baseline is saved as its canonical text.
    - B: no declaration; `restartOn` must return a JSON value. C: keep `unknown` and `Equal.equals`.
@@ -819,7 +819,7 @@ Each has two traces where behaviour differs. Recommendation first.
    expire: { key: { id: Schema.String }, pausedBy: ["Hovered", "Hidden"], restartOn: Schema.NullOr(Schema.String) },
    ```
 
-2. **What a re-entered state's new timer inherits** [open: 2026-11-21; recommend A]
+2. **What a re-entered state's new timer inherits** [answered: user 2026-11-21; A, as recommended]
    - A: nothing. Its reasons start at `[]`; a reason that throws on its first read does not hold it. Trace: A
      true, A throws, re-entry; the new timer is due and fires at 60 s with the reason's issue showing.
    - B: its key's last reasons from the activation that ended (the ledger, `:175`; today's code for a same-turn
@@ -827,12 +827,12 @@ Each has two traces where behaviour differs. Recommendation first.
      exists; a re-entry one turn later does not, so two paths to the same state differ.
    - C: nothing, and a timer whose reasons never read clean is held until they do. It needs a new snapshot shape
      (`left` with an empty `pausedBy`). A follows SI's P1 and T57's 15:14:37Z ruling.
-3. **A new timer whose first `restartOn` read throws** [open: 2026-11-21; recommend A]
+3. **A new timer whose first `restartOn` read throws** [answered: user 2026-11-21; A, as recommended]
    - A: its first clean read is the baseline, silently. Trace, row `lapk`: the selection really changes; `good`
      restarts, `bad` does not. A restart that happened while the selection was unreadable cannot be known.
    - B: it counts as a change and restarts the timer. Trace: selection throws / `bad` appears / Stop / selection
      reads again with the same value; `bad` re-arms after `Stop` though nothing changed: a made-up firing.
-4. **What a wake does to a saved baseline** [open: 2026-11-21; recommend A]
+4. **What a wake does to a saved baseline** [answered: user 2026-11-21; A, as recommended]
    - A: nothing. The saved selection stands; the owner raises `Context` after the wake when context or props
      differ from what the scope last heard, and that occasion compares, as it runs an `onContext` reaction.
    - B: the wake re-reads `restartOn` and takes a clean value silently; a throw keeps the saved value (AR S-1's
@@ -845,14 +845,14 @@ Each has two traces where behaviour differs. Recommendation first.
      by such a timer.
    - A gives a reload and a thaw one rule (6.2) and matches T118's 16:20:43Z wording ("the restore keeps it ...
      the reload is transparent"). B is the Plan's sentence, written when no baseline was saved.
-5. **A start whose first step fails** [open: 2026-11-21; recommend A]
+5. **A start whose first step fails** [answered: user 2026-11-21; A, as recommended]
    - A: keep both rules. A turn's own arm (entry or `armOn`) with a bad delay refuses the turn; every later start
      (a new key, a restart, creation, a wake) is `Refused` with an issue.
    - B: one rule. Every start is decided after commit and a bad delay is `Refused`; no turn is refused by a
      schedule. B removes `armingsOf`'s first-step half and `Turn.started.first`, and makes creation and a turn
      the same. It changes @plan.Machines.O5 ("rejects the arming turn") and flips rows T57's tables prove.
-6. **The build order of section 14** [open: 2026-11-21; recommend the third row]
-7. **A computed Effect Schedule after a reload** [open: 2026-11-21; recommend A]
+6. **The build order of section 14** [answered: user 2026-11-21; the third row, as recommended]
+7. **A computed Effect Schedule after a reload** [answered: user 2026-11-21; A, as recommended]
    - A: a stated limit. The series is planned again from the memory at wake and replayed to its saved attempt;
      if that memory differs from the arming turn's, later delays differ. It is today's behaviour
      (`schedule-restore.ts:22-36`). The one fixture that computes a series (`home/room.ts:167-168`) selects the
@@ -860,7 +860,7 @@ Each has two traces where behaviour differs. Recommendation first.
      that reads what its `restartOn` does not select.
    - B: refuse a computed delay that returns an Effect Schedule; only a fixed series or a computed Duration.
      Trace B: `room.ts`'s per-sensor poll interval no longer compiles.
-8. **When a refused start is tried again** [open: 2026-11-21; recommend A]
+8. **When a refused start is tried again** [answered: user 2026-11-21; A, as recommended: retried on every occasion; this changes @proposal.schedule-issues P2]
    - A: on every occasion, as a timer with no baseline is read on every occasion. This changes SI's accepted P2.
      Trace: `bad` appears out of range / `bad` appears (its delay is valid now); `bad` arms at the second step,
      and a reload changes nothing: the model's I6 holds with no exception (9.1). Cost: a refused timer's delay
@@ -868,7 +868,7 @@ Each has two traces where behaviour differs. Recommendation first.
    - B: SI's rule as accepted: at a wake, and at a later start cause. Trace: the same steps leave `bad` refused
      with its issue, though nothing is wrong any more. A reload then arms it: the reload is visible, I6 needs
      its exception, and the two-run check for I6 must skip refused timers.
-9. **Departures from the concept designs** [open: 2026-11-21; recommend as designed here]
+9. **Departures from the concept designs** [answered: user 2026-11-21; as designed here, as recommended]
    - S-7: an undeclared saved reason drops that name and keeps the timer; SR:201 makes the record unreadable or
      drops the timer. Trace SR: removing a reason in a release drops a held toast timer, which never expires.
    - A frozen scope's clock runs (@plan.Machines.O5); FR:324 holds it. Trace FR: a session timeout in a frozen
