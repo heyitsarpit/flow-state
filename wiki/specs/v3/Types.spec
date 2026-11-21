@@ -276,7 +276,8 @@ model
         Rows other Specs need (each follows its answer):
         G1 `Reads<D, Scope, View>`: no new row, exported.
         G2 `BodyTokens<D>`: existing, exported, so a shared body needs no hand type; its return type is inferred.
-        G3 the decline reasons of an event (new): the `deny` literals in the body, through `B`.
+        G3 the decline reasons of an event (new): the `deny` literals in the body, through `B`; deny codes stay
+            inline in guards and are not declared on the definition [decided: user 2026-11-22].
         G4 `MapperContext<I, K>`: no new row; `MapperTypes` is the one definition, `K` the picked key record
             `Pick<I, Key[number]>`.
         G5 `PropsOf<D>` (new alias): `D["props"]`, for `setProps`.

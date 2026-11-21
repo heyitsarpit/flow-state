@@ -572,3 +572,8 @@ note 2026-11-21T20:14:41Z
 note 2026-11-21T20:27:19Z
     Slice T89 (T131, T120) started alone as a calibration run at the user's word (2026-11-22); R48's phase review is
     skipped for this one slice, by the user's scope.
+
+note 2026-11-21T21:15:28Z
+    The user decided (2026-11-22) that declared schedules supersede the body-declared form and Flow.keyed outright; T120
+    deletes and simplifies what the declaration makes redundant and edits the Specs to match (T120's comment holds the
+    decision).
