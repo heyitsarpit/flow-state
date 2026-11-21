@@ -185,6 +185,25 @@ Each lead reads the files the earlier clusters wrote and names every seam it cro
    been algorithm design, so this review says what to keep as well as what to change.
 8. Then to-spec per cluster, and the Task changes.
 
+- **Night plan** [decided: user 2026-11-21], replacing steps 6 to 8 for tonight; no coding starts:
+  1. The final Opus review (step 5), committed.
+  2. **Solutions pass:** one Fable lead at effort high, 60 minutes, reads all six designs, the final review and
+     every open question, and offers solutions that plug the holes, thinking from the developer who will use the
+     library: the feature requirements an app needs. Goal: designs an Opus coder can build features from. Every
+     public-API or scope change stays proposed for the user. It also judges cohesion: whether all the solutions
+     work together at the functional and the type level, how they fit the Tasks, where each piece lands and in
+     what order of implementation. The user permits Task changes where needed.
+  3. **Specs:** Sonnet agents copy each design with its resolutions into `.spec` files through `wk`, copying text
+     directly wherever possible so the Specs survive the proposals' deletion. What does not fit a `.spec` goes in
+     a companion `.md` beside it, not a link into a proposal. The old core Specs are marked superseded.
+  4. **Task links:** every Task that needs a Spec links it, with a note that the Spec is pre-coding analysis to
+     follow as best-guess guidance, not a strict contract. Tasks also name the code marked for deletion or
+     supersession (from @review.code-audit and the designs' fit tables) as redundant or to be replaced. Nothing
+     is deleted.
+  5. **Review loop:** one Opus at effort medium reviews and fixes the Specs and Task links; Sonnet reviewers
+     review again; the Opus fixes again. Goal: the Epic ready for coding to start.
+  6. Commit per phase; wake timers keep each run inside the 5-hour windows; weekly budget 65% of all models.
+
 The orchestrator verifies every report against the file it names before the next step.
 
 - **Lead time cap** [decided: user 2026-11-21]: a lead runs at most 60 minutes. At the cap, or when the 5-hour
