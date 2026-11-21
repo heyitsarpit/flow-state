@@ -112,6 +112,10 @@ outcomes
         test runs is otherwise never proved. Reverse: `flow check` only, as the earlier text of this paragraph had it
         (superseded by the user's 2026-11-22 decision, @proposal.external-rules). See @spec.Types (Q6).
 
+        Superseded (the earlier O2 text, by the decision above): "terminals are proved by `flow check` only, never
+        judged by runs; they have no token, `RuleBroken` never names one, and neither the switch (@O4, `off: "all"`
+        included) nor the Runtime's `rules` option (@O6) applies to them." Why it stood: a graph proof covers every run.
+
         Terminals live in the machine's `.rules(...)`, not on the definition's states list: a terminal is a claim, not
         shape, and changes no behaviour. Flow does not stop an actor in a terminal state.
 
@@ -124,11 +128,11 @@ outcomes
     O3  Rule names and tokens
         Rules have their own namespace under `rules`, apart from the shared namespace of states, memory keys,
         operations, props, emits and trait instances. A name is unique across `invariants` and `turns` in one machine or
-        fragment: a duplicate inside one object is a type error, one across the two objects is refused at construction
-        (`RuleNameTwice`), as are casts and plain JavaScript. Each rule is a typed token, `machine.rules.<Name>` or
-        `fragment.rules.<Name>`, and the token carries the definition id (`Shop/Order.PaidHasReceipt`).
+        fragment: a duplicate, inside one object or across the two, is a type error and also refused at construction
+        (`RuleNameTwice`), which catches casts and plain JavaScript. Each rule is a typed token, `machine.rules.<Name>`
+        or `fragment.rules.<Name>`, and the token carries the definition id (`Shop/Order.PaidHasReceipt`).
 
-        `machine()` is unchanged: it returns `Bare<D>`, and `.rules(build)` returns `Machine<D, N>`, where `N` is the
+        `machine()` is unchanged: it returns `Machine<D>`, and `.rules(build)` returns `Machine<D, N>`, where `N` is the
         rule names read from the keys of the builder's result alone. Nothing captures the body or the checks.
         `Machine<D, N>` assigns to `Machine<D>`, and a `Machine<D>` annotation loses the tokens, so such code still
         compiles and reaches a rule by name only where the type is kept. A shared build is typed by `rules(Definition,
@@ -149,7 +153,8 @@ outcomes
         exercised fails as "never broke". After a rule's first break the run goes on, later breaks are not failures, and
         generated runs started from the Story treat it as off. `off` (a list of tokens, or `"all"`) is not judged and
         does not count as exercised. A rule in both lists is refused. Rule coverage lists every rule expected or off.
-        Generated runs and sweeps started from a Story inherit its switch.
+        Generated runs and sweeps started from a Story inherit its switch; reload-sweep forks drop `expectBroken` and
+        still judge every rule (@spec.Host).
 
         ```ts
         // NEW: .rules, expectBroken, off, machine.rules.<Name>; renamed: runRules (the run rules option)
@@ -207,13 +212,23 @@ outcomes
         superseded with it, and its `enabled` overturn stands. The run rules are one list in one module that the config
         and `Story.app` both import (@spec.Host).
 
-        The case that remains is rules written while the bare value is the one that runs. It is closed without making
-        rules mandatory: a run holding two values of one id with different rules is refused (`RulesDiffer`); a lint rule
-        stops a module that calls `X.rules(...)` from exporting `X` (`no-bare-export`), and another accepts only an
-        arrow or an identifier as the argument (`rules-argument`); rule coverage and `flow explain` list every value
-        with no rules; and `flow check` warns `RulesBypassed` when an app or Story runs a bare value of an id some
-        loaded value has ruled. A shared build typed `rules(Order, build)` never needs the bare value exported. Every
-        Story route starts through one function, `storyCompiled`, which also proves each ruled value's terminals.
+        Superseded (the earlier O6, by the decision above, @proposal.external-rules): "Rules stay inline in `machine()`
+        ... The Runtime setup chooses `rules: "judge" | "off"`, read once at the host edge from the app's own
+        environment; Stories and the CLI always judge." [decided: user 2026-11-22, now superseded] Why it stood: a flag
+        read in a rule's body is evaluated at import, where the plain CLI has no `import.meta.env`. With `judge`, the
+        host judged after each publication or accepted turn, kept the previous snapshot as `before`, and recorded a
+        broken rule as `RuleBroken` evidence with `Flow.private` memory redacted; the core never called a rule. Reverse
+        of the supersession: restore that Runtime option.
+
+        The case that remains is rules written while the bare value is the one that runs. [decided: agent specs lead
+        2026-11-22] It is closed without making rules mandatory: a run holding two values of one id with different rules
+        is refused (`RulesDiffer`); a lint rule stops a module that calls `X.rules(...)` from exporting `X`
+        (`no-bare-export`), and another accepts only an arrow or an identifier as the argument (`rules-argument`); rule
+        coverage and `flow explain` list every value with no rules; and `flow check` warns `RulesBypassed` (a warning
+        only) when an app or Story runs a bare value of an id some loaded value has ruled. A shared build typed
+        `rules(Order, build)` never needs the bare value exported. Every Story route starts through one function,
+        `storyCompiled`, which also proves each ruled value's terminals. Why: rules are optional, so the bare value must
+        not slip past unnoticed. Reverse: make rules mandatory.
     O7  Fragments
         A `trait` or `subroutine` value takes the same chained `.rules(build)` as `machine()`: a trait's builder gets
         `E` and `turn` (no `S`, `terminals` or `in`), a subroutine's gets its own `S`, `E` and `turn`. The definition
@@ -291,18 +306,19 @@ outcomes
         ```
     O8  Tools
         `flow explain` lists each machine's rules and every value with no rules. `flow check` proves terminals (@O2),
-        warns `RulesBypassed` (an app or Story runs a bare value whose ruled form it also loads), refuses an unknown key
-        in a rules object, and warns `RuleSubjectUnreachable` when the compiled graph cannot reach a rule's `in` state
-        or no reachable state handles its `on` event. Guards make the graph an over-approximation, so that warning is
-        never false; it is a warning, not an error, so a machine mid-edit still checks, and it separates "impossible"
-        from "not tested yet", which rule coverage alone cannot. The test reporter prints rule coverage (@O5).
+        warns `RulesBypassed` (an app or Story runs a bare value whose ruled form it also loads; an agent call, @O6),
+        refuses an unknown key in a rules object, and warns `RuleSubjectUnreachable` when the compiled graph cannot
+        reach a rule's `in` state or no reachable state handles its `on` event. Guards make the graph an
+        over-approximation, so that warning is never false; it is a warning, not an error, so a machine mid-edit still
+        checks, and it separates "impossible" from "not tested yet", which rule coverage alone cannot. The test reporter
+        prints rule coverage (@O5).
 verification
     V1  Type tests prove rule tokens, inputs and subjects against the real `machine()`: `machine.rules.<Name>` exists
-        for each rule and not for others; a duplicate name across kinds is a type error; `event` is typed from `on` and
-        absent without it; `in` on a turns rule and `on` on an invariant are errors; `context` is readable in turns
-        rules only; each check's input is inferred; `.rules` twice and a wrong definition's build are errors; a shared
-        `rules(Def, build)` and a `Machine<typeof X>` annotation still compile; the trait and subroutine forms hold on
-        the real types.
+        for each rule and not for others; a duplicate name, in one kind or across both, is a type error and
+        `RuleNameTwice` at construction; `event` is typed from `on` and absent without it; `in` on a turns rule and `on`
+        on an invariant are errors; `context` is readable in turns rules only; each check's input is inferred; `.rules`
+        twice and a wrong definition's build are errors; a shared `rules(Def, build)` and a `Machine<typeof X>`
+        annotation still compile; the trait and subroutine forms hold on the real types.
     V2  Stories prove every run judges: a planted broken invariant and a planted broken turns rule each fail a Story,
         a generated run (with its shortest Story) and the reload sweep; denied and unhandled turns are not judged by
         turns rules while their lane changes are judged by invariants; a restore is judged by invariants only; several
@@ -312,7 +328,8 @@ verification
         runs generated from it.
     V4  Tests prove rule coverage: counts per rule and subject, unseen with its reason, `off` left out of the total,
         and that unseen never fails.
-    V5  `flow check` tests prove terminals (an ancestor handler, a late ending and a subroutine exit each give
+    V5  `flow check` tests prove terminals (an ancestor handler, a schedule, a late ending and a subroutine exit each 
+         give
         `TerminalLeft`; restarts, self-transitions and a branch whose state-token guard excludes the terminal do not; an
         empty or duplicate list is refused) and `RuleSubjectUnreachable`; `flow explain` lists rules.
     V6  Tests prove nothing judges outside a Story: a plain Runtime test with a broken rule passes, `RulesDiffer`

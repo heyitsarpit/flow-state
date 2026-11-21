@@ -611,9 +611,9 @@ tasks
             Contradiction resolved: superseded @spec.StaticCli, @spec.Compile and @spec.Diagnostics cites re-pointed to
             @spec.Types (R4–R6) and @spec.Host (R13).
         comment     2026-11-21T22:34:14Z
-            [decided: user 2026-11-22] `flow check` gains the unknown-body-key finding (Q19: not a type error) and
-            @proposal.external-rules' rows; T106 builds them, this Task owns the command. Why: exactness is runtime
-            only. Reverse: a type-level excess check.
+            [decided: agent requirements lead 2026-11-22] `flow check` gains the unknown-body-key finding and
+            @proposal.external-rules' rows; T106 builds them, this Task owns the command. Why: exactness is runtime only
+            (the user's option C, Q19). Reverse: a type-level excess check.
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -861,9 +861,9 @@ tasks
             Contradiction resolved: Risk names @task.V3.T127 as the blocker in place of T77 (blocked_by already had it);
             @spec.Turn.R28 re-pointed to @spec.Changes.R20.
         comment      2026-11-21T22:34:33Z
-            [decided: user 2026-11-22] `Story.machine`'s first slice also takes the required `runRules` option, as all
-            three Story constructors do (@proposal.external-rules; the machine's own rules ride its value). Why: one
-            word per meaning. Reverse: the earlier option name `rules`.
+            [decided: agent specs lead 2026-11-22] `Story.machine`'s first slice also takes the required `runRules`
+            option, as all three Story constructors do (@proposal.external-rules; the machine's own rules ride its
+            value). Why: one word per meaning. Reverse: the earlier option name `rules`.
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
@@ -1140,9 +1140,10 @@ tasks
             `ErasedEntry`, the keyed mark, body-side inference). One writer after: none, deleted. (3) Planted-fault find
             texts bound to the old shape: `armon-keeps-deadline`, `restore-arms-every-added`,
             `keyed-disarm-unkeyed-only`, `armon-of-any-kind`; writer `tests/faults.ts` and its siblings, reader `nub run
-            faults`. (4) The lint guard's verdict: one writer, the rule. Seam with T120: keyedness is read from a body's
-            `keys` in five core places; the twin rows make it agree with the declaration, so it stays derived, not a
-            second fact.
+            faults`. (4) The lint guard's verdict: one writer, the rule. Seam with T120 (pre-decision state: the body's
+            `keys` is read in five core places today; the declaration now owns keyedness): keyedness is read from a
+            body's `keys` in five core places; the twin rows make it agree with the declaration, so it stays derived,
+            not a second fact.
         comment     2026-11-21T21:36:24Z
             Paused (requirements lead). Done for @task.V3.T140: inventory, requirements, fixtures proof, 5 inverted reds
             in tests/compile/schedule-migration.test.ts, the lint guard's planted test (fails: no rule), a baseline of
@@ -2396,8 +2397,9 @@ tasks
             Contradiction resolved: Turn R30 re-pointed to @spec.Changes.R15 in the description, Read first
             and acceptance.
         comment     2026-11-21T22:34:33Z
-            [decided: user 2026-11-22] No text change: the rules builder's `E` of a subroutine or trait includes
-            `hostEvents`, built in @task.V3.T106 (@proposal.external-rules section 1).
+            [decided: agent requirements lead 2026-11-22] No text change: the rules builder's `E` of a subroutine or
+            trait includes `hostEvents`, built in @task.V3.T106 (@proposal.external-rules section 1). Why: the builder
+            reads the same events the body does. Reverse: a rules-only `E` without `hostEvents`.
 
     T111
         title       Fixtures in real browsers: minimal React, Chrome and Safari
@@ -2558,15 +2560,15 @@ tasks
             Every type user code needs from a definition, machine or contract is derived by Flow, so no handler,
             fragment, helper, mapper or snapshot read types an event, memory, ending or key by hand.
 
-            **Why now:** the body type is lost at `machine()` today, so a snapshot cannot type a schedule's `pausedBy`
-            or a keyed schedule's send key, and every later Task that adds a snapshot field (props, emit summary,
-            fragment summary) would otherwise add its own typing path (breakdown review, the orchestrator, 2026-11-20).
-            A survey (2026-11-20) found about 100 hand-typed parameters and 6 copied local types that nothing checks
-            against a definition: about 45 ending mappers (`E.X.from((v: {…}) => …)`, `{ why: string }` about 25 times),
-            25 memory parameters and 18 event payloads in fragments and helpers outside the `on` literal, and duplicated
-            helpers (`byRepo` in `fixtures/sync` and `fixtures/lanes`, `fromAccount` in two transfers machines). One
-            class: a type Flow knows, written by hand where inference does not reach; the user widened this Task to
-            remove it everywhere (2026-11-20).
+            **Why now:** a snapshot cannot type a schedule's `pausedBy` or a keyed schedule's send key until the
+            definition's declaration carries them (@spec.Schedules R16), and every later Task that adds a snapshot field
+            (props, emit summary, fragment summary) would otherwise add its own typing path (breakdown review, the
+            orchestrator, 2026-11-20). A survey (2026-11-20) found about 100 hand-typed parameters and 6 copied local
+            types that nothing checks against a definition: about 45 ending mappers (`E.X.from((v: {…}) => …)`, `{ why:
+            string }` about 25 times), 25 memory parameters and 18 event payloads in fragments and helpers outside the
+            `on` literal, and duplicated helpers (`byRepo` in `fixtures/sync` and `fixtures/lanes`, `fromAccount` in two
+            transfers machines). One class: a type Flow knows, written by hand where inference does not reach; the user
+            widened this Task to remove it everywhere (2026-11-20).
 
             **Read first:** code:packages/flow-state-v3/src/machine.ts, @questions.advisor-questions (question 1),
             @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R7, R8, R9, R10,
@@ -2632,8 +2634,8 @@ tasks
             False pass: a type that infers on the happy path only → caught by type tests with a mistyped key, a shared
             body such as `PayBody`, and an unknown key (a runtime refusal, not a type test).
         acceptance
-            - A Snapshot is typed by the body plus the definition: `pausedBy` is a literal union of the body's pause
-              reasons (@spec.Schedules R16, @plan.Machines.O8), shown by a type test that replaces the inverted pin
+            - A Snapshot is typed by the definition: `pausedBy` is a literal union of the declared pause reasons
+              (@spec.Schedules R16, @plan.Machines.O8), shown by a type test that replaces the inverted pin
               in `tests/types/schedules.test-d.ts`.
             - A keyed schedule's send mapper receives the typed key (@spec.Schedules R16), shown by a type test.
             - An unkeyed schedule's send mapper types `key` as `undefined` (two-sided type test).
@@ -3156,8 +3158,8 @@ tasks
             `src/core/compiled.ts` (one `ScheduleMetadata`); the 11 `Flow.keyed` call sites in fixtures and tests are
             rewritten with it. Do not delete it before its replacement lands and the suite passes.
         acceptance
-            - A schedule is declared on the definition and placed in the body; `Flow.keyed` is gone from `src/`
-              and fixtures.
+            - A schedule is declared on the definition and placed in the body (`Flow.keyed`'s removal from `src/` and
+              fixtures is @task.V3.T140's).
             - `Compiled.schedules` holds each schedule's key and selection codec; a saved key decodes through it.
             - Each construction check of @spec.Types R8 (the twin rule) has a refusing test and a planted fault.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
@@ -3197,9 +3199,9 @@ tasks
             1. `schedules: { name: { key?, pausedBy?, restartOn? } }` constructs and the body places it (Types R8;
                Schedules R16).
             2. One declaration placed in two states constructs (Types R8, "Placement").
-            3. `Flow.keyed` is off `Flow`; no source or fixture writes `Flow.keyed`, `KeyedConfig`, `KeyedSchedule` or
-               `ScheduleKey` (Supersedes). Every fixture machine's placed schedules have a `Compiled.schedules`
-               entry (I11).
+            3. `Flow.keyed`'s removal and the end of every `Flow.keyed`, `KeyedConfig`, `KeyedSchedule` and
+               `ScheduleKey` writer are @task.V3.T140's (Supersedes). Every fixture machine's placed schedules have a
+               `Compiled.schedules` entry (I11).
 
             B2, `Compiled.schedules` holds the codecs; a saved key decodes through them (Types R14, I11):
             4. A key codec round trips a key through its text; home Room's sensor key does too (Types T2).
@@ -3226,8 +3228,9 @@ tasks
             `keys-missing-accepted`, `keys-unexpected-accepted`, `restart-on-undeclared-accepted`,
             `restart-on-missing-accepted`, `key-codec-from-body`, `key-codec-lenient`, `warning-blocks-machine`. Wake's
             use of the codecs, an undeclared saved reason dropped and a keying change restarting keys are
-            @task.V3.T118's (Schedules, build order). Needs the user: `Flow.keyed` was accepted as public API
-            (@task.V3.T57, 2026-11-20); its removal rests on Types R8.
+            @task.V3.T118's (Schedules, build order). Needs the user (superseded by the user's 2026-11-22 decision:
+            declared schedules; `Flow.keyed` was accepted as public API by @task.V3.T57 on 2026-11-20, and its removal
+            is @task.V3.T140's, resting on Types R8).
         comment     2026-11-21T20:57:40Z
             [decided: agent requirements lead 2026-11-22] A schedule key codec decodes exactly: a saved key with a field
             the declaration lost does not decode. Why: a lenient decode merges two saved keys into one text (Schedules

@@ -725,3 +725,22 @@ note 2026-11-21T22:41:22Z
 note 2026-11-21T22:41:23Z
     Changes and Operations: pointers to the machine-rule fold in verdictOf and to no body capture; no rule changed (the
     user, 2026-11-22).
+
+note 2026-11-21T22:48:48Z
+    Correction to the two notes of 2026-11-21T22:41:22Z: RulesDiffer, RulesBypassed, the runRules name and Host Q13 were
+    agent calls, not the user's; the user's were declared schedules, external rules, Story-only judging, terminals at
+    Story start (the specs lead).
+
+note 2026-11-21T23:12:21Z
+    Types: schedules examples carry the declaration; G3 dropped in Q16 and Types.md; Q3, Q19, BodyCapture old text kept
+    as superseded; T8 both refusals; UnknownField row; RuleTokens, RuleName provided; RulesBypassed warning only; lint
+    and I-tags re-tagged agent with Why, Reverse (the specs lead).
+
+note 2026-11-21T23:12:21Z
+    Host: runRules in defineConfig; storyCompiled and RulesDiffer re-tagged agent, terminals at Story start stays the
+    user's; I21 old wording kept; I25, I26 proposed; the judge folds by actor and copy and skips a copy's entry, reset,
+    exit; ruleCoverage exported from flow-state/testing (the specs lead).
+
+note 2026-11-21T23:12:22Z
+    Operations, Changes, Types.md: schedule example declares schedules; Changes R12 cites Machines O3; Types.md H9
+    marked superseded with an agent tag (the specs lead).

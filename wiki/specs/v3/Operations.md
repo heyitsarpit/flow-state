@@ -233,7 +233,8 @@ makes it a decision; all as recommended (A):
 
    ```ts
    // today: resource({ id, input, key, services, staleTime, gcTime, lookup })   // no refetch trigger exists
-   // after: schedules: { refresh: { schedule: "1 minute", send: E.Refresh } }
+   // after: definition: schedules: { refresh: {} }
+   //        body: schedules: { refresh: { schedule: "1 minute", send: E.Refresh } }
    //        on: { Refresh: { actions: [O.x.refetch()] } }
    ```
 

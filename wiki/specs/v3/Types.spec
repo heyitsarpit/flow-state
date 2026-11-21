@@ -3,7 +3,8 @@ status        proposed
 basis         Pre-coding analysis, to follow as best-guess guidance; revisable whenever building shows it wrong, with
               each change and its reason recorded in wiki/specs/specs.log.
 location      packages/flow-state-v3/src
-provides      derive.ts, Machine, RuleToken, Build, rules, ScheduleDecl, TimersOf, Construction, Finding, CHECKS,
+provides      derive.ts, Machine, RuleToken, RuleTokens, RuleName, Build, rules, ScheduleDecl, TimersOf, Construction, 
+              Finding, CHECKS,
               compile, indexOf, findingsOf, compiledOf, project, door, slot
 derives_from  [
               @plan.Machines.O1,
@@ -149,8 +150,9 @@ open
         function. [decided: user 2026-11-22] (@proposal.external-rules) Why: its memory type comes from the
         definition, which `.rules` has, and the body no longer holds rules. Reverse: `turn` back as a body token.
         Superseded by the user's 2026-11-22 decision (@proposal.external-rules): "The body gives the machine's type
-        only its rule names, and `turn` is a body token, not an imported function" (the old text is at commit
-        1c200671).
+        only its rule names, and `turn` is a body token, not an imported function. [decided: user 2026-11-22] Why: a
+        token's memory type comes from the machine it is handed out by. Reverse: B is an imported `Flow.turn`." Its
+        outcome  was "A: `turn` is a body token". The old text is at commit 1c200671.
         outcome  A: `turn` is a rules-builder token; B (an imported `Flow.turn`) compiles too but its memory type
                  rests on the surrounding record.
 
@@ -162,7 +164,8 @@ open
 
     Q5  A rule has no `enabled`, and the Runtime has no rules switch: only Story tooling judges rules (Stories and 
         everything built from them), so an app's Runtime never reads them. The run rules are one list in one module the
-        config imports, passed to every Story constructor as `runRules`. [decided: user 2026-11-22]
+        config imports, passed to every Story constructor as `runRules` ([decided: agent specs lead 2026-11-22] the
+        name; Why: `rules` now means `.rules(build)`; Reverse: name it `rules`). [decided: user 2026-11-22]
         (@proposal.external-rules) Why: a flag read in the body throws under the plain CLI, and rules that never run
         outside a Story need no switch. Reverse: B keeps `enabled`; C is the Runtime setup's `rules: "judge" | "off"`.
         Superseded by the user's 2026-11-22 decision (@proposal.external-rules): the Runtime setup option `rules:
@@ -234,8 +237,8 @@ open
         construction time are unmeasured; the migration fixtures fail today, which skips their checking.
         outcome  Record check time after each build step; add the construction benches.
 
-    Q16  Family D's members not yet rows: `owed[].reason`, `Ended.reason`, `decline`'s `why` (the declines of an event
-        are a row, G3 in `model`), the Story checkpoint names.
+    Q16  Family D's members not yet rows: `owed[].reason`, `Ended.reason`, `decline`'s `why` (G3, the declines of an
+        event as a row, is dropped; deny codes stay inline), the Story checkpoint names.
         outcome  Inventory them against `derive.ts` one by one; each is a row or a stated debt.
 
     Q17  Rule tokens are typed on a machine that is not `Built`. `.rules(build)` reads only the definition and the
@@ -258,7 +261,10 @@ open
         or a cheap capture.
         Deletes: `const B`, `Exact`, `ExactBodyOf`, `RuleNames<B>`, `Machine`'s body-read parameter and G3. Rule names
         are typed from the keys of the `.rules(build)` object alone (`RuleTyping`), nothing else is captured. Deny
-        codes stay inline in guards [decided: user 2026-11-22]; no fixture reads a union of them, so `Denied`'s `why`
+        codes stay inline in guards [decided: user 2026-11-22] (Why: a declared union needs the body's type, and no 
+            fixture
+        reads one; Reverse: declare decline reasons on the definition); no fixture reads a union of them, so `Denied`'s 
+            `why`
         stays `string`, a stated debt of family D (Q16). An unknown key in a body or in a rules builder (`chek`,
         `terminalz`) is refused by the strict decode at construction and by `flow check`; where TypeScript also
         refuses one, it is by accident and not a promise.
@@ -266,6 +272,9 @@ open
         analysis that stood here, a narrow capture of the body with `RuleNames<B>` and G3's deny literals, and options
         A (`Exact`), B (`Exact` to a fixed depth) and C, with its `machine<D, const I, const T>` snippet, which kept
         the rules in the body. Its text and measurements are at commit 1c200671.
+        The superseded options, short: A keep `Exact` (I2 and R2 as written); B `Exact` to a fixed depth, states and
+        handlers only, measured; C drop it from the types and keep construction and `flow check` as the refusal. The
+        user took C, with the capture gone as well (the answer above).
 
 model
     StateInventory = who owns and writes each state. The states are values made once at module load; none changes at
@@ -283,7 +292,8 @@ model
             build's invariants, turns and terminals, held on the value (@task.V3.T106 settles the field). Owner and
             writer: `.rules()`. Readers: Story tooling (`storyCompiled`, `verdictOf`), `flow check`, `flow explain`.
             Never the Runtime. Saved: no. [decided: user 2026-11-22] (@proposal.external-rules) Supersedes the row "the
-            body's type `B`".
+            body's type `B`". Why: rules attach by `.rules(build)`, so nothing holds the body's type. Reverse: the
+            body-type row and the capture.
         a finding  `FindingShape`. Writer: the table `Reasons`. Readers: `flow check`, the `FlowError` of a refused
             use. Saved: no.
 
@@ -291,7 +301,9 @@ model
         the body function  `{ S, E, O, C }`, tokens only. Never: memory, the clock, the environment.
         the rules builder (`.rules(build)`)  `{ S, E, turn }` for a machine; `{ E, turn }` for a trait (no `S`, no `in`,
             no `terminals`); a subroutine's own `S` and `E` (with `hostEvents`) and `turn`. Tokens only. Never:
-            memory, the clock, the environment. [decided: user 2026-11-22] `turn` moved here from the body (Q3).
+            memory, the clock, the environment. [decided: user 2026-11-22] `turn` moved here from the body (Q3). Why: 
+                its
+            memory type comes from the definition the builder has. Reverse: `turn` back as a body token.
         an invariant's `check`  `{ state, memory, props, operations, schedules }` of one publication (`Changes`'
             `Published`). Never: the event, the clock, `context`.
             [decided: user 2026-11-20] what a guard reads; only a turns rule also reads `context`.
@@ -332,7 +344,8 @@ model
         G2 `BodyTokens<D>`: existing, exported, so a shared body needs no hand type; its return type is inferred. It
             has no `turn` (Q3); the rules builder's tokens are its own (`RuleTyping`).
         G3 the decline reasons of an event: dropped. Deny codes stay inline in guards and are not declared on the
-            definition [decided: user 2026-11-22]; `Denied`'s `why` stays `string` (Q16, Q19). Superseded: the `deny`
+            definition [decided: user 2026-11-22] (Why and Reverse: as Q19); `Denied`'s `why` stays `string` (Q16, 
+                Q19). Superseded: the `deny`
             literals read through `B`, since no body type is captured.
         G4 `MapperContext<I, K>`: no new row; `MapperTypes` is the one definition, `K` the picked key record
             `Pick<I, Key[number]>`.
@@ -451,6 +464,9 @@ model
         only by Stories; names come from the keys of the build alone. Reverse: rules in the body, with the capture.
         Supersedes the section `BodyCapture` (`ExactBodyOf`, `RuleNames`, `machine<D, const B>`, the turn paragraph
         and its kept limits), superseded by the user's 2026-11-22 decision; its text is at commit 1c200671.
+        Superseded, short: "BodyCapture = the body is captured exactly and gives the machine's type only its rule
+        names" (`machine<D, const B>` with `ExactBodyOf<D, B>`, `RuleNames<B>` read from the body's `rules`, and a
+        `Machine<D, R>` whose `rules` carried `RuleToken<K>`); the user's Q19 option C removed the capture.
 
         ```ts
         // src/rules.ts (types). NEW: Build, RuleToken, rules; `.rules` on what `machine()`, `trait()` and
@@ -463,6 +479,7 @@ model
             rules<const I extends string = never, const T extends string = never>(
                 build: Build<D, I, T>): Machine<D, I | T>
         }
+        // RuleTokens<D>: the builder's tokens, `{ S, E, turn }` for a machine and as listed below for a fragment
         type Build<D, I extends string, T extends string> = (tokens: RuleTokens<D>) => {
             readonly invariants?: { readonly [K in I]: Invariant<D> }
             readonly turns?: { readonly [K in T]:
@@ -546,7 +563,9 @@ model
         instantiations on every function. One erased `Compiled`, precise where that is free; the typed face is
         `Machine<D, N>`.
         Branded names. One list, each made only by a decode built from `Compiled` or by the mint: `MachineId`,
-            `StateName`, `EventTag`, `OperationName`, `ScheduleName`, `Reason`, `SlotName`, `RuleName`, `ActorName`,
+            `StateName`, `EventTag`, `OperationName`, `ScheduleName`, `Reason`, `SlotName`, `RuleName` (a rule's name: 
+                a key of the build, before the definition id is added),
+            `ActorName`,
             `ContractName`, `KeyText`, `AttemptId`, `SubjectAddress`, `ShapeStamp`. `state: string` and `operation:
             string` in `compiled.ts`, `world.ts` and `evidence.ts` become these; `Changes`' `history` and
             `context.slots` maps key by `StateName` and `SlotName`; `Broken.rule` and `off` both use the rule token
@@ -768,7 +787,7 @@ algorithm
         key order, its contracts in declaration order, its definition, then the machine itself (`Refused.findings` or
         `Built.warnings`), then, when `Built`, its graph rows. Within an owner: by path, then reason. `Blocked` has
         no finding of its own; its definition's or contract's error is in the list under that owner. A graph error
-        (`TerminalLeft`) fails `flow check` and does not stop a run: only construction errors do.
+        (`TerminalLeft`) fails `flow check` and does not stop a machine or a Runtime: only construction errors do.
 
     Reasons. One table of reasons (`src/core/checks.ts`; a reason is a key, so it has one row).
 
@@ -778,6 +797,7 @@ algorithm
             DelayOutOfRange:        { severity: "error",   stage: "construction" },
             ScheduleUndeclared:     { severity: "error",   stage: "construction" },  // and the other twins
             RuleNameTwice:          { severity: "error",   stage: "construction" },  // `.rules()`: invariant and turns
+            UnknownField: { severity: "error",   stage: "construction" },  // an unknown body key; `flow check` too
             RulesEmpty:             { severity: "error",   stage: "construction" },  // NEW: `.rules()` with no rule
             RulesWrongSubject:      { severity: "error",   stage: "construction" },  // NEW: another definition's build
             RulesDiffer:            { severity: "error",   stage: "story" },         // NEW: two builds of one id
@@ -867,7 +887,9 @@ composition
             `NonEmptyReadonlyArray<Finding>`.
         - `Host`. `compiledOf` called by a Story's `run()` and a Runtime start; the rule tokens of
             `Machine<D, N>["rules"]`, with `Broken.rule` over their ids; rules judged only by Story tooling, never by a
-            Runtime (Q5); `storyCompiled`'s refusals (`RulesDiffer`, `RulesBypassed`'s twin in `flow check`);
+            Runtime (Q5); `storyCompiled`'s refusal (`RulesDiffer`); `RulesBypassed` is a `flow check` warning only, 
+                with no twin
+            refusal in `storyCompiled`;
             `project` as the one outward restore for `read(ref)`, the publication and inspection, and the
             eight test-tooling casts of the companion's fit table; the fields of `EvidenceOf<D>`; `Finding.location`
             and the source adapter (Q7); the CLI's result table with `Loading`'s rows; the generators and mutation
@@ -927,9 +949,12 @@ realization typescript
         `no-throw-in-user-callback`: a `throw` statement lexically inside a body, mapper, guard or rule.
         `no-host-read-in-body`: `import.meta`, `process`, `Date` or `Math.random` lexically inside a machine body or
             a definition config.
-        `no-bare-export`: a module that calls `X.rules(...)` must not export the bare `X`. [decided: user 2026-11-22]
+        `no-bare-export`: a module that calls `X.rules(...)` must not export the bare `X`.
+            [decided: agent specs lead 2026-11-22] Why: an app that imports the bare machine would run no rules and
+            would not know it. Reverse: no lint rule; the Story's own check stays.
         `rules-argument`: the argument of `.rules(...)` is an arrow or an identifier, never a conditional.
-            [decided: user 2026-11-22] (@proposal.external-rules)
+            [decided: agent specs lead 2026-11-22] (@proposal.external-rules) Why: a conditional rule set is a
+            hidden switch. Reverse: allow it.
         `paired-refusals` stays; `no-mark-probe` goes with the marks of the doors.
 
     Kept wide, each with its reason: the schedule metadata's `output` (`OutputKept`); members of family D not yet
@@ -997,9 +1022,11 @@ tests
         count goes from 38 to the list as the casts are deleted. [@I4]
     T8  Stories of the wrong ending. (1) A room's poll is paused by `Vacation`; its author writes `paused: { Vacaton: 
         ... }` and a view reads `pausedBy.includes("Vacation")`. Today both compile: the reason never holds,
-            the timer fires while the house is empty, the view never shows the pause. Here the missing `Vacation`
-            callback (Q4) and the view's line do not compile, and the stray `Vacaton` key is refused at
-            construction (`ReasonUndeclared`, Q19: no body type is captured).
+            the timer fires while the house is empty, the view never shows the pause. Here the misspelt reason is a
+            type error because every declared reason is a required key (Q4: the missing `Vacation` callback does not
+            compile), and the construction check refuses the stray `Vacaton` key too (`ReasonUndeclared`, Q19: no
+            body type is captured, so the type error rests on the required keys). [decided: agent specs lead
+            2026-11-22] Why: Q4 and Q19 together give both refusals. Reverse: state only the construction refusal.
             (2) An app has two machines, one with a negative delay and one with an unreachable state. Today `flow check`
             can show at most the first throw and the second problem ships. Here both rows print and the exit is 1.
             [@I1, @I6, @I7]

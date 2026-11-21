@@ -32,6 +32,7 @@ onDrop={() => files.send(Files.events.Reorder({ nodes: draft }))}
 onPointerMove={(e) => { ghost.current!.style.transform = `translate(${e.clientX}px, ${e.clientY}px)` }}
 
 const press = useActor(PressMachine)       // local actor: not saved, its timer on the Runtime Clock
+// Press definition: schedules: { hold: {} }
 // PressMachine:
 // PRESSING: { schedules: { hold: { schedule: "400 millis", send: E.Held } }, on: { Held: { target: S.DRAGGING } } }
 

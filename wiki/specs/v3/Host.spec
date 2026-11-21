@@ -218,15 +218,20 @@ model
         refuses two values of one id with different rules (`RulesDiffer`), proves each ruled value's `terminals` once
         (memoised per value; a `TerminalLeft` fails the verdict as a `Broken` of the tooling rule `TerminalLeft`), and
         records the run's rule sets and its values with no rules on the `StoryRun`. `verdictOf` judges those sets over
-        the evidence after the run. [decided: user 2026-11-22] (@proposal.external-rules) Why: one route, so no Story
-        skips the rules; terminals of a value only a test runs are otherwise never proved. Reverse: the Runtime's judge.
+        the evidence after the run. (@proposal.external-rules)
+        [decided: user 2026-11-22] Terminals are proved at Story start. Why: a terminal of a value only a test runs is
+        otherwise never proved. Reverse: the Runtime's judge.
+        [decided: agent specs lead 2026-11-22] The one route and `RulesDiffer`. Why: one route, so no Story skips the
+        rules, and two rule sets under one id would make the verdict depend on the walk's order. Reverse: each
+        constructor walks for itself; the last value wins.
 
     RuleSources = tooling rules (`UnusedWord`, `CleanupLeft`, `PublicationDrift`, `RuleThrew`, `TerminalLeft`; named in
         `testing/verdict.ts`, judged by `verdictOf` over the run); project run rules (one rules module that both
         `flow.config.ts` and `Story.app` import, `tests/rules/list.ts`, no test-runner import; judged by `verdictOf`
         over the run and its `RunIndex`); machine rules (the `.rules(build)` of the values the run holds; judged by
-        `verdictOf` over the run's evidence, after the run, in Stories only). [decided: user 2026-11-22] Why: the rules
-        module is the one list both import. Reverse: run rules on the app.
+        `verdictOf` over the run's evidence, after the run, in Stories only, the user's 2026-11-22 Story-only judging).
+        [decided: agent specs lead 2026-11-22] The rules module as the one list. Why: both the config and `Story.app`
+        import it. Reverse: run rules on the app.
         Superseded by the user's 2026-11-22 decision (@proposal.external-rules): machine rules "(the body,
         `Compiled.rules`; judged by the Runtime's judge, live, and read as `RuleBroken`)".
 
@@ -257,7 +262,8 @@ model
         S14 Fake world counters: per endpoint call count, per store batch index. Owner `testing/fake.ts`, where
             `log.push` is. Readers the generator, rules, `View`. Not saved.
         S15 A run's rule sets and its values with no rules, on the `StoryRun`: Owner `storyCompiled`. Readers
-            `verdictOf`, `ruleCoverage`. Not saved.
+            `verdictOf`, `ruleCoverage` (exported from `flow-state/testing`, the Story route's package export). Not 
+                saved.
         S16 Proved terminals, per ruled value: a memo. Owner `storyCompiled`. Reader `storyCompiled`. Not saved.
         Not state: the verdict (derived from the finished run), the outcome table, `left` (a read of S9 to S11 and the
         Owners at the end), the Model and the `Turn` (`Changes`').
@@ -429,9 +435,14 @@ invariants
 
     I21  A rule check that throws changes only its own check: it is reported as `RuleThrew` naming the rule, never as
         the expected break. [@R12]
+        Superseded wording (reworded 2026-11-22, [decided: agent specs lead 2026-11-22]): "it is `RuleBroken` with
+        `threw: true`, reported as `RuleThrew`". Why: the `RuleBroken` record is gone with the live judge. Reverse:
+        restore the record.
 
     I25  Every Story route starts through `storyCompiled`: a run holding two values of one id with different rules is
         refused before its first step, and each ruled value's terminals are proved once. [@R8]
+        [proposed] I25 and I26 are the specs lead's rows for the user's Story-only judging and terminals at Story
+        start; Why: each turns one decided rule into a checkable fact. Reverse: drop the rows.
 
     I26  Judging reads the finished evidence only: no Runtime, driver or `app()` holds or reads a rule, a `last` map or
         a `RuleBroken` record. [@R8, @R12]
@@ -809,6 +820,11 @@ algorithm
         `Turn` then `Finished`: invariants none; turns checked with `after = project(ended snapshot)`; then the `last`
             entry removed
         `Finished` without a `Turn`: none; the `last` entry removed
+        A fragment copy is its own fold key: `last` is keyed by actor and copy (`uploads[a]`), and a turns rule skips
+        a copy's entry, its reset (`resetOn`) and its exit: the copy's `Begin` and a reset set `last` with no turns
+        check, and its exit removes the entry with none (@plan.Rules.O7: there is no before or after of one copy).
+        [decided: agent specs lead 2026-11-22] Why: more correct, and it follows the decided Plan. Reverse: fold by
+        actor alone and judge a copy's entry and exit as turns.
         A `check` that returns false is a `Broken { rule, actor, step, at }`; one that throws is `RuleThrew` (a throw
         changes only its own check). There is no Runtime setting: Stories and the CLI always judge, and a Story's switch
         `off` list keeps those checks from being called. `last` belongs to one Runtime's evidence: a reload starts

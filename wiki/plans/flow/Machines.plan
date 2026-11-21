@@ -470,6 +470,7 @@ outcomes
           events: { Activity: {}, VideoPlaying: {}, VideoStopped: {}, SignOut: {} },
           internalEvents: { TimedOut: {} },
           memory: { idleMs: Flow.input(Schema.Number) }, // from the server's session policy, at creation
+          schedules: { idle: {} },                       // declared on the definition; the body places it
         })
 
         export const SessionMachine = machine(Session, ({ S, E }) => ({

@@ -257,7 +257,8 @@ costs the rule tokens, a stated limit (`Machine<D>` has no `N`). Gaps this Spec 
 - **A shared body.** `payBody` (`services/shop/machines/pay.ts:170`) hand-types
   `Parameters<typeof machine<typeof Pay>>[1]`. Fix: export the existing `BodyTokens<D>` (G2); the return type is
   inferred.
-- **Decline reasons.** `deny("AtBound")` has a `why`; its union per event is not yet a row (G3, Q16).
+- **Decline reasons.** `deny("AtBound")` has a `why`; its union per event is not a row: G3 is dropped, and deny
+  codes stay inline (Types.spec Q16).
 
 ## 9. Questions, with before and after
 
@@ -374,13 +375,15 @@ accepted answer.
 | H6  | medium   | Family D's members not yet rows: `owed[].reason`, `Ended.reason`, `decline`'s `why`, the Story checkpoint names                                        | not inventoried against `derive.ts` one by one |
 | H7  | low      | The source adapter's algorithm (module of an export, line along a path)                                                                                | not spiked                                     |
 | H8  | high     | A definition with a finding must still hand out every token: which of today's definition findings allow that was not walked, and Q1 A depends on it    | the definition's finding list was not walked   |
-| H9  | low      | Rule tokens on a machine that is not `Built`: closed by the move to `.rules(build)`, which reads only the definition (Q17)                             | edited 2026-11-22                              |
+| H9  | low      | Rule tokens on a machine that is not `Built`: closed by the move to `.rules(build)`, which reads only the definition (Q17)                             | edited 2026-11-22 (was: a stated limit)        |
 
 Where each hole goes: H2 and H8 are the first acceptance rows of @task.V3.T113 and @task.V3.T22, and H8's per-finding
 answer is a build-time choice in @task.V3.T113's description; H1, H3, H5 and H6 are build rows of @task.V3.T113
 (Spec Q13, Q15, Q16); H4 is proved when `Records`' shapes are code (@task.V3.T92, Spec Q14); H7 is spiked with the
-source adapter; H9 is closed (Q17, edited by the user's 2026-11-22 decision). The Spec's open section carries each
-as Q12 to Q17.
+source adapter; H9 is closed (Q17). The Spec's open section carries each as Q12 to Q17.
+
+**H9.** [decided: agent specs lead 2026-11-22] Closed, superseding the earlier "accepted as a stated limit". Why: the
+user's move to `.rules(build)` reads only the definition. Reverse: restore the stated limit.
 
 ## 11. Process notes
 

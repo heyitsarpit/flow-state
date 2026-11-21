@@ -78,7 +78,7 @@ requirements
                 tag. Only `apply` constructs an `Incarnation`.
 
     R12  Instances settle inside the turn
-        source  Problem class G2 (`Changes.md`); @plan.Machines.O3 as amended by `rules` (settling).
+        source  Problem class G2 (`Changes.md`); @plan.Machines.O3 (Turns).
         must    `reconcile` runs inside the turn until nothing more ends, so no state is committed unsettled, no
                 follow-up flag or follow-up turn exists, and a started instance exists in the publication that
                 started it.
