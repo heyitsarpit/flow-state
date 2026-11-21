@@ -44,7 +44,7 @@ OrderRules.PaidHasReceipt   // RuleToken<"PaidHasReceipt">; was OrderMachine.rul
 OrderRules.Typo             // type error
 ```
 
-- **Typing.** `rules<D, const R>(subject: Machine<D> | Fragment<D>, build: ExactRules<NoInfer<D>, R>):
+- **Typing.** `rules<D, const R>(subject: Machine<D> | Trait<D> | Subroutine<D>, build: ExactRules<NoInfer<D>, R>):
   RuleSet<D, NamesOf<R>>`. `R` captures only the returned rules object. A spike under `strict` and
   `exactOptionalPropertyTypes` on TypeScript 7.0.2 (scratchpad `spike/helper3.ts`) showed names inferred,
   `OrderRules.Typo` refused, inputs inferred with no annotation, `event.amount` on `E.Pay` refused, and an excess key
@@ -54,7 +54,8 @@ OrderRules.Typo             // type error
   excess keys are refused at construction only.
 - **Construction.** `rules()` returns `Built | Refused`, like `machine()`. It refuses a duplicate name, an unknown
   key, a foreign token, and an empty or repeated `terminals` list, each with the reason the types give (I13's twin).
-- **Fragments.** `rules(Upload, ...)` takes a `trait` or a `subroutine`. Its builder gets the fragment's own `S`
+- **Subjects: machines, traits and subroutines.** `rules(OrderMachine, ...)`, `rules(Upload, ...)` for a trait and
+  `rules(ThreeDSecure, ...)` for a subroutine all take the same builder shape. Its builder gets the fragment's own `S`
   (subroutine only), `E` (including `hostEvents`) and `turn`. A check reads only what the fragment declares.
 
 ## 2. Where sets are connected, and the scan
