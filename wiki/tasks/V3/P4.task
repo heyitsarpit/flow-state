@@ -1117,6 +1117,17 @@ tasks
         comment     2026-11-21T21:23:35Z
             Superseded by the user's decision of 2026-11-22 (declared schedules; see @task.V3.T120's comment): closes
             the `Flow.keyed` question outright, not only the earlier acceptance tag.
+        comment     2026-11-21T21:34:47Z
+            Inventory addendum for @task.V3.T140 (requirements lead). States: (1) a schedule's form, declared or old.
+            Owner: the definition's declaration; writers today: every body `schedules:` block (21 in 12 fixture files, 6
+            planted shapes, about 76 test sites), `Flow.keyed` (11 calls), `config.ts`'s keyed decode. (2) The old
+            form's names in `src/` (`Flow.keyed`, `KeyedConfig`, `KeyedSchedule`, `ScheduleKey`, `ScheduleParts`,
+            `ErasedEntry`, the keyed mark, body-side inference). One writer after: none, deleted. (3) Planted-fault find
+            texts bound to the old shape: `armon-keeps-deadline`, `restore-arms-every-added`,
+            `keyed-disarm-unkeyed-only`, `armon-of-any-kind`; writer `tests/faults.ts` and its siblings, reader `nub run
+            faults`. (4) The lint guard's verdict: one writer, the rule. Seam with T120: keyedness is read from a body's
+            `keys` in five core places; the twin rows make it agree with the declaration, so it stays derived, not a
+            second fact.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -3204,6 +3215,10 @@ tasks
             add, remove and rename (nudge now has its own delay). Feature stub: `definition()` accepts `schedules` and
             reads none of it, so each red fails for its own rule; keyed bodies use `Flow.keyed` while it exists. 21
             inverted compile checks, 3 type pins.
+        comment     2026-11-21T21:34:49Z
+            Moved (requirements lead): the reds for Flow.keyed's removal and every fixture declaring what it places now
+            sit in tests/compile/schedule-migration.test.ts under @task.V3.T140, which migrates the users; this Task
+            keeps the declaration, the twin rows and the codecs.
     T121
         title       Operation endings and the retry guards
         status      draft
@@ -3685,7 +3700,7 @@ tasks
 
     T140
         title       Declared schedules: every user migrated, old form deleted
-        status      open
+        status      review
         priority    high
         parent      [@T89]
         blocked_by  [@T120]
@@ -3749,3 +3764,36 @@ tasks
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R8,
               I13) and @spec.Schedules (R14, R16) across every migrated fixture.
+        comment     2026-11-21T21:34:48Z
+            Requirements (requirements lead), mapped to acceptance. Reds: `tests/compile/schedule-migration.test.ts` (5
+            inverted), `tools/flow-state-lint/rules/no-undeclared-schedule.test.ts` (fails: no rule).
+            1. No old form anywhere; a lint rule refuses it (Types R8, I13): the old names are gone from `src/`,
+               `fixtures/` and `tests/` (my two transitional `keyed` switches included); every fixture machine's placed
+               schedules are declared (moved from T120's file: it measures migration); the lint test plants a plain
+               undeclared body, a non-literal map, a helper-built body, an undeclared name beside a declared one,
+               `Flow.keyed` called and referenced, and the old types; it stays quiet on a declared body and a snapshot's
+               `.schedules`. The builder adds it to `lint:rules`, gives deliberate refusal tests a reasoned disable, and
+               covers the reference apps `checkout` and `dispatch-desk` (outside the package, so no package test
+               reads them).
+            2. The faults bound to the old shape still caught: baseline today, `nub run faults --only` with the four
+               names above, 4 of 4 caught; after the rewrite their find texts target the declared form and the same
+               run passes.
+            3. Every fixture Story keeps its meaning: the existing Story tests, the reload sweep and the saved stress
+               seeds are the guards, unchanged ids; refusal tests that keep a deliberate old shape assert
+               `ScheduleUndeclared` (two reds).
+            4. Readers typed from the declaration, casts gone: the inverted pin in
+               `tests/types/schedule-declarations.test-d.ts` (a body naming an undeclared schedule and reason
+               compiles today).
+            5. Plans, catalog and open Tasks: text only, checked by review against the worklist; no test reads `wiki/`.
+            6. Correctness: the fixtures below; planted fault for the lint rule: its own planted test. Seam: T120's
+               "Flow.keyed is gone from src/ and fixtures" is met here, since T120 cannot delete it while users remain.
+        comment     2026-11-21T21:34:48Z
+            Fixtures proof. Declared schedules, every user (Types R8, I13): fixtures changed, home (House, Room and the
+            three refused builders in `stories/structure.ts`), number-input Stepper, player Player and SleepTimer,
+            services/shop Pay, shop Subscription, sign-in SignIn, TrustedDevice and its three refused delays, sync Sync,
+            transfers Transfers, wizard Booking; journeys and Story ids unchanged; usual, load, structure and samples:
+            every existing Story, sample set, mix and pair sweep of those apps, unchanged, as guards of meaning; refused
+            shapes: each planted builder keeps its own refusal once declared, and an undeclared old body is refused
+            `ScheduleUndeclared`; combos: persistence (wizard, home restore), context and lanes (home); variety: 11
+            apps, keyed and unkeyed, shared and value-named; sources: the worklist's file and line per site; red today:
+            the T140 reds. The catalog gains this Task's line.

@@ -1,8 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
 import { Option, Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Room } from "../../fixtures/home/machines/room.ts";
-import { manifests } from "../../fixtures/index.ts";
 import { definition, Flow, machine } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
 import { refusal } from "../refusals.ts";
@@ -117,10 +115,6 @@ describe("the declaration (Types R8; Schedules R16)", () => {
         })),
       ),
     ).toEqual([]);
-  });
-
-  it.fails("Types R8: Flow.keyed is gone; a keyed schedule is one whose declaration has a key", () => {
-    expect(Object.keys(Flow)).not.toContain("keyed");
   });
 });
 
@@ -358,49 +352,5 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
         Schema.decodeUnknownSync(c)(Schema.encodeUnknownSync(c)({ id: "t1" })),
       ),
     ).toEqual(Option.some({ id: "t1" }));
-  });
-});
-
-describe("every fixture declares the schedules it places (Types R8, I11, T2)", () => {
-  it.fails("Types I11: each schedule a fixture machine places has its Compiled.schedules entry", () => {
-    const placed = manifests.flatMap((manifest) =>
-      Object.values(manifest.app.machines).flatMap((entry) => {
-        const { compiled } = "machine" in entry ? entry.machine : entry;
-        const table = tableOf(compiled);
-
-        return [...compiled.states.values()].flatMap((node) =>
-          node.schedules.map((schedule) => ({
-            at: `${manifest.name}/${compiled.id}/${schedule.name}`,
-            declared: Predicate.isMap(table) && table.has(schedule.name),
-          })),
-        );
-      }),
-    );
-
-    expect(placed.length).toBeGreaterThan(0);
-    expect(placed.filter(({ declared }) => !declared).map(({ at }) => at)).toEqual([]);
-  });
-});
-
-// Every TypeScript file under a package folder, with its text.
-const filesUnder = (folder: string) =>
-  readdirSync(new URL(`../../${folder}/`, import.meta.url), { recursive: true, encoding: "utf8" })
-    .filter((path) => path.endsWith(".ts"))
-    .map((path) => ({
-      path: `${folder}/${path}`,
-      text: readFileSync(new URL(`../../${folder}/${path}`, import.meta.url), "utf8"),
-    }));
-
-describe("Flow.keyed is gone from the package (Types R8)", () => {
-  it.fails("Types R8: no source or fixture writes Flow.keyed, KeyedConfig, KeyedSchedule, ScheduleKey, ErasedEntry or the keyed mark", () => {
-    expect(
-      [...filesUnder("src"), ...filesUnder("fixtures")]
-        .filter(({ text }) =>
-          /Flow\.keyed|KeyedConfig|KeyedSchedule|ScheduleKey\b|ErasedEntry|"~keyed"|"keyed"/u.test(
-            text,
-          ),
-        )
-        .map(({ path }) => path),
-    ).toEqual([]);
   });
 });
