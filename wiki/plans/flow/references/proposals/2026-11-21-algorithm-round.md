@@ -105,6 +105,9 @@ Spec) waits for review. About 700 lines at most; say each fact once. It holds:
 
 1. **Base:** `packages/flow-state-v3/src/` in the cluster's area, read in full; its `tests/` and `fixtures/`,
    the sequence ledgers first; @review.code-audit sections 2 and 4.
+1a. **Real code** [decided: user 2026-11-21]: every fixture app in `packages/flow-state-v3/fixtures/` (machines,
+   stories, services) and @convention.fixture-catalog for the fixtures still to come. They show what real app code
+   looks like and what it must solve; check each design against several of them, not one.
 2. **Fixed:** @proposal.spec-handover's decided list; @review.spec-cohesion-r2 section 6a; `AGENTS.md`;
    `tools/lint-bomb/STYLE.md` and `FLOW-STATE.md`.
 3. **Destination:** the cluster's designs; its Tasks in `wiki/tasks/V3/`; the Plans, read as guidance, not as
@@ -172,6 +175,9 @@ Each lead reads the files the earlier clusters wrote and names every seam it cro
 8. Then to-spec per cluster, and the Task changes.
 
 The orchestrator verifies every report against the file it names before the next step.
+
+- **Commit per phase** [decided: user 2026-11-21]: once a phase's files are verified, the orchestrator commits
+  them as one commit (`wk check --commit` first; never push); a file an agent is still editing waits.
 
 ## 8. Lead brief (template)
 
