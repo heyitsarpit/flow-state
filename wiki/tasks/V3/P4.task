@@ -1020,6 +1020,17 @@ tasks
             (@task.V3.T118); "NaN is refused" (Effect's JSON codec writes "NaN", checked); a Defect thrown raw (the flip
             run shows a FlowError); a Q6 contradiction (owners are per definition, not per copy). Each red was flipped
             once and failed for its title.
+        comment     2026-11-21T21:00:25Z
+            [decided: agent orchestrator 2026-11-22] Rulings on the requirements lead's four calls. (1) T131 builds the
+            wrong-kind half of construction trust; the construction value (Built/Refused/Blocked, findingsOf,
+            compiledOf) is T22's, as @spec.Types' companion maps it. (2) Flow.keyed goes: the user's later decision 'No
+            Flow.keyed' (@proposal.spec-handover, 2026-11-20, 'drop it') supersedes the earlier acceptance tag in a T57
+            comment, which is history. (3) The vi.resetModules line in the repo's shared test type file
+            types/vite-plus-test.d.ts is accepted as test-runner typing the package already relies on; the review checks
+            it under cohesion and self-containment. (4) The fixture catalog's migration-step line for T131 and T120 is
+            the builder's to add at the close, per the Epic's catalog rule. Why: each follows a recorded Spec mapping or
+            user decision. Reverse: route (1) into T131, keep Flow.keyed, drop the type line, or add the catalog
+            line now.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
