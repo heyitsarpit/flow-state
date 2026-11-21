@@ -186,7 +186,8 @@ Each lead reads the files the earlier clusters wrote and names every seam it cro
 8. Then to-spec per cluster, and the Task changes.
 
 - **Night plan** [decided: user 2026-11-21], replacing steps 6 to 8 for tonight; no coding starts:
-  1. The final Opus review (step 5), committed.
+  1. The final Opus review (step 5), committed. The final reviewer and the solutions lead each get 60 minutes and
+     apply the same principles (section 2) and deliverable (section 3) the designers were given, as criteria.
   2. **Solutions pass:** one Fable lead at effort high, 60 minutes, reads all six designs, the final review and
      every open question, and offers solutions that plug the holes, thinking from the developer who will use the
      library: the feature requirements an app needs. Goal: designs an Opus coder can build features from. Every

@@ -14,7 +14,7 @@ within 14 to 74 minutes of the review that triggered it, so it gathered the chec
 the freedom. The user's diagnosis (process mostly right, algorithms wrong) holds for the reviews and the failure
 limit. It does not hold for the order of work or the oracles: section 4 lists what to keep and what to change.
 The type case (section 3) is the same freedom in types: a type Flow holds is dropped at `machine()` and at `Compiled`,
-then written again by hand (42 annotated mappers, 41 production casts), so a fact has two sources. It differs in
+then written again by hand (42 annotated mappers, 38 production casts), so a fact has two sources. It differs in
 one way: T104's carrier-by-carrier fix converged (four blocking findings, four, then PASS), while what no seam
 carries (the body's schedules, the snapshot, hand copies) is still open: 7 gaps (3.4).
 
@@ -291,7 +291,7 @@ sources, the declaration and the copy or the cast. It has three carriers:
    A fact authored only in the body (schedule names, keys, pause reasons) cannot reach the snapshot
    (`src/host/snapshot.ts:66,75`). Three runs called this a TypeScript limit (rounds 5, 8 and 9); round 10
    disproved it with a constrained `B`. Inferred: every earlier run tested a free `B` and was time-boxed.
-2. **Shared erased intermediates.** `Bound`, `Compiled`, `Values` and `Ending` (T104's description). 17 of the 41
+2. **Shared erased intermediates.** `Bound`, `Compiled`, `Values` and `Ending` (T104's description). 17 of the 38
    production casts give an erased type as their reason (for example `src/machine.ts:125,131,167,172`,
    `src/contract.ts:246,255`, `src/host/snapshot.ts:244`): the core erases, the edge re-asserts.
 3. **Hand-written copies where inference already reaches.** Nothing refuses the annotation, so the copy drifts:
@@ -308,7 +308,7 @@ them, one batch at a time.
 ### 3.3a Where the erased core meets the typed edge
 
 Each row: type at `file:line`; introduced by (`git log -S`, first hit); typed later by; casts it forces (reason
-text of the 41 disables); a derived-from-D version. Line numbers at HEAD `dcf8f2b2`.
+text of the 38 production disables); a derived-from-D version. Line numbers at HEAD `dcf8f2b2`.
 
 1. **`Values`** (`src/core/compiled.ts:32`; also `Incarnation.memory`, `src/core/world.ts:212`). T16 (`5206dd7d`).
    T103 (`424085b2`) and T104 (`91762ce5`) typed `Snapshot<D, View>` with a conditional on `Erased<D>`
@@ -353,7 +353,7 @@ Why fixing seams one by one did not close it:
   never reached it, and T104 recorded body exactness as a limit instead.
 - New facts arrive after the sweep and arrive wide. Keyed schedules and pause reasons landed in T57 the day after
   T104 closed, typed `ScheduleKey` and `ReadonlyArray<string>`. Production cast disables went from 31 at T104's close
-  (`2dcd3cf4`) to 41 at HEAD (`git grep`). Inferred: later Tasks added erased restores (for example `src/flow.ts:251`,
+  (`2dcd3cf4`) to 38 at HEAD (`git grep`, `.test.ts` files excluded). Inferred: later Tasks added erased restores (for example `src/flow.ts:251`,
   `src/compile-schedules.ts:241`).
 - Each review replays the instance it was shown. Close review 1 found about a dozen public words T104 had not
   listed, since the carrier fixes covered the families, not the exports.
@@ -382,7 +382,7 @@ Open (counts from `rg` and `git grep` at HEAD `dcf8f2b2`):
    public and checked at run time only (T104 traps and builder's call).
 7. **`Compiled` still erases definition types** (`src/core/compiled.ts:409`). No design yet.
 
-That is 7 open gaps and 41 production casts. A cast here is a line with a `typescript/no-unsafe-type-assertion`
+That is 7 open gaps and 38 production casts. A cast here is a line with a `typescript/no-unsafe-type-assertion`
 disable; `as const` is not counted. The 2026-11-19 survey's 236 casts (plus 60 other forms) do not compare with it
 (inferred: the survey counted every assertion, not only disabled lines). By file: `src/core/boundary.ts` 7 (6 cite an
 Effect type limit), `src/machine.ts` 4, `src/core/tx.ts` 3, `src/host/testing/fake.ts` 3, the rest one or two each.
@@ -422,7 +422,7 @@ Effect type limit), `src/machine.ts` 4, `src/core/tx.ts` 3, `src/host/testing/fa
    every shape tried, including `B extends Shape` checked as `B & Exact<B, Shape>`, its time box and its refusal
    counts. (Round 8's 15 minutes and round 9's eight shapes against round 10's C6.)
 3. **List the erased intermediates and who restores each.** Check: a table of casts by the erasure they undo, and a
-   design that removes the erasure. A cast count that grows after the sweep is a finding. (17 of 41; 31 to 41.)
+   design that removes the erasure. A cast count that grows after the sweep is a finding. (17 of 38; 31 to 38.)
 4. **Every type test is two-sided and can flip.** Check: a positive exact assertion on the same parameter, and the
    design line that turns each `today` pin; `paired-refusals` at 0. (Requirements review 1 and 2; close review 1 (4).)
 5. **Test a wide parameter with a wrong value, not by compiling its callers.** Check: for each `string`, `Values` or
@@ -517,7 +517,7 @@ Change (proposed):
    the erased intermediates and the casts they force, and a spike on the real package for any "TypeScript limit". It
    is a gate before the build, not an owed item for a later Task (3.6, rules 1 to 3, 6).
 6. **A cast budget.** Production `no-unsafe-type-assertion` disables are counted at each Task's close, and a rise
-   needs a design line naming the erasure (31 at T104's close, 41 at HEAD).
+   needs a design line naming the erasure (31 at T104's close, 38 at HEAD).
 7. **Type tests that can flip.** Every pin names the carrier or rule that inverts it; wide `string` parameters are
    probed with a wrong value, not by compiling callers (3.6, rules 4 and 5).
 8. **History pointers that resolve.** The V3 log's "History in git at a9ed4037" (2026-11-18T19:14:32Z) points to a
