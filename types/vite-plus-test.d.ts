@@ -47,4 +47,6 @@ declare module "vite-plus/test" {
   export const describe: TestApi;
   export const expect: ExpectApi;
   export const it: ItApi;
+  // Only a fresh module registry, for a test that loads a second copy of a package; no mocking.
+  export const vi: { readonly resetModules: () => void };
 }

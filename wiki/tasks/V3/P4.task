@@ -983,6 +983,43 @@ tasks
             build review.
         acceptance
             - Every child accepted, and the seams between the children checked by the slice review.
+        comment     2026-11-21T20:57:24Z
+            Slice state inventory (requirements lead): every state is made once at module load; the only run-time reader
+            is the restore. Each has one owner after the build; today's writers are listed where there are several.
+
+            | State | Owner (one writer) | Writers today | Readers | Saved |
+            | --- | --- | --- | --- | --- |
+            | A door's registration (name, kind) | `door` | `entry`, `entryEffect`, `builder`, `inert` into `entry.ts` `registry` | refusals, surface walk | no |
+            | A made value's brand, kind, owner, internals | `made` | `~flow` in 6 files, `~owner` (`definition.ts`, `handles.ts`), `~path`, `~token`; WeakMaps in `flow.ts`, `events.ts`, `machine.ts`, `host/runtime.ts` | `madeOf` | no |
+            | Recognition (internals, WrongKind, ForeignToken, Defect) | `madeOf`, a pure read | `config.ts#isToken`, `construction.ts#isMarker`, `machine.ts` `~owner` probe, `compile-names.ts#foreign`, `tokenOf` | every door | no |
+            | A definition's schedule declaration | `definition()` | none (new) | `machine()`'s checks, the codec build, later `derive.ts` | no |
+            | `Compiled.schedules` (key, selection, reasons) | the compile pass | none (new) | each `Node` schedule (a pointer, not a copy), restore (T118) | no |
+            | Schedule construction findings | the twin-row check, one row per reason | `config.ts` body decode (`UnknownField`), `compile-schedules.ts#armingOf`, `Flow.keyed` decode | refusal; later Construction (T22) | no |
+
+            Transition table, `madeOf(kind, owner)(value)`, replacing five scattered checks (an implicit state machine):
+
+            | Read of the brand | Kind | Owner | Result |
+            | --- | --- | --- | --- |
+            | throws | any | any | one `Defect` finding at the argument's path |
+            | false (a copy) | any | any | `WrongKind` |
+            | true | other | any | `WrongKind` |
+            | true | this | other definition | `ForeignToken` |
+            | true | this | this | the internals |
+
+            Seams: where `Compiled` sits after the doors (face or internals) decides how T120's codec checks and every
+            `machine.compiled` reader reach it; a schedule key's codec text must equal today's `encodeCanonical` text
+            for string keys, so records saved before the slice restore. Resources: T131 touches none; T120 reads the
+            store at restore only, through `Fake.storage.put`, and no write path changes, so no fake gap applies.
+        comment     2026-11-21T20:57:54Z
+            Sidecar log (requirements lead, six Haiku). Accepted: the twin-row list and missing codes, the saved-key and
+            NaN cases, the marks and probes inventory, the four inverted surface tests as T131's, the testing route's
+            raw throws, the `RestartOnMissing` gap, the prototype-named reason, the migration-list corrections, the HELD
+            guard. Changed: second-copy loading by `vi.resetModules` (a query suffix shares inner modules); S codes
+            dropped from T131's proof; the event-token row retitled. Rejected: lying Proxies and hand-built registered
+            brands (attacks, out of the FaultModel); intake rows and `times` edges (@task.V3.T132); restore wake rows
+            (@task.V3.T118); "NaN is refused" (Effect's JSON codec writes "NaN", checked); a Defect thrown raw (the flip
+            run shows a FlowError); a Q6 contradiction (owners are per definition, not per copy). Each red was flipped
+            once and failed for its title.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -2927,7 +2964,7 @@ tasks
 
     T120
         title       Declared schedules: the runtime half
-        status      in_progress
+        status      review
         priority    high
         parent      [@T89]
 
@@ -2975,6 +3012,67 @@ tasks
         comment     2026-11-21T19:26:58Z
             Contradiction resolved: no format step here; @task.V3.T118 writes the schedule row of the one step 5 to 6
             and @task.V3.T92 adds the rest (@spec.Records R12); algo cites re-pointed to Spec sections.
+        comment     2026-11-21T20:57:26Z
+            Fixtures proof. Declared schedules (Types R8, I11, I13; Schedules R14, R16): fixture home changed (Room's
+            reconnect, poll keyed by sensor with pausedBy Vacation and Saving and a restartOn Schema, check, boost;
+            House); migrated: number-input Stepper, player Player and SleepTimer, services/shop Pay, shop Subscription,
+            sign-in SignIn and TrustedDevice, sync Sync, transfers Transfers, wizard Booking, and the variants in
+            `home/stories/structure.ts` and `sign-in/stories/structure.ts`; journey home Vacation; usual: home's
+            Stories, ids, mix, pairs and saved seed unchanged; load and structure: home's existing load (64 rooms) and
+            structure Stories, unchanged, since this Task changes the declaration and not the runtime (@task.V3.T118
+            rebuilds it); refused shapes: each twin row; samples: none new, E6 and E7 on the key codec as checks;
+            combos: persistence (restore under a declared build), context (Vacation), lanes (Saving); variety: keyed and
+            unkeyed, shared and value-named, home, wizard, transfers, sync; sources:
+            `codebases/ui-sdk/packages/core/test/toast.test.ts:247` "pause reasons hold separately"; red today: the T120
+            requirement reds. No catalog step names this Task. Review log: migration list corrected; HELD guard added;
+            the NaN finding rejected (checked); restore firing checks stay in `schedule-edits.test.ts`, migrated.
+        comment     2026-11-21T20:57:39Z
+            Requirements (requirements lead), each red today, mapped to acceptance. Reds:
+            `tests/compile/schedule-declarations.test.ts` (20 inverted), `tests/restore/schedule-declarations.test.ts`
+            (4 inverted), `tests/types/schedule-declarations.test-d.ts` (2 inverted pins).
+
+            B1, declared on the definition, placed in the body, `Flow.keyed` gone:
+            1. `schedules: { name: { key?, pausedBy?, restartOn? } }` constructs and the body places it (Types R8;
+               Schedules R16).
+            2. One declaration placed in two states constructs (Types R8, "Placement").
+            3. `Flow.keyed` is off `Flow`; no source or fixture writes `Flow.keyed`, `KeyedConfig`, `KeyedSchedule` or
+               `ScheduleKey` (Supersedes). Every fixture machine's placed schedules have a `Compiled.schedules`
+               entry (I11).
+
+            B2, `Compiled.schedules` holds the codecs; a saved key decodes through them (Types R14, I11):
+            4. A key codec round trips a key through its text; home Room's sensor key does too (Types T2).
+            5. NaN, Infinity and -Infinity give three texts (Schedules I14): Effect's JSON codec writes "NaN",
+               "Infinity", "-Infinity" (checked).
+            6. A saved key with a field the declaration lost does not decode, so two timers never merge (decision below;
+               Spec edited, `specs.log` noted).
+            7. No key codec when unkeyed; no selection codec without `restartOn`; a declared `restartOn`'s codec round
+               trips; a codec is `Schema.Codec<Values, string>` (decision below).
+
+            B3, the twin rule, each refusal with its reason (Types R8, I13): 8. `ScheduleUndeclared`,
+            `ReasonUndeclared`, `ReasonMissing` (a `toString` reason, a second placement), `KeysMissing`,
+            `KeysUnexpected`, `RestartOnUndeclared`, `RestartOnMissing`, and `InvalidName`/`DuplicateName` on declared
+            reasons. The Spec's twin list lacked `RestartOnMissing`: added. `KeyOmitsField` (contract keys) and
+            `RuleNameTwice` (rules) are not schedule rows: @task.V3.T113 and @task.V3.T106. 9. A declared schedule
+            placed nowhere constructs (I14); its warning is reported through @task.V3.T22's `Built.warnings`.
+
+            B4, Correctness: fixture home, Room declared; restore under a declared build, reorder, add, remove, rename
+            (the store is read only, through `Fake.storage.put`); wrong ending Types T8.1, a misspelt reason refused
+            (8); types, inverted pins, with the derived reader types @task.V3.T113's; once Room is declared, each twin
+            row is also an exported refused builder in `fixtures/home/stories/structure.ts`. Planted faults, written
+            with the code: `schedule-undeclared-accepted`, `reason-undeclared-accepted`, `reason-missing-by-in`,
+            `keys-missing-accepted`, `keys-unexpected-accepted`, `restart-on-undeclared-accepted`,
+            `restart-on-missing-accepted`, `key-codec-from-body`, `key-codec-lenient`, `warning-blocks-machine`. Wake's
+            use of the codecs, an undeclared saved reason dropped and a keying change restarting keys are
+            @task.V3.T118's (Schedules, build order). Needs the user: `Flow.keyed` was accepted as public API
+            (@task.V3.T57, 2026-11-20); its removal rests on Types R8.
+        comment     2026-11-21T20:57:40Z
+            [decided: agent requirements lead 2026-11-22] A schedule key codec decodes exactly: a saved key with a field
+            the declaration lost does not decode. Why: a lenient decode merges two saved keys into one text (Schedules
+            I14). Reverse: lenient decode plus a restore rule that keeps one timer.
+        comment     2026-11-21T20:57:41Z
+            [decided: agent requirements lead 2026-11-22] A schedule's key and selection codecs are
+            `Schema.Codec<Values, string>`, the shape of `Compiled.Operation`'s key. Why: one codec shape for every key.
+            Reverse: another codec type, with every reader changed.
     T121
         title       Operation endings and the retry guards
         status      draft
@@ -3308,7 +3406,7 @@ tasks
               T1, T6).
     T131
         title       Construction trust: the doors
-        status      in_progress
+        status      review
         priority    high
         parent      [@T89]
 
@@ -3355,6 +3453,59 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
               (R10, I19), @spec.Types (R11, I4, I5); the Invariants its tests check after every step are
               @spec.Operations (I19; tests T5, T6), @spec.Types (I4, I5, I7, I14; tests T4, T7–T9).
+        comment     2026-11-21T20:57:24Z
+            Requirements (requirements lead), each red today unless marked guard, mapped to acceptance. Reds:
+            `tests/surface/doors.test.ts` (15 inverted), the 4 inverted tests in `tests/surface/surface.test.ts`,
+            `tests/types/doors.test-d.ts` (3 inverted pins).
+
+            A1, every constructor through the door, no other on either route:
+            1. Every function the testing route exports is a door's (Operations I19; algorithm "One door").
+            2. Every function on a made value's face, inert data included, over the probe and every fixture app, is a
+               door's (I19; algorithm, `made`).
+            3. The testing route's `defineConfig`, `Story.app`, `samplesOf`, `print`, `pairSweep` given null refuse with
+               a FlowError; so do the 4 inverted surface tests (R10).
+            4. No `~flow`, `~token`, `~owner`, `~path` mark in `src/` outside the testing route; no `no-mark-probe`
+               disable (Supersedes; R10).
+            5. `machine(7, 8)` raises once naming both arguments (Types R4; R11's wrong-kind half).
+
+            A2, a second loaded copy: 6. Its definition and machine run in the first copy (guard: string marks are
+            shared today); its values carry the same registered brand (R10, Q6).
+
+            A3, the hostile table, each row a test (R10, FaultModel):
+            7. A spread copy of a definition, a machine (in `app`), a state token and an event token is `WrongKind`.
+            8. Another definition's token is `ForeignToken` (guard: today's owner compare).
+            9. An argument whose every read throws is one `Defect` at the argument's path, not at the call's name.
+            10. An object on the made prototype with no internals is `WrongKind` (guard); a value forged by hand with
+                internals, a lying Proxy and a hand-built registered-symbol brand are attacks, unsupported by
+                the FaultModel.
+            11. Definitions, machines, contracts, bound contracts, state tokens, refs and apps share one frozen
+                prototype carrying `Symbol.for("flow-state/Made")`.
+            12. `textOfKey`, `call` and `make` are off the face and off the public types.
+            13. A face is deeply frozen and holds no accessor.
+
+            A4, Correctness: fixture, every manifest app (face and surface walks); wrong ending, a copy taken as made
+            (7); types, the inverted pins; planted faults, written with the code since their text does not exist yet:
+            `copy-taken-as-made`, `owner-compare-skipped`, `throw-at-call-name`, `raw-in-face`, `second-copy-refused`,
+            `testing-route-unwrapped`. The build-time choice's order A is met: each row is red or names why it holds.
+
+            Not here: a door's argument Schema, a re-read raw argument, `staleTime`/`gcTime` checks, cyclic states and a
+            throwing config getter are `intake` (@task.V3.T132). Construction as a value (`Built`, `findingsOf`,
+            `compiledOf`) is @task.V3.T22's by `Types.md` section 7; this Task's Types R11 and I5 are read as the
+            wrong-kind half (5): the orchestrator confirms. Extra file: `types/vite-plus-test.d.ts` gains
+            `vi.resetModules` only, for 6.
+        comment     2026-11-21T20:57:25Z
+            Fixtures proof. Construction trust (Operations R10, I19): fixture every manifest app (unchanged) and the
+            surface probe, journey construction and every handed-out function; usual: every fixture's Stories on made
+            values, the surface walk and the face walk of every app; load: the hostile table, 16 values at every
+            argument position of every door, each within a second; structure: two loaded copies of Flow in one process;
+            refused shapes: copies of a definition, machine, state and event token, another definition's token, a
+            throwing argument, an object on the made prototype; samples: every existing sample sends through the actor's
+            `send` door, none added; edges: E7 at every argument position, both routes; combos: `runtimeSetup`'s
+            persistence fields (existing refusals), the testing route; variety: 12 apps' made values; sources: Effect's
+            registered TypeIds on a shared prototype (`codebases/effect-v4/packages/effect/src`), none for the hostile
+            table; red today: the T131 requirement reds. No catalog step names this Task; the catalog needs a line.
+            Review log: S codes dropped (they name runtime shapes); the event row retitled; intake rows, `times` edges
+            and the probe app's place rejected as not this Task.
     T133
         title       Slice: Fragments
         status      draft

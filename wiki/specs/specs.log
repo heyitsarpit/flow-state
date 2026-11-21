@@ -687,3 +687,7 @@ note 2026-11-21T20:12:38Z
 note 2026-11-21T20:12:38Z
     Records: companion items 1, 6, 9, 10, 13, 14 answered A by the user (2026-11-22); Compiled.saved closed with Types
     Q8.
+
+note 2026-11-22T21:00:00Z
+    Types: twin list gains `RestartOnMissing`; declared names follow the name rules; a schedule key codec decodes
+    exactly, since a lenient decode merges two saved timers into one key text. Found by T120's requirements.

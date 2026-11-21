@@ -355,14 +355,19 @@ model
 
         Twin rule. Every refusal the types make has a construction row of the same meaning, for a body that reaches
         `machine()` through a cast or plain JavaScript: `ScheduleUndeclared`, `ReasonUndeclared`, `ReasonMissing`,
-        `KeysMissing`, `KeysUnexpected`, `RestartOnUndeclared`, `KeyOmitsField`, `RuleNameTwice`. An excess key is
-        already refused by the body decode (`config.ts`, `onExcessProperty: "error"`). A `restartOn` result its Schema
-        refuses is that read's failure at run time (`Schedules`).
+        `KeysMissing`, `KeysUnexpected`, `RestartOnUndeclared`, `RestartOnMissing` (a declared `restartOn` placed
+        without one), `KeyOmitsField` (a `resource` key, `MapperTypes`) and `RuleNameTwice` (`BodyCapture`). A
+        declared schedule or reason name follows the name rules of every authored name (`InvalidName`,
+        `DuplicateName`). An excess key is already refused by the body decode (`config.ts`, `onExcessProperty:
+        "error"`). A `restartOn` result its Schema refuses is that read's failure at run time (`Schedules`).
 
         In `Compiled`: `Compiled.schedules: ReadonlyMap<ScheduleName, { key: Option<Codec>, selection: Option<Codec>,
         reasons: ReadonlyArray<Reason> }>`, built from the declaration, and each `Node`'s compiled schedule points at
-        its entry. The restore decodes a saved key and baseline with these codecs, so a key whose Schema changed is
-        dropped with a report (`Records`' reference rows), never routed to another timer.
+        its entry. A key codec is the declared fields' JSON codec to canonical text, as a contract's `keyText`, and
+        decodes exactly: a saved key with a field the declaration no longer has does not decode, so two saved timers
+        never merge into one key text (`Schedules` I14). The restore decodes a saved key and baseline with these
+        codecs, so a key whose Schema changed is dropped with a report (`Records`' reference rows), never routed to
+        another timer.
 
         The compiled `Schedule` is the record `Schedules`' `decide` and `wake` read; this Spec owns it.
 
