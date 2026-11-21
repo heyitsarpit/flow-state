@@ -249,12 +249,18 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
 const isCodec = (value: unknown): value is Schema.Codec<unknown, unknown> => Schema.isSchema(value);
 
 // One field of a schedule's `Compiled.schedules` entry, when it is a codec.
-const tableOf = (compiled: unknown) =>
-  Predicate.hasProperty(compiled, "schedules") ? compiled.schedules : undefined;
+// RETURN_TYPE: a Map or a record, read as one Map, so the check does not fix the field's shape.
+const tableOf = (compiled: unknown): ReadonlyMap<unknown, unknown> => {
+  const table = Predicate.hasProperty(compiled, "schedules") ? compiled.schedules : undefined;
+
+  if (Predicate.isMap(table)) return table;
+
+  return new Map(Predicate.isObject(table) ? Object.entries(table) : []);
+};
 
 const codecOf = (compiled: unknown, name: string, field: "key" | "selection") => {
   const table = tableOf(compiled);
-  const entry = Predicate.isMap(table) ? table.get(name) : undefined;
+  const entry = table.get(name);
   const codec: unknown = Predicate.hasProperty(entry, field) ? entry[field] : Option.none();
 
   return Option.isOption(codec) ? Option.filter(codec, isCodec) : Option.none();
@@ -331,7 +337,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
     const selection = codecOf(compiled, "poll", "selection");
     const table = tableOf(compiled);
 
-    expect(Predicate.isMap(table) && table.has("tick")).toBe(true);
+    expect(table.has("tick")).toBe(true);
     expect(Option.isNone(codecOf(compiled, "tick", "key"))).toBe(true);
     expect(Option.isNone(codecOf(compiled, "tick", "selection"))).toBe(true);
     expect(

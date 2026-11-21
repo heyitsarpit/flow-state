@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from "vite-plus/test";
-import { Flow, type Machine } from "../../src/index.ts";
+import type { Flow, Machine } from "../../src/index.ts";
 
 // Inverted pins: each `today` assertion states today's type and fails once declared schedules
 // land: make it the type its comment names. The derived reader types (the snapshot's timers, the
@@ -15,7 +15,7 @@ describe("a definition declares its schedules (Types R8; Schedules R16)", () => 
   });
 
   it("Types R8: a keyed schedule is declared, so Flow.keyed is gone", () => {
-    // today: Flow.keyed wraps a keyed schedule. Flips to `.not.toHaveProperty("keyed")`.
-    expectTypeOf(Flow).toHaveProperty("keyed");
+    // today: Flow.keyed wraps a keyed schedule. Flips to `false`.
+    expectTypeOf<"keyed" extends keyof typeof Flow ? true : false>().toEqualTypeOf<true>();
   });
 });

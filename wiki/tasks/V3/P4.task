@@ -1227,6 +1227,19 @@ tasks
             pair with the definition imported from a sibling file, and the reference-app oxlint run wired into nub run
             check, failing on today's apps. Why: one home per fact, in the Task that deletes the old types. Reverse:
             move item 4 to T113.
+        comment     2026-11-21T23:37:24Z
+            Re-review folded (requirements lead). Changed reds: T140 item 4 gets
+            `tests/types/schedule-readers.test-d.ts` (inverted pins: the snapshot's timer names and a Paused record's
+            schedule and reasons are `string` today, flipping to Room's declared names and reasons) and an inverted
+            check that `compile-schedules.ts` holds no `erase<` or cast and `config.ts` no unread declaration; saved
+            timers have no public reader, so the casts' absence stands for them. Item 1: the lint test now runs each
+            part alone, adds the old kin types and a sibling-file pair (imported undeclared fires, imported declared
+            stays quiet), and asserts `nub run check` runs the rule over `checkout` and `dispatch-desk`; once wired that
+            run fails on today's apps. Non-blocking: fault count four; the `Flow` pin compiles both ways; `is.keyed`
+            added to the grep; `Compiled.schedules` read as a Map or a record. Rejected: an unquoted `keyed:` in the
+            grep (session's memory fields match) and `keyedSchedule` (a derived local); keyedness from the body is the
+            builder's call, kept in agreement by the twin rows. All 24 touched inverted reds flipped: each fails its
+            own assertion.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -2775,6 +2788,10 @@ tasks
             and rules are `.rules(build)`, not body keys (@proposal.external-rules). Why: a captured body costs about a
             quarter of check time and excess keys are a runtime refusal. Reverse: restore the capture bullet from git.
             T104's comment on body and returned-key exactness at run time is the prior art.
+        comment     2026-11-21T23:37:25Z
+            Routed by the orchestrator's ruling (2026-11-22): typing the schedule readers (snapshot timers, evidence,
+            saved timers) from the declaration, and deleting their casts, is @task.V3.T140's; this Task keeps the
+            general derive.ts rows.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
@@ -3928,3 +3945,9 @@ tasks
             `ScheduleUndeclared` reds. Item 1: the reference apps are covered by an oxlint run over `checkout` and
             `dispatch-desk`, not by the planted harness. Proof sources: no real source; the worklist names each site.
             Mix and pair membership of the migrated apps is unchanged.
+        comment     2026-11-21T23:37:25Z
+            Requirements update (requirements lead): item 2 names four faults (armon-keeps-deadline,
+            restore-arms-every-added, keyed-disarm-unkeyed-only, armon-of-any-kind). Item 4 is shown by
+            tests/types/schedule-readers.test-d.ts and the casts-gone red in tests/compile/schedule-migration.test.ts.
+            Item 1: the builder adds the rule test to lint:rules and wires an oxlint run of the rule over the reference
+            apps into nub run check; that run fails on today's apps.

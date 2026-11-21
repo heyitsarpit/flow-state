@@ -20,8 +20,14 @@ const untyped: {
 } = loose({ definition, machine });
 
 // A machine's `Compiled.schedules`, when it has one.
-const tableOf = (compiled: unknown) =>
-  Predicate.hasProperty(compiled, "schedules") ? compiled.schedules : undefined;
+// RETURN_TYPE: a Map or a record, read as one Map, so the check does not fix the field's shape.
+const tableOf = (compiled: unknown): ReadonlyMap<unknown, unknown> => {
+  const table = Predicate.hasProperty(compiled, "schedules") ? compiled.schedules : undefined;
+
+  if (Predicate.isMap(table)) return table;
+
+  return new Map(Predicate.isObject(table) ? Object.entries(table) : []);
+};
 
 describe("every fixture declares the schedules it places (Types R8, I11, T2)", () => {
   it.fails("Types I11: each schedule a fixture machine places has its Compiled.schedules entry", () => {
@@ -33,7 +39,7 @@ describe("every fixture declares the schedules it places (Types R8, I11, T2)", (
         return [...compiled.states.values()].flatMap((node) =>
           node.schedules.map((schedule) => ({
             at: `${manifest.name}/${compiled.id}/${schedule.name}`,
-            declared: Predicate.isMap(table) && table.has(schedule.name),
+            declared: table.has(schedule.name),
           })),
         );
       }),
@@ -105,7 +111,7 @@ const filesUnder = (folder: string) =>
     }));
 
 const OLD_FORM =
-  /Flow\.keyed|KeyedConfig|KeyedSchedule|ScheduleKey\b|ScheduleParts|ErasedEntry|"~keyed"|"keyed"/u;
+  /Flow\.keyed|is\.keyed|KeyedConfig|KeyedSchedule|ScheduleKey\b|ScheduleParts|ErasedEntry|"~keyed"|"keyed"/u;
 
 describe("the old form is gone from the package (Types R8)", () => {
   it.fails("Types R8: no source, fixture or test names Flow.keyed, KeyedConfig, KeyedSchedule, ScheduleKey, ScheduleParts, ErasedEntry or the keyed mark", () => {
@@ -116,5 +122,16 @@ describe("the old form is gone from the package (Types R8)", () => {
         .filter(({ path, text }) => path !== self && OLD_FORM.test(text))
         .map(({ path }) => path),
     ).toEqual([]);
+  });
+});
+
+describe("the casts that restored the old form are gone (Types R8, R13)", () => {
+  it.fails("Types R13: compile-schedules.ts erases no schedule callback and casts no delay; config.ts reads the declaration instead of accepting it unread", () => {
+    const text = (path: string) => filesUnder("src").find((file) => file.path === path)?.text ?? "";
+
+    expect([
+      /erase<|no-unsafe-type-assertion/u.test(text("src/compile-schedules.ts")),
+      text("src/config.ts").includes("a schedule declaration, accepted and not yet read"),
+    ]).toEqual([false, false]);
   });
 });
