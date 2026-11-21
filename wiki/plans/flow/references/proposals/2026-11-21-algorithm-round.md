@@ -140,15 +140,18 @@ Spec) waits for review. No length target; say each fact once. It holds:
 
 - **Serial leads** [decided: user 2026-11-21]: one lead per cluster, run one after another for usage limits.
 
-| Order | Cluster                                            | Algorithm-review problems |
-| ----- | -------------------------------------------------- | ------------------------- |
-| 1     | Schedules and occasions                            | 1 to 6                    |
-| 2     | Turn walk, boundary channels, fragments            | 7 to 9                    |
-| 3     | Records, data layer, saved format                  | 12, 13                    |
-| 4     | Reads and operations, errors and trust             | 10, 11, 14                |
-| 5     | UI host, test tooling, static rules, typed machine | 15 to 19                  |
+| Order | Cluster                                                                          | Algorithm-review problems |
+| ----- | -------------------------------------------------------------------------------- | ------------------------- |
+| 1     | Schedules and occasions                                                          | 1 to 6                    |
+| 2     | Turn walk, boundary channels, fragments                                          | 7 to 9                    |
+| 3     | Records, data layer, saved format                                                | 12, 13                    |
+| 4     | Reads and operations, errors and trust                                           | 10, 11, 14                |
+| 5a    | Types and compile: typed machine, static rules, derivation, compile-time indexes | 17, 19                    |
+| 5b    | UI host and test tooling: publication, held writes, multi-tab, verdicts          | 15, 16, 18                |
 
-Each lead reads the files the earlier clusters wrote and names every seam it crosses.
+Each lead reads the files the earlier clusters wrote and names every seam it crosses. Cluster 5 is split in two
+(the orchestrator, 2026-11-21): its five problems and every cluster's type and index seams do not fit one
+60-minute run; 5a runs first because 5b's verdicts read its rules.
 
 ## 6. Code deletion
 
@@ -168,7 +171,11 @@ Each lead reads the files the earlier clusters wrote and names every seam it cro
 4. **One run per cluster** [decided: user 2026-11-21]: clusters 2 to 5 get one lead run each, with no separate
    review and no revision round; the lead's own adversary and executable-model sidecars are its check. Review
    limits do not allow repeated reviews.
-5. After cluster 5: one Opus review across all five designs; whether a revision pass follows is the user's call.
+5. **Final review** [decided: user 2026-11-21]: after cluster 5b, one Opus review across all six designs that
+   actively hunts for holes, not only seams and mechanics: algorithms that fail on a trace, solutions that don't
+   solve their problem, requirements skipped or under-specified (against the Plans, the concept designs, the
+   case studies and the fixtures), plus the cross-cluster seams and the executable models re-run on final text.
+   The user decides what follows once it is done; nothing after it starts on its own.
 6. Then the user's round on the leads' questions, recorded as tags.
 7. **Development-strategy review** [proposed]: after all designs, one model (Opus or Fable, the user's call) reads
    every lead's process notes and the reviews of this round, and proposes how we build: Task shape, tests,
