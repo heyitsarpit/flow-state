@@ -222,7 +222,10 @@ open
         Why: the departure in Q5 is answered A. Reverse: reopen the rows.
         outcome  Each row follows its answer.
 
-    Q19  [proposed] Narrow the body capture. With schedules declared, `B` has two readers: `RuleNames<B>` (compiled) and
+    Q19  [decided: user 2026-11-22] Exactness, for now, is option C: the runtime's strict decode and `flow check`
+        refuse an unknown body key; no captured body type carries it. Why: the user's call while a harder type spike
+        looks for a capture-free type check. Reverse: the spike succeeding makes that type check the answer.
+        Narrow the body capture. With schedules declared, `B` has two readers: `RuleNames<B>` (compiled) and
         G3's deny literals (designed, nothing compiled). Exactness reads the body's whole type, not `B`'s use.
         Nothing in `Schedules`, `Operations` or `Changes` reads `B`. Most of the measured +31% is capturing and
         walking the whole body (`B & Exact<B, ...>`). Three jobs, three costs:

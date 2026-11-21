@@ -704,3 +704,7 @@ note 2026-11-21T21:26:21Z
 
 note 2026-11-21T21:26:22Z
     Schedules: ScheduleReads is not generic (the core is erased; the typed face is the declaration's lookup).
+
+note 2026-11-21T21:38:35Z
+    Types Q19: exactness is option C for now (runtime decode and flow check), the user's call (2026-11-22), pending a
+    harder capture-free type spike.
