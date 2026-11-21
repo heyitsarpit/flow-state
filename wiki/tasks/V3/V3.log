@@ -564,3 +564,7 @@ note 2026-11-21T19:08:00Z
     [proposed] Tasks link the v3 Specs they build (@spec.Schedules and its five siblings): follow them as best-guess
     guidance and fix them, logging in code:wiki/specs/specs.log, when building shows them wrong. "Supersedes" lines name
     code that stays until its replacement lands and the suite passes.
+
+note 2026-11-21T20:14:41Z
+    The user accepted all 36 open calls as recommended (2026-11-22); recorded in the v3 Specs, three Plans, P4's Order
+    line and the Epic.

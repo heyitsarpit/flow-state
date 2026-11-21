@@ -56,13 +56,15 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T92, @task.V3.T96, @task.V3.T99, @task.V3.T103, @task.V3.T102, @task.V3.T104, @task.V3.T107,
-    @task.V3.T105, @task.V3.T58, @task.V3.T57, @task.V3.T97, @task.V3.T112, @task.V3.T111, @task.V3.T113, @task.V3.T109,
-    @task.V3.T110, @task.V3.T77, @task.V3.T76, @task.V3.T72, @task.V3.T78, @task.V3.T21, @task.V3.T73, @task.V3.T56,
-    @task.V3.T22, @task.V3.T100, @task.V3.T23 (re-plan section 8, the user, 2026-11-18; T92 deferred and T95 cut by the
-    user, 2026-11-19, so T96 is next; T99 and T100 from P3's close, the orchestrator, 2026-11-19; re-planned by the
-    breakdown review, the orchestrator, 2026-11-20). A `blocked_by` link is a real dependency only; where several Tasks
-    are ready, take the earliest in this order.
+    **Order:** @task.V3.T131, @task.V3.T120 (slice parent @task.V3.T89), @task.V3.T118, @task.V3.T113, @task.V3.T119,
+    @task.V3.T92, @task.V3.T21's children @task.V3.T121 to @task.V3.T124, @task.V3.T56, the Fragments slice
+    (@task.V3.T133: @task.V3.T109, @task.V3.T110), the channels slice (@task.V3.T77: @task.V3.T127, @task.V3.T76,
+    @task.V3.T128, @task.V3.T78), the UI slice (@task.V3.T72: @task.V3.T129, @task.V3.T130, @task.V3.T73), the Errors
+    and CLI slice (@task.V3.T134: @task.V3.T100, @task.V3.T22, @task.V3.T23); the host track after @task.V3.T119: Host A
+    (@task.V3.T135: @task.V3.T112, @task.V3.T111), Host B (@task.V3.T136: @task.V3.T97, @task.V3.T117). [decided: user
+    2026-11-22] Why: the algorithm designs put the typed machine, the turn walk and the records first, and every slice
+    after them. Reverse: the order of the breakdown review (the orchestrator, 2026-11-20). A `blocked_by` link is a real
+    dependency only; where several Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -76,10 +78,10 @@ comment 2026-11-20T13:02:22Z
     Breakdown review (orchestrator, 2026-11-20, R48): Order re-planned; T113 new; T110 repurposed; T109 absorbed
     subroutines and whenAbandoned; decoding moved from T56 to T92; Fake items to T112, test tooling to T97.
 comment 2026-11-21T18:31:25Z
-    [proposed] Order after the algorithm designs (@proposal.algo-resolutions section 6): T131, T120, T118, T113, T119,
-    T92, T121, T122, T123, T124, T109, T110, T127, T76, T129, T128, T130, T78, T73, T56, T100, T22, T23; the host track
-    T112, T111, T97, T117 runs beside it once T119 lands. Fourteen Tasks are new (T119 to T132); T21, T24, T77, T72 and
-    T98 stay as close-outs of their parts.
+    [answered: user 2026-11-22] Superseded by the accepted Order in the phase card. It was: T131, T120, T118, T113,
+    T119, T92, T121, T122, T123, T124, T109, T110, T127, T76, T129, T128, T130, T78, T73, T56, T100, T22, T23; the host
+    track T112, T111, T97, T117 runs beside it once T119 lands. Fourteen Tasks are new (T119 to T132); T21, T24, T77,
+    T72 and T98 stay as close-outs of their parts.
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
@@ -2355,7 +2357,7 @@ tasks
             hostility, including P5's T29 Fake world items (Fake.http, Fake.Refused, Fake.Closed, duplicate, times,
             control-call overwrite, idempotency keys); storeContract (built by T58) is the contract for Fake.storage.
         comment     2026-11-21T18:31:22Z
-            [proposed] Owns the mutation applier: Fake.storage.mutate(kind) over the alphabet @proposal.algo-records 9.2
+            [answered: user 2026-11-22] Owns the mutation applier: Fake.storage.mutate(kind) over the alphabet @proposal.algo-records 9.2
             exports as data (@proposal.algo-resolutions C5).
         comment     2026-11-21T18:46:49Z
             Takes the fake-server items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4).

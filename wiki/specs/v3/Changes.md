@@ -310,7 +310,8 @@ The Spec's `composition` states what `Changes` offers and needs. In short:
 ## 7. Open questions
 
 Each had two traces where behaviour differs; the recommendation is first. "Answered" means a correctness call settled
-by the solutions pass (still the agent's, revisable); "proposed" means a user call, not decided.
+by the solutions pass (still the agent's, revisable); "proposed" means a user call, not decided. Items 4 and 10 and
+the hidden page were decided by the user 2026-11-22, all as recommended (A).
 
 1. **Instances settle inside the turn, in rounds.** Answered A: no follow-up turn, no pending flag. Departs from
    @plan.Machines.O3's "pending reset ... as its own follow-up turn". B (a follow-up turn with `unsettled`) publishes a
@@ -320,10 +321,10 @@ by the solutions pass (still the agent's, revisable); "proposed" means a user ca
    guard's meaning depend on walk order.
 3. **Who a raise reaches.** Answered A: the instances live after the source's own patch. B reaches only copies live at
    turn start: `Attach` adding `r3` then raising `Begin` would leave `r3` unstarted for that turn.
-4. **A reset value is a key.** Proposed (user call), A: the slot's declaration names `resetOn`'s Schema, and the value
-   is encoded by it and made canonical text, as a schedule's `restartOn` is; the string-or-number limit is dropped.
-   Before: any value by `Equal.equals`, so a `Date` saved as a string resets the trait on every reload.
-   `[open: 2026-11-22; recommend A]`
+4. **A reset value is a key.** [decided: user 2026-11-22] A: the slot's declaration names `resetOn`'s Schema, and
+   the value is encoded by it and made canonical text, as a schedule's `restartOn` is; the string-or-number limit is
+   dropped. Before: any value by `Equal.equals`, so a `Date` saved as a string resets the trait on every reload.
+   Why: one rule with `restartOn`. Reverse: B keeps any value by `Equal.equals`.
 
    ```ts
    // limited form: resetOn: ({ memory }) => memory.openedAt.getTime()           // only a string or a number
@@ -341,10 +342,10 @@ by the solutions pass (still the agent's, revisable); "proposed" means a user ca
    is a creation; a bad delay is `Refused` with an issue. B refuses `Attach` until the schedule is fixed.
 9. **`resetOn` reads memory only.** Answered A. B (props and context too) makes a props update that changes a reset
    value need a turn to run the ended trait's callbacks in.
-10. **`Published` carries the incarnation; `why` has three values.** Proposed (user call), A: `Published { actor,
-    incarnation, why }`, `why` is `Begin`, `Turn` or `Other`, an end is `Finished`. B: `{ actor, state, memory, why }`
-    with a fourth value `End`, which leaves instance memory, props and issues out of the one record a rule reads and
-    gives `End` no assigner. `[open: 2026-11-22; recommend A]`
+10. **`Published` carries the incarnation; `why` has three values.** [decided: user 2026-11-22] A: `Published {
+    actor, incarnation, why }`, `why` is `Begin`, `Turn` or `Other`, an end is `Finished`. B: `{ actor, state, memory,
+    why }` with a fourth value `End`, which leaves instance memory, props and issues out of the one record a rule
+    reads and gives `End` no assigner. Why: a fourth `why` would have no assigner. Reverse: B.
 
     ```ts
     // before: Published { actor, state, memory, why }      // why: "Begin" | "Turn" | "Other" | "End"
@@ -357,12 +358,14 @@ by the solutions pass (still the agent's, revisable); "proposed" means a user ca
 13. **`Context` after every `Wake`, without the "differs" test.** Answered A: the results equal `Schedules`' rule;
     its "differs" test is the specification and the unconditional pass is its implementation.
 
-Proposed here, to be accepted by the user: the hidden page is not a core input in v1 (timers keep their deadlines, a
-throttled wake fires each overdue timer once; the edge's drain and capture cover a freeze) `[open: 2026-11-22;
-recommend A]`; the work-command order of a step (releases before starts); the alarm kind order at one instant; the
-wave skip; a raise counts nothing toward the loop guard; the names `apply`, `Change`, `Unturned`, `reconcile`,
-`Applied`, `locate`, `Segment`, `PartCause`; an `Instance` without `fragment`, `schedules`, `parked` or `scope`, and
-`Instances` in address order.
+**Hidden page.** [decided: user 2026-11-22] Not a core input in v1: timers keep their deadlines, a throttled wake
+fires each overdue timer once, and the edge's drain and capture cover a freeze. Why: an autosave keeps saving.
+Reverse: a hidden input and a row in every scope's table.
+
+Proposed here, to be accepted by the user: the work-command order of a step (releases before starts); the alarm
+kind order at one instant; the wave skip; a raise counts nothing toward the loop guard; the names `apply`,
+`Change`, `Unturned`, `reconcile`, `Applied`, `locate`, `Segment`, `PartCause`; an `Instance` without `fragment`,
+`schedules`, `parked` or `scope`, and `Instances` in address order.
 
 ## 8. Open holes
 

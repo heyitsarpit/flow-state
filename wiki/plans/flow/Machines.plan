@@ -407,9 +407,16 @@ outcomes
     O5  Schedules
         A schedule fires an event on a declared timing, started and stopped by the events the machine lists.
 
-        A node or fragment body declares schedules: { name: { schedule, send, armOn?, disarmOn?, restartOn?, paused? }
-        }, or name: Flow.keyed({ keys, ... }) for a keyed schedule; `keys` outside Flow.keyed is refused, in types and
-        at construction, so every function of a keyed schedule types its `key`. schedule is a Duration.Input, an Effect
+        **Declared form.** [decided: user 2026-11-22] The definition declares each schedule: `schedules: { name: { key?,
+        pausedBy?, restartOn? } }`, where `key` is a field record, `pausedBy` lists the reason names and `restartOn` is
+        the Schema of the value it selects. It replaces `Flow.keyed` and the body-declared `key`, `paused` and
+        `restartOn` names. Why: one declaration types every callback and the snapshot, so a misspelt name does not
+        compile. Reverse: keep `Flow.keyed({ keys, ... })` and names declared in the body. See @spec.Schedules
+        (Q3, R16).
+
+        A node or fragment body places it: schedules: { name: { schedule, send, armOn?, disarmOn?, keys?, restartOn?,
+        paused? } }, checked against the declaration; `keys` on an unkeyed schedule is refused, in types and at
+        construction, so every function of a keyed schedule types its `key`. schedule is a Duration.Input, an Effect
         Schedule, or ({ key?, memory, props, context, now }) => either, reading the after memory of its arming turn with
         that turn's now. Every function of a keyed schedule (`schedule`, `paused`, `restartOn`, `send`) receives `key`,
         which is identity only.
@@ -521,8 +528,8 @@ outcomes
         // user-defined: Screen, ScreenMachine, Narrowed, narrow, Toaster, ToasterMachine, READY, toasts, hovered,
         //   maxVisible, Show, Update, Dismiss, PointerEnter, PointerLeave, Expired, expire, lengths, Hovered, Hidden
         // existing: definition, machine, context, schedules, keys, restartOn, send: E.X.from
-        // NEW: Flow.keyed, key in schedule, paused with named reasons, pausedBy in the snapshot, Flow.context(X.M.field),
-        //   M tokens
+        // NEW: schedules declared on the definition (key, pausedBy, restartOn Schema), paused with named reasons,
+        //   pausedBy in the snapshot, Flow.context(X.M.field), M tokens
         import { Schema } from "effect"
         import { definition, Flow, machine } from "flow-state"
 
@@ -551,6 +558,13 @@ outcomes
             PointerLeave: {},
           },
           internalEvents: { Expired: { id: Schema.String } },
+          schedules: {
+            expire: {
+              key: { id: Schema.String },
+              pausedBy: ["Hovered", "Hidden"],
+              restartOn: Schema.NullOr(Schema.String),
+            },
+          },
           memory: {
             toasts: Flow.initial(Schema.Array(Schema.Struct(Toast)), []),
             hovered: Flow.initial(Schema.Boolean, false),
@@ -568,17 +582,17 @@ outcomes
           states: {
             READY: {
               schedules: {
-                expire: Flow.keyed({
+                expire: {
                   keys: ({ memory }) => memory.toasts.map((t) => ({ id: t.id })), // one timer per toast
                   schedule: ({ key, memory }) => lengths[memory.toasts.find((t) => t.id === key.id)?.kind ?? "info"],
-                  restartOn: ({ key, memory }) => memory.toasts.find((t) => t.id === key.id)?.title, // an Update
+                  restartOn: ({ key, memory }) => memory.toasts.find((t) => t.id === key.id)?.title ?? null, // an Update
                   paused: {
                     Hovered: ({ memory }) => memory.hovered,
                     Hidden: ({ key, memory, context }) =>
                       memory.toasts.findIndex((t) => t.id === key.id) >= context.maxVisible,
                   },
                   send: E.Expired.from(({ key }) => ({ id: key.id })),
-                }),
+                },
               },
             },
           },
@@ -742,6 +756,7 @@ outcomes
           internalEvents: { Shrunk: { last: Schema.Number } },
           memory: { index: Flow.initial(Schema.Number, 0), hovered: Flow.initial(Schema.Boolean, false) },
           props: { count: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))) }, // default 0
+          schedules: { autoplay: { pausedBy: ["Hovered"], restartOn: Schema.Number } },
         })
 
         export const CarouselMachine = machine(Carousel, ({ S, E }) => ({

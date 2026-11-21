@@ -153,7 +153,11 @@ description
       old suite's owed lists.
     - First commit of a Task: its requirements list in the Task's comments, with each requirement as a check that
       fails today.
-    - The user's page: one page at a slice's close on what an app author will notice.
+    - The user's page: one page at a slice's close on what an app author will notice, written in
+      `wiki/plans/flow/references/pages/`, one page per slice (the user, 2026-11-22).
+    - Build-time choice: a block in a Task description giving two approaches, the reasoning for each and the test that
+      decides; the builder runs that test, picks one and records a `[decided: agent <role> <date>]` tag with Why and
+      Reverse (the user, 2026-11-22).
 skill        workflow@4f316bf
 run
     To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start, track and route agents;
@@ -182,6 +186,8 @@ instructions
       fix round or the next Task. Extra work (merges, code-quality reviews) waits for the slot. Before starting any
       agent, the orchestrator reads the 5-hour window: above 80% only the current lead continues; above 90% it
       checkpoints and stops until the reset. Processes and browsers: the Constraints' serial-work line.
+    - Settled conflicts with AGENTS.md (the user, 2026-11-22): the Epic's local commits stand and nothing is ever
+      pushed; a lead may run up to eight Haiku sidecars.
     - Haiku never writes or runs production code; it may run experiments or hill-climb in scratch files outside the
       package and submit ideas (the user, 2026-11-10 and 2026-11-15). A lead reads every line a sidecar wrote (the user,
       2026-11-08); re-running and logging results is skill:policy-delegation's.

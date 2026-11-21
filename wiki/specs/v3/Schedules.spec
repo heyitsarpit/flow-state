@@ -169,13 +169,15 @@ open
         outcome  A build-time choice in @task.V3.T118's description: land it with a bench row, or leave it out.
                  Level 0 checks gated against ungated.
 
-    Q2  A hidden page is proposed to be no use change in v1: no schedule row mentions it, timers keep their deadlines, 
-        and a throttled wake fires each overdue timer once. Awaiting the user's call. [proposed]
-        outcome  The user decides; the alternative is a use change that clears alarms while hidden.
+    Q2  A hidden page is no use change in v1: no schedule row mentions it, timers keep their deadlines, and a
+        throttled wake fires each overdue timer once. [decided: user 2026-11-22] Why: an autosave keeps saving and no
+        occasion is added. Reverse: a use change that clears alarms while hidden.
+        outcome  Closed by `Changes` Q4: a hidden page is not a core input in v1.
 
     Q3  @plan.Machines.O5 still describes `name: Flow.keyed({ keys, ... })` and body-declared `restartOn`, `paused` and 
-        `key`. The declared form replaces it, so the Plan needs the user's edit.
-        outcome  The user edits the Plan; until then this Spec follows the declared form.
+        `key`. The declared form replaces it, so the Plan needs an edit. [decided: user 2026-11-22] Why: the
+        declared form is this Spec's. Reverse: keep `Flow.keyed` and the body-declared fields.
+        outcome  @plan.Machines.O5 is edited to the declared form (2026-11-22).
 
     Q4  Scoped `armOn` and `disarmOn` are resolved by the walk in `Changes` (its own open item); either answer gives 
         the same inputs here.
@@ -557,7 +559,7 @@ algorithm
         freeze, the last use released: clears the scope's alarms; no timer changes; no occasion.
         thaw, restore, a use returning, hydration: decodes (restore only); after the decision, overdue timers fire
             once; `Wake`, then `Context` by the rule above.
-        [proposed] A hidden page is not a row (open item Q2).
+        A hidden page is not a row (open item Q2, decided).
         Re-entry is exit then entry: a new activation id, no `exited` flag, nothing to inherit. Asleep is not a timer
         state: a frozen or unused scope keeps `Due(dueAt)`. Props are root-wide and reach every awake scope as 
             `Context`, never `Turn` (`Changes` R20). Lanes are not

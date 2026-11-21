@@ -604,7 +604,7 @@ tasks
             first render); server data went to T115 and the Next.js host proofs to T116; blocked_by adds T98.
         comment     2026-11-21T18:46:49Z
             Per @review.spec-cohesion-r2 question 15 (UH PD2): @task.V3.T111 builds the whole binding, and this Task
-            becomes channels and the hydrate overlay. [proposed] Emit delivery in React follows @proposal.algo-host 6.3.
+            becomes channels and the hydrate overlay. [answered: user 2026-11-22] Emit delivery in React follows @proposal.algo-host 6.3.
         comment     2026-11-21T19:07:47Z
             Spec check: the description still says this Task builds the binding; @spec.Host and the 2026-11-21 comment
             give the binding to @task.V3.T111, leaving channels, the hydrate overlay and emit delivery in React here.
@@ -813,7 +813,7 @@ tasks
             O8 (end-of-run cleanup and evidence) and UnusedWireRule, the run's verdict. T106 is blocked by it, so its V8
             no longer waits on T29.
         comment     2026-11-21T18:31:23Z
-            [proposed] An Expect matches every break that fits it; each Expect needs one match, and each break of an
+            [answered: user 2026-11-22] An Expect matches every break that fits it; each Expect needs one match, and each break of an
             expected rule needs one Expect; a bare rule keeps the decided at-least-once meaning
             (@proposal.algo-resolutions 1.6).
         comment     2026-11-21T19:07:41Z

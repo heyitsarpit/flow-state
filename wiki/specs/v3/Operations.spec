@@ -104,31 +104,36 @@ open
     Q1  A read's key is its whole input. For a `resource`, `key` orders the input's fields for partial-key matching and 
         names every field. Trace of the alternative (a partial key with the input stored on the entry): two
         lookups with `{ account, currency }` and key `["account"]` share one entry and the second gets the first
-        currency's answer as a success. [proposed]
-        outcome  The user decides; the Spec follows the first until then.
+        currency's answer as a success. [decided: user 2026-11-22] Why: equal keys with different inputs would race.
+        Reverse: B, a partial key with the input stored on the entry.
+        outcome  A: a read's key is its whole input.
 
     Q2  No `Trigger` cue: a request starts by itself only at a placement, an invalidate and a clear. A refetch on focus 
         or on an interval is a schedule that runs `O.x.refetch()`. This departs from @plan.Operations.O2 ("focus
         regained and connection restored refetch"). The alternative is a host occasion (focus, online) as a new input
-        and a new row. [proposed]
-        outcome  The user decides; the Plan is edited to match.
+        and a new row. [decided: user 2026-11-22] Why: a refetch on focus or interval needs no new input, only a
+        schedule. Reverse: B, a host occasion as a new input.
+        outcome  A: no `Trigger`; @plan.Operations.O2 is edited to match (2026-11-22).
 
     Q3  A life's end and a disposal owe waiters nothing: each waiter's row would close at once as evidence, since its 
         life is gone; a freeze still parks one `Interrupted` row per waiting lookup. This departs from the Plan's
-        "the Interrupted ending a freeze or an actor's end parks". [proposed]
-        outcome  The user decides; the Plan sentence is edited to match.
+        "the Interrupted ending a freeze or an actor's end parks". [decided: user 2026-11-22] Why: a gone life's
+        rows would close at once as evidence. Reverse: B, a row per waiter at an end.
+        outcome  A: a freeze parks `Interrupted`; the Plan sentence is edited to match (2026-11-22).
 
     Q4  `failureOf` gives one `FlowError` per crossing and one diagnostic per cleanup. Today a defect plus a cleanup 
         failure is a `Die` holding the error (`close.ts:282-296`); the defect is in `cause` here and its diagnostic is
-        classed Defect. [proposed]
-        outcome  The user decides; the alternative keeps the `Die`.
+        classed Defect. [decided: user 2026-11-22] Why: one error per crossing keeps the defect in `cause`. Reverse:
+        B keeps the `Die`.
+        outcome  A: one `FlowError` per crossing, one diagnostic per cleanup.
 
     Q5  A write's `Cause.TimeoutError` is unknown and a type error: `commit: (i) => 
         api.pay(i).pipe(Effect.timeout(...))` stops compiling; the form the fixtures write (`Effect.timeoutOrElse` with 
         `Outcome.unknown`) stays. No fixture
         writes the first. For a read, `TimeoutError` stays in the contract's `E` and the `failure` mapping names the
-        tag by the ordinary exhaustive check. [proposed]
-        outcome  The user confirms.
+        tag by the ordinary exhaustive check. [decided: user 2026-11-22] Why: an unknown must not look like a typed
+        error; no fixture writes the first form. Reverse: allow `Effect.timeout` on a write.
+        outcome  A: confirmed.
 
     Q6  A made value's internals sit under a second registered symbol on the value, off the face, so two loaded copies 
         of Flow read each other's values; a `WeakMap` beside the brand would refuse a second copy's values.
@@ -137,13 +142,14 @@ open
 
     Q7  A persisted write declares its `output` and error Schemas, required when the app persists. Today an ending that 
         cannot be saved becomes unknown `Restored`, so a success turns into "unsure" on reload. The alternative keeps
-        the fallback. [proposed]
-        outcome  The user decides.
+        the fallback. [decided: user 2026-11-22] Why: a success must not turn into "unsure" on reload. Reverse: B
+        keeps the fallback.
+        outcome  A: a persisted write declares `output` and error Schemas.
 
     Q8  The rename of saved text for a store refusal (`StorageRefused` to `StorageFailure`, in `reason` and `why`) is 
-        one step of `Records`' format plan, and the rename of the codes' constructors is accepted as proposed. 
-        [proposed]
-        outcome  The user confirms.
+        one step of `Records`' format plan, and the rename of the codes' constructors is accepted.
+        [decided: user 2026-11-22] Why: one format step in `Records`. Reverse: keep `StorageRefused`.
+        outcome  A: confirmed.
 
     Q9  Models are narrower than the text: `besideOf` (an interrupt beside two other reasons) was fixed after the last 
         run and not re-run; a Clear on a Running entry that has lost its holds mid-step starts a call from `again`

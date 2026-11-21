@@ -5,7 +5,7 @@ definition; the body is captured exactly and gives the machine only what the bod
 file holds what does not fit @spec.Types: the walkthrough, the problem classes, the principle ledger, the fit to
 today's code, the seams, the questions with their before and after, the open holes and the process notes. The Spec is
 pre-coding analysis, to be followed as best-guess guidance and revised whenever building shows it wrong
-(`wiki/specs/specs.log` records each change). Everything marked proposed is the user's call.
+(`wiki/specs/specs.log` records each change). Section 9's questions were answered 2026-11-22.
 
 Code paths are under `packages/flow-state-v3/`. Every keyword in a code block is marked existing, NEW, CHANGED or
 user-defined. The core stays erased and is not generic in `D`; a type crosses between the typed shell and the erased
@@ -259,7 +259,9 @@ costs the rule tokens, a stated limit. Gaps this Spec answers:
 
 ## 9. Questions, with before and after
 
-All proposed; recommendation first. Each departs from an earlier design, a Plan, the code or an accepted answer.
+**Answered.** [decided: user 2026-11-22] All of items 1 to 8, 10 and 11 as recommended (A). Why: each item's own
+reason below. Reverse: the B option of the item. Each departs from an earlier design, a Plan, the code or an
+accepted answer.
 
 1. **Construction returns a value.** Nothing raises for a finding until a Runtime starts or a Story runs. Departs
    from `machine()` throwing (@plan.Machines, `machine.ts:265`) and an earlier ruling to keep the throw. The user

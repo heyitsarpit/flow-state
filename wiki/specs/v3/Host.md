@@ -3,7 +3,7 @@
 Status: proposed. This holds what does not fit @spec.Host: the walkthrough, the problem classes, the principle
 ledger, the fit to today's code, the seams, the user's calls, the open holes and the process notes. The Spec is
 pre-coding analysis, best-guess guidance, revisable whenever building shows it wrong; each change is recorded in
-`wiki/specs/specs.log`. Nothing here is decided by the user; every call below is proposed.
+`wiki/specs/specs.log`. Section 6's calls were answered 2026-11-22.
 
 Terms (`Quiescent`, `Published`, `EdgePhase`, `Fate`, `Verdict`) are the Spec's `model` and `algorithm`. Other Specs
 are named in backticks: `Schedules`, `Changes` (the turn walk), `Records`, `Operations`, `Types`. Paths are under
@@ -158,8 +158,9 @@ The Offers and Needs are in the Spec's `composition`. Points a reader may miss:
 
 - **`Changes`:** `Out.touched` and `lifeChanged` are a core change in that area (question 4 below). Both Specs edit
   `driver.ts`; one Task lands the turn rows first, then the slice end. The public `Published` face (incarnation,
-  `why` with three values) is shared (proposed). A hidden page is not a use change in v1: timers keep their
-  deadlines; a throttled wake fires each overdue timer once; the edge's drain and capture cover a freeze (proposed).
+  `why` with three values) is shared (decided: user 2026-11-22). A hidden page is not a use change in v1: timers keep
+  their deadlines; a throttled wake fires each overdue timer once; the edge's drain and capture cover a freeze
+  (decided: user 2026-11-22).
 - **`Operations`:** the release alarm publishes with no host code; `stepEnds` is the core step's last row;
   `releasing` with ages is inspection's. Its hole on the public event for `refetch` is the Spec's Q6.
 - **`Records`:** the host owns the mutation applier, `Fake.storage.mutate(kind)`; the alphabet is `Records`'.
@@ -172,61 +173,67 @@ flags, Story helper type names), @task.V3.T117 (cost rows), @task.V3.T27, @task.
 
 ## 6. Questions for the user
 
-Items 1, 4, 7, 9, 10, 11 and 13 are decided by the agent pass of 2026-11-22 (the Spec's Q12), each by the trace
-beside it. Items 2, 3, 5, 6, 8 and 12 change the public API or overturn an earlier placement: they stay proposed
-for the user, and the trace beside each is the reasoning.
+Items 1, 4, 7, 10, 11 and 13 are decided by the agent pass of 2026-11-22 (the Spec's Q12), each by the trace
+beside it. Items 2, 3, 5, 6, 8, 9 and 12 change the public API or overturn an earlier placement: the user answered
+them 2026-11-22, all as recommended (A), and the trace beside each is the reasoning.
 
-1. **A publication is a slice that leaves no mail owed.** [proposed; recommend A, agent-answered] Departs from "a
+1. **A publication is a slice that leaves no mail owed.** [decided: agent orchestrator 2026-11-22] Departs from "a
    drained slice". Trace B: one click, 150 consumers, `drainYield` 100: publication at 100, a render showing 50
    stale consumers, a second publication at 150. A: the first slice publishes nothing; one publication. Cost:
    `send(); getSnapshot()` after a chain longer than 100 shows the chain's start until the next task (only then).
-   C: drain without yielding; one publication, but a long chain blocks the page.
-2. **Run rules live in one rules module that `flow.config.ts` and `Story.app` both import.** [proposed; recommend A;
-   a user call, overturning an earlier placement of run rules in the config] The config only the CLI loads; the
+   C: drain without yielding; one publication, but a long chain blocks the page. Why: Trace B. Reverse: B or C.
+2. **Run rules live in one rules module that `flow.config.ts` and `Story.app` both import.** [decided: user
+   2026-11-22] A, overturning an earlier placement of run rules in the config. The config only the CLI loads; the
    first version's `Story.app(config, app)` makes a cycle: `flow.config.ts` imports `fixtures/index.ts`, which imports
    every Story. Trace A: `tests/rules/list.ts` (no vitest) exports `rules`; the config's `rules` and each
    `Story.app(setup, { ..., rules })` import it; `discover` refuses a Story whose `rules` is not the config's value
    (identity); 121 calls change, most inside a few fixture helpers. Trace B: rules on the app (`app({ rules })`). C: a
    vitest setup file registering a global (hidden state; rejected). Linked to the types design's question on machine
-   rules having no `enabled` flag.
-3. **Emits are delivered once per publishing slice, after the publication.** [proposed; recommend A, agent-answered]
-   Trace B: a listener reading `getSnapshot` at an emit sees the previous publication. A: the Spec. B: per step, and
-   an emit's listener must not read the snapshot.
-4. **The core's `Out` gains `touched` and `lifeChanged`.** [proposed; recommend A, agent-answered] A: the snapshot
+   rules having no `enabled` flag. Why: the config cannot import the Stories without a cycle. Reverse: B.
+3. **Emits are delivered once per publishing slice, after the publication.** [decided: user 2026-11-22] A. Trace B: a
+   listener reading `getSnapshot` at an emit sees the previous publication. A: the Spec. B: per step, and an emit's
+   listener must not read the snapshot. Why: Trace B. Reverse: B.
+4. **The core's `Out` gains `touched` and `lifeChanged`.** [decided: agent orchestrator 2026-11-22] A: the snapshot
    fields are written through a key-to-actor map, so marking is by construction; `PublicationDrift` checks it in
-   Story runs. B: compare every identity per publication, O(A) per slice, no core change: safer and costlier.
-5. **A reload runs `pagehide` first; the fate word is `inflight`, default `abort`.** [proposed; recommend A,
-   agent-answered] Today a reload is a crash (no hide listener) with `heldWrites`. A: the tab table; a crash is
-   `hide: false`. B: keep crash semantics; the `pagehide` flush is never exercised in Stories.
-6. **`propertyTest` runs every seed and rejects after the last.** [proposed; recommend A] B: stop at the first
-   failure (today; faster, hides other rules' failures).
+   Story runs. B: compare every identity per publication, O(A) per slice, no core change: safer and costlier. Why:
+   marking by construction costs nothing per slice. Reverse: B.
+5. **A reload runs `pagehide` first; the fate word is `inflight`, default `abort`.** [decided: user 2026-11-22]
+   A. Today a reload is a crash (no hide listener) with `heldWrites`. A: the tab table; a crash is `hide: false`. B:
+   keep crash semantics; the `pagehide` flush is never exercised in Stories. Why: a browser runs `pagehide` on a
+   reload. Reverse: B.
+6. **`propertyTest` runs every seed and rejects after the last.** [decided: user 2026-11-22] A. B: stop at the first
+   failure (today; faster, hides other rules' failures). Why: B hides other rules' failures. Reverse: B.
 
    ```ts
    // before: rejects at seed 3; seeds 4 to 50 never run    after: runs 50, rejects once, listing every failed seed
    ```
-7. **A `Later` mark during a store's backoff waits for the retry, except once when hidden.** [proposed; recommend A,
-   agent-answered, with the edge's changed cells: the flag lives in `Out`, a waiting ticket issues when the last
-   batch lands] Today it cancels the retry after one capture interval. B: keep today's.
-8. **The verdict is a record of four facts.** [proposed; recommend A]
+7. **A `Later` mark during a store's backoff waits for the retry, except once when hidden.** [decided: agent
+   orchestrator 2026-11-22] A, with the edge's changed cells: the flag lives in `Out`, a waiting ticket issues when
+   the last batch lands. Today it cancels the retry after one capture interval. B: keep today's. Why: the retry is
+   not cancelled by a later mark. Reverse: B.
+8. **The verdict is a record of four facts.** [decided: user 2026-11-22] A. Why: the first matching outcome hides what
+   broke. Reverse: B, the first matching outcome.
 
    ```ts
    // before: the first matching outcome, "Unfinished"      // what broke is hidden
    // after:  verdict: { broken, neverBroke, unfinished, inconclusive }
    ```
-9. **The binding's props before attach are part of creation, and Safari display-bound cases are counted as skipped.**
-   [proposed; accept] No trace here changes them.
-10. **A capture reads only a world with no mail; a hide drains the mail synchronously first.** [proposed; recommend A,
-    agent-answered; the model holds] Trace B (today): a 150-consumer fan-out yields at 100; the page hides; the
-    capture saves 100 updated and 50 stale consumers, and the 50 follow-ups are lost on reload (mail is not saved).
-    A: the capture rule; cost: a hide blocks for the owed chain's length. C: save the mail (`Records`' format; larger
-    change).
-11. **A hide issues behind a batch already flying.** [proposed; recommend A, agent-answered, with the edge's cells]
-    Trace B (today): a slow PAY batch is out, two Backs wait, the page hides and dies: METHOD is lost under both
-    fates and the store may hold SLOT, an ending no fate word names. A: the second batch, ordered by the store
-    contract. B: keep one batch and name the loss in the fate table.
-12. **An `expectBroken` entry may narrow to a step, an actor or a predicate, and the reload sweep drops it from
-    forks.** [proposed; recommend A] It extends the decided `.rules({ expectBroken, off })`; a bare rule keeps its
-    decided meaning (breaks at least once).
+9. **Props before attach are creation's; Safari display-bound cases count as skipped.** [decided: user
+   2026-11-22] Accepted: no trace here changes them. Why: as `UI Host` recommends. Reverse: props
+   before attach are mailbox inputs.
+10. **A capture reads only a world with no mail; a hide drains the mail synchronously first.** [decided: agent
+    orchestrator 2026-11-22] A; the model holds. Trace B (today): a 150-consumer fan-out yields at 100; the page
+    hides; the capture saves 100 updated and 50 stale consumers, and the 50 follow-ups are lost on reload (mail is
+    not saved). A: the capture rule; cost: a hide blocks for the owed chain's length. C: save the mail (`Records`'
+    format; larger change). Why: Trace B loses follow-ups. Reverse: C.
+11. **A hide issues behind a batch already flying.** [decided: agent orchestrator 2026-11-22] A, with the edge's
+    cells. Trace B (today): a slow PAY batch is out, two Backs wait, the page hides and dies: METHOD is lost under
+    both fates and the store may hold SLOT, an ending no fate word names. A: the second batch, ordered by the store
+    contract. B: keep one batch and name the loss in the fate table. Why: Trace B loses METHOD. Reverse: B.
+12. **An `expectBroken` entry may narrow to a step, an actor or a predicate.** [decided: user 2026-11-22] A, and the
+    reload sweep drops it from forks. It extends the decided `.rules({ expectBroken, off })`; a bare rule keeps its
+    decided meaning (breaks at least once). Why: Trace B passes a break at `Begin` on another actor. Reverse: B, a
+    rule id only.
 
     ```ts
     // decided (not built): story.rules({ expectBroken: [Pay.rules.NoLostWrite] })              // breaks at least once
@@ -235,9 +242,9 @@ for the user, and the trace beside each is the reasoning.
     ```
     Trace B (rule id only): an inverted Story expecting a turns rule at the dropped retry passes when the rule breaks
     at `Begin` on another actor; in the sweep, a fork before the step fails `neverBroke`.
-13. **A hung store holds disposal until `disposalBound`.** [proposed; recommend A, agent-answered] A: no write timeout
-    (the user's "no arbitrary limits"); disposal's existing bound ends it and the waiting tickets are answered
-    false. B: a disposal ticket skips the hung batch, issuing behind it at once.
+13. **A hung store holds disposal until `disposalBound`.** [decided: agent orchestrator 2026-11-22] A: no write
+    timeout (the user's "no arbitrary limits"); disposal's existing bound ends it and the waiting tickets are answered
+    false. B: a disposal ticket skips the hung batch, issuing behind it at once. Why: no arbitrary limits. Reverse: B.
 
 Every departure: 1 (the "drained slice" rule), 2 (the placement of run rules), 3 (once per step), 4 (the core's `Out`),
 5 (today's reload), 6 (today's `propertyTest`), 7 and 11 (today's edge), 8 and 12 (the earlier switch table), 10

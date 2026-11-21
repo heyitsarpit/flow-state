@@ -211,9 +211,11 @@ the failure across cleanup (`failureOf`); the codes (Catalog); the saved text (t
 "flow-state/Made")` plus the owner compare (2026-11-21); retries inside a contract function are immediate only, a
 delayed retry is a machine schedule (2026-11-21); `InvariantViolation` (2026-11-19).
 
-**Proposed, for the user's call** (the Spec's open Q1 to Q8). Each, with the trace that makes it a decision:
+**Answered by the user 2026-11-22** (the Spec's open Q1 to Q8; Q6 was answered earlier). Each, with the trace that
+makes it a decision; all as recommended (A):
 
-1. **A read's key is its whole input** (Q1). Recommend A.
+1. **A read's key is its whole input** (Q1). [decided: user 2026-11-22] Why: equal keys with different inputs would
+   race. Reverse: B.
 
    ```ts
    // before (existing): resource({ input: { account, currency }, key: ["account"], ... })   // compiles
@@ -224,9 +226,10 @@ delayed retry is a machine schedule (2026-11-21); `InvariantViolation` (2026-11-
      Trace B: two lookups with `{ account, currency }` and key `["account"]` share one entry; the second gets the
      first currency's answer as a success.
    - B: keep a partial key and store the input on the entry; equal keys with different inputs then race.
-2. **No `Trigger` cue** (Q2). Departs from @plan.Operations.O2 ("focus regained and connection restored refetch").
-   Recommend A: a request starts by itself only at a placement, an invalidate and a clear; a refetch on focus or on
-   an interval is a schedule that runs `O.x.refetch()`, as Pay's `UNSURE` does.
+2. **No `Trigger` cue** (Q2). [decided: user 2026-11-22] Departs from @plan.Operations.O2 ("focus regained and
+   connection restored refetch"). Why: a schedule does it. Reverse: B. A: a request starts by itself only at a
+   placement, an invalidate and a clear; a refetch on focus or an interval is a schedule that runs `O.x.refetch()`, as
+   Pay's `UNSURE` does.
 
    ```ts
    // today: resource({ id, input, key, services, staleTime, gcTime, lookup })   // no refetch trigger exists
@@ -235,8 +238,9 @@ delayed retry is a machine schedule (2026-11-21); `InvariantViolation` (2026-11-
    ```
 
    Alternative: a host occasion (focus, online) as a new input and a new row.
-3. **A life's end and a disposal owe waiters nothing** (Q3). Departs from the Plan's "the Interrupted ending a
-   freeze or an actor's end parks". Recommend A.
+3. **A life's end and a disposal owe waiters nothing** (Q3). [decided: user 2026-11-22] Departs from the Plan's
+   "the Interrupted ending a freeze or an actor's end parks". Why: a gone life's rows close at once as evidence.
+   Reverse: B.
 
    ```ts
    // before: dispose(actor) queues an Interrupted row per waiting lookup, closed at once as evidence
@@ -245,14 +249,16 @@ delayed retry is a machine schedule (2026-11-21); `InvariantViolation` (2026-11-
 
    Trace A: each waiter gets an `Interrupted` row that closes at once as evidence, since its life is gone. Trace B:
    the slots leave and the calls are released.
-4. **`failureOf` gives one `FlowError` per crossing** (Q4). Recommend A. Today (`close.ts:282-296`) a defect plus a
+4. **`failureOf` gives one `FlowError` per crossing** (Q4). [decided: user 2026-11-22] Why: the defect stays in
+   `cause`. Reverse: B keeps the `Die`. Today (`close.ts:282-296`) a defect plus a
    cleanup failure is a `Die` holding the error.
 
    ```ts
    // before: a defect plus a cleanup failure is a Die holding the error
    // after:  FlowError { code, cause: the defect }, and one CleanupFailed diagnostic per cleanup
    ```
-5. **A write's timeout is unknown and a type error** (Q5). Accept; for a read the tag `TimeoutError` stays in `E`.
+5. **A write's timeout is unknown and a type error** (Q5). [decided: user 2026-11-22] For a read the tag
+   `TimeoutError` stays in `E`. Why: an unknown must not look like a typed error. Reverse: allow `Effect.timeout`.
 
    ```ts
    // allowed today: commit: (i) => api.pay(i).pipe(Effect.timeout("30 seconds"))    // no fixture writes this
@@ -266,7 +272,8 @@ delayed retry is a machine schedule (2026-11-21); `InvariantViolation` (2026-11-
    // after: the same brand; NEW: value[Symbol.for("flow-state/Internals")] holds the internals, off the public
    //        face, in place of a WeakMap beside the brand, so a second loaded copy of Flow reads them too
    ```
-7. **A persisted write declares its `output` and error Schemas** (Q7). Recommend A (required when the app persists).
+7. **A persisted write declares its `output` and error Schemas** (Q7). [decided: user 2026-11-22] Required when the
+   app persists. Why: a success must not reload as "unsure". Reverse: B keeps the fallback.
 
    ```ts
    // today: transaction({ id, input, key, concurrency, services, commit })   // an unsaveable ending reloads as unknown
@@ -275,8 +282,8 @@ delayed retry is a machine schedule (2026-11-21); `InvariantViolation` (2026-11-
 
    Today an ending that cannot be saved becomes unknown `Restored` (`record.ts:107`): a success turns into "unsure"
    on reload. B keeps the fallback.
-8. **The rename of saved text and the constructors** (Q8). Accept as proposed; the rename is one step of `Records`'
-   format plan.
+8. **The rename of saved text and the constructors** (Q8). [decided: user 2026-11-22] The rename is one step of
+   `Records`' format plan. Why: one format step. Reverse: keep `StorageRefused`.
 
 Costs of the proposals (for 3 and 15): with one position, one answer is thrown away when an invalidate arrives
 mid-flight and nobody waits, and invalidations that never pause for one round trip starve the waiters. The

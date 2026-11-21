@@ -3,7 +3,7 @@
 Status: proposed. This holds what does not fit @spec.Records: the walkthrough, the problem classes, the principle
 ledger, the fit to today's code, the user's calls, the open holes and the process notes. The Spec is pre-coding
 analysis, best-guess guidance, revisable whenever building shows it wrong; each change is recorded in
-`wiki/specs/specs.log`. Nothing here is decided by the user; every call below is proposed.
+`wiki/specs/specs.log`. Section 7's calls were answered 2026-11-22.
 
 Terms (`Fate`, `Carried`, `Waits`, `Starts`, the `Shape` types, `RefRows`) are the Spec's `model` and `algorithm`.
 Other Specs are named in backticks: `Schedules`, `Changes` (the turn walk), `Operations`, `Types`, `Host`.
@@ -153,12 +153,13 @@ separate record); **sync**, **player**, **number-input** (nothing saved: I12).
 ## 7. Questions for the user
 
 Items 2, 3, 4, 5, 7, 8, 11 and 12 are decided by the agent pass of 2026-11-22 (the Spec's Q6), each by the trace
-beside it. Items 1, 6, 9, 10 and 13 (and `persist` turned off, R8) are the user's calls: they stay proposed, and
-the trace beside each is the reasoning.
+beside it. Items 1, 6, 9, 10, 13 and 14 (`persist` turned off, R8) were the user's calls: answered 2026-11-22, all
+as recommended (A); the trace beside each is the reasoning.
 
-1. **The fault model** (proposed, recommend A; user call). A: Spec `model`, FaultModel; "forged but valid" is out of
-   scope, its `it.fails` tests are deleted, and the caveat is written into R2. B: defend meaning against forgery,
-   which needs signed records. Trace for B: a copied, valid record under its own key cannot be told from a real one.
+1. **The fault model** [decided: user 2026-11-22]. Why: B needs signed records. Reverse: B.
+   A: Spec `model`, FaultModel; "forged but valid" is out of scope, its `it.fails` tests are deleted (in a later
+   Task), and the caveat is written into R2. B: defend meaning against forgery, which needs signed records.
+   Trace for B: a copied, valid record under its own key cannot be told from a real one.
 2. **One `work` record per identity** (agent-answered A). A: lanes and owed rows merge; no relation spans records;
    the cost is a whole-record rewrite per acknowledged send. B: keep per-lane records and add a boot-wide check.
    Trace for B: a per-record decode passed a head beside its success.
@@ -173,7 +174,8 @@ the trace beside each is the reasoning.
 5. **An unreadable obligation is carried, not delivered** (agent-answered A). A: Carried. B: deliver without
    input. Trace for B: the user's ending mappers take `(value, { input, key })`; with no input the mapper cannot
    be called.
-6. **An orphan is kept** (proposed, recommend A). A: `Kept(Orphan)`; `Kept(NotPersisted)` follows the same rule: a
+6. **An orphan is kept** [decided: user 2026-11-22]. Why: a mistaken deploy must not destroy data. Reverse: B. A:
+   `Kept(Orphan)`; `Kept(NotPersisted)` follows the same rule: a
    record this build does not read is left as it is. B: discard. Trace for B: a deploy that drops a machine by
    mistake destroys its users' data before the fix ships.
    ```ts
@@ -183,20 +185,23 @@ the trace beside each is the reasoning.
    an entity-store record. Trace for B: a claim row whose head is gone leaves a field unconfirmed forever.
 8. **`Compiled.saved`** (agent-answered A, once with the types design). Trace against: a changed key Schema
    restores and routes to the wrong timer.
-9. **One step, 5 to 6, and it tells a format 5 hold once more** (proposed, recommend A). A: the format lands as one
+9. **One step, 5 to 6, and it tells a format 5 hold once more** [decided: user 2026-11-22]. Why: a hold never told
+   is lost. Reverse: B. A: the format lands as one
    number; a format 5 Held head with no row is told `Restored` once after the upgrade, and a format 5 owed row not
    tied to a head is carried, not delivered, because format 5 saved no input for the ending mapper. Format 5 was
    never released, so only fixtures hold such rows. B: 6 for one change and 7 later; or treat such a head as told.
    Trace for B: a hold never told is lost.
-10. **The earlier saved-record choices on item removal, newer builds and carried obligations** (proposed, recommend
-    A): adopted as that concept proposed them; the obligation rule is Carried; a newer build's record is
-    `Kept(Newer)` for the whole identity.
+10. **The earlier saved-record choices** [decided: user 2026-11-22]. Why: adopted as recommended. Reverse: the
+    earlier concept's alternatives. They cover item removal, newer builds and carried obligations. A: adopted as that
+    concept proposed them; the obligation rule is Carried; a newer build's record is `Kept(Newer)` for the whole
+    identity.
 11. **One `admit`; positions are not saved by hydrate** (agent-answered A). The merge details are not settled here
     (hole H4).
 12. **A reset actor is not woken by the boot** (agent-answered A). A: what it is owed waits for the ensure that
     starts it fresh, as a disposed identity's rows do today. B: the boot starts it fresh at once. Trace for B: a
     fresh actor nobody mounted hears an ending and runs effects with no view.
-13. **A memory field that does not read** (proposed, recommend A; user call). A: the reference row stands; the
+13. **A memory field that does not read** [decided: user 2026-11-22]. Why: B reaches a state the machine never
+    reached. Reverse: B. A: the reference row stands; the
     position resets (state, all memory, timers and instances), the work side is untouched. B: reset only that field
     to its declared initial. Trace for B: a position with one field put back to its initial is a state the machine
     never reached.
@@ -205,7 +210,8 @@ the trace beside each is the reasoning.
     // A: the actor restarts from its initial state and memory; reported RecordUndecodable
     // B: only `total` takes its declared initial; the rest of the position is kept
     ```
-14. **A record of a machine now declared `persist: false`** (proposed, recommend A; user call).
+14. **A record of a machine now declared `persist: false`** [decided: user 2026-11-22]. Why: removing at boot loses
+    what the record owed. Reverse: B.
     ```ts
     // definition({ id: "cart", persist: false })           // an earlier build saved cart records
     // A: Kept(NotPersisted): left unread, reported once    B: removed at boot, and what the record owed is lost

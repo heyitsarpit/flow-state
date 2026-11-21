@@ -259,10 +259,14 @@ Each answer's traces, for the record:
   definition edit that makes a saved key unreadable starts its keys again from step one; the alternative leaves an
   armed key unarmed with no issue.
 
-Open or proposed (in the Spec's `open` section): the input gate is a build-time choice of @task.V3.T118 (Q1); the
-hidden page is the user's call (Q2); the Plan's `Flow.keyed` wording is the user's edit (Q3); scoped `armOn` is
-closed by `Changes` (Q4); the two Level 0 atoms are decided into T1 (Q5); the computed-series debt is a stated limit
-(Q6). Decided by the agent pass of 2026-11-22, as the Spec states them: saving whole failures (R14, so a reload keeps
+**Answered 2026-11-22.** [decided: user 2026-11-22] Q2: a hidden page is not a core input in v1 (Why: an autosave
+keeps saving; Reverse: a use change that clears alarms). Q3: the Plan's `Flow.keyed` wording is edited to the declared
+form (Why: the declared form is this Spec's; Reverse: keep `Flow.keyed`).
+
+Open or proposed (in the Spec's `open` section): the input gate is a build-time choice of @task.V3.T118 (Q1); scoped
+`armOn` is closed by `Changes` (Q4); the two Level 0 atoms are decided into T1 (Q5); the computed-series debt is a
+stated limit (Q6).
+Decided by the agent pass of 2026-11-22, as the Spec states them: saving whole failures (R14, so a reload keeps
 an issue whose cause stands); `now` no longer passed to `restartOn`, the reasons and `keys` (R10); the name
 `Tracked`, kept so the fit rows and faults keep their targets; the arming id in `Firing`, which makes a break
 between `next` and the send visible; the activation id as the map's key, since a re-entry must inherit nothing (R11);

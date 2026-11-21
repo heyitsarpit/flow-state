@@ -39,8 +39,8 @@ requirements
         source  @plan.React.O2.
         must    An emit is delivered once, after the publication that contains its turn and after every snapshot
                 listener of that publication, in turn order; never older, never twice. A turn's emit is delivered
-                even when no snapshot changed. [proposed: user's call; at the publication, so a listener that reads the
-                snapshot sees its turn; per step it may read the previous publication]
+                even when no snapshot changed. [decided: user 2026-11-22] Why: at the publication, a listener that
+                reads the snapshot sees its turn. Reverse: per step, where a listener may read the previous publication.
 
     R4  A Runtime that stopped or was disposed tells its readers once
         source  @plan.Runtime.O6, @plan.React.O3.
@@ -88,7 +88,8 @@ requirements
         source  @plan.Rules.O4.
         must    An `expectBroken` entry may narrow to a step, an actor or a predicate. It passes when it matches at
                 least one break of its rule; every break of an expected rule that no entry matches fails; a bare rule
-                matches every break of the rule. [proposed]
+                matches every break of the rule. [decided: user 2026-11-22] Why: an inverted Story must name the
+                break it expects. Reverse: a rule id only.
 
     R12  Machine rules are judged live, and a throwing check changes only itself
         source  @plan.Rules.O4.
@@ -104,7 +105,8 @@ requirements
     R14  `propertyTest` runs every seed
         source  @plan.Testing.O6.
         must    Every seed runs unless a script fault rejects at once; the test rejects after the last seed iff some
-                seed did not pass, listing every failure. [proposed]
+                seed did not pass, listing every failure. [decided: user 2026-11-22] Why: stopping at the first
+                failure hides other rules' failures. Reverse: stop at the first failing seed.
 
     R15  No identity with a record or an incarnation reads as none
         source  @plan.React.O2.
@@ -161,9 +163,10 @@ open
                  no mail; a hide issues behind a flying batch; a hung store holds disposal until its bound. Why: each
                  B fails its trace in the companion (a stale render at 100 of 150; lost follow-ups on reload; METHOD
                  lost under both fates). Reverse: the companion's B for that item.
-                 The user's calls stay proposed, with reasoning in the companion: the run rules module (`Types` Q5),
-                 emits once per publishing slice (R3), the `pagehide`-first reload and the `inflight` word, every seed
-                 running in `propertyTest`, the verdict record, and matched `expectBroken`.
+                 [decided: user 2026-11-22] the user's calls, all as recommended (A): the run rules module (`Types`
+                 Q5), emits once per publishing slice (R3), the `pagehide`-first reload and the `inflight` word,
+                 every seed running in `propertyTest`, the verdict record, and matched `expectBroken`. Why: the
+                 reasoning in the companion. Reverse: the companion's B for that item.
 
 model
     Publication = the host's one act of telling readers: compare each touched actor's new snapshot against the last
@@ -195,7 +198,8 @@ model
         `testing/verdict.ts`, judged by `verdictOf` over the run); project run rules (one rules module that both
         `flow.config.ts` and `Story.app` import, `tests/rules/list.ts`, no test-runner import; judged by `verdictOf`
         over the run and its `RunIndex`); machine rules (the body, `Compiled.rules`; judged by the Runtime's judge,
-        live, and read as `RuleBroken`). [proposed: the rules module is a user call]
+        live, and read as `RuleBroken`). [decided: user 2026-11-22] Why: the rules module is the one list both import.
+        Reverse: run rules on the app.
 
     StateInventory = Each state has one owner and one writer.
         S1  Publication: `Published = { version: Version; at: number }`. Owner `host/publication.ts` `publish`.
@@ -328,8 +332,8 @@ model
         to }`; a fragment's public event address is `{ slot; key }`. The internal records stay erased. `Rule.rule` is
         typed: project rules declare their ids as `const` literals; machine rules use `Machine<D, R>["rules"]`;
         tooling rules are `"UnusedWord" | "CleanupLeft" | "PublicationDrift" | "RuleThrew"`. A switch naming an id
-        outside the union does not compile. [proposed: `Published` carrying the incarnation and `why` with three
-        values is a user call, shared with `Changes`]
+        outside the union does not compile. [decided: user 2026-11-22] `Published` carries the incarnation and `why`
+        has three values, shared with `Changes` Q5. Why: one record a rule reads. Reverse: a fourth `why`.
 
 invariants
     I1  Every publication and every capture reads a world with no mail; at stop readers get the last publication marked 
@@ -630,9 +634,10 @@ algorithm
         row. `settled()` is `Quiet`. A batch out past `storageSilent` is a derived inspection row, not a state.
         A hung store: a batch that never answers keeps `Out`, and disposal's ticket waits behind it; disposal still
         ends at `disposalBound` (the core's `Timer.Bound`, `core/disposal.ts:89`), and the close row then answers the
-        waiting tickets false, so `dispose()` completes with the overdue reported. [proposed]
+        waiting tickets false, so `dispose()` completes with the overdue reported. [decided: agent orchestrator
+        2026-11-22]
         Departures from today: a `Later` mark during a shown `Backoff` waits for the retry instead of cancelling it
-        (`edge.ts:75-76`); a hide issues behind a flying batch. [proposed]
+        (`edge.ts:75-76`); a hide issues behind a flying batch. [decided: agent orchestrator 2026-11-22]
         The three changed cells (head landed, head refused, accept Now, all in `Out`) and `hiddenRetried` are one
         family, "a waiting batch with no way out"; its one point is I20, and the cells are what it forces.
 
@@ -676,7 +681,8 @@ algorithm
         the forks (a fork before the expected step cannot break it; a Story that expects a break is judged as written
         only); today's `heldWrites` is this word renamed, and today's crash semantics (no hide listener) is gone: a
         reload runs `pagehide` first, as a browser does. A crash with no `pagehide` is
-        `closeTab(t, { inflight, hide: false })`. [proposed]
+        `closeTab(t, { inflight, hide: false })`. [decided: user 2026-11-22] Why: today's reload is a crash with no
+        `pagehide` flush ever exercised. Reverse: keep crash semantics.
 
         Locks: a fake `Locks` in the world. `openTab` while another live open holds the app's lock boots `Second`: no
         store call; the death of the holder frees it; a `Second` stays `Second` until its own reload. The browser's
@@ -710,7 +716,8 @@ algorithm
         An Expect matches every break of its rule that fits its `step`, `actor` and `where`. The Story passes only when
         each Expect matches at least one break and each break of an expected rule is matched by at least one Expect. A
         bare rule keeps the decided meaning: it breaks at least once. A rule that breaks twice passes a bare Expect,
-        and two Expects may match the same break. [proposed]
+        and two Expects may match the same break. [decided: user 2026-11-22] Why: the sweep drops the entry from
+        forks, where a break cannot happen before its step. Reverse: a rule id only.
         A written Story's run has `horizon: Quiet` by definition; only generated runs have another horizon. A Story
         inverted for a known bug names at least the step, so a break at `Begin` on another actor no longer satisfies
         it; an `expectBroken` with only a rule id is allowed and prints a warning in the verdict text.
@@ -890,9 +897,10 @@ composition
         rule says; the `Published` and `Turn` records this Spec's public faces are built from; props before attach are 
             `Input.Create`'s props, after
         attach `Input.Props`, judged by `sameValue`; `Capture` takes a `Quiescent`. A hidden page is not a use change
-        in v1: React Activity's cleanup is a `Release`, the page's visibility is not [proposed: not a core input; a
-        throttled wake fires each overdue timer once]. `Changes` and this Spec both edit `driver.ts` (`perform`, the
-        sink, `Wake`): one Task lands the turn rows first, then the slice end.
+        in v1: React Activity's cleanup is a `Release`, the page's visibility is not
+        [decided: user 2026-11-22: not a core input; a throttled wake fires each overdue timer once]. `Changes` and
+        this Spec both edit `driver.ts` (`perform`, the sink, `Wake`): one Task lands the turn rows first, then the
+        slice end.
         Needs `Operations`: the release alarm publishes through this table with no host code (its step records
         `Published`); `stepEnds` runs as the core step's last row, once per step; inspection lists `releasing` with
         ages (@task.V3.T49's Model); the abort-ignoring service and the read generator are fixture services under

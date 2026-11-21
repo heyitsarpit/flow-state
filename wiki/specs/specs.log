@@ -667,3 +667,23 @@ note 2026-11-21T19:47:45Z
 note 2026-11-21T19:48:35Z
     Review minors: M3 (ScheduleIssueSource), M4 (issue source is { name, key, at }), M6, M8, M9 (only catalog issue:true
     reports are issues), M10 (judge is Host's), M12, M13 (walk row W0), M14 (model counts marked history) fixed.
+
+note 2026-11-21T20:12:36Z
+    Types: Q1-Q8, Q10, Q11 answered A by the user (2026-11-22); Q18 follows. Rule has no enabled; terminals proved only.
+
+note 2026-11-21T20:12:37Z
+    Changes: Q3 (resetOn Schema), Q4 (hidden page not a core input), Q5 (Published carries incarnation) answered A by
+    the user.
+
+note 2026-11-21T20:12:37Z
+    Schedules: Q2 closed by Changes Q4; Q3 answered A, the Plan @plan.Machines.O5 edited to the declared form.
+
+note 2026-11-21T20:12:38Z
+    Host: questions 2, 3, 5, 6, 8, 9, 12 answered A by the user (2026-11-22); 1, 4, 7, 10, 11, 13 stay agent-decided.
+
+note 2026-11-21T20:12:38Z
+    Operations: Q1-Q5, Q7, Q8 answered A by the user (2026-11-22); Plans O2 edited for Q2 and Q3.
+
+note 2026-11-21T20:12:38Z
+    Records: companion items 1, 6, 9, 10, 13, 14 answered A by the user (2026-11-22); Compiled.saved closed with Types
+    Q8.

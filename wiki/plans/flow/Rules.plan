@@ -6,7 +6,7 @@ goal
     Flow checks it everywhere it already runs the machine: every Story, generated run and sweep. Rule coverage shows
     which rules no run exercised, so an unexercised rule is never mistaken for a passed one. A rule that is about the
     graph, a terminal state, is proved by `flow check` instead. Rules are claims, never guards: the core never calls
-    one, and outside tests a rule runs only where its author enabled it.
+    one, and outside tests a rule runs only where the Runtime setup says `rules: "judge"`.
 
     Today an app's own guarantees are hand-written checks inside single Stories (NUMBER-12's bounds filter), which the
     generator and sweeps never judge. Rules replace those with one declaration that every run judges.
@@ -29,11 +29,11 @@ outcomes
           the rule is judged on every accepted turn, including turns that only update memory, and "transition" already
           means a handler's `target`.
 
-        An entry is a function, or an object `{ check, in?, enabled? }` for an invariant and `{ check, on?, enabled? }`
-        for a turns rule. `in: S.X` and `on: E.X` name the rule's subject: a rule is exercised only when its subject
-        comes up, and a rule without one at every publication or accepted turn. `in` on a compound holds in it and every
-        state below it, as `S.X.is` means. `on: E.X` matches every accepted turn of X, whatever sent it: a user, an
-        `onContext` reaction, a schedule, an operation ending or a host's raise into a fragment.
+        An entry is a function, or an object `{ check, in? }` for an invariant and `{ check, on? }` for a turns rule.
+        `in: S.X` and `on: E.X` name the rule's subject: a rule is exercised only when its subject comes up, and a rule
+        without one at every publication or accepted turn. `in` on a compound holds in it and every state below it, as
+        `S.X.is` means. `on: E.X` matches every accepted turn of X, whatever sent it: a user, an `onContext` reaction, a
+        schedule, an operation ending or a host's raise into a fragment.
 
         A rule reads what a guard reads except `context`: `state`, `memory`, `props`, `operations` and `schedules`. Only
         turns rules also read `context`, as the turn's guards saw it (`before.context`). `before` is the last snapshot
@@ -50,7 +50,7 @@ outcomes
 
         ```ts
         // existing: definition, machine, S, E, snapped (stepping.ts)
-        // NEW: rules, invariants, turns, in, on, check, enabled, event (in a turns check)
+        // NEW: rules, invariants, turns, in, on, check, event (in a turns check); the Runtime setup's `rules`
         // user-defined: StartedWhileHolding, SetLandsInBounds, CommitMovesByOne, CommitDiffersFromStart
         export const StepperMachine = machine(Stepper, ({ S, E }) => ({
           default: S.IDLE,
@@ -63,7 +63,6 @@ outcomes
             turns: {
               SetLandsInBounds: {
                 on: E.Set,
-                enabled: import.meta.env.DEV,              // also runs in dev; tests judge it regardless
                 check: ({ event, before, after }) =>
                   after.memory.value === (event.value === null ? null : snapped(before.memory.settings, event.value)),
               },
@@ -95,8 +94,10 @@ outcomes
         and the state it can leave; an empty list or a state listed twice is refused; a listed state is never warned as
         likely stuck. Guard functions are opaque, so the proof counts any handler that may fire in the terminal; a
         state-token guard (`guard: [S.IDLE]`) narrows where its branch fires, and the error names the handler so the
-        author can restructure it. Being about the graph, terminals are proved, never judged by runs; they have no
-        token, and neither the switch (@O4, `off: "all"` included) nor `enabled` (@O6) applies to them.
+        author can restructure it. Being about the graph, terminals are proved by `flow check` only, never judged by
+        runs; they have no token, `RuleBroken` never names one, and neither the switch (@O4, `off: "all"` included) nor
+        the Runtime's `rules` option (@O6) applies to them. [decided: user 2026-11-22] Why: a graph proof covers every
+        run, so a run-time judge could only repeat it. Reverse: also judge terminals at run time. See @spec.Types (Q6).
 
         Terminals live in `rules`, not on the definition's states list: a terminal is a claim, not shape, and changes no
         behaviour. Flow does not stop an actor in a terminal state.
@@ -172,16 +173,19 @@ outcomes
         counts every turn of its subject even when nothing was ever cancelled. The exact format is settled in the build.
     O6  Outside tests
         Rules stay inline in `machine()`, so every Story, sweep and tool finds them with the machine and nothing needs
-        registering on the app or the Runtime. Outside tests a rule runs only if its own `enabled` flag is true; it is
-        off by default, and a rule written as a bare function has none, so it never runs outside tests. `enabled` is a
-        boolean fixed when the module loads (an env check such as `import.meta.env.DEV`), so `flow explain` can show it.
-        Tests judge every rule whatever `enabled` says; there the switch (@O4) decides.
+        registering on the app. A rule has no `enabled` flag. **Judging outside tests.** [decided: user 2026-11-22] The
+        Runtime setup chooses `rules: "judge" | "off"`, read once at the host edge from the app's own environment;
+        Stories and the CLI always judge, and there the switch (@O4) decides. Why: a flag read in a rule's body is
+        evaluated at import, where the plain CLI has no `import.meta.env`, so the machine would be refused. Reverse:
+        keep `enabled` as a boolean the user computes. See @spec.Types (Q5). The run rules are one list in one module
+        that the config and `Story.app` both import (@spec.Host).
 
-        The host judges enabled rules after each publication or accepted turn, keeping the previous published snapshot
-        as `before`. A broken rule becomes a `RuleBroken` evidence record that inspectors and logs receive, with
-        `Flow.private` memory fields redacted, and the app carries on: the publication has happened, so nothing is
-        thrown. The core never calls a rule. An author who wants rules out of a production bundle can wrap the block in
-        a build-time constant (`rules: import.meta.env.DEV ? {...} : undefined`); that is user code, not Flow API.
+        When the setup says `judge`, the host judges the rules after each publication or accepted turn, keeping the
+        previous published snapshot as `before`. A broken rule becomes a `RuleBroken` evidence record that inspectors
+        and logs receive, with `Flow.private` memory fields redacted, and the app carries on: the publication has
+        happened, so nothing is thrown. The core never calls a rule. An author who wants rules out of a production
+        bundle can wrap the block in a build-time constant (`rules: import.meta.env.DEV ? {...} : undefined`); that is
+        user code, not Flow API.
     O7  Fragments
         A `trait` or `subroutine` body holds the same `rules` block as `machine()`. Placing the fragment brings its
         rules, and a host can never remove or weaken one. A fragment's rules read only what the fragment declares: its
@@ -256,7 +260,7 @@ outcomes
           .send(Editor.E.CancelAll({}))
         ```
     O8  Tools
-        `flow explain` lists each machine's rules and their `enabled`. `flow check` proves terminals (@O2) and warns
+        `flow explain` lists each machine's rules. `flow check` proves terminals (@O2) and warns
         `RuleSubjectUnreachable` when the compiled graph cannot reach a rule's `in` state or no reachable state handles
         its `on` event. Guards make the graph an over-approximation, so that warning is never false; it is a warning,
         not an error, so a machine mid-edit still checks, and it separates "impossible" from "not tested yet", which
@@ -277,9 +281,9 @@ verification
         and that unseen never fails.
     V5  `flow check` tests prove terminals (an ancestor handler, a late ending and a subroutine exit each give
         `TerminalLeft`; restarts, self-transitions and a branch whose state-token guard excludes the terminal do not; an
-        empty or duplicate list is refused) and `RuleSubjectUnreachable`; `flow explain` lists rules and `enabled`.
-    V6  Runtime tests prove `enabled` outside tests: off by default and for bare functions, a broken enabled rule
-        records `RuleBroken` with private fields redacted and the app carries on, and the core calls no rule.
+        empty or duplicate list is refused) and `RuleSubjectUnreachable`; `flow explain` lists rules.
+    V6  Runtime tests prove the setup's `rules` option outside tests: `off` judges nothing, a broken rule under
+        `judge` records `RuleBroken` with private fields redacted and the app carries on, and the core calls no rule.
     V7  NUMBER-12's hand check and at least one other become declared rules; each rule kind and terminals has a
         planted fault caught by `nub run faults --only`; `machine()` refuses a duplicate rule name passed past the
         types; the run rules' `broken` rename is complete.

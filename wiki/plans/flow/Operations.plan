@@ -84,10 +84,13 @@ outcomes
         latest lookup's ending is delivered. Its row is @O6's resource lane for the entry the latest lookup named, with
         that entry's key, held until the next lookup or cancel, undefined before the first lookup and after cancel.
 
-        One-off read lanes are not persisted, except the Interrupted ending a freeze or an actor's end parks for each
-        read it stops. O.x.refetch(k?) starts a request when none is running. While one runs, refetch joins it if it
-        started after the entry last became stale (invalidate, write or clear); otherwise one trailing request starts
-        when it settles and the caller joins that.
+        One-off read lanes are not persisted, except the Interrupted ending a freeze parks for each read it stops. **A
+        life's end owes waiters nothing.** [decided: user 2026-11-22] A life's end or a disposal parks no row: each
+        waiter's row would close at once as evidence, since its life is gone. Why: nothing is owed to a gone life.
+        Reverse: park an `Interrupted` row per waiting lookup at an end. See @spec.Operations (Q3). O.x.refetch(k?)
+        starts a request when none is running. While one runs, refetch joins it if it started after the entry last
+        became stale (invalidate, write or clear); otherwise one trailing request starts when it settles and the caller
+        joins that.
 
         An entry never has more than one running and one trailing request, so a poll faster than its server still lands
         data. O.x.subscribe(select, { when? }) places the operation and starts a request only when missing or stale with
@@ -97,9 +100,12 @@ outcomes
         retains its starting input even if that placement leaves. The verb must agree with the mapping: success only
         with lookup, value only with subscribe; one operation uses one verb (VerbMismatch).
 
-        Focus regained and connection restored refetch stale or missing subscribed entries with no request running,
-        ordered by contract id then key. Offline status blocks and cancels nothing. Invalidation and clear follow @O5;
-        domain repair follows @plan.EntityDomains.O1. Flow never automatically retries a failed lookup.
+        **No `Trigger` cue.** [decided: user 2026-11-22] A request starts by itself only at a placement, an invalidate
+        and a clear. A refetch on focus regained, on a restored connection or on an interval is a schedule that runs
+        `O.x.refetch()` (@plan.Machines.O5); no host occasion is a new input. Why: a schedule already does it, with no
+        new input or row. Reverse: a host occasion (focus, online) as a new input. See @spec.Operations (Q2). Offline
+        status blocks and cancels nothing. Invalidation and clear follow @O5; domain repair follows
+        @plan.EntityDomains.O1. Flow never automatically retries a failed lookup.
 
         A read ends in success, in failure, or stopped by Flow. Its success: and value: see confirmed data only; success
         carries current data even when ordering rejects its request's result, and equal data still settles the lookup.
@@ -304,8 +310,8 @@ outcomes
 
         Two operations on one contract and key are two sessions, with a DuplicateSession warning. Flow runs connections
         only by the declared reconnect and `idleTime`, and sessions only by placement. A session that ends Flapping
-        reopens once on the Runtime's "connection restored" signal (the one @O2 uses to refetch reads), with its flap
-        count reset; it never loops, since a session that flaps again waits for the next signal.
+        reopens once on the Runtime's "connection restored" signal, with its flap count reset; it never loops, since a
+        session that flaps again waits for the next signal.
 
         The default schedule is exponential, jittered from a well-mixed hash of the session id and step (no saved seed);
         it retries while offline and ends Flapping after a count of registered flaps. Its base, jitter, cap and flap
