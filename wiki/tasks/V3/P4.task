@@ -3223,7 +3223,7 @@ tasks
 
     T120
         title       Declared schedules: the runtime half
-        status      review
+        status      in_progress
         priority    high
         parent      [@T89]
 
@@ -3694,7 +3694,7 @@ tasks
               T1, T6).
     T131
         title       Construction trust: the doors
-        status      review
+        status      in_progress
         priority    high
         parent      [@T89]
 
@@ -3842,7 +3842,7 @@ tasks
 
     T140
         title       Declared schedules: every user migrated, old form deleted
-        status      review
+        status      in_progress
         priority    high
         parent      [@T89]
         blocked_by  [@T120]
