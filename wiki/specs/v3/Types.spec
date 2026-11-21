@@ -222,9 +222,11 @@ open
         Why: the departure in Q5 is answered A. Reverse: reopen the rows.
         outcome  Each row follows its answer.
 
-    Q19  [decided: user 2026-11-22] Exactness, for now, is option C: the runtime's strict decode and `flow check`
-        refuse an unknown body key; no captured body type carries it. Why: the user's call while a harder type spike
-        looks for a capture-free type check. Reverse: the spike succeeding makes that type check the answer.
+    Q19  [decided: user 2026-11-22] Exactness is option C: the runtime's strict decode and `flow check` refuse an
+        unknown body key; no captured body type carries it. Why: a type spike found no capture-free check that leaves
+        user code unchanged (an arrow's return is not a fresh literal, so TypeScript runs no excess-key check on it);
+        the working shapes need a `body(...)` wrapper in every body or a capture. Reverse: a sealed `body(...)` helper
+        or a cheap capture.
         Narrow the body capture. With schedules declared, `B` has two readers: `RuleNames<B>` (compiled) and
         G3's deny literals (designed, nothing compiled). Exactness reads the body's whole type, not `B`'s use.
         Nothing in `Schedules`, `Operations` or `Changes` reads `B`. Most of the measured +31% is capturing and
