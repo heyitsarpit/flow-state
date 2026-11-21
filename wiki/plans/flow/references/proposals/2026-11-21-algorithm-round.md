@@ -163,7 +163,7 @@ Each lead reads the files the earlier clusters wrote and names every seam it cro
 
 1. Case studies: one Opus owner with 4 Haiku sidecars writes `2026-11-21-case-studies.md` (T57 to T118, T20 to
    T92, with branch `t92-format-4`).
-2. Clusters 1 to 5, one lead at a time: Fable at effort high, up to 8 Haiku sidecars at once (effort medium for
+2. Clusters 1 to 5, one lead at a time: Fable at effort high (5b: Opus at effort medium, the user's call), up to 8 Haiku sidecars at once (effort medium for
    research, high for reviewing a draft). Read the 5-hour window before each lead: above 80% only the running lead
    continues, above 90% it checkpoints and stops.
 3. After cluster 1: one Opus review of its design, to calibrate the brief before the next four, and one revision
@@ -171,6 +171,8 @@ Each lead reads the files the earlier clusters wrote and names every seam it cro
 4. **One run per cluster** [decided: user 2026-11-21]: clusters 2 to 5 get one lead run each, with no separate
    review and no revision round; the lead's own adversary and executable-model sidecars are its check. Review
    limits do not allow repeated reviews.
+4a. **5b review** [decided: user 2026-11-21]: cluster 5b alone gets two Sonnet reviewers and one revision by its
+   lead before the final review. Its first version is committed before the revision, so the revision is a diff.
 5. **Final review** [decided: user 2026-11-21]: after cluster 5b, one Opus review across all six designs that
    actively hunts for holes, not only seams and mechanics: algorithms that fail on a trace, solutions that don't
    solve their problem, requirements skipped or under-specified (against the Plans, the concept designs, the
