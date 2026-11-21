@@ -131,7 +131,16 @@ tasks
             to @task.V3.T100.
 
             **Read first:** @task.V3.T81 (its full approach and requirements 1 to 19, in its comments), @task.V3.T94
-            (its review of 2026-11-18 and the decisions in its comments), @convention.boundaries, @spec.Diagnostics.
+            (its review of 2026-11-18 and the decisions in its comments), @convention.boundaries, @spec.Diagnostics;
+            @spec.Operations (R10, I19; code:wiki/specs/v3/Operations.md); @spec.Types (R13,
+            I4; code:wiki/specs/v3/Types.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** see @task.V3.T131 (doors) and @task.V3.T132 (`intake`), which carry the code list; this Task
+            closes them.
 
             **Risk:** the known instances stay red as `it.fails` tests titled by Diagnostics R1; any later Task that
             adds a public function inherits the gap until this lands. Run convergence here (threshold already passed):
@@ -178,3 +187,7 @@ tasks
             Split per @review.spec-cohesion-r2 question 15: @task.V3.T131 doors (P4, before T113 and T109),
             @task.V3.T132 intake (first in P5). [proposed] This Task stays as their close-out, and its blockers T109,
             T110, T76, T77 and T100 are dropped, as that review's line 198 asks.
+        comment     2026-11-21T19:07:50Z
+            Spec check: Owes says Flow-made values are checked by `WeakSet` identity and no `~owner` remains; the user
+            decided (2026-11-21) a `Symbol.for("flow-state/Made")` mark on one shared frozen prototype plus the owner
+            compare (@spec.Operations R10). Scope unchanged; reword when the Task closes.

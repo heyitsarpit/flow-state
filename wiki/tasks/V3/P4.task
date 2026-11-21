@@ -286,7 +286,15 @@ tasks
             **Why now:** production reads resources only as the fixtures need; shared entries, freshness, refetch and
             the idle row are unbuilt.
 
-            **Read first:** @spec.Reads, @plan.Operations.O1, code:packages/flow-state-v3/src/contract.ts.
+            **Read first:** @spec.Reads, @plan.Operations.O1, code:packages/flow-state-v3/src/contract.ts. Spec:
+            @spec.Operations (R1–R15, I1–I25), companion `wiki/specs/v3/Operations.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** see @task.V3.T121 to @task.V3.T124, which build the four parts; this Task closes them out.
+            Do not delete it before its replacement lands and the suite passes.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -344,6 +352,9 @@ tasks
             entries, @task.V3.T123 placements, @task.V3.T124 persisted resources. [proposed] This Task stays as their
             close-out so existing blockers hold; its acceptance row on the mapper shape is superseded by (value, {
             input, key }). Map: @proposal.algo-resolutions section 6.
+        comment     2026-11-21T19:08:55Z
+            Read first cites superseded @spec.Reads; @spec.Operations replaces it. Acceptance row on the mapper shape is
+            already superseded by (value, { input, key }), per Operations' mapper context.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -365,8 +376,25 @@ tasks
             defined only once @task.V3.T17 and @task.V3.T57 fix private and computed fields. It is blocked by
             @task.V3.T21 because `resource({ persist: true })` writes a saved record format that this Task versions.
 
-            **Read first:** @spec.Restore (R5), @plan.Persistence.O5, @plan.Machines.O5 (paused),
-            @spec.Turn.R27, @convention.interaction-state.
+            **Read first:** @spec.Restore (R5), @plan.Persistence.O5, @plan.Machines.O5 (paused), @spec.Turn.R27,
+            @convention.interaction-state. Spec: @spec.Records (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), companion
+            `wiki/specs/v3/Records.md`; @spec.Schedules (R14, I11), companion `wiki/specs/v3/Schedules.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/record-format.ts#FORMAT,
+            code:packages/flow-state-v3/src/core/record-format.ts#Format;
+            code:packages/flow-state-v3/src/core/actor-record.ts#stepFour;
+            code:packages/flow-state-v3/src/core/world.ts#Quarantine;
+            code:packages/flow-state-v3/src/host/driver.ts#Quarantine;
+            code:packages/flow-state-v3/src/core/persist.ts#capture,
+            code:packages/flow-state-v3/src/core/persist.ts#byIdentity,
+            code:packages/flow-state-v3/src/core/persist.ts#withhold;
+            code:packages/flow-state-v3/src/core/vocabulary.ts#SavedTimer,
+            code:packages/flow-state-v3/src/core/vocabulary.ts#ReadFailure. Do not delete it before its replacement
+            lands and the suite passes.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -448,6 +476,11 @@ tasks
         comment     2026-11-21T18:46:49Z
             Per @review.spec-cohesion-r2 question 15 (SR D5): @task.V3.T92 is the codec and owns no state; this Task
             owns the fate, quarantine's exits included.
+        comment     2026-11-21T19:08:53Z
+            Contradiction: scope says quarantine of an undecodable record is @task.V3.T92's, but @spec.Records R13 and
+            its fates (quarantine exits included) are mapped to this Task in the Task map. Read Task scope as: T92
+            builds the codec and admit, this Task the Fate exits and version rules. Read first cites
+            superseded @spec.Restore.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -469,7 +502,20 @@ tasks
 
             **Why now:** Compiled has no static front end, and `flow check` is part of the preview cut.
 
-            **Read first:** @spec.StaticCli, @spec.Compile, @spec.Diagnostics.
+            **Read first:** @spec.StaticCli, @spec.Compile, @spec.Diagnostics. Spec: @spec.Types (R4–R6, I6, I8, I9,
+            I14), companion `wiki/specs/v3/Types.md`; @spec.Host (R13, I22), companion `wiki/specs/v3/Host.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/host/cli/main.ts;
+            code:packages/flow-state-v3/src/host/cli/discover.ts; code:packages/flow-state-v3/src/error.ts#Finding,
+            code:packages/flow-state-v3/src/error.ts#refuse; code:packages/flow-state-v3/src/config.ts#findingsAgainst;
+            code:packages/flow-state-v3/src/construction.ts, code:packages/flow-state-v3/src/operation-checks.ts and
+            code:packages/flow-state-v3/src/core/well-formed.ts (their findings become `CHECKS` rows);
+            code:packages/flow-state-v3/src/flow.ts#Outcome (name collision with the CLI's new `Outcome`). Do not delete
+            it before its replacement lands and the suite passes.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -504,6 +550,9 @@ tasks
             [proposed] Takes @proposal.algo-types 5.9, 5.10 and 7. First acceptance row: walk today's definition
             findings and show which leave every token in place (H8); question 1 A holds only for those
             (@proposal.algo-resolutions 1.5).
+        comment     2026-11-21T19:08:56Z
+            Read first cites superseded @spec.StaticCli, @spec.Compile and @spec.Diagnostics; @spec.Types (R4, R5, I6,
+            I8) and @spec.Host (R13, I22) now state check output and exit.
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -672,7 +721,15 @@ tasks
             input fixture does); the user accepted declared props instead (decisions Q5, §9 R1 to R3).
 
             **Read first:** @spec.Turn.R28, @plan.Machines.O7, @convention.where-a-value-lives, @task.V3.T9; §9 R1 to R3
-            are merged into the Spec and Plan above.
+            are merged into the Spec and Plan above. Spec: @spec.Changes (R8, R20, I16),
+            companion `wiki/specs/v3/Changes.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none deleted; `src/core/following.ts#following` gains a `Props` case and `src/core/step.ts`
+            `Input` gains `Props`. Do not delete it before its replacement lands and the suite passes.
 
             **Risk:** `Story.machine` is @task.V3.T29's; this Task builds its first slice (input, props and the props
             step) and T29 extends it (U3, decided by the orchestrator for the user, 2026-11-16). Blocked by T9, which
@@ -720,6 +777,9 @@ tasks
         comment      2026-11-21T18:39:42Z
             [proposed] Blocked by @task.V3.T127 (root emits) in place of @task.V3.T77, which is now the close-out of
             both emit halves; builds @proposal.algo-turn 6.9 (props, setProps).
+        comment      2026-11-21T19:08:54Z
+            Description is stale on blockers: it says blocked by T77; the real blocker is @task.V3.T127 (root emits).
+            Read first cites superseded @spec.Turn.R28; @spec.Changes R20 and I16 now state it.
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
@@ -737,7 +797,15 @@ tasks
             emits (decisions Q3, §9 R6 and the Emits batch).
 
             **Read first:** @spec.Turn.R29, @plan.Machines.O2, @convention.view-commands; §9 R6 and the Emits batch are
-            merged into the Spec and Plan above.
+            merged into the Spec and Plan above. Spec: @spec.Changes (R19), companion `wiki/specs/v3/Changes.md`;
+            @spec.Host (R3, I4), companion `wiki/specs/v3/Host.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** see @task.V3.T127 and @task.V3.T128, which build the two halves; this Task closes them out.
+            Do not delete it before its replacement lands and the suite passes.
 
             **Risk:** fragment emits are addressed by instance path and .each key, which need @task.V3.T109's fragments;
             that is the blocker. React delivery (`useOnEmit`) is @task.V3.T30's.
@@ -770,6 +838,10 @@ tasks
             Split per @review.spec-cohesion-r2 question 15: @task.V3.T127 root emits, @task.V3.T128 fragment emits.
             [proposed] This Task stays as their close-out; emits are delivered once per publishing slice
             (@proposal.algo-resolutions C4).
+        comment      2026-11-21T19:08:54Z
+            Read first cites superseded @spec.Turn.R29; @spec.Changes R19 states emits now, and delivery is per
+            publishing slice (@spec.Host R3, I4). Description's 'delivered after the turn publishes' matches; 'stored
+            nothing' matches R19.
 
     T78
         title       Number input on declared props and emits
@@ -784,7 +856,16 @@ tasks
             after every reload, and stores `lastCommit { seq, value }` only to defeat equality.
 
             **Read first:** @convention.controlled-values, @convention.where-a-value-lives,
-            code:packages/flow-state-v3/fixtures/number-input/machines/stepper.ts, @task.V3.T71's mapping comment.
+            code:packages/flow-state-v3/fixtures/number-input/machines/stepper.ts, @task.V3.T71's mapping comment. Spec:
+            @spec.Changes (R19, R20, I16), companion `wiki/specs/v3/Changes.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** the number-input fixture's `Configure` event and `lastCommit` in
+            code:packages/flow-state-v3/fixtures/number-input/machines/stepper.ts (this Task's own migration). Do not
+            delete it before its replacement lands and the suite passes.
 
             **Risk:** a controlled value's emit carries the intent (`Change { by }`), not an absolute value (R7). The
             typed text becomes view-owned, so the display-text scenarios move to view tests (@task.V3.T30) or are listed
@@ -827,7 +908,37 @@ tasks
             must land before @task.V3.T56 (versions these records) and real storage (@task.V3.T58, @task.V3.T28).
 
             **Read first:** @spec.Restore (R2, R5), @spec.Codec, @task.V3.T20 (its 2026-11-18T06:49 field list and 07:05
-            review), @convention.boundaries.
+            review), @convention.boundaries. Spec: @spec.Records (R4, R5, R9–R11, R14, R15, R17, R20, R21, I1–I3, I5,
+            I8–I10, I14), companion `wiki/specs/v3/Records.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/record.ts#decodeRecords,
+            code:packages/flow-state-v3/src/core/record.ts#identityIn,
+            code:packages/flow-state-v3/src/core/record.ts#rowOf,
+            code:packages/flow-state-v3/src/core/record.ts#rowsRecord,
+            code:packages/flow-state-v3/src/core/record.ts#laneRecord,
+            code:packages/flow-state-v3/src/core/record.ts#keyNamesItself,
+            code:packages/flow-state-v3/src/core/record.ts#encodeLane,
+            code:packages/flow-state-v3/src/core/record.ts#encodeOwed,
+            code:packages/flow-state-v3/src/core/record.ts#rowJson;
+            code:packages/flow-state-v3/src/core/record-format.ts#ActorJson,
+            code:packages/flow-state-v3/src/core/record-format.ts#actorOf;
+            code:packages/flow-state-v3/src/core/actor-record.ts#encodeActor,
+            code:packages/flow-state-v3/src/core/actor-record.ts#decodeActor;
+            code:packages/flow-state-v3/src/core/world.ts#actorKey,
+            code:packages/flow-state-v3/src/core/world.ts#laneId,
+            code:packages/flow-state-v3/src/core/world.ts#restoredLaneId,
+            code:packages/flow-state-v3/src/core/world.ts#restoredAttemptId;
+            code:packages/flow-state-v3/src/core/incarnations.ts#boot,
+            code:packages/flow-state-v3/src/core/incarnations.ts#reportUnbound;
+            code:packages/flow-state-v3/src/core/persist.ts#laneWrite,
+            code:packages/flow-state-v3/src/core/persist.ts#owedWrite,
+            code:packages/flow-state-v3/src/core/persist.ts#actorWrite,
+            code:packages/flow-state-v3/src/core/persist.ts#liveText; the boot's writes (`saveOwed`, `saveLane`,
+            `incarnations.ts:446-456`). Do not delete it before its replacement lands and the suite passes.
 
             **Risk:** a Codec and Restore Spec change, so it gets the whole-system check; the format is internal and
             unreleased, so nothing migrates.
@@ -944,6 +1055,10 @@ tasks
         comment     2026-11-21T18:31:21Z
             [proposed] Builds @proposal.algo-records 6.1, 6.2, 6.4 to 6.6. Its model covers no timer, instance, cache
             record or step 1 to 4 (@proposal.algo-resolutions hole 3): a package sequence test is the first step.
+        comment     2026-11-21T19:08:53Z
+            Contradiction: scope builds branded identifiers with Schema.brand from Compiled; @spec.Records R15 resolves
+            every name through one reference table and R4 keeps identity only in the key. Build to Records; Read first
+            cites superseded @spec.Restore and @spec.Codec.
 
     T95
         title           Callback results checked before they enter a turn
@@ -1108,7 +1223,18 @@ tasks
             driver item (Actors R25) moved to the boundary Task.
 
             **Read first:** @task.V3.T80 (its routed items, in its comments), @review.code-quality-review (section 4),
-            @review.code-quality-review-2 (section 5, A7), code:packages/flow-state-v3/src/host/testing/seam.ts.
+            @review.code-quality-review-2 (section 5, A7), code:packages/flow-state-v3/src/host/testing/seam.ts. Spec:
+            @spec.Host (R8, I23), companion `wiki/specs/v3/Host.md`; @spec.Types (R15),
+            companion `wiki/specs/v3/Types.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/host/testing/seam.ts;
+            code:packages/flow-state-v3/src/host/test/cleanups.ts (its one importer, `cleanups.test.ts`, moves to
+            Stories); the seam imports in `src/host/testing/run.ts` (lines 40, 392, 559-577). Do not delete it before
+            its replacement lands and the suite passes.
 
             **Risk:** coverage must not drop: port one file at a time, keep every rule each test cites, and keep each
             planted fault caught by its target.
@@ -1263,8 +1389,22 @@ tasks
             The CLI prints `Cause.pretty` to its output (code:packages/flow-state-v3/src/host/cli/main.ts), which
             O3 forbids.
 
-            **Read first:** @spec.Diagnostics (R9, R10, I10), @plan.Diagnostics.O1,
-            @plan.Diagnostics.O3, code:packages/flow-state-v3/src/error.ts.
+            **Read first:** @spec.Diagnostics (R9, R10, I10), @plan.Diagnostics.O1, @plan.Diagnostics.O3,
+            code:packages/flow-state-v3/src/error.ts. Spec: @spec.Operations (R9, R13, I17, I18),
+            companion `wiki/specs/v3/Operations.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/error.ts (the code catalog, `classify` and `code`);
+            code:packages/flow-state-v3/src/host/close.ts#cleanupFailed (lines 93-104; `unsettledOf` stays);
+            code:packages/flow-state-v3/src/host/run-promise.ts#runFailed; the exit mapping and `Cause.pretty` in
+            code:packages/flow-state-v3/src/host/cli/main.ts (lines 128-136);
+            code:packages/flow-state-v3/src/host/print.ts#shown;
+            code:packages/flow-state-v3/src/host/snapshot.ts#issueOf,
+            code:packages/flow-state-v3/src/host/snapshot.ts#DIAGNOSTIC_OF. Do not delete it before its replacement
+            lands and the suite passes.
 
             **Approach:** red first: a render test over control characters in path, details, summary and help, raw input
             and a Cause on the error (I10); a cleanup failure beside an execution failure keeps both, the execution
@@ -1331,6 +1471,9 @@ tasks
         comment     2026-11-21T18:31:23Z
             [proposed] Owns CATALOG and Code; CATALOG.InvalidConfiguration.reasons derives from the keys of CHECKS,
             which @task.V3.T22 owns (@proposal.algo-resolutions C9).
+        comment     2026-11-21T19:08:57Z
+            Read first cites superseded @spec.Diagnostics; @spec.Operations R9, R13 and I17 now state failure order and
+            the catalog. CleanupOverdue deletion is @task.V3.T123's (ReleaseOverdue), not this Task's.
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
@@ -1812,7 +1955,14 @@ tasks
             3a84b878:wiki/plans/flow/references/proposals/2026-11-16-ui-primitives-decisions.md),
             @convention.fixture-catalog (the subroutine and `whenAbandoned` rows' fixture homes). Blocked by
             @task.V3.T57 because a trait carries schedules, which that Task finishes, and by @task.V3.T113, whose
-            carried body type this Task's fragment summary adds a field to.
+            carried body type this Task's fragment summary adds a field to. Spec: @spec.Changes (R12, R13, R16, I1, I2,
+            I8, I10, I11), companion `wiki/specs/v3/Changes.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** no current code of its own; the fit tables name none for this Task.
 
             **Contract:** this Task exposes the live copies of an `.each` trait in key order; @task.V3.T110 reads them.
 
@@ -1859,6 +2009,9 @@ tasks
         comment     2026-11-21T18:31:20Z
             [proposed] Now after @task.V3.T119 (turn parts, the user's order) and @task.V3.T131. Builds
             @proposal.algo-turn 6.3 to 6.5 with the replacements of @proposal.algo-resolutions 1.2.
+        comment     2026-11-21T19:08:57Z
+            Read first cites superseded @spec.Compile; @spec.Changes R12, R13, R16 state instances and whenAbandoned.
+            Changes' fit table has no fragment row of its own: this Task builds instances.ts and reconcile new.
 
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
@@ -1873,7 +2026,13 @@ tasks
             lifecycle is T109's state; this Task only reads the live copies it exposes in key order.
 
             **Read first:** @spec.Turn (R30), @plan.Machines.O3, @task.V3.T109, @convention.fixture-catalog (the
-            raise-into-copies rows).
+            raise-into-copies rows). Spec: @spec.Changes (R15, I6), companion `wiki/specs/v3/Changes.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** no current code of its own; the fit tables name none for this Task.
 
             May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
 
@@ -1893,6 +2052,9 @@ tasks
         comment     2026-11-20T13:12:10Z
             Breakdown fix (orchestrator, 2026-11-20): Read first keeps Turn R30, now this Task's alone (T109 no longer
             cites it).
+        comment     2026-11-21T19:08:55Z
+            Read first cites superseded @spec.Turn (R30); @spec.Changes R15 and I6 state who a raise reaches and the
+            walk's bounds.
 
     T111
         title       Fixtures in real browsers: minimal React, Chrome and Safari
@@ -1909,7 +2071,20 @@ tasks
             browser runner this uses.
 
             **Read first:** @plan.React.O1, @plan.Inspection.O2, @task.V3.T58, @convention.fixture-catalog (step 9).
-            @task.V3.T30 builds the full React binding.
+            @task.V3.T30 builds the full React binding. Spec: @spec.Host (R1–R4, R6, I1–I10, I19, I20, I24),
+            companion `wiki/specs/v3/Host.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/host/driver.ts#drainInbox,
+            code:packages/flow-state-v3/src/host/driver.ts#run, code:packages/flow-state-v3/src/host/driver.ts#stop;
+            code:packages/flow-state-v3/src/host/runtime.ts#getSnapshot;
+            code:packages/flow-state-v3/src/host/edge.ts#pump, code:packages/flow-state-v3/src/host/edge.ts#settle;
+            code:packages/flow-state-v3/src/core/tx.ts#Out; code:packages/flow-state-v3/src/core/step.ts#Capture;
+            code:packages/flow-state-v3/src/host/snapshot.ts#asOutside. Do not delete it before its replacement lands
+            and the suite passes.
 
             May change: `src/host/`, `src/react/` or the binding's folder, `fixtures/`, `tests/`, the browser-run
             folder. Evidence: this Task's comments.
@@ -1947,7 +2122,18 @@ tasks
 
             **Read first:** code:packages/flow-state-v3/src/host/testing/fake.ts,
             code:packages/flow-state-v3/src/host/testing/store-contract.ts, @task.V3.T58 (its close review and fix
-            round), @plan.Testing. Blocked by T58, whose fix round adds a store that closes with the services.
+            round), @plan.Testing. Blocked by T58, whose fix round adds a store that closes with the services. Spec:
+            @spec.Host (R5, R7, I11, I12), companion `wiki/specs/v3/Host.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/host/testing/fake.ts#makeStore (lines 558-660) and
+            `Fake.storage.layer` (lines 798-830); code:packages/flow-state-v3/src/host/testing/steps.ts#WorldWord,
+            code:packages/flow-state-v3/src/host/testing/steps.ts#Tab;
+            code:packages/flow-state-v3/src/host/testing/run.ts#reopen; `heldWrites` in 28 files (renamed `inflight` in
+            one edit). Do not delete it before its replacement lands and the suite passes.
 
             **Risk:** hostile defaults can turn many existing Stories red; each red is replayed and its wrong side named
             (the runtime, or a test that relied on a kind fake), never silenced by switching the behaviour off.
@@ -2018,7 +2204,37 @@ tasks
             remove it everywhere (2026-11-20).
 
             **Read first:** code:packages/flow-state-v3/src/machine.ts, @questions.advisor-questions (question 1),
-            @plan.Machines.O1, @plan.Machines.O8, @spec.Turn (R16, R27).
+            @plan.Machines.O1, @plan.Machines.O8, @spec.Turn (R16, R27). Spec: @spec.Types (R1–R3, R9, R10, R13–R15,
+            I1–I4, I10, I12), companion `wiki/specs/v3/Types.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/machine.ts#Parts,
+            code:packages/flow-state-v3/src/machine.ts#BodyOf, code:packages/flow-state-v3/src/machine.ts#MachineBody,
+            code:packages/flow-state-v3/src/machine.ts#machine, code:packages/flow-state-v3/src/machine.ts#decodedOf,
+            code:packages/flow-state-v3/src/machine.ts#erasedBody,
+            code:packages/flow-state-v3/src/machine.ts#erasedWhen,
+            code:packages/flow-state-v3/src/machine.ts#trustedTokens,
+            code:packages/flow-state-v3/src/machine.ts#handled;
+            code:packages/flow-state-v3/src/definition.ts#Definition,
+            code:packages/flow-state-v3/src/definition.ts#AnyDefinition,
+            code:packages/flow-state-v3/src/definition.ts#Machine,
+            code:packages/flow-state-v3/src/definition.ts#treeOfDefinition;
+            code:packages/flow-state-v3/src/core/tree.ts#chainOf, code:packages/flow-state-v3/src/core/tree.ts#leafOf;
+            code:packages/flow-state-v3/src/events.ts#codecOf, code:packages/flow-state-v3/src/events.ts#trusted;
+            code:packages/flow-state-v3/src/contract.ts#trustedAttempt;
+            code:packages/flow-state-v3/src/compiled-parts.ts#endingValue;
+            code:packages/flow-state-v3/src/compile-body.ts#childrenOf,
+            code:packages/flow-state-v3/src/compile-body.ts#childNodes,
+            code:packages/flow-state-v3/src/compile-body.ts#nodesOf,
+            code:packages/flow-state-v3/src/compile-body.ts#tokenMaps; code:packages/flow-state-v3/src/handles.ts#erase;
+            code:packages/flow-state-v3/src/flow.ts#selectOf, code:packages/flow-state-v3/src/flow.ts#contextSlot;
+            code:packages/flow-state-v3/src/host/snapshot.ts#Timers,
+            code:packages/flow-state-v3/src/host/snapshot.ts#TimerView,
+            code:packages/flow-state-v3/src/host/snapshot.ts#asOutside. Do not delete it before its replacement lands
+            and the suite passes.
 
             **Approach:** design the whole Task at once, a type spike first:
             - carry the body type and keep excess-key checks, since inferring the body loses them;
@@ -2027,8 +2243,8 @@ tasks
             - an ending mapper's parameter inferred from the operation's contract where `E.X.from` sits inside
               `outcomes(...)`; if the spike shows that needs a new word, the fallback is one exported ending-value type
               per contract, so `{ why: string }` copies become one name. This Task owns the carried type's shape:
-              @task.V3.T76 (props), @task.V3.T77 (emit summary),
-            @task.V3.T109 (fragment summary) and @task.V3.T106 (rule tokens) only add fields through it.
+              @task.V3.T76 (props), @task.V3.T77 (emit summary), @task.V3.T109 (fragment summary) and @task.V3.T106
+              (rule tokens) only add fields through it.
 
             May change: `src/`, `tests/types/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`. Evidence: this
             Task's comments.
@@ -2074,6 +2290,10 @@ tasks
             [proposed] Now after @task.V3.T131 and @task.V3.T120. First acceptance row: the AnyBody spike
             (@proposal.algo-types H2); until it passes the cast families count as handled at one point. derive.ts gains
             rows G1 to G8 of @proposal.algo-resolutions section 5.
+        comment     2026-11-21T19:08:52Z
+            Conflict between v3 Specs: Types deletes tree.ts#chainOf and leafOf (Node.chain, Node.leaf); Changes keeps
+            them for subroutines and moves only hot callers. Settle when building; Supersedes lists them under
+            Types' reading.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
@@ -2087,8 +2307,16 @@ tasks
             last round already took 207 s. The profile points at schedule work and record writes on every firing in the
             home-rooms Stories. The Epic takes a Task to make the tests fast again before the next one.
 
-            **Read first:** @task.V3.T57 (its last close note),
-            code:packages/flow-state-v3/src/core/schedules.ts, @convention.bench.
+            **Read first:** @task.V3.T57 (its last close note), code:packages/flow-state-v3/src/core/schedules.ts,
+            @convention.bench. Spec: @spec.Host (R10, I18), companion `wiki/specs/v3/Host.md`; @spec.Schedules (R17,
+            I18), companion `wiki/specs/v3/Schedules.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none of its own; the cost falls with the replacements of @task.V3.T118 and @task.V3.T119,
+            which it measures. Do not delete it before its replacement lands and the suite passes.
 
             May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `bench/`. Evidence: this Task's comments.
         acceptance
@@ -2116,6 +2344,47 @@ tasks
 
             **Read first:** @proposal.schedule-issues (the design, the R25 text, P1, P2), @task.V3.T57 (its four close
             reviews), code:packages/flow-state-v3/src/core/schedule-decision.ts, @spec.Turn (R14 to R17, R19, R25, R27).
+            Spec: @spec.Schedules (R1–R17, I1–I18), companion `wiki/specs/v3/Schedules.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/schedule-decision.ts#Occasion,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#Firing,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#isScheduleSource,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#issuesAfter,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#plannedOf,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#plannedTrack,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#ran,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#lastReasonsOf,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#checked,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#paused,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#heldOrResumed,
+            code:packages/flow-state-v3/src/core/schedule-decision.ts#decide;
+            code:packages/flow-state-v3/src/core/schedules.ts#readOf,
+            code:packages/flow-state-v3/src/core/schedules.ts#contextOf,
+            code:packages/flow-state-v3/src/core/schedules.ts#pass,
+            code:packages/flow-state-v3/src/core/schedules.ts#stopAll,
+            code:packages/flow-state-v3/src/core/schedules.ts#unchanged,
+            code:packages/flow-state-v3/src/core/schedules.ts#disarmRun,
+            code:packages/flow-state-v3/src/core/schedules.ts#runningTimer,
+            code:packages/flow-state-v3/src/core/schedules.ts#runningTo,
+            code:packages/flow-state-v3/src/core/schedules.ts#trackedOf,
+            code:packages/flow-state-v3/src/core/schedules.ts#applied;
+            code:packages/flow-state-v3/src/core/schedule-plan.ts#savedTimersOf,
+            code:packages/flow-state-v3/src/core/schedule-plan.ts#declaredOn,
+            code:packages/flow-state-v3/src/core/schedule-plan.ts#dueOf,
+            code:packages/flow-state-v3/src/core/schedule-plan.ts#dueIn;
+            code:packages/flow-state-v3/src/core/schedule-restore.ts#trackedOf,
+            code:packages/flow-state-v3/src/core/schedule-restore.ts#restore;
+            code:packages/flow-state-v3/src/core/firings.ts#fire; code:packages/flow-state-v3/src/core/world.ts#Timing,
+            code:packages/flow-state-v3/src/core/world.ts#Run, code:packages/flow-state-v3/src/core/world.ts#Tracked,
+            code:packages/flow-state-v3/src/core/world.ts#withIssuesOf;
+            code:packages/flow-state-v3/src/host/owners/schedule-steps.ts;
+            code:packages/flow-state-v3/src/host/snapshot.ts; the five stored-issue faults in `tests/schedule-faults.ts`
+            (re-pointed, not deleted) and `tests/turn/schedule-sequences-wrong.ts` (delete once empty). Do not delete it
+            before its replacement lands and the suite passes.
 
             **Risk:** the redesign keeps `decide`, the occasions and T57's tables; it must not reopen what they prove.
             The record format moves from 5 to 6, with a step and restore after a definition edit (a reason, key or
@@ -2295,6 +2564,10 @@ tasks
             Blocked by @task.V3.T120 (declared schedules, runtime half first), the order the user chose in
             @proposal.algo-schedules question 6. [proposed] The fix round's Spec text takes the five replacements of
             @proposal.algo-resolutions 1.1 (question 8 A in every table).
+        comment     2026-11-21T19:08:51Z
+            Contradiction with the v3 Spec: May change names @spec.Turn and @spec.WriteAhead (superseded); the rules
+            live in @spec.Schedules now, so Spec fixes go there (specs.log). 'Format 5 to 6' is stated against that
+            Spec's one format step (Schedules R14, @spec.Records R12).
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
@@ -2309,8 +2582,68 @@ tasks
             **Why now:** fragments (@task.V3.T109), emits and the operations Tasks all write through `apply` and
             `tx.alarms`; the user placed this Task before T109 (@proposal.spec-handover).
 
-            **Read first:** @proposal.algo-resolutions sections 1.2 and 2 (C1, C3, C4, C6);
-            @proposal.algo-turn; @proposal.spec-turn-parts.
+            **Read first:** @proposal.algo-resolutions sections 1.2 and 2 (C1, C3, C4, C6); @proposal.algo-turn;
+            @proposal.spec-turn-parts. Spec: @spec.Changes (R1–R11, R14, R15, R17, R18, R21–R26, I3–I7, I9, I12–I15,
+            I17), companion `wiki/specs/v3/Changes.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/turn.ts#levelsOf,
+            code:packages/flow-state-v3/src/core/turn.ts#disarmedBy,
+            code:packages/flow-state-v3/src/core/turn.ts#accept, code:packages/flow-state-v3/src/core/turn.ts#runTurn,
+            code:packages/flow-state-v3/src/core/turn.ts#armingsOf,
+            code:packages/flow-state-v3/src/core/turn.ts#TurnResult,
+            code:packages/flow-state-v3/src/core/turn.ts#TurnInput; code:packages/flow-state-v3/src/core/serve.ts#turn,
+            code:packages/flow-state-v3/src/core/serve.ts#raised, code:packages/flow-state-v3/src/core/serve.ts#refusal,
+            code:packages/flow-state-v3/src/core/serve.ts#pendingOwners,
+            code:packages/flow-state-v3/src/core/serve.ts#deferred, code:packages/flow-state-v3/src/core/serve.ts#drain,
+            code:packages/flow-state-v3/src/core/serve.ts#followUps; code:packages/flow-state-v3/src/core/step.ts#fired;
+            code:packages/flow-state-v3/src/core/tx.ts#putIncarnation;
+            code:packages/flow-state-v3/src/core/incarnations.ts#start,
+            code:packages/flow-state-v3/src/core/incarnations.ts#setIncarnation,
+            code:packages/flow-state-v3/src/core/incarnations.ts#publish,
+            code:packages/flow-state-v3/src/core/incarnations.ts#retire,
+            code:packages/flow-state-v3/src/core/incarnations.ts#end,
+            code:packages/flow-state-v3/src/core/incarnations.ts#dispose,
+            code:packages/flow-state-v3/src/core/incarnations.ts#graces,
+            code:packages/flow-state-v3/src/core/incarnations.ts#fireWaiting,
+            code:packages/flow-state-v3/src/core/incarnations.ts#deliver;
+            code:packages/flow-state-v3/src/core/context.ts#selected,
+            code:packages/flow-state-v3/src/core/context.ts#react, code:packages/flow-state-v3/src/core/context.ts#bind,
+            code:packages/flow-state-v3/src/core/context.ts#restore,
+            code:packages/flow-state-v3/src/core/context.ts#baselinesOf,
+            code:packages/flow-state-v3/src/core/context.ts#owes,
+            code:packages/flow-state-v3/src/core/context.ts#failing,
+            code:packages/flow-state-v3/src/core/context.ts#raise,
+            code:packages/flow-state-v3/src/core/context.ts#clear, code:packages/flow-state-v3/src/core/context.ts#keep,
+            code:packages/flow-state-v3/src/core/context.ts#settle,
+            code:packages/flow-state-v3/src/core/context.ts#update,
+            code:packages/flow-state-v3/src/core/context.ts#quiet, code:packages/flow-state-v3/src/core/context.ts#wave;
+            code:packages/flow-state-v3/src/core/firings.ts#fire,
+            code:packages/flow-state-v3/src/core/firings.ts#firing,
+            code:packages/flow-state-v3/src/core/firings.ts#recheckLanes;
+            code:packages/flow-state-v3/src/core/disposal.ts#started,
+            code:packages/flow-state-v3/src/core/disposal.ts#end,
+            code:packages/flow-state-v3/src/core/disposal.ts#consumersFirst;
+            code:packages/flow-state-v3/src/core/ledger.ts#Audience,
+            code:packages/flow-state-v3/src/core/ledger.ts#live,
+            code:packages/flow-state-v3/src/core/ledger.ts#onRecord,
+            code:packages/flow-state-v3/src/core/ledger.ts#suspend,
+            code:packages/flow-state-v3/src/core/ledger.ts#start,
+            code:packages/flow-state-v3/src/core/ledger.ts#restore;
+            code:packages/flow-state-v3/src/core/following.ts#following;
+            code:packages/flow-state-v3/src/core/world.ts#Incarnation,
+            code:packages/flow-state-v3/src/core/world.ts#OwnedBy, code:packages/flow-state-v3/src/core/world.ts#Mail,
+            code:packages/flow-state-v3/src/core/world.ts#Command,
+            code:packages/flow-state-v3/src/core/world.ts#indexesOf,
+            code:packages/flow-state-v3/src/core/world.ts#indexDrift;
+            code:packages/flow-state-v3/src/host/driver.ts#perform,
+            code:packages/flow-state-v3/src/host/driver.ts#ownerOf;
+            code:packages/flow-state-v3/src/host/owners/owners.ts#cancel; the mail functions in `src/core/tx.ts` (about
+            lines 355-478) and the timers there (about 312-352), and the accepted branch of `serve.ts#turn`. Do not
+            delete it before its replacement lands and the suite passes.
 
             **Risk:** the design's model covers part of the text (@proposal.algo-resolutions hole 1); the unchecked
             invariants are this Task's first failing checks.
@@ -2321,6 +2654,9 @@ tasks
             - An ended scope's schedule callbacks do not run in the turn that ended it (the X3 trace), with a
               planted fault.
             - Each new rule has a planted fault that `nub run faults` catches.
+        comment     2026-11-21T19:08:52Z
+            Read first names no v3 Spec: Changes is the Spec for this Task. Its fit table keeps tree.ts chainOf and
+            leafOf, which Types deletes (see @task.V3.T113); delete only once no caller remains.
 
     T120
         title       Declared schedules: the runtime half
@@ -2334,12 +2670,30 @@ tasks
             (@proposal.algo-schedules question 6). The public types follow in @task.V3.T113 and change no runtime.
 
             **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-types section 5.2;
-            @proposal.algo-schedules section 14.
+            @proposal.algo-schedules section 14. Spec: @spec.Types (R8, R12, I11, I13, I14), companion
+            `wiki/specs/v3/Types.md`; @spec.Schedules (R14, R16, I11, I14), companion `wiki/specs/v3/Schedules.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/tokens.ts#ScheduleKey,
+            code:packages/flow-state-v3/src/tokens.ts#ScheduleParts,
+            code:packages/flow-state-v3/src/tokens.ts#KeyedConfig,
+            code:packages/flow-state-v3/src/tokens.ts#KeyedSchedule; code:packages/flow-state-v3/src/flow.ts#keyed;
+            code:packages/flow-state-v3/src/config.ts#findingsAgainst;
+            code:packages/flow-state-v3/src/compile-schedules.ts#scheduleOf;
+            code:packages/flow-state-v3/src/core/compiled.ts#Schedule; the two metadata types in `src/tokens.ts` and
+            `src/core/compiled.ts` (one `ScheduleMetadata`); the 11 `Flow.keyed` call sites in fixtures and tests are
+            rewritten with it. Do not delete it before its replacement lands and the suite passes.
         acceptance
             - A schedule is declared on the definition and placed in the body; `Flow.keyed` is gone from `src/`
               and fixtures.
             - `Compiled.schedules` holds each schedule's key and selection codec; a saved key decodes through it.
             - Each construction check of @proposal.algo-types 5.2 has a refusing test and a planted fault.
+        comment     2026-11-21T19:08:51Z
+            Order check: Schedules' companion and Records R12 want one format step for every schedule field; this Task
+            builds the codecs, so the step itself lands in @task.V3.T118 or @task.V3.T56, not here.
 
     T121
         title       Operation endings and the retry guards
@@ -2356,6 +2710,27 @@ tasks
 
             **Read first:** @proposal.algo-resolutions sections 1.4 (O1, O2, O3) and 2 (C3); @proposal.algo-operations
             sections 6.5, 6.7 and 6.8; @proposal.algo-records section 6.6; code:packages/flow-state-v3/src/core/turn.ts.
+            Spec: @spec.Operations (R1, R2, R6, R7, R11, R15, I8, I13–I16, I20, I21, I23), companion
+            `wiki/specs/v3/Operations.md`; @spec.Records (R1–R3, R16, I6, I7), companion `wiki/specs/v3/Records.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/ledger.ts#owe,
+            code:packages/flow-state-v3/src/core/ledger.ts#tryOne,
+            code:packages/flow-state-v3/src/core/ledger.ts#afterTry,
+            code:packages/flow-state-v3/src/core/ledger.ts#refused,
+            code:packages/flow-state-v3/src/core/ledger.ts#start,
+            code:packages/flow-state-v3/src/core/ledger.ts#restore;
+            code:packages/flow-state-v3/src/core/serve.ts#serveEnding,
+            code:packages/flow-state-v3/src/core/serve.ts#endingSource;
+            code:packages/flow-state-v3/src/core/answers.ts#settled;
+            code:packages/flow-state-v3/src/core/world.ts#IssueSource;
+            code:packages/flow-state-v3/src/core/incarnations.ts#CREATION;
+            code:packages/flow-state-v3/src/contract.ts#Ending; code:packages/flow-state-v3/src/compiled-parts.ts;
+            code:packages/flow-state-v3/src/host/owners/schedule-steps.ts. Do not delete it before its replacement lands
+            and the suite passes.
 
             **Risk:** the lane policies (`latest`, `serialize`, `cancel`, `reject`) are in no design; their Spec is
             written from the code (@proposal.algo-resolutions hole 5).
@@ -2380,7 +2755,22 @@ tasks
             only as far as the fixtures need.
 
             **Read first:** @proposal.algo-resolutions sections 1.4 and 2 (C1, C6, C8); @proposal.algo-operations
-            sections 6.1 to 6.3 and 6.6.
+            sections 6.1 to 6.3 and 6.6. Spec: @spec.Operations (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25),
+            companion `wiki/specs/v3/Operations.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/lanes.ts#lookup,
+            code:packages/flow-state-v3/src/core/lanes.ts#interruptReads;
+            code:packages/flow-state-v3/src/core/answers.ts#settledRead; the Read arm of cancel in `src/core/lanes.ts`
+            and the loop in `src/core/incarnations.ts#retire` (lines 301-302);
+            code:packages/flow-state-v3/src/core/world.ts#Read, code:packages/flow-state-v3/src/core/world.ts#reads;
+            code:packages/flow-state-v3/src/handles.ts#readHandle; code:packages/flow-state-v3/src/host/driver.ts#call,
+            code:packages/flow-state-v3/src/host/driver.ts#resultOf,
+            code:packages/flow-state-v3/src/host/driver.ts#Lookup. Do not delete it before its replacement lands and the
+            suite passes.
 
             **Risk:** the public event a view sends for `refetch` has no design (@proposal.algo-resolutions hole 6).
         acceptance
@@ -2400,8 +2790,17 @@ tasks
 
             **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover; @plan.Runtime.O6).
 
-            **Read first:** @proposal.algo-resolutions sections 1.4 and 2 (C1, C6); @proposal.algo-operations
-            section 6.4.
+            **Read first:** @proposal.algo-resolutions sections 1.4 and 2 (C1, C6); @proposal.algo-operations section
+            6.4. Spec: @spec.Operations (R8, I4, I11, I22), companion `wiki/specs/v3/Operations.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/disposal.ts line 85 (becomes `entries.runtimeEnds()`);
+            code:packages/flow-state-v3/src/host/close.ts `CleanupOverdue` and its count (replaced by `ReleaseOverdue`;
+            the code audit lists it as L5, and its `cleanups.test.ts:313-368` assertions move). Do not delete it before
+            its replacement lands and the suite passes.
 
             **Risk:** placements were not attacked in the design round (@proposal.algo-operations hole H4).
         acceptance
@@ -2423,7 +2822,14 @@ tasks
             on it (routed from @task.V3.T20).
 
             **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section 6.10;
-            @proposal.algo-records sections 6.4 and 6.7.
+            @proposal.algo-records sections 6.4 and 6.7. Spec: @spec.Operations (R12, I24), companion
+            `wiki/specs/v3/Operations.md`; @spec.Records (R8, R18, I12, I19), companion `wiki/specs/v3/Records.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** no current code of its own; the fit tables name none for this Task.
         acceptance
             - A saved entry installs with `asked: none`, so the first ask after a reload starts a request.
             - An entry already in memory wins over a saved one at adoption.
@@ -2441,7 +2847,18 @@ tasks
             **Why now:** the first half of @task.V3.T77 (@review.spec-cohesion-r2 question 15); the toaster waits on it.
 
             **Read first:** @proposal.algo-resolutions sections 1.2 (X6) and 2 (C4); @proposal.algo-turn section 6.10;
-            @proposal.algo-host section 6.3; @proposal.spec-boundary-channels.
+            @proposal.algo-host section 6.3; @proposal.spec-boundary-channels. Spec: @spec.Changes (R19, I5), companion
+            `wiki/specs/v3/Changes.md`; @spec.Host (R3, I4), companion `wiki/specs/v3/Host.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** the `Act.Emitted` path in code:packages/flow-state-v3/src/core/serve.ts (shared with
+            @task.V3.T119, which deletes the accepted branch); code:packages/flow-state-v3/src/core/evidence.ts and
+            `evidence-of.ts` (the public `Emit` record becomes a projection of the turn);
+            code:packages/flow-state-v3/src/host/driver.ts#perform (the emit consumer). Do not delete it before its
+            replacement lands and the suite passes.
         acceptance
             - A listener that reads `getSnapshot()` at an emit sees the snapshot that includes the emitting turn.
             - A listener that throws is one host report; the next listener still runs.
@@ -2458,8 +2875,14 @@ tasks
 
             **Why now:** the second half of @task.V3.T77 (@review.spec-cohesion-r2 question 15).
 
-            **Read first:** @proposal.algo-resolutions section 5 (row G6); @proposal.algo-turn section
-            6.10; @proposal.spec-boundary-channels.
+            **Read first:** @proposal.algo-resolutions section 5 (row G6); @proposal.algo-turn section 6.10;
+            @proposal.spec-boundary-channels. Spec: @spec.Changes (R19), companion `wiki/specs/v3/Changes.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** no current code of its own; the fit tables name none for this Task.
         acceptance
             - An instance that ends in a turn still emits in it; the emit holds its address by value.
             - The listener's `key` and `keys` are typed from the fragment's declaration with no annotation.
@@ -2474,8 +2897,15 @@ tasks
 
             **Why now:** the first half of @task.V3.T72 (@review.spec-cohesion-r2 question 15).
 
-            **Read first:** @proposal.algo-resolutions section 6;
-            @proposal.spec-boundary-channels; @convention.fixture-catalog.
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.spec-boundary-channels;
+            @convention.fixture-catalog. Spec: @spec.Schedules (R8, R11, R12), companion `wiki/specs/v3/Schedules.md`;
+            @spec.Changes (R19), companion `wiki/specs/v3/Changes.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** no current code of its own; the fit tables name none for this Task.
         acceptance
             - The toaster fixture is written with no hand-written type and no `Flow.keyed`.
             - It has a usual and a stress Story, each red before the build.
@@ -2490,8 +2920,14 @@ tasks
 
             **Why now:** the second half of @task.V3.T72 (@review.spec-cohesion-r2 question 15).
 
-            **Read first:** @proposal.algo-resolutions section 6;
-            @proposal.spec-boundary-channels; @convention.fixture-catalog.
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.spec-boundary-channels;
+            @convention.fixture-catalog. Spec: @spec.Changes (R12, R13, I1, I2), companion `wiki/specs/v3/Changes.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** no current code of its own; the fit tables name none for this Task.
         acceptance
             - The menu fixture is written with no hand-written type.
             - It has a usual and a stress Story, each red before the build.
@@ -2507,8 +2943,20 @@ tasks
             **Why now:** the first half of @task.V3.T98, placed before @task.V3.T113's `derive.ts` and @task.V3.T109
             (@review.spec-cohesion-r2 question 15; @proposal.spec-errors-trust PD5).
 
-            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section
-            6.9; @proposal.spec-errors-trust.
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section 6.9;
+            @proposal.spec-errors-trust. Spec: @spec.Operations (R10, I19), companion `wiki/specs/v3/Operations.md`;
+            @spec.Types (R11, I4, I5), companion `wiki/specs/v3/Types.md`.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/entry.ts;
+            code:packages/flow-state-v3/src/construction.ts#isMarker;
+            code:packages/flow-state-v3/src/machine.ts#machine; the `"~flow"`, `"~token"`, `"~owner"` and `"~path"`
+            marks in 12 front-end files and the six `no-mark-probe` disables (`src/config.ts`, `src/construction.ts`,
+            `src/compile-names.ts`, `src/machine.ts`, `src/host/testing/run.ts` twice). Do not delete it before its
+            replacement lands and the suite passes.
 
             **Risk:** the door table was attacked once, on paper (@proposal.algo-operations hole H8); authoring doors do
             not raise for a finding if the user accepts @proposal.algo-types question 1.

@@ -156,7 +156,15 @@ tasks
             Write the multi-tab Spec, then build scope ownership across tabs: the host Web Lock for
             @spec.WriteAhead.R16, a fake `navigator.locks`, tab steps (`openTab`, `closeTab`) and two-tab Stories.
 
-            **Read first:** @plan.Persistence.O7, @plan.Runtime.O7.
+            **Read first:** @plan.Persistence.O7, @plan.Runtime.O7; @spec.Host (R7, I11, I12; open
+            Q3; code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `onHidden` in `platform/browser.ts` is kept and `pageshow` is added (Host companion,
+            section 4).
         acceptance
             - The multi-tab Spec's Requirements hold on production, shown by Stories with two tabs.
             - Fixtures first (@convention.fixtures): step 14 of @convention.fixture-catalog: `pay`, `session`, `draft`
@@ -173,6 +181,9 @@ tasks
             Moved from @task.V3.T58 (orchestrator, 2026-11-20, small amendment for the user's read): Safari D4, the Web
             Lock released on bfcache (packages/flow-state-v3/prototypes/safari/RESULTS.md), is lock ownership, so it is
             checked here, not by T58's adapter.
+        comment     2026-11-21T19:07:46Z
+            Spec check: this description builds tab steps (`openTab`, `closeTab`); @spec.Host gives the tab world, death
+            and the locks fake to @task.V3.T112 and leaves this Task the real lock and `pageshow`. Scope unchanged here.
     T48
         title       Lazy features
         status      draft
@@ -191,7 +202,15 @@ tasks
         description
             Write the lazy-features Spec, then build lazy app entries on production from @plan.LazyFeatures.
 
-            **Read first:** @plan.LazyFeatures.O1.
+            **Read first:** @plan.LazyFeatures.O1; @spec.Records (R9, R13, R17, I14, I16;
+            code:wiki/specs/v3/Records.md); @spec.Changes (R26, I14; open Q7; code:wiki/specs/v3/Changes.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `Dormant` and `Waits` are new (Records companion). A lazy fragment's adoption has no
+            design yet (Changes Q7, H4: it needs a tenth `Change`).
         acceptance
             - The lazy-features Spec's Requirements hold on production, shown by Story tests.
             - Exposes an entry's adoption state as the value @task.V3.T115 transfers and merges.
@@ -229,8 +248,18 @@ tasks
             boot queue (routed from @task.V3.T20): sends before `ready` are queued and delivered in order; @task.V3.T115
             reads `ready`.
 
-            **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Package.O1,
-            and `packages/flow-state-v3/prototypes/safari/RESULTS.md`.
+            **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Package.O1, and
+            `packages/flow-state-v3/prototypes/safari/RESULTS.md`; @spec.Records (R20, I3, I5;
+            code:wiki/specs/v3/Records.md); @spec.Operations (R1, I16; code:wiki/specs/v3/Operations.md); @spec.Host
+            (R5, R6, I8, I9; row `platform/memory.ts`; code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** the in-memory store inside code:packages/flow-state-v3/src/host/testing/fake.ts#makeStore,
+            once @task.V3.T112 rewires the fake to wrap `platform/memory.ts` (Host companion, section 4). Do not delete
+            it before its replacement lands and the suite passes.
         acceptance
             - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari,
               which meets Safari's D1 to D3 (D4 is @task.V3.T27's).
@@ -278,7 +307,15 @@ tasks
 
             **Read first:** @plan.Inspection.O1, O4, O6, @plan.Machines.O2, @plan.Machines.O5,
             @convention.view-commands, code:packages/flow-state-v3/src/host/inspect.ts,
-            `packages/flow-state-v3/src/host/trace.ts` (@task.V3.T65 builds it).
+            `packages/flow-state-v3/src/host/trace.ts` (@task.V3.T65 builds it); @spec.Host (R2, I6; row
+            `host/inspect.ts`; code:wiki/specs/v3/Host.md); @spec.Operations (R8,
+            I11; code:wiki/specs/v3/Operations.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `host/inspect.ts` changes in place (the version, `releasing` with ages).
         acceptance
             - The inspection Spec's Requirements hold on production, and the route is exported.
             - The Model lists props and emits Schemas and fragment emits; the event kinds add `emit`, and schedule
@@ -328,7 +365,13 @@ tasks
 
             **Read first:** @plan.Testing.O1, @plan.Testing.O2, @plan.Pending.D5 to @plan.Pending.D10 (the names the
             first slice added), @spec.Stories, @plan.Machines.O5, O7, @convention.where-a-value-lives, @task.V3.T63,
-            @task.V3.T69, @task.V3.T70.
+            @task.V3.T69, @task.V3.T70; @spec.Host (R9, R13, I22, I23; code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; the run verdict and CLI exit table belong to @task.V3.T114.
         acceptance
             - Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
             - `advance({ next })` skips paused timers (`NoDeadline` when every match is paused); `advance(d)` and
@@ -386,6 +429,10 @@ tasks
         comment     2026-11-20T13:12:08Z
             Breakdown fix (orchestrator, 2026-11-20): description states why it is blocked by T49; the 2026-11-18T19:14
             harness items moved to T97.
+        comment     2026-11-21T19:07:48Z
+            Spec check: `story run`'s exit code for a rejected run is in this description, but @spec.Host R13 and its
+            Tasks note give the CLI exit table to @task.V3.T114; tab steps are said here to move to @task.V3.T27, but
+            @spec.Host gives the tab world to @task.V3.T112. Scope unchanged.
     T31
         title       CLI outputs designed for people
         status      draft
@@ -396,7 +443,15 @@ tasks
             Design the CLI's outputs for people: source locations, a trace that reads like a story, a graph grouped by
             state, and messages from the issue catalog. Mocks first, then the user's one acceptance round.
 
-            **Read first:** @plan.CommandLine.O3, skill:interview.
+            **Read first:** @plan.CommandLine.O3, skill:interview; @spec.Types (R4, R5; code:wiki/specs/v3/Types.md);
+            @spec.Host (R13; code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `flow trace` printing the verdict is @task.V3.T114's, and the CLI's `Loading` row is
+            Types' (companion, section 5).
 
             Stops: the user's acceptance of the outputs.
         acceptance
@@ -426,7 +481,14 @@ tasks
             table, the Story `hydrate` step) to @task.V3.T115; the Next.js host proofs to @task.V3.T116.
 
             **Read first:** @plan.React.O1, O2, O3, @plan.ServerRendering.O4, @plan.Machines.O2,
-            @convention.view-commands, @convention.controlled-values.
+            @convention.view-commands, @convention.controlled-values; @spec.Host (R2, R3, I3, I4;
+            code:wiki/specs/v3/Host.md); @spec.Changes (R19, R20; code:wiki/specs/v3/Changes.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `src/host/emits.ts` is new (Host companion, section 4).
         acceptance
             - The binding's Requirements hold, shown in real Chrome and Safari; the first server render
               matches (@plan.ServerRendering.O4).
@@ -461,6 +523,10 @@ tasks
         comment     2026-11-21T18:46:49Z
             Per @review.spec-cohesion-r2 question 15 (UH PD2): @task.V3.T111 builds the whole binding, and this Task
             becomes channels and the hydrate overlay. [proposed] Emit delivery in React follows @proposal.algo-host 6.3.
+        comment     2026-11-21T19:07:47Z
+            Spec check: the description still says this Task builds the binding; @spec.Host and the 2026-11-21 comment
+            give the binding to @task.V3.T111, leaving channels, the hydrate overlay and emit delivery in React here.
+            Scope unchanged.
 
     T106
         title       Rules on machines: invariants, turns and terminals, with rule coverage
@@ -490,7 +556,17 @@ tasks
             **Read first:** @plan.Rules (every outcome; its goal lists what was not adopted and why), @plan.Testing
             (Stories, the generator, sweeps), @plan.Machines.O2 (fragments, tokens, `S.X.is`),
             code:packages/flow-state-v3/tests/rules/rules.ts (Flow's run rules and `checked`),
-            code:packages/flow-state-v3/tests/number-input/number-input.stress.test.ts (NUMBER-12).
+            code:packages/flow-state-v3/tests/number-input/number-input.stress.test.ts (NUMBER-12); @spec.Types (R9,
+            I12, I13; code:wiki/specs/v3/Types.md); @spec.Host (R11, R12, I14, I15, I21; code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** the `checked` helper and the `breaches`/`breachesOf` names in
+            code:packages/flow-state-v3/tests/rules/rules.ts (Host companion: rules return `Broken`; shared with
+            @task.V3.T114, which the Spec makes the owner of the verdict and judge). Do not delete it before its
+            replacement lands and the suite passes.
 
             **Risk:** the type surface: rule tokens need the machine's body type, which comes from @task.V3.T113, and
             shared bodies such as code:packages/flow-state-v3/fixtures/services/shop/machines/pay.ts#PayBody must still
@@ -524,6 +600,9 @@ tasks
         comment     2026-11-20T13:12:06Z
             Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T113, T22 and T114; Risk and description now name
             T113, T22, T114, T109 and T110.
+        comment     2026-11-21T19:07:42Z
+            Spec check: the Spec puts the judge and verdict with @task.V3.T114 (@spec.Host R8 to R14), while this
+            description builds judging in runs; and it cites `checked`, which @spec.Host deletes. Scope unchanged.
     T108
         title       Story presentation: StoryPlayer and definePresentation
         status      draft
@@ -567,7 +646,18 @@ tasks
             are the run's verdict, one state of its own, and @task.V3.T106's rule judging reads it, so it need not wait
             for the rest of Story and Fake.
 
-            **Read first:** @plan.Testing.O6, @plan.Testing.O8, @spec.Stories, @task.V3.T63, @task.V3.T69, @task.V3.T70.
+            **Read first:** @plan.Testing.O6, @plan.Testing.O8, @spec.Stories, @task.V3.T63, @task.V3.T69, @task.V3.T70;
+            @spec.Host (R8 to R14, I13 to I17, I21 to I23; code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/tests/rules/rules.ts#checked (deleted: rules return `Broken`),
+            code:packages/flow-state-v3/src/host/testing/steps.ts#StoryFailed (renamed `StoryScriptFault`),
+            code:packages/flow-state-v3/src/host/testing/generate.ts#propertyTest (runs every seed) and the exit table
+            of code:packages/flow-state-v3/src/host/cli/main.ts (Host companion, section 4). Do not delete it before its
+            replacement lands and the suite passes.
 
             May change: `src/host/testing/`, `tests/`, `fixtures/`. Evidence: this Task's comments.
 
@@ -588,6 +678,10 @@ tasks
             [proposed] An Expect matches every break that fits it; each Expect needs one match, and each break of an
             expected rule needs one Expect; a bare rule keeps the decided at-least-once meaning
             (@proposal.algo-resolutions 1.6).
+        comment     2026-11-21T19:07:41Z
+            Spec check: the Spec gives this Task the verdict, the judge, `propertyTest` and the CLI exit table
+            (@spec.Host R8 to R14); the description names only `PropertyTestFailed`, end-of-run cleanup and
+            `UnusedWireRule`. Scope unchanged here; settle at build.
 
     T115
         title       Server data: dehydrate, hydrate and the merge table
@@ -612,7 +706,16 @@ tasks
             (actors, resources, entity fields and lazy entries), so one Task owns all its rows.
 
             **Read first:** @plan.ServerRendering, @task.V3.T24 (supplies the per-field version comparator),
-            @task.V3.T48 (supplies the adoption state), both as values, and @task.V3.T28 (`ready`).
+            @task.V3.T48 (supplies the adoption state), both as values, and @task.V3.T28 (`ready`); @spec.Records (R9,
+            R17, R18, I19; code:wiki/specs/v3/Records.md); @spec.Operations (R12, I24;
+            Q13; code:wiki/specs/v3/Operations.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `Source.Hydrate` and the precedence table are new (Records companion, hole H4: the
+            merge is not designed).
 
             **Background:** the outcomes this Task satisfies are @plan.ServerRendering.O1, @plan.ServerRendering.O2,
             @plan.ServerRendering.O3, @plan.ServerRendering.O5, @plan.ServerRendering.O6, @plan.Testing.O7,
@@ -687,7 +790,14 @@ tasks
             (@proposal.spec-handover; @proposal.spec-data-layer).
 
             **Read first:** @proposal.algo-resolutions section 6; @proposal.spec-data-layer; @proposal.algo-records
-            section 6.4.
+            section 6.4; @spec.Records (R9, R15, R18, I8, I10; code:wiki/specs/v3/Records.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; the entity record is new code (Records companion, hole H12: its reference rows
+            are thin).
 
             **Risk:** the entity record's reference rows are thin (@proposal.algo-records hole H12); this Task runs
             skill:to-design first.
@@ -705,7 +815,14 @@ tasks
 
             **Why now:** the second half of @task.V3.T24 (@proposal.spec-handover; @proposal.spec-data-layer).
 
-            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-records section 6.8.
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-records section 6.8; @spec.Records
+            (R16, R18, I6, I7, I11; code:wiki/specs/v3/Records.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; claims in the lane head are new code (Records companion, hole H8).
 
             **Risk:** the order of Attempts on one entity record across identities is not saved (@proposal.algo-records
             hole H8); this Task runs skill:to-design first.
@@ -723,8 +840,17 @@ tasks
 
             **Why now:** the second half of @task.V3.T98, first in P5 (@review.spec-cohesion-r2 question 15).
 
-            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section
-            6.9; @proposal.spec-errors-trust.
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section 6.9;
+            @proposal.spec-errors-trust; @spec.Operations (R10, R11, I19, I23; code:wiki/specs/v3/Operations.md);
+            @spec.Types (R11, R13, I4, I5; code:wiki/specs/v3/Types.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/boundary.ts#admitted (rewritten as `intake`'s lift) and
+            code:packages/flow-state-v3/src/contract.ts#trusted (deleted; Types and Operations companions, fit tables).
+            Do not delete it before its replacement lands and the suite passes.
         acceptance
             - `intake` returns `Result<..., NonEmptyReadonlyArray<Finding>>` and never throws for a user value.
             - A read of a user object's property that throws is one `Defect` finding at its path.
