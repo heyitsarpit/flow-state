@@ -201,6 +201,12 @@ Each lead reads the files the earlier clusters wrote and names every seam it cro
      follow as best-guess guidance, not a strict contract. Tasks also name the code marked for deletion or
      supersession (from @review.code-audit and the designs' fit tables) as redundant or to be replaced. Nothing
      is deleted.
+  4a. **Correctness block** [decided: user 2026-11-22]: each Task that builds a design says, without naming a
+     specific fixture, that a corresponding fixture app must exist using the feature, a Story tests the feature
+     that fixture built, a test runs that Story, type tests show the feature is typed fully and the way a user
+     would expect, and each new rule has a planted fault; it points to the existing tests for how things are done.
+     It lives in both places: in each Task's acceptance, and as a standing rule in the Epic's instructions so a
+     future Task inherits it even when its text forgets.
   5. **Review loop:** one Opus at effort medium reviews and fixes the Specs and Task links; Sonnet reviewers
      review again; the Opus fixes again. Goal: the Epic ready for coding to start.
   6. Commit per phase; wake timers keep each run inside the 5-hour windows; weekly budget 65% of all models.

@@ -195,6 +195,14 @@ instructions
     - Every brief carries the Constraints' code-style line (the user, 2026-11-09).
     - A Task's "May change" is a guide, not a fence: a Task may add its planted faults to `tests/faults.ts` and touch
       any file its acceptance needs, naming each extra file in a Task comment (2026-11-15).
+    - Correctness (the user, 2026-11-22): every Task that builds or changes a v3 design says in its acceptance how its
+      correctness is established, as one "Correctness:" item. Each of these holds: a corresponding fixture app exists
+      that uses the feature (a whole app written the way a user would write it; see @convention.fixture-catalog for the
+      apps and how to build them); a Story tests that fixture's feature, plus the Spec's Story of the wrong ending; a
+      test runs the Story; type tests show the feature is typed fully and correctly, the way a user would expect
+      (two-sided pins, and no annotations needed in user code); each new rule has a planted fault that `nub run faults`
+      catches. The item's last line names the Spec Requirements and Invariants (or sequences) this Task's tests cover,
+      by @spec id. A new Task inherits this rule and states it in the same item.
     - Requirements first (the user, 2026-11-12), by skill:execute-task step 2. The requirements list is in the Task's
       comments, each rule with its source, mapped one to one to the Task's acceptance. The lead may gather it with
       read-only sidecars on named angles (the Specs and Plans; the code and prior art; open findings; an adversary).
