@@ -75,6 +75,11 @@ comment 2026-11-19T07:18:27Z
 comment 2026-11-20T13:02:22Z
     Breakdown review (orchestrator, 2026-11-20, R48): Order re-planned; T113 new; T110 repurposed; T109 absorbed
     subroutines and whenAbandoned; decoding moved from T56 to T92; Fake items to T112, test tooling to T97.
+comment 2026-11-21T18:31:25Z
+    [proposed] Order after the algorithm designs (@proposal.algo-resolutions section 6): T131, T120, T118, T113, T119,
+    T92, T121, T122, T123, T124, T109, T110, T127, T76, T129, T128, T130, T78, T73, T56, T100, T22, T23; the host track
+    T112, T111, T97, T117 runs beside it once T119 lands. Fourteen Tasks are new (T119 to T132); T21, T24, T77, T72 and
+    T98 stay as close-outs of their parts.
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
@@ -261,7 +266,7 @@ tasks
         title       Reads and operations (slice 5)
         status      draft
         priority    high
-        blocked_by  [@T57]
+        blocked_by  [@T57, @T121, @T122, @T123, @T124]
         satisfies   [
                     @plan.Machines.O1,
                     @plan.Machines.O2,
@@ -334,6 +339,11 @@ tasks
             Routed (orchestrator, 2026-11-20, from the schedule-issues proposal's search of other parts): operation
             issues are keyed by name only and cleared by any ending of that name, the same stored-residue freedom as
             T57's schedule issues; land it as an inverted test first, then derive the issue from lane state.
+        comment     2026-11-21T18:31:17Z
+            Split into four parts per @proposal.spec-handover (Task changes): @task.V3.T121 endings, @task.V3.T122
+            entries, @task.V3.T123 placements, @task.V3.T124 persisted resources. [proposed] This Task stays as their
+            close-out so existing blockers hold; its acceptance row on the mapper shape is superseded by (value, {
+            input, key }). Map: @proposal.algo-resolutions section 6.
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -432,6 +442,12 @@ tasks
         comment     2026-11-20T13:12:08Z
             Breakdown fix (orchestrator, 2026-11-20): description states why it is blocked by T21 (resource persist
             record format).
+        comment     2026-11-21T18:31:21Z
+            [proposed] Gains the persist-off row: a record of a machine now declared persist: false is discarded and
+            reported, and encodeStore gates on persist (@proposal.algo-resolutions 1.3, R2).
+        comment     2026-11-21T18:46:49Z
+            Per @review.spec-cohesion-r2 question 15 (SR D5): @task.V3.T92 is the codec and owns no state; this Task
+            owns the fate, quarantine's exits included.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -484,6 +500,10 @@ tasks
             fragments, subroutines and schedule delays).
         comment     2026-11-20T13:12:06Z
             Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T76 (acceptance names onProps edges).
+        comment     2026-11-21T18:31:20Z
+            [proposed] Takes @proposal.algo-types 5.9, 5.10 and 7. First acceptance row: walk today's definition
+            findings and show which leave every token in place (H8); question 1 A holds only for those
+            (@proposal.algo-resolutions 1.5).
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -577,7 +597,7 @@ tasks
         title       UI primitives, second wave: toaster and menu fixtures
         status      open
         priority    medium
-        blocked_by  [@task.V3.T17, @T57, @T77]
+        blocked_by  [@task.V3.T17, @T57, @T77, @T129, @T130]
         description
             Build the toaster and the menu with submenus as fixtures, each with ui-sdk's behaviour scenarios ported as
             Story tests.
@@ -626,12 +646,15 @@ tasks
         comment     2026-11-20T13:01:57Z
             Breakdown review (orchestrator, 2026-11-20, R48): fixtures line names only this Task's rows of catalog step
             8: the toaster and menu in kanban.
+        comment     2026-11-21T18:31:18Z
+            Split per @review.spec-cohesion-r2 question 15: @task.V3.T129 toaster (after root emits), @task.V3.T130 menu
+            (after fragments). [proposed] This Task stays as their close-out.
 
     T76
         title        Declared props on local actors
         status       draft
         priority     high
-        blocked_by   [@task.V3.T9, @T77, @T113]
+        blocked_by   [@task.V3.T9, @T113, @T127]
         derives_from [@plan.Machines.O1]
         satisfies    [
                      @plan.Machines.O1,
@@ -694,12 +717,15 @@ tasks
             adds T113, since its props field joins the one carried snapshot type.
         comment      2026-11-20T13:12:09Z
             Breakdown fix (orchestrator, 2026-11-20): Starts-after-Plan-merge sentence dropped.
+        comment      2026-11-21T18:39:42Z
+            [proposed] Blocked by @task.V3.T127 (root emits) in place of @task.V3.T77, which is now the close-out of
+            both emit halves; builds @proposal.algo-turn 6.9 (props, setProps).
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
         status       draft
         priority     high
-        blocked_by   [@T109, @T113]
+        blocked_by   [@T109, @T113, @T127, @T128]
         derives_from [@plan.Machines.O2]
         satisfies    [@plan.Machines.O1, @plan.Machines.O2, @plan.Runtime.O3, @plan.Testing.O1]
         description
@@ -740,12 +766,16 @@ tasks
             carried snapshot type.
         comment      2026-11-20T13:12:09Z
             Breakdown fix (orchestrator, 2026-11-20): Starts-after-Plan-merge sentence dropped.
+        comment      2026-11-21T18:31:18Z
+            Split per @review.spec-cohesion-r2 question 15: @task.V3.T127 root emits, @task.V3.T128 fragment emits.
+            [proposed] This Task stays as their close-out; emits are delivered once per publishing slice
+            (@proposal.algo-resolutions C4).
 
     T78
         title       Number input on declared props and emits
         status      draft
         priority    medium
-        blocked_by  [@T76, @T77]
+        blocked_by  [@T76, @T127]
         description
             Move the done number-input fixture (@task.V3.T71) from `Configure` and `lastCommit` to declared props and
             an emit.
@@ -776,6 +806,9 @@ tasks
             - Fixtures first (@convention.fixtures): step 6 of @convention.fixture-catalog: `number-input` gain the
               features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
               marked used at the close.
+        comment     2026-11-21T18:39:42Z
+            [proposed] Blocked by @task.V3.T127 (root emits) in place of @task.V3.T77, which is now the close-out of
+            both emit halves.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -908,6 +941,9 @@ tasks
         comment     2026-11-20T13:12:07Z
             Breakdown fix (orchestrator, 2026-11-20): the StateName and ActorName fragment-path line moved to T109; this
             Task keeps the hook line.
+        comment     2026-11-21T18:31:21Z
+            [proposed] Builds @proposal.algo-records 6.1, 6.2, 6.4 to 6.6. Its model covers no timer, instance, cache
+            record or step 1 to 4 (@proposal.algo-resolutions hole 3): a package sequence test is the first step.
 
     T95
         title           Callback results checked before they enter a turn
@@ -1119,6 +1155,10 @@ tasks
         comment     2026-11-20T13:12:10Z
             Breakdown fix (orchestrator, 2026-11-20): takes the harness items routed to T29 on 2026-11-18T19:14
             (sweep.ts, generate.ts, run.ts, fake servers) into its Approach list.
+        comment     2026-11-21T18:31:22Z
+            [proposed] The reach flags cancelsAcknowledging and retainsUnknown
+            (code:packages/flow-state-v3/fixtures/manifest.ts) have no row in @proposal.algo-host 6.10; this Task adds
+            them (@proposal.algo-resolutions hole 7).
 
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
@@ -1288,6 +1328,9 @@ tasks
             Routed (orchestrator, 2026-11-20, from the schedule-issues proposal's search of other parts): creation
             issues are never cleared, the same stored-residue freedom; land it as an inverted test first, then derive or
             clear the issue by its own check.
+        comment     2026-11-21T18:31:23Z
+            [proposed] Owns CATALOG and Code; CATALOG.InvalidConfiguration.reasons derives from the keys of CHECKS,
+            which @task.V3.T22 owns (@proposal.algo-resolutions C9).
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
@@ -1753,7 +1796,7 @@ tasks
                     (slice 3c)
         status      draft
         priority    high
-        blocked_by  [@T57, @T113]
+        blocked_by  [@T57, @T113, @T119, @T131]
         satisfies   [@plan.Machines.O1, @plan.Machines.O8]
         description
             Build fragments on production: traits placed on the root or a state, `.each` copies by key, nested
@@ -1813,6 +1856,9 @@ tasks
         comment     2026-11-20T13:12:07Z
             Breakdown fix (orchestrator, 2026-11-20): satisfies keeps Machines O1 and O8 (O6 and Runtime O6 are T21's);
             acceptance takes the fragment subject-path line from T92; Read first drops Turn R30 (T110's).
+        comment     2026-11-21T18:31:20Z
+            [proposed] Now after @task.V3.T119 (turn parts, the user's order) and @task.V3.T131. Builds
+            @proposal.algo-turn 6.3 to 6.5 with the replacements of @proposal.algo-resolutions 1.2.
 
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
@@ -1881,6 +1927,9 @@ tasks
               (@plan.Persistence.O4), each shown in both browsers.
             - The hide handler is timed in real Chromium and Safari against Node's figure (about 6 us per changed actor)
               before any idle pre-encoding; a dev host work clock makes SlowWork fire outside tests.
+        comment     2026-11-21T18:31:21Z
+            [proposed] Builds @proposal.algo-host 6.1 to 6.4 with the edge cells and the Out.hiddenRetried field of
+            @proposal.algo-resolutions 1.6 (re-run in the model: no stuck ticket, stranded mark or hidden livelock).
 
     T112
         title       Fakes as hostile as the real thing: store, page and servers
@@ -1942,12 +1991,17 @@ tasks
             the two coverage timeouts routed in the comments above moved to T97 (test tooling). It takes every Fake.*
             hostility, including P5's T29 Fake world items (Fake.http, Fake.Refused, Fake.Closed, duplicate, times,
             control-call overwrite, idempotency keys); storeContract (built by T58) is the contract for Fake.storage.
+        comment     2026-11-21T18:31:22Z
+            [proposed] Owns the mutation applier: Fake.storage.mutate(kind) over the alphabet @proposal.algo-records 9.2
+            exports as data (@proposal.algo-resolutions C5).
+        comment     2026-11-21T18:46:49Z
+            Takes the fake-server items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4).
 
     T113
         title       The typed machine: derived types everywhere user code needs them, no hand-written guesses
         status      draft
         priority    high
-        blocked_by  [@T57]
+        blocked_by  [@T57, @T131, @T120]
         satisfies   [@plan.Machines.O1, @plan.Machines.O8]
         description
             Every type user code needs from a definition, machine or contract is derived by Flow, so no handler,
@@ -2016,6 +2070,10 @@ tasks
             Widened (the user, 2026-11-20): derived types everywhere user code needs them: phantom E.X.Type and
             Def.M.field.Type, ending mappers typed by the contract, every survey site refactored with type tests, and a
             lint guard.
+        comment     2026-11-21T18:31:19Z
+            [proposed] Now after @task.V3.T131 and @task.V3.T120. First acceptance row: the AnyBody spike
+            (@proposal.algo-types H2); until it passes the cast families count as handled at one point. derive.ts gains
+            rows G1 to G8 of @proposal.algo-resolutions section 5.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
@@ -2037,12 +2095,15 @@ tasks
             - The shard passes under its bound, or the bound is re-measured and recorded with its reason (a count may
               change only by a recorded re-measurement).
             - A per-firing cost that grew is found by profile and removed, or recorded as the cost of a rule.
+        comment     2026-11-21T18:46:48Z
+            Takes the coverage-run items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4); the item
+            list is @proposal.spec-test-tooling R11. [proposed] Also owns @proposal.algo-host section 10's rows.
 
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
         status      in_progress
         priority    high
-        blocked_by  [@proposal.spec-handover#cohesion-of-all-eleven-designs]
+        blocked_by  [@proposal.spec-handover#cohesion-of-all-eleven-designs, @T120]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
         description
             Schedule issues are no longer stored: each timer keeps the last outcome of each of its own checks, and the
@@ -2230,3 +2291,228 @@ tasks
             tests. R25 states the check order and that an arming start clears a send issue; re-entry's inherited key set
             is decided with two traces. The refused arming at creation moves from @task.V3.T100 to here
             (Arming.Refused). Fix round waits behind the design work the user asked for.
+        comment     2026-11-21T18:31:19Z
+            Blocked by @task.V3.T120 (declared schedules, runtime half first), the order the user chose in
+            @proposal.algo-schedules question 6. [proposed] The fix round's Spec text takes the five replacements of
+            @proposal.algo-resolutions 1.1 (question 8 A in every table).
+
+    T119
+        title       Turn parts: the walk, the applier, alarms and mail
+        status      draft
+        priority    high
+        blocked_by  [@T113]
+        description
+            Build the turn's parts as @proposal.algo-turn sections 4 to 8 and 11 give them: `runTurn`'s walk, the one
+            applier `apply` with rows C1 to C7, the alarm heap with `tick` and the one host wake, the mailbox and the
+            index layer.
+
+            **Why now:** fragments (@task.V3.T109), emits and the operations Tasks all write through `apply` and
+            `tx.alarms`; the user placed this Task before T109 (@proposal.spec-handover).
+
+            **Read first:** @proposal.algo-resolutions sections 1.2 and 2 (C1, C3, C4, C6);
+            @proposal.algo-turn; @proposal.spec-turn-parts.
+
+            **Risk:** the design's model covers part of the text (@proposal.algo-resolutions hole 1); the unchecked
+            invariants are this Task's first failing checks.
+        acceptance
+            - A package sequence test checks I5, I7, I9, I12, I13 and I15 to I17 of @proposal.algo-turn section 8,
+              red first.
+            - `tick` dispatches the six alarm kinds by a total match; a planted seventh kind does not compile.
+            - An ended scope's schedule callbacks do not run in the turn that ended it (the X3 trace), with a
+              planted fault.
+            - Each new rule has a planted fault that `nub run faults` catches.
+
+    T120
+        title       Declared schedules: the runtime half
+        status      draft
+        priority    high
+        description
+            Build the runtime half of declared schedules: the declaration object on the definition (name, `key`,
+            `pausedBy`), its construction checks, and the key and selection codecs in `Compiled.schedules`.
+
+            **Why now:** @task.V3.T118 then builds once on final shapes with one format step; the user chose this order
+            (@proposal.algo-schedules question 6). The public types follow in @task.V3.T113 and change no runtime.
+
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-types section 5.2;
+            @proposal.algo-schedules section 14.
+        acceptance
+            - A schedule is declared on the definition and placed in the body; `Flow.keyed` is gone from `src/`
+              and fixtures.
+            - `Compiled.schedules` holds each schedule's key and selection codec; a saved key decodes through it.
+            - Each construction check of @proposal.algo-types 5.2 has a refusing test and a planted fault.
+
+    T121
+        title       Operation endings and the retry guards
+        status      draft
+        priority    high
+        blocked_by  [@T119, @T92]
+        description
+            Build an operation's endings: the row and its refusal, the head's one unknown, the timeout rule, the issue
+            view over endings, and the retry guards read through one `laneView`.
+
+            **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover); the guards `O.x.idle` and
+            `O.x.retryable` read lane state that the records and operations designs restructure, and five fixtures
+            use them.
+
+            **Read first:** @proposal.algo-resolutions sections 1.4 (O1, O2, O3) and 2 (C3); @proposal.algo-operations
+            sections 6.5, 6.7 and 6.8; @proposal.algo-records section 6.6; code:packages/flow-state-v3/src/core/turn.ts.
+
+            **Risk:** the lane policies (`latest`, `serialize`, `cancel`, `reject`) are in no design; their Spec is
+            written from the code (@proposal.algo-resolutions hole 5).
+        acceptance
+            - Ending mappers receive `(value, { input, key })`, inferred from the contract with no annotation in
+              any fixture.
+            - `idle` and `retryable` read `laneView` at the part's subject; the faults `guard-reads-other-subject` and
+              `retryable-ignores-count` are caught.
+            - A mapper that throws refuses its row's turn; the row is tried once more and then kept with its issue.
+            - Each new rule has a planted fault that `nub run faults` catches.
+
+    T122
+        title       Read entries and read slots
+        status      draft
+        priority    high
+        blocked_by  [@T121]
+        description
+            Build the shared read entries and read slots: the entry table, freshness, refetch, waiters, and collection
+            by the `Collect` alarm.
+
+            **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover); production reads resources
+            only as far as the fixtures need.
+
+            **Read first:** @proposal.algo-resolutions sections 1.4 and 2 (C1, C6, C8); @proposal.algo-operations
+            sections 6.1 to 6.3 and 6.6.
+
+            **Risk:** the public event a view sends for `refetch` has no design (@proposal.algo-resolutions hole 6).
+        acceptance
+            - The entry table of @proposal.algo-operations 6.2 holds cell by cell, shown by a generated sequence test.
+            - An entry with no hold is removed at `gcTime` by `Alarm.Collect`; `gcTime: 0` removes it in the same step.
+            - A freeze owes each waiting lookup one `Interrupted` row and leaves the entry's request running.
+            - A lookup's input is checked by its Schema at run time (routed from @task.V3.T104's close review).
+
+    T123
+        title       Placements and release
+        status      draft
+        priority    medium
+        blocked_by  [@T122]
+        description
+            Build placements and their release: a placement placed and unplaced by the walk, a call released within the
+            disposal bound, and `ReleaseOverdue` derived when the `Release` alarm passes.
+
+            **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover; @plan.Runtime.O6).
+
+            **Read first:** @proposal.algo-resolutions sections 1.4 and 2 (C1, C6); @proposal.algo-operations
+            section 6.4.
+
+            **Risk:** placements were not attacked in the design round (@proposal.algo-operations hole H4).
+        acceptance
+            - A placement released within the disposal bound shows no issue; past it, `ReleaseOverdue` shows for every
+              incarnation that holds the call's key, with no host code.
+            - Placements are unplaced at a freeze and placed at a thaw.
+            - Each new rule has a planted fault that `nub run faults` catches.
+
+    T124
+        title       Persisted resources
+        status      draft
+        priority    medium
+        blocked_by  [@T122, @T92]
+        description
+            Build persisted resources: `resource({ persist: true })` with its declared `output`, the saved entry and its
+            install at boot and at adoption.
+
+            **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover); restored resource data waits
+            on it (routed from @task.V3.T20).
+
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section 6.10;
+            @proposal.algo-records sections 6.4 and 6.7.
+        acceptance
+            - A saved entry installs with `asked: none`, so the first ask after a reload starts a request.
+            - An entry already in memory wins over a saved one at adoption.
+            - `persist: true` without `output` is refused at construction.
+
+    T127
+        title       Declared emits at the root
+        status      draft
+        priority    high
+        blocked_by  [@T113, @T119]
+        description
+            Build declared emits at the root: an emit is part of its `Turn`, and `actor.onEmit` listeners run once per
+            publishing slice, after the snapshot listeners.
+
+            **Why now:** the first half of @task.V3.T77 (@review.spec-cohesion-r2 question 15); the toaster waits on it.
+
+            **Read first:** @proposal.algo-resolutions sections 1.2 (X6) and 2 (C4); @proposal.algo-turn section 6.10;
+            @proposal.algo-host section 6.3; @proposal.spec-boundary-channels.
+        acceptance
+            - A listener that reads `getSnapshot()` at an emit sees the snapshot that includes the emitting turn.
+            - A listener that throws is one host report; the next listener still runs.
+            - Emits delivered per step, before the publication, is a planted fault that `nub run faults` catches.
+
+    T128
+        title       Fragment emits
+        status      draft
+        priority    medium
+        blocked_by  [@T109, @T127]
+        description
+            Build fragment emits: an emit from a fragment or a copy carries its address, and a listener hears `(payload,
+            { key, keys })`.
+
+            **Why now:** the second half of @task.V3.T77 (@review.spec-cohesion-r2 question 15).
+
+            **Read first:** @proposal.algo-resolutions section 5 (row G6); @proposal.algo-turn section
+            6.10; @proposal.spec-boundary-channels.
+        acceptance
+            - An instance that ends in a turn still emits in it; the emit holds its address by value.
+            - The listener's `key` and `keys` are typed from the fragment's declaration with no annotation.
+
+    T129
+        title       UI primitives wave 2: toaster
+        status      draft
+        priority    medium
+        blocked_by  [@T127]
+        description
+            Build the toaster primitive on declared root emits and keyed schedules.
+
+            **Why now:** the first half of @task.V3.T72 (@review.spec-cohesion-r2 question 15).
+
+            **Read first:** @proposal.algo-resolutions section 6;
+            @proposal.spec-boundary-channels; @convention.fixture-catalog.
+        acceptance
+            - The toaster fixture is written with no hand-written type and no `Flow.keyed`.
+            - It has a usual and a stress Story, each red before the build.
+
+    T130
+        title       UI primitives wave 2: menu
+        status      draft
+        priority    medium
+        blocked_by  [@T109]
+        description
+            Build the menu primitive on fragments.
+
+            **Why now:** the second half of @task.V3.T72 (@review.spec-cohesion-r2 question 15).
+
+            **Read first:** @proposal.algo-resolutions section 6;
+            @proposal.spec-boundary-channels; @convention.fixture-catalog.
+        acceptance
+            - The menu fixture is written with no hand-written type.
+            - It has a usual and a stress Story, each red before the build.
+
+    T131
+        title       Construction trust: the doors
+        status      draft
+        priority    high
+        description
+            Build the doors of construction trust: the one door, `made` and `madeOf`, the testing route, and the removal
+            of the `WeakSet` marks.
+
+            **Why now:** the first half of @task.V3.T98, placed before @task.V3.T113's `derive.ts` and @task.V3.T109
+            (@review.spec-cohesion-r2 question 15; @proposal.spec-errors-trust PD5).
+
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section
+            6.9; @proposal.spec-errors-trust.
+
+            **Risk:** the door table was attacked once, on paper (@proposal.algo-operations hole H8); authoring doors do
+            not raise for a finding if the user accepts @proposal.algo-types question 1.
+        acceptance
+            - Every public constructor goes through the door; the surface walk over both routes finds no other.
+            - A value made by a second loaded copy of Flow is read as made.
+            - ET's hostile table holds, each row a test.

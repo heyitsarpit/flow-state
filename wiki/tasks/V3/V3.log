@@ -554,3 +554,8 @@ note 2026-11-21T07:06:37Z
 note 2026-11-21T09:17:39Z
     All nine questions in @proposal.algo-schedules section 15 answered as recommended by the user; Q8 changes
     @proposal.schedule-issues P2 (refused starts retried on every occasion).
+
+note 2026-11-21T18:48:58Z
+    Proposed: @proposal.algo-resolutions resolves the final review's blockers, contradictions and questions across the
+    six algorithm designs and maps every design piece to a Task. Fourteen Tasks are new (T119 to T132); T21, T24, T77,
+    T72 and T98 stay as close-outs. Nothing in it is decided; 32 questions wait for the user in its section 3.3.

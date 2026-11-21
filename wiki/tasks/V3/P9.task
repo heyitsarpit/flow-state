@@ -116,7 +116,7 @@ tasks
         title       Raw-throw class: one general solution for construction trust and public refusals
         status      draft
         priority    high
-        blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T76, @task.V3.T77, @task.V3.T100]
+        blocked_by  [@task.V3.T131, @task.V3.T132]
         satisfies   [@plan.Diagnostics.O1, @plan.Runtime.O1]
         description
             One general solution for the raw-throw class: no public path of Flow, built or handed out, throws anything
@@ -174,3 +174,7 @@ tasks
         comment     2026-11-20T13:12:06Z
             Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T100 (its refusals use T100's
             closed details.reason).
+        comment     2026-11-21T18:31:18Z
+            Split per @review.spec-cohesion-r2 question 15: @task.V3.T131 doors (P4, before T113 and T109),
+            @task.V3.T132 intake (first in P5). [proposed] This Task stays as their close-out, and its blockers T109,
+            T110, T76, T77 and T100 are dropped, as that review's line 198 asks.

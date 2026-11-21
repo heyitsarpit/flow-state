@@ -59,6 +59,9 @@ description
 comment 2026-11-20T13:02:20Z
     Breakdown review (orchestrator, 2026-11-20, R48): T98 stays in P9 (wk has no move) and is first in this Order; new
     Tasks T114, T115 and T116; T25 before T24; catalog steps 11 and 12 swapped (streams, then the entity store).
+comment 2026-11-21T18:31:25Z
+    [proposed] Order after the algorithm designs (@proposal.algo-resolutions section 6): T132, T114, T106, T25, T125,
+    T48, T115, T126, then the existing order.
 tasks
     T25
         title       Streams
@@ -97,12 +100,15 @@ tasks
         comment     2026-11-20T13:12:09Z
             Breakdown fix (orchestrator, 2026-11-20): text says stream sessions use T21's release-within-the-bound rule
             and ReleaseOverdue.
+        comment     2026-11-21T18:31:24Z
+            [proposed] Streams and bookmarks have no algorithm design; this Task runs skill:to-design before its Spec
+            (@proposal.algo-resolutions section 4).
     T24
         title       Entity store
         status      draft
         priority    high
 
-        blocked_by  [@task.V3.T21, @T25, @task.V3.T92, @task.V3.T56, @task.V3.T98]
+        blocked_by  [@task.V3.T21, @T25, @task.V3.T92, @task.V3.T56, @task.V3.T98, @T125, @T126]
         satisfies   [
                     @plan.EntityDomains.O1,
                     @plan.EntityDomains.O2,
@@ -137,6 +143,9 @@ tasks
             overlay; the lead's state inventory at P5's own R48 review decides.
         comment     2026-11-20T13:12:05Z
             Breakdown fix (orchestrator, 2026-11-20): acceptance exposes the per-field version comparator T115 reads.
+        comment     2026-11-21T18:31:17Z
+            Split by state per @proposal.spec-handover (Task changes): @task.V3.T125 confirmed records, @task.V3.T126
+            claims. [proposed] This Task stays as their close-out. Map: @proposal.algo-resolutions section 6.
     T27
         title       Multi-tab
         status      draft
@@ -286,6 +295,9 @@ tasks
             See code:wiki/tasks/V3/P3-routing.md.
         comment     2026-11-20T13:02:12Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T24, T25, T27 and T48.
+        comment     2026-11-21T18:31:25Z
+            [proposed] Redaction and digests have no algorithm design; this Task runs skill:to-design before its Spec
+            and reuses project with Flow.private dropped (@proposal.algo-resolutions section 4).
     T29
         title       The rest of Story and Fake, and `story describe`
         status      draft
@@ -446,6 +458,9 @@ tasks
             Breakdown review (orchestrator, 2026-11-20, R48): split by state: this Task keeps the React binding
             (Provider, hooks, attach, grace, props and emits delivery, eligibility; React O1 to O5, ServerRendering O4's
             first render); server data went to T115 and the Next.js host proofs to T116; blocked_by adds T98.
+        comment     2026-11-21T18:46:49Z
+            Per @review.spec-cohesion-r2 question 15 (UH PD2): @task.V3.T111 builds the whole binding, and this Task
+            becomes channels and the hydrate overlay. [proposed] Emit delivery in React follows @proposal.algo-host 6.3.
 
     T106
         title       Rules on machines: invariants, turns and terminals, with rule coverage
@@ -535,6 +550,9 @@ tasks
               work; scenes reject unknown checkpoints (@plan.Testing.O9, V9), shown in real Chrome and Safari.
         comment     2026-11-20T13:02:14Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T29 and T49.
+        comment     2026-11-21T18:31:24Z
+            [proposed] Story frames and playback have no algorithm design; this Task runs skill:to-design before its
+            Spec (@proposal.algo-resolutions section 4).
 
     T114
         title       Run verdict: what fails a run
@@ -566,6 +584,10 @@ tasks
             Breakdown review (orchestrator, 2026-11-20, R48): new Task carved from T29: Testing O6 (PropertyTestFailed),
             O8 (end-of-run cleanup and evidence) and UnusedWireRule, the run's verdict. T106 is blocked by it, so its V8
             no longer waits on T29.
+        comment     2026-11-21T18:31:23Z
+            [proposed] An Expect matches every break that fits it; each Expect needs one match, and each break of an
+            expected rule needs one Expect; a bare rule keeps the decided at-least-once meaning
+            (@proposal.algo-resolutions 1.6).
 
     T115
         title       Server data: dehydrate, hydrate and the merge table
@@ -622,6 +644,9 @@ tasks
         comment     2026-11-20T13:12:04Z
             Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T48 (P5 Order puts T48 first); the session boot
             queue went back to T28; Read first trimmed to four links.
+        comment     2026-11-21T18:31:24Z
+            [proposed] Hydrate's merge has no algorithm design (@proposal.algo-records H4, @proposal.algo-operations
+            H5); this Task runs skill:to-design before its Spec (@proposal.algo-resolutions section 4).
 
     T116
         title       Next.js host proofs
@@ -648,3 +673,58 @@ tasks
         comment     2026-11-20T13:02:09Z
             Breakdown review (orchestrator, 2026-11-20, R48): new Task split from T30: the Next.js host proofs
             (ServerRendering O7, React 18 and 19), after T30 and T115.
+
+    T125
+        title       Entity store: confirmed records
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T122, @task.V3.T92]
+        description
+            Build the entity store's confirmed records: what confirmed data a machine's persistence saves, and its
+            reference rows.
+
+            **Why now:** the first half of @task.V3.T24, split by state
+            (@proposal.spec-handover; @proposal.spec-data-layer).
+
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.spec-data-layer; @proposal.algo-records
+            section 6.4.
+
+            **Risk:** the entity record's reference rows are thin (@proposal.algo-records hole H12); this Task runs
+            skill:to-design first.
+        acceptance
+            - The entity record's reference table is total, shown by the type and by a mutation test over its alphabet.
+            - Each new rule has a planted fault that `nub run faults` catches.
+
+    T126
+        title       Entity store: claims
+        status      draft
+        priority    medium
+        blocked_by  [@T125, @task.V3.T121]
+        description
+            Build the entity store's claims: unconfirmed fields held by an Attempt, living in the lane head.
+
+            **Why now:** the second half of @task.V3.T24 (@proposal.spec-handover; @proposal.spec-data-layer).
+
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-records section 6.8.
+
+            **Risk:** the order of Attempts on one entity record across identities is not saved (@proposal.algo-records
+            hole H8); this Task runs skill:to-design first.
+        acceptance
+            - A claim whose head is gone never leaves a field unconfirmed, shown by a reload sequence test.
+            - Each new rule has a planted fault that `nub run faults` catches.
+
+    T132
+        title       Construction trust: intake
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T131]
+        description
+            Build `intake`: one Schema per door, returning every finding of an argument at once.
+
+            **Why now:** the second half of @task.V3.T98, first in P5 (@review.spec-cohesion-r2 question 15).
+
+            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section
+            6.9; @proposal.spec-errors-trust.
+        acceptance
+            - `intake` returns `Result<..., NonEmptyReadonlyArray<Finding>>` and never throws for a user value.
+            - A read of a user object's property that throws is one `Defect` finding at its path.
