@@ -1092,6 +1092,24 @@ tasks
             argument and extra arguments (T132, which owns I19's intake half); the 16-value load test (exists,
             `surface.test.ts:120`); stale "needs the user" for `Flow.keyed` (ruling 2); parent and child placements both
             active (Schedules decides inheritance, T118); pre-slice text equality (format step).
+        comment     2026-11-21T21:21:08Z
+            Inventory addendum (requirements lead, after the review): one more state, the schedule key text. Owner: the
+            declared key codec, `Schema.fromJsonString` over the declared fields sorted by name, as
+            `contract.ts#codecsOf`. Writers today: `core/schedules.ts#keyOf` (`encodeCanonical`, sorted),
+            `contract.ts#keyTextBy` (sorted fields), `core/lane-moves.ts` through `walk.keyText`; the new codec joins
+            them. Readers: timer identity, restore, the snapshot. Rows `made` and recognition also list `~payload`,
+            `~walk`, `~names` (`events.ts:95-97`). The seam claim that key text must equal `encodeCanonical` for old
+            records is withdrawn: that row is @task.V3.T118's format step.
+        comment     2026-11-21T21:21:10Z
+            Review fold-in log (requirements lead), each checked against the code. Accepted: B1 key-text canon
+            (verified: `codec.ts` sorts, `fromJsonString` keeps declaration order); B2a refusal asserts a FlowError; B2b
+            the three surface tests now accept "gone or FlowError"; B2c the face walk reads hidden keys, skipping only
+            the internals symbol; Room's default; reds failing on the refused field (stub added); the rename row; the
+            selection codec type; the extra marks; second-placement rows; Object.assign copy; T118 routing. Changed: the
+            4 restore rows and the unplaced row are guards, since today's runtime gives their values; the reorder red is
+            a guard plus the codec pin, since today's text is already canonical. Rejected: a trapped body (not a made
+            value; its throw is already a body Defect); a test for the `no-mark-probe` rule file (outside the package):
+            a requirement for the builder instead.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -2918,6 +2936,11 @@ tasks
         comment     2026-11-21T19:48:34Z
             Dropped the blocker on a proposal anchor (spec-handover cohesion section, no such heading); the cohesion
             work is in the v3 Specs.
+        comment     2026-11-21T21:21:09Z
+            Routed from slice T89's requirements review: wake's use of `Compiled.schedules`' codecs, an undeclared saved
+            reason dropped, a keying change or unreadable key restarting keys from step one (Schedules R14), and records
+            saved before the key codec, whose key text the format step carries, are this Task's. Guard to keep:
+            `tests/restore/ schedule-declarations.test.ts` (a declared key reordered across a reload keeps its timer).
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
@@ -3145,6 +3168,29 @@ tasks
             [decided: agent requirements lead 2026-11-22] A schedule's key and selection codecs are
             `Schema.Codec<Values, string>`, the shape of `Compiled.Operation`'s key. Why: one codec shape for every key.
             Reverse: another codec type, with every reader changed.
+        comment     2026-11-21T21:15:18Z
+            [decided: user 2026-11-22] Declared schedules supersede the body-declared form outright: a schedule's name,
+            key, pause reasons and restartOn Schema live only on the definition, and Flow.keyed with the earlier
+            acceptance of it as public API (a T57 comment, 2026-11-20) is superseded. This Task may delete and simplify
+            every piece of code the declaration makes redundant, beyond its Supersedes line (Flow.keyed, KeyedConfig and
+            its kin, body-side key and reason inference, wide ScheduleKey paths, casts that restored them), and edits
+            the Specs to match, each Spec change logged in specs.log. Why: the user accepted the declared form and wants
+            the simplification it allows. Reverse: keep the body-declared form beside the declaration.
+        comment     2026-11-21T21:21:08Z
+            [decided: agent requirements lead 2026-11-22] A schedule's key codec is `Schema.Codec<Values, string>` and
+            its selection codec `Schema.Codec<unknown, string>`, since a selection is any declared type. Why: corrects
+            the earlier tag, which fit keys only. Reverse: one codec type for both, with every reader changed.
+        comment     2026-11-21T21:21:09Z
+            Requirements addendum (requirements lead). Under the user's decision of 2026-11-22 the builder deletes and
+            simplifies freely whatever the declaration makes redundant (`Flow.keyed`, `KeyedConfig` and kin, body-side
+            key and reason inference, wide `ScheduleKey` paths, the casts that restored them), editing the Specs with
+            `specs.log` notes. New reds: key text in name order whatever the declaration's order; a second-state
+            `ScheduleUndeclared`; a keyed `RestartOnMissing`; the deleted names (`ErasedEntry` and the keyed mark added)
+            gone from `src/` and fixtures; a type pin that a body naming an undeclared schedule and reason compiles
+            today. Guards: a key declared `{ id, zone }` restored under `{ zone, id }` keeps its timer; restore reorder,
+            add, remove and rename (nudge now has its own delay). Feature stub: `definition()` accepts `schedules` and
+            reads none of it, so each red fails for its own rule; keyed bodies use `Flow.keyed` while it exists. 21
+            inverted compile checks, 3 type pins.
     T121
         title       Operation endings and the retry guards
         status      draft
@@ -3578,6 +3624,12 @@ tasks
             table; red today: the T131 requirement reds. No catalog step names this Task; the catalog needs a line.
             Review log: S codes dropped (they name runtime shapes); the event row retitled; intake rows, `times` edges
             and the probe app's place rejected as not this Task.
+        comment     2026-11-21T21:21:11Z
+            Requirements addendum (requirements lead): the testing route's refusals assert a FlowError, never a return;
+            the three surface tests accept the member gone or a FlowError; the face walk reads hidden keys and skips
+            only Symbol.for("flow-state/Internals"); the mark check adds ~payload, ~walk, ~names. The builder also
+            deletes tools/flow-state-lint/rules/no-mark-probe.ts and its FLOW-STATE.md row (no package test can
+            read them).
     T133
         title       Slice: Fragments
         status      draft

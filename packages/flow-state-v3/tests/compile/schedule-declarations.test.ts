@@ -25,6 +25,12 @@ const untyped: {
   ) => { readonly compiled: unknown };
 } = loose({ definition, machine });
 
+// A keyed schedule's body: wrapped in Flow.keyed while that wrapper exists, plain once keys are
+// declared, so each keyed check fails today for its own rule.
+const keyed: (config: unknown) => unknown = Predicate.hasProperty(Flow, "keyed")
+  ? loose(Flow.keyed)
+  : (config) => config;
+
 // A lamp whose definition declares `schedules`, as an app author writes it.
 const Lamp = (schedules: unknown) =>
   untyped.definition({
@@ -66,7 +72,7 @@ const refusedAt = (at: string, construct: () => unknown) =>
 const TICK = "states.OFF.schedules.tick";
 
 describe("the declaration (Types R8; Schedules R16)", () => {
-  it.fails("Types R8: a definition declares its schedules by name, each with key, pausedBy and restartOn, and its body places them", () => {
+  it("Types R8: a definition declares its schedules by name, each with key, pausedBy and restartOn, and its body places them (holds today: the declaration is accepted and not read)", () => {
     expect(
       refusal(() =>
         lampMachine(
@@ -80,13 +86,13 @@ describe("the declaration (Types R8; Schedules R16)", () => {
           },
           ({ E }) => ({
             tick: { schedule: 1000, send: E["Tick"] },
-            poll: {
+            poll: keyed({
               schedule: 1000,
               send: E["Tick"],
               keys: () => [{ id: "a" }],
               paused: { Away: () => false },
               restartOn: () => 1,
-            },
+            }),
           }),
         ),
       ),
@@ -103,7 +109,7 @@ describe("the declaration (Types R8; Schedules R16)", () => {
     expect(refusal(() => lampMachine(declared, tick, Option.some(tick)))).toEqual([]);
   });
 
-  it.fails("Types R8, I14: a declared schedule placed nowhere is a warning: the machine constructs", () => {
+  it("Types R8, I14: a declared schedule placed nowhere is a warning: the machine constructs (holds today: the declaration is not read yet)", () => {
     expect(
       refusal(() =>
         lampMachine({ tick: {}, idle: {} }, ({ E }) => ({
@@ -166,6 +172,31 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["ReasonMissing", "true"]]);
   });
 
+  it.fails("Types I13: a schedule undeclared in a second state is refused ScheduleUndeclared there", () => {
+    expect(
+      refusedAt("states.ON.schedules.tock", () =>
+        lampMachine(
+          { tick: {} },
+          ({ E }) => ({ tick: { schedule: 1000, send: E["Tick"] } }),
+          Option.some(({ E }: Tokens) => ({ tock: { schedule: 1000, send: E["Tick"] } })),
+        ),
+      ),
+    ).toEqual([["ScheduleUndeclared", "true"]]);
+  });
+
+  it.fails("Types I13: a keyed schedule with a declared restartOn placed without one is refused RestartOnMissing", () => {
+    expect(
+      refusedAt(TICK, () =>
+        lampMachine(
+          { tick: { key: { id: Schema.String }, restartOn: Schema.Number } },
+          ({ E }) => ({
+            tick: keyed({ schedule: 1000, send: E["Tick"], keys: () => [{ id: "a" }] }),
+          }),
+        ),
+      ),
+    ).toEqual([["RestartOnMissing", "true"]]);
+  });
+
   it.fails("Types I13: a keyed declaration placed without keys is refused KeysMissing", () => {
     expect(
       refusedAt(TICK, () =>
@@ -180,7 +211,7 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     expect(
       refusedAt(TICK, () =>
         lampMachine({ tick: {} }, ({ E }) => ({
-          tick: { schedule: 1000, send: E["Tick"], keys: () => [{ id: "a" }] },
+          tick: keyed({ schedule: 1000, send: E["Tick"], keys: () => [{ id: "a" }] }),
         })),
       ),
     ).toEqual([["KeysUnexpected", "true"]]);
@@ -239,12 +270,12 @@ const keyedLamp = () =>
   lampMachine(
     { poll: { key: { id: Schema.String, n: Schema.Number }, restartOn: Schema.Number }, tick: {} },
     ({ E }) => ({
-      poll: {
+      poll: keyed({
         schedule: 1000,
         send: E["Tick"],
         keys: () => [{ id: "a", n: 1 }],
         restartOn: () => 1,
-      },
+      }),
       tick: { schedule: 1000, send: E["Tick"] },
     }),
   );
@@ -257,6 +288,20 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
     expect(
       Option.map(codec, (c) => Schema.decodeUnknownSync(c)(Schema.encodeUnknownSync(c)(key))),
     ).toEqual(Option.some(key));
+  });
+
+  it.fails("Types I11; Schedules I14: a key's text writes its fields in name order whatever the declaration's order, as a contract's keyText", () => {
+    const codec = codecOf(
+      lampMachine({ poll: { key: { zone: Schema.String, id: Schema.String } } }, ({ E }) => ({
+        poll: keyed({ schedule: 1000, send: E["Tick"], keys: () => [{ zone: "eu", id: "a" }] }),
+      })).compiled,
+      "poll",
+      "key",
+    );
+
+    expect(Option.map(codec, (c) => Schema.encodeUnknownSync(c)({ zone: "eu", id: "a" }))).toEqual(
+      Option.some('{"id":"a","zone":"eu"}'),
+    );
   });
 
   it.fails("Types I11; Schedules I14: the key codec gives NaN, Infinity and -Infinity three texts, so three keys are three timers", () => {
@@ -301,7 +346,11 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
   });
 
   it.fails("Types I11, T2: home's Room: a sensor key encoded by its declaration decodes through Compiled.schedules to an equal key", () => {
-    const Rooms = machine(Room, ({ S }) => ({ default: S.OFFLINE }));
+    const Rooms = machine(Room, ({ S }) => ({
+      default: S.OFFLINE,
+      states: { ONLINE: { default: S.ONLINE.IDLE } },
+    }));
+
     const codec = codecOf(Rooms.compiled, "poll", "key");
 
     expect(
@@ -343,10 +392,14 @@ const filesUnder = (folder: string) =>
     }));
 
 describe("Flow.keyed is gone from the package (Types R8)", () => {
-  it.fails("Types R8: no source or fixture writes Flow.keyed, KeyedConfig, KeyedSchedule or ScheduleKey", () => {
+  it.fails("Types R8: no source or fixture writes Flow.keyed, KeyedConfig, KeyedSchedule, ScheduleKey, ErasedEntry or the keyed mark", () => {
     expect(
       [...filesUnder("src"), ...filesUnder("fixtures")]
-        .filter(({ text }) => /Flow\.keyed|KeyedConfig|KeyedSchedule|ScheduleKey\b/u.test(text))
+        .filter(({ text }) =>
+          /Flow\.keyed|KeyedConfig|KeyedSchedule|ScheduleKey\b|ErasedEntry|"~keyed"|"keyed"/u.test(
+            text,
+          ),
+        )
         .map(({ path }) => path),
     ).toEqual([]);
   });

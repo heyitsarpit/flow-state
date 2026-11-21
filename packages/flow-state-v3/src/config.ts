@@ -162,6 +162,8 @@ const DefinitionConfig = Schema.Struct({
   memory: Schema.optionalKey(Schema.Record(Schema.String, MemoryField)),
   context: Schema.optionalKey(Schema.Record(Schema.String, ContextSlot)),
   operations: Schema.optionalKey(Fn.annotate({ help: "Declare operations as ({ E }) => record." })),
+  // FLOW_STATE_ALLOW_UNKNOWN: a schedule declaration, accepted and not yet read.
+  schedules: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
 }).annotate({
   help: "Declare id, states and events; a definition may also declare persist, internalEvents, memory, context and operations.",
 });

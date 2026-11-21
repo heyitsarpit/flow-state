@@ -177,18 +177,32 @@ const endingOf = (call: () => unknown) => {
 
 const hostileValue = (name: string) => hostile.find(([named]) => named === name)?.[1]();
 
+// How a call of a member of a value Flow handed out ended, read as an untyped caller reads it, or
+// "gone" once the member is off the face.
+const memberEnding = (value: unknown, name: string, argument: unknown) => {
+  const member: (argument: unknown) => unknown = Predicate.hasProperty(value, name)
+    ? loose(value[name])
+    : loose(undefined);
+
+  return Predicate.isFunction(member) ? endingOf(() => member(argument)) : "gone";
+};
+
 describe("known gaps: functions handed out inside inert data and the testing route (Diagnostics R1)", () => {
-  it.fails("Diagnostics R1: a bound contract's textOfKey given null refuses with a FlowError, never a raw TypeError", () => {
-    expect(endingOf(() => Keeper.operations.keep.textOfKey(loose(null)))).not.toBe("raw");
+  it.fails("Diagnostics R1: a bound contract's textOfKey is off its face, or given null refuses with a FlowError", () => {
+    expect(["gone", "FlowError"]).toContain(
+      memberEnding(Keeper.operations.keep, "textOfKey", null),
+    );
   });
 
-  it.fails("Diagnostics R1: an O.x.commit token's make given a trapped Proxy refuses with a FlowError, never what the trap threw", () => {
+  it.fails("Diagnostics R1: an O.x.commit token's make is off its face, or given a trapped Proxy refuses with a FlowError", () => {
     const token = Keeper.O.keep.commit(() => ({ id: "x" }));
 
-    expect(endingOf(() => token.make(loose(hostileValue("a trapped Proxy"))))).not.toBe("raw");
+    expect(["gone", "FlowError"]).toContain(
+      memberEnding(token, "make", hostileValue("a trapped Proxy")),
+    );
   });
 
-  it.fails("Diagnostics R1: an O.x.retryable token's make, its times a throwing getter, refuses with a FlowError, never what the getter threw", () => {
+  it.fails("Diagnostics R1: an O.x.retryable token's make, its times a throwing getter, is off its face or refuses with a FlowError", () => {
     const times = Object.defineProperty({}, "times", {
       enumerable: true,
       get: () => {
@@ -197,12 +211,12 @@ describe("known gaps: functions handed out inside inert data and the testing rou
       },
     });
 
-    const token = Keeper.O.keep.retryable(loose(times));
-
-    expect(endingOf(() => token.make("at"))).not.toBe("raw");
+    expect(["gone", "FlowError"]).toContain(
+      memberEnding(Keeper.O.keep.retryable(loose(times)), "make", "at"),
+    );
   });
 
-  it.fails("Diagnostics R1: the testing route's defineConfig(null) refuses with a FlowError, never a raw TypeError", () => {
-    expect(endingOf(() => defineConfig(loose(null)))).not.toBe("raw");
+  it.fails("Diagnostics R1: the testing route's defineConfig(null) refuses with a FlowError, never a return or a raw TypeError", () => {
+    expect(endingOf(() => defineConfig(loose(null)))).toBe("FlowError");
   });
 });

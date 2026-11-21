@@ -14,6 +14,9 @@ import { surfaceOf } from "./surface.ts";
 
 const MADE = Symbol.for("flow-state/Made");
 
+// Where a made value keeps what the core calls: the one key a face walk skips.
+const INTERNALS = Symbol.for("flow-state/Internals");
+
 const ping = Flow.transaction({
   id: "Doors/ping",
   input: { id: Schema.String },
@@ -92,9 +95,7 @@ describe("the hostile table: a copy is never taken for a made value (Operations 
               schedules: {
                 tick: {
                   schedule: 1000,
-                  send: loose(
-                    Object.assign(() => undefined, Object.fromEntries(Object.entries(E.Flip))),
-                  ),
+                  send: loose(Object.assign(() => undefined, E.Flip)),
                 },
               },
             },
@@ -171,8 +172,8 @@ describe("a second loaded copy of Flow (Operations R10, Q6)", () => {
   });
 });
 
-// A value's own enumerable properties, string and symbol keyed: a data property's value, or the
-// mark that it is an accessor, which a face of plain data never holds.
+// A value's own properties, string and symbol keyed, enumerable or hidden, but for the internals
+// key: a data property's value, or the mark that it is an accessor, which plain data never holds.
 const ownProperties = (value: unknown) =>
   (Predicate.isObjectOrArray(value) || Predicate.isFunction(value)
     ? Reflect.ownKeys(value)
@@ -182,7 +183,7 @@ const ownProperties = (value: unknown) =>
       ? Object.getOwnPropertyDescriptor(value, key)
       : undefined;
 
-    if (property?.enumerable !== true) return [];
+    if (property === undefined || key === INTERNALS) return [];
 
     const held: unknown = property.value;
 
@@ -278,7 +279,7 @@ describe("the testing route's doors (Operations R10, I19)", () => {
     expect(surfaceOf([["testing", Testing]]).stray).toEqual([]);
   });
 
-  it.fails("Operations R10: the testing route's defineConfig, Story.app, samplesOf, print and pairSweep given null each refuse with a FlowError", () => {
+  it.fails("Operations R10: the testing route's defineConfig, Story.app, samplesOf, print and pairSweep given null each refuse with a FlowError, never a return", () => {
     const calls: ReadonlyArray<readonly [string, () => unknown]> = [
       ["defineConfig", () => Testing.defineConfig(loose(null))],
       ["Story.app", () => Testing.Story.app(loose(null), loose(null))],
@@ -297,7 +298,7 @@ describe("the testing route's doors (Operations R10, I19)", () => {
       }
     });
 
-    expect(endings.filter(([, ending]) => ending === "raw")).toEqual([]);
+    expect(endings.filter(([, ending]) => ending !== "FlowError")).toEqual([]);
   });
 });
 
@@ -320,10 +321,10 @@ const sources = () =>
     }));
 
 describe("the marks are gone (Operations R10)", () => {
-  it.fails("Operations R10: no source outside the testing route writes or reads a ~flow, ~token, ~owner or ~path mark", () => {
+  it.fails("Operations R10: no source outside the testing route writes or reads a ~flow, ~token, ~owner, ~path, ~payload, ~walk or ~names mark", () => {
     const marked = sources()
       .filter(({ path }) => !path.startsWith("host/testing/"))
-      .filter(({ text }) => /"~(flow|token|owner|path)"/u.test(text))
+      .filter(({ text }) => /"~(flow|token|owner|path|payload|walk|names)"/u.test(text))
       .map(({ path }) => path);
 
     expect(marked).toEqual([]);
